@@ -25,6 +25,11 @@ export type GuestCamera = 'share' | 'set' | 'none';
 export type GuestPapicState = {
   access: 'on' | 'off' | 'unknown';
   ceiling: number | null | undefined;
+  /**
+   * 🚪 While Papic is off: where "Turn on ›" lands — the switch itself (`papicSwitchHref`). `null` / absent = this viewer
+   * cannot turn Papic on, and the row says "Papic is off" with no door.
+   */
+  door?: string | null;
 };
 
 export const GUEST_CAMERA_CHOICES: readonly GuestCamera[] = ['share', 'set', 'none'];
@@ -45,6 +50,9 @@ export const GUEST_CAMERA_LINES: Record<GuestCamera, string> = {
 /** Behind the ⓘ — the details, never on the row. The 3× / 2× are the shipped `ROLE_MULTIPLIER`, not a control. */
 export const GUEST_CAMERA_ABOUT =
   'Every guest’s invite QR is a camera. Shares with everyone: an equal share of your credits, worked out live — sponsors already get more (3× a ninang or ninong, 2× a cord, veil, coin or candle sponsor). A set number: the most this guest may take; it never holds credits back, and what they don’t use stays theirs. No camera: they get in, but can’t shoot. Late in your event the rest opens to everyone.';
+
+/** "A set number" picked with no figure kept yet — the row asks for it, never a figure of its own. */
+export const GUEST_CAMERA_NEEDS_NUMBER = 'Enter a number';
 
 /** The stored ceiling → the choice. `null` (no row) shares; 0 is no camera; anything else is a set number. */
 export function guestCameraOf(ceiling: number | null): GuestCamera {
@@ -83,6 +91,8 @@ export function guestCameraRefusal(code: string): string {
       return 'That guest is no longer on this event — refresh and try again.';
     case 'bad_number':
       return 'A whole number, 1 or more.';
+    case 'too_many':
+      return 'Too many guests at once — nothing was changed. Try again.';
     default:
       return 'Couldn’t save just now — nothing was changed. Try again.';
   }

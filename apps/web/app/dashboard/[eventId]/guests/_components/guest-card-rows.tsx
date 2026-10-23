@@ -95,10 +95,13 @@ export function CardToggle({ name, defaultChecked, label, note, form }: CardTogg
 export function CardDoor({ label, value, href, action, data }: CardDoorProps) {
   return (
     <FormRow name={label} line={value} data={data} attrs={{ 'data-card-door': data }}>
-      <Link href={href} className={actionButtonClass('brand', { extra: 'min-h-10' })}>
-        {action}
-        <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={2} />
-      </Link>
+      {/* No `href` — this viewer cannot press it — no door: the line alone, never a button that refuses. */}
+      {href ? (
+        <Link href={href} className={actionButtonClass('brand', { extra: 'min-h-10' })}>
+          {action}
+          <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={2} />
+        </Link>
+      ) : null}
     </FormRow>
   );
 }

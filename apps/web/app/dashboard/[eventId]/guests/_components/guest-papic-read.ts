@@ -1,6 +1,7 @@
 import 'server-only';
 
-import { eventPapicGuestAccess, type PapicGuestAccess } from '@/lib/papic-guest';
+import { eventPapicGuestAccess, eventPapicGuestAccessWhy, type PapicGuestAccess } from '@/lib/papic-guest';
+import { recordFieldHref } from '@/lib/event-details-record';
 import { ALLOTMENT_STORAGE } from '@/lib/papic-guest-allotments';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -34,16 +35,31 @@ export async function readEventPapicAccess(eventId: string): Promise<PapicGuestA
   }
 }
 
-/** The event's Papic and one guest's camera, both started at once. Hand the result on with `forTheCouple`. */
-export async function readGuestPapic(eventId: string, guestId: string): Promise<GuestPapicState> {
-  const [access, ceiling] = await Promise.all([readEventPapicAccess(eventId), readCeiling(eventId, guestId)]);
-  return { access, ceiling };
+/**
+ * 🚪 Where "Turn on ›" lands — ON THE SWITCH, never near it (review 2026-10-23): the host's own "Photos from your
+ * guests? — No" is the Event Details answer (the same door Home's Papic row draws, `dayPapicView`); an event with no
+ * Papic yet is the Papic page, which arms the free pool on its first view.
+ */
+export function papicSwitchHref(eventId: string, answeredNo: boolean): string {
+  return answeredNo ? recordFieldHref(eventId, 'papic-answer') : `/dashboard/${eventId}/studio/papic`;
 }
 
-/** What the card may show: the camera is the couple's to see and set — anyone else gets the event's Papic only. */
+/** The event's Papic and one guest's camera, both started at once. Hand the result on with `forTheCouple`. */
+export async function readGuestPapic(eventId: string, guestId: string): Promise<GuestPapicState> {
+  const [why, ceiling] = await Promise.all([
+    eventPapicGuestAccessWhy(createAdminClient(), eventId).catch(() => ({ access: 'unknown' as const, answeredNo: false })),
+    readCeiling(eventId, guestId),
+  ]);
+  return { access: why.access, ceiling, door: why.access === 'off' ? papicSwitchHref(eventId, why.answeredNo) : null };
+}
+
+/**
+ * What the card may show: the camera — and the door to turn Papic on — are the couple's (the same people who may change
+ * the answer and set a camera); anyone else gets the event's Papic only, with no door they could not walk through.
+ */
 export function forTheCouple(papic: GuestPapicState | null, couple: boolean): GuestPapicState | null {
   if (!papic) return null;
-  return couple ? papic : { access: papic.access, ceiling: undefined };
+  return couple ? papic : { access: papic.access, ceiling: undefined, door: null };
 }
 
 async function readCeiling(eventId: string, guestId: string): Promise<number | null | undefined> {

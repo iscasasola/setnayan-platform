@@ -46,7 +46,14 @@ export type CardToggleProps = {
  * guest card's Papic row reads "Papic is off · Turn on ›" while the event's Papic is off). Never a go-edit-elsewhere for
  * something the card itself holds — only for a switch that is the whole event's.
  */
-export type CardDoorProps = { label: string; value: string; href: string; action: string; data: string };
+export type CardDoorProps = {
+  label: string;
+  value: string;
+  /** Where the door lands — `null` when this viewer cannot press it: the fact alone, no door. */
+  href: string | null;
+  action: string;
+  data: string;
+};
 export type CardFoldProps = {
   summary: string;
   value: string | null;

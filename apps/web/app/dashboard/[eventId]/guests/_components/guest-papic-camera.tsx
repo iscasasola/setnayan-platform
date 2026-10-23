@@ -7,6 +7,7 @@ import {
   GUEST_CAMERA_ABOUT,
   GUEST_CAMERA_CHOICES,
   GUEST_CAMERA_LINES,
+  GUEST_CAMERA_NEEDS_NUMBER,
   GUEST_CAMERA_WORDS,
   checkGuestCredits,
   guestCameraOf,
@@ -26,7 +27,8 @@ import { useGuestActions } from './guest-actions-context';
  * and its events stop here — a tap never wakes the card's autosave, as `CardRename` does.
  *
  *   · Shares with everyone / No camera — saved on the tap.
- *   · A set number — opens "Credits"; nothing is saved until a number is kept (a choice with no figure would be a guess).
+ *   · A set number — opens "Credits"; nothing is saved until a number is kept (a choice with no figure would be a guess),
+ *     and until then the row says "Enter a number" (`GUEST_CAMERA_NEEDS_NUMBER`).
  *   · A save that did not land puts the dropdown back and says so on the row — never the look of success.
  *
  * Handed in by the Guests pages (`PapicCamera`), never imported by `GuestCardBody` — the Maker's first load stays as it is.
@@ -85,12 +87,14 @@ export function GuestPapicCamera({ eventId, guestId, ceiling }: { eventId: strin
   };
 
   const stop = (e: { stopPropagation: () => void }) => e.stopPropagation();
+  /** "A set number" showing with no figure kept — the row says what it needs, never "The most they may take" of nothing. */
+  const needsNumber = camera === 'set' && !(saved !== null && saved > 0);
   return (
     <div data-guest-papic-camera="" onInput={stop} onChange={stop} className="contents">
       <FormRow
         name="Their camera"
         about={{ words: GUEST_CAMERA_ABOUT }}
-        line={GUEST_CAMERA_LINES[camera]}
+        line={needsNumber ? GUEST_CAMERA_NEEDS_NUMBER : GUEST_CAMERA_LINES[camera]}
         problem={problem}
         data="card-papic-camera"
         attrs={{ 'data-card-field': 'papic_camera' }}
@@ -107,7 +111,7 @@ export function GuestPapicCamera({ eventId, guestId, ceiling }: { eventId: strin
         <TypedRow
           name="Credits"
           value={saved !== null && saved > 0 ? String(saved) : ''}
-          empty="Add a number"
+          empty={GUEST_CAMERA_NEEDS_NUMBER}
           placeholder="e.g. 50"
           inputMode="numeric"
           maxLength={6}

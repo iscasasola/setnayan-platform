@@ -6,6 +6,7 @@ import { ActionButton } from '@/components/action-button';
 import { FORM_PICK_CLASS, FormRow, FormRows } from '@/app/_components/form-row';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { formatCount } from '@/lib/format-number';
+import { allotmentChunks } from '@/lib/papic-guest-allotments';
 import {
   GUEST_CAMERA_ABOUT,
   GUEST_CAMERA_CHOICES,
@@ -31,8 +32,8 @@ export const PAPIC_SET_OPTIONS = [
  * guest-papic-bulk.tsx — "Papic · set N each" (owner 2026-10-23; prototype `guest_card_groups_and_papic_2026-10-23.html`,
  * frame 4). With guests selected, the shipped Set… ▾ menu's Papic group opens this ONE small sheet — the same three
  * choices as the card's "Their camera ▾" — and its button applies the choice to every selected guest through the SHIPPED
- * writer (`setGuestAllotment`, quiet, one RPC call per guest, the same target for each — never a delta). No new button
- * in the thumb row.
+ * writer (`setGuestAllotment`, quiet, one RPC call per guest, the same target for each — never a delta), in chunks of at
+ * most `ALLOTMENT_BATCH_MAX` guests per call. No new button in the thumb row.
  *
  * 🔑 IT ASKS FIRST, EVEN FOR ONE TAP'S CHOICE: there is no Undo for it (each guest had their own number before), so the
  * sheet says how many and to what before anything changes. A refusal is said in the sheet, with how many were set before
@@ -59,6 +60,8 @@ export function GuestPapicBulkSheet({
   const [credits, setCredits] = useState('');
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
+  /** How many have landed while a long selection is still going ("120 of 300 set…"); null when not part-way. */
+  const [progress, setProgress] = useState<number | null>(null);
   const titleId = useId();
   const creditsId = useId();
   const n = ids.length;
@@ -69,27 +72,46 @@ export function GuestPapicBulkSheet({
     camera === 'set' ? `Papic · set ${each === null ? 'N' : formatCount(each)} each` : `Papic · ${GUEST_CAMERA_WORDS[camera].toLowerCase()}`;
   const who = names.length <= 3 ? names.join(', ') : `${names.slice(0, 2).join(', ')} and ${formatCount(names.length - 2)} more`;
 
+  /**
+   * 🧱 IN CHUNKS, HONESTLY (review 2026-10-23). One call sets at most `ALLOTMENT_BATCH_MAX` guests (the action refuses
+   * more), so the selection goes in chunks, in turn, and the sheet counts what LANDED: a refusal or a dropped connection
+   * part-way says "X of N set" — never the look of success, never "nothing" when some were. Each chunk that lands has
+   * already refreshed the pages that draw a camera (the action revalidates after every success, partial ones included).
+   */
   const apply = async () => {
     if (busy || creditsWrong) return;
-    const fd = new FormData();
-    fd.set('event_id', eventId);
-    for (const id of ids) fd.append('guest_id', id);
-    fd.set('allotment', guestCameraPost(camera, each ?? undefined));
-    fd.set('quiet', '1');
+    const allotment = guestCameraPost(camera, each ?? undefined);
     setBusy(true);
     setProblem(null);
+    let done = 0;
+    const partly = (why: string) => (done > 0 ? `${formatCount(done)} of ${formatCount(n)} set, then: ${why}` : why);
     try {
-      const res = await setGuestAllotment(fd);
-      if (res && 'refused' in res) {
-        setProblem(res.set > 0 ? `${formatCount(res.set)} of ${formatCount(n)} were set, then: ${guestCameraRefusal(res.refused)}` : guestCameraRefusal(res.refused));
-        return;
+      for (const chunk of allotmentChunks(ids)) {
+        const fd = new FormData();
+        fd.set('event_id', eventId);
+        for (const id of chunk) fd.append('guest_id', id);
+        fd.set('allotment', allotment);
+        fd.set('quiet', '1');
+        let res: Awaited<ReturnType<typeof setGuestAllotment>>;
+        try {
+          res = await setGuestAllotment(fd);
+        } catch {
+          setProblem(partly('Couldn’t save — check your connection and try again.'));
+          return;
+        }
+        if (res && 'refused' in res) {
+          done += res.set;
+          setProblem(partly(guestCameraRefusal(res.refused)));
+          return;
+        }
+        done += res && 'set' in res ? res.set : chunk.length;
+        if (done < n) setProgress(done);
       }
       guestToast.success(`${formatCount(n)} ${n === 1 ? 'guest' : 'guests'} · ${camera === 'set' && each !== null ? `${formatCount(each)} credits each` : GUEST_CAMERA_WORDS[camera]}`);
       onDone();
-    } catch {
-      setProblem('Couldn’t save — check your connection and try again.');
     } finally {
       setBusy(false);
+      setProgress(null);
     }
   };
 
@@ -140,6 +162,11 @@ export function GuestPapicBulkSheet({
             </FormRow>
           ) : null}
         </FormRows>
+        {progress !== null ? (
+          <p role="status" className="text-sm text-ink/60" data-papic-bulk-progress="">
+            {formatCount(progress)} of {formatCount(n)} set…
+          </p>
+        ) : null}
         {problem ? (
           <p role="alert" className="text-sm font-medium text-danger-700">
             {problem}

@@ -9,7 +9,7 @@ import { loadPoolRungs, type PoolRung } from '@/lib/papic-pool-rungs';
 import { keepFirstTwin, openTwinReference } from '@/lib/one-press-one-order';
 import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { ALLOTMENT_RPC, ALLOTMENT_STORAGE } from '@/lib/papic-guest-allotments';
+import { ALLOTMENT_BATCH_MAX, ALLOTMENT_RPC, ALLOTMENT_STORAGE } from '@/lib/papic-guest-allotments';
 import { reviewVendorChallenge } from '@/lib/papic-games';
 import { papicGamesEnabled } from '@/lib/papic-games-flag';
 import { coupleSlots } from '@/lib/papic-missions';
@@ -1545,6 +1545,12 @@ export async function setGuestAllotment(formData: FormData): Promise<void | { ok
   if (guestIds.length === 0) {
     if (quiet) return { refused: 'unknown_guest', set: 0 };
     fail('unknown_guest');
+  }
+  // 🧱 One call sets at most ALLOTMENT_BATCH_MAX guests — refused BEFORE the first RPC, never cut off half-way by a
+  // timeout with nothing said. The bulk sheet sends its selection in chunks of that many.
+  if (guestIds.length > ALLOTMENT_BATCH_MAX) {
+    if (quiet) return { refused: 'too_many', set: 0 };
+    fail('too_many');
   }
 
   const supabase = await createClient();

@@ -4,16 +4,22 @@
  * prototype `Setnayan-specs/prototypes/guest_card_groups_and_papic_2026-10-23.html`, frames 3–4).
  *
  *  1 · THE THREE CHOICES ARE THE SHIPPED CEILING, NOTHING NEW: Shares with everyone ⇄ no row (NULL) · A set number ⇄ N ≥ 1 ·
- *      No camera ⇄ 0 (`papic_guest_spend_ceilings`, "may not spend"). One writer: `setGuestAllotment`, quiet, one RPC per guest.
- *  2 · THE EVENT'S PAPIC OFF → ONE LINE, "Papic is off · Turn on ›" (the door to Home), and the face switches hidden — but
- *      their answers still POST (`updateGuest` writes every column it reads; a hidden switch must never clear one).
+ *      No camera ⇄ 0 (`papic_guest_spend_ceilings`, "may not spend"). One writer: `setGuestAllotment`, quiet, one RPC per guest,
+ *      at most `ALLOTMENT_BATCH_MAX` guests per call — the bulk sheet sends chunks and says "X of N set".
+ *  2 · 🔒 THE THREE FACE SWITCHES ALWAYS RENDER AND ALWAYS SAVE, whatever the event's Papic (owner 2026-10-23, "Always
+ *      show them"): they also drive the public story / recap (`consent-veto.ts`) and the withdrawal blur (`face-blur.ts`),
+ *      and `updateGuest` is the ONLY writer of `photo_consent = false`. Papic OFF replaces ONLY "Their camera ▾" — with one
+ *      line, "Papic is off · Turn on ›", whose door lands on the switch and is drawn only for a viewer who can press it.
+ *      The switches speak for the guest ("Wants to be tagged in photos", never "Tag them").
  *  3 · A FAILED READ NEVER RENDERS AS A CHOICE: a check that did not answer says so; a camera that could not be read offers
  *      no control (a couple must never save a choice worked out from a failure).
  *  4 · "Their camera ▾" never posts with the card's autosave form, and never enters the Maker's first load.
  *  5 · Select → Set… ▾ gains a Papic group only while the event's Papic is on, for the couple.
  *
- * SABOTAGE (each seen RED, then restored): the off branch's hidden carriers dropped · the camera drawn on an unread ceiling ·
- * a named hidden input inside the camera · the Papic options offered with Papic unknown · `guestCameraOf(0)` read as 'set'.
+ * SABOTAGE (each seen RED, then restored): the face switches put back behind the Papic-off branch · the camera drawn on an
+ * unread ceiling · a named hidden input inside the camera · the Papic options offered with Papic unknown · `guestCameraOf(0)`
+ * read as 'set' · the action's batch cap removed · the sheet sending the whole selection in one call · the door drawn for a
+ * viewer who cannot press it.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -25,6 +31,7 @@ import { fileURLToPath } from 'node:url';
 import type { GuestRow } from '@/lib/guests';
 import { stripComments } from '@/lib/strip-comments';
 import { checkGuestCredits, guestCameraOf, guestCameraPost, guestCameraSummary, type GuestPapicState } from '@/lib/papic-guest-camera';
+import { ALLOTMENT_BATCH_MAX, allotmentChunks } from '@/lib/papic-guest-allotments';
 
 (globalThis as unknown as { React: unknown }).React = React;
 
@@ -114,23 +121,74 @@ test('1 · the three choices ARE the shipped ceiling — NULL shares, 0 is no ca
   assert.deepEqual([guestCameraSummary(null), guestCameraSummary(0), guestCameraSummary(1), guestCameraSummary(1500)], ['Shares with everyone', 'No camera', '1 credit', '1,500 credits']);
   assert.equal(checkGuestCredits('50'), null);
   assert.ok(checkGuestCredits('0') && checkGuestCredits('2.5') && checkGuestCredits('-3') && checkGuestCredits('ten'));
+  // 🧱 The bulk sheet's chunks: at most 50 a call, every guest once, in order.
+  assert.equal(ALLOTMENT_BATCH_MAX, 50);
+  const ids = Array.from({ length: 123 }, (_, i) => `g${i}`);
+  const chunks = allotmentChunks(ids);
+  assert.deepEqual(chunks.map((c) => c.length), [50, 50, 23]);
+  assert.deepEqual(chunks.flat(), ids);
+  assert.deepEqual(allotmentChunks([]), []);
 });
 
-test('2 · the event’s Papic OFF → ONE line with its door, the face switches hidden — and every face answer still posts', async () => {
+test('2 · 🔒 the three face switches ALWAYS render and save — Papic off replaces only the camera, with one line and its door', async () => {
   for (const templated of [false, true]) {
+    const kit = templated ? 'template kit' : 'Maker kit';
     for (const on of [false, true]) {
       const over = { photo_consent: on, faceblock_enabled: on, face_recognition_excluded: on };
-      const offCard = await paint(over, { access: 'off', ceiling: undefined }, { templated, camera: true });
-      const onCard = await paint(over, { access: 'on', ceiling: null }, { templated, camera: true });
-      const kit = templated ? 'template kit' : 'Maker kit';
-      assert.match(offCard, /data-card-door="card-papic-off"/, `${kit}: no "Papic is off" line`);
-      assert.match(offCard, />Papic is off</, `${kit}: the line does not say Papic is off`);
-      assert.match(offCard, /href="\/dashboard\/e1"/, `${kit}: the line has no door to Home's Papic`);
-      assert.doesNotMatch(offCard, /data-guest-papic-camera|Tag them in photos|Keep out of face recognition/, `${kit}: Papic is off and its controls still show`);
-      assert.deepEqual(facePosted(offCard), facePosted(onCard), `${kit}: with Papic off the face answers post differently (${on ? 'all on' : 'all off'})`);
-      if (on) assert.deepEqual(Object.keys(facePosted(offCard)).sort(), [...FACE].sort(), `${kit}: an on answer is dropped while Papic is off`);
+      const states: Array<[string, GuestPapicState | null, boolean]> = [
+        ['off, the couple', { access: 'off', ceiling: undefined, door: '/dashboard/e1/details/field/papic-answer' }, true],
+        ['off, not the couple', { access: 'off', ceiling: undefined, door: null }, false],
+        ['on', { access: 'on', ceiling: null }, true],
+        ['unknown', { access: 'unknown', ceiling: undefined }, true],
+        ['the Maker (no Papic handed)', null, true],
+      ];
+      const posted: Record<string, string[]>[] = [];
+      for (const [name, state, canManage] of states) {
+        const card = await paint(over, state, { templated, camera: true, canManage });
+        for (const f of FACE) {
+          // A REAL switch, in the card's form — never a hidden carrier standing in for one.
+          assert.match(card, new RegExp(`<input\\b[^>]*type="checkbox"[^>]*name="${f}"|<input\\b[^>]*name="${f}"[^>]*type="checkbox"`), `${kit} · ${name}: the ${f} switch is not drawn`);
+          assert.doesNotMatch(card, new RegExp(`<input\\b[^>]*type="hidden"[^>]*name="${f}"|<input\\b[^>]*name="${f}"[^>]*type="hidden"`), `${kit} · ${name}: ${f} rides as a hidden input instead of a switch`);
+        }
+        assert.match(card, /Wants to be tagged in photos/, `${kit} · ${name}: the consent switch does not speak for the guest`);
+        assert.doesNotMatch(card, /Tag them in photos/, `${kit} · ${name}: the consent switch speaks for the host`);
+        posted.push(facePosted(card));
+      }
+      for (const p of posted) assert.deepEqual(p, posted[0], `${kit}: the face answers post differently by Papic state (${on ? 'all on' : 'all off'})`);
+      if (on) assert.deepEqual(Object.keys(posted[0]!).sort(), [...FACE].sort(), `${kit}: an on answer is dropped`);
     }
+    const off = await paint({}, { access: 'off', ceiling: undefined, door: '/dashboard/e1/details/field/papic-answer' }, { templated, camera: true });
+    assert.match(off, /data-card-door="card-papic-off"/, `${kit}: no "Papic is off" line`);
+    assert.match(off, />Papic is off</, `${kit}: the line does not say Papic is off`);
+    assert.match(off, /href="\/dashboard\/e1\/details\/field\/papic-answer"/, `${kit}: "Turn on" does not land on the switch it was handed`);
+    assert.doesNotMatch(off, /data-guest-papic-camera/, `${kit}: Papic is off and "Their camera" still shows`);
+    const viewer = await paint({}, { access: 'off', ceiling: undefined, door: null }, { templated, camera: true, canManage: false });
+    assert.match(viewer, />Papic is off</, `${kit}: a viewer who cannot turn Papic on is not told it is off`);
+    assert.doesNotMatch(viewer, /Turn on/, `${kit}: a viewer who cannot turn Papic on is offered "Turn on"`);
   }
+});
+
+test('2c · "Turn on ›" lands on the switch — the Event Details answer when the host said No, else the Papic page; never for a non-couple', async () => {
+  const { papicSwitchHref, forTheCouple } = await import('./guest-papic-read');
+  assert.equal(papicSwitchHref('e1', true), '/dashboard/e1/details/field/papic-answer');
+  assert.equal(papicSwitchHref('e1', false), '/dashboard/e1/studio/papic');
+  const state: GuestPapicState = { access: 'off', ceiling: 40, door: '/dashboard/e1/studio/papic' };
+  assert.deepEqual(forTheCouple(state, true), state);
+  assert.deepEqual(forTheCouple(state, false), { access: 'off', ceiling: undefined, door: null }, 'a non-couple is handed the camera or the door');
+  const src = read('guest-papic-read.ts');
+  assert.match(src, /eventPapicGuestAccessWhy\(createAdminClient\(\), eventId\)/, 'the card asks why Papic is off with a read of its own');
+  assert.match(src, /door: why\.access === 'off' \? papicSwitchHref\(eventId, why\.answeredNo\) : null/);
+  // ONE read: the reason is the same remembered answer the boolean gives.
+  const gate = stripComments(readFileSync(join(HERE, '..', '..', '..', '..', '..', 'lib', 'papic-guest.ts'), 'utf8'));
+  assert.match(gate, /return \(await eventPapicGuestAccessWhy\(supabase, eventId\)\)\.access;/);
+  assert.equal((gate.match(/askedOnce\(supabase, 'papic-guest-access'/g) ?? []).length, 1, 'the reason is a second read');
+});
+
+test('2d · "A set number" with no figure kept says "Enter a number" — never "The most they may take" of nothing', () => {
+  const src = read('guest-papic-camera.tsx');
+  assert.match(src, /const needsNumber = camera === 'set' && !\(saved !== null && saved > 0\);/);
+  assert.match(src, /line=\{needsNumber \? GUEST_CAMERA_NEEDS_NUMBER : GUEST_CAMERA_LINES\[camera\]\}/);
+  assert.match(src, /empty=\{GUEST_CAMERA_NEEDS_NUMBER\}/);
 });
 
 test('3 · a check or a read that did not answer SAYS so — and offers no camera', async () => {
@@ -144,7 +202,7 @@ test('3 · a check or a read that did not answer SAYS so — and offers no camer
   // Not the couple's to see → no camera and no claim about it: the face answers only.
   const helper = await paint({}, { access: 'on', ceiling: undefined }, { templated: true, camera: true, canManage: false });
   assert.doesNotMatch(helper, /data-guest-papic-camera|Couldn’t read their camera/);
-  assert.match(helper, /Tag them in photos/);
+  assert.match(helper, /Wants to be tagged in photos/);
 });
 
 test('4 · Papic on: "Their camera ▾" with the row’s summary — and it never posts with the card', async () => {
@@ -183,6 +241,9 @@ test('5 · the writer: quiet answers in place, several guests one RPC each, the 
   const fn = actions.slice(actions.indexOf('export async function setGuestAllotment('), actions.indexOf('function revalidateAllotmentReaders('));
   assert.match(fn, /const quiet = formData\.get\('quiet'\) === '1';/);
   assert.match(fn, /formData\.getAll\('guest_id'\)/, 'one guest only — the bulk sheet cannot use it');
+  assert.match(fn, /if \(guestIds\.length > ALLOTMENT_BATCH_MAX\) \{\s*if \(quiet\) return \{ refused: 'too_many', set: 0 \};/, 'one call can set any number of guests — no cap');
+  assert.ok(fn.indexOf('ALLOTMENT_BATCH_MAX') < fn.indexOf('admin.rpc('), 'the cap is checked after the first RPC');
+  assert.match(fn, /if \(quiet\) \{\s*if \(set > 0\) revalidateAllotmentReaders\(eventId\);/, 'a partial success does not refresh the pages that draw a camera');
   assert.match(fn, /for \(const guestId of guestIds\) \{\s*const \{ error \} = await admin\.rpc\(ALLOTMENT_RPC\.setOne, \{/, 'not one RPC per guest');
   assert.match(fn, /p_points: points,/, 'a guest’s figure is not the one target');
   assert.match(fn, /if \(quiet\) \{\s*revalidateAllotmentReaders\(eventId\);\s*return \{ ok: true, set \};/);
@@ -197,7 +258,11 @@ test('6 · Select → Set… ▾ gains Papic only while the event’s Papic is o
   const page = stripComments(readFileSync(join(HERE, '..', 'page.tsx'), 'utf8'));
   assert.match(page, /papic=\{viewer\.isCouple && !storeShell \? eventPapic : null\}/, 'the list is handed Papic for someone who is not the couple, or in the app');
   const sheet = read('guest-papic-bulk.tsx');
-  assert.match(sheet, /for \(const id of ids\) fd\.append\('guest_id', id\);/);
+  // 🧱 In chunks the action accepts, each a call of its own — and what landed is counted, never assumed.
+  assert.match(sheet, /for \(const chunk of allotmentChunks\(ids\)\) \{/, 'the sheet sends the whole selection in one call');
+  assert.match(sheet, /for \(const id of chunk\) fd\.append\('guest_id', id\);/);
+  assert.match(sheet, /done \+= res\.set;\s*setProblem\(partly\(guestCameraRefusal\(res\.refused\)\)\);/, 'a refusal part-way does not count what landed');
+  assert.match(sheet, /`\$\{formatCount\(done\)\} of \$\{formatCount\(n\)\} set, then: \$\{why\}`/, 'a partial save is not said as "X of N set"');
   assert.match(sheet, /`Papic · set \$\{each === null \? 'N' : formatCount\(each\)\} each`/, 'the button does not say "Papic · set N each"');
   assert.match(sheet, /<GuestPopup\b/, 'the sheet is not the guest list’s one pop-up');
 });

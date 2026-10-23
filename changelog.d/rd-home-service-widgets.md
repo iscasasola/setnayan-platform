@@ -34,6 +34,10 @@ line, order Papic → Event Hub → the rest.
   the overlays (`readOverlaySettingsMeasured`), the on-air trace and the channels are read so a refusal is
   "couldn't load". Guards: `lib/every-service-is-a-widget.test.ts`,
   `app/dashboard/[eventId]/_components/home-cards/home-cards-read-honestly.test.ts`.
+- **Inside the frame**: a card's controls open inside its own frame (prototype frame 2), divided from the quick view.
+- **First-visit spotlight** `customer_home_widgets_v1` (Your services · Papic · Event Hub; after the journey; no price).
+- The Music Maker's button says **"Use on my Event Hub"** ("Guests hear it on your Event Hub") — never "site" or
+  "wedding page".
 - No new server action; no migration.
 
 - `home-shows-every-paid-service.test.ts` follows the ruling (order; the hub key is the Event Hub card, never a slim

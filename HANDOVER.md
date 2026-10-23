@@ -1,29 +1,27 @@
-# HANDOVER — PR-B `rd/papic-prb-local-start` (builder, 2026-10-24)
+# HANDOVER — PR-C `rd/home-service-widgets` (builder, 2026-10-24)
 
-Contract: the controller's PR-B brief (owner rulings 23 Oct) + `prototypes/papic_controller_one_page_2026-10-23.html`.
-Base: `main` (#6851 merged 23 Oct). #6855 (the cloud duplicate) is superseded by this branch and closed.
+Contract: `prototypes/home_service_widgets_2026-10-23.html` (corpus 16e42418) + owner answers (Pro folded into the
+Event Hub · no visits · order Papic → Event Hub → Planner, Live, Music, Booth · Planner = quick view with its four
+figures · Music's Hub writes share the Hub's Apply). Stacked on PR-B (`rd/papic-prb-local-start`). Desktop = PR-D.
 
 ## State
-- (1) Home Papic widget — `_components/papic-home-card.tsx` (quick view: coverage · credits · latest five + See all →
-  Memories · Add more; head toggles the settings IN PLACE, URL unchanged). Settings = `PapicCameraSettings`.
-- (2) How many do I need? — `studio/papic/_components/credit-need.tsx` + `lib/papic-credit-need.ts`, web sheet and
-  `iap-papic-sheet.tsx`. Inputs from `papicBuySizes` (headcount RPC · named ceilings · the "each" only when set).
-- (3) Papic page = the same `PapicCameraSettings` (both seats event-wide; the seat only picks where a save lands).
-  Old `?gallery=open` → Memories.
-- (4) Memories albums / ⚙ / + Add photos / photo-sheet moderation — `app/_components/memories/event-memories-gallery.tsx`,
-  `memories/_components/memories-settings.tsx`, `lib/event-memories.server.ts`.
-- (5) How guests get in under the Event Details row; supplier photos switch on Event access rows; Guests "Settings".
-- (6) Home door pills deleted; property guard `the-home-leads-with-one-next.test.ts` b (rendered: no link to a bar tab
-  under the tab's own name).
-- (7) Later → "Back tomorrow · Undo" (`HomeNextFold`, device storage, same day).
+- Shell `_components/home-service-card.tsx` (quick view · grows in its own frame · failed = "Couldn't load" + Reload).
+- Cards `_components/home-cards/*` with reads `lib/home-*-card.server.ts`; drawn only for the couple on the web
+  (`serviceCards = couple && !storeShell && !appleFacts`); the app and coordinators keep the shipped rows.
+- Event Hub: parts per page (PickMenu) → `hubDraftAction` with the Maker eye's own value (`stage_show`), the shipped
+  `HubDraftDock` Apply bar; ◆ line `hubProLine` (never a price).
+- Booth: Primary/Backup template = the booth's own pick; its cookie now `sn_patiktok_booth_v2_<event>` at
+  `/dashboard/<event>` (old one read as fallback on the booth).
+- Planner: quick view only (four figures). Live: card only where `liveStudioRoamEnabled()`.
+- Tour `customer_home_widgets_v1` mounted on Home.
 
-## Calls made (not covered by a ruling)
-- "When guests can shoot" KEPT on both seats: retiring `papic_guest_capture_early` changes the capture gate (guests
-  would shoot the whole 6-month window). Open question for the owner.
-- Filter drawn as the prototype's strip A (`StylePicker variant="strip"`) — the prototype recommended A, no ruling found.
-- Face row label "Face tagging" (owner's word; the long name clipped at 375).
-- Removing Credits per guest / face blocking from the page leans on #6854 (the guest card carries both). Merge #6854 first.
+## Open (owner)
+- Music "Use on my Event Hub" still writes LIVE (`adoptPakantaSongAsSiteMusic`): the Hub draft cannot carry a Music
+  Maker song yet (not a public-bucket ref; `site_bg_music_source` not drafted; the draft would hold it for Pro).
+- Music Source stays a door into the Maker's Music panel (picking a song / uploading is the Maker's panel).
+- The prototype's "Visits" is dropped (owner); "Published as a control" left as a state line (writes live).
 
 ## Walk
-Lab fixture stub `~/Documents/Claude/Projects/shots-2026-10-24/prb/scripts/fixture-stub.mjs` (port 54329, a lab host
-cookie `sb-127-auth-token`) — renders the REAL dashboard pages with no database. `serve.sh` + `shots.mjs` there.
+Fixture stub + scripts: `~/Documents/Claude/Projects/shots-2026-10-24/prb/scripts/` (stub with `INTERNAL=1 WIDGETS=1`,
+`FAIL=table,…` for refused reads), PR-C walk `~/Documents/Claude/Projects/shots-2026-10-24/prc/scripts/shots.mjs`.
+Dark shots force `.dark` — the event tree is not on the dark ready-list yet, so production paints it light.

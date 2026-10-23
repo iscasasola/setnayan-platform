@@ -62,3 +62,5 @@
   background: rgb(var(--color-cream)); box-shadow: inset 0 0 0 2px rgb(var(--sn-accent)); backdrop-filter: none; -webkit-backdrop-filter: none;
 }
 .clear:global(.sn-glass-row) { box-shadow: none; background: var(--tb-raised, rgb(var(--color-ink) / 0.06)); backdrop-filter: none; -webkit-backdrop-filter: none; }
+/* One ✕ while riding: the seat's (the browser's own search ✕ inside the field steps aside). */
+.row[data-riding] .input::-webkit-search-cancel-button { display: none; }

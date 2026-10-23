@@ -191,20 +191,23 @@ export function ThumbRow({
     if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
     setTyping(null);
   }, []);
-  /* Where the band stands: on the row's host (its computed `bottom`), its plate as tall as the host. */
-  const [over, setOver] = useState<{ bottom: number; under: number } | null>(null);
+  /* Where the band's plate reaches: out to the screen's edges, and down past the row to its host's foot (the host's
+     own bottom padding) — measured, because each host pads its row its own way. */
+  const [over, setOver] = useState<{ left: number; width: number; below: number } | null>(null);
   useLayoutEffect(() => {
     if (!riding) return setOver(null);
-    const layer = layerOf(rowRef.current);
+    const row = rowRef.current;
+    const layer = layerOf(row);
     const read = () => {
-      const box = layer ?? rowRef.current;
-      if (!box) return;
-      const bottom = layer ? parseFloat(getComputedStyle(layer).bottom) || 0 : Math.max(0, window.innerHeight - box.getBoundingClientRect().bottom);
-      const under = Math.round(box.getBoundingClientRect().height);
-      setOver((o) => (o && o.bottom === bottom && o.under === under ? o : { bottom, under }));
+      if (!row) return;
+      const r = row.getBoundingClientRect();
+      const foot = layer ? layer.getBoundingClientRect().bottom : r.bottom;
+      const next = { left: Math.round(-r.left), width: document.documentElement.clientWidth, below: Math.max(0, Math.round(foot - r.bottom)) };
+      setOver((o) => (o && o.left === next.left && o.width === next.width && o.below === next.below ? o : next));
     };
     read();
-    const ro = typeof ResizeObserver !== 'undefined' && layer ? new ResizeObserver(read) : null;
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(read) : null;
+    ro?.observe(row!);
     if (layer) ro?.observe(layer);
     return () => ro?.disconnect();
   }, [riding, kb.bottom, kb.height]);

@@ -14,8 +14,8 @@
  *   · in flow (`inline`) — the Maker's toolbar draws it over its one open field (`stage-tools.tsx`);
  *   · on the keyboard (`fixed`) — portaled to <body>, edge to edge, its foot on the keyboard's top
  *     (`bottom` px, else `useKeyboardRide().bottom`): the Maker's typing-in-place and its RSVP words;
- *   · over a row (`over`) — the same fixed band, standing on a bottom row that rides the keyboard (`ThumbRow`, the
- *     chat composer): its plate reaches down behind that row, so the band and the row read as ONE cream plate.
+ *   · over a row (`over`) — the same band, standing on a bottom row that rides the keyboard (`ThumbRow`): its plate
+ *     reaches down behind that row, so the band and the row read as ONE cream plate.
  *
  * Outside the Maker the band carries the app's own copy of the Maker's three neutrals (`[data-typing-band="app"]` in
  * globals.css, with a dark pair); inside it, it reads the Maker's (`STAGE_PANEL_VARS`) — so the Maker is unchanged.
@@ -67,10 +67,11 @@ function Face({ place, onDone }: { place: ReactNode; onDone?: () => void }) {
 export function TypingBand(props: Common & { inline: true; className?: string }): ReactNode;
 /** Fixed to the keyboard's top, portaled to <body>. `bottom` px, else the one keyboard reading. */
 export function TypingBand(props: Common & { fixed: true; bottom?: number; className?: string; style?: CSSProperties }): ReactNode;
-/** Fixed over a riding row: `bottom` (px from the layout viewport's foot) and the row's `under` height (px). */
-export function TypingBand(props: Common & { over: { bottom: number; under: number } }): ReactNode;
+/** Behind and above a riding row (drawn inside it): reach `left` px out to the screen edge, `width` the screen, and
+ *  `below` px down past the row to its host's foot. */
+export function TypingBand(props: Common & { over: { left: number; width: number; below: number } }): ReactNode;
 export function TypingBand(
-  props: Common & { inline?: true; fixed?: true; over?: { bottom: number; under: number }; bottom?: number; className?: string; style?: CSSProperties },
+  props: Common & { inline?: true; fixed?: true; over?: { left: number; width: number; below: number }; bottom?: number; className?: string; style?: CSSProperties },
 ): ReactNode {
   const { place, onDone, children, before, barRef, keepFocus, inline, fixed, over, bottom: atBottom, className, style, ...attrs } = props as typeof props & Record<string, unknown>;
   void fixed;
@@ -95,8 +96,12 @@ export function TypingBand(
   }
   if (!here) return null;
   if (over) {
-    const { bottom, under } = over as { bottom: number; under: number };
-    return createPortal(
+    /* Drawn INSIDE the riding row (never portaled): the row's host is its own stacking layer, so a band portaled to
+       <body> would cover the row. The plate is the row's back (`z-index: -1` in the row's own stacking context): it
+       runs edge to edge (`left`/`width` reach out of the host's gutters), from the band's top (44 px above the row)
+       down to the host's foot (`below` px under the row) — one cream surface from the band to the keyboard. */
+    const { left, width, below } = over as { left: number; width: number; below: number };
+    return (
       <div
         ref={barRef}
         role="toolbar"
@@ -106,20 +111,18 @@ export function TypingBand(
         // insets by the app's one rule (globals.css `[data-safe-x]`).
         data-safe-x=""
         {...attrs}
-        // The plate is the band (44) AND the row under it: one cream surface from the band's top to the keyboard.
-        style={{ bottom, height: 44 + under }}
+        style={{ left, width, top: -44, bottom: -below }}
         // A press on the band never takes the focus from the field it is typing for (Done's own press blurs it).
         onPointerDown={holdFocus}
         onMouseDown={holdFocus}
-        className="pointer-events-none fixed inset-x-0 z-[24] flex flex-col rounded-t-[18px] bg-[var(--tb-plate)]"
+        className="pointer-events-none absolute z-[-1] flex flex-col rounded-t-[18px] bg-[var(--tb-plate)]"
       >
         <div className={`pointer-events-auto !border-t-0 !bg-transparent ${SP_KEY_BAR}`}>
           {before}
           <Face place={place} onDone={onDone} />
           {children}
         </div>
-      </div>,
-      document.body,
+      </div>
     );
   }
   return createPortal(

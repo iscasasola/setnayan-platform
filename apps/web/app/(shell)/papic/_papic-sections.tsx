@@ -128,7 +128,7 @@ const EVERYTHING_ELSE: readonly Extra[] = [
   { t: 'Start months early', d: 'Cameras can open well before the day, so the engagement shoot is already in there.' },
   { t: 'Five looks', d: 'Pick how the night is graded and every camera follows.' },
   { t: 'You moderate', d: 'Anything can be taken down, by you, at any time.' },
-  { t: 'Decide who sees the shared Memories', d: 'Open it to your guests or keep it to yourselves.' },
+  { t: 'Decide who sees the shared Memories', d: 'Open them to your guests or keep them to yourselves.' },
   { t: 'Your suppliers’ photos, on your terms', d: 'What they hand over reaches you, and you say what happens to it.' },
   { t: 'Add your own', d: 'Your photographs and videos go into the same library as everyone else’s.' },
 ];

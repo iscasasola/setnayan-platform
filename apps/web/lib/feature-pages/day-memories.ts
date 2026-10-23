@@ -40,7 +40,7 @@ export const DAY_MEMORIES_FEATURES: readonly FeaturePageEntry[] = [
     },
     answer: {
       en: 'Papic turns your guests into your photo crew. Each guest shoots from their own phone with a code and a browser, with no app and no account. Photos sort into each person’s own Memories, and you receive all of them. The cameras and Memories are free; you pay only for credits, one per photo.',
-      tl: 'Ginagawang photo crew ng Papic ang mga bisita mo. Kukuha ang bawat bisita gamit ang sarili nilang telepono, code at browser lang, walang app at account. Napupunta ang mga litrato sa Memories ng bawat tao, at matatanggap mo ang lahat. Libre ang cameras at Memories; credits lang ang babayaran mo, isa bawat litrato.',
+      tl: 'Ginagawang photo crew ng Papic ang mga bisita mo. Kukuha ang bawat bisita gamit ang sarili nilang telepono, code at browser lang, walang app at account. Napupunta ang mga litrato sa Alaala ng bawat tao, at matatanggap mo ang lahat. Libre ang cameras at Alaala; credits lang ang babayaran mo, isa bawat litrato.',
     },
     forWho: {
       en: 'Hosts who want the whole room’s view of the day, from the seats a photographer never sits in.',
@@ -48,7 +48,7 @@ export const DAY_MEMORIES_FEATURES: readonly FeaturePageEntry[] = [
     },
     steps: {
       en: ['Guests join with a code and shoot photos, or ten-second Snippets, from their own phones.', 'Hold a guest’s place card in frame, or a table sign for the whole table, and the photos sort into their Memories.', 'Everyone goes home with theirs, and you get the whole set — with a keepsake magazine to print, free.'],
-      tl: ['Sasali ang bisita gamit ang code at kukuha ng litrato, o sampung segundong Snippets, gamit ang sarili nilang telepono.', 'Hawakan sa frame ang place card ng bisita, o table sign para sa buong table, at mapupunta ang mga litrato sa Memories nila.', 'Uuwi ang lahat na may kopya nila, at makukuha mo ang buong set — kasama ang keepsake magazine na ipi-print, libre.'],
+      tl: ['Sasali ang bisita gamit ang code at kukuha ng litrato, o sampung segundong Snippets, gamit ang sarili nilang telepono.', 'Hawakan sa frame ang place card ng bisita, o table sign para sa buong table, at mapupunta ang mga litrato sa Alaala nila.', 'Uuwi ang lahat na may kopya nila, at makukuha mo ang buong set — kasama ang keepsake magazine na ipi-print, libre.'],
     },
     different: {
       en: ['No app and no account for guests.', 'You always receive all the photos, tagged or not.', 'Shooting still works with no signal and sends when it returns.', 'A guest who never adds a selfie is never face-matched, and anyone can ask to be blurred.', 'Credits never expire and there is no subscription. Photo challenges, video greetings and the keepsake magazine come with them.'],
@@ -71,7 +71,7 @@ export const DAY_MEMORIES_FEATURES: readonly FeaturePageEntry[] = [
       tl: [
         { q: 'Kailangan ba ng app ng mga bisita?', a: 'Walang app at walang account. Code at browser lang ang kailangan.' },
         { q: 'Makukuha ba namin ang lahat ng litrato?', a: 'Lagi, naka-tag man o hindi, at humiling man o hindi ang nasa litrato na i-blur.' },
-        { q: 'Ano ang babayaran namin?', a: 'Credits lang — isa bawat litrato, medyo higit para sa video. Libre ang cameras, Memories at pagtatago ng litrato, hindi nag-e-expire ang credits, at binabasa ang presyo mula sa live catalogue namin.' },
+        { q: 'Ano ang babayaran namin?', a: 'Credits lang — isa bawat litrato, medyo higit para sa video. Libre ang cameras, Alaala at pagtatago ng litrato, hindi nag-e-expire ang credits, at binabasa ang presyo mula sa live catalogue namin.' },
         { q: 'Paano kung walang signal sa venue?', a: 'Gumagana pa rin ang pagkuha. Hawak ng telepono ang mga litrato at kusang ipapadala kapag bumalik ang signal.' },
         { q: 'Magagalit ba ang photographer namin?', a: 'Hindi dapat. Binubuo ng photographer ang mahahalagang kuha at sinasaklaw ng Papic ang natitirang bahagi ng kuwarto. Walang pinapalitan.' },
       ],

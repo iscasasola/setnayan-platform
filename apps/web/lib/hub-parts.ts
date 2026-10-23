@@ -64,7 +64,7 @@ export type HubPart = {
 export const HUB_PARTS: readonly HubPart[] = [
   { id: 'reveal', sku: 'COUPLE_HUB_PART_REVEAL', size: 'big', name: 'Reveal', blurb: 'Cinematic openings and effects, your own Save-the-Date film.' },
   { id: 'background', sku: 'COUPLE_HUB_PART_BACKGROUND', size: 'big', name: 'Background', blurb: 'Your photo or video behind the page or a scene, effects, 500 MB.' },
-  { id: 'photos', sku: 'COUPLE_HUB_PART_PHOTOS', size: 'big', name: 'Photos', blurb: 'Memories, photos and clips in scenes, Love Story photos, crop and zoom.' },
+  { id: 'photos', sku: 'COUPLE_HUB_PART_PHOTOS', size: 'big', name: 'Photos', blurb: 'Photos you add, photos and clips in scenes, Love Story photos, crop and zoom.' },
   { id: 'style', sku: 'COUPLE_HUB_PART_STYLE', size: 'big', name: 'Style', blurb: "Pro themes, Candlelight, every part's font, colour and size, decorations." },
   { id: 'motion', sku: 'COUPLE_HUB_PART_MOTION', size: 'big', name: 'Motion', blurb: 'Part and scene animation, Scrub and Auto-scroll, the RSVP \u201cWhen yes\u201d moment.' },
   { id: 'logo_qr', sku: 'COUPLE_HUB_PART_LOGO_QR', size: 'small', name: 'Logo & QR', blurb: 'Your logo animated, travelling to the bar, and on every QR code.' },

@@ -905,7 +905,7 @@ export function EditorialEditor({
         <div className="mt-4 grid gap-2.5 sm:grid-cols-3">
           {[
             { href: `/dashboard/${eventId}/website/living-hero`, label: 'Living hero', sub: 'Boomerang or photo' },
-            { href: `/dashboard/${eventId}/website/our-photos`, label: 'Photos', sub: 'Your Memories' },
+            { href: `/dashboard/${eventId}/website/our-photos`, label: 'Photos', sub: 'Photos you add' },
             { href: `/dashboard/${eventId}/website/special-message`, label: 'Thank-you note', sub: 'From the couple' },
           ].map((l) => (
             <Link

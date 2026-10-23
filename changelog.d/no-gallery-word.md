@@ -34,5 +34,12 @@ So the door on that page to the guests' Photo Notes (`/alaala`) is named
 **"Guest Stories"** — the name the Live page already gives them — instead of a
 second "Memories".
 
+Review fixes: the couple's own uploads say **"Photos you add"**, never
+"Memories" (the Maker's navigator tile, the Story editor's Photos link, the
+scene-photo hint, the Event Hub Pro photos part); a supplier's private Papic
+shots stay in **"your shop’s event photos"**, not their Portfolio; Tagalog
+copy says **"Alaala"**, not the English word; and two grammar fixes — "this is
+your Portfolio", "Open them to your guests" (Memories is plural).
+
 SPEC IMPACT: `DECISION_LOG.md` row "23 Oct: no 'gallery' in the UI — Memories /
 Portfolio / Inspiration".

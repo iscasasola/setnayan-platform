@@ -1200,8 +1200,7 @@ h2.fd-sechead,
   font-weight: 700;
 }
 /* The meta and rule spans sit inside the heading and must NOT inherit 19px/700. */
-.fd-sechead .fd-meta,
-.fd-sechead .fd-rule {
+.fd-sechead .fd-meta {
   font-weight: 400;
   letter-spacing: normal;
 }
@@ -1209,13 +1208,8 @@ h2.fd-sechead,
   font-size: 13px;
   color: var(--fd-m2);
 }
-/* The shelf's one-line house rule ("earned, never sold") is read, not
-   decoration: `--fd-m1` (5.38:1), not the 2.80:1 `--fd-m3` it was. */
-.fd-sechead .fd-rule {
-  margin-left: auto;
-  font-size: 11.5px;
-  color: var(--fd-m1);
-}
+/* `.fd-rule` (the shelf's grey house rule beside a heading) is gone — owner 2026-10-01,
+   NO SMALL EXPLAINER LABELS; its words live in the heading's ⓘ now. */
 /* THE SHELF HEADING IS A DOOR (2026-08-20). It replaces the rail's retired
    "Stories" row as the front page's one permanent link to the hub, so it must
    read as a heading first and reveal itself as a link on hover/focus —
@@ -2963,4 +2957,22 @@ html.dark .fd {
     width: auto;
     padding-top: 0;
   }
+}
+
+/* ── AN EMPTY SHELF: ONE LINE + ONE ACTION (owner 23 Oct 2026) ───────────────
+   Replaces the dashed "invite" card on Discover's shelves — a framed box that
+   nothing pressed. The action (`.fd-btn-quiet`) is the only framed thing; every
+   detail sits behind the line's ⓘ. `empty-shelf.tsx`. */
+.fd-empty {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+  margin: 0 0 26px;
+}
+.fd-empty-line {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--fd-m1);
 }

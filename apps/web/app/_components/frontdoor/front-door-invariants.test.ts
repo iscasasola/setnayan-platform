@@ -957,7 +957,7 @@ test('Trending explains itself when it is honestly empty, and never fakes a rank
       'Trending spot, not decide inline',
   );
 
-  const heading = FEED_CODE.indexOf('>Trending<');
+  const heading = FEED_CODE.indexOf('label="Trending"');
   assert.ok(heading > -1, 'the Trending heading is missing');
   const section = FEED_CODE.slice(heading);
 
@@ -970,14 +970,14 @@ test('Trending explains itself when it is honestly empty, and never fakes a rank
   );
   assert.match(
     section,
-    /className="fd-go"/,
+    /<EmptyShelf[\s\S]{0,300}href="\/realstories"/,
     'the empty Trending state has no way onward — an apology with no door',
   );
   assert.match(
     section,
     /never seeded, padded, or sold/,
     'Trending must state its own "earned, never sold" rule where a visitor ' +
-      'reads it, not only in a code comment',
+      'reads it (its ⓘ since 2026-10-23), not only in a code comment',
   );
 });
 
@@ -1009,7 +1009,7 @@ test('Trending never admits an editorial, even structurally', () => {
 test('the sections render in claim-then-proof order: Shops, New uploads, Trending', () => {
   const shops = FEED_CODE.indexOf('Open your shop');
   const uploads = FEED_CODE.indexOf('New uploads');
-  const trending = FEED_CODE.indexOf('>Trending<');
+  const trending = FEED_CODE.indexOf('label="Trending"');
   assert.ok(shops > -1 && uploads > -1 && trending > -1, 'a section heading is missing');
   assert.ok(
     shops < uploads && uploads < trending,

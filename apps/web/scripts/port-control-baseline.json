@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "f7942b9c18",
-  "routeCount": 460,
-  "destinations": 1004,
+  "generatedFromRef": "27d818c2d7",
+  "routeCount": 461,
+  "destinations": 1003,
   "actions": 667,
-  "blocks": 6839,
+  "blocks": 6855,
   "routes": {
     "/": {
       "files": [
@@ -5011,9 +5011,10 @@
     },
     "/dashboard/(account)/library": {
       "files": [
-        "dashboard/(account)/library/_components/album-shelf.tsx",
         "dashboard/(account)/library/_components/editorials-tab.tsx",
         "dashboard/(account)/library/_components/gallery-doors.tsx",
+        "dashboard/(account)/library/_components/memories-chapters.tsx",
+        "dashboard/(account)/library/_components/memories-thumb.tsx",
         "dashboard/(account)/library/_components/photos-tab.tsx",
         "dashboard/(account)/library/_components/saved-vendor-card.tsx",
         "dashboard/(account)/library/_components/vendors-tab.tsx",
@@ -5024,7 +5025,6 @@
         "/dashboard",
         "/dashboard/[seg]/studio/papic",
         "/dashboard/create-event",
-        "/dashboard/library?tab=[seg]",
         "/dashboard/life-flash",
         "/explore",
         "/v/[seg]",
@@ -5033,21 +5033,31 @@
       "actions": [],
       "blocks": [
         "A",
+        "AccountThumbRow",
         "AlaalaLensBody",
         "AlbumCard",
-        "AlbumShelf",
         "EditorialCard",
         "EditorialsTab",
         "EventMonogram",
         "FacebookGlyph",
-        "GalleryDoors",
+        "GalleryDoor",
+        "HTMLElement",
+        "Heading",
+        "LifeFlashTile",
         "Link",
-        "LinkPickMenu",
+        "MemoriesChapters",
+        "MemoriesThumb",
+        "MemoriesUnreadable",
+        "MonogramTile",
         "PageMasthead",
         "PhotosTab",
+        "PickMenu",
         "SavedVendorCardItem",
         "Section",
         "StatusChip",
+        "ThumbField",
+        "ThumbTool",
+        "Tile",
         "VendorsTab",
         "ViewReport"
       ]
@@ -5116,6 +5126,7 @@
         "dashboard/(account)/people/_components/dependents-section.tsx",
         "dashboard/(account)/people/_components/find-or-invite.tsx",
         "dashboard/(account)/people/_components/follow-list-view.tsx",
+        "dashboard/(account)/people/_components/found-person-card.tsx",
         "dashboard/(account)/people/_components/people-roster-view.tsx",
         "dashboard/(account)/people/_components/people-thumb.tsx",
         "dashboard/(account)/people/_components/people-view-picker.tsx",
@@ -5166,6 +5177,7 @@
         "FindResults",
         "FollowListView",
         "FollowRowItem",
+        "FoundPersonCard",
         "Frame",
         "GuestConfirmActions",
         "GuestPopup",
@@ -11083,6 +11095,18 @@
         "SubmitButton"
       ]
     },
+    "/dev/memories-lab": {
+      "files": [
+        "dev/memories-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "AccountBottomNav",
+        "MemoriesChapters",
+        "MemoriesThumb"
+      ]
+    },
     "/dev/onboarding-lab": {
       "files": [
         "dev/onboarding-lab/page.tsx"
@@ -11103,6 +11127,7 @@
       "blocks": [
         "AccountBottomNav",
         "FollowListView",
+        "FoundPersonCard",
         "PeopleRosterView",
         "RosterPerson",
         "TreeStandIn"
@@ -11160,7 +11185,8 @@
         "AccountBarSlot",
         "Avatar",
         "FrontDoorResults",
-        "FrontDoorShell"
+        "FrontDoorShell",
+        "RosterPerson"
       ]
     },
     "/dev/spotlight-lab/[[...page]]": {

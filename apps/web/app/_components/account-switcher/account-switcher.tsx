@@ -689,9 +689,9 @@ export function AccountSwitcher({ data, currentEventName, referHref, shopRows, h
 
             ⚠ FROM `lg` UP ONLY, and that is a width decision, not a taste one.
             The shared bar carries identity, the search and this cluster on ONE
-            row — the second row is what the owner struck down on 2026-07-30 —
-            and "+ Create event" beside it is already hidden below 1024 for the
-            same reason. On a phone the avatar is the whole mark, which is why
+            row — the second row is what the owner struck down on 2026-07-30.
+            (The bar's "+ Create event" left it at every width on 2026-10-22 —
+            Create lives on the Events board.) On a phone the avatar is the whole mark, which is why
             it had to become visible before this line could be gated at all.
           */
           <span className="hidden max-w-[150px] truncate text-xs font-medium text-ink/80 lg:inline">

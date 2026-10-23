@@ -45,12 +45,21 @@ CREATE TABLE IF NOT EXISTS public.papic_upload_intents (
   signed_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
   -- Set when a capture row came to point at this object (record / attach).
   settled_at         TIMESTAMPTZ,
+  -- The FINAL copy the latest attempt wrote (a per-attempt key, never a key a
+  -- presigned URL can reach). Recorded BEFORE the copy, so a crash between the
+  -- copy and the row leaves a final the sweep can find — and keeps when a row
+  -- did come to point at it.
+  final_ref          TEXT,
+  -- The pinned cleanup executor refused this row's key once: it is set aside so
+  -- it never blocks the head of the sweep's queue.
+  sweep_refused_at   TIMESTAMPTZ,
   CONSTRAINT papic_upload_intents_lane_chk CHECK (lane IN ('guest', 'vendor')),
   CONSTRAINT papic_upload_intents_tier_chk CHECK (
     tier IN ('thumb', 'tile', 'display', 'original', 'poster', 'clip_web', 'clip_raw')
   ),
   CONSTRAINT papic_upload_intents_size_chk CHECK (size_bytes > 0 AND size_bytes <= 40000000),
   CONSTRAINT papic_upload_intents_ref_chk CHECK (r2_ref ~ '^r2://[a-z0-9-]+/papic/'),
+  CONSTRAINT papic_upload_intents_final_chk CHECK (final_ref IS NULL OR final_ref ~ '^r2://[a-z0-9-]+/papic/'),
   CONSTRAINT papic_upload_intents_ref_uniq UNIQUE (r2_ref)
 );
 
@@ -60,7 +69,11 @@ REVOKE ALL ON SEQUENCE public.papic_upload_intents_intent_id_seq FROM PUBLIC, an
 
 CREATE INDEX IF NOT EXISTS papic_upload_intents_unsettled_idx
   ON public.papic_upload_intents (signed_at)
-  WHERE settled_at IS NULL;
+  WHERE settled_at IS NULL AND sweep_refused_at IS NULL;
+
+CREATE INDEX IF NOT EXISTS papic_upload_intents_settled_idx
+  ON public.papic_upload_intents (settled_at)
+  WHERE settled_at IS NOT NULL;
 
 CREATE INDEX IF NOT EXISTS papic_upload_intents_capture_idx
   ON public.papic_upload_intents (owner_id, client_capture_id);

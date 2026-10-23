@@ -107,3 +107,31 @@ test('a supplier shutter lands once — client_capture_id is unique per supplier
   );
   assert.equal(r.rows[0]!.n, 3);
 });
+
+test('an attempt’s FINAL copy is remembered on its intent — and only a papic/ ref may be', async () => {
+  const r = ref('display');
+  assert.equal(await insertIntent({ r2_ref: r, tier: 'display' }), null);
+  const fin = `r2://setnayan-media/papic/guest/${OWNER}/cap-${CCID}-display-a0123abcd.webp`;
+  await db.query(`UPDATE public.papic_upload_intents SET final_ref = $1 WHERE r2_ref = $2`, [fin, r]);
+  await assert.rejects(
+    db.query(`UPDATE public.papic_upload_intents SET final_ref = 'r2://setnayan-media/events/x/cover.jpg' WHERE r2_ref = $1`, [r]),
+    /papic_upload_intents_final_chk/,
+  );
+});
+
+test('a set-aside row (sweep_refused_at) leaves the unsettled queue the sweep reads — the head moves on', async () => {
+  const old = new Date(Date.now() - 9 * 86_400_000).toISOString();
+  const a = ref('poster');
+  const b = ref('clip_web');
+  assert.equal(await insertIntent({ r2_ref: a, tier: 'poster' }), null);
+  assert.equal(await insertIntent({ r2_ref: b, tier: 'clip_web' }), null);
+  await db.query(`UPDATE public.papic_upload_intents SET signed_at = $1 WHERE r2_ref = ANY($2)`, [old, [a, b]]);
+  await db.query(`UPDATE public.papic_upload_intents SET sweep_refused_at = now() WHERE r2_ref = $1`, [a]);
+  // The same predicate lib/papic-upload-sweep.ts sends (settled_at IS NULL AND sweep_refused_at IS NULL, oldest first).
+  const q = await db.query<{ r2_ref: string }>(
+    `SELECT r2_ref FROM public.papic_upload_intents
+      WHERE settled_at IS NULL AND sweep_refused_at IS NULL AND signed_at < now() - interval '8 days'
+      ORDER BY signed_at ASC`,
+  );
+  assert.deepEqual(q.rows.map((x) => x.r2_ref), [b]);
+});

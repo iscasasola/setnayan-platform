@@ -25,13 +25,19 @@ import {
   screenTierBytes,
   settleCaptureIntents,
   signCaptureTierPut,
-  discardFinalObjects,
+  discardPromoted,
   dropStagingObjects,
+  newAttemptTag,
+  probeMp4DurationMs,
   loadUploadedTiers,
   promoteTier,
   type IntentRow,
 } from '@/lib/papic-upload-intents.server';
-import { isCaptureTier, tiersFor, type CaptureTier } from '@/lib/papic-upload/tiers';
+import { isCaptureTier, refHoldsTier, tiersFor, type CaptureTier } from '@/lib/papic-upload/tiers';
+import { judgedShotInstant } from '@/lib/papic-upload/shot-time';
+import { webCopyPlayable } from '@/lib/papic-upload/mp4';
+import { ownerTagMatches } from '@/lib/papic-upload/owner-tag.server';
+import { maybeRunPapicUploadSweep } from '@/lib/papic-upload-sweep';
 
 // POST /api/papic/guest-capture
 //
@@ -108,7 +114,12 @@ const json = (body: Record<string, unknown>, status = 200) => NextResponse.json(
 // follows a shot we already accepted (attach, or a sign after record) is never
 // refused because the day has since rolled over — that would strand the row
 // with no display copy.
-async function windowRefusal(session: GuestSession, admin: Admin): Promise<NextResponse | null> {
+//
+// 🕐 JUDGED BY THE SHUTTER, NOT BY ARRIVAL (review 2026-10-23, blocker 1): a
+// shot taken inside the window and sent after it closed is IN the window
+// (`judgedShotInstant`, lib/papic-upload/shot-time.ts — bounded by the server's
+// clock, so a phone cannot claim tomorrow).
+async function windowRefusal(session: GuestSession, admin: Admin, shotAtMs: number): Promise<NextResponse | null> {
   const { data: gateRow, error: gateErr } = await admin
     .from('events')
     .select(GUEST_CAPTURE_GATE_COLUMNS)
@@ -127,6 +138,7 @@ async function windowRefusal(session: GuestSession, admin: Admin): Promise<NextR
       eventDate: gateRow.event_date,
       windowStart: gateRow.papic_window_start,
       windowEnd: gateRow.papic_window_end,
+      nowMs: shotAtMs,
     });
     if (gate.state !== 'open') {
       return json(
@@ -204,8 +216,13 @@ function parseDuration(body: Body): { ok: true; ms: number | null } | { ok: fals
   return { ok: true, ms: Math.round(n) };
 }
 
+/**
+ * The tier's OPEN upload. A settled intent was already promoted and recorded —
+ * a late re-PUT on its still-valid URL lands in staging and is never promoted
+ * again (review 2026-10-23, major 3); the sweep removes it.
+ */
 function intentFor(intents: readonly IntentRow[], tier: CaptureTier): IntentRow | undefined {
-  return intents.find((i) => i.tier === tier);
+  return intents.find((i) => i.tier === tier && i.settled_at === null);
 }
 
 type Loaded = Awaited<ReturnType<typeof loadUploadedTiers>>['loaded'][number];
@@ -231,11 +248,14 @@ async function loadOrRedo(
 
 /** Promote every loaded piece to its final key; answers tier → final ref. */
 async function promoteAll(
+  admin: Admin,
   byTier: Map<CaptureTier, Loaded>,
 ): Promise<Map<CaptureTier, string> | null> {
   try {
+    // One attempt tag for this call: its copies are ITS OWN keys (major 3).
+    const attempt = newAttemptTag();
     const out = new Map<CaptureTier, string>();
-    for (const [tier, loaded] of byTier) out.set(tier, await promoteTier(loaded));
+    for (const [tier, loaded] of byTier) out.set(tier, await promoteTier(admin, loaded, attempt));
     return out;
   } catch (err) {
     console.error('[papic-upload] promote failed', err instanceof Error ? err.message : err);
@@ -270,8 +290,14 @@ async function handleSign(
       return json({ status: 'ok', already: true });
     }
     if (tier === 'original' || tier === 'clip_raw') {
-      if (prior.r2_object_key?.includes(`-${tier}.`)) return json({ status: 'ok', already: true });
-      if (!(await eventKeepsFullRes(admin, session.event_id))) {
+      if (refHoldsTier(prior.r2_object_key, tier)) return json({ status: 'ok', already: true });
+      // A clip whose web copy is not a verified playable MP4 always wants its raw
+      // (Guard A, review 2026-10-23 major 5).
+      const rawNeeded =
+        tier === 'clip_raw' &&
+        !!prior.r2_object_key &&
+        !webCopyPlayable(await probeMp4DurationMs(prior.r2_object_key, Number.MAX_SAFE_INTEGER));
+      if (!rawNeeded && !(await eventKeepsFullRes(admin, session.event_id))) {
         return json({ error: 'full_not_wanted' }, 409);
       }
     }
@@ -284,7 +310,7 @@ async function handleSign(
     }
     const duration = parseDuration(body);
     const refused =
-      (await windowRefusal(session, admin)) ??
+      (await windowRefusal(session, admin, judgedShotInstant(body.captured_at_ms, Date.now()))) ??
       (await moderationRefusal(session, admin)) ??
       (await creditRefusal(session, admin, papicCaptureCost(mediaType, duration.ok ? duration.ms : null)));
     if (refused) return refused;
@@ -314,6 +340,9 @@ async function handleRecord(
   mediaType: 'photo' | 'clip',
   prior: CaptureRow | null,
 ): Promise<NextResponse> {
+  // 🧹 Keep the upload sweep moving from the camera itself (at most hourly —
+  // a claimed window), so a quiet admin console cannot stall it.
+  after(() => maybeRunPapicUploadSweep());
   // 🔁 THIS SHUTTER ALREADY LANDED. The phone never heard "saved" (the answer
   // was lost on bad signal) and sent the record again. Answer with the first
   // row — asked of the RPC with the same id, which replies `duplicate` with the
@@ -338,7 +367,9 @@ async function handleRecord(
   if (!duration.ok) return json({ error: 'too_long' }, 400);
   const durationMs = isClip ? duration.ms : null;
 
-  const refusedEarly = (await windowRefusal(session, admin)) ?? (await moderationRefusal(session, admin));
+  const shotAtMs = judgedShotInstant(body.captured_at_ms, Date.now());
+  const refusedEarly =
+    (await windowRefusal(session, admin, shotAtMs)) ?? (await moderationRefusal(session, admin));
   if (refusedEarly) return refusedEarly;
 
   // ⏱ THE SAME PER-CAMERA CEILING, on the guest door. Keyed on the guest, not
@@ -368,7 +399,7 @@ async function handleRecord(
   if (!checked.ok) return checked.res;
   // Written to the FINAL keys before the row exists — the row is born pointing
   // at copies no presigned URL can reach (lib/papic-upload/tiers.ts).
-  const finals = await promoteAll(checked.byTier);
+  const finals = await promoteAll(admin, checked.byTier);
   if (!finals) return json({ error: 'record_failed' }, 503);
   const objectTier: CaptureTier = isClip ? playable : photoFirst;
   const r2Ref = finals.get(objectTier)!;
@@ -432,14 +463,14 @@ async function handleRecord(
   if (error) {
     // Nothing was spent: the transaction rolled back with the error.
     console.error('[supabase-error] app/api/papic/guest-capture/route.ts · rpc:papic_record_guest_capture_and_spend', error);
-    await discardFinalObjects(neededIntents);
+    await discardPromoted(admin, neededIntents, finals);
     return json({ error: 'record_failed' }, 500);
   }
 
   const recordStatus = (data as { status?: string } | null)?.status;
   if (recordStatus === 'camera_points_exhausted') {
     // The authoritative refusal — the pot is short, so the couple is told.
-    await discardFinalObjects(neededIntents);
+    await discardPromoted(admin, neededIntents, finals);
     after(async () => {
       await tellTheCouplePapicPoolIsSpent(session.event_id);
     });
@@ -459,7 +490,7 @@ async function handleRecord(
     ceiling?: number | null;
   };
   if (result.status !== 'ok') {
-    await discardFinalObjects(neededIntents);
+    await discardPromoted(admin, neededIntents, finals);
     return json(result, result.status === 'quota_exhausted' ? 409 : 400);
   }
   // 🔁 A `duplicate` answer is a success that spent nothing.
@@ -478,8 +509,22 @@ async function handleRecord(
       .maybeSingle();
     captureId = (capRow?.capture_id as string | undefined) ?? null;
   }
-  const wantFull = await eventKeepsFullRes(admin, session.event_id);
-  if (recordDuplicate) return json({ ...result, captureId, wantFull });
+  // 🛡 GUARD A ON THE PHONE (review 2026-10-23, major 5): a clip recorded with
+  // its WEB COPY lets the phone forget the raw only when that web copy is a
+  // real, playable MP4 — its own `mvhd` says how long it runs. Otherwise the
+  // raw is wanted, whatever the event keeps.
+  let webVerified = true;
+  if (isClip && playable === 'clip_web') {
+    const web = checked.byTier.get('clip_web');
+    webVerified = webCopyPlayable(web ? await probeMp4DurationMs(web.intent.r2_ref, web.size) : null);
+  }
+  const wantFull = (await eventKeepsFullRes(admin, session.event_id)) || !webVerified;
+  if (recordDuplicate) {
+    // Another attempt of this shutter won the race: the row points at ITS
+    // copies, so this attempt's are nobody's (major 3).
+    await discardPromoted(admin, neededIntents, finals);
+    return json({ ...result, captureId, wantFull });
+  }
 
   // The first piece's own columns: a photo's thumbnail IS its thumb_r2_key; a
   // clip's poster is its display still (lib/papic-derivatives.ts sets
@@ -608,9 +653,15 @@ async function handleAttach(
   const isClip = prior.media_type === 'clip';
   const asked = Array.isArray(body.tiers) ? (body.tiers as unknown[]).filter(isCaptureTier) : [];
   const allowed: CaptureTier[] = isClip ? ['clip_raw'] : ['tile', 'display', 'original'];
-  const tiers = asked.filter((t) => allowed.includes(t));
-  if (tiers.length === 0) return json({ error: 'bad_tier' }, 400);
+  const wanted = asked.filter((t) => allowed.includes(t));
+  if (wanted.length === 0) return json({ error: 'bad_tier' }, 400);
   if (prior.moderation_state === 'nsfw_blocked') return json({ status: 'ok', blocked: true });
+  // A piece the row ALREADY has is never written again (review 2026-10-23,
+  // minor 8) — a replayed attach answers ok and changes nothing.
+  const has = (t: CaptureTier) =>
+    t === 'tile' ? !!prior.tile_r2_key : t === 'display' ? !!prior.display_r2_key : refHoldsTier(prior.r2_object_key, t);
+  const tiers = wanted.filter((t) => !has(t));
+  if (tiers.length === 0) return json({ status: 'ok', already: true });
 
   // The record's own screen must have RUN before more of this shot is accepted.
   // A classifier outage at record leaves the row 'unscreened' (hidden from every
@@ -662,7 +713,7 @@ async function handleAttach(
       return json({ status: 'ok', blocked: true });
     }
   }
-  const finals = await promoteAll(checked.byTier);
+  const finals = await promoteAll(admin, checked.byTier);
   if (!finals) return json({ error: 'attach_failed' }, 503);
   const refOf = (t: CaptureTier) => finals.get(t)!;
   const sizeOf = (t: CaptureTier) => checked.byTier.get(t)?.size ?? null;
@@ -698,15 +749,26 @@ async function handleAttach(
     patch.r2_object_key = raw;
   }
 
-  const { error: updErr } = await admin
+  // Compare-and-set on what this call read: a concurrent attach that got there
+  // first wins, and THIS attempt's copies (its own keys) are discarded.
+  let cas = admin
     .from('papic_guest_captures')
     .update(patch)
     .eq('capture_id', prior.capture_id)
     .eq('guest_id', session.guest_id)
     .eq('event_id', session.event_id);
+  cas = prior.r2_object_key ? cas.eq('r2_object_key', prior.r2_object_key) : cas.is('r2_object_key', null);
+  if (tiers.includes('tile')) cas = cas.is('tile_r2_key', null);
+  if (tiers.includes('display')) cas = cas.is('display_r2_key', null);
+  const { data: updated, error: updErr } = await cas.select('capture_id');
   if (updErr) {
     console.error('[supabase-error] app/api/papic/guest-capture/route.ts · from:papic_guest_captures.update(attach)', updErr);
+    await discardPromoted(admin, tiers.map((t) => intentFor(intents, t)!), finals);
     return json({ error: 'persist_failed' }, 500);
+  }
+  if (!updated || updated.length === 0) {
+    await discardPromoted(admin, tiers.map((t) => intentFor(intents, t)!), finals);
+    return json({ status: 'ok', already: true });
   }
   await settleCaptureIntents(admin, tiers.map((t) => intentFor(intents, t)!.r2_ref));
   await dropStagingObjects(tiers.map((t) => intentFor(intents, t)!));
@@ -737,11 +799,6 @@ async function handleAttach(
 }
 
 export async function POST(req: Request) {
-  const session = await readGuestSession();
-  if (!session) {
-    return NextResponse.json({ error: 'no_session' }, { status: 401 });
-  }
-
   // 🚫 JSON ONLY. A multipart body is the old byte path, which Vercel cuts at
   // 4.5 MB before this line runs; refusing it here keeps it from coming back.
   const contentType = req.headers.get('content-type') ?? '';
@@ -760,6 +817,24 @@ export async function POST(req: Request) {
     if (!body || typeof body !== 'object') throw new Error('shape');
   } catch {
     return json({ error: 'bad_request' }, 400);
+  }
+
+  // 🔒 THE SHOT'S OWN EVENT (review 2026-10-23, blocker 2): a queued shot names
+  // the event it was taken at, and only THAT event's pass may record it. A phone
+  // whose pass now speaks for another event answers `other_event` — the shot
+  // waits; it is never recorded elsewhere and never dropped.
+  const askedEventId = typeof body.event_id === 'string' && body.event_id.trim() ? body.event_id.trim() : null;
+  const session = await readGuestSession(askedEventId ? { eventId: askedEventId } : undefined);
+  if (!session) {
+    return NextResponse.json({ error: 'no_session' }, { status: 401 });
+  }
+  if (askedEventId && session.event_id !== askedEventId) {
+    return json({ error: 'other_event' }, 409);
+  }
+  // …and the shot's own guest: a shared phone now holding someone else's pass
+  // answers `other_owner`, and the shot waits for its own camera.
+  if (!ownerTagMatches(body.owner_tag, 'guest', session.guest_id, session.event_id)) {
+    return json({ error: 'other_owner' }, 409);
   }
 
   const clientCaptureId = readClientCaptureId(body[CLIENT_CAPTURE_ID_FIELD]);

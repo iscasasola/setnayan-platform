@@ -41,6 +41,21 @@ function refusedDetail(reason: string): string {
   }
 }
 
+function keptDetail(reason: string | null): string {
+  switch (reason) {
+    case 'guest_capture_closed':
+    case 'guest_capture_not_open_yet':
+    case 'event_over':
+      return 'Not sent yet — the event’s cameras were closed when these tried to send. They stay on this phone and send if the cameras open again.';
+    case 'event_put_away':
+      return 'Not sent yet — the hosts put this event away. These stay on this phone and send if it comes back.';
+    case null:
+      return 'These belong to another event or another person on this phone. They stay here and send when that camera is open again.';
+    default:
+      return 'Not sent yet — the event didn’t accept these today. They stay on this phone and are tried again.';
+  }
+}
+
 function detail(state: ChipState): string {
   switch (state.kind) {
     case 'saved':
@@ -51,6 +66,10 @@ function detail(state: ChipState): string {
       return 'No signal. Your shots are safe on this phone and send by themselves when the signal comes back. Keep this page open.';
     case 'credits':
       return 'The event’s credits ran out, so these shots are kept on this phone. They send as soon as the hosts add more.';
+    case 'kept':
+      return keptDetail(state.reason);
+    case 'memory':
+      return 'This browser won’t keep photos on the phone (a private window). Keep this page open until it says All saved, or these shots are lost.';
     case 'refused':
       return refusedDetail(state.reason);
     case 'idle':
@@ -67,6 +86,7 @@ export function PapicUploadChip({ surface = 'bg-cream/10 text-cream' }: { surfac
   const kind = snap.chip.kind;
   const Icon =
     kind === 'saved' ? Check : kind === 'sending' ? Loader2 : kind === 'offline' ? WifiOff : CircleAlert;
+  // ⓘ for 'kept' explains the reason; a context wait has none (it is not a refusal).
   return (
     <span
       role="status"

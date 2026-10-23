@@ -1,3 +1,4 @@
+import { papicOwnerTag } from '@/lib/papic-upload/owner-tag.server';
 import Link from 'next/link';
 import { Sparkles } from 'lucide-react';
 import { DoorShell } from '@/app/_components/door/door-shell';
@@ -99,6 +100,7 @@ export default async function PapicDecoratePage() {
   return (
     <KwentoDecorator
       eventId={session.event_id}
+      uploadOwner={papicOwnerTag('guest', session.guest_id, session.event_id)}
       eventName={eventName}
       canKwento={canKwento}
       themeColors={themeColors}

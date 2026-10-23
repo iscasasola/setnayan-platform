@@ -100,6 +100,7 @@ export function LabCamera({ lane }: { lane: 'guest' | 'vendor' }) {
           guestName="Lab Guest"
           eventName="Lab Event"
           eventId={LAB_EVENT_ID}
+          uploadOwner={null}
           initialRemaining={150}
           total={150}
           termsAccepted
@@ -114,6 +115,7 @@ export function LabCamera({ lane }: { lane: 'guest' | 'vendor' }) {
         <div className="bg-cream px-4">
           <PapicCaptureController
             eventId={LAB_EVENT_ID}
+            uploadOwner={null}
             coupleName="Lab Couple"
             tier="ltd"
             allowVideo

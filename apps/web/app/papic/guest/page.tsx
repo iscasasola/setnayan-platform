@@ -1,3 +1,4 @@
+import { papicOwnerTag } from '@/lib/papic-upload/owner-tag.server';
 import { guestReusesAccountFace } from '@/lib/account-face-profile';
 import { formatPapicDayInWords } from '@/lib/papic-window';
 import { Camera } from 'lucide-react';
@@ -396,6 +397,7 @@ export default async function PapicGuestPage({
       guestName={guestName}
       eventName={eventName}
       eventId={session.event_id}
+      uploadOwner={papicOwnerTag('guest', session.guest_id, session.event_id)}
       initialRemaining={quota.remaining}
       total={quota.total}
       termsAccepted={termsAccepted}

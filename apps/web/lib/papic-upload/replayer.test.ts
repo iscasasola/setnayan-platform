@@ -58,6 +58,8 @@ function fakeServer() {
     online: false,
     credits: Infinity as number,
     closed: false,
+    blocked: false,
+    ownerTag: null as string | null,
     staged: new Map<string, number>(), // `${ccid}:${tier}` → size
     rows: new Map<string, { tiers: Set<CaptureTier> }>(),
     recordCalls: 0,
@@ -71,6 +73,8 @@ function fakeServer() {
     const row = st.rows.get(id);
     if (body.op === 'sign') {
       const tier = body.tier as CaptureTier;
+      if (st.ownerTag && body.owner_tag && body.owner_tag !== st.ownerTag) return { httpStatus: 409, body: { error: 'other_owner' } };
+      if (!row && st.blocked) return { httpStatus: 403, body: { status: 'blocked' } };
       if (!row && st.closed) return { httpStatus: 403, body: { error: 'guest_capture_closed' } };
       if (!row && st.credits <= 0) return { httpStatus: 409, body: { status: 'camera_points_exhausted' } };
       if (row && (tier === 'thumb' || tier === 'poster' || tier === 'clip_web')) {
@@ -143,6 +147,8 @@ function harness() {
     clearTimer: () => {},
   };
   const u = new PapicUploader(deps);
+  // The guest camera for ev-1 is open on this page.
+  u.register({ lane: 'guest', eventId: 'ev-1', ownerTag: null });
   const settle = async (rounds = 400) => {
     for (let i = 0; i < rounds; i++) {
       clock += 10_000;
@@ -151,7 +157,7 @@ function harness() {
       if (u.pending() === 0) return;
     }
   };
-  return { u, store, server, settle, tick: () => clock };
+  return { u, store, server, settle, tick: () => clock, advance: (ms: number) => { clock += ms; } };
 }
 
 const photo = (n: number): NewShot => ({
@@ -238,10 +244,30 @@ test('credits: a refused shot stays on the phone, says so, and lands after a top
   assert.equal(u.pending(), 0);
 });
 
-test('a refusal for good drops the shot and is counted, never shown as saved', async () => {
-  const { u, server, settle } = harness();
+test('🔒 a closed window KEEPS the shot on the phone — it is never erased, and lands when the window allows', async () => {
+  const { u, server, settle, store, advance } = harness();
   server.st.online = true;
   server.st.closed = true;
+  await u.addShot(photo(1));
+  await settle(10);
+  assert.equal(u.pending(), 1, 'the shot is still on the phone');
+  assert.equal(store.shots.size, 1, 'and still in IndexedDB');
+  assert.equal(server.st.rowsCreated, 0);
+  assert.equal(chipLabel(u.snapshot().chip), 'Not sent · 1 kept on this phone');
+  // Ten days later: never aged out while kept (the queue TTL is 7 days).
+  advance(10 * 24 * 60 * 60 * 1000);
+  await settle(1);
+  assert.equal(u.pending(), 1, 'a kept shot is never aged out');
+  server.st.closed = false; // the host reopened (or the server judged the shutter in-window)
+  await settle();
+  assert.equal(server.st.rowsCreated, 1);
+  assert.equal(u.pending(), 0);
+});
+
+test('only blocked / terms drop a shot — and the drop is counted, never shown as saved', async () => {
+  const { u, server, settle } = harness();
+  server.st.online = true;
+  server.st.blocked = true;
   await u.addShot(photo(1));
   await settle(10);
   assert.equal(u.pending(), 0);
@@ -249,13 +275,33 @@ test('a refusal for good drops the shot and is counted, never shown as saved', a
   assert.equal(chipLabel(u.snapshot().chip), 'Couldn’t save 1');
 });
 
+test('🔒 a shot of another event or another person waits — never sent from a camera that is not its own', async () => {
+  const { u, server, settle } = harness();
+  server.st.online = true;
+  await u.addShot({ ...photo(1), eventId: 'ev-OTHER' });
+  await u.addShot({ ...photo(2), ownerTag: 'tag-A' });
+  server.st.ownerTag = 'tag-B'; // this phone now speaks for someone else
+  await settle(10);
+  assert.equal(server.st.rowsCreated, 0, 'nothing recorded into the wrong event or person');
+  assert.equal(u.pending(), 2, 'both kept');
+  assert.match(chipLabel(u.snapshot().chip) ?? '', /kept on this phone/);
+  // Their own cameras open again → they land.
+  server.st.ownerTag = 'tag-A';
+  u.register({ lane: 'guest', eventId: 'ev-OTHER', ownerTag: null });
+  u.wake();
+  await settle();
+  assert.equal(server.st.rowsCreated, 2);
+});
+
 test('a phone that refuses to store bytes (a private mode) still sends the shot while the page is open', async () => {
   const { u, store, server, settle } = harness();
   store.saveBlob = async () => {
     throw new Error('QuotaExceededError');
   };
-  server.st.online = true;
+  server.st.online = false;
   await u.addShot(photo(1));
+  assert.equal(chipLabel(u.snapshot().chip), 'Keep this page open · not saved on the phone', 'never "safe on this phone"');
+  server.st.online = true;
   await settle();
   assert.equal(server.st.rowsCreated, 1);
   assert.equal(u.pending(), 0);

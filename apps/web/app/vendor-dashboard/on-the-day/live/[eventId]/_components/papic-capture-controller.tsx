@@ -47,6 +47,9 @@ function pickClipMime(): string {
 
 type Props = {
   eventId: string;
+  /** This supplier's owner tag at this event (lib/papic-upload/owner-tag.server.ts):
+   *  a shot queued here never records as another supplier signed in later. */
+  uploadOwner: string | null;
   coupleName: string;
   tier: VendorPapicTier;
   allowVideo: boolean;
@@ -63,6 +66,7 @@ const TIER_LABEL: Record<VendorPapicTier, string> = {
 
 export function PapicCaptureController({
   eventId,
+  uploadOwner,
   coupleName,
   tier,
   allowVideo,
@@ -100,19 +104,32 @@ export function PapicCaptureController({
 
   // What the uploader hears back, for THIS event's supplier shots. A shot that
   // can never land gives its credits back on the meter and says why.
+  // A kept shot is asked again later; its credits come back on the meter ONCE.
+  const uncounted = useRef(new Set<string>());
   useEffect(() => {
     return papicUploader().on((e) => {
       if (e.shot.lane !== 'vendor' || e.shot.eventId !== eventId) return;
       const cost = e.shot.media === 'clip' ? VENDOR_PAPIC_POINTS.clip : VENDOR_PAPIC_POINTS.photo;
+      if (e.type === 'recorded' && uncounted.current.delete(e.shot.id)) {
+        // A kept shot landed after all: it counts again.
+        setSpent((s) => s + cost);
+        return;
+      }
       if (e.type === 'credits') {
         if (pointsCap != null) setSpent(pointsCap);
         flash('You’re out of credits for this event — the shot waits on this phone.');
-      } else if (e.type === 'refused') {
+      } else if (e.type === 'kept') {
+        // Kept on this phone, never erased (review 2026-10-23); it is not counted.
+        if (uncounted.current.has(e.shot.id)) return;
+        uncounted.current.add(e.shot.id);
         setSpent((s) => Math.max(0, s - cost));
-        if (e.code === 'video_not_allowed') flash('This tier is photos only.');
-        else if (e.code === 'consent_required') flash('Consent is required before capturing.');
-        else if (e.code === 'event_over') flash('Couldn’t save that shot — this event is over.');
-        else flash('Couldn’t save that one.');
+        if (e.code === 'video_not_allowed') flash('This tier is photos only — the clip stays on this phone.');
+        else if (e.code === 'event_over') flash('Not sent — this event is over. The shot stays on this phone.');
+        else flash('Not sent yet — the shot stays on this phone.');
+      } else if (e.type === 'refused') {
+        if (!uncounted.current.has(e.shot.id)) setSpent((s) => Math.max(0, s - cost));
+        uncounted.current.add(e.shot.id);
+        flash('Couldn’t save that one.');
       }
     });
   }, [eventId, flash, pointsCap]);
@@ -152,6 +169,7 @@ export function PapicCaptureController({
           deviceModel: typeof navigator !== 'undefined' ? navigator.userAgent.slice(0, 120) : undefined,
           primary: blob,
           poster: kind === 'clip' ? poster ?? null : null,
+          ownerTag: uploadOwner,
         });
       } catch {
         flash('Couldn’t save that one on this phone — free up some space.');
@@ -163,7 +181,13 @@ export function PapicCaptureController({
       setSpent((s) => s + cost);
       flash(kind === 'clip' ? 'Clip saved' : 'Photo saved');
     },
-    [eventId, flash],
+    [eventId, flash, uploadOwner],
+  );
+
+  // This camera is open: this supplier's shots for this event may send from here.
+  useEffect(
+    () => papicUploader().register({ lane: 'vendor', eventId, ownerTag: uploadOwner }),
+    [eventId, uploadOwner],
   );
 
   const takePhoto = useCallback(async () => {

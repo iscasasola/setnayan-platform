@@ -7,7 +7,8 @@
 // fallbacks, same error handling — re-homed here with parameters threaded in.
 //
 // The benefit is PER-REQUEST dedup + orchestrator shrinkage, NOT cross-route
-// sharing — do NOT import these loaders from other routes (`cache()` scopes to
+// sharing — do NOT import { papicOwnerTag } from '@/lib/papic-upload/owner-tag.server';
+import these loaders from other routes (`cache()` scopes to
 // a single server request; the loaders assume this route's gating has already
 // run).
 //
@@ -1895,6 +1896,7 @@ export const loadGuestContext = cache(
         ]);
       if (!blockRow) {
         papicGuest = {
+          uploadOwner: papicOwnerTag('guest', guest.guest_id, event.event_id),
           initialRemaining: quota.remaining,
           total: quota.total,
           termsAccepted: Boolean(

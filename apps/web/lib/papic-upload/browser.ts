@@ -158,7 +158,22 @@ export function papicUploader(): PapicUploader {
     if (document.visibilityState === 'visible') u.wake();
     void syncWakeLock(u);
   });
-  u.subscribe(() => void syncWakeLock(u));
+  // The sender tells the other tabs whenever its queue moves, so their chip
+  // follows the truth instead of a stale "Sending" (review 2026-10-23, minor 9).
+  let postTimer: number | null = null;
+  u.subscribe(() => {
+    void syncWakeLock(u);
+    if (!u.sender || !channel || postTimer !== null) return;
+    // Trailing, at most twice a second — the last change is always announced.
+    postTimer = window.setTimeout(() => {
+      postTimer = null;
+      try {
+        channel?.postMessage('changed');
+      } catch {
+        /* closed */
+      }
+    }, 500);
+  });
 
   void (async () => {
     await u.load();

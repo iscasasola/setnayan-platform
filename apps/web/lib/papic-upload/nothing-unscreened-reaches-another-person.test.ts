@@ -10,7 +10,10 @@
  *   • attach — every later still (display copy, original) is screened BEFORE
  *     its key is written, and the bytes screened are the bytes kept;
  *   • attach waits for the record's own screen to have run;
- *   • Drive receives only a screened shot;
+ *   • Drive receives only a screened shot — the live hand-off AND "Release to
+ *     Drive", which also skips a row still pointing at its thumbnail;
+ *   • every other reader is held by every-papic-media-reader-is-screened.test.ts,
+ *     which derives the reader list from the tree;
  *   • the couple-side readers allowlist 'clean' — 'unscreened' is unseen, not
  *     safe (they used to let it through with `!== 'nsfw_blocked'`).
  */
@@ -71,6 +74,16 @@ test('Drive receives only a screened shot', () => {
   assert.match(g, /moderation_state !== 'clean'\) return;/);
   const v = between(read(VENDOR), 'async function handOffToDrive(', 'enqueueDriveCopy(');
   assert.match(v, /nsfw_checked !== true \|\| r\.hidden_at\) return;/);
+});
+
+test('"Release to Drive" sends only screened shots, and never a row still pointing at its thumbnail', () => {
+  const rel = read('lib/photo-delivery-release.ts');
+  const listing = between(rel, "const [seatRes, guestRes] = await Promise.all([", ']);');
+  assert.equal((listing.match(/\.eq\('moderation_state', 'clean'\)/g) ?? []).length, 2, 'a release leg is unscreened');
+  assert.match(rel, /\.filter\(\(p\) => !pointsAtAPreview\(p\.r2_object_key, \[p\.thumb_r2_key\]\)\)/);
+  assert.match(rel, /\.filter\(\(p\) => !pointsAtAPreview\(p\.r2_object_key, \[p\.thumb_r2_key, p\.tile_r2_key\]\)\)/);
+  const fn = between(rel, 'function pointsAtAPreview(', 'export async function enqueueRelease(');
+  assert.match(fn, /if \(typeof key !== 'string' \|\| !key\) return true;/, 'a row with no key is not deliverable');
 });
 
 test('the couple-side readers show only what the screen PASSED', () => {

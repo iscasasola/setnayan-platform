@@ -13,8 +13,9 @@ import { canCapture, pointsForMedia } from '@/lib/vendor-papic-tier';
 import { getMenuLifecyclePhase } from '@/lib/day-of-mode';
 import { readClientCaptureId, CLIENT_CAPTURE_ID_FIELD } from '@/lib/papic-client-capture-id';
 import {
-  discardFinalObjects,
+  discardPromoted,
   dropStagingObjects,
+  newAttemptTag,
   eventKeepsFullRes,
   loadUploadedTiers,
   promoteTier,
@@ -24,7 +25,10 @@ import {
   signCaptureTierPut,
   type IntentRow,
 } from '@/lib/papic-upload-intents.server';
-import { isCaptureTier, type CaptureTier } from '@/lib/papic-upload/tiers';
+import { isCaptureTier, refHoldsTier, type CaptureTier } from '@/lib/papic-upload/tiers';
+import { judgedShotInstant } from '@/lib/papic-upload/shot-time';
+import { ownerTagMatches } from '@/lib/papic-upload/owner-tag.server';
+import { maybeRunPapicUploadSweep } from '@/lib/papic-upload-sweep';
 
 // POST /api/vendor/papic-capture
 //
@@ -91,12 +95,14 @@ type VendorRow = {
 //
 // ⚠ FAILS OPEN, deliberately. An unreadable event, a missing date or an
 // unrecognised timezone leaves the phase at 'plan' and the lane open.
-async function eventOver(admin: Admin, eventId: string): Promise<boolean> {
-  const { data: eventRow } = await admin
+// 🕐 Judged by the SHUTTER, not arrival (review 2026-10-23, blocker 1).
+async function eventOver(admin: Admin, eventId: string, shotAtMs: number): Promise<boolean> {
+  const { data: eventRow, error: eventErr } = await admin
     .from('events')
     .select('event_date, event_end_date, timezone, cleared_at')
     .eq('event_id', eventId)
     .maybeSingle();
+  if (eventErr) console.error('[supabase-error] app/api/vendor/papic-capture/route.ts · from:events.select(window)', eventErr);
   const ev = eventRow as {
     event_date: string | null;
     event_end_date: string | null;
@@ -108,7 +114,7 @@ async function eventOver(admin: Admin, eventId: string): Promise<boolean> {
     ev.event_date,
     ev.cleared_at,
     ev.timezone ?? undefined,
-    undefined,
+    shotAtMs,
     ev.event_end_date,
   );
   return phase === 'after';
@@ -139,7 +145,10 @@ async function budgetRefusal(
   return null;
 }
 
-const intentFor = (intents: readonly IntentRow[], tier: CaptureTier) => intents.find((i) => i.tier === tier);
+// The tier's OPEN upload — a settled intent is never promoted twice (review
+// 2026-10-23, major 3: a late re-PUT after record lands in staging, nowhere else).
+const intentFor = (intents: readonly IntentRow[], tier: CaptureTier) =>
+  intents.find((i) => i.tier === tier && i.settled_at === null);
 type Loaded = Awaited<ReturnType<typeof loadUploadedTiers>>['loaded'][number];
 
 async function loadOrRedo(
@@ -153,10 +162,12 @@ async function loadOrRedo(
   return { ok: true, byTier: new Map(loaded.map((l) => [l.intent.tier, l])) };
 }
 
-async function promoteAll(byTier: Map<CaptureTier, Loaded>): Promise<Map<CaptureTier, string> | null> {
+async function promoteAll(admin: Admin, byTier: Map<CaptureTier, Loaded>): Promise<Map<CaptureTier, string> | null> {
   try {
+    // One attempt tag per call: its copies are its OWN keys (review major 3).
+    const attempt = newAttemptTag();
     const out = new Map<CaptureTier, string>();
-    for (const [tier, loaded] of byTier) out.set(tier, await promoteTier(loaded));
+    for (const [tier, loaded] of byTier) out.set(tier, await promoteTier(admin, loaded, attempt));
     return out;
   } catch (err) {
     console.error('[papic-upload] vendor promote failed', err instanceof Error ? err.message : err);
@@ -287,6 +298,12 @@ export async function POST(req: Request) {
   }
   const prior = (priorRow as VendorRow | null) ?? null;
   const op = body.op;
+  // 🔒 The shot's own supplier (review 2026-10-23, blocker 2): a shared phone
+  // now signed in as another supplier answers `other_owner`; the shot waits.
+  if (!ownerTagMatches(body.owner_tag, 'vendor', vendorProfileId, eventId)) {
+    return json({ error: 'other_owner' }, 409);
+  }
+  const shotAtMs = judgedShotInstant(body.captured_at_ms, Date.now());
 
   // ── sign ──────────────────────────────────────────────────────────────────
   if (op === 'sign') {
@@ -301,7 +318,7 @@ export async function POST(req: Request) {
         return json({ status: 'ok', already: true });
       }
       if (tier === 'original') {
-        if (prior.r2_object_key?.includes('-original.')) return json({ status: 'ok', already: true });
+        if (refHoldsTier(prior.r2_object_key, 'original')) return json({ status: 'ok', already: true });
         if (!(await eventKeepsFullRes(admin, eventId))) return json({ error: 'full_not_wanted' }, 409);
       }
     } else {
@@ -321,7 +338,7 @@ export async function POST(req: Request) {
           return json({ error: 'not_allowed' }, 403);
         }
       }
-      if (await eventOver(admin, eventId)) return json({ error: 'event_over' }, 403);
+      if (await eventOver(admin, eventId, shotAtMs)) return json({ error: 'event_over' }, 403);
       const refused = await budgetRefusal(admin, vendorProfileId, eventId, mediaType);
       if (refused) return refused;
     }
@@ -342,6 +359,8 @@ export async function POST(req: Request) {
 
   // ── record ────────────────────────────────────────────────────────────────
   if (op === 'record') {
+    // 🧹 Keep the upload sweep moving from the camera itself (at most hourly).
+    after(() => maybeRunPapicUploadSweep());
     if (prior) {
       // 🔁 THIS SHUTTER ALREADY LANDED — answer with the first row, count nothing.
       return json({
@@ -351,7 +370,7 @@ export async function POST(req: Request) {
         wantFull: await eventKeepsFullRes(admin, eventId),
       });
     }
-    if (await eventOver(admin, eventId)) return json({ error: 'event_over' }, 403);
+    if (await eventOver(admin, eventId, shotAtMs)) return json({ error: 'event_over' }, 403);
     const refused = await budgetRefusal(admin, vendorProfileId, eventId, mediaType);
     if (refused) return refused;
 
@@ -371,7 +390,7 @@ export async function POST(req: Request) {
     const needed: CaptureTier[] = isClip ? ['poster', 'clip_raw'] : [photoFirst];
     const checked = await loadOrRedo(intents, needed);
     if (!checked.ok) return checked.res;
-    const finals = await promoteAll(checked.byTier);
+    const finals = await promoteAll(admin, checked.byTier);
     if (!finals) return json({ error: 'record_failed' }, 503);
     const r2Ref = finals.get(isClip ? 'clip_raw' : photoFirst)!;
     const posterRef = isClip ? finals.get('poster')! : null;
@@ -398,17 +417,20 @@ export async function POST(req: Request) {
       .maybeSingle();
     if (insErr?.code === '23505') {
       // The same shutter raced past the read above: the first row stands.
-      const { data: again } = await admin
+      // The first row points at ITS copies; this attempt's are nobody's.
+      await discardPromoted(admin, needed.map((t) => intentFor(intents, t)!), finals);
+      const { data: again, error: againErr } = await admin
         .from('vendor_papic_captures')
         .select('capture_id')
         .eq('vendor_profile_id', vendorProfileId)
         .eq('client_capture_id', clientCaptureId)
         .maybeSingle();
+      if (againErr) console.error('[supabase-error] app/api/vendor/papic-capture/route.ts · from:vendor_papic_captures.select(duplicate)', againErr);
       return json({ status: 'ok', duplicate: true, captureId: again?.capture_id ?? null, wantFull: await eventKeepsFullRes(admin, eventId) });
     }
     if (insErr || !inserted) {
       // No row points at the promoted copies — they go; the uploads stay for a retry.
-      await discardFinalObjects(needed.map((t) => intentFor(intents, t)!));
+      await discardPromoted(admin, needed.map((t) => intentFor(intents, t)!), finals);
       // RLS rejection (not booked / not your profile) → 403; anything else → 500.
       const rls = insErr?.code === '42501';
       return json({ error: rls ? 'not_allowed' : 'record_failed' }, rls ? 403 : 500);
@@ -484,8 +506,13 @@ export async function POST(req: Request) {
     if (!prior) return json({ error: 'not_recorded_yet' }, 409);
     if (prior.media_type === 'clip') return json({ error: 'bad_tier' }, 400);
     const asked = Array.isArray(body.tiers) ? (body.tiers as unknown[]).filter(isCaptureTier) : [];
-    const tiers = asked.filter((t): t is CaptureTier => t === 'tile' || t === 'display' || t === 'original');
-    if (tiers.length === 0) return json({ error: 'bad_tier' }, 400);
+    const wanted = asked.filter((t): t is CaptureTier => t === 'tile' || t === 'display' || t === 'original');
+    if (wanted.length === 0) return json({ error: 'bad_tier' }, 400);
+    // A piece the row ALREADY has is never written again (review minor 8).
+    const has = (t: CaptureTier) =>
+      t === 'tile' ? !!prior.tile_r2_key : t === 'display' ? !!prior.display_r2_key : refHoldsTier(prior.r2_object_key, t);
+    const tiers = wanted.filter((t) => !has(t));
+    if (tiers.length === 0) return json({ status: 'ok', already: true });
     // The record's own screen must have RUN before more of this shot is accepted
     // (a classifier outage leaves nsfw_checked false — hidden from the couple);
     // the phone's retry of this call is what heals it.
@@ -540,7 +567,7 @@ export async function POST(req: Request) {
         return json({ status: 'ok', blocked: true });
       }
     }
-    const finals = await promoteAll(checked.byTier);
+    const finals = await promoteAll(admin, checked.byTier);
     if (!finals) return json({ error: 'attach_failed' }, 503);
     const sizeOf = (t: CaptureTier) => checked.byTier.get(t)?.size ?? null;
     const patch: Record<string, unknown> = {};
@@ -559,14 +586,25 @@ export async function POST(req: Request) {
       patch.r2_object_key = finals.get('original');
       patch.orig_bytes = sizeOf('original');
     }
-    const { error: updErr } = await admin
+    // Compare-and-set on what this call read; a concurrent attach that got
+    // there first wins and this attempt's own copies are discarded.
+    let cas = admin
       .from('vendor_papic_captures')
       .update(patch)
       .eq('capture_id', prior.capture_id)
       .eq('vendor_profile_id', vendorProfileId);
+    cas = prior.r2_object_key ? cas.eq('r2_object_key', prior.r2_object_key) : cas.is('r2_object_key', null);
+    if (tiers.includes('tile')) cas = cas.is('tile_r2_key', null);
+    if (tiers.includes('display')) cas = cas.is('display_r2_key', null);
+    const { data: updated, error: updErr } = await cas.select('capture_id');
     if (updErr) {
       console.error('[supabase-error] app/api/vendor/papic-capture/route.ts · from:vendor_papic_captures.update(attach)', updErr);
+      await discardPromoted(admin, tiers.map((t) => intentFor(intents, t)!), finals);
       return json({ error: 'persist_failed' }, 500);
+    }
+    if (!updated || updated.length === 0) {
+      await discardPromoted(admin, tiers.map((t) => intentFor(intents, t)!), finals);
+      return json({ status: 'ok', already: true });
     }
     await settleCaptureIntents(admin, tiers.map((t) => intentFor(intents, t)!.r2_ref));
     await dropStagingObjects(tiers.map((t) => intentFor(intents, t)!));

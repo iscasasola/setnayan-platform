@@ -93,7 +93,19 @@ export type UploaderEvent =
   | { type: 'recorded'; shot: QueuedShot; body: Record<string, unknown> }
   | { type: 'refused'; shot: QueuedShot; code: string; body: Record<string, unknown> | null }
   | { type: 'credits'; shot: QueuedShot; code: string; body: Record<string, unknown> | null }
+  /** Refused today, KEPT on the phone (the window, put-away …) — never deleted. */
+  | { type: 'kept'; shot: QueuedShot; code: string; body: Record<string, unknown> | null }
+  /** A phase the server acknowledged ('display' = the display copy is on the row). */
+  | { type: 'settled'; shot: QueuedShot; phase: CapturePhase }
   | { type: 'done'; shot: QueuedShot };
+
+/** A camera open on this page: the shots it may send (its event + its person). */
+export interface UploadContext {
+  lane: CaptureLane;
+  eventId: string;
+  /** The server-stamped owner tag of the person holding this camera. */
+  ownerTag: string | null;
+}
 
 export interface UploaderSnapshot {
   shots: QueuedShot[];
@@ -118,7 +130,12 @@ export interface NewShot {
   poster?: Blob | null;
   /** Guest mode_a only: the clean frame for the on-device face pass. */
   faceSource?: Blob | null;
+  /** The camera's owner tag (see QueuedShot.ownerTag). */
+  ownerTag?: string | null;
 }
+
+/** A 'kept' shot is asked again on this beat (and on every wake). */
+export const KEPT_RECHECK_MS = 30 * 60 * 1000;
 
 const ALL_PIECES: readonly LocalPiece[] = [
   'thumb', 'tile', 'display', 'original', 'poster', 'clip_web', 'clip_raw', 'face', 'source',
@@ -138,6 +155,7 @@ export class PapicUploader {
   private netFailedAt = 0;
   private lastShotAtMs = 0;
   private prepareTimer: unknown = null;
+  private contexts: UploadContext[] = [];
   private loaded: Promise<void> | null = null;
   /** False in a tab that is not the elected sender — it saves, never sends. */
   sender = true;
@@ -187,17 +205,53 @@ export class PapicUploader {
     return this.loaded;
   }
 
-  /** Re-read the queue (another tab saved a shot). */
+  /**
+   * Re-read the queue (another tab saved or sent a shot). The SENDER only adds
+   * shots it does not know; a tab that is NOT the sender takes the stored state
+   * as the truth, so its chip follows what the sender is doing instead of saying
+   * "Sending" about shots that already landed (review 2026-10-23, minor 9).
+   */
   async reload(): Promise<void> {
     try {
-      for (const s of await this.deps.store.loadShots()) {
-        if (!this.shots.has(s.id)) this.shots.set(s.id, s);
+      const stored = await this.deps.store.loadShots();
+      if (this.sender) {
+        for (const s of stored) if (!this.shots.has(s.id)) this.shots.set(s.id, s);
+      } else {
+        const keep = [...this.shots.values()].filter((s) => s.memoryOnly);
+        this.shots = new Map(stored.map((s) => [s.id, s]));
+        for (const s of keep) this.shots.set(s.id, s);
       }
     } catch {
       /* keep what we have */
     }
     this.notify();
     this.kick();
+  }
+
+  /**
+   * A camera opened on this page. Only the shots of an open camera's event and
+   * person are sent; the rest wait on the phone (review 2026-10-23, blocker 2).
+   */
+  register(ctx: UploadContext): () => void {
+    this.contexts.push(ctx);
+    for (const s of this.shots.values()) if (s.hold === 'context' && this.canSend(s)) s.hold = null;
+    this.notify();
+    this.kick();
+    return () => {
+      this.contexts = this.contexts.filter((c) => c !== ctx);
+      this.notify();
+    };
+  }
+
+  /** Is a camera for this shot's event and person open here? */
+  canSend(shot: QueuedShot): boolean {
+    return this.contexts.some(
+      (c) =>
+        c.lane === shot.lane &&
+        c.eventId === shot.eventId &&
+        // A shot adopted from the old queue carries no tag: its event decides.
+        (!shot.ownerTag || !c.ownerTag || c.ownerTag === shot.ownerTag),
+    );
   }
 
   subscribe(fn: (s: UploaderSnapshot) => void): () => void {
@@ -217,7 +271,13 @@ export class PapicUploader {
     return {
       shots,
       online,
-      chip: chipState({ shots, online, doneThisVisit: this.doneThisVisit, refused: this.refused }),
+      chip: chipState({
+        shots,
+        online,
+        doneThisVisit: this.doneThisVisit,
+        refused: this.refused,
+        canSend: (s) => this.canSend(s),
+      }),
     };
   }
 
@@ -282,8 +342,10 @@ export class PapicUploader {
       nextAttemptAtMs: 0,
       hold: null,
       lastError: null,
+      ownerTag: input.ownerTag ?? null,
     };
     const type = input.primary.type || (input.media === 'clip' ? 'video/mp4' : 'image/jpeg');
+    const kept = this.memBlobs.size;
     if (input.media === 'photo') {
       await this.putBlob(shot, 'original', input.primary);
       shot.tiers.original = { contentType: type, size: input.primary.size, uploaded: false };
@@ -293,7 +355,14 @@ export class PapicUploader {
       if (input.poster) await this.putBlob(shot, 'source', input.poster);
     }
     if (input.faceSource) await this.putBlob(shot, 'face', input.faceSource);
-    await this.deps.store.saveShot(shot).catch(() => {});
+    // The phone refused the bytes: they live in this page only — and the chip
+    // says so ("Keep this page open · not saved on the phone"), never "safe".
+    if (this.memBlobs.size > kept) shot.memoryOnly = true;
+    try {
+      await this.deps.store.saveShot(shot);
+    } catch {
+      shot.memoryOnly = true;
+    }
     this.shots.set(shot.id, shot);
     this.lastShotAtMs = nowMs;
     // A new shot is a reason to re-ask anything held for credits.
@@ -306,7 +375,8 @@ export class PapicUploader {
   wake(): void {
     const nowMs = this.deps.now();
     for (const s of this.shots.values()) {
-      if (s.hold === 'credits') s.hold = null;
+      if (s.hold === 'credits' || s.hold === 'kept') s.hold = null;
+      if (s.hold === 'context' && this.canSend(s)) s.hold = null;
       if (s.nextAttemptAtMs > nowMs) s.nextAttemptAtMs = nowMs;
     }
     this.netFailedAt = 0;
@@ -421,6 +491,7 @@ export class PapicUploader {
           slots: PARALLEL_PUTS - this.inFlight.size,
           inFlight: this.inFlight,
           fullAllowed: this.deps.fullAllowed(),
+          canSend: (s) => this.canSend(s),
           // A PHOTO still being prepared has its thumbnail in a moment (~0.1 s
           // a shot) — hold the later phases for it. A clip is not waited for:
           // its web copy can take a minute to make, and nothing should stall
@@ -449,7 +520,7 @@ export class PapicUploader {
     this.timer = null;
     const nowMs = this.deps.now();
     const waits = [...this.shots.values()]
-      .filter((s) => s.prepared && s.nextAttemptAtMs > nowMs)
+      .filter((s) => s.prepared && s.hold !== 'context' && s.nextAttemptAtMs > nowMs)
       .map((s) => s.nextAttemptAtMs - nowMs);
     if (waits.length === 0) return;
     this.timer = this.deps.setTimer(() => {
@@ -461,6 +532,9 @@ export class PapicUploader {
   private expireOld(): void {
     const nowMs = this.deps.now();
     for (const s of [...this.shots.values()]) {
+      // A shot KEPT for a refusal (the window, put-away) or waiting for its own
+      // camera is never aged out — "kept on this phone" means kept.
+      if (s.hold === 'kept' || s.hold === 'context' || s.keptReason) continue;
       if (nowMs - s.queuedAtMs > SHOT_TTL_MS) void this.drop(s, 'expired', null);
     }
   }
@@ -515,6 +589,7 @@ export class PapicUploader {
     shot.lastError = null;
     this.netFailedAt = 0;
     for (const t of tiers) await this.dropBlob(shot.id, t);
+    this.emit({ type: 'settled', shot, phase });
     if (phase === 'record') {
       shot.captureId = typeof answer.body?.captureId === 'string' ? answer.body.captureId : null;
       shot.wantFull = answer.body?.wantFull === false ? false : true;
@@ -542,6 +617,22 @@ export class PapicUploader {
       case 'no_full':
         await this.forgetFull(shot);
         if (shotFinished(shot)) return this.finish(shot);
+        return this.persist(shot);
+      case 'kept':
+        // 🔒 KEPT, never deleted (review 2026-10-23, blocker 1). Asked again on
+        // every wake and every KEPT_RECHECK_MS — the host can reopen, the
+        // server judges by the shutter's own time.
+        shot.hold = 'kept';
+        shot.keptReason = verdict.error;
+        shot.lastError = verdict.error;
+        shot.nextAttemptAtMs = this.deps.now() + KEPT_RECHECK_MS;
+        this.emit({ type: 'kept', shot, code: verdict.error, body: answer.body });
+        return this.persist(shot);
+      case 'context':
+        // This phone now speaks for another event or person: wait for this
+        // shot's own camera to be open again. Never recorded elsewhere.
+        shot.hold = 'context';
+        shot.lastError = verdict.error;
         return this.persist(shot);
       case 'credits':
         shot.hold = 'credits';

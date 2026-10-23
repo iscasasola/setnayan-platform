@@ -42,6 +42,12 @@ type EnqueueResult =
   | { ok: true; jobId: string; totalFiles: number; alreadyComplete: boolean }
   | { ok: false; reason: string };
 
+/** Does the row's deliverable key still name one of its preview copies? */
+function pointsAtAPreview(key: unknown, previews: readonly unknown[]): boolean {
+  if (typeof key !== 'string' || !key) return true;
+  return previews.some((p) => typeof p === 'string' && p === key);
+}
+
 export async function enqueueRelease(input: {
   eventId: string;
   userId: string;
@@ -69,16 +75,25 @@ export async function enqueueRelease(input: {
   //    path (and is backed up before the guest-inclusive full-res drop runs);
   //    papic_guest_captures carries orig_bytes (not size_bytes) + a nullable
   //    r2_object_key, so we skip captures with no R2 object.
+  //
+  //    🛡 SCREENED ONLY (review 2026-10-23, major 4): the couple's Drive is
+  //    "another person" — only `moderation_state = 'clean'` leaves storage, the
+  //    same allowlist the gallery reads (lib/papic-gallery.ts). And a save-first
+  //    row whose r2_object_key still names its phone-made THUMBNAIL (or tile) is
+  //    not a deliverable yet — its display copy / original has not arrived. It
+  //    is skipped, not released as a 320 px file; the next release picks it up.
   const [seatRes, guestRes] = await Promise.all([
     admin
       .from('papic_photos')
-      .select('photo_id, r2_object_key, size_bytes')
+      .select('photo_id, r2_object_key, size_bytes, thumb_r2_key')
       .eq('event_id', input.eventId)
+      .eq('moderation_state', 'clean')
       .is('hidden_at', null),
     admin
       .from('papic_guest_captures')
-      .select('capture_id, r2_object_key, orig_bytes')
+      .select('capture_id, r2_object_key, orig_bytes, thumb_r2_key, tile_r2_key')
       .eq('event_id', input.eventId)
+      .eq('moderation_state', 'clean')
       .is('hidden_at', null)
       .not('r2_object_key', 'is', null),
   ]);
@@ -107,6 +122,7 @@ export async function enqueueRelease(input: {
   const deliverables: Deliverable[] = [
     ...((seatRes.data ?? [])
       .filter((p) => !copiedKeys.has(p.r2_object_key as string))
+      .filter((p) => !pointsAtAPreview(p.r2_object_key, [p.thumb_r2_key]))
       .map((p) => ({
         sourceTable: 'papic_photos' as const,
         sourceId: p.photo_id as string,
@@ -115,6 +131,7 @@ export async function enqueueRelease(input: {
       }))),
     ...((guestRes.data ?? [])
       .filter((p) => !copiedKeys.has(p.r2_object_key as string))
+      .filter((p) => !pointsAtAPreview(p.r2_object_key, [p.thumb_r2_key, p.tile_r2_key]))
       .map((p) => ({
         sourceTable: 'papic_guest_captures' as const,
         sourceId: p.capture_id as string,

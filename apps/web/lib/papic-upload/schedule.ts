@@ -53,8 +53,26 @@ export interface QueuedShot {
   captureId?: string | null;
   attempts: number;
   nextAttemptAtMs: number;
-  /** A refusal that waits for someone else (a top-up) rather than for signal. */
-  hold?: 'credits' | null;
+  /**
+   * A refusal that waits for someone else rather than for signal:
+   *   credits — a top-up;
+   *   kept    — the event's window / put-away / an answer waiting can't fix today:
+   *             the shot is KEPT on this phone, never deleted (review 2026-10-23);
+   *   context — the shot belongs to another event or another person on this
+   *             phone: it waits until THAT camera is open again.
+   */
+  hold?: 'credits' | 'kept' | 'context' | null;
+  /** Why a 'kept' shot was not accepted (for the ⓘ). */
+  keptReason?: string | null;
+  /**
+   * The server's tag for WHO took this shot, at WHICH event (an HMAC — no id is
+   * readable from it). Every call carries it; a different signed-in person or
+   * guest pass on this phone answers `other_owner` and the shot waits. Absent on
+   * shots adopted from the old queue.
+   */
+  ownerTag?: string | null;
+  /** The phone refused to store the bytes (a private mode): they live in this page only. */
+  memoryOnly?: boolean;
   lastError?: string | null;
 }
 
@@ -108,6 +126,8 @@ export function nextJobs(
   opts: {
     nowMs: number;
     slots: number;
+    /** May this page send this shot? Others wait (another event / person). */
+    canSend?: (shot: QueuedShot) => boolean;
     inFlight: ReadonlySet<string>;
     fullAllowed: boolean;
     /** A shot is still having its small pieces made — its thumbnail is coming,
@@ -130,6 +150,7 @@ export function nextJobs(
     for (const shot of ordered) {
       if (out.length >= opts.slots) return out;
       if (!shot.prepared || shot.hold || shot.nextAttemptAtMs > opts.nowMs) continue;
+      if (opts.canSend && !opts.canSend(shot)) continue;
       if (currentPhase(shot) !== phase) continue;
       const tiers = tiersInPhase(shot, phase);
       const missing = tiers.filter((t) => !shot.tiers[t]!.uploaded);
@@ -152,7 +173,7 @@ export function nextJobs(
       earlierPending = true;
     }
     // Anything of this phase still waiting to START keeps the later phases shut.
-    if (ordered.some((s) => s.prepared && !s.hold && currentPhase(s) === phase)) {
+    if (ordered.some((s) => s.prepared && !s.hold && (!opts.canSend || opts.canSend(s)) && currentPhase(s) === phase)) {
       earlierPending = true;
     }
   }
@@ -178,26 +199,37 @@ export function backoffMs(attempts: number, random: number): number {
  *   ok       — move on
  *   retry    — signal / server trouble: back off and try again
  *   credits  — the event (or this guest) is out of credits: keep the shot, wait
+ *   kept     — refused today (the window, put-away, the day is over …): KEEP the
+ *              shot on this phone and ask again later — never delete it
+ *   context  — the shot is another event's or another person's: wait for that camera
  *   reupload — the server could not find / accept a tier's object: PUT it again
- *   drop     — this shot can never land (closed window, put away, blocked …)
+ *   drop     — this shot can never land and holds nothing to keep (blocked, terms)
  *   no_full  — the event does not keep full-res: forget the original / raw
  */
 export type AnswerVerdict =
   | { verdict: 'ok' }
   | { verdict: 'retry'; error: string }
   | { verdict: 'credits'; error: string }
+  | { verdict: 'kept'; error: string }
+  | { verdict: 'context'; error: string }
   | { verdict: 'reupload'; tiers: CaptureTier[]; error: string }
   | { verdict: 'drop'; error: string }
   | { verdict: 'no_full' };
 
-/** Refusals that waiting for signal can never fix. */
-export const PERMANENT_REFUSALS: ReadonlySet<string> = new Set([
+/**
+ * The ONLY refusals that delete a shot from the phone — the two the old guest
+ * drain also dropped: the guest is blocked from the event, or has not accepted
+ * the photo terms. Everything else is kept (review 2026-10-23, blocker 1: a shot
+ * taken inside the window must never be erased because it ARRIVED after it).
+ */
+export const DROP_REFUSALS: ReadonlySet<string> = new Set(['blocked', 'terms_required']);
+
+/** Refused today, kept on the phone, asked again later. */
+export const KEPT_REFUSALS: ReadonlySet<string> = new Set([
   // guest lane
   'guest_capture_not_open_yet',
   'guest_capture_closed',
   'event_put_away',
-  'blocked',
-  'terms_required',
   'not_owned',
   'invalid_guest',
   // vendor lane
@@ -208,7 +240,7 @@ export const PERMANENT_REFUSALS: ReadonlySet<string> = new Set([
   'video_not_allowed',
   'event_over',
   'no_event',
-  // both — the shot itself is unacceptable
+  // both — the shot itself was refused (never seen in practice; kept, not lost)
   'bad_type',
   'too_large',
   'too_small',
@@ -216,6 +248,9 @@ export const PERMANENT_REFUSALS: ReadonlySet<string> = new Set([
   'bad_request',
   'bad_tier',
 ]);
+
+/** The shot belongs to another event / another person on this phone. */
+export const CONTEXT_REFUSALS: ReadonlySet<string> = new Set(['other_owner', 'other_event']);
 
 /** "No credits right now" — a top-up can still land the shot later. */
 export const CREDIT_REFUSALS: ReadonlySet<string> = new Set([
@@ -240,7 +275,9 @@ export function classifyAnswer(
     return { verdict: 'reupload', tiers: missing, error: code };
   }
   if (CREDIT_REFUSALS.has(code)) return { verdict: 'credits', error: code };
-  if (PERMANENT_REFUSALS.has(code)) return { verdict: 'drop', error: code };
+  if (CONTEXT_REFUSALS.has(code)) return { verdict: 'context', error: code };
+  if (DROP_REFUSALS.has(code)) return { verdict: 'drop', error: code };
+  if (KEPT_REFUSALS.has(code)) return { verdict: 'kept', error: code };
   // 408 / 429 / 5xx / an unknown 4xx / a body we could not read — try again.
   return { verdict: 'retry', error: code || `http_${httpStatus}` };
 }
@@ -253,12 +290,15 @@ export type ChipState =
   | { kind: 'sending'; n: number; of: number }
   | { kind: 'offline'; waiting: number }
   | { kind: 'credits'; waiting: number }
+  | { kind: 'kept'; waiting: number; reason: string | null }
+  | { kind: 'memory'; waiting: number }
   | { kind: 'refused'; count: number; reason: string };
 
 /**
  * What the chip says. A failure must never read like success or like nothing
  * (repo rule: the measurement must reach the render) — so "All saved" appears
- * ONLY when the queue is genuinely empty after this visit sent something.
+ * ONLY when the queue is genuinely empty after this visit sent something, and a
+ * shot that lives only in this page's memory says so first.
  */
 export function chipState(input: {
   shots: readonly QueuedShot[];
@@ -267,14 +307,23 @@ export function chipState(input: {
   doneThisVisit: number;
   /** Shots dropped this visit for a permanent refusal, newest reason. */
   refused: { count: number; reason: string } | null;
+  /** May THIS page send this shot? (its event + person have a camera open here) */
+  canSend?: (shot: QueuedShot) => boolean;
 }): ChipState {
   const { shots, online, doneThisVisit, refused } = input;
+  const canSend = input.canSend ?? (() => true);
   const waiting = shots.length;
   if (refused && refused.count > 0 && waiting === 0) {
     return { kind: 'refused', count: refused.count, reason: refused.reason };
   }
   if (waiting === 0) return doneThisVisit > 0 ? { kind: 'saved' } : { kind: 'idle' };
-  if (shots.every((s) => s.hold === 'credits')) return { kind: 'credits', waiting };
+  if (shots.some((s) => s.memoryOnly)) return { kind: 'memory', waiting };
+  const active = shots.filter((s) => !s.hold && canSend(s));
+  if (active.length === 0) {
+    if (shots.every((s) => s.hold === 'credits')) return { kind: 'credits', waiting };
+    const kept = shots.find((s) => s.hold === 'kept');
+    return { kind: 'kept', waiting, reason: kept?.keptReason ?? null };
+  }
   if (!online) return { kind: 'offline', waiting };
   const of = doneThisVisit + waiting;
   return { kind: 'sending', n: Math.min(of, doneThisVisit + 1), of };
@@ -292,6 +341,10 @@ export function chipLabel(state: ChipState): string | null {
       return `Offline · ${formatCount(state.waiting)} waiting`;
     case 'credits':
       return `Credits ran out · ${formatCount(state.waiting)} not sent`;
+    case 'kept':
+      return `Not sent · ${formatCount(state.waiting)} kept on this phone`;
+    case 'memory':
+      return 'Keep this page open · not saved on the phone';
     case 'refused':
       // A failure says so in words ("couldn't"), never in a shape that reads as done.
       return `Couldn’t save ${formatCount(state.count)}`;

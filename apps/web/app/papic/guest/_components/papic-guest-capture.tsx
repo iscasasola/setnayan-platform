@@ -128,9 +128,14 @@ type Props = {
   /** Carried, never printed: no casual greetings on a guest's screen (owner, DECISION_LOG 2026-09-30). */
   guestName: string;
   eventName: string;
-  /** The event this guest camera belongs to — tags offline-queued captures so a
-   *  failed upload can drain on reconnect (and groups them in the diagnostic). */
+  /** The event this guest camera belongs to — every saved shot is filed under it
+   *  and sent only while a camera for it is open. */
   eventId: string;
+  /** The server-stamped tag of THIS guest at THIS event (lib/papic-upload/
+   *  owner-tag.server.ts). REQUIRED, like `capApplies`: two mounts, and an
+   *  optional prop is how one of them quietly forgets it — a queued shot must
+   *  never record as another pass on a shared phone. */
+  uploadOwner: string | null;
   initialRemaining: number;
   total: number;
   /** Has this guest already accepted the one-time UGC terms of use? */
@@ -288,6 +293,7 @@ function announceOutOfShots(): void {
 export function PapicGuestCapture({
   eventName,
   eventId,
+  uploadOwner,
   initialRemaining,
   total,
   termsAccepted,
@@ -589,6 +595,7 @@ export function PapicGuestCapture({
           sharePublicly: meta.sharePublicly,
           primary: blob,
           faceSource,
+          ownerTag: uploadOwner,
         });
       } catch {
         // The phone could not keep it (storage full / private mode). Say so —
@@ -604,7 +611,7 @@ export function PapicGuestCapture({
         return URL.createObjectURL(blob);
       });
     },
-    [eventId],
+    [eventId, uploadOwner],
   );
 
   const capture = useCallback(async () => {
@@ -680,6 +687,12 @@ export function PapicGuestCapture({
   // dead hour, hours — after it was taken, so the camera reacts to the
   // uploader's events rather than to a request it made. Two copies of each rule
   // used to live in the photo and clip handlers; there is one now.
+  // This camera is open: its event's shots (this guest's) may send from here.
+  useEffect(
+    () => papicUploader().register({ lane: 'guest', eventId, ownerTag: uploadOwner }),
+    [eventId, uploadOwner],
+  );
+
   useEffect(() => {
     const uploader = papicUploader();
     return uploader.on((e) => {
@@ -719,17 +732,23 @@ export function PapicGuestCapture({
         announceOutOfShots();
         return;
       }
-      if (e.type === 'refused') {
-        // 🚨 PUT-AWAY FIRST — it is not "out of shots".
+      if (e.type === 'kept') {
+        // 🔒 The shot is KEPT on this phone (never erased for the window or
+        // put-away — review 2026-10-23). 🚨 PUT-AWAY FIRST — it is not "out of shots".
         if (e.code === 'event_put_away') setSaveError(EVENT_PUT_AWAY_CAPTURE_COPY);
-        else if (e.code === 'blocked') setBlocked(true);
-        else if (e.code === 'terms_required') setAccepted(false);
         else {
           setSaveError(
             guestWindowRejectMessage(e.code, e.body?.eventDay) ??
-              "Couldn't save a shot — the event didn't accept it.",
+              'Not sent yet — this shot stays on your phone.',
           );
         }
+        return;
+      }
+      if (e.type === 'refused') {
+        // Only the two refusals that end a shot reach here.
+        if (e.code === 'blocked') setBlocked(true);
+        else if (e.code === 'terms_required') setAccepted(false);
+        else setSaveError("Couldn't save a shot — the event didn't accept it.");
       }
     });
   }, [eventId, onSavedCapture]);
@@ -771,6 +790,7 @@ export function PapicGuestCapture({
           sharePublicly,
           primary: clip,
           poster,
+          ownerTag: uploadOwner,
         });
       } catch {
         setSaveError("Couldn't save that clip on this phone — free up some space and try again.");
@@ -787,7 +807,7 @@ export function PapicGuestCapture({
         });
       }
     },
-    [sharePublicly, eventId, capApplies],
+    [sharePublicly, eventId, capApplies, uploadOwner],
   );
 
   const stopRecording = useCallback(() => {

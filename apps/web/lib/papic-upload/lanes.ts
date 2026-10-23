@@ -24,11 +24,15 @@ export function shotFields(shot: QueuedShot): Record<string, unknown> {
   const base: Record<string, unknown> = {
     [CLIENT_CAPTURE_ID_FIELD]: shot.id,
     media_type: shot.media,
+    // 🔒 Every call names the event the shot was TAKEN at and who took it — the
+    // route refuses (and the phone waits) when this phone's pass or sign-in now
+    // speaks for another event or another person (review 2026-10-23, blocker 2).
+    event_id: shot.eventId,
+    // 🕐 The shutter — the window is judged by it, not by arrival.
+    captured_at_ms: shot.capturedAtMs,
   };
-  if (shot.lane === 'vendor') {
-    base.event_id = shot.eventId;
-    base.consent = shot.consent === true;
-  }
+  if (shot.ownerTag) base.owner_tag = shot.ownerTag;
+  if (shot.lane === 'vendor') base.consent = shot.consent === true;
   return base;
 }
 
@@ -48,8 +52,6 @@ export function recordBody(shot: QueuedShot): Record<string, unknown> {
   const body: Record<string, unknown> = {
     ...shotFields(shot),
     op: 'record',
-    // 🕐 THE SHUTTER — the minute the shot was taken, not the minute it landed.
-    captured_at_ms: shot.capturedAtMs,
   };
   if (shot.durationMs) body.duration_ms = shot.durationMs;
   if (shot.lane === 'guest') {

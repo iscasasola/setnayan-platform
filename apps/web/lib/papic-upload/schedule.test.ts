@@ -134,8 +134,15 @@ test('answers: signal trouble retries, credits wait, refusals stop, missing obje
   assert.equal(classifyAnswer(408, { error: 'timeout' }).verdict, 'retry');
   assert.equal(classifyAnswer(409, { status: 'camera_points_exhausted' }).verdict, 'credits');
   assert.equal(classifyAnswer(409, { status: 'quota_exhausted' }).verdict, 'credits');
-  assert.equal(classifyAnswer(403, { error: 'guest_capture_closed' }).verdict, 'drop');
-  assert.equal(classifyAnswer(409, { status: 'event_put_away' }).verdict, 'drop');
+  // 🔒 A closed window / put-away KEEPS the shot (review 2026-10-23, blocker 1).
+  assert.equal(classifyAnswer(403, { error: 'guest_capture_closed' }).verdict, 'kept');
+  assert.equal(classifyAnswer(409, { status: 'event_put_away' }).verdict, 'kept');
+  assert.equal(classifyAnswer(403, { error: 'event_over' }).verdict, 'kept');
+  // Only the two the old drain dropped still drop.
+  assert.equal(classifyAnswer(403, { status: 'blocked' }).verdict, 'drop');
+  assert.equal(classifyAnswer(403, { status: 'terms_required' }).verdict, 'drop');
+  assert.equal(classifyAnswer(409, { error: 'other_owner' }).verdict, 'context');
+  assert.equal(classifyAnswer(409, { error: 'other_event' }).verdict, 'context');
   assert.deepEqual(classifyAnswer(409, { error: 'object_missing', missing: ['thumb'] }), {
     verdict: 'reupload',
     tiers: ['thumb'],

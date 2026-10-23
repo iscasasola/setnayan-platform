@@ -1,4 +1,6 @@
 import 'server-only';
+import { randomBytes } from 'node:crypto';
+import { mvhdDurationMs } from '@/lib/papic-upload/mp4';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getR2Client, r2Copy, r2Head, r2Upload, R2_BUCKETS } from '@/lib/r2';
@@ -12,6 +14,7 @@ import { presignUploadUrl, encodeR2Ref } from '@/lib/uploads';
 import {
   CAPTURE_PUT_TTL_SECONDS,
   captureTierKey,
+  attemptKeyFor,
   finalKeyFor,
   stagingKeyFor,
   contentTypeAllowed,
@@ -97,6 +100,10 @@ export async function signCaptureTierPut(
       size_bytes: input.sizeBytes,
       content_type: contentType,
       signed_at: new Date().toISOString(),
+      // A fresh signature is a fresh, OPEN upload (the route only signs a tier
+      // the row does not already hold — refHoldsTier).
+      settled_at: null,
+      sweep_refused_at: null,
     },
     { onConflict: 'r2_ref' },
   );
@@ -255,10 +262,23 @@ export async function loadUploadedTier(intent: IntentRow): Promise<LoadedTier> {
  * Write a checked tier to its FINAL key (the one a row may point at, which no
  * presigned URL ever targets) and drop the staging copy. Returns the final ref.
  */
-export async function promoteTier(loaded: Extract<LoadedTier, { ok: true }>): Promise<string> {
+export async function promoteTier(
+  admin: SupabaseClient,
+  loaded: Extract<LoadedTier, { ok: true }>,
+  attempt: string,
+): Promise<string> {
   const stagingKey = keyOf(loaded.intent.r2_ref);
-  const finalKey = finalKeyFor(stagingKey);
+  const base = finalKeyFor(stagingKey);
+  const finalKey = base ? attemptKeyFor(base, attempt) : null;
   if (!finalKey) throw new Error('not_a_staging_key');
+  const finalRef = encodeR2Ref(BUCKET, finalKey);
+  // Written down BEFORE the copy: a crash between the copy and the row leaves a
+  // final the sweep can find (and keeps, if a row came to point at it).
+  const { error: trackErr } = await admin
+    .from('papic_upload_intents')
+    .update({ final_ref: finalRef })
+    .eq('r2_ref', loaded.intent.r2_ref);
+  if (trackErr) throw new Error(`track final: ${trackErr.message}`);
   if (loaded.bytes) {
     await r2Upload({
       bucket: BUCKET,
@@ -276,7 +296,12 @@ export async function promoteTier(loaded: Extract<LoadedTier, { ok: true }>): Pr
   }
   // The staging copy stays until the row is written (`dropStagingObjects`): a
   // refused record can then be retried without the phone sending it again.
-  return encodeR2Ref(BUCKET, finalKey);
+  return finalRef;
+}
+
+/** A fresh attempt tag (8 hex). */
+export function newAttemptTag(): string {
+  return randomBytes(4).toString('hex');
 }
 
 /** After the row points at the final copies: the uploads are no longer needed. */
@@ -285,17 +310,64 @@ export async function dropStagingObjects(intents: readonly IntentRow[]): Promise
 }
 
 /**
- * The record was REFUSED (credits, put away…) after the pieces were promoted:
- * no row points at the final copies, so they go — the staging uploads stay for
- * the phone's next try. Only a FINAL key in the intent's own folder is touched.
+ * The record was REFUSED (credits, put away…) or LOST a race after this
+ * attempt promoted its pieces: no row points at THIS attempt's copies (they are
+ * per-attempt keys), so they go — the staging uploads stay for the phone's next
+ * try. Never a key another attempt wrote.
  */
-export async function discardFinalObjects(intents: readonly IntentRow[]): Promise<void> {
+export async function discardPromoted(
+  admin: SupabaseClient,
+  intents: readonly IntentRow[],
+  finals: ReadonlyMap<CaptureTier, string>,
+): Promise<void> {
   for (const i of intents) {
-    const finalRef = finalRefOf(i);
-    if (!finalRef) continue;
-    await cleanupDelete(finalRef, intentScope(i)).catch(() => 'refused');
+    const ref = finals.get(i.tier);
+    if (!ref) continue;
+    const outcome = await cleanupDelete(ref, intentScope(i)).catch(() => 'refused' as const);
+    if (outcome === 'deleted') {
+      const { error } = await admin
+        .from('papic_upload_intents')
+        .update({ final_ref: null })
+        .eq('r2_ref', i.r2_ref)
+        .eq('final_ref', ref);
+      if (error) console.error('[supabase-error] lib/papic-upload-intents.server.ts · from:papic_upload_intents.update(final_ref null)', error);
+    }
   }
 }
+
+/**
+ * How long a clip's MP4 runs, read from its own `mvhd` box (a range read of the
+ * top-level boxes, then the `moov` box) — so the phone keeps its raw clip until
+ * the server has a web copy that is a real, playable video (review 2026-10-23,
+ * major 5 · Guard A). Null when it cannot be read.
+ */
+export async function probeMp4DurationMs(ref: string, sizeBytes: number): Promise<number | null> {
+  const key = keyOf(ref);
+  let offset = 0;
+  for (let n = 0; n < 32 && offset + 8 <= sizeBytes; n++) {
+    const head = await getObject(key, `bytes=${offset}-${offset + 15}`);
+    if (!head || head.length < 8) return null;
+    const dv = new DataView(head.buffer, head.byteOffset, head.byteLength);
+    let boxSize = dv.getUint32(0);
+    const type = String.fromCharCode(head[4]!, head[5]!, head[6]!, head[7]!);
+    let headerLen = 8;
+    if (boxSize === 1 && head.length >= 16) {
+      boxSize = Number(dv.getBigUint64(8));
+      headerLen = 16;
+    } else if (boxSize === 0) {
+      boxSize = sizeBytes - offset;
+    }
+    if (boxSize < headerLen) return null;
+    if (type === 'moov') {
+      const len = Math.min(boxSize, 4_000_000);
+      const moov = await getObject(key, `bytes=${offset}-${offset + len - 1}`);
+      return moov ? mvhdDurationMs(moov) : null;
+    }
+    offset += boxSize;
+  }
+  return null;
+}
+
 
 /**
  * Load several tiers. A missing or rejected one is answered to the phone as

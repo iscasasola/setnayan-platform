@@ -150,9 +150,16 @@ test('🔑 the UPLOAD ROUTE enforces it — the page is only a courtesy', () => 
   const priorBranch = sign.slice(sign.indexOf('if (prior) {'), sign.indexOf('} else {'));
   assert.ok(priorBranch.length > 50, 'handleSign moved — re-point this guard');
   assert.doesNotMatch(priorBranch, /windowRefusal\(/, 'a piece of an accepted shot must not be refused by the window');
-  assert.match(sign.slice(sign.indexOf('} else {')), /windowRefusal\(session, admin\)/, 'a NEW shot must meet the window at sign');
+  // …judged by the SHUTTER, not by arrival (review 2026-10-23, blocker 1: an
+  // in-window shot that finds signal the next afternoon is still in-window).
+  assert.match(
+    sign.slice(sign.indexOf('} else {')),
+    /windowRefusal\(session, admin, judgedShotInstant\(body\.captured_at_ms, Date\.now\(\)\)\)/,
+    'a NEW shot must meet the window at sign, judged by its shutter',
+  );
   const record = route.slice(route.indexOf('async function handleRecord('), route.indexOf('async function afterVisible('));
-  assert.match(record, /windowRefusal\(session, admin\)/, 'a NEW shot must meet the window at record');
+  assert.match(record, /const shotAtMs = judgedShotInstant\(body\.captured_at_ms, Date\.now\(\)\);/, 'the record must judge the window by the shutter');
+  assert.match(record, /windowRefusal\(session, admin, shotAtMs\)/, 'a NEW shot must meet the window at record');
 });
 
 test('🔑 both server callers use the SHARED resolver, not their own date maths', () => {

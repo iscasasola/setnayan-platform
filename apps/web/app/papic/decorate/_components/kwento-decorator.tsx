@@ -81,6 +81,7 @@ const nextId = () => `o${++seq}`;
 
 export function KwentoDecorator({
   eventId,
+  uploadOwner,
   eventName,
   canKwento,
   themeColors = [],
@@ -88,6 +89,8 @@ export function KwentoDecorator({
 }: {
   /** The guest session's event — the uploader files the shot under it. */
   eventId: string;
+  /** This guest's owner tag (lib/papic-upload/owner-tag.server.ts). */
+  uploadOwner: string | null;
   eventName: string;
   canKwento: boolean;
   /** The couple's mood-board colours, merged into the text swatches. */
@@ -308,35 +311,44 @@ export function KwentoDecorator({
       // answer arrives as an uploader event (below), keyed by this shot's id.
       const id = newClientCaptureId();
       pendingIdRef.current = id;
-      await saveShot({ id, lane: 'guest', eventId, media: 'photo', capturedAtMs: Date.now(), primary: blob });
+      await saveShot({ id, lane: 'guest', eventId, media: 'photo', capturedAtMs: Date.now(), primary: blob, ownerTag: uploadOwner });
       setStatus('Saved on your phone — sending…');
     } catch {
       setStatus('Couldn’t save — please try again.');
     } finally {
       setSaving(false);
     }
-  }, [overlays, style, eventId]);
+  }, [overlays, style, eventId, uploadOwner]);
+
+  useEffect(
+    () => papicUploader().register({ lane: 'guest', eventId, ownerTag: uploadOwner }),
+    [eventId, uploadOwner],
+  );
 
   // The uploader's answer for the decorated photo just saved.
   useEffect(() => {
     return papicUploader().on((e) => {
       if (e.shot.id !== pendingIdRef.current) return;
       if (e.type === 'recorded') {
-        setDone(true);
+        // Recorded = the thumbnail landed; the caption can anchor on it now.
         setSavedCaptureId(typeof e.body.captureId === 'string' ? e.body.captureId : null);
+        setStatus('Saved on your phone — sending…');
+      } else if (e.type === 'settled' && e.phase === 'display') {
+        // Only once the DISPLAY copy is on the row is it in the hosts' Memories
+        // (after the safety screen) — not at the thumbnail (review 2026-10-23).
+        setDone(true);
         setStatus('Saved to the hosts’ Memories ✨');
       } else if (e.type === 'credits') {
         setStatus('This event’s photos have run out — this one waits on your phone until the hosts add more.');
+      } else if (e.type === 'kept') {
+        // Nothing about their photo is wrong — and it stays on the phone.
+        setStatus(e.code === 'event_put_away' ? EVENT_PUT_AWAY_CAPTURE_COPY : 'Not sent yet — this photo stays on your phone.');
       } else if (e.type === 'refused') {
-        if (e.code === 'event_put_away') {
-          // Nothing about their photo is wrong; the celebration stopped taking
-          // new ones, and only the host can undo that.
-          setStatus(EVENT_PUT_AWAY_CAPTURE_COPY);
-        } else if (e.code === 'terms_required') {
+        if (e.code === 'terms_required') {
           setStatus('Please accept the photo terms on the camera page first.');
           setTermsRequired(true);
         } else {
-          setStatus('The event didn’t accept that photo.');
+          setStatus('Couldn’t save that photo — the event didn’t accept it.');
         }
       }
     });

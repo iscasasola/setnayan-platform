@@ -175,6 +175,27 @@ export function finalKeyFor(stagingKey: string): string | null {
   return m ? `${m[1]}/${m[2]}` : null;
 }
 
+/**
+ * The final key for ONE promotion attempt: the final key with an attempt tag
+ * before the extension (`cap-<id>-display-a1b2c3d4.webp`).
+ *
+ * 🔒 Review 2026-10-23, major 3: with ONE fixed final key, a second, concurrent
+ * record (a re-PUT on the still-valid URL + a replay) could overwrite the
+ * screened copy a row already pointed at — and its error path could delete the
+ * winner's object. Every attempt now writes its OWN key; the row points at the
+ * winner's; a loser's copies are its own to discard.
+ */
+export function attemptKeyFor(finalKey: string, attempt: string): string | null {
+  if (!/^[0-9a-f]{8}$/.test(attempt)) return null;
+  const m = /^(.*\/cap-[^/]+?)(\.[a-z0-9]+)$/.exec(finalKey);
+  return m ? `${m[1]}-a${attempt}${m[2]}` : null;
+}
+
+/** Does a stored ref hold this tier's copy (any attempt)? */
+export function refHoldsTier(ref: string | null | undefined, tier: CaptureTier): boolean {
+  return !!ref && new RegExp(`/cap-[^/]+-${tier}(?:-a[0-9a-f]{8})?\\.[a-z0-9]+$`).test(ref);
+}
+
 /** How long a signed PUT stays usable. Minutes, never hours (relay "clean and safe"). */
 export const CAPTURE_PUT_TTL_SECONDS = 5 * 60;
 

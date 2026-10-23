@@ -1,99 +1,147 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { runClaimedJob } from '@/lib/periodic-jobs';
-import { DAILY_GAP_MS } from '@/lib/periodic-job-registry';
-import { deleteStagingObject, type IntentRow } from '@/lib/papic-upload-intents.server';
+import { PAPIC_UPLOAD_SWEEP_GAP_MS } from '@/lib/periodic-job-registry';
+import { cleanupDelete } from '@/lib/cleanup-delete';
+import { deleteStagingObject, intentScope, type IntentRow } from '@/lib/papic-upload-intents.server';
 import { SHOT_TTL_MS } from '@/lib/papic-upload/replayer';
+import { sweepUnsettledIntent } from '@/lib/papic-upload/sweep-plan';
 
 // ============================================================================
 // lib/papic-upload-sweep.ts — ANYTHING UPLOADED BUT NEVER RECORDED IS REMOVED.
 //
 // Owner relay 2026-10-23 ("clean and safe", c): a phone PUTs a shot's pieces
-// straight to R2 on presigned URLs (lib/papic-upload/). A piece that landed but
-// was never recorded — the phone died before the record call, the credits ran
-// out between the PUT and the record, the event closed — is an object nothing
-// points at. papic_upload_intents remembers every key we signed; this deletes
-// the unsettled ones once the phone could no longer send them.
+// straight to R2 on presigned URLs (lib/papic-upload/). papic_upload_intents
+// remembers every key we signed (the STAGING upload) and, once promoted, the
+// FINAL copy that attempt wrote. Three jobs, each in batches until done or the
+// time budget runs out (review 2026-10-23, major 6 — it must keep up):
+//
+//   1. SETTLED rows (a row points at the final copy) older than the signed
+//      URL's life: drop the staging upload (again — a late re-PUT on a
+//      still-valid URL lands there and nowhere else) and forget the row.
+//   2. UNSETTLED rows older than the phone's TTL + a day: the shot was never
+//      recorded. Drop the staging upload; drop the attempt's final copy ONLY if
+//      no capture row points at it (a crash between the row and the settle
+//      leaves a referenced final — that one is kept: Guard A).
+//   3. A row the pinned executor REFUSES is set aside (sweep_refused_at), so one
+//      bad key never blocks the head of the queue.
 //
 // 🛡 GUARD A (corpus Papic_Storage_Sustainability_Spec_2026-07-22): never delete
-// a full-res original or raw clip unless a verified, durable, playable copy
-// exists. What this deletes is NEVER a key a row points at: only the phone's
-// STAGING upload (`…/incoming/…`), which the server copies to a final key before
-// any row may reference it (lib/papic-upload/tiers.ts stagingKeyFor). A staging
-// object whose shot WAS recorded has already been promoted — its row holds the
-// final copy. One that was never recorded is a shot the event never accepted.
+// a copy a row points at. Staging keys are never pointed at; a final key is
+// deleted only after a reference check across every key column.
 //
-// ⏱ WAITS LONGER THAN THE PHONE: the phone keeps a shot 7 days
-// (SHOT_TTL_MS); this waits 8, so it never deletes a piece a phone is about to
-// record. A phone that does come back after that gets `object_missing` and PUTs
-// it again from its own copy.
-//
-// Every delete goes through the pinned executor (lib/cleanup-delete.ts),
-// scoped to the folder the intent's own owner files in.
+// Run cron-free from admin traffic AND from the capture routes themselves (a
+// claimed window, so it runs at most once per PAPIC_UPLOAD_SWEEP_GAP_MS).
 // ============================================================================
 
 /** Unsettled pieces older than this are swept — the phone's TTL plus a day. */
 export const UNSETTLED_SWEEP_AFTER_MS = SHOT_TTL_MS + 24 * 60 * 60 * 1000;
-/** Settled intents are bookkeeping only after this; their rows are removed. */
-export const SETTLED_FORGET_AFTER_MS = 2 * 24 * 60 * 60 * 1000;
+/** A settled row is kept just past its presigned URL's life (5 min), then forgotten. */
+export const SETTLED_FORGET_AFTER_MS = 15 * 60 * 1000;
 const BATCH = 200;
+const BUDGET_MS = 20_000;
 
-/** Pure: which intents the sweep deletes now. */
-export function intentsToSweep<T extends { signed_at: string; settled_at: string | null }>(
-  rows: readonly T[],
-  nowMs: number,
-): { unsettled: T[]; settled: T[] } {
-  const unsettled: T[] = [];
-  const settled: T[] = [];
-  for (const r of rows) {
-    const signed = Date.parse(r.signed_at);
-    if (!Number.isFinite(signed)) continue; // never act on a row we cannot read
-    if (r.settled_at === null && nowMs - signed > UNSETTLED_SWEEP_AFTER_MS) unsettled.push(r);
-    if (r.settled_at !== null && nowMs - signed > SETTLED_FORGET_AFTER_MS) settled.push(r);
+type SweepRow = IntentRow & { intent_id: number; signed_at: string; final_ref: string | null };
+
+const VENDOR_KEY_COLUMNS = ['r2_object_key', 'display_r2_key', 'thumb_r2_key', 'tile_r2_key', 'poster_r2_key'] as const;
+const GUEST_KEY_COLUMNS = [
+  ...VENDOR_KEY_COLUMNS,
+  'clip_web_r2_key',
+  'safe_display_r2_key',
+  'safe_thumb_r2_key',
+  'safe_tile_r2_key',
+  'wall_safe_r2_key',
+] as const;
+
+/** Does any capture row point at this ref? Fails CLOSED (true) on a read error. */
+async function referenced(admin: ReturnType<typeof createAdminClient>, lane: string, ref: string): Promise<boolean> {
+  const table = lane === 'vendor' ? 'vendor_papic_captures' : 'papic_guest_captures';
+  const cols: readonly string[] = lane === 'vendor' ? VENDOR_KEY_COLUMNS : GUEST_KEY_COLUMNS;
+  const quoted = `"${ref.replace(/"/g, '')}"`;
+  const { count, error } = await admin
+    .from(table)
+    .select('capture_id', { count: 'exact', head: true })
+    .or(cols.map((c) => `${c}.eq.${quoted}`).join(','));
+  if (error) {
+    console.error('[supabase-error] lib/papic-upload-sweep.ts · reference check', error);
+    return true;
   }
-  return { unsettled, settled };
+  return (count ?? 0) > 0;
 }
 
 export async function runPapicUploadSweep(nowMs = Date.now()): Promise<number> {
   const admin = createAdminClient();
-  const { data, error } = await admin
-    .from('papic_upload_intents')
-    .select('intent_id, lane, event_id, owner_id, tier, r2_ref, size_bytes, content_type, signed_at, settled_at')
-    .lt('signed_at', new Date(nowMs - SETTLED_FORGET_AFTER_MS).toISOString())
-    .order('signed_at', { ascending: true })
-    .limit(BATCH);
-  if (error) throw new Error(`papic_upload_intents read: ${error.message}`);
-  const rows = (data ?? []) as Array<IntentRow & { intent_id: number; signed_at: string }>;
-  const { unsettled, settled } = intentsToSweep(rows, nowMs);
-
+  const started = Date.now();
   let removed = 0;
-  const forget: number[] = [];
-  for (const r of unsettled) {
-    try {
-      const outcome = await deleteStagingObject(r);
-      // A refusal is counted, never cleared: the row stays for a human to see.
-      if (outcome === 'deleted') {
+
+  // 1 · settled rows — drop the staging upload again, forget the row.
+  for (;;) {
+    if (Date.now() - started > BUDGET_MS) return removed;
+    const { data, error } = await admin
+      .from('papic_upload_intents')
+      .select('intent_id, lane, event_id, owner_id, tier, r2_ref, size_bytes, content_type, signed_at, settled_at, final_ref')
+      .not('settled_at', 'is', null)
+      .lt('settled_at', new Date(nowMs - SETTLED_FORGET_AFTER_MS).toISOString())
+      .order('settled_at', { ascending: true })
+      .limit(BATCH);
+    if (error) throw new Error(`papic_upload_intents settled read: ${error.message}`);
+    const rows = (data ?? []) as SweepRow[];
+    if (rows.length === 0) break;
+    await Promise.all(rows.map((r) => deleteStagingObject(r).catch(() => 'refused')));
+    const { error: delErr } = await admin
+      .from('papic_upload_intents')
+      .delete()
+      .in('intent_id', rows.map((r) => r.intent_id));
+    if (delErr) throw new Error(`papic_upload_intents forget: ${delErr.message}`);
+    if (rows.length < BATCH) break;
+  }
+
+  // 2 · unsettled rows past the phone's TTL — the shot was never recorded.
+  for (;;) {
+    if (Date.now() - started > BUDGET_MS) return removed;
+    const { data, error } = await admin
+      .from('papic_upload_intents')
+      .select('intent_id, lane, event_id, owner_id, tier, r2_ref, size_bytes, content_type, signed_at, settled_at, final_ref')
+      .is('settled_at', null)
+      .is('sweep_refused_at', null)
+      .lt('signed_at', new Date(nowMs - UNSETTLED_SWEEP_AFTER_MS).toISOString())
+      .order('signed_at', { ascending: true })
+      .limit(BATCH);
+    if (error) throw new Error(`papic_upload_intents unsettled read: ${error.message}`);
+    const rows = (data ?? []) as SweepRow[];
+    if (rows.length === 0) break;
+    const forget: number[] = [];
+    const refused: number[] = [];
+    for (const r of rows) {
+      const outcome = await sweepUnsettledIntent(r.final_ref, {
+        deleteStaging: () => deleteStagingObject(r),
+        isReferenced: (ref) => referenced(admin, r.lane, ref),
+        deleteFinal: (ref) => cleanupDelete(ref, intentScope(r)),
+      });
+      if (outcome === 'forget') {
         removed += 1;
         forget.push(r.intent_id);
+      } else {
+        refused.push(r.intent_id); // set aside: the next batch moves past it
       }
-    } catch {
-      // A failed delete leaves an orphan for the next run, never lost data.
     }
-  }
-  for (const r of settled) {
-    // Already promoted; its staging copy was dropped at promotion (best-effort,
-    // so drop it again — deleting a missing object is a no-op).
-    await deleteStagingObject(r).catch(() => 'refused');
-    forget.push(r.intent_id);
-  }
-  if (forget.length > 0) {
-    const { error: delErr } = await admin.from('papic_upload_intents').delete().in('intent_id', forget);
-    if (delErr) throw new Error(`papic_upload_intents forget: ${delErr.message}`);
+    if (forget.length > 0) {
+      const { error: delErr } = await admin.from('papic_upload_intents').delete().in('intent_id', forget);
+      if (delErr) throw new Error(`papic_upload_intents forget: ${delErr.message}`);
+    }
+    if (refused.length > 0) {
+      const { error: setErr } = await admin
+        .from('papic_upload_intents')
+        .update({ sweep_refused_at: new Date(nowMs).toISOString() })
+        .in('intent_id', refused);
+      if (setErr) throw new Error(`papic_upload_intents set aside: ${setErr.message}`);
+    }
+    if (rows.length < BATCH) break;
   }
   return removed;
 }
 
-/** Fire from admin traffic (cron-free), at most once a day across the fleet. */
+/** Fire from admin traffic and the capture routes (cron-free), at most once per window. */
 export async function maybeRunPapicUploadSweep(): Promise<void> {
-  await runClaimedJob('papic-upload-sweep', DAILY_GAP_MS, () => runPapicUploadSweep());
+  await runClaimedJob('papic-upload-sweep', PAPIC_UPLOAD_SWEEP_GAP_MS, () => runPapicUploadSweep());
 }

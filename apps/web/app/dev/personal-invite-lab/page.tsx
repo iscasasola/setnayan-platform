@@ -29,8 +29,8 @@ import { displayServiceLabel, VENDOR_CATEGORIES } from '@/lib/vendors';
 import { supplierCommissionShort } from '@/lib/commission-promise';
 import { BOOKING_FEE } from '@/lib/booking-fee';
 
-/** Lab prices — the catalogue's shape, never read by a real page (the real ones come from `vendor_billing_catalog`). */
-const LAB_PRICES = { solo: 1000, pro: 2500, enterprise: 8000 };
+/** Lab prices — `vendor_billing_catalog` `<tier>_vendor_monthly` as measured on production 2026-10-23; never read by a real page (the real ones are read from the catalogue). */
+const LAB_PRICES = { solo: 1000, pro: 2500, enterprise: 10000 };
 const OFFER: PersonalInviteOffer = { tier: 'pro', untilDay: '2027-01-31', photos: 100 };
 const URL = 'https://www.setnayan.com/vendor/claim/8fQ2kT-lab-sample-token';
 const NAME = 'Tita Nena’s Catering';

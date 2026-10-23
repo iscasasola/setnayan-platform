@@ -21,6 +21,11 @@ admin invite and claim flow.
   shop's blanks from it and drops it; seats the admin; applies the offer as an admin comp (`tier_state` ·
   `tier_expires_at` · `tier_source = 'admin_comp'`, one `vendor_tier_set` audit row "Personal invite <id>") only when it
   raises the shop and only while its day is ahead; raises the photo allowance (never lowers it).
+- **🐛 Fixed on the way: a Solo plan never lapsed.** Migration `20271286893359_a_solo_plan_lapses_too` adds `'solo'`
+  to `sweep_vendor_tier_expiry`'s lapse list (it predated Solo and named only pro · enterprise · custom), so an expired
+  Solo — paid or given — now returns to verified/free on the next dashboard visit, credit rule unchanged. Found by the
+  new db test ("Solo free until <day>" never ended). Prod, measured read-only 2026-10-23: 2 Solo shops, both admin
+  comps, ₱0 credit; one already past its day — the only row it changes.
 - **Door (B1)** — `TeamInviteDoor`: "Your invite · Your shop is ready, <name>." + **Your offer** rows.
 - **Landing (B4)** — the claim lands on Shop › Your details; staged rows read "from your invite".
 - **Today (B6 · C2)** — "Add to the inspiration library" is a counted first step for trades that supply a part

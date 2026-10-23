@@ -34,6 +34,7 @@ import {
   allotmentRowState,
   suggestedAllotment,
   splitTheRest,
+  allotmentRowValue,
   summariseAllotments,
   guestMinimumVerdict,
   summariseMinimum,
@@ -473,19 +474,21 @@ export async function GuestAllotmentsChoice({
     </div>
   );
 
-  const value = !enabled
-    ? 'Off'
-    : split.overCommitted
-      ? 'Over'
-      : `${split.perHead} each`;
+  // 🏷 Says WHICH number it is — the couple's own limit or an equal share (`allotmentRowValue`).
+  const value = allotmentRowValue({
+    enabled,
+    split,
+    shareEach: splitTheRest({ ...inputs, everyoneElse: null }).perHead,
+    everyoneElse,
+  });
 
   if (variant === 'row') {
     return (
       <SettingRow
         icon={<Coins aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
-        label="How many credits each guest gets"
+        label="Each guest"
         value={value}
-        sheetTitle="How many credits each guest gets"
+        sheetTitle="Credits for each guest"
       >
         {control}
       </SettingRow>
@@ -522,9 +525,9 @@ function AllotmentsCouldNotLoad({ variant }: { variant: 'card' | 'row' }) {
     return (
       <SettingRow
         icon={<Coins aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
-        label="How many credits each guest gets"
+        label="Each guest"
         value="Couldn’t load"
-        sheetTitle="How many credits each guest gets"
+        sheetTitle="Credits for each guest"
       >
         {body}
       </SettingRow>

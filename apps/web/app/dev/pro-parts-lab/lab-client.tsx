@@ -46,14 +46,16 @@ export function LabFrame({ frame, pricing, line }: { frame: string; pricing: App
     </div>
   );
   if (frame.startsWith('sheet')) {
-    const effects = frame === 'sheet-four' ? FOUR : frame === 'sheet-ready' ? [] : frame === 'sheet-apple' ? APPLE : TWO;
+    // 'sheet-held' — 📵 the store shell where Apple does not sell Pro: no effects, the held ◆ changes said neutrally.
+    const held = frame === 'sheet-held';
+    const effects = frame === 'sheet-four' ? FOUR : frame === 'sheet-ready' || held ? [] : frame === 'sheet-apple' ? APPLE : TWO;
     return backdrop(
       <ApplyProSheet
         effects={effects}
         changeCount={5}
         changes={[
-          { place: 'Look', what: 'Theme · Velvet', pro: true, held: false },
-          { place: 'Hero', what: 'Font · Names', pro: true, held: false },
+          { place: 'Look', what: 'Theme · Velvet', pro: true, held },
+          { place: 'Hero', what: 'Font · Names', pro: true, held },
           { place: 'Event Details', what: 'Ceremony time', pro: false, held: false },
           { place: 'Invitation', what: 'Reply words', pro: false, held: false },
           { place: 'Love Story', what: 'Moment 3', pro: false, held: false },
@@ -65,7 +67,9 @@ export function LabFrame({ frame, pricing, line }: { frame: string; pricing: App
         onRemove={noop}
         onApplyFree={noop}
         onClose={noop}
-        pricing={pricing}
+        heldForPro={held ? 2 : 0}
+        onRemoveHeld={held ? noop : undefined}
+        pricing={held ? null : pricing}
       />,
     );
   }

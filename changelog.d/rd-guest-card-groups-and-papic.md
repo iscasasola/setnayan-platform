@@ -12,11 +12,16 @@ Owner-approved design `Setnayan-specs/prototypes/guest_card_groups_and_papic_202
 - **Papic per guest** — "Their camera ▾": Shares with everyone (default, no row) · A set number (credits) · No camera (0),
   backed by the SHIPPED ceiling (`papic_set_guest_spend_ceiling`, `papic_guest_spend_ceilings`) through the shipped
   `setGuestAllotment`, which now also answers in place (`quiet=1`) and takes several `guest_id` (one RPC per guest, the
-  same target) — **no new server action** (the budget sits 1 under its 1225 ceiling). The three face switches moved in
-  from Photos. Event Papic off → one line "Papic is off · Turn on ›" (door to Home), the switches hidden and their answers
-  still carried. A check or a camera read that did not answer says so and offers no control.
+  same target, at most 50 guests per call — `ALLOTMENT_BATCH_MAX`) — **no new server action** (the budget sits 1 under
+  its 1225 ceiling). The three face switches moved in from Photos and ALWAYS show and save (owner 2026-10-23, "Always
+  show them": they also drive the public story/recap and the withdrawal blur, and `updateGuest` is the only writer of
+  `photo_consent = false`), worded for the guest ("Wants to be tagged in photos", "Wants their face blurred on the Live
+  Wall", "Stays out of face recognition"). Event Papic off replaces ONLY "Their camera" with "Papic is off · Turn on ›",
+  whose door lands on the switch (the Event Details answer when the host said No, else the Papic page) and is drawn only
+  for the couple. "A set number" with no figure kept says "Enter a number". A check or a camera read that did not answer
+  says so and offers no control.
 - **Guests list**: with guests selected, Set… ▾ gains a Papic group (couple only, while Papic is on) → one sheet
-  "Papic · set N each" with the same three choices.
+  "Papic · set N each" with the same three choices, sent in chunks of 50 with an honest "X of N set" on a partial save.
 - Passed Away posts with the autosave form by `form=` (it sits below Access, whose own forms cannot nest); the autosave
   now hears a field of its form drawn outside it.
 - New guard `the-papic-row-is-on-the-card.test.ts`; layout tests re-aimed to the owner's order (each marked RE-AIMED).

@@ -57,6 +57,28 @@ export type VendorInviteRow = {
 };
 
 /**
+ * 🎁 THE PERSONAL INVITE'S OFFER (migration `the_personal_invite_carries_its_offer`, owner 2026-10-23) — read on its
+ * OWN, never folded into the invite's select: naming a column a database does not have yet refuses the WHOLE select,
+ * and the claim page would then lose every invite, not just the offer. A failed read is logged and answers null —
+ * the door then draws no offer rows, and the claim (which reads the row itself, in SQL) still applies it.
+ */
+export async function readInviteOffer(
+  admin: SupabaseClient,
+  inviteId: string,
+): Promise<{ offer_tier: string | null; offer_until: string | null; offer_photo_allowance: number | null } | null> {
+  const { data, error } = await admin
+    .from('vendor_invites')
+    .select('offer_tier, offer_until, offer_photo_allowance')
+    .eq('invite_id', inviteId)
+    .maybeSingle();
+  if (error) {
+    console.error('[supabase-error] vendor-invites · readInviteOffer', error);
+    return null;
+  }
+  return (data as { offer_tier: string | null; offer_until: string | null; offer_photo_allowance: number | null } | null) ?? null;
+}
+
+/**
  * A link a COUPLE made — by email (`couple`) or to share by hand
  * (`auto_share_link`). Both hang off an `event_vendors` row, so both can say
  * who invited the supplier and for which date. An `admin` invite has neither.

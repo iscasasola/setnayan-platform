@@ -5,7 +5,8 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveVendorRoleForProfile, canManageVendor } from '@/lib/vendor-role';
-import { tierCaps, asVendorTier, PORTFOLIO_OVER_BASE_MESSAGE } from '@/lib/vendor-tier-caps';
+import { portfolioPhotoCap, portfolioOverCapMessage } from '@/lib/vendor-tier-caps';
+import { readPortfolioAllowance } from '@/lib/portfolio-allowance.server';
 import { R2_BUCKETS, r2Copy } from '@/lib/r2';
 import { parseR2Ref } from '@/lib/nsfw-screen';
 import { parseClientRef, vendorOwnedMediaPolicy } from '@/lib/r2-client-ref';
@@ -70,12 +71,13 @@ export async function putAlbumPhotoOnMyPage(_prev: PutOnPageResult | null, formD
   }
 
   const row = rowRes.data as { tier_state?: string | null; portfolio_r2_keys?: string[] | null };
-  const max = tierCaps(asVendorTier(row.tier_state ?? null)).portfolioPhotos;
+  // 🎁 The shop's own allowance (a personal invite's 100, kept) lifts the base — `portfolioPhotoCap`.
+  const max = portfolioPhotoCap(row.tier_state ?? null, await readPortfolioAllowance(supabase, vendorId));
   const next = addToPageGallery(row.portfolio_r2_keys ?? [], pageRef, max);
   if (next.kind === 'already') return { ok: true, text: 'Already on your page' };
   if (next.kind === 'full') {
     // The free base (owner 2026-10-23) — a shop already past it keeps every photo; it just cannot add one more yet.
-    return { ok: false, error: PORTFOLIO_OVER_BASE_MESSAGE };
+    return { ok: false, error: portfolioOverCapMessage(max) };
   }
 
   // The QR guard reads the ALBUM photo — the same bytes the copy will carry — BEFORE the copy, so a refused photo

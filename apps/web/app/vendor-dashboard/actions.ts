@@ -11,7 +11,8 @@ import { hashAndScanVendorImages } from '@/lib/vendor-image-repost-watch';
 import { vendorQrGuardRejects } from '@/lib/vendor-qr-media-guard';
 import { VENDOR_QR_MEDIA_ERROR } from '@/lib/vendor-qr-guard-shared';
 import { VENDOR_CATEGORIES } from '@/lib/vendors';
-import { tierCaps, asVendorTier, capPortfolioRefs, PORTFOLIO_OVER_BASE_MESSAGE } from '@/lib/vendor-tier-caps';
+import { tierCaps, asVendorTier, capPortfolioRefs, portfolioPhotoCap, portfolioOverCapMessage } from '@/lib/vendor-tier-caps';
+import { readPortfolioAllowance } from '@/lib/portfolio-allowance.server';
 import { vendorExperienceEnabled } from '@/lib/vendor-experience';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveOwnedActiveShop } from '@/lib/active-shop';
@@ -586,7 +587,8 @@ export async function updateVendorProfileField(
             vendor_profile_id?: string;
           }
         | null;
-      const portfolioMax = tierCaps(asVendorTier(tr?.tier_state)).portfolioPhotos;
+      // 🎁 The shop's own allowance (a personal invite's 100, kept after the gift) lifts the base.
+      const portfolioMax = portfolioPhotoCap(tr?.tier_state, await readPortfolioAllowance(supabase, shopId));
       // SEC-1: same pinning as the full-profile save. Same fail-closed reasoning —
       // `vendor_profile_id` is the PK of this user's own row, and the patch below
       // is an UPDATE keyed on `user_id`, so a missing id writes nothing at all.
@@ -601,7 +603,7 @@ export async function updateVendorProfileField(
       // next re-save). Paying for more with Papic credits is Phase 2.
       const capped = capPortfolioRefs(parsed, tr?.portfolio_r2_keys ?? [], portfolioMax);
       if (capped.refused > 0) {
-        return { ok: false, error: PORTFOLIO_OVER_BASE_MESSAGE };
+        return { ok: false, error: portfolioOverCapMessage(portfolioMax) };
       }
       const refs = capped.refs;
       // QR-in-media guard (owner 2026-07-03): only scan refs NOT already stored

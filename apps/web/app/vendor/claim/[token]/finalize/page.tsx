@@ -97,13 +97,12 @@ export default async function FinalizeClaimPage({ params }: Props) {
   //    shop, fill ONLY its blank name and service from the couple's record,
   //    make sure it has its admin seat. Proven end to end by
   //    tests/db/a-supplier-joins-from-the-couples-link.db.test.ts.
+  //
+  //    🎁 2026-10-23 — Setnayan's own invite had the same trap, worse: (b) never ran either, so the staged row the
+  //    admin filled was orphaned. It now goes through `claim_ready_the_invited_shop` (below), which does (a)–(c)
+  //    in one statement and applies the personal invite's offer.
   // ------------------------------------------------------------------
   let vendorProfileId: string;
-  const { data: existingProfile } = await admin
-    .from('vendor_profiles')
-    .select('vendor_profile_id')
-    .eq('user_id', user.id)
-    .maybeSingle();
 
   if (data.invite.source !== 'admin') {
     const { data: readied, error: readyErr } = await admin.rpc('claim_ready_the_shop', {
@@ -119,55 +118,27 @@ export default async function FinalizeClaimPage({ params }: Props) {
       );
     }
     vendorProfileId = readied;
-  } else if (existingProfile) {
-    vendorProfileId = existingProfile.vendor_profile_id as string;
-  } else if (
-    data.invite.source === 'admin' &&
-    data.invite.claimed_vendor_profile_id
-  ) {
-    // Transfer ownership of the pre-staged row to the claimant. The
-    // .is('user_id', null) guard prevents two parallel claims from
-    // racing to take the same profile.
-    const { data: transferred, error: transferErr } = await admin
-      .from('vendor_profiles')
-      .update({
-        user_id: user.id,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('vendor_profile_id', data.invite.claimed_vendor_profile_id)
-      .is('user_id', null)
-      .select('vendor_profile_id')
-      .single();
-    if (transferErr || !transferred) {
-      return (
-        <ErrorShell
-          title="Couldn't transfer your supplier profile."
-          body={transferErr?.message ?? 'The pre-staged profile may already be claimed.'}
-        />
-      );
-    }
-    vendorProfileId = transferred.vendor_profile_id as string;
   } else {
-    const { data: created, error: createErr } = await admin
-      .from('vendor_profiles')
-      .insert({
-        user_id: user.id,
-        business_name: data.invite.business_name,
-        contact_email: data.invite.email,
-        services: data.invite.service_category ? [data.invite.service_category] : [],
-        is_published: false,
-      })
-      .select('vendor_profile_id')
-      .single();
-    if (createErr || !created) {
+    // 🎁 SETNAYAN'S OWN INVITE (migration `the_personal_invite_carries_its_offer`, owner 2026-10-23). The same
+    // trap as the couple's link: the vendor sign-up has ALREADY opened an empty shop, so the old "already has a
+    // shop" branch won every time and the staged row the admin filled was never reached — the supplier arrived
+    // nameless. `claim_ready_the_invited_shop` hands the staged row over (or fills the empty shop's blanks from it
+    // and drops it), seats the admin, and applies the personal invite's offer — the plan until its day as an admin
+    // comp (the same columns and log line as `setVendorTier`), and the photos, kept. Proven by
+    // tests/db/the-personal-invite-carries-its-offer.db.test.ts.
+    const { data: readied, error: readyErr } = await admin.rpc('claim_ready_the_invited_shop', {
+      p_user_id: user.id,
+      p_claim_token: token,
+    });
+    if (readyErr || typeof readied !== 'string' || !readied) {
       return (
         <ErrorShell
-          title="Couldn't create your supplier profile."
-          body={createErr?.message ?? 'Please try again or contact support.'}
+          title="Couldn't set up your supplier profile."
+          body={readyErr?.message ?? 'Please try again or contact support.'}
         />
       );
     }
-    vendorProfileId = created.vendor_profile_id as string;
+    vendorProfileId = readied;
   }
 
   // ------------------------------------------------------------------
@@ -289,9 +260,13 @@ export default async function FinalizeClaimPage({ params }: Props) {
     }
   }
 
+  // 🎁 Setnayan's own invite lands on Shop › Your details (prototype frame B4): the staged rows are already in,
+  // and the one step left is right there. The spotlight tour starts wherever they land (frame B5).
+  if (data.invite.source === 'admin') redirect('/vendor-dashboard/profile');
+
   // Default — land them in the vendor dashboard with the new client visible in
   // their Clients pipeline (couple-source) or just the fresh dashboard
-  // (admin-source / already-has-services).
+  // (already-has-services).
   redirect('/vendor-dashboard?claimed=1');
 }
 

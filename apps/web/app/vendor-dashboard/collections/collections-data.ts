@@ -7,7 +7,8 @@ import type { VendorProfileRow } from '@/lib/vendor-profile';
 import { MICROSITE_COLUMNS, micrositeFromRow } from '@/lib/vendor-microsite';
 import { pageSavedFrom, type PageSaved } from '@/lib/supplier-page-draft';
 import type { CollectionsInput } from '@/lib/supplier-collections';
-import { tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
+import { portfolioPhotoCap } from '@/lib/vendor-tier-caps';
+import { readPortfolioAllowance } from '@/lib/portfolio-allowance.server';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { isInstagramConnectConfigured } from '@/lib/vendor-instagram';
 import {
@@ -191,6 +192,8 @@ export async function loadCollectionsData(
     }),
   ).then((xs) => Object.fromEntries(xs.filter((x): x is readonly [string, string] => x !== null)));
 
+  // Started with the rest, read at the cap below (its own select — `readPortfolioAllowance`).
+  const allowanceRead = readPortfolioAllowance(supabase, vendorId);
   const [own, cards, albums, ownShots, delivered, ig, moodboard, portfolioDisplayMap] = await Promise.all([
     ownRead,
     cardsRead,
@@ -203,7 +206,11 @@ export async function loadCollectionsData(
   ]);
 
   const saved = pageSavedFrom(micrositeFromRow(own), (profile.services ?? []) as string[], portfolioRefs);
-  const portfolioCap = tierCaps(asVendorTier((own?.tier_state as string | null | undefined) ?? null)).portfolioPhotos;
+  // 🎁 The shop's own allowance (a personal invite's 100, kept after the gift) lifts the base — `portfolioPhotoCap`.
+  const portfolioCap = portfolioPhotoCap(
+    (own?.tier_state as string | null | undefined) ?? null,
+    await allowanceRead,
+  );
 
   return {
     vendorId,

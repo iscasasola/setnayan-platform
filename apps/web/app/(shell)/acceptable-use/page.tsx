@@ -89,7 +89,7 @@ export default function AcceptableUsePage() {
 
       <LegalSection title="Guest captures & consent">
         <p>
-          Event capture features are for the event they belong to. Respect
+          Event capture features are for the celebration they belong to. Respect
           the people around you: don&rsquo;t photograph or share images of
           someone who has asked not to be, and honor opt-outs. Guests retain
           rights over their own likeness, and couples control their event

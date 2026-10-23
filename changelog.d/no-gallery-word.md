@@ -1,0 +1,25 @@
+## 2026-10-23 · copy(ui): no "gallery" in the app — Memories · Portfolio · Inspiration
+
+Owner, 2026-10-23: *"check the rest of the words in the app. remove gallery and use
+memories"*. Asked how to split the concepts, he chose: an event's own photos and
+videos are **Memories**; a supplier's own photos are **Portfolio**; the Mood Board
+library is **Inspiration**. Every user-visible "gallery"/"Gallery"/"galleries"
+under `apps/web/app`, `apps/web/lib` and `apps/web/components` is reworded — page
+titles, the guest page's tab, Papic, post-event scenes, help answers, spotlight
+tours, /features and feature pages, the full-res email, empty states, aria-labels,
+alt text, public marketing (blog, llms.txt, metadata). Code identifiers, routes
+(`/dashboard/[eventId]/galleries`, `/tour/gallery`, `/studio/papic/gallery-zip`),
+DB columns, CSS classes and analytics names are unchanged.
+
+Two words outside the three concepts, chosen so no "gallery" remains: a
+photographer's delivered link (the handover kind `gallery_link`) reads **"Album
+link"**, and the phone's own photo roll (scan a QR from it) reads **"your photos"**.
+The Event Hub Pro item "Photo gallery" is renamed **"Photos you add"** — the name
+its widget already carries (`the-four-photo-names.test.ts`).
+
+Guarded by `apps/web/lib/no-gallery-word.test.ts` — reads every string a source
+file can put on screen through the TypeScript parser (comments are not copy;
+tokens such as keys, routes and anchors are allowed) and fails on the word.
+
+SPEC IMPACT: `DECISION_LOG.md` row "23 Oct: no 'gallery' in the UI — Memories /
+Portfolio / Inspiration".

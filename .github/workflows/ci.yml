@@ -49,14 +49,18 @@ on:
 # abandoned runs each held runners for over an hour while the fix queued behind
 # them. Only pull requests are cancelled.
 #
-# ⚠ Every OTHER event gets a group of its own (the run id), deliberately. A
-# shared group with `cancel-in-progress: false` does not queue runs — it keeps
-# ONE running and ONE pending and silently cancels the rest
-# (supabase-migrations.yml documents the day that bit). A push to main must
-# always run to the end.
+# ⚠ A push to main shares ONE group, `ci-main`, WITH cancel-in-progress (2026-10-23):
+# the newest main commit contains every earlier one, so its run answers for all of
+# them. GitHub runs at most 20 jobs at once on this account; a batch of 7 merges
+# queued 7 × ~25 main jobs behind the next PR (measured 23 Oct: 19 running, 142
+# waiting). The trap that comment used to warn about is a shared group with
+# `cancel-in-progress: false` — it keeps ONE running and ONE pending and silently
+# drops the rest (supabase-migrations.yml documents the day that bit); with `true`
+# the newest always runs to the end. Every other event (manual dispatch) still
+# gets a group of its own.
 concurrency:
-  group: ${{ github.event_name == 'pull_request' && format('ci-pr-{0}', github.event.pull_request.number) || format('ci-run-{0}', github.run_id) }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ${{ github.event_name == 'pull_request' && format('ci-pr-{0}', github.event.pull_request.number) || (github.event_name == 'push' && github.ref == 'refs/heads/main' && 'ci-main') || format('ci-run-{0}', github.run_id) }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main') }}
 
 jobs:
   guards:

@@ -45,9 +45,9 @@ const RENDER: Record<string, (n: number) => string> = {
   'Parent categories': (n) => (!Number.isFinite(n) ? 'All' : n === 0 ? '—' : `${n}`),
   'Service listings / category': (n) => (!Number.isFinite(n) ? 'Unlimited' : n === 0 ? '—' : `${n}`),
   'Team seats': (n) => (!Number.isFinite(n) ? 'Unlimited' : n === 0 ? '—' : `${n}`),
-  'Bookable slots / day': (n) => (!Number.isFinite(n) ? 'Unlimited' : n === 0 ? '—' : `${n}`),
-  'Portfolio photos': (n) => (!Number.isFinite(n) ? 'Unlimited' : n === 0 ? '—' : `${n}`),
-  'Answer matched couples / week': (n) => (!Number.isFinite(n) ? 'Unlimited' : n === 0 ? '—' : `${n}`),
+  'Bookings a day': (n) => (!Number.isFinite(n) ? 'You set it' : n === 0 ? '—' : `${n}`),
+  'Portfolio photos': (n) => (!Number.isFinite(n) ? 'Unlimited' : n === 0 ? '—' : `${n} free`),
+  'Answering couples': (n) => (!Number.isFinite(n) ? 'No limit' : n === 0 ? '—' : `${n}`),
 };
 
 const FIELD: Record<string, keyof (typeof TIER_CAPS)['pro']> = {
@@ -55,9 +55,9 @@ const FIELD: Record<string, keyof (typeof TIER_CAPS)['pro']> = {
   'Parent categories': 'parentCategories',
   'Service listings / category': 'servicesPerLeaf',
   'Team seats': 'agentAccounts',
-  'Bookable slots / day': 'slotsPerDay',
+  'Bookings a day': 'slotsPerDay',
   'Portfolio photos': 'portfolioPhotos',
-  'Answer matched couples / week': 'inAppCustomersPerWeek',
+  'Answering couples': 'inAppCustomersPerWeek',
 };
 
 const SHOWN: VendorTier[] = ['verified', 'solo', 'pro', 'enterprise'];

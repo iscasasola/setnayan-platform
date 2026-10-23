@@ -77,7 +77,7 @@ export default async function YouLabPage({ searchParams }: { searchParams: Promi
         tools={[]}
         navLabels={{}}
         topBarSlot={
-          <span className="grid h-11 w-11 place-items-center rounded-full bg-[#A9834B] text-xs font-semibold text-white">IS</span>
+          <span className="grid h-11 w-11 place-items-center rounded-full sn-initials text-xs font-semibold">IS</span>
         }
       >
         <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 lg:px-8" data-you-lab="picker">

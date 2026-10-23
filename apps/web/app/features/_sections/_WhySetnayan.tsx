@@ -67,11 +67,11 @@ export const WHY_FAQ: Record<MarketingLocale, { q: string; a: string }[]> = {
   tl: [
     {
       q: 'Ano ang pinagkaiba ng Setnayan sa ibang wedding apps?',
-      a: 'Karamihan ng tools, isang trabaho lang ang ginagawa — planning, o photo-sharing, o listahan ng supplier. Ang Setnayan, tatlo lahat sa isang lugar, libre pagsimula, at may dagdag pa na wala sa iba: live na per-guest Alaala, personal na video reels, at AI na naghahanap ng suppliers na bagay sa’yo.',
+      a: 'Karamihan ng tools, isang trabaho lang ang ginagawa — planning, o photo-sharing, o listahan ng supplier. Ang Setnayan, tatlo lahat sa isang lugar, libre pagsimula, at may dagdag pa na wala sa iba: live na per-guest Memories, personal na video reels, at AI na naghahanap ng suppliers na bagay sa’yo.',
     },
     {
       q: 'Kailangan ko pa ba ng hiwalay na app para sa guest photos?',
-      a: 'Hindi — yun mismo ang punto. Ang standalone photo app, isang shared pile lang na nag-e-expire. Ang Papic ng Setnayan, may sariling face-tagged Alaala at personal reel ang bawat guest, nasa Event Hub mo mismo, at sa’yo nananatili ang lahat ng photo.',
+      a: 'Hindi — yun mismo ang punto. Ang standalone photo app, isang shared pile lang na nag-e-expire. Ang Papic ng Setnayan, may sariling face-tagged Memories at personal reel ang bawat guest, nasa Event Hub mo mismo, at sa’yo nananatili ang lahat ng photo.',
     },
     {
       q: 'Libre ba talaga?',
@@ -151,11 +151,11 @@ const COPY: Record<
     juggle: [
       {
         label: 'Isang planning app',
-        line: 'Guest list, budget, seating — pero walang live na guest Alaala, at walang AI na maghahanap ng suppliers mo.',
+        line: 'Guest list, budget, seating — pero walang live na guest Memories, at walang AI na maghahanap ng suppliers mo.',
       },
       {
         label: 'Isang photo-sharing app',
-        line: 'Isang shared pile ng litrato na nag-e-expire sa loob ng ilang linggo — walang per-guest Alaala, walang reels, at walang kinalaman sa plano mo.',
+        line: 'Isang shared pile ng litrato na nag-e-expire sa loob ng ilang linggo — walang per-guest Memories, walang reels, at walang kinalaman sa plano mo.',
       },
       {
         label: 'Isang supplier directory',
@@ -169,7 +169,7 @@ const COPY: Record<
         body: 'Guest list, RSVP, seating, budget, at 4-in-1 Event Hub — libre pagsimula.',
       },
       {
-        title: 'Live na guest Alaala',
+        title: 'Live na guest Memories',
         body: 'Papic: may sariling face-tagged photos at personal video reel ang bawat guest.',
       },
       {

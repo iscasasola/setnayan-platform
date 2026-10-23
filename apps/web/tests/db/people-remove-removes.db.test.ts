@@ -282,14 +282,16 @@ test('🔴 removing someone from People leaves them on every event’s guest lis
      VALUES ($1, 'Marco', 'Testing', 'both', 'friends', $2) RETURNING guest_id`,
     [eventId, U.marco.person],
   );
+  const guestRow = async () =>
+    (await db.query<{ j: Record<string, unknown> }>(`SELECT to_jsonb(g) AS j FROM public.guests g WHERE guest_id = $1`, [g.rows[0]!.guest_id]))
+      .rows[0]?.j ?? null;
+  const before = await guestRow();
+  assert.ok(before, 'the fixture guest exists');
   const c = await ask('marco', U.ice.person);
   await accept('ice', c);
   assert.equal(await removeAs('ice', c), 1);
-  const still = await db.query<{ person_id: string | null; deleted_at: string | null }>(
-    `SELECT person_id, deleted_at FROM public.guests WHERE guest_id = $1`,
-    [g.rows[0]!.guest_id],
-  );
-  assert.equal(still.rows.length, 1);
-  assert.equal(still.rows[0]!.deleted_at, null);
-  assert.equal(still.rows[0]!.person_id, U.marco.person);
+  const afterRow = await guestRow();
+  assert.ok(afterRow, 'the guest row is still there');
+  assert.equal(afterRow!.deleted_at, null, 'and not soft-deleted');
+  assert.deepEqual(afterRow, before, 'the guest row is byte-for-byte what it was — Remove on People never reaches it');
 });

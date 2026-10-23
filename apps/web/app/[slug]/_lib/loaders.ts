@@ -59,7 +59,8 @@ import { compositeOver } from '@/lib/hub-legibility';
 import { hubButtonPage, resolveHubButtons, type HubButtonsLook } from '@/lib/hub-buttons';
 import { siteFontLook } from '@/lib/site-role-look';
 import { pageWordBase, pinPlateInk, pinWordInks, proSiteVarsFor } from './pro-site-vars';
-import { resolveHubTheme, websiteProActiveFor } from './hub-look';
+import { hubOwnershipFor, resolveHubTheme, websiteProActiveFor } from './hub-look';
+import { HUB_PART_IDS, type HubPartId } from '@/lib/hub-parts';
 import { eventPapicGuestActive, fetchGuestQuota } from '@/lib/papic-guest';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import { asPapicStyle, type PapicStyle } from '@/lib/papic-photo-styles';
@@ -708,6 +709,9 @@ export const loadMedia = cache(
        None of these needs another's answer; in single file each waited for the
        one above it. Same reads, same count, the same lines receive them. */
     const proWatermarkHiddenAhead = startAhead(websiteProActiveFor(event.event_id));
+    /* 💎 …and what the event holds PART BY PART (owner 2026-10-22) — the page's per-part gates (Decorations → Style,
+       Scrub → Motion) read this; the footer above stays everything. One cached read shared with the theme gate. */
+    const hubPartsAhead = startAhead(hubOwnershipFor(event.event_id).then((o): HubPartId[] => (o.full ? [...HUB_PART_IDS] : [...o.parts])));
     /* 1️⃣ The Venue scene's stored choices come from the scene rows this view reads
        anyway (`loadWidgets` — `cache()`d, the page awaits this same read) instead
        of a second, one-row read of the same table. The rows as STORED: the host's
@@ -757,6 +761,7 @@ export const loadMedia = cache(
     // does the theme gate. Three readers, one order lookup. `admin` is unused
     // for it now — the cached reader builds its own so its key is the id alone.
     const proWatermarkHidden = await proWatermarkHiddenAhead;
+    const hubParts = await hubPartsAhead.catch((): HubPartId[] => []);
     /* ⛔ THE COUPLE'S PRO COLOURS AND FACE ARE NO LONGER RESOLVED HERE. They used
        to ride out of this loader as `siteColorVars` and be painted by the ONE
        page that went through InvitationShell — so `/find-seat`, `/seat`, `/hub`,
@@ -981,6 +986,7 @@ export const loadMedia = cache(
       monogram,
       animatedMonogram,
       proWatermarkHidden,
+      hubParts,
       bespokeSvg,
       studioAnim,
       heroPhotoUrl,
@@ -2359,7 +2365,7 @@ export const loadMarch = cache(
   async (
     admin: AdminClient,
     eventId: string,
-  ): Promise<{ walking: EntourageGroup[]; out: EntourageGroup[] | null }> => {
+  ): Promise<{ walking: EntourageGroup[]; out: EntourageGroup[] | null; unread?: true }> => {
     const roles = MARCH_ROLES;
     const [guestRes, trayRes] = await Promise.all([
       admin
@@ -2373,7 +2379,8 @@ export const loadMarch = cache(
     ]);
     if (guestRes.error) {
       logQueryError('loadMarch', guestRes.error, { event_id: eventId }, 'graceful_degrade');
-      return { walking: [], out: null };
+      // `unread`: the march itself was not read — said in the Maker, never drawn as "Nobody walks yet" (2026-10-23).
+      return { walking: [], out: null, unread: true };
     }
     if (trayRes.error) logQueryError('loadMarch tray', trayRes.error, { event_id: eventId }, 'graceful_degrade');
     const outIds = trayRes.error ? null : new Set(((trayRes.data ?? []) as Array<{ guest_id: string }>).map((r) => r.guest_id));

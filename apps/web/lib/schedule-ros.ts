@@ -284,3 +284,20 @@ export function computeRetimePatches(
     end_at: b.end_at === null ? null : shiftIso(b.end_at, deltaMinutes),
   }));
 }
+
+/**
+ * A supplier's "change to a moment" that proposes NO new label, time or place — a suggestion in words only. Approving
+ * it moves nothing, so the host's sheet and the supplier's notice must both say so instead of "changes the moment" /
+ * "is now on their schedule" (2026-10-23 coordinator walk). The one predicate both sides read.
+ */
+export function isNoteOnlySuggestion(s: {
+  kind: string;
+  proposed_label: string | null;
+  proposed_start_at: string | null;
+  proposed_end_at: string | null;
+  proposed_location: string | null;
+}): boolean {
+  return (
+    s.kind === 'adjust' && !s.proposed_label && !s.proposed_start_at && !s.proposed_end_at && !s.proposed_location
+  );
+}

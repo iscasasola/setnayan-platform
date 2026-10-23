@@ -122,8 +122,8 @@ export default function TermsPage() {
             <Link href="/refunds" className="text-terracotta hover:underline">
               refund &amp; cancellation policy
             </Link>
-            : digital services are final once activated, with a full refund
-            whenever we fail to deliver.
+            : purchases are not refunded, and a paid service you cannot use
+            becomes Papic credits for your event.
           </li>
         </ul>
       </LegalSection>

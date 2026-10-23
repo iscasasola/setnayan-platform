@@ -250,6 +250,7 @@ import { hostPitchShows } from '@/lib/guest-one-path';
 import { roleWordOfGuest, type EntourageGroup } from '@/lib/entourage';
 import { marchPlaceOf } from '@/lib/march-place';
 import { LIVE_WALL_UNREADABLE_LINE } from '@/lib/live-wall-read-state';
+import type { HubPartId } from '@/lib/hub-parts';
 
 /**
  * SiteBody — the ONE body tree for the guest event website
@@ -482,6 +483,9 @@ type SiteBodyProps = {
    *  watermark when the event owns the active upgrade. Resolved once at the
    *  top-level page (eventCoupleWebsiteProActive). */
   proWatermarkHidden: boolean;
+  /** 💎 The Event Hub Pro PARTS the event holds (owner 2026-10-22, part by part) — Decorations are Style's, Scrub and
+   *  Auto-scroll are Motion's. Absent: every part while the footer is off (Full Pro), none otherwise — the old meaning. */
+  hubParts?: readonly HubPartId[];
   /** 🖼 THE MAKER'S CANVAS — TRUE only when the page resolved `?editor=1` AND
    *  server-verified host membership (page.tsx). Two jobs, both one-way:
    *  it mounts the click-to-edit bridge, and it HIDES every piece of app and
@@ -639,6 +643,7 @@ export async function SiteBody({
   doorwayFacts = null,
   giftPageReader = null,
   proWatermarkHidden,
+  hubParts,
   isEditorCanvas = false,
   editorialDraft = null,
   editorBridge = false,
@@ -801,7 +806,11 @@ export async function SiteBody({
     (`proWatermarkHidden` — `websiteProActiveFor`, an internal host included) or on the host's own Maker canvas, where a
     Pro look is tried free. Null → every mount draws nothing: the page byte for byte as before.
   */
-  const artKit = artKitView({ theme: sceneTheme, accents: sceneAccentsFromPreferences((event as { style_preferences?: unknown }).style_preferences), ownsPro: proWatermarkHidden, tryOn: isEditorCanvas });
+  const holdsPart = (part: HubPartId) => (hubParts ? hubParts.includes(part) : proWatermarkHidden);
+  /* 💎 Decorations are the Style part's (gate 16); Scrub and Auto-scroll are Motion's (gate 20) — owner 2026-10-22. */
+  const ownsStyle = holdsPart('style');
+  const scrubAllowed = holdsPart('motion');
+  const artKit = artKitView({ theme: sceneTheme, accents: sceneAccentsFromPreferences((event as { style_preferences?: unknown }).style_preferences), ownsPro: ownsStyle, tryOn: isEditorCanvas });
   const kitCover = artKit ? <KitSlot kit={artKit} slot="cover" eager /> : null;
 
   const hasHeroMedia = Boolean(heroVideoUrl || heroPhotoUrl);
@@ -836,12 +845,12 @@ export async function SiteBody({
   // row is draft-overlaid for the host's preview like every other canvas.
   const heroRow = widgets.find((w) => w.widget_type === 'hero');
   /* 🧍 How many pairs the page's own hold needs — at most one a scene that Leaves by Scrub (`HubPageHold`). (0 while Scrub shipped dark, to 2026-10-13.) */
-  const pageHolds = hubScrubHoldsAtMost(widgets, proWatermarkHidden);
+  const pageHolds = hubScrubHoldsAtMost(widgets, scrubAllowed);
   /* 🎬 THE COVER AS HAND-OVER ZERO (`hub-scenes.tsx` `HubCoverHold`): is the hero row STORED to leave by Scrub, with a
      Build out to play? The same question a scene is asked, through the same door — were "Scrub out" not offered
      (`lib/scrub-out-offered.ts`, on since 2026-10-13) the answer would be no, on every page. 🔢 NO PAIR IS ADDED FOR IT: the hero row is a row,
      so `pageHolds` above already counts it — one pair for the cover, never two. */
-  const coverStoredToLeave = hubCoverLeaves(widgets, proWatermarkHidden);
+  const coverStoredToLeave = hubCoverLeaves(widgets, scrubAllowed);
   const mainGroundLayer = await mainGroundLayerFor({
     theme: sceneTheme,
     heroConfig: heroRow?.config_json,
@@ -1645,7 +1654,9 @@ export async function SiteBody({
         monogramText={event.monogram_text}
         monogramSvg={bespokeSvg}
         lockup={stdLockupFor(event)}
-        musicUrl={ownsStdReveal ? bgMusicUrl : null}
+        // 💎 Part by part (owner 2026-10-22): the film's own song is Music's (gate 4), its own film Reveal's (gate 3),
+        // its closing gallery Photos' (gate 6).
+        musicUrl={holdsPart('music') ? bgMusicUrl : null}
         videoUrl={ownsStdReveal ? stdVideoUrl : null}
         videoPosterUrl={ownsStdReveal ? stdVideoPosterUrl : null}
         ceremonyVenue={stdVenues?.ceremony ?? null}
@@ -1653,7 +1664,7 @@ export async function SiteBody({
         receptionCity={stdFilmPlaceLine(stdVenues?.receptionCity, event)}
         galleryUrls={
           // 👁 The gallery hidden on this stage is not the film's closing beat either.
-          ownsStdReveal && !hiddenOnStage(widgets, 'our_photos', lifecyclePhase, phasesEnabled)
+          holdsPart('photos') && !hiddenOnStage(widgets, 'our_photos', lifecyclePhase, phasesEnabled)
             ? ourPhotoUrls.length
               ? ourPhotoUrls
               : heroPhotoUrl
@@ -1800,7 +1811,7 @@ export async function SiteBody({
     // 🎬 Scroll · Scrub per section — the same scenes as the guest tree, so a
     // stranger following the link sees the page the couple arranged.
     const sceneNodes = (list: typeof detailsScenes) => (
-      <HubScenes widgets={list} scrubAllowed={proWatermarkHidden} stageMarks={stageAutoplayOn}>
+      <HubScenes widgets={list} scrubAllowed={scrubAllowed} stageMarks={stageAutoplayOn}>
       {list.map((widget) => (
       /* One node per widget still (HubScenes pairs by position): the marker
          and the section travel together in one fragment. */
@@ -3172,7 +3183,7 @@ export async function SiteBody({
           <Fragment key={p}>
             {group(p, (
               <div className="sn-hub-cards space-y-4">
-                <HubScenes widgets={mine} scrubAllowed={proWatermarkHidden}>
+                <HubScenes widgets={mine} scrubAllowed={scrubAllowed}>
                   {mine.map(renderScene)}
                 </HubScenes>
               </div>
@@ -4050,7 +4061,7 @@ export async function SiteBody({
                   Pro (`proWatermarkHidden` is that read). See hub-scenes.tsx. */}
               {group(scenesTab, <>
               <div className="sn-hub-cards space-y-4">
-              <HubScenes widgets={guestAround.before} scrubAllowed={proWatermarkHidden} stageMarks={stageAutoplayOn}>
+              <HubScenes widgets={guestAround.before} scrubAllowed={scrubAllowed} stageMarks={stageAutoplayOn}>
               {guestAround.before.map(renderScene)}
               </HubScenes>
               </div>
@@ -4067,7 +4078,7 @@ export async function SiteBody({
                   marks: only the Invitation splits, and the marks are the Save the Date's. */}
               {guestAround.after.length > 0 ? (
                 <div className="sn-hub-cards space-y-4">
-                  <HubScenes widgets={guestAround.after} scrubAllowed={proWatermarkHidden}>
+                  <HubScenes widgets={guestAround.after} scrubAllowed={scrubAllowed}>
                     {guestAround.after.map(renderScene)}
                   </HubScenes>
                 </div>
@@ -4103,7 +4114,7 @@ export async function SiteBody({
               {storyScene ? (
                 <div className="sn-hub-cards space-y-4">
                   {/* No stage marks: a tabbed page is never the Save the Date the autoplay walks. */}
-                  <HubScenes widgets={[storyScene]} scrubAllowed={proWatermarkHidden}>
+                  <HubScenes widgets={[storyScene]} scrubAllowed={scrubAllowed}>
                     {[storyScene].map(renderScene)}
                   </HubScenes>
                 </div>

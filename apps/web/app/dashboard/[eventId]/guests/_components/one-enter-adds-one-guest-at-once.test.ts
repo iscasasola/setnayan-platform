@@ -200,10 +200,15 @@ test('7 · a filter word that found nobody is not a name', () => {
 function keyHandler(src: string, attr: string): string {
   const at = src.indexOf(attr);
   assert.ok(at > 0, `${attr} not found`);
-  const k = src.indexOf('onKeyDown={', at);
+  // A JSX prop (`onKeyDown={…}`) or — since the field is the ONE thumb row's seat (2026-10-22) — an input prop handed
+  // to it (`onKeyDown: (e) => {…}`). Either way the handler's body is read whole.
+  const jsx = src.indexOf('onKeyDown={', at);
+  const prop = src.indexOf('onKeyDown: ', at);
+  const k = jsx > 0 && (prop < 0 || jsx < prop) ? jsx : prop;
   assert.ok(k > 0 && k - at < 1200, `no onKeyDown near ${attr}`);
   let depth = 0;
-  for (let i = k + 'onKeyDown='.length; i < src.length; i++) {
+  const from = k === jsx ? k + 'onKeyDown='.length : src.indexOf('{', k);
+  for (let i = from; i < src.length; i++) {
     if (src[i] === '{') depth += 1;
     else if (src[i] === '}') {
       depth -= 1;
@@ -233,7 +238,7 @@ function fnBody(src: string, head: string): string {
 
 test('8 · the search box: Enter on a name nobody has adds it through the queue — never the add sheet', () => {
   const src = read('guests-screen.tsx');
-  const h = keyHandler(src, 'data-guests-search=""');
+  const h = keyHandler(src, "'data-guests-search': ''");
   assert.match(h, /\baddTyped\(/, 'Enter on an unmatched name does not add it');
   assert.doesNotMatch(h, /\bopenAddGuest\(/, 'Enter opens the add sheet — the second Enter is back');
   const add = fnBody(src, 'const addTyped = (');
@@ -314,7 +319,7 @@ test('12 · the card\'s words: Plus is the card\'s "Extra seats" (None · +1 …
 
 test('13 · a People match not on the list: Enter adds the FIRST one, through the queue, asking for no redraw', () => {
   const src = read('guests-screen.tsx');
-  const h = keyHandler(src, 'data-guests-search=""');
+  const h = keyHandler(src, "'data-guests-search': ''");
   const people = h.indexOf('peopleFor(v)');
   assert.ok(people > 0 && people < h.indexOf('addTyped(v)'), 'Enter does not look in People before adding a new name');
   assert.ok(h.indexOf('hits.length === 1') < people, 'a list match no longer wins over People (a duplicate)');

@@ -197,7 +197,8 @@ test('3b · /api/upload reserves the bytes BEFORE it signs the PUT, and counts n
   // The only door into the counter is the atomic reserve; the settle is the only way down.
   const server = read('lib/couple-media-allowance.server.ts');
   // The cap handed to the RPC is the PLAN's, from the one function, read with the real Pro gate — never a literal.
-  assert.match(server, /const isPro = await eventCoupleWebsiteProActive\(admin, eventId\)\.catch\(\(\) => false\);\s*const capBytes = coupleMediaCapBytes\(isPro\);/);
+  // RE-AIMED 2026-10-22 (part by part): 500 MB is the Background part's (gate 12) — Full Pro and the cap included.
+  assert.match(server, /const isPro = await eventHubPartActive\(admin, eventId, 'background'\)\.catch\(\(\) => false\);\s*const capBytes = coupleMediaCapBytes\(isPro\);/);
   assert.match(server, /rpc\('reserve_couple_media_bytes'[\s\S]*?p_cap: capBytes,/);
   assert.doesNotMatch(server, /MAKER_EVENT_MEDIA_BYTES_CAP|\d+ \* 1024 \* 1024/, 'no second constant set beside coupleMediaCapBytes');
   assert.match(server, /rpc\('set_couple_media_bytes'/);

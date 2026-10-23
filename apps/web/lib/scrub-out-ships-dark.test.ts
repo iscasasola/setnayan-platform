@@ -89,7 +89,8 @@ test('(2) the guest page plays a stored Scrub: the held pairs, through no door, 
   assert.doesNotMatch(draw(rows(false), { scrubAllowed: false }), /hub-cell|data-hub-fx/);
   /* The real page passes neither door: it gets the constant. */
   const body = read('app/[slug]/_components/site-body.tsx');
-  assert.match(body, /const pageHolds = hubScrubHoldsAtMost\(widgets, proWatermarkHidden\);/);
+  // RE-AIMED 2026-10-22 (part by part): Scrub and Auto-scroll are the Motion part's (gate 20) — `scrubAllowed`.
+  assert.match(body, /const scrubAllowed = holdsPart\('motion'\);[\s\S]*?const pageHolds = hubScrubHoldsAtMost\(widgets, scrubAllowed\);/);
   assert.equal((body.match(/<HubScenes /g) ?? []).length, 5, 'anti-vacuity: site-body’s scenes blocks');
   /* The ONE place the transition is resolved for drawing. */
   assert.match(read('app/[slug]/_components/hub-scenes.tsx'), /transition: offeredTransition\(renderedTransition\(resolveTransition\(canvas\), scrubAllowed\), scrubOut\),/);

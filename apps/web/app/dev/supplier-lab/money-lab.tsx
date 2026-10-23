@@ -17,6 +17,7 @@ import { paginate } from '@/lib/paginate';
 import { CustomersSegments } from '@/app/vendor-dashboard/customers/_components/customers-segments';
 import { MoneyView } from '@/app/vendor-dashboard/customers/_components/money-view';
 import { MoneyLog } from '@/app/vendor-dashboard/customers/_components/money-log';
+import { ThumbRow } from '@/components/thumb-row';
 import { SupplierThumbRow } from '@/app/vendor-dashboard/_components/supplier-thumb-row';
 
 export const MONEY_STATES = ['money', 'money-waived', 'money-locked', 'money-empty', 'money-fail'] as const;
@@ -116,9 +117,11 @@ export function MoneyLab({ state, next, open, mpage }: { state: MoneyState; next
           legacy: fail ? null : [],
         }}
       />
-      <SupplierThumbRow name="money" label="Money actions">
-        <MoneyLog customers={customers} startOpen={open === 'log'} />
-      </SupplierThumbRow>
+      <SupplierThumbRow
+        name="money"
+        label="Money actions"
+        row={<ThumbRow name="money" action={{ node: <MoneyLog customers={customers} startOpen={open === 'log'} /> }} />}
+      />
     </div>
   );
 }

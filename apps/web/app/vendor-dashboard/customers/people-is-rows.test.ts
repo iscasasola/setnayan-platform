@@ -141,13 +141,13 @@ test('1e · a search marks the matching letters and says how many it found of ev
 // ── 2 · THE THUMB ROW ─────────────────────────────────────────────────────
 
 test('2 · People’s thumb row = the shared Search box (≥ 60 %) + Add (brand) — and nothing searches inside the list', () => {
-  const thumb = PAGE.slice(PAGE.indexOf('<SupplierThumbRow name="people"'), PAGE.indexOf('</SupplierThumbRow>'));
-  assert.ok(thumb.length > 50, 'People has no thumb row');
-  assert.match(thumb, /<SearchBox\b[\s\S]*placeholder="Search a customer"/, 'the thumb row lost the search box');
-  assert.match(thumb, /<OutsideClientAdd\b/, 'the thumb row lost Add');
-  assert.match(thumb, /^<SupplierThumbRow name="people" label="Customer tools">\s*<SearchBox\b/, 'the search box is not the row’s first control (≥ 60 %, Add beside it)');
+  // The ONE row (owner 2026-10-22): "Search customers" in the field seat, ＋ Add the main verb's round — no band.
+  const at = PAGE.indexOf('<SupplierThumbRow\n        name="people"');
+  const thumb = PAGE.slice(at, PAGE.indexOf('\n      />', PAGE.indexOf('action={{', at)));
+  assert.ok(at > -1 && thumb.length > 50, 'People has no thumb row');
+  assert.match(thumb, /field=\{\{\s*node: \(\s*<SearchBox\b[\s\S]*placeholder="Search customers"/, 'the thumb row lost the search box');
+  assert.match(thumb, /action=\{\{\s*node: \(\s*<OutsideClientAdd\b/, 'the thumb row lost Add');
   assert.ok(thumb.indexOf('<SearchBox') < thumb.indexOf('<OutsideClientAdd'), 'Add comes before the search box');
-  // 2026-10-14: the same sheet is the day screen's "Add a booking" — its word is a prop, "Add" by default (People).
   assert.match(ADD, /<ActionButton tone="brand" main icon=\{Plus\} label=\{label\}/, 'Add is not the brand main button');
   assert.match(ADD, /label = 'Add',/, 'People’s Add lost its word');
   // The box is ONE shared piece: a field in the thumb row (rule 3b keeps it ≥ 60 %), a GET form with no script.

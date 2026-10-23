@@ -63,6 +63,7 @@ import { KeptNotesFold, OutsideClientRows, type OutsideClient } from './_compone
 import { OutsideClientAdd } from './_components/outside-client-add';
 import { MiniTour } from '@/app/_components/mini-tour';
 import { SearchBox } from '@/app/_components/search-box';
+import { ThumbRow } from '@/components/thumb-row';
 import { rosterView } from './roster-view';
 import { CustomersCalendar } from './_components/customers-calendar';
 import { DatesFolds } from './_components/dates-folds';
@@ -618,23 +619,38 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
         <KeptNotesFold notes={keptNotes.map((n) => ({ noteId: n.note_id, body: n.body, createdAt: n.created_at }))} />
       ) : null}
 
-      {/* 📱 THE THUMB ROW (frame 03): search a customer (kind 30, ≥ 60 %) + Add (brand). */}
-      <SupplierThumbRow name="people" label="Customer tools">
-        <SearchBox
-          placeholder="Search a customer"
-          defaultValue={search.q ?? ''}
-          keep={keepParamsFrom(sp, ['q', 'page', 'copage', 'notice', 'add'])}
-          hash="#customers"
-          data="customers"
-        />
-        <OutsideClientAdd
-          pools={pools.map((p) => ({ poolId: p.poolId, label: p.label }))}
-          action={importExternalClient}
-          startOpen={search.add === 'outside'}
-          today={todayIso}
-          setupHref="/vendor-dashboard/customers?seg=dates&open=capacity"
-        />
-      </SupplierThumbRow>
+      {/* 📱 THE THUMB ROW — the ONE row (owner 2026-10-22): "Search customers" · ＋ Add, each its own glass, no band. */}
+      <SupplierThumbRow
+        name="people"
+        label="Customer tools"
+        row={
+          <ThumbRow
+            name="customers"
+            field={{
+              node: (
+                <SearchBox
+                  placeholder="Search customers"
+                  defaultValue={search.q ?? ''}
+                  keep={keepParamsFrom(sp, ['q', 'page', 'copage', 'notice', 'add'])}
+                  hash="#customers"
+                  data="customers"
+                />
+              ),
+            }}
+            action={{
+              node: (
+                <OutsideClientAdd
+                  pools={pools.map((p) => ({ poolId: p.poolId, label: p.label }))}
+                  action={importExternalClient}
+                  startOpen={search.add === 'outside'}
+                  today={todayIso}
+                  setupHref="/vendor-dashboard/customers?seg=dates&open=capacity"
+                />
+              ),
+            }}
+          />
+        }
+      />
     </>
   );
 }
@@ -939,19 +955,30 @@ async function CustomersDates({ search }: { search: Awaited<Props['searchParams'
 
       {/* 📱 THE THUMB ROW (prototype thumb(), owner call 1 2026-10-14): Check a date · Add (brand — a booking from
           outside holds a date). "Mark days not available" lives in its fold and on the day. */}
-      <SupplierThumbRow name="dates" label="Date tools">
-        {pools.length > 0 ? <CheckADate /> : null}
-        <OutsideClientAdd
-          pools={pools.map((p) => ({ poolId: p.poolId, label: p.label }))}
-          action={importExternalClient}
-          today={todayIso}
-          setupHref="/vendor-dashboard/customers?seg=dates&open=capacity"
-          returnTo="dates"
-          tour="dates-add"
-          halls={pools.length > 0 && pools.every((p) => p.isHall)}
-          seats={seatsByPool(pools, bookings, blocks, todayIso)}
-        />
-      </SupplierThumbRow>
+      <SupplierThumbRow
+        name="dates"
+        label="Date tools"
+        row={
+          <ThumbRow
+            name="dates"
+            field={pools.length > 0 ? { node: <CheckADate /> } : null}
+            action={{
+              node: (
+                <OutsideClientAdd
+                  pools={pools.map((p) => ({ poolId: p.poolId, label: p.label }))}
+                  action={importExternalClient}
+                  today={todayIso}
+                  setupHref="/vendor-dashboard/customers?seg=dates&open=capacity"
+                  returnTo="dates"
+                  tour="dates-add"
+                  halls={pools.length > 0 && pools.every((p) => p.isHall)}
+                  seats={seatsByPool(pools, bookings, blocks, todayIso)}
+                />
+              ),
+            }}
+          />
+        }
+      />
     </>
   );
 }
@@ -1142,19 +1169,30 @@ async function CustomersDay({ day, search }: { day: string; search: Awaited<Prop
       ) : null}
       <DaySheet data={data} actions={{ addManualBlock, removeBlock, setCalendarDayState, notifyWaitlistSlot }} />
       {/* 📱 The day's thumb row (prototype SCREENS.day): "Add a booking" — from outside, this date filled. */}
-      <SupplierThumbRow name="dates" label="Date tools">
-        <OutsideClientAdd
-          pools={pools.map((p) => ({ poolId: p.poolId, label: p.label }))}
-          action={importExternalClient}
-          today={todayIso}
-          setupHref="/vendor-dashboard/customers?seg=dates&open=capacity"
-          returnTo="dates"
-          halls={pools.length > 0 && pools.every((p) => p.isHall)}
-          day={day}
-          seats={seatsByPool(pools, bookings, blocksRead.blocks, todayIso)}
-          label="Add a booking"
-        />
-      </SupplierThumbRow>
+      <SupplierThumbRow
+        name="dates"
+        label="Date tools"
+        row={
+          <ThumbRow
+            name="day"
+            action={{
+              node: (
+                <OutsideClientAdd
+                  pools={pools.map((p) => ({ poolId: p.poolId, label: p.label }))}
+                  action={importExternalClient}
+                  today={todayIso}
+                  setupHref="/vendor-dashboard/customers?seg=dates&open=capacity"
+                  returnTo="dates"
+                  halls={pools.length > 0 && pools.every((p) => p.isHall)}
+                  day={day}
+                  seats={seatsByPool(pools, bookings, blocksRead.blocks, todayIso)}
+                  label="Add a booking"
+                />
+              ),
+            }}
+          />
+        }
+      />
     </>
   );
 }

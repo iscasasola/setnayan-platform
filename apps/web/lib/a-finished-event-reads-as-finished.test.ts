@@ -238,7 +238,9 @@ test('the guest list knows the event happened, and nothing is taken away', () =>
   // (no phase gate on it), and its Add opens the same sheet, which holds the
   // capture bar.
   const screen = src('app/dashboard/[eventId]/guests/_components/guests-screen.tsx');
-  assert.match(screen, /placeholder="Search or add"/, 'the add path must still be reachable');
+  // ⤷ 2026-10-22 ("One thumb row"): the field reads "Search guests" and ＋ Add is always in the row (no phase gate).
+  assert.match(screen, /placeholder: 'Search guests',/, 'the add path must still be reachable');
+  assert.match(screen, /const addRound: ThumbRound = \{ icon: Plus, label: 'Add', onClick: \(\) => openAddGuest\(q\)/, 'the add path must still be reachable');
   assert.doesNotMatch(screen, /finished|phase/, 'the thumb row is gated on the event being over');
   assert.match(src('app/dashboard/[eventId]/guests/_components/add-guest-sheet.tsx'), /<CaptureBar/, 'the capture bar must still be mounted');
   // The empty list's door is the SAME add sheet the header + opens (first-timer

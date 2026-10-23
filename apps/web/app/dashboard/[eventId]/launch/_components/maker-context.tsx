@@ -1,4 +1,5 @@
 'use client';
+import type { HubPartId } from '@/lib/hub-parts';
 
 import type { CameraLook } from '@/lib/camera-look';
 import { createContext, useContext, useEffect, useRef, type ComponentType, type ReactNode } from 'react';
@@ -208,6 +209,26 @@ export type MakerState = {
   stagesStudio?: boolean;
   /** 🖥 The event's name for the desktop's top bar (only when its columns are on — `MakerDesk` draws it). */
   deskTitle?: string | null;
+  /**
+   * 💎 "₱X more unlocks everything" — what the quiet line over any sheet with ◆ rows says (owner 2026-10-22, part by
+   * part; `pro-quiet-line.tsx`). Catalogue figures the launch page read; null in the store shell (no web price there),
+   * when unread, and once the event holds everything (there is nothing left to say).
+   */
+  proLine?: MakerProLine | null;
+};
+
+/** The quiet line's facts — every figure a catalogue read; the line itself is the press to the parts page. */
+export type MakerProLine = {
+  /** The cheapest part on sale — "Pro parts from ₱500". */
+  fromPhp: number;
+  /** Full Pro — "everything ₱5,000". */
+  fullPhp: number;
+  /** What this event has paid toward everything (the cap's sum). */
+  paidPhp: number;
+  /** The parts it holds one by one. */
+  owned: readonly HubPartId[];
+  /** The parts page. */
+  href: string;
 };
 
 /**

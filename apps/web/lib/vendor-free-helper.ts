@@ -109,5 +109,10 @@ export function seatLine(seats: TeamSeats, cap: number): string {
       : '';
   if (!Number.isFinite(cap)) return `${formatCount(seats.counted)} with you · no seat limit${free}`;
   if (cap <= 0 && seats.counted === 0) return `No team seats on your plan${free}`;
+  // More people than the plan holds (a plan that went down): "3 of 1 seats used" read like arithmetic gone wrong.
+  if (seats.counted > cap) {
+    const holds = cap <= 0 ? 'no team seats' : `${formatCount(cap)} ${cap === 1 ? 'seat' : 'seats'}`;
+    return `${formatCount(seats.counted)} with you · your plan holds ${holds}${free}`;
+  }
   return `${formatCount(seats.counted)} of ${formatCount(cap)} ${cap === 1 ? 'seat' : 'seats'} used${free}`;
 }

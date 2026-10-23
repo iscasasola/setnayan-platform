@@ -22,7 +22,7 @@ import { CreateLocationPicker } from './create-location-picker';
 import { type BudgetBand } from '@/lib/budget-bands-shared';
 import { ANCHOR_ORIGINS, ANCHOR_ORIGIN_LABELS, canToggleRecur } from '@/lib/event-anchor';
 import { beyondHorizon, horizonDaysFor, isGatedLifeType } from '@/lib/life-event-gate';
-import { eventTypeAcceptsHonoreeLink } from '@/lib/honoree-dependent-link';
+import { pickerAsksHonoree } from '@/lib/honoree-dependent-link';
 import {
   gridHiddenTypes,
   subjectHonoreeDependentId,
@@ -387,7 +387,7 @@ export function EventTypePicker({
               start a new one.
             </p>
             <Link
-              className="mt-3 inline-flex items-center justify-center rounded-lg bg-mulberry px-4 py-2 text-xs font-medium text-white transition-colors hover:bg-mulberry/90"
+              className="mt-3 inline-flex items-center justify-center rounded-lg bg-mulberry px-4 py-2 text-xs font-medium text-white dark:text-cream transition-colors hover:bg-mulberry/90"
               href={`/dashboard/${inPlanningWedding.eventId}/details`}
             >
               Go to {inPlanningWedding.displayName}
@@ -433,7 +433,7 @@ export function EventTypePicker({
             </p>
           </div>
 
-          {/* Life-event honoree ("Para kanino?") — the cardinality key (council
+          {/* Life-event honoree ("For whom?" — "Para kanino?" until 2026-10-22, the 7 Oct English ruling) — the cardinality key (council
               verdict 2026-07-17 § 2). OPTIONAL, first name only, ordinary PI:
               one in-planning celebration per celebrant per type, and typing a
               different name opens a new slot. Never asks a birthdate.
@@ -443,11 +443,17 @@ export function EventTypePicker({
               way to name it. They carry NO cap — `blocksLifeEventCreation`
               still keys on `isGatedLifeType` — so the footnote below says
               something different for them rather than promising a rule that
-              does not apply to them. A wedding is in neither list. */}
-          {eventTypeAcceptsHonoreeLink(selected.key) && !samahanCommunityId ? (
+              does not apply to them. A wedding is in neither list.
+
+              WIDENED 2026-10-22 (owner "yes"): when "For ▾" is a SHOP's business
+              alaga, the field is drawn on EVERY type offered for it
+              (`pickerAsksHonoree`), so a celebration or a trip for the shop
+              posts the shop's record and is filed under it. A person picked for
+              those types still draws nothing, as before. */}
+          {pickerAsksHonoree(selected.key, subject?.kind) && !samahanCommunityId ? (
             <div className="space-y-1.5">
               <label className="block text-sm font-medium text-ink" htmlFor="honoree_label">
-                {isGatedLifeType(selected.key) ? 'Para kanino?' : 'Which business is this for?'}{' '}
+                {isGatedLifeType(selected.key) ? 'For whom?' : 'Which business is this for?'}{' '}
                 <span className="font-normal text-ink/45">— optional</span>
               </label>
               {/* Pre-answered by the who step when a NAMED alaga was picked.

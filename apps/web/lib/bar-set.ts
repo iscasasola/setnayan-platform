@@ -48,6 +48,7 @@ export const ACCOUNT_SPOKES: readonly string[] = [
   'people',
   'profile',
   'samahan',
+  'search',
   'year',
 ];
 

@@ -2,7 +2,7 @@ import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { R2_BUCKETS, isR2Configured, r2List } from '@/lib/r2';
 import { coupleMediaCapBytes, readCoupleMediaBytes } from '@/lib/maker-media-limits';
-import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
+import { eventHubPartActive } from '@/lib/couple-website-pro';
 import { measureCoupleMediaBytes } from '@/lib/couple-media-allowance';
 
 /**
@@ -38,7 +38,8 @@ export async function reserveCoupleMediaBytes(
   // with the admin client: `orders` RLS is purchaser-scoped, so a co-host who did
   // not place the order would otherwise read "Free" for an event that paid. A
   // read that fails reads Free (the smaller number) — a cap never widens by error.
-  const isPro = await eventCoupleWebsiteProActive(admin, eventId).catch(() => false);
+  // 💎 500 MB instead of 10 MB is the Background part's (owner 2026-10-22, gate 12) — Full Pro and the cap included.
+  const isPro = await eventHubPartActive(admin, eventId, 'background').catch(() => false);
   const capBytes = coupleMediaCapBytes(isPro);
 
   const ask = async (): Promise<number | null | 'error'> => {

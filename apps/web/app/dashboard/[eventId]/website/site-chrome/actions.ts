@@ -122,7 +122,8 @@ export async function updateSiteChrome(
     // Checkbox: present only when checked. Music can't be enabled without a track.
     const enabledRequested = formData.get('bg_music_enabled') === 'on';
     const musicChange = refChange(stored?.site_bg_music_r2_key as string | null | undefined, musicRef);
-    if (await lookProAllows(eventId, musicChange)) {
+    // 💎 Your own song is the Music part's (owner 2026-10-22, gate 7).
+    if (await lookProAllows(eventId, musicChange, 'music')) {
       update.site_bg_music_r2_key = musicRef;
       update.site_bg_music_source = musicRef ? 'upload' : null;
       update.site_bg_music_enabled = enabledRequested && Boolean(musicRef);
@@ -139,7 +140,8 @@ export async function updateSiteChrome(
       stored?.landing_page_hero_video_r2_key as string | null | undefined,
       videoRef,
     );
-    if (await lookProAllows(eventId, videoChange)) {
+    // 💎 Your own film at the top of the Hub is the Reveal part's (owner 2026-10-22, gate 5a).
+    if (await lookProAllows(eventId, videoChange, 'reveal')) {
       update.landing_page_hero_video_r2_key = videoRef;
     } else {
       refused = true;

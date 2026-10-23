@@ -1369,12 +1369,23 @@ export function FileUpload({
         </label>
       ) : null}
 
+      {/* 📏 TWO LINES, BROKEN WHERE THE MEANING BREAKS (2026-10-23). As one run, the
+          caps line wrapped wherever the width ran out — at 375 px on /open-shop it read
+          "… · HEIF · UP TO" / "10 MB". The formats are one line and the size limit is
+          the next, each kept whole (`whitespace-nowrap` on the size), so the break can
+          only fall between the two facts. Held by
+          app/open-shop/the-logo-step-says-one-thing.test.ts. */}
       {roundDropzone && !atCapacity && !rowMode ? (
-        <span className="block text-center font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
-          {acceptedTypes
-            .map((t) => t.replace('image/', '').replace('application/', '').toUpperCase())
-            .join(' · ')}{' '}
-          · up to {formatCount(maxSizeMB)} MB
+        <span
+          data-upload-limits=""
+          className="block text-center font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55"
+        >
+          <span className="block">
+            {acceptedTypes
+              .map((t) => t.replace('image/', '').replace('application/', '').toUpperCase())
+              .join(' · ')}
+          </span>
+          <span className="block whitespace-nowrap">up to {formatCount(maxSizeMB)} MB</span>
         </span>
       ) : null}
 

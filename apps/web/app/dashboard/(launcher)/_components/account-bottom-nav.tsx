@@ -60,6 +60,10 @@ const TAB: Record<AccountBarTab, BottomNavItem> = {
     icon: Telescope,
     activeMatch: '/',
     activeMatchExact: true,
+    // The signed-in search's results page is Discover's answer — the widest
+    // place, everything you may reach (lib/shell-search.ts) — so Discover is
+    // lit there. Where Discover is not a tab (the store app), nothing is.
+    activeMatchAlsoExact: ['/dashboard/search'],
   },
   memories: {
     key: 'memories',

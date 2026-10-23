@@ -99,7 +99,7 @@ export default async function LauncherLayout({
     // This literal exists BECAUSE a read failed — it measured nothing, and
     // saying so is what stops the library reporting that you host no events.
     eventsMeasured: false,
-    context: { hasVendor: false, vendorName: null, isAdmin: false, canOpenShop: false },
+    context: { hasVendor: false, vendorName: null, isAdmin: false, canOpenShop: false, shops: [] },
   };
   const [shellRes, switcherData, discoverOpen] = await Promise.all([
     getDashboardShell(user.id).catch(() => ({ unreadCount: 0 })),

@@ -5,6 +5,8 @@ import Link from 'next/link';
 // agreeing today is how `llms.txt` drifted for three weeks with green CI.
 import { CONNECTION_REQUEST_RETENTION_DAYS } from '@/lib/connection-request-expiry-core';
 import { ERROR_LOG_RETENTION_DAYS } from '@/lib/rule-constants';
+// The sign-in button's own words, so this page quotes the button exactly (lib/one-oauth-wording.test.ts).
+import { OAUTH_VERB } from '@/lib/oauth-words';
 
 // GEO Phase G5 (2026-05-28) — canonical URL + enriched description. AI
 // engines extract privacy-policy content for "is X RA 10173 compliant"
@@ -237,8 +239,8 @@ export default function PrivacyPage() {
           </p>
 
           <p className="pt-2">
-            <strong>1. Sign in with Google.</strong> When you choose
-            &ldquo;Continue with Google&rdquo;, Setnayan asks Google only for the
+            <strong>1. Signing in with Google.</strong> When you choose
+            &ldquo;{OAUTH_VERB} Google&rdquo;, Setnayan asks Google only for the
             basic sign-in permissions, <code className="font-mono text-[12px]">email</code>{' '}
             and <code className="font-mono text-[12px]">profile</code>. From
             them we receive:

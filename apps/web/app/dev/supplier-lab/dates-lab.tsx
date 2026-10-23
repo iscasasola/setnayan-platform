@@ -18,6 +18,7 @@ import { DaySheet, type DaySheetData } from '@/app/vendor-dashboard/customers/_c
 import { OutsideClientAdd } from '@/app/vendor-dashboard/customers/_components/outside-client-add';
 import { QrCodes } from '@/app/vendor-dashboard/invite/_components/qr-codes';
 import { LockedQrGenerator } from '@/app/vendor-dashboard/invite/_components/locked-qr-generator';
+import { ThumbRow } from '@/components/thumb-row';
 import { SupplierThumbRow } from '@/app/vendor-dashboard/_components/supplier-thumb-row';
 import { SupplierToast } from '@/app/vendor-dashboard/_components/supplier-toast';
 import {
@@ -288,19 +289,30 @@ export async function DatesLab({ state, toast, open }: { state: DatesState; toas
     return (
       <div className="min-h-screen bg-cream px-4 pb-32 pt-4" data-supplier-lab={state}>
         <DaySheet data={labHallDay('2026-12-12')} actions={{ addManualBlock, removeBlock, setCalendarDayState, notifyWaitlistSlot }} />
-        <SupplierThumbRow name="dates" label="Date tools">
-          <OutsideClientAdd
-            pools={HALLS}
-            action={importExternalClient}
-            today={TODAY}
-            setupHref={base}
-            returnTo="dates"
-            day="2026-12-12"
-            seats={seatsByPool(HALLS, HALL_BOOKINGS, HALL_BLOCKS, TODAY)}
-            label="Add a booking"
-            halls
-          />
-        </SupplierThumbRow>
+        <SupplierThumbRow
+          name="dates"
+          label="Date tools"
+          row={
+            <ThumbRow
+              name="day"
+              action={{
+                node: (
+                  <OutsideClientAdd
+                    pools={HALLS}
+                    action={importExternalClient}
+                    today={TODAY}
+                    setupHref={base}
+                    returnTo="dates"
+                    day="2026-12-12"
+                    seats={seatsByPool(HALLS, HALL_BOOKINGS, HALL_BLOCKS, TODAY)}
+                    label="Add a booking"
+                    halls
+                  />
+                ),
+              }}
+            />
+          }
+        />
       </div>
     );
   }

@@ -111,15 +111,25 @@ test('(b) the real <head> script decides and paints exactly as the rule, for eve
   assert.ok(n >= 80, `only ${n} cases ran`);
 });
 
-test('(c) as shipped — the ready-list is EMPTY, so nobody sees dark anywhere yet', () => {
-  assert.deepEqual([...DARK_READY], [], 'an area PR adds its prefix only once every screen under it is swept in dark');
+test('(c) as shipped — dark reaches ONLY the swept account spokes + sign-in cards (B2), never the event tree', () => {
+  // The event tree, the supplier tree, admin, the guest Hub and Papic stay Light for EVERYONE until their batch
+  // lists them — one prefix rule, no exception list (controller 2026-10-22). "/dashboard" exactly is the Events
+  // board, which opens with the event tree (B3); a B2 prefix must never be a sibling-match of it.
+  const SHIPPED_LIGHT = ['/', '/dashboard', '/dashboard/abc/guests', '/dashboard/peoplex', '/vendor-dashboard/clients', '/admin', '/marco-marga', '/papic/abc'];
+  const SHIPPED_DARK = ['/dashboard/people', '/dashboard/profile', '/dashboard/library/photos', '/dashboard/samahan/c1', '/login', '/signup/you'];
   for (const [who, cookie] of Object.entries(COOKIES)) {
-    for (const path of PATHS) {
+    const chose = darkApplies({ pathname: '/dashboard/profile', cookie, appRoutes: ROUTE_RESERVED_SLUGS });
+    for (const path of SHIPPED_LIGHT) {
       const got = runScript(themeBootstrapScript, path, cookie);
-      assert.equal(got.dark, false, `${who} on ${path} would see dark`);
+      assert.equal(got.dark, false, `${who} on ${path} would see dark before its batch`);
       assert.equal(got.bar, THEME_COLOR.light, `${who} on ${path}: the light browser bar was touched`);
     }
+    for (const path of SHIPPED_DARK) {
+      const got = runScript(themeBootstrapScript, path, cookie);
+      assert.equal(got.dark, chose, `${who} on ${path}: dark only for a signed-in person who chose it`);
+    }
   }
+  assert.ok(!DARK_READY.includes('/dashboard'), '"/dashboard" opens with the whole event tree (B3), not before');
 });
 
 test('(d) a ready-list entry is always an app route, never a couple’s slug', () => {

@@ -42,13 +42,19 @@ export function SupplierThumbRow({
   name,
   label,
   children,
+  row,
 }: {
   /** Which page's row this is — the guard's anchor (`data-supplier-thumb`). */
   name: string;
   /** What the row is, for a screen reader ("Customer actions"). */
   label: string;
-  /** `ActionButton`s (and at most one text field). */
-  children: ReactNode;
+  /** `ActionButton`s (and at most one text field) — drawn on the glass band. */
+  children?: ReactNode;
+  /**
+   * 🔁 ONE THUMB ROW (owner 2026-10-22): the shared `<ThumbRow>` — NO band; each control is its own glass. This
+   * component keeps only the plumbing (portal, slide up / down, the column's edges on a computer).
+   */
+  row?: ReactNode;
 }) {
   const [mounted, setMounted] = useState(false);
   const [on, setOn] = useState(false);
@@ -105,6 +111,14 @@ export function SupplierThumbRow({
   }, [mounted]);
 
   if (!mounted) return null;
+  if (row) {
+    return createPortal(
+      <div ref={rowRef} className={styles.lower} data-supplier-thumb={name} data-on={on ? 'true' : 'false'}>
+        {row}
+      </div>,
+      document.body,
+    );
+  }
   return createPortal(
     <div
       ref={rowRef}

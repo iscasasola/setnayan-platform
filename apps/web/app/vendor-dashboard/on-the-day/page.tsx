@@ -451,7 +451,7 @@ export default async function VendorOnTheDayPage({
   const DELIVERY_LABEL = ['Not started yet', 'In progress', 'Delivered'][deliveryStage];
 
   return (
-    <section className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">
+    <section className="mx-auto w-full max-w-6xl tab:max-w-3xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">
       {/* 1 · Honest status banner — the console's behaviour now MATCHES the copy:
           the full console renders only on an event day (a booking dated today) or
           in explicit ?preview=1 mode; otherwise the compact state below shows. */}

@@ -121,7 +121,7 @@ export const metadata = { title: 'Today' };
 
 function AgentHome() {
   return (
-    <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-10 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full max-w-6xl tab:max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
       <PageMasthead
         titleNode={
           <>
@@ -243,7 +243,7 @@ export default async function VendorOverviewPage({
   // that routes them to create one. No feed to compute.
   if (!profile) {
     return (
-      <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
+      <div className="mx-auto w-full max-w-6xl tab:max-w-3xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
         <header className="mb-6 space-y-1.5">
           <h1 className="sn-h1">Today</h1>
           <p className="text-sm text-ink/60">
@@ -308,7 +308,7 @@ export default async function VendorOverviewPage({
     // eslint-disable-next-line no-console
     console.error('[/vendor-dashboard overview] loader failed', err);
     return (
-      <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-12 sm:px-6 lg:px-8">
+      <div className="mx-auto w-full max-w-6xl tab:max-w-3xl px-4 py-12 sm:px-6 lg:px-8">
         <header className="mb-6 flex items-start gap-3">
           <AlertTriangle
             aria-hidden
@@ -563,7 +563,7 @@ export default async function VendorOverviewPage({
 
 
   return (
-    <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-4 sm:px-6 sm:py-10 lg:px-8">
+    <div className="mx-auto w-full max-w-6xl tab:max-w-3xl px-4 py-4 sm:px-6 sm:py-10 lg:px-8">
       {/* The toast that says how an answer went (a booking ask · a date change · a payment that never arrived).
           A refusal is the whole point: without it the supplier presses Agree, is refused, and sees the same page
           with no explanation. Its lasting status line is drawn by the screen, under the Next card. */}

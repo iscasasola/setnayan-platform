@@ -29,13 +29,27 @@ export type AccordionSection = {
   icon?: ReactNode;
 };
 
+/**
+ * 🖥 THE ACCORDION SITS IN ITS PAGE'S COLUMN (supplier dashboard desktop, 2026-10-23 — prototype
+ * `desktop_layouts_2026-10-22.html` family 2: "one body width per tab"). From 701 it takes the SAME measure as the page
+ * above it — the reading column (48 rem) or the wide stage (64 rem) — instead of a 72-rem slab of its own. Literal class
+ * sets so Tailwind can read them; below 701 both are exactly what shipped.
+ */
+const MEASURE = {
+  reading: 'mx-auto w-full max-w-6xl tab:max-w-3xl space-y-3 px-4 pb-10 sm:px-6 lg:px-8',
+  wide: 'mx-auto w-full max-w-6xl tab:max-w-5xl space-y-3 px-4 pb-10 sm:px-6 lg:px-8',
+} as const;
+
 export function FeatureAccordion({
   sections,
   openKey,
+  measure,
   children,
 }: {
   sections: AccordionSection[];
   openKey: string | null;
+  /** The page's own column — 'reading' (48 rem) or 'wide' (64 rem) from 701. */
+  measure: keyof typeof MEASURE;
   children?: ReactNode;
 }) {
   const router = useRouter();
@@ -57,7 +71,7 @@ export function FeatureAccordion({
   };
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-3 px-4 pb-10 sm:px-6 lg:px-8 xl:max-w-7xl 2xl:max-w-screen-2xl">
+    <div className={MEASURE[measure]}>
       {sections.map((s) => {
         const isOpen = openKey === s.key;
         return (

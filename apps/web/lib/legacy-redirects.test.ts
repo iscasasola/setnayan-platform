@@ -180,16 +180,16 @@ test('d1 · the More menu address opens the menu', () => {
   assert.ok(asksForMoreServices(new URL(MORE, 'https://x').search), 'the forward does not open the More menu');
 });
 
-test('d1 · both menus open on the address: the rail row and the phone sheet', () => {
-  const rail = read('app/dashboard/[eventId]/_components/event-rail-context.tsx');
-  assert.match(rail, /asksForMoreServices\(search\)\) setOpen\(true\)/, 'the rail does not open More Services on its address');
+test('d1 · the services address lands on Home — no More to open (owner 22 Oct 2026, "Yes remove more")', () => {
+  // The services live on Home › Your services; `studioHubHref` is Home, and the phone bar opens no sheet.
+  assert.equal(studioHubHref('EVT').split('?')[0], '/dashboard/EVT');
   const bar = read('app/dashboard/[eventId]/_components/customer-bottom-nav.tsx');
-  assert.match(bar, /hasServices && asksForMoreServices\(search\)\) openMore\(\)/, 'the phone does not open the More sheet on its address');
+  assert.doesNotMatch(bar, /asksForMoreServices|more-services-sheet|openMore/, 'the phone bar opens a More sheet again');
 });
 
 test('d1 · nothing hand-types the old hub address — every door goes through studioHubHref', () => {
   const files = [
-    'app/dashboard/[eventId]/_components/after/finished-event-summary.tsx',
+    // (finished-event-summary.tsx left this list 22 Oct 2026: its services card scrolls to Your services on the same page.)
     'app/dashboard/[eventId]/alaala/page.tsx',
     'app/dashboard/[eventId]/launch/page.tsx',
     'app/dashboard/[eventId]/live/page.tsx',

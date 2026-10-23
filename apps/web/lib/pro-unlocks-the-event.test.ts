@@ -340,7 +340,9 @@ test('the scan sees the host surfaces it is about (a guard that reads nothing pr
     'app/dashboard/[eventId]/studio/live-studio-control/page.tsx',
     'app/panood/control/[eventId]/page.tsx',
     'app/dashboard/[eventId]/website/our-story/page.tsx',
-    'app/dashboard/[eventId]/layout.tsx',
+    // layout.tsx read what the event owned for the More menu; More left the menu (owner 22 Oct 2026,
+    // "Yes remove more") and the read with it. The event page reads them for Home › Your services.
+    'app/dashboard/[eventId]/page.tsx',
   ]) {
     assert.ok(files.has(f), `expected entitlement reads in ${f}`);
   }

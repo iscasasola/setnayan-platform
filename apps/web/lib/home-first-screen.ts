@@ -32,6 +32,7 @@
  * `lib/guests-read-is-honest.test.ts`): a couple with 180 names must never be
  * told "0 coming" because a query was refused.
  */
+import { recordFieldHref } from '@/lib/event-details-record';
 import { formatCount } from '@/lib/format-number';
 import { formatPhp } from '@/lib/php';
 import { SERVICE_NAMES, type ServiceNameKey } from '@/lib/service-names';
@@ -570,4 +571,80 @@ export function homeServices(input: {
 /** A status line as plain words (the row's `status`, for guards and the plain tile). */
 export function glanceLineText(line: GlanceLine): string {
   return `${line.lead ?? ''}${line.strong ?? ''}${line.tail ?? ''}`;
+}
+
+/**
+ * 📷 PAPIC ON THE EVENT DAY (owner 22 Oct 2026, on a just-created event's Home on its day: *"Fix
+ * both"* — the event-day console had no Papic at all, because Home's first screen, which holds Your
+ * services, is not mounted on the day). The console now draws Home › Your services' OWN Papic row —
+ * the same `HomeService` entry `homeServices` built, rendered by the same row — right beside the Live
+ * photo wall card. This picks which face it shows; it reads nothing.
+ *
+ *   hidden  · no Papic entry in Your services — the store shell (the iPhone app shows no paid row,
+ *             App Review 3.1.1), exactly as Your services hides it there.
+ *   off     · the host answered "Photos from your guests? — No" (`papic_on = false`): it says so,
+ *             with the door to that answer (Event Details) to switch it back on.
+ *   none    · no pool, no camera, no photo yet (`tile === null`): "not on yet", door = the Papic page,
+ *             which arms the free pool on its first view.
+ *   failed  · the credits read threw: "Couldn't read your credits" — NEVER 0, never a meter.
+ *   row     · the glance row itself: credits left · meter · Buy more · See N photos.
+ *   plain   · a viewer the figures are not shared with: the plain door, as Your services draws it.
+ */
+export type DayPapicFace = 'hidden' | 'off' | 'none' | 'failed' | 'row' | 'plain';
+
+export function dayPapicFace(input: {
+  /** Home › Your services' Papic entry (`homeServices(...)`), or undefined when it built none. */
+  svc: HomeService | undefined;
+  /** `events.papic_on` read with `papicIsOn` — null when the column was not read. */
+  papicOn: boolean | null;
+  /** May this viewer see Papic's figures (couple · coordinator) — the page's `canViewPapicCounts`. */
+  permitted: boolean;
+  /** `resolvePapicHomeTile`'s answer as the page holds it: an object, null (no Papic yet) or 'failed'. */
+  tile: object | null | 'failed';
+}): DayPapicFace {
+  if (!input.svc) return 'hidden';
+  if (input.papicOn === false) return 'off';
+  if (!input.permitted || !input.svc.papic) return 'plain';
+  if (input.tile === 'failed') return 'failed';
+  if (input.tile === null) return 'none';
+  return 'row';
+}
+
+/** The day card's words for the faces that are not the glance row (one place, so a guard can read them). */
+export const DAY_PAPIC_WORDS = {
+  off: 'Off for this event',
+  none: 'Not on for this event yet',
+  failed: 'Couldn’t read your credits',
+  switchOn: 'Switch on',
+} as const;
+
+/**
+ * What the day card draws for a face — the whole decision, pure, so a guard can hold it without
+ * rendering the row (its Buy more sheet imports server actions). `DayPapicRow` only paints this.
+ *   row    · Your services' glance row itself, its own Buy more kept (no Next card is on screen on the day);
+ *   say    · one plain line (no meter — a failed read is not "0 credits left") + its door, if any;
+ *   plain  · the plain door Your services draws for a viewer the figures are not shared with.
+ */
+export type DayPapicView =
+  | { kind: 'hidden' }
+  | { kind: 'row'; doors: PapicRowDoors }
+  | { kind: 'say'; face: 'off' | 'none' | 'failed'; words: string; href: string; door: { label: string; href: string } | null; meter: false }
+  | { kind: 'plain'; href: string; status: string };
+
+export function dayPapicView(face: DayPapicFace, svc: HomeService | undefined, eventId: string): DayPapicView {
+  if (face === 'hidden' || !svc) return { kind: 'hidden' };
+  const papicHref = `/dashboard/${eventId}/studio/papic`;
+  if (face === 'row' && svc.papic) return { kind: 'row', doors: { ...svc.papic, whileNext: undefined } };
+  if (face === 'off' || face === 'none' || face === 'failed') {
+    const href = face === 'off' ? recordFieldHref(eventId, 'papic-answer') : papicHref;
+    return {
+      kind: 'say',
+      face,
+      words: DAY_PAPIC_WORDS[face],
+      href,
+      door: face === 'failed' ? null : { label: DAY_PAPIC_WORDS.switchOn, href },
+      meter: false,
+    };
+  }
+  return { kind: 'plain', href: papicHref, status: svc.status };
 }

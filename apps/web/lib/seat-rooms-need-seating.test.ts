@@ -108,12 +108,13 @@ test('the Seat plan page is claimed only where the kind seats people, on every s
       const rail = buildCustomerNavGroups('E', { phase, seatingEnabled: false, websiteEnabled }).flatMap((g) => g.items);
       assert.ok(!rail.some((i) => i.key === 'seat'), `${phase}: the RAIL shows Seat plan`);
       // ⚠ UNDEFINED MEANS SEATING — a caller not taught the field keeps the claim,
-      // on the Maker where there is one, else on Our Services.
+      // on the Maker where there is one, else on Home.
       const untaught = buildEventMenuSections('E', { phase, websiteEnabled }).flatMap((x) => x.rows);
       const holder = untaught.find((r) => (r.alsoMatch ?? []).includes('/dashboard/E/seating'));
       assert.equal(
         holder?.key,
-        websiteEnabled ? 'launch' : 'studio',
+        // No Maker → Home holds it since More left the menu (owner 22 Oct 2026).
+        websiteEnabled ? 'launch' : 'home',
         `${phase}/${websiteEnabled ? 'maker' : 'no maker'}: /seating is not held by the right row`,
       );
     }
@@ -122,9 +123,15 @@ test('the Seat plan page is claimed only where the kind seats people, on every s
 
 test('layout resolves seatingEnabled and hands it to the bar and the rail', () => {
   const src = code('app/dashboard/[eventId]/layout.tsx');
+  // The layout reads it through the ONE menu rule (`lib/event-menu-gates.ts`, 22 Oct 2026), which
+  // resolves it from the profile exactly once.
   assert.ok(
-    times(src, "surfaceEnabled(profile, 'seating')") === 1,
+    /const seatingEnabled = menuGates\.seatingEnabled;/.test(src) && /eventMenuGates\(profile\)/.test(src),
     'layout.tsx no longer resolves seatingEnabled.',
+  );
+  assert.ok(
+    times(code('lib/event-menu-gates.ts'), "surfaceEnabled(profile, 'seating')") === 1,
+    'the menu rule no longer resolves seatingEnabled from the profile.',
   );
   // 🔄 Stage D (2026-09-29): the section sub-nav is retired — the phone has
   // ONE bar, whose Maker (or Services) tab lights the Seat plan's page (train

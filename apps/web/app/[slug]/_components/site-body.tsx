@@ -4093,7 +4093,7 @@ export async function SiteBody({
               {group('home', isLimitedPlusOne ? (
                 <section className="rounded-xl border-l-2 border-ink/30 bg-paper-deep p-5 text-sm text-ink/75">
                   You&rsquo;re joining as a +1. Photos taken of you will appear in your inviter&rsquo;s
-                  gallery — ask them to share. In-app features like Shutter
+                  Memories — ask them to share. In-app features like Shutter
                   require a full Setnayan account, which {clientWords.theOrganizer} hasn&rsquo;t
                   enabled for +1s on this {clientWords.eventWord}.
                 </section>

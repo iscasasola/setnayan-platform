@@ -404,7 +404,7 @@ export function KwentoDecorator({
         </Link>
         <h1 className="text-xl font-semibold tracking-tight">Decorate a photo</h1>
         <p className="mt-1 text-sm text-ink/60">
-          Add stickers, text, and a filter, then save it to {eventName}&rsquo;s gallery.
+          Add stickers, text, and a filter, then save it to {eventName}&rsquo;s Memories.
         </p>
 
         {!photoUrl ? (
@@ -607,7 +607,7 @@ export function KwentoDecorator({
               className="mt-5 flex w-full items-center justify-center gap-2 rounded-md bg-terracotta-700 px-4 py-2.5 text-sm font-semibold text-cream hover:bg-terracotta-800 disabled:opacity-60"
             >
               {saving ? <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={2} /> : null}
-              {done ? 'Saved' : 'Save to gallery'}
+              {done ? 'Saved' : 'Save to Memories'}
             </button>
             {status ? (
               <p className={`mt-2 text-center text-sm ${done ? 'text-success-600' : 'text-ink/70'}`}>

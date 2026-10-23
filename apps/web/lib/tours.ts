@@ -197,7 +197,8 @@ export type TourKey =
   | 'customer_budget_v2'
   | 'customer_papic_v2'
   | 'customer_seat_plan_v2'
-  | 'customer_mood_board_v1';
+  | 'customer_mood_board_v1'
+  | 'customer_memories_v1';
 
 export const TOUR_KEYS: ReadonlyArray<TourKey> = [
   'couple_welcome_v1',
@@ -249,6 +250,7 @@ export const TOUR_KEYS: ReadonlyArray<TourKey> = [
   'customer_papic_v2',
   'customer_seat_plan_v2',
   'customer_mood_board_v1',
+  'customer_memories_v1',
 ];
 
 export type TourDefinition = {
@@ -465,7 +467,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       {
         Icon: Camera,
         title: 'Your phone is a camera now',
-        body: 'Everything you shoot here goes straight to the host&rsquo;s gallery. No app to install, nothing to sign up for.',
+        body: 'Everything you shoot here goes straight to the host&rsquo;s Memories. No app to install, nothing to sign up for.',
       },
       {
         Icon: MousePointerClick,
@@ -492,7 +494,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       {
         Icon: Camera,
         title: 'Your own camera',
-        body: 'Tap <b>Open my camera</b> and your phone shoots straight into the host&rsquo;s gallery.',
+        body: 'Tap <b>Open my camera</b> and your phone shoots straight into the host&rsquo;s Memories.',
       },
       {
         Icon: Images,
@@ -562,23 +564,23 @@ export const TOURS: Record<TourKey, TourDefinition> = {
   },
   customer_galleries_v1: {
     key: 'customer_galleries_v1',
-    label: 'Galleries',
+    label: 'Memories',
     blurb: 'Where every collected photo and recording from the event is found.',
     slides: [
       {
         Icon: Images,
         title: 'Every photo in one place',
-        body: 'Papic photos, your live stream recording and the photos you add each have their own gallery here.',
+        body: 'Papic photos, your live stream recording and the photos you add each have their own place here.',
       },
       {
         Icon: Calendar,
         title: 'Collecting, then Ready',
-        body: 'A gallery says <b>Collecting</b> until photos arrive, then <b>Ready</b>. Photos can keep arriving for a few days after the event.',
+        body: 'Each one says <b>Collecting</b> until photos arrive, then <b>Ready</b>. Photos can keep arriving for a few days after the event.',
       },
       {
         Icon: CheckCircle2,
         title: 'Open one to keep it',
-        body: 'Open a gallery to look through it and download everything.',
+        body: 'Open one to look through it and download everything.',
       },
     ],
   },
@@ -700,7 +702,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       {
         Icon: BookOpen,
         title: 'Post Event is its own scenes',
-        body: 'The story after your day is not one block: the front page, the road to the day, the numbers, each chapter, the gallery, the notes, your thank-you &mdash; each is its own scene here. After the day they are written for you from what happened; there is nothing to type.',
+        body: 'The story after your day is not one block: the front page, the road to the day, the numbers, each chapter, Memories, the notes, your thank-you &mdash; each is its own scene here. After the day they are written for you from what happened; there is nothing to type.',
       },
       {
         Icon: EyeOff,
@@ -710,7 +712,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       {
         Icon: Maximize2,
         title: 'Tap to open it full screen',
-        body: 'The gallery, the film, Were you there? and the wishes open full screen on your page, and Back returns everyone to the same place. A guest&rsquo;s gallery shows <b>Yours</b> and <b>Everyone&rsquo;s</b>; a stranger sees only what is shared.',
+        body: 'Memories, the film, Were you there? and the wishes open full screen on your page, and Back returns everyone to the same place. A guest&rsquo;s Memories show <b>Yours</b> and <b>Everyone&rsquo;s</b>; a stranger sees only what is shared.',
       },
       {
         Icon: Sparkles,
@@ -720,7 +722,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       {
         Icon: Users,
         title: 'Your guests’ bar after the day',
-        body: 'After the day your guests move through the story with <b>Recap · Film · Suppliers · Gallery · Me</b>. A slot with nothing behind it is simply not there, and the camera is put away &mdash; yours stays.',
+        body: 'After the day your guests move through the story with <b>Recap · Film · Suppliers · Memories · Me</b>. A slot with nothing behind it is simply not there, and the camera is put away &mdash; yours stays.',
       },
       {
         Icon: Wand2,
@@ -1779,6 +1781,38 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       finale: {
         title: 'You’re set 🎉',
         body: 'Your first event’s free credits are already on. When they run out, Buy more is the one button.',
+        button: 'Done',
+      },
+    },
+  },
+  /* 🖼 AN EVENT'S MEMORIES — the event bar's fifth tab (owner 2026-10-23). A new feature gets its first-visit tour. */
+  customer_memories_v1: {
+    key: 'customer_memories_v1',
+    label: 'Memories — first visit',
+    blurb: 'This event’s photos edge to edge, the pinch that changes the columns, and the search.',
+    slides: [],
+    spotlight: {
+      steps: [
+        {
+          anchor: 'memories-grid',
+          hint: 'Press Next',
+          title: 'This event’s Memories',
+          body: 'The photos and clips of this event that are yours to see. Pinch to see more at once — or one large.',
+        },
+        {
+          anchor: 'memories-count',
+          title: 'Counted for you',
+          body: 'How many are here so far — and, under the photos, when the cameras open or close.',
+        },
+        {
+          anchor: 'memories-search',
+          title: 'Find a photo',
+          body: 'Type who took it, and only their photos stay.',
+        },
+      ],
+      finale: {
+        title: 'You’re set 🎉',
+        body: 'Tap any photo to see it full screen.',
         button: 'Done',
       },
     },

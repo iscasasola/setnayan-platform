@@ -168,13 +168,14 @@ test('nav · suppliers get no camera — Papic is a guest product', () => {
   }
 });
 
-test('nav · NAMING LOCK: the photo slot is "Gallery", never "Photos"', () => {
+test('nav · NAMING LOCK: the photo slot is "Memories", never "Photos" or "Gallery"', () => {
   // site-menu.ts carries the owner rename. A prototype used "Photos" and would
   // have shipped the wrong word.
   const s = at({ viewer: { kind: 'guest' }, phase: 'after' });
   const g = s.find((x) => x.key === 'gallery');
-  assert.equal(g?.label, 'Gallery');
+  assert.equal(g?.label, 'Memories');
   assert.ok(!s.some((x) => x.label === 'Photos'));
+  assert.ok(!s.some((x) => /galler/i.test(x.label)), 'owner 2026-10-23: no "Gallery" anywhere');
 });
 
 test('nav · every label is one word — a wrapped label tilts the whole bar', () => {
@@ -281,7 +282,7 @@ test('🖼 RULING 2026-10-14: early shooting gives an invited guest "Your shots"
   assert.ok(!keys(at(inv)).includes('camera'), 'early off: no Camera before the day');
   const g = at({ ...inv, earlyOwnShots: true }).find((s) => s.key === 'gallery');
   assert.equal(g?.state, 'live');
-  assert.equal(g?.label, 'Gallery', 'NAMING LOCK — never "Photos"');
+  assert.equal(g?.label, 'Memories', 'NAMING LOCK — never "Photos"');
   // Save the Date too (the other before-the-day stage).
   assert.deepEqual(
     keys(at({ ...inv, stageSlots: STAGE_BAR.save_the_date.slots, earlyOwnShots: true })),

@@ -21,6 +21,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { sweepLapsedSubscriptions } from '@/lib/subscriptions';
 import { sweepExpiredConcierge } from '@/lib/concierge';
 import { fetchGuestsByEventMeasured, unmeasuredGuests } from '@/lib/guests';
+import { measuredOr } from '@/lib/measured-read';
 import type { EventMoney } from '@/lib/budget-truth';
 import { readBudgetLiveSummary } from '@/lib/budget-live-read';
 import { homeFacts, type HomeMoneyRead } from '@/lib/home-facts';
@@ -366,6 +367,8 @@ export default async function EventHomePage({
     let dayOfBlocks: Awaited<ReturnType<typeof fetchScheduleBlocks>> = [];
     let dayOfHeadTable: EventTableRow | null = null;
     let dayOfNearbyTables: EventTableRow[] = [];
+    // A refused table read must not read as "no seat plan" — the card says it could not load.
+    let dayOfTablesFailed = false;
     let dayOfSameDayVendors: SameDayVendor[] = [];
     // LIVE_WALL ownership for the day-of grid's photo-wall card. Same predicate
     // /wall/[eventId] gates on, so the card and the destination can never disagree.
@@ -437,7 +440,9 @@ export default async function EventHomePage({
 
       const [blocksRes, tablesRes, sameDayRes, liveWallRes, broadcastRes] = await Promise.all([
         blocksRead,
-        fetchTables(supabase, eventId).catch(() => [] as EventTableRow[]),
+        measuredOr(fetchTables(supabase, eventId), [] as EventTableRow[], (e) =>
+          logQueryError('dashboard/day-of.tables', e),
+        ),
         // Day-of "Get help" shortlist (Event Lifecycle Menu §4 / PR5) — verified
         // + paid vendors who opted into same-day work, nearest the venue first.
         // Best-effort: a query error just leaves the escalation-only floor.
@@ -451,7 +456,8 @@ export default async function EventHomePage({
       ]);
       dayOfBlocks = blocksRes;
       dayOfSameDayVendors = sameDayRes;
-      const tables = tablesRes;
+      const tables = tablesRes.value;
+      dayOfTablesFailed = !tablesRes.measured;
       // The canonical 2026-05-09 catalog replaces the variable-capacity 'head_table'
       // with three fixed family_head_12/14/16 variants. Day-of UI keeps surfacing
       // a single "head table" by picking the first family_head_* row found.
@@ -464,6 +470,7 @@ export default async function EventHomePage({
       dayOfBlocks,
       dayOfHeadTable,
       dayOfNearbyTables,
+      dayOfTablesFailed,
       dayOfSameDayVendors,
       dayOfLiveWallActive,
       dayOfBroadcast,
@@ -680,6 +687,7 @@ export default async function EventHomePage({
       dayOfBlocks,
       dayOfHeadTable,
       dayOfNearbyTables,
+      dayOfTablesFailed,
       dayOfSameDayVendors,
       dayOfLiveWallActive,
       dayOfBroadcast,
@@ -1116,6 +1124,7 @@ export default async function EventHomePage({
           }))}
           headTable={dayOfHeadTable}
           nearbyTables={dayOfNearbyTables}
+          tablesFailed={dayOfTablesFailed}
           sameDayVendors={dayOfSameDayVendors}
           // 🍎 A web-bought Live Photo Wall opens nothing in the iPhone app (3.1.3(b)).
           liveWallActive={dayOfLiveWallActive && !storeShell}

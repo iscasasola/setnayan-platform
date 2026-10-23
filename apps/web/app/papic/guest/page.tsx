@@ -238,7 +238,7 @@ export default async function PapicGuestPage({
           ) : (
             <>
               Thanks for shooting at {eventName} — the cameras are closed now.
-              Your photos are still in your gallery.
+              Your photos are still in your Memories.
             </>
           )
         }
@@ -353,7 +353,7 @@ export default async function PapicGuestPage({
           </>
         }
         title="Camera unavailable."
-        sub={`Your guest camera for ${eventName} has been turned off. Photos you already shared stay in the gallery. If you think this is a mistake, reach out to the host directly.`}
+        sub={`Your guest camera for ${eventName} has been turned off. Photos you already shared stay in Memories. If you think this is a mistake, reach out to the host directly.`}
       >
         {backSlug ? (
           <Link href={`/${backSlug}`} className="button-secondary">

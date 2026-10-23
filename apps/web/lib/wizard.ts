@@ -670,7 +670,7 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     kind: 'external_process',
     title: 'Activate Papic',
     whyItMatters:
-      "Your guests with phones become paparazzi — Papic tags photos by personal + table QR so every guest gets theirs, and the curated gallery lands a day after the wedding. Get the pack 3 months before so guest enrollment can start with the invitation rollout.",
+      "Your guests with phones become paparazzi — Papic tags photos by personal + table QR so every guest gets theirs, and the curated Memories land a day after the wedding. Get the pack 3 months before so guest enrollment can start with the invitation rollout.",
     pillLabel: 'Programming',
     prerequisites: ['reception_venue'],
   },
@@ -1189,7 +1189,7 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     kind: 'external_process',
     title: 'Download your photos',
     whyItMatters:
-      "Papic delivers candid captures to your gallery within a week. The full archive — photographer + Papic + guest contributions — lands at T+30.",
+      "Papic delivers candid captures to your Memories within a week. The full archive — photographer + Papic + guest contributions — lands at T+30.",
     pillLabel: 'Post-event',
     prerequisites: ['event'],
   },

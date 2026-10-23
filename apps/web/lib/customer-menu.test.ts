@@ -1,8 +1,9 @@
 /**
  * customer-menu.test.ts — the phone's ONE bottom bar (Stage D, owner
- * 2026-09-29), now Home · Guests · Suppliers · Hub — the same four in every
- * phase, web and app (owner 22 Oct 2026, *"Yes remove more"*). Home holds what
- * More held (the services live on Home › Your services).
+ * 2026-09-29), now Home · Guests · Suppliers · Hub · Memories — the same five in
+ * every phase, web and app (owner 22 Oct 2026, *"Yes remove more"*; Memories
+ * joined 23 Oct 2026, prototypes/event_bar_memories_tab_2026-10-23.html). Home
+ * holds what More held (the services live on Home › Your services).
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -18,14 +19,14 @@ const STUDIO = [
   { key: 'mood-board', href: `${BASE}/studio/mood-board`, name: 'Mood Board' },
 ];
 
-const FOUR = ['home', 'guests', 'explore', 'launch'];
+const FIVE = ['home', 'guests', 'explore', 'launch', 'memories'];
 
-test('the bar is the owner’s four, in the owner’s order, in every phase', () => {
+test('the bar is the owner’s five, in the owner’s order, in every phase', () => {
   for (const phase of ['plan', 'dayof', 'after'] as const) {
     const tree = buildCustomerMenuTree(EVENT_ID, { phase, websiteEnabled: true, studioRows: STUDIO });
-    assert.deepEqual(tree.map((m) => m.key), FOUR, `${phase}: the bar rearranged itself`);
-    // The rail's words (owner 2026-10-01 "Home - Guests - Suppliers - Hub", More gone 22 Oct 2026).
-    assert.deepEqual(tree.map((m) => m.label), ['Home', 'Guests', 'Suppliers', 'Hub']);
+    assert.deepEqual(tree.map((m) => m.key), FIVE, `${phase}: the bar rearranged itself`);
+    // The rail's words (owner 2026-10-01 "Home - Guests - Suppliers - Hub", More gone 22 Oct 2026, Memories 23 Oct).
+    assert.deepEqual(tree.map((m) => m.label), ['Home', 'Guests', 'Suppliers', 'Hub', 'Memories']);
   }
 });
 
@@ -43,18 +44,18 @@ test('a product is never a tab — Papic is a row on Home › Your services', ()
 test('hideKeys drops Your Team for a vendor-free kind — in every phase', () => {
   for (const phase of ['plan', 'dayof', 'after'] as const) {
     const keys = buildCustomerMenuTree(EVENT_ID, { phase, hideKeys: ['explore'], websiteEnabled: true }).map((m) => m.key);
-    assert.deepEqual(keys, ['home', 'guests', 'launch']);
+    assert.deepEqual(keys, ['home', 'guests', 'launch', 'memories']);
   }
   // Empty hideKeys is a no-op.
   assert.deepEqual(
     buildCustomerMenuTree(EVENT_ID, { hideKeys: [], websiteEnabled: true }).map((m) => m.key),
-    FOUR,
+    FIVE,
   );
 });
 
 test('no Event Hub for this kind → no Maker tab, and its pages light Home', () => {
   const tree = buildCustomerMenuTree(EVENT_ID, { websiteEnabled: false, studioRows: STUDIO });
-  assert.deepEqual(tree.map((m) => m.key), ['home', 'guests', 'explore']);
+  assert.deepEqual(tree.map((m) => m.key), ['home', 'guests', 'explore', 'memories']);
   const home = tree.find((m) => m.key === 'home')!.activeMatch as string[];
   for (const p of ['/schedule', '/story', '/studio/mood-board']) {
     assert.ok(home.includes(`${BASE}${p}`), `${p} lights nothing where there is no Maker`);
@@ -78,7 +79,10 @@ test('each tab lights the pages it now holds', () => {
   for (const p of ['/launch', '/website', '/story', '/schedule', '/seating', '/plan3d']) {
     assert.ok(lit('launch').includes(`${BASE}${p}`), `the Maker does not light ${p}`);
   }
-  assert.ok(lit('home').includes(`${BASE}/galleries`), 'Home does not light Galleries');
+  // This event's photo sources (/galleries) belong to its Memories tab since 23 Oct 2026.
+  assert.ok(lit('memories').includes(`${BASE}/memories`), 'Memories does not light itself');
+  assert.ok(lit('memories').includes(`${BASE}/galleries`), 'Memories does not light Galleries');
+  assert.ok(!lit('home').includes(`${BASE}/galleries`), 'Home still claims Galleries — two tabs light one page');
 });
 
 test('Home lights itself and its checklist EXACTLY, and only the service pages it holds by prefix', () => {
@@ -86,7 +90,7 @@ test('Home lights itself and its checklist EXACTLY, and only the service pages i
   assert.equal(home.key, 'home');
   assert.deepEqual(home.activeMatchAlsoExact, [BASE, `${BASE}/checklist`]);
   assert.ok(!(home.activeMatch as string[]).includes(BASE), 'Home claims every event page by prefix');
-  assert.deepEqual(home.activeMatch, [`${BASE}/studio`, `${BASE}/galleries`]);
+  assert.deepEqual(home.activeMatch, [`${BASE}/studio`]);
 });
 
 test('after the day, Your Team opens on the suppliers who worked it (the shipped deep link)', () => {

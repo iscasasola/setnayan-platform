@@ -46,8 +46,8 @@ const base: NavInput = {
 const bar = (o: Partial<NavInput> = {}) => resolveSiteNav({ ...base, ...o });
 const labels = (o: Partial<NavInput> = {}) => bar(o).map((s) => s.label);
 
-test('E1 · after the day a guest reads Recap · Film · Suppliers · Gallery · Me — in that order', () => {
-  assert.deepEqual(labels(), ['Recap', 'Film', 'Suppliers', 'Gallery', 'Me']);
+test('E1 · after the day a guest reads Recap · Film · Suppliers · Memories · Me — in that order', () => {
+  assert.deepEqual(labels(), ['Recap', 'Film', 'Suppliers', 'Memories', 'Me']);
   for (const slot of bar()) assert.equal(slot.state, 'live', `${slot.key} is drawn but not pressable — a door with something behind it is live`);
   const film = bar().find((s) => s.key === 'film')!;
   assert.equal(film.href, '#open-film', 'Film opens the film’s open-up through its hash, so Back closes it');
@@ -55,8 +55,8 @@ test('E1 · after the day a guest reads Recap · Film · Suppliers · Gallery ·
 });
 
 test('E1 · a slot with no content is ABSENT — not locked, not disabled — and the rest keep their order', () => {
-  assert.deepEqual(labels({ postEvent: { film: false, suppliers: true } }), ['Recap', 'Suppliers', 'Gallery', 'Me']);
-  assert.deepEqual(labels({ postEvent: { film: true, suppliers: false } }), ['Recap', 'Film', 'Gallery', 'Me']);
+  assert.deepEqual(labels({ postEvent: { film: false, suppliers: true } }), ['Recap', 'Suppliers', 'Memories', 'Me']);
+  assert.deepEqual(labels({ postEvent: { film: true, suppliers: false } }), ['Recap', 'Film', 'Memories', 'Me']);
   assert.deepEqual(labels({ postEvent: { film: false, suppliers: false }, anyChapterPublic: false }), ['Recap', 'Me']);
   for (const s of bar({ postEvent: { film: false, suppliers: false } })) {
     assert.equal(s.state, 'live', `${s.key} is drawn locked — an empty slot must be absent`);
@@ -65,8 +65,8 @@ test('E1 · a slot with no content is ABSENT — not locked, not disabled — an
   assert.ok(!labels({ destinations: { ...base.destinations, film: null } }).includes('Film'));
 });
 
-test('E1 · the stranger: Recap · Film · Suppliers · Gallery — no fifth slot, no camera', () => {
-  assert.deepEqual(labels({ viewer: { kind: 'public' } }), ['Recap', 'Film', 'Suppliers', 'Gallery']);
+test('E1 · the stranger: Recap · Film · Suppliers · Memories — no fifth slot, no camera', () => {
+  assert.deepEqual(labels({ viewer: { kind: 'public' } }), ['Recap', 'Film', 'Suppliers', 'Memories']);
 });
 
 test('E2 · after the day a guest and a stranger have NO camera; the couple keeps theirs', () => {

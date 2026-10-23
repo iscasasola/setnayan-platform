@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "670c1194a9",
+  "generatedFromRef": "cc63871952",
   "routeCount": 462,
-  "destinations": 1002,
-  "actions": 663,
-  "blocks": 6860,
+  "destinations": 1005,
+  "actions": 664,
+  "blocks": 6866,
   "routes": {
     "/": {
       "files": [
@@ -5011,6 +5011,7 @@
     },
     "/dashboard/(account)/library": {
       "files": [
+        "dashboard/(account)/library/_components/challenges-tab.tsx",
         "dashboard/(account)/library/_components/editorials-tab.tsx",
         "dashboard/(account)/library/_components/gallery-doors.tsx",
         "dashboard/(account)/library/_components/memories-chapters.tsx",
@@ -5023,6 +5024,7 @@
       ],
       "destinations": [
         "/dashboard",
+        "/dashboard/[seg]/memories",
         "/dashboard/[seg]/studio/papic",
         "/dashboard/create-event",
         "/dashboard/life-flash",
@@ -5036,6 +5038,7 @@
         "AccountThumbRow",
         "AlaalaLensBody",
         "AlbumCard",
+        "ChallengesTab",
         "EditorialCard",
         "EditorialsTab",
         "EventMonogram",
@@ -5043,6 +5046,7 @@
         "GalleryDoor",
         "HTMLElement",
         "Heading",
+        "InfoTip",
         "LifeFlashTile",
         "Link",
         "MemoriesChapters",
@@ -6162,7 +6166,8 @@
         "/help"
       ],
       "actions": [
-        "removeHost"
+        "removeHost",
+        "setVendorCapturesHidden"
       ],
       "blocks": [
         "AccessPick",
@@ -6193,6 +6198,7 @@
         "LockedRow",
         "MakerHalfSheet",
         "MakerRsvpSettings",
+        "OneCodeUnderGetIn",
         "OneOpenScope",
         "PageMasthead",
         "PaxSettingsCard",
@@ -6215,6 +6221,7 @@
         "Section",
         "SpecialMessageField",
         "SubmitButton",
+        "SupplierPhotosSwitch",
         "Suspense",
         "SwitchTrack",
         "T"
@@ -7636,14 +7643,27 @@
     },
     "/dashboard/[eventId]/memories": {
       "files": [
+        "dashboard/[eventId]/memories/_components/memories-settings.tsx",
         "dashboard/[eventId]/memories/loading.tsx",
         "dashboard/[eventId]/memories/page.tsx"
       ],
       "destinations": [],
-      "actions": [],
+      "actions": [
+        "claimUploadsCamera"
+      ],
       "blocks": [
+        "AddToLibrary",
+        "DriveCopyCard",
         "EventMemoriesGallery",
-        "ListPageSkeleton"
+        "InfoTip",
+        "InlineCheckoutDrawer",
+        "ListPageSkeleton",
+        "LiveWallCard",
+        "MemoriesSettings",
+        "PoolGalleryCard",
+        "ServiceParts",
+        "SubmitButton",
+        "UploadsOpenChoice"
       ]
     },
     "/dashboard/[eventId]/messages": {
@@ -8928,6 +8948,9 @@
         "dashboard/[eventId]/studio/papic/_components/add-photos-door.tsx",
         "dashboard/[eventId]/studio/papic/_components/add-to-library.tsx",
         "dashboard/[eventId]/studio/papic/_components/credit-stepper.tsx",
+        "dashboard/[eventId]/studio/papic/_components/drive-copy-card.tsx",
+        "dashboard/[eventId]/studio/papic/_components/face-blocking-list.tsx",
+        "dashboard/[eventId]/studio/papic/_components/face-blocking-switches.tsx",
         "dashboard/[eventId]/studio/papic/_components/face-tagging-choice.tsx",
         "dashboard/[eventId]/studio/papic/_components/guest-allotment-picker.tsx",
         "dashboard/[eventId]/studio/papic/_components/guest-allotments-choice.tsx",
@@ -8938,6 +8961,7 @@
         "dashboard/[eventId]/studio/papic/_components/live-wall-card.tsx",
         "dashboard/[eventId]/studio/papic/_components/live-wall-controls.tsx",
         "dashboard/[eventId]/studio/papic/_components/magazine-card.tsx",
+        "dashboard/[eventId]/studio/papic/_components/one-code.tsx",
         "dashboard/[eventId]/studio/papic/_components/papic-buy-form.tsx",
         "dashboard/[eventId]/studio/papic/_components/papic-buy-sheet.tsx",
         "dashboard/[eventId]/studio/papic/_components/papic-gallery-grid.tsx",
@@ -8968,13 +8992,15 @@
         "/api/oauth/drive/start?event_id=[seg]",
         "/api/oauth/drive/start?event_id=[seg]&slot=overflow",
         "/api/oauth/drive/start?event_id=[seg]&switch=1",
+        "/dashboard/[seg]",
         "/dashboard/[seg]/guests",
+        "/dashboard/[seg]/memories",
         "/dashboard/[seg]/studio/papic",
         "/dashboard/[seg]/studio/papic/challenges",
         "/dashboard/[seg]/studio/papic/crew",
+        "/dashboard/[seg]/studio/papic/crew/poster",
         "/dashboard/[seg]/studio/papic/gallery-zip",
         "/dashboard/[seg]/studio/papic/magazine",
-        "/dashboard/[seg]/studio/papic/moderation",
         "/dashboard/[seg]/studio/papic/recap",
         "/dashboard/[seg]/studio/papic/run-of-show",
         "/dashboard/life-flash?scope=e[seg]"
@@ -8983,7 +9009,6 @@
         "action",
         "addLibraryChallengeAction",
         "armChallengeAction",
-        "claimUploadsCamera",
         "createCoupleChallengeAction",
         "deleteCoupleChallengeAction",
         "purchasePapicPoolTopUp",
@@ -9004,21 +9029,22 @@
       "blocks": [
         "ActionButton",
         "ActionResult",
-        "AddPhotosDoor",
-        "AddToLibrary",
         "AllotmentsCouldNotLoad",
+        "AnswerPicker",
         "Blob",
         "CaptureDefaultsSection",
         "ChallengeRow",
+        "CopyButton",
         "CoupleChallengesManager",
         "CreditStepper",
         "DriveConnectCTA",
         "DriveConnectedPanel",
-        "DriveCopyCard",
         "DriveReconnectBanner",
         "DriveSafetyPanel",
         "DslrBridgeSection",
         "EmptyRoll",
+        "FaceBlockingList",
+        "FaceBlockingSwitches",
         "FaceTaggingChoice",
         "Fact",
         "FilterChip",
@@ -9027,7 +9053,6 @@
         "GalleryCredit",
         "GalleryLightbox",
         "GalleryPhoto",
-        "GalleryPreviewCard",
         "GridPageSkeleton",
         "GuestAllotmentPicker",
         "GuestAllotmentsChoice",
@@ -9036,26 +9061,21 @@
         "HTMLInputElement",
         "IapPapicSheet",
         "InfoTip",
-        "InlineCheckoutDrawer",
-        "LegendDot",
         "LifeFlashCard",
         "Link",
-        "LiveWallCard",
         "LiveWallControls",
         "MagazineCard",
+        "OneCodeRead",
         "PapicBuyForm",
         "PapicBuySheet",
-        "PapicGalleryGrid",
         "PapicLightbox",
         "PapicSeePhotos",
-        "PapicStage",
         "PapicTopBand",
         "PapicWindowPicker",
         "PayStep",
         "PaymentUnderReview",
         "PickMenu",
         "PickerFilters",
-        "PoolGalleryCard",
         "PoolGalleryToggle",
         "PreservationMeterLine",
         "PreserveToggle",
@@ -9063,7 +9083,6 @@
         "Row",
         "SavePhotoButton",
         "ServiceGlanceBand",
-        "ServiceParts",
         "SettingRow",
         "Sheet",
         "ShowcaseToggle",
@@ -9078,9 +9097,7 @@
         "SupplierWayInRow",
         "SwitchTrack",
         "Unmeasured",
-        "UploadsOpenChoice",
         "VendorChallengesApproval",
-        "VendorMediaControls",
         "WallTileLayout"
       ]
     },

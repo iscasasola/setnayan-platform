@@ -8,6 +8,7 @@ import { sharedJoinLinkState } from '@/lib/shared-join-link';
 import { formatCount } from '@/lib/format-number';
 import { InfoTip } from '@/app/_components/info-tip';
 import { CopyButton } from '../crew/_components/copy-button';
+import { SupplierWayInRow } from './supplier-way-in-row';
 
 /**
  * one-code.tsx — HOW GUESTS GET IN, AS A CAMERA: the one code for everyone, and each guest's own invite QR.
@@ -104,6 +105,10 @@ export async function OneCodeUnderGetIn({ eventId }: { eventId: string }) {
         <span className="min-w-0">Each guest’s invite QR is already their camera</span>
         <span className="shrink-0 font-medium text-success-800">{code.ready === null ? '—' : `${formatCount(code.ready)} ready`}</span>
       </p>
+      {/* …and the suppliers' way in, with its TRUE reason when it is not open (moved with the "ways in" rows). */}
+      <div className="divide-y divide-ink/10">
+        <SupplierWayInRow eventId={eventId} />
+      </div>
     </div>
   );
 }

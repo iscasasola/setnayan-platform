@@ -5,6 +5,7 @@
 // credits", and what the status chip says. `replayer.ts` is the thin I/O loop
 // that runs these against IndexedDB, fetch and the page's events.
 
+import { formatCount } from '../format-number';
 import {
   PHASE_ORDER,
   phaseOf,
@@ -286,12 +287,12 @@ export function chipLabel(state: ChipState): string | null {
     case 'saved':
       return 'All saved';
     case 'sending':
-      return `Sending ${state.n} of ${state.of}`;
+      return `Sending ${formatCount(state.n)} of ${formatCount(state.of)}`;
     case 'offline':
-      return `Offline · ${state.waiting} waiting`;
+      return `Offline · ${formatCount(state.waiting)} waiting`;
     case 'credits':
-      return `Credits ran out · ${state.waiting} not sent`;
+      return `Credits ran out · ${formatCount(state.waiting)} not sent`;
     case 'refused':
-      return `${state.count} not saved`;
+      return `${formatCount(state.count)} not saved`;
   }
 }

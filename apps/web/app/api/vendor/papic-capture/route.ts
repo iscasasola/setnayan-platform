@@ -214,11 +214,14 @@ async function writeVerdict(admin: Admin, captureId: string, bytes: Uint8Array |
   if (verdict === 'error') return;
   const patch: { nsfw_checked: true; hidden_at?: string } = { nsfw_checked: true };
   if (verdict === 'nsfw_blocked') patch.hidden_at = new Date().toISOString();
-  await admin
+  const { error } = await admin
     .from('vendor_papic_captures')
     .update(patch)
     .eq('capture_id', captureId)
     .eq('nsfw_checked', false);
+  // Unwritten verdict = the capture stays hidden (nsfw_checked false) and attach
+  // re-screens it — the safe direction — but it is said out loud.
+  if (error) console.error('[supabase-error] app/api/vendor/papic-capture/route.ts · from:vendor_papic_captures.update(verdict)', error);
 }
 
 export async function POST(req: Request) {
@@ -309,6 +312,7 @@ export async function POST(req: Request) {
       // Fails OPEN on a read error: the insert policy is still the hard gate.
       {
         const { data: booked, error: bookedErr } = await supabase.rpc('current_vendor_booked_event_ids');
+        if (bookedErr) console.error('[supabase-error] app/api/vendor/papic-capture/route.ts · rpc:current_vendor_booked_event_ids', bookedErr);
         // SETOF uuid: PostgREST answers a list of scalars; read either shape.
         const ids = Array.isArray(booked)
           ? (booked as unknown[]).map((x) => (typeof x === 'string' ? x : Object.values((x ?? {}) as object)[0]))
@@ -411,7 +415,7 @@ export async function POST(req: Request) {
     }
     const captureId = (inserted as { capture_id: string }).capture_id;
     const sizeOf = (t: CaptureTier) => checked.byTier.get(t)?.size ?? null;
-    await admin
+    const { error: firstPieceErr } = await admin
       .from('vendor_papic_captures')
       .update(
         isClip
@@ -421,6 +425,7 @@ export async function POST(req: Request) {
             : { orig_bytes: sizeOf('original') },
       )
       .eq('capture_id', captureId);
+    if (firstPieceErr) console.error('[supabase-error] app/api/vendor/papic-capture/route.ts · from:vendor_papic_captures.update(first piece)', firstPieceErr);
     await settleCaptureIntents(admin, needed.map((t) => intentFor(intents, t)!.r2_ref));
     await dropStagingObjects(needed.map((t) => intentFor(intents, t)!));
 
@@ -523,10 +528,14 @@ export async function POST(req: Request) {
       });
       if (verdict === 'error') return json({ error: 'screen_unavailable' }, 503);
       if (verdict === 'nsfw_blocked') {
-        await admin
+        const { error: blockErr } = await admin
           .from('vendor_papic_captures')
           .update({ nsfw_checked: true, hidden_at: new Date().toISOString() })
           .eq('capture_id', prior.capture_id);
+        if (blockErr) {
+          console.error('[supabase-error] app/api/vendor/papic-capture/route.ts · from:vendor_papic_captures.update(blocked)', blockErr);
+          return json({ error: 'persist_failed' }, 500);
+        }
         await settleCaptureIntents(admin, tiers.map((t) => intentFor(intents, t)!.r2_ref));
         return json({ status: 'ok', blocked: true });
       }

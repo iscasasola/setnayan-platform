@@ -648,11 +648,16 @@ async function handleAttach(
     });
     if (verdict === 'error') return json({ error: 'screen_unavailable' }, 503);
     if (verdict === 'nsfw_blocked') {
-      await admin
+      const { error: blockErr } = await admin
         .from('papic_guest_captures')
         .update({ moderation_state: 'nsfw_blocked' })
         .eq('capture_id', prior.capture_id)
         .in('moderation_state', ['unscreened', 'clean']);
+      if (blockErr) {
+        // The verdict did not land: answer so the phone retries — never "ok".
+        console.error('[supabase-error] app/api/papic/guest-capture/route.ts · from:papic_guest_captures.update(blocked)', blockErr);
+        return json({ error: 'persist_failed' }, 500);
+      }
       await settleCaptureIntents(admin, tiers.map((t) => intentFor(intents, t)!.r2_ref));
       return json({ status: 'ok', blocked: true });
     }

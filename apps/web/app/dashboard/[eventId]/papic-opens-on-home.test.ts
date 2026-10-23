@@ -42,7 +42,8 @@ test('3 · Home hands over the event-wide settings, and the latest five open Mem
   const h = code(HOME);
   assert.match(h, /<PapicCameraSettings eventId=\{eventId\} seat="home"/, 'Home opens the page seat (with per-guest rows)');
   const cam = code(CAMERA);
-  assert.doesNotMatch(cam, /<GuestAllotmentsChoice|<FaceBlockingList/, 'a per-guest control is back under the card');
+  assert.doesNotMatch(cam, /<FaceBlockingList/, 'a per-guest face list is back under the card');
+  assert.match(cam, /seat === 'page' \? <GuestAllotmentsChoice/, 'Credits per guest is not held to the page seat');
   assert.match(cam, /href=\{`\/dashboard\/\$\{eventId\}\/guests`\}[\s\S]{0,400}guest card/, 'no door to the guest cards');
   const s = code(STRIP);
   assert.ok((s.match(/\/memories`/g) ?? []).length >= 1, 'the strip opens something other than Memories');

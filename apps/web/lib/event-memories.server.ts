@@ -2,6 +2,7 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { fetchPapicGallery } from '@/lib/papic-gallery';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { siteMediaServeRef } from '@/lib/site-media-ref';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { fetchScheduleBlocks, DEFAULT_EVENT_TZ } from '@/lib/schedule';
 import { groupIntoChapters } from '@/lib/alaala-chapters';
@@ -116,7 +117,12 @@ export async function readEventMemories(
   const hubRefused = Boolean(eventRow.error || widgets.error);
   if (eventRow.error) logQueryError('readEventMemories.hubEvent', eventRow.error, { event_id: eventId }, 'graceful_degrade');
   if (widgets.error) logQueryError('readEventMemories.hubWidgets', widgets.error, { event_id: eventId }, 'graceful_degrade');
-  const hubRefs = hubImageRefs([eventRow.data ?? null, widgets.data ?? []], eventId);
+  // 🔒 Held to the ONE public bucket, as every Event Hub signer is (`siteMediaServeRef`) — a ref into any other bucket is
+  // never signed here, it is simply not an Event Hub picture.
+  const hubRefs = hubImageRefs([eventRow.data ?? null, widgets.data ?? []], eventId).flatMap((h) => {
+    const safe = siteMediaServeRef(h.ref);
+    return safe ? [{ ...h, ref: safe }] : [];
+  });
   const hubItems: MemoriesItem[] = await Promise.all(
     hubRefs.map(async ({ ref, use }, i) => {
       const url = await displayUrlForStoredAsset(ref);

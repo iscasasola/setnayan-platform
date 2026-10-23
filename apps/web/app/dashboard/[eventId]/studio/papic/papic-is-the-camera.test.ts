@@ -48,9 +48,9 @@ test('1 · the Papic page is the camera: the one line, the credits, his five —
   }
   // 👥 Event-wide only, on BOTH seats (contract 2026-10-24, the guest-card ruling): each guest's share and face
   // switches live on their guest card — the page draws exactly what Home's card opens.
-  for (const perGuest of ['<GuestAllotmentsChoice', '<FaceBlockingList', "seat === 'page' ?"]) {
-    assert.ok(!cam.includes(perGuest), `the camera settings draw a per-guest control again (${perGuest}) — it lives on the guest card`);
-  }
+  assert.ok(!cam.includes('<FaceBlockingList'), 'the camera settings draw a per-guest face list again — it lives on the guest card');
+  // ⚖ The one open exception (flagged to the owner): Credits per guest, on the page seat only — never under Home's card.
+  assert.match(cam, /seat === 'page' \? <GuestAllotmentsChoice/, 'Credits per guest reaches Home’s card, or left the page with nowhere to go');
   for (const gone of [
     '<LiveWallCard',
     '<PoolGalleryCard',

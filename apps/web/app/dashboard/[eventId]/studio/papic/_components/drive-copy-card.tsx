@@ -85,7 +85,7 @@ export function DriveCopyCard({
         <p className="max-w-prose text-sm text-ink/60">
           Every photo lands in your own Drive too, as it arrives — so you keep
           the originals at full size, on a drive you control. We keep your
-          gallery either way.
+          Memories either way.
         </p>
       </div>
 
@@ -190,7 +190,7 @@ async function DriveConnectedPanel({
           <p className="font-medium">Your Drive is full.</p>
           <p className="mt-0.5 text-amber-800">
             Some full-resolution originals couldn&rsquo;t be saved to Drive — your
-            online gallery is safe, but the full-res copies are waiting. Free up
+            Memories are safe here, but the full-res copies are waiting. Free up
             space{overflowGrant ? ' on either Drive' : ''}, or{' '}
             <a
               href={`/api/oauth/drive/start?event_id=${eventId}&slot=overflow`}

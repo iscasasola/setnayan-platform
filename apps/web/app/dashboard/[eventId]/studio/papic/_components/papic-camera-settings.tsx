@@ -20,6 +20,7 @@ import { VendorChallengesApproval } from '../vendor-challenges-approval';
 import { SettingRow } from './setting-row';
 import { GuestCamerasChoice } from './guest-cameras-choice';
 import { FaceTaggingChoice } from './face-tagging-choice';
+import { GuestAllotmentsChoice } from './guest-allotments-choice';
 
 /**
  * papic-camera-settings.tsx — PAPIC, THE CAMERA, IN THE OWNER'S ORDER (owner 2026-10-23: *"Papic holds: Filter,
@@ -34,10 +35,10 @@ import { FaceTaggingChoice } from './face-tagging-choice';
  * the rest of the settings under it not open a new page"*), and `/studio/papic` draws it for old links. The switch is
  * the event's own `papic_on` answer (the capture gate reads it) — never a second on/off.
  *
- * 👥 BOTH SEATS DRAW THE SAME, EVENT-WIDE SETTINGS (controller contract 2026-10-24, from the owner's guest-card ruling,
- * approved `prototypes/guest_card_groups_and_papic_2026-10-23.html`): no Credits per guest, no per-guest face list —
- * each guest's camera (their share, their face switches) is on their guest card, and one quiet line points there.
- * The seat only decides where a save lands (Home or this page).
+ * 👥 EVENT-WIDE SETTINGS (controller contract 2026-10-24, from the owner's guest-card ruling, approved
+ * `prototypes/guest_card_groups_and_papic_2026-10-23.html`): no per-guest face list on either seat — each guest's camera
+ * is on their guest card, and one quiet line points there. ONE exception, flagged as an open owner question: the page
+ * seat keeps Credits per guest (see the note at its row). The seat also decides where a save lands.
  */
 export async function PapicCameraSettings({
   eventId,
@@ -159,6 +160,10 @@ export async function PapicCameraSettings({
         </div>
         <div className="divide-y divide-ink/10">
           <GuestCamerasChoice eventId={eventId} variant="row" />
+          {/* ⚖ OPEN — Credits per guest stays on THIS page (never on Home's card) until the owner confirms the guest
+              card (#6854) is its only home: it also holds the event-wide "each guest, at most" that "How many do I
+              need?" reads, and nothing else writes that yet. Builder's call 2026-10-24, flagged in the PR. */}
+          {seat === 'page' ? <GuestAllotmentsChoice eventId={eventId} variant="row" /> : null}
           <FaceTaggingChoice eventId={eventId} variant="row" returnTo={seat === 'home' ? 'home' : null} />
           <Link
             href={`/dashboard/${eventId}/guests`}

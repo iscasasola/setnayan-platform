@@ -6,9 +6,10 @@
  * Instagram-Stories-style photo decoration: the guest picks a photo from their
  * device, layers a FILTER (the 5 shipped Papic looks) + EMOJI STICKERS + TEXT
  * on it, and saves it to the couple's gallery. Fully client-side (₱0) — the
- * composite is baked on-device to a canvas, then uploaded through the EXISTING
- * /api/papic/guest-capture route (R2 + NSFW screen + wall + Drive), so a
- * decorated photo is a first-class, moderation-gated gallery capture.
+ * composite is baked on-device to a canvas, then handed to the guest camera's
+ * own uploader (lib/papic-upload/ — save on the phone first, send straight to
+ * storage; the capture route takes no file bytes since 2026-10-23), so a
+ * decorated photo is a first-class, moderation-gated capture.
  *
  * Overlays are draggable (body) + resizable & rotatable (corner handle), the
  * standard transform-handle model. Positions/rotation are FRACTIONS / degrees
@@ -22,6 +23,8 @@ import { ArrowLeft, ImagePlus, Loader2, RotateCw, Smile, Type, Undo2, X } from '
 import { PAPIC_STYLES, cssPreviewFilter, type PapicStyle } from '@/lib/papic-photo-styles';
 import { EVENT_PUT_AWAY_CAPTURE_COPY } from '@/lib/event-accepts-captures-rule';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
+import { newClientCaptureId } from '@/lib/papic-client-capture-id';
+import { papicUploader, saveShot } from '@/lib/papic-upload/browser';
 
 const STICKERS = [
   '❤️', '😍', '🥰', '😘', '😂', '🥹', '😭', '🔥',
@@ -77,11 +80,14 @@ let seq = 0;
 const nextId = () => `o${++seq}`;
 
 export function KwentoDecorator({
+  eventId,
   eventName,
   canKwento,
   themeColors = [],
   myPhotosHref,
 }: {
+  /** The guest session's event — the uploader files the shot under it. */
+  eventId: string;
   eventName: string;
   canKwento: boolean;
   /** The couple's mood-board colours, merged into the text swatches. */
@@ -115,6 +121,8 @@ export function KwentoDecorator({
   const stageRef = useRef<HTMLDivElement | null>(null);
   const imgElRef = useRef<HTMLImageElement | null>(null);
   const dragRef = useRef<Drag | null>(null);
+  // The decorated photo waiting on the uploader (its shutter id).
+  const pendingIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     return () => {
@@ -296,39 +304,43 @@ export function KwentoDecorator({
       );
       if (!blob) throw new Error('export_failed');
 
-      const form = new FormData();
-      form.append('file', blob, `kwento-${Date.now()}.jpg`);
-      form.append('media_type', 'photo');
-      const resp = await fetch('/api/papic/guest-capture', { method: 'POST', body: form });
-      const data = (await resp.json().catch(() => ({}))) as {
-        status?: string;
-        error?: string;
-        captureId?: string | null;
-      };
-      if (resp.ok && data.status === 'ok') {
-        setDone(true);
-        setSavedCaptureId(data.captureId ?? null);
-        setStatus('Saved to the host’s gallery ✨');
-      } else if (data.status === 'event_put_away') {
-        // Without this arm the guest falls to "Couldn't save — please try
-        // again." and taps save over and over on something that can never
-        // succeed. Nothing about their photo is wrong; the celebration stopped
-        // taking new ones, and only the host can undo that.
-        setStatus(EVENT_PUT_AWAY_CAPTURE_COPY);
-      } else if (data.status === 'quota_exhausted') {
-        setStatus('You’ve used all your photos for this event.');
-      } else if (data.status === 'terms_required') {
-        setStatus('Please accept the photo terms on the camera page first.');
-        setTermsRequired(true);
-      } else {
-        setStatus('Couldn’t save — please try again.');
-      }
+      // Saved on this phone FIRST, then sent by the page's one uploader; the
+      // answer arrives as an uploader event (below), keyed by this shot's id.
+      const id = newClientCaptureId();
+      pendingIdRef.current = id;
+      await saveShot({ id, lane: 'guest', eventId, media: 'photo', capturedAtMs: Date.now(), primary: blob });
+      setStatus('Saved on your phone — sending…');
     } catch {
       setStatus('Couldn’t save — please try again.');
     } finally {
       setSaving(false);
     }
-  }, [overlays, style]);
+  }, [overlays, style, eventId]);
+
+  // The uploader's answer for the decorated photo just saved.
+  useEffect(() => {
+    return papicUploader().on((e) => {
+      if (e.shot.id !== pendingIdRef.current) return;
+      if (e.type === 'recorded') {
+        setDone(true);
+        setSavedCaptureId(typeof e.body.captureId === 'string' ? e.body.captureId : null);
+        setStatus('Saved to the hosts’ Memories ✨');
+      } else if (e.type === 'credits') {
+        setStatus('This event’s photos have run out — this one waits on your phone until the hosts add more.');
+      } else if (e.type === 'refused') {
+        if (e.code === 'event_put_away') {
+          // Nothing about their photo is wrong; the celebration stopped taking
+          // new ones, and only the host can undo that.
+          setStatus(EVENT_PUT_AWAY_CAPTURE_COPY);
+        } else if (e.code === 'terms_required') {
+          setStatus('Please accept the photo terms on the camera page first.');
+          setTermsRequired(true);
+        } else {
+          setStatus('The event didn’t accept that photo.');
+        }
+      }
+    });
+  }, []);
 
   // Slice 2 — anchor a Kwento caption on the just-saved decorated photo. Uses
   // the shipped /api/papic/kwento contract (story voice, ≤280, explicit consent).

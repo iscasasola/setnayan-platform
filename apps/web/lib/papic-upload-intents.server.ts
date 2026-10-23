@@ -1,7 +1,13 @@
 import 'server-only';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { getR2Client, r2Copy, r2Delete, r2Head, r2Upload, R2_BUCKETS } from '@/lib/r2';
+import { getR2Client, r2Copy, r2Head, r2Upload, R2_BUCKETS } from '@/lib/r2';
+import { cleanupDelete } from '@/lib/cleanup-delete';
+import {
+  papicGuestCaptureScope,
+  papicVendorCaptureScope,
+  type CleanupScope,
+} from '@/lib/cleanup-delete-scope';
 import { presignUploadUrl, encodeR2Ref } from '@/lib/uploads';
 import {
   CAPTURE_PUT_TTL_SECONDS,
@@ -13,6 +19,7 @@ import {
   sniffMatches,
   SNIFF_BYTES,
   TIER_RULES,
+  validateTierRequest,
   type CaptureLane,
   type CaptureTier,
 } from '@/lib/papic-upload/tiers';
@@ -57,20 +64,6 @@ export interface SignTierInput {
 export type SignTierResult =
   | { ok: true; uploadUrl: string; ref: string; expiresInSeconds: number }
   | { ok: false; error: 'bad_tier' | 'bad_type' | 'too_large' | 'too_small' | 'sign_failed' };
-
-/** Pure validation half of signing — exported for the unit test. */
-export function validateTierRequest(
-  input: Pick<SignTierInput, 'tier' | 'contentType' | 'sizeBytes'>,
-): { ok: true } | { ok: false; error: 'bad_tier' | 'bad_type' | 'too_large' | 'too_small' } {
-  const rule = TIER_RULES[input.tier];
-  if (!rule) return { ok: false, error: 'bad_tier' };
-  if (!contentTypeAllowed(input.tier, input.contentType)) return { ok: false, error: 'bad_type' };
-  if (!Number.isInteger(input.sizeBytes) || input.sizeBytes < rule.minBytes) {
-    return { ok: false, error: 'too_small' };
-  }
-  if (input.sizeBytes > rule.maxBytes) return { ok: false, error: 'too_large' };
-  return { ok: true };
-}
 
 export async function signCaptureTierPut(
   admin: SupabaseClient,
@@ -128,6 +121,9 @@ export async function signCaptureTierPut(
 }
 
 export interface IntentRow {
+  lane: CaptureLane;
+  event_id: string;
+  owner_id: string;
   tier: CaptureTier;
   /** The STAGING ref the phone PUT to (`…/incoming/cap-…`). */
   r2_ref: string;
@@ -144,7 +140,7 @@ export async function readCaptureIntents(
 ): Promise<IntentRow[] | null> {
   const { data, error } = await admin
     .from('papic_upload_intents')
-    .select('tier, r2_ref, size_bytes, content_type, settled_at')
+    .select('lane, event_id, owner_id, tier, r2_ref, size_bytes, content_type, settled_at')
     .eq('owner_id', ownerId)
     .eq('client_capture_id', clientCaptureId);
   if (error) {
@@ -152,12 +148,32 @@ export async function readCaptureIntents(
     return null;
   }
   return (data ?? []).map((r) => ({
+    lane: r.lane as CaptureLane,
+    event_id: r.event_id as string,
+    owner_id: r.owner_id as string,
     tier: r.tier as CaptureTier,
     r2_ref: r.r2_ref as string,
     size_bytes: Number(r.size_bytes),
     content_type: r.content_type as string,
     settled_at: (r.settled_at as string | null) ?? null,
   }));
+}
+
+/**
+ * The cleanup scope that owns this intent's folder. Every delete here goes
+ * through the pinned executor (lib/cleanup-delete.ts), and only ever names a
+ * STAGING key (`…/incoming/…`) — never a key a row points at.
+ */
+export function intentScope(intent: Pick<IntentRow, 'lane' | 'owner_id' | 'event_id'>): CleanupScope {
+  return intent.lane === 'vendor'
+    ? papicVendorCaptureScope(intent.owner_id, intent.event_id)
+    : papicGuestCaptureScope(intent.owner_id);
+}
+
+/** Delete an intent's STAGING object (refuses anything that is not one). */
+export async function deleteStagingObject(intent: Pick<IntentRow, 'lane' | 'owner_id' | 'event_id' | 'r2_ref'>): Promise<'deleted' | 'refused'> {
+  if (!finalKeyFor(keyOf(intent.r2_ref))) return 'refused';
+  return cleanupDelete(intent.r2_ref, intentScope(intent));
 }
 
 function keyOf(ref: string): string {
@@ -259,7 +275,7 @@ export async function promoteTier(loaded: Extract<LoadedTier, { ok: true }>): Pr
     });
   }
   // The staging copy is no longer needed; the sweep removes it if this fails.
-  await r2Delete({ bucket: BUCKET, key: stagingKey }).catch(() => {});
+  await deleteStagingObject(loaded.intent).catch(() => 'refused');
   return encodeR2Ref(BUCKET, finalKey);
 }
 
@@ -279,7 +295,7 @@ export async function loadUploadedTiers(
     } else {
       redo.push(r.intent.tier);
       if (r.reason === 'rejected') {
-        await r2Delete({ bucket: BUCKET, key: keyOf(r.intent.r2_ref) }).catch(() => {});
+        await deleteStagingObject(r.intent).catch(() => 'refused');
       }
     }
   }

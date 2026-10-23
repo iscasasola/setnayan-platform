@@ -98,6 +98,7 @@ export default async function PapicDecoratePage() {
 
   return (
     <KwentoDecorator
+      eventId={session.event_id}
       eventName={eventName}
       canKwento={canKwento}
       themeColors={themeColors}

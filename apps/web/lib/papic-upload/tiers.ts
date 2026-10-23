@@ -100,6 +100,25 @@ function extFor(contentType: string): string {
   }
 }
 
+/**
+ * May this piece be signed at all? Its type must be one the tier allows and its
+ * size inside the tier's cap. Pure — the sign path and its unit test share it.
+ */
+export function validateTierRequest(input: {
+  tier: CaptureTier;
+  contentType: string;
+  sizeBytes: number;
+}): { ok: true } | { ok: false; error: 'bad_tier' | 'bad_type' | 'too_large' | 'too_small' } {
+  const rule = TIER_RULES[input.tier];
+  if (!rule) return { ok: false, error: 'bad_tier' };
+  if (!contentTypeAllowed(input.tier, input.contentType)) return { ok: false, error: 'bad_type' };
+  if (!Number.isInteger(input.sizeBytes) || input.sizeBytes < rule.minBytes) {
+    return { ok: false, error: 'too_small' };
+  }
+  if (input.sizeBytes > rule.maxBytes) return { ok: false, error: 'too_large' };
+  return { ok: true };
+}
+
 const SAFE_ID = /^[0-9a-zA-Z-]{1,64}$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 

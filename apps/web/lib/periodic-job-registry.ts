@@ -339,6 +339,17 @@ export const PERIODIC_JOBS: readonly PeriodicJob[] = [
     reportsCount: true,
   },
   {
+    // 2026-10-23 — Papic save-first: a phone PUTs pieces straight to R2; one
+    // that was never recorded is an object nothing points at
+    // (lib/papic-upload-sweep.ts). Only staging keys, only after the phone's
+    // own 7-day TTL plus a day.
+    key: 'papic-upload-sweep',
+    kind: 'operational',
+    gapMs: DAILY_GAP_MS,
+    what: 'Removal of Papic uploads that were never recorded',
+    reportsCount: true,
+  },
+  {
     // 🔴 ADDED 2026-09-18. The worker has existed since iteration 0011 as a
     // cron route with `TODO(0011): wire the actual cron schedule` on it — a
     // schedule that was never coming, because this repo has no scheduler by

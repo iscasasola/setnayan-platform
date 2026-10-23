@@ -44,4 +44,22 @@ the Home tabs superseded by `event_bar_memories_tab_2026-10-23.html`).
 - Guards pinned to the old Papic page were repointed to where each control now lives (none weakened); the
   Home-doors guards went with the doors.
 
+### 2026-10-24 · builder takeover (local) — the contract, closed
+- **The Papic page draws exactly what Home's card opens** (contract: *"Papic page = camera only (same expanded
+  settings)"*): event-wide only — no Credits per guest, no per-guest face list on either seat; one quiet line "Each
+  guest's camera is on their guest card ›". `FaceBlockingList`, its switches and `setGuestFaceblock` (new on this
+  branch) are gone again; `recommend-actions.ts` / the guest actions are main's (server actions: no new one).
+- **Filter = the approved controller's strip A** — `StylePicker variant="strip"`: five looks across one row, one tap
+  saves (the 2×3 cards made Home's card a screen and a half long). The current look is said in words beside it.
+- **The quick view draws no second photos door** (the strip's "See all ›" opens Memories); the page's band says
+  **Add more** (web and app). The face row says **"Face tagging"** (it clipped to "Finding pe…" at 375); the dates row
+  says the first day only (it ran past 375 px).
+- **Home draws no shortcut the event bar already has** — a rendered property guard replaces the pills' marker check
+  (sabotage: a Suppliers pill → red).
+- Memories carries the **withheld, not absent** line for a viewer the couple's sources do not reach (moved from the page).
+- Guards that were pinned to the old Papic page followed their controls (none weakened): a-row-is-a-door,
+  an-upload-is-a-capture, no-camera-holds-its-own-credits, two-questions-stay-deleted, the-papic-page-opens-fast,
+  papic-gallery-scope, gallery-chapters-wiring, the-host-page-tours-land.
+- #6855 (the cloud session's duplicate) closed: everything it had is here (the app sheet's helper, return-to-Home).
+
 SPEC IMPACT: DECISION_LOG row 2026-10-23 "PAPIC IS THE CAMERA; MEMORIES HOLDS THE FILES — ALBUMS WITH CHALLENGES".

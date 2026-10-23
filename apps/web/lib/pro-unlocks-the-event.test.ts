@@ -285,8 +285,8 @@ const HOST_TREES = ['app/dashboard/[eventId]', 'app/panood/control/[eventId]'];
  * defect; they are listed so a NEW call site cannot slip in unexamined.
  */
 const EVENT_LEVEL_BY_OWN_GATE: Record<string, string> = {
-  'app/dashboard/[eventId]/studio/papic/actions.ts':
-    'purchase actions — service client after the action’s own host gate; money path left untouched',
+  // (studio/papic/actions.ts left this list 2026-10-23: its three camera-sale actions, the only reads it
+  //  held here, now refuse before reading anything — Papic sells credits only.)
   'app/dashboard/[eventId]/website/widgets/actions.ts':
     'every action calls requireHostMembershipOrThrow first, then reads on the service client',
   'app/dashboard/[eventId]/story/actions.ts': 'service client after the action’s own host gate',

@@ -158,31 +158,31 @@ export function HomeServiceCard({
         )}
         {body}
         {actions ? <div className="sg-acts">{actions}</div> : null}
-      </div>
-
-      {grows ? (
-        /* THE SERVICE'S OWN CONTROLS, UNDER THE CARD — the height grows, they fade in; folded, they are inert. */
-        <div
-          id={regionId}
-          role="region"
-          aria-label={`${name} settings`}
-          inert={!open}
-          data-home-card-settings={open ? 'open' : 'closed'}
-          className={`grid transition-[grid-template-rows,opacity] duration-[420ms] ease-[cubic-bezier(0.2,0.7,0.2,1)] motion-reduce:transition-none ${
-            open ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
-          }`}
-        >
-          <div className="min-h-0 overflow-hidden">
-            <div className="flex flex-col gap-4 pt-4">
-              <div className="divide-y divide-ink/10">{settings}</div>
-              <Link href={door.href} className="inline-flex w-fit items-center gap-1 text-[13px] font-medium text-ink/65 hover:text-ink" data-home-card-door="">
-                {door.label}
-                <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={1.9} />
-              </Link>
+        {grows ? (
+          /* THE SERVICE'S OWN CONTROLS, INSIDE THE CARD'S FRAME (prototype frame 2: the card itself grows) — the height
+             grows, they fade in; folded, they are inert. */
+          <div
+            id={regionId}
+            role="region"
+            aria-label={`${name} settings`}
+            inert={!open}
+            data-home-card-settings={open ? 'open' : 'closed'}
+            className={`grid transition-[grid-template-rows,opacity] duration-[420ms] ease-[cubic-bezier(0.2,0.7,0.2,1)] motion-reduce:transition-none ${
+              open ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
+            }`}
+          >
+            <div className="min-h-0 overflow-hidden">
+              <div className="mt-3 flex flex-col gap-4 border-t border-ink/10 pt-2">
+                <div className="divide-y divide-ink/10">{settings}</div>
+                <Link href={door.href} className="inline-flex w-fit items-center gap-1 text-[13px] font-medium text-ink/65 hover:text-ink" data-home-card-door="">
+                  {door.label}
+                  <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={1.9} />
+                </Link>
+              </div>
             </div>
           </div>
-        </div>
-      ) : null}
+        ) : null}
+      </div>
     </div>
   );
 }

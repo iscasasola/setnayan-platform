@@ -92,7 +92,7 @@ function tierPriceCopy(
     pro: p.proMonthly,
     enterprise: p.enterpriseMonthly,
   } as const;
-  const name = { solo: 'Solo', pro: 'Pro', enterprise: 'Enterprise' } as const;
+  const name = { solo: 'Solo', pro: 'Pro', enterprise: 'Ultra' } as const;
   return tiers
     .filter((t) => price[t] !== null)
     .map((t) => `${name[t]} ${price[t]}${perEach}`)
@@ -203,7 +203,7 @@ function forVendorsJsonLd(p: VendorPrices, fee: BookingFeeSchedule | null) {
       ),
       offer(
         'enterprise-subscription',
-        'Enterprise Supplier (28-day prepaid block)',
+        'Ultra Supplier (28-day prepaid block)',
         'All marketplace categories · up to 10 team accounts + multi-admin · flagship page + video films · reach up to 100 km. 28-day prepaid blocks.',
         p.num.enterpriseMonthly,
       ),

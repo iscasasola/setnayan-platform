@@ -385,7 +385,7 @@ export function PageParts({
         </Fold>
 
         {autoReplyBody ? (
-          <Fold anchor="auto-reply" data="page-autoreply" lead={<RowIcon icon={MessageSquareReply} />} title="Auto-reply" line="Answers the first message">
+          <Fold anchor="auto-reply" data="page-autoreply" lead={<RowIcon icon={MessageSquareReply} />} title="Auto-reply" line="Answers the first message" popovers>
             <div className="pb-4">{autoReplyBody}</div>
           </Fold>
         ) : null}

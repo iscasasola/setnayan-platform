@@ -414,7 +414,7 @@ export async function acceptInquiry(formData: FormData) {
       }
       if (error.message.includes('WHITELIST_DATE_LIMIT')) {
         fail(
-          "You're already pursuing as many clients as your plan allows for that date. Lock one in, or decline someone, to free a slot.",
+          "You're already pursuing as many clients as one date takes. Lock one in, or decline someone, to free a slot.",
         );
       }
       throw new Error(error.message);

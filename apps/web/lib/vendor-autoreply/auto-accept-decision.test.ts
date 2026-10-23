@@ -2,7 +2,7 @@
  * Phase 4A pure-predicate tests — evaluateAutoAccept encodes the §4A contract:
  * auto-accept IFF flag on · vendor opted in · thread pending · score exists ·
  * score ≥ threshold · not trust-flagged (unknown = flagged, fail-closed) ·
- * under the daily auto-accept cap · tier eligible · a token is AVAILABLE.
+ * tier eligible · a token is AVAILABLE.
  * The no-token skip is the ONLY one that flags a waiting lead for the vendor.
  */
 import { test } from 'node:test';
@@ -16,13 +16,12 @@ import {
 function passing(overrides: Partial<AutoAcceptGateInput> = {}): AutoAcceptGateInput {
   return {
     flagEnabled: true,
-    config: { autoAcceptEnabled: true, threshold: 78, dailyCap: 10 },
+    config: { autoAcceptEnabled: true, threshold: 78 },
     inquiryStatus: 'pending',
     compatScore: 85,
     trustFlagged: false,
     tierEligible: true,
     tokenAvailable: true,
-    autoAcceptsToday: 0,
     ...overrides,
   };
 }
@@ -39,7 +38,7 @@ test('flag off → never (flag-dark contract)', () => {
 test('no config row / auto-accept not opted in → never', () => {
   assert.equal(evaluateAutoAccept(passing({ config: null })).accept, false);
   const d = evaluateAutoAccept(
-    passing({ config: { autoAcceptEnabled: false, threshold: 78, dailyCap: 10 } }),
+    passing({ config: { autoAcceptEnabled: false, threshold: 78 } }),
   );
   assert.deepEqual(d, { accept: false, reason: 'not_configured', flagWaitingLead: false });
 });
@@ -73,16 +72,6 @@ test('trust-flagged lead → never, and NOT a waiting-lead flag', () => {
 test('trust check errored (null) → fail-closed, never treated as a pass', () => {
   const d = evaluateAutoAccept(passing({ trustFlagged: null }));
   assert.deepEqual(d, { accept: false, reason: 'trust_unknown', flagWaitingLead: false });
-});
-
-test('daily auto-accept cap reached → never (cap 0 = never at all)', () => {
-  const atCap = evaluateAutoAccept(passing({ autoAcceptsToday: 10 }));
-  assert.deepEqual(atCap, { accept: false, reason: 'cap_reached', flagWaitingLead: false });
-  const capZero = evaluateAutoAccept(
-    passing({ config: { autoAcceptEnabled: true, threshold: 78, dailyCap: 0 } }),
-  );
-  assert.deepEqual(capZero, { accept: false, reason: 'cap_reached', flagWaitingLead: false });
-  assert.equal(evaluateAutoAccept(passing({ autoAcceptsToday: 9 })).accept, true);
 });
 
 test('free tier (cannot accept in-app at all) → never, no token flag', () => {

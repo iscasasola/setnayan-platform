@@ -9,6 +9,7 @@
  */
 
 import { supplierCommissionShort, supplierCommissionPromise } from '@/lib/commission-promise';
+import { MIN_SERVICES_PER_LEAF, PORTFOLIO_FREE_BASE, TIER_CAPS } from '@/lib/vendor-tier-caps';
 
 export type VendorTier = 'free' | 'solo' | 'pro' | 'enterprise';
 
@@ -71,6 +72,12 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
       {
         h: 'Run every booking',
         items: [
+          // ⚖ PLANS PRICE REACH, NEVER INCOME (owner 2026-10-23). Everything that leads to a booking is on every
+          // plan, so these four live on Free and no paid tier re-sells them. Numbers read from the plan table.
+          { n: 'Answer every couple', b: 'No weekly limit on answering, on any plan.' },
+          { n: 'Take as many bookings a day as you set', b: 'Your own number, per calendar and per service card. No plan limit.' },
+          { n: `${MIN_SERVICES_PER_LEAF} service cards per category`, b: `Put up at least ${MIN_SERVICES_PER_LEAF} services in every category you cover.` },
+          { n: `${PORTFOLIO_FREE_BASE} portfolio photos, free`, b: `Your first ${PORTFOLIO_FREE_BASE} portfolio photos are free on every plan.` },
           { n: 'One supplier dashboard', b: 'Run bookings, calendar, clients, threads and quotes from one place.' },
           { n: 'Shared team calendar', b: 'One calendar across every service and crew member.' },
           { n: 'Double-booking guard', b: 'A held date blocks a second booking, scoped per service and role.' },
@@ -131,14 +138,13 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
     groups: [
       {
         items: [
+          { n: `${TIER_CAPS.solo.serviceRadiusKm} km reach`, b: 'Couples farther from you see you in their search.' },
           { n: 'Personalize your public page', b: 'Add an About intro, pick an accent colour, feature your top services, and choose which sections show. Your page, your look.' },
-          { n: 'Unlimited answering', b: 'Answer every matched couple, no weekly cap (Free is capped at 10 a week).' },
           { n: 'Quote-to-booking funnel', b: 'See views → inquiries → signed over time, plus every booking’s source.' },
           { n: 'Won & lost reasons', b: 'See why couples said yes or walked, and fix the real leak.' },
           { n: 'Your own funnel metrics', b: 'Track reply rate, average reply time, and inquiry-to-booking live.' },
           { n: 'Earnings dashboard', b: 'Year-to-date revenue, monthly subtotals and scheduled payouts in one view.' },
           { n: 'Recap sharing', b: 'One-tap share of every wedding you helped create, straight to your Facebook Page.' },
-          { n: 'Three services per category', b: 'List up to three distinct service packages under your category.' },
         ],
       },
     ],
@@ -154,10 +160,10 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
           { n: 'Team sub-accounts (3 seats)', b: 'Give each crew member a login scoped to their services, no shared passwords.' },
           { n: 'One clean business identity', b: 'Crew act under one verified profile, you look like a real studio.' },
           { n: 'Three categories + 50 km reach', b: 'List under three parent categories and serve a wider radius.' },
+          { n: `${TIER_CAPS.pro.servicesPerLeaf} service cards per category`, b: `Put up to ${TIER_CAPS.pro.servicesPerLeaf} services in each category you cover.` },
           { n: 'Demand Radar', b: 'See where demand is building in your market, by month and by the looks couples choose.' },
           { n: 'Reverse-image theft watch', b: 'Reposts of your portfolio get flagged as yours across the platform.' },
           { n: 'Custom slug + full written reviews', b: 'Your own /your-name URL, and the full text of every review on show.' },
-          { n: 'Multiple events per day', b: 'Take more than one booking on the same date.' },
           { n: 'Logo on the couple’s 3D seat plan', b: 'Your brand mark rides along on the couple’s 3D seat plan — quiet credit in front of every guest who opens it.' },
           { n: 'Featured in Stories', b: 'A loved event becomes a published Story crediting your work, with a backlink.' },
           { n: 'Editorial & article spotlights', b: 'Featured in the articles couples read while planning, in front of buyers at intent.' },
@@ -173,7 +179,7 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
   },
   {
     tier: 'enterprise',
-    name: 'Enterprise',
+    name: 'Ultra',
     tagline: 'Scale as an organization: with a flagship page. Everything in Pro, plus:',
     groups: [
       {
@@ -182,8 +188,7 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
           { n: 'All categories', b: 'List under every parent category, no cap.' },
           { n: 'Up to 10 team seats + multi-admin', b: 'A full team with shared, voted governance.' },
           { n: 'Reach up to 100 km', b: 'Serve couples across a wide service area. Nationwide reach is available on Custom.' },
-          { n: 'Up to 300 portfolio photos', b: 'A deep portfolio to show your full range.' },
-          { n: 'Up to 8 events per category / day', b: 'Run at real studio volume.' },
+          { n: 'Unlimited service cards', b: 'As many services per category as you offer.' },
           { n: 'Market Intelligence — category benchmarks vs peers', b: 'Rank your funnel against anonymized peers in your exact category. Numbers fill in as category volume grows.' },
           // ⛔ TWO ROWS WERE DELETED HERE 2026-08-27 (owner ruling). "Quarterly
           // business review" and "a named contact" promised HUMAN ATTENTION
@@ -248,7 +253,7 @@ export const VENDOR_CUSTOM_TIER = {
     // prices. What is left is only what the dials actually deliver.
     // ⚠ "a bigger portfolio" also went: the +100-photo pack was dropped the
     // same day, so portfolio size is no longer a Custom dial at all.
-    'Everything in Enterprise, with its limits removed: more branches, nationwide reach, more team seats, more event slots per category, and your own web address.',
+    'Everything in Ultra, with its limits removed: more branches, nationwide reach, more team seats, more event slots per category, and your own web address.',
   // Custom-only dials, enumerated (owner 2026-07-05) so the /vendors benefit
   // surface AND the cross-tier benefit count reflect the full negotiated tier.
   // Each is a real thing a Custom vendor gets — the single source of truth for

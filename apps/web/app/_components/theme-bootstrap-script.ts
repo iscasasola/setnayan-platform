@@ -17,7 +17,8 @@ import { ROUTE_RESERVED_SLUGS } from '@/lib/reserved-slugs';
  * to the letter — `lib/appearance.test.ts` runs THIS string against the same table of cases:
  *
  *   dark is painted only when ALL hold —
- *     · the `sn-theme` cookie says `dark` (the person picked it);
+ *     · the person's choice means dark: the `sn-theme` cookie says `dark`, OR it says `auto` / nothing
+ *       (Automatic, the default since 2026-10-23) and the phone prefers dark (`prefers-color-scheme`);
  *     · a Supabase session cookie is present (signed-out visitors are always Light — call 4);
  *     · the first path segment is one of the APP's routes (a couple's guest pages at `/[slug]` keep
  *       the couple's design — call 5);
@@ -50,7 +51,9 @@ export function buildThemeBootstrapScript(
   var R = ${R}, A = ${A}, DARK_BAR = ${C};
   function decide(p, c) {
     if (c == null) c = document.cookie;
-    if (!/(?:^|;\\s*)sn-theme=dark(?:;|$)/.test(c)) return false;
+    var m = /(?:^|;\\s*)sn-theme=(light|dark|auto)(?:;|$)/.exec(c), ch = m ? m[1] : 'auto';
+    if (ch === 'light') return false;
+    if (ch === 'auto' && !(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches)) return false;
     if (!/(?:^|;\\s*)sb-[A-Za-z0-9]+-auth-token(?:\\.\\d+)?=/.test(c)) return false;
     var f = p.split('/')[1] || '';
     if (f !== '' && A.indexOf(f) < 0) return false;

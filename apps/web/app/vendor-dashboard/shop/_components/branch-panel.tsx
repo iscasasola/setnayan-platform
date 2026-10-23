@@ -139,11 +139,11 @@ export async function BranchPanel({
             <p className="flex flex-wrap items-center gap-1.5 text-xs" style={{ color: 'var(--m-slate)' }}>
               <PaidMark
                 state="try"
-                label="Part of Enterprise — plan it here; adding asks for Enterprise"
+                label="Part of Ultra — plan it here; adding asks for Ultra"
                 text="ENTERPRISE"
                 size="xs"
               />
-              Extra branches are part of Enterprise — each gets its own team and
+              Extra branches are part of Ultra — each gets its own team and
               calendar. Plan one here; adding it asks for the plan.
             </p>
           ) : null}

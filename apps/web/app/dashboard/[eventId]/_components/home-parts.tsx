@@ -63,9 +63,12 @@ export function HomeNextFold({ eventId, kind, children }: { eventId: string; kin
     }
     setFolded(false);
   };
+  // The folded line stands IN the Next card's place — it wears the card's marker (as "later", never "papic", so the
+  // Papic row's Buy more comes back), and from 1024 Home's grid puts it where the card was
+  // (`the-home-grid-reads-in-order.test.ts`), never auto-placed across both columns.
   if (folded) {
     return (
-      <p className="flex items-center gap-1.5 px-1 text-[13px] text-ink/60" data-home-next-later="" role="status">
+      <p className="flex items-center gap-1.5 px-1 text-[13px] text-ink/60" data-home-next="later" data-home-next-later="" role="status">
         <CalendarDays aria-hidden className="h-4 w-4" strokeWidth={1.9} />
         <span>Back tomorrow</span>
         <span aria-hidden>·</span>

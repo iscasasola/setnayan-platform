@@ -60,6 +60,9 @@ test('1 · every top piece of Home has an explicit place from 1024', () => {
   for (const p of PIECES) assert.ok(placeOf(block, p.marker), `${p.marker} is left to auto-placement — it lands wherever the grid finds room`);
   // The markers are on the pieces' ROOTS (a grid places only its direct children).
   assert.match(PARTS, /<div className=\{`home-sec\$\{open \? ' open' : ''\}`\} data-home-whats-next="">/, 'What’s next’s root lost its marker');
+  // "Later" folds the Next card into one line IN ITS PLACE (owner 2026-10-23): the line is a top piece too, so it wears
+  // the card's marker and takes the card's place — never auto-placed across both columns.
+  assert.match(PARTS, /if \(folded\) \{[\s\S]{0,400}?<p [^>]*data-home-next="later"/, 'the folded "Back tomorrow" line has no place in the grid');
 });
 
 test('2 · read column by column, the places are the page’s own order', () => {

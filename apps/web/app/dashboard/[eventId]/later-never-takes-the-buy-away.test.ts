@@ -113,7 +113,10 @@ test('…and the ONE rule that hides them reads whether the card is actually on 
   // replaces the card, so `[data-home-next]` is no longer drawn and the rule above lets Buy more back.
   const parts = readFileSync(join(HERE, '_components', 'home-parts.tsx'), 'utf8');
   assert.match(parts, /if \(folded\) \{\s*return \(\s*<p[^>]*data-home-next-later=""/, 'Later no longer replaces the card with its folded line');
-  assert.doesNotMatch(parts.slice(parts.indexOf('if (folded)'), parts.indexOf('</LaterFold.Provider>')), /data-home-next=/, 'the folded line still carries the card marker');
+  // The folded line keeps the card's PLACE on the desktop grid (`data-home-next="later"`), never the Papic card's VALUE —
+  // which is what the hide rule above reads.
+  const folded = parts.slice(parts.indexOf('if (folded)'), parts.indexOf('</LaterFold.Provider>'));
+  assert.doesNotMatch(folded, /data-home-next="papic"|data-home-next=\{/, 'the folded line still reads as the Papic card — Buy more stays hidden');
 });
 
 test('when Papic does NOT hold the card, nothing in the row is marked', () => {

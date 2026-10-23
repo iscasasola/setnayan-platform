@@ -163,7 +163,7 @@ function helpersFixture(who: Who) {
 const MARCH_FIXTURE: MarchSection[] = [
   { key: 'groom', label: 'The Groom & his parents', rows: [[{ id: 'm1', name: 'Mr. Peregrino Dela Cruz', role: 'parent' }, { id: 'm2', name: 'Mrs. Milagros Dela Cruz', role: 'parent' }], [{ id: 'm3', name: 'Jose Dela Cruz', role: 'groom', tag: 'Groom' }, null]] },
   { key: 'family', label: 'Immediate family', rows: [[{ id: 'm4', name: 'Ms. Carmen Reyes', role: 'family' }, { id: 'm5', name: 'Mr. Fidel Santos', role: 'family' }]] },
-  { key: 'honor', label: 'Maid of Honor & Best Man', rows: [[{ id: 'm6', name: 'Mr. Daniel Ramos', role: 'best_man' }, { id: 'm7', name: 'Ms. Ana Reyes Dela Cruz', role: 'maid_of_honor' }]] },
+  { key: 'honor', label: 'Maid of Honor & Best Man', rows: [[{ id: 'm6', name: 'Mr. Daniel Ramos', role: 'honor_attendant' }, { id: 'm7', name: 'Ms. Ana Reyes Dela Cruz', role: 'honor_attendant' }]] },
   { key: 'sponsors', label: 'Principal sponsors', rows: [[{ id: 'm8', name: 'Hon. Ricardo Villahermosa', role: 'sponsor' }, { id: 'm9', name: 'Mrs. Jessica Villahermosa', role: 'sponsor' }], [{ id: 'm10', name: 'Atty. Cesar Lim', role: 'sponsor' }, { id: 'm11', name: 'Mrs. Pilar Lim', role: 'sponsor' }]] },
   { key: 'bride', label: 'The Bride & her parents', rows: [[{ id: 'm12', name: 'Maria Santos', role: 'bride', tag: 'Bride' }, { id: 'm13', name: 'Mr. Andres Santos', role: 'parent' }]] },
 ];

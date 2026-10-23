@@ -204,7 +204,7 @@ test('the pill names the signed-in person when there is no event name to show', 
     /className="hidden max-w-\[150px\] truncate text-xs font-medium text-ink\/80 lg:inline"/,
     'the account name lost its `hidden … lg:inline` gate or its truncation. The shared bar carries ' +
       'identity, search and this cluster on ONE row (owner struck the second row 2026-07-30), and ' +
-      '"+ Create event" beside it is hidden below 1024 for exactly this reason.',
+      'the name is a desktop-width luxury on that one row.',
   );
 });
 

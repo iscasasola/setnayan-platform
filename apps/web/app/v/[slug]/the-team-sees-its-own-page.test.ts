@@ -16,6 +16,9 @@ import { stripComments } from '@/lib/strip-comments';
 import { TEAM_PREVIEW_COPY, TEAM_PREVIEW_HEAD, type ShopPreviewReason } from '@/lib/own-shop-preview';
 import { TeamPreviewBanner } from './_components/team-preview-banner';
 
+// tsx compiles the component's JSX to `React.createElement` (classic runtime) — give it the global it expects.
+(globalThis as unknown as { React: unknown }).React = React;
+
 const PAGE = stripComments(readFileSync(join(process.cwd(), 'app/v/[slug]/page.tsx'), 'utf8'));
 
 function between(src: string, start: string, end: string): string {
@@ -80,7 +83,11 @@ test('the banner, rendered: the owner\'s line, what couples wait on, and one 44 
     const copy = TEAM_PREVIEW_COPY[reason];
     assert.ok(html.includes(TEAM_PREVIEW_HEAD), reason);
     assert.ok(html.includes(copy.line.replace(/'/g, '&#x27;')), `${reason}: ${html}`);
-    assert.match(html, new RegExp(`<a[^>]*href="${copy.action.href.replace(/[#/]/g, '\\$&')}"[^>]*class="[^"]*min-h-11`), reason);
+    const anchor = html.match(/<a\b[^>]*>([^<]*)<\/a>/);
+    assert.ok(anchor, `${reason}: the button`);
+    assert.ok(anchor[0].includes(`href="${copy.action.href}"`), `${reason}: the next step's address`);
+    assert.match(anchor[0], /class="[^"]*\bmin-h-11\b/, `${reason}: 44 px`);
+    assert.equal(anchor[1], copy.action.label, `${reason}: the button's words`);
     assert.ok(html.includes(`data-team-preview="${reason}"`), reason);
     assert.equal((html.match(/<a\b/g) ?? []).length, 1, 'one next step, not a menu');
   }

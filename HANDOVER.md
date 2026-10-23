@@ -53,7 +53,9 @@ server `r2Upload`). The SEAT camera already PUTs direct to R2 via `/api/upload` 
 - [x] Guard A in the full-res drop; host readers → 'clean' allowlist; Drive only after the screen
 - [x] guards + sabotage (S1–S10 all red → green, see below)
 - [x] DECISION_LOG row + 0012 offline note status (corpus e4f6f9b9, pushed)
-- [ ] full tsc / lint / unit / db (heavy lock) — then walk (WebKit + Chromium) — then PR
+- [x] walks done (WALK-SUMMARY.txt in the shots folder): Chromium guest + supplier, WebKit guest — all PASS; before measured on origin/main
+- [x] quick preflight (guards, lint, types, pins) green
+- [ ] full tsc + full preflight + db tests (heavy lock, scripts/heavy-final.sh → ~/Documents/Claude/Projects/wt-papic-save-first-final.log) — then PR
 - [ ] seat lane — NOT in this PR (see "Left")
 
 ## Sabotage runs (break → red → restore → green), 2026-10-23

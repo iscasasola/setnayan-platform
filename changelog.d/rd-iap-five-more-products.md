@@ -25,6 +25,14 @@ desktop are exactly as before.
   `tests/db/an-app-store-purchase-is-one-order.db.test.ts`.
 - Restore hides Mood Board packs like Papic packs.
 - `/dev/iap-doors-lab` draws the five doors for walks (404 in production).
+- 🧭 The app never steers to the web (controller 23 Oct, build-6 blocker; owner 2026-10-08 "Apply + Pro" and "keep,
+  marked"). In the store shell with the gate OFF, held ◆ Pro changes no longer say "can be applied on the web": the
+  Apply sheet and the draft panel read "◆ N waiting for Pro", the sheet adds "Remove Pro changes" (the existing
+  `drop` intent with `effect = HUB_DROP_ALL_PRO` — no new server action), and the held reason reads "is waiting for
+  Pro — it stays in your draft" (refusal `apply_on_the_web` → `waits_for_pro`). With the gate ON the dock already hands
+  `storeShell: false` and the Apply sheet names Apple's parts — unchanged. New property guard
+  `lib/the-app-never-steers-to-the-web.test.ts` reads every string in app/ and lib/ (and every Help answer the app
+  shows through `helpBodyFor`).
 
 SPEC IMPACT: DECISION_LOG.md row "23 Oct: five more Apple products" (corpus) — the second wave of In-App Purchase,
 the product ids, and the Setnayan AI band question left open for the owner.

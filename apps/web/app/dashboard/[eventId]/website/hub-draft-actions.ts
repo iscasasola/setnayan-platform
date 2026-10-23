@@ -95,6 +95,7 @@ import {
   hubDraftItemLabel,
   hubResetPatch,
   isHubDraftIntent,
+  HUB_DROP_ALL_PRO,
   isHubResetScope,
   mergeHubDraft,
   heldStageShow,
@@ -358,6 +359,25 @@ export async function hubDraftAction(
        Undo takes it back. */
     if (intent === 'drop') {
       const id = formData.get('effect');
+      /* ◆ "Remove Pro changes" (owner 2026-10-08, "keep, marked"): every held Pro effect off the draft in one step —
+         the same per-effect `remove` patches as the ×, recomputed on the draft as the write lands. */
+      if (id === HUB_DROP_ALL_PRO) {
+        const live = await readHubLiveState(supabase, eventId);
+        await updateHubDraft(supabase, eventId, (cur, by) => {
+          let next = cur ?? emptyHubDraft();
+          let changed = false;
+          for (let guard = 0; guard < 200; guard++) {
+            const remove = hubDraftProEffects(next, live, false).find((e) => e.remove)?.remove;
+            if (!remove) break;
+            const after = mergeHubDraft(next, remove, by);
+            if (after === next) break;
+            next = after;
+            changed = true;
+          }
+          return changed ? { next } : null;
+        }, undefined, me);
+        return done();
+      }
       const live = await readHubLiveState(supabase, eventId);
       const effect = hubDraftProEffects(current, live, false).find((e) => e.id === id);
       if (!effect?.remove) return { ok: false, intent, error: 'That effect is no longer in your draft.' };
@@ -386,7 +406,7 @@ export async function hubDraftAction(
 
     const held: Array<{ item: HubDraftItem; reason: HubDraftRefusal }> = plan.refused.map((item) => ({
       item,
-      reason: storeShell ? 'apply_on_the_web' : 'needs_pro',
+      reason: storeShell ? 'waits_for_pro' : 'needs_pro',
     }));
 
     /* 🔒 A DRAFTED BACKGROUND (or slot picture) MUST STILL BE THIS COUPLE'S OWN

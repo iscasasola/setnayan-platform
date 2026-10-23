@@ -79,7 +79,7 @@ export async function LiveWallCard({
           href={`/dashboard/${eventId}/studio/papic/crew`}
           className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-terracotta hover:text-terracotta-700"
         >
-          Set up your Papic crew
+          Open your shared code
           <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={2} />
         </Link>
       </section>

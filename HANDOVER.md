@@ -83,6 +83,14 @@ server `r2Upload`). The SEAT camera already PUTs direct to R2 via `/api/upload` 
 - Checks this round: full tsc 0 · full preflight 49/51 (T23 fixed; hub-look-is-pro = worktree path) · db 17/17 ·
   merged origin/main (exposure baseline + screens map regenerated) → quick preflight 46 ✓ · full tsc 0 · db 27/27 ·
   Chromium re-walk guest + supplier PASS · 375 shots r2-chromium-375-kept/blocked
+
+## Re-review (87318ee9 → 8/10 verified; M3 + M5 + minors fixed)
+- M3 unclear failure = keep copies; definite refusal = discard; every final delete via
+  deleteFinalIfUnreferenced (fail closed); promoteTier retires a prior unclear attempt only if unreferenced
+- M5 duplicate answer = keeps || rowNeedsRaw(prior) (recordedClipNeedsRaw, lib/papic-upload/mp4.ts)
+- minors: terms_required kept (camera wakes uploader on accept); adopted old-queue shots held
+  for "Send as me" (chip button, TTL restarts on confirm); pointsAtAPreview reads the key name; replayer header
+- sabotage S1–S6 each red on its own test, restored green
 - ⚠ Not changed, said plainly: the PAPARAZZI SEAT camera (papic-seat-capture + lib/offline/service-handlers/papic-drain.ts)
   is not on this uploader and still treats put-away as terminal — B1 covers the save-first guest + supplier cameras.
 

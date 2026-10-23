@@ -63,7 +63,19 @@ background"; relay: "as realtime as possible", "clean and safe"):**
   copy has landed.
 - Migration adds `papic_upload_intents.final_ref` + `sweep_refused_at`.
 
-Guards: `lib/papic-upload/no-capture-route-takes-file-bytes.test.ts`,
+**Second review round:**
+
+- A lost answer never erases a shot. When the database may have written the row but the reply
+  was lost, the uploaded copies are left alone; only a definite "no" removes them. Any copy a
+  capture row names is never deleted, by any path.
+- A replayed record answer re-checks the clip's web copy, so a lost first answer cannot make
+  the phone let go of a raw clip whose web copy was never verified.
+- Unaccepted photo terms keep the shot; accepting them sends it. Shots from the old queue
+  (which never noted who took them) wait for "Send as me" instead of sending as whoever is
+  signed in. "Release to Drive" recognises a thumbnail by its file name.
+
+Guards: `lib/papic-upload/a-lost-answer-never-erases-a-shot.test.ts`,
+`lib/papic-upload/no-capture-route-takes-file-bytes.test.ts`,
 `lib/papic-upload/every-papic-media-reader-is-screened.test.ts` (every Papic media reader, derived
 from the tree), `lib/papic-upload/a-queued-shot-records-only-where-it-was-taken.test.ts`,
 `lib/papic-upload/nothing-unscreened-reaches-another-person.test.ts`, the replayer scenario

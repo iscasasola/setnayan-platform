@@ -439,7 +439,7 @@ export default async function GuestsLabPage({
     const low = sp.low === '1';
     const labPapic: GuestPapicState =
       sp.papic === 'off'
-        ? { access: 'off', ceiling: undefined }
+        ? { access: 'off', ceiling: undefined, door: `/dashboard/${EVENT}/studio/papic` }
         : sp.papic === 'unknown'
           ? { access: 'unknown', ceiling: undefined }
           : { access: 'on', ceiling: sp.papic === 'set' ? 40 : sp.papic === 'none' ? 0 : null };

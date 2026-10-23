@@ -1,6 +1,6 @@
 import { papicPointCurrencyTerms } from '@/lib/papic-tier-copy';
 import { slugForwardingLabel } from '@/lib/slug-forwarding-window';
-import { FREE_BOOKING_LIMIT } from '@/lib/booking-fee-lock';
+import { FIRST_BOOKING_ON_US } from '@/lib/booking-fee-lock';
 import { mobileAppAnswer, mobileAppAnswerInApp } from '@/lib/where-setnayan-runs';
 import { PAPIC_FREE_CREDIT_CONDITION } from '@/lib/papic-free-credit-promise';
 import { DAY_OF_ENDS_PLAIN, DAY_OF_STARTS_PLAIN } from '@/lib/day-of-window-words';
@@ -139,7 +139,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
         slug: 'how-much-does-setnayan-cost',
         title: 'How much does Setnayan cost?',
         appBody: 'Planning in the Setnayan app is free: schedule, budget, guest list, seat plan, mood board, RSVP with a QR code for every guest, and marketplace browse with a match preview. Couples pay 0% commission on supplier bookings — they pay their suppliers directly and Setnayan never sits between them at checkout.',
-        body: 'Couples start free (planning workspace: schedule, budget, guest list, seat plan, mood board, plus marketplace browse with a match preview). The paid planner is Setnayan AI, a one-time purchase that unlocks the full planner with access through your wedding day. Individual services and the Setnayan AI rate are listed on the Pricing page. Supplier side: Verified is free during launch, with Pro and Enterprise subscription tiers billed per 28-day prepaid block — what suppliers pay is set out on setnayan.com/for-suppliers. Couples pay 0% commission on supplier bookings — they pay their suppliers directly and Setnayan never sits between them at checkout. See setnayan.com/pricing for current rates.',
+        body: 'Couples start free (planning workspace: schedule, budget, guest list, seat plan, mood board, plus marketplace browse with a match preview). The paid planner is Setnayan AI, a one-time purchase that unlocks the full planner with access through your wedding day. Individual services and the Setnayan AI rate are listed on the Pricing page. Supplier side: Verified is free during launch, with Pro and Ultra subscription tiers billed per 28-day prepaid block — what suppliers pay is set out on setnayan.com/for-suppliers. Couples pay 0% commission on supplier bookings — they pay their suppliers directly and Setnayan never sits between them at checkout. See setnayan.com/pricing for current rates.',
       },
       {
         slug: 'is-setnayan-free-for-couples',
@@ -355,8 +355,8 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'what-do-suppliers-pay-setnayan',
         title: 'What does Setnayan charge suppliers?',
-        appBody: `No commission — couples pay you directly and Setnayan never touches that money. Separately, a supplier pays Setnayan a booking fee only on couples Setnayan introduces: the first ${FREE_BOOKING_LIMIT} are free, a supplier's own clients are always free, and the fee is never added to what a couple pays.`,
-        body: `No commission — couples pay you directly and Setnayan never touches that money, on every tier. Separately, a supplier pays Setnayan a booking fee only on couples Setnayan introduces: the first ${FREE_BOOKING_LIMIT} are free, a supplier's own clients are always free, and the fee is never added to what a couple pays. Current rates are on setnayan.com/for-suppliers.`,
+        appBody: `No commission — couples pay you directly and Setnayan never touches that money. Separately, a supplier pays Setnayan a booking fee only on couples Setnayan introduces. ${FIRST_BOOKING_ON_US} A supplier's own clients are always free, and the fee is never added to what a couple pays.`,
+        body: `No commission — couples pay you directly and Setnayan never touches that money, on every tier. Separately, a supplier pays Setnayan a booking fee only on couples Setnayan introduces. ${FIRST_BOOKING_ON_US} A supplier's own clients are always free, and the fee is never added to what a couple pays. Current rates are on setnayan.com/for-suppliers.`,
       },
     ],
   },

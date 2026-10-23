@@ -1,62 +1,67 @@
 'use client';
 
-import { useState, useTransition } from 'react';
-import { Bot, Check, HandHelping, Zap } from 'lucide-react';
+import { useEffect, useRef, useState, useTransition } from 'react';
+import { Minus, Plus } from 'lucide-react';
 
+import { InfoTip } from '@/app/_components/info-tip';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import {
   AUTO_ACCEPT_THRESHOLD_MAX,
   AUTO_ACCEPT_THRESHOLD_MIN,
-  DAILY_AUTO_ACCEPT_CAP_MAX,
-  DAILY_AUTO_ACCEPT_CAP_MIN,
-  DAILY_REPLY_CAP_MAX,
-  DAILY_REPLY_CAP_MIN,
 } from '@/lib/vendor-autoreply/config';
 
 import { updateAutoReplyConfig, type AutoReplySaveResult } from '../autoreply-actions';
 import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
 
 /**
- * My Shop → "Auto-Reply Assistant" (Phase 4 config card · flag-dark — the page
- * only renders this behind NEXT_PUBLIC_VENDOR_AUTOREPLY_V1).
+ * Your page › Auto-reply — the supplier's "Auto-Reply Assistant" settings
+ * (flag-dark: the page only renders this behind NEXT_PUBLIC_VENDOR_AUTOREPLY_V1).
  *
- * WebsiteEditor idiom: switches save instantly + optimistically (revert +
- * toast on error); the numeric fields save with an inline button that appears
- * when dirty. The explainer is STATIC — it mirrors the deterministic engine's
- * real intent set (lib/vendor-autoreply/intents.ts) so it can't over-promise.
- * Editable fields: `enabled` + `daily_reply_cap` (Phase 4) and the Phase-4A
- * auto-accept trio (`auto_accept_enabled` / `auto_accept_threshold` /
- * `daily_auto_accept_cap`) — all columns the Phase-1 schema already carries.
- * The remaining Pro columns (mode, voice_profile) wait for Phase 5/7.
+ * 🚫 NO PER-DAY LIMIT, AND NONE SHOWN (owner 2026-10-23, verbatim: "why do we
+ * limit the auto reply? and too many words. we agreed to place all info that is
+ * possible inside (i) and if you add description outside should be at
+ * minimum"). The "Daily reply cap" and "Daily auto-accept cap" fields are gone
+ * — the engine no longer counts against them either (`inbox-hook.ts`,
+ * `auto-accept.ts`). Held by `lib/vendor-autoreply/no-daily-limit.test.ts`.
+ *
+ * WORDS: three controls, each a title + at most ONE short line. Everything else
+ * — what it answers, what it hands to you, the AI-label promise, how the
+ * threshold works — sits behind each title's ⓘ (the house `InfoTip`). The ⓘ
+ * text mirrors the deterministic engine's real intent set
+ * (`lib/vendor-autoreply/intents.ts`) so it cannot over-promise.
+ *
+ * SAVE: one pattern for all three — SAVE ON CHANGE, the pattern this card's
+ * switches already shipped with (optimistic, revert + toast on error, a short
+ * toast on success). The threshold stepper saves the same way, a moment after
+ * the last press, so walking 78 → 85 is one save, not seven. No Save buttons.
+ *
+ * No frames: the fold is the container; topics are split by hairline dividers
+ * (owner 2026-10-11, "a frame only on something pressable").
  */
 export function AutoReplyCard({
   initialEnabled,
-  initialDailyCap,
   initialAutoAcceptEnabled,
   initialAutoAcceptThreshold,
-  initialDailyAutoAcceptCap,
 }: {
   initialEnabled: boolean;
-  initialDailyCap: number;
   initialAutoAcceptEnabled: boolean;
   initialAutoAcceptThreshold: number;
-  initialDailyAutoAcceptCap: number;
 }) {
   const toast = useToast();
   const [, startTransition] = useTransition();
 
   const [enabled, setEnabled] = useState(initialEnabled);
-  const [savedCap, setSavedCap] = useState(initialDailyCap);
-  const [capVal, setCapVal] = useState(String(initialDailyCap));
-  const capDirty = capVal.trim() !== String(savedCap);
-
   const [autoAccept, setAutoAccept] = useState(initialAutoAcceptEnabled);
-  const [savedThreshold, setSavedThreshold] = useState(initialAutoAcceptThreshold);
-  const [thresholdVal, setThresholdVal] = useState(String(initialAutoAcceptThreshold));
-  const thresholdDirty = thresholdVal.trim() !== String(savedThreshold);
-  const [savedAcceptCap, setSavedAcceptCap] = useState(initialDailyAutoAcceptCap);
-  const [acceptCapVal, setAcceptCapVal] = useState(String(initialDailyAutoAcceptCap));
-  const acceptCapDirty = acceptCapVal.trim() !== String(savedAcceptCap);
+  const [threshold, setThreshold] = useState(initialAutoAcceptThreshold);
+  const savedThreshold = useRef(initialAutoAcceptThreshold);
+  const thresholdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(
+    () => () => {
+      if (thresholdTimer.current) clearTimeout(thresholdTimer.current);
+    },
+    [],
+  );
 
   function save(
     entries: [string, string][],
@@ -86,249 +91,128 @@ export function AutoReplyCard({
     });
   }
 
-  function saveCap() {
-    save([['daily_reply_cap', capVal.trim()]], {
-      onSuccess: (res) => {
-        setSavedCap(res.dailyReplyCap);
-        setCapVal(String(res.dailyReplyCap));
-        toast.success('Daily reply cap saved.');
-      },
-    });
-  }
-
   function toggleAutoAccept() {
     const was = autoAccept;
     const next = !was;
     setAutoAccept(next);
     save([['auto_accept_enabled', next ? 'true' : 'false']], {
       onError: () => setAutoAccept(was),
-      onSuccess: () =>
-        toast.success(next ? 'Compatibility auto-accept is on.' : 'Compatibility auto-accept is off.'),
+      onSuccess: () => toast.success(next ? 'Auto-accept is on.' : 'Auto-accept is off.'),
     });
   }
 
-  function saveThreshold() {
-    save([['auto_accept_threshold', thresholdVal.trim()]], {
-      onSuccess: (res) => {
-        setSavedThreshold(res.autoAcceptThreshold);
-        setThresholdVal(String(res.autoAcceptThreshold));
-        toast.success('Auto-accept threshold saved.');
-      },
-    });
-  }
+  // The value the next press steps from — a ref, so two quick presses never both read the same stale state.
+  const thresholdNow = useRef(initialAutoAcceptThreshold);
 
-  function saveAcceptCap() {
-    save([['daily_auto_accept_cap', acceptCapVal.trim()]], {
-      onSuccess: (res) => {
-        setSavedAcceptCap(res.dailyAutoAcceptCap);
-        setAcceptCapVal(String(res.dailyAutoAcceptCap));
-        toast.success('Daily auto-accept cap saved.');
-      },
-    });
+  function stepThreshold(delta: number) {
+    const next = Math.max(
+      AUTO_ACCEPT_THRESHOLD_MIN,
+      Math.min(AUTO_ACCEPT_THRESHOLD_MAX, thresholdNow.current + delta),
+    );
+    if (next === thresholdNow.current) return;
+    thresholdNow.current = next;
+    setThreshold(next);
+    if (thresholdTimer.current) clearTimeout(thresholdTimer.current);
+    thresholdTimer.current = setTimeout(() => {
+      const value = thresholdNow.current;
+      if (value === savedThreshold.current) return;
+      save([['auto_accept_threshold', String(value)]], {
+        onError: () => {
+          thresholdNow.current = savedThreshold.current;
+          setThreshold(savedThreshold.current);
+        },
+        onSuccess: (res) => {
+          savedThreshold.current = res.autoAcceptThreshold;
+          thresholdNow.current = res.autoAcceptThreshold;
+          setThreshold(res.autoAcceptThreshold);
+          toast.success('Saved.');
+        },
+      });
+    }, 700);
   }
 
   return (
-    <div
-      className="rounded-xl border p-4 sm:p-5"
-      style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper-2)' }}
-    >
-      {/* ── Header: identity + the on/off switch ─────────────────────────── */}
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex min-w-0 items-start gap-3">
-          <span
-            aria-hidden
-            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
-            style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-deep)' }}
+    <div data-autoreply-card="" className="divide-y divide-[var(--m-line)]">
+      {/* ── The assistant: title + ⓘ · one line · the switch ─────────────── */}
+      <div className="flex items-center justify-between gap-3 py-3" data-autoreply-control="assistant">
+        <div className="min-w-0">
+          <InfoTip
+            label="Auto-Reply Assistant"
+            labelAs="h3"
+            labelId="auto-reply-heading"
+            labelClassName="text-sm font-semibold text-ink"
+            align="start"
           >
-            <Bot className="h-4 w-4" strokeWidth={1.75} />
-          </span>
-          <div className="min-w-0">
-            <h3 id="auto-reply-heading" className="text-sm font-semibold text-ink">
-              Auto-Reply Assistant
-            </h3>
-            <p className="mt-0.5 text-xs" style={{ color: 'var(--m-slate)' }}>
-              {enabled
-                ? 'On — answers couples’ factual questions from your own catalog, up to your daily cap.'
-                : 'Off — couples’ messages wait for you.'}
-            </p>
-          </div>
+            <span className="block font-semibold">It answers</span>
+            Prices and packages, what is included, the services and events you cover, lead times, running
+            discounts and your reviews — from your own listings, never made up. Asked about a date, it asks
+            for theirs or says you will confirm.
+            <span className="mt-2 block font-semibold">It hands to you</span>
+            Custom requests, the decision to book, and anything it is not sure of or cannot find in your
+            listings.
+            <span className="mt-2 block">
+              Couples always see that the reply is from the assistant, never disguised as you, and you can
+              read every reply in the chat.
+            </span>
+          </InfoTip>
+          <p className="mt-0.5 text-xs" style={{ color: 'var(--m-slate)' }} data-autoreply-line="">
+            {enabled ? 'Answers couples’ questions for you.' : 'Off — messages wait for you.'}
+          </p>
         </div>
         <Switch on={enabled} onClick={toggleEnabled} label="Auto-Reply Assistant" />
       </div>
 
-      {/* ── Daily reply cap (dirty-save, About-field idiom) ──────────────── */}
-      <div className="mt-4">
-        <label htmlFor="autoreply-daily-cap" className="block text-xs font-medium text-ink">
-          Daily reply cap
-        </label>
-        <p className="mt-0.5 text-xs" style={{ color: 'var(--m-slate)' }}>
-          After this many auto-replies in a day it pauses and leaves the rest to
-          you. Set 0 to pause for the day without switching it off.
-        </p>
-        <div className="mt-2 flex items-center gap-2">
-          <input
-            id="autoreply-daily-cap"
-            type="number"
-            inputMode="numeric"
-            min={DAILY_REPLY_CAP_MIN}
-            max={DAILY_REPLY_CAP_MAX}
-            step={1}
-            value={capVal}
-            onChange={(e) => setCapVal(e.target.value)}
-            className="input-field max-w-[7rem]"
-            aria-label="Daily reply cap"
-          />
+      {/* ── Auto-accept: title + ⓘ · one line · the switch ───────────────── */}
+      <div className="flex items-center justify-between gap-3 py-3" data-autoreply-control="auto-accept">
+        <div className="min-w-0">
+          <InfoTip label="Auto-accept" labelAs="h4" labelClassName="text-sm font-semibold text-ink" align="start">
+            Accepts an inquiry for you when the couple’s match score reaches your threshold — the same as
+            pressing Accept yourself. It only opens the chat; it never books you. When it cannot accept, the
+            assistant keeps answering and the inquiry waits for you.
+          </InfoTip>
+          <p className="mt-0.5 text-xs" style={{ color: 'var(--m-slate)' }} data-autoreply-line="">
+            Opens the chat for strong matches.
+          </p>
+        </div>
+        <Switch on={autoAccept} onClick={toggleAutoAccept} label="Auto-accept" />
+      </div>
+
+      {/* ── Match threshold: title + ⓘ · the stepper (saves on change) ───── */}
+      <div className="flex items-center justify-between gap-3 py-3" data-autoreply-control="threshold">
+        <InfoTip label="Match threshold" labelAs="h4" labelClassName="text-sm font-semibold text-ink" align="start">
+          Only couples who score at least this much are accepted. 80 and above is a strong match; 60 to 79
+          is a good match.
+        </InfoTip>
+        <div className="flex shrink-0 items-center gap-1" role="group" aria-label="Match threshold">
           <button
             type="button"
-            disabled={!capDirty}
-            onClick={saveCap}
-            className="rounded-md px-3 py-1.5 text-xs font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
-            style={{ background: 'var(--m-accent-deep)' }}
+            onClick={() => stepThreshold(-1)}
+            disabled={threshold <= AUTO_ACCEPT_THRESHOLD_MIN}
+            aria-label="Lower the match threshold"
+            className="sn-press flex h-11 w-11 items-center justify-center rounded-full border text-ink disabled:opacity-35"
+            style={{ borderColor: 'var(--m-line)' }}
           >
-            Save
+            <Minus className="h-4 w-4" strokeWidth={2} aria-hidden />
+          </button>
+          <output
+            aria-live="polite"
+            className="w-12 text-center text-sm font-semibold tabular-nums text-ink"
+            data-autoreply-threshold=""
+          >
+            {threshold}%
+          </output>
+          <button
+            type="button"
+            onClick={() => stepThreshold(1)}
+            disabled={threshold >= AUTO_ACCEPT_THRESHOLD_MAX}
+            aria-label="Raise the match threshold"
+            className="sn-press flex h-11 w-11 items-center justify-center rounded-full border text-ink disabled:opacity-35"
+            style={{ borderColor: 'var(--m-line)' }}
+          >
+            <Plus className="h-4 w-4" strokeWidth={2} aria-hidden />
           </button>
         </div>
       </div>
-
-      {/* ── Phase 4A · Compatibility auto-accept (token hold) ────────────── */}
-      <div
-        className="mt-5 rounded-lg border p-3 sm:p-4"
-        style={{ borderColor: 'var(--m-line)' }}
-      >
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex min-w-0 items-start gap-2.5">
-            <Zap
-              className="mt-0.5 h-4 w-4 shrink-0"
-              strokeWidth={1.75}
-              aria-hidden
-              style={{ color: 'var(--m-orange-2)' }}
-            />
-            <div className="min-w-0">
-              <h4 className="text-sm font-semibold text-ink">Compatibility auto-accept</h4>
-              <p className="mt-0.5 text-xs" style={{ color: 'var(--m-slate)' }}>
-                Accepts an inquiry for you when the couple&rsquo;s match score
-                clears your threshold, exactly like accepting by hand. When it
-                can&rsquo;t accept, the assistant keeps answering and flags the
-                waiting lead for you instead.
-              </p>
-            </div>
-          </div>
-          <Switch on={autoAccept} onClick={toggleAutoAccept} label="Compatibility auto-accept" />
-        </div>
-
-        <div className="mt-3 grid gap-4 sm:grid-cols-2">
-          <div>
-            <label htmlFor="autoaccept-threshold" className="block text-xs font-medium text-ink">
-              Match threshold (%)
-            </label>
-            <p className="mt-0.5 text-xs" style={{ color: 'var(--m-slate)' }}>
-              Only couples scoring at least this % are auto-accepted. 80+ =
-              strong matches, 60–79 = good matches.
-            </p>
-            <div className="mt-2 flex items-center gap-2">
-              <input
-                id="autoaccept-threshold"
-                type="number"
-                inputMode="numeric"
-                min={AUTO_ACCEPT_THRESHOLD_MIN}
-                max={AUTO_ACCEPT_THRESHOLD_MAX}
-                step={1}
-                value={thresholdVal}
-                onChange={(e) => setThresholdVal(e.target.value)}
-                className="input-field max-w-[7rem]"
-                aria-label="Auto-accept match threshold"
-              />
-              <button
-                type="button"
-                disabled={!thresholdDirty}
-                onClick={saveThreshold}
-                className="rounded-md px-3 py-1.5 text-xs font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
-                style={{ background: 'var(--m-accent-deep)' }}
-              >
-                Save
-              </button>
-            </div>
-          </div>
-          <div>
-            <label htmlFor="autoaccept-daily-cap" className="block text-xs font-medium text-ink">
-              Daily auto-accept cap
-            </label>
-            <p className="mt-0.5 text-xs" style={{ color: 'var(--m-slate)' }}>
-              At most this many auto-accepts per day. Set 0
-              to pause auto-accepts without switching them off.
-            </p>
-            <div className="mt-2 flex items-center gap-2">
-              <input
-                id="autoaccept-daily-cap"
-                type="number"
-                inputMode="numeric"
-                min={DAILY_AUTO_ACCEPT_CAP_MIN}
-                max={DAILY_AUTO_ACCEPT_CAP_MAX}
-                step={1}
-                value={acceptCapVal}
-                onChange={(e) => setAcceptCapVal(e.target.value)}
-                className="input-field max-w-[7rem]"
-                aria-label="Daily auto-accept cap"
-              />
-              <button
-                type="button"
-                disabled={!acceptCapDirty}
-                onClick={saveAcceptCap}
-                className="rounded-md px-3 py-1.5 text-xs font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
-                style={{ background: 'var(--m-accent-deep)' }}
-              >
-                Save
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ── Static explainer — mirrors the deterministic engine exactly ──── */}
-      <div className="mt-5 grid gap-4 sm:grid-cols-2">
-        <div>
-          <p
-            className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide"
-            style={{ color: 'var(--m-sage-deep)' }}
-          >
-            <Check className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
-            It answers
-          </p>
-          <ul className="mt-1.5 space-y-1 text-xs" style={{ color: 'var(--m-slate)' }}>
-            <li>Prices &amp; packages — your listed rates, never invented</li>
-            <li>Date availability — for the couple&rsquo;s date, or asks for it</li>
-            <li>What&rsquo;s included — inclusions and add-ons</li>
-            <li>Coverage — services and event types you serve</li>
-            <li>Lead times — and any last-minute surcharge</li>
-            <li>Active discounts — only ones currently running</li>
-            <li>Reviews — your rating and recent feedback</li>
-          </ul>
-        </div>
-        <div>
-          <p
-            className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide"
-            style={{ color: 'var(--m-orange-2)' }}
-          >
-            <HandHelping className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
-            It hands to you
-          </p>
-          <ul className="mt-1.5 space-y-1 text-xs" style={{ color: 'var(--m-slate)' }}>
-            <li>Customization requests</li>
-            <li>
-              Booking decisions — it never commits you to a booking. (With
-              auto-accept on, it only opens the chat for strong matches.)
-            </li>
-            <li>Anything it isn&rsquo;t sure about, instead of guessing</li>
-            <li>Questions your catalog has no data for</li>
-          </ul>
-        </div>
-      </div>
-
-      <p className="mt-4 text-xs" style={{ color: 'var(--m-slate-3)' }}>
-        Every auto-reply is visibly labeled as AI to the couple — never disguised
-        as you. It reads only your own shop&rsquo;s catalog, and each handled
-        thread is flagged so you can review what was said.
-      </p>
     </div>
   );
 }

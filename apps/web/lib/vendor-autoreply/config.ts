@@ -1,28 +1,23 @@
 // lib/vendor-autoreply/config.ts
 //
-// Pure form-validation for the My Shop "Auto-Reply Assistant" config card
-// (Phase 4). Parses the client form into a partial vendor_bot_config patch —
-// ONLY the fields present in the form are patched, so the instant toggle save
-// never clobbers the daily cap and vice versa. The server action
+// Pure form-validation for the supplier's "Auto-Reply Assistant" settings
+// (Your page › Auto-reply). Parses the client form into a partial
+// vendor_bot_config patch — ONLY the fields present in the form are patched,
+// so one switch's save never clobbers another. The server action
 // (app/vendor-dashboard/shop/autoreply-actions.ts) upserts the patch under RLS
 // (current_vendor_ids('admin')).
 //
-// Scope note: the Phase-1 schema (20270822679405) carries NO greeting/handoff
-// copy columns — those stay engine-owned. This card edits `enabled` +
-// `daily_reply_cap` plus — Phase 4A — the three auto_accept_* columns the
-// Phase-1 schema already carries (auto_accept_enabled / auto_accept_threshold /
-// daily_auto_accept_cap). The remaining Pro columns (mode, voice_profile)
-// wait for Phase 5/7 so we ship no fake doors.
-
-/** Schema default for vendor_bot_config.daily_reply_cap. */
-export const DAILY_REPLY_CAP_DEFAULT = 30;
-/** DB check is `>= 0`; 0 = "pause for the day" without flipping the toggle. */
-export const DAILY_REPLY_CAP_MIN = 0;
-/**
- * UI ceiling. The DB is unbounded above, but an unbounded client int is a
- * footgun (typo'd 3000 = the cap never bites). 200/day is ~an always-on bot.
- */
-export const DAILY_REPLY_CAP_MAX = 200;
+// 🚫 NO PER-DAY LIMIT, ANYWHERE (owner 2026-10-23, verbatim: "why do we limit
+// the auto reply?"). The supplier used to set a "Daily reply cap" (30) and a
+// "Daily auto-accept cap" (10). Both are gone: this parser no longer reads
+// `daily_reply_cap` / `daily_auto_accept_cap`, the card no longer shows them,
+// and the inbox hook no longer counts against them. The two columns are LEFT
+// in vendor_bot_config (dropping a column is a production migration for no
+// gain) — nothing reads or writes them any more. There is no hidden platform
+// ceiling either: a reply is string substitution over the shop's own rows
+// (phrasings.ts — a model call per reply is forbidden), so it costs ₱0, and
+// it cannot loop (only a COUPLE message triggers it; the bot posts as the
+// supplier). Held by `lib/vendor-autoreply/no-daily-limit.test.ts`.
 
 /** Schema default for vendor_bot_config.auto_accept_threshold. */
 export const AUTO_ACCEPT_THRESHOLD_DEFAULT = 78;
@@ -30,20 +25,10 @@ export const AUTO_ACCEPT_THRESHOLD_DEFAULT = 78;
 export const AUTO_ACCEPT_THRESHOLD_MIN = 0;
 export const AUTO_ACCEPT_THRESHOLD_MAX = 100;
 
-/** Schema default for vendor_bot_config.daily_auto_accept_cap. */
-export const DAILY_AUTO_ACCEPT_CAP_DEFAULT = 10;
-/** DB check is `>= 0`; 0 = "no auto-accepts today" without flipping it off. */
-export const DAILY_AUTO_ACCEPT_CAP_MIN = 0;
-/** UI ceiling — every auto-accept can hold a token, so keep the typo ceiling
- *  far below the reply cap's. */
-export const DAILY_AUTO_ACCEPT_CAP_MAX = 50;
-
 export type AutoReplyConfigPatch = {
   enabled?: boolean;
-  daily_reply_cap?: number;
   auto_accept_enabled?: boolean;
   auto_accept_threshold?: number;
-  daily_auto_accept_cap?: number;
 };
 
 export type AutoReplyConfigParse =
@@ -53,7 +38,8 @@ export type AutoReplyConfigParse =
 /**
  * Parse the config form into a column patch. Defensive: every failure is a
  * friendly message (the card toasts it), never a throw. Absent fields are
- * simply not patched; an all-absent form is "nothing to save".
+ * simply not patched; an all-absent form is "nothing to save". A field this
+ * parser does not know (an old tab still posting a daily cap) is ignored.
  */
 export function parseAutoReplyConfigForm(form: FormData): AutoReplyConfigParse {
   const patch: AutoReplyConfigPatch = {};
@@ -76,39 +62,21 @@ export function parseAutoReplyConfigForm(form: FormData): AutoReplyConfigParse {
     patch.auto_accept_enabled = v === 'true';
   }
 
-  // Whole non-negative integers only — rejects blanks, decimals, negatives,
-  // exponents ("1e3"), and anything non-numeric.
-  const intField = (
-    key: 'daily_reply_cap' | 'auto_accept_threshold' | 'daily_auto_accept_cap',
-    label: string,
-    min: number,
-    max: number,
-  ): string | null => {
-    const raw = form.get(key);
-    if (raw === null) return null;
-    const s = String(raw).trim();
-    if (!/^\d+$/.test(s)) return `${label} must be a whole number.`;
+  // Whole numbers only — rejects blanks, decimals, negatives, exponents
+  // ("1e3"), and anything non-numeric.
+  const thresholdRaw = form.get('auto_accept_threshold');
+  if (thresholdRaw !== null) {
+    const s = String(thresholdRaw).trim();
+    if (!/^\d+$/.test(s)) return { ok: false, error: 'Match threshold must be a whole number.' };
     const n = Number(s);
-    if (n < min || n > max) return `${label} must be between ${min} and ${max}.`;
-    patch[key] = n;
-    return null;
-  };
-
-  const intError =
-    intField('daily_reply_cap', 'Daily cap', DAILY_REPLY_CAP_MIN, DAILY_REPLY_CAP_MAX) ??
-    intField(
-      'auto_accept_threshold',
-      'Auto-accept threshold',
-      AUTO_ACCEPT_THRESHOLD_MIN,
-      AUTO_ACCEPT_THRESHOLD_MAX,
-    ) ??
-    intField(
-      'daily_auto_accept_cap',
-      'Daily auto-accept cap',
-      DAILY_AUTO_ACCEPT_CAP_MIN,
-      DAILY_AUTO_ACCEPT_CAP_MAX,
-    );
-  if (intError) return { ok: false, error: intError };
+    if (n < AUTO_ACCEPT_THRESHOLD_MIN || n > AUTO_ACCEPT_THRESHOLD_MAX) {
+      return {
+        ok: false,
+        error: `Match threshold must be between ${AUTO_ACCEPT_THRESHOLD_MIN} and ${AUTO_ACCEPT_THRESHOLD_MAX}.`,
+      };
+    }
+    patch.auto_accept_threshold = n;
+  }
 
   if (Object.keys(patch).length === 0) {
     return { ok: false, error: 'Nothing to save.' };

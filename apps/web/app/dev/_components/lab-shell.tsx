@@ -80,7 +80,7 @@ export function LabShell({
               ariaBaseLabel="Notifications"
               ariaUnreadSuffix="unread"
             />
-            <span className="grid h-11 w-11 place-items-center rounded-full bg-[#A9834B] text-xs font-semibold text-white">AM</span>
+            <span className="grid h-11 w-11 place-items-center rounded-full sn-initials text-xs font-semibold">AM</span>
           </div>
         }
         railContext={<EventRailContext {...inputs} eventName="Ana & Miguel" />}

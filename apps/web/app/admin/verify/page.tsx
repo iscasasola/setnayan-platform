@@ -1530,7 +1530,7 @@ function SlotDetail({ slotKey, value }: { slotKey: string; value: DocUpload }) {
 
 /** What every grant does to the shop, said the same way wherever it is offered. */
 const GRANT_CONSEQUENCE =
-  'Approving flips this supplier to Verified — their public listing goes live, the verified badge appears, Pro/Enterprise unlock, and they are notified.';
+  'Approving flips this supplier to Verified — their public listing goes live, the verified badge appears, Pro/Ultra unlock, and they are notified.';
 
 /**
  * The sentence the grant dialog shows, warning first.

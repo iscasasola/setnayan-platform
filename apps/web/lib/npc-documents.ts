@@ -9,6 +9,11 @@
  *
  * The `key` is the URL-safe download id; `file` is the exact bundled filename.
  * Keep this in sync with the corpus generator (NPC_Submission_PDF_2026-07-16/).
+ *
+ * Refreshed 2026-10-22 (pack v1.1): members 00–12 and the merged packet come
+ * from that folder; the printable summary from NPC_Compliance/. The 2026-08-17
+ * packet stays in the corpus as the record of what was superseded — the app
+ * serves only the current one.
  */
 
 export type NpcDocGroup = 'packet' | 'executive' | 'pack' | 'companion' | 'audit';
@@ -24,9 +29,15 @@ export type NpcDocument = {
 export const NPC_DOCUMENTS: readonly NpcDocument[] = [
   {
     key: 'complete-packet',
-    file: 'Setnayan_NPC_Submission_Complete_2026-08-17.pdf',
+    file: 'Setnayan_NPC_Submission_Complete_2026-10-22.pdf',
     title: 'Complete submission packet (all documents, merged)',
     group: 'packet',
+  },
+  {
+    key: 'privacy-summary',
+    file: 'Setnayan_Data_Privacy_Summary_2026-10-22.pdf',
+    title: 'Data Privacy Summary — what we provide, what the website promises, how we comply',
+    group: 'executive',
   },
   { key: 'executive-dossier', file: '00_Executive_Dossier.pdf', title: 'Privacy Compliance Dossier (executive submission)', group: 'executive' },
   { key: 'readme-pack', file: '01_README_Compliance_Pack.pdf', title: 'NPC Compliance Pack — README', group: 'pack' },

@@ -7,7 +7,8 @@
  * per booked event; ONE admin page, admin-editable, never hard-coded.
  * ⚖ OWNER, 2026-10-12 ("APPROVE ALL: THE BOOKING-FEE QUESTIONS (14)") #3–#6:
  * the 2,000 counts Setnayan-sourced bookings at fee creation; launch bookings do
- * not use up a supplier's free five; free Pro ends at the end of the 28-day
+ * not use up a supplier's free first booking (one since 2026-10-23, was five);
+ * free Pro ends at the end of the 28-day
  * cycle running when the 2,000th booking happens (one platform-wide date, shown
  * in admin); 50 Papic credits once per launch-waived charge, at creation.
  *

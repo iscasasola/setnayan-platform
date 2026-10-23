@@ -72,10 +72,11 @@ export function PapicUploadChip({ surface = 'bg-cream/10 text-cream' }: { surfac
       role="status"
       aria-live="polite"
       data-papic-upload-chip={kind}
-      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${surface}`}
+      // The ⓘ is drawn for a light ground; over the camera it wears cream.
+      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${surface} [&_button]:border-cream/50 [&_button]:text-cream/80`}
     >
       <Icon aria-hidden className={`h-3.5 w-3.5 shrink-0${kind === 'sending' ? ' animate-spin' : ''}`} strokeWidth={2} />
-      <InfoTip label={label} onDark align="center">
+      <InfoTip label={label} align="center">
         {detail(snap.chip)}
       </InfoTip>
     </span>

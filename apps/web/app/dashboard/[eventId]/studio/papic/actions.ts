@@ -9,7 +9,6 @@ import { loadPoolRungs, type PoolRung } from '@/lib/papic-pool-rungs';
 import { keepFirstTwin, openTwinReference } from '@/lib/one-press-one-order';
 import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { eventSkuActive } from '@/lib/entitlements';
 import { ALLOTMENT_RPC, ALLOTMENT_STORAGE } from '@/lib/papic-guest-allotments';
 import { reviewVendorChallenge } from '@/lib/papic-games';
 import { papicGamesEnabled } from '@/lib/papic-games-flag';
@@ -20,39 +19,13 @@ import {
   CHALLENGE_DURATION_DEFAULT,
 } from '@/lib/papic-challenge-clock';
 import {
-  PAPIC_CAMERAS_ORDER_KEY,
   PAPIC_FREE_CAMERA_INDEX_BASE,
-  PAPIC_LTD_CAP_FALLBACK_PHP,
-  PAPIC_MINI_CAP_FALLBACK_PHP,
-  PAPIC_MIN_PAID_CAMERAS,
-  PAPIC_UNLI_CAP_FALLBACK_PHP,
-  PAPIC_UNLOCK_BUNDLE_KEY,
-  PAPIC_UNLOCK_LTD_BUNDLE_KEY,
-  computeCameraQuote,
-  isPapicUncapped,
-  fetchCameraRates,
   mintPapicReferenceCode,
-  provisionPaidCamerasAdmin,
   PAPIC_UPLOADS_CAMERA_INDEX,
 } from '@/lib/papic-cameras';
-import {
-  countLimitedGuests,
-  computeLimitedQuote,
-  fetchActiveLimitedSnapshot,
-  fetchEventPapicWindow,
-  syncGuestCameras,
-  type LimitedSnapshotRow,
-  type LimitedTier,
-} from '@/lib/papic-limited';
-import {
-  fetchPapicOneTiers,
-  papicOnePointsForSkuIn,
-  papicOneOrderRow,
-  resolvePapicOneTarget,
-} from '@/lib/papic-one';
+import { papicCameraSaleRefusedPath } from '@/lib/papic-sells-only-credits';
 import { fetchPapicPassTiers } from '@/lib/papic-pass-tiers';
-import { resolvePapicWindow, formatWindowSummary } from '@/lib/papic-window';
-import { PAPIC_FIDELITY_VALUES } from '@/lib/papic-fidelity';
+import { resolvePapicWindow } from '@/lib/papic-window';
 import { formatCount } from '@/lib/format-number';
 
 // Iteration 0012 Papic — couple-side server actions.
@@ -1043,579 +1016,51 @@ export async function setGuestClipShowcaseApproval(formData: FormData) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// Papic · per-CAMERA buy flow (owner-locked 2026-06-26 · PR2).
+// ⛔ PAPIC SELLS CREDITS — NOTHING ELSE (owner 2026-09-16, asked again 2026-10-23).
 //
-// A camera = a paparazzi seat with a tier. Beyond the free funnel cameras, a
-// couple buys paid cameras at Roll (₱30/camera/day) or Unlimited
-// (₱100/camera/day), 5-camera minimum, capped per tier (events.papic_ltd_cap_php / papic_unli_cap_php)
-// (default ₱6,999). Prices are admin-managed (read from the catalog). This is
-// apply-then-pay: the order lands at status='submitted' for the Setnayan team
-// to reconcile, and the paid cameras are materialized immediately as PENDING
-// seats (paid_order_id set) so the couple can prep invites — but capture stays
-// blocked until the order is paid (the presign gate is PR3). Strictly
-// additive: the PAPIC_SEATS pack is untouched.
+// ⚖ *"we do not have papic seat. we only have papic with credits and shared
+// amongst everybody. no dedicated shots individually."* The per-camera buy
+// (`purchasePapicCameras`), the guest-list Limited / Unlimited tier
+// (`activatePapicLimited`) and the off-list crew-camera tiers
+// (`purchasePapicExtras`) each minted a `PAPIC_CAMERAS` order of their own —
+// and on 2026-10-23 the couple's page still drew the guest-camera sheet with a
+// live "activate 264 guest cameras · ₱6,000" button. (`papic_tier_config` had
+// every paid rung switched off since September; the Limited tier never asked
+// it — it priced from `fetchCameraRates`, so the switch governed nothing.)
+//
+// 🔑 THE THREE ACTIONS STAY EXPORTED AND REFUSE, rather than vanish. A page a
+// couple opened before this shipped still holds a form bound to these ids; a
+// deleted action answers that form with a framework error, a refusal answers it
+// with a sentence. Each still checks the couple first, so a stranger learns
+// nothing about the event from the refusal.
+//
+// ✅ WHAT IS NOT TOUCHED: every order these actions ever minted, their
+// snapshots, their seats and their activation hooks (`lib/sku-activation.ts`).
+// Historical money stays readable and fulfilable; only the door that STARTS a
+// new one is shut. `lib/papic-sells-only-credits.test.ts` holds both halves.
 // ─────────────────────────────────────────────────────────────────────────
 
-/** Read one rung's camera count off the posted form (absent/garbage → 0). */
-function rungCount(formData: FormData, field: string): number {
-  const n = Number(formData.get(field) ?? 0);
-  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
+async function refuseRetiredCameraSale(formData: FormData): Promise<never> {
+  const result = await getCoupleEventId(formData.get('event_id'));
+  if (!result.ok) {
+    redirect(result.redirectTo);
+  }
+  redirect(papicCameraSaleRefusedPath(result.eventId));
 }
 
-/**
- * Buy paid Papic cameras across the THREE rungs — `mini` (₱30) · `ltd` (₱50) ·
- * `unlimited` (₱100) — plus the legacy `roll` field, which is accepted forever
- * and folded into Mini by computeCameraQuote (roll == Mini · see
- * lib/papic-cameras.ts). Validates the minimum + per-rung cap, creates the
- * apply-then-pay order, and provisions the cameras at their rungs. Redirects
- * back to the Papic page with payment instructions (reference code + amount).
- */
-/*
-  ─── THE CELEBRATION IS OVER: PAPIC STOPS SELLING ──────────────────────────
-
-  Owner, 2026-08-21, on Live Studio / Papic cameras / Custom QR once the event
-  has finished: **"stop offering them."** And, asked the same about a GUEST
-  buying shots: **"no. it needs to be in a new event."**
-
-  🔑 THESE FOUR ACTIONS MINT ORDERS WITHOUT EVER TOUCHING `submitOrderAction`,
-  so the refusal in the shared checkout does not reach them. A gate there alone
-  would be a button-not-a-door fix.
-
-  🔑 ONE HELPER, NOT A SECOND COPY. `lib/event-is-over.server.ts` is the shared
-  I/O half — the same one the account-less guest buy path calls. This file used
-  to carry its own four-column read and its own five-argument call; two copies
-  of "did this happen" is how the product comes to disagree with itself.
-
-  ⚠ IT ASKS THE LIFECYCLE RESOLVER, NOT THE CAPTURE WINDOW. `fetchEventPapicWindow`
-  FAILS OPEN by design when a couple never set bounds — most events — so a gate
-  built on it would simply not exist for them. And the window's day multiplier
-  is a PRICE input, not a gate.
-*/
+/** ⛔ Retired — refuses. Papic sells shared credits only (see above). */
 export async function purchasePapicCameras(formData: FormData) {
-  const result = await getCoupleEventId(formData.get('event_id'));
-  if (!result.ok) {
-    redirect(result.redirectTo);
-  }
-  const { eventId } = result;
-
-  // The guard already verified couple membership; re-read the user for the
-  // order's purchaser id (the same createClient session the guard used).
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    redirect('/login');
-  }
-
-  const selection = {
-    mini: rungCount(formData, 'mini'),
-    ltd: rungCount(formData, 'ltd'),
-    unlimited: rungCount(formData, 'unlimited'),
-    roll: rungCount(formData, 'roll'), // legacy field name → folds into Mini
-  };
-
-  const admin = createAdminClient();
-
-  // The celebration is over — no sale. See the note above this file's
-  // purchase actions, and lib/event-is-over.server.ts.
-  if (await eventIsOver(admin, eventId)) {
-    redirect(`/dashboard/${eventId}/studio/papic?papic_error=event_over`);
-  }
-
-  // Cost cap + event date (the per-day validity window; days defaults to 1 —
-  // "1 day for ~all weddings" per the per-camera spec).
-  const { data: ev } = await admin
-    .from('events')
-    .select('papic_mini_cap_php, papic_ltd_cap_php, papic_unli_cap_php, event_date, event_type')
-    .eq('event_id', eventId)
-    .maybeSingle();
-  const caps = {
-    mini: Number(ev?.papic_mini_cap_php ?? 0) || PAPIC_MINI_CAP_FALLBACK_PHP,
-    ltd: Number(ev?.papic_ltd_cap_php ?? 0) || PAPIC_LTD_CAP_FALLBACK_PHP,
-    unli: Number(ev?.papic_unli_cap_php ?? 0) || PAPIC_UNLI_CAP_FALLBACK_PHP,
-  };
-  const uncapped = isPapicUncapped(ev?.event_type as string | null);
-
-  // The event's capture window sets BOTH the day multiplier (price) and the
-  // seat validity bounds (how long the cameras shoot). Legacy single-day events
-  // fall back to 1 day anchored to event_date.
-  const win = await fetchEventPapicWindow(admin, eventId);
-
-  // Unlock owners get their tier free + uncapped (money-gated on an ACTIVE pass):
-  // PAPIC_UNLOCK → Unli, PAPIC_UNLOCK_LTD (owner 2026-07-11) → Ltd. Each pass
-  // covers only its own tier, so an owner never re-pays for cameras it unlocked.
-  const ownsUnlock = await eventSkuActive(admin, eventId, PAPIC_UNLOCK_BUNDLE_KEY);
-  const ownsUnlockLtd = await eventSkuActive(
-    admin,
-    eventId,
-    PAPIC_UNLOCK_LTD_BUNDLE_KEY,
-  );
-  const rates = await fetchCameraRates(admin);
-  const quote = computeCameraQuote(selection, win.days, rates, caps, {
-    unliFree: ownsUnlock,
-    // PAPIC_UNLOCK_LTD frees the ₱30 rung it was sold against — today's Mini
-    // (legacy 'roll'). It does NOT free the new ₱50 Ltd rung.
-    miniFree: ownsUnlockLtd,
-    uncapped,
-  });
-
-  if (quote.paidCount < PAPIC_MIN_PAID_CAMERAS) {
-    redirect(`/dashboard/${eventId}/studio/papic?papic_error=min_cameras`);
-  }
-
-  // Order shape: when the whole quote is free (an umbrella owner provisioning
-  // Unli only), nothing needs reconciling — the order lands 'fulfilled' (a ₱0
-  // comp the ACTIVE PAPIC_UNLOCK already covers) so the cameras shoot at once.
-  // Otherwise it's the apply-then-pay 'submitted' order the Setnayan team
-  // reconciles (the Roll part); any free Unli seats provisioned on that same
-  // order are freed by the capture-gate PAPIC_UNLOCK bypass (papic/actions +
-  // api/upload). requested_total_php is the pre-VAT base (the order layer adds
-  // VAT for the customer invoice, same as every other SKU).
-  const isFree = quote.totalPhp === 0;
-  const referenceCode = mintPapicReferenceCode();
-  const { data: order, error: orderErr } = await createMoneyWriterClient()
-    .from('orders')
-    .insert({
-      event_id: eventId,
-      user_id: user.id,
-      service_key: PAPIC_CAMERAS_ORDER_KEY,
-      description: quote.description,
-      requested_total_php: quote.totalPhp,
-      reference_code: referenceCode,
-      status: isFree ? 'fulfilled' : 'submitted',
-      platform: 'web',
-    })
-    .select('order_id, public_id')
-    .maybeSingle();
-
-  if (orderErr || !order) {
-    redirect(
-      `/dashboard/${eventId}/studio/papic?papic_error=${encodeURIComponent(
-        (orderErr?.message ?? 'order_failed').slice(0, 64),
-      )}`,
-    );
-  }
-
-  // Materialize the paid cameras (PENDING — capture blocked until paid, PR3).
-  // Best-effort: a provisioning hiccup must not strand the order the couple
-  // already owes on (the activation hook / a later top-up can recover seats).
-  try {
-    await provisionPaidCamerasAdmin(admin, {
-      eventId,
-      orderId: order.order_id,
-      miniCount: quote.miniCount,
-      ltdCount: quote.ltdCount,
-      unlimitedCount: quote.unlimitedCount,
-      validFrom: win.startIso,
-      validUntil: win.endIso,
-    });
-  } catch {
-    // swallow — order exists; seats can be topped up on approval.
-  }
-
-  revalidatePath(`/dashboard/${eventId}/studio/papic`);
-  if (isFree) {
-    // Free Unli provision (umbrella owner) — cameras are already active, no
-    // payment instructions. Surface a "your cameras are ready" confirmation.
-    redirect(
-      `/dashboard/${eventId}/studio/papic?papic_unlock_provisioned=${quote.paidCount}`,
-    );
-  }
-  // 💳 STRAIGHT TO THE PAYMENT PAGE — not back to the studio with a banner.
-  // Every other buy button in the product ends here (lib/pay-path.ts lists a
-  // dozen), and this path used to be the exception: it returned to the studio,
-  // where a banner named the amount and the reference and then asked for ANOTHER
-  // two taps — "See how to pay" → the order page → "Pay now" — before the buyer
-  // reached the QR that already carries the figure.
-  //
-  // 🔑 SAME DEFECT THE OWNER HIT IN ONBOARDING, 2026-08-20: *"i had a price to
-  // pay. but i there was no payment. it just created."* That mint was re-pointed
-  // at /pay on 2026-08-28; the four Papic studio mints were not, so the product's
-  // most-bought thing kept the old shape. See lib/the-bill-has-somewhere-to-be-
-  // paid.test.ts for why the bill page is where a bill LIVES and /pay is where
-  // one is SETTLED.
-  redirect(payPath(referenceCode));
+  return refuseRetiredCameraSale(formData);
 }
 
-// ─────────────────────────────────────────────────────────────────────────
-// Papic · LIMITED = the guest list (owner-locked 2026-06-26).
-//
-// "Ready for Papic" turns the couple's guest list into Limited cameras: every
-// guest who hasn't declined gets one camera (their personal QR is the credential)
-// + their own gallery. The count auto-derives from the list — no stepper. Sold
-// ONCE via a reversible snapshot; after that, late "yes" RSVPs are covered for
-// free within the cost cap by syncGuestCameras (the page calls it on render).
-//
-// Re-tapping "Ready for Papic" when Limited is already live is a FREE re-sync,
-// never a second charge (the "no surprise charge" rule). A fresh paid activation
-// happens only when there is no live snapshot.
-// ─────────────────────────────────────────────────────────────────────────
-
-/**
- * Activate (or re-sync) Papic Limited for the event's guest list. Apply-then-pay
- * on the first activation; a free re-sync once Limited is already live.
- */
+/** ⛔ Retired — refuses. A guest's invite QR is their camera; it costs nothing on its own. */
 export async function activatePapicLimited(formData: FormData) {
-  const result = await getCoupleEventId(formData.get('event_id'));
-  if (!result.ok) {
-    redirect(result.redirectTo);
-  }
-  const { eventId } = result;
-
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    redirect('/login');
-  }
-
-  const admin = createAdminClient();
-
-  // The celebration is over — no sale. See the note above this file's
-  // purchase actions, and lib/event-is-over.server.ts.
-  if (await eventIsOver(admin, eventId)) {
-    redirect(`/dashboard/${eventId}/studio/papic?limited_error=event_over`);
-  }
-
-  // Chosen tier (owner 2026-06-26 — "upgrade to Unlimited"). Default Limited(roll).
-  const rawTier = formData.get('tier');
-  const tier: LimitedTier = rawTier === 'unlimited' ? 'unlimited' : 'roll';
-
-  const existing = await fetchActiveLimitedSnapshot(admin, eventId);
-
-  // Already live at the SAME tier → just re-sync (covers late RSVPs) — no new
-  // order, no charge.
-  if (existing && (existing.tier ?? 'roll') === tier) {
-    let synced = { added: 0, revoked: 0, retiered: 0 };
-    try {
-      synced = await syncGuestCameras(admin, eventId, existing);
-    } catch {
-      // best-effort — the snapshot is already live.
-    }
-    revalidatePath(`/dashboard/${eventId}/studio/papic`);
-    redirect(`/dashboard/${eventId}/studio/papic?limited_synced=${synced.added}`);
-  }
-
-  // Count the list + enforce the 5-camera minimum (the free tier covers the
-  // first 5). Applies to a fresh activation AND a tier change/upgrade.
-  const guestCount = await countLimitedGuests(admin, eventId);
-  if (guestCount < 1) {
-    redirect(`/dashboard/${eventId}/studio/papic?limited_error=no_guests`);
-  }
-  if (guestCount < PAPIC_MIN_PAID_CAMERAS) {
-    redirect(`/dashboard/${eventId}/studio/papic?limited_error=below_min`);
-  }
-
-  // Rate + cap for the chosen tier (both admin-managed).
-  const { data: ev } = await admin
-    .from('events')
-    .select('papic_mini_cap_php, papic_ltd_cap_php, papic_unli_cap_php, event_type')
-    .eq('event_id', eventId)
-    .maybeSingle();
-  const rates = await fetchCameraRates(admin);
-  // The capture window sets the day multiplier (and, via syncGuestCameras, the
-  // seat validity bounds). Legacy single-day events fall back to 1 day.
-  const win = await fetchEventPapicWindow(admin, eventId);
-  const ratePhp = tier === 'unlimited' ? rates.unlimited : rates.roll;
-  // roll/limited == Mini (owner 2026-07-17 roll->Mini) → Mini cap; non-weddings
-  // uncapped (charge runs to the raw subtotal).
-  const capPhp = isPapicUncapped(ev?.event_type as string | null)
-    ? Number.MAX_SAFE_INTEGER
-    : tier === 'unlimited'
-      ? Number(ev?.papic_unli_cap_php ?? 0) || PAPIC_UNLI_CAP_FALLBACK_PHP
-      : Number(ev?.papic_mini_cap_php ?? 0) || PAPIC_MINI_CAP_FALLBACK_PHP;
-  const quote = computeLimitedQuote(guestCount, ratePhp, capPhp, win.days);
-
-  // Tier CHANGE (upgrade to Unlimited / switch back to Limited): supersede the
-  // current snapshot first — the one-live-per-event index requires it — and
-  // cancel its order while it's still awaiting payment so the couple isn't billed
-  // twice. (If the old order was already PAID, it stays; the new order bills the
-  // full new tier — delta-billing is a holistic-pricing-pass question, flagged.)
-  if (existing) {
-    await admin
-      .from('papic_limited_snapshots')
-      .update({ status: 'superseded', superseded_at: new Date().toISOString() })
-      .eq('snapshot_id', existing.snapshot_id);
-    if (existing.order_id) {
-      await admin
-        .from('orders')
-        .update({ status: 'cancelled' })
-        .eq('order_id', existing.order_id)
-        .eq('status', 'submitted');
-    }
-  }
-
-  // Apply-then-pay order (the Setnayan team reconciles the transfer). The order
-  // layer adds VAT for the customer invoice; requested_total_php is the base.
-  const tierLabel = tier === 'unlimited' ? 'Unlimited' : 'Limited';
-  const referenceCode = mintPapicReferenceCode();
-  const windowLabel = formatWindowSummary(win.startDate, win.endDate);
-  const description = `Papic ${tierLabel} — ${formatCount(guestCount)} guest camera${
-    guestCount === 1 ? '' : 's'
-  }${windowLabel ? ` · ${windowLabel}` : ` · ${win.days} day${win.days === 1 ? '' : 's'}`}`;
-  const moneyWriter = createMoneyWriterClient();
-  const { data: order, error: orderErr } = await moneyWriter
-    .from('orders')
-    .insert({
-      event_id: eventId,
-      user_id: user.id,
-      service_key: PAPIC_CAMERAS_ORDER_KEY,
-      description,
-      requested_total_php: quote.frozenBillPhp,
-      reference_code: referenceCode,
-      status: 'submitted',
-      platform: 'web',
-    })
-    .select('order_id, public_id')
-    .maybeSingle();
-  if (orderErr || !order) {
-    redirect(
-      `/dashboard/${eventId}/studio/papic?limited_error=${encodeURIComponent(
-        (orderErr?.message ?? 'order_failed').slice(0, 64),
-      )}`,
-    );
-  }
-
-  // ONE PRESS, ONE BILL (2026-10-13). A second press that arrives AFTER the
-  // first is already caught above — the live snapshot at this tier re-syncs
-  // instead of billing. Two that arrive TOGETHER both get here; the later one
-  // cancels its own order before it can write a second snapshot.
-  const kept = await keepFirstTwin(
-    admin,
-    moneyWriter,
-    {
-      eventId,
-      userId: user.id,
-      serviceKey: PAPIC_CAMERAS_ORDER_KEY,
-      amountPhp: quote.frozenBillPhp,
-      description,
-    },
-    { orderId: order.order_id, referenceCode },
-  );
-  if (!kept.keptMine) redirect(payPath(kept.reference));
-
-  // Record the frozen snapshot at the chosen tier, then materialize / re-tier the
-  // guest cameras from it (syncGuestCameras provisions missing + re-tiers any
-  // existing guest seats to match).
-  const { data: snapRow, error: snapErr } = await admin
-    .from('papic_limited_snapshots')
-    .insert({
-      event_id: eventId,
-      order_id: order.order_id,
-      guest_count: guestCount,
-      rate_php: quote.ratePhp,
-      cap_php: quote.capPhp,
-      frozen_bill_php: quote.frozenBillPhp,
-      camera_cap: quote.cameraCap,
-      days: quote.days,
-      status: 'pending_payment',
-      tier,
-    })
-    .select(
-      'snapshot_id, event_id, order_id, guest_count, rate_php, cap_php, frozen_bill_php, camera_cap, days, status, tier, created_at, activated_at, superseded_at',
-    )
-    .maybeSingle();
-  if (snapErr || !snapRow) {
-    redirect(
-      `/dashboard/${eventId}/studio/papic?limited_error=${encodeURIComponent(
-        (snapErr?.message ?? 'snapshot_failed').slice(0, 64),
-      )}`,
-    );
-  }
-
-  try {
-    await syncGuestCameras(admin, eventId, snapRow as LimitedSnapshotRow);
-  } catch {
-    // swallow — snapshot exists; sync runs again on the next render.
-  }
-
-  revalidatePath(`/dashboard/${eventId}/studio/papic`);
-  // 💳 STRAIGHT TO THE PAYMENT PAGE — not back to the studio with a banner.
-  // Every other buy button in the product ends here (lib/pay-path.ts lists a
-  // dozen), and this path used to be the exception: it returned to the studio,
-  // where a banner named the amount and the reference and then asked for ANOTHER
-  // two taps — "See how to pay" → the order page → "Pay now" — before the buyer
-  // reached the QR that already carries the figure.
-  //
-  // 🔑 SAME DEFECT THE OWNER HIT IN ONBOARDING, 2026-08-20: *"i had a price to
-  // pay. but i there was no payment. it just created."* That mint was re-pointed
-  // at /pay on 2026-08-28; the four Papic studio mints were not, so the product's
-  // most-bought thing kept the old shape. See lib/the-bill-has-somewhere-to-be-
-  // paid.test.ts for why the bill page is where a bill LIVES and /pay is where
-  // one is SETTLED.
-  redirect(payPath(referenceCode));
+  return refuseRetiredCameraSale(formData);
 }
 
-// ─────────────────────────────────────────────────────────────────────────
-// Papic · extra cameras — for shooters NOT on the guest list.
-//
-// The ONLY way to add a camera off the guest list (a videographer friend, a
-// hired second shooter). These stay anonymous paparazzi_seats with claim links
-// (the per-camera path). Each extra is a deliberate paid camera at the per-day
-// rate, so the minimum is 1 (no bulk-of-5 gate — owner UX call 2026-06-26).
-//
-// Owner 2026-07-20: extras now span the FULL three-rung ladder (Mini ₱30 · Ltd
-// ₱50 · Unli ₱100) rather than Unlimited-only. Every rung meters through the
-// same capture-points budget from papic_tier_config, so an off-list Mini camera
-// is exactly as well-defined as an on-list one.
-// ─────────────────────────────────────────────────────────────────────────
-
-/**
- * Buy extra cameras off the guest list, at any rung. Min 1 camera total.
- * Apply-then-pay. Accepts `mini` / `ltd` / `unlimited` counts (plus the legacy
- * `roll` field, folded into Mini).
- */
+/** ⛔ Retired — refuses. Anyone with the one shared code shoots from the same credits. */
 export async function purchasePapicExtras(formData: FormData) {
-  const result = await getCoupleEventId(formData.get('event_id'));
-  if (!result.ok) {
-    redirect(result.redirectTo);
-  }
-  const { eventId } = result;
-
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    redirect('/login');
-  }
-
-  const selection = {
-    mini: rungCount(formData, 'mini'),
-    ltd: rungCount(formData, 'ltd'),
-    unlimited: rungCount(formData, 'unlimited'),
-    roll: rungCount(formData, 'roll'), // legacy field name → folds into Mini
-  };
-  if (selection.mini + selection.ltd + selection.unlimited + selection.roll < 1) {
-    redirect(`/dashboard/${eventId}/studio/papic?papic_error=min_extras`);
-  }
-
-  const admin = createAdminClient();
-
-  // The celebration is over — no sale. See the note above this file's
-  // purchase actions, and lib/event-is-over.server.ts.
-  if (await eventIsOver(admin, eventId)) {
-    redirect(`/dashboard/${eventId}/studio/papic?papic_error=event_over`);
-  }
-  const { data: ev } = await admin
-    .from('events')
-    .select('papic_mini_cap_php, papic_ltd_cap_php, papic_unli_cap_php, event_date, event_type')
-    .eq('event_id', eventId)
-    .maybeSingle();
-  const caps = {
-    mini: Number(ev?.papic_mini_cap_php ?? 0) || PAPIC_MINI_CAP_FALLBACK_PHP,
-    ltd: Number(ev?.papic_ltd_cap_php ?? 0) || PAPIC_LTD_CAP_FALLBACK_PHP,
-    unli: Number(ev?.papic_unli_cap_php ?? 0) || PAPIC_UNLI_CAP_FALLBACK_PHP,
-  };
-  const uncapped = isPapicUncapped(ev?.event_type as string | null);
-
-  // Capture window → day multiplier + seat validity bounds (shared with the
-  // guest-list cameras so the whole event opens/closes together).
-  const win = await fetchEventPapicWindow(admin, eventId);
-
-  // Unlock passes: PAPIC_UNLOCK frees Unli · PAPIC_UNLOCK_LTD frees the ₱30
-  // Mini rung (the rung it was sold against — see lib/papic-cameras.ts).
-  const [ownsUnlock, ownsUnlockLtd] = await Promise.all([
-    eventSkuActive(admin, eventId, PAPIC_UNLOCK_BUNDLE_KEY),
-    eventSkuActive(admin, eventId, PAPIC_UNLOCK_LTD_BUNDLE_KEY),
-  ]);
-  const rates = await fetchCameraRates(admin);
-  const quote = computeCameraQuote(selection, win.days, rates, caps, {
-    unliFree: ownsUnlock,
-    miniFree: ownsUnlockLtd,
-    uncapped,
-  });
-
-  const isFree = quote.totalPhp === 0;
-  const referenceCode = mintPapicReferenceCode();
-  const windowLabel = formatWindowSummary(win.startDate, win.endDate);
-  const description = `Papic extra cameras — ${quote.rungSummary}${
-    windowLabel
-      ? ` · ${windowLabel}`
-      : ` · ${win.days} day${win.days === 1 ? '' : 's'}`
-  }`;
-  // ONE PRESS, ONE BILL (2026-10-13) — the same selection pressed twice lands
-  // on the first bill and provisions no second set of cameras. A ₱0 provision
-  // is not a bill and is not deduped. See lib/one-press-one-order.ts.
-  const twinKey = {
-    eventId,
-    userId: user.id,
-    serviceKey: PAPIC_CAMERAS_ORDER_KEY,
-    amountPhp: quote.totalPhp,
-    description,
-  };
-  if (!isFree) {
-    const reuse = await openTwinReference(admin, twinKey);
-    if (reuse) redirect(payPath(reuse));
-  }
-  const moneyWriter = createMoneyWriterClient();
-  const { data: order, error: orderErr } = await moneyWriter
-    .from('orders')
-    .insert({
-      event_id: eventId,
-      user_id: user.id,
-      service_key: PAPIC_CAMERAS_ORDER_KEY,
-      description,
-      requested_total_php: quote.totalPhp,
-      reference_code: referenceCode,
-      status: isFree ? 'fulfilled' : 'submitted',
-      platform: 'web',
-    })
-    .select('order_id, public_id')
-    .maybeSingle();
-  if (orderErr || !order) {
-    redirect(
-      `/dashboard/${eventId}/studio/papic?papic_error=${encodeURIComponent(
-        (orderErr?.message ?? 'order_failed').slice(0, 64),
-      )}`,
-    );
-  }
-  if (!isFree) {
-    // Before the cameras: a twin that lost the race provisions nothing.
-    const kept = await keepFirstTwin(admin, moneyWriter, twinKey, {
-      orderId: order.order_id,
-      referenceCode,
-    });
-    if (!kept.keptMine) redirect(payPath(kept.reference));
-  }
-
-  // Anonymous seats at their chosen rungs (guest_id stays NULL → claim-link model).
-  try {
-    await provisionPaidCamerasAdmin(admin, {
-      eventId,
-      orderId: order.order_id,
-      miniCount: quote.miniCount,
-      ltdCount: quote.ltdCount,
-      unlimitedCount: quote.unlimitedCount,
-      validFrom: win.startIso,
-      validUntil: win.endIso,
-    });
-  } catch {
-    // swallow — order exists; seats can be topped up on approval.
-  }
-
-  revalidatePath(`/dashboard/${eventId}/studio/papic`);
-  if (isFree) {
-    redirect(
-      `/dashboard/${eventId}/studio/papic?papic_unlock_provisioned=${quote.paidCount}`,
-    );
-  }
-  // 💳 STRAIGHT TO THE PAYMENT PAGE — not back to the studio with a banner.
-  // Every other buy button in the product ends here (lib/pay-path.ts lists a
-  // dozen), and this path used to be the exception: it returned to the studio,
-  // where a banner named the amount and the reference and then asked for ANOTHER
-  // two taps — "See how to pay" → the order page → "Pay now" — before the buyer
-  // reached the QR that already carries the figure.
-  //
-  // 🔑 SAME DEFECT THE OWNER HIT IN ONBOARDING, 2026-08-20: *"i had a price to
-  // pay. but i there was no payment. it just created."* That mint was re-pointed
-  // at /pay on 2026-08-28; the four Papic studio mints were not, so the product's
-  // most-bought thing kept the old shape. See lib/the-bill-has-somewhere-to-be-
-  // paid.test.ts for why the bill page is where a bill LIVES and /pay is where
-  // one is SETTLED.
-  redirect(payPath(referenceCode));
+  return refuseRetiredCameraSale(formData);
 }
 
 // ─────────────────────────────────────────────────────────────────────────

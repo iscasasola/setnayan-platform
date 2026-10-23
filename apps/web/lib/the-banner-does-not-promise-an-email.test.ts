@@ -82,12 +82,9 @@ test('every paid Papic studio buy ends on the payment page, by name', () => {
     return next === -1 ? src.slice(at) : src.slice(at, next);
   };
 
-  for (const fn of [
-    'purchasePapicCameras',
-    'activatePapicLimited',
-    'purchasePapicExtras',
-    'purchasePapicPoolTopUp',
-  ]) {
+  // ⛔ 2026-10-23: purchasePapicCameras · activatePapicLimited · purchasePapicExtras sell nothing — they
+  // refuse (`lib/papic-sells-only-credits.test.ts`), so the credit top-up is the one paid Papic studio buy.
+  for (const fn of ['purchasePapicPoolTopUp']) {
     const body = bodyOf(fn);
     assert.match(
       body,
@@ -103,25 +100,15 @@ test('every paid Papic studio buy ends on the payment page, by name', () => {
   }
 });
 
-test('a FREE Papic provision still returns before the payment page', () => {
+test('no FREE camera provision is left to skip the payment page — none is sold', () => {
   /**
-   * The mirror of the ₱0 rule in every-buy-button-lands-on-the-payment-page:
-   * an Unlock-all owner provisioning cameras for nothing must not be shown a
-   * bill. Both free arms redirect on `papic_unlock_provisioned`, and both must
-   * do it BEFORE the paid redirect is reached.
+   * This held the mirror of the ₱0 rule: an Unlock-all owner provisioning cameras for nothing must not be
+   * shown a bill, and both free arms redirected on `papic_unlock_provisioned`. Since 2026-10-23 no camera is
+   * provisioned from a sale at all (Papic sells credits only), so neither free arm exists — and must not
+   * come back without the paid path it mirrored.
    */
   const src = stripComments(read(STUDIO_ACTIONS));
-  const frees = [...src.matchAll(/papic_unlock_provisioned=/g)].map((m) => m.index ?? -1);
-  assert.equal(frees.length, 2, `expected both free provisions, found ${frees.length}`);
-  for (const freeAt of frees) {
-    const payAt = src.indexOf('redirect(payPath(referenceCode))', freeAt);
-    assert.ok(payAt > freeAt, 'the free arm must come before its function’s paid redirect');
-    assert.doesNotMatch(
-      src.slice(freeAt, payAt),
-      /requested_total_php/,
-      'nothing may be priced between the free arm and the paid redirect',
-    );
-  }
+  assert.equal([...src.matchAll(/papic_unlock_provisioned=/g)].length, 0, 'a free camera provision is back');
 });
 
 test('the studio banner that stood in for a payment page is GONE, not merely unreachable', () => {

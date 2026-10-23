@@ -127,10 +127,15 @@ async function eventRemaining(eventId: string): Promise<number> {
 }
 
 
-/** papic_camera_points_remaining(seat) — MAXINT means the seat has no per-seat cap. */
-async function cameraRemaining(seatId: string): Promise<number> {
+/**
+ * papic_seat_dedicated_points(seat) — 0 means the seat has no bucket of its own,
+ * so papic_reserve_capture_split books every shot from the event pool. (This used
+ * to read papic_camera_points_remaining's MAXINT "no per-seat cap"; that display
+ * probe lost its last caller and was dropped, 20271286935967.)
+ */
+async function seatDedicated(seatId: string): Promise<number> {
   const r = await db.query<{ v: number }>(
-    `SELECT public.papic_camera_points_remaining($1) AS v`,
+    `SELECT public.papic_seat_dedicated_points($1) AS v`,
     [seatId],
   );
   return Number(r.rows[0]!.v);
@@ -360,7 +365,7 @@ test('free event: seats + guest phones share ONE 50-pt pool with no per-seat res
   // path books through papic_reserve_capture_split — so what is left to pin is
   // that nothing per-seat bounds a free camera and no per-seat ledger exists.
   assert.equal(await seatDayUsageRows(seatId), 0, 'no per-seat ledger row → no per-seat reserve');
-  assert.equal(await cameraRemaining(seatId), 2147483647, 'free seat is per-seat-uncapped (pool is the only gate)');
+  assert.equal(await seatDedicated(seatId), 0, 'free seat has no bucket of its own (pool is the only gate)');
 
   // (2) A free seat and a guest phone draw the SAME 50-pt event pool. Nothing
   // above spent from the event pool, so it still reads a full 50. A seat capture then books 1 EVENT point (its sole gate),

@@ -125,7 +125,7 @@ export function EventMemoriesGallery({
 
       {/* TOP ROW — the count, centred; − / + on a desktop. */}
       <div className="flex min-h-[48px] items-center gap-2 pb-2.5" data-memories-top="">
-        <p className="min-w-0 flex-1 truncate text-center text-[13px] text-ink/60" data-memories-count="">
+        <p className="min-w-0 flex-1 truncate text-center text-[13px] text-ink/60" data-memories-count="" data-tour="memories-count">
           {unreadable ? (
             'couldn’t load'
           ) : countLine ? (
@@ -167,6 +167,7 @@ export function EventMemoriesGallery({
         <div
           ref={gridRef}
           data-memories-grid=""
+          data-tour="memories-grid"
           className="-mx-4 grid touch-pan-y gap-[1.5px] bg-ink/[0.08] sm:-mx-6 lg:-mx-8"
           style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
         >
@@ -268,6 +269,7 @@ function MemoriesThumbRow({ q, onSearch }: { q: string; onSearch: (v: string) =>
         field={{
           placeholder: 'Search memories',
           label: 'Search memories — by who took them',
+          tour: 'memories-search',
           input: { value: q, onChange: (e) => onSearch(e.target.value), 'data-memories-search': '' },
         }}
       />

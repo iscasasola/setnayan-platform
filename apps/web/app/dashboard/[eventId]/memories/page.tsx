@@ -9,6 +9,8 @@ import { resolveStoredWindow } from '@/lib/papic-window';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
 import { formatCount } from '@/lib/format-number';
 import { EventMemoriesGallery } from '@/app/_components/memories/event-memories-gallery';
+import { Spotlight } from '@/app/_components/spotlight';
+import { HOST_PAGE_TOURS, HOST_PAGE_TOURS_AFTER } from '@/lib/host-page-tours';
 import { memoriesCameraWords, memoriesCountWords, memoriesUnreadable } from '@/lib/event-memories-words';
 
 export const metadata = { title: 'Memories' };
@@ -70,6 +72,7 @@ export default async function EventMemoriesPage({ params }: Props) {
     : null;
 
   return (
+    <>
     <EventMemoriesGallery
       photos={photos}
       countLine={total === null ? null : memoriesCountWords(total)}
@@ -87,5 +90,8 @@ export default async function EventMemoriesPage({ params }: Props) {
       unreadable={unreadable}
       timeZone={ev ? eventTimezoneFromCoords(ev.venue_latitude, ev.venue_longitude) : null}
     />
+    {/* 🔦 First visit only — a new feature gets its spotlight (house rule), after the host journey. */}
+    <Spotlight tourKey={HOST_PAGE_TOURS.memories} after={HOST_PAGE_TOURS_AFTER} replay="page" />
+    </>
   );
 }

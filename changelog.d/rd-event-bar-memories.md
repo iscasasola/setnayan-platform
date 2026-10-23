@@ -18,6 +18,7 @@ button (the Event Details door); Memories is this event's gallery.
 - **Compressed only** (owner: *"on the memories, always use the compressed version"*): `fetchPapicGallery(…,
   { compressedOnly })` → `memoriesRefs` — grid = the 320 thumb (640 tile one-across), viewer = the 1280 display copy,
   a clip plays its web copy; the original is only an explicit Download.
+- **First-visit spotlight** (`customer_memories_v1`, a new feature's tour): the grid · the count · the search.
 - **Home**: the cover's one button is ⚙ Settings → `/details` (#6838's one door); Papic's "See N photos" opens Memories.
 - Guards: `memories/the-memories-tab-is-this-events-memories.test.ts` (5) · `lib/gallery-zoom.test.ts` ·
   `lib/event-memories-words.test.ts` · `lib/memories-never-shows-an-original.test.ts`; the four-tab guards now say five.

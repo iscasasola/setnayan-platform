@@ -197,7 +197,8 @@ export type TourKey =
   | 'customer_budget_v2'
   | 'customer_papic_v2'
   | 'customer_seat_plan_v2'
-  | 'customer_mood_board_v1';
+  | 'customer_mood_board_v1'
+  | 'customer_memories_v1';
 
 export const TOUR_KEYS: ReadonlyArray<TourKey> = [
   'couple_welcome_v1',
@@ -249,6 +250,7 @@ export const TOUR_KEYS: ReadonlyArray<TourKey> = [
   'customer_papic_v2',
   'customer_seat_plan_v2',
   'customer_mood_board_v1',
+  'customer_memories_v1',
 ];
 
 export type TourDefinition = {
@@ -1779,6 +1781,38 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       finale: {
         title: 'You’re set 🎉',
         body: 'Your first event’s free credits are already on. When they run out, Buy more is the one button.',
+        button: 'Done',
+      },
+    },
+  },
+  /* 🖼 AN EVENT'S MEMORIES — the event bar's fifth tab (owner 2026-10-23). A new feature gets its first-visit tour. */
+  customer_memories_v1: {
+    key: 'customer_memories_v1',
+    label: 'Memories — first visit',
+    blurb: 'This event’s photos edge to edge, the pinch that changes the columns, and the search.',
+    slides: [],
+    spotlight: {
+      steps: [
+        {
+          anchor: 'memories-grid',
+          hint: 'Press Next',
+          title: 'This event’s Memories',
+          body: 'Every photo and clip your guests, your cameras and your suppliers take. Pinch to see more at once — or one large.',
+        },
+        {
+          anchor: 'memories-count',
+          title: 'Everything, counted',
+          body: 'Every photo kept so far — and, under the photos, when the cameras open or close.',
+        },
+        {
+          anchor: 'memories-search',
+          title: 'Find a photo',
+          body: 'Type who took it, and only their photos stay.',
+        },
+      ],
+      finale: {
+        title: 'You’re set 🎉',
+        body: 'Tap any photo to see it full screen.',
         button: 'Done',
       },
     },

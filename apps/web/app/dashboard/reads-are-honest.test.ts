@@ -769,12 +769,12 @@ test('a refused read never renders as a count of zero or an emptied money docume
   // THE MISSED HALF. `vendorRows` above it was already handled, and the comment
   // there refuses to claim "no supplier has taken photos" — the claim arrived
   // one read later anyway, through `captureRows`.
-  const media = stripComments(
-    readFileSync(join(HERE, '[eventId]/studio/papic/_components/vendor-media-controls.tsx'), 'utf8'),
-  );
+  // (2026-10-23: the switch moved onto each supplier's row in Settings › Event access and the photo sheet — their
+  //  one read is `readSupplierShots`; the old `VendorMediaControls` is gone.)
+  const media = stripComments(readFileSync(join(HERE, '..', '..', 'lib', 'event-memories.server.ts'), 'utf8'));
   assert.match(
     media,
-    /if \(capturesError\) \{[\s\S]*?return null;/,
+    /if \(vendors\.error \|\| shots\.error\) \{[\s\S]*?return null;/,
     'A refused captures read must not be filtered down into "no supplier has ' +
       'taken photos" — the read above it already refuses to make that claim.',
   );

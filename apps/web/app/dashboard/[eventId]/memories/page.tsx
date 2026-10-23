@@ -101,7 +101,9 @@ export default async function EventMemoriesPage({ params }: Props) {
   // row). "Adding photos by hand" folds into it: when it is off, the sheet offers the same switch to turn it on.
   let addPhotos: React.ReactNode = null;
   if (host) {
-    const uploadsOpen = ev?.papic_uploads_open ?? true;
+    // ⚠ ABSENT MEANS OPEN — the switch's own rule (`the-uploads-switch-is-real.test.ts`), read off the one event select.
+    const uploadsRow = ev;
+    const uploadsOpen = uploadsRow?.papic_uploads_open ?? true;
     const { data: seat, error: seatErr } = await createAdminClient()
       .from('paparazzi_seats')
       .select('claim_qr_token, claimer_user_id')

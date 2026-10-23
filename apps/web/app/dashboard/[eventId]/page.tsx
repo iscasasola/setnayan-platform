@@ -830,7 +830,7 @@ export default async function EventHomePage({
   */
   const papicCardPhaseNow = papicCardPhase(papicWin.startIso, papicWin.endIso, Date.now());
   const papicCard: PapicCardInput | null =
-    canViewPapicCounts && viewerMemberType === 'couple' && !appleFacts
+    canViewPapicCounts && viewerMemberType === 'couple' && !appleFacts && !storeShell
       ? {
           coverage: papicCoverageWords({
             startIso: papicWin.startIso,

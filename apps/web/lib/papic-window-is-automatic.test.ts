@@ -19,6 +19,9 @@ const PAPIC = join(dirname(fileURLToPath(import.meta.url)), '..', 'app', 'dashbo
 const read = (...p: string[]) => stripComments(readFileSync(join(PAPIC, ...p), 'utf8'));
 const SURFACES = {
   page: read('page.tsx'),
+  // 📷 The dates live in the camera settings since 2026-10-23 — the one component the Papic page and Home's Papic
+  // card both draw (`PapicCameraSettings`).
+  settings: read('_components', 'papic-camera-settings.tsx'),
   stage: read('_components', 'papic-stage.tsx'),
   picker: read('papic-window-picker.tsx'),
 };
@@ -38,9 +41,9 @@ for (const [name, src] of Object.entries(SURFACES)) {
 }
 
 test('the window is said in words, from the saved window or the automatic one', () => {
-  assert.match(SURFACES.page, /formatPapicDayInWords\(papicWindow\.startDate\)/);
-  assert.match(SURFACES.page, /'Papic turns on' : 'On from'/);
-  assert.match(SURFACES.page, /label="Change dates"/, 'the dates are a quiet "Change dates", last');
+  assert.match(SURFACES.settings, /formatPapicDayInWords\(win\.startDate\)/);
+  assert.match(SURFACES.settings, /'Papic turns on' : 'On from'/);
+  assert.match(SURFACES.settings, /sheetTitle="Change dates"/, 'the dates open the shipped picker behind a quiet "Change dates"');
 });
 
 test('the picker opens on the automatic window — never on "1 day of capture"', () => {

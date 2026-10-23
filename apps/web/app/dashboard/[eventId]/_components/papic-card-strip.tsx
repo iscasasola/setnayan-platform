@@ -92,7 +92,7 @@ export function PapicCardStripView({
     <div className="mt-2" data-papic-strip="">
       <div className="grid grid-cols-5 gap-1.5">
         {drawn.map((f) => (
-          <Link key={f.id} href={memories} aria-label="Open your Memories" className="block aspect-square overflow-hidden rounded-[7px] bg-ink/[0.06]">
+          <Link key={f.id} href={memories} aria-label="Open your Memories" className="block aspect-square overflow-hidden rounded-lg bg-ink/[0.06]">
             {f.url ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={f.url} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
@@ -103,7 +103,7 @@ export function PapicCardStripView({
           <Link
             href={memories}
             aria-label={`${formatCount(more)} more in your Memories`}
-            className="grid aspect-square place-items-center rounded-[7px] bg-ink/[0.06] text-[12px] font-semibold text-terracotta"
+            className="grid aspect-square place-items-center rounded-lg bg-ink/[0.06] text-[12px] font-semibold text-terracotta"
           >
             +{formatCount(more)}
           </Link>

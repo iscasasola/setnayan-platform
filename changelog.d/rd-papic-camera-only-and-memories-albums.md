@@ -32,5 +32,16 @@ the Home tabs superseded by `event_bar_memories_tab_2026-10-23.html`).
 - **Guests**: the third segment "Setup" → **"Settings"**.
 - Server actions stay at 1,225: `dismissVendorRecommendation` (no caller) deleted for `setGuestFaceblock`.
 - Guards: `studio/papic/papic-is-the-camera.test.ts`, `lib/event-memories.test.ts` (sabotaged red → green).
+- **Home's three pills come off** (owner: *"remove Home's three pills (Guests · Suppliers · Event Hub)"*) — the bar
+  carries all three. The Home tour's Event Hub step now lights the bar's Event Hub tab (`tab-launch`).
+- **"Later" folds the Next card to "Back tomorrow · Undo"** (owner) — one line in the card's place for today; Undo
+  brings it back. The buy door is never taken away with it.
+- **The app's Add credits sheet asks "How many do I need?"** too (`iap-papic-sheet.tsx`, the same `CreditNeed` and
+  Apple's own price on the one Buy button).
+- Saves made inside Home's Papic card (dates, filter, face tagging) land back on Home (`return_to=home`).
+- The Papic first-visit tour ends on the camera's own settings (the one code moved to Settings, the library to
+  Memories). The Home Papic card is never drawn in the store shell (the app keeps its own Papic row).
+- Guards pinned to the old Papic page were repointed to where each control now lives (none weakened); the
+  Home-doors guards went with the doors.
 
 SPEC IMPACT: DECISION_LOG row 2026-10-23 "PAPIC IS THE CAMERA; MEMORIES HOLDS THE FILES — ALBUMS WITH CHALLENGES".

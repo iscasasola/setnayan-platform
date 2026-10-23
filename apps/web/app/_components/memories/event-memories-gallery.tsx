@@ -588,7 +588,7 @@ function PhotoSheet({
       {/* Clear of the dock (the bar stays drawn over the page while a sheet is up). */}
       <div data-memories-photo-sheet={item.memSource} className="px-4 pt-3 pb-[calc(var(--sn-bottomdock-h,64px)+12px)] lg:pb-4">
         <div className="flex items-center gap-3 pb-3">
-          <button type="button" onClick={onView} aria-label="View full screen" className="relative h-16 w-16 shrink-0 overflow-hidden rounded-[10px] bg-ink/[0.06]">
+          <button type="button" onClick={onView} aria-label="View full screen" className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-ink/[0.06]">
             {item.url ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={item.url} alt="" className={`h-full w-full object-cover ${screened ? 'blur-[8px]' : ''}`} />

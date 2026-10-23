@@ -109,9 +109,11 @@ test('at zero the row also keeps its "stopped" words, marked the same way', () =
 
 test('…and the ONE rule that hides them reads whether the card is actually on screen', () => {
   assert.match(CSS, /\[data-home-first-screen\]:has\(\[data-home-next="papic"\]:not\(\[hidden\]\)\) \[data-while-next\] \{ display: none; \}/);
-  // "Later" is what sets `hidden` on that card.
+  // "Later" takes the card OFF the screen (owner 2026-10-23: it folds to "Back tomorrow · Undo") — the folded line
+  // replaces the card, so `[data-home-next]` is no longer drawn and the rule above lets Buy more back.
   const parts = readFileSync(join(HERE, '_components', 'home-parts.tsx'), 'utf8');
-  assert.match(parts, /closest<HTMLElement>\('\[data-home-next\]'\)[\s\S]{0,40}card\.hidden = true/);
+  assert.match(parts, /if \(folded\) \{\s*return \(\s*<p[^>]*data-home-next-later=""/, 'Later no longer replaces the card with its folded line');
+  assert.doesNotMatch(parts.slice(parts.indexOf('if (folded)'), parts.indexOf('</LaterFold.Provider>')), /data-home-next=/, 'the folded line still carries the card marker');
 });
 
 test('when Papic does NOT hold the card, nothing in the row is marked', () => {

@@ -186,7 +186,7 @@ async function DriveConnectedPanel({
       ) : null}
 
       {strandedFull > 0 ? (
-        <div className="rounded-xl border border-amber-300/80 bg-amber-50/70 p-3 text-[12px] text-amber-900">
+        <div className="rounded-xl bg-amber-50/70 p-3 text-[12px] text-amber-900">
           <p className="font-medium">Your Drive is full.</p>
           <p className="mt-0.5 text-amber-800">
             Some full-resolution originals couldn&rsquo;t be saved to Drive — your
@@ -203,7 +203,7 @@ async function DriveConnectedPanel({
         </div>
       ) : null}
 
-      <div className="space-y-3 rounded-xl border border-success-200/80 bg-success-50/60 p-4">
+      <div className="space-y-3 rounded-xl bg-success-50/60 p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0 flex-1 space-y-0.5">
             <p className="text-sm font-semibold text-ink">
@@ -280,7 +280,7 @@ async function DriveConnectedPanel({
           </form>
         </div>
 
-        <div className="rounded-lg border border-ink/10 bg-cream/80 p-3">
+        <div className="rounded-lg bg-cream/80 p-3">
           <div className="flex items-center gap-1.5 text-ink/65">
             <FolderTree aria-hidden className="h-4 w-4" strokeWidth={1.75} />
             <span className="font-mono text-[10px] uppercase tracking-[0.18em]">

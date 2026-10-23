@@ -537,7 +537,7 @@ function SupplierPhotosSwitch({ eventId, vendorRowId, hidden }: { eventId: strin
       <button type="submit" role="switch" aria-checked={!hidden} className="flex min-h-11 w-full items-center justify-between gap-3 text-left">
         <span className="min-w-0">
           <span className="block text-[13.5px] text-ink">Their photos in your Memories</span>
-          <span className="block text-[12px] text-ink/55">{hidden ? 'Hidden · kept, not deleted' : 'Shown'}</span>
+          <span className="block text-[12px] text-ink/55">{hidden ? 'Hidden · kept, not deleted' : 'Shown · hide them and nothing is deleted'}</span>
         </span>
         <SwitchTrack on={!hidden} />
       </button>

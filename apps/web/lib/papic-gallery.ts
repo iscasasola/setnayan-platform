@@ -312,7 +312,7 @@ export async function fetchPapicGallery(
   const { data: seatRowsForCredit } = seatIds.length
     ? await supabase
         .from('paparazzi_seats')
-        .select('seat_id, claimer_user_id, guest_id, seat_index')
+        .select('seat_id, claimer_user_id, seat_index, guest_id')
         .eq('event_id', eventId)
         .in('seat_id', seatIds)
     : { data: [] as { seat_id: string; claimer_user_id: string | null; guest_id: string | null; seat_index: number | null }[] };

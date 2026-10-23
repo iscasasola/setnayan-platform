@@ -15,7 +15,7 @@ export async function FaceBlockingList({ eventId }: { eventId: string }) {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('guests')
-    .select('guest_id, first_name, last_name, display_name, role, faceblock_enabled')
+    .select('guest_id, display_name, name_prefix, first_name, middle_name, last_name, name_suffix, role, extra_roles, faceblock_enabled')
     .eq('event_id', eventId)
     .is('deleted_at', null)
     .order('faceblock_enabled', { ascending: false })

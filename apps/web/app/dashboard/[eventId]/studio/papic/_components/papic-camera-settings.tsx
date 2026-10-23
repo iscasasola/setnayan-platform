@@ -137,7 +137,7 @@ export async function PapicCameraSettings({
       ) : null}
 
       {/* (3) SETTINGS — his five, flat: every control on its line, every explanation in its ⓘ. */}
-      <section className="flex flex-col gap-3" data-papic-settings="">
+      <section className="flex flex-col gap-3" data-papic-settings="" data-tour="papic-settings">
         <h2 className="text-lg font-semibold tracking-tight text-ink">Settings</h2>
         <div className="flex flex-col gap-2" data-papic-setting="filter">
           <InfoTip label="Filter" labelClassName="text-[15px] font-semibold text-ink" align="start">

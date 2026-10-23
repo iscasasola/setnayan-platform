@@ -1545,7 +1545,8 @@ export const TOURS: Record<TourKey, TourDefinition> = {
           body: 'The Next card always shows the one thing to do next.',
         },
         {
-          anchor: 'home-launch',
+          // The Event Hub door left Home with the three pills (owner 2026-10-23); the bar's Event Hub tab is the way in.
+          anchor: 'tab-launch',
           title: 'Your Event Hub',
           body: 'Tap words on the page to type over them. Your guests see nothing until you press Apply.',
         },
@@ -1752,7 +1753,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
   customer_papic_v2: {
     key: 'customer_papic_v2',
     label: 'Papic — first visit',
-    blurb: 'The band, the days, the one shared code and the library — no price in any step.',
+    blurb: 'The band, the days and the camera’s settings — no price in any step.',
     slides: [],
     spotlight: {
       steps: [
@@ -1768,14 +1769,11 @@ export const TOURS: Record<TourKey, TourDefinition> = {
           body: 'Choose when the cameras can shoot. They can start before the day itself, so they catch the preparations too.',
         },
         {
-          anchor: 'papic-qrs',
-          title: 'One code for everyone',
-          body: 'Print it or show it at the door — each scan turns a phone into a camera. Every guest’s invite QR is a camera too, and every shot comes out of one shared pot of credits.',
-        },
-        {
-          anchor: 'papic-library',
-          title: 'Everything lands in your library',
-          body: 'Filter by “Photos of us”, save any shot to your phone, or download everything at once. Guests find the photos they are in, too.',
+          // (The one shared code moved to Home › Settings › How guests get in, and the library to Memories —
+          //  owner 2026-10-23, Papic is the camera. This page's last stop is the camera's own settings.)
+          anchor: 'papic-settings',
+          title: 'Your camera, your rules',
+          body: 'Pick the filter, set challenges and choose face tagging. The photos land in Memories, and each guest’s camera is on their guest card.',
         },
       ],
       finale: {

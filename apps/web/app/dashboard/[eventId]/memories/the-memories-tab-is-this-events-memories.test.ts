@@ -137,7 +137,10 @@ test('6 · the count matches the grid, a refused read is said, and a missing cop
   const page = code(PAGE);
   assert.match(page, /countGalleryFrames\(supabase,\s*eventId\)/, 'the count is not the grid-filtered count');
   assert.doesNotMatch(page, /countPapicCaptures/, 'the count counts hidden or blocked frames the grid never draws');
-  assert.match(page, /status\.refused\.length\s*>\s*0\s*\|\|/, 'a refused read can render as a smaller gallery');
+  // The photo read lives in `readEventMemories` (one read for every album); any refused capture read sets
+  // `refused.photos`, and the page says "couldn't load" on it.
+  assert.match(page, /const unreadable = read\.refused\.photos \|\|/, 'a refused read can render as a smaller gallery');
+  assert.match(code('lib/event-memories.server.ts'), /photos: status\.refused\.length > 0/, 'a refused capture read is not reported');
   assert.match(page, /viewerIsCouple:\s*isCouple/, 'a non-couple viewer does not fail closed on the hidden-suppliers read');
   const lib = code('lib/papic-gallery.ts');
   assert.match(lib, /hiddenSuppliersFailClosed\s*\?\s*\[\]|hiddenSuppliersFailClosed \? \[\]/, 'a failed hidden-suppliers read still shows supplier shots');

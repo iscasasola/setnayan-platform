@@ -73,7 +73,7 @@ export async function OneCodeUnderGetIn({ eventId }: { eventId: string }) {
         <div className="flex items-start gap-3">
           <div
             aria-hidden
-            className="shrink-0 rounded-lg bg-white p-1 [&>svg]:h-16 [&>svg]:w-16"
+            className="qr-slot shrink-0 rounded-lg bg-white p-1 [&>svg]:h-16 [&>svg]:w-16"
             dangerouslySetInnerHTML={{ __html: code.qrSvg }}
           />
           <div className="min-w-0">

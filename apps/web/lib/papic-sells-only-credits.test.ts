@@ -152,12 +152,15 @@ test('🚨 the library strip says WHO shoots — never a count of seats (render)
   assert.match(html, /Add photos/);
 });
 
-test('one door to the uploader — on the library, both states, never a second sheet entry', () => {
-  const page = stripComments(read(join(PAPIC, 'page.tsx')));
-  const doors = page.match(/<AddPhotosDoor\b/g) ?? [];
-  assert.equal(doors.length, 2, 'the library carries exactly two door mounts: the empty roll and the top bar');
-  assert.equal((page.match(/<AddToLibrary\b/g) ?? []).length, 1, 'the uploader is built once, not per door');
-  assert.doesNotMatch(page, /href="#ways-into-your-library"[\s\S]{0,200}Add the first memory/, 'the first-memory button scrolls away again');
+test('one door to the uploader — Memories’ + Add photos, never a second entry', () => {
+  // 🗂 2026-10-23 (owner, PR-B): the library is the event's Memories tab — "+ Add photos" in its thumb row is the one
+  // upload door; the Papic page (the camera only) carries none.
+  const papic = stripComments(read(join(PAPIC, 'page.tsx')));
+  assert.doesNotMatch(papic, /<AddToLibrary\b|<AddPhotosDoor\b/, 'the Papic page opens an uploader again');
+  const memories = stripComments(read(join(PAPIC, '..', '..', 'memories', 'page.tsx')));
+  assert.equal((memories.match(/<AddToLibrary\b/g) ?? []).length, 1, 'the uploader is built once, not per door');
+  const grid = stripComments(read(join(PAPIC, '..', '..', '..', '..', '_components', 'memories', 'event-memories-gallery.tsx')));
+  assert.equal((grid.match(/label: 'Add photos'/g) ?? []).length, 1, 'Memories carries exactly one Add photos door');
 });
 
 test('the Suppliers row says the reason it READ, and a failed read is never "not open"', () => {

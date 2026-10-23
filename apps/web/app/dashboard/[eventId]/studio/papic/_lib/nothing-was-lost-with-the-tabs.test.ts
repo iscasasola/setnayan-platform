@@ -47,11 +47,31 @@ import { stripComments } from '@/lib/strip-comments';
 const PAPIC = dirname(dirname(fileURLToPath(import.meta.url)));
 const PAGE = readFileSync(join(PAPIC, 'page.tsx'), 'utf8');
 
+/*
+  🗂 THE PAGE SPLIT IN TWO (owner 2026-10-23, PR-B): *"Papic is the camera service. Gallery is the collection of the
+  files for that event."* The Papic page is the camera (`PapicCameraSettings` — the same component Home's Papic card
+  opens under itself); every FILE control moved to the event's Memories tab (its page, its grid and its ⚙ sheet), and a
+  supplier's whole delivery is hidden from that supplier's row in Settings › Event access. So "still mounted" now means
+  mounted on ONE OF THESE — the bill follows each control to where it is.
+*/
+const MEMORIES = join(PAPIC, '..', '..', 'memories');
+const DETAILS = join(PAPIC, '..', '..', 'details');
+const read = (...p: string[]) => readFileSync(join(...p), 'utf8');
+const SURFACES = {
+  'the Papic page': PAGE,
+  'the camera settings': read(PAPIC, '_components', 'papic-camera-settings.tsx'),
+  'the Memories page': read(MEMORIES, 'page.tsx'),
+  'the Memories ⚙ sheet': read(MEMORIES, '_components', 'memories-settings.tsx'),
+  'the Memories grid': read(PAPIC, '..', '..', '..', '..', '_components', 'memories', 'event-memories-gallery.tsx'),
+  'the Drive card': read(PAPIC, '_components', 'drive-copy-card.tsx'),
+  'Settings › Event access': read(DETAILS, '_components', 'people-with-access.tsx'),
+} as const;
+const EVERYWHERE = Object.values(SURFACES).join('\n');
+
 /**
- * Every control the THREE-ROOM page mounted, generated from it — see the
- * docblock. Two of the owner's 2026-08-26 deletions (photo quality, "where your
- * photos go") are already absent from this list because they were removed
- * before it was taken; `two-questions-stay-deleted.test.ts` keeps them gone.
+ * Every control the THREE-ROOM page mounted, generated from it (see the docblock), less the ones itemised below as
+ * replaced or removed — each with its reason, because deleting a line from this bill is deciding a couple can no
+ * longer reach it.
  */
 const CONTROLS_BEFORE_THE_REDESIGN = [
   'AddToLibrary',
@@ -63,47 +83,17 @@ const CONTROLS_BEFORE_THE_REDESIGN = [
   'DriveReconnectBanner',
   'DriveSafetyPanel',
   'DslrBridgeSection',
-  // ⛔ REMOVED DELIBERATELY, 2026-10-23 — `ExtraCamerasPicker`, `GuestCameraTierPicker` and `LimitedCard`.
-  // ⚖ Owner, over his own page: "why do i have these?" — the crew-camera tier ladder and the guest-camera
-  // Limited / Unlimited sheet ("activate 264 guest cameras · ₱6,000"). Both sold a camera of its own; the
-  // 2026-09-16 ruling — "we do not have papic seat. we only have papic with credits and shared amongst
-  // everybody" — retired that model. Their buy actions now REFUSE (`lib/papic-sells-only-credits.ts`), and
-  // `lib/papic-sells-only-credits.test.ts` keeps all three unmounted. Historical orders are untouched.
   'FaceTaggingChoice',
-  'GalleryPreviewCard',
   'GuestCamerasChoice',
   'GuestContributionsCard',
   'InlineCheckoutDrawer',
-  'LegendDot',
   'LifeFlashCard',
   'Link',
   'LiveWallCard',
   'MagazineCard',
-  // The first-visit tour: the switched-off MiniTour carousel became the SPOTLIGHT on 2026-10-22 (owner "yes to all",
-  // journey_fixes_later Host 4 — `customer_papic_v2`, held by `lib/the-host-page-tours-land.test.ts`). Replaced, not lost.
+  // The first-visit tour: the MiniTour carousel became the SPOTLIGHT on 2026-10-22. Replaced, not lost.
   'Spotlight',
-  // ⛔ REMOVED DELIBERATELY, 2026-09-23 — and this is what "deleting a line here
-  // is a decision" looks like when the decision is the owner's, twice.
-  //
-  // ⚖ 2026-09-16: *"no dedicated shots individually"*, over his own 2026-08-11
-  // ruling that created this card. Re-confirmed 2026-09-22 against a question
-  // naming THIS control rather than the category — an earlier asking said
-  // "dedicated camera credits", which names two mechanisms at once, and its
-  // answer ("should stay") was about the FREE camera grant.
-  //
-  // 🔑 It was the page's own contradiction: the Crew-cameras sheet says every
-  // shot draws from the shared pot while this card handed credits to one QR.
-  //
-  // The control is gone AND so is its machinery — `papic_dedicate_shots` and
-  // `papic_seat_allocations` are dropped (migration 20271243295861), so it
-  // cannot be re-added by restoring a file. `no-camera-holds-its-own-credits.test.ts`
-  // holds both halves, including that the FREE camera grant survived.
-  'PapicGalleryGrid',
-  // 🎨 MOVED, NOT REMOVED (owner "approve all", 2026-10-14). `HostPoolMeterCard`
-  // (the balance + meter) and `PapicPoolCard` (the − / + stepper and "Continue to
-  // payment") are now ONE band first on the page — the same balance, the same
-  // meter, the same stepper in the Buy more sheet (`papic-buy-sheet.tsx` →
-  // `papic-buy-form.tsx`). This line follows them.
+  // 🎨 MOVED, NOT REMOVED (2026-10-14): the balance, the meter and Buy more are ONE band first on the page.
   'PapicTopBand',
   'PapicWindowPicker',
   'PoolGalleryCard',
@@ -116,73 +106,55 @@ const CONTROLS_BEFORE_THE_REDESIGN = [
   'SubmitButton',
   'UploadsOpenChoice',
   'VendorChallengesApproval',
-  'VendorMediaControls',
-  // ⚠ RENAMED, NOT REMOVED (2026-08-28). `WhereYouStand` rendered the four facts
-  // on white above the page; `PapicStage` renders the SAME four facts fused onto
-  // the dark library panel that now opens the page, and the counts behind them
-  // moved into one shared reader. The control a person uses is unchanged — this
-  // line follows it rather than being deleted, because deleting a line from this
-  // bill is how a control goes missing quietly.
-  'PapicStage',
 ] as const;
 
-test('🚨 every control the three rooms held is still mounted on the one page', () => {
-  const missing = CONTROLS_BEFORE_THE_REDESIGN.filter(
-    (name) => !new RegExp(`<${name}\\b`).test(PAGE),
-  );
+/** ⛔ REPLACED OR REMOVED DELIBERATELY — each with its reason. */
+const REPLACED_OR_REMOVED: Record<string, string> = {
+  // 🗂 THE LIBRARY IS MEMORIES NOW (owner 2026-10-23): the edge-to-edge grid with Albums ▾ replaces the stage, the
+  // preview card, its grid and its legend.
+  PapicGalleryGrid: 'replaced by the Memories grid (EventMemoriesGallery) — its PapicLightbox is still the viewer',
+  GalleryPreviewCard: 'replaced by the Memories page',
+  LegendDot: 'went with the preview card',
+  PapicStage: 'replaced by the Memories grid; the four facts are the credits band and the album counts',
+  // A supplier's whole delivery: the switch is on that supplier's row in Settings › Event access and on a supplier
+  // photo's sheet in Memories (`vendor-media-switch.test.ts` holds both mounts).
+  VendorMediaControls: 'replaced by the per-supplier switch on Settings › Event access and the photo sheet',
+};
+
+test('🚨 every control the three rooms held is still mounted — on the Papic page or where it moved', () => {
+  const missing = CONTROLS_BEFORE_THE_REDESIGN.filter((name) => !new RegExp(`<${name}\\b`).test(EVERYWHERE));
   assert.deepEqual(
     missing,
     [],
-    'these controls existed on the Papic page before the tabs were replaced and are gone now. ' +
+    'these controls existed on the Papic page before the tabs were replaced and are mounted nowhere now. ' +
       'Losing a control in a redesign is the failure this project pays for most:\n  ' +
       missing.join('\n  '),
   );
 });
 
+test('a control listed as replaced is really gone from the Papic page — the bill hides no second copy', () => {
+  for (const name of Object.keys(REPLACED_OR_REMOVED)) {
+    assert.ok(!new RegExp(`<${name}\\b`).test(PAGE), `${name} is back on the Papic page — take it off the removed list`);
+  }
+});
+
 test('🚨 the tab strip cannot come back', () => {
   assert.ok(!/PAPIC_ROOM_TABS/.test(PAGE), 'the room tab strip is back');
   assert.ok(!/room === '/.test(PAGE), 'a room branch is back');
-  assert.ok(
-    !/aria-label="Papic sections"/.test(PAGE),
-    'the sections switcher is back — this page has one section',
-  );
+  assert.ok(!/aria-label="Papic sections"/.test(PAGE), 'the sections switcher is back — this page has one section');
 });
 
-test('the ways in are named for the shared-credit model, and none of them sells a camera', () => {
-  // 2026-10-23: four ways became three. "Crew cameras" (a QR per seat + a tier ladder) became the ONE
-  // shared code; "Your uploads" moved INTO the library (one door — `AddPhotosDoor` on the stage); "Guest
-  // cameras" stays as a line saying the guest's invite QR is the camera; "Suppliers" says its true reason.
-  const waysIn = PAGE.slice(PAGE.indexOf('label="Ways into your library"'));
-  assert.ok(PAGE.includes('label="Ways into your library"'), 'the ways-in section is gone');
-  for (const label of ['One code for everyone', 'Guest cameras']) {
-    assert.ok(new RegExp(`label="${label}"`).test(waysIn), `the "${label}" way in is missing`);
-  }
-  assert.ok(/<SupplierWayInRow\b/.test(waysIn), 'the Suppliers way in is missing');
-  for (const gone of ['Crew cameras', 'Your uploads']) {
-    assert.ok(!new RegExp(`label="${gone}"`).test(PAGE), `the retired "${gone}" row is back`);
+test('🚨 the camera page sells no camera — credits only (owner 2026-09-16 / 2026-10-23)', () => {
+  for (const gone of ['ExtraCamerasPicker', 'GuestCameraTierPicker', 'LimitedCard', 'PAPIC_UNLOCK']) {
+    assert.ok(!new RegExp(`<${gone}\\b|serviceKey="${gone}"`).test(EVERYWHERE), `${gone} is back`);
   }
 });
 
-test('🚨 the supplier row offers no door, and says a reason it READ', () => {
-  // Nothing on that row is the couple's to set — hiding a supplier's photos is `VendorMediaControls`. And
-  // "Not open yet" was a hard-coded claim, false wherever a supplier is booked (the lane is LIVE behind the
-  // `vendor_papic_capture` control): the reason is now read (`lib/papic-supplier-way-in.ts`).
-  const row = readFileSync(join(PAPIC, '_components', 'supplier-way-in-row.tsx'), 'utf8');
-  const mount = row.slice(row.indexOf('<SourceRow'));
-  assert.ok(mount.length > 0, 'the Suppliers row is gone — the gap it names is still real');
-  assert.ok(!/href=/.test(mount) && !/sheetTitle=/.test(mount), 'the Suppliers row grew a door');
-  assert.ok(/state=\{supplierWayInLabel\(state\)\}/.test(mount), 'the Suppliers row no longer says the reason it read');
-  assert.ok(!/Not open yet/i.test(stripComments(PAGE + '\n' + row)), 'the hard-coded "Not open yet" is back');
-});
-
-test('an offer never outranks the day — the buy tiles come last', () => {
-  // (The "Everything Papic, one price" unlock tile is gone — it sold "Unlimited cameras", 2026-10-23.)
-  const waysIn = PAGE.indexOf('label="Ways into your library"');
-  const keep = PAGE.indexOf('Keep your full-res originals');
-  assert.ok(waysIn > 0 && keep > 0, 'an anchor is missing');
-  assert.ok(
-    keep > waysIn,
-    'a buy tile is back above the library. The unlock bundle used to be the first thing in ' +
-      'Cameras & shots; an offer is not what a person came to this page to do.',
-  );
+test('an offer never outranks the files — Keep full-res comes after the wall and the Drive copy', () => {
+  const sheet = SURFACES['the Memories ⚙ sheet'];
+  const wall = sheet.indexOf('<LiveWallCard');
+  const drive = sheet.indexOf('<DriveCopyCard');
+  const keep = sheet.indexOf('serviceKey="HIGH_RES_ARCHIVE"');
+  assert.ok(wall > 0 && drive > 0 && keep > 0, 'an anchor is missing');
+  assert.ok(keep > wall && keep > drive, 'the Keep full-res offer is back above what the couple came to set');
 });

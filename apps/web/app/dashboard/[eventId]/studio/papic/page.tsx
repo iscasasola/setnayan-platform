@@ -554,8 +554,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
     */
     /* 📖 THE READING COLUMN — 48 rem, centred (owner 2026-10-19, couple dashboard desktop + tablet: a Studio
        product is a reading column). A wrapper, so the flex column below keeps its own shape. */
-    <div className="mx-auto w-full max-w-3xl">
-    {/*
+    /*
       📷 PAPIC IS THE CAMERA — ONE PAGE (owner 2026-10-23, approved `prototypes/papic_controller_one_page_2026-10-23.html`):
       *"Papic is the camera service. Gallery is the collection of the files for that event. Papic holds: Filter,
       Credits per guest, face tagging, face blocking, challenge."* So this page is the switch and the dates on one
@@ -564,8 +563,10 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
       fifth tab, ⚙ Gallery settings); moderation is on each photo there; "How guests get in" is Home › Settings
       (Event Details); a supplier's whole delivery is hidden from the supplier's own row in Event access.
       `papic-is-the-camera.test.ts` holds the split.
-    */}
-    <section className="flex flex-col gap-7 pb-12" data-papic-page="camera">
+    */
+    <div className="mx-auto w-full max-w-3xl">
+    <section className="flex flex-col gap-7 pb-12">
+      <span hidden data-papic-page="camera" />
       {/* The house way back — Home, where Papic's row lives (owner 2026-10-23: "← Home"). */}
       <Link
         href={`/dashboard/${eventId}`}

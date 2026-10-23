@@ -80,6 +80,10 @@ import {
 import { BuildCart } from './build-cart';
 import { BENCH_BUILT_EVENT, benchLocalStore, builtNowIn } from './bench-local';
 import { SuppliersModeContext, THUMB_SLIDE_MS } from './suppliers-mode';
+import { followColumn } from '../../guests/_components/dock-follows-column';
+
+/** The rows take the column's edges from here up — the 2026-10-23 full-width line (`lg`). */
+const COLUMN_ROWS_FROM = '(min-width: 1024px)';
 
 // The cross-tab bus (BB_TAB_EVENT + goToBuildTab) and TAB_META live in
 // @/lib/budget-build (2026-06-16) so the layout-mounted nav shares them without
@@ -335,6 +339,30 @@ export function ServicesTakeover({
     };
   }, []);
 
+  // ── ONE BODY COLUMN: THE THUMB ROWS SIT UNDER IT (owner 2026-10-23, "bottom search bar is misaligned") ──
+  // Find's thumb row, Build's bar and the cart peek are portaled into <body> and pinned to the bottom edge, so CSS
+  // cannot give them this column's edges. The Guests dock's own mechanism writes them on the document root —
+  // `--sup-col-left` / `--sup-col-right` / `--sup-col-w` — FROM 1024 ONLY: below it nothing is written and each row's
+  // `var(…, fallback)` is its tablet place, unchanged (`the-thumb-row-shares-the-column.test.ts`).
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root || typeof window.matchMedia !== 'function') return;
+    const desk = window.matchMedia(COLUMN_ROWS_FROM);
+    let stop: (() => void) | null = null;
+    const apply = () => {
+      stop?.();
+      stop = desk.matches
+        ? followColumn(root, { target: document.documentElement, left: '--sup-col-left', right: '--sup-col-right', width: '--sup-col-w' })
+        : null;
+    };
+    apply();
+    desk.addEventListener('change', apply);
+    return () => {
+      desk.removeEventListener('change', apply);
+      stop?.();
+    };
+  }, []);
+
   const drawn = (m: SuppliersMode) => m === mode || seen.has(m);
   const modeState = useMemo(() => ({ mode, leaving, thumbUp }), [mode, leaving]);
 
@@ -344,9 +372,11 @@ export function ServicesTakeover({
        it was a full-screen "focus mode" takeover. It is a tab like Guests —
        the pinned block below sits UNDER the bar, never instead of it.
        `suppliers-keeps-the-shell-bar.test.ts` stops the hide coming back. */
-    /* 🖥 THE WIDE STAGE — 64 rem, centred (owner 2026-10-19, couple dashboard desktop + tablet: "Guests Map
-       and Suppliers are the wide stage"). The list keeps its own 820-px column inside it. */
-    <section ref={rootRef} data-budget-build-takeover="" data-suppliers-mode={mode} className="mx-auto w-full max-w-5xl">
+    /* 🖥 ONE BODY COLUMN, FULL WIDTH FROM 1024 (owner 2026-10-23, "shouldn't home, guests and suppliers maximize
+       the width as well?" → yes; prototype `home_service_widgets_2026-10-23.html` D4/D5 — supersedes the 19 Oct
+       64-rem stage and the list's 820-px column). body = viewport − rail − 2 × 32, no cap; the date · place line,
+       Find · Build · Booked, the list and the thumb row share its one left edge and one width. */
+    <section ref={rootRef} data-budget-build-takeover="" data-suppliers-mode={mode} className="mx-auto w-full max-w-5xl lg:max-w-none">
       <style>{LANDING_CSS}</style>
 
       {/* The page's name: the shared masthead's h1 (screen readers, every
@@ -366,7 +396,7 @@ export function ServicesTakeover({
       <div
         ref={stickRef}
         data-suppliers-stick=""
-        className="sn-ambient sticky top-[var(--sup-top,0px)] z-[15] -mx-4 px-4 pb-2 pt-2.5 data-[stuck]:shadow-[0_1px_0_rgb(var(--color-ink)/0.1)] sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"
+        className="sn-ambient sticky top-[var(--sup-top,0px)] z-[15] -mx-4 px-4 pb-2 pt-2.5 data-[stuck]:shadow-[0_1px_0_rgb(var(--color-ink)/0.1)] sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0"
       >
         {factsSlot}
         <div className="mt-2.5 flex">
@@ -399,9 +429,9 @@ export function ServicesTakeover({
       </div>
 
       {/* ── ONE BODY ────────────────────────────────────────────────────────
-          One column at every width (the prototype's 820 px on a computer). */}
+          One column at every width — the section's own width on a computer (owner 2026-10-23). */}
       <SuppliersModeContext.Provider value={modeState}>
-      <div className="min-w-0 pt-4 lg:max-w-[820px]">
+      <div className="min-w-0 pt-4">
         {drawn('find') ? (
           <div data-suppliers-body="find" hidden={mode !== 'find'}>
             {/* Room for Find's thumb row, so the last row is never under it. */}

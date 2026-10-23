@@ -209,16 +209,18 @@ export function useGridPinch({
     el.addEventListener('touchmove', onMove, { passive: false });
     el.addEventListener('touchend', onEnd, { passive: true });
     el.addEventListener('touchcancel', onEnd, { passive: true });
-    el.addEventListener('gesturestart', onGesture as EventListener, { passive: false });
-    el.addEventListener('wheel', onWheel, { passive: false });
+    // ⌃-wheel / trackpad pinch and Safari's gesture are heard on the WINDOW while the grid is mounted — a pinch
+    // over the header, the count line or a gutter must zoom the grid too, never the browser's page zoom.
+    window.addEventListener('gesturestart', onGesture as EventListener, { passive: false });
+    window.addEventListener('wheel', onWheel, { passive: false });
     return () => {
       if (wheelTimer) window.clearTimeout(wheelTimer);
       el.removeEventListener('touchstart', onStart);
       el.removeEventListener('touchmove', onMove);
       el.removeEventListener('touchend', onEnd);
       el.removeEventListener('touchcancel', onEnd);
-      el.removeEventListener('gesturestart', onGesture as EventListener);
-      el.removeEventListener('wheel', onWheel);
+      window.removeEventListener('gesturestart', onGesture as EventListener);
+      window.removeEventListener('wheel', onWheel);
     };
   }, [gridRef, commit, springBack]);
 

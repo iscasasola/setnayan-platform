@@ -2,9 +2,8 @@ import { notFound, redirect } from 'next/navigation';
 import { getCurrentUser } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { fetchPapicGallery } from '@/lib/papic-gallery';
+import { countGalleryFrames, fetchPapicGallery } from '@/lib/papic-gallery';
 import { viewerSeesCoupleScopedPapic } from '@/lib/papic-gallery-scope';
-import { countPapicCaptures } from '@/lib/papic-home-tile';
 import { resolveStoredWindow } from '@/lib/papic-window';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
 import { formatCount } from '@/lib/format-number';
@@ -36,8 +35,9 @@ type Props = { params: Promise<{ eventId: string }> };
  * this event's gallery, the same Apple-Photos grid as the approved Papic one-page prototype).
  *
  * One read of the photos (`fetchPapicGallery`, the Papic page's own: crew, guests and suppliers, newest first) and one
- * honest count beside it (`countPapicCaptures`, Home's "See N photos" number). The grid, the zoom and the thumb row
- * are `EventMemoriesGallery`.
+ * honest count beside it (`countGalleryFrames` — counted with the GRID'S OWN filters: not hidden, not blocked, not
+ * expired, so the number never counts a frame the grid will not draw). The grid, the zoom and the thumb row are
+ * `EventMemoriesGallery`.
  *
  * 🗂 PR-B (owner 2026-10-23): Albums ▾ · ⚙ Memories settings · + Add photos · the photo sheet's moderation. The
  * Event Hub album, the day's moments and the uploads camera are read here; the settings, add-photos and moderation
@@ -45,7 +45,11 @@ type Props = { params: Promise<{ eventId: string }> };
  *
  * 🔑 A REFUSED READ IS NEVER AN EMPTY GALLERY. `fetchPapicGallery` answers a refusal with `[]`, so an empty list
  * only means "nothing yet" when the count beside it read 0 — a null count, or a count above zero over an empty
- * list, is said as "couldn't load".
+ * list, is said as "couldn't load". And `status.refused` names every read that errored: ANY refused read is said as
+ * "couldn't load", never as a smaller gallery.
+ *
+ * 🔒 A non-couple viewer whose "which suppliers did the couple hide?" read failed sees NO supplier shots
+ * (`viewerIsCouple: false` → fail closed) — a refusal must never show what the couple chose to hide.
  */
 export default async function EventMemoriesPage({ params }: Props) {
   const { eventId } = await params;
@@ -53,23 +57,28 @@ export default async function EventMemoriesPage({ params }: Props) {
   if (!user) redirect('/login');
   const supabase = await createClient();
 
-  const [eventRes, photos, seesAll, count, member, schedule, gate] = await Promise.all([
+  // Asked first, as the Papic page does: an RLS refusal on the couple-only sources is an empty list with no error,
+  // indistinguishable from a day nobody shot. It also says whether a failed hidden-suppliers read fails closed.
+  const seesAllRead = viewerSeesCoupleScopedPapic(supabase, eventId);
+  const status: { refused: Array<'seat' | 'guest' | 'vendor' | 'hiddenSuppliers'> } = { refused: [] };
+  const [eventRes, seesAll, photos, count, member, schedule, gate] = await Promise.all([
     supabase
       .from('events')
       .select('event_id, event_date, papic_window_start, papic_window_end, venue_latitude, venue_longitude')
       .eq('event_id', eventId)
       .maybeSingle(),
+    seesAllRead,
     // 🗜 Memories always shows the compressed copy — never an original (owner 2026-10-23).
-    fetchPapicGallery(supabase, eventId, { compressedOnly: true }),
-    // Asked separately, as the Papic page does: an RLS refusal on the couple-only sources is an empty list with no
-    // error, indistinguishable from a day nobody shot.
-    viewerSeesCoupleScopedPapic(supabase, eventId),
-    countPapicCaptures(supabase, eventId),
+    seesAllRead.then((isCouple) =>
+      fetchPapicGallery(supabase, eventId, { compressedOnly: true, status, viewerIsCouple: isCouple }),
+    ),
+    countGalleryFrames(supabase, eventId),
     eventMemberTypeOnce(supabase, eventId, user.id),
     fetchScheduleBlocks(supabase, eventId).catch(() => null),
     getIapGate(),
   ]);
-  const isCouple = (member.data as { member_type?: string | null } | null)?.member_type === 'couple';
+  // The couple themselves (not a coordinator): the settings, + Add photos and the photo sheet are theirs.
+  const isCoupleMember = (member.data as { member_type?: string | null } | null)?.member_type === 'couple';
   if (eventRes.error) logQueryError('EventMemoriesPage.event', eventRes.error, { event_id: eventId }, 'graceful_degrade');
   const ev = eventRes.data as
     | {
@@ -86,7 +95,11 @@ export default async function EventMemoriesPage({ params }: Props) {
   // The couple's count is every capture, crew and guests, plus the suppliers' shots on the page. A viewer who sees
   // only the suppliers' shots is shown what they can see.
   const total = seesAll ? (count === null ? null : count + vendorShown) : photos.length;
-  const unreadable = memoriesUnreadable(photos.length, total);
+  const unreadable = status.refused.length > 0 || memoriesUnreadable(photos.length, total);
+  if (status.refused.length > 0) {
+    // The reads themselves swallow their errors into [] — say which ones here, so the refusal reaches Sentry too.
+    logQueryError('EventMemoriesPage.gallery', { message: `refused: ${status.refused.join(', ')}` }, { event_id: eventId });
+  }
 
   const win = ev
     ? resolveStoredWindow({ windowStart: ev.papic_window_start, windowEnd: ev.papic_window_end, eventDate: ev.event_date })
@@ -123,7 +136,7 @@ export default async function EventMemoriesPage({ params }: Props) {
   // + Add photos — the couple's uploads camera (`PAPIC_UPLOADS_CAMERA_INDEX`), behind their own switch. The seat is
   // read with the service client because an unclaimed seat is not theirs to see yet (the Papic page's own read).
   const admin = createAdminClient();
-  const [open, seat] = isCouple
+  const [open, seat] = isCoupleMember
     ? await Promise.all([
         supabase.from('events').select('papic_uploads_open').eq('event_id', eventId).maybeSingle(),
         admin
@@ -144,7 +157,7 @@ export default async function EventMemoriesPage({ params }: Props) {
     seat && !seat.error && seat.data?.claimer_user_id === user.id ? (seat.data.claim_qr_token as string | null) : null;
   // The couple's only. A refused seat read offers nothing rather than a door that cannot work; OFF offers nothing.
   const addPhotos: ReactNode =
-    !isCouple || !seat || seat.error ? null : !uploadsOpen ? null : mine ? (
+    !isCoupleMember || !seat || seat.error ? null : !uploadsOpen ? null : mine ? (
       <AddToLibrary token={mine} />
     ) : (
       <form action={claimUploadsCamera} className="space-y-3">
@@ -165,8 +178,8 @@ export default async function EventMemoriesPage({ params }: Props) {
       countLine={total === null ? null : memoriesCountWords(total)}
       footLine={win ? memoriesCameraWords({ startIso: win.startIso, endIso: win.endIso, now: Date.now() }) : null}
       cappedLine={
-        total !== null && total > photos.length && photos.length > 0
-          ? `${formatCount(total)} kept · showing the newest ${formatCount(photos.length)}`
+        !unreadable && total !== null && total > photos.length && photos.length > 0
+          ? `${formatCount(total)} kept · the latest from each camera shown here`
           : null
       }
       emptyLine={
@@ -179,14 +192,14 @@ export default async function EventMemoriesPage({ params }: Props) {
       hub={hub}
       moments={moments}
       settings={
-        isCouple ? (
+        isCoupleMember ? (
           <Suspense fallback={<p className="text-sm text-ink/60">Loading your settings…</p>}>
             <MemoriesSettings eventId={eventId} apple={gate.iap} loginEmail={user.email ?? null} uploadsOpen={uploadsOpen} />
           </Suspense>
         ) : null
       }
       addPhotos={addPhotos}
-      moderate={isCouple ? { eventId } : null}
+      moderate={isCoupleMember ? { eventId } : null}
     />
     {/* 🔦 First visit only — a new feature gets its spotlight (house rule), after the host journey. */}
     <Spotlight tourKey={HOST_PAGE_TOURS.memories} after={HOST_PAGE_TOURS_AFTER} replay="page" />

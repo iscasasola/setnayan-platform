@@ -7,8 +7,7 @@
 // fallbacks, same error handling — re-homed here with parameters threaded in.
 //
 // The benefit is PER-REQUEST dedup + orchestrator shrinkage, NOT cross-route
-// sharing — do NOT import { papicOwnerTag } from '@/lib/papic-upload/owner-tag.server';
-import these loaders from other routes (`cache()` scopes to
+// sharing — do NOT import these loaders from other routes (`cache()` scopes to
 // a single server request; the loaders assume this route's gating has already
 // run).
 //
@@ -133,6 +132,7 @@ import type {
   LiveWallData,
   WatchLiveData,
 } from './types';
+import { papicOwnerTag } from '@/lib/papic-upload/owner-tag.server';
 
 /** The service-role Supabase client the orchestrator creates once per request
  *  and threads into every loader — a stable per-request reference, so it is a

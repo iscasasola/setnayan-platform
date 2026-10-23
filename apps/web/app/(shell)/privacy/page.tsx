@@ -433,6 +433,11 @@ export default function PrivacyPage() {
             separately disclosed here, all face matching stays scoped to the one
             event you consented to.
           </p>
+          <p className="pt-2">
+            <strong>Face tagging is off unless the hosts turn it on.</strong> It
+            is off for every event by default. If the hosts turn it on, each
+            guest still chooses for themselves.
+          </p>
         </Section>
 
         <Section title="Optional personalization &amp; family details">
@@ -794,13 +799,10 @@ export default function PrivacyPage() {
               honest notice. RoPA DPS-17 records the same point as the open
               question for the DPO. */}
           <p className="pt-2">
-            <strong>You cannot switch this one off.</strong> There is no setting
-            that removes your own inquiry from the counts other couples see. We
-            are telling you plainly rather than leaving it unsaid: what leaves our
-            servers is a number, at three or above, with nothing attached to it
-            that points back to you — that is the protection, and it is the
-            reason we consider the trade a fair one. If you would rather not be
-            counted at all, not sending the inquiry is the only way.
+            <strong>You can switch this off.</strong> In your event&rsquo;s
+            privacy settings, turn off <em>Count us for other couples</em> and
+            your inquiries are left out of the counts other couples see. It does
+            not change what you see, and it never reaches a supplier.
           </p>
         </Section>
 
@@ -1856,11 +1858,6 @@ export default function PrivacyPage() {
               API before the couple sees it, to catch vulgarity, hate speech,
               harassment, sexual content and violence. No photos, no guest list,
               no payment details, and no message bodies are sent.
-            </li>
-            <li>
-              LanguageTool (spelling and grammar · public API) — the same
-              editorial text, checked for spelling and grammar. The suggestions
-              are advisory; a person decides.
             </li>
             <li>
               OpenStreetMap / Nominatim (turning an address into a map pin) — a

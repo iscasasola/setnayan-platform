@@ -413,7 +413,7 @@ export function GuestInviteCell({
                 <>
                   <p className="text-xs text-ink/75">The copy was blocked — select it and copy it.</p>
                   <textarea
-                    className="w-full rounded-lg border border-ink/15 bg-white p-2 text-xs leading-relaxed text-ink"
+                    className="w-full rounded-lg border border-ink/15 bg-white dark:bg-raised p-2 text-xs leading-relaxed text-ink"
                     readOnly
                     value={said.text}
                     rows={5}

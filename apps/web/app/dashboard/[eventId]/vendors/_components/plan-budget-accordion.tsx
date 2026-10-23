@@ -531,9 +531,9 @@ const PBA_CSS = `
    flips it (and the sheet) automatically; the rest are the hardcoded
    light/white values that don't ride a token. ───────── */
 html.dark .pbacc{
-  --paper:#1B1A17; --ink:#FBFBFA; --ink-soft:#B6B9BE;
+  --paper:#1E1C15; --ink:#FBFBFA; --ink-soft:#B3AEA3;
   --line:rgba(251,251,250,.16); --line-soft:rgba(251,251,250,.1);
-  --card:#2A2E36; --gold:#CBA766; --gold-deep:#A9834B;
+  --card:#232019; --gold:#CBA766; --gold-deep:#A9834B;
 }
 /* bar is now a light surface → flip its muted white text + hairline + accents */
 html.dark .pbacc .topbar{border-bottom-color:rgba(30,26,18,.1)}
@@ -556,7 +556,7 @@ html.dark .pbacc .cat-head.active .nm,
 html.dark .pbacc .empty-child .en,
 html.dark .pbacc .istep-n,
 html.dark .pbacc .cmpbtn,
-html.dark .pbacc .cmprow-price td{color:#C99DB0}
+html.dark .pbacc .cmprow-price td{color:#E5794E}
 
 /* ===== Guidance layer (owner 2026-06-04) — make the populated cover DIRECTIVE
    and teach the loop in the rails. (1) .intro-next = action-first "do this next"
@@ -593,7 +593,7 @@ html.dark .pbacc .intro-next .nx-k,
 html.dark .pbacc .intro-next.calm .nx-ico,
 html.dark .pbacc .intro-next .nx-go,
 html.dark .pbacc .intro-loop .lp-n,
-html.dark .pbacc .pba-coach .pc-b{color:#C99DB0}
+html.dark .pbacc .pba-coach .pc-b{color:#E5794E}
 html.dark .pbacc .pba-coach{background:rgba(169,131,75,.14);border-color:rgba(169,131,75,.45)}
 html.dark .pbacc .lockhint{background:rgba(169,131,75,.14)}
 .pbacc .review-cta{display:block;margin-top:7px;font-family:var(--mono);font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;text-align:center;color:var(--mulberry);background:rgba(149,53,83,.08);border-radius: var(--m-r-sm);padding:7px 9px;transition:background .18s var(--ease);text-decoration:none}
@@ -630,7 +630,7 @@ html.dark .pbacc .invite-cta:hover,.pbacc .invite-cta:focus{background:rgba(169,
 .pbacc .svc-cta.soon{color:rgba(255,255,255,.72)}
 /* Digital Services synthetic rail header — same row as .child-name. */
 .pbacc .ds-tag{color:var(--mulberry)}
-html.dark .pbacc .ds-tag{color:#C99DB0}
+html.dark .pbacc .ds-tag{color:#E5794E}
 
 /* ---- Tools & extras strip (inside the end-spacer, above the recap) ----
    Couple tools that aren't category services (Orders / Playlist / QR / Indoor
@@ -643,12 +643,12 @@ html.dark .pbacc .ds-tag{color:#C99DB0}
 .pbacc .tool{flex:0 0 auto;display:inline-flex;align-items:center;gap:9px;padding:10px 13px;border-radius: var(--m-r-md);border:1px solid var(--line);background:var(--card);text-decoration:none;color:var(--ink)}
 .pbacc .tool:hover{border-color:rgba(30, 26, 18,.35)}
 .pbacc .tool-ico{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius: var(--m-r-sm);background:rgba(30, 26, 18,.08);color:var(--mulberry)}
-html.dark .pbacc .tool-ico{color:#C99DB0;background:rgba(201,157,176,.14)}
+html.dark .pbacc .tool-ico{color:#E5794E;background:rgba(229,121,78,.14)}
 .pbacc .tool-tx{display:flex;flex-direction:column;line-height:1.2}
 .pbacc .tool-nm{font-family:var(--sans);font-weight:600;font-size:13px;color:var(--ink)}
 .pbacc .tool-cta{font-family:var(--mono);font-size:8px;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-soft);margin-top:2px}
 .pbacc .tools-all{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;padding:0 16px;border-radius: var(--m-r-md);border:1.5px dashed rgba(30, 26, 18,.4);background:transparent;color:var(--mulberry);font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;text-decoration:none;white-space:nowrap}
-html.dark .pbacc .tools-all{color:#C99DB0}
+html.dark .pbacc .tools-all{color:#E5794E}
 .pbacc .tool,.pbacc .tools-all{transition:transform .13s cubic-bezier(.2,.7,.2,1),border-color .2s var(--ease)}
 .pbacc .tool:active,.pbacc .tools-all:active{transform:scale(.97)}
 

@@ -562,7 +562,7 @@ html.dark .slcat .vc .rpill.soft{color:#FBFBFA;background:rgba(30,26,18,.7)}
    sort is a comparator the couple asked for. */
 .slcat .sortsep{width:1px;height:16px;background:var(--line);flex:0 0 auto}
 html.dark .slcat .sortseg{background:rgba(251,251,250,.05)}
-html.dark .slcat .sortseg button.on{color:#1B1A17;background:#C99DB0}
+html.dark .slcat .sortseg button.on{color:#17160F;background:#E5794E}
 /* bench search — client-side filter over categories + considered suppliers */
 .slcat .bench-search{display:flex;align-items:center;gap:9px;margin:0 0 12px;padding:0 13px;height:42px;background:var(--card);border:1px solid var(--line);border-radius:var(--m-r-md);transition:border-color .18s var(--ease),box-shadow .18s var(--ease)}
 .slcat .bench-search:focus-within{border-color:rgba(30,26,18,.28);box-shadow:0 0 0 3px rgba(30,26,18,.06)}
@@ -580,7 +580,7 @@ html.dark .slcat .sortseg button.on{color:#1B1A17;background:#C99DB0}
 .slcat .bench-mkt b{font-weight:600;color:var(--mulberry)}
 .slcat .bench-mkt .bench-mkt-arr{color:var(--ink-faint);flex:0 0 auto;transition:transform .18s var(--ease)}
 .slcat .bench-mkt:hover .bench-mkt-arr{transform:translateX(2px);color:var(--mulberry)}
-html.dark .slcat .bench-mkt{background:#2A2E36}
+html.dark .slcat .bench-mkt{background:#232019}
 /* inline whole-marketplace results — top matches below the shortlist filter */
 .slcat .bench-mkt-results{margin:0 0 10px;background:var(--card);border:1px solid var(--line);border-radius:var(--m-r-md);overflow:hidden}
 .slcat .bmr-head{font-family:var(--mono);font-size:9px;letter-spacing:.11em;text-transform:uppercase;color:var(--ink-faint);padding:10px 14px 6px}
@@ -593,8 +593,8 @@ html.dark .slcat .bench-mkt{background:#2A2E36}
 .slcat .bmr-m span{font-size:11px;color:var(--ink-soft)}
 .slcat .bmr-arr{color:var(--ink-faint);flex:0 0 auto;transition:transform .15s var(--ease)}
 .slcat .bmr-row:hover .bmr-arr{transform:translateX(2px);color:var(--mulberry)}
-html.dark .slcat .bench-mkt-results{background:#2A2E36}
-html.dark .slcat .bench-search{background:#2A2E36}
+html.dark .slcat .bench-mkt-results{background:#232019}
+html.dark .slcat .bench-search{background:#232019}
 .slcat .vc .meta{padding:11px 13px 13px;flex:1 1 auto;display:flex;flex-direction:column;gap:5px}
 .slcat .vc .vn{font-family:var(--sans);font-weight:700;font-size:13.5px;color:var(--ink);line-height:1.2}
 /* The unread counter (owner 2026-09-22). Inline beside the name it belongs to,
@@ -722,7 +722,7 @@ html.dark .slcat .vc .fit.warn{color:#e2b968;background:rgba(169,131,75,.2)}
 .slcat .fsum .s.td{background:rgba(30,26,18,.07);color:var(--ink-soft)}
 .slcat .fsum .s.ad{border:1px dashed var(--line);color:var(--ink-soft)}
 .slcat .fsum .s.dn{background:rgba(46,125,79,.12);color:#2e7d4f}
-html.dark .slcat .ctile .mini.bd{background:#2A2E36}
+html.dark .slcat .ctile .mini.bd{background:#232019}
 html.dark .slcat .fsum .s.td{background:rgba(251,251,250,.08)}
 
 /* ── Adaptive category set + per-category ⓘ (Explore Replan PR-C · gated) ──
@@ -797,7 +797,7 @@ html.dark .slcat .fsum .s.td{background:rgba(251,251,250,.08)}
 .slcat .vact-pair>.vact.on{flex:1 1 auto;min-width:0}
 .slcat .vact-err{font-family:var(--sans);font-size:10.5px;line-height:1.3;color:#9a3325;margin:4px 0 0}
 html.dark .slcat .vact-err{color:#e9a99d}
-html.dark .slcat .vact.primary{background:#C99DB0;color:#1B1A17;border-color:#C99DB0}
+html.dark .slcat .vact.primary{background:#E5794E;color:#17160F;border-color:#E5794E}
 /* Locked names on a COLLAPSED category row (decision #8) — the row answers
    "who did we choose here?" without opening the rail. Its LOOK is the app's row
    template's second line ('FORM_ROW_SUBLINE', on the element), under the name
@@ -866,24 +866,24 @@ html.dark .slcat .vact.note.unavailable .vact-note-txt b{color:#EC8A5F}
 .slcat .vact.note.withheld .vact-note-txt b{color:var(--ink)}
 html.dark .slcat .vact-note-txt b{color:#e2b968}
 
-html.dark .slcat .cat-free{color:#C99DB0;background:rgba(201,157,176,.14)}
+html.dark .slcat .cat-free{color:#E5794E;background:rgba(229,121,78,.14)}
 /* Dark: the card IS lighter than the page here (#2A2E36 on ink-black), so the
    surface separates on its own and a black drop shadow buys nothing — both
    lifts are neutralised via the vars below, which keeps '.fold.open' free to
    change border-colour as its open cue. */
 html.dark .slcat .plan-strip{background:var(--card)}
-html.dark .slcat .plan-chip{background:#2A2E36}
+html.dark .slcat .plan-chip{background:#232019}
 /* --gold-deep (#8A6B39) is too dark to read on the dark card; the bench already
    uses #e2b968 as its dark gold everywhere else (.fit.warn, .vact.note.clash),
    so the row icons follow it rather than inventing a shade. */
 /* The open cue in dark mode. '.fold.open' sets a DARK border (fine on white,
-   invisible on #2A2E36) and its shadow is neutralised above, so without this
+   invisible on the dark card) and its shadow is neutralised above, so without this
    an open folder in dark mode had no edge change at all. */
 html.dark .slcat .fold.open{border-color:rgba(251,251,250,.3)}
 html.dark .slcat .fold-ic{background:rgba(226,185,104,.14);color:#e2b968}
 html.dark .slcat .fold.open .fold-ic{background:rgba(226,185,104,.24)}
 html.dark .slcat .cat.open .cat-ic{color:#e2b968}
-html.dark .slcat{--paper:#1B1A17;--ink:#FBFBFA;--ink-soft:#B6B9BE;--line:rgba(251,251,250,.16);--line-soft:rgba(251,251,250,.1);--card:#2A2E36;--edge:rgba(251,251,250,.16);--edge-lift:none;--edge-lift-open:none}
+html.dark .slcat{--paper:#1E1C15;--ink:#FBFBFA;--ink-soft:#B3AEA3;--line:rgba(251,251,250,.16);--line-soft:rgba(251,251,250,.1);--card:#232019;--edge:rgba(251,251,250,.16);--edge-lift:none;--edge-lift-open:none}
 /* THE DARK BLOCK RE-POINTED EVERY NEUTRAL AND FORGOT THE GOLDS (2026-09-09).
    --paper, --ink, --ink-soft, --line, --card and --edge all get a dark value
    here; --gold and --gold-deep did not, so every gold thing on the bench kept a
@@ -903,7 +903,7 @@ html.dark .slcat .vc .bdg.verified{color:#7BD3A0}
    down already sets it to #C99DB0 and, being later, wins — measured 5.95:1 on
    its own tint over the dark card, which passes. A rule added here would be
    DEAD and would read to the next person as if it were doing the work. */
-html.dark .slcat .fold.open .fold-nm,html.dark .slcat .cat.open .cat-nm,html.dark .slcat .act.find>*,html.dark .slcat .fr.find .fr-i,html.dark .slcat .fr.find .fr-t,html.dark .slcat .vc .bdg.setnayan{color:#C99DB0}
+html.dark .slcat .fold.open .fold-nm,html.dark .slcat .cat.open .cat-nm,html.dark .slcat .act.find>*,html.dark .slcat .fr.find .fr-i,html.dark .slcat .fr.find .fr-t,html.dark .slcat .vc .bdg.setnayan{color:#E5794E}
 
 /* ── ROW 2 · the inline "More in {category}" rail (owner 2026-09-06) ─────────
    Deliberately QUIETER than row 1: a tinted well with a hairline top rule, so

@@ -37,16 +37,12 @@
 /* 🖥 FULL WIDTH FROM 1024 (owner 2026-10-23, "shouldn't home, guests and suppliers maximize the width as well?" → yes;
    prototype `home_service_widgets_2026-10-23.html` D3): the event Guests List/Setup column fills the body — viewport −
    rail − 2 × 32, no cap — with the shipped 440 guest-card column beside it, and the dock's controls start and end on the
-   column's edges (one left edge for the list and the row under it; a side safe area still clears). Scoped to the event
-   screen (`[data-guests-screen]`): People (`people-roster-view.tsx`) wears `.screen` too and keeps its reading column.
+   column's edges (one left edge for the list and the row under it — the dock rule sits with `.lower`'s own rules below).
+   Scoped to the event screen (`[data-guests-screen]`): People (`people-roster-view.tsx`) wears `.screen` too and keeps its reading column.
    The phone and the tablet keep 48 rem; the Map keeps its 64 rem stage (the rule below, same weight, comes later). */
 @media (min-width: 1024px) {
   .screen[data-guests-screen] {
     max-width: none;
-  }
-  .screen[data-guests-screen] .lower {
-    padding-left: max(0px, var(--sn-safe-l));
-    padding-right: max(0px, var(--sn-safe-r));
   }
 }
 .screen[data-guests-screen='map'] {
@@ -547,6 +543,14 @@ button.ico {
     bottom: 16px;
     left: var(--gs-left, 0px);
     right: var(--gs-right, 0px);
+  }
+}
+/* 🖥 From 1024 (owner 2026-10-23, one body column) the event screen's dock controls start and end ON the column's
+   edges — no 16-px inner gutter — with a side safe area still cleared. People's dock keeps its gutter. */
+@media (min-width: 1024px) {
+  .screen[data-guests-screen] .lower {
+    padding-left: max(0px, var(--sn-safe-l));
+    padding-right: max(0px, var(--sn-safe-r));
   }
 }
 .thumb {

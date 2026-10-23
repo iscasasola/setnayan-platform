@@ -112,10 +112,10 @@ export const metadata = {
   alternates: { canonical: '/papic' },
   keywords: [
     'wedding photo sharing Philippines',
-    'guest photo memories',
+    'guest photo gallery',
     'wedding photo app',
     'QR wedding photos',
-    'shared wedding memories',
+    'shared wedding gallery',
     'candid wedding photos',
     'Papic',
     'Setnayan',

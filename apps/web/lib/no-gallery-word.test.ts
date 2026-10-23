@@ -28,7 +28,8 @@ import ts from 'typescript';
  *   · An argument to `console.*` — a log line never reaches a screen.
  *   · `lib/ugat/` — the engineering map; its notes name schema objects
  *     (`supplier_gallery`, `moodboard_library_assets_supplier_gallery_shape`).
- *   · The exact internal lines in INTERNAL below, each with its reason.
+ *   · The exact internal lines in INTERNAL below, each with its reason —
+ *     including the SEO search keywords the owner kept (2026-10-23).
  */
 
 const WEB = process.cwd();
@@ -42,6 +43,13 @@ const INTERNAL: ReadonlyArray<{ file: string; has: string; why: string }> = [
     has: 'gallery screen timed out after',
     why: 'a Promise.race timeout reason, caught and logged server-side',
   },
+  // Owner 2026-10-23: "keep the SEO keyword as gallery" — search keywords are
+  // page metadata (what people type into a search box), never drawn on screen.
+  { file: 'app/page.tsx', has: 'wedding photo gallery app', why: 'SEO metadata keyword' },
+  { file: 'app/(shell)/papic/page.tsx', has: 'guest photo gallery', why: 'SEO metadata keyword' },
+  { file: 'app/(shell)/papic/page.tsx', has: 'shared wedding gallery', why: 'SEO metadata keyword' },
+  { file: 'lib/feature-pages/day-memories.ts', has: 'wedding photo gallery', why: 'SEO metadata keyword (feature-pages/seo.ts)' },
+  { file: 'lib/feature-pages/day-memories.ts', has: 'gallery ng kasal', why: 'SEO metadata keyword (feature-pages/seo.ts)' },
 ];
 
 function walkDir(dir: string, out: string[]): void {

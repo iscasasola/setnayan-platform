@@ -103,7 +103,7 @@ export const metadata = {
     'verified Filipino suppliers',
     "Set na 'yan",
     'Filipino wedding software',
-    'wedding photo memories app',
+    'wedding photo gallery app',
     'keep wedding photos safe',
     'Filipino life events app',
     'Filipino debut planning',

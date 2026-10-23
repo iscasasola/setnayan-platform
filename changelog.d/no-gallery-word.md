@@ -24,5 +24,9 @@ The privacy page's "kept for life" row in
 `legal-retention-promises-have-a-mechanism.test.ts` now quotes the reworded
 sentence (same promise, same mechanism).
 
+Search keywords keep the word (owner, 2026-10-23: *"keep the SEO keyword as
+gallery"*) — page metadata, never drawn: the home page, /papic and the
+day-memories feature page. Each is a named exemption in the guard.
+
 SPEC IMPACT: `DECISION_LOG.md` row "23 Oct: no 'gallery' in the UI — Memories /
 Portfolio / Inspiration".

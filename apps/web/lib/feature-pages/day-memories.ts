@@ -250,8 +250,8 @@ export const DAY_MEMORIES_FEATURES: readonly FeaturePageEntry[] = [
       ],
     },
     keywords: {
-      en: ['event memories keepsake', 'wedding photo memories', 'relive your event'],
-      tl: ['memories ng event', 'memories ng kasal'],
+      en: ['event memories keepsake', 'wedding photo gallery', 'relive your event'],
+      tl: ['memories ng event', 'gallery ng kasal'],
     },
     shots: [],
     price: { kind: 'free' },

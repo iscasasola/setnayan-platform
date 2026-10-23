@@ -7,7 +7,7 @@ import { requireAdminAction } from '@/lib/admin/require-admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { VENDOR_BOOKING_FEES_PATH } from '@/lib/vendor-booking-fees';
 import { readLaunchOffer } from '@/lib/launch-offer.server';
-import { manilaLocalToIso } from '@/lib/launch-offer';
+import { freeFeeWindowReason, manilaLocalToIso } from '@/lib/launch-offer';
 
 export type LaunchOfferActionState = { ok: boolean; message: string | null };
 
@@ -21,7 +21,9 @@ export type LaunchOfferActionState = { ok: boolean; message: string | null };
  *                credits per booking, how long a subscription cycle is.
  *   · `close`  — end it now (stamps the end and free Pro's one end date).
  *   · `window` — the free-fee window (`booking_fee_free_from/until`), which had
- *                no screen at all (audit 2026-10-12, C9).
+ *                no screen at all (audit 2026-10-12, C9). Opening one REQUIRES a
+ *                reason (`booking_fee_free_reason`, DECISION_LOG 2026-09-23 #3);
+ *                closing one does not, and clears it.
  *
  * 🔑 IT DECIDES NO BOOKING. Which booking is fee-free is decided in SQL at the
  * supplier's yes (`booking_fee_open_lock_charge`). This page only sets the
@@ -108,7 +110,15 @@ export async function saveLaunchOffer(
     if (from && until && Date.parse(until) <= Date.parse(from)) {
       return { ok: false, message: 'The end must be after the start.' };
     }
-    const update = { booking_fee_free_from: from, booking_fee_free_until: until, updated_at: new Date().toISOString() };
+    // A window needs its reason to OPEN, never to close (DECISION_LOG 2026-09-23 #3).
+    const why = freeFeeWindowReason({ from, until }, String(formData.get('booking_fee_free_reason') ?? ''));
+    if (!why.ok) return { ok: false, message: why.message };
+    const update = {
+      booking_fee_free_from: from,
+      booking_fee_free_until: until,
+      booking_fee_free_reason: why.reason,
+      updated_at: new Date().toISOString(),
+    };
     const { error } = await admin.from('platform_settings').update(update).eq('id', 1);
     revalidateTag(GLOBAL_SETTINGS_TAGS.platformSettings);
     if (error) return { ok: false, message: `Couldn't save — ${error.message}` };

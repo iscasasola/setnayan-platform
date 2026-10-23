@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "c957bb4854",
-  "routeCount": 461,
-  "destinations": 1003,
-  "actions": 666,
-  "blocks": 6861,
+  "generatedFromRef": "9a9daf7a7c",
+  "routeCount": 462,
+  "destinations": 1002,
+  "actions": 662,
+  "blocks": 6869,
   "routes": {
     "/": {
       "files": [
@@ -5557,7 +5557,6 @@
         "dashboard/[eventId]/_components/home-loading-cover.tsx",
         "dashboard/[eventId]/_components/home-parts.tsx",
         "dashboard/[eventId]/_components/inline-checkout-drawer.tsx",
-        "dashboard/[eventId]/_components/more-services-sheet.tsx",
         "dashboard/[eventId]/_components/new-manual-vendor-modal.tsx",
         "dashboard/[eventId]/_components/nikah-essentials-card.tsx",
         "dashboard/[eventId]/_components/nikah-imam.ts",
@@ -5698,6 +5697,7 @@
         "DateRow",
         "DayOfModeBanner",
         "DayOfModeGrid",
+        "DayPapicRow",
         "DeleteResult",
         "DirectPayBody",
         "DirectPayTrigger",
@@ -5786,9 +5786,6 @@
         "ModalMode",
         "ModalShell",
         "Money",
-        "MoreServicesSheet",
-        "MoreSheet",
-        "MoreSheetRow",
         "NextCard",
         "OneLink",
         "OneLinkRow",
@@ -5879,6 +5876,7 @@
         "Watermark",
         "WhatsHappeningCard",
         "WizardTaskId",
+        "YourServices",
         "YourTableCard"
       ]
     },
@@ -6961,6 +6959,7 @@
         "dashboard/[eventId]/launch/_components/maker-details.tsx",
         "dashboard/[eventId]/launch/_components/maker-exit-sheet.tsx",
         "dashboard/[eventId]/launch/_components/maker-hero-design.tsx",
+        "dashboard/[eventId]/launch/_components/maker-late.tsx",
         "dashboard/[eventId]/launch/_components/maker-logo.tsx",
         "dashboard/[eventId]/launch/_components/maker-lower-third.tsx",
         "dashboard/[eventId]/launch/_components/maker-made-once.tsx",
@@ -7291,6 +7290,8 @@
         "MakerGuestPagesReport",
         "MakerHalfSheet",
         "MakerHeroDesignPicker",
+        "MakerLate",
+        "MakerLateBridge",
         "MakerLogoDoor",
         "MakerLookPages",
         "MakerLowerThird",
@@ -8680,6 +8681,7 @@
         "HubDraftField",
         "ISeg",
         "ISegmented",
+        "IapUnlockSheet",
         "ImageData",
         "IncDressCodeStarterNote",
         "InfoTip",
@@ -8781,6 +8783,7 @@
         "EventRow",
         "Field",
         "HTMLFormElement",
+        "IapUnlockSheet",
         "InlineCheckoutDrawer",
         "Link",
         "ListPageSkeleton",
@@ -8915,6 +8918,7 @@
     },
     "/dashboard/[eventId]/studio/papic": {
       "files": [
+        "dashboard/[eventId]/studio/papic/_components/add-photos-door.tsx",
         "dashboard/[eventId]/studio/papic/_components/add-to-library.tsx",
         "dashboard/[eventId]/studio/papic/_components/credit-stepper.tsx",
         "dashboard/[eventId]/studio/papic/_components/face-tagging-choice.tsx",
@@ -8939,13 +8943,12 @@
         "dashboard/[eventId]/studio/papic/_components/recap-card.tsx",
         "dashboard/[eventId]/studio/papic/_components/setting-row.tsx",
         "dashboard/[eventId]/studio/papic/_components/source-row.tsx",
+        "dashboard/[eventId]/studio/papic/_components/supplier-way-in-row.tsx",
         "dashboard/[eventId]/studio/papic/_components/uploads-open-choice.tsx",
         "dashboard/[eventId]/studio/papic/_components/vendor-media-controls.tsx",
         "dashboard/[eventId]/studio/papic/actions.ts",
         "dashboard/[eventId]/studio/papic/couple-challenges-manager.tsx",
-        "dashboard/[eventId]/studio/papic/extra-cameras-picker.tsx",
         "dashboard/[eventId]/studio/papic/face-tagging-actions.ts",
-        "dashboard/[eventId]/studio/papic/guest-camera-tier-picker.tsx",
         "dashboard/[eventId]/studio/papic/guest-window-actions.ts",
         "dashboard/[eventId]/studio/papic/loading.tsx",
         "dashboard/[eventId]/studio/papic/page.tsx",
@@ -8962,7 +8965,6 @@
         "/dashboard/[seg]/studio/papic",
         "/dashboard/[seg]/studio/papic/challenges",
         "/dashboard/[seg]/studio/papic/crew",
-        "/dashboard/[seg]/studio/papic/crew/print",
         "/dashboard/[seg]/studio/papic/gallery-zip",
         "/dashboard/[seg]/studio/papic/magazine",
         "/dashboard/[seg]/studio/papic/moderation",
@@ -8972,13 +8974,11 @@
       ],
       "actions": [
         "action",
-        "activatePapicLimited",
         "addLibraryChallengeAction",
         "armChallengeAction",
         "claimUploadsCamera",
         "createCoupleChallengeAction",
         "deleteCoupleChallengeAction",
-        "purchasePapicExtras",
         "purchasePapicPoolTopUp",
         "releaseTheRest",
         "reviewVendorChallengeAction",
@@ -8997,6 +8997,7 @@
       "blocks": [
         "ActionButton",
         "ActionResult",
+        "AddPhotosDoor",
         "AddToLibrary",
         "AllotmentsCouldNotLoad",
         "Blob",
@@ -9011,7 +9012,6 @@
         "DriveSafetyPanel",
         "DslrBridgeSection",
         "EmptyRoll",
-        "ExtraCamerasPicker",
         "FaceTaggingChoice",
         "Fact",
         "FilterChip",
@@ -9024,15 +9024,14 @@
         "GridPageSkeleton",
         "GuestAllotmentPicker",
         "GuestAllotmentsChoice",
-        "GuestCameraTierPicker",
         "GuestCamerasChoice",
         "GuestContributionsCard",
         "HTMLInputElement",
         "IapPapicSheet",
+        "InfoTip",
         "InlineCheckoutDrawer",
         "LegendDot",
         "LifeFlashCard",
-        "LimitedCard",
         "Link",
         "LiveWallCard",
         "LiveWallControls",
@@ -9066,12 +9065,11 @@
         "Spotlight",
         "StandingsStrip",
         "StatusBanners",
-        "Stepper",
         "StudioBuyHero",
         "StylePicker",
         "SubmitButton",
+        "SupplierWayInRow",
         "SwitchTrack",
-        "TierOption",
         "Unmeasured",
         "UploadsOpenChoice",
         "VendorChallengesApproval",
@@ -9103,16 +9101,12 @@
       "destinations": [
         "/dashboard/[seg]/website"
       ],
-      "actions": [
-        "provisionPapicSeats",
-        "reissuePapicSeat"
-      ],
+      "actions": [],
       "blocks": [
         "CopyButton",
         "GridPageSkeleton",
         "Link",
-        "PageMasthead",
-        "SubmitButton"
+        "PageMasthead"
       ]
     },
     "/dashboard/[eventId]/studio/papic/crew/poster": {
@@ -9236,6 +9230,7 @@
         "HTMLDivElement",
         "HTMLVideoElement",
         "HowItWorks",
+        "IapUnlockSheet",
         "Icon",
         "InlineCheckoutDrawer",
         "Link",
@@ -9450,6 +9445,7 @@
       ],
       "actions": [],
       "blocks": [
+        "IapUnlockSheet",
         "InlineCheckoutDrawer",
         "Link",
         "PageMasthead",
@@ -9467,6 +9463,7 @@
       "destinations": [],
       "actions": [],
       "blocks": [
+        "IapUnlockSheet",
         "InlineCheckoutDrawer",
         "PageMasthead",
         "PaidMark",
@@ -10918,6 +10915,8 @@
         "ApplyProSheetLab",
         "CollectionCard",
         "CollectionGrid",
+        "DayOfModeGrid",
+        "DayPapicRow",
         "EventPoster",
         "EventPosterFacts",
         "HomeFirstScreen",
@@ -10931,7 +10930,19 @@
         "SiteMenuBar",
         "SpotlightMount",
         "StanceChip",
+        "YourServices",
         "YourShotsGallery"
+      ]
+    },
+    "/dev/iap-doors-lab": {
+      "files": [
+        "dev/iap-doors-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "IapUnlockSheet",
+        "StudioBuyHero"
       ]
     },
     "/dev/maker-lab": {

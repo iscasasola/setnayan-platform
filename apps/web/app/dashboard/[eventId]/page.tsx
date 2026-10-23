@@ -28,6 +28,7 @@ import { LastSeenCapture } from '@/app/_components/last-seen/last-seen-capture';
 import { resolveBudgetVisibility } from '@/lib/budget-visibility';
 import {
   aiStatus,
+  dayPapicFace,
   HOME_PAID_SKU,
   homeGuestsRead,
   homeServices,
@@ -73,7 +74,7 @@ import { AutoPreloadOnEventDay } from '@/app/_components/auto-preload-on-event-d
 import { DayOfModeGrid } from './_components/day-of-mode/grid';
 import { SetDateNudge } from './_components/set-date-nudge';
 import { readHomeGuide } from './_components/details-guide-home-card';
-import { HomeFirstScreen } from './_components/home-first-screen';
+import { DayPapicRow, HomeFirstScreen, YourServices } from './_components/home-first-screen';
 import { rosterStats } from '@/lib/guest-roster-view';
 import { HomeWhatsNext } from './_components/home-parts';
 import { getNavSlotMap } from '@/lib/nav-registry';
@@ -816,7 +817,7 @@ export default async function EventHomePage({
             : null,
       })
     : null;
-  const homeServiceRow = homeServices({
+  const homeServicesInput: Parameters<typeof homeServices>[0] = {
     next: homeNext.kind,
     storeShell,
     eventId,
@@ -864,7 +865,14 @@ export default async function EventHomePage({
             : null,
         )
       : null,
-  });
+  };
+  const homeServiceRow = homeServices(homeServicesInput);
+  // 🧾 On the day and after it no Next card is on screen, so no service stands down for one: the
+  // console and the after page draw the whole list (`next: 'plan'` names no service).
+  const homeServiceRowAll = homeServices({ ...homeServicesInput, next: 'plan' });
+  // 📷 Papic on the event day (owner 22 Oct 2026) — the console draws Your services' OWN Papic entry,
+  // so the day and the plan Home can never say two things about one pool. None in the store shell.
+  const dayPapicSvc = homeServiceRowAll.find((s) => s.key === 'papic');
   // The cover's words — the ONE function the event layout also hands the loading screen.
   const homeFor = await homeForRead;
   const homeCover0 = homeCoverWords({
@@ -1112,6 +1120,19 @@ export default async function EventHomePage({
           // 🍎 A web-bought Live Photo Wall opens nothing in the iPhone app (3.1.3(b)).
           liveWallActive={dayOfLiveWallActive && !storeShell}
           broadcast={dayOfBroadcast}
+          papic={
+            <DayPapicRow
+              eventId={eventId}
+              face={dayPapicFace({
+                svc: dayPapicSvc,
+                papicOn: papicSwitch === undefined ? null : papicIsOn(papicSwitch),
+                permitted: canViewPapicCounts,
+                tile: papicTile,
+              })}
+              svc={dayPapicSvc}
+              left={papicNow.count}
+            />
+          }
         />
       ) : null}
 
@@ -1144,6 +1165,14 @@ export default async function EventHomePage({
             <ArrowRight aria-hidden className="h-4 w-4 flex-none text-ink/40" />
           </Link>
           )}
+
+          {/* 🧾 The rest of Your services on the day — More left the bar (owner 22 Oct 2026, "Yes remove
+              more"), so every service keeps its door here; Papic is already at the top of the console. */}
+          <YourServices
+            eventId={eventId}
+            services={homeServiceRowAll.filter((s) => s.key !== 'papic')}
+            papicLeft={papicNow.count}
+          />
 
           <details className="sn-tile">
             <summary className="cursor-pointer list-none text-[13.5px] font-semibold text-ink/70" data-tour="day-planning">
@@ -1191,6 +1220,10 @@ export default async function EventHomePage({
             summary={afterSummary}
             storeShell={storeShell}
           />
+
+          {/* 🧾 Your services after the day — the summary's "Your services" card scrolls here (More left
+              the bar, owner 22 Oct 2026). None in the store shell, exactly as on the first screen. */}
+          <YourServices eventId={eventId} services={homeServiceRowAll} papicLeft={papicNow.count} />
 
           <details className="sn-tile">
             <summary className="cursor-pointer list-none text-[13.5px] font-semibold text-ink/70">

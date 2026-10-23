@@ -209,8 +209,8 @@ const MINT = /\.from\(\s*'orders'\s*\)\s*\.insert\(/;
 
 for (const [file, fn, before, sideEffect] of [
   [STUDIO, 'purchasePapicPoolTopUp', true, /revalidatePath\(/],
-  [STUDIO, 'purchasePapicExtras', true, /provisionPaidCamerasAdmin\(/],
-  [STUDIO, 'activatePapicLimited', false, /from\('papic_limited_snapshots'\)\s*\.insert\(/],
+  // ⛔ `purchasePapicExtras` and `activatePapicLimited` mint nothing any more — they REFUSE (Papic sells
+  // credits only, 2026-10-23; `lib/papic-sells-only-credits.test.ts` holds that they never reach `orders`).
   [GUEST, 'startPapicGuestPurchase', false, /from\('papic_guest_orders'\)\.insert\(/],
 ] as const) {
   test(`wiring · ${fn} settles twins after minting and before its side effect`, () => {
@@ -230,8 +230,7 @@ for (const [file, fn, before, sideEffect] of [
 
 for (const [file, what] of [
   ['app/dashboard/[eventId]/studio/papic/_components/papic-buy-form.tsx', 'Continue to payment'],
-  ['app/dashboard/[eventId]/studio/papic/extra-cameras-picker.tsx', 'extra cameras'],
-  ['app/dashboard/[eventId]/studio/papic/guest-camera-tier-picker.tsx', 'guest cameras'],
+  // (the extra-cameras and guest-camera tier pickers are deleted — 2026-10-23, the camera tiers retired)
 ] as const) {
   test(`button · ${what} locks while pressed and names the step`, () => {
     const src = read(file);

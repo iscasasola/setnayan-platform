@@ -178,6 +178,7 @@ html.dark .fd {
 /* The drawing's `.tb-l` gap is 14px between the hamburger and the wordmark;
    the right cluster stays at 8. Not symmetric, and not a mistake. */
 .fd-topleft {
+  grid-column: 1;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -190,6 +191,11 @@ html.dark .fd {
 .fd-topright {
   justify-content: flex-end;
   position: relative;
+  /* PINNED to the last column (owner 2026-10-23, "that button should be at the upper right corner").
+     A page that passes `search={false}` renders no middle child, and grid auto-placement then dropped
+     this cluster into the middle (search) column — the account button sat mid-bar on the Events board
+     while its menu opened at the right edge. The column is named, not inferred from sibling count. */
+  grid-column: -2 / -1;
 }
 
 /* The account menu. Signing out lives HERE and nowhere else — visiting the

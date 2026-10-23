@@ -16,7 +16,7 @@ const SURFACES = [
   'app/dashboard/[eventId]/studio/papic/_components/credit-stepper.tsx',
   'app/dashboard/[eventId]/studio/papic/_components/guest-contributions-card.tsx',
   'app/dashboard/[eventId]/studio/papic/_components/papic-stage.tsx',
-  'app/dashboard/[eventId]/studio/papic/extra-cameras-picker.tsx',
+  // (extra-cameras-picker.tsx deleted 2026-10-23 — the crew-camera tiers retired)
   'app/dashboard/[eventId]/studio/papic/couple-challenges-manager.tsx',
   'app/papic/guest/_components/papic-guest-capture.tsx',
   'app/papic/seat/[token]/_components/papic-seat-capture.tsx',

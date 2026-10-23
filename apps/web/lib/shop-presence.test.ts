@@ -70,8 +70,11 @@ type ReadResult = { data: unknown; error: unknown };
 
 /**
  * A stub Supabase client shaped like the two reads `fetchOwnVendorProfile`
- * makes: the own-shop read (`.maybeSingle()` on `vendor_profiles_self`) and
- * the membership read (a thenable ending in `.limit()`).
+ * makes through the active-shop resolver (`lib/active-shop.ts`, 2026-10-22):
+ * the owned-shops LIST read and the membership LIST read, both thenables
+ * ending in `.order()`. (Before the resolver, the own-shop read was a
+ * `.maybeSingle()`; a list read that answers `data: null` is unreadable, so the
+ * "owns nothing" answer is now `data: []`.)
  */
 function stubClient(self: ReadResult, memberships: ReadResult) {
   const builder = (result: ReadResult) => {
@@ -90,7 +93,7 @@ function stubClient(self: ReadResult, memberships: ReadResult) {
   } as never;
 }
 
-const EMPTY_OK: ReadResult = { data: null, error: null };
+const EMPTY_OK: ReadResult = { data: [], error: null };
 const REFUSED: ReadResult = {
   data: null,
   error: { code: '42501', message: 'permission denied for table vendor_team_members' },
@@ -110,4 +113,15 @@ test('a SUCCESSFUL empty membership read still returns null — the proven absen
     'user-with-no-shop',
   );
   assert.equal(result, null, 'a genuinely shopless account must still resolve to null');
+});
+
+test('a REFUSED owned-shops read throws too — an owner is never told they have no shop by a read that did not answer', async () => {
+  await assert.rejects(
+    () =>
+      fetchOwnVendorProfile(
+        stubClient({ data: null, error: { code: '42501', message: 'permission denied for table vendor_profiles' } }, { data: [], error: null }),
+        'owner-with-a-shop',
+      ),
+    /vendor_profiles read unreadable/,
+  );
 });

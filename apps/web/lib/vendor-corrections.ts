@@ -166,19 +166,23 @@ export async function fetchCorrectionRequests(
 }
 
 /**
- * Whether this user's vendor profile is verified-locked. Defensive: any read
+ * Whether THIS shop's profile is verified-locked. Defensive: any read
  * error means NOT locked (the profile save then proceeds exactly as before —
  * never brick a vendor's save on a probe hiccup).
+ *
+ * 🔀 Takes the shop id (2026-10-22), from the active-shop resolver — it used to
+ * find the shop by the login's own id, which names the wrong shop once an
+ * account switches between shops from the avatar sheet.
  */
 export async function fetchVerifiedLock(
   supabase: SupabaseClient,
-  userId: string,
+  vendorProfileId: string,
 ): Promise<boolean> {
   try {
     const { data, error } = await supabase
       .from('vendor_profiles')
       .select('public_visibility')
-      .eq('user_id', userId)
+      .eq('vendor_profile_id', vendorProfileId)
       .maybeSingle();
     if (error || !data) {
       if (error) console.error('[supabase-error] lib/vendor-corrections.ts · from:vendor_profiles.select', error);

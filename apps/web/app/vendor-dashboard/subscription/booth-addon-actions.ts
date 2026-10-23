@@ -24,12 +24,9 @@ import { isVendorAddonFirst5FreeEnabled } from '@/lib/vendor-addon-first5-free-f
 import {
   addonIsFreeUnderFirst5,
   fetchVendorCommittedBookingCount,
-  first5BookingsRemaining,
   nonStackingFreeExpiry,
 } from '@/lib/vendor-addon-first5-free';
-import { FREE_BOOKING_LIMIT } from '@/lib/booking-fee-lock';
 import { BOOTH_BRANDING_MIN_TIER } from '@/lib/seating-3d';
-import { formatCount } from '@/lib/format-number';
 
 /**
  * 3D Booth add-on — buy/activate a 28-day cycle.
@@ -297,7 +294,7 @@ export async function activateVendor3dBooth(
           {
             service_key: VENDOR_3D_BOOTH_SKU_CODE,
             description: first5Free
-            ? '3D Booth — Branded Virtual Booth (free · first 5 bookings)'
+            ? '3D Booth — Branded Virtual Booth (free · until your second booking)'
             : '3D Booth — Branded Virtual Booth (first cycle · free)',
             reference_code: referenceCode,
             // Stamp the order's window so the renewal-reminder job nudges the vendor
@@ -331,7 +328,7 @@ export async function activateVendor3dBooth(
     return {
       status: 'activated',
       message: first5Free
-        ? `Your 3D Booth is on — free while you're on your first ${formatCount(FREE_BOOKING_LIMIT)} bookings (${first5BookingsRemaining(committedBookings)} to go). From your ${FREE_BOOKING_LIMIT + 1}th booking it's ${peso(renewalPricePhp)} / 28 days.`
+        ? `Your 3D Booth is on — free until your second booking. From your second booking it's ${peso(renewalPricePhp)} / 28 days.`
         : `Your 3D Booth is on — your free first 28-day cycle is active. After it ends, it’s ${peso(renewalPricePhp)} / 28 days.`,
     };
   }

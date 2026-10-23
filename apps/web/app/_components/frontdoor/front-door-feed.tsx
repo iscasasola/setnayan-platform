@@ -44,7 +44,6 @@ import { type FrontDoorData } from './data';
 import { shopInitials } from '@/lib/shop-initials';
 import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
 import { bookingFeeScheduleSummary } from '@/lib/booking-fee';
-import { FREE_BOOKING_LIMIT } from '@/lib/booking-fee-lock';
 import { formatCount } from '@/lib/format-number';
 import { hidesEmptyShelfInApp } from '@/lib/empty-marketplace';
 
@@ -428,7 +427,7 @@ export function FrontDoorFeed({
                 first, and added "ever", which no flag can keep true.
 
                 🔑 THE NUMBERS ARE DERIVED, NEVER TYPED. `bookingFeeScheduleSummary()`
-                and `FREE_BOOKING_LIMIT` are the same sources the bill uses, and the
+                and `FIRST_BOOKING_ON_US` speak for the same rule the bill uses, and the
                 launch line is gated on `isBookingFeeEnabled()` — the very flag that
                 decides whether anyone is billed — so the promise and the charge
                 cannot disagree. A hand-edited sentence is exactly what went stale
@@ -438,7 +437,7 @@ export function FrontDoorFeed({
                 Couples pay you directly — we never take a cut of it.{' '}
                 {isBookingFeeEnabled() ? (
                   <>
-                    Your first {formatCount(FREE_BOOKING_LIMIT)} bookings we introduce are free;
+                    Your first booking from Setnayan is on us;
                     after that a booking fee
                     {data.bookingFee ? <> of {bookingFeeScheduleSummary(data.bookingFee)}</> : null}, only
                     on couples we bring you. Your own clients stay free.{' '}

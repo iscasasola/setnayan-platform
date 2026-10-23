@@ -60,7 +60,6 @@ import { TIER_CAPS, TIER_LABEL, type VendorTier } from '@/lib/vendor-tier-caps';
  * replaces.
  */
 import { bookingFeeScheduleSummary, type BookingFeeSchedule } from '@/lib/booking-fee';
-import { FREE_BOOKING_LIMIT } from '@/lib/booking-fee-lock';
 // See the note in vendor-grow-sections.tsx: the launch-period 0% promise is
 // gated on the flag that decides whether anybody is actually billed.
 import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
@@ -371,7 +370,7 @@ export function VendorTierDeltas({
                   >
                     Everything above is free, forever.{' '}
                     {isBookingFeeEnabled()
-                      ? `Your first ${FREE_BOOKING_LIMIT} Setnayan-sourced bookings are free — after that`
+                      ? 'Your first booking from Setnayan is on us — after that'
                       : '0% commission — no booking fee while it is switched off; if it is switched on'}{' '}
                     {feeSchedule ? bookingFeeScheduleSummary(feeSchedule) : 'a booking fee'}, only on couples Setnayan
                     brings you; your own clients stay free.

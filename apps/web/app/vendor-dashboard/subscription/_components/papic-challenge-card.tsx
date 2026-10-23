@@ -74,10 +74,8 @@ export type PapicChallengeCardProps = {
   pricePhp: number;
   /** One cycle in days — 28. Passed in, never re-typed in copy. */
   periodDays: number;
-  /** "Free until your 6th booking" is ACTIVE right now (owner 2026-07-25). */
+  /** "Free until your second booking" is ACTIVE right now (owner 2026-07-25; one free booking since 2026-10-23). */
   first5Free?: boolean;
-  /** How many of the first 5 bookings remain — the honest "2 to go" line. */
-  first5Remaining?: number;
 };
 
 export function PapicChallengeCard(props: PapicChallengeCardProps) {
@@ -92,7 +90,6 @@ export function PapicChallengeCard(props: PapicChallengeCardProps) {
     openRails,
   } = props;
   const first5Free = props.first5Free === true;
-  const first5Remaining = Math.max(0, Math.floor(props.first5Remaining ?? 0));
 
   const toast = useToast();
   const [state, formAction] = useActionState(sponsorPhotoChallenge, IDLE);
@@ -140,8 +137,8 @@ export function PapicChallengeCard(props: PapicChallengeCardProps) {
           <p className="mt-2 text-sm font-medium text-ink">
             {first5Free ? (
               <>
-                Free while you&rsquo;re on your first 5 bookings
-                {first5Remaining > 0 ? <> &middot; {first5Remaining} to go</> : null}, then{' '}
+                {/* ⚖ One free booking since 2026-10-23 — the add-on rides the same window. */}
+                Free until your second booking, then{' '}
                 {peso(pricePhp)} / {formatCount(periodDays)} days.
               </>
             ) : (

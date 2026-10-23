@@ -75,9 +75,6 @@ export type BoothAddonCardProps = {
    *  window. Takes precedence over `trialAvailable` for copy: it is the reason
    *  this cycle is free, and it needs no pay channel. Absent/false → unchanged. */
   first5Free?: boolean;
-  /** How many of the first 5 bookings are still to come — powers the honest
-   *  "2 to go" line so the perk never reads as permanently free. */
-  first5Remaining?: number;
 };
 
 export function BoothAddonCard(props: BoothAddonCardProps) {
@@ -92,7 +89,6 @@ export function BoothAddonCard(props: BoothAddonCardProps) {
     openRails,
   } = props;
   const first5Free = props.first5Free === true;
-  const first5Remaining = Math.max(0, Math.floor(props.first5Remaining ?? 0));
   /** A free cycle is granted with no money changing hands — from the first-5
    *  perk (repeatable) or the legacy one-time trial. Both skip the pay channel. */
   const freeCycle = first5Free || trialAvailable;
@@ -140,8 +136,8 @@ export function BoothAddonCard(props: BoothAddonCardProps) {
           <p className="mt-2 text-sm font-medium text-ink">
             {first5Free ? (
               <>
-                Free while you&rsquo;re on your first 5 bookings
-                {first5Remaining > 0 ? <> &middot; {first5Remaining} to go</> : null}, then{' '}
+                {/* ⚖ One free booking since 2026-10-23 — the add-on rides the same window. */}
+                Free until your second booking, then{' '}
                 {peso(pricePhp)} / 28 days.
               </>
             ) : trialAvailable ? (

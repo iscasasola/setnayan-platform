@@ -4,7 +4,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import type { VendorProfileRow } from '@/lib/vendor-profile';
 import { MICROSITE_COLUMNS, micrositeFromRow } from '@/lib/vendor-microsite';
-import { isShopLive, isPubliclyVisible } from '@/lib/vendor-visibility';
+import { isShopLive } from '@/lib/vendor-visibility';
+import { shopPageGate } from '@/lib/own-shop-preview';
 import { fetchReviewStats, fetchReviewsForVendorWithCouple } from '@/lib/reviews';
 import { fetchVendorPoolBookings } from '@/lib/vendor-schedule';
 import { loadVendorFeaturedStories } from '@/lib/realstories-vendor';
@@ -184,7 +185,13 @@ export async function loadPageData(supabase: SupabaseClient, profile: VendorProf
     label: vocab.serviceLabels?.[key] ?? titleCase(key),
   }));
   const slug = profile.business_slug ?? null;
-  const visible = isPubliclyVisible(profile.public_visibility ?? 'coming_soon');
+  // The page opens for its own team whenever a stranger's not-found is not "closed" (lib/own-shop-preview.ts) — so
+  // 👁 View my page works BEFORE couples can see it, which is the whole point of the button. This used to be
+  // `isPubliclyVisible`, which greyed the button for every shop not yet listed: the very shops that need a preview.
+  const visible = shopPageGate(
+    { public_visibility: profile.public_visibility, verification_state: own?.verification_state ?? null },
+    { isTeam: true, adminDemoMode: false },
+  ).open !== 'nobody';
   const live = isShopLive({ public_visibility: profile.public_visibility, verification_state: own?.verification_state ?? null });
 
   const saved: PageSaved = pageSavedFrom(

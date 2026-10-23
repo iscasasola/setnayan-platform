@@ -175,7 +175,7 @@ export function PageParts({
         </div>
         {!d.live ? (
           <p className="border-t border-ink/10 px-3.5 py-2.5 text-[13px] text-ink/60">
-            Only you can open it for now. Couples see it once Setnayan checks your documents and lists your shop.
+            Only you and your team can open it for now. Couples see it once Setnayan checks your documents and lists your shop.
           </p>
         ) : null}
       </div>

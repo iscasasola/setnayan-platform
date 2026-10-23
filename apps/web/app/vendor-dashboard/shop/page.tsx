@@ -593,11 +593,10 @@ function HeroCard({
 
       <CompletenessRing pct={data.completionPct} />
 
-      {/* Only offer the outbound preview when the page really renders. A hidden
-          shop's own page 404s for everybody (app/v/[slug]/page.tsx checks
-          `isPubliclyVisible` before the owner-preview carve-out), so linking a
-          not-yet-approved vendor at their own address sends them to a 404 and
-          reads as a broken product. */}
+      {/* "View as couple" only once couples really can. Before that the page
+          opens for the shop's own team with a banner (lib/own-shop-preview.ts,
+          23 Oct) — reached from Your page's 👁 View my page and the avatar
+          sheet's View page ↗ — and this slot carries the next step instead. */}
       {publicPath && data.websiteLive ? (
         <a
           href={publicPath}

@@ -40,6 +40,10 @@ import { stripComments } from '@/lib/strip-comments';
 }
 const { ThumbRow, thumbRowRides } = require('@/components/thumb-row') as typeof RowMod;
 const { ChatSendForm } = require('@/app/_components/chat-send-form') as typeof ChatMod;
+const { TypingBand } = require('@/app/_components/typing-band') as typeof import('@/app/_components/typing-band');
+const { ActionButton } = require('@/components/action-button') as typeof import('@/components/action-button');
+const { Check } = require('lucide-react') as typeof import('lucide-react');
+const { SP_KEY_BAR, SP_KEY_DONE } = require('@/lib/maker-stage-room') as typeof import('@/lib/maker-stage-room');
 
 const WEB = process.cwd();
 const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
@@ -75,6 +79,23 @@ test('2 · one typing band — only typing-band.tsx draws "Typing ·", and the M
   ]) {
     assert.match(read(f), /<TypingBand\b/, `${f}: the Maker's bar is not the one typing band`);
   }
+});
+
+test('2b · the Maker is unchanged: the band in flow renders the toolbar’s old bar, byte for byte', () => {
+  const blur = () => {};
+  // The Maker's toolbar bar as it shipped before the band (stage-tools.tsx, origin/main 2026-10-24).
+  const was = renderToStaticMarkup(
+    createElement(
+      'div',
+      { 'data-stage-keys': '', className: `-mx-[10px] rounded-t-2xl !border-t-0 !bg-transparent ${SP_KEY_BAR}` },
+      createElement('span', { className: 'min-w-0 truncate' }, 'Typing · ', 'Names'),
+      createElement('span', { 'data-type-done': '', className: SP_KEY_DONE }, createElement(ActionButton, { tone: 'brand', main: true, icon: Check, label: 'Done', onClick: blur })),
+    ),
+  );
+  const now = renderToStaticMarkup(
+    createElement(TypingBand, { inline: true, 'data-stage-keys': '', className: '-mx-[10px] rounded-t-2xl !border-t-0 !bg-transparent', place: 'Names', onDone: blur } as never),
+  );
+  assert.equal(now, was, 'the Maker’s typing bar is drawn differently through the one band');
 });
 
 test('3 · every bottom row’s field rides — rendered — and an opt-out says why', () => {

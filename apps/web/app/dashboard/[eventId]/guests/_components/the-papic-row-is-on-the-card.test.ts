@@ -13,7 +13,7 @@
  *  5 · Select → Set… ▾ gains a Papic group only while the event's Papic is on, for the couple.
  *
  * SABOTAGE (each seen RED, then restored): the off branch's hidden carriers dropped · the camera drawn on an unread ceiling ·
- * a `name=` given to the camera's dropdown · the Papic options offered with Papic unknown · `guestCameraOf(0)` read as 'set'.
+ * a named hidden input inside the camera · the Papic options offered with Papic unknown · `guestCameraOf(0)` read as 'set'.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';

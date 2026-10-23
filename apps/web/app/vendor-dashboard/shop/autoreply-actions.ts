@@ -12,8 +12,6 @@ import { isVendorAiAddonActive } from '@/lib/vendor-addon-pricing';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import {
   AUTO_ACCEPT_THRESHOLD_DEFAULT,
-  DAILY_AUTO_ACCEPT_CAP_DEFAULT,
-  DAILY_REPLY_CAP_DEFAULT,
   parseAutoReplyConfigForm,
   parseVoiceSwitchesForm,
 } from '@/lib/vendor-autoreply/config';
@@ -43,10 +41,8 @@ export type AutoReplySaveResult =
   | {
       ok: true;
       enabled: boolean;
-      dailyReplyCap: number;
       autoAcceptEnabled: boolean;
       autoAcceptThreshold: number;
-      dailyAutoAcceptCap: number;
     }
   | { ok: false; error: string };
 
@@ -69,9 +65,9 @@ export async function updateAutoReplyConfig(
   const parsed = parseAutoReplyConfigForm(formData);
   if (!parsed.ok) return parsed;
 
-  // Partial upsert: only the columns in the patch are written, so the instant
-  // toggle never clobbers the caps (and vice versa). A fresh row picks up the
-  // schema defaults for everything else.
+  // Partial upsert: only the columns in the patch are written, so one switch
+  // never clobbers another. A fresh row picks up the schema defaults for
+  // everything else (the two retired daily_* columns included — unread).
   const { data, error } = await supabase
     .from('vendor_bot_config')
     .upsert(
@@ -82,7 +78,7 @@ export async function updateAutoReplyConfig(
       },
       { onConflict: 'vendor_profile_id' },
     )
-    .select('enabled,daily_reply_cap,auto_accept_enabled,auto_accept_threshold,daily_auto_accept_cap')
+    .select('enabled,auto_accept_enabled,auto_accept_threshold')
     .maybeSingle();
 
   if (error) {
@@ -97,18 +93,12 @@ export async function updateAutoReplyConfig(
 
   const row = data as {
     enabled?: boolean;
-    daily_reply_cap?: number;
     auto_accept_enabled?: boolean;
     auto_accept_threshold?: number;
-    daily_auto_accept_cap?: number;
   } | null;
   return {
     ok: true,
     enabled: row ? Boolean(row.enabled) : (parsed.patch.enabled ?? false),
-    dailyReplyCap:
-      row && typeof row.daily_reply_cap === 'number'
-        ? row.daily_reply_cap
-        : (parsed.patch.daily_reply_cap ?? DAILY_REPLY_CAP_DEFAULT),
     autoAcceptEnabled: row
       ? Boolean(row.auto_accept_enabled)
       : (parsed.patch.auto_accept_enabled ?? false),
@@ -116,10 +106,6 @@ export async function updateAutoReplyConfig(
       row && typeof row.auto_accept_threshold === 'number'
         ? row.auto_accept_threshold
         : (parsed.patch.auto_accept_threshold ?? AUTO_ACCEPT_THRESHOLD_DEFAULT),
-    dailyAutoAcceptCap:
-      row && typeof row.daily_auto_accept_cap === 'number'
-        ? row.daily_auto_accept_cap
-        : (parsed.patch.daily_auto_accept_cap ?? DAILY_AUTO_ACCEPT_CAP_DEFAULT),
   };
 }
 

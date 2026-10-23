@@ -1,10 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import {
-  AUTO_ACCEPT_THRESHOLD_DEFAULT,
-  DAILY_AUTO_ACCEPT_CAP_DEFAULT,
-  DAILY_REPLY_CAP_DEFAULT,
-} from '@/lib/vendor-autoreply/config';
+import { AUTO_ACCEPT_THRESHOLD_DEFAULT } from '@/lib/vendor-autoreply/config';
 import { AutoReplyCard } from './autoreply-card';
 // Advanced voice-match panel — self-gating on NEXT_PUBLIC_VENDOR_AI_VOICE_MATCH (returns null, zero queries, when off).
 import { VoiceMatchSection } from './voice-match-section';
@@ -16,25 +12,21 @@ import { VoiceMatchSection } from './voice-match-section';
  */
 /** Loads the vendor's Auto-Reply config for the Phase-4 card. Soft probe (the
  *  My Shop pattern): a pre-migration DB or a vendor with no row yet degrades
- *  to the schema defaults (off · cap 30) instead of blanking the page. Only
+ *  to the schema defaults (off) instead of blanking the page. Only
  *  ever runs behind the flag, so flag-off costs zero queries. */
 export async function AutoReplySection({ vendorProfileId }: { vendorProfileId: string }) {
   let enabled = false;
-  let dailyCap = DAILY_REPLY_CAP_DEFAULT;
   let autoAcceptEnabled = false;
   let autoAcceptThreshold = AUTO_ACCEPT_THRESHOLD_DEFAULT;
-  let dailyAutoAcceptCap = DAILY_AUTO_ACCEPT_CAP_DEFAULT;
   try {
     const supabase = await createClient();
     const { data, error } = await supabase
       .from('vendor_bot_config')
-      .select(
-        'enabled,daily_reply_cap,auto_accept_enabled,auto_accept_threshold,daily_auto_accept_cap',
-      )
+      .select('enabled,auto_accept_enabled,auto_accept_threshold')
       .eq('vendor_profile_id', vendorProfileId)
       .maybeSingle();
     // ⚠ their front-desk assistant's settings. Refused, `if (row)` is skipped
-    // ⚠ and every value stays at its default, so a reply cap or an auto-accept
+    // ⚠ and every value stays at its default, so a switch or an auto-accept
     // ⚠ threshold they configured reads as though they never touched it.
     if (error) {
       logQueryError(
@@ -46,20 +38,14 @@ export async function AutoReplySection({ vendorProfileId }: { vendorProfileId: s
     }
     const row = data as {
       enabled?: boolean;
-      daily_reply_cap?: number;
       auto_accept_enabled?: boolean;
       auto_accept_threshold?: number;
-      daily_auto_accept_cap?: number;
     } | null;
     if (row) {
       enabled = Boolean(row.enabled);
-      if (typeof row.daily_reply_cap === 'number') dailyCap = row.daily_reply_cap;
       autoAcceptEnabled = Boolean(row.auto_accept_enabled);
       if (typeof row.auto_accept_threshold === 'number') {
         autoAcceptThreshold = row.auto_accept_threshold;
-      }
-      if (typeof row.daily_auto_accept_cap === 'number') {
-        dailyAutoAcceptCap = row.daily_auto_accept_cap;
       }
     }
   } catch {
@@ -70,10 +56,8 @@ export async function AutoReplySection({ vendorProfileId }: { vendorProfileId: s
     <section aria-labelledby="auto-reply-heading">
       <AutoReplyCard
         initialEnabled={enabled}
-        initialDailyCap={dailyCap}
         initialAutoAcceptEnabled={autoAcceptEnabled}
         initialAutoAcceptThreshold={autoAcceptThreshold}
-        initialDailyAutoAcceptCap={dailyAutoAcceptCap}
       />
       <VoiceMatchSection vendorProfileId={vendorProfileId} />
     </section>

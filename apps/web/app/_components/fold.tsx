@@ -29,6 +29,7 @@ export function Fold({
   aside,
   lead,
   anchor,
+  popovers = false,
 }: {
   /** What the fold is — "More for guests". */
   title: string;
@@ -55,9 +56,27 @@ export function Fold({
    * fold. Absent → no id, and the fold is exactly as it was.
    */
   anchor?: string;
+  /**
+   * AN ⓘ INSIDE MAY HANG PAST THE FOLD'S EDGE. The body clips (`overflow-hidden`) so its height can move; that also
+   * cuts off an `InfoTip` popover that opens near the bottom. `popovers` lifts the clip once the fold has finished
+   * opening, and puts it back the moment it starts to shut. Opt-in, so every other fold is exactly as it was.
+   */
+  popovers?: boolean;
   className?: string;
 }) {
   const [open, setOpen] = useState(defaultOpen);
+  // "Settled" = open AND the height has finished moving. Only then may a popover spill out.
+  const [settled, setSettled] = useState(defaultOpen);
+  useEffect(() => {
+    if (!popovers) return;
+    if (!open) {
+      setSettled(false);
+      return;
+    }
+    // transitionend does not fire under "reduce motion" (no transition) — a short timer covers it either way.
+    const t = setTimeout(() => setSettled(true), 750); // the height moves at --sn-pill-dur (700 ms)
+    return () => clearTimeout(t);
+  }, [open, popovers]);
   const scope = useOneOpen(open, setOpen);
   const id = useId();
   const box = useRef<HTMLDivElement>(null);
@@ -110,7 +129,7 @@ export function Fold({
         className={`grid transition-[grid-template-rows] duration-sn-pill ease-sn motion-reduce:transition-none ${open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}
       >
         {/* 4 px of room each side, so a row's focus ring and an open field's highlight are not cut by the fold's edge. */}
-        <div className={`-mx-1 min-h-0 overflow-hidden px-1 transition-opacity duration-sn-pill ease-sn motion-reduce:transition-none ${open ? 'opacity-100' : 'opacity-0'}`}>
+        <div className={`-mx-1 min-h-0 ${popovers && open && settled ? 'overflow-visible' : 'overflow-hidden'} px-1 transition-opacity duration-sn-pill ease-sn motion-reduce:transition-none ${open ? 'opacity-100' : 'opacity-0'}`}>
           <OneOpenScope id={scope}>{children}</OneOpenScope>
         </div>
       </div>

@@ -34,5 +34,8 @@ Guards: `lib/own-shop-preview.test.ts` (every column combination), `app/v/[slug]
 Root map: `screens.generated.json` regenerated (`ugat:screens`); the new `/dev/shop-preview-lab` is recorded in
 `lib/ugat/baselines/no-door.baseline.txt` like every other `/dev/*` lab (internal, reached by typing its address).
 
+Badge guard: `lib/own-shop-preview.ts` reads `verification_state` raw once — the team-preview gate's reason line,
+not a "Verified" badge — so it gets its reasoned line on `BADGE_SITE_BILL` (`lib/the-badge-has-a-deadline.test.ts`).
+
 SPEC IMPACT: None — implements the existing owner self-preview intent (PR-B) for hidden and demo shops and helpers;
 no ruling changed. Whether SetnaProd should stop being a demo shop is the owner's call (DECISION_LOG 2026-09-29).

@@ -8,14 +8,16 @@
  * list: three widths, three left edges.
  *
  * The property, held for every bottom-pinned row of the three pages (Guests' dock, Suppliers' Find row, Build's bar):
- *   1. From 701 its horizontal edges come from the COLUMN'S MEASURED EDGES (`followColumn`'s variables) — never a
- *      viewport constant: no `vw` width, no bare `right-[…rem]`, no fixed width.
- *   2. The column hands `followColumn` itself (the section carrying the width), with the names the rows read.
+ *   1. From 1024 its horizontal edges come from the COLUMN'S MEASURED EDGES (`followColumn`'s variables) — never a
+ *      viewport constant. Below 1024 nothing is written, so each `var(…, fallback)` is its tablet place, unchanged.
+ *   2. The column hands `followColumn` itself (the section carrying the width), from 1024 only, with the names the
+ *      rows read.
  *   3. `followColumn` writes the column's edges onto the element it is told to (the document root, where a row
  *      portaled into <body> can read them), and takes them off again when the page leaves.
  *
  * Sabotage (2026-10-23): the Find row back to `tab:right-[max(1.75rem,…)] tab:w-[min(720px,calc(100vw-128px))]`
- * (1 red); the takeover's `followColumn` call removed (2 red); the target's cleanup removed (3 red).
+ * (1 red); its width without the column variable (1 red); the takeover's `followColumn` call removed, or the
+ * `matchMedia` gate opened to every width (2 red); the target's cleanup removed (3 red).
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -45,39 +47,50 @@ const ROWS: Array<{ name: string; file: string; marker: string; spans: boolean }
   { name: 'Suppliers · Build bar', file: 'build-body.tsx', marker: 'data-build-bar=""', spans: false },
 ];
 
-test('1 · from 701 every Suppliers bottom row takes its edges from the column, never the viewport', () => {
+const TABLET = { left: 'auto', right: 'max(1.75rem,var(--sn-safe-r))', w: 'min(720px,calc(100vw-128px))' };
+
+test('1 · from 1024 every bottom row takes its edges from the column; below it, its tablet place is unchanged', () => {
   for (const row of ROWS) {
     const anchors = desktopAnchors(classOf(read(row.file), row.marker));
-    for (const a of anchors) {
-      if (a.value === 'auto' || a.value === '0') continue;
-      assert.match(a.value, /^\[var\(--sup-col-(left|right)\b/, `${row.name}: tab/lg ${a.side} is "${a.value}" — a viewport anchor, not the column's edge`);
-      assert.doesNotMatch(a.value, /vw/, `${row.name}: its width is measured from the viewport`);
-    }
-    const right = anchors.find((a) => a.side === 'right');
-    assert.ok(right, `${row.name}: no column-right edge from 701`);
+    assert.ok(!anchors.some((a) => a.value.startsWith('[') && !a.value.startsWith('[var(--sup-col-')), `${row.name}: a desktop edge is a viewport constant, not the column's`);
+    const edge = (side: string) => {
+      const a = anchors.find((x) => x.side === side);
+      const m = a ? /^\[var\(--sup-col-(left|right|w),(.*)\)\]$/.exec(a.value) : null;
+      return m ? { name: m[1]!, fallback: m[2]! } : null;
+    };
+    const right = edge('right');
+    assert.ok(right && right.name === 'right', `${row.name}: its right edge is not the column's (--sup-col-right)`);
+    // The fallback IS the tablet place: the variables are written only from 1024, so 701–1023 draws exactly what it did.
+    assert.equal(right.fallback, TABLET.right, `${row.name}: the tablet right edge moved`);
     if (row.spans) {
-      const left = anchors.find((a) => a.side === 'left');
-      assert.ok(left && /--sup-col-left/.test(left.value), `${row.name}: its left edge is not the column's — it does not span the column`);
-      assert.ok(!anchors.some((a) => a.side === 'w'), `${row.name}: carries a width of its own — the column's two edges ARE its width`);
+      const left = edge('left');
+      const w = edge('w');
+      assert.ok(left && left.name === 'left' && left.fallback === TABLET.left, `${row.name}: its left is not the column's, or the tablet left moved`);
+      assert.ok(w && w.name === 'w' && w.fallback === TABLET.w, `${row.name}: its width is not the column's, or the tablet width moved`);
     }
   }
-  // Guests' dock: the same property, carried in its stylesheet from 701.
+  // Guests' dock: its edges follow the column from 701 (shipped), and from 1024 its controls sit ON those edges —
+  // in the event screen only, with the side safe area still cleared.
   const css = read('../../guests/_components/guests-screen.module.css');
   const lower = /@media \(min-width: 701px\) \{\s*\.lower \{([^}]*)\}/.exec(css)?.[1] ?? '';
   assert.match(lower, /left:\s*var\(--gs-left/, "Guests' dock: its left is not the column's");
   assert.match(lower, /right:\s*var\(--gs-right/, "Guests' dock: its right is not the column's");
-  assert.match(lower, /padding-left:\s*0;[\s\S]*padding-right:\s*0;/, "Guests' dock: its controls sit inside a gutter of their own, off the column's edges");
+  const desk = /\.screen\[data-guests-screen\] \.lower \{([^}]*)\}/.exec(css)?.[1] ?? '';
+  assert.match(desk, /padding-left:\s*max\(0px,\s*var\(--sn-safe-l\)\);/, "Guests' dock: from 1024 its controls sit off the column's left edge, or lost the side safe area");
+  assert.match(desk, /padding-right:\s*max\(0px,\s*var\(--sn-safe-r\)\);/, "Guests' dock: from 1024 its controls sit off the column's right edge, or lost the side safe area");
 });
 
-test('2 · the Suppliers column hands followColumn ITSELF, under the names the rows read', () => {
+test('2 · the Suppliers column hands followColumn ITSELF, from 1024 only, under the names the rows read', () => {
   const src = read('services-takeover.tsx');
   assert.match(src, /<section ref=\{rootRef\}[^>]*data-budget-build-takeover=""/, 'the column section lost its ref');
+  assert.match(src, /const COLUMN_ROWS_FROM = '\(min-width: 1024px\)';/, 'the rows do not take the column from the full-width line');
+  assert.match(src, /window\.matchMedia\(COLUMN_ROWS_FROM\)/, 'the column edges are written at every width — the tablet rows move');
   assert.match(
     src,
-    /followColumn\(\s*root,\s*\{\s*target:\s*document\.documentElement,\s*left:\s*'--sup-col-left',\s*right:\s*'--sup-col-right'\s*\}\s*\)/,
+    /followColumn\(root,\s*\{\s*target:\s*document\.documentElement,\s*left:\s*'--sup-col-left',\s*right:\s*'--sup-col-right',\s*width:\s*'--sup-col-w'\s*\}\)/,
     'the Suppliers column does not publish its edges for the portaled rows',
   );
-  assert.match(src, /const root = rootRef\.current;[\s\S]{0,80}return followColumn\(/, 'followColumn is not handed the column (rootRef) or its cleanup is dropped');
+  assert.match(src, /const root = rootRef\.current;/, 'followColumn is not handed the column (rootRef)');
 });
 
 test('3 · followColumn writes the column’s edges onto the target, and takes them off when the page leaves', () => {
@@ -95,8 +108,9 @@ test('3 · followColumn writes the column’s edges onto the target, and takes t
   g.window = { addEventListener: () => {}, removeEventListener: () => {} };
   g.ResizeObserver = undefined;
   try {
-    const stop = followColumn(column as unknown as HTMLElement, { target: target as unknown as HTMLElement, left: '--sup-col-left', right: '--sup-col-right' });
+    const stop = followColumn(column as unknown as HTMLElement, { target: target as unknown as HTMLElement, left: '--sup-col-left', right: '--sup-col-right', width: '--sup-col-w' });
     assert.equal(vars.get('--sup-col-left'), '272px', 'the row’s left is not the column’s left');
+    assert.equal(vars.get('--sup-col-w'), '976px', 'the row’s width is not the column’s width');
     assert.equal(vars.get('--sup-col-right'), '32px', 'the row’s right is not the column’s right');
     assert.equal(own.size, 0, 'the column was written instead of the target');
     stop();

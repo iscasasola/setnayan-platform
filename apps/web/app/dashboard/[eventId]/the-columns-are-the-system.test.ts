@@ -36,9 +36,12 @@ test('Guests List and Setup read; the Map is the wide stage', () => {
   assert.match(screen, new RegExp(`max-width:\\s*${READING.css};`), 'below 1024 the List/Setup column is not the 48-rem reading column');
   assert.match(
     css,
-    /@media \(min-width: 1024px\) \{\s*\.screen \{\s*max-width: none;\s*\}\s*\}/,
+    /@media \(min-width: 1024px\) \{\s*\.screen\[data-guests-screen\] \{\s*max-width: none;\s*\}/,
     'from 1024 the List/Setup column is still capped (owner 2026-10-23: full width)',
   );
+  // People wears the same `.screen` (people-roster-view.tsx) and keeps its reading column: the uncap is the event
+  // screen's alone, never the bare class.
+  assert.doesNotMatch(css, /@media \(min-width: 1024px\) \{\s*\.screen \{[^}]*max-width:\s*none/, 'the uncap leaks onto every `.screen` — People too');
   const map = /\.screen\[data-guests-screen='map'\] \{([^}]*)\}/.exec(css)?.[1] ?? '';
   assert.match(map, new RegExp(`max-width:\\s*${WIDE.css};`), 'the Map is not the 64-rem wide stage');
 });

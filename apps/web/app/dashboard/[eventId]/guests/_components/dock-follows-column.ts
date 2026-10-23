@@ -22,13 +22,14 @@
  *
  * 🖥 SUPPLIERS USES IT TOO (owner 2026-10-23, "bottom search bar is misaligned"): its thumb rows are portaled into
  * <body>, so they cannot read a variable set on the column — `opts.target` writes the same two numbers on another
- * element (the document root) under the caller's names, and the cleanup takes them off again.
+ * element (the document root) under the caller's names (and, with `opts.width`, the column's width), and the cleanup
+ * takes them off again.
  */
 
 /** Pin `column`'s dock to the column's own left/right edges, and keep it there. Returns the cleanup. */
 export function followColumn(
   column: HTMLElement,
-  opts: { target?: HTMLElement; left?: string; right?: string } = {},
+  opts: { target?: HTMLElement; left?: string; right?: string; width?: string } = {},
 ): () => void {
   const target = opts.target ?? column;
   const leftVar = opts.left ?? '--gs-left';
@@ -40,6 +41,7 @@ export function followColumn(
     const vw = document.documentElement.clientWidth;
     target.style.setProperty(leftVar, `${Math.max(0, r.left)}px`);
     target.style.setProperty(rightVar, `${Math.max(0, vw - r.right)}px`);
+    if (opts.width) target.style.setProperty(opts.width, `${Math.max(0, r.width)}px`);
   };
   sync();
   // The column itself (its own size), its stage (a card column opening beside it, the rail changing width — the column
@@ -55,6 +57,7 @@ export function followColumn(
     if (target !== column) {
       target.style.removeProperty(leftVar);
       target.style.removeProperty(rightVar);
+      if (opts.width) target.style.removeProperty(opts.width);
     }
   };
 }

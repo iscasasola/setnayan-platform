@@ -82,6 +82,9 @@ import { BENCH_BUILT_EVENT, benchLocalStore, builtNowIn } from './bench-local';
 import { SuppliersModeContext, THUMB_SLIDE_MS } from './suppliers-mode';
 import { followColumn } from '../../guests/_components/dock-follows-column';
 
+/** The rows take the column's edges from here up — the 2026-10-23 full-width line (`lg`). */
+const COLUMN_ROWS_FROM = '(min-width: 1024px)';
+
 // The cross-tab bus (BB_TAB_EVENT + goToBuildTab) and TAB_META live in
 // @/lib/budget-build (2026-06-16) so the layout-mounted nav shares them without
 // importing across _components. Re-exported here so the existing imperative
@@ -339,11 +342,25 @@ export function ServicesTakeover({
   // ── ONE BODY COLUMN: THE THUMB ROWS SIT UNDER IT (owner 2026-10-23, "bottom search bar is misaligned") ──
   // Find's thumb row, Build's bar and the cart peek are portaled into <body> and pinned to the bottom edge, so CSS
   // cannot give them this column's edges. The Guests dock's own mechanism writes them on the document root —
-  // `--sup-col-left` / `--sup-col-right` — and the rows read them from 701 (`the-thumb-row-shares-the-column.test.ts`).
+  // `--sup-col-left` / `--sup-col-right` / `--sup-col-w` — FROM 1024 ONLY: below it nothing is written and each row's
+  // `var(…, fallback)` is its tablet place, unchanged (`the-thumb-row-shares-the-column.test.ts`).
   useEffect(() => {
     const root = rootRef.current;
-    if (!root) return;
-    return followColumn(root, { target: document.documentElement, left: '--sup-col-left', right: '--sup-col-right' });
+    if (!root || typeof window.matchMedia !== 'function') return;
+    const desk = window.matchMedia(COLUMN_ROWS_FROM);
+    let stop: (() => void) | null = null;
+    const apply = () => {
+      stop?.();
+      stop = desk.matches
+        ? followColumn(root, { target: document.documentElement, left: '--sup-col-left', right: '--sup-col-right', width: '--sup-col-w' })
+        : null;
+    };
+    apply();
+    desk.addEventListener('change', apply);
+    return () => {
+      desk.removeEventListener('change', apply);
+      stop?.();
+    };
   }, []);
 
   const drawn = (m: SuppliersMode) => m === mode || seen.has(m);

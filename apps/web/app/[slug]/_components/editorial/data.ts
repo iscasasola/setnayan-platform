@@ -16,6 +16,7 @@
 
 import { cache } from 'react';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { startAhead } from '@/lib/start-ahead';
 import { isSampleEditorialId, type SampleEditorialId } from './sample-ids';
 import { readCustomColumns, type CustomColumn } from './custom-columns';
 import { storyAudienceOf, type StoryAudience } from '@/lib/who-can-see-your-story';
@@ -861,6 +862,152 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
   } catch {
     return null;
   }
+  /*
+    ⚡ EVERY READ THAT NEEDS ONLY THIS EVENT'S ID LEAVES NOW, TOGETHER (2026-10-23). Production: the Post Event
+    story took 2.3 s for a guest and 3.8 s for the couple's Maker canvas, and the page's own timer
+    (`slug/invitation-body`) said 0.13–0.36 s of that was the page — the rest was this loader and the component
+    above it, ~50 database trips in single file (`editorial-reads.harness.ts`). Each read below is STARTED here
+    with exactly the query it always had (moved, not rewritten) and awaited at the line that always awaited it,
+    inside the try/catch that always caught it — so every value, every fallback and every refusal arrives where it
+    did; a story the component then refuses to show simply drops what was read. Reads that need an earlier
+    answer (the suppliers' profiles, the hero photo, the tags, the clips and timeline inside the day's window)
+    stay where they were. Nothing here writes. Held by `the-story-reads-start-together.test.ts`.
+  */
+  const early = <T,>(start: () => PromiseLike<T>): Promise<T> => startAhead(Promise.resolve().then(start));
+  const ahead = {
+    storyRow: early(() =>
+      admin
+      .from('event_editorial')
+      .select(
+        'status, draft_json, impact_metrics, editorial_tone, hero_photo_id, essay_photo_ids, generated_at, published_at, edition_volume, edition_no',
+      )
+      .eq('event_id', eventId)
+      .maybeSingle()),
+    guestsTotal: early(() =>
+      admin
+      .from('guests')
+      .select('guest_id', { count: 'exact', head: true })
+      .eq('event_id', eventId)
+      .is('deleted_at', null)
+      .neq('entry_source', REQUEST_ENTRY_SOURCE).eq(PASSED_AWAY, false)),
+    guestsAttending: early(() =>
+      admin
+      .from('guests')
+      .select('guest_id', { count: 'exact', head: true })
+      .eq('event_id', eventId)
+      .is('deleted_at', null)
+      .neq('entry_source', REQUEST_ENTRY_SOURCE).eq(PASSED_AWAY, false)
+      .eq('rsvp_status', 'attending')),
+    guestsReplied: early(() =>
+      admin
+      .from('guests')
+      .select('guest_id', { count: 'exact', head: true })
+      .eq('event_id', eventId)
+      .is('deleted_at', null)
+      .neq('entry_source', REQUEST_ENTRY_SOURCE).eq(PASSED_AWAY, false)
+      .neq('rsvp_status', 'pending')),
+    supplierRows: early(() =>
+      admin
+      .from('event_vendors')
+      .select('vendor_name, category, selection_match_rank, linked_vendor_profile_id')
+      .eq('event_id', eventId)),
+    consentVeto: early(() =>
+      loadConsentVetoedPapicIds(admin, eventId)),
+    photoCount: early(() =>
+      admin
+      .from('papic_photos')
+      .select('photo_id', { count: 'exact', head: true })
+      .eq('event_id', eventId)
+      .is('hidden_at', null)
+      .eq('moderation_state', PUBLIC_SAFE_MODERATION_STATE)),
+    clipCount: early(() =>
+      admin
+      .from('papic_photos')
+      .select('photo_id', { count: 'exact', head: true })
+      .eq('event_id', eventId)
+      .eq('photo_type', 'clip')
+      .is('hidden_at', null)
+      .eq('moderation_state', PUBLIC_SAFE_MODERATION_STATE)),
+    papicPhotoRows: early(() =>
+      admin
+      .from('papic_photos')
+      // Derivative columns + full_res_dropped_at so the gallery still resolves to
+      // the drop-durable web copy — the raw original 404s after the 90-day sweep
+      // (a bug already LIVE on this public page). moderation_state is selected for
+      // the client-side defense-in-depth gate below.
+      .select('photo_id, r2_object_key, display_r2_key, thumb_r2_key, full_res_dropped_at, captured_at, moderation_state')
+      .eq('event_id', eventId)
+      .eq('photo_type', 'photo')
+      .is('hidden_at', null)
+      .eq('moderation_state', PUBLIC_SAFE_MODERATION_STATE)
+      .order('captured_at', { ascending: false })
+      .limit(EDITORIAL_PAPIC_GALLERY_CAP)),
+    wallMirror: early(() =>
+      guestWallMirrorActive(admin, eventId)),
+    supplierMedia: early(() =>
+      admin
+      .from('editorial_vendor_media')
+      .select(
+        'media_id, event_vendor_id, media_type, boomerang_r2_key, still_r2_key, caption, sort_order',
+      )
+      .eq('event_id', eventId)
+      .eq('moderation_state', 'clean')
+      // ⚖ ACCEPT IS THE ONLY WAY ANYTHING ENTERS (08 step 1.2). Until the desk
+      // shipped there was no host decision on this table at all: the only lever
+      // was `hidden_by_couple`, DEFAULT FALSE — shown unless hidden — and it has
+      // never had a writer, so a supplier's frame published itself. `status` is
+      // born 'pending' and the host chooses it in at the desk.
+      // ⚠ BOTH filters are kept, not one: belt and braces, so losing either
+      // still leaves the other. That is this file's own house style (see the
+      // challenge-answer read below, which filters server-side AND in memory).
+      .eq('status', 'approved')
+      .eq('hidden_by_couple', false)
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: true })),
+    orderRows: early(() =>
+      admin
+      .from('orders')
+      .select('service_key, status')
+      .eq('event_id', eventId)
+      .not('status', 'in', '("draft","cancelled","refunded","lapsed")')),
+    recommendations: early(() =>
+      fetchEventRecommendations(admin, eventId)),
+    challengeAnswers: early(() =>
+      admin
+      .from('papic_mission_completions')
+      .select('completion_id, mission_id, capture_id, guest_id, created_at')
+      .eq('event_id', eventId)
+      .eq('consent_to_share', true)
+      // ⚖ ACCEPT IS THE ONLY WAY ANYTHING ENTERS (08 step 1.2). `consent_to_share`
+      // is the GUEST's yes; before the desk it was the ONLY yes, so an answer
+      // reached the public story without the host ever being asked. Both are
+      // required now and neither substitutes for the other.
+      .eq('status', 'approved')
+      .not('capture_id', 'is', null)
+      .order('created_at', { ascending: true })
+      .limit(EDITORIAL_CHALLENGE_ANSWER_CAP)),
+    messages: early(() =>
+      admin
+      .from('photo_messages')
+      .select('body_text, guest_id, source_table, source_id, submitted_at')
+      .eq('event_id', eventId)
+      .eq('status', 'approved')
+      .eq('moderation_state', 'clean')
+      .eq('author_publicly_hidden', false)
+      .order('submitted_at', { ascending: true })
+      .limit(EDITORIAL_KWENTO_CAP)),
+    guestColumns: early(() =>
+      guestColumnsActive()),
+    liveWatch: early(() =>
+      eventSkuActive(admin, eventId, 'LIVE_STUDIO')),
+    films: early(() =>
+      admin
+      .from('event_films')
+      .select('provider, video_id, video_hash, label')
+      .eq('event_id', eventId)
+      .order('sort_key', { ascending: true })
+      .order('id', { ascending: true })),
+  };
 
   // 1. The event (required). Without it there's no page.
   //
@@ -931,13 +1078,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
   // 2. The editorial snapshot (optional). Frozen impact metrics + composed copy.
   let editorial: Record<string, unknown> | null = null;
   try {
-    const { data } = await admin
-      .from('event_editorial')
-      .select(
-        'status, draft_json, impact_metrics, editorial_tone, hero_photo_id, essay_photo_ids, generated_at, published_at, edition_volume, edition_no',
-      )
-      .eq('event_id', eventId)
-      .maybeSingle();
+    const { data } = await ahead.storyRow;
     if (data) editorial = data as Record<string, unknown>;
   } catch {
     editorial = null;
@@ -976,36 +1117,19 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
   let attending = 0;
   let replied = 0;
   try {
-    const { count: total } = await admin
-      .from('guests')
-      .select('guest_id', { count: 'exact', head: true })
-      .eq('event_id', eventId)
-      .is('deleted_at', null)
-      .neq('entry_source', REQUEST_ENTRY_SOURCE).eq(PASSED_AWAY, false);
+    const { count: total } = await ahead.guestsTotal;
     guests = total ?? 0;
   } catch {
     guests = 0;
   }
   try {
-    const { count: att } = await admin
-      .from('guests')
-      .select('guest_id', { count: 'exact', head: true })
-      .eq('event_id', eventId)
-      .is('deleted_at', null)
-      .neq('entry_source', REQUEST_ENTRY_SOURCE).eq(PASSED_AWAY, false)
-      .eq('rsvp_status', 'attending');
+    const { count: att } = await ahead.guestsAttending;
     attending = att ?? 0;
   } catch {
     attending = 0;
   }
   try {
-    const { count: rep } = await admin
-      .from('guests')
-      .select('guest_id', { count: 'exact', head: true })
-      .eq('event_id', eventId)
-      .is('deleted_at', null)
-      .neq('entry_source', REQUEST_ENTRY_SOURCE).eq(PASSED_AWAY, false)
-      .neq('rsvp_status', 'pending');
+    const { count: rep } = await ahead.guestsReplied;
     replied = rep ?? 0;
   } catch {
     replied = 0;
@@ -1019,10 +1143,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
   let firstPickNum = 0;
   let firstPickDen = 0;
   try {
-    const { data: rows } = await admin
-      .from('event_vendors')
-      .select('vendor_name, category, selection_match_rank, linked_vendor_profile_id')
-      .eq('event_id', eventId);
+    const { data: rows } = await ahead.supplierRows;
     if (Array.isArray(rows)) {
       firstPickDen = rows.length;
 
@@ -1100,7 +1221,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
   // resolve failure we fail CLOSED (drop all papic captures → manual uploads
   // only). Resolved ONCE here and reused by the gallery / clip / timeline / hero
   // / essay / kwento reads.
-  const consentVeto = await loadConsentVetoedPapicIds(admin, eventId);
+  const consentVeto = await ahead.consentVeto;
 
   // 5. Photos delivered (best-effort; omit if the count can't be had cheaply).
   // PUBLIC surface → fail-CLOSED: count ONLY screened-clean captures. 'unscreened'
@@ -1110,12 +1231,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
   // code path writes.)
   let photos: number | null = null;
   try {
-    const { count, error } = await admin
-      .from('papic_photos')
-      .select('photo_id', { count: 'exact', head: true })
-      .eq('event_id', eventId)
-      .is('hidden_at', null)
-      .eq('moderation_state', PUBLIC_SAFE_MODERATION_STATE);
+    const { count, error } = await ahead.photoCount;
     if (error) console.error('[supabase-error] app/[slug]/_components/editorial/data.ts · from:papic_photos.select', error);
     if (!error && typeof count === 'number') photos = count;
   } catch {
@@ -1128,13 +1244,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
   // omits the clip stat, exactly like the photo stat.
   let clips: number | null = null;
   try {
-    const { count, error } = await admin
-      .from('papic_photos')
-      .select('photo_id', { count: 'exact', head: true })
-      .eq('event_id', eventId)
-      .eq('photo_type', 'clip')
-      .is('hidden_at', null)
-      .eq('moderation_state', PUBLIC_SAFE_MODERATION_STATE);
+    const { count, error } = await ahead.clipCount;
     if (error) console.error('[supabase-error] app/[slug]/_components/editorial/data.ts · from:papic_photos.select', error);
     if (!error && typeof count === 'number') clips = count;
   } catch {
@@ -1150,19 +1260,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
   type PapicRow = { photoId: string; key: string; capturedAt: string | null };
   let papicRows: PapicRow[] = [];
   try {
-    const { data: rows, error } = await admin
-      .from('papic_photos')
-      // Derivative columns + full_res_dropped_at so the gallery still resolves to
-      // the drop-durable web copy — the raw original 404s after the 90-day sweep
-      // (a bug already LIVE on this public page). moderation_state is selected for
-      // the client-side defense-in-depth gate below.
-      .select('photo_id, r2_object_key, display_r2_key, thumb_r2_key, full_res_dropped_at, captured_at, moderation_state')
-      .eq('event_id', eventId)
-      .eq('photo_type', 'photo')
-      .is('hidden_at', null)
-      .eq('moderation_state', PUBLIC_SAFE_MODERATION_STATE)
-      .order('captured_at', { ascending: false })
-      .limit(EDITORIAL_PAPIC_GALLERY_CAP);
+    const { data: rows, error } = await ahead.papicPhotoRows;
     if (error) console.error('[supabase-error] app/[slug]/_components/editorial/data.ts · from:papic_photos.select', error);
     if (!error && Array.isArray(rows)) {
       papicRows = filterPublicSafeRows(rows as Array<Record<string, unknown>>)
@@ -1661,7 +1759,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
   let photoWallPhotos: string[] = [];
   let photoWallActive = false;
   try {
-    photoWallActive = await guestWallMirrorActive(admin, eventId);
+    photoWallActive = await ahead.wallMirror;
   } catch {
     photoWallActive = false;
   }
@@ -1685,25 +1783,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
   // Best-effort: a missing table (pre-migration) yields [].
   const vendorMedia: VendorMediaItem[] = [];
   try {
-    const { data: rows } = await admin
-      .from('editorial_vendor_media')
-      .select(
-        'media_id, event_vendor_id, media_type, boomerang_r2_key, still_r2_key, caption, sort_order',
-      )
-      .eq('event_id', eventId)
-      .eq('moderation_state', 'clean')
-      // ⚖ ACCEPT IS THE ONLY WAY ANYTHING ENTERS (08 step 1.2). Until the desk
-      // shipped there was no host decision on this table at all: the only lever
-      // was `hidden_by_couple`, DEFAULT FALSE — shown unless hidden — and it has
-      // never had a writer, so a supplier's frame published itself. `status` is
-      // born 'pending' and the host chooses it in at the desk.
-      // ⚠ BOTH filters are kept, not one: belt and braces, so losing either
-      // still leaves the other. That is this file's own house style (see the
-      // challenge-answer read below, which filters server-side AND in memory).
-      .eq('status', 'approved')
-      .eq('hidden_by_couple', false)
-      .order('sort_order', { ascending: true })
-      .order('created_at', { ascending: true });
+    const { data: rows } = await ahead.supplierMedia;
     const mediaRows = (rows ?? []) as Array<Record<string, unknown>>;
     if (mediaRows.length > 0) {
       // Live recommended-pick re-check: keep only rows whose event_vendor is
@@ -1773,11 +1853,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
   // 8. In-app Setnayan services availed (paid orders → display labels).
   const servicesAvailed: string[] = [];
   try {
-    const { data: orderRows } = await admin
-      .from('orders')
-      .select('service_key, status')
-      .eq('event_id', eventId)
-      .not('status', 'in', '("draft","cancelled","refunded","lapsed")');
+    const { data: orderRows } = await ahead.orderRows;
     const seen = new Set<string>();
     for (const o of (orderRows ?? []) as Array<Record<string, unknown>>) {
       const key = asString(o.service_key);
@@ -1824,7 +1900,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
   // Best-effort like every other block — a missing/legacy table degrades to [].
   let vendorsWeLoved: EventRecommendation[] = [];
   try {
-    vendorsWeLoved = await fetchEventRecommendations(admin, eventId);
+    vendorsWeLoved = await ahead.recommendations;
   } catch {
     vendorsWeLoved = [];
   }
@@ -2266,19 +2342,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
   }
 
   try {
-    const { data: completions, error: cErr } = await admin
-      .from('papic_mission_completions')
-      .select('completion_id, mission_id, capture_id, guest_id, created_at')
-      .eq('event_id', eventId)
-      .eq('consent_to_share', true)
-      // ⚖ ACCEPT IS THE ONLY WAY ANYTHING ENTERS (08 step 1.2). `consent_to_share`
-      // is the GUEST's yes; before the desk it was the ONLY yes, so an answer
-      // reached the public story without the host ever being asked. Both are
-      // required now and neither substitutes for the other.
-      .eq('status', 'approved')
-      .not('capture_id', 'is', null)
-      .order('created_at', { ascending: true })
-      .limit(EDITORIAL_CHALLENGE_ANSWER_CAP);
+    const { data: completions, error: cErr } = await ahead.challengeAnswers;
     if (cErr) console.error('[supabase-error] app/[slug]/_components/editorial/data.ts · from:papic_mission_completions.select', cErr);
 
     if (!cErr && Array.isArray(completions) && completions.length > 0) {
@@ -2364,15 +2428,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
 
   const kwentoQuotes: KwentoQuote[] = [];
   try {
-    const { data: rows, error } = await admin
-      .from('photo_messages')
-      .select('body_text, guest_id, source_table, source_id, submitted_at')
-      .eq('event_id', eventId)
-      .eq('status', 'approved')
-      .eq('moderation_state', 'clean')
-      .eq('author_publicly_hidden', false)
-      .order('submitted_at', { ascending: true })
-      .limit(EDITORIAL_KWENTO_CAP);
+    const { data: rows, error } = await ahead.messages;
     if (error) console.error('[supabase-error] app/[slug]/_components/editorial/data.ts · from:photo_messages.select', error);
     const msgRows = !error && Array.isArray(rows) ? (rows as Array<Record<string, unknown>>) : [];
     if (msgRows.length > 0) {
@@ -2599,7 +2655,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
     author: string | null;
     role: string | null;
   }> = [];
-  if (await guestColumnsActive()) {
+  if (await ahead.guestColumns) {
     try {
       const { data: colRows, error } = await admin
         .from('guest_columns')
@@ -2727,7 +2783,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
   // URL. Best-effort: 42703/parse error → null, never throws.
   let watchFilmEmbedUrl: string | null = null;
   try {
-    if (await eventSkuActive(admin, eventId, 'LIVE_STUDIO')) {
+    if (await ahead.liveWatch) {
       let videoId: string | null = null;
 
       const { data: eventRow, error: eventErr } = await admin
@@ -2778,12 +2834,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
   // is dropped, never rendered as a broken frame. Fail-soft to [].
   let films: EventFilm[] = [];
   try {
-    const { data: filmRows } = await admin
-      .from('event_films')
-      .select('provider, video_id, video_hash, label')
-      .eq('event_id', eventId)
-      .order('sort_key', { ascending: true })
-      .order('id', { ascending: true });
+    const { data: filmRows } = await ahead.films;
     films = filmsFromRows((filmRows ?? []) as EventFilmRow[]);
   } catch {
     films = [];

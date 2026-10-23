@@ -1,60 +1,40 @@
-import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import Link from 'next/link';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
-import {
-  ArrowLeft,
-  Camera,
-  Check,
-  CircleAlert,
-  Printer,
-  RefreshCw,
-  UserCheck,
-  UserPlus,
-} from 'lucide-react';
+import { ArrowLeft, Camera, CircleAlert, Printer } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
-import { crewHolderName, crewShotsLeftLabel } from '@/lib/papic-crew-roster';
-import {
-  eventPapicSeatsActive,
-  fetchPapicSeats,
-  papicSeatJoinUrl,
-} from '@/lib/papic-seats';
-import { PAPIC_FREE_ONE_CAMERA_INDEX } from '@/lib/papic-cameras';
 import { renderUrlQrSvg } from '@/lib/qr';
 import { sharedJoinLinkState } from '@/lib/shared-join-link';
-import { provisionPapicSeats, reissuePapicSeat } from '../actions';
 import { CopyButton } from './_components/copy-button';
-import { SubmitButton } from '@/app/_components/submit-button';
 import { PageMasthead } from '@/app/_components/page-masthead';
-import { formatCount } from '@/lib/format-number';
 
-// Papic · Your photo crew (couple-side seat management)
+// Papic · One code for everyone (couple-side).
 //
-// The claim-link roster — every paparazzi_seats row that carries its own claim
-// link/QR: the PAPIC_SEATS pack (5 seats, uncapped) and the per-camera Unlimited
-// extras (the only off-guest-list shooters, index >= 200, capture gated on
-// payment via the record/presign per-camera checks). Guest-list Limited cameras
-// use each guest's invite QR and are managed on the main Papic page, not here.
+// ⛔ THE PER-SEAT CARDS ARE GONE (owner 2026-10-23, of "Free camera 1 / 2 / 3 / Free camera / Free camera
+// 51" — each with its own link, QR and Reset link: "why do i have these?"). They were a camera per seat,
+// and the 2026-09-16 ruling retired that model: *"we do not have papic seat. we only have papic with credits
+// and shared amongst everybody."* ("Free camera 51" was not even a crew camera — it was seat 150, the
+// couple's OWN uploads camera, mislabelled by the `>= 100` branch.)
 //
-// For each seat we show a shareable claim link + QR, its claim status, and a
-// reissue control. A friend opens a claim link → /papic/claim/[token] →
-// /papic/seat/[token] capture.
+// What stays is the one thing a couple hands out: the event's shared join code. Anyone who scans it lands
+// on the Event Hub with a camera that shoots from the shared credits. Each guest's own invite QR is their
+// camera too. The seats themselves are untouched in the database — a seat is the camera CLAIM a phone
+// holds, never an allowance — and `papic_event_point_grants.seat_id` (the free camera grant the owner said
+// "should stay" on 2026-09-22) is server machinery nobody hands out, so nothing here shows it.
 //
-// Gated: signed-in couple on the event. Force-dynamic — per-request auth + live
-// seat state.
+// Gated: signed-in couple on the event. Force-dynamic — per-request auth + the live join link.
 
 export const dynamic = 'force-dynamic';
 
 type Props = {
   params: Promise<{ eventId: string }>;
+  /** `seat_set` / `seat_error` were the per-seat cards' confirmations — accepted and ignored now. */
   searchParams: Promise<{ seat_set?: string; seat_error?: string }>;
 };
 
-export default async function PapicCrewPage({ params, searchParams }: Props) {
+export default async function PapicCrewPage({ params }: Props) {
   const { eventId } = await params;
-  const { seat_set: seatSet, seat_error: seatError } = await searchParams;
 
   const supabase = await createClient();
   const {
@@ -78,9 +58,6 @@ export default async function PapicCrewPage({ params, searchParams }: Props) {
 
   const backLink = `/dashboard/${eventId}/studio/papic`;
 
-  // The roster is every claim-link seat — the PAPIC_SEATS pack plus any paid
-  // per-camera Unlimited extras. ownsPack tells the zero-state apart: an owner
-  // with no seats yet can top them up; a non-owner is pointed back to set Papic up.
   const { data: eventRow, error: eventRowError } = await supabase
     .from('events')
     .select('slug, landing_page_visibility, scheduled_launch_at, std_launched_at')
@@ -115,118 +92,10 @@ export default async function PapicCrewPage({ params, searchParams }: Props) {
     tokenValid: joinTokenValid,
   });
 
-  const ownsPack = await eventPapicSeatsActive(await eventEntitlementClient(eventId), eventId);
-  const seats = await fetchPapicSeats(supabase, eventId);
-
-  // ---- Nothing set up yet → point back to the Papic page ----
-  if (seats.length === 0 && !ownsPack) {
-    return (
-      <section className="space-y-6 pb-12">
-        <Link
-          href={backLink}
-          className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
-        >
-          <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-          Back to Papic
-        </Link>
-        <div className="rounded-2xl border border-ink/10 bg-surface p-7 text-center">
-          <UserPlus aria-hidden className="mx-auto h-7 w-7 text-terracotta" strokeWidth={1.75} />
-          <h1 className="mt-3 text-2xl font-semibold tracking-tight">No crew cameras yet</h1>
-          <p className="mx-auto mt-2 max-w-prose text-sm text-ink/65">
-            Crew claim links come from the Papic photo-crew pack or from adding an
-            Unlimited extra camera for someone off your guest list. Set those up on
-            the Papic page.
-          </p>
-          <Link
-            href={backLink}
-            className="mt-5 inline-flex items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600"
-          >
-            <Camera aria-hidden className="h-4 w-4" strokeWidth={2} />
-            Go to Papic
-          </Link>
-        </div>
-      </section>
-    );
-  }
-
   const h = await headers();
   const host = h.get('host') ?? 'www.setnayan.com';
   const proto = h.get('x-forwarded-proto') ?? 'https';
   const appUrl = `${proto}://${host}`;
-
-  // ── WHO IS HOLDING WHICH CAMERA ────────────────────────────────────────────
-  //
-  // 🔒 SCOPED TO THIS EVENT, AND TO ONE FIELD. The only user ids read are the
-  // claimers of THIS event's seats, and the only column selected is the display
-  // name — never the email sitting beside it. This page is already gated above
-  // to a signed-in `couple` member of the event.
-  //
-  // ⚠ IT HAS TO BE THE SERVICE-ROLE CLIENT. `public.users` carries exactly two
-  // policies — `user_owns_row` and admin — so a couple reading another
-  // person's row under their own session gets ZERO ROWS AND NO ERROR. That is
-  // indistinguishable from "this seat is unclaimed", which is precisely the
-  // wrong answer to render here: the screen would have looked fixed and shown
-  // nothing.
-  const claimerIds = [...new Set(seats.map((s) => s.claimer_user_id).filter(Boolean))] as string[];
-  const nameByUserId = new Map<string, string>();
-  if (claimerIds.length > 0) {
-    const { data: holders, error: holdersError } = await createAdminClient()
-      .from('users')
-      .select('user_id, display_name')
-      .in('user_id', claimerIds);
-    // ⚠ the names of the people holding each camera. Refused, every seat reads as
-    // ⚠ unclaimed or unnamed — the couple cannot tell who has what.
-    if (holdersError) {
-      logQueryError('PapicCrewPage.holders', holdersError, { eventId }, 'graceful_degrade');
-    }
-    for (const h of (holders ?? []) as Array<Record<string, unknown>>) {
-      if (typeof h.user_id === 'string' && typeof h.display_name === 'string') {
-        nameByUserId.set(h.user_id, h.display_name);
-      }
-    }
-  }
-
-  const seatViews = await Promise.all(
-    seats.map(async (s) => {
-      // Hybrid join link: native app opens directly when installed, otherwise
-      // forwards to the existing /papic/claim flow. Legacy /papic/claim links
-      // still work, so any QR printed before this stays valid.
-      const claimUrl = papicSeatJoinUrl(appUrl, s.claim_qr_token);
-      const qrSvg = await renderUrlQrSvg(claimUrl, 128);
-
-      // How many shots this camera has left. `papic_camera_points_remaining` is
-      // SECURITY DEFINER and — checked in production — is EXECUTE-granted to
-      // `authenticated`, so it runs on the couple's own client. (Its sibling
-      // `papic_seat_dedicated_points` is NOT granted; calling that one from here
-      // would fail silently.) Display only: the fail-closed spend gate is
-      // `papic_reserve_capture_split`, and this must never become a second
-      // opinion about whether a camera may shoot.
-      let remaining: number | null = null;
-      if (s.claimer_user_id) {
-        const { data: pts, error: ptsErr } = await supabase.rpc(
-          'papic_camera_points_remaining',
-          { p_seat_id: s.seat_id },
-        );
-        if (ptsErr) console.error('[supabase-error] app/dashboard/[eventId]/studio/papic/crew/page.tsx · rpc:papic_camera_points_remaining', ptsErr);
-        // A failed probe stays null and the row simply says nothing about
-        // shots — never 0, which on this screen means "that camera has
-        // stopped" and would send a host to fix a camera that is fine.
-        remaining = !ptsErr && typeof pts === 'number' ? pts : null;
-      }
-
-      return {
-        ...s,
-        claimUrl,
-        qrSvg,
-        holderName: s.claimer_user_id
-          ? crewHolderName(nameByUserId.get(s.claimer_user_id))
-          : null,
-        shotsLeftLabel: crewShotsLeftLabel(remaining),
-      };
-    }),
-  );
-
-  const claimedCount = seats.filter((s) => s.claimer_user_id).length;
 
   // ── THE POSTER QR — the EVENT SITE's own join link ─────────────────────────
   //
@@ -263,261 +132,70 @@ export default async function PapicCrewPage({ params, searchParams }: Props) {
         titleNode={
           <>
             <Camera aria-hidden strokeWidth={1.75} />
-            Your photo crew
+            One code for everyone
           </>
         }
       />
-      <div className="mt-3 space-y-3">
-        {seats.length > 0 && (
-          <div className="flex flex-wrap items-center gap-3">
-            <p className="text-sm text-ink/55">
-              {formatCount(claimedCount)} of {formatCount(seats.length)} cameras claimed.
-            </p>
-            <Link
-              href={`${backLink}/crew/print`}
-              target="_blank"
-              rel="noopener"
-              className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 transition hover:bg-ink/10 hover:text-ink"
-            >
-              <Printer aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-              Print QR cards
-            </Link>
+
+      {poolJoinUrl && poolQrSvg ? (
+        <div className="rounded-2xl border-2 border-terracotta/40 bg-terracotta/[0.04] p-5 sm:p-6">
+          <div className="flex flex-wrap items-start gap-5">
+            <div
+              aria-hidden
+              className="shrink-0 rounded-xl bg-white p-2 [&>svg]:h-32 [&>svg]:w-32"
+              dangerouslySetInnerHTML={{ __html: poolQrSvg }}
+            />
+            <div className="min-w-0 flex-1 space-y-2">
+              <h2 className="text-lg font-semibold tracking-tight text-ink">Print it, or show it at the door</h2>
+              <p className="max-w-prose text-sm text-ink/70">
+                Anyone who scans it gets a camera and shoots from your shared credits — no app, no
+                sign-up. Each guest&rsquo;s own invite QR is their camera too.
+              </p>
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                <CopyButton value={poolJoinUrl} />
+                <Link
+                  href={`${backLink}/crew/poster`}
+                  target="_blank"
+                  rel="noopener"
+                  className="inline-flex min-h-[44px] items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 transition hover:bg-ink/10 hover:text-ink"
+                >
+                  <Printer aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+                  Print the poster
+                </Link>
+              </div>
+              <p className="pt-1 text-xs text-ink/50">
+                Anyone holding this code can shoot. Reprint from a fresh code if it ends up somewhere you
+                didn&rsquo;t intend.
+              </p>
+            </div>
           </div>
-        )}
-      </div>
-
-      {seatSet === 'provisioned' && (
-        <div className="flex items-start gap-2 rounded-lg border border-terracotta/30 bg-terracotta/5 px-4 py-3 text-sm text-ink/80">
-          <Check aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-terracotta" strokeWidth={2} />
-          {/* ⚠ Was "Your five seats are ready" — a hardcoded count from the
-              retired PAPIC_SEATS pass. Papic One has no seat cap and Pool
-              cameras are unlimited, so the number is read off the roster we
-              just fetched, never spelled. */}
-          Your {seats.length === 1 ? 'camera is' : `${seats.length} cameras are`} ready.
-          Share a link with each friend below.
-        </div>
-      )}
-      {seatSet === 'reissued' && (
-        <div className="flex items-start gap-2 rounded-lg border border-terracotta/30 bg-terracotta/5 px-4 py-3 text-sm text-ink/80">
-          <Check aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-terracotta" strokeWidth={2} />
-          Camera reissued — the old link no longer works. Share the fresh one.
-        </div>
-      )}
-      {seatError && (
-        <div className="flex items-start gap-2 rounded-lg border border-ink/15 bg-ink/5 px-4 py-3 text-sm text-ink/80">
-          <CircleAlert aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-ink/60" strokeWidth={2} />
-          We couldn&rsquo;t do that just now. Please try again.
-        </div>
-      )}
-
-      {seats.length === 0 ? (
-        <div className="rounded-2xl border border-ink/10 bg-surface p-7 text-center">
-          <UserPlus aria-hidden className="mx-auto h-7 w-7 text-terracotta" strokeWidth={1.75} />
-          {/* ⚠ NO SEAT COUNT HERE. This said "Top up your 5 seats" / "Your 5
-              photo-crew seats", from PAPIC_SEAT_COUNT — the count of the RETIRED
-              PAPIC_SEATS pass. What an event actually gets is
-              PAPIC_FREE_CAMERA_COUNT (3) shared-pool cameras plus the free Papic
-              One, and a paid event gets however many it bought. Five was true of
-              none of them.
-              🪤 The message 20 lines below was fixed for exactly this reason and
-              carries a comment saying so — but it is the branch that renders
-              when seats EXIST, and this is the branch that renders when they do
-              not. One arm got the fix; the other kept the stale number. So the
-              count is simply not spelled here: this is the ZERO state, and the
-              roster it would describe is the thing that does not exist yet. */}
-          <h2 className="mt-3 text-xl font-semibold tracking-tight">Set up your crew cameras</h2>
-          <p className="mx-auto mt-2 max-w-prose text-sm text-ink/65">
-            Your photo-crew cameras are set up automatically the moment your
-            order is approved. If any are missing, tap below to fill them in — each
-            gets its own claim link and QR you can hand to a friend.
-          </p>
-          {/* Idempotent top-up: provisionPapicSeats only inserts the missing seat
-              indexes (ON CONFLICT DO NOTHING), so this is now a SAFE fallback, not a
-              required first step — seats already exist post-approval. */}
-          <form action={provisionPapicSeats} className="mt-5">
-            <input type="hidden" name="event_id" value={eventId} />
-            <SubmitButton
-              pendingLabel="Filling in…"
-              className="inline-flex items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600"
-            >
-              <Camera aria-hidden className="h-4 w-4" strokeWidth={2} />
-              Fill in my crew cameras
-            </SubmitButton>
-          </form>
         </div>
       ) : (
-        <>
-        {poolJoinUrl && poolQrSvg ? (
-          <div className="rounded-2xl border-2 border-terracotta/40 bg-terracotta/[0.04] p-5 sm:p-6">
-            <div className="flex flex-wrap items-start gap-5">
-              <div
-                aria-hidden
-                className="shrink-0 rounded-xl bg-white p-2 [&>svg]:h-32 [&>svg]:w-32"
-                dangerouslySetInnerHTML={{ __html: poolQrSvg }}
-              />
-              <div className="min-w-0 flex-1 space-y-2">
-                <h2 className="text-lg font-semibold tracking-tight text-ink">
-                  One code for everyone
-                </h2>
-                <p className="max-w-prose text-sm text-ink/70">
-                  Print this, put it on a table. Anyone who scans it gets their
-                  own camera and shoots into your shared pool — no app, no
-                  sign-up, and it never runs out of cameras. It stops when your
-                  shots do.
-                </p>
-                <div className="flex flex-wrap items-center gap-2 pt-1">
-                  <CopyButton value={poolJoinUrl} />
-                  <Link
-                    href={`${backLink}/crew/poster`}
-                    target="_blank"
-                    rel="noopener"
-                    className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 transition hover:bg-ink/10 hover:text-ink"
-                  >
-                    <Printer aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                    Print the poster
-                  </Link>
-                </div>
-                <p className="pt-1 text-xs text-ink/50">
-                  Anyone holding this code can shoot. Reprint from a fresh code
-                  if it ends up somewhere you didn&rsquo;t intend.
-                </p>
-              </div>
+        /* ⚠ SAY WHY, DO NOT JUST VANISH. A private event's invite door refuses scanners by design, so a QR
+           printed anyway opens to "Link not found"; the refusal is deliberate, only silence would be the
+           defect. Every state that is not usable carries its notice (`lib/shared-join-link.ts`). */
+        <div className="rounded-2xl border-2 border-dashed border-ink/20 bg-ink/[0.02] p-5 sm:p-6">
+          <div className="flex flex-wrap items-start gap-4">
+            <CircleAlert aria-hidden className="mt-0.5 h-6 w-6 shrink-0 text-terracotta" strokeWidth={1.75} />
+            <div className="min-w-0 flex-1 space-y-2">
+              <h2 className="text-lg font-semibold tracking-tight text-ink">Not working yet</h2>
+              <p className="max-w-prose text-sm text-ink/70">
+                {posterLink.notice ?? 'We couldn’t check your shared code just now. Reload the page to try again.'}
+              </p>
+              {posterLink.state === 'private' ? (
+                <Link
+                  href={`/dashboard/${eventId}/website`}
+                  className="mt-1 inline-flex min-h-[44px] items-center gap-1.5 rounded-md bg-mulberry px-3 py-2 text-xs font-medium text-cream hover:bg-mulberry-600"
+                >
+                  Open your Event Hub settings
+                </Link>
+              ) : null}
+              <p className="pt-1 text-xs text-ink/50">
+                Your guests&rsquo; own invite QRs still work — this only affects the one shared code.
+              </p>
             </div>
           </div>
-        ) : posterLink.notice ? (
-          /* ⚠ SAY WHY, DO NOT JUST VANISH. The QR used to be printed from the
-             slug alone, so a private event handed the host a code that opens to
-             "Link not found" — and simply hiding it here would be the same
-             silence one step earlier: the host would ask where the shared code
-             went, or print an old one. The door's refusal is deliberate; only
-             its silence was the defect. */
-          <div className="rounded-2xl border-2 border-dashed border-ink/20 bg-ink/[0.02] p-5 sm:p-6">
-            <div className="flex flex-wrap items-start gap-4">
-              <CircleAlert
-                aria-hidden
-                className="mt-0.5 h-6 w-6 shrink-0 text-terracotta"
-                strokeWidth={1.75}
-              />
-              <div className="min-w-0 flex-1 space-y-2">
-                <h2 className="text-lg font-semibold tracking-tight text-ink">
-                  One code for everyone — not working yet
-                </h2>
-                <p className="max-w-prose text-sm text-ink/70">{posterLink.notice}</p>
-                {posterLink.state === 'private' ? (
-                  <Link
-                    href={`/dashboard/${eventId}/website`}
-                    className="mt-1 inline-flex items-center gap-1.5 rounded-md bg-mulberry px-3 py-2 text-xs font-medium text-cream hover:bg-mulberry-600"
-                  >
-                    Open your Event Hub settings
-                  </Link>
-                ) : null}
-                <p className="pt-1 text-xs text-ink/50">
-                  The named cameras below still work — this only affects the one
-                  shared code.
-                </p>
-              </div>
-            </div>
-          </div>
-        ) : null}
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          {seatViews.map((s) => {
-            const claimed = Boolean(s.claimer_user_id);
-            return (
-              <div key={s.seat_id} className="rounded-xl border border-ink/10 bg-surface p-4">
-                <div className="flex items-center justify-between">
-                  <p className="font-medium text-ink">
-                    {/* The free Papic ONE camera sits at a FIXED index (110),
-                     *  deliberately clear of the free SHARED range (100..102).
-                     *  The `>= 100` branch swallowed it and rendered
-                     *  "Free camera 11" (110 − 99), while papic-cameras-card.tsx
-                     *  calls the same seat "Camera #110" — one camera with two
-                     *  names, neither of which says what it is. It is the one
-                     *  camera here whose shots are its OWN, so it is named for
-                     *  that, and the check must come FIRST or the range test
-                     *  wins again. */}
-                    {s.seat_index >= 200
-                      ? `Camera ${s.seat_index - 199}` /* paid per-camera (index base 200) */
-                      : s.seat_index === PAPIC_FREE_ONE_CAMERA_INDEX
-                        ? 'Free camera'
-                        : s.seat_index >= 100
-                          ? `Free camera ${s.seat_index - 99}` /* free shared pool (100..102) */
-                          : `Seat ${s.seat_index}`}
-                  </p>
-                  {claimed ? (
-                    /* The pill now carries the NAME, because "Claimed" was the
-                       one thing the host could already work out from the
-                       missing QR. Falls back to "Claimed" only when the holder
-                       has no name to show at all. */
-                    <span className="inline-flex max-w-[60%] items-center gap-1.5 rounded-full bg-terracotta/10 px-2.5 py-1 text-xs font-medium text-mulberry">
-                      <UserCheck aria-hidden className="h-3.5 w-3.5 shrink-0" strokeWidth={2} />
-                      <span className="truncate">{s.holderName ?? 'Claimed'}</span>
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-ink/5 px-2.5 py-1 text-xs font-medium text-ink/60">
-                      Open
-                    </span>
-                  )}
-                </div>
-
-                {claimed ? (
-                  <>
-                    <p className="mt-2 text-sm text-ink/65">
-                      {s.holderName
-                        ? `${s.holderName} has this camera and can shoot.`
-                        : 'A friend has this seat and can shoot.'}{' '}
-                      Reissue it to hand the camera to someone else — the old
-                      link stops working.
-                    </p>
-                    {/* Only rendered when the number is actually known. "Out of
-                        shots" is the state a host is looking for, so it is the
-                        one that gets the loud colour. */}
-                    {s.shotsLeftLabel ? (
-                      <p
-                        className={`mt-1.5 text-xs font-medium ${
-                          s.shotsLeftLabel === 'Out of credits'
-                            ? 'text-mulberry-600'
-                            : 'text-ink/55'
-                        }`}
-                      >
-                        {s.shotsLeftLabel}
-                      </p>
-                    ) : null}
-                  </>
-                ) : (
-                  <>
-                    <p className="mt-2 text-sm text-ink/65">
-                      Share this link (or QR) with the friend you want on this
-                      seat.
-                    </p>
-                    <div className="mt-3 flex items-center gap-2">
-                      <code className="min-w-0 flex-1 truncate rounded-md bg-ink/5 px-2.5 py-1.5 text-xs text-ink/70">
-                        {s.claimUrl}
-                      </code>
-                      <CopyButton value={s.claimUrl} />
-                    </div>
-                    <div className="mt-3 inline-block rounded-lg bg-cream p-2" aria-label={`QR code for seat ${s.seat_index}`}>
-                      <div className="h-32 w-32" dangerouslySetInnerHTML={{ __html: s.qrSvg }} />
-                    </div>
-                  </>
-                )}
-
-                <form action={reissuePapicSeat} className="mt-3">
-                  <input type="hidden" name="event_id" value={eventId} />
-                  <input type="hidden" name="seat_id" value={s.seat_id} />
-                  <SubmitButton
-                    pendingLabel="Reissuing…"
-                    className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/5"
-                  >
-                    <RefreshCw aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                    {claimed ? 'Reissue to someone else' : 'Reset link'}
-                  </SubmitButton>
-                </form>
-              </div>
-            );
-          })}
         </div>
-        </>
       )}
     </section>
   );

@@ -168,6 +168,7 @@ type Props = {
      *  confirmation after another control's save. */
     allotment_set?: string;
     allotment_error?: string;
+    /** ⛔ Both confirmed camera sales retired 2026-10-23 — accepted and ignored, never drawn. */
     papic_unlock_provisioned?: string;
     limited_synced?: string;
     limited_error?: string;
@@ -239,8 +240,6 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
     shots_set: shotsSet,
     allotment_set: allotmentSet,
     allotment_error: allotmentError,
-    papic_unlock_provisioned: papicUnlockProvisioned,
-    limited_synced: limitedSynced,
     limited_error: limitedError,
     papic_window_saved: papicWindowSaved,
     papic_window_error: papicWindowError,
@@ -812,9 +811,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
         uploadsOpenSet={uploadsOpenSet}
         connectedAccount={driveGrant?.external_account_display ?? null}
         eventId={eventId}
-        papicUnlockProvisioned={papicUnlockProvisioned}
         papicError={papicError}
-        limitedSynced={limitedSynced}
         limitedError={limitedError}
         papicWindowSaved={papicWindowSaved}
         papicWindowError={papicWindowError}
@@ -1070,14 +1067,20 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
              be integrated on the gallery" — and, of this card, "this is the gallery"). It used to
              scroll to a "Your uploads" row further down; that row is gone, and this opens the SAME
              uploader (`AddToLibrary`, same credit costs) in a sheet. */
-          <AddPhotosDoor label="Add the first memory" tone="lit">
-            {uploadsSheetBody}
-          </AddPhotosDoor>
+          uploadsOpen ? (
+            <AddPhotosDoor label="Add the first memory" tone="lit">
+              {uploadsSheetBody}
+            </AddPhotosDoor>
+          ) : undefined
         }
         addPhotosSlot={
-          <AddPhotosDoor label="Add photos" tone="quiet">
-            {uploadsSheetBody}
-          </AddPhotosDoor>
+          /* ⚠ THE COUPLE'S SWITCH GOVERNS THE DOOR — "Adding photos by hand" off (More › UploadsOpenChoice)
+             draws no door at all, rather than one that opens onto a refusal. */
+          uploadsOpen ? (
+            <AddPhotosDoor label="Add photos" tone="quiet">
+              {uploadsSheetBody}
+            </AddPhotosDoor>
+          ) : undefined
         }
         whoShoots={papicAnsweredNo ? 'Off in Your info' : 'Every guest + you'}
       >
@@ -1287,9 +1290,7 @@ function StatusBanners({
   allotmentSet,
   allotmentError,
   connectedAccount,
-  papicUnlockProvisioned,
   papicError,
-  limitedSynced,
   limitedError,
   papicWindowSaved,
   papicWindowError,
@@ -1315,9 +1316,7 @@ function StatusBanners({
   allotmentSet: string | undefined;
   allotmentError: string | undefined;
   connectedAccount: string | null;
-  papicUnlockProvisioned: string | undefined;
   papicError: string | undefined;
-  limitedSynced: string | undefined;
   limitedError: string | undefined;
   papicWindowSaved: string | undefined;
   papicWindowError: string | undefined;
@@ -1348,9 +1347,7 @@ function StatusBanners({
     uploadsReady ||
     uploadsError ||
     uploadsOpenSet ||
-    papicUnlockProvisioned ||
     papicError ||
-    limitedSynced !== undefined ||
     limitedError ||
     papicWindowSaved !== undefined ||
     papicWindowError ||

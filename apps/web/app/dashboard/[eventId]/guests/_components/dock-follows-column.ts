@@ -19,17 +19,27 @@
  * them from 701. Below 701 the CSS ignores both (the phone dock is full width, unchanged).
  *
  * Held by `the-dock-sits-under-the-column.test.ts` (behaviour, CSS and wiring).
+ *
+ * 🖥 SUPPLIERS USES IT TOO (owner 2026-10-23, "bottom search bar is misaligned"): its thumb rows are portaled into
+ * <body>, so they cannot read a variable set on the column — `opts.target` writes the same two numbers on another
+ * element (the document root) under the caller's names, and the cleanup takes them off again.
  */
 
 /** Pin `column`'s dock to the column's own left/right edges, and keep it there. Returns the cleanup. */
-export function followColumn(column: HTMLElement): () => void {
+export function followColumn(
+  column: HTMLElement,
+  opts: { target?: HTMLElement; left?: string; right?: string } = {},
+): () => void {
+  const target = opts.target ?? column;
+  const leftVar = opts.left ?? '--gs-left';
+  const rightVar = opts.right ?? '--gs-right';
   const sync = () => {
     const r = column.getBoundingClientRect();
     // `right` of a fixed box is measured from the viewport's right edge WITHOUT the scrollbar (clientWidth), not from
     // `innerWidth` — on a desktop with a classic scrollbar the two differ by the bar's width.
     const vw = document.documentElement.clientWidth;
-    column.style.setProperty('--gs-left', `${Math.max(0, r.left)}px`);
-    column.style.setProperty('--gs-right', `${Math.max(0, vw - r.right)}px`);
+    target.style.setProperty(leftVar, `${Math.max(0, r.left)}px`);
+    target.style.setProperty(rightVar, `${Math.max(0, vw - r.right)}px`);
   };
   sync();
   // The column itself (its own size), its stage (a card column opening beside it, the rail changing width — the column
@@ -42,5 +52,9 @@ export function followColumn(column: HTMLElement): () => void {
   return () => {
     ro?.disconnect();
     window.removeEventListener('resize', sync);
+    if (target !== column) {
+      target.style.removeProperty(leftVar);
+      target.style.removeProperty(rightVar);
+    }
   };
 }

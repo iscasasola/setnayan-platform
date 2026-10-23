@@ -67,8 +67,9 @@ function serviceHref(key: HomeServiceKey, eventId: string): string {
  *
  * 🔒 THIS IS THE WHOLE HOME (owner 2026-10-02, DECISION_LOG "HOME IS THE FIRST
  * SCREEN ONLY"): there is no "rest of Home" under it, no "See all" and no
- * second, wider section. Phone and desktop draw the same single column; from
- * `lg` up it is simply wider (`lg:max-w-3xl`).
+ * second, wider section. Phone and tablet draw the same single column; from
+ * `lg` up it fills the body (`lg:max-w-none`, owner 2026-10-23) and splits in two
+ * (globals.css "HOME AT FULL WIDTH, TWO COLUMNS").
  *
  * ⚠ `money === null` means the viewer may not see the budget (a delegate
  * without budget access): the line is ABSENT, not "—". A money read that
@@ -129,8 +130,8 @@ const SERVICE_ICON: Record<HomeServiceKey, LucideIcon> = {
  * on the money tile (never hidden like "not shared", never ₱0).
  *
  * 🔒 THIS IS THE WHOLE HOME (owner 2026-10-02, DECISION_LOG "HOME IS THE FIRST
- * SCREEN ONLY"). Phone and desktop draw the same single column; from `lg` up it
- * is simply wider (`lg:max-w-3xl`).
+ * SCREEN ONLY"). Phone and tablet draw the same single column; from `lg` up it
+ * fills the body and splits in two (`lg:max-w-none`, owner 2026-10-23).
  *
  * ⚠ `money === null` means the viewer may not see the budget (a delegate
  * without budget access): the tile is ABSENT. A money read that failed is SAID.
@@ -248,7 +249,7 @@ export function HomeFirstScreen({
           words in the hub's own measured ink over its veil (`lib/home-cover.ts`). */}
       <HomeCoverBand eventId={eventId} cover={cover} ground={ground} />
 
-      <div data-home-column className="mx-auto flex w-full max-w-xl flex-col gap-3 lg:max-w-3xl">
+      <div data-home-column className="mx-auto flex w-full max-w-xl flex-col gap-3 lg:max-w-none">
 
         {/* ① THE ONE NEXT CARD — the shared `NextCard`, drawn with the button rule's row:
             the main verb (+ 📅 Later). An unread guest list is SAID here, with ⟳ Reload (H3). */}

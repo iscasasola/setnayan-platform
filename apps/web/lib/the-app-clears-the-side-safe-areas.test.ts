@@ -168,12 +168,12 @@ test('6 · the first main-frame commit re-arms the launch deadline with a longer
   assert.doesNotMatch(commit, /cancelLaunchWatchdog|onContentRendered/);
 });
 
-// ── 7 · this build is the one after build 4 ──────────────────────────────
+// ── 7 · this build is the one after build 5 ──────────────────────────────
 
-test('7 · both build configurations carry the same build number, past build 4', () => {
+test('7 · both build configurations carry the same build number, past build 5', () => {
   const pbx = readFileSync(join(MOBILE, 'ios/App/App.xcodeproj/project.pbxproj'), 'utf8');
   const builds = [...pbx.matchAll(/CURRENT_PROJECT_VERSION = (\d+);/g)].map((m) => Number(m[1]));
   assert.equal(builds.length, 2, 'expected Debug + Release CURRENT_PROJECT_VERSION');
   assert.equal(builds[0], builds[1], 'Debug and Release disagree on the build number');
-  assert.ok(builds[0]! >= 5, `build ${builds[0]} — 1.0 (4) is already in App Store Connect; a duplicate upload is refused`);
+  assert.ok(builds[0]! >= 6, `build ${builds[0]} — 1.0 (5) is already in App Store Connect; a duplicate upload is refused`);
 });

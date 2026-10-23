@@ -1,10 +1,7 @@
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import Link from 'next/link';
-import { studioHubHref } from '@/lib/studio-hub';
-import { ServiceParts } from '../_components/service-parts';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { notFound, redirect } from 'next/navigation';
-import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
 import { Spotlight } from '@/app/_components/spotlight';
 import { HOST_PAGE_TOURS, HOST_PAGE_TOURS_AFTER } from '@/lib/host-page-tours';
 import {
@@ -12,7 +9,6 @@ import {
   ArrowLeft,
   Camera,
   Hand,
-  Sparkles,
   Info,
   ChevronRight,
   HardDrive,
@@ -20,14 +16,8 @@ import {
   CircleHelp,
   CheckCircle2,
   Clock,
-  Cloud,
-  ExternalLink,
-  FolderTree,
-  Lock,
   Unlink2,
-  Users,
   BatteryWarning,
-  QrCode,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
@@ -36,20 +26,10 @@ import { formatPhp } from '@/lib/orders';
 import { eventSkuActive } from '@/lib/entitlements';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
-import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
 import {
   getDriveOAuthConfig,
-  PAPIC_DRIVE_SUBFOLDERS,
 } from '@/lib/papic-drive';
-import { fetchPapicGallery, fetchPreservationTotals } from '@/lib/papic-gallery';
-import { viewerSeesCoupleScopedPapic } from '@/lib/papic-gallery-scope';
-import { PapicGalleryGrid } from './_components/papic-gallery-grid';
-import { AddToLibrary } from './_components/add-to-library';
-import { UploadsOpenChoice } from './_components/uploads-open-choice';
-import { claimUploadsCamera } from './actions';
-import { PapicStage } from './_components/papic-stage';
 import { readPapicStandings } from '@/lib/papic-standings';
-import { getKwentoDensity } from '@/lib/kwento-density';
 import {
   resolveStoredWindow,
   formatWindowSummary,
@@ -61,7 +41,6 @@ import {
 import PapicWindowPicker from './papic-window-picker';
 import StylePicker from './style-picker';
 import { SettingRow } from './_components/setting-row';
-import { SourceRow } from './_components/source-row';
 import { PAPIC_STYLES } from '@/lib/papic-photo-styles';
 import { VendorChallengesApproval } from './vendor-challenges-approval';
 import { CoupleChallengesManager } from './couple-challenges-manager';
@@ -79,31 +58,20 @@ import {
   syncGuestCameras,
   type LimitedSnapshotStatus,
 } from '@/lib/papic-limited';
-import { AddPhotosDoor } from './_components/add-photos-door';
-import { SupplierWayInRow } from './_components/supplier-way-in-row';
 import { InfoTip } from '@/app/_components/info-tip';
 import { PAPIC_CAMERA_SALE_REFUSED, PAPIC_CAMERA_SALE_REFUSED_WORDS } from '@/lib/papic-sells-only-credits';
-import { LiveWallCard } from './_components/live-wall-card';
-import { PoolGalleryCard } from './_components/pool-gallery-card';
 import { MagazineCard } from './_components/magazine-card';
 import { RecapCard } from './_components/recap-card';
-import {
-  DriveSafetyPanel,
-  DriveReconnectBanner,
-} from '@/app/_components/drive-connect-card';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { GuestContributionsCard } from './_components/guest-contributions-card';
 import { PapicTopBand } from './_components/papic-top-band';
 import { getIapGate } from '@/lib/request-platform';
 import { papicGlance, glanceTileFromStandings, PAPIC_UNTIL_WORDS } from '@/lib/papic-glance';
-import { VendorMediaControls } from './_components/vendor-media-controls';
 import { FaceTaggingChoice } from './_components/face-tagging-choice';
 import { GuestCamerasChoice } from './_components/guest-cameras-choice';
 import { GuestAllotmentsChoice } from './_components/guest-allotments-choice';
 import { StudioBuyHero } from '@/app/dashboard/[eventId]/studio/_components/studio-buy-hero';
 import { addOnHeroCopy } from '@/lib/add-ons-catalog';
-import { groupIntoChapters } from '@/lib/alaala-chapters';
-import { fetchScheduleBlocks, DEFAULT_EVENT_TZ } from '@/lib/schedule';
 import { LifeFlashCard } from './_components/life-flash-card';
 import { type DriveGrant } from './_components/drive-copy-card';
 import { FaceBlockingList } from './_components/face-blocking-list';
@@ -415,107 +383,11 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
     return `${waits ? 'Papic turns on' : 'On from'} ${on} · ${PAPIC_UNTIL_WORDS}`;
   })();
 
-  /*
-    ══ WHICH PHASE THIS PAGE IS IN ═══════════════════════════════════════════
-    ⚖ Owner 2026-09-22, on the live page: *"it doesn't feel inquitive and easy
-    to manage."* Before the day this screen is a SETUP job and the money that
-    sizes it leads; on the day and after it is a RESULTS screen and the
-    photographs lead.
 
-    The approved prototype does this with ONE DOM and CSS `order`, and so does
-    this — every control keeps its place in the source, nothing is branched
-    away, and the controls bill (`nothing-was-lost-with-the-tabs.test.ts`) can
-    still see all of them.
-
-    🔑 THE FLIP IS THE EVENT DAY, NOT THE CAPTURE WINDOW. Cameras may open six
-    months early (`PAPIC_CAPTURE_MONTHS_BEFORE`), so a window that has started
-    says nothing about whether the celebration has happened. A page that
-    re-ordered itself in March because a couple switched their cameras on early
-    would be the "don't make it jump" complaint at its largest possible scale.
-
-    ⚠ THE DAY ITSELF COUNTS AS AFTER — that is the moment a couple stops setting
-    up and starts watching photographs arrive.
-  */
-  const papicPhase: 'before' | 'after' = (() => {
-    const raw = (ev.event_date as string | null) ?? null;
-    if (!raw) return 'before';
-    // Compare DATE to DATE. Parsing the stored date as an INSTANT would put a
-    // Manila wedding a day behind for anyone whose clock is west of it.
-    //
-    // ⚠ `DEFAULT_EVENT_TZ`, NOT THE VENUE'S. The venue's zone is resolved much
-    // further down this file from coordinates most events do not carry, and
-    // spending a query to move a BLOCK ORDER boundary by a few hours is not a
-    // trade worth making. Every celebration in this product is in the
-    // Philippines; when that stops being true, this is the line to change.
-    const today = new Intl.DateTimeFormat('en-CA', { timeZone: DEFAULT_EVENT_TZ }).format(
-      new Date(),
-    );
-    return raw.slice(0, 10) <= today ? 'after' : 'before';
-  })();
-
-  /**
-   * THE ELEVEN BLOCKS, IN THE ORDER EACH PHASE WANTS THEM (owner 2026-09-22; `cameras`
-   * split out of `gallery` 2026-10-14 so "your cameras" stand right under the band).
-   *
-   * ⚠ WRITTEN OUT, NEVER COMPUTED. Tailwind reads class names as literal text,
-   * so `order-${n}` produces a class that is never generated — the page would
-   * lose its order silently, which looks exactly like "the reorder did not
-   * ship". `the-page-reorders-itself.test.ts` asserts every one of these is a
-   * literal.
-   *
-   * ⚠ MONEY NOW SITS ABOVE THE TWO BLOCKS THAT SIZE IT, and that inversion is
-   * deliberate — it is only safe while the recommendation RECOMPUTES as
-   * coverage and allotment change. It does: the credits block derives it from
-   * the live pool config and the live head count on every render.
-   */
-  const BLOCK_ORDER = {
-    /* 📍 Owner "Yes", 2026-10-13: the band first (above these), then YOUR
-       CAMERAS (the four ways in + "Right now") · GUESTS' CAMERAS ("Let guests
-       shoot now", Allotment) · PHOTOS (the library, Download all) · the Live wall
-       after the photos it shows · Settings, with a quiet "Change dates" LAST.
-       (walk-b6 F2/F3, 2026-10-14: "your cameras" had sat inside the gallery
-       block and the Live wall between guests' cameras and photos.) */
-    before: {
-      credits: 'order-1',
-      cameras: 'order-2',
-      guests: 'order-3',
-      gallery: 'order-4',
-      wall: 'order-5',
-      challenges: 'order-6',
-      filter: 'order-7',
-      kwento: 'order-8',
-      made: 'order-9',
-      more: 'order-10',
-      dates: 'order-11',
-    },
-    after: {
-      gallery: 'order-1',
-      kwento: 'order-2',
-      made: 'order-3',
-      wall: 'order-4',
-      credits: 'order-5',
-      cameras: 'order-6',
-      guests: 'order-7',
-      filter: 'order-8',
-      challenges: 'order-9',
-      more: 'order-10',
-      dates: 'order-11',
-    },
-  } as const;
-  type PapicBlock = keyof (typeof BLOCK_ORDER)['before'];
-  const ord = (key: PapicBlock) => BLOCK_ORDER[papicPhase][key];
+  /* ⛔ THE PHASE-ORDERED BLOCKS ARE GONE (2026-10-23): the Papic page is the camera only — one order, the owner's
+     (the one line · the credits · his five · challenges). What re-ordered by phase was the files, now Memories. */
 
 
-  // Whole days until the cameras open. null when the dates are unset, or when
-  // the window has already started — the stage says something different in each
-  // case, and "0 days" is not the same sentence as "open now".
-  const papicOpensInDays = (() => {
-    if (!papicWindow.startIso) return null;
-    const startMs = Date.parse(papicWindow.startIso);
-    if (!Number.isFinite(startMs)) return null;
-    const diff = startMs - Date.now();
-    return diff > 0 ? Math.ceil(diff / 86_400_000) : null;
-  })();
 
   // ⚠ THERE ARE NO ROOMS ANY MORE — see the "four ways in" section below.
   // `resolvePapicRoom` and its outcome→room map are deleted, not disabled: with
@@ -738,20 +610,6 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
     papicOn: true,
   });
 
-  /* 📤 THE UPLOADER, BUILT ONCE and handed to the library's one door (empty: "Add the first memory";
-     with photos: "Add photos"). Same picker, same seat, same credit cost as every camera. */
-  const uploadsSheetBody = uploadsToken ? (
-    <AddToLibrary token={uploadsToken} />
-  ) : (
-    <form action={claimUploadsCamera} className="space-y-3">
-      <input type="hidden" name="event_id" value={eventId} />
-      <p className="max-w-prose text-sm text-ink/65">
-        Add photos and clips from your phone or laptop — older memories too. They land in the same
-        gallery as everything your guests take, and cost the same: one credit a photo.
-      </p>
-      <SubmitButton className="sn-btn-primary">Turn this on</SubmitButton>
-    </form>
-  );
 
   return (
     /*
@@ -1277,170 +1135,6 @@ function StatusBanners({
         </p>
       ) : null}
     </div>
-  );
-}
-
-// -----------------------------------------------------------------------------
-// Gallery preview
-// -----------------------------------------------------------------------------
-
-async function GalleryPreviewCard({
-  eventId,
-  openOnArrival = false,
-  venue,
-  appleIap = false,
-}: {
-  eventId: string;
-  openOnArrival?: boolean;
-  /** The venue's coordinates, from the page's event read — for the gallery's clock. */
-  venue: { lat: number | null; lng: number | null };
-  /** 🍎 The iPhone app where Apple sells — the keep-at-full-size ₱ line is not drawn. */
-  appleIap?: boolean;
-}) {
-  const supabase = await createClient();
-
-  // THE VENUE'S CLOCK, for the gallery's per-tile credit ("Ninang Cora · 4:12 PM").
-  //
-  // ⚠ ITS OWN SELECT, DELIBERATELY, AND THIS IS NOT TIDINESS. Naming a column
-  // PostgREST will not serve makes it refuse the WHOLE query, and this page's
-  // main event read answers a refusal with `notFound()` — so folding two
-  // coordinates into it would turn a grant problem into a live celebration
-  // rendering as missing. Both columns are granted to `authenticated` in
-  // production (verified 2026-08-27); this shape means that stops being
-  // load-bearing.
-  //
-  // 🔑 NO ZONE ⇒ NO TIME. A refusal here drops the time half of every credit and
-  // keeps the name. It never prints the reader's own clock as the venue's.
-  // 🔌 The venue rides the page's one event read now (2026-10-14, least requests).
-  const galleryTimeZone = eventTimezoneFromCoords(venue.lat, venue.lng);
-
-  // ⏱ The run of show is STARTED with the gallery's own reads (it needs none of their answers) and
-  // awaited where it always was, inside the try below — so a refused schedule still fails to the
-  // flat grid, exactly as before, instead of costing one more trip after the photos arrive.
-  const scheduleBlocksRead = startRead(fetchScheduleBlocks(supabase, eventId));
-
-  const [photos, densityRows, seesAll, preservationTotals] = await Promise.all([
-    fetchPapicGallery(supabase, eventId),
-    getKwentoDensity(eventId, 60),
-    // Asked SEPARATELY on purpose — an RLS refusal on the two couple-only
-    // sources arrives as an empty list with no error, indistinguishable from a
-    // wedding where nobody took a picture. Without this, a promoted coordinator
-    // was shown the vendor's documentation shots as if they were the whole
-    // album.
-    viewerSeesCoupleScopedPapic(supabase, eventId),
-    // ⚠ COUNTED SEPARATELY FROM THE GALLERY, over the WHOLE event. The gallery
-    // is capped at 120 per source, so a meter computed from it is wrong at any
-    // real wedding — and wrong in the direction that looks plausible.
-    fetchPreservationTotals(supabase, eventId),
-  ]);
-  const hasPhotos = photos.length > 0;
-  const kwentoDensity = new Map(densityRows.map((r) => [r.photoId, r.density]));
-
-  /**
-   * THE DAY, SPLIT INTO THE MOMENTS IT HAPPENED IN (owner 2026-08-19).
-   *
-   * Derived, never stored: the run of show already knows when each part ran and
-   * every frame already carries when it was taken. `groupIntoChapters` does the
-   * one dangerous part — the schedule keeps the VENUE'S WALL CLOCK while a
-   * capture time is a real instant, eight hours apart in Manila.
-   *
-   * ⚠ FAILS TO NOTHING, ON PURPOSE. A schedule that cannot be read gives an
-   * undefined `chapters`, and the gallery then renders exactly as it always
-   * has — one flat grid. A gallery is somebody's wedding; it must never be a
-   * blank page because a heading could not be computed.
-   */
-  let galleryChapters:
-    | { key: string; label: string; photoIds: string[] }[]
-    | undefined;
-  try {
-    const blocks = await scheduleBlocksRead;
-    if (blocks.length > 0 && photos.length > 0) {
-      const { days } = groupIntoChapters({
-        frames: photos.map((ph) => ({ id: ph.id, capturedAt: ph.capturedAt })),
-        blocks: blocks.map((b) => ({
-          blockId: b.block_id,
-          label: b.label,
-          startAt: b.start_at,
-          endAt: b.end_at,
-          actualStartAt: b.actual_start_at,
-          actualEndAt: b.actual_end_at,
-        })),
-        tz: DEFAULT_EVENT_TZ,
-      });
-      const flat = days.flatMap((d) => d.chapters);
-      // One chapter over the whole gallery is not a chapter — it is a heading
-      // over everything, which tells the couple nothing they cannot already see.
-      if (flat.length > 1) {
-        galleryChapters = flat.map((c) => ({
-          key: c.key,
-          label: c.label,
-          photoIds: c.frames.map((f) => f.id),
-        }));
-      }
-    }
-  } catch {
-    galleryChapters = undefined;
-  }
-
-  return (
-    <article className="space-y-4 sn-tile p-5 sm:p-6">
-      <div className="space-y-1">
-        <h2 className="text-lg font-semibold tracking-tight">
-          {seesAll
-            ? hasPhotos
-              ? 'Your gallery'
-              : 'What your gallery looks like'
-            : 'Photos shared with you'}
-        </h2>
-        {seesAll ? (
-          <p className="max-w-prose text-sm text-ink/60">
-            Guests who scan a personal or table QR are tagged on the spot. Untagged
-            photos still land here — Papic never drops a photo.
-          </p>
-        ) : (
-          <p className="max-w-prose text-sm text-ink/60">
-            You&rsquo;re seeing what the couple&rsquo;s suppliers shot for their records.
-            The photos the crew and guests took belong to the couple and aren&rsquo;t
-            shared with you.
-          </p>
-        )}
-      </div>
-
-      {hasPhotos ? (
-        <PapicGalleryGrid
-          photos={photos}
-          eventId={eventId}
-          timeZone={galleryTimeZone}
-          kwentoDensity={kwentoDensity}
-          preservationTotals={appleIap ? null : preservationTotals}
-          chapters={galleryChapters}
-          openOnArrival={openOnArrival}
-        />
-      ) : (
-        <div className="sn-row p-6 text-center">
-          <p className="text-sm text-ink/65">
-            {seesAll
-              ? 'Your gallery fills up as your crew shoots — the first photos land here in real time.'
-              : 'Nothing has been shared with you yet.'}
-          </p>
-        </div>
-      )}
-
-      <div className="flex flex-wrap items-center gap-4 text-xs text-ink/65">
-        <LegendDot color="bg-success-500" label="Auto-face tag" />
-        <LegendDot color="bg-terracotta" label="QR-scanned tag" />
-        <LegendDot color="bg-ink/30" label="Untagged" />
-      </div>
-    </article>
-  );
-}
-
-function LegendDot({ color, label }: { color: string; label: string }) {
-  return (
-    <span className="inline-flex items-center gap-1.5">
-      <span className={`inline-block h-2.5 w-2.5 rounded-full ${color}`} aria-hidden />
-      <span>{label}</span>
-    </span>
   );
 }
 

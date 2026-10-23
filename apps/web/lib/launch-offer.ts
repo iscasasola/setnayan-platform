@@ -162,3 +162,25 @@ export function isoToManilaLocal(iso: string | null): string {
   if (Number.isNaN(t)) return '';
   return new Date(t + 8 * 3_600_000).toISOString().slice(0, 16);
 }
+
+/** The free-fee window reason's longest form (stored in `admin_audit_log.reason`). */
+export const FREE_FEE_REASON_MAX = 500;
+
+/**
+ * THE FREE-FEE WINDOW'S REASON (DECISION_LOG 2026-09-23, money switch #3):
+ * *"A PROMOTION CARRIES A REASON, AND IT IS REQUIRED TO OPEN A WINDOW (not to
+ * close one)."* Opening = either date set; closing = both blank, which clears
+ * the reason to null. Returns the reason to store, or the plain refusal.
+ */
+export function freeFeeWindowReason(
+  window: { from: string | null; until: string | null },
+  raw: string,
+): { ok: true; reason: string | null } | { ok: false; message: string } {
+  if (!window.from && !window.until) return { ok: true, reason: null };
+  const reason = raw.trim();
+  if (!reason) return { ok: false, message: 'Say why the fee is free — a window needs a reason.' };
+  if (reason.length > FREE_FEE_REASON_MAX) {
+    return { ok: false, message: `Keep the reason under ${FREE_FEE_REASON_MAX} characters.` };
+  }
+  return { ok: true, reason };
+}

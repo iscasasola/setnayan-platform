@@ -9,6 +9,9 @@ import {
   type StorageRow,
 } from '@/lib/papic-storage-telemetry';
 import { BackfillTilesButton } from './backfill-tiles-button';
+import { OldPhotosButton } from './old-photos-button';
+import { listOldPhotos, type OldPhotoList } from '@/lib/old-photo-copies.server';
+import { OVERSIZED_BYTES, WEB_LONG_EDGE, formatBytes } from '@/lib/old-photo-copies';
 import { listStrandedDriveCopies } from '@/lib/papic-drive-copy-retry';
 import { DRIVE_COPY_RETRY_CEILING } from '@/lib/papic-drive-copy-retry-core';
 import { PageMasthead } from '@/app/_components/page-masthead';
@@ -163,6 +166,9 @@ export default async function PapicStoragePage() {
     return a.count + b.count;
   })().catch(() => null);
 
+  // 🗜 The dry run — read-only (`listOldPhotos`): which covers would get a small copy.
+  const oldPhotos = await listOldPhotos(admin).catch((e: unknown): OldPhotoList => ({ ok: false, error: e instanceof Error ? e.message : String(e) }));
+
   return (
     <div className="mx-auto max-w-5xl space-y-6 p-6">
       <PageMasthead
@@ -182,6 +188,40 @@ export default async function PapicStoragePage() {
           tile needs.
         </p>
         <BackfillTilesButton pending={pendingTiles} />
+      </section>
+
+      {/* 🗜 SMALL COPIES OF OLD PHOTOS (owner 2026-10-23). Event covers uploaded before the browser shrank photos are
+          served at full size — 4.3 MB on the live Discover page that day. The count is the DRY RUN (a HEAD per object,
+          nothing written); the button writes a web-size copy beside each original and points the cover at it. The
+          original is never deleted, and prints keep using it. */}
+      <section className="rounded-2xl border border-ink/10 bg-white p-4 shadow-sm" data-old-photos="">
+        <h2 className="text-base font-semibold text-ink">Make small copies of old photos</h2>
+        <p className="mt-1 text-sm text-ink/60">
+          Event covers over {formatBytes(OVERSIZED_BYTES)} get a {WEB_LONG_EDGE}px copy beside the original, and the
+          cover shows the copy. The original stays; prints still use it.
+        </p>
+        {!oldPhotos.ok ? (
+          <p className="mt-2 text-sm text-ink/70" role="alert">The covers could not be read just now: {oldPhotos.error}</p>
+        ) : (
+          <>
+            <p className="mt-2 text-sm text-ink" data-old-photos-count="">
+              {oldPhotos.oversized.length === 0
+                ? `No oversized covers — ${oldPhotos.candidates} checked.`
+                : `${oldPhotos.oversized.length} oversized cover${oldPhotos.oversized.length === 1 ? '' : 's'} · ${formatBytes(oldPhotos.oversizedBytes)} in all · ${oldPhotos.candidates} checked`}
+              {oldPhotos.unsized > 0 ? ` · ${oldPhotos.unsized} could not be sized` : ''}
+            </p>
+            {oldPhotos.oversized.length > 0 ? (
+              <ul className="mt-2 space-y-1 text-xs text-ink/60">
+                {oldPhotos.oversized.slice(0, 5).map((p) => (
+                  <li key={p.originalRef}>
+                    {formatBytes(p.bytes ?? 0)} · {p.originalRef.split('/').pop()}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            <OldPhotosButton oversized={oldPhotos.oversized.length} />
+          </>
+        )}
       </section>
 
       {/* Local `Tile` RETIRED — it was one of the 22 hand-rolled stat tiles in

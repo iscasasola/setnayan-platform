@@ -342,7 +342,7 @@ export function TodayEasyLab({ sup: supKey, moment, actions, library = false, ra
 
   return (
     <div className="min-h-screen bg-cream px-4 pb-32 pt-4" data-supplier-lab="today-easy" data-easy-moment={moment} data-easy-sup={supKey}>
-      <SupplierTodayScreen view={view} outcome={outcome} feeForecasts={forecasts} cards={desk} askStatus="" deskIncomplete={false} actions={actions} library={library} />
+      <SupplierTodayScreen view={view} outcome={outcome} feeForecasts={forecasts} cards={desk} askStatus="" deskIncomplete={false} actions={actions} library={library && !firstSteps?.steps.some((st) => st.key === 'inspiration' && st.state !== 'done')} />
     </div>
   );
 }

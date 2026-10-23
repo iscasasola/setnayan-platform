@@ -92,6 +92,7 @@ export function PlanPicker({
             value={picked}
             options={options}
             onPick={(k) => setPicked(k)}
+            buttonText={onGift ? `${plan.name} · gift` : undefined}
             dataAttr="data-plan-pick-menu"
             compact
             className="!min-h-11"

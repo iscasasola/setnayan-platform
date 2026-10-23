@@ -589,7 +589,11 @@ export default async function VendorOverviewPage({
         askStatus={askStatus}
         deskIncomplete={deskIncomplete}
         // 🌱🖼 "Add to the inspiration library" — only for a shop whose trades supply a part (owner 2026-10-19).
-        library={moodboardLibraryAccessForProfile(profile).allowed}
+        // While it is a first step still to do (personal invite B6), the step IS the door — the row would say it twice.
+        library={
+          moodboardLibraryAccessForProfile(profile).allowed &&
+          !firstSteps?.steps.some((st) => st.key === 'inspiration' && st.state !== 'done')
+        }
         actions={{
           acceptInquiry,
           declineInquiry,

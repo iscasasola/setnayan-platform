@@ -1,5 +1,6 @@
 import 'server-only';
 
+import { originalForPrint } from '@/lib/old-photo-copies.server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { eventHubPartActive } from '@/lib/couple-website-pro';
@@ -554,7 +555,8 @@ async function posterPhotoBytes(ref: string, mode: PrintMode): Promise<Uint8Arra
 async function hubPrintInput(admin: SupabaseClient, event: PrintEventRow, mode: PrintMode): Promise<WornHub> {
   const hub = await resolveHubTheme(event);
   const page = guestLookFrom(event as unknown as EventShellRow, hub, true);
-  const heroConfig = await readHeroConfig(admin, event.event_id);
+  // 🖨 A cover pointed at its small web copy prints from the ORIGINAL (`originalForPrint`, owner 2026-10-23).
+  const heroConfig = mode === 'print' ? await printOriginalMain(admin, event.event_id, await readHeroConfig(admin, event.event_id)) : await readHeroConfig(admin, event.event_id);
   const ground = await mainGroundPictureFor(
     { theme: hub.theme, heroConfig, event: event as unknown as Parameters<typeof mainGroundPictureFor>[0]['event'], viewerIsHost: true },
     { full: mode === 'print' },
@@ -578,6 +580,17 @@ async function readHeroConfig(admin: SupabaseClient, eventId: string): Promise<u
   const { data, error } = await admin.from('invitation_widgets').select('config_json').eq('event_id', eventId).eq('widget_type', 'hero').maybeSingle();
   if (error) logQueryError('print-set.readHeroConfig', error, { event_id: eventId }, 'graceful_degrade');
   return (data as { config_json?: unknown } | null)?.config_json ?? null;
+}
+
+/** The hero row's config with its Main background swapped back from a web copy to the original — print size only. */
+async function printOriginalMain(admin: SupabaseClient, eventId: string, config: unknown): Promise<unknown> {
+  if (!config || typeof config !== 'object') return config;
+  const main = (config as { main?: unknown }).main;
+  if (!main || typeof main !== 'object') return config;
+  const media = (main as { media?: unknown }).media;
+  if (typeof media !== 'string') return config;
+  const original = await originalForPrint(admin, eventId, media);
+  return original && original !== media ? { ...(config as object), main: { ...(main as object), media: original } } : config;
 }
 
 /** The Hub's picture as the print needs it (screen: small; print: the full picture) — `heroStill`'s own sizes. */

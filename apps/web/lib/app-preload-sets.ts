@@ -8,7 +8,7 @@
  * shop's Today), once the page is idle:
  *   · an event they HOST → the HOST SET: every page of that event's menu (the
  *     SAME tree the rail, the ☰ and the phone's bar draw — `lib/customer-menu`)
- *     — Home · Guests · Suppliers · Hub (the Maker) · More's pages. The Maker's
+ *     — Home · Guests · Suppliers · Hub (the Maker) · Memories. The Maker's
  *     tool panels follow the moment the Maker opens (`maker-tools.tsx`), its
  *     own code already on the phone;
  *   · a SHOP they own or staff → the SUPPLIER SET: Today · Customers · Shop ·
@@ -44,7 +44,7 @@ export function hostAppRoutes(eventId: string, ctx: EventMenuCtx = {}): string[]
   const base = `/dashboard/${eventId}`;
   const rows = eventMenuRows(buildEventMenuSections(eventId, ctx));
   const own = rows.map((r) => r.href).filter((h) => h === base || h.startsWith(`${base}/`) || h.startsWith(`${base}?`));
-  const bar = ['home', 'guests', 'explore', 'launch'];
+  const bar = ['home', 'guests', 'explore', 'launch', 'memories'];
   const byKey = new Map(rows.map((r) => [r.key, r.href]));
   const first = bar.map((k) => byKey.get(k)).filter((h): h is string => !!h);
   return unique([base, ...first, ...own]);

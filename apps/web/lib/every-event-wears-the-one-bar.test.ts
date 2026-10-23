@@ -38,7 +38,8 @@ const SERVICES: EventMenuChild[] = [
   { key: 'setnayan-ai', label: 'Setnayan AI', href: '#ai', icon: 'ai' },
   { key: 'papic', label: 'Papic', href: '#papic', icon: 'papic' },
 ];
-const FOUR = ['home', 'guests', 'explore', 'launch'];
+// Memories joined after Hub (owner 23 Oct 2026, prototypes/event_bar_memories_tab_2026-10-23.html).
+const FIVE = ['home', 'guests', 'explore', 'launch', 'memories'];
 
 /** A type's profile as `resolveProfile` builds it from a row with the Simple Event's one seeded difference. */
 function profileOf(t: string) {
@@ -50,7 +51,7 @@ function profileOf(t: string) {
   } as unknown as ProfileRow);
 }
 
-test('every event type × needs preset × phase × shell builds the one bar — the same four, web and app', () => {
+test('every event type × needs preset × phase × shell builds the one bar — the same five, web and app', () => {
   assert.ok(TYPES.length >= 20, `the type roster shrank to ${TYPES.length} — a sweep of nothing passes`);
   assert.ok(TYPES.includes('simple_event') && TYPES.includes('hangout') && TYPES.includes('wake'));
   const wrong: string[] = [];
@@ -71,7 +72,7 @@ test('every event type × needs preset × phase × shell builds the one bar — 
             storeShell,
             services: storeShell ? [] : SERVICES,
           }).map((m) => m.key);
-          const want = FOUR; // web and app alike (owner 22 Oct 2026, "Yes remove more")
+          const want = FIVE; // web and app alike (owner 22 Oct 2026, "Yes remove more")
           if (keys.join(' ') !== want.join(' ')) wrong.push(`${type} · ${preset} · ${phase} · ${storeShell ? 'app' : 'web'} → ${keys.join(' · ')}`);
         }
       }

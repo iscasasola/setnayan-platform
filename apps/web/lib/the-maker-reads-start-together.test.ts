@@ -23,7 +23,12 @@
  * and arrive in the same response (`lib/maker-late.ts`). Measured here at 150 ms a trip: the page 15 → 7
  * deep, the page with its editor 20 → 12, the canvas's reads done 3,050 → 1,837 ms; the tools' own lane
  * 13 deep, all in by 2,285 ms. The harness counts each lane on its own (a read is the tools' when
- * `makerLateWork` is on its stack — one it misses is counted on the canvas's side, never hidden). The property held is the DEPTH — what a couple waits for before the Maker is drawn — and
+ * `makerLateWork` is on its stack — one it misses is counted on the canvas's side, never hidden).
+ *
+ * ⚡ AND THE EDITOR'S OWN QUEUE (same day, after it shipped — production, phone: the canvas still started only as
+ * the Maker page ended). Inside the Maker the editor's read batch and its Pro question now leave beside its event
+ * row (`startEditorReads`), and Post Event leaves as soon as the draft is in: the editor 5 trips after the page → 2.
+ * Measured here at 150 ms a trip: the page with its editor 12 → 9 deep, the canvas's reads done 1,846 → 1,385 ms. The property held is the DEPTH — what a couple waits for before the Maker is drawn — and
  * that the event-only reads leave together. It also holds the index that `eventHasRenamed`'s read needs.
  */
 import test from 'node:test';
@@ -61,15 +66,15 @@ test('0 · the fixture drew the new Maker and its editor — or the depth below 
   }
 });
 
-/** MEASURED: the page 26 → 15 → 7, the page and its editor 40 → 20 → 12 (the tools behind the Maker, above). */
+/** MEASURED: the page 26 → 15 → 7, the page and its editor 40 → 20 → 12 → 9 (the tools behind the Maker; the editor's queue). */
 const PAGE_MAX_DEPTH = 8;
-const MAKER_MAX_DEPTH = 13;
+const MAKER_MAX_DEPTH = 10;
 
 test(`1 · the Maker page is at most ${PAGE_MAX_DEPTH} trips deep (it was 26, then 15)`, () => {
   assert.ok(VIEW.pageDepth <= PAGE_MAX_DEPTH, `the Maker page waits on reads one after another again:\n${shape(VIEW)}`);
 });
 
-test(`2 · the Maker with its editor is at most ${MAKER_MAX_DEPTH} trips deep (it was 40, then 20)`, () => {
+test(`2 · the Maker with its editor is at most ${MAKER_MAX_DEPTH} trips deep (it was 40, then 20, then 12)`, () => {
   assert.ok(VIEW.depth <= MAKER_MAX_DEPTH, `the Maker's editor waits on reads one after another again:\n${shape(VIEW)}`);
 });
 

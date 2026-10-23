@@ -284,12 +284,17 @@ export function isSectionVisible(
 }
 
 /**
- * Curated accent presets (PRO control). NOT a free hex picker — each preset is a
- * hand-tuned 3-stop ramp (base · hover · deepest) that mirrors the default
- * champagne ramp's lightness relationships, so retinting stays legible on the
- * cream microsite. The stored value is the KEY; the ramp lives in code so it can
- * be tuned later without a migration. `null` / unknown = the default champagne
- * accent (no override).
+ * Curated accent presets (Solo control) — each a hand-tuned 3-stop ramp (base · hover · deepest) that mirrors the
+ * default champagne ramp's lightness relationships, so retinting stays legible on the microsite. A preset is stored
+ * as its KEY; the ramp lives in code so it can be tuned later without a migration. `null` / unknown = the default
+ * champagne accent (no override).
+ *
+ * 🎨 A SHOP'S OWN COLOUR, TOO (owner 2026-10-23, on Your page › Look: *"press the color circle will show color picker
+ * we have designed"*). The circle opens the ONE colour picker (`ColourPickerSheet`), whose Custom row takes any
+ * colour — so `microsite_accent` also holds an upper-case `#RRGGBB` (a text column, no CHECK; the action validates
+ * with `isValidAccentKey`). Its ramp is derived the presets' way (`accentRampFromHex`: hover and deepest at the
+ * champagne ramp's own ratios). A pick that IS a preset's swatch is stored as that preset's key
+ * (`accentFromPickedHex`), so the Look dropdown and the circle never disagree about the same colour.
  *
  * `ramp` values are space-separated RGB triplets (the format Tailwind's
  * `rgb(var(--color-terracotta) / <alpha>)` consumes). `swatch` is a display hex
@@ -315,13 +320,60 @@ export const MICROSITE_ACCENTS: readonly MicrositeAccent[] = [
 /** The default accent when a vendor hasn't chosen one (matches globals.css). */
 export const MICROSITE_DEFAULT_ACCENT_KEY = 'champagne';
 
+/** A shop's own colour as upper-case `#RRGGBB` ("c9a86a", "#C9A86A"), or null for anything that is not one. */
+export function customAccentHex(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const v = raw.trim().replace(/^#?/, '#').toUpperCase();
+  return /^#[0-9A-F]{6}$/.test(v) ? v : null;
+}
+
+/** A preset's key, or a shop's own `#RRGGBB`. */
 export function isValidAccentKey(key: string | null | undefined): boolean {
-  return !!key && MICROSITE_ACCENTS.some((a) => a.key === key);
+  return !!key && (MICROSITE_ACCENTS.some((a) => a.key === key) || customAccentHex(key) === key);
+}
+
+/** The champagne ramp's own steps — hover ≈ 85 % and deepest ≈ 71 % of the base, channel by channel. */
+const RAMP_HOVER = 168 / 197;
+const RAMP_DEEP = 140 / 197;
+
+/** A shop's own colour as the presets' 3-stop ramp ("R G B" triplets). Not a colour → null. */
+export function accentRampFromHex(hex: string): [string, string, string] | null {
+  const c = customAccentHex(hex);
+  if (!c) return null;
+  const rgb = [1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16));
+  const step = (k: number) => rgb.map((v) => Math.round(v * k)).join(' ');
+  return [step(1), step(RAMP_HOVER), step(RAMP_DEEP)];
+}
+
+/**
+ * What a stored accent IS, for the editor: a preset (its label and swatch), or the shop's own colour ("Your own
+ * colour", its code as the swatch). Empty / unknown → the default champagne.
+ */
+export function resolveMicrositeAccent(stored: string | null | undefined): MicrositeAccent & { custom: boolean } {
+  const own = customAccentHex(stored);
+  if (own && own === stored) {
+    return { key: own, label: 'Your own colour', ramp: accentRampFromHex(own)!, swatch: own, custom: true };
+  }
+  const preset =
+    MICROSITE_ACCENTS.find((a) => a.key === stored) ?? MICROSITE_ACCENTS.find((a) => a.key === MICROSITE_DEFAULT_ACCENT_KEY)!;
+  return { ...preset, custom: false };
+}
+
+/**
+ * The value a colour picked in the picker is stored as: a preset's swatch → that preset's key (the default
+ * champagne → '' — no override, exactly as the dropdown stores it); any other colour → its `#RRGGBB`.
+ */
+export function accentFromPickedHex(hex: string): string {
+  const c = customAccentHex(hex);
+  if (!c) return '';
+  const preset = MICROSITE_ACCENTS.find((a) => a.swatch.toUpperCase() === c);
+  if (preset) return preset.key === MICROSITE_DEFAULT_ACCENT_KEY ? '' : preset.key;
+  return c;
 }
 
 /**
  * Inline CSS-variable overrides that retint the microsite's accent ramp for a
- * chosen preset. Returns `undefined` for the default / unset / unknown accent so
+ * chosen preset or the shop's own `#RRGGBB`. Returns `undefined` for the default / unset / unknown accent so
  * the page keeps its baseline champagne (no override emitted). Spread onto the
  * microsite root's `style` (cast to CSSProperties — custom props are valid CSS).
  */
@@ -329,9 +381,11 @@ export function micrositeAccentVars(
   accentKey: string | null | undefined,
 ): Record<string, string> | undefined {
   if (!accentKey || accentKey === MICROSITE_DEFAULT_ACCENT_KEY) return undefined;
-  const preset = MICROSITE_ACCENTS.find((a) => a.key === accentKey);
-  if (!preset) return undefined;
-  const [base, hover, deep] = preset.ramp;
+  const ramp =
+    MICROSITE_ACCENTS.find((a) => a.key === accentKey)?.ramp ??
+    (customAccentHex(accentKey) === accentKey ? accentRampFromHex(accentKey) : null);
+  if (!ramp) return undefined;
+  const [base, hover, deep] = ramp;
   return {
     '--color-terracotta': base,
     '--color-terracotta-600': hover,

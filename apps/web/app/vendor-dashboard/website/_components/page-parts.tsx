@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState, useTransition, type ReactNode } from 'react';
+import dynamic from 'next/dynamic';
 import { Award, Check, Eye, Globe, Image as ImageIcon, Images, MapPin, MessageSquareReply, Pencil, Share2, Sparkles, Star, Store } from 'lucide-react';
 import { RowIcon } from '../../_components/row-icon';
 import { Fold } from '@/app/_components/fold';
@@ -17,6 +18,8 @@ import {
   MICROSITE_DEFAULT_ACCENT_KEY,
   MICROSITE_FEATURED_EDITORIALS_MAX,
   MICROSITE_FEATURED_SERVICES_MAX,
+  accentFromPickedHex,
+  resolveMicrositeAccent,
 } from '@/lib/vendor-microsite';
 import {
   changedParts,
@@ -32,6 +35,17 @@ import { SupplierThumbRow } from '../../_components/supplier-thumb-row';
 import { applyVendorPageDraft } from '../../actions';
 import { usePageDraft } from './use-page-draft';
 import type { PagePlanLine } from '../page-data';
+
+/* 🎨 THE ONE COLOUR PICKER — the Mood Board's sheet, the same one every Studio colour opens
+   (`lib/every-studio-colour-opens-the-one-picker.test.ts`). Loaded on the first press of the Look circle, so Your
+   page's first load carries none of it. */
+const ColourPickerSheet = dynamic(
+  () => import('@/app/dashboard/[eventId]/studio/mood-board/_components/colour-picker-sheet').then((m) => m.ColourPickerSheet),
+  { ssr: false },
+);
+
+/** The page couples see is white — the ground the shop's colour sits on, for the picker's "Against the background". */
+const PAGE_GROUND = '#FFFFFF';
 
 /**
  * YOUR PAGE — the page as couples see it on top, then one row per part in the order they scroll (simpler supplier
@@ -134,7 +148,8 @@ export function PageParts({
   };
 
   const cover = shown.hero ? d.portfolio.find((p) => p.key === shown.hero)?.url : d.portfolio[0]?.url;
-  const accent = MICROSITE_ACCENTS.find((a) => a.key === (shown.accent || MICROSITE_DEFAULT_ACCENT_KEY));
+  const accent = resolveMicrositeAccent(shown.accent || MICROSITE_DEFAULT_ACCENT_KEY);
+  const [picking, setPicking] = useState(false);
   const ratingLine =
     d.rating === null
       ? null
@@ -351,25 +366,65 @@ export function PageParts({
           anchor="look"
           data="page-look"
           title={`Look${diamond(d.personalizeAsks)}`}
-          line={accent?.label ?? 'Your colour'}
-          lead={<span aria-hidden className="h-9 w-9 flex-none rounded-full border border-ink/10" style={{ background: accent?.swatch }} />}
+          line={accent.custom ? `${accent.label} · ${accent.swatch}` : accent.label}
+          leadPress={
+            /* The circle is its OWN press (owner 2026-10-23: "press the color circle will show color picker we have
+               designed") — beside the row's head, never inside it, so the row still opens and shuts on its own press. */
+            <button
+              type="button"
+              data-page-look-circle=""
+              aria-haspopup="dialog"
+              aria-expanded={picking}
+              aria-label={`Your colour: ${accent.label} — pick a colour`}
+              onClick={() => setPicking(true)}
+              className="sn-press sn-press-ring flex h-11 w-11 flex-none items-center justify-center rounded-full"
+            >
+              <span aria-hidden className="h-9 w-9 rounded-full border border-ink/10" style={{ background: accent.swatch }} />
+            </button>
+          }
         >
           <div className="space-y-2 pb-4">
             {d.personalizeAsks ? <PlanAsk plan="Solo" /> : null}
             <PickMenu
               label="Your colour"
               value={shown.accent || MICROSITE_DEFAULT_ACCENT_KEY}
-              options={MICROSITE_ACCENTS.map((a) => ({
-                key: a.key,
-                label: a.label,
-                preview: <span aria-hidden className="inline-block h-4 w-4 rounded-full" style={{ background: a.swatch }} />,
-              }))}
+              options={[
+                ...MICROSITE_ACCENTS.map((a) => ({
+                  key: a.key,
+                  label: a.label,
+                  preview: <span aria-hidden className="inline-block h-4 w-4 rounded-full" style={{ background: a.swatch }} />,
+                })),
+                /* The shop's own colour, picked with the circle — one more row, so the dropdown says what is chosen. */
+                ...(accent.custom
+                  ? [
+                      {
+                        key: accent.key,
+                        label: accent.label,
+                        hint: accent.swatch,
+                        preview: <span aria-hidden className="inline-block h-4 w-4 rounded-full" style={{ background: accent.swatch }} />,
+                      },
+                    ]
+                  : []),
+              ]}
               onPick={(k) => change({ accent: k === MICROSITE_DEFAULT_ACCENT_KEY ? '' : k })}
               dataAttr="data-page-accent"
               className="min-h-11 w-full"
             />
           </div>
         </Fold>
+        {picking ? (
+          <ColourPickerSheet
+            title="Your colour"
+            job="Buttons, links and marks on your page"
+            current={accent.swatch.toUpperCase()}
+            readsOn={PAGE_GROUND}
+            onPick={(hex) => {
+              setPicking(false);
+              change({ accent: accentFromPickedHex(hex) });
+            }}
+            onClose={() => setPicking(false)}
+          />
+        ) : null}
 
         <Fold
           anchor="domain"

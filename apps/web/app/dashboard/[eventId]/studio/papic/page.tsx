@@ -1082,7 +1082,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
             </AddPhotosDoor>
           ) : undefined
         }
-        whoShoots={papicAnsweredNo ? 'Off in Your info' : 'Every guest + you'}
+        whoShoots={papicAnsweredNo ? 'Off in Event Details' : 'Every guest + you'}
       >
         <GalleryPreviewCard
           eventId={eventId}

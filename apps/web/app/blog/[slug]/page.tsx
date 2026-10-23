@@ -615,6 +615,14 @@ export default async function BlogArticlePage({ params }: Props) {
             <ChevronLeft aria-hidden className="mr-1 h-4 w-4" strokeWidth={1.75} />
             All articles
           </Link>
+          {/* The way to /realstories (owner 2026-10-23) — real events live there. */}
+          <Link
+            href="/realstories"
+            className="inline-flex items-center text-sm font-medium text-ink/70 underline-offset-4 hover:text-terracotta hover:underline"
+          >
+            Stories from real events
+            <ArrowRight aria-hidden className="ml-1 h-4 w-4" strokeWidth={1.75} />
+          </Link>
         </div>
       </article>
 

@@ -43,8 +43,8 @@ export type BlogCategory = { key: BlogCategoryKey; label: string };
 // actually have ≥1 published article, so empty categories never show a dead
 // filter — see blogCategoriesInUse().
 // No "Real Weddings" category (removed 2026-10-23): real events are the
-// post-event editorials, and their one home is /realstories, which already
-// carries a "From our articles" rail.
+// post-event editorials, and their one home is /realstories (whose one shelf
+// already shows articles; /blog and each article link back to it).
 export const BLOG_CATEGORIES: ReadonlyArray<BlogCategory> = [
   { key: 'planning', label: 'Planning' },
   { key: 'vendors', label: 'Suppliers' },

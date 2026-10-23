@@ -324,8 +324,28 @@ export default async function BlogIndexPage({ searchParams }: Props) {
           </div>
         ) : null}
 
+        {/* The way to /realstories (owner 2026-10-23). Real events are the
+            post-event editorials, and their one home is Stories; this card is
+            how a reader of the guides gets there. */}
+        <section className="mt-16">
+          <Eyebrow>Stories</Eyebrow>
+          <h2 className="mt-2 font-display text-2xl font-medium tracking-tight text-ink sm:text-3xl">
+            Real events, told in full
+          </h2>
+          <p className="mt-2 text-[15px] text-ink/65">
+            Weddings, debuts, reunions and more — from the people who were there.
+          </p>
+          <Link
+            href="/realstories"
+            className="group mt-3 inline-flex min-h-[44px] items-center gap-1.5 text-sm font-semibold text-terracotta"
+          >
+            See the stories
+            <ArrowRight aria-hidden className="h-4 w-4 transition group-hover:translate-x-0.5" strokeWidth={1.75} />
+          </Link>
+        </section>
+
         {/* Conversion footer — sells the free workspace, no quoted SKU price. */}
-        <div className="mt-16 rounded-3xl border border-terracotta/25 bg-accent-soft p-8 text-center sm:p-12">
+        <div className="mt-12 rounded-3xl border border-terracotta/25 bg-accent-soft p-8 text-center sm:p-12">
           <h2 className="font-display text-2xl font-medium tracking-tight text-ink sm:text-3xl">
             Ready to start your own plan?
           </h2>

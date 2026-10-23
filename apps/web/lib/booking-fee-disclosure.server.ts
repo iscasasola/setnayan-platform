@@ -89,12 +89,17 @@ export async function resolveBookingFeeStanding(
   // flagged as a projection, which the copy words differently.
   let ordinal: number | null = null;
   let ordinalIsFrozen = false;
+  // ⚖ THE FROZEN ANSWER (owner 2026-10-23). A booking already given its place
+  // keeps the free/billed answer it was frozen with — bookings 2…5 waived under
+  // the earlier five-booking rule stay waived. Re-asking `isFreeBooking(ordinal)`
+  // of them under the new limit of one would call them billable.
+  let frozenFree = false;
   let launchNumber: number | null = null;
   let isLaunchBooking = false;
   if (args.eventId) {
     const { data: row, error } = await admin
       .from('booking_fee_ledger')
-      .select('booking_ordinal, launch_offer, launch_offer_number')
+      .select('booking_ordinal, is_free_booking, launch_offer, launch_offer_number')
       .eq('vendor_profile_id', args.vendorProfileId)
       .eq('event_id', args.eventId)
       .maybeSingle();
@@ -104,6 +109,7 @@ export async function resolveBookingFeeStanding(
     }
     const led = row as {
       booking_ordinal?: number | null;
+      is_free_booking?: boolean | null;
       launch_offer?: boolean | null;
       launch_offer_number?: number | null;
     } | null;
@@ -111,6 +117,7 @@ export async function resolveBookingFeeStanding(
     if (typeof n === 'number' && Number.isFinite(n)) {
       ordinal = n;
       ordinalIsFrozen = true;
+      frozenFree = led?.is_free_booking === true;
     }
     if (led?.launch_offer === true) {
       isLaunchBooking = true;
@@ -141,14 +148,14 @@ export async function resolveBookingFeeStanding(
   // No frozen ordinal → this booking would take the NEXT one.
   if (ordinal === null) {
     // ⚖ SOURCED ONLY (owner 2026-10-12 #2) — the same predicate the RPC counts
-    // with (migration 20271268252763): an import never uses one of the five.
+    // with (migration 20271268252763): an import never uses up the free booking.
     const { count, error } = await admin
       .from('booking_fee_ledger')
       .select('ledger_id', { count: 'exact', head: true })
       .eq('vendor_profile_id', args.vendorProfileId)
       .eq('source', 'lock')
       .eq('attribution', 'sourced')
-      // A launch booking spends none of the five (#4) — the RPC skips it too.
+      // A launch booking spends no free booking (#4) — the RPC skips it too.
       .eq('launch_offer', false);
     if (error || typeof count !== 'number' || !Number.isFinite(count)) {
       if (error) logQueryError('booking-fee-disclosure: ledger count', error);
@@ -168,7 +175,7 @@ export async function resolveBookingFeeStanding(
   // booking that is already free must stay the shop's own courtesy — a window
   // must never quietly spend one of the five during a period when everything
   // was free anyway.
-  if (isFreeBooking(ordinal)) {
+  if (ordinalIsFrozen ? frozenFree : isFreeBooking(ordinal)) {
     return { kind: 'free', ordinal, ordinalIsFrozen, schedule };
   }
 

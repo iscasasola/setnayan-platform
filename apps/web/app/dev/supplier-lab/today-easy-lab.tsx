@@ -14,6 +14,7 @@ import type { UpcomingEventRow, WhatsNewCard } from '@/lib/vendor-overview';
 import type { DueFeeBill, FeeDisclosure } from '@/lib/booking-fee-disclosure';
 import { bookingFeeForecast } from '@/lib/booking-fee-disclosure';
 import { BOOKING_FEE, bookingFeePhp } from '@/lib/booking-fee';
+import { FREE_BOOKING_LIMIT } from '@/lib/booking-fee-lock';
 import { buildFirstStepsRail } from '@/lib/vendor-first-steps';
 import { splitDesk } from '@/lib/vendor-desk-disposition';
 import { lockAgreeNotice } from '@/lib/lock-answer-notice';
@@ -248,7 +249,7 @@ const SUPS: Record<EasySupplier, Sup> = {
 
 function forecastFor(price: number, freeUsed: number): FeeDisclosure | null {
   return bookingFeeForecast(
-    freeUsed < 5
+    freeUsed < FREE_BOOKING_LIMIT
       ? { kind: 'free', ordinal: freeUsed + 1, ordinalIsFrozen: false, schedule: BOOKING_FEE }
       : { kind: 'billable', ordinal: freeUsed + 1, ordinalIsFrozen: false, schedule: BOOKING_FEE },
     price,

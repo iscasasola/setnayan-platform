@@ -138,8 +138,8 @@ export default async function VendorBookingFeesPage() {
           />
           <p className="mt-3 text-sm font-medium text-ink">Nothing to pay yet.</p>
           <p className="mx-auto mt-1 max-w-sm text-sm text-ink/55">
-            Your first 5 booked customers are free — each one still shows the fee
-            it would have carried, so the 6th is no surprise.
+            Your first booking from Setnayan is on us — it still shows the fee it
+            would have carried, so the next one is no surprise.
           </p>
         </div>
       ) : (
@@ -156,7 +156,7 @@ export default async function VendorBookingFeesPage() {
         </div>
       )}
 
-      {/* THE FREE FIVE, PRICED. Outside the orders branch on purpose: a shop
+      {/* THE FREE BOOKINGS, PRICED. Outside the orders branch on purpose: a shop
           with no bill at all still has free bookings worth naming, and the
           "Nothing to pay yet" empty state above is about ORDERS, not about
           whether any fee has ever been computed for this shop. */}

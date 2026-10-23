@@ -56,7 +56,7 @@ import {
   splitEventBoard,
 } from '@/lib/event-board';
 
-import type { HomeCommandItem } from '@/app/dashboard/(launcher)/_components/home-command-bar';
+import type { HomeCommandItem } from './command-item';
 import { ownSupplierItems, type OwnSupplierRow } from '@/lib/own-supplier-items';
 import { logQueryError } from '@/lib/supabase/error-detect';
 

@@ -1,4 +1,5 @@
 import { cameraLookFromPreferences } from '@/lib/camera-look';
+import { startAhead } from '@/lib/start-ahead';
 import { SCENE_ACCENTS_PREF_KEY, sceneAccentsFromPreferences } from '@/lib/art-kit-accents';
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import { redirect } from 'next/navigation';
@@ -204,6 +205,17 @@ export default async function WebsiteEditorPage({
 
   const supabase = await createClient();
 
+  // ⚡ The couple-only gate's read needs only the event id and the viewer, so it leaves WITH the event row below and
+  // is awaited where the gate always stood (2026-10-23, the speed pass).
+  const membershipRead = startAhead(Promise.resolve(
+    supabase
+      .from('event_members')
+      .select('member_type')
+      .eq('event_id', eventId)
+      .eq('user_id', user.id)
+      .eq('member_type', 'couple')
+      .maybeSingle(),
+  ));
   const { data: event, error: eventError } = await supabase
     .from('events')
     .select(
@@ -222,13 +234,7 @@ export default async function WebsiteEditorPage({
 
   // Couple gate — mirrors the launch surface this page absorbs (its go-live
   // actions are requireCouple).
-  const { data: membership, error: membershipError } = await supabase
-    .from('event_members')
-    .select('member_type')
-    .eq('event_id', eventId)
-    .eq('user_id', user.id)
-    .eq('member_type', 'couple')
-    .maybeSingle();
+  const { data: membership, error: membershipError } = await membershipRead;
   // ⚠ the viewer's membership. An absence here DENIES rather than renders.
   if (membershipError) {
     logQueryError('WebsiteEditorPage.membership', membershipError, { eventId }, 'graceful_degrade');
@@ -290,6 +296,78 @@ export default async function WebsiteEditorPage({
     redirect(`/dashboard/${eventId}/launch?${q.toString()}`);
   }
   // 🔒 App-store shell: Pro-only rows and their locks are HIDDEN, not locked.
+  /*
+    ⚡ THE EDITOR'S OWN READS START HERE, TOGETHER (2026-10-23, the speed pass). Past the couple-only gate and the
+    Maker-only redirect above, every read below needs nothing but this event's id — the draft, the scenes, the fixed
+    styles, the public schedule, the couple's names, the rite, the roles and their names, the entourage count, where
+    the reveal plays and the logo's fonts — yet each waited for the one above it: fourteen database trips in single
+    file AFTER the Maker page had already returned. Each is STARTED here with exactly the arguments it always had and
+    awaited at the line that always awaited it (`lib/start-ahead.ts`), so every value, every fallback and every refusal
+    arrives where it did; every one is awaited on every path below. Nothing here writes (`readPostEventForMaker`,
+    which may, stays where it was). Held by `the-maker-reads-start-together.test.ts`.
+  */
+  const draftRead = startAhead(readHubDraft(supabase, eventId));
+  const widgetsRead = startAhead(Promise.resolve(
+    supabase
+      .from('invitation_widgets')
+      .select(
+        'widget_id, event_id, widget_type, display_order, is_visible, is_always_on, tier, config_json, created_at, updated_at, mode, audience',
+      )
+      .eq('event_id', eventId),
+  ));
+  const prefsRead = startAhead(Promise.resolve(
+    supabase
+      .from('events_host')
+      .select('style_preferences')
+      .eq('event_id', eventId)
+      .maybeSingle(),
+  ));
+  const scheduleBlocksRead = startAhead(Promise.resolve(
+    supabase
+      .from('event_schedule_blocks')
+      .select('block_id, label, start_at, location')
+      .eq('event_id', eventId)
+      .eq('is_public', true)
+      .is('audience', null)
+      .neq('visibility', 'coordinator_only')
+      .order('start_at', { ascending: true })
+      .limit(12),
+  ));
+  const couplePeopleRead = startAhead(Promise.resolve(
+    supabase
+      .from('guests')
+      // The entourage's own list (`ENTOURAGE_COLUMNS`) — the name parts the formal surfaces style.
+      .select(ENTOURAGE_COLUMNS)
+      .eq('event_id', eventId)
+      .is('deleted_at', null)
+      .in('role', ['bride', 'celebrant', 'groom'])
+      .limit(3),
+  ));
+  const riteRead = startAhead(Promise.resolve(
+    supabase
+      .from('events')
+      .select('ceremony_type, secondary_ceremony_type')
+      .eq('event_id', eventId)
+      .maybeSingle(),
+  ));
+  const roleRowsRead = startAhead(Promise.resolve(
+    supabase
+      .from('guests')
+      .select('role')
+      .eq('event_id', eventId)
+      .is('deleted_at', null),
+  ));
+  const entourageRead = startAhead(Promise.resolve(
+    supabase
+      .from('guests')
+      .select('guest_id', { count: 'exact', head: true })
+      .eq('event_id', eventId)
+      .is('deleted_at', null)
+      .or(`role.in.(${ENTOURAGE_ROLES.join(',')}),extra_roles.ov.{${ENTOURAGE_ROLES.join(',')}}`),
+  ));
+  const roleNamesRead = startAhead(loadRoleNames(supabase, eventId, 'WebsiteEditorPage.roleNames'));
+  const revealStagesRead = startAhead(readMakerRevealStages(eventId));
+  const logoFontsRead = startAhead(readMakerLogoFonts(eventId));
   const iapGate = await getIapGate();
   const storeShell = iapGate.storeShell;
   /* 🍎 …UNLESS Apple can sell Pro in this app (lib/iap/iap-gate.ts, owner
@@ -328,7 +406,7 @@ export default async function WebsiteEditorPage({
   // Read here — before the media below — so the panels can show what is drafted.
   let hubDraft: HubDraft | null = null;
   try {
-    hubDraft = await readHubDraft(supabase, eventId);
+    hubDraft = await draftRead;
   } catch (e) {
     console.error('[hub-draft] editor could not read the draft:', e instanceof Error ? e.message : e);
   }
@@ -425,12 +503,7 @@ export default async function WebsiteEditorPage({
   ).slice(0, 8);
 
   // Sections manager data — the same reads the widgets sub-editor does.
-  const { data: widgetsRaw, error: widgetsRawError } = await supabase
-    .from('invitation_widgets')
-    .select(
-      'widget_id, event_id, widget_type, display_order, is_visible, is_always_on, tier, config_json, created_at, updated_at, mode, audience',
-    )
-    .eq('event_id', eventId);
+  const { data: widgetsRaw, error: widgetsRawError } = await widgetsRead;
   // ⚠ 🚨 THE COUPLE'S OWN WEBSITE BLOCKS. Refused, the editor opens EMPTY — every
   // ⚠ widget they placed is absent, and an editor that loads blank invites them to
   // ⚠ rebuild a page that already exists. Worse: saving from that state could
@@ -491,11 +564,7 @@ export default async function WebsiteEditorPage({
      .scene_styles`, read through `events_host`, the couple-scoped read) with the
      draft laid on, so the Style row shows what the canvas draws. A failed read
      shows the defaults, which is what the page draws without a pick. */
-  const { data: prefsRow, error: prefsErr } = await supabase
-    .from('events_host')
-    .select('style_preferences')
-    .eq('event_id', eventId)
-    .maybeSingle();
+  const { data: prefsRow, error: prefsErr } = await prefsRead;
   if (prefsErr) logQueryError('WebsiteEditorPage.fixedStyles', prefsErr, { eventId }, 'graceful_degrade');
   /* 🎛 The Camera's look — live with the drafted one laid on (`lib/camera-look.ts`). */
   const cameraLook = cameraLookFromPreferences({
@@ -569,15 +638,7 @@ export default async function WebsiteEditorPage({
   // is the guests' fence: public · for Everyone · released — the three
   // conditions the database's anonymous read asks (20271267138064). The host's
   // session alone would also hand back their role-only moments.
-  const { data: scheduleBlocksRaw, error: scheduleBlocksRawError } = await supabase
-    .from('event_schedule_blocks')
-    .select('block_id, label, start_at, location')
-    .eq('event_id', eventId)
-    .eq('is_public', true)
-    .is('audience', null)
-    .neq('visibility', 'coordinator_only')
-    .order('start_at', { ascending: true })
-    .limit(12);
+  const { data: scheduleBlocksRaw, error: scheduleBlocksRawError } = await scheduleBlocksRead;
   // ⚠ the schedule the couple authored, shown on their site. Refused, the day reads
   // ⚠ as having no events in it.
   if (scheduleBlocksRawError) {
@@ -602,14 +663,7 @@ export default async function WebsiteEditorPage({
      person of the couple's own to show each style in: their Guest list row
      (middle name and all) when there is one, else the first person's name as
      typed (drafted over live). Read-only; the bar saves through the prints' door. */
-  const { data: couplePeople, error: couplePeopleErr } = await supabase
-    .from('guests')
-    // The entourage's own list (`ENTOURAGE_COLUMNS`) — the name parts the formal surfaces style.
-    .select(ENTOURAGE_COLUMNS)
-    .eq('event_id', eventId)
-    .is('deleted_at', null)
-    .in('role', ['bride', 'celebrant', 'groom'])
-    .limit(3);
+  const { data: couplePeople, error: couplePeopleErr } = await couplePeopleRead;
   if (couplePeopleErr) logQueryError('WebsiteEditorPage.couplePeople', couplePeopleErr, { eventId }, 'graceful_degrade');
   const nameExample: NameParts | null =
     ['bride', 'celebrant', 'groom']
@@ -650,11 +704,7 @@ export default async function WebsiteEditorPage({
      (`incDressCodeStarter`). Form defaults only: nothing is written until the
      couple presses Save. Its own small read, so the event select stays as is;
      a refused read offers no starter, which is the form as it was. */
-  const { data: riteRow, error: riteError } = await supabase
-    .from('events')
-    .select('ceremony_type, secondary_ceremony_type')
-    .eq('event_id', eventId)
-    .maybeSingle();
+  const { data: riteRow, error: riteError } = await riteRead;
   if (riteError) {
     logQueryError('WebsiteEditorPage.dressCodeRite', riteError, { eventId }, 'graceful_degrade');
   }
@@ -667,17 +717,13 @@ export default async function WebsiteEditorPage({
      panel was handed none, so it said the guest list had no ninongs to a couple
      who had them. An unread list offers no rows — and the saved outfits still
      ride along unchanged (`CarriedAttire`), so a Save cannot wipe them. */
-  const { data: roleRows, error: roleRowsError } = await supabase
-    .from('guests')
-    .select('role')
-    .eq('event_id', eventId)
-    .is('deleted_at', null);
+  const { data: roleRows, error: roleRowsError } = await roleRowsRead;
   if (roleRowsError) {
     logQueryError('WebsiteEditorPage.dressCodeRoles', roleRowsError, { eventId }, 'graceful_degrade');
   }
   const dressCodeRoles = foldEventRoles(
     (roleRows ?? []) as { role: string | null }[],
-    await loadRoleNames(supabase, eventId, 'WebsiteEditorPage.roleNames'),
+    await roleNamesRead,
   );
   // Dress code starts from the Mood Board (owner 2026-07-25): when the couple
   // hasn't set a palette yet, seed the panel's swatches from role_palette so
@@ -1392,12 +1438,7 @@ export default async function WebsiteEditorPage({
      not follow the sequence alotted"*). For each stage, what the canvas draws,
      in its order — asked of the page's own plan (`lib/maker-scene-list.ts`) —
      with the fold of what that stage leaves out and why. */
-  const { count: entourageCount, error: entourageError } = await supabase
-    .from('guests')
-    .select('guest_id', { count: 'exact', head: true })
-    .eq('event_id', eventId)
-    .is('deleted_at', null)
-    .or(`role.in.(${ENTOURAGE_ROLES.join(',')}),extra_roles.ov.{${ENTOURAGE_ROLES.join(',')}}`);
+  const { count: entourageCount, error: entourageError } = await entourageRead;
   // ⚠ Unread is NOT "nobody": the page reads the entourage with its own client,
   // so an unreadable count keeps the tile rather than hiding a real section.
   if (entourageError) {
@@ -1669,7 +1710,7 @@ export default async function WebsiteEditorPage({
            plans › Love Story, drawn by the launch page (Details part 2b). */
       }}
       /* 🎭 Where the reveal plays (drafted over live) — its page previews the first. */
-      revealStages={await readMakerRevealStages(eventId)}
+      revealStages={await revealStagesRead}
       publicLandingUrl={slug ? `/${slug}` : null}
       /* 🔤 Per-element editing: every scene's canvas as the canvas draws it (the
          draft over live — `allWidgets`), and the theme's colours for swatches. */
@@ -1717,7 +1758,7 @@ export default async function WebsiteEditorPage({
           themeFaces: (INVITE_THEMES[currentThemeId as keyof typeof INVITE_THEMES] ?? INVITE_THEMES.house).fonts,
           siteFontKey: (drafted as { site_font_key?: string | null }).site_font_key ?? null,
           canvases: elementCanvases,
-          logoFonts: await readMakerLogoFonts(eventId),
+          logoFonts: await logoFontsRead,
         }),
         /* ✍ TAP ANY TEXT, ON EVERY SCENE (`lib/scene-type-words.ts`): the scene
            words a tap types in, read from the SAME draft over live the canvas

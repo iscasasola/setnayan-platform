@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { resolveOwnedActiveShop } from '@/lib/active-shop';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { decryptToken, encryptToken } from '@/lib/encryption';
 import { encodeR2Ref } from '@/lib/uploads';
@@ -33,19 +34,18 @@ const MAX_IMAGE_BYTES = 8 * 1024 * 1024; // 8 MB safety cap per fetched image
 
 type SyncResult = { ok: boolean; message: string };
 
-/** Re-derive the caller's own vendor_profile_id from the session. */
+/**
+ * Re-derive the caller's shop from the session: the ACTIVE shop (lib/active-shop.ts), and only when this login owns
+ * it — these actions write through the admin client, so the owner-only check is made here, not left to RLS.
+ */
 async function ownVendorProfileId(): Promise<string | null> {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return null;
-  const { data } = await supabase
-    .from('vendor_profiles')
-    .select('vendor_profile_id')
-    .eq('user_id', user.id)
-    .maybeSingle();
-  return (data as { vendor_profile_id?: string } | null)?.vendor_profile_id ?? null;
+  const shopAuth = await resolveOwnedActiveShop(supabase, user.id);
+  return shopAuth.ok ? shopAuth.vendorProfileId : null;
 }
 
 /**

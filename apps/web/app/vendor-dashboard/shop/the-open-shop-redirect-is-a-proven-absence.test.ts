@@ -23,6 +23,8 @@ import { join } from 'node:path';
 
 const SHOP_PAGE = 'app/vendor-dashboard/shop/page.tsx';
 const VENDOR_PROFILE = 'lib/vendor-profile.ts';
+/** Where the membership read lives since 2026-10-22: the ONE active-shop resolver `fetchOwnVendorProfile` calls. */
+const ACTIVE_SHOP = 'lib/active-shop.ts';
 
 /**
  * A comment is not code. Without this, a docblock that QUOTES the shape it
@@ -122,27 +124,31 @@ test('the loader still has a separate "couldn\'t load" branch for a failed read'
 });
 
 test('the membership read keeps its error instead of destructuring it away', () => {
-  const src = readFileSync(VENDOR_PROFILE, 'utf8');
-  const reads = src
+  // 2026-10-22: the owned-shops and membership reads moved into the active-shop resolver. Both are held as WHOLE
+  // results (`ownedRes`, `seatRes`) and every one goes through classifyShopRead before its rows are used.
+  const profile = readFileSync(VENDOR_PROFILE, 'utf8');
+  assert.match(
+    profile,
+    /const active = await resolveActiveShop\(supabase, userId\);/,
+    `${VENDOR_PROFILE}: fetchOwnVendorProfile no longer reads the shop through the resolver — the scan below would guard the wrong file`,
+  );
+  const src = readFileSync(ACTIVE_SHOP, 'utf8');
+  const destructured = src
     .split('\n')
     .map((text, i) => ({ text: text.trim(), line: i + 1 }))
-    .filter((l) => !isComment(l.text) && /const\s*\{[^}]*data:\s*memberships/.test(l.text));
-  // eslint-disable-next-line no-console
-  console.log(`[guard] membership reads found in ${VENDOR_PROFILE}: ${reads.length}`);
-  assert.ok(
-    reads.length >= 1,
-    `no membership read found in ${VENDOR_PROFILE} — the scan is broken or the read moved`,
+    .filter((l) => !isComment(l.text) && /const\s*\{[^}]*\bdata\b/.test(l.text) && !/error/.test(l.text));
+  assert.deepEqual(
+    destructured.map((r) => `${ACTIVE_SHOP}:${r.line} ${r.text}`),
+    [],
+    'a shop read destructures its data without its error — a refused read becomes the same null as "no shop", which reaches /open-shop as a proven absence',
   );
-  for (const r of reads) {
-    assert.match(
-      r.text,
-      /error:/,
-      `${VENDOR_PROFILE}:${r.line} destructures the membership read's data without its error — a refused read becomes the same null as "no memberships", which reaches /open-shop as a proven absence.\n  ${r.text}`,
-    );
-  }
+  const reads = [...src.matchAll(/\.from\(\s*'(vendor_profiles|vendor_team_members)'\s*\)/g)].map((m) => m[1]);
+  // eslint-disable-next-line no-console
+  console.log(`[guard] shop reads found in ${ACTIVE_SHOP}: ${reads.join(', ')}`);
+  assert.ok(reads.includes('vendor_team_members') && reads.includes('vendor_profiles'), `no membership read found in ${ACTIVE_SHOP} — the scan is broken or the read moved`);
   assert.match(
     src,
-    /classifyShopRead\(/,
-    `${VENDOR_PROFILE}: the membership read no longer routes through classifyShopRead — the (rows, error) decision has been re-implemented inline where nothing executes it`,
+    /\['vendor_profiles', ownedRes\],\s*\['vendor_team_members', seatRes\],[\s\S]{0,200}classifyShopRead\(res\.data, res\.error\) === 'unreadable'/,
+    `${ACTIVE_SHOP}: a shop read no longer routes through classifyShopRead — the (rows, error) decision has been re-implemented inline where nothing executes it`,
   );
 });

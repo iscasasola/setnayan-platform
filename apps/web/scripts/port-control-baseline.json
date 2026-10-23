@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "5dead10069",
-  "routeCount": 459,
+  "generatedFromRef": "f7942b9c18",
+  "routeCount": 460,
   "destinations": 1004,
-  "actions": 665,
-  "blocks": 6830,
+  "actions": 667,
+  "blocks": 6839,
   "routes": {
     "/": {
       "files": [
@@ -5017,6 +5017,7 @@
         "dashboard/(account)/library/_components/photos-tab.tsx",
         "dashboard/(account)/library/_components/saved-vendor-card.tsx",
         "dashboard/(account)/library/_components/vendors-tab.tsx",
+        "dashboard/(account)/library/memories-page-reads.harness.ts",
         "dashboard/(account)/library/page.tsx"
       ],
       "destinations": [
@@ -5031,6 +5032,7 @@
       ],
       "actions": [],
       "blocks": [
+        "A",
         "AlaalaLensBody",
         "AlbumCard",
         "AlbumShelf",
@@ -5046,7 +5048,8 @@
         "SavedVendorCardItem",
         "Section",
         "StatusChip",
-        "VendorsTab"
+        "VendorsTab",
+        "ViewReport"
       ]
     },
     "/dashboard/(account)/life-flash": {
@@ -5122,7 +5125,8 @@
         "dashboard/(account)/people/actions.ts",
         "dashboard/(account)/people/dependent-actions.ts",
         "dashboard/(account)/people/life-stories.ts",
-        "dashboard/(account)/people/page.tsx"
+        "dashboard/(account)/people/page.tsx",
+        "dashboard/(account)/people/people-page-reads.harness.ts"
       ],
       "destinations": [
         "/dashboard/create-event?with=[seg]",
@@ -5143,6 +5147,7 @@
         "setDependentSharing"
       ],
       "blocks": [
+        "A",
         "AccountThumbRow",
         "ActionButton",
         "ActionResult",
@@ -5192,8 +5197,10 @@
         "RequestRow",
         "SamahanPeopleSection",
         "SubmitButton",
+        "T",
         "ThumbField",
         "ThumbTool",
+        "ViewReport",
         "YourStorySection"
       ]
     },
@@ -5399,8 +5406,6 @@
         "dashboard/(launcher)/_components/create-event-panel.tsx",
         "dashboard/(launcher)/_components/event-card-menu.tsx",
         "dashboard/(launcher)/_components/event-scene.tsx",
-        "dashboard/(launcher)/_components/guests-top-search.tsx",
-        "dashboard/(launcher)/_components/home-command-bar.tsx",
         "dashboard/(launcher)/_components/incoming-requests.tsx",
         "dashboard/(launcher)/_components/stance-chip.tsx",
         "dashboard/(launcher)/_components/start-planning-link.tsx",
@@ -5450,20 +5455,16 @@
         "EventMonogram",
         "EventPoster",
         "EventScene",
+        "EventsThumbRow",
         "Flash",
         "ForTagMark",
         "GlassEventCard",
-        "GuestsTopSearch",
-        "GuestsTopSearchBox",
         "HTMLDialogElement",
-        "HTMLDivElement",
-        "HTMLInputElement",
         "Icon",
         "Image",
         "ImpactLines",
         "IncomingRequests",
         "Link",
-        "LiveSearch",
         "MomentRow",
         "NewEventButton",
         "NewEventCard",
@@ -5480,7 +5481,6 @@
         "StanceChip",
         "StartPlanningLink",
         "SupplierRecordsNote",
-        "Suspense",
         "Tile",
         "UnreadBellBadge",
         "YearMomentsList",
@@ -6382,7 +6382,6 @@
         "dashboard/[eventId]/guests/_components/invite-message-setup.ts",
         "dashboard/[eventId]/guests/_components/invited-to-chips.tsx",
         "dashboard/[eventId]/guests/_components/just-added.tsx",
-        "dashboard/[eventId]/guests/_components/live-search.tsx",
         "dashboard/[eventId]/guests/_components/new-group-inline-form.tsx",
         "dashboard/[eventId]/guests/_components/new-guest-group-role.tsx",
         "dashboard/[eventId]/guests/_components/overlay-primitives.tsx",
@@ -6431,6 +6430,8 @@
         "/dashboard/profile"
       ],
       "actions": [
+        "addRound",
+        "null",
         "partnerLinkAction",
         "release",
         "releaseAction",
@@ -6589,6 +6590,7 @@
         "SubmitButton",
         "SwitchRow",
         "T",
+        "ThumbRow",
         "TicketPlaceholder",
         "TicketThumb",
         "TitleGenderResult",
@@ -7045,6 +7047,7 @@
         "dashboard/[eventId]/launch/_components/theme-preview-overlay.tsx",
         "dashboard/[eventId]/launch/_components/view-as-free.tsx",
         "dashboard/[eventId]/launch/loading.tsx",
+        "dashboard/[eventId]/launch/maker-page-reads.harness.ts",
         "dashboard/[eventId]/launch/march-card-actions.tsx",
         "dashboard/[eventId]/launch/page.tsx",
         "dashboard/[eventId]/launch/qr-look-actions.ts"
@@ -7077,6 +7080,7 @@
         "uploadHeroPhoto"
       ],
       "blocks": [
+        "A",
         "About",
         "ActionButton",
         "AddPartSheet",
@@ -7558,6 +7562,7 @@
         "ViewAsFreeRow",
         "ViewAsFreeStrip",
         "ViewAsRow",
+        "ViewReport",
         "Waiting",
         "WebsiteEditorPage",
         "WhatsLeftDoor",
@@ -9773,7 +9778,7 @@
         "TeamDecisionDoorway",
         "TeamRemoveCandidate",
         "TeamSavePlan",
-        "ThumbControls",
+        "ThumbRow",
         "Toast",
         "ToastState",
         "TypedRow",
@@ -11155,8 +11160,7 @@
         "AccountBarSlot",
         "Avatar",
         "FrontDoorResults",
-        "FrontDoorShell",
-        "HomeCommandBar"
+        "FrontDoorShell"
       ]
     },
     "/dev/spotlight-lab/[[...page]]": {
@@ -11282,6 +11286,7 @@
         "SupplierThumbRow",
         "SupplierToast",
         "SupplierTodayScreen",
+        "ThumbRow",
         "TodayEasyLab",
         "TodayLab"
       ]
@@ -11360,6 +11365,17 @@
         "ShortlistCategories",
         "SuppliersLabStage",
         "TeamRowFacts"
+      ]
+    },
+    "/dev/thumb-row-lab": {
+      "files": [
+        "dev/thumb-row-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "DiscoverThumbRow",
+        "EventsThumbRow"
       ]
     },
     "/dev/visits-lab": {
@@ -12857,7 +12873,8 @@
         "vendor-dashboard/layout.tsx",
         "vendor-dashboard/loading.tsx",
         "vendor-dashboard/page.tsx",
-        "vendor-dashboard/template.tsx"
+        "vendor-dashboard/template.tsx",
+        "vendor-dashboard/today-page-reads.harness.ts"
       ],
       "destinations": [
         "/api/vendor/instagram/connect",
@@ -12907,6 +12924,7 @@
         "toggleInstagramMediaVisibility"
       ],
       "blocks": [
+        "A",
         "AccountSwitcher",
         "ActionButton",
         "AddBranchForm",
@@ -12997,6 +13015,7 @@
         "VendorBottomNav",
         "VendorDealFacts",
         "VendorRailContext",
+        "ViewReport",
         "WhatsNewFeed"
       ]
     },
@@ -13632,6 +13651,7 @@
         "SupplierToast",
         "Suspense",
         "SwitchTrack",
+        "ThumbRow",
         "TypedRow",
         "WaivedFeeRows"
       ]
@@ -15050,7 +15070,8 @@
         "ShopSegments",
         "SupplierThumbRow",
         "SwitchRow",
-        "SwitchTrack"
+        "SwitchTrack",
+        "ThumbRow"
       ]
     },
     "/vendor-invite/[slug]": {

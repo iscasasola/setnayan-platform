@@ -41,7 +41,7 @@ test('1 · the page parts never save a part on their own — Apply is the only w
   assert.equal((parts.match(/applyVendorPageDraft\(/g) ?? []).length, 1, 'Apply must post through applyVendorPageDraft, once');
   // The one call sits inside `apply`, which the thumb row's Apply button runs.
   assert.match(parts, /const apply = \(\) => \{[\s\S]*?applyVendorPageDraft\(null, fd\)/, 'the write is not inside apply()');
-  assert.match(parts, /label=\{pending \? 'Applying…' : 'Apply'\}[\s\S]{0,80}onClick=\{apply\}/, 'the Apply button does not run apply()');
+  assert.match(parts, /label: pending \? 'Applying…' : 'Apply',\s*onClick: apply,/, 'the Apply button does not run apply()');
 });
 
 test('2 · Apply runs every part through the one-field rules, then writes ONCE', () => {

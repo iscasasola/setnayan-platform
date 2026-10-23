@@ -2,7 +2,7 @@
 # radius (rounded-lg|xl|2xl|3xl|card|tile). GENERATED — never hand-edit:
 #   node apps/web/scripts/lint-no-card.mjs --update-baseline
 # A RATCHET: a count may fall, never rise; a file not listed may hold none.
-# 672 files · 1849 lines
+# 669 files · 1846 lines
 4 apps/web/app/_components/account-switcher/account-switcher.tsx
 3 apps/web/app/_components/alaala/lens-body.tsx
 1 apps/web/app/_components/amendment-builder.tsx
@@ -22,7 +22,6 @@
 1 apps/web/app/_components/chat/thread-list-card.tsx
 1 apps/web/app/_components/chosen-proof-field.tsx
 2 apps/web/app/_components/contracts/contract-card.tsx
-1 apps/web/app/_components/cookie-consent-banner.tsx
 1 apps/web/app/_components/door/door-shell.tsx
 3 apps/web/app/_components/drive-connect-card.tsx
 3 apps/web/app/_components/encoder-key-panel.tsx
@@ -137,7 +136,6 @@
 4 apps/web/app/admin/accounts/_surfaces/vendors-surface.tsx
 1 apps/web/app/admin/accounts/_surfaces/venues-surface.tsx
 2 apps/web/app/admin/app-performance/_components/won-lost-admin-card.tsx
-1 apps/web/app/admin/app-performance/_surfaces/funnels-surface.tsx
 1 apps/web/app/admin/app-performance/_surfaces/interconnections-surface.tsx
 2 apps/web/app/admin/app-performance/_surfaces/operations-surface.tsx
 1 apps/web/app/admin/app-performance/_surfaces/seo-rerun-button.tsx
@@ -277,7 +275,6 @@
 11 apps/web/app/dashboard/(account)/samahan/[communityId]/page.tsx
 1 apps/web/app/dashboard/(account)/samahan/page.tsx
 4 apps/web/app/dashboard/(launcher)/_components/event-card-menu.tsx
-1 apps/web/app/dashboard/(launcher)/_components/home-command-bar.tsx
 1 apps/web/app/dashboard/(launcher)/_components/year-moments-list.tsx
 5 apps/web/app/dashboard/(launcher)/page.tsx
 1 apps/web/app/dashboard/[eventId]/_components/after/finished-event-summary.tsx

@@ -75,6 +75,23 @@
   --fd-line: #e1dcd1;
   --fd-wash: #f3ecdf;
   --fd-hover: #f4eee3;
+  /* 🌗 dark B1 (2026-10-23): the shell's remaining fills, moved out of their
+     rules into tokens BYTE FOR BYTE so light does not move — each was a light
+     literal that stayed light under html.dark (the dark-contrast guard's nine
+     front-door pairs: chips at 1.13:1, the ask pill's white on near-white 1.04:1). */
+  --fd-field: #f6f1e7;      /* the search's own button + the mic */
+  --fd-note: #f7f3ea;       /* a notice, a kind tag */
+  --fd-chip: #f2ece0;
+  --fd-chip-hover: #e9e1d2;
+  --fd-quiet: #f0ede6;      /* the quiet ask pill */
+  --fd-gold-press: #7b5c2c; /* the gold button under the pointer */
+  --fd-topglass: rgba(255, 255, 255, 0.55); /* the app's sticky top strip, over a blur */
+  --fd-chipglass: rgba(255, 255, 255, 0.92); /* a date chip over a photo */
+  --fd-invite: #fcf8f1;     /* the invite / empty-shelf panel */
+  --fd-invite-line: #dcd3c2;
+  --fd-warm: #fbf0e9;       /* the "W" kind tag */
+  --fd-warm-ink: #7a4a2e;
+  --fd-warm-line: #e6cdbc;
   --fd-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   --fd-sys: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica,
     Arial, sans-serif;
@@ -115,6 +132,19 @@ html.dark .fd {
   --fd-line: rgba(251, 250, 247, 0.16);
   --fd-wash: #37301f;   /* gold at 18 % over the page */
   --fd-hover: #292822;  /* paper at 8 % over the page — the gallery's pill */
+  --fd-field: #292822;  /* the gallery's pill, as the hover */
+  --fd-note: #1e1c15;   /* the paper — a notice sits one step off the page */
+  --fd-chip: #292822;
+  --fd-chip-hover: #34322b;
+  --fd-quiet: #292822;
+  --fd-gold-press: #d8b97f; /* the gold lifts under the pointer; its label is the page colour */
+  --fd-topglass: rgba(23, 22, 15, 0.72); /* the page, frosted — white at 55 % read as a grey band */
+  --fd-chipglass: rgba(35, 32, 25, 0.92); /* the card, frosted — its ink is near-white in dark */
+  --fd-invite: #1e1c15;
+  --fd-invite-line: rgba(251, 250, 247, 0.2);
+  --fd-warm: #3a2a22;
+  --fd-warm-ink: #f3b59a;
+  --fd-warm-line: rgba(243, 181, 154, 0.3);
 }
 
 .fd *,
@@ -359,7 +389,7 @@ html.dark .fd {
   align-self: stretch;
   display: grid;
   place-items: center;
-  background: #f6f1e7;
+  background: var(--fd-field);
   border: 0;
   border-left: 1px solid var(--fd-line);
   color: var(--fd-m1);
@@ -386,7 +416,7 @@ html.dark .fd {
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  background: #f6f1e7;
+  background: var(--fd-field);
   border: 0;
   display: grid;
   place-items: center;
@@ -426,7 +456,7 @@ html.dark .fd {
   text-decoration: none;
 }
 .fd-btn-gold:hover {
-  background: #7b5c2c;
+  background: var(--fd-gold-press);
 }
 .fd-btn-quiet {
   min-height: 44px;
@@ -745,7 +775,7 @@ html.dark .fd {
   margin: 6px 12px;
   padding: 10px 12px;
   border-radius: var(--m-r-sm);
-  background: #f7f3ea;
+  background: var(--fd-note);
   font-size: 12.5px;
   line-height: 1.5;
   color: var(--fd-m1);
@@ -990,7 +1020,7 @@ html.dark .fd {
   min-height: 32px;
   padding: 0 12px;
   border-radius: var(--m-r-sm);
-  background: #f2ece0;
+  background: var(--fd-chip);
   border: 0;
   font: inherit;
   font-size: 13.5px;
@@ -1006,7 +1036,7 @@ html.dark .fd {
   inset: -6px 0;
 }
 .fd-chip:hover {
-  background: #e9e1d2;
+  background: var(--fd-chip-hover);
 }
 .fd-chip[data-on='true'] {
   background: var(--fd-ink);
@@ -1190,12 +1220,12 @@ html.dark .fd {
   padding: 1px 5px;
   margin-right: 5px;
   color: var(--fd-m1);
-  background: #f7f3ea;
+  background: var(--fd-note);
 }
 .fd-kindtag-w {
-  color: #7a4a2e;
-  border-color: #e6cdbc;
-  background: #fbf0e9;
+  color: var(--fd-warm-ink);
+  border-color: var(--fd-warm-line);
+  background: var(--fd-warm);
 }
 
 .fd-sechead {
@@ -1322,10 +1352,10 @@ h2.fd-sechead,
 
 /* An invitation, not an apology — the shape an empty rail takes. */
 .fd-invite {
-  border: 1px dashed #dcd3c2;
+  border: 1px dashed var(--fd-invite-line);
   border-radius: var(--m-r-md);
   padding: 20px 22px;
-  background: #fcf8f1;
+  background: var(--fd-invite);
 }
 .fd-invite h3 {
   margin: 0 0 7px;
@@ -1806,7 +1836,7 @@ h2.fd-sechead,
   position: absolute;
   left: 6px;
   top: 6px;
-  background: rgba(255, 255, 255, 0.92);
+  background: var(--fd-chipglass);
   color: var(--fd-ink);
   border-radius: var(--m-r-xs);
   padding: 3px 7px;
@@ -1836,7 +1866,9 @@ h2.fd-sechead,
   padding: 0 16px;
   border-radius: var(--m-r-full);
   background: var(--fd-ink);
-  color: #fff;
+  /* The page colour, which IS #fff in light (--fd-cream) — in dark the pill's
+     fill is the near-white ink, so a literal white label read 1.04:1. */
+  color: var(--fd-cream);
   font-weight: 650;
   font-size: 12.5px;
   border: 0;
@@ -1857,7 +1889,7 @@ h2.fd-sechead,
   padding-bottom: 6px;
 }
 .fd-ask.quiet {
-  background: #f0ede6;
+  background: var(--fd-quiet);
   color: var(--fd-ink);
   font-weight: 600;
   cursor: default;
@@ -2032,7 +2064,7 @@ button.fd-ask.quiet {
      (`HomeRail`'s backdrop-blur, `AdminStickyTopBar`'s blur+saturate). A
      transparent strip over scrolling content is unreadable; a solid one is the
      "generic header" band the owner struck down on 2026-07-30. */
-  background: rgba(255, 255, 255, 0.55);
+  background: var(--fd-topglass);
   backdrop-filter: blur(18px) saturate(1.4);
   -webkit-backdrop-filter: blur(18px) saturate(1.4);
   border-bottom: 1px solid var(--fd-line);

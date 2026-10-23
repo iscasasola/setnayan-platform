@@ -477,7 +477,7 @@ test('the app variant renders no second search row', () => {
     ("the search bar is still on top"), so `.fd-searchrow` must be gated.
   */
   assert.ok(
-    /\{inApp \? null : \(\s*<div className="fd-searchrow">/.test(src),
+    /\{inApp \|\| search === false \? null : \(\s*<div className="fd-searchrow">/.test(src),
     'The phone search ROW must be front-door only. Inside the app everything ' +
       'stays on one line — the 2026-07-30 ruling.',
   );
@@ -536,61 +536,30 @@ test('each tree still renders exactly one landmark of its own', () => {
 
 /* ─── THE SEARCH: ONE QUESTION, ONE ANSWER ──────────────────────────────── */
 
-test('the app variant searches the person\'s own things, not the marketplace', () => {
+test('signed in, the shared bar carries NO search — it moved to the thumb row (owner 2026-10-22)', () => {
+  /*
+    SUPERSEDES the 2026-08-14 "the palette is the app's search" pin. Owner, 22 Oct ("One thumb row", "Yes to all"):
+    the top bar is wordmark · ✉ · 🔔 · avatar on every shell; each list's thumb row searches the place you stand in
+    (`components/thumb-row.tsx`, `lib/every-thumb-row-is-the-one-row.test.ts`). The shell is handed `false` — not
+    `undefined`, which would fall back to the MARKETPLACE box: that is still what a signed-out visitor gets.
+  */
   const src = code(read(RAIL_SHELL));
-  assert.ok(
-    /<HomeCommandBar items=\{commandItems\}/.test(src),
-    'The shared bar must pass the command palette as its search inside the ' +
-      'app. A marketplace GET form cannot reach your own wedding, which is ' +
-      'the question every one of these five surfaces is actually asking.',
-  );
-  assert.ok(
-    /resolveCommandItems\(\)/.test(src),
-    'The palette must be fed by the ONE shared index. The launcher used to ' +
-      'build its own inline, which would list different things on /dashboard ' +
-      'than inside a wedding, with nothing to notice.',
-  );
+  assert.match(src, /search=\{searchSlot \?\? \(account\.signedIn \? false : undefined\)\}/, 'the signed-in app bar has a search again');
+  assert.doesNotMatch(src, /<HomeCommandBar\b/, 'the top-bar palette is mounted again');
+  assert.doesNotMatch(src, /resolveCommandItems\(\)/, 'the shell builds an index for a palette it no longer draws');
 });
 
-test('the palette carries the marketplace as an escape row', () => {
+test('the search keeps its way out — the thumb rows go where the escape row went (2026-10-22)', () => {
   /*
-    This is what makes choosing the palette lossless. Without it, replacing
-    the front door's box on four surfaces would DELETE the marketplace search
-    for anyone standing inside the app.
+    RE-AIMED 2026-10-22, NOT LOOSENED. The property was "choosing the palette is lossless: one search answers both
+    questions, and a narrowed box always has a way out". The palette retired with the top bar's 🔍 (owner, "One thumb
+    row"); the account rows that took over its search hand Enter to the SAME step-out row builder, with their place's
+    scope — so the widest answer is one press away, as before.
   */
-  const bar = code(
-    read(join(APP, 'dashboard', '(launcher)', '_components', 'home-command-bar.tsx')),
-  );
-  /*
-    ⚠ RE-AIMED 2026-09-23, AND DELIBERATELY NOT LOOSENED. This used to assert
-    the literal call `marketplaceEscapeItem(query)` and the exact line
-    `const escape = …; return escape ? [...own, escape] : own;`. The row now
-    carries the SCOPE too (`marketplaceEscapeItem(query, scope)`), so a guard
-    keyed on the old spelling went red while the property it protects was
-    perfectly intact — the shape this repo names "guard a property, never a
-    phrasing".
-
-    What is asserted is the PROPERTY, in three parts that a reword cannot slip
-    past but a real regression cannot satisfy: the row is built from the live
-    query, it is appended AFTER the filtered list, and the filtered list is
-    never what produced it.
-  */
-  assert.ok(
-    /marketplaceEscapeItem\(\s*query\b/.test(bar),
-    'The palette no longer offers the escape row. One search now has to ' +
-      'answer both questions — and a narrowed box with no way out is worse ' +
-      'than one that never narrowed.',
-  );
-  assert.ok(
-    /\[\s*\.\.\.own\s*,\s*escape\s*\]/.test(bar),
-    'The escape row must be APPENDED AFTER filtering. Passed through the ' +
-      'filter it disappears whenever nothing local matches — which is the one ' +
-      'moment it exists for.',
-  );
-  assert.ok(
-    !/\.filter\([^)]*marketplaceEscapeItem/.test(bar),
-    'The escape row is being run through the filter — see above.',
-  );
+  const rows = code(read(join(APP, '_components', 'frontdoor', 'shell-thumb-rows.tsx')));
+  assert.match(rows, /marketplaceEscapeItem\(q, SEARCH_SCOPES\[scope\]\)\?\.href/, 'the account rows lost the way out');
+  assert.match(rows, /useEnterSearches\('events'\)/);
+  assert.match(rows, /useEnterSearches\('discover'\)/);
 });
 
 test('the launcher no longer builds a second command index', () => {
@@ -614,9 +583,8 @@ test('⌘K cannot be bound by two palettes at once', () => {
   const OWNERS = [
     join(APP, 'admin', '_components', 'admin-command-palette.tsx'),
     join(APP, 'admin', 'ugat', '_components', 'ugat-console.tsx'),
-    // ⤷ 2026-10-01: the Guest list's ⌘K moved from its in-page box (deleted)
-    // to the top bar's own guest search, which claims it the same way.
-    join(APP, 'dashboard', '(launcher)', '_components', 'guests-top-search.tsx'),
+    // ⤷ 2026-10-22: the top bar's guest search and the shared palette retired with the top bar's 🔍 ("One thumb
+    // row") — the two console palettes are the only ⌘K owners left, and each still claims it.
   ];
   for (const p of OWNERS) {
     assert.ok(
@@ -625,14 +593,6 @@ test('⌘K cannot be bound by two palettes at once', () => {
         'dialog over it on the same keystroke.',
     );
   }
-  const bar = code(
-    read(join(APP, 'dashboard', '(launcher)', '_components', 'home-command-bar.tsx')),
-  );
-  assert.ok(
-    /if \(commandKeyClaimed\(\)\) return;/.test(bar),
-    'The shared palette does not check the claim, so it will fire alongside ' +
-      'whichever surface-specific palette owns the key.',
-  );
 });
 
 /* ─── 6 · ONE SEARCH PER PERSON, NOT PER PAGE ───────────────────────────── */
@@ -704,7 +664,8 @@ test('neither mount hands out the palette without asking who is looking', () => 
     */
     assert.match(
       src,
-      /search=\{\s*(searchSlot \?\? \()?\s*account\.signedIn \? \(?\s*<HomeCommandBar items=\{commandItems\} variant="rail" \/>\s*\)? : undefined\)?\s*\}/,
+      // 2026-10-22: signed in → `false` (no top-bar search; the thumb row has it). Signed out → `undefined`.
+      /search=\{\s*(searchSlot \?\? \()?\s*account\.signedIn \? false : undefined\)?\s*\}/,
       `${m.name} no longer branches its search on whether anybody is signed ` +
         'in. Signed out, the palette searches events, people and vendors the ' +
         'visitor does not have: the index is empty without a session, so it ' +
@@ -734,11 +695,11 @@ test('both mounts answer it the same way', () => {
     exact divergence the owner photographed.
   */
   const expr = (src: string) =>
-    (code(src).match(/search=\{[\s\S]*?\n      \}/) ?? [''])[0]
+    (code(src).match(/search=\{[^\n]*\}/) ?? [''])[0]
       .replace(/\s+/g, ' ')
-      .replace(/^search=\{ searchSlot \?\? \((.*)\) \}$/, 'search={ $1 }');
+      .replace(/^search=\{ ?searchSlot \?\? \((.*)\) ?\}$/, 'search={$1}');
   const [a, b] = SEARCH_MOUNTS.map((m) => expr(read(m.file)));
-  assert.ok(a && a.length > 40, 'The front door mount matched no search expression at all.');
+  assert.ok(a && a.length > 30, 'The front door mount matched no search expression at all.');
   assert.equal(
     a,
     b,
@@ -760,7 +721,7 @@ test('the phone row shows the same search as the desktop row', () => {
   */
   assert.match(
     src,
-    /\{inApp \? null : \(\s*<div className="fd-searchrow">\s*\{search \?\? <SearchBox \/>\}/,
+    /\{inApp \|\| search === false \? null : \(\s*<div className="fd-searchrow">\s*\{search \?\? <SearchBox \/>\}/,
     'The phone search row must render the SAME control the desktop row does ' +
       '(`search ?? <SearchBox />`). Hardcoding <SearchBox /> here gives one ' +
       'page two different searches depending on how wide the window is.',

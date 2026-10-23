@@ -29,7 +29,7 @@
  * Pure on purpose: the read lives in `command-data.ts` (server-only); this is
  * the decision, so a guard can run it (`own-supplier-items.test.ts`).
  */
-import type { HomeCommandItem } from '@/app/dashboard/(launcher)/_components/home-command-bar';
+import type { HomeCommandItem } from '@/app/_components/frontdoor/command-item';
 
 /** The tag a supplier row wears everywhere it is drawn — one string, one place. */
 export const ON_YOUR_EVENT = 'On your event';

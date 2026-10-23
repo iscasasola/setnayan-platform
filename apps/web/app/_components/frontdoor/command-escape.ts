@@ -20,7 +20,7 @@
  * wedding, so picking it would have deleted an existing door to make the bar
  * consistent. This row is what makes the choice lossless.
  */
-import type { HomeCommandItem } from '@/app/dashboard/(launcher)/_components/home-command-bar';
+import type { HomeCommandItem } from './command-item';
 import { SEARCH_SCOPES, type SearchScope } from '@/lib/search-scope';
 import { shellSearchHref } from '@/lib/shell-search';
 

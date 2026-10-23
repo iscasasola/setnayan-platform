@@ -47,13 +47,15 @@ test('Sort and "＋ Add to your event" reach 44 tall', () => {
   assert.match(add, /className=\{`border border-ink\/15 \$\{SUP_REACH_Y\}`\}/);
 });
 
-test('Expand all and ＋ Add your own reach 44 wide (Expand all through a wrapper the glass cannot clip)', () => {
-  // Batch 5 join: the label is "Add" once a name is typed (#6494) — the reach is the claim here.
-  assert.match(THUMB, /<ActionButton tone="brand" filled icon=\{Plus\} label=\{text\.trim\(\) \? 'Add' : 'Add your own'\} onClick=\{onAdd\} className=\{SUP_REACH_X\} \/>/);
-  const wrap = THUMB.slice(THUMB.indexOf('data-press-reach=""') - 120, THUMB.indexOf('sn-glass-row inline-flex shrink-0 rounded-full'));
-  assert.match(wrap, /className=\{`\$\{SUP_REACH_X\} inline-flex shrink-0`\}/, 'the wrapper must carry the reach');
-  assert.match(wrap, /if \(!\(e\.target as Element\)\.closest\('button'\)\) e\.currentTarget\.querySelector\('button'\)\?\.click\(\);/, 'a press on the reach must be the button’s press');
-  assert.ok(THUMB.indexOf('data-press-reach=""') < THUMB.indexOf("label={allOpen ? 'Collapse all' : 'Expand all'}"), 'Expand all must sit inside the wrapper');
+test('Expand all and ＋ Add your own are 44 wide on their own face — the shared row draws them (2026-10-22)', () => {
+  // ONE THUMB ROW (owner 2026-10-22): the rounds are drawn by `components/thumb-row.tsx` at 44 × 44 — the press IS the
+  // face, so no reach past a 40 px face is needed (the old wrapper's job), and the glass ring is drawn INSIDE the round.
+  const call = THUMB.slice(THUMB.indexOf('<ThumbRow'), THUMB.indexOf('/>', THUMB.indexOf('action={{')));
+  assert.match(call, /left=\{\[\s*\{\s*icon: allOpen \? ChevronsDownUp : ChevronsUpDown,/, 'Expand all is not a round of the shared row');
+  assert.match(call, /action=\{\{\s*icon: Plus,/, '＋ Add your own is not the shared row’s main round');
+  const css = readFileSync(join(HERE, '..', '..', '..', '..', 'components', 'thumb-row.module.css'), 'utf8');
+  assert.match(css, /\.btn:global\(\.ab\) \{ width: 44px; height: 44px; min-width: 44px;/, 'the shared rounds are not 44 × 44');
+  assert.match(css, /\.round:global\(\.sn-glass-row\) \{ border-width: 0; box-shadow: inset 0 0 0 1px var\(--sn-glass-line\); \}/, 'the glass edge adds width outside the 44');
 });
 
 test('Save says "Saving…" while its own write waits', () => {

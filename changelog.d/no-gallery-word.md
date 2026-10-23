@@ -20,6 +20,9 @@ its widget already carries (`the-four-photo-names.test.ts`).
 Guarded by `apps/web/lib/no-gallery-word.test.ts` — reads every string a source
 file can put on screen through the TypeScript parser (comments are not copy;
 tokens such as keys, routes and anchors are allowed) and fails on the word.
+The privacy page's "kept for life" row in
+`legal-retention-promises-have-a-mechanism.test.ts` now quotes the reworded
+sentence (same promise, same mechanism).
 
 SPEC IMPACT: `DECISION_LOG.md` row "23 Oct: no 'gallery' in the UI — Memories /
 Portfolio / Inspiration".

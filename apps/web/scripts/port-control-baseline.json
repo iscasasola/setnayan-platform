@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "797e6c3e50",
+  "generatedFromRef": "84c1b81eea",
   "routeCount": 461,
   "destinations": 1003,
   "actions": 667,
-  "blocks": 6853,
+  "blocks": 6861,
   "routes": {
     "/": {
       "files": [
@@ -5191,7 +5191,6 @@
         "Layer",
         "LifeStorySection",
         "Link",
-        "MiniTour",
         "PageMasthead",
         "PeopleFilter",
         "PeoplePreview",
@@ -5208,6 +5207,7 @@
         "PreviewRow",
         "RequestRow",
         "SamahanPeopleSection",
+        "Spotlight",
         "SubmitButton",
         "T",
         "ThumbField",
@@ -5490,6 +5490,7 @@
         "SectionLabel",
         "ShelfInfo",
         "SidePanel",
+        "Spotlight",
         "StanceChip",
         "StartPlanningLink",
         "SupplierRecordsNote",
@@ -11119,6 +11120,7 @@
     },
     "/dev/people-lab": {
       "files": [
+        "dev/people-lab/lab-tour.tsx",
         "dev/people-lab/page.tsx"
       ],
       "destinations": [],
@@ -11127,8 +11129,10 @@
         "AccountBottomNav",
         "FollowListView",
         "FoundPersonCard",
+        "LabTour",
         "PeopleRosterView",
         "RosterPerson",
+        "SpotlightMount",
         "TreeStandIn"
       ]
     },
@@ -11328,8 +11332,10 @@
       ],
       "blocks": [
         "BusinessDoing",
+        "ConsolePlate",
         "DatesRow",
         "HelpersView",
+        "MarchRead",
         "NotificationsView",
         "PlanPicker",
         "PlanRows",
@@ -14069,6 +14075,7 @@
         "vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/floor-command.tsx",
         "vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/schedule-updater.tsx",
         "vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/seat-scanner.tsx",
+        "vendor-dashboard/on-the-day/live/[eventId]/_components/march-read.tsx",
         "vendor-dashboard/on-the-day/live/[eventId]/_components/own-captures-strip.tsx",
         "vendor-dashboard/on-the-day/live/[eventId]/_components/papic-capture-controller.tsx",
         "vendor-dashboard/on-the-day/live/[eventId]/_components/portfolio-album-section.tsx",
@@ -14128,11 +14135,13 @@
         "Link",
         "LiveReviews",
         "LockedUpsell",
+        "MarchRead",
         "MediaRecorder",
         "MediaStream",
         "MyLine",
         "PauseToggle",
         "PaymentsPausedNote",
+        "Person",
         "PickRow",
         "PlaylistSlotType",
         "PortfolioImportForm",
@@ -14839,6 +14848,7 @@
         "HeroCard",
         "HqAddressControl",
         "IdentityFieldSaveResult",
+        "InfoTip",
         "InlineDocsPayload",
         "InstagramConnectCard",
         "K",

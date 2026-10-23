@@ -283,16 +283,9 @@ export function SiteStage({
             Stage {formatCount(index + 1)} of {formatCount(stages.length)}
           </span>
         ) : null}
-        <InfoTip label={`About ${label}`}>
-          {stage?.blurb}
-          {slug ? (
-            <>
-              {' '}
-              That strip across the top is yours alone — you are signed in, so your page knows you.
-              Your guests never see it.
-            </>
-          ) : null}
-        </InfoTip>
+        {/* The tip once said "That strip across the top is yours alone" — the host strip was removed on 2026-10-15
+            (`the-host-page-has-no-host-strip.test.ts`), so a signed-in host's page now looks like a guest's. */}
+        <InfoTip label={`About ${label}`}>{stage?.blurb}</InfoTip>
       </div>
       <div className="flex flex-wrap items-center gap-2">
         {previewHref ? (

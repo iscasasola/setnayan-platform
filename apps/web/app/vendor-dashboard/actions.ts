@@ -14,6 +14,7 @@ import { VENDOR_CATEGORIES } from '@/lib/vendors';
 import { tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
 import { vendorExperienceEnabled } from '@/lib/vendor-experience';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import { resolveOwnedActiveShop } from '@/lib/active-shop';
 import {
   VERIFIED_LOCK_ERROR,
   fetchVerifiedLock,
@@ -364,6 +365,11 @@ export async function updateVendorProfileField(
   } = await supabase.auth.getUser();
   // Do NOT redirect — the panel must stay mounted so the client can toast.
   if (!user) return { ok: false, error: 'Please sign in again.' };
+  // 🔀 THE SHOP IS THE ACTIVE ONE (lib/active-shop.ts) — never "the shop whose owner I am": an account that
+  // switched shops in the avatar sheet must save to the shop on screen. Owner-only, as the write policy is.
+  const shopAuth = await resolveOwnedActiveShop(supabase, user.id);
+  if (!shopAuth.ok) return { ok: false, error: shopAuth.error };
+  const shopId = shopAuth.vendorProfileId;
 
   const field = String(formData.get('field') ?? '');
   if (!INLINE_PROFILE_FIELDS.has(field)) {
@@ -378,7 +384,7 @@ export async function updateVendorProfileField(
   // verified-lock strip never touched portfolio_r2_keys / gallery_video_links).
   if (
     !GALLERY_MEDIA_FIELDS.has(field) &&
-    (await fetchVerifiedLock(supabase, user.id))
+    (await fetchVerifiedLock(supabase, shopId))
   ) {
     return { ok: false, error: VERIFIED_LOCK_ERROR };
   }
@@ -572,7 +578,7 @@ export async function updateVendorProfileField(
       const { data: tierRow } = await supabase
         .from('vendor_profiles')
         .select('tier_state, portfolio_r2_keys, vendor_profile_id')
-        .eq('user_id', user.id)
+        .eq('vendor_profile_id', shopId)
         .maybeSingle();
       const tr = tierRow as
         | {
@@ -633,7 +639,7 @@ export async function updateVendorProfileField(
     const { data: prior } = await supabase
       .from('vendor_profiles')
       .select('in_business_since_year')
-      .eq('user_id', user.id)
+      .eq('vendor_profile_id', shopId)
       .maybeSingle();
     const priorYear =
       (prior as { in_business_since_year?: number | null } | null)?.in_business_since_year ?? null;
@@ -645,7 +651,7 @@ export async function updateVendorProfileField(
   const { error } = await supabase
     .from('vendor_profiles')
     .update({ ...patch, updated_at: new Date().toISOString() })
-    .eq('user_id', user.id);
+    .eq('vendor_profile_id', shopId);
   if (error) return { ok: false, error: error.message };
 
   // ── A RENAMED SHOP RENAMES ITS BUSINESS ALAGA — OR IS NAMED INTO ONE ────────
@@ -662,7 +668,7 @@ export async function updateVendorProfileField(
     const { data: shopRow } = await admin
       .from('vendor_profiles')
       .select('vendor_profile_id')
-      .eq('user_id', user.id)
+      .eq('vendor_profile_id', shopId)
       .maybeSingle();
     await ensureBusinessAlaga(admin, {
       ownerUserId: user.id,
@@ -680,7 +686,7 @@ export async function updateVendorProfileField(
       await admin
         .from('vendor_profiles')
         .update({ hq_latitude: geo.latitude, hq_longitude: geo.longitude })
-        .eq('user_id', user.id);
+        .eq('vendor_profile_id', shopId);
     }
   }
 
@@ -697,7 +703,7 @@ export async function updateVendorProfileField(
     const { data: slugRow } = await supabase
       .from('vendor_profiles')
       .select('business_slug')
-      .eq('user_id', user.id)
+      .eq('vendor_profile_id', shopId)
       .maybeSingle();
     const slug = (slugRow as { business_slug?: string | null } | null)?.business_slug;
     if (slug) {
@@ -730,6 +736,11 @@ export async function requestProfileCorrection(
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: 'Please sign in again.' };
+  // 🔀 THE SHOP IS THE ACTIVE ONE (lib/active-shop.ts) — never "the shop whose owner I am": an account that
+  // switched shops in the avatar sheet must save to the shop on screen. Owner-only, as the write policy is.
+  const shopAuth = await resolveOwnedActiveShop(supabase, user.id);
+  if (!shopAuth.ok) return { ok: false, error: shopAuth.error };
+  const shopId = shopAuth.vendorProfileId;
 
   const fieldKey = formData.get('field_key');
   if (!isLockedIdentityFieldKey(fieldKey)) {
@@ -758,7 +769,7 @@ export async function requestProfileCorrection(
     .select(
       'vendor_profile_id,business_name,business_owner_name,hq_address,contact_phone,contact_email,services,in_business_since_year,logo_url,location_city,business_slug',
     )
-    .eq('user_id', user.id)
+    .eq('vendor_profile_id', shopId)
     .maybeSingle();
   if (profErr || !profRow) {
     return { ok: false, error: 'Supplier profile not found.' };
@@ -1023,6 +1034,11 @@ export async function updateVendorWebsiteField(
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: 'Please sign in again.' };
+  // 🔀 THE SHOP IS THE ACTIVE ONE (lib/active-shop.ts) — never "the shop whose owner I am": an account that
+  // switched shops in the avatar sheet must save to the shop on screen. Owner-only, as the write policy is.
+  const shopAuth = await resolveOwnedActiveShop(supabase, user.id);
+  if (!shopAuth.ok) return { ok: false, error: shopAuth.error };
+  const shopId = shopAuth.vendorProfileId;
 
   const field = String(formData.get('field') ?? '');
   if (!INLINE_WEBSITE_FIELDS.has(field)) {
@@ -1035,7 +1051,7 @@ export async function updateVendorWebsiteField(
   const { data: row, error: rowError } = await supabase
     .from('vendor_profiles')
     .select('vendor_profile_id, business_slug, services, portfolio_r2_keys, tier_state')
-    .eq('user_id', user.id)
+    .eq('vendor_profile_id', shopId)
     .maybeSingle();
   // ⚠ CHECK THIS ERROR — it now decides the self-exclusion below. Supabase
   // resolves `{ error }` rather than throwing, so an unchecked failure leaves
@@ -1066,7 +1082,7 @@ export async function updateVendorWebsiteField(
   const { error } = await supabase
     .from('vendor_profiles')
     .update({ ...patch, updated_at: new Date().toISOString() })
-    .eq('user_id', user.id);
+    .eq('vendor_profile_id', shopId);
   if (error) {
     // Surface the common slug-collision case with friendly copy.
     return { ok: false, error: error.message };
@@ -1106,6 +1122,11 @@ export async function applyVendorPageDraft(
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: 'Please sign in again.' };
+  // 🔀 THE SHOP IS THE ACTIVE ONE (lib/active-shop.ts) — never "the shop whose owner I am": an account that
+  // switched shops in the avatar sheet must save to the shop on screen. Owner-only, as the write policy is.
+  const shopAuth = await resolveOwnedActiveShop(supabase, user.id);
+  if (!shopAuth.ok) return { ok: false, error: shopAuth.error };
+  const shopId = shopAuth.vendorProfileId;
 
   const fields = [...new Set(formData.getAll('field').map(String))];
   if (fields.length === 0) return { ok: false, error: 'Nothing to apply — your page already shows this.' };
@@ -1116,7 +1137,7 @@ export async function applyVendorPageDraft(
   const { data: row, error: rowError } = await supabase
     .from('vendor_profiles')
     .select('vendor_profile_id, business_slug, services, portfolio_r2_keys, tier_state')
-    .eq('user_id', user.id)
+    .eq('vendor_profile_id', shopId)
     .maybeSingle();
   if (rowError || !row) {
     return { ok: false, error: 'We couldn’t load your shop just now. Nothing was changed — please try again.' };
@@ -1145,7 +1166,7 @@ export async function applyVendorPageDraft(
   const { error } = await supabase
     .from('vendor_profiles')
     .update({ ...patch, updated_at: new Date().toISOString() })
-    .eq('user_id', user.id);
+    .eq('vendor_profile_id', shopId);
   if (error) return { ok: false, error: 'Your page could not be updated just now. Nothing was changed — please try again.' };
 
   revalidatePath('/vendor-dashboard/website');

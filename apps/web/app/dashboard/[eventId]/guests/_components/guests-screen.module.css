@@ -545,19 +545,6 @@ button.ico {
   gap: 6px;
   flex: 0 0 auto;
 }
-.field {
-  flex: 1 0 60%;
-  min-width: 60%;
-  height: 40px;
-  border: 1px solid rgb(var(--color-ink) / 0.14);
-  border-radius: var(--m-r-full);
-  padding: 0 14px;
-  font-size: 14px;
-  color: var(--gs-ink);
-  /* The search field is SOLID: a field you type into must read cleanly, and the row's blur already frosts everything
-     around it (a field of its own at 62 % showed the guest rows straight through it). */
-  background: rgb(var(--color-cream));
-}
 /* THE ROW IS THE ONLY GLASS (owner 2026-10-09: "the buttons is not the frosted glass style"). `.sn-glass-row` paints the
    tint and the blur ONCE; the buttons on it are the shared ones — a neutral one sits transparent with its faint edge
    (`.ab-neutral` in globals.css), a toned one keeps its FULL tone (BUTTON_RULE rule 7). This file used to give every

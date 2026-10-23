@@ -91,17 +91,16 @@ test('(B) nothing on the row paints a pane of its own — the row is the only gl
   assert.equal(pick?.['background'], 'transparent', 'the Sort / Set… pick is not transparent on the row');
 });
 
-test('(C) the search field is SOLID', () => {
-  const field = topRules(MODULE, '.field').map(decls).find((d) => d['background']);
-  assert.ok(field, 'the field has no background of its own');
-  assert.equal(field!['background'], 'rgb(var(--color-cream))', 'the search field is translucent: the guest rows read through it');
-  for (const r of topRules(MODULE, '.field')) {
-    for (const p of Object.keys(decls(r))) assert.ok(!/backdrop|mask/.test(p), `the field carries ${p} again`);
-  }
+test('(C) the search field is the ONE shared row’s glass seat (owner 2026-10-22, "One thumb row")', () => {
+  // Superseded 2026-10-22: the field was SOLID cream inside a glass band; with no band, each control is its own glass
+  // (`components/thumb-row.tsx`), as on Find — the row the owner picked as the template.
+  assert.match(SCREEN, /const field: ThumbField = \{\s*placeholder: 'Search guests',/);
+  assert.doesNotMatch(MODULE.toString(), /^\.field \{/m, 'the screen draws its own field again');
 });
 
-test('(D) the row wears the ONE shared glass class and no fill of its own', () => {
-  assert.match(SCREEN, /className=\{`\$\{styles\.lower\} sn-glass-row`\}\s*\n?\s*data-on=/, 'the thumb row no longer wears sn-glass-row');
+test('(D) the Select band wears the ONE shared glass class and no fill of its own', () => {
+  // List / Map: no band (owner 2026-10-22) — the controls are glass. Select mode keeps the band for its pills.
+  assert.match(SCREEN, /className=\{selectMode && gview === 'list' \? `\$\{styles\.lower\} sn-glass-row` : styles\.lower\}\s*\n?\s*data-on=/, 'the band is back under the List row, or gone from the Select pills');
   assert.match(SCREEN, /data-guests-thumb=""/, 'the thumb row lost the marker the at-rest rule hangs on');
   for (const r of topRules(MODULE, '.lower')) {
     for (const p of Object.keys(decls(r))) assert.ok(!/^(background|backdrop|-webkit-backdrop|box-shadow|overflow)/.test(p), `.lower paints ${p} itself — it would beat or double the shared glass`);

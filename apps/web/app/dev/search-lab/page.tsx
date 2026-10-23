@@ -25,7 +25,7 @@ import { FrontDoorShell } from '@/app/_components/frontdoor/front-door-shell';
 import { FrontDoorResults } from '@/app/_components/frontdoor/front-door-results';
 import { loadFrontDoorArticles } from '@/app/_components/frontdoor/data';
 import { AccountBarSlot } from '@/app/dashboard/(launcher)/_components/account-bar-slot';
-import { HomeCommandBar, type HomeCommandItem } from '@/app/dashboard/(launcher)/_components/home-command-bar';
+import type { HomeCommandItem } from '@/app/_components/frontdoor/command-item';
 import { ownSupplierItems } from '@/lib/own-supplier-items';
 import { shellPeopleResults } from '@/lib/shell-people-results';
 import type { RosterPerson } from '@/lib/people-roster';
@@ -104,7 +104,7 @@ export default async function SearchLabPage({
         tools={[]}
         navLabels={{}}
         topBarSlot={<Avatar />}
-        search={<HomeCommandBar items={EVENT_ITEMS} variant="rail" />}
+        search={false /* the top bar has no search since 2026-10-22 ("One thumb row") */}
       >
         <div data-search-lab="before">
           <FrontDoorResults query={query} data={{ articles: loadFrontDoorArticles() }} commandItems={EVENT_ITEMS} />
@@ -122,7 +122,7 @@ export default async function SearchLabPage({
         tools={[]}
         navLabels={{}}
         topBarSlot={<Avatar />}
-        search={<HomeCommandBar items={items} variant="rail" />}
+        search={false}
       >
         <main className="pb-[calc(var(--sn-bottomdock-h,calc(env(safe-area-inset-bottom)+64px))+1.5rem)] lg:pb-0">
           <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 lg:px-8" data-search-lab={state}>

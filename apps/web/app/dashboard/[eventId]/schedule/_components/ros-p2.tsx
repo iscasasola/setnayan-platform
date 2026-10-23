@@ -153,7 +153,7 @@ export function RosLensPreview({
         <p className="text-xs text-ink/55">
           Read-only preview · {view.length} row{view.length === 1 ? '' : 's'}.
           {lens.kind === 'guest'
-            ? ' Guests see public blocks on their invitation site.'
+            ? ' Guests see public blocks on the Event Hub.'
             : ' Tag or untag rows on the master to reshape this slice.'}
         </p>
       </header>

@@ -200,6 +200,31 @@ export async function isVendorProActive(
 }
 
 /**
+ * Is THIS shop on Pro-or-better right now? The per-shop sibling of {@link isVendorProActive} for the supplier's own
+ * pages (2026-10-22): those pages stand in the ACTIVE shop (`lib/active-shop.ts`), and asking "is any shop this
+ * login owns Pro" would answer for the wrong shop once an account switches shops. Same expiry rule; fails closed.
+ */
+export async function isShopProActive(
+  client: SupabaseClient,
+  vendorProfileId: string,
+): Promise<boolean> {
+  const { data, error } = await client
+    .from('vendor_profiles')
+    .select('tier_state, tier_expires_at')
+    .eq('vendor_profile_id', vendorProfileId)
+    .maybeSingle();
+  if (error) {
+    console.error('[supabase-error] vendor-payment-methods: isShopProActive', error);
+    return false;
+  }
+  const row = data as { tier_state?: string | null; tier_expires_at?: string | null } | null;
+  if (!row || !isTierAtLeast(row.tier_state, 'pro')) return false;
+  if (row.tier_expires_at == null) return true;
+  const expiry = new Date(row.tier_expires_at).getTime();
+  return Number.isFinite(expiry) && expiry > Date.now();
+}
+
+/**
  * Vendor's own methods (all of them), MEASURED. Call with the vendor's RLS
  * client. `measured: false` means the read was refused — the list is empty
  * because nothing was read, not because the shop has no payment options, and a

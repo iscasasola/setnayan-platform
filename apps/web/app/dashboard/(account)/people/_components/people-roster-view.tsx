@@ -517,7 +517,7 @@ export function PeopleRosterView({
     </div>
   );
 
-  /* ═══ THE ONE THUMB ROW (owner 2026-10-22; prototypes/one_thumb_row_2026-10-22.html): ≡ · [Search or invite] · ＋ ═══
+  /* ═══ THE ONE THUMB ROW (owner 2026-10-22; prototypes/one_thumb_row_2026-10-22.html): ≡ · [Find or invite] · ＋ ═══
      ≡ is ONE dropdown (any set of choices is a dropdown): the views (Your people · Following · Followers · Groups) and
      the list's own two tools — Expand / Collapse all and Select — so the field keeps its 60 % at 320. */
   const filterPick = (
@@ -555,7 +555,7 @@ export function PeopleRosterView({
       }
       field={
         roster.mySamahan.length > 0 ? (
-          <span data-pick="" className={`sn-glass-row rounded-full ${ps.growPick}`} data-bulk-ask="">
+          <span data-pick="" className={ps.growPick} data-bulk-ask="">
             <PickMenu
               label="Ask the selected into"
               value={null}
@@ -565,7 +565,7 @@ export function PeopleRosterView({
             />
           </span>
         ) : (
-          <span className="sn-glass-row flex h-11 min-w-[60%] flex-1 items-center rounded-full px-3.5 text-[13px] text-ink/60">Make a group to ask people into it.</span>
+          <span className="flex h-full min-w-0 flex-1 items-center px-3.5 text-[13px] text-ink/60">Make a group to ask people into it.</span>
         )
       }
       action={

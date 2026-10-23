@@ -145,6 +145,19 @@ function seedRequests(dateKey: string): DayRequest[] {
       proposed_location: null,
       note: 'The cake needs 20 minutes at room temperature — right after the first dance works.',
     },
+    {
+      /* A change in WORDS ONLY — no new time, place or name (coordinator walk 2026-10-23): Approve moves nothing,
+         and the sheet says so ("a note only"). */
+      suggestion_id: 'r4',
+      block_id: 'cock',
+      kind: 'adjust',
+      by: 'Casa Catering',
+      proposed_label: null,
+      proposed_start_at: null,
+      proposed_end_at: null,
+      proposed_location: null,
+      note: 'Could the bar sit by the garden steps instead of the terrace door?',
+    },
   ];
 }
 
@@ -171,7 +184,13 @@ export default function ScheduleLabClient() {
   const dateKey = when === 'live' ? todayKey : PLAN_DATE;
 
   const [byMode, setByMode] = useState<Record<string, DayMoment[]>>({});
-  const moments = byMode[dateKey] ?? seedMoments(dateKey, when === 'live' ? nowMin : null);
+  /* ONE seed per day, held: a fresh array on every render was a "fresh server answer" to the rail each time the lab
+     logged a write, which wiped every optimistic value (a Maker shift read as the old times). The page's own props are
+     stable between renders; so is this now. */
+  const seedNowMin = when === 'live' ? nowMin : null;
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- the seed is taken once per day shown, not per clock tick
+  const seeded = useMemo(() => seedMoments(dateKey, seedNowMin), [dateKey]);
+  const moments = byMode[dateKey] ?? seeded;
   const setMoments = (fn: (m: DayMoment[]) => DayMoment[]) =>
     setByMode((b) => ({ ...b, [dateKey]: fn(b[dateKey] ?? seedMoments(dateKey, when === 'live' ? nowMin : null)) }));
   const [requests, setRequests] = useState<DayRequest[] | null>(null);

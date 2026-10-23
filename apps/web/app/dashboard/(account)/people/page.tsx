@@ -122,16 +122,29 @@ export default async function PeoplePage({
   // 2026-08-21). The read is skipped entirely when nobody is signed in. It is
   // read on every view because the picker's counts come from it.
   const user = await getCurrentUser();
-  const [roster, followCounts] = await Promise.all([
+  // THE SPOUSE RULE (owner 2026-08-21). Read once here and handed to the card,
+  // which never decides it — `addPersonConnection` recomputes the same rule from
+  // the same helper, so a chip that was never drawn is still refused if posted.
+  // No user (or connections off) → the not-married context, which is where a
+  // failed read lands too: the chip can be hidden by a denial, never invented.
+  //
+  // ⚡ ONE WAIT (2026-10-23, the speed pass): the follow list and the spouse
+  // rule need only the signed-in id and the view, so they are asked in the
+  // same round as the roster instead of one after another (the spouse rule
+  // alone was three more trips after the roster had come back).
+  const notMarried: SpouseContext = { civilStatus: null, weddingHasHappened: false };
+  const [roster, followCounts, followList, spouseCtx] = await Promise.all([
     user ? getPeopleRoster(user.id) : Promise.resolve(null),
     user ? getFollowCounts(user.id) : Promise.resolve({ following: null, followers: null }),
-  ]);
-  const followList =
     user && view === 'following'
-      ? await getFollowing(user.id)
+      ? getFollowing(user.id)
       : user && view === 'followers'
-        ? await getFollowers(user.id)
-        : null;
+        ? getFollowers(user.id)
+        : Promise.resolve(null),
+    user && (view === 'connected' || view === 'requests' || view === 'alaga')
+      ? getSpouseContext(user.id)
+      : Promise.resolve(notMarried),
+  ]);
 
   // THE PERSON THE LINK NAMES. Somebody on your list → their roster card (`openPerson`). Anybody else →
   // `findPersonByPublicId`, the People search's own fence, which opens the "On Setnayan" card or nothing.
@@ -149,16 +162,6 @@ export default async function PeoplePage({
       else personNotice = res.state === 'unavailable' ? PERSON_UNREAD : PERSON_NONE;
     }
   }
-
-  // THE SPOUSE RULE (owner 2026-08-21). Read once here and handed to the card,
-  // which never decides it — `addPersonConnection` recomputes the same rule from
-  // the same helper, so a chip that was never drawn is still refused if posted.
-  // No user (or connections off) → the not-married context, which is where a
-  // failed read lands too: the chip can be hidden by a denial, never invented.
-  const spouseCtx: SpouseContext =
-    user && (view === 'connected' || view === 'requests' || view === 'alaga')
-      ? await getSpouseContext(user.id)
-      : { civilStatus: null, weddingHasHappened: false };
 
   // The picker's counts. A count that could not be read is NULL and is left
   // off its label — never printed as 0 (a refused read is not an empty list).

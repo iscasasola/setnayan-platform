@@ -19,7 +19,7 @@ import { MiniTour } from '@/app/_components/mini-tour';
 import { SignedInCluster } from './signed-in-cluster';
 import { FrontDoorAccountBar } from './front-door-account-bar';
 import { resolveCommandItems } from './command-data';
-import { HomeCommandBar } from '@/app/dashboard/(launcher)/_components/home-command-bar';
+import { DiscoverThumbRow } from './shell-thumb-rows';
 // The account resolver and the Studio group moved out 2026-08-13 so the
 // signed-in surfaces render the SAME rail from the SAME source. Behaviour is
 // byte-identical; see `rail-data.ts` for why one copy matters here.
@@ -171,23 +171,21 @@ export async function FrontDoor({ q }: { q?: string }) {
         one bar means one search — is finally true across every surface rather
         than on five of them.
       */
-      search={
-        account.signedIn ? (
-          <HomeCommandBar items={commandItems} variant="rail" />
-        ) : undefined
-      }
+      search={account.signedIn ? false : undefined}
     >
+      {/* 🔍 Signed in, Discover's search is its thumb row (owner 2026-10-22, "One thumb row") — the top bar has none. */}
+      {account.signedIn ? <DiscoverThumbRow q={searchQuery} /> : null}
       {/*
         `data-fd-page` is the content a set-change slide moves (globals.css,
         `html[data-sn-bar-dir]`) — Discover is an account tab. Signed in, it also
         reserves the account bar's MEASURED height below 1024, the launcher's own
-        rule, so the last row of the feed clears the dock.
+        rule, so the last row of the feed clears the dock — and the thumb row on it (+4rem, 2026-10-22).
       */}
       <div
         data-fd-page=""
         className={
           account.signedIn
-            ? 'pb-[calc(var(--sn-bottomdock-h,calc(env(safe-area-inset-bottom)+64px))+1.5rem)] lg:pb-0'
+            ? 'pb-[calc(var(--sn-bottomdock-h,calc(env(safe-area-inset-bottom)+64px))+5.5rem)] lg:pb-0'
             : undefined
         }
       >

@@ -27,6 +27,7 @@ import {
   type PageSaved,
 } from '@/lib/supplier-page-draft';
 import { DatesRow } from '../../customers/_components/dates-row';
+import { ThumbRow } from '@/components/thumb-row';
 import { SupplierThumbRow } from '../../_components/supplier-thumb-row';
 import { applyVendorPageDraft } from '../../actions';
 import { usePageDraft } from './use-page-draft';
@@ -401,22 +402,27 @@ export function PageParts({
         )}
       </div>
 
-      <SupplierThumbRow name="page" label="Your page">
-        {d.publicPath && d.visible ? (
-          <ActionButton tone="neutral" icon={Eye} label="View my page" href={d.publicPath} target="_blank" />
-        ) : (
-          <ActionButton tone="neutral" icon={Eye} label="View my page" waiting />
-        )}
-        <ActionButton
-          tone="brand"
-          main
-          icon={Check}
-          label={pending ? 'Applying…' : 'Apply'}
-          onClick={apply}
-          waiting={pending || changedParts(draft, d.saved).length === 0}
-          aria-pressed={pending}
-        />
-      </SupplierThumbRow>
+      {/* The ONE row (owner 2026-10-22): 👁 View my page · ✓ Apply — two rounds at the right, Apply last, grey while nothing changed. */}
+      <SupplierThumbRow
+        name="page"
+        label="Your page"
+        row={
+          <ThumbRow
+            name="page"
+            right={[
+              d.publicPath && d.visible
+                ? { icon: Eye, label: 'View my page', href: d.publicPath, target: '_blank' }
+                : { icon: Eye, label: 'View my page', waiting: true },
+            ]}
+            action={{
+              icon: Check,
+              label: pending ? 'Applying…' : 'Apply',
+              onClick: apply,
+              waiting: pending || changedParts(draft, d.saved).length === 0,
+            }}
+          />
+        }
+      />
     </>
   );
 }

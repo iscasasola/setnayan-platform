@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { createClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/auth';
+import { getPhotosAlbums } from './_data/photos-albums';
 import { lifeStoryEnabled } from '@/lib/life-story-flag';
 import { getAlaalaWall } from '@/lib/alaala-wall-data';
 import { AlaalaLensBody } from '@/app/_components/alaala/lens-body';
@@ -79,11 +80,15 @@ export default async function AlaalaPage({
   const sp = await searchParams;
   const active: ViewKey = resolveLibraryView(sp.tab);
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // ⚡ The account layout already asked the auth server who this is (`getCurrentUser`, remembered per request) —
+  // asking again here was a second auth round trip on every open of Memories (2026-10-23, the speed pass).
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
+  // ⚡ The shelf's albums are STARTED here, beside the wall — the shelf is drawn only after this page returns, so it
+  // used to begin its reads only once the wall had come back. Same function, same user: `<AlbumShelf>` and the
+  // Albums view find this answer in flight (`getPhotosAlbums` is cache()d per request). A refusal is the shelf's
+  // to report, exactly as before.
+  void getPhotosAlbums(user.id).catch(() => undefined);
 
   // ONE read, whichever lens is open — the same wall the home renders, opened
   // full. Only fetched for a lens that answers with memories; the "also kept"
@@ -177,7 +182,7 @@ export default async function AlaalaPage({
         ) : null}
         {active === 'albums' ? (
           <div className="space-y-4">
-            <p className="rounded-2xl border border-ink/10 bg-white/60 p-4 text-sm text-ink/60">
+            <p className="rounded-2xl border border-ink/10 bg-white/60 dark:bg-raised p-4 text-sm text-ink/60">
               One card per event — this is where a whole event downloads at
               once. Your memories themselves live in the lenses above.
             </p>
@@ -187,7 +192,7 @@ export default async function AlaalaPage({
         {active === 'editorials' ? <EditorialsTab userId={user.id} /> : null}
         {active === 'vendors' ? (
           <div className="space-y-4">
-            <p className="rounded-2xl border border-ink/10 bg-white/60 p-4 text-sm text-ink/60">
+            <p className="rounded-2xl border border-ink/10 bg-white/60 dark:bg-raised p-4 text-sm text-ink/60">
               A shortlist isn&rsquo;t a memory — these live in{' '}
               <Link href="/dashboard" className="font-semibold text-ink underline decoration-ink/25 underline-offset-2 hover:decoration-ink">
                 Spaces on your home

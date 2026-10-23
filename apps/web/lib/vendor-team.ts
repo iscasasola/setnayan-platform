@@ -172,18 +172,34 @@ export type VendorAdminContext = {
  * Resolve the store the caller manages AS AN ADMIN. Team management, the
  * subscription buy, and the demotion-vote flow are all admin-gated, so every
  * one of those surfaces resolves through here. Returns null when the caller is
- * not an admin of any store (agents/viewers/non-vendors → blocked).
+ * not an admin of THE SHOP THEY ARE STANDING IN (agents/viewers/non-vendors →
+ * blocked).
+ *
+ * 🔀 2026-10-22: the store is the ACTIVE shop (`resolveActiveShop`,
+ * `lib/active-shop.ts`), not the caller's oldest admin seat. Before, a person who
+ * is admin of shop A and switched into shop B (where they are, say, an agent)
+ * would have opened Team and managed A's people from B's pages. A refused shop
+ * read denies (null) — this gates management, so an absence must block.
  */
 export async function fetchAdminVendorContext(
   supabase: SupabaseClient,
   userId: string,
 ): Promise<VendorAdminContext | null> {
+  let activeShopId: string | null;
+  try {
+    // Lazy, like `resolveVendorRole`: the resolver reads the request's cookies and must stay out of client bundles.
+    const { resolveActiveShopId } = await import('@/lib/active-shop');
+    activeShopId = await resolveActiveShopId(supabase, userId);
+  } catch {
+    return null;
+  }
+  if (!activeShopId) return null;
   const { data: membership } = await supabase
     .from('vendor_team_members')
     .select('vendor_profile_id, role, vendor_profiles!inner(user_id, tier_state)')
+    .eq('vendor_profile_id', activeShopId)
     .eq('user_id', userId)
     .in('role', ['admin', 'owner'])
-    .order('created_at', { ascending: true })
     .limit(1)
     .maybeSingle();
   if (!membership) return null;

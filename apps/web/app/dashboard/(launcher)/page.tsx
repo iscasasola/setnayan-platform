@@ -3,6 +3,7 @@ import {
   type ReactNode,
   type ComponentType,
 } from 'react';
+import { EventsThumbRow } from '@/app/_components/frontdoor/shell-thumb-rows';
 import Link from 'next/link';
 import { daysToGo } from '@/lib/countdown-target';
 import { redirect } from 'next/navigation';
@@ -180,7 +181,7 @@ export const metadata = {
  *     Setnayan AI · sign-out). The on-page "Your account" section is gone — its
  *     rows moved into Alaala (People · Memories Hub) and the avatar menu
  *     (Profile · Setnayan AI), killing the old zone overlap.
- * Plus the deterministic SEARCH bar (HomeCommandBar, ⌘K): client-side jump-to
+ * The search is the Events thumb row ("Search events" · ＋ Create event, 2026-10-22); the retired top-bar palette was a client-side jump-to
  * over the user's own events/spaces/destinations — no LLM (Setnayan AI Rule 1).
  *
  * Marketplace is intentionally NOT a launcher tile — vendor discovery is an
@@ -1122,6 +1123,8 @@ export default async function LauncherPage({
 
   return (
     <div className="mx-auto w-full max-w-7xl px-4 pb-6 pt-5 sm:px-6 sm:pb-10 sm:pt-10 lg:px-8">
+      {/* 🔍 ONE THUMB ROW (owner 2026-10-22): "Search events" · ＋ Create event — the top bar has no search now. */}
+      <EventsThumbRow />
       {/* ONE LINE, ONE CLAIM-FREE TITLE (owner 2026-08-18 · 2026-08-19).
           No eyebrow, no grey tail — that was the 08-18 ruling and it stands.
 

@@ -26,15 +26,19 @@ function block(marker: string): string {
   return SCREEN.slice(at, SCREEN.indexOf('\n      </div>\n    );', at));
 }
 
-test('List: ⇕ Expand/Collapse · ☑ Select · Search or add · ⫶ Sort — in that order', () => {
-  const row = block('data-thumb="list"');
-  const order = ['data-testid="thumb-expand"', 'data-testid="thumb-select"', '{field}', 'sortPick'].map((m) => row.indexOf(m));
+test('List: ⇕ · Search guests · ≡ Sort (☑ Select inside it) · ＋ Add — the ONE thumb row (owner 2026-10-22)', () => {
+  // Owner 2026-10-22 ("Yes to all", question 1): the fifth round (☑) folds into ≡ so "Search guests" reads whole at
+  // 320; ＋ Add is always there (Enter still adds at once). The ORDER is the shared component's
+  // (`components/every-thumb-row-is-the-one-row.test.ts` renders it); here, the screen hands each seat its control.
+  const at = SCREEN.indexOf('<ThumbRow\n        name="guests"');
+  assert.notEqual(at, -1, 'the List row moved — re-aim this guard');
+  const row = SCREEN.slice(at, SCREEN.indexOf('/>', SCREEN.indexOf('action=', at)));
+  const order = ['left={[', "testId: 'thumb-expand'", 'field={field}', 'right={[sortMenu]}', 'action={copy ? null : addRound}'].map((m) => row.indexOf(m));
   assert.ok(order.every((i) => i > -1), `a control is missing from the thumb row: ${order.join(',')}`);
-  assert.deepEqual([...order].sort((a, b) => a - b), order, 'the thumb row is out of the owner’s order');
-  // No match → the right control becomes ＋ Add, terracotta (rule 4).
-  // (On the phone's last copy — guest-list-copy.ts — nothing writes, so Add is not offered there.)
-  assert.match(row, /\{noMatch && !copy \? addBtn : sortPick\}/);
-  assert.match(SCREEN, /const addBtn = \(\s*<ActionButton\s+tone="brand"/, 'Add is not terracotta');
+  assert.deepEqual([...order].sort((a, b) => a - b), order, 'the thumb row is out of order');
+  assert.match(SCREEN, /copy \? \[\] : \[\{ key: 'select', label: 'Select…', group: 'List'/, '☑ Select is not in the ≡ menu');
+  assert.match(SCREEN, /if \(k === 'select'\) return setSelectMode\(true\);/);
+  assert.match(SCREEN, /const addRound: ThumbRound = \{ icon: Plus, label: 'Add', onClick: \(\) => openAddGuest\(q\)/);
 });
 
 test('Select mode: ✉ Invite N is the row’s field (≥ 60 %), then Set… · Remove N · Done', () => {
@@ -46,14 +50,10 @@ test('Select mode: ✉ Invite N is the row’s field (≥ 60 %), then Set… · 
   assert.match(SCREEN, /label="Set for the selected"\s+value=\{null\}\s+buttonText="Set…"/, 'Set… is not ONE dropdown');
 });
 
-test('the field (and Invite N) keep at least 60 % — the buttons adapt, never the field', () => {
-  const field = CSS.slice(CSS.indexOf('.field {'), CSS.indexOf('}', CSS.indexOf('.field {')));
-  assert.match(field, /flex: 1 0 60%;/);
-  assert.match(field, /min-width: 60%;/);
+test('Invite N keeps at least 60 % — the Select buttons adapt, never Invite', () => {
+  // The List field's 60 % retired 2026-10-22 (four icon rounds leave it the widest seat; there are no words to fit).
   const grow = CSS.slice(CSS.indexOf('.thumb .grow {'), CSS.indexOf('}', CSS.indexOf('.thumb .grow {')));
   assert.match(grow, /min-width: 60%;/, 'Invite N can shrink under 60 %');
-  // The fit pass treats a field under 60 % as "tight" and steps the buttons down.
   assert.match(HOOK, /field\.getBoundingClientRect\(\)\.width < row\.clientWidth \* 0\.6/);
-  // The field never loses its word state: `.grow` and the field are outside the state rules.
   assert.match(CSS, /\.thumb :global\(\.ab\):not\(\.grow\)/);
 });

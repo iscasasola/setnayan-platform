@@ -29,8 +29,9 @@ import { join } from 'node:path';
 import { stripComments } from '@/lib/strip-comments';
 
 const ROOT = join(__dirname, '..', '..', '..');
+// 2026-10-22 ("One thumb row"): the palette dropdown retired with the top bar's 🔍 — the results page is the one
+// surface left that matches the index. The guard keeps holding it to the ONE matcher.
 const SURFACES: Array<[name: string, path: string]> = [
-  ['the palette dropdown', join(ROOT, 'app/dashboard/(launcher)/_components/home-command-bar.tsx')],
   ['the results page', join(ROOT, 'app/_components/frontdoor/front-door-results.tsx')],
 ];
 
@@ -101,15 +102,3 @@ test('🔒 neither surface builds its own haystack', () => {
   }
 });
 
-test('🔑 the palette scopes BEFORE it matches', () => {
-  const code = strip(
-    readFileSync(join(ROOT, 'app/dashboard/(launcher)/_components/home-command-bar.tsx'), 'utf8'),
-  );
-  assert.match(code, /itemInScope\(/, 'the dropdown stopped honouring the scope');
-  const scopeAt = code.indexOf('itemInScope(');
-  const matchAt = code.indexOf('matchesCommandQuery(');
-  assert.ok(
-    scopeAt !== -1 && matchAt !== -1 && scopeAt < matchAt,
-    'matching runs before scoping — which rows EXIST must be settled first',
-  );
-});

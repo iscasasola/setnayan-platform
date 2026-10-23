@@ -1032,7 +1032,7 @@ export default async function ProfilePage({ searchParams }: Props) {
                 Choose, while living, who inherits your memories. Coming soon.
               </p>
             </div>
-            <span className="inline-flex shrink-0 items-center rounded-full border border-ink/15 bg-white/60 px-3 py-1 text-xs text-ink/60">
+            <span className="inline-flex shrink-0 items-center rounded-full border border-ink/15 bg-white/60 dark:bg-raised px-3 py-1 text-xs text-ink/60">
               Not set
             </span>
           </div>

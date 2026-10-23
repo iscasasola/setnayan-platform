@@ -215,6 +215,7 @@ test('list head: the filter row is gone — ONE Sort dropdown regroups the secti
   assert.ok(!existsSync(join(HERE, 'mobile-guest-carousel.tsx')), 'the phone-only head is back');
   assert.doesNotMatch(PAGE, /<RosterFilters\b|<RosterSort\b|<FindAddRow\b/, 'a retired head control is on the page again');
   const SCREEN = read('guests-screen.tsx');
-  assert.match(SCREEN, /data-thumb-sort=""[\s\S]*?<PickMenu\b/, 'the Sort is not one PickMenu dropdown');
-  assert.match(SCREEN, /options=\{views\.map\(/, 'the Sort no longer lists the five views');
+  // The Sort is ONE dropdown — the shared row's ≡ seat (a `ThumbMenu`, drawn as a PickMenu by components/thumb-row.tsx).
+  assert.match(SCREEN, /const sortMenu: ThumbMenu = \{\s*mark: 'data-thumb-sort',/, 'the Sort is not one dropdown');
+  assert.match(SCREEN, /menu: views\s*\.map\(/, 'the Sort no longer lists the five views');
 });

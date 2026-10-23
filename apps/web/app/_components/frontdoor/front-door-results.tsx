@@ -49,7 +49,7 @@ import Link from 'next/link';
 import { matchesCommandQuery } from '@/lib/command-match';
 import { searchReads } from '@/lib/site-search';
 import { searchLiveShops, type FrontDoorData, type FrontDoorShop } from './data';
-import type { HomeCommandItem } from '@/app/dashboard/(launcher)/_components/home-command-bar';
+import type { HomeCommandItem } from './command-item';
 import { shopInitials } from '@/lib/shop-initials';
 import { formatCount } from '@/lib/format-number';
 import { ON_YOUR_EVENT } from '@/lib/own-supplier-items';

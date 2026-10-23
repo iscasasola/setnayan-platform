@@ -101,7 +101,6 @@ export default async function SearchLabPage({
     return (
       <FrontDoorShell
         account={account}
-        tools={[]}
         navLabels={{}}
         topBarSlot={<Avatar />}
         search={false /* the top bar has no search since 2026-10-22 ("One thumb row") */}
@@ -119,7 +118,6 @@ export default async function SearchLabPage({
       <FrontDoorShell
         variant="app"
         account={account}
-        tools={[]}
         navLabels={{}}
         topBarSlot={<Avatar />}
         search={false}

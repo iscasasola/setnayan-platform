@@ -28,6 +28,7 @@ export const FEATURE_SLUGS = [
   'seat-plan',
   '3d-plan',
   'schedule',
+  'date-picker',
   'mood-board',
   'marketplace',
   'compare',

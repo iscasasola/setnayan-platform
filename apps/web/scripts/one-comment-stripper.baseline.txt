@@ -4,7 +4,7 @@
 # --write. This list may only SHRINK: a new entry fails the build, and an
 # entry whose file has been migrated must be deleted here in the same change.
 #
-# 283 files at the time of writing.
+# 280 files at the time of writing.
 apps/web/app/(shell)/explore/_components/save-is-open-to-strangers.test.ts
 apps/web/app/(shell)/explore/compare/ask-about-your-date.test.ts
 apps/web/app/(shell)/one-shell-mount.test.ts
@@ -40,7 +40,6 @@ apps/web/app/_components/auth/sign-in-destination.test.ts
 apps/web/app/_components/brand/title-template.test.ts
 apps/web/app/_components/byline-is-a-door.test.ts
 apps/web/app/_components/door/doors-are-designed.test.ts
-apps/web/app/_components/frontdoor/drawer-keeps-the-studio-lines.test.ts
 apps/web/app/_components/frontdoor/front-door-geometry.test.ts
 apps/web/app/_components/frontdoor/front-door-invariants.test.ts
 apps/web/app/_components/frontdoor/one-main-per-page.test.ts

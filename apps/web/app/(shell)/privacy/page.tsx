@@ -4,7 +4,7 @@ import Link from 'next/link';
 // renders the same constant the sweep deletes by. Two hand-typed numbers
 // agreeing today is how `llms.txt` drifted for three weeks with green CI.
 import { CONNECTION_REQUEST_RETENTION_DAYS } from '@/lib/connection-request-expiry-core';
-import { ERROR_LOG_RETENTION_DAYS } from '@/lib/rule-constants';
+import { DB_BACKUP_RETENTION_DAYS, ERROR_LOG_RETENTION_DAYS } from '@/lib/rule-constants';
 // The sign-in button's own words, so this page quotes the button exactly (lib/one-oauth-wording.test.ts).
 import { OAUTH_VERB } from '@/lib/oauth-words';
 
@@ -1344,7 +1344,7 @@ export default function PrivacyPage() {
             </li>
             <li>
               <strong>Database backups</strong> — our database provider keeps a
-              daily backup for <strong>7 days</strong>. Something deleted from
+              daily backup for <strong>{DB_BACKUP_RETENTION_DAYS} days</strong>. Something deleted from
               Setnayan can stay in a backup until that backup ages out.
               Photos and files are not in these backups.
             </li>

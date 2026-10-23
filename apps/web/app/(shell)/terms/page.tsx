@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { LegalLayout, LegalSection } from '@/app/_components/legal/legal-chrome';
+import { DB_BACKUP_RETENTION_DAYS } from '@/lib/rule-constants';
 
 
 // GEO Phase G5 (2026-05-28) — canonical URL + enriched description.
@@ -139,8 +140,8 @@ export default function TermsPage() {
             host, display, and process your content solely to provide the
             service to you and your event&rsquo;s members. This license ends when
             you delete the content or your account, except for daily database
-            backups, which age out within 7 days, and where we must retain data
-            by law.
+            backups, which age out within {DB_BACKUP_RETENTION_DAYS} days, and
+            where we must retain data by law.
           </li>
           <li>
             You&rsquo;re responsible for having the rights to the content you

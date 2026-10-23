@@ -56,37 +56,11 @@ export function InviteVendorForm({
   const [state, setState] = useState<{ kind: 'idle' } | ({ kind: 'success' } & Ok) | { kind: 'error'; message: string }>({
     kind: 'idle',
   });
-  const [copied, setCopied] = useState<'link' | 'message' | null>(null);
   const [category, setCategory] = useState<string>('');
   const [plan, setPlan] = useState<string>('free');
   const [photos, setPhotos] = useState(false);
   const switchId = useId();
   const untilId = useId();
-
-  function copyToClipboard(text: string, what: 'link' | 'message') {
-    if (typeof navigator === 'undefined' || !navigator.clipboard) return;
-    navigator.clipboard.writeText(text).then(
-      () => {
-        setCopied(what);
-        setTimeout(() => setCopied(null), 2000);
-      },
-      () => {
-        // Clipboard write can fail on insecure-context (http) or when the
-        // browser denies permission. Surface nothing — admin can manually
-        // select + copy the visible text.
-      },
-    );
-  }
-
-  /** "Download the card" — a plain download of the same SVG that is on screen; never a new tab (`lib/qr-download.ts`). */
-  function downloadCard(svg: string, name: string) {
-    const a = document.createElement('a');
-    a.href = svgDataUri(svg);
-    a.download = qrFileName(`invite ${name}`);
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-  }
 
   const planOptions = (['free', ...PERSONAL_INVITE_TIERS] as const).map((k) => {
     const note = planMenuNote(k, prices);
@@ -117,7 +91,6 @@ export function InviteVendorForm({
             );
             if (result.status === 'ok') {
               setState({ kind: 'success', ...result });
-              setCopied(null);
               form.reset();
               setCategory('');
               setPlan('free');
@@ -230,58 +203,7 @@ export function InviteVendorForm({
         </div>
       </form>
 
-      {state.kind === 'success' ? (
-        <div className="mt-5 border-t border-ink/10 pt-4" data-invite-result="">
-          <p className="text-sm font-semibold text-success-900">
-            Invite ready for {state.businessName}.
-          </p>
-          <div className="mt-2 flex items-center gap-2 rounded-xl border border-ink/10 py-1.5 pl-3 pr-1.5">
-            <code className="min-w-0 flex-1 truncate font-mono text-xs text-ink/75">{state.claimUrl}</code>
-            <ActionButton
-              tone="neutral"
-              icon={copied === 'link' ? Check : Copy}
-              label={copied === 'link' ? 'Copied' : 'Copy link'}
-              onClick={() => copyToClipboard(state.claimUrl, 'link')}
-            />
-          </div>
-          <p className="mt-2 text-xs text-ink/60">
-            Expires in 90 days.
-            {state.offerLine ? ` ${state.offerLine}` : ' The supplier signs up via this link, and their shop is created automatically with the business name you entered.'}
-          </p>
-
-          <Sec>Invite card</Sec>
-          <div
-            className="mx-auto mt-2 w-full max-w-[360px] [&>svg]:h-auto [&>svg]:w-full"
-            data-invite-card-wrap=""
-            // The card is built on the server from escaped text and the shipped QR drawing (`personalInviteCardSvg`).
-            dangerouslySetInnerHTML={{ __html: state.cardSvg }}
-          />
-          <div className="mt-3">
-            <ActionButton
-              tone="brand"
-              main
-              icon={Download}
-              label="Download the card"
-              className="w-full"
-              onClick={() => downloadCard(state.cardSvg, state.businessName)}
-            />
-          </div>
-
-          <Sec>Message to send</Sec>
-          <p className="mt-2 whitespace-pre-wrap rounded-2xl bg-ink/[0.04] px-3.5 py-3 text-sm leading-relaxed text-ink" data-invite-message="">
-            {state.message}
-          </p>
-          <div className="mt-3">
-            <ActionButton
-              tone="neutral"
-              icon={copied === 'message' ? Check : Copy}
-              label={copied === 'message' ? 'Copied' : 'Copy message'}
-              className="w-full"
-              onClick={() => copyToClipboard(state.message, 'message')}
-            />
-          </div>
-        </div>
-      ) : null}
+      {state.kind === 'success' ? <InviteResult result={state} /> : null}
 
       {state.kind === 'error' ? (
         <p
@@ -293,4 +215,90 @@ export function InviteVendorForm({
       ) : null}
     </section>
   );
+}
+
+/**
+ * THE RESULT (frame A3) — the link and Copy as shipped, then the card to download and the message to copy. One main
+ * button at a time: "Download the card". Exported for `/dev/personal-invite-lab`, which draws it on fixtures.
+ */
+export function InviteResult({ result }: { result: Ok }) {
+  const [copied, setCopied] = useState<'link' | 'message' | null>(null);
+
+  function copyToClipboard(text: string, what: 'link' | 'message') {
+    if (typeof navigator === 'undefined' || !navigator.clipboard) return;
+    navigator.clipboard.writeText(text).then(
+      () => {
+        setCopied(what);
+        setTimeout(() => setCopied(null), 2000);
+      },
+      () => {
+        // Clipboard write can fail on insecure-context (http) or when the
+        // browser denies permission. Surface nothing — admin can manually
+        // select + copy the visible text.
+      },
+    );
+  }
+
+  /** "Download the card" — a plain download of the same SVG that is on screen; never a new tab (`lib/qr-download.ts`). */
+  function downloadCard(svg: string, name: string) {
+    const a = document.createElement('a');
+    a.href = svgDataUri(svg);
+    a.download = qrFileName(`invite ${name}`);
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
+
+  return (
+        <div className="mt-5 border-t border-ink/10 pt-4" data-invite-result="">
+          <p className="text-sm font-semibold text-success-900">
+            Invite ready for {result.businessName}.
+          </p>
+          <div className="mt-2 flex items-center gap-2 rounded-xl border border-ink/10 py-1.5 pl-3 pr-1.5">
+            <code className="min-w-0 flex-1 truncate font-mono text-xs text-ink/75">{result.claimUrl}</code>
+            <ActionButton
+              tone="neutral"
+              icon={copied === 'link' ? Check : Copy}
+              label={copied === 'link' ? 'Copied' : 'Copy link'}
+              onClick={() => copyToClipboard(result.claimUrl, 'link')}
+            />
+          </div>
+          <p className="mt-2 text-xs text-ink/60">
+            Expires in 90 days.
+            {result.offerLine ? ` ${result.offerLine}` : ' The supplier signs up via this link, and their shop is created automatically with the business name you entered.'}
+          </p>
+
+          <Sec>Invite card</Sec>
+          <div
+            className="mx-auto mt-2 w-full max-w-[360px] [&>svg]:h-auto [&>svg]:w-full"
+            data-invite-card-wrap=""
+            // The card is built on the server from escaped text and the shipped QR drawing (`personalInviteCardSvg`).
+            dangerouslySetInnerHTML={{ __html: result.cardSvg }}
+          />
+          <div className="mt-3">
+            <ActionButton
+              tone="brand"
+              main
+              icon={Download}
+              label="Download the card"
+              className="w-full"
+              onClick={() => downloadCard(result.cardSvg, result.businessName)}
+            />
+          </div>
+
+          <Sec>Message to send</Sec>
+          <p className="mt-2 whitespace-pre-wrap rounded-2xl bg-ink/[0.04] px-3.5 py-3 text-sm leading-relaxed text-ink" data-invite-message="">
+            {result.message}
+          </p>
+          <div className="mt-3">
+            <ActionButton
+              tone="neutral"
+              icon={copied === 'message' ? Check : Copy}
+              label={copied === 'message' ? 'Copied' : 'Copy message'}
+              className="w-full"
+              onClick={() => copyToClipboard(result.message, 'message')}
+            />
+          </div>
+        </div>
+        );
 }

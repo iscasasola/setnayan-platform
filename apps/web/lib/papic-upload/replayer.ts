@@ -45,6 +45,14 @@ import type { PapicTransport } from './transport';
 /** How long a saved shot may wait before the phone gives up on it (= the old queue's TTL). */
 export const SHOT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 export const PARALLEL_PUTS = 2;
+/**
+ * The small pieces are made only after the camera has been quiet this long, so
+ * the decode + resize never competes with a burst of shutter presses (it all
+ * runs on the page's one thread).
+ */
+export const PREPARE_QUIET_MS = 800;
+/** …but never deferred longer than this, so a guest who never stops shooting still uploads. */
+export const PREPARE_MAX_DEFER_MS = 3000;
 
 export interface UploaderStore {
   saveShot(shot: QueuedShot): Promise<void>;
@@ -128,11 +136,39 @@ export class PapicUploader {
   private pumpAgain = false;
   private timer: unknown = null;
   private netFailedAt = 0;
+  private lastShotAtMs = 0;
+  private prepareTimer: unknown = null;
   private loaded: Promise<void> | null = null;
   /** False in a tab that is not the elected sender — it saves, never sends. */
   sender = true;
 
+  /**
+   * Bytes this visit could not write to the phone (no IndexedDB at all — some
+   * private modes). The shot still sends while the page is open; it is just
+   * not durable across a reload, which is no worse than the camera before.
+   */
+  private memBlobs = new Map<string, Blob>();
+
   constructor(private deps: UploaderDeps) {}
+
+  private async putBlob(shot: Pick<QueuedShot, 'id' | 'eventId'>, piece: LocalPiece, blob: Blob): Promise<void> {
+    try {
+      await this.deps.store.saveBlob(shot, piece, blob);
+    } catch {
+      this.memBlobs.set(`${shot.id}:${piece}`, blob);
+    }
+  }
+
+  private async getBlob(shotId: string, piece: LocalPiece): Promise<Blob | null> {
+    const mem = this.memBlobs.get(`${shotId}:${piece}`);
+    if (mem) return mem;
+    return this.deps.store.loadBlob(shotId, piece).catch(() => null);
+  }
+
+  private async dropBlob(shotId: string, piece: LocalPiece): Promise<void> {
+    this.memBlobs.delete(`${shotId}:${piece}`);
+    await this.deps.store.deleteBlob(shotId, piece).catch(() => {});
+  }
 
   /** Load what an earlier visit left behind. Idempotent. */
   load(): Promise<void> {
@@ -206,8 +242,9 @@ export class PapicUploader {
 
   /**
    * THE SHUTTER'S HAND-OFF. Writes the bytes to this phone, then returns —
-   * no network. Throws only if the phone could not store the shot at all, so
-   * the camera can say so instead of pretending it saved.
+   * no network. Where the phone refuses to store them (a private mode with no
+   * IndexedDB), the bytes stay in this page's memory and still send while it is
+   * open: the camera never refuses a shot over storage.
    */
   async addShot(input: NewShot): Promise<void> {
     await this.load();
@@ -235,16 +272,17 @@ export class PapicUploader {
     };
     const type = input.primary.type || (input.media === 'clip' ? 'video/mp4' : 'image/jpeg');
     if (input.media === 'photo') {
-      await this.deps.store.saveBlob(shot, 'original', input.primary);
+      await this.putBlob(shot, 'original', input.primary);
       shot.tiers.original = { contentType: type, size: input.primary.size, uploaded: false };
     } else {
-      await this.deps.store.saveBlob(shot, 'clip_raw', input.primary);
+      await this.putBlob(shot, 'clip_raw', input.primary);
       shot.tiers.clip_raw = { contentType: type, size: input.primary.size, uploaded: false };
-      if (input.poster) await this.deps.store.saveBlob(shot, 'source', input.poster);
+      if (input.poster) await this.putBlob(shot, 'source', input.poster);
     }
-    if (input.faceSource) await this.deps.store.saveBlob(shot, 'face', input.faceSource);
-    await this.deps.store.saveShot(shot);
+    if (input.faceSource) await this.putBlob(shot, 'face', input.faceSource);
+    await this.deps.store.saveShot(shot).catch(() => {});
     this.shots.set(shot.id, shot);
+    this.lastShotAtMs = nowMs;
     // A new shot is a reason to re-ask anything held for credits.
     for (const s of this.shots.values()) if (s.hold === 'credits') s.hold = null;
     this.notify();
@@ -275,6 +313,21 @@ export class PapicUploader {
     this.preparing = true;
     try {
       for (;;) {
+        const nowMs = this.deps.now();
+        const quietFor = nowMs - this.lastShotAtMs;
+        const oldestWaiting = Math.min(
+          ...[...this.shots.values()].filter((s) => !s.prepared).map((s) => s.queuedAtMs),
+        );
+        if (quietFor < PREPARE_QUIET_MS && nowMs - oldestWaiting < PREPARE_MAX_DEFER_MS) {
+          if (!this.prepareTimer) {
+            const wait = Math.min(PREPARE_QUIET_MS - quietFor, PREPARE_MAX_DEFER_MS - (nowMs - oldestWaiting));
+            this.prepareTimer = this.deps.setTimer(() => {
+              this.prepareTimer = null;
+              void this.prepareNext();
+            }, Math.max(20, wait + 20));
+          }
+          break;
+        }
         // A guest clip's web copy needs the ffmpeg core from the network: made
         // offline it would fail, and the clip would then send its whole raw.
         // So a guest clip waits for signal to be prepared; photos never wait.
@@ -292,43 +345,43 @@ export class PapicUploader {
   }
 
   private async prepareShot(shot: QueuedShot): Promise<void> {
-    const { store, prepare } = this.deps;
+    const { prepare } = this.deps;
     try {
       if (shot.media === 'photo') {
-        const original = await store.loadBlob(shot.id, 'original');
+        const original = await this.getBlob(shot.id, 'original');
         if (!original) return this.lose(shot, 'lost_on_phone');
         const pieces = await prepare.photoPieces(original);
         if (pieces) {
           for (const tier of ['thumb', 'tile', 'display'] as const) {
-            await store.saveBlob(shot, tier, pieces[tier]);
+            await this.putBlob(shot, tier, pieces[tier]);
             shot.tiers[tier] = { contentType: pieces[tier].type, size: pieces[tier].size, uploaded: false };
           }
         }
       } else {
-        const source = await store.loadBlob(shot.id, 'source');
+        const source = await this.getBlob(shot.id, 'source');
         if (source) {
           const poster = (await prepare.poster(source)) ?? source;
-          await store.saveBlob(shot, 'poster', poster);
+          await this.putBlob(shot, 'poster', poster);
           shot.tiers.poster = { contentType: poster.type || 'image/jpeg', size: poster.size, uploaded: false };
-          await store.deleteBlob(shot.id, 'source').catch(() => {});
+          await this.dropBlob(shot.id, 'source');
         }
         if (shot.lane === 'guest') {
-          const raw = await store.loadBlob(shot.id, 'clip_raw');
+          const raw = await this.getBlob(shot.id, 'clip_raw');
           const web = raw ? await prepare.clipWeb(raw) : null;
           if (web) {
-            await store.saveBlob(shot, 'clip_web', web);
+            await this.putBlob(shot, 'clip_web', web);
             shot.tiers.clip_web = { contentType: 'video/mp4', size: web.size, uploaded: false };
           }
         }
       }
       if (shot.wantsFaceVectors) {
-        const clean = await store.loadBlob(shot.id, 'face');
+        const clean = await this.getBlob(shot.id, 'face');
         if (clean) {
           const fe = await prepare.faceVectors(clean);
           shot.faceVectors = fe.vectors;
           shot.subjectCenter = fe.subjectCenter;
         }
-        await store.deleteBlob(shot.id, 'face').catch(() => {});
+        await this.dropBlob(shot.id, 'face');
         shot.wantsFaceVectors = false;
       }
     } catch {
@@ -355,6 +408,11 @@ export class PapicUploader {
           slots: PARALLEL_PUTS - this.inFlight.size,
           inFlight: this.inFlight,
           fullAllowed: this.deps.fullAllowed(),
+          // A PHOTO still being prepared has its thumbnail in a moment (~0.1 s
+          // a shot) — hold the later phases for it. A clip is not waited for:
+          // its web copy can take a minute to make, and nothing should stall
+          // behind that.
+          preparing: [...this.shots.values()].some((s) => !s.prepared && s.media === 'photo'),
         });
         for (const job of jobs) {
           const key = jobKey(job);
@@ -402,7 +460,7 @@ export class PapicUploader {
   }
 
   private async runPut(shot: QueuedShot, tier: CaptureTier): Promise<void> {
-    const blob = await this.deps.store.loadBlob(shot.id, tier).catch(() => null);
+    const blob = await this.getBlob(shot.id, tier);
     if (!blob) {
       // The bytes are gone from this phone (storage cleared). Nothing to send.
       delete shot.tiers[tier];
@@ -443,7 +501,7 @@ export class PapicUploader {
     shot.attempts = 0;
     shot.lastError = null;
     this.netFailedAt = 0;
-    for (const t of tiers) await this.deps.store.deleteBlob(shot.id, t).catch(() => {});
+    for (const t of tiers) await this.dropBlob(shot.id, t);
     if (phase === 'record') {
       shot.captureId = typeof answer.body?.captureId === 'string' ? answer.body.captureId : null;
       shot.wantFull = answer.body?.wantFull === false ? false : true;
@@ -512,13 +570,14 @@ export class PapicUploader {
     shot.wantFull = false;
     for (const t of tiersInPhase(shot, 'full')) {
       delete shot.tiers[t];
-      await this.deps.store.deleteBlob(shot.id, t).catch(() => {});
+      await this.dropBlob(shot.id, t);
     }
   }
 
   private async finish(shot: QueuedShot): Promise<void> {
     this.shots.delete(shot.id);
     this.doneThisVisit += 1;
+    for (const p of ALL_PIECES) this.memBlobs.delete(`${shot.id}:${p}`);
     await this.deps.store.deleteShot(shot, ALL_PIECES).catch(() => {});
     this.emit({ type: 'done', shot });
     this.notify();
@@ -528,6 +587,7 @@ export class PapicUploader {
     if (!this.shots.has(shot.id)) return;
     this.shots.delete(shot.id);
     this.refused = { count: (this.refused?.count ?? 0) + 1, reason: code };
+    for (const p of ALL_PIECES) this.memBlobs.delete(`${shot.id}:${p}`);
     await this.deps.store.deleteShot(shot, ALL_PIECES).catch(() => {});
     this.emit({ type: 'refused', shot, code, body });
     this.notify();

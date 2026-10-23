@@ -248,3 +248,15 @@ test('a refusal for good drops the shot and is counted, never shown as saved', a
   assert.equal(server.st.rowsCreated, 0);
   assert.equal(chipLabel(u.snapshot().chip), '1 not saved');
 });
+
+test('a phone that refuses to store bytes (a private mode) still sends the shot while the page is open', async () => {
+  const { u, store, server, settle } = harness();
+  store.saveBlob = async () => {
+    throw new Error('QuotaExceededError');
+  };
+  server.st.online = true;
+  await u.addShot(photo(1));
+  await settle();
+  assert.equal(server.st.rowsCreated, 1);
+  assert.equal(u.pending(), 0);
+});

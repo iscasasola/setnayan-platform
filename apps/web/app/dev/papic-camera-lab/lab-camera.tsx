@@ -25,6 +25,11 @@ async function posterOf(clip: Blob): Promise<Blob | null> {
       v.onloadeddata = () => res();
       v.onerror = () => rej(new Error('video'));
     });
+    // A real camera's poster is its last live frame; take one from inside the clip.
+    await new Promise<void>((res) => {
+      v.onseeked = () => res();
+      v.currentTime = Math.min(1, (v.duration || 2) / 2);
+    });
     const c = document.createElement('canvas');
     c.width = v.videoWidth;
     c.height = v.videoHeight;

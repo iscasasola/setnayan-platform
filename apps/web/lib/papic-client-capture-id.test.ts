@@ -43,7 +43,7 @@ test('the guest camera hands ONE fresh id per shutter to the uploader — photo 
   const src = read('app', 'papic', 'guest', '_components', 'papic-guest-capture.tsx');
   const saves = src.split('await saveShot({').slice(1).map((x) => x.slice(0, x.indexOf('});')));
   assert.equal(saves.length, 2, 'the camera’s hand-offs moved — re-point this guard');
-  saves.forEach((e, i) => assert.match(e, /\bid: clientCaptureId,/, `hand-off ${i + 1} drops the id`));
+  saves.forEach((e, i) => assert.match(e, /\bid: (?:meta\.)?clientCaptureId,/, `hand-off ${i + 1} drops the id`));
   assert.equal((src.match(/const clientCaptureId = newClientCaptureId\(\);/g) ?? []).length, 2);
 });
 

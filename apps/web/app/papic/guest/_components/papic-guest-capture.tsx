@@ -32,7 +32,7 @@ import { PapicCameraControls } from '@/app/papic/_components/camera-controls';
 import { PapicChallengePanel, type ArmedChallenge } from './papic-challenge-panel';
 import { newClientCaptureId } from '@/lib/papic-client-capture-id';
 import { papicUploader, saveShot } from '@/lib/papic-upload/browser';
-import { markShutter, markShutterReady } from '@/lib/papic-upload/shutter-timing';
+import { markSavedOnPhone, markShutter, markShutterReady } from '@/lib/papic-upload/shutter-timing';
 import { papicCaptureCost } from '@/lib/papic-cameras-pure';
 import { PapicUploadChip } from '@/app/papic/_components/upload-chip';
 import {
@@ -53,6 +53,8 @@ import { FocusCorners } from './camera-focus-corners';
 // on count, so the camera never has a tally to display or a ceiling to announce.
 const MAX_CLIP_MS = 10000; // 10-SECOND CLIP CAP (owner 2026-07-22 · §0) — mirrored route + RPC.
 const HOLD_MS = 260; // tap-vs-hold boundary: a press held this long starts a clip
+/** Frames a burst may hold in memory before the shutter waits for the oldest to save. */
+const MAX_DEVELOPING = 6;
 
 /** Friendly, guest-facing copy for a tag failure. The camera never breaks on a
  *  tag miss — these just steer the next scan. */
@@ -539,6 +541,74 @@ export function PapicGuestCapture({
     lastScanRef.current = '';
   }, [canKwento]);
 
+  // 🧪 DEVELOP, OFF THE SHUTTER. The look, the JPEG encode and the write to this
+  // phone take 100–400 ms on a phone (the look is a pixel pass over 3.7 MP), so
+  // they run here, one shot at a time, AFTER the shutter is already free for the
+  // next press. A burst never holds more than MAX_DEVELOPING frames in memory:
+  // past that, the shutter waits for the oldest to finish (iOS caps canvas memory).
+  const developChainRef = useRef<Promise<void>>(Promise.resolve());
+  const developingRef = useRef(0);
+  const developPhoto = useCallback(
+    async (
+      canvas: HTMLCanvasElement,
+      meta: { clientCaptureId: string; capturedAtMs: number; sharePublicly: boolean; style: PapicStyle; faceMode: PapicFaceMode },
+    ) => {
+      // FACE-MODE GATE (One-Pool spec §3.4): in mode_b `embedFaces` is NEVER
+      // called — no 128-d descriptor is computed and none is transmitted. Only
+      // mode_a (a consented custom-QR roster) keeps a CLEAN copy of the frame
+      // (before the look, which would wreck face-api's descriptors) for the
+      // on-device face pass — which runs in the upload queue, OFF the shutter.
+      // ON-DEVICE: only the tiny vectors ever leave the phone, never the face.
+      let faceSource: Blob | null = null;
+      if (meta.faceMode === 'mode_a') {
+        try {
+          const { resizeTo } = await import('@/lib/papic-upload/prepare');
+          faceSource = await resizeTo(canvas, 1280, 0.85);
+        } catch {
+          faceSource = null; // best-effort — a face-tag miss never affects the photo
+        }
+      }
+      // Bake the LOCKED event look into the delivered photo (after the clean copy).
+      applyPapicStyle(canvas, meta.style);
+      const blob = await new Promise<Blob | null>((resolve) =>
+        canvas.toBlob(resolve, 'image/jpeg', photoJpegQuality('full')),
+      );
+      canvas.width = 0;
+      canvas.height = 0;
+      if (!blob) {
+        setSaveError('Could not grab that frame — try again.');
+        return;
+      }
+      try {
+        await saveShot({
+          id: meta.clientCaptureId,
+          lane: 'guest',
+          eventId,
+          media: 'photo',
+          capturedAtMs: meta.capturedAtMs,
+          // Public-sharing consent for THIS shot (Alaala orb gate) — only true
+          // when the guest opted in; the server sets consent_to_public from it.
+          sharePublicly: meta.sharePublicly,
+          primary: blob,
+          faceSource,
+        });
+      } catch {
+        // The phone could not keep it (storage full / private mode). Say so —
+        // never a "saved" over a shot that exists nowhere.
+        setSaveError("That shot didn't save on this phone — free up some space and try again.");
+        return;
+      }
+      markSavedOnPhone(meta.capturedAtMs);
+      setJustSaved(true);
+      setTimeout(() => setJustSaved(false), 900);
+      setThumb((was) => {
+        if (was?.startsWith('blob:')) URL.revokeObjectURL(was);
+        return URL.createObjectURL(blob);
+      });
+    },
+    [eventId],
+  );
+
   const capture = useCallback(async () => {
     if (busy || !ready || switching || exhausted || !accepted || blocked) return;
     const video = videoRef.current;
@@ -549,23 +619,24 @@ export function PapicGuestCapture({
     if (!w || !h) return;
 
     markShutter();
-    setBusy(true);
     setSaveError(null);
+    if (developingRef.current >= MAX_DEVELOPING) {
+      // Backpressure — a long burst waits for the oldest frame to be saved.
+      setBusy(true);
+      await developChainRef.current;
+      setBusy(false);
+    }
 
     // 📸 SAVE FIRST, SEND LATER (owner 2026-10-23: "each phone can shoot
     // continuously while uploading online works on the background"). A FRESH
-    // canvas per shot, so the next shot never waits for this one's encode; the
-    // only awaits below are local — the encode and the write to this phone.
-    // Nothing here touches the network: lib/papic-upload/ sends it, in pieces,
-    // when there is signal.
+    // canvas per shot: the frame is grabbed here and the shutter is free; the
+    // look, the encode and the write to this phone follow in `developPhoto`,
+    // and lib/papic-upload/ sends it, in pieces, when there is signal.
     const canvas = document.createElement('canvas');
     canvas.width = w;
     canvas.height = h;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) {
-      setBusy(false);
-      return;
-    }
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    if (!ctx) return;
     ctx.drawImage(video, 0, 0, w, h);
 
     // 🕐 THE SHUTTER — stamped on the frame itself, before the look and the
@@ -579,67 +650,19 @@ export function PapicGuestCapture({
     // lost on bad signal lands ONCE and is paid for once
     // (lib/papic-client-capture-id.ts).
     const clientCaptureId = newClientCaptureId();
-
-    // FACE-MODE GATE (One-Pool spec §3.4): in mode_b `embedFaces` is NEVER
-    // called — no 128-d descriptor is computed and none is transmitted. Only
-    // mode_a (a consented custom-QR roster) keeps a CLEAN copy of the frame
-    // (before the look, which would wreck face-api's descriptors) for the
-    // on-device face pass — which now runs in the upload queue, OFF the shutter.
-    // ON-DEVICE: only the tiny vectors ever leave the phone, never the face.
-    let faceSource: Blob | null = null;
-    if (faceMode === 'mode_a') {
-      try {
-        const { resizeTo } = await import('@/lib/papic-upload/prepare');
-        faceSource = await resizeTo(canvas, 1280, 0.85);
-      } catch {
-        faceSource = null; // best-effort — a face-tag miss never affects the photo
-      }
-    }
-
-    // Bake the LOCKED event look into the delivered photo (after the clean copy).
-    applyPapicStyle(canvas, styleRef.current);
-    const blob = await new Promise<Blob | null>((resolve) =>
-      canvas.toBlob(resolve, 'image/jpeg', photoJpegQuality('full')),
-    );
-    canvas.width = 0;
-    canvas.height = 0;
-    if (!blob) {
-      setBusy(false);
-      setSaveError('Could not grab that frame — try again.');
-      return;
-    }
-
-    try {
-      await saveShot({
-        id: clientCaptureId,
-        lane: 'guest',
-        eventId,
-        media: 'photo',
-        capturedAtMs,
-        // Public-sharing consent for THIS shot (Alaala orb gate) — only true
-        // when the guest opted in; the server sets consent_to_public from it.
-        sharePublicly,
-        primary: blob,
-        faceSource,
-      });
-    } catch {
-      // The phone could not keep it (storage full / private mode). Say so —
-      // never a "saved" over a shot that exists nowhere.
-      setBusy(false);
-      setSaveError("That shot didn't save on this phone — free up some space and try again.");
-      return;
-    }
     latestShotRef.current = clientCaptureId;
+
+    developingRef.current += 1;
+    const meta = { clientCaptureId, capturedAtMs, sharePublicly, style: styleRef.current, faceMode };
+    developChainRef.current = developChainRef.current
+      .then(() => developPhoto(canvas, meta))
+      .catch(() => {})
+      .finally(() => {
+        developingRef.current -= 1;
+      });
     // The countdown moves at the shutter (advisory); the server's figure
     // replaces it as each shot is recorded.
     if (capApplies) setRemaining((r) => Math.max(0, r - papicCaptureCost('photo')));
-    setJustSaved(true);
-    setTimeout(() => setJustSaved(false), 900);
-    setThumb((was) => {
-      if (was?.startsWith('blob:')) URL.revokeObjectURL(was);
-      return URL.createObjectURL(blob);
-    });
-    setBusy(false);
     markShutterReady();
   }, [
     busy,
@@ -651,8 +674,8 @@ export function PapicGuestCapture({
     sharePublicly,
     capApplies,
     videoRef,
-    eventId,
     faceMode,
+    developPhoto,
   ]);
 
   // 📮 WHAT THE UPLOADER HEARS BACK. A shot is recorded minutes — or, after a

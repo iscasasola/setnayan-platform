@@ -27,3 +27,16 @@ export function markShutterReady(): void {
     startedAt = null;
   }
 }
+
+/**
+ * The shot is now kept on this phone (encoded + written to IndexedDB). Measured
+ * from the shutter instant — the moment a tab death can no longer lose it.
+ */
+export function markSavedOnPhone(capturedAtMs: number): void {
+  try {
+    const d = Math.max(0, Date.now() - capturedAtMs);
+    performance.measure('papic:saved-on-phone', { start: performance.now() - d, duration: d });
+  } catch {
+    /* timeline unavailable */
+  }
+}

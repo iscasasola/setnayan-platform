@@ -104,7 +104,15 @@ export function shotFinished(shot: QueuedShot): boolean {
  */
 export function nextJobs(
   shots: readonly QueuedShot[],
-  opts: { nowMs: number; slots: number; inFlight: ReadonlySet<string>; fullAllowed: boolean },
+  opts: {
+    nowMs: number;
+    slots: number;
+    inFlight: ReadonlySet<string>;
+    fullAllowed: boolean;
+    /** A shot is still having its small pieces made — its thumbnail is coming,
+     *  so no display copy or original may jump ahead of it. */
+    preparing?: boolean;
+  },
 ): UploadJob[] {
   const out: UploadJob[] = [];
   if (opts.slots <= 0) return out;
@@ -117,6 +125,7 @@ export function nextJobs(
   let earlierPending = false;
   for (const phase of PHASE_ORDER) {
     if (phase === 'full' && (!opts.fullAllowed || earlierPending)) break;
+    if (phase !== 'record' && opts.preparing) break;
     for (const shot of ordered) {
       if (out.length >= opts.slots) return out;
       if (!shot.prepared || shot.hold || shot.nextAttemptAtMs > opts.nowMs) continue;

@@ -47,11 +47,23 @@ export async function saveShot(shot: QueuedShot): Promise<void> {
 }
 
 export async function saveBlob(shot: Pick<QueuedShot, 'id' | 'eventId'>, piece: LocalPiece, blob: Blob): Promise<void> {
-  await enqueueOfflineItem('papic', {
-    item_id: blobItemId(shot.id, piece),
-    event_id: shot.eventId,
-    payload: { mode: BLOB_MODE, shot_id: shot.id, piece, blob },
-  });
+  try {
+    await enqueueOfflineItem('papic', {
+      item_id: blobItemId(shot.id, piece),
+      event_id: shot.eventId,
+      payload: { mode: BLOB_MODE, shot_id: shot.id, piece, blob },
+    });
+  } catch {
+    // 🧭 SAFARI'S PRIVATE / EPHEMERAL STORAGE REFUSES A Blob IN IndexedDB
+    // ("Error preparing Blob/File data to be stored") but takes the same bytes
+    // as an ArrayBuffer. Measured in Playwright WebKit, 2026-10-23.
+    const buffer = await blob.arrayBuffer();
+    await enqueueOfflineItem('papic', {
+      item_id: blobItemId(shot.id, piece),
+      event_id: shot.eventId,
+      payload: { mode: BLOB_MODE, shot_id: shot.id, piece, buffer, type: blob.type },
+    });
+  }
 }
 
 export async function loadBlob(shotId: string, piece: LocalPiece): Promise<Blob | null> {
@@ -60,7 +72,12 @@ export async function loadBlob(shotId: string, piece: LocalPiece): Promise<Blob 
   const items = await listOfflineItems('papic');
   const hit = items.find((i) => i.item_id === blobItemId(shotId, piece));
   const blob = hit?.payload?.blob;
-  return blob instanceof Blob ? blob : null;
+  if (blob instanceof Blob) return blob;
+  const buffer = hit?.payload?.buffer;
+  if (buffer instanceof ArrayBuffer) {
+    return new Blob([buffer], { type: typeof hit?.payload?.type === 'string' ? hit.payload.type : '' });
+  }
+  return null;
 }
 
 export async function deleteBlob(shotId: string, piece: LocalPiece): Promise<void> {

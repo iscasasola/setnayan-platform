@@ -108,9 +108,9 @@ function controlsOutsideTips(src: string): { name: string; outside: string }[] {
   const marks = [...body.matchAll(/data-autoreply-control="([a-z-]+)"/g)];
   return marks.map((m, i) => {
     const start = m.index ?? 0;
-    const end = i + 1 < marks.length ? (marks[i + 1].index ?? body.length) : body.indexOf('function Switch', start);
+    const end = i + 1 < marks.length ? (marks[i + 1]?.index ?? body.length) : body.indexOf('function Switch', start);
     const block = body.slice(start, end < 0 ? body.length : end);
-    return { name: m[1], outside: block.replace(/<InfoTip[\s\S]*?<\/InfoTip>/g, '') };
+    return { name: m[1] ?? '', outside: block.replace(/<InfoTip[\s\S]*?<\/InfoTip>/g, '') };
   });
 }
 
@@ -139,9 +139,9 @@ test('4 · the fold shows no limit, and each control is a title + at most one sh
     assert.doesNotMatch(c.outside, /<(?:ul|ol|li)\b/, `${c.name} has a list outside its ⓘ`);
     const lines = [...c.outside.matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/g)];
     assert.ok(lines.length <= 1, `${c.name} has ${lines.length} lines outside its ⓘ (max 1)`);
-    for (const [, text] of lines) {
+    for (const [, text = ''] of lines) {
       // A line may be a ternary of two literals ({on ? '…' : '…'}) — each is one line, counted alone.
-      const literals = [...text.matchAll(/'([^']*)'/g)].map((m) => m[1]);
+      const literals = [...text.matchAll(/'([^']*)'/g)].map((m) => m[1] ?? '');
       const words = (literals.length > 0 ? literals : [text]).map(
         (t) => t.trim().split(/\s+/).filter(Boolean).length,
       );

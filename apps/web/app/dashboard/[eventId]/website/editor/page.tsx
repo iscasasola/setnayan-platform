@@ -205,6 +205,97 @@ export default async function WebsiteEditorPage({
 
   const supabase = await createClient();
 
+  /* ⚡ INSIDE THE MAKER, THE EDITOR'S READS LEAVE AT ONCE (2026-10-23, after "the tools arrive behind the Maker"). The
+     Maker draws this page as its canvas, and production showed the canvas still starting only as the Maker page ended:
+     the batch below needs nothing but this event's id, yet waited for the event row and then for the Pro question — two
+     trips in single file before any of it left. Inside the Maker (`maker=1`, read off the address before any read) the
+     batch and the Pro question now start HERE, beside the event row; every gate below still stands where it stood and
+     every value is still awaited where it always was, so a viewer the gates turn away is redirected with nothing drawn
+     (a started read's answer is simply dropped). Opened on its own — every save lands here, then forwards to the Maker —
+     nothing starts early: that path still forwards before a single one of them leaves. Nothing here writes.
+     Held by `the-maker-reads-start-together.test.ts`. */
+  const startEditorReads = () => {
+    const draftRead = startAhead(readHubDraft(supabase, eventId));
+    const widgetsRead = startAhead(Promise.resolve(
+      supabase
+        .from('invitation_widgets')
+        .select(
+          'widget_id, event_id, widget_type, display_order, is_visible, is_always_on, tier, config_json, created_at, updated_at, mode, audience',
+        )
+        .eq('event_id', eventId),
+    ));
+    const prefsRead = startAhead(Promise.resolve(
+      supabase
+        .from('events_host')
+        .select('style_preferences')
+        .eq('event_id', eventId)
+        .maybeSingle(),
+    ));
+    const scheduleBlocksRead = startAhead(Promise.resolve(
+      supabase
+        .from('event_schedule_blocks')
+        .select('block_id, label, start_at, location')
+        .eq('event_id', eventId)
+        .eq('is_public', true)
+        .is('audience', null)
+        .neq('visibility', 'coordinator_only')
+        .order('start_at', { ascending: true })
+        .limit(12),
+    ));
+    const couplePeopleRead = startAhead(Promise.resolve(
+      supabase
+        .from('guests')
+        // The entourage's own list (`ENTOURAGE_COLUMNS`) — the name parts the formal surfaces style.
+        .select(ENTOURAGE_COLUMNS)
+        .eq('event_id', eventId)
+        .is('deleted_at', null)
+        .in('role', ['bride', 'celebrant', 'groom'])
+        .limit(3),
+    ));
+    const riteRead = startAhead(Promise.resolve(
+      supabase
+        .from('events')
+        .select('ceremony_type, secondary_ceremony_type')
+        .eq('event_id', eventId)
+        .maybeSingle(),
+    ));
+    const roleRowsRead = startAhead(Promise.resolve(
+      supabase
+        .from('guests')
+        .select('role')
+        .eq('event_id', eventId)
+        .is('deleted_at', null),
+    ));
+    const entourageRead = startAhead(Promise.resolve(
+      supabase
+        .from('guests')
+        .select('guest_id', { count: 'exact', head: true })
+        .eq('event_id', eventId)
+        .is('deleted_at', null)
+        .or(`role.in.(${ENTOURAGE_ROLES.join(',')}),extra_roles.ov.{${ENTOURAGE_ROLES.join(',')}}`),
+    ));
+    const roleNamesRead = startAhead(loadRoleNames(supabase, eventId, 'WebsiteEditorPage.roleNames'));
+    const revealStagesRead = startAhead(readMakerRevealStages(eventId));
+    const logoFontsRead = startAhead(readMakerLogoFonts(eventId));
+    return { draftRead, widgetsRead, prefsRead, scheduleBlocksRead, couplePeopleRead, riteRead, roleRowsRead, entourageRead, roleNamesRead, revealStagesRead, logoFontsRead };
+  };
+  const readPro = () =>
+    Promise.all([
+      /* 👁 As the viewer is SHOWN it (`lib/view-as-free.server.ts`): an internal
+         viewer who switched on "View as a free couple" gets every padlock and
+         Pro offer below. Render only — each panel's action asks the real gate. */
+      (async () => asViewed(eventCoupleWebsiteProActive(await eventEntitlementClient(eventId), eventId)))(),
+      /*
+        ⛔ THE PRICE, READ LIVE — the same read `launch/page.tsx` makes.
+        `platform_retail_catalog_v2` is admin-managed and is the only figure a
+        customer is ever charged. Null on failure, and every unlock button then
+        renders with no number rather than a remembered one (`unlock-label.ts`).
+      */
+      formatV2Sku('COUPLE_WEBSITE_PRO').catch(() => null),
+    ]);
+  const editorReads = inMaker === '1' ? startEditorReads() : null;
+  const proReads = inMaker === '1' ? startAhead(readPro()) : null;
+
   // ⚡ The couple-only gate's read needs only the event id and the viewer, so it leaves WITH the event row below and
   // is awaited where the gate always stood (2026-10-23, the speed pass).
   const membershipRead = startAhead(Promise.resolve(
@@ -241,19 +332,7 @@ export default async function WebsiteEditorPage({
   }
   if (!membership) redirect(`/dashboard/${eventId}`);
 
-  const [ownsPro, proSku] = await Promise.all([
-    /* 👁 As the viewer is SHOWN it (`lib/view-as-free.server.ts`): an internal
-       viewer who switched on "View as a free couple" gets every padlock and
-       Pro offer below. Render only — each panel's action asks the real gate. */
-    asViewed(eventCoupleWebsiteProActive(await eventEntitlementClient(eventId), eventId)),
-    /*
-      ⛔ THE PRICE, READ LIVE — the same read `launch/page.tsx` makes.
-      `platform_retail_catalog_v2` is admin-managed and is the only figure a
-      customer is ever charged. Null on failure, and every unlock button then
-      renders with no number rather than a remembered one (`unlock-label.ts`).
-    */
-    formatV2Sku('COUPLE_WEBSITE_PRO').catch(() => null),
-  ]);
+  const [ownsPro, proSku] = await (proReads ?? readPro());
   // A plain string crosses to the client panels — never a function or icon.
   const proPriceLabel = proPriceLabelFrom(proSku?.price_php, formatPhp);
 
@@ -301,73 +380,13 @@ export default async function WebsiteEditorPage({
     Maker-only redirect above, every read below needs nothing but this event's id — the draft, the scenes, the fixed
     styles, the public schedule, the couple's names, the rite, the roles and their names, the entourage count, where
     the reveal plays and the logo's fonts — yet each waited for the one above it: fourteen database trips in single
-    file AFTER the Maker page had already returned. Each is STARTED here with exactly the arguments it always had and
+    file AFTER the Maker page had already returned. Each is STARTED together (inside the Maker before the gates, above —
+    `startEditorReads`; otherwise here) with exactly the arguments it always had and
     awaited at the line that always awaited it (`lib/start-ahead.ts`), so every value, every fallback and every refusal
     arrives where it did; every one is awaited on every path below. Nothing here writes (`readPostEventForMaker`,
     which may, stays where it was). Held by `the-maker-reads-start-together.test.ts`.
   */
-  const draftRead = startAhead(readHubDraft(supabase, eventId));
-  const widgetsRead = startAhead(Promise.resolve(
-    supabase
-      .from('invitation_widgets')
-      .select(
-        'widget_id, event_id, widget_type, display_order, is_visible, is_always_on, tier, config_json, created_at, updated_at, mode, audience',
-      )
-      .eq('event_id', eventId),
-  ));
-  const prefsRead = startAhead(Promise.resolve(
-    supabase
-      .from('events_host')
-      .select('style_preferences')
-      .eq('event_id', eventId)
-      .maybeSingle(),
-  ));
-  const scheduleBlocksRead = startAhead(Promise.resolve(
-    supabase
-      .from('event_schedule_blocks')
-      .select('block_id, label, start_at, location')
-      .eq('event_id', eventId)
-      .eq('is_public', true)
-      .is('audience', null)
-      .neq('visibility', 'coordinator_only')
-      .order('start_at', { ascending: true })
-      .limit(12),
-  ));
-  const couplePeopleRead = startAhead(Promise.resolve(
-    supabase
-      .from('guests')
-      // The entourage's own list (`ENTOURAGE_COLUMNS`) — the name parts the formal surfaces style.
-      .select(ENTOURAGE_COLUMNS)
-      .eq('event_id', eventId)
-      .is('deleted_at', null)
-      .in('role', ['bride', 'celebrant', 'groom'])
-      .limit(3),
-  ));
-  const riteRead = startAhead(Promise.resolve(
-    supabase
-      .from('events')
-      .select('ceremony_type, secondary_ceremony_type')
-      .eq('event_id', eventId)
-      .maybeSingle(),
-  ));
-  const roleRowsRead = startAhead(Promise.resolve(
-    supabase
-      .from('guests')
-      .select('role')
-      .eq('event_id', eventId)
-      .is('deleted_at', null),
-  ));
-  const entourageRead = startAhead(Promise.resolve(
-    supabase
-      .from('guests')
-      .select('guest_id', { count: 'exact', head: true })
-      .eq('event_id', eventId)
-      .is('deleted_at', null)
-      .or(`role.in.(${ENTOURAGE_ROLES.join(',')}),extra_roles.ov.{${ENTOURAGE_ROLES.join(',')}}`),
-  ));
-  const roleNamesRead = startAhead(loadRoleNames(supabase, eventId, 'WebsiteEditorPage.roleNames'));
-  const revealStagesRead = startAhead(readMakerRevealStages(eventId));
-  const logoFontsRead = startAhead(readMakerLogoFonts(eventId));
+  const { draftRead, widgetsRead, prefsRead, scheduleBlocksRead, couplePeopleRead, riteRead, roleRowsRead, entourageRead, roleNamesRead, revealStagesRead, logoFontsRead } = editorReads ?? startEditorReads();
   const iapGate = await getIapGate();
   const storeShell = iapGate.storeShell;
   /* 🍎 …UNLESS Apple can sell Pro in this app (lib/iap/iap-gate.ts, owner
@@ -410,6 +429,23 @@ export default async function WebsiteEditorPage({
   } catch (e) {
     console.error('[hub-draft] editor could not read the draft:', e instanceof Error ? e.message : e);
   }
+  /* ⚡ POST EVENT LEAVES AS SOON AS ITS INPUTS ARE IN (2026-10-23): the event's dates and the draft — both here, past
+     the couple-only gate. The SAME one call as below (see there for why this open may write), started here rather than
+     after the scenes' content map, and awaited where it always was. */
+  const postEventRead = startAhead(
+    readPostEventForMaker({
+      eventId,
+      eventEnded:
+        resolveHubPhase({
+          measured: true,
+          eventDate: (event.event_date as string | null) ?? null,
+          eventEndDate: (event as { event_end_date?: string | null }).event_end_date ?? null,
+          timezone: (event as { timezone?: string | null }).timezone ?? null,
+        }) === 'after',
+      isCouple: true,
+      draftEditorial: hubDraft?.editorial ?? null,
+    }),
+  );
   const musicRef = (event.site_bg_music_r2_key as string | null) ?? null;
   const videoRef = (event.landing_page_hero_video_r2_key as string | null) ?? null;
   const galleryRefs = ourPhotos.filter((r): r is string => typeof r === 'string');
@@ -1462,18 +1498,7 @@ export default async function WebsiteEditorPage({
     nothing is written (`eventEnded: false` never compiles). The couple's drafted
     arrangement and looks ride in, so the navigator lists what the canvas shows.
   */
-  const postEvent = await readPostEventForMaker({
-    eventId,
-    eventEnded:
-      resolveHubPhase({
-        measured: true,
-        eventDate: (event.event_date as string | null) ?? null,
-        eventEndDate: (event as { event_end_date?: string | null }).event_end_date ?? null,
-        timezone: (event as { timezone?: string | null }).timezone ?? null,
-      }) === 'after',
-    isCouple: true,
-    draftEditorial: hubDraft?.editorial ?? null,
-  });
+  const postEvent = await postEventRead;
 
   const navigator = buildMakerNavigatorData({
     postEvent,

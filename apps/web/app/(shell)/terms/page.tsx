@@ -138,8 +138,9 @@ export default function TermsPage() {
             You grant Setnayan a limited, worldwide, royalty-free license to
             host, display, and process your content solely to provide the
             service to you and your event&rsquo;s members. This license ends when
-            you delete the content or your account, except where we must retain
-            data by law.
+            you delete the content or your account, except for daily database
+            backups, which age out within 7 days, and where we must retain data
+            by law.
           </li>
           <li>
             You&rsquo;re responsible for having the rights to the content you

@@ -234,6 +234,9 @@ const PROMISES: readonly Promise_[] = [
   { page: 'privacy', quote: 'Nothing deletes it on a timer yet.', m: { kind: 'kept', why: 'See the device rows above.' } },
   { page: 'privacy', quote: 'Gift records (Pabuya) — until the event is deleted', m: { kind: 'code', where: GIFTS_CASCADE } },
   { page: 'privacy', quote: 'Daily visit codes — deleted the next day', m: { kind: 'code', where: VISITS_SQL } },
+  { page: 'privacy', quote: 'our database provider keeps a daily backup for 7 days', m: { kind: 'vendor', who: 'Supabase daily physical backups, 7-day retention (owner screenshot 2026-10-23, Breach Policy § 3.1).' } },
+  { page: 'privacy', quote: 'Something deleted from Setnayan can stay in a backup until that backup ages out', m: { kind: 'vendor', who: 'Supabase backup retention, as above.' } },
+  { page: 'privacy', quote: 'Photos and files are not in these backups', m: { kind: 'kept', why: 'Supabase backups exclude storage; media lives on R2, which no backup covers (Breach Policy § 7.3).' } },
   { page: 'privacy', quote: 'Where you can end something sooner, you can', m: { kind: 'code', where: DELETION_QUEUE } },
   { page: 'privacy', quote: 'The two 10-year items are the exception', m: { kind: 'kept', why: 'Legal floors.' } },
   { page: 'privacy', quote: 'Different kinds of data have different lifespans', m: { kind: 'kept', why: 'The schedule’s own introduction.' } },
@@ -255,7 +258,7 @@ const PROMISES: readonly Promise_[] = [
   { page: 'privacy', quote: 'Setnayan cannot delete files on your behalf', m: { kind: 'kept', why: 'Restraint after revocation.' } },
   // ── /terms ──
   { page: 'terms', quote: 'A deletion request is reviewed within 24 hours', m: { kind: 'human', where: DELETION_QUEUE } },
-  { page: 'terms', quote: 'except where we must retain data by law', m: { kind: 'kept', why: 'Legal floors, as /privacy lists them.' } },
+  { page: 'terms', quote: 'except for daily database backups, which age out within 7 days', m: { kind: 'vendor', who: 'Supabase daily physical backups, 7-day retention (owner screenshot 2026-10-23, Breach Policy § 3.1).' } },
   // ── /cookies ──
   { page: 'cookies', quote: 'That code and that day’s random value are deleted the next day', m: { kind: 'code', where: VISITS_SQL } },
   { page: 'cookies', quote: 'Only the daily totals are kept', m: { kind: 'kept', why: 'site_visit_days only.' } },
@@ -365,7 +368,6 @@ test('the withdrawn promises stay withdrawn', () => {
     [/2 years after the ticket closes/i, 'no job deletes support messages'],
     [/unused for more than 24 months are pruned/i, 'no job prunes device records'],
     [/included in your data export, and deleted when you delete your account/i, 'user_devices is neither exported nor erased'],
-    [/except for backups/i, 'there are no backups (owner ruling 2026-08-10)'],
   ] as const) {
     assert.doesNotMatch(all, re, why);
   }

@@ -1342,6 +1342,12 @@ export default function PrivacyPage() {
               <strong>Daily visit codes</strong> — deleted the next day; only
               the daily totals are kept.
             </li>
+            <li>
+              <strong>Database backups</strong> — our database provider keeps a
+              daily backup for <strong>7 days</strong>. Something deleted from
+              Setnayan can stay in a backup until that backup ages out.
+              Photos and files are not in these backups.
+            </li>
           </ul>
           <p className="pt-2">
             Where you can end something sooner, you can: withdrawing face

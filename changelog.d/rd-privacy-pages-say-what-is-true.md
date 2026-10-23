@@ -6,7 +6,7 @@ The DPO's 2026-10-22 pack measured the public pages against the shipped code. Th
 - **Promises removed or corrected:**
   - The "30–90 day tail" (/privacy) and "30 days" (/terms) are replaced by the real flow: a request, reviewed within 24 hours, then the personal fields are blanked and the records the law makes us keep stay.
   - Support tickets at 2 years, device records pruned at 24 months, and "device hash deleted with the account and in the export" are removed. No job does any of these.
-  - "Then delete" after the BIR period is removed, as is "except for backups" on /terms (there are no backups).
+  - "Then delete" after the BIR period is removed. The 7-day Supabase backups are now named on /privacy and /terms.
   - Error reports are now described as deleted by Sentry under its own limit.
   - The Public Summary opt-out path now names the real route.
 - **Dates:** "last updated" is now 2026-10-23 on all three pages. The /terms effective date and `TERMS_VERSION` stay at 2026-06-30.

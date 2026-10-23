@@ -918,7 +918,7 @@ function websiteFieldPatch(
   ) {
     return {
       ok: false,
-      error: 'Video portfolio is part of Enterprise. Pick Enterprise on the Plans page to add films.',
+      error: 'Video portfolio is part of Ultra. Pick Ultra on the Plans page to add films.',
     };
   }
 

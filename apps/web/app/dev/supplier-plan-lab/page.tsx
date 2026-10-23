@@ -62,7 +62,7 @@ function planFixture(who: Who, unverified: boolean, fail: boolean) {
     { key: 'free', name: 'Free', price: {}, tooShort: {}, pickLine: planPickLine(shop.tier, 'free', shop.expires) },
     ...(['solo', 'pro', 'enterprise'] as const).map((t) => ({
       key: t,
-      name: t === 'solo' ? 'Solo' : t === 'pro' ? 'Pro' : 'Enterprise',
+      name: t === 'solo' ? 'Solo' : t === 'pro' ? 'Pro' : 'Ultra',
       price: LAB_PRICES[t]!,
       tooShort: { monthly: who === 'studio' ? 'You are paid up to 3 October 2027 — pick a year so it covers that.' : null, annual: null },
       pickLine: planPickLine(shop.tier, t, shop.expires),

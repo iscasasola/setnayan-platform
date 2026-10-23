@@ -157,7 +157,7 @@ export async function activateVendor3dBooth(
   const tieredPricing = isVendorAddonTieredPricingEnabled();
   if (!isTierAtLeast(tier, BOOTH_BRANDING_MIN_TIER)) {
     return err(
-      '3D Booth comes with a paid plan — Solo, Pro, Enterprise or Custom. Move up to add it.',
+      '3D Booth comes with a paid plan — Solo, Pro, Ultra or Custom. Move up to add it.',
     );
   }
   if (verification !== 'verified') {

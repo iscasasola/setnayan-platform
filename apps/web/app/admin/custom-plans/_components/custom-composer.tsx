@@ -308,7 +308,7 @@ export function CustomComposer({
               <Knob
                 icon={<Terminal className="h-4 w-4" strokeWidth={2} />}
                 label="API access"
-                hint="Enterprise SDK — mint API keys + sync leads, bookings, availability, reviews into their own systems. Grant only when the supplier requests it."
+                hint="Ultra SDK — mint API keys + sync leads, bookings, availability, reviews into their own systems. Grant only when the supplier requests it."
               >
                 <label className="flex items-center gap-2 text-xs text-ink/70">
                   <input
@@ -432,14 +432,14 @@ export function CustomComposer({
               <h2 className="text-base font-semibold text-ink">What this supplier gets</h2>
             </div>
             <p className="mb-4 text-xs text-ink/55">
-              Everything in Enterprise, automatically — plus the dialed-in
+              Everything in Ultra, automatically — plus the dialed-in
               ceilings below.
             </p>
 
             <ul className="space-y-1.5 text-sm text-ink/80">
               <li className="flex items-center gap-2">
                 <ShieldCheck className="h-4 w-4 shrink-0 text-ink/45" strokeWidth={2} />
-                All Enterprise features, with its limits removed
+                All Ultra features, with its limits removed
               </li>
               <li className="flex items-center gap-2">
                 <Building2 className="h-4 w-4 shrink-0 text-ink/45" strokeWidth={2} />
@@ -474,7 +474,7 @@ export function CustomComposer({
               {comp.api_access ? (
                 <li className="flex items-center gap-2">
                   <Terminal className="h-4 w-4 shrink-0 text-ink/45" strokeWidth={2} />
-                  API access — Enterprise SDK + API keys
+                  API access — Ultra SDK + API keys
                 </li>
               ) : null}
             </ul>

@@ -114,7 +114,7 @@ export function CustomConfigurator({
   const extraSlots = Math.max(0, comp.slotsPerCategory - CUSTOM_BASE.slotsPerCategory);
 
   const lines: { label: string; amount: number }[] = [
-    { label: 'Base — Enterprise with its limits removed', amount: unitPrices.base },
+    { label: 'Base — Ultra with its limits removed', amount: unitPrices.base },
   ];
   if (extraBranches > 0)
     lines.push({

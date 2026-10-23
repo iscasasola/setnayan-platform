@@ -1789,7 +1789,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
   customer_memories_v1: {
     key: 'customer_memories_v1',
     label: 'Memories — first visit',
-    blurb: 'This event’s photos edge to edge, the pinch that changes the columns, and the search.',
+    blurb: 'This event’s photos edge to edge, the albums, and the search.',
     slides: [],
     spotlight: {
       steps: [
@@ -1800,14 +1800,15 @@ export const TOURS: Record<TourKey, TourDefinition> = {
           body: 'Every photo and clip your guests, your cameras and your suppliers take. Pinch to see more at once — or one large.',
         },
         {
-          anchor: 'memories-count',
-          title: 'Everything, counted',
-          body: 'Every photo kept so far — and, under the photos, when the cameras open or close.',
+        {
+          anchor: 'memories-albums',
+          title: 'Albums',
+          body: 'Papic, the challenges, your Event Hub’s own pictures, your suppliers’ and your own uploads — one at a time, or All.',
         },
         {
           anchor: 'memories-search',
           title: 'Find a photo',
-          body: 'Type who took it, and only their photos stay.',
+          body: 'Type who took it, a challenge, or a place on your Event Hub.',
         },
       ],
       finale: {

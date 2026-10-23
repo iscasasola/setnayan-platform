@@ -294,10 +294,10 @@ export function EventMemoriesGallery({
 
       {/* TOP ROW — Albums ▾ · the count · Needs a look · (− / + on a desktop) · ⚙. */}
       <div className="flex min-h-[48px] items-center gap-2 pb-2.5" data-memories-top="">
-        <span data-memories-albums="" className="shrink-0">
+        <span data-memories-albums="" data-tour="memories-albums" className="shrink-0">
           <PickMenu label="Albums" value={album} options={albumOptions} onPick={(k) => isMemoriesAlbum(k) && setAlbum(k)} compact />
         </span>
-        <p className="min-w-0 flex-1 truncate text-center text-[13px] text-ink/60" data-memories-count="" data-tour="memories-count">
+        <p className="min-w-0 flex-1 truncate text-center text-[13px] text-ink/60" data-memories-count="">
           {unreadable || albumRefused ? 'couldn’t load' : <span className="font-medium text-ink">{countLine}</span>}
           {host && (needsCount > 0 || needsLook) ? (
             <>
@@ -321,7 +321,7 @@ export function EventMemoriesGallery({
           </span>
         ) : null}
         {host ? (
-          <ActionButton tone="neutral" iconOnly icon={Settings} label="Gallery settings" onClick={() => setGearOpen(true)} data-memories-gear="" />
+          <ActionButton tone="neutral" iconOnly icon={Settings} label="Memories settings" onClick={() => setGearOpen(true)} data-memories-gear="" />
         ) : null}
       </div>
       {needsLook ? (
@@ -369,9 +369,9 @@ export function EventMemoriesGallery({
       {viewing ? <PapicLightbox photo={viewing} onClose={() => setViewing(null)} timeZone={timeZone} /> : null}
 
       {gearOpen ? (
-        <Sheet open onClose={() => setGearOpen(false)} labelledById={gearHeading} title="Gallery settings" wide>
+        <Sheet open onClose={() => setGearOpen(false)} labelledById={gearHeading} title="Memories settings" wide>
           <h2 id={gearHeading} className="sr-only">
-            Gallery settings
+            Memories settings
           </h2>
           <div className="divide-y divide-ink/10 px-4 pb-[calc(var(--sn-bottomdock-h,64px)+12px)] lg:pb-4" data-memories-settings="">
             {/* FOLLOW THE MOMENTS IN ORDER — the owner's word for the gallery grouped by the day's moments. */}

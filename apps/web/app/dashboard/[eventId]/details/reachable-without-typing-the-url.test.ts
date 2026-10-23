@@ -120,7 +120,8 @@ const MOVED_DOOR: Record<string, (railHrefs: string[]) => boolean> = {
     read('app/dashboard/[eventId]/_components/home-cover-band.tsx').includes(
       'href={`/dashboard/${eventId}/details`}',
     ) &&
-    read('app/dashboard/[eventId]/_components/home-cover-band.tsx').includes('label="Event Details"') &&
+    // ⚙ "Settings" since 23 Oct 2026 — the header image's one button, the same door.
+    read('app/dashboard/[eventId]/_components/home-cover-band.tsx').includes('label="Settings"') &&
     read('app/dashboard/[eventId]/_components/home-first-screen.tsx').includes('<HomeCoverBand ') &&
     isMounted('app/dashboard/[eventId]/_components/home-first-screen.tsx'),
   hosts: (railHrefs) =>

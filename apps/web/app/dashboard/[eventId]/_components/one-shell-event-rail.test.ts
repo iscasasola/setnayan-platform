@@ -235,7 +235,7 @@ test('the account menu is reachable on the couple desktop', () => {
 
 /* ══ 5 · THE MENU IS THE SSOT'S, NOT A NEW IA ════════════════════════════ */
 
-test('the rail reproduces the four rows, from the shipped SSOT (More Services left 22 Oct 2026)', () => {
+test('the rail reproduces the five rows, from the shipped SSOT (More Services left 22 Oct; Memories joined 23 Oct 2026)', () => {
   /*
     🔄 2026-09-29 — Stage D (owner: *"this is what an event needs. Guestlist ·
     Your Team · Event Hub Maker · Our Services"*). The "by moment" headings
@@ -254,7 +254,8 @@ test('the rail reproduces the four rows, from the shipped SSOT (More Services le
   assert.deepEqual(
     groups.find((g) => g.key === 'pillars')?.items.map((i) => i.key),
     // Owner 22 Oct 2026, verbatim "Yes remove more": the More Services row left with the bar's More.
-    ['home', 'guests', 'explore', 'launch'],
+    // Owner 23 Oct 2026: Memories — this event's photos — after Hub.
+    ['home', 'guests', 'explore', 'launch', 'memories'],
   );
 });
 

@@ -64,7 +64,7 @@ test('1 · the rail draws no door to Event Details, and no row it could light fo
   assert.deepEqual(drawnDetails.map((i) => i.key), [], 'a drawn rail row opens Event Details');
 });
 
-test('2 · the Home cover renders exactly one door to Event Details, named so', () => {
+test('2 · the Home cover renders exactly one door to Event Details — ⚙ Settings (owner 23 Oct 2026)', () => {
   const html = renderToStaticMarkup(
     React.createElement(HomeCoverBand, {
       eventId: 'EVT123',
@@ -75,7 +75,9 @@ test('2 · the Home cover renders exactly one door to Event Details, named so', 
   assert.ok(anchors.length > 0, 'the cover band rendered no link at all');
   const doors = anchors.filter((a) => a[1] === '/dashboard/EVT123/details').map((a) => a[2] ?? '');
   assert.equal(doors.length, 1, `the cover band renders ${doors.length} doors to Event Details (want exactly 1)`);
-  assert.match((doors[0] ?? '').replace(/<[^>]+>/g, ''), /Event Details/, 'the one door no longer says "Event Details"');
+  // The header image's one button says "Settings" (owner 2026-10-23, prototypes/event_bar_memories_tab_2026-10-23.html:
+  // "the header image carries one 'Settings' button (the Event Details door)") — still the ONE door to /details.
+  assert.match((doors[0] ?? '').replace(/<[^>]+>/g, ''), /^\s*Settings\s*$/, 'the one door no longer says "Settings"');
 });
 
 test('3 · nothing on the Home or the rail says "Event settings" any more', () => {

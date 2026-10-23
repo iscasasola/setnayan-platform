@@ -44,7 +44,8 @@ export const APPEARANCE_COOKIE = 'sn-theme';
 export const APPEARANCE_COOKIE_MAX_AGE_S = 60 * 60 * 24 * 365;
 
 /** The browser-bar colour of each look. Light is the layout's own `viewport.themeColor`, unchanged. */
-export const THEME_COLOR: Record<Appearance, string> = {
+/** Keyed by what a screen PAINTS (light | dark) — Automatic is a choice, not a paint. */
+export const THEME_COLOR: Record<'light' | 'dark', string> = {
   light: '#FBFBFA',
   dark: '#17160F', // the approved dark page (control_templates_round2_2026-10-12)
 };

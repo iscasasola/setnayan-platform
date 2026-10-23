@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "8bf1f90917",
-  "routeCount": 459,
+  "generatedFromRef": "8e4473b78f",
+  "routeCount": 460,
   "destinations": 1004,
   "actions": 667,
-  "blocks": 6825,
+  "blocks": 6837,
   "routes": {
     "/": {
       "files": [
@@ -5017,6 +5017,7 @@
         "dashboard/(account)/library/_components/photos-tab.tsx",
         "dashboard/(account)/library/_components/saved-vendor-card.tsx",
         "dashboard/(account)/library/_components/vendors-tab.tsx",
+        "dashboard/(account)/library/memories-page-reads.harness.ts",
         "dashboard/(account)/library/page.tsx"
       ],
       "destinations": [
@@ -5031,6 +5032,7 @@
       ],
       "actions": [],
       "blocks": [
+        "A",
         "AlaalaLensBody",
         "AlbumCard",
         "AlbumShelf",
@@ -5046,7 +5048,8 @@
         "SavedVendorCardItem",
         "Section",
         "StatusChip",
-        "VendorsTab"
+        "VendorsTab",
+        "ViewReport"
       ]
     },
     "/dashboard/(account)/life-flash": {
@@ -5122,7 +5125,8 @@
         "dashboard/(account)/people/actions.ts",
         "dashboard/(account)/people/dependent-actions.ts",
         "dashboard/(account)/people/life-stories.ts",
-        "dashboard/(account)/people/page.tsx"
+        "dashboard/(account)/people/page.tsx",
+        "dashboard/(account)/people/people-page-reads.harness.ts"
       ],
       "destinations": [
         "/dashboard/create-event?with=[seg]",
@@ -5143,6 +5147,7 @@
         "setDependentSharing"
       ],
       "blocks": [
+        "A",
         "AccountThumbRow",
         "ActionButton",
         "ActionResult",
@@ -5192,8 +5197,10 @@
         "RequestRow",
         "SamahanPeopleSection",
         "SubmitButton",
+        "T",
         "ThumbField",
         "ThumbTool",
+        "ViewReport",
         "YourStorySection"
       ]
     },
@@ -5264,8 +5271,8 @@
         "Icon",
         "Link",
         "PageMasthead",
+        "PickMenu",
         "PillButton",
-        "PillSelector",
         "PillTrack",
         "PrefixSelect",
         "ProfileShareButton",
@@ -7042,6 +7049,7 @@
         "dashboard/[eventId]/launch/_components/theme-preview-overlay.tsx",
         "dashboard/[eventId]/launch/_components/view-as-free.tsx",
         "dashboard/[eventId]/launch/loading.tsx",
+        "dashboard/[eventId]/launch/maker-page-reads.harness.ts",
         "dashboard/[eventId]/launch/march-card-actions.tsx",
         "dashboard/[eventId]/launch/page.tsx",
         "dashboard/[eventId]/launch/qr-look-actions.ts"
@@ -7074,6 +7082,7 @@
         "uploadHeroPhoto"
       ],
       "blocks": [
+        "A",
         "About",
         "ActionButton",
         "AddPartSheet",
@@ -7555,6 +7564,7 @@
         "ViewAsFreeRow",
         "ViewAsFreeStrip",
         "ViewAsRow",
+        "ViewReport",
         "Waiting",
         "WebsiteEditorPage",
         "WhatsLeftDoor",
@@ -10663,6 +10673,19 @@
         "SpecialMessageWidget"
       ]
     },
+    "/dev/avatar-sheet-lab": {
+      "files": [
+        "dev/avatar-sheet-lab/page.tsx",
+        "dev/avatar-sheet-lab/sheet-lab.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "SheetLab",
+        "SwitcherData",
+        "SwitcherPanelBody"
+      ]
+    },
     "/dev/bar-lab/[[...path]]": {
       "files": [
         "dev/bar-lab/[[...path]]/page.tsx"
@@ -12849,7 +12872,8 @@
         "vendor-dashboard/layout.tsx",
         "vendor-dashboard/loading.tsx",
         "vendor-dashboard/page.tsx",
-        "vendor-dashboard/template.tsx"
+        "vendor-dashboard/template.tsx",
+        "vendor-dashboard/today-page-reads.harness.ts"
       ],
       "destinations": [
         "/api/vendor/instagram/connect",
@@ -12899,6 +12923,7 @@
         "toggleInstagramMediaVisibility"
       ],
       "blocks": [
+        "A",
         "AccountSwitcher",
         "ActionButton",
         "AddBranchForm",
@@ -12989,6 +13014,7 @@
         "VendorBottomNav",
         "VendorDealFacts",
         "VendorRailContext",
+        "ViewReport",
         "WhatsNewFeed"
       ]
     },

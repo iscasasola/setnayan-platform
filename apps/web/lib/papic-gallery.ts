@@ -5,7 +5,7 @@ import {
   PAPIC_PRESERVATION_UNITS_PER_SNIPPET,
 } from '@/lib/papic-cameras';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
-import { resolvePlayRef } from '@/lib/papic-display-ref';
+import { memoriesRefs, resolvePlayRef, type PapicDisplayRow } from '@/lib/papic-display-ref';
 import { resolveCapturerNames } from '@/lib/capture-credit';
 
 // The couple's real Papic gallery — both crew (paparazzi) captures and guest
@@ -95,6 +95,16 @@ export type GalleryPhoto = {
    * a multi-megabyte original behind every tap.
    */
   viewUrl?: string | null;
+  /**
+   * 🗜 MEMORIES ONLY (`compressedOnly`): the tile copy (long-edge 640) for a grid drawn one-across, where the 320
+   * thumbnail falls apart. Never the original.
+   */
+  largeUrl?: string | null;
+  /**
+   * 🗜 MEMORIES ONLY: a CLIP's explicit Download — the kept original, or its web copy once the original is gone.
+   * (A photo downloads through `saveUrl`.) The viewer never plays this.
+   */
+  downloadUrl?: string | null;
 };
 
 const GALLERY_LIMIT = 120;
@@ -116,14 +126,22 @@ function mapTagSource(source: string | undefined): GalleryTagSource {
 export async function fetchPapicGallery(
   supabase: SupabaseClient,
   eventId: string,
+  /**
+   * 🗜 `compressedOnly` — the event's Memories (owner 2026-10-23: *"on the memories, always use the compressed
+   * version"*): every drawn ref comes from `memoriesRefs` (thumb · tile · display · clip web copy), never the
+   * original; the original is only a clip's explicit Download. Off (the Papic page) → unchanged.
+   */
+  opts: { compressedOnly?: boolean } = {},
 ): Promise<GalleryPhoto[]> {
   const now = Date.now();
+  const compressedOnly = opts.compressedOnly === true;
+  const tileCol = compressedOnly ? ', tile_r2_key' : '';
 
   const [seatRes, guestRes, vendorRes] = await Promise.all([
     supabase
       .from('papic_photos')
       .select(
-        'photo_id, paparazzi_seat_id, captured_by_person_id, r2_object_key, clip_web_r2_key, full_res_dropped_at, poster_r2_key, display_r2_key, thumb_r2_key, photo_type, captured_at, moderation_state, hidden_at, expires_at, consent_to_public, couple_approved_for_showcase, preserved_at',
+        `photo_id, paparazzi_seat_id, captured_by_person_id, r2_object_key, clip_web_r2_key, full_res_dropped_at, poster_r2_key, display_r2_key, thumb_r2_key, photo_type, captured_at, moderation_state, hidden_at, expires_at, consent_to_public, couple_approved_for_showcase, preserved_at${tileCol}`,
       )
       .eq('event_id', eventId)
       .order('captured_at', { ascending: false })
@@ -131,7 +149,7 @@ export async function fetchPapicGallery(
     supabase
       .from('papic_guest_captures')
       .select(
-        'capture_id, guest_id, captured_by_person_id, r2_object_key, clip_web_r2_key, full_res_dropped_at, poster_r2_key, display_r2_key, thumb_r2_key, media_type, captured_at, hidden_at, moderation_state, consent_to_public, couple_approved_for_showcase, preserved_at',
+        `capture_id, guest_id, captured_by_person_id, r2_object_key, clip_web_r2_key, full_res_dropped_at, poster_r2_key, display_r2_key, thumb_r2_key, media_type, captured_at, hidden_at, moderation_state, consent_to_public, couple_approved_for_showcase, preserved_at${tileCol}`,
       )
       .eq('event_id', eventId)
       .order('captured_at', { ascending: false })
@@ -144,7 +162,9 @@ export async function fetchPapicGallery(
     // non-hidden rows of their own event.
     supabase
       .from('vendor_papic_captures')
-      .select('capture_id, vendor_profile_id, r2_object_key, poster_r2_key, media_type, captured_at, hidden_at, nsfw_checked, consent_basis')
+      .select(
+        `capture_id, vendor_profile_id, r2_object_key, poster_r2_key, media_type, captured_at, hidden_at, nsfw_checked, consent_basis${compressedOnly ? ', display_r2_key, tile_r2_key, thumb_r2_key, full_res_dropped_at' : ''}`,
+      )
       .eq('event_id', eventId)
       .order('captured_at', { ascending: false })
       .limit(GALLERY_LIMIT),
@@ -222,10 +242,18 @@ export async function fetchPapicGallery(
     /* untagged fallback */
   }
 
-  type Pre = Omit<GalleryPhoto, 'url' | 'playUrl' | 'saveUrl' | 'viewUrl'> & {
+  type Pre = Omit<GalleryPhoto, 'url' | 'playUrl' | 'saveUrl' | 'viewUrl' | 'largeUrl' | 'downloadUrl'> & {
     ref: string | null;
     videoRef: string | null;
     viewRef: string | null;
+    largeRef?: string | null;
+    downloadRef?: string | null;
+  };
+  /** Memories' refs replace the Papic page's chain on a row — never the original on screen (`memoriesRefs`). */
+  const squeeze = (row: Record<string, unknown>, pre: Pre): Pre => {
+    if (!compressedOnly) return pre;
+    const m = memoriesRefs(row as PapicDisplayRow);
+    return { ...pre, ref: m.grid, viewRef: m.view, videoRef: m.play, largeRef: m.large, downloadRef: m.download };
   };
 
   // ── WHO TOOK EACH FRAME ─────────────────────────────────────────────────
@@ -297,7 +325,7 @@ export async function fetchPapicGallery(
   const seatPhotos: Pre[] = visibleSeat.map((r) => {
     const isClip = r.photo_type === 'clip';
     const tagSrc = tagSourceByKey.get(`papic_photos:${r.photo_id as string}`);
-    return {
+    return squeeze(r as Record<string, unknown>, {
       id: r.photo_id as string,
       // Prefer the cheap thumb derivative for the tile, then display, then the
       // existing poster (clips) / original (photos). Pre-migration rows have
@@ -340,7 +368,7 @@ export async function fetchPapicGallery(
       showcaseApproved: isClip ? Boolean(r.couple_approved_for_showcase) : undefined,
       showcaseConsent: isClip ? Boolean(r.consent_to_public) : undefined,
       capturedBy: seatCredit(r),
-    };
+    });
   });
 
   const guestPhotos: Pre[] = visibleGuest.map((r) => {
@@ -350,7 +378,7 @@ export async function fetchPapicGallery(
     // clips just like seat clips — the GUEST sets consent at capture time.
     const isClip = (r.media_type as string | undefined) === 'clip';
     const tagSrc = tagSourceByKey.get(`papic_guest_captures:${r.capture_id as string}`);
-    return {
+    return squeeze(r as Record<string, unknown>, {
       id: r.capture_id as string,
       // Prefer the cheap thumb derivative for the tile, then display, then the
       // existing poster (clips) / original (photos). Pre-migration rows fall
@@ -387,7 +415,7 @@ export async function fetchPapicGallery(
           ? (credits.byPerson.get(r.captured_by_person_id) ?? null)
           : null) ??
         (typeof r.guest_id === 'string' ? (credits.byGuest.get(r.guest_id) ?? null) : null),
-    };
+    });
   });
 
   // Vendor documentation (photos + clips). No web derivatives, but the original
@@ -397,7 +425,7 @@ export async function fetchPapicGallery(
   // guest/couple content; the grid's ShowcaseToggle already excludes source=vendor.)
   const vendorPhotos: Pre[] = visibleVendor.map((r) => {
     const isClip = (r.media_type as string | undefined) === 'clip';
-    return {
+    return squeeze(r as Record<string, unknown>, {
       id: r.capture_id as string,
       ref: isClip
         ? (r.poster_r2_key as string | null)
@@ -417,7 +445,7 @@ export async function fetchPapicGallery(
       showcaseConsent: undefined,
       capturedBy:
         vendorNameById.get((r as { vendor_profile_id?: string }).vendor_profile_id ?? '') ?? null,
-    };
+    });
   });
 
   const merged = [...seatPhotos, ...guestPhotos, ...vendorPhotos].sort(
@@ -425,8 +453,14 @@ export async function fetchPapicGallery(
   );
 
   return Promise.all(
-    merged.map(async ({ ref, videoRef, viewRef, ...rest }) => ({
+    merged.map(async ({ ref, videoRef, viewRef, largeRef, downloadRef, ...rest }) => ({
       ...rest,
+      ...(compressedOnly
+        ? {
+            largeUrl: largeRef ? await displayUrlForStoredAsset(largeRef) : null,
+            downloadUrl: downloadRef ? await displayUrlForStoredAsset(downloadRef) : null,
+          }
+        : {}),
       url: ref ? await displayUrlForStoredAsset(ref) : null,
       playUrl: videoRef ? await displayUrlForStoredAsset(videoRef) : null,
       // Same object as the tile when there is no bigger derivative — never null

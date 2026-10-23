@@ -40,7 +40,8 @@ export default async function EventMemoriesPage({ params }: Props) {
       .select('event_id, event_date, papic_window_start, papic_window_end, venue_latitude, venue_longitude')
       .eq('event_id', eventId)
       .maybeSingle(),
-    fetchPapicGallery(supabase, eventId),
+    // 🗜 Memories always shows the compressed copy — never an original (owner 2026-10-23).
+    fetchPapicGallery(supabase, eventId, { compressedOnly: true }),
     // Asked separately, as the Papic page does: an RLS refusal on the couple-only sources is an empty list with no
     // error, indistinguishable from a day nobody shot.
     viewerSeesCoupleScopedPapic(supabase, eventId),

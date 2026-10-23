@@ -377,7 +377,10 @@ export function PapicLightbox({
             type="button"
             disabled={saving}
             onClick={async () => {
-              if (!photo.playUrl || saving) return;
+              // Memories hands a clip its explicit Download (the kept original, else the web copy); the Papic
+              // page has none and downloads what it plays, as before.
+              const file = photo.downloadUrl ?? photo.playUrl;
+              if (!file || saving) return;
               setSaving(true);
               // fetch→blob→download: a bare cross-origin <a download> is ignored
               // by browsers (opens instead of saves) + the ext is derived from
@@ -388,7 +391,7 @@ export function PapicLightbox({
               // geo-strip changelog). Papic clips are recorded in-browser via
               // MediaRecorder, which writes no GPS, so the current exposure is nil;
               // the gap is only camera-roll/DSLR-origin clips (a future path).
-              await saveMediaToDevice(photo.playUrl, `setnayan-clip-${photo.id}`);
+              await saveMediaToDevice(file, `setnayan-clip-${photo.id}`);
               setSaving(false);
             }}
             className="sn-gal-btn inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium disabled:opacity-60"

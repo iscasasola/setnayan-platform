@@ -171,7 +171,7 @@ export function EventMemoriesGallery({
           style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
         >
           {shown.map((p) => (
-            <Tile key={p.id} photo={p} dense={dense} large={cols <= 3} onOpen={() => setOpened(p)} />
+            <Tile key={p.id} photo={p} dense={dense} large={cols === 1} roomy={cols <= 3} onOpen={() => setOpened(p)} />
           ))}
         </div>
       )}
@@ -198,8 +198,9 @@ export function EventMemoriesGallery({
   );
 }
 
-function Tile({ photo, dense, large, onOpen }: { photo: GalleryPhoto; dense: boolean; large: boolean; onOpen: () => void }) {
+function Tile({ photo, dense, large, roomy, onOpen }: { photo: GalleryPhoto; dense: boolean; large: boolean; roomy: boolean; onOpen: () => void }) {
   const who = photo.capturedBy ?? null;
+  const src = large ? (photo.largeUrl ?? photo.url) : photo.url;
   const label = `${photo.kind === 'clip' ? 'Clip' : 'Photo'}${who ? ` from ${who}` : ''}`;
   return (
     <button
@@ -209,9 +210,10 @@ function Tile({ photo, dense, large, onOpen }: { photo: GalleryPhoto; dense: boo
       data-memories-tile=""
       className="relative block aspect-square w-full overflow-hidden bg-ink/[0.06] p-0"
     >
-      {photo.url ? (
+      {/* 🗜 The small copy — the tile copy only one-across, where 320 px falls apart. Never an original. */}
+      {src ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={photo.url} alt="" loading="lazy" decoding="async" draggable={false} className="absolute inset-0 h-full w-full object-cover" />
+        <img src={src} alt="" loading="lazy" decoding="async" draggable={false} className="absolute inset-0 h-full w-full object-cover" />
       ) : null}
       {photo.kind === 'clip' ? (
         <span
@@ -225,7 +227,7 @@ function Tile({ photo, dense, large, onOpen }: { photo: GalleryPhoto; dense: boo
       {who && !dense ? (
         <span
           aria-hidden
-          className={`absolute bottom-[3px] right-1 max-w-[calc(100%-8px)] truncate text-white/90 [text-shadow:0_1px_2px_rgba(0,0,0,0.6)] ${large ? 'text-[11px]' : 'text-[9.5px]'}`}
+          className={`absolute bottom-[3px] right-1 max-w-[calc(100%-8px)] truncate text-white/90 [text-shadow:0_1px_2px_rgba(0,0,0,0.6)] ${roomy ? 'text-[11px]' : 'text-[9.5px]'}`}
         >
           {who}
         </span>

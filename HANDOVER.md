@@ -14,6 +14,15 @@ Built on (merged locally, not yet on main): #6791 · #6838 · #6839.
 - Guards: `app/dashboard/[eventId]/memories/the-memories-tab-is-this-events-memories.test.ts` (5 tests, 5 sabotages red→green),
   `lib/gallery-zoom.test.ts`, `lib/event-memories-words.test.ts`; the four-tab guards updated to five.
 
+- 🗜 Compressed only (owner 23 Oct): `fetchPapicGallery(…, { compressedOnly: true })` → `memoriesRefs` (lib/papic-display-ref.ts):
+  grid = thumb 320 (tile 640 one-across), viewer = display 1280, clip plays clip_web; the original is only a Download
+  (photo: save-photo route = the kept original while held, else the compressed copy that replaced it; clip: original
+  unless dropped, else clip_web). Guard `lib/memories-never-shows-an-original.test.ts` (2 sabotages red→green).
+  Prod (read 2026-10-23): 12 seat captures, all with thumb/display/clip_web; 0 guest, 0 vendor captures.
+  Avg bytes: thumb 2,229 · tile 7,533 · display 23,477 · original 241,545.
+- Pinch (owner "too fast"): one step per gesture, live scale, snap 200 ms, reduced motion = no animation.
+  Walk script: ~/Documents/Claude/Projects/shots-2026-10-23/event-memories/scripts/walk-pinch.mjs.
+
 ## Calls made (not covered by a ruling)
 - `/galleries` (after-day photo sources hub) now lights **Memories**, not Home — it is this event's photos.
 - The Home cover keeps its shipped height/ground (hub image when there is one); only the button changed. The prototype's

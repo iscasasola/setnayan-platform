@@ -472,7 +472,14 @@ export default async function HomeLab({
     home
   );
   /* `&shell=1` — the REAL One Shell (rail + bar, `boundary="tab"`); the Home draws the layout's gutter itself. */
-  return q.shell === '1' ? <LabShell eventId={E} gutter={false}>{lit}</LabShell> : lit;
+  /* The REAL event bar (`labEventBar` — five tabs since 23 Oct 2026, Memories after Hub), Home lit. */
+  return q.shell === '1' ? (
+    <LabShell eventId={E} gutter={false} eventBar={labEventBar({ type: q.type, needs: q.needs, phase: q.phase, store: q.store })} homeAt="/dev/home-lab">
+      {lit}
+    </LabShell>
+  ) : (
+    lit
+  );
 }
 
 /* 🏷 "For <name>" fixtures (prototype for_tag_on_event_cards_2026-10-22.html): the shop's round

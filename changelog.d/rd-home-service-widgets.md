@@ -21,15 +21,22 @@ line, order Papic → Event Hub → the rest.
 - **Music**: Delivered / in production · plays on your Event Hub or not · the song with its player · "Use this song on
   my site". Open: "Play music on my Event Hub" (into the Hub's draft — one Apply) · the source (changed in the Maker's
   Music panel).
-- **Video booth**: reels in the last 24 h against the soft cap + meter · Open booth. Open: your renders, TikTok, Save &
-  share (not owned).
-- **Planner**: Active · the briefing sentence + the booked meter · See decisions. Open: the four figures the Planner
-  page draws (`AI_LIVE_FIGURES`, now one list).
+- **Video booth**: reels in the last 24 h against the soft cap + meter · Open booth. Open: **Primary template ▾ ·
+  Backup template ▾** (the booth's own pick, posted through `savePatiktokBoothTemplates` with `return_to=home`) · your
+  renders, TikTok, Save & share (not owned). The pick's cookie is now scoped to the EVENT (`/dashboard/<event>`) so
+  Home reads the booth's very pick; it has a new name (`sn_patiktok_booth_v2_…`) because a browser sends the older,
+  narrower cookie first — the old one is read as a fallback on the booth and expires. Guard
+  `lib/the-booth-pick-is-one-pick.test.ts` (2 sabotages red → green).
+- **Planner**: Active · the briefing sentence + the booked meter · the four figures the Planner page draws
+  (`AI_LIVE_FIGURES`, now one list) · See decisions — all in the quick view (owner: *"Planner = quick view with its
+  four figures"*); it does not grow, its head is the door to the Planner.
 - **Honest reads** (the prototype's two NEW guards): `loadAiActivity` now says whether it `measured`; the booth count,
   the overlays (`readOverlaySettingsMeasured`), the on-air trace and the channels are read so a refusal is
   "couldn't load". Guards: `lib/every-service-is-a-widget.test.ts`,
   `app/dashboard/[eventId]/_components/home-cards/home-cards-read-honestly.test.ts`.
 - No new server action; no migration.
 
-SPEC IMPACT: DECISION_LOG row 2026-10-23 "HOME SERVICES ARE WIDGETS — EVENT HUB PRO FOLDED INTO THE EVENT HUB" (not
-written from this cloud session — the corpus is not mounted here).
+- `home-shows-every-paid-service.test.ts` follows the ruling (order; the hub key is the Event Hub card, never a slim
+  Add, never a price) — not weakened: every combination still lands in exactly one state.
+
+SPEC IMPACT: DECISION_LOG row 2026-10-24 "HOME SERVICES ARE WIDGETS — EVENT HUB PRO FOLDED INTO THE EVENT HUB".

@@ -162,7 +162,7 @@ export default async function BarLab({
     return (
       <>
         <div className="sn-ambient min-h-screen">
-          <FrontDoorShell variant="app" account={ACCOUNT} navLabels={{}} insideEvent>
+          <FrontDoorShell variant="app" account={ACCOUNT} navLabels={{}}>
             <div className="sn-ambient min-h-screen">
               <main className="sn-vt-page">
                 <div data-shell-main="" className="px-4 pt-3 sm:px-6 sm:pt-6 lg:px-8">

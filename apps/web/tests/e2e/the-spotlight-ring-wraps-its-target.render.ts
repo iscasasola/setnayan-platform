@@ -20,11 +20,11 @@ async function main() {
   const tours = Object.entries(TOURS)
     .filter(([, t]) => (t as { spotlight?: unknown }).spotlight)
     .map(([key, t]) => {
-      const s = (t as { spotlight: { steps: ReadonlyArray<{ anchor: string; title: string; welcome?: boolean; go?: boolean }> } }).spotlight;
+      const s = (t as { spotlight: { steps: ReadonlyArray<{ anchor: string; title: string; body: string; hint?: string; welcome?: boolean; go?: boolean }> } }).spotlight;
       return {
         key,
         inMaker: inMaker.has(key),
-        steps: spotlightSteps(s.steps as never, true).map((st) => ({ anchor: st.anchor, title: st.title, welcome: !!st.welcome, go: !!st.go })),
+        steps: spotlightSteps(s.steps as never, true).map((st) => ({ anchor: st.anchor, title: st.title, body: st.body, hint: st.hint, welcome: !!st.welcome, go: !!st.go })),
       };
     });
   const fromTsx = createRequire(createRequire(join(WEB, '..', '..', 'package.json')).resolve('tsx/package.json'));

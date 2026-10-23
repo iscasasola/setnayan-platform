@@ -35,7 +35,8 @@ import { join } from 'node:path';
 
 const WEB = join(__dirname, '..', '..');
 const TSX_CLI = createRequire(join(WEB, '..', '..', 'package.json')).resolve('tsx/cli');
-type Step = { anchor: string; title: string; welcome: boolean; go: boolean };
+/* The words too: the card's real height decides where it fits. */
+type Step = { anchor: string; title: string; body?: string; hint?: string; welcome: boolean; go: boolean };
 const RENDER = JSON.parse(
   execFileSync(process.execPath, [TSX_CLI, join(__dirname, 'the-spotlight-ring-wraps-its-target.render.ts')], {
     cwd: WEB,

@@ -72,7 +72,7 @@ export function DiscoverEventShelves({ discover }: { discover: DiscoverData }) {
             <span className="fd-badge" aria-hidden="true">
               ◷
             </span>
-            <InfoTip label="Upcoming from people you follow" labelId="discover-people" align="start">
+            <InfoTip label="Upcoming from people you follow" labelId="discover-people" align="start" className="fd-sechead-tip">
               Public events from people you follow or are connected to, soonest first. Ask to
               join, and the host approves who gets in.
             </InfoTip>
@@ -109,8 +109,7 @@ export function DiscoverEventShelves({ discover }: { discover: DiscoverData }) {
           </span>
           <InfoTip
             label={people ? 'More upcoming on Setnayan' : 'Upcoming on Setnayan'}
-            labelId="discover-world"
-            align="start"
+            labelId="discover-world" align="start" className="fd-sechead-tip"
           >
             Public events only. {worldOrder} Anyone can ask to join; the host approves who gets in.
           </InfoTip>
@@ -187,7 +186,7 @@ export function PeopleToFollowShelf({ discover }: { discover: DiscoverData }) {
       data-discover-shelf="people-to-follow"
     >
       <h2 className="fd-sechead">
-        <InfoTip label="People to follow" labelId="discover-people-to-follow" align="start">
+        <InfoTip label="People to follow" labelId="discover-people-to-follow" align="start" className="fd-sechead-tip">
           Public profiles, most followed first. Follow someone and their public events show at
           the top of Discover.
         </InfoTip>

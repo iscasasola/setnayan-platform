@@ -522,7 +522,7 @@ export function FrontDoorFeed({
       {/* ═ TRENDING — chapters ranked by real views, honestly empty today ═ */}
       <h2 className="fd-sechead">
         {/* "earned, never sold" moved into the ⓘ (owner 2026-10-01, NO SMALL EXPLAINER LABELS). */}
-        <InfoTip label="Trending" align="start">
+        <InfoTip label="Trending" align="start" className="fd-sechead-tip">
           Stories ranked by real views from real readers — never seeded, padded, or sold.
         </InfoTip>
       </h2>

@@ -2965,10 +2965,15 @@ html.dark .fd {
    detail sits behind the line's ⓘ. `empty-shelf.tsx`. */
 .fd-empty {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px 16px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
   margin: 0 0 26px;
+}
+/* A heading's ⓘ label wraps beside its badge rather than dropping under it at 375. */
+.fd-sechead > .fd-sechead-tip {
+  flex: 1 1 0;
+  min-width: 0;
 }
 .fd-empty-line {
   margin: 0;

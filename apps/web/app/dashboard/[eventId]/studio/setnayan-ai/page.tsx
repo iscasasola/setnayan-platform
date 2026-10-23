@@ -22,6 +22,9 @@ import { PageMasthead } from '@/app/_components/page-masthead';
 import { StudioBuyHero } from '@/app/dashboard/[eventId]/studio/_components/studio-buy-hero';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { paidMarkLabel } from '@/lib/paid-mark';
+import { getIapGate } from '@/lib/request-platform';
+import { setnayanAiSoldInApp } from '@/lib/iap/setnayan-ai-in-app.server';
+import { IapUnlockSheet } from '@/app/_components/iap/iap-unlock-sheet';
 
 export const metadata = { title: 'Setnayan AI' };
 
@@ -154,16 +157,25 @@ export default async function SetnayanAiPage({ params }: Props) {
 
   // Only the BUY branch needs the BDO/GCash settings · fetch lazily there.
   const showBuy = !active && !owns && paywallOn;
-  const settings = showBuy ? await fetchPlatformSettings(supabase) : null;
+
+  /* 🍎 THE iPHONE APP, WHERE APPLE SELLS (`getIapGate().iap`; owner 2026-10-23, "five more Apple products"). The page
+     opens there (lib/store-shell.ts `IAP_OPENED_ROUTE`) and its ONE pay step is Apple's sheet: no web price, no
+     GCash / BDO, no web link. Apple has one price per product, so only an event whose web price row IS that
+     product's is sold in the app (lib/iap/setnayan-ai-in-app.server.ts) — any other unowned event goes Home, as an
+     unowned Live Watch does from the controller. With `iap` false nothing below changes. */
+  const appleIap = (await getIapGate()).iap;
+  const appleSells = appleIap && showBuy ? (await setnayanAiSoldInApp(createAdminClient(), eventId)) === 'sellable' : false;
+  if (appleIap && showBuy && !appleSells) redirect(`/dashboard/${eventId}`);
+  const settings = showBuy && !appleIap ? await fetchPlatformSettings(supabase) : null;
 
   return (
     <section className="space-y-6">
       <Link
-        href={studioHubHref(eventId)}
+        href={appleIap ? `/dashboard/${eventId}` : studioHubHref(eventId)}
         className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
       >
         <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-        Back to add-ons
+        {appleIap ? 'Back to Home' : 'Back to add-ons'}
       </Link>
 
       {/* OPENED-STATE = OUTCOME/ACTION FIRST for anyone who already has access;
@@ -232,14 +244,26 @@ export default async function SetnayanAiPage({ params }: Props) {
                catalog figure this page's own checkout charges, so the hero and
                the till cannot quote different numbers. Absent ⇒ the hero simply
                carries no figure, which is what the tile below already does. */
-            price={pricePhp != null ? priceLabel : undefined}
+            price={pricePhp != null && !appleIap ? priceLabel : undefined}
             priceNote={
-              pricePhp != null
+              pricePhp != null && !appleIap
                 ? 'One-time purchase · yours for the whole wedding'
                 : undefined
             }
             action={
-              pricePhp != null && settings ? (
+              appleSells ? (
+                <IapUnlockSheet
+                  eventId={eventId}
+                  serviceKey={SKU_CODE}
+                  name="Setnayan AI"
+                  line={`One purchase · yours for the whole ${eventWord}.`}
+                  info={`Setnayan AI ranks every supplier by how well they fit your date, budget and guest count, and keeps your deadlines and payments in view. It stays on for this ${eventWord} and everyone on it.`}
+                  triggerLabel="Unlock Setnayan AI"
+                  buyVerb="Unlock"
+                  triggerTestId="iap-setnayan-ai-unlock"
+                  triggerClassName="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-full bg-[var(--m-mulberry)] px-7 py-3 text-sm font-semibold text-[var(--m-paper)] transition-opacity hover:opacity-90 disabled:opacity-70"
+                />
+              ) : pricePhp != null && settings ? (
                 <InlineCheckoutDrawer
                   eventId={eventId}
                   serviceKey={SKU_CODE}

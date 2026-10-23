@@ -22,7 +22,8 @@ import { resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile'
 
 import { getCurrentUser } from '@/lib/auth';
 import { startRead } from '@/lib/start-read';
-import { isStoreShellRequest } from '@/lib/request-platform';
+import { getIapGate, isStoreShellRequest } from '@/lib/request-platform';
+import { setnayanAiSoldInApp } from '@/lib/iap/setnayan-ai-in-app.server';
 import { storeShellAllowsPaidFeature } from '@/lib/store-shell';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -422,6 +423,8 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // (`suppliers-opens-fast.test.ts`).
   const paywallRead = startRead(resolveSetnayanAiPaywallEnabled());
   const storeShellRead = startRead(isStoreShellRequest());
+  // 🍎 Apple sells Setnayan AI in this app (`getIapGate().iap`, owner 2026-10-23) — false everywhere else.
+  const appleIapRead = startRead(getIapGate().then((g) => g.iap, () => false));
   const taxonomyRead = startRead(getTaxonomy());
   const planGroupScopeRead = startRead(fetchPlanGroupScope(supabase));
   const buildPicksRead = startRead(
@@ -1271,12 +1274,14 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   const paywallEnabled = await paywallRead;
   const aiGateOpts = { paywallEnabled };
   const storeShell = await storeShellRead;
+  const appleIap = storeShell && (await appleIapRead) === true;
   // 🔒 A web-bought Sai does not light up in the App Store / Play Store shell
   // (guideline 3.1.3(b); lib/store-shell.ts) — unless the paywall is off and
   // Sai is free for everyone, in which case it is planning and stays.
+  // 🍎 …or Apple sells it in this app (2026-10-23): then a Sai bought on the web OR in the app lights up.
   const aiActive =
     isSetnayanAiActiveForEvent(ev, aiGateOpts) &&
-    storeShellAllowsPaidFeature(storeShell, paywallEnabled);
+    storeShellAllowsPaidFeature(storeShell, paywallEnabled, appleIap);
 
   // DB-driven category headers (owner 2026-06-09 — "taxonomy applies to all 5
   // menus"): the 10 folder labels/order/slugs come from `service_categories`
@@ -1351,7 +1356,11 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // checkout). Renders in both the takeover shortlist slot and the bare return.
   // Never in the App Store / Play Store shell: it advertises a paid purchase and
   // links to a route the store shell is refused (lib/store-shell.ts).
-  const aiOffer = !storeShell && shouldOfferSetnayanAiPurchaseForEvent(ev, aiGateOpts);
+  // 🍎 Where Apple sells Setnayan AI for THIS event (lib/iap/setnayan-ai-in-app.server.ts), the banner shows in the
+  // app too — it carries no price, and its page's pay step is Apple's sheet.
+  const aiOffer =
+    shouldOfferSetnayanAiPurchaseForEvent(ev, aiGateOpts) &&
+    (!storeShell || (appleIap && (await setnayanAiSoldInApp(createAdminClient(), eventId)) === 'sellable'));
   const aiOfferBanner = aiOffer ? (
     <Link
       href={`/dashboard/${eventId}/studio/setnayan-ai`}

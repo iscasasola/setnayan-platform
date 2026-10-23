@@ -25,7 +25,7 @@ import type { MenuLifecyclePhase } from '@/lib/day-of-mode';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
-import { isStoreShellRequest } from '@/lib/request-platform';
+import { getIapGate, isStoreShellRequest } from '@/lib/request-platform';
 import { storeShellAllowsPaidFeature } from '@/lib/store-shell';
 import { resolveBudgetVisibility } from '@/lib/budget-visibility';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -797,6 +797,8 @@ export async function EventDashboard({
     resolveSetnayanAiDisplayPricePhp(supabase, event.event_type as string | null, 'regular').catch(() => 0),
   );
   const storeShellRead = startAhead(isStoreShellRequest());
+  // 🍎 Apple sells Setnayan AI in this app (`getIapGate().iap`, owner 2026-10-23) — false everywhere else.
+  const appleIapRead = startAhead(getIapGate().then((g) => g.iap, () => false));
   const remindersEnabled =
     (viewerRes.data as { reminders_enabled?: boolean | null } | null)?.reminders_enabled ??
     true;
@@ -1128,7 +1130,7 @@ export async function EventDashboard({
   const aiActive =
     (aiEntitled || saiPreview) &&
     cockpitEnabled() &&
-    storeShellAllowsPaidFeature(storeShell, aiPaywallEnabled);
+    storeShellAllowsPaidFeature(storeShell, aiPaywallEnabled, storeShell && (await appleIapRead) === true);
 
   // ---- Upcoming items — the Schedule card + the AI What's-next rail. ------
   const upcoming =

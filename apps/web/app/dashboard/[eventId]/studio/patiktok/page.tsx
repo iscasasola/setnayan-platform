@@ -22,7 +22,8 @@ import {
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { eventOwnsSku, eventSkuActive } from '@/lib/entitlements';
-import { isStoreShellRequest } from '@/lib/request-platform';
+import { getIapGate, isStoreShellRequest } from '@/lib/request-platform';
+import { IapUnlockSheet } from '@/app/_components/iap/iap-unlock-sheet';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { presignDisplayUrl } from '@/lib/uploads';
 import { isR2Configured, R2_BUCKETS } from '@/lib/r2';
@@ -180,6 +181,10 @@ export default async function PatiktokGallery({
   const patiktokPending =
     !patiktokActive && (await eventOwnsSku(await eventEntitlementClient(eventId), eventId, PATIKTOK_SERVICE_KEY));
   const storeShell = await isStoreShellRequest();
+  /* 🍎 THE iPHONE APP, WHERE APPLE SELLS (`getIapGate().iap`; owner 2026-10-23, "five more Apple products"): the page
+     opens there (lib/store-shell.ts `IAP_OPENED_ROUTE`) and the save card's one pay step is Apple's sheet — no web
+     price, no GCash / BDO, no web link. With `iap` false nothing below changes. */
+  const appleIap = (await getIapGate()).iap;
 
   // Resolve a fresh presigned download URL for completed reels (the stored
   // output_url presign expires; output_object_key is the durable pointer).
@@ -241,17 +246,17 @@ export default async function PatiktokGallery({
     : { pricePhp, settings, pending: patiktokPending, storeShell };
   // "◆ Save" on an unpaid finished reel points at the save card — only when that
   // card is mounted (a fragment to a missing id fails silently).
-  const saveCardMounted = !patiktokActive && !storeShell;
+  const saveCardMounted = !patiktokActive && (!storeShell || appleIap);
 
   return (
     <section className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Link
-          href={studioHubHref(eventId)}
+          href={appleIap ? `/dashboard/${eventId}` : studioHubHref(eventId)}
           className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
         >
           <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-          Back to add-ons
+          {appleIap ? 'Back to Home' : 'Back to add-ons'}
         </Link>
         <Link
           href={`/dashboard/${eventId}/studio/patiktok/booth`}
@@ -373,9 +378,10 @@ export default async function PatiktokGallery({
           {saveCardMounted ? (
             <SaveShareCard
               eventId={eventId}
-              pricePhp={pricePhp}
+              pricePhp={appleIap ? null : pricePhp}
               settings={settings}
               pending={patiktokPending}
+              apple={appleIap}
             />
           ) : null}
           <YourRenders
@@ -681,6 +687,7 @@ function SaveShareCard({
   pricePhp,
   settings,
   pending,
+  apple = false,
 }: {
   eventId: string;
   /** Admin-managed price in PHP from the V2 retail catalog. null = unreadable. */
@@ -688,6 +695,8 @@ function SaveShareCard({
   settings: PaymentSettings;
   /** An order is already submitted and awaiting confirmation. */
   pending: boolean;
+  /** 🍎 The iPhone app where Apple sells: the door is Apple's sheet (`IapUnlockSheet`), with Apple's price only. */
+  apple?: boolean;
 }) {
   const priceLabel = pricePhp != null ? formatPhp(pricePhp) : null;
   const triggerLabel = priceLabel ? `Save & share · ${priceLabel}` : 'Save & share';
@@ -724,6 +733,19 @@ function SaveShareCard({
           Your Patiktok payment is being confirmed. Once it is, open any reel in
           &ldquo;Your renders&rdquo; and it saves without the mark.
         </p>
+      ) : apple ? (
+        <div className="pt-1">
+          <IapUnlockSheet
+            eventId={eventId}
+            serviceKey={PATIKTOK_SERVICE_KEY}
+            name="Patiktok"
+            line="Save and share every reel your booth makes."
+            info="No preview mark, download every reel, share them anywhere — all event day."
+            triggerLabel="Save & share"
+            triggerTestId="iap-patiktok-save"
+            triggerClassName="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600 sm:w-auto"
+          />
+        </div>
       ) : (
         <div className="pt-1">
           <InlineCheckoutDrawer

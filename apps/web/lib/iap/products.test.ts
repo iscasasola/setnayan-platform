@@ -16,6 +16,8 @@ import {
   iapProductForServiceKey,
   papicCreditsMatch,
   IAP_HUB_PART_PRODUCTS,
+  iapProductIsRepeatable,
+  moodBoardRendersMatch,
 } from './products';
 import { COUPLE_WEBSITE_PRO_SERVICE_KEY } from '@/lib/couple-website-pro';
 import { HUB_PARTS } from '../hub-parts';
@@ -23,7 +25,7 @@ import { hasNativeStore, iapAvailable, NATIVE_STORE_UA_MARKER } from './iap-gate
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
-test('ruling 1 — exactly Papic credits, Event Hub Pro and Live Watch; no Setnayan AI, no supplier plan', () => {
+test('ruling 1 + 23 Oct — Papic credits, Event Hub Pro, Live Watch and the five more; no supplier plan', () => {
   const keys = IAP_PRODUCTS.map((p) => p.serviceKey).sort();
   assert.deepEqual(keys, [
     // 💎 + the eleven Event Hub Pro parts (owner 2026-10-22, "yes to all") — 1.1, flag-dark.
@@ -40,15 +42,55 @@ test('ruling 1 — exactly Papic credits, Event Hub Pro and Live Watch; no Setna
     'COUPLE_HUB_PART_STYLE',
     'COUPLE_WEBSITE_PRO',
     'LIVE_STUDIO',
+    // 🍎 The second wave — owner 2026-10-23, verbatim: "Add Setnayan AI, Music Maker, Patiktok, Thank You and Mood
+    // Board pack as Apple products before submitting build 6." This SUPERSEDES the first wave's "no Setnayan AI"
+    // assertion that stood here (ruling 1, 2026-10-18: "Setnayan AI is a second wave").
+    'MOODBOARD_RENDER_PACK',
+    'PAKANTA',
+    'PAPIC_ADDON_THANK_YOU',
     'PAPIC_GUEST_100',
     'PAPIC_GUEST_10K',
     'PAPIC_GUEST_1K',
     'PAPIC_GUEST_500',
     'PAPIC_GUEST_5K',
+    'PATIKTOK_COMPILER',
+    'SETNAYAN_AI',
   ]);
   for (const p of IAP_PRODUCTS) {
-    assert.ok(!/SETNAYAN_AI|VENDOR|vendor_/i.test(p.serviceKey), `${p.serviceKey} is not in the first wave`);
+    // Supplier plans stay web-only (ruling 1) — and so does every per-USER or tier-only Setnayan AI row.
+    assert.ok(!/VENDOR|vendor_/i.test(p.serviceKey), `${p.serviceKey} is a supplier plan`);
+    assert.ok(!/^SETNAYAN_AI_/.test(p.serviceKey), `${p.serviceKey} is a band price row, not a product`);
   }
+});
+
+test('🍎 23 Oct — the five more: ids are exactly the controller’s (FOREVER), kinds and names as ruled', () => {
+  const want: Array<[string, string, string, string, number | null]> = [
+    ['com.setnayan.app.setnayan_ai', 'SETNAYAN_AI', 'event-unlock', 'Setnayan AI', null],
+    ['com.setnayan.app.music_maker', 'PAKANTA', 'event-unlock', 'Music Maker', null],
+    ['com.setnayan.app.patiktok', 'PATIKTOK_COMPILER', 'event-unlock', 'Patiktok', null],
+    ['com.setnayan.app.papic_thank_you', 'PAPIC_ADDON_THANK_YOU', 'event-unlock', 'Thank You', null],
+    ['com.setnayan.app.mood_board_renders_50', 'MOODBOARD_RENDER_PACK', 'mood-board-pack', 'Mood Board · 50 renders', 50],
+  ];
+  for (const [id, key, kind, name, credits] of want) {
+    const p = iapProductById(id);
+    assert.ok(p, `${id} missing`);
+    assert.deepEqual([p!.serviceKey, p!.kind, p!.appStoreName, p!.credits, p!.appleType], [key, kind, name, credits, 'consumable'], id);
+  }
+  // Repeatable = never "owned", hidden from Restore's list: the two packs, nothing else.
+  assert.deepEqual(
+    IAP_PRODUCTS.filter((p) => iapProductIsRepeatable(p)).map((p) => p.kind).filter((k, i, a) => a.indexOf(k) === i),
+    ['papic-credits', 'mood-board-pack'],
+  );
+  assert.equal(iapProductIsRepeatable(null), false);
+});
+
+test('the Mood Board pack is on sale only while the config grants exactly 50 renders from its own catalogue row', () => {
+  const pack = iapProductForServiceKey('MOODBOARD_RENDER_PACK')!;
+  assert.equal(moodBoardRendersMatch(pack, { creditsPerPack: 50, packServiceCode: 'MOODBOARD_RENDER_PACK' }), true);
+  assert.equal(moodBoardRendersMatch(pack, { creditsPerPack: 60, packServiceCode: 'MOODBOARD_RENDER_PACK' }), false);
+  assert.equal(moodBoardRendersMatch(pack, { creditsPerPack: 50, packServiceCode: 'OTHER' }), false);
+  assert.equal(moodBoardRendersMatch(pack, null), false);
+  assert.equal(moodBoardRendersMatch(iapProductForServiceKey('PAKANTA')!, null), true, 'not a pack → no config rule');
 });
 
 test('ruling 3 — every product is a CONSUMABLE (one purchase for the current event)', () => {

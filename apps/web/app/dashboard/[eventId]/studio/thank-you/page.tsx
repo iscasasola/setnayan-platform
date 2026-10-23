@@ -12,6 +12,7 @@ import { StudioBuyHero } from '@/app/dashboard/[eventId]/studio/_components/stud
 import { addOnHeroCopy } from '@/lib/add-ons-catalog';
 import { formatPhp } from '@/lib/orders';
 import { ThankYouMaker, type ThankYouSaveCheckout } from './_components/thank-you-maker';
+import { getIapGate } from '@/lib/request-platform';
 
 const SKU_CODE = 'PAPIC_ADDON_THANK_YOU';
 /** Name + promise from the one catalogue record every Studio row reads. */
@@ -77,7 +78,19 @@ export default async function ThankYouVideoPage({
   // payment being confirmed (never a second buy). Prices come from the
   // catalogue only (formatV2Sku → platform_retail_catalog_v2), never typed.
   let checkout: ThankYouSaveCheckout | null = null;
-  if (!owned) {
+  /* 🍎 THE iPHONE APP, WHERE APPLE SELLS (`getIapGate().iap`; owner 2026-10-23, "five more Apple products"): the page
+     opens there (lib/store-shell.ts `IAP_OPENED_ROUTE`); "Save to my phone" is Apple's sheet and no web price is drawn
+     — not in the hero, not on the button. With `iap` false nothing below changes. */
+  const appleIap = (await getIapGate()).iap;
+  if (!owned && appleIap) {
+    const [pendingOrder, sellability, settings, vatRatePct] = await Promise.all([
+      eventOwnsSku(ent, eventId, SKU_CODE).catch(() => false),
+      resolveServiceSellability(SKU_CODE),
+      fetchPlatformSettings(supabase),
+      getEffectiveVatRatePct(supabase),
+    ]);
+    checkout = { pending: pendingOrder, priceCentavos: null, pricePhp: null, vatRatePct, settings, apple: sellability === 'sellable' };
+  } else if (!owned) {
     const [pendingOrder, sellability, sku, settings, vatRatePct] = await Promise.all([
       eventOwnsSku(ent, eventId, SKU_CODE).catch(() => false),
       resolveServiceSellability(SKU_CODE),

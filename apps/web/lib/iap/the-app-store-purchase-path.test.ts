@@ -64,6 +64,8 @@ test('the intent is written only AFTER every check a web checkout makes (and own
     /coordinatorMoneyScopeAllowed\(/,
     /resolveServiceSellability\(/,
     /papicCreditsMatch\(/,
+    /moodBoardRendersMatch\(/,
+    /setnayanAiSoldInApp\(/,
     /eventIsOver\(/,
     /eventOwnsSku\(/,
   ]) {
@@ -105,6 +107,8 @@ test('the app shows no web price, no GCash/BDO, no web link on an Apple surface'
   const surfaces = [
     'app/_components/iap/iap-papic-sheet.tsx',
     'app/_components/iap/iap-live-watch-sheet.tsx',
+    'app/_components/iap/iap-unlock-sheet.tsx',
+    'lib/iap/setnayan-ai-in-app.server.ts',
     'app/_components/iap/restore-purchases-row.tsx',
     'app/_components/iap/apple-pro-screen.tsx',
     'app/dashboard/[eventId]/apple-pro/page.tsx',

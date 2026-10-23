@@ -22,6 +22,7 @@ import { PakantaMusicForm } from './_components/pakanta-music-form';
 import { UseSongButton } from './_components/use-song-button';
 import { AiDisclosure } from '@/components/AiDisclosure';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { getIapGate } from '@/lib/request-platform';
 
 export const metadata = { title: 'Music Maker' };
 
@@ -146,17 +147,23 @@ export default async function PakantaPage({ params }: Props) {
   // stage. When empty we nudge them there instead of pretending we have it.
   const hasStory = brief.storyParagraphs.length > 0 || brief.keyMoments.length > 0;
 
-  const skuRecord = await formatV2Sku(SKU_CODE).catch(() => null);
+  /* 🍎 THE iPHONE APP, WHERE APPLE SELLS (`getIapGate().iap`; owner 2026-10-23, "five more Apple products"): the page
+     opens there (lib/store-shell.ts `IAP_OPENED_ROUTE`), and the form's one pay step is Apple's sheet — no web price,
+     no GCash / BDO, no web link. With `iap` false nothing below changes. */
+  const appleIap = (await getIapGate()).iap;
+  const skuRecord = appleIap ? null : await formatV2Sku(SKU_CODE).catch(() => null);
   const pricePhp = skuRecord?.price_php ?? null;
   const settings = await fetchPlatformSettings(supabase);
+  /** The form draws: the web needs the catalogue's price; the app needs none (Apple's sheet carries its own). */
+  const formReady = pricePhp != null || appleIap;
 
   return (
     <section className="mx-auto w-full max-w-2xl space-y-6 px-4 py-6 sm:px-6">
       <Link
-        href={studioHubHref(eventId)}
+        href={appleIap ? `/dashboard/${eventId}` : studioHubHref(eventId)}
         className="inline-flex items-center gap-1.5 text-sm text-ink/60 hover:text-ink"
       >
-        <ArrowLeft aria-hidden className="h-4 w-4" /> Back to services
+        <ArrowLeft aria-hidden className="h-4 w-4" /> {appleIap ? 'Back to Home' : 'Back to services'}
       </Link>
 
       <PageMasthead
@@ -265,19 +272,20 @@ export default async function PakantaPage({ params }: Props) {
           </div>
           {/* Keep the brief/intake visible while in production so the couple
               can still add or refine their music notes before it's written. */}
-          {pricePhp != null ? (
+          {formReady ? (
             <PakantaMusicForm
               eventId={eventId}
               initial={responses}
               pricePhp={pricePhp}
               settings={settings}
+              apple={appleIap}
               paid
             />
           ) : null}
         </div>
-      ) : pricePhp != null ? (
-        /* ── NOT OWNED — buy + intake form (unchanged). ────────────────── */
-        <PakantaMusicForm eventId={eventId} initial={responses} pricePhp={pricePhp} settings={settings} />
+      ) : formReady ? (
+        /* ── NOT OWNED — buy + intake form (unchanged; in the app the pay step is Apple's sheet). ── */
+        <PakantaMusicForm eventId={eventId} initial={responses} pricePhp={pricePhp} settings={settings} apple={appleIap} />
       ) : (
         <p className="text-sm text-ink/65">
           Pricing loads from your catalog &mdash; please refresh in a moment.

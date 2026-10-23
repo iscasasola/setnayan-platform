@@ -7,6 +7,8 @@
  *
  *   (1) Sold in the iPhone app first: Papic credits, Event Hub Pro, Live Watch.
  *       Setnayan AI is a second wave; supplier plans stay web-only.
+ *       ↳ The second wave (owner 2026-10-23): Setnayan AI, Music Maker, Patiktok,
+ *         Thank You and the Mood Board pack — see the end of IAP_PRODUCTS.
  *   (2) Pro is offered in the app ONLY at ✓ Apply.
  *   (3) Pro and Live Watch are ONE purchase for the CURRENT event — a
  *       CONSUMABLE applied to that event, never a subscription and never a
@@ -42,7 +44,15 @@
  */
 const EVENT_HUB_PRO_SERVICE_KEY = 'COUPLE_WEBSITE_PRO';
 
-export type IapProductKind = 'event-hub-pro' | 'event-hub-part' | 'live-watch' | 'papic-credits';
+export type IapProductKind =
+  | 'event-hub-pro'
+  | 'event-hub-part'
+  | 'live-watch'
+  | 'papic-credits'
+  /** 🍎 23 Oct: one unlock for the CURRENT event, never sold twice (Setnayan AI · Music Maker · Patiktok · Thank You). */
+  | 'event-unlock'
+  /** 🍎 23 Oct: Mood Board render credits — a pack, bought again and again like Papic credits. */
+  | 'mood-board-pack';
 
 export type IapProduct = {
   /** The App Store Connect product id. */
@@ -54,7 +64,7 @@ export type IapProduct = {
   appleType: 'consumable';
   /** The App Store display name the owner types in App Store Connect. */
   appStoreName: string;
-  /** Papic only: the credits this product's name promises. */
+  /** Papic and Mood Board packs: the credits (renders) this product's name promises. */
   credits: number | null;
 };
 
@@ -128,7 +138,57 @@ export const IAP_PRODUCTS: readonly IapProduct[] = Object.freeze([
       credits,
     }),
   ),
+  /*
+   * 🍎 FIVE MORE (owner 2026-10-23, verbatim: "Add Setnayan AI, Music Maker, Patiktok, Thank You and Mood Board
+   * pack as Apple products before submitting build 6.") Same model as Live Watch: CONSUMABLE, for the CURRENT event,
+   * activated by the web's own hook. The ids were named by the controller and are FOREVER.
+   */
+  ...(
+    [
+      ['setnayan_ai', 'SETNAYAN_AI', 'Setnayan AI'],
+      ['music_maker', 'PAKANTA', 'Music Maker'],
+      ['patiktok', 'PATIKTOK_COMPILER', 'Patiktok'],
+      ['papic_thank_you', 'PAPIC_ADDON_THANK_YOU', 'Thank You'],
+    ] as const
+  ).map(
+    ([id, serviceKey, name]): IapProduct => ({
+      productId: `${PREFIX}${id}`,
+      serviceKey,
+      kind: 'event-unlock',
+      appleType: 'consumable',
+      appStoreName: name,
+      credits: null,
+    }),
+  ),
+  {
+    productId: `${PREFIX}mood_board_renders_50`,
+    serviceKey: 'MOODBOARD_RENDER_PACK',
+    kind: 'mood-board-pack',
+    appleType: 'consumable',
+    appStoreName: 'Mood Board · 50 renders',
+    credits: 50,
+  },
 ]);
+
+/**
+ * A pack bought again and again (Papic credits, Mood Board renders): never refused as "owned", and left out of
+ * Restore's list of things switched on (a restored pack is credits already spent or still there, not a feature).
+ */
+export function iapProductIsRepeatable(product: IapProduct | null | undefined): boolean {
+  return product?.kind === 'papic-credits' || product?.kind === 'mood-board-pack';
+}
+
+/**
+ * Does the Mood Board config still grant exactly the renders the App Store name promises, from THIS product's
+ * catalogue row? `config` null = unreadable or switched off → not on sale (same rule as `papicCreditsMatch`).
+ */
+export function moodBoardRendersMatch(
+  product: IapProduct,
+  config: { creditsPerPack: number; packServiceCode: string } | null,
+): boolean {
+  if (product.kind !== 'mood-board-pack') return true;
+  return config !== null && config.packServiceCode === product.serviceKey && config.creditsPerPack === product.credits;
+}
 
 /** The eleven part products, in the parts' own order. */
 export const IAP_HUB_PART_PRODUCTS: readonly IapProduct[] = IAP_PRODUCTS.filter((p) => p.kind === 'event-hub-part');

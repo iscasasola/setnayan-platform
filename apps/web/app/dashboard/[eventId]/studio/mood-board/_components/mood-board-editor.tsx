@@ -76,7 +76,7 @@ import type { CoupleSuggestion } from '@/lib/inspiration-suggestions';
 import type { InspirationItem } from './inspiration-board';
 import { InfoTip } from '@/app/_components/info-tip';
 import { PageMasthead } from '@/app/_components/page-masthead';
-import { isStoreShellRequest } from '@/lib/request-platform';
+import { getIapGate, isStoreShellRequest } from '@/lib/request-platform';
 import {
   RENDER_PARTS,
   renderPartById,
@@ -910,6 +910,10 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
    * exists for and stays whole. Desktop and the web are unaffected.
    */
   const storeShell = await isStoreShellRequest();
+  /* 🍎 …EXCEPT WHERE APPLE SELLS THE PACK (`getIapGate().iap`; owner 2026-10-23, "five more Apple products"): there
+     Make it real mounts, and its Buy is Apple's sheet for "Mood Board · 50 renders" — no web price, no GCash / BDO.
+     With `iap` false the store shell is exactly as above. */
+  const appleIap = storeShell && (await getIapGate()).iap;
   const jumpLinks: ReadonlyArray<{ href: string; label: string }> = [
     { href: '#theme', label: 'Theme' },
     { href: '#inspiration', label: 'Inspiration' },
@@ -917,7 +921,7 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
     { href: '#dos-and-donts', label: 'Do’s & don’ts' },
     { href: '#reception', label: 'Reception' },
     { href: '#colors', label: 'In your colors' },
-    ...(storeShell ? [] : [{ href: '#make-it-real', label: 'Make it real' }]),
+    ...(storeShell && !appleIap ? [] : [{ href: '#make-it-real', label: 'Make it real' }]),
     { href: '#share', label: 'Share & export' },
   ];
 
@@ -1068,8 +1072,9 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
       <MoodboardBoard sections={sections} compact />
     </section>
   );
-  const makeItReal = storeShell ? null : (
+  const makeItReal = storeShell && !appleIap ? null : (
     <MakeItReal
+      apple={appleIap}
       eventId={eventId}
       eligibleParts={eligibleRenderParts}
       palette={palette}

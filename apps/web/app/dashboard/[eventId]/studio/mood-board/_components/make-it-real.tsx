@@ -85,6 +85,7 @@ import {
   type ChoosePlanSku,
 } from '@/app/_components/app-store/choose-plan-sheet';
 import { formatCount } from '@/lib/format-number';
+import { IapUnlockSheet } from '@/app/_components/iap/iap-unlock-sheet';
 
 const WHOLE_LOOK_ID = 'whole_look';
 
@@ -135,6 +136,11 @@ export type MakeItRealProps = {
    * still sees everything here; the controls say who can use them instead.
    */
   mayStartRenders: boolean;
+  /**
+   * 🍎 The iPhone app where Apple sells the pack (`getIapGate().iap`, owner 2026-10-23): Buy is Apple's sheet for
+   * "Mood Board · 50 renders" (`IapUnlockSheet`), and nothing here draws a web price or the hand-check note.
+   */
+  apple?: boolean;
 };
 
 /** One row of the couple's gallery, with its viewing URL resolved. */
@@ -160,6 +166,7 @@ export function MakeItReal({
   renders,
   shareConsented,
   mayStartRenders,
+  apple = false,
 }: MakeItRealProps) {
   const inspirationPresenceSet = useMemo(
     () => new Set(inspirationPresence),
@@ -404,14 +411,29 @@ export function MakeItReal({
           <p className="max-w-[34ch] text-xs text-ink/45">
             {configUnavailable
               ? 'Make it real is temporarily unavailable.'
-              : `1 credit per part · ${formatCount(config!.creditsWholeLook)} for the whole look. Payment is verified by hand (~a day).`}
+              : `1 credit per part · ${formatCount(config!.creditsWholeLook)} for the whole look.${apple ? '' : ' Payment is verified by hand (~a day).'}`}
           </p>
           {!mayStartRenders ? (
             <p data-couple-only-renders className="max-w-[34ch] text-xs text-ink/55">
               Only the couple can start a render or choose to share one.
             </p>
           ) : null}
-          {packPlan && mayStartRenders ? (
+          {apple ? (
+            mayStartRenders && !configUnavailable ? (
+              <IapUnlockSheet
+                eventId={eventId}
+                serviceKey="MOODBOARD_RENDER_PACK"
+                name="Mood Board · 50 renders"
+                line="Use them on any part, or the whole look."
+                info="Every box keeps its free colour preview. A photoreal render spends credits; buy another pack whenever you run low."
+                triggerLabel="Buy renders"
+                buyVerb="Buy"
+                onLine="Your renders are on this event."
+                plural
+                triggerTestId="iap-mood-board-pack"
+              />
+            ) : null
+          ) : packPlan && mayStartRenders ? (
             <ChoosePlanSheet
               eventId={eventId}
               triggerLabel={`Buy ${packPlan.name}`}

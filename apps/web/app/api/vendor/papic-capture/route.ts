@@ -309,7 +309,11 @@ export async function POST(req: Request) {
       // Fails OPEN on a read error: the insert policy is still the hard gate.
       {
         const { data: booked, error: bookedErr } = await supabase.rpc('current_vendor_booked_event_ids');
-        if (!bookedErr && Array.isArray(booked) && !(booked as unknown[]).includes(eventId)) {
+        // SETOF uuid: PostgREST answers a list of scalars; read either shape.
+        const ids = Array.isArray(booked)
+          ? (booked as unknown[]).map((x) => (typeof x === 'string' ? x : Object.values((x ?? {}) as object)[0]))
+          : null;
+        if (!bookedErr && ids && !ids.includes(eventId)) {
           return json({ error: 'not_allowed' }, 403);
         }
       }

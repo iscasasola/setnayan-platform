@@ -55,7 +55,6 @@ function isCategoryKey(value: string | undefined): value is BlogCategoryKey {
     value === 'planning' ||
     value === 'vendors' ||
     value === 'culture' ||
-    value === 'real-weddings' ||
     value === 'news'
   );
 }

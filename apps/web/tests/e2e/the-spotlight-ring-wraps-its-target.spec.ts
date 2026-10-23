@@ -29,7 +29,13 @@ import { join } from 'node:path';
  * `shots-2026-10-19/rd-spotlight-ring-finds-its-target/`, is that); WebKit (this suite is Chromium); motion (reduced
  * motion is emulated so a measurement is never taken mid-glide).
  *
- * 🛡 Sabotaged (2026-10-23), each red alone — see the PR body for the counts.
+ * 🛡 Sabotaged (2026-10-23, 78 tests), each red alone:
+ *   · a bar the Maker covers counts again (`painted`/`under` ignored) → 6 red: "Apply when you like it" never lit, at
+ *     every width (the owner's bug — the ring had no height left), and the lower third's ring cut short;
+ *   · the layers drawn where the mount sits, not on <body> → 78 red ("the ring starts BELOW its target (1814 > 257)");
+ *   · the old one-sided padding (`max(8, left − 8)`, cut at the right edge) → 78 red;
+ *   · the card centred on the screen again → 48 red ("the card is 661/20 px from its ring — not beside it");
+ *   · a tall target scrolled flush under the top bar → 30 red (its step skipped: "Search or add … was never lit").
  * Set `SHOTS_DIR` to keep a picture of every step.
  */
 

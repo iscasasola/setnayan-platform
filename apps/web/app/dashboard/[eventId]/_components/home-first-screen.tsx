@@ -582,7 +582,9 @@ function PapicServiceRow({
   sizes: PoolRung[] | null;
   card?: PapicCardInput | null;
 }) {
-  const photos = typeof doors.glance.result === 'number' && doors.glance.result > 0 ? doors.glance.result : null;
+  // 📷 The card's own strip carries "See all ›" (→ Memories), so the card draws no second photos door (contract
+  // 2026-10-24: quick view = coverage · credits · the latest five with See all · Add more). The plain row keeps it.
+  const photos = !card && typeof doors.glance.result === 'number' && doors.glance.result > 0 ? doors.glance.result : null;
   const acts =
     doors.buy || photos ? (
       <>

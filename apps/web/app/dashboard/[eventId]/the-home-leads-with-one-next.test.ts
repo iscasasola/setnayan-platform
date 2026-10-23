@@ -9,7 +9,8 @@
  * Three properties, each RENDERED (not grepped) where it can be — the harness
  * is the neighbouring render tests' (`globalThis.React`, dynamic import):
  *   a · exactly one Next card, and it leads the Home's plan branch;
- *   b · the Event Hub door is drawn in every state;
+ *   b · Home draws no shortcut the event bar already has (a tab's destination under the tab's name) — the three door
+ *       pills came off, owner 2026-10-23;
  *   c · a read that did not happen prints "—", never 0;
  *   d · "Your services" (Papic · Setnayan AI, owner 2026-10-01): present, "—"
  *       on a failed read, never the service that is already the Next card,
@@ -42,6 +43,7 @@ import {
   type HomeNextInput,
 } from '@/lib/home-first-screen';
 import type { HomeFirstScreenProps } from './_components/home-first-screen';
+import { buildCustomerMenuTree } from '@/lib/customer-menu';
 
 // 🪤 The repo's render harness: `"jsx": "preserve"` compiles to the classic
 // runtime, so `React` must be global BEFORE the component is (dynamically) imported.
@@ -122,6 +124,7 @@ function draw(over: Partial<HomeFirstScreenProps> = {}, input: HomeNextInput = N
 }
 
 const count = (html: string, needle: string) => html.split(needle).length - 1;
+const norm = (t: string) => t.replace(/&[a-z#0-9]+;/gi, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
 
 /** The Next card's markup — from its marker up to what follows it (the one-QR card or the numbers; the doorway row
  *  under it is gone, owner 2026-10-23). */
@@ -174,17 +177,32 @@ test('a · the plan branch IS the first screen — the dashboard appears only as
   assert.equal(count(PAGE, 'home-all'), 0, 'a "#home-all" anchor with nothing to land on');
 });
 
-test('b · Home draws NO door pills — Guests · Suppliers · Event Hub are the event bar’s (owner 2026-10-23)', () => {
-  // Owner, 23 Oct: "remove Home's three pills (Guests · Suppliers · Event Hub)". The bar carries all three; Home leads
-  // with the Next card and the service widgets. In no state may the row come back.
+test('b · Home draws NO shortcut the event bar already has — in every state (owner 2026-10-23)', () => {
+  // Owner, 23 Oct: "remove Home's three pills (Guests · Suppliers · Event Hub)" — *"we already have those menus on the
+  // nav"* (supersedes DL 2026-10-22 "HOME'S THREE DOORS SAY GUESTS · SUPPLIERS · EVENT HUB"). The two guards that held
+  // the pills' words and icons (`home-doors-say-their-words`, `home-doorways-wear-the-nav-icons`) were retired WITH
+  // the pills — they guarded a row that no longer exists. This is the property that replaces them, keyed on no marker
+  // and no word list: a link on Home whose destination is a bar tab's AND whose name is that tab's name is a second
+  // door to the same place — the bar's job. A contextual link to a tab (Papic's "See all ›" → Memories) is not one.
+  const tabs = buildCustomerMenuTree('e1', {})
+    .filter((t) => t.key !== 'home')
+    .map((t) => ({ href: t.href.split('?')[0]!, names: new Set([t.label, ...(t.key === 'launch' ? ['Event Hub', 'Hub'] : [])].map(norm)) }));
+  assert.ok(tabs.length >= 3, 'premise: the bar has its tabs');
   const states: Array<[string, string]> = [
     ...EVERY_STATE.map((s): [string, string] => [pickHomeNext(s).kind, draw({}, s)]),
     ['nothing measured', draw({ coming: glanceCount(0, false), noReply: glanceCount(0, false), money: { paid: glanceMoney(null), owing: glanceMoney(null) }, days: glanceDays(null) })],
     ['budget not shared', draw({ money: null })],
   ];
   for (const [label, html] of states) {
-    assert.equal(count(html, 'data-home-doors'), 0, `${label}: the doorway row is back`);
-    assert.equal(count(html, 'data-home-edit-hub'), 0, `${label}: the doorway row is back`);
+    const links = [...html.matchAll(/<a ([^>]*)>([\s\S]*?)<\/a>/g)].map((m) => ({
+      href: (m[1]!.match(/href="([^"]*)"/)?.[1] ?? '').split(/[?#]/)[0]!,
+      name: norm(m[1]!.match(/aria-label="([^"]*)"/)?.[1] ?? m[2]!.replace(/<[^>]+>/g, ' ')),
+    }));
+    assert.ok(links.length > 0, `${label}: premise — Home draws links`);
+    for (const l of links) {
+      const twin = tabs.find((t) => t.href === l.href && t.names.has(l.name));
+      assert.ok(!twin, `${label}: Home draws "${l.name}" → ${l.href} — the event bar already has that door`);
+    }
     assert.doesNotMatch(html, /Recommended/i, `${label}: the owner dropped the Recommended badge (2026-10-01)`);
   }
 });

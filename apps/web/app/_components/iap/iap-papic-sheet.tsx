@@ -29,11 +29,14 @@ export function IapPapicSheet({
   eventId,
   left,
   main = false,
+  label = 'Buy more',
 }: {
   eventId: string;
   left: number | null;
   /** The Papic page's band: Buy more is that page's one main button (the web sheet's own `main`). */
   main?: boolean;
+  /** The button's word — the Papic page's band says the owner's "Add more" (2026-10-23), as the web sheet does. */
+  label?: string;
 }) {
   const headingId = useId();
   const [open, setOpen] = useState(false);
@@ -192,7 +195,7 @@ export function IapPapicSheet({
         tone="brand"
         main={main}
         icon={<Plus aria-hidden="true" strokeWidth={1.9} />}
-        label="Buy more"
+        label={label}
         onClick={() => setOpen(true)}
         aria-haspopup="dialog"
         aria-expanded={open}

@@ -131,6 +131,15 @@ export default async function EventMemoriesPage({ params }: Props) {
 
   return (
     <>
+    {/* 🔒 WITHHELD, NOT ABSENT — a viewer the couple's sources do not reach (a coordinator) is told the guests' and
+        crew's photos exist and are the couple's; zero photos must never read as "there are none". Moved with the
+        library from the Papic page (`lib/papic-gallery-scope.test.ts`). */}
+    {seesAll ? null : (
+      <p className="px-4 pt-3 text-[13px] text-ink/60" data-memories-withheld="">
+        You&rsquo;re seeing what the couple&rsquo;s suppliers shot for their records. The photos the crew and guests took belong to the couple and aren&rsquo;t
+        shared with you.
+      </p>
+    )}
     <EventMemoriesGallery
       eventId={eventId}
       items={items}

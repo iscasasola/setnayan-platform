@@ -90,9 +90,9 @@ export function PapicTopBand({
       buy={
         canBuy && glance.buy ? (
           apple ? (
-            <IapPapicSheet eventId={eventId} left={count} main />
+            <IapPapicSheet eventId={eventId} left={count} main label="Add more" />
           ) : (
-            <PapicBuySheet eventId={eventId} left={count} main defaultOpen={buyOpen} error={error} sizes={sizes} />
+            <PapicBuySheet eventId={eventId} left={count} main defaultOpen={buyOpen} error={error} sizes={sizes} label="Add more" />
           )
         ) : null
       }

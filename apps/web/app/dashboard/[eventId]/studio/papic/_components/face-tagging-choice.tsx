@@ -142,9 +142,9 @@ export async function FaceTaggingChoice({
       */
       <SettingRow
         icon={<ScanFace aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
-        label="Finding people in photos"
+        label="Face tagging"
         value={declined ? 'Off' : 'On'}
-        sheetTitle="Finding people in photos"
+        sheetTitle="Face tagging"
         switchControl={control}
       >
         <p className="mb-4 text-sm text-ink/65">{explanation}</p>

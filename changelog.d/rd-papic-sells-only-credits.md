@@ -23,6 +23,12 @@ from `fetchCameraRates`, never asking `papic_tier_config.is_active`, so it staye
   "Allotment" is "Who shoots, and when" with an ⓘ, and "How many credits each guest gets · 319 each" is "Each guest · Up to 319 ·
   equal share" (or "Up to 50 · your limit" when the couple's typed number is what applies); the Challenges card's "3 of 8 chosen · 10 showing to guests" now says "Guests see 10:
   your 3 + 2 from suppliers + 5 suggested".
+- **The seat cards' last read goes with them:** `papic_camera_points_remaining` (the "shots left" probe on
+  each seat card, display only, anon-executable) lost its only caller, so the both-ends guard ranked it
+  `rpc-no-caller`. Migration `20271286935967_drop_the_unread_papic_camera_points_probe.sql` drops it (not
+  CASCADE). The capture gate `papic_reserve_capture_split` and `papic_seat_dedicated_points` are untouched;
+  the two metering tests read the camera's bucket from the ledger instead. Exposure and anon-RPC baselines
+  narrow by that one function. The Suppliers row's "N booked" goes through `formatCount`.
 - **Guard:** `apps/web/lib/papic-sells-only-credits.test.ts` (property + render; sabotaged three ways).
 
 SPEC IMPACT: `~/Documents/Claude/Projects/Setnayan/DECISION_LOG.md` — one 2026-10-23 row recording the

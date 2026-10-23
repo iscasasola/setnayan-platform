@@ -18,6 +18,8 @@
  * to "not open", which is a claim about the event a failed read has not earned.
  */
 
+import { formatCount } from './format-number';
+
 /** The `event_vendors.status` values the database counts as BOOKED — `current_vendor_booked_event_ids()`. */
 export const SUPPLIER_BOOKED_STATUSES = ['contracted', 'deposit_paid', 'delivered', 'complete'] as const;
 
@@ -60,7 +62,7 @@ export function supplierWayInLabel(state: SupplierWayInState): string {
     case 'closed':
       return 'Closed after your day';
     case 'booked':
-      return `${state.count} booked`;
+      return `${formatCount(state.count)} booked`;
   }
 }
 

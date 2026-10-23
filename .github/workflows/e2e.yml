@@ -7,11 +7,11 @@ on:
   workflow_dispatch:
 
 # Same rule as ci.yml: a newer push to the SAME pull request cancels the older
-# run (its result can never gate anything). Every other event — a push to main,
-# a manual dispatch — gets a group of its own and always runs to the end.
+# run (its result can never gate anything); on main the newest push cancels the
+# older run (ci.yml explains why). A manual dispatch gets a group of its own.
 concurrency:
-  group: ${{ github.event_name == 'pull_request' && format('e2e-pr-{0}', github.event.pull_request.number) || format('e2e-run-{0}', github.run_id) }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ${{ github.event_name == 'pull_request' && format('e2e-pr-{0}', github.event.pull_request.number) || (github.event_name == 'push' && github.ref == 'refs/heads/main' && 'e2e-main') || format('e2e-run-{0}', github.run_id) }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main') }}
 
 jobs:
   playwright:

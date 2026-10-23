@@ -132,7 +132,7 @@ test('ladder · Market Intel unlocks at Pro and never below', () => {
 // ── "Open it up" — name is NEVER gated (Vendor_Subscription_Ladder_2026-07-22 §3) ──
 // The name paywall is retired: the legacy Verified tier NO LONGER anonymizes
 // (was nameMode 'screen'). Every couple-facing/paid tier shows the real business
-// name day-1. `free` keeps nameMode 'hidden' as the conservative default for a
+// name day-1. `free` carries nameMode 'verified' (2026-10-23; was 'hidden') — never revealed by tier alone for a
 // truly-unverified vendor — the actual reveal for a verified free-plan vendor
 // comes from `is_verified` (verification_state='verified') at the resolver, not
 // from the tier (see lib/vendors.test.ts), so unverified vendors are never
@@ -154,8 +154,10 @@ test('every PAID tier reveals the real name day-1 (Solo/Pro/Enterprise/Custom)',
   }
 });
 
-test('free tier stays hidden by tier (conservative default; reveal comes from verification)', () => {
-  assert.equal(TIER_CAPS.free.nameMode, 'hidden');
+test('free tier: real name ONCE VERIFIED — the tier alone never reveals (reveal comes from verification)', () => {
+  // Owner 2026-10-23: Free shows its real name once verified. That is `nameMode: 'verified'`, and the reveal itself
+  // is `is_verified` at resolveVendorDisplayName — so an UNVERIFIED Free shop is still never over-exposed.
+  assert.equal(TIER_CAPS.free.nameMode, 'verified');
   assert.equal(isTrueNameTier('free'), false);
 });
 

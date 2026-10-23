@@ -120,7 +120,7 @@ export async function activateVendorAiAddon(
     (gateRow as { verification_state?: string | null } | null)?.verification_state ?? null;
 
   if (!isTierAtLeast(tier, 'solo')) {
-    return err('Vendor AI is available on the paid plans (Solo, Pro, or Enterprise). Upgrade to add it.');
+    return err('Vendor AI is available on the paid plans (Solo, Pro, or Ultra). Upgrade to add it.');
   }
   if (verification !== 'verified') {
     return err('Get your shop verified first — Vendor AI unlocks once you’re verified.');

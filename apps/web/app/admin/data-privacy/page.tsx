@@ -182,7 +182,7 @@ function NpcDocuments() {
                 {packet.title}
               </span>
               <span className="mt-0.5 block text-sm" style={{ color: 'var(--m-slate-2)' }}>
-                Every document below, merged into one PDF.
+                Every pack document below, merged into one PDF. The Data Privacy Summary is separate.
               </span>
             </span>
           </span>

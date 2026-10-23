@@ -55,13 +55,20 @@ const GUEST_KEY_COLUMNS = [
 
 /** Does any capture row point at this ref? Fails CLOSED (true) on a read error. */
 async function referenced(admin: ReturnType<typeof createAdminClient>, lane: string, ref: string): Promise<boolean> {
-  const table = lane === 'vendor' ? 'vendor_papic_captures' : 'papic_guest_captures';
-  const cols: readonly string[] = lane === 'vendor' ? VENDOR_KEY_COLUMNS : GUEST_KEY_COLUMNS;
   const quoted = `"${ref.replace(/"/g, '')}"`;
-  const { count, error } = await admin
-    .from(table)
-    .select('capture_id', { count: 'exact', head: true })
-    .or(cols.map((c) => `${c}.eq.${quoted}`).join(','));
+  const any = (cols: readonly string[]) => cols.map((c) => `${c}.eq.${quoted}`).join(',');
+  // Two literal tables, not `.from(table)`: the select-column scan must be able
+  // to read every select (lib/security/select-column-scan.test.ts, T23).
+  const { count, error } =
+    lane === 'vendor'
+      ? await admin
+          .from('vendor_papic_captures')
+          .select('capture_id', { count: 'exact', head: true })
+          .or(any(VENDOR_KEY_COLUMNS))
+      : await admin
+          .from('papic_guest_captures')
+          .select('capture_id', { count: 'exact', head: true })
+          .or(any(GUEST_KEY_COLUMNS));
   if (error) {
     console.error('[supabase-error] lib/papic-upload-sweep.ts · reference check', error);
     return true;

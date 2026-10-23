@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "5334843e77",
-  "routeCount": 463,
-  "destinations": 1011,
-  "actions": 664,
-  "blocks": 6903,
+  "generatedFromRef": "b6a3242822",
+  "routeCount": 464,
+  "destinations": 1006,
+  "actions": 662,
+  "blocks": 6894,
   "routes": {
     "/": {
       "files": [
@@ -4507,7 +4507,11 @@
       "destinations": [],
       "actions": [],
       "blocks": [
-        "AdminInviteResult"
+        "ActionButton",
+        "AdminInviteResult",
+        "InviteResult",
+        "PickMenu",
+        "Sec"
       ]
     },
     "/admin/vendors/[vendorProfileId]": {
@@ -5558,20 +5562,10 @@
         "dashboard/[eventId]/_components/guest-setup/rsvp-asks.tsx",
         "dashboard/[eventId]/_components/guest-setup/setup-frames.tsx",
         "dashboard/[eventId]/_components/guest-setup/setup-skin.ts",
-        "dashboard/[eventId]/_components/home-cards/booth-template-pick.tsx",
-        "dashboard/[eventId]/_components/home-cards/home-booth-card.tsx",
-        "dashboard/[eventId]/_components/home-cards/home-hub-card.tsx",
-        "dashboard/[eventId]/_components/home-cards/home-live-card.tsx",
-        "dashboard/[eventId]/_components/home-cards/home-music-card.tsx",
-        "dashboard/[eventId]/_components/home-cards/home-planner-card.tsx",
-        "dashboard/[eventId]/_components/home-cards/hub-draft-switch.tsx",
-        "dashboard/[eventId]/_components/home-cards/hub-parts-switches.tsx",
-        "dashboard/[eventId]/_components/home-cards/live-air-button.tsx",
         "dashboard/[eventId]/_components/home-cover-band.tsx",
         "dashboard/[eventId]/_components/home-first-screen.tsx",
         "dashboard/[eventId]/_components/home-loading-cover.tsx",
         "dashboard/[eventId]/_components/home-parts.tsx",
-        "dashboard/[eventId]/_components/home-service-card.tsx",
         "dashboard/[eventId]/_components/inline-checkout-drawer.tsx",
         "dashboard/[eventId]/_components/new-manual-vendor-modal.tsx",
         "dashboard/[eventId]/_components/nikah-essentials-card.tsx",
@@ -5612,8 +5606,6 @@
         "dashboard/[eventId]/wizard-actions.ts"
       ],
       "destinations": [
-        "/api/tiktok/auth/start?event_id=[seg]",
-        "/api/website/qr/[seg]",
         "/dashboard",
         "/dashboard/[seg]",
         "/dashboard/[seg]/budget",
@@ -5628,7 +5620,6 @@
         "/dashboard/[seg]/guests?q=coming",
         "/dashboard/[seg]/guests?q=no+reply",
         "/dashboard/[seg]/invitation",
-        "/dashboard/[seg]/launch",
         "/dashboard/[seg]/launch?tool=details",
         "/dashboard/[seg]/launch?tool=details&guide=1",
         "/dashboard/[seg]/live",
@@ -5639,14 +5630,11 @@
         "/dashboard/[seg]/schedule",
         "/dashboard/[seg]/seating",
         "/dashboard/[seg]/studio/mood-board",
-        "/dashboard/[seg]/studio/pakanta",
         "/dashboard/[seg]/studio/papic",
         "/dashboard/[seg]/studio/setnayan-ai",
-        "/dashboard/[seg]/vendors",
         "/dashboard/[seg]/vendors?part=budget",
         "/dashboard/[seg]/vendors?tab=shortlist",
         "/dashboard/[seg]/vendors?tab=shortlist&open=[seg]",
-        "/dashboard/[seg]/website/editor?open=music",
         "/dashboard/notifications",
         "/help",
         "/login?next=[seg]",
@@ -5657,7 +5645,6 @@
       "actions": [
         "action",
         "addLineItem",
-        "cutToMainStage",
         "deleteLineItem",
         "deletePayment",
         "grantShareConsent",
@@ -5666,7 +5653,6 @@
         "markNotificationRead",
         "planNextYearEvent",
         "routes.dashboard.accessRequests",
-        "savePatiktokBoothTemplates",
         "toggleChecklistItem",
         "updatePaxSettings"
       ],
@@ -5691,7 +5677,6 @@
         "AutoPreloadOnEventDay",
         "BankBody",
         "Blob",
-        "BoothTemplatePick",
         "BottomDock",
         "BottomNav",
         "BranchPinMap",
@@ -5758,34 +5743,23 @@
         "GuestLike",
         "GuestPopup",
         "GuestsGetIn",
-        "GuestsSeeWrites",
         "HTMLDivElement",
         "HTMLFormElement",
         "HTMLInputElement",
         "HTMLSpanElement",
         "HTMLTextAreaElement",
         "HeadcountView",
-        "HomeBoothCard",
-        "HomeCardRow",
         "HomeCoverBand",
         "HomeCoverWordsProvider",
         "HomeDecisionRow",
         "HomeFirstScreen",
         "HomeForLine",
         "HomeGuide",
-        "HomeHubCard",
         "HomeLater",
-        "HomeLiveCard",
         "HomeLoadingScreen",
-        "HomeMusicCard",
         "HomeNextFold",
-        "HomePlannerCard",
         "HomeReload",
-        "HomeServiceCard",
         "HomeWhatsNext",
-        "HubDraftDock",
-        "HubDraftSwitch",
-        "HubPartsSwitches",
         "HubSavesImmediately",
         "IapLiveWatchSheet",
         "IapPapicSheet",
@@ -5808,11 +5782,9 @@
         "Link",
         "LinkBody",
         "LinkedVendorConfirmation",
-        "LiveAirButton",
         "LiveBroadcastCard",
         "LivePhotoWallCard",
         "LiveScheduleCard",
-        "LiveStudioRecordingsCard",
         "ManualVenuePinResult",
         "MarketplaceAutocomplete",
         "MarketplaceContact",
@@ -5855,10 +5827,8 @@
         "PostSaveStep",
         "PreviewConflictsResult",
         "PriceSourceChip",
-        "ProfileShareButton",
         "ProgressRing",
         "PromoFreeWindowBanner",
-        "QrActions",
         "QrBody",
         "ReadRefusedNotice",
         "RecordLinkBlock",
@@ -5907,14 +5877,12 @@
         "SupplierInviteView",
         "SupplierReachLinks",
         "Suspense",
-        "SwitchTrack",
         "TypedRow",
         "UnreadBellBadge",
         "UnreadMessagesBadge",
         "UpcomingItem",
         "UpcomingItemSource",
         "UpdateMatchCriteriaResult",
-        "UseSongButton",
         "VeilReveal",
         "VendorCategoryProgress",
         "VendorDirectPay",
@@ -11216,6 +11184,19 @@
         "TreeStandIn"
       ]
     },
+    "/dev/personal-invite-lab": {
+      "files": [
+        "dev/personal-invite-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "ActionButton",
+        "InviteResult",
+        "InviteVendorForm",
+        "TeamInviteDoor"
+      ]
+    },
     "/dev/pro-parts-lab": {
       "files": [
         "dev/pro-parts-lab/lab-client.tsx",
@@ -15011,6 +14992,7 @@
         "vendor-dashboard/subscription/photo-challenge-actions.ts"
       ],
       "destinations": [
+        "/vendor-dashboard/collections",
         "/vendor-dashboard/deep-search",
         "/vendor-dashboard/on-the-day",
         "/vendor-dashboard/profile",
@@ -15232,6 +15214,7 @@
         "Link",
         "Perk",
         "SnapshotField",
+        "TeamInviteDoor",
         "TerminalCard"
       ]
     },

@@ -417,8 +417,8 @@ const readsAsText = (line: string): boolean => {
 const ALLOWED_DOOR_LINES: ReadonlyArray<{ file: string; snippet: string }> = [
   { file: 'forgot-password/page.tsx', snippet: 'One account for couples planning their' },
   { file: 'vendor/claim/[token]/page.tsx', snippet: 'Marketplace exposure to other PH couples' },
-  { file: 'vendor/claim/[token]/page.tsx', snippet: 'Chat with couples in-app' },
-  { file: 'vendor/claim/[token]/page.tsx', snippet: 'Couples browsing the marketplace' },
+  // Moved with the team door into `TeamInviteDoor` (personal invite, 2026-10-23) — the same shipped perk.
+  { file: 'vendor/claim/[token]/_components/claim-parts.tsx', snippet: 'Chat with couples in-app' },
   // ⚖ NOT COPY: `event_members.member_type` compared against its enum value in
   // the signed-in arm's redirect — it never reaches a screen. join-flow.tsx joined
   // this rule's derived set on 2026-09-10 when it began importing DoorShell's

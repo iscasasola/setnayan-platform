@@ -7803,6 +7803,23 @@ html.dark .home-card-bad { background: color-mix(in srgb, rgb(var(--color-danger
   [data-home-column] > *, .home-sec.open > .home-bar .home-bar-ico { animation: none; }
   .home-fold, .home-chev, .home-tile { transition: none; }
 }
+/* 🖥 HOME AT FULL WIDTH, TWO COLUMNS (owner 2026-10-23, "shouldn't home, guests and suppliers maximize the width
+ * as well?" → yes; prototype `home_service_widgets_2026-10-23.html` D1/D2). From 1024 the column has no cap
+ * (`lg:max-w-none` in home-first-screen.tsx): body = viewport − rail − 2 × 32. The top splits 1.1 : 1 and is read
+ * COLUMN BY COLUMN in the page's own order — the left column holds Next and the one QR (the three doors came off,
+ * owner 2026-10-23), the right
+ * the numbers and the money — then What's next and everything after span both. Every top piece has an explicit
+ * place, so the reading and Tab order is the order you see (`the-home-grid-reads-in-order.test.ts`). Each piece keeps
+ * its own box (an unfolding card grows in ITS column); the phone and the tablet are unchanged. */
+@media (min-width: 1024px) {
+  [data-home-column] { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); column-gap: 16px; align-items: start; }
+  [data-home-column] > * { grid-column: 1 / -1; }
+  [data-home-column] > [data-home-next] { grid-column: 1; grid-row: 1; }
+  [data-home-column] > [data-home-one-qr] { grid-column: 1; grid-row: 3; }
+  [data-home-column] > [data-home-numbers] { grid-column: 2; grid-row: 1; }
+  [data-home-column] > [data-home-money] { grid-column: 2; grid-row: 2; }
+  [data-home-column] > [data-home-whats-next] { grid-column: 1 / -1; grid-row: 4; }
+}
 
 /* ════════════════════════════════════════════════════════════════════════════
    THE EVENT HUB CANVAS — a couple's own arrangement, drawn with CSS only

@@ -159,14 +159,19 @@ type Measure = {
 
 /** The ring, its target and the card, once the card for `title` is up and the ring has stopped moving. */
 async function settled(page: Page, anchor: string, title: string): Promise<Measure> {
-  await page.waitForFunction(
+  await page
+    .waitForFunction(
     (title) => {
       const tip = document.querySelector<HTMLElement>('[data-sn-spot] .sn-spot-tip');
       return !!tip && tip.querySelector('h4')?.textContent === title && tip.style.opacity === '1';
     },
     title,
     { timeout: 8000 },
-  );
+  )
+    .catch(async () => {
+      const now = await page.evaluate(() => document.querySelector('[data-sn-spot] .sn-spot-tip h4')?.textContent ?? '(no card)');
+      throw new Error(`"${title}" (${anchor}) was never lit — the card says ${now}`);
+    });
   let last = '';
   for (let n = 0; n < 12; n++) {
     const m = await page.evaluate((anchor) => {

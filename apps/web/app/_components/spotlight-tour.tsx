@@ -205,7 +205,7 @@ const CSS_TEXT = `
 .sn-spot-ring::after{content:"";position:absolute;inset:-10px;border-radius:inherit;border:2px solid rgba(255,255,255,.6);animation:sn-spot-pulse 1.6s ease-out infinite}
 @keyframes sn-spot-pulse{0%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(1.2)}}
 .sn-spot-block{position:fixed;z-index:2147483000;touch-action:none}
-.sn-spot-tip{position:fixed;z-index:2147483003;left:16px;width:min(420px,calc(100% - 32px));background:var(--m-paper,#fff);color:var(--m-ink,#1e2229);border-radius:var(--m-r-lg,22px);padding:14px 16px;box-shadow:0 14px 36px rgba(0,0,0,.28);transition:top .5s cubic-bezier(.2,.8,.2,1),left .5s cubic-bezier(.2,.8,.2,1),opacity .2s}
+.sn-spot-tip{position:fixed;z-index:2147483003;box-sizing:border-box;left:16px;width:min(420px,calc(100% - 32px));background:var(--m-paper,#fff);color:var(--m-ink,#1e2229);border-radius:var(--m-r-lg,22px);padding:14px 16px;box-shadow:0 14px 36px rgba(0,0,0,.28);transition:top .5s cubic-bezier(.2,.8,.2,1),left .5s cubic-bezier(.2,.8,.2,1),opacity .2s}
 .sn-spot-tip.pop{animation:sn-spot-pop .45s cubic-bezier(.2,1.4,.4,1)}
 @keyframes sn-spot-pop{from{opacity:0;transform:translateY(10px) scale(.94)}}
 .sn-spot-brand{margin-bottom:8px}
@@ -387,7 +387,12 @@ export function SpotlightTour({
         /* Taller than the room between the bars: its TOP comes into view (centred, both ends were off screen and it
            read as covered for ever). */
         const tall = el.getBoundingClientRect().height > band.bottom - band.top - 16;
+        /* …and that top lands BELOW the top bar, not under it: scrolled flush to the screen's top it sat under the
+           app's sticky bar, read as covered, and the step was skipped although its card was right there. */
+        const margin = el.style.scrollMarginTop;
+        if (tall) el.style.scrollMarginTop = `${Math.round(band.top) + 16}px`;
         el.scrollIntoView({ block: tall ? 'start' : 'center', behavior: prefersReduced() ? 'auto' : 'smooth' });
+        if (tall) el.style.scrollMarginTop = margin;
         return; // measure on the next tick, once the scroll has settled
       }
       scrolledFor.current = iRef.current;

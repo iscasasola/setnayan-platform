@@ -284,8 +284,10 @@ export default async function VendorOnTheDayLivePage({
       </div>
 
       {/* Obsidian focal — couple + live clock. Kept dark on purpose (see the
-          page doc): it is the one glare-legible anchor on a venue floor. */}
-      <div>
+          page doc): it is the one glare-legible anchor on a venue floor.
+          `id="schedule"`: where a "Schedule moved" notice lands (lib/schedule-shift-notice.ts) — the clock's
+          now/next, with the run of show under it. On a block that ALWAYS renders, so the link never misses. */}
+      <div id="schedule" className="scroll-mt-4">
         <div
           aria-hidden
           className="h-2 border border-b-0 border-ink/10 bg-gradient-to-r from-veil via-paper-deep to-gild/25"

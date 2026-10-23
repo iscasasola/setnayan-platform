@@ -107,6 +107,7 @@ const SCOPE_FILES = [
   'lib/booking-payment-plan.server.ts',
   'lib/date-change.server.ts',
   'lib/schedule-request-notify.server.ts',
+  'lib/schedule-shift-notify.server.ts',
   'lib/vendor-invite-actions.ts',
   'app/_components/negotiation-actions.ts',
   'app/dashboard/[eventId]/budget/actions.ts',

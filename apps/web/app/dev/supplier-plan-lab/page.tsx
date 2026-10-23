@@ -156,6 +156,8 @@ function helpersFixture(who: Who) {
 }
 
 const NOTICES: NotificationRow[] = [
+  // ⏱ The couple shifted the day (owner 2026-10-23) — one notice per shift, words from `scheduleShiftTitle`.
+  { notification_id: 'n0', user_id: ME, type: 'schedule_shifted', title: 'Schedule moved +30 min from 4:00 PM', body: 'Ana & Paolo shifted the day from Cocktails on. Open the schedule for the new times.', related_url: '/vendor-dashboard/on-the-day/live/e1#schedule', read_at: null, created_at: '2026-10-14T04:00:00Z' },
   { notification_id: 'n1', user_id: ME, type: 'inquiry_displaced', title: 'Someone else was booked', body: 'Reyes · Sat 12 Dec · the couple booked another supplier, so this ask was released.', related_url: '/vendor-dashboard/messages/t1', read_at: null, created_at: '2026-10-14T03:00:00Z' },
   { notification_id: 'n2', user_id: ME, type: 'vendor_inquiry_received', title: 'New booking inquiry', body: 'Ana & Miguel asked about Sat 12 Dec.', related_url: '/vendor-dashboard/messages/t2', read_at: null, created_at: '2026-10-14T01:00:00Z' },
   { notification_id: 'n3', user_id: ME, type: 'review_request', title: 'A review came in', body: '5 ★ · reply when you can', related_url: '/vendor-dashboard/reviews', read_at: '2026-10-13T00:00:00Z', created_at: '2026-10-12T01:00:00Z' },

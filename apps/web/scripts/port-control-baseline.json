@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "67fa04b754",
+  "generatedFromRef": "c957bb4854",
   "routeCount": 461,
   "destinations": 1003,
   "actions": 666,
-  "blocks": 6858,
+  "blocks": 6861,
   "routes": {
     "/": {
       "files": [
@@ -5191,7 +5191,6 @@
         "Layer",
         "LifeStorySection",
         "Link",
-        "MiniTour",
         "PageMasthead",
         "PeopleFilter",
         "PeoplePreview",
@@ -5208,6 +5207,7 @@
         "PreviewRow",
         "RequestRow",
         "SamahanPeopleSection",
+        "Spotlight",
         "SubmitButton",
         "T",
         "ThumbField",
@@ -5489,6 +5489,7 @@
         "SectionLabel",
         "ShelfInfo",
         "SidePanel",
+        "Spotlight",
         "StanceChip",
         "StartPlanningLink",
         "SupplierRecordsNote",
@@ -11118,6 +11119,7 @@
     },
     "/dev/people-lab": {
       "files": [
+        "dev/people-lab/lab-tour.tsx",
         "dev/people-lab/page.tsx"
       ],
       "destinations": [],
@@ -11126,8 +11128,10 @@
         "AccountBottomNav",
         "FollowListView",
         "FoundPersonCard",
+        "LabTour",
         "PeopleRosterView",
         "RosterPerson",
+        "SpotlightMount",
         "TreeStandIn"
       ]
     },

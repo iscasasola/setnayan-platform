@@ -166,10 +166,12 @@ test('the Samahan chip says Add — one word per concept', () => {
   assert.match(c, /pendingLabel="…"\s*>[\s{}]*Add\s*</);
 });
 
-test('a first-visit tour on the shipped MiniTour', () => {
-  assert.ok(TOUR_KEYS.includes('customer_people_v1'));
-  assert.equal(TOURS.customer_people_v1.slides.length, 3);
-  assert.match(PAGE.code, /<MiniTour tourKey="customer_people_v1" \/>/);
+// Re-aimed ON PURPOSE (2026-10-22, help-sync): the carousel has been off since 2026-10-03 and the owner's tour
+// is a SPOTLIGHT (2026-10-10). The property is the same — People has a first-visit tour, mounted on the page.
+test('a first-visit tour — the spotlight', () => {
+  assert.ok(TOUR_KEYS.includes('customer_people_v2'));
+  assert.ok((TOURS.customer_people_v2.spotlight?.steps.length ?? 0) >= 2, 'People’s spotlight has no stops');
+  assert.match(PAGE.code, /<Spotlight tourKey="customer_people_v2"/);
 });
 
 // ── 5 · the event's Add ───────────────────────────────────────────────────

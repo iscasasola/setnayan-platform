@@ -1351,6 +1351,25 @@ export default function PrivacyPage() {
           </p>
         </Section>
 
+        {/* ── Breach notices ── DPO ruling 2026-10-23 (corpus DECISION_LOG,
+            "OWNER ANSWERS ON THE BUILD TRACKER"): breach notices to affected
+            guests may go by email — only for a breach the law requires us to
+            report. Mirrors NPC_Compliance/04 Breach Policy § 6.2. */}
+        <Section id="breach" title="If there is a data breach">
+          <p>
+            If a breach of personal data happens that the law requires us to
+            report, we tell the National Privacy Commission and the people
+            affected within 72 hours of finding out, as RA 10173 and the
+            NPC&rsquo;s breach rules require. We tell you what happened, what
+            data was involved, what we are doing about it, and what you can do.
+          </p>
+          <p className="pt-2">
+            We may send that notice by email, including to guests. Guests
+            otherwise get no email from Setnayan; a breach the law makes us
+            report is the one exception.
+          </p>
+        </Section>
+
         <Section id="your-rights" title="Your rights (RA 10173)">
           <ul className="ml-5 list-disc space-y-1">
             <li>

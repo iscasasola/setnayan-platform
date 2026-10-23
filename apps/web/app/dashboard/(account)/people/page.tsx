@@ -25,10 +25,18 @@ import { SamahanPeopleSection } from './_components/samahan-people-section';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { YourStorySection } from './_components/your-story-section';
 import { ConnectionTreeSection } from './_components/connection-tree-section';
+import { FoundPersonCard } from './_components/found-person-card';
+import { findPersonByPublicId, type PersonHit } from '@/lib/people-search';
+import { isPersonPublicId, personCardKey } from '@/lib/people-person-link';
 
 export const metadata = {
   title: 'People',
 };
+
+/** `?person=` could not be read — said as a failure, never as "nobody". */
+const PERSON_UNREAD = 'We couldn’t open that person just now. Nothing is lost — refresh in a moment.';
+/** `?person=` names nobody you can open — one sentence for every reason, so the link is no oracle. */
+const PERSON_NONE = 'That person isn’t one you can open here.';
 
 const FENCE_ERROR: Record<string, string> = {
   fence: 'You can only add a child (under 18) or an elder (over 50). For anyone else, invite them to Setnayan instead.',
@@ -88,7 +96,7 @@ const FENCE_ERROR: Record<string, string> = {
 export default async function PeoplePage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; saved?: string; removed?: string; view?: string }>;
+  searchParams: Promise<{ error?: string; saved?: string; removed?: string; view?: string; person?: string }>;
 }) {
   const showConnections = peopleConnectionsEnabled();
   // Dependents (minors' SPI) surface only when the env flag AND the
@@ -105,7 +113,10 @@ export default async function PeoplePage({
   const sp = await searchParams;
   const errorMsg = sp.error ? (FENCE_ERROR[sp.error] ?? sp.error) : null;
   const gates: PeopleViewGates = { showConnections, showDependents };
-  const view = resolvePeopleView(sp.view, gates);
+  // `?person=<public id>` (owner 2026-10-22 — a person result in the shell's search opens their card here)
+  // lands on the list, whatever `?view=` says: the card opens over the roster, and closing it leaves you there.
+  const personParam = showConnections && isPersonPublicId(sp.person) ? sp.person : null;
+  const view = personParam ? defaultPeopleView(gates) : resolvePeopleView(sp.view, gates);
 
   // ONE ROSTER for connections + alaga, shaped like the guest list (owner
   // 2026-08-21). The read is skipped entirely when nobody is signed in. It is
@@ -134,6 +145,23 @@ export default async function PeoplePage({
       ? getSpouseContext(user.id)
       : Promise.resolve(notMarried),
   ]);
+
+  // THE PERSON THE LINK NAMES. Somebody on your list → their roster card (`openPerson`). Anybody else →
+  // `findPersonByPublicId`, the People search's own fence, which opens the "On Setnayan" card or nothing.
+  // 🔴 A REFUSED READ SAYS SO: a roster that could not load, or a lookup that failed, is "couldn't open",
+  // never the silence of "nobody by that id".
+  let found: PersonHit | null = null;
+  let personNotice: string | null = null;
+  const onList = personParam && roster ? personCardKey(roster, personParam) : null;
+  if (personParam && user && !onList) {
+    if (!roster || roster.connectionsUnavailable) {
+      personNotice = PERSON_UNREAD;
+    } else {
+      const res = await findPersonByPublicId(personParam, user.id);
+      if (res.state === 'found') found = res.hit;
+      else personNotice = res.state === 'unavailable' ? PERSON_UNREAD : PERSON_NONE;
+    }
+  }
 
   // The picker's counts. A count that could not be read is NULL and is left
   // off its label — never printed as 0 (a refused read is not an empty list).
@@ -191,6 +219,13 @@ export default async function PeoplePage({
         </p>
       ) : null}
 
+      {personNotice ? (
+        <p role="status" className="mb-3 text-sm text-ink/65" data-person-notice="">
+          {personNotice}
+        </p>
+      ) : null}
+      {found ? <FoundPersonCard key={found.publicId} hit={found} /> : null}
+
       {/* THE TOP IS THE COUNTS LINE, inside the roster (owner 2026-10-22). No header block above it. */}
       {(view === 'connected' || view === 'requests' || view === 'alaga') && roster && showConnections ? (
         <PeopleRosterView
@@ -200,6 +235,7 @@ export default async function PeoplePage({
           picker={picker}
           initialFilter={view === 'requests' ? 'asking' : 'all'}
           focus={view === 'alaga' ? 'alaga' : null}
+          openPerson={onList ? personParam : null}
           extra={[
             ...(lovedOnes
               ? [{ key: 'alaga' as const, label: 'Loved ones', count: roster.counts.alaga, node: lovedOnes }]

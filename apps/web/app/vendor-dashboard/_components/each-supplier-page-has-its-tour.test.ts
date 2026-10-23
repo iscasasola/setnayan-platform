@@ -22,7 +22,7 @@ import { fileURLToPath } from 'node:url';
 
 import { stripComments } from '@/lib/strip-comments';
 import { TOURS, TOUR_KEYS } from '@/lib/tours';
-import { FREE_BOOKING_LIMIT } from '@/lib/booking-fee-lock';
+import { FIRST_BOOKING_ON_US } from '@/lib/booking-fee-lock';
 import {
   SUPPLIER_PAGE_TOURS,
   SUPPLIER_PAGE_TOURS_AFTER,
@@ -115,7 +115,7 @@ test('5 · mounted once, in the supplier layout — never under the couple tree'
   }
 });
 
-test('6 · the words keep the house rules; the free count is the fee engine’s number', () => {
+test('6 · the words keep the house rules; the free booking is the fee engine’s sentence', () => {
   for (const key of SUPPLIER_PAGE_TOURS) {
     const s = TOURS[key].spotlight!;
     const words = [TOURS[key].label, TOURS[key].blurb, ...s.steps.flatMap((x) => [x.title, x.body]), s.finale.title, s.finale.body].join(' ');
@@ -124,7 +124,8 @@ test('6 · the words keep the house rules; the free count is the fee engine’s 
     assert.doesNotMatch(words, /&[a-z#0-9]+;/, `${key}: spotlight words are plain text — an entity prints literally`);
   }
   const fee = TOURS.vendor_money_v1.spotlight!.steps.find((x) => x.anchor === 'money-fees')!.body;
-  assert.match(fee, new RegExp(`first ${FREE_BOOKING_LIMIT} are free`), 'the Money tour’s free count is not FREE_BOOKING_LIMIT');
+  // ⚖ One free booking (owner 2026-10-23) — the tour says the fee engine's own sentence.
+  assert.ok(fee.includes(FIRST_BOOKING_ON_US), 'the Money tour does not say the fee engine’s free-booking sentence');
   const src = readFileSync(join(WEB, 'lib', 'tours.ts'), 'utf8');
-  assert.match(src, /Your first \$\{FREE_BOOKING_LIMIT\} are free/, 'the free count is typed into the tour instead of read from the fee engine');
+  assert.match(src, /\$\{FIRST_BOOKING_ON_US\}/, 'the free booking is typed into the tour instead of read from the fee engine');
 });

@@ -14,11 +14,14 @@
  *   ?fail=1         a refused read — "We couldn’t load your people…", never "Nobody here yet" or a 0
  *   ?view=requests  the rail's Requests row (opens on "asking you") · ?view=alaga (Loved ones open)
  *   ?view=following the Following list with its thumb row
+ *   ?person=S89U-LABANA0001  the deep link a shell search result writes (owner 2026-10-22) — Ana's card open
+ *   ?found=1        the "On Setnayan" card a stranger's result opens (FoundPersonCard, a fixture hit)
  */
 import { notFound } from 'next/navigation';
 import { AccountBottomNav } from '@/app/dashboard/(launcher)/_components/account-bottom-nav';
 import { PeopleRosterView } from '@/app/dashboard/(account)/people/_components/people-roster-view';
 import { FollowListView } from '@/app/dashboard/(account)/people/_components/follow-list-view';
+import { FoundPersonCard } from '@/app/dashboard/(account)/people/_components/found-person-card';
 import type { PeopleRoster, RosterPerson } from '@/lib/people-roster';
 import { peopleViewOptions, type PeopleView } from '@/lib/people-views';
 import { TOURS } from '@/lib/tours';
@@ -42,7 +45,7 @@ const person = (p: Partial<RosterPerson> & Pick<RosterPerson, 'key' | 'name'>): 
 
 const PEOPLE: RosterPerson[] = [
   person({ key: 'tb', name: 'Tita Baby', state: 'waiting_you', canLabel: false, storedRelation: 'godchild', fromEvent: { name: 'Cale & Ice', type: 'wedding' } }),
-  person({ key: 'ar', name: 'Ana Reyes', relation: 'parent', samahan: ['Sison family'] }),
+  person({ key: 'ar', name: 'Ana Reyes', relation: 'parent', samahan: ['Sison family'], publicId: 'S89U-LABANA0001' }),
   person({ key: 'bl', name: 'Bianca Lim', relation: 'friend', samahan: ['Barkada'] }),
   person({ key: 'mt', name: 'Marco Testing', samahan: ['Barkada'] }),
   person({ key: 'pm', name: 'Paolo Mendoza', state: 'waiting_them' }),
@@ -141,6 +144,7 @@ export default async function PeopleLabPage({
                 picker={picker}
                 initialFilter={view === 'requests' ? 'asking' : 'all'}
                 focus={view === 'alaga' ? 'alaga' : null}
+                openPerson={typeof sp.person === 'string' ? sp.person : null}
                 extra={[
                   // ?noalaga=1 — an account without Loved ones (the gate off): the People tour's middle stop is skipped.
                   ...(sp.noalaga === '1' ? [] : [{ key: 'alaga' as const, label: 'Loved ones', count: r.counts.alaga, node: lovedOnes }]),
@@ -151,6 +155,20 @@ export default async function PeopleLabPage({
           </div>
         </div>
       </main>
+      {sp.found === '1' ? (
+        <FoundPersonCard
+          hit={{
+            publicId: 'S89U-LABMAR0001',
+            name: 'Marisol Tan',
+            photoUrl: null,
+            fullName: 'Marisol Reyes Tan',
+            handle: '@marisol',
+            hint: 'Both at Ana & Miguel',
+            followable: true,
+            following: false,
+          }}
+        />
+      ) : null}
       <AccountBottomNav tabs={['events', 'discover', 'memories', 'people']} />
       {/* 🔦 ?tour=bar | people — the account screens' spotlights on this fixture (help-sync, 2026-10-22). */}
       {sp.tour === 'bar' || sp.tour === 'people' ? (

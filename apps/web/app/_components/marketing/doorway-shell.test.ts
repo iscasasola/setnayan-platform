@@ -622,19 +622,15 @@ test('the stranded footer destinations are reachable from the rail', () => {
 
 /* ── 9 · "+ CREATE" CREATES ────────────────────────────────────────────── */
 
-test('the gold button opens the create flow, not the board', () => {
+test('the create flow\'s way out does not re-fire the board\'s auto-jump', () => {
   /*
     Owner 2026-08-15: *"create should allow me to create an event."* It pointed
     at `/dashboard`, which for somebody with exactly one upcoming event
     redirects back INTO that event — so the button landed you on the page you
     were already on.
   */
-  const shell = code(read(join(APP, '_components', 'frontdoor', 'front-door-shell.tsx')));
-  assert.match(
-    shell,
-    /<Link href="\/dashboard\/create-event" className="fd-btn-gold">/,
-    'The gold button no longer opens the create flow.',
-  );
+  // 2026-10-22: the bar's gold "+ Create event" is gone (owner — Create lives on
+  // the Events board, whose doors open the same flow); the way OUT stays held.
   /*
     …and the way OUT of that flow must not re-fire the board's auto-jump.
     `?hub=1` is the only escape from it.

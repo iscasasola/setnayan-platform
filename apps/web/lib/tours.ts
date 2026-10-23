@@ -14,7 +14,7 @@
 //     `spotlight-mount.tsx`. Its steps reuse the slides' words where they fit.
 
 import { FREE_THEMES, themeNames } from '@/lib/invite-themes';
-import { FREE_BOOKING_LIMIT } from '@/lib/booking-fee-lock';
+import { FIRST_BOOKING_ON_US } from '@/lib/booking-fee-lock';
 
 import {
   Apple,
@@ -1499,8 +1499,8 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         {
           anchor: 'money-fees',
           title: 'Setnayan’s fee',
-          // The count is the lock's own constant — the number the fee engine actually waives, never typed here.
-          body: `One booking fee per booking, due after the day. Your first ${FREE_BOOKING_LIMIT} are free; your own clients are always free.`,
+          // The sentence is the lock's own — the rule the fee engine actually waives (owner 2026-10-23), never typed here.
+          body: `One booking fee per booking, due after the day. ${FIRST_BOOKING_ON_US} Your own clients are always free.`,
         },
       ],
       finale: {

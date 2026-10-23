@@ -31,10 +31,11 @@
 -- and the retired `save_the_date_video` service_catalog row (inactive since
 -- 2026-05-28, sold nowhere).
 --
--- Every change is a `replace()` of the exact old phrase, not a typed value, so
--- whatever wording an admin has since given a row is kept and only the old
--- phrase moves. Idempotent: a second run finds no old phrase and changes
--- nothing. Prices, keys and ids are untouched.
+-- Every change but one is a `replace()` of the exact old phrase, not a typed
+-- value, so whatever wording an admin has since given a row is kept and only
+-- the old phrase moves. The one exception (COUPLE_WEBSITE_PRO's description) is
+-- explained where it is written. Idempotent: a second run finds no old phrase
+-- and changes nothing. Prices, keys and ids are untouched.
 -- ============================================================================
 
 -- Mood Board themes: the generated suffix "Gallery Vow" became "Atelier Vow" in
@@ -58,11 +59,33 @@ UPDATE public.moodboard_theme_templates
 
 -- Event Hub Pro: the item is "Photos you add" — the name its widget carries
 -- (lib/the-four-photo-names.test.ts) and the code copy already uses.
+-- COUPLE_WEBSITE_PRO's description is written WHOLE, as
+-- 20271250830175_event_hub_pro_description_drops_colours.sql wrote it: the
+-- latest migration that sets it is read by
+-- app/dashboard/[eventId]/studio/website-pro/says-what-it-includes.test.ts as
+-- the sentence prod shows. Same text as that file, with the one phrase moved
+-- (production held exactly that text on 2026-10-23, so no admin wording is lost).
 UPDATE public.platform_retail_catalog_v2
-   SET description = replace(description, 'your own photo gallery', 'photos you add'),
-       updated_at  = now()
- WHERE service_code = 'COUPLE_WEBSITE_PRO'
-   AND description LIKE '%your own photo gallery%';
+SET description =
+      'Every premium touch on your Event Hub in one unlock — the cinematic '
+      'Save-the-Date reveal, a Save-the-Date video, background music, photos '
+      'you add, your own photo or video behind any scene or the whole '
+      'page, the Pro themes for your Event Hub and your invite link, your own '
+      'fonts and animation, an animated logo, and your logo on every QR code — '
+      'plus the Setnayan mark taken off everywhere your guests see it: the page, '
+      'the printable version, your story and the recap. The cinematic reveal '
+      'comes only with this.',
+    updated_at = now()
+WHERE service_code = 'COUPLE_WEBSITE_PRO'
+  AND description IS DISTINCT FROM
+      'Every premium touch on your Event Hub in one unlock — the cinematic '
+      'Save-the-Date reveal, a Save-the-Date video, background music, photos '
+      'you add, your own photo or video behind any scene or the whole '
+      'page, the Pro themes for your Event Hub and your invite link, your own '
+      'fonts and animation, an animated logo, and your logo on every QR code — '
+      'plus the Setnayan mark taken off everywhere your guests see it: the page, '
+      'the printable version, your story and the recap. The cinematic reveal '
+      'comes only with this.';
 
 UPDATE public.platform_retail_catalog_v2
    SET description = replace(description, 'The photo gallery, photos and clips', 'Photos you add, photos and clips'),

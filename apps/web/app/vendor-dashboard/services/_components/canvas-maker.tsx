@@ -219,7 +219,6 @@ export function CanvasMaker({
   coverageAsk = {},
   schedules = [],
   scheduleOfKind = {},
-  slotsPerDay = 0,
   branches = [],
   detailsSlot = null,
   detailsKind = null,
@@ -273,8 +272,6 @@ export function CanvasMaker({
   schedules?: MakerSchedule[];
   /** category → the pool its cards book on today (the category pool), when one exists. */
   scheduleOfKind?: Record<string, string>;
-  /** The plan's bookings-a-day ceiling per card (`tierCaps().slotsPerDay`; 0 = not open on this plan). */
-  slotsPerDay?: number;
   /** Branches (Enterprise). A lapsed one is listed `usable: false` so a card filed under it keeps naming it. */
   branches?: { id: string; label: string; usable?: boolean }[];
   /** The kind's chip details, server-rendered (`RefinementsEditor bare`) — inside this form, posting with it. */
@@ -1157,23 +1154,19 @@ export function CanvasMaker({
                         <input id="last_minute_surcharge_pct" name="last_minute_surcharge_pct" type="number" min={0} max={100} step={1} defaultValue={initial?.lastMinuteSurchargePct ?? ''} className="input-field" />
                       </Field>
                     </div>
-                    {slotsPerDay > 0 ? (
-                      <Field label="How many a day · this card" htmlFor="daily_capacity" help={(editing?.slots.length ?? 0) > 0 ? 'Time slots below set how many at once instead.' : `Up to ${Number.isFinite(slotsPerDay) ? formatCount(slotsPerDay) : 'any number'} on your plan. Blank = the schedule decides.`}>
-                        <input
-                          id="daily_capacity"
-                          name="daily_capacity"
-                          type="number"
-                          min={1}
-                          max={Number.isFinite(slotsPerDay) ? slotsPerDay : undefined}
-                          step={1}
-                          defaultValue={editing?.dailyCapacity ?? ''}
-                          disabled={(editing?.slots.length ?? 0) > 0}
-                          className="input-field disabled:cursor-not-allowed disabled:opacity-50"
-                        />
-                      </Field>
-                    ) : (
-                      <p className="text-[14px] text-ink/65" data-maker-capacity-wait="">How many a day · opens once you are verified. Until then the schedule decides.</p>
-                    )}
+                    {/* ⚖ No plan limit on how many a day (owner 2026-10-23) — the supplier's own number, on every plan. */}
+                    <Field label="How many a day · this card" htmlFor="daily_capacity" help={(editing?.slots.length ?? 0) > 0 ? 'Time slots below set how many at once instead.' : 'Blank = the schedule decides.'}>
+                      <input
+                        id="daily_capacity"
+                        name="daily_capacity"
+                        type="number"
+                        min={1}
+                        step={1}
+                        defaultValue={editing?.dailyCapacity ?? ''}
+                        disabled={(editing?.slots.length ?? 0) > 0}
+                        className="input-field disabled:cursor-not-allowed disabled:opacity-50"
+                      />
+                    </Field>
                     <SlotRows existing={editing?.slots ?? []} />
                   </div>
                 </Fold>

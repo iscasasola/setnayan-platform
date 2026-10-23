@@ -474,7 +474,13 @@ export type NotificationType =
      things; a money change now has its own label, tone and words, and names
      its figure. ⚠ ENUM values in 20271267016300. */
   | 'change_order_proposed'
-  | 'change_order_answered';
+  | 'change_order_answered'
+  /* ⏱ THE COUPLE SHIFTED THE DAY (owner, tracker 2026-10-23: "Schedule moved
+     +30 min from 4:00 PM"). → EVERY booked supplier on the event, one notice per
+     shift (never one per block), from Running late on the couple's schedule and
+     the floor's +N (`lib/schedule-shift-notify.server.ts`). In-app only — no email.
+     ⚠ ENUM value in 20271284540209. */
+  | 'schedule_shifted';
 
 export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   event_auto_surfaced: 'You were added to an event',
@@ -592,6 +598,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   quote_declined: 'Quote declined',
   change_order_proposed: 'Change order',
   change_order_answered: 'Change order answered',
+  schedule_shifted: 'Schedule moved',
 };
 
 export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
@@ -805,6 +812,8 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   // the type alone does not carry (same reasoning as part_reopen_answered).
   change_order_proposed: 'bg-warn-100 text-warn-900',
   change_order_answered: 'bg-warn-100 text-warn-900',
+  // News the supplier acts on at the venue (a new time), not a yes or no → the informational sky.
+  schedule_shifted: 'bg-sky-100 text-sky-800',
 };
 
 export type NotificationRow = {

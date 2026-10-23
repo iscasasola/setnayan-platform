@@ -19,15 +19,19 @@
 //                                      free — only the AI auto-answer is gated)
 //   4. vendor has no bot config row  -> never (bot is strictly opt-in)
 //   5. config.enabled = false        -> never
-//   6. daily reply cap reached       -> never (cap 0 = bot never replies)
+//
+// 🚫 There is NO per-day count here (owner 2026-10-23: "why do we limit the
+// auto reply?"). The "daily reply cap reached" rule that sat at step 6 is
+// gone: a reply costs ₱0 (string substitution — phrasings.ts) and cannot loop
+// (step 2), so nothing it protected is left to protect. Held by
+// `no-daily-limit.test.ts`.
 
 export type AutoReplySkipReason =
   | 'flag_off'
   | 'not_couple'
   | 'no_addon'
   | 'no_config'
-  | 'bot_disabled'
-  | 'cap_reached';
+  | 'bot_disabled';
 
 export type AutoReplyGate = { run: true } | { run: false; reason: AutoReplySkipReason };
 
@@ -44,9 +48,7 @@ export type AutoReplyGateInput = {
    */
   addonActive: boolean;
   /** The vendor's vendor_bot_config row, or null when none exists. */
-  config: { enabled: boolean; dailyReplyCap: number } | null;
-  /** vendor_bot_replies rows logged for this vendor since start of (Manila) day. */
-  repliesToday: number;
+  config: { enabled: boolean } | null;
 };
 
 export function evaluateAutoReplyGate(input: AutoReplyGateInput): AutoReplyGate {
@@ -55,23 +57,5 @@ export function evaluateAutoReplyGate(input: AutoReplyGateInput): AutoReplyGate 
   if (!input.addonActive) return { run: false, reason: 'no_addon' };
   if (!input.config) return { run: false, reason: 'no_config' };
   if (!input.config.enabled) return { run: false, reason: 'bot_disabled' };
-  if (input.repliesToday >= input.config.dailyReplyCap) {
-    return { run: false, reason: 'cap_reached' };
-  }
   return { run: true };
-}
-
-/**
- * Start of the CURRENT day in Asia/Manila (UTC+8, no DST), as an ISO string —
- * the `created_at >=` bound for the daily-cap count. Setnayan is a PH-first
- * product, so "daily" means the vendor's business day, not the UTC day: a cap
- * of 30 resets at midnight Manila, which is what a vendor reading "30 replies
- * per day" in the config UI will expect.
- */
-export function startOfManilaDayIso(now: Date = new Date()): string {
-  const MANILA_OFFSET_MS = 8 * 60 * 60 * 1000;
-  const DAY_MS = 24 * 60 * 60 * 1000;
-  const shifted = now.getTime() + MANILA_OFFSET_MS;
-  const dayStartShifted = Math.floor(shifted / DAY_MS) * DAY_MS;
-  return new Date(dayStartShifted - MANILA_OFFSET_MS).toISOString();
 }

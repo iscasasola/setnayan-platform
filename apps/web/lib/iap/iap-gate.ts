@@ -5,7 +5,7 @@
  * All three must hold:
  *   1 · the STORE SHELL — the Capacitor app Apple reviews (lib/store-shell.ts).
  *       The web and the desktop app keep GCash / BDO and never see Apple.
- *   2 · a build that CARRIES THE STOREKIT PLUGIN AND IS VERSION 1.1 OR LATER —
+ *   2 · a build that CARRIES THE STOREKIT PLUGIN AND IS 1.0 (BUILD 6) OR LATER —
  *       it appends `SetnayanIAP/2` (or higher) to its user-agent
  *       (apps/mobile/capacitor.config.ts, iOS only). An older binary has no
  *       plugin: showing it a buy button would be a door with nothing behind it,
@@ -13,15 +13,16 @@
  *       ⚠ 1.0 (build 5) DOES carry the plugin and announces `SetnayanIAP/1` —
  *       but it was reviewed and submitted as an app that sells nothing, so the
  *       owner ruled (2026-10-21) that `/1` NEVER opens Apple, whatever the
- *       switch says. Only `/2`+ (1.1, the build In-App Purchase is submitted
- *       with) does. Build 5 is already built; its token cannot change.
+ *       switch says. Only `/2`+ (1.0 build 6 — the owner resubmits 1.0 WITH
+ *       In-App Purchase, 2026-10-23 — and every later build) does.
+ *       Build 5 is already built; its token cannot change.
  *   3 · the owner's switch `NEXT_PUBLIC_APPLE_IAP_ENABLED` (lib/apple-iap-flag.ts).
  *
  * Any one missing → false, and the store shell hides every paid item exactly as
  * it did before this build.
  */
 
-/** The user-agent token the iOS build that sells through Apple (1.1+) appends. */
+/** The user-agent token the iOS build that sells through Apple (1.0 build 6+) appends. */
 export const NATIVE_STORE_UA_MARKER = 'SetnayanIAP/2';
 
 /**

@@ -179,7 +179,8 @@ export function ThumbRow({
     },
     [field],
   );
-  /* A press on the band or ✕ never takes the focus from the field (it would close the band under the finger). */
+  /* A press on the band or ✕ never takes the focus from the field (it would close the band under the finger) — on
+     `mousedown` only: a cancelled `pointerdown` also cancels a touch's click in WebKit (measured 2026-10-24). */
   const keepFocus = (e: { preventDefault: () => void }) => e.preventDefault();
   return (
     <div ref={rowRef} role="toolbar" aria-label={`${name} tools`} data-riding={riding ? '' : undefined} data-thumb-row={name} className={`${styles.row} ${className}`}>
@@ -217,7 +218,7 @@ export function ThumbRow({
           )}
           {/* ✕ — clears the words while typing (the typed row's ✕); the field keeps its focus. */}
           {riding && field && !('node' in field) ? (
-            <span className={`sn-glass-row ${styles.round} ${styles.clear}`} data-thumb-seat="clear" onPointerDown={keepFocus} onMouseDown={keepFocus}>
+            <span className={`sn-glass-row ${styles.round} ${styles.clear}`} data-thumb-seat="clear" onMouseDown={keepFocus}>
               <ActionButton
                 tone="neutral"
                 iconOnly

@@ -45,7 +45,7 @@ type Common = {
   role?: string;
   barRef?: Ref<HTMLDivElement>;
   /** A press on the band never takes the focus from the field it types for (a band that lives only while the field
-   *  is focused would close under the finger). Always on for `over`. */
+   *  is focused would close under the finger). Always on for `over`. By `mousedown` only (a touch's click survives). */
   keepFocus?: boolean;
 };
 
@@ -84,7 +84,6 @@ export function TypingBand(
       <div
         ref={barRef}
         {...attrs}
-        onPointerDown={keepFocus ? holdFocus : undefined}
         onMouseDown={keepFocus ? holdFocus : undefined}
         className={`${(className as string | undefined) ?? ''} ${SP_KEY_BAR}`.trim()}
       >
@@ -113,8 +112,8 @@ export function TypingBand(
         data-safe-x=""
         {...attrs}
         style={{ left, width, top: -44, bottom: -below }}
-        // A press on the band never takes the focus from the field it is typing for (Done's own press blurs it).
-        onPointerDown={holdFocus}
+        // A press on the band never takes the focus from the field it is typing for (Done's own press blurs it). On
+        // `mousedown` ONLY: a cancelled `pointerdown` also cancels a touch's click in WebKit (measured 2026-10-24).
         onMouseDown={holdFocus}
         className="pointer-events-none absolute z-[-1] flex flex-col rounded-t-2xl bg-[var(--tb-plate)]"
       >

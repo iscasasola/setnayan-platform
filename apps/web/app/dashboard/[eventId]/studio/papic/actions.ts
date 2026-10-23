@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 import { eventIsOver } from '@/lib/event-is-over.server';
 import { payPath } from '@/lib/pay-path';
 import { loadPoolRungs, type PoolRung } from '@/lib/papic-pool-rungs';
+import type { CreditNeedInputs } from '@/lib/papic-credits-need';
 import { keepFirstTwin, openTwinReference } from '@/lib/one-press-one-order';
 import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -777,6 +778,13 @@ export async function claimUploadsCamera(formData: FormData) {
   if (status !== 'claimed') redirect(`${back}?uploads_error=${encodeURIComponent(status)}`);
 
   revalidatePath(back);
+  // 🗂 Switched on from Memories' + Add photos (owner 2026-10-23 — the files live on Memories now): land back there,
+  // where the picker is now open. 🔒 A fixed word picks a fixed path. (A failure above still lands on this page,
+  // which provisions the camera and reads the banner.)
+  if (formData.get('return_to') === 'memories') {
+    revalidatePath(`/dashboard/${eventId}/memories`);
+    redirect(`/dashboard/${eventId}/memories`);
+  }
   redirect(`${back}?uploads_ready=1`);
 }
 
@@ -808,6 +816,10 @@ export async function setPapicStyle(formData: FormData) {
   }
 
   revalidatePath(`/dashboard/${eventId}/studio/papic`);
+  if (savedFromHome(formData)) {
+    revalidatePath(`/dashboard/${eventId}`);
+    redirect(`/dashboard/${eventId}`);
+  }
   redirect(`/dashboard/${eventId}/studio/papic?style_set=${style}`);
 }
 
@@ -1700,9 +1712,23 @@ export async function setPapicWindow(formData: FormData) {
   }
 
   revalidatePath(`/dashboard/${eventId}/studio/papic`);
+  // 🏠 Saved from Home's Papic widget: land back on Home, the card still open (a failure still lands on the Papic
+  // page above, where its banner is read).
+  if (savedFromHome(formData)) {
+    revalidatePath(`/dashboard/${eventId}`);
+    redirect(`/dashboard/${eventId}`);
+  }
   redirect(
     `/dashboard/${eventId}/studio/papic?papic_window_saved=${win.days}`,
   );
+}
+
+/**
+ * 🏠 Was this saved from Home's Papic widget (owner 2026-10-23: the card *"expands on home"*, the URL unchanged)?
+ * 🔒 A fixed word (`return_to=home`) picks a fixed path — never a URL from the form.
+ */
+function savedFromHome(formData: FormData): boolean {
+  return formData.get('return_to') === 'home';
 }
 
 // ── Papic ONE IS RETIRED AS A PURCHASE (owner 2026-08-11) ─────────────────
@@ -1733,13 +1759,51 @@ export async function setPapicWindow(formData: FormData) {
  */
 export async function papicBuySizes(
   rawEventId: string,
-): Promise<{ ok: true; rungs: PoolRung[] } | { ok: false; reason: 'not_couple' | 'over' | 'none' }> {
+): Promise<
+  { ok: true; rungs: PoolRung[]; need: CreditNeedInputs } | { ok: false; reason: 'not_couple' | 'over' | 'none' }
+> {
   const who = await getCoupleEventId(rawEventId);
   if (!who.ok) return { ok: false, reason: 'not_couple' };
   const admin = createAdminClient();
   if (await eventIsOver(admin, who.eventId)) return { ok: false, reason: 'over' };
-  const rungs = await loadPoolRungs(admin);
-  return rungs.length > 0 ? { ok: true, rungs } : { ok: false, reason: 'none' };
+  // 🧮 "How many do I need?" (owner 2026-10-23) — its three reads ride the same tap as the ladder, never the view.
+  const [rungs, need] = await Promise.all([loadPoolRungs(admin), readCreditNeedInputs(admin, who.eventId)]);
+  return rungs.length > 0 ? { ok: true, rungs, need } : { ok: false, reason: 'none' };
+}
+
+/**
+ * The helper's inputs: guests coming (the head count the pot divides by) and the per-guest numbers that EXIST — the
+ * named guests' own and the couple's "everyone else" — only while the per-guest numbers are switched on. A failed head
+ * count is `null` (the helper says "couldn't load"); a failed numbers read counts as none set, so the helper ASKS
+ * rather than sums a number it could not see.
+ */
+async function readCreditNeedInputs(
+  admin: ReturnType<typeof createAdminClient>,
+  eventId: string,
+): Promise<CreditNeedInputs> {
+  const [head, ev, named] = await Promise.all([
+    admin.rpc(ALLOTMENT_RPC.headcount, { p_event_id: eventId }),
+    admin
+      .from('events')
+      .select(`${ALLOTMENT_STORAGE.enabled}, ${ALLOTMENT_STORAGE.everyoneElse}`)
+      .eq('event_id', eventId)
+      .maybeSingle(),
+    admin.from(ALLOTMENT_STORAGE.table).select('ceiling_points').eq('event_id', eventId),
+  ]);
+  if (head.error) logQueryError('papicBuySizes.headcount', head.error, { event_id: eventId }, 'graceful_degrade');
+  if (ev.error) logQueryError('papicBuySizes.event', ev.error, { event_id: eventId }, 'graceful_degrade');
+  if (named.error) logQueryError('papicBuySizes.named', named.error, { event_id: eventId }, 'graceful_degrade');
+  const row = (ev.data ?? null) as Record<string, unknown> | null;
+  const on = !ev.error && row?.[ALLOTMENT_STORAGE.enabled] === true;
+  const everyone = row?.[ALLOTMENT_STORAGE.everyoneElse];
+  return {
+    guestsComing: head.error || typeof head.data !== 'number' ? null : head.data,
+    named:
+      on && !named.error
+        ? (named.data ?? []).map((r) => Number((r as { ceiling_points?: unknown }).ceiling_points ?? 0))
+        : [],
+    everyoneElse: on && typeof everyone === 'number' ? everyone : null,
+  };
 }
 
 /**

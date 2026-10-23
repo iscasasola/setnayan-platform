@@ -150,6 +150,7 @@ const NOT_SHOWN = new Map<string, string>([
   ['app/dashboard/[eventId]/website/site-chrome/page.tsx', 'same — WebsiteProLock description'],
   ['app/dashboard/[eventId]/website/widgets/page.tsx', 'the Pro mark comes from `paidMarkState({ owns, storeShell })`, null for a non-Pro couple in the app'],
   ['app/dashboard/[eventId]/_components/papic-ready-nudge.tsx', 'mounted only `&& !storeShell` (app/dashboard/[eventId]/page.tsx)'],
+  ['app/dashboard/[eventId]/_components/papic-latest-strip.tsx', 'the Papic widget\'s strip — mounted only inside `papicWidget`, built `canViewPapicCounts && !storeShell` (app/dashboard/[eventId]/page.tsx, 2026-10-23)'],
   ['app/dashboard/[eventId]/_components/setnayan-ai-comeback-offer.tsx', 'mounted only `aiOffer && aiOfferSettings && !storeShell` (app/dashboard/[eventId]/page.tsx)'],
   ['app/dashboard/[eventId]/_components/reveal-preview-card.tsx', 'used by Save the Date only, after an Event Hub Pro opening is picked — see StdBuilderClient'],
   ['app/dashboard/[eventId]/website/photo-moments/config.ts', 'the Papic-only hint is drawn only by photo-moments-editor.tsx, which shows app words under `data-app-only`'],

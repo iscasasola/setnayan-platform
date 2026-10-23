@@ -73,6 +73,8 @@ function labPhoto(i: number): GalleryPhoto {
     kind: i % 11 === 4 ? 'clip' : 'photo',
     playUrl: null,
     source: i % 9 === 3 || i % 9 === 8 ? 'vendor' : 'guest',
+    album: i % 9 === 3 || i % 9 === 8 ? 'suppliers' : 'papic',
+    challenge: i % 7 === 2 ? { id: `lab-c${i % 3}`, title: ['First dance', 'The cake', 'Ninongs together'][i % 3]!, order: i % 3 } : null,
     tagged: false,
     tagSource: 'untagged',
     capturedAt: new Date(Date.UTC(2026, 11, 12, 12, 0) - i * 240_000).toISOString(),

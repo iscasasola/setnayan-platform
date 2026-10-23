@@ -86,6 +86,8 @@ import { HubDraftDock } from '../website/_components/hub-draft-dock';
 import { readHomeGuide } from '../_components/details-guide-home-card';
 import { PutAwayCard } from './_components/put-away-card';
 import { PeopleWithAccess } from './_components/people-with-access';
+import { VendorMediaControls } from '../studio/papic/_components/vendor-media-controls';
+import { GuestsGetInCode } from './_components/guests-get-in-code';
 import { RecordFold } from './_components/record-fold';
 import { RecordRowLink } from './_components/record-row-link';
 import { loadPeopleWithAccess } from '@/lib/people-with-access.server';
@@ -646,6 +648,8 @@ export default async function EventDetailsPage({
               record={record}
               waiting={waiting('rsvp_ask_config')}
             />
+            {/* 🚪 The one code, its QR and the poster sit UNDER this row (owner 2026-10-23) — not a second row. */}
+            {viewer.isCouple ? <GuestsGetInCode eventId={eventId} /> : null}
             {guestsReply ? (
               <>
                 <Row
@@ -993,6 +997,9 @@ export default async function EventDetailsPage({
               flash={accessFlash}
               claims={claims}
             />
+            {/* 🗂 A supplier's whole delivery is hidden from Memories HERE, on that supplier's row (owner 2026-10-23 —
+                the moderation that is not one photo). The shipped switch, moved off the Papic page. */}
+            {viewer.isCouple ? <VendorMediaControls eventId={eventId} returnTo="details" /> : null}
           </RecordFold>
         ) : null}
       </div>

@@ -75,6 +75,9 @@ import { DayOfModeGrid } from './_components/day-of-mode/grid';
 import { SetDateNudge } from './_components/set-date-nudge';
 import { readHomeGuide } from './_components/details-guide-home-card';
 import { DayPapicRow, HomeFirstScreen, YourServices } from './_components/home-first-screen';
+import { PapicLatestStrip } from './_components/papic-latest-strip';
+import { PapicCameraSettings } from './studio/papic/_components/papic-camera-settings';
+import { papicCoverageLine, papicDay } from '@/lib/papic-widget';
 import { rosterStats } from '@/lib/guest-roster-view';
 import { HomeWhatsNext } from './_components/home-parts';
 import { getNavSlotMap } from '@/lib/nav-registry';
@@ -734,6 +737,35 @@ export default async function EventHomePage({
     papicOn: papicSwitch === undefined ? null : papicIsOn(papicSwitch),
   });
   const papicNudgeVisible = papicNow.moment === 'ready';
+  /*
+    📷 THE PAPIC WIDGET (owner 2026-10-23: *"a smaller widget on home. Then we can expand it"* · *"does not open to a
+    new page. just expands on home"*). The row gains one coverage line (worked out from the window already read — no
+    read of its own) and the latest five; a tap grows it in place into the event-wide camera settings, which stream
+    in behind the first paint and are drawn only for the couple (the settings are theirs to change). Not in the store
+    shell: there the row is Apple's, and the Papic page itself opens.
+  */
+  const papicDayNow = papicDay({
+    eventDate: (event.event_date as string | null) ?? null,
+    startDate: papicWin.startDate,
+    endIso: papicWin.endIso,
+  });
+  const papicWidget =
+    canViewPapicCounts && !storeShell
+      ? {
+          coverage: papicCoverageLine({ day: papicDayNow, startDate: papicWin.startDate, endIso: papicWin.endIso }),
+          strip: (
+            <Suspense fallback={null}>
+              <PapicLatestStrip eventId={eventId} after={papicDayNow === 'after'} />
+            </Suspense>
+          ),
+          settings:
+            viewerMemberType === 'couple' ? (
+              <Suspense fallback={<p className="py-3 text-sm text-ink/60">Loading your camera settings…</p>}>
+                <PapicCameraSettings eventId={eventId} returnTo="home" />
+              </Suspense>
+            ) : null,
+        }
+      : null;
   const aiOfferShown = Boolean(aiOffer && aiOfferSettings && !storeShell);
   // 🚪 What THIS event needs (owner 2026-10-08, Level 1 — `lib/event-needs.ts`). NULL = never asked = on,
   // so every event made before reads exactly as it did. The type's profile is the layout's (React-cached).
@@ -902,6 +934,7 @@ export default async function EventHomePage({
       figures={facts.figures}
       services={homeServiceRow}
       papicLeft={papicNow.count}
+      papicWidget={papicWidget}
       apple={
         appleFacts
           ? {
@@ -1131,6 +1164,7 @@ export default async function EventHomePage({
               })}
               svc={dayPapicSvc}
               left={papicNow.count}
+              widget={papicWidget}
             />
           }
         />

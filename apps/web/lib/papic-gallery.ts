@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   PAPIC_POINTS_PER_PHOTO,
   PAPIC_PRESERVATION_UNITS_PER_SNIPPET,
+  PAPIC_UPLOADS_CAMERA_INDEX,
 } from '@/lib/papic-cameras';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { memoriesRefs, resolvePlayRef, type PapicDisplayRow } from '@/lib/papic-display-ref';
@@ -105,6 +106,17 @@ export type GalleryPhoto = {
    * (A photo downloads through `saveUrl`.) The viewer never plays this.
    */
   downloadUrl?: string | null;
+  /**
+   * 🗂 WHICH ALBUM ON MEMORIES (owner 2026-10-23: Albums ▾ All · Papic · Challenges · Event Hub · Suppliers · Your
+   * uploads). 'uploads' = the couple's own uploads camera (seat {@link PAPIC_UPLOADS_CAMERA_INDEX}); 'suppliers' =
+   * a supplier's documentation; everything else a camera shot is 'papic'. (Event Hub files are not captures — they
+   * are read by `lib/event-hub-media.server.ts`.)
+   */
+  album: 'papic' | 'uploads' | 'suppliers';
+  /** A GUEST capture's guest — the photo sheet's "Stop this guest shooting" (`blockUploader`). */
+  guestId?: string | null;
+  /** 🎯 MEMORIES ONLY: the challenge this guest capture answered (`papic_mission_completions`), board order kept. */
+  challenge?: { id: string; title: string; order: number } | null;
 };
 
 const GALLERY_LIMIT = 120;
@@ -131,10 +143,13 @@ export async function fetchPapicGallery(
    * version"*): every drawn ref comes from `memoriesRefs` (thumb · tile · display · clip web copy), never the
    * original; the original is only a clip's explicit Download. Off (the Papic page) → unchanged.
    */
-  opts: { compressedOnly?: boolean } = {},
+  opts: { compressedOnly?: boolean; limit?: number } = {},
 ): Promise<GalleryPhoto[]> {
   const now = Date.now();
   const compressedOnly = opts.compressedOnly === true;
+  // 🏠 Home's Papic strip asks for the latest five — each source is cut to it, and so is the merge, so five frames
+  // are signed, never 360.
+  const limit = opts.limit && opts.limit > 0 ? Math.min(opts.limit, GALLERY_LIMIT) : GALLERY_LIMIT;
 
   const [seatRes, guestRes, vendorRes] = await Promise.all([
     supabase
@@ -146,7 +161,7 @@ export async function fetchPapicGallery(
       )
       .eq('event_id', eventId)
       .order('captured_at', { ascending: false })
-      .limit(GALLERY_LIMIT),
+      .limit(limit),
     supabase
       .from('papic_guest_captures')
       .select(
@@ -154,7 +169,7 @@ export async function fetchPapicGallery(
       )
       .eq('event_id', eventId)
       .order('captured_at', { ascending: false })
-      .limit(GALLERY_LIMIT),
+      .limit(limit),
     // Vendor documentation captures (owner 2026-07-22 "compiles on the event
     // gallery") — photos AND clips (a clip tiles on its poster_r2_key). Nothing
     // surfaces until the WHOLE LANE is DPO-approved (the admin 'vendor_papic_capture'
@@ -168,7 +183,7 @@ export async function fetchPapicGallery(
       )
       .eq('event_id', eventId)
       .order('captured_at', { ascending: false })
-      .limit(GALLERY_LIMIT),
+      .limit(limit),
   ]);
 
   // Which suppliers has the couple taken out of their own gallery? One read,
@@ -270,16 +285,54 @@ export async function fetchPapicGallery(
   const { data: seatRowsForCredit } = seatIds.length
     ? await supabase
         .from('paparazzi_seats')
-        .select('seat_id, claimer_user_id, guest_id')
+        .select('seat_id, claimer_user_id, seat_index, guest_id')
         .eq('event_id', eventId)
         .in('seat_id', seatIds)
-    : { data: [] as { seat_id: string; claimer_user_id: string | null; guest_id: string | null }[] };
+    : { data: [] as { seat_id: string; claimer_user_id: string | null; guest_id: string | null; seat_index: number | null }[] };
   const seatById = new Map(
     (seatRowsForCredit ?? []).map((r) => [
       r.seat_id as string,
-      r as { seat_id: string; claimer_user_id: string | null; guest_id: string | null },
+      r as { seat_id: string; claimer_user_id: string | null; guest_id: string | null; seat_index: number | null },
     ]),
   );
+  /** The couple's own uploads camera is its own album; every other seat is Papic. */
+  const seatAlbum = (row: { paparazzi_seat_id?: unknown }): 'papic' | 'uploads' =>
+    typeof row.paparazzi_seat_id === 'string' &&
+    seatById.get(row.paparazzi_seat_id)?.seat_index === PAPIC_UPLOADS_CAMERA_INDEX
+      ? 'uploads'
+      : 'papic';
+
+  // 🎯 WHICH CHALLENGE EACH GUEST PHOTO ANSWERED — Memories only (its Challenges album and the tag in All). Two
+  // couple-readable reads (RLS: couple · coordinator); a refusal tags nothing, it never drops a photo.
+  const challengeByCapture = new Map<string, { id: string; title: string; order: number }>();
+  const guestCaptureIds = ids(visibleGuest.map((r) => r.capture_id as string | null));
+  if (compressedOnly && guestCaptureIds.length > 0) {
+    const [done, missions] = await Promise.all([
+      supabase
+        .from('papic_mission_completions')
+        .select('capture_id, mission_id')
+        .eq('event_id', eventId)
+        .in('capture_id', guestCaptureIds),
+      supabase
+        .from('papic_missions')
+        .select('mission_id, prompt, board_slot, created_at')
+        .eq('event_id', eventId)
+        .order('board_slot', { ascending: true, nullsFirst: false })
+        .order('created_at', { ascending: true }),
+    ]);
+    if (done.error) console.error('[supabase-error] lib/papic-gallery.ts · from:papic_mission_completions.select', done.error);
+    if (missions.error) console.error('[supabase-error] lib/papic-gallery.ts · from:papic_missions.select', missions.error);
+    const missionById = new Map(
+      (missions.data ?? []).map((m, i) => [
+        m.mission_id as string,
+        { id: m.mission_id as string, title: String(m.prompt ?? '').trim(), order: i },
+      ]),
+    );
+    for (const c of done.data ?? []) {
+      const m = missionById.get(c.mission_id as string);
+      if (m && typeof c.capture_id === 'string') challengeByCapture.set(c.capture_id, m);
+    }
+  }
 
   const credits = await resolveCapturerNames(eventId, {
     personIds: [
@@ -361,6 +414,7 @@ export async function fetchPapicGallery(
       preserved: !!r.preserved_at && !r.full_res_dropped_at,
       alreadyCompressed: Boolean(r.full_res_dropped_at),
       source: 'seat',
+      album: seatAlbum(r),
       tagged: Boolean(tagSrc),
       tagSource: mapTagSource(tagSrc),
       capturedAt: r.captured_at as string,
@@ -406,6 +460,9 @@ export async function fetchPapicGallery(
       preserved: !!r.preserved_at && !r.full_res_dropped_at,
       alreadyCompressed: Boolean(r.full_res_dropped_at),
       source: 'guest',
+      album: 'papic',
+      guestId: typeof r.guest_id === 'string' ? r.guest_id : null,
+      challenge: challengeByCapture.get(r.capture_id as string) ?? null,
       tagged: Boolean(tagSrc),
       tagSource: mapTagSource(tagSrc),
       capturedAt: r.captured_at as string,
@@ -439,6 +496,7 @@ export async function fetchPapicGallery(
       videoRef: isClip ? (r.r2_object_key as string | null) : null,
       kind: isClip ? ('clip' as const) : ('photo' as const),
       source: 'vendor' as const,
+      album: 'suppliers' as const,
       tagged: false,
       tagSource: 'untagged' as GalleryTagSource,
       capturedAt: r.captured_at as string,
@@ -449,9 +507,9 @@ export async function fetchPapicGallery(
     });
   });
 
-  const merged = [...seatPhotos, ...guestPhotos, ...vendorPhotos].sort(
-    (a, b) => new Date(b.capturedAt).getTime() - new Date(a.capturedAt).getTime(),
-  );
+  const merged = [...seatPhotos, ...guestPhotos, ...vendorPhotos]
+    .sort((a, b) => new Date(b.capturedAt).getTime() - new Date(a.capturedAt).getTime())
+    .slice(0, opts.limit && opts.limit > 0 ? limit : undefined);
 
   return Promise.all(
     merged.map(async ({ ref, videoRef, viewRef, largeRef, downloadRef, ...rest }) => ({

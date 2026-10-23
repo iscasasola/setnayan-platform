@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { ArrowRight, BookOpen, Camera, CalendarDays, Check, ChevronDown, Clapperboard, Gem, ListChecks, Mail, Music, Plus, QrCode, Radio, Sparkles, UserPlus, type LucideIcon } from 'lucide-react';
 import { NextCard } from '@/app/_components/next-card';
+import { PapicHomeWidget } from './papic-home-widget';
 import { ActionButton, type ActionTone } from '@/components/action-button';
 import { Count, Fill } from '@/components/count';
 import { dayPapicView, type DayPapicFace, type HomeNext, type HomeNextKind, type HomeService, type HomeServiceKey, type PaidRow, type PapicRowDoors } from '@/lib/home-first-screen';
@@ -159,6 +160,8 @@ export type HomeFirstScreenProps = {
   papicLeft?: number | null;
   /** The credit ladder, ONLY when a dev lab already holds it — Home reads it on the tap. */
   papicSizes?: PoolRung[] | null;
+  /** 📷 The Papic widget's slots (owner 2026-10-23) — the row then opens IN PLACE. Absent = the plain row. */
+  papicWidget?: PapicWidgetSlots | null;
   /**
    * 🚪 WHAT THIS EVENT NEEDS (owner 2026-10-08, Level 1 — `lib/event-needs.ts`). Absent = every need on
    * (yesterday's Home, byte-identical). A need that is off is ABSENT, never greyed: no guest list → no
@@ -216,6 +219,7 @@ export function HomeFirstScreen({
   whatsNext,
   papicLeft = null,
   papicSizes = null,
+  papicWidget = null,
   needs = null,
   apple = null,
 }: HomeFirstScreenProps) {
@@ -374,7 +378,7 @@ export function HomeFirstScreen({
         {whatsNext ?? <HomeWhatsNext open={null} rows={[]} checklist={{ href: `/dashboard/${eventId}/checklist`, pct: null }} />}
 
         {/* ⑥ YOUR SERVICES — compact, one line each; never the one that is Next. */}
-        <YourServices eventId={eventId} services={services} apple={apple} papicLeft={papicLeft} papicSizes={papicSizes} />
+        <YourServices eventId={eventId} services={services} apple={apple} papicLeft={papicLeft} papicSizes={papicSizes} papicWidget={papicWidget} />
 
         {/* 🚪 SWITCH ON MORE — the ONE row that keeps what this event left off (owner 2026-10-08:
             "the rest stays off but can be switched on later from Home's quick setup"). It unfolds in
@@ -421,12 +425,15 @@ export function YourServices({
   apple = null,
   papicLeft,
   papicSizes = null,
+  papicWidget = null,
 }: {
   eventId: string;
   services: HomeService[];
   apple?: HomeFirstScreenProps['apple'];
   papicLeft: number | null;
   papicSizes?: PoolRung[] | null;
+  /** 📷 Papic's row opens in place on Home (owner 2026-10-23). */
+  papicWidget?: PapicWidgetSlots | null;
 }) {
   if (!(services.length > 0 || apple?.papic || apple?.liveWatch)) return null;
   return (
@@ -465,7 +472,7 @@ export function YourServices({
         {services.map((svc, i) => {
           const Icon = SERVICE_ICON[svc.key];
           if (svc.key === 'papic' && svc.papic) {
-            return <PapicServiceRow key={svc.key} eventId={eventId} svc={svc} doors={svc.papic} left={papicLeft} sizes={papicSizes} />;
+            return <PapicServiceRow key={svc.key} eventId={eventId} svc={svc} doors={svc.papic} left={papicLeft} sizes={papicSizes} widget={papicWidget} />;
           }
           if (svc.paid) {
             /* 🧾 "Not added" heads the slim lines once (prototype: owned rows, then Not added). */
@@ -505,7 +512,27 @@ export function YourServices({
  * Papic holds the Next card — and only while that card is on screen (`papicRowDoubled`,
  * `[data-while-next]`): a "Later" brings the row's own Buy more straight back (walk-b6 F1).
  */
-function PapicServiceRow({ eventId, svc, doors, left, sizes }: { eventId: string; svc: HomeService; doors: PapicRowDoors; left: number | null; sizes: PoolRung[] | null }) {
+/**
+ * 📷 THE PAPIC WIDGET'S SLOTS (owner 2026-10-23) — what Home hands the row so it opens IN PLACE: the one coverage
+ * line, the latest-five strip, and the expanded camera settings (null for a viewer who may not change them).
+ */
+export type PapicWidgetSlots = { coverage: string | null; strip: ReactNode; settings: ReactNode };
+
+function PapicServiceRow({
+  eventId,
+  svc,
+  doors,
+  left,
+  sizes,
+  widget = null,
+}: {
+  eventId: string;
+  svc: HomeService;
+  doors: PapicRowDoors;
+  left: number | null;
+  sizes: PoolRung[] | null;
+  widget?: PapicWidgetSlots | null;
+}) {
   const photos = typeof doors.glance.result === 'number' && doors.glance.result > 0 ? doors.glance.result : null;
   const acts =
     doors.buy || photos ? (
@@ -524,7 +551,7 @@ function PapicServiceRow({ eventId, svc, doors, left, sizes }: { eventId: string
         {photos ? <PapicSeePhotos tone="neutral" label={seePhotosWord(photos)} href={`/dashboard/${eventId}/memories`} /> : null}
       </>
     ) : null;
-  return (
+  const row = (
     <ServiceGlanceRow
       href={`/dashboard/${eventId}/studio/papic`}
       name={svc.name}
@@ -536,8 +563,12 @@ function PapicServiceRow({ eventId, svc, doors, left, sizes }: { eventId: string
       meterLabel="Credits left"
       actions={acts}
       marker={{ 'data-home-service': 'papic' }}
+      toggle={Boolean(widget?.settings)}
     />
   );
+  /* 📷 THE WIDGET (owner 2026-10-23): the same row, the coverage line and the latest five — a tap grows the card in
+     place into the camera settings. */
+  return widget ? <PapicHomeWidget row={row} coverage={widget.coverage} strip={widget.strip} settings={widget.settings} /> : row;
 }
 
 /**
@@ -553,18 +584,21 @@ export function DayPapicRow({
   svc,
   left,
   sizes = null,
+  widget = null,
 }: {
   eventId: string;
   face: DayPapicFace;
   svc: HomeService | undefined;
   left: number | null;
   sizes?: PoolRung[] | null;
+  /** 📷 On the day the same widget opens in place (owner 2026-10-23). */
+  widget?: PapicWidgetSlots | null;
 }) {
   const view = dayPapicView(face, svc, eventId);
   if (view.kind === 'hidden' || !svc) return null;
   const body =
     view.kind === 'row' ? (
-      <PapicServiceRow eventId={eventId} svc={svc} doors={view.doors} left={left} sizes={sizes} />
+      <PapicServiceRow eventId={eventId} svc={svc} doors={view.doors} left={left} sizes={sizes} widget={widget} />
     ) : view.kind === 'say' ? (
       <ServiceGlanceRow
         href={view.href}

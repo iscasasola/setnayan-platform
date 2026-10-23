@@ -46,13 +46,22 @@ export type StepperRung = {
 export function CreditStepper({
   rungs,
   onRungChange,
+  jump = null,
 }: {
   rungs: readonly StepperRung[];
   /** 🎨 Told the rung on screen, so the sheet can say "After this: N credits" (owner 2026-10-14). */
   onRungChange?: (rung: StepperRung) => void;
+  /**
+   * 🧮 "How many do I need?" lands the stepper on a rung (owner 2026-10-23). `n` changes on every landing, so the
+   * same rung asked for twice still moves back to it after the couple stepped away. − / + keep working after it.
+   */
+  jump?: { index: number; n: number } | null;
 }) {
   const [i, setI] = useState(0);
   const liveId = useId();
+  useEffect(() => {
+    if (jump) setI(jump.index);
+  }, [jump]);
   const shown = rungs[Math.min(Math.max(i, 0), rungs.length - 1)];
   useEffect(() => {
     if (shown && onRungChange) onRungChange(shown);

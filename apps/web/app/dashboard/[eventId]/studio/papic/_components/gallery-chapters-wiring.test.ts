@@ -17,12 +17,19 @@ import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const PAGE = stripComments(readFileSync(resolve(HERE, '..', 'page.tsx'), 'utf8'));
-const GRID = stripComments(readFileSync(resolve(HERE, 'papic-gallery-grid.tsx'), 'utf8'));
+/*
+  🗂 THE CHAPTERS MOVED WITH THE PHOTOS (owner 2026-10-23, PR-B): the event's photos live on its Memories tab, where
+  "Follow moments in order" groups them by the day's moments in schedule order. The Papic page is the camera only.
+  PAGE is the Memories page (it computes the moments); GRID is the Memories gallery and the grouping it calls.
+*/
+const PAGE = stripComments(readFileSync(resolve(HERE, '..', '..', '..', 'memories', 'page.tsx'), 'utf8'));
+const GRID =
+  stripComments(readFileSync(resolve(HERE, '..', '..', '..', '..', '..', '_components', 'memories', 'event-memories-gallery.tsx'), 'utf8')) +
+  stripComments(readFileSync(resolve(HERE, '..', '..', '..', '..', '..', '..', 'lib', 'memories-albums.ts'), 'utf8'));
 
-test('the studio page actually computes chapters and hands them to the grid', () => {
+test('the Memories page actually computes the moments and hands them to the gallery', () => {
   assert.ok(/groupIntoChapters\(/.test(PAGE), 'the engine is never called');
-  assert.ok(/chapters=\{galleryChapters\}/.test(PAGE), 'the result never reaches the grid');
+  assert.ok(/moments=\{moments\}/.test(PAGE), 'the result never reaches the gallery');
   assert.ok(/fetchScheduleBlocks\(/.test(PAGE), 'the run of show is never read');
 });
 
@@ -43,11 +50,12 @@ test('the schedule is converted, never compared raw', () => {
 
 test('a schedule that cannot be read leaves the gallery whole', () => {
   assert.ok(
-    /catch\s*\{[\s\S]{0,80}galleryChapters = undefined/.test(PAGE),
-    'A failed schedule read must fall back to the flat gallery. A gallery is ' +
+    /catch\s*\{[\s\S]{0,140}moments = null/.test(PAGE),
+    'A failed schedule read must fall back to the flat stream. Memories is ' +
       "somebody's wedding; it must never be a blank page because a heading " +
       'could not be computed.',
   );
+  assert.ok(/fetchScheduleBlocks\(supabase, eventId\)\.catch\(\(\) => null\)/.test(PAGE), 'a refused schedule throws the page');
 });
 
 test('one chapter over everything is not offered', () => {
@@ -58,31 +66,19 @@ test('one chapter over everything is not offered', () => {
   );
 });
 
-test('the grid renders headings and lets the filter bar still rule', () => {
-  assert.ok(/headingFor/.test(GRID), 'no heading is ever rendered');
-  assert.ok(
-    /const ordered =\s*\n?\s*chapters && chapters\.length > 0/.test(GRID),
-    'chapters must set the order — a story reads forward, the flat gallery does not',
-  );
-  // A chapter whose frames were all filtered away must print nothing.
-  assert.ok(
-    /for \(const photo of ordered\)/.test(GRID),
-    'headings must be assigned from the VISIBLE frames, or filtering leaves empty headings',
-  );
+test('the gallery renders the moments’ headings, in schedule order, from the VISIBLE photos', () => {
+  assert.ok(/data-memories-section-head=""/.test(GRID), 'no heading is ever rendered');
+  assert.ok(/for \(const m of moments\)/.test(GRID), 'the moments no longer set the order — a story reads forward');
+  // A moment whose photos were all searched away must print nothing.
+  assert.ok(/if \(list\.length > 0\) out\.push/.test(GRID), 'an empty moment prints a heading over nothing');
+  assert.ok(/momentGroups\(\s*shown\.map/.test(GRID), 'headings must come from the VISIBLE photos (the album after the search), or a search leaves empty headings');
 });
 
-test('a frame in no chapter is still shown', () => {
-  assert.ok(
-    /Number\.MAX_SAFE_INTEGER/.test(GRID),
-    'An unchaptered frame must sort last, not vanish. Nothing in this gallery ' +
-      'is ever silently dropped.',
-  );
+test('a photo in no moment is still shown', () => {
+  assert.ok(/label: 'Other moments'/.test(GRID), 'A photo outside every moment must come last, not vanish.');
 });
 
-test('without chapters the gallery is unchanged', () => {
-  assert.ok(
-    /chapters\?: \{ key: string; label: string; photoIds: string\[\] \}\[\];/.test(GRID),
-    'the prop must be OPTIONAL so every existing caller keeps its behaviour',
-  );
-  assert.ok(/: shown;/.test(GRID), 'with no chapters the original order must pass through untouched');
+test('without moments the gallery is unchanged', () => {
+  assert.ok(/moments\?: Moment\[\] \| null;/.test(GRID), 'the prop must be OPTIONAL so every caller keeps its behaviour');
+  assert.ok(/return \[\{ key: 'all', label: null, items: shown \}\];/.test(GRID), 'with no moments the stream must pass through untouched');
 });

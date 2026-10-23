@@ -65,6 +65,7 @@ export function ServiceGlanceRow({
   marker,
   meter,
   slim,
+  toggle = false,
 }: {
   href: string;
   name: string;
@@ -86,6 +87,13 @@ export function ServiceGlanceRow({
    * and no status line or meter. The same row at its smallest, never another card.
    */
   slim?: string;
+  /**
+   * 🏠 THE ROW OPENS IN PLACE (owner 2026-10-23, Home's Papic widget: *"does not open to a new page. just expands
+   * on home"*). The words become a `<button data-glance-toggle>` instead of the link — the widget around it
+   * (`papic-home-widget.tsx`) answers the tap and grows the card; the URL never changes. `href` stays the door for
+   * every other row.
+   */
+  toggle?: boolean;
 }) {
   if (slim !== undefined) {
     return (
@@ -109,9 +117,8 @@ export function ServiceGlanceRow({
     );
   }
   const drawMeter = meter ?? mood !== 'plain';
-  return (
-    <div className="sg-row" data-mood={mood} {...marker}>
-      <Link href={href} className="block min-w-0">
+  const words = (
+    <>
         <span className="sg-head">
           <span className="sg-mark" aria-hidden>
             {icon}
@@ -130,7 +137,19 @@ export function ServiceGlanceRow({
           </span>
         </span>
         {drawMeter ? <GlanceMeter mood={mood} pct={pct} label={meterLabel} /> : null}
-      </Link>
+    </>
+  );
+  return (
+    <div className="sg-row" data-mood={mood} {...marker}>
+      {toggle ? (
+        <button type="button" data-glance-toggle="" aria-expanded="false" className="block w-full min-w-0 text-left">
+          {words}
+        </button>
+      ) : (
+        <Link href={href} className="block min-w-0">
+          {words}
+        </Link>
+      )}
       {actions ? <div className="sg-acts">{actions}</div> : null}
     </div>
   );

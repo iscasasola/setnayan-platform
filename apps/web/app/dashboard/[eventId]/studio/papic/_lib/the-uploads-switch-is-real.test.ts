@@ -46,7 +46,14 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const PAPIC = dirname(dirname(fileURLToPath(import.meta.url)));
-const PAGE = readFileSync(join(PAPIC, 'page.tsx'), 'utf8');
+/* 🗂 THE SWITCH MOVED WITH THE FILES (owner 2026-10-23, PR-B): the Papic page is the camera only, and + Add photos —
+   the picker this switch governs — is on the event's Memories tab, its switch in the Memories ⚙ sheet. `PAGE` is
+   where the picker branches now; `PAPIC_PAGE` still reads the save's outcome (the action lands there). */
+const MEMORIES = join(PAPIC, '..', '..', 'memories');
+const PAGE =
+  readFileSync(join(MEMORIES, 'page.tsx'), 'utf8') +
+  readFileSync(join(MEMORIES, '_components', 'memories-settings.tsx'), 'utf8');
+const PAPIC_PAGE = readFileSync(join(PAPIC, 'page.tsx'), 'utf8');
 const CHOICE = readFileSync(join(PAPIC, '_components/uploads-open-choice.tsx'), 'utf8');
 const ACTIONS = readFileSync(join(PAPIC, 'actions.ts'), 'utf8');
 
@@ -62,7 +69,7 @@ test('🚨 the switch actually GOVERNS the picker', () => {
   assert.match(PAGE, /const uploadsOpen =/, 'the page no longer reads the column');
   assert.match(
     PAGE,
-    /\{!uploadsOpen \?/,
+    /[{=(:?]\s*!uploadsOpen \?/,
     'the picker no longer branches on the switch — turning it off would save a value and change nothing a person can see',
   );
 });
@@ -105,7 +112,7 @@ test('the copy says what it costs, and what OFF actually means', () => {
 test('🚨 saving it is confirmed, never silent', () => {
   // Nine settings on this page once saved into the void.
   assert.match(ACTIONS, /uploads_open_set=/, 'the action no longer reports its outcome');
-  assert.match(PAGE, /uploadsOpenSet \?/, 'the outcome is emitted and read by nothing — the exact defect the banners guard was written after');
+  assert.match(PAPIC_PAGE, /uploadsOpenSet \?/, 'the outcome is emitted and read by nothing — the exact defect the banners guard was written after');
 });
 
 /**

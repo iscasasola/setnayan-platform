@@ -36,7 +36,8 @@ const read = (rel: string) => readFileSync(join(WEB, rel), 'utf8');
 const ACTIONS = 'app/dashboard/[eventId]/studio/papic/actions.ts';
 // 🎨 The doorway is the Buy more sheet's form now (owner 2026-10-14).
 const POOL_CARD = 'app/dashboard/[eventId]/studio/papic/_components/papic-buy-form.tsx';
-const BAND = 'app/dashboard/[eventId]/studio/papic/_components/papic-top-band.tsx';
+// 📷 The camera settings carry Add more since 2026-10-23 (the Papic page and Home's widget both draw them).
+const BAND = 'app/dashboard/[eventId]/studio/papic/_components/papic-camera-settings.tsx';
 const SHEET = 'app/dashboard/[eventId]/studio/papic/_components/papic-buy-sheet.tsx';
 const PAPIC_PAGE = 'app/dashboard/[eventId]/studio/papic/page.tsx';
 const ACTIVATION = 'lib/sku-activation.ts';
@@ -83,7 +84,7 @@ test('the Papic studio mounts the Pool card', () => {
   // The page mounts the band, the band mounts the sheet, the sheet mounts the
   // form — the assertion that would have caught the original defect, followed
   // through the 2026-10-14 band: every piece can be perfect while nothing MOUNTS it.
-  assert.match(read(PAPIC_PAGE), /<PapicTopBand\b/, `${PAPIC_PAGE} must render <PapicTopBand>`);
+  assert.match(read(PAPIC_PAGE), /<PapicCameraSettings\b/, `${PAPIC_PAGE} must render <PapicCameraSettings>`);
   assert.match(read(BAND), /<PapicBuySheet\b/, `${BAND} must render <PapicBuySheet>`);
   assert.match(read(SHEET), /<PapicBuyForm\b/, `${SHEET} must render <PapicBuyForm>`);
 });

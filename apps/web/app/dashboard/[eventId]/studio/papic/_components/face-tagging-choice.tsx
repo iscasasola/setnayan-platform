@@ -35,9 +35,12 @@ import { setCoupleFaceTaggingDeclined } from '../face-tagging-actions';
 export async function FaceTaggingChoice({
   eventId,
   variant = 'card',
+  returnTo = null,
 }: {
   eventId: string;
   variant?: 'card' | 'row';
+  /** 🏠 'home' when drawn in Home's Papic widget — the save lands back on Home (`return_to`). */
+  returnTo?: 'home' | null;
 }) {
   // The caller's own client checks the row is theirs to read (RLS)…
   const supabase = await createClient();
@@ -112,6 +115,7 @@ export async function FaceTaggingChoice({
     <form action={setCoupleFaceTaggingDeclined}>
       <input type="hidden" name="event_id" value={eventId} />
       <input type="hidden" name="declined" value={declined ? '0' : '1'} />
+      {returnTo ? <input type="hidden" name="return_to" value={returnTo} /> : null}
       <SubmitButton
         pendingLabel="Saving…"
         className="rounded-lg bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10"

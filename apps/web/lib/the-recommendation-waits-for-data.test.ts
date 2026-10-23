@@ -121,8 +121,12 @@ test('the balance itself is untouched — this guard must not have silenced the 
     join(WEB, 'app/dashboard/[eventId]/studio/papic/page.tsx'),
     'utf8',
   );
-  // 🎨 One band now carries the balance, the meter and Buy more (owner 2026-10-14).
-  assert.match(page, /<PapicTopBand\b/, 'the live credit balance is gone from the Papic page');
+  // 📷 The camera settings carry the balance — total · used · remaining — the meter and Add more (owner 2026-10-23);
+  // the Papic page and Home's widget both draw them.
+  const settings = readFileSync(join(WEB, 'app/dashboard/[eventId]/studio/papic/_components/papic-camera-settings.tsx'), 'utf8');
+  assert.match(page, /<PapicCameraSettings\b/, 'the camera settings are gone from the Papic page');
+  assert.match(settings, /data-papic-credits=""/, 'the live credit balance is gone from the camera settings');
+  assert.match(settings, /role="meter"/, 'the meter is gone from the camera settings');
 });
 
 test('🎟 onboarding recommends NOTHING either — each pack states its own estimate (owner 2026-10-15)', () => {

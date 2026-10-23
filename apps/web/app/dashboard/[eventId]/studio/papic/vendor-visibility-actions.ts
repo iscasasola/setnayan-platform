@@ -66,5 +66,12 @@ export async function setVendorCapturesHidden(formData: FormData): Promise<void>
   if (error) redirect(`${back}?vendorMedia=error`);
 
   revalidatePath(back);
+  // 🗂 Pressed on the supplier's row in Settings › Event access (owner 2026-10-23): back there. 🔒 A fixed word picks a
+  // fixed path, never a URL from the form. (A failure above still lands on the Papic page, whose banner reads it.)
+  if (formData.get('return_to') === 'details') {
+    revalidatePath(`/dashboard/${eventId}/details`);
+    revalidatePath(`/dashboard/${eventId}/memories`);
+    redirect(`/dashboard/${eventId}/details`);
+  }
   redirect(`${back}?vendorMedia=${hidden ? 'hidden' : 'shown'}`);
 }

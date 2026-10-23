@@ -319,31 +319,37 @@ function asksAppleIap(src: string, at: number): boolean {
 test('3 · the Papic page reads the gate once, and every web-only offer on it asks it', () => {
   const src = code(PAPIC_PAGE);
   assert.match(src, /const appleIap = \(await getIapGate\(\)\)\.iap;/);
+  // (2026-10-23: the crew-camera ladder, the guest-camera tier sheet and the unlock bundle are GONE from the page —
+  //  not gated, removed; Papic sells credits only and the page is the camera settings. They may not come back.)
+  for (const gone of ['ExtraCamerasPicker', 'GuestCameraTierPicker', 'LimitedCard', 'PAPIC_UNLOCK']) {
+    assert.ok(!new RegExp(`<${gone}\\b|serviceKey="${gone}"`).test(src), `${gone} is on the Papic page again`);
+  }
   // Each mount of a thing sold only on the web (apply-then-pay → /pay) — found by name, counted, every one gated.
-  const SOLD_ON_THE_WEB = ['InlineCheckoutDrawer', 'ExtraCamerasPicker', 'GuestCameraTierPicker', 'DslrBridgeSection'];
+  const SOLD_ON_THE_WEB = ['InlineCheckoutDrawer', 'DslrBridgeSection'];
   let mounts = 0;
   const ungated: string[] = [];
   for (const name of SOLD_ON_THE_WEB) {
     for (const m of src.matchAll(new RegExp(`<${name}\\b`, 'g'))) {
       mounts++;
-      const inLimitedCard = name === 'GuestCameraTierPicker';
-      // The tier picker sits inside LimitedCard, whose own `appleIap` prop decides it (and the page hands it in).
-      if (!asksAppleIap(src, m.index!)) ungated.push(`${name} @${src.slice(0, m.index!).split('\n').length}${inLimitedCard ? ' (LimitedCard)' : ''}`);
+      if (!asksAppleIap(src, m.index!)) ungated.push(`${name} @${src.slice(0, m.index!).split('\n').length}`);
     }
   }
-  assert.ok(mounts >= 5, `found only ${mounts} web-offer mounts — the anchor moved`);
+  assert.ok(mounts >= 1, `found only ${mounts} web-offer mounts — the anchor moved`);
   assert.deepEqual(ungated, [], 'A web-only offer is drawn on the Papic page with nothing asking `appleIap`:\n  ' + ungated.join('\n  '));
-  // The ₱ fallbacks of both offers sit inside the same gated sections.
-  for (const m of src.matchAll(/formatPhp\((papicUnlockPricePhp|keepFullResPricePhp)\)/g)) {
-    assert.ok(asksAppleIap(src, m.index!), `a bare ₱ (${m[1]}) is drawn in the app`);
-  }
-  // Every part handed the gate.
-  for (const mount of ['<StatusBanners', '<PapicTopBand', '<LiveWallCard', '<LimitedCard', '<GalleryPreviewCard']) {
+  // Every part handed the gate — the camera settings draw Add more as Apple's sheet there.
+  for (const mount of ['<StatusBanners', '<PapicCameraSettings']) {
     const at = src.indexOf(mount);
     assert.ok(at > 0, `${mount} moved`);
     assert.match(src.slice(at, src.indexOf('/>', at)), /appleIap=\{appleIap\}|apple=\{appleIap\}/, `${mount} is not handed the gate`);
   }
-  assert.match(src, /preservationTotals=\{appleIap \? null : preservationTotals\}/, 'the keep-at-full-size ₱ line is drawn in the app');
+  const settings = code('app/dashboard/[eventId]/studio/papic/_components/papic-camera-settings.tsx');
+  assert.match(settings, /\) : apple \? \(\s*<IapPapicSheet\b/, 'Add more is not Apple’s sheet in the app');
+  assert.match(settings, /day === 'after' && apple \? null/, 'the Thank-You Video (web only) is drawn in the app after the day');
+  // 🗂 The files' web-only offers moved to the Memories ⚙ sheet with the files — gated there.
+  const memories = code('app/dashboard/[eventId]/memories/_components/memories-settings.tsx');
+  assert.match(memories, /\{apple \? null : \(\s*<section[^>]*>\s*<KeepFullResRow\b/, 'Keep full-res is drawn in the app');
+  assert.match(memories, /<LiveWallCard eventId=\{eventId\} appleIap=\{apple\} \/>/, 'the photo wall is not handed the gate');
+  assert.match(code('app/dashboard/[eventId]/memories/page.tsx'), /apple=\{gate\.iap\}/, 'Memories does not hand its sheet the gate');
   assert.match(src, /href=\{appleIap \? `\/dashboard\/\$\{eventId\}` : studioHubHref\(eventId\)\}/, 'Back goes to the More menu, which the app does not build');
   assert.match(code('app/dashboard/[eventId]/studio/papic/_components/live-wall-card.tsx'), /if \(appleIap\) return null;/);
 });

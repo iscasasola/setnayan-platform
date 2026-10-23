@@ -67,5 +67,10 @@ export async function setCoupleFaceTaggingDeclined(formData: FormData): Promise<
   if (declined) await eraseEventFaceTaggingSelfies(admin, eventId);
 
   revalidatePath(back);
+  // 🏠 Saved from Home's Papic widget (`return_to=home`, a fixed word → a fixed path): back to Home, the card open.
+  if (formData.get('return_to') === 'home') {
+    revalidatePath(`/dashboard/${eventId}`);
+    redirect(`/dashboard/${eventId}`);
+  }
   redirect(`${back}?faceTagging=${declined ? 'off' : 'on'}`);
 }

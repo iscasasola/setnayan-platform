@@ -20,7 +20,14 @@ import { setVendorCapturesHidden } from '../vendor-visibility-actions';
  * A couple who reads "hide" as "destroy" would be misled at exactly the moment
  * they are trying to exercise control, so the line under the switch says it.
  */
-export async function VendorMediaControls({ eventId }: { eventId: string }) {
+export async function VendorMediaControls({
+  eventId,
+  returnTo = null,
+}: {
+  eventId: string;
+  /** 🗂 'details' on Settings › Event access — the switch lands back there. */
+  returnTo?: 'details' | null;
+}) {
   const supabase = await createClient();
 
   // Suppliers on this event, with their current setting.
@@ -72,16 +79,15 @@ export async function VendorMediaControls({ eventId }: { eventId: string }) {
   if (rows.length === 0) return null;
 
   return (
-    <section className="space-y-3 sn-tile p-5 sm:p-6">
+    /* 🗂 On Settings › Event access now (owner 2026-10-23): one row per supplier who shot, the switch on its row. */
+    <section className="space-y-2 pt-4" data-vendor-media="">
       <div className="space-y-1">
-        <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
-          <Camera aria-hidden className="h-5 w-5 text-ink/55" strokeWidth={1.75} />
+        <h3 className="flex items-center gap-2 text-[15px] font-semibold text-ink">
+          <Camera aria-hidden className="h-4 w-4 text-ink/55" strokeWidth={1.75} />
           Suppliers&rsquo; photos
-        </h2>
-        <p className="max-w-prose text-sm text-ink/60">
-          Suppliers who shot at your event put their photos in your gallery. Turn one
-          off and their photos leave your gallery — they keep their own copies, and
-          nothing is deleted.
+        </h3>
+        <p className="max-w-prose text-[13px] text-ink/60">
+          Hide a supplier and their photos leave your Memories — they keep their own copies, and nothing is deleted.
         </p>
       </div>
 
@@ -95,13 +101,14 @@ export async function VendorMediaControls({ eventId }: { eventId: string }) {
                   {v.vendor_name?.trim() || 'Your supplier'}
                 </p>
                 <p className="text-xs text-ink/55">
-                  {hidden ? 'Not in your gallery' : 'In your gallery'}
+                  {hidden ? 'Not in your Memories' : 'In your Memories'}
                 </p>
               </div>
               <form action={setVendorCapturesHidden}>
                 <input type="hidden" name="event_id" value={eventId} />
                 <input type="hidden" name="vendor_id" value={v.vendor_id} />
                 <input type="hidden" name="hidden" value={hidden ? '0' : '1'} />
+                {returnTo ? <input type="hidden" name="return_to" value={returnTo} /> : null}
                 <SubmitButton
                   pendingLabel="Saving…"
                   className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium ${

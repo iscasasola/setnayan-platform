@@ -8,6 +8,7 @@ import { Sheet } from '@/app/_components/sheet';
 import { papicBuySizes } from '../actions';
 import { PapicBuyForm } from './papic-buy-form';
 import type { PoolRung } from '@/lib/papic-pool-rungs';
+import type { CreditNeedInputs } from '@/lib/papic-credits-need';
 
 const ERROR_COPY: Record<string, string> = {
   unknown_rung: 'That option is no longer available. Pick one of the sizes.',
@@ -57,6 +58,7 @@ export function PapicBuySheet({
   const headingId = useId();
   const [open, setOpen] = useState(defaultOpen);
   const [rungs, setRungs] = useState<PoolRung[] | null>(sizes);
+  const [need, setNeed] = useState<CreditNeedInputs | null>(null);
   const [refusal, setRefusal] = useState<string | null>(null);
   const [pending, start] = useTransition();
 
@@ -66,7 +68,10 @@ export function PapicBuySheet({
     start(async () => {
       try {
         const r = await papicBuySizes(eventId);
-        if (r.ok) setRungs(r.rungs);
+        if (r.ok) {
+          setRungs(r.rungs);
+          setNeed(r.need);
+        }
         else
           setRefusal(
             r.reason === 'not_couple'
@@ -105,7 +110,7 @@ export function PapicBuySheet({
           </p>
         ) : null}
         {rungs ? (
-          <PapicBuyForm eventId={eventId} rungs={rungs} left={left} />
+          <PapicBuyForm eventId={eventId} rungs={rungs} left={left} need={need} />
         ) : refusal ? (
           <p className="text-sm" role="alert" style={{ color: 'rgb(var(--color-danger))' }}>
             {refusal}

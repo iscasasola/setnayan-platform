@@ -74,8 +74,15 @@ async function requireCouple(eventId: string): Promise<{ userId: string }> {
   return { userId: user.id };
 }
 
-const MODERATION_PATH = (eventId: string) =>
-  `/dashboard/${eventId}/studio/papic/moderation`;
+/**
+ * Where an action lands: the moderation page — or, pressed from a photo's sheet on the event's Memories tab
+ * (owner 2026-10-23, moderation on the photo itself), back on Memories. A fixed path picked by a fixed word
+ * (`return_to=memories`), never a URL taken from the form.
+ */
+const MODERATION_PATH = (eventId: string, formData?: FormData) =>
+  formData?.get('return_to') === 'memories'
+    ? `/dashboard/${eventId}/memories`
+    : `/dashboard/${eventId}/studio/papic/moderation`;
 
 /**
  * File a report against a guest capture. Records a user_reports row visible to
@@ -88,10 +95,10 @@ export async function reportCapture(eventId: string, formData: FormData) {
   const details = nullIfBlank(formData.get('details'));
 
   if (typeof captureId !== 'string' || captureId.length === 0) {
-    redirect(`${MODERATION_PATH(eventId)}?error=bad_input`);
+    redirect(`${MODERATION_PATH(eventId, formData)}?error=bad_input`);
   }
   if (!isReason(reason)) {
-    redirect(`${MODERATION_PATH(eventId)}?error=bad_reason`);
+    redirect(`${MODERATION_PATH(eventId, formData)}?error=bad_reason`);
   }
 
   const admin = createAdminClient();
@@ -104,7 +111,7 @@ export async function reportCapture(eventId: string, formData: FormData) {
     .eq('event_id', eventId)
     .maybeSingle();
   if (!cap) {
-    redirect(`${MODERATION_PATH(eventId)}?error=not_found`);
+    redirect(`${MODERATION_PATH(eventId, formData)}?error=not_found`);
   }
 
   const { error } = await admin.from('user_reports').insert({
@@ -116,11 +123,11 @@ export async function reportCapture(eventId: string, formData: FormData) {
     details,
   });
   if (error) {
-    redirect(`${MODERATION_PATH(eventId)}?error=report_failed`);
+    redirect(`${MODERATION_PATH(eventId, formData)}?error=report_failed`);
   }
 
-  revalidatePath(MODERATION_PATH(eventId));
-  redirect(`${MODERATION_PATH(eventId)}?reported=1`);
+  revalidatePath(MODERATION_PATH(eventId, formData));
+  redirect(`${MODERATION_PATH(eventId, formData)}?reported=1`);
 }
 
 /**
@@ -133,7 +140,7 @@ export async function setCaptureHidden(eventId: string, formData: FormData) {
   const hide = formData.get('hide') === '1';
 
   if (typeof captureId !== 'string' || captureId.length === 0) {
-    redirect(`${MODERATION_PATH(eventId)}?error=bad_input`);
+    redirect(`${MODERATION_PATH(eventId, formData)}?error=bad_input`);
   }
 
   const admin = createAdminClient();
@@ -143,13 +150,13 @@ export async function setCaptureHidden(eventId: string, formData: FormData) {
     .eq('capture_id', captureId)
     .eq('event_id', eventId);
   if (error) {
-    redirect(`${MODERATION_PATH(eventId)}?error=hide_failed`);
+    redirect(`${MODERATION_PATH(eventId, formData)}?error=hide_failed`);
   }
 
   // "Drops out of any public surface" (above) — including the cached ones.
   await everyCopyIsNowStale(eventId);
-  revalidatePath(MODERATION_PATH(eventId));
-  redirect(`${MODERATION_PATH(eventId)}?${hide ? 'hidden' : 'unhidden'}=1`);
+  revalidatePath(MODERATION_PATH(eventId, formData));
+  redirect(`${MODERATION_PATH(eventId, formData)}?${hide ? 'hidden' : 'unhidden'}=1`);
 }
 
 /**
@@ -176,7 +183,7 @@ export async function setSeatPhotoHidden(eventId: string, formData: FormData) {
   const hide = formData.get('hide') === '1';
 
   if (typeof photoId !== 'string' || photoId.length === 0) {
-    redirect(`${MODERATION_PATH(eventId)}?error=bad_input`);
+    redirect(`${MODERATION_PATH(eventId, formData)}?error=bad_input`);
   }
 
   const admin = createAdminClient();
@@ -188,7 +195,7 @@ export async function setSeatPhotoHidden(eventId: string, formData: FormData) {
     .eq('photo_id', photoId)
     .eq('event_id', eventId);
   if (error) {
-    redirect(`${MODERATION_PATH(eventId)}?error=hide_failed`);
+    redirect(`${MODERATION_PATH(eventId, formData)}?error=hide_failed`);
   }
 
   /*
@@ -199,8 +206,8 @@ export async function setSeatPhotoHidden(eventId: string, formData: FormData) {
     Unhiding widens the same surfaces, and is exactly as urgent.
   */
   await everyCopyIsNowStale(eventId);
-  revalidatePath(MODERATION_PATH(eventId));
-  redirect(`${MODERATION_PATH(eventId)}?${hide ? 'hidden' : 'unhidden'}=1`);
+  revalidatePath(MODERATION_PATH(eventId, formData));
+  redirect(`${MODERATION_PATH(eventId, formData)}?${hide ? 'hidden' : 'unhidden'}=1`);
 }
 
 /**
@@ -215,7 +222,7 @@ export async function blockUploader(eventId: string, formData: FormData) {
   const reason = nullIfBlank(formData.get('reason'));
 
   if (typeof guestId !== 'string' || guestId.length === 0) {
-    redirect(`${MODERATION_PATH(eventId)}?error=bad_input`);
+    redirect(`${MODERATION_PATH(eventId, formData)}?error=bad_input`);
   }
 
   const admin = createAdminClient();
@@ -228,7 +235,7 @@ export async function blockUploader(eventId: string, formData: FormData) {
     .eq('event_id', eventId)
     .maybeSingle();
   if (!guest) {
-    redirect(`${MODERATION_PATH(eventId)}?error=not_found`);
+    redirect(`${MODERATION_PATH(eventId, formData)}?error=not_found`);
   }
 
   const { error } = await admin.from('event_blocked_users').upsert(
@@ -241,11 +248,11 @@ export async function blockUploader(eventId: string, formData: FormData) {
     { onConflict: 'event_id,blocked_guest_id', ignoreDuplicates: true },
   );
   if (error) {
-    redirect(`${MODERATION_PATH(eventId)}?error=block_failed`);
+    redirect(`${MODERATION_PATH(eventId, formData)}?error=block_failed`);
   }
 
-  revalidatePath(MODERATION_PATH(eventId));
-  redirect(`${MODERATION_PATH(eventId)}?blocked=1`);
+  revalidatePath(MODERATION_PATH(eventId, formData));
+  redirect(`${MODERATION_PATH(eventId, formData)}?blocked=1`);
 }
 
 /**
@@ -265,7 +272,7 @@ export async function approveScreenedCapture(eventId: string, formData: FormData
     typeof id !== 'string' ||
     id.length === 0
   ) {
-    redirect(`${MODERATION_PATH(eventId)}?error=bad_input`);
+    redirect(`${MODERATION_PATH(eventId, formData)}?error=bad_input`);
   }
   const idColumn = table === 'papic_photos' ? 'photo_id' : 'capture_id';
 
@@ -277,11 +284,11 @@ export async function approveScreenedCapture(eventId: string, formData: FormData
     .eq('event_id', eventId)
     .eq('moderation_state', 'nsfw_blocked');
   if (error) {
-    redirect(`${MODERATION_PATH(eventId)}?error=approve_failed`);
+    redirect(`${MODERATION_PATH(eventId, formData)}?error=approve_failed`);
   }
 
-  revalidatePath(MODERATION_PATH(eventId));
-  redirect(`${MODERATION_PATH(eventId)}?approved=1`);
+  revalidatePath(MODERATION_PATH(eventId, formData));
+  redirect(`${MODERATION_PATH(eventId, formData)}?approved=1`);
 }
 
 /**
@@ -291,7 +298,7 @@ export async function unblockUploader(eventId: string, formData: FormData) {
   await requireCouple(eventId);
   const guestId = formData.get('guest_id');
   if (typeof guestId !== 'string' || guestId.length === 0) {
-    redirect(`${MODERATION_PATH(eventId)}?error=bad_input`);
+    redirect(`${MODERATION_PATH(eventId, formData)}?error=bad_input`);
   }
 
   const admin = createAdminClient();
@@ -301,11 +308,11 @@ export async function unblockUploader(eventId: string, formData: FormData) {
     .eq('event_id', eventId)
     .eq('blocked_guest_id', guestId);
   if (error) {
-    redirect(`${MODERATION_PATH(eventId)}?error=unblock_failed`);
+    redirect(`${MODERATION_PATH(eventId, formData)}?error=unblock_failed`);
   }
 
-  revalidatePath(MODERATION_PATH(eventId));
-  redirect(`${MODERATION_PATH(eventId)}?unblocked=1`);
+  revalidatePath(MODERATION_PATH(eventId, formData));
+  redirect(`${MODERATION_PATH(eventId, formData)}?unblocked=1`);
 }
 
 // ─── Kwento (photo_messages) moderation — 0012 § Kwento P2 ───────────────────
@@ -497,10 +504,10 @@ export async function deletePhotoForever(eventId: string, formData: FormData) {
   const id = formData.get('id');
 
   if (table !== 'papic_photos' && table !== 'papic_guest_captures') {
-    redirect(`${MODERATION_PATH(eventId)}?error=bad_input`);
+    redirect(`${MODERATION_PATH(eventId, formData)}?error=bad_input`);
   }
   if (typeof id !== 'string' || id.length === 0) {
-    redirect(`${MODERATION_PATH(eventId)}?error=bad_input`);
+    redirect(`${MODERATION_PATH(eventId, formData)}?error=bad_input`);
   }
   const idColumn = table === 'papic_photos' ? 'photo_id' : 'capture_id';
 
@@ -530,10 +537,10 @@ export async function deletePhotoForever(eventId: string, formData: FormData) {
     orphaning every one of them permanently. Fail closed; the host can retry.
   */
   if (readError) {
-    redirect(`${MODERATION_PATH(eventId)}?error=delete_failed`);
+    redirect(`${MODERATION_PATH(eventId, formData)}?error=delete_failed`);
   }
   if (!row) {
-    redirect(`${MODERATION_PATH(eventId)}?error=not_found`);
+    redirect(`${MODERATION_PATH(eventId, formData)}?error=not_found`);
   }
 
   const rowRecord = row as unknown as Record<string, unknown>;
@@ -569,7 +576,7 @@ export async function deletePhotoForever(eventId: string, formData: FormData) {
           'this photograph’s own — those objects are kept, and so is the row.',
       );
     }
-    redirect(`${MODERATION_PATH(eventId)}?error=delete_partial`);
+    redirect(`${MODERATION_PATH(eventId, formData)}?error=delete_partial`);
   }
 
   const { data: deleted, error: deleteError } = await admin
@@ -579,17 +586,17 @@ export async function deletePhotoForever(eventId: string, formData: FormData) {
     .eq('event_id', eventId)
     .select(idColumn);
   if (deleteError) {
-    redirect(`${MODERATION_PATH(eventId)}?error=delete_failed`);
+    redirect(`${MODERATION_PATH(eventId, formData)}?error=delete_failed`);
   }
   // The COUNT, not the absence of an error — see the docblock.
   if (!deleted || deleted.length === 0) {
-    redirect(`${MODERATION_PATH(eventId)}?error=not_found`);
+    redirect(`${MODERATION_PATH(eventId, formData)}?error=not_found`);
   }
 
   // Same reach as the hide path: the story, the recap, both prints and the share
   // card each cache on their own clock, and the photograph is now gone from all
   // of them.
   await everyCopyIsNowStale(eventId);
-  revalidatePath(MODERATION_PATH(eventId));
-  redirect(`${MODERATION_PATH(eventId)}?deleted=1`);
+  revalidatePath(MODERATION_PATH(eventId, formData));
+  redirect(`${MODERATION_PATH(eventId, formData)}?deleted=1`);
 }

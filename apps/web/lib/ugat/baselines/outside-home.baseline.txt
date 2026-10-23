@@ -28,7 +28,6 @@ events.moodboard_theme_name	# first run 2026-10-02 · host app · a screen saves
 events.pakanta_song_adopted_as_site_music	# first run 2026-10-02 · admin console · a screen saves an event answer that Event Details neither shows nor edits
 events.panood_watch_url	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details neither shows nor edits
 events.panood_watch_url_facebook	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details neither shows nor edits
-events.papic_guest_capture_early	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details neither shows nor edits
 events.papic_style	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details neither shows nor edits
 events.papic_uploads_open	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details neither shows nor edits
 events.papic_window_end	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details neither shows nor edits
@@ -38,7 +37,6 @@ events.photo_delivery_folder_name	# first run 2026-10-02 · host app · a screen
 events.photo_delivery_provider	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details neither shows nor edits
 events.photo_delivery_sync_mode	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details neither shows nor edits
 events.photo_moments_config	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details neither shows nor edits
-events.pool_gallery_open	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details neither shows nor edits
 events.reception_design	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details neither shows nor edits
 events.rsvp_backdrop	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details neither shows nor edits
 events.rsvp_backdrop.intensity	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details neither shows nor edits

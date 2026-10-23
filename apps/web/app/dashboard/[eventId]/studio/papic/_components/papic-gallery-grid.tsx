@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, useEffect, useState } from 'react';
+import { Fragment, useEffect, useState, type ReactNode } from 'react';
 import { PAPIC_OPEN_GALLERY } from './papic-see-photos';
 import { Play, Download, Sparkles, Loader2, Gem } from 'lucide-react';
 import type { GalleryPhoto, GalleryTagSource, PreservationTotals } from '@/lib/papic-gallery';
@@ -352,10 +352,13 @@ export function PapicLightbox({
   photo,
   onClose,
   timeZone,
+  more = null,
 }: {
   photo: GalleryPhoto;
   onClose: () => void;
   timeZone?: string | null;
+  /** 🛡 Memories' photo sheet (Hide · Report · Stop · Delete), after the save — the couple's only. */
+  more?: ReactNode;
 }) {
   const [saving, setSaving] = useState(false);
   const isClip = photo.kind === 'clip' && Boolean(photo.playUrl);
@@ -372,7 +375,8 @@ export function PapicLightbox({
       timeZone={timeZone}
       onClose={onClose}
       actions={
-        isClip ? (
+        <>
+        {isClip ? (
           <button
             type="button"
             disabled={saving}
@@ -412,7 +416,9 @@ export function PapicLightbox({
             <Download aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
             Save photo
           </a>
-        ) : null
+        ) : null}
+        {more}
+        </>
       }
     />
   );

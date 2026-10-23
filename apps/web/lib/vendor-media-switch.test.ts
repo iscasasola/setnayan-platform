@@ -19,7 +19,8 @@ const strip = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$
 
 const ACTION = read('..', 'app', 'dashboard', '[eventId]', 'studio', 'papic', 'vendor-visibility-actions.ts');
 const CONTROL = read('..', 'app', 'dashboard', '[eventId]', 'studio', 'papic', '_components', 'vendor-media-controls.tsx');
-const PAGE = read('..', 'app', 'dashboard', '[eventId]', 'studio', 'papic', 'page.tsx');
+// 🗂 Mounted on Settings › Event access since 2026-10-23 (the Papic page is the camera only): Event Details' page.
+const PAGE = read('..', 'app', 'dashboard', '[eventId]', 'details', 'page.tsx');
 const GALLERY = read('papic-gallery.ts');
 
 test('THE HANDLE: something actually WRITES the column', () => {

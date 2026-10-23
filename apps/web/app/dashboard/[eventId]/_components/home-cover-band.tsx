@@ -1,4 +1,4 @@
-import { Info } from 'lucide-react';
+import { Settings } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import type { HomeCover } from '@/lib/home-cover';
 import type { HomeCoverWords } from '@/lib/home-cover-words';
@@ -6,7 +6,7 @@ import { forTagWords, type ForTag } from '@/lib/for-tag';
 import { ForTagMark } from '@/app/_components/for-tag-mark';
 
 /**
- * home-cover-band.tsx — THE EVENT HOME'S COVER BAND (the name, the date line, Event Details),
+ * home-cover-band.tsx — THE EVENT HOME'S COVER BAND (the name, the date line, ⚙ Settings — the Event Details door),
  * lifted out of `HomeFirstScreen` unchanged so the Home's LOADING screen can draw the very same
  * band the moment an event is tapped (`home-loading-cover.tsx`, 2026-10-16). No hooks, no data:
  * the words come in (`lib/home-cover-words.ts`), so both callers draw them one way.
@@ -50,8 +50,11 @@ export function HomeCoverBand({
           <p aria-hidden className="text-[26px] font-semibold leading-[1.1] tracking-[-0.01em]">{cover.name}</p>
           {cover.forWho ? <HomeForLine tag={cover.forWho} /> : null}
         </div>
+        {/* ⚙ SETTINGS — the header image's one button, the Event Details door (owner 2026-10-23: *"Home has NO
+            segmented tabs — the header image carries one 'Settings' button"*, prototypes/event_bar_memories_tab_2026-10-23.html
+            frame 2; "Settings", one word, as on Guests). The same address #6838 left as the ONE door to Event Details. */}
         <span className="relative shrink-0" data-home-event-details="">
-          <ActionButton href={`/dashboard/${eventId}/details`} tone="neutral" icon={<Info aria-hidden="true" strokeWidth={1.9} />} label="Event Details" className="home-cover-ab" />
+          <ActionButton href={`/dashboard/${eventId}/details`} tone="neutral" icon={<Settings aria-hidden="true" strokeWidth={1.9} />} label="Settings" className="home-cover-ab" />
         </span>
       </div>
   );

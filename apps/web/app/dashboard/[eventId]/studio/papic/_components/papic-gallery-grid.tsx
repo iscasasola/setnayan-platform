@@ -348,7 +348,7 @@ export function PapicGalleryGrid({
  * archetype lightbox; a fourth private copy of it is how the three drift apart.
  * What stays here is what is genuinely the couple's: the clip download.
  */
-function PapicLightbox({
+export function PapicLightbox({
   photo,
   onClose,
   timeZone,

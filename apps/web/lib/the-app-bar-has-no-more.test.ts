@@ -119,7 +119,7 @@ test('🍎 in the store shell no event menu builds More — bar, tree, rail or �
   assert.equal(n, 24, 'premise: the shape sweep shrank');
 });
 
-test('🌐 the web has no More either — four tabs, no More Services row in the rail or ☰ (owner 22 Oct 2026)', () => {
+test('🌐 the web has no More either — five tabs, no More Services row in the rail or ☰ (owner 22 Oct 2026)', () => {
   let n = 0;
   for (const ctx of shapes(false)) {
     n += 1;
@@ -130,7 +130,8 @@ test('🌐 the web has no More either — four tabs, no More Services row in the
     const rail = buildCustomerNavGroups(EVENT, ctx).flatMap((g) => g.items);
     assert.equal(rail.some((i) => i.key === 'studio' || i.href.includes('more=services')), false, `${ctx.name}: the desktop rail / ☰ keeps More Services`);
     if (ctx.websiteEnabled && !ctx.hideKeys?.length) {
-      assert.deepEqual(bar.map((m) => m.key), ['home', 'guests', 'explore', 'launch'], `${ctx.name}: the web bar is not the four`);
+      // Memories joined after Hub on 23 Oct 2026 — a tab of its own, never More's door.
+      assert.deepEqual(bar.map((m) => m.key), ['home', 'guests', 'explore', 'launch', 'memories'], `${ctx.name}: the web bar is not the five`);
     }
   }
   assert.equal(n, 24, 'premise: the shape sweep shrank');

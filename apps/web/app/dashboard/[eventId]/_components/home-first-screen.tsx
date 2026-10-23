@@ -500,7 +500,7 @@ export function YourServices({
 /**
  * 🎨 PAPIC'S ROW — the service glance at Home size (owner "approve all",
  * 2026-10-14; prototype `renderHome()`): name · the status line with its dot ·
- * the meter · Buy more (the sheet) · See N photos (opens the gallery directly).
+ * the meter · Buy more (the sheet) · See N photos (opens the event's Memories tab, 2026-10-23).
  * The row's words and its "Buy more" are already trimmed by NEVER TWICE when
  * Papic holds the Next card — and only while that card is on screen (`papicRowDoubled`,
  * `[data-while-next]`): a "Later" brings the row's own Buy more straight back (walk-b6 F1).
@@ -520,7 +520,8 @@ function PapicServiceRow({ eventId, svc, doors, left, sizes }: { eventId: string
             <PapicBuySheet eventId={eventId} left={left} tone="brand" sizes={sizes} />
           )
         ) : null}
-        {photos ? <PapicSeePhotos tone="neutral" label={seePhotosWord(photos)} href={`/dashboard/${eventId}/studio/papic?gallery=open`} /> : null}
+        {/* The photos live on the event bar's Memories tab now (owner 2026-10-23) — the door opens it. */}
+        {photos ? <PapicSeePhotos tone="neutral" label={seePhotosWord(photos)} href={`/dashboard/${eventId}/memories`} /> : null}
       </>
     ) : null;
   return (

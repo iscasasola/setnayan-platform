@@ -102,9 +102,10 @@ test('card body: the owner’s groups, in his order — every one folds, one ope
   const at = ORDER.map((g) => CARD.indexOf(g === 'Papic' ? `<K.Fold summary={papicRow ? 'Papic' : 'Photos'}` : `<K.Fold summary="${g}"`));
   ORDER.forEach((g, i) => assert.ok(at[i]! > 0, `the ${g} group is gone`));
   for (let i = 1; i < ORDER.length; i++) assert.ok(at[i]! > at[i - 1]!, `${ORDER[i]} is drawn before ${ORDER[i - 1]}`);
-  // The Papic group's one line while the event's Papic is off sits in Papic's own place.
-  const door = CARD.indexOf('<K.Door label="Papic"');
-  assert.ok(door > at[3]! && door < at[4]!, 'the "Papic is off" line is not where the Papic group is');
+  // RE-AIMED 2026-10-23 (review, owner "Always show them"): while the event's Papic is off, its one line replaces only
+  // "Their camera" — INSIDE the Papic group, beside the face switches that always show — never the whole group.
+  const door = CARD.indexOf('<K.Door label="Their camera"');
+  assert.ok(door > at[4]! && door < at[5]!, 'the "Papic is off" line is not inside the Papic group');
   // Basic Info is CLOSED by default and holds the name and the mobile; RSVP Status opens by itself for the guest's note.
   assert.match(CARD, /<K\.Fold summary="Basic Info" value=\{basicSummary\} emptyValue="Add a mobile">/, 'Basic Info opens by itself');
   const basic = CARD.slice(at[0]!, at[1]!);

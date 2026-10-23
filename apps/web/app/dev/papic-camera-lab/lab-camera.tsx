@@ -87,6 +87,9 @@ export function LabCamera({ lane }: { lane: 'guest' | 'vendor' }) {
     prepared: s.prepared,
     settled: s.settled,
     hold: s.hold ?? null,
+    attempts: s.attempts,
+    lastError: s.lastError ?? null,
+    waitMs: Math.max(0, s.nextAttemptAtMs - Date.now()),
     tiers: Object.fromEntries(Object.entries(s.tiers).map(([k, v]) => [k, { size: v!.size, type: v!.contentType, up: v!.uploaded }])),
   }));
 
@@ -123,7 +126,7 @@ export function LabCamera({ lane }: { lane: 'guest' | 'vendor' }) {
         <button type="button" data-lab-add-clip onClick={() => void addClip()} className="rounded-full bg-cream/10 px-3 py-2 text-cream">
           Add an 8 s 1440p clip
         </button>
-        <pre data-lab-queue className="mt-2 hidden">{JSON.stringify({ chip: snap?.chip ?? null, online: snap?.online ?? null, queue })}</pre>
+        <pre data-lab-queue className="mt-2 hidden">{JSON.stringify({ chip: snap?.chip ?? null, online: snap?.online ?? null, debug: snap ? papicUploader().debugState() : null, queue })}</pre>
       </div>
     </div>
   );

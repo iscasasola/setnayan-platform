@@ -303,6 +303,16 @@ export async function POST(req: Request) {
       }
     } else {
       if (tier === 'tile' || tier === 'display') return json({ error: 'not_recorded_yet' }, 409);
+      // A supplier may only upload toward an event they are BOOKED on — the
+      // same set the insert policy checks at record. Asked here too so an
+      // unbooked caller cannot fill storage with uploads that will never record.
+      // Fails OPEN on a read error: the insert policy is still the hard gate.
+      {
+        const { data: booked, error: bookedErr } = await supabase.rpc('current_vendor_booked_event_ids');
+        if (!bookedErr && Array.isArray(booked) && !(booked as unknown[]).includes(eventId)) {
+          return json({ error: 'not_allowed' }, 403);
+        }
+      }
       if (await eventOver(admin, eventId)) return json({ error: 'event_over' }, 403);
       const refused = await budgetRefusal(admin, vendorProfileId, eventId, mediaType);
       if (refused) return refused;

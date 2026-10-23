@@ -225,6 +225,17 @@ export class PapicUploader {
     return this.shots.size;
   }
 
+  /** For the lab and the diagnostic page: what the loop is doing right now. */
+  debugState(): { sender: boolean; inFlight: string[]; pumping: boolean; preparing: boolean; netFailedAt: number } {
+    return {
+      sender: this.sender,
+      inFlight: [...this.inFlight],
+      pumping: this.pumping,
+      preparing: this.preparing,
+      netFailedAt: this.netFailedAt,
+    };
+  }
+
   private isOnline(): boolean {
     if (!this.deps.online()) return false;
     // A network failure reads as offline until something lands again (or the

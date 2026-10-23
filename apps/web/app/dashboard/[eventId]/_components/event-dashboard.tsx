@@ -2880,7 +2880,7 @@ export async function EventDashboard({
                 />
                 <span className="min-w-0 flex-1 text-[13.5px]" style={{ color: '#6E6A62' }}>
                   {latestHandover.kind === 'gallery_link'
-                    ? `${handoverVendorName} delivered your gallery.`
+                    ? `${handoverVendorName} delivered your photos.`
                     : latestHandover.kind === 'file'
                       ? `${handoverVendorName} sent you a file${
                           latestHandover.label ? ` — ${latestHandover.label}` : ''

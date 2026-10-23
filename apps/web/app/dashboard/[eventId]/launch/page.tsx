@@ -738,7 +738,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       // derives what this event actually holds.
       blurb: eventHasHappened
         ? hasPapic
-          ? 'Your cameras have stood down — the photos are in your galleries.'
+          ? 'Your cameras have stood down — the photos are in your Memories.'
           : 'Cameras are handed out on the day.'
         : hasPapic
           ? 'Your cameras are ready — hand them out and the day gets caught from every angle.'
@@ -1005,7 +1005,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
               {standing.phase === 'dayof'
                 ? 'One press each — no confirmations, and nothing here is for sale today.'
                 : eventHasHappened
-                  ? 'These ran during the event. What they caught is in your galleries.'
+                  ? 'These ran during the event. What they caught is in your Memories.'
                   : 'They stay quiet until the day, then they are one press each from here.'}
             </p>
           </header>

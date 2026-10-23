@@ -3039,7 +3039,7 @@ const STAGE_EVENT_COLUMNS: Record<Exclude<HubResetScope, 'all'>, HubDraftEventCo
 export const HUB_RESET_NEVER_TOUCHES = [
   'your guest list and their replies',
   'your schedule',
-  'your photos and galleries',
+  'your photos and Memories',
   'orders and payments',
   'your Post Event story',
   'your Event Hub address and who can view it',

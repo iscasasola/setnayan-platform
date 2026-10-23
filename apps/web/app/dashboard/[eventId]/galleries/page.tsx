@@ -17,7 +17,7 @@ import { addOnHeroCopy } from '@/lib/add-ons-catalog';
 import { MiniTour } from '@/app/_components/mini-tour';
 import { isStoreShellRequest } from '@/lib/request-platform';
 
-export const metadata = { title: 'Galleries' };
+export const metadata = { title: 'Memories' };
 
 type Props = { params: Promise<{ eventId: string }> };
 
@@ -228,7 +228,7 @@ export default async function GalleriesHubPage({ params }: Props) {
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6">
-      <PageMasthead title="Galleries" />
+      <PageMasthead title="Memories" />
 
       <RevealList as="div" className="mt-6 space-y-3">
         {sources.map((s) => {

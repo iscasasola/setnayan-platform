@@ -120,7 +120,7 @@ export default async function OurPhotosEditorPage({
             className="inline-flex items-center gap-2 rounded-md border border-success-300/60 bg-success-50 px-3 py-2 text-sm text-success-800"
           >
             <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-            Saved — your guests will see this gallery on your Event Hub.
+            Saved — your guests will see these photos on your Event Hub.
           </div>
         ) : null}
         {!proActive && storeShell && (heldForPro || drafted) ? (
@@ -133,8 +133,8 @@ export default async function OurPhotosEditorPage({
             <PaidMark state="try" label={paidMarkLabel('try', 'Event Hub Pro')} text="Pro" size="xs" />
             <span>
               {heldForPro || drafted
-                ? 'Saved in your Event Hub draft. Guests see this gallery after you Apply with Event Hub Pro in your Event Hub Maker.'
-                : 'Add your photos and see them here. Guests see the gallery after you Apply with Event Hub Pro in your Event Hub Maker.'}
+                ? 'Saved in your Event Hub draft. Guests see these photos after you Apply with Event Hub Pro in your Event Hub Maker.'
+                : 'Add your photos and see them here. Guests see them after you Apply with Event Hub Pro in your Event Hub Maker.'}
             </span>
           </p>
         ) : null}
@@ -160,7 +160,7 @@ export default async function OurPhotosEditorPage({
           bucket="media"
           pathPrefix={`events/${eventId}/our-photos`}
           name="photos"
-          unsavedHint="press Save gallery below"
+          unsavedHint="press Save photos below"
           multiple
           maxFiles={MAX_PHOTOS}
           maxSizeMB={10}
@@ -171,7 +171,7 @@ export default async function OurPhotosEditorPage({
           label="Photos you add"
           help={`JPG, PNG, or WebP. Up to 10 MB each · up to ${formatCount(MAX_PHOTOS)} photos. Drag to add more; remove any you don't want before saving.`}
         />
-        <SubmitButton pendingLabel="Saving…" className="button-primary">Save gallery</SubmitButton>
+        <SubmitButton pendingLabel="Saving…" className="button-primary">Save photos</SubmitButton>
       </SafeForm>
     </section>
   );

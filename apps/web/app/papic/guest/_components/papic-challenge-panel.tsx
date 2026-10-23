@@ -393,7 +393,7 @@ function ChallengePanelInner({
                     <p className="mt-1.5 text-[11px] text-cream/70">
                       Armed — your next shot counts for this one.
                       {armed?.retake
-                        ? ' The new shot replaces the old one (your earlier shot stays in the gallery).'
+                        ? ' The new shot replaces the old one (your earlier shot stays in Memories).'
                         : ''}
                     </p>
                   ) : null}

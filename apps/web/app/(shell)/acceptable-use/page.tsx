@@ -79,7 +79,7 @@ export default function AcceptableUsePage() {
 
       <LegalSection title="The NSFW filter is always on">
         <p>
-          For event galleries and capture services like Papic, our
+          For event Memories and capture services like Papic, our
           not-safe-for-work filter is enabled by default and{' '}
           <strong>cannot be turned off</strong>. It&rsquo;s there to protect
           couples, guests, and our team. Attempts to bypass it are a violation
@@ -89,11 +89,11 @@ export default function AcceptableUsePage() {
 
       <LegalSection title="Guest captures & consent">
         <p>
-          Event capture features are for the celebration they belong to. Respect
+          Event capture features are for the event they belong to. Respect
           the people around you: don&rsquo;t photograph or share images of
           someone who has asked not to be, and honor opt-outs. Guests retain
           rights over their own likeness, and couples control their event
-          gallery. How face and photo data are handled — including opt-out and
+          Memories. How face and photo data are handled — including opt-out and
           deletion — is in the{' '}
           <Link href="/privacy" className="text-terracotta hover:underline">
             privacy policy

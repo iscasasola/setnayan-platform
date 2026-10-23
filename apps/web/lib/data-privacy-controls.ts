@@ -129,7 +129,7 @@ export const DATA_PRIVACY_CONTROLS: readonly PrivacyControlDef[] = [
     group: 'vendor_mediated',
     title: 'Capture geolocation metadata',
     description:
-      'Stamps a coarse location fix (lat/lon + accuracy, or a geo_unavailable flag) onto Papic photos/clips at capture, when the paparazzo grants location. Geo is written server-side only while this control is active; it is never returned in any share/gallery/download, and full-res originals are EXIF-stripped on the way out.',
+      'Stamps a coarse location fix (lat/lon + accuracy, or a geo_unavailable flag) onto Papic photos/clips at capture, when the paparazzo grants location. Geo is written server-side only while this control is active; it is never returned in any share/Memories/download, and full-res originals are EXIF-stripped on the way out.',
     category: 'Location data',
     riskNote:
       'Location is PI. Ships OFF (fail-closed) — this is a NEW location-data collection; activate only after confirming the public /privacy "Photos and videos — location data" disclosure and the DPO ruling. The stored original on R2 retains geo; outbound shares never expose it.',
@@ -287,9 +287,9 @@ export const DATA_PRIVACY_CONTROLS: readonly PrivacyControlDef[] = [
   {
     key: 'papic_pool_gallery',
     group: 'guest_content',
-    title: 'Papic Shared Pool Gallery',
+    title: 'Papic Shared Pool Memories',
     description:
-      'Lets every session guest browse the WHOLE event capture pool (clean-screened photos + clips, web copies only) and self-link ("I’m in this") into photos — a manual_pick tag that joins their personal gallery, ZIP download, and Story reel. The couple’s per-event toggle (events.pool_gallery_open, default OFF) still applies on top of this control, and closing it is retroactive.',
+      'Lets every session guest browse the WHOLE event capture pool (clean-screened photos + clips, web copies only) and self-link ("I’m in this") into photos — a manual_pick tag that joins their personal Memories, ZIP download, and Story reel. The couple’s per-event toggle (events.pool_gallery_open, default OFF) still applies on top of this control, and closing it is retroactive.',
     category: 'Event-wide guest media exposure',
     riskNote:
       'Widens photo/clip visibility from per-guest tagged delivery to EVERY guest in the event — guests see other guests’ images. The pool read bakes the FaceBlock blur rule, the photo_consent veto, and web-copy-only keys (never the geo-bearing original); still a new exposure surface the /privacy notice and ROPA must declare before this activates. DPO ruling required. Every surface AND-gates this control with the NEXT_PUBLIC_PAPIC_POOL_GALLERY env flag.',

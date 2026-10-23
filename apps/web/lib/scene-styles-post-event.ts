@@ -62,7 +62,7 @@ export const POST_EVENT_SCENE_STYLE_SETS: readonly SceneStyleSet[] = [
   },
   {
     type: 'gallery',
-    label: 'Gallery',
+    label: 'Memories',
     styles: [
       { id: 'grid', name: 'Grid', line: 'Two columns of photos, filed by the time they were taken.', stages: PE },
       { id: 'mosaic', name: 'Mosaic', line: 'Wide and tall photos break the grid.', template: 21, stages: PE },

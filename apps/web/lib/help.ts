@@ -201,7 +201,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
         slug: 'what-is-papic',
         title: 'What is Papic?',
         appBody: HELP_NOT_IN_THE_APP,
-        body: "Candid photo (and short-video) capture for your event. A few friends you pick — your photo crew — shoot freely from their phones, and you can also let every guest snap photos too. Everyone opens a simple camera from a QR link (no app to install); every shot lands in your private gallery in real time and is matched to the right guests, so each person gets the photos they're in — and untagged photos still land (Papic never drops one). Clips run up to 10 seconds, and optional face-matching (only with each guest's consent) auto-sorts photos to the people in them. Your gallery stays online — keep the originals by downloading them or syncing to your own Google Drive. There's a free tier to try it; current prices are on setnayan.com/pricing.",
+        body: "Candid photo (and short-video) capture for your event. A few friends you pick — your photo crew — shoot freely from their phones, and you can also let every guest snap photos too. Everyone opens a simple camera from a QR link (no app to install); every shot lands in your private Memories in real time and is matched to the right guests, so each person gets the photos they're in — and untagged photos still land (Papic never drops one). Clips run up to 10 seconds, and optional face-matching (only with each guest's consent) auto-sorts photos to the people in them. Your Memories stay online — keep the originals by downloading them or syncing to your own Google Drive. There's a free tier to try it; current prices are on setnayan.com/pricing.",
       },
       {
         slug: 'what-is-panood',
@@ -267,13 +267,13 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
         slug: 'share-wedding-photos-with-guests-automatically',
         title: 'How do I share wedding photos with guests automatically?',
         appBody: HELP_NOT_IN_THE_APP,
-        body: `With Papic, every guest’s phone becomes part of one photo-and-video crew — no app and no account, just a code and a browser. Photos gather into your galleries as they are taken, and a guest who adds a selfie once has the photos they appear in find them; anyone who skips it is never matched, and face data is deleted automatically three months after the event. If the venue has no signal, photos wait on the phone and send when it returns. One camera is free on every event. Free credits come ${PAPIC_FREE_CREDIT_CONDITION}, and you always receive every photo, kept for life.`,
+        body: `With Papic, every guest’s phone becomes part of one photo-and-video crew — no app and no account, just a code and a browser. Photos gather into your Memories as they are taken, and a guest who adds a selfie once has the photos they appear in find them; anyone who skips it is never matched, and face data is deleted automatically three months after the event. If the venue has no signal, photos wait on the phone and send when it returns. One camera is free on every event. Free credits come ${PAPIC_FREE_CREDIT_CONDITION}, and you always receive every photo, kept for life.`,
       },
       {
         slug: 'free-alternative-to-wedding-website-builders',
         title: 'What is a free alternative to paid wedding website builders in the Philippines?',
         appBody: 'Setnayan’s Event Hub is free with unlimited RSVP. It holds your save-the-date, your RSVP, the day’s details — when, where, dress code, directions — and your love story, laid out like a magazine feature instead of a form. Guests RSVP with one tap and you see the count in real time beside your guest list and seat plan.',
-        body: 'Setnayan’s Event Hub is free with unlimited RSVP. It holds your save-the-date, your RSVP, the day’s details — when, where, dress code, directions — and your love story, laid out like a magazine feature instead of a form. Guests RSVP with one tap and you see the count in real time beside your guest list and seat plan. The same Event Hub later carries your guest gallery and your livestream. An optional PRO upgrade removes the Setnayan watermark and adds a cinematic save-the-date reveal.',
+        body: 'Setnayan’s Event Hub is free with unlimited RSVP. It holds your save-the-date, your RSVP, the day’s details — when, where, dress code, directions — and your love story, laid out like a magazine feature instead of a form. Guests RSVP with one tap and you see the count in real time beside your guest list and seat plan. The same Event Hub later carries your Memories and your livestream. An optional PRO upgrade removes the Setnayan watermark and adds a cinematic save-the-date reveal.',
       },
       {
         slug: 'plan-a-debut-christening-or-other-event',
@@ -313,7 +313,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
         slug: 'setnayan-vs-free-apps-and-google-sheets',
         title: 'How is Setnayan different from free wedding apps, Google Sheets or a shared Drive?',
         appBody: 'Everything the free tools do, Setnayan also does for free: a guest list with no limit (import your spreadsheet as CSV), RSVP, a seat plan, a budget in pesos and a schedule — in one account, where each part reads the same guest list, so a change in one place shows up everywhere.',
-        body: 'Everything the free tools do, Setnayan also does for free: a guest list with no limit (import your spreadsheet as CSV), RSVP, a seat plan, a budget in pesos and a schedule — in one account, where each part reads the same guest list, so a change in one place shows up everywhere. What a spreadsheet or a Drive link cannot do is run the day itself: your guests’ phones become one photo crew filling one gallery, and family abroad can watch the ceremony live. Those day-of tools are optional and priced individually on setnayan.com/pricing.',
+        body: 'Everything the free tools do, Setnayan also does for free: a guest list with no limit (import your spreadsheet as CSV), RSVP, a seat plan, a budget in pesos and a schedule — in one account, where each part reads the same guest list, so a change in one place shows up everywhere. What a spreadsheet or a Drive link cannot do is run the day itself: your guests’ phones become one photo crew filling one set of Memories, and family abroad can watch the ceremony live. Those day-of tools are optional and priced individually on setnayan.com/pricing.',
       },
     ],
   },
@@ -633,7 +633,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
         slug: 'photo-wall',
         title: 'Share photos with the couple',
         appBody: HELP_NOT_IN_THE_APP,
-        body: "If the couple has Photo Wall enabled, your phone becomes a photo uploader. Upload from your camera roll or take a new shot — it lands in the couple's gallery for everyone to enjoy. Optional and you can delete anything you uploaded.",
+        body: "If the couple has Photo Wall enabled, your phone becomes a photo uploader. Upload from your camera roll or take a new shot — it lands in the couple's Memories for everyone to enjoy. Optional and you can delete anything you uploaded.",
       },
     ],
   },
@@ -647,7 +647,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
         slug: 'what-is-papic',
         title: 'What is Papic?',
         appBody: HELP_NOT_IN_THE_APP,
-        body: `Papic turns the phones at your wedding into candid cameras. You get one pot of credits for the whole event, and any guest can shoot from it — they scan your event QR and start, with no limit on how many phones join in. 50 credits come free ${PAPIC_FREE_CREDIT_CONDITION}, so you can try it before deciding to add any. If you want to be sure someone in particular never runs out, you can set aside some of your credits for their camera alone, where nobody else can spend them; when those run out, that camera simply carries on from the shared pot. Cameras themselves are free and you can make as many as you like. Every shot lands in your private gallery, each guest can find the photos they're in, and there's no app to install — it all runs in the browser.`,
+        body: `Papic turns the phones at your wedding into candid cameras. You get one pot of credits for the whole event, and any guest can shoot from it — they scan your event QR and start, with no limit on how many phones join in. 50 credits come free ${PAPIC_FREE_CREDIT_CONDITION}, so you can try it before deciding to add any. If you want to be sure someone in particular never runs out, you can set aside some of your credits for their camera alone, where nobody else can spend them; when those run out, that camera simply carries on from the shared pot. Cameras themselves are free and you can make as many as you like. Every shot lands in your private Memories, each guest can find the photos they're in, and there's no app to install — it all runs in the browser.`,
       },
       {
         slug: 'turn-on-papic',
@@ -659,19 +659,19 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
         slug: 'how-papic-tagging-works',
         title: 'How do my photos get matched to the right guests?',
         appBody: HELP_NOT_IN_THE_APP,
-        body: "Two ways, both automatic. (1) Face matching: guests who add a selfie are recognized in candid shots, and those photos appear in their 'Photos of you'. (2) QR scan: your crew can scan a guest's invitation QR or a table sign to mark who's in a shot. Either way, every photo reaches your gallery — tagged or not. Face matching is private and per-wedding: a guest's face data is never shared or reused across events, and it only works with the guest's consent.",
+        body: "Two ways, both automatic. (1) Face matching: guests who add a selfie are recognized in candid shots, and those photos appear in their 'Photos of you'. (2) QR scan: your crew can scan a guest's invitation QR or a table sign to mark who's in a shot. Either way, every photo reaches your Memories — tagged or not. Face matching is private and per-wedding: a guest's face data is never shared or reused across events, and it only works with the guest's consent.",
       },
       {
         slug: 'find-download-papic-photos',
         title: 'Where do I find and download all my Papic photos?',
         appBody: HELP_NOT_IN_THE_APP,
-        body: "Dashboard → Studio → Papic → Gallery. Every candid from your crew and guests is there — filter by 'Photos of us', videos, or untagged. Save any photo to your phone with one tap, or use 'Download all' to pull the whole gallery as a zip. You can also connect Google Drive to auto-sync everything to your own Drive.",
+        body: "Dashboard → Studio → Papic → Memories. Every candid from your crew and guests is there — filter by 'Photos of us', videos, or untagged. Save any photo to your phone with one tap, or use 'Download all' to pull all your Memories as a zip. You can also connect Google Drive to auto-sync everything to your own Drive.",
       },
       {
         slug: 'papic-guest-camera',
         title: 'Guest: how do I take candid photos for the couple?',
         appBody: HELP_NOT_IN_THE_APP,
-        body: "If the couple turned on guest cameras, open your invitation link and tap 'Be a candid camera'. Point and shoot — every photo lands straight in the couple's gallery in real time. No sign-in, no app. You have a set number of shots; the counter shows how many you have left. After a shot you can also tell the couple the story behind it.",
+        body: "If the couple turned on guest cameras, open your invitation link and tap 'Be a candid camera'. Point and shoot — every photo lands straight in the couple's Memories in real time. No sign-in, no app. You have a set number of shots; the counter shows how many you have left. After a shot you can also tell the couple the story behind it.",
       },
       {
         slug: 'add-your-face',
@@ -689,7 +689,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
         slug: 'papic-crew-how-to-shoot',
         title: 'Crew: I was asked to shoot — how does it work?',
         appBody: HELP_NOT_IN_THE_APP,
-        body: "The couple sent you a camera link. Open it on your phone and tap to claim it — your phone is now a candid camera for their wedding. Shoot photos and clips of up to 10 seconds; everything uploads to their gallery automatically. Your camera shows how many shots it has left, and the couple can top it up. To mark who's in a shot, tap 'Tag who's in it' and hold a guest's place-card QR or a table sign in frame — no typing. If you don't tag, the photo still reaches the couple.",
+        body: "The couple sent you a camera link. Open it on your phone and tap to claim it — your phone is now a candid camera for their wedding. Shoot photos and clips of up to 10 seconds; everything uploads to their Memories automatically. Your camera shows how many shots it has left, and the couple can top it up. To mark who's in a shot, tap 'Tag who's in it' and hold a guest's place-card QR or a table sign in frame — no typing. If you don't tag, the photo still reaches the couple.",
       },
       {
         // ⚠ THIS ARTICLE ANSWERED A QUESTION THAT NO LONGER EXISTS. It was

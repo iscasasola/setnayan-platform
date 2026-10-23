@@ -67,7 +67,7 @@ export function GalleryMedia({
           style={{ color: 'var(--m-orange-2)' }}
         />
         <h3 className="text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
-          Gallery &amp; media
+          Portfolio &amp; media
         </h3>
       </div>
 

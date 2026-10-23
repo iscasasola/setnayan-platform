@@ -676,7 +676,7 @@ export function GalleryPreview({
       <div>
         {head}
         <span className="-mx-5 mt-3.5 block sm:-mx-10">
-          <GlimpseRail preview urls={photos.slice(0, GLIMPSE_PREVIEW_MAX)} label={`${names} — the gallery`} />
+          <GlimpseRail preview urls={photos.slice(0, GLIMPSE_PREVIEW_MAX)} label={`${names} — Memories`} />
         </span>
       </div>
     );

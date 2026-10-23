@@ -101,7 +101,7 @@ export default async function PapicCrewPrintPage({ params }: Props) {
               <p className="print-eyebrow">Papic · photo crew</p>
               <div className="print-qr" dangerouslySetInnerHTML={{ __html: c.svg }} />
               <p className="print-name">{c.label}</p>
-              <p className="print-role">Scan to start shooting — every photo lands in {eventName}&rsquo;s gallery.</p>
+              <p className="print-role">Scan to start shooting — every photo lands in {eventName}&rsquo;s Memories.</p>
               <p className="print-footer">{c.claimUrl}</p>
             </article>
           ))}

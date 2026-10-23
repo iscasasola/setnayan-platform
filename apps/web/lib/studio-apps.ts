@@ -245,7 +245,7 @@ export const STUDIO_APPS: readonly StudioApp[] = [
     name: 'Papic',
     href: '/papic',
     description:
-      'Papic turns your guests into your photo crew. Everyone shoots, every photo finds the people in it, and each guest goes home with their own gallery — plus a personal video reel set to music. The candid wedding moments one photographer can’t be everywhere for, delivered to everyone. Philippines-first.',
+      'Papic turns your guests into your photo crew. Everyone shoots, every photo finds the people in it, and each guest goes home with their own Memories — plus a personal video reel set to music. The candid wedding moments one photographer can’t be everywhere for, delivered to everyone. Philippines-first.',
     railLine: 'Turns your guests into your photo crew.',
     demo: {
       id: 'papic-demo',

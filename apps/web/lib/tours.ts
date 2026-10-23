@@ -458,7 +458,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       {
         Icon: Camera,
         title: 'Your phone is a camera now',
-        body: 'Everything you shoot here goes straight to the host&rsquo;s gallery. No app to install, nothing to sign up for.',
+        body: 'Everything you shoot here goes straight to the host&rsquo;s Memories. No app to install, nothing to sign up for.',
       },
       {
         Icon: MousePointerClick,
@@ -485,7 +485,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       {
         Icon: Camera,
         title: 'Your own camera',
-        body: 'Tap <b>Open my camera</b> and your phone shoots straight into the host&rsquo;s gallery.',
+        body: 'Tap <b>Open my camera</b> and your phone shoots straight into the host&rsquo;s Memories.',
       },
       {
         Icon: Images,
@@ -555,23 +555,23 @@ export const TOURS: Record<TourKey, TourDefinition> = {
   },
   customer_galleries_v1: {
     key: 'customer_galleries_v1',
-    label: 'Galleries',
+    label: 'Memories',
     blurb: 'Where every collected photo and recording from the event is found.',
     slides: [
       {
         Icon: Images,
         title: 'Every photo in one place',
-        body: 'Papic photos, your live stream recording and the photos you add each have their own gallery here.',
+        body: 'Papic photos, your live stream recording and the photos you add each have their own place here.',
       },
       {
         Icon: Calendar,
         title: 'Collecting, then Ready',
-        body: 'A gallery says <b>Collecting</b> until photos arrive, then <b>Ready</b>. Photos can keep arriving for a few days after the event.',
+        body: 'Each one says <b>Collecting</b> until photos arrive, then <b>Ready</b>. Photos can keep arriving for a few days after the event.',
       },
       {
         Icon: CheckCircle2,
         title: 'Open one to keep it',
-        body: 'Open a gallery to look through it and download everything.',
+        body: 'Open one to look through it and download everything.',
       },
     ],
   },
@@ -693,7 +693,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       {
         Icon: BookOpen,
         title: 'Post Event is its own scenes',
-        body: 'The story after your day is not one block: the front page, the road to the day, the numbers, each chapter, the gallery, the notes, your thank-you &mdash; each is its own scene here. After the day they are written for you from what happened; there is nothing to type.',
+        body: 'The story after your day is not one block: the front page, the road to the day, the numbers, each chapter, Memories, the notes, your thank-you &mdash; each is its own scene here. After the day they are written for you from what happened; there is nothing to type.',
       },
       {
         Icon: EyeOff,
@@ -703,7 +703,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       {
         Icon: Maximize2,
         title: 'Tap to open it full screen',
-        body: 'The gallery, the film, Were you there? and the wishes open full screen on your page, and Back returns everyone to the same place. A guest&rsquo;s gallery shows <b>Yours</b> and <b>Everyone&rsquo;s</b>; a stranger sees only what is shared.',
+        body: 'Memories, the film, Were you there? and the wishes open full screen on your page, and Back returns everyone to the same place. A guest&rsquo;s Memories show <b>Yours</b> and <b>Everyone&rsquo;s</b>; a stranger sees only what is shared.',
       },
       {
         Icon: Sparkles,
@@ -713,7 +713,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       {
         Icon: Users,
         title: 'Your guests’ bar after the day',
-        body: 'After the day your guests move through the story with <b>Recap · Film · Suppliers · Gallery · Me</b>. A slot with nothing behind it is simply not there, and the camera is put away &mdash; yours stays.',
+        body: 'After the day your guests move through the story with <b>Recap · Film · Suppliers · Memories · Me</b>. A slot with nothing behind it is simply not there, and the camera is put away &mdash; yours stays.',
       },
       {
         Icon: Wand2,

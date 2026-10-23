@@ -149,7 +149,7 @@ export function ShowcaseMediaFields({
         qrGuard
         variant="gallery"
         label="Photos (up to 5)"
-        help="PNG, JPEG, or WebP up to 5 MB each. Your cover photo stays separate — these are the gallery."
+        help="PNG, JPEG, or WebP up to 5 MB each. Your cover photo stays separate — these are your Portfolio."
         currentValue={photosCurrent && photosCurrent.length ? photosCurrent : null}
         initialDisplayUrls={displayUrls}
       />

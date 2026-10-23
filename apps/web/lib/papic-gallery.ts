@@ -140,10 +140,9 @@ export async function fetchPapicGallery(
     supabase
       .from('papic_photos')
       .select(
-        // The tile copy (640) is read for Memories only. Both selects are LITERALS so the client can type the rows.
-        compressedOnly
-          ? 'photo_id, paparazzi_seat_id, captured_by_person_id, r2_object_key, clip_web_r2_key, full_res_dropped_at, poster_r2_key, display_r2_key, thumb_r2_key, tile_r2_key, photo_type, captured_at, moderation_state, hidden_at, expires_at, consent_to_public, couple_approved_for_showcase, preserved_at'
-          : 'photo_id, paparazzi_seat_id, captured_by_person_id, r2_object_key, clip_web_r2_key, full_res_dropped_at, poster_r2_key, display_r2_key, thumb_r2_key, photo_type, captured_at, moderation_state, hidden_at, expires_at, consent_to_public, couple_approved_for_showcase, preserved_at',
+        // ⚠ ONE LITERAL select (a conditional one defeats the client's row types). `tile_r2_key` is the 640 copy
+        // Memories draws one-across — granted, and read by every caller; only `compressedOnly` uses it.
+        'photo_id, paparazzi_seat_id, captured_by_person_id, r2_object_key, clip_web_r2_key, full_res_dropped_at, poster_r2_key, display_r2_key, thumb_r2_key, tile_r2_key, photo_type, captured_at, moderation_state, hidden_at, expires_at, consent_to_public, couple_approved_for_showcase, preserved_at',
       )
       .eq('event_id', eventId)
       .order('captured_at', { ascending: false })
@@ -151,9 +150,7 @@ export async function fetchPapicGallery(
     supabase
       .from('papic_guest_captures')
       .select(
-        compressedOnly
-          ? 'capture_id, guest_id, captured_by_person_id, r2_object_key, clip_web_r2_key, full_res_dropped_at, poster_r2_key, display_r2_key, thumb_r2_key, tile_r2_key, media_type, captured_at, hidden_at, moderation_state, consent_to_public, couple_approved_for_showcase, preserved_at'
-          : 'capture_id, guest_id, captured_by_person_id, r2_object_key, clip_web_r2_key, full_res_dropped_at, poster_r2_key, display_r2_key, thumb_r2_key, media_type, captured_at, hidden_at, moderation_state, consent_to_public, couple_approved_for_showcase, preserved_at',
+        'capture_id, guest_id, captured_by_person_id, r2_object_key, clip_web_r2_key, full_res_dropped_at, poster_r2_key, display_r2_key, thumb_r2_key, tile_r2_key, media_type, captured_at, hidden_at, moderation_state, consent_to_public, couple_approved_for_showcase, preserved_at',
       )
       .eq('event_id', eventId)
       .order('captured_at', { ascending: false })
@@ -167,9 +164,7 @@ export async function fetchPapicGallery(
     supabase
       .from('vendor_papic_captures')
       .select(
-        compressedOnly
-          ? 'capture_id, vendor_profile_id, r2_object_key, poster_r2_key, media_type, captured_at, hidden_at, nsfw_checked, consent_basis, display_r2_key, tile_r2_key, thumb_r2_key, full_res_dropped_at'
-          : 'capture_id, vendor_profile_id, r2_object_key, poster_r2_key, media_type, captured_at, hidden_at, nsfw_checked, consent_basis',
+        'capture_id, vendor_profile_id, r2_object_key, poster_r2_key, media_type, captured_at, hidden_at, nsfw_checked, consent_basis, display_r2_key, tile_r2_key, thumb_r2_key, full_res_dropped_at',
       )
       .eq('event_id', eventId)
       .order('captured_at', { ascending: false })

@@ -10,8 +10,12 @@
  *   C · a colour picked there is stored the way the dropdown stores one: a preset's own swatch → the preset's key (the
  *       default champagne → '' — no override), any other colour → its `#RRGGBB`; the action accepts both, the public
  *       page retints for both, and the dropdown gains the shop's own colour as a row, so the two never disagree;
- *   D · every row on Your page that opens in place is a `Fold` whose head toggles, and every row that goes somewhere is
- *       a link — no row is drawn as a press that does nothing.
+ *   D · THE CAUSE OF THE DEAD PRESS (measured in the lab, Chromium and WebKit, 375 × 812): the one thumb row
+ *       (`components/thumb-row.tsx`, "no band", 22 Oct) is the screen's full width, and its `.row` took
+ *       `pointer-events: auto` — so a strip ~36 px tall right above the dock swallowed every press, its controls drawn
+ *       only at the right. Look (or any row) scrolled into that strip did not open or shut. The row now passes the
+ *       press through everywhere but its controls, above any host's `.lower > * { pointer-events: auto }`. This holds
+ *       on every list screen that draws the one row (Guests, Suppliers, Budget, People, the supplier's four).
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -72,7 +76,7 @@ test('A · the shared Fold draws a leadPress BESIDE its head, outside the head�
 
 test('A · the head toggles on its own press (one handler that flips open)', () => {
   const fold = src('app/_components/fold.tsx');
-  const head = fold.match(/<button[\s\S]*?data-fold-head=""[\s\S]*?>/)?.[0] ?? '';
+  const head = fold.match(/<button\s+type="button"\s+data-fold-head=""[\s\S]*?className=/)?.[0] ?? '';
   assert.match(head, /onClick=\{\(\) => setOpen\(\(o\) => !o\)\}/, 'the Fold head does not flip open / shut');
 });
 
@@ -137,12 +141,33 @@ test('C · the dropdown and the row say the shop’s own colour, so the circle a
   assert.match(src('app/vendor-dashboard/actions.ts'), /isValidAccentKey\(raw\)/, 'the action no longer validates the accent');
 });
 
-test('D · every row on Your page is a Fold (toggles) or a DatesRow (goes somewhere) — and every Fold has a head', () => {
+test('D · the one thumb row takes a press only on its controls — its gaps pass it to the page underneath', () => {
+  const css = stripComments(readFileSync(join(WEB, 'components/thumb-row.module.css'), 'utf8'));
+  const rules = [...css.matchAll(/([^{}]+)\{([^}]*)\}/g)].map((m) => ({ sel: m[1]!.trim(), body: m[2]! }));
+  const pe = (body: string) => body.match(/pointer-events:\s*(\w+)/)?.[1] ?? null;
+  /* The row itself, at any specificity: never a press. */
+  const rowRules = rules.filter((r) => /^\.row(\[data-thumb-row\])?$/.test(r.sel) && pe(r.body));
+  assert.ok(rowRules.length > 0, 'the row says nothing about presses — a host’s `.lower > * { pointer-events: auto }` makes it a full-width dead strip');
+  for (const r of rowRules) assert.equal(pe(r.body), 'none', `${r.sel} takes presses across the whole screen width`);
+  /* …and it must outrank a host's `.lower > *` (one class): two classes or a class and an attribute. */
+  assert.ok(rowRules.some((r) => r.sel === '.row[data-thumb-row]'), 'the row’s pass-through can lose to a host’s `.lower > *` (same specificity)');
+  /* The controls take the press back — every child but the spacer. */
+  const kids = rules.find((r) => /^\.row\[data-thumb-row\]\s*>\s*:not\(\.gap\)$/.test(r.sel));
+  assert.ok(kids && pe(kids.body) === 'auto', 'the row’s controls no longer take a press');
+  /* The rows' hosts still pass their own edges through. */
+  const sup = stripComments(readFileSync(join(WEB, 'app/vendor-dashboard/_components/supplier-thumb-row.module.css'), 'utf8'));
+  assert.match(sup.match(/\.lower\s*\{([^}]*)\}/)?.[1] ?? '', /pointer-events:\s*none/, 'the supplier row’s host takes presses across the screen');
+  /* The data handle the specificity rests on is on the row. */
+  assert.match(src('components/thumb-row.tsx'), /data-thumb-row=\{name\} className=\{`\$\{styles\.row\}/, 'the row lost data-thumb-row, so its pass-through rule matches nothing');
+});
+
+test('D · every row on Your page is a Fold (opens in place) or a DatesRow (a link, or a plain statement with no arrow)', () => {
   const s = src(PARTS);
   const list = s.slice(s.indexOf('data-page-parts=""'), s.indexOf('<SupplierThumbRow'));
   const folds = list.match(/<Fold\b/g)?.length ?? 0;
   assert.ok(folds >= 7, `Your page lost rows that open in place (${folds} Folds)`);
-  /* A DatesRow WITHOUT an href is a statement, not a press — it must not wear the press look. */
+  /* A DatesRow without an href draws no arrow and no press look — a statement, never a dead press. */
   const dates = src('app/vendor-dashboard/customers/_components/dates-row.tsx');
-  assert.match(dates, /href/, 'DatesRow no longer knows whether it goes somewhere');
+  assert.match(dates, /\{href && !end \? <ChevronRight/, 'a DatesRow draws its arrow without going anywhere');
+  assert.match(dates, /<div className=\{rowClass\}/, 'a DatesRow that goes nowhere is drawn as a press');
 });

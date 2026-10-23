@@ -60,11 +60,15 @@ test('the switch exists on all three layers — column, action, control', () => 
 test('🚨 the switch actually GOVERNS the picker', () => {
   // The failure being guarded is a switch that saves a value nobody reads.
   assert.match(PAGE, /const uploadsOpen =/, 'the page no longer reads the column');
-  assert.match(
-    PAGE,
-    /\{!uploadsOpen \?/,
-    'the picker no longer branches on the switch — turning it off would save a value and change nothing a person can see',
-  );
+  // Since 2026-10-23 the uploader's only door is on the library itself (`AddPhotosDoor`, the empty roll's
+  // "Add the first memory" and the top bar's "Add photos"); BOTH are drawn only while the switch is open.
+  for (const slot of ['firstMemorySlot', 'addPhotosSlot']) {
+    assert.match(
+      PAGE,
+      new RegExp(`${slot}=\\{[\\s\\S]{0,400}?uploadsOpen \\? \\(\\s*<AddPhotosDoor`),
+      `the ${slot} door no longer branches on the switch — turning it off would save a value and change nothing a person can see`,
+    );
+  }
 });
 
 test('⚠ an absent column means OPEN, never closed', () => {

@@ -165,8 +165,10 @@ test('THE OWNER’S TWO MOVES ARE THE ONES THAT SHIPPED', () => {
 });
 
 test('THE TWO RENAMES ARE ON THE PAGE', () => {
-  // The words the owner uses: the capture window is COVERAGE, and what a guest
-  // may spend is an ALLOTMENT.
+  // The words the owner uses: the capture window is COVERAGE, and the guests' block is "WHO SHOOTS, AND
+  // WHEN" — renamed from "Allotment" on 2026-10-23 (owner: "we can improve these"; house words, not a
+  // ledger term).
   assert.match(RAW, />Coverage</, 'the coverage block has lost its heading');
-  assert.match(RAW, />Allotment</, 'the allotment block has lost its heading');
+  assert.match(RAW, /label="Who shoots, and when"/, 'the guests block has lost its heading');
+  assert.doesNotMatch(RAW, />Allotment</, '"Allotment" is back as a heading');
 });

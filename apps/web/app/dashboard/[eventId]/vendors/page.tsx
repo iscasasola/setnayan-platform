@@ -256,8 +256,21 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // type where the assistant is not offered at all (owner lock 2026-07-27).
   // Gated on the COLUMN, never the type name, so a future vendor-free type is
   // covered without editing this file.
+  //
+  // 🧭 …AND IT IS A TAB ON EVERY EVENT NOW (owner 22 Oct 2026, "Fix both": every event wears the
+  // wedding's bar — `lib/event-menu-gates.ts`). A redirect here made the Suppliers tab of a vendor-free
+  // type a door that re-opened Home — the dead-tab shape the owner removed from the app's More
+  // (#6725). So the page answers in its own place, in the words Find a supplier already uses, and still
+  // renders NO bench and NO upsell.
   const profile = await resolveProfileByEvent(eventId);
-  if (profile.marketplaceEnabled !== true) redirect(`/dashboard/${eventId}`);
+  if (profile.marketplaceEnabled !== true) {
+    return (
+      <section className="sn-col space-y-6" data-suppliers-not-listed="">
+        <PageMasthead title="Suppliers" />
+        <p className="text-[15px] text-ink/65">Suppliers aren&rsquo;t listed for this kind of event yet.</p>
+      </section>
+    );
+  }
 
   // ⚖ YOUR TEAM'S BUDGET PART — owner 2026-09-29: "this is what an event
   // needs. Guestlist · Your Team · Event Hub Maker · Our Services", with Budget

@@ -178,6 +178,7 @@ html.dark .fd {
 /* The drawing's `.tb-l` gap is 14px between the hamburger and the wordmark;
    the right cluster stays at 8. Not symmetric, and not a mistake. */
 .fd-topleft {
+  grid-column: 1;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -190,6 +191,11 @@ html.dark .fd {
 .fd-topright {
   justify-content: flex-end;
   position: relative;
+  /* PINNED to the last column (owner 2026-10-23, "that button should be at the upper right corner").
+     A page that passes `search={false}` renders no middle child, and grid auto-placement then dropped
+     this cluster into the middle (search) column — the account button sat mid-bar on the Events board
+     while its menu opened at the right edge. The column is named, not inferred from sibling count. */
+  grid-column: -2 / -1;
 }
 
 /* The account menu. Signing out lives HERE and nowhere else — visiting the
@@ -644,44 +650,6 @@ html.dark .fd {
   font-size: 15px;
   line-height: 1;
 }
-/* ── A STUDIO ROW WITH ITS LINE ───────────────────────────────────────────
-   Owner 2026-08-14: "that is where we can talk about the different apps."
-   Signed out each product says what it is, so the row grows a second line and
-   stops being a fixed 44px. Signed in the line is absent and `.fd-row-2l` is
-   never applied, so those rows are byte-identical to before.
-   ⚠ The 44px tap floor is a MINIMUM, so a taller row is never a lock problem —
-   only a shorter one would be. */
-.fd-row-2l {
-  min-height: 56px;
-  align-items: flex-start;
-  padding-top: 8px;
-  padding-bottom: 8px;
-}
-.fd-row-2l .fd-gi {
-  /* The 18-px icon sits on the name's first line, not on the row's centre. */
-  margin-top: 1px;
-}
-.fd-toolwrap {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-.fd-toolline {
-  font-size: 11.5px;
-  line-height: 1.35;
-  color: var(--fd-m2);
-}
-/* The affordance that says this row opens a demo rather than navigating. It is
-   inside the label, so the icon-strip caption below 1280 never shows it. */
-.fd-toolplay {
-  margin-left: 7px;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  color: var(--fd-gold);
-  white-space: nowrap;
-}
 /* ⛔ `.fd-dot` IS GONE (2026-10-20). The tool rows drew a 6-px bullet in the
    icon slot; in the 72-px strip, where the word is hidden, a bullet over a
    caption read as an icon that never loaded (iPad 13" upright, PR #6716 walk
@@ -708,17 +676,6 @@ html.dark .fd {
   gap: 6px;
   align-items: baseline;
 }
-/* ⚖ SMALL PRINT IS STILL TEXT (quality sweep 2026-10-19, C3). This was
-   `--fd-m3`, 2.80:1 on the white rail — under WCAG AA's 4.5:1 for text this
-   size, on every page the rail mounts. `--fd-m1` is 5.38:1 (dark 8.2:1); the
-   quieter weight and the 11px size still set it below the label beside it.
-   Held by `the-small-print-is-readable.test.ts`, which computes the ratio. */
-.fd-rlabel small {
-  font-weight: 500;
-  color: var(--fd-m1);
-  font-size: 11px;
-}
-
 /* ── THE CONTEXT GROUP — "you are in this place, and here is its menu" ─────
    One Shell slice 1. Ported from the binding drawing's `.rctx` + `.rlab.sub`
    (`prototypes/one_shell_2026-08-13.html`). The group PUSHES in below the
@@ -801,7 +758,7 @@ html.dark .fd {
   vertical-align: middle;
 }
 
-/* Same rule as `.fd-rlabel small`: the rail's Privacy · Terms line was
+/* Small print is text (quality sweep 2026-10-19, C3): the rail's Privacy · Terms line was
    `--fd-m2`, 3.67:1 — readable-looking, still under AA's 4.5:1 at 12px. */
 .fd-smallprint {
   padding: 4px 12px;
@@ -913,7 +870,7 @@ html.dark .fd {
   }
 }
 /* The rail's last two lines are small print too — `--fd-m1`, not the 2.80:1
-   `--fd-m3` (see `.fd-rlabel small`). */
+   `--fd-m3` (quality sweep 2026-10-19, C3). */
 .fd-copy {
   margin-top: 10px;
   color: var(--fd-m1);
@@ -1249,8 +1206,7 @@ h2.fd-sechead,
   font-weight: 700;
 }
 /* The meta and rule spans sit inside the heading and must NOT inherit 19px/700. */
-.fd-sechead .fd-meta,
-.fd-sechead .fd-rule {
+.fd-sechead .fd-meta {
   font-weight: 400;
   letter-spacing: normal;
 }
@@ -1258,13 +1214,8 @@ h2.fd-sechead,
   font-size: 13px;
   color: var(--fd-m2);
 }
-/* The shelf's one-line house rule ("earned, never sold") is read, not
-   decoration: `--fd-m1` (5.38:1), not the 2.80:1 `--fd-m3` it was. */
-.fd-sechead .fd-rule {
-  margin-left: auto;
-  font-size: 11.5px;
-  color: var(--fd-m1);
-}
+/* `.fd-rule` (the shelf's grey house rule beside a heading) is gone — owner 2026-10-01,
+   NO SMALL EXPLAINER LABELS; its words live in the heading's ⓘ now. */
 /* THE SHELF HEADING IS A DOOR (2026-08-20). It replaces the rail's retired
    "Stories" row as the front page's one permanent link to the hub, so it must
    read as a heading first and reveal itself as a link on hover/focus —
@@ -1593,19 +1544,7 @@ h2.fd-sechead,
   .fd-smallprint {
     display: revert;
   }
-  /* 🔑 THIS DRAWER IS 280px WIDE AND THE STUDIO LINES BELONG IN IT.
-     `.fd-toolline` / `.fd-toolplay` are switched off at ≤1279.98px for the
-     72px ICON STRIP, where they genuinely do not fit. The revert list directly
-     above restores the rail's other prose for this drawer and FORGOT THESE
-     TWO — so every Studio row rendered as a dot and a bare name, while the
-     one-line explanation of what each product does sat in the HTML, invisible.
-     Owner, seeing it: "content of each got lost."
-
-     Scoped with `.fd-rail` on purpose, not written bare: the strip's
-     `display: none` lives in a LATER block in this same file, so at equal
-     specificity a bare selector here would lose to it and change nothing. */
-  .fd-rail .fd-toolline,
-  .fd-rail .fd-toolplay,
+  /* The drawer restores the event menu's chevrons the 1279 strip hides. */
   .fd-rail .fd-mchev {
     display: revert;
   }
@@ -1614,18 +1553,6 @@ h2.fd-sechead,
      so it outranks the strip's bare rule, which sits in an earlier block. */
   .fd-rail .fd-signin-prompt {
     padding: 4px 12px 8px;
-  }
-  /* And the other half of the same bug: the strip also flattens `.fd-row-2l`
-     to a single 44px centred row. Restoring the text without restoring the
-     height squeezes two lines into one line's worth of space. */
-  .fd-rail .fd-row-2l {
-    min-height: 56px;
-    align-items: flex-start;
-    padding-top: 8px;
-    padding-bottom: 8px;
-  }
-  .fd-rail .fd-row-2l .fd-gi {
-    margin-top: 1px;
   }
   .fd-row {
     flex-direction: row;
@@ -2515,24 +2442,6 @@ button.fd-ask.quiet {
     padding: 10px 2px 2px;
   }
 
-  /* 🪤 THESE LIVE HERE, IN THE EXISTING BLOCK, AND THAT IS THE POINT. Adding a
-     SECOND `@media (max-width: 1279.98px)` block for them broke a shipped guard
-     without breaking the code: `one-shell-event-rail.test.ts` finds the FIRST
-     1279 block and asserts the event name is hidden inside it, and the new
-     block came first. Correct code, red guard — the identical mistake this file
-     already records making with the 1024 band, made again two hours later.
-     ONE BLOCK PER BREAKPOINT. */
-  .fd-toolline,
-  .fd-toolplay {
-    display: none;
-  }
-  .fd-row-2l {
-    min-height: 44px;
-    align-items: center;
-  }
-  .fd-row-2l .fd-gi {
-    margin-top: 0;
-  }
 }
 
 @media (max-width: 1023.98px) {
@@ -2700,24 +2609,12 @@ button.fd-ask.quiet {
   .fd[data-boundary='tab'] .fd-signin-prompt p,
   .fd[data-boundary='tab'] .fd-notice,
   .fd[data-boundary='tab'] .fd-smallprint,
-  .fd[data-boundary='tab'] .fd-rail .fd-toolline,
-  .fd[data-boundary='tab'] .fd-rail .fd-toolplay,
   .fd[data-boundary='tab'] .fd-rail .fd-mchev {
     display: none;
-  }
-  .fd[data-boundary='tab'] .fd-rail .fd-row-2l {
-    min-height: 44px;
-    align-items: center;
   }
   /* The strip's Sign-in prompt: no side padding, so the label fits on one line. */
   .fd[data-boundary='tab'] .fd-rail .fd-signin-prompt {
     padding: 4px 0 8px;
-  }
-  /* The strip's value — icon over caption, centred, no first-line nudge —
-     restated so the drawer's copy of it is undone here too, one-for-one
-     (`the-tablet-band-is-the-strip.test.ts`). */
-  .fd[data-boundary='tab'] .fd-rail .fd-row-2l .fd-gi {
-    margin-top: 0;
   }
   /* Icon over caption, the strip's row. */
   .fd[data-boundary='tab'] .fd-row {
@@ -3066,4 +2963,27 @@ html.dark .fd {
     width: auto;
     padding-top: 0;
   }
+}
+
+/* ── AN EMPTY SHELF: ONE LINE + ONE ACTION (owner 23 Oct 2026) ───────────────
+   Replaces the dashed "invite" card on Discover's shelves — a framed box that
+   nothing pressed. The action (`.fd-btn-quiet`) is the only framed thing; every
+   detail sits behind the line's ⓘ. `empty-shelf.tsx`. */
+.fd-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0 0 26px;
+}
+/* A heading's ⓘ label wraps beside its badge rather than dropping under it at 375. */
+.fd-sechead > .fd-sechead-tip {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.fd-empty-line {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--fd-m1);
 }

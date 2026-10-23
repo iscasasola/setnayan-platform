@@ -12,13 +12,13 @@
  * bundle for no benefit. So the feed arrives as `children` (a server
  * component) and passes straight through.
  *
- * ─── THE RAIL'S FIVE GROUPS, IN ORDER ────────────────────────────────────
- *   1 · Destinations   Home · Marketplace (signed in only)
- *   2 · THE ACCOUNT SLOT  ← second, above the categories
- *   3 · (Browse by category — REMOVED 2026-09-24; it drew only inside an
- *        event, where Your Team is the one supplier row)
- *   4 · Studio         the seven tools
- *   5 · Small print    + a copyright line
+ * ─── THE RAIL, IN ORDER (owner 2026-10-01, built 2026-10-23) ──────────────
+ *   Signed out  Discover · Find suppliers · Features · How it works · Sign in
+ *   Signed in   Discover · My Home (Events · Memories · People · shop · HQ) ·
+ *               Features
+ *   then the small print. No Planner · Builder · Together · Studio lists —
+ *   /features shows every tool. Inside an event the rail is focused: one way
+ *   back, then the event's own menu (`railContext`), unchanged.
  *
  * 🔑 THE ACCOUNT SLOT IS THE SECOND GROUP. Rev 1 had it third and asked the
  * owner where it belonged; the owner-supplied reference answered it. Signed
@@ -73,7 +73,7 @@ import { publicSearchPlaceholder } from '@/lib/public-search-nouns';
 import { ShellBoundaryProvider, type ShellBoundary } from '@/app/_components/shell-boundary';
 import { useOneOpen } from '@/lib/one-open';
 import { POLICY_LINKS } from '@/lib/policy-links';
-import { EVENT_MENU_ICONS, type EventMenuIconName } from '@/lib/customer-menu';
+import type { EventMenuIconName } from '@/lib/customer-menu';
 /*
   ─── THE RAIL'S OWN ROWS DRAW LUCIDE, LIKE EVERY OTHER ROW IN IT ──────────
   Until now they drew TYPOGRAPHIC CHARACTERS — ⌂ ◎ ⌕ ▦ ✧ ❖ ✎ ▣ ⛨ ▸ ⌃ ⌄ — while
@@ -101,9 +101,9 @@ import { EVENT_MENU_ICONS, type EventMenuIconName } from '@/lib/customer-menu';
 */
 import {
   ArrowLeft,
+  Blocks,
   Compass,
   LayoutGrid,
-  PenLine,
   Search,
   Sparkles,
   Telescope,
@@ -347,42 +347,22 @@ const RAIL_SLOT = {
   // Leaving the key would point at a slot that no longer exists, so `slotLabel`
   // would fall through to its literal forever — a lookup that has quietly
   // stopped being a lookup, which is how the admin rename surface rots.
-  find: 'customer.account.marketplace',
+  // `find` went the same way (2026-10-23): the signed-out "Find suppliers" row is
+  // the owner's 2026-10-01 words and never ran through the registry (`slotLabel`
+  // applies in the app variant only, which is always signed in).
 } as const;
 
 type Props = {
   account: FrontDoorAccount;
-  tools: ReadonlyArray<RailTool>;
-  /**
-   * Planner, Builder and Together sit above Studio, same row grammar. See
-   * `lib/free-tools-rail.ts` for why each in-event list is short: most of what
-   * a first draft would list here already exists as a row in
-   * `EventRailContext`. Defaulting to `[]` renders no group at all, so a
-   * caller that says nothing (every doorway page, `/`'s search-results
-   * branch) is unaffected.
-   *
-   * 🔴 THE SHELL RENDERS WHATEVER IT IS HANDED. IT DOES NOT RE-DECIDE.
-   * These three groups were once ALSO gated here on `account.signedIn` (and
-   * Planner on `insideEvent`), back when the only rows that existed were the
-   * in-event ones. On 2026-09-06 the same slots gained their SIGNED-OUT
-   * doorway rows (`plannerDoorwayRows` · `togetherDoorwayRows`), whose whole
-   * condition is the opposite one — and the stale gates here swallowed them:
-   * Marketplace, Guest list, Seat plan, Budget, Schedule and Samahan shipped
-   * to production rendering in NO group at all for a signed-out stranger, the
-   * exact audience the doorways exist for. Two of those had been visible in
-   * Studio the day before, so the change was a net loss.
-   *
-   * 🔑 SO THE RULE IS: THE CALLER DECIDES WHICH ROWS EXIST, AND AN EMPTY LIST
-   * IS HOW IT SAYS "NOT HERE". Both callers already branch on session and
-   * event (`app-rail-shell.tsx`, `front-door.tsx`), and both list functions
-   * return `[]` in the states they do not belong in. A second copy of that
-   * decision here can only ever disagree with the first — and when it did, it
-   * disagreed silently, because a group that renders nothing looks exactly
-   * like a group with nothing to render.
-   */
-  plannerTools?: ReadonlyArray<RailTool>;
-  builderTools?: ReadonlyArray<RailTool>;
-  togetherTools?: ReadonlyArray<RailTool>;
+  /*
+    🧭 NO TOOL LISTS IN THIS RAIL (owner 2026-10-01, built 2026-10-23 — DECISION_LOG
+    "THE SIGNED-OUT FRONT DOOR STOPS LISTING EVERY FEATURE IN THE SIDEBAR" and "THE
+    SIGNED-IN SIDEBAR ALSO DROPS THE PLANNER · TOGETHER · STUDIO FEATURE LISTS").
+    The Planner · Builder · Together · Studio groups and their `tools` props are gone:
+    one **Features** row opens `/features`, the page that lists every tool. Inside an
+    event each tool is still a row of the event's own menu (`railContext`), as shipped.
+    Held by `the-rail-lists-no-tools.test.ts`.
+  */
   children: React.ReactNode;
   /**
    * The page's ONE `<h1>`, when it has a real, visible one. Supplied ⇒ it is
@@ -446,20 +426,6 @@ type Props = {
    * context pushed in.
    */
   contextMatchRows?: ReadonlyArray<RailMatchRow>;
-  /**
-   * Whether the person is standing inside one specific event right now —
-   * true only on `/dashboard/[eventId]`. Owner 2026-08-22: *"marketplace is
-   * best shown inside an event, not when they just logged in."* Gates the
-   * Marketplace destination row and its "Browse by category" group, which
-   * therefore no longer follows `railContext` — the admin console and the
-   * vendor dashboard also push a `railContext`, and neither of those is a
-   * reason to show a couple's supplier marketplace.
-   *
-   * Defaults to `false`: the front door, the My Events board, the admin
-   * console and the vendor dashboard all render without it and stay exactly
-   * as they were.
-   */
-  insideEvent?: boolean;
   /**
    * FOCUS — the rail becomes the section you are in (owner 2026-09-21: *"When
    * we enter an Event sidebar will collapse focusing on just everything needed
@@ -643,16 +609,11 @@ export const FRONT_DOOR_RAIL_ID = 'fd-sections-rail';
 
 export function FrontDoorShell({
   account,
-  tools: toolsIn,
-  plannerTools: plannerToolsIn = [],
-  builderTools: builderToolsIn = [],
-  togetherTools: togetherToolsIn = [],
   children,
   heading,
   variant = 'front-door',
   railContext,
   contextMatchRows,
-  insideEvent = false,
   focus,
   navLabels,
   topBarSlot,
@@ -885,22 +846,6 @@ export function FrontDoorShell({
     inApp,
     signedIn: account.signedIn,
   });
-  /*
-    IN FOCUS, THE LISTS THAT DO NOT BELONG ARE EMPTY — decided ONCE, here.
-    `the-rail-renders-what-it-is-handed.test.ts` forbids a second condition at a
-    group's render boundary ("return [] … that is how the caller says 'not
-    here'"). Focus is the one "not here" no caller can say: the account layout
-    focuses on /dashboard/library and not on /dashboard/profile, and a layout
-    does not re-render between its own pages, so only this client component
-    knows which it is. It says it the way the guard asks — by the list.
-    Inside an event the caller already hands `tools` in EMPTY (2026-09-24):
-    each product is a row at its moment in the event menu instead.
-  */
-  const tools = focused && !insideEvent ? [] : toolsIn;
-  const plannerTools = focused ? [] : plannerToolsIn;
-  const builderTools = focused ? [] : builderToolsIn;
-  const togetherTools = focused ? [] : togetherToolsIn;
-  const claimedByEvent = new Set((contextMatchRows ?? []).map((r) => r.href));
   const matchRows = [
     /*
       🔑 IN FOCUS, ONLY DRAWN ROWS MAY COMPETE. The account rows are not on
@@ -915,72 +860,6 @@ export function FrontDoorShell({
           hasShop: !!account.shopName,
           isAdmin: account.isAdmin,
         })),
-    /*
-      ─── THE STUDIO ROWS, LIT AT LAST (2026-08-23) ────────────────────────
-      They were named debt above from 2026-08-21, when they started pointing
-      at real in-app routes: lighting them here alone DOUBLE-LIGHTS against
-      the event menu, which resolves in a component this one cannot see.
-      `contextMatchRows` closes that — the two halves are now one list and one
-      resolver, and the shipped specificity rule settles every overlap by
-      itself. Measured, the whole overlap set is three URLs:
-        /dashboard/<id>/seating/lab      3D Plan won (longer href) — until
-                                         2026-09-24, when the 3D Plan row
-                                         folded into Seat plan, which now
-                                         claims it (and /plan3d) outright
-        /dashboard/<id>/website          Launch wins (it claims the family)
-        /dashboard/<id>/website/editor   Launch wins (exact)
-
-      🪤 A ROW POINTING AT THE PICKER IS NOT A DESTINATION. With two or more
-      organiser events every Studio href collapses to `/dashboard` — the board
-      that IS the picker — so eight rows would all match the events page and
-      tie with the "Your events" row. They are dropped rather than ranked: a
-      row that cannot be right is better left unlit than guessed, which is the
-      rule this file already states for the marketplace folders.
-    */
-    /*
-      ⭐ AND A STUDIO ROW THAT OPENS A PAGE AN EVENT ROW ALREADY OPENS IS NOT
-      MATCHED TWICE (2026-09-02). The owner's one-door ruling pointed the
-      website product at the Event Hub controller, which the event menu's own
-      "Event Hub" row opens too — one product, one page, reached two ways, the
-      way `papic` has always worked. Both rows still RENDER: each is a real
-      entrance, and `studio-menu-adapts-to-event.test.ts` pins the Studio set
-      against the Suite grid, so dropping one from the rail itself would break
-      an owner-ruled parity.
-
-      But two rows claiming one URL TIE, and `activeRailKey` breaks a tie by
-      list position — so the lit row would be an accident of how this array is
-      composed. The event row wins by rule: it is the more specific claim, the
-      one the menu's own lifecycle phases are built around. This is the same
-      de-dupe `event-rail-match-rows.ts` already applies from the other side,
-      where the event menu's `studio` row is dropped because "the rail carries a
-      Studio GROUP a few rows below".
-
-      🔑 BY HREF, NOT BY KEY. A key list would go stale the next time a product
-      is repointed; identical destinations are the actual condition.
-    */
-    ...tools
-      .filter((t) => t.href !== '/dashboard' && !claimedByEvent.has(t.href))
-      .map((t) => ({ key: t.key, href: t.href })),
-    /*
-      PLANNER / BUILDER / TOGETHER JOIN THE SAME LIST (2026-09-03), for the
-      same reason the Studio rows did on 2026-08-23: `rowProps(t.key)` below
-      lights a row by comparing its key against `activeKey`, and `activeKey`
-      only ever comes from THIS array. Leaving these three out would not
-      break silently loud — the rows still render and still navigate — it
-      breaks silently QUIET: a row you are standing on just never looks like
-      it.
-
-      🪤 Two Together pairs share one destination on purpose (Samahan
-      groups/Stories both open `/dashboard/samahan`; Vendor/Event chat both
-      open the same thread board when neither carries its own view yet) — see
-      `free-tools-rail.ts`. `activeRailKey`'s tie-break is list position, so
-      the first of each pair lights and the second stays dark. That is an
-      honest gap in a shared destination, not a bug in the matcher — the
-      fix is a second href in `free-tools-rail.ts`, not here.
-    */
-    ...plannerTools.map((t) => ({ key: t.key, href: t.href })),
-    ...builderTools.map((t) => ({ key: t.key, href: t.href })),
-    ...togetherTools.map((t) => ({ key: t.key, href: t.href })),
     ...(contextMatchRows ?? []),
   ];
   const activeKey = activeRailKey(matchRows, pathname);
@@ -1452,22 +1331,35 @@ export function FrontDoorShell({
             already paid for. `front-door-invariants.test.ts` now fails if the
             heading link goes.
           */}
-          {account.signedIn ? (
-            insideEvent ? (
+          {/*
+            🧭 SIGNED OUT: Discover · Find suppliers · Features · How it works, then the
+            sign-in prompt — five things, no feature list (owner 2026-10-01, DECISION_LOG
+            "THE SIGNED-OUT FRONT DOOR STOPS LISTING EVERY FEATURE IN THE SIDEBAR", drawn in
+            `prototypes/sidebar_collapse_and_features_2026-10-01_fable.html` frame A).
+            🔄 This supersedes the 2026-08-12 "Marketplace is signed-in only" lock for the
+            signed-out rail: the later ruling names "Find suppliers" in it. Signed in there
+            is no find row — the one it had drew only inside an event, where the rail is
+            focused and never drew it; inside an event finding a supplier is Your Team.
+          */}
+          {account.signedIn ? null : (
+            <>
               <Link href="/explore" {...rowProps('find')}>
                 <RailIcon as={Compass} />
-                <span className="fd-label-text">
-                  {/* Fallback MUST equal the registry's label for this slot
-                      (`customer.account.marketplace` = "Marketplace"). They
-                      diverged, and the same row read two different words on
-                      two pages. `front-door-invariants.test` now pins them
-                      equal. */}
-                  {slotLabel(RAIL_SLOT.find, 'Suppliers')}
-                </span>
-                <span className="fd-icon-caption">Market</span>
+                <span className="fd-label-text">Find suppliers</span>
+                <span className="fd-icon-caption">Suppliers</span>
               </Link>
-            ) : null
-          ) : null}
+              <Link href="/features" {...rowProps('features')}>
+                <RailIcon as={Blocks} />
+                <span className="fd-label-text">Features</span>
+                <span className="fd-icon-caption">Features</span>
+              </Link>
+              <Link href="/our-story" className="fd-row">
+                <RailIcon as={Sparkles} />
+                <span className="fd-label-text">How it works</span>
+                <span className="fd-icon-caption">How it works</span>
+              </Link>
+            </>
+          )}
 
           <div className="fd-rdiv" />
 
@@ -1644,6 +1536,18 @@ export function FrontDoorShell({
                   <span className="fd-ct">admin</span>
                 </Link>
               ) : null}
+              {/*
+                🧭 ONE FEATURES ROW, NOT THREE LISTS (owner 2026-10-01, DECISION_LOG "THE
+                SIGNED-IN SIDEBAR ALSO DROPS THE PLANNER · TOGETHER · STUDIO FEATURE
+                LISTS"): your events · your shop / HQ · Features. Every tool is on
+                /features; inside an event the tools are rows of that event's menu.
+              */}
+              <div className="fd-rdiv" />
+              <Link href="/features" {...rowProps('features')}>
+                <RailIcon as={Blocks} />
+                <span className="fd-label-text">Features</span>
+                <span className="fd-icon-caption">Features</span>
+              </Link>
             </>
           ) : (
             /*
@@ -1680,11 +1584,6 @@ export function FrontDoorShell({
                   Sign in
                 </Link>
               </div>
-              <Link href="/our-story" className="fd-row">
-                <RailIcon as={Sparkles} />
-                <span className="fd-label-text">How it works</span>
-                <span className="fd-icon-caption">How it works</span>
-              </Link>
             </>
           )}
 
@@ -1720,171 +1619,6 @@ export function FrontDoorShell({
               build their suppliers."* Inside an event, finding a supplier is
               the event menu's Your Team row. Removed, not renamed: a second
               find row would be a second door to the same job. */}
-
-          {/* 3b · PLANNER / BUILDER / TOGETHER — the free tools, above Studio.
-              Same row grammar Studio uses (icon + name + one line), so these
-              read as MORE rows in the same rail, not a second visual system.
-              A group with an empty list renders nothing — see the props note
-              on `Props` for why the lists are short: everything else a first
-              draft would have listed here already exists as a row in
-              `EventRailContext`, and duplicating it would be the exact
-              "same destination, two names" defect that file's own docblock
-              warns against.
-
-              ⚠ AND THE ONLY CONDITION IS "ARE THERE ROWS". Do not re-add a
-              `signedIn` or `insideEvent` test here — see the props docblock:
-              each list already returns `[]` in the states it does not belong
-              in, and the gates that used to stand here silently hid all six
-              doorway rows from the signed-out visitors they were built for. */}
-          {plannerTools.length > 0 ? (
-            <div className="fd-rgroup">
-              <div className="fd-rdiv" />
-              <div className="fd-rlabel">
-                Planner <small>things you plan with</small>
-              </div>
-              {plannerTools.map((t) => (
-                <Link
-                  key={t.key}
-                  href={t.href}
-                  {...rowProps(t.key)}
-                  className={t.line ? 'fd-row fd-row-2l' : 'fd-row'}
-                >
-                  <RailIcon as={EVENT_MENU_ICONS[t.icon]} />
-                  <span className="fd-toolwrap">
-                    <span className="fd-label-text">{t.name}</span>
-                    {t.line ? <span className="fd-toolline">{t.line}</span> : null}
-                  </span>
-                  <span className="fd-icon-caption">{t.name}</span>
-                </Link>
-              ))}
-            </div>
-          ) : null}
-          {builderTools.length > 0 ? (
-            <div className="fd-rgroup">
-              <div className="fd-rdiv" />
-              <div className="fd-rlabel">
-                Builder <small>things you book &amp; pay with</small>
-              </div>
-              {builderTools.map((t) => (
-                <Link
-                  key={t.key}
-                  href={t.href}
-                  {...rowProps(t.key)}
-                  className={t.line ? 'fd-row fd-row-2l' : 'fd-row'}
-                >
-                  <RailIcon as={EVENT_MENU_ICONS[t.icon]} />
-                  <span className="fd-toolwrap">
-                    <span className="fd-label-text">{t.name}</span>
-                    {t.line ? <span className="fd-toolline">{t.line}</span> : null}
-                  </span>
-                  <span className="fd-icon-caption">{t.name}</span>
-                </Link>
-              ))}
-            </div>
-          ) : null}
-          {togetherTools.length > 0 ? (
-            <div className="fd-rgroup">
-              <div className="fd-rdiv" />
-              <div className="fd-rlabel">
-                Together <small>things you do with people</small>
-              </div>
-              {togetherTools.map((t) => (
-                <Link
-                  key={t.key}
-                  href={t.href}
-                  {...rowProps(t.key)}
-                  className={t.line ? 'fd-row fd-row-2l' : 'fd-row'}
-                >
-                  <RailIcon as={EVENT_MENU_ICONS[t.icon]} />
-                  <span className="fd-toolwrap">
-                    <span className="fd-label-text">{t.name}</span>
-                    {t.line ? <span className="fd-toolline">{t.line}</span> : null}
-                  </span>
-                  <span className="fd-icon-caption">{t.name}</span>
-                </Link>
-              ))}
-            </div>
-          ) : null}
-
-          {/* 4 · STUDIO — the things you make. IT DOES NOT COLLAPSE.
-
-              🔄 REVERSED 2026-08-21. Studio used to disappear the instant you
-              opened a wedding, and the event's own menu carried a single row
-              called Suite in its place. Owner, looking at both: *"this seem
-              wrong since we lose the consistency of the concept. what we want
-              is for that Studio to still show on the sidebar, but now it is
-              link to that event."*
-
-              🔑 THE PRODUCTS ARE THE CONCEPT, AND THEY ARE THE SAME PRODUCTS
-              WHETHER YOU OWN ONE OR NONE. Hiding the group at the exact moment
-              a person finally has somewhere to open it taught them the names
-              only while they were a stranger. The rows still change behaviour
-              — signed out they sell, signed in they open your own tools, and
-              inside an event they open THAT event's — but the group itself is
-              now furniture that never leaves.
-
-              ⚠ THE MARKETPLACE STILL COLLAPSES. Fifteen supplier categories
-              beside a wedding's sections is the list the drawing rejected;
-              seven named products under one heading is not the same thing. */}
-          {/* Empty in focus outside an event — see where `tools` is set. */}
-          {tools.length > 0 ? (
-          /* 🍎 `data-web-only`: the group names the paid web extras (Setnayan AI · Papic · Live Watch ·
-             Patiktok · Music Maker) and its rows open pages the iPhone app refuses — hidden there before the
-             first paint (lib/store-shell.ts). Inside an event the group is not drawn at all. */
-          <div className="fd-rgroup" data-web-only="">
-              <div className="fd-rdiv" />
-              <div className="fd-rlabel">
-                Studio <small>the things you make</small>
-              </div>
-              {/*
-                EVERY ROW IS A LINK TO THE PRODUCT'S OWN PAGE — owner
-                2026-08-15: *"we still want a feature description instead of
-                directly just going to the demo."*
-
-                🔄 THIS REVERSES YESTERDAY'S SHAPE, DELIBERATELY. Three rows
-                were <button>s that opened the demo overlay in place. That
-                answered "the side menu … will be able to show demo" too
-                literally: pressing Papic threw a stranger straight into a
-                two-phone live demo before anything had told them what Papic
-                IS. The demo is still one press away — it lives on the product
-                page itself (`_doorway.tsx`'s `demo` prop) — but the page comes
-                first.
-
-                So: seven rows, seven links, each carrying the line that says
-                what the thing does. The three that have a demo keep a quiet
-                marker so a stranger can see which ones are try-able before
-                they commit a click.
-              */}
-              {tools.map((t) => (
-                <Link
-                  key={t.key}
-                  href={t.href}
-                  /* `data-on` is the style hook the stylesheet already reads and
-                     `aria-current` is the half a screen reader gets — a rail
-                     that only LOOKS right is only half right. Both come from
-                     the one resolver, so they can never disagree. The
-                     two-line variant keeps its own class. */
-                  {...rowProps(t.key)}
-                  className={t.line ? 'fd-row fd-row-2l' : 'fd-row'}
-                >
-                  <RailIcon as={EVENT_MENU_ICONS[t.icon]} />
-                  <span className="fd-toolwrap">
-                    <span className="fd-label-text">
-                      {t.name}
-                      {/* A LABEL, NOT A VERB. "▸ demo" read as "this opens the
-                          demo" and that is exactly what it must no longer do.
-                          "try it" describes what the page you land on offers. */}
-                      {t.demo ? (
-                        <span className="fd-toolplay">try it</span>
-                      ) : null}
-                    </span>
-                    {t.line ? <span className="fd-toolline">{t.line}</span> : null}
-                  </span>
-                  <span className="fd-icon-caption">{t.name}</span>
-                </Link>
-              ))}
-          </div>
-          ) : null}
 
           {/* 5 · SMALL PRINT.
               ⚠ "Contact us" does not exist — there is no /contact route, and a

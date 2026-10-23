@@ -320,25 +320,28 @@ test('3 · the Papic page reads the gate once, and every web-only offer on it as
   const src = code(PAPIC_PAGE);
   assert.match(src, /const appleIap = \(await getIapGate\(\)\)\.iap;/);
   // Each mount of a thing sold only on the web (apply-then-pay → /pay) — found by name, counted, every one gated.
-  const SOLD_ON_THE_WEB = ['InlineCheckoutDrawer', 'ExtraCamerasPicker', 'GuestCameraTierPicker', 'DslrBridgeSection'];
+  // (2026-10-23: the crew-camera ladder, the guest-camera tier sheet and the unlock bundle are GONE from the
+  //  page — not gated, removed; Papic sells credits only. They may not come back on either platform.)
+  for (const gone of ['ExtraCamerasPicker', 'GuestCameraTierPicker', 'LimitedCard', 'PAPIC_UNLOCK']) {
+    assert.ok(!new RegExp(`<${gone}\\b|serviceKey="${gone}"`).test(src), `${gone} is on the Papic page again`);
+  }
+  const SOLD_ON_THE_WEB = ['InlineCheckoutDrawer', 'DslrBridgeSection'];
   let mounts = 0;
   const ungated: string[] = [];
   for (const name of SOLD_ON_THE_WEB) {
     for (const m of src.matchAll(new RegExp(`<${name}\\b`, 'g'))) {
       mounts++;
-      const inLimitedCard = name === 'GuestCameraTierPicker';
-      // The tier picker sits inside LimitedCard, whose own `appleIap` prop decides it (and the page hands it in).
-      if (!asksAppleIap(src, m.index!)) ungated.push(`${name} @${src.slice(0, m.index!).split('\n').length}${inLimitedCard ? ' (LimitedCard)' : ''}`);
+      if (!asksAppleIap(src, m.index!)) ungated.push(`${name} @${src.slice(0, m.index!).split('\n').length}`);
     }
   }
-  assert.ok(mounts >= 5, `found only ${mounts} web-offer mounts — the anchor moved`);
+  assert.ok(mounts >= 2, `found only ${mounts} web-offer mounts — the anchor moved`);
   assert.deepEqual(ungated, [], 'A web-only offer is drawn on the Papic page with nothing asking `appleIap`:\n  ' + ungated.join('\n  '));
   // The ₱ fallbacks of both offers sit inside the same gated sections.
   for (const m of src.matchAll(/formatPhp\((papicUnlockPricePhp|keepFullResPricePhp)\)/g)) {
     assert.ok(asksAppleIap(src, m.index!), `a bare ₱ (${m[1]}) is drawn in the app`);
   }
   // Every part handed the gate.
-  for (const mount of ['<StatusBanners', '<PapicTopBand', '<LiveWallCard', '<LimitedCard', '<GalleryPreviewCard']) {
+  for (const mount of ['<StatusBanners', '<PapicTopBand', '<LiveWallCard', '<GalleryPreviewCard']) {
     const at = src.indexOf(mount);
     assert.ok(at > 0, `${mount} moved`);
     assert.match(src.slice(at, src.indexOf('/>', at)), /appleIap=\{appleIap\}|apple=\{appleIap\}/, `${mount} is not handed the gate`);

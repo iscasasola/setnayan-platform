@@ -1,5 +1,6 @@
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import { startAhead } from '@/lib/start-ahead';
+import { MAKER_LATE_UNREAD, type MakerLate } from '@/lib/maker-late';
 import { needsHidesStage, needsHidesStudioTile } from '@/lib/event-needs';
 import { readEventNeedsFor } from '@/lib/event-needs-read.server';
 import Link from 'next/link';
@@ -1109,27 +1110,12 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
     </div>
   );
 
-  /* ══ PRINTS & TICKETS (Phase 9) ══ The couple's workspace only. One event
-     read (the theme and the card words) and the Pro question — the pieces
-     themselves are drawn by /api/hub-print, which asks the Pro question again
-     and refuses on its own. */
-  let details: { page: ReactNode; controls: ReactNode } | null = null;
-  /* 🗳 The RSVP stage (owner 2026-09-30 re-plan) — built beside Details' RSVP
-     item from the SAME reads, so the two can never show different settings. */
-  let rsvpStage: ReactNode = null;
-  /* 🪜 Is anything still left in the guided flow? (Details part 5) — decided
-     from the same facts Details' rows are drawn from (`guidedFactsFrom`). An
-     unfinished event's Maker opens on What's left unless the address names a
-     place; the stages are never blocked. */
-  let detailsUnfinished = false;
   const guideAddress = parseGuideParam(one(search.guide));
   const rawTool = one(search.tool);
   const itemNamed = Boolean(one(search.item));
-  /* ✍ The Details items' own editors — ONE set, drawn by Details and by the
-     stage's inspector when a fact is tapped there (`detailsFactEditors`). */
-  let factEditors: Partial<Record<DetailsItemKey, ReactNode>> = {};
-  /** 📱 The venue cards' Picture ▾ for the new Maker's Venue scene › Edit — the same slots Details › Venues draws. */
-  let venuePictures: MakerVenuePictures | null = null;
+  /* The address names no place — no tool, scene, stage or pin (the guided flow's door, below). */
+  const addressNamesNoPlace =
+    !rawTool && !one(search.scene) && !one(search.open) && !one(search.stage) && !one(search.pin) && !one(search.chain);
   /* 🧭 THE NEW MAKER — "Stages | Studio" (owner 2026-10-06; plan
      `EVENT_HUB_MAKER_STAGES_STUDIO_BUILD_PLAN_2026-10-06.md` PR 1): ON for the
      flag, or for an internal viewer (the reading View-as-free already made), and
@@ -1143,10 +1129,41 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
   const desktopColumns = stagesStudio && makerDesktopColumnsEnabled({ internal: freeSwitch.offered });
   /* 🖥 …whose top bar names the event — its own small read, only while the columns are on (`lib/maker-desk-title.server.ts`). */
   const deskTitle = desktopColumns ? await readMakerDeskTitle(supabase, eventId) : null;
-  let studio: { tiles: StudioTileModel[] } | null = null;
   /* ⚡ Started inside the block below (every `hasWork` path reads it in the toolbar's See-as roles). */
   let roleNamesRead: ReturnType<typeof loadRoleNames> | null = null;
-  if (hasWork) {
+  /* ⚡ THE TOOLS ARRIVE BEHIND THE MAKER, NEVER IN FRONT OF IT (measured on production 2026-10-23, new Maker
+     on a phone: the page took 5.4–6.3 s and the canvas showed at 7.5–11.6 s — the editor that draws it was
+     only started once THIS block was done, and the block is the Studio's and Details' every panel, ~800 KB).
+     The block now runs as ONE promise, started here and never awaited by the page: the shell and the canvas
+     go out at once, and the panels follow in the same response a moment later — before anyone has tapped,
+     so a tool still opens with its data in hand (DECISION_LOG 2026-09-28 "THE MAKER LOADS EVERYTHING UP
+     FRONT"; 2026-09-29 "THE MAKER MUST NEVER FEEL SLOW"). Nothing is fetched on a tap. The shell picks the
+     promise up (`late`, `maker-late.tsx`) and says "loading" — never "could not be loaded" — while it is
+     on its way. Held by `lib/the-maker-reads-start-together.test.ts` (test 5). */
+  const late: Promise<MakerLate> | null = hasWork
+    ? startAhead(
+        /* Named: the read harness tells this lane's reads from the canvas's by it (`maker-page-reads.harness.ts`). */
+        (async function makerLateWork(): Promise<MakerLate> {
+  /* ══ PRINTS & TICKETS (Phase 9) ══ The couple's workspace only. One event
+     read (the theme and the card words) and the Pro question — the pieces
+     themselves are drawn by /api/hub-print, which asks the Pro question again
+     and refuses on its own. */
+  let details: { page: ReactNode; controls: ReactNode } | null = null;
+  /* 🗳 The RSVP stage (owner 2026-09-30 re-plan) — built beside Details' RSVP
+     item from the SAME reads, so the two can never show different settings. */
+  let rsvpStage: ReactNode = null;
+  /* 🪜 Is anything still left in the guided flow? (Details part 5) — decided
+     from the same facts Details' rows are drawn from (`guidedFactsFrom`). An
+     unfinished event's Maker opens on What's left unless the address names a
+     place; the stages are never blocked. */
+  let detailsUnfinished = false;
+  /* ✍ The Details items' own editors — ONE set, drawn by Details and by the
+     stage's inspector when a fact is tapped there (`detailsFactEditors`). */
+  let factEditors: Partial<Record<DetailsItemKey, ReactNode>> = {};
+  /** 📱 The venue cards' Picture ▾ for the new Maker's Venue scene › Edit — the same slots Details › Venues draws. */
+  let venuePictures: MakerVenuePictures | null = null;
+  let studio: { tiles: StudioTileModel[] } | null = null;
+  {
     const printAdmin = createAdminClient();
     /* ⚡ STARTED WITH THE BLOCK (2026-10-23, the speed pass): the See-as roles and their names need only the event's
        id, yet were awaited last, in the toolbar's props. Awaited there still — on every `hasWork` path. */
@@ -1977,19 +1994,28 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       };
     }
   }
+  return {
+    details,
+    rsvpStage,
+    factEditors,
+    venuePictures,
+    studio,
+    /* 🪜 The guided flow's door, decided where its facts are (below: only where the address names no place). */
+    opensOnGuide: addressNamesNoPlace && detailsUnfinished && guideAddress === null,
+  };
+        })().catch((error: unknown): MakerLate => {
+          /* A panel that could not be built is SAID by the shell ("could not be loaded"), never a blank Maker. */
+          logQueryError('LaunchPage.makerLate', error, { event_id: eventId }, 'graceful_degrade');
+          return MAKER_LATE_UNREAD;
+        }),
+      )
+    : null;
 
   /* 🪜 A new couple's Maker opens on What's left (DECISION_LOG 2026-09-29 "THE
      GUIDED FLOW IS APPROVED…"): an unfinished event, and the address names no
-     place — no tool, scene, stage or pin. */
-  const opensOnGuide =
-    hasWork &&
-    detailsUnfinished &&
-    !rawTool &&
-    !one(search.scene) &&
-    !one(search.open) &&
-    !one(search.stage) &&
-    !one(search.pin) &&
-    !one(search.chain);
+     place — no tool, scene, stage or pin. Whether it is unfinished arrives with
+     the tools (`late.opensOnGuide`); the shell opens What's left then, unless the
+     couple has already tapped somewhere (`maker-late.tsx`). */
 
   return (
     <>
@@ -2007,14 +2033,11 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         if (hasWork && (tool === 'hero' || tool === 'reveal' || tool === 'logo' || tool === 'details')) {
           return { kind: 'tool', key: tool } as const;
         }
-        // 🪜 `?guide=`, or an unfinished event with no place named: Details, on What's left.
-        return hasWork && (guideAddress !== null || opensOnGuide) ? ({ kind: 'tool', key: 'details' } as const) : null;
+        // 🪜 `?guide=`: Details, on What's left. (An unfinished event with no place named opens it when `late` lands.)
+        return hasWork && guideAddress !== null ? ({ kind: 'tool', key: 'details' } as const) : null;
       })()}
-      opensOnGuide={opensOnGuide && guideAddress === null}
-      details={details}
-      rsvpStage={rsvpStage}
-      factEditors={factEditors}
-      venuePictures={venuePictures}
+      /* ⚡ Details · RSVP · the fact editors · the venue pictures · Studio's tiles — on their way (above). */
+      late={late}
       storeShell={storeShell}
       proLine={proLine}
       /* ⋯ › About the Maker. The short tour sells nothing (2026-10-02); the
@@ -2039,7 +2062,6 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       desktopColumns={desktopColumns}
       /* 🖥 The desktop's top bar names the event (the adaptation doc's "the event's name in the middle") — only with its columns on. */
       deskTitle={deskTitle}
-      studio={studio}
       /* 🎭 See as · Role ▾ (owner 2026-10-17, "view it as a father of the bride") — this event's guest-list roles, in
          the couple's words. Only where there is a page to see as (a coordinator's controller has no See as). */
       hiddenStages={hiddenStages}

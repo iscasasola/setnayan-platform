@@ -100,7 +100,11 @@ test('🚨 a failed read resolves to null, never to a number', () => {
 test('🚨 an unmeasured fact renders a dash, and 0 is only ever a real 0', () => {
   assert.ok(SRC.includes('function Unmeasured()'), 'the Unmeasured fallback is gone');
   const uses = SRC.split('<Unmeasured />').length - 1;
-  assert.ok(uses >= 3, `only ${uses} facts fall back to a dash — every read needs one`);
+  // Two READS are drawn on the strip — the library count and the credits. The third fact used to be
+  // `standings.cameras` (a seat count); it is now "Who shoots", a sentence the page derives from the host's
+  // own answer, not a read, so it has nothing to fall back from (owner 2026-10-23: never a seat count).
+  assert.ok(uses >= 2, `only ${uses} facts fall back to a dash — every read needs one`);
+  assert.ok(!/standings\.cameras|\bcameras\b[^\n]*Unmeasured/.test(SRC.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, '')), 'the strip draws a seat count again');
   // The empty-library sentence must sit behind an explicit `=== 0`, never behind
   // a falsy check that a null would also satisfy.
   assert.ok(

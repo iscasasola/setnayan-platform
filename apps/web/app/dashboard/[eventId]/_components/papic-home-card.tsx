@@ -66,7 +66,7 @@ export function PapicHomeCard({
   const regionId = useId();
 
   return (
-    <div className="flex flex-col" data-papic-home-card={open ? 'open' : 'rest'}>
+    <div className="col-span-full flex min-w-0 flex-col" data-papic-home-card={open ? 'open' : 'rest'}>
       <div className="sg-row" data-mood={mood} {...marker}>
         {/* THE HEAD — the card's one press: it opens the settings under the card, never another page. */}
         <button

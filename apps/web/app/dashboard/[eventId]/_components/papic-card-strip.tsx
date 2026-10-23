@@ -84,8 +84,10 @@ export function PapicCardStripView({
     );
   }
   const memories = `/dashboard/${eventId}/memories`;
-  const more = total !== null ? Math.max(0, total - frames.length) : 0;
-  const drawn = frames.slice(0, more > 0 ? 4 : 5);
+  // Five tiles: all five frames, or four and "+N" for the rest (N counts everything not drawn).
+  const overflow = total !== null && total > frames.length;
+  const drawn = frames.slice(0, overflow ? 4 : 5);
+  const more = overflow ? total! - drawn.length : 0;
   return (
     <div className="mt-2" data-papic-strip="">
       <div className="grid grid-cols-5 gap-1.5">

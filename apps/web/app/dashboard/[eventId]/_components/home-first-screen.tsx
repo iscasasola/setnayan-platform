@@ -550,10 +550,10 @@ function PapicServiceRow({
           doors.whileNext?.buy ? (
             /* NEVER TWICE, only while the card that offers it is on screen (walk-b6 F1). */
             <span data-while-next="" className="contents">
-              <PapicBuySheet eventId={eventId} left={left} tone="brand" sizes={sizes} />
+              <PapicBuySheet eventId={eventId} left={left} tone="brand" sizes={sizes} label={card ? 'Add more' : undefined} />
             </span>
           ) : (
-            <PapicBuySheet eventId={eventId} left={left} tone="brand" sizes={sizes} />
+            <PapicBuySheet eventId={eventId} left={left} tone="brand" sizes={sizes} label={card ? 'Add more' : undefined} />
           )
         ) : null}
         {/* The photos live on the event bar's Memories tab now (owner 2026-10-23) — the door opens it. */}

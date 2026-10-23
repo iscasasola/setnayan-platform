@@ -45,7 +45,7 @@ import type { RoleNames } from '@/lib/role-names';
 import { plusOneOfWords } from '@/lib/plus-one-of';
 import { plusOneHasNoName, plusOneIsNamed } from '@/lib/extra-seats';
 
-/** The 250 ms wait after the last key — the shipped `GuestsTopSearch` debounce (rule 4). */
+/** The 250 ms wait after the last key — the Guests thumb row's debounce (rule 4; the retired top-bar guest search used the same). */
 export const SEARCH_WAIT_MS = 250;
 
 /* ─── THE SORT (list) and THE ARRANGE (map) ─────────────────────────────── */

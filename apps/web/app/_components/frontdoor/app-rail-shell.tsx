@@ -60,11 +60,9 @@ import {
   togetherRailItems,
 } from '@/lib/free-tools-rail';
 import { plannerDoorwayRows, togetherDoorwayRows } from '@/lib/studio-rail';
-import { resolveCommandItems } from './command-data';
 import { discoverOpensHere } from '@/lib/request-platform';
 import { SignedInCluster } from './signed-in-cluster';
 import type { ShellBoundary } from '@/app/_components/shell-boundary';
-import { HomeCommandBar } from '@/app/dashboard/(launcher)/_components/home-command-bar';
 
 export async function AppRailShell({
   children,
@@ -154,7 +152,7 @@ export async function AppRailShell({
   /** Where this tree stops being a phone — pure pass-through, see `shell-boundary.tsx`. */
   boundary?: ShellBoundary;
 }) {
-  const [account, navLabels, commandItems, studioEvent, discoverOpen] = await Promise.all([
+  const [account, navLabels, studioEvent, discoverOpen] = await Promise.all([
     resolveRailAccount(),
     /*
       🔑 LABELS COME FROM THE NAV REGISTRY, which is where an admin renames
@@ -170,16 +168,7 @@ export async function AppRailShell({
       console.error('[AppRailShell] nav slot read failed:', err);
       return {} as RailNavLabels;
     }),
-    /*
-      🔑 ONE INDEX FOR THE ONE SEARCH. Built here, for every tree, from the
-      single shared builder — the launcher used to build its own inline, which
-      would have listed different things on `/dashboard` than inside a wedding
-      with nothing to notice. Its reads are all React `cache()`d at source, so
-      on the launcher (which already calls the same three) this costs nothing.
-      It degrades to `[]` rather than throwing: a palette with a short list is
-      a working bar, a shell that throws is a blank screen.
-    */
-    resolveCommandItems(),
+    // (The palette's index is no longer built here: the signed-in top bar has no search since 2026-10-22.)
     /*
       WHICH EVENT THE STUDIO ROWS OPEN — owner 2026-08-14: *"when logged in, it
       will be different view."* A signed-in person pressing "Papic" wants THEIR
@@ -341,11 +330,12 @@ export async function AppRailShell({
         `[]` either way, and this stops mounting a client component and its
         ⌘K listener on a page whose visitor it can never answer.
       */
-      search={
-        searchSlot ?? (account.signedIn ? (
-          <HomeCommandBar items={commandItems} variant="rail" />
-        ) : undefined)
-      }
+      /*
+        🔍 2026-10-22 ("One thumb row", owner "Yes to all"): signed in, the top bar carries NO search — `false`, so
+        the shell draws no box and no fallback. The search moved down into each list's thumb row
+        (components/thumb-row.tsx), pointed at the place you stand in. Signed out is unchanged (the marketplace box).
+      */
+      search={searchSlot ?? (account.signedIn ? false : undefined)}
     >
       {/*
         🍎 WHERE DISCOVER DOES NOT OPEN, ITS RAIL ROW IS NOT DRAWN. This marker

@@ -136,6 +136,26 @@ export function captureTierKey(input: {
   return `papic/vendor-${ownerId}/event-${eventId}/${file}`;
 }
 
+/**
+ * Where the PHONE puts a tier: the same folder, under `incoming/`.
+ *
+ * 🔒 A ROW NEVER POINTS AT A KEY A PRESIGNED URL CAN REACH. A presigned PUT is
+ * reusable until it expires, so if the row pointed at the uploaded object, a
+ * phone could re-PUT different bytes (same signed size) AFTER the screen passed
+ * them. The server instead reads the uploaded bytes, screens THOSE, and writes
+ * them itself to the final key (`captureTierKey`) — which no URL ever targets.
+ */
+export function stagingKeyFor(finalKey: string): string | null {
+  const m = /^(.*)\/(cap-[^/]+)$/.exec(finalKey);
+  return m ? `${m[1]}/incoming/${m[2]}` : null;
+}
+
+/** The final key a staging key promotes to (inverse of `stagingKeyFor`). */
+export function finalKeyFor(stagingKey: string): string | null {
+  const m = /^(.*)\/incoming\/(cap-[^/]+)$/.exec(stagingKey);
+  return m ? `${m[1]}/${m[2]}` : null;
+}
+
 /** How long a signed PUT stays usable. Minutes, never hours (relay "clean and safe"). */
 export const CAPTURE_PUT_TTL_SECONDS = 5 * 60;
 
@@ -174,8 +194,16 @@ export const SNIFF_BYTES = 16;
  * A clip's raw is a 'record' tier when there is NO web copy (it is then the only
  * playable file and must arrive with the record), and a 'full' tier when a web
  * copy exists (then it is the keep-full-res original).
+ *
+ * A photo whose phone could not make a thumbnail (no canvas resize — an old
+ * browser, a decode failure) records with its ORIGINAL, and the server makes
+ * the three copies from it exactly as it always did (the fallback the relay
+ * asked to keep: `generatePhotoDerivatives`).
  */
-export function phaseOf(tier: CaptureTier, opts: { hasClipWeb: boolean }): CapturePhase {
+export function phaseOf(
+  tier: CaptureTier,
+  opts: { hasClipWeb: boolean; hasThumb?: boolean },
+): CapturePhase {
   switch (tier) {
     case 'thumb':
     case 'poster':
@@ -187,15 +215,15 @@ export function phaseOf(tier: CaptureTier, opts: { hasClipWeb: boolean }): Captu
     case 'display':
       return 'display';
     case 'original':
-      return 'full';
+      return opts.hasThumb === false ? 'record' : 'full';
   }
 }
 
 /** The tier whose key a freshly recorded row carries as `r2_object_key`. */
 export function recordObjectTier(
   media: 'photo' | 'clip',
-  opts: { hasClipWeb: boolean },
+  opts: { hasClipWeb: boolean; hasThumb?: boolean },
 ): CaptureTier {
-  if (media === 'photo') return 'thumb';
+  if (media === 'photo') return opts.hasThumb === false ? 'original' : 'thumb';
   return opts.hasClipWeb ? 'clip_web' : 'clip_raw';
 }

@@ -68,8 +68,9 @@ export function jobKey(job: UploadJob): string {
 /** Tiers of a shot that belong to one phase (only those the shot actually has). */
 export function tiersInPhase(shot: QueuedShot, phase: CapturePhase): CaptureTier[] {
   const hasClipWeb = !!shot.tiers.clip_web;
+  const hasThumb = shot.media === 'photo' ? !!shot.tiers.thumb : undefined;
   return (Object.keys(shot.tiers) as CaptureTier[]).filter(
-    (t) => phaseOf(t, { hasClipWeb }) === phase,
+    (t) => phaseOf(t, { hasClipWeb, hasThumb }) === phase,
   );
 }
 

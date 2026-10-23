@@ -22,7 +22,9 @@ import {
 import {
   captureTierKey,
   contentTypeAllowed,
+  finalKeyFor,
   phaseOf,
+  stagingKeyFor,
   sniffMatches,
   TIER_RULES,
 } from './tiers';
@@ -176,6 +178,10 @@ test('a key is bound to one capture and one tier, in the folder its cleanup scop
     contentType: 'video/webm;codecs=vp9,opus',
   });
   assert.equal(v, `papic/vendor-v-1/event-e-1/cap-${CCID(7)}-clip_raw.webm`);
+  // The phone PUTs to `incoming/`; the row only ever points at the final key.
+  assert.equal(stagingKeyFor(k!), `papic/guest/g-1/incoming/cap-${CCID(7)}-thumb.webp`);
+  assert.equal(finalKeyFor(stagingKeyFor(v!)!), v);
+  assert.equal(finalKeyFor(k!), null, 'a final key is not a staging key');
   // Refusals: a path-ish owner, a non-uuid capture id, a video type on a still tier.
   assert.equal(captureTierKey({ lane: 'guest', ownerId: '../x', clientCaptureId: CCID(1), tier: 'thumb', contentType: 'image/jpeg' }), null);
   assert.equal(captureTierKey({ lane: 'guest', ownerId: 'g', clientCaptureId: 'abc', tier: 'thumb', contentType: 'image/jpeg' }), null);
@@ -201,4 +207,11 @@ test('caps are ordered: a thumbnail can never be signed as large as a display co
   assert.ok(TIER_RULES.thumb.maxBytes < TIER_RULES.display.maxBytes);
   assert.ok(TIER_RULES.display.maxBytes < TIER_RULES.original.maxBytes);
   assert.ok(TIER_RULES.clip_web.maxBytes < TIER_RULES.clip_raw.maxBytes);
+});
+
+test('a photo with no thumbnail records with its original (the server makes the copies)', () => {
+  assert.equal(phaseOf('original', { hasClipWeb: false, hasThumb: false }), 'record');
+  assert.equal(phaseOf('original', { hasClipWeb: false, hasThumb: true }), 'full');
+  const bare = photo(1, { tiers: { original: { contentType: 'image/jpeg', size: 9, uploaded: false } } });
+  assert.deepEqual(run([bare]).map(jobKey), [`put:${CCID(1)}:original`]);
 });

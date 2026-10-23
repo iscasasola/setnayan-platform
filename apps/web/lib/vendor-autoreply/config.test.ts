@@ -3,9 +3,6 @@ import assert from 'node:assert/strict';
 import {
   AUTO_ACCEPT_THRESHOLD_MAX,
   AUTO_ACCEPT_THRESHOLD_MIN,
-  DAILY_AUTO_ACCEPT_CAP_MAX,
-  DAILY_REPLY_CAP_MAX,
-  DAILY_REPLY_CAP_MIN,
   parseAutoReplyConfigForm,
   parseVoiceSwitchesForm,
 } from './config';
@@ -36,47 +33,29 @@ test('garbage enabled value is rejected, not coerced to false', () => {
   assert.equal(res.ok, false);
 });
 
-test('daily cap happy path patches only the cap', () => {
-  const res = parseAutoReplyConfigForm(form({ daily_reply_cap: '45' }));
-  assert.deepEqual(res, { ok: true, patch: { daily_reply_cap: 45 } });
-});
-
-test('daily cap accepts the bounds', () => {
-  const lo = parseAutoReplyConfigForm(form({ daily_reply_cap: String(DAILY_REPLY_CAP_MIN) }));
-  assert.deepEqual(lo, { ok: true, patch: { daily_reply_cap: DAILY_REPLY_CAP_MIN } });
-  const hi = parseAutoReplyConfigForm(form({ daily_reply_cap: String(DAILY_REPLY_CAP_MAX) }));
-  assert.deepEqual(hi, { ok: true, patch: { daily_reply_cap: DAILY_REPLY_CAP_MAX } });
-});
-
-test('daily cap above the ceiling is rejected', () => {
-  const res = parseAutoReplyConfigForm(form({ daily_reply_cap: String(DAILY_REPLY_CAP_MAX + 1) }));
-  assert.equal(res.ok, false);
-});
-
-test('negative, decimal, exponent, and non-numeric caps are rejected', () => {
-  for (const bad of ['-1', '12.5', '1e2', 'abc', '', ' ', '30x']) {
-    const res = parseAutoReplyConfigForm(form({ daily_reply_cap: bad }));
-    assert.equal(res.ok, false, `expected reject for ${JSON.stringify(bad)}`);
-  }
+test('a daily cap posted by an old tab is ignored — never patched (no per-day limit)', () => {
+  // Owner 2026-10-23: no limit on the assistant. A stale client may still post
+  // the two retired fields; they must never reach the row.
+  const res = parseAutoReplyConfigForm(
+    form({ enabled: 'true', daily_reply_cap: '45', daily_auto_accept_cap: '5' }),
+  );
+  assert.deepEqual(res, { ok: true, patch: { enabled: true } });
+  const alone = parseAutoReplyConfigForm(form({ daily_reply_cap: '45' }));
+  assert.equal(alone.ok, false, 'a cap alone is "nothing to save", not a patch');
 });
 
 test('leading zeros are tolerated as an integer', () => {
-  const res = parseAutoReplyConfigForm(form({ daily_reply_cap: '007' }));
-  assert.deepEqual(res, { ok: true, patch: { daily_reply_cap: 7 } });
+  const res = parseAutoReplyConfigForm(form({ auto_accept_threshold: '007' }));
+  assert.deepEqual(res, { ok: true, patch: { auto_accept_threshold: 7 } });
 });
 
 test('absurdly long digit strings fail the range check instead of overflowing', () => {
-  const res = parseAutoReplyConfigForm(form({ daily_reply_cap: '9'.repeat(30) }));
+  const res = parseAutoReplyConfigForm(form({ auto_accept_threshold: '9'.repeat(30) }));
   assert.equal(res.ok, false);
 });
 
-test('both fields together patch both columns', () => {
-  const res = parseAutoReplyConfigForm(form({ enabled: 'true', daily_reply_cap: '10' }));
-  assert.deepEqual(res, { ok: true, patch: { enabled: true, daily_reply_cap: 10 } });
-});
-
 test('one invalid field rejects the whole form (no partial patch)', () => {
-  const res = parseAutoReplyConfigForm(form({ enabled: 'true', daily_reply_cap: '-3' }));
+  const res = parseAutoReplyConfigForm(form({ enabled: 'true', auto_accept_threshold: '-3' }));
   assert.equal(res.ok, false);
 });
 
@@ -92,7 +71,7 @@ test('unknown fields are ignored, not patched', () => {
   assert.deepEqual(res, { ok: true, patch: { enabled: true } });
 });
 
-// ── Phase 4A — the auto-accept trio ─────────────────────────────────────────
+// ── Phase 4A — auto-accept (the switch + the threshold) ─────────────────────────────────────────
 
 test('auto_accept_enabled parses to a toggle-only patch', () => {
   const on = parseAutoReplyConfigForm(form({ auto_accept_enabled: 'true' }));
@@ -124,33 +103,20 @@ test('auto_accept_threshold above 100 / non-integer is rejected', () => {
   }
 });
 
-test('daily_auto_accept_cap parses within its own (tighter) ceiling', () => {
-  const ok = parseAutoReplyConfigForm(form({ daily_auto_accept_cap: '5' }));
-  assert.deepEqual(ok, { ok: true, patch: { daily_auto_accept_cap: 5 } });
-  const over = parseAutoReplyConfigForm(
-    form({ daily_auto_accept_cap: String(DAILY_AUTO_ACCEPT_CAP_MAX + 1) }),
-  );
-  assert.equal(over.ok, false);
-});
-
-test('all five fields together patch all five columns', () => {
+test('all three fields together patch all three columns', () => {
   const res = parseAutoReplyConfigForm(
     form({
       enabled: 'true',
-      daily_reply_cap: '20',
       auto_accept_enabled: 'true',
       auto_accept_threshold: '80',
-      daily_auto_accept_cap: '5',
     }),
   );
   assert.deepEqual(res, {
     ok: true,
     patch: {
       enabled: true,
-      daily_reply_cap: 20,
       auto_accept_enabled: true,
       auto_accept_threshold: 80,
-      daily_auto_accept_cap: 5,
     },
   });
 });

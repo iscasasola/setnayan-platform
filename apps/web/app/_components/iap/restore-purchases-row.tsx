@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { RotateCcw } from 'lucide-react';
 import { restoreWithApple } from '@/lib/iap/native-store';
-import { iapProductForServiceKey } from '@/lib/iap/products';
+import { iapProductForServiceKey, iapProductIsRepeatable } from '@/lib/iap/products';
 import type { IapRestoreResult } from '@/lib/iap/iap-outcome';
 
 /**
@@ -30,7 +30,8 @@ export function RestorePurchasesRow({ className }: { className: string }) {
   };
   const listed =
     result && result.ok
-      ? result.restored.filter((r) => iapProductForServiceKey(r.serviceKey)?.kind !== 'papic-credits')
+      ? // A pack (Papic credits, Mood Board renders) is never listed as "switched on" — like a Papic pack (2026-10-23).
+        result.restored.filter((r) => !iapProductIsRepeatable(iapProductForServiceKey(r.serviceKey)))
       : [];
   return (
     <div data-restore-purchases="">

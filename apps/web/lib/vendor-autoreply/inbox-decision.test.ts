@@ -1,18 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import {
-  evaluateAutoReplyGate,
-  startOfManilaDayIso,
-  type AutoReplyGateInput,
-} from './inbox-decision';
+import { evaluateAutoReplyGate, type AutoReplyGateInput } from './inbox-decision';
 
 function input(p: Partial<AutoReplyGateInput> = {}): AutoReplyGateInput {
   return {
     flagEnabled: true,
     senderRole: 'couple',
     addonActive: true,
-    config: { enabled: true, dailyReplyCap: 30 },
-    repliesToday: 0,
+    config: { enabled: true },
     ...p,
   };
 }
@@ -52,52 +47,10 @@ test('no vendor_bot_config row → never (strictly opt-in)', () => {
 });
 
 test('bot disabled → never', () => {
-  const gate = evaluateAutoReplyGate(input({ config: { enabled: false, dailyReplyCap: 30 } }));
+  const gate = evaluateAutoReplyGate(input({ config: { enabled: false } }));
   assert.deepEqual(gate, { run: false, reason: 'bot_disabled' });
 });
 
-test('daily cap reached → never (count == cap blocks)', () => {
-  const gate = evaluateAutoReplyGate(
-    input({ config: { enabled: true, dailyReplyCap: 30 }, repliesToday: 30 }),
-  );
-  assert.deepEqual(gate, { run: false, reason: 'cap_reached' });
-});
-
-test('cap 0 → bot never replies', () => {
-  const gate = evaluateAutoReplyGate(
-    input({ config: { enabled: true, dailyReplyCap: 0 }, repliesToday: 0 }),
-  );
-  assert.deepEqual(gate, { run: false, reason: 'cap_reached' });
-});
-
-test('couple + enabled + under cap → runs', () => {
-  const gate = evaluateAutoReplyGate(
-    input({ config: { enabled: true, dailyReplyCap: 30 }, repliesToday: 29 }),
-  );
-  assert.deepEqual(gate, { run: true });
-});
-
-// ── startOfManilaDayIso ─────────────────────────────────────────────────────
-
-test('start of Manila day — evening UTC is already the NEXT Manila day', () => {
-  // 2026-07-19T20:00Z = 2026-07-20 04:00 Manila → day started 2026-07-19T16:00Z.
-  assert.equal(
-    startOfManilaDayIso(new Date('2026-07-19T20:00:00Z')),
-    '2026-07-19T16:00:00.000Z',
-  );
-});
-
-test('start of Manila day — morning UTC is the same Manila day', () => {
-  // 2026-07-19T10:00Z = 18:00 Manila on Jul 19 → day started 2026-07-18T16:00Z.
-  assert.equal(
-    startOfManilaDayIso(new Date('2026-07-19T10:00:00Z')),
-    '2026-07-18T16:00:00.000Z',
-  );
-});
-
-test('start of Manila day — exact Manila midnight maps to itself', () => {
-  assert.equal(
-    startOfManilaDayIso(new Date('2026-07-18T16:00:00Z')),
-    '2026-07-18T16:00:00.000Z',
-  );
+test('couple + enabled → runs (no per-day limit — owner 2026-10-23)', () => {
+  assert.deepEqual(evaluateAutoReplyGate(input()), { run: true });
 });

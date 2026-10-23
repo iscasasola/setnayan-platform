@@ -53,6 +53,7 @@ import {
   withdrawConnection,
 } from '../actions';
 import { formatCount } from '@/lib/format-number';
+import { removeFromPeople } from '@/lib/people-remove';
 import { FindField, FindResults, InviteAction, useFindOrInvite } from './find-or-invite';
 import { AccountThumbRow, ThumbTool } from '../../_components/account-thumb-row';
 import { PersonAvatar } from './person-avatar';
@@ -363,7 +364,7 @@ export function PeopleRosterView({
           {REFUSED_COUNTS}
         </p>
       ) : (
-        <div className={`${gs.counts} ${ps.counts}`} data-people-counts="">
+        <div className={`${gs.counts} ${ps.counts}`} data-people-counts="" data-tour="people-counts">
           {nobody ? (
             <span className={gs.mute}>Nobody yet</span>
           ) : (
@@ -423,7 +424,13 @@ export function PeopleRosterView({
     const opened = open.has(key);
     const Icon = icon;
     return (
-      <section key={key} className={`${gs.sec} ${opened ? gs.open : ''}`} data-people-section={key} data-open={opened ? 'true' : 'false'}>
+      <section
+        key={key}
+        className={`${gs.sec} ${opened ? gs.open : ''}`}
+        data-people-section={key}
+        data-open={opened ? 'true' : 'false'}
+        data-tour={key === 'alaga' ? 'people-loved-ones' : undefined}
+      >
         <div className={gs.barWrap}>
           <button type="button" className={gs.bar} aria-expanded={opened} onClick={() => toggle(key)} data-section-head="">
             <span className={gs.ico} aria-hidden>
@@ -641,15 +648,24 @@ export function PeopleRosterView({
                 label="Remove"
                 waiting={pending}
                 onClick={() => {
-                  const ids = toRemove.map((p) => p.connectionId ?? '').filter(Boolean);
+                  // 🔒 COUNTED, NEVER ASSUMED (owner 2026-10-23, "why can't i delete anyone"): an empty or partial
+                  // id list is refused before any call, and each call's own answer decides — `lib/people-remove.ts`.
+                  const rows = toRemove;
                   setToRemove(null);
                   leaveSelect();
                   run(async () => {
-                    for (const id of ids) {
-                      const res = await withdrawConnection(id);
-                      if (!res.ok) return res;
+                    const res = await removeFromPeople(rows, (id) => withdrawConnection(id));
+                    if (res.ok) {
+                      const one = rows.length === 1 ? rows[0]! : null;
+                      setNotice(
+                        one
+                          ? one.state === 'waiting_them'
+                            ? `Your request to ${one.name} is taken back.`
+                            : `${one.name} left your people.`
+                          : `Removed ${formatCount(res.removed)} people.`,
+                      );
                     }
-                    return { ok: true };
+                    return res;
                   });
                 }}
                 data-testid="people-remove-confirm"

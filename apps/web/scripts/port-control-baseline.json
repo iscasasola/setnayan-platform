@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "dba4116d13",
+  "generatedFromRef": "84c1b81eea",
   "routeCount": 461,
   "destinations": 1003,
   "actions": 667,
-  "blocks": 6850,
+  "blocks": 6861,
   "routes": {
     "/": {
       "files": [
@@ -5126,6 +5126,7 @@
         "dashboard/(account)/people/_components/dependents-section.tsx",
         "dashboard/(account)/people/_components/find-or-invite.tsx",
         "dashboard/(account)/people/_components/follow-list-view.tsx",
+        "dashboard/(account)/people/_components/found-person-card.tsx",
         "dashboard/(account)/people/_components/people-roster-view.tsx",
         "dashboard/(account)/people/_components/people-thumb.tsx",
         "dashboard/(account)/people/_components/people-view-picker.tsx",
@@ -5176,6 +5177,7 @@
         "FindResults",
         "FollowListView",
         "FollowRowItem",
+        "FoundPersonCard",
         "Frame",
         "GuestConfirmActions",
         "GuestPopup",
@@ -5189,7 +5191,6 @@
         "Layer",
         "LifeStorySection",
         "Link",
-        "MiniTour",
         "PageMasthead",
         "PeopleFilter",
         "PeoplePreview",
@@ -5206,6 +5207,7 @@
         "PreviewRow",
         "RequestRow",
         "SamahanPeopleSection",
+        "Spotlight",
         "SubmitButton",
         "T",
         "ThumbField",
@@ -5281,8 +5283,8 @@
         "Icon",
         "Link",
         "PageMasthead",
+        "PickMenu",
         "PillButton",
-        "PillSelector",
         "PillTrack",
         "PrefixSelect",
         "ProfileShareButton",
@@ -5488,6 +5490,7 @@
         "SectionLabel",
         "ShelfInfo",
         "SidePanel",
+        "Spotlight",
         "StanceChip",
         "StartPlanningLink",
         "SupplierRecordsNote",
@@ -11117,6 +11120,7 @@
     },
     "/dev/people-lab": {
       "files": [
+        "dev/people-lab/lab-tour.tsx",
         "dev/people-lab/page.tsx"
       ],
       "destinations": [],
@@ -11124,8 +11128,11 @@
       "blocks": [
         "AccountBottomNav",
         "FollowListView",
+        "FoundPersonCard",
+        "LabTour",
         "PeopleRosterView",
         "RosterPerson",
+        "SpotlightMount",
         "TreeStandIn"
       ]
     },
@@ -11181,7 +11188,8 @@
         "AccountBarSlot",
         "Avatar",
         "FrontDoorResults",
-        "FrontDoorShell"
+        "FrontDoorShell",
+        "RosterPerson"
       ]
     },
     "/dev/spotlight-lab/[[...page]]": {
@@ -11324,8 +11332,10 @@
       ],
       "blocks": [
         "BusinessDoing",
+        "ConsolePlate",
         "DatesRow",
         "HelpersView",
+        "MarchRead",
         "NotificationsView",
         "PlanPicker",
         "PlanRows",
@@ -14065,6 +14075,7 @@
         "vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/floor-command.tsx",
         "vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/schedule-updater.tsx",
         "vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/seat-scanner.tsx",
+        "vendor-dashboard/on-the-day/live/[eventId]/_components/march-read.tsx",
         "vendor-dashboard/on-the-day/live/[eventId]/_components/own-captures-strip.tsx",
         "vendor-dashboard/on-the-day/live/[eventId]/_components/papic-capture-controller.tsx",
         "vendor-dashboard/on-the-day/live/[eventId]/_components/portfolio-album-section.tsx",
@@ -14124,11 +14135,13 @@
         "Link",
         "LiveReviews",
         "LockedUpsell",
+        "MarchRead",
         "MediaRecorder",
         "MediaStream",
         "MyLine",
         "PauseToggle",
         "PaymentsPausedNote",
+        "Person",
         "PickRow",
         "PlaylistSlotType",
         "PortfolioImportForm",
@@ -14835,6 +14848,7 @@
         "HeroCard",
         "HqAddressControl",
         "IdentityFieldSaveResult",
+        "InfoTip",
         "InlineDocsPayload",
         "InstagramConnectCard",
         "K",

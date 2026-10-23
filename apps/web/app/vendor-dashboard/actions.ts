@@ -11,7 +11,7 @@ import { hashAndScanVendorImages } from '@/lib/vendor-image-repost-watch';
 import { vendorQrGuardRejects } from '@/lib/vendor-qr-media-guard';
 import { VENDOR_QR_MEDIA_ERROR } from '@/lib/vendor-qr-guard-shared';
 import { VENDOR_CATEGORIES } from '@/lib/vendors';
-import { tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
+import { tierCaps, asVendorTier, capPortfolioRefs, PORTFOLIO_OVER_BASE_MESSAGE } from '@/lib/vendor-tier-caps';
 import { vendorExperienceEnabled } from '@/lib/vendor-experience';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveOwnedActiveShop } from '@/lib/active-shop';
@@ -115,13 +115,11 @@ async function resolveExtraCanonicalSet(): Promise<ReadonlySet<string>> {
  * <FileUpload name="portfolio_r2_keys" multiple/> renders one hidden input
  * per uploaded ref, so `formData.getAll('portfolio_r2_keys')` returns all
  * of them. We accept only well-formed `r2://` refs (cheap defense against a
- * client posting arbitrary strings) and cap the array at 10 entries —
- * matches the component-level `maxFiles=10` so a hostile client can't
- * balloon the column.
+ * client posting arbitrary strings). The COUNT is decided after, by
+ * `capPortfolioRefs` (the free base, grandfathered against the stored list).
  */
 function parsePortfolioRefs(
   raw: FormDataEntryValue[],
-  max: number,
   vendorProfileId: string,
 ): string[] {
   // ── 🔴 SEC-1: EVERY ref is pinned to THIS vendor's own folder ──────────────
@@ -153,7 +151,8 @@ function parsePortfolioRefs(
     if (out.includes(trimmed)) continue;
     if (!parseClientRef(trimmed, policy)) continue; // not this vendor's own media
     out.push(trimmed);
-    if (out.length >= max) break; // tier cap (Infinity = unlimited → never breaks)
+    // The photo COUNT is not decided here any more — `capPortfolioRefs` does it,
+    // grandfathered against what is stored (2026-10-23).
   }
   return out;
 }
@@ -591,11 +590,20 @@ export async function updateVendorProfileField(
       // SEC-1: same pinning as the full-profile save. Same fail-closed reasoning —
       // `vendor_profile_id` is the PK of this user's own row, and the patch below
       // is an UPDATE keyed on `user_id`, so a missing id writes nothing at all.
-      const refs = parsePortfolioRefs(
+      const parsed = parsePortfolioRefs(
         formData.getAll('portfolio_r2_keys'),
-        portfolioMax,
         tr?.vendor_profile_id ?? '',
       );
+      // 📸 THE FREE BASE, GRANDFATHERED (owner 2026-10-23, "free 50"). Every photo
+      // already on the row is kept however many there are; only a NEW photo past
+      // the base is refused — and refused out loud, with nothing saved, instead of
+      // the old silent truncation (which also cut a grandfathered shop down on its
+      // next re-save). Paying for more with Papic credits is Phase 2.
+      const capped = capPortfolioRefs(parsed, tr?.portfolio_r2_keys ?? [], portfolioMax);
+      if (capped.refused > 0) {
+        return { ok: false, error: PORTFOLIO_OVER_BASE_MESSAGE };
+      }
+      const refs = capped.refs;
       // QR-in-media guard (owner 2026-07-03): only scan refs NOT already stored
       // (an unchanged re-save costs nothing). Fails OPEN on scanner trouble.
       const stored = new Set((tr?.portfolio_r2_keys ?? []).filter(Boolean));
@@ -910,7 +918,7 @@ function websiteFieldPatch(
   ) {
     return {
       ok: false,
-      error: 'Video portfolio is part of Enterprise. Pick Enterprise on the Plans page to add films.',
+      error: 'Video portfolio is part of Ultra. Pick Ultra on the Plans page to add films.',
     };
   }
 

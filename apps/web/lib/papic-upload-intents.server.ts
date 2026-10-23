@@ -274,9 +274,27 @@ export async function promoteTier(loaded: Extract<LoadedTier, { ok: true }>): Pr
       sourceIfMatch: loaded.etag ?? undefined,
     });
   }
-  // The staging copy is no longer needed; the sweep removes it if this fails.
-  await deleteStagingObject(loaded.intent).catch(() => 'refused');
+  // The staging copy stays until the row is written (`dropStagingObjects`): a
+  // refused record can then be retried without the phone sending it again.
   return encodeR2Ref(BUCKET, finalKey);
+}
+
+/** After the row points at the final copies: the uploads are no longer needed. */
+export async function dropStagingObjects(intents: readonly IntentRow[]): Promise<void> {
+  for (const i of intents) await deleteStagingObject(i).catch(() => 'refused');
+}
+
+/**
+ * The record was REFUSED (credits, put away…) after the pieces were promoted:
+ * no row points at the final copies, so they go — the staging uploads stay for
+ * the phone's next try. Only a FINAL key in the intent's own folder is touched.
+ */
+export async function discardFinalObjects(intents: readonly IntentRow[]): Promise<void> {
+  for (const i of intents) {
+    const finalRef = finalRefOf(i);
+    if (!finalRef) continue;
+    await cleanupDelete(finalRef, intentScope(i)).catch(() => 'refused');
+  }
 }
 
 /**

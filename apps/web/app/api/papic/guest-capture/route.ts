@@ -25,6 +25,8 @@ import {
   screenTierBytes,
   settleCaptureIntents,
   signCaptureTierPut,
+  discardFinalObjects,
+  dropStagingObjects,
   loadUploadedTiers,
   promoteTier,
   type IntentRow,
@@ -426,15 +428,18 @@ async function handleRecord(
     p_captured_at: capturedAtIsoValue,
     p_client_capture_id: clientCaptureId,
   });
+  const neededIntents = needed.map((t) => intentFor(intents, t)!);
   if (error) {
     // Nothing was spent: the transaction rolled back with the error.
     console.error('[supabase-error] app/api/papic/guest-capture/route.ts · rpc:papic_record_guest_capture_and_spend', error);
+    await discardFinalObjects(neededIntents);
     return json({ error: 'record_failed' }, 500);
   }
 
   const recordStatus = (data as { status?: string } | null)?.status;
   if (recordStatus === 'camera_points_exhausted') {
     // The authoritative refusal — the pot is short, so the couple is told.
+    await discardFinalObjects(neededIntents);
     after(async () => {
       await tellTheCouplePapicPoolIsSpent(session.event_id);
     });
@@ -454,6 +459,7 @@ async function handleRecord(
     ceiling?: number | null;
   };
   if (result.status !== 'ok') {
+    await discardFinalObjects(neededIntents);
     return json(result, result.status === 'quota_exhausted' ? 409 : 400);
   }
   // 🔁 A `duplicate` answer is a success that spent nothing.
@@ -491,7 +497,8 @@ async function handleRecord(
     const { error: patchErr } = await admin.from('papic_guest_captures').update(patch).eq('capture_id', captureId);
     if (patchErr) console.error('[supabase-error] app/api/papic/guest-capture/route.ts · from:papic_guest_captures.update(first piece)', patchErr);
   }
-  await settleCaptureIntents(admin, needed.map((t) => intentFor(intents, t)!.r2_ref));
+  await settleCaptureIntents(admin, neededIntents.map((i) => i.r2_ref));
+  await dropStagingObjects(neededIntents);
 
   // Always-on NSFW screen (Apple 1.2 filter · corpus hard constraint) — run
   // BEFORE answering now that this call is off the shutter path (the phone's
@@ -697,6 +704,7 @@ async function handleAttach(
     return json({ error: 'persist_failed' }, 500);
   }
   await settleCaptureIntents(admin, tiers.map((t) => intentFor(intents, t)!.r2_ref));
+  await dropStagingObjects(tiers.map((t) => intentFor(intents, t)!));
 
   const wantFull = await eventKeepsFullRes(admin, session.event_id);
   if (tiers.includes('display')) {

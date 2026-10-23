@@ -13,6 +13,8 @@ import { canCapture, pointsForMedia } from '@/lib/vendor-papic-tier';
 import { getMenuLifecyclePhase } from '@/lib/day-of-mode';
 import { readClientCaptureId, CLIENT_CAPTURE_ID_FIELD } from '@/lib/papic-client-capture-id';
 import {
+  discardFinalObjects,
+  dropStagingObjects,
   eventKeepsFullRes,
   loadUploadedTiers,
   promoteTier,
@@ -387,6 +389,8 @@ export async function POST(req: Request) {
       return json({ status: 'ok', duplicate: true, captureId: again?.capture_id ?? null, wantFull: await eventKeepsFullRes(admin, eventId) });
     }
     if (insErr || !inserted) {
+      // No row points at the promoted copies — they go; the uploads stay for a retry.
+      await discardFinalObjects(needed.map((t) => intentFor(intents, t)!));
       // RLS rejection (not booked / not your profile) → 403; anything else → 500.
       const rls = insErr?.code === '42501';
       return json({ error: rls ? 'not_allowed' : 'record_failed' }, rls ? 403 : 500);
@@ -404,6 +408,7 @@ export async function POST(req: Request) {
       )
       .eq('capture_id', captureId);
     await settleCaptureIntents(admin, needed.map((t) => intentFor(intents, t)!.r2_ref));
+    await dropStagingObjects(needed.map((t) => intentFor(intents, t)!));
 
     // 8. Always-on NSFW screen, BEFORE answering now that this call is off the
     // shutter (the phone's queue makes it). The photo's thumbnail, or a clip's
@@ -541,6 +546,7 @@ export async function POST(req: Request) {
       return json({ error: 'persist_failed' }, 500);
     }
     await settleCaptureIntents(admin, tiers.map((t) => intentFor(intents, t)!.r2_ref));
+    await dropStagingObjects(tiers.map((t) => intentFor(intents, t)!));
     const wantFull = await eventKeepsFullRes(admin, eventId);
     if (tiers.includes('display') && !tiers.includes('tile') && !prior.tile_r2_key) {
       const displayRef = finals.get('display')!;

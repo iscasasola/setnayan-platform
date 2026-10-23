@@ -120,7 +120,7 @@ export async function FaceTaggingChoice({
         pendingLabel="Saving…"
         className="rounded-lg bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10"
       >
-        {declined ? 'Turn it back on' : 'Turn it off for my event'}
+        {variant === 'row' ? (declined ? 'Turn on' : 'Turn off') : declined ? 'Turn it back on' : 'Turn it off for my event'}
       </SubmitButton>
     </form>
   );

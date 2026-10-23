@@ -348,7 +348,8 @@ export function EventMemoriesGallery({
         </p>
       ) : null}
 
-      <MemoriesThumbRow q={q} onSearch={setQ} addPhotos={host ? addPhotos : null} />
+      {/* The row steps aside while a sheet is up — the sheet owns the thumb zone then. */}
+      <MemoriesThumbRow q={q} onSearch={setQ} addPhotos={host ? addPhotos : null} away={Boolean(opened || gearOpen)} />
 
       {opened ? (
         <PhotoSheet
@@ -371,7 +372,7 @@ export function EventMemoriesGallery({
           <h2 id={gearHeading} className="sr-only">
             Gallery settings
           </h2>
-          <div className="divide-y divide-ink/10" data-memories-settings="">
+          <div className="divide-y divide-ink/10 px-4 pb-[calc(var(--sn-bottomdock-h,64px)+12px)] lg:pb-4" data-memories-settings="">
             {/* FOLLOW THE MOMENTS IN ORDER — the owner's word for the gallery grouped by the day's moments. */}
             <button
               type="button"
@@ -574,7 +575,8 @@ function PhotoSheet({
 
   return (
     <Sheet open onClose={onClose} labelledById={heading} title={title}>
-      <div data-memories-photo-sheet={item.memSource}>
+      {/* Clear of the dock (the bar stays drawn over the page while a sheet is up). */}
+      <div data-memories-photo-sheet={item.memSource} className="px-4 pt-3 pb-[calc(var(--sn-bottomdock-h,64px)+12px)] lg:pb-4">
         <div className="flex items-center gap-3 pb-3">
           <button type="button" onClick={onView} aria-label="View full screen" className="relative h-16 w-16 shrink-0 overflow-hidden rounded-[10px] bg-ink/[0.06]">
             {item.url ? (
@@ -702,7 +704,18 @@ function PhotoSheet({
  * the Find row's seat (`find-thumb-row.tsx`). "Search memories" narrows on the device; ＋ Add photos is the one
  * upload door (the shipped uploader, in a sheet).
  */
-function MemoriesThumbRow({ q, onSearch, addPhotos }: { q: string; onSearch: (v: string) => void; addPhotos: ReactNode }) {
+function MemoriesThumbRow({
+  q,
+  onSearch,
+  addPhotos,
+  away = false,
+}: {
+  q: string;
+  onSearch: (v: string) => void;
+  addPhotos: ReactNode;
+  /** A sheet is up: slide out of the thumb zone. */
+  away?: boolean;
+}) {
   const [host, setHost] = useState<HTMLElement | null>(null);
   const [up, setUp] = useState(false);
   const [adding, setAdding] = useState(false);
@@ -724,9 +737,10 @@ function MemoriesThumbRow({ q, onSearch, addPhotos }: { q: string; onSearch: (v:
       {createPortal(
         <div
           data-memories-thumb=""
-          data-on={up ? 'true' : 'false'}
+          data-on={up && !away && !adding ? 'true' : 'false'}
+          inert={!up || away || adding}
           className={`pointer-events-none fixed inset-x-0 bottom-[var(--sn-bottomdock-h,64px)] z-[25] pl-[max(1rem,var(--sn-safe-l))] pr-[max(1rem,var(--sn-safe-r))] py-2.5 transition-transform duration-300 ease-out motion-reduce:transition-none tab:bottom-7 tab:left-auto tab:right-[max(1.75rem,var(--sn-safe-r))] tab:w-[min(720px,calc(100vw-128px))] tab:px-0 ${
-            up ? 'translate-y-0' : 'translate-y-[calc(100%_+_32px)]'
+            up && !away && !adding ? 'translate-y-0' : 'translate-y-[calc(100%_+_32px)]'
           }`}
         >
           <ThumbRow
@@ -746,7 +760,7 @@ function MemoriesThumbRow({ q, onSearch, addPhotos }: { q: string; onSearch: (v:
           <h2 id={heading} className="sr-only">
             Add photos
           </h2>
-          {addPhotos}
+          <div className="px-4 pt-3 pb-[calc(var(--sn-bottomdock-h,64px)+12px)] lg:pb-4">{addPhotos}</div>
         </Sheet>
       ) : null}
     </>

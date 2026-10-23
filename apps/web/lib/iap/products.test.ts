@@ -16,6 +16,9 @@ import {
   iapProductForServiceKey,
   papicCreditsMatch,
   IAP_HUB_PART_PRODUCTS,
+  iapPriceRowFor,
+  iapProductFitsAiTier,
+  iapSetnayanAiProductForTier,
   iapProductIsRepeatable,
   moodBoardRendersMatch,
 } from './products';
@@ -54,6 +57,10 @@ test('ruling 1 + 23 Oct — Papic credits, Event Hub Pro, Live Watch and the fiv
     'PAPIC_GUEST_500',
     'PAPIC_GUEST_5K',
     'PATIKTOK_COMPILER',
+    // ✦ Setnayan AI — FOUR products, one per web tier (owner 2026-10-23), all selling the one SETNAYAN_AI order.
+    'SETNAYAN_AI',
+    'SETNAYAN_AI',
+    'SETNAYAN_AI',
     'SETNAYAN_AI',
   ]);
   for (const p of IAP_PRODUCTS) {
@@ -66,6 +73,9 @@ test('ruling 1 + 23 Oct — Papic credits, Event Hub Pro, Live Watch and the fiv
 test('🍎 23 Oct — the five more: ids are exactly the controller’s (FOREVER), kinds and names as ruled', () => {
   const want: Array<[string, string, string, string, number | null]> = [
     ['com.setnayan.app.setnayan_ai', 'SETNAYAN_AI', 'event-unlock', 'Setnayan AI', null],
+    ['com.setnayan.app.setnayan_ai_tier_b', 'SETNAYAN_AI', 'event-unlock', 'Setnayan AI', null],
+    ['com.setnayan.app.setnayan_ai_tier_c', 'SETNAYAN_AI', 'event-unlock', 'Setnayan AI', null],
+    ['com.setnayan.app.setnayan_ai_tier_d', 'SETNAYAN_AI', 'event-unlock', 'Setnayan AI', null],
     ['com.setnayan.app.music_maker', 'PAKANTA', 'event-unlock', 'Music Maker', null],
     ['com.setnayan.app.patiktok', 'PATIKTOK_COMPILER', 'event-unlock', 'Patiktok', null],
     ['com.setnayan.app.papic_thank_you', 'PAPIC_ADDON_THANK_YOU', 'event-unlock', 'Thank You', null],
@@ -110,7 +120,9 @@ test('product ids are unique, reverse-DNS under the app bundle, and resolve both
   for (const p of IAP_PRODUCTS) {
     assert.match(p.productId, /^com\.setnayan\.app\.[a-z0-9_]+$/);
     assert.equal(iapProductById(p.productId), p);
-    assert.equal(iapProductForServiceKey(p.serviceKey), p);
+    // One code, several products only for Setnayan AI's tiers — each found by its tier; the code itself finds Tier A.
+    if (p.aiTier) assert.equal(iapSetnayanAiProductForTier(p.aiTier), p);
+    else assert.equal(iapProductForServiceKey(p.serviceKey), p);
   }
   assert.equal(iapProductById('com.setnayan.app.unknown'), null);
   assert.equal(iapProductById(null), null);
@@ -181,4 +193,33 @@ test('💎 the eleven part products sell exactly the eleven parts — one produc
     assert.equal(p.appStoreName, `Event Hub Pro · ${part.name}`);
     assert.equal(p.kind, 'event-hub-part');
   }
+});
+
+test('✦ Setnayan AI: one product per web tier — A keeps `setnayan_ai` (never renamed), E has none, each floored on its own row', async () => {
+  const { AI_TIER_SKU } = await import('../setnayan-ai-type-pricing');
+  const tiers = [['A', 'com.setnayan.app.setnayan_ai'], ['B', 'com.setnayan.app.setnayan_ai_tier_b'], ['C', 'com.setnayan.app.setnayan_ai_tier_c'], ['D', 'com.setnayan.app.setnayan_ai_tier_d']] as const;
+  for (const [tier, id] of tiers) {
+    const p = iapSetnayanAiProductForTier(tier)!;
+    assert.equal(p.productId, id, `tier ${tier} sells the wrong product — ids are forever`);
+    assert.equal(p.serviceKey, 'SETNAYAN_AI', 'every tier sells the ONE SETNAYAN_AI order (one activation, one ownership)');
+    // The Apple floor row is the tier's own catalogue row — the web's one tier → row map, not a second one.
+    assert.equal(iapPriceRowFor(p), AI_TIER_SKU[tier]);
+  }
+  assert.equal(iapSetnayanAiProductForTier('E'), null, 'Tier E is not offered — on the web or in the app');
+  assert.equal(iapSetnayanAiProductForTier(null), null);
+  assert.equal(iapProductForServiceKey('SETNAYAN_AI')?.productId, 'com.setnayan.app.setnayan_ai', 'the code alone still means Tier A');
+  assert.equal(iapPriceRowFor(iapProductForServiceKey('PAKANTA')!), 'PAKANTA', 'a product with no tier is floored on its own code');
+});
+
+test('✦ a tier product fits ONLY an event of its tier — a Tier D product never unlocks a wedding', () => {
+  const T = ['A', 'B', 'C', 'D'] as const;
+  for (const sold of T) {
+    const p = iapSetnayanAiProductForTier(sold)!;
+    for (const event of [...T, 'E' as const]) {
+      assert.equal(iapProductFitsAiTier(p, event), sold === event, `tier ${sold} product vs a tier ${event} event`);
+    }
+    assert.equal(iapProductFitsAiTier(p, null), false, 'an unread tier fits nothing');
+  }
+  // Every other product has no tier and is unaffected.
+  assert.equal(iapProductFitsAiTier(iapProductForServiceKey('PAKANTA')!, null), true);
 });

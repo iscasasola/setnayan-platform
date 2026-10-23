@@ -141,6 +141,8 @@ export type MakeItRealProps = {
    * "Mood Board · 50 renders" (`IapUnlockSheet`), and nothing here draws a web price or the hand-check note.
    */
   apple?: boolean;
+  /** 🍎 …and the pack is on sale with the 50 its name promises (the server refuses otherwise) — else no Buy at all. */
+  appleOnSale?: boolean;
 };
 
 /** One row of the couple's gallery, with its viewing URL resolved. */
@@ -167,6 +169,7 @@ export function MakeItReal({
   shareConsented,
   mayStartRenders,
   apple = false,
+  appleOnSale = false,
 }: MakeItRealProps) {
   const inspirationPresenceSet = useMemo(
     () => new Set(inspirationPresence),
@@ -419,7 +422,7 @@ export function MakeItReal({
             </p>
           ) : null}
           {apple ? (
-            mayStartRenders && !configUnavailable ? (
+            mayStartRenders && !configUnavailable && appleOnSale ? (
               <IapUnlockSheet
                 eventId={eventId}
                 serviceKey="MOODBOARD_RENDER_PACK"

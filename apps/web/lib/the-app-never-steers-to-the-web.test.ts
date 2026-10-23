@@ -7,8 +7,8 @@
  * `lib/` is read. One that points out of the app to the web ("can be applied on the web", "only on the web", "on our
  * website", "buy at setnayan.com") fails, unless the app can never show it:
  *
- *   · the file lives under a route the app refuses (`isStoreShellWebOnlyPath`, gate OFF — what build 5 and a 1.1 with
- *     the switch off see), or under admin / api / dev, or is a brochure route middleware bounces;
+ *   · the file lives under a route the app refuses EVEN WITH THE GATE ON (`isStoreShellWebOnlyPath(route, true)` —
+ *     a page Apple's build opens is read), or under admin / api / dev, or is a brochure route middleware bounces;
  *   · the string sits inside a `data-web-only` element (hidden before first paint in the store shell);
  *   · its file is listed in `NEVER_IN_THE_APP` below WITH the reason and the gate that keeps it out — asserted to be
  *     still there, so a reason cannot rot.
@@ -108,7 +108,9 @@ test('no string the app can show steers to the web (every app/ and lib/ file rea
     const rel = abs.slice(WEB.length + 1);
     if (/^app\/(admin|api|dev)\//.test(rel)) continue;
     const route = routeOf(rel);
-    if (route && (isStoreShellWebOnlyPath(route) || bounced.has(route))) continue;
+    // Skipped only when the app can NEVER open it — refused even where Apple sells (gate ON opens more: the studio
+    // homes Apple sells, Papic, the Live Watch controller), so those pages are read too (review of #6844).
+    if (route && (isStoreShellWebOnlyPath(route, true) || bounced.has(route))) continue;
     const text = readFileSync(abs, 'utf8');
     if (!/web|setnayan\.com/i.test(text)) continue;
     const sf = ts.createSourceFile(rel, text, ts.ScriptTarget.Latest, true, rel.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
@@ -188,6 +190,6 @@ test('the held Pro line in the app is the ruled one — "◆ N waiting for Pro" 
   assert.match(bar, /waits_for_pro: 'is waiting for Pro — it stays in your draft'/);
   // The action takes every held Pro effect off in one step, recomputed on the draft as the write lands.
   const action = src('app/dashboard/[eventId]/website/hub-draft-actions.ts');
-  assert.match(action, /if \(id === HUB_DROP_ALL_PRO\) \{[\s\S]{0,400}hubDraftProEffects\(next, live, false\)/);
+  assert.match(action, /if \(id === HUB_DROP_ALL_PRO\) \{[\s\S]{0,300}const next = dropAllHubProEffects\(cur \?\? emptyHubDraft\(\), live, by\);/);
   assert.match(action, /reason: storeShell \? 'waits_for_pro' : 'needs_pro',/);
 });

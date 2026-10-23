@@ -24,6 +24,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { eventOwnsSku, eventSkuActive } from '@/lib/entitlements';
 import { getIapGate, isStoreShellRequest } from '@/lib/request-platform';
 import { IapUnlockSheet } from '@/app/_components/iap/iap-unlock-sheet';
+import { STORE_SHELL_NO_PAY_SETTINGS } from '@/lib/store-shell';
+import { resolveServiceSellability } from '@/lib/v2-catalog';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { presignDisplayUrl } from '@/lib/uploads';
 import { isR2Configured, R2_BUCKETS } from '@/lib/r2';
@@ -231,13 +233,16 @@ export default async function PatiktokGallery({
   const tiktokAvailable = tiktokConfig.ready;
 
   // BDO + GCash for the InlineCheckoutDrawer. Cheaper to fetch once at page level.
-  const settings = await fetchPlatformSettings(supabase);
+  // 🍎 The store shell pays only through Apple: no bank or GCash details are read or shipped there.
+  const settings = storeShell ? STORE_SHELL_NO_PAY_SETTINGS : await fetchPlatformSettings(supabase);
+  /** 🍎 Apple's door shows only while the catalogue still sells Patiktok (the server refuses otherwise — no dead tap). */
+  const appleOnSale = appleIap && !patiktokActive ? (await resolveServiceSellability(PATIKTOK_SERVICE_KEY)) === 'sellable' : false;
 
   // Admin-managed price for the single Patiktok SKU, read from the authoritative
   // V2 retail catalog (platform_retail_catalog_v2 via formatV2Sku) — never
   // hardcoded. null → the buy card falls back to generic copy. The checkout
   // action re-resolves the same row server-side for the actual charge.
-  const skuRecord = await formatV2Sku(PATIKTOK_SERVICE_KEY).catch(() => null);
+  const skuRecord = storeShell ? null : await formatV2Sku(PATIKTOK_SERVICE_KEY).catch(() => null);
   const pricePhp = skuRecord?.price_php ?? null;
 
   // The unpaid preview opens this checkout in place (null for an owner).
@@ -382,6 +387,7 @@ export default async function PatiktokGallery({
               settings={settings}
               pending={patiktokPending}
               apple={appleIap}
+              appleOnSale={appleOnSale}
             />
           ) : null}
           <YourRenders
@@ -433,7 +439,8 @@ export default async function PatiktokGallery({
         </p>
       ) : null}
 
-      <p className="text-xs text-ink/55">
+      {/* 🍎 A quote for paid work, outside Apple — hidden in the store shell before first paint (review of #6844). */}
+      <p data-web-only="" className="text-xs text-ink/55">
         Need a custom reel template? Open a{' '}
         <Link
           href={`/help#contact`}
@@ -688,6 +695,7 @@ function SaveShareCard({
   settings,
   pending,
   apple = false,
+  appleOnSale = false,
 }: {
   eventId: string;
   /** Admin-managed price in PHP from the V2 retail catalog. null = unreadable. */
@@ -697,6 +705,8 @@ function SaveShareCard({
   pending: boolean;
   /** 🍎 The iPhone app where Apple sells: the door is Apple's sheet (`IapUnlockSheet`), with Apple's price only. */
   apple?: boolean;
+  /** …and only while the catalogue sells it; otherwise one plain line, never a dead tap. */
+  appleOnSale?: boolean;
 }) {
   const priceLabel = pricePhp != null ? formatPhp(pricePhp) : null;
   const triggerLabel = priceLabel ? `Save & share · ${priceLabel}` : 'Save & share';
@@ -732,6 +742,10 @@ function SaveShareCard({
         >
           Your Patiktok payment is being confirmed. Once it is, open any reel in
           &ldquo;Your renders&rdquo; and it saves without the mark.
+        </p>
+      ) : apple && !appleOnSale ? (
+        <p role="status" className="rounded-xl bg-ink/5 px-3 py-2 text-sm text-ink/70">
+          Saving reels isn&rsquo;t on sale right now. Recording and watching stay free.
         </p>
       ) : apple ? (
         <div className="pt-1">

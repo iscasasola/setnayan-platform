@@ -26,6 +26,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
 import { getIapGate, isStoreShellRequest } from '@/lib/request-platform';
+import { setnayanAiTierInApp } from '@/lib/iap/setnayan-ai-in-app.server';
 import { storeShellAllowsPaidFeature } from '@/lib/store-shell';
 import { resolveBudgetVisibility } from '@/lib/budget-visibility';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -1130,7 +1131,13 @@ export async function EventDashboard({
   const aiActive =
     (aiEntitled || saiPreview) &&
     cockpitEnabled() &&
-    storeShellAllowsPaidFeature(storeShell, aiPaywallEnabled, storeShell && (await appleIapRead) === true);
+    storeShellAllowsPaidFeature(
+      storeShell,
+      aiPaywallEnabled,
+      // ✦ Apple sells Setnayan AI in this app FOR THIS EVENT'S TIER (one product per web tier, owner 2026-10-23).
+      storeShell && aiPaywallEnabled && (await appleIapRead) === true &&
+        (await setnayanAiTierInApp(createAdminClient(), eventId)).status === 'sellable',
+    );
 
   // ---- Upcoming items — the Schedule card + the AI What's-next rail. ------
   const upcoming =

@@ -23,7 +23,9 @@ import { StudioBuyHero } from '@/app/dashboard/[eventId]/studio/_components/stud
 import { PaidMark } from '@/app/_components/paid-mark';
 import { paidMarkLabel } from '@/lib/paid-mark';
 import { getIapGate } from '@/lib/request-platform';
-import { setnayanAiSoldInApp } from '@/lib/iap/setnayan-ai-in-app.server';
+import { setnayanAiTierInApp } from '@/lib/iap/setnayan-ai-in-app.server';
+import { iapSetnayanAiProductForTier } from '@/lib/iap/products';
+import { resolveServiceSellability } from '@/lib/v2-catalog';
 import { IapUnlockSheet } from '@/app/_components/iap/iap-unlock-sheet';
 
 export const metadata = { title: 'Setnayan AI' };
@@ -160,12 +162,20 @@ export default async function SetnayanAiPage({ params }: Props) {
 
   /* 🍎 THE iPHONE APP, WHERE APPLE SELLS (`getIapGate().iap`; owner 2026-10-23, "five more Apple products"). The page
      opens there (lib/store-shell.ts `IAP_OPENED_ROUTE`) and its ONE pay step is Apple's sheet: no web price, no
-     GCash / BDO, no web link. Apple has one price per product, so only an event whose web price row IS that
-     product's is sold in the app (lib/iap/setnayan-ai-in-app.server.ts) — any other unowned event goes Home, as an
-     unowned Live Watch does from the controller. With `iap` false nothing below changes. */
+     GCash / BDO, no web link. One Apple product per web tier (owner 2026-10-23): the event's tier, read the way the
+     web's charge reads it (lib/iap/setnayan-ai-in-app.server.ts), picks the product. Tier E — not offered, as on the
+     web — or a failed read sends the unowned event Home, as an unowned Live Watch is from the controller. With `iap`
+     false nothing below changes. */
   const appleIap = (await getIapGate()).iap;
-  const appleSells = appleIap && showBuy ? (await setnayanAiSoldInApp(createAdminClient(), eventId)) === 'sellable' : false;
-  if (appleIap && showBuy && !appleSells) redirect(`/dashboard/${eventId}`);
+  const appleTier = appleIap && paywallOn ? await setnayanAiTierInApp(createAdminClient(), eventId) : null;
+  const appleProduct =
+    appleTier?.status === 'sellable' && (await resolveServiceSellability(SKU_CODE)) === 'sellable'
+      ? iapSetnayanAiProductForTier(appleTier.tier)
+      : null;
+  const appleSells = appleProduct !== null;
+  // Paid Sai (paywall on) is shown in the app — bought, owned or for sale — only where Apple sells this event's tier
+  // (3.1.3(b)); a free Sai (paywall off) is planning and stays.
+  if (appleIap && paywallOn && !appleSells) redirect(`/dashboard/${eventId}`);
   const settings = showBuy && !appleIap ? await fetchPlatformSettings(supabase) : null;
 
   return (
@@ -251,13 +261,14 @@ export default async function SetnayanAiPage({ params }: Props) {
                 : undefined
             }
             action={
-              appleSells ? (
+              appleProduct && showBuy ? (
                 <IapUnlockSheet
                   eventId={eventId}
                   serviceKey={SKU_CODE}
+                  productId={appleProduct.productId}
                   name="Setnayan AI"
-                  line={`One purchase · yours for the whole ${eventWord}.`}
-                  info={`Setnayan AI ranks every supplier by how well they fit your date, budget and guest count, and keeps your deadlines and payments in view. It stays on for this ${eventWord} and everyone on it.`}
+                  line="One purchase · yours for this event."
+                  info="Setnayan AI ranks every supplier by how well they fit your date, budget and guest count, and keeps your deadlines and payments in view. It stays on for this event and everyone on it."
                   triggerLabel="Unlock Setnayan AI"
                   buyVerb="Unlock"
                   triggerTestId="iap-setnayan-ai-unlock"

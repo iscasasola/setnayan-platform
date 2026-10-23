@@ -77,6 +77,9 @@ import type { InspirationItem } from './inspiration-board';
 import { InfoTip } from '@/app/_components/info-tip';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { getIapGate, isStoreShellRequest } from '@/lib/request-platform';
+import { STORE_SHELL_NO_PAY_SETTINGS } from '@/lib/store-shell';
+import { resolveServiceSellability } from '@/lib/v2-catalog';
+import { iapProductForServiceKey, moodBoardRendersMatch } from '@/lib/iap/products';
 import {
   RENDER_PARTS,
   renderPartById,
@@ -914,6 +917,12 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
      Make it real mounts, and its Buy is Apple's sheet for "Mood Board · 50 renders" — no web price, no GCash / BDO.
      With `iap` false the store shell is exactly as above. */
   const appleIap = storeShell && (await getIapGate()).iap;
+  /** 🍎 Apple's pack door shows only while the catalogue sells the pack AND the config still grants its 50 (no dead tap). */
+  const applePack = iapProductForServiceKey(MOODBOARD_RENDER_PACK_SKU);
+  const appleOnSale =
+    appleIap && applePack !== null &&
+    moodBoardRendersMatch(applePack, moodboardRenderConfig) &&
+    (await resolveServiceSellability(MOODBOARD_RENDER_PACK_SKU)) === 'sellable';
   const jumpLinks: ReadonlyArray<{ href: string; label: string }> = [
     { href: '#theme', label: 'Theme' },
     { href: '#inspiration', label: 'Inspiration' },
@@ -1084,8 +1093,9 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
       venueLabel={venueLabel}
       config={moodboardRenderConfig}
       balance={moodboardRenderBalance}
-      packPlan={moodboardRenderPackPlan}
-      checkoutSettings={platformSettings}
+      appleOnSale={appleOnSale}
+      packPlan={appleIap ? null : moodboardRenderPackPlan}
+      checkoutSettings={appleIap ? STORE_SHELL_NO_PAY_SETTINGS : platformSettings}
       renders={moodboardRenders}
       shareConsented={shareConsented}
       mayStartRenders={mayStartRenders}

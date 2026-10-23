@@ -13,6 +13,7 @@ import { addOnHeroCopy } from '@/lib/add-ons-catalog';
 import { formatPhp } from '@/lib/orders';
 import { ThankYouMaker, type ThankYouSaveCheckout } from './_components/thank-you-maker';
 import { getIapGate } from '@/lib/request-platform';
+import { STORE_SHELL_NO_PAY_SETTINGS } from '@/lib/store-shell';
 
 const SKU_CODE = 'PAPIC_ADDON_THANK_YOU';
 /** Name + promise from the one catalogue record every Studio row reads. */
@@ -83,13 +84,19 @@ export default async function ThankYouVideoPage({
      — not in the hero, not on the button. With `iap` false nothing below changes. */
   const appleIap = (await getIapGate()).iap;
   if (!owned && appleIap) {
-    const [pendingOrder, sellability, settings, vatRatePct] = await Promise.all([
+    // No price, no VAT, no bank or GCash details are read or shipped to the app (review of #6844).
+    const [pendingOrder, sellability] = await Promise.all([
       eventOwnsSku(ent, eventId, SKU_CODE).catch(() => false),
       resolveServiceSellability(SKU_CODE),
-      fetchPlatformSettings(supabase),
-      getEffectiveVatRatePct(supabase),
     ]);
-    checkout = { pending: pendingOrder, priceCentavos: null, pricePhp: null, vatRatePct, settings, apple: sellability === 'sellable' };
+    checkout = {
+      pending: pendingOrder,
+      priceCentavos: null,
+      pricePhp: null,
+      vatRatePct: 0,
+      settings: STORE_SHELL_NO_PAY_SETTINGS,
+      apple: sellability === 'sellable',
+    };
   } else if (!owned) {
     const [pendingOrder, sellability, sku, settings, vatRatePct] = await Promise.all([
       eventOwnsSku(ent, eventId, SKU_CODE).catch(() => false),

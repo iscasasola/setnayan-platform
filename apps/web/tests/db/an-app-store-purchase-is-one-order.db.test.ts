@@ -310,3 +310,10 @@ test('Music Maker · Patiktok · Thank You: each ONE paid iOS order (ownership r
     assert.equal((await ordersFor(eventId))[0]!.status, 'refunded', productId);
   }
 });
+
+test('✦ a Setnayan AI TIER product (owner 2026-10-23: one per web tier) lands as the ONE SETNAYAN_AI order and switches the flag on', async () => {
+  const { eventId } = await buyInApp('com.setnayan.app.setnayan_ai_tier_d');
+  assert.deepEqual((await ordersFor(eventId)).map((o) => [o.status, o.service_key, o.platform]), [['paid', 'SETNAYAN_AI', 'ios']]);
+  const on = await db.query<{ on: boolean }>(`SELECT setnayan_ai_active AS on FROM public.events WHERE event_id = $1`, [eventId]);
+  assert.equal(on.rows[0]!.on, true, 'a tier product did not run the web’s SETNAYAN_AI hook');
+});

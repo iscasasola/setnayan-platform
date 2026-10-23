@@ -409,6 +409,20 @@ export function storeShellRefusesPayable(
  * turning a free assistant off in the app would remove planning the app exists
  * to provide.
  */
+/**
+ * 🍎 The pay settings handed to a client component in the store shell: none. The app pays only through Apple, so
+ * the bank and GCash details (`platform_settings`) are never shipped to it — not even unrendered, in a prop
+ * (review of #6844, 2026-10-23). Same shape as the checkout drawer's `settings`.
+ */
+export const STORE_SHELL_NO_PAY_SETTINGS = Object.freeze({
+  bdo_account_name: null,
+  bdo_account_number: null,
+  bdo_qr_url: null,
+  gcash_account_name: null,
+  gcash_number: null,
+  gcash_qr_url: null,
+});
+
 export function storeShellAllowsPaidFeature(storeShell: boolean, paywallEnabled: boolean, iap = false): boolean {
   return !storeShell || !paywallEnabled || iap;
 }

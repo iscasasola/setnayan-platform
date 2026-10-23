@@ -447,17 +447,19 @@ const DOORS: Array<[file: string, gate: RegExp[]]> = [
     `${STUDIO}/setnayan-ai/page.tsx`,
     [
       /const appleIap = \(await getIapGate\(\)\)\.iap;/,
-      /const appleSells = appleIap && showBuy \? \(await setnayanAiSoldInApp\(createAdminClient\(\), eventId\)\) === 'sellable' : false;/,
-      /if \(appleIap && showBuy && !appleSells\) redirect\(`\/dashboard\/\$\{eventId\}`\);/,
+      /const appleTier = appleIap && paywallOn \? await setnayanAiTierInApp\(createAdminClient\(\), eventId\) : null;/,
+      /const appleSells = appleProduct !== null;/,
+      // A paid Sai — bought, owned or for sale — is shown in the app only where Apple sells this event's tier.
+      /if \(appleIap && paywallOn && !appleSells\) redirect\(`\/dashboard\/\$\{eventId\}`\);/,
       /price=\{pricePhp != null && !appleIap \? priceLabel : undefined\}/,
-      /appleSells \? \(\s*<IapUnlockSheet\b/,
+      /appleProduct && showBuy \? \(\s*<IapUnlockSheet\b/,
       /const settings = showBuy && !appleIap \?/,
     ],
   ],
   [`${STUDIO}/pakanta/page.tsx`, [/const appleIap = \(await getIapGate\(\)\)\.iap;/, /const skuRecord = appleIap \? null :/]],
   [
     `${STUDIO}/pakanta/_components/pakanta-music-form.tsx`,
-    [/readyToPay && apple \? \(\s*<IapUnlockSheet\b/, /const priceSuffix = !apple && pricePhp != null \?/, /\{apple \? 'Continue' : `Continue to payment\$\{priceSuffix\}`\}/],
+    [/readyToPay && apple \? \(\s*<IapUnlockSheet\b/, /readyToPay && apple && !appleOnSale \? \(/, /const priceSuffix = !apple && pricePhp != null \?/, /\{apple \? 'Continue' : `Continue to payment\$\{priceSuffix\}`\}/],
   ],
   [
     `${STUDIO}/patiktok/page.tsx`,
@@ -466,18 +468,21 @@ const DOORS: Array<[file: string, gate: RegExp[]]> = [
       /const saveCardMounted = !patiktokActive && \(!storeShell \|\| appleIap\);/,
       /pricePhp=\{appleIap \? null : pricePhp\}/,
       /\) : apple \? \(\s*<div className="pt-1">\s*<IapUnlockSheet\b/,
+      /\) : apple && !appleOnSale \? \(/,
+      /const settings = storeShell \? STORE_SHELL_NO_PAY_SETTINGS : await fetchPlatformSettings\(supabase\);/,
+      /<p data-web-only="" className="text-xs text-ink\/55">\s*Need a custom reel template\?/,
     ],
   ],
   [
     `${STUDIO}/thank-you/page.tsx`,
-    [/const appleIap = \(await getIapGate\(\)\)\.iap;/, /if \(!owned && appleIap\) \{/, /priceCentavos: null, pricePhp: null, vatRatePct, settings, apple: sellability === 'sellable'/],
+    [/const appleIap = \(await getIapGate\(\)\)\.iap;/, /if \(!owned && appleIap\) \{/, /settings: STORE_SHELL_NO_PAY_SETTINGS,\s*apple: sellability === 'sellable',/],
   ],
   [`${STUDIO}/thank-you/_components/thank-you-maker.tsx`, [/if \(checkout\.apple\) \{\s*return \(\s*<div className="space-y-2">\s*<IapUnlockSheet\b/]],
   [
     `${STUDIO}/mood-board/_components/mood-board-editor.tsx`,
     [/const appleIap = storeShell && \(await getIapGate\(\)\)\.iap;/, /const makeItReal = storeShell && !appleIap \? null : \(\s*<MakeItReal\s+apple=\{appleIap\}/],
   ],
-  [`${STUDIO}/mood-board/_components/make-it-real.tsx`, [/\{apple \? \(\s*mayStartRenders && !configUnavailable \? \(\s*<IapUnlockSheet\b/, /\$\{apple \? '' : ' Payment is verified by hand/]],
+  [`${STUDIO}/mood-board/_components/make-it-real.tsx`, [/\{apple \? \(\s*mayStartRenders && !configUnavailable && appleOnSale \? \(\s*<IapUnlockSheet\b/, /\$\{apple \? '' : ' Payment is verified by hand/]],
 ];
 
 test('6 · the five doors: each page reads the one gate, and Apple’s sheet is mounted only inside it', () => {
@@ -499,13 +504,20 @@ test('6 · the five doors: each page reads the one gate, and Apple’s sheet is 
   assert.match(code(`${STUDIO}/mood-board/_components/make-it-real.tsx`), /\) : packPlan && mayStartRenders \? \(\s*<ChoosePlanSheet\b/);
 });
 
-test('6 · a Setnayan AI bought on the web or in the app lights up in the app only where Apple sells it', async () => {
+test('6 · a Setnayan AI bought on the web or in the app lights up in the app only where Apple sells THIS EVENT’S TIER', async () => {
   const { storeShellAllowsPaidFeature } = await import('./store-shell');
   assert.equal(storeShellAllowsPaidFeature(true, true), false, 'gate off: as before — no web-bought Sai in the app');
   assert.equal(storeShellAllowsPaidFeature(true, true, false), false);
   assert.equal(storeShellAllowsPaidFeature(true, true, true), true, 'gate on: Sai is sold by Apple here, so it is usable');
   assert.equal(storeShellAllowsPaidFeature(false, true), true, 'the web: unchanged');
-  assert.match(code('app/dashboard/[eventId]/vendors/page.tsx'), /storeShellAllowsPaidFeature\(storeShell, paywallEnabled, appleIap\)/);
-  assert.match(code('app/dashboard/[eventId]/vendors/page.tsx'), /const appleIap = storeShell && \(await appleIapRead\) === true;/);
-  assert.match(code('app/dashboard/[eventId]/_components/event-dashboard.tsx'), /storeShellAllowsPaidFeature\(storeShell, aiPaywallEnabled, storeShell && \(await appleIapRead\) === true\)/);
+  const vendors = code('app/dashboard/[eventId]/vendors/page.tsx');
+  assert.match(vendors, /const appleIap = storeShell && \(await appleIapRead\) === true;/);
+  assert.match(vendors, /const appleSai = appleIap && paywallEnabled && \(await setnayanAiTierInApp\(createAdminClient\(\), eventId\)\)\.status === 'sellable';/);
+  assert.match(vendors, /storeShellAllowsPaidFeature\(storeShell, paywallEnabled, appleSai\)/, 'the Suppliers page lights Sai without asking the tier');
+  assert.match(vendors, /\(!storeShell \|\| appleSai\);/, 'the Sai banner shows in the app for an event Apple does not sell');
+  assert.match(
+    code('app/dashboard/[eventId]/_components/event-dashboard.tsx'),
+    /storeShellAllowsPaidFeature\(\s*storeShell,\s*aiPaywallEnabled,[^;]*storeShell && aiPaywallEnabled && \(await appleIapRead\) === true &&\s*\(await setnayanAiTierInApp\(createAdminClient\(\), eventId\)\)\.status === 'sellable',\s*\)/,
+    'the dashboard lights Sai without asking the tier',
+  );
 });

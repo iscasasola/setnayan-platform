@@ -21,6 +21,8 @@ type Props = {
    * (`IapUnlockSheet`) — no web price on any button here, no GCash / BDO.
    */
   apple?: boolean;
+  /** 🍎 …and the catalogue still sells it (the server refuses otherwise): without it, one plain line, never a dead tap. */
+  appleOnSale?: boolean;
   /** Platform BDO/GCash settings the in-page checkout drawer renders. */
   settings: ComponentProps<typeof InlineCheckoutDrawer>['settings'];
   /**
@@ -42,7 +44,7 @@ type FieldKey = keyof PakantaIntakeResponses;
  * draft; [Continue to payment] saves the brief then reveals the in-page
  * InlineCheckoutDrawer (the retired /orders/new redirect is gone).
  */
-export function PakantaMusicForm({ eventId, initial, pricePhp, settings, apple = false, paid = false }: Props) {
+export function PakantaMusicForm({ eventId, initial, pricePhp, settings, apple = false, appleOnSale = false, paid = false }: Props) {
   const priceSuffix = !apple && pricePhp != null ? ` · ₱${pricePhp.toLocaleString('en-PH')}` : '';
   const formRef = useRef<HTMLFormElement>(null);
   const [pending, startTransition] = useTransition();
@@ -170,7 +172,11 @@ export function PakantaMusicForm({ eventId, initial, pricePhp, settings, apple =
           >
             Save for later
           </button>
-          {readyToPay && apple ? (
+          {readyToPay && apple && !appleOnSale ? (
+            <p role="status" className="text-sm text-ink/70">
+              Music Maker isn&rsquo;t on sale right now. Your notes are saved.
+            </p>
+          ) : readyToPay && apple ? (
             <IapUnlockSheet
               eventId={eventId}
               serviceKey="PAKANTA"

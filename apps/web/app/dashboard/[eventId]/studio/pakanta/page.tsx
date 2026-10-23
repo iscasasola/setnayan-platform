@@ -23,6 +23,8 @@ import { UseSongButton } from './_components/use-song-button';
 import { AiDisclosure } from '@/components/AiDisclosure';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { getIapGate } from '@/lib/request-platform';
+import { STORE_SHELL_NO_PAY_SETTINGS } from '@/lib/store-shell';
+import { resolveServiceSellability } from '@/lib/v2-catalog';
 
 export const metadata = { title: 'Music Maker' };
 
@@ -153,7 +155,9 @@ export default async function PakantaPage({ params }: Props) {
   const appleIap = (await getIapGate()).iap;
   const skuRecord = appleIap ? null : await formatV2Sku(SKU_CODE).catch(() => null);
   const pricePhp = skuRecord?.price_php ?? null;
-  const settings = await fetchPlatformSettings(supabase);
+  // 🍎 No bank or GCash details are read or shipped to the app; Apple's door shows only while the catalogue sells it.
+  const settings = appleIap ? STORE_SHELL_NO_PAY_SETTINGS : await fetchPlatformSettings(supabase);
+  const appleOnSale = appleIap && !owned ? (await resolveServiceSellability(SKU_CODE)) === 'sellable' : false;
   /** The form draws: the web needs the catalogue's price; the app needs none (Apple's sheet carries its own). */
   const formReady = pricePhp != null || appleIap;
 
@@ -279,13 +283,14 @@ export default async function PakantaPage({ params }: Props) {
               pricePhp={pricePhp}
               settings={settings}
               apple={appleIap}
+              appleOnSale={appleOnSale}
               paid
             />
           ) : null}
         </div>
       ) : formReady ? (
         /* ── NOT OWNED — buy + intake form (unchanged; in the app the pay step is Apple's sheet). ── */
-        <PakantaMusicForm eventId={eventId} initial={responses} pricePhp={pricePhp} settings={settings} apple={appleIap} />
+        <PakantaMusicForm eventId={eventId} initial={responses} pricePhp={pricePhp} settings={settings} apple={appleIap} appleOnSale={appleOnSale} />
       ) : (
         <p className="text-sm text-ink/65">
           Pricing loads from your catalog &mdash; please refresh in a moment.

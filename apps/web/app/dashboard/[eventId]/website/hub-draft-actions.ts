@@ -122,7 +122,7 @@ import { writePaletteFill, type PaletteFillClient } from '@/lib/palette-fill-wri
 import { HUB_DRAFT_BAR_FIELD } from '@/lib/maker-refresh';
 import { HUB_DRAFT_EXPECT_FIELD } from '@/lib/maker-drawn-undo';
 import { hubDraftStamp, hubDraftUndoMatched } from '@/lib/hub-draft-stamp';
-import { hubDraftProEffects } from '@/lib/hub-pro-effects';
+import { dropAllHubProEffects, hubDraftProEffects } from '@/lib/hub-pro-effects';
 import { HUB_MAIN_GROUND_KEY, isHubMainOwn, sanitizeHubCanvas, type HubMainGround, type HubMainOwn, type HubSectionCanvas } from '@/lib/hub-canvas';
 import { PART_SHOW_KEY, STAGE_ORDER_KEY, STAGE_SHOW_KEY, STD_LEAD_KEY } from '@/lib/stage-scenes';
 import { PHOTOS_HEADING_KEY } from '@/lib/photos-heading';
@@ -360,21 +360,13 @@ export async function hubDraftAction(
     if (intent === 'drop') {
       const id = formData.get('effect');
       /* ◆ "Remove Pro changes" (owner 2026-10-08, "keep, marked"): every held Pro effect off the draft in one step —
-         the same per-effect `remove` patches as the ×, recomputed on the draft as the write lands. */
+         the same per-effect `remove` patches as the ×, recomputed on the draft as the write lands — ONE save, ONE
+         undo step (`dropAllHubProEffects`). */
       if (id === HUB_DROP_ALL_PRO) {
         const live = await readHubLiveState(supabase, eventId);
         await updateHubDraft(supabase, eventId, (cur, by) => {
-          let next = cur ?? emptyHubDraft();
-          let changed = false;
-          for (let guard = 0; guard < 200; guard++) {
-            const remove = hubDraftProEffects(next, live, false).find((e) => e.remove)?.remove;
-            if (!remove) break;
-            const after = mergeHubDraft(next, remove, by);
-            if (after === next) break;
-            next = after;
-            changed = true;
-          }
-          return changed ? { next } : null;
+          const next = dropAllHubProEffects(cur ?? emptyHubDraft(), live, by);
+          return next ? { next } : null;
         }, undefined, me);
         return done();
       }

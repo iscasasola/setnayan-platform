@@ -23,7 +23,7 @@ import { resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile'
 import { getCurrentUser } from '@/lib/auth';
 import { startRead } from '@/lib/start-read';
 import { getIapGate, isStoreShellRequest } from '@/lib/request-platform';
-import { setnayanAiSoldInApp } from '@/lib/iap/setnayan-ai-in-app.server';
+import { setnayanAiTierInApp } from '@/lib/iap/setnayan-ai-in-app.server';
 import { storeShellAllowsPaidFeature } from '@/lib/store-shell';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -1275,13 +1275,16 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   const aiGateOpts = { paywallEnabled };
   const storeShell = await storeShellRead;
   const appleIap = storeShell && (await appleIapRead) === true;
+  // ✦ …and Apple sells Setnayan AI for THIS event's tier (one product per web tier, owner 2026-10-23) — only then
+  // may a Sai bought anywhere be used here, or offered (3.1.3(b)).
+  const appleSai = appleIap && paywallEnabled && (await setnayanAiTierInApp(createAdminClient(), eventId)).status === 'sellable';
   // 🔒 A web-bought Sai does not light up in the App Store / Play Store shell
   // (guideline 3.1.3(b); lib/store-shell.ts) — unless the paywall is off and
   // Sai is free for everyone, in which case it is planning and stays.
   // 🍎 …or Apple sells it in this app (2026-10-23): then a Sai bought on the web OR in the app lights up.
   const aiActive =
     isSetnayanAiActiveForEvent(ev, aiGateOpts) &&
-    storeShellAllowsPaidFeature(storeShell, paywallEnabled, appleIap);
+    storeShellAllowsPaidFeature(storeShell, paywallEnabled, appleSai);
 
   // DB-driven category headers (owner 2026-06-09 — "taxonomy applies to all 5
   // menus"): the 10 folder labels/order/slugs come from `service_categories`
@@ -1360,7 +1363,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // app too — it carries no price, and its page's pay step is Apple's sheet.
   const aiOffer =
     shouldOfferSetnayanAiPurchaseForEvent(ev, aiGateOpts) &&
-    (!storeShell || (appleIap && (await setnayanAiSoldInApp(createAdminClient(), eventId)) === 'sellable'));
+    (!storeShell || appleSai);
   const aiOfferBanner = aiOffer ? (
     <Link
       href={`/dashboard/${eventId}/studio/setnayan-ai`}

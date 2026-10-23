@@ -398,17 +398,17 @@ test('wiring: Mood Board "Make it real" (paid render credits) is not mounted in 
 test('wiring: the dashboard withholds the Sai pitch and a web-bought Sai in the store shell', () => {
   const s = src('app/dashboard/[eventId]/_components/event-dashboard.tsx');
   // 🍎 The third argument is `iap` (2026-10-23) — false unless Apple sells Sai in this app.
-  assert.match(s, /const aiActive =[^;]*storeShellAllowsPaidFeature\(storeShell, aiPaywallEnabled, storeShell && \(await appleIapRead\) === true\)/);
+  assert.match(s, /const aiActive =[^;]*storeShellAllowsPaidFeature\(\s*storeShell,\s*aiPaywallEnabled,[^;]*\(await setnayanAiTierInApp\(createAdminClient\(\), eventId\)\)\.status === 'sellable',\s*\)/);
   assert.match(s, /const appleIapRead = startAhead\(getIapGate\(\)\.then\(\(g\) => g\.iap, \(\) => false\)\);/);
   const mounts = s.match(/<FreeVenueShortlistOffer\b[^>]*\/>/g) ?? [];
   assert.ok(mounts.length > 0, 'anchor moved');
   for (const m of mounts) assert.match(m, /sell=\{!storeShell\}/, m);
   const v = src('app/dashboard/[eventId]/vendors/page.tsx');
-  assert.match(v, /const aiActive =[^;]*storeShellAllowsPaidFeature\(storeShell, paywallEnabled, appleIap\)/);
+  assert.match(v, /const aiActive =[^;]*storeShellAllowsPaidFeature\(storeShell, paywallEnabled, appleSai\)/);
   assert.match(v, /const appleIap = storeShell && \(await appleIapRead\) === true;/);
   assert.match(
     v,
-    /const aiOffer =\s*shouldOfferSetnayanAiPurchaseForEvent\(ev, aiGateOpts\) &&\s*\(!storeShell \|\| \(appleIap && \(await setnayanAiSoldInApp\(createAdminClient\(\), eventId\)\) === 'sellable'\)\);/,
+    /const aiOffer =\s*shouldOfferSetnayanAiPurchaseForEvent\(ev, aiGateOpts\) &&\s*\(!storeShell \|\| appleSai\);/,
     'the Sai banner shows in the store shell beyond where Apple sells it',
   );
 });

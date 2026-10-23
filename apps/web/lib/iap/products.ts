@@ -1,3 +1,5 @@
+import { AI_TIER_SKU, type AiPriceTier } from '@/lib/setnayan-ai-type-pricing';
+
 /**
  * 🍎 THE APP STORE PRODUCTS — the ONE file that names them.
  *
@@ -66,6 +68,12 @@ export type IapProduct = {
   appStoreName: string;
   /** Papic and Mood Board packs: the credits (renders) this product's name promises. */
   credits: number | null;
+  /**
+   * ✦ Setnayan AI only (owner 2026-10-23, "four consumables, one per web tier"): the web price TIER this product is
+   * sold for. All four sell the SAME `SETNAYAN_AI` order (one activation, one ownership), each priced in App Store
+   * Connect from its tier's catalogue row (`AI_TIER_SKU`). The server refuses a tier product for an event of another tier.
+   */
+  aiTier?: Exclude<AiPriceTier, 'E'>;
 };
 
 const PREFIX = 'com.setnayan.app.';
@@ -143,9 +151,31 @@ export const IAP_PRODUCTS: readonly IapProduct[] = Object.freeze([
    * pack as Apple products before submitting build 6.") Same model as Live Watch: CONSUMABLE, for the CURRENT event,
    * activated by the web's own hook. The ids were named by the controller and are FOREVER.
    */
+  /*
+   * ✦ SETNAYAN AI, ONE PRODUCT PER WEB TIER (owner 2026-10-23): Apple has one price per product, the web four rungs.
+   * `setnayan_ai` stays Tier A (the wedding, the plain SETNAYAN_AI row) — never renamed; B · C · D are their own ids.
+   * Tier E (simple event) has no product, as it has no price on the web.
+   */
   ...(
     [
-      ['setnayan_ai', 'SETNAYAN_AI', 'Setnayan AI'],
+      ['setnayan_ai', 'A'],
+      ['setnayan_ai_tier_b', 'B'],
+      ['setnayan_ai_tier_c', 'C'],
+      ['setnayan_ai_tier_d', 'D'],
+    ] as const
+  ).map(
+    ([id, aiTier]): IapProduct => ({
+      productId: `${PREFIX}${id}`,
+      serviceKey: 'SETNAYAN_AI',
+      kind: 'event-unlock',
+      appleType: 'consumable',
+      appStoreName: 'Setnayan AI',
+      credits: null,
+      aiTier,
+    }),
+  ),
+  ...(
+    [
       ['music_maker', 'PAKANTA', 'Music Maker'],
       ['patiktok', 'PATIKTOK_COMPILER', 'Patiktok'],
       ['papic_thank_you', 'PAPIC_ADDON_THANK_YOU', 'Thank You'],
@@ -201,8 +231,35 @@ export function iapProductById(productId: string | null | undefined): IapProduct
   return IAP_PRODUCTS.find((p) => p.productId === productId) ?? null;
 }
 
+/**
+ * The product that sells this catalogue code. For `SETNAYAN_AI` that is Tier A's (`setnayan_ai`) — a page that knows
+ * the event's tier asks `iapSetnayanAiProductForTier` instead.
+ */
 export function iapProductForServiceKey(serviceKey: string): IapProduct | null {
   return IAP_PRODUCTS.find((p) => p.serviceKey === serviceKey) ?? null;
+}
+
+/** ✦ The Setnayan AI product for a web price tier; null for Tier E (not offered) or no tier. */
+export function iapSetnayanAiProductForTier(tier: AiPriceTier | null | undefined): IapProduct | null {
+  if (!tier || tier === 'E') return null;
+  return IAP_PRODUCTS.find((p) => p.aiTier === tier) ?? null;
+}
+
+/**
+ * ✦ May THIS product be sold to an event of THIS tier? Only its own tier: a Tier D product can never unlock a wedding,
+ * and a wedding can never be sold the Tier D price. Every other product has no tier and is unaffected.
+ */
+export function iapProductFitsAiTier(product: IapProduct, eventTier: AiPriceTier | null): boolean {
+  if (!product.aiTier) return true;
+  return eventTier !== null && product.aiTier === eventTier;
+}
+
+/**
+ * The catalogue row an Apple price is floored on (ruling 4, web ÷ 0.85) — the product's own code, except a Setnayan AI
+ * tier product, which is floored on its tier's row (`AI_TIER_SKU`, the one tier → row map the web charges from).
+ */
+export function iapPriceRowFor(product: IapProduct): string {
+  return product.aiTier ? (AI_TIER_SKU[product.aiTier] ?? product.serviceKey) : product.serviceKey;
 }
 
 /** The Papic packs, smallest first — the stepper walks exactly these. */

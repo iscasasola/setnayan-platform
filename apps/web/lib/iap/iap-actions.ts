@@ -10,9 +10,9 @@ import { eventIsOver } from '@/lib/event-is-over.server';
 import { eventOwnsSku } from '@/lib/entitlements';
 import { papicPassPointsForSku } from '@/lib/papic-pass-tiers';
 import { ADD_ONS } from '@/lib/add-ons-catalog';
-import { iapProductById, iapProductIsRepeatable, moodBoardRendersMatch, papicCreditsMatch } from './products';
+import { iapProductById, iapProductFitsAiTier, iapProductIsRepeatable, moodBoardRendersMatch, papicCreditsMatch } from './products';
 import { readMoodboardRenderConfig } from '@/lib/moodboard-render-credits';
-import { setnayanAiSoldInApp } from './setnayan-ai-in-app.server';
+import { setnayanAiTierInApp } from './setnayan-ai-in-app.server';
 import { eventHubOwnership, eventOwnsHubPart } from '@/lib/couple-website-pro';
 import { hubPartOfSku } from '@/lib/hub-parts';
 import { verifyAppleTransaction } from './apple-transaction';
@@ -100,11 +100,13 @@ export async function startAppStorePurchase(input: {
   if (product.kind === 'mood-board-pack' && !moodBoardRendersMatch(product, await readMoodboardRenderConfig(admin))) {
     return startRefusal('not_on_sale');
   }
-  // ✦ Setnayan AI: one Apple price, so only an event whose web price row IS the product's (setnayan-ai-in-app.server.ts).
+  // ✦ Setnayan AI: one product per web tier (owner 2026-10-23). The event's tier, read the way the web's charge
+  // reads it (setnayan-ai-in-app.server.ts), must be THIS product's — a Tier D product never unlocks a wedding.
   if (product.serviceKey === 'SETNAYAN_AI') {
-    const sai = await setnayanAiSoldInApp(admin, eventId);
-    if (sai === 'error') return startRefusal('try_again');
-    if (sai !== 'sellable') return startRefusal('not_on_sale');
+    const sai = await setnayanAiTierInApp(admin, eventId);
+    if (sai.status === 'error') return startRefusal('try_again');
+    if (sai.status !== 'sellable') return startRefusal('not_on_sale');
+    if (!iapProductFitsAiTier(product, sai.tier)) return startRefusal('not_on_sale');
   }
   if ((product.kind === 'papic-credits' || DAY_OF_ONLY_KEYS.has(product.serviceKey)) && (await eventIsOver(admin, eventId))) {
     return startRefusal('event_over');

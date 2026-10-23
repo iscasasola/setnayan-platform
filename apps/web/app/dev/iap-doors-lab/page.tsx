@@ -28,8 +28,9 @@ export default async function IapDoorsLab({ searchParams }: { searchParams: Prom
               eventId={E}
               serviceKey="SETNAYAN_AI"
               name="Setnayan AI"
-              line="One purchase · yours for the whole wedding."
-              info="Setnayan AI ranks every supplier by how well they fit your date, budget and guest count, and keeps your deadlines and payments in view. It stays on for this wedding and everyone on it."
+              productId="com.setnayan.app.setnayan_ai_tier_c"
+              line="One purchase · yours for this event."
+              info="Setnayan AI ranks every supplier by how well they fit your date, budget and guest count, and keeps your deadlines and payments in view. It stays on for this event and everyone on it."
               triggerLabel="Unlock Setnayan AI"
               buyVerb="Unlock"
               triggerTestId="iap-setnayan-ai-unlock"

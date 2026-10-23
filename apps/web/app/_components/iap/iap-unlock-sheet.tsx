@@ -6,7 +6,7 @@ import { Sparkles, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { Sheet } from '@/app/_components/sheet';
 import { InfoTip } from '@/app/_components/info-tip';
-import { iapProductForServiceKey } from '@/lib/iap/products';
+import { iapProductById, iapProductForServiceKey } from '@/lib/iap/products';
 import { buyWithApple } from '@/lib/iap/native-store';
 import { useAppStorePrices } from '@/lib/iap/use-app-store-prices';
 import { IAP_COPY, pendingLine, type IapScreen } from '@/lib/iap/iap-outcome';
@@ -26,6 +26,7 @@ import { IAP_COPY, pendingLine, type IapScreen } from '@/lib/iap/iap-outcome';
 export function IapUnlockSheet({
   eventId,
   serviceKey,
+  productId,
   name,
   line,
   info,
@@ -39,6 +40,11 @@ export function IapUnlockSheet({
   eventId: string;
   /** The catalogue code the page already sells (`orders.service_key`) — its Apple product is looked up, never typed. */
   serviceKey: string;
+  /**
+   * ✦ The exact product, when one code has several (Setnayan AI: one per web tier, picked by the server from the
+   * event's tier). Must sell `serviceKey`, or nothing is drawn.
+   */
+  productId?: string;
   /** What the sheet is titled, and what "is on" afterwards. */
   name: string;
   /** The one visible line under the title. */
@@ -57,7 +63,8 @@ export function IapUnlockSheet({
   /** The page's own trigger look, so the door sits where the web's did. Default: the brand button. */
   triggerClassName?: string;
 }) {
-  const product = iapProductForServiceKey(serviceKey);
+  const picked = productId ? iapProductById(productId) : iapProductForServiceKey(serviceKey);
+  const product = picked && picked.serviceKey === serviceKey ? picked : null;
   const headingId = useId();
   const [open, setOpen] = useState(false);
   const prices = useAppStorePrices(product ? [product.productId] : [], open);

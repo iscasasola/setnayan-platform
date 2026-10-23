@@ -8,7 +8,6 @@
  * (web only — the store shell refuses it, lib/store-shell.ts). A new tool added to the shelves appears here with no
  * edit. Held by `app/vendor-dashboard/settings/settings-is-one-list.test.ts`.
  */
-import { FREE_BOOKING_LIMIT } from '@/lib/booking-fee-lock';
 import { shopToolShelves, type ShopTool, type ShopToolShelf } from '../shop/shop-tool-shelves';
 
 export const SETTINGS_HELP_HREF = '/vendor-dashboard/help';
@@ -35,7 +34,7 @@ export const SUPPLIER_HELP_ROWS: readonly { key: string; title: string; line: st
   {
     key: 'fees',
     title: 'How fees work',
-    line: `Your first ${FREE_BOOKING_LIMIT} are free · a fee only on couples Setnayan brings · locked until settled`,
+    line: 'Your first booking from Setnayan is on us · a fee only on couples Setnayan brings · locked until settled',
     href: '/help/what-do-suppliers-pay-setnayan',
   },
   {

@@ -55,7 +55,6 @@ import {
   type GiftQuoteBasis,
 } from '@/lib/setnayan-gift';
 import { feePesos, type FeeDisclosure } from '@/lib/booking-fee-disclosure';
-import { FREE_BOOKING_LIMIT } from '@/lib/booking-fee-lock';
 
 /** Where the supplier's own service cards — and the gift switch — live. */
 export const VENDOR_SERVICE_CARDS_PATH = '/vendor-dashboard/services';
@@ -353,7 +352,7 @@ export function papicTopUpForQuote(
         headline: 'Papic deal · none — and nothing to pay.',
         detail:
           'Your exclusive Papic deal is a share of the booking fee you actually pay, and this ' +
-          `booking's fee is waived — one of your first ${FREE_BOOKING_LIMIT} on Setnayan. Your first ` +
+          `booking's fee is waived — your first booking from Setnayan is on us. Your first ` +
           'billed booking can carry one.',
       };
 

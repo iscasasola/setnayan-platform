@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, useTransition, type ReactNode } from 'react';
+import { useEffect, useRef, useState, useTransition, type ReactNode } from 'react';
 import {
   CalendarHeart,
   Check,
@@ -34,7 +34,8 @@ import { RELATION_LABEL, connectionRequestSentence } from '@/lib/people-add';
 import type { PeopleRoster, RosterPerson, RosterState } from '@/lib/people-roster';
 import { peopleViewHref, type PeopleView, type PeopleViewGates } from '@/lib/people-views';
 import { useRouter } from 'next/navigation';
-import { normalizeSearchText } from '@/lib/guest-search';
+import { rosterNameMatches, rosterQuery } from '@/lib/people-name-match';
+import { PEOPLE_PATH, PERSON_PARAM, personCardKey } from '@/lib/people-person-link';
 import {
   didNotConfirmLine,
   isRequestForMe,
@@ -52,6 +53,7 @@ import {
   withdrawConnection,
 } from '../actions';
 import { formatCount } from '@/lib/format-number';
+import { removeFromPeople } from '@/lib/people-remove';
 import { FindField, FindResults, InviteAction, useFindOrInvite } from './find-or-invite';
 import { AccountThumbRow, ThumbTool } from '../../_components/account-thumb-row';
 import { PersonAvatar } from './person-avatar';
@@ -224,6 +226,7 @@ export function PeopleRosterView({
   extra = [],
   initialFilter = 'all',
   focus = null,
+  openPerson = null,
 }: {
   roster: PeopleRoster;
   /** Offerable labels — the server decides, by the spouse rule. */
@@ -235,6 +238,13 @@ export function PeopleRosterView({
   initialFilter?: PeopleFilter;
   /** `?view=alaga` opens on the Loved ones section, folded open, the rest folded shut. */
   focus?: 'alaga' | null;
+  /**
+   * `?person=<public id>` — open THIS person's card on arrival (owner 2026-10-22: a person result in the
+   * shell's search opens their card here). Matched on `RosterPerson.publicId`; no match opens nothing (the
+   * page decides what to say). Closing the card drops the param, so a reload does not reopen it; the
+   * browser's Back still returns to the results the person came from.
+   */
+  openPerson?: string | null;
 }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -243,6 +253,17 @@ export function PeopleRosterView({
   const [selectMode, setSelectMode] = useState(false);
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [cardKey, setCardKey] = useState<string | null>(null);
+  const [cardFromUrl, setCardFromUrl] = useState(false);
+  // `?person=` opens the card AFTER mount: the card is a portal (`GuestPopup`), which the server cannot draw,
+  // so opening it in the first render is a hydration mismatch.
+  useEffect(() => {
+    const key = personCardKey(roster, openPerson);
+    if (!key) return;
+    setCardKey(key);
+    setCardFromUrl(true);
+    // The roster object is a fresh prop on every server render; the link is what decides.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openPerson]);
   const [toRemove, setToRemove] = useState<RosterPerson[] | null>(null);
   const find = useFindOrInvite();
   const router = useRouter();
@@ -283,9 +304,10 @@ export function PeopleRosterView({
   const nobody = sections.length === 0 && requests.length === 0;
 
   // Typing in the field filters the list too (the Guest list's "Search or add").
-  const q = normalizeSearchText(find.line.trim());
+  // The ONE roster matcher — the shell's search lists your people by the same words (lib/people-name-match.ts).
+  const q = rosterQuery(find.line);
   const searching = q.length > 0;
-  const nameMatches = (p: RosterPerson) => normalizeSearchText(p.name).includes(q);
+  const nameMatches = (p: RosterPerson) => rosterNameMatches(p.name, q);
 
   const visibleSections = sections.filter((s) =>
     filter === 'all' ? true : filter === 'connected' ? s.key !== 'waiting_them' : filter === 'waiting' ? s.key === 'waiting_them' : false,
@@ -586,7 +608,13 @@ export function PeopleRosterView({
           samahan={roster.mySamahan}
           pending={pending}
           run={run}
-          onClose={() => setCardKey(null)}
+          onClose={() => {
+            setCardKey(null);
+            if (cardFromUrl) {
+              setCardFromUrl(false);
+              router.replace(withoutPersonParam(), { scroll: false });
+            }
+          }}
           onRemove={() => {
             setCardKey(null);
             setToRemove([card]);
@@ -614,15 +642,24 @@ export function PeopleRosterView({
                 label="Remove"
                 waiting={pending}
                 onClick={() => {
-                  const ids = toRemove.map((p) => p.connectionId ?? '').filter(Boolean);
+                  // 🔒 COUNTED, NEVER ASSUMED (owner 2026-10-23, "why can't i delete anyone"): an empty or partial
+                  // id list is refused before any call, and each call's own answer decides — `lib/people-remove.ts`.
+                  const rows = toRemove;
                   setToRemove(null);
                   leaveSelect();
                   run(async () => {
-                    for (const id of ids) {
-                      const res = await withdrawConnection(id);
-                      if (!res.ok) return res;
+                    const res = await removeFromPeople(rows, (id) => withdrawConnection(id));
+                    if (res.ok) {
+                      const one = rows.length === 1 ? rows[0]! : null;
+                      setNotice(
+                        one
+                          ? one.state === 'waiting_them'
+                            ? `Your request to ${one.name} is taken back.`
+                            : `${one.name} left your people.`
+                          : `Removed ${formatCount(res.removed)} people.`,
+                      );
                     }
-                    return { ok: true };
+                    return res;
                   });
                 }}
                 data-testid="people-remove-confirm"
@@ -1254,4 +1291,13 @@ function PlanTogether({ person }: { person: RosterPerson }) {
       data-plan-together=""
     />
   );
+}
+
+/** This address without `?person=` — what closing a deep-linked card leaves in the bar. */
+function withoutPersonParam(): string {
+  if (typeof window === 'undefined') return PEOPLE_PATH;
+  const url = new URL(window.location.href);
+  url.searchParams.delete(PERSON_PARAM);
+  const qs = url.searchParams.toString();
+  return `${url.pathname}${qs ? `?${qs}` : ''}`;
 }

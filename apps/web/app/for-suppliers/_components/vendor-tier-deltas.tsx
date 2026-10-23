@@ -45,7 +45,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { VENDOR_TIER_SECTIONS, customTierDialLabels } from '@/app/_components/home/vendor-benefits';
 import { CUSTOM_TIER_OFFERED_PUBLICLY } from '@/lib/custom-tier-offered';
-import { TIER_CAPS, type VendorTier } from '@/lib/vendor-tier-caps';
+import { TIER_CAPS, TIER_LABEL, type VendorTier } from '@/lib/vendor-tier-caps';
 /*
  * 🔑 THE TAPER IS DERIVED, NOT TYPED. The four other public surfaces that state
  * it each hand-type "₱100,000" and declare the literal in
@@ -60,7 +60,6 @@ import { TIER_CAPS, type VendorTier } from '@/lib/vendor-tier-caps';
  * replaces.
  */
 import { bookingFeeScheduleSummary, type BookingFeeSchedule } from '@/lib/booking-fee';
-import { FREE_BOOKING_LIMIT } from '@/lib/booking-fee-lock';
 // See the note in vendor-grow-sections.tsx: the launch-period 0% promise is
 // gated on the flag that decides whether anybody is actually billed.
 import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
@@ -71,7 +70,7 @@ const LADDER: { cap: VendorTier; source: string; label: string }[] = [
   { cap: 'verified', source: 'free', label: 'Free · Verified' },
   { cap: 'solo', source: 'solo', label: 'Solo' },
   { cap: 'pro', source: 'pro', label: 'Pro' },
-  { cap: 'enterprise', source: 'enterprise', label: 'Enterprise' },
+  { cap: 'enterprise', source: 'enterprise', label: TIER_LABEL.enterprise },
 ];
 
 /**
@@ -114,9 +113,11 @@ const LIMITS: { label: string; of: (c: (typeof TIER_CAPS)[VendorTier]) => string
   { label: 'Parent categories', of: (c) => cap(c.parentCategories, { unlimited: 'All' }) },
   { label: 'Service listings / category', of: (c) => cap(c.servicesPerLeaf) },
   { label: 'Team seats', of: (c) => cap(c.agentAccounts) },
-  { label: 'Bookable slots / day', of: (c) => cap(c.slotsPerDay) },
-  { label: 'Portfolio photos', of: (c) => cap(c.portfolioPhotos) },
-  { label: 'Answer matched couples / week', of: (c) => cap(c.inAppCustomersPerWeek) },
+  // ⚖ The three below are the SAME on every plan since 2026-10-23 (owner: plans price reach, never what earns a
+  // booking fee). They show once, on the base rung, and never again as an "upgrade" — movedLimits drops an unmoved row.
+  { label: 'Bookings a day', of: (c) => cap(c.slotsPerDay, { unlimited: 'You set it' }) },
+  { label: 'Portfolio photos', of: (c) => cap(c.portfolioPhotos, { suffix: ' free' }) },
+  { label: 'Answering couples', of: (c) => cap(c.inAppCustomersPerWeek, { unlimited: 'No limit' }) },
 ];
 
 /** What changed between two rungs — `null` below means "this is the base rung". */
@@ -369,7 +370,7 @@ export function VendorTierDeltas({
                   >
                     Everything above is free, forever.{' '}
                     {isBookingFeeEnabled()
-                      ? `Your first ${FREE_BOOKING_LIMIT} Setnayan-sourced bookings are free — after that`
+                      ? 'Your first booking from Setnayan is on us — after that'
                       : '0% commission — no booking fee while it is switched off; if it is switched on'}{' '}
                     {feeSchedule ? bookingFeeScheduleSummary(feeSchedule) : 'a booking fee'}, only on couples Setnayan
                     brings you; your own clients stay free.
@@ -423,7 +424,7 @@ export function VendorTierDeltas({
               maxWidth: '70ch',
             }}
           >
-            Everything in Enterprise, with its limits removed — then only the
+            Everything in Ultra, with its limits removed — then only the
             dials you need. For franchises, chains and multi-location houses.
           </p>
           <ul

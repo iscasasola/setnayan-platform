@@ -6,6 +6,9 @@
  * HQ - Create what?"* One hardcoded `+ Create event` rendered on all six
  * signed-in trees, so **a supplier standing in their own Shop was one press from
  * a couple's wedding wizard.** That is a wrong button, not a matter of taste.
+ *
+ * 2026-10-22: the couple's "+ Create event" left the bar entirely (owner,
+ * "Create lives on the Events board"); the Shop's own button stays.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -19,21 +22,16 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = resolve(HERE, '..', '..', '..');
 const read = (p: string) => stripComments(readFileSync(join(WEB, p), 'utf8'));
 
-test('a surface that says nothing still gets "+ Create event"', () => {
-  // The five other trees pass no slot. If this default goes, the couple's own
-  // create button disappears from every one of them at once.
+test('a surface that says nothing draws NO create button (owner 2026-10-22)', () => {
+  // ⛔ TURNED AROUND ON PURPOSE. Until 2026-10-22 this pinned the default
+  // "+ Create event"; the owner then took it out of the bar at every width
+  // ("Create lives on the Events board"). The default is now nothing, and
+  // `the-top-bar-creates-no-event.test.ts` renders the bar to prove it.
   const shell = read('app/_components/frontdoor/front-door-shell.tsx');
-  assert.match(
-    shell,
-    /createSlot === undefined \? \(\s*<Link href="\/dashboard\/create-event" className="fd-btn-gold">\s*\+ Create event/,
-    'the default create button changed or vanished',
-  );
-  // `undefined`, not a falsy check: `null` has to mean something different from
-  // "you said nothing", or HQ cannot turn the button off.
-  assert.ok(
-    !/createSlot \?\? \(/.test(shell),
-    'a ?? fallback would make null fall back to the event button — HQ needs null to mean none',
-  );
+  assert.ok(!/\/dashboard\/create-event/.test(shell), 'the shared bar links at the create flow again');
+  assert.match(shell, /\{createSlot\}/, 'the shell stopped rendering the surface\'s own slot');
+  // `??` would bring a fallback back for `undefined` — the very default that left.
+  assert.ok(!/createSlot \?\? \(/.test(shell), 'a ?? fallback would bring the default button back');
 });
 
 test('the Shop makes a service card, and the press opens the maker', () => {

@@ -3,10 +3,16 @@
  * Covers 20271121655918_vendor_tier_pipeline_caps.
  *
  *            WHITELIST (per date)   WAITLIST (per date)
- *   FREE            1                     0
- *   SOLO            3                     1
+ *   FREE            5                     0
+ *   VERIFIED        5                     1
+ *   SOLO            5                     1
  *   PRO             5                     3
- *   ENTERPRISE     10                     5
+ *   ENTERPRISE      5                     5
+ *
+ * The WHITELIST column is the same on every plan since 2026-10-23 (owner, "plans
+ * price reach, not income"; migration 20271285071117) — it was 1/2/3/5/10. The
+ * fills below read {@link WHITELIST_PER_DATE_ALL_PLANS} rather than a typed 5, so
+ * the next change to the number moves every fill with it.
  *
  * 🔑 THE PARITY TEST IS THE POINT. The same grid lives in TypeScript
  * (`lib/vendor-tier-caps.ts`, the code SSOT) and in SQL (`vendor_tier_limit`),
@@ -23,7 +29,10 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { VENDOR_TIERS, TIER_CAPS, type VendorTier } from '../../lib/vendor-tier-caps';
+import { VENDOR_TIERS, TIER_CAPS, WHITELIST_PER_DATE_ALL_PLANS, type VendorTier } from '../../lib/vendor-tier-caps';
+
+/** The couples-per-date ceiling — the same on every plan (2026-10-23). */
+const WL = WHITELIST_PER_DATE_ALL_PLANS;
 import { createReplayedDb, type ReplayResult } from './replay-migrations';
 
 let replay: ReplayResult;
@@ -176,13 +185,14 @@ test("PARITY meta: the checker is not vacuous — a wrong expectation FAILS", as
 test('the owner grid reads exactly as given', async () => {
   const expect: Array<[string, number, number]> = [
     // tier, whitelist, waitlist
-    ['free', 1, 0],
-    // Verified got its OWN pair on 2026-08-29 (owner). It used to clone free's
-    // 1 / 0 because the 2026-08-09 grid had four numbers for five tiers.
-    ['verified', 2, 1],
-    ['solo', 3, 1],
+    // Whitelist: 5 on every plan (owner 2026-10-23). Waitlist: the 2026-08-09
+    // grid, verified's own pair from 2026-08-29.
+    ['free', 5, 0],
+    ['verified', 5, 1],
+    ['solo', 5, 1],
     ['pro', 5, 3],
-    ['enterprise', 10, 5],
+    ['enterprise', 5, 5],
+    ['custom', 5, 5],
   ];
   for (const [tier, wl, wa] of expect) {
     const r = await db.query<{ wl: number; wa: number }>(
@@ -211,7 +221,7 @@ test('an unknown TIER reads as free, matching asVendorTier', async () => {
     `SELECT public.vendor_tier_limit('platinum','whitelist_per_date') AS wl,
             public.vendor_tier_limit(NULL,'waitlist_acceptances') AS wa`,
   );
-  assert.equal(r.rows[0]!.wl, 1);
+  assert.equal(r.rows[0]!.wl, 5);
   assert.equal(r.rows[0]!.wa, 0);
 });
 
@@ -308,12 +318,12 @@ test('the platform switch defaults to FALSE on a fresh database', async () => {
 // 3. WHITELIST — accepted-but-not-yet-locked, per date.
 // ─────────────────────────────────────────────────────────────────────────────
 
-test('FREE holds 1 live client for a date; the 2nd is refused', async () => {
+test('FREE holds 5 live clients for a date — the same as every plan; the 6th is refused', async () => {
   await setCapsEnabled(true);
   const vendor = await newVendor('free-wl', 'free');
-  assert.equal(await acceptNOnDate(vendor, '2027-03-01', 1, 'free-wl'), null, 'the 1st must pass');
+  assert.equal(await acceptNOnDate(vendor, '2027-03-01', WL, 'free-wl'), null, `all ${WL} must pass`);
   const err = await acceptNOnDate(vendor, '2027-03-01', 1, 'free-wl-2');
-  assert.match(String(err), /WHITELIST_DATE_LIMIT/, `the 2nd must be refused, got: ${err}`);
+  assert.match(String(err), /WHITELIST_DATE_LIMIT/, `the ${WL + 1}th must be refused, got: ${err}`);
 });
 
 test('PRO holds 5 for a date; the 6th is refused', async () => {
@@ -324,18 +334,42 @@ test('PRO holds 5 for a date; the 6th is refused', async () => {
   assert.match(String(err), /WHITELIST_DATE_LIMIT/, `the 6th must be refused, got: ${err}`);
 });
 
-test('ENTERPRISE holds 10 for a date', async () => {
+test('ENTERPRISE holds 5 for a date like every plan (was 10)', async () => {
   await setCapsEnabled(true);
   const vendor = await newVendor('ent-wl', 'enterprise');
-  assert.equal(await acceptNOnDate(vendor, '2027-03-03', 10, 'ent-wl'), null, 'all 10 must pass');
-  const err = await acceptNOnDate(vendor, '2027-03-03', 1, 'ent-wl-11');
-  assert.match(String(err), /WHITELIST_DATE_LIMIT/, `the 11th must be refused, got: ${err}`);
+  assert.equal(await acceptNOnDate(vendor, '2027-03-03', WL, 'ent-wl'), null, `all ${WL} must pass`);
+  const err = await acceptNOnDate(vendor, '2027-03-03', 1, 'ent-wl-6');
+  assert.match(String(err), /WHITELIST_DATE_LIMIT/, `the ${WL + 1}th must be refused, got: ${err}`);
+});
+
+test('GRANDFATHERED: a shop already holding more than 5 for a date keeps every one', async () => {
+  // An Enterprise shop accepted 10 under the old grid (switch off here = any number lands, as in prod).
+  await setCapsEnabled(false);
+  const vendor = await newVendor('ent-keeps', 'enterprise');
+  assert.equal(await acceptNOnDate(vendor, '2027-03-04', 10, 'ent-keeps'), null);
+  await setCapsEnabled(true);
+  // Re-saving one of the ten is never refused …
+  const held = await db.query<{ thread_id: string }>(
+    `SELECT thread_id FROM public.chat_threads WHERE vendor_profile_id = $1 LIMIT 1`,
+    [vendor],
+  );
+  await db.query(
+    `UPDATE public.chat_threads SET inquiry_status = 'accepted'::public.chat_inquiry_status WHERE thread_id = $1`,
+    [held.rows[0]!.thread_id],
+  );
+  const kept = await db.query<{ n: number }>(
+    `SELECT count(*)::int AS n FROM public.chat_threads WHERE vendor_profile_id = $1 AND inquiry_status = 'accepted'`,
+    [vendor],
+  );
+  assert.equal(kept.rows[0]!.n, 10, 'nothing already accepted is undone');
+  // … only a NEW accept on that date is.
+  assert.match(String(await acceptNOnDate(vendor, '2027-03-04', 1, 'ent-keeps-11')), /WHITELIST_DATE_LIMIT/);
 });
 
 test('THE CAP IS PER DATE — a different day is untouched', async () => {
   await setCapsEnabled(true);
   const vendor = await newVendor('perdate', 'free');
-  assert.equal(await acceptNOnDate(vendor, '2027-04-01', 1, 'perdate-a'), null);
+  assert.equal(await acceptNOnDate(vendor, '2027-04-01', WL, 'perdate-a'), null);
   // At their limit for 1 Apr — but 2 Apr is a different day and must be free.
   assert.equal(
     await acceptNOnDate(vendor, '2027-04-02', 1, 'perdate-b'),
@@ -351,6 +385,7 @@ test('LOCKING one in frees the slot — that client is no longer "pursuing"', as
   const vendor = await newVendor('locks', 'free');
   const eventId = await newEvent('locks-first', '2027-05-05');
   assert.equal(await tryAccept(vendor, eventId), null, 'the 1st must pass');
+  assert.equal(await acceptNOnDate(vendor, '2027-05-05', WL - 1, 'locks-fill'), null, 'the rest of the date fills');
   assert.match(
     String(await acceptNOnDate(vendor, '2027-05-05', 1, 'locks-blocked')),
     /WHITELIST_DATE_LIMIT/,
@@ -377,6 +412,12 @@ test('DECLINING frees the slot too', async () => {
   const vendor = await newVendor('declines', 'free');
   const eventId = await newEvent('declines-first', '2027-06-06');
   await tryAccept(vendor, eventId);
+  assert.equal(await acceptNOnDate(vendor, '2027-06-06', WL - 1, 'declines-fill'), null, 'the date fills');
+  assert.match(
+    String(await acceptNOnDate(vendor, '2027-06-06', 1, 'declines-full')),
+    /WHITELIST_DATE_LIMIT/,
+    'full before the decline — or the pass below proves nothing',
+  );
   await db.query(
     `UPDATE public.chat_threads SET inquiry_status = 'declined'::public.chat_inquiry_status
       WHERE event_id = $1 AND vendor_profile_id = $2`,
@@ -424,7 +465,7 @@ test("one vendor's full date does not touch another vendor", async () => {
   await setCapsEnabled(true);
   const a = await newVendor('two-a', 'free');
   const b = await newVendor('two-b', 'free');
-  await acceptNOnDate(a, '2027-08-08', 1, 'two-a');
+  await acceptNOnDate(a, '2027-08-08', WL, 'two-a');
   assert.match(String(await acceptNOnDate(a, '2027-08-08', 1, 'two-a2')), /WHITELIST_DATE_LIMIT/);
   assert.equal(
     await acceptNOnDate(b, '2027-08-08', 1, 'two-b'),

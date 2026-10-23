@@ -339,11 +339,6 @@ export async function VendorServicesManager({
   const tier: string | null = tierRow?.tier_state ?? null;
   const caps = tierCaps(tier);
 
-  // #2 daily booking capacity: the tier caps the max bookings/day a vendor can
-  // declare per service (FREE 0 / VERIFIED 1 / PRO 3 / ENTERPRISE 8). Only show
-  // the capacity input when the tier allows bookings at all (slotsCap > 0).
-  const slotsCap = caps.slotsPerDay;
-  const slotsCapForUi = Number.isFinite(slotsCap) ? slotsCap : 99;
   const allBranches =
     // Enterprise-or-higher (Custom runs as Enterprise) — rank-derived so Custom
     // gets the branch picker without a hard equality edit.
@@ -764,8 +759,6 @@ export async function VendorServicesManager({
             <AddServiceForm
               addCategory={addCategory}
               labelFor={labelFor}
-              slotsCap={slotsCap}
-              slotsCapForUi={slotsCapForUi}
               showBranchPicker={showBranchPicker}
               branches={branches}
               basePath={basePath}
@@ -1271,8 +1264,6 @@ function RequestStatusBadge({
 function AddServiceForm({
   addCategory,
   labelFor,
-  slotsCap,
-  slotsCapForUi,
   showBranchPicker,
   branches,
   basePath,
@@ -1282,8 +1273,6 @@ function AddServiceForm({
 }: {
   addCategory: VendorCategory;
   labelFor: (cat: VendorCategory) => string;
-  slotsCap: number;
-  slotsCapForUi: number;
   showBranchPicker: boolean;
   branches: { branch_id: string; branch_label: string }[];
   basePath: string;
@@ -1357,24 +1346,22 @@ function AddServiceForm({
           className="input-field"
         />
       </Field>
-      {slotsCap > 0 ? (
-        <Field
-          label="Bookings per day (optional)"
-          htmlFor={`new-cap-${addCategory}`}
-          help={`How many of this you can serve in a day — e.g. 2 photobooths → 2. Your plan allows up to ${slotsCapForUi}.`}
-        >
-          <input
-            id={`new-cap-${addCategory}`}
-            name="daily_capacity"
-            type="number"
-            min={1}
-            max={slotsCapForUi}
-            step={1}
-            placeholder={`e.g. ${Math.min(2, slotsCapForUi)}`}
-            className="input-field"
-          />
-        </Field>
-      ) : null}
+      {/* ⚖ No plan limit on bookings a day (owner 2026-10-23) — the supplier's own number, on every plan. */}
+      <Field
+        label="Bookings per day (optional)"
+        htmlFor={`new-cap-${addCategory}`}
+        help="How many of this you can serve in a day — e.g. 2 photobooths → 2."
+      >
+        <input
+          id={`new-cap-${addCategory}`}
+          name="daily_capacity"
+          type="number"
+          min={1}
+          step={1}
+          placeholder="e.g. 2"
+          className="input-field"
+        />
+      </Field>
       <IncludedFlags
         idPrefix={`new-${addCategory}`}
         category={addCategory}

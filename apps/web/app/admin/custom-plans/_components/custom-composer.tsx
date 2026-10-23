@@ -8,7 +8,6 @@ import {
   Users,
   CalendarClock,
   Images,
-  Globe,
   Sparkles,
   BadgeCheck,
   ShieldCheck,
@@ -288,21 +287,6 @@ export function CustomComposer({
                 />
               </Knob>
 
-              <Knob
-                icon={<Globe className="h-4 w-4" strokeWidth={2} />}
-                label="Custom domain"
-                hint="A branded custom domain for the supplier's public website."
-              >
-                <label className="flex items-center gap-2 text-xs text-ink/70">
-                  <input
-                    type="checkbox"
-                    checked={comp.domain}
-                    onChange={(e) => setK('domain', e.target.checked)}
-                    className="h-4 w-4 rounded border-ink/30 accent-ink"
-                  />
-                  Include a custom domain
-                </label>
-              </Knob>
 
               <Knob
                 icon={<Terminal className="h-4 w-4" strokeWidth={2} />}
@@ -351,7 +335,6 @@ export function CustomComposer({
                         ['reachNationwide', 'Nationwide'],
                         ['seat', 'Per extra seat'],
                         ['slot', 'Per +1 slot'],
-                        ['domain', 'Custom domain'],
                       ] as Array<[keyof CustomUnitPrices, string]>
                     ).map(([key, label]) => (
                       <label key={key} className="block">
@@ -464,12 +447,6 @@ export function CustomComposer({
                 {comp.slotsPerCategory} event slots / category
                 {extraSlots > 0 ? ` (+${extraSlots})` : ''}
               </li>
-              {comp.domain ? (
-                <li className="flex items-center gap-2">
-                  <Globe className="h-4 w-4 shrink-0 text-ink/45" strokeWidth={2} />
-                  Branded custom domain
-                </li>
-              ) : null}
               {comp.api_access ? (
                 <li className="flex items-center gap-2">
                   <Terminal className="h-4 w-4 shrink-0 text-ink/45" strokeWidth={2} />

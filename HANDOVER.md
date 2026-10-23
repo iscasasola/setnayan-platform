@@ -22,6 +22,20 @@ branch (rd/plans-price-reach-not-income) merged locally — #6823 was still OPEN
 - Message fee line = the merged #6820 rule ("Your first booking from Setnayan is on us."), launch-offer sentence only
   while `launchOfferIsOpen`.
 
+## Also done
+- B4 Your details "from your invite" (honest count, not the prototype's illustrative "2 of 6") · B6 counted
+  inspiration step + gift Shop line · C2 gift door row (caption's "one row under Also waiting", not a Next card) ·
+  C1/C3 gift words, ₱0 picker, Portfolio photos row.
+- Labs + side-by-sides in ~/Documents/Claude/Projects/shots-2026-10-23/personal-invite/side-*.png (scripts/ there).
+- Corpus: prototype + DECISION_LOG row pushed (Setnayan-specs e937eba) via a temp clone (local corpus checkout is
+  14 ahead / 387 behind with others' edits — untouched).
+
+## Known gaps
+- Dark side-by-sides: built screens stay Light by ruling — DARK_READY (lib/appearance.ts) does not list
+  /vendor-dashboard, /admin or the claim door; signed-out is always Light.
+- B5 tour: shipped script unchanged; landing on Your details, the engine skips ahead to the first present stop
+  (Shop tab, step 2), not step 3 as drawn.
+- B4 inline "→ Fill in" button not drawn — the shipped thumb "Add what is left" does that (tools in the lower third).
+
 ## Next
-- B4 "from your invite" on Your details · B6 inspiration step + Shop line gift words · C2 gift door ·
-  C1/C3 plan page gift words + Portfolio photos row · lab fixtures + screenshots · checks · PR.
+- PR draft, label do-not-auto-merge, --disable-auto; watch CI with one loop.

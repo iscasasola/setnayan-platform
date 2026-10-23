@@ -25,6 +25,7 @@ import { PageMasthead } from '@/app/_components/page-masthead';
 //
 // Gated: signed-in couple on the event. Force-dynamic — per-request auth + the live join link.
 
+export const metadata = { title: 'One code for everyone' };
 export const dynamic = 'force-dynamic';
 
 type Props = {

@@ -11,6 +11,9 @@ import { PapicCaptureController } from '@/app/vendor-dashboard/on-the-day/live/[
 import { papicUploader, saveShot } from '@/lib/papic-upload/browser';
 import { newClientCaptureId } from '@/lib/papic-client-capture-id';
 import type { UploaderSnapshot } from '@/lib/papic-upload/replayer';
+import * as labStore from '@/lib/papic-upload/store';
+import { developCanvas } from '@/lib/papic-upload/develop';
+import { applyPapicStylePixels } from '@/lib/papic-photo-styles';
 
 export const LAB_EVENT_ID = '00000000-0000-4000-8000-00000000e1ab';
 
@@ -45,6 +48,10 @@ async function posterOf(clip: Blob): Promise<Blob | null> {
 export function LabCamera({ lane }: { lane: 'guest' | 'vendor' }) {
   const [snap, setSnap] = useState<UploaderSnapshot | null>(null);
   useEffect(() => papicUploader().subscribe(setSnap), []);
+  // The walk's probes reach the real modules through this (lab only).
+  useEffect(() => {
+    (window as unknown as { __lab?: unknown }).__lab = { saveShot, papicUploader, store: labStore, developCanvas, applyPapicStylePixels };
+  }, []);
   // The fixture clip is fetched while the page is online, so the walk can add it
   // with the link cut — exactly like a clip recorded at a venue with no signal.
   const clipRef = useRef<Blob | null>(null);

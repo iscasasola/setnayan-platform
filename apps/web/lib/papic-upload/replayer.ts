@@ -227,8 +227,10 @@ export class PapicUploader {
 
   private isOnline(): boolean {
     if (!this.deps.online()) return false;
-    // A network failure in the last 15 s reads as offline until something lands.
-    return this.deps.now() - this.netFailedAt > 15_000;
+    // A network failure reads as offline until something lands again (or the
+    // browser says the link came back) — the browser's own flag says "online"
+    // on a venue Wi-Fi that reaches nothing.
+    return this.netFailedAt === 0;
   }
 
   private notify(): void {

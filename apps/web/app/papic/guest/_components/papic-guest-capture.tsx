@@ -23,16 +23,13 @@ import type { FaceTaggingWish } from '@/lib/face-tagging-wish';
 import { makeQrDetector } from '@/lib/qr-scan';
 import { usePapicCamera } from '@/lib/use-papic-camera';
 import type { PapicFaceMode } from '@/lib/papic-face-mode';
-import {
-  applyPapicStyle,
-  cssPreviewFilter,
-  type PapicStyle,
-} from '@/lib/papic-photo-styles';
+import { cssPreviewFilter, type PapicStyle } from '@/lib/papic-photo-styles';
 import { PapicCameraControls } from '@/app/papic/_components/camera-controls';
 import { PapicChallengePanel, type ArmedChallenge } from './papic-challenge-panel';
 import { newClientCaptureId } from '@/lib/papic-client-capture-id';
 import { papicUploader, saveShot } from '@/lib/papic-upload/browser';
 import { markSavedOnPhone, markShutter, markShutterReady } from '@/lib/papic-upload/shutter-timing';
+import { developCanvas } from '@/lib/papic-upload/develop';
 import { papicCaptureCost } from '@/lib/papic-cameras-pure';
 import { PapicUploadChip } from '@/app/papic/_components/upload-chip';
 import {
@@ -568,8 +565,9 @@ export function PapicGuestCapture({
           faceSource = null; // best-effort — a face-tag miss never affects the photo
         }
       }
-      // Bake the LOCKED event look into the delivered photo (after the clean copy).
-      applyPapicStyle(canvas, meta.style);
+      // Bake the LOCKED event look into the delivered photo (after the clean
+      // copy) — in a worker, so the shutter stays pressable while it runs.
+      await developCanvas(canvas, meta.style);
       const blob = await new Promise<Blob | null>((resolve) =>
         canvas.toBlob(resolve, 'image/jpeg', photoJpegQuality('full')),
       );

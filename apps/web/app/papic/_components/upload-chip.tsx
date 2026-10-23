@@ -75,7 +75,7 @@ export function PapicUploadChip({ surface = 'bg-cream/10 text-cream' }: { surfac
       className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${surface}`}
     >
       <Icon aria-hidden className={`h-3.5 w-3.5 shrink-0${kind === 'sending' ? ' animate-spin' : ''}`} strokeWidth={2} />
-      <InfoTip label={label} onDark align="end">
+      <InfoTip label={label} onDark align="center">
         {detail(snap.chip)}
       </InfoTip>
     </span>

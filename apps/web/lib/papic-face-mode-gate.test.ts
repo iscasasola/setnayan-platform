@@ -37,7 +37,6 @@ const WEB = path.join(HERE, '..'); // apps/web
 // `embedSingleFace` and is gated on the server-resolved effective mode.)
 const CAPTURE_FILES = [
   'app/papic/seat/[token]/_components/papic-seat-capture.tsx',
-  'app/papic/guest/_components/papic-guest-capture.tsx',
   'app/dashboard/[eventId]/studio/patiktok/_components/booth-capture.tsx',
   'app/[slug]/_components/selfie-capture.tsx',
 ];
@@ -196,6 +195,29 @@ test('every embedder call site in app/ is classified (gated or explicitly exempt
       `${rel} calls a face embedder but is neither a gated CAPTURE_FILE nor a documented EMBED_EXEMPT_FILE. Gate it on faceMode === 'mode_a' and add it to CAPTURE_FILES, or (if it never binds an event and never persists a descriptor) document it in EMBED_EXEMPT_FILES.`,
     );
   }
+});
+
+// 📮 THE GUEST CAMERA DEFERS ITS FACE PASS (save first, send later, 2026-10-23).
+// It no longer calls an embedder on the shutter: under the Mode-A gate it keeps
+// a CLEAN copy of the frame (`faceSource`), and the page's uploader runs the
+// embedder in its queue step — only for a shot that carries that copy. So the
+// gate is held at both ends: the copy exists only under `faceMode === 'mode_a'`,
+// and the uploader embeds only a shot that has it.
+test('the guest camera keeps a clean frame for the face pass ONLY under the Mode-A gate', () => {
+  const rel = 'app/papic/guest/_components/papic-guest-capture.tsx';
+  const src = fs.readFileSync(path.join(WEB, rel), 'utf8');
+  assert.equal(allIndices(src, EMBED_CALL_RE).length, 0, `${rel}: an embedder is back on the shutter — classify it in CAPTURE_FILES`);
+  const assign = src.indexOf('faceSource = await resizeTo(');
+  assert.ok(assign > -1, `${rel}: the clean-frame copy moved — re-point this guard`);
+  const gate = allIndices(src, GATE_RE).filter((g) => g < assign).pop();
+  assert.ok(gate !== undefined && assign - gate <= GUARD_WINDOW, `${rel}: the clean frame is kept without a Mode-A gate`);
+  const replayer = fs.readFileSync(path.join(WEB, 'lib', 'papic-upload', 'replayer.ts'), 'utf8');
+  assert.match(replayer, /wantsFaceVectors: !!input\.faceSource,/, 'the uploader decides to embed from anything but the gated copy');
+  const run = replayer.indexOf('prepare.faceVectors(');
+  const guard = replayer.lastIndexOf('if (shot.wantsFaceVectors)', run);
+  assert.ok(run > -1 && guard > -1 && run - guard < 300, 'the uploader embeds a shot that carries no clean frame');
+  const prepare = fs.readFileSync(path.join(WEB, 'lib', 'papic-upload', 'prepare.ts'), 'utf8');
+  assert.ok(allIndices(prepare, EMBED_CALL_RE).length === 1, 'lib/papic-upload/prepare.ts: exactly one embedder call (faceVectorsFrom)');
 });
 
 // Keep the classification lists honest: every declared file must exist AND still

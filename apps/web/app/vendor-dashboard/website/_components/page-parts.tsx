@@ -44,9 +44,6 @@ const ColourPickerSheet = dynamic(
   { ssr: false },
 );
 
-/** The page couples see is white — the ground the shop's colour sits on, for the picker's "Against the background". */
-const PAGE_GROUND = '#FFFFFF';
-
 /**
  * YOUR PAGE — the page as couples see it on top, then one row per part in the order they scroll (simpler supplier
  * dashboard step 5 · prototype moment 7, `SCREENS.page`):
@@ -417,7 +414,6 @@ export function PageParts({
             title="Your colour"
             job="Buttons, links and marks on your page"
             current={accent.swatch.toUpperCase()}
-            readsOn={PAGE_GROUND}
             onPick={(hex) => {
               setPicking(false);
               change({ accent: accentFromPickedHex(hex) });

@@ -32,6 +32,7 @@ import { OpenFoldButton } from '@/app/vendor-dashboard/_components/open-fold-but
 import { AccountSwitcher } from '@/app/_components/account-switcher/account-switcher';
 import { supplierAvatarRows } from '@/app/vendor-dashboard/_components/supplier-avatar-rows';
 import { LabSeedDraft } from './lab-seed-draft';
+import { PORTFOLIO_FREE_BASE } from '@/lib/vendor-tier-caps';
 
 export const PAGE_LAB_STATES = ['details', 'page', 'collections', 'avatar'] as const;
 export type PageLabState = (typeof PAGE_LAB_STATES)[number];
@@ -392,7 +393,7 @@ export function PageLab({ state, who: rawWho, draft }: { state: PageLabState; wh
               vendorProfileId={`lab-${who}`}
               portfolioRefs={[]}
               portfolioDisplayMap={{}}
-              portfolioMax={30}
+              portfolioMax={PORTFOLIO_FREE_BASE}
               galleryVideoLinks={[]}
               igConfigured={false}
               igConnection={null}

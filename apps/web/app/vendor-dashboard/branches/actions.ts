@@ -104,7 +104,7 @@ async function requireBranchManager(): Promise<
   // add a branch (paying the branch's own fee, below); while on, this is where
   // a non-Enterprise shop is asked for the plan — the final action, try-first.
   if (vendorPaywallApplies(isTierAtLeast(tier, 'enterprise'))) {
-    return { error: err('Extra branches are part of Enterprise. Pick Enterprise on the Plans page to add one.') };
+    return { error: err('Extra branches are part of Ultra. Pick Ultra on the Plans page to add one.') };
   }
 
   return { supabase, userId: user.id, vendorProfileId: profile.vendor_profile_id };

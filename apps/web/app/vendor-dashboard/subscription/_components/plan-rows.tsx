@@ -139,7 +139,7 @@ export function PlanRows({
           data="plan-custom"
           lead={ic(Sparkles)}
           title="Custom plan"
-          line={tier === 'custom' ? 'Yours · branches, reach, seats' : 'Branches · reach · seats — beyond Enterprise'}
+          line={tier === 'custom' ? 'Yours · branches, reach, seats' : 'Branches · reach · seats — beyond Ultra'}
           href="/vendor-dashboard/subscription/custom"
         />
         <DatesRow

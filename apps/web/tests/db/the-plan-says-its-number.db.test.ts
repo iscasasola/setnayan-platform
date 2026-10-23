@@ -27,6 +27,10 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { createReplayedDb, setAuthUid, type ReplayResult } from './replay-migrations';
+import { WHITELIST_PER_DATE_ALL_PLANS } from '../../lib/vendor-tier-caps';
+
+/** The customers-per-date ceiling — 5 on every plan since 2026-10-23 (Solo's was 3). */
+const WL = WHITELIST_PER_DATE_ALL_PLANS;
 
 let replay: ReplayResult;
 let db: ReplayResult['db'];
@@ -251,20 +255,20 @@ test('MUTATION GUARD: with the caps OFF nothing is clamped at all', async () => 
 
 test('the count the screen would show is the count the trigger refuses on', async () => {
   await setCapsEnabled(true);
-  const { vendorProfileId } = await newVendor('count', 'solo'); // whitelist ceiling = 3
+  const { vendorProfileId } = await newVendor('count', 'solo'); // whitelist ceiling = WL (5 on every plan)
   const date = '2027-02-14';
 
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < WL; i++) {
     const eventId = await newEvent(`count-${i}`, date);
     const err = await accept(await openThread(vendorProfileId, eventId));
-    assert.equal(err, null, `accept ${i + 1} of 3 should have been allowed: ${err}`);
+    assert.equal(err, null, `accept ${i + 1} of ${WL} should have been allowed: ${err}`);
   }
 
   const used = await db.query<{ n: number }>(
     `SELECT public.vendor_whitelist_used_for_date($1, $2::date, NULL) AS n`,
     [vendorProfileId, date],
   );
-  assert.equal(Number(used.rows[0]!.n), 3, 'the shared count must see all three');
+  assert.equal(Number(used.rows[0]!.n), WL, 'the shared count must see all of them');
 
   const fourth = await openThread(vendorProfileId, await newEvent('count-4th', date));
   const err = await accept(fourth);
@@ -273,7 +277,7 @@ test('the count the screen would show is the count the trigger refuses on', asyn
     /WHITELIST_DATE_LIMIT/,
     'the fourth must be refused by the trigger at exactly the number the count reports',
   );
-  assert.match(String(err), /currently 3/, 'and the refusal must quote that same number');
+  assert.match(String(err), new RegExp(`currently ${WL}`), 'and the refusal must quote that same number');
 });
 
 test('a signed booking stops counting — the way out the screen offers is real', async () => {
@@ -282,14 +286,15 @@ test('a signed booking stops counting — the way out the screen offers is real'
   const date = '2027-03-01';
   const bookedEvent = await newEvent('signed-booked', date);
   await accept(await openThread(vendorProfileId, bookedEvent));
-  await accept(await openThread(vendorProfileId, await newEvent('signed-b', date)));
-  await accept(await openThread(vendorProfileId, await newEvent('signed-c', date)));
+  for (let i = 0; i < WL - 1; i++) {
+    await accept(await openThread(vendorProfileId, await newEvent(`signed-${i}`, date)));
+  }
 
   const before = await db.query<{ n: number }>(
     `SELECT public.vendor_whitelist_used_for_date($1, $2::date, NULL) AS n`,
     [vendorProfileId, date],
   );
-  assert.equal(Number(before.rows[0]!.n), 3);
+  assert.equal(Number(before.rows[0]!.n), WL);
 
   await db.query(
     `INSERT INTO public.event_vendors
@@ -304,7 +309,7 @@ test('a signed booking stops counting — the way out the screen offers is real'
   );
   assert.equal(
     Number(after_.rows[0]!.n),
-    2,
+    WL - 1,
     'locking one in must free a slot — otherwise the sentence on screen is a lie',
   );
   const fourth = await accept(await openThread(vendorProfileId, await newEvent('signed-d', date)));
@@ -313,8 +318,8 @@ test('a signed booking stops counting — the way out the screen offers is real'
 
 test('a date the couple has not picked yet is never counted or capped', async () => {
   await setCapsEnabled(true);
-  const { vendorProfileId } = await newVendor('nodate', 'free'); // ceiling = 1
-  for (let i = 0; i < 4; i++) {
+  const { vendorProfileId } = await newVendor('nodate', 'free'); // ceiling = WL
+  for (let i = 0; i < WL + 3; i++) {
     const err = await accept(
       await openThread(vendorProfileId, await newEvent(`nodate-${i}`, null)),
     );
@@ -343,7 +348,7 @@ test('vendor_whitelist_pressure answers for the caller’s own thread', async ()
     );
     assert.equal(r.rows.length, 1, 'their own thread must answer');
     assert.equal(Number(r.rows[0]!.used), 1, 'one other customer is being chased for that date');
-    assert.equal(Number(r.rows[0]!.cap), 3, 'solo chases 3');
+    assert.equal(Number(r.rows[0]!.cap), WL, `solo chases ${WL} — the same as every plan`);
     assert.equal(r.rows[0]!.enforced, true, 'the switch is on in this test');
   } finally {
     await db.exec(`RESET ROLE`).catch(() => {});

@@ -1,10 +1,12 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import type { SpotlightStep, SpotlightFinale, TourKey } from '@/lib/tours';
 import { formatCount } from '@/lib/format-number';
 import { missingGroups, nextKept, spotlightCount } from '@/lib/spotlight-drops';
 import { Wordmark } from './brand-marks';
+import { freeBandFrom, ringFor, tipFor, type Bar, type Box, type Rect } from '@/lib/spotlight-geometry';
 
 /**
  * 🔦 THE SPOTLIGHT TOUR — the approved look, copied from the corpus sample
@@ -58,8 +60,6 @@ function linkTarget(el: Element): string | null {
   }
 }
 
-type Box = { x: number; y: number; w: number; h: number; r: string };
-
 function readProgress(key: string): number {
   try {
     const v = window.localStorage.getItem(PROGRESS + key);
@@ -97,24 +97,56 @@ function safeInsets(): { top: number; bottom: number } {
 
 /**
  * The band of the screen no fixed or sticky bar covers — so a ring is never drawn under the top
- * bar, the bottom bar or the home indicator. A bar that CONTAINS the target (a bottom tab) is
- * not an obstacle for that target.
+ * bar, the bottom bar or the home indicator. The rule is `freeBandFrom` (`lib/spotlight-geometry.ts`);
+ * this reads, for each bar, whether it holds the target, whether it is PAINTED (the Maker is a
+ * full-screen sheet over the app's own sticky top bar — a bar nobody can see is no obstacle; the
+ * 2026-10-23 thin ring under Apply), and whether the target is drawn over it.
  */
 function freeBand(target: Element, insets: { top: number; bottom: number }): { top: number; bottom: number } {
-  const H = window.innerHeight;
-  let top = insets.top;
-  let bottom = H - insets.bottom;
-  const bars = document.querySelectorAll('header, nav, [data-bottom-dock], .shell-topbar');
-  bars.forEach((b) => {
-    if (isOurs(b) || b.contains(target)) return;
+  const vw = document.documentElement.clientWidth || window.innerWidth;
+  const vh = window.innerHeight;
+  const t = target.getBoundingClientRect();
+  const targetOnTop = target instanceof HTMLElement && onTop(target);
+  const bars: Bar[] = [];
+  document.querySelectorAll('header, nav, [data-bottom-dock], .shell-topbar').forEach((b) => {
+    if (isOurs(b)) return;
     const pos = getComputedStyle(b).position;
     if (pos !== 'fixed' && pos !== 'sticky') return;
     const r = b.getBoundingClientRect();
-    if (r.height < 1 || r.height > H / 2 || r.width < window.innerWidth / 2) return;
-    if (r.top <= H / 3 && r.bottom > top) top = Math.min(r.bottom, H / 3);
-    else if (r.bottom >= (H * 2) / 3 && r.top < bottom) bottom = Math.max(r.top, (H * 2) / 3);
+    const overlaps = r.left < t.right && t.left < r.right && r.top < t.bottom && t.top < r.bottom;
+    bars.push({
+      rect: { left: r.left, top: r.top, width: r.width, height: r.height },
+      holds: b.contains(target),
+      painted: painted(b, r, vw, vh),
+      under: overlaps && targetOnTop,
+    });
   });
-  return { top, bottom };
+  return freeBandFrom(bars, vw, vh, insets);
+}
+
+/** Is any of the bar the top-most thing where it sits? A bar that takes no taps cannot be asked — it counts. */
+function painted(b: Element, r: DOMRect, vw: number, vh: number): boolean {
+  if (getComputedStyle(b).pointerEvents === 'none') return true;
+  const y = Math.min(Math.max(r.top + r.height / 2, 0), vh - 1);
+  const x0 = Math.max(r.left, 0);
+  const x1 = Math.min(r.right, vw);
+  if (x1 <= x0 || y < r.top || y > r.bottom) return false;
+  return [0.25, 0.5, 0.75].some((f) => {
+    const hit = document.elementsFromPoint(x0 + (x1 - x0) * f, y).find((n) => !isOurs(n));
+    return !!hit && (hit === b || b.contains(hit));
+  });
+}
+
+/** The element is the thing on top at its own centre (or holds it). */
+function onTop(el: HTMLElement): boolean {
+  const r = el.getBoundingClientRect();
+  const hit = document.elementsFromPoint(r.left + r.width / 2, r.top + Math.min(r.height / 2, 22)).find((n) => !isOurs(n));
+  return !!hit && (el === hit || el.contains(hit) || hit.contains(el));
+}
+
+function rectOf(el: Element): Rect {
+  const r = el.getBoundingClientRect();
+  return { left: r.left, top: r.top, width: r.width, height: r.height };
 }
 
 function candidates(anchor: string): HTMLElement[] {
@@ -173,7 +205,7 @@ const CSS_TEXT = `
 .sn-spot-ring::after{content:"";position:absolute;inset:-10px;border-radius:inherit;border:2px solid rgba(255,255,255,.6);animation:sn-spot-pulse 1.6s ease-out infinite}
 @keyframes sn-spot-pulse{0%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(1.2)}}
 .sn-spot-block{position:fixed;z-index:2147483000;touch-action:none}
-.sn-spot-tip{position:fixed;z-index:2147483003;left:16px;right:16px;margin:0 auto;max-width:420px;background:var(--m-paper,#fff);color:var(--m-ink,#1e2229);border-radius:var(--m-r-lg,22px);padding:14px 16px;box-shadow:0 14px 36px rgba(0,0,0,.28);transition:top .5s cubic-bezier(.2,.8,.2,1),opacity .2s}
+.sn-spot-tip{position:fixed;z-index:2147483003;left:16px;width:min(420px,calc(100% - 32px));background:var(--m-paper,#fff);color:var(--m-ink,#1e2229);border-radius:var(--m-r-lg,22px);padding:14px 16px;box-shadow:0 14px 36px rgba(0,0,0,.28);transition:top .5s cubic-bezier(.2,.8,.2,1),left .5s cubic-bezier(.2,.8,.2,1),opacity .2s}
 .sn-spot-tip.pop{animation:sn-spot-pop .45s cubic-bezier(.2,1.4,.4,1)}
 @keyframes sn-spot-pop{from{opacity:0;transform:translateY(10px) scale(.94)}}
 .sn-spot-brand{margin-bottom:8px}
@@ -190,7 +222,7 @@ const CSS_TEXT = `
 .sn-spot-finger.tap{animation:sn-spot-tap .9s ease-in-out infinite}
 @keyframes sn-spot-tap{50%{transform:scale(.8)}}
 .sn-spot-done{position:fixed;inset:0;z-index:2147483004;display:flex;align-items:center;justify-content:center;background:rgba(15,17,21,.6);padding:16px}
-.sn-spot-done .sn-spot-tip{position:static;text-align:center;width:100%}
+.sn-spot-done .sn-spot-tip{position:static;text-align:center;width:100%;max-width:420px}
 .sn-spot-confetti{position:fixed;inset:0;z-index:2147483005;pointer-events:none;overflow:hidden}
 .sn-spot-confetti i{position:absolute;top:-12px;width:8px;height:12px;border-radius:var(--m-r-xs,4px);animation:sn-spot-fall 1.8s ease-in forwards}
 @keyframes sn-spot-fall{to{transform:translateY(110vh) rotate(540deg);opacity:.2}}
@@ -226,7 +258,7 @@ export function SpotlightTour({
 }) {
   const [i, setI] = useState<number>(() => (restart ? 0 : Math.min(readProgress(tourKey), steps.length - 1)));
   const [box, setBox] = useState<Box | null>(null);
-  const [tipTop, setTipTop] = useState<number>(0);
+  const [tipAt, setTipAt] = useState<{ left: number; top: number; width: number }>({ left: 16, top: 0, width: 0 });
   const [finger, setFinger] = useState<{ x: number; y: number; on: boolean; tap: boolean }>({ x: 0, y: 0, on: false, tap: false });
   const [done, setDone] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -361,8 +393,14 @@ export function SpotlightTour({
       scrolledFor.current = iRef.current;
     }
     if (el && !uncovered(el)) el = null;
+    /* One padding on every side, the outline on screen and out of the bars (`ringFor`, lib/spotlight-geometry.ts).
+       Nothing left to light (a line under a bar) is a MISSING step — it waits or is skipped, never an empty ring. */
+    const vw = document.documentElement.clientWidth || window.innerWidth;
+    const band = el ? freeBand(el, insets.current) : null;
+    const ring = el && band ? ringFor(rectOf(el), vw, band) : null;
+    if (!ring) el = null;
 
-    if (!el) {
+    if (!el || !ring || !band) {
       targetRef.current = null;
       setLitFor(-1);
       const now = Date.now();
@@ -388,33 +426,11 @@ export function SpotlightTour({
     missingSince.current = null;
     targetRef.current = el;
     setLitFor(iRef.current);
+    setBox((b) => (b && b.x === ring.x && b.y === ring.y && b.w === ring.w && b.h === ring.h ? b : ring));
 
-    const band = freeBand(el, insets.current);
-    const r = el.getBoundingClientRect();
-    const pad = 8;
-    let y = r.top - pad;
-    let h = r.height + pad * 2;
-    // Keep the ring (and its 7 px outline) inside the free band — never under a bar or the home indicator.
-    const minTop = band.top + 8;
-    const maxBottom = band.bottom - 8;
-    if (y < minTop) {
-      h -= minTop - y;
-      y = minTop;
-    }
-    if (y + h > maxBottom) h = Math.max(24, maxBottom - y);
-    const x = Math.max(8, r.left - pad);
-    const w = Math.min(window.innerWidth - 8 - x, r.width + pad * 2);
-    const next: Box = { x, y, w, h, r: h > 70 ? 'var(--m-r-lg,22px)' : 'var(--m-r-full,999px)' };
-    setBox((b) => (b && b.x === x && b.y === y && b.w === w && b.h === h ? b : next));
-
-    const tipH = tipRef.current?.offsetHeight ?? 190;
-    const below = y + h + 20;
-    const above = y - 20 - tipH;
-    const top =
-      below + tipH <= band.bottom - 12 || above < band.top + 12
-        ? Math.min(below, window.innerHeight - insets.current.bottom - tipH - 12)
-        : above;
-    setTipTop(Math.max(insets.current.top + 12, top));
+    // The card beside its ring — under, over or next to it, never parked at the top of a wide screen.
+    const tip = tipFor(ring, { h: tipRef.current?.offsetHeight ?? 190 }, vw, window.innerHeight, band, insets.current);
+    setTipAt((p) => (p.left === tip.left && p.top === tip.top && p.width === tip.width ? p : tip));
   }, [busy, done, finish, inMaker, steps, tourKey]);
 
   useEffect(() => {
@@ -515,7 +531,7 @@ export function SpotlightTour({
     : step?.title;
 
   if (done) {
-    return (
+    return toBody(
       <div data-sn-spot="">
         {style}
         <div className="sn-spot-done" role="dialog" aria-labelledby="sn-spot-done-title">
@@ -529,7 +545,7 @@ export function SpotlightTour({
           </div>
         </div>
         <Confetti />
-      </div>
+      </div>,
     );
   }
 
@@ -542,7 +558,7 @@ export function SpotlightTour({
     { left: box.x + box.w, top: box.y, right: 0, height: box.h },
   ];
 
-  return (
+  return toBody(
     <div data-sn-spot="">
       {style}
       {blocks.map((b, n) => (
@@ -567,7 +583,7 @@ export function SpotlightTour({
         role="dialog"
         aria-live="polite"
         aria-labelledby="sn-spot-title"
-        style={{ top: tipTop, opacity: busy || litFor !== i ? 0 : 1 }}
+        style={{ top: tipAt.top, left: tipAt.left, width: tipAt.width || undefined, opacity: busy || litFor !== i ? 0 : 1 }}
       >
         {step.welcome ? (
           /* The mark, larger — this once (prototype P4). */
@@ -593,8 +609,18 @@ export function SpotlightTour({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
   );
+}
+
+/**
+ * 🧭 The layers are drawn on <body>, never where the mount sits: `position: fixed` is measured from the nearest
+ * ancestor with a transform, a filter, `contain` or `will-change` — a page slide, a frosted panel, the Maker's own
+ * frame — and the ring lands off its button by however far that ancestor sits from the screen's corner. On <body> the
+ * screen is the one box the ring, the blockers, the card and `getBoundingClientRect()` all agree on.
+ */
+function toBody(node: ReactNode): ReactNode {
+  return typeof document === 'undefined' ? null : createPortal(node, document.body);
 }
 
 /** A bottom tab or a top-bar button: it does not scroll into view, it is already there. An element in a box that

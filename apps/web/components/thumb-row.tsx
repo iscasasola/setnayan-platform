@@ -125,6 +125,12 @@ function Round({ r }: { r: ThumbRound }) {
   );
 }
 
+/** ⌨ The ONE decision (pure, so the guard can hold it): the field is typed into, the keyboard is up, the row is not
+ *  a mode row (Select's buttons), and the call did not opt out. */
+export function thumbRowRides(s: { rides: boolean; typing: string | null; open: boolean; mode: boolean }): boolean {
+  return s.rides && s.typing !== null && s.open && !s.mode;
+}
+
 /** The fixed layer a row stands in (its host: Find's row, Guests' `.lower`) — the box the band's plate reaches behind. */
 function layerOf(el: HTMLElement | null): HTMLElement | null {
   for (let n = el; n; n = n.parentElement) if (getComputedStyle(n).position === 'fixed') return n;
@@ -171,7 +177,7 @@ export function ThumbRow({
   const ownInput = useRef<HTMLInputElement | null>(null);
   const [typing, setTyping] = useState<string | null>(null);
   const kb = useKeyboardRide();
-  const riding = rides && typing !== null && kb.open && !children;
+  const riding = thumbRowRides({ rides, typing, open: kb.open, mode: Boolean(children) });
   const onFieldFocus = useCallback(
     (e: FocusEvent<HTMLElement>) => {
       const t = e.target as HTMLInputElement | HTMLTextAreaElement;

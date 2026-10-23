@@ -44,15 +44,39 @@ server `r2Upload`). The SEAT camera already PUTs direct to R2 via `/api/upload` 
 - Keep full-res = `events.papic_quality_tier = 'full_res'` OR the HIGH_RES_ARCHIVE SKU active
   (`lib/papic-upload-keep.server.ts`). (The SKU has zero catalogue rows as of 2026-09-22.)
 
-## State
-- [ ] pure tiers + schedule modules + tests
-- [ ] migration (upload intents + vendor client_capture_id)
-- [ ] server sign/verify/attach/sweep
-- [ ] guest route → JSON ops
-- [ ] vendor route → JSON ops
-- [ ] client engine + chip, wired into guest camera + vendor controller
-- [ ] full-res drop: never drop when r2_object_key is the display copy (Guard A)
-- [ ] host Memories readers → 'clean' allowlist
-- [ ] guards (no bytes through capture routes · presign shape · safety a) + sabotage
-- [ ] lab walk (WebKit + Chromium), shutter timing, screenshots
-- [ ] seat lane (direct-to-R2 already; convert if budget allows)
+## State (2026-10-23, keep current)
+- [x] pure tiers + schedule + replayer (+ scenario tests: 10 photos + 2 clips offline → reconnect → 12 rows, a lost answer replayed as duplicate)
+- [x] migration 20271285508020 (papic_upload_intents + vendor client_capture_id) — NOT applied anywhere but the PGlite replay
+- [x] server: lib/papic-upload-intents.server.ts (sign → staging key; load + check size/type/magic; screen; promote to the final key; settle) + sweep lib/papic-upload-sweep.ts (admin layout, daily)
+- [x] guest + vendor routes → JSON ops sign · record · attach; multipart refused 415 bytes_not_accepted
+- [x] client: lib/papic-upload/{store,prepare,transport,lanes,replayer,browser,ownership}.ts; chip app/papic/_components/upload-chip.tsx; guest camera + supplier camera + Kwento decorator wired; legacy guest/vendor drains removed (adopted on page open); sync daemon skips them
+- [x] Guard A in the full-res drop; host readers → 'clean' allowlist; Drive only after the screen
+- [x] guards + sabotage (S1–S10 all red → green, see below)
+- [x] DECISION_LOG row + 0012 offline note status (corpus e4f6f9b9, pushed)
+- [ ] full tsc / lint / unit / db (heavy lock) — then walk (WebKit + Chromium) — then PR
+- [ ] seat lane — NOT in this PR (see "Left")
+
+## Sabotage runs (break → red → restore → green), 2026-10-23
+S1 multipart back in the guest route → no-bytes guard red · S2 attach writes before screening → safety guard red ·
+S3 host Memories `!== 'nsfw_blocked'` → red · S4 a network failure drops the shot → replayer red (2) ·
+S5 phase order swapped → replayer order red · S6 Guard A equality removed → drop-core red ·
+S7 PUT TTL an hour → guard red · S8 a fresh id per retry → capture-id test red ·
+S9 daemon sends save-first items → daemon test red · S10 sweep raw-deletes → sweep test red. All restored green.
+
+## Decisions made here (owner may reverse)
+- Keep full-res = `papic_quality_tier` in (full_res, optimal) OR HIGH_RES_ARCHIVE active (`eventKeepsFullRes`). The relay said
+  "original only when Keep full-res is on"; no single switch exists, and 'optimal' promises A3 prints — dropping its original
+  would make the picker's words false. One line to narrow.
+- Credit reservation NOT built (money). Sign pre-checks, record charges (existing RPC). Credit refusals keep the shot queued.
+- A row never points at a key a presigned URL can reach: the phone PUTs to `…/incoming/`, the server re-writes checked bytes
+  to the final key (stills: the screened bytes themselves; videos: ETag-pinned copy).
+- Record is screened synchronously (off the shutter path now); attach waits for the record's screen; Drive only gets 'clean'.
+- Host Memories / library / zip / save-photo / magazine / teaser allowlist 'clean' (relay (a)). A classifier outage now
+  HIDES from the couple until the re-screen sweep heals — and the phone keeps sending ("Sending …") until it does.
+
+## Left (for the report)
+- Seat camera onto the uploader: needs papic_photos.client_capture_id + idempotent recordSeatCapture + a seat sign op
+  reusing /api/upload's seat gates. Seat bytes already go direct to R2 (no 413).
+- /api/vendor/papic-portfolio-import still takes its file through the function (12 MB cap > 4.5 MB): same fault, not a camera.
+- C (native iPhone background upload): register a transport via setPapicTransport (lib/papic-upload/transport.ts); the OS
+  must also persist the queue across app kills (today the queue is IndexedDB in the WebView).

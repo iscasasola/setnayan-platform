@@ -5,7 +5,7 @@
 // uploader a real 8-second 1440p clip (≥ 6 MB — the size the old route could
 // never take), fetched from the walk's own fixture route.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { PapicGuestCapture } from '@/app/papic/guest/_components/papic-guest-capture';
 import { PapicCaptureController } from '@/app/vendor-dashboard/on-the-day/live/[eventId]/_components/papic-capture-controller';
 import { papicUploader, saveShot } from '@/lib/papic-upload/browser';
@@ -40,10 +40,21 @@ async function posterOf(clip: Blob): Promise<Blob | null> {
 export function LabCamera({ lane }: { lane: 'guest' | 'vendor' }) {
   const [snap, setSnap] = useState<UploaderSnapshot | null>(null);
   useEffect(() => papicUploader().subscribe(setSnap), []);
+  // The fixture clip is fetched while the page is online, so the walk can add it
+  // with the link cut — exactly like a clip recorded at a venue with no signal.
+  const clipRef = useRef<Blob | null>(null);
+  useEffect(() => {
+    void fetch('/__lab/clip.mp4')
+      .then((r) => (r.ok ? r.blob() : null))
+      .then((b) => {
+        clipRef.current = b;
+      })
+      .catch(() => {});
+  }, []);
 
   const addClip = async () => {
-    const res = await fetch('/__lab/clip.mp4');
-    const clip = await res.blob();
+    const clip = clipRef.current;
+    if (!clip) return;
     const poster = await posterOf(clip);
     await saveShot({
       id: newClientCaptureId(),

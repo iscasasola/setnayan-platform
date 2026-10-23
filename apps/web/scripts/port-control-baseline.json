@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "b6a3242822",
+  "generatedFromRef": "e2248edbdc",
   "routeCount": 464,
   "destinations": 1006,
   "actions": 662,
-  "blocks": 6894,
+  "blocks": 6896,
   "routes": {
     "/": {
       "files": [
@@ -3618,6 +3618,8 @@
       "files": [
         "admin/papic-storage/actions.ts",
         "admin/papic-storage/backfill-tiles-button.tsx",
+        "admin/papic-storage/old-photos-actions.ts",
+        "admin/papic-storage/old-photos-button.tsx",
         "admin/papic-storage/page.tsx"
       ],
       "destinations": [],
@@ -3626,7 +3628,9 @@
         "BackfillResult",
         "BackfillTilesButton",
         "ConsoleTable",
+        "CopyRun",
         "KpiStatCard",
+        "OldPhotosButton",
         "PageMasthead"
       ]
     },

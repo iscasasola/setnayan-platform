@@ -44,7 +44,7 @@ const DETAILS_HREF = /\/details(?:[`'"?#]|$)/;
 
 test('1 · the rail draws no door to Event Details, and no row it could light for it', () => {
   const rail = code(RAIL);
-  const linkTargets = [...rail.matchAll(/href=\{([^}]*)\}/g)].map((m) => m[1]);
+  const linkTargets = [...rail.matchAll(/href=\{([^}]*)\}/g)].map((m) => m[1] ?? '');
   assert.ok(linkTargets.length > 0, 'no href in the rail at all — this check would pass vacuously');
   const toDetails = linkTargets.filter((h) => DETAILS_HREF.test(h) || /detailsRow|personalization/.test(h));
   assert.deepEqual(toDetails, [], `the rail links to Event Details again: ${toDetails.join(' · ')}`);
@@ -73,9 +73,9 @@ test('2 · the Home cover renders exactly one door to Event Details, named so', 
   );
   const anchors = [...html.matchAll(/<a\b[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/g)];
   assert.ok(anchors.length > 0, 'the cover band rendered no link at all');
-  const doors = anchors.filter((a) => a[1] === '/dashboard/EVT123/details');
+  const doors = anchors.filter((a) => a[1] === '/dashboard/EVT123/details').map((a) => a[2] ?? '');
   assert.equal(doors.length, 1, `the cover band renders ${doors.length} doors to Event Details (want exactly 1)`);
-  assert.match(doors[0][2].replace(/<[^>]+>/g, ''), /Event Details/, 'the one door no longer says "Event Details"');
+  assert.match((doors[0] ?? '').replace(/<[^>]+>/g, ''), /Event Details/, 'the one door no longer says "Event Details"');
 });
 
 test('3 · nothing on the Home or the rail says "Event settings" any more', () => {

@@ -57,7 +57,7 @@ const TAB_LABELS: Record<SiteMenuTabKey, string> = {
   home: 'Home', // 🏠 owner 2026-10-14 (DECISION_LOG "Home") — the TAB's word; titles that say Welcome stay
   details: 'Details',
   story: 'Story', // ❤️ owner 2026-10-14 — the TAB's word; the section title stays "Our Love Story"
-  gallery: 'Gallery', // owner-renamed — never "Photos"
+  gallery: 'Memories', // owner-renamed 2026-10-23 — never "Photos", never "Gallery"
   me: 'Me',
 };
 

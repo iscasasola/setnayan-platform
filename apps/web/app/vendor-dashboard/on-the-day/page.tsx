@@ -610,7 +610,7 @@ export default async function VendorOnTheDayPage({
               </div>
               <p className="mt-3 text-xs" style={{ color: 'var(--m-slate-3)' }}>
                 {todaysBooking
-                  ? 'They see these updates live. Post your gallery link + mark complete from the brief.'
+                  ? 'They see these updates live. Post your album link + mark complete from the brief.'
                   : 'This tracks live once you have an event today.'}
               </p>
             </div>

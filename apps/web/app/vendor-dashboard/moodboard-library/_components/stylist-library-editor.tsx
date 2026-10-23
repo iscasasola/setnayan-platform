@@ -282,7 +282,7 @@ export function StylistLibraryEditor({
           rightsWarranted: true,
         });
         setNotice(
-          'Added to your gallery. Photos from an event you were booked on never count against your back-catalogue allowance.',
+          'Added to Inspiration. Photos from an event you were booked on never count against your back-catalogue allowance.',
         );
       } catch (err) {
         setActionError((err as Error).message);
@@ -634,7 +634,7 @@ export function StylistLibraryEditor({
                     onClick={() => handleImport(photo.mediaId)}
                     className="flex-shrink-0 rounded-md border border-mulberry px-3 py-1.5 text-xs font-medium text-mulberry disabled:opacity-50"
                   >
-                    {photo.alreadyImported ? 'Added' : 'Add to gallery'}
+                    {photo.alreadyImported ? 'Added' : 'Add to Inspiration'}
                   </button>
                 </li>
               ))}
@@ -789,7 +789,7 @@ export function StylistLibraryEditor({
 /** "Goes to" — the couples' gallery first (when this shop has parts to fill), then the three older shelves. */
 function assetTypeOptions(hasGallery: boolean): PickOption[] {
   return [
-    ...(hasGallery ? [{ key: SUPPLIER_GALLERY_ASSET_TYPE, label: 'Couples’ inspiration gallery' }] : []),
+    ...(hasGallery ? [{ key: SUPPLIER_GALLERY_ASSET_TYPE, label: 'Couples’ Inspiration' }] : []),
     { key: 'venue_scene', label: 'Venue scene' },
     { key: 'figure_attire', label: 'Figure attire' },
     { key: 'florals', label: 'Florals' },

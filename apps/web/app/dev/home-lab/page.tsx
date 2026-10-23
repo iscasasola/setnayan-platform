@@ -277,7 +277,7 @@ export default async function HomeLab({
     return (
       <div className="min-h-screen bg-cream px-4 pb-28 pt-3">
         <div className="mx-auto flex max-w-xl flex-col gap-6">
-          <p className="sn-eye text-ink/70">Gallery · before the day</p>
+          <p className="sn-eye text-ink/70">Memories · before the day</p>
           {early ? (
             <YourShotsGallery
               shots={{ shots: Array.from({ length: n }, (_, i) => ({ id: `lab-${i}`, url: '/portraits/' + LAB_PHOTOS[i % LAB_PHOTOS.length]!, capturedAt: null })), total: n }}
@@ -287,7 +287,7 @@ export default async function HomeLab({
               cameraHref="/papic/guest?from=lab"
             />
           ) : (
-            <p className="text-sm text-ink/60">(Early shooting off — the bar keeps its four; there is no Gallery before the day.)</p>
+            <p className="text-sm text-ink/60">(Early shooting off — the bar keeps its four; there are no Memories before the day.)</p>
           )}
         </div>
         <SiteMenuBar slots={bar} />

@@ -95,7 +95,7 @@ export const PUBLIC_PRICE_LITERALS: readonly PriceLiteral[] = [
     file: 'app/_components/app-store/studio-card-demo.tsx',
     literal: '₱85,000',
     sku: null,
-    reason: 'Illustrative vendor quote inside a mock gallery tile — not a Setnayan SKU.',
+    reason: 'Illustrative vendor quote inside a mock photo tile — not a Setnayan SKU.',
   },
 
   // ── vendor marketing · real SKU prices in tier copy ────────────────────────

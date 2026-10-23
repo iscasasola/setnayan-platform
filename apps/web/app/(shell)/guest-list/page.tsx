@@ -121,7 +121,7 @@ const APP_LD = {
 const FAQ = [
   {
     q: 'What is the Guest List?',
-    a: 'It is your guest book, one row per guest. Each row carries their reply, their plus-ones, their meal preference, their role in the wedding and their table — all in the same place your invitations and your gallery read from, so there is no Google Sheet, Notes app and group chat to keep in step.',
+    a: 'It is your guest book, one row per guest. Each row carries their reply, their plus-ones, their meal preference, their role in the wedding and their table — all in the same place your invitations and your Memories read from, so there is no Google Sheet, Notes app and group chat to keep in step.',
   },
   {
     q: 'Is it really free?',
@@ -248,7 +248,7 @@ export default function GuestListLandingPage() {
       steps={STEPS}
       differentiator={{
         heading: 'One list your whole wedding reads from',
-        lede: 'Your invitations, your seat plan and your gallery all read the same guest book — so when a guest answers, everything that depends on that answer already knows.',
+        lede: 'Your invitations, your seat plan and your Memories all read the same guest book — so when a guest answers, everything that depends on that answer already knows.',
         rows: VS,
       }}
       faq={FAQ}

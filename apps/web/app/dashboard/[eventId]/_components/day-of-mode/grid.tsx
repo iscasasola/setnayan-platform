@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import type { ReactNode } from 'react';
 import { ArrowRight } from 'lucide-react';
 import type { EventTableRow } from '@/lib/seating';
 import { DayOfModeBanner } from './banner';
@@ -35,6 +36,12 @@ type Props = {
    *  'coordinator_day_of_broadcast' is active (it is, in prod). Absent = the card
    *  renders its pre-P3 stub. The env var once named here gates nothing. */
   broadcast?: BroadcastCardData;
+  /**
+   * 📷 Papic on the day (owner 22 Oct 2026, "Fix both") — Home › Your services' own Papic row
+   * (`DayPapicRow`), drawn by the page because it is a server row. Beside the Live photo wall card,
+   * near the top. Null in the iPhone app, exactly as Your services draws no Papic row there.
+   */
+  papic?: ReactNode;
 };
 
 export function DayOfModeGrid({
@@ -45,6 +52,7 @@ export function DayOfModeGrid({
   sameDayVendors = [],
   liveWallActive = false,
   broadcast,
+  papic = null,
 }: Props) {
   return (
     <section
@@ -87,6 +95,7 @@ export function DayOfModeGrid({
           headTable={headTable}
           nearbyTables={nearbyTables}
         />
+        {papic ? <div data-day-papic-slot="">{papic}</div> : null}
         {liveWallActive ? <LivePhotoWallCard eventId={eventId} /> : null}
         <LiveScheduleCard eventId={eventId} blocks={blocks} />
         <CoordinatorBroadcastCard eventId={eventId} broadcast={broadcast} />

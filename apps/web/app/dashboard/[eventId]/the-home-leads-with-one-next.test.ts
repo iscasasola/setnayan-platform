@@ -257,7 +257,9 @@ test('d · never twice: the service that is Next is left out of the row', () => 
 test('d · the store shell draws no services row (both are STORE_SHELL_HIDDEN_ADDON_KEYS)', () => {
   assert.deepEqual(homeServices({ next: 'plan', storeShell: true, papic: 'x', ai: 'y' }), []);
   assert.equal(count(draw({ services: [] }), 'data-home-services'), 0);
-  assert.match(PAGE, /homeServices\(\{[\s\S]*?storeShell,/, 'the page must hand the store-shell answer to the row');
+  // The input is one object since 22 Oct 2026 (the day and after-the-day Homes reuse it with `next: 'plan'`).
+  assert.match(PAGE, /const homeServicesInput: Parameters<typeof homeServices>\[0\] = \{[\s\S]*?storeShell,/, 'the page must hand the store-shell answer to the row');
+  assert.match(PAGE, /homeServices\(homeServicesInput\)/);
   assert.match(PAGE, /papicReady: Boolean\([^)]*!storeShell\)/, 'the Papic Next card must not send a store-shell user to a web-only page');
 });
 

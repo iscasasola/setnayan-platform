@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "4ebadc04",
+  "generatedFromRef": "9a9daf7a7c",
   "routeCount": 462,
   "destinations": 1002,
   "actions": 662,
-  "blocks": 6865,
+  "blocks": 6869,
   "routes": {
     "/": {
       "files": [
@@ -5557,7 +5557,6 @@
         "dashboard/[eventId]/_components/home-loading-cover.tsx",
         "dashboard/[eventId]/_components/home-parts.tsx",
         "dashboard/[eventId]/_components/inline-checkout-drawer.tsx",
-        "dashboard/[eventId]/_components/more-services-sheet.tsx",
         "dashboard/[eventId]/_components/new-manual-vendor-modal.tsx",
         "dashboard/[eventId]/_components/nikah-essentials-card.tsx",
         "dashboard/[eventId]/_components/nikah-imam.ts",
@@ -5698,6 +5697,7 @@
         "DateRow",
         "DayOfModeBanner",
         "DayOfModeGrid",
+        "DayPapicRow",
         "DeleteResult",
         "DirectPayBody",
         "DirectPayTrigger",
@@ -5786,9 +5786,6 @@
         "ModalMode",
         "ModalShell",
         "Money",
-        "MoreServicesSheet",
-        "MoreSheet",
-        "MoreSheetRow",
         "NextCard",
         "OneLink",
         "OneLinkRow",
@@ -5879,6 +5876,7 @@
         "Watermark",
         "WhatsHappeningCard",
         "WizardTaskId",
+        "YourServices",
         "YourTableCard"
       ]
     },
@@ -6961,6 +6959,7 @@
         "dashboard/[eventId]/launch/_components/maker-details.tsx",
         "dashboard/[eventId]/launch/_components/maker-exit-sheet.tsx",
         "dashboard/[eventId]/launch/_components/maker-hero-design.tsx",
+        "dashboard/[eventId]/launch/_components/maker-late.tsx",
         "dashboard/[eventId]/launch/_components/maker-logo.tsx",
         "dashboard/[eventId]/launch/_components/maker-lower-third.tsx",
         "dashboard/[eventId]/launch/_components/maker-made-once.tsx",
@@ -7291,6 +7290,8 @@
         "MakerGuestPagesReport",
         "MakerHalfSheet",
         "MakerHeroDesignPicker",
+        "MakerLate",
+        "MakerLateBridge",
         "MakerLogoDoor",
         "MakerLookPages",
         "MakerLowerThird",
@@ -10914,6 +10915,8 @@
         "ApplyProSheetLab",
         "CollectionCard",
         "CollectionGrid",
+        "DayOfModeGrid",
+        "DayPapicRow",
         "EventPoster",
         "EventPosterFacts",
         "HomeFirstScreen",
@@ -10927,6 +10930,7 @@
         "SiteMenuBar",
         "SpotlightMount",
         "StanceChip",
+        "YourServices",
         "YourShotsGallery"
       ]
     },

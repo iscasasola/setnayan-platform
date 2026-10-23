@@ -3,6 +3,7 @@
 The DPO's 2026-10-22 pack measured the public pages against the shipped code. This PR changes the copy only, plus the guard and the admin pack:
 
 - **Added to /privacy and /cookies:** the daily Visits count (no cookie, a code mixed with a value that changes daily, deleted the next day, raw IP never stored). Also added to /privacy: Sign in with Apple, Apple in-app purchase ("when available in the app"), the 12-hour selfie and face-vector erase with its separate tick, and Pabuya gift records.
+- **New on /privacy, "If there is a data breach":** 72-hour notice to the NPC and to the people affected; it may go by email, including to guests, only for a breach the law requires us to report (DPO ruling 2026-10-23, Breach Policy § 6.2).
 - **Promises removed or corrected:**
   - The "30–90 day tail" (/privacy) and "30 days" (/terms) are replaced by the real flow: a request, reviewed within 24 hours, then the personal fields are blanked and the records the law makes us keep stay.
   - Support tickets at 2 years, device records pruned at 24 months, and "device hash deleted with the account and in the export" are removed. No job does any of these.

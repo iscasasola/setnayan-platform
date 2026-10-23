@@ -23,6 +23,14 @@
  *   /dev/bar-lab/dashboard/ev-lab        an event (Home)
  *
  *   ?shop=0   an account that owns no shop (four tabs, no Shop)
+ *
+ * An event of ANY type (owner 22 Oct 2026, "this might be an issue on other events as well") — the
+ * event layout's OWN gates (`eventMenuGates`) for that type's profile and needs:
+ *   ?type=<event_type>                 wedding (default) · simple_event · hangout · birthday · wake · …
+ *   ?needs=simple|open|list|full       the needs preset (default: the type's own, `DEFAULT_PRESET_BY_TYPE`)
+ *   ?phase=plan|dayof|after            the lifecycle phase (default plan)
+ *   ?store=1                           the App Store / Play shell
+ *   ?was=1                             BEFORE: main's rule until 22 Oct 2026 (the type's needs drop tabs)
  *   ?before=1 Discover as `main` drew it before 2026-10-22: signed in, no bar
  */
 import Link from 'next/link';
@@ -30,6 +38,7 @@ import { notFound } from 'next/navigation';
 import '@/app/_components/frontdoor/front-door.css';
 import { FrontDoorShell } from '@/app/_components/frontdoor/front-door-shell';
 import { LabBar } from '../lab-bar';
+import { labEventBar } from '../lab-event';
 
 export const dynamic = 'force-dynamic';
 
@@ -81,7 +90,7 @@ export default async function BarLab({
   if (where === '') {
     return (
       <>
-        <FrontDoorShell account={ACCOUNT} navLabels={{}} tools={[]}>
+        <FrontDoorShell account={ACCOUNT} navLabels={{}}>
           <div
             data-fd-page=""
             className="pb-[calc(var(--sn-bottomdock-h,calc(env(safe-area-inset-bottom)+64px))+1.5rem)] lg:pb-0"
@@ -99,7 +108,7 @@ export default async function BarLab({
   if (spoke) {
     return (
       <div className="sn-ambient min-h-dvh">
-        <FrontDoorShell variant="app" account={ACCOUNT} navLabels={{}} tools={[]}>
+        <FrontDoorShell variant="app" account={ACCOUNT} navLabels={{}}>
           <main className="pb-[calc(var(--sn-bottomdock-h,calc(env(safe-area-inset-bottom)+64px))+1.5rem)] lg:pb-0">
             <Cards title={spoke} links={[toEvent, { href: `${P}/vendor-dashboard`, label: 'Switch to · Lab Florals (the shop)' }]} />
           </main>
@@ -116,12 +125,12 @@ export default async function BarLab({
   return (
     <>
       <div className="sn-ambient min-h-screen">
-        <FrontDoorShell variant="app" account={ACCOUNT} navLabels={{}} tools={[]} insideEvent={event}>
+        <FrontDoorShell variant="app" account={ACCOUNT} navLabels={{}}>
           <div className="sn-ambient min-h-screen">
             <main className="sn-vt-page">
               <div className="pb-[calc(env(safe-area-inset-bottom)+92px)] lg:pb-0">
                 <Cards
-                  title={shop ? 'Today — Lab Florals' : 'Ana & Miguel'}
+                  title={shop ? 'Today — Lab Florals' : `Ana & Miguel · ${sp.type || 'wedding'}${sp.phase ? ` · ${sp.phase}` : ''}`}
                   links={[{ href: `${P}/dashboard?hub=1`, label: '← Events (the way back to your account)' }]}
                 />
               </div>
@@ -129,7 +138,7 @@ export default async function BarLab({
           </div>
         </FrontDoorShell>
       </div>
-      <LabBar kind={shop ? 'shop' : 'event'} />
+      <LabBar kind={shop ? 'shop' : 'event'} event={event ? labEventBar(sp) : undefined} />
     </>
   );
 }

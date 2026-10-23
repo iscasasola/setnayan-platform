@@ -80,13 +80,9 @@ test('(2) the independent reads are started together, right after the gate', () 
     ".from('events')",
     ".from('oauth_grants')",
     'getDriveOAuthConfig()',
-    'fetchCameraRates(supabase)',
-    'fetchPapicTierConfig(supabase)',
-    'fetchPapicOneTiers(supabase)',
+    // (the camera rates, tier config, One tiers and the PAPIC_UNLOCK reads are gone with the camera
+    // tiers they priced — owner 2026-10-23, `lib/papic-sells-only-credits.ts`)
     'eventEntitlementClient(eventId)',
-    ".from('platform_package_catalog')",
-    "ownsSkuRead('PAPIC_UNLOCK')",
-    "ownsSkuRead('PAPIC_UNLOCK_LTD')",
     'fetchPlatformSettings(supabase)',
     ".eq('service_code', 'HIGH_RES_ARCHIVE')",
     "ownsSkuRead('HIGH_RES_ARCHIVE')",
@@ -128,7 +124,8 @@ test('(3) the order that keeps it a pure speed-up: event check → heals togethe
   // The heals also wait for the catalogue batch, because that batch is where the ENTITLEMENT
   // CLIENT is first awaited — and that client refuses anyone who is not a host of this event.
   // Starting the service-role writes before it would let a non-host member's view write seats.
-  const hostGate = body.search(/\] = await Promise\.all\(\[\s*unlockPkgRead,\s*ownsPapicUnlockRead,/);
+  // The catalogue batch — its `ownsKeepFullResRead` is the first await on the host-only entitlement client.
+  const hostGate = body.search(/\] = await Promise\.all\(\[\s*papicPlatformSettingsRead,[\s\S]{0,200}?ownsKeepFullResRead,/);
   assert.ok(hostGate > notFound, 'the catalogue batch (the first await on the host-only entitlement client) is gone');
   assert.ok(hostGate < healsStart, 'a self-heal WRITE starts before the host-only entitlement client has answered');
   // …and NO write of any kind is reached before the event row is confirmed — the started block
@@ -153,15 +150,13 @@ test('(3) the order that keeps it a pure speed-up: event check → heals togethe
   // Every started read that must see the heals starts after them.
   for (const after of [
     'const uploadsSeatRead = startRead(',
-    'const extraCameraCountRead = startRead(',
-    'const claimSeatRowsRead = startRead(',
     'const standingsRead = startRead(readPapicStandings(',
   ]) {
     assert.ok(at(body, after) > healsAwait, `${after} starts before the self-heals it must see`);
   }
   // The three seat counts start only after the guest sync, which can add, revoke and re-tier seats.
   const sync = at(body, 'await syncGuestCameras(');
-  for (const after of ['const extraCameraCountRead = startRead(', 'const claimSeatRowsRead = startRead(', 'const standingsRead = startRead(']) {
+  for (const after of ['const standingsRead = startRead(']) {
     assert.ok(at(body, after) > sync, `${after} starts before the guest sync it must see`);
   }
   // A thrown guest-list read still surfaces AFTER the heals ran, as it did when it was asked there.

@@ -235,7 +235,7 @@ test('the account menu is reachable on the couple desktop', () => {
 
 /* ══ 5 · THE MENU IS THE SSOT'S, NOT A NEW IA ════════════════════════════ */
 
-test('the rail reproduces the five rows, from the shipped SSOT', () => {
+test('the rail reproduces the four rows, from the shipped SSOT (More Services left 22 Oct 2026)', () => {
   /*
     🔄 2026-09-29 — Stage D (owner: *"this is what an event needs. Guestlist ·
     Your Team · Event Hub Maker · Our Services"*). The "by moment" headings
@@ -253,7 +253,8 @@ test('the rail reproduces the five rows, from the shipped SSOT', () => {
   assert.deepEqual(groups.map((g) => g.label), ['', ''], 'the five rows carry no headings');
   assert.deepEqual(
     groups.find((g) => g.key === 'pillars')?.items.map((i) => i.key),
-    ['home', 'guests', 'explore', 'launch', 'studio'],
+    // Owner 22 Oct 2026, verbatim "Yes remove more": the More Services row left with the bar's More.
+    ['home', 'guests', 'explore', 'launch'],
   );
 });
 
@@ -561,38 +562,18 @@ async function paintRail(activeKey: string | null): Promise<string> {
   );
 }
 
-/** The sub-group's inner markup, and everything outside it. */
-function splitGroup(html: string): { tag: string; inside: string; outside: string } {
-  const m = html.match(/<ul\b[^>]*\bclass="fd-msub"[^>]*>([\s\S]*?)<\/ul>/);
-  assert.ok(m, 'More Services has no `.fd-msub` group — the five are loose rows again.');
-  return { tag: m[0].slice(0, m[0].indexOf('>') + 1), inside: m[1]!, outside: html.replace(m[0], '') };
-}
-
-test('the five sit inside ONE `.fd-msub` group — never beside Home · Guests · Suppliers · Hub', async () => {
-  const { inside, outside } = splitGroup(await paintRail('home'));
-  assert.equal((inside.match(/\bfd-mchild\b/g) ?? []).length, 5, 'the group does not hold exactly the five');
-  for (const f of FIVE) assert.ok(inside.includes(f.label), `${f.label} is not inside the group`);
-  // Not one of them is a sibling of the four top-level rows.
-  assert.ok(!/\bfd-mchild\b/.test(outside), 'a child row renders OUTSIDE the sub-group, beside the top-level rows');
-  for (const f of FIVE) assert.ok(!outside.includes(f.href), `${f.label} also renders as a top-level link`);
-  // The four top-level rows are still plain links, outside the group.
-  const leaves = [...outside.matchAll(/<a\b[^>]*\bclass="fd-row fd-mrow"/g)].length;
-  assert.ok(leaves >= 4, `expected Home · Guests · Suppliers · Hub as top-level rows, saw ${leaves}`);
-  // The only button in the rail is the More Services toggle.
-  assert.equal((outside.match(/<button\b/g) ?? []).length, 1, 'more than one row opens');
-});
-
-test('the group is CLOSED by default, and OPEN when the current page is one of the five', async () => {
-  const closed = await paintRail('home');
-  assert.match(splitGroup(closed).tag, /\bhidden=""/, 'More Services starts open — the rail reads as eleven rows');
-  assert.match(closed, /aria-expanded="false"/, 'the toggle does not say it is closed');
-  for (const lit of ['studio']) {
-    const open = await paintRail(lit);
-    assert.doesNotMatch(splitGroup(open).tag, /\bhidden=/, 'standing on a More Services page leaves the group shut');
-    assert.match(open, /aria-expanded="true"/, 'the toggle does not say it is open');
+test('🔁 More Services is gone from the rail — no sub-group, no toggle, four plain rows (owner 22 Oct 2026, "Yes remove more")', async () => {
+  // Rendered, even when a caller still hands the five: the tree builds no row to hang them on.
+  for (const lit of ['home', 'studio', null]) {
+    const html = await paintRail(lit);
+    assert.doesNotMatch(html, /\bclass="fd-msub"/, 'the More Services sub-group is back');
+    assert.doesNotMatch(html, /\bfd-mchild\b/, 'a service renders as a rail child again');
+    assert.equal((html.match(/<button\b/g) ?? []).length, 0, 'a rail row opens again');
+    for (const f of FIVE) assert.ok(!html.includes(f.href), `${f.label} is a rail row again — it lives on Home › Your services`);
+    const leaves = [...html.matchAll(/<a\b[^>]*\bclass="fd-row fd-mrow"/g)].length;
+    assert.ok(leaves >= 4, `expected Home · Guests · Suppliers · Hub as rows, saw ${leaves}`);
+    assert.doesNotMatch(html, /More Services/, 'the rail still says More Services');
   }
-  // A page that is not one of the five does not open it.
-  assert.match(splitGroup(await paintRail(null)).tag, /\bhidden=""/);
 });
 
 test('the group is styled as a tinted, inset panel with a gold line, smaller icons — and labels never truncate', () => {

@@ -443,3 +443,33 @@ export function vendorChallengeStatus(
   if (!c.is_active) return 'rejected';
   return c.approved ? 'live' : 'pending';
 }
+
+/**
+ * 🧮 WHO PUT EACH CHALLENGE ON THE GUESTS' BOARD — so the couple's card can say one true thing.
+ *
+ * Owner-relayed 2026-10-23: the card read *"3 of 8 chosen · 10 showing to guests"* — and 10 cannot be
+ * shown out of 3 chosen against a limit of 8 unless something else fills the board. Something does, by
+ * design: the board is always `BOARD_SIZE` (10) — the couple's picks, then up to `VENDOR_SLOTS` from
+ * booked suppliers (`vendor` paid · `auto` booth), then Setnayan's suggestions (`setnayan`) backfill the
+ * rest (`resolveChallengeBoard`, mirrored by `ensure_papic_board`). The couple's limit is the board minus
+ * the supplier lane (`coupleSlots`). Both numbers were right; the card hid what the gap was made of.
+ *
+ * Counted from the SAME rows the card already lists (`board_slot` set = on the board), so the parts
+ * always add up to the total the card prints.
+ */
+export function boardLaneCounts(
+  rows: ReadonlyArray<{ source: PapicMissionSource | string; board_slot: number | null }>,
+): { total: number; yours: number; suppliers: number; suggested: number } {
+  const on = rows.filter((r) => r.board_slot !== null);
+  const yours = on.filter((r) => r.source === 'couple').length;
+  const suppliers = on.filter((r) => r.source === 'vendor' || r.source === 'auto').length;
+  return { total: on.length, yours, suppliers, suggested: on.length - yours - suppliers };
+}
+
+/** "Guests see 10: your 3 + 2 from suppliers + 5 suggested" — only the parts that are there. */
+export function boardShowingWords(c: { total: number; yours: number; suppliers: number; suggested: number }): string {
+  const parts = [`your ${c.yours}`];
+  if (c.suppliers > 0) parts.push(`${c.suppliers} from suppliers`);
+  if (c.suggested > 0) parts.push(`${c.suggested} suggested`);
+  return `Guests see ${c.total}: ${parts.join(' + ')}`;
+}

@@ -47,7 +47,6 @@ async function paint(wrap: (el: React.ReactElement) => React.ReactElement) {
       variant: 'app',
       boundary: 'tab',
       account: { signedIn: true, initials: 'AM', shopName: null, isAdmin: false },
-      tools: [],
       navLabels: {},
     } as unknown as React.ComponentProps<typeof FrontDoorShell>,
     React.createElement('main', null, 'page'),

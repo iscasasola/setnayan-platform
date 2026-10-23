@@ -121,8 +121,18 @@ async function reserveSplit(
   const row = r.rows[0]!;
   return { ok: row.ok, d: Number(row.dedicated_spent), p: Number(row.pool_spent) };
 }
+/**
+ * What the camera's OWN bucket still holds: everything dedicated to it, less what
+ * papic_reserve_capture_split has booked against it in papic_seat_point_usage.
+ * (Read from the ledger: the display probe papic_camera_points_remaining that
+ * once did this sum lost its last caller and was dropped, 20271286935967.)
+ */
 const cameraRemaining = (seatId: string) =>
-  one<number>(`SELECT public.papic_camera_points_remaining($1)`, [seatId]);
+  one<number>(
+    `SELECT GREATEST(0, public.papic_seat_dedicated_points($1)
+              - COALESCE((SELECT points_used FROM public.papic_seat_point_usage WHERE seat_id = $1), 0))`,
+    [seatId],
+  );
 const dedicated = (seatId: string) =>
   one<number>(`SELECT public.papic_seat_dedicated_points($1)`, [seatId]);
 const eventRemainingForSeat = (eventId: string, seatId: string) =>

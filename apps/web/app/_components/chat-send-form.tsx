@@ -36,6 +36,8 @@ import {
   isCompressibleImage,
 } from '@/lib/chat-attachment-limits';
 import { shouldSendOnEnter, isCoarsePointer } from '@/lib/chat-enter-to-send';
+import { TypingBand } from '@/app/_components/typing-band';
+import { useKeyboardRide } from '@/lib/keyboard-ride';
 
 type Props = {
   threadId: string;
@@ -89,6 +91,11 @@ export function ChatSendForm({ threadId, sendAction, accessories, lead, attachIn
   // the sender edits without a server round-trip. The server re-checks
   // authoritatively (no-JS + native paths), so this is UX, not the gate.
   const [blockError, setBlockError] = useState<string | null>(null);
+  /* ⌨ THE COMPOSER WEARS THE TYPING BAND (owner 2026-10-24, "Yes"; `prototypes/keyboard_rides_the_input_2026-10-24.html`):
+     while the message is typed with the keyboard up, the one typing band — "Typing · Message" + ✓ Done — stands over
+     the row. The row itself stays whole (＋ · message · Send): Send is its verb, and the phone's Enter is a new line. */
+  const [typing, setTyping] = useState(false);
+  const kb = useKeyboardRide();
 
   const clearFile = () => {
     if (fileInputRef.current) fileInputRef.current.value = '';
@@ -211,6 +218,15 @@ export function ChatSendForm({ threadId, sendAction, accessories, lead, attachIn
         </p>
       ) : null}
 
+      {typing && kb.open ? (
+        <TypingBand
+          inline
+          keepFocus
+          place="Message"
+          attrs={{ 'data-typing-band': 'app', 'data-chat-band': '' }}
+          className="rounded-t-[18px] !border-t-0 !bg-[var(--tb-plate)]"
+        />
+      ) : null}
       <div className="flex items-end gap-2">
         {lead ?? null}
         {/* Paperclip attach button — opens the OS file picker. With `attachInputId` the button is gone (the ＋ sheet
@@ -263,6 +279,9 @@ export function ChatSendForm({ threadId, sendAction, accessories, lead, attachIn
           maxLength={4000}
           placeholder="Type a message…"
           className="input-field min-h-[60px] flex-1 py-2"
+          data-rides=""
+          onFocus={() => setTyping(true)}
+          onBlur={() => setTyping(false)}
           onInput={(e) => {
             setHasDraft(e.currentTarget.value.trim().length > 0);
             if (blockError) setBlockError(null);

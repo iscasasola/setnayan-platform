@@ -25,10 +25,24 @@
  * page has rendered) stays with the host that already owned that plumbing —
  * Find's `FindThumbRow`, Guests' `.lower` — so this lands as a re-drawing, not
  * a move. The data handle is `data-thumb-row={name}`.
+ *
+ * ⌨ IT RIDES THE KEYBOARD — BY DEFAULT (owner 2026-10-24, "Yes", buttons fold;
+ * `prototypes/keyboard_rides_the_input_2026-10-24.html`). While its field is
+ * being typed into and the keyboard is up (`useKeyboardRide`), the row is the
+ * Maker's typing template: the ONE typing band ("Typing · <the placeholder>" +
+ * ✓ Done, `app/_components/typing-band.tsx`) stands on it, the band's cream
+ * plate reaching down behind it to the keyboard; the field takes the whole row,
+ * wears the accent ring and gains ✕ (clear); ⇕ · ≡ · ＋ FOLD and come back on
+ * Done (the keyboard's own key does the row's verb). The row itself does not
+ * move: its host stands it on `--sn-bottomdock-h`, which is the keyboard's while
+ * it is up (`bottom-nav.tsx`). `rides={false}` opts out — only with a written
+ * reason at the call (`every-bottom-input-rides-the-keyboard.test.ts` counts them).
  */
-import type { InputHTMLAttributes, ReactNode, Ref } from 'react';
-import { CalendarDays, Search } from 'lucide-react';
+import { useCallback, useLayoutEffect, useRef, useState, type FocusEvent, type InputHTMLAttributes, type ReactNode, type Ref } from 'react';
+import { CalendarDays, Search, X } from 'lucide-react';
 import { ActionButton, type ActionButtonProps } from '@/components/action-button';
+import { TypingBand } from '@/app/_components/typing-band';
+import { useKeyboardRide } from '@/lib/keyboard-ride';
 import { PickMenu, type PickOption } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import styles from './thumb-row.module.css';
 
@@ -111,6 +125,19 @@ function Round({ r }: { r: ThumbRound }) {
   );
 }
 
+/** The fixed layer a row stands in (its host: Find's row, Guests' `.lower`) — the box the band's plate reaches behind. */
+function layerOf(el: HTMLElement | null): HTMLElement | null {
+  for (let n = el; n; n = n.parentElement) if (getComputedStyle(n).position === 'fixed') return n;
+  return null;
+}
+
+/** Put words in a React-controlled input as a person would (its `onChange` / `onInput` hear it). */
+function setTyped(input: HTMLInputElement, value: string) {
+  const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+  set?.call(input, value);
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
 export function ThumbRow({
   name,
   left = [],
@@ -119,6 +146,7 @@ export function ThumbRow({
   action,
   children,
   className = '',
+  rides = true,
 }: {
   /** Which screen's row — the guard's and the tour's handle. */
   name: string;
@@ -132,25 +160,98 @@ export function ThumbRow({
   /** A mode row's own buttons, in place of the seats. */
   children?: ReactNode;
   className?: string;
+  /**
+   * ⌨ Ride the keyboard while the field is typed into (the default — the Maker's template). `false` ONLY with a
+   * written reason beside it at the call; the guard counts every one.
+   */
+  rides?: boolean;
 }) {
   const FieldIcon = field && 'kind' in field && field.kind === 'date' ? CalendarDays : Search;
+  const rowRef = useRef<HTMLDivElement>(null);
+  const ownInput = useRef<HTMLInputElement | null>(null);
+  const [typing, setTyping] = useState<string | null>(null);
+  const kb = useKeyboardRide();
+  const riding = rides && typing !== null && kb.open && !children;
+  const onFieldFocus = useCallback(
+    (e: FocusEvent<HTMLElement>) => {
+      const t = e.target as HTMLInputElement | HTMLTextAreaElement;
+      if (!/^(INPUT|TEXTAREA)$/.test(t.tagName) || (t as HTMLInputElement).type === 'date') return;
+      const place = field && !('node' in field) ? field.placeholder : t.placeholder || t.getAttribute('aria-label') || 'Search';
+      setTyping(place);
+    },
+    [field],
+  );
+  const onFieldBlur = useCallback((e: FocusEvent<HTMLElement>) => {
+    if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
+    setTyping(null);
+  }, []);
+  /* Where the band stands: on the row's host (its computed `bottom`), its plate as tall as the host. */
+  const [over, setOver] = useState<{ bottom: number; under: number } | null>(null);
+  useLayoutEffect(() => {
+    if (!riding) return setOver(null);
+    const layer = layerOf(rowRef.current);
+    const read = () => {
+      const box = layer ?? rowRef.current;
+      if (!box) return;
+      const bottom = layer ? parseFloat(getComputedStyle(layer).bottom) || 0 : Math.max(0, window.innerHeight - box.getBoundingClientRect().bottom);
+      const under = Math.round(box.getBoundingClientRect().height);
+      setOver((o) => (o && o.bottom === bottom && o.under === under ? o : { bottom, under }));
+    };
+    read();
+    const ro = typeof ResizeObserver !== 'undefined' && layer ? new ResizeObserver(read) : null;
+    if (layer) ro?.observe(layer);
+    return () => ro?.disconnect();
+  }, [riding, kb.bottom, kb.height]);
+  const setInputRef = useCallback(
+    (el: HTMLInputElement | null) => {
+      ownInput.current = el;
+      const r = field && !('node' in field) ? field.inputRef : undefined;
+      if (typeof r === 'function') r(el);
+      else if (r && typeof r === 'object') (r as { current: HTMLInputElement | null }).current = el;
+    },
+    [field],
+  );
+  /* A press on the band or ✕ never takes the focus from the field (it would close the band under the finger). */
+  const keepFocus = (e: { preventDefault: () => void }) => e.preventDefault();
   return (
-    <div role="toolbar" aria-label={`${name} tools`} data-thumb-row={name} className={`${styles.row} ${className}`}>
+    <div
+      ref={rowRef}
+      role="toolbar"
+      aria-label={`${name} tools`}
+      data-thumb-row={name}
+      data-riding={riding ? '' : undefined}
+      className={`${styles.row} ${className}`}
+    >
       {children ?? (
         <>
           {left.slice(0, 2).map((r, i) => ('node' in r ? <NodeRound key={`n${i}`} node={r.node} /> : <Round key={r.label} r={r} />))}
           {field && 'node' in field ? (
-            <span data-glass-row="thumb-row-field-node" className={`sn-glass-row ${styles.field} ${styles.fieldNode}`} data-thumb-seat="field">
+            <span
+              data-glass-row="thumb-row-field-node"
+              className={`sn-glass-row ${styles.field} ${styles.fieldNode}`}
+              data-thumb-seat="field"
+              data-rides={rides ? '' : undefined}
+              onFocus={onFieldFocus}
+              onBlur={onFieldBlur}
+            >
               {field.node}
             </span>
           ) : field ? (
-            <label data-glass-row="thumb-row-field" className={`sn-glass-row ${styles.field}`} data-thumb-seat="field" data-tour={field.tour}>
+            <label
+              data-glass-row="thumb-row-field"
+              className={`sn-glass-row ${styles.field}`}
+              data-thumb-seat="field"
+              data-tour={field.tour}
+              data-rides={rides ? '' : undefined}
+              onFocus={onFieldFocus}
+              onBlur={onFieldBlur}
+            >
               <FieldIcon className={styles.glyph} strokeWidth={1.9} aria-hidden />
               <input
                 type={field.kind === 'date' ? 'date' : 'search'}
                 autoComplete="off"
                 {...field.input}
-                ref={field.inputRef}
+                ref={setInputRef}
                 placeholder={field.placeholder}
                 aria-label={field.label ?? field.placeholder}
                 className={styles.input}
@@ -159,6 +260,24 @@ export function ThumbRow({
           ) : (
             <span className={styles.gap} aria-hidden />
           )}
+          {/* ✕ — clears the words while typing (the typed row's ✕); the field keeps its focus. */}
+          {riding && field && !('node' in field) ? (
+            <span className={`sn-glass-row ${styles.round} ${styles.clear}`} data-thumb-seat="clear" onPointerDown={keepFocus} onMouseDown={keepFocus}>
+              <ActionButton
+                tone="neutral"
+                iconOnly
+                icon={X}
+                label="Clear"
+                className={styles.btn}
+                onClick={() => {
+                  const el = ownInput.current;
+                  if (!el) return;
+                  setTyped(el, '');
+                  el.focus();
+                }}
+              />
+            </span>
+          ) : null}
           {right.map((r) =>
             'menu' in r ? (
               <span key={r.label} className={`sn-glass-row ${styles.round} ${styles.menu}`} data-thumb-seat="menu" {...(r.mark ? { [r.mark]: '' } : {})}>
@@ -194,6 +313,9 @@ export function ThumbRow({
           ) : null}
         </>
       )}
+      {riding && over ? (
+        <TypingBand over={over} place={typing} attrs={{ 'data-thumb-band': name }} />
+      ) : null}
     </div>
   );
 }

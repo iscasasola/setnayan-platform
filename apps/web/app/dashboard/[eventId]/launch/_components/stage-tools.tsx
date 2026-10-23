@@ -125,6 +125,7 @@ import { useIsDesktop } from '@/lib/use-responsive';
 
 import { makerPartCanvasOn, makerPartLabelOn, makerPartOfCanvas, makerPartsWithAdded, makerPostEventSceneOf } from '@/lib/maker-part-groups';
 import { filedOnCanvas, makerStagesPages } from '@/lib/maker-stage-filing';
+import { TypingBand } from '@/app/_components/typing-band';
 
 /**
  * 🎬 THE STAGES TOOLBAR — the new Maker's bottom bar on the Stages side, on a phone (owner 2026-10-09, the approved
@@ -1779,12 +1780,7 @@ export function StageTools({
       <StageAbout />
       {/* ══ ⌨ THE TYPING BAR — only while a field of Edit is open (the rule set above): what is typed, and Done.
           Done is a tap outside the field, which KEEPS (the typed row's own rule) — the app's main button. ══ */}
-      <div data-stage-keys="" className={`-mx-[10px] rounded-t-2xl !border-t-0 !bg-transparent ${SP_KEY_BAR}`}>
-        <span className="min-w-0 truncate">Typing · {picked ? makerPartLabelOn(stageKey, picked) : ''}</span>
-        <span data-type-done="" className={SP_KEY_DONE}>
-          <ActionButton tone="brand" main icon={Check} label="Done" onClick={() => (document.activeElement as HTMLElement | null)?.blur?.()} />
-        </span>
-      </div>
+      <TypingBand inline attrs={{ 'data-stage-keys': '' }} className="-mx-[10px] rounded-t-2xl !border-t-0 !bg-transparent" place={picked ? makerPartLabelOn(stageKey, picked) : ''} />
 
       {/* ══ THE SELECTOR — [ Edit | Style | Background | Animate ] · ▶ ══ */}
       <div className={STAGE_ROW} data-stage-row="">

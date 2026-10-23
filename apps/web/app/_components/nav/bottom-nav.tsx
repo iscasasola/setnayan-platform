@@ -91,6 +91,7 @@ import { isStoreShellWebOnlyPath } from '@/lib/store-shell';
 import { useIsStoreShell } from '@/lib/use-store-shell';
 import { formatCount } from '@/lib/format-number';
 import type { ShellBoundary } from '@/app/_components/shell-boundary';
+import { useKeyboardRide } from '@/lib/keyboard-ride';
 
 type FlatProps = {
   items: BottomNavItem[];
@@ -765,6 +766,16 @@ export function BottomDock({
   useEffect(() => {
     void import('./bar-set-slide').then((m) => setSetSlide(() => m.BarSetSlide));
   }, []);
+  /* ⌨ KEYBOARD UP → BAR DOWN (owner 2026-10-24, "Yes", `prototypes/keyboard_rides_the_input_2026-10-24.html`): while
+     the keyboard is up the bar slides away (`html[data-keyboard="open"] [data-bottom-dock]`, globals.css) and the
+     clearance it publishes is the KEYBOARD's instead (`lib/keyboard-ride.ts`): every row that stands on the bar —
+     `bottom: var(--sn-bottomdock-h)` — then stands on the keyboard with no change of its own. That is 0 wherever the
+     page itself shrinks for the keyboard (the iOS app, Android), and the keyboard's height in iPhone Safari, where a
+     fixed box at 0 would sit under it. */
+  const kb = useKeyboardRide();
+  const kbRef = useRef(kb);
+  kbRef.current = kb;
+  const publishRef = useRef<() => void>(() => {});
   useEffect(() => {
     const el = dockRef.current;
     if (!el || typeof ResizeObserver === 'undefined') return;
@@ -772,8 +783,9 @@ export function BottomDock({
     const publish = () =>
       root.style.setProperty(
         '--sn-bottomdock-h',
-        `${Math.round(el.getBoundingClientRect().height)}px`,
+        `${Math.round(kbRef.current.open ? kbRef.current.bottom : el.getBoundingClientRect().height)}px`,
       );
+    publishRef.current = publish;
     publish();
     const ro = new ResizeObserver(publish);
     ro.observe(el);
@@ -783,6 +795,7 @@ export function BottomDock({
       root.style.removeProperty('--sn-bottomdock-h');
     };
   }, []);
+  useEffect(() => publishRef.current(), [kb.open, kb.bottom]);
 
   return (
     <BottomDockContext.Provider value={true}>

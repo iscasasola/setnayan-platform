@@ -10,6 +10,8 @@
  *     so every prefix rule that admits the original admits the copy), never over it.
  *   · KEPT ONLY WHEN SMALLER — a copy that is not smaller is not written and not pointed at.
  */
+import { formatCount } from './format-number';
+
 export const OVERSIZED_BYTES = 1_000_000;
 export const WEB_LONG_EDGE = 2048;
 export const WEB_JPEG_QUALITY = 82;
@@ -33,6 +35,6 @@ export function isOversized(bytes: number | null | undefined): boolean {
 
 /** "4.3 MB" / "820 KB" — the admin page's sizes. */
 export function formatBytes(bytes: number): string {
-  if (bytes >= 1_000_000) return `${(bytes / 1_000_000).toFixed(1)} MB`;
-  return `${Math.max(1, Math.round(bytes / 1000))} KB`;
+  if (bytes >= 1_000_000) return `${formatCount(bytes / 1_000_000, 1)} MB`;
+  return `${formatCount(Math.max(1, Math.round(bytes / 1000)))} KB`;
 }

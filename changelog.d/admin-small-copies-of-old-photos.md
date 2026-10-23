@@ -26,5 +26,8 @@ only through the pipeline or an owner action, so this ships the tool; the owner 
   (`app/dashboard/[eventId]/guests/groups-actions.ts`) — an exported action nothing in the repo calls any more (its
   "Remove from group" chip is gone) — is removed, the #6003 / slice-A way. Budget back to 1,225 of 1,225.
 - The section is grouped by a rule and type, not a box (`lint:no-card`).
+- Sizes read through `formatCount` ("4.3 MB" / "380 KB"); a refused ledger read or `apply_media_web_copy` call
+  is logged as `[supabase-error]` before it falls back (both-ends guard); the FK-behaviour map records
+  `media_web_copies.made_by → auth.users SET NULL` (regenerated).
 
 SPEC IMPACT: None (an admin tool on an existing page; no product behaviour or SKU changes).

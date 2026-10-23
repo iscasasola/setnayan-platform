@@ -108,6 +108,7 @@ export async function makeSmallCopies(admin: SupabaseClient, madeBy: string | nu
         p_web_bytes: copy.byteLength,
         p_made_by: madeBy,
       });
+      if (error) console.error('[supabase-error] lib/old-photo-copies.server.ts · rpc:apply_media_web_copy', error);
       if (error || data !== true) {
         skipped++;
         continue;
@@ -136,6 +137,7 @@ export async function originalForPrint(admin: SupabaseClient, eventId: string, r
     .eq('event_id', eventId)
     .eq('web_ref', ref)
     .maybeSingle();
+  if (error) console.error('[supabase-error] lib/old-photo-copies.server.ts · from:media_web_copies.select', error);
   if (error || !data) return ref;
   return (data as { original_ref: string }).original_ref;
 }

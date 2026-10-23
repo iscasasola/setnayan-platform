@@ -1,4 +1,5 @@
-import { Clock } from 'lucide-react';
+import Link from 'next/link';
+import { ChevronRight, Clock } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { InfoTip } from '@/app/_components/info-tip';
@@ -38,8 +39,15 @@ import { FaceBlockingList } from './face-blocking-list';
 export async function PapicCameraSettings({
   eventId,
   credits = null,
+  seat = 'page',
 }: {
   eventId: string;
+  /**
+   * 'home' — under Home's Papic card: EVENT-WIDE only (owner 2026-10-23, approved
+   * `prototypes/guest_card_groups_and_papic_2026-10-23.html`: per-guest Papic lives on each guest card) — no Credits
+   * per guest, no per-guest face blocking; one quiet line points at the guest cards. 'page' — `/studio/papic`, as is.
+   */
+  seat?: 'home' | 'page';
   /** What the pot holds and has left — null when not measured (the counter then says "—", never 0). */
   credits?: { total: number | null; left: number | null } | null;
 }) {
@@ -139,9 +147,19 @@ export async function PapicCameraSettings({
         </div>
         <div className="divide-y divide-ink/10">
           <GuestCamerasChoice eventId={eventId} variant="row" />
-          <GuestAllotmentsChoice eventId={eventId} variant="row" />
+          {seat === 'page' ? <GuestAllotmentsChoice eventId={eventId} variant="row" /> : null}
           <FaceTaggingChoice eventId={eventId} variant="row" />
-          <FaceBlockingList eventId={eventId} />
+          {seat === 'page' ? <FaceBlockingList eventId={eventId} /> : null}
+          {seat === 'home' ? (
+            <Link
+              href={`/dashboard/${eventId}/guests`}
+              className="flex min-h-11 items-center justify-between gap-3 py-2 text-[14px] text-ink/70"
+              data-papic-guest-card-door=""
+            >
+              <span>Each guest’s camera is on their guest card</span>
+              <ChevronRight aria-hidden className="h-4 w-4 text-ink/45" strokeWidth={1.9} />
+            </Link>
+          ) : null}
         </div>
       </section>
 

@@ -1800,7 +1800,6 @@ export const TOURS: Record<TourKey, TourDefinition> = {
           body: 'Every photo and clip your guests, your cameras and your suppliers take. Pinch to see more at once — or one large.',
         },
         {
-        {
           anchor: 'memories-albums',
           title: 'Albums',
           body: 'Papic, the challenges, your Event Hub’s own pictures, your suppliers’ and your own uploads — one at a time, or All.',

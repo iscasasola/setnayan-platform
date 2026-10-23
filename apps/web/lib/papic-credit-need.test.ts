@@ -12,15 +12,17 @@ import { creditsNeeded, rungForNeed } from './papic-credit-need';
 const RUNGS = [{ points: 100 }, { points: 400 }, { points: 1000 }, { points: 2000 }];
 
 test('the sum — guests × per guest − left, never below zero', () => {
-  assert.equal(creditsNeeded({ coming: 150, perGuest: 10, left: 240 }), 1260);
-  assert.equal(creditsNeeded({ coming: 10, perGuest: 10, left: 500 }), 0);
-  assert.equal(creditsNeeded({ coming: 3, perGuest: 2.5, left: 0 }), 8);
+  assert.equal(creditsNeeded({ coming: 150, each: 10, left: 240 }), 1260);
+  assert.equal(creditsNeeded({ coming: 10, each: 10, left: 500 }), 0);
+  assert.equal(creditsNeeded({ coming: 3, each: 2.5, left: 0 }), 8);
+  // The shares that exist: two named guests at 40 and 0, the other 148 at 10.
+  assert.equal(creditsNeeded({ coming: 150, each: 10, left: 240, named: { count: 2, sum: 40 } }), 1280);
 });
 
 test('never a guess: a refused guest read, no per-guest number, unread credits', () => {
-  assert.equal(creditsNeeded({ coming: null, perGuest: 10, left: 0 }), null, 'a refused guest read was counted as nobody');
-  assert.equal(creditsNeeded({ coming: 150, perGuest: null, left: 0 }), null, 'a per-guest number was invented');
-  assert.equal(creditsNeeded({ coming: 150, perGuest: 10, left: null }), null);
+  assert.equal(creditsNeeded({ coming: null, each: 10, left: 0 }), null, 'a refused guest read was counted as nobody');
+  assert.equal(creditsNeeded({ coming: 150, each: null, left: 0 }), null, 'an each-guest number was invented');
+  assert.equal(creditsNeeded({ coming: 150, each: 10, left: null }), null);
 });
 
 test('the rung: exact · between · above the top · enough already', () => {

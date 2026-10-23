@@ -28,7 +28,7 @@ export function PapicBuyForm({
   /** Credits left now — null when not measured (then "After this" is not said). */
   left: number | null;
   /** 🧮 The event's own inputs for "How many do I need?" — absent in a caller that has none (the helper is not drawn). */
-  need?: { coming: number | null; perGuest: number | null } | null;
+  need?: { coming: number | null; each: number | null; named: { count: number; sum: number } | null } | null;
 }) {
   const [adds, setAdds] = useState<number | null>(rungs[0]?.points ?? null);
   const [shown, setShown] = useState<StepperRung | null>(rungs[0] ?? null);

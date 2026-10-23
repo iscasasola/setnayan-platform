@@ -851,7 +851,7 @@ export default async function EventHomePage({
           thankYouHref: OUR_SERVICE_PARTS.papic ? addOnHref(OUR_SERVICE_PARTS.papic.key, eventId) : null,
           settings: (
             <Suspense fallback={null}>
-              <PapicCameraSettings eventId={eventId} credits={{ total: papicNow.total, left: papicNow.count }} />
+              <PapicCameraSettings eventId={eventId} seat="home" credits={{ total: papicNow.total, left: papicNow.count }} />
             </Suspense>
           ),
         }

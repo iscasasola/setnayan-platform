@@ -17,6 +17,18 @@ the Home tabs superseded by `event_bar_memories_tab_2026-10-23.html`).
 - **Account Memories › Challenges** — the hosted events that had challenges, by challenge.
 - **Event Details**: "How guests get in" carries the one code (QR · Copy link · Print poster) and "Each guest's invite
   QR is already their camera · N ready"; each supplier row in Event access carries "Their photos in your Memories".
+- **Home › Papic opens under itself** (owner: *"does not open to a new page. just expands on home"*): the shipped row
+  + the coverage line ("Fri, Dec 11 → Sun, Dec 13, 12 noon" · "Open now → …" · "Closed …") + the latest five with
+  "N in your Memories · latest first · See all ›" (→ Memories) + Add more (after the day, Thank-You Video). A tap on
+  the head grows the card's settings in UNDER it (420 ms, the house ease; reduced motion at once; inert while folded):
+  Papic on/off + dates · Total · Used · Remaining · Filter · When guests can shoot · Face tagging · Challenges, and
+  "Each guest's camera is on their guest card ›" (owner, guest-card ruling: per-guest Papic lives on each card). The
+  same `PapicCameraSettings` draws `/studio/papic` for old links (with its per-guest rows). Nothing on Home opens the
+  Papic page any more.
+- **Add more › How many do I need?** (owner: *"make it easier to purchase more"*): the guest cards' set numbers +
+  everyone else × "How many photos each?" − credits left → the stepper lands on the smallest pack that covers it
+  (the biggest, and says so, above the top); the one Buy button names it ("Add 2,000 credits · ₱…"). A refused guest
+  read is said; no number is invented.
 - **Guests**: the third segment "Setup" → **"Settings"**.
 - Server actions stay at 1,225: `dismissVendorRecommendation` (no caller) deleted for `setGuestFaceblock`.
 - Guards: `studio/papic/papic-is-the-camera.test.ts`, `lib/event-memories.test.ts` (sabotaged red → green).

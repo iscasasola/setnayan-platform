@@ -188,7 +188,7 @@ function labPapicCard(eventId: string, phase: string | undefined, failed: boolea
     phase: ph,
     strip: <PapicCardStripView eventId={eventId} frames={failed ? null : ph === 'before' ? [] : frames} total={failed ? null : ph === 'before' ? 0 : 1284} phase={ph} />,
     thankYouHref: '#thank-you',
-    settings: <PapicCameraSettings eventId={eventId} credits={{ total: failed ? null : 2000, left: failed ? null : 1240 }} />,
+    settings: <PapicCameraSettings eventId={eventId} seat="home" credits={{ total: failed ? null : 2000, left: failed ? null : 1240 }} />,
   };
 }
 

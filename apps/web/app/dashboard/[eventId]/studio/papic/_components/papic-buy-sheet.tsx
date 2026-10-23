@@ -57,7 +57,7 @@ export function PapicBuySheet({
   const headingId = useId();
   const [open, setOpen] = useState(defaultOpen);
   const [rungs, setRungs] = useState<PoolRung[] | null>(sizes);
-  const [need, setNeed] = useState<{ coming: number | null; perGuest: number | null } | null>(null);
+  const [need, setNeed] = useState<{ coming: number | null; each: number | null; named: { count: number; sum: number } | null } | null>(null);
   const [refusal, setRefusal] = useState<string | null>(null);
   const [pending, start] = useTransition();
 

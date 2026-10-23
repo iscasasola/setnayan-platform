@@ -296,15 +296,20 @@ test('(5) "done" for the pages that decide early is the navigator rows’ own fu
 
 test('(5) the Maker opens on What’s left only for an unfinished event with no place named', () => {
   const page = read('app/dashboard/[eventId]/launch/page.tsx');
-  const at = page.indexOf('const opensOnGuide =');
-  assert.ok(at > 0, 'anti-vacuity: opensOnGuide not found');
+  /* ⚡ Since 2026-10-23 "unfinished" arrives with the tools behind the Maker (`lib/maker-late.ts`): the address half
+     of the rule is read at once (`addressNamesNoPlace`), the facts half in the tools' lane, which runs only with work. */
+  const at = page.indexOf('const addressNamesNoPlace =');
+  assert.ok(at > 0, 'anti-vacuity: addressNamesNoPlace not found');
   const rule = page.slice(at, page.indexOf(';', at));
-  for (const needed of ['hasWork', 'detailsUnfinished', '!rawTool', 'search.scene', 'search.open', 'search.stage', 'search.pin']) {
+  for (const needed of ['!rawTool', 'search.scene', 'search.open', 'search.stage', 'search.pin']) {
     assert.ok(rule.includes(needed), `the Maker opens on the flow without checking ${needed}`);
   }
-  assert.match(page, /opensOnGuide=\{opensOnGuide && guideAddress === null\}/, 'the tab’s own last place no longer wins over the default');
+  assert.match(page, /const late: Promise<MakerLate> \| null = hasWork\b/, 'the Maker opens on the flow without checking hasWork');
+  assert.match(page, /opensOnGuide: addressNamesNoPlace && detailsUnfinished && guideAddress === null,/, 'the tab’s own last place no longer wins over the default');
   const shell = read(`${L}/maker-shell.tsx`);
   assert.match(shell, /if \(openedOnGuide\.current && saved && 'selection' in saved\) \{/);
+  /* …and when it lands later: the tab's own last place, or a press already made, still wins. */
+  assert.match(shell, /if \(!lateOpensOnGuide \|\| touched\.current \|\| rememberedPlace\.current \|\| addressNamed\.current\) return;/);
 });
 
 /* ── (6) the workspace, and the one Apply ──────────────────────────────── */

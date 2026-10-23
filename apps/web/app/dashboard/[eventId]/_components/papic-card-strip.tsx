@@ -77,9 +77,11 @@ export function PapicCardStripView({
     );
   }
   if (frames.length === 0) {
+    // Once the cameras are open the card's own status line already says "No photos yet" — never twice.
+    if (phase !== 'before') return null;
     return (
       <p className="mt-2 text-[12.5px] text-ink/60" data-papic-strip="empty">
-        {phase === 'before' ? 'Frames fill as your guests shoot' : 'No photos yet'}
+        Frames fill as your guests shoot
       </p>
     );
   }

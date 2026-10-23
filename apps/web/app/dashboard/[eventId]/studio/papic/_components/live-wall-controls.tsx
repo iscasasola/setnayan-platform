@@ -242,8 +242,8 @@ export function LiveWallControls({
                     <>
                       <button
                         type="button"
-                        aria-label="Hide from wall (keeps it in your gallery)"
-                        title="Hide from wall (keeps it in your gallery)"
+                        aria-label="Hide from wall (keeps it in your Memories)"
+                        title="Hide from wall (keeps it in your Memories)"
                         disabled={pending}
                         onClick={() =>
                           run(() => hideWallTile(eventId, tile.sourceTable, tile.sourceId, false))
@@ -254,8 +254,8 @@ export function LiveWallControls({
                       </button>
                       <button
                         type="button"
-                        aria-label="Hide from wall AND gallery"
-                        title="Hide from wall AND gallery"
+                        aria-label="Hide from wall AND Memories"
+                        title="Hide from wall AND Memories"
                         disabled={pending}
                         onClick={() =>
                           run(() => hideWallTile(eventId, tile.sourceTable, tile.sourceId, true))

@@ -182,7 +182,7 @@ export function PapicGalleryGrid({
       <div className="flex items-center gap-2">
         <span className="sn-gal-soft font-mono text-[10px] font-bold uppercase tracking-[0.15em]">Show</span>
         <PickMenu
-          label="Gallery filter"
+          label="Memories filter"
           value={filter}
           dataAttr="data-gallery-filter"
           options={FILTERS.map((f) => ({ key: f.id, label: f.label }))}
@@ -218,7 +218,7 @@ export function PapicGalleryGrid({
       ) : (
         <ul
           className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6"
-          aria-label="Papic gallery"
+          aria-label="Papic Memories"
         >
           {ordered.map((p) => (
             <Fragment key={p.id}>
@@ -240,11 +240,11 @@ export function PapicGalleryGrid({
                     alt={
                       p.kind === 'clip'
                         ? p.tagged
-                          ? 'Papic gallery snippet of tagged guests'
-                          : 'Papic gallery snippet'
+                          ? 'Papic Memories snippet of tagged guests'
+                          : 'Papic Memories snippet'
                         : p.tagged
-                          ? 'Papic gallery photo of tagged guests'
-                          : 'Papic gallery photo'
+                          ? 'Papic Memories photo of tagged guests'
+                          : 'Papic Memories photo'
                     }
                     loading="lazy"
                     className="h-full w-full object-cover"
@@ -554,7 +554,7 @@ function PreservationMeterLine({ totals }: { totals: PreservationTotals | null }
             one credit; a 10-second video is {formatCount(PAPIC_POINTS_PER_SNIPPET)}.
           </>
         )}{' '}
-        Nothing is ever deleted — anything you don&rsquo;t choose stays in your gallery, only
+        Nothing is ever deleted — anything you don&rsquo;t choose stays in your Memories, only
         smaller.
       </p>
     </div>
@@ -600,7 +600,7 @@ function PreserveToggle({
     );
   }
   const title = preserved
-    ? 'Kept at full resolution. Tap to release — it stays in your gallery, just smaller, and that cannot be undone later.'
+    ? 'Kept at full resolution. Tap to release — it stays in your Memories, just smaller, and that cannot be undone later.'
     : 'Released — it will be stored smaller. Tap to keep it at full resolution.';
   return (
     <form action={setCapturePreserved} className="absolute right-1 top-1">

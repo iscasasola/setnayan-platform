@@ -1219,7 +1219,7 @@ export default async function WebsiteEditorPage({
         {
           key: 'gallery',
           label: 'Photos you add',
-          blurb: 'A gallery you upload yourself.',
+          blurb: 'Photos you upload yourself.',
           href: `${w}/our-photos`,
           anchor: 'gallery',
           pro: true,

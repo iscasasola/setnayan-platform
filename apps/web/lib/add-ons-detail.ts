@@ -131,18 +131,18 @@ export const ADD_ON_DETAILS: Record<string, AddOnDetail> = {
       'One beautiful page for your names, your story, and every detail — behind every QR you share.',
     paragraphs: [
       'Scan your QR or tap your link, and this is where guests land.',
-      'Your story, your details, your colors — and it grows with the day, holding your RSVP, your stream, your gallery.',
+      'Your story, your details, your colors — and it grows with the day, holding your RSVP, your stream, your Memories.',
     ],
     highlights: [
       'Your names and story, beautifully',
       'In your colors',
       'The home behind every QR and link',
-      'Grows into your RSVP, stream, and gallery',
+      'Grows into your RSVP, stream, and Memories',
     ],
     preview: [
       { context: 'Your page', glyph: '◷', caption: 'The first thing guests see.', aspect: '9/16' },
       { context: 'On scan', glyph: '⌗', caption: 'Where every QR and link lands.' },
-      { context: 'Over time', glyph: '◔', caption: 'Holds your RSVP, stream, and gallery.' },
+      { context: 'Over time', glyph: '◔', caption: 'Holds your RSVP, stream, and Memories.' },
     ],
   },
 
@@ -198,7 +198,7 @@ export const ADD_ON_DETAILS: Record<string, AddOnDetail> = {
     eyebrow: 'Papic',
     heroTitle: 'The moments you’ll miss, caught.',
     tagline:
-      'Your guests become the photographers — every candid shot and clip, in your gallery by morning.',
+      'Your guests become the photographers — every candid shot and clip, in your Memories by morning.',
     paragraphs: [
       'You’ll be too busy living your day to see half of it. Papic catches the rest.',
       'A few friends shoot freely all night, and every guest goes home with the photos they’re in.',
@@ -218,7 +218,7 @@ export const ADD_ON_DETAILS: Record<string, AddOnDetail> = {
     preview: [
       { context: 'They shoot', glyph: '◉', caption: 'Friends capture the night, freely.', aspect: '9/16' },
       { context: 'Tagged', glyph: '⌗', caption: 'A quick QR scan tags the right people.', aspect: '9/16' },
-      { context: 'By morning', glyph: '▦', caption: 'It’s all waiting in your gallery.' },
+      { context: 'By morning', glyph: '▦', caption: 'It’s all waiting in your Memories.' },
     ],
     demo: [
       {
@@ -227,7 +227,7 @@ export const ADD_ON_DETAILS: Record<string, AddOnDetail> = {
         accent: '#2a2118',
       },
       {
-        caption: 'Every shot lands in your gallery, instantly.',
+        caption: 'Every shot lands in your Memories, instantly.',
         hint: 'You never lift a finger — it just fills up.',
         accent: '#1f2622',
       },
@@ -248,7 +248,7 @@ export const ADD_ON_DETAILS: Record<string, AddOnDetail> = {
     eyebrow: 'Photo Delivery',
     heroTitle: 'Every photo, in your hands.',
     tagline:
-      'Your photographer’s full-resolution gallery, delivered to your Drive — and shared with the guests who were there.',
+      'Your photographer’s full-resolution photos, delivered to your Drive — and shared with the guests who were there.',
     paragraphs: [
       'After the day, you want everything — not compressed previews.',
       'Connect your Drive, your photographer hands off the originals, and your guests get the photos they’re in. No chasing.',
@@ -277,7 +277,7 @@ export const ADD_ON_DETAILS: Record<string, AddOnDetail> = {
     ],
     highlights: [
       'Vertical reels, made for stories',
-      'A gallery of styles to choose from',
+      'A range of styles to choose from',
       'Ready to post in minutes',
       'Set to music you’re cleared to use',
     ],

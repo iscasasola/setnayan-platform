@@ -197,7 +197,7 @@ function labPapicCard(eventId: string, phase: string | undefined, failed: boolea
 export default async function HomeLab({
   searchParams,
 }: {
-  searchParams: Promise<{ bought?: string; v11?: string; proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string; shell?: string; paid?: string; order?: string; spot?: string; face?: string; before?: string; type?: string; phase?: string; for?: string; one?: string; card?: string; cardphase?: string; open?: string }>;
+  searchParams: Promise<{ bought?: string; v11?: string; proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string; shell?: string; paid?: string; order?: string; spot?: string; face?: string; before?: string; type?: string; phase?: string; for?: string; one?: string; card?: string; cardphase?: string; open?: string; need?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
@@ -307,7 +307,7 @@ export default async function HomeLab({
     return (
       <div className="min-h-screen bg-cream px-4 pb-28 pt-3">
         <div className="mx-auto flex max-w-xl flex-col gap-6">
-          <p className="sn-eye text-ink/70">Gallery · before the day</p>
+          <p className="sn-eye text-ink/70">Memories · before the day</p>
           {early ? (
             <YourShotsGallery
               shots={{ shots: Array.from({ length: n }, (_, i) => ({ id: `lab-${i}`, url: '/portraits/' + LAB_PHOTOS[i % LAB_PHOTOS.length]!, capturedAt: null })), total: n }}
@@ -317,7 +317,7 @@ export default async function HomeLab({
               cameraHref="/papic/guest?from=lab"
             />
           ) : (
-            <p className="text-sm text-ink/60">(Early shooting off — the bar keeps its four; there is no Gallery before the day.)</p>
+            <p className="text-sm text-ink/60">(Early shooting off — the bar keeps its four; there are no Memories before the day.)</p>
           )}
         </div>
         <SiteMenuBar slots={bar} />

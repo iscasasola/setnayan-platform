@@ -421,8 +421,8 @@ test('the chapters line is on the page, because it is true', () => {
 
   assert.match(
     src,
-    /reads in chapters/i,
-    'The "A gallery that reads in chapters" line has left the page. It is TRUE — ' +
+    /reads? in chapters/i,
+    'The "Memories that read in chapters" line has left the page. It is TRUE — ' +
       'lib/papic-chapters.ts ships and groups one gallery by distance from the day, read by ' +
       'pool-grid.tsx and papic/me/[token]/page.tsx. Do not delete it because this file warns ' +
       'that "the year" is unbuilt: those are two different things wearing the same word. ' +

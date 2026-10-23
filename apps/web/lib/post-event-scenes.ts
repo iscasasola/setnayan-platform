@@ -275,7 +275,7 @@ const FIXED: Record<string, Def> = {
   },
   gallery: {
     key: 'gallery', name: POST_EVENT_SCENE_NAMES.gallery!, template: 21, open: 'gallery', pin: null, block: 'gallery', switch: 'gallery',
-    fill: (s) => (s.galleryPhotos > 0 ? { count: s.galleryPhotos, source: `The gallery · ${plural(s.galleryPhotos, 'photo')}` } : { skip: 'No photos from the day yet' }),
+    fill: (s) => (s.galleryPhotos > 0 ? { count: s.galleryPhotos, source: `Memories · ${plural(s.galleryPhotos, 'photo')}` } : { skip: 'No photos from the day yet' }),
   },
   film: {
     /* 🎥 LIVE STREAM (owner 2026-09-26: "Live Studio = Live Stream") — the

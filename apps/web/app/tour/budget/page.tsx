@@ -176,7 +176,7 @@ export default async function TourBudgetPage() {
           href="/tour/gallery"
           className="inline-flex min-h-[48px] items-center justify-center gap-1.5 rounded-full bg-[#1B1A17] px-6 py-3 text-sm font-semibold text-[#FBFBFA] transition-opacity hover:opacity-90"
         >
-          Next: the gallery
+          Next: Memories
           <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
         </Link>
       </nav>

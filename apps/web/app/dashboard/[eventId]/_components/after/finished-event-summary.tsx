@@ -196,7 +196,7 @@ export function FinishedEventSummary({ eventId, noun, dateLabel, slug, summary, 
           </Card>
         )}
 
-        <Card href={`${base}/galleries`} Icon={Images} title="Galleries" cta="Open the photos" tour="post-photos">
+        <Card href={`${base}/galleries`} Icon={Images} title="Memories" cta="Open the photos" tour="post-photos">
           <Figure value={summary.photos} unit="photo" />
           <span className="mt-0.5 block text-[12.5px] text-ink/55">
             {summary.photos === 0

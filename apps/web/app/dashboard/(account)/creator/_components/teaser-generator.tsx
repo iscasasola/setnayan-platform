@@ -189,7 +189,7 @@ export function TeaserGenerator({
           Owned-music teaser
         </h3>
         <p className="text-[11px] text-ink/55">
-          A short Setnayan-hosted clip from this chapter’s Papic gallery, set to a
+          A short Setnayan-hosted clip from this chapter’s Papic Memories, set to a
           Setnayan-owned track — the “made with Setnayan” hook you share. Renders
           in your browser; keep this tab open. Your full edit stays embedded on
           your own platform.

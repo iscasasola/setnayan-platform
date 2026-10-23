@@ -236,10 +236,10 @@ export function buildSharedFiles(input: {
     rows.push({
       key: `handover:${h.handover_id}`,
       kind: h.kind === 'gallery_link' ? 'gallery_link' : 'handover',
-      name: h.label ?? (h.kind === 'gallery_link' ? 'Gallery link' : 'Sample / proof'),
+      name: h.label ?? (h.kind === 'gallery_link' ? 'Album link' : 'Sample / proof'),
       origin: 'You shared',
       sizeLabel: null,
-      typeLabel: h.kind === 'gallery_link' ? 'Gallery link' : null,
+      typeLabel: h.kind === 'gallery_link' ? 'Album link' : null,
       at: h.delivered_at,
       href: h.payload,
       isImage: false,

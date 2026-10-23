@@ -31,5 +31,8 @@ recorded a removal that never happened.
 Guards: `lib/own-shop-preview.test.ts` (every column combination), `app/v/[slug]/the-team-sees-its-own-page.test.ts`
 (the renderer asks the rule and nothing else; banner rendered), `lib/sign-in-back-here.test.ts`.
 
+Root map: `screens.generated.json` regenerated (`ugat:screens`); the new `/dev/shop-preview-lab` is recorded in
+`lib/ugat/baselines/no-door.baseline.txt` like every other `/dev/*` lab (internal, reached by typing its address).
+
 SPEC IMPACT: None — implements the existing owner self-preview intent (PR-B) for hidden and demo shops and helpers;
 no ruling changed. Whether SetnaProd should stop being a demo shop is the owner's call (DECISION_LOG 2026-09-29).

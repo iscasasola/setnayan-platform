@@ -80,6 +80,9 @@ server `r2Upload`). The SEAT camera already PUTs direct to R2 via `/api/upload` 
 - Sabotage this round (all red → restored green): sweep deletes a referenced final · sweep forgets a refused staging
   delete · put-away added to the drop set · the guest other_event check disabled · the tag stops binding the event ·
   Drive release loses its clean filter
+- Checks this round: full tsc 0 · full preflight 49/51 (T23 fixed; hub-look-is-pro = worktree path) · db 17/17 ·
+  merged origin/main (exposure baseline + screens map regenerated) → quick preflight 46 ✓ · full tsc 0 · db 27/27 ·
+  Chromium re-walk guest + supplier PASS · 375 shots r2-chromium-375-kept/blocked
 - ⚠ Not changed, said plainly: the PAPARAZZI SEAT camera (papic-seat-capture + lib/offline/service-handlers/papic-drain.ts)
   is not on this uploader and still treats put-away as terminal — B1 covers the save-first guest + supplier cameras.
 

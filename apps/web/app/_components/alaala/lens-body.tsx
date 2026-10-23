@@ -116,7 +116,7 @@ function PeopleDoor() {
 /** A read failed. Never print "nothing here" over a refused query. */
 function Unreadable() {
   return (
-    <p className="flex items-start gap-2 rounded-xl border border-dashed border-ink/20 bg-white/50 px-3 py-3 text-xs text-ink/60">
+    <p className="flex items-start gap-2 rounded-xl border border-dashed border-ink/20 bg-white/50 dark:bg-raised px-3 py-3 text-xs text-ink/60">
       <AlertTriangle
         aria-hidden
         className="mt-px h-4 w-4 shrink-0 text-[color:var(--sn-warning)]"
@@ -130,7 +130,7 @@ function Unreadable() {
 
 function Nothing({ children }: { children: React.ReactNode }) {
   return (
-    <div className="rounded-xl border border-dashed border-ink/20 bg-white/50 px-4 py-6 text-center">
+    <div className="rounded-xl border border-dashed border-ink/20 bg-white/50 dark:bg-raised px-4 py-6 text-center">
       <Camera aria-hidden className="mx-auto h-6 w-6 text-ink/25" strokeWidth={1.5} />
       <p className="mx-auto mt-2 max-w-sm text-xs leading-relaxed text-ink/55">
         {children}
@@ -153,7 +153,7 @@ export function AlaalaLensBody({
     if (!wall.facesMeasured) {
       return (
         <div className="space-y-2.5">
-          <p className="rounded-xl border border-dashed border-ink/20 bg-white/50 px-4 py-4 text-xs leading-relaxed text-ink/55">
+          <p className="rounded-xl border border-dashed border-ink/20 bg-white/50 dark:bg-raised px-4 py-4 text-xs leading-relaxed text-ink/55">
             Family, godparents and friends — suggested from your events,
             confirmed by both sides.
           </p>

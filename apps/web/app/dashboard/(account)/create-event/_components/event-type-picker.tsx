@@ -387,7 +387,7 @@ export function EventTypePicker({
               start a new one.
             </p>
             <Link
-              className="mt-3 inline-flex items-center justify-center rounded-lg bg-mulberry px-4 py-2 text-xs font-medium text-white transition-colors hover:bg-mulberry/90"
+              className="mt-3 inline-flex items-center justify-center rounded-lg bg-mulberry px-4 py-2 text-xs font-medium text-white dark:text-cream transition-colors hover:bg-mulberry/90"
               href={`/dashboard/${inPlanningWedding.eventId}/details`}
             >
               Go to {inPlanningWedding.displayName}

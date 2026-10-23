@@ -171,7 +171,9 @@ function PhotoTile({
           (2026-09-30, 390/1280, page + panel) every shipped photo at ≥4.2:1
           under the name and ≥5.3:1 under the tagline, both at the BRIGHTEST
           5% of pixels, while the top of the photo stays clear. */}
-      <div className="absolute inset-0 bg-gradient-to-t from-ink/90 via-ink/60 via-60% to-transparent" />
+      {/* 🌗 A scrim over a PHOTO stays dark in both themes — `ink` turns near-white in dark, which washed every
+          photo out and put white words on it (dark B2). */}
+      <div className="absolute inset-0 bg-gradient-to-t from-ink/90 via-ink/60 via-60% to-transparent dark:from-[rgb(23_22_15/0.9)] dark:via-[rgb(23_22_15/0.6)]" />
       <div className="absolute inset-x-0 bottom-0 p-4">
         {/* Size = 14% of the card's width, between 18px and 30px: the widest
             one-word names (Anniversary, Tournament) fit the card's inner width at

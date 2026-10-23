@@ -187,7 +187,7 @@ export async function PhotosTab({
       {/* Facebook helper card — Recent only. On a narrowed lens the albums are
           the answer; a sharing utility on top of them is noise. */}
       {lens === 'recent' ? (
-        <div className="rounded-2xl border border-ink/10 bg-white p-4 shadow-sm sm:p-5">
+        <div className="rounded-2xl border border-ink/10 bg-white dark:bg-raised p-4 shadow-sm sm:p-5">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="flex min-w-0 items-start gap-3">
               <span className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#1877F2]/10 text-[#1877F2]">
@@ -295,7 +295,7 @@ function AlbumCard({ album }: { album: Album }) {
   );
 
   return (
-    <article className="flex flex-col overflow-hidden rounded-2xl border border-ink/10 bg-white shadow-sm">
+    <article className="flex flex-col overflow-hidden rounded-2xl border border-ink/10 bg-white dark:bg-raised shadow-sm">
       {/* Thumbnail strip — linked only when this person has somewhere to go. */}
       {href ? (
         <Link href={href} className="block">

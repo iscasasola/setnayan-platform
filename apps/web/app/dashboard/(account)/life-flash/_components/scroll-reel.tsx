@@ -89,7 +89,7 @@ export function ScrollReel({ moments }: { moments: ReelMoment[] }) {
         {ordered.map((m) => (
           <article
             key={m.id}
-            className="relative flex flex-col overflow-hidden rounded-2xl border border-ink/10 bg-white shadow-sm"
+            className="relative flex flex-col overflow-hidden rounded-2xl border border-ink/10 bg-white dark:bg-raised shadow-sm"
           >
             <div className="relative aspect-[4/3] overflow-hidden bg-ink/5">
               {m.url && m.type === 'clip' ? (

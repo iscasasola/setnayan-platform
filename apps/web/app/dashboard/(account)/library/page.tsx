@@ -182,7 +182,7 @@ export default async function AlaalaPage({
         ) : null}
         {active === 'albums' ? (
           <div className="space-y-4">
-            <p className="rounded-2xl border border-ink/10 bg-white/60 p-4 text-sm text-ink/60">
+            <p className="rounded-2xl border border-ink/10 bg-white/60 dark:bg-raised p-4 text-sm text-ink/60">
               One card per event — this is where a whole event downloads at
               once. Your memories themselves live in the lenses above.
             </p>
@@ -192,7 +192,7 @@ export default async function AlaalaPage({
         {active === 'editorials' ? <EditorialsTab userId={user.id} /> : null}
         {active === 'vendors' ? (
           <div className="space-y-4">
-            <p className="rounded-2xl border border-ink/10 bg-white/60 p-4 text-sm text-ink/60">
+            <p className="rounded-2xl border border-ink/10 bg-white/60 dark:bg-raised p-4 text-sm text-ink/60">
               A shortlist isn&rsquo;t a memory — these live in{' '}
               <Link href="/dashboard" className="font-semibold text-ink underline decoration-ink/25 underline-offset-2 hover:decoration-ink">
                 Spaces on your home

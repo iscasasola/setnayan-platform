@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "54776f80ef",
-  "routeCount": 463,
-  "destinations": 1005,
+  "generatedFromRef": "b6a3242822",
+  "routeCount": 464,
+  "destinations": 1006,
   "actions": 662,
-  "blocks": 6885,
+  "blocks": 6894,
   "routes": {
     "/": {
       "files": [
@@ -4507,7 +4507,11 @@
       "destinations": [],
       "actions": [],
       "blocks": [
-        "AdminInviteResult"
+        "ActionButton",
+        "AdminInviteResult",
+        "InviteResult",
+        "PickMenu",
+        "Sec"
       ]
     },
     "/admin/vendors/[vendorProfileId]": {
@@ -11180,6 +11184,19 @@
         "TreeStandIn"
       ]
     },
+    "/dev/personal-invite-lab": {
+      "files": [
+        "dev/personal-invite-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "ActionButton",
+        "InviteResult",
+        "InviteVendorForm",
+        "TeamInviteDoor"
+      ]
+    },
     "/dev/pro-parts-lab": {
       "files": [
         "dev/pro-parts-lab/lab-client.tsx",
@@ -14975,6 +14992,7 @@
         "vendor-dashboard/subscription/photo-challenge-actions.ts"
       ],
       "destinations": [
+        "/vendor-dashboard/collections",
         "/vendor-dashboard/deep-search",
         "/vendor-dashboard/on-the-day",
         "/vendor-dashboard/profile",
@@ -15196,6 +15214,7 @@
         "Link",
         "Perk",
         "SnapshotField",
+        "TeamInviteDoor",
         "TerminalCard"
       ]
     },

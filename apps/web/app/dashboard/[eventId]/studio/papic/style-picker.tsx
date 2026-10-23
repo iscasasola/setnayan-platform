@@ -31,9 +31,12 @@ const SWATCH_BG =
 export default function StylePicker({
   eventId,
   current,
+  returnTo = null,
 }: {
   eventId: string;
   current: string;
+  /** 🏠 'home' when drawn in Home's Papic card — the save lands back on Home (`return_to`). */
+  returnTo?: 'home' | null;
 }) {
   const active: PapicStyle = asPapicStyle(current);
 
@@ -45,6 +48,7 @@ export default function StylePicker({
           <form key={s.id} action={setPapicStyle}>
             <input type="hidden" name="event_id" value={eventId} />
             <input type="hidden" name="style" value={s.id} />
+            {returnTo ? <input type="hidden" name="return_to" value={returnTo} /> : null}
             <button
               type="submit"
               aria-pressed={isActive}

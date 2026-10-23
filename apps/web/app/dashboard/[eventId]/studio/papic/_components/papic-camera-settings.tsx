@@ -103,6 +103,7 @@ export async function PapicCameraSettings({
           <div className="divide-y divide-ink/10" data-papic-dates="">
             <SettingRow icon={<Clock aria-hidden className="h-4 w-4" strokeWidth={1.75} />} label="Dates" value={windowWords} sheetTitle="Change dates">
               <PapicWindowPicker
+                returnTo={seat === 'home' ? 'home' : null}
                 eventId={eventId}
                 eventType={(ev.event_type as string | null) ?? null}
                 eventDate={(ev.event_date as string | null) ?? null}
@@ -143,12 +144,12 @@ export async function PapicCameraSettings({
             One look for your whole event. Every photo your guests and suppliers capture gets it on the camera, so your
             Memories feel like one set. Guests cannot change it.
           </InfoTip>
-          <StylePicker eventId={eventId} current={((ev.papic_style as string | null) ?? 'ORIG') as string} />
+          <StylePicker returnTo={seat === 'home' ? 'home' : null} eventId={eventId} current={((ev.papic_style as string | null) ?? 'ORIG') as string} />
         </div>
         <div className="divide-y divide-ink/10">
           <GuestCamerasChoice eventId={eventId} variant="row" />
           {seat === 'page' ? <GuestAllotmentsChoice eventId={eventId} variant="row" /> : null}
-          <FaceTaggingChoice eventId={eventId} variant="row" />
+          <FaceTaggingChoice eventId={eventId} variant="row" returnTo={seat === 'home' ? 'home' : null} />
           {seat === 'page' ? <FaceBlockingList eventId={eventId} /> : null}
           {seat === 'home' ? (
             <Link

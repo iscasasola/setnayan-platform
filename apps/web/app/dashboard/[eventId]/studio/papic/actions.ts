@@ -781,6 +781,10 @@ export async function setPapicStyle(formData: FormData) {
   }
 
   revalidatePath(`/dashboard/${eventId}/studio/papic`);
+  if (savedFromHome(formData)) {
+    revalidatePath(`/dashboard/${eventId}`);
+    redirect(`/dashboard/${eventId}`);
+  }
   redirect(`/dashboard/${eventId}/studio/papic?style_set=${style}`);
 }
 
@@ -1145,9 +1149,23 @@ export async function setPapicWindow(formData: FormData) {
   }
 
   revalidatePath(`/dashboard/${eventId}/studio/papic`);
+  // 🏠 Saved from Home's Papic card: land back on Home, the card still open (a failure still lands on the Papic
+  // page above, where its banner is read).
+  if (savedFromHome(formData)) {
+    revalidatePath(`/dashboard/${eventId}`);
+    redirect(`/dashboard/${eventId}`);
+  }
   redirect(
     `/dashboard/${eventId}/studio/papic?papic_window_saved=${win.days}`,
   );
+}
+
+/**
+ * 🏠 Was this saved from Home's Papic card (owner 2026-10-23: the card *"expands on home"*, the URL unchanged)?
+ * 🔒 A fixed word (`return_to=home`) picks a fixed path — never a URL from the form.
+ */
+function savedFromHome(formData: FormData): boolean {
+  return formData.get('return_to') === 'home';
 }
 
 // ── Papic ONE IS RETIRED AS A PURCHASE (owner 2026-08-11) ─────────────────

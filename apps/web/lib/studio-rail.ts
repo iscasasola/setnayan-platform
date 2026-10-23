@@ -18,16 +18,6 @@ import { STUDIO_APPS } from './studio-apps';
 import type { RailTool } from '@/app/_components/frontdoor/front-door-shell';
 
 /**
- * The signed-out rail: every product, its own line, and a demo where one
- * exists.
- *
- * ⚠ `demo` IS A MARKER, NOT AN OPENER (owner 2026-08-15: *"we still want a
- * feature description instead of directly just going to the demo"*). The row
- * navigates to the product's page; the demo button lives there. So there is no
- * host to gate on and no flag: the marker simply says which products are
- * try-able, and `studio-apps.test.ts` pins it to a page that really offers one.
- */
-/**
  * The rows that belong to one rail GROUP. Absent `railGroup` means `studio`,
  * so every product that predates the 2026-09-06 split keeps its place without
  * being touched — see `StudioApp.railGroup` for why the split is by kind and
@@ -35,17 +25,6 @@ import type { RailTool } from '@/app/_components/frontdoor/front-door-shell';
  */
 function inGroup(group: 'studio' | 'planner' | 'together') {
   return (a: (typeof STUDIO_APPS)[number]) => (a.railGroup ?? 'studio') === group;
-}
-
-export function railToolsSignedOut(): ReadonlyArray<RailTool> {
-  return STUDIO_APPS.filter(inGroup('studio')).map((a) => ({
-    key: a.key,
-    href: a.href,
-    name: a.name,
-    line: a.railLine,
-    icon: a.railIcon,
-    demo: a.demo?.id,
-  }));
 }
 
 /**
@@ -109,7 +88,7 @@ export function railToolsSignedIn(
       event's own rail carries Guests, Marketplace→/vendors and Seat plan, and
       the shell adds its Marketplace destination row, which is gated on exactly
       this condition. Keeping the Studio copies would hand the same place two
-      names in one sidebar, which `lib/free-tools-rail.ts` records this repo
+      names in one sidebar, which the retired `lib/free-tools-rail.ts` recorded this repo
       having shipped once already and had to undo.
 
       🔑 GATED ON THE EVENT, NOT ON BEING SIGNED IN. With no event open none of
@@ -176,71 +155,4 @@ export function railToolsSignedIn(
     ...rows,
     { key: '__all__', href: studioHubHref(eventId), name: STUDIO_HUB_ALL_LABEL, line: null, icon: 'suite' },
   ];
-}
-
-/**
- * ⚠ KEPT AS THE PUBLIC SHAPE THE DOORWAY GUARD READS. `doorway-invariants`
- * asserts the seven hrefs; deriving it from the one source means a product can
- * never be renamed in the rail without its page moving too.
- */
-export const RAIL_TOOLS: ReadonlyArray<RailTool> = railToolsSignedOut();
-
-/**
- * THE PLANNER GROUP'S DOORWAY ROWS — the five free planning tools, moved out of
- * Studio on 2026-09-06 (owner: split by kind, not price — see
- * `StudioApp.railGroup`).
- *
- * 🔑 THEY RENDER ONLY OUTSIDE AN EVENT, AND THAT IS THE WHOLE POINT OF THEM.
- * Every one is `doorwayOnly`: inside an event the event's own rail already
- * carries Marketplace, Guests, Seat plan, Budget and Schedule, so this returns
- * an empty list there and the group disappears rather than doubling them. The
- * shell already renders nothing for an empty array.
- *
- * ⚠ SO THIS IS NOT THE SAME LIST AS `plannerRailItems` IN `free-tools-rail.ts`.
- * That one is the IN-EVENT Planner and is gated the opposite way. Two lists,
- * two states, one group name — which is why each says so in its own docblock.
- */
-export function plannerDoorwayRows(insideEvent: boolean): ReadonlyArray<RailTool> {
-  if (insideEvent) return [];
-  return STUDIO_APPS.filter(inGroup('planner')).map((a) => ({
-    key: a.key,
-    href: a.href,
-    name: a.name,
-    line: a.railLine,
-    icon: a.railIcon,
-  }));
-}
-
-/**
- * THE TOGETHER GROUP'S DOORWAY ROWS — Samahan (2026-09-06).
- *
- * 🔑 NOT gated on the event, because Samahan is ACCOUNT-LEVEL: it is keyed on
- * the person, never nested under an `[eventId]`, so it is as true inside a
- * wedding as outside one. It is gated on being SIGNED OUT instead, and that
- * distinction was not free — see below.
- *
- * 🔴 SIGNED IN, THIS WOULD HAVE DOUBLED A ROW WITH THE SAME NAME. Caught on the
- * live front door before this shipped: `togetherRailItems` already contributes
- * **"Samahan groups"** → `/dashboard/samahan` for a signed-in person, and this
- * doorway row is also called **"Samahan groups"** → `/samahan`. Byte-identical
- * label, two destinations, in one group — the "same destination, two names"
- * defect run backwards, and the exact shape the owner had just ruled out for
- * the Marketplace (*"do not double the marketplace"*).
- *
- * 🔑 SO THE RULE IS THE SAME RULE, ONLY ITS CONDITION DIFFERS. A Planner
- * doorway leaves when an EVENT opens, because the event rail then carries it.
- * This one leaves when a SESSION opens, because `togetherRailItems` then
- * carries it — and that list is unconditional, so a signed-in person always has
- * the real row whether or not they belong to a samahan yet (`/dashboard/samahan`
- * is where they make one).
- */
-export function togetherDoorwayRows(signedIn: boolean): ReadonlyArray<RailTool> {
-  if (signedIn) return [];
-  return STUDIO_APPS.filter(inGroup('together')).map((a) => ({
-    key: a.key,
-    href: a.href,
-    name: a.name,
-    line: a.railLine,
-    icon: a.railIcon,
-  }));
 }

@@ -47,7 +47,9 @@ test('the surface honours it: consent, every tile, and the pack purchase', () =>
   assert.equal(tiles.length, mounts.length, `${mounts.length} tiles mounted, ${tiles.length} told who may render`);
   assert.match(SURFACE, /\{coupleOnly \? null : !state\.generated \?/, 'a coupleOnly tile still shows its render controls');
   assert.match(SURFACE, /state\.briefOpen && !state\.locked && !coupleOnly/, 'a coupleOnly tile can still open the Generate brief');
-  assert.match(SURFACE, /\{packPlan && mayStartRenders \?/, 'a non-couple member is offered a pack they could never spend');
+  // Both doors to the pack — the web's plan sheet and, in the iPhone app where Apple sells it (2026-10-23), Apple's.
+  assert.match(SURFACE, /\) : packPlan && mayStartRenders \?/, 'a non-couple member is offered a pack they could never spend');
+  assert.match(SURFACE, /\{apple \? \(\s*mayStartRenders && !configUnavailable && appleOnSale \?/, 'a non-couple member is offered Apple’s pack');
   assert.match(SURFACE, /Only the couple can start a render or choose to share one\./);
 });
 

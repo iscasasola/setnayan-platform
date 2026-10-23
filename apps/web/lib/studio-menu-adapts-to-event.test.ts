@@ -22,13 +22,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import {
-  railToolsSignedIn,
-  railToolsSignedOut,
-  plannerDoorwayRows,
-  togetherDoorwayRows,
-} from './studio-rail';
-import { togetherRailItems } from './free-tools-rail';
+import { railToolsSignedIn } from './studio-rail';
+import { FEATURE_SLUGS } from './feature-pages/types';
 import { STUDIO_APPS } from './studio-apps';
 import { ADD_ONS, type AddOnEntry } from './add-ons-catalog';
 import { addOnOfferedForEvent } from './add-on-event-scope';
@@ -191,93 +186,26 @@ test('row counts match the ruling: wedding 10 · ceremonial 9 · simple_event 8 
   }
 });
 
-test('the planning doorways are still there when NO event is open — in Planner', () => {
+test('with NO event open the planning tools are on /features, and never Studio rows', () => {
   /*
-    The other half of the ruling, and the one a count test cannot see: they
-    disappear INSIDE an event, they are not deleted. With no event open the
-    shell renders no Marketplace destination row (it is gated on being inside
-    an event) and there is no event rail at all — so these rows are the ONLY
-    door to the pages that explain the tools.
-
-    🔄 THEY LIVE IN PLANNER SINCE 2026-09-06, not Studio. The owner split the
-    rail by KIND rather than price, so this test moved with them — it asks
-    `plannerDoorwayRows` now, and asserts they are NOT in the Studio list, which
-    is the half that would otherwise regress silently.
+    🔄 2026-10-23: the Planner doorway rows left the rail with the other tool
+    lists (owner 2026-10-01 — one Features row). With no event open, the door to
+    the pages that explain the five planning tools is /features; inside an
+    event they are the event menu's own rows. They are still not Studio rows.
   */
-  const planner = plannerDoorwayRows(false).map((r) => r.key);
-  const studioOut = railToolsSignedOut().map((r) => r.key);
   const studioIn = railToolsSignedIn({ eventId: null, count: 0, profile: null }).map((r) => r.key);
-
+  const features = new Set<string>(FEATURE_SLUGS);
   for (const key of ['marketplace', 'guest-list', 'seat-plan', 'budget', 'schedule'] as const) {
-    assert.ok(planner.includes(key), `"${key}" vanished from the Planner group with no event open`);
-    assert.ok(!studioOut.includes(key), `"${key}" is still a Studio row signed out — it moved to Planner`);
-    assert.ok(!studioIn.includes(key), `"${key}" is still a Studio row signed in — it moved to Planner`);
+    assert.ok(features.has(key), `"${key}" left the rail and is not on /features either`);
+    assert.ok(!studioIn.includes(key), `"${key}" is a Studio row signed in — it is a planning tool`);
   }
-
-  // …and inside an event Planner is empty, because the event's own rail carries
-  // all five. This is the assertion that keeps the group from doubling them.
-  assert.deepEqual(
-    plannerDoorwayRows(true),
-    [],
-    'the Planner doorways rendered inside an event — the event rail already ' +
-      'carries Marketplace, Guests, Seat plan, Budget and Schedule',
-  );
 });
 
-test('Samahan is a Together row, everywhere, and never a Studio one', () => {
-  /*
-    Owner 2026-09-06: *"we also want to feature our samahan/groups"*. It is
-    ACCOUNT-LEVEL — keyed on the person, never nested under an `[eventId]` —
-    so unlike the Planner rows it is not `doorwayOnly` and does not vanish
-    inside an event. Nothing else carries it, so there is nothing to double.
-  */
-  const together = togetherDoorwayRows(false).map((r) => r.key);
-  assert.ok(together.includes('samahan'), 'Samahan is missing from the Together group');
-  assert.ok(
-    !railToolsSignedOut().some((r) => r.key === 'samahan'),
-    'Samahan is a Studio row — it belongs in Together ("things you do with people")',
-  );
+test('Samahan (Groups) is on /features and never an in-event Studio row', () => {
+  assert.ok(new Set<string>(FEATURE_SLUGS).has('groups'), 'Groups is not on /features');
   for (const profile of [WEDDING, DATE]) {
-    assert.ok(
-      !sidebarKeys(profile).includes('samahan'),
-      'Samahan appeared in the in-event Studio rows',
-    );
+    assert.ok(!sidebarKeys(profile).includes('samahan'), 'Samahan appeared in the in-event Studio rows');
   }
-});
-
-test('the Samahan doorway stands aside for a signed-in person — one row, not two', () => {
-  /*
-    🔴 THE DEFECT THIS PINS WAS REAL AND WAS SPOTTED ON THE LIVE FRONT DOOR
-    before it shipped. `togetherRailItems` gives a signed-in person a row named
-    **"Samahan groups"** → `/dashboard/samahan`. The doorway row is named
-    **"Samahan groups"** too → `/samahan`. Rendered together they put the
-    identical label in one group twice, pointing at two different places — the
-    "same destination, two names" defect the owner had just ruled out for the
-    Marketplace, arriving from the opposite direction.
-
-    The gate is the SESSION rather than the event, because that is what decides
-    which list carries the row. `togetherRailItems` is unconditional for a
-    signed-in person, so the doorway is never the only door once they are in.
-  */
-  assert.deepEqual(
-    togetherDoorwayRows(true),
-    [],
-    'the Samahan doorway rendered for a signed-in person, whose own Samahan ' +
-      'rows already carry that name',
-  );
-
-  // …and the two labels really are the same string, which is WHY this matters.
-  // If either is renamed the collision may be gone, but this assertion should
-  // be re-reasoned rather than deleted.
-  const doorway = togetherDoorwayRows(false).find((r) => r.key === 'samahan');
-  const own = togetherRailItems(null).find((r) => r.key === 'together-samahan');
-  assert.ok(doorway && own, 'one of the two Samahan rows disappeared');
-  assert.equal(
-    doorway!.name,
-    own!.name,
-    'the doorway and the account row no longer share a name — re-check whether ' +
-      'the signed-in gate above is still the right rule',
-  );
 });
 
 test('Logo Maker is wedding-only; 3D Plan, Live Studio and Pakanta each ride their own surface', () => {

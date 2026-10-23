@@ -60,12 +60,8 @@ export type StudioApp = {
    * because rewording it would have quietly rewritten seven live search results.
    */
   description: string;
-  /**
-   * The rail's one line. A faithful compression of `description` — same claim,
-   * fewer words. Never a NEW claim: if these two ever say different things
-   * about what a product does, this file has failed at its only job.
-   */
-  railLine: string;
+  // `railLine` (the signed-out rail's one line per product) left with the rail's
+  // tool lists, 2026-10-23 — owner 2026-10-01: /features says what each one does.
   /**
    * The product's live demo, when one EXISTS — read by BOTH the rail's "try it"
    * marker and the demo button on the product's own page.
@@ -136,7 +132,7 @@ export type StudioApp = {
    * event the person is handed these same three destinations twice:
    *   · the event's own rail (`EventRailContext` via `customer-nav-config.ts`)
    *     carries **Guests · Marketplace→`/vendors` · Seat plan** — read
-   *     `lib/free-tools-rail.ts`, which trimmed its own brief for exactly this
+   *     the retired `lib/free-tools-rail.ts`, which trimmed its own brief for exactly this
    *     reason and calls a second copy *"the exact 'same destination, two
    *     names' defect … the Studio/Suite rail once shipped precisely this
    *     duplicate and had to be corrected."*
@@ -218,8 +214,6 @@ export const STUDIO_APPS: readonly StudioApp[] = [
     href: '/setnayan-ai',
     description:
       'Every other wedding AI waits for you to ask. Setnayan AI watches the suppliers you’re eyeing and the ones you’ve booked — finding your best-fit Filipino suppliers, then flagging a payment due, a price that moved, or a date about to clash before it costs you. It doesn’t chat. It watches.',
-    railLine:
-      'Watches your suppliers and flags a payment, a price change or a clash before it costs you.',
     addOnKey: 'setnayan-ai',
   },
   {
@@ -235,7 +229,6 @@ export const STUDIO_APPS: readonly StudioApp[] = [
     href: '/pawebsite',
     description:
       'Your Event Hub is one beautiful home for your whole event — your save-the-date, your RSVP, your event details, and your love story, told like a magazine feature. One address you share once, and everything your guests need is there.',
-    railLine: 'One link for your save-the-date, RSVP, details and love story.',
     addOnKey: 'landing-page',
     surface: 'website',
   },
@@ -246,7 +239,6 @@ export const STUDIO_APPS: readonly StudioApp[] = [
     href: '/papic',
     description:
       'Papic turns your guests into your photo crew. Everyone shoots, every photo finds the people in it, and each guest goes home with their own Memories — plus a personal video reel set to music. The candid wedding moments one photographer can’t be everywhere for, delivered to everyone. Philippines-first.',
-    railLine: 'Turns your guests into your photo crew.',
     demo: {
       id: 'papic-demo',
       label: 'Try it now with a friend',
@@ -261,7 +253,6 @@ export const STUDIO_APPS: readonly StudioApp[] = [
     href: '/panood',
     description:
       'Live Watch brings the people who can’t be in the room into your day — live. The lola overseas, the friends who couldn’t fly home, the family who couldn’t make it: they watch your wedding as it happens, right on your own Event Hub. Presence across distance, for everyone you love.',
-    railLine: 'Brings the people who can’t be in the room into your day — live.',
     demo: {
       id: 'panood-demo',
       label: 'Try the control room with two phones',
@@ -280,7 +271,6 @@ export const STUDIO_APPS: readonly StudioApp[] = [
     href: '/patiktok',
     description:
       'Patiktok turns your wedding moments into short, vertical highlight reels — set to music, ready to share, no editing required. The first dance, the entrance, the toast: the moments that travel, made the moment they happen.',
-    railLine: 'Turns your moments into short, vertical highlight reels.',
     addOnKey: 'patiktok',
   },
   {
@@ -290,7 +280,6 @@ export const STUDIO_APPS: readonly StudioApp[] = [
     href: '/pa3d',
     description:
       '3D Plan lets you stand in your reception before it’s built. See the room the way your guests will — the head table, the dance floor, every seat — and know it’s right while there’s still time to change it. The free seating plan gets you there, and 3D Plan — free as well — lets you walk it.',
-    railLine: 'Stand in your reception before it’s built.',
     demo: {
       id: 'plan3d-demo',
       label: 'Walk around a sample reception',
@@ -354,7 +343,6 @@ export const STUDIO_APPS: readonly StudioApp[] = [
     href: '/mood-board',
     description:
       'The Mood Board is where your wedding decides how it looks. Pick your palette, gather the rooms and details you love, and set the dress code for every role — then your save-the-date, your Event Hub, your monogram, your QR codes and your 3D Plan all dress to match, and your booked suppliers work from the same board. Free with every Setnayan account.',
-    railLine: 'Pick your colors once — every piece dresses to match.',
     addOnKey: 'mood-board',
   },
   {
@@ -385,8 +373,6 @@ export const STUDIO_APPS: readonly StudioApp[] = [
     href: '/pakanta',
     description:
       'Music Maker writes your wedding its own song — an original track composed from the love story you already told us, in the kind of music the two of you actually listen to. Yours to keep, cleared to share, and it becomes the music behind every video from your day, so the whole wedding sounds like you.',
-    railLine:
-      'An original song from your love story — and the music behind your videos.',
     addOnKey: 'pakanta',
     surface: 'song',
   },
@@ -428,7 +414,6 @@ export const STUDIO_APPS: readonly StudioApp[] = [
     href: '/marketplace',
     description:
       'Browse verified Filipino wedding suppliers — photographers, caterers, coordinators, florists, hair and makeup and more — free, with 0% commission on bookings. Save the ones you like and put any two side by side before you decide.',
-    railLine: 'Browse verified Filipino suppliers free, and compare two side by side.',
     eventHref: (eventId) => `/dashboard/${eventId}/vendors`,
     doorwayOnly: true,
     railGroup: 'planner',
@@ -440,7 +425,6 @@ export const STUDIO_APPS: readonly StudioApp[] = [
     href: '/guest-list',
     description:
       'Every guest is one row — RSVP, plus-one, meal preference, role and table, with a personal QR that updates your list the moment they answer. Free with every Setnayan account.',
-    railLine: 'Every guest, one row — RSVP, plus-one, role, table and QR.',
     eventHref: (eventId) => `/dashboard/${eventId}/guests`,
     doorwayOnly: true,
     railGroup: 'planner',
@@ -452,7 +436,6 @@ export const STUDIO_APPS: readonly StudioApp[] = [
     href: '/seat-plan',
     description:
       'Seat Plan is the free seating chart in every Setnayan wedding. Lay out your tables, drag every guest into a chair, keep the right people apart and the right groups together, then print the chart and hand it to your coordinator.',
-    railLine: 'Lay out your tables and seat every guest — free.',
     addOnKey: 'seating',
     surface: 'seating',
     eventHref: (eventId) => `/dashboard/${eventId}/seating`,
@@ -474,7 +457,6 @@ export const STUDIO_APPS: readonly StudioApp[] = [
     href: '/budget',
     description:
       'Set your total wedding budget in pesos, take a suggested split from typical Filipino wedding costs, and see what you have agreed, paid and still owe — only finalized bookings, never a quote. Free with every Setnayan account, beside your guest list, schedule, seat plan and mood board.',
-    railLine: 'Your budget in PHP: planned, agreed, paid and owed. Free.',
     eventHref: (eventId) => `/dashboard/${eventId}/budget`,
     doorwayOnly: true,
     railGroup: 'planner',
@@ -486,7 +468,6 @@ export const STUDIO_APPS: readonly StudioApp[] = [
     href: '/schedule',
     description:
       'Build your wedding-day timeline block by block — ceremony, cocktails, reception, dinner, dancing, send-off — each with a time, a place, notes and who is responsible. Public blocks show on every guest’s Event Hub with a live “happening now” as the day unfolds; booked suppliers see the blocks they carry.',
-    railLine: 'Your wedding day, block by block, live for guests and suppliers.',
     eventHref: (eventId) => `/dashboard/${eventId}/schedule`,
     doorwayOnly: true,
     railGroup: 'planner',
@@ -515,7 +496,6 @@ export const STUDIO_APPS: readonly StudioApp[] = [
     href: '/samahan',
     description:
       'Groups are the shared spaces in your Setnayan account for your barkada, parish, or clan — a shared name and photo, a group chat called Usapan, short video stories that are gone after 24 hours, and the reunions, outings and tournaments an organizer plans for everyone.',
-    railLine: 'Your barkada, ninongs, family — chat, stories, the next reunion.',
     railGroup: 'together',
   },
   {
@@ -525,7 +505,6 @@ export const STUDIO_APPS: readonly StudioApp[] = [
     href: '/palogo',
     description:
       'Logo Maker gives your wedding one mark of its own — your initials, drawn into a monogram that comes alive. It opens your save-the-date, signs your Event Hub, glows on the screen at the reception, and closes every video. One signature, carried beautifully across your whole day.',
-    railLine: 'One monogram of your own, carried across your whole day.',
     addOnKey: 'animated-monogram',
     surface: 'monogram',
     // ⚠ /palogo IS STILL A LIVE PAGE. The LED backdrop was removed from the

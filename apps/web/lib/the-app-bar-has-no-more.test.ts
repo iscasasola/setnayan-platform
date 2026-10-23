@@ -36,7 +36,6 @@ import { buildOurServices, ourServicesMenuChildren } from './our-services';
 import { buildCustomerMenuTree, buildEventMenuSections, eventMenuRows, type CustomerMenuCtx } from './customer-menu';
 import { STORE_SHELL_HIDDEN_ADDON_KEYS, isStoreShellWebOnlyPath } from './store-shell';
 import { studioHubHref } from './studio-hub';
-import { builderRailItems, plannerRailItems, togetherRailItems } from './free-tools-rail';
 import { railToolsSignedIn } from './studio-rail';
 import { WEDDING_PROFILE } from './event-type-profile';
 import { buildCustomerNavGroups } from '@/app/dashboard/[eventId]/_components/customer-nav-config';
@@ -89,9 +88,10 @@ function* shapes(storeShell: boolean): Generator<CustomerMenuCtx & { name: strin
 
 /** What the app's ☰ drawer (and iPad rail) links to inside an event. */
 function drawerHrefs(ctx: CustomerMenuCtx): Set<string> {
+  // Only the event's own menu: inside an event the rail is focused, and since
+  // 2026-10-23 the shell takes no Planner · Builder · Together lists at all.
   const rows = buildCustomerNavGroups(EVENT, ctx).flatMap((g) => g.items.map((i) => i.href));
-  const tools = [...plannerRailItems(EVENT), ...builderRailItems(EVENT), ...togetherRailItems(EVENT)].map((t) => t.href);
-  return new Set([...rows, ...tools].map(pathOf));
+  return new Set(rows.map(pathOf));
 }
 
 /* ══ 1 · the app builds no More, anywhere ════════════════════════════════ */

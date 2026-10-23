@@ -342,14 +342,14 @@ export function KwentoDecorator({
         setStatus('This event’s photos have run out — this one waits on your phone until the hosts add more.');
       } else if (e.type === 'kept') {
         // Nothing about their photo is wrong — and it stays on the phone.
-        setStatus(e.code === 'event_put_away' ? EVENT_PUT_AWAY_CAPTURE_COPY : 'Not sent yet — this photo stays on your phone.');
-      } else if (e.type === 'refused') {
         if (e.code === 'terms_required') {
-          setStatus('Please accept the photo terms on the camera page first.');
+          setStatus('Please accept the photo terms on the camera page first — this photo waits on your phone.');
           setTermsRequired(true);
         } else {
-          setStatus('Couldn’t save that photo — the event didn’t accept it.');
+          setStatus(e.code === 'event_put_away' ? EVENT_PUT_AWAY_CAPTURE_COPY : 'Not sent yet — this photo stays on your phone.');
         }
+      } else if (e.type === 'refused') {
+        setStatus('Couldn’t save that photo — the event didn’t accept it.');
       }
     });
   }, []);

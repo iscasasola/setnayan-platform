@@ -35,7 +35,7 @@ import {
 } from '@/lib/papic-upload-intents.server';
 import { isCaptureTier, refHoldsTier, tiersFor, type CaptureTier } from '@/lib/papic-upload/tiers';
 import { judgedShotInstant } from '@/lib/papic-upload/shot-time';
-import { webCopyPlayable } from '@/lib/papic-upload/mp4';
+import { recordedClipNeedsRaw, webCopyPlayable } from '@/lib/papic-upload/mp4';
 import { ownerTagMatches } from '@/lib/papic-upload/owner-tag.server';
 import { maybeRunPapicUploadSweep } from '@/lib/papic-upload-sweep';
 
@@ -293,10 +293,7 @@ async function handleSign(
       if (refHoldsTier(prior.r2_object_key, tier)) return json({ status: 'ok', already: true });
       // A clip whose web copy is not a verified playable MP4 always wants its raw
       // (Guard A, review 2026-10-23 major 5).
-      const rawNeeded =
-        tier === 'clip_raw' &&
-        !!prior.r2_object_key &&
-        !webCopyPlayable(await probeMp4DurationMs(prior.r2_object_key, Number.MAX_SAFE_INTEGER));
+      const rawNeeded = tier === 'clip_raw' && (await rowNeedsRaw(prior));
       if (!rawNeeded && !(await eventKeepsFullRes(admin, session.event_id))) {
         return json({ error: 'full_not_wanted' }, 409);
       }
@@ -332,6 +329,17 @@ async function handleSign(
 }
 
 // ── record ──────────────────────────────────────────────────────────────────
+/**
+ * 🛡 Does a RECORDED clip still need its raw from the phone? Yes until the row
+ * names a web copy the server itself has read as a real, playable MP4 — or while
+ * the row names the raw already (nothing to ask). Guard A on the phone (review
+ * 2026-10-23 major 5; 2026-10-24: the replayed-record answer asks the same
+ * question, so a lost first answer cannot make the phone let go of the raw).
+ */
+async function rowNeedsRaw(prior: CaptureRow): Promise<boolean> {
+  return recordedClipNeedsRaw(prior, (ref) => probeMp4DurationMs(ref, Number.MAX_SAFE_INTEGER));
+}
+
 async function handleRecord(
   session: GuestSession,
   admin: Admin,
@@ -358,7 +366,9 @@ async function handleRecord(
       status: 'ok',
       duplicate: true,
       captureId: prior.capture_id,
-      wantFull: await eventKeepsFullRes(admin, session.event_id),
+      // The SAME answer the first record gave: keep-full-res OR a web copy not
+      // (yet) verified playable — never the event's setting alone.
+      wantFull: (await eventKeepsFullRes(admin, session.event_id)) || (await rowNeedsRaw(prior)),
     });
   }
 
@@ -463,7 +473,11 @@ async function handleRecord(
   if (error) {
     // Nothing was spent: the transaction rolled back with the error.
     console.error('[supabase-error] app/api/papic/guest-capture/route.ts · rpc:papic_record_guest_capture_and_spend', error);
-    await discardPromoted(admin, neededIntents, finals);
+    // ⚠ UNCLEAR, not a refusal (review 2026-10-24, major 3): the database may
+    // have committed the row and only the reply was lost. The promoted copies
+    // STAY — the intent remembers them (final_ref); the phone's retry answers
+    // `duplicate` against that row, and a copy no row names is removed by the
+    // next attempt or the sweep (deleteFinalIfUnreferenced, never a named key).
     return json({ error: 'record_failed' }, 500);
   }
 
@@ -763,7 +777,11 @@ async function handleAttach(
   const { data: updated, error: updErr } = await cas.select('capture_id');
   if (updErr) {
     console.error('[supabase-error] app/api/papic/guest-capture/route.ts · from:papic_guest_captures.update(attach)', updErr);
-    await discardPromoted(admin, tiers.map((t) => intentFor(intents, t)!), finals);
+    // ⚠ UNCLEAR, not a refusal (review 2026-10-24, major 3): the database may
+    // have committed the row and only the reply was lost. The promoted copies
+    // STAY — the intent remembers them (final_ref); the phone's retry answers
+    // `duplicate` against that row, and a copy no row names is removed by the
+    // next attempt or the sweep (deleteFinalIfUnreferenced, never a named key).
     return json({ error: 'persist_failed' }, 500);
   }
   if (!updated || updated.length === 0) {

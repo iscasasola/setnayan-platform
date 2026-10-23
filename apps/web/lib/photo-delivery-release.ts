@@ -12,6 +12,7 @@ import {
 import { readR2Object, uploadFileToDrive } from '@/lib/drive-upload';
 import { emitNotification } from '@/lib/notification-emit';
 import { formatCount } from '@/lib/format-number';
+import { pointsAtAPreview } from '@/lib/papic-upload/tiers';
 
 // 0009 Photo Delivery — release + tick business logic.
 //
@@ -41,12 +42,6 @@ const TOKEN_REFRESH_THRESHOLD_MS = 5 * 60 * 1000; // refresh within 5 min of exp
 type EnqueueResult =
   | { ok: true; jobId: string; totalFiles: number; alreadyComplete: boolean }
   | { ok: false; reason: string };
-
-/** Does the row's deliverable key still name one of its preview copies? */
-function pointsAtAPreview(key: unknown, previews: readonly unknown[]): boolean {
-  if (typeof key !== 'string' || !key) return true;
-  return previews.some((p) => typeof p === 'string' && p === key);
-}
 
 export async function enqueueRelease(input: {
   eventId: string;

@@ -486,6 +486,8 @@ export function PapicGuestCapture({
       const res = await fetch('/api/papic/accept-terms', { method: 'POST' });
       if (!res.ok) throw new Error('accept');
       setAccepted(true);
+      // Shots kept for the terms send now (re-review 2026-10-24: terms keep, not drop).
+      papicUploader().wake();
       // ── THE FACE STEP POPS ON THE FIRST CLICK (owner 2026-09-21). This is the
       // moment a guest first opens the camera, so it is where "add your face so
       // your photos find you" is asked — ONCE, and never on the page itself.
@@ -736,6 +738,8 @@ export function PapicGuestCapture({
         // 🔒 The shot is KEPT on this phone (never erased for the window or
         // put-away — review 2026-10-23). 🚨 PUT-AWAY FIRST — it is not "out of shots".
         if (e.code === 'event_put_away') setSaveError(EVENT_PUT_AWAY_CAPTURE_COPY);
+        // The terms gate comes back; accepting them sends these same shots.
+        else if (e.code === 'terms_required') setAccepted(false);
         else {
           setSaveError(
             guestWindowRejectMessage(e.code, e.body?.eventDay) ??
@@ -745,9 +749,8 @@ export function PapicGuestCapture({
         return;
       }
       if (e.type === 'refused') {
-        // Only the two refusals that end a shot reach here.
+        // Only the one refusal that ends a shot reaches here.
         if (e.code === 'blocked') setBlocked(true);
-        else if (e.code === 'terms_required') setAccepted(false);
         else setSaveError("Couldn't save a shot — the event didn't accept it.");
       }
     });

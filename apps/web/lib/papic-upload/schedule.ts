@@ -68,9 +68,16 @@ export interface QueuedShot {
    * The server's tag for WHO took this shot, at WHICH event (an HMAC — no id is
    * readable from it). Every call carries it; a different signed-in person or
    * guest pass on this phone answers `other_owner` and the shot waits. Absent on
-   * shots adopted from the old queue.
+   * shots adopted from the old queue — see `adopted`.
    */
   ownerTag?: string | null;
+  /**
+   * Adopted from the OLD queue, which never wrote down who took a shot. Held on
+   * the phone — never sent, never aged out — until the person holding the
+   * camera for its event taps "Send as me", which stamps THEIR tag on it
+   * (re-review 2026-10-24: never record it under whoever happens to be signed in).
+   */
+  adopted?: boolean;
   /** The phone refused to store the bytes (a private mode): they live in this page only. */
   memoryOnly?: boolean;
   lastError?: string | null;
@@ -217,16 +224,18 @@ export type AnswerVerdict =
   | { verdict: 'no_full' };
 
 /**
- * The ONLY refusals that delete a shot from the phone — the two the old guest
- * drain also dropped: the guest is blocked from the event, or has not accepted
- * the photo terms. Everything else is kept (review 2026-10-23, blocker 1: a shot
- * taken inside the window must never be erased because it ARRIVED after it).
+ * The ONLY refusal that deletes a shot from the phone: the hosts BLOCKED this
+ * guest from the event. Everything else is kept (review 2026-10-23, blocker 1:
+ * a shot taken inside the window must never be erased because it ARRIVED after
+ * it) — including `terms_required` (re-review 2026-10-24): the guest accepts the
+ * photo terms and the very same shots send.
  */
-export const DROP_REFUSALS: ReadonlySet<string> = new Set(['blocked', 'terms_required']);
+export const DROP_REFUSALS: ReadonlySet<string> = new Set(['blocked']);
 
 /** Refused today, kept on the phone, asked again later. */
 export const KEPT_REFUSALS: ReadonlySet<string> = new Set([
   // guest lane
+  'terms_required',
   'guest_capture_not_open_yet',
   'guest_capture_closed',
   'event_put_away',
@@ -320,6 +329,7 @@ export function chipState(input: {
   if (shots.some((s) => s.memoryOnly)) return { kind: 'memory', waiting };
   const active = shots.filter((s) => !s.hold && canSend(s));
   if (active.length === 0) {
+    if (shots.some((s) => s.adopted && !s.ownerTag)) return { kind: 'kept', waiting, reason: 'confirm_owner' };
     if (shots.every((s) => s.hold === 'credits')) return { kind: 'credits', waiting };
     const kept = shots.find((s) => s.hold === 'kept');
     return { kind: 'kept', waiting, reason: kept?.keptReason ?? null };

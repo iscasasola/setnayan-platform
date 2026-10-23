@@ -267,3 +267,18 @@ export function recordObjectTier(
   if (media === 'photo') return opts.hasThumb === false ? 'original' : 'thumb';
   return opts.hasClipWeb ? 'clip_web' : 'clip_raw';
 }
+
+/**
+ * Does a capture row's deliverable key (r2_object_key) still name one of its
+ * PREVIEW copies — so it is not a deliverable yet ("Release to Drive",
+ * lib/photo-delivery-release.ts)? Read two ways: equal to the row's own
+ * thumb/tile column — OR, when that column never got written (the first-piece
+ * patch failed after the row was recorded; re-review 2026-10-24), the key's OWN
+ * name says it is a phone-made thumbnail or tile. A row with no key is not
+ * deliverable either.
+ */
+export function pointsAtAPreview(key: unknown, previews: readonly unknown[]): boolean {
+  if (typeof key !== 'string' || !key) return true;
+  if (refHoldsTier(key, 'thumb') || refHoldsTier(key, 'tile')) return true;
+  return previews.some((p) => typeof p === 'string' && p === key);
+}

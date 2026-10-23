@@ -10,7 +10,7 @@
 // refused, say so — with a number.
 
 import { useEffect, useState } from 'react';
-import { Check, CircleAlert, Loader2, WifiOff } from 'lucide-react';
+import { Check, CircleAlert, Loader2, Send, WifiOff } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
 import { EVENT_PUT_AWAY_CAPTURE_COPY } from '@/lib/event-accepts-captures-rule';
 import { chipLabel, type ChipState } from '@/lib/papic-upload/schedule';
@@ -49,6 +49,10 @@ function keptDetail(reason: string | null): string {
       return 'Not sent yet — the event’s cameras were closed when these tried to send. They stay on this phone and send if the cameras open again.';
     case 'event_put_away':
       return 'Not sent yet — the hosts put this event away. These stay on this phone and send if it comes back.';
+    case 'terms_required':
+      return 'Not sent yet — the photo terms haven’t been accepted on this camera. Accept them and these send. They stay on this phone until then.';
+    case 'confirm_owner':
+      return 'These were saved on this phone before an update, and the phone didn’t note who took them. If they’re yours, tap Send as me. If not, leave them — they stay here.';
     case null:
       return 'These belong to another event or another person on this phone. They stay here and send when that camera is open again.';
     default:
@@ -99,6 +103,16 @@ export function PapicUploadChip({ surface = 'bg-cream/10 text-cream' }: { surfac
       <InfoTip label={label} align="center">
         {detail(snap.chip)}
       </InfoTip>
+      {snap.chip.kind === 'kept' && snap.chip.reason === 'confirm_owner' ? (
+        <button
+          type="button"
+          onClick={() => void papicUploader().confirmAdopted()}
+          className="ml-1 inline-flex items-center gap-1 rounded-full border border-cream/50 px-2 py-0.5 text-xs font-medium"
+        >
+          <Send aria-hidden className="h-3 w-3" strokeWidth={2} />
+          Send as me
+        </button>
+      ) : null}
     </span>
   );
 }

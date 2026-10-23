@@ -2,8 +2,12 @@ import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { runClaimedJob } from '@/lib/periodic-jobs';
 import { PAPIC_UPLOAD_SWEEP_GAP_MS } from '@/lib/periodic-job-registry';
-import { cleanupDelete } from '@/lib/cleanup-delete';
-import { deleteStagingObject, intentScope, type IntentRow } from '@/lib/papic-upload-intents.server';
+import {
+  deleteFinalIfUnreferenced,
+  deleteStagingObject,
+  refIsReferenced,
+  type IntentRow,
+} from '@/lib/papic-upload-intents.server';
 import { SHOT_TTL_MS } from '@/lib/papic-upload/replayer';
 import { sweepUnsettledIntent } from '@/lib/papic-upload/sweep-plan';
 
@@ -42,39 +46,6 @@ const BATCH = 200;
 const BUDGET_MS = 20_000;
 
 type SweepRow = IntentRow & { intent_id: number; signed_at: string; final_ref: string | null };
-
-const VENDOR_KEY_COLUMNS = ['r2_object_key', 'display_r2_key', 'thumb_r2_key', 'tile_r2_key', 'poster_r2_key'] as const;
-const GUEST_KEY_COLUMNS = [
-  ...VENDOR_KEY_COLUMNS,
-  'clip_web_r2_key',
-  'safe_display_r2_key',
-  'safe_thumb_r2_key',
-  'safe_tile_r2_key',
-  'wall_safe_r2_key',
-] as const;
-
-/** Does any capture row point at this ref? Fails CLOSED (true) on a read error. */
-async function referenced(admin: ReturnType<typeof createAdminClient>, lane: string, ref: string): Promise<boolean> {
-  const quoted = `"${ref.replace(/"/g, '')}"`;
-  const any = (cols: readonly string[]) => cols.map((c) => `${c}.eq.${quoted}`).join(',');
-  // Two literal tables, not `.from(table)`: the select-column scan must be able
-  // to read every select (lib/security/select-column-scan.test.ts, T23).
-  const { count, error } =
-    lane === 'vendor'
-      ? await admin
-          .from('vendor_papic_captures')
-          .select('capture_id', { count: 'exact', head: true })
-          .or(any(VENDOR_KEY_COLUMNS))
-      : await admin
-          .from('papic_guest_captures')
-          .select('capture_id', { count: 'exact', head: true })
-          .or(any(GUEST_KEY_COLUMNS));
-  if (error) {
-    console.error('[supabase-error] lib/papic-upload-sweep.ts · reference check', error);
-    return true;
-  }
-  return (count ?? 0) > 0;
-}
 
 export async function runPapicUploadSweep(nowMs = Date.now()): Promise<number> {
   const admin = createAdminClient();
@@ -122,8 +93,9 @@ export async function runPapicUploadSweep(nowMs = Date.now()): Promise<number> {
     for (const r of rows) {
       const outcome = await sweepUnsettledIntent(r.final_ref, {
         deleteStaging: () => deleteStagingObject(r),
-        isReferenced: (ref) => referenced(admin, r.lane, ref),
-        deleteFinal: (ref) => cleanupDelete(ref, intentScope(r)),
+        isReferenced: (ref) => refIsReferenced(admin, r.lane, ref),
+        // deleteFinalIfUnreferenced checks again — the row could have arrived in between.
+        deleteFinal: async (ref) => ((await deleteFinalIfUnreferenced(admin, r, ref)) === 'refused' ? 'refused' : 'deleted'),
       });
       if (outcome === 'forget') {
         removed += 1;

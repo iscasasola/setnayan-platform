@@ -82,8 +82,9 @@ test('"Release to Drive" sends only screened shots, and never a row still pointi
   assert.equal((listing.match(/\.eq\('moderation_state', 'clean'\)/g) ?? []).length, 2, 'a release leg is unscreened');
   assert.match(rel, /\.filter\(\(p\) => !pointsAtAPreview\(p\.r2_object_key, \[p\.thumb_r2_key\]\)\)/);
   assert.match(rel, /\.filter\(\(p\) => !pointsAtAPreview\(p\.r2_object_key, \[p\.thumb_r2_key, p\.tile_r2_key\]\)\)/);
-  const fn = between(rel, 'function pointsAtAPreview(', 'export async function enqueueRelease(');
-  assert.match(fn, /if \(typeof key !== 'string' \|\| !key\) return true;/, 'a row with no key is not deliverable');
+  // The predicate is pure (lib/papic-upload/tiers.ts) and RUN in
+  // a-lost-answer-never-erases-a-shot.test.ts; here: the release imports that one.
+  assert.match(rel, /import \{ pointsAtAPreview \} from '@\/lib\/papic-upload\/tiers';/);
 });
 
 test('the couple-side readers show only what the screen PASSED', () => {

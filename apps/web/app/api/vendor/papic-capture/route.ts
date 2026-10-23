@@ -429,10 +429,15 @@ export async function POST(req: Request) {
       return json({ status: 'ok', duplicate: true, captureId: again?.capture_id ?? null, wantFull: await eventKeepsFullRes(admin, eventId) });
     }
     if (insErr || !inserted) {
-      // No row points at the promoted copies — they go; the uploads stay for a retry.
-      await discardPromoted(admin, needed.map((t) => intentFor(intents, t)!), finals);
       // RLS rejection (not booked / not your profile) → 403; anything else → 500.
       const rls = insErr?.code === '42501';
+      if (rls) {
+        // A DEFINITE refusal — the policy wrote nothing: this attempt's copies go.
+        await discardPromoted(admin, needed.map((t) => intentFor(intents, t)!), finals);
+      }
+      // ⚠ Anything else is UNCLEAR (review 2026-10-24, major 3): the row may have
+      // committed with its reply lost. The copies stay; the retry answers
+      // `duplicate`, and only a copy no row names is ever removed.
       return json({ error: rls ? 'not_allowed' : 'record_failed' }, rls ? 403 : 500);
     }
     const captureId = (inserted as { capture_id: string }).capture_id;
@@ -599,7 +604,9 @@ export async function POST(req: Request) {
     const { data: updated, error: updErr } = await cas.select('capture_id');
     if (updErr) {
       console.error('[supabase-error] app/api/vendor/papic-capture/route.ts · from:vendor_papic_captures.update(attach)', updErr);
-      await discardPromoted(admin, tiers.map((t) => intentFor(intents, t)!), finals);
+      // ⚠ UNCLEAR (review 2026-10-24, major 3): the update may have committed.
+      // The copies stay; the retry answers `already`, and only a copy no row
+      // names is ever removed (deleteFinalIfUnreferenced).
       return json({ error: 'persist_failed' }, 500);
     }
     if (!updated || updated.length === 0) {

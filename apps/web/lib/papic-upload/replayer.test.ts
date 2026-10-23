@@ -59,7 +59,9 @@ function fakeServer() {
     credits: Infinity as number,
     closed: false,
     blocked: false,
+    terms: false,
     ownerTag: null as string | null,
+    ownerTagsRecorded: [] as Array<unknown>,
     staged: new Map<string, number>(), // `${ccid}:${tier}` → size
     rows: new Map<string, { tiers: Set<CaptureTier> }>(),
     recordCalls: 0,
@@ -75,6 +77,7 @@ function fakeServer() {
       const tier = body.tier as CaptureTier;
       if (st.ownerTag && body.owner_tag && body.owner_tag !== st.ownerTag) return { httpStatus: 409, body: { error: 'other_owner' } };
       if (!row && st.blocked) return { httpStatus: 403, body: { status: 'blocked' } };
+      if (!row && st.terms) return { httpStatus: 403, body: { status: 'terms_required' } };
       if (!row && st.closed) return { httpStatus: 403, body: { error: 'guest_capture_closed' } };
       if (!row && st.credits <= 0) return { httpStatus: 409, body: { status: 'camera_points_exhausted' } };
       if (row && (tier === 'thumb' || tier === 'poster' || tier === 'clip_web')) {
@@ -89,6 +92,7 @@ function fakeServer() {
       const missing = first.filter((t) => !st.staged.has(`${id}:${t}`));
       if (missing.length) return { httpStatus: 409, body: { error: 'object_missing', missing } };
       if (st.credits <= 0) return { httpStatus: 409, body: { status: 'camera_points_exhausted' } };
+      st.ownerTagsRecorded.push(body.owner_tag);
       st.credits -= 1;
       st.rows.set(id, { tiers: new Set(first as CaptureTier[]) });
       st.rowsCreated += 1;
@@ -264,7 +268,7 @@ test('🔒 a closed window KEEPS the shot on the phone — it is never erased, a
   assert.equal(u.pending(), 0);
 });
 
-test('only blocked / terms drop a shot — and the drop is counted, never shown as saved', async () => {
+test('only BLOCKED drops a shot — and the drop is counted, never shown as saved', async () => {
   const { u, server, settle } = harness();
   server.st.online = true;
   server.st.blocked = true;
@@ -305,4 +309,52 @@ test('a phone that refuses to store bytes (a private mode) still sends the shot 
   await settle();
   assert.equal(server.st.rowsCreated, 1);
   assert.equal(u.pending(), 0);
+});
+
+test('🔒 photo terms not yet accepted KEEP the shot — accepting them sends the same shot', async () => {
+  const { u, server, settle, store } = harness();
+  server.st.online = true;
+  server.st.terms = true;
+  await u.addShot(photo(1));
+  await settle(10);
+  assert.equal(u.pending(), 1, 'kept, not dropped (re-review 2026-10-24)');
+  assert.equal(store.shots.size, 1);
+  assert.equal(chipLabel(u.snapshot().chip), 'Not sent · 1 kept on this phone');
+  server.st.terms = false; // the guest accepted the terms (the camera wakes the uploader)
+  u.wake();
+  await settle();
+  assert.equal(server.st.rowsCreated, 1);
+  assert.equal(u.pending(), 0);
+});
+
+test('🔒 a shot adopted from the old queue (nobody noted who took it) waits for "Send as me" — never sent as whoever is signed in', async () => {
+  const { u, server, settle, store, advance } = harness();
+  server.st.online = true;
+  u.register({ lane: 'guest', eventId: 'ev-2', ownerTag: 'tag-me' });
+  await u.addShot({ ...photo(1), eventId: 'ev-2', adopted: true });
+  await settle(10);
+  assert.equal(server.st.rowsCreated, 0, 'not recorded under the camera that happens to be open');
+  assert.equal(server.st.putLog.length, 0, 'not even uploaded');
+  const chip = u.snapshot().chip;
+  assert.deepEqual(chip.kind === 'kept' ? chip.reason : null, 'confirm_owner');
+  // Never aged out while it waits for the person.
+  advance(10 * 24 * 60 * 60 * 1000);
+  await settle(1);
+  assert.equal(u.pending(), 1);
+  assert.equal(store.shots.size, 1);
+  // "Send as me": it takes THIS camera's tag and lands under it.
+  assert.equal(await u.confirmAdopted(), 1);
+  await settle();
+  assert.equal(server.st.rowsCreated, 1);
+  assert.deepEqual(server.st.ownerTagsRecorded, ['tag-me']);
+});
+
+test('"Send as me" claims nothing for an event with no camera open on this page', async () => {
+  const { u, server, settle } = harness();
+  server.st.online = true;
+  await u.addShot({ ...photo(1), eventId: 'ev-ELSEWHERE', adopted: true });
+  assert.equal(await u.confirmAdopted(), 0);
+  await settle(5);
+  assert.equal(server.st.rowsCreated, 0);
+  assert.equal(u.pending(), 1);
 });

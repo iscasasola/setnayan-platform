@@ -104,6 +104,8 @@ async function adoptLegacy(u: PapicUploader): Promise<void> {
       deviceModel: typeof p.device_model === 'string' ? p.device_model : undefined,
       primary,
       poster,
+      // Nobody wrote down who took it: held for "Send as me" (re-review 2026-10-24).
+      adopted: true,
     };
     try {
       await u.addShot(shot);

@@ -138,9 +138,10 @@ test('answers: signal trouble retries, credits wait, refusals stop, missing obje
   assert.equal(classifyAnswer(403, { error: 'guest_capture_closed' }).verdict, 'kept');
   assert.equal(classifyAnswer(409, { status: 'event_put_away' }).verdict, 'kept');
   assert.equal(classifyAnswer(403, { error: 'event_over' }).verdict, 'kept');
-  // Only the two the old drain dropped still drop.
+  // Only a blocked guest drops (re-review 2026-10-24: unaccepted terms KEEP the
+  // shot — accepting them sends it).
   assert.equal(classifyAnswer(403, { status: 'blocked' }).verdict, 'drop');
-  assert.equal(classifyAnswer(403, { status: 'terms_required' }).verdict, 'drop');
+  assert.equal(classifyAnswer(403, { status: 'terms_required' }).verdict, 'kept');
   assert.equal(classifyAnswer(409, { error: 'other_owner' }).verdict, 'context');
   assert.equal(classifyAnswer(409, { error: 'other_event' }).verdict, 'context');
   assert.deepEqual(classifyAnswer(409, { error: 'object_missing', missing: ['thumb'] }), {

@@ -137,6 +137,8 @@ export interface IntentRow {
   size_bytes: number;
   content_type: string;
   settled_at: string | null;
+  /** The FINAL copy the last attempt promoted, until it is settled or removed. */
+  final_ref?: string | null;
 }
 
 /** Every tier this owner signed for this shot. */
@@ -147,7 +149,7 @@ export async function readCaptureIntents(
 ): Promise<IntentRow[] | null> {
   const { data, error } = await admin
     .from('papic_upload_intents')
-    .select('lane, event_id, owner_id, tier, r2_ref, size_bytes, content_type, settled_at')
+    .select('lane, event_id, owner_id, tier, r2_ref, size_bytes, content_type, settled_at, final_ref')
     .eq('owner_id', ownerId)
     .eq('client_capture_id', clientCaptureId);
   if (error) {
@@ -163,6 +165,7 @@ export async function readCaptureIntents(
     size_bytes: Number(r.size_bytes),
     content_type: r.content_type as string,
     settled_at: (r.settled_at as string | null) ?? null,
+    final_ref: (r.final_ref as string | null) ?? null,
   }));
 }
 
@@ -272,6 +275,14 @@ export async function promoteTier(
   const finalKey = base ? attemptKeyFor(base, attempt) : null;
   if (!finalKey) throw new Error('not_a_staging_key');
   const finalRef = encodeR2Ref(BUCKET, finalKey);
+  // A PRIOR attempt of this piece whose answer was unclear (a lost reply, a
+  // 5xx) left its final copy behind on purpose (review 2026-10-24, major 3).
+  // Before this attempt takes over the intent's memory of it: remove it if no
+  // row points at it — and keep it if one does.
+  const prior = loaded.intent.final_ref;
+  if (prior && prior !== finalRef) {
+    await deleteFinalIfUnreferenced(admin, loaded.intent, prior);
+  }
   // Written down BEFORE the copy: a crash between the copy and the row leaves a
   // final the sweep can find (and keeps, if a row came to point at it).
   const { error: trackErr } = await admin
@@ -309,11 +320,76 @@ export async function dropStagingObjects(intents: readonly IntentRow[]): Promise
   for (const i of intents) await deleteStagingObject(i).catch(() => 'refused');
 }
 
+/** Every capture column that can hold a stored key — a reference in any of them keeps the object. */
+const VENDOR_KEY_COLUMNS = ['r2_object_key', 'display_r2_key', 'thumb_r2_key', 'tile_r2_key', 'poster_r2_key'] as const;
+const GUEST_KEY_COLUMNS = [
+  ...VENDOR_KEY_COLUMNS,
+  'clip_web_r2_key',
+  'safe_display_r2_key',
+  'safe_thumb_r2_key',
+  'safe_tile_r2_key',
+  'wall_safe_r2_key',
+] as const;
+
 /**
- * The record was REFUSED (credits, put away…) or LOST a race after this
- * attempt promoted its pieces: no row points at THIS attempt's copies (they are
- * per-attempt keys), so they go — the staging uploads stay for the phone's next
- * try. Never a key another attempt wrote.
+ * Does any capture row point at this ref? Fails CLOSED — a read that errors
+ * answers true, and the object stays.
+ */
+export async function refIsReferenced(admin: SupabaseClient, lane: CaptureLane, ref: string): Promise<boolean> {
+  const quoted = `"${ref.replace(/"/g, '')}"`;
+  const any = (cols: readonly string[]) => cols.map((c) => `${c}.eq.${quoted}`).join(',');
+  // Two literal tables, not `.from(table)`: the select-column scan must be able
+  // to read every select (lib/security/select-column-scan.test.ts, T23).
+  const { count, error } =
+    lane === 'vendor'
+      ? await admin
+          .from('vendor_papic_captures')
+          .select('capture_id', { count: 'exact', head: true })
+          .or(any(VENDOR_KEY_COLUMNS))
+      : await admin
+          .from('papic_guest_captures')
+          .select('capture_id', { count: 'exact', head: true })
+          .or(any(GUEST_KEY_COLUMNS));
+  if (error) {
+    console.error('[supabase-error] lib/papic-upload-intents.server.ts · reference check', error);
+    return true;
+  }
+  return (count ?? 0) > 0;
+}
+
+/**
+ * 🛡 THE ONLY WAY A PROMOTED (FINAL) CAPTURE COPY IS DELETED — and it refuses a
+ * key any capture row points at (review 2026-10-24, major 3: the database can
+ * commit the row while its reply is lost; deleting "this attempt's" copy then
+ * erases the shot the row now names, and the phone's retry hears "duplicate ok"
+ * and lets go of its own copy). Used by a refused record, a lost race, a prior
+ * unclear attempt, and the sweep. `'kept'` = a row points at it.
+ */
+export async function deleteFinalIfUnreferenced(
+  admin: SupabaseClient,
+  intent: Pick<IntentRow, 'lane' | 'owner_id' | 'event_id' | 'r2_ref'>,
+  ref: string,
+): Promise<'deleted' | 'kept' | 'refused'> {
+  if (await refIsReferenced(admin, intent.lane, ref)) return 'kept';
+  const outcome = await cleanupDelete(ref, intentScope(intent)).catch(() => 'refused' as const);
+  if (outcome === 'deleted') {
+    const { error } = await admin
+      .from('papic_upload_intents')
+      .update({ final_ref: null })
+      .eq('r2_ref', intent.r2_ref)
+      .eq('final_ref', ref);
+    if (error) console.error('[supabase-error] lib/papic-upload-intents.server.ts · from:papic_upload_intents.update(final_ref null)', error);
+  }
+  return outcome === 'deleted' ? 'deleted' : 'refused';
+}
+
+/**
+ * A DEFINITE "no" after this attempt promoted its pieces — the record function
+ * ANSWERED with a refusal (credits, quota), the insert was refused by policy,
+ * or another attempt won the race. Never called on an unclear failure (a
+ * transport error, a 5xx, an error with no answer): then the copies stay, the
+ * intent remembers them (final_ref), and the next attempt or the sweep decides
+ * — each through deleteFinalIfUnreferenced, which keeps anything a row names.
  */
 export async function discardPromoted(
   admin: SupabaseClient,
@@ -322,16 +398,7 @@ export async function discardPromoted(
 ): Promise<void> {
   for (const i of intents) {
     const ref = finals.get(i.tier);
-    if (!ref) continue;
-    const outcome = await cleanupDelete(ref, intentScope(i)).catch(() => 'refused' as const);
-    if (outcome === 'deleted') {
-      const { error } = await admin
-        .from('papic_upload_intents')
-        .update({ final_ref: null })
-        .eq('r2_ref', i.r2_ref)
-        .eq('final_ref', ref);
-      if (error) console.error('[supabase-error] lib/papic-upload-intents.server.ts · from:papic_upload_intents.update(final_ref null)', error);
-    }
+    if (ref) await deleteFinalIfUnreferenced(admin, i, ref);
   }
 }
 

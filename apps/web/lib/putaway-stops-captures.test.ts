@@ -179,9 +179,9 @@ test('the put-away sentence has readers — it is rendered, not merely declared'
   }
 });
 
-test('put-away and the window KEEP the guest’s shot — only blocked / terms end one', async () => {
+test('put-away and the window KEEP the guest’s shot — only blocked ends one', async () => {
   /*
-    🔒 REVIEW 2026-10-23, BLOCKER 1. The save-first camera used to DROP a shot the
+    🔒 REVIEW 2026-10-23, BLOCKER 1 (and 2026-10-24: terms keep too). The save-first camera used to DROP a shot the
     server refused for put-away, the capture window or event-over — erasing a
     photograph taken in-window that merely ARRIVED late (no signal at the
     reception, signal the next afternoon). "Everything already taken stays
@@ -189,7 +189,7 @@ test('put-away and the window KEEP the guest’s shot — only blocked / terms e
 
     The property, three ways:
       1. the classifier: put-away / closed / not-open-yet are `kept`, never
-         `drop`; only `blocked` and `terms_required` drop;
+         `drop`; only `blocked` drops (terms_required is kept too);
       2. the camera: put-away still shows the put-away sentence (never "out of
          shots"), from the KEPT branch — the shot is not thrown away;
       3. the server: the window is judged by the SHUTTER (captured_at_ms, with
@@ -202,7 +202,7 @@ test('put-away and the window KEEP the guest’s shot — only blocked / terms e
     assert.equal(classifyAnswer(409, { status: code }).verdict, 'kept', `${code} must keep the shot`);
   }
   assert.equal(classifyAnswer(409, { status: 'camera_points_exhausted' }).verdict, 'credits');
-  assert.deepEqual([...DROP_REFUSALS].sort(), ['blocked', 'terms_required'], 'a new refusal may not drop a shot');
+  assert.deepEqual([...DROP_REFUSALS].sort(), ['blocked'], 'only a blocked guest loses a shot — a new refusal may not drop one');
 
   const src = code(GUEST_CAM);
   assert.equal((src.match(/\buploader\.on\(/g) ?? []).length, 1, 'one uploader handler in the camera');

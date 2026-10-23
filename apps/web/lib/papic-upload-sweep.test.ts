@@ -47,13 +47,12 @@ test('🛡 Guard A: a final copy a row points at is NEVER deleted — and the in
   assert.ok(!calls.some((c) => c.startsWith('final:')), 'deleted a referenced final copy');
 });
 
-test('🛡 Guard A: a reference check that cannot be read counts as referenced (fail closed)', () => {
-  const fn = SRC.slice(SRC.indexOf('async function referenced'), SRC.indexOf('export async function runPapicUploadSweep'));
-  assert.match(fn, /if \(error\) \{[\s\S]*?return true;/, 'a failed reference read must answer "referenced"');
-  // every key column a guest capture row can point at is checked
-  for (const col of ['r2_object_key', 'display_r2_key', 'thumb_r2_key', 'tile_r2_key', 'poster_r2_key', 'clip_web_r2_key']) {
-    assert.match(SRC, new RegExp(`'${col}'`), `${col} is not in the reference check`);
-  }
+test('🛡 Guard A: the sweep checks references through the ONE shared, fail-closed check', () => {
+  // The check itself (fail closed, every key column) is held in
+  // lib/papic-upload/a-lost-answer-never-erases-a-shot.test.ts; here: the sweep uses it.
+  assert.match(SRC, /isReferenced: \(ref\) => refIsReferenced\(admin, r\.lane, ref\)/);
+  assert.match(SRC, /deleteFinalIfUnreferenced\(admin, r, ref\)/);
+  assert.match(INTENTS, /export async function refIsReferenced\([\s\S]*?if \(error\) \{[\s\S]*?return true;/);
 });
 
 test('no final copy → only the staging upload is touched', async () => {

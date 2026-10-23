@@ -12,10 +12,14 @@
 //     decides (every thumbnail before any display copy before any original).
 //   • Woken by: a new shot, `online`, the page becoming visible, page open, and
 //     its own back-off timer.
-//   • Retries with exponential back-off + jitter on signal / server trouble;
-//     drops a shot only for a refusal waiting can never fix (window closed, put
-//     away, blocked); keeps — visibly — a shot refused for credits, because the
-//     host can top up.
+//   • Retries with exponential back-off + jitter on signal / server trouble.
+//     DROPS a shot only when the hosts blocked the guest. Everything else is
+//     KEPT on the phone, visibly, and asked again: credits (a top-up), the
+//     capture window / put-away / event over / photo terms (review 2026-10-23
+//     blocker 1 · 2026-10-24) — a kept shot never ages out.
+//   • Sends only a shot whose event AND person have a camera open on this page
+//     (`register` / `canSend`, review 2026-10-23 blocker 2); a shot adopted from
+//     the old queue waits for "Send as me" (`confirmAdopted`).
 //   • Idempotent end to end by the shutter's clientCaptureId: a replayed PUT
 //     overwrites one staging object, a replayed record answers `duplicate`.
 //   • Screen Wake Lock while anything waits (Safari 16.4+), released when empty.
@@ -132,6 +136,8 @@ export interface NewShot {
   faceSource?: Blob | null;
   /** The camera's owner tag (see QueuedShot.ownerTag). */
   ownerTag?: string | null;
+  /** From the old queue: held until confirmed (see QueuedShot.adopted). */
+  adopted?: boolean;
 }
 
 /** A 'kept' shot is asked again on this beat (and on every wake). */
@@ -245,11 +251,14 @@ export class PapicUploader {
 
   /** Is a camera for this shot's event and person open here? */
   canSend(shot: QueuedShot): boolean {
+    // Nobody wrote down who took an adopted shot: it waits for "Send as me".
+    if (shot.adopted && !shot.ownerTag) return false;
     return this.contexts.some(
       (c) =>
         c.lane === shot.lane &&
         c.eventId === shot.eventId &&
-        // A shot adopted from the old queue carries no tag: its event decides.
+        // A camera page with no seal (no tag at all) is bound by the server's
+        // own session checks; otherwise the tags must match.
         (!shot.ownerTag || !c.ownerTag || c.ownerTag === shot.ownerTag),
     );
   }
@@ -343,6 +352,7 @@ export class PapicUploader {
       hold: null,
       lastError: null,
       ownerTag: input.ownerTag ?? null,
+      adopted: input.adopted === true && !input.ownerTag,
     };
     const type = input.primary.type || (input.media === 'clip' ? 'video/mp4' : 'image/jpeg');
     const kept = this.memBlobs.size;
@@ -369,6 +379,28 @@ export class PapicUploader {
     for (const s of this.shots.values()) if (s.hold === 'credits') s.hold = null;
     this.notify();
     this.kick();
+  }
+
+  /**
+   * "Send as me": the person holding a camera open on this page claims the
+   * old-queue shots of THAT camera's event — their tag goes on, and they send.
+   * Shots of an event with no camera open here stay held. Returns how many.
+   */
+  async confirmAdopted(): Promise<number> {
+    let n = 0;
+    for (const s of this.shots.values()) {
+      if (!s.adopted || s.ownerTag) continue;
+      const ctx = this.contexts.find((c) => c.lane === s.lane && c.eventId === s.eventId);
+      if (!ctx) continue;
+      s.ownerTag = ctx.ownerTag;
+      s.adopted = false;
+      // Its week starts now — the time it waited for the person is not "no signal".
+      s.queuedAtMs = this.deps.now();
+      n += 1;
+      await this.deps.store.saveShot(s).catch(() => {});
+    }
+    if (n > 0) this.wake();
+    return n;
   }
 
   /** Wake the loop (a trigger: shot, online, visible, open). Clears back-off. */
@@ -534,7 +566,7 @@ export class PapicUploader {
     for (const s of [...this.shots.values()]) {
       // A shot KEPT for a refusal (the window, put-away) or waiting for its own
       // camera is never aged out — "kept on this phone" means kept.
-      if (s.hold === 'kept' || s.hold === 'context' || s.keptReason) continue;
+      if (s.hold === 'kept' || s.hold === 'context' || s.keptReason || s.adopted) continue;
       if (nowMs - s.queuedAtMs > SHOT_TTL_MS) void this.drop(s, 'expired', null);
     }
   }

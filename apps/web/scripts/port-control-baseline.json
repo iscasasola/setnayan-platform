@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "de8b28e1fe",
+  "generatedFromRef": "d017a3876d",
   "routeCount": 463,
-  "destinations": 1003,
+  "destinations": 1005,
   "actions": 662,
-  "blocks": 6890,
+  "blocks": 6888,
   "routes": {
     "/": {
       "files": [
@@ -4779,6 +4779,7 @@
         "/blog",
         "/blog/[seg]",
         "/blog?category=[seg]",
+        "/realstories",
         "/signup"
       ],
       "actions": [],
@@ -4801,6 +4802,7 @@
         "/blog",
         "/blog/[seg]",
         "/blog?category=[seg]",
+        "/realstories",
         "/signup",
         "/u/[seg]",
         "/u/[seg]/c/[seg]"
@@ -8961,8 +8963,6 @@
         "dashboard/[eventId]/studio/papic/_components/credit-need.tsx",
         "dashboard/[eventId]/studio/papic/_components/credit-stepper.tsx",
         "dashboard/[eventId]/studio/papic/_components/drive-copy-card.tsx",
-        "dashboard/[eventId]/studio/papic/_components/face-blocking-list.tsx",
-        "dashboard/[eventId]/studio/papic/_components/face-blocking-switches.tsx",
         "dashboard/[eventId]/studio/papic/_components/face-tagging-choice.tsx",
         "dashboard/[eventId]/studio/papic/_components/guest-allotment-picker.tsx",
         "dashboard/[eventId]/studio/papic/_components/guest-allotments-choice.tsx",
@@ -9055,8 +9055,6 @@
         "DriveSafetyPanel",
         "DslrBridgeSection",
         "EmptyRoll",
-        "FaceBlockingList",
-        "FaceBlockingSwitches",
         "FaceTaggingChoice",
         "Fact",
         "FilterChip",
@@ -9067,7 +9065,6 @@
         "GalleryPhoto",
         "GridPageSkeleton",
         "GuestAllotmentPicker",
-        "GuestAllotmentsChoice",
         "GuestCamerasChoice",
         "GuestContributionsCard",
         "HTMLInputElement",
@@ -15138,6 +15135,7 @@
         "ActionButton",
         "AutoReplySection",
         "Badge",
+        "ColourPickerSheet",
         "DatesRow",
         "DomainActionResult",
         "DomainManager",

@@ -458,7 +458,7 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     calls: true,
     whitelistPerDate: WHITELIST_PER_DATE_ALL_PLANS, // 2026-10-23 (was 3)
     waitlistAcceptances: 1, // owner 2026-08-09
-    serviceRadiusKm: 20,
+    serviceRadiusKm: 30, // owner 2026-10-23: Solo reaches 30 km (was 20) — Free·Verified 20 · Pro 50 · Ultra 100
     servicesPerLeaf: MIN_SERVICES_PER_LEAF,
     marketIntel: false,
     theftWatch: false,
@@ -643,7 +643,9 @@ export const TIER_LABEL: Record<VendorTier, string> = {
   verified: 'Free · Verified',
   solo: 'Solo',
   pro: 'Pro',
-  enterprise: 'Enterprise',
+  // ⚖ The plan a person sees is "Ultra" (owner 2026-10-23: plan names are Solo · Pro · Ultra). The internal key
+  // `enterprise` and every SKU id stay unchanged — only the words move. `no-enterprise-plan-name.test.ts` holds it.
+  enterprise: 'Ultra',
   custom: 'Custom',
 };
 

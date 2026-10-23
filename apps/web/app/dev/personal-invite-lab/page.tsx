@@ -49,7 +49,7 @@ export default async function PersonalInviteLabPage({ searchParams }: { searchPa
     );
   } else if (f === 'result') {
     body = (
-      <section className="rounded-xl border border-ink/10 bg-cream p-4">
+      <section className="bg-cream">
         <InviteResult
           result={{
             status: 'ok',

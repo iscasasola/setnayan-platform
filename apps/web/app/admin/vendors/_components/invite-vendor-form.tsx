@@ -254,7 +254,7 @@ export function InviteResult({ result }: { result: Ok }) {
           <p className="text-sm font-semibold text-success-900">
             Invite ready for {result.businessName}.
           </p>
-          <div className="mt-2 flex items-center gap-2 rounded-xl border border-ink/10 py-1.5 pl-3 pr-1.5">
+          <div className="mt-2 flex items-center gap-2 border-y border-ink/10 py-1.5">
             <code className="min-w-0 flex-1 truncate font-mono text-xs text-ink/75">{result.claimUrl}</code>
             <ActionButton
               tone="neutral"

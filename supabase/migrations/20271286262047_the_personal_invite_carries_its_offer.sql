@@ -100,6 +100,50 @@ COMMENT ON COLUMN public.vendor_profiles.portfolio_photo_allowance IS
 GRANT SELECT (portfolio_photo_allowance) ON public.vendor_profiles TO authenticated;
 REVOKE SELECT (portfolio_photo_allowance) ON public.vendor_profiles FROM anon;
 
+-- The shop's own definer view projects every column as of its CREATE — rebuilt so it carries the new one
+-- (`lint-vendor-profiles-column-grants`; block copied from 20271217955839, unchanged).
+DROP VIEW IF EXISTS public.vendor_profiles_self;
+
+DO $$
+DECLARE
+  cols text;
+BEGIN
+  SELECT string_agg('vp.' || quote_ident(column_name), ', ' ORDER BY ordinal_position)
+    INTO cols
+    FROM information_schema.columns
+   WHERE table_schema='public' AND table_name='vendor_profiles';
+
+  IF cols IS NULL THEN
+    RAISE EXCEPTION 'refusing to apply: computed vendor_profiles_self projection is empty';
+  END IF;
+
+  EXECUTE format($v$
+    CREATE VIEW public.vendor_profiles_self
+      WITH (security_invoker = false) AS
+      SELECT %s
+        FROM public.vendor_profiles vp
+       WHERE vp.user_id = auth.uid()
+          OR vp.vendor_profile_id IN (SELECT public.current_vendor_ids('viewer'))
+  $v$, cols);
+END $$;
+
+ALTER VIEW public.vendor_profiles_self OWNER TO postgres;
+
+REVOKE ALL ON public.vendor_profiles_self FROM PUBLIC;
+REVOKE ALL ON public.vendor_profiles_self FROM anon;
+REVOKE ALL ON public.vendor_profiles_self FROM authenticated;
+GRANT SELECT ON public.vendor_profiles_self TO authenticated, service_role;
+
+COMMENT ON VIEW public.vendor_profiles_self IS
+  'Definer view: the caller''s OWN shops (owner via user_id = auth.uid(), or a '
+  'team member via current_vendor_ids(''viewer'')), projecting every '
+  'vendor_profiles column INCLUDING the eleven tax/registration/owner-identity '
+  'columns that 20271217955839 revoked from `authenticated` at table level. '
+  'Predicate mirrors policies vendor_profiles_owner + vendor_profiles_member_read '
+  'exactly -- it widens nothing. SELECT ONLY: an auto-updatable definer view '
+  'would let a teammate write past vendor_profiles_owner. Admin and public '
+  'surfaces do NOT use this -- they read the table on the service-role client.';
+
 -- Never written by the shop: `authenticated` holds table-level UPDATE/INSERT,
 -- which column REVOKEs cannot narrow — so a trigger refuses it, the same rule
 -- `guard_vendor_profiles_entitlement` applies to the tier columns (and a no-op

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useState, type ReactNode } from 'react';
+import { useId, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { Sparkles, X } from 'lucide-react';
@@ -35,7 +35,6 @@ export function IapUnlockSheet({
   onLine = 'For this event, and everyone on it.',
   plural = false,
   triggerClassName,
-  sample,
 }: {
   eventId: string;
   /** The catalogue code the page already sells (`orders.service_key`) — its Apple product is looked up, never typed. */
@@ -57,22 +56,15 @@ export function IapUnlockSheet({
   plural?: boolean;
   /** The page's own trigger look, so the door sits where the web's did. Default: the brand button. */
   triggerClassName?: string;
-  /** /dev lab only: open at once with a StoreKit-shaped SAMPLE price, or on a given outcome. */
-  sample?: { price: string | null; screen?: IapScreen | null };
 }) {
   const product = iapProductForServiceKey(serviceKey);
   const router = useRouter();
   const headingId = useId();
   const [open, setOpen] = useState(false);
-  // The lab opens it after hydration (a portal drawn on the first render would not match the server's).
-  const opensAtOnce = Boolean(sample);
-  useEffect(() => {
-    if (opensAtOnce) setOpen(true);
-  }, [opensAtOnce]);
-  const prices = useAppStorePrices(product && !sample ? [product.productId] : [], open && !sample);
-  const price = sample ? sample.price : product ? (prices.products.get(product.productId)?.displayPrice ?? null) : null;
+  const prices = useAppStorePrices(product ? [product.productId] : [], open);
+  const price = product ? (prices.products.get(product.productId)?.displayPrice ?? null) : null;
   const [buying, setBuying] = useState(false);
-  const [screen, setScreen] = useState<IapScreen | null>(sample?.screen ?? null);
+  const [screen, setScreen] = useState<IapScreen | null>(null);
 
   if (!product) return null;
 
@@ -145,7 +137,7 @@ export function IapUnlockSheet({
             ) : (
               <p className="mt-1 text-sm text-ink/70">{line}</p>
             )}
-            {!sample && prices.state === 'silent' ? (
+            {prices.state === 'silent' ? (
               <p className="mt-3 text-sm text-ink/70" role="status" data-iap-silent="">
                 {IAP_COPY.storeSilent}
               </p>

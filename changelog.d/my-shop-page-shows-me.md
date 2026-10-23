@@ -24,6 +24,9 @@ no longer grey before listing; the avatar sheet's View page ↗ (`/v/{slug}`) op
 
 **Sign in comes back.** The bare-root not-found's Sign in was a bare `/login`, so a signed-out owner landed on Home.
 It now carries the address (`/login?next=/setnaprod`, path only — never the query, which can hold invite tokens).
+`scripts/lint-port-no-lost-controls.mjs` now counts `/login` as still reached when the link carries a query onto
+it (`/login?next=[seg]`) — only for a baseline entry with no query of its own; regenerating the baseline would have
+recorded a removal that never happened.
 
 Guards: `lib/own-shop-preview.test.ts` (every column combination), `app/v/[slug]/the-team-sees-its-own-page.test.ts`
 (the renderer asks the rule and nothing else; banner rendered), `lib/sign-in-back-here.test.ts`.

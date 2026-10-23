@@ -18,9 +18,9 @@ test('a shop address survives the trip through /login', () => {
   assert.equal(signInBackHereHref('/v/setnaprod'), '/login?next=%2Fv%2Fsetnaprod');
 });
 
-test('nothing off-site, and no address at all, is a plain /login', () => {
+test('nothing off-site, and no address at all, goes back Home', () => {
   for (const bad of ['//evil.com', '/\\evil.com', 'https://evil.com/x', '', null, undefined, '/']) {
-    assert.equal(signInBackHereHref(bad as string | null | undefined), '/login', String(bad));
+    assert.equal(signInBackHereHref(bad as string | null | undefined), '/login?next=%2F', String(bad));
   }
 });
 
@@ -29,6 +29,6 @@ test('the bare-root not-found draws SignInBackHere and no bare /login link', () 
   assert.match(src, /<SignInBackHere\b/, 'the Sign in button is the one that comes back');
   assert.doesNotMatch(src, /href=["'`{]\s*["'`]?\/login["'`]?/, 'a bare /login drops the person on Home');
   const btn = stripComments(readFileSync(join(process.cwd(), 'app/[slug]/_components/sign-in-back-here.tsx'), 'utf8'));
-  assert.match(btn, /signInBackHereHref\(\s*pathname\s*\)/, 'the button builds its href from the address it is on');
+  assert.match(btn, /href=\{`\/login\?next=\$\{signInBackHereNext\(pathname\)\}`\}/, 'the button builds its href from the address it is on');
   assert.match(btn, /usePathname\(\)/);
 });

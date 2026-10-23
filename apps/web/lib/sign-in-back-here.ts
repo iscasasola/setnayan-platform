@@ -12,7 +12,15 @@
  */
 import { safeNext } from '@/lib/safe-next';
 
+/** The `next` value for `/login`, already encoded — `%2F` (Home) when the address is not one of ours. */
+export function signInBackHereNext(pathname: string | null | undefined): string {
+  return encodeURIComponent(safeNext(pathname ?? '/'));
+}
+
+/**
+ * The whole href. The button spells the same template inline (`/login?next=${…}`) so the port guard
+ * (`scripts/lint-port-no-lost-controls.mjs`) still reads `/login` as a place this route reaches.
+ */
 export function signInBackHereHref(pathname: string | null | undefined): string {
-  const next = safeNext(pathname ?? '/');
-  return next === '/' ? '/login' : `/login?next=${encodeURIComponent(next)}`;
+  return `/login?next=${signInBackHereNext(pathname)}`;
 }

@@ -55,7 +55,9 @@ server `r2Upload`). The SEAT camera already PUTs direct to R2 via `/api/upload` 
 - [x] DECISION_LOG row + 0012 offline note status (corpus e4f6f9b9, pushed)
 - [x] walks done (WALK-SUMMARY.txt in the shots folder): Chromium guest + supplier, WebKit guest — all PASS; before measured on origin/main
 - [x] quick preflight (guards, lint, types, pins) green
-- [ ] full tsc + full preflight + db tests (heavy lock, scripts/heavy-final.sh → ~/Documents/Claude/Projects/wt-papic-save-first-final.log) — then PR
+- [x] full tsc 0 errors · full preflight 49 ✓ / 6 ✗ → 4 fixed, 2 not ours (one fixed on main; hub-look-is-pro matches "papic" in this worktree's PATH) · db 15/15 + 14/14
+- [x] PR #6849 (draft, do-not-auto-merge, auto-merge off). CI round 1 on 74dc6df: 27 pass · 2 skipped · 0 fail
+- [x] design-template ✓/✗ table in the PR body; refusal copy → "Couldn’t save N"; 375 px shots (both engines)
 - [ ] seat lane — NOT in this PR (see "Left")
 
 ## Sabotage runs (break → red → restore → green), 2026-10-23

@@ -20,7 +20,7 @@
  *
  * SABOTAGE (run when written): drop `|| h.optedOut` from groupHoldsByVendor →
  * RED (1); drop `same_date_count_opt_out` from the vendors-page select → RED
- * (2); remove the settings form → RED (3).
+ * (2); point the settings form's `setting` elsewhere → RED (3).
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -66,12 +66,20 @@ test('2 · the vendors page reads the flag and hands it to the counter', () => {
 
 test('3 · the couple has the switch, in the existing control, behind the host check', () => {
   const page = code('app/dashboard/[eventId]/website/privacy/page.tsx');
-  assert.match(page, /<SafeForm action=\{setSameDateCountOptOut\}>/);
+  // One route for both switches on this page (server-action budget): the form
+  // posts to setLiveMediaAudience with setting=same_date_count.
+  assert.match(page, /<SafeForm action=\{setLiveMediaAudience\}>\s*<input type="hidden" name="setting" value="same_date_count" \/>/);
   assert.match(page, /name="opt_out"/);
   assert.ok(page.includes(SWITCH_WORDS), 'the settings tile carries the switch’s name');
   const actions = code('app/dashboard/[eventId]/website/privacy/actions.ts');
-  const body = actions.slice(actions.indexOf('export async function setSameDateCountOptOut'));
-  assert.ok(body.length > 0);
+  assert.match(
+    actions,
+    /if \(formData\.get\('setting'\) === 'same_date_count'\) return setSameDateCountOptOut\(formData\);/,
+    'the shared action routes the setting to the opt-out writer',
+  );
+  const start = actions.indexOf('async function setSameDateCountOptOut');
+  assert.ok(start > 0, 'the opt-out writer exists');
+  const body = actions.slice(start);
   const check = body.indexOf('await requireHostMembership(eventId)');
   const write = body.indexOf('.update({ same_date_count_opt_out: optOut })');
   assert.ok(check > 0 && write > check, 'the write must come after the host check');

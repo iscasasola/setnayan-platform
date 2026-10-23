@@ -10,7 +10,6 @@ import {
   updateLandingPageVisibility,
   setShowcaseConsent,
   setLiveMediaAudience,
-  setSameDateCountOptOut,
 } from './actions';
 import { eventNoun } from '@/lib/event-noun';
 import { resolveSiteReachability } from '@/lib/launch-save-the-date';
@@ -378,7 +377,10 @@ export default async function PrivacyEditorPage({
           >
             {countedForOthers ? 'On — you are counted, never named' : 'Off — you are left out of the count'}
           </span>
-          <SafeForm action={setSameDateCountOptOut}>
+          {/* Rides setLiveMediaAudience with setting=same_date_count — one
+              route for both switches (server-action budget). */}
+          <SafeForm action={setLiveMediaAudience}>
+            <input type="hidden" name="setting" value="same_date_count" />
             <input type="hidden" name="event_id" value={eventId} />
             <input type="hidden" name="opt_out" value={countedForOthers ? '1' : '0'} />
             <SubmitButton className="button-primary" pendingLabel="Saving…">

@@ -305,6 +305,12 @@ export async function setShowcaseConsent(formData: FormData) {
  * authorizes it; the admin client is only how it is written.
  */
 export async function setLiveMediaAudience(formData: FormData) {
+  // 🔀 ONE ROUTE, TWO SWITCHES. Every exported server action is a Vercel route
+  // and the repo sits at its ceiling (scripts/lint-server-action-budget.mjs), so
+  // the same-date-count switch on this page rides this action with
+  // `setting=same_date_count` instead of exporting a route of its own.
+  if (formData.get('setting') === 'same_date_count') return setSameDateCountOptOut(formData);
+
   const eventIdRaw = formData.get('event_id');
   const open = formData.get('open') === '1';
 
@@ -368,7 +374,7 @@ export async function setLiveMediaAudience(formData: FormData) {
  * SELECT grant and no UPDATE grant (migration 20271285020592). Leaving the
  * count only ever narrows a disclosure, so no anonymous-draft gate.
  */
-export async function setSameDateCountOptOut(formData: FormData) {
+async function setSameDateCountOptOut(formData: FormData) {
   const eventIdRaw = formData.get('event_id');
   const optOut = formData.get('opt_out') === '1';
 

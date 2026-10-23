@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import {
+  DEFAULT_APPEARANCE,
   appearanceCookieAssignment,
   appearanceFromCookie,
   isAppearance,
@@ -10,7 +11,8 @@ import {
 } from '@/lib/appearance';
 
 /**
- * Theme Provider — Appearance = Light · Dark, the person's choice (dark mode PR 3, 2026-10-13).
+ * Theme Provider — Appearance = Light · Dark · Automatic, the person's choice (dark mode PR 3, 2026-10-13;
+ * Automatic added and made the default by the owner 2026-10-23 — it follows the phone, live).
  *
  * WHY THIS CHANGED. The app was LIGHT-LOCKED from 2026-06-04 (owner: "just always keep it light
  * theme"): `mode` was frozen at 'light', `setMode` did nothing and `.dark` was stripped on mount.
@@ -37,7 +39,7 @@ import {
 
 export type ThemeMode = Appearance;
 
-export const THEME_MODES: readonly ThemeMode[] = ['light', 'dark'];
+export const THEME_MODES: readonly ThemeMode[] = ['light', 'dark', 'auto'];
 
 export function isThemeMode(value: unknown): value is ThemeMode {
   return isAppearance(value);
@@ -69,7 +71,7 @@ export function ThemeProvider({
   const pathname = usePathname() ?? '/';
   // Light on the server and on the first client render (the markup never depends on the choice);
   // the cookie is read after mount.
-  const [mode, setModeState] = useState<ThemeMode>('light');
+  const [mode, setModeState] = useState<ThemeMode>(DEFAULT_APPEARANCE);
   const [resolvedTheme, setResolved] = useState<'light' | 'dark'>('light');
 
   useEffect(() => {
@@ -84,6 +86,24 @@ export function ThemeProvider({
     else document.documentElement.classList.remove('dark');
     setResolved(dark ? 'dark' : 'light');
   }, [pathname, mode]);
+
+  // 🌗 Automatic follows the phone LIVE (owner 2026-10-23): when the OS flips light ↔ dark while the app is
+  // open, the head script's same rule is asked again. Its `decide` reads the media query itself, so a person
+  // on Light or Dark is untouched by a flip; only Automatic moves. The native clock follows `html.dark`
+  // (native-bridge.tsx `clockFollowsTheme`), so it moves with it.
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return;
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const onFlip = () => {
+      const t = snTheme();
+      if (!t) return;
+      const dark = t.decide(window.location.pathname);
+      t.paint(dark);
+      setResolved(dark ? 'dark' : 'light');
+    };
+    mq.addEventListener?.('change', onFlip);
+    return () => mq.removeEventListener?.('change', onFlip);
+  }, []);
 
   // Paper is always light.
   useEffect(() => {

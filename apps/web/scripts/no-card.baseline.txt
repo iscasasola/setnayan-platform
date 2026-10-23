@@ -2,8 +2,8 @@
 # radius (rounded-lg|xl|2xl|3xl|card|tile). GENERATED — never hand-edit:
 #   node apps/web/scripts/lint-no-card.mjs --update-baseline
 # A RATCHET: a count may fall, never rise; a file not listed may hold none.
-# 669 files · 1846 lines
-4 apps/web/app/_components/account-switcher/account-switcher.tsx
+# 666 files · 1839 lines
+2 apps/web/app/_components/account-switcher/account-switcher.tsx
 3 apps/web/app/_components/alaala/lens-body.tsx
 1 apps/web/app/_components/amendment-builder.tsx
 1 apps/web/app/_components/anon-gate/save-to-continue.tsx
@@ -255,12 +255,10 @@
 1 apps/web/app/dashboard/(account)/create-event/page.tsx
 3 apps/web/app/dashboard/(account)/creator/_components/teaser-generator.tsx
 1 apps/web/app/dashboard/(account)/creator/page.tsx
-1 apps/web/app/dashboard/(account)/library/_components/album-shelf.tsx
 2 apps/web/app/dashboard/(account)/library/_components/editorials-tab.tsx
 5 apps/web/app/dashboard/(account)/library/_components/photos-tab.tsx
 1 apps/web/app/dashboard/(account)/library/_components/saved-vendor-card.tsx
 3 apps/web/app/dashboard/(account)/library/_components/vendors-tab.tsx
-2 apps/web/app/dashboard/(account)/library/page.tsx
 1 apps/web/app/dashboard/(account)/life-flash/_components/scroll-reel.tsx
 2 apps/web/app/dashboard/(account)/life-flash/_components/story-people.tsx
 1 apps/web/app/dashboard/(account)/notifications/loading.tsx
@@ -453,7 +451,6 @@
 1 apps/web/app/dashboard/[eventId]/studio/setnayan-ai/_components/setnayan-ai-value.tsx
 1 apps/web/app/dashboard/[eventId]/studio/setnayan-ai/page.tsx
 3 apps/web/app/dashboard/[eventId]/studio/thank-you/_components/thank-you-maker.tsx
-2 apps/web/app/dashboard/[eventId]/studio/website-pro/page.tsx
 1 apps/web/app/dashboard/[eventId]/vendors/_components/accordion-build.tsx
 3 apps/web/app/dashboard/[eventId]/vendors/_components/accordion-lock.tsx
 5 apps/web/app/dashboard/[eventId]/vendors/_components/cancel-booking-button.tsx

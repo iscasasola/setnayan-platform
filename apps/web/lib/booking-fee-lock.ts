@@ -1,5 +1,5 @@
 /**
- * Booking-Fee LOCK path — pure helpers + the free-5 decision. NO database, NO
+ * Booking-Fee LOCK path — pure helpers + the free-first-booking decision. NO database, NO
  * `server-only`, so the safety-critical rules are unit-testable and the
  * service_key parser is importable by the (server) settle hook AND the tests.
  *
@@ -7,8 +7,9 @@
  * (event_vendors → contracted). Fee base = the COUPLE-CONFIRMED agreed total
  * (event_vendors.total_cost_php). Rate = 5%, then 1% beyond ₱100,000 · ₱50 floor
  * · no cap (lib/booking-fee.ts — owner-ruled 2026-07-27; there is no flat rate).
- * A verified vendor's first 5 booked customers pay NOTHING (free-5); booking 6+
+ * A verified vendor's FIRST Setnayan-sourced booking pays NOTHING; booking 2+
  * pays that schedule, collected on the manual GCash/BDO QR `orders` rail.
+ * (Owner 2026-10-23: "Your first booking is on us. Not 5." — it was five.)
  *
  * The DB-touching wrapper (open the charge + issue the vendor order + notify)
  * lives in lib/booking-fee-lock.server.ts and composes these.
@@ -24,8 +25,32 @@ import { bookingFeePhp } from '@/lib/booking-fee';
  */
 export const BOOKING_FEE_LOCK_SERVICE_PREFIX = 'vendor_booking_fee__';
 
-/** A verified vendor's first FREE_BOOKING_LIMIT booked customers pay no fee. */
-export const FREE_BOOKING_LIMIT = 5;
+/**
+ * How many of a verified vendor's Setnayan-sourced bookings pay no fee.
+ *
+ * ⚖ OWNER, 2026-10-23: *"Your first booking is on us. Not 5."* It was 5.
+ *
+ * 🔑 THE NUMBER LIVES IN THE DATABASE — `public.booking_fee_free_booking_limit()`
+ * (migration 20271284624593), which is what the charging RPC actually reads.
+ * This constant is its twin for copy and projections, and
+ * `tests/db/the-first-booking-is-on-us.db.test.ts` fails the moment they
+ * disagree. Change the SQL function first, then this.
+ *
+ * ⚠ The copy is written for ONE ("Your first booking from Setnayan is on us"),
+ * so `the-first-booking-is-on-us.test.ts` pins this to 1 as well: a change here
+ * is a change of every sentence below, not of a number.
+ */
+export const FREE_BOOKING_LIMIT = 1;
+
+/**
+ * THE SENTENCE (owner 2026-10-23). Every supplier surface that names the free
+ * booking says this, or a lower-cased clause of it — never a count of free
+ * bookings, which is how "your first 5" outlived the rule on twelve pages.
+ */
+export const FIRST_BOOKING_ON_US = 'Your first booking from Setnayan is on us.';
+
+/** The same sentence as a mid-sentence clause, without the full stop. */
+export const FIRST_BOOKING_ON_US_CLAUSE = 'your first booking from Setnayan is on us';
 
 /** Build the order service_key for a lock booking-fee charge. */
 export function bookingFeeLockServiceKey(chargeId: string): string {
@@ -46,9 +71,13 @@ export function chargeIdFromBookingFeeLockServiceKey(
 }
 
 /**
- * Free-5: a booking is FREE iff its 1-based ordinal among the vendor's lock
- * bookings is at or below the limit. Booking 5 = free (the 5th), booking 6 =
- * charged. Pure mirror of the SQL rule (booking_ordinal <= 5).
+ * A booking is FREE iff its 1-based ordinal among the vendor's sourced lock
+ * bookings is at or below the limit. Booking 1 = free, booking 2 = charged.
+ * Pure mirror of the SQL rule (booking_ordinal <= booking_fee_free_booking_limit()).
+ *
+ * ⚠ FOR A BOOKING THAT TAKES ITS PLACE NOW. A FROZEN ledger row answers with its
+ * own `is_free_booking` — bookings 2…5 waived under the earlier five-booking
+ * rule stay waived, and asking this function about them would say "billable".
  */
 export function isFreeBooking(bookingOrdinal: number): boolean {
   return Number.isFinite(bookingOrdinal) && bookingOrdinal >= 1 && bookingOrdinal <= FREE_BOOKING_LIMIT;
@@ -57,7 +86,7 @@ export function isFreeBooking(bookingOrdinal: number): boolean {
 export type LockFeeDecision = {
   /** Whether a charge row should exist at all (false = flag off / off-platform). */
   charge: boolean;
-  /** Whether this booking is inside the free-5 (no money, but a waived charge). */
+  /** Whether this booking is the free first one (no money, but a waived charge). */
   free: boolean;
   /** The fee owed in PHP (0 when free / ₱0 booking). */
   feePhp: number;
@@ -68,12 +97,12 @@ export type LockFeeDecision = {
 /**
  * The pure LOCK-fee decision — the single source of truth mirrored by the SQL
  * RPC. Deterministic, no I/O. Kept a strict predicate so a mutation to any arm
- * (flag gate, verified gate, free-5 boundary, fee base) is caught by tests.
+ * (flag gate, verified gate, free-booking boundary, fee base) is caught by tests.
  *
  *   • flag OFF or NOT verified  → no charge, no order (byte-identical to today)
- *   • free-5 (ordinal ≤ 5)      → a waived charge, NO money, NO order
- *   • 6th+ with fee > 0         → a pending charge + a vendor QR order
- *   • 6th+ but ₱0/barter total  → a cleared charge, NO order
+ *   • the first (ordinal ≤ 1)   → a waived charge, NO money, NO order
+ *   • 2nd+ with fee > 0         → a pending charge + a vendor QR order
+ *   • 2nd+ but ₱0/barter total  → a cleared charge, NO order
  */
 export function decideLockFee(args: {
   flagEnabled: boolean;

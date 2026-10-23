@@ -106,7 +106,6 @@ export default async function EditServiceCardPage({
         coverageAsk={{}}
         schedules={ctx.schedules}
         scheduleOfKind={ctx.scheduleOfKind}
-        slotsPerDay={ctx.slotsPerDay}
         branches={ctx.branches}
         detailsKind={details ? card.category : null}
         detailsSlot={

@@ -41,7 +41,6 @@ import { isVendorAddonFirst5FreeEnabled } from '@/lib/vendor-addon-first5-free-f
 import {
   addonIsFreeUnderFirst5,
   fetchVendorCommittedBookingCount,
-  first5BookingsRemaining,
 } from '@/lib/vendor-addon-first5-free';
 import { vendorAutoReplyEnabled } from '@/lib/vendor-autoreply-flag';
 import { seating3dEnabled } from '@/lib/seating-3d-flag';
@@ -263,7 +262,6 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
     committedBookingCount: committedBookings,
     enabled: first5FreeEnabled,
   });
-  const first5Remaining = first5FreeEnabled ? first5BookingsRemaining(committedBookings) : 0;
   // Same pure decision + same count as the booth, keyed on the challenge SKU —
   // the perk is per-SKU, so reusing the booth's boolean would silently give a
   // second add-on away (or withhold it) whenever the two SKUs' rules diverge.
@@ -521,7 +519,6 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
         expiresAt={boothAddonState.expiresAt}
         pricePhp={boothAddonPricePhp}
         first5Free={boothFirst5Free}
-        first5Remaining={first5Remaining}
         openRails={openRails}
       />
 
@@ -538,7 +535,6 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
         pricePhp={papicChallengePricePhp}
         periodDays={VENDOR_PHOTO_CHALLENGE_PERIOD_DAYS}
         first5Free={challengeFirst5Free}
-        first5Remaining={first5Remaining}
         openRails={openRails}
       />
 

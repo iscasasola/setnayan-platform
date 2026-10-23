@@ -73,7 +73,6 @@ export type MakerContext = {
   coverageAsk: Record<string, { leaf: string; label: string }>;
   schedules: MakerSchedule[];
   scheduleOfKind: Record<string, string>;
-  slotsPerDay: number;
   branches: { id: string; label: string; usable: boolean }[];
   leaves: LeafIndex;
   /** A covered kind the shop has exactly one of — the maker pre-picks it. */
@@ -292,7 +291,6 @@ export async function loadMakerContext(
     coverageAsk,
     schedules: pools,
     scheduleOfKind,
-    slotsPerDay: caps.slotsPerDay,
     branches,
     leaves,
     onlyKind: coveredChoices.length === 1 ? (coveredChoices[0]?.value ?? null) : null,

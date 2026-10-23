@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "8bf1f90917",
-  "routeCount": 459,
-  "destinations": 1004,
+  "generatedFromRef": "dba4116d13",
+  "routeCount": 461,
+  "destinations": 1003,
   "actions": 667,
-  "blocks": 6825,
+  "blocks": 6850,
   "routes": {
     "/": {
       "files": [
@@ -5011,19 +5011,20 @@
     },
     "/dashboard/(account)/library": {
       "files": [
-        "dashboard/(account)/library/_components/album-shelf.tsx",
         "dashboard/(account)/library/_components/editorials-tab.tsx",
         "dashboard/(account)/library/_components/gallery-doors.tsx",
+        "dashboard/(account)/library/_components/memories-chapters.tsx",
+        "dashboard/(account)/library/_components/memories-thumb.tsx",
         "dashboard/(account)/library/_components/photos-tab.tsx",
         "dashboard/(account)/library/_components/saved-vendor-card.tsx",
         "dashboard/(account)/library/_components/vendors-tab.tsx",
+        "dashboard/(account)/library/memories-page-reads.harness.ts",
         "dashboard/(account)/library/page.tsx"
       ],
       "destinations": [
         "/dashboard",
         "/dashboard/[seg]/studio/papic",
         "/dashboard/create-event",
-        "/dashboard/library?tab=[seg]",
         "/dashboard/life-flash",
         "/explore",
         "/v/[seg]",
@@ -5031,22 +5032,34 @@
       ],
       "actions": [],
       "blocks": [
+        "A",
+        "AccountThumbRow",
         "AlaalaLensBody",
         "AlbumCard",
-        "AlbumShelf",
         "EditorialCard",
         "EditorialsTab",
         "EventMonogram",
         "FacebookGlyph",
-        "GalleryDoors",
+        "GalleryDoor",
+        "HTMLElement",
+        "Heading",
+        "LifeFlashTile",
         "Link",
-        "LinkPickMenu",
+        "MemoriesChapters",
+        "MemoriesThumb",
+        "MemoriesUnreadable",
+        "MonogramTile",
         "PageMasthead",
         "PhotosTab",
+        "PickMenu",
         "SavedVendorCardItem",
         "Section",
         "StatusChip",
-        "VendorsTab"
+        "ThumbField",
+        "ThumbTool",
+        "Tile",
+        "VendorsTab",
+        "ViewReport"
       ]
     },
     "/dashboard/(account)/life-flash": {
@@ -5122,7 +5135,8 @@
         "dashboard/(account)/people/actions.ts",
         "dashboard/(account)/people/dependent-actions.ts",
         "dashboard/(account)/people/life-stories.ts",
-        "dashboard/(account)/people/page.tsx"
+        "dashboard/(account)/people/page.tsx",
+        "dashboard/(account)/people/people-page-reads.harness.ts"
       ],
       "destinations": [
         "/dashboard/create-event?with=[seg]",
@@ -5143,6 +5157,7 @@
         "setDependentSharing"
       ],
       "blocks": [
+        "A",
         "AccountThumbRow",
         "ActionButton",
         "ActionResult",
@@ -5192,8 +5207,10 @@
         "RequestRow",
         "SamahanPeopleSection",
         "SubmitButton",
+        "T",
         "ThumbField",
         "ThumbTool",
+        "ViewReport",
         "YourStorySection"
       ]
     },
@@ -7042,6 +7059,7 @@
         "dashboard/[eventId]/launch/_components/theme-preview-overlay.tsx",
         "dashboard/[eventId]/launch/_components/view-as-free.tsx",
         "dashboard/[eventId]/launch/loading.tsx",
+        "dashboard/[eventId]/launch/maker-page-reads.harness.ts",
         "dashboard/[eventId]/launch/march-card-actions.tsx",
         "dashboard/[eventId]/launch/page.tsx",
         "dashboard/[eventId]/launch/qr-look-actions.ts"
@@ -7074,6 +7092,7 @@
         "uploadHeroPhoto"
       ],
       "blocks": [
+        "A",
         "About",
         "ActionButton",
         "AddPartSheet",
@@ -7555,6 +7574,7 @@
         "ViewAsFreeRow",
         "ViewAsFreeStrip",
         "ViewAsRow",
+        "ViewReport",
         "Waiting",
         "WebsiteEditorPage",
         "WhatsLeftDoor",
@@ -10663,6 +10683,19 @@
         "SpecialMessageWidget"
       ]
     },
+    "/dev/avatar-sheet-lab": {
+      "files": [
+        "dev/avatar-sheet-lab/page.tsx",
+        "dev/avatar-sheet-lab/sheet-lab.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "SheetLab",
+        "SwitcherData",
+        "SwitcherPanelBody"
+      ]
+    },
     "/dev/bar-lab/[[...path]]": {
       "files": [
         "dev/bar-lab/[[...path]]/page.tsx"
@@ -11057,6 +11090,18 @@
         "PeopleRosterView",
         "ScanTrailForm",
         "SubmitButton"
+      ]
+    },
+    "/dev/memories-lab": {
+      "files": [
+        "dev/memories-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "AccountBottomNav",
+        "MemoriesChapters",
+        "MemoriesThumb"
       ]
     },
     "/dev/onboarding-lab": {
@@ -12849,7 +12894,8 @@
         "vendor-dashboard/layout.tsx",
         "vendor-dashboard/loading.tsx",
         "vendor-dashboard/page.tsx",
-        "vendor-dashboard/template.tsx"
+        "vendor-dashboard/template.tsx",
+        "vendor-dashboard/today-page-reads.harness.ts"
       ],
       "destinations": [
         "/api/vendor/instagram/connect",
@@ -12899,6 +12945,7 @@
         "toggleInstagramMediaVisibility"
       ],
       "blocks": [
+        "A",
         "AccountSwitcher",
         "ActionButton",
         "AddBranchForm",
@@ -12989,6 +13036,7 @@
         "VendorBottomNav",
         "VendorDealFacts",
         "VendorRailContext",
+        "ViewReport",
         "WhatsNewFeed"
       ]
     },

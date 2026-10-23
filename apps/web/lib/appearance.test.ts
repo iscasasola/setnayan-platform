@@ -88,9 +88,9 @@ test('(a) the rule: dark only for a signed-in person whose choice means dark, on
   assert.equal(d('/dashboard', 'chose dark, signed in (chunked)'), true);
   assert.equal(d('/dashboard', 'chose dark, signed out'), false, 'signed out is always Light (call 4)');
   assert.equal(d('/dashboard', 'chose light, signed in'), false);
-  // 🌗 Automatic — the default since 2026-10-23: no choice, or `auto`, follows the phone.
+  // 🌗 No choice = LIGHT (the default again, owner 2026-10-23, until dark covers every screen); `auto` follows the phone.
   assert.equal(d('/dashboard', 'signed in, never chose', SAMPLE_READY, false), false, 'no choice on a light phone = Light');
-  assert.equal(d('/dashboard', 'signed in, never chose', SAMPLE_READY, true), true, 'no choice on a dark phone = Dark (Automatic is the default)');
+  assert.equal(d('/dashboard', 'signed in, never chose', SAMPLE_READY, true), false, 'no choice on a dark phone = Light (Light is the default)');
   assert.equal(d('/dashboard', 'chose automatic, signed in', SAMPLE_READY, true), true);
   assert.equal(d('/dashboard', 'chose automatic, signed in', SAMPLE_READY, false), false);
   assert.equal(d('/dashboard', 'chose light, signed in', SAMPLE_READY, true), false, 'an explicit Light ignores a dark phone');
@@ -160,7 +160,7 @@ test('(d) a ready-list entry is always an app route, never a couple’s slug', (
   }
 });
 
-test('(e) the lock is gone, the save re-renders nothing, the control is the dropdown, and Automatic is the default', () => {
+test('(e) the lock is gone, the save re-renders nothing, the control is the dropdown, and Light is the default', () => {
   const provider = stripComments(read('app/_components/theme-provider.tsx'));
   assert.doesNotMatch(provider, /LIGHT_LOCKED/, 'the frozen light-locked value is back');
   assert.match(provider, /__snTheme/, 'the provider must ask the head script’s rule, not keep its own');
@@ -198,8 +198,15 @@ test('(e) the lock is gone, the save re-renders nothing, the control is the drop
   assert.match(autoSql, /SET theme_preference = 'auto'\s+WHERE theme_preference = 'light'\s+AND updated_at < /, 'only a Light nobody picked moves to Automatic');
   assert.doesNotMatch(autoSql, /WHERE theme_preference = 'dark'/, 'a picked Dark is never moved');
   assert.match(autoSql, /ALTER COLUMN theme_preference SET DEFAULT 'auto'/);
-  assert.equal(DEFAULT_APPEARANCE, 'auto');
-  assert.equal(appearanceFromCookie(''), 'auto', 'no cookie = Automatic');
+  // …and later the same day the owner ruled Light the default again until dark covers every screen.
+  const back = readdirSync(dir).filter((f) => /users_theme_preference_light_until_dark_everywhere\.sql$/.test(f));
+  assert.equal(back.length, 1, 'the Light-until-dark-everywhere migration is missing');
+  const backSql = stripComments(readFileSync(join(dir, back[0] ?? ''), 'utf8'));
+  assert.match(backSql, /SET theme_preference = 'light'\s+WHERE theme_preference = 'auto'\s+AND updated_at < /, 'only the Automatic nobody picked moves back');
+  assert.doesNotMatch(backSql, /WHERE theme_preference = 'dark'/, 'a picked Dark is never moved');
+  assert.match(backSql, /ALTER COLUMN theme_preference SET DEFAULT 'light'/);
+  assert.equal(DEFAULT_APPEARANCE, 'light');
+  assert.equal(appearanceFromCookie(''), 'light', 'no cookie = Light');
   const mig = readdirSync(dir).filter((f) => /users_theme_preference_light_by_default\.sql$/.test(f));
   assert.equal(mig.length, 1, 'the auto → light migration is missing');
   const sql = readFileSync(join(dir, mig[0] ?? ''), 'utf8');

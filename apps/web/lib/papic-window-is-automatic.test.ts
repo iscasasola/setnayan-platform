@@ -44,7 +44,8 @@ for (const [name, src] of Object.entries(SURFACES)) {
 
 test('the window is said in words, from the saved window or the automatic one', () => {
   assert.match(SURFACES.settings, /formatPapicDayInWords\(win\.startDate\)/);
-  assert.match(SURFACES.settings, /'Papic turns on' : 'On from'/);
+  assert.match(SURFACES.settings, /`Papic turns on \$\{on\}` : 'Open now'/);
+  assert.match(SURFACES.settings, /papicSpanWords\(/, 'the dates are not said from the window (saved or automatic)');
   assert.match(SURFACES.settings, /sheetTitle="Change dates"/, 'the dates open the shipped picker behind a quiet "Change dates"');
 });
 

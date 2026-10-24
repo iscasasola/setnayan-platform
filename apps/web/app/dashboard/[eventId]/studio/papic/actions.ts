@@ -138,10 +138,10 @@ export async function createCoupleChallengeAction(formData: FormData) {
     redirect('/dashboard');
   }
   if (!papicGamesEnabled()) {
-    redirect(`/dashboard/${eventId}/studio/papic/challenges`);
+    redirect(challengeReturnPath(eventId, formData.get('return_to')));
   }
   if (typeof prompt !== 'string' || prompt.trim().length === 0) {
-    redirect(`/dashboard/${eventId}/studio/papic/challenges`);
+    redirect(challengeReturnPath(eventId, formData.get('return_to')));
   }
 
   const supabase = await createClient();
@@ -155,7 +155,7 @@ export async function createCoupleChallengeAction(formData: FormData) {
   });
 
   revalidatePath(`/dashboard/${eventId}/studio/papic/challenges`);
-  redirect(`/dashboard/${eventId}/studio/papic/challenges`);
+  redirect(challengeReturnPath(eventId, formData.get('return_to')));
 }
 
 /**
@@ -198,6 +198,9 @@ export async function createCoupleChallengeAction(formData: FormData) {
  */
 function challengeReturnPath(eventId: string, raw: FormDataEntryValue | null): string {
   const base = `/dashboard/${eventId}/studio/papic`;
+  // 🏠 'home' — pressed inside Home's open Papic card (owner 2026-10-23: the card "expands on home"); a fixed word
+  // picks a fixed path, never a URL from the form.
+  if (raw === 'home') return `/dashboard/${eventId}`;
   return raw === 'run-of-show' ? `${base}/run-of-show` : `${base}/challenges`;
 }
 
@@ -353,14 +356,14 @@ export async function setCoupleChallengeActiveAction(formData: FormData) {
     redirect('/dashboard');
   }
   if (!papicGamesEnabled()) {
-    redirect(`/dashboard/${eventId}/studio/papic/challenges`);
+    redirect(challengeReturnPath(eventId, formData.get('return_to')));
   }
   if (
     typeof missionId !== 'string' ||
     missionId.length === 0 ||
     (active !== 'true' && active !== 'false')
   ) {
-    redirect(`/dashboard/${eventId}/studio/papic/challenges`);
+    redirect(challengeReturnPath(eventId, formData.get('return_to')));
   }
 
   const supabase = await createClient();
@@ -371,7 +374,7 @@ export async function setCoupleChallengeActiveAction(formData: FormData) {
     .eq('event_id', eventId);
 
   revalidatePath(`/dashboard/${eventId}/studio/papic/challenges`);
-  redirect(`/dashboard/${eventId}/studio/papic/challenges`);
+  redirect(challengeReturnPath(eventId, formData.get('return_to')));
 }
 
 /**
@@ -410,10 +413,10 @@ export async function armChallengeAction(formData: FormData) {
     redirect('/dashboard');
   }
   if (!papicGamesEnabled()) {
-    redirect(`/dashboard/${eventId}/studio/papic/challenges`);
+    redirect(challengeReturnPath(eventId, formData.get('return_to')));
   }
   if (typeof missionId !== 'string' || missionId.length === 0) {
-    redirect(`/dashboard/${eventId}/studio/papic/challenges`);
+    redirect(challengeReturnPath(eventId, formData.get('return_to')));
   }
 
   // 🔑 THE RUN OF SHOW ARMS THROUGH THIS ACTION, IT DOES NOT RE-IMPLEMENT IT.
@@ -590,10 +593,10 @@ export async function stopChallengeAction(formData: FormData) {
     redirect('/dashboard');
   }
   if (!papicGamesEnabled()) {
-    redirect(`/dashboard/${eventId}/studio/papic/challenges`);
+    redirect(challengeReturnPath(eventId, formData.get('return_to')));
   }
   if (typeof missionId !== 'string' || missionId.length === 0) {
-    redirect(`/dashboard/${eventId}/studio/papic/challenges`);
+    redirect(challengeReturnPath(eventId, formData.get('return_to')));
   }
 
   const supabase = await createClient();
@@ -606,7 +609,7 @@ export async function stopChallengeAction(formData: FormData) {
   }
 
   revalidatePath(`/dashboard/${eventId}/studio/papic/challenges`);
-  redirect(`/dashboard/${eventId}/studio/papic/challenges`);
+  redirect(challengeReturnPath(eventId, formData.get('return_to')));
 }
 
 /** Delete one of the couple's OWN challenges. Auto/vendor missions are hidden via
@@ -620,10 +623,10 @@ export async function deleteCoupleChallengeAction(formData: FormData) {
     redirect('/dashboard');
   }
   if (!papicGamesEnabled()) {
-    redirect(`/dashboard/${eventId}/studio/papic/challenges`);
+    redirect(challengeReturnPath(eventId, formData.get('return_to')));
   }
   if (typeof missionId !== 'string' || missionId.length === 0) {
-    redirect(`/dashboard/${eventId}/studio/papic/challenges`);
+    redirect(challengeReturnPath(eventId, formData.get('return_to')));
   }
 
   const supabase = await createClient();
@@ -635,7 +638,7 @@ export async function deleteCoupleChallengeAction(formData: FormData) {
     .eq('source', 'couple');
 
   revalidatePath(`/dashboard/${eventId}/studio/papic/challenges`);
-  redirect(`/dashboard/${eventId}/studio/papic/challenges`);
+  redirect(challengeReturnPath(eventId, formData.get('return_to')));
 }
 
 /** The five event-wide Papic looks (mirrors the CHECK on events.papic_style and
@@ -689,11 +692,19 @@ const PAPIC_STYLE_VALUES = ['ORIG', 'RETRO', 'MONO', 'CINE', 'LOMO'] as const;
  * saved into the void; the guard written afterwards is why this redirect
  * carries a param the banner reads.
  */
+/**
+ * 🖼 Where an uploads save lands: Memories when it was made there (+ Add photos, owner 2026-10-23 — the files moved
+ * there), else the Papic page. A fixed word picks a fixed path — never a URL from the form.
+ */
+function papicBack(formData: FormData, eventId: string): string {
+  return formData.get('back') === 'memories' ? `/dashboard/${eventId}/memories` : `/dashboard/${eventId}/studio/papic`;
+}
+
 export async function setPapicUploadsOpen(formData: FormData) {
   const result = await getCoupleEventId(formData.get('event_id'));
   if (!result.ok) redirect(result.redirectTo);
   const { eventId } = result;
-  const back = `/dashboard/${eventId}/studio/papic`;
+  const back = papicBack(formData, eventId);
 
   // The form posts the value it wants, not a flip of what it read — a toggle
   // that flips whatever it last saw double-fires on a double-tap and lands on
@@ -717,7 +728,7 @@ export async function claimUploadsCamera(formData: FormData) {
   const result = await getCoupleEventId(formData.get('event_id'));
   if (!result.ok) redirect(result.redirectTo);
   const { eventId } = result;
-  const back = `/dashboard/${eventId}/studio/papic`;
+  const back = papicBack(formData, eventId);
 
   const admin = createAdminClient();
   const { data: seat, error: seatError } = await admin
@@ -1219,7 +1230,14 @@ export async function papicBuySizes(
     admin.from('events').select('papic_guest_spend_ceiling_on, papic_guest_spend_ceiling_points').eq('event_id', who.eventId).maybeSingle(),
     // The named guests' set numbers (each guest card's own Papic number) — read with the admin client, as the rule's
     // own readers do (the table is never reachable from a browser).
-    admin.from('papic_guest_spend_ceilings').select('ceiling_points').eq('event_id', who.eventId),
+    // …only for guests still counted — not removed (`deleted_at`) and not declined — exactly as the DB rule sums them
+    // (`papic_guest_spend_ceiling`, migration 20271241532112): a removed guest's old number is not a share anyone has.
+    admin
+      .from('papic_guest_spend_ceilings')
+      .select('ceiling_points, guests!inner(deleted_at, rsvp_status)')
+      .eq('event_id', who.eventId)
+      .is('guests.deleted_at', null)
+      .neq('guests.rsvp_status', 'declined'),
   ]);
   if (namedRes.error) logQueryError('papicBuySizes.named', namedRes.error, { event_id: who.eventId }, 'graceful_degrade');
   if (headRes.error) logQueryError('papicBuySizes.headcount', headRes.error, { event_id: who.eventId }, 'graceful_degrade');
@@ -1556,6 +1574,11 @@ export async function setGuestAllotments(formData: FormData) {
   }
 
   revalidatePath(back);
+  // 🏠 Saved inside Home's Papic card — land back on Home (a failure above still lands here, where its banner is read).
+  if (savedFromHome(formData)) {
+    revalidatePath(`/dashboard/${eventId}`);
+    redirect(`/dashboard/${eventId}`);
+  }
   redirect(`${back}?allotment_set=${enabled ? '1' : '0'}`);
 }
 
@@ -1671,5 +1694,9 @@ export async function releaseTheRest(formData: FormData) {
   }
 
   revalidatePath(back);
+  if (savedFromHome(formData)) {
+    revalidatePath(`/dashboard/${eventId}`);
+    redirect(`/dashboard/${eventId}`);
+  }
   redirect(`${back}?allotment_set=released`);
 }

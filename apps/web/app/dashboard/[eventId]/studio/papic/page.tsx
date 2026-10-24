@@ -18,6 +18,7 @@ import {
   Unlink2,
   BatteryWarning,
 } from 'lucide-react';
+import { Suspense } from 'react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { startRead } from '@/lib/start-read';
@@ -45,8 +46,11 @@ import {
 import { PAPIC_CAMERA_SALE_REFUSED, PAPIC_CAMERA_SALE_REFUSED_WORDS } from '@/lib/papic-sells-only-credits';
 import { MagazineCard } from './_components/magazine-card';
 import { RecapCard } from './_components/recap-card';
-import { GuestContributionsCard } from './_components/guest-contributions-card';
-import { PapicTopBand } from './_components/papic-top-band';
+import { PapicBuySheet } from './_components/papic-buy-sheet';
+import { IapPapicSheet } from '@/app/_components/iap/iap-papic-sheet';
+import { PapicHomeCard } from '@/app/dashboard/[eventId]/_components/papic-home-card';
+import { PapicCardStrip } from '@/app/dashboard/[eventId]/_components/papic-card-strip';
+import { papicCardPhase, papicCoverageWords } from '@/lib/papic-home-card';
 import { getIapGate } from '@/lib/request-platform';
 import { papicGlance, glanceTileFromStandings } from '@/lib/papic-glance';
 import { StudioBuyHero } from '@/app/dashboard/[eventId]/studio/_components/studio-buy-hero';
@@ -195,6 +199,15 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   // 🖼 OLD LINKS STILL WORK (contract 2026-10-24): "?gallery=open" opened the library that lived here — it lives in
   // the event's Memories tab now, so the link goes there. (Every other old Papic link lands on this camera page.)
   if (search.gallery === 'open') redirect(`/dashboard/${eventId}/memories`);
+  // 🖼 Google Drive and "add photos by hand" live in Memories now: their answers (the Drive OAuth callback and the
+  // disconnect route still land here, and old upload links) are carried on to Memories, which says them — never left
+  // on a page that no longer draws the control (review 2026-10-24).
+  const filesAnswer = new URLSearchParams();
+  for (const key of ['drive_connected', 'drive_disconnected', 'drive_error', 'uploads_ready', 'uploads_error', 'uploads_open_set'] as const) {
+    const v = search[key];
+    if (typeof v === 'string') filesAnswer.set(key, v);
+  }
+  if (filesAnswer.size > 0) redirect(`/dashboard/${eventId}/memories?${filesAnswer.toString()}`);
 
   const supabase = await createClient();
   // ⏱ The SAME ask the dashboard layout makes (`getCurrentUser` is cache()d per render), so the
@@ -501,6 +514,24 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   });
 
 
+  const papicStartIso = papicWindow.startDate ? `${papicWindow.startDate}T00:00:00+08:00` : null;
+  // The one Add more — Apple's sheet in the app, the web's sheet everywhere else. Only the card's OPEN one opens on
+  // arrival (a purchase error to read, "?buy=1"); the folded quick view's twin never does.
+  const papicBuy = (opensOnArrival: boolean, poolError: string | null = null) =>
+    appleIap ? (
+      <IapPapicSheet eventId={eventId} left={papicBand.count} main label="Add more" />
+    ) : (
+      <PapicBuySheet
+        eventId={eventId}
+        left={papicBand.count}
+        tone="brand"
+        main
+        label="Add more"
+        defaultOpen={opensOnArrival && (Boolean(poolError) || search.buy === '1')}
+        error={opensOnArrival ? poolError : null}
+      />
+    );
+
   return (
     /*
       ⚠ FLEX COLUMN, NOT `space-y-7`. CSS `order` applies only to flex and grid
@@ -564,21 +595,34 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
         appleIap={appleIap}
       />
 
-      {/* (2) THE CREDITS — the one band: what is left · the meter · Add more (owner "Yes", 2026-10-13). */}
-      <PapicTopBand
-        eventId={eventId}
-        glance={papicBand}
-        canBuy
-        buyOpen={Boolean(papicPoolError) || search.buy === '1'}
-        error={papicPoolError ?? null}
-        apple={appleIap}
+      {/* 📷 THE ONE PAPIC CARD, OPEN (owner ruling 2026-10-24: "ONE Home Papic card component" — the Papic page shows
+          the same card Home does, opened): its quick view folds away and the controller — the switch and the dates, the
+          framed counter, the meter, the window's line, Add more, what guests chipped in, then the settings — is the
+          page. `papic-home-card.tsx` + `papic-camera-settings.tsx`, the very components Home draws. */}
+      <PapicHomeCard
+        name="Guest photos"
+        brand="Papic"
+        icon={<Camera aria-hidden strokeWidth={1.9} />}
+        mood={papicBand.mood}
+        pct={papicBand.pct}
+        line={papicBand.line}
+        meterLabel="Credits left"
+        coverage={papicCoverageWords({ startIso: papicStartIso, endIso: papicWindow.endIso, now: Date.now() })}
+        phase={papicCardPhase(papicStartIso, papicWindow.endIso, Date.now())}
+        strip={
+          <Suspense fallback={null}>
+            <PapicCardStrip
+              eventId={eventId}
+              total={typeof papicBand.result === 'number' ? papicBand.result : null}
+              phase={papicCardPhase(papicStartIso, papicWindow.endIso, Date.now())}
+            />
+          </Suspense>
+        }
+        actions={papicBuy(false)}
+        settings={<PapicCameraSettings eventId={eventId} credits={{ total: papicBand.total, left: papicBand.count }} buy={papicBuy(true, papicPoolError ?? null)} />}
+        marker={{ 'data-papic-page-card': '' }}
+        defaultOpen
       />
-      {/* NOTIFICATION ONLY — the host is told what guests chipped in, not asked. */}
-      <GuestContributionsCard eventId={eventId} />
-
-      {/* (3) THE CAMERA — the one line (switch + dates), his five, the challenges: the SAME component Home's Papic
-          card opens under itself (`papic-camera-settings.tsx`). */}
-      <PapicCameraSettings eventId={eventId} />
 
       {/* MADE FROM YOUR MEMORIES — the keepsakes Papic's frames become (not in the owner's five; kept, unmoved). */}
       <MagazineCard eventId={eventId} />

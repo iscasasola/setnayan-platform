@@ -40,10 +40,10 @@ test('2 · the region grows and fades in place, inert while folded, still under 
 
 test('3 · Home hands over the event-wide settings, and the latest five open Memories', () => {
   const h = code(HOME);
-  assert.match(h, /<PapicCameraSettings eventId=\{eventId\} seat="home"/, 'Home opens the page seat (with per-guest rows)');
+  assert.match(h, /<PapicCameraSettings\s+eventId=\{eventId\}\s+seat="home"/, 'Home opens the page seat (with per-guest rows)');
   const cam = code(CAMERA);
   assert.doesNotMatch(cam, /<FaceBlockingList/, 'a per-guest face list is back under the card');
-  assert.match(cam, /seat === 'page' \? <GuestAllotmentsChoice/, 'Credits per guest is not held to the page seat');
+  assert.match(cam, /<GuestAllotmentsChoice eventId=\{eventId\} variant="row" eventWide returnTo=\{seat === 'home' \? 'home' : null\}/, 'the event-wide limit is not under Home’s card, or does not land back on Home');
   assert.match(cam, /href=\{`\/dashboard\/\$\{eventId\}\/guests`\}[\s\S]{0,400}guest card/, 'no door to the guest cards');
   const s = code(STRIP);
   assert.ok((s.match(/\/memories`/g) ?? []).length >= 1, 'the strip opens something other than Memories');

@@ -30,7 +30,9 @@ export async function PapicCardStrip({
       .select('photo_id, photo_type, thumb_r2_key, tile_r2_key, display_r2_key, poster_r2_key, captured_at')
       .eq('event_id', eventId)
       .is('hidden_at', null)
-      .or('moderation_state.is.null,moderation_state.neq.nsfw_blocked')
+      // Not past its `expires_at` — the same rule the Memories grid and its count keep (`lib/papic-gallery.ts`).
+      .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
+      .neq('moderation_state', 'nsfw_blocked') // NOT NULL (default 'unscreened'), as `countGalleryFrames` reads it
       .order('captured_at', { ascending: false })
       .limit(5),
     supabase

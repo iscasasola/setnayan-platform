@@ -21,10 +21,11 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { memoriesCameraWords, memoriesUnreadable } from '@/lib/event-memories-words';
 import type { MemoriesAlbumKey } from '@/lib/event-memories';
 import { MemoriesSettings } from './_components/memories-settings';
+import { memoriesNotice } from '@/lib/memories-notice';
 
 export const metadata = { title: 'Memories' };
 
-type Props = { params: Promise<{ eventId: string }> };
+type Props = { params: Promise<{ eventId: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> };
 
 /**
  * /dashboard/[eventId]/memories — THIS EVENT'S MEMORIES, the event bar's fifth tab (owner 2026-10-23, "Yes", on
@@ -41,8 +42,11 @@ type Props = { params: Promise<{ eventId: string }> };
  * 🔒 A non-couple viewer whose "which suppliers did the couple hide?" read failed sees NO supplier shots
  * (`viewerIsCouple: false` → fail closed) — a refusal must never show what the couple chose to hide (review of #6851).
  */
-export default async function EventMemoriesPage({ params }: Props) {
+export default async function EventMemoriesPage({ params, searchParams }: Props) {
   const { eventId } = await params;
+  const search = await searchParams;
+  // What the last press answered (moderation, + Add photos, a supplier's photos, Google Drive) — said, never silent.
+  const notice = memoriesNotice(search);
   const user = await getCurrentUser();
   if (!user) redirect('/login');
   const supabase = await createClient();
@@ -95,7 +99,9 @@ export default async function EventMemoriesPage({ params }: Props) {
   const win = ev
     ? resolveStoredWindow({ windowStart: ev.papic_window_start, windowEnd: ev.papic_window_end, eventDate: ev.event_date })
     : null;
-  const appleIap = iap.iap;
+  // 🍎 In the app — whether or not Apple sells there yet — the sheet names no web price and offers no web checkout
+  // (Keep full resolution, the photo wall): `storeShell` OR the Apple gate, never only the gate (review 2026-10-24).
+  const appleIap = iap.iap || iap.storeShell;
 
   // + ADD PHOTOS — the shipped uploader on the uploads camera (owner 2026-10-23: the one upload door, in the thumb
   // row). "Adding photos by hand" folds into it: when it is off, the sheet offers the same switch to turn it on.
@@ -114,12 +120,13 @@ export default async function EventMemoriesPage({ params }: Props) {
     if (seatErr) logQueryError('EventMemoriesPage.uploadsSeat', seatErr, { event_id: eventId }, 'graceful_degrade');
     const token = seat?.claimer_user_id === user.id ? ((seat?.claim_qr_token as string | null) ?? null) : null;
     addPhotos = !uploadsOpen ? (
-      <UploadsOpenChoice eventId={eventId} open={false} variant="row" />
+      <UploadsOpenChoice eventId={eventId} open={false} variant="row" back="memories" />
     ) : token ? (
       <AddToLibrary token={token} />
     ) : (
       <form action={claimUploadsCamera} className="space-y-3">
         <input type="hidden" name="event_id" value={eventId} />
+        <input type="hidden" name="back" value="memories" />
         <p className="max-w-prose text-sm text-ink/65">
           Add photos and clips from your phone or laptop — older memories too. They land in your Memories with everything
           your guests take, and cost the same: one credit a photo.
@@ -134,6 +141,15 @@ export default async function EventMemoriesPage({ params }: Props) {
     {/* 🔒 WITHHELD, NOT ABSENT — a viewer the couple's sources do not reach (a coordinator) is told the guests' and
         crew's photos exist and are the couple's; zero photos must never read as "there are none". Moved with the
         library from the Papic page (`lib/papic-gallery-scope.test.ts`). */}
+    {notice ? (
+      <p
+        role={notice.tone === 'bad' ? 'alert' : 'status'}
+        className={`mx-4 mt-3 rounded-xl px-3 py-2 text-[13px] ${notice.tone === 'bad' ? 'bg-danger-50 text-danger-900' : 'bg-success-50 text-success-900'}`}
+        data-memories-notice={notice.tone}
+      >
+        {notice.text}
+      </p>
+    ) : null}
     {seesAll ? null : (
       <p className="px-4 pt-3 text-[13px] text-ink/60" data-memories-withheld="">
         You&rsquo;re seeing what the couple&rsquo;s suppliers shot for their records. The photos the crew and guests took belong to the couple and aren&rsquo;t

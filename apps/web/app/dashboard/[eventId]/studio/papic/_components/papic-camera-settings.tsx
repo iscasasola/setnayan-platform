@@ -1,6 +1,10 @@
 import Link from 'next/link';
-import { ChevronRight, Clock } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import { PAPIC_STYLES } from '@/lib/papic-photo-styles';
+import { PAPIC_UNTIL_WORDS } from '@/lib/papic-glance';
+import { papicSpanWords } from '@/lib/papic-home-card';
+import { GuestContributionsCard } from './guest-contributions-card';
+import type { ReactNode } from 'react';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { InfoTip } from '@/app/_components/info-tip';
@@ -35,19 +39,21 @@ import { GuestAllotmentsChoice } from './guest-allotments-choice';
  * the rest of the settings under it not open a new page"*), and `/studio/papic` draws it for old links. The switch is
  * the event's own `papic_on` answer (the capture gate reads it) — never a second on/off.
  *
- * 👥 EVENT-WIDE SETTINGS (controller contract 2026-10-24, from the owner's guest-card ruling, approved
- * `prototypes/guest_card_groups_and_papic_2026-10-23.html`): no per-guest face list on either seat — each guest's camera
- * is on their guest card, and one quiet line points there. ONE exception, flagged as an open owner question: the page
- * seat keeps Credits per guest (see the note at its row). The seat also decides where a save lands.
+ * 👥 EVENT-WIDE SETTINGS, THE SAME ON BOTH SEATS (owner rulings 2026-10-23/24): "Each guest, at most ___" — the
+ * event-wide limit — is in the card; each guest card overrides it for one person, and holds their face switches. The
+ * seat only decides where a save lands (Home or this page).
  */
 export async function PapicCameraSettings({
   eventId,
   credits = null,
   seat = 'page',
+  buy = null,
 }: {
   eventId: string;
   /** 'home' — under Home's Papic card (saves land back on Home); 'page' — `/studio/papic` (saves land there). */
   seat?: 'home' | 'page';
+  /** The filled "+ Add more" — the shipped sheet, built by the caller (web, or Apple's in the app); null: not offered. */
+  buy?: ReactNode;
   /** What the pot holds and has left — null when not measured (the counter then says "—", never 0). */
   credits?: { total: number | null; left: number | null } | null;
 }) {
@@ -70,14 +76,16 @@ export async function PapicCameraSettings({
     windowEnd: (ev.papic_window_end as string | null) ?? null,
     eventDate: (ev.event_date as string | null) ?? null,
   });
+  const windowState = win.startDate ? captureWindowState(win.startDate, win.endIso) : null;
+  // The window's line under the counter (the approved controller: "● Open now · until 12 hours after your day").
   const windowWords = (() => {
     const on = formatPapicDayInWords(win.startDate);
     if (!on) return 'Switches on when your date is set';
-    const waits = captureWindowState(win.startDate, win.endIso) === 'not_started';
-    // 📏 The day only — "· until 12 hours after your day" ran the row past 375 px (the value never wraps); the
-    // end is fixed by rule and said in the Papic ⓘ above.
-    return `${waits ? 'Papic turns on' : 'On from'} ${on}`;
+    if (windowState === 'closed') return 'Closed · your day has passed';
+    return `${windowState === 'not_started' ? `Papic turns on ${on}` : 'Open now'} · ${PAPIC_UNTIL_WORDS}`;
   })();
+  // The dates as the controller says them — "Sat, Dec 12 → Sun, Dec 13, 12 noon" (the venue's clock).
+  const spanWords = win.startDate ? papicSpanWords(`${win.startDate}T00:00:00+08:00`, win.endIso) : null;
   const papicStyle = ((ev.papic_style as string | null) ?? 'ORIG') as string;
   // The look's human name for the row — DERIVED from the style table, never a second copy of the five words.
   const papicStyleLabel = PAPIC_STYLES.find((st) => st.id === papicStyle)?.label ?? 'Orig';
@@ -86,27 +94,33 @@ export async function PapicCameraSettings({
   const used = total !== null && left !== null ? Math.max(0, total - left) : null;
 
   return (
-    <div className="flex flex-col gap-6" data-papic-camera-settings="">
-      {/* (1) THE ONE LINE — Papic [switch] · the dates (owner, 23 Oct: "great"). */}
-      <section className="flex flex-col gap-1" data-papic-top-line="" data-tour="papic-coverage">
+    <div className="flex flex-col gap-6 [&_.font-mono]:font-sans" data-papic-camera-settings="">
+      {/* (1)+(2) THE CONTROLLER'S TOP, AS APPROVED (`prototypes/papic_controller_one_page_2026-10-23.html`, owner
+          2026-10-24 "make it match"): "Papic ⓘ" and its switch (no second "Papic" beside it) · the dates in words ·
+          the framed counter (Remaining in green) · the meter · the window's line · the filled Add more · what guests
+          chipped in. The house fonts throughout — no mono on this card. */}
+      <section className="flex flex-col gap-3" data-papic-top-line="" data-tour="papic-coverage">
         <div className="flex items-center justify-between gap-3">
           <InfoTip label="Papic" labelAs="h2" labelClassName="text-lg font-semibold tracking-tight text-ink" align="start">
             The switch is Papic itself: on, every guest&rsquo;s invite QR is a camera and the one code works; off, nothing
             can be captured and your credits stay. The dates fill in by themselves — up to 6 months before your day, then
             12 hours after it ends. Tap the dates to open the cameras earlier or later.
           </InfoTip>
-          <AnswerPicker
-            eventId={eventId}
-            column="papic_on"
-            label="Papic"
-            choices={papicChoices()}
-            saved={((ev as { papic_on?: boolean | null }).papic_on ?? null) as boolean | null}
-            as="switch"
-          />
+          {/* The switch's own name is the title beside it — said to a screen reader, not printed twice. */}
+          <div className="[&_[data-form-row-name]]:sr-only" data-papic-switch="">
+            <AnswerPicker
+              eventId={eventId}
+              column="papic_on"
+              label="Papic"
+              choices={papicChoices()}
+              saved={((ev as { papic_on?: boolean | null }).papic_on ?? null) as boolean | null}
+              as="switch"
+            />
+          </div>
         </div>
-        {win.startDate ? (
-          <div className="divide-y divide-ink/10" data-papic-dates="">
-            <SettingRow icon={<Clock aria-hidden className="h-4 w-4" strokeWidth={1.75} />} label="Dates" value={windowWords} sheetTitle="Change dates">
+        {win.startDate && spanWords ? (
+          <div className="-mt-1" data-papic-dates="">
+            <SettingRow label={spanWords} value="" sheetTitle="Change dates" bare>
               <PapicWindowPicker
                 returnTo={seat === 'home' ? 'home' : null}
                 eventId={eventId}
@@ -121,29 +135,43 @@ export async function PapicCameraSettings({
             </SettingRow>
           </div>
         ) : null}
-      </section>
 
-      {/* (2) THE CREDITS — Total · Used · Remaining (the counter the owner asked for, 23 Oct). */}
-      {credits ? (
-        <dl className="grid grid-cols-3 gap-2 text-center" data-papic-counter="">
-          {(
-            [
-              ['Total', total],
-              ['Used', used],
-              ['Remaining', left],
-            ] as const
-          ).map(([k, v]) => (
-            <div key={k}>
-              <dt className="font-mono text-[10.5px] uppercase tracking-[0.12em] text-ink/55">{k}</dt>
-              <dd className="text-[19px] font-semibold text-ink">{v === null ? '—' : formatCount(v)}</dd>
+        {credits ? (
+          <>
+            {/* no-card-ok: the approved controller's counter frame (owner 2026-10-24, "the prototype's framed card") */}
+            <dl className="grid grid-cols-3 overflow-hidden rounded-2xl border border-ink/10 text-center" data-papic-counter="">
+              {(
+                [
+                  ['Total', total],
+                  ['Used', used],
+                  ['Remaining', left],
+                ] as const
+              ).map(([k, v], i) => (
+                <div key={k} className={`py-3 ${i > 0 ? 'border-l border-ink/10' : ''}`}>
+                  <dt className="text-[11px] font-medium uppercase tracking-[0.12em] text-ink/55">{k}</dt>
+                  <dd className={`mt-1 text-[22px] font-semibold ${k === 'Remaining' ? 'text-success-700' : 'text-ink'}`} data-papic-counter-value={k.toLowerCase()}>
+                    {v === null ? '—' : formatCount(v)}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+            <div className="h-2 overflow-hidden rounded-full bg-ink/10" aria-hidden data-papic-counter-meter="">
+              <div className="h-full rounded-full bg-success-600" style={{ width: `${total && left !== null && total > 0 ? Math.max(0, Math.min(100, Math.round((left / total) * 100))) : 0}%` }} />
             </div>
-          ))}
-        </dl>
-      ) : null}
+          </>
+        ) : null}
+        <p className="flex items-center gap-2 text-[14px] text-ink/75" data-papic-window-line="">
+          <span aria-hidden className={`h-2 w-2 rounded-full ${windowState === 'open' ? 'bg-success-600' : 'bg-ink/30'}`} />
+          {windowWords}
+        </p>
+        {buy ? <div className="flex" data-papic-add-more="">{buy}</div> : null}
+        {/* NOTIFICATION ONLY — the host is told what guests chipped in, not asked. */}
+        <GuestContributionsCard eventId={eventId} />
+      </section>
 
       {/* (3) SETTINGS — his five, flat: every control on its line, every explanation in its ⓘ. */}
       <section className="flex flex-col gap-3" data-papic-settings="" data-tour="papic-settings">
-        <h2 className="text-lg font-semibold tracking-tight text-ink">Settings</h2>
+        <h2 className="border-t border-ink/10 pt-4 text-center text-[11px] font-medium uppercase tracking-[0.18em] text-ink/55">Settings</h2>
         {/* 🎨 THE FILTER — the approved controller's Filter A (`style-picker.tsx` variant="strip"): five looks across
             one row, the current one marked, one tap saves. Not the 2×3 cards (they made Home's card a screen and a half
             long, walk 2026-10-24) and not a copy of the picker — the SAME forms, drawn small. The word for the current
@@ -159,11 +187,10 @@ export async function PapicCameraSettings({
           <StylePicker variant="strip" returnTo={seat === 'home' ? 'home' : null} eventId={eventId} current={papicStyle} />
         </div>
         <div className="divide-y divide-ink/10">
-          <GuestCamerasChoice eventId={eventId} variant="row" />
-          {/* ⚖ OPEN — Credits per guest stays on THIS page (never on Home's card) until the owner confirms the guest
-              card (#6854) is its only home: it also holds the event-wide "each guest, at most" that "How many do I
-              need?" reads, and nothing else writes that yet. Builder's call 2026-10-24, flagged in the PR. */}
-          {seat === 'page' ? <GuestAllotmentsChoice eventId={eventId} variant="row" /> : null}
+          <GuestCamerasChoice eventId={eventId} variant="row" returnTo={seat === 'home' ? 'home' : null} />
+          {/* 👥 "Each guest, at most ___" — the event-wide limit, in the card on BOTH seats (owner ruling 2026-10-24);
+              each guest card overrides it for one person. */}
+          <GuestAllotmentsChoice eventId={eventId} variant="row" eventWide returnTo={seat === 'home' ? 'home' : null} />
           <FaceTaggingChoice eventId={eventId} variant="row" returnTo={seat === 'home' ? 'home' : null} />
           <Link
             href={`/dashboard/${eventId}/guests`}

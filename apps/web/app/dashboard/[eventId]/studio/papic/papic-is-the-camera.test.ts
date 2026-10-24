@@ -33,7 +33,7 @@ test('1 · the Papic page is the camera: the one line, the credits, his five —
   const page = code(PAPIC);
   const body = page.slice(page.indexOf('data-papic-page="camera"'));
   assert.ok(body.length > 100, 'premise: the camera page is drawn');
-  assert.match(body, /<PapicTopBand\b/, 'the Papic page lost the credits band');
+  assert.match(body, /<PapicHomeCard\b[\s\S]*?defaultOpen/, 'the Papic page does not draw the one Papic card, open (owner 2026-10-24)');
   assert.match(body, /<PapicCameraSettings eventId=\{eventId\}/, 'the Papic page no longer draws the camera settings');
   // The camera, in the owner's order — ONE component, also opened under Home's Papic card.
   const cam = code(CAMERA);
@@ -49,8 +49,8 @@ test('1 · the Papic page is the camera: the one line, the credits, his five —
   // 👥 Event-wide only, on BOTH seats (contract 2026-10-24, the guest-card ruling): each guest's share and face
   // switches live on their guest card — the page draws exactly what Home's card opens.
   assert.ok(!cam.includes('<FaceBlockingList'), 'the camera settings draw a per-guest face list again — it lives on the guest card');
-  // ⚖ The one open exception (flagged to the owner): Credits per guest, on the page seat only — never under Home's card.
-  assert.match(cam, /seat === 'page' \? <GuestAllotmentsChoice/, 'Credits per guest reaches Home’s card, or left the page with nowhere to go');
+  // 👥 Owner ruling 2026-10-24: the event-wide "Each guest, at most" is in the card on BOTH seats — never the named list.
+  assert.match(cam, /<GuestAllotmentsChoice eventId=\{eventId\} variant="row" eventWide /, 'the event-wide limit left the card, or brought the named list');
   for (const gone of [
     '<LiveWallCard',
     '<PoolGalleryCard',
@@ -87,6 +87,8 @@ test('3 · How guests get in carries the one code; a supplier row carries its ph
   const row = d.indexOf('row="guests-get-in"');
   assert.ok(row > 0, 'premise: the How guests get in row');
   assert.match(d.slice(row, row + 900), /<OneCodeUnderGetIn eventId=\{eventId\} \/>/, 'the one code is not under the How guests get in row');
+  assert.match(d, /viewer\.isCouple \? \(\s*<OneCodeUnderGetIn/, 'the one code reaches a delegate — it is the couple’s to hand out');
+  assert.match(d, /data-one-code="not-yours"/, 'a delegate sees an empty space where the one code would be');
   assert.match(d, /supplierPhotos=\{supplierShots\}/, 'Event access is not handed the suppliers’ photos');
   const a = code(ACCESS);
   assert.match(a, /<SupplierPhotosSwitch\b/, 'a supplier row draws no photos switch');

@@ -77,6 +77,9 @@ test('🚨 the picker is mounted exactly ONCE — behind "Change dates"', () => 
 });
 
 test('the row says when the cameras are on, in words a person can act on', () => {
+  // 📅 2026-10-24 (owner, "match the prototype"): the dates ARE the row — "Sat, Dec 12 → Sun, Dec 13, 12 noon", the
+  // door to "Change dates" — and the window's state is said on its own line under the counter ("Open now · until …").
   const at = SRC.indexOf('sheetTitle="Change dates"');
-  assert.match(SRC.slice(at - 300, at), /value=\{windowWords\}/, 'the dates row no longer shows the window in words');
+  assert.match(SRC.slice(at - 300, at), /label=\{spanWords\}/, 'the dates row no longer shows the window in words');
+  assert.match(SRC, /data-papic-window-line=""[\s\S]{0,300}\{windowWords\}/, 'the window’s state is not said');
 });

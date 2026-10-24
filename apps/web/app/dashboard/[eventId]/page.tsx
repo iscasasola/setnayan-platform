@@ -1,5 +1,6 @@
 import { Suspense } from 'react';
 import { PapicCardStrip } from './_components/papic-card-strip';
+import { PapicBuySheet } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-buy-sheet';
 import { PapicCameraSettings } from './studio/papic/_components/papic-camera-settings';
 import { papicCardPhase, papicCoverageWords } from '@/lib/papic-home-card';
 import { OUR_SERVICE_PARTS } from '@/lib/our-services';
@@ -859,7 +860,12 @@ export default async function EventHomePage({
           thankYouHref: OUR_SERVICE_PARTS.papic ? addOnHref(OUR_SERVICE_PARTS.papic.key, eventId) : null,
           settings: (
             <Suspense fallback={null}>
-              <PapicCameraSettings eventId={eventId} seat="home" credits={{ total: papicNow.total, left: papicNow.count }} />
+              <PapicCameraSettings
+                eventId={eventId}
+                seat="home"
+                credits={{ total: papicNow.total, left: papicNow.count }}
+                buy={<PapicBuySheet eventId={eventId} left={papicNow.count} tone="brand" main label="Add more" />}
+              />
             </Suspense>
           ),
         }

@@ -209,6 +209,8 @@ export function HomeTile({
   eventId: string;
   /** 🎛 The Event Hub tile's "Pick what shows" read, when the caller already holds it (the dev lab) — else on the tap. */
   hubPick?: HomeHubPickRead | null;
+  /** 🎛 The shipped Apply bar (`HubDraftDock`), rendered by the page, for the "Pick what shows" sheet. */
+  hubApply?: ReactNode;
   /** this tile's place among the rotating tiles */
   stagger: number;
   /** A first-visit spotlight anchor on this tile's dots (`lib/tours.ts`). */

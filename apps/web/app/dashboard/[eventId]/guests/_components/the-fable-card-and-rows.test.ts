@@ -99,7 +99,10 @@ test('card body: every choice is ONE shipped PickMenu — never a native select,
 test('card body: the owner’s groups, in his order — every one folds, one open at a time; Tags gone', () => {
   const ORDER = ['Basic Info', 'Details', 'Additional Guests', 'RSVP Status', 'Papic', 'Seat Plan', 'Note for them · Private note', 'Access', 'Passed Away', 'Delete'];
   // Papic is named only off the app (🍎 — it is "Photos" there and in the Maker's cards).
-  const at = ORDER.map((g) => CARD.indexOf(g === 'Papic' ? `<K.Fold summary={papicRow ? 'Papic' : 'Photos'}` : `<K.Fold summary="${g}"`));
+  // RE-AIMED 2026-10-24 (the approved prototype): Passed Away is no fold — its switch IS its row (`data-card-passed-away`).
+  const at = ORDER.map((g) =>
+    CARD.indexOf(g === 'Papic' ? `<K.Fold summary={papicRow ? 'Papic' : 'Photos'}` : g === 'Passed Away' ? 'data-card-passed-away=""' : `<K.Fold summary="${g}"`),
+  );
   ORDER.forEach((g, i) => assert.ok(at[i]! > 0, `the ${g} group is gone`));
   for (let i = 1; i < ORDER.length; i++) assert.ok(at[i]! > at[i - 1]!, `${ORDER[i]} is drawn before ${ORDER[i - 1]}`);
   // RE-AIMED 2026-10-23 (review, owner "Always show them"): while the event's Papic is off, its one line replaces only

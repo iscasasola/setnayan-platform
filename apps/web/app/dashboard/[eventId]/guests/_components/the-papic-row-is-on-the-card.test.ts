@@ -216,8 +216,11 @@ test('3 · a check or a read that did not answer SAYS so — and offers no camer
 test('4 · Papic on: "Their camera ▾" with the row’s summary — and it never posts with the card', async () => {
   const set = await paint({ faceblock_enabled: true }, { access: 'on', ceiling: 40 }, { templated: true, camera: true });
   assert.match(set, /data-guest-papic-camera=""/, 'no camera on the Papic row');
-  assert.match(set, /> · 40 credits · Blurred</, 'the Papic row’s summary is not the camera and the blur');
-  const camera = set.slice(set.indexOf('data-guest-papic-camera=""'), set.indexOf('data-card-field="photo_consent"'));
+  // RE-AIMED 2026-10-24: the summary sits at the row's right end (the approved prototype), no " · " before it.
+  assert.match(set, />40 credits · Blurred</, 'the Papic row’s summary is not the camera and the blur');
+  // RE-AIMED 2026-10-24: the prototype's order puts Blur (faceblock_enabled) first under the camera — the camera ends there.
+  const camera = set.slice(set.indexOf('data-guest-papic-camera=""'), set.indexOf('data-card-field="faceblock_enabled"'));
+  assert.ok(camera.length > 50, 'the camera is not drawn before the face switches');
   assert.doesNotMatch(camera, /\sname="/, 'the camera posts with the card’s autosave form');
   const src = read('guest-papic-camera.tsx');
   assert.match(src, /onInput=\{stop\} onChange=\{stop\}/, 'the camera’s taps wake the card’s autosave');
@@ -277,7 +280,8 @@ test('6 · Select → Set… ▾ gains Papic only while the event’s Papic is o
 
 test('7 · Passed Away sits below Access and still posts with the card — the autosave hears a field drawn outside it', () => {
   const body = read('guest-card-body.tsx');
-  assert.ok(body.indexOf('<K.Fold summary="Passed Away"') > body.indexOf('</AutosaveForm>'), 'Passed Away is back inside the form, above Access');
+  // RE-AIMED 2026-10-24: Passed Away is its switch's own row now (the approved prototype), still below Access, outside the form.
+  assert.ok(body.indexOf('data-card-passed-away=""') > body.indexOf('</AutosaveForm>'), 'Passed Away is back inside the form, above Access');
   assert.match(body, /<K\.Toggle\s+name="passed_away"\s+form=\{formId\}/, 'Passed Away no longer posts with the autosave form');
   assert.match(body, /<AutosaveForm action=\{updateAction\} returnTo=\{returnTo\} id=\{formId\}>/);
   const auto = read('guest-card-autosave.tsx');

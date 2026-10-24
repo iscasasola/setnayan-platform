@@ -303,6 +303,7 @@ export function GuestCardBody({
     isIncWedding,
     showTeaCeremony,
     plusOneLines,
+    plusOnePeople,
     initialInvited,
     seatedAt,
     customGroups,
@@ -506,6 +507,9 @@ export function GuestCardBody({
               <span className="rounded-full px-2 py-0.5 text-ink/70 ring-1 ring-ink/15">+{seats}</span>
             ) : null}
             {isCouple ? <span className="rounded-full px-2 py-0.5 text-ink/70 ring-1 ring-ink/15">Host</span> : null}
+            {/* ✓ Saved, at the right of the reply (owner-approved prototype `guest_card_groups_and_papic_2026-10-23.html`): the
+                autosave form's own save line is drawn HERE (`CardSaveState` portals into this slot; the form sits below). */}
+            <span id={`${formId}-saved`} className="ml-auto" data-guest-card-save-slot="" />
           </p>
         </div>
       </div>
@@ -774,6 +778,33 @@ export function GuestCardBody({
                   refused read says so — a failure is never drawn as the empty state (`plusOneLines`, guest-card-data.ts). */}
               {plusOne ? null : plusOneLines === null ? (
                 <p className="rounded-lg bg-warn-50/70 px-3 py-2 text-xs text-warn-900">Couldn’t read this guest’s +1s — refresh to see them.</p>
+              ) : plusOnePeople && plusOnePeople.length > 0 ? (
+                /* 🪪 ONE CARD PER +1 (owner-approved prototype `guest_card_groups_and_papic_2026-10-23.html`): their initials, their
+                   name — or that it is still to come — "+1 of <their guest> · <their reply>", and a tap opens THEIR card. */
+                <ul className="divide-y divide-ink/10" data-guest-plus-ones="">
+                  {plusOnePeople.map((seat) => (
+                    <li key={seat.guestId}>
+                      <Link
+                        href={variant === 'panel' ? `/dashboard/${eventId}/guests?inspect=${seat.guestId}` : `/dashboard/${eventId}/guests/${seat.guestId}`}
+                        className="sn-press flex min-h-[52px] items-center gap-2.5 py-2"
+                        data-guest-plus-one={seat.guestId}
+                      >
+                        <span aria-hidden className="inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full bg-sn-accent/10 text-xs font-semibold text-sn-accent">
+                          {seat.name ? seatInitials(seat.name) : '+1'}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-medium text-ink">{seat.name ?? 'Name to come'}</span>
+                          <span className="block truncate text-xs text-ink/55">
+                            +1 of {callName} · {CARD_RSVP_WORDS[seat.status]}
+                          </span>
+                        </span>
+                        <span aria-hidden className="text-ink/40">
+                          ›
+                        </span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
               ) : plusOneLines.length > 0 ? (
                 <div className="space-y-0.5 rounded-lg bg-success-50/70 px-3 py-2 text-xs text-success-900">
                   {plusOneLines.map((line, i) => (
@@ -876,14 +907,9 @@ export function GuestCardBody({
               /* "Their camera ▾" — Shares with everyone · A set number · No camera (`papic_set_guest_spend_ceiling`). */
               <PapicCamera eventId={eventId} guestId={guest.guest_id} ceiling={papicRow.ceiling} />
             ) : null}
-            {/* The guest's own wishes, said as theirs (review 2026-10-23: "Wants to be tagged in photos", not "Tag them"). */}
-            <K.Toggle
-              name="photo_consent"
-              defaultChecked={guest.photo_consent}
-              label="Wants to be tagged in photos"
-              note="Their consent (RA 10173)"
-            />
-            {/* Salamisim P2 (iteration 0012) — the Live Photo Wall then needs a
+            {/* 📐 THE PROTOTYPE'S ORDER (`guest_card_groups_and_papic_2026-10-23.html`, frame 3): Blur · Tag · Keep out — the
+                guest's own wishes, said as theirs (owner review 2026-10-23: "Wants to be tagged in photos", not "Tag them").
+                Salamisim P2 (iteration 0012) — the Live Photo Wall then needs a
                 server-baked blur on EVERY projected photo, fail-closed.
                 🍎 `data-web-only`: the Live Photo Wall is a paid web extra the
                 iPhone app does not offer (its page is refused there), so the app
@@ -897,6 +923,12 @@ export function GuestCardBody({
                 note="FaceBlock — blurs every face in the shot"
               />
             </div>
+            <K.Toggle
+              name="photo_consent"
+              defaultChecked={guest.photo_consent}
+              label="Wants to be tagged in photos"
+              note="Their consent (RA 10173)"
+            />
             {/* Minor safeguard (DPIA BV-8, 2026-07-05) — a host attestation. */}
             <K.Toggle
               name="face_recognition_excluded"
@@ -1057,26 +1089,38 @@ export function GuestCardBody({
         {/* ══ 9 · PASSED AWAY — listed, never counted (owner 2026-09-25; out of Details, 2026-10-23). Never offered for the
             couple — `updateGuest` refuses it for them too. It posts with the autosave form (`form={formId}`). ═════════ */}
         {isCouple ? null : (
-          <K.Fold summary="Passed Away" value={guest.passed_away ? 'Yes · listed as “the late …”' : 'No'}>
+          /* 📐 THE SWITCH IS THE ROW (owner-approved prototype `guest_card_groups_and_papic_2026-10-23.html`): no fold to open —
+             one yes / no, drawn where the row is, a hairline under it like every group. */
+          <div className="border-b border-ink/10 px-0.5" data-card-passed-away="">
             <K.Toggle
               name="passed_away"
               form={formId}
               defaultChecked={guest.passed_away === true}
-              label="Passed away"
+              label="Passed Away"
               note="Kept on the list as “the late …”. Not counted, seated or sent an invitation."
               soft
             />
-          </K.Fold>
+          </div>
         )}
 
         {/* ══ 10 · DELETE — its own group at the bottom (out of the ⋯, owner 2026-10-23): the shipped warning, its button the
             second tap, and Undo. The couple's rows say why they stay. The Maker's cards hand no Delete and draw none. ══ */}
         {isCouple ? (
-          <K.Fold summary="Delete" value="Can’t be removed" last>
+          <K.Fold summary="Delete" value="Can’t be removed" last danger>
             <p className="text-xs text-ink/50">Foundation of the event — can&rsquo;t be removed.</p>
           </K.Fold>
         ) : DeleteControl ? (
-          <K.Fold summary="Delete" value={seatWithNoName ? 'Release this +1 seat' : 'Asks first · can be undone'} last>
+          <K.Fold summary="Delete" value={seatWithNoName ? 'Release this +1 seat' : seats > 0 ? 'Removes them and their +1' : 'Asks first · can be undone'} last danger>
+            {/* The prototype's words (`guest_card_groups_and_papic_2026-10-23.html`), said before the button — all but its last
+                clause: the prototype says "This can be undone for a day", and the shipped Undo is the toast's, open for SIX
+                SECONDS (`undo-store.ts` UNDO_WINDOW_MS). A promise of a day would be false, so it says what is true. */}
+            {seatWithNoName ? null : (
+              <p className="text-xs text-ink/55" data-card-delete-says="">
+                {seats > 0
+                  ? 'Their QR and link stop working. Their +1’s seat goes too. You can undo it right after.'
+                  : 'Their QR and link stop working. You can undo it right after.'}
+              </p>
+            )}
             <DeleteControl eventId={eventId} guestId={guest.guest_id} guestName={name} seatWithNoName={seatWithNoName} />
           </K.Fold>
         ) : null}
@@ -1087,17 +1131,25 @@ export function GuestCardBody({
 
 // ── local pieces ────────────────────────────────────────────────────────────
 
+/** A +1's initials for their card's avatar — the first letter of the first and the last word ("Ana Cruz" → "AC"). */
+function seatInitials(name: string): string {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  const first = words[0]?.[0] ?? '';
+  const last = words.length > 1 ? (words[words.length - 1]?.[0] ?? '') : '';
+  return `${first}${last}`.toUpperCase() || '+1';
+}
+
 /**
  * ONE ROW OF THE CARD — closed, with a one-line summary; open, its fields.
  * A native details element in ONE exclusive group (`name="guest-card-row"`), so
  * opening a row closes the one that was open — the card never grows long, and
  * there is no script to load (the card is in the Maker's first load too).
  */
-function Fold({ summary, value, emptyValue, open = false, last = false, children }: CardFoldProps) {
+function Fold({ summary, value, emptyValue, open = false, last = false, danger = false, children }: CardFoldProps) {
   return (
     <details name="guest-card-row" open={open || undefined} className={`group ${last ? '' : 'border-b border-ink/[0.06]'}`}>
       <summary className="flex min-h-[48px] cursor-pointer list-none items-center gap-3 px-3.5 text-sm text-ink transition-colors hover:bg-ink/[0.03]">
-        <span className="font-medium">{summary}</span>
+        <span className={`font-medium ${danger ? 'text-danger-700' : ''}`}>{summary}</span>
         <span className="ml-auto min-w-0 truncate text-ink/55">
           {value ?? <span className="italic text-ink/40">{emptyValue ?? '—'}</span>}
         </span>

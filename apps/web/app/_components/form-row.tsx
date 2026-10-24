@@ -436,6 +436,7 @@ export function TypedRow({
   below,
   openAsk = 0,
   fieldName,
+  boxed = false,
 }: {
   /**
    * Inside a `<form>`: the name this row's kept words are POSTED under (see `lib/tell-the-form.ts`). A hidden input carries them; keeping
@@ -444,6 +445,13 @@ export function TypedRow({
   fieldName?: string;
   /** Bumped by the screen to open this row's field (a jump from elsewhere that lands ON this fact). 0 = never asked. */
   openAsk?: number;
+  /**
+   * ✍ A LONG ANSWER SHOWN AS A BOX, AT REST TOO (`long` only — the guest card's notes, owner-approved prototype
+   * `guest_card_groups_and_papic_2026-10-23.html`): its name ABOVE, and the words in a multi-line box under it — the same box
+   * the open field is — instead of a one-line pill beside a name squeezed into a narrow column. A tap opens the field, as the
+   * pill does. Absent → the row is exactly as it was.
+   */
+  boxed?: boolean;
   name: string;
   about?: FormRowAbout | null;
   /** The answer as it stands ('' = none yet). For an amount: its digits ("250000"). */
@@ -684,6 +692,26 @@ export function TypedRow({
           onEnd={end}
           onGone={closed}
         />
+      ) : long && boxed ? (
+        <div key={`box-${back}`} data-form-row-back={back > 0 ? '' : undefined} data-form-row-boxed="" className="flex flex-col gap-2 pb-3 pt-2.5">
+          <RowName name={name} about={about} needed={needed} nameId={nameId} />
+          <button
+            ref={pill}
+            type="button"
+            {...pillAttrs}
+            data-form-row-pill="typed"
+            aria-label={`${name}: ${words || 'not set yet'}. Tap to change`}
+            aria-busy={state.kind === 'saving' || undefined}
+            onClick={open}
+            className={`sn-press sn-press-ring min-h-[76px] w-full rounded-2xl border bg-white px-[18px] py-3 text-left text-[15px] leading-snug dark:bg-raised ${
+              wrong || failed ? 'border-danger-700' : needed ? 'border-sn-accent ring-[3px] ring-sn-accent/15' : 'border-ink/15'
+            }`}
+          >
+            <span data-form-row-words="" className={`line-clamp-4 whitespace-pre-wrap break-words ${words ? 'text-ink' : 'text-ink/45'}`}>
+              {words || empty}
+            </span>
+          </button>
+        </div>
       ) : (
         <div key={`line-${back}`} data-form-row-back={back > 0 ? '' : undefined} className={FORM_ROW_LINE}>
           <RowName name={name} about={about} needed={needed} nameId={nameId} />

@@ -60,6 +60,8 @@ export type CardFoldProps = {
   emptyValue?: string;
   open?: boolean;
   last?: boolean;
+  /** The title in the danger colour — the card's Delete (prototype `guest_card_groups_and_papic_2026-10-23.html`). */
+  danger?: boolean;
   children: ReactNode;
 };
 export type CardPickProps = {

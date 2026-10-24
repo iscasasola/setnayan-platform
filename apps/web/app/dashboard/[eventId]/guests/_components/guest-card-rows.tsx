@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { useFormStatus } from 'react-dom';
+import { createPortal, useFormStatus } from 'react-dom';
 import Link from 'next/link';
 import { Check, ChevronRight } from 'lucide-react';
 import { ActionButton, actionButtonClass } from '@/components/action-button';
@@ -70,6 +70,9 @@ export function CardField({ id, label, required = false, type = 'text', defaultV
       onKeep={KEEP}
       required={required}
       long={long}
+      /* ✍ A long answer is a box you can see (owner-approved prototype `guest_card_groups_and_papic_2026-10-23.html`, the Notes
+         group): its name above, the words in a multi-line box — never a one-line pill beside a squeezed name. */
+      boxed={long}
       placeholder={placeholder}
       empty={placeholder ?? 'Add'}
       /* A stored answer longer than the box allows is never cut by opening the row. */
@@ -107,9 +110,21 @@ export function CardDoor({ label, value, href, action, data }: CardDoorProps) {
 }
 
 /** One row of the card: closed with a one-line summary, open its fields as ONE list of rows. */
-export function CardFold({ summary, value, emptyValue, open = false, children }: CardFoldProps) {
+/**
+ * ONE GROUP OF THE CARD as the approved prototype draws it (`guest_card_groups_and_papic_2026-10-23.html`, frame 2): the title at
+ * the left, its summary at the right cut with "…" (never a second line), a hairline under every row but the last, the row inset
+ * from the card's edge by the prototype's 2 px.
+ */
+export function CardFold({ summary, value, emptyValue, open = false, last = false, danger = false, children }: CardFoldProps) {
   return (
-    <Fold title={summary} summary={value ?? emptyValue ?? '—'} defaultOpen={open} data={`card-${summary.toLowerCase().replace(/\W+/g, '-')}`}>
+    <Fold title={summary}
+      summary={value ?? emptyValue ?? '—'}
+      summaryEnd
+      danger={danger}
+      defaultOpen={open}
+      className={`px-0.5 ${last ? '' : 'border-b border-ink/10'}`}
+      data={`card-${summary.toLowerCase().replace(/\W+/g, '-')}`}
+    >
       <FormRows data={`card-${summary.toLowerCase().replace(/\W+/g, '-')}`}>{children}</FormRows>
     </Fold>
   );
@@ -327,7 +342,26 @@ export function CardSaveState({ copy }: { copy?: Record<string, string> }) {
   const { pending } = useFormStatus();
   const { outcome, retry } = useAutosaveOutcome();
   const [shown, setShown] = useState(false);
+  /** Typed or picked since the last landed save (or since the card opened) — nothing unsent may read as "Saved". */
+  const [edited, setEdited] = useState(false);
   const seen = useRef(0);
+  const anchor = useRef<HTMLSpanElement>(null);
+  /* ✓ SAVED, UP BY THE REPLY (owner-approved prototype `guest_card_groups_and_papic_2026-10-23.html`): the card draws a slot
+     beside the reply pills (`<form id>-saved`); the line is drawn there while this stays in the form's tree (the form's
+     pending state is read from HERE). No slot (the Maker) → drawn where it always was. */
+  const [slot, setSlot] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    const form = anchor.current?.closest('form');
+    if (!form) return;
+    setSlot(form.id ? document.getElementById(`${form.id}-saved`) : null);
+    const heard = () => setEdited(true);
+    form.addEventListener('input', heard);
+    form.addEventListener('change', heard);
+    return () => {
+      form.removeEventListener('input', heard);
+      form.removeEventListener('change', heard);
+    };
+  }, []);
   /* The action's own sentence for a refusal, when it has one: a code the card knows, or words plainly written for a person. The
      database's words (a returned `error.message`) are never printed — there is just "Couldn’t save." and Try again. */
   const why = outcome.kind === 'failed' ? outcome.why : undefined;
@@ -335,11 +369,14 @@ export function CardSaveState({ copy }: { copy?: Record<string, string> }) {
   useEffect(() => {
     if (outcome.kind !== 'saved' || outcome.n === seen.current) return;
     seen.current = outcome.n;
+    // Landed: "Saved" stays until the next change (the prototype's resting line), never before the answer.
     setShown(true);
-    const t = setTimeout(() => setShown(false), 2200);
-    return () => clearTimeout(t);
+    setEdited(false);
   }, [outcome]);
-  return (
+  useEffect(() => {
+    if (edited) setShown(false);
+  }, [edited]);
+  const line = (
     <span role={outcome.kind === 'failed' && !pending ? 'alert' : 'status'} aria-live="polite" data-autosave-line="" className="inline-flex min-h-[1.25rem] flex-wrap items-center justify-end gap-x-2 text-xs text-ink/55">
       {pending ? (
         'Saving…'
@@ -349,12 +386,18 @@ export function CardSaveState({ copy }: { copy?: Record<string, string> }) {
           {said ? <span data-autosave-why="" className="text-danger-700">{said}</span> : null}
           <ActionButton tone="danger" label="Try again" icon={Check} onClick={retry} data-testid="autosave-retry" />
         </>
-      ) : outcome.kind === 'saved' && shown ? (
+      ) : (outcome.kind === 'saved' && shown) || (outcome.kind === 'idle' && !edited) ? (
+        /* At rest — the card as the server last saved it, nothing changed since — or a save that LANDED. */
         <>
           <Check aria-hidden className="h-3.5 w-3.5 text-success-700" strokeWidth={2.5} />
           <span className="text-success-800">Saved</span>
         </>
       ) : null}
+    </span>
+  );
+  return (
+    <span ref={anchor} className="contents" data-autosave-anchor="">
+      {slot ? createPortal(line, slot) : line}
     </span>
   );
 }

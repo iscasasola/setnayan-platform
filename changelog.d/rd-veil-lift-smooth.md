@@ -22,3 +22,22 @@ Not changed (measured, not worth it): the page's un-wait restyle at the tap (~50
 either engine. No worker / OffscreenCanvas needed.
 
 SPEC IMPACT: None.
+
+## 2026-10-25 · feat(hub-veil): the veil feels the scroll
+
+Owner: *"when we scroll we want the veil to be affected due to scroll"*. While the veil is shown or lifting, the
+page's scroll / swipe velocity (passive `wheel` / `touchmove`, event deltas only — no layout read) is a gentle wind:
+scrolling down billows the cloth upward toward the lift, a flick adds a ripple, the petals drift with it. The force is
+clamped (`SCROLL_WIND_MIN` −0.5 … `SCROLL_WIND_MAX` 1, the stored impulse capped) and decays to exactly 0 in well under
+a second (`lib/veil-cloth.ts` · `addScrollDelta` / `takeScrollWind`; held by `the-veil-feels-the-scroll.test.ts`).
+Reduced motion never starts the sim, so it gets none of it.
+
+…and the petals follow the page (owner: *"if we lose the top screen, the petals left on the screen will keep on
+falling along with the screen till it exceeds the screen or leaves the screen. only when it is locked at the top will
+it start falling petals again."*). Off the top, no petal is born; those in the air keep falling with the page (the
+drape's layer already rides it) and each retires only after falling out of the frame. Back at the top and resting
+there 150 ms, the shower resumes from above the frame. Off the top with none left in the air, the sim stops drawing
+until the page is back at the top (`restingAtTop` / `veilMaySleep`; the scroll offset is read only in a passive
+`scroll` event).
+
+SPEC IMPACT: None.

@@ -39,7 +39,7 @@ import { DEFAULT_VEIL_LOOK, type VeilLook, type RevealFeatures } from '@/lib/rev
 import { usePrefersReducedMotion } from '@/lib/use-responsive';
 import { claimVeilHold } from '@/lib/hub-veil';
 import { liftedValance, weaveOf } from '@/lib/veil-style';
-import { buildGridConstraints, clampPass, computeIndexedNormals, relaxPass, writePositions, type ClothConstraints } from '@/lib/veil-cloth';
+import { noteScrollY, restAtTop, restingAtTop, veilMaySleep, TOP_REST_MS, addScrollDelta, buildGridConstraints, clampPass, computeIndexedNormals, relaxPass, takeScrollWind, writePositions, type ClothConstraints, type ScrollWind } from '@/lib/veil-cloth';
 
 type Props = {
   /** Veil tulle colour (hex), Mood-Board-driven. Ivory fallback handled by caller. */
@@ -363,6 +363,15 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
 
     let lift = 0;
     let liftTarget = 0;
+    /* 🌬 The page's scroll as wind (owner 2026-10-25): fed by the passive listeners below, read once a frame. */
+    const scrollWind: ScrollWind = { v: 0 };
+    let scrollF = 0;
+    /* 🌸 Petals are born only while the page rests at its top (owner 2026-10-25, \`lib/veil-cloth.ts\` · \`restingAtTop\`). */
+    const topRest = restAtTop();
+    let atTop = true;
+    let inAir = 0;
+    let asleep = false;
+    const pGone = new Int8Array(100);
     let t = 0;
     let settling = false;
     let locked = false;
@@ -613,7 +622,13 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
       const clingCap = Math.round(aN * 0.3);
       for (let i = 0; i < NP; i++) {
         const P = pPar[i]!;
-        if (i >= aN) {
+        if (pGone[i] && atTop) {
+          // Back at the top: a retired petal is born again ABOVE the frame and rains in (never mid-screen).
+          pGone[i] = 0;
+          spawnFalling(i);
+          pPos[i]!.y = vh * (1.05 + rnd() * 1.9);
+        }
+        if (i >= aN || pGone[i]) {
           pdum.scale.set(0, 0, 0);
           pdum.position.set(0, 0, -99);
           pdum.updateMatrix();
@@ -637,7 +652,7 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
             pVel[i]!.set((rnd() * 2 - 1) * 0.2, -0.05 - rnd() * 0.18, (rnd() * 2 - 1) * 0.15);
           }
         } else {
-          pVel[i]!.y += P.grav * dt;
+          pVel[i]!.y += (P.grav + scrollF * 1.5) * dt;
           pVel[i]!.x *= P.drag;
           pVel[i]!.y *= P.drag;
           pPos[i]!.x += pVel[i]!.x * dt + P.sway * Math.sin(t * P.swayF + P.swayPh) * dt;
@@ -683,8 +698,10 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
             pVel[i]!.x *= 0.8; // settle the sideways drift so it stays on the words
           }
           if (pPos[i]!.y < -vh * 1.45) {
-            // Recycle as another falling petal.
-            spawnFalling(i);
+            // Recycle as another falling petal — only while the page rests at its top; off it, the petal that has
+            // fallen out of the frame is retired (owner 2026-10-25), and comes back from above when the page does.
+            if (atTop) spawnFalling(i);
+            else pGone[i] = 1;
           }
         }
         pdum.position.copy(pPos[i]!);
@@ -849,8 +866,11 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
           (gs > 0 ? wind * we * gs * 0.6 * Math.sin(tw * 2.3 + ix * 0.41 + iy * 0.17 + 3 * Math.sin(t * 0.13 + ix * 0.05)) : 0);
         const az = wind * 0.55 * we * burst * Math.cos(tw * 0.5 + ix * 0.12 + iy * 0.1);
         const nx = px[k]! + (px[k]! - qx[k]!) * drag + aw * dt * dt;
-        const ny = py[k]! + (py[k]! - qy[k]!) * drag + g * dt * dt;
-        const nz = pz[k]! + (pz[k]! - qz[k]!) * drag + az * dt * dt;
+        // 🌬 Scroll wind: lifts the hem-ward rows (`we`, 0 at the crown) — a flick adds a travelling ripple.
+        const sy = scrollF === 0 || settling ? 0 : scrollF * 4 * we;
+        const sz = scrollF === 0 || settling ? 0 : Math.abs(scrollF) * 1.2 * we * Math.sin(t * 9 + ix * 0.5 + iy * 0.3);
+        const ny = py[k]! + (py[k]! - qy[k]!) * drag + (g + sy) * dt * dt;
+        const nz = pz[k]! + (pz[k]! - qz[k]!) * drag + (az + sz) * dt * dt;
         qx[k] = px[k]!;
         qy[k] = py[k]!;
         qz[k] = pz[k]!;
@@ -945,6 +965,7 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
         raf = 0;
         return;
       }
+      asleep = false;
       const dt = Math.min(0.033, (now - last) / 1000);
       last = now;
       const autoDur = Math.max(0.4, cfgRef.current.feather);
@@ -980,6 +1001,8 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
         }
       }
       mat.color.set(colorRef.current || '#f3ece1');
+      scrollF = takeScrollWind(scrollWind);
+      atTop = restingAtTop(topRest, now);
       step(1 / 60);
       const zc = camZ - 0.7;
       // 🐢 Straight into the attribute's own array, and the normals by `computeIndexedNormals` — three.js's
@@ -997,7 +1020,12 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
           initPetals();
           petalsSeeded = true;
         }
-        if (petalsSeeded) updatePetals(Math.min(0.033, dt), shakeFrames > 0);
+        if (petalsSeeded) {
+          updatePetals(Math.min(0.033, dt), shakeFrames > 0);
+          const aN = Math.round((NP * cfgRef.current.petalsDensity) / 100);
+          inAir = 0;
+          for (let i = 0; i < aN; i++) if (!pGone[i]) inAir++;
+        }
       } else if (petalsSeeded) {
         parkAll();
         petalsSeeded = false;
@@ -1029,6 +1057,12 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
         renderer.render(scene, camera);
         still = true;
         mount.setAttribute('data-veil-still', '');
+        raf = 0;
+        return;
+      }
+      // 🌸 Off the top with no petal left in the air: draw nothing more until the page is back at its top.
+      if (veilMaySleep(revealedRef.current, atTop, featuresRef.current.petals && petalsSeeded ? inAir : 0)) {
+        asleep = true;
         raf = 0;
         return;
       }
@@ -1171,6 +1205,38 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
       if (petalsSeeded && d) bounceAt(d.x, d.y);
     };
     window.addEventListener('std-veil-poke', onPoke as EventListener);
+    // 🌬 Scroll / swipe velocity, from event data only (no layout read): wheel deltaY, and a finger's travel up the
+    // screen (scrolling down). Passive — they never hold a scroll.
+    let touchY: number | null = null;
+    const onWheel = (e: WheelEvent) => addScrollDelta(scrollWind, e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY);
+    const onTouchStart = (e: TouchEvent) => {
+      touchY = e.touches[0]?.clientY ?? null;
+    };
+    const onTouchMove = (e: TouchEvent) => {
+      const y = e.touches[0]?.clientY;
+      if (y === undefined) return;
+      if (touchY !== null) addScrollDelta(scrollWind, touchY - y);
+      touchY = y;
+    };
+    // 🌸 Where the page rests: the scroll offset, read only in its own passive scroll event (never in the frame).
+    let topWake = 0;
+    const onScroll = () => {
+      const now = performance.now();
+      noteScrollY(topRest, window.scrollY, now);
+      if (asleep && window.scrollY <= 2) {
+        if (topWake) window.clearTimeout(topWake);
+        topWake = window.setTimeout(() => {
+          topWake = 0;
+          if (!asleep || !restingAtTop(topRest, performance.now())) return;
+          asleep = false;
+          wakeRef.current();
+        }, TOP_REST_MS + 16);
+      }
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('wheel', onWheel, { passive: true });
+    window.addEventListener('touchstart', onTouchStart, { passive: true });
+    window.addEventListener('touchmove', onTouchMove, { passive: true });
 
     // ── Resize / rotate — cheap re-fit immediately (no stretch), full rebuild debounced.
     let roFrame = 0;
@@ -1263,6 +1329,11 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
       window.removeEventListener('pointerup', release);
       window.removeEventListener('pointercancel', onCancel);
       window.removeEventListener('std-veil-poke', onPoke as EventListener);
+      window.removeEventListener('scroll', onScroll);
+      if (topWake) window.clearTimeout(topWake);
+      window.removeEventListener('wheel', onWheel);
+      window.removeEventListener('touchstart', onTouchStart);
+      window.removeEventListener('touchmove', onTouchMove);
       geo?.dispose();
       mat.dispose();
       mat.alphaMap?.dispose();

@@ -323,12 +323,12 @@ async function liveDay(looks: unknown, liveHubStyle: string | null = null): Prom
 }
 
 for (const [arrangement, roots] of [
-  ['Player and wall', ['<section aria-label="Watch the event live"', '<section aria-label="Memory lane"']],
+  ['Player and Memory lane', ['<section aria-label="Watch the event live"', '<section aria-label="Memory lane"']],
   ['Theatre', ['<section data-scene-style="theatre"']],
-  ['Wall first', ['<section data-scene-style="wall-first"']],
+  ['Memory lane first', ['<section data-scene-style="wall-first"']],
 ] as const) {
   test(`Live hub, ${arrangement}: nothing kept (or a background, which it refuses) is the same page; a motion kept marks each root it is drawn from — nothing else`, async () => {
-    const style = arrangement === 'Theatre' ? 'theatre' : arrangement === 'Wall first' ? 'wall-first' : null;
+    const style = arrangement === 'Theatre' ? 'theatre' : arrangement === 'Memory lane first' ? 'wall-first' : null;
     const mark = `<span hidden="" ${BLOCK_MARK_ATTR}="live_hub"></span>`;
     const plain = await liveDay(undefined, style);
     for (const root of roots) assert.equal(plain.split(root).length, 2, `${root}: not drawn once — this proves nothing`);

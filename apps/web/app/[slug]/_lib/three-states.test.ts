@@ -159,7 +159,7 @@ test('the live wall stops promising photos it cannot fetch', () => {
   assert.match(WALL, /const \[stalled, setStalled\] = useState\(false\)/, 'the stalled state is gone');
   assert.match(
     WALL,
-    /We can’t reach the wall right now/,
+    /We can’t reach Memory lane right now/,
     'The wall shows only "warming up" again — a promise it has stopped being ' +
       'able to keep.',
   );

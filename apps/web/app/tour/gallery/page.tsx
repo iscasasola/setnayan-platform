@@ -204,11 +204,11 @@ export default async function TourGalleryPage() {
       <section aria-label="Memory lane" className="mx-auto mt-12 max-w-3xl">
         <div className="flex items-center gap-2">
           <Camera aria-hidden className="h-4 w-4 text-[#8C6932]" strokeWidth={1.75} />
-          <h2 className="font-serif text-2xl text-[#1B1A17]">The wall, live</h2>
+          <h2 className="font-serif text-2xl text-[#1B1A17]">Memory lane, live</h2>
         </div>
         <p className="mt-2 text-sm text-[#5F5E5A]">
           Watch new moments drift in. On a real wedding day these appear the instant they&rsquo;re taken &mdash; here, tap
-          &ldquo;Bring the wall to life&rdquo; to see it fill. Nothing is saved; reload to start fresh.
+          &ldquo;Bring Memory lane to life&rdquo; to see it fill. Nothing is saved; reload to start fresh.
         </p>
         <div className="mt-6">
           <TourLiveWall

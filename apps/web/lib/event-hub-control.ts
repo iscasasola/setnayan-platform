@@ -794,9 +794,9 @@ export function resolveHubRoleView(input: {
         name: 'Guest',
         headline: 'The page as somebody who scanned their way in.',
         blurb:
-          'No account, one scan, the whole door. Details, the programme, the camera, the wall, the gifts — and the seat FINDER, but no seat of their own.',
+          'No account, one scan, the whole door. Details, the programme, the camera, Memory lane, the gifts — and the seat FINDER, but no seat of their own.',
         cells: [
-          { mark: 'full', text: 'Camera, watch live, the wall, gifts, the album', known: true },
+          { mark: 'full', text: 'Camera, watch live, Memory lane, gifts, the album', known: true },
           { mark: 'partial', text: 'The seat finder — they type their own name', known: true },
           replyCell(guests, (pending) =>
             pending === 0 ? 'Everyone has replied' : `${pending} of them have not replied`,

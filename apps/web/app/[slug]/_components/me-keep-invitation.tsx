@@ -47,7 +47,7 @@ export function MeKeepInvitation(props: {
         {ME_KEEP_TIP}
       </InfoTip>
       <p className="text-sm text-ink/70">{ME_KEEP_LINE}</p>
-      <div className="mx-auto max-w-sm text-left">
+      <div className="mx-auto max-w-md text-left">
         <SaveToAccount {...props} whyInTip />
       </div>
     </section>

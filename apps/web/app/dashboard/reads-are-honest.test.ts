@@ -790,6 +790,41 @@ test('a refused read never renders as a count of zero or an emptied money docume
     'The booth must know whether it counted today’s renders at all — a cap that ' +
       'fails open is not a cap.',
   );
+  // …and the MEASUREMENT REACHES THE RENDER: the strip is handed the flag, and
+  // the figure, the "N left" and the green pill are drawn only on the counted
+  // path — a refused count says so, never "0 / 40 · 40 left before soft cap".
+  assert.match(
+    booth,
+    /<CapacityStrip\s+measured=\{submissionsMeasured\}/,
+    'The soft-cap strip is not handed whether the count was read — a refused ' +
+      'read draws as a quiet booth.',
+  );
+  assert.doesNotMatch(
+    booth,
+    /submissionsCount \?\? 0/,
+    'An unread count is turned into 0 — the strip then claims the whole cap is left.',
+  );
+  const strip = booth.slice(
+    booth.indexOf('function CapacityStrip('),
+    booth.indexOf('\nfunction ', booth.indexOf('function CapacityStrip(') + 1),
+  );
+  assert.ok(strip.length > 200, 'function CapacityStrip was not found — the guard is reading nothing');
+  assert.match(strip, /const counted = measured && submissions !== null && remaining !== null;/);
+  const countedAt = strip.indexOf('{counted ? (');
+  // The unread branch is the one that says so; its `) : (` is the last one before those words.
+  const unreadAt = strip.lastIndexOf(') : (', strip.indexOf('Couldn&rsquo;t read today'));
+  assert.ok(countedAt > 0 && unreadAt > countedAt, 'the strip has no counted / unread branch');
+  const countedPath = strip.slice(countedAt, unreadAt);
+  const outside = strip.slice(0, countedAt) + strip.slice(unreadAt);
+  for (const [what, re] of [
+    ['the figure', /\{(?:formatCount\()?submissions\)?\}/],
+    ['"N left before soft cap"', /left before soft cap/],
+    ['the green pill', /bg-success/],
+  ] as const) {
+    assert.match(countedPath, re, `${what} is no longer drawn when the count was read`);
+    assert.doesNotMatch(outside, re, `${what} is drawn outside the counted path — a refused count shows it`);
+  }
+  assert.match(strip.slice(unreadAt), /Couldn&rsquo;t read today&rsquo;s count/, 'a refused count does not say so');
   assert.match(
     booth,
     /const faceEnabled = !faceEnrollCountError &&/,

@@ -160,7 +160,7 @@ const READERS: Record<string, readonly [kind: 'carries' | 'via' | 'host' | 'edit
   'app/live/_lib/load-screen.ts': ['carries', 'the live screen'],
   'app/panood/control/[eventId]/page.tsx': ['carries', 'the Panood control (what goes on air)'],
   'app/panood/program/[eventId]/page.tsx': ['carries', 'the Panood program output'],
-  'app/papic/guest/page.tsx': ['carries', "the guest camera's look"],
+  'app/papic/guest/page.tsx': ['carries', "the guest camera's Pro dress (the logo on the shutter)"],
   'app/wall/[eventId]/page.tsx': ['carries', 'the Live Photo Wall masthead'],
   'lib/discover-events.ts': ['via', 'discovery cards draw rows selected with coverColumns() (lib/home-public-reads-core.ts)'],
   'lib/event-cover-given.ts': ['via', 'discovery covers draw CoverRow (lib/home-public-reads-core.ts COVER_COLUMNS)'],
@@ -168,6 +168,7 @@ const READERS: Record<string, readonly [kind: 'carries' | 'via' | 'host' | 'edit
   'lib/home-public-reads-core.ts': ['carries', 'the public home shelves (COVER_COLUMNS)'],
   'lib/maker-logo-opening.ts': ['editor', 'the Maker Logo editor'],
   'lib/monogram-svg-safe.ts': ['resolver', 'resolveEventMonogramSvg — the gate itself'],
+  'lib/papic-photo-mark-of-event.ts': ['resolver', "the Papic photo mark on a Pro event, through resolveEventMonogramSvg (both callers' rows carry logo_wanted)"],
   'lib/print-set.server.ts': ['carries', 'the print set'],
   'lib/qr-look.server.ts': ['carries', 'every QR centre (QR_LOOK_COLUMNS)'],
 };

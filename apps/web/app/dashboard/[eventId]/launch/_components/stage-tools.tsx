@@ -90,10 +90,11 @@ import type { StagePageOption } from './stage-item-menu';
 import { PART_PAD, RevealPartTools, RevealPlay, askPartOps, makerPartTopOnScreen, revealStageOf, usePartEdits } from './add-part-sheet';
 import { partsInPageOrder } from '@/lib/maker-part-step';
 import { SCENE_COLLAPSE_CALM_MS, SCENE_COLLAPSE_EASE, SCENE_COLLAPSE_MS, SCENE_STATUS_MS } from '@/lib/maker-scene-drag';
-import { BlockAnimateRows, CameraPartTools, ScenePhotoRow, SectionNames, StagePlayStatus, VenuePictureRows } from './details-lazy';
+import { BlockAnimateRows, ScenePhotoRow, SectionNames, StagePlayStatus, VenuePictureRows } from './details-lazy';
 import { BLOCK_EMPTY_WHY, BLOCK_SAMPLE_WHY, blockOfCanvas, blockTakesGround } from '@/lib/block-looks';
 import { BlockGroundRows } from './stage-panel/block-background';
 import { CameraPage } from './stage-panel/camera-page';
+import { CameraPartNote } from './stage-panel/camera-face';
 import { keepPostEventWords, postEventAbout, postEventSceneNow } from './stage-panel/post-event-edit';
 import { PostEventShown } from './stage-panel/post-event-shown';
 import { POST_EVENT_ABOUT } from '../../website/editor/_components/post-event-scene-panel';
@@ -445,7 +446,7 @@ export function StageTools({
       const drawnHere = makerPartsWithAdded({ stage, page, pages: pages.map((p) => p.key), drawn: [...present], filed }).filter((k) => makerPartIsDrawn(k, present));
       const withReveal = revealStage && page && makerPartsOnPage(stage, page)[0] === 'reveal' ? (['reveal', ...drawnHere] as MakerPartKey[]) : drawnHere;
       /* 🎛 The Camera is never drawn on the editing page (`the-maker-canvas-draws-no-camera`) — on its own page its
-         tile is the page map's, and its tools are this panel's own (`CameraPartTools`). */
+         tile is the page map's, and its rows are this panel's own (`CameraPartNote`). */
       return page && makerPartsOnPage(stage, page).includes('camera') && !withReveal.includes('camera') ? [...withReveal, 'camera'] : withReveal;
     },
     [filed, pages, present, revealStage, stage],
@@ -562,7 +563,7 @@ export function StageTools({
   /* ── the panel's height: half the screen while a part's tools are open ── */
   /* 🎭 The Reveal's tools are this panel's own (no work-area tool opens for it). */
   const revealOpen = picked === 'reveal' && revealStage !== null;
-  /* 🎛 …and so are the Camera's (its three looks, owner 2026-10-06/07). */
+  /* 📷 …and so are the Camera's: no look to pick any more (owner 2026-10-24) — one line saying what it wears. */
   const cameraOpen = picked === 'camera' && !rsvpOpen;
   /** A part whose only tool is Style (the pass is a guest's own card: no words or motion of its own to set). */
   const styleOnly = revealOpen || cameraOpen || rsvpOpen || picked === 'pass';
@@ -1879,8 +1880,8 @@ export function StageTools({
             <RevealPartTools stage={revealStage} />
           </div>
         ) : null}
-        {/* ══ 🎛 THE CAMERA'S TOOLS — Style: Classic · Your brand · Challenges ══ */}
-        {open && cameraOpen && !editOn ? <CameraPartTools /> : null}
+        {/* ══ 📷 THE CAMERA'S ROWS — ONE camera, no style to pick (owner 2026-10-24): what it wears, in one line ══ */}
+        {open && cameraOpen && !editOn ? <CameraPartNote pro={maker?.lookPages?.camera?.pro ?? false} /> : null}
         {/* 🧱 A fixed block's own Animate — the toolbar's four rows, on the block's own save. */}
         {blockRows && block ? <BlockAnimateRows key={block} block={block} /> : null}
         {/* 🎬 The Cover Scene's one entrance — Entrance ▾ · Movement ◆ · the beats · the words on their own. */}
@@ -1896,7 +1897,8 @@ export function StageTools({
       </div>
       {revealPlaying && revealStage ? <RevealPlay stage={revealStage} onDone={() => setRevealPlaying(false)} /> : null}
       {/* ══ 🎛 THE CAMERA'S PAGE IS THE CAMERA (owner 2026-10-09: "Camera is a full screen design") — drawn on the canvas's
-          own Camera page, edge to edge, in the look picked; picked on arriving, and by a tap (`camera-page.tsx`). ══ */}
+          own Camera page, edge to edge — the one camera, in its Pro dress where the event has it; picked on arriving,
+          and by a tap (`camera-page.tsx`). ══ */}
       {rsvpOpen ? null : (
         <CameraPage stage={stage} on={makerPartsOnPage(stage, shownPage).includes('camera')} picked={open && cameraOpen} held={picked !== null} onPick={() => pickPartRef.current('camera')} />
       )}

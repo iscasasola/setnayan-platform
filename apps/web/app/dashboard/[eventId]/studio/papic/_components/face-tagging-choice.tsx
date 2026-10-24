@@ -92,19 +92,23 @@ export async function FaceTaggingChoice({
   // the gate read, so the button can never say the opposite of what runs.
   const declined = (data as { face_tagging_declined_by_couple?: boolean | null }).face_tagging_declined_by_couple === true;
 
+  // ⚖ DPO ruling 2026-10-23: face tagging is OFF by default — the couple opts
+  // in. `declined` defaults to TRUE (migration 20271284831032), so "Off" is the
+  // answer nobody chose and "Turn it on" is the opt-in.
   const explanation = declined ? (
     <>
-      Off for your event. Guests get their photos when someone scans their QR
-      or tags them — nobody&rsquo;s face is measured.
+      Off for your event — face tagging stays off unless you turn it on.
+      Guests get their photos when someone scans their QR or tags them, and
+      nobody&rsquo;s face is measured. If you turn it on, each guest still
+      chooses for themselves.
     </>
   ) : (
     <>
-      On automatically because your event has Papic. Guests who say
-      &ldquo;Yes, tag me&rdquo; take one selfie on the day and get their photos
-      found for them. It is always their choice — nothing is stored unless
-      they agree — and you can switch it off for your whole event. Switching
-      it off erases every guest&rsquo;s selfie; photos already tagged stay
-      tagged.
+      On for your event, because you turned it on. Guests who say &ldquo;Yes,
+      tag me&rdquo; take one selfie on the day and get their photos found for
+      them. It is always their choice — nothing is stored unless they agree.
+      Turning it off erases every guest&rsquo;s selfie; photos already tagged
+      stay tagged.
     </>
   );
 
@@ -116,7 +120,7 @@ export async function FaceTaggingChoice({
         pendingLabel="Saving…"
         className="rounded-lg bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10"
       >
-        {declined ? 'Turn it back on' : 'Turn it off for my event'}
+        {declined ? 'Turn it on for my event' : 'Turn it off for my event'}
       </SubmitButton>
     </form>
   );

@@ -324,8 +324,8 @@ test('3 · the draft carries it, counts it and names it; an empty look is no loo
   const part = sanitizeHubDraft({ events: { style_preferences: { [BLOCK_LOOKS_PREF_KEY]: look, anything_else: 1 } } });
   assert.deepEqual(part?.events.style_preferences, { [BLOCK_LOOKS_PREF_KEY]: look }, 'the draft’s cleaner drops the blocks’ looks (or keeps a key that is not the Maker’s)');
   for (const bad of ['x', 3, null, [1]]) assert.equal(sanitizeHubDraft({ events: { style_preferences: { [BLOCK_LOOKS_PREF_KEY]: bad } } })?.events.style_preferences, undefined);
-  /* A QR or camera save laid over it keeps it (the part is merged key by key). */
-  const merged = mergeHubDraft(part!, sanitizeHubDraft({ events: { style_preferences: { camera_look: 'film' } } })!);
+  /* A QR save laid over it keeps it (the part is merged key by key). */
+  const merged = mergeHubDraft(part!, sanitizeHubDraft({ events: { style_preferences: { qr: { pattern: 'dots' } } } })!);
   assert.deepEqual((merged.events.style_preferences as Record<string, unknown>)[BLOCK_LOOKS_PREF_KEY], look);
 
   /* COUNTED: a block look that differs from live is one change in the Apply count… */

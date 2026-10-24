@@ -37,9 +37,8 @@ export function StyleCards({
    */
   dim?: readonly string[];
   /**
-   * 🎛 A look whose picture is DRAWN HERE instead of copied off the page (`StylePreview`): the Camera's — the camera
-   * is never opened in the Maker, so its three looks are the camera's own pieces, drawn (`camera-look.tsx`). The
-   * card, its foot and the strip are the same; only what fills the picture differs.
+   * 🎛 A look whose picture is DRAWN HERE instead of copied off the page (`StylePreview`) — for a part the canvas
+   * does not draw. The card, its foot and the strip are the same; only what fills the picture differs.
    */
   picture?: (id: string, on: boolean) => ReactNode;
   /** 🔎 One block of the scene the cards are fitted on (`StylePreview` `focus`) — the palette's "Our colours". */

@@ -58,7 +58,7 @@ export default async function PrivacyEditorPage({
   const { data: event } = await supabase
     .from('events')
     .select(
-      'event_id, event_type, display_name, slug, landing_page_visibility, scheduled_launch_at, std_launched_at, live_media_public',
+      'event_id, event_type, display_name, slug, landing_page_visibility, scheduled_launch_at, std_launched_at, live_media_public, same_date_count_opt_out',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -112,6 +112,8 @@ export default async function PrivacyEditorPage({
   // answered by the predicate the guest page itself renders from.
   const reach = resolveSiteReachability(event);
   const liveMediaOpen = Boolean(event.live_media_public);
+  // ⚖ DPO ruling 2026-10-23: a couple may leave the same-date count.
+  const countedForOthers = event.same_date_count_opt_out !== true;
   const launched = reach.reachable;
   const scheduledAt =
     typeof event.scheduled_launch_at === 'string' ? event.scheduled_launch_at : null;
@@ -344,6 +346,52 @@ export default async function PrivacyEditorPage({
           This only affects the livestream and the live photo wall. It doesn&rsquo;t
           change who can open your page, and it never shares anything before the
           day itself.
+        </p>
+      </div>
+
+      {/* Same-date count — DPO ruling 2026-10-23: a couple may leave it.
+          Same control as "Who can watch on the day": a pill that says the
+          current answer, and one button that flips it. */}
+      <div className="space-y-4 sn-tile p-5 sm:p-6">
+        <div className="space-y-2">
+          <p className="sn-eye flex items-center gap-2">
+            <Users aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+            Same-date count
+          </p>
+          <h2 className="font-serif text-2xl italic tracking-tight">
+            Count us for other couples
+          </h2>
+          <p className="max-w-prose text-sm text-ink/70">
+            When another couple looks at a supplier for the same date, they can
+            see how many couples asked that supplier about it &mdash; only a
+            number, only when it is three or more, never who. Turn this off and
+            your questions are left out of that number.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <span
+            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${
+              countedForOthers ? 'bg-ink/5 text-ink/60' : 'bg-success-50 text-success-800'
+            }`}
+          >
+            {countedForOthers ? 'On — you are counted, never named' : 'Off — you are left out of the count'}
+          </span>
+          {/* Rides setLiveMediaAudience with setting=same_date_count — one
+              route for both switches (server-action budget). */}
+          <SafeForm action={setLiveMediaAudience}>
+            <input type="hidden" name="setting" value="same_date_count" />
+            <input type="hidden" name="event_id" value={eventId} />
+            <input type="hidden" name="opt_out" value={countedForOthers ? '1' : '0'} />
+            <SubmitButton className="button-primary" pendingLabel="Saving…">
+              {countedForOthers ? 'Leave us out of the count' : 'Count us again'}
+            </SubmitButton>
+          </SafeForm>
+        </div>
+
+        <p className="text-xs text-ink/50">
+          This doesn&rsquo;t change what you see, and suppliers never see this
+          number.
         </p>
       </div>
 

@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "e2819cebad",
-  "routeCount": 464,
-  "destinations": 1004,
+  "generatedFromRef": "ca3d7ba1c3",
+  "routeCount": 466,
+  "destinations": 1005,
   "actions": 662,
-  "blocks": 6889,
+  "blocks": 6914,
   "routes": {
     "/": {
       "files": [
@@ -979,6 +979,7 @@
         "[slug]/_components/selfie-capture.tsx",
         "[slug]/_components/selfie-no-thanks-confirm.tsx",
         "[slug]/_components/send-their-invite.tsx",
+        "[slug]/_components/sign-in-back-here.tsx",
         "[slug]/_components/sign-out-of-invitation.tsx",
         "[slug]/_components/site-body.tsx",
         "[slug]/_components/site-menu-bar.tsx",
@@ -1100,7 +1101,7 @@
         "/api/guest/qr",
         "/dashboard/profile",
         "/join/[seg]",
-        "/login",
+        "/login?next=[seg]",
         "/papic/guest",
         "/papic/me/[seg]/photo?id=[seg]&src=guest",
         "/privacy",
@@ -1220,6 +1221,7 @@
         "EventCelebrants",
         "EventIconSource",
         "EventMedia",
+        "EventMonogram",
         "EventWords",
         "EventWordsContext.Provider",
         "EventWordsProvider",
@@ -1295,6 +1297,7 @@
         "HeroBackgroundMedia",
         "HeroDesignId",
         "HeroMonogram",
+        "HeroMonogramData",
         "HeroPhoto",
         "HideableWidgetRender",
         "HostDraftLook",
@@ -1528,6 +1531,7 @@
         "Sheet",
         "SheetClip",
         "SheetEntry",
+        "SignInBackHere",
         "SignOutOfInvitation",
         "SiteBody",
         "SiteMenuBar",
@@ -7024,7 +7028,6 @@
         "dashboard/[eventId]/launch/_components/stage-panel/block-animate.tsx",
         "dashboard/[eventId]/launch/_components/stage-panel/block-background.tsx",
         "dashboard/[eventId]/launch/_components/stage-panel/camera-face.tsx",
-        "dashboard/[eventId]/launch/_components/stage-panel/camera-look.tsx",
         "dashboard/[eventId]/launch/_components/stage-panel/camera-page.tsx",
         "dashboard/[eventId]/launch/_components/stage-panel/cover-animate.tsx",
         "dashboard/[eventId]/launch/_components/stage-panel/cover-lines.tsx",
@@ -7131,10 +7134,9 @@
         "Box",
         "BoxWithX",
         "BufferedCanvasFrame",
-        "CameraLook",
-        "CameraLookFace",
+        "CameraFace",
         "CameraPage",
-        "CameraPartTools",
+        "CameraPartNote",
         "CanvasSettle",
         "CanvasStaysOnThePage",
         "CategoryLine",
@@ -7143,6 +7145,7 @@
         "CeremonyTimeEditor",
         "ChangedSincePrinted",
         "ChineseSpecialistNudge",
+        "Chip",
         "Chips",
         "ChosenRow",
         "CityPick",
@@ -7259,6 +7262,7 @@
         "Image",
         "InMakerLiveStoryPanel",
         "IncludeSwitch",
+        "InfoDot",
         "InfoTip",
         "IntoLowerThird",
         "ItemPieces",
@@ -11156,6 +11160,21 @@
         "SimpleSetupFlow"
       ]
     },
+    "/dev/papic-camera-lab": {
+      "files": [
+        "dev/papic-camera-lab/lab-camera.tsx",
+        "dev/papic-camera-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "Blob",
+        "LabCamera",
+        "PapicCaptureController",
+        "PapicGuestCapture",
+        "UploaderSnapshot"
+      ]
+    },
     "/dev/people-lab": {
       "files": [
         "dev/people-lab/lab-tour.tsx",
@@ -11241,6 +11260,21 @@
         "FrontDoorResults",
         "FrontDoorShell",
         "RosterPerson"
+      ]
+    },
+    "/dev/shop-preview-lab": {
+      "files": [
+        "dev/shop-preview-lab/page.tsx"
+      ],
+      "destinations": [
+        "/"
+      ],
+      "actions": [],
+      "blocks": [
+        "Link",
+        "SlugNotFound",
+        "TeamPreviewBanner",
+        "Wordmark"
       ]
     },
     "/dev/spotlight-lab/[[...page]]": {
@@ -12272,8 +12306,11 @@
     "/papic/guest": {
       "files": [
         "papic/guest/_components/camera-focus-corners.tsx",
+        "papic/guest/_components/guest-camera-tools.tsx",
+        "papic/guest/_components/my-shots-sheet.tsx",
         "papic/guest/_components/papic-challenge-panel.tsx",
         "papic/guest/_components/papic-guest-capture.tsx",
+        "papic/guest/_components/tag-scanner-overlay.tsx",
         "papic/guest/loading.tsx",
         "papic/guest/page.tsx"
       ],
@@ -12290,23 +12327,33 @@
         "Blob",
         "CameraColumn",
         "CardFrame",
-        "ChallengePanelInner",
+        "ChallengeFollowUp",
+        "ChallengePill",
         "DayOfFaceEnroll",
         "DoorShell",
         "EventMonogram",
         "FocusCorners",
         "GridPageSkeleton",
+        "GuestCameraTools",
         "GuestColumnCard",
+        "GuestFocusSquare",
+        "GuestGridLines",
         "GuestGuidedTour",
         "HTMLButtonElement",
         "HTMLCanvasElement",
+        "HTMLDivElement",
+        "InfoTip",
         "Link",
         "MediaRecorder",
-        "PapicCameraControls",
-        "PapicChallengePanel",
+        "MyShot",
+        "MyShotsSheet",
+        "MyShotsWaitingBadge",
         "PapicGuestBuyPanel",
         "PapicGuestCapture",
-        "PapicStyle"
+        "PapicStyle",
+        "PapicUploadChip",
+        "PickMenu",
+        "TagScannerOverlay"
       ]
     },
     "/papic/join/[token]": {
@@ -12817,6 +12864,7 @@
         "v/[slug]/_components/service-details-sheet.tsx",
         "v/[slug]/_components/services-gallery.tsx",
         "v/[slug]/_components/share-button.tsx",
+        "v/[slug]/_components/team-preview-banner.tsx",
         "v/[slug]/_components/venue-matched-events.tsx",
         "v/[slug]/_components/verified-price-card.tsx",
         "v/[slug]/inquiry-actions.ts",
@@ -12874,6 +12922,7 @@
         "StartServiceInquiryResult",
         "StorytellerTile",
         "SubmitButton",
+        "TeamPreviewBanner",
         "TrackRecord",
         "TrustedBySection",
         "TrustedByVendor",
@@ -14189,6 +14238,7 @@
         "MediaRecorder",
         "MediaStream",
         "MyLine",
+        "PapicUploadChip",
         "PauseToggle",
         "PaymentsPausedNote",
         "Person",

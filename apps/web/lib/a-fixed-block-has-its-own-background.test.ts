@@ -413,7 +413,7 @@ test('6 · the draft carries it and counts it: one change toward Apply, free; pu
   const look = { details: { g: 'frost' }, entourage: { g: 'plain', motion: { in: { fade: true } } } };
   const part = sanitizeHubDraft({ events: { style_preferences: { [BLOCK_LOOKS_PREF_KEY]: look } } });
   assert.deepEqual(part?.events.style_preferences, { [BLOCK_LOOKS_PREF_KEY]: look }, 'the draft’s cleaner drops a block’s background');
-  const merged = mergeHubDraft(part!, sanitizeHubDraft({ events: { style_preferences: { camera_look: 'film' } } })!);
+  const merged = mergeHubDraft(part!, sanitizeHubDraft({ events: { style_preferences: { qr: { pattern: 'dots' } } } })!);
   assert.deepEqual((merged.events.style_preferences as Record<string, unknown>)[BLOCK_LOOKS_PREF_KEY], look);
 
   const counted = (draft: ReturnType<typeof sanitizeHubDraft>, live: unknown) => hubDraftCountedChanges(planHubDraftApply(draft, { events: { style_preferences: live }, widgets: {} } as unknown as HubLiveState, false));

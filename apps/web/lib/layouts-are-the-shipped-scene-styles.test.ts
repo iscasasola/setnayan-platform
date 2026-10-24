@@ -25,7 +25,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
-import { MAKER_CAMERA_LAYOUTS, MAKER_PARTS, MAKER_PART_KEYS } from './maker-parts';
+import { MAKER_PARTS, MAKER_PART_KEYS } from './maker-parts';
 import { sceneStyleSet } from './scene-styles';
 
 const WEB = join(__dirname, '..');
@@ -77,10 +77,10 @@ test("no invented 'Statement' / 'Offset' family anywhere under apps/web", () => 
   assert.deepEqual(hits, [], `an invented layout family was written: ${hits.join(', ')}`);
 });
 
-test('only the Camera keeps its own three layouts', () => {
-  const own = MAKER_PART_KEYS.filter((k) => MAKER_PARTS[k].layouts.kind === 'own');
-  assert.deepEqual(own, ['camera']);
-  assert.deepEqual([...MAKER_CAMERA_LAYOUTS], ['Classic', 'Your brand', 'Challenges']);
+test('no part keeps layouts of its own — the Camera has none (owner 2026-10-24: one camera)', () => {
+  const kinds = new Set(MAKER_PART_KEYS.map((k) => MAKER_PARTS[k].layouts.kind));
+  for (const k of kinds) assert.ok(k === 'scene' || k === 'none', `a part has layouts of kind ${k}`);
+  assert.equal(MAKER_PARTS.camera.layouts.kind, 'none');
 });
 
 test('the Dress code’s palette and Do’s & Don’ts cards are their registries’ lists — the Maker has none of its own', () => {

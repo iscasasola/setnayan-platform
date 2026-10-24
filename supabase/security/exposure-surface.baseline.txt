@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6757
+# facts: 6758
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     574
-#   col       4951
+#   col       4952
 #   policy    955
 #   view      8
 #   func      265
@@ -2275,6 +2275,7 @@ col	public.events.role_names	anon=- authenticated=S
 col	public.events.role_palette	anon=SIU authenticated=SIU
 col	public.events.rsvp_ask_config	anon=- authenticated=SU
 col	public.events.rsvp_backdrop	anon=SIU authenticated=SIU
+col	public.events.same_date_count_opt_out	anon=- authenticated=S
 col	public.events.scheduled_launch_at	anon=SIU authenticated=SIU
 col	public.events.seating_autoplace_enabled	anon=SIU authenticated=SIU
 col	public.events.seating_group_adjacency	anon=SIU authenticated=SIU
@@ -4763,6 +4764,7 @@ col	public.vendor_papic_capture_grants.upgrade_order_id	anon=SIU authenticated=S
 col	public.vendor_papic_capture_grants.vendor_profile_id	anon=SIU authenticated=SIU
 col	public.vendor_papic_captures.capture_id	anon=SIU authenticated=SIU
 col	public.vendor_papic_captures.captured_at	anon=SIU authenticated=SIU
+col	public.vendor_papic_captures.client_capture_id	anon=SIU authenticated=SIU
 col	public.vendor_papic_captures.clip_duration_ms	anon=SIU authenticated=SIU
 col	public.vendor_papic_captures.consent_basis	anon=SIU authenticated=SIU
 col	public.vendor_papic_captures.created_at	anon=SIU authenticated=SIU

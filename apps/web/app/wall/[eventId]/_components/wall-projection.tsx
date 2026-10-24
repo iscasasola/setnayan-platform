@@ -174,7 +174,7 @@ export function WallProjection({
           {initial.displayName ?? 'The event'}
         </h1>
         <p className="mt-6 max-w-xl text-lg text-cream/60">
-          The photo wall lights up when the event starts.
+          Memory lane lights up when the event starts.
         </p>
         <ConnDot conn={conn} />
       </main>

@@ -127,7 +127,7 @@ test('1 · the reader is strict: the real blocks, and only what the Event Hub’
   }
   assert.deepEqual(blockLooksWith({ block_looks: { live_hub: { g: 'frost' } } }, 'live_hub', { in: { fade: true } }), { live_hub: { motion: { in: { fade: true } } } });
   const LIVE_WALL = src('app/[slug]/_components/live-wall-block.tsx');
-  assert.equal((LIVE_WALL.match(/<section\s+aria-label="Live photo wall"\s+className="sn-gal /g) ?? []).length, 2, 'the live wall is no longer the dark gallery card: re-ask whether it takes a Background');
+  assert.equal((LIVE_WALL.match(/<section\s+aria-label="Memory lane"\s+className="sn-gal /g) ?? []).length, 2, 'the live wall is no longer the dark gallery card: re-ask whether it takes a Background');
   assert.match(src('app/[slug]/_components/watch-live-block.tsx'), /bg-ink px-4 py-3/, 'the player is no longer the ink card: re-ask whether the Live hub takes a Background');
   assert.deepEqual(readBlockLooks({ block_looks: { photos_of_you: { motion: { in: { fade: true, move: 'below' } } } } }), { photos_of_you: { motion: { in: { fade: true, move: 'below' } } } });
   for (const g of [...BLOCK_GROUNDS, 'paper', 'dark', true, { g: 'frost' }]) {
@@ -258,7 +258,7 @@ test('2 · the rules are the Event Hub’s own: both gates, a timed Build in wai
   /* The two facts the rule leans on: the gallery draws its opened photo INSIDE its root, and that photo's card says
      it is modal. (Moved out of the root, or no longer modal: the rule matches nothing — re-walk it.) */
   const GALLERY = src('app/[slug]/_components/photos-of-you-gallery.tsx');
-  assert.match(GALLERY, /<section aria-label="Photos of you" className="sn-gal p-5 sm:p-6">[\s\S]*?\{opened \? \(\s*<GalleryLightbox[\s\S]*?\) : null\}\s*<\/section>\s*\);\s*\}/, 'the opened photo is no longer drawn inside the gallery’s root');
+  assert.match(GALLERY, /<section aria-label="Memories of you" className="sn-gal p-5 sm:p-6">[\s\S]*?\{opened \? \(\s*<GalleryLightbox[\s\S]*?\) : null\}\s*<\/section>\s*\);\s*\}/, 'the opened photo is no longer drawn inside the gallery’s root');
   assert.match(src('app/_components/gallery/gallery-lightbox.tsx'), /className="sn-gal-scrim fixed inset-0 [^"]*"[\s\S]{0,200}role="dialog"\s+aria-modal="true"/, 'the lightbox is no longer a fixed, modal card');
   /* No other block's rules are changed by this (none opens anything inside itself).
      🔁 RE-AIMED 2026-10-12: but the Live hub's wall does — the same lightbox, inside its root (held below). */
@@ -284,7 +284,7 @@ test('2 · the rules are the Event Hub’s own: both gates, a timed Build in wai
   assert.ok(liveDrift[2]!.startsWith(`${liveAt}${OPEN}{animation:0s none none,`), liveDrift[2]);
   assert.ok(liveDrift[3]!.startsWith(`.pahina-in ${liveAt}${OPEN},.pahina-in${liveAt}${OPEN},${liveAt}${OPEN}:not([data-pahina-chapters] *){animation:1.8s cubic-bezier(0.22, 0.61, 0.36, 1) 0s backwards el-in-rise,`), liveDrift[3]);
   for (const line of liveDrift.slice(2)) assert.doesNotMatch(line, /el-during-drift|infinite/, 'the live hub still drifts while a photo is open');
-  assert.match(src('app/[slug]/_components/live-wall-block.tsx'), /<section\s+aria-label="Live photo wall"\s+className="sn-gal p-5 sm:p-6"\s*>(?:(?!<\/section>)[\s\S])*?\{opened \? \(\s*<GalleryLightbox[\s\S]*?\) : null\}[\s\S]*?<\/section>\s*\);\s*\}/, 'the wall’s opened photo is no longer drawn inside its root');
+  assert.match(src('app/[slug]/_components/live-wall-block.tsx'), /<section\s+aria-label="Memory lane"\s+className="sn-gal p-5 sm:p-6"\s*>(?:(?!<\/section>)[\s\S])*?\{opened \? \(\s*<GalleryLightbox[\s\S]*?\) : null\}[\s\S]*?<\/section>\s*\);\s*\}/, 'the wall’s opened photo is no longer drawn inside its root');
   /* 📌 ANNOUNCEMENTS RIDE STUCK TO THE SCREEN ON THE DAY (the layout's `sticky top-0`): there a motion that follows the
      scroll would hold the coordinator's words wherever their trip stopped — half gone. So while the block is the
      sticky wrapper's child, nothing follows the scroll; a timed Build in and Drift are left alone. */
@@ -324,8 +324,8 @@ test('3 · the draft carries it, counts it and names it; an empty look is no loo
   const part = sanitizeHubDraft({ events: { style_preferences: { [BLOCK_LOOKS_PREF_KEY]: look, anything_else: 1 } } });
   assert.deepEqual(part?.events.style_preferences, { [BLOCK_LOOKS_PREF_KEY]: look }, 'the draft’s cleaner drops the blocks’ looks (or keeps a key that is not the Maker’s)');
   for (const bad of ['x', 3, null, [1]]) assert.equal(sanitizeHubDraft({ events: { style_preferences: { [BLOCK_LOOKS_PREF_KEY]: bad } } })?.events.style_preferences, undefined);
-  /* A QR or camera save laid over it keeps it (the part is merged key by key). */
-  const merged = mergeHubDraft(part!, sanitizeHubDraft({ events: { style_preferences: { camera_look: 'film' } } })!);
+  /* A QR save laid over it keeps it (the part is merged key by key). */
+  const merged = mergeHubDraft(part!, sanitizeHubDraft({ events: { style_preferences: { qr: { pattern: 'dots' } } } })!);
   assert.deepEqual((merged.events.style_preferences as Record<string, unknown>)[BLOCK_LOOKS_PREF_KEY], look);
 
   /* COUNTED: a block look that differs from live is one change in the Apply count… */
@@ -380,7 +380,9 @@ test('4 · a guest’s page: a mark only for a block that has a look, and the on
   assert.match(BODY, /\{blockCss \|\| isEditorCanvas \? <style \{\.\.\.\{ \[BLOCK_LOOKS_STYLE_ATTR\]: '' \}\}>\{blockCss\}<\/style> : null\}/);
   /* Each of the four is marked right BEFORE it — and before the Maker's own marker, which must stay next to the block
      (`sectionAfter` frames the element right after it). */
-  assert.match(BODY, /\{blockMark\('details'\)\}\s*\{makerMark\('f:details'\)\}\s*<PublicEventDetails/);
+  /* 🪪 RE-AIMED 2026-10-24: the Details block is drawn on no page (owner, "isn't this a dupe?" — `OFF_THE_PAGE`,
+     `the-details-tab-repeats-nothing.test.ts`), so it carries no mark: a mark with no block would frame the NEXT one. */
+  assert.doesNotMatch(BODY, /blockMark\('details'\)|makerMark\('f:details'\)|<PublicEventDetails/);
   /* 🔁 RE-AIMED 2026-10-12 ("What guests see", pass 2): each mount now asks `entourageShownOn(pageStage)` — the same
      stage rule (`stageShowsEntourage`), or the couple's own choice for that stage when they made one. */
   assert.match(BODY, /<>\{entourageShownOn\(pageStage\) \? blockMark\('entourage'\) : null\}\{entourageShownOn\(pageStage\) \? <EntourageSection groups=\{entourage\} id="site-entourage"/);
@@ -400,7 +402,7 @@ test('4 · a guest’s page: a mark only for a block that has a look, and the on
      you on (`partsOff`). The claim here is unchanged — the mark rides WITH the gallery, in this one mount. */
   assert.match(BODY, /\{group\('gallery', <>\{\(isLive \|\| isPost\) && !partsOff\.has\('photosofyou'\) \? \(\s*<>\s*\{blockMark\('photos_of_you'\)\}\s*<PhotosOfYouGallery\s[\s\S]*?\/>\s*<\/>\s*\) : null\}[\s\S]*?<\/>, \{ chapters: true, className: 'space-y-12', id: tabs\.on \? SITE_MENU_ANCHORS\.gallery : undefined \}\)\}/);
   assert.equal((BODY.match(/<PhotosOfYouGallery\s/g) ?? []).length, 1, 'the gallery is drawn from a second place: its motion would not reach it');
-  assert.match(src('app/[slug]/_components/photos-of-you-gallery.tsx'), /return \(\s*<section aria-label="Photos of you" className="sn-gal p-5 sm:p-6">/, 'the gallery’s root moved: the mark may no longer stand right before it');
+  assert.match(src('app/[slug]/_components/photos-of-you-gallery.tsx'), /return \(\s*<section aria-label="Memories of you" className="sn-gal p-5 sm:p-6">/, 'the gallery’s root moved: the mark may no longer stand right before it');
   /* 🎫 THE DIGITAL PASS — mounted by the page (`page.tsx`), not by SiteBody: the mark is made THERE by the same rule
      (the canvas always; a guest only when a look is kept), and handed to every mount of the ticket… */
   const PAGE = src('app/[slug]/page.tsx');

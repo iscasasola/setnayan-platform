@@ -170,35 +170,24 @@ test('the personal countdown pill is NOT unconditional', () => {
   assert.match(
     src,
     // The unit is "credits" since 2026-10-13: `${formatCount(remaining)} … credits left`.
-    /capApplies \?[\s\S]{0,600}?\$\{formatCount\(remaining\)\} \$\{remaining === 1 \? 'credit' : 'credits'\} left/,
+    // (2026-10-24: and not once the event's credits ran out — the camera says so itself.)
+    /capApplies(?: && !poolEmpty)? \?[\s\S]{0,600}?\$\{formatCount\(remaining\)\} \$\{remaining === 1 \? 'credit' : 'credits'\} left/,
     'the "N left" pill is no longer behind capApplies',
   );
 });
 
-test('BOTH 409 handlers separate the two refusals — a fix to one is not a fix', () => {
+test('the ONE uploader handler separates the two refusals — the guest\'s ceiling is not the pot', () => {
   const src = code(web(...CAMERA));
-  // Photo and clip are two copies of one handler.
-  const capBranches = src.match(/json\.status === 'quota_exhausted'\)\s*\{/g) ?? [];
-  const poolBranches = src.match(/json\.status === 'camera_points_exhausted'\)\s*\{/g) ?? [];
-  assert.equal(capBranches.length, 2, 'a per-guest refusal branch went missing (photo + clip)');
-  assert.equal(poolBranches.length, 2, 'a pool-empty refusal branch went missing (photo + clip)');
-  assert.equal(
-    (src.match(/setCapReached\(true\)/g) ?? []).length,
-    2,
-    'one of the two handlers stopped latching the per-guest ceiling',
-  );
-  assert.equal(
-    (src.match(/setPoolEmpty\(true\)/g) ?? []).length,
-    2,
-    'one of the two handlers stopped latching the empty pot',
-  );
-  // The collapse that caused the bug: a bare 409 falling into the per-guest arm.
-  assert.doesNotMatch(
-    src,
-    /res\.status === 409 \|\| json\.status === 'quota_exhausted'/,
-    'a bare 409 is being read as the per-guest ceiling again — that is the ' +
-      'collapse that told a guest three photos in "That\'s all 150 photos"',
-  );
+  // 📮 Since 2026-10-23 the photo and clip handlers are one: the uploader's
+  // 'credits' event, split by the server's own status string.
+  const credits = src.slice(src.indexOf("if (e.type === 'credits')"), src.indexOf("if (e.type === 'refused')"));
+  assert.ok(credits.length > 0, 'the credits branch moved — re-point this guard');
+  assert.match(credits, /if \(e\.code === 'quota_exhausted'\) \{[\s\S]*?setCapReached\(true\)[\s\S]*?\} else \{[\s\S]*?setPoolEmpty\(true\)/,
+    'the per-guest ceiling and the empty pot must latch different states');
+  assert.equal((src.match(/setCapReached\(true\)/g) ?? []).length, 1);
+  assert.equal((src.match(/setPoolEmpty\(true\)/g) ?? []).length, 1);
+  // The collapse that caused the bug: a bare 409 read as the per-guest arm.
+  assert.doesNotMatch(src, /res\.status === 409/, 'an HTTP status is being read as a refusal again');
 });
 
 test('the empty pot has its own sentence, and the per-guest one survives', () => {

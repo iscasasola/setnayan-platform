@@ -7,7 +7,8 @@
  * per booked event; ONE admin page, admin-editable, never hard-coded.
  * ⚖ OWNER, 2026-10-12 ("APPROVE ALL: THE BOOKING-FEE QUESTIONS (14)") #3–#6:
  * the 2,000 counts Setnayan-sourced bookings at fee creation; launch bookings do
- * not use up a supplier's free five; free Pro ends at the end of the 28-day
+ * not use up a supplier's free first booking (one since 2026-10-23, was five);
+ * free Pro ends at the end of the 28-day
  * cycle running when the 2,000th booking happens (one platform-wide date, shown
  * in admin); 50 Papic credits once per launch-waived charge, at creation.
  *
@@ -160,4 +161,26 @@ export function isoToManilaLocal(iso: string | null): string {
   const t = Date.parse(iso);
   if (Number.isNaN(t)) return '';
   return new Date(t + 8 * 3_600_000).toISOString().slice(0, 16);
+}
+
+/** The free-fee window reason's longest form (stored in `admin_audit_log.reason`). */
+export const FREE_FEE_REASON_MAX = 500;
+
+/**
+ * THE FREE-FEE WINDOW'S REASON (DECISION_LOG 2026-09-23, money switch #3):
+ * *"A PROMOTION CARRIES A REASON, AND IT IS REQUIRED TO OPEN A WINDOW (not to
+ * close one)."* Opening = either date set; closing = both blank, which clears
+ * the reason to null. Returns the reason to store, or the plain refusal.
+ */
+export function freeFeeWindowReason(
+  window: { from: string | null; until: string | null },
+  raw: string,
+): { ok: true; reason: string | null } | { ok: false; message: string } {
+  if (!window.from && !window.until) return { ok: true, reason: null };
+  const reason = raw.trim();
+  if (!reason) return { ok: false, message: 'Say why the fee is free — a window needs a reason.' };
+  if (reason.length > FREE_FEE_REASON_MAX) {
+    return { ok: false, message: `Keep the reason under ${FREE_FEE_REASON_MAX} characters.` };
+  }
+  return { ok: true, reason };
 }

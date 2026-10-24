@@ -47,13 +47,7 @@ import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
 import { EVENT_MENU_ICONS } from '@/lib/customer-menu';
 import { STUDIO_APPS } from '@/lib/studio-apps';
-import {
-  plannerDoorwayRows,
-  railToolsSignedIn,
-  railToolsSignedOut,
-  togetherDoorwayRows,
-} from '@/lib/studio-rail';
-import { builderRailItems, plannerRailItems, togetherRailItems } from '@/lib/free-tools-rail';
+import { railToolsSignedIn } from '@/lib/studio-rail';
 import type { RailTool } from './front-door-shell';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -62,18 +56,16 @@ const CSS = stripComments(readFileSync(join(HERE, 'front-door.css'), 'utf8'));
 
 const EV = 'S89E-RAILICONS1';
 
-/** Every list the shell is ever handed for its four tool groups, by state. */
+/**
+ * Every product-row list that still reaches a rail, by state. 🧭 Since 2026-10-23
+ * the front-door rail lists no tools (owner 2026-10-01 — one Features row); the
+ * products are rows of the EVENT's own menu, built by `railToolsSignedIn` in the
+ * event layout, so that is the list whose icons must draw.
+ */
 const LISTS: ReadonlyArray<[string, ReadonlyArray<RailTool>]> = [
-  ['Studio · signed out', railToolsSignedOut()],
   ['Studio · signed in, no event', railToolsSignedIn({ eventId: null, count: 0, profile: null })],
   ['Studio · signed in, two events', railToolsSignedIn({ eventId: null, count: 2, profile: null })],
   ['Studio · inside an event', railToolsSignedIn({ eventId: EV, count: 1, profile: null })],
-  ['Planner · doorways', plannerDoorwayRows(false)],
-  ['Planner · inside an event', plannerRailItems(EV)],
-  ['Builder · inside an event', builderRailItems(EV)],
-  ['Together · doorways', togetherDoorwayRows(false)],
-  ['Together · signed in', togetherRailItems(null)],
-  ['Together · signed in, inside an event', togetherRailItems(EV)],
 ];
 
 test('1 · every row in every state names an icon the rail can draw — and its own', () => {
@@ -100,28 +92,29 @@ test('1 · every row in every state names an icon the rail can draw — and its 
     }
   }
   console.log(`  rows checked: ${rows} across ${LISTS.length} lists`);
-  assert.ok(rows >= 25, `only ${rows} rows reached the check — a list went empty and this guard went blind.`);
+  assert.ok(rows >= 20, `only ${rows} rows reached the check — a list went empty and this guard went blind.`);
   for (const a of STUDIO_APPS) {
     assert.ok(EVENT_MENU_ICONS[a.railIcon], `${a.key} has no drawable railIcon`);
   }
 });
 
-test('2 · every tool group in the shell draws its icon from the row, and no bullet is left', () => {
-  const groups = ['plannerTools', 'builderTools', 'togetherTools', 'tools'];
+test('2 · every row the shell draws wears an icon, and no bullet is left', () => {
+  // The tool groups are gone (2026-10-23); what is left is the rail's own rows.
+  // Each `{...rowProps(…)}` row must put an icon in the slot before its label.
   let drawn = 0;
-  for (const g of groups) {
-    const at = SHELL.indexOf(`{${g}.map((t) => (`);
-    assert.ok(at > 0, `the shell no longer maps \`${g}\` — this guard is reading the wrong shape.`);
+  let at = SHELL.indexOf('{...rowProps(');
+  while (at > 0) {
     const row = SHELL.slice(at, SHELL.indexOf('</Link>', at));
     assert.match(
       row,
-      /<RailIcon as=\{EVENT_MENU_ICONS\[t\.icon\]\} \/>/,
-      `the \`${g}\` rows do not draw <RailIcon> from \`t.icon\`. Every other rail row draws an ` +
-        'icon; a tool row without one is a dot over a caption in the 72-px strip.',
+      /<RailIcon as=\{|className="fd-gi"/,
+      `a rail row draws no icon: ${row.slice(0, 80)} — in the 72-px strip it is a bare caption.`,
     );
     drawn++;
+    at = SHELL.indexOf('{...rowProps(', at + 1);
   }
-  console.log(`  tool groups drawing an icon: ${drawn}/${groups.length}`);
+  console.log(`  rail rows drawing an icon: ${drawn}`);
+  assert.ok(drawn >= 8, `only ${drawn} rail rows found — this guard is reading the wrong shape.`);
   assert.doesNotMatch(SHELL, /fd-dot/, 'the shell draws `.fd-dot` again — the bullet the iPad read as a missing icon.');
   assert.doesNotMatch(CSS, /\.fd-dot\b/, 'the stylesheet styles `.fd-dot` again.');
 });

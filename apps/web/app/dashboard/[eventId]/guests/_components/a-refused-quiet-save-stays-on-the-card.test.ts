@@ -154,7 +154,8 @@ test('structure: every refusal in updateGuest goes through refuse(); the card ha
   assert.equal(bare.length, 1, 'a refusal in updateGuest redirects a quiet post again (only refuse() may build the ?error= redirect)');
   assert.ok((body.match(/return refuse\(/g) ?? []).length >= 9, 'a refusal was moved back to a bare redirect');
   const bodySrc = read('guest-card-body.tsx');
-  assert.match(bodySrc, /<K\.SaveState copy=\{templated \? GUEST_CARD_ERROR_COPY : undefined\} \/>/);
+  // ONE card, ONE kit (2026-10-24): the templated line always carries the card's sentences.
+  assert.match(bodySrc, /<K\.SaveState copy=\{GUEST_CARD_ERROR_COPY\} \/>/);
   const lab = readFileSync(join(HERE, '..', '..', '..', '..', 'dev', 'guests-lab', 'page.tsx'), 'utf8');
   assert.match(lab, /if \(formData\.get\('quiet'\) === '1'\) return \{ refused: labWords \};/, 'the lab stand-in refuses a quiet post differently from the real action');
 });

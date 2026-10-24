@@ -47,7 +47,7 @@ export const ADMIN_NAV_DESCRIPTIONS: Record<string, string> = {
     because the pre-V2 trail must stay readable during a dispute.
   */
   payouts: 'Closed trail from before Setnayan stopped handling supplier money — nothing new arrives here.',
-  subscriptions: 'Supplier Pro / Enterprise upgrades awaiting confirmation.',
+  subscriptions: 'Supplier Pro / Ultra upgrades awaiting confirmation.',
   'payment-options': 'Supplier payment destinations awaiting a fraud screen.',
   disputes: 'Open customer and supplier disputes.',
   /*
@@ -73,7 +73,7 @@ export const ADMIN_NAV_DESCRIPTIONS: Record<string, string> = {
   'concierge-abuse': 'Trial-cycling flags to review.',
   'account-deletions': 'Self-serve account-deletion requests to review.',
   'event-deletions': 'A couple has asked us to remove a celebration money is holding.',
-  'user-reports': 'Reported guest-gallery content awaiting moderation.',
+  'user-reports': 'Reported guest Memories content awaiting moderation.',
   'repost-watch':
     'Cross-supplier image matches flagged for review — detect only, never auto-takedown.',
   corrections: 'Verified-shop correction requests to apply or decline.',

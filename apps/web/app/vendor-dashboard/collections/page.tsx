@@ -74,6 +74,7 @@ export default async function YourCollectionsPage({
               portfolioRefs={d.portfolioRefs}
               portfolioDisplayMap={d.portfolioDisplayMap}
               portfolioMax={d.portfolioMax}
+              portfolioAllowanceUnread={d.portfolioAllowanceUnread}
               galleryVideoLinks={d.galleryVideoLinks}
               igConfigured={d.igConfigured}
               igConnection={d.igConnection}

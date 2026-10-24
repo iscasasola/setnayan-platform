@@ -77,7 +77,7 @@ const SURFACES: Surface[] = [
     from: 'change it if your room is different.',
     to: 'Stage + dance-floor dimensions',
   },
-  { name: 'Memories lenses', file: 'app/dashboard/(account)/library/page.tsx' },
+  { name: 'Memories lenses', file: 'app/dashboard/(account)/library/_components/memories-thumb.tsx' },
   {
     name: 'Remove frame — reason',
     file: 'app/dashboard/(launcher)/_components/event-card-menu.tsx',

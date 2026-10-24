@@ -85,9 +85,11 @@ test('Welcome · no account card, and the reply sheet has ONE door per state', (
     /\{!replyOpenHere \|\| actionOpensReply\(arrivalAction\) \|\|\s*\(tabs\.on && \(guest\.rsvp_status === 'attending' \|\| guest\.rsvp_status === 'declined'\)\) \? null : \(\s*<a\s+href=\{replyDoor\}/,
   );
   // 🔁 RE-AIMED 2026-10-11 (owner, "ONE REPLY FORM"): every reply door opens the reply PAGE (`inviteReplyPath`); the sheet is drawn only in the Maker's canvas.
-  // …and Me's "Change your reply" stands down while the Welcome's action is that door.
+  // 🔁 RE-AIMED 2026-10-24 (owner, the Me redraw — "one place"): Me's "Change your reply" bar is gone; Me has ONE
+  // Reply (`MeReply`) and no second door — the page holds exactly one (`me-is-the-one-place.test.ts`).
   const me = body.slice(body.indexOf("group('me'"));
-  assert.match(me.slice(0, me.indexOf('data-me-change-reply')), /&& !actionOpensReply\(arrivalAction\) \? \(\s*<a\s+href=\{replyDoor\}\s*$/);
+  assert.ok(!me.includes('data-me-change-reply'), 'a second reply door is back on Me');
+  assert.equal((me.match(/<MeReply\b/g) ?? []).length, 1, 'Me does not hold exactly one Reply');
   // The face-data controls sit with Me's Face tagging row on a tabbed page.
   assert.match(body, /\{tabs\.on \? null : group\('home', guest\.photo_source === 'selfie' \? \(\s*<FaceDataNotice/);
   assert.match(me, /\{guest\.photo_source === 'selfie' \? \(\s*<FaceDataNotice/);
@@ -128,12 +130,12 @@ test('Me · the section adds no heading over the guest’s name, no explainer, a
     React.createElement(GuestMeSection, { meSlot: React.createElement('p', null, 'me'), photosHref: null, galleryCount: 0, asTab: true }),
   );
   assert.equal(controls(quiet).length, 0, `Me's section draws ${controls(quiet).length} controls of its own with the ticket on the page`);
-  assert.doesNotMatch(quiet, /Your invitation|shows up under Photos of you/, 'the heading or the explainer is back');
+  assert.doesNotMatch(quiet, /Your invitation|shows up under (?:Photos|Memories) of you/, 'the heading or the explainer is back');
   // Once the page itself stops drawing the photos, ONE link to them.
   const after = renderToStaticMarkup(
     React.createElement(GuestMeSection, { meSlot: null, photosHref: '/papic/me/tok', galleryCount: 3, asTab: true }),
   );
-  assert.equal((after.match(/Photos of you/g) ?? []).length, 1);
+  assert.equal((after.match(/Memories of you/g) ?? []).length, 1);
   // page.tsx decides that once, from the phase — never "always".
   const page = read('page.tsx');
   assert.match(page, /const photosLeftThePage = eventIsPast && dayOfPhase !== 'live' && dayOfPhase !== 'post';/);

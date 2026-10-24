@@ -1,136 +1,26 @@
 'use client';
 
 /**
- * home-parts.tsx — the few pieces of the couple's Home that need the browser
- * (owner 2026-10-07, PR 4e — `prototypes/home_and_guests_2026-10-07_fable.html`
- * `?frame=1&page=home`, `HOME_AND_GUESTS_CHECK_2026-10-07_fable.md` H1–H8).
- * Everything else on the Home stays a server component (`home-first-screen.tsx`).
+ * home-parts.tsx — the few pieces of the couple's Home that need the browser. Everything else on Home stays a server
+ * component (`home-first-screen.tsx`, `home-control-row.tsx`).
  *
- *   HomeDoorways   — the three doorway buttons (H1a, owner: *"on home, there will
- *                    be 3 buttons to edit guests, suppliers and event hub"*), each
- *                    wearing THE BOTTOM BAR'S OWN ICON for the tab it opens (owner:
- *                    *"it will have an icon that should be similar to the bottom
- *                    nav"*): `homeDoorwayIcon` (PR 4g, lib/nav-line-icon.ts) —
- *                    the same registry slot (`customer.bottom-nav.<key>`) and the
- *                    same line-only rule the bar uses, so whatever icon the bar
- *                    wears, the door wears, with no second list. The row changes
- *                    state AS ONE (BUTTON_RULE 3a): icon + word → word → icon.
- *   HomeLater      — "Later": hides today's next step for today, on this device.
- *                    No server write (opening never writes; +0 server actions).
+ *   HomeTodayFold / HomeToday — THE TODAY LINE (owner-approved 2026-10-24, `home_control_center_2026-10-24_fable.html`,
+ *                    option A): one line on top naming the ONE thing to do now — the shipped picker's choice
+ *                    (`pickHomeNext`) — and a POINTER, not a door: a tap scrolls Home to the widget it names and rings
+ *                    it for a moment. It replaces the "Your next step" card (removed with the aggregate What's next).
+ *   HomeLater      — "Later" folds the Today line to "Back tomorrow · Undo", for today, on this device. No server
+ *                    write (opening never writes; +0 server actions).
  *   HomeReload     — "⟳ Reload": re-runs the page's reads (`router.refresh()`).
- *   HomeWhatsNext  — the What's next row: pop, then unfold IN PLACE under it (H7)
- *                    — no `?sheet=next` portal, no URL change.
- */
-import { useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared-runtime';
-import { CalendarClock, CalendarDays, Check, ChevronDown, CreditCard, ListChecks, RotateCw, Sparkles, UserRound, CalendarCheck } from 'lucide-react';
-import { ActionButton, type ActionTone } from '@/components/action-button';
-import { Count } from '@/components/count';
-import { homeDoorwayIcon, type HomeDoorwayKey } from '@/lib/nav-line-icon';
-import type { NavSlotLite } from '@/lib/nav-registry-types';
-
-const useIsoLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
-
-/* ─── The doorway row ─────────────────────────────────────────────────────── */
-
-/** The three bottom-bar tabs a doorway opens — the bar's own keys (4g's `HomeDoorwayKey`). */
-export type HomeDoorKey = HomeDoorwayKey;
-
-/**
- * The three doors — `href:` literals, so the port-controls scan sees each destination.
- * 🚪 A door whose need this event switched off is ABSENT (owner 2026-10-08, Level 1 —
- * `needsHiddenNavKeys`, the bar's own keys).
  *
- * 🏷 A DOOR SAYS WHAT IS BEHIND IT (owner 2026-10-22, "Yes to all" —
- * `prototypes/journey_fixes_2026-10-22.html` § Host 2): **Guests · Suppliers · Event Hub**,
- * the thing behind the door, never the verb. "Edit your Guest list · Edit your Suppliers ·
- * Edit your Event Hub" pushed the row (BUTTON_RULE 3a, below) all the way to icon-only at
- * 375 px, so a first-timer's first screen was three unlabelled pills. The short words keep
- * icon + word at 375 and word-only at 320. A "cover + photos only" Hub reads "Event Hub"
- * too — the Hub page says what is in it. Held by `home-doors-say-their-words.test.ts`.
+ *   (The Next card, its fold and the What's next row were REMOVED 2026-10-24 — the verb now sits on the widget it is
+ *    about, and the Checklist widget holds only the plan.)
  */
-export const HOME_DOOR_LABELS: Readonly<Record<HomeDoorKey, string>> = {
-  guests: 'Guests',
-  explore: 'Suppliers',
-  launch: 'Event Hub',
-};
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
+import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared-runtime';
+import { ArrowDown, CalendarDays, RotateCw } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 
-export function doorsFor(
-  eventId: string,
-  hide: readonly string[] = [],
-): ReadonlyArray<{ key: HomeDoorKey; label: string; href: string }> {
-  return [
-    { key: 'guests' as const, label: HOME_DOOR_LABELS.guests, href: `/dashboard/${eventId}/guests` },
-    { key: 'explore' as const, label: HOME_DOOR_LABELS.explore, href: `/dashboard/${eventId}/vendors` },
-    { key: 'launch' as const, label: HOME_DOOR_LABELS.launch, href: `/dashboard/${eventId}/launch` },
-  ].filter((d) => !hide.includes(d.key));
-}
-
-/**
- * One fit pass over a row that changes state AS ONE (BUTTON_RULE 3a, owner
- * 2026-10-07: *"the 3 buttons will all be icons at the same time, or text at the
- * same time or icon with text at the same time. not each"*). Icon + word first;
- * if any button (or the row) overflows, every button drops its icon; if that
- * still overflows, every button drops its word. Returns the state it settled on.
- */
-export function fitAsOne(row: HTMLElement): '' | 'text-only' | 'icon-only' {
-  const buttons = Array.from(row.querySelectorAll<HTMLElement>('.ab'));
-  const set = (c: '' | 'text-only' | 'icon-only') =>
-    buttons.forEach((b) => {
-      b.classList.remove('text-only', 'icon-only');
-      if (c) b.classList.add(c);
-    });
-  const tight = () => row.scrollWidth > row.clientWidth + 1 || buttons.some((b) => b.scrollWidth > b.clientWidth + 1);
-  set('');
-  if (!tight()) return '';
-  set('text-only');
-  if (!tight()) return 'text-only';
-  set('icon-only');
-  return 'icon-only';
-}
-
-export function HomeDoorways({
-  eventId,
-  navSlots,
-  hide = [],
-}: {
-  eventId: string;
-  /** The bar's registry slots (plain data from the server; null = the code icons). */
-  navSlots: Record<string, NavSlotLite> | null;
-  /** 🚪 The bar keys this event drops (`needsHiddenNavKeys`) — their doors are absent too. */
-  hide?: readonly string[];
-}) {
-  const row = useRef<HTMLDivElement | null>(null);
-  const run = useCallback(() => {
-    if (row.current) row.current.dataset.fit = fitAsOne(row.current) || 'full';
-  }, []);
-  useIsoLayoutEffect(() => {
-    run();
-    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(run) : null;
-    if (row.current) ro?.observe(row.current);
-    return () => ro?.disconnect();
-  }, [run]);
-  return (
-    <div ref={row} className="home-doors" data-home-doors="" data-home-edit-hub="">
-      {doorsFor(eventId, hide).map((d) => {
-        const Icon = homeDoorwayIcon(d.key, navSlots);
-        return (
-          <ActionButton
-            key={d.key}
-            tone="neutral"
-            icon={Icon}
-            label={d.label}
-            href={d.href}
-            data-testid={`home-door-${d.key}`}
-            tour={`home-${d.key}`}
-          />
-        );
-      })}
-    </div>
-  );
-}
-
-/* ─── Later · Reload ──────────────────────────────────────────────────────── */
+/* ─── Later — folds the Today line for today, on this device ──────────────── */
 
 function todayKey(eventId: string, kind: string): string {
   const d = new Date();
@@ -138,41 +28,105 @@ function todayKey(eventId: string, kind: string): string {
   return `home-later:${eventId}:${kind}:${day}`;
 }
 
+type Fold = { folded: boolean; fold: () => void; undo: () => void };
+const TodayFold = createContext<Fold | null>(null);
+
 /**
- * Hides today's next step for today, on this device ("Later" — the prototype's
- * "Hides this step for today"). Device storage only: a private window or a
- * cleared site simply shows the step again, which is the safe direction.
+ * 📅 The Today line's fold (owner 2026-10-23: *"Later collapses to 'Back tomorrow · Undo'"*), shared by the line and the
+ * Later beside the verb it names. Device storage only: a private window or a cleared site simply shows the line again,
+ * which is the safe direction. Keyed on the picker's KIND, so tomorrow — or a different thing to do — shows again.
  */
-export function HomeLater({ eventId, kind }: { eventId: string; kind: string }) {
-  const btn = useRef<HTMLButtonElement | HTMLAnchorElement | null>(null);
-  const hide = useCallback(() => {
-    const card = btn.current?.closest<HTMLElement>('[data-home-next]');
-    if (card) card.hidden = true;
-  }, []);
+export function HomeTodayFold({ eventId, kind, children }: { eventId: string; kind: string; children: ReactNode }) {
+  const [folded, setFolded] = useState(false);
   useEffect(() => {
     try {
-      if (window.localStorage.getItem(todayKey(eventId, kind)) === '1') hide();
+      if (window.localStorage.getItem(todayKey(eventId, kind)) === '1') setFolded(true);
     } catch {
-      /* storage refused — the step stays, which is the honest default */
+      /* storage refused — the line stays, which is the honest default */
     }
-  }, [eventId, kind, hide]);
+  }, [eventId, kind]);
+  const fold = useCallback(() => {
+    try {
+      window.localStorage.setItem(todayKey(eventId, kind), '1');
+    } catch {
+      /* storage refused — folded for this visit only */
+    }
+    setFolded(true);
+  }, [eventId, kind]);
+  const undo = useCallback(() => {
+    try {
+      window.localStorage.removeItem(todayKey(eventId, kind));
+    } catch {
+      /* nothing stored — nothing to clear */
+    }
+    setFolded(false);
+  }, [eventId, kind]);
+  return <TodayFold.Provider value={{ folded, fold, undo }}>{children}</TodayFold.Provider>;
+}
+
+/** The widget the line names, as it is drawn at this width (the compact tile below md, the card from md up). */
+function visibleTarget(target: string): HTMLElement | null {
+  const all = document.querySelectorAll<HTMLElement>(`[data-home-tile="${target}"], [data-home-card-key="${target}"], [data-home-service="${target}"]`);
+  for (const el of all) if (el.offsetParent !== null || el.getClientRects().length > 0) return el;
+  return null;
+}
+
+/**
+ * ☀ THE TODAY LINE — one line high, on top. A pointer: it scrolls to and spotlights the widget it names (1.8 s ring),
+ * never opens another page. Calm (green) when nothing waits.
+ */
+export function HomeToday({ target, words, tail, calm }: { target: string; words: string; tail: string; calm: boolean }) {
+  const f = useContext(TodayFold);
+  if (f?.folded) {
+    return (
+      <p className="hc-today-later" data-home-today="later" role="status">
+        <CalendarDays aria-hidden className="h-4 w-4" strokeWidth={1.9} />
+        <span>Back tomorrow</span>
+        <span aria-hidden>·</span>
+        <button type="button" onClick={f.undo} className="font-medium text-mulberry" data-testid="home-today-undo">
+          Undo
+        </button>
+      </p>
+    );
+  }
+  const point = () => {
+    const el = visibleTarget(target);
+    if (!el) return;
+    let reduced = false;
+    try {
+      reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    } catch {
+      /* no matchMedia */
+    }
+    el.scrollIntoView({ block: 'center', behavior: reduced ? 'auto' : 'smooth' });
+    el.setAttribute('data-home-spot', '');
+    window.setTimeout(() => el.removeAttribute('data-home-spot'), 1800);
+  };
   return (
-    <ActionButton
-      ref={btn}
-      tone="neutral"
-      icon={CalendarDays}
-      label="Later"
-      data-testid="home-next-later"
-      onClick={() => {
-        try {
-          window.localStorage.setItem(todayKey(eventId, kind), '1');
-        } catch {
-          /* storage refused — hide for this visit only */
-        }
-        hide();
-      }}
-    />
+    <button
+      type="button"
+      className={`hc-today${calm ? ' hc-calm' : ''}`}
+      data-home-today={target}
+      data-tour="home-today"
+      onClick={point}
+      aria-label={`Today: ${words}${tail ? ` · ${tail}` : ''} — show it`}
+    >
+      <span className="hc-today-k">Today</span>
+      <span className="hc-today-t">
+        {words}
+        {tail ? <span className="hc-today-w"> · {tail}</span> : null}
+      </span>
+      <span className="hc-today-arrow" aria-hidden>
+        <ArrowDown strokeWidth={1.9} />
+      </span>
+    </button>
   );
+}
+
+/** 📅 Later — beside the verb the Today line names; folds the line for today. */
+export function HomeLater() {
+  const f = useContext(TodayFold);
+  return <ActionButton tone="neutral" icon={CalendarDays} label="Later" data-testid="home-today-later" onClick={() => f?.fold()} />;
 }
 
 /** "⟳ Reload" — runs the page's reads again. Never claims the read worked. */
@@ -191,116 +145,5 @@ export function HomeReload({ main = false }: { main?: boolean }) {
       // one-render: keep (retry) — the person’s Reload on a Home that could not be read; no write came before it.
       onClick={() => (router ? router.refresh() : window.location.reload())}
     />
-  );
-}
-
-/* ─── What's next — unfolds in place ──────────────────────────────────────── */
-
-/** The verb a decision row carries — `group.id` from the dashboard's decisions board. */
-export type HomeDecisionVerb = 'book' | 'pay' | 'role' | 'date' | 'other';
-
-export type HomeDecisionRow = {
-  id: string;
-  /** "Book a supplier" · "Settle a payment" · "Fill a role" — the group's title. */
-  title: string;
-  /** "Catering · 2 quotes in" — the item's own words. */
-  sub: string;
-  href: string;
-  verb: HomeDecisionVerb;
-  /** The item's own CTA word, used where the verb has no fixed word. */
-  cta: string;
-};
-
-/* Per decision: 📅 Book / 💳 Pay / 👤 Pick (H1), toned by meaning. */
-const VERB: Record<HomeDecisionVerb, { icon: typeof Check; tone: ActionTone; main: boolean; word?: string }> = {
-  book: { icon: CalendarCheck, tone: 'ok', main: true, word: 'Book' },
-  pay: { icon: CreditCard, tone: 'ok', main: true, word: 'Pay' },
-  role: { icon: UserRound, tone: 'brand', main: false, word: 'Pick' },
-  date: { icon: CalendarClock, tone: 'neutral', main: false },
-  other: { icon: Sparkles, tone: 'brand', main: false },
-};
-
-export function HomeWhatsNext({
-  open: openCount,
-  rows,
-  coming = [],
-  checklist,
-  emptyNote,
-  children,
-}: {
-  /** Open decisions — `null` while unread (no number is printed, never 0). */
-  open: number | null;
-  rows: ReadonlyArray<HomeDecisionRow>;
-  /** "Coming up" — the dated rows, under their own heading. */
-  coming?: ReadonlyArray<HomeDecisionRow>;
-  /** The checklist button: its href and, when measured, the % done. */
-  checklist: { href: string; pct: number | null } | null;
-  /** Said when there is nothing to decide. */
-  emptyNote?: string;
-  /** Anything the board carries beside its rows (the free-venue offer). */
-  children?: ReactNode;
-}) {
-  const [open, setOpen] = useState(false);
-  const row = (r: HomeDecisionRow) => {
-    const v = VERB[r.verb];
-    return (
-      <div key={r.id} className="home-row" data-home-decision={r.verb}>
-        <div className="min-w-0">
-          <div className="home-t">{r.title}</div>
-          <div className="home-s">{r.sub}</div>
-        </div>
-        <span className="home-acts">
-          <ActionButton tone={v.tone} main={v.main} icon={v.icon} label={v.word ?? r.cta} href={r.href} />
-        </span>
-      </div>
-    );
-  };
-  return (
-    <div className={`home-sec${open ? ' open' : ''}`} data-home-whats-next="">
-      <button
-        type="button"
-        className="home-bar"
-        aria-expanded={open}
-        aria-controls="home-whats-next-fold"
-        onClick={() => setOpen((o) => !o)}
-      >
-        <span className="home-bar-ico" aria-hidden>
-          <ListChecks strokeWidth={1.9} />
-        </span>
-        <span>
-          <b>What&rsquo;s next</b>
-          {openCount !== null ? (
-            <span className="home-s">
-              {' · '}
-              <Count value={openCount} id="home-open-n" /> open
-            </span>
-          ) : null}
-        </span>
-        <ChevronDown aria-hidden className="home-chev h-4 w-4" strokeWidth={2} />
-      </button>
-      <div className="home-fold" id="home-whats-next-fold" aria-hidden={!open} inert={!open ? true : undefined}>
-        <div>
-          {children}
-          <p className="home-k2">Decisions waiting on you</p>
-          {rows.length > 0 ? rows.map(row) : <p className="home-s pb-2">{emptyNote ?? 'Nothing needs a decision right now.'}</p>}
-          {coming.length > 0 ? (
-            <>
-              <p className="home-k2">Coming up</p>
-              {coming.map(row)}
-            </>
-          ) : null}
-          {checklist ? (
-            <div className="home-acts" style={{ margin: '12px 0 10px' }}>
-              <ActionButton
-                tone="ok"
-                icon={Check}
-                label={checklist.pct !== null ? `Your checklist · ${checklist.pct}% done` : 'Your checklist'}
-                href={checklist.href}
-              />
-            </div>
-          ) : null}
-        </div>
-      </div>
-    </div>
   );
 }

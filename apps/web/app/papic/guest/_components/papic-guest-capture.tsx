@@ -2,7 +2,16 @@
 
 import { EVENT_PUT_AWAY_CAPTURE_COPY } from '@/lib/event-accepts-captures-rule';
 import { DEFAULT_EVENT_POOL_CONFIG } from '@/lib/papic-event-pool';
-import { useCallback, useEffect, useRef, useState, type PointerEvent as RPointerEvent, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type MouseEvent as RMouseEvent,
+  type PointerEvent as RPointerEvent,
+  type ReactNode,
+} from 'react';
 import {
   Camera,
   Loader2,
@@ -13,8 +22,6 @@ import {
   Sparkles,
   X,
   ScanLine,
-  Users,
-  Globe,
   Square,
   Trophy,
 } from 'lucide-react';
@@ -23,31 +30,29 @@ import type { FaceTaggingWish } from '@/lib/face-tagging-wish';
 import { makeQrDetector } from '@/lib/qr-scan';
 import { usePapicCamera } from '@/lib/use-papic-camera';
 import type { PapicFaceMode } from '@/lib/papic-face-mode';
-import {
-  applyPapicStyle,
-  cssPreviewFilter,
-  type PapicStyle,
-} from '@/lib/papic-photo-styles';
-import { PapicCameraControls } from '@/app/papic/_components/camera-controls';
-import { PapicChallengePanel, type ArmedChallenge } from './papic-challenge-panel';
-import { enqueuePapicGuestCapture } from '@/lib/offline/service-handlers/papic-drain';
-import { CLIENT_CAPTURE_ID_FIELD, newClientCaptureId } from '@/lib/papic-client-capture-id';
-import { triggerSyncNow } from '@/lib/offline/sync-daemon';
-import {
-  compressVideoForWeb,
-  canCompressVideo,
-  WEB_COPY_MIN_BYTES,
-} from '@/lib/video-compress';
+import { cssPreviewFilter, type PapicStyle } from '@/lib/papic-photo-styles';
+import { GuestCameraTools, GuestFocusSquare, GuestGridLines } from './guest-camera-tools';
+import { TagScannerOverlay } from './tag-scanner-overlay';
+import { MyShotsSheet, MyShotsWaitingBadge, type MyShot } from './my-shots-sheet';
+import { focusPointFromTap, PAPIC_GRID_STORAGE_KEY, zoomSteps } from '@/lib/papic-camera-steps';
+import { InfoTip } from '@/app/_components/info-tip';
+import { ChallengeFollowUp, ChallengePill, useGuestChallenges, type ArmedChallenge } from './papic-challenge-panel';
+import { newClientCaptureId } from '@/lib/papic-client-capture-id';
+import { papicUploader, saveShot } from '@/lib/papic-upload/browser';
+import { markSavedOnPhone, markShutter, markShutterReady } from '@/lib/papic-upload/shutter-timing';
+import { developCanvas } from '@/lib/papic-upload/develop';
+import { papicCaptureCost } from '@/lib/papic-cameras-pure';
+import { PapicUploadChip } from '@/app/papic/_components/upload-chip';
 import {
   getPapicQualityTier,
   photoJpegQuality,
   clipVideoBitsPerSecond,
-  recordUploadSample,
 } from '@/lib/papic-adaptive-quality';
 import { formatCount } from '@/lib/format-number';
 import { formatPapicDayInWords } from '@/lib/papic-window';
 import { cameraExitHref, type HubTabKey } from '@/app/[slug]/_lib/hub-tabs';
-import { cameraLookDrawsLogo, type CameraLook } from '@/lib/camera-look';
+import { CAMERA_PLAIN_TINT } from '@/lib/camera-dress';
+import { SETNAYAN_PHOTO_MARK, type PapicMark } from '@/lib/papic-photo-mark';
 import { FocusCorners } from './camera-focus-corners';
 
 // NO PER-PHOTO TAG LIMIT (owner 2026-08-06: "no tag limit. we can tag as many").
@@ -57,6 +62,35 @@ import { FocusCorners } from './camera-focus-corners';
 // on count, so the camera never has a tally to display or a ceiling to announce.
 const MAX_CLIP_MS = 10000; // 10-SECOND CLIP CAP (owner 2026-07-22 · §0) — mirrored route + RPC.
 const HOLD_MS = 260; // tap-vs-hold boundary: a press held this long starts a clip
+/** Frames a burst may hold in memory before the shutter waits for the oldest to save. */
+const MAX_DEVELOPING = 6;
+
+/** A ~320-px JPEG of a frame — what "My shots" and the thumbnail draw, so a
+ *  long session never holds its full-size photos in memory for the sheet. */
+async function smallThumb(source: CanvasImageSource, w: number, h: number): Promise<Blob | null> {
+  if (!w || !h) return null;
+  const scale = Math.min(1, 320 / Math.max(w, h));
+  const c = document.createElement('canvas');
+  c.width = Math.max(1, Math.round(w * scale));
+  c.height = Math.max(1, Math.round(h * scale));
+  const ctx = c.getContext('2d');
+  if (!ctx) return null;
+  ctx.drawImage(source, 0, 0, c.width, c.height);
+  return new Promise<Blob | null>((resolve) => c.toBlob(resolve, 'image/jpeg', 0.7));
+}
+
+async function smallThumbOfBlob(blob: Blob): Promise<Blob | null> {
+  try {
+    const bmp = await createImageBitmap(blob);
+    try {
+      return await smallThumb(bmp, bmp.width, bmp.height);
+    } finally {
+      bmp.close();
+    }
+  } catch {
+    return null;
+  }
+}
 
 /** Friendly, guest-facing copy for a tag failure. The camera never breaks on a
  *  tag miss — these just steer the next scan. */
@@ -80,21 +114,6 @@ function tagErrorMessage(error: string): string {
     default:
       return 'Couldn’t tag that — try again.';
   }
-}
-
-/**
- * Is a non-OK guest-capture upload a PERMANENT reject that will fail identically
- * on every retry? A 4xx from the route (413 too_large, 400 bad_request, 415
- * bad_type, …) means the bytes themselves are unacceptable — re-sending the
- * same bytes later can NEVER succeed, so the shot must NOT go into the offline
- * retry queue with a reassuring "will upload when you're back online" message
- * (that was silent data loss). Only TRANSIENT failures are worth queuing:
- * a network throw, a 5xx, or a 429 rate-limit (a 4xx by number, but genuinely
- * retryable). 409 (pool exhausted) and 403 (blocked / terms) are handled by the
- * callers before this runs, so they never reach here.
- */
-function isPermanentUploadReject(status: number): boolean {
-  return status >= 400 && status < 500 && status !== 429;
 }
 
 /**
@@ -148,9 +167,14 @@ type Props = {
   /** Carried, never printed: no casual greetings on a guest's screen (owner, DECISION_LOG 2026-09-30). */
   guestName: string;
   eventName: string;
-  /** The event this guest camera belongs to — tags offline-queued captures so a
-   *  failed upload can drain on reconnect (and groups them in the diagnostic). */
+  /** The event this guest camera belongs to — every saved shot is filed under it
+   *  and sent only while a camera for it is open. */
   eventId: string;
+  /** The server-stamped tag of THIS guest at THIS event (lib/papic-upload/
+   *  owner-tag.server.ts). REQUIRED, like `capApplies`: two mounts, and an
+   *  optional prop is how one of them quietly forgets it — a queued shot must
+   *  never record as another pass on a shared phone. */
+  uploadOwner: string | null;
   initialRemaining: number;
   total: number;
   /** Has this guest already accepted the one-time UGC terms of use? */
@@ -247,20 +271,25 @@ type Props = {
   exitTo?: { slug: string; tab: HubTabKey | null } | null;
   /** The guest's OWN latest shot, for the thumbnail beside the shutter (server-read). */
   lastShotUrl?: string | null;
+  /** 🖼 The guest's own earlier shots in this event's Memories (server-read,
+   *  newest first) — the rest of "My shots" after this visit's (owner
+   *  2026-10-24: this phone's shots, as a sheet over the camera). */
+  myShots?: ReadonlyArray<{ id: string; url: string }> | null;
   /**
-   * 🎛 THE CAMERA'S LOOK — and with it, the camera FULL SCREEN (owner
-   * 2026-10-06: *"camera is a full screen feature"* · *"with an exit button"*;
-   * DECISION_LOG "THE CAMERA HAS ITS OWN THREE LAYOUTS"). Set only where the new
-   * Maker's guest side is on (`guestStagesOn`, /papic/guest):
-   *   · the camera fills the phone's screen exactly (`100dvh`), ✕ top-left;
-   *   · `classic`    a plain white shutter, white focus corners, neutral pills;
-   *   · `brand`      the event's logo (`logo`) on the shutter, the corners and
-   *                  the chosen pill in `tint`, the theme's colour;
-   *   · `challenges` the Papic Challenges as chips just above the shutter.
-   * Null (every real couple today, and the hub's inline camera) = the camera
-   * exactly as shipped.
+   * 📷 ONE CAMERA, AND ITS PRO DRESS (owner 2026-10-24, final: *"Free: plain
+   * camera with a small Setnayan mark on saved photos. Pro: their logo on the
+   * shutter, theme colours, and their monogram on saved photos. No frames."*;
+   * lib/camera-dress.ts). The three looks of 06 Oct are gone — nothing to pick.
+   *   · free (or absent): the plain shutter, white corners, neutral pills;
+   *   · `pro`: the event's logo (`logo`) on a white shutter, the corners and
+   *     the chosen pills in `tint`, the theme's colour.
+   * Pro = the event's Logo & QR part or Full Pro, server-read. Standalone (not
+   * `embedded`) the camera fills the phone's screen exactly (`100dvh`).
    */
-  look?: { kind: CameraLook; tint: string; logo: ReactNode | null } | null;
+  dress?: { pro: boolean; tint: string; logo: ReactNode | null } | null;
+  /** 🏷 The small mark burned into the COPIES of every shot (never the original;
+   *  lib/papic-photo-mark.ts). Absent → the Setnayan mark, the free event's. */
+  photoMark?: PapicMark | null;
 };
 
 /**
@@ -308,6 +337,7 @@ function announceOutOfShots(): void {
 export function PapicGuestCapture({
   eventName,
   eventId,
+  uploadOwner,
   initialRemaining,
   total,
   termsAccepted,
@@ -324,8 +354,14 @@ export function PapicGuestCapture({
   embedded,
   exitTo = null,
   lastShotUrl = null,
-  look = null,
+  myShots = null,
+  dress = null,
+  photoMark = null,
 }: Props) {
+  const fullScreen = !embedded;
+  const pro = dress?.pro === true;
+  const tint = pro && dress ? dress.tint : CAMERA_PLAIN_TINT;
+  const mark = photoMark ?? SETNAYAN_PHOTO_MARK;
   // 📸 Shots that landed this visit, and the thumbnail of the latest one of
   // THEIRS — the server's on arrival, then each new shot as it saves.
   const [added, setAdded] = useState(0);
@@ -342,7 +378,9 @@ export function PapicGuestCapture({
   const startedAtRef = useRef<number>(0);
   const stopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const posterBlobRef = useRef<Blob | null>(null);
+  // The id of the newest shot this visit — Kwento + scan-to-tag anchor on it
+  // once the uploader records it.
+  const latestShotRef = useRef<string | null>(null);
   // Gesture shutter: a hold-timer tells a TAP (photo) from a HOLD (record).
   const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const didHoldRef = useRef(false);
@@ -361,6 +399,8 @@ export function PapicGuestCapture({
   // of the two gates the public showcase needs (the couple's approval is the
   // other). A persistent per-session preference, so the guest sets it once.
   const [sharePublicly, setSharePublicly] = useState(false);
+  // The share line's <label> also holds the ⓘ button, so it names its checkbox (a tap on the row ticks the box).
+  const shareId = useId();
   const [justSaved, setJustSaved] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [blocked, setBlocked] = useState(false);
@@ -416,10 +456,32 @@ export function PapicGuestCapture({
   // lifted from the panel so the capture stage can show what the next shot
   // counts for. The panel owns the mechanic; this is display-only state.
   const [armedChallenge, setArmedChallenge] = useState<ArmedChallenge | null>(null);
+  // 🏆 The challenges (one hook): the pill left of Photo ⇄ Snippet, the follow-up line under the shutter.
+  const challenges = useGuestChallenges({ lastCaptureId, lastCaptureKind, onArmedChange: setArmedChallenge });
   const [tagging, setTagging] = useState(false);
   const [tagCount, setTagCount] = useState(0);
-  const [taggedNames, setTaggedNames] = useState<string[]>([]);
+  // Each scan that tagged somebody, in order: the hint line lists them, and the
+  // latest is the confirmation chip on the viewfinder ("✓ Ana Reyes tagged").
+  const [tagLog, setTagLog] = useState<Array<{ hint: string; chip: string }>>([]);
   const [tagNotice, setTagNotice] = useState<string | null>(null);
+
+  // 📷 THE CAMERA, COMPLETE (owner 2026-10-24, "Okay build it",
+  // prototypes/papic_camera_complete_2026-10-24_fable.html):
+  //   · Photo ⇄ Snippet — a guest can choose Snippet on purpose; in Snippet a
+  //     tap starts and a tap stops (or hold, and let go). Hold-to-record stays
+  //     in Photo.
+  //   · the rule-of-thirds grid, remembered on the device;
+  //   · tap-to-focus, only where the camera reports it can;
+  //   · "My shots", a sheet over the camera.
+  const [mode, setMode] = useState<'photo' | 'snippet'>('photo');
+  const [grid, setGrid] = useState(false);
+  const [focusMark, setFocusMark] = useState<{ x: number; y: number; key: number } | null>(null);
+  const [shotsOpen, setShotsOpen] = useState(false);
+  // This visit's shots, newest first — small copies, kept for the sheet.
+  const [sessionShots, setSessionShots] = useState<MyShot[]>([]);
+  const snippetDownAtRef = useRef(0);
+  const stopOnUpRef = useRef(false);
+  const viewfinderRef = useRef<HTMLDivElement>(null);
   const tagBusyRef = useRef(false);
   const lastScanRef = useRef<string>('');
 
@@ -431,11 +493,15 @@ export function PapicGuestCapture({
     streamRef,
     ready,
     camError,
+    facing,
     canFlip,
     flip,
     lensOptions,
     lens,
     selectLens,
+    crop,
+    canFocus,
+    focusAt,
     mirrored,
     switching,
   } = usePapicCamera({
@@ -484,11 +550,11 @@ export function PapicGuestCapture({
     total > 0 &&
     remaining <= Math.floor((total * (100 - DEFAULT_EVENT_POOL_CONFIG.softStopPct)) / 100);
 
-  // ⚠ THE OFFLINE QUEUE RE-SPENDS LATER. A shot queued while offline
-  // (enqueuePapicGuestCapture, drained by lib/offline/service-handlers/
-  // papic-drain.ts) posts to this same route minutes after this counter last
-  // moved, and spends against whichever ceiling binds AT DRAIN TIME. This
-  // pill is advisory; papic_record_guest_capture is the truth.
+  // ⚠ EVERY SHOT SPENDS LATER. A shot is saved on this phone at the shutter
+  // and recorded by the uploader (lib/papic-upload/) when there is signal —
+  // seconds later online, hours later after a dead link — and it spends against
+  // whichever ceiling binds AT RECORD TIME. This pill is advisory;
+  // papic_record_guest_capture is the truth.
 
   const acceptTerms = useCallback(async () => {
     if (acceptBusy || !agreeChecked) return;
@@ -498,6 +564,8 @@ export function PapicGuestCapture({
       const res = await fetch('/api/papic/accept-terms', { method: 'POST' });
       if (!res.ok) throw new Error('accept');
       setAccepted(true);
+      // Shots kept for the terms send now (re-review 2026-10-24: terms keep, not drop).
+      papicUploader().wake();
       // ── THE FACE STEP POPS ON THE FIRST CLICK (owner 2026-09-21). This is the
       // moment a guest first opens the camera, so it is where "add your face so
       // your photos find you" is asked — ONCE, and never on the page itself.
@@ -511,282 +579,6 @@ export function PapicGuestCapture({
       setAcceptBusy(false);
     }
   }, [acceptBusy, agreeChecked]);
-
-  const capture = useCallback(async () => {
-    if (busy || !ready || switching || exhausted || !accepted || blocked) return;
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    if (!video || !canvas) return;
-
-    const w = video.videoWidth;
-    const h = video.videoHeight;
-    if (!w || !h) return;
-
-    setBusy(true);
-    setSaveError(null);
-
-    canvas.width = w;
-    canvas.height = h;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) {
-      setBusy(false);
-      return;
-    }
-    ctx.drawImage(video, 0, 0, w, h);
-
-    // 🕐 THE SHUTTER — stamped on the frame itself, before the on-device face
-    // pass, the look and the JPEG encode, and long before any of the network.
-    // Everything after this line can take seconds or, on the offline queue,
-    // hours; none of it is allowed to be the minute this photograph is filed
-    // under. Never shown to the guest and never asked of them (owner ruling,
-    // 2026-09-07) — the camera simply knows.
-    const capturedAtMs = Date.now();
-    // 🔁 …and the shutter's own id, minted HERE and sent unchanged by the POST
-    // below, by any retry and by the offline queue — so a shot whose "saved"
-    // answer was lost on bad signal lands ONCE and is paid for once
-    // (lib/papic-client-capture-id.ts).
-    const clientCaptureId = newClientCaptureId();
-
-    // FACE auto-tag runs on the CLEAN frame, BEFORE the look is applied — the
-    // event style (mono / cross-process / etc.) would otherwise wreck face-api's
-    // 128-d descriptors. ON-DEVICE: only the tiny vectors leave the phone, never
-    // the face image. Dormant until a model is hosted (NEXT_PUBLIC_FACE_MODEL_URL)
-    // → []; the 'saved' feedback never waits on it failing.
-    let faceVectors: number[][] = [];
-    // Dominant-face center (normalized) from the SAME on-device pass — feeds
-    // Stories Tier-2 auto-reframe (persisted as papic_guest_captures.subject_center_*).
-    let subjectCenter: { x: number; y: number } | null = null;
-    // FACE-MODE GATE (One-Pool spec §3.4): in mode_b `embedFaces` is NEVER
-    // called — no 128-d descriptor is computed and none is transmitted (the
-    // offline path below also carries nothing, since faceVectors stays []).
-    // Only mode_a (a consented custom-QR roster) reaches the embedder.
-    if (faceMode === 'mode_a') {
-      try {
-        const { embedFaces } = await import('@/lib/face-embed');
-        const fe = await embedFaces(canvas);
-        faceVectors = fe.vectors;
-        subjectCenter = fe.subjectCenter;
-      } catch {
-        // best-effort — a face-tag miss never affects the saved photo
-      }
-    }
-
-    // Bake the LOCKED event look into the delivered photo (after the clean embed).
-    applyPapicStyle(canvas, styleRef.current);
-
-    // Adaptive: the delivered photo shrinks on a weak link (the clean face
-    // embed above already ran at full fidelity).
-    const tier = getPapicQualityTier();
-    const blob = await new Promise<Blob | null>((resolve) =>
-      canvas.toBlob(resolve, 'image/jpeg', photoJpegQuality(tier)),
-    );
-    if (!blob) {
-      setBusy(false);
-      setSaveError('Could not grab that frame — try again.');
-      return;
-    }
-
-    // Link effectively unusable — skip the doomed POST, queue the (reduced) shot.
-    if (tier === 'queue_only') {
-      const queued = await enqueuePapicGuestCapture({
-        eventId,
-        mediaType: 'photo',
-        contentType: 'image/jpeg',
-        filename: `papic-${Date.now()}.jpg`,
-        blob,
-        sharePublicly,
-        faceVectors: faceVectors.length > 0 ? JSON.stringify(faceVectors) : undefined,
-        capturedAtMs,
-        clientCaptureId,
-        reason: 'low_bandwidth',
-      });
-      setBusy(false);
-      setSaveError(
-        queued
-          ? "Weak signal — this shot will upload once you're back online."
-          : "That shot didn't save — check your signal and try again.",
-      );
-      return;
-    }
-
-    try {
-      const form = new FormData();
-      form.append('file', blob, `papic-${Date.now()}.jpg`);
-      form.append('captured_at_ms', String(capturedAtMs));
-      form.append(CLIENT_CAPTURE_ID_FIELD, clientCaptureId);
-      // Public-sharing consent for THIS shot (Alaala orb gate). Only sent when
-      // the guest opted in; the server sets consent_to_public from it.
-      if (sharePublicly) form.append('share_publicly', '1');
-      if (faceVectors.length > 0) form.append('face_vectors', JSON.stringify(faceVectors));
-      if (subjectCenter) {
-        form.append('subject_center_x', String(subjectCenter.x));
-        form.append('subject_center_y', String(subjectCenter.y));
-      }
-      const postStart = Date.now();
-      const res = await fetch('/api/papic/guest-capture', { method: 'POST', body: form });
-      if (res.ok) recordUploadSample(blob.size, Date.now() - postStart);
-      const json = (await res.json().catch(() => ({}))) as {
-        status?: string;
-        remaining?: number;
-        error?: string;
-        captureId?: string | null;
-        /** Set on a capture-window refusal, so the copy can name the date. */
-        eventDay?: string | null;
-        /**
-         * Set on `quota_exhausted` (S2, migration 20271184624871):
-         * `'guest_spend_ceiling'` when the COUPLE's own ceiling refused this
-         * shot, `'per_guest_credits'` for the platform's flat 150, undefined
-         * pre-migration. Server-authoritative — only the RPC knows which limit
-         * actually bound; this is never inferred client-side.
-         */
-        reason?: string;
-      };
-
-      /*
-        🚨 THIS MUST STAY ABOVE THE 409 BRANCH. The put-away refusal answers 409,
-        and the branch below reads EVERY 409 as "you are out of shots": it calls
-        `setRemaining(0)`, which flips `exhausted` and disables the shutter for the
-        rest of the session, then paints "That's all {total} photos!
-        … They'll treasure these." over a photo that was refused before it was ever
-        stored. A guest with credits left is congratulated for a shot that was
-        thrown away — and with guest buying on, the "Add shots" sheet auto-opens and
-        offers to sell them more shots that also cannot be taken.
-      
-        🔑 A REFUSAL THAT REUSES ANOTHER REFUSAL'S STATUS CODE INHERITS ITS COPY.
-        The status field is what separates them, so it has to be asked FIRST.
-      */
-      if (json.status === 'event_put_away') {
-        setSaveError(EVENT_PUT_AWAY_CAPTURE_COPY);
-        return;
-      }
-      if (json.status === 'quota_exhausted') {
-        setRemaining(0);
-        setCapReached(true);
-        setCapReason(json.reason ?? null);
-        setSaveError(null);
-        announceOutOfShots();
-        return;
-      }
-      // Every OTHER 409 on this route is the shared pot refusing
-      // (camera_points_exhausted). It is the CELEBRATION that is out, not this
-      // guest — so it gets its own latch and its own sentence. Offering more
-      // shots stays right here: that is exactly what an empty pot is for.
-      if (res.status === 409 || json.status === 'camera_points_exhausted') {
-        setPoolEmpty(true);
-        setSaveError(null);
-        announceOutOfShots();
-        return;
-      }
-      // UGC moderation gates enforced server-side in the capture RPC.
-      if (json.status === 'blocked') {
-        setBlocked(true);
-        setSaveError(null);
-        return;
-      }
-      if (json.status === 'terms_required') {
-        setAccepted(false);
-        setSaveError(null);
-        return;
-      }
-      if (!res.ok || json.status !== 'ok') {
-        // PERMANENT 4xx reject (413 too_large, 400, 415, …) — the bytes are
-        // unacceptable and a retry can never succeed, so do NOT queue it for
-        // offline retry (that told the guest it was saved while it was lost).
-        // Name the real cause instead. Transient failures fall through to throw.
-        if (isPermanentUploadReject(res.status)) {
-          setSaveError(
-            guestWindowRejectMessage(json.error, json.eventDay) ??
-              (res.status === 413 || json.error === 'too_large'
-                ? 'That shot was too large to save — try again.'
-                : "That shot couldn't be saved — please try again."),
-          );
-          return;
-        }
-        throw new Error(json.error ?? 'record');
-      }
-
-      setRemaining(typeof json.remaining === 'number' ? json.remaining : (r) => Math.max(0, r - 1));
-      setJustSaved(true);
-      setTimeout(() => setJustSaved(false), 900);
-      setAdded((n) => n + 1);
-      setThumb((was) => {
-        if (was?.startsWith('blob:')) URL.revokeObjectURL(was);
-        return URL.createObjectURL(blob);
-      });
-      if (json.captureId) {
-        setKwentoCaptureId(json.captureId);
-        setKwentoFlashText('');
-        setKwentoStoryText('');
-        setKwentoConsent(false);
-        // Open the Flash prompt immediately — but only when the event owns
-        // Kwento. Unowned events stay 'idle' so the prompt never appears (the
-        // submit route would 403). Tag-arming below still runs either way.
-        setKwentoPhase(canKwento ? 'flash' : 'idle');
-        setFlashCountdown(5);
-        setKwentoError(null);
-        setSentMessageId(null);
-        setDeletePhase('idle');
-        // Arm scan-to-tag for the shot just saved (fresh tag state per photo).
-        setLastCaptureId(json.captureId);
-        setLastCaptureKind('photo');
-        setTagging(false);
-        setTagCount(0);
-        setTaggedNames([]);
-        setTagNotice(null);
-        lastScanRef.current = '';
-      }
-    } catch {
-      // Infrastructure failure (no signal / 5xx). Persist to the offline queue so
-      // the shot uploads on reconnect instead of being lost. Terminal states
-      // (quota / blocked / terms) returned earlier, so they never reach here.
-      const queued = await enqueuePapicGuestCapture({
-        eventId,
-        mediaType: 'photo',
-        contentType: 'image/jpeg',
-        filename: `papic-${Date.now()}.jpg`,
-        blob,
-        sharePublicly,
-        faceVectors: faceVectors.length > 0 ? JSON.stringify(faceVectors) : undefined,
-        // The shot the guest watched themselves take, with the minute they took
-        // it. Without this the queue stamps the moment the upload FAILED.
-        capturedAtMs,
-        clientCaptureId,
-        reason: 'network',
-      });
-      setSaveError(
-        queued
-          ? "No signal — this shot will upload once you're back online."
-          : "That shot didn't save — check your signal and try again.",
-      );
-    } finally {
-      setBusy(false);
-    }
-  }, [
-    busy,
-    ready,
-    switching,
-    exhausted,
-    accepted,
-    blocked,
-    sharePublicly,
-    canKwento,
-    videoRef,
-    eventId,
-    faceMode,
-  ]);
-
-  // Drain any guest captures persisted to the offline queue (a signal drop, or a
-  // prior session that closed before reconnecting). Foreground + flag-independent
-  // (iOS Safari has no Background Sync) so queued shots upload on reconnect.
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const drain = () => {
-      void triggerSyncNow();
-    };
-    drain();
-    window.addEventListener('online', drain);
-    return () => window.removeEventListener('online', drain);
-  }, []);
 
   // Stop any in-flight recording + clear its timers when the component unmounts.
   useEffect(() => {
@@ -805,15 +597,79 @@ export function PapicGuestCapture({
     };
   }, []);
 
+  // The grid is remembered on this device. Storage can be refused (a private
+  // window) — the grid then simply starts off.
+  useEffect(() => {
+    try {
+      setGrid(window.localStorage.getItem(PAPIC_GRID_STORAGE_KEY) === '1');
+    } catch {
+      /* no storage — off */
+    }
+  }, []);
+  const toggleGrid = useCallback(() => {
+    setGrid((g) => {
+      const next = !g;
+      try {
+        window.localStorage.setItem(PAPIC_GRID_STORAGE_KEY, next ? '1' : '0');
+      } catch {
+        /* no storage — this visit only */
+      }
+      return next;
+    });
+  }, []);
+
+  // The sheet's small copies live as long as the camera does.
+  const sessionUrlsRef = useRef<string[]>([]);
+  useEffect(
+    () => () => {
+      for (const u of sessionUrlsRef.current) URL.revokeObjectURL(u);
+    },
+    [],
+  );
+  const keepSessionShot = useCallback((shot: MyShot) => {
+    sessionUrlsRef.current.push(shot.url);
+    setSessionShots((was) => [shot, ...was]);
+    setThumb(shot.url);
+  }, []);
+
+  // 🎯 Tap-to-focus — only where the track reports a focus mode; elsewhere a
+  // tap on the picture does nothing at all (no square that promises focus).
+  const onViewfinderTap = useCallback(
+    (e: RMouseEvent<HTMLDivElement>) => {
+      if (!canFocus || !ready || switching || tagging || exhausted) return;
+      if ((e.target as HTMLElement).closest('button, a, input, label')) return;
+      const box = viewfinderRef.current?.getBoundingClientRect();
+      const video = videoRef.current;
+      if (!box || !video) return;
+      const tapX = e.clientX - box.left;
+      const tapY = e.clientY - box.top;
+      const point = focusPointFromTap({
+        tapX,
+        tapY,
+        boxW: box.width,
+        boxH: box.height,
+        videoW: video.videoWidth,
+        videoH: video.videoHeight,
+        crop: recordingRef.current ? 1 : crop,
+        mirrored,
+      });
+      if (!point) return;
+      focusAt(point);
+      const key = Date.now();
+      setFocusMark({ x: tapX, y: tapY, key });
+      setTimeout(() => setFocusMark((m) => (m?.key === key ? null : m)), 1200);
+    },
+    [canFocus, ready, switching, tagging, exhausted, crop, mirrored, focusAt, videoRef],
+  );
+
+  const closeShots = useCallback(() => setShotsOpen(false), []);
+
   // ---- clip recording (Option A) --------------------------------------------
 
   // After a capture saves (photo OR clip), wire up the Kwento + scan-to-tag
   // affordances anchored on the new capture id. Shared so both paths behave the
   // same. Photos open the Flash prompt; clips skip it (the moment is recorded).
   const onSavedCapture = useCallback((captureId: string, openFlash: boolean) => {
-    setAdded((n) => n + 1);
-    setJustSaved(true);
-    setTimeout(() => setJustSaved(false), 900);
     setKwentoCaptureId(captureId);
     setKwentoFlashText('');
     setKwentoStoryText('');
@@ -830,10 +686,226 @@ export function PapicGuestCapture({
     setLastCaptureKind(openFlash ? 'photo' : 'clip');
     setTagging(false);
     setTagCount(0);
-    setTaggedNames([]);
+    setTagLog([]);
     setTagNotice(null);
     lastScanRef.current = '';
   }, [canKwento]);
+
+  // 🧪 DEVELOP, OFF THE SHUTTER. The look, the JPEG encode and the write to this
+  // phone take 100–400 ms on a phone (the look is a pixel pass over 3.7 MP), so
+  // they run here, one shot at a time, AFTER the shutter is already free for the
+  // next press. A burst never holds more than MAX_DEVELOPING frames in memory:
+  // past that, the shutter waits for the oldest to finish (iOS caps canvas memory).
+  const developChainRef = useRef<Promise<void>>(Promise.resolve());
+  const developingRef = useRef(0);
+  const developPhoto = useCallback(
+    async (
+      canvas: HTMLCanvasElement,
+      meta: { clientCaptureId: string; capturedAtMs: number; sharePublicly: boolean; style: PapicStyle; faceMode: PapicFaceMode },
+    ) => {
+      // FACE-MODE GATE (One-Pool spec §3.4): in mode_b `embedFaces` is NEVER
+      // called — no 128-d descriptor is computed and none is transmitted. Only
+      // mode_a (a consented custom-QR roster) keeps a CLEAN copy of the frame
+      // (before the look, which would wreck face-api's descriptors) for the
+      // on-device face pass — which runs in the upload queue, OFF the shutter.
+      // ON-DEVICE: only the tiny vectors ever leave the phone, never the face.
+      let faceSource: Blob | null = null;
+      if (meta.faceMode === 'mode_a') {
+        try {
+          const { resizeTo } = await import('@/lib/papic-upload/prepare');
+          faceSource = await resizeTo(canvas, 1280, 0.85);
+        } catch {
+          faceSource = null; // best-effort — a face-tag miss never affects the photo
+        }
+      }
+      // Bake the LOCKED event look into the delivered photo (after the clean
+      // copy) — in a worker, so the shutter stays pressable while it runs.
+      await developCanvas(canvas, meta.style);
+      const blob = await new Promise<Blob | null>((resolve) =>
+        canvas.toBlob(resolve, 'image/jpeg', photoJpegQuality('full')),
+      );
+      // The small copy for the thumbnail and "My shots" — the look is already on it.
+      const small = blob ? await smallThumb(canvas, canvas.width, canvas.height).catch(() => null) : null;
+      canvas.width = 0;
+      canvas.height = 0;
+      if (!blob) {
+        setSaveError('Could not grab that frame — try again.');
+        return;
+      }
+      try {
+        await saveShot({
+          id: meta.clientCaptureId,
+          lane: 'guest',
+          eventId,
+          media: 'photo',
+          capturedAtMs: meta.capturedAtMs,
+          // Public-sharing consent for THIS shot (Alaala orb gate) — only true
+          // when the guest opted in; the server sets consent_to_public from it.
+          sharePublicly: meta.sharePublicly,
+          primary: blob,
+          faceSource,
+          ownerTag: uploadOwner,
+          mark,
+        });
+      } catch {
+        // The phone could not keep it (storage full / private mode). Say so —
+        // never a "saved" over a shot that exists nowhere.
+        setSaveError("Couldn't save that shot on this phone — free up some space and try again.");
+        return;
+      }
+      markSavedOnPhone(meta.capturedAtMs);
+      setJustSaved(true);
+      setTimeout(() => setJustSaved(false), 900);
+      keepSessionShot({ id: meta.clientCaptureId, url: URL.createObjectURL(small ?? blob), media: 'photo' });
+    },
+    [eventId, uploadOwner, keepSessionShot, mark],
+  );
+
+  const capture = useCallback(async () => {
+    if (busy || !ready || switching || exhausted || !accepted || blocked) return;
+    const video = videoRef.current;
+    if (!video) return;
+
+    const w = video.videoWidth;
+    const h = video.videoHeight;
+    if (!w || !h) return;
+
+    markShutter();
+    setSaveError(null);
+    if (developingRef.current >= MAX_DEVELOPING) {
+      // Backpressure — a long burst waits for the oldest frame to be saved.
+      setBusy(true);
+      await developChainRef.current;
+      setBusy(false);
+    }
+
+    // 📸 SAVE FIRST, SEND LATER (owner 2026-10-23: "each phone can shoot
+    // continuously while uploading online works on the background"). A FRESH
+    // canvas per shot: the frame is grabbed here and the shutter is free; the
+    // look, the encode and the write to this phone follow in `developPhoto`,
+    // and lib/papic-upload/ sends it, in pieces, when there is signal.
+    // 2× on a phone with no 2× of its own is a DIGITAL crop (owner 2026-10-24:
+    // "2× shows on every phone") — the centre half of the frame, at its own
+    // pixels, exactly what the preview showed.
+    const sw = Math.round(w / crop);
+    const sh = Math.round(h / crop);
+    const canvas = document.createElement('canvas');
+    canvas.width = sw;
+    canvas.height = sh;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    if (!ctx) return;
+    ctx.drawImage(video, Math.round((w - sw) / 2), Math.round((h - sh) / 2), sw, sh, 0, 0, sw, sh);
+
+    // 🕐 THE SHUTTER — stamped on the frame itself, before the look and the
+    // encode, and long before any of the network. Everything after this line
+    // can take seconds or, in the queue, hours; none of it is allowed to be the
+    // minute this photograph is filed under. Never shown to the guest and never
+    // asked of them (owner ruling, 2026-09-07) — the camera simply knows.
+    const capturedAtMs = Date.now();
+    // 🔁 …and the shutter's own id, minted HERE and carried unchanged by every
+    // piece, every retry and every record — so a shot whose "saved" answer was
+    // lost on bad signal lands ONCE and is paid for once
+    // (lib/papic-client-capture-id.ts).
+    const clientCaptureId = newClientCaptureId();
+    latestShotRef.current = clientCaptureId;
+
+    developingRef.current += 1;
+    const meta = { clientCaptureId, capturedAtMs, sharePublicly, style: styleRef.current, faceMode };
+    developChainRef.current = developChainRef.current
+      .then(() => developPhoto(canvas, meta))
+      .catch(() => {})
+      .finally(() => {
+        developingRef.current -= 1;
+      });
+    // The countdown moves at the shutter (advisory); the server's figure
+    // replaces it as each shot is recorded.
+    if (capApplies) setRemaining((r) => Math.max(0, r - papicCaptureCost('photo')));
+    markShutterReady();
+  }, [
+    busy,
+    ready,
+    switching,
+    exhausted,
+    accepted,
+    blocked,
+    sharePublicly,
+    capApplies,
+    videoRef,
+    faceMode,
+    developPhoto,
+    crop,
+  ]);
+
+  // 📮 WHAT THE UPLOADER HEARS BACK. A shot is recorded minutes — or, after a
+  // dead hour, hours — after it was taken, so the camera reacts to the
+  // uploader's events rather than to a request it made. Two copies of each rule
+  // used to live in the photo and clip handlers; there is one now.
+  // This camera is open: its event's shots (this guest's) may send from here.
+  useEffect(
+    () => papicUploader().register({ lane: 'guest', eventId, ownerTag: uploadOwner }),
+    [eventId, uploadOwner],
+  );
+
+  useEffect(() => {
+    const uploader = papicUploader();
+    return uploader.on((e) => {
+      if (e.shot.lane !== 'guest' || e.shot.eventId !== eventId) return;
+      if (e.type === 'recorded') {
+        const b = e.body as { remaining?: number; captureId?: string | null };
+        setAdded((n) => n + 1);
+        if (typeof b.remaining === 'number') {
+          // The server's figure, less what this phone has shot but not yet sent.
+          const unsent = uploader
+            .snapshot()
+            .shots.filter((s) => s.lane === 'guest' && s.eventId === eventId && !s.settled.record && s.id !== e.shot.id)
+            .reduce((n, s) => n + papicCaptureCost(s.media, s.durationMs ?? null), 0);
+          setRemaining(Math.max(0, b.remaining - unsent));
+        }
+        // Kwento + scan-to-tag anchor on the LATEST shot only.
+        if (b.captureId && e.shot.id === latestShotRef.current) {
+          onSavedCapture(b.captureId, e.shot.media === 'photo');
+        }
+        return;
+      }
+      if (e.type === 'credits') {
+        /*
+          TWO REFUSALS, TWO SENTENCES — `quota_exhausted` is THIS guest's own
+          ceiling; every other credit refusal is the shared pot. A refusal that
+          reuses another refusal's status code inherits its copy. The shot is
+          KEPT on the phone either way, and the chip says how many wait.
+        */
+        if (e.code === 'quota_exhausted') {
+          setRemaining(0);
+          setCapReached(true);
+          setCapReason(typeof e.body?.reason === 'string' ? e.body.reason : null);
+        } else {
+          setPoolEmpty(true);
+        }
+        setSaveError(null);
+        announceOutOfShots();
+        return;
+      }
+      if (e.type === 'kept') {
+        // 🔒 The shot is KEPT on this phone (never erased for the window or
+        // put-away — review 2026-10-23). 🚨 PUT-AWAY FIRST — it is not "out of shots".
+        if (e.code === 'event_put_away') setSaveError(EVENT_PUT_AWAY_CAPTURE_COPY);
+        // The terms gate comes back; accepting them sends these same shots.
+        else if (e.code === 'terms_required') setAccepted(false);
+        else {
+          setSaveError(
+            guestWindowRejectMessage(e.code, e.body?.eventDay) ??
+              'Not sent yet — this shot stays on your phone.',
+          );
+        }
+        return;
+      }
+      if (e.type === 'refused') {
+        // Only the one refusal that ends a shot reaches here.
+        if (e.code === 'blocked') setBlocked(true);
+        else setSaveError("Couldn't save a shot — the event didn't accept it.");
+      }
+    });
+  }, [eventId, onSavedCapture]);
 
   // Draw the current frame to the hidden canvas → JPEG poster (the NSFW proxy).
   const grabPoster = useCallback(async (): Promise<Blob | null> => {
@@ -851,190 +923,44 @@ export function PapicGuestCapture({
     return new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.85));
   }, [videoRef]);
 
-  // CLIP WEB-COPY (Papic storage PR-1) — a BACKGROUND follow-up, fired only after
-  // the raw clip has ALREADY recorded (we have its capture_id). It transcodes a
-  // ~0.5 MB H.264 web copy off the main thread (ffmpeg.wasm runs in its own
-  // worker) and POSTs it back as `mode=web_copy` to update clip_web_r2_key by
-  // capture_id. Deliberately NOT awaited by the capture path: it must NEVER block
-  // the raw upload/record or the next capture. Best-effort end-to-end — on
-  // unsupported / transcode-skip / any failure it just returns, the column stays
-  // NULL, and the raw remains the only playable copy (delivery is never gated on
-  // it). The heavy ffmpeg core is lazy-loaded inside compressVideoForWeb, so this
-  // import costs nothing until a clip actually records.
-  const uploadClipWebCopy = useCallback(async (clip: Blob, captureId: string) => {
-    try {
-      if (!canCompressVideo()) return;
-      const src = new File([clip], `papic-web-${Date.now()}.mp4`, { type: 'video/mp4' });
-      const web = await compressVideoForWeb(src, { profile: 'web720' });
-      // Reference-equality: compressVideoForWeb returns the INPUT unchanged on
-      // skip/failure (or when the copy wasn't smaller) → nothing worth storing.
-      if (web === src || web.size <= WEB_COPY_MIN_BYTES || web.size >= clip.size) return;
-      const form = new FormData();
-      form.append('mode', 'web_copy');
-      form.append('capture_id', captureId);
-      form.append('clip_web', web, `papic-${Date.now()}-web.mp4`);
-      await fetch('/api/papic/guest-capture', { method: 'POST', body: form });
-    } catch {
-      // best-effort — the raw stays the playable copy
-    }
-  }, []);
-
-  const uploadClip = useCallback(
-    async (clip: Blob, durationMs: number, capturedAtMs: number) => {
-      setBusy(true);
+  // A finished clip goes to the phone's queue with its poster — the web copy
+  // (~0.5 MB, ffmpeg.wasm) is made in the queue's background step, never here,
+  // and never blocks the next shot (lib/papic-upload/prepare.ts).
+  const saveClip = useCallback(
+    async (clip: Blob, durationMs: number, capturedAtMs: number, poster: Blob | null) => {
       setSaveError(null);
-      // 🔁 One id for this clip, live POST and offline queue alike — see the photo path.
+      // 🔁 One id for this clip, every piece and every record — see the photo path.
       const clientCaptureId = newClientCaptureId();
-      // Link effectively unusable — skip the doomed POST, queue the clip.
-      if (getPapicQualityTier() === 'queue_only') {
-        const queued = await enqueuePapicGuestCapture({
+      const clamped = Math.min(durationMs, MAX_CLIP_MS);
+      try {
+        await saveShot({
+          id: clientCaptureId,
+          lane: 'guest',
           eventId,
-          mediaType: 'clip',
-          contentType: clip.type || 'video/mp4',
-          filename: `papic-${Date.now()}.mp4`,
-          blob: clip,
-          posterBlob: posterBlobRef.current,
-          posterFilename: `papic-${Date.now()}.jpg`,
-          durationMs: Math.min(durationMs, MAX_CLIP_MS),
-          sharePublicly,
+          media: 'clip',
           capturedAtMs,
-          clientCaptureId,
-          reason: 'low_bandwidth',
+          durationMs: clamped,
+          // Same public-sharing opt-in as photos (Alaala orb gate).
+          sharePublicly,
+          primary: clip,
+          poster,
+          ownerTag: uploadOwner,
+          mark,
         });
-        setSaveError(
-          queued
-            ? "Weak signal — this clip will upload once you're back online."
-            : "That clip didn't save — check your signal and try again.",
-        );
-        setBusy(false);
+      } catch {
+        setSaveError("Couldn't save that clip on this phone — free up some space and try again.");
         return;
       }
-      try {
-        const form = new FormData();
-        form.append('media_type', 'clip');
-        form.append('file', clip, `papic-${Date.now()}.mp4`);
-        if (posterBlobRef.current) {
-          form.append('poster', posterBlobRef.current, `papic-${Date.now()}.jpg`);
-        }
-        form.append('duration_ms', String(Math.min(durationMs, MAX_CLIP_MS)));
-        form.append('captured_at_ms', String(capturedAtMs));
-        form.append(CLIENT_CAPTURE_ID_FIELD, clientCaptureId);
-        // Same public-sharing opt-in as photos (Alaala orb gate). Only sent when
-        // the guest opted in; the server sets consent_to_public from it.
-        if (sharePublicly) form.append('share_publicly', '1');
-
-        const postStart = Date.now();
-        const res = await fetch('/api/papic/guest-capture', { method: 'POST', body: form });
-        if (res.ok) recordUploadSample(clip.size, Date.now() - postStart);
-        const json = (await res.json().catch(() => ({}))) as {
-          status?: string;
-          remaining?: number;
-          error?: string;
-          captureId?: string | null;
-          /** Set on a capture-window refusal, so the copy can name the date. */
-          eventDay?: string | null;
-          /** Set on `quota_exhausted` — see the photo handler's copy of this type. */
-          reason?: string;
-        };
-
-        /*
-          🚨 THIS MUST STAY ABOVE THE 409 BRANCH. The put-away refusal answers 409,
-          and the branch below reads EVERY 409 as "you are out of shots": it calls
-          `setRemaining(0)`, which flips `exhausted` and disables the shutter for the
-          rest of the session, then paints "That's all {total} photos!
-          … They'll treasure these." over a photo that was refused before it was ever
-          stored. A guest with credits left is congratulated for a shot that was
-          thrown away — and with guest buying on, the "Add shots" sheet auto-opens and
-          offers to sell them more shots that also cannot be taken.
-        
-          🔑 A REFUSAL THAT REUSES ANOTHER REFUSAL'S STATUS CODE INHERITS ITS COPY.
-          The status field is what separates them, so it has to be asked FIRST.
-        */
-        if (json.status === 'event_put_away') {
-          setSaveError(EVENT_PUT_AWAY_CAPTURE_COPY);
-          return;
-        }
-        if (json.status === 'quota_exhausted') {
-          setRemaining(0);
-          setCapReached(true);
-          setCapReason(json.reason ?? null);
-          setSaveError(null);
-          announceOutOfShots();
-          return;
-        }
-        // The pot, not this guest — see the photo handler. Two copies of one
-        // rule, and a fix applied to one of them is not a fix.
-        if (res.status === 409 || json.status === 'camera_points_exhausted') {
-          setPoolEmpty(true);
-          setSaveError(null);
-          announceOutOfShots();
-          return;
-        }
-        if (json.status === 'blocked') {
-          setBlocked(true);
-          setSaveError(null);
-          return;
-        }
-        if (json.status === 'terms_required') {
-          setAccepted(false);
-          setSaveError(null);
-          return;
-        }
-        if (!res.ok || json.status !== 'ok') {
-          // PERMANENT 4xx reject (413 too_large, 400, 415, …). A 413 means the
-          // clip is too big for the route ceiling and will 413 identically on
-          // every retry — queuing it (with a "will upload when you're back
-          // online" message) silently loses it. So do NOT queue: name the real
-          // cause. Only transient failures fall through to the catch (which
-          // queues with the honest offline message).
-          if (isPermanentUploadReject(res.status)) {
-            setSaveError(
-              guestWindowRejectMessage(json.error, json.eventDay) ??
-                (res.status === 413 || json.error === 'too_large'
-                  ? 'That snippet was too long or heavy to save — try a shorter one.'
-                  : "That clip couldn't be saved — please try again."),
-            );
-            return;
-          }
-          throw new Error(json.error ?? 'record');
-        }
-
-        setRemaining(
-          typeof json.remaining === 'number' ? json.remaining : (r) => Math.max(0, r - 1),
-        );
-        // Clips skip the Flash prompt (the moment's already captured as video).
-        if (json.captureId) onSavedCapture(json.captureId, false);
-        // Kick the web-copy transcode in the BACKGROUND (not awaited) — the raw
-        // is already recorded, so this never blocks the capture path.
-        if (json.captureId) void uploadClipWebCopy(clip, json.captureId);
-      } catch {
-        // Infra failure — persist so the clip uploads on reconnect.
-        const queued = await enqueuePapicGuestCapture({
-          eventId,
-          mediaType: 'clip',
-          contentType: clip.type || 'video/mp4',
-          filename: `papic-${Date.now()}.mp4`,
-          blob: clip,
-          posterBlob: posterBlobRef.current,
-          posterFilename: `papic-${Date.now()}.jpg`,
-          durationMs: Math.min(durationMs, MAX_CLIP_MS),
-          sharePublicly,
-          // The moment the clip opened. Without it the queue would stamp the
-          // moment the upload gave up.
-          capturedAtMs,
-          clientCaptureId,
-          reason: 'network',
-        });
-        setSaveError(
-          queued
-            ? "No signal — this clip will upload once you're back online."
-            : "That clip didn't save — check your signal and try again.",
-        );
-      } finally {
-        setBusy(false);
+      latestShotRef.current = clientCaptureId;
+      if (capApplies) setRemaining((r) => Math.max(0, r - papicCaptureCost('clip', clamped)));
+      setJustSaved(true);
+      setTimeout(() => setJustSaved(false), 900);
+      if (poster) {
+        const small = await smallThumbOfBlob(poster);
+        keepSessionShot({ id: clientCaptureId, url: URL.createObjectURL(small ?? poster), media: 'clip', durationMs: clamped });
       }
     },
-    [sharePublicly, onSavedCapture, eventId, uploadClipWebCopy],
+    [sharePublicly, eventId, capApplies, uploadOwner, keepSessionShot, mark],
   );
 
   const stopRecording = useCallback(() => {
@@ -1101,10 +1027,10 @@ export function PapicGuestCapture({
         setSaveError('That recording came back empty — try again.');
         return;
       }
-      posterBlobRef.current = await grabPoster(); // last live frame ≈ NSFW proxy
+      const poster = await grabPoster(); // last live frame ≈ NSFW proxy
       // 🕐 The clip's minute is when it OPENED, not when it closed — the same
       // instant `durationMs` is measured from, so the two can never disagree.
-      void uploadClip(clip, durationMs, startedAtRef.current || Date.now() - durationMs);
+      void saveClip(clip, durationMs, startedAtRef.current || Date.now() - durationMs, poster);
     };
 
     startedAtRef.current = Date.now();
@@ -1124,20 +1050,34 @@ export function PapicGuestCapture({
     tickRef.current = setInterval(() => {
       setRecElapsed(Math.min(MAX_CLIP_MS, Date.now() - startedAtRef.current));
     }, 100);
-  }, [ready, switching, exhausted, busy, accepted, blocked, grabPoster, uploadClip, stopRecording, streamRef]);
+  }, [ready, switching, exhausted, busy, accepted, blocked, grabPoster, saveClip, stopRecording, streamRef]);
 
   // ---- gesture shutter -----------------------------------------------------
   // TAP = photo, HOLD = record (release / 5s cap stops it). One button, no mode
   // toggle. pointerdown arms a hold timer; a release before HOLD_MS is a tap.
   const onShutterDown = useCallback(
     (e: RPointerEvent<HTMLButtonElement>) => {
-      if (recordingRef.current || busy || !ready || switching || exhausted || tagging || !accepted || blocked) return;
+      if (busy || !ready || switching || exhausted || tagging || !accepted || blocked) return;
+      // In Snippet, a press on a running clip is the tap that stops it.
+      if (recordingRef.current && mode !== 'snippet') return;
       // Capture the pointer so up/cancel land on this button even if the finger
       // drifts off — robust taps + no stranded recording.
       try {
         e.currentTarget.setPointerCapture(e.pointerId);
       } catch {
         /* unsupported — degrade to plain pointerup */
+      }
+      if (mode === 'snippet') {
+        // SNIPPET: the press starts the clip at once; a tap leaves it running
+        // until the next tap, a hold stops it on letting go (onShutterUp).
+        if (recordingRef.current) {
+          stopOnUpRef.current = true;
+          return;
+        }
+        snippetDownAtRef.current = Date.now();
+        if (typeof navigator !== 'undefined') navigator.vibrate?.(40);
+        void startRecording();
+        return;
       }
       didHoldRef.current = false;
       holdTimerRef.current = setTimeout(() => {
@@ -1147,7 +1087,7 @@ export function PapicGuestCapture({
         void startRecording();
       }, HOLD_MS);
     },
-    [busy, ready, switching, exhausted, tagging, accepted, blocked, startRecording],
+    [busy, ready, switching, exhausted, tagging, accepted, blocked, startRecording, mode],
   );
 
   const onShutterUp = useCallback(
@@ -1156,6 +1096,16 @@ export function PapicGuestCapture({
         e.currentTarget.releasePointerCapture(e.pointerId);
       } catch {
         /* wasn't captured */
+      }
+      if (mode === 'snippet') {
+        if (stopOnUpRef.current) {
+          stopOnUpRef.current = false;
+          stopRecording();
+        } else if (snippetDownAtRef.current && Date.now() - snippetDownAtRef.current >= HOLD_MS) {
+          stopRecording(); // a hold — letting go stops it
+        }
+        snippetDownAtRef.current = 0;
+        return;
       }
       if (holdTimerRef.current) {
         clearTimeout(holdTimerRef.current);
@@ -1168,11 +1118,17 @@ export function PapicGuestCapture({
       }
       void capture();
     },
-    [capture, stopRecording],
+    [capture, stopRecording, mode],
   );
 
   // System interruption mid-press — stop a running clip, never fire a photo.
   const onShutterCancel = useCallback(() => {
+    if (mode === 'snippet') {
+      stopOnUpRef.current = false;
+      snippetDownAtRef.current = 0;
+      if (recordingRef.current) stopRecording();
+      return;
+    }
     if (holdTimerRef.current) {
       clearTimeout(holdTimerRef.current);
       holdTimerRef.current = null;
@@ -1181,7 +1137,7 @@ export function PapicGuestCapture({
       didHoldRef.current = false;
       stopRecording();
     }
-  }, [stopRecording]);
+  }, [stopRecording, mode]);
 
   // ---- scan-to-tag ---------------------------------------------------------
 
@@ -1190,6 +1146,7 @@ export function PapicGuestCapture({
     lastScanRef.current = '';
     tagBusyRef.current = false;
     setTagNotice(null);
+    setTagLog([]);
     setTagging(true);
   }, [lastCaptureId]);
 
@@ -1230,7 +1187,13 @@ export function PapicGuestCapture({
       const names = Array.isArray(r.names) ? (r.names as string[]) : [];
       const added = Number(r.added ?? 0);
       if (added > 0) {
-        setTaggedNames((prev) => Array.from(new Set([...prev, ...names])));
+        // The confirmation: "✓ Ana Reyes tagged" · "✓ Table 4 · 8 added".
+        const entry =
+          r.kind === 'table'
+            ? `${typeof r.table_label === 'string' ? r.table_label : 'Table'} · ${formatCount(added)} added`
+            : null;
+        const name = names[0] ?? 'Guest';
+        setTagLog((prev) => [...prev, entry ? { hint: entry, chip: entry } : { hint: name, chip: `${name} tagged` }]);
       }
       if (r.kind === 'table') {
         const label = typeof r.table_label === 'string' ? r.table_label : 'that table';
@@ -1455,7 +1418,7 @@ export function PapicGuestCapture({
             Before you start shooting
           </h1>
           <p className="mt-2 text-sm text-ink/70">
-            Your photos go straight into {eventName}&rsquo;s gallery and may be
+            Your photos go straight into {eventName}&rsquo;s Memories and may be
             seen by other guests and the host. By using this camera you agree
             to our{' '}
             <a
@@ -1565,23 +1528,21 @@ export function PapicGuestCapture({
   const isFlashSending = kwentoPhase === 'flash_sending';
   const isStorySending = kwentoPhase === 'story_sending';
 
-  /* 🎛 The look's shutter: plain white (Classic, Challenges) or the logo on white (Your brand). */
-  const shutterLogo = look && cameraLookDrawsLogo(look.kind) ? look.logo : null;
-  const challengePanel = (
-    <PapicChallengePanel
-      lastCaptureId={lastCaptureId}
-      lastCaptureKind={lastCaptureKind}
-      onArmedChange={setArmedChallenge}
-      storyHref={storyToken ? `/papic/me/${encodeURIComponent(storyToken)}#story` : null}
-      layout={look?.kind === 'challenges' ? 'chips' : 'list'}
-    />
-  );
+  /* 🖼 My shots: this visit's (a shot still on the phone marked "waiting"), then
+     the earlier ones already in this event's Memories (the sheet marks waiting). */
+  const myShotsList: MyShot[] = [
+    ...sessionShots,
+    ...(myShots ?? []).map((sh) => ({ id: sh.id, url: sh.url, media: 'photo' as const })),
+  ];
+
+  /* 📷 The Pro dress puts the event's logo on a white shutter; free is the plain shutter. */
+  const shutterLogo = pro && dress?.logo ? dress.logo : null;
 
   return (
     <main
-      data-camera-look={look ? look.kind : undefined}
+      data-camera-dress={pro ? 'pro' : 'free'}
       className={
-        look
+        fullScreen
           ? 'flex h-[100dvh] flex-col overflow-hidden bg-ink text-cream'
           : 'flex min-h-screen flex-col bg-ink text-cream'
       }
@@ -1619,7 +1580,13 @@ export function PapicGuestCapture({
             number is the READER'S OWN allowance — her 150, or the ceiling the
             couple set on her — and hiding a guest's own number from that guest
             would be a second bug wearing this one's clothes. */}
-        {capApplies ? (
+        <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
+        {/* 📡 Save first, send later — the uploader's one line (details in ⓘ). */}
+        <PapicUploadChip readyWhenIdle />
+        {/* The event's credits ran out: the camera says so over the picture and the
+            status chip counts what waits — a personal count beside it would read as
+            shots still to take (owner prototype 2026-10-24 hides it). */}
+        {capApplies && !poolEmpty ? (
           <span className="inline-flex items-center gap-1.5 rounded-full bg-cream/10 px-3 py-1 text-xs font-medium text-cream">
             <ImageIcon aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
             {low ? `Running low — ${formatCount(remaining)} ${remaining === 1 ? 'credit' : 'credits'} left` : `${formatCount(remaining)} ${remaining === 1 ? 'credit' : 'credits'} left`}
@@ -1631,6 +1598,7 @@ export function PapicGuestCapture({
             Running low for everyone
           </span>
         ) : null}
+        </div>
       </header>
 
       {/* In-camera "add your face" fallback — catches the guest who jumped
@@ -1657,7 +1625,7 @@ export function PapicGuestCapture({
         </div>
       ) : null}
 
-      <div className="relative flex-1 overflow-hidden">
+      <div ref={viewfinderRef} onClick={onViewfinderTap} className="relative flex-1 overflow-hidden">
         <video
           ref={videoRef}
           playsInline
@@ -1665,14 +1633,21 @@ export function PapicGuestCapture({
           autoPlay
           className="h-full w-full object-cover"
           /* Live preview of the locked event look — presentation-only, so the
-             captured pixels (and the clean face embed) are unaffected. */
+             captured pixels (and the clean face embed) are unaffected.
+             A digital 2× scales the preview about its centre — except while a
+             clip records: a clip is the whole frame, so the preview says so. */
           style={{
-            transform: mirrored ? 'scaleX(-1)' : undefined,
+            transform: [mirrored ? 'scaleX(-1)' : '', crop > 1 && !recording ? `scale(${crop})` : '']
+              .filter(Boolean)
+              .join(' ') || undefined,
             filter: cssPreviewFilter(eventStyle),
           }}
         />
-        {/* 🎯 THE FOCUS CORNERS — white, or the theme's colour in Your brand. */}
-        {look ? <FocusCorners tint={look.tint} /> : null}
+        {grid && !tagging && !exhausted ? <GuestGridLines /> : null}
+        {/* 🎯 THE FOCUS CORNERS — white, or the theme's colour on a Pro event. */}
+        {/* Inset as the prototype draws them — clear of the grid button and the Selfie · Main pill above. */}
+        {!tagging && !exhausted ? <FocusCorners tint={tint} inset="inset-x-8 top-[60px] bottom-16" /> : null}
+        {focusMark ? <GuestFocusSquare key={focusMark.key} x={focusMark.x} y={focusMark.y} /> : null}
         {((!ready && !exhausted) || switching) && (
           <div className="absolute inset-0 flex items-center justify-center bg-ink/80">
             <Loader2 aria-hidden className="h-6 w-6 animate-spin text-cream/70" strokeWidth={2} />
@@ -1681,16 +1656,21 @@ export function PapicGuestCapture({
         {/* Flip + lens controls (each gated to what the device exposes; hidden
             while recording / tagging so the stage stays clean). */}
         {ready && !exhausted && !tagging && !recording && (
-          <PapicCameraControls
+          <GuestCameraTools
+            grid={grid}
+            onGrid={toggleGrid}
             canFlip={canFlip}
+            selfie={facing === 'user'}
             onFlip={flip}
-            lensOptions={lensOptions}
+            steps={zoomSteps(lensOptions, facing)}
             lens={lens}
             onSelectLens={selectLens}
             disabled={switching}
-            tint={look?.kind === 'brand' ? look.tint : null}
+            tint={pro ? tint : null}
           />
         )}
+        {/* 🏷 Tag who's in it — the scanner is a framed window over the picture. */}
+        {tagging ? <TagScannerOverlay tagCount={tagCount} confirmation={tagLog.at(-1)?.chip ?? null} /> : null}
         {recording && (
           <>
             <span className="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-terracotta/90 px-2.5 py-1 text-xs font-semibold text-cream">
@@ -1709,7 +1689,7 @@ export function PapicGuestCapture({
         {/* ARMED-CHALLENGE indicator (SELECT → COMMENCE) — shows on the stage
             what the next shot counts for, until the capture completes it. */}
         {armedChallenge && !exhausted ? (
-          <span className="absolute inset-x-3 bottom-3 mx-auto inline-flex w-fit max-w-full items-center gap-1.5 rounded-full bg-ink/70 px-3 py-1.5 text-xs font-medium text-cream">
+          <span className="absolute inset-x-3 bottom-16 mx-auto inline-flex w-fit max-w-full items-center gap-1.5 rounded-full bg-ink/70 px-3 py-1.5 text-xs font-medium text-cream">
             <Trophy aria-hidden className="h-3.5 w-3.5 shrink-0 text-cream" strokeWidth={2} />
             <span className="truncate">
               Next shot: {armedChallenge.prompt}
@@ -1765,34 +1745,60 @@ export function PapicGuestCapture({
         )}
       </div>
 
-      <div className={look ? 'max-h-[45dvh] space-y-3 overflow-y-auto px-4 pb-6 pt-3' : 'space-y-3 px-4 pb-8 pt-4'}>
+      <div className={fullScreen ? 'max-h-[45dvh] space-y-3 overflow-y-auto px-4 pb-6 pt-3' : 'space-y-3 px-4 pb-8 pt-4'}>
         {saveError && <p className="text-center text-xs text-cream/80">{saveError}</p>}
 
-        {/* 🎛 Challenges: every challenge, one tap away, just above the shutter. */}
-        {look?.kind === 'challenges' && !exhausted ? challengePanel : null}
+        {/* 📷 PHOTO ⇄ SNIPPET (owner 2026-10-24) — one pill, so a guest can
+            choose Snippet on purpose. Hold-to-record still works in Photo. */}
+        <div className="flex items-center justify-between gap-2">
+          {/* 🏆 "Challenge · … ▾" — the event's running challenges as one dropdown (owner prototype 2026-10-24). */}
+          {!exhausted ? <ChallengePill c={challenges} /> : null}
+          <div role="group" aria-label="Photo or snippet" className="ml-auto flex shrink-0 gap-0.5 rounded-full bg-cream/10 p-[3px]">
+            {(['photo', 'snippet'] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                aria-pressed={mode === m}
+                disabled={recording}
+                onClick={() => setMode(m)}
+                data-camera-mode={m}
+                className={`relative h-8 min-h-0 rounded-full px-3 text-[12.5px] font-semibold transition after:absolute after:inset-x-0 after:-inset-y-1.5 after:content-[''] ${
+                  mode === m ? 'bg-cream text-ink' : 'text-cream/75'
+                }`}
+              >
+                {m === 'photo' ? 'Photo' : 'Snippet'}
+              </button>
+            ))}
+          </div>
+        </div>
 
         {/* THE gesture shutter: tap = photo, press-and-hold = record. Pointer
             events (not onClick) drive the hold detection; the guards kill iOS
-            long-press selection / the context menu so a hold reliably records. */}
-        {!exhausted ? (
-          <div className="relative flex items-center justify-center">
-            {/* 🖼 THEIR shots, one tap away (owner 2026-10-01: "the photos one
-                the left will show all their shots") — the Event Hub's Gallery. */}
-            {exitTo ? (
-              <a
-                data-camera-thumb=""
-                href={cameraExitHref(exitTo.slug, null, added, 'gallery')}
-                aria-label="Your shots"
-                className="absolute left-0 top-1/2 flex h-12 w-12 -translate-y-1/2 items-center justify-center overflow-hidden rounded-lg border-2 border-cream/70 bg-cream/10"
-              >
+            long-press selection / the context menu so a hold reliably records.
+            Run out, it stays drawn and rests (disabled) — owner prototype 2026-10-24. */}
+        <div className="relative flex h-[84px] items-center justify-center">
+            {/* 🖼 MY SHOTS, one tap away — a sheet OVER the camera, never a new
+                page (owner 2026-10-24, pick 3). The badge counts shots still on
+                this phone while they cannot send. */}
+            <button
+              type="button"
+              data-camera-thumb=""
+              onClick={() => setShotsOpen(true)}
+              aria-label="My shots"
+              aria-haspopup="dialog"
+              aria-expanded={shotsOpen}
+              className="absolute left-0 top-1/2 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-lg border-2 border-cream/70 bg-cream/10"
+            >
+              <span className="flex h-full w-full items-center justify-center overflow-hidden rounded-md">
                 {thumb ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={thumb} alt="" className="h-full w-full object-cover" />
                 ) : (
                   <ImageIcon aria-hidden className="h-5 w-5 text-cream/70" strokeWidth={1.75} />
                 )}
-              </a>
-            ) : null}
+              </span>
+              <MyShotsWaitingBadge eventId={eventId} />
+            </button>
             <div className="relative h-[4.5rem] w-[4.5rem]">
               {recording && (
                 <svg
@@ -1821,15 +1827,19 @@ export function PapicGuestCapture({
                 onPointerUp={onShutterUp}
                 onPointerCancel={onShutterCancel}
                 onContextMenu={(e) => e.preventDefault()}
-                disabled={busy || !ready || switching || tagging}
+                disabled={busy || !ready || switching || tagging || exhausted}
                 aria-label={
                   recording
-                    ? 'Recording — release to stop'
-                    : 'Tap to take a photo, or press and hold to record a snippet'
+                    ? mode === 'snippet'
+                      ? 'Recording — tap to stop'
+                      : 'Recording — release to stop'
+                    : mode === 'snippet'
+                      ? 'Tap to start a snippet, tap again to stop'
+                      : 'Tap to take a photo, or press and hold to record a snippet'
                 }
-                data-shutter={look ? look.kind : undefined}
+                data-shutter={shutterLogo ? 'pro' : 'free'}
                 className={
-                  look
+                  shutterLogo
                     ? 'flex h-full w-full items-center justify-center rounded-full border-4 border-white p-1 transition active:scale-95 disabled:opacity-40'
                     : `flex h-full w-full items-center justify-center rounded-full border-4 border-cream/80 transition active:scale-95 disabled:opacity-40 ${
                         recording ? 'bg-terracotta/30' : 'bg-cream/10'
@@ -1842,7 +1852,7 @@ export function PapicGuestCapture({
                   WebkitTouchCallout: 'none',
                 }}
               >
-                {look ? (
+                {shutterLogo ? (
                   <span
                     className={`flex h-full w-full items-center justify-center overflow-hidden rounded-full ${
                       recording ? 'bg-terracotta' : 'bg-white'
@@ -1852,11 +1862,11 @@ export function PapicGuestCapture({
                       <Loader2 aria-hidden className="h-7 w-7 animate-spin text-ink" strokeWidth={2} />
                     ) : recording ? (
                       <Square aria-hidden className="h-6 w-6 text-cream" strokeWidth={2.5} />
-                    ) : shutterLogo ? (
+                    ) : (
                       <span data-shutter-logo="" className="flex items-center justify-center">
                         {shutterLogo}
                       </span>
-                    ) : null}
+                    )}
                   </span>
                 ) : busy ? (
                   <Loader2 aria-hidden className="h-7 w-7 animate-spin text-cream" strokeWidth={2} />
@@ -1881,17 +1891,49 @@ export function PapicGuestCapture({
                 {recording ? 'Stop recording' : 'Record a 10-second snippet'}
               </button>
             </div>
-          </div>
-        ) : null}
+
+            {/* 🏷 TAG WHO'S IN IT — beside the shutter (owner 2026-10-24, pick 2).
+                Offered after a shot; opens the scanner over the live picture.
+                Tagging is optional — the photo already landed. The slot stays
+                reserved so the shutter never moves. */}
+            <button
+              type="button"
+              onClick={tagging ? stopTagging : startTagging}
+              aria-label={tagging ? 'Done tagging' : 'Tag who’s in it'}
+              aria-pressed={tagging}
+              data-camera-tag={tagging ? 'on' : 'off'}
+              className={`absolute right-0 top-1/2 flex w-16 -translate-y-1/2 flex-col items-center gap-1 ${
+                lastCaptureId && !exhausted ? '' : 'invisible'
+              }`}
+            >
+              <span
+                className={`flex h-12 w-12 items-center justify-center rounded-full ${
+                  tagging ? 'bg-cream text-ink' : 'bg-cream/10 text-cream'
+                }`}
+              >
+                <ScanLine aria-hidden className="h-5 w-5" strokeWidth={2} />
+              </span>
+              <small className="text-center text-[10px] font-medium leading-tight text-cream/85">
+                {tagging ? 'Done tagging' : 'Tag who’s in it'}
+              </small>
+            </button>
+        </div>
         {/* ONE run-out sentence (walk-b6 guest, fault 2, 2026-10-14): at zero it is said
             over the viewfinder, where the shutter would be — the caption no longer repeats it. */}
         {exhausted && poolEmpty ? null : (
-          <p className="text-center text-xs text-cream/60">
+          <p className="text-center text-xs text-cream/60" data-camera-hint="">
             {exhausted
               ? 'Your camera is all used up — enjoy the event.'
               : recording
                 ? `Recording… ${Math.ceil((MAX_CLIP_MS - recElapsed) / 1000)}s left`
-                : 'Tap for a photo · press and hold to record (up to 10s).'}
+                : tagging
+                  ? tagNotice ??
+                    (tagLog.length > 0
+                      ? tagLog.map((t) => t.hint).join(' · ')
+                      : 'Hold a guest’s QR or a table sign in the frame — no tap needed.')
+                  : mode === 'snippet'
+                    ? 'Tap to start · tap again or let go to stop (up to 10s).'
+                    : 'Tap for a photo · press and hold to record (up to 10s).'}
           </p>
         )}
 
@@ -1899,85 +1941,39 @@ export function PapicGuestCapture({
             until NEXT_PUBLIC_PAPIC_GAMES_V1 is on / the event has live missions.
             SELECT → COMMENCE → RETAKE: the guest arms a challenge, the next
             capture completes it (the panel watches lastCaptureId). */}
-        {look?.kind === 'challenges' ? null : challengePanel}
+        {/* 🏆 What a challenge adds under the shutter: the pause, a completion, its share ask, the reward. */}
+        <ChallengeFollowUp c={challenges} storyHref={storyToken ? `/papic/me/${encodeURIComponent(storyToken)}#story` : null} />
 
         {/* Public-sharing opt-in (Alaala orb gate · RA 10173). Explicit, never
             pre-checked, default OFF. When ON, the shots this guest captures are
             sent with share_publicly so the couple MAY feature them publicly
             (the couple still has to approve each one — both gates required). */}
         {!exhausted ? (
-          <label className="mx-auto flex max-w-sm items-start gap-2.5 rounded-xl border border-cream/15 bg-cream/5 px-3.5 py-2.5 text-xs text-cream/80">
+          /* ONE LINE, THE DETAIL IN THE ⓘ (owner 2026-10-24 prototype): the
+             shipped two-line card, compacted. The ⓘ is a button, so pressing it
+             never ticks the box; pressing the line does. */
+          <label
+            data-camera-share=""
+            htmlFor={shareId}
+            className="flex min-h-11 items-center gap-2.5 rounded-xl border border-cream/15 px-2.5 text-[12.5px] text-cream/90 [&_button]:border-cream/50 [&_button]:text-cream/80"
+          >
             <input
+              id={shareId}
               type="checkbox"
               checked={sharePublicly}
               onChange={(e) => setSharePublicly(e.target.checked)}
-              className="mt-0.5 h-4 w-4 shrink-0 accent-mulberry"
+              className="h-[18px] w-[18px] shrink-0 accent-mulberry"
             />
-            <span className="inline-flex flex-col gap-0.5">
-              <span className="inline-flex items-center gap-1.5 font-medium text-cream/90">
-                <Globe aria-hidden className="h-3.5 w-3.5 shrink-0" strokeWidth={2} />
-                Let the host feature my clips on their event page
-              </span>
-              <span className="text-cream/55">
-                Optional. Your photos always reach the host either way — this just
-                lets them share the ones you take publicly. You can leave it off.
-              </span>
-            </span>
-          </label>
-        ) : null}
-
-        {/* Scan-to-tag — the QR fallback so this shot reaches the right guest's
-            "Photos of you." Offered after a capture; opens a scanner on the live
-            rear stream. Tagging is optional — the photo already landed. */}
-        {lastCaptureId && !tagging ? (
-          <button
-            type="button"
-            onClick={startTagging}
-            className="mx-auto flex items-center justify-center gap-2 rounded-full bg-cream/10 px-4 py-2 text-sm font-medium text-cream transition hover:bg-cream/20"
-          >
-            <ScanLine aria-hidden className="h-4 w-4" strokeWidth={2} />
-            Tag who&rsquo;s in it
-          </button>
-        ) : null}
-
-        {tagging ? (
-          <div className="rounded-xl border border-cream/15 bg-cream/5 p-3">
-            <div className="flex items-center justify-between">
-              <p className="inline-flex items-center gap-2 text-sm font-medium text-cream/90">
-                <ScanLine aria-hidden className="h-4 w-4 text-cream" strokeWidth={2} />
-                Point at a place card or table sign
-              </p>
-              <span className="font-mono text-[11px] text-cream/55">
-                {formatCount(tagCount)} tagged
-              </span>
-            </div>
-            {taggedNames.length > 0 ? (
-              <ul className="mt-2 flex flex-wrap gap-1.5" aria-label="Tagged guests">
-                {taggedNames.map((n) => (
-                  <li
-                    key={n}
-                    className="inline-flex items-center gap-1 rounded-full bg-cream/10 px-2.5 py-1 text-xs text-cream"
-                  >
-                    <Users aria-hidden className="h-3 w-3" strokeWidth={2} />
-                    {n}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="mt-2 text-xs text-cream/55">
-                Hold a guest&rsquo;s QR or a table sign in the frame — no tap needed.
-              </p>
-            )}
-            {tagNotice ? <p className="mt-2 text-xs text-cream/80">{tagNotice}</p> : null}
-            <button
-              type="button"
-              onClick={stopTagging}
-              className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-md bg-cream/15 px-4 py-2 text-sm font-medium text-cream hover:bg-cream/25"
+            <InfoTip
+              label="Let the host feature my clips on their event page"
+              labelClassName="min-w-0 truncate"
+              className="min-w-0 flex-1 justify-between"
+              align="end"
             >
-              <Check aria-hidden className="h-4 w-4" strokeWidth={2} />
-              Done tagging
-            </button>
-          </div>
+              Optional. Your photos always reach the host either way — this just lets them share the ones you
+              take publicly on their event page. You can leave it off.
+            </InfoTip>
+          </label>
         ) : null}
 
         {/* ── Flash prompt — bottom one-liner, auto-dismisses in 5 s ──────── */}
@@ -2117,6 +2113,8 @@ export function PapicGuestCapture({
           </div>
         ) : null}
       </div>
+
+      <MyShotsSheet open={shotsOpen} onClose={closeShots} shots={myShotsList} eventId={eventId} />
 
       <canvas ref={canvasRef} className="hidden" />
     </main>

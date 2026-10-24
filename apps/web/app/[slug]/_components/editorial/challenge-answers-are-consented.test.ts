@@ -140,7 +140,18 @@ test('the loader query carries all four gates — the mirror is not the only cop
   const start = src.indexOf("from('papic_mission_completions')");
   assert.ok(start !== -1, 'the challenge-answers loader is gone entirely');
   // The whole loader, bounded by the next table it reads after the captures.
-  const chain = src.slice(start, start + 3000);
+  // RE-AIMED 2026-10-24 (`rd/post-event-reads-together`): the answers' read may be STARTED with the story's other
+  // event-only reads (`ahead.challengeAnswers`) and awaited where the loader always ran. The chain is then that one
+  // definition (it must be the read of the answers) PLUS the loader from its await — still every gate, all present.
+  const awaitAt = src.indexOf('await ahead.challengeAnswers');
+  let chain = src.slice(start, start + 3000);
+  if (awaitAt !== -1) {
+    const defAt = src.indexOf('challengeAnswers: early(');
+    assert.ok(defAt !== -1 && defAt < start && start < src.indexOf('early(', defAt + 1 + 'challengeAnswers: early('.length),
+      'ahead.challengeAnswers is awaited but is not the read of papic_mission_completions');
+    const def = src.slice(defAt, src.indexOf('early(', defAt + 'challengeAnswers: early('.length));
+    chain = def + src.slice(awaitAt, awaitAt + 3000);
+  }
 
   for (const gate of [
     "eq('consent_to_share', true)",     // 1 · this answer may be shared

@@ -64,7 +64,8 @@ export function ApplyProSheet({
   tour = null,
   changeCount = 0,
   changes,
-  heldOnWeb = 0,
+  heldForPro = 0,
+  onRemoveHeld,
   pricing = null,
 }: {
   /**
@@ -78,8 +79,13 @@ export function ApplyProSheet({
   changeCount?: number;
   /** The same changes by name (`HubDraftSummary.changes`) — absent = not read, then only the count shows. */
   changes?: readonly HubDraftChangeLine[];
-  /** 📵 The store shell: how many of them can be applied on the web only. */
-  heldOnWeb?: number;
+  /**
+   * 📵 The store shell where Apple does not sell Pro: how many Pro changes are held. Said as "◆ N waiting for Pro" —
+   * never the web (anti-steering, 3.1.1) — with "Remove Pro changes" (owner 2026-10-08, "keep, marked").
+   */
+  heldForPro?: number;
+  /** "Remove Pro changes" — every held Pro change off the draft (`drop` · `HUB_DROP_ALL_PRO`). */
+  onRemoveHeld?: () => void;
   /** `formatPhp` over the live catalogue row, or null — then no figure is shown. */
   priceLabel: string | null;
   /** The one Event Hub Pro page — null in the store shell (then no effects are passed either). */
@@ -171,8 +177,23 @@ export function ApplyProSheet({
                 ) : null}
               </ul>
             ) : null}
-            {heldOnWeb > 0 ? (
-              <p className="mt-1">{heldOnWeb === 1 ? 'One change' : `${formatCount(heldOnWeb)} changes`} can be applied on the web.</p>
+            {heldForPro > 0 ? (
+              <div className="mt-2 flex min-h-11 items-center justify-between gap-2" data-apply-held-for-pro="">
+                <p className="inline-flex items-center gap-1.5">
+                  <PaidMark state="try" bare label="Event Hub Pro" size="xs" />
+                  {formatCount(heldForPro)} waiting for Pro
+                </p>
+                {onRemoveHeld ? (
+                  <button
+                    type="button"
+                    disabled={pending}
+                    onClick={onRemoveHeld}
+                    className="sn-press inline-flex min-h-11 items-center rounded-full px-3 text-sm font-medium text-ink/70 hover:bg-ink/5 hover:text-ink disabled:opacity-40"
+                  >
+                    Remove Pro changes
+                  </button>
+                ) : null}
+              </div>
             ) : null}
           </div>
         ) : (

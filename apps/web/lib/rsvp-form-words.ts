@@ -18,7 +18,10 @@ export type RsvpFormWordKey = 'eyebrow' | 'question' | 'hint';
 
 export const RSVP_FORM_WORD_DEFAULT: Readonly<Record<RsvpFormWordKey, { celebrate: string; solemn: string }>> = {
   eyebrow: { celebrate: 'Your reply', solemn: 'Your reply' },
-  question: { celebrate: 'Will you celebrate with us?', solemn: 'Will you be with us?' },
+  /* 🗣 "Will you join us?" — the Event Hub's own Reply card words (`replyCardOf`), so the card and the form it opens
+     ask one question (owner rule: say "event", never "celebration" — 2026-10-24, on cale-ice: the form read "Will you
+     celebrate with us?" under the Hub's "Will you join us?"). Our DEFAULT only: a couple's own question still wins. */
+  question: { celebrate: 'Will you join us?', solemn: 'Will you be with us?' },
   hint: { celebrate: 'Tap one to continue', solemn: 'Tap one to continue' },
 };
 

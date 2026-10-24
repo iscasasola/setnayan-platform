@@ -52,7 +52,7 @@
    event's dock — so the row keeps sitting on it there, and only takes the desktop place from 1024. */
 @media (min-width: 701px) and (max-width: 1023px) {
   .lower:global(.sn-glass-row) {
-    bottom: calc(var(--sn-bottomdock-h, calc(env(safe-area-inset-bottom) + 64px)));
+    bottom: calc(var(--sn-ride-h, var(--sn-bottomdock-h, calc(env(safe-area-inset-bottom) + 64px))));
   }
 }
 /* ≡ — the view list as a round 44-px icon (the Guest list's Sort seat): only the icon is drawn. */

@@ -77,7 +77,10 @@ export function SaveToAccount({
   termsMissing = false,
   carries = null,
   through,
+  whyInTip = false,
 }: {
+  /** 🪪 Me's "Keep this invitation" (owner 2026-10-24): the reason is said in that block's ⓘ — not again under the button. */
+  whyInTip?: boolean;
   state: GuestAccountState;
   eventId: string;
   slug: string;
@@ -218,7 +221,7 @@ export function SaveToAccount({
     // The reason, said once and only as wide as what ships: on the day this page
     // shows each guest the photos they are in, and the account — not the pass in
     // this browser — is what opens the event again later (`findGuestSeatForUser`).
-    const why = (
+    const why = whyInTip ? null : (
       <p className="text-center text-xs text-ink/70">
         Keeps the photos of you, and opens this invitation on any phone.
       </p>

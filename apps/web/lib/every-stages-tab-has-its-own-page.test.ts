@@ -88,7 +88,7 @@ const hostCanvasBar = (stage: 'rsvp' | 'event') =>
 
 test('a · the Stages pages ARE the Maker’s bar: Invitation four, The Day five — and they are the parts map’s pages', () => {
   assert.deepEqual(makerStagesPages('rsvp').map((p) => p.label), ['Home', 'Details', 'Story', 'Me']);
-  assert.deepEqual(makerStagesPages('event').map((p) => p.label), ['Live', 'Home', 'Camera', 'Gallery', 'Me']);
+  assert.deepEqual(makerStagesPages('event').map((p) => p.label), ['Live', 'Home', 'Camera', 'Memories', 'Me']);
   for (const stage of TABBED_STAGES) {
     assert.deepEqual(keysOf(stage), makerGuestPages(stage, []).map((p) => p.key as string), `${stage}: a second page list`);
     assert.deepEqual(keysOf(stage), Object.keys(MAKER_STAGE_PAGES[stage]), `${stage}: the parts map names other pages than the bar`);
@@ -215,7 +215,9 @@ test('b · WIRING: in the canvas every marker is inside a group filed by its own
   // Every key the tree marks by name is filed by that name — or rides the lead group (asserted above to BE its page).
   const LEAD = new Set(['f:spotlight', 'f:hero']);
   const marked = [...anon.matchAll(/makerMark\('([a-z]:[a-z_]+)'\)/g)].map((m) => m[1]!);
-  assert.ok(marked.includes('f:details') && marked.includes('f:hero'), `precondition: the named markers were found (${marked.join(', ')})`);
+  /* 🔁 RE-AIMED 2026-10-24: THE DETAILS draws no marker any more (owner, "isn't this a dupe?" — `OFF_THE_PAGE`); its
+     section is still filed by its key (`at('f:details', scenesTab)`, held below). */
+  assert.ok(marked.includes('f:spotlight') && marked.includes('f:hero'), `precondition: the named markers were found (${marked.join(', ')})`);
   for (const key of marked) if (!LEAD.has(key)) assert.ok(anon.includes(`at('${key}',`), `${key} is marked but not filed by its own key`);
   // The cover's two markers sit inside the lead group.
   for (const key of LEAD) {
@@ -466,11 +468,8 @@ test('⚡ what only a tap asks for stays out of the Maker’s first load', () =>
   }
   assert.match(SHELL_SRC, /import \{[^}]*\bMakerTour\b[^}]*\bStudioBackToPart\b[^}]*\} from '\.\/details-lazy';/);
   assert.doesNotMatch(SHELL_SRC, /data-focus-pending|data-maker-studio-back/, 'the jump’s focusing or its button is back in the shell');
-  // The hub draft (first load) reads the camera look's KEYS only — never the file with its words, tint and ink maths.
-  assert.match(src('lib/hub-draft.ts'), /from '@\/lib\/camera-look-key';/);
-  assert.doesNotMatch(src('lib/hub-draft.ts'), /from '@\/lib\/camera-look';/, 'the whole camera look rides the Maker’s first load again');
-  assert.doesNotMatch(src('lib/camera-look-key.ts'), /^import /m, 'the key file grew a dependency');
-  assert.match(src('lib/camera-look.ts'), /export \{ CAMERA_LOOKS, CAMERA_LOOK_PREF_KEY, isCameraLook, type CameraLook \};/, 'one spelling: the look re-exports its keys');
+  // The hub draft (first load) carries nothing of the camera (owner 2026-10-24: one camera, no look to draft).
+  assert.doesNotMatch(src('lib/hub-draft.ts'), /from '@\/lib\/camera-(look|look-key|dress)';/, 'the camera rides the Maker’s first load again');
 });
 
 /* ══ e · GUESTS ARE UNTOUCHED ════════════════════════════════════════════════ */

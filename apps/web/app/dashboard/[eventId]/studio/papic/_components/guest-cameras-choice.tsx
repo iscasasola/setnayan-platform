@@ -43,9 +43,12 @@ import {
 export async function GuestCamerasChoice({
   eventId,
   variant = 'card',
+  returnTo = null,
 }: {
   eventId: string;
   variant?: 'card' | 'row';
+  /** 🏠 'home' inside Home's Papic card — the save lands back on Home. */
+  returnTo?: 'home' | null;
 }) {
   const supabase = await createClient();
 
@@ -154,6 +157,7 @@ export async function GuestCamerasChoice({
     <form action={setPapicGuestCaptureEarly}>
       <input type="hidden" name="event_id" value={eventId} />
       <input type="hidden" name="early" value={early ? '0' : '1'} />
+      {returnTo ? <input type="hidden" name="return_to" value={returnTo} /> : null}
       <SubmitButton
         pendingLabel="Saving…"
         className="rounded-lg bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10"

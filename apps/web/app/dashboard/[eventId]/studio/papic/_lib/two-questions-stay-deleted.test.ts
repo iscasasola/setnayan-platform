@@ -62,7 +62,15 @@ function stripComments(src: string): string {
   return out;
 }
 
-const PAGE_SRC = readFileSync(PAGE, 'utf8');
+// 📍 The files moved to Memories (2026-10-23): Google Drive is a row of Memories settings, drawn by the shipped
+// `DriveCopyCard` (its own file now, with the note that explains the removal). The rules read every surface that
+// carries the Papic files — the camera page, the Memories settings sheet and the Drive card — as ONE source.
+const SURFACES = [
+  PAGE,
+  join(PAPIC_DIR, '..', '..', 'memories', '_components', 'memories-settings.tsx'),
+  join(PAPIC_DIR, '_components', 'drive-copy-card.tsx'),
+];
+const PAGE_SRC = SURFACES.map((f) => readFileSync(f, 'utf8')).join('\n');
 const PAGE_CODE = stripComments(PAGE_SRC);
 
 test('the comment stripper actually strips — otherwise every rule below is theatre', () => {

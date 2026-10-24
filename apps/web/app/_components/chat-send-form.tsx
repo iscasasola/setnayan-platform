@@ -36,6 +36,7 @@ import {
   isCompressibleImage,
 } from '@/lib/chat-attachment-limits';
 import { shouldSendOnEnter, isCoarsePointer } from '@/lib/chat-enter-to-send';
+import { useTapAway } from '@/app/_components/typing-band';
 
 type Props = {
   threadId: string;
@@ -89,6 +90,13 @@ export function ChatSendForm({ threadId, sendAction, accessories, lead, attachIn
   // the sender edits without a server round-trip. The server re-checks
   // authoritatively (no-JS + native paths), so this is UX, not the gate.
   const [blockError, setBlockError] = useState<string | null>(null);
+  /* ⌨ THE COMPOSER RIDES WITH NO BAND (owner 2026-10-24, on the band's "Typing · …" + ✓ Done: *"can this be gone? just
+     tap away and keyboard should disappear"*). The row stays whole (＋ · message · Send): Send is its verb and the
+     phone's Enter is a new line; a tap or a drag on the thread — or Escape — leaves the box (`useTapAway`), so the
+     keyboard closes. Supersedes the composer's "Typing · Message" band of #6860. */
+  const [typing, setTyping] = useState(false);
+  const formRef = useRef<HTMLFormElement | null>(null);
+  useTapAway(formRef, typing);
 
   const clearFile = () => {
     if (fileInputRef.current) fileInputRef.current.value = '';
@@ -98,6 +106,7 @@ export function ChatSendForm({ threadId, sendAction, accessories, lead, attachIn
 
   return (
     <form
+      ref={formRef}
       action={async (formData: FormData) => {
         // We strip `return_to` so the server action doesn't redirect — the
         // Realtime stream is now the source of truth for the painted UI.
@@ -263,6 +272,9 @@ export function ChatSendForm({ threadId, sendAction, accessories, lead, attachIn
           maxLength={4000}
           placeholder="Type a message…"
           className="input-field min-h-[60px] flex-1 py-2"
+          data-rides=""
+          onFocus={() => setTyping(true)}
+          onBlur={() => setTyping(false)}
           onInput={(e) => {
             setHasDraft(e.currentTarget.value.trim().length > 0);
             if (blockError) setBlockError(null);

@@ -38,7 +38,7 @@ const NINE = [
   'Watch Live',
   'Papic Challenge',
   'Supplier Stories',
-  'Live Photo Wall',
+  'Memory lane',
   'What They Said',
   'Before & After',
   'Song',
@@ -113,8 +113,8 @@ test('Were you there? is Post Event’s OWN part — never The Day’s "Photos o
   /* The Day's part is The Day's alone, on every stage. */
   assert.equal(makerPostEventSceneOf('editorial', 'myphotos'), null);
   assert.equal(makerPartCanvasOn('editorial', 'myphotos'), 'f:photos_of_you');
-  assert.equal(makerPartLabelOn('editorial', 'myphotos'), 'Photos of you');
-  assert.equal(makerPartLabelOn('event', 'myphotos'), 'Photos of you');
+  assert.equal(makerPartLabelOn('editorial', 'myphotos'), 'Memories of you');
+  assert.equal(makerPartLabelOn('event', 'myphotos'), 'Memories of you');
 });
 
 test('the groups are the prototype’s, in its order — plus the table’s "The details"', () => {

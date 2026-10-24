@@ -56,13 +56,15 @@ test('the paid-from-day-one add-ons are NEVER free under this perk', () => {
   }
 });
 
-// ── THE BOUNDARY — free through 5, paying from 6 ────────────────────────────
+// ── THE BOUNDARY — free through 1, paying from 2 ────────────────────────────
+// ⚖ The fee window is ONE booking since 2026-10-23 ("Your first booking is on
+// us. Not 5."), and this window is defined as that same window.
 
-test('boundary: free at 0-5 committed bookings, charged from 6', () => {
-  for (const n of [0, 1, 2, 3, 4, 5]) {
+test('boundary: free at 0-1 committed bookings, charged from 2', () => {
+  for (const n of [0, 1]) {
     assert.equal(vendorInFirst5Window(n), true, `count ${n} should be inside`);
   }
-  for (const n of [6, 7, 50]) {
+  for (const n of [2, 5, 6, 50]) {
     assert.equal(vendorInFirst5Window(n), false, `count ${n} should be outside`);
   }
 });
@@ -74,8 +76,8 @@ test('boundary is anchored to the fee engine, not a magic 5', () => {
 
 test('end to end at the boundary, policy on', () => {
   const on = { sku: 'ads_3d_plan' as const, enabled: true };
-  assert.equal(addonIsFreeUnderFirst5({ ...on, committedBookingCount: 5 }), true);
-  assert.equal(addonIsFreeUnderFirst5({ ...on, committedBookingCount: 6 }), false);
+  assert.equal(addonIsFreeUnderFirst5({ ...on, committedBookingCount: 1 }), true);
+  assert.equal(addonIsFreeUnderFirst5({ ...on, committedBookingCount: 2 }), false);
 });
 
 // ── fail CLOSED: a bad count must never mint a free entitlement ─────────────
@@ -94,8 +96,8 @@ test('a garbage booking count is treated as OUTSIDE the window', () => {
 // ── the "bookings remaining" counter behind the UI copy ─────────────────────
 
 test('bookings remaining counts down and floors at 0', () => {
-  assert.equal(first5BookingsRemaining(0), 5);
-  assert.equal(first5BookingsRemaining(4), 1);
+  assert.equal(first5BookingsRemaining(0), 1);
+  assert.equal(first5BookingsRemaining(1), 0);
   assert.equal(first5BookingsRemaining(5), 0);
   assert.equal(first5BookingsRemaining(9), 0);
   assert.equal(first5BookingsRemaining(Number.NaN), 0);

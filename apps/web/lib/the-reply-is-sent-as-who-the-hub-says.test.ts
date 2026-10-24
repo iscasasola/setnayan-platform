@@ -61,6 +61,9 @@ const { GUEST_PASS_BOOK_COOKIE_NAME } = require('./guest-pass-book') as typeof i
 const { resolveReplyIdentity } = require('./guest-one-path') as typeof import('./guest-one-path');
 const { readReplyIdentityForEvent } = require('./guest-one-path.server') as typeof import('./guest-one-path.server');
 const rule = require('./pass-account-rule') as typeof import('./pass-account-rule');
+type ReplyIdentity = import('./guest-one-path').ReplyIdentity;
+/** Whose row a reply goes to — null for "nobody" (a plain read, so an assertion before it does not narrow it away). */
+const rowOf = (who: ReplyIdentity): string | null => (who.kind === 'none' ? null : who.session.guest_id);
 
 const EVENT = '00000000-0000-4000-8000-0000000000e1';
 const INDALECIA = '00000000-0000-4000-8000-00000000a001'; // the active pass (her personal link, opened here)
@@ -156,10 +159,10 @@ test('1 · signed-in HOST, two passes held → the reply is the host’s OWN row
   members = [{ user_id: HOST, guest_id: GROOM, member_type: 'couple' }];
   await browser({ account: HOST });
   const who = await readReplyIdentityForEvent(EVENT);
+  assert.equal(rowOf(who), GROOM, 'the host’s reply was not their own row');
+  assert.notEqual(rowOf(who), INDALECIA, 'a set-aside pass answered');
+  assert.notEqual(rowOf(who), GABRIEL, 'the other held pass answered');
   assert.equal(who.kind, 'own_row', `the host replied as ${JSON.stringify(who)}`);
-  assert.equal(who.kind !== 'none' ? who.session.guest_id : null, GROOM, 'the host’s reply was not their own row');
-  assert.notEqual(who.kind !== 'none' ? who.session.guest_id : null, INDALECIA, 'a set-aside pass answered');
-  assert.notEqual(who.kind !== 'none' ? who.session.guest_id : null, GABRIEL, 'the other held pass answered');
 });
 
 test('2 · signed in with no row here → not_on_list (told, never a sample); two rows → never one silently', async () => {
@@ -178,16 +181,16 @@ test('3 · a host who pressed "Open as Indalecia" → Indalecia, as the Hub says
   members = [{ user_id: HOST, guest_id: GROOM, member_type: 'couple' }];
   await browser({ account: HOST, hostOpens: rule.hostPreviewCookieValue(EVENT, INDALECIA) });
   const who = await readReplyIdentityForEvent(EVENT);
+  assert.equal(rowOf(who), INDALECIA);
   assert.equal(who.kind, 'pass');
-  assert.equal(who.kind !== 'none' ? who.session.guest_id : null, INDALECIA);
 });
 
 test('4 · signed OUT, two passes held → the ACTIVE pass (the one the Event Hub honours), never the book’s other one', async () => {
   members = [{ user_id: HOST, guest_id: GROOM, member_type: 'couple' }];
   await browser({ account: null });
   const who = await readReplyIdentityForEvent(EVENT);
+  assert.equal(rowOf(who), INDALECIA);
   assert.equal(who.kind, 'pass');
-  assert.equal(who.kind !== 'none' ? who.session.guest_id : null, INDALECIA);
 });
 
 test('the pure rule, every answer', () => {

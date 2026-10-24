@@ -21,9 +21,13 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createElement } from 'react';
+import React, { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { HeldPassLine } from './held-pass-line';
+
+/* The component is written for Next's JSX runtime; under tsx the JSX is `React.createElement` (the harness every
+   render test here sets up — `lib/reply-card.fixture.ts`). */
+(globalThis as unknown as { React: unknown }).React = React;
 
 const MODES = ['set_aside', 'set_aside_host', 'host_preview'] as const;
 

@@ -92,6 +92,10 @@ export async function HomeMusicCard({ eventId, name, brand }: { eventId: string;
       }
       door={door}
       marker={marker}
+      tile={{
+        big: read.ready ? 'Ready' : 'In production',
+        sm: read.ready ? (read.playsLive ? 'on your Event Hub' : 'not on your page yet') : 'your song is being made',
+      }}
     />
   );
 }

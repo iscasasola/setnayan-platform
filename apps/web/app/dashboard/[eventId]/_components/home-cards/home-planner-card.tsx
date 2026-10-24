@@ -63,6 +63,7 @@ export async function HomePlannerCard({ eventId, name, brand }: { eventId: strin
       }
       door={door}
       marker={marker}
+      tile={{ big: `${briefing.lockedPct}%`, unit: 'booked', sm: 'Active · see decisions', meter: briefing.lockedPct }}
     />
   );
 }

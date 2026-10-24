@@ -18,12 +18,31 @@
  */
 
 import { useId, useState, useTransition, type ReactNode } from 'react';
+import { OneOpenScope, useOneOpen } from '@/lib/one-open';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ChevronRight, RotateCw } from 'lucide-react';
 import { GlanceDot, GlanceLineText, GlanceMeter } from '@/app/_components/service-glance';
 import { ActionButton } from '@/components/action-button';
 import type { GlanceLine, ServiceMood } from '@/lib/service-glance';
+
+/**
+ * 📱 THE CLOSED FACE ON A PHONE (owner-approved 2026-10-24, `home_control_center_2026-10-24_fable.html`: *"the lower
+ * parts are the ones that expand"*). Below 768 px a closed service is a small tile in Home's 2-column grid — a quiet
+ * label, one figure, one short line, at most one tiny action (the card's own control, drawn as an icon). A tap GROWS
+ * the card in place across both columns (the card below, unchanged); from `md` up the card is drawn as it always was.
+ */
+export type HomeServiceTile = {
+  big: string;
+  unit?: string;
+  sm: string;
+  /** The card's own control, drawn as the tile's 32 px icon (`.hc-tiny-slot`). */
+  action?: ReactNode;
+  /** Spans both columns of the phone grid (Papic). */
+  span?: boolean;
+  /** A true total only (Papic's credits). */
+  meter?: number | null;
+};
 
 /** One dot line of the quick view — the service's state, in its own words. */
 export type HomeCardDotLine = { mood: ServiceMood; words: string; marker?: string };
@@ -43,6 +62,7 @@ export function HomeServiceCard({
   failed = false,
   marker,
   tour,
+  tile,
 }: {
   name: string;
   brand?: string;
@@ -66,15 +86,19 @@ export function HomeServiceCard({
   marker?: Record<string, string>;
   /** The first-visit spotlight's anchor for this card (`lib/tours.ts`), on its head. */
   tour?: string;
+  /** The phone's closed face (below `md`). Absent = the card at every width. */
+  tile?: HomeServiceTile | null;
 }) {
   const [open, setOpen] = useState(false);
+  // 🔒 ONE OPEN AT A TIME (owner-approved 2026-10-24; `lib/one-open.ts`): opening a service closes the one open before.
+  const oneOpenId = useOneOpen(open, setOpen);
   const regionId = useId();
   const router = useRouter();
   const [reloading, startReload] = useTransition();
 
   if (failed) {
     return (
-      <div className="sg-row" data-mood="gone" data-home-card="failed" {...marker}>
+      <div className="sg-row hc-svc-wide" data-mood="gone" data-home-card="failed" {...marker}>
         <span className="sg-head">
           <span className="sg-mark" aria-hidden>
             {icon}
@@ -141,8 +165,27 @@ export function HomeServiceCard({
     </>
   );
 
+  const svcKey = marker?.['data-home-service'] ?? '';
   return (
-    <div className="col-span-full flex min-w-0 flex-col" data-home-card={open ? 'open' : 'rest'}>
+    <>
+      {tile && !open ? (
+        /* The phone's closed face: the tile is the press that grows the card (or, for a card with nothing to grow, its
+           door); the card's own control sits beside it, never inside it (no control in a control). */
+        <div className={`hc-svc-wrap md:hidden${tile.span ? ' hc-span' : ''}`} data-home-service-tile={svcKey}>
+          {grows ? (
+            <button type="button" className="hc-tile hc-svc-tile" aria-expanded={false} aria-controls={regionId} onClick={() => setOpen(true)}>
+              <ServiceTileFace name={name} tile={tile} />
+            </button>
+          ) : (
+            <Link href={door.href} className="hc-tile hc-svc-tile">
+              <ServiceTileFace name={name} tile={tile} />
+            </Link>
+          )}
+          {tile.action ? <span className="hc-tiny-slot">{tile.action}</span> : null}
+        </div>
+      ) : null}
+      <div className={`${tile && !open ? 'hidden md:flex' : 'flex'} col-span-full min-w-0 flex-col md:col-span-1`} data-home-card={open ? 'open' : 'rest'}>
+      <OneOpenScope id={oneOpenId}>
       <div className="sg-row" data-mood={statusMood} {...marker}>
         {/* THE HEAD — its one press grows the card in place (never another page); a card with nothing to grow is a door. */}
         {grows ? (
@@ -189,7 +232,35 @@ export function HomeServiceCard({
           </div>
         ) : null}
       </div>
-    </div>
+      </OneOpenScope>
+      </div>
+    </>
+  );
+}
+
+/** The phone's closed face — label · figure · line; the card's own control rides as a tiny icon beside it. */
+export function ServiceTileFace({ name, tile }: { name: string; tile: HomeServiceTile }) {
+  const big = (
+    <span className="hc-big">
+      {tile.big}
+      {tile.unit ? <small> {tile.unit}</small> : null}
+    </span>
+  );
+  return (
+    <>
+      <span className="hc-lab">{name}</span>
+      {typeof tile.meter === 'number' ? (
+        <span className="hc-row">
+          {big}
+          <span className="hc-thin" aria-hidden>
+            <i style={{ width: `${Math.max(0, Math.min(100, tile.meter))}%` }} />
+          </span>
+        </span>
+      ) : (
+        big
+      )}
+      <span className="hc-sm">{tile.sm}</span>
+    </>
   );
 }
 

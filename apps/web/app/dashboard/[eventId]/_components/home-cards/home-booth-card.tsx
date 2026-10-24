@@ -99,6 +99,11 @@ export async function HomeBoothCard({ eventId, name, brand, owned }: { eventId: 
       }
       door={door}
       marker={marker}
+      tile={{
+        big: over ? 'Past cap' : 'Ready',
+        sm: `${formatCount(read.today)} ${read.today === 1 ? 'reel' : 'reels'} today`,
+        action: <ActionButton tone="brand" icon={<Video aria-hidden="true" strokeWidth={1.9} />} label="Open booth" href={`${page}/booth`} />,
+      }}
     />
   );
 }

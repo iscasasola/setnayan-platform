@@ -39,7 +39,7 @@ import { DEFAULT_VEIL_LOOK, type VeilLook, type RevealFeatures } from '@/lib/rev
 import { usePrefersReducedMotion } from '@/lib/use-responsive';
 import { claimVeilHold } from '@/lib/hub-veil';
 import { liftedValance, weaveOf } from '@/lib/veil-style';
-import { computeIndexedNormals, writePositions } from '@/lib/veil-cloth';
+import { buildGridConstraints, clampPass, computeIndexedNormals, relaxPass, writePositions, type ClothConstraints } from '@/lib/veil-cloth';
 
 type Props = {
   /** Veil tulle colour (hex), Mood-Board-driven. Ivory fallback handled by caller. */
@@ -357,7 +357,7 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
     let topPin = 0;
     let dx = 0;
     let dy = 0;
-    let cons: number[][] = [];
+    let cons: ClothConstraints = buildGridConstraints(2, 1, [0], 0);
     let geo: THREE.PlaneGeometry = null!;
     let posAttr: THREE.BufferAttribute = null!;
 
@@ -731,14 +731,7 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
         const rf = iy / (rows - 1);
         rowDx[iy] = (pinW * (1 + extra * envOf(rf))) / (cols - 1);
       }
-      cons = [];
-      for (let iy3 = 0; iy3 < rows; iy3++)
-        for (let ix3 = 0; ix3 < cols; ix3++) {
-          if (ix3 < cols - 1) cons.push([idx(ix3, iy3), idx(ix3 + 1, iy3), rowDx[iy3]!]);
-          if (iy3 < rows - 1) cons.push([idx(ix3, iy3), idx(ix3, iy3 + 1), dy]);
-          if (ix3 < cols - 1 && iy3 < rows - 1)
-            cons.push([idx(ix3, iy3), idx(ix3 + 1, iy3 + 1), Math.hypot(rowDx[iy3]!, dy)]);
-        }
+      cons = buildGridConstraints(cols, rows, rowDx, dy);
       if (geo) geo.dispose();
       geo = new THREE.PlaneGeometry(pinW, clothH, cols - 1, rows - 1);
       veil.geometry = geo;
@@ -900,62 +893,11 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
             pz[kk] = pz[kk]! + (pz0 - pz[kk]!) * 0.32;
           }
         }
-        for (let c = 0; c < cons.length; c++) {
-          const A = cons[c]![0]!;
-          const B = cons[c]![1]!;
-          const rest = cons[c]![2]!;
-          const ex = px[B]! - px[A]!;
-          const ey = py[B]! - py[A]!;
-          const ez = pz[B]! - pz[A]!;
-          const dd = Math.sqrt(ex * ex + ey * ey + ez * ez) || 1e-4;
-          const diff = dd - rest;
-          const strain = diff / rest;
-          const stiff = strain <= 0 ? COMP : TENB + (1 - TENB) * Math.min(1, strain / maxS);
-          const f = (diff / dd) * stiff * 0.5;
-          const ox = ex * f;
-          const oy = ey * f;
-          const oz = ez * f;
-          if (A >= cols) {
-            px[A] = px[A]! + ox;
-            py[A] = py[A]! + oy;
-            pz[A] = pz[A]! + oz;
-          }
-          if (B >= cols) {
-            px[B] = px[B]! - ox;
-            py[B] = py[B]! - oy;
-            pz[B] = pz[B]! - oz;
-          }
-        }
+        relaxPass(px, py, pz, cons, cols, maxS, COMP, TENB);
       }
       // Hard strain clamp (the "no rubber" rule) — cap every edge to rest·1.012.
       const CL = 1.012;
-      for (let sit = 0; sit < 4; sit++) {
-        for (let c2 = 0; c2 < cons.length; c2++) {
-          const A2 = cons[c2]![0]!;
-          const B2 = cons[c2]![1]!;
-          const lim = cons[c2]![2]! * CL;
-          const ex2 = px[B2]! - px[A2]!;
-          const ey2 = py[B2]! - py[A2]!;
-          const ez2 = pz[B2]! - pz[A2]!;
-          const dd2 = Math.sqrt(ex2 * ex2 + ey2 * ey2 + ez2 * ez2) || 1e-4;
-          if (dd2 > lim) {
-            const f2 = ((dd2 - lim) / dd2) * 0.5;
-            const ox2 = ex2 * f2;
-            const oy2 = ey2 * f2;
-            const oz2 = ez2 * f2;
-            if (A2 >= cols) {
-              px[A2] = px[A2]! + ox2;
-              py[A2] = py[A2]! + oy2;
-              pz[A2] = pz[A2]! + oz2;
-            }
-            if (B2 >= cols) {
-              px[B2] = px[B2]! - ox2;
-              py[B2] = py[B2]! - oy2;
-              pz[B2] = pz[B2]! - oz2;
-            }
-          }
-        }
-      }
+      for (let sit = 0; sit < 4; sit++) clampPass(px, py, pz, cons, cols, CL);
     }
 
     /* 👆 FREED: the guest unveiled (tap or swipe up). The grab-zone drops to the top band AT ONCE, not when the cloth

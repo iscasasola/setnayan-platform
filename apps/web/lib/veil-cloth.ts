@@ -1,5 +1,6 @@
 /**
  * lib/veil-cloth.ts — the veil's per-frame mesh update, straight on typed arrays.
+ * (2026-10-25: and the cloth SOLVER — `relaxPass` · `clampPass` — see `the-veil-lifts-at-full-speed.test.ts`.)
  *
  * 🐢 WHY THIS FILE EXISTS (owner 2026-10-24, on his phone: *"why is the veil reveal lagging. and the petal falling"*).
  * Measured on live `/cale-ice` at 390 px · DPR 3 · CPU ×4 (a mid-range phone): the veil's `requestAnimationFrame`
@@ -70,5 +71,124 @@ export function computeIndexedNormals(pos: Float32Array, index: ArrayLike<number
     out[o] = x * s;
     out[o + 1] = y * s;
     out[o + 2] = z * s;
+  }
+}
+
+/** The cloth's distance constraints, flat: constraint `c` joins particles `a[c]` and `b[c]` at rest length `rest[c]`. */
+export type ClothConstraints = {
+  a: Int32Array;
+  b: Int32Array;
+  /** Doubles, as the old `number[][]` held them — a float32 rest length would move the cloth. */
+  rest: Float64Array;
+  n: number;
+};
+
+/**
+ * The veil's grid constraints, in the SAME order the old builder pushed them: per row, per column — the horizontal
+ * edge (rest `rowDx[iy]`), the vertical edge (rest `dy`), then the shear diagonal (rest `hypot(rowDx[iy], dy)`).
+ * Order matters: Gauss–Seidel relaxation is order-dependent, so the same order is the same cloth.
+ */
+export function buildGridConstraints(cols: number, rows: number, rowDx: ArrayLike<number>, dy: number): ClothConstraints {
+  const max = rows * (cols - 1) + (rows - 1) * cols + (rows - 1) * (cols - 1);
+  const a = new Int32Array(max);
+  const b = new Int32Array(max);
+  const rest = new Float64Array(max);
+  let n = 0;
+  for (let iy = 0; iy < rows; iy++)
+    for (let ix = 0; ix < cols; ix++) {
+      const k = iy * cols + ix;
+      if (ix < cols - 1) {
+        a[n] = k;
+        b[n] = k + 1;
+        rest[n++] = rowDx[iy]!;
+      }
+      if (iy < rows - 1) {
+        a[n] = k;
+        b[n] = k + cols;
+        rest[n++] = dy;
+      }
+      if (ix < cols - 1 && iy < rows - 1) {
+        a[n] = k;
+        b[n] = k + cols + 1;
+        rest[n++] = Math.hypot(rowDx[iy]!, dy);
+      }
+    }
+  return { a, b, rest, n };
+}
+
+/**
+ * One relaxation pass: every constraint pulled toward its rest length, soft in compression (`comp`) and stiffening
+ * to 1 as its strain nears `maxS`. Particles below `pinned` (the crown row) never move.
+ */
+export function relaxPass(
+  px: Float32Array,
+  py: Float32Array,
+  pz: Float32Array,
+  C: ClothConstraints,
+  pinned: number,
+  maxS: number,
+  comp: number,
+  tenb: number,
+): void {
+  const ca = C.a;
+  const cb = C.b;
+  const cr = C.rest;
+  for (let c = 0, n = C.n; c < n; c++) {
+    const A = ca[c]!;
+    const B = cb[c]!;
+    const rest = cr[c]!;
+    const ex = px[B]! - px[A]!;
+    const ey = py[B]! - py[A]!;
+    const ez = pz[B]! - pz[A]!;
+    const dd = Math.sqrt(ex * ex + ey * ey + ez * ez) || 1e-4;
+    const diff = dd - rest;
+    const strain = diff / rest;
+    const stiff = strain <= 0 ? comp : tenb + (1 - tenb) * Math.min(1, strain / maxS);
+    const f = (diff / dd) * stiff * 0.5;
+    const ox = ex * f;
+    const oy = ey * f;
+    const oz = ez * f;
+    if (A >= pinned) {
+      px[A] = px[A]! + ox;
+      py[A] = py[A]! + oy;
+      pz[A] = pz[A]! + oz;
+    }
+    if (B >= pinned) {
+      px[B] = px[B]! - ox;
+      py[B] = py[B]! - oy;
+      pz[B] = pz[B]! - oz;
+    }
+  }
+}
+
+/** One pass of the hard strain clamp (the "no rubber" rule): no edge longer than `rest · cl`. */
+export function clampPass(px: Float32Array, py: Float32Array, pz: Float32Array, C: ClothConstraints, pinned: number, cl: number): void {
+  const ca = C.a;
+  const cb = C.b;
+  const cr = C.rest;
+  for (let c = 0, n = C.n; c < n; c++) {
+    const A = ca[c]!;
+    const B = cb[c]!;
+    const lim = cr[c]! * cl;
+    const ex = px[B]! - px[A]!;
+    const ey = py[B]! - py[A]!;
+    const ez = pz[B]! - pz[A]!;
+    const dd = Math.sqrt(ex * ex + ey * ey + ez * ez) || 1e-4;
+    if (dd > lim) {
+      const f = ((dd - lim) / dd) * 0.5;
+      const ox = ex * f;
+      const oy = ey * f;
+      const oz = ez * f;
+      if (A >= pinned) {
+        px[A] = px[A]! + ox;
+        py[A] = py[A]! + oy;
+        pz[A] = pz[A]! + oz;
+      }
+      if (B >= pinned) {
+        px[B] = px[B]! - ox;
+        py[B] = py[B]! - oy;
+        pz[B] = pz[B]! - oz;
+      }
+    }
   }
 }

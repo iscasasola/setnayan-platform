@@ -26,10 +26,15 @@ export function BoothTemplatePick({
   const form = useRef<HTMLFormElement>(null);
   const primaryIn = useRef<HTMLInputElement>(null);
   const backupIn = useRef<HTMLInputElement>(null);
+  // ONLY THE SLOT THAT CHANGED IS POSTED (review 2026-10-24): the other box stays disabled, so the booth's action keeps
+  // what this device already holds for it — a pick of the Backup never rewrites the Primary.
   const pick = (which: 'primary' | 'backup', slug: string) => {
     const box = which === 'primary' ? primaryIn.current : backupIn.current;
-    if (!box || !form.current || box.value === slug) return;
+    const other = which === 'primary' ? backupIn.current : primaryIn.current;
+    if (!box || !other || !form.current || box.value === slug) return;
     box.value = slug;
+    box.disabled = false;
+    other.disabled = true;
     form.current.requestSubmit();
   };
   const options = (not: string) => templates.filter((t) => t.slug !== not).map((t) => ({ key: t.slug, label: t.name }));
@@ -37,8 +42,8 @@ export function BoothTemplatePick({
     <form ref={form} action={savePatiktokBoothTemplates} className="contents" data-home-booth-templates="">
       <input type="hidden" name="event_id" value={eventId} />
       <input type="hidden" name="return_to" value="home" />
-      <input ref={primaryIn} type="hidden" name="primary" defaultValue={primary} />
-      <input ref={backupIn} type="hidden" name="backup" defaultValue={backup} />
+      <input ref={primaryIn} type="hidden" name="primary" defaultValue={primary} disabled />
+      <input ref={backupIn} type="hidden" name="backup" defaultValue={backup} disabled />
       <HomeCardRow
         label="Primary template"
         marker="booth-primary"

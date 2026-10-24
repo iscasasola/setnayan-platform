@@ -48,11 +48,19 @@ export function HubPartsSwitches({ eventId, table, now }: { eventId: string; tab
     const t = guestsSeeToggle(table, sent, rowKey, col);
     setLine(t.line);
     if (!t.changed) return;
-    // Every tap since the last read travels again with this one — each is the same value, so a resend changes nothing.
-    const patch = guestsSeePatch(t.writes);
+    // ONLY THE CELL THIS TAP CHANGED is sent (review 2026-10-24) — never the taps before it again, so a step back of an
+    // earlier one cannot be undone by a later save.
+    const id = Object.keys(t.writes).find((k) => !(k in sent) || t.writes[k] !== sent[k]);
+    if (!id) return;
+    const want = t.writes[id] ?? null;
+    const patch = guestsSeePatch({ [id]: want });
     if (!patch) return;
-    const before = sent;
-    setSent(t.writes);
+    // What this cell held before the tap — the overlay's, else the server's stored choice. ↺ puts exactly that back,
+    // whatever the table has been refreshed to since.
+    const cell = table.groups.flatMap((g) => g.rows).find((r) => r.key === rowKey)?.cells[col];
+    const prior: boolean | null = id in sent ? (sent[id] ?? null) : cell?.kind === 'box' ? cell.choice : null;
+    const put = (v: boolean | null) => setSent((cur) => ({ ...cur, [id]: v }));
+    put(want);
     start(async () => {
       const fd = new FormData();
       fd.set('intent', 'save');
@@ -70,14 +78,14 @@ export function HubPartsSwitches({ eventId, table, now }: { eventId: string; tab
           // if the step back does not land). The server's own step back is the journal's (`lib/maker-drawn-undo.ts`).
           undo: {
             undraw: () => {
-              setSent(before);
-              return { settle: Promise.resolve('shown' as const), now: true as const, landed: (ok: boolean) => { if (!ok) setSent(t.writes); } };
+              put(prior);
+              return { settle: Promise.resolve('shown' as const), now: true as const, landed: (ok: boolean) => { if (!ok) put(want); } };
             },
           },
         },
       ).catch(() => null);
       if (!r || !r.ok) {
-        setSent(before);
+        put(prior);
         setLine(r && !r.ok && r.error ? r.error : 'That did not save, so it is back as it was. Please try again.');
       }
     });

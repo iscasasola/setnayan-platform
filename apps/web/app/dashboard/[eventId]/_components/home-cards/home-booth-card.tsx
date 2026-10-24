@@ -38,7 +38,9 @@ export async function HomeBoothCard({ eventId, name, brand, owned }: { eventId: 
   if (!read.ok) return <HomeServiceCard name={name} brand={brand} icon={icon} dots={[]} door={door} failed marker={marker} />;
 
   const jar = await cookies();
-  const templates = resolveBoothTemplates({ saved: jar.get(patiktokBoothCookieName(eventId))?.value ?? null });
+  const savedPick = jar.get(patiktokBoothCookieName(eventId))?.value ?? null;
+  const savedHere = savedPick !== null;
+  const templates = resolveBoothTemplates({ saved: savedPick });
   const left = Math.max(0, read.cap - read.today);
   const over = read.today >= read.cap;
   return (
@@ -56,12 +58,19 @@ export async function HomeBoothCard({ eventId, name, brand, owned }: { eventId: 
       actions={<ActionButton tone="brand" icon={<Video aria-hidden="true" strokeWidth={1.9} />} label="Open booth" href={`${page}/booth`} />}
       settings={
         <>
-          <BoothTemplatePick
-            eventId={eventId}
-            primary={templates.primary.slug}
-            backup={templates.backup.slug}
-            templates={PATIKTOK_TEMPLATES.map((t) => ({ slug: t.slug, name: t.name }))}
-          />
+          {savedHere ? (
+            <BoothTemplatePick
+              eventId={eventId}
+              primary={templates.primary.slug}
+              backup={templates.backup.slug}
+              templates={PATIKTOK_TEMPLATES.map((t) => ({ slug: t.slug, name: t.name }))}
+            />
+          ) : (
+            /* 🔒 No pick saved where Home can read it yet: a pick made before 2026-10-24 lives at the booth's own
+               address, which Home cannot see — so the first pick is made on the booth (which reads it and carries it
+               over), never guessed here and never overwritten with the catalogue's first two (review 2026-10-24). */
+            <HomeCardRow label="Templates" hint="Pick your booth’s two on the booth" marker="booth-templates" control={opens(`${page}/booth`, 'Open', 'templates')} />
+          )}
           <HomeCardRow label={`Your renders · ${formatCount(read.renders)}`} marker="renders" control={opens(page, 'See', 'renders')} />
           {owned && read.tiktok !== null ? (
             <HomeCardRow

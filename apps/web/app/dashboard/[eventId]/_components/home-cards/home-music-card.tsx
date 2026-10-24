@@ -36,7 +36,14 @@ export async function HomeMusicCard({ eventId, name, brand }: { eventId: string;
       dots={[
         { mood: read.ready ? 'ok' : 'wait', words: read.ready ? 'Delivered' : 'Your song is in production', marker: 'song' },
         ...(read.ready
-          ? [{ mood: read.adopted ? ('ok' as const) : ('plain' as const), words: read.adopted ? 'Plays on your Event Hub' : 'Not on your page yet', marker: 'hub' }]
+          ? [
+              // Said from what guests hear NOW (the live page) — never "Plays" over a switch that is off (review 2026-10-24).
+              {
+                mood: read.playsLive ? ('ok' as const) : ('plain' as const),
+                words: read.playsLive ? 'Plays on your Event Hub' : read.adopted ? 'On your Event Hub · music is off' : 'Not on your page yet',
+                marker: 'hub',
+              },
+            ]
           : []),
       ]}
       status={read.ready && read.filename ? { lead: read.filename } : null}
@@ -55,7 +62,15 @@ export async function HomeMusicCard({ eventId, name, brand }: { eventId: string;
               column="site_bg_music_enabled"
               on={read.hubMusicOn}
               label="Play music on my Event Hub"
-              hint={read.draftUnread ? 'Your waiting changes couldn’t load — this shows your live page.' : 'Guests hear it after you press Apply on your Event Hub.'}
+              hint={
+                read.draftUnread
+                  ? 'Your waiting changes couldn’t load — this shows your live page.'
+                  : read.hubMusicOn !== read.liveMusicOn
+                    ? 'Waiting for Apply on your Event Hub.'
+                    : read.hubMusicOn
+                      ? 'Guests hear it now.'
+                      : 'Guests hear nothing now.'
+              }
             />
           ) : null}
           <HomeCardRow

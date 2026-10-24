@@ -44,7 +44,7 @@ export async function HomeHubCard({ eventId, name, pro }: { eventId: string; nam
         { mood: open ? 'ok' : 'plain', words: `${whoCanViewLabel(read.visibility)} · ${shownAt}`, marker: 'visibility' },
         { mood: read.stage ? 'ok' : 'plain', words: `Guests see now · ${read.stage ? PUBLIC_STAGE_LABELS[read.stage] : '—'}`, marker: 'stage' },
       ]}
-      status={{ lead: hubProLine(pro, read.proParts) }}
+      status={{ lead: hubProLine(pro, read.proParts, read.proParts === null) }}
       actions={
         url && read.slug ? (
           <>

@@ -64,6 +64,8 @@ test('2b · the ◆ line, state by state — never a price', () => {
   assert.equal(hubProLine(row('unread')), '◆ —');
   assert.equal(hubProLine(null, { full: false, count: 2 }), '◆ Pro · 2 parts on');
   assert.equal(hubProLine(null, { full: true, count: 9 }), '◆ Pro on · themes, photo and video backgrounds');
+  assert.equal(hubProLine(null, null, true), '◆ —', 'an unread ownership reads as Free');
+  assert.equal(hubProLine({ state: 'owned', href: '/h', line: {} }, null, true), '◆ Pro on · themes, photo and video backgrounds', 'an owned Pro row is still said over an unread parts read');
   for (const line of [hubProLine(null), hubProLine(row('pending')), hubProLine(null, { full: false, count: 1 })]) {
     assert.doesNotMatch(line, /₱|\d+\.\d\d/, `a price reached the ◆ line: ${line}`);
   }

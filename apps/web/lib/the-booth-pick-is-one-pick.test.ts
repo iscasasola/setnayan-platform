@@ -35,6 +35,12 @@ test('2 · Home reads the same cookie and posts the booth’s own action, landin
   const pick = code('app/dashboard/[eventId]/_components/home-cards/booth-template-pick.tsx');
   assert.match(pick, /action=\{savePatiktokBoothTemplates\}/, 'the card posts something other than the booth’s action');
   assert.match(pick, /name="return_to" value="home"/, 'a pick on Home would land on the booth');
+  // Only the slot that changed is posted (review 2026-10-24): both boxes start disabled, a pick enables its own.
+  assert.match(pick, /name="primary" defaultValue=\{primary\} disabled/, 'the Primary is posted with every pick — a Backup pick would rewrite it');
+  assert.match(pick, /name="backup" defaultValue=\{backup\} disabled/, 'the Backup is posted with every pick');
+  assert.match(pick, /other\.disabled = true;/, 'the other slot is posted too');
+  // …and Home offers the pickers only over a pick it can read; otherwise the first pick is the booth's.
+  assert.match(card, /\{savedHere \? \(\s*<BoothTemplatePick/, 'Home guesses a pick it cannot read and would overwrite the old one');
   const actions = code('app/dashboard/[eventId]/studio/patiktok/actions.ts');
   assert.match(actions, /formData\.get\('return_to'\) === 'home'\) redirect\(`\/dashboard\/\$\{eventId\}`\)/, 'the action does not send Home back to Home');
 });

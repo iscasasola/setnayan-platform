@@ -979,5 +979,6 @@ export async function endManualOnAir(eventId: string): Promise<{ ok: true } | { 
     .eq('event_id', eventId);
 
   revalidatePath(SETUP_PATH(eventId));
+  revalidatePath(`/dashboard/${eventId}`); // 🏠 Home's Live stream card says on/off air — one render, from the answer
   return { ok: true };
 }

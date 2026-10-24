@@ -31,6 +31,10 @@ export type HomeMusicCardRead =
       hubSource: string | null;
       /** "Play music" on the Hub, the draft laid over. */
       hubMusicOn: boolean;
+      /** What guests hear NOW (the live page, no draft): the song is set, playable and switched on. */
+      playsLive: boolean;
+      /** The live page's own switch — so the card can say when the drafted one differs (waits for Apply). */
+      liveMusicOn: boolean;
       draftUnread: boolean;
     };
 
@@ -61,6 +65,8 @@ export async function readHomeMusicCard(supabase: SupabaseClient, eventId: strin
     hubHasMusic: Boolean(siteMediaServeRef(drafted.site_bg_music_r2_key)),
     hubSource: (drafted.site_bg_music_source as string | null) ?? null,
     hubMusicOn: drafted.site_bg_music_enabled === true,
+    playsLive: Boolean(siteMediaServeRef(event.site_bg_music_r2_key)) && event.site_bg_music_enabled === true,
+    liveMusicOn: event.site_bg_music_enabled === true,
     draftUnread: draftRead.unread,
   };
 }

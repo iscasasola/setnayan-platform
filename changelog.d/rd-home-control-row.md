@@ -27,8 +27,8 @@ basically a control center for the whole event."* Approved ("ok", ~16:50) `proto
   pill (the Countdown is Event Details' one door), the dead `getNavSlotMap` read, the never-twice stand-down rule.
 - **Services** (PR-B/PR-C cards, reused): below `md` a closed service is a compact tile; a tap grows the card in place
   across both columns; one open at a time (`useOneOpen`). The Event Hub card left Your services (it is the ③ widget).
-- **View Event Hub** opens a new tab on the web (`target="_blank"`, through `openEventHub(url)` — a local stand-in for
-  `lib/open-external.ts`, #6866, swapped in once it lands).
+- **View Event Hub** opens a new tab on the web (`target="_blank"`, through the shared `openEventHub(url)` in
+  `lib/open-external.ts` (#6866) — the in-app browser sheet in the app).
 - **Tours**: `customer_home_widgets_v1` → Today · the faces · Your services; the host journey's Home stops ring the
   control row (`home-tiles`) instead of the Next card.
 - Guards: `home-one-widget-per-page` · `home-control-reads-honestly` · `home-tiles-rotate-politely` ·

@@ -25,7 +25,7 @@ import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared
 import { ArrowRight, CalendarDays, Check, Eye, Mail, PenLine, Plus, RotateCw } from 'lucide-react';
 import type { FaceAction, FaceIcon, HomeFace, HomeTileModel } from './home-control-faces';
 import { FACE_MS, RESUME_MS, STAGGER_MS, TAP_PX, VISIBLE_THRESHOLD, swipeLands, tilePaused, tileRotates } from './home-tile-rotation';
-import { openEventHub } from './open-event-hub';
+import { openEventHub } from '@/lib/open-external';
 import { Count } from '@/components/count';
 import { formatCount } from '@/lib/format-number';
 

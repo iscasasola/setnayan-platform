@@ -27,6 +27,7 @@ import type { FaceAction, FaceIcon, HomeFace, HomeTileModel } from './home-contr
 import { FACE_MS, RESUME_MS, STAGGER_MS, TAP_PX, VISIBLE_THRESHOLD, swipeLands, tilePaused, tileRotates } from './home-tile-rotation';
 import { openEventHub } from './open-event-hub';
 import { Count } from '@/components/count';
+import { formatCount } from '@/lib/format-number';
 
 /* ─── One ticker for the page ─────────────────────────────────────────────── */
 
@@ -395,7 +396,7 @@ export function HomeTile({
               type="button"
               data-hc-dot=""
               aria-current={i === index ? 'true' : undefined}
-              aria-label={`Counter ${i + 1} of ${count}`}
+              aria-label={`Counter ${formatCount(i + 1)} of ${formatCount(count)}`}
               className={`hc-dot${i === index ? ' on' : ''}`}
               onClick={() => go(i, true)}
             />

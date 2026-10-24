@@ -22,7 +22,7 @@ import type { ChapterOnThisDay } from '@/lib/chapters-on-this-day';
 // four is a defect, and `measures.test.ts` counts them.
 import { PAGE_COLUMN, PLATE } from '../_lib/measures';
 import { greetingWhen } from '../_lib/day-words';
-import { plusOneSeats } from '@/lib/guests';
+import { plusOneSeats, type RsvpStatus } from '@/lib/guests';
 import { guestAttireOf, guestNamePartsOf } from '@/lib/attire-rows';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { loadEventNameStyle, loadEventRoleNames } from '../_lib/loaders';
@@ -551,6 +551,9 @@ type SiteBodyProps = {
   /** 🪪 The HOST's own guest row (the groom, a co-host who is also a sponsor) — the only id a host's page marks
    *  "You" in the entourage (owner ruling 2026-10-19 (a)). Null for everyone else, and never on the canvas. */
   hostOwnGuestId?: string | null;
+  /** 🗳 The HOST's own row's reply status ('pending' · 'attending' · 'declined' …) — the host's Reply card reads it and
+   *  opens the reply page AS that row (owner bug 2026-10-24). Null: the host has no live row here — the card asks, and the reply page tells them they are not on the list. */
+  hostOwnRsvp?: RsvpStatus | null;
   /** A booked supplier's server-verified grant; drives the doorway strip. */
   /** Stories about THIS day, for the people of this day. Empty for anybody the
    *  event does not recognise — the page never decides that itself. */
@@ -659,6 +662,7 @@ export async function SiteBody({
   ownerCapability = null,
   heldPassSlot = null,
   hostOwnGuestId = null,
+  hostOwnRsvp = null,
   vendorCapability = null,
   supplierDesk = null,
   chaptersOnThisDay = [],
@@ -2108,18 +2112,24 @@ export async function SiteBody({
        `/{slug}` (307) and the tap reloaded the cover. Their page is a guest's (owner 2026-10-15): the Reply card stands
        under the cover as a guest's does, the cover's button takes them to it, and the card's button opens the Reply
        as the host's own preview of it (`?preview=draft`, the Maker's "Preview the whole stage" door — verified host
-       membership, a sample guest, never a real reply). A booked supplier has no reply to make: no button. */
+       membership, a sample guest, never a real reply). A booked supplier has no reply to make: no button.
+       🗳 …AND THAT PREVIEW WAS THE BUG (owner 2026-10-24, on cale-ice): the page said "Viewing as you", and its Reply
+       greeted "Gabriel dela Peña" — the sample is named after a real guest — and asked the host to answer HIS RSVP.
+       The card now opens the plain reply page, which replies as the host's OWN row (`readReplyIdentityForEvent`), and
+       reads that row's real answer ("You're coming · 1 seat · Change my reply" for a groom already attending). A host
+       with no row of their own keeps the card (the cover always has a way on — `the-cover-always-has-a-way-on`), and
+       the reply page TELLS them they are not on the list (`NoReplyHere`) — never a sample.
+       🛡 `the-reply-is-sent-as-who-the-hub-says.test.ts`. */
     const hostReplyCard =
       viewerIsHost && pageStage === 'rsvp' && plan.rsvpShouldRender && !isEditorCanvas
         ? replyCardOf({
             action: resolveArrivalAction({
               slug: event.slug ?? '',
-              rsvpStatus: 'pending',
+              rsvpStatus: hostOwnRsvp ?? 'pending',
               eventDate: event.event_date,
               today: manilaToday(),
               hasPass: false,
               replyOpen: replyOpenHere,
-              rsvpHref: `${replyDoor}?preview=draft`,
             }),
             replyBy: null,
             seats: 1,

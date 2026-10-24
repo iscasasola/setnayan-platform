@@ -14,7 +14,10 @@
  * A PROPERTY, on the REAL page (`SiteBody`, the fixture invitation), for every reader who meets the button:
  *   · the cover's button is an in-page link to an element that IS on this page, with the RSVP part's id;
  *   · that part holds a link into the Reply that this reader is not bounced from — a guest (who holds the pass) to
- *     the reply page, the host to the reply page's host preview (`?preview=draft`, the verified-host door);
+ *     the reply page — and the host to the SAME reply page, which since 2026-10-24 replies as the host's OWN row
+ *     (`readReplyIdentityForEvent`). It used to open the reply's host preview (`?preview=draft`), whose sample guest is
+ *     named after a real guest — the owner was asked to answer "Gabriel dela Peña"'s RSVP
+ *     (`lib/the-reply-is-sent-as-who-the-hub-says.test.ts`);
  *   · the glide that makes the jump smooth is mounted (and the plain link still works without it);
  *   · nobody without a guest pass is handed a cover button straight into the reply page (it would bounce them).
  */
@@ -31,6 +34,8 @@ const PHOTO = { heroPhotoUrl: 'https://cdn.test/fixture-hero.jpg' } as const;
 const EVENT = siteBodyFixtureProps().event;
 const HOST = { capability: 'owner', ownerUserId: 'lab-host', ownerEventId: EVENT.event_id, maySiteEdit: true } as const;
 const REPLY = inviteReplyPath(EVENT.slug ?? '');
+/** The host's OWN guest row (the groom's), not yet answered — the host's card reads it (owner bug 2026-10-24). */
+const HOST_ROW = { hostOwnGuestId: '00000000-0000-4000-8000-00000000a002', hostOwnRsvp: 'pending' } as const;
 /** The cover: the first-screen header, whole (the page's own top bar is a `<header>` too, and comes first). */
 const coverOf = (html: string) => {
   const at = html.indexOf('<header data-pahina-first-screen=""');
@@ -40,8 +45,8 @@ const coverOf = (html: string) => {
 const READERS = [
   ['a guest with a key', { guestStages: true }, 'guest'],
   ['a guest with a key · a full ground', { guestStages: true, widgets: FULL }, 'guest'],
-  ['the host on their own page (cale-ice’s shape)', { identity: fixtureStranger(), widgets: FULL, ...PHOTO, ownerCapability: HOST }, 'host'],
-  ['the host · the text cover', { identity: fixtureStranger(), ownerCapability: HOST }, 'host'],
+  ['the host on their own page (cale-ice’s shape)', { identity: fixtureStranger(), widgets: FULL, ...PHOTO, ownerCapability: HOST, ...HOST_ROW }, 'host'],
+  ['the host · the text cover', { identity: fixtureStranger(), ownerCapability: HOST, ...HOST_ROW }, 'host'],
 ] as const;
 
 for (const [who, props, kind] of READERS) {
@@ -64,7 +69,7 @@ for (const [who, props, kind] of READERS) {
     const into = /<a [^>]*href="([^"]*)"/.exec(part)?.[1];
     assert.ok(into, 'the RSVP part holds no way into the Reply — the reader lands on nothing to press');
     if (kind === 'guest') assert.equal(into, REPLY, 'the guest’s RSVP part does not open the reply page');
-    else assert.equal(into, `${REPLY}?preview=draft`, 'the host’s RSVP part does not open the Reply as the host’s own preview — the reply page would send them back');
+    else assert.equal(into, REPLY, 'the host’s RSVP part does not open the plain reply page — the one that replies as the host’s own row (a `?preview=draft` here is the Maker’s sample, named after a real guest)');
   });
 }
 

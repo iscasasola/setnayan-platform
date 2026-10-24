@@ -32,6 +32,7 @@
  *                     This year, Log a payment (frame 05)  &next=next|all · &open=log
  *   ?s=money-waived   every fee waived (frame 30)   ?s=money-locked  the year on a plan without it
  *   ?s=money-empty    no payment plan yet           ?s=money-fail    nothing could be read — said, never ₱0 (frame 15)
+ *   &wallet=checking|resubmit|unread   the shop-wallet row's states   &open=wallet|wallet-unavailable|wallet-paused|wallet-empty  its sheet
  *   ?s=library        🌱🖼 the inspiration library (owner 2026-10-19) on a lab shop — upload · from your shop's photos · the
  *                     screen's refusal; &view=review the lab's Approve; then /dev/details-lab?look=1&studio=1&library=1
  *                     is the couple's Search ideas on the same memory (`library-lab-server.ts`). &library=1 on ?easy=…
@@ -283,7 +284,7 @@ function TodayLab({ state, toast }: { state: TodayState; toast: string | undefin
 export default async function SupplierLabPage({
   searchParams,
 }: {
-  searchParams: Promise<{ thumb?: string; s?: string; toast?: string; q?: string; lane?: string; add?: string; open?: string; next?: string; mpage?: string; easy?: string; sup?: string; who?: string; draft?: string; library?: string; view?: string; sent?: string; rail?: string; logo?: string; gift?: string; invited?: string }>;
+  searchParams: Promise<{ thumb?: string; s?: string; toast?: string; q?: string; lane?: string; add?: string; open?: string; next?: string; mpage?: string; easy?: string; sup?: string; who?: string; draft?: string; library?: string; view?: string; sent?: string; rail?: string; logo?: string; gift?: string; invited?: string; wallet?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
@@ -338,7 +339,7 @@ export default async function SupplierLabPage({
     return <PageLab state={q.s as PageLabState} who={q.who} draft={q.draft === '1'} invited={q.invited === '1'} />;
   }
   if (q.s && (MONEY_STATES as readonly string[]).includes(q.s)) {
-    return <MoneyLab state={q.s as MoneyState} next={q.next} open={q.open} mpage={q.mpage} />;
+    return <MoneyLab state={q.s as MoneyState} next={q.next} open={q.open} mpage={q.mpage} wallet={q.wallet} />;
   }
   const today = q.s ? TODAY[q.s] : undefined;
   if (today) return <TodayLab state={today} toast={q.toast} />;

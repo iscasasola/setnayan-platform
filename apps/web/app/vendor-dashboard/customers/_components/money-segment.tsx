@@ -25,6 +25,17 @@ import { ThumbRow } from '@/components/thumb-row';
 import { SupplierThumbRow } from '../../_components/supplier-thumb-row';
 import { MoneyView, type MoneyLegacyPayout } from './money-view';
 import { MoneyLog, type MoneyLogCustomer } from './money-log';
+import { ShopWalletSheet, type ShopWalletSheetData } from './shop-wallet-sheet';
+import { fetchShopWallet, fetchShopWalletEventPots, fetchShopWalletPackMeta } from '@/lib/shop-wallet.server';
+import { eventPotSub, eventPotTitle, walletHistoryLines, walletRowSubline, walletRowTitle } from '@/lib/shop-wallet';
+import { fetchVendorPapicPackPricePhp } from '@/lib/vendor-papic-grants';
+import { VENDOR_PAPIC_PORTFOLIO_PACK_CREDITS } from '@/lib/vendor-papic-credits';
+import { fetchVendorRoomEvents } from '@/lib/vendor-room-access';
+import { fetchPlatformSettings } from '@/lib/platform-settings';
+import { openRailOptions } from '@/lib/payment-channels';
+import { isStoreShellRequest } from '@/lib/request-platform';
+import { payPath } from '@/lib/pay-path';
+import { formatPhp } from '@/lib/php';
 
 /**
  * CUSTOMERS › MONEY — the reads (S-PR4). Payday + earnings + the booking-fee bills, as one segment (plan § 2: the
@@ -53,6 +64,12 @@ const HUB = '/vendor-dashboard/customers';
 export function moneyHref(window: MoneyWindow): string {
   return window === 'month' ? `${HUB}?seg=money` : `${HUB}?seg=money&next=${window}`;
 }
+
+/**
+ * The shop wallet's sheet, by address — the ONE home of the balance (owner 2026-10-23, option A). The portfolio
+ * uploader and an event's Papic link the words "Shop wallet" here.
+ */
+export const SHOP_WALLET_HREF = `${HUB}?seg=money&wallet=1`;
 
 type PayoutRow = {
   payout_id: string;
@@ -85,7 +102,7 @@ export async function CustomersMoney({ search }: { search: SP }) {
   const tier = await resolveVendorTier(supabase, vendorProfileId);
   const yearLocked = isVendorFeatureGateEnabled() && !canUseSoloBusinessTools(tier);
 
-  const [paydayRead, feeBillsRead, waivedRead, earningsRead, payoutRead, feeSchedule, feeEnforced] = await Promise.all([
+  const [paydayRead, feeBillsRead, waivedRead, earningsRead, payoutRead, feeSchedule, feeEnforced, wallet] = await Promise.all([
     readVendorPaydayInstallments(supabase),
     // UNREADABLE renders a "couldn't load" row; it must never read as "you owe nothing".
     fetchDueFeeBills(supabase, user.id).catch(() => FEE_BILLS_UNREADABLE),
@@ -115,6 +132,8 @@ export async function CustomersMoney({ search }: { search: SP }) {
     yearLocked ? getLiveBookingFeeSchedule() : Promise.resolve(null),
     // The overdue sentence states the lock's TRUE state — the gate's own answer (batch-5 walk F).
     resolveFeeEnforcement(),
+    // 💳 The shop wallet (owner 2026-10-23, option A). A failed read is `balance: null` — said, never 0.
+    fetchShopWallet(supabase, vendorProfileId),
   ]);
 
   // ⚠ PAGED TO THE SERVER'S EXACT COUNT. A read that did not reach the end renders as "couldn't load", never as a
@@ -176,6 +195,9 @@ export async function CustomersMoney({ search }: { search: SP }) {
       : `/vendor-dashboard/clients/${c.eventId}`,
   }));
 
+  // The wallet sheet — read only when it is open (`?wallet=1`): its events' pots cost a read per event.
+  const walletSheet = search.wallet === '1' ? await readWalletSheet(supabase, admin, vendorProfileId, wallet) : null;
+
   return (
     <>
       <MoneyView
@@ -200,12 +222,63 @@ export async function CustomersMoney({ search }: { search: SP }) {
           // 2026-08-06); the terms are DERIVED, never typed.
           lockedLine: `Totals by month start with Solo. Couples pay you directly and we never take a cut — Setnayan bills you a booking fee${feeSchedule ? ` of ${bookingFeeScheduleSummary(feeSchedule)}` : ''}, only on the couples we introduce.`,
           legacy,
+          wallet: {
+            read: wallet.balance != null,
+            title: walletRowTitle(wallet.balance),
+            line: walletRowSubline(wallet, formatPhp),
+            href: SHOP_WALLET_HREF,
+          },
         }}
       />
+      {walletSheet ? <ShopWalletSheet data={walletSheet} closeHref={moneyHref(window)} /> : null}
       {/* 📱 Frame 05's thumb row: Log a payment — the screen's one main, the ONE row's round at the right (2026-10-22). */}
       <SupplierThumbRow name="money" label="Money actions" row={<ThumbRow name="money" action={{ node: <MoneyLog customers={logCustomers} /> }} />} />
     </>
   );
+}
+
+/** Everything the wallet sheet draws, read and worded on the server (`lib/shop-wallet.ts`). */
+async function readWalletSheet(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  admin: ReturnType<typeof createAdminClient>,
+  vendorProfileId: string,
+  wallet: Awaited<ReturnType<typeof fetchShopWallet>>,
+): Promise<ShopWalletSheetData> {
+  const packOrderIds = wallet.entries.filter((e) => e.kind === 'pack_order' && e.orderId).map((e) => e.orderId as string);
+  const [packMeta, rooms, pricePhp, settings, storeShell] = await Promise.all([
+    fetchShopWalletPackMeta(supabase, packOrderIds),
+    fetchVendorRoomEvents(supabase, vendorProfileId).catch(() => null),
+    fetchVendorPapicPackPricePhp(admin),
+    fetchPlatformSettings(supabase),
+    isStoreShellRequest(),
+  ]);
+  const events = rooms ? [...rooms].sort((a, b) => b.bookedDate.localeCompare(a.bookedDate)) : null;
+  const pots = events ? await fetchShopWalletEventPots(admin, vendorProfileId, events).catch(() => null) : null;
+  const p = wallet.pendingPack;
+  return {
+    balance: wallet.balance,
+    pending: p
+      ? {
+          title: p.state === 'resubmit' ? `${formatPhp(p.amountPhp)} pack · needs a new screenshot` : `${formatPhp(p.amountPhp)} pack · checking`,
+          sub: `ref ${p.referenceCode} · lands in this wallet when approved`,
+          href: payPath(p.referenceCode),
+        }
+      : null,
+    lines: walletHistoryLines(wallet.entries, {
+      packMeta,
+      eventNames: new Map((events ?? []).map((e) => [e.eventId, e.eventName])),
+      peso: formatPhp,
+    }),
+    pots:
+      pots?.map((pot) => ({
+        key: pot.eventId,
+        title: eventPotTitle(pot),
+        sub: eventPotSub(pot),
+        href: `/vendor-dashboard/on-the-day/live/${pot.eventId}/papic`,
+      })) ?? null,
+    buy: { openRails: openRailOptions(settings), pricePhp, packCredits: VENDOR_PAPIC_PORTFOLIO_PACK_CREDITS },
+    storeShell,
+  };
 }
 
 function legacyRow(r: PayoutRow): MoneyLegacyPayout {

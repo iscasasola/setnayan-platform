@@ -8,6 +8,8 @@
  *   ?s=money-locked   the year view on a plan without it — the fold says so and names the fee
  *   ?s=money-empty    no payment plan yet     ?s=money-fail  payday, fees and the year could not be read (frame 15)
  *   &next=next|all    the "Next in ▾" window   &open=log  the Log a payment sheet, open
+ *   &wallet=checking|resubmit|unread   the shop-wallet row (frames money-wallet-row · pay-waiting · f5 · f1)
+ *   &open=wallet|wallet-unavailable|wallet-paused|wallet-empty   the wallet sheet (frames wallet-sheet · buy-sheet · f4)
  */
 import type { PaydayInstallmentRow } from '@/lib/vendor-cashflow';
 import type { EarningsView } from '@/lib/vendor-earnings-view';
@@ -19,6 +21,61 @@ import { MoneyView } from '@/app/vendor-dashboard/customers/_components/money-vi
 import { MoneyLog } from '@/app/vendor-dashboard/customers/_components/money-log';
 import { ThumbRow } from '@/components/thumb-row';
 import { SupplierThumbRow } from '@/app/vendor-dashboard/_components/supplier-thumb-row';
+import { ShopWalletSheet, type ShopWalletSheetData } from '@/app/vendor-dashboard/customers/_components/shop-wallet-sheet';
+import {
+  eventPotSub,
+  eventPotTitle,
+  walletHistoryLines,
+  walletRowSubline,
+  walletRowTitle,
+  type ShopWallet,
+  type ShopWalletEntry,
+} from '@/lib/shop-wallet';
+import { formatPhp } from '@/lib/php';
+
+/** The prototype's wallet: two ₱500 packs in, 72 portfolio credits out → 128. */
+const WALLET_ENTRIES: ShopWalletEntry[] = [
+  { entryId: 'w1', delta: 100, kind: 'pack_order', orderId: 'o-oct', eventId: null, photos: null, clips: null, createdAt: '2026-10-12T02:00:00Z' },
+  { entryId: 'w2', delta: -30, kind: 'portfolio_spend', orderId: null, eventId: null, photos: 30, clips: 0, createdAt: '2026-09-20T02:00:00Z' },
+  { entryId: 'w3', delta: -42, kind: 'portfolio_spend', orderId: null, eventId: null, photos: 42, clips: 0, createdAt: '2026-09-04T02:00:00Z' },
+  { entryId: 'w4', delta: 100, kind: 'pack_order', orderId: 'o-sep', eventId: null, photos: null, clips: null, createdAt: '2026-09-03T02:00:00Z' },
+];
+const PACK_META = new Map([
+  ['o-oct', { amountPhp: 500, rail: 'GCash' }],
+  ['o-sep', { amountPhp: 500, rail: 'BDO' }],
+]);
+const POTS = [
+  { eventId: 'ana', name: 'Ana & Miguel', left: 28, cameFrom: '50 gift + 40 from the booking fee', used: 62 },
+  { eventId: 'cruz', name: 'Cruz wedding', left: 50, cameFrom: '50 gift', used: 0 },
+];
+
+function labWallet(state: string | undefined): ShopWallet {
+  if (state === 'unread') return { balance: null, entries: [], pendingPack: null };
+  const pendingPack =
+    state === 'checking'
+      ? { referenceCode: 'SN3F9A12C4', amountPhp: 500, state: 'checking' as const }
+      : state === 'resubmit'
+        ? { referenceCode: 'SN3F9A12C4', amountPhp: 500, state: 'resubmit' as const }
+        : null;
+  return { balance: 128, entries: WALLET_ENTRIES, pendingPack };
+}
+
+function labSheet(open: string, wallet: ShopWallet): ShopWalletSheetData {
+  const empty = open === 'wallet-empty';
+  const p = wallet.pendingPack;
+  return {
+    balance: open === 'wallet-unavailable' ? 12 : empty ? 0 : wallet.balance,
+    pending: p ? { title: `${formatPhp(p.amountPhp)} pack · checking`, sub: `ref ${p.referenceCode} · lands in this wallet when approved`, href: '/dev/supplier-lab?s=money' } : null,
+    lines: empty ? [] : walletHistoryLines(wallet.entries, { packMeta: PACK_META, peso: formatPhp }),
+    pots: (empty ? POTS.slice(1) : POTS).map((pot) => ({ key: pot.eventId, title: eventPotTitle(pot), sub: eventPotSub(pot), href: '/dev/supplier-lab?s=money' })),
+    buy: {
+      openRails: open === 'wallet-paused' ? [] : [{ id: 'gcash', label: 'GCash' }, { id: 'bdo', label: 'BDO' }],
+      pricePhp: open === 'wallet-unavailable' ? null : 500,
+      packCredits: 100,
+    },
+    storeShell: false,
+  };
+}
 
 export const MONEY_STATES = ['money', 'money-waived', 'money-locked', 'money-empty', 'money-fail'] as const;
 export type MoneyState = (typeof MONEY_STATES)[number];
@@ -82,7 +139,8 @@ const YEAR: Pick<EarningsView, 'measured' | 'ytdPhp' | 'months'> = {
   ],
 };
 
-export function MoneyLab({ state, next, open, mpage }: { state: MoneyState; next?: string; open?: string; mpage?: string }) {
+export function MoneyLab({ state, next, open, mpage, wallet: walletState }: { state: MoneyState; next?: string; open?: string; mpage?: string; wallet?: string }) {
+  const wallet = labWallet(walletState);
   const base = `/dev/supplier-lab?s=${state}`;
   const window = moneyWindowOf(next);
   const fail = state === 'money-fail';
@@ -115,8 +173,10 @@ export function MoneyLab({ state, next, open, mpage }: { state: MoneyState; next
           year: state === 'money-locked' ? 'locked' : fail ? null : state === 'money-empty' ? moneyYear({ measured: true, ytdPhp: 0, months: [] }, TODAY) : moneyYear(YEAR, TODAY),
           lockedLine: 'Totals by month start with Solo. Couples pay you directly and we never take a cut — Setnayan bills you a booking fee, only on the couples we introduce.',
           legacy: fail ? null : [],
+          wallet: { read: wallet.balance != null, title: walletRowTitle(wallet.balance), line: walletRowSubline(wallet, formatPhp), href: `${base}&open=wallet` },
         }}
       />
+      {open?.startsWith('wallet') ? <ShopWalletSheet data={labSheet(open, wallet)} closeHref={base} /> : null}
       <SupplierThumbRow
         name="money"
         label="Money actions"

@@ -38,8 +38,6 @@ import { sceneStyleSet, sceneStyleTypeOfWidget } from '@/lib/scene-styles';
 import { sanitizeCustomSection } from '@/lib/custom-sections';
 import { PALETTE_LOOKS } from '@/lib/palette-looks';
 import { makerPartWordAt, makerPartWordOfStyle } from '@/lib/hub-draft-change-lines';
-import { CAMERA_LOOK_LABEL } from '@/lib/camera-look';
-import { CAMERA_LOOK_PREF_KEY } from '@/lib/camera-look-key';
 import { QR_STYLE_PREF_KEY } from '@/lib/qr-look';
 import { celebrationDraftIsPro } from '@/lib/rsvp-celebration';
 import { DOS_LOOKS } from '@/lib/dress-code-looks';
@@ -60,7 +58,6 @@ import {
   mainGroundChange,
   mergeHubDraft,
   withoutEffect,
-  cameraLookOfDraft,
   rsvpLookGrowing,
   stylePreferencesProParts,
   blockLooksFreePart,
@@ -289,8 +286,8 @@ function rsvpEffects(live: HubLiveState, value: unknown, own: HubOwnership): Hub
 }
 
 /**
- * 🎛 A held `style_preferences` blob → ONE LINE PER PART it holds (💎 part by part, 2026-10-22): Decorations and a
- * camera look are Style's (16, 31), the QR is Logo & QR's (29), a fixed block's new motion is Motion's (17b) — by the
+ * 🎛 A held `style_preferences` blob → ONE LINE PER PART it holds (💎 part by part, 2026-10-22): Decorations are
+ * Style's (16), the QR is Logo & QR's (29), a fixed block's new motion is Motion's (17b) — by the
  * same rule that held the blob (`stylePreferencesProParts`). "Remove" puts THAT part's keys back to what guests see
  * today and keeps every other drafted key.
  */
@@ -334,19 +331,13 @@ function stylePreferenceEffects(live: HubLiveState, value: unknown, own: HubOwne
       });
       continue;
     }
-    const words: string[] = [];
-    if (mine.includes('accents')) words.push('Decorations');
-    if (mine.includes('camera')) {
-      const cam = cameraLookOfDraft(value);
-      words.push(cam ? `Camera look · ${CAMERA_LOOK_LABEL[cam]}` : 'Camera look');
-    }
     out.push({
       id: 'event:style_preferences:style',
       part,
-      what: words.join(' and '),
-      where: mine.includes('accents') ? turned.map((sc) => ACCENT_SCENE_LABEL[sc]).join(', ') : 'Camera',
+      what: 'Decorations',
+      where: turned.map((sc) => ACCENT_SCENE_LABEL[sc]).join(', '),
       jump: null,
-      remove: { events: { style_preferences: without([...(mine.includes('accents') ? [SCENE_ACCENTS_PREF_KEY] : []), ...(mine.includes('camera') ? [CAMERA_LOOK_PREF_KEY] : [])]) } },
+      remove: { events: { style_preferences: without([SCENE_ACCENTS_PREF_KEY]) } },
     });
   }
   return out;
@@ -438,7 +429,7 @@ export function hubDraftProEffects(draft: HubDraftState, live: HubLiveState, own
       const liveAccents = sceneAccentsFromPreferences(live.events.style_preferences ?? null);
       const draftAccents = { ...liveAccents, ...sceneAccentsFromPreferences(draft.events.style_preferences ?? null) };
       if (item.column === 'style_preferences') {
-        /* 💎 Part by part (2026-10-22): the blob is named ONE LINE PER PART it holds — Decorations and a camera look are
+        /* 💎 Part by part (2026-10-22): the blob is named ONE LINE PER PART it holds — Decorations are
            Style, the QR is Logo & QR, a block's new motion is Motion — each by the same rule that held it
            (`stylePreferencesProParts`), each with its own "Remove" (that part's keys put back to what guests see). */
         for (const effect of stylePreferenceEffects(live, item.value, own)) push(effect);

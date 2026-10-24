@@ -41,10 +41,11 @@
  * The prototype gave every part the same five families (Classic · Stacked ·
  * Offset · Modern · Statement). Those are INVENTED (plan §5 risk 1): a part's
  * layouts are the SHIPPED per-scene styles of the scene it is drawn in
- * (`lib/scene-styles.ts` `sceneStyleOptions`) — three, mostly, not five. Only
- * the Camera keeps its own three (Classic · Your brand · Challenges — owner
- * 2026-10-06; a draft field, drawn for guests in PR 6). Held by
- * `lib/layouts-are-the-shipped-scene-styles.test.ts`.
+ * (`lib/scene-styles.ts` `sceneStyleOptions`) — three, mostly, not five. The
+ * Camera has none: there is ONE camera (owner 2026-10-24, "remove the other
+ * style template"; its Pro dress is the Logo & QR part's — `lib/camera-dress.ts`).
+ * Held by `lib/layouts-are-the-shipped-scene-styles.test.ts` and
+ * `lib/the-maker-offers-no-camera-style.test.ts`.
  *
  * ── WHERE A PART IS ON THE PAGE ─────────────────────────────────────────────
  * `canvas` is the key the shipped canvas marks the part's section with
@@ -271,11 +272,8 @@ export const MAKER_STUDIO_TOOL_LABEL: Record<MakerStudioTool, string> = {
   rsvp: 'RSVP',
 };
 
-/** A part's layouts: the shipped styles of the scene it is drawn in, or the Camera's own three. */
-export type MakerPartLayouts = { kind: 'scene'; type: string } | { kind: 'own'; names: readonly string[] } | { kind: 'none' };
-
-/** 🎛 The Camera's three (owner 2026-10-06, "THE CAMERA HAS ITS OWN THREE LAYOUTS"). */
-export const MAKER_CAMERA_LAYOUTS = ['Classic', 'Your brand', 'Challenges'] as const;
+/** A part's layouts: the shipped styles of the scene it is drawn in, or none. */
+export type MakerPartLayouts = { kind: 'scene'; type: string } | { kind: 'none' };
 
 export type MakerPartDef = {
   /** The tile's word. */
@@ -336,8 +334,8 @@ export const MAKER_PARTS: Readonly<Record<MakerPartKey, MakerPartDef>> = {
   seats: { label: 'Your seat', source: 'studio:seats', canvas: 'f:find_your_seat', layouts: scene('find_your_seat') },
   pass: { label: 'Digital pass', source: 'tool', canvas: 'f:pass', layouts: NONE },
   announce: { label: 'Announcements', source: 'tool', canvas: 'f:announcements', layouts: scene('announcements') },
-  /* 🎛 The Camera's own three — never the shared families. */
-  camera: { label: 'Camera', source: 'tool', canvas: null, layouts: { kind: 'own', names: MAKER_CAMERA_LAYOUTS } },
+  /* 📷 ONE camera (owner 2026-10-24) — no look to pick; a Pro event's dress is the Logo & QR part's. */
+  camera: { label: 'Camera', source: 'tool', canvas: null, layouts: NONE },
   /* ✍ Its heading is typed in Studio › Info (owner 2026-10-15) — Edit's door goes there. */
   gallery: { label: 'Memories', source: 'info:photos_heading', canvas: 'w:our_photos', layouts: scene('gallery') },
   myphotos: { label: 'Photos of you', source: 'tool', canvas: 'f:photos_of_you', layouts: scene('photos_of_you') },

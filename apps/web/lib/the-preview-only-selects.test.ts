@@ -223,7 +223,7 @@ test('(5) the Camera has only Style: Edit, Background and Animate are grey on it
   const tools = read(`${L}/stage-tools.tsx`);
   assert.match(tools, /const editOn = picked !== null && shownTool === 'edit';/);
   assert.match(tools, /picked: open && !cameraOpen \? picked : null,/);
-  assert.match(tools, /\{open && cameraOpen && !editOn \? <CameraPartTools \/> : null\}/);
+  assert.match(tools, /\{open && cameraOpen && !editOn \? <CameraPartNote pro=\{maker\?\.lookPages\?\.camera\?\.pro \?\? false\} \/> : null\}/);
 });
 
 test('(3b) a page change never ends on nothing: the held part is replaced when it is not this page’s; a tab tap never lets go first', () => {

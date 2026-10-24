@@ -253,6 +253,8 @@ import { roleWordOfGuest, type EntourageGroup } from '@/lib/entourage';
 import { marchPlaceOf } from '@/lib/march-place';
 import { LIVE_WALL_UNREADABLE_LINE } from '@/lib/live-wall-read-state';
 import type { HubPartId } from '@/lib/hub-parts';
+import { cameraDressTintOfEvent } from '@/lib/camera-dress-of-event';
+import { EventMonogram } from '@/app/_components/event-monogram';
 
 /**
  * SiteBody — the ONE body tree for the guest event website
@@ -3643,6 +3645,7 @@ export async function SiteBody({
                   guestName={guest.first_name}
                   eventName={event.display_name}
                   eventId={event.event_id}
+                  uploadOwner={papicGuest.uploadOwner}
                   initialRemaining={papicGuest.initialRemaining}
                   total={papicGuest.total}
                   termsAccepted={papicGuest.termsAccepted}
@@ -3654,6 +3657,17 @@ export async function SiteBody({
                   sponsorShare={papicGuest.sponsorShare}
                   eventStyle={papicGuest.eventStyle}
                   faceMode={papicGuest.faceMode}
+                  photoMark={papicGuest.photoMark}
+                  dress={{
+                    pro: papicGuest.dressPro,
+                    tint: cameraDressTintOfEvent(papicGuest.dressPro, event),
+                    logo: papicGuest.dressPro ? (
+                      <EventMonogram
+                        event={{ ...event, display_name: event.display_name ?? null, monogram_text: event.monogram_text ?? null, monogram_color: event.monogram_color ?? null }}
+                        size="lg"
+                      />
+                    ) : null,
+                  }}
                 />
               ) : null, { chapters: true, className: 'space-y-12' })}
 

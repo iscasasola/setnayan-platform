@@ -83,6 +83,8 @@ export async function GET(
       .eq('event_id', eventId)
       .eq('photo_type', 'photo')
       .is('hidden_at', null)
+      // 🧼 Only what the safety screen passed is printed (relay 2026-10-23).
+      .eq('moderation_state', 'clean')
       .order('captured_at', { ascending: true })
       .limit(400),
     supabase
@@ -96,6 +98,7 @@ export async function GET(
       // (pre media_type migration 20270216612756) still match.
       .eq('media_type', 'photo')
       .is('hidden_at', null)
+      .eq('moderation_state', 'clean')
       .order('captured_at', { ascending: true })
       .limit(400),
     // Kwentos: the couple APPROVED these (their private book shows what they

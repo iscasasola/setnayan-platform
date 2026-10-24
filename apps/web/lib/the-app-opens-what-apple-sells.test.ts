@@ -26,6 +26,7 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { fixtureControl } from '@/lib/home-control-fixture';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { isStoreShellSignals, isStoreShellWebOnlyPath, storeShellHidesHref } from './store-shell';
@@ -34,7 +35,7 @@ import { boughtWhere, liveWatchHomeStatus } from './iap/where-bought';
 import { APP_STORE_CHANNEL_KEY } from './iap/products';
 import { POOL_ONLY_APP_NOTICE, POOL_ONLY_DEFAULT_NOTICE, poolOnlyConnectNotice } from './live-studio-pool-only';
 import { stripComments } from './strip-comments';
-import { glanceCount, glanceDays, glanceMoney, pickHomeNext, type HomeNextInput } from './home-first-screen';
+import { pickHomeNext, type HomeNextInput } from './home-first-screen';
 
 (globalThis as unknown as { React: unknown }).React = React;
 
@@ -213,11 +214,9 @@ function home(apple: unknown): string {
       eventId: E,
       cover: { eyebrow: 'Wedding · December 18, 2026', name: 'Ana & Miguel' },
       next: pickHomeNext(NOTHING),
-      days: glanceDays(120),
-      coming: glanceCount(96, true),
-      noReply: glanceCount(35, true),
-      noReplyWaiting: true,
-      money: null,
+      // The control row as the app draws it: the budget not shared here (as the old `money: null`), the Hub's link
+      // named without its web address (`readHomeHub` `app`).
+      control: fixtureControl(E, { next: pickHomeNext(NOTHING), budget: null, hub: { stage: 'rsvp', publicUrl: `https://setnayan.com/x`, where: 'Public', dayShort: 'Dec 18', guide: null } }),
       services: [],
       papicLeft: 320,
       apple,
@@ -251,7 +250,8 @@ test('2 · GATE ON — Papic opens its page; an owned Live Watch says where it w
   assert.match(goLive, /Go live/, 'no Go live door to the controller');
   assert.match(html, /On · bought in the app/);
   assert.match(html, /data-testid="iap-papic-buy-more"/, 'Papic keeps its Apple Buy more');
-  assert.doesNotMatch(html, /₱|GCash|BDO|setnayan\.com/i, 'a web price or web pay on Home in the app');
+  // What a person READS (an href is where a tap goes — the public Event Hub opens in the app's own browser sheet).
+  assert.doesNotMatch(html.replace(/href="[^"]*"/g, ''), /₱|GCash|BDO|setnayan\.com/i, 'a web price or web pay on Home in the app');
   // Not owned: Activate (Apple's sheet), never Go live.
   const notOwned = home({ papic: null, liveWatch: { status: 'Not on yet · one camera is free', owned: false, askReady: true, goLive: null } });
   assert.doesNotMatch(notOwned, />Go live</);

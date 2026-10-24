@@ -25,6 +25,8 @@ import { ActionButton } from '@/components/action-button';
 import type { GlanceLine, ServiceMood } from '@/lib/service-glance';
 import type { PapicCardPhase } from '@/lib/papic-home-card';
 import { PAPIC_NO_PHOTOS_TAIL } from '@/lib/papic-glance';
+import { OneOpenScope, useOneOpen } from '@/lib/one-open';
+import { ServiceTileFace, type HomeServiceTile } from './home-service-card';
 
 
 export function PapicHomeCard({
@@ -44,6 +46,7 @@ export function PapicHomeCard({
   marker,
   defaultOpen = false,
   headControl = null,
+  tile = null,
 }: {
   name: string;
   brand?: string;
@@ -71,8 +74,12 @@ export function PapicHomeCard({
    * inside it (a switch in a button is invalid HTML), placed over the head's right edge.
    */
   headControl?: ReactNode;
+  /** The phone's closed face on Home (below `md`) — spans both columns; a tap grows the card in place. */
+  tile?: HomeServiceTile | null;
 }) {
   const [open, setOpen] = useState(defaultOpen);
+  // 🔒 ONE OPEN AT A TIME on Home (owner-approved 2026-10-24): opening Papic closes the service open before.
+  const oneOpenId = useOneOpen(open, setOpen);
   // The empty frames say "Frames fill as your guests shoot" — the status line drops its own "No photos yet".
   const shownLine: GlanceLine = line.tail === PAPIC_NO_PHOTOS_TAIL ? { ...line, tail: '' } : line;
   const regionId = useId();
@@ -94,7 +101,17 @@ export function PapicHomeCard({
   }, []);
 
   return (
-    <div ref={root} className="col-span-full flex min-w-0 scroll-mt-20 flex-col" data-papic-home-card={open ? 'open' : 'rest'}>
+    <>
+    {tile && !open ? (
+      <div className="hc-svc-wrap hc-span md:hidden" data-home-service-tile="papic">
+        <button type="button" className="hc-tile hc-svc-tile" aria-expanded={false} aria-controls={regionId} onClick={() => setOpen(true)}>
+          <ServiceTileFace name={name} tile={tile} />
+        </button>
+        {tile.action ? <span className="hc-tiny-slot">{tile.action}</span> : null}
+      </div>
+    ) : null}
+    <div ref={root} className={`${tile && !open ? 'hidden md:flex' : 'flex'} col-span-full min-w-0 scroll-mt-20 flex-col md:col-span-1`} data-papic-home-card={open ? 'open' : 'rest'}>
+      <OneOpenScope id={oneOpenId}>
       <div className="sg-row relative" data-mood={mood} {...marker}>
         {/* The switch shows with the card OPEN (the approved sketch: closed › · open [switch] ⌄). Folded, it is not drawn. */}
         {headControl && open ? (
@@ -179,6 +196,8 @@ export function PapicHomeCard({
           </div>
         </div>
       </div>
+      </OneOpenScope>
     </div>
+    </>
   );
 }

@@ -29,6 +29,8 @@ import { stripComments } from '@/lib/strip-comments';
 import { buildCustomerNavGroups } from './customer-nav-config';
 import { buildCustomerMenuTree } from '@/lib/customer-menu';
 import { HomeCoverBand } from './home-cover-band';
+import { homeControlTiles } from './home-control-faces';
+import { fixtureControl } from '@/lib/home-control-fixture';
 
 // The components are compiled with the classic JSX runtime under tsx.
 (globalThis as unknown as { React: unknown }).React = React;
@@ -38,7 +40,7 @@ const code = (f: string) => stripComments(readFileSync(join(HERE, f), 'utf8'));
 
 const RAIL = 'event-rail-context.tsx';
 /** Every file that draws the event's Home or its rail. */
-const HOME_AND_RAIL = [RAIL, 'home-first-screen.tsx', 'home-cover-band.tsx', 'home-loading-cover.tsx', '../layout.tsx'];
+const HOME_AND_RAIL = [RAIL, 'home-first-screen.tsx', 'home-cover-band.tsx', 'home-loading-cover.tsx', 'home-control-faces.ts', 'home-control-row.tsx', 'home-tile.tsx', '../layout.tsx'];
 
 /** `/dashboard/<id>/details` exactly — not a sub-page such as `/details/change`. */
 const DETAILS_HREF = /\/details(?:[`'"?#]|$)/;
@@ -69,20 +71,16 @@ test('1 · the rail draws no door to Event Details, and no row it could light fo
   assert.deepEqual(drawnDetails.map((i) => i.key), [], 'a drawn rail row opens Event Details');
 });
 
-test('2 · the Home cover renders exactly one door to Event Details — ⚙ Settings (owner 23 Oct 2026)', () => {
-  const html = renderToStaticMarkup(
-    React.createElement(HomeCoverBand, {
-      eventId: 'EVT123',
-      cover: { name: 'Cale & Ice', eyebrow: 'Wedding · 14 Feb 2027' },
-    }),
-  );
-  const anchors = [...html.matchAll(/<a\b[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/g)];
-  assert.ok(anchors.length > 0, 'the cover band rendered no link at all');
-  const doors = anchors.filter((a) => a[1] === '/dashboard/EVT123/details').map((a) => a[2] ?? '');
-  assert.equal(doors.length, 1, `the cover band renders ${doors.length} doors to Event Details (want exactly 1)`);
-  // The header image's one button says "Settings" (owner 2026-10-23, prototypes/event_bar_memories_tab_2026-10-23.html:
-  // "the header image carries one 'Settings' button (the Event Details door)") — still the ONE door to /details.
-  assert.match((doors[0] ?? '').replace(/<[^>]+>/g, ''), /^\s*Settings\s*$/, 'the one door no longer says "Settings"');
+test('2 · Home has exactly one door to Event Details — the Countdown widget (owner-approved 2026-10-24)', () => {
+  // The cover's ⚙ Settings pill (23 Oct) opened the same page as the Countdown — two doors to one page. The approved
+  // control center (`home_control_center_2026-10-24_fable.html`) draws the cover without it: the Countdown is the door.
+  const html = renderToStaticMarkup(React.createElement(HomeCoverBand, { cover: { name: 'Cale & Ice', eyebrow: 'Wedding · 14 Feb 2027' } }));
+  assert.equal([...html.matchAll(/<a\b/g)].length, 0, 'the cover band draws a door again — a second door to Event Details');
+  const { tiles } = homeControlTiles(fixtureControl('EVT123'));
+  const toDetails = tiles.filter((t) => [t.door, ...t.faces.flatMap((f) => [f.href, f.action?.href ?? ''])].some((h) => DETAILS_HREF.test(h)));
+  assert.deepEqual(toDetails.map((t) => t.key), ['count'], 'a widget other than the Countdown opens Event Details');
+  const row = code('home-control-row.tsx');
+  assert.match(row, /<Shell k="count" door=\{`\/dashboard\/\$\{e\}\/details`\}/, 'the Countdown card is not the door to Event Details');
 });
 
 test('3 · nothing on the Home or the rail says "Event settings" any more', () => {

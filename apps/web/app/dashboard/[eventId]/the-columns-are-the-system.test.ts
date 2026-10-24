@@ -26,8 +26,10 @@ const read = (rel: string) => stripComments(readFileSync(join(HERE, rel), 'utf8'
 const READING = { tw: 'max-w-3xl', css: '48rem' };
 const WIDE = { tw: 'max-w-5xl', css: '64rem' };
 
-test('Home — its phone column, and no cap from lg (owner 2026-10-23)', () => {
-  assert.match(read('_components/home-first-screen.tsx'), /data-home-column className="[^"]*\bmax-w-xl\b[^"]*\blg:max-w-none\b/);
+test('Home — its phone column, and no cap from md (owner 2026-10-23; moved down to md 2026-10-24)', () => {
+  // The control center's detail version starts at 768 (`md`) — "the builder moves that split down to md so the tablet
+  // gets the detail in two columns" (home_control_center_2026-10-24_fable.html).
+  assert.match(read('_components/home-first-screen.tsx'), /data-home-column className="[^"]*\bmax-w-xl\b[^"]*\bmd:max-w-none\b/);
 });
 
 test('Guests List and Setup read; the Map is the wide stage', () => {

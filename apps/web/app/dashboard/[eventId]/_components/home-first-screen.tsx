@@ -9,19 +9,15 @@ import { HomePlannerCard } from './home-cards/home-planner-card';
 import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
 import type { PapicCardPhase } from '@/lib/papic-home-card';
 
-import { ArrowRight, BookOpen, Camera, CalendarDays, Check, ChevronDown, Clapperboard, Gem, ListChecks, Mail, Music, Plus, QrCode, Radio, Sparkles, UserPlus, type LucideIcon } from 'lucide-react';
-import { NextCard } from '@/app/_components/next-card';
-import { ActionButton, type ActionTone } from '@/components/action-button';
-import { Count, Fill } from '@/components/count';
-import { dayPapicView, type DayPapicFace, type HomeNext, type HomeNextKind, type HomeService, type HomeServiceKey, type PaidRow, type PapicRowDoors } from '@/lib/home-first-screen';
-import type { HomeFigures } from '@/lib/home-facts';
+import { ArrowRight, BookOpen, Camera, ChevronDown, Clapperboard, Gem, Music, Plus, QrCode, Radio, Sparkles, type LucideIcon } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { dayPapicView, type DayPapicFace, type HomeNext, type HomeService, type HomeServiceKey, type PaidRow, type PapicRowDoors } from '@/lib/home-first-screen';
 import type { HomeCover } from '@/lib/home-cover';
 import type { HomeCoverWords } from '@/lib/home-cover-words';
-import type { NavSlotLite } from '@/lib/nav-registry-types';
-import { completeTour } from '@/lib/tour-actions';
-import { HUB_SETUP_OFFER_TOUR } from '@/lib/tours';
-import { HomeLater, HomeNextFold, HomeReload, HomeWhatsNext } from './home-parts';
+import { HomeToday, HomeTodayFold } from './home-parts';
 import { HomeCoverBand } from './home-cover-band';
+import { HomeControlRow } from './home-control-row';
+import { homeToday, type HomeControlInput } from './home-control-faces';
 import { PapicBuySheet } from '../studio/papic/_components/papic-buy-sheet';
 import { IapPapicSheet } from '@/app/_components/iap/iap-papic-sheet';
 import { IapLiveWatchSheet } from '@/app/_components/iap/iap-live-watch-sheet';
@@ -29,6 +25,7 @@ import { SERVICE_NAMES } from '@/lib/service-names';
 import { PapicSeePhotos } from '../studio/papic/_components/papic-see-photos';
 import { ServiceGlanceRow } from '@/app/_components/service-glance';
 import { seePhotosWord } from '@/lib/papic-glance';
+import { formatCount } from '@/lib/format-number';
 import type { PoolRung } from '@/lib/papic-pool-rungs';
 import { SWITCH_ON_LABEL, type SwitchOnNeed } from '@/lib/event-needs';
 import { switchOnNeed } from '../switch-on-actions';
@@ -45,27 +42,7 @@ export type PapicCardInput = {
   headControl?: ReactNode;
 };
 
-/**
- * Where each Next card goes. Written as `href:` literals ON PURPOSE: the
- * port-controls scan (`scripts/port-controls.mjs` HREF_RE) only sees an
- * `href`/`href:` followed by a literal, so a `switch` returning strings made
- * the guided flow's door read as "lost".
- */
-function nextHref(kind: HomeNextKind, eventId: string): string {
-  const doors: ReadonlyArray<{ kind: HomeNextKind; href: string }> = [
-    { kind: 'guide', href: `/dashboard/${eventId}/launch?tool=details&guide=1` },
-    { kind: 'date', href: `/dashboard/${eventId}/date-selection` },
-    { kind: 'unread', href: `/dashboard/${eventId}` },
-    { kind: 'guests', href: `/dashboard/${eventId}/guests` },
-    { kind: 'invite', href: `/dashboard/${eventId}/guests/send` },
-    { kind: 'papic', href: `/dashboard/${eventId}/studio/papic` },
-    { kind: 'ai', href: `/dashboard/${eventId}/studio/setnayan-ai` },
-    { kind: 'plan', href: `/dashboard/${eventId}/checklist` },
-  ];
-  return doors.find((d) => d.kind === kind)?.href ?? `/dashboard/${eventId}/checklist`;
-}
-
-/** Where each service in the "Your services" row goes — `href:` literals, for the same scan. */
+/** Where each service in the "Your services" row goes — `href:` literals, for the port-controls scan. */
 function serviceHref(key: HomeServiceKey, eventId: string): string {
   const doors: ReadonlyArray<{ key: HomeServiceKey; href: string }> = [
     { key: 'papic', href: `/dashboard/${eventId}/studio/papic` },
@@ -74,50 +51,6 @@ function serviceHref(key: HomeServiceKey, eventId: string): string {
   ];
   return doors.find((d) => d.key === key)?.href ?? `/dashboard/${eventId}`;
 }
-
-/**
- * 📱 THE HOME'S FIRST SCREEN — owner-APPROVED 2026-10-01 ("THE SIMPLE PHONE APP
- * — APPROVED", frame 1 "Home"). A server component, and deliberately nothing
- * else: every figure arrives already read and already worded
- * (`lib/home-first-screen.ts`), so this file adds no client weight and no read.
- *
- *   ONE Next card (one button) → the Event Hub door (always) → days to go ·
- *   coming · no reply → Paid / Still owing → Your services (Papic · Setnayan
- *   AI, owner 2026-10-01; a Muslim wedding adds its Nikah essentials line); the one
- *   "What's next" row (a sheet: decisions, then Coming up) sits above the services.
- *
- * 🔒 THIS IS THE WHOLE HOME (owner 2026-10-02, DECISION_LOG "HOME IS THE FIRST
- * SCREEN ONLY"): there is no "rest of Home" under it, no "See all" and no
- * second, wider section. Phone and tablet draw the same single column; from
- * `lg` up it fills the body (`lg:max-w-none`, owner 2026-10-23) and splits in two
- * (globals.css "HOME AT FULL WIDTH, TWO COLUMNS").
- *
- * ⚠ `money === null` means the viewer may not see the budget (a delegate
- * without budget access): the line is ABSENT, not "—". A money read that
- * failed arrives as the string "—" and is drawn.
- */
-/**
- * 🔘 Each Next kind's main button — icon + word, toned by meaning (BUTTON_RULE,
- * owner 2026-10-07): sending an invitation is messaging (info); the forward
- * steps are brand; the checklist is a confirm (ok); Reload is neutral.
- */
-/*
-  🛑 A SERVER COMPONENT HANDS `ActionButton` (a client component) AN ELEMENT, NEVER A
-  COMPONENT. `icon={Info}` passes a function across the RSC boundary — "Functions cannot
-  be passed directly to Client Components" — and the whole Home render fails (preview
-  2026-10-07: the page fell back to its last-seen snapshot). Always `icon={<Info … />}`.
-  Held by `home-hands-the-client-no-functions.test.ts`.
-*/
-const NEXT_BUTTON: Record<HomeNextKind, { icon: LucideIcon; tone: ActionTone }> = {
-  guide: { icon: Sparkles, tone: 'brand' },
-  date: { icon: CalendarDays, tone: 'brand' },
-  unread: { icon: Check, tone: 'neutral' },
-  guests: { icon: UserPlus, tone: 'brand' },
-  invite: { icon: Mail, tone: 'info' },
-  papic: { icon: Camera, tone: 'brand' },
-  ai: { icon: Sparkles, tone: 'brand' },
-  plan: { icon: ListChecks, tone: 'ok' },
-};
 
 /* The menu's own glyphs for each service (`lib/customer-menu.ts` EVENT_MENU_ICONS); ◆ Pro wears the gem. */
 const SERVICE_ICON: Record<HomeServiceKey, LucideIcon> = {
@@ -131,52 +64,40 @@ const SERVICE_ICON: Record<HomeServiceKey, LucideIcon> = {
 };
 
 /**
- * 📱 THE HOME'S FIRST SCREEN — owner-APPROVED 2026-10-01 ("THE SIMPLE PHONE APP
- * — APPROVED", frame 1 "Home"), REDRAWN 2026-10-07 to
- * `prototypes/home_and_guests_2026-10-07_fable.html?frame=1&page=home`
- * (`HOME_AND_GUESTS_CHECK_2026-10-07_fable.md` H1–H8, Maker PR 4e). The data,
- * the reads and the order are the ones that shipped; the skin and the controls
- * are the prototype's.
+ * 🎛 THE HOME — A CONTROL CENTER FOR THE WHOLE EVENT (owner-approved 2026-10-24, "ok":
+ * `Setnayan/prototypes/home_control_center_2026-10-24_fable.html`, corpus 10067d39). Owner: *"our home page handles the
+ * full overview and quick access to the different parts of the event. It is basically a control center for the whole
+ * event."* Top to bottom, read as the event in time:
  *
- *   cover (ⓘ Event Details) → ONE Next card (its main verb + 📅 Later) → the
- *   three doorway buttons (Guest list · Suppliers · Event Hub, the bottom bar's
- *   own icons) → days to go · coming · no reply → Paid / Still owing + the paid
- *   meter (opens the budget in Suppliers) → What's next (unfolds in place) →
- *   Your services.
+ *   the cover → TODAY (one line, the shipped picker's one thing to do — a pointer, not a door)
+ *   → ① Countdown · ② Guests · ③ Event Hub · ④ Suppliers · ⑤ Budget · ⑥ Checklist      — THE UPPER PARTS OPEN THEIR PAGE
+ *   → Your services (Papic · Setnayan AI · Live stream · Music · Video booth)             — THE LOWER PARTS GROW IN PLACE
  *
- * 🔘 Every control is a button with icon + word (`ActionButton`); every number
- * counts (`Count`) and the meter grows (`Fill`) — on load and on change.
- * 🔴 A failed read never reads as success (H3): an unread guest list is said on
- * the Next card and on the numbers with ⟳ Reload; an unread money read is said
- * on the money tile (never hidden like "not shared", never ₱0).
+ * One widget per page, and no page appears twice. REMOVED (owner): the "Your next step" card (its verb now sits on the
+ * widget it is about, the Today line names it), the aggregate "What's next" (it became the Checklist widget — the plan
+ * only), the separate coming / no-reply tiles (merged into Guests), the cover's Settings pill (the Countdown is Event
+ * Details' one door). The Event Hub rose out of Your services into the control row.
  *
- * 🔒 THIS IS THE WHOLE HOME (owner 2026-10-02, DECISION_LOG "HOME IS THE FIRST
- * SCREEN ONLY"). Phone and tablet draw the same single column; from `lg` up it
- * fills the body and splits in two (`lg:max-w-none`, owner 2026-10-23).
+ * 📱 COMPACT ON THE PHONE, DETAIL FROM `md` (owner: *"we also want the compact version"* → no toggle): below 768 px a
+ * 2-column grid of small tiles whose faces rotate; from 768 px the same widgets as cards in two columns. The column
+ * fills the body from `md` up (`md:max-w-none` — moved down from `lg` so the tablet gets the two columns).
  *
- * ⚠ `money === null` means the viewer may not see the budget (a delegate
- * without budget access): the tile is ABSENT. A money read that failed is SAID.
+ * 🔴 A failed read always says so on its widget, with ⟳ Reload — never 0, never ₱0 (`home-control-faces.ts`).
+ *
+ * ⚠ `control.budget === null` means the viewer may not see the budget (a delegate without budget access): the widget
+ * is ABSENT, not "—". A money read that failed arrives as 'unread' and is SAID.
  */
 export type HomeFirstScreenProps = {
   eventId: string;
   cover: HomeCoverWords;
+  /** The shipped picker's ONE thing to do (`pickHomeNext`) — the Today line names it. */
   next: HomeNext;
-  days: { value: string; label: string };
-  coming: string;
-  noReply: string;
-  /** True when the no-reply figure is a measured number above zero. */
-  noReplyWaiting: boolean;
-  money: { paid: string; owing: string } | null;
-  /** 🔢 The same facts as numbers, for `Count` / `Fill` (`homeFacts().figures`). */
-  figures?: HomeFigures;
-  /** Papic · Setnayan AI with their status — already filtered (store shell, the Next card). */
+  /** 🎛 Every upper widget's facts, already read (`home-control-faces.ts` words them). */
+  control: HomeControlInput;
+  /** Papic · Setnayan AI · … with their status — already filtered (store shell). */
   services: HomeService[];
   /** 🖼 The Event Hub's main background under the name (`lib/home-cover.ts`); null = today's colour. */
   ground?: HomeCover | null;
-  /** 🧭 The bottom bar's registry slots — read by nothing since the door row went (owner 2026-10-23); kept so callers stand. */
-  navSlots?: Record<string, NavSlotLite> | null;
-  /** 📋 What's next — the decisions, unfolding in place (`EventDashboard only="whatsnext"`). */
-  whatsNext?: ReactNode;
   /** 🎨 Papic's credits left, for the Buy more sheet's "You have N" and "After this". */
   papicLeft?: number | null;
   /** The credit ladder, ONLY when a dev lab already holds it — Home reads it on the tap. */
@@ -190,10 +111,9 @@ export type HomeFirstScreenProps = {
   /** 🧩 Every service as a card that grows in place (the couple's, on the web) — `YourServices` `cards`. */
   serviceCards?: boolean;
   /**
-   * 🚪 WHAT THIS EVENT NEEDS (owner 2026-10-08, Level 1 — `lib/event-needs.ts`). Absent = every need on
-   * (yesterday's Home, byte-identical). A need that is off is ABSENT, never greyed: no guest list → no
-   * Guests door, no coming / no-reply tiles, and the One QR card in their place; no suppliers → no
-   * Suppliers door, no money. `switchOn` = the needs that are off, for the ONE "Switch on more" row.
+   * 🚪 WHAT THIS EVENT NEEDS (owner 2026-10-08, Level 1 — `lib/event-needs.ts`). Absent = every need on. A need that is
+   * off is ABSENT, never greyed: no guest list → no Guests widget and the One QR card in its place; no suppliers → no
+   * Suppliers and no Budget. `switchOn` = the needs that are off, for the ONE "Switch on more" row.
    */
   needs?: { guestList: boolean; suppliers: boolean; hubDetails: boolean; switchOn: SwitchOnNeed[] } | null;
   /**
@@ -214,25 +134,13 @@ export type HomeFirstScreenProps = {
   } | null;
 };
 
-
-/** A number the Home counts, or its word ("—", "Today") when it is not a number. */
-function Figure({ n, word, id }: { n: number | null | undefined; word: string; id: string }) {
-  return typeof n === 'number' ? <Count value={n} id={id} /> : <>{word}</>;
-}
-
 export function HomeFirstScreen({
   eventId,
   cover,
   next,
-  days,
-  coming,
-  noReply,
-  noReplyWaiting,
-  money,
-  figures,
+  control,
   services,
   ground = null,
-  whatsNext,
   papicLeft = null,
   papicSizes = null,
   papicCard = null,
@@ -241,191 +149,74 @@ export function HomeFirstScreen({
   apple = null,
 }: HomeFirstScreenProps) {
   const noList = needs?.guestList === false;
-  const noSuppliers = needs?.suppliers === false;
-  const guestsUnread = figures ? figures.coming === null : coming === '—';
-  const moneyUnread = figures ? figures.money === 'unread' : money !== null && money.paid === '—';
-  const m = figures && figures.money && figures.money !== 'unread' ? figures.money : null;
-  const paidPct = m && m.paid + m.owing > 0 ? Math.round((m.paid / (m.paid + m.owing)) * 100) : null;
-  const nb = NEXT_BUTTON[next.kind];
-  const nextMain =
-    next.kind === 'unread' ? (
-      <HomeReload main />
-    ) : next.kind === 'papic' && (next.papicMoment === 'stopped' || next.papicMoment === 'low-today') ? (
-      /* 🎨 The card's Buy more opens the same sheet as the row (owner 2026-10-14). */
-      <PapicBuySheet eventId={eventId} left={papicLeft} tone="brand" main sizes={papicSizes} />
-    ) : (
-      <ActionButton tone={nb.tone} main icon={<nb.icon aria-hidden="true" strokeWidth={1.9} />} label={next.action} href={nextHref(next.kind, eventId)} tour="home-next" />
-    );
+  const today = homeToday(next, control.guests);
   return (
-    <section
-      data-home-first-screen
-      aria-label="Home"
-      className="flex w-full flex-col gap-3"
-    >
-      {/* 📋 EVENT DETAILS sits beside the name, on the cover (owner 2026-10-01,
-          "EVENT DETAILS LIVES ON EVENT HOME") — the one information-only sheet. */}
-      {/* 🖼 …and it wears the Event Hub's main background (owner 2026-10-07, #6394), the
-          words in the hub's own measured ink over its veil (`lib/home-cover.ts`). */}
-      <HomeCoverBand eventId={eventId} cover={cover} ground={ground} />
+    <section data-home-first-screen aria-label="Home" className="flex w-full flex-col gap-3">
+      {/* 🖼 The cover wears the Event Hub's main background (owner 2026-10-07, #6394), the words in the hub's own
+          measured ink over its veil (`lib/home-cover.ts`). */}
+      <HomeCoverBand cover={cover} ground={ground} />
 
-      <div data-home-column className="mx-auto flex w-full max-w-xl flex-col gap-3 lg:max-w-none">
+      {/* 📅 "Later" beside the verb folds the Today line for today, on this device (owner 2026-10-23). */}
+      <HomeTodayFold eventId={eventId} kind={next.kind}>
+        <div data-home-column className="mx-auto flex w-full max-w-xl flex-col gap-3 md:max-w-none">
+          {/* ☀ TODAY — one line, on top: the shipped picker's ONE thing (`pickHomeNext`), and where it lives. */}
+          <HomeToday target={today.target} words={today.words} tail={today.tail} calm={today.calm} />
 
-        {/* ① THE ONE NEXT CARD — the shared `NextCard`, drawn with the button rule's row:
-            the main verb (+ 📅 Later). An unread guest list is SAID here, with ⟳ Reload (H3). */}
-        {/* 📅 "Later" folds the card to "Back tomorrow · Undo" (owner 2026-10-23) — `HomeNextFold` owns the fold. */}
-        <HomeNextFold eventId={eventId} kind={next.kind}>
-          <NextCard
-            marker="data-home-next"
-            kind={next.kind}
-            title={next.title}
-            body={next.body}
-            action={next.action}
-            href={nextHref(next.kind, eventId)}
-            bad={next.kind === 'unread'}
-            actions={
-              <>
-                {nextMain}
-                {next.offer ? (
-                  /* 🧭 The once-offer's Later answers it — the shipped tour action, no new one. */
-                  <form action={completeTour.bind(null, HUB_SETUP_OFFER_TOUR)} className="contents">
-                    <ActionButton type="submit" tone="neutral" icon={<CalendarDays aria-hidden="true" strokeWidth={1.9} />} label="Later" data-testid="home-next-later" />
-                  </form>
-                ) : next.kind !== 'unread' ? (
-                  <HomeLater />
-                ) : null}
-              </>
-            }
-          />
-        </HomeNextFold>
-
-        {/* ② THE THREE DOORS ARE GONE (owner 2026-10-23: "remove Home's three pills (Guests · Suppliers · Event Hub)") —
-            the event bar already carries all three, one tap away; Home leads with the Next card and the widgets. */}
-
-        {/* 🚪 ONE QR FOR EVERYONE — where an event has no guest list, the QR IS the way in
-            (owner 2026-10-08; prototype frame 2, its words). Opens the event's QR page. */}
-        {noList ? (
-          <Link href={`/dashboard/${eventId}/event-qr`} className="home-card flex items-center gap-3" data-home-one-qr="">
-            <QrCode aria-hidden className="h-12 w-12 shrink-0 text-ink" strokeWidth={1.5} />
-            <span className="min-w-0">
-              <span className="block font-semibold">One QR for everyone</span>
-              <span className="home-s block">Anyone with the link gets in. Share it, print it, stick it on the door.</span>
-            </span>
-          </Link>
-        ) : null}
-
-        {/* ③ THREE NUMBERS — counted (`Count`); "—" when unread, never 0. */}
-        <div className="home-nums" data-home-numbers>
-          <Link href={`/dashboard/${eventId}/details`} className={`home-tile${noList ? ' col-span-3' : ''}`} data-home-days="">
-            <div className={`home-v${typeof figures?.days === 'number' || /^[\d,—]+$/.test(days.value) ? '' : ' home-v-word'}`}>
-              <Figure n={figures?.days} word={days.value} id="home-days" />
-            </div>
-            <div className="home-k">{days.label}</div>
-          </Link>
-          {noList ? null : guestsUnread ? (
-            <div className="home-tile home-tile-bad col-span-2" data-home-guests-unread="">
-              <div className="text-[14.5px] font-semibold leading-snug" style={{ color: 'rgb(var(--color-danger))' }}>
-                Guest counts couldn&rsquo;t load
-              </div>
-              <div className="home-s mb-1.5">Not zero — unread.</div>
-              <HomeReload />
-            </div>
-          ) : (
-            <>
-              <Link href={`/dashboard/${eventId}/guests?q=coming`} className="home-tile" data-home-tile="coming">
-                <div className="home-v">
-                  <Figure n={figures?.coming} word={coming} id="home-coming" />
-                </div>
-                <div className="home-k">coming</div>
-              </Link>
-              <Link href={`/dashboard/${eventId}/guests?q=no+reply`} className="home-tile" data-home-tile="no-reply">
-                {/* Plain ink, as the prototype draws it — the count speaks; no alarm colour. */}
-                <div className="home-v" data-waiting={noReplyWaiting ? '' : undefined}>
-                  <Figure n={figures?.noReply} word={noReply} id="home-noreply" />
-                </div>
-                <div className="home-k">no reply</div>
-              </Link>
-            </>
-          )}
-        </div>
-
-        {/* ④ THE MONEY — opens the budget, which lives in Suppliers now (owner 2026-10-07, H6).
-            Absent only when not shared; an unread read is SAID (H3). */}
-        {money && !noSuppliers ? (
-          moneyUnread ? (
-            <div className="home-card home-card-bad" data-home-money="" data-money="">
-              <div className="font-semibold" style={{ color: 'rgb(var(--color-danger))' }}>
-                Money couldn&rsquo;t load
-              </div>
-              <div className="home-s mb-1.5">Paid and still owing are unread — not zero.</div>
-              <HomeReload />
-            </div>
-          ) : (
-            <Link
-              href={`/dashboard/${eventId}/vendors?part=budget`}
-              data-home-money
-              /* 💾 Money is never kept as last-seen data (lib/last-seen). */
-              data-money=""
-              className="home-card block"
-            >
-              <div className="home-money">
-                <div>
-                  <div className="home-k">Paid</div>
-                  <div className="home-v">{m ? <Count value={m.paid} format="peso" id="home-paid" /> : money.paid}</div>
-                </div>
-                <div className="text-right">
-                  <div className="home-k">Still owing</div>
-                  <div className="home-v">{m ? <Count value={m.owing} format="peso" id="home-owing" /> : money.owing}</div>
-                </div>
-              </div>
-              <div className="home-meter">
-                <Fill value={paidPct ?? 0} id="home-paid" />
-              </div>
-              <div className="home-s mt-1.5 text-[12.5px]">
-                {paidPct !== null ? (
-                  <>
-                    <Count value={paidPct} format="pct" id="home-paid-pct" /> paid ·{' '}
-                  </>
-                ) : null}
-                Budget ›
-              </div>
-            </Link>
-          )
-        ) : null}
-
-        {/* ⑤ WHAT'S NEXT — the one row; it unfolds in place (H7), no sheet. */}
-        {whatsNext ?? <HomeWhatsNext open={null} rows={[]} checklist={{ href: `/dashboard/${eventId}/checklist`, pct: null }} />}
-
-        {/* ⑥ YOUR SERVICES — compact, one line each; never the one that is Next. */}
-        <YourServices eventId={eventId} services={services} apple={apple} papicLeft={papicLeft} papicSizes={papicSizes} papicCard={papicCard} cards={serviceCards} />
-
-        {/* 🚪 SWITCH ON MORE — the ONE row that keeps what this event left off (owner 2026-10-08:
-            "the rest stays off but can be switched on later from Home's quick setup"). It unfolds in
-            place; each switch writes its need and lands on the shipped setup for it. */}
-        {needs && needs.switchOn.length > 0 ? (
-          <details className="home-card group" data-home-switch-on="">
-            <summary className="flex cursor-pointer list-none items-center gap-2">
-              <span className="min-w-0 flex-1">
-                <span className="block font-semibold">Switch on more</span>
-                <span className="home-s block">{needs.switchOn.map((k) => SWITCH_ON_LABEL[k]).join(' · ')}</span>
+          {/* 🚪 ONE QR FOR EVERYONE — where an event has no guest list, the QR IS the way in
+              (owner 2026-10-08; prototype frame 2, its words). Opens the event's QR page. */}
+          {noList ? (
+            <Link href={`/dashboard/${eventId}/event-qr`} className="home-card flex items-center gap-3" data-home-one-qr="">
+              <QrCode aria-hidden className="h-12 w-12 shrink-0 text-ink" strokeWidth={1.5} />
+              <span className="min-w-0">
+                <span className="block font-semibold">One QR for everyone</span>
+                <span className="home-s block">Anyone with the link gets in. Share it, print it, stick it on the door.</span>
               </span>
-              <ChevronDown aria-hidden className="h-5 w-5 shrink-0 text-ink/50 transition-transform group-open:rotate-180" strokeWidth={1.9} />
-            </summary>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {needs.switchOn.map((k) => (
-                <form key={k} action={switchOnNeed.bind(null, eventId, k)} className="contents">
-                  <ActionButton
-                    type="submit"
-                    tone="neutral"
-                    icon={<Plus aria-hidden="true" strokeWidth={1.9} />}
-                    label={SWITCH_ON_LABEL[k]}
-                    data-testid={`home-switch-on-${k}`}
-                  />
-                </form>
-              ))}
-            </div>
-          </details>
-        ) : null}
-      </div>
+            </Link>
+          ) : null}
+
+          {/* 🎛 THE CONTROL ROW — Countdown · Guests · Event Hub · Suppliers · Budget · Checklist; each opens its ONE page. */}
+          <HomeControlRow input={control} />
+
+          {/* YOUR SERVICES — each grows in place with its quick controls; the Event Hub rose into the control row. */}
+          <YourServices
+            eventId={eventId}
+            services={services.filter((s) => s.key !== 'hub')}
+            apple={apple}
+            papicLeft={papicLeft}
+            papicSizes={papicSizes}
+            papicCard={papicCard}
+            cards={serviceCards}
+          />
+
+          {/* 🚪 SWITCH ON MORE — the ONE row that keeps what this event left off (owner 2026-10-08:
+              "the rest stays off but can be switched on later from Home's quick setup"). It unfolds in
+              place; each switch writes its need and lands on the shipped setup for it. */}
+          {needs && needs.switchOn.length > 0 ? (
+            <details className="home-card group" data-home-switch-on="">
+              <summary className="flex cursor-pointer list-none items-center gap-2">
+                <span className="min-w-0 flex-1">
+                  <span className="block font-semibold">Switch on more</span>
+                  <span className="home-s block">{needs.switchOn.map((k) => SWITCH_ON_LABEL[k]).join(' · ')}</span>
+                </span>
+                <ChevronDown aria-hidden className="h-5 w-5 shrink-0 text-ink/50 transition-transform group-open:rotate-180" strokeWidth={1.9} />
+              </summary>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {needs.switchOn.map((k) => (
+                  <form key={k} action={switchOnNeed.bind(null, eventId, k)} className="contents">
+                    <ActionButton
+                      type="submit"
+                      tone="neutral"
+                      icon={<Plus aria-hidden="true" strokeWidth={1.9} />}
+                      label={SWITCH_ON_LABEL[k]}
+                      data-testid={`home-switch-on-${k}`}
+                    />
+                  </form>
+                ))}
+              </div>
+            </details>
+          ) : null}
+        </div>
+      </HomeTodayFold>
     </section>
   );
 }
@@ -566,9 +357,8 @@ export function YourServices({
  * 🎨 PAPIC'S ROW — the service glance at Home size (owner "approve all",
  * 2026-10-14; prototype `renderHome()`): name · the status line with its dot ·
  * the meter · Buy more (the sheet) · See N photos (opens the event's Memories tab, 2026-10-23).
- * The row's words and its "Buy more" are already trimmed by NEVER TWICE when
- * Papic holds the Next card — and only while that card is on screen (`papicRowDoubled`,
- * `[data-while-next]`): a "Later" brings the row's own Buy more straight back (walk-b6 F1).
+ * (NEVER TWICE retired with the Next card, owner-approved 2026-10-24: the Today line only points, so the plan Home sets
+ * no `whileNext` and Buy more always shows; the lab still draws the old mark.)
  */
 function PapicServiceRow({
   eventId,
@@ -625,6 +415,16 @@ function PapicServiceRow({
         settings={card.settings}
         headControl={card.headControl ?? null}
         marker={{ 'data-home-service': 'papic' }}
+        /* 📱 The phone's closed face (owner-approved 2026-10-24): credits left · the coverage · Add more. */
+        tile={{
+          label: svc.brand,
+          big: typeof doors.glance.count === 'number' ? formatCount(doors.glance.count) : '—',
+          unit: 'credits left',
+          sm: card.coverage ?? '',
+          meter: typeof doors.glance.count === 'number' ? doors.glance.pct : null,
+          span: true,
+          action: doors.buy ? <PapicBuySheet eventId={eventId} left={left} tone="brand" sizes={sizes} label="Add more" /> : null,
+        }}
       />
     );
   }

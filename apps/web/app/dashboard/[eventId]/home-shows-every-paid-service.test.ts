@@ -38,9 +38,6 @@ import {
   HOME_PAID_SKU,
   homePaidState,
   homeServices,
-  glanceCount,
-  glanceDays,
-  glanceMoney,
   pickHomeNext,
   type HomePaidState,
   type HomeSkuKey,
@@ -49,6 +46,7 @@ import {
 import { homePaidFacts, type HomeSkuRead } from '@/lib/home-paid-services';
 import { NEED_PRESETS, needOn, needRows, needsForPreset, switchOnRows } from '@/lib/event-needs';
 import type { HomeFirstScreenProps } from './_components/home-first-screen';
+import { fixtureControl } from '@/lib/home-control-fixture';
 
 (globalThis as unknown as { React: unknown }).React = React;
 type CjsModuleCtor = {
@@ -185,7 +183,8 @@ test('3 · what an event leaves off never hides a paid service, and keeps its Sw
     const html = draw({ needs: { ...n, switchOn: off } });
     if (off.length > 0) assert.equal(html.split('data-home-switch-on').length - 1, 1, `${p}: what is off must keep its ONE Switch on more row`);
     assert.equal(html.split('data-home-paid=').length - 1, 4, `${p}: a need preset hid a paid row`);
-    assert.match(html, /data-home-service="hub"/, `${p}: a need preset hid the Event Hub`);
+    // The Event Hub rose out of Your services into the control row (owner-approved 2026-10-24).
+    assert.match(html, /data-home-tile="hub"/, `${p}: a need preset hid the Event Hub`);
   }
   // homeServices takes no needs at all — nothing the onboarding left off can reach these rows.
   const fn = src('lib/home-first-screen.ts');
@@ -220,11 +219,7 @@ function draw(over: Partial<HomeFirstScreenProps> = {}, paid = ALL_ON, storeShel
     eventId: E,
     cover: { eyebrow: 'Wedding · December 18, 2026', name: 'Cale & Ice' },
     next: pickHomeNext(NOTHING),
-    days: glanceDays(59),
-    coming: glanceCount(96, true),
-    noReply: glanceCount(35, true),
-    noReplyWaiting: true,
-    money: { paid: glanceMoney(1000), owing: glanceMoney(500) },
+    control: fixtureControl(E, { next: pickHomeNext(NOTHING) }),
     services: homeServices({ next: 'plan', storeShell, papic: 'On · 12 photos', ai: 'Try it', eventId: E, paid }),
     ...over,
   };
@@ -234,19 +229,25 @@ const tagOf = (html: string, key: string) => html.match(new RegExp(`<div[^>]*dat
 
 test('4 · an event that owns everything (cale-ice: an internal host) draws all six, each with its state', () => {
   const html = draw();
-  for (const key of ['papic', ...SKU_KEYS]) assert.match(html, new RegExp(`data-home-service="${key}"`), `${key} missing`);
-  assert.equal(html.split('data-home-paid="owned"').length - 1, 4, 'four owned rows besides Papic and the Event Hub');
+  for (const key of ['papic', ...SKU_KEYS.filter((k) => k !== 'hub')]) assert.match(html, new RegExp(`data-home-service="${key}"`), `${key} missing`);
+  assert.equal(html.split('data-home-paid="owned"').length - 1, 4, 'four owned rows besides Papic');
   assert.doesNotMatch(html, /Not added/, 'nothing is "not added" on an event that owns it all');
-  assert.match(html, /data-home-service="hub"[\s\S]{0,1500}?Pro on/, 'the Event Hub says its Pro is on');
-  assert.match(html, /data-home-service="hub"[^>]*>[\s\S]{0,400}?href="\/dashboard\/e1\/launch"/, 'the Event Hub opens the Maker');
+  // The Event Hub is the control row's widget on the plan Home (Edit in Maker → the Maker); its ◆ Pro line stays on the
+  // list the event day and after-the-day Homes draw (`homeServiceRowAll`), never dropped from the facts.
+  assert.match(html, /data-home-tile="hub"[\s\S]{0,4000}?aria-label="Edit in Maker"[^>]*href="\/dashboard\/e1\/launch"/, 'the Event Hub widget does not open the Maker');
+  assert.equal(html.split('data-home-service="hub"').length - 1, 0, 'the Event Hub is drawn twice — as a widget and a service');
+  const hub = homeServices({ next: 'plan', storeShell: false, papic: 'x', ai: 'y', eventId: E, paid: ALL_ON }).find((s) => s.key === 'hub');
+  assert.match(hub?.status ?? '', /Pro on/, 'the Event Hub entry lost its Pro line');
   assert.match(html, /aria-label="Open controller"/, 'Live stream offers its controller');
 });
 
 test('5 · nothing added: one "Not added" heading, each service ONE slim line with its catalogue price and Add', () => {
   const html = draw({}, NONE_ADDED);
   assert.equal(html.split('>Not added<').length - 1, 1, 'the heading appears once');
-  // 💎 The Event Hub is never a slim "Add" line: it is the Hub's own row, its ◆ line "Free", no price.
-  assert.match(html, /data-home-service="hub"[\s\S]{0,1500}?◆ Free/, 'the Event Hub does not say ◆ Free');
+  // 💎 The Event Hub is never a slim "Add" line: it is the Hub's own entry, its ◆ line "Free", no price.
+  const hub = homeServices({ next: 'plan', storeShell: false, papic: 'x', ai: 'y', eventId: E, paid: NONE_ADDED }).find((s) => s.key === 'hub');
+  assert.equal(hub?.status, '◆ Free', 'the Event Hub does not say ◆ Free');
+  assert.doesNotMatch(html, /data-home-service="hub"[^>]*data-slim/, 'the Event Hub is a slim Add line');
   for (const key of SKU_KEYS.filter((k) => k !== 'hub')) {
     const row = tagOf(html, key);
     assert.match(row, /data-slim=""/, `${key} is not the slim line`);

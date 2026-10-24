@@ -117,13 +117,11 @@ const MUST_HAVE_A_DOOR: { segment: string; whatIsLost: string }[] = [
  */
 const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
 const MOVED_DOOR: Record<string, (railHrefs: string[]) => boolean> = {
+  // The Countdown widget since 24 Oct 2026 (owner-approved control center) — the cover's ⚙ Settings pill went.
   details: () =>
-    read('app/dashboard/[eventId]/_components/home-cover-band.tsx').includes(
-      'href={`/dashboard/${eventId}/details`}',
-    ) &&
-    // ⚙ "Settings" since 23 Oct 2026 — the header image's one button, the same door.
-    read('app/dashboard/[eventId]/_components/home-cover-band.tsx').includes('label="Settings"') &&
-    read('app/dashboard/[eventId]/_components/home-first-screen.tsx').includes('<HomeCoverBand ') &&
+    read('app/dashboard/[eventId]/_components/home-control-faces.ts').includes('door: `/dashboard/${e}/details`') &&
+    read('app/dashboard/[eventId]/_components/home-control-row.tsx').includes('<Shell k="count" door={`/dashboard/${e}/details`}') &&
+    read('app/dashboard/[eventId]/_components/home-first-screen.tsx').includes('<HomeControlRow ') &&
     isMounted('app/dashboard/[eventId]/_components/home-first-screen.tsx'),
   hosts: (railHrefs) =>
     railHrefs.includes('/dashboard/EVT123/guests') &&

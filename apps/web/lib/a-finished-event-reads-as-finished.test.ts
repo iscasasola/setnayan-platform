@@ -344,8 +344,9 @@ test('the planning dashboard stops stating things that are no longer true', () =
   const page = src('app/dashboard/[eventId]/page.tsx');
   assert.equal(
     page.split('lifecyclePhase={lifecyclePhase}').length - 1,
-    3,
-    'all three EventDashboard mounts (day-of, after the day, the What\'s next sheet) must be told',
+    // The What's next mount went with the What's next row (owner-approved 2026-10-24) — two mounts remain.
+    2,
+    'every EventDashboard mount (day-of, after the day) must be told',
   );
 });
 

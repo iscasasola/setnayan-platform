@@ -79,8 +79,7 @@ import type { ForTag } from '@/lib/for-tag';
 import { notFound } from 'next/navigation';
 import { NEED_PRESETS, needsColumns, needsForPreset, readEventNeeds, switchOnRows, type NeedPreset } from '@/lib/event-needs';
 import { DayPapicRow, HomeFirstScreen, YourServices } from '@/app/dashboard/[eventId]/_components/home-first-screen';
-import { HomeWhatsNext } from '@/app/dashboard/[eventId]/_components/home-parts';
-import { getNavSlotMap } from '@/lib/nav-registry';
+import { fixtureControl, fixtureControlUnread, fixturePays } from '@/lib/home-control-fixture';
 import { resolveSiteNav } from '@/app/[slug]/_lib/site-nav';
 import { STAGE_BAR } from '@/app/[slug]/_lib/stage-bar';
 import { SiteMenuBar } from '@/app/[slug]/_components/site-menu-bar';
@@ -100,9 +99,7 @@ import {
   HOME_PAID_SKU,
   aiStatus,
   dayPapicFace,
-  glanceCount,
   glanceDays,
-  glanceMoney,
   homeServices,
   pickHomeNext,
   type HomeNextInput,
@@ -423,7 +420,15 @@ export default async function HomeLab({
   const input0: HomeNextInput = unread ? { ...base, guide: null, guests: null } : base;
   const input: HomeNextInput = labNeeds ? { ...input0, needs: labNeeds } : input0;
   const next = pickHomeNext(input);
-  const slots = await getNavSlotMap().catch(() => null);
+  /* 🎛 The control row on the prototype's own sample (`lib/home-control-fixture.ts`, the guards' own fixture) — with
+     the unread states the page hands over when its reads fail, and the lab's own days / coming / no reply / money. */
+  const days = glanceDays(F.days);
+  const labControl = (unread ? fixtureControlUnread : fixtureControl)(E, {
+    next,
+    countdown: { value: days.value, label: days.label, days: F.days ?? null, hasDate: days.value !== '—', long: 'Saturday, December 12, 2026', placeLine: 'Tagaytay' },
+    ...(labNeeds?.guestList === false ? { guests: null } : unread ? {} : { guests: { coming: F.coming, noReply: F.noReply, toInvite: 35, declined: 4, total: 131 } }),
+    ...(q.hidden === '1' ? { budget: null } : unread ? {} : { budget: { paidPhp: F.paid, owingPhp: F.owing, pays: fixturePays() } }),
+  });
   const home = (
     /* The EVENT LAYOUT's own gutter (`app/dashboard/[eventId]/layout.tsx` — px-4 · sm:px-6 · lg:px-8, pt-3 ·
        sm:pt-6): the cover band cancels exactly that gutter to run edge to edge, so a lab that pads by less draws
@@ -434,34 +439,8 @@ export default async function HomeLab({
         eventId={E}
         cover={{ eyebrow: F.eyebrow, name: F.name, ...(labForWho ? { forWho: labForWho } : {}) }}
         next={next}
-        days={glanceDays(F.days)}
-        coming={glanceCount(F.coming, !unread)}
-        noReply={glanceCount(F.noReply, !unread)}
-        noReplyWaiting={!unread}
-        figures={{
-          days: F.days,
-          coming: unread ? null : F.coming,
-          noReply: unread ? null : F.noReply,
-          money: q.hidden === '1' ? null : unread ? 'unread' : { paid: F.paid, owing: F.owing },
-        }}
-        navSlots={slots}
+        control={labControl}
         needs={labNeeds ? { ...labNeeds, switchOn: switchOnRows(labNeeds, { marketplace: true }) } : null}
-        whatsNext={
-          <HomeWhatsNext
-            open={3}
-            rows={[
-              { id: 'b', title: 'Book a supplier', sub: 'Catering · 2 quotes in', href: `/dashboard/${E}/vendors`, verb: 'book', cta: 'Book' },
-              { id: 'p', title: 'Settle a payment', sub: 'Seda Vertis North · first payment · by Oct 5', href: `/dashboard/${E}/vendors`, verb: 'pay', cta: 'Pay' },
-              { id: 'r', title: 'Fill a role', sub: 'Emcee · nobody picked yet', href: `/dashboard/${E}/guests`, verb: 'role', cta: 'Pick' },
-            ]}
-            checklist={{ href: `/dashboard/${E}/checklist`, pct: 47 }}
-          />
-        }
-        money={
-          q.hidden === '1'
-            ? null
-            : { paid: glanceMoney(unread ? null : F.paid), owing: glanceMoney(unread ? null : F.owing) }
-        }
         papicLeft={papicNow.count}
         papicSizes={LAB_SIZES}
         papicCard={q.card === '1' ? labPapicCard(E, q.cardphase, q.fail === '1' || q.unread === '1') : null}

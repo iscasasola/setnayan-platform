@@ -106,6 +106,11 @@ export async function HomeLiveCard({ eventId, name, brand }: { eventId: string; 
       }
       door={door}
       marker={marker}
+      tile={{
+        big: read.onAir ? 'On air' : 'Off air',
+        sm: `${formatCount(connected)} ${connected === 1 ? 'camera' : 'cameras'} connected`,
+        action: <LiveAirButton eventId={eventId} onAir={read.onAir} source={read.source} />,
+      }}
     />
   );
 }

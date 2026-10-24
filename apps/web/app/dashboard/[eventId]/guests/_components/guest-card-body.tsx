@@ -44,6 +44,7 @@ import { groupLabelWithSide, sidesForNamesakes } from '@/lib/groups-for-side';
 import type { GuestDeleteControl, GuestMoreMenu, GuestTicketThumb } from './guest-ticket-parts';
 /* ⚡ TYPE ONLY, the same seam: "Their camera ▾" is handed in by the Guests pages (the Maker's cards hand none). */
 import type { GuestPapicCamera } from './guest-papic-camera';
+import type { GuestAccessPick } from './guest-access-pick';
 import { guestCameraSummary, type GuestPapicState } from '@/lib/papic-guest-camera';
 /* ⚡ TYPE ONLY. The Invite pair is handed in by the page that draws it
    (\`SendInvite\` below): the Guest list passes the real one, and the Maker —
@@ -221,6 +222,7 @@ export function GuestCardBody({
   DeleteControl,
   papic,
   PapicCamera,
+  AccessPick,
   storeShell = false,
   helperAccess,
   actions,
@@ -275,6 +277,8 @@ export function GuestCardBody({
   papic?: GuestPapicState | null;
   /** "Their camera ▾" (`guest-papic-camera.tsx`) — handed in with `papic` by the Guests pages. */
   PapicCamera?: ComponentType<Parameters<typeof GuestPapicCamera>[0]>;
+  /** "Access ▾" for a linked guest (`guest-access-pick.tsx`, owner 24 Oct) — handed in by the Guests pages; the Maker hands none. */
+  AccessPick?: ComponentType<Parameters<typeof GuestAccessPick>[0]>;
   /**
    * 🍎 Drawn in the iPhone / Android app (`isStoreShellRequest`). Papic is a paid service the app never names
    * (`lib/the-app-names-no-paid-service.test.ts`), so there the group stays the shipped "Photos" row — the three face switches.
@@ -1014,6 +1018,8 @@ export function GuestCardBody({
               firstName={callName}
               initial={access}
               canManage={canManageAccess}
+              linked={linked}
+              Pick={AccessPick}
             />
           ) : null}
           {helperAccess ?? null}

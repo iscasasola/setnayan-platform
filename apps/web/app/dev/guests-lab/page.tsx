@@ -62,6 +62,7 @@ import { guestCardErrorCopy } from '@/app/dashboard/[eventId]/guests/_components
 import { GuestInviteCell } from '@/app/dashboard/[eventId]/guests/_components/guest-invite-cell';
 import { GuestDeleteControl, GuestMoreMenu, GuestTicketThumb } from '@/app/dashboard/[eventId]/guests/_components/guest-ticket-parts';
 import { GuestPapicCamera } from '@/app/dashboard/[eventId]/guests/_components/guest-papic-camera';
+import { GuestAccessPick } from '@/app/dashboard/[eventId]/guests/_components/guest-access-pick';
 import type { GuestPapicState } from '@/lib/papic-guest-camera';
 import type { GuestCardData } from '@/app/dashboard/[eventId]/guests/_components/guest-card-data';
 import { guestOutfitOf, guestOutfitWords } from '@/lib/guest-outfit';
@@ -581,6 +582,7 @@ export default async function GuestsLabPage({
                   /* 📸 ?papic=off · ?papic=unknown · ?papic=set (40 credits) · ?papic=none — else on, sharing with everyone. */
                   papic={labPapic}
                   PapicCamera={GuestPapicCamera}
+                  AccessPick={GuestAccessPick}
                   kit={TEMPLATE_KIT}
                 />
                 </LabGuestActions>

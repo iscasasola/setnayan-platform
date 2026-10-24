@@ -17,6 +17,7 @@ import { GuestCardBody } from '../_components/guest-card-body';
 import { GuestInviteCell } from '../_components/guest-invite-cell';
 import { GuestDeleteControl, GuestMoreMenu, GuestTicketThumb } from '../_components/guest-ticket-parts';
 import { GuestPapicCamera } from '../_components/guest-papic-camera';
+import { GuestAccessPick } from '../_components/guest-access-pick';
 import { forTheCouple, papicAnswerOffered, readGuestPapic } from '../_components/guest-papic-read';
 import { resolveProfileByEvent } from '@/lib/event-type-profile';
 import { isStoreShellRequest } from '@/lib/request-platform';
@@ -152,6 +153,7 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
         DeleteControl={GuestDeleteControl}
         papic={papic}
         PapicCamera={GuestPapicCamera}
+        AccessPick={GuestAccessPick}
         storeShell={storeShell}
         kit={TEMPLATE_KIT}
         // 🎟 The ticket at its versioned, year-long cached address (streamed — the card never waits).

@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "1dfebea460",
-  "routeCount": 465,
-  "destinations": 1005,
-  "actions": 662,
-  "blocks": 6901,
+  "generatedFromRef": "0c8ec2d92c",
+  "routeCount": 466,
+  "destinations": 1007,
+  "actions": 661,
+  "blocks": 6921,
   "routes": {
     "/": {
       "files": [
@@ -863,6 +863,7 @@
         "[slug]/_components/guest-column-card.tsx",
         "[slug]/_components/guest-column-form.tsx",
         "[slug]/_components/guest-doorway-strip.tsx",
+        "[slug]/_components/guest-greeting.tsx",
         "[slug]/_components/guest-hub-bar.tsx",
         "[slug]/_components/guest-hub-card.tsx",
         "[slug]/_components/guest-in-canvas.ts",
@@ -979,6 +980,7 @@
         "[slug]/_components/selfie-capture.tsx",
         "[slug]/_components/selfie-no-thanks-confirm.tsx",
         "[slug]/_components/send-their-invite.tsx",
+        "[slug]/_components/sign-in-back-here.tsx",
         "[slug]/_components/sign-out-of-invitation.tsx",
         "[slug]/_components/site-body.tsx",
         "[slug]/_components/site-menu-bar.tsx",
@@ -1100,7 +1102,7 @@
         "/api/guest/qr",
         "/dashboard/profile",
         "/join/[seg]",
-        "/login",
+        "/login?next=[seg]",
         "/papic/guest",
         "/papic/me/[seg]/photo?id=[seg]&src=guest",
         "/privacy",
@@ -1114,7 +1116,6 @@
       ],
       "actions": [
         "action",
-        "arrivalAction",
         "joinAction",
         "toggle",
         "toggleBlur",
@@ -1296,6 +1297,7 @@
         "HeroBackgroundMedia",
         "HeroDesignId",
         "HeroMonogram",
+        "HeroMonogramData",
         "HeroPhoto",
         "HideableWidgetRender",
         "HostDraftLook",
@@ -1315,6 +1317,7 @@
         "HubShell",
         "HubStageFrame",
         "Icon",
+        "InfoTip",
         "InvitationBody",
         "InvitationFacts",
         "InvitationShell",
@@ -1360,7 +1363,9 @@
         "MakerWelcomeGiftsEmpty",
         "MakerWelcomeLook",
         "Marked",
+        "MeGreeting",
         "MePart",
+        "MeReply",
         "MediaStream",
         "MessagesScene",
         "MineName",
@@ -1375,6 +1380,7 @@
         "Monogram",
         "MusicButtonFace",
         "NameStyle",
+        "NamedColourDot",
         "NativeSaveForm",
         "NativeSaveHandOff",
         "NearViewport",
@@ -1402,6 +1408,7 @@
         "ParishDrawingFigure",
         "PartHead",
         "PartLook",
+        "PassAction",
         "PatternGround",
         "PeWaiting",
         "Person",
@@ -1480,6 +1487,7 @@
         "RsvpPlusOnes",
         "RsvpQuestionHeader",
         "RsvpSheet",
+        "RsvpStatus",
         "RsvpStepNext",
         "RsvpStepProgress",
         "RsvpStyledAnswers",
@@ -1517,6 +1525,7 @@
         "SeatingScene",
         "SectionEmptyPlate",
         "SectionRule",
+        "SeeTheDressCode",
         "SeeWhereYouAre",
         "Select",
         "Selection",
@@ -1529,6 +1538,7 @@
         "Sheet",
         "SheetClip",
         "SheetEntry",
+        "SignInBackHere",
         "SignOutOfInvitation",
         "SiteBody",
         "SiteMenuBar",
@@ -1838,7 +1848,9 @@
       "files": [
         "[slug]/invite/reply/page.tsx"
       ],
-      "destinations": [],
+      "destinations": [
+        "/[seg]"
+      ],
       "actions": [],
       "blocks": [
         "ArrivalLoading",
@@ -1850,6 +1862,7 @@
         "HeldPassLine",
         "InviteReplyBody",
         "Link",
+        "NoReplyHere",
         "NotYouSwitch",
         "ReplyWindowNote",
         "RsvpCanvasBridge",
@@ -3309,6 +3322,7 @@
         "ConsoleTable",
         "EditTrack",
         "HTMLAudioElement",
+        "HTMLDivElement",
         "HTMLInputElement",
         "HubMusicManager",
         "HubMusicResult",
@@ -3619,6 +3633,8 @@
       "files": [
         "admin/papic-storage/actions.ts",
         "admin/papic-storage/backfill-tiles-button.tsx",
+        "admin/papic-storage/old-photos-actions.ts",
+        "admin/papic-storage/old-photos-button.tsx",
         "admin/papic-storage/page.tsx"
       ],
       "destinations": [],
@@ -3627,7 +3643,9 @@
         "BackfillResult",
         "BackfillTilesButton",
         "ConsoleTable",
+        "CopyRun",
         "KpiStatCard",
+        "OldPhotosButton",
         "PageMasthead"
       ]
     },
@@ -7572,6 +7590,7 @@
         "TuneFold",
         "TuneSlider",
         "TypedRow",
+        "TypingBand",
         "UndoToastHost",
         "Unread",
         "UpdateQrStyleResult",
@@ -10365,6 +10384,7 @@
         "TypeSession",
         "TypeStart",
         "TypedRow",
+        "TypingBand",
         "UploadPicture",
         "VisibilityPanel",
         "Window",
@@ -11249,6 +11269,21 @@
         "FrontDoorResults",
         "FrontDoorShell",
         "RosterPerson"
+      ]
+    },
+    "/dev/shop-preview-lab": {
+      "files": [
+        "dev/shop-preview-lab/page.tsx"
+      ],
+      "destinations": [
+        "/"
+      ],
+      "actions": [],
+      "blocks": [
+        "Link",
+        "SlugNotFound",
+        "TeamPreviewBanner",
+        "Wordmark"
       ]
     },
     "/dev/spotlight-lab/[[...page]]": {
@@ -12839,6 +12874,7 @@
         "v/[slug]/_components/service-details-sheet.tsx",
         "v/[slug]/_components/services-gallery.tsx",
         "v/[slug]/_components/share-button.tsx",
+        "v/[slug]/_components/team-preview-banner.tsx",
         "v/[slug]/_components/venue-matched-events.tsx",
         "v/[slug]/_components/verified-price-card.tsx",
         "v/[slug]/inquiry-actions.ts",
@@ -12896,6 +12932,7 @@
         "StartServiceInquiryResult",
         "StorytellerTile",
         "SubmitButton",
+        "TeamPreviewBanner",
         "TrackRecord",
         "TrustedBySection",
         "TrustedByVendor",

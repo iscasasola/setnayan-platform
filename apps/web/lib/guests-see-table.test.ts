@@ -62,7 +62,7 @@ test('1 · the prototype’s table: six groups, its rows, five columns — and o
       ['The details', ['Schedule', 'Map', 'Dress code', 'What to bring', 'E-Gifts']],
       ['People', ['Entourage', 'Reply card']],
       // (The prototype's head is "On the day"; the owner's rule d25 names that stage "The Day" on every label.)
-      ['The Day', ['Your seat', 'Digital pass', 'Announcements', 'Live', 'Camera', 'Photos of you']],
+      ['The Day', ['Your seat', 'Digital pass', 'Announcements', 'Live', 'Camera', 'Memories of you']],
       ['The opening', ['Reveal']],
       [GUESTS_SEE_WORDS.ownScenes, [STAGE_WORDS.ownSceneTitle]],
     ],
@@ -105,7 +105,7 @@ test('1 · the prototype’s table: six groups, its rows, five columns — and o
   assert.deepEqual(rowOf(t, 'what_to_bring').cells[COL.editorial], { kind: 'dash', why: 'The day has passed.' });
   // 🔁 RE-AIMED 2026-10-12 (controller's call: the prototype's cells): Live × Save the Date is the prototype's dash again.
   assert.deepEqual(rowOf(t, 'live').cells[COL.save_the_date], { kind: 'dash', why: 'Live opens on the day.' });
-  assert.deepEqual(rowOf(t, 'photosofyou').cells[COL.save_the_date], { kind: 'dash', why: 'Photos of you come from the day.' });
+  assert.deepEqual(rowOf(t, 'photosofyou').cells[COL.save_the_date], { kind: 'dash', why: 'Memories of you come from the day.' });
   // The fixed rows the page's own gates answer for.
   assert.deepEqual(rowOf(t, 'pass').cells.map((c) => c.kind === 'locked' && c.on), [false, false, true, true, false], 'the ticket is drawn on the Invitation and The Day');
   assert.deepEqual(rowOf(t, 'reply').cells.map((c) => c.kind === 'locked' && c.on), [false, true, true, false, false]);

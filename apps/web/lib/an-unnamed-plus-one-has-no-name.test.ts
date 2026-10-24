@@ -181,7 +181,9 @@ function posted(html: string, name: string): string | null {
 function nameSectionText(html: string): string {
   const at = html.indexOf('data-guest-card-name');
   assert.ok(at > 0, 'the card has no NAME section');
-  const end = html.indexOf('</section>', at);
+  /* RE-AIMED 2026-10-23: the name is the Basic Info group now (owner's groups) — it ends where the next group, Details, begins. */
+  const end = html.indexOf('>Details<', at);
+  assert.ok(end > at, 'the Details group no longer follows the name (the probe would read the whole card)');
   return decode(html.slice(at, end).replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ');
 }
 

@@ -41,9 +41,6 @@
  */
 
 import { after } from 'next/server';
-import { redirect } from 'next/navigation';
-import { getCurrentUser } from '@/lib/auth';
-import { shellSearchHref } from '@/lib/shell-search';
 import './_components/frontdoor/front-door.css';
 import { FrontDoor } from './_components/frontdoor/front-door';
 import { LastSeenSignedOutWipe } from './_components/last-seen/last-seen-wipe-script';
@@ -303,16 +300,12 @@ export default async function HomePage({
   const qParam = params.q;
   const q = Array.isArray(qParam) ? qParam[0] : qParam;
   /*
-    🔄 SIGNED IN, A SEARCH ANSWERS INSIDE THE SHELL (owner 2026-10-22, *"I
-    tried to search for seda and brought me here away from our shell"*). This
-    page is a doorway — the public top bar, no account bar — so a member's
-    `?q=` (an old link, a paste, a bookmark) goes to the account shell's own
-    results page, which renders the same results view. Signed out, nothing
-    changes: the public box still answers here. `lib/shell-search.ts`.
+    🔎 SIGNED IN, A SEARCH ANSWERS HERE, ON DISCOVER (owner 2026-10-24: *"we will show the result on the page itself.
+    not a new screen"*; on the hop this used to make to `/dashboard/search`: *"it went to a different page?"*). This
+    page draws the account bar and Discover's own search row for a member now (owner 2026-10-22, "Discover needs to
+    show the bottom nav still"), so a member's `?q=` stays: `FrontDoor` draws the shell's results form in place of the
+    sections, and an empty `q` is Discover itself. Signed out, nothing changes.
   */
-  if (q?.trim() && (await getCurrentUser().catch(() => null))) {
-    redirect(shellSearchHref(q));
-  }
 
   // Admin morning-digest flush — cron-free, piggybacks on the homepage's
   // guaranteed public traffic so the digest reaches an admin who isn't in the

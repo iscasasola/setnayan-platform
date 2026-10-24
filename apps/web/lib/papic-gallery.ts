@@ -7,6 +7,7 @@ import {
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { memoriesRefs, resolvePlayRef, type PapicDisplayRow } from '@/lib/papic-display-ref';
 import { resolveCapturerNames } from '@/lib/capture-credit';
+import { PAPIC_UPLOADS_CAMERA_INDEX } from '@/lib/papic-cameras';
 
 // The couple's real Papic gallery — both crew (paparazzi) captures and guest
 // captures, with presigned thumbnails. Reads under the COUPLE's RLS session
@@ -105,6 +106,17 @@ export type GalleryPhoto = {
    * (A photo downloads through `saveUrl`.) The viewer never plays this.
    */
   downloadUrl?: string | null;
+  /**
+   * 🗂 MEMORIES, THE HOST'S VIEW ONLY (`includeHeld`): what the host may act on from the photo's own sheet.
+   *   held      'screened' (the content screen withheld it — only the host sees it, blurred) · 'hidden' (the host
+   *             took it out) · null (shown)
+   *   uploads   the host's own upload (the uploads camera) — the "Your uploads" album
+   *   guestId   the guest who shot it (Stop this guest shooting) · vendorProfileId the supplier who did
+   */
+  held?: 'screened' | 'hidden' | null;
+  uploads?: boolean;
+  guestId?: string | null;
+  vendorProfileId?: string | null;
 };
 
 const GALLERY_LIMIT = 120;
@@ -134,6 +146,11 @@ export async function fetchPapicGallery(
   opts: {
     compressedOnly?: boolean;
     /**
+     * 🗂 The host's Memories: keep the photos the host can act on — hidden ones (to show again) and ones the content
+     * screen withheld (to approve) — marked `held`, never shown to anyone else. Only with `compressedOnly`.
+     */
+    includeHeld?: boolean;
+    /**
      * Filled in with WHICH reads were refused — a refusal is an empty list here, so without this a caller cannot tell
      * "nothing yet" from "couldn't load" (review of #6851).
      */
@@ -148,6 +165,7 @@ export async function fetchPapicGallery(
 ): Promise<GalleryPhoto[]> {
   const now = Date.now();
   const compressedOnly = opts.compressedOnly === true;
+  const includeHeld = compressedOnly && opts.includeHeld === true;
 
   const [seatRes, guestRes, vendorRes] = await Promise.all([
     supabase
@@ -220,15 +238,18 @@ export async function fetchPapicGallery(
 
   const visibleSeat = seatRows.filter(
     (r) =>
-      r.moderation_state === 'clean' &&
-      !r.hidden_at &&
+      (includeHeld || (r.moderation_state === 'clean' && !r.hidden_at)) &&
       (!r.expires_at || new Date(r.expires_at as string).getTime() > now),
   );
   const visibleGuest = guestRows.filter(
     // 🧼 'clean' only — the screen PASSED (relay 2026-10-23, "clean and safe");
-    // 'unscreened' is a row the screen has not seen yet, not a safe one.
-    (r) => r.moderation_state === 'clean' && !r.hidden_at,
+    // 'unscreened' is a row the screen has not seen yet, not a safe one. The host's
+    // includeHeld view still sees every frame, each marked by heldOf below.
+    (r) => includeHeld || (r.moderation_state === 'clean' && !r.hidden_at),
   );
+  /** The host's mark on a kept-back frame — the screen's verdict first, then the host's own hide. */
+  const heldOf = (r: { moderation_state?: unknown; hidden_at?: unknown }): 'screened' | 'hidden' | null =>
+    !includeHeld ? null : r.moderation_state === 'nsfw_blocked' ? 'screened' : r.hidden_at ? 'hidden' : null;
   // Defense-in-depth over the RLS policy: NSFW-checked, non-hidden vendor captures
   // only. (consent_basis <> pending is a backstop — the capture route stamps
   // 'event_consent', so nothing is pending on the live path; the real gate is the
@@ -240,7 +261,7 @@ export async function fetchPapicGallery(
       !hiddenVendorIds.has((r as { vendor_profile_id?: string }).vendor_profile_id ?? '') &&
       r.nsfw_checked === true &&
       r.consent_basis !== 'pending_dpo_ruling' &&
-      !r.hidden_at &&
+      (includeHeld || !r.hidden_at) &&
       // A clip needs its poster to tile — never surface a posterless clip (which
       // would render a blank tile). Photos have no poster requirement.
       (r.media_type !== 'clip' || r.poster_r2_key),
@@ -294,14 +315,14 @@ export async function fetchPapicGallery(
   const { data: seatRowsForCredit } = seatIds.length
     ? await supabase
         .from('paparazzi_seats')
-        .select('seat_id, claimer_user_id, guest_id')
+        .select('seat_id, claimer_user_id, seat_index, guest_id')
         .eq('event_id', eventId)
         .in('seat_id', seatIds)
-    : { data: [] as { seat_id: string; claimer_user_id: string | null; guest_id: string | null }[] };
+    : { data: [] as { seat_id: string; claimer_user_id: string | null; guest_id: string | null; seat_index: number | null }[] };
   const seatById = new Map(
     (seatRowsForCredit ?? []).map((r) => [
       r.seat_id as string,
-      r as { seat_id: string; claimer_user_id: string | null; guest_id: string | null },
+      r as { seat_id: string; claimer_user_id: string | null; guest_id: string | null; seat_index: number | null },
     ]),
   );
 
@@ -393,6 +414,16 @@ export async function fetchPapicGallery(
       showcaseApproved: isClip ? Boolean(r.couple_approved_for_showcase) : undefined,
       showcaseConsent: isClip ? Boolean(r.consent_to_public) : undefined,
       capturedBy: seatCredit(r),
+      ...(includeHeld
+        ? (() => {
+            const seat = typeof r.paparazzi_seat_id === 'string' ? seatById.get(r.paparazzi_seat_id) : undefined;
+            return {
+              held: heldOf(r),
+              uploads: seat?.seat_index === PAPIC_UPLOADS_CAMERA_INDEX,
+              guestId: seat?.guest_id ?? null,
+            };
+          })()
+        : {}),
     });
   });
 
@@ -440,6 +471,7 @@ export async function fetchPapicGallery(
           ? (credits.byPerson.get(r.captured_by_person_id) ?? null)
           : null) ??
         (typeof r.guest_id === 'string' ? (credits.byGuest.get(r.guest_id) ?? null) : null),
+      ...(includeHeld ? { held: heldOf(r), uploads: false, guestId: (r.guest_id as string | null) ?? null } : {}),
     });
   });
 
@@ -470,6 +502,13 @@ export async function fetchPapicGallery(
       showcaseConsent: undefined,
       capturedBy:
         vendorNameById.get((r as { vendor_profile_id?: string }).vendor_profile_id ?? '') ?? null,
+      ...(includeHeld
+        ? {
+            held: r.hidden_at ? ('hidden' as const) : null,
+            uploads: false,
+            vendorProfileId: (r as { vendor_profile_id?: string }).vendor_profile_id ?? null,
+          }
+        : {}),
     });
   });
 

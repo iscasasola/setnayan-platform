@@ -164,6 +164,17 @@ export const VENDOR_SLOTS = Math.floor(BOARD_SIZE / 4);
  * (migration 20271155952591, narrowed to 10 by the migration that follows it).
  * The SQL is authoritative; this is the preview.
  */
+/**
+ * 🔒 THE HARD CAP — AT MOST 10 RUNNING CHALLENGES PER EVENT (owner ruling 2026-10-24: "a hard cap of 10 active
+ * challenges per event, enforced on the SERVER"). Every activation — a library pick, a switch turned on, one written by
+ * hand — asks this first, with the event's active count NOT counting the one being turned on. An unread count refuses
+ * (null): an 11th can never slip in on a read that failed. `the-eleventh-challenge-is-refused.test.ts`.
+ */
+export const ACTIVE_CHALLENGE_CAP = BOARD_SIZE;
+export function activationRefused(activeOthers: number | null): boolean {
+  return activeOthers === null || activeOthers >= ACTIVE_CHALLENGE_CAP;
+}
+
 export function coupleSlots(vendorUsed: number): number {
   return Math.max(0, BOARD_SIZE - Math.min(vendorUsed, VENDOR_SLOTS));
 }

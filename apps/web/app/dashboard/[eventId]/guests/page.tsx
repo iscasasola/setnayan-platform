@@ -72,7 +72,11 @@ import { QuickAddSheet } from './_components/quick-add-sheet';
 import { UndoToastHost } from './_components/undo-toast';
 import { GuestCardBody, guestCardEyebrow, guestCardReply, guestCardTitle } from './_components/guest-card-body';
 import { GuestInviteCell } from './_components/guest-invite-cell';
-import { GuestMoreMenu, GuestTicketThumb } from './_components/guest-ticket-parts';
+import { GuestDeleteControl, GuestMoreMenu, GuestTicketThumb } from './_components/guest-ticket-parts';
+import { GuestPapicCamera } from './_components/guest-papic-camera';
+import { GuestAccessPick } from './_components/guest-access-pick';
+import { forTheCouple, papicAnswerOffered, readEventPapicAccess, readGuestPapic } from './_components/guest-papic-read';
+import { isStoreShellRequest } from '@/lib/request-platform';
 import { TEMPLATE_KIT } from './_components/guest-card-template-kit';
 import { guestCardErrorCopy } from './_components/guest-card-error-copy';
 import { guestListErrorCopy } from './_components/guest-list-error-copy';
@@ -378,6 +382,14 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       ? passCardTicketVersion(createAdminClient(), inspectParam).catch(() => null)
       : null;
   inspectedHelperP?.catch(() => undefined);
+  // 📸 THE EVENT'S PAPIC, and the open card's camera (owner 2026-10-23: Papic per guest, on the card and in Select ›
+  // Set…) — started now, with the first trip; what they say is handed only to the couple, whose camera it is to set
+  // (`forTheCouple`, `viewer.isCouple`, `setGuestAllotment`).
+  const eventPapicRead = readEventPapicAccess(eventId);
+  // 🍎 The iPhone / Android app never names Papic (a paid service) — a header and a cookie, not a database trip.
+  const storeShellRead = isStoreShellRequest();
+  const inspectedPapicP = inspectParam && isUuid(inspectParam) ? readGuestPapic(eventId, inspectParam) : null;
+  inspectedPapicP?.catch(() => undefined);
 
   // The roster and everything drawn beside it — ONE parallel batch, as it always was, now started
   // beside the reads above instead of after them (owner perf pass 2026-06-03 folded the share-invite
@@ -509,6 +521,8 @@ export default async function GuestsPage({ params, searchParams }: Props) {
     inviteSetup,
     accountRefByGuest,
     linkedGuestIds,
+    eventPapic,
+    storeShell,
   ] = await Promise.all([
     userRead,
     roleSetKeyRead,
@@ -522,6 +536,8 @@ export default async function GuestsPage({ params, searchParams }: Props) {
     inviteSetupRead,
     accountRefRead,
     linkedGuestIdsRead,
+    eventPapicRead,
+    storeShellRead,
   ]);
   if (!user) redirect('/login');
   if (isDelegateWithoutArea(viewer, 'guest_list')) {
@@ -874,6 +890,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   // onto their card (F2). Couple only; one more read, only when a card is open.
   const inspectedHelper =
     inspectedGuest && inspectedCard?.canManageAccess && inspectedHelperP ? await inspectedHelperP : null;
+  const inspectedPapic = inspectedGuest && inspectedCard && inspectedPapicP ? forTheCouple(await inspectedPapicP, inspectedCard.canManageAccess, papicAnswerOffered(eventProfile)) : null;
   // Send invite · Copy message: the event's words + the couple's wording —
   // read once above for the Invite column.
   const inspectedInviteSetup = inspectedGuest ? inviteSetup : null;
@@ -900,6 +917,11 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         SendInvite={GuestInviteCell}
         TicketThumb={GuestTicketThumb}
         MoreMenu={GuestMoreMenu}
+        DeleteControl={GuestDeleteControl}
+        papic={inspectedPapic}
+        PapicCamera={GuestPapicCamera}
+        AccessPick={GuestAccessPick}
+        storeShell={storeShell}
         kit={TEMPLATE_KIT}
         ticketVersion={inspectedTicketVP}
         helperAccess={
@@ -1016,6 +1038,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       faceByGuest={faceByGuest}
       requests={pendingClaimsCount}
       titlesWaiting={titlesWaiting}
+      papic={viewer.isCouple && !storeShell ? eventPapic : null}
       rootLabel={mapRoot}
       // Setup's "☑ Pick who" (PR 4d) lands here: Select mode over "to invite".
       initialQuery={search.select === 'to-invite' ? 'to invite' : (search.q ?? '')}

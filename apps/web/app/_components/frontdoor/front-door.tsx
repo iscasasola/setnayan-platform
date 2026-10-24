@@ -25,6 +25,8 @@ import { DiscoverThumbRow } from './shell-thumb-rows';
 // byte-identical; see `rail-data.ts` for why one copy matters here.
 import { resolveRailAccount } from './rail-data';
 import { isStoreShellRequest } from '@/lib/request-platform';
+import { resolveShellSearchContext, type ShellSearchContext } from './shell-search-context';
+import { getCurrentUser } from '@/lib/auth';
 
 export async function FrontDoor({ q }: { q?: string }) {
   /*
@@ -64,6 +66,17 @@ export async function FrontDoor({ q }: { q?: string }) {
     from anybody's paste. (`searchQuery` is trimmed once, at the top, because
     the Discover read there is skipped on the same test.)
   */
+
+  /*
+    🔎 SIGNED IN, DISCOVER ANSWERS IN PLACE (owner 2026-10-24, on the old hop to `/dashboard/search`: *"it went to a
+    different page?"*). The words stay in this page's `?q=`, the results take the sections' place under the same
+    search row, and Clear brings the sections back — the shell's results form (people, your own suppliers, no door
+    out to the marketplace), read only when there are words.
+  */
+  const user = account.signedIn && searchQuery ? await getCurrentUser().catch(() => null) : null;
+  const shellSearch: ShellSearchContext | null = user
+    ? await resolveShellSearchContext(searchQuery, user.id, commandItems)
+    : null;
 
   return (
     <>
@@ -120,7 +133,7 @@ export async function FrontDoor({ q }: { q?: string }) {
       search={account.signedIn ? false : undefined}
     >
       {/* 🔍 Signed in, Discover's search is its thumb row (owner 2026-10-22, "One thumb row") — the top bar has none. */}
-      {account.signedIn ? <DiscoverThumbRow q={searchQuery} /> : null}
+      {account.signedIn ? <DiscoverThumbRow key={searchQuery} q={searchQuery} /> : null}
       {/*
         `data-fd-page` is the content a set-change slide moves (globals.css,
         `html[data-sn-bar-dir]`) — Discover is an account tab. Signed in, it also
@@ -136,11 +149,25 @@ export async function FrontDoor({ q }: { q?: string }) {
         }
       >
       {searchQuery ? (
-        <FrontDoorResults
-          query={searchQuery}
-          data={data}
-          commandItems={commandItems}
-        />
+        shellSearch ? (
+          <div data-discover-results="">
+            <FrontDoorResults
+              query={searchQuery}
+              data={data}
+              commandItems={commandItems}
+              place="discover"
+              people={shellSearch.people}
+              findSuppliers={shellSearch.findSuppliers}
+              addOwnEvent={shellSearch.addOwnEvent}
+            />
+          </div>
+        ) : (
+          <FrontDoorResults
+            query={searchQuery}
+            data={data}
+            commandItems={commandItems}
+          />
+        )
       ) : (
         <>
           <FrontDoorFeed

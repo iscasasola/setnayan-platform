@@ -122,13 +122,14 @@ test('2 · the three new lines are stored like the others, and absent they are t
     /* No invented presets: the one shipped wording is "Automatic" itself. */
     assert.deepEqual(RSVP_WORD_LINES[key], { celebrate: [], solemn: [] });
   }
-  /* Byte-identical to what the card printed before these keys existed. */
+  /* Byte-identical to what the card printed before these keys existed — except the question, which since 2026-10-24
+     asks what the Event Hub's Reply card asks ("Will you join us?" — "event", never "celebration"). */
   assert.deepEqual(RSVP_FORM_WORD_DEFAULT, {
     eyebrow: { celebrate: 'Your reply', solemn: 'Your reply' },
-    question: { celebrate: 'Will you celebrate with us?', solemn: 'Will you be with us?' },
+    question: { celebrate: 'Will you join us?', solemn: 'Will you be with us?' },
     hint: { celebrate: 'Tap one to continue', solemn: 'Tap one to continue' },
   });
-  assert.equal(rsvpFormWord(null, 'question', false), 'Will you celebrate with us?');
+  assert.equal(rsvpFormWord(null, 'question', false), 'Will you join us?');
   assert.equal(rsvpFormWord({}, 'question', true), 'Will you be with us?');
   assert.equal(rsvpFormWord({ question: 'Coming?' }, 'question', true), 'Coming?');
   /* THE CARD reads them — the legend's two lines… */

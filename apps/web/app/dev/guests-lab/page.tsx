@@ -60,14 +60,17 @@ import { QuickAddSheet } from '@/app/dashboard/[eventId]/guests/_components/quic
 import { GuestCardBody } from '@/app/dashboard/[eventId]/guests/_components/guest-card-body';
 import { guestCardErrorCopy } from '@/app/dashboard/[eventId]/guests/_components/guest-card-error-copy';
 import { GuestInviteCell } from '@/app/dashboard/[eventId]/guests/_components/guest-invite-cell';
-import { GuestMoreMenu, GuestTicketThumb } from '@/app/dashboard/[eventId]/guests/_components/guest-ticket-parts';
+import { GuestDeleteControl, GuestMoreMenu, GuestTicketThumb } from '@/app/dashboard/[eventId]/guests/_components/guest-ticket-parts';
+import { GuestPapicCamera } from '@/app/dashboard/[eventId]/guests/_components/guest-papic-camera';
+import { GuestAccessPick } from '@/app/dashboard/[eventId]/guests/_components/guest-access-pick';
+import type { GuestPapicState } from '@/lib/papic-guest-camera';
 import type { GuestCardData } from '@/app/dashboard/[eventId]/guests/_components/guest-card-data';
 import { guestOutfitOf, guestOutfitWords } from '@/lib/guest-outfit';
 import { guestDisplayName, guestFullName, type GuestRow } from '@/lib/guests';
 import { DEFAULT_NAME_STYLE } from '@/lib/name-style';
 import { sendRunGuests, toInviteCount } from '@/lib/guest-roster-view';
 import { plusOneOfWords } from '@/lib/plus-one-of';
-import { plusOneSeatLines } from '@/lib/extra-seats';
+import { plusOneSeatLines, plusOneSeatPeople } from '@/lib/extra-seats';
 import { invitationLinkOn } from '@/lib/invitation-link';
 import { SendRun } from '@/app/dashboard/[eventId]/guests/send/_components/send-run';
 import { GuestSetupRows } from '@/app/dashboard/[eventId]/_components/guest-setup/guest-setup-rows';
@@ -191,6 +194,12 @@ function guest(p: Partial<GuestRow>): GuestRow {
     ...p,
   } as GuestRow;
 }
+
+/** `&seats=2`'s two +1 rows: one named (Ana Cruz, attending), one still waiting for a name. */
+const LAB_TWO_SEATS = [
+  { guest_id: 'g-lab-s1', first_name: 'Ana', last_name: 'Cruz', plus_one_name_confirmed_at: '2026-10-01T00:00:00Z', created_at: '2026-09-30T00:00:00Z', rsvp_status: 'attending' as const },
+  { guest_id: 'g-lab-s2', first_name: 'TBA', last_name: '+1', plus_one_name_confirmed_at: null, created_at: '2026-09-30T00:00:01Z', rsvp_status: 'pending' as const },
+];
 
 function cardData(g: GuestRow, isCouple: boolean): GuestCardData {
   return {
@@ -435,6 +444,12 @@ export default async function GuestsLabPage({
   if (part === 'card' || part === 'host') {
     const host = part === 'host';
     const low = sp.low === '1';
+    const labPapic: GuestPapicState =
+      sp.papic === 'off'
+        ? { access: 'off', ceiling: undefined, door: `/dashboard/${EVENT}/studio/papic` }
+        : sp.papic === 'unknown'
+          ? { access: 'unknown', ceiling: undefined }
+          : { access: 'on', ceiling: sp.papic === 'set' ? 40 : sp.papic === 'none' ? 0 : null };
     /* 🪪 `&title=atty` — the groom's mother as cale-ice holds her ("Atty.", no woman / man yet: the pending pick);
        `&gender=woman` after she is picked as "Atty. (Woman)". */
     const pickedGender: GuestRow['gender'] = sp.gender === 'woman' ? 'woman' : sp.gender === 'man' ? 'man' : null;
@@ -468,12 +483,16 @@ export default async function GuestsLabPage({
               ? null
               : sp.seatread === 'empty'
                 ? []
-                : plusOneSeatLines(g.guest_id, [
-                    { guest_id: 'g-lab-s1', first_name: 'Ana', last_name: 'Cruz', plus_one_name_confirmed_at: '2026-10-01T00:00:00Z', created_at: '2026-09-30T00:00:00Z' },
-                    { guest_id: 'g-lab-s2', first_name: 'TBA', last_name: '+1', plus_one_name_confirmed_at: null, created_at: '2026-09-30T00:00:01Z' },
-                  ]),
+                : plusOneSeatLines(g.guest_id, LAB_TWO_SEATS),
+          /* 🪪 The same two seats as people — Additional Guests draws one card each (`plusOneSeatPeople`). */
+          plusOnePeople: sp.seatread === 'fail' ? null : sp.seatread === 'empty' ? [] : plusOneSeatPeople(g.guest_id, LAB_TWO_SEATS),
         }
       : {};
+    /* 🔗 `&linked=1` — a guest who has linked their account: Access › the level dropdown, and "Linked" under Account. */
+    const linkedData =
+      sp.linked === '1'
+        ? { access: { level: 'none', live: true, lock: null }, linkedAccount: { email: 'daniel.ramos@example.com', memberType: 'guest' } }
+        : {};
     const seatOf = seatCard ? { plusOneOf: plusOneOfWords(g, LAB_SEAT_HOST, 0) } : {};
     const labWords = sp.vip === '1' ? { 'section:immediate_family': { one: 'VIP' } } : {};
     /* 👥 `&proto=1` — the prototype's guest (guest_group_and_fast_add_2026-10-20.html, strip A): Corazon Reyes, a Ninang who is
@@ -543,7 +562,7 @@ export default async function GuestsLabPage({
                 <LabGuestActions refuse={labRefuses}>
                 <GuestCardBody
                   eventId={EVENT}
-                  data={{ ...cardData(cardGuest, host), ...protoData, ...sidesData, ...seatOf, ...seatLines, roleNames: labWords, outfit: { wear: labOutfit.wear, from: labOutfit.from } } as GuestCardData}
+                  data={{ ...cardData(cardGuest, host), ...protoData, ...sidesData, ...seatOf, ...seatLines, ...linkedData, roleNames: labWords, outfit: { wear: labOutfit.wear, from: labOutfit.from } } as GuestCardData}
                   invitationBase="https://www.setnayan.com/maria-and-jose"
                   photoDisplayUrl={null}
                   variant="page"
@@ -559,6 +578,11 @@ export default async function GuestsLabPage({
                   SendInvite={GuestInviteCell}
                   TicketThumb={GuestTicketThumb}
                   MoreMenu={GuestMoreMenu}
+                  DeleteControl={GuestDeleteControl}
+                  /* 📸 ?papic=off · ?papic=unknown · ?papic=set (40 credits) · ?papic=none — else on, sharing with everyone. */
+                  papic={labPapic}
+                  PapicCamera={GuestPapicCamera}
+                  AccessPick={GuestAccessPick}
                   kit={TEMPLATE_KIT}
                 />
                 </LabGuestActions>

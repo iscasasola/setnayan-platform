@@ -3,7 +3,7 @@ import { BLOCK_LOOKS_STYLE_ATTR, BLOCK_MARK_ATTR, blockLooksCss, blockOfCanvas, 
 import Link from 'next/link';
 import { watchLiveOccasion } from '@/lib/watch-live-occasion';
 import { daysToGo } from '@/lib/countdown-target';
-import { actionOpensReply, meLeadsWithReply, resolveArrivalAction } from '@/lib/arrival-action';
+import { actionOpensReply, resolveArrivalAction } from '@/lib/arrival-action';
 import { inviteReplyPath } from '@/lib/invite-arrival';
 import { PASS_CARD_ROUTE } from '@/lib/pass-card';
 import { manilaToday } from '@/lib/std-views';
@@ -21,8 +21,10 @@ import type { ChapterOnThisDay } from '@/lib/chapters-on-this-day';
 // The event hub's sanctioned column widths — a page-level column outside the
 // four is a defect, and `measures.test.ts` counts them.
 import { PAGE_COLUMN, PLATE } from '../_lib/measures';
-import { greetingWhen } from '../_lib/day-words';
-import { plusOneSeats } from '@/lib/guests';
+import { greetingDateLine, greetingAskOf, guestGreetingOf } from '@/lib/guest-greeting';
+import { MeGreeting, MeReply, ME_REPLY_ID } from './guest-greeting';
+import { DRESS_CODE_ANCHOR } from './dress-code-widget';
+import { guestFullName, plusOneSeats, type RsvpStatus } from '@/lib/guests';
 import { guestAttireOf, guestNamePartsOf } from '@/lib/attire-rows';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { loadEventNameStyle, loadEventRoleNames } from '../_lib/loaders';
@@ -551,6 +553,9 @@ type SiteBodyProps = {
   /** 🪪 The HOST's own guest row (the groom, a co-host who is also a sponsor) — the only id a host's page marks
    *  "You" in the entourage (owner ruling 2026-10-19 (a)). Null for everyone else, and never on the canvas. */
   hostOwnGuestId?: string | null;
+  /** 🗳 The HOST's own row's reply status ('pending' · 'attending' · 'declined' …) — the host's Reply card reads it and
+   *  opens the reply page AS that row (owner bug 2026-10-24). Null: the host has no live row here — the card asks, and the reply page tells them they are not on the list. */
+  hostOwnRsvp?: RsvpStatus | null;
   /** A booked supplier's server-verified grant; drives the doorway strip. */
   /** Stories about THIS day, for the people of this day. Empty for anybody the
    *  event does not recognise — the page never decides that itself. */
@@ -590,7 +595,7 @@ type SiteBodyProps = {
    * body resolves, so the body asks once and hands the answer down rather than
    * page.tsx re-deriving the plan.
    */
-  meSection?: React.ReactNode | ((me: { replyHref: string | null }) => React.ReactNode);
+  meSection?: React.ReactNode | ((me: { replyHref: string | null; inMe?: boolean; replyOwed?: boolean }) => React.ReactNode);
   /**
    * 👁 SEE AS ▾ (PR-10, owner 2026-10-04) — the Maker's canvas drawn as a SAMPLE
    * viewer (page.tsx `resolveSampleViewer`, verified host + `?editor=1` only):
@@ -659,6 +664,7 @@ export async function SiteBody({
   ownerCapability = null,
   heldPassSlot = null,
   hostOwnGuestId = null,
+  hostOwnRsvp = null,
   vendorCapability = null,
   supplierDesk = null,
   chaptersOnThisDay = [],
@@ -2108,18 +2114,24 @@ export async function SiteBody({
        `/{slug}` (307) and the tap reloaded the cover. Their page is a guest's (owner 2026-10-15): the Reply card stands
        under the cover as a guest's does, the cover's button takes them to it, and the card's button opens the Reply
        as the host's own preview of it (`?preview=draft`, the Maker's "Preview the whole stage" door — verified host
-       membership, a sample guest, never a real reply). A booked supplier has no reply to make: no button. */
+       membership, a sample guest, never a real reply). A booked supplier has no reply to make: no button.
+       🗳 …AND THAT PREVIEW WAS THE BUG (owner 2026-10-24, on cale-ice): the page said "Viewing as you", and its Reply
+       greeted "Gabriel dela Peña" — the sample is named after a real guest — and asked the host to answer HIS RSVP.
+       The card now opens the plain reply page, which replies as the host's OWN row (`readReplyIdentityForEvent`), and
+       reads that row's real answer ("You're coming · 1 seat · Change my reply" for a groom already attending). A host
+       with no row of their own keeps the card (the cover always has a way on — `the-cover-always-has-a-way-on`), and
+       the reply page TELLS them they are not on the list (`NoReplyHere`) — never a sample.
+       🛡 `the-reply-is-sent-as-who-the-hub-says.test.ts`. */
     const hostReplyCard =
       viewerIsHost && pageStage === 'rsvp' && plan.rsvpShouldRender && !isEditorCanvas
         ? replyCardOf({
             action: resolveArrivalAction({
               slug: event.slug ?? '',
-              rsvpStatus: 'pending',
+              rsvpStatus: hostOwnRsvp ?? 'pending',
               eventDate: event.event_date,
               today: manilaToday(),
               hasPass: false,
               replyOpen: replyOpenHere,
-              rsvpHref: `${replyDoor}?preview=draft`,
             }),
             replyBy: null,
             seats: 1,
@@ -2840,8 +2852,8 @@ export async function SiteBody({
     const replyBy = plan.guestListClosed
       ? null
       : guestReplyBy({ deadline: event.guest_list_edit_deadline ?? null, today: todayYmd() });
-    const replyCard =
-      guestStages && pageStage === 'rsvp' && plan.rsvpShouldRender && !isMakerCanvas
+    const replyCardHere =
+      pageStage === 'rsvp' && plan.rsvpShouldRender && !isMakerCanvas
         ? replyCardOf({
             action: arrivalAction,
             replyBy: replyBy ? formatEventDateWithPrecision(replyBy.date, 'day') || null : null,
@@ -2855,20 +2867,12 @@ export async function SiteBody({
             moreAnswers: g.moreAnswers,
           })
         : null;
-    /* 🔘 THE COVER'S RSVP BUTTON (owner 2026-10-16: *"Confirm Attendance is RSVP"*) — the Reply doorway drawn ON the cover,
-       reading this guest's own state (`coverRsvpOf`). On the Maker's canvas: the doorway as a guest who has not replied
-       meets it. 🧭 For a guest it TAKES them to the RSVP part (owner 2026-10-17, *"it is not going to the RSVP
-       part?"*): the Welcome's own Reply card stands under the cover again, as the page's RSVP part
-       (`COVER_RSVP_PART`), and the cover's button is an in-page link to it (`toPart`) — the cover lifts away, the page
-       moves down to the card, and the card's own button opens the shipped Reply. */
-    const guestRsvp =
-      pageStage !== 'rsvp'
-        ? null
-        : isMakerCanvas
-          ? plan.rsvpShouldRender
-            ? coverRsvpOf({ card: null, visitorHref: replyDoor })
-            : null
-          : coverRsvpOf({ card: replyCard, toPart: true });
+    /* The Welcome's card and the cover's state follow the new guest side (`guestStages`), as they shipped. */
+    const replyCard = guestStages ? replyCardHere : null;
+    /* ✉ ME'S ONE REPLY (owner 2026-10-24) — for EVERY guest on the Invitation, not only the new guest side: it replaces
+       the ticket's "Reply to the invitation" and the "Change your reply" bar, which every guest had. A plus-one who has
+       not replied is not asked here (their own link asks them — as the ticket's door never did either). */
+    const meReplyCard = replyCardHere && !(guest.plus_one_of_guest_id && replyCardHere.kind === 'ask') ? replyCardHere : null;
     /* 👗 THIS GUEST'S OWN LOOK — read once, for the Welcome's "you" panel and
        for Me's parts (one home per fact: when Me draws them, the Welcome's
        look stands down — DECISION_LOG 2026-10-06 "'YOUR DETAILS' LIVES ON
@@ -2977,57 +2981,20 @@ export async function SiteBody({
        two would mean two elements with one id, and a second drawing of the
        ticket. Guarded by `the-hub-shows-the-ticket.test.ts`. */
 
-    /** The day, as the greeting may say it — only as much as the hosts decided (`greetingWhen`); null with no date. */
-    const greetingAt = greetingWhen(event.event_date, event.event_date_precision);
-    const greetingBlock = plan.greetingShouldRender ? (
-      /* Pahina §7: the greeting's setting. 🎩 NO CASUAL GREETING (owner
-         2026-09-30, DECISION_LOG "NO CASUAL GREETINGS": *"no casual
-         greeting"*) — the "Hi, <first name>." salutation that led this block
-         is gone from the Welcome page; the sentence that says when, where and
-         as whom stays, and names nobody. */
-      <section className="space-y-3">
-        <p className="max-w-prose text-base leading-relaxed text-ink/70">
-          {/* 📅 NO DATE, NO "on" (a guest's walk 2026-10-11: "We'd love to celebrate with you on . You're
-              joining us as…"). An event with no date yet says the same sentence without the day — the words the
-              Maker's own drawing of this line already uses (`maker-guest-scenes.tsx`). */}
-          {greetingAt?.day ? (
-            <>
-              {clientWords.solemn
-                ? 'We hope you can be with us on'
-                : 'We’d love to celebrate with you on'}{' '}
-              <span className="font-medium text-ink">{greetingAt.day}</span>
-            </>
-          ) : (
-            <>
-              {clientWords.solemn ? 'We hope you can be with us' : 'We’d love to celebrate with you'}
-              {/* 🗓 Only a month or a year decided: "…in August 2027" / "…sometime in 2027" — never the
-                  placeholder day the column holds (`greetingWhen`). */}
-              {greetingAt?.loosely ? (
-                <>
-                  {' '}
-                  <span className="font-medium text-ink">{greetingAt.loosely}</span>
-                </>
-              ) : null}
-            </>
-          )}
-          {venueNamesLine(event, ' and ') ? (
-            <>
-              {' '}
-              — at <span className="font-medium text-ink">{venueNamesLine(event, ' and ')}</span>
-            </>
-          ) : null}
-          . You&rsquo;re joining us as{' '}
-          <span className="font-medium text-ink">{roleWordOfGuest(guest, roleNames)}</span>
-          {sideLabel ? (
-            <>
-              {' '}·{' '}
-              <span className="text-ink/80">{sideLabel}</span>
-            </>
-          ) : null}
-          .
-        </p>
-      </section>
-    ) : null;
+    /* 🪪 WHO, AS WHAT, WHEN AND WHERE — THE TOP OF ME (owner 2026-10-24, approving the Me redraw: "we want 1 place
+       for everything"; `lib/guest-greeting.ts`, `guest-greeting.tsx`): the guest's FORMAL name, their role, the date,
+       Ceremony / Reception. It replaces the Welcome's "We'd love to celebrate with you on … You're joining us as …"
+       paragraph — our own default copy, which no field held — and with it the word "celebrate". The role's colours are
+       named in What to wear, never on this line (one place for the colour fact). */
+    const meGreeting = guestGreetingOf({
+      name: placeCardName(guest, eventNameStyle) ?? (guestFullName(guest, eventNameStyle) || null),
+      roleCode: guest.role,
+      roleWord: roleWordOfGuest(guest, roleNames),
+      sideLabel,
+      date: greetingDateLine(event.event_date, event.event_date_precision),
+      venues: event.venues ?? null,
+      venueName: event.venue_name ?? null,
+    });
 
     /* 🏠 THE DAY'S WELCOME (owner 2026-09-30, "THE DAY'S MENU HAS FIVE"):
        this guest's table (the seat block, drawn above), their look, the
@@ -3098,6 +3065,24 @@ export async function SiteBody({
     });
     const tabs = pageTabsFor(guestBar);
     pageTabs = tabs;
+    /* 🔘 THE COVER'S RSVP BUTTON (owner 2026-10-16: *"Confirm Attendance is RSVP"*) — the Reply doorway drawn ON the cover,
+       reading this guest's own state (`coverRsvpOf`). On the Maker's canvas: the doorway as a guest who has not replied
+       meets it. 🧭 For a guest it TAKES them to the RSVP part (owner 2026-10-17, *"it is not going to the RSVP
+       part?"*): the Welcome's own Reply card stands under the cover again, as the page's RSVP part
+       (`COVER_RSVP_PART`), and the cover's button is an in-page link to it (`toPart`) — the cover lifts away, the page
+       moves down to the card, and the card's own button opens the shipped Reply.
+       🪪 …AND SINCE 2026-10-24 THE ONE REPLY IS ME'S (owner, approving the Me redraw: "one place for everything"): on a
+       tabbed page the button is a mark on Me (`#me-reply`, `MeReply`) — the shell opens Me there (`hub-shell.tsx`, a
+       mark on another tab), and the Welcome draws no Reply
+       card of its own. A page that is one scroll keeps the card under the cover, as before. */
+    const guestRsvp =
+      pageStage !== 'rsvp'
+        ? null
+        : isMakerCanvas
+          ? plan.rsvpShouldRender
+            ? coverRsvpOf({ card: null, visitorHref: replyDoor })
+            : null
+          : coverRsvpOf({ card: replyCard, toPart: true, partHref: tabs.on ? `#${ME_REPLY_ID}` : null });
     const { group } = tabs;
     /* ⚖ THE SCAN-TRAIL OPT-OUT — ONE SMALL LINE, WITH THE GUEST'S OWN THINGS (RA 10173: it may move, never
        vanish). Owner 2026-09-30 moved it off the page body into the "Your details" sheet; the sheet is no longer
@@ -3107,10 +3092,24 @@ export async function SiteBody({
     /* 🃏 `card` — on a tabbed page this note is drawn on Me (below), where it is one of the stage's scene cards
        (guest_page_fixes_2_4, fix 2; `ScanTrailForm`); at the foot of a page that is one scroll it stays a line. */
     const scanTrail = replySheetDrawn ? null : (
-      <ScanTrailNotice eventId={event.event_id} guestId={guest.guest_id} preview={isEditorCanvas} card={tabs.on} />
+      <ScanTrailNotice eventId={event.event_id} guestId={guest.guest_id} preview={isEditorCanvas} me={tabs.on} />
     );
     // 👁 A See as sample guest has no session to sign out of — no form at all.
-    const signOut = sampleViewer !== null ? null : (
+    const signOut = sampleViewer !== null ? null : (tabs.on ? (
+      /* 🔘 ON ME (owner 2026-10-24, the Me redraw): a small icon-and-word pill beside "Stop keeping a record" — still
+         asking first (`SignOutOfInvitation`). Me's own hairline sits above the two. */
+      <SignOutOfInvitation
+        action={`/${event.slug}/sign-out`}
+        pill
+        erases={
+          guest.photo_source === 'selfie' ? (
+            <p data-sign-out-erases-selfie="" className="mb-2 text-sm text-ink/70">{SIGN_OUT_ERASES_SELFIE}</p>
+          ) : null
+        }
+      >
+        Sign out of this invitation
+      </SignOutOfInvitation>
+    ) : (
       /* 🔎 LEGIBLE, AND NEVER BY ACCIDENT (a guest's walk 2026-10-11): this was 12px
          at 3.0:1, and one press signed the guest out. Now 14px at 5.4:1 with a
          44px press, and the first press asks (`SignOutOfInvitation`). */
@@ -3128,7 +3127,7 @@ export async function SiteBody({
           Sign out of this invitation
         </SignOutOfInvitation>
       </section>
-    );
+    ));
     /* 📱 THIS GUEST'S PAGES, FILED LIKE THE MAKER'S (owner 2026-10-08 — `readerAt`, the one filing; a See as
        sample guest in the Maker's canvas is this same page, so it follows). The couple's scenes in three runs, each
        in the couple's order: the Invitation's Welcome scenes (Countdown, Message — the prototype's Welcome), the
@@ -3389,11 +3388,17 @@ export async function SiteBody({
             }
           >
 
-          {replyCard ? (
+          {replyCard && tabs.on ? (
+            /* 🪪 ONE REPLY, ON ME (owner 2026-10-24): on a tabbed page the Welcome draws no Reply card — the cover's
+               button opens Me at its Reply (`#me-reply`). */
+            null
+          ) : replyCard ? (
             <ReplyCardRow card={replyCard} partId={COVER_RSVP_PART} landed={Boolean(rsvpFlash && rsvpFlash.tone !== 'error')} kit={artKit ? <KitSlot kit={artKit} slot="reply" /> : null} />
           ) : (
           <ArrivalActionRow
-            action={arrivalAction}
+            /* 🪪 ONE REPLY, ON ME (owner 2026-10-24): on a tabbed page an action that opens the reply opens Me's one
+               Reply instead (`#me-reply` — the shell opens Me there), so the Welcome holds no second door to it. */
+            action={tabs.on && meReplyCard && arrivalAction && actionOpensReply(arrivalAction) ? { ...arrivalAction, href: `#${ME_REPLY_ID}` } : arrivalAction}
             landed={Boolean(rsvpFlash && rsvpFlash.tone !== 'error')}
           />
           )}
@@ -3499,7 +3504,6 @@ export async function SiteBody({
               {directionsOnTop ? group('live', <DayDirections venues={dayVenues} />, { chapters: true, className: 'space-y-12' }) : null}
               {/* 📱 The Welcome's own scenes (owner 2026-10-08), in the prototype's order: countdown · greeting · message. */}
               {scenesOnTabs(leadBefore, detailsMarkOnLead ? SITE_MENU_ANCHORS.details : undefined)}
-              {group(readerAt('f:greeting', leadTab), <>{dayOfLead.greetingStepsBack ? null : greetingBlock}</>, { chapters: true, className: 'space-y-12' })}
               {scenesOnTabs(leadAfter, detailsMarkOnLead && leadBefore.length === 0 ? SITE_MENU_ANCHORS.details : undefined)}
 
               {/* Task #13 — day-of-mode promotes the schedule block to the top of
@@ -3687,7 +3691,6 @@ export async function SiteBody({
                   On the day it renders HERE, behind what the guest needs in the
                   room. Off the day it renders in its ordinary place above.
                   One block, two slots — never both. */}
-              {group(readerAt('f:greeting', leadTab), <>{dayOfLead.greetingStepsBack ? greetingBlock : null}</>, { chapters: true, className: 'space-y-12' })}
 
               {/* 🧱 Its own Animate (`lib/block-looks.ts`; owner 2026-10-10: "animate only"): the block's hidden mark
                   rides WITH the gallery, right before its one root — on The Day and after it, this same mount —
@@ -4211,13 +4214,20 @@ export async function SiteBody({
             Me drawn for a sample guest — its ticket from the guest page's own
             GuestTicket (page.tsx), never a Maker-only twin. */}
         {tabs.on || sampleViewer !== null ? group('me', (
-          <div data-me-stage="" className={`mx-auto w-full ${PLATE} space-y-12 px-4`}>
-            {/* ✉ The Reply card at the top of Me — once they have replied. Before
-                a reply, Me already leads with the one reply door (the ticket's
-                "Reply to the invitation", `meLeadsWithReply`); a second would be
-                the same door twice. */}
-            {replyCard && replyCard.kind !== 'ask' ? <ReplyCardRow card={replyCard} /> : null}
-            {/* 👤 Your role · What to wear · Arrive by · Coming with you. */}
+          <div data-me-stage="" className={`relative isolate mx-auto w-full ${PLATE} px-4 py-8 text-center [&>*+*]:mt-10 [&>*+*]:border-t [&>*+*]:border-ink/10 [&>*+*]:pt-10 before:pointer-events-none before:absolute before:inset-0 before:-z-10 before:bg-[rgb(var(--color-cream)/0.62)] before:backdrop-blur-[2px] before:content-[''] before:[mask-image:linear-gradient(to_right,transparent,#000_10%,#000_90%,transparent)]`}>
+            {/* 🪪 INVITATION › ME — THE ONE PLACE FOR EVERYTHING ABOUT THE GUEST (owner 2026-10-24: "Approve the corrected
+                Me redesign. Build it." — `Setnayan/prototypes/me_tab_redraw_2026-10-24_fable.html`). One centred axis, top
+                to bottom: the host's slim bar (when a host is viewing as this guest) · who, as what, when and where
+                (`MeGreeting`) · their details as quiet sections with hairlines between, no boxes (Your place · What to
+                wear · Arrive by · Coming with you · their table and ticket) · the ONE Reply (`MeReply`, `#me-reply`, where
+                the cover's button lands) · the record line with its ⓘ and the two small pills. Words read on paper
+                through Me's own feathered veil (the stage's `before:` layer: the page's paper behind the column, fading at its
+                edges — no box), so nothing sits straight on the couple's photo.
+                REMOVED as second doors to the same Reply (one place): the Reply card that stood at the top of Me after a
+                reply, the ticket's "Reply to the invitation" bar and the "Change your reply" bar. */}
+            {heldPassSlot && !isEditorCanvas ? <div data-me-host-bar="">{heldPassSlot}</div> : null}
+            {plan.greetingShouldRender ? <MeGreeting greeting={meGreeting} /> : null}
+            {/* 👤 Your place · A note from the couple · What to wear · Arrive by · Coming with you. */}
             {meParts.length > 0 || meNote ? (
               <GuestMeParts
                 note={meNote}
@@ -4226,25 +4236,15 @@ export async function SiteBody({
                 words={clientWords}
                 look={{ ...guestLook, roleNames }}
                 comingWith={comingWith}
+                fullGuideAnchor={DRESS_CODE_ANCHOR}
                 wearMark={blockMark('look')}
               />
             ) : null}
-            {/* 📱 ME'S OWN, FILED LIKE THE MAKER'S (owner 2026-10-08; prototype: Me · What to wear · seats): this
-                guest's look where Welcome drew it before (only while Me's four parts above do not already say it),
-                then their table, then the ticket. One column with its own gap, so a look with nothing to say
-                (`empty:hidden`) leaves no hole above the ticket. */}
+            {/* 📱 ME'S OWN, FILED LIKE THE MAKER'S (owner 2026-10-08): this guest's look where Welcome drew it before
+                (only while Me's parts above do not already say it), then their table, then the ticket (after a Yes —
+                the ticket never carries a Reply of its own any more: Me's one Reply is below). */}
             {(() => {
-              const mine = typeof meSection === 'function'
-              ? meSection({
-                  replyHref: meLeadsWithReply({
-                    action: arrivalAction,
-                    replyOpen: replyOpenHere,
-                    isPlusOne: Boolean(guest.plus_one_of_guest_id),
-                  })
-                    ? replyDoor
-                    : null,
-                })
-              : meSection;
+              const mine = typeof meSection === 'function' ? meSection({ replyHref: null, inMe: true, replyOwed: meReplyCard?.kind === 'ask' }) : meSection;
               const lookOnMe = welcomeOnMe.length > 0 && meParts.length === 0;
               const tableOnMe = seatOnMe && seatBlock !== null;
               if (!lookOnMe && !tableOnMe) return mine;
@@ -4261,17 +4261,16 @@ export async function SiteBody({
             {guest.photo_source === 'selfie' ? (
               <FaceDataNotice eventId={event.event_id} guestId={guest.guest_id} />
             ) : null}
-            {replyOpenHere && (guest.rsvp_status === 'attending' || guest.rsvp_status === 'declined') && !actionOpensReply(arrivalAction) ? (
-              <a
-                href={replyDoor}
-                data-me-change-reply=""
-                className="button-secondary flex w-full"
-              >
-                {plan.guestListClosed ? 'Update your details' : 'Change your reply'}
-              </a>
+            {/* ✉ THE ONE REPLY — the shipped Reply card's question and button (`replyCardOf`), at Me's foot. */}
+            {meReplyCard ? (
+              <MeReply ask={greetingAskOf(meReplyCard)!} landed={Boolean(rsvpFlash && rsvpFlash.tone !== 'error')} kit={artKit ? <KitSlot kit={artKit} slot="reply" /> : null} />
             ) : null}
-            {scanTrail}
-            {signOut}
+            {scanTrail || signOut ? (
+              <div data-me-foot="">
+                {scanTrail}
+                {signOut}
+              </div>
+            ) : null}
           </div>
         )) : null}
         {/* ── THE REPLY SHEET (canvas board 2 · rsvp-sheet.tsx) ─────────────

@@ -458,6 +458,7 @@ export async function goLivePanood(eventId: string): Promise<GoLiveResult> {
   // Also refresh the unified Live Studio controller, which mounts this same
   // GoLiveCard (2026-07-25) — so its live monitor reflects the new broadcast.
   revalidatePath(`/dashboard/${eventId}/studio/panood/setup`);
+  revalidatePath(`/dashboard/${eventId}`); // 🏠 Home's Live stream card says on/off air — one render, from the answer
   revalidatePath(liveStudioControlPath(eventId));
   revalidatePath('/[slug]', 'page');
   return { ok: true, notice };
@@ -571,6 +572,7 @@ export async function endPanoodBroadcast(eventId: string): Promise<GoLiveResult>
     .eq('event_id', eventId);
 
   revalidatePath(`/dashboard/${eventId}/studio/panood/setup`);
+  revalidatePath(`/dashboard/${eventId}`); // 🏠 Home's Live stream card says on/off air — one render, from the answer
   revalidatePath(liveStudioControlPath(eventId));
   revalidatePath('/[slug]', 'page');
   return { ok: true };

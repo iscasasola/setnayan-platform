@@ -1,4 +1,7 @@
-import { eventWordsForEvent } from '../_lib/event-words';
+import { InfoTip } from '@/app/_components/info-tip';
+import { scanTrailLines } from '@/lib/scan-trail-words';
+import { CircleSlash, RotateCcw } from 'lucide-react';
+import { ME_PILL } from './me-pill';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { setGuestScanTracking } from '../actions';
@@ -65,6 +68,7 @@ export async function ScanTrailNotice({
   guestId,
   preview = false,
   card = false,
+  me = false,
 }: {
   eventId: string;
   guestId: string;
@@ -72,6 +76,8 @@ export async function ScanTrailNotice({
   preview?: boolean;
   /** 🃏 On Me: drawn on the Hub's own scene card (`ScanTrailForm`). */
   card?: boolean;
+  /** 🔘 On the redrawn Me (owner 2026-10-24): one line with its ⓘ, then a small icon-and-word pill. */
+  me?: boolean;
 }) {
   // 🖼 NOT IN THE MAKER'S CANVAS, AND NEVER FOR THE SAMPLE GUEST (owner
   // 2026-09-27). The sample of the "After they reply" preview has no row, so
@@ -79,22 +85,18 @@ export async function ScanTrailNotice({
   // check" line would be said about a person who does not exist. Decided HERE,
   // so every recognised guest's mount stays unconditional.
   if (preview || guestId === SIMULATED_GUEST_ID) return null;
-  const [w, optedOut] = await Promise.all([
-    eventWordsForEvent(eventId),
-    readScanOptOut(eventId, guestId),
-  ]);
+  const optedOut = await readScanOptOut(eventId, guestId);
   const toggle = setGuestScanTracking.bind(null, eventId, guestId, scanOptOutTarget(optedOut));
 
   // The OFF sentence carries the cost, said plainly. A guest who turns this off
   // should not later wonder why the page stopped welcoming them on arrival —
   // that greeting is the trail's only reader anywhere in the product.
-  const sentence = optedOut === null
-    ? `We couldn’t check just now whether we keep a record of when you open your invitation at this ${w.eventWord}.`
-    : optedOut
-    ? `We keep no record of when you open your invitation or scan your code at this ${w.eventWord}. This page will greet you the same way every time.`
-    : `We keep a record of when you open your invitation or scan your code at this ${w.eventWord} — it is how this page knows to welcome you when you first arrive.`;
+  /* 🗣 "AT THIS EVENT" (owner 2026-10-24, the Me redraw: the event type's word → "event") — our own copy says
+     "event", never the event type's word (the house rule: say "event"). */
+  const lines = scanTrailLines(optedOut);
+  const sentence = lines.more ? `${lines.main} ${lines.more}` : lines.main;
 
-  return <ScanTrailForm sentence={sentence} optedOut={optedOut === true} toggle={toggle} card={card} />;
+  return <ScanTrailForm sentence={sentence} optedOut={optedOut === true} toggle={toggle} card={card} me={me} lines={lines} />;
 }
 
 /**
@@ -108,12 +110,39 @@ export function ScanTrailForm({
   optedOut,
   toggle,
   card = false,
+  me = false,
+  lines = null,
 }: {
   sentence: string;
   optedOut: boolean;
   toggle: (formData: FormData) => void | Promise<void>;
   card?: boolean;
+  me?: boolean;
+  lines?: { main: string; more: string | null } | null;
 }) {
+  /* 🪪 ON THE REDRAWN ME (owner 2026-10-24, `me_tab_redraw_2026-10-24_fable.html`): the record line with its ⓘ (the
+     rest of the sentence inside — details go inside the ⓘ), then a small icon-and-word pill — no box, no bare link.
+     The pill and "Sign out of this invitation" stand side by side (both inline). */
+  if (me) {
+    const said = lines ?? { main: sentence, more: null };
+    return (
+      <>
+        {said.more ? (
+          <InfoTip label={said.main} labelAs="p" labelClassName="text-sm text-ink/70" className="justify-center" ariaLabel="About this record">
+            {said.more}
+          </InfoTip>
+        ) : (
+          <p className="text-sm text-ink/70">{said.main}</p>
+        )}
+        <form action={toggle} data-scan-trail="" className="m-1 mt-3 inline-block align-middle text-sm text-ink/70">
+          <SubmitButton className={ME_PILL} pendingLabel={optedOut ? 'Turning on…' : 'Turning off…'}>
+            {optedOut ? <RotateCcw aria-hidden className="h-4 w-4 shrink-0" /> : <CircleSlash aria-hidden className="h-4 w-4 shrink-0" />}
+            <span>{optedOut ? 'Keep a record again' : 'Stop keeping a record'}</span>
+          </SubmitButton>
+        </form>
+      </>
+    );
+  }
   const form = (
     /* 🔎 READABLE AND PRESSABLE (a guest's walk 2026-10-11): the note was 3.98:1 (`text-ink/60`); it is 5.4:1 now,
        and the button says its own 44px. NO "are you sure?": the press only flips this guest's one setting

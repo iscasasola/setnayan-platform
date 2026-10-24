@@ -31,6 +31,8 @@ export function Fold({
   leadPress,
   anchor,
   popovers = false,
+  summaryEnd = false,
+  danger = false,
 }: {
   /** What the fold is — "More for guests". */
   title: string;
@@ -69,6 +71,14 @@ export function Fold({
    * opening, and puts it back the moment it starts to shut. Opt-in, so every other fold is exactly as it was.
    */
   popovers?: boolean;
+  /**
+   * A LIST OF ROWS (the guest card's groups, owner-approved prototype `guest_card_groups_and_papic_2026-10-23.html`): the
+   * title at the LEFT, its one-line summary at the RIGHT — cut with "…", never wrapping, so every row is one height.
+   * Absent → the summary sits beside the title as it always did.
+   */
+  summaryEnd?: boolean;
+  /** The title in the danger colour — a row whose inside is a destructive act (the card's Delete). Absent → ink. */
+  danger?: boolean;
   className?: string;
 }) {
   const [open, setOpen] = useState(defaultOpen);
@@ -108,13 +118,18 @@ export function Fold({
       className={`sn-press flex min-h-[52px] items-center gap-2 text-left text-[15px] font-semibold text-ink ${leadPress ? 'min-w-0 flex-1' : 'w-full'}`}
     >
       {lead}
-      {line !== undefined ? (
+      {summaryEnd ? (
+        <>
+          <span className={`shrink-0 font-medium ${danger ? 'text-danger-700' : ''}`}>{title}</span>
+          <span className="ml-auto min-w-0 flex-1 truncate text-right text-[13.5px] font-normal text-ink/55">{summary}</span>
+        </>
+      ) : line !== undefined ? (
         <span className="min-w-0 flex-1">
           <span className="block truncate">{title}</span>
           {line ? <span className="block truncate text-[13px] font-normal text-ink/60">{line}</span> : null}
         </span>
       ) : (
-        <span className="min-w-0 flex-1">
+        <span className={`min-w-0 flex-1 ${danger ? 'text-danger-700' : ''}`}>
           {title}
           {summary ? <small className="text-[12.5px] font-normal text-ink/55"> · {summary}</small> : null}
         </span>

@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { papicPoolGalleryActive } from '@/lib/papic-pool-gate';
 import { eventPapicActive } from '@/lib/papic-seats';
 import { PoolGalleryToggle } from './pool-gallery-toggle';
+import { InfoTip } from '@/app/_components/info-tip';
 
 /**
  * Shared Pool Gallery — the couple's control card on the Papic studio page
@@ -18,7 +19,7 @@ import { PoolGalleryToggle } from './pool-gallery-toggle';
  * session guest, who may also tag themselves into photos. Closing is
  * retroactive on the next read.
  */
-export async function PoolGalleryCard({ eventId }: { eventId: string }) {
+export async function PoolGalleryCard({ eventId, variant = 'card' }: { eventId: string; variant?: 'card' | 'row' }) {
   if (!(await papicPoolGalleryActive())) return null;
 
   const papicActive = await eventPapicActive(await eventEntitlementClient(eventId), eventId);
@@ -54,6 +55,21 @@ export async function PoolGalleryCard({ eventId }: { eventId: string }) {
   if (!ev) return null;
 
   const open = ev.pool_gallery_open === true;
+
+  // 'row' — Memories › ⚙ Gallery settings (owner 2026-10-23, "Guests see all photos"): the switch, its words in the ⓘ.
+  if (variant === 'row') {
+    return (
+      <section className="py-3" data-memories-setting="see-all">
+        <InfoTip label="Guests see all photos" labelAs="h3" labelClassName="text-[15px] font-semibold text-ink" align="start">
+          On: every guest can browse every screened photo and clip in your Memories (web copies only) and tag themselves
+          into photos they are in — those join their own. Turning it off closes it for everyone at once.
+        </InfoTip>
+        <div className="mt-1">
+          <PoolGalleryToggle eventId={eventId} initialOpen={open} />
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="rounded-2xl border border-ink/10 bg-surface p-5 sm:p-6">

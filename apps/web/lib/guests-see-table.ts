@@ -159,7 +159,7 @@ export const FIXED_PART_LABEL = {
   announce: 'Announcements',
   live: 'Live',
   camera: 'Camera',
-  photosofyou: 'Photos of you',
+  photosofyou: 'Memories of you',
 } as const;
 /* (Keyed by `FixedPart`, `lib/stage-scenes.ts` — held to it where the table is built, so this file imports no rule.) */
 

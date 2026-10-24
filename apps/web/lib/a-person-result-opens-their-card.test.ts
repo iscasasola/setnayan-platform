@@ -151,7 +151,10 @@ test('the results page DRAWS the people — each card links to that person, a re
   );
   assert.ok(refused.includes(PEOPLE_UNREAD.replace(/’/g, '&#x27;')) || refused.includes(PEOPLE_UNREAD), 'a refused read drew nothing — silence reads as "nobody"');
   // Mounted where the shell answers: the page reads people and hands them to the results.
-  assert.match(src('app/dashboard/(account)/search/page.tsx'), /searchShellPeople\(query, user\.id\)/, 'the shell results page no longer searches people');
+  // The people read moved into the one context both answers share (2026-10-24 — Discover answers in place too).
+  assert.match(src('app/_components/frontdoor/shell-search-context.ts'), /searchShellPeople\(query, userId\)/, 'the shell search no longer searches people');
+  assert.match(src('app/dashboard/(account)/search/page.tsx'), /resolveShellSearchContext\(query, user\.id, commandItems\)/, 'the shell results page no longer reads the people');
   assert.match(src('app/dashboard/(account)/search/page.tsx'), /people=\{people\}/, 'the results are not handed the people');
-  assert.match(src('app/_components/frontdoor/front-door-results.tsx'), /place === 'shell' && people \? <ShellPeopleSection people=\{people\} \/>/, 'the results view stopped drawing the people');
+  assert.match(src('app/_components/frontdoor/front-door.tsx'), /people=\{shellSearch\.people\}/, 'Discover’s results are not handed the people');
+  assert.match(src('app/_components/frontdoor/front-door-results.tsx'), /inShell && people \? <ShellPeopleSection people=\{people\} \/>/, 'the results view stopped drawing the people');
 });

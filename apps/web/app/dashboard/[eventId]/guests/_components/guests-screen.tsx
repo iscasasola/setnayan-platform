@@ -123,9 +123,12 @@ import { useRoleNames } from './role-names-context';
 import { guestOptimistic, useGuestOptimistic } from './guest-optimistic-store';
 import { DeleteGuestSheet, useGuestRemoval } from './guest-delete';
 import { NewGroupInlineForm } from './new-group-inline-form';
+import { GuestPapicBulkSheet, PAPIC_SET_OPTIONS } from './guest-papic-bulk';
+import type { GuestCamera } from '@/lib/papic-guest-camera';
 import { groupLabelWithSide, sidesForNamesakes } from '@/lib/groups-for-side';
 import { GuestListHasSidesContext } from './guest-list-has-sides-context';
 import { openAddGuest } from './add-guest-sheet';
+import { SearchAddRow, searchAddLabel } from '@/components/search-add-row';
 import { guestAdds, NEEDS_BOTH_NAMES, queueTypedGuest, useGuestAdds } from './guest-add-queue';
 import { JustAdded } from './just-added';
 import { hearAction } from './hear-action';
@@ -208,6 +211,11 @@ export type GuestsScreenProps = {
    * (`failed`). The mark says so, and nothing that writes is offered — no Select, no Remove, no Add.
    */
   copy?: GuestsCopyState | null;
+  /**
+   * 📸 The event's Papic, read for the couple (`readEventPapicAccess`): 'on' → Select's Set… ▾ gains a Papic group (owner
+   * 2026-10-23, "Papic · set N each"). Anything else — off, a check that did not answer, not the couple — offers none.
+   */
+  papic?: 'on' | 'off' | 'unknown' | null;
 };
 
 /** ⚡ The most rows the first draw holds; the rest arrive at the first idle moment. */
@@ -535,6 +543,8 @@ export function GuestsScreen(props: GuestsScreenProps) {
 
   // ── Set… ▾ (group · table · side) — the shipped bulk writer, one field at a time.
   const [newGroup, setNewGroup] = useState(false);
+  // ── Set… ▾ › Papic (owner 2026-10-23) — the sheet "Papic · set N each", open with the choice that was picked.
+  const [papicSheet, setPapicSheet] = useState<GuestCamera | null>(null);
   const { bulkApplyRoleAndGroup, sendRunHref } = useGuestActions();
   const applyBulk = async (field: 'group_id' | 'table' | 'side', value: string) => {
     const fd = new FormData();
@@ -856,6 +866,8 @@ export function GuestsScreen(props: GuestsScreenProps) {
     ...(hasSides
       ? (['bride', 'groom', 'both'] as GuestSide[]).map((s) => ({ key: `side:${s}`, label: SIDE_LABELS[s], group: 'Side' }))
       : []),
+    // 📸 Their camera, for everyone selected — only while the event's Papic is on (owner 2026-10-23).
+    ...(live.papic === 'on' && !copy ? PAPIC_SET_OPTIONS : []),
   ];
   const selectedIds = [...selected];
   const invitable = selectedIds
@@ -907,6 +919,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
                 if (selected.size === 0) return;
                 if (k === 'group:new') return setNewGroup(true);
                 if (k === 'reply:attending' || k === 'reply:declined') return void setReplies(selectedIds, k.slice(6) as 'attending' | 'declined');
+                if (k.startsWith('papic:')) return setPapicSheet(k.slice(6) as GuestCamera);
                 const [field, ...rest] = k.split(':');
                 const value = rest.join(':');
                 void applyBulk(field === 'group' ? 'group_id' : (field as 'table' | 'side'), value);
@@ -1074,10 +1087,16 @@ export function GuestsScreen(props: GuestsScreenProps) {
           </section>
         );
       })}
+      {/* SEARCH OR ADD (owner 2026-10-24: *"it is search or add for both guests and suppliers"*): while the box holds
+          words and the list has hits, the last row adds what was typed — the thumb row's own ＋ door (`openAddGuest`,
+          the sheet, name filled in). With no hit the block below is the add, its button in the same words. */}
+      {q && !noMatch && !copy ? <SearchAddRow className={styles.searchAdd} query={q} as="a guest" onAdd={openAddGuest} /> : null}
       {noMatch ? (
         <div className={styles.nomatch} data-no-match="">
           {copy ? null : <PeopleHits hits={peopleHits} onAdd={addPerson} />}
-          <div className={styles.title}>{peopleHits.length > 0 && !copy ? `Not them? Add “${q}” as new` : `Nobody matches “${q}”`}</div>
+          <div className={styles.title}>
+            {peopleHits.length > 0 && !copy ? `Not them? Add “${q}” as new` : copy ? `Nobody matches “${q}”` : `Nobody matches “${q}”. Add them below.`}
+          </div>
           <p className={styles.body}>
             If that’s a name, add them — one tap, the rest later. Words like “attending”, “no reply”, “VIP” or a group name also work here.
           </p>
@@ -1104,7 +1123,8 @@ export function GuestsScreen(props: GuestsScreenProps) {
                 tone="brand"
                 main
                 icon={Plus}
-                label={`Add “${q}”`}
+                label={searchAddLabel(q, 'a guest')}
+                name={`Add “${q}” as a guest`}
                 onClick={() => {
                   // One tap adds them, the same as Enter; a line the box cannot add alone (one name) opens the sheet.
                   if (addTyped(q) === NEEDS_BOTH_NAMES) openAddGuest(q);
@@ -1147,7 +1167,8 @@ export function GuestsScreen(props: GuestsScreenProps) {
             <PillThumb />
             {seg('list', 'List', stats.total)}
             {seg('map', 'Map')}
-            {seg('share', 'Setup')}
+            {/* "Setup" → "Settings" (owner 2026-10-23, one word — the same word as Home's ⚙ Settings). */}
+            {seg('share', 'Settings')}
           </nav>
           {/* 📋 The copy line — in the flow, under the selector, never over anything (guest-copy-mark.tsx). */}
           <GuestListStatus copy={copy} fresh={props.measured} />
@@ -1308,6 +1329,19 @@ export function GuestsScreen(props: GuestsScreenProps) {
             setRemoveError(refused);
           }}
         />
+        {papicSheet ? (
+          <GuestPapicBulkSheet
+            eventId={eventId}
+            ids={selectedIds}
+            names={selectedIds.map((id) => byId.get(id)).filter((g): g is GuestRow => Boolean(g)).map((g) => plusWords.get(g.guest_id)?.name ?? displayPersonName(guestNameAsGiven(g) ?? guestDisplayName(g)))}
+            start={papicSheet}
+            onClose={() => setPapicSheet(null)}
+            onDone={() => {
+              setPapicSheet(null);
+              leaveSelect();
+            }}
+          />
+        ) : null}
         {newGroup ? (
         <GuestPopup
           onClose={() => setNewGroup(false)}

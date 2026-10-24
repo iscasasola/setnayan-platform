@@ -53,7 +53,7 @@ export function HomeLoadingScreen({ label, hero, children }: { label: string; he
   return (
     <section aria-busy="true" aria-live="polite" className="space-y-6" data-home-loading-cover="">
       <span className="sr-only">{label}…</span>
-      <HomeCoverBand eventId={cover!.eventId} cover={cover!.words} />
+      <HomeCoverBand cover={cover!.words} />
       {children}
     </section>
   );

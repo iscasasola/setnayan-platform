@@ -84,13 +84,21 @@ export function postedForm(html: string): Record<string, string[]> {
   const open = html.lastIndexOf('<form', at);
   const close = html.indexOf('</form>', at);
   const form = html.slice(open, close);
+  /* 🕯 A control OUTSIDE the form that names it (`form="<id>"`) is the browser's too — the card's Passed Away sits below Access
+     (owner's groups, 2026-10-23) and posts with the form that way. Its tag is read with the form's own; one inside naming
+     ANOTHER form is not this form's. */
+  const formId = attrsOf(html.slice(open, html.indexOf('>', open) + 1)).id;
+  const outside = formId
+    ? [...(html.slice(0, open) + html.slice(close)).matchAll(/<(input|textarea|select)\b[^>]*>/g)].filter((m) => attrsOf(m[0]).form === formId).map((m) => m[0]).join('')
+    : '';
   const out: Record<string, string[]> = {};
   const add = (name: string, value: string) => (out[name] ??= []).push(value);
-  for (const m of form.matchAll(/<(input|textarea|select)\b[^>]*>/g)) {
+  for (const m of (form + outside).matchAll(/<(input|textarea|select)\b[^>]*>/g)) {
     const tag = m[0];
     const a = attrsOf(tag);
     const name = a.name;
     if (!name || 'disabled' in a) continue;
+    if (a.form && a.form !== formId) continue;
     if (m[1] === 'input') {
       const type = (a.type ?? 'text').toLowerCase();
       if (['submit', 'button', 'reset', 'image', 'file'].includes(type)) continue;

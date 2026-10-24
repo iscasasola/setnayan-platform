@@ -116,6 +116,7 @@ export function BudgetScreen({
   supplierExtras,
   categories,
   targetNote,
+  initialPayVendorId = null,
 }: {
   eventId: string;
   /** Writing money is the couple's alone; a delegate who may read sees the same rows without the verbs. */
@@ -136,8 +137,10 @@ export function BudgetScreen({
   categories: CostCategoryOption[];
   /** More words in the Target's ⓘ — the tradition notes, for the event types that have one. */
   targetNote?: ReactNode;
+  /** 🔗 `?pay=<line_item_id>` resolved to its supplier (`payTargetVendor`): that Pay sheet opens on arrival. */
+  initialPayVendorId?: string | null;
 }) {
-  const [sheet, setSheet] = useState<BudgetSheetState>(null);
+  const [sheet, setSheet] = useState<BudgetSheetState>(initialPayVendorId ? { kind: 'pay', vendorId: initialPayVendorId } : null);
   const [filter, setFilter] = useState<ListFilter>('all');
   const [query, setQuery] = useState('');
   const shown = useMemo(() => filterBudgetList(list, filter, query), [list, filter, query]);
@@ -147,7 +150,7 @@ export function BudgetScreen({
   const retry = () => startRetry(() => router.refresh());
   const line = filterLine(filter);
   // Once a sheet has been opened its code stays mounted, so the next open is instant.
-  const [sheetsWanted, setSheetsWanted] = useState(false);
+  const [sheetsWanted, setSheetsWanted] = useState(Boolean(initialPayVendorId));
 
   const open = (next: BudgetSheetState) => {
     setSheetsWanted(true);

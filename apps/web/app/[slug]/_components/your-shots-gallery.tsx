@@ -1,4 +1,5 @@
 import type { GuestOwnShots } from '@/lib/guest-live-gallery';
+import { YourShotTile } from './your-shot-tile';
 
 /**
  * 📸 THE GALLERY'S "YOUR SHOTS" — and the door to everyone's, only when shared.
@@ -96,17 +97,11 @@ export function YourShotsGallery({
         {shots.shots.map((s) => (
           <li key={s.id} className="aspect-square overflow-hidden rounded-lg bg-ink/5">
             {qrToken ? (
-              <a
-                href={`/papic/me/${encodeURIComponent(qrToken)}/photo?id=${encodeURIComponent(s.id)}&src=guest`}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="Open full size to save"
-                className="block h-full w-full"
-              >
-                {/* Presigned URL — raw <img> (the optimizer would cache the expiry). */}
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={s.url} alt="" loading="lazy" className="h-full w-full object-cover" />
-              </a>
+              <YourShotTile
+                id={s.id}
+                previewUrl={s.url}
+                saveUrl={`/papic/me/${encodeURIComponent(qrToken)}/photo?id=${encodeURIComponent(s.id)}&src=guest`}
+              />
             ) : (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={s.url} alt="" loading="lazy" className="h-full w-full object-cover" />

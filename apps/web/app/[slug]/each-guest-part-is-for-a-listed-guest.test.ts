@@ -73,7 +73,9 @@ async function draw(who: Reader, row: Row): Promise<string> {
         ceremonyType: null,
         genderSeparation: null,
         guestRole: row.role as never,
-        march: null,
+        /* (2026-10-24, the Me redraw: Me's first part is "Your place" — where they walk; the role is said once, at the
+           top of Me. A ninang in the march walks 5th.) */
+        march: row.role === 'guest' ? null : { position: 5, total: 9, partner: null, after: 'Carlos Reyes and Nena Reyes' },
         rolePalette: BOARD,
       },
       comingWith: row.comingWith,
@@ -98,8 +100,10 @@ async function holds(key: 'role' | 'wear' | 'arrive' | 'guests', heading: string
   assert.equal(partOf(await draw(LISTED, without), key), '', `${heading}: drawn for a listed guest whose row does not carry it`);
 }
 
-test('Your role — a listed guest with a role; never a plain "guest"', async () => {
-  await holds('role', 'Your role', /Ninang|Principal Sponsor/, { ...WITH_FACTS, role: 'guest' });
+test('Your place — a listed guest with a role in the march; never a plain "guest"', async () => {
+  // 🔁 RE-AIMED 2026-10-24 (owner, the Me redraw): the part says WHERE they walk ("Your place"); their role itself is
+  // Me's top line (`MeGreeting`), said once.
+  await holds('role', 'Your place', /You walk 5th/, { ...WITH_FACTS, role: 'guest' });
 });
 
 test('What to wear — the outfit the couple set for that role; never a default style', async () => {

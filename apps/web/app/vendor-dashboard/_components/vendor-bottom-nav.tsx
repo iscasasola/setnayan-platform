@@ -40,7 +40,7 @@
  * do not serialize from a server component (same as admin-bottom-nav.tsx).
  */
 
-import { CalendarCheck, Home, ShoppingBag, Users } from 'lucide-react';
+import { CalendarCheck, ShoppingBag, Store, Users } from 'lucide-react';
 import { BottomNav } from '@/app/_components/nav/bottom-nav';
 import { navIconComponent } from '@/app/_components/nav/nav-icon-component';
 import type { BottomNavItem } from '@/app/_components/nav/types';
@@ -65,7 +65,10 @@ export const VENDOR_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
     key: 'profile',
     label: 'Today',
     href: '/vendor-dashboard',
-    icon: Home,
+    // 🏪 The storefront, not a house (owner 2026-10-24: "Shop icon not home
+    // icon on Shop's Dashboard Today"). The bar draws the REGISTRY's icon over
+    // this one — slot `vendor.bottom-nav.home` says `Store` too; change both.
+    icon: Store,
     activeMatch: '/vendor-dashboard',
     activeMatchExact: true,
   },

@@ -716,7 +716,7 @@ export function kinWordOfReader(
 }
 
 /**
- * 👪 ONE GUEST'S OWN ROLE WORD, as every "you" line says it (the Welcome's "You're joining us as …", Event details'
+ * 👪 ONE GUEST'S OWN ROLE WORD, as every "you" line says it (Me's greeting role line, Event details'
  * "Your role") — their kin word by the one per-person resolver (`kinWordOfReader`: gender → title → attire), else the
  * role's own word. Owner 2026-10-19: the groom's "Atty. (Woman)" mother is "Mother of the Groom" on every line.
  */

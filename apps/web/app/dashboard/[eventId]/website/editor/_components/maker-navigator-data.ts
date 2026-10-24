@@ -156,7 +156,7 @@ export function buildMakerNavigatorData(input: {
       return { eyebrow: first?.chapterLabel ?? 'Love story', title: first ? firstLine(first.line, 40) ?? 'Love story' : 'Love story moments', line: first?.when || undefined };
     })(),
     event_details: { eyebrow: 'Event details', title: facts.dateLabel ?? 'Event details' },
-    your_photos: { eyebrow: 'Photos of you', title: 'Photos of each guest' },
+    your_photos: { eyebrow: 'Memories of you', title: 'Photos of each guest' },
   };
 
   for (const row of input.sectionRows) {

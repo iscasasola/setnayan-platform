@@ -100,8 +100,9 @@ test('the reader’s own colours are said by what they colour — once to a scre
   assert.doesNotMatch(markup, /Long gown\s*#|Long gown<small/i);
   const legend = /<p aria-hidden="true" class="sn-pal-legend[^"]*">([\s\S]*?)<\/p>/.exec(markup);
   assert.ok(legend, 'the Circles legend is drawn, hidden from a screen reader');
-  assert.match(legend![1]!, />Long gown</);
-  assert.equal((markup.match(/<span class="sr-only">Long gown<\/span>/g) ?? []).length, 1, 'the gown colour has one screen-reader name');
+  // (2026-10-24, owner: "the colors have names" — what it colours, then the colour's own name; still never a hex.)
+  assert.match(legend![1]!, />Long gown · [A-Z][^<#]*</);
+  assert.equal((markup.match(/<span class="sr-only">Long gown(?: · [^<#]+)?<\/span>/g) ?? []).length, 1, 'the gown colour has one screen-reader name');
   assert.doesNotMatch(markup, /Our colours/);
 });
 

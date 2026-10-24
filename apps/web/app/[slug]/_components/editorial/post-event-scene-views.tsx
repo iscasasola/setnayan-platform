@@ -38,7 +38,7 @@ import type { PostEventStyleId } from '@/lib/post-event-styles';
 import { postEventElementScope } from '@/lib/post-event-styles';
 import { GlimpseRail } from '../glimpse-rail';
 
-/** Glimpse in the flow draws this many photos (the rail draws them three times once live). */
+/** Glimpse in the flow draws this many photos. */
 export const GLIMPSE_PREVIEW_MAX = 12;
 
 export type PeWords = Partial<Record<'label' | 'heading' | 'body', string>>;

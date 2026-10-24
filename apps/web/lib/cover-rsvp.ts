@@ -38,14 +38,21 @@ export const COVER_RSVP_CLOSED = 'Replies are closed';
  * to that card, `COVER_RSVP_PART`) or a canvas VISITOR (`visitorHref`, the reply door — which keeps only a reader holding
  * a guest pass: anyone else is sent back to the event page, `replyEntry`). Null: no button (no reply on this page).
  */
-export function coverRsvpOf(input: { card: ReplyCard | null; visitorHref?: string | null; toPart?: boolean }): CoverRsvp | null {
+export function coverRsvpOf(input: {
+  card: ReplyCard | null;
+  visitorHref?: string | null;
+  toPart?: boolean;
+  /** 🪪 Where the RSVP part IS, when not under the cover — on a tabbed page, Me's Reply (`#me-reply`, opened on Me by the hub shell — owner
+   *  2026-10-24, "one place for everything"). Absent/null: the part under the cover (`#site-reply`). */
+  partHref?: string | null;
+}): CoverRsvp | null {
   const c = input.card;
   if (c) {
     if (c.kind === 'closed') return { kind: 'closed', line: COVER_RSVP_CLOSED };
     if (c.kind === 'not_yet' || c.href === null) return { kind: 'not_yet', line: c.line };
     // ✉️ Answers still owed: straight to the reply page, which asks only those — never the glide to the card.
     if (c.kind === 'going' && c.more && c.more > 0) return { kind: 'going', href: c.href, more: c.more };
-    return { kind: c.kind, href: input.toPart ? `#${COVER_RSVP_PART}` : c.href };
+    return { kind: c.kind, href: input.toPart ? (input.partHref ?? `#${COVER_RSVP_PART}`) : c.href };
   }
   return input.visitorHref ? { kind: 'ask', href: input.visitorHref } : null;
 }

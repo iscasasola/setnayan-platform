@@ -13,6 +13,7 @@
  *      list covered "Tap to view". Both now open under the whole row, between
  *      the card's edges (`data-menus-open-below`, lib/menu-place.ts).
  *  4 · EVERY ⋯ ITEM HAS AN ICON, or none would: Write to NFC had one, New QR none.
+ *      (Delete left the ⋯ for its own group at the bottom of the card, 2026-10-23.)
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -29,7 +30,10 @@ const PARTS = read('guest-ticket-parts.tsx');
 const OVERLAY = read('overlay-primitives.tsx');
 
 test('1 · every section label on the card is the eyebrow style', () => {
-  for (const label of ['Their ticket', 'Name · mobile']) {
+  /* RE-AIMED 2026-10-23 (owner's groups): "Name · mobile" is no longer a heading — the name and the mobile are the Basic Info
+     group, a row like every other (its label is the fold's own), CLOSED with the mobile in its summary. */
+  assert.match(CARD, /<K\.Fold summary="Basic Info" value=\{basicSummary\}/, 'the name and mobile are not the Basic Info group');
+  for (const label of ['Their ticket']) {
     const at = CARD.indexOf(`>${label}<`);
     assert.ok(at > -1, `"${label}" is gone from the card`);
     const tag = CARD.slice(CARD.lastIndexOf('<', at), at);
@@ -120,7 +124,8 @@ test('3 · the card marks its row, and both menus ask for the box', () => {
 test('4 · every line of the ⋯ list carries an icon', () => {
   const menu = PARTS.slice(PARTS.indexOf('export function GuestMoreMenu('));
   const items = menu.split('role="menuitem"').slice(1).map((s) => s.slice(0, s.indexOf('</button>')));
-  assert.ok(items.length >= 3, `expected New QR · Unlink · Delete, found ${items.length}`);
+  /* Delete left the ⋯ for the card's own last group (owner 2026-10-23, `GuestDeleteControl`) — New QR · Unlink remain. */
+  assert.ok(items.length >= 2, `expected New QR · Unlink, found ${items.length}`);
   for (const it of items) {
     const words = it.slice(it.lastIndexOf('/>') + 2).trim();
     assert.match(it, /<[A-Z]\w+ aria-hidden className="h-3\.5 w-3\.5"/, `"${words}" has no icon`);

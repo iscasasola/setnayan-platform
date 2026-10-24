@@ -309,7 +309,9 @@ test('the launch-critical journey', async ({ browser }) => {
     await expect(host.locator('[data-home-cover] h1').first()).toContainText(FIXTURE.eventName);
     check(`the event is "${FIXTURE.eventName}"`);
     await expect(host.locator('[data-home-guests-unread]')).toHaveCount(0);
-    const coming = host.locator('a[data-home-tile="coming"]:visible').first();
+    // The Guests widget's "coming" figure (owner-approved 2026-10-24: one Guests widget — the phone's tile face, the
+    // md+ card's figure; whichever this width draws).
+    const coming = host.locator('[data-count="home-guests-coming"]:visible').first();
     await expect(coming).toBeVisible();
     comingBefore = await settledNumber(coming);
     // The seed made this many say yes; the couple's own two rows may count too.
@@ -474,7 +476,7 @@ test('the launch-critical journey', async ({ browser }) => {
     await expect(row).toContainText('Attending');
     check(`${invited.fullName} is marked Attending in the guest list`);
     await host.goto(`${BASE}${eventUrl}`);
-    await expect(host.locator('a[data-home-tile="coming"]:visible').first()).toContainText(String(comingBefore + 1), { timeout: 20_000 });
+    await expect(host.locator('[data-count="home-guests-coming"]:visible').first()).toContainText(String(comingBefore + 1), { timeout: 20_000 });
     check(`the Home's "coming" count went ${comingBefore} → ${comingBefore + 1}`);
   }, ['A · Host']);
 

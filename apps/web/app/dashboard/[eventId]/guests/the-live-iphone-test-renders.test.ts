@@ -80,7 +80,7 @@ async function paintCard(over: Partial<GuestRow> = {}, opts: { withMenu?: boolea
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { AppRouterContext } = await import('next/dist/shared/lib/app-router-context.shared-runtime');
   const { GuestCardBody } = await import('./_components/guest-card-body');
-  const { GuestMoreMenu } = await import('./_components/guest-ticket-parts');
+  const { GuestDeleteControl, GuestMoreMenu } = await import('./_components/guest-ticket-parts');
   const { ToastProvider } = await import('@/app/_components/toast/toast-provider');
   const g = guest(over);
   const data = {
@@ -118,7 +118,7 @@ async function paintCard(over: Partial<GuestRow> = {}, opts: { withMenu?: boolea
     returnTo: '/dashboard/e1/guests',
     errorMessage: null,
     inviteFlash: null,
-    ...(opts.withMenu ? { MoreMenu: GuestMoreMenu } : {}),
+    ...(opts.withMenu ? { MoreMenu: GuestMoreMenu, DeleteControl: GuestDeleteControl } : {}),
   });
   return renderToStaticMarkup(
     React.createElement(
@@ -182,10 +182,12 @@ test('⑦ the warning names what goes with them, in page — Delete and Cancel',
   assert.match(refused, /role="alert"[^>]*>Nope\.</, 'a refused delete is not said where the host pressed Delete');
 });
 
-test('⑦ an ACCEPTED guest’s card offers Delete in its ⋯; the couple’s does not', async () => {
+/* RE-AIMED 2026-10-23: Delete left the ⋯ for the card's own last group (owner's groups) — the same flow, one place. */
+test('⑦ an ACCEPTED guest’s card offers Delete in its Delete group; the couple’s does not', async () => {
   const accepted = await paintCard({ rsvp_status: 'attending' }, { withMenu: true });
-  // Each ⋯ line leads with its icon (owner 2026-10-04), so an <svg> may sit before the words.
-  assert.match(accepted, /data-guest-delete=""[^>]*>(?:<svg[\s\S]*?<\/svg>)?Delete guest</, 'an attending guest’s card has no Delete');
+  // The button leads with its icon, so an <svg> may sit before the words (and the words in the button's label).
+  assert.match(accepted, /data-guest-delete="">\s*<button[^>]*>(?:<svg[\s\S]*?<\/svg>)?(?:<span class="lbl">)?Delete guest</, 'an attending guest’s card has no Delete');
+  assert.ok(accepted.indexOf('data-guest-delete=""') > accepted.indexOf('>Access<'), 'Delete is not the card’s last group');
   const couple = await paintCard({ role: 'bride', rsvp_status: 'attending' }, { withMenu: true });
   assert.doesNotMatch(couple, /data-guest-delete=""/, 'the couple’s card offers a Delete that can only fail');
 });

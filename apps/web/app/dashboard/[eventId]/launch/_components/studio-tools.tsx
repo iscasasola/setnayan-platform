@@ -1,5 +1,6 @@
 'use client';
 
+import { WHO_CAN_VIEW } from '@/lib/event-visibility';
 import { StudioColourField } from './studio-colour-field';
 import { OpenInPlace } from './open-in-place';
 import { StudioWishList } from './studio-wish-list';
@@ -451,13 +452,6 @@ export type StudioHubFacts = {
   launched: boolean;
   scheduledAt: string | null;
 };
-
-/** Who can view — the shipped three, in the shipped words (`VisibilityPanel`). */
-const WHO_CAN_VIEW = [
-  { key: 'private', label: 'Private', hint: 'Only your hosts and your guests.' },
-  { key: 'unlisted', label: 'Unlisted', hint: 'Anyone with the link — not listed publicly.' },
-  { key: 'public', label: 'Public', hint: 'Anyone can find and open it. Turns on “Accept” — people can ask to join.' },
-] as const;
 
 /** A shipped Maker form's own landing: back on the address the couple is on (`lib/maker-stay.ts`). */
 function stayForm(eventId: string, fields: Record<string, string>): FormData {

@@ -549,7 +549,7 @@ test('the Dress code part carries ONE Figures ▾ (Drawn · Hidden) writing the 
       every style card is the ONE phone-shaped frame, so "as wide as its picture" (#6428's F) became "the frame".
       The walk of every picker is `every-style-card-is-phone-shaped.test.ts`; this keeps the two cards' own facts. ── */
 
-test('the Reveal and Camera look cards are the phone-shaped frame — the Camera’s screen fills it, the Reveal is drawn at its shape', () => {
+test('the Reveal’s look cards are the phone-shaped frame, drawn at its shape — and the one camera’s screen fills its page', () => {
   const reveal = read(`${LAUNCH}/maker-reveal.tsx`);
   /* Re-aimed 2026-10-17 (controller on #6596, the approved prototype's `.lc .pic`): an Opening card is the toolbar's
      Style card (`StyleCards`, like every part's) — the couple's real cover (`StylePreview` of `f:hero`) with the
@@ -558,12 +558,10 @@ test('the Reveal and Camera look cards are the phone-shaped frame — the Camera
   assert.match(card, /<StyleCards\s+data="reveal"/, 'an Opening card is not the toolbar’s Style card');
   assert.match(card, /<StylePreview canvasKey="f:hero" sceneType="opening" styleId=\{id\} current=\{on\} focus="header\[data-pahina-first-screen\]" screen hide=\{id === REVEAL_NONE_ID \? null : '\[data-cover-line\]'\} \/>/, 'the card is not the couple’s own cover');
   assert.match(card, /<RevealPicture kind=\{id\} colours=\{look\.colours\} fill over \/>/, 'the opening is not drawn over the cover at the frame’s shape');
-  const camera = read(`${LAUNCH}/stage-panel/camera-look.tsx`);
-  /* (Re-aimed 2026-10-10: the approved prototype now draws The Day › Camera — its looks are the toolbar's Style cards,
-     `StyleCards`, like every other part's; `every-style-card-is-phone-shaped.test.ts` holds the card.) */
-  assert.match(camera, /<StyleCards\s/, 'a Camera card is not the toolbar’s Style card');
-  assert.match(read(`${LAUNCH}/stage-panel/camera-face.tsx`), /data-camera-look-face=\{look\} className="absolute inset-0 /, 'the camera screen no longer fills the frame');
-  assert.doesNotMatch(camera + card, /spCardWidth|SP_LAYOUT_CARD/, 'a card is sized apart from the frame again');
+  /* 📷 The Camera has no look cards any more (owner 2026-10-24: one camera — `the-maker-offers-no-camera-style.test.ts`);
+     its one screen still fills its page. */
+  assert.match(read(`${LAUNCH}/stage-panel/camera-face.tsx`), /data-camera-face-screen="" className="absolute inset-0 /, 'the camera screen no longer fills its page');
+  assert.doesNotMatch(card, /spCardWidth|SP_LAYOUT_CARD/, 'a card is sized apart from the frame again');
 });
 
 /* ── 14 · the Reveal's NONE card — one fact with the three switches (owner, live Maker 2026-10-08: "and none.") ── */

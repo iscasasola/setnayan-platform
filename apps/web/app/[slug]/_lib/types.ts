@@ -21,6 +21,7 @@ import type { VendorCard } from '@/lib/vendor-cards';
 import type { PapicStyle } from '@/lib/papic-photo-styles';
 import type { PapicFaceMode } from '@/lib/papic-face-mode';
 import type { GuestHubData } from '../_components/guest-hub-card';
+import type { PapicMark } from '@/lib/papic-photo-mark';
 
 /** Panood Watch-Live data for the day-of page (shown whenever a watch URL is
  *  staged — single-cam Panood live is free for every host).
@@ -358,6 +359,11 @@ export type LiveLayerData = {
  * drifts, and the copy that drifts is the one nobody re-read.
  */
 export type GuestPapicCamera = {
+  /** 🏷 The small mark on this event's photo copies — the Setnayan mark, or the
+   *  couple's monogram on a Pro event (lib/papic-photo-mark-of-event.ts). */
+  photoMark: PapicMark;
+  /** 📷 Pro dress for the inline camera — the SAME entitlement as /papic/guest (Logo & QR part or Full Pro). */
+  dressPro: boolean;
   /** The server-stamped owner tag of THIS guest at THIS event — every queued
    *  shot carries it, so a shot can never record as another pass
    *  (lib/papic-upload/owner-tag.server.ts). Null when the seal is missing. */

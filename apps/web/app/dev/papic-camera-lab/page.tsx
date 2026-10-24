@@ -12,6 +12,7 @@
  *
  *   (default)       the guest camera
  *   ?lane=vendor    the supplier camera
+ *   ?pro=1          the guest camera on a PRO event (owner 2026-10-24 ruling)
  */
 import { notFound } from 'next/navigation';
 import { LabCamera } from './lab-camera';
@@ -24,5 +25,6 @@ export default async function PapicCameraLabPage({
   if (process.env.NODE_ENV === 'production') notFound();
   const sp = await searchParams;
   const lane = sp.lane === 'vendor' ? 'vendor' : 'guest';
-  return <LabCamera lane={lane} />;
+  // ?pro=1 — a Pro event's camera: the logo on the shutter, the theme colour, the monogram on the copies.
+  return <LabCamera lane={lane} pro={sp.pro === '1'} />;
 }

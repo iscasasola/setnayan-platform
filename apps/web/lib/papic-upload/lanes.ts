@@ -58,6 +58,8 @@ export function recordBody(shot: QueuedShot): Record<string, unknown> {
     if (shot.sharePublicly) body.share_publicly = true;
     if (shot.faceVectors && shot.faceVectors.length > 0) body.face_vectors = shot.faceVectors;
     if (shot.subjectCenter) body.subject_center = shot.subjectCenter;
+    // 🏷 The phone burned the event's mark into the copies it sent — else the server marks its own.
+    if (shot.copiesMarked) body.copies_marked = true;
   } else if (shot.deviceModel) {
     body.device_model = shot.deviceModel;
   }

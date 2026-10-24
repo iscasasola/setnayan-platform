@@ -170,7 +170,8 @@ test('the personal countdown pill is NOT unconditional', () => {
   assert.match(
     src,
     // The unit is "credits" since 2026-10-13: `${formatCount(remaining)} … credits left`.
-    /capApplies \?[\s\S]{0,600}?\$\{formatCount\(remaining\)\} \$\{remaining === 1 \? 'credit' : 'credits'\} left/,
+    // (2026-10-24: and not once the event's credits ran out — the camera says so itself.)
+    /capApplies(?: && !poolEmpty)? \?[\s\S]{0,600}?\$\{formatCount\(remaining\)\} \$\{remaining === 1 \? 'credit' : 'credits'\} left/,
     'the "N left" pill is no longer behind capApplies',
   );
 });

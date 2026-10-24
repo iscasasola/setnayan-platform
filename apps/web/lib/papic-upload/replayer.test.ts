@@ -123,7 +123,7 @@ function fakeServer() {
   return { st, call, transport };
 }
 
-function harness() {
+function harness(prepareOverride: Partial<UploaderDeps['prepare']> = {}) {
   const store = memoryStore();
   const server = fakeServer();
   let clock = 1_000_000;
@@ -142,6 +142,7 @@ function harness() {
       poster: async () => new Blob([new Uint8Array(200)], { type: 'image/webp' }),
       clipWeb: async () => new Blob([new Uint8Array(500)], { type: 'video/mp4' }),
       faceVectors: async () => ({ vectors: [], subjectCenter: null }),
+      ...prepareOverride,
     },
     now: () => clock,
     random: () => 0.5,
@@ -357,4 +358,37 @@ test('"Send as me" claims nothing for an event with no camera open on this page'
   await settle(5);
   assert.equal(server.st.rowsCreated, 0);
   assert.equal(u.pending(), 1);
+});
+
+test('🏷 the mark goes to the COPIES only — the original is sent exactly as the shutter saved it', async () => {
+  const seen: Array<{ what: string; input: Blob; mark: unknown }> = [];
+  const { u, server, settle } = harness({
+    photoPieces: async (o, mark) => {
+      seen.push({ what: 'photo', input: o, mark });
+      return {
+        thumb: new Blob([new Uint8Array(30)], { type: 'image/webp' }),
+        tile: new Blob([new Uint8Array(80)], { type: 'image/webp' }),
+        display: new Blob([new Uint8Array(300)], { type: 'image/webp' }),
+      };
+    },
+    poster: async (src, mark) => {
+      seen.push({ what: 'poster', input: src, mark });
+      return new Blob([new Uint8Array(200)], { type: 'image/webp' });
+    },
+  });
+  const mark = { kind: 'setnayan' } as const;
+  const primary = new Blob([new Uint8Array(2000).fill(7)], { type: 'image/jpeg' });
+  await u.addShot({ ...photo(1), primary, mark });
+  await u.addShot({ ...clip(2), mark });
+  server.st.online = true;
+  await settle();
+  const photoCall = seen.find((c) => c.what === 'photo');
+  const posterCall = seen.find((c) => c.what === 'poster');
+  assert.deepEqual(photoCall?.mark, mark, 'the photo copies were not handed the mark');
+  assert.deepEqual(posterCall?.mark, mark, 'the clip poster was not handed the mark');
+  // The copy-maker READS the original; nothing it returns is ever stored as the original.
+  assert.equal(photoCall?.input.size, 2000);
+  assert.deepEqual(new Uint8Array(await photoCall!.input.arrayBuffer()), new Uint8Array(2000).fill(7), 'the original was altered before its copies were made');
+  const row = server.st.rows.get(CCID(1))!;
+  assert.ok(row.tiers.has('original'), 'the original still travels');
 });

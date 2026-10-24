@@ -152,15 +152,21 @@ function chromeFoot(target: Element, from: number): number {
  * under it, and the page's own sticky block animates its `top`, so the hit-test missed it. This reads every sticky box
  * that comes BEFORE the target inside one of its containers (the section head, the page's sticky block) by its own
  * resolved `top` — where it WILL rest once stuck — so the result is pinned under its foot, stuck yet or not.
+ * 🛑 It stops at `scroller` (the result's own `overflow:auto` box): inside it a sticky `top` is measured from the
+ * scroller's top edge (the caller adds `s.top`), and anything stuck outside it is already the scroller's top or
+ * `chromeFoot`'s — counting it here as well would add the page head twice and pin the result too low.
  */
-export function stickyHeadsFoot(target: Element): number {
+export function stickyHeadsFoot(target: Element, scroller: Element | null = null): number {
   let foot = 0;
-  for (let child: Element = target, box = target.parentElement; box && box !== document.body; child = box, box = box.parentElement) {
+  const t = target.getBoundingClientRect();
+  for (let child: Element = target, box = target.parentElement; box && box !== document.body; child = box, box = box === scroller ? null : box.parentElement) {
     for (const sib of Array.from(box.children)) {
       if (sib === child) break; // only what comes before the target's branch
       if (getComputedStyle(sib).position !== 'sticky') continue;
       const r = sib.getBoundingClientRect();
       if (r.height <= 0 || r.height > window.innerHeight * 0.45) continue;
+      // Only a head ABOVE the result — a sticky rail BESIDE it (a desktop column) never covers it.
+      if (r.right <= t.left || r.left >= t.right) continue;
       const top = parseFloat(getComputedStyle(sib).top);
       if (Number.isFinite(top)) foot = Math.max(foot, top + r.height);
     }
@@ -206,7 +212,7 @@ export function pinFirstResult(): number {
       chromeFoot(t.el, Math.max(k.present ? k.offsetTop : 0, s?.top ?? 0)),
       s?.top ?? 0,
       // Heads that stick over the result once the page moves under them (a section head, a sticky page head).
-      t.edge === 'top' ? (s?.top ?? 0) + stickyHeadsFoot(t.el) : 0,
+      t.edge === 'top' ? (s?.top ?? 0) + stickyHeadsFoot(t.el, scroller) : 0,
     );
     const bottom = Math.min(bandTop(), s?.bottom ?? Infinity);
     const r = t.el.getBoundingClientRect();

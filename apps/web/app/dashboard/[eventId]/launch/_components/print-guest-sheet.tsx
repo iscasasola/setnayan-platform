@@ -162,7 +162,8 @@ export function GuestManySheet({
     });
   const n = ids.length;
   const words = `Print ${formatCount(n)} ${n === 1 ? noun.one : noun.many}`;
-  return (
+  /* Portalled like View as ▾'s sheet: the row it opens from can sit inside a scrolling, transformed or hidden panel. */
+  const node = (
     <Sheet open onClose={onClose} labelledById={headId}>
       <div data-print-pick-sheet="" className="flex max-h-[80dvh] min-h-0 flex-col">
         <h2 id={headId} className="px-5 pb-2 pt-4 font-display text-[19px] text-ink">
@@ -233,4 +234,5 @@ export function GuestManySheet({
       </div>
     </Sheet>
   );
+  return typeof document === 'undefined' ? null : createPortal(node, document.body);
 }

@@ -101,6 +101,9 @@ const LAB_MANY_GUESTS = Array.from({ length: 109 }, (_, i) => ({
   id: `00000000-0000-4000-8000-${String(200 + i).padStart(12, '0')}`,
   name: `${LAB_FIRST[i % LAB_FIRST.length]} ${LAB_LAST[(i * 7) % LAB_LAST.length]}`,
   reply: i < 6 ? ('attending' as const) : ('pending' as const),
+  /* Pick guests' Side ▾ and Group ▾ (2026-10-25) — the guest list's own words. */
+  side: (["Groom's side", "Bride's side", 'Both sides'] as const)[i % 3],
+  group: (['Family', 'Friends', 'Work', 'School'] as const)[i % 4],
 }));
 
 /**

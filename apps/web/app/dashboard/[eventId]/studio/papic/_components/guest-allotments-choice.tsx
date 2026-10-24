@@ -564,7 +564,7 @@ export async function GuestAllotmentsChoice({
               aria-label="Each guest, at most"
               className="h-10 w-24 rounded-full border border-ink/15 bg-paper px-3 text-right text-[14px] text-ink"
             />
-            <SubmitButton className="sn-btn-secondary">Save</SubmitButton>
+            <SubmitButton className="inline-flex h-10 shrink-0 items-center rounded-full border border-ink/15 px-4 text-[13px] font-medium text-ink hover:bg-ink/5 disabled:opacity-45">Save</SubmitButton>
           </form>
           <form action={setGuestAllotments} className="flex items-center gap-3 py-2" data-allotment-least="">
             {carry}
@@ -584,7 +584,7 @@ export async function GuestAllotmentsChoice({
               aria-label="The least anybody gets"
               className="h-10 w-24 rounded-full border border-ink/15 bg-paper px-3 text-right text-[14px] text-ink"
             />
-            <SubmitButton className="sn-btn-secondary">Save</SubmitButton>
+            <SubmitButton className="inline-flex h-10 shrink-0 items-center rounded-full border border-ink/15 px-4 text-[13px] font-medium text-ink hover:bg-ink/5 disabled:opacity-45">Save</SubmitButton>
           </form>
           {minimumLine ? <p className="pb-1 text-[12.5px] text-ink/60">{minimumLine}</p> : null}
         </div>

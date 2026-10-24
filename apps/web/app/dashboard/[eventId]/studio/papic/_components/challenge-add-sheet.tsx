@@ -150,7 +150,7 @@ export function ChallengeAddSheet({
                         </span>
                         <span className="block text-[12.5px] text-ink/55">{r.prompt}</span>
                       </span>
-                      <SubmitButton className="sn-btn-secondary" disabled={full}>
+                      <SubmitButton className="inline-flex h-10 shrink-0 items-center rounded-full border border-ink/15 px-4 text-[13px] font-medium text-ink hover:bg-ink/5 disabled:opacity-45" disabled={full}>
                         Add
                       </SubmitButton>
                     </form>
@@ -175,7 +175,7 @@ export function ChallengeAddSheet({
               placeholder="Get a photo with the newlyweds on the dance floor"
               className="h-10 min-w-0 flex-1 rounded-full border border-ink/15 bg-paper px-4 text-[14px] text-ink placeholder:text-ink/40"
             />
-            <SubmitButton className="sn-btn-secondary">Add</SubmitButton>
+            <SubmitButton className="inline-flex h-10 shrink-0 items-center rounded-full border border-ink/15 px-4 text-[13px] font-medium text-ink hover:bg-ink/5 disabled:opacity-45">Add</SubmitButton>
           </span>
           <span className="text-[12px] text-ink/55">Up to 280 characters · it turns on if you have room</span>
         </form>

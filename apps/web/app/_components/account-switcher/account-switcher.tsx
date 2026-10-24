@@ -25,6 +25,7 @@ import type { SwitcherData } from './get-switcher-data';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { newLabel, readSheetUnreadUrls, splitSheetUnread, type SheetUnread } from '@/lib/avatar-sheet-counts';
 import { signOutAllAction } from '@/lib/account-jars';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 
 type Props = {
   data: SwitcherData;
@@ -763,13 +764,7 @@ export function AccountSwitcher({ data, currentEventName, referHref, shopRows, h
         ? createPortal(
             <>
               {/* Backdrop */}
-              <button
-                type="button"
-                aria-label="Close account switcher"
-                onClick={close}
-                className="fixed inset-0 z-[51] bg-ink/40 backdrop-blur-[2px]"
-                style={{ animation: 'sn-switcher-backdrop 0.3s ease' }}
-              />
+              <OverlayBackdrop onClose={close} label="Close account switcher" className="z-[51]" />
               <style>{`
                 @keyframes sn-switcher-backdrop {
                   from { opacity: 0; }
@@ -945,13 +940,7 @@ export function SwitcherPlaqueTrigger({
       {open && mounted && typeof document !== 'undefined'
         ? createPortal(
             <>
-              <button
-                type="button"
-                aria-label="Close account menu"
-                onClick={close}
-                className="fixed inset-0 z-[51] bg-ink/40 backdrop-blur-[2px]"
-                style={{ animation: 'sn-switcher-backdrop 0.3s ease' }}
-              />
+              <OverlayBackdrop onClose={close} label="Close account menu" className="z-[51]" />
               <style>{`
                 @keyframes sn-switcher-backdrop { from { opacity:0; } to { opacity:1; } }
                 @keyframes sn-switcher-drawer-in { from { transform:translateX(-100%); } to { transform:translateX(0); } }

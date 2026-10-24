@@ -1690,8 +1690,8 @@ async function wallPull(
       res.reason === 'not_yours'
         ? 'You can take down photos you took or are tagged in — this one is somebody else’s.'
         : res.reason === 'not_your_pull'
-          ? 'The hosts took this one off the wall, so it’s theirs to put back.'
-          : 'We couldn’t reach the wall just now. Please try again.';
+          ? 'The hosts took this one off Memory lane, so it’s theirs to put back.'
+          : 'We couldn’t reach Memory lane just now. Please try again.';
     return { ok: false, message };
   }
 

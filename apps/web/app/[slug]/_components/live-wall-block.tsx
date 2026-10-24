@@ -253,8 +253,8 @@ export function LiveWallBlock({
               // room. A card that simply emptied itself would read as a fault.
               `Memory lane is playing on the screens at the venue. ${w.TheOrganizer} has kept it off phones for this ${w.occasion}.`
             : stalled
-              ? 'We can’t reach the wall right now — this venue’s signal may be busy. It keeps trying, and photos appear the moment it reconnects.'
-              : 'The wall is warming up — photos appear here the moment they’re taken.'}
+              ? 'We can’t reach Memory lane right now — this venue’s signal may be busy. It keeps trying, and photos appear the moment it reconnects.'
+              : 'Memory lane is warming up — photos appear here the moment they’re taken.'}
         </p>
         {closed ? null : <ChallengeBanner challenge={challenge} measured={challengeMeasured} />}
       </section>

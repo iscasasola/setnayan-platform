@@ -1,7 +1,9 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { formatCount } from '@/lib/format-number';
+import { useModalA11y } from '@/lib/use-modal-a11y';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 
 /**
  * <MarkEverywhere> — the "Your monogram, everywhere" save sequence (benchmark
@@ -12,8 +14,8 @@ import { formatCount } from '@/lib/format-number';
  * a dark dance floor (the un-served live gobo preview) · arch signage ·
  * website hero — then the propagation announcement ("Set na 'yan…") ending on
  * the ₱999 reveal upsell. Pure CSS scenes; the mark composites as inline SVG
- * (full colour) or a mask-image silhouette (single-tone scenes). Tap anywhere
- * to advance; Esc/✕ to dismiss.
+ * (full colour) or a mask-image silhouette (single-tone scenes). Tap the card
+ * to advance; a tap on the dark, Esc or ✕ dismisses (owner 2026-10-25).
  */
 
 const SCENE_MS = 1700;
@@ -21,6 +23,9 @@ const SCENE_MS = 1700;
 export function MarkEverywhere({ svg }: { svg: string }) {
   const [scene, setScene] = useState(0);
   const [open, setOpen] = useState(true);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  // The shared pop-up contract: the page behind is held still and inert, Tab stays inside, Escape closes.
+  useModalA11y({ open, onClose: () => setOpen(false), containerRef: dialogRef });
 
   const maskUrl = useMemo(
     () => `url("data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}")`,
@@ -142,12 +147,13 @@ export function MarkEverywhere({ svg }: { svg: string }) {
 
   return (
     <div
-      className="fixed inset-0 z-[70] flex items-center justify-center bg-[#0a0810]/80 p-4 backdrop-blur-sm"
-      onClick={() => (finished ? null : setScene((s) => Math.min(scenes.length, s + 1)))}
+      ref={dialogRef}
+      className="fixed inset-0 z-[70] flex items-center justify-center p-4"
       role="dialog"
       aria-label="Your monogram, everywhere"
       data-testid="mark-everywhere"
     >
+      <OverlayBackdrop onClose={() => setOpen(false)} />
       <div className="relative w-full max-w-md overflow-hidden rounded-3xl bg-cream shadow-2xl" onClick={(e) => e.stopPropagation()}>
         <button
           type="button"

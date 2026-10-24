@@ -23,6 +23,7 @@ import {
   vendorDeletePreparationItem,
 } from '../actions';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 import { useSaveLoader } from '@/components/sd-loader';
 import {
   PrepKindPicker,
@@ -173,11 +174,9 @@ export function VendorPrepForBooking({
           role="dialog"
           aria-modal="true"
           aria-labelledby="vendor-add-prep-headline"
-          className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 p-4 backdrop-blur-sm focus:outline-none sm:items-center"
-          onClick={(e) => {
-            if (e.target === overlayRef.current) close();
-          }}
+          className="fixed inset-0 z-50 flex items-end justify-center p-4 focus:outline-none sm:items-center"
         >
+          <OverlayBackdrop onClose={close} />
           <div className="relative w-full max-w-md sn-tile p-5 shadow-xl sm:p-6">
             <button
               type="button"

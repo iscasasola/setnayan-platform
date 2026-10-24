@@ -79,7 +79,7 @@ export function WallClaim({ eventId }: { eventId: string }) {
             className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-mulberry px-6 py-3.5 text-base font-medium text-cream hover:bg-mulberry-600 disabled:opacity-50"
           >
             {busy ? <Loader2 aria-hidden className="h-5 w-5 animate-spin" strokeWidth={2} /> : null}
-            Start the wall
+            Start Memory lane
           </button>
         </form>
         {error ? <p className="mt-4 text-sm text-terracotta">{error}</p> : null}

@@ -347,7 +347,7 @@ function ConnDot({ conn }: { conn: Conn }) {
   const label =
     conn === 'live' ? 'connected' : conn === 'reconnecting' ? 'reconnecting' : 'offline';
   return (
-    <span className="inline-flex items-center gap-1.5" role="status" aria-label={`wall ${label}`}>
+    <span className="inline-flex items-center gap-1.5" role="status" aria-label={`Memory lane ${label}`}>
       <span className={`h-2.5 w-2.5 rounded-full ${color}`} />
     </span>
   );

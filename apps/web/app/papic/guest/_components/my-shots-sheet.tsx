@@ -23,6 +23,7 @@ import { usePapicUploads } from '@/app/papic/_components/upload-chip';
 import { formatCount } from '@/lib/format-number';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import type { UploaderSnapshot } from '@/lib/papic-upload/replayer';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 
 export type MyShot = {
   id: string;
@@ -105,9 +106,10 @@ export function MyShotsSheet({
       className={open ? 'visible' : 'pointer-events-none invisible'}
       style={{ transition: `visibility 0s linear ${open ? 0 : 300}ms` }}
     >
-      <div
-        onClick={onClose}
-        className={`fixed inset-0 z-[45] bg-black/45 transition-opacity duration-300 ${open ? 'opacity-100' : 'opacity-0'}`}
+      <OverlayBackdrop
+        onClose={onClose}
+        fade={false}
+        className={`z-[45] transition-opacity duration-300 ${open ? 'opacity-100' : 'opacity-0'}`}
       />
       <div
         ref={dialogRef}

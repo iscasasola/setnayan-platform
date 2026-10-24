@@ -63,3 +63,6 @@ the Home tabs superseded by `event_bar_memories_tab_2026-10-23.html`).
 - #6855 (the cloud session's duplicate) closed: everything it had is here (the app sheet's helper, return-to-Home).
 
 SPEC IMPACT: DECISION_LOG row 2026-10-23 "PAPIC IS THE CAMERA; MEMORIES HOLDS THE FILES — ALBUMS WITH CHALLENGES".
+
+- **Face blocking is a count, never a switch** (owner ruling 2026-10-24). The open Papic card shows one read-only row beside Face tagging — "Face blocking · N guests blurred", N = active guests (`deleted_at is null`) with `faceblock_enabled` — with an ⓘ saying each guest chooses on their guest card and is always honoured. A failed read says so; it never shows 0. Guard: `lib/face-blocking-is-read-only.test.ts`. No migration.
+- **The closed card with no photos** shows five empty dashed frames and "Frames fill as your guests shoot" instead of "· No photos yet".

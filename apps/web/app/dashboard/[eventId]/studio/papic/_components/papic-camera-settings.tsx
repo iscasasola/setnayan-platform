@@ -24,6 +24,7 @@ import { VendorChallengesApproval } from '../vendor-challenges-approval';
 import { SettingRow } from './setting-row';
 import { GuestCamerasChoice } from './guest-cameras-choice';
 import { FaceTaggingChoice } from './face-tagging-choice';
+import { FaceBlockingCount } from './face-blocking-count';
 import { GuestAllotmentsChoice } from './guest-allotments-choice';
 
 /**
@@ -194,6 +195,8 @@ export async function PapicCameraSettings({
             <ChevronRight aria-hidden className="h-4 w-4 text-ink/45" strokeWidth={1.9} />
           </Link>
           <FaceTaggingChoice eventId={eventId} variant="row" returnTo={seat === 'home' ? 'home' : null} subLine="set per guest on their guest card" />
+          {/* Face blocking — a COUNT, never a switch (owner 2026-10-24: "each guest's wish is always honoured"). */}
+          <FaceBlockingCount eventId={eventId} />
           <GuestCamerasChoice eventId={eventId} variant="row" returnTo={seat === 'home' ? 'home' : null} />
         </div>
       </section>

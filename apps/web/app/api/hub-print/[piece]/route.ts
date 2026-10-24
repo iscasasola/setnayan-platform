@@ -717,6 +717,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ piece: string 
   const include = form.get('include_form')
     ? {
         guestNames: on('inc_guest_names'),
+        passCorners: form.get('pass_corners'),
         parents: on('inc_parents'),
         seatPlan: on('inc_seat_plan') ? String(form.get('seat_plan_kind') ?? 'list') : 'none',
         giftDetails: on('inc_gift_details'),
@@ -758,7 +759,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ piece: string 
     }
   }
   const error = said(
-    await updatePrintDetails(admin, eventId, (now) => ({ ...now, openingLine: draftLine ? now.openingLine : words.openingLine, rsvp: words.rsvp, include: words.include })),
+    await updatePrintDetails(admin, eventId, (now) => ({ ...now, openingLine: draftLine ? now.openingLine : words.openingLine, rsvp: words.rsvp, include: { ...words.include, passCorners: form.has('pass_corners') ? words.include.passCorners : now.include.passCorners } })),
   );
   if (error) logQueryError('hub-print.words', error, { event_id: eventId }, 'graceful_degrade');
   /* 🧷 The Maker saves this form IN PLACE (`launch/_components/soft-post.tsx`,

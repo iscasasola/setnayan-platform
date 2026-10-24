@@ -215,6 +215,21 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
 
+  // 🏠 THE CONTROLLER PAGE IS RETIRED FOR THE COUPLE ON THE WEB (owner 2026-10-24: "the Papic card is a widget on Home
+  // … its contents live inside the expanded card"). A plain visit opens Home with the card grown in place
+  // (`?papic=open`, which the card clears). The page still answers what it must: an outcome to say (a save's banner, a
+  // purchase error, "?buy=1"), the iPhone app (which keeps its own Papic page) and a coordinator (no card on Home).
+  const answering = Object.entries(search).some(([k, v]) => v !== undefined && k !== 'tab');
+  if (!answering) {
+    const [{ storeShell }, member] = await Promise.all([
+      getIapGate(),
+      supabase.from('event_members').select('member_type').eq('event_id', eventId).eq('user_id', user.id).maybeSingle(),
+    ]);
+    if (!storeShell && (member.data as { member_type?: string } | null)?.member_type === 'couple') {
+      redirect(`/dashboard/${eventId}?papic=open`);
+    }
+  }
+
   /*
     ⏱ THE PAGE'S INDEPENDENT READS START TOGETHER, RIGHT AFTER THE GATE (2026-10-22, "the
     couple's Studio › Papic page is slow"). Measured in the lab before this change: the loader

@@ -18,8 +18,8 @@
  * in as `settings`. A failed photo read says so; it never draws an empty strip.
  */
 
-import { useId, useState, type ReactNode } from 'react';
-import { ChevronDown, Clapperboard } from 'lucide-react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { ChevronRight, Clapperboard } from 'lucide-react';
 import { GlanceDot, GlanceLineText, GlanceMeter } from '@/app/_components/service-glance';
 import { ActionButton } from '@/components/action-button';
 import type { GlanceLine, ServiceMood } from '@/lib/service-glance';
@@ -67,9 +67,25 @@ export function PapicHomeCard({
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const regionId = useId();
+  const root = useRef<HTMLDivElement>(null);
+  // 🔗 An old link to the retired Papic page lands on Home as `?papic=open` (owner 2026-10-24: "the controller page is
+  // retired; its contents live inside the expanded card"): the card opens itself, scrolls into view, and the address
+  // goes back to Home's own — opening never navigates.
+  useEffect(() => {
+    try {
+      const url = new URL(window.location.href);
+      if (url.searchParams.get('papic') !== 'open') return;
+      setOpen(true);
+      url.searchParams.delete('papic');
+      window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
+      root.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    } catch {
+      /* no window history — stay as drawn */
+    }
+  }, []);
 
   return (
-    <div className="col-span-full flex min-w-0 flex-col" data-papic-home-card={open ? 'open' : 'rest'}>
+    <div ref={root} className="col-span-full flex min-w-0 scroll-mt-20 flex-col" data-papic-home-card={open ? 'open' : 'rest'}>
       <div className="sg-row" data-mood={mood} {...marker}>
         {/* THE HEAD — the card's one press: it opens the settings under the card, never another page. */}
         <button
@@ -88,9 +104,10 @@ export function PapicHomeCard({
               <span className="sg-name block truncate">{name}</span>
               {brand ? <span className="sg-brand block truncate">{brand}</span> : null}
             </span>
-            <ChevronDown
+            {/* › turns to ⌄ as the card grows in place (owner 2026-10-24). */}
+            <ChevronRight
               aria-hidden
-              className={`sg-arrow h-[18px] w-[18px] transition-transform duration-[420ms] ease-[cubic-bezier(0.2,0.7,0.2,1)] motion-reduce:transition-none ${open ? 'rotate-180' : ''}`}
+              className={`sg-arrow h-[18px] w-[18px] transition-transform duration-[420ms] ease-[cubic-bezier(0.2,0.7,0.2,1)] motion-reduce:transition-none ${open ? 'rotate-90' : ''}`}
               strokeWidth={1.9}
             />
           </span>

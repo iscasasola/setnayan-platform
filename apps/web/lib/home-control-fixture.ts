@@ -18,7 +18,7 @@ export function fixtureDay(days: number, now = Date.now()): string {
 /** The four payments the prototype draws — they sum to the ₱44,550 owing. */
 export function fixturePays(now = Date.now()): HomePayLine[] {
   return [
-    { id: 'li-1', vendorId: 'v-lumiere', who: 'Lumière Catering', what: 'Deposit', owedPhp: 8000, dueDate: fixtureDay(-3, now), days: -3, state: 'overdue' },
+    { id: 'li-1', vendorId: 'v-lumiere', who: 'Lumière Catering', what: 'First payment', owedPhp: 8000, dueDate: fixtureDay(-3, now), days: -3, state: 'overdue' },
     { id: 'li-2', vendorId: 'v-taal', who: 'Taal Vista', what: 'Balance · second half', owedPhp: 22275, dueDate: fixtureDay(4, now), days: 4, state: 'due_soon' },
     { id: 'li-3', vendorId: 'v-bloom', who: 'Bloom & Vine', what: 'Balance', owedPhp: 6500, dueDate: fixtureDay(13, now), days: 13, state: 'upcoming' },
     { id: 'li-4', vendorId: 'v-ocho', who: 'Studio Ocho', what: 'Balance', owedPhp: 7775, dueDate: fixtureDay(25, now), days: 25, state: 'upcoming' },

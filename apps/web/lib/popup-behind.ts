@@ -126,19 +126,33 @@ const SKIP = new Set(['SCRIPT', 'STYLE', 'LINK', 'TEMPLATE', 'NOSCRIPT']);
  * undo, which takes `inert` off ONLY where this call put it — a branch that was already inert (another pop-up
  * underneath, a closed drawer) stays as it was.
  */
-export function inertBehind(popup: Node): () => void {
-  const made: Node[] = [];
+export function inertBehind<N extends Node>(
+  popup: N,
+  /** A sibling to leave live — the pop-up's own backdrop, so a tap on the dark still closes it (`overlay-lock.ts`). */
+  keep?: (sib: N) => boolean,
+  /** Also hide what is made inert from assistive tech (`aria-hidden`), put back the same way. */
+  hide = false,
+): () => void {
+  const made: Array<{ el: Node; aria: string | null }> = [];
   let node: Node | null = popup;
   while (node && node.parentElement && node.tagName !== 'BODY') {
     const parent: Node = node.parentElement;
     for (const sib of Array.from(parent.children)) {
       if (sib === node || SKIP.has(sib.tagName) || sib.hasAttribute('inert')) continue;
+      if (keep?.(sib as N)) continue;
+      const aria = hide && 'getAttribute' in sib ? (sib as unknown as Element).getAttribute('aria-hidden') : null;
       sib.setAttribute('inert', '');
-      made.push(sib);
+      if (hide) sib.setAttribute('aria-hidden', 'true');
+      made.push({ el: sib, aria });
     }
     node = parent;
   }
   return () => {
-    for (const el of made.splice(0)) el.removeAttribute('inert');
+    for (const { el, aria } of made.splice(0).reverse()) {
+      el.removeAttribute('inert');
+      if (!hide) continue;
+      if (aria === null) el.removeAttribute('aria-hidden');
+      else el.setAttribute('aria-hidden', aria);
+    }
   };
 }

@@ -313,7 +313,8 @@ test('(5) on open: inert behind, no scroll behind, the preview measured; on clos
   assert.match(sheet, /useModalA11y\(\{ open: true, onClose, containerRef: panel, initialFocusRef: kept \}\);/, 'the sheet claims to be modal without the app’s modal contract');
   assert.match(sheet, /ref=\{panel\}\s*role="dialog"\s*aria-modal="true"/);
   const hook = read('lib/use-modal-a11y.ts');
-  assert.match(hook, /if \(lockScroll\) lockBodyScroll\(\);/, 'anti-vacuity: the contract no longer locks the page’s scroll');
+  /* 2026-10-25: the lock moved to `lib/overlay-lock.ts` (iOS-safe, `one-backdrop-everywhere.test.ts`). */
+  assert.match(hook, /if \(lockScroll\) \{\s*lockPageScroll\(\);/, 'anti-vacuity: the contract no longer locks the page’s scroll');
   assert.match(hook, /if \(event\.key === 'Escape'\) \{/);
   // The focus a list gave its picked row is KEPT (the contract would otherwise move it to the sheet itself)…
   assert.match(sheet, /return a instanceof HTMLElement && root\.current\?\.contains\(a\) \? a : null;/);

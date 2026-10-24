@@ -56,16 +56,26 @@ export async function CohostWelcome({ eventId, userId }: { eventId: string; user
     <div
       role="dialog"
       aria-labelledby="cohost-welcome-title"
-      className="fixed inset-0 z-[90] flex items-end justify-center bg-ink/40 p-0 tab:items-center tab:p-6"
+      className="fixed inset-0 z-[90] flex items-end justify-center p-0 tab:items-center tab:p-6"
       data-cohost-welcome
     >
-      <div className="w-full max-w-md rounded-t-2xl bg-cream px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-5 shadow-xl tab:rounded-2xl tab:p-6">
+      {/* THE ONE BACKDROP, script-free (owner 2026-10-25: dark + blurred, held still, a tap on the dark closes it).
+          The same house look as <OverlayBackdrop>, which needs a client handler this server panel cannot pass — so
+          the dark is a submit button for the Confirm form below: closing this panel IS confirming it. */}
+      <button
+        type="submit"
+        form={`cohost-welcome-${notice.notification_id}`}
+        aria-label="Confirm"
+        data-overlay-backdrop=""
+        className="sn-popup-dark sn-fade fixed inset-0 block min-h-0 w-full cursor-default touch-none overscroll-none p-0"
+      />
+      <div className="relative w-full max-w-md rounded-t-2xl bg-cream px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-5 shadow-xl tab:rounded-2xl tab:p-6">
         <p className="sn-eye text-[color:var(--sn-gold-700)]">Welcome</p>
         <h2 id="cohost-welcome-title" className="mt-1 text-lg font-semibold tracking-tight text-ink">
           {notice.title}
         </h2>
         {notice.body ? <p className="mt-2 text-sm leading-relaxed text-ink/70">{notice.body}</p> : null}
-        <form action={markNotificationRead} className="mt-5">
+        <form id={`cohost-welcome-${notice.notification_id}`} action={markNotificationRead} className="mt-5">
           <input type="hidden" name="notification_id" value={notice.notification_id} />
           <input type="hidden" name="return_to" value={`/dashboard/${eventId}`} />
           <button type="submit" className="button-primary h-11 w-full">

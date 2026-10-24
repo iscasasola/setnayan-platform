@@ -417,6 +417,7 @@ function PapicServiceRow({
         marker={{ 'data-home-service': 'papic' }}
         /* 📱 The phone's closed face (owner-approved 2026-10-24): credits left · the coverage · Add more. */
         tile={{
+          label: svc.brand,
           big: typeof doors.glance.count === 'number' ? formatCount(doors.glance.count) : '—',
           unit: 'credits left',
           sm: card.coverage ?? '',

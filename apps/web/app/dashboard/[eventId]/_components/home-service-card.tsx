@@ -33,6 +33,8 @@ import type { GlanceLine, ServiceMood } from '@/lib/service-glance';
  * the card in place across both columns (the card below, unchanged); from `md` up the card is drawn as it always was.
  */
 export type HomeServiceTile = {
+  /** The tile's quiet label when it is not the card's name (Papic · Setnayan AI wear their Setnayan names, prototype). */
+  label?: string;
   big: string;
   unit?: string;
   sm: string;
@@ -248,7 +250,7 @@ export function ServiceTileFace({ name, tile }: { name: string; tile: HomeServic
   );
   return (
     <>
-      <span className="hc-lab">{name}</span>
+      <span className="hc-lab">{tile.label ?? name}</span>
       {typeof tile.meter === 'number' ? (
         <span className="hc-row">
           {big}

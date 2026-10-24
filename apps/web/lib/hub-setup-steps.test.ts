@@ -267,7 +267,8 @@ test('🚪 the doors open the SAME address, read through the SAME derivation', (
   // Hub widget's Edit in Maker is that door, the same `?tool=details&guide=1`. (The once-offer's Start / Later went with
   // the card; Start was always the Maker's own first-visit tour, which marks the same key seen.)
   const faces = code(`${D}/_components/home-control-faces.ts`);
-  assert.match(faces, /input\.next\.kind === 'guide' \? `\/dashboard\/\$\{e\}\/launch\?tool=details&guide=1`/);
+  assert.match(faces, /const guided = \{ href: `\/dashboard\/\$\{e\}\/launch\?tool=details&guide=1` \};/);
+  assert.match(faces, /href: \(input\.next\.kind === 'guide' \? guided : maker\)\.href/);
   assert.equal((code(`${D}/_components/home-first-screen.tsx`).match(/<NextCard/g) ?? []).length, 0, 'the Next card is back on Home');
   // Door 3 (the Maker's What's left) is what `?guide=1` opens (`parseGuideParam`).
   // Both pages derive the setup from ONE function.

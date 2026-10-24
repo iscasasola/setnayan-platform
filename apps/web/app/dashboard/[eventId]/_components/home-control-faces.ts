@@ -394,12 +394,9 @@ export function hubTile(input: HomeControlInput, today: HomeToday): HomeTileMode
   if (h === 'unread') return failedTile('hub', 'Event Hub', 'Couldn’t load', 'unread · not private', `/dashboard/${e}/launch`, isToday);
   // When Today is "Finish your Event Hub", Edit in Maker opens the Maker on its guided "What's left" — the same door the
   // Next card's "Pick a stage" was (`?tool=details&guide=1`).
-  const edit: FaceAction = {
-    icon: 'pen',
-    label: 'Edit in Maker',
-    href: input.next.kind === 'guide' ? `/dashboard/${e}/launch?tool=details&guide=1` : `/dashboard/${e}/launch`,
-    main: true,
-  };
+  const maker = { href: `/dashboard/${e}/launch` };
+  const guided = { href: `/dashboard/${e}/launch?tool=details&guide=1` };
+  const edit: FaceAction = { icon: 'pen', label: 'Edit in Maker', href: (input.next.kind === 'guide' ? guided : maker).href, main: true };
   const view: FaceAction | null = h.publicUrl ? { icon: 'eye', label: 'View Event Hub', href: h.publicUrl, external: true } : null;
   const faces: HomeFace[] = [];
   if (h.stage) {

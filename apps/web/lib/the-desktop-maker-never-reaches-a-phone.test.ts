@@ -48,10 +48,17 @@ test('1 · one switch, never a phone’s — `desk` needs a desktop width, and t
   const prev = process.env[KEY];
   delete process.env[KEY];
   try {
-    assert.equal(makerDesktopColumnsEnabled({ internal: false }), false, 'with the env unset a couple gets the desktop columns');
-    assert.equal(makerDesktopColumnsEnabled({ internal: true }), true, 'an internal viewer does not get them to check');
+    // 🟢 ON FOR EVERYONE (owner 2026-10-23): unset means ON; the variable is a kill-switch through the shared parser.
+    assert.equal(makerDesktopColumnsEnabled({ internal: false }), true, 'with the env unset a couple does not get the desktop columns');
+    assert.equal(makerDesktopColumnsEnabled({ internal: true }), true, 'an internal viewer does not get them');
+    for (const off of ['false', 'FALSE', '0', 'off', 'no']) {
+      process.env[KEY] = off;
+      assert.equal(makerDesktopColumnsEnabled({ internal: false }), false, `the kill-switch "${off}" does not turn them off`);
+      assert.equal(makerDesktopColumnsEnabled({ internal: true }), true, 'an internal viewer lost them with the kill-switch on');
+    }
   } finally {
-    if (prev !== undefined) process.env[KEY] = prev;
+    if (prev === undefined) delete process.env[KEY];
+    else process.env[KEY] = prev;
   }
 });
 

@@ -7938,11 +7938,14 @@ html.dark .hc-tiny.hc-tiny-main { color: #161513; }
 .hc-pay.hc-late :is(b, .hc-due) { color: rgb(var(--color-danger)); }
 .hc-pay.hc-more { min-height: 40px; font-size: 13px; font-weight: 500; color: rgb(var(--color-mulberry)); }
 .hc-list { margin-top: 6px; }
-.hc-li { display: flex; align-items: baseline; gap: 8px; padding: 6px 0; border-top: 1px solid color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent); font-size: 14px; }
-.hc-li:first-child { border-top: 0; }
+.hc-list > li:first-child .hc-li { border-top: 0; }
+.hc-li { color: inherit; display: flex; align-items: baseline; gap: 8px; padding: 6px 0; border-top: 1px solid color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent); font-size: 14px; }
+/* (first row: no rule above it) */
 .hc-li-t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .hc-li-due { flex: none; font-size: 12px; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); font-variant-numeric: tabular-nums; }
 .hc-li-due.soon { font-weight: 500; color: rgb(var(--color-warn)); }
+/* 🔗 A checklist task opened by its address (Home's Checklist widget → /checklist#task-<id>) is ringed while targeted. */
+[data-checklist-task]:target { outline: 2px solid rgb(var(--color-mulberry)); outline-offset: 2px; }
 .hc-tick { flex: none; align-self: center; width: 14px; height: 14px; border: 1.5px solid color-mix(in srgb, rgb(var(--color-ink)) 22%, transparent); border-radius: 50%; }
 @media (prefers-reduced-motion: reduce) {
   /* No rotation (the tile never joins the ticker), no slide; the active dot shows a full bar. */

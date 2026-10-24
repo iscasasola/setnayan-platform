@@ -6,6 +6,7 @@ import { InfoTip } from '@/app/_components/info-tip';
 import { Count } from '@/components/count';
 import { GlanceDot, GlanceMeter } from '@/app/_components/service-glance';
 import { EVENT_MENU_ICONS } from '@/lib/customer-menu';
+import { checklistTaskAnchor } from '@/lib/checklist-anchor';
 import { formatCount } from '@/lib/format-number';
 import { formatPhpRounded } from '@/lib/php';
 import { PUBLIC_STAGE_LABELS, PUBLIC_STAGE_ORDER } from '@/lib/public-site-stage-labels';
@@ -463,10 +464,13 @@ function DetailCard({ k, input, tile }: { k: HomeControlKey; input: HomeControlI
           {c.next.length > 0 ? (
             <ul className="hc-list">
               {c.next.map((t) => (
-                <li key={t.id} className="hc-li" data-home-task={t.id}>
-                  <span className="hc-tick" aria-hidden />
-                  <span className="hc-li-t">{t.title}</span>
-                  {t.dueDate ? <span className={`hc-li-due${t.daysUntilDue !== null && t.daysUntilDue <= 7 ? ' soon' : ''}`}>{shortDay(t.dueDate)}</span> : null}
+                <li key={t.id} data-home-task={t.id}>
+                  {/* Each task opens itself on the checklist (`/checklist#task-<id>`). */}
+                  <Link href={`/dashboard/${e}/checklist#${checklistTaskAnchor(t.id)}`} className="hc-li">
+                    <span className="hc-tick" aria-hidden />
+                    <span className="hc-li-t">{t.title}</span>
+                    {t.dueDate ? <span className={`hc-li-due${t.daysUntilDue !== null && t.daysUntilDue <= 7 ? ' soon' : ''}`}>{shortDay(t.dueDate)}</span> : null}
+                  </Link>
                 </li>
               ))}
             </ul>

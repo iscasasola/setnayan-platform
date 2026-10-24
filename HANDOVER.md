@@ -159,3 +159,11 @@ S9 daemon sends save-first items → daemon test red · S10 sweep raw-deletes �
 - /api/vendor/papic-portfolio-import still takes its file through the function (12 MB cap > 4.5 MB): same fault, not a camera.
 - C (native iPhone background upload): register a transport via setPapicTransport (lib/papic-upload/transport.ts); the OS
   must also persist the queue across app kills (today the queue is IndexedDB in the WebView).
+
+---
+
+
+# PR-E `rd/home-ai-and-params` (stacked on PR-D)
+- Setnayan AI card = `home-cards/home-planner-card.tsx` (alerts from `lib/home-ai-card.server.ts`, picks from the cockpit).
+- Ask box NOT built: no assistant chat exists in the product (the Setnayan AI page is buy + showcase).
+- Params: `?q=declined` (existed) · workspace `?tab=quote` (existed) · `#task-<id>` (new anchor) · `?pay=<line_item_id>` (new).

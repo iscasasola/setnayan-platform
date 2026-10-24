@@ -159,7 +159,9 @@ test('2 · every combination → exactly one state per service, and exactly one 
                   if (key === 'hub' && drawn[0]) assert.doesNotMatch(drawn[0].status, /₱/, `${where}: the Event Hub card names a price`);
                   if (state === 'add' && key !== 'hub') {
                     const words = drawn[0]?.paid?.price ?? (storeShell ? PRICE[key] : '');
-                    if (!storeShell) assert.ok(priced ? words.includes(PRICE[key]) : words === 'See the price', `${where}: slim words "${words}"`);
+                    // ✨ Setnayan AI says "Try it" with no price (owner-approved 2026-10-24); the others carry theirs.
+                    if (!storeShell && key === 'ai') assert.equal(words, 'Try it', `${where}: slim words "${words}"`);
+                    else if (!storeShell) assert.ok(priced ? words.includes(PRICE[key]) : words === 'See the price', `${where}: slim words "${words}"`);
                     assert.doesNotMatch(words, /₱0\b|\bFree$/, `${where}: an unknown price reads as free`);
                   }
                 }
@@ -241,7 +243,7 @@ test('4 · an event that owns everything (cale-ice: an internal host) draws all 
   assert.match(html, /aria-label="Open controller"/, 'Live stream offers its controller');
 });
 
-test('5 · nothing added: one "Not added" heading, each service ONE slim line with its catalogue price and Add', () => {
+test('5 · nothing added: one "Not added" heading, each service ONE slim line with its catalogue price and Add (Setnayan AI: Try it, no price)', () => {
   const html = draw({}, NONE_ADDED);
   assert.equal(html.split('>Not added<').length - 1, 1, 'the heading appears once');
   // 💎 The Event Hub is never a slim "Add" line: it is the Hub's own entry, its ◆ line "Free", no price.
@@ -251,6 +253,12 @@ test('5 · nothing added: one "Not added" heading, each service ONE slim line wi
   for (const key of SKU_KEYS.filter((k) => k !== 'hub')) {
     const row = tagOf(html, key);
     assert.match(row, /data-slim=""/, `${key} is not the slim line`);
+    if (key === 'ai') {
+      // ✨ Setnayan AI says "Try it" with no price (owner-approved 2026-10-24, the control center).
+      assert.ok(!row.includes(PRICE[key]) && row.includes('Try it'), 'Setnayan AI carries a price on Home');
+      assert.match(row, /aria-label="Try it"/, 'Setnayan AI has no Try it');
+      continue;
+    }
     assert.ok(row.includes(PRICE[key]), `${key} does not carry its catalogue price`);
     assert.match(row, /aria-label="Add"/, `${key} has no Add`);
   }

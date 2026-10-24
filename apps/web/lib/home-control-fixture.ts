@@ -43,7 +43,7 @@ export function fixtureControl(eventId: string, over: Partial<HomeControlInput> 
       dayShort: 'Dec 12',
       guide: { stageTitle: 'The Day', left: 2, done: 9, total: 20 },
     },
-    suppliers: { booked: 2, of: 6, toDecide: [{ name: 'Lumière Catering', vendorId: 'v-lumiere', tile: 'catering' }], replied: 2 },
+    suppliers: { booked: 2, of: 6, toDecide: [{ name: 'Lumière Catering', vendorId: 'v-lumiere' }], replied: 2 },
     budget: { paidPhp: 120450, owingPhp: 44550, pays: fixturePays(now) },
     checklist: {
       done: 62,

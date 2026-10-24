@@ -326,6 +326,27 @@ export function YourServices({
                 heading={firstSlim}
               />
             );
+            /* ✨ Setnayan AI not added, on a phone (owner-approved 2026-10-24): a half tile — "Not added · Try it" — that
+               opens its page; the slim line from md up. */
+            if (cards && svc.key === 'ai' && svc.paid.state === 'add') {
+              return (
+                <span key={svc.key} className="contents">
+                  <div className="hc-svc-wrap md:hidden" data-home-service-tile="ai">
+                    <Link href={svc.paid.href} className="hc-tile hc-svc-tile" data-home-service="ai" data-home-paid="add">
+                      <span className="hc-lab">{svc.brand ?? svc.name}</span>
+                      <span className="hc-big">
+                        <small>Not added</small>
+                      </span>
+                      <span className="hc-sm">Try it</span>
+                    </Link>
+                    <span className="hc-tiny-slot">
+                      <ActionButton tone="brand" icon={<Plus aria-hidden="true" strokeWidth={1.9} />} label="Try it" href={svc.paid.href} />
+                    </span>
+                  </div>
+                  <div className="hidden md:contents">{row}</div>
+                </span>
+              );
+            }
             /* 🧩 The service's own card, streamed behind its row (the row is the first paint). */
             const card = cards ? paidCard(eventId, svc, svc.paid) : null;
             return card ? (
@@ -543,7 +564,7 @@ function PaidServiceRow({ svc, row, glyph: Glyph, heading }: { svc: HomeService;
           line={row.line}
           meterLabel=""
           slim={row.price ?? ''}
-          actions={<ActionButton tone="brand" icon={<Plus aria-hidden="true" strokeWidth={1.9} />} label="Add" href={row.href} />}
+          actions={<ActionButton tone="brand" icon={<Plus aria-hidden="true" strokeWidth={1.9} />} label={svc.key === 'ai' ? 'Try it' : 'Add'} href={row.href} />}
           marker={marker}
         />
       </>

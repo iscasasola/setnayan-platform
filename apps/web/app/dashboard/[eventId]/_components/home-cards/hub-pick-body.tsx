@@ -1,8 +1,8 @@
 'use client';
 
 /**
- * hub-pick-body.tsx — the "Pick what shows" sheet's body, loaded only when the sheet opens (`hub-pick-button.tsx`
- * imports it lazily, so Home's first load carries none of it). It draws the SHIPPED pieces, unchanged:
+ * hub-pick-body.tsx — the "Pick what shows" sheet's body, mounted only when the sheet opens; its table is read then
+ * (`readHomeHubPick`). It draws the SHIPPED pieces, unchanged:
  *
  *   · `HubPartsSwitches` — the page picker (which of the four pages, "Now" on the live one) and a switch per part,
  *     each tap written into the Maker's DRAFT with its ↺;

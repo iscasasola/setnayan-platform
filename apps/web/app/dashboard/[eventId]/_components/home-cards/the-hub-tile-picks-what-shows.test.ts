@@ -7,8 +7,8 @@
  *       IN PLACE — the shared `Sheet`) and "Maker" (the Event Hub Maker, as the pen was).
  *   3 · THE SHEET REUSES WHAT SHIPPED (owner: "don't invent a new mechanism") — PR-C's `HubPartsSwitches` (the page
  *       picker + a switch per part, each written into the Maker's draft with its ↺), its table read by Home's own Event
- *       Hub reader (`readHomeHubCard`) ON THE TAP, hosts only (the draft's own gate), loaded lazily so Home's first load
- *       carries none of it; and the Maker's Apply bar, `HubDraftDock`, rendered by Home and handed in.
+ *       Hub reader (`readHomeHubCard`) ON THE TAP, hosts only (the draft's own gate), mounted only when opened (no
+ *       `next/dynamic` chunk: it would grow the shared webpack runtime, whose budget had no headroom); and the Maker's Apply bar, `HubDraftDock`, rendered by Home and handed in.
  *   4 · A press inside the sheet (portalled to <body>, but still inside the tile in React's tree) never swipes the tile.
  *
  * SABOTAGE (seen red, then restored): the hub-next face back on `/launch?stage=` (1 red) · the pick button drawn as a
@@ -64,11 +64,13 @@ test('2 · two 32-px buttons, labels in aria, the ⓘ beside the label', () => {
   assert.match(card, /data-testid="home-hub-pick-open-card"/, 'the md+ card has no "Pick what shows"');
 });
 
-test('3 · the sheet is the shipped switches + Apply bar, read on the tap, hosts only, lazy', () => {
+test('3 · the sheet is the shipped switches + Apply bar, read on the tap, hosts only, mounted on open', () => {
   const button = read('_components/home-cards/hub-pick-button.tsx');
   assert.match(button, /import \{ Sheet \} from '@\/app\/_components\/sheet';/, 'not the shared Sheet');
-  assert.match(button, /dynamic\(\(\) => import\([^)]*'\.\/hub-pick-body'\)/, 'the body is not loaded lazily');
-  assert.doesNotMatch(button, /from '\.\/hub-pick-body'/, 'the body is imported eagerly');
+  // NOT a `next/dynamic` chunk: a new async chunk grows webpack's shared runtime, and the shared budget had no headroom
+  // (CI 2026-10-24). The body is mounted only when the sheet opens, and its data is read then.
+  assert.doesNotMatch(button, /next\/dynamic/, 'a lazy chunk again — it grows the shared runtime every page loads');
+  assert.match(button, /const sheet = open \? \(\s*<Sheet open/, 'the sheet (and its body) is drawn before it is opened');
   const body = read('_components/home-cards/hub-pick-body.tsx');
   assert.match(body, /import \{ HubPartsSwitches \} from '\.\/hub-parts-switches';/, 'the sheet does not reuse the shipped part switches');
   assert.match(body, /<HubPartsSwitches eventId=\{eventId\} table=\{read\.table\} now=\{read\.stage\} \/>/);

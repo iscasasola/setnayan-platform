@@ -4,30 +4,25 @@
  * 🎛 "PICK WHAT SHOWS" — the Event Hub tile's small button (owner 2026-10-24, on the live Home: *"on home, we can
  * pick what part of event hub will be active"* — 23 Oct — now on the tile itself). It opens, IN PLACE, the shared
  * bottom sheet (`Sheet`) with the shipped part switches, page picker and Apply bar (`hub-pick-body.tsx`, loaded on
- * the tap). Two looks, one door: the compact tile's 32-px icon (`hc-tiny`, the label in `aria-label`) and the
+ * the tap — the table is read when the sheet opens). Two looks, one door: the compact tile's 32-px icon (`hc-tiny`, the label in `aria-label`) and the
  * detail card's icon + word.
  *
  * Portalled to <body>: the dashboard's page-enter transform would otherwise pin a fixed sheet to the page, not the
  * screen (as `PapicBuySheet`).
  */
-import dynamic from 'next/dynamic';
 import { useId, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { SlidersHorizontal } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { Sheet } from '@/app/_components/sheet';
 import { InfoTip } from '@/app/_components/info-tip';
+import HubPickBody from './hub-pick-body';
 import type { HomeHubPickRead } from './hub-pick-types';
 
-const HubPickBody = dynamic(() => import(/* webpackChunkName: "home-hub-pick" */ './hub-pick-body'), {
-  ssr: false,
-  loading: () => (
-    <p className="sg-step" aria-live="polite">
-      Loading your page’s parts…
-    </p>
-  ),
-});
-
+/* A STATIC import, on purpose (2026-10-24, CI "bundle size check"): a `next/dynamic` chunk adds an entry to webpack's
+   runtime — a SHARED chunk every page loads — and main's shared budget had 0.0 KB headroom, so the lazy chunk alone
+   pushed it over (only `webpack-*.js` changed hash; every other shared chunk was byte-identical). The body rides Home's
+   own page chunk instead; its DATA is still read only on the tap (`readHomeHubPick`). */
 export const HUB_PICK_LABEL = 'Pick what shows';
 
 export function HubPickButton({

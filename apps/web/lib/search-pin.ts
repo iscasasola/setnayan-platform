@@ -31,6 +31,8 @@ export const PIN_IDLE_MS = 150;
 export const PIN_WATCH_MS = 4000;
 /** A hand on the page this recently → no pin. */
 export const PIN_HANDS_OFF_MS = 600;
+/** Once more after the chrome has stopped moving (the sticky block eases its `top` over 300 ms). */
+export const PIN_SETTLE_MS = 360;
 /** Room kept between the pinned box and the chrome / the band. */
 export const PIN_GAP = 8;
 
@@ -143,6 +145,29 @@ function chromeFoot(target: Element, from: number): number {
   return y;
 }
 
+/**
+ * 🧷 THE HEADS THAT WILL STICK OVER THE RESULT (owner 2026-10-25, live, Guest list: *"Search is still not showing the
+ * first search result properly"* — the first hit sat UNDER the sticky "VIP · 2" section head). `chromeFoot` reads what
+ * is stuck NOW; a section head sitting in the flow above its first row only sticks once the pin has scrolled the page
+ * under it, and the page's own sticky block animates its `top`, so the hit-test missed it. This reads every sticky box
+ * that comes BEFORE the target inside one of its containers (the section head, the page's sticky block) by its own
+ * resolved `top` — where it WILL rest once stuck — so the result is pinned under its foot, stuck yet or not.
+ */
+export function stickyHeadsFoot(target: Element): number {
+  let foot = 0;
+  for (let child: Element = target, box = target.parentElement; box && box !== document.body; child = box, box = box.parentElement) {
+    for (const sib of Array.from(box.children)) {
+      if (sib === child) break; // only what comes before the target's branch
+      if (getComputedStyle(sib).position !== 'sticky') continue;
+      const r = sib.getBoundingClientRect();
+      if (r.height <= 0 || r.height > window.innerHeight * 0.45) continue;
+      const top = parseFloat(getComputedStyle(sib).top);
+      if (Number.isFinite(top)) foot = Math.max(foot, top + r.height);
+    }
+  }
+  return foot;
+}
+
 /** The top of the band and the riding row (the band is drawn above the row, outside its layer's box), else the
  *  keyboard's top, else the bottom bar's — whichever is highest. */
 function bandTop(): number {
@@ -177,7 +202,12 @@ export function pinFirstResult(): number {
   for (let pass = 0; pass < 2; pass++) {
     const k = readKeyboard();
     const s = scroller?.getBoundingClientRect();
-    const top = Math.max(chromeFoot(t.el, Math.max(k.present ? k.offsetTop : 0, s?.top ?? 0)), s?.top ?? 0);
+    const top = Math.max(
+      chromeFoot(t.el, Math.max(k.present ? k.offsetTop : 0, s?.top ?? 0)),
+      s?.top ?? 0,
+      // Heads that stick over the result once the page moves under them (a section head, a sticky page head).
+      t.edge === 'top' ? (s?.top ?? 0) + stickyHeadsFoot(t.el) : 0,
+    );
     const bottom = Math.min(bandTop(), s?.bottom ?? Infinity);
     const r = t.el.getBoundingClientRect();
     const by = pinDelta({ top: r.top, bottom: r.bottom }, { top, bottom }, t.edge);
@@ -200,10 +230,13 @@ export function useSearchPin(rowRef: RefObject<HTMLElement | null>): { poke: (wo
   const idle = useRef<ReturnType<typeof setTimeout> | null>(null);
   const until = useRef(0);
   const watch = useRef<MutationObserver | null>(null);
+  const settle = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const stop = useCallback(() => {
     if (idle.current) clearTimeout(idle.current);
     idle.current = null;
+    if (settle.current) clearTimeout(settle.current);
+    settle.current = null;
     watch.current?.disconnect();
     watch.current = null;
     until.current = 0;
@@ -213,6 +246,13 @@ export function useSearchPin(rowRef: RefObject<HTMLElement | null>): { poke: (wo
     idle.current = null;
     if (!mayPin({ words: words.current, now: performance.now(), handAt, touching })) return;
     pinFirstResult();
+    // The chrome may still be moving (the sticky block's `top` eases over 300 ms when the shell bar hides or shows) —
+    // pin once more after it has come to rest, still only with no hand on the page.
+    if (settle.current) clearTimeout(settle.current);
+    settle.current = setTimeout(() => {
+      settle.current = null;
+      if (mayPin({ words: words.current, now: performance.now(), handAt, touching })) pinFirstResult();
+    }, PIN_SETTLE_MS);
   }, []);
 
   const later = useCallback(() => {

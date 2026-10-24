@@ -33,30 +33,7 @@ import {
   type MakerPartTool,
   type MakerStageKey,
 } from '@/lib/maker-parts';
-import {
-  STAGE_BAR_FOOT_CSS,
-  STAGE_BAR_GRID_CSS,
-  STAGE_BAR_HANDLE,
-  STAGE_BAR_LINE,
-  STAGE_BAR_LINE_ABOUT,
-  STAGE_BAR_LINE_LEAD,
-  SP_KEY_BAR,
-  SP_KEY_DONE,
-  SP_ROWS,
-  STAGE_BAR_ROW_VARS,
-  STAGE_GUEST_TAB,
-  STAGE_ICON_BUTTON,
-  STAGE_ICON_FACE,
-  STAGE_PANEL_MS,
-  STAGE_PANEL_VARS,
-  STAGE_ROW,
-  STAGE_TOOL_BUTTON,
-  STAGE_TOOL_INSET,
-  STAGE_TOOL_PILL,
-  stageBarPx,
-  stageEditingLine,
-  partPickScroll,
-} from '@/lib/maker-stage-room';
+import { STAGE_BAR_FOOT_CSS, STAGE_BAR_GRID_CSS, STAGE_BAR_HANDLE, STAGE_BAR_LINE, STAGE_BAR_LINE_ABOUT, STAGE_BAR_LINE_LEAD, SP_ROWS, STAGE_BAR_ROW_VARS, STAGE_GUEST_TAB, STAGE_ICON_BUTTON, STAGE_ICON_FACE, STAGE_PANEL_MS, STAGE_PANEL_VARS, STAGE_ROW, STAGE_TOOL_BUTTON, STAGE_TOOL_INSET, STAGE_TOOL_PILL, stageBarPx, stageEditingLine, partPickScroll } from '@/lib/maker-stage-room';
 import { fixedOfKey, fixedScenePanel } from '@/lib/maker-selection';
 import { makerCanvasKeyOf, makerOwnSceneType, makerPartStudioDoor, makerStagePickedAttr, makerStageMayType } from '@/lib/maker-parts';
 import { STAGE_NOTHING_PICKED_WORDS, stageRowOneLine } from '@/lib/maker-edit-owns-content';
@@ -113,10 +90,11 @@ import type { StagePageOption } from './stage-item-menu';
 import { PART_PAD, RevealPartTools, RevealPlay, askPartOps, makerPartTopOnScreen, revealStageOf, usePartEdits } from './add-part-sheet';
 import { partsInPageOrder } from '@/lib/maker-part-step';
 import { SCENE_COLLAPSE_CALM_MS, SCENE_COLLAPSE_EASE, SCENE_COLLAPSE_MS, SCENE_STATUS_MS } from '@/lib/maker-scene-drag';
-import { BlockAnimateRows, CameraPartTools, ScenePhotoRow, SectionNames, StagePlayStatus, VenuePictureRows } from './details-lazy';
+import { BlockAnimateRows, ScenePhotoRow, SectionNames, StagePlayStatus, VenuePictureRows } from './details-lazy';
 import { BLOCK_EMPTY_WHY, BLOCK_SAMPLE_WHY, blockOfCanvas, blockTakesGround } from '@/lib/block-looks';
 import { BlockGroundRows } from './stage-panel/block-background';
 import { CameraPage } from './stage-panel/camera-page';
+import { CameraPartNote } from './stage-panel/camera-face';
 import { keepPostEventWords, postEventAbout, postEventSceneNow } from './stage-panel/post-event-edit';
 import { PostEventShown } from './stage-panel/post-event-shown';
 import { POST_EVENT_ABOUT } from '../../website/editor/_components/post-event-scene-panel';
@@ -125,6 +103,7 @@ import { useIsDesktop } from '@/lib/use-responsive';
 
 import { makerPartCanvasOn, makerPartLabelOn, makerPartOfCanvas, makerPartsWithAdded, makerPostEventSceneOf } from '@/lib/maker-part-groups';
 import { filedOnCanvas, makerStagesPages } from '@/lib/maker-stage-filing';
+import { TypingBand } from '@/app/_components/typing-band';
 
 /**
  * 🎬 THE STAGES TOOLBAR — the new Maker's bottom bar on the Stages side, on a phone (owner 2026-10-09, the approved
@@ -467,7 +446,7 @@ export function StageTools({
       const drawnHere = makerPartsWithAdded({ stage, page, pages: pages.map((p) => p.key), drawn: [...present], filed }).filter((k) => makerPartIsDrawn(k, present));
       const withReveal = revealStage && page && makerPartsOnPage(stage, page)[0] === 'reveal' ? (['reveal', ...drawnHere] as MakerPartKey[]) : drawnHere;
       /* 🎛 The Camera is never drawn on the editing page (`the-maker-canvas-draws-no-camera`) — on its own page its
-         tile is the page map's, and its tools are this panel's own (`CameraPartTools`). */
+         tile is the page map's, and its rows are this panel's own (`CameraPartNote`). */
       return page && makerPartsOnPage(stage, page).includes('camera') && !withReveal.includes('camera') ? [...withReveal, 'camera'] : withReveal;
     },
     [filed, pages, present, revealStage, stage],
@@ -584,7 +563,7 @@ export function StageTools({
   /* ── the panel's height: half the screen while a part's tools are open ── */
   /* 🎭 The Reveal's tools are this panel's own (no work-area tool opens for it). */
   const revealOpen = picked === 'reveal' && revealStage !== null;
-  /* 🎛 …and so are the Camera's (its three looks, owner 2026-10-06/07). */
+  /* 📷 …and so are the Camera's: no look to pick any more (owner 2026-10-24) — one line saying what it wears. */
   const cameraOpen = picked === 'camera' && !rsvpOpen;
   /** A part whose only tool is Style (the pass is a guest's own card: no words or motion of its own to set). */
   const styleOnly = revealOpen || cameraOpen || rsvpOpen || picked === 'pass';
@@ -1165,7 +1144,6 @@ export function StageTools({
       document.removeEventListener('pointerdown', tap, true);
     };
   }, [playing, stopPlay]);
-
 
   /* ── 🎭 THE OPENING IS THE COVER SCENE'S STYLE — NAMED IN THE COVER'S CORNER, NEVER A TILE ABOVE IT ──
      Owner-approved 2026-10-16 ("THE COVER SCENE'S OWN EDIT · STYLE (OPENING) · ANIMATE"): the Reveal's picture-tile that
@@ -1779,12 +1757,7 @@ export function StageTools({
       <StageAbout />
       {/* ══ ⌨ THE TYPING BAR — only while a field of Edit is open (the rule set above): what is typed, and Done.
           Done is a tap outside the field, which KEEPS (the typed row's own rule) — the app's main button. ══ */}
-      <div data-stage-keys="" className={`-mx-[10px] rounded-t-2xl !border-t-0 !bg-transparent ${SP_KEY_BAR}`}>
-        <span className="min-w-0 truncate">Typing · {picked ? makerPartLabelOn(stageKey, picked) : ''}</span>
-        <span data-type-done="" className={SP_KEY_DONE}>
-          <ActionButton tone="brand" main icon={Check} label="Done" onClick={() => (document.activeElement as HTMLElement | null)?.blur?.()} />
-        </span>
-      </div>
+      <TypingBand inline data-stage-keys="" className="-mx-[10px] rounded-t-2xl !border-t-0 !bg-transparent" place={picked ? makerPartLabelOn(stageKey, picked) : ''} />
 
       {/* ══ THE SELECTOR — [ Edit | Style | Background | Animate ] · ▶ ══ */}
       <div className={STAGE_ROW} data-stage-row="">
@@ -1907,8 +1880,8 @@ export function StageTools({
             <RevealPartTools stage={revealStage} />
           </div>
         ) : null}
-        {/* ══ 🎛 THE CAMERA'S TOOLS — Style: Classic · Your brand · Challenges ══ */}
-        {open && cameraOpen && !editOn ? <CameraPartTools /> : null}
+        {/* ══ 📷 THE CAMERA'S ROWS — ONE camera, no style to pick (owner 2026-10-24): what it wears, in one line ══ */}
+        {open && cameraOpen && !editOn ? <CameraPartNote pro={maker?.lookPages?.camera?.pro ?? false} /> : null}
         {/* 🧱 A fixed block's own Animate — the toolbar's four rows, on the block's own save. */}
         {blockRows && block ? <BlockAnimateRows key={block} block={block} /> : null}
         {/* 🎬 The Cover Scene's one entrance — Entrance ▾ · Movement ◆ · the beats · the words on their own. */}
@@ -1924,7 +1897,8 @@ export function StageTools({
       </div>
       {revealPlaying && revealStage ? <RevealPlay stage={revealStage} onDone={() => setRevealPlaying(false)} /> : null}
       {/* ══ 🎛 THE CAMERA'S PAGE IS THE CAMERA (owner 2026-10-09: "Camera is a full screen design") — drawn on the canvas's
-          own Camera page, edge to edge, in the look picked; picked on arriving, and by a tap (`camera-page.tsx`). ══ */}
+          own Camera page, edge to edge — the one camera, in its Pro dress where the event has it; picked on arriving,
+          and by a tap (`camera-page.tsx`). ══ */}
       {rsvpOpen ? null : (
         <CameraPage stage={stage} on={makerPartsOnPage(stage, shownPage).includes('camera')} picked={open && cameraOpen} held={picked !== null} onPick={() => pickPartRef.current('camera')} />
       )}

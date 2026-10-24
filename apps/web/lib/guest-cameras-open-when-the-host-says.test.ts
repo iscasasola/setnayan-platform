@@ -139,12 +139,27 @@ test('🔑 the UPLOAD ROUTE enforces it — the page is only a courtesy', () => 
       '"try again" the guest can never satisfy',
   );
 
-  // The web-copy follow-up must stay exempt: it completes a clip we already
-  // accepted, and refusing it once the day rolls over strands the raw with no
-  // playable copy.
-  const webCopyAt = route.indexOf("'web_copy'");
-  const gateAt = route.indexOf('guestCaptureGate(');
-  assert.ok(webCopyAt > 0 && gateAt > webCopyAt, 'the gate must sit AFTER the web_copy branch');
+  // A piece that FOLLOWS an accepted shot must stay exempt (the old web-copy
+  // follow-up's rule, 2026-10-23 save-first): attach, and a sign after record,
+  // complete a shot we already accepted — refusing them once the day rolls over
+  // strands the row with no display copy. The gate runs for a NEW shot only.
+  const attach = route.slice(route.indexOf('async function handleAttach('), route.indexOf('export async function POST('));
+  assert.ok(attach.length > 100, 'handleAttach moved — re-point this guard');
+  assert.doesNotMatch(attach, /windowRefusal\(|guestCaptureGate\(/, 'attach must not be refused by the window');
+  const sign = route.slice(route.indexOf('async function handleSign('), route.indexOf('async function handleRecord('));
+  const priorBranch = sign.slice(sign.indexOf('if (prior) {'), sign.indexOf('} else {'));
+  assert.ok(priorBranch.length > 50, 'handleSign moved — re-point this guard');
+  assert.doesNotMatch(priorBranch, /windowRefusal\(/, 'a piece of an accepted shot must not be refused by the window');
+  // …judged by the SHUTTER, not by arrival (review 2026-10-23, blocker 1: an
+  // in-window shot that finds signal the next afternoon is still in-window).
+  assert.match(
+    sign.slice(sign.indexOf('} else {')),
+    /windowRefusal\(session, admin, judgedShotInstant\(body\.captured_at_ms, Date\.now\(\)\)\)/,
+    'a NEW shot must meet the window at sign, judged by its shutter',
+  );
+  const record = route.slice(route.indexOf('async function handleRecord('), route.indexOf('async function afterVisible('));
+  assert.match(record, /const shotAtMs = judgedShotInstant\(body\.captured_at_ms, Date\.now\(\)\);/, 'the record must judge the window by the shutter');
+  assert.match(record, /windowRefusal\(session, admin, shotAtMs\)/, 'a NEW shot must meet the window at record');
 });
 
 test('🔑 both server callers use the SHARED resolver, not their own date maths', () => {
@@ -166,12 +181,13 @@ test('🚨 a refusal the guest cannot SEE is indistinguishable from a crash', ()
       'fall through to "please try again" — advice the guest can never act on, ' +
       'because nothing they do will work until a date.',
   );
-  // BOTH paths. The photo branch and the clip branch format their own message,
-  // and fixing one and not the other is this project's recurring shape.
+  // 📮 ONE handler since 2026-10-23: photo and clip both reach the server through
+  // the uploader, whose refusal event is heard in one place — so the helper has
+  // its definition plus exactly ONE call site, and no second copy to forget.
   assert.equal(
     (client.match(/guestWindowRejectMessage\(/g) ?? []).length,
-    3,
-    'expected the helper definition plus BOTH call sites (photo and clip)',
+    2,
+    'expected the helper definition plus the ONE uploader-refusal call site',
   );
 });
 

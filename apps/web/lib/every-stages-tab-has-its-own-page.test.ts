@@ -466,11 +466,8 @@ test('⚡ what only a tap asks for stays out of the Maker’s first load', () =>
   }
   assert.match(SHELL_SRC, /import \{[^}]*\bMakerTour\b[^}]*\bStudioBackToPart\b[^}]*\} from '\.\/details-lazy';/);
   assert.doesNotMatch(SHELL_SRC, /data-focus-pending|data-maker-studio-back/, 'the jump’s focusing or its button is back in the shell');
-  // The hub draft (first load) reads the camera look's KEYS only — never the file with its words, tint and ink maths.
-  assert.match(src('lib/hub-draft.ts'), /from '@\/lib\/camera-look-key';/);
-  assert.doesNotMatch(src('lib/hub-draft.ts'), /from '@\/lib\/camera-look';/, 'the whole camera look rides the Maker’s first load again');
-  assert.doesNotMatch(src('lib/camera-look-key.ts'), /^import /m, 'the key file grew a dependency');
-  assert.match(src('lib/camera-look.ts'), /export \{ CAMERA_LOOKS, CAMERA_LOOK_PREF_KEY, isCameraLook, type CameraLook \};/, 'one spelling: the look re-exports its keys');
+  // The hub draft (first load) carries nothing of the camera (owner 2026-10-24: one camera, no look to draft).
+  assert.doesNotMatch(src('lib/hub-draft.ts'), /from '@\/lib\/camera-(look|look-key|dress)';/, 'the camera rides the Maker’s first load again');
 });
 
 /* ══ e · GUESTS ARE UNTOUCHED ════════════════════════════════════════════════ */

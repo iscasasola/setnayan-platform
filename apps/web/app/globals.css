@@ -7814,9 +7814,8 @@ html[data-keyboard='open'] [data-bottom-dock] { transform: translateY(100%); opa
  * and the last result can scroll up into view instead of living under it. On <body>, so every page gets it whatever
  * its own column pads; gone the moment the band is. */
 html[data-ride-reserve] body { padding-bottom: calc(var(--sn-keyboard-h, 0px) + var(--sn-ride-band-h, 0px)); }
-/* The marketplace's suggestions rise above its field — while it rides, above the band too (the bar's 12 px top
- * padding + the band's 44 + the list's own 8 px gap), never over Done. */
-[data-ride-row][data-riding] #taxonomy-suggestions { margin-bottom: 64px; }
+/* (The marketplace's suggestions no longer step over a band: a search band has no words and no Done since 2026-10-24,
+ * so they stand where they always did, over the field.) */
 /* The typing band's neutrals outside the Maker (inside it, the Maker's own `STAGE_PANEL_VARS`): its cream plate, its
  * hairline and its words — with a dark pair (`typing-band.tsx`). */
 [data-typing-band='app'] { --tb-plate: #F3F0EA; --sp-line: #E6E1D8; --sp-ink2: #5A5755; }

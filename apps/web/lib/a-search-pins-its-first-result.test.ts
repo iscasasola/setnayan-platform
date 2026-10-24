@@ -178,7 +178,7 @@ test('4 · the room: while the band is up the page ends above it, and gets its f
   );
   const band = read('app/_components/typing-band.tsx');
   // Written while riding (from the band's top over the row down to the host's foot), removed with the band.
-  assert.match(band, /root\.style\.setProperty\('--sn-ride-band-h', `\$\{Math\.max\(0, Math\.round\(foot - \(r\.top - BAND_H\)\)\)\}px`\);/);
+  assert.match(band, /root\.style\.setProperty\('--sn-ride-band-h', `\$\{Math\.max\(0, Math\.round\(foot - \(r\.top - above\)\)\)\}px`\);/);
   assert.match(band, /root\.setAttribute\('data-ride-reserve', ''\);/);
   assert.match(band, /root\.removeAttribute\('data-ride-reserve'\);\s*root\.style\.removeProperty\('--sn-ride-band-h'\);/, 'the room outlives the band');
   assert.match(band, /if \(!riding\) return setOver\(null\);/, 'the room is made without the band being up');

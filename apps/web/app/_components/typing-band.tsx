@@ -14,8 +14,10 @@
  *   · in flow (`inline`) — the Maker's toolbar draws it over its one open field (`stage-tools.tsx`);
  *   · on the keyboard (`fixed`) — portaled to <body>, edge to edge, its foot on the keyboard's top
  *     (`bottom` px, else `useKeyboardRide().bottom`): the Maker's typing-in-place and its RSVP words;
- *   · over a row (`over`) — the same band, standing on a bottom row that rides the keyboard (`ThumbRow`): its plate
- *     reaches down behind that row, so the band and the row read as ONE cream plate.
+ *   · over a row (`over`) — standing on a bottom row that rides the keyboard (`ThumbRow`): its plate reaches down
+ *     behind that row, so the band and the row read as ONE cream plate. With `search` (every riding row — owner
+ *     2026-10-24, *"can this be gone? just tap away and keyboard should disappear"*) it is the plate ONLY: no words, no
+ *     Done; a tap or a drag away closes the keyboard (`useTapAway`). The Maker keeps its words and its Done.
  *
  * Outside the Maker the band carries the app's own copy of the Maker's three neutrals (`[data-typing-band="app"]` in
  * globals.css, with a dark pair); inside it, it reads the Maker's (`STAGE_PANEL_VARS`) — so the Maker is unchanged.
@@ -55,6 +57,10 @@ const holdFocus = (e: { preventDefault: () => void }) => e.preventDefault();
 /** The band's height over a riding row (`over`: drawn from 44 px above the row). */
 export const BAND_H = 44;
 
+/** Where an `over` plate reaches: out to the screen's edges, `below` px past the row to its host's foot, and (the
+ *  search band) `above` px over the row to its host's top. */
+type Over = { left: number; width: number; below: number; above?: number };
+
 function Face({ place, onDone }: { place: ReactNode; onDone?: () => void }) {
   return (
     <>
@@ -72,12 +78,13 @@ export function TypingBand(props: Common & { inline: true; className?: string })
 /** Fixed to the keyboard's top, portaled to <body>. `bottom` px, else the one keyboard reading. */
 export function TypingBand(props: Common & { fixed: true; bottom?: number; className?: string; style?: CSSProperties }): ReactNode;
 /** Behind and above a riding row (drawn inside it): reach `left` px out to the screen edge, `width` the screen, and
- *  `below` px down past the row to its host's foot. */
-export function TypingBand(props: Common & { over: { left: number; width: number; below: number } }): ReactNode;
+ *  `below` px down past the row to its host's foot. `search` — THE SEARCH BAND (owner 2026-10-24): no "Typing · …" and no
+ *  Done, only the plate under the field, from `above` px over the row (its host's top) down to the keyboard. */
+export function TypingBand(props: Common & { over: Over; search?: boolean }): ReactNode;
 export function TypingBand(
-  props: Common & { inline?: true; fixed?: true; over?: { left: number; width: number; below: number }; bottom?: number; className?: string; style?: CSSProperties },
+  props: Common & { inline?: true; fixed?: true; over?: Over; search?: boolean; bottom?: number; className?: string; style?: CSSProperties },
 ): ReactNode {
-  const { place, onDone, children, before, barRef, keepFocus, inline, fixed, over, bottom: atBottom, className, style, ...attrs } = props as typeof props & Record<string, unknown>;
+  const { place, onDone, children, before, barRef, keepFocus, inline, fixed, over, search, bottom: atBottom, className, style, ...attrs } = props as typeof props & Record<string, unknown>;
   void fixed;
   const k = useKeyboardRide();
   const [here, setHere] = useState(false);
@@ -103,7 +110,24 @@ export function TypingBand(
        <body> would cover the row. The plate is the row's back (`z-index: -1` in the row's own stacking context): it
        runs edge to edge (`left`/`width` reach out of the host's gutters), from the band's top (44 px above the row)
        down to the host's foot (`below` px under the row) — one cream surface from the band to the keyboard. */
-    const { left, width, below } = over as { left: number; width: number; below: number };
+    const { left, width, below, above = 0 } = over as Over;
+    if (search) {
+      /* 🔎 THE SEARCH BAND (owner 2026-10-24, on "Typing · Search guests" + ✓ Done: *"can this be gone? just tap away
+         and keyboard should disappear"*): no words and no Done — only the plate, from the row's host's top down to the
+         keyboard, so the field (and its ✕) reads as sitting ON the keyboard. A tap or a drag away closes it
+         (`useTapAway`); Escape and the keyboard's own key still do. Decorative: the field keeps its own label. */
+      return (
+        <div
+          ref={barRef}
+          aria-hidden
+          data-typing-band="app"
+          data-search-band=""
+          {...attrs}
+          style={{ left, width, top: -above, bottom: -below }}
+          className="pointer-events-none absolute z-[-1] rounded-t-2xl bg-[var(--tb-plate)] shadow-[var(--sn-sh-rise)]"
+        />
+      );
+    }
     return (
       <div
         ref={barRef}
@@ -152,6 +176,77 @@ function layerOf(el: HTMLElement | null): HTMLElement | null {
   return null;
 }
 
+/**
+ * 👆 TAP AWAY CLOSES THE KEYBOARD (owner 2026-10-24: *"just tap away and keyboard should disappear"*). While a field of
+ * `ref` holds the focus (`active`):
+ *   · a TAP anywhere outside it (the list, the page) leaves the field — AFTER the tap has done its own work, so a result
+ *     or the "Add …" row opens in ONE tap (the blur is queued from the capture phase, so no handler can swallow it);
+ *   · a DRAG that starts outside it (a scroll of the list) leaves the field, as iOS does;
+ *   · Escape leaves it (the keyboard's own hide key needs nothing: it closes the keyboard, and the row stops riding).
+ * A tap that moved the focus somewhere else (a sheet's own field) is left alone.
+ */
+/** A finger moving less than this is still a tap. */
+export const TAP_SLOP = 10;
+/** A tap on plain content leaves after this — long enough for a coming click to land first. */
+export const TAP_SETTLE_MS = 120;
+
+export function useTapAway(ref: RefObject<HTMLElement | null>, active: boolean): void {
+  useEffect(() => {
+    if (!active) return;
+    const inside = (t: EventTarget | null) => t instanceof Node && Boolean(ref.current?.contains(t));
+    const leave = () => {
+      const a = document.activeElement as HTMLElement | null;
+      if (a && ref.current?.contains(a)) a.blur();
+    };
+    let dragFromOutside = false;
+    let from = { x: 0, y: 0 };
+    let settle: ReturnType<typeof setTimeout> | null = null;
+    const later = (ms: number) => {
+      if (settle) clearTimeout(settle);
+      settle = setTimeout(leave, ms);
+    };
+    // A click outside (a result, the Add row, any press on a desktop): leave once the click has done its own work.
+    const onClick = (e: MouseEvent) => {
+      if (!inside(e.target)) later(0);
+    };
+    const onTouchStart = (e: TouchEvent) => {
+      dragFromOutside = !inside(e.target);
+      const t = e.touches?.[0];
+      from = { x: t?.clientX ?? 0, y: t?.clientY ?? 0 };
+    };
+    // A drag that starts on the page (past a finger's slop, so a tap's jitter is still a tap) leaves at once.
+    const onTouchMove = (e: TouchEvent) => {
+      const t = e.touches?.[0];
+      if (dragFromOutside && t && Math.hypot(t.clientX - from.x, t.clientY - from.y) > TAP_SLOP) {
+        dragFromOutside = false;
+        leave();
+      }
+    };
+    // 📱 A tap on plain content gets NO click on an iPhone (WebKit clicks only what is clickable — measured in the lab):
+    // the tap itself leaves, a beat later, so a click that IS coming (a result) still lands first and wins the order.
+    const onTouchEnd = (e: TouchEvent) => {
+      if (dragFromOutside && !inside(e.target)) later(TAP_SETTLE_MS);
+      dragFromOutside = false;
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && inside(e.target)) leave();
+    };
+    window.addEventListener('click', onClick, true);
+    window.addEventListener('touchstart', onTouchStart, { capture: true, passive: true });
+    window.addEventListener('touchmove', onTouchMove, { capture: true, passive: true });
+    window.addEventListener('touchend', onTouchEnd, { capture: true, passive: true });
+    window.addEventListener('keydown', onKey, true);
+    return () => {
+      if (settle) clearTimeout(settle);
+      window.removeEventListener('touchend', onTouchEnd, true);
+      window.removeEventListener('click', onClick, true);
+      window.removeEventListener('touchstart', onTouchStart, true);
+      window.removeEventListener('touchmove', onTouchMove, true);
+      window.removeEventListener('keydown', onKey, true);
+    };
+  }, [ref, active]);
+}
+
 /** ⌨ The ONE riding decision (pure, so the guard can hold it): a field of the row is typed into, the keyboard is up,
  *  the row is not in a mode (Select's buttons), and the call did not opt out. */
 export function rowRides(s: { rides: boolean; typing: string | null; open: boolean; mode: boolean }): boolean {
@@ -163,7 +258,8 @@ export function rowRides(s: { rides: boolean; typing: string | null; open: boole
  * *"Applies all textbox like that"*): `ThumbRow` uses it, and a bottom row that is not a ThumbRow (Budget's, the
  * marketplace's, the admin music tools) uses it directly. Spread `rowProps` on the row (it must be a positioned,
  * stacking box — the band's plate is drawn behind its seats), render `band` inside it, and fold what is not the field
- * while `riding` (`data-riding`). The band's words are the focused field's own placeholder, else its accessible name.
+ * while `riding` (`data-riding`). The band is the SEARCH band (no words, no Done) and a tap or a drag away, or Escape,
+ * closes the keyboard (`useTapAway`).
  */
 export function useRidingRow(
   rowRef: RefObject<HTMLElement | null>,
@@ -213,7 +309,9 @@ export function useRidingRow(
   }, [rowRef]);
   /* Where the band's plate reaches: out to the screen's edges, and down past the row to its host's foot (the host's
      own bottom padding) — measured, because each host pads its row its own way. */
-  const [over, setOver] = useState<{ left: number; width: number; below: number } | null>(null);
+  const [over, setOver] = useState<Over | null>(null);
+  /* 👆 Every riding row is a SEARCH row: a tap or a drag away closes its keyboard (`useTapAway`). */
+  useTapAway(rowRef, typing !== null);
   useLayoutEffect(() => {
     if (!riding) return setOver(null);
     const row = rowRef.current;
@@ -221,14 +319,17 @@ export function useRidingRow(
     const layer = layerOf(row);
     const read = () => {
       const r = row.getBoundingClientRect();
-      const foot = layer && layer !== row ? layer.getBoundingClientRect().bottom : r.bottom;
-      const next = { left: Math.round(-r.left), width: document.documentElement.clientWidth, below: Math.max(0, Math.round(foot - r.bottom)) };
-      setOver((o) => (o && o.left === next.left && o.width === next.width && o.below === next.below ? o : next));
+      const host = layer && layer !== row ? layer.getBoundingClientRect() : null;
+      const foot = host ? host.bottom : r.bottom;
+      // The search band's plate starts at the host's top (its own padding over the row), never above it.
+      const above = host ? Math.max(0, Math.round(r.top - host.top)) : 0;
+      const next = { left: Math.round(-r.left), width: document.documentElement.clientWidth, below: Math.max(0, Math.round(foot - r.bottom)), above };
+      setOver((o) => (o && o.left === next.left && o.width === next.width && o.below === next.below && o.above === next.above ? o : next));
       /* 📏 THE PAGE MAKES ROOM FOR THE BAND (owner 2026-10-24: the bar "overlaps with the content under it"): while the
-         band is up the page's foot gains the band's height (its top, 44 px over the row, down to the host's foot) on top
+         band is up the page's foot gains the band's height (its top, the host's top over the row, down to the host's foot) on top
          of the keyboard's (`--sn-keyboard-h`) — globals.css `html[data-ride-reserve]` — so the last result can scroll
          up above the band instead of living under it. Differences of two boxes, so a glide in flight cannot skew it. */
-      root.style.setProperty('--sn-ride-band-h', `${Math.max(0, Math.round(foot - (r.top - BAND_H)))}px`);
+      root.style.setProperty('--sn-ride-band-h', `${Math.max(0, Math.round(foot - (r.top - above)))}px`);
       root.setAttribute('data-ride-reserve', '');
     };
     const root = document.documentElement;
@@ -245,7 +346,7 @@ export function useRidingRow(
   return {
     riding,
     typing,
-    band: riding && over ? <TypingBand over={over} place={typing} data-ride-band="" /> : null,
+    band: riding && over ? <TypingBand over={over} search place={typing} data-ride-band="" /> : null,
     rowProps: { 'data-ride-row': '', 'data-riding': riding ? '' : undefined, onFocus, onBlur, onInput },
   };
 }

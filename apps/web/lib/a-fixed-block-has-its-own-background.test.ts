@@ -385,7 +385,9 @@ test('5 · a guest’s page: no mark and no style unless something is kept; the 
      Welcomes that can draw a guest's own look, and Me's What to wear — its panel is bare: the root takes the ground,
      §3/§4) and the Live hub's seven (a block that takes NO ground: nothing to re-walk). Announcements is marked by
      the layout (`announcement-look.tsx`), not here. Same claim. */
-  assert.equal((BODY.match(/blockMark\(/g) ?? []).length, 19, 'a block is marked in a new place (or one fewer): re-walk where its ground lands');
+  /* 🔁 RE-AIMED 2026-10-24 (owner: "isn't this a dupe?"): 19 → 18. The one gone is THE DETAILS' — the block is drawn
+     on no page (`OFF_THE_PAGE`), so nothing is left for a ground to land on. Same claim. */
+  assert.equal((BODY.match(/blockMark\(/g) ?? []).length, 18, 'a block is marked in a new place (or one fewer): re-walk where its ground lands');
   assert.equal((BODY.match(/blockMark\('look'\)/g) ?? []).length, 4);
   assert.equal((BODY.match(/blockMark\('live_hub'\)/g) ?? []).length, 7);
   assert.equal((BODY.match(/blockMark\('photos_of_you'\)/g) ?? []).length, 1);

@@ -229,7 +229,6 @@ import { SpotlightCard } from './spotlight-card';
 import {
   SectionEmptyPlate,
   FindModeCard,
-  PublicEventDetails,
 } from './empty-states';
 import { EditorBridge } from './editor-bridge';
 import { SampleViewerInert } from './sample-viewer-inert';
@@ -596,6 +595,9 @@ type SiteBodyProps = {
    * page.tsx re-deriving the plan.
    */
   meSection?: React.ReactNode | ((me: { replyHref: string | null; inMe?: boolean; replyOwed?: boolean }) => React.ReactNode);
+  /** 🪪 Me's FIRST offer, under the greeting — "Keep this invitation" (`MeKeepInvitation`, owner 2026-10-24), handed
+   *  in by page.tsx, which holds the account's facts. Null: nothing (the sample, the canvas, a host viewing as a guest). */
+  meSave?: React.ReactNode;
   /**
    * 👁 SEE AS ▾ (PR-10, owner 2026-10-04) — the Maker's canvas drawn as a SAMPLE
    * viewer (page.tsx `resolveSampleViewer`, verified host + `?editor=1` only):
@@ -672,6 +674,7 @@ export async function SiteBody({
   activeTab = null,
   shotsAdded = null,
   meSection = null,
+  meSave = null,
   sampleViewer = null,
   guestStages = false,
   comingWith = [],
@@ -1860,25 +1863,6 @@ export async function SiteBody({
     const stagesLead = stagesPages && pageStage === 'rsvp' ? detailsSceneList.filter((w) => at(`w:${w.widget_type}`, 'details') === leadTab) : [];
     const stagesLeadCut = stagesLead.findIndex((w) => w.widget_type === 'special_message');
     const stagesAround = splitAroundEntourage(pageStage, detailsSceneList.filter((w) => !stagesLead.includes(w)));
-    /** "THE DETAILS · WHEN · WHERE" behind its Maker marker — ONE node, for the page's Details and the Stages canvas's. */
-    const eventDetailsPart = (
-      <>
-                {blockMark('details')}
-                {makerMark('f:details')}
-                <PublicEventDetails
-                  dateLabel={event.event_date ? formatEventDate(event.event_date) : null}
-                  venueName={event.venue_name}
-                  venueAddress={event.venue_address}
-                  venues={event.venues}
-                  dateIso={event.event_date ?? null}
-                  sceneStyle={sceneStyleOfRow(
-                    widgets.find((w) => w.widget_type === 'event_details'),
-                    pageStage,
-                    event.event_type,
-                  )}
-                />
-      </>
-    );
     /** A run of scenes, one group per page of the Maker's list, the couple's order kept inside each. */
     const scenesByPage = (list: typeof detailsScenes, gap: 'mt-12' | 'mt-8') =>
       (stagesPages ?? []).map((p) => {
@@ -2582,7 +2566,6 @@ export async function SiteBody({
               <>
                 {plan.openBrowse ? group(at('f:details', scenesTab), (
                   <section id={SITE_MENU_ANCHORS.details} className="mt-12 space-y-8 scroll-mt-6">
-                    {eventDetailsPart}
                     {detailsSceneList.length === 0 ? (
                       <SectionEmptyPlate kind="details" pastTense={archiveTense} occasion={clientWords.occasion} />
                     ) : null}
@@ -2597,7 +2580,6 @@ export async function SiteBody({
               // event-level facts (the anonymous event_details variant — §5.10),
               // the public widgets, then a teaser plate when nothing is filled.
               <section id={SITE_MENU_ANCHORS.details} className="mt-12 space-y-8 scroll-mt-6">
-                {eventDetailsPart}
                 <div className="sn-hub-cards space-y-4">{publicWidgetNodes}</div>
                 {detailsSceneList.length === 0 ? (
                   <SectionEmptyPlate kind="details" pastTense={archiveTense} occasion={clientWords.occasion} />
@@ -4227,6 +4209,9 @@ export async function SiteBody({
                 reply, the ticket's "Reply to the invitation" bar and the "Change your reply" bar. */}
             {heldPassSlot && !isEditorCanvas ? <div data-me-host-bar="">{heldPassSlot}</div> : null}
             {plan.greetingShouldRender ? <MeGreeting greeting={meGreeting} /> : null}
+            {/* 🪪 Keep this invitation — the FIRST thing Me offers an unlinked guest (owner 2026-10-24); once saved, one
+                line. Its one place: `GuestMe plain` draws no Save of its own. */}
+            {meSave ? <div data-me-save-slot="">{meSave}</div> : null}
             {/* 👤 Your place · A note from the couple · What to wear · Arrive by · Coming with you. */}
             {meParts.length > 0 || meNote ? (
               <GuestMeParts

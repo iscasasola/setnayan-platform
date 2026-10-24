@@ -215,7 +215,9 @@ test('b · WIRING: in the canvas every marker is inside a group filed by its own
   // Every key the tree marks by name is filed by that name — or rides the lead group (asserted above to BE its page).
   const LEAD = new Set(['f:spotlight', 'f:hero']);
   const marked = [...anon.matchAll(/makerMark\('([a-z]:[a-z_]+)'\)/g)].map((m) => m[1]!);
-  assert.ok(marked.includes('f:details') && marked.includes('f:hero'), `precondition: the named markers were found (${marked.join(', ')})`);
+  /* 🔁 RE-AIMED 2026-10-24: THE DETAILS draws no marker any more (owner, "isn't this a dupe?" — `OFF_THE_PAGE`); its
+     section is still filed by its key (`at('f:details', scenesTab)`, held below). */
+  assert.ok(marked.includes('f:spotlight') && marked.includes('f:hero'), `precondition: the named markers were found (${marked.join(', ')})`);
   for (const key of marked) if (!LEAD.has(key)) assert.ok(anon.includes(`at('${key}',`), `${key} is marked but not filed by its own key`);
   // The cover's two markers sit inside the lead group.
   for (const key of LEAD) {

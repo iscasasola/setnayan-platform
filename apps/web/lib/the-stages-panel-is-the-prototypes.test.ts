@@ -69,10 +69,13 @@ test('under the flag the TypeBar is the keyboard’s ONE bar: Done — no Wordin
   const src = read(`${EDITOR}/type-in-place.tsx`);
   const at = src.indexOf('if (stagesStudio && !p.inline');
   assert.ok(at > 0, 'the flag-on keyboard bar exists');
-  const end = src.indexOf('document.body,\n    );\n  }', at);
+  const end = src.indexOf('</TypingBand>', at);
+  assert.ok(end > at, 'the flag-on bar is not the one typing band');
   const bar = src.slice(at, end);
   assert.match(bar, /data-type-bar-keys/);
-  assert.match(bar, /label="Done"/);
+  // Its ONE action is the band's Done (`typing-band.tsx`), handed the session's close.
+  assert.match(bar, /onDone=\{p\.onClose\}/);
+  assert.match(read('app/_components/typing-band.tsx'), /label="Done"/);
   for (const old of ['Wording', 'Style ▾', 'Hide', 'data-type-style', 'data-type-hide']) {
     assert.ok(!bar.includes(old), `the flag-on bar carries no "${old}"`);
   }

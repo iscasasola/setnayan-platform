@@ -7815,6 +7815,24 @@ html.dark .home-card-bad { background: color-mix(in srgb, rgb(var(--color-danger
 @media (prefers-reduced-motion: reduce) { .sg-meter > span { transition: none; } }
 /* The cover's one button wears the cover's ink (`currentColor`), like the prototype's glass pill. */
 :is(button, a).ab.ab-neutral.home-cover-ab { color: inherit; border-color: color-mix(in srgb, currentColor 50%, transparent); background: color-mix(in srgb, currentColor 14%, transparent); }
+/* ⌨ KEYBOARD UP → BAR DOWN (owner 2026-10-24, "Yes", `prototypes/keyboard_rides_the_input_2026-10-24.html`): while the
+ * phone's keyboard is up (`html[data-keyboard="open"]`, published by `lib/keyboard-ride.ts`) the bottom bar slides
+ * under it and back when it closes — it is useless while typing. Its clearance (`--sn-bottomdock-h`) stays its own; a
+ * row that stood on it stands on the keyboard through `--sn-ride-h` (`lib/keyboard-ride.ts`). */
+[data-bottom-dock] { transition: transform 200ms ease-out, opacity 200ms ease-out, visibility 0s linear 0s; }
+/* `visibility: hidden` once it has slid (after its 200 ms): out of the Tab order and the screen reader while away. */
+html[data-keyboard='open'] [data-bottom-dock] { transform: translateY(100%); opacity: 0; pointer-events: none; visibility: hidden; transition: transform 200ms ease-out, opacity 200ms ease-out, visibility 0s linear 200ms; }
+@media (prefers-reduced-motion: reduce) { [data-bottom-dock] { transition: none; } }
+/* ⌨ A riding row that is not a ThumbRow (`useRidingRow`, typing-band.tsx) folds what is not its field while it rides:
+ * each such piece wears `data-ride-fold` (Filters on the marketplace bar, its chips). */
+[data-ride-row][data-riding] [data-ride-fold] { display: none !important; }
+/* The marketplace's suggestions rise above its field — while it rides, above the band too (the bar's 12 px top
+ * padding + the band's 44 + the list's own 8 px gap), never over Done. */
+[data-ride-row][data-riding] #taxonomy-suggestions { margin-bottom: 64px; }
+/* The typing band's neutrals outside the Maker (inside it, the Maker's own `STAGE_PANEL_VARS`): its cream plate, its
+ * hairline and its words — with a dark pair (`typing-band.tsx`). */
+[data-typing-band='app'] { --tb-plate: #F3F0EA; --sp-line: #E6E1D8; --sp-ink2: #5A5755; }
+html.dark [data-typing-band='app'] { --tb-plate: #232019; --sp-line: rgba(251, 250, 247, 0.16); --sp-ink2: #B3AEA3; }
 /* Rise on load, staggered — once (the prototype's `up`). */
 @keyframes home-up { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 /* `backwards`, not `both`: nothing keeps a transform after the rise (an identity transform

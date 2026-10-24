@@ -33,30 +33,7 @@ import {
   type MakerPartTool,
   type MakerStageKey,
 } from '@/lib/maker-parts';
-import {
-  STAGE_BAR_FOOT_CSS,
-  STAGE_BAR_GRID_CSS,
-  STAGE_BAR_HANDLE,
-  STAGE_BAR_LINE,
-  STAGE_BAR_LINE_ABOUT,
-  STAGE_BAR_LINE_LEAD,
-  SP_KEY_BAR,
-  SP_KEY_DONE,
-  SP_ROWS,
-  STAGE_BAR_ROW_VARS,
-  STAGE_GUEST_TAB,
-  STAGE_ICON_BUTTON,
-  STAGE_ICON_FACE,
-  STAGE_PANEL_MS,
-  STAGE_PANEL_VARS,
-  STAGE_ROW,
-  STAGE_TOOL_BUTTON,
-  STAGE_TOOL_INSET,
-  STAGE_TOOL_PILL,
-  stageBarPx,
-  stageEditingLine,
-  partPickScroll,
-} from '@/lib/maker-stage-room';
+import { STAGE_BAR_FOOT_CSS, STAGE_BAR_GRID_CSS, STAGE_BAR_HANDLE, STAGE_BAR_LINE, STAGE_BAR_LINE_ABOUT, STAGE_BAR_LINE_LEAD, SP_ROWS, STAGE_BAR_ROW_VARS, STAGE_GUEST_TAB, STAGE_ICON_BUTTON, STAGE_ICON_FACE, STAGE_PANEL_MS, STAGE_PANEL_VARS, STAGE_ROW, STAGE_TOOL_BUTTON, STAGE_TOOL_INSET, STAGE_TOOL_PILL, stageBarPx, stageEditingLine, partPickScroll } from '@/lib/maker-stage-room';
 import { fixedOfKey, fixedScenePanel } from '@/lib/maker-selection';
 import { makerCanvasKeyOf, makerOwnSceneType, makerPartStudioDoor, makerStagePickedAttr, makerStageMayType } from '@/lib/maker-parts';
 import { STAGE_NOTHING_PICKED_WORDS, stageRowOneLine } from '@/lib/maker-edit-owns-content';
@@ -125,6 +102,7 @@ import { useIsDesktop } from '@/lib/use-responsive';
 
 import { makerPartCanvasOn, makerPartLabelOn, makerPartOfCanvas, makerPartsWithAdded, makerPostEventSceneOf } from '@/lib/maker-part-groups';
 import { filedOnCanvas, makerStagesPages } from '@/lib/maker-stage-filing';
+import { TypingBand } from '@/app/_components/typing-band';
 
 /**
  * 🎬 THE STAGES TOOLBAR — the new Maker's bottom bar on the Stages side, on a phone (owner 2026-10-09, the approved
@@ -1166,7 +1144,6 @@ export function StageTools({
     };
   }, [playing, stopPlay]);
 
-
   /* ── 🎭 THE OPENING IS THE COVER SCENE'S STYLE — NAMED IN THE COVER'S CORNER, NEVER A TILE ABOVE IT ──
      Owner-approved 2026-10-16 ("THE COVER SCENE'S OWN EDIT · STYLE (OPENING) · ANIMATE"): the Reveal's picture-tile that
      floated above the cover ("Opens once, over the cover") is gone; the opening is picked in Cover Scene › Style (the
@@ -1779,12 +1756,7 @@ export function StageTools({
       <StageAbout />
       {/* ══ ⌨ THE TYPING BAR — only while a field of Edit is open (the rule set above): what is typed, and Done.
           Done is a tap outside the field, which KEEPS (the typed row's own rule) — the app's main button. ══ */}
-      <div data-stage-keys="" className={`-mx-[10px] rounded-t-2xl !border-t-0 !bg-transparent ${SP_KEY_BAR}`}>
-        <span className="min-w-0 truncate">Typing · {picked ? makerPartLabelOn(stageKey, picked) : ''}</span>
-        <span data-type-done="" className={SP_KEY_DONE}>
-          <ActionButton tone="brand" main icon={Check} label="Done" onClick={() => (document.activeElement as HTMLElement | null)?.blur?.()} />
-        </span>
-      </div>
+      <TypingBand inline data-stage-keys="" className="-mx-[10px] rounded-t-2xl !border-t-0 !bg-transparent" place={picked ? makerPartLabelOn(stageKey, picked) : ''} />
 
       {/* ══ THE SELECTOR — [ Edit | Style | Background | Animate ] · ▶ ══ */}
       <div className={STAGE_ROW} data-stage-row="">

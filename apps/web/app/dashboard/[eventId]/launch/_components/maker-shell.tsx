@@ -104,6 +104,7 @@ import { detailsItemLayout } from '@/lib/maker-details-items';
 import { studioTileItem, type StudioTileKey } from '@/lib/studio-tile-defs';
 import type { StudioTileModel } from '@/lib/studio-tiles';
 import { BookOpen, ClipboardList, Info, PanelsTopLeft, Printer, RotateCcw, Undo, Users } from 'lucide-react';
+import { keyboardIsOpen, readKeyboard, subscribeKeyboard } from '@/lib/keyboard-ride';
 
 /**
  * THE EVENT HUB MAKER — the full-screen shell (Phase 1 of
@@ -494,22 +495,19 @@ export function MakerShell({
      the shell is sized to what is visible. */
   const shellRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    const vv = window.visualViewport;
     const el = shellRef.current;
-    if (!vv || !el) return;
-    const fit = () => {
-      const keyboard = Math.abs(vv.scale - 1) < 0.01 && vv.height < window.innerHeight - 80;
-      el.style.height = keyboard ? `${Math.round(vv.height)}px` : '';
-      el.style.top = keyboard ? `${Math.round(vv.offsetTop)}px` : '';
-      el.style.bottom = keyboard ? 'auto' : '';
-    };
-    fit();
-    vv.addEventListener('resize', fit);
-    vv.addEventListener('scroll', fit);
-    return () => {
-      vv.removeEventListener('resize', fit);
-      vv.removeEventListener('scroll', fit);
-    };
+    if (!el || !readKeyboard().present) return;
+    /* The one keyboard reading (`lib/keyboard-ride.ts`) — the viewport's own rule, as before (never the iOS app's
+       event: there the WebView itself shrinks, and the shell is already the visible height). */
+    return subscribeKeyboard(
+      (k) => {
+        const keyboard = keyboardIsOpen(k.scale, k.height, window.innerHeight);
+        el.style.height = keyboard ? `${Math.round(k.height)}px` : '';
+        el.style.top = keyboard ? `${Math.round(k.offsetTop)}px` : '';
+        el.style.bottom = keyboard ? 'auto' : '';
+      },
+      { now: true },
+    );
   }, []);
 
   /* 🧷 A MAKER SAVE NEVER REMOUNTS THE MAKER (owner 2026-09-28: *"a lot of

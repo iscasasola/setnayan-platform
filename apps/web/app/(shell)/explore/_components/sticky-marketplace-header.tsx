@@ -56,13 +56,14 @@
  * this one on scroll.
  */
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import Link from 'next/link';
 import { SlidersHorizontal } from 'lucide-react';
 
 import { TaxonomySearch, type TaxonomyOption } from './taxonomy-search';
 import { FilterDrawer, type FilterDrawerProps } from './filter-drawer';
 import { formatCount } from '@/lib/format-number';
+import { useRidingRow } from '@/app/_components/typing-band';
 
 /**
  * One chip in the contextual pill row. `href` is pre-built by the page —
@@ -174,10 +175,17 @@ export function StickyMarketplaceHeader({
 }: StickyMarketplaceHeaderProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const appliedCount = countAppliedFilters(filters, contextualPill);
+  /* ⌨ On a phone this bar is at the screen's foot, so it rides the keyboard (owner 2026-10-24, "Applies all textbox
+     like that"): the ONE riding row — it stands on the keyboard (`--sn-keyboard-h`), the band ("Typing · …" + Done)
+     stands on it, and Filters, the applied chip and the narrow row fold (`data-ride-fold`) while the search is typed. */
+  const rowRef = useRef<HTMLDivElement>(null);
+  const ride = useRidingRow(rowRef);
 
   return (
     <>
       <div
+        ref={rowRef}
+        {...ride.rowProps}
         // 2026-05-30 mobile pattern lock — owner directive *"on mobile mode.
         // searching on market place should show the search bar at the bottom
         // and any choices when clicking on mobile mode should show as a pop
@@ -209,13 +217,14 @@ export function StickyMarketplaceHeader({
           ⚠ The PHONE branch (`fixed bottom-0`, z-30) is untouched — down there
           this bar is at the opposite edge of the screen and never meets it.
         */
-        className="fixed bottom-0 left-0 right-0 z-30 border-t border-ink/10 bg-cream/95 pl-[max(1rem,var(--sn-safe-l))] pr-[max(1rem,var(--sn-safe-r))] py-3 backdrop-blur sm:sticky sm:bottom-auto sm:top-[var(--fd-bar,0px)] sm:z-[8] sm:border-b sm:border-t-0 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"
+        className="fixed bottom-[var(--sn-keyboard-h,0px)] left-0 right-0 z-30 border-t border-ink/10 bg-cream/95 pl-[max(1rem,var(--sn-safe-l))] pr-[max(1rem,var(--sn-safe-r))] py-3 backdrop-blur sm:sticky sm:bottom-auto sm:top-[var(--fd-bar,0px)] sm:z-[8] sm:border-b sm:border-t-0 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"
         style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
       >
+        {ride.band}
         {/* Applied-count chip. Concise replacement for the retired
             italic-serif headline + paragraph. */}
         {appliedCount > 0 ? (
-          <div className="mb-2 flex items-center justify-end gap-3">
+          <div data-ride-fold="" className="mb-2 flex items-center justify-end gap-3">
             <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
               {formatCount(appliedCount)} filter{appliedCount === 1 ? '' : 's'} applied
             </span>
@@ -279,6 +288,7 @@ export function StickyMarketplaceHeader({
           </form>
           <button
             type="button"
+            data-ride-fold=""
             onClick={() => setDrawerOpen(true)}
             aria-label={
               appliedCount > 0
@@ -312,7 +322,7 @@ export function StickyMarketplaceHeader({
             the IconTileFolderStrip pattern so the row never wraps to two
             lines on narrow viewports. */}
         {contextualPill ? (
-          <div className="mt-3 flex items-center gap-3">
+          <div data-ride-fold="" className="mt-3 flex items-center gap-3">
             <p className="hidden shrink-0 font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55 sm:block">
               {contextualPill.label}
             </p>

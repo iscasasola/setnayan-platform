@@ -104,7 +104,12 @@ test('the guest’s own page draws a side only from the wedding-only part', () =
   // people); the widget and the ticket line draw only through it.
   const body = read('app/[slug]/_components/site-body.tsx');
   assert.match(body, /const sideLabel: string \| null = !weddingOnly\.side_labels\s*\? null/);
-  assert.match(body, /\{sideLabel \? \(\s*<>\s*\{' '\}·\{' '\}/, 'the ticket line "You’re joining us as … · Both sides" is not gated');
+  // (2026-10-24: the "You're joining us as … · <side>" sentence became the greeting's role line — its side comes ONLY
+  // from `sideLabel`, and the greeting draws no tail when it is null.)
+  assert.match(body, /guestGreetingOf\(\{[\s\S]{0,300}?\bsideLabel,/, 'the greeting’s side is not the gated `sideLabel`');
+  const greeting = read('lib/guest-greeting.ts');
+  assert.match(greeting, /input\.sideLabel\?\.trim\(\) \|\| null/, 'the greeting computes its own side words');
+  assert.doesNotMatch(greeting, /SIDE_LABELS|'Both sides'|side ===/, 'the greeting computes its own side words');
   const widget = read('app/[slug]/_components/hideable-widget-render.tsx');
   assert.doesNotMatch(widget, /SIDE_LABELS|'Both sides'/, 'the widget computes its own side words');
   assert.match(widget, /sideLabel \? <Detail label="Side"/);

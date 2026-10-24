@@ -154,7 +154,8 @@ test('(1) the fixture page is the real guest tree: what the fixture put in is on
   /* A GUEST's page, not a stranger's: their own line, their door to the reply, their name on the place card.
      🔁 RE-AIMED 2026-10-11 (owner, "ONE REPLY FORM"): a guest's page no longer draws the reply SHEET; every reply
      door on it opens the reply PAGE. */
-  assert.ok(html.includes('You’re joining us as'), 'the guest’s own line');
+  // (2026-10-24, the Me redraw: the guest's own line is the top of Me — their name, role, date and venues.)
+  assert.ok(html.includes('data-greeting-name=""') && html.includes('Your invitation'), 'the guest’s own line');
   assert.ok(!html.includes('id="rsvp-sheet-heading"'), 'the reply sheet is drawn for a guest again — two reply forms');
   assert.ok(html.includes('href="/maria-and-jose/invite/reply"'), 'the guest has no door to the reply page');
   assert.ok(!html.includes('#your-details'), 'a door on the guest page still points at the sheet');
@@ -489,6 +490,8 @@ test('(5) it is tooling: no file of the app imports the fixture, the helper or t
     'app/[slug]/_components/the-cover-rsvp-reaches-its-action.test.ts',
     /* …and (2026-10-19) the desk's Reply side panel: every reply door read off the real page is one the panel takes. A test. */
     'lib/the-reply-panel-is-the-reply-page.test.ts',
+    /* …and (2026-10-24, the Me redraw) Me is the one place: Me's order, the one Reply, read off the real page. A test. */
+    'lib/me-is-the-one-place.test.ts',
   ]);
   const walk = (dir: string): string[] =>
     readdirSync(join(WEB, dir)).flatMap((name) => {

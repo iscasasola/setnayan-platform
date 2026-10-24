@@ -20,7 +20,8 @@
  *
  * SABOTAGE RUN 2026-10-11 (committed first, put back by `git checkout`, re-checked):
  *   · the greeting in `site-body.tsx` put back to the unconditional "…with you on" + the date → (1) red (the page
- *     prints "on ."), (3) red (the bare call site is named);
+ *     prints "on ."), (3) red (the bare call site is named); (2026-10-24: that sentence left with the guest greeting
+ *     redesign — (1)/(1b) now hold the greeting's own date line, `greetingDateLine`);
  *   · `withDayNote` made to return the sentence alone → (2) red;
  *   · (1b, 2026-10-11) `greetingWhen` made to treat every precision as a day → (1b) red;
  *   · the `withDayNote(` taken off `find-my-table/page.tsx` → (4) red.
@@ -84,7 +85,8 @@ test('(0) the detector sees the fault it was written for, and passes the sentenc
 test('(1) the real guest page of an event with no date has no sentence with a hole in it', async () => {
   const dated = await renderSiteBodyFixture();
   assert.ok(dated.includes(FIXTURE_WORDS.dateWords), 'anti-vacuity: the dated page no longer prints its date');
-  assert.ok(dated.includes('You’re joining us as'), 'anti-vacuity: the guest’s own line is not on the page');
+  // (2026-10-24: the guest's own part is the greeting scene — name, role, date, venues — `guest-greeting.tsx`.)
+  assert.ok(dated.includes('data-greeting-name'), 'anti-vacuity: the guest’s own greeting is not on the page');
   assert.deepEqual(holesIn(dated), [], 'the dated page already has a hole — this guard would blame the wrong change');
 
   for (const venues of [true, false]) {
@@ -95,7 +97,8 @@ test('(1) the real guest page of an event with no date has no sentence with a ho
     const what = venues ? 'no date' : 'no date and no place';
     assert.ok(html.length > 20_000, `${what}: the page is an empty shell`);
     assert.ok(!html.includes(FIXTURE_WORDS.dateWords), `${what}: the page still prints a date`);
-    assert.ok(html.includes('You’re joining us as'), `${what}: the guest’s own line left the page`);
+    assert.ok(html.includes('data-greeting-name'), `${what}: the guest’s own greeting left the page`);
+    assert.ok(!html.includes('data-greeting-date'), `${what}: the greeting draws a date line with no date in it`);
     assert.deepEqual(holesIn(html), [], `${what}: the guest page prints a sentence with a hole in it`);
   }
 });
@@ -109,17 +112,18 @@ test('(1b) only a month or a year decided: the greeting says that much, and neve
   for (const none of [greetingWhen(null, 'day'), greetingWhen('', 'year'), greetingWhen('2026-12-12', 'week'), greetingWhen('2026-12-12', null)]) {
     assert.equal(none, null, 'a when is said that nobody decided');
   }
-  // The real page.
-  const lineOf = (html: string) => linesOf(html).find((l) => l.includes('You’re joining us as')) ?? '';
-  for (const [precision, says] of [['month', 'in December 2026'], ['year', 'sometime in 2026']] as const) {
+  // The real page — since 2026-10-24 the greeting's own DATE LINE (`data-greeting-date`, `greetingDateLine`): the day
+  // alone, or only as much as the hosts decided; never the placeholder day.
+  const lineOf = (html: string) => /data-greeting-date=""[^>]*>([^<]*)</.exec(html)?.[1] ?? '';
+  for (const [precision, says] of [['month', 'December 2026'], ['year', '2026']] as const) {
     const html = await renderSiteBodyFixture({ event: { ...FIXTURE_EVENT, event_date_precision: precision } });
     const line = lineOf(html);
-    assert.ok(line.includes(`We’d love to celebrate with you ${says}`), `${precision}: the greeting reads ${JSON.stringify(line)}`);
+    assert.ok(line.includes(says), `${precision}: the greeting's date reads ${JSON.stringify(line)}`);
     assert.ok(!line.includes('December 12'), `${precision}: the greeting prints the placeholder day`);
     assert.deepEqual(holesIn(`<p>${line}</p>`), [], `${precision}: the greeting has a hole in it`);
   }
   const day = lineOf(await renderSiteBodyFixture({ event: { ...FIXTURE_EVENT, event_date_precision: 'day' } }));
-  assert.ok(day.includes(`with you on ${FIXTURE_WORDS.dateWords}`), `a real day is no longer printed: ${JSON.stringify(day)}`);
+  assert.equal(day, FIXTURE_WORDS.dateWords, `a real day is no longer printed: ${JSON.stringify(day)}`);
 });
 
 test('(2) "on the day" is followed by one plain sentence when the event has no date — and left alone when it has one', () => {

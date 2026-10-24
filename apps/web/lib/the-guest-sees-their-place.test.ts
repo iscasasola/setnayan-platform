@@ -199,7 +199,8 @@ test('the event page hands the entourage the guest’s id only off the Maker’s
 test('See where you are ↓ — under both "You are" blocks, and only when the marked place is on the page', async () => {
   const src = stripComments(readFileSync(join(__dirname, '../app/[slug]/_components/dress-code-widget.tsx'), 'utf8'));
   const role = src.slice(src.indexOf("if (part === 'role')"), src.indexOf("if (part === 'arrive')"));
-  assert.match(role, /<SeeWhereYouAre \/>/, 'Me › Your role');
+  // (2026-10-24, the Me redraw: Me's part is "Your place", and the link is a small pill there.)
+  assert.match(role, /<SeeWhereYouAre pill \/>/, 'Me › Your place');
   const you = src.slice(src.indexOf('data-dress-code="you"'));
   assert.match(you.slice(0, you.indexOf('{mine ? (')), /<SeeWhereYouAre \/>/, 'the "You are" panel');
   const { placeIsOnThePage } = await import('../app/[slug]/_components/see-where-you-are');

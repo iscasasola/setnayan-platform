@@ -3,6 +3,7 @@
 import { useRef, useState, useTransition } from 'react';
 import { AlertTriangle, RefreshCw, X } from 'lucide-react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 
 /**
  * Host/coordinator "Re-issue QR" with a real confirm dialog (build ④ —
@@ -80,9 +81,9 @@ export function ReissueQrButton({
 
       {open ? (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-ink/60 p-4 backdrop-blur-sm"
-          onClick={() => setOpen(false)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
         >
+          <OverlayBackdrop onClose={() => setOpen(false)} />
           <div
             ref={dialogRef}
             role="dialog"

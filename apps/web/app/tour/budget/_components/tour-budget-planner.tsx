@@ -31,6 +31,7 @@ import {
   X,
 } from 'lucide-react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import {
   computeBudgetAllocation,
@@ -385,11 +386,9 @@ function TiltEditor({
       role="dialog"
       aria-modal="true"
       aria-labelledby="tour-tilt-editor-headline"
-      className="fixed inset-0 z-50 flex items-end justify-center bg-[#1B1A17]/40 p-4 backdrop-blur-sm focus:outline-none sm:items-center"
-      onClick={(e) => {
-        if (e.target === overlayRef.current) onClose();
-      }}
+      className="fixed inset-0 z-50 flex items-end justify-center p-4 focus:outline-none sm:items-center"
     >
+      <OverlayBackdrop onClose={onClose} />
       <div className="relative w-full max-w-md rounded-2xl border border-[#1B1A17]/10 bg-[#FBF8F1] p-5 shadow-xl sm:p-6">
         <button
           ref={closeBtnRef}

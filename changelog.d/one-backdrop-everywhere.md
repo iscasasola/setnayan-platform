@@ -13,7 +13,13 @@ scrollable or tappable until pop up is gone … just implement it across all"*.
   Back (`useBackCloses`, now also stepping back when a caller closes the sheet itself), and its body is
   `overscroll-contain`. The Guests drawer's scrim moved onto it; the guest card / side panel scrims
   (`.sn-inspector-peek`, `.sn-side-panel-scrim`) now wear the same dark and blur.
-- Guard `lib/one-backdrop-everywhere.test.ts` + `lib/one-backdrop.baseline.txt` (shrink-only list of hand-made
-  `fixed inset-0` dimmers still to move).
+- Every hand-made dimmer moved onto it — 38 pop-ups in all: Hub More, Hub bar dialogs, ticket, Report this page,
+  account switcher, tours, package lock, Papic Add credits, My shots, story clock, admin palette/logs/wipe-ban,
+  Samahan stories, invite/QR/sponsor/emcee/prep/seating/vendor/quote/cancel dialogs, Mood Board chooser, Our Story
+  moments, scene templates (desktop; the phone keeps its clear tap-catcher so the preview stays visible), the pay
+  screenshot viewer, the budget tour and supplier prep. Overlays that never called `useModalA11y` now do, so they
+  hold the page too. The co-host welcome (server-rendered, no script) wears the same house dark; a tap on it submits
+  its Confirm. The baseline `lib/one-backdrop.baseline.txt` is now EMPTY — guard
+  `lib/one-backdrop-everywhere.test.ts` fails any new hand-made `fixed inset-0` dimmer.
 
 SPEC IMPACT: None.

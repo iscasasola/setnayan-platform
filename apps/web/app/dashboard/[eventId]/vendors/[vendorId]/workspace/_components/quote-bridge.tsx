@@ -312,7 +312,7 @@ export function QuoteBridge({
                       value={line.value}
                       onChange={(e) => line.set(e.target.value)}
                       autoFocus={line.name === 'service'}
-                      className="w-32 rounded-md border border-ink/15 bg-white px-2 py-1 text-right font-medium text-ink focus:border-terracotta focus:outline-none"
+                      className="w-32 rounded-md border border-ink/15 bg-white dark:bg-raised px-2 py-1 text-right font-medium text-ink focus:border-terracotta focus:outline-none"
                     />
                   </span>
                 </label>

@@ -1702,7 +1702,7 @@ export async function EventDashboard({
                       <span
                         aria-label={`Priority ${rankMarkFor(aiActive, gi)}`}
                         className="ml-auto flex h-7 w-7 flex-none items-center justify-center rounded-full font-mono text-[12px] font-extrabold"
-                        style={{ background: 'var(--sn-gold-700)', color: '#FFFFFF' }}
+                        style={{ background: 'var(--sn-gold-700)', color: 'rgb(var(--color-cream))' /* white in light; the page colour in dark, where the gold goes light */ }}
                       >
                         {rankMarkFor(aiActive, gi)}
                       </span>

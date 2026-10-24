@@ -64,14 +64,14 @@ export function pickedGuestsHref(href: string, ids: readonly string[]): string {
   return `${href}${href.includes('?') ? '&' : '?'}${PICKED_GUESTS_PARAM}=${ids.map(encodeURIComponent).join(',')}`;
 }
 
-/** The sheet's filters: a typed name, a side, a group — each optional; `''` is "Any". */
-export type PickGuestFilter = { query: string; side: string; group: string };
+/** The sheet's filters: a typed name, a side, a group, a role — each optional; `''` is "Any"; they combine. */
+export type PickGuestFilter = { query: string; side: string; group: string; role?: string };
 
 /** The guests the sheet shows for its filters (case- and accent-blind, any part of the name). */
-export function filterPickGuests<G extends { name: string; side?: string | null; group?: string | null }>(guests: readonly G[], f: PickGuestFilter): G[] {
+export function filterPickGuests<G extends { name: string; side?: string | null; group?: string | null; role?: string | null }>(guests: readonly G[], f: PickGuestFilter): G[] {
   const fold = (x: string) => x.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
   const q = fold(f.query.trim());
-  return guests.filter((g) => (!q || fold(g.name).includes(q)) && (!f.side || g.side === f.side) && (!f.group || g.group === f.group));
+  return guests.filter((g) => (!q || fold(g.name).includes(q)) && (!f.side || g.side === f.side) && (!f.group || g.group === f.group) && (!f.role || g.role === f.role));
 }
 
 /** The values a filter dropdown offers — each distinct side or group among the guests, in first-seen order. */

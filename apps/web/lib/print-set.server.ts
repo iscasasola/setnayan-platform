@@ -33,7 +33,7 @@ import { printPreviewVersion } from '@/lib/print-preview-cache';
 import { blocksWithDraftedCeremony } from '@/lib/ceremony-time';
 import { overlayHubDraftEvent, type HubDraftEvents } from '@/lib/hub-draft';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { GROUP_CATEGORY_LABELS, SIDE_LABELS, type GuestGroupCategory, type GuestSide } from '@/lib/guests';
+import { GROUP_CATEGORY_LABELS, ROLE_LABELS, SIDE_LABELS, type GuestGroupCategory, type GuestRole, type GuestSide } from '@/lib/guests';
 import { pickGuestRows } from '@/lib/print-picked-guests';
 import type { RoleNames } from '@/lib/role-names';
 import { readRoleNames } from '@/lib/role-names.server';
@@ -899,7 +899,7 @@ export async function loadPassGuestNames(
   eventId: string,
   /** The event's `print_details` (its Name style) — awaited beside the guests, so the caller's own event read is not waited on. */
   printDetails: PromiseLike<unknown>,
-): Promise<Array<{ id: string; name: string; reply: PassGuestReply; side: string | null; group: string | null }> | null> {
+): Promise<Array<{ id: string; name: string; reply: PassGuestReply; side: string | null; group: string | null; role: string | null }> | null> {
   const [read, details] = await Promise.all([passGuestRows(eventId, true), printDetails]);
   if (!read.measured) return null;
   const style = nameStyleOfPrintDetails(details);
@@ -911,6 +911,8 @@ export async function loadPassGuestNames(
     // 🎟 Pick guests' Side ▾ and Group ▾ (owner 2026-10-25) — the guest list's own words (`SIDE_LABELS`, `GROUP_CATEGORY_LABELS`).
     side: g.side ? (SIDE_LABELS[g.side] ?? null) : null,
     group: g.group_category ? (GROUP_CATEGORY_LABELS[g.group_category] ?? null) : null,
+    // …and Role ▾ (owner 2026-10-25, "side group and role for pick guests?") — the shipped role words (`ROLE_LABELS`).
+    role: (g as { role?: string | null }).role ? (ROLE_LABELS[(g as { role?: string | null }).role as GuestRole] ?? null) : null,
   }));
 }
 

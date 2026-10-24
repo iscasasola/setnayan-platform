@@ -47,6 +47,7 @@ export type PrintGuest = {
   /** Pick guests' Side ▾ and Group ▾ (owner 2026-10-25) — the guest list's own words; absent on a sample guest. */
   side?: string | null;
   group?: string | null;
+  role?: string | null;
 };
 
 /**

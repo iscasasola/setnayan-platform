@@ -71,6 +71,18 @@ test('1 · no list prints every guest; a list prints exactly those; one unknown 
     filterPickGuests([{ name: 'Ána Abad', side: 'Bride’s side', group: 'Family' }, { name: 'Ben', side: 'Groom’s side', group: 'Friends' }], { query: 'ana', side: '', group: '' }).map((g) => g.name),
     ['Ána Abad'],
   );
+  /* Role ▾ (owner 2026-10-25): side, group and role combine — only the guest who matches all three. */
+  assert.deepEqual(
+    filterPickGuests(
+      [
+        { name: 'Ana', side: 'Bride’s side', group: 'Family', role: 'Ninang' },
+        { name: 'Bea', side: 'Bride’s side', group: 'Family', role: 'Guest' },
+        { name: 'Cora', side: 'Groom’s side', group: 'Family', role: 'Ninang' },
+      ],
+      { query: '', side: 'Bride’s side', group: 'Family', role: 'Ninang' },
+    ).map((g) => g.name),
+    ['Ana'],
+  );
 });
 
 /* ── 2/3 · the route, called ── */

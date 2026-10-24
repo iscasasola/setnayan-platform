@@ -104,6 +104,7 @@ const LAB_MANY_GUESTS = Array.from({ length: 109 }, (_, i) => ({
   /* Pick guests' Side ▾ and Group ▾ (2026-10-25) — the guest list's own words. */
   side: (["Groom's side", "Bride's side", 'Both sides'] as const)[i % 3],
   group: (['Family', 'Friends', 'Work', 'School'] as const)[i % 4],
+  role: i % 9 === 0 ? 'Ninang' : i % 9 === 1 ? 'Bridesmaid' : 'Guest',
 }));
 
 /**

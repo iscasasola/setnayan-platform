@@ -122,7 +122,7 @@ export function GuestPickSheet({
  * pick multiple guests to compile together as well."*).
  *
  * Opened in place from "Pick guests" beside "All guests" (which stays the default) on the Event pass and the Guest QR codes rows.
- * The shared `Sheet`: "Search guests", Side ▾ and Group ▾ (the Form row's dropdown, `ChosenRow` — never a pill row), the guests as ticked options (View as ▾'s option look, many at once), "Select all shown" / "Clear", "12 picked", and ONE button — "Print 12 passes". The file is the all-guests file's own
+ * The shared `Sheet`: "Search guests", Side ▾, Group ▾ and Role ▾ (the Form row's dropdown, `ChosenRow` — never a pill row), the guests as ticked options (View as ▾'s option look, many at once), "Select all shown" / "Clear", "12 picked", and ONE button — "Print 12 passes". The file is the all-guests file's own
  * address narrowed by `guests=<ids>` (`pickedGuestsHref`); the route checks every id against this event's list and refuses one it
  * does not know (`lib/print-picked-guests.ts`). Same lazy chunk as View as ▾.
  */
@@ -146,10 +146,12 @@ export function GuestManySheet({
   const [query, setQuery] = useState('');
   const [side, setSide] = useState('');
   const [group, setGroup] = useState('');
+  const [role, setRole] = useState('');
   const [picked, setPicked] = useState<ReadonlySet<string>>(() => new Set());
   const sides = useMemo(() => pickFilterValues(guests, (g) => g.side), [guests]);
   const groups = useMemo(() => pickFilterValues(guests, (g) => g.group), [guests]);
-  const shown = useMemo(() => filterPickGuests(guests, { query, side, group }), [guests, query, side, group]);
+  const roles = useMemo(() => pickFilterValues(guests, (g) => g.role), [guests]);
+  const shown = useMemo(() => filterPickGuests(guests, { query, side, group, role }), [guests, query, side, group, role]);
   const ids = useMemo(() => guests.filter((g) => picked.has(g.id)).map((g) => g.id), [guests, picked]);
   const over = ids.length > MAX_PICKED_GUESTS;
   const toggle = (id: string) =>
@@ -180,13 +182,16 @@ export function GuestManySheet({
             className="h-full min-w-0 flex-1 bg-transparent text-[16px] text-ink placeholder:text-ink/45 focus:outline-none"
           />
         </label>
-        {sides.length > 0 || groups.length > 0 ? (
+        {sides.length > 0 || groups.length > 0 || roles.length > 0 ? (
           <FormRows data="pick-filters" width="short" attrs={{ 'data-print-pick-filters': '' }} className="shrink-0 px-2">
             {sides.length > 0 ? (
               <ChosenRow name="Side" label="Side" value={side} options={[{ key: '', label: 'Any side' }, ...sides.map((x) => ({ key: x, label: x }))]} onPick={setSide} dataAttr="data-print-pick-side" data="pick-side" />
             ) : null}
             {groups.length > 0 ? (
               <ChosenRow name="Group" label="Group" value={group} options={[{ key: '', label: 'Any group' }, ...groups.map((x) => ({ key: x, label: x }))]} onPick={setGroup} dataAttr="data-print-pick-group" data="pick-group" />
+            ) : null}
+            {roles.length > 0 ? (
+              <ChosenRow name="Role" label="Role" value={role} options={[{ key: '', label: 'Any role' }, ...roles.map((x) => ({ key: x, label: x }))]} onPick={setRole} dataAttr="data-print-pick-role" data="pick-role" />
             ) : null}
           </FormRows>
         ) : null}
@@ -213,7 +218,7 @@ export function GuestManySheet({
               <li key={g.id} role="none">
                 <button type="button" role="option" aria-selected={on} data-print-pick-guest={g.id} onClick={() => toggle(g.id)} className={pickOptionClass(false, on)}>
                   <span className="min-w-0 flex-1 truncate text-left font-semibold">{g.name}</span>
-                  {g.side || g.group ? <span className="shrink-0 pl-2 text-[12px] font-normal text-ink/50">{[g.side, g.group].filter(Boolean).join(' · ')}</span> : null}
+                  {g.role || g.side || g.group ? <span className="shrink-0 pl-2 text-[12px] font-normal text-ink/50">{[g.role, g.side, g.group].filter(Boolean).join(' · ')}</span> : null}
                   <span aria-hidden data-pick-tick="" className={`${pickTickClass(false)} w-4 shrink-0 text-center`}>
                     {on ? '✓' : ''}
                   </span>

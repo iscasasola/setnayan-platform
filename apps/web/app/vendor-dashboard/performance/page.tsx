@@ -744,7 +744,7 @@ export default async function PerformanceHome({
   ];
 
   return (
-    <section className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl space-y-10 px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
+    <section className="mx-auto w-full max-w-6xl tab:max-w-3xl space-y-10 px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
       {/* SHOP › HOW IT IS GOING (owner "Yes to all", 2026-10-21, item 2). This
           page is the third Shop segment, so it draws the Shop switcher and the
           bar lights Shop here — it used to draw no segments and light More, so
@@ -754,7 +754,7 @@ export default async function PerformanceHome({
       </div>
       {/* 0 · HOW IS MY BUSINESS DOING — the plain-words top (step 6). Below it,
           the full cards, unchanged ("only the words change"). */}
-      <div className="mx-auto w-full max-w-xl lg:mx-0">
+      <div className="mx-auto w-full max-w-xl tab:max-w-none">
         <h1 className="sn-h1">How is my business doing</h1>
         <div className="mt-2">
           <BusinessDoing

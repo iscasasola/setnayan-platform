@@ -163,7 +163,10 @@ test('(5) guest pages and public pages are not reached — and the one guest-loo
     });
   /* The class as a word inside any string of code — a plain `className="…"` or one built in a condition. */
   const setsRoot = [...walk('app'), ...walk('components')].filter((f) => /["'`\s]app-surface["'`\s]/.test(read(f)));
-  assert.deepEqual(setsRoot.sort(), ['app/admin/layout.tsx', 'app/dashboard/layout.tsx', 'app/vendor-dashboard/layout.tsx'], 'the dashboards’ root is set somewhere new — check it is not a guest or public page');
+  /* ONE dev lab draws the supplier dashboard's root on purpose: `/dev/supplier-lab?…&shell=1` wraps a lab body in the
+     REAL One Shell exactly as `app/vendor-dashboard/layout.tsx` does (2026-10-25), so a desktop walk sees the
+     dashboard's own buttons. `/dev/*` is `notFound()` in production — never a guest or a public page. */
+  assert.deepEqual(setsRoot.sort(), ['app/admin/layout.tsx', 'app/dashboard/layout.tsx', 'app/dev/_components/supplier-lab-shell.tsx', 'app/vendor-dashboard/layout.tsx'], 'the dashboards’ root is set somewhere new — check it is not a guest or public page');
   /* (c) THE ISLAND. The Maker's Look sample is guest look drawn inside a dashboard. A rule either cannot match in
          it (`:not(.sn-editorial *)`), or sets ONLY properties the island's own rule hands back — which is written
          later, outside every layer, at the same weight, so it wins. */

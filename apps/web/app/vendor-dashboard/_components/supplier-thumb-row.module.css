@@ -28,7 +28,9 @@
 .lower > * {
   pointer-events: auto;
 }
-@media (min-width: 1024px) {
+/* 🖥 Pinned at the foot of the stage from 701 — where the strip replaces the phone's bar (the supplier dashboard took
+   the couple's line, 2026-10-23; the Guests row's own switch is the same 701). Below 701 nothing moves. */
+@media (min-width: 701px) {
   .lower {
     bottom: 16px;
     left: var(--thumb-left, 0px);

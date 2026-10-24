@@ -367,13 +367,13 @@ function pageFixture(who: Who): PageClientData {
  * (frames port-48 · port-50 · port-spend · F3 · F1). Fake refs with flat tile images; nothing is stored.
  */
 function labPortfolio(who: string, port: string | undefined) {
-  const tile = (i: number) =>
-    `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120"><rect width="120" height="120" fill="hsl(${(i * 37) % 360} 28% 78%)"/></svg>`)}`;
+  // One flat 1×1 PNG stands in for every photo (a still raster — never an SVG, which would read as a logo draw).
+  const tile = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGO4dm4fAATgAmPxoKUWAAAAAElFTkSuQmCC';
   const ref = (k: string) => `r2://setnayan-media/vendors/lab-${who}/portfolio/${k}.jpg`;
   const count = port === '48' || port === 'unread' ? 48 : port ? 50 : 0;
   const refs = Array.from({ length: count }, (_, i) => ref(`p${i}`));
   const picked = port === 'spend' || port === 'short' ? ['n1', 'n2', 'n3'].map(ref) : undefined;
-  const displayMap = Object.fromEntries([...refs, ...(picked ?? [])].map((r, i) => [r, tile(i)]));
+  const displayMap = Object.fromEntries([...refs, ...(picked ?? [])].map((r) => [r, tile]));
   const walletBalance = port === 'unread' ? null : port === 'short' ? 1 : 128;
   return { refs, picked, displayMap, walletBalance };
 }

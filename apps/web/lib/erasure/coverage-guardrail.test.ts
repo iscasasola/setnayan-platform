@@ -152,6 +152,10 @@ const PURGED_WITHOUT_SUBJECT_COLUMN: ReadonlySet<string> = new Set([
   // an inline FK to public.users, so the detector cannot see it; the stamp is
   // nulled all the same (AUTHOR_UUID_NULLS).
   'hub_music_tracks',
+  // The SHOP wallet (2026-10-23, option A) — keyed by vendor_profile_id; its one
+  // user column is `created_by` (no FK), the actor who pressed a spend. Same
+  // blind spot as hub_music_tracks; the stamp is nulled (AUTHOR_UUID_NULLS).
+  'shop_papic_wallet_entries',
   'oauth_state',
   'vendor_ig_oauth_state',
   'patiktok_oauth_state',

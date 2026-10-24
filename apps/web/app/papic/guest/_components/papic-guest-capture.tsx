@@ -35,7 +35,7 @@ import { TagScannerOverlay } from './tag-scanner-overlay';
 import { MyShotsSheet, MyShotsWaitingBadge, type MyShot } from './my-shots-sheet';
 import { focusPointFromTap, PAPIC_GRID_STORAGE_KEY, zoomSteps } from '@/lib/papic-camera-steps';
 import { InfoTip } from '@/app/_components/info-tip';
-import { PapicChallengePanel, type ArmedChallenge } from './papic-challenge-panel';
+import { ChallengeFollowUp, ChallengePill, useGuestChallenges, type ArmedChallenge } from './papic-challenge-panel';
 import { newClientCaptureId } from '@/lib/papic-client-capture-id';
 import { papicUploader, saveShot } from '@/lib/papic-upload/browser';
 import { markSavedOnPhone, markShutter, markShutterReady } from '@/lib/papic-upload/shutter-timing';
@@ -453,6 +453,8 @@ export function PapicGuestCapture({
   // lifted from the panel so the capture stage can show what the next shot
   // counts for. The panel owns the mechanic; this is display-only state.
   const [armedChallenge, setArmedChallenge] = useState<ArmedChallenge | null>(null);
+  // 🏆 The challenges (one hook): the pill left of Photo ⇄ Snippet, the follow-up line under the shutter.
+  const challenges = useGuestChallenges({ lastCaptureId, lastCaptureKind, onArmedChange: setArmedChallenge });
   const [tagging, setTagging] = useState(false);
   const [tagCount, setTagCount] = useState(0);
   // Each scan that tagged somebody, in order: the hint line lists them, and the
@@ -1745,8 +1747,10 @@ export function PapicGuestCapture({
 
         {/* 📷 PHOTO ⇄ SNIPPET (owner 2026-10-24) — one pill, so a guest can
             choose Snippet on purpose. Hold-to-record still works in Photo. */}
-        <div className="flex items-center justify-end">
-          <div role="group" aria-label="Photo or snippet" className="flex gap-0.5 rounded-full bg-cream/10 p-[3px]">
+        <div className="flex items-center justify-between gap-2">
+          {/* 🏆 "Challenge · … ▾" — the event's running challenges as one dropdown (owner prototype 2026-10-24). */}
+          {!exhausted ? <ChallengePill c={challenges} /> : null}
+          <div role="group" aria-label="Photo or snippet" className="ml-auto flex shrink-0 gap-0.5 rounded-full bg-cream/10 p-[3px]">
             {(['photo', 'snippet'] as const).map((m) => (
               <button
                 key={m}
@@ -1934,12 +1938,8 @@ export function PapicGuestCapture({
             until NEXT_PUBLIC_PAPIC_GAMES_V1 is on / the event has live missions.
             SELECT → COMMENCE → RETAKE: the guest arms a challenge, the next
             capture completes it (the panel watches lastCaptureId). */}
-        <PapicChallengePanel
-          lastCaptureId={lastCaptureId}
-          lastCaptureKind={lastCaptureKind}
-          onArmedChange={setArmedChallenge}
-          storyHref={storyToken ? `/papic/me/${encodeURIComponent(storyToken)}#story` : null}
-        />
+        {/* 🏆 What a challenge adds under the shutter: the pause, a completion, its share ask, the reward. */}
+        <ChallengeFollowUp c={challenges} storyHref={storyToken ? `/papic/me/${encodeURIComponent(storyToken)}#story` : null} />
 
         {/* Public-sharing opt-in (Alaala orb gate · RA 10173). Explicit, never
             pre-checked, default OFF. When ON, the shots this guest captures are

@@ -472,6 +472,7 @@ export class PapicUploader {
         if (!original) return this.lose(shot, 'lost_on_phone');
         // 🏷 The mark goes on the COPIES only; `original` is stored and sent as taken.
         const pieces = await prepare.photoPieces(original, shot.mark ?? null);
+        shot.copiesMarked = !!pieces && !!shot.mark;
         if (pieces) {
           for (const tier of ['thumb', 'tile', 'display'] as const) {
             await this.putBlob(shot, tier, pieces[tier]);
@@ -481,7 +482,10 @@ export class PapicUploader {
       } else {
         const source = await this.getBlob(shot.id, 'source');
         if (source) {
-          const poster = (await prepare.poster(source, shot.mark ?? null)) ?? source;
+          const made = await prepare.poster(source, shot.mark ?? null);
+          // An unmade poster is the raw frame — unmarked; the server then marks its copies.
+          shot.copiesMarked = !!made && !!shot.mark;
+          const poster = made ?? source;
           await this.putBlob(shot, 'poster', poster);
           shot.tiers.poster = { contentType: poster.type || 'image/jpeg', size: poster.size, uploaded: false };
           await this.dropBlob(shot.id, 'source');

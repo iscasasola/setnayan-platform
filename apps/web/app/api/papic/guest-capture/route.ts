@@ -419,6 +419,9 @@ async function handleRecord(
   // GUEST public-sharing opt-in (Alaala orb gate · RA 10173 explicit consent).
   // Sent true ONLY when the guest ticked the opt-in for THIS shot.
   const sharePublicly = body.share_publicly === true;
+  // 🏷 Did the PHONE burn the event's mark into the copies it sent (lib/papic-upload/prepare.ts)?
+  // When it did not, the copies the server makes below carry it instead (owner 2026-10-24).
+  const copiesMarked = body.copies_marked === true;
 
   // 🕐 THE SHUTTER — read on ingest, never asked and never surfaced (owner,
   // 2026-09-07). The camera stamps it at the grab and the queue replays it, so
@@ -590,10 +593,16 @@ async function handleRecord(
     // copies replaced — makes the stills, then the wall gate.
     try {
       const { generatePhotoDerivatives, generateClipThumb } = await import('@/lib/papic-derivatives');
+      // 🏷 THE SAME MARK ON THE SERVER'S COPIES: a photo that came with its original
+      // only (the phone made no copies), or a clip whose poster came unmarked.
+      // Asked only here, on the fallback; a failed read is the Setnayan mark.
+      const needsMark = isClip ? !copiesMarked : true;
+      const { serverPhotoMarkFor } = await import('@/lib/papic-photo-mark.server');
+      const mark = needsMark ? await serverPhotoMarkFor(admin, session.event_id) : null;
       if (isClip) {
-        if (posterRef) await generateClipThumb(posterRef, 'papic_guest_captures', 'capture_id', captureId);
+        if (posterRef) await generateClipThumb(posterRef, 'papic_guest_captures', 'capture_id', captureId, { mark });
       } else {
-        await generatePhotoDerivatives(r2Ref, 'papic_guest_captures', 'capture_id', captureId);
+        await generatePhotoDerivatives(r2Ref, 'papic_guest_captures', 'capture_id', captureId, { mark });
       }
     } catch {
       // best-effort — derivatives never break a capture

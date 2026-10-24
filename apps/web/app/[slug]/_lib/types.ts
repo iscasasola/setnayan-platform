@@ -362,6 +362,8 @@ export type GuestPapicCamera = {
   /** 🏷 The small mark on this event's photo copies — the Setnayan mark, or the
    *  couple's monogram on a Pro event (lib/papic-photo-mark-of-event.ts). */
   photoMark: PapicMark;
+  /** 📷 Pro dress for the inline camera — the SAME entitlement as /papic/guest (Logo & QR part or Full Pro). */
+  dressPro: boolean;
   /** The server-stamped owner tag of THIS guest at THIS event — every queued
    *  shot carries it, so a shot can never record as another pass
    *  (lib/papic-upload/owner-tag.server.ts). Null when the seal is missing. */

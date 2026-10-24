@@ -76,9 +76,59 @@ test('4 · both camera mounts ask the one resolver, with the Logo & QR part', ()
   assert.match(page, /eventHubPartActive\(admin, session\.event_id, 'logo_qr'\)/);
   assert.match(page, /photoMarkOfEvent\(dressRow, pro\)/);
   assert.match(page, /photoMark=\{photoMark\}/);
-  assert.match(read('app/[slug]/_lib/loaders.ts'), /photoMark: photoMarkOfEvent\(event, await hubPartActiveFor\(event\.event_id, 'logo_qr'\)/);
+  const loaders = read('app/[slug]/_lib/loaders.ts');
+  assert.match(loaders, /const dressPro = await hubPartActiveFor\(event\.event_id, 'logo_qr'\)/);
+  assert.match(loaders, /return \{ dressPro, photoMark: photoMarkOfEvent\(event, dressPro\) \}/);
   assert.match(read('app/[slug]/_components/site-body.tsx'), /photoMark=\{papicGuest\.photoMark\}/);
   // Every guest shot hands its mark to the queue (photo and clip).
   const cam = read('app/papic/guest/_components/papic-guest-capture.tsx');
   assert.equal((cam.match(/ownerTag: uploadOwner,\s*mark,/g) ?? []).length, 2);
+});
+
+test('5 · the Event Hub’s inline camera wears the SAME Pro dress as /papic/guest — one entitlement, one tint rule', () => {
+  const body = read('app/[slug]/_components/site-body.tsx');
+  assert.match(body, /pro: papicGuest\.dressPro,\s*tint: cameraDressTintOfEvent\(papicGuest\.dressPro, event\),\s*logo: papicGuest\.dressPro \? \(\s*<EventMonogram\s+event=\{\{ \.\.\.event,/);
+  const page = read('app/papic/guest/page.tsx');
+  assert.match(page, /tint: cameraDressTintOfEvent\(pro, dressRow\)/);
+});
+
+test('6 · the SERVER’s fallback copies carry the same mark — and a failed read is the Setnayan mark, never none', () => {
+  const route = read('app/api/papic/guest-capture/route.ts');
+  assert.match(route, /const copiesMarked = body\.copies_marked === true;/);
+  assert.match(route, /const needsMark = isClip \? !copiesMarked : true;/);
+  assert.match(route, /generateClipThumb\(posterRef, 'papic_guest_captures', 'capture_id', captureId, \{ mark \}\)/);
+  assert.match(route, /generatePhotoDerivatives\(r2Ref, 'papic_guest_captures', 'capture_id', captureId, \{ mark \}\)/);
+  const der = read('lib/papic-derivatives.ts');
+  // display · tile · thumb of a photo, and a clip's tile · thumb · display still.
+  assert.equal((der.match(/toAvif\(bytes, (?:DISPLAY|TILE|THUMB)_LONG_EDGE, (?:DISPLAY|TILE|THUMB)_QUALITY, 4, mark\)/g) ?? []).length, 6);
+  assert.match(der, /const displayKey = markedDisplayBuf \? encodeR2Ref\(bucket, displayObjKey\) : posterRef;/);
+  const srv = read('lib/papic-photo-mark.server.ts');
+  assert.equal((srv.match(/return SETNAYAN_PHOTO_MARK;/g) ?? []).length, 2, 'a failed read can leave the copy unmarked');
+  // The phone tells the server whether ITS copies were marked.
+  assert.match(read('lib/papic-upload/lanes.ts'), /if \(shot\.copiesMarked\) body\.copies_marked = true;/);
+  const rp = read('lib/papic-upload/replayer.ts');
+  assert.match(rp, /shot\.copiesMarked = !!pieces && !!shot\.mark;/);
+  assert.match(rp, /shot\.copiesMarked = !!made && !!shot\.mark;/);
+});
+
+test('7 · the server’s mark is real ink: Setnayan and a lettered monogram both land bottom-right, nowhere else', async () => {
+  const sharp = (await import('sharp')).default;
+  const { markOverlaySvg } = await import('./papic-photo-mark-raster');
+  for (const mark of [SETNAYAN_PHOTO_MARK, { kind: 'monogram' as const, svg: null, text: 'A&B', ink: '#7A1F2B' }]) {
+    const W = 640;
+    const H = 480;
+    const overlay = markOverlaySvg(W, H, mark)!;
+    assert.ok(overlay && !/<text\b|font-family/.test(overlay), 'the overlay asks for a font (flaky on Vercel)');
+    const { data } = await sharp({ create: { width: W, height: H, channels: 3, background: '#808080' } })
+      .composite([{ input: Buffer.from(overlay), top: 0, left: 0 }])
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    const at = (x: number, y: number) => data[(y * W + x) * 3]!;
+    const box = markBox(W, H, 1);
+    let changed = 0;
+    for (let y = box.y; y < box.y + box.h; y++) for (let x = W - 1; x > W - 120; x--) if (at(x, y) !== 128) changed++;
+    assert.ok(changed > 200, `${mark.kind}: no mark in the bottom-right`);
+    assert.equal(at(10, 10), 128, `${mark.kind}: the mark spilled to the top-left`);
+    assert.equal(at(W / 2, H / 2), 128, `${mark.kind}: the mark spilled over the middle`);
+  }
 });

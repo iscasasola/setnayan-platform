@@ -45,6 +45,8 @@ export interface QueuedShot {
    * (lib/papic-photo-mark.ts). Absent = no mark (the supplier camera).
    */
   mark?: PapicMark | null;
+  /** The copies made on this phone carry `mark` (false when the phone could not make them). */
+  copiesMarked?: boolean;
   faceVectors?: number[][];
   subjectCenter?: { x: number; y: number } | null;
   /** Vendor lane: the controller's consent gate was passed for this shot. */

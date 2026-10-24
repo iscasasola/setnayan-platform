@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "09daa11078",
+  "generatedFromRef": "1dfebea460",
   "routeCount": 465,
   "destinations": 1005,
   "actions": 662,
-  "blocks": 6899,
+  "blocks": 6901,
   "routes": {
     "/": {
       "files": [
@@ -1220,6 +1220,7 @@
         "EventCelebrants",
         "EventIconSource",
         "EventMedia",
+        "EventMonogram",
         "EventWords",
         "EventWordsContext.Provider",
         "EventWordsProvider",
@@ -12301,7 +12302,8 @@
         "Blob",
         "CameraColumn",
         "CardFrame",
-        "ChallengePanelInner",
+        "ChallengeFollowUp",
+        "ChallengePill",
         "DayOfFaceEnroll",
         "DoorShell",
         "EventMonogram",
@@ -12321,11 +12323,11 @@
         "MyShot",
         "MyShotsSheet",
         "MyShotsWaitingBadge",
-        "PapicChallengePanel",
         "PapicGuestBuyPanel",
         "PapicGuestCapture",
         "PapicStyle",
         "PapicUploadChip",
+        "PickMenu",
         "TagScannerOverlay"
       ]
     },

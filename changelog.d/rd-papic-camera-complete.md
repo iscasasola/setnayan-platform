@@ -26,3 +26,18 @@ colours, and their monogram on saved photos. No frames."* Stacked on #6849 (save
 SPEC IMPACT: DECISION_LOG 2026-10-24 "ONE PAPIC CAMERA — THE COMPLETE DESIGN IS THE ONLY STYLE; FREE WEARS A
 SETNAYAN MARK, PRO WEARS THE COUPLE'S BRAND" (corpus 832625cb, already recorded) supersedes "THE CAMERA HAS ITS
 OWN THREE LAYOUTS" (2026-10-06). No further corpus edit in this PR.
+
+### Controller review round (2026-10-24)
+
+- **Challenge ▾ pill** left of Photo ⇄ Snippet (the prototype's): shows the active challenge, opens the event's
+  running challenges as ONE PickMenu dropdown (done ones greyed and still pickable to retake, Photo/Clip tags,
+  Cancel, and a Sharing group that keeps the §16 withdrawal). The panel below the shutter is gone; its
+  completion line, per-photo share ask, Story reward and pause notice follow the shutter in one line. Same
+  fetches and actions as shipped (`guest-missions` · `guest-complete-mission` · `guest-mission-consent`).
+- **The Event Hub's inline camera wears the same Pro dress** — one entitlement (Logo & QR / Full Pro, request-
+  cached) and one tint rule (`lib/camera-dress-of-event.ts`) for both mounts.
+- **Server-made fallback copies carry the same mark** (`lib/papic-photo-mark-raster.ts`): a photo that came with
+  its original only, or a clip whose poster came unmarked (the phone now says `copies_marked`), gets display ·
+  tile · thumb (and a marked display still for a clip) with the Setnayan mark or the monogram, drawn as vector
+  outlines (no font request). A failed read is the Setnayan mark, never none. Measured: +20–30 ms on ~480 ms for
+  the three copies of a 4000×3000 photo.

@@ -1898,7 +1898,12 @@ export const loadGuestContext = cache(
       if (!blockRow) {
         papicGuest = {
           // 🏷 One rule for both camera mounts (owner 2026-10-24): Pro = the Logo & QR part or Full Pro.
-          photoMark: photoMarkOfEvent(event, await hubPartActiveFor(event.event_id, 'logo_qr').catch(() => false)),
+          ...(await (async () => {
+            // 📷 One camera, one entitlement (owner 2026-10-24): the Logo & QR part or Full Pro
+            // dresses the inline camera and picks the mark on its photos, as on /papic/guest.
+            const dressPro = await hubPartActiveFor(event.event_id, 'logo_qr').catch(() => false);
+            return { dressPro, photoMark: photoMarkOfEvent(event, dressPro) };
+          })()),
           uploadOwner: papicOwnerTag('guest', guest.guest_id, event.event_id),
           initialRemaining: quota.remaining,
           total: quota.total,

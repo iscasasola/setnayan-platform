@@ -25,11 +25,9 @@ import { guidedTourView } from '@/app/_components/guided-tour';
 import { GuestColumnCard } from '@/app/[slug]/_components/guest-column-card';
 import { guestColumnsActive } from '@/lib/guest-columns-gate';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
-import { cameraDressTint } from '@/lib/camera-dress';
+import { cameraDressTintOfEvent } from '@/lib/camera-dress-of-event';
 import { eventHubPartActive } from '@/lib/couple-website-pro';
 import { photoMarkOfEvent } from '@/lib/papic-photo-mark-of-event';
-import { themeColours } from '@/lib/theme-colours';
-import { isInviteThemeId } from '@/lib/invite-themes';
 import { EventMonogram } from '@/app/_components/event-monogram';
 import { HERO_MONOGRAM_COLUMNS } from '@/lib/hero-monogram-data';
 
@@ -381,10 +379,9 @@ export default async function PapicGuestPage({
   const dressRow = (dressRead.data ?? null) as
     | (Parameters<typeof EventMonogram>[0]['event'] & { logo_wanted?: boolean | null; invite_theme?: string | null; role_palette?: unknown })
     | null;
-  const dressThemeId = isInviteThemeId(dressRow?.invite_theme) ? dressRow.invite_theme : 'house';
   const cameraDress = {
     pro,
-    tint: cameraDressTint(pro, themeColours(dressThemeId, dressRow?.role_palette ?? null).colours.accent),
+    tint: cameraDressTintOfEvent(pro, dressRow),
     logo: pro && dressRow ? <EventMonogram event={dressRow} size="lg" /> : null,
   };
   const photoMark = photoMarkOfEvent(dressRow, pro);

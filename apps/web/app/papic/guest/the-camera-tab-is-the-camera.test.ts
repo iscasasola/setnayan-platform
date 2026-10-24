@@ -105,13 +105,28 @@ test('3 · PRO: the logo on a white shutter, the corners in the theme’s colour
   assert.equal(cameraDressTint(true, 'not-a-colour'), '#FFFFFF');
 });
 
-test('4 · the Challenges are the one panel below the shutter — the chips look is retired', () => {
+test('4 · the Challenge pill sits LEFT of Photo ⇄ Snippet and opens the running challenges as one dropdown', () => {
   const src = read('app/papic/guest/_components/papic-guest-capture.tsx');
-  assert.ok(src.indexOf('<PapicChallengePanel') > src.indexOf('onPointerDown={onShutterDown}'), 'the challenges moved above the shutter');
-  assert.equal((src.match(/<PapicChallengePanel\b/g) ?? []).length, 1);
+  const pill = src.indexOf('<ChallengePill c={challenges} />');
+  const mode = src.indexOf('aria-label="Photo or snippet"');
+  const shutter = src.indexOf('onPointerDown={onShutterDown}');
+  assert.ok(pill > 0 && pill < mode && mode < shutter, 'the pill is not left of Photo ⇄ Snippet, above the shutter');
+  assert.doesNotMatch(src, /<PapicChallengePanel\b|PapicChallengePanel/, 'the old panel below the shutter is back');
+  assert.ok(src.indexOf('<ChallengeFollowUp') > shutter, 'the completion line is not under the shutter');
   const panel = read('app/papic/guest/_components/papic-challenge-panel.tsx');
-  assert.doesNotMatch(panel, /layout === 'chips'|data-challenge-chips|layout\?:/, 'the chips look is back');
-  assert.match(panel, /m\.completed/, 'a done challenge is no longer told apart');
+  // One dropdown (PickMenu), the shipped data and actions only.
+  assert.match(panel, /<PickMenu\b[\s\S]{0,300}label="Papic Challenges"/);
+  assert.match(panel, /fetch\('\/api\/papic\/guest-missions'/);
+  assert.match(panel, /fetch\('\/api\/papic\/guest-complete-mission'/);
+  assert.match(panel, /fetch\('\/api\/papic\/guest-mission-consent'/);
+  assert.match(panel, /buttonText=\{c\.armed \? `Challenge · \$\{c\.armed\.prompt\}`/, 'the pill does not show the active challenge');
+  // Nothing the panel did is lost: retake, cancel, the per-photo ask, its §16 withdrawal, the reward.
+  assert.match(panel, /c\.arm\(m, m\.completed\)/);
+  assert.match(panel, /label: 'Cancel the challenge'/);
+  assert.match(panel, /group: 'Sharing'/, 'the share can no longer be withdrawn any time');
+  assert.match(panel, /consentToShare: false/, 'a completion no longer resets sharing to private');
+  assert.match(panel, /You earned a Story/);
+  assert.doesNotMatch(panel, /layout === 'chips'|data-challenge-chips/, 'the chips look is back');
 });
 
 test('5 · embedded in the Event Hub the camera keeps the page’s frame', async () => {

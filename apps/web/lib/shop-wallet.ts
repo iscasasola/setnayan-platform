@@ -28,6 +28,12 @@
  * (the 20 Aug disease: a failure that renders identically to emptiness).
  */
 
+/**
+ * The shop wallet's sheet, by address — the ONE home of the balance (owner 2026-10-23, option A). The portfolio
+ * uploader and an event's Papic link the words "Shop wallet" here.
+ */
+export const SHOP_WALLET_HREF = '/vendor-dashboard/customers?seg=money&wallet=1';
+
 /** The ledger's `kind` vocabulary — the migration's CHECK, said once in TS. */
 export const SHOP_WALLET_KINDS = [
   'pack_order',

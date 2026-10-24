@@ -27,7 +27,7 @@ import { MoneyView, type MoneyLegacyPayout } from './money-view';
 import { MoneyLog, type MoneyLogCustomer } from './money-log';
 import { ShopWalletSheet, type ShopWalletSheetData } from './shop-wallet-sheet';
 import { fetchShopWallet, fetchShopWalletEventPots, fetchShopWalletPackMeta } from '@/lib/shop-wallet.server';
-import { eventPotSub, eventPotTitle, walletHistoryLines, walletRowSubline, walletRowTitle } from '@/lib/shop-wallet';
+import { SHOP_WALLET_HREF, eventPotSub, eventPotTitle, walletHistoryLines, walletRowSubline, walletRowTitle } from '@/lib/shop-wallet';
 import { fetchVendorPapicPackPricePhp } from '@/lib/vendor-papic-grants';
 import { VENDOR_PAPIC_PORTFOLIO_PACK_CREDITS } from '@/lib/vendor-papic-credits';
 import { fetchVendorRoomEvents } from '@/lib/vendor-room-access';
@@ -65,11 +65,8 @@ export function moneyHref(window: MoneyWindow): string {
   return window === 'month' ? `${HUB}?seg=money` : `${HUB}?seg=money&next=${window}`;
 }
 
-/**
- * The shop wallet's sheet, by address — the ONE home of the balance (owner 2026-10-23, option A). The portfolio
- * uploader and an event's Papic link the words "Shop wallet" here.
- */
-export const SHOP_WALLET_HREF = `${HUB}?seg=money&wallet=1`;
+// The shop wallet's sheet, by address — said once in the pure `lib/shop-wallet.ts` (a client uploader links it too).
+export { SHOP_WALLET_HREF };
 
 type PayoutRow = {
   payout_id: string;

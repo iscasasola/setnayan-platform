@@ -27,6 +27,7 @@
  * Run from `apps/web`: `npx tsx --test lib/the-dress-code-shows-every-pick.test.ts`.
  */
 import { test } from 'node:test';
+import { wordWithColourName } from './colour-word';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -226,7 +227,8 @@ test('3 · every colour a guest sees says what it colours — and the Studio’s
           assert.equal(d.words.length, d.swatches, `${look} · ${row.key}/${p.who}: ${d.swatches} colours but ${d.words.length} words`);
           assert.ok(d.words.every((w) => w.trim().length > 0), `${look} · ${row.key}: a colour with no word`);
           /* the Studio's own words for the same colours */
-          assert.deepEqual(d.words, pickDots(p.style, p.colours, p.role, row.meaning === 'options').map((x) => x.word));
+          /* (2026-10-24, owner: "the colors have names" — what it colours, then the colour's own name: `wordWithColourName`.) */
+          assert.deepEqual(d.words, pickDots(p.style, p.colours, p.role, row.meaning === 'options').map((x) => wordWithColourName(x)));
         }
       }
     }

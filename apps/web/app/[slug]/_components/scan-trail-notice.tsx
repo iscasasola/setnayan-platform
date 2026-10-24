@@ -1,7 +1,7 @@
 import { InfoTip } from '@/app/_components/info-tip';
 import { scanTrailLines } from '@/lib/scan-trail-words';
 import { CircleSlash, RotateCcw } from 'lucide-react';
-import { ME_PILL } from './sign-out-of-invitation';
+import { ME_PILL } from './me-pill';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { setGuestScanTracking } from '../actions';

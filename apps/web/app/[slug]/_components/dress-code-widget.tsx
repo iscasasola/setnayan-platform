@@ -20,6 +20,7 @@ import { roleGroupOf } from '@/lib/role-groups';
 import { roleLabel } from '@/lib/entourage';
 import { marchPlaceLine, type MarchPlace } from '@/lib/march-place';
 import { nearestColorName } from '@/lib/color-names';
+import { wordWithColourName } from '@/lib/colour-word';
 import { NamedColourDot } from '@/app/dashboard/[eventId]/studio/mood-board/_components/colour-dot';
 import { SeeTheDressCode, SeeWhereYouAre } from './see-where-you-are';
 import { DressCodeLine, DressCodePalette } from './dress-code-styles';
@@ -854,13 +855,6 @@ function GuestsBoard({ row, look }: { row: EveryoneDressRow; look: PaletteLookId
 
 /** 🏷 A PERSON'S COLOURS AT ROW SIZE, each said by what it colours — the scene's palette look (Tags = the shipped
  *  chips), the words in one key line under them (`DotWords`). */
-/** "Gown · Garnet" — a dot's word with its colour's name after it (the name alone when the dot says nothing). */
-function wordWithColourName(d: EveryoneDot): string {
-  const name = nearestColorName(d.hex);
-  if (!name) return d.word;
-  return d.word && d.word.toLowerCase() !== name.toLowerCase() ? `${d.word} · ${name}` : name;
-}
-
 function RowDots({ dots, look, label, centre = false }: { dots: readonly EveryoneDot[]; look: PaletteLookId; label: string; centre?: boolean }) {
   if (dots.length === 0) return null;
   /* 🎨 EVERY COLOUR CARRIES ITS NAME (owner 2026-10-24: "the colors have names, so they can find the color name

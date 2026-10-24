@@ -21,6 +21,8 @@
 
 import { Fragment, type CSSProperties, type ReactElement, type ReactNode } from 'react';
 import { Printer } from 'lucide-react';
+import { startAhead } from '@/lib/start-ahead';
+import { ServerTimer } from '@/lib/server-timing';
 import {
   loadEditorialData,
   resolveSectionOrder,
@@ -199,20 +201,30 @@ export async function EditorialContent({
   // Title-Case headings and three screen-reader labels a sighted reader never
   // sees. Resolved from the event id because this component receives only that;
   // `resolveProfileByEvent` is request-cached, so it costs nothing.
-  const w = await eventWordsForEvent(eventId);
+  /* ⏱ The story reads OUTSIDE the page's own timer (`slug/invitation-body` never saw it) — so it says its own time,
+     one line per render to the log drain (`lib/server-timing.ts`; never throws, changes nothing). Measured the gap:
+     production 2026-10-23, the page's timer 0.13–0.36 s of a 2.3–3.8 s Post Event page. */
+  const timer = new ServerTimer(`slug/editorial-content${hostPreview ? ':host' : ''}`);
+  /* ⚡ The words, the role names and the story leave TOGETHER (2026-10-23) — none needs another, and each is
+     awaited where it always was. See the reads past the gate, below. */
+  const wordsRead = startAhead(eventWordsForEvent(eventId));
   // The couple's words for roles (owner 2026-09-30) — the column badges say
   // them. Graceful: unreadable → the usual words. 🔴 A curated SAMPLE has no
   // event row (see `isSample` below) and is prerendered with no service key —
   // it is never looked up; it wears the usual words.
-  const roleNames: RoleNames = isSampleEditorialId(eventId)
-    ? {}
-    : await loadRoleNames(createAdminClient(), eventId, 'EditorialContent.roleNames');
+  const roleNamesRead = isSampleEditorialId(eventId)
+    ? null
+    : startAhead(loadRoleNames(createAdminClient(), eventId, 'EditorialContent.roleNames'));
+  const dataRead = startAhead(loadEditorialData(eventId));
+  const w = await wordsRead;
+  const roleNames: RoleNames = roleNamesRead === null ? {} : await roleNamesRead;
   let data: EditorialData | null = null;
   try {
-    data = await loadEditorialData(eventId);
+    data = await dataRead;
   } catch {
     data = null;
   }
+  timer.mark('story');
 
   if (!data) {
     return <GracefulFallback words={w} />;
@@ -381,78 +393,53 @@ export async function EditorialContent({
     fixture table so a seventh sample cannot teach only half the code.
   */
   const isSample = isSampleEditorialId(eventId);
-  let mono: HeroMonogramData | null = null;
-  if (!isSample) {
-    try {
-      const admin = createAdminClient();
-      const { data: monoRow } = await admin
-        .from('events')
-        .select(`${HERO_MONOGRAM_COLUMNS}, logo_wanted`)
-        .eq('event_id', eventId)
-        .maybeSingle();
-      mono = await resolveEventMonogram(admin, eventId, monoRow);
-    } catch {
-      mono = null;
+  /*
+    ⚡ PAST THE GATE, THE STORY'S OPTIONAL READS LEAVE TOGETHER (2026-10-23). The monogram, the Pro watermark, the
+    back cover, the previous edition, the spine's facts, the hand-laid pages, the entourage and the reader's own day
+    each need only this event, the viewer and the (already redacted) story — yet each waited for the one above it,
+    eight in single file after the story itself (production: the guest page on Post Event took 2.3 s for a guest
+    and 3.8 s for the couple; the page's own timer, 0.13–0.36 s of it). Each is STARTED here — after the one gate
+    above, so a story this viewer may not read starts none of them — with exactly the arguments it always had, and
+    awaited at the line that always awaited it, with the same fallback. Every comment below still describes its
+    read. Held by `the-story-reads-start-together.test.ts`.
+  */
+  // Both reads stay behind the SAMPLE CHECK at the call itself (a sample id is not a uuid — `silent-query-refusals.test.ts`).
+  const monoRead: Promise<HeroMonogramData | null> = (async () => {
+    if (!isSample) {
+      try {
+        const admin = createAdminClient();
+        const { data: monoRow } = await admin
+          .from('events')
+          .select(`${HERO_MONOGRAM_COLUMNS}, logo_wanted`)
+          .eq('event_id', eventId)
+          .maybeSingle();
+        return await resolveEventMonogram(admin, eventId, monoRow);
+      } catch {
+        return null;
+      }
     }
-  }
-
-  // Paid COUPLE_WEBSITE_PRO perk (retired/unbundled) — when ACTIVE (admin-approved), the
-  // editorial sheds the freemium "Powered by Setnayan" colophon watermark
-  // (the masthead sign-off below), matching the wedding site + recap. The
-  // "Powered by Setnayan" SERVICE-CREDITS strip (SetnayanExperience chip row)
-  // is CONTENT, not a watermark, and is intentionally NOT gated. Best-effort +
-  // wrapped to keep this component's "never throws" contract → false (keep the
-  // watermark) on any error. eventCoupleWebsiteProActive already
-  // graceful-degrades on orders-table drift; the catch guards the rest.
-  //
-  // 🔴 SKIPPED FOR A CURATED SAMPLE, same reason as the monogram above: this
-  // probes `orders` by event id, and a sample's id is a sentinel string, not a
-  // UUID. `false` (keep the watermark) is both the pre-existing behaviour for a
-  // sample and the right one — a fixture has bought nothing.
-  let hideWatermark = false;
-  if (!isSample) {
-    try {
-      hideWatermark = await eventCoupleWebsiteProActive(createAdminClient(), eventId);
-    } catch {
-      hideWatermark = false;
+    return null;
+  })();
+  const hideWatermarkRead: Promise<boolean> = (async () => {
+    if (!isSample) {
+      try {
+        return await eventCoupleWebsiteProActive(createAdminClient(), eventId);
+      } catch {
+        return false;
+      }
     }
-  }
-
-  /*
-    THE SPINE'S OWN FACTS — the road's dated entries, the broadcast sessions,
-    the venue's blocks and the dial's bar heights. A supplement to the loader
-    above, never a second opinion about anything it already answered.
-
-    🔴 A CURATED SAMPLE IS RESOLVED WITHOUT TOUCHING THE DATABASE, for the same
-    reason the monogram and the perk probe above are: its id is a sentinel
-    string, not a UUID, and Postgres rejects every query carrying one with
-    22P02 — an ABSENCE, not an error anybody sees.
-  */
-  /*
-    THE BACK COVER (01 §3.9). Loaded here with the other optional reads and, like
-    them, FAIL-QUIET: `loadBackCover` swallows its own errors and answers null,
-    and null is not an error state — it is the ordinary, correct-by-default
-    answer for a story whose host announced nothing. A sample has no real row and
-    is skipped for the same reason the monogram above is.
-  */
-  const backCover: BackCover | null = isSample
+    return false;
+  })();
+  const backCoverRead: Promise<BackCover | null> = isSample
+    ? Promise.resolve(null)
+    : startAhead(loadBackCover({ eventId, eventDateISO: data.eventDate ?? null, viewer }));
+  const previousEditionRead: Promise<PreviousEdition | null> = isSample
+    ? Promise.resolve(null)
+    : startAhead(loadPreviousEdition(eventId));
+  const spineFactsRead: Promise<StorySpineFacts> | null = isSample
     ? null
-    : await loadBackCover({ eventId, eventDateISO: data.eventDate ?? null, viewer });
-
-  /*
-    "PREVIOUSLY · No. 1" — 08 step 4.3. This edition OPENS with it when the host
-    started it from the last one's back cover. Same fail-quiet contract as the
-    back cover above, and skipped on a sample for the same reason.
-  */
-  const previousEdition: PreviousEdition | null = isSample
-    ? null
-    : await loadPreviousEdition(eventId);
-
-  let spineFacts: StorySpineFacts;
-  try {
-    spineFacts = isSample
-      ? sampleSpineFacts(data.eventDate, data.eventEndDate)
-      : await loadStorySpineFacts({
+    : startAhead(
+        loadStorySpineFacts({
           eventId,
           eventDate: data.eventDate,
           eventEndDate: data.eventEndDate,
@@ -471,7 +458,62 @@ export async function EditorialContent({
           writtenMinutesMs: data.dayChapters
             .map((c) => (c.atIso ? Date.parse(c.atIso) : Number.NaN))
             .filter((n) => Number.isFinite(n)),
-        });
+        }),
+      );
+  const sheetsRead: Promise<DrawnSheet[]> = isSample
+    ? Promise.resolve([])
+    : loadStoryPages(createAdminClient(), eventId, viewer, (key) => displayUrlForStoredAsset(key)).catch(() => []);
+  const entourageRead: Promise<EntourageGroup[]> = isSample
+    ? Promise.resolve([])
+    : loadEntourage(createAdminClient(), eventId).catch(() => []);
+  const ownRead = loadYourOwnDay(eventId).catch(() => null);
+
+  const mono: HeroMonogramData | null = await monoRead;
+
+  // Paid COUPLE_WEBSITE_PRO perk (retired/unbundled) — when ACTIVE (admin-approved), the
+  // editorial sheds the freemium "Powered by Setnayan" colophon watermark
+  // (the masthead sign-off below), matching the wedding site + recap. The
+  // "Powered by Setnayan" SERVICE-CREDITS strip (SetnayanExperience chip row)
+  // is CONTENT, not a watermark, and is intentionally NOT gated. Best-effort +
+  // wrapped to keep this component's "never throws" contract → false (keep the
+  // watermark) on any error. eventCoupleWebsiteProActive already
+  // graceful-degrades on orders-table drift; the catch guards the rest.
+  //
+  // 🔴 SKIPPED FOR A CURATED SAMPLE, same reason as the monogram above: this
+  // probes `orders` by event id, and a sample's id is a sentinel string, not a
+  // UUID. `false` (keep the watermark) is both the pre-existing behaviour for a
+  // sample and the right one — a fixture has bought nothing.
+  const hideWatermark = await hideWatermarkRead;
+
+  /*
+    THE SPINE'S OWN FACTS — the road's dated entries, the broadcast sessions,
+    the venue's blocks and the dial's bar heights. A supplement to the loader
+    above, never a second opinion about anything it already answered.
+
+    🔴 A CURATED SAMPLE IS RESOLVED WITHOUT TOUCHING THE DATABASE, for the same
+    reason the monogram and the perk probe above are: its id is a sentinel
+    string, not a UUID, and Postgres rejects every query carrying one with
+    22P02 — an ABSENCE, not an error anybody sees.
+  */
+  /*
+    THE BACK COVER (01 §3.9). Loaded here with the other optional reads and, like
+    them, FAIL-QUIET: `loadBackCover` swallows its own errors and answers null,
+    and null is not an error state — it is the ordinary, correct-by-default
+    answer for a story whose host announced nothing. A sample has no real row and
+    is skipped for the same reason the monogram above is.
+  */
+  const backCover: BackCover | null = await backCoverRead;
+
+  /*
+    "PREVIOUSLY · No. 1" — 08 step 4.3. This edition OPENS with it when the host
+    started it from the last one's back cover. Same fail-quiet contract as the
+    back cover above, and skipped on a sample for the same reason.
+  */
+  const previousEdition: PreviousEdition | null = await previousEditionRead;
+
+  let spineFacts: StorySpineFacts;
+  try {
+    spineFacts = spineFactsRead === null ? sampleSpineFacts(data.eventDate, data.eventEndDate) : await spineFactsRead;
   } catch {
     // Same contract as the rest of this component: it never throws. With no
     // facts the cover and the day's minutes still render; the road, the dial
@@ -523,18 +565,16 @@ export async function EditorialContent({
     consent veto (S14). Nothing here reads the arrangement any other way. A sample has no
     celebration behind it and is skipped, like every other lookup above.
   */
-  const sheets: DrawnSheet[] = isSample
-    ? []
-    : await loadStoryPages(createAdminClient(), eventId, viewer, (key) =>
-        displayUrlForStoredAsset(key),
-      ).catch(() => []);
+  const sheets: DrawnSheet[] = await sheetsRead;
 
   /* 👥 The entourage — the SAME loader the invitation lists it with (public
      invitation content, owner 2026-09-15). A sample has no guest list. */
-  const entourage: EntourageGroup[] = isSample ? [] : await loadEntourage(createAdminClient(), eventId).catch(() => []);
+  const entourage: EntourageGroup[] = await entourageRead;
 
-  let own = await loadYourOwnDay(eventId).catch(() => null);
+  let own = await ownRead;
   own ??= { signedIn: false, appearsIn: [], shot: [], said: [], tableLabel: null };
+  timer.mark('past-the-gate');
+  timer.flush();
   /** 🪑 The reader's own table, from their signed session — null for everyone else. */
   const ownTable = own.tableLabel;
 
@@ -570,7 +610,7 @@ export async function EditorialContent({
         ) : (
           <p className="max-w-prose text-base text-ink/70">
             {own.signedIn
-              ? 'Nothing of yours from the day is in the gallery yet — the photos you are in and the ones you took will show here.'
+              ? 'Nothing of yours from the day is in Memories yet — the photos you are in and the ones you took will show here.'
               : 'Open the story from your own Papic link and the photos you are in, and the ones you took, show here.'}
           </p>
         )
@@ -1023,8 +1063,8 @@ export async function EditorialContent({
                 <OpenUpScene
                   kind="gallery"
                   title={wordsOf('gallery').heading ?? 'From the Day'}
-                  eyebrow={`${data.firstNames} · the gallery`}
-                  openLabel={`Open the gallery · ${fmt(data.galleryPhotos.length)} ${data.galleryPhotos.length === 1 ? 'photo' : 'photos'}`}
+                  eyebrow={`${data.firstNames} · Memories`}
+                  openLabel={`Open Memories · ${fmt(data.galleryPhotos.length)} ${data.galleryPhotos.length === 1 ? 'photo' : 'photos'}`}
                   preview={
                     <GalleryPreview
                       style={styleOf('gallery')!}

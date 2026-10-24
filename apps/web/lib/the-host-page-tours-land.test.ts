@@ -50,6 +50,7 @@ type Mount = { file: string; key: keyof typeof HOST_PAGE_TOURS; after: 'journey'
 const MOUNTS: Mount[] = [
   { file: 'app/dashboard/[eventId]/launch/page.tsx', key: 'maker', after: 'journey', inMaker: true },
   { file: 'app/dashboard/[eventId]/budget/page.tsx', key: 'budget', after: 'journey', inMaker: false },
+  { file: 'app/dashboard/[eventId]/memories/page.tsx', key: 'memories', after: 'journey', inMaker: false },
   { file: 'app/dashboard/[eventId]/studio/papic/page.tsx', key: 'papic', after: 'journey', inMaker: false },
   { file: 'app/dashboard/[eventId]/seating/page.tsx', key: 'seatPlan', after: 'journey', inMaker: false },
   { file: 'app/dashboard/[eventId]/seating/page.tsx', key: 'seatPlan', after: 'maker', inMaker: true },

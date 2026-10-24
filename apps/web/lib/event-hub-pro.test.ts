@@ -62,7 +62,7 @@ test('a couple who does NOT own it is offered exactly one unlock, on the live ch
 test('the invitation is sold on the photos, not on the reveal', () => {
   const offer = resolveHubProOffer({ channel: 'rsvp', phase: 'plan', ownsPro: false });
   assert.ok(offer);
-  assert.equal(offer.lead, 'Photo gallery');
+  assert.equal(offer.lead, 'Photos you add');
 });
 
 test('one chip per Pro item, in list order, with exactly ONE lit', () => {

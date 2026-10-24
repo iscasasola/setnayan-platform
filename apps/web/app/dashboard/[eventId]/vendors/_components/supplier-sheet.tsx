@@ -400,7 +400,7 @@ export default function SupplierSheet({
                 </div>
               ))}
             </div>
-            <p className="text-[12px] text-ink/55">Their own shots only. No names, no guest details, nothing from a couple’s gallery.</p>
+            <p className="text-[12px] text-ink/55">Their own shots only. No names, no guest details, nothing from a couple’s Memories.</p>
           </section>
         ) : null}
 

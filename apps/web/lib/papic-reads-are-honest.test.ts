@@ -121,7 +121,7 @@ test('home tile: an unmeasured photo count says so before "photos gathered"', ()
 test('pool grid: the unreadable branch comes before "No photos yet"', () => {
   inOrder('app/papic/pool/_components/pool-grid.tsx', [
     'if (tiles.length === 0 && initialUnreadable) {',
-    'couldn&rsquo;t load the gallery',
+    'couldn&rsquo;t load Memories',
     'No photos yet',
   ]);
   inOrder('app/papic/pool/page.tsx', ['initialUnreadable={firstPage.unreadable}']);

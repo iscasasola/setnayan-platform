@@ -129,7 +129,7 @@ export const DATA_PRIVACY_CONTROLS: readonly PrivacyControlDef[] = [
     group: 'vendor_mediated',
     title: 'Capture geolocation metadata',
     description:
-      'Stamps a coarse location fix (lat/lon + accuracy, or a geo_unavailable flag) onto Papic photos/clips at capture, when the paparazzo grants location. Geo is written server-side only while this control is active; it is never returned in any share/gallery/download, and full-res originals are EXIF-stripped on the way out.',
+      'Stamps a coarse location fix (lat/lon + accuracy, or a geo_unavailable flag) onto Papic photos/clips at capture, when the paparazzo grants location. Geo is written server-side only while this control is active; it is never returned in any share/Memories/download, and full-res originals are EXIF-stripped on the way out.',
     category: 'Location data',
     riskNote:
       'Location is PI. Ships OFF (fail-closed) — this is a NEW location-data collection; activate only after confirming the public /privacy "Photos and videos — location data" disclosure and the DPO ruling. The stored original on R2 retains geo; outbound shares never expose it.',
@@ -242,7 +242,7 @@ export const DATA_PRIVACY_CONTROLS: readonly PrivacyControlDef[] = [
       'Counts the OTHER couples who have inquired with the same vendor for the same exact date, shows that number to this couple ("N couples inquired for your date"), and feeds it to the "In demand right now" ranking lens as a sub-score. Inquiry-only — a saved-but-never-contacted vendor counts as zero — and floored at 3 couples server-side, so a below-floor count never leaves the server.',
     category: 'Cross-couple activity disclosure',
     riskNote:
-      'Tells one couple something about other couples\u2019 booking behaviour — the only signal on the marketplace that does. The min-3 floor exists because n=1 on a solo vendor for an exact date in a small municipality is functionally re-identifying; the inquiry-only rule exists because counting a mere SAVE as competition is manufactured scarcity (owner ruling 2026-06-02: "a fineable dark pattern"). There is NO per-couple opt-out — a couple cannot exclude their own inquiry from other couples\u2019 counts. /privacy + ROPA do not declare this cross-couple aggregation yet. DPO ruling required before couples start messaging vendors.',
+      'Tells one couple something about other couples\u2019 booking behaviour — the only signal on the marketplace that does. The min-3 floor exists because n=1 on a solo vendor for an exact date in a small municipality is functionally re-identifying; the inquiry-only rule exists because counting a mere SAVE as competition is manufactured scarcity (owner ruling 2026-06-02: "a fineable dark pattern"). A per-couple opt-out now exists (DPO ruling 2026-10-23): a couple who turns off "Count us for other couples" in their event privacy settings (events.same_date_count_opt_out) is left out of every other couple\u2019s count. /privacy states the count and the switch.',
   },
   {
     key: 'vendor_deep_search',
@@ -287,9 +287,9 @@ export const DATA_PRIVACY_CONTROLS: readonly PrivacyControlDef[] = [
   {
     key: 'papic_pool_gallery',
     group: 'guest_content',
-    title: 'Papic Shared Pool Gallery',
+    title: 'Papic Shared Pool Memories',
     description:
-      'Lets every session guest browse the WHOLE event capture pool (clean-screened photos + clips, web copies only) and self-link ("I’m in this") into photos — a manual_pick tag that joins their personal gallery, ZIP download, and Story reel. The couple’s per-event toggle (events.pool_gallery_open, default OFF) still applies on top of this control, and closing it is retroactive.',
+      'Lets every session guest browse the WHOLE event capture pool (clean-screened photos + clips, web copies only) and self-link ("I’m in this") into photos — a manual_pick tag that joins their personal Memories, ZIP download, and Story reel. The couple’s per-event toggle (events.pool_gallery_open, default OFF) still applies on top of this control, and closing it is retroactive.',
     category: 'Event-wide guest media exposure',
     riskNote:
       'Widens photo/clip visibility from per-guest tagged delivery to EVERY guest in the event — guests see other guests’ images. The pool read bakes the FaceBlock blur rule, the photo_consent veto, and web-copy-only keys (never the geo-bearing original); still a new exposure surface the /privacy notice and ROPA must declare before this activates. DPO ruling required. Every surface AND-gates this control with the NEXT_PUBLIC_PAPIC_POOL_GALLERY env flag.',

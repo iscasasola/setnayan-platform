@@ -187,3 +187,38 @@ export function stableMediaPath(ref: string | null | undefined): string | null {
   const encodedKey = key.split('/').map(encodeURIComponent).join('/');
   return `/papic/media/${encodeURIComponent(bucket)}/${encodedKey}`;
 }
+
+/**
+ * 🗜 MEMORIES NEVER SHOWS AN ORIGINAL (owner 2026-10-23, verbatim: *"the thumbnails will be small so loading will be
+ * fast but they can download photo to get the higher quality. but on the memories, always use the compressed
+ * version."*). Every ref a Memories grid or its viewer draws comes from the web copies the capture pipeline already
+ * makes (`papic-derivatives.ts`: thumb 320 · tile 640 · display 1280, AVIF) — `r2_object_key` is never in a display
+ * chain here, dropped or not. A row with no web copy yet draws an empty tile rather than its original.
+ *
+ *   grid      thumb ?? tile ?? display ?? (clip: poster)       — the small copy (dense columns)
+ *   large     tile ?? display ?? (clip: poster) ?? thumb       — one-across, where 320 falls apart
+ *   view      display ?? (clip: poster) ?? tile ?? thumb       — the full-screen viewer: the compressed copy
+ *   play      clip_web only                                    — a clip's compressed web copy, never its original
+ *   download  (clip) the kept original, or its web copy once the original is gone — an explicit Download only
+ *             (photos download through the save-photo route, which streams the best stored copy, geo-stripped)
+ */
+export type MemoriesRefs = {
+  grid: string | null;
+  large: string | null;
+  view: string | null;
+  play: string | null;
+  download: string | null;
+};
+
+export function memoriesRefs(row: PapicDisplayRow): MemoriesRefs {
+  const clip = isClipRow(row);
+  const poster = clip ? row.poster_r2_key : null;
+  return {
+    grid: firstRef(row.thumb_r2_key, row.tile_r2_key, row.display_r2_key, poster),
+    // A clip's poster is a whole frame — bigger than its 320 thumb, so it comes before it.
+    large: firstRef(row.tile_r2_key, row.display_r2_key, poster, row.thumb_r2_key),
+    view: firstRef(row.display_r2_key, poster, row.tile_r2_key, row.thumb_r2_key),
+    play: clip ? firstRef(row.clip_web_r2_key) : null,
+    download: clip ? firstRef(row.full_res_dropped_at ? null : row.r2_object_key, row.clip_web_r2_key) : null,
+  };
+}

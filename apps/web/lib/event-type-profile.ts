@@ -868,7 +868,7 @@ export function strandedWithoutWebsiteMessage(
   stranded: readonly ProfileSurface[],
 ): string {
   const names = stranded
-    .map((s) => (s === 'day_of' ? 'Day-of page' : 'Gallery'))
+    .map((s) => (s === 'day_of' ? 'Day-of page' : 'Memories'))
     .join(' and ');
   const verb = stranded.length > 1 ? 'both render' : 'renders';
   return (

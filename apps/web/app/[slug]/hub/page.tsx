@@ -908,7 +908,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
             Capture the day
           </h3>
           <p className="mx-auto mt-1 max-w-prose text-sm text-ink/65">
-            Every shot lands in {words.theOrganizerPossessive} gallery — and
+            Every shot lands in {words.theOrganizerPossessive} Memories — and
             tagged guests get theirs in real time.
           </p>
         </div>
@@ -1002,7 +1002,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
         >
           <span className="inline-flex items-center gap-2 text-sm font-medium text-ink">
             <Images aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
-            See the recap gallery
+            See the recap Memories
           </span>
           <span aria-hidden className="text-ink/70">→</span>
         </Link>

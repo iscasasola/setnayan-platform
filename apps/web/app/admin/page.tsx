@@ -198,7 +198,7 @@ export default async function AdminOverview() {
         queueTile(
           'user-reports',
           'User reports',
-          'Reported gallery content to moderate',
+          'Reported Memories content to moderate',
           '/admin/user-reports',
         ),
         queueTile(

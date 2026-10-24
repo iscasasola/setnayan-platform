@@ -1455,7 +1455,7 @@ export function PapicGuestCapture({
             Before you start shooting
           </h1>
           <p className="mt-2 text-sm text-ink/70">
-            Your photos go straight into {eventName}&rsquo;s gallery and may be
+            Your photos go straight into {eventName}&rsquo;s Memories and may be
             seen by other guests and the host. By using this camera you agree
             to our{' '}
             <a

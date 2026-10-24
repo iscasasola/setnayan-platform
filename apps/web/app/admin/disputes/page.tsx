@@ -741,7 +741,7 @@ function PolicyEvidence({ ack }: { ack: PolicyAcknowledgement }) {
 function HandoverEvidence({ handover }: { handover: HandoverEvidenceRow }) {
   const kindLabel =
     handover.kind === 'gallery_link'
-      ? 'Gallery link'
+      ? 'Album link'
       : handover.kind === 'file'
         ? 'Sample / proof'
         : handover.kind === 'note'

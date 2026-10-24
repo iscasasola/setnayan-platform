@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
 import { FORM_PICK_CLASS, FormRow, usePillWidth } from '@/app/_components/form-row';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { ACCESS_LEVEL_LABEL, accessNote, type GuestAccessLevel, type GuestAccessState } from '@/lib/guest-access';
@@ -17,7 +16,7 @@ import { setGuestAccess } from '../[guestId]/access-actions';
  * (`event_moderators.role_subtype`), and the same revalidation of the Guests, Hosts and Details pages. No new action, no new
  * column. Held by `the-access-column-is-the-cards-access-line.test.ts`.
  *
- *   · A landed change shows the database's answer (`res.state`) and refreshes the card, so both doors read the same value.
+ *   · A landed change shows the database's answer (`res.state`); the action's revalidation redraws both doors.
  *   · A refusal puts the pick back and says why, in the action's own words — never the look of success.
  *
  * Handed in by the Guests pages (`AccessPick`), never imported by `GuestCardBody` — the Maker's first load stays as it is.
@@ -33,7 +32,6 @@ export function GuestAccessPick({
   firstName: string;
   initial: GuestAccessState;
 }) {
-  const router = useRouter();
   const width = usePillWidth();
   const [level, setLevel] = useState<GuestAccessLevel>(initial.level);
   const [state, setState] = useState<GuestAccessState>(initial);
@@ -58,10 +56,10 @@ export function GuestAccessPick({
           setError(res.error);
           return;
         }
-        // The database decided whether the seat is live — show ITS answer, then redraw the card from the server.
+        // The database decided whether the seat is live — show ITS answer. The action revalidated the Guests, Hosts and Details
+        // pages, so its answer already carries the redraw (no second render — `lib/a-save-renders-once.test.ts`).
         setLevel(res.state.level);
         setState(res.state);
-        router.refresh();
       } catch {
         setLevel(before);
         setError('Couldn’t change access — check your connection and try again.');

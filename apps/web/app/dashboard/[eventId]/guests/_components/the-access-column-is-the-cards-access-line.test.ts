@@ -12,7 +12,8 @@
  *      so the same permission check and the same column. No second action anywhere.
  *   2. The dropdown only for a LINKED guest the viewer may manage (never the creator's row); everyone else — an unlinked
  *      guest — sees the word. No "Change in People with access" link on the card line.
- *   3. A refusal puts the pick back and says why; a landed change shows the database's answer and redraws the card.
+ *   3. A refusal puts the pick back and says why; a landed change shows the database's answer, and the action's own
+ *      revalidation redraws both doors.
  *   4. The Guest list shows no Access at all.
  * SABOTAGE (each seen RED, then restored): the pick calls a different action · the dropdown offered to an unlinked guest ·
  * the refusal not put back.
@@ -45,7 +46,10 @@ test('one mechanism, two doors: the card’s Access ▾ and People with access c
   assert.doesNotMatch(PICK, /'use server'|export async function|\.from\(|\.rpc\(/, 'the card’s pick grew its own write');
   // A refusal is put back and said; a landed change shows the database's answer and redraws.
   assert.match(PICK, /if \(!res\.ok\) \{\s*setLevel\(before\);\s*setError\(res\.error\);\s*return;\s*\}/, 'a refused change keeps the look of success');
-  assert.match(PICK, /setLevel\(res\.state\.level\);[\s\S]{0,80}router\.refresh\(\);/, 'a landed change is not redrawn from the server');
+  assert.match(PICK, /setLevel\(res\.state\.level\);/, 'a landed change does not show the database’s answer');
+  // The redraw is the action's own revalidation (the same pages People with access relies on) — never a second render.
+  const ACTION_SRC = read('..', '[guestId]', 'access-actions.ts');
+  for (const page of ['guests', 'hosts', 'details']) assert.ok(ACTION_SRC.includes(`revalidatePath(\`/dashboard/\${eventId}/${page}\`)`), `the action no longer redraws /${page}`);
   assert.match(PICK, /problem=\{error\}/, 'the refusal is not said on the row');
 });
 

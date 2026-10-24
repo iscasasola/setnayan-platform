@@ -2680,6 +2680,26 @@ html.dark[data-sn-boot] #sn-init-splash {
 }
 
 /*
+ * ↔ ONE SLIDE ON EVERY DASHBOARD — THE ACCOUNT'S CONTENT IS NAMED ONLY WHILE IT SLIDES (owner 2026-10-24: *"The
+ * transition animation between menus found in event dashboard does not apply to the user and shop dashboard."*).
+ *
+ * The account trees (`(launcher)` and `(account)` layouts' `<main>`, Discover's `[data-fd-page]`) carry `.sn-vt-page`
+ * like the event and shop trees, so the SAME listener, keyframes and 320 ms move them. Until today they carried no name
+ * at all, so `NavSlideController` started a transition that animated nothing and the page simply swapped.
+ *
+ * 🔑 `data-sn-slide="while-sliding"` keeps their REST exactly as it was: a `view-transition-name` makes an element a
+ * stacking context AND a containing block for its `position: fixed` descendants (the trap `lib/live-studio-control.ts`
+ * and `panood/program/program-surface.tsx` record), and the account pages have never lived with either. So the name is
+ * off unless a slide is running — `NavSlideController` and `BarSetSlide` both set `html[data-sn-nav-dir]` before they
+ * start the transition and clear it after, the window the guests-glass rule above already relies on. During a SET
+ * change (`data-sn-bar-dir`, below) the same elements take `sn-acct-page` instead, as they did before.
+ * Held by `app/_components/nav/one-tab-slide-everywhere.test.ts`.
+ */
+html:not([data-sn-nav-dir]) .sn-vt-page[data-sn-slide='while-sliding'] {
+  view-transition-name: none;
+}
+
+/*
  * 🪟 A GLASS ROW INSIDE THE NAMED PAGE ONLY BLURS WHEN THE NAME IS OFF (owner 2026-10-09, the live guest list: *"the glass
  * row has a transparent background"* — the guest rows read straight through the band).
  *
@@ -2876,14 +2896,15 @@ html[data-sn-nav-dir='back']::view-transition-new(sn-page) {
  *     same frosted paper, so what reads is the bar staying and its icons moving through it. Bottom-anchored, so a dock
  *     whose height differs never draws its old icons halfway up.
  *   · the PAGE slides with it — the event and shop trees' `.sn-vt-page` already carries `sn-page`; the account trees'
- *     content (`.fd-col > main` in the launcher and account layouts, `[data-fd-page]` on Discover) takes a name of its
- *     OWN, `sn-acct-page`, for the length of the slide only — so a tab press inside the account bar is exactly what it
- *     was (no page slide), and no two selectors ever declare one name (`the-bar-outlives-the-slide.test.ts`). The two
+ *     content (`.sn-vt-page[data-sn-slide='while-sliding']` — the launcher and account layouts' `<main>`, Discover's
+ *     `[data-fd-page]`) takes a name of its OWN, `sn-acct-page`, for the length of the set slide — a tab press inside
+ *     the account bar slides it as `sn-page` (2026-10-24, above), and no two selectors ever declare one name
+ *     (`the-bar-outlives-the-slide.test.ts`). The two
  *     page groups never pair: the page leaving is old-only, the page arriving new-only, each with its own keyframes.
  *   · the top bar stays in the frozen `root` snapshot above — it holds still.
  * Without the attribute none of this applies, and the dock is frozen as the 2026-09-22 rules above say.
  */
-html[data-sn-bar-dir] :is(.fd-col > main:not(.sn-vt-page), [data-fd-page]) {
+html[data-sn-bar-dir] .sn-vt-page[data-sn-slide='while-sliding'] {
   view-transition-name: sn-acct-page;
 }
 html[data-sn-bar-dir]::view-transition-group(sn-bottomnav) {

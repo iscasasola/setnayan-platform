@@ -6,12 +6,13 @@ import { CreditStepper, type StepperRung } from './credit-stepper';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { purchasePapicPoolTopUp } from '../actions';
 import type { PoolRung } from '@/lib/papic-pool-rungs';
-import { CreditNeed } from './credit-need';
 
 /**
- * THE ONE CREDIT FORM — the shipped − / + stepper, the one added line "After
- * this: N credits", and "Continue to payment" (owner "approve all", 2026-10-14,
- * prototype `renderBuySheet`). It lives in the Buy more sheet on Home AND on the
+ * THE ONE CREDIT FORM — the shipped − / + stepper, "New total: N credits", and ONE
+ * button that names the result, "Add N credits · ₱X" (owner "approve all", 2026-10-14,
+ * prototype `renderBuySheet`; owner 2026-10-24: *"it should just ask how much they
+ * want to add more and purchase … New total: and purchase button"* — no "How many do
+ * I need?", no range line, no "Not now"). It lives in the Buy more sheet on Home AND on the
  * Papic page: one form, so the two can never sell one ladder two ways.
  *
  * The rungs arrive already read and sorted (`loadPoolRungs`). The form posts
@@ -21,14 +22,11 @@ export function PapicBuyForm({
   eventId,
   rungs,
   left,
-  need = null,
 }: {
   eventId: string;
   rungs: readonly PoolRung[];
-  /** Credits left now — null when not measured (then "After this" is not said). */
+  /** Credits left now — null when not measured (then "New total" is not said). */
   left: number | null;
-  /** 🧮 The event's own inputs for "How many do I need?" — absent in a caller that has none (the helper is not drawn). */
-  need?: { coming: number | null; each: number | null; named: { count: number; sum: number } | null } | null;
 }) {
   const [adds, setAdds] = useState<number | null>(rungs[0]?.points ?? null);
   const [shown, setShown] = useState<StepperRung | null>(rungs[0] ?? null);
@@ -36,7 +34,6 @@ export function PapicBuyForm({
     setAdds(r.points);
     setShown(r);
   }, []);
-  const [jump, setJump] = useState<{ index: number; seq: number } | null>(null);
   if (rungs.length === 0) return null;
   return (
     <form action={purchasePapicPoolTopUp}>
@@ -45,13 +42,11 @@ export function PapicBuyForm({
       {/* ⚠ A DROPDOWN MADE THE PERSON READ SIXTEEN SENTENCES TO FIND ONE
           NUMBER. Owner 2026-08-28: *"we want a +- value and they will see how
           much will be added."* The stepper walks the SAME rungs. */}
-      {need ? <CreditNeed need={need} left={left} rungs={rungs} onJump={(index) => setJump((j) => ({ index, seq: (j?.seq ?? 0) + 1 }))} /> : null}
-
-      <CreditStepper rungs={rungs} onRungChange={onRung} jump={jump} />
+      <CreditStepper rungs={rungs} onRungChange={onRung} />
 
       {left !== null && adds !== null ? (
         <div className="sg-after" data-papic-after="">
-          <span>After this</span>
+          <span>New total</span>
           <b>{(left + adds).toLocaleString('en-PH')} credits</b>
         </div>
       ) : null}

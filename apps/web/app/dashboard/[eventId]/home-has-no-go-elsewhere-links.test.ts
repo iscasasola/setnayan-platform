@@ -56,14 +56,16 @@ test('no arrow link copy on the rendered Home — read, failed, and every Today'
       assert.doesNotMatch(words(html), ARROWS, `${pickHomeNext(k).kind}${unread ? ' (unread)' : ''}: a go-elsewhere arrow`);
     }
   }
-  // "Edit in Maker" is on the Event Hub widget and nowhere else.
+  // The Maker door is on the Event Hub widget and nowhere else.
   const html = draw(false);
-  // Once on the phone's Event Hub tile (its pen) and once on the md+ Event Hub card.
-  assert.equal(html.split('aria-label="Edit in Maker"').length - 1, 2, 'Edit in Maker is drawn somewhere other than the Event Hub widget');
-  for (const at of [...html.matchAll(/aria-label="Edit in Maker"/g)].map((m) => m.index!)) {
+  // Once on the phone's Event Hub tile (its pen, named "Maker" — owner 2026-10-24) and once on the md+ Event Hub card
+  // ("Edit in Maker").
+  const MAKER = /aria-label="(?:Edit in )?Maker"/g;
+  assert.equal([...html.matchAll(MAKER)].length, 2, 'the Maker door is drawn somewhere other than the Event Hub widget');
+  for (const at of [...html.matchAll(MAKER)].map((m) => m.index!)) {
     const before = html.slice(0, at);
     const owner = Math.max(before.lastIndexOf('data-home-tile="'), before.lastIndexOf('data-home-card-key="'));
-    assert.match(html.slice(owner, owner + 30), /="hub"/, 'Edit in Maker sits on a widget other than the Event Hub');
+    assert.match(html.slice(owner, owner + 30), /="hub"/, 'the Maker door sits on a widget other than the Event Hub');
   }
 });
 

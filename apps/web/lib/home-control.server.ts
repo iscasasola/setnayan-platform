@@ -25,6 +25,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { resolveHubStage } from '@/lib/event-hub-control';
+import { manualLaunchPhase } from '@/lib/invitation-widgets';
 import { publicEventPath, resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { whoCanViewLabel } from '@/lib/event-visibility';
 import { siteUrl } from '@/lib/social/urls';
@@ -56,6 +57,9 @@ export type HomeHubEventRow = {
   cleared_at: string | null;
   timezone: string | null;
   std_invitation_launch_date: string | null;
+  /** The couple's pin (`setLaunchPhase`) — absent/auto = the date decides. */
+  launch_mode?: string | null;
+  manual_phase?: string | null;
 };
 
 /** ③ THE EVENT HUB — null for a type with no Event Hub. Reads only the owner's link segment; the row is the page's. */
@@ -67,7 +71,9 @@ export async function readHomeHub(
 ): Promise<HomeHubFacts | 'unread' | null> {
   if (!opts.website) return null;
   const ownerSlug = await resolveEventOwnerSlug(createAdminClient(), eventId).catch((): null => null);
-  const stage = resolveHubStage({
+  // A PINNED stage wins — it is the page guests open on (`manualLaunchPhase(mode, pin) ?? …`, the composition every
+  // site that picks the page's face uses). Owner 2026-10-25: "Pick what shows" pins it from this very tile.
+  const stage = manualLaunchPhase(ev.launch_mode, ev.manual_phase) ?? resolveHubStage({
     measured: true,
     eventDate: ev.event_date,
     eventEndDate: ev.event_end_date,

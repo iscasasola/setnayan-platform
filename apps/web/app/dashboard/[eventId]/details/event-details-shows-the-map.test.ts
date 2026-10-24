@@ -190,7 +190,7 @@ test('Event Home carries the Event Details door — the Countdown widget', () =>
   // Settings pill; the Countdown — the first widget, right under the name — is Event Details' one door.
   const first = read('app/dashboard/[eventId]/_components/home-first-screen.tsx');
   assert.match(first, /<HomeCoverBand cover=\{cover\}/);
-  assert.match(first, /<HomeControlRow input=\{control\} \/>/);
+  assert.match(first, /<HomeControlRow input=\{control\}[^>]*\/>/);
   const faces = read('app/dashboard/[eventId]/_components/home-control-faces.ts');
   assert.match(faces, /key: 'count',[\s\S]{0,120}?door: `\/dashboard\/\$\{e\}\/details`/, 'the Countdown is not the door to Event Details');
   assert.doesNotMatch(read('app/dashboard/[eventId]/_components/home-cover-band.tsx'), /data-home-event-details/, 'the cover’s pill is back — a second door');

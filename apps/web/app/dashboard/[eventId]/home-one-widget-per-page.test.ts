@@ -87,7 +87,8 @@ test('2 · each face opens the exact item the notes name', () => {
     ['guests', 'guests-declined', '/dashboard/e1/guests?q=declined'],
     ['guests', 'guests-total', '/dashboard/e1/guests'],
     ['hub', 'hub-now', PUBLIC],
-    ['hub', 'hub-next', '/dashboard/e1/launch?stage=event'],
+    // Owner 2026-10-24: a tap on the Event Hub tile opens the Event Hub — from EVERY face, the next page's too.
+    ['hub', 'hub-next', PUBLIC],
     ['sup', 'sup-booked', '/dashboard/e1/vendors'],
     // PR-E: the exact quote — that supplier's workspace on its Quote tab.
     ['sup', 'sup-decide', '/dashboard/e1/vendors/v-lumiere/workspace?tab=quote'],
@@ -106,12 +107,14 @@ test('2 · each face opens the exact item the notes name', () => {
   // Each face's tiny action opens the same exact item as the face (Remind → the no-reply list, no reminder flow).
   for (const t of tiles) for (const f of t.faces) if (f.action?.href) assert.equal(pageOf(f.action.href), HOME_CONTROL_PAGE[t.key], `${t.key}/${f.id}: its action leaves the widget's page`);
   assert.equal(face('guests', 'guests-noreply')!.action!.href, '/dashboard/e1/guests?q=no+reply', '"Remind" lands on the no-reply list');
-  // The Event Hub's two buttons: Edit in Maker (same tab) · View Event Hub (the public page).
+  // The Event Hub's two buttons (owner 2026-10-24): Pick what shows (a sheet in place, no page) · Maker (same tab).
+  // The tile itself is the View — every face opens the public page.
   const hub = tiles.find((t) => t.key === 'hub')!;
-  assert.deepEqual(hub.side?.map((a) => [a.label, a.href, Boolean(a.external)]), [
-    ['Edit in Maker', '/dashboard/e1/launch', false],
-    ['View Event Hub', PUBLIC, true],
+  assert.deepEqual(hub.side?.map((a) => [a.label, a.href, Boolean(a.external), a.sheet ?? null]), [
+    ['Pick what shows', null, false, 'hub-pick'],
+    ['Maker', '/dashboard/e1/launch', false, null],
   ]);
+  for (const f of hub.faces) assert.ok(f.href === PUBLIC && f.external, `hub/${f.id}: a tap does not open the Event Hub`);
 });
 
 test('3 · the params Home leans on still answer for every caller', () => {

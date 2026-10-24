@@ -1237,49 +1237,15 @@ function savedFromHome(formData: FormData): boolean {
  */
 export async function papicBuySizes(
   rawEventId: string,
-): Promise<
-  | {
-      ok: true;
-      rungs: PoolRung[];
-      /**
-       * 🧮 "How many do I need?" (owner 2026-10-23) — the event's own inputs, never a guess: the head count the
-       * allotment rule divides by (`papic_event_guest_headcount`; null = the read was refused) and the per-guest
-       * number only when the couple has set one (null = none — the sheet asks).
-       */
-      need: { coming: number | null; each: number | null; named: { count: number; sum: number } | null };
-    }
-  | { ok: false; reason: 'not_couple' | 'over' | 'none' }
-> {
+): Promise<{ ok: true; rungs: PoolRung[] } | { ok: false; reason: 'not_couple' | 'over' | 'none' }> {
   const who = await getCoupleEventId(rawEventId);
   if (!who.ok) return { ok: false, reason: 'not_couple' };
   const admin = createAdminClient();
   if (await eventIsOver(admin, who.eventId)) return { ok: false, reason: 'over' };
-  const [rungs, headRes, capRes, namedRes] = await Promise.all([
-    loadPoolRungs(admin),
-    admin.rpc('papic_event_guest_headcount', { p_event_id: who.eventId }),
-    admin.from('events').select('papic_guest_spend_ceiling_on, papic_guest_spend_ceiling_points').eq('event_id', who.eventId).maybeSingle(),
-    // The named guests' set numbers (each guest card's own Papic number) — read with the admin client, as the rule's
-    // own readers do (the table is never reachable from a browser).
-    // …only for guests still counted — not removed (`deleted_at`) and not declined — exactly as the DB rule sums them
-    // (`papic_guest_spend_ceiling`, migration 20271241532112): a removed guest's old number is not a share anyone has.
-    admin
-      .from('papic_guest_spend_ceilings')
-      .select('ceiling_points, guests!inner(deleted_at, rsvp_status)')
-      .eq('event_id', who.eventId)
-      .is('guests.deleted_at', null)
-      .neq('guests.rsvp_status', 'declined'),
-  ]);
-  if (namedRes.error) logQueryError('papicBuySizes.named', namedRes.error, { event_id: who.eventId }, 'graceful_degrade');
-  if (headRes.error) logQueryError('papicBuySizes.headcount', headRes.error, { event_id: who.eventId }, 'graceful_degrade');
-  if (capRes.error) logQueryError('papicBuySizes.ceiling', capRes.error, { event_id: who.eventId }, 'graceful_degrade');
-  const coming = headRes.error || typeof headRes.data !== 'number' ? null : headRes.data;
-  const cap = capRes.data as { papic_guest_spend_ceiling_on?: boolean | null; papic_guest_spend_ceiling_points?: number | null } | null;
-  const each = cap?.papic_guest_spend_ceiling_on === true && typeof cap.papic_guest_spend_ceiling_points === 'number' ? cap.papic_guest_spend_ceiling_points : null;
-  const namedRows = (namedRes.data ?? []) as { ceiling_points: number | null }[];
-  const named = namedRes.error
-    ? null
-    : { count: namedRows.length, sum: namedRows.reduce((n, r) => n + (typeof r.ceiling_points === 'number' ? r.ceiling_points : 0), 0) };
-  return rungs.length > 0 ? { ok: true, rungs, need: { coming, each, named } } : { ok: false, reason: 'none' };
+  // 🧮 "How many do I need?" left the sheet (owner 2026-10-24: *"asked for how many photos each doesn't need to show.
+  // it should just ask how much they want to add more and purchase"*), and with it the three reads it made on every tap.
+  const rungs = await loadPoolRungs(admin);
+  return rungs.length > 0 ? { ok: true, rungs } : { ok: false, reason: 'none' };
 }
 
 /**

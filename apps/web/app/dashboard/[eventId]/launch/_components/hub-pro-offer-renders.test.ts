@@ -130,7 +130,7 @@ test('the couple who has not bought it sees the offer, and the whole of it', asy
   for (const item of [
     'Cinematic Reveal',
     'Save-the-Date video',
-    'Photo gallery',
+    'Photos you add',
     'Background music',
     'Photo and video backgrounds',
     // The theme count is the registry's (owner 2026-09-29: Modern and Cyber

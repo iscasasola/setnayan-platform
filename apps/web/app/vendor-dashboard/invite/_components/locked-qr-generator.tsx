@@ -525,7 +525,7 @@ export function LockedQrGenerator({
           rows={3}
           maxLength={2000}
           className="input-field w-full"
-          placeholder="e.g. 8 hours coverage · 2 photographers · 300+ edited photos · online gallery · 1 layflat album"
+          placeholder="e.g. 8 hours coverage · 2 photographers · 300+ edited photos · online album · 1 layflat album"
           value={serviceDescription}
           onChange={(e) => setServiceDescription(e.target.value)}
         />

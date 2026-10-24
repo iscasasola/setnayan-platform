@@ -21,6 +21,8 @@ export const LAB_GUEST_ACTIONS: Partial<GuestActions> = {
     seats: { removedIds: [], releasedSeats: [] },
   }),
   restoreGuestRsvpAndSeat: async () => ({ ok: true }),
+  /* 📸 Their camera / Set… › Papic — local: says every guest was set. */
+  setGuestAllotment: async (fd: FormData) => ({ ok: true as const, set: fd.getAll('guest_id').length }),
   createGuestGroup: async () => undefined as never,
   addSingleGuest: async (_eventId, draft) => ({
     ok: true,

@@ -28,7 +28,8 @@ import { stripComments } from '@/lib/strip-comments';
 import { rosterSearchMatches, rosterStats, type RosterFacts } from '@/lib/guest-roster-view';
 import { computeGuestStats, REQUEST_ENTRY_SOURCE, type GuestRow } from '@/lib/guests';
 import { homeFacts } from '@/lib/home-facts';
-import { glanceDays, pickHomeNext } from '@/lib/home-first-screen';
+import { pickHomeNext } from '@/lib/home-first-screen';
+import { fixtureControl } from '@/lib/home-control-fixture';
 
 (globalThis as unknown as { React: unknown }).React = React;
 type CjsModuleCtor = {
@@ -133,24 +134,20 @@ test('2b · Home states the counts it is HANDED — the list\'s own, never a sec
   assert.equal(refused.noReply, '—');
 });
 
-test('1 · COMING opens the list filtered to coming, NO REPLY to no reply', async () => {
+test('1 · COMING opens the list filtered to coming, NO REPLY to no reply, CAN\'T COME to declined — on both versions', async () => {
+  // RE-AIMED 2026-10-24: the two guest tiles became the ONE Guests widget (owner: "one widget per destination"); each
+  // of its faces opens the exact list it counts — the tile's faces on the phone, the card's figures from md up.
   const { HomeFirstScreen } = await import('./_components/home-first-screen');
+  const control = fixtureControl('e1', { next: pickHomeNext({ guide: null, hasDate: true, guests: { total: 9, unsent: 0 }, noun: 'wedding', papicReady: false, aiOffer: false }) });
   const html = renderToStaticMarkup(
-    React.createElement(HomeFirstScreen, {
-      eventId: 'e1',
-      cover: { eyebrow: 'Wedding', name: 'A & B' },
-      next: pickHomeNext({ guide: null, hasDate: true, guests: { total: 9, unsent: 0 }, noun: 'wedding', papicReady: false, aiOffer: false }),
-      days: glanceDays(10),
-      coming: '2',
-      noReply: '3',
-      noReplyWaiting: true,
-      money: null,
-      services: [],
-    } as never),
+    React.createElement(HomeFirstScreen, { eventId: 'e1', cover: { eyebrow: 'Wedding', name: 'A & B' }, next: control.next, control, services: [] } as never),
   );
-  const href = (tile: string) => html.match(new RegExp(`<a [^>]*data-home-tile="${tile}"[^>]*>`))?.[0].match(/href="([^"]*)"/)?.[1] ?? null;
-  assert.equal(href('coming'), '/dashboard/e1/guests?q=coming');
-  assert.equal(href('no-reply'), '/dashboard/e1/guests?q=no+reply');
+  const face = (id: string) => html.match(new RegExp(`data-home-face="${id}" data-home-face-href="([^"]*)"`))?.[1]?.replace(/&amp;/g, '&') ?? null;
+  assert.equal(face('guests-coming'), '/dashboard/e1/guests?q=coming');
+  assert.equal(face('guests-noreply'), '/dashboard/e1/guests?q=no+reply');
+  assert.equal(face('guests-declined'), '/dashboard/e1/guests?q=declined');
+  const card = html.slice(html.indexOf('data-home-card-key="guests"'));
+  for (const q of ['coming', 'no+reply', 'declined']) assert.ok(card.includes(`href="/dashboard/e1/guests?q=${q}"`), `the Guests card's ${q} figure does not open its list`);
   assert.equal(new URLSearchParams('q=no+reply').get('q'), 'no reply', 'the page reads the words the search understands');
 });
 
@@ -162,6 +159,7 @@ test('3 · the page hands Home the Guests list\'s own counts — one rosterStats
     /guests: \{ stats: guestStats, measured: guestsMeasured, noReply: homeRoster\.none, coming: homeRoster\.yes \}/,
     'a tile is fed by something other than the one rosterStats call',
   );
+  assert.match(page, /roster: guestsMeasured \? homeRoster : null,/, 'the Guests widget is fed by something other than the one rosterStats call');
   assert.equal(page.match(/rosterStats\(/g)?.length, 1, 'Home calls rosterStats more than once — two counts of one list');
   const guestsPage = stripComments(readFileSync(join(HERE, 'guests', 'page.tsx'), 'utf8'));
   assert.match(guestsPage, /initialQuery=\{[^}]*search\.q/, 'the Guests page seeds its search box from ?q=');

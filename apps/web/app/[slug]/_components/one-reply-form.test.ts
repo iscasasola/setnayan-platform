@@ -12,8 +12,8 @@
  *   (2) THE REAL GUEST PAGE (`SiteBody`, drawn with no database) — not replied, and replied yes: no sheet on it (no
  *       `#your-details` panel, no dialog, no reply form, no answer inputs), no link to the sheet's anchor, and at
  *       least one door to `/…/invite/reply`.
- *   (3) ME's doors — "Reply to the invitation" on the ticket, "Change your reply" — are handed the reply page, on a
- *       tabbed page (site-body) and on a page that is one scroll (page.tsx).
+ *   (3) ME's door — since 2026-10-24 ONE: `MeReply` (the page's own action, the reply page) on a tabbed page; the
+ *       ticket's "Reply to the invitation" on a page that is one scroll (page.tsx).
  *   (4) THE ONE FORM KEEPS ITS RULES: the reply page's save asks for the Terms tick and refuses a reply with no
  *       answer chosen.
  *   (5) WHAT IS LEFT, AND ONLY THERE: the sheet is still drawn in the Maker's canvas (its own "RSVP page" opens the
@@ -77,8 +77,12 @@ test('(3) Me’s doors are handed the reply page — tabbed, and on a page that 
   const body = code('app/[slug]/_components/site-body.tsx');
   assert.match(body, /const replyDoor = inviteReplyPath\(event\.slug \?\? ''\);/);
   const me = body.slice(body.indexOf('data-me-stage'));
-  assert.match(me, /meLeadsWithReply\(\{[\s\S]{0,260}?\}\)\s*\? replyDoor\s*: null,/, 'the ticket’s "Reply to the invitation" is not the reply page');
-  assert.match(me, /<a\s+href=\{replyDoor\}\s+data-me-change-reply=""/, '"Change your reply" is not the reply page');
+  // 🔁 RE-AIMED 2026-10-24 (owner, the Me redraw — "one place"): the ticket's "Reply to the invitation" and the
+  // "Change your reply" bar are gone; Me's ONE Reply is `MeReply`, from the page's own action (`replyCardOf` over
+  // `resolveArrivalAction`, whose door is the reply page). The page holds exactly one door — `me-is-the-one-place.test.ts`.
+  assert.match(me, /<MeReply ask=\{greetingAskOf\(meReplyCard\)!\}/, 'Me does not draw its one Reply');
+  assert.match(body, /const replyCardHere =[\s\S]{0,200}?replyCardOf\(\{\s*action: arrivalAction,/, 'Me’s Reply is not the page’s own action');
+  assert.doesNotMatch(me, /data-me-change-reply|meLeadsWithReply/, 'a second door to the reply is back on Me');
   assert.doesNotMatch(body, /REPLY_SHEET_ANCHOR|href="#your-details"/, 'a door in the guest tree names the sheet');
   const page = code('app/[slug]/page.tsx');
   assert.match(page, /\? inviteReplyPath\(event\.slug \?\? slug\)\s*: null,/, 'on a page that is one scroll, Me’s reply button is not the reply page');

@@ -34,6 +34,7 @@ import {
   allotmentRowState,
   suggestedAllotment,
   splitTheRest,
+  allotmentRowValue,
   summariseAllotments,
   guestMinimumVerdict,
   summariseMinimum,
@@ -43,6 +44,8 @@ import { setGuestAllotment, setGuestAllotments, releaseTheRest } from '../action
 import { SettingRow } from './setting-row';
 import { GuestAllotmentPicker } from './guest-allotment-picker';
 import { formatCount } from '@/lib/format-number';
+import { InfoTip } from '@/app/_components/info-tip';
+import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
 
 /**
  * "HOW MANY CREDITS EACH GUEST GETS" — the couple's own numbers, one row.
@@ -77,9 +80,19 @@ import { formatCount } from '@/lib/format-number';
 export async function GuestAllotmentsChoice({
   eventId,
   variant = 'card',
+  eventWide = false,
+  returnTo = null,
 }: {
   eventId: string;
   variant?: 'card' | 'row';
+  /**
+   * 👥 THE EVENT-WIDE LIMIT ONLY (owner ruling 2026-10-24: "the event-wide 'Each guest, at most ___' moves INTO the Home
+   * Papic card's settings; guest cards override per person"): the switch, everyone's number, the least anybody gets
+   * and the release — and NOT the named list, which is each guest card's own Papic group (#6854).
+   */
+  eventWide?: boolean;
+  /** 🏠 'home' inside Home's Papic card — a save lands back on Home. */
+  returnTo?: 'home' | null;
 }) {
   const supabase = await createClient();
   const admin = createAdminClient();
@@ -257,6 +270,7 @@ export async function GuestAllotmentsChoice({
       <form action={setGuestAllotments} className="flex flex-wrap items-center gap-2">
         <input type="hidden" name="event_id" value={eventId} />
         <input type="hidden" name="enabled" value={enabled ? '0' : '1'} />
+        {returnTo ? <input type="hidden" name="return_to" value={returnTo} /> : null}
         {/* ⚠ CARRY BOTH NUMBERS THROUGH EVERY FORM. `setGuestAllotments` writes
             all three fields on one UPDATE, so a form that posts only its own box
             silently clears the other — the switch would wipe the minimum. */}
@@ -306,6 +320,7 @@ export async function GuestAllotmentsChoice({
           <form action={setGuestAllotments} className="space-y-2">
             <input type="hidden" name="event_id" value={eventId} />
             <input type="hidden" name="enabled" value="1" />
+            {returnTo ? <input type="hidden" name="return_to" value={returnTo} /> : null}
             <label className="block text-sm font-medium text-ink">
               Everyone you have not named
             </label>
@@ -360,6 +375,7 @@ export async function GuestAllotmentsChoice({
           <form action={setGuestAllotments} className="space-y-2">
             <input type="hidden" name="event_id" value={eventId} />
             <input type="hidden" name="enabled" value="1" />
+            {returnTo ? <input type="hidden" name="return_to" value={returnTo} /> : null}
             <input type="hidden" name="everyone_else" value={everyoneElse ?? ''} />
             <label className="block text-sm font-medium text-ink">
               The least anybody gets
@@ -396,6 +412,16 @@ export async function GuestAllotmentsChoice({
           </form>
 
           {/* NAMING GUESTS — the real new control. */}
+          {eventWide ? (
+            <Link
+              href={`/dashboard/${eventId}/guests`}
+              className="flex min-h-11 items-center justify-between gap-3 text-[14px] text-ink/70"
+              data-allotment-guest-cards=""
+            >
+              <span>Someone gets their own number on their guest card</span>
+              <span aria-hidden>›</span>
+            </Link>
+          ) : (
           <div className="space-y-2">
             <p className="text-sm font-medium text-ink">Give someone their own number</p>
             {/* ⚖ THE COUPLE DOES NOT ADD GUESTS HERE (owner, 2026-09-22, asked
@@ -454,10 +480,12 @@ export async function GuestAllotmentsChoice({
               not use is not held for her: it stays in the pot and anybody may take it.
             </p>
           </div>
+          )}
 
           {/* THE RELEASE. */}
           <form action={releaseTheRest} className="space-y-2 border-t border-ink/10 pt-4">
             <input type="hidden" name="event_id" value={eventId} />
+            {returnTo ? <input type="hidden" name="return_to" value={returnTo} /> : null}
             <p className="text-sm font-medium text-ink">Open the rest to everyone</p>
             <p className="text-xs text-ink/55">
               {releasedAt
@@ -473,19 +501,104 @@ export async function GuestAllotmentsChoice({
     </div>
   );
 
-  const value = !enabled
-    ? 'Off'
-    : split.overCommitted
-      ? 'Over'
-      : `${split.perHead} each`;
+  // 🏷 Says WHICH number it is — the couple's own limit or an equal share (`allotmentRowValue`).
+  const value = allotmentRowValue({
+    enabled,
+    split,
+    shareEach: splitTheRest({ ...inputs, everyoneElse: null }).perHead,
+    everyoneElse,
+  });
+
+  if (eventWide) {
+    // 📷 IN THE PAPIC CARD, INLINE (owner 2026-10-24, the approved sketch): "Credits per guest" and its switch, then
+    // "Each guest, at most" and "The least anybody gets", each a box saved on its own — the same three fields of the
+    // same action, every form carrying the others (`setGuestAllotments` writes all three on one UPDATE). Off, the boxes
+    // stay and go quiet (they never jump). Each guest's own number is on their guest card.
+    const carry = (
+      <>
+        <input type="hidden" name="event_id" value={eventId} />
+        {returnTo ? <input type="hidden" name="return_to" value={returnTo} /> : null}
+      </>
+    );
+    return (
+      <div className="flex flex-col gap-1 py-2" data-papic-setting="credits-per-guest">
+        <div className="flex items-center gap-3">
+          <span className="min-w-0 flex-1">
+            <InfoTip label="Credits per guest" labelClassName="text-[15px] font-semibold text-ink" align="start">
+              Off, every guest draws from the one pot until it runs out. On, each guest may take up to the number below —
+              an equal share of what is left when you leave it blank. A guest&rsquo;s own number is on their guest card.
+              Every credit still comes out of the one pot, first come first served.
+            </InfoTip>
+            <span className="block text-[12.5px] text-ink/60">{value}</span>
+          </span>
+          <form action={setGuestAllotments} className="shrink-0">
+            {carry}
+            <input type="hidden" name="enabled" value={enabled ? '0' : '1'} />
+            {enabled ? (
+              <>
+                <input type="hidden" name="everyone_else" value={everyoneElse ?? ''} />
+                <input type="hidden" name="minimum_each" value={floorPoints ?? ''} />
+              </>
+            ) : null}
+            <button type="submit" role="switch" aria-checked={enabled} aria-label="Credits per guest" className={SWITCH_BUTTON}>
+              <SwitchTrack on={enabled} />
+            </button>
+          </form>
+        </div>
+        <div inert={!enabled} aria-hidden={!enabled} className={`flex flex-col transition-opacity ${enabled ? '' : 'opacity-45'}`}>
+          <form action={setGuestAllotments} className="flex items-center gap-3 py-2" data-allotment-at-most="">
+            {carry}
+            <input type="hidden" name="enabled" value="1" />
+            <input type="hidden" name="minimum_each" value={floorPoints ?? ''} />
+            <label className="min-w-0 flex-1 text-[14px] text-ink">
+              Each guest, at most
+              <span className="block text-[12.5px] text-ink/55">Blank = an equal share of what is left</span>
+            </label>
+            <input
+              type="number"
+              name="everyone_else"
+              min={1}
+              step={1}
+              defaultValue={enabled ? (everyoneElse ?? '') : ''}
+              placeholder={enabled ? String(split.perHead) : '—'}
+              aria-label="Each guest, at most"
+              className="h-10 w-24 rounded-full border border-ink/15 bg-paper px-3 text-right text-[14px] text-ink"
+            />
+            <SubmitButton className="inline-flex h-10 shrink-0 items-center rounded-full border border-ink/15 px-4 text-[13px] font-medium text-ink hover:bg-ink/5 disabled:opacity-45">Save</SubmitButton>
+          </form>
+          <form action={setGuestAllotments} className="flex items-center gap-3 py-2" data-allotment-least="">
+            {carry}
+            <input type="hidden" name="enabled" value="1" />
+            <input type="hidden" name="everyone_else" value={everyoneElse ?? ''} />
+            <label className="min-w-0 flex-1 text-[14px] text-ink">
+              The least anybody gets
+              <span className="block text-[12.5px] text-ink/55">Blank = no minimum</span>
+            </label>
+            <input
+              type="number"
+              name="minimum_each"
+              min={1}
+              step={1}
+              defaultValue={enabled ? (floorPoints ?? '') : ''}
+              placeholder="—"
+              aria-label="The least anybody gets"
+              className="h-10 w-24 rounded-full border border-ink/15 bg-paper px-3 text-right text-[14px] text-ink"
+            />
+            <SubmitButton className="inline-flex h-10 shrink-0 items-center rounded-full border border-ink/15 px-4 text-[13px] font-medium text-ink hover:bg-ink/5 disabled:opacity-45">Save</SubmitButton>
+          </form>
+          {minimumLine ? <p className="pb-1 text-[12.5px] text-ink/60">{minimumLine}</p> : null}
+        </div>
+      </div>
+    );
+  }
 
   if (variant === 'row') {
     return (
       <SettingRow
         icon={<Coins aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
-        label="How many credits each guest gets"
+        label={eventWide ? 'Each guest, at most' : 'Each guest'}
         value={value}
-        sheetTitle="How many credits each guest gets"
+        sheetTitle="Credits for each guest"
       >
         {control}
       </SettingRow>
@@ -522,9 +635,9 @@ function AllotmentsCouldNotLoad({ variant }: { variant: 'card' | 'row' }) {
     return (
       <SettingRow
         icon={<Coins aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
-        label="How many credits each guest gets"
+        label="Each guest"
         value="Couldn’t load"
-        sheetTitle="How many credits each guest gets"
+        sheetTitle="Credits for each guest"
       >
         {body}
       </SettingRow>

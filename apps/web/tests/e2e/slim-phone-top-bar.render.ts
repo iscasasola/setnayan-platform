@@ -101,7 +101,6 @@ void (async () => {
     const shell = h(FrontDoorShell, {
       variant: 'app',
       account: { signedIn: true, initials: 'AR', shopName: null, isAdmin: false },
-      tools: [],
       navLabels: {},
       topBarSlot: cluster,
       // 2026-10-22 ("One thumb row"): a signed-in tree hands the bar no search — the thumb row has it.
@@ -161,7 +160,6 @@ void (async () => {
       h(FrontDoorShell, {
         variant: 'app',
         account: { signedIn: true, initials: 'AR', shopName: null, isAdmin },
-        tools: [],
         navLabels: {},
         topBarSlot,
         search,

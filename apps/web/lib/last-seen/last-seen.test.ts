@@ -171,7 +171,9 @@ test('2 · money is never kept — a peso figure or a data-money part never reac
 
   // The money parts of the five pages carry the marker the snapshot drops.
   const marked: [string, RegExp][] = [
-    ['app/dashboard/[eventId]/_components/home-first-screen.tsx', /data-home-money\s*\n[^>]*data-money=""/],
+    // Home's Budget widget, both versions (owner-approved 2026-10-24: the money tile became the Budget widget).
+    ['app/dashboard/[eventId]/_components/home-tile.tsx', /data-money=\{model\.key === 'budget' \? '' : undefined\}/],
+    ['app/dashboard/[eventId]/_components/home-control-row.tsx', /data-money=\{k === 'budget' \? '' : undefined\}/],
     ['app/dashboard/[eventId]/_components/event-dashboard.tsx', /key="budget"[\s\S]{0,200}?data-money=""/],
     ['app/dashboard/[eventId]/_components/event-dashboard.tsx', /data-money=\{group\.id === 'pay'/],
     ['app/dashboard/[eventId]/details/page.tsx', /data-money=\{k === 'budget' \|\| k === 'purchases'/],

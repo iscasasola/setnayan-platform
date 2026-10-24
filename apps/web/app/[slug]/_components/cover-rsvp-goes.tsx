@@ -21,6 +21,8 @@ export function CoverRsvpGoes() {
       if (!href.startsWith('#')) return;
       const part = document.getElementById(href.slice(1));
       if (!part) return; // nothing to go to: let the browser do what it would
+      /* 🪪 A part on ANOTHER tab (Me's Reply, `#me-reply` — owner 2026-10-24): the hub shell opens that tab at it. */
+      if (part.closest('[hidden]')) return;
       e.preventDefault();
       const calm = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
       /* Where to stop: the card just clear of the top bar — and never short of the cover's last words (its foot's

@@ -75,7 +75,6 @@ export default async function NewServiceCardPage({
         coverageAsk={ctx.coverageAsk}
         schedules={ctx.schedules}
         scheduleOfKind={ctx.scheduleOfKind}
-        slotsPerDay={ctx.slotsPerDay}
         branches={ctx.branches}
         detailsKind={details ? ctx.onlyKind : null}
         detailsSlot={

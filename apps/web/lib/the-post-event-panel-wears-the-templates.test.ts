@@ -163,7 +163,7 @@ test('(4) nothing is printed that is not a fact or a failure: every sentence is 
     waiting: 'This scene fills itself from your day. Until then your guests never meet an empty box — you see it here, waiting, in the style you pick.',
     written: 'Written from what happened. Tap any part of the scene to edit it here.',
     sharedStyle: 'This style is shared with the same scene on your other stages — pick once.',
-    galleryShare: 'The day’s chapters and the gallery share one switch — hiding one hides both.',
+    galleryShare: 'The day’s chapters and Memories share one switch — hiding one hides both.',
     chaptersMove: 'The day’s chapters move together, in the order they happened.',
   });
   const cases = [

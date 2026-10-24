@@ -118,7 +118,7 @@ export async function vendorMarkServiceComplete(formData: FormData) {
         userId: m.user_id,
         type: 'review_request',
         title: `${ev.vendor_name ?? 'Your supplier'} marked their service complete`,
-        body: 'Confirm you received everything to unlock your review and galleries.',
+        body: 'Confirm you received everything to unlock your review and photos.',
         relatedUrl: `/dashboard/${eventId}/vendors/${ev.vendor_id}/review`,
       });
     }

@@ -67,17 +67,16 @@ test('2 · the Me tab’s anchor does not open the reply sheet; the reply’s ow
   }
 });
 
-test('2 · "Change your reply" is a button ON Me, gated like the sheet it opens', () => {
-  const at = BODY.indexOf('data-me-change-reply');
-  assert.ok(at > -1, 'Me has no "Change your reply" button');
-  const gate = BODY.lastIndexOf('plan.rsvpShouldRender', at);
-  assert.ok(gate > BODY.indexOf("group('me'"), 'the button is not gated on the sheet’s own gate — it could point at nothing');
-  const tag = BODY.slice(BODY.lastIndexOf('<a', at), BODY.indexOf('</a>', at));
-  // 🔁 RE-AIMED 2026-10-11 (owner, "ONE REPLY FORM"): every reply door opens the reply PAGE (`inviteReplyPath`); the sheet is drawn only in the Maker's canvas.
-  assert.match(tag, /href=\{replyDoor\}/);
-  assert.match(tag, /Change your reply/);
-  // Only a guest who HAS replied; a pending guest is asked from the Home door.
-  assert.match(BODY.slice(gate, at), /'attending'[\s\S]{0,60}'declined'/);
+test('2 · "Change my reply" is ON Me — Me’s one Reply, gated like the reply it opens', () => {
+  /* 🔁 RE-AIMED 2026-10-24 (owner, the Me redraw — "one place"): the separate "Change your reply" bar folded into Me's
+     one Reply (`MeReply`): after a reply it reads "You're coming ✓ · Change my reply" (`replyCardOf`). Still ON Me,
+     still gated on the reply's own gate (`plan.rsvpShouldRender`), never a door that points at nothing. */
+  assert.ok(!BODY.includes('data-me-change-reply'), 'the separate "Change your reply" bar is back — a second door');
+  const at = BODY.indexOf('<MeReply ask={greetingAskOf(meReplyCard)!}');
+  assert.ok(at > BODY.indexOf("group('me'"), 'Me has no Reply of its own');
+  const card = BODY.slice(BODY.indexOf('const replyCardHere ='), BODY.indexOf('const meReplyCard ='));
+  assert.match(card, /plan\.rsvpShouldRender/, 'Me’s Reply is not gated on the reply’s own gate — it could point at nothing');
+  assert.match(card, /replyCardOf\(\{\s*action: arrivalAction,/, 'Me’s Reply is not the page’s own action (the reply page)');
 });
 
 // ── 3 · MOBILE IS ASKED IN THE REPLY, MARKED, AND NEVER ON A SECOND SCREEN ──
@@ -166,13 +165,16 @@ test('3 · the save refuses a yes without the number, with a sentence — and a 
 // ── 4 · NO "MAYBE" IN THE GUEST'S INTRO ─────────────────────────────────────
 
 test('4 · the intro tour and the guest help offer yes or no — there is no Maybe', () => {
-  for (const rel of ['lib/tours.ts', 'lib/help.ts']) {
-    const src = readFileSync(join(WEB, rel), 'utf8');
-    const line = src.split('\n').find((l) => /RSVP button/.test(l) && /Yes/.test(l));
-    assert.ok(line, `${rel}: the RSVP line moved — re-point this guard`);
-    assert.doesNotMatch(line, /Maybe/i, `${rel} still offers a Maybe the guest is never shown`);
-    assert.match(line, /Yes or No/);
-  }
+  const tours = readFileSync(join(WEB, 'lib/tours.ts'), 'utf8').split('\n').find((l) => /RSVP button/.test(l) && /Yes/.test(l));
+  assert.ok(tours, 'lib/tours.ts: the RSVP line moved — re-point this guard');
+  assert.doesNotMatch(tours, /Maybe/i, 'lib/tours.ts still offers a Maybe the guest is never shown');
+  assert.match(tours, /Yes or No/);
+  // Re-pointed ON PURPOSE (help-sync, 2026-10-23): the help answer now names the card the guest actually sees —
+  // "Reply" on "Will you join us?" — whose two answers the host words (Joyfully accepts / Regretfully declines by
+  // default), so it no longer says "Yes or No". The property is the same: no Maybe.
+  const help = readFileSync(join(WEB, 'lib/help.ts'), 'utf8').split('\n').find((l) => /Will you join us\?/.test(l) && /Reply/.test(l));
+  assert.ok(help, 'lib/help.ts: the RSVP answer moved — re-point this guard');
+  assert.doesNotMatch(help, /Maybe/i, 'lib/help.ts still offers a Maybe the guest is never shown');
 });
 
 // ── 5 · THE CAMERA CONSENT CARD IS FOR THE DAY ──────────────────────────────

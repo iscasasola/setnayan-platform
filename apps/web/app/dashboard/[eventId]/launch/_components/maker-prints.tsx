@@ -440,6 +440,7 @@ export function PrintPieceEditor({
             holds={guestPrintCountLine('pass', guests)}
             none="No guest has a pass yet — a pass appears once a guest is on your list and coming."
             changed={changed}
+            pickNoun={{ one: 'pass', many: 'passes' }}
           />
         </div>
       );
@@ -675,6 +676,7 @@ function studioFreeEditor(eventId: string, slug: string | null, fp: FreePrint, i
           all={qr ? freeAllGuestsFile({ ...fp.saves[0]!, label: 'All guests' }) : proOf(fp.saves[0]!, ALL_GUESTS_NOTE[fp.key]!)}
           holds={guestPrintCountLine(fp.key, guests)}
           none="No guest is on your list yet — add your guests, then pick one here."
+          pickNoun={qr ? { one: 'QR code', many: 'QR codes' } : null}
         />
       </div>
     );

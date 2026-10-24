@@ -24,6 +24,7 @@ import {
 import type { SwitcherData } from './get-switcher-data';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { newLabel, readSheetUnreadUrls, splitSheetUnread, type SheetUnread } from '@/lib/avatar-sheet-counts';
+import { signOutAllAction } from '@/lib/account-jars';
 
 type Props = {
   data: SwitcherData;
@@ -384,6 +385,41 @@ export function SwitcherPanelBody({
             <Trail on={false} />
           </Link>
         ) : null}
+
+        {/* 🔁 OTHER ACCOUNTS ON THIS PHONE (owner 2026-10-22, "Like in facebook how i can switch to different email
+            addresses"). Each row posts its id to the switch, which refreshes that account's jar, checks it IS that
+            account, and swaps the session — instant, no password (lib/account-jars.ts). No count: reading another
+            login's notifications would need its session on this page, which is exactly what the jars keep out. */}
+        {(data.otherAccounts ?? []).map((acct) => (
+          <form key={acct.uid} action="/auth/accounts/switch" method="post" data-sheet-place="account" data-sheet-account={acct.uid}>
+            <input type="hidden" name="uid" value={acct.uid} />
+            <button type="submit" className={ROW}>
+              <RowMark className="bg-[var(--m-ivory)] text-ink">{(acct.name?.trim() || acct.email).charAt(0).toUpperCase()}</RowMark>
+              <span className="min-w-0 flex-1">
+                <span className={NAME}>{acct.name?.trim() || acct.email}</span>
+                <span className={SUB}>
+                  <span aria-hidden className="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border border-[var(--m-line)] text-[9px] font-semibold text-ink">@</span>
+                  <span className="truncate">{acct.email}</span>
+                </span>
+              </span>
+              <Tag>Account</Tag>
+              <Trail on={false} />
+            </button>
+          </form>
+        ))}
+        {!data.isAnonymous && data.canAddAccount ? (
+          <form action="/auth/accounts/add" method="post" data-sheet-place="add-account">
+            <button type="submit" className={ROW}>
+              <RowMark className="border-[1.5px] border-dashed border-[var(--m-line)] text-[var(--m-slate-2)]">
+                <Plus className="h-5 w-5" strokeWidth={2} />
+              </RowMark>
+              <span className="min-w-0 flex-1">
+                <span className={NAME}>Add another account</span>
+              </span>
+              <Trail on={false} />
+            </button>
+          </form>
+        ) : null}
       </nav>
 
       {/* ── 3 · Your shop — the supplier's own rows, vendor layout only ── */}
@@ -475,10 +511,10 @@ export function SwitcherPanelBody({
         )}
       </div>
 
-      {/* ── 5 · Sign out of all accounts — one quiet line. One login lives on this phone today, so it is the same
-          sign-out; "Other accounts on this phone" is the account-switch PR's. ── */}
+      {/* ── 5 · Sign out of all accounts — one quiet line: every account on this phone (their jars revoked and
+          expired, lib/account-jars.ts), then the one you are on. ── */}
       {!data.isAnonymous ? (
-        <form action="/auth/sign-out" method="post" className="flex justify-center pt-1.5">
+        <form action={signOutAllAction(data.otherAccounts)} method="post" className="flex justify-center pt-1.5">
           <button
             type="submit"
             data-sheet-sign-out-all=""
@@ -506,6 +542,22 @@ export function AccountSwitcher({ data, currentEventName, referHref, shopRows, h
     through the bell's own read split by place (lib/avatar-sheet-counts.ts). A refused or partial read leaves
     `unread` null and every row draws no count — never a 0.
   */
+  /*
+    🔁 ONE ACCOUNT PER BROWSER, IN EVERY TAB. The session cookies are shared by every tab, so after a switch an
+    older tab would still SHOW the account that left while its requests already carry the new one. Each tab says
+    who it was drawn for; a tab drawn for someone else reloads.
+  */
+  useEffect(() => {
+    if (!data.userId || typeof BroadcastChannel === 'undefined') return;
+    const ch = new BroadcastChannel('sn-account');
+    ch.onmessage = (e: MessageEvent) => {
+      const uid = (e.data as { uid?: unknown } | null)?.uid;
+      if (typeof uid === 'string' && uid !== data.userId) window.location.reload();
+    };
+    ch.postMessage({ uid: data.userId });
+    return () => ch.close();
+  }, [data.userId]);
+
   const shopCount = data.context.shops?.length ?? 0;
   useEffect(() => {
     if (!open || !data.userId || data.isAnonymous) return;
@@ -663,6 +715,7 @@ export function AccountSwitcher({ data, currentEventName, referHref, shopRows, h
         aria-label="Open account switcher"
         aria-haspopup="dialog"
         aria-expanded={open}
+        data-tour="account-avatar"
         onClick={() => setOpen((v) => !v)}
         className="fd-acct inline-flex h-11 items-center gap-2 rounded-full border border-ink/15 bg-cream px-2 pr-3 text-sm font-medium text-ink/70 transition-colors hover:border-terracotta/40 hover:text-terracotta-700 focus:outline-none focus-visible:border-terracotta focus-visible:text-terracotta-700"
       >
@@ -689,9 +742,9 @@ export function AccountSwitcher({ data, currentEventName, referHref, shopRows, h
 
             ⚠ FROM `lg` UP ONLY, and that is a width decision, not a taste one.
             The shared bar carries identity, the search and this cluster on ONE
-            row — the second row is what the owner struck down on 2026-07-30 —
-            and "+ Create event" beside it is already hidden below 1024 for the
-            same reason. On a phone the avatar is the whole mark, which is why
+            row — the second row is what the owner struck down on 2026-07-30.
+            (The bar's "+ Create event" left it at every width on 2026-10-22 —
+            Create lives on the Events board.) On a phone the avatar is the whole mark, which is why
             it had to become visible before this line could be gated at all.
           */
           <span className="hidden max-w-[150px] truncate text-xs font-medium text-ink/80 lg:inline">
@@ -752,6 +805,7 @@ export function AccountSwitcherIconTrigger({
       aria-label="Open account switcher"
       aria-haspopup="dialog"
       aria-expanded={open}
+      data-tour="account-avatar"
       onClick={onToggle}
       className="inline-flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border border-ink/15 bg-cream text-sm font-semibold text-ink/70 transition-colors hover:border-terracotta/40 hover:text-terracotta-700 focus:outline-none focus-visible:border-terracotta"
     >

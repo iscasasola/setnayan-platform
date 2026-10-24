@@ -11,6 +11,7 @@ import { LabFrame } from './lab-client';
  * `prototypes/pro_part_by_part_2026-10-22.html`, drawn by the SHIPPED components with made-up facts and NO database:
  *
  *   ?frame=sheet-two · sheet-four · sheet-cap · sheet-ready   — the ✓ Apply sheet (frames 1, 1-closer, 2, ready)
+ *   ?frame=sheet-held                                       — 📵 the app with no Apple Pro: "◆ 2 waiting for Pro" + Remove Pro changes
  *   ?frame=line-free · line-paid · line-yours                 — the quiet line (frame 3)
  *   ?frame=parts-free · parts-owned                           — the parts page (frame 4)
  *   ?frame=address-free · address-pick · address-kept         — the custom address (frame 5)

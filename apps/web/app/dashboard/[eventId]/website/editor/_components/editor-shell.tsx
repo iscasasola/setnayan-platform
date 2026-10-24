@@ -107,7 +107,6 @@ import { AccentRow, FixedSceneStyleRow, PaletteLookCanvasRow, PostEventScenePane
 import type { DressCodeConfig } from '../../../studio/mood-board/dress-code-actions';
 import { postEventStatusWord, postEventTileLabel, postEventTileNote, type PostEventTile } from './post-event-tile-words';
 import { isFixedStyleScene, type FixedSceneStyles } from '@/lib/fixed-scene-styles';
-import type { CameraLook } from '@/lib/camera-look';
 import { postEventSetElements } from '@/lib/post-event-draft';
 import { postEventElementScope, postEventSceneOfScope, postEventWordParts } from '@/lib/post-event-styles';
 import type { SceneUpload } from './scene-background-row';
@@ -323,8 +322,8 @@ export function MakerWork({
     fixedStyles?: FixedSceneStyles;
     /** 🕯 Each scene's Accent pick, drafted over live (`style_preferences.scene_accents`, `lib/art-kits.ts`). */
     sceneAccents?: SceneAccents;
-    /** 🎛 The Camera's look, drafted over live (`lib/camera-look.ts`). */
-    cameraLook?: CameraLook;
+    /** 📷 The one camera's Pro dress — the event holds Logo & QR or Full Pro (`lib/camera-dress.ts`). */
+    cameraPro?: boolean;
     /** 🧱 The fixed blocks' looks — the RAW `style_preferences.block_looks`, drafted over live (`lib/block-looks.ts`). */
     blockLooks?: Record<string, unknown>;
     /** ✍ The hero names' Wording ▾ — the event's Name style and one of the couple's own names to show it in. */
@@ -930,7 +929,7 @@ export function MakerWork({
   const hasDressCode = scenes.some((sc) => sc.type === 'dress_code');
   const revealStagesKey = revealStages.join();
   const twoPeopleOff = sceneFormat?.twoPeople === false;
-  const cameraLookNow = sceneFormat?.cameraLook ?? null;
+  const cameraPro = sceneFormat?.cameraPro === true;
   const blockLooksKey = JSON.stringify(sceneFormat?.blockLooks ?? {});
   useEffect(() => {
     if (!setLookPages) return;
@@ -952,7 +951,7 @@ export function MakerWork({
         : null,
       revealStages: revealStagesKey ? (revealStagesKey.split(',') as LifecyclePhase[]) : [],
       publicLandingUrl,
-      camera: cameraLookNow ? { look: cameraLookNow } : null,
+      camera: { pro: cameraPro },
       blocks: JSON.parse(blockLooksKey) as Record<string, unknown>,
       fontsInUse: elementEditing?.fontsInUse ?? [],
       look: {
@@ -979,7 +978,7 @@ export function MakerWork({
     });
     // `sceneFormat` and `eventId` come with the same render as `elementEditing`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setLookPages, madeOnce, backgroundNode, fontNode, coloursNode, buttonsNode, musicNode, pageNode, videoNode, hasDressCode, revealStagesKey, publicLandingUrl, elementEditing, twoPeopleOff, ownsPro, cameraLookNow, blockLooksKey]);
+  }, [setLookPages, madeOnce, backgroundNode, fontNode, coloursNode, buttonsNode, musicNode, pageNode, videoNode, hasDressCode, revealStagesKey, publicLandingUrl, elementEditing, twoPeopleOff, ownsPro, cameraPro, blockLooksKey]);
   useEffect(() => () => setLookPages?.(null), [setLookPages]);
   useEffect(() => {
     try {

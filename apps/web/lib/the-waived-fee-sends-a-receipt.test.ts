@@ -40,7 +40,7 @@ import {
 import {
   waivedFeeCopy,
   waivedFeeReceiptCopy,
-  freeBookingsLeftClause,
+  freeBookingSentence,
   type WaivedFeeCharge,
 } from './booking-fee-disclosure';
 import { vendorWaivedFeePath, VENDOR_BOOKING_FEES_PATH } from './vendor-booking-fees';
@@ -281,24 +281,25 @@ test('the receipt is the SAME resolver as the in-app line — the two cannot dri
   );
 });
 
-test('it names the waived amount, the position, the remaining free bookings and the couple', () => {
+test('it names the waived amount, the position and the couple', () => {
   const { title, body } = waivedFeeReceiptCopy(CHARGE);
   assert.match(title, /₱508\.50/, 'the subject does not carry the waived amount to the centavo');
   assert.match(title, /waived/i);
   assert.match(title, /Rosa & Ben/, 'the subject does not say which couple');
-  assert.match(body, /booking 1 of your first 5/, 'the body does not carry the ledger position');
-  assert.match(body, /4 more free bookings after this one/, 'the body does not say how many are left');
+  // ⚖ One free booking since 2026-10-23 — the position is "your first booking".
+  assert.match(body, /This was your first booking from Setnayan, which is on us/, 'the body does not carry the ledger position');
   assert.match(body, /₱508\.50/);
 });
 
-test('the remaining-count clause is ONE function, shared with the forecast', () => {
-  // SABOTAGE: type the count out again inside waivedFeeCopy → RED here the
+test('the position sentence is ONE function, shared with the forecast', () => {
+  // SABOTAGE: type the sentence out again inside waivedFeeCopy → RED here the
   // moment the two phrasings differ.
-  assert.equal(freeBookingsLeftClause(1), ' — 4 more free bookings after this one');
-  assert.equal(freeBookingsLeftClause(4), ' — 1 more free booking after this one');
-  assert.equal(freeBookingsLeftClause(5), ' — and this is the last of them');
-  assert.ok(waivedFeeCopy({ ...CHARGE, ordinal: 4 }).detail.includes(freeBookingsLeftClause(4)));
-  assert.ok(waivedFeeCopy({ ...CHARGE, ordinal: 5 }).detail.includes(freeBookingsLeftClause(5)));
+  assert.equal(freeBookingSentence(1, 'was'), 'This was your first booking from Setnayan, which is on us.');
+  assert.ok(waivedFeeCopy({ ...CHARGE, ordinal: 1 }).detail.includes(freeBookingSentence(1, 'was')));
+  // A booking 2…5 waived under the earlier five-booking rule keeps its waiver
+  // and says so — never a count of a rule that is gone.
+  assert.ok(waivedFeeCopy({ ...CHARGE, ordinal: 4 }).detail.includes(freeBookingSentence(4, 'was')));
+  assert.match(freeBookingSentence(4, 'was'), /stays free/);
 });
 
 test('a number that could not be read prints NO number — never ₱0', () => {
@@ -309,11 +310,10 @@ test('a number that could not be read prints NO number — never ₱0', () => {
   assert.doesNotMatch(`${unread.title} ${unread.body}`, /\b0\b/, 'a bare zero survived a failed read');
 
   // The position is only claimed when the ledger gave one — no ordinal means no
-  // "booking N of 5" and no remaining count either.
+  // "your first booking" either.
   const noOrdinal = waivedFeeReceiptCopy({ ...CHARGE, ordinal: null });
-  assert.doesNotMatch(noOrdinal.body, /booking \d+ of/);
-  assert.doesNotMatch(noOrdinal.body, /more free booking/);
-  assert.match(noOrdinal.body, /inside your first 5/);
+  assert.doesNotMatch(noOrdinal.body, /first booking/);
+  assert.match(noOrdinal.body, /one of your free bookings/);
 });
 
 test('IT IS A RECEIPT, NOT A BILL — it never asks for money', () => {

@@ -144,8 +144,12 @@ test('no two selectors share a view-transition name', () => {
   const names = declaredNames();
   const seen = new Map<string, string[]>();
   for (const { name, selector } of names) {
+    // `none` is not a name — it is the ABSENCE of one, and any number of elements may hold it
+    // (the guests-glass rest rule and the account content's rest rule both say it, 2026-10-24).
+    if (name === 'none') continue;
     seen.set(name, [...(seen.get(name) ?? []), selector]);
   }
+  assert.ok(seen.has('sn-page'), 'no sn-page declaration found — the check would pass on nothing');
   const dupes = [...seen.entries()].filter(([, sels]) => sels.length > 1);
   assert.deepEqual(
     dupes,

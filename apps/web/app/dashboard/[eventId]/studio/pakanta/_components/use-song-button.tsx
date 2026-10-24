@@ -40,7 +40,7 @@ export function UseSongButton({ eventId }: { eventId: string }) {
         ) : (
           <Music aria-hidden className="h-4 w-4" strokeWidth={1.75} />
         )}
-        Use this song on my site
+        Use on my Event Hub
       </button>
       {error ? (
         <p className="mt-2 inline-flex items-center gap-1.5 text-sm text-terracotta-700">
@@ -48,8 +48,7 @@ export function UseSongButton({ eventId }: { eventId: string }) {
         </p>
       ) : (
         <p className="mt-2 inline-flex items-center gap-1.5 text-xs text-ink/55">
-          <CheckCircle2 aria-hidden className="h-3.5 w-3.5 text-ink/40" /> Guests will hear it as
-          they browse your wedding page.
+          <CheckCircle2 aria-hidden className="h-3.5 w-3.5 text-ink/40" /> Guests hear it on your Event Hub.
         </p>
       )}
     </div>

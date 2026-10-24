@@ -54,7 +54,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import type { MenuLifecyclePhase } from '@/lib/day-of-mode';
-import { SUITE_NAV_ON, studioHubHref } from './studio-hub';
+import { SUITE_NAV_ON } from './studio-hub';
 import { isStoreShellWebOnlyPath } from './store-shell';
 
 /* The Suite doorway flag + href come from `lib/studio-hub.ts` — one branch,
@@ -67,7 +67,7 @@ import { isStoreShellWebOnlyPath } from './store-shell';
  * SILENTLY on a rename. Only the WORDS moved (Overview → Home, Guests → Guest
  * list, Suite → Our Services).
  */
-export type CustomerMenuKey = 'home' | 'guests' | 'explore' | 'launch' | 'studio';
+export type CustomerMenuKey = 'home' | 'guests' | 'explore' | 'launch' | 'studio' | 'memories';
 
 export type CustomerMenu = {
   key: CustomerMenuKey;
@@ -80,6 +80,8 @@ export type CustomerMenu = {
    *  plus the claims of any rail row that has no tab of its own. */
   activeMatch: string | string[];
   activeMatchExact?: boolean;
+  /** Exact-only landings beside the prefix claims (Home: its own address + the checklist). */
+  activeMatchAlsoExact?: string[];
 };
 
 export type CustomerMenuCtx = EventMenuCtx & {
@@ -102,6 +104,8 @@ export type EventMenuIconName =
   | 'guests' | 'hosts' | 'hub'
   | 'schedule' | 'checkin' | 'seat' | 'plan3d' | 'live' | 'patiktok'
   | 'ai' | 'suite' | 'refer' | 'details' | 'product'
+  /* Memories — the account bar's own glyph (`account-bottom-nav.tsx`: Sparkles), owner 2026-10-23. */
+  | 'memories'
   /* The desktop rail's tool rows (Planner · Builder · Together · Studio) — see
      `RailTool.icon`. Named here so the rail draws from the SAME vocabulary as
      the event menu, not a second, private icon map. */
@@ -118,8 +122,8 @@ export type EventMenuIconName =
  *     Home → House · Guests → BookUser · Suppliers → Store ·
  *     Hub → AppWindow · More → Grip
  *
- * The phone bar, the desktop rail and the Home doorway row
- * (`HOME_DOORWAY_ICONS`) all draw these. Before, the bar's Home was the FILLED
+ * The phone bar and the desktop rail
+ * all draw these. Before, the bar's Home was the FILLED
  * Setnayan mark among four line icons and Suppliers was a compass; the mark
  * stays in the top bar only. `bottom-nav-is-one-icon-family.test.ts` holds it.
  */
@@ -153,6 +157,7 @@ export const EVENT_MENU_ICONS: Record<EventMenuIconName, LucideIcon> = {
   'event-chat': MessagesSquare,
   compare: Scale,
   contracts: FileSignature,
+  memories: Sparkles,
 };
 
 /** Each of the five tabs' icon NAME — the one place a tab key meets its glyph.
@@ -163,22 +168,8 @@ export const PILLAR_TAB_ICON: Readonly<Record<CustomerMenuKey, EventMenuIconName
   explore: 'team',
   launch: 'hub',
   studio: 'suite',
+  memories: 'memories',
 };
-
-/**
- * 🚪 THE HOME DOORWAY ROW WEARS THE TABS' OWN ICONS (owner 2026-10-07: *"make
- * the logo of guests, supplier and event hub consistent"*). "Guests ·
- * Suppliers · Event Hub" (`HOME_DOOR_LABELS`) open the Guests, Suppliers
- * and Hub tabs, so each button draws exactly that tab's glyph — these three
- * constants, never a second pick. With the nav registry in hand, resolve through
- * `homeDoorwayIcon(key, navSlots)` (`lib/nav-line-icon.ts`) so an admin re-icon
- * of a tab moves its doorway too. `home-doorways-wear-the-nav-icons.test.ts`.
- */
-export const HOME_DOORWAY_ICONS = {
-  guests: EVENT_MENU_ICONS[PILLAR_TAB_ICON.guests],
-  explore: EVENT_MENU_ICONS[PILLAR_TAB_ICON.explore],
-  launch: EVENT_MENU_ICONS[PILLAR_TAB_ICON.launch],
-} as const satisfies Partial<Record<CustomerMenuKey, LucideIcon>>;
 
 export type EventMenuRow = {
   key: string;
@@ -324,8 +315,12 @@ export function eventMenuRowClaims(r: EventMenuRow): string[] {
   );
 }
 
-/** THE FIVE, in the owner's order. */
-const PILLAR_ROWS = ['home', 'guests', 'explore', 'launch', 'studio'] as const;
+/**
+ * THE FIVE, in the owner's order — Memories joined after Hub (owner 2026-10-23, the approved
+ * `prototypes/event_bar_memories_tab_2026-10-23.html`: "Home · Guests · Suppliers · Hub · Memories").
+ * `studio` stays in the list for an admin override that still names it; the tree never builds it.
+ */
+const PILLAR_ROWS = ['home', 'guests', 'explore', 'launch', 'studio', 'memories'] as const;
 
 /**
  * THE tree. Every event-menu surface reads this — the rail, the ☰ drawer and
@@ -351,7 +346,22 @@ export function buildEventMenuSections(
 
   // HOME — the event's front page. Sentinel matchPrefix: every other event
   // route shares `${base}/`, so only the exact pathname may light it.
-  put({ key: 'home', label: 'Home', href: base, icon: PILLAR_TAB_ICON.home, matchPrefix: '__home__' });
+  //
+  // 🏠 …AND, SINCE MORE LEFT THE MENU (owner 22 Oct 2026, "Yes remove more"), Home holds what More held:
+  // the services live on Home › Your services, so their pages (Studio products, Galleries) light Home —
+  // never nowhere. Where there is no Maker it also holds the pages the Maker would have.
+  put({
+    key: 'home',
+    label: 'Home',
+    href: base,
+    icon: PILLAR_TAB_ICON.home,
+    matchPrefix: '__home__',
+    alsoMatch: [
+      `${base}/studio`,
+      ...(maker ? [] : [`${base}/story`, `${base}/schedule`]),
+      ...(maker ? [] : seatPages),
+    ],
+  });
 
   // GUEST LIST — the people room: Access and Check-in are columns of the list
   // (F2 cut its parts row), and the pages about the same people light it.
@@ -398,6 +408,18 @@ export function buildEventMenuSections(
     });
   }
 
+  // MEMORIES — this event's photos and clips, the SAME gallery as account-level Memories
+  // (owner 2026-10-23: *"Memories = this event's gallery"*, prototypes/event_bar_memories_tab_2026-10-23.html).
+  // A fifth tab after Hub, every phase, every event type. It holds `/galleries` (the after-day hub of
+  // this event's photo sources), which Home held only because nothing else did.
+  put({
+    key: 'memories',
+    label: 'Memories',
+    href: `${base}/memories`,
+    icon: PILLAR_TAB_ICON.memories,
+    alsoMatch: [`${base}/galleries`],
+  });
+
   // MORE SERVICES — the menu of the five services (it was a page, /suite,
   // until the owner removed it 2026-10-02: "the More menu is the one place").
   // Its door is Home with the menu open (`studioHubHref`, `menuDoor`), and it
@@ -406,7 +428,6 @@ export function buildEventMenuSections(
   // "Our Services" → "More Services" (owner 2026-09-30: *"it cannot be our
   // services since we have the guestlist, your team and event hub maker on the
   // sidebar which is also our services"*). 🔒 The KEY stays `studio`.
-  const services = ctx.services ?? [];
   /*
     🍎 THE APP HAS NO MORE (owner 2026-10-21, testing TestFlight build 5:
     *"pressing more on the bottom nav jumps me to home. but i do not see the
@@ -415,25 +436,20 @@ export function buildEventMenuSections(
     (`STORE_SHELL_HIDDEN_ADDON_KEYS`, App Review 3.1.1), so this row had no
     children and its door was Home `?more=services` — a tab that only re-opened
     Home. It is not built in the app: the bar is Home · Guests · Suppliers ·
-    Hub, and the iPad rail and the ☰ drawer lose the same dead row. The web
-    always keeps it (the paid services live there).
-    `the-app-bar-has-no-more.test.ts` holds it.
+    Hub, and the iPad rail and the ☰ drawer lose the same dead row. (The web
+    kept it until 22 Oct 2026 — below.)
   */
-  if (!ctx.storeShell) put({
-    key: 'studio',
-    label: SUITE_NAV_ON ? 'More Services' : 'Studio',
-    href: studioHubHref(eventId),
-    menuDoor: true,
-    icon: PILLAR_TAB_ICON.studio,
-    ...(services.length ? { children: services.map((c) => ({ ...c })) } : {}),
-    alsoMatch: [
-      `${base}/studio`,
-      `${base}/galleries`,
-      ...(maker ? [] : [`${base}/story`, `${base}/schedule`]),
-      ...(maker ? [] : seatPages),
-    ],
-  });
-
+  /*
+    🚫 NO MORE — ON THE WEB EITHER (owner 22 Oct 2026, verbatim *"Yes remove more"*, after every event
+    type was put on the wedding's bar). The app lost it on 2026-10-21 (above); the web now does too, so
+    the bar is Home · Guests · Suppliers · Hub everywhere, and the iPad/desktop rail and the ☰ drawer
+    lose the "More Services" row with it (supersedes the 2026-10-01 web More and the 2026-10-08
+    "desktop More opens the pop-up"). Nothing it listed is lost — every service has its row on Home ›
+    Your services on the web (`homeServices` / `homePaidFacts`, the same catalogue and `offered` rule),
+    held by `the-app-bar-has-no-more.test.ts`. The `studio` KEY and its registry slots stay (an admin
+    override still resolves); the row is simply never built, so its product pages light no tab.
+    `ctx.services` is no longer read by the tree.
+  */
   // THE PRODUCTS' PAGES — claimed by whichever row holds them.
   const claim = (key: string, paths: string[]) => {
     const host = rows.get(key);
@@ -446,7 +462,7 @@ export function buildEventMenuSections(
     const own = t.href.split('?')[0]!;
     const absorbed = STUDIO_ABSORBED[t.key];
     if (absorbed && claim(absorbed.into, [own, ...absorbed.routes(base)])) continue;
-    claim('studio', absorbed ? [own, ...absorbed.routes(base)] : [own]);
+    claim('home', absorbed ? [own, ...absorbed.routes(base)] : [own]);
   }
 
   // 🍎 A row the store shell refuses is never built — `storeShellRefusesMenuRow`.
@@ -523,9 +539,11 @@ export function buildCustomerMenuTree(
           label,
           icon: EVENT_MENU_ICONS[r.icon],
           href: r.href,
-          // The checklist is the Home page's own "View your full checklist".
-          activeMatch: [base, `${base}/checklist`],
-          activeMatchExact: true,
+          // Its own address and the checklist (Home's "View your full checklist") EXACTLY — every event
+          // page shares `${base}/` — plus, as prefixes, the service pages it holds since More left.
+          // ⚠ Never `${base}` itself as a prefix — that would light Home on every event page.
+          activeMatch: [...new Set(eventMenuRowClaims(r))].filter((p) => p !== base),
+          activeMatchAlsoExact: [base, `${base}/checklist`],
         },
       ];
     }

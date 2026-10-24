@@ -162,7 +162,7 @@ const COPY: Record<
       {
         from: 'Day-of',
         to: 'Everyone',
-        what: `From ${DAY_OF_STARTS_PLAIN}, the event switches to live mode — tables, schedule, photo wall, broadcast.`,
+        what: `From ${DAY_OF_STARTS_PLAIN}, the event switches to live mode — tables, schedule, Memory lane, broadcast.`,
       },
       {
         from: 'Post-event',
@@ -257,7 +257,7 @@ const COPY: Record<
       {
         from: 'Day-of',
         to: 'Everyone',
-        what: 'Mula tanghali ng araw bago nito, nagiging live mode ang event — tables, schedule, photo wall, broadcast.',
+        what: 'Mula tanghali ng araw bago nito, nagiging live mode ang event — tables, schedule, Memory lane, broadcast.',
       },
       {
         from: 'Post-event',

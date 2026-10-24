@@ -165,7 +165,7 @@ export const GUIDED_STEPS: readonly StepDef[] = [
   { key: 'colours', items: ['mood-board'], title: 'Your colours', shows: () => 'Your palette — on your cards, your QR code and what your suppliers see.' },
   { key: 'message', items: ['special-message'], title: 'Special message', shows: () => 'A few lines from you, on your invitation and your cards.' },
   { key: 'seat-plan', items: SEAT_PLAN_STEP_ITEMS, title: 'Seat plan', shows: () => 'Guests find their table on the day.' },
-  { key: 'papic', items: ['papic'], title: 'Photos from your guests', shows: () => 'Your guests’ photos from the day, gathered in one gallery.' },
+  { key: 'papic', items: ['papic'], title: 'Photos from your guests', shows: () => 'Your guests’ photos from the day, gathered in your Memories.' },
 ];
 
 export type GuidedRoundWords = Readonly<Record<GuidedRound, { title: string; ready: string }>>;

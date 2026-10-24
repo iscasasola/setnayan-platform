@@ -1,3 +1,4 @@
+import { papicOwnerTag } from '@/lib/papic-upload/owner-tag.server';
 import Link from 'next/link';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { redirect } from 'next/navigation';
@@ -140,6 +141,7 @@ export default async function VendorPapicCapturePage({
       {isEventDay && allowance ? (
         <PapicCaptureController
           eventId={eventId}
+          uploadOwner={papicOwnerTag('vendor', profile.vendor_profile_id, eventId)}
           coupleName={booking.eventName ?? 'this event'}
           tier={allowance.tier}
           allowVideo={allowance.allowVideo}

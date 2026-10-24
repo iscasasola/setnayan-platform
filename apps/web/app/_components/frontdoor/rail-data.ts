@@ -36,11 +36,7 @@ import { STUDIO_APPS } from '@/lib/studio-apps';
   so they had no business behind that boundary. Re-exported so every existing
   import path keeps working.
 */
-export {
-  railToolsSignedIn,
-  railToolsSignedOut,
-  RAIL_TOOLS,
-} from '@/lib/studio-rail';
+export { railToolsSignedIn } from '@/lib/studio-rail';
 
 import type { FrontDoorAccount, RailTool } from './front-door-shell';
 

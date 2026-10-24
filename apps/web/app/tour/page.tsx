@@ -16,7 +16,7 @@ export const dynamic = 'force-dynamic';
 export const metadata = {
   title: 'Walk through a real wedding',
   description:
-    'Explore a complete sample wedding on Setnayan — the invitation, the suppliers, the seating, the budget, and the gallery. No sign-up, and nothing is saved.',
+    'Explore a complete sample wedding on Setnayan — the invitation, the suppliers, the seating, the budget, and Memories. No sign-up, and nothing is saved.',
   alternates: { canonical: '/tour' },
   openGraph: {
     images: BRAND_OG_IMAGES,
@@ -32,7 +32,7 @@ const STOPS: Array<{ n: number; title: string; blurb: string; href: string; live
   { n: 2, title: 'The suppliers', blurb: 'How Setnayan AI shortlists the team that fits.', href: '/tour/vendors', live: true },
   { n: 3, title: 'The seating', blurb: 'Every guest finds their table.', href: '/tour/seating', live: true },
   { n: 4, title: 'The budget', blurb: 'Every peso tracked, every deadline in view.', href: '/tour/budget', live: true },
-  { n: 5, title: 'The gallery', blurb: 'The day, captured by everyone.', href: '/tour/gallery', live: true },
+  { n: 5, title: 'Memories', blurb: 'The day, captured by everyone.', href: '/tour/gallery', live: true },
 ];
 
 export default async function TourIntroPage() {
@@ -47,8 +47,8 @@ export default async function TourIntroPage() {
           Walk through {couple}&rsquo;s wedding
         </h1>
         <p className="mx-auto mt-4 max-w-xl text-base text-[#5F5E5A] sm:text-lg">
-          See exactly how a couple plans on Setnayan — the invitation, their suppliers, the seating, the budget, and the
-          gallery. No sign-up, and nothing you tap is ever saved.
+          See exactly how a couple plans on Setnayan — the invitation, their suppliers, the seating, the budget, and
+          Memories. No sign-up, and nothing you tap is ever saved.
         </p>
         <Link
           href="/maria-and-jose"

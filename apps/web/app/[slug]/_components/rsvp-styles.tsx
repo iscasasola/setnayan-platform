@@ -23,7 +23,7 @@ import { formatCount } from '@/lib/format-number';
  * "Yes, tag me / No thanks" were GREY FILLED pills in ITALIC serif). The tagging question had drawn its own pills —
  * B · The question's pill, hard-coded, whatever the card's style — and without the `data-rsvp-answer` hook, so the
  * couple's Look › Buttons, their buttons' font and the picked answer's fill never reached it either. Now the style's
- * answer is ONE class, here, drawn by the "Will you celebrate with us?" answers AND by every later two-choice question
+ * answer is ONE class, here, drawn by the "Will you join us?" answers AND by every later two-choice question
  * (`rsvp-widget.tsx` `tagQuestion`), so screen 2 can never again wear another card's answers. A · The reply card's
  * pill is today's exactly; B and C are the styles' own, moved here unchanged.
  */

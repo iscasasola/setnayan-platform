@@ -36,6 +36,7 @@ import {
 import { followUser, unfollowUser } from '@/app/u/_actions/audience-actions';
 import { celebrantAccountsFor } from '@/lib/event-celebrants.server';
 import { requestConnection } from '@/lib/people-connection-request.server';
+import { removalWriteResult, removableConnectionFilter } from '@/lib/people-remove';
 
 /**
  * Person-spine · Phase 2 · connection flow server actions (STAGED).
@@ -658,9 +659,10 @@ async function declineLabel(connectionId: string): Promise<ActionResult> {
  * 2026-08-16) — so the ask ships with its own undo.
  *
  * Soft-delete, not DELETE: every read in the product already filters
- * `deleted_at`, and the row is evidence of what was asked. Only the DECLARER's
- * side is touched; a confirmed connection is a mutual fact and comes down the
- * same way, from whichever side asks.
+ * `deleted_at`, and the row is evidence of what was asked. A request still
+ * waiting comes down only from the DECLARER's side (the recipient Declines);
+ * a confirmed connection is a mutual fact and comes down the same way, from
+ * whichever side asks — `removableConnectionFilter`.
  */
 export async function withdrawConnection(connectionId: string): Promise<ActionResult> {
   if (!peopleConnectionsEnabled()) return { ok: false, error: 'Connections aren’t available yet.' };
@@ -670,13 +672,22 @@ export async function withdrawConnection(connectionId: string): Promise<ActionRe
   const myPerson = await myPersonId(supabase, user.id);
   if (!myPerson) return { ok: false, error: 'Your profile isn’t ready yet.' };
 
-  const { error } = await supabase
+  // 🔒 EITHER SIDE ENDS A CONFIRMED CONNECTION, AND ZERO ROWS IS NOT "DONE"
+  // (owner 2026-10-23, "why can't i delete anyone"). This filtered on
+  // `from_person_id = me` alone, so a connection somebody else asked for —
+  // where I am `to_person_id` — matched nothing and still returned ok. The
+  // rows actually changed are counted; see `lib/people-remove.ts`.
+  if (!connectionId) return { ok: false, error: 'Couldn’t remove them. Nothing changed — try again.' };
+  const { data, error } = await supabase
     .from('person_connections')
     .update({ deleted_at: new Date().toISOString() })
     .eq('connection_id', connectionId)
-    .eq('from_person_id', myPerson)
-    .is('deleted_at', null);
-  if (error) return { ok: false, error: 'Couldn’t remove that.' };
+    .or(removableConnectionFilter(myPerson))
+    .is('deleted_at', null)
+    .select('connection_id');
+  if (error) logQueryError('withdrawConnection', error, { connectionId });
+  const result = removalWriteResult(data, error);
+  if (!result.ok) return result;
   revalidatePath('/dashboard/people');
   return { ok: true };
 }

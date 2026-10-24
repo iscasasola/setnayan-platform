@@ -25,6 +25,7 @@ import 'server-only';
  */
 
 import { createAdminClient } from '@/lib/supabase/admin';
+import { startAhead } from '@/lib/start-ahead';
 import {
   storyDayWindow,
   storyDayList,
@@ -311,6 +312,83 @@ export async function loadStorySpineFacts(args: {
   if (!window) return EMPTY_SPINE_FACTS;
 
   const admin = createAdminClient();
+  /*
+    ⚡ THE SPINE'S READS LEAVE TOGETHER (2026-10-23). Every read below that needs only this event and its day's
+    window — the event row, the contracts, the photos before and on the day, the broadcasts, the story's own state,
+    the venue's suppliers and blocks, the dial and the room's freeze — waited for the one above it: ten trips in
+    single file at the bottom of the Post Event story (`tests/story/editorial-reads.harness.ts`). Each is STARTED here with
+    exactly the query it always had (moved, not rewritten; the dial's bucket is the same pure `dialBucketMinutes`
+    of the same window) and awaited at the line that always awaited it, inside the try/catch that always caught it.
+    The live room (only when no freeze) and the table heat need earlier answers and stay where they were. Nothing
+    here writes. Held by `the-story-reads-start-together.test.ts`.
+  */
+  const early = <T,>(start: () => PromiseLike<T>): Promise<T> => startAhead(Promise.resolve().then(start));
+  const ahead = {
+    eventRow: early(() =>
+      admin
+      .from('events')
+      .select(
+        'created_at, mood_board_updated_at, moodboard_theme_name, moodboard_theme_description, role_palette, event_type',
+      )
+      .eq('event_id', args.eventId)
+      .maybeSingle()),
+    contracts: early(() =>
+      admin
+      .from('event_vendors')
+      .select('vendor_name, contract_signed_at, created_at, status')
+      .eq('event_id', args.eventId)
+      .not('contract_signed_at', 'is', null)
+      .order('contract_signed_at', { ascending: true })),
+    photosBefore: early(() =>
+      admin
+      .from('papic_photos')
+      .select('captured_at', { count: 'exact', head: true })
+      .eq('event_id', args.eventId)
+      .eq('photo_type', 'photo')
+      .is('hidden_at', null)
+      .eq('moderation_state', 'clean')
+      .lt('captured_at', window.startIso)),
+    photoTimes: early(() =>
+      admin
+      .from('papic_photos')
+      .select('captured_at')
+      .eq('event_id', args.eventId)
+      .eq('photo_type', 'photo')
+      .is('hidden_at', null)
+      .eq('moderation_state', 'clean')
+      .lt('captured_at', window.startIso)
+      .order('captured_at', { ascending: true })
+      .limit(1)),
+    broadcasts: early(() =>
+      admin
+      .from('panood_broadcasts')
+      .select('broadcast_id, went_live_at, ended_at')
+      .eq('event_id', args.eventId)
+      .not('went_live_at', 'is', null)
+      .order('went_live_at', { ascending: true })),
+    storyState: early(() =>
+      admin
+      .from('event_editorial')
+      .select('published_at, status')
+      .eq('event_id', args.eventId)
+      .maybeSingle()),
+    venueSuppliers: early(() =>
+      admin
+      .from('event_vendors')
+      .select('vendor_id, vendor_name')
+      .eq('event_id', args.eventId)),
+    scheduleBlocks: early(() =>
+      onlyWhatGuestsMaySee(
+      admin
+        .from('event_schedule_blocks')
+        .select('label, block_type, start_at, end_at, location, responsible_vendor_ids')
+        .eq('event_id', args.eventId),
+    )),
+    dialBins: early(() =>
+      loadDialBins(admin, args.eventId, window, dialBucketMinutes(window.days))),
+    roomFreeze: early(() =>
+      loadRoomFreeze(admin, args.eventId)),
+  };
   const dayDates = storyDayList(window);
   const dayOneStartMs = Date.parse(window.startIso);
   const facts: StorySpineFacts = {
@@ -329,13 +407,7 @@ export async function loadStorySpineFacts(args: {
   const road: RoadFact[] = [];
   let eventRow: Record<string, unknown> | null = null;
   try {
-    const { data } = await admin
-      .from('events')
-      .select(
-        'created_at, mood_board_updated_at, moodboard_theme_name, moodboard_theme_description, role_palette, event_type',
-      )
-      .eq('event_id', args.eventId)
-      .maybeSingle();
+    const { data } = await ahead.eventRow;
     eventRow = (data as Record<string, unknown> | null) ?? null;
   } catch {
     eventRow = null;
@@ -378,12 +450,7 @@ export async function loadStorySpineFacts(args: {
   // The team. One entry for the whole team, stamped at the FIRST booking —
   // eight vendor rows would be eight road entries about paperwork.
   try {
-    const { data } = await admin
-      .from('event_vendors')
-      .select('vendor_name, contract_signed_at, created_at, status')
-      .eq('event_id', args.eventId)
-      .not('contract_signed_at', 'is', null)
-      .order('contract_signed_at', { ascending: true });
+    const { data } = await ahead.contracts;
     const rows = (data ?? []) as Array<Record<string, unknown>>;
     const firstMs = rows.length ? msOf(rows[0]!.contract_signed_at) : null;
     if (firstMs != null) {
@@ -413,24 +480,8 @@ export async function loadStorySpineFacts(args: {
   // earliest is a single row. Both are bounded ABOVE by the window's start —
   // the road is, by definition, everything before the day.
   try {
-    const { count } = await admin
-      .from('papic_photos')
-      .select('captured_at', { count: 'exact', head: true })
-      .eq('event_id', args.eventId)
-      .eq('photo_type', 'photo')
-      .is('hidden_at', null)
-      .eq('moderation_state', 'clean')
-      .lt('captured_at', window.startIso);
-    const { data } = await admin
-      .from('papic_photos')
-      .select('captured_at')
-      .eq('event_id', args.eventId)
-      .eq('photo_type', 'photo')
-      .is('hidden_at', null)
-      .eq('moderation_state', 'clean')
-      .lt('captured_at', window.startIso)
-      .order('captured_at', { ascending: true })
-      .limit(1);
+    const { count } = await ahead.photosBefore;
+    const { data } = await ahead.photoTimes;
     const rows = (data ?? []) as Array<Record<string, unknown>>;
     const total = typeof count === 'number' && count > 0 ? count : rows.length;
     const firstMs = rows.length ? msOf(rows[0]!.captured_at) : null;
@@ -452,12 +503,7 @@ export async function loadStorySpineFacts(args: {
   // The broadcasts. Every session that went live BEFORE the day is a road
   // entry; the ones on the day are the film a minute is timecoded into.
   try {
-    const { data } = await admin
-      .from('panood_broadcasts')
-      .select('broadcast_id, went_live_at, ended_at')
-      .eq('event_id', args.eventId)
-      .not('went_live_at', 'is', null)
-      .order('went_live_at', { ascending: true });
+    const { data } = await ahead.broadcasts;
     for (const r of (data ?? []) as Array<Record<string, unknown>>) {
       const liveAtMs = msOf(r.went_live_at);
       const rawId = r.broadcast_id;
@@ -486,11 +532,7 @@ export async function loadStorySpineFacts(args: {
   // ── After ─────────────────────────────────────────────────────────────────
   const after: RoadFact[] = [];
   try {
-    const { data } = await admin
-      .from('event_editorial')
-      .select('published_at, status')
-      .eq('event_id', args.eventId)
-      .maybeSingle();
+    const { data } = await ahead.storyState;
     const row = (data as Record<string, unknown> | null) ?? null;
     if (asString(row?.status) === 'published') {
       const fact = roadFact(
@@ -530,10 +572,7 @@ export async function loadStorySpineFacts(args: {
   // than from a fuzzy match on a display string.
   const vendorNameById = new Map<string, string>();
   try {
-    const { data } = await admin
-      .from('event_vendors')
-      .select('vendor_id, vendor_name')
-      .eq('event_id', args.eventId);
+    const { data } = await ahead.venueSuppliers;
     for (const r of (data ?? []) as Array<Record<string, unknown>>) {
       const id = asString(r.vendor_id);
       const name = asString(r.vendor_name);
@@ -544,12 +583,7 @@ export async function loadStorySpineFacts(args: {
   }
 
   try {
-    const { data } = await onlyWhatGuestsMaySee(
-      admin
-        .from('event_schedule_blocks')
-        .select('label, block_type, start_at, end_at, location, responsible_vendor_ids')
-        .eq('event_id', args.eventId),
-    );
+    const { data } = await ahead.scheduleBlocks;
     const raw = (data ?? []) as Array<Record<string, unknown>>;
     const lifted: VenueBlock[] = [];
     for (const b of raw) {
@@ -589,7 +623,7 @@ export async function loadStorySpineFacts(args: {
 
   // ── The dial ──────────────────────────────────────────────────────────────
   facts.bucketMinutes = dialBucketMinutes(window.days);
-  facts.bins = await loadDialBins(admin, args.eventId, window, facts.bucketMinutes);
+  facts.bins = await ahead.dialBins;
 
   // ── The room, and the light ───────────────────────────────────────────────
   facts.palette = palette;
@@ -599,7 +633,7 @@ export async function loadStorySpineFacts(args: {
     and the seating that attributes photographs to it come from two different
     moments.
   */
-  const freeze = await loadRoomFreeze(admin, args.eventId);
+  const freeze = await ahead.roomFreeze;
   facts.room = freeze.room ?? (await loadLiveRoom(admin, args.eventId, eventType));
   facts.heat = await loadTableHeat(admin, {
     frozenSeats: freeze.seats,

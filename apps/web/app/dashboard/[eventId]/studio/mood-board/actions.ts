@@ -853,7 +853,7 @@ export async function fetchGalleryAssets(input: {
   near?: string;
 }): Promise<GalleryPage> {
   const query = normalizeGalleryQuery(input);
-  if (!query) throw new Error('No supplier gallery for that slot');
+  if (!query) throw new Error('No supplier Inspiration for that slot');
 
   const supabase = await createClient();
   const {
@@ -938,7 +938,7 @@ export async function applyGalleryPick(input: {
   assetId: string;
 }): Promise<{ status: 'ok' | 'error'; imageUrl?: string; message?: string }> {
   if (!isMoodboardSlotKey(input.slotKey) || !slotHasSupplierTrade(input.slotKey)) {
-    return { status: 'error', message: 'That slot has no supplier gallery.' };
+    return { status: 'error', message: 'That slot has no supplier Inspiration.' };
   }
   if (!isMoodboardSlotPosition(input.slotPosition)) {
     return { status: 'error', message: 'That photo slot does not exist.' };

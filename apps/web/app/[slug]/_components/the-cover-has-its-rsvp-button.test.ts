@@ -118,7 +118,8 @@ test('(2) the RSVP button opens the shipped reply, and shows the three states', 
   // A visitor without a key: the stranger's ONE door stands IN the cover's foot, in the button's place (owner
   // 2026-10-17 — "Confirm your Booking", the passcode first) — never a second button beside it (owner 2026-09-26/27).
   // `the-cover-always-has-a-way-on.test.ts` holds the stranger's foot whole.
-  assert.match(body, /: coverRsvpOf\(\{ card: replyCard, toPart: true \}\);/, 'the guest’s button does not read their own Reply card, or does not take them to it');
+  // 🔁 2026-10-24 (owner, the Me redraw — one place): on a tabbed page the part is Me's Reply (`#me-reply`).
+  assert.match(body, /: coverRsvpOf\(\{ card: replyCard, toPart: true, partHref: tabs\.on \? `#\$\{ME_REPLY_ID\}` : null \}\);/, 'the guest’s button does not read their own Reply card, or does not take them to it');
   assert.equal((body.match(/foot=\{false\}/g) ?? []).length, 0, 'a cover draws no foot — its first screen ends in nothing');
   assert.equal((body.match(/door=\{footDoor\}/g) ?? []).length, 2, 'a stranger’s cover does not hold its door in the foot');
   assert.equal((body.match(/rsvp=\{guestRsvp\}/g) ?? []).length, 2, 'a guest’s cover has no button');
@@ -157,5 +158,9 @@ test('(5) the button TAKES the guest to the RSVP part — the Welcome’s Reply 
   // button is an in-page link to it (`the-cover-rsvp-reaches-its-action.test.ts` holds it whole).
   const body = stripComments(read('app/[slug]/_components/site-body.tsx'));
   assert.doesNotMatch(body, /coverHoldsReply/, 'the Reply card is hidden again under a cover that holds the button — the button would lead nowhere');
-  assert.match(body, /\{replyCard \? \(\s*<ReplyCardRow card=\{replyCard\} partId=\{COVER_RSVP_PART\}/, 'the Reply card is not the page’s RSVP part');
+  // 🔁 RE-AIMED 2026-10-24 (owner, approving the Me redraw: "we want 1 place for everything"): on a TABBED page the RSVP
+  // part is Me's one Reply (`MeReply`, `#me-reply`) and the Welcome draws no card; a page that is one scroll keeps the
+  // card under the cover as its RSVP part. `me-is-the-one-place.test.ts` holds the tabbed page whole.
+  assert.match(body, /\{replyCard && tabs\.on \? \([\s\S]{0,300}?null\s*\) : replyCard \? \(\s*<ReplyCardRow card=\{replyCard\} partId=\{COVER_RSVP_PART\}/, 'the Reply card is not the page’s RSVP part');
+  assert.match(body, /export const ME_REPLY_ID = 'me-reply'|ME_REPLY_ID/, 'Me’s Reply has no id for the button');
 });

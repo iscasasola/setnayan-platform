@@ -1,7 +1,8 @@
 /**
  * Unit suite for the LOCK-path booking-fee helpers (owner 2026-07-24) — the
- * service_key round-trip, the free-5 boundary, and the pure decideLockFee rule
- * that the SQL RPC mirrors. Money code: the 5th-vs-6th boundary, the flag-off
+ * service_key round-trip, the free-booking boundary, and the pure decideLockFee
+ * rule that the SQL RPC mirrors. Money code: the 1st-vs-2nd boundary (owner
+ * 2026-10-23: "Your first booking is on us. Not 5." — it was 5th-vs-6th), the flag-off
  * no-op, and the confirmed-total fee base each get a direct assertion.
  */
 import { test } from 'node:test';
@@ -33,17 +34,17 @@ test('non-booking-fee keys → null (no false match with other vendor_ keys)', (
   assert.equal(chargeIdFromBookingFeeLockServiceKey(undefined), null);
 });
 
-// ── free-5 boundary ──────────────────────────────────────────────────────────
+// ── free-booking boundary ────────────────────────────────────────────────────
 
-test('free-5 boundary: bookings 1..5 free, 6+ charged', () => {
-  assert.equal(FREE_BOOKING_LIMIT, 5);
-  assert.equal(isFreeBooking(1), true);
-  assert.equal(isFreeBooking(5), true); // the 5th is still free
-  assert.equal(isFreeBooking(6), false); // the 6th pays
-  assert.equal(isFreeBooking(7), false);
+test('free-booking boundary: booking 1 free, 2+ charged', () => {
+  assert.equal(FREE_BOOKING_LIMIT, 1);
+  assert.equal(isFreeBooking(1), true); // the first is on us
+  assert.equal(isFreeBooking(2), false); // the 2nd pays
+  assert.equal(isFreeBooking(5), false); // the old five-booking rule is gone
+  assert.equal(isFreeBooking(6), false);
 });
 
-test('free-5: a 0 / negative ordinal is not "free" (defensive)', () => {
+test('free booking: a 0 / negative ordinal is not "free" (defensive)', () => {
   assert.equal(isFreeBooking(0), false);
   assert.equal(isFreeBooking(-1), false);
   assert.equal(isFreeBooking(Number.NaN), false);
@@ -61,8 +62,8 @@ test('not verified (off-platform) → no charge even with flag on', () => {
   assert.deepEqual(d, { charge: false, free: false, feePhp: 0, createOrder: false });
 });
 
-test('5th lock → free: a waived charge, no money, no order', () => {
-  const d = decideLockFee({ flagEnabled: true, verified: true, bookingOrdinal: 5, agreedTotalPhp: 100_000 });
+test('1st lock → free: a waived charge, no money, no order', () => {
+  const d = decideLockFee({ flagEnabled: true, verified: true, bookingOrdinal: 1, agreedTotalPhp: 100_000 });
   assert.deepEqual(d, { charge: true, free: true, feePhp: 0, createOrder: false });
 });
 

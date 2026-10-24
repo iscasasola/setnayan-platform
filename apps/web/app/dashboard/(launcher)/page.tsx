@@ -20,6 +20,7 @@ import {
   Plus,
 } from 'lucide-react';
 import { YearMomentsStrip } from './_components/year-moments-strip';
+import { Spotlight } from '@/app/_components/spotlight';
 import { IncomingRequests } from './_components/incoming-requests';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
@@ -1145,8 +1146,10 @@ export default async function LauncherPage({
           what this shelf is FOR and never that you have none." The title now
           obeys the same rule its own page wrote: it NAMES the page and makes no
           claim about how many events you have, so it is true in both states.
-          The invitation to create one is the top bar's "+ Create event" (and,
-          on phones, the bottom bar's ➕ and the dashed New-event card below). */}
+          The invitation to create one is this board's own: the Planning
+          header's (+), the dashed New-event card and the empty shelf's
+          "Create an event" (the top bar's "+ Create event" left it at every
+          width on 2026-10-22 — Create lives here). */}
       {/* ⚠ THE TITLE IS NO LONGER PAINTED (owner 2026-08-20: "Remove Your Events
           on My Events. we don't need that text.").
 
@@ -1167,6 +1170,11 @@ export default async function LauncherPage({
           "Pick up where you left off" tail still apply and still pass: what was
           removed is the visible duplicate, never the page's identity. */}
       <h1 className="sr-only">Your events</h1>
+
+      {/* 🔦 The account bar's first-visit spotlight (Events · Memories · People — owner 2026-10-22), after the
+          host's journey so the two never stack. A server component: it reads its own seen keys and ships only
+          this tour's words (`lib/tours-stay-on-the-server.test.ts`). */}
+      <Spotlight tourKey="customer_account_bar_v1" after="host_spotlight_v1" />
 
       {/* INCOMING REQUESTS — at the top, only while one is waiting (owner
           2026-09-28: "if they have an account. it must show on their event
@@ -1190,8 +1198,8 @@ export default async function LauncherPage({
           button arrived 2026-08-15 and overtook that premise. It also read as
           a second search bar one row under the real one — the owner himself
           misread it — so keeping it cost more than it invited. Creation stays
-          reachable here via the dashed New-event card, the phone pill's ➕,
-          the top bar and ⌘K. */}
+          reachable here via the Planning header's (+), the dashed New-event
+          card and ⌘K (the top bar's button left on 2026-10-22). */}
 
 
       {/* ⚠ THE ONE-EVENT NUDGE BANNER IS RETIRED (owner 2026-08-20: "for the

@@ -8,9 +8,11 @@ import { purchasePapicPoolTopUp } from '../actions';
 import type { PoolRung } from '@/lib/papic-pool-rungs';
 
 /**
- * THE ONE CREDIT FORM — the shipped − / + stepper, the one added line "After
- * this: N credits", and "Continue to payment" (owner "approve all", 2026-10-14,
- * prototype `renderBuySheet`). It lives in the Buy more sheet on Home AND on the
+ * THE ONE CREDIT FORM — the shipped − / + stepper, "New total: N credits", and ONE
+ * button that names the result, "Add N credits · ₱X" (owner "approve all", 2026-10-14,
+ * prototype `renderBuySheet`; owner 2026-10-24: *"it should just ask how much they
+ * want to add more and purchase … New total: and purchase button"* — no "How many do
+ * I need?", no range line, no "Not now"). It lives in the Buy more sheet on Home AND on the
  * Papic page: one form, so the two can never sell one ladder two ways.
  *
  * The rungs arrive already read and sorted (`loadPoolRungs`). The form posts
@@ -23,11 +25,15 @@ export function PapicBuyForm({
 }: {
   eventId: string;
   rungs: readonly PoolRung[];
-  /** Credits left now — null when not measured (then "After this" is not said). */
+  /** Credits left now — null when not measured (then "New total" is not said). */
   left: number | null;
 }) {
   const [adds, setAdds] = useState<number | null>(rungs[0]?.points ?? null);
-  const onRung = useCallback((r: StepperRung) => setAdds(r.points), []);
+  const [shown, setShown] = useState<StepperRung | null>(rungs[0] ?? null);
+  const onRung = useCallback((r: StepperRung) => {
+    setAdds(r.points);
+    setShown(r);
+  }, []);
   if (rungs.length === 0) return null;
   return (
     <form action={purchasePapicPoolTopUp}>
@@ -40,7 +46,7 @@ export function PapicBuyForm({
 
       {left !== null && adds !== null ? (
         <div className="sg-after" data-papic-after="">
-          <span>After this</span>
+          <span>New total</span>
           <b>{(left + adds).toLocaleString('en-PH')} credits</b>
         </div>
       ) : null}
@@ -55,7 +61,8 @@ export function PapicBuyForm({
           pendingLabel="Opening payment…"
           className="ab ab-brand ab-main sg-pay inline-flex min-h-11 w-full items-center justify-center"
         >
-          Continue to payment
+          {/* ONE Buy button that names the result (owner 2026-10-23). */}
+          {shown ? `Add ${shown.points.toLocaleString('en-PH')} credits · ${shown.priceLabel ?? `₱${shown.pricePhp.toLocaleString('en-PH')}`}` : 'Continue to payment'}
         </SubmitButton>
         <PayStep />
       </div>

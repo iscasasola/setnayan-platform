@@ -125,7 +125,7 @@ export default async function PapicClaimPage({ params, searchParams }: Props) {
       sub={
         <>
           Tap once and your phone turns into a candid camera for the day. Every photo you
-          shoot lands straight in the host&rsquo;s gallery — no app to install
+          shoot lands straight in the host&rsquo;s Memories — no app to install
           {user ? '' : ', no sign-up'}.
         </>
       }
@@ -196,7 +196,7 @@ export default async function PapicClaimPage({ params, searchParams }: Props) {
          SIGNED-OUT one: every pass through this page was made while signed in,
          so the reviewed render was the other branch. A conditional's other
          arm is a surface you have not looked at. */
-      sub="Someone asked you to be part of their photo crew. Sign in to claim your seat — then your phone becomes a candid camera and every shot lands in their gallery."
+      sub="Someone asked you to be part of their photo crew. Sign in to claim your seat — then your phone becomes a candid camera and every shot lands in their Memories."
     >
       <Link
         href={`/login?next=${encodeURIComponent(`/papic/claim/${token}`)}`}

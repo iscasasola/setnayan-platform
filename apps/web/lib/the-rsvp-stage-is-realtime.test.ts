@@ -71,7 +71,9 @@ test('A · the shell draws the stage for its bar item, and the launch page build
   const shell = read(`${L}/maker-shell.tsx`);
   assert.match(shell, /selection\.key === 'rsvp-stage' \? \(\s*<div[^>]*data-maker-rsvp-layer/, 'the shell has no layer for the RSVP stage');
   const page = read('app/dashboard/[eventId]/launch/page.tsx');
-  assert.match(page, /rsvpStage=\{rsvpStage\}/, 'the launch page does not hand the stage to the shell');
+  /* ⚡ Handed over with the tools that arrive behind the Maker (2026-10-23, `lib/maker-late.ts`). */
+  assert.match(page, /return \{[^}]*\brsvpStage,[^}]*opensOnGuide:/s, 'the launch page does not hand the stage to the shell');
+  assert.match(page, /late=\{late\}/, 'the launch page does not hand the stage to the shell');
   assert.match(page, /import \{[^}]*\bMakerRsvpStage\b[^}]*\} from '\.\/_components\/details-lazy'/, 'the stage must come through details-lazy');
   // Raw, not comment-stripped: the chunk's NAME is a comment (`webpackChunkName`).
   const lazy = readFileSync(join(ROOT, `${L}/details-lazy.tsx`), 'utf8');

@@ -278,8 +278,8 @@ export const DIE_CUTS: Record<InviteThemeId, DieCut> = {
  * CR80 (rounded corners are the card standard) and the posters are A3 flat —
  * cutting a poster into an arch is not something a print shop quotes.
  */
-export function dieCutFor(theme: InviteThemeId, piece: PrintPieceKey, format?: Pick<PrintFormat, 'wMm' | 'hMm'> | null): DieCut {
-  if (piece === 'pass' || piece === 'passes') return 'rounded';
+export function dieCutFor(theme: InviteThemeId, piece: PrintPieceKey, format?: Pick<PrintFormat, 'wMm' | 'hMm'> | null, passCorners: PassCorners = 'rounded'): DieCut {
+  if (piece === 'pass' || piece === 'passes') return passCorners === 'square' ? 'rect' : 'rounded';
   if (piece === 'poster' || piece === 'story-poster' || PRINT_PIECES[piece].kind === 'free') return 'rect';
   const cut = DIE_CUTS[theme];
   // An arch or a chevron is drawn across the sheet's WIDTH; on a LANDSCAPE card
@@ -654,6 +654,8 @@ export type PrintDetails = {
   storyExcerpt?: string | null;
   /** Print guests' names on their passes (the Guest list toggle). */
   guestNames?: boolean;
+  /** The passes' corners — `rounded` (the card standard, the default) or `square` (cut straight with a trimmer). */
+  passCorners?: PassCorners;
   /** The pass card's look (lib/pass-card.ts) — the couple's one pick, stored as `pass_design`. */
   passDesign?: PassCardDesign;
   /** A small Setnayan mark in the pass card's foot — free events only (never on Pro). */
@@ -664,6 +666,8 @@ export type PrintDetails = {
    * picture a guest saves.
    */
   brandLine?: boolean;
+  /** 🔁 PAPER ONLY — the NFC sticker is on this pass's back, so its foot says "Scan or tap" (set by the print path alone). */
+  nfcBack?: boolean;
 };
 
 /**
@@ -688,8 +692,13 @@ export type RsvpChoice = { kind: 'host'; moderatorId: string } | { kind: 'manual
  * Each source is ticked (with its sub-options) in the Maker's Details panel and
  * READ from where it already lives; an unticked item is simply left off.
  */
+export type PassCorners = 'rounded' | 'square';
+export const PASS_CORNERS: readonly PassCorners[] = ['rounded', 'square'];
+
 export type PrintInclude = {
   guestNames: boolean;
+  /** Rounded or square corners on every pass (Print settings › Passes). */
+  passCorners: PassCorners;
   parents: boolean;
   seatPlan: 'none' | '3d' | '2d' | 'list';
   giftDetails: boolean;
@@ -706,6 +715,7 @@ export type PrintInclude = {
 
 export const DEFAULT_INCLUDE: PrintInclude = {
   guestNames: true,
+  passCorners: 'rounded',
   parents: true,
   seatPlan: 'none',
   giftDetails: true,
@@ -726,6 +736,7 @@ export function parseInclude(raw: unknown): PrintInclude {
     (allowed as readonly unknown[]).includes(r[k]) ? (r[k] as T) : (DEFAULT_INCLUDE[k] as T);
   return {
     guestNames: bool('guestNames'),
+    passCorners: pick('passCorners', PASS_CORNERS),
     parents: bool('parents'),
     seatPlan: pick('seatPlan', ['none', '3d', '2d', 'list'] as const),
     giftDetails: bool('giftDetails'),

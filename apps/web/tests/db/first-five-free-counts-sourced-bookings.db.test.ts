@@ -9,7 +9,7 @@
  * first real Setnayan booking. Executed against replayed migrations.
  *
  * SABOTAGE (2026-10-12): drop `l2.attribution = 'sourced'` from the lock RPC's
- * count → test 1 RED (the 3rd sourced booking is billed); drop it from the
+ * count → test 1 RED (the 1st sourced booking is billed); drop it from the
  * quote's count → test 2 RED.
  */
 import { test, before, after } from 'node:test';
@@ -78,24 +78,24 @@ async function openCharge(evId: string): Promise<Open> {
   return r.rows[0]!.r;
 }
 
-test('imports first, then five Setnayan bookings — all five are free, the sixth is billed', async () => {
+// ⚖ One free booking since 2026-10-23 (owner: "Your first booking is on us.
+// Not 5.") — the property is unchanged: imports take no free place.
+test('imports first, then a Setnayan booking — it is the free one, the next is billed', async () => {
   const vpid = await newVendor();
   for (let i = 0; i < 3; i += 1) {
     const imp = await newBooking(vpid, false);
     assert.equal((await openCharge(imp.eventVendorId)).status, 'waived_import', 'fixture: an import');
   }
-  for (let i = 1; i <= 5; i += 1) {
-    const b = await newBooking(vpid, true);
-    const r = await openCharge(b.eventVendorId);
-    assert.equal(
-      r.status,
-      'waived_free5',
-      `Setnayan booking ${i} was billed after 3 imports — the imports used up the shop's free five`,
-    );
-    assert.equal(r.booking_ordinal, i, `booking ${i} took ordinal ${r.booking_ordinal}`);
-  }
-  const sixth = await newBooking(vpid, true);
-  assert.equal((await openCharge(sixth.eventVendorId)).status, 'pending', 'the sixth sourced booking is billed');
+  const b = await newBooking(vpid, true);
+  const r = await openCharge(b.eventVendorId);
+  assert.equal(
+    r.status,
+    'waived_free5',
+    "the first Setnayan booking was billed after 3 imports — the imports used up the shop's free booking",
+  );
+  assert.equal(r.booking_ordinal, 1, `the first Setnayan booking took ordinal ${r.booking_ordinal}`);
+  const second = await newBooking(vpid, true);
+  assert.equal((await openCharge(second.eventVendorId)).status, 'pending', 'the second sourced booking is billed');
 });
 
 test("the quote's projection counts the same way", async () => {

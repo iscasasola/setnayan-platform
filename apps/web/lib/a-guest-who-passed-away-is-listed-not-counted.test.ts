@@ -125,9 +125,11 @@ test('no sign-in link or invitation is emailed to a guest who passed away', () =
 
 test('the guest card is where the couple sets it — never for the couple themselves', () => {
   const body = read('app/dashboard/[eventId]/guests/_components/guest-card-body.tsx');
-  const toggle = /\{isCouple \? null : \(\s*<K\.Toggle\s+name="passed_away"/;
+  /* RE-AIMED 2026-10-23: its own group, out of Details (owner's groups) — and still never for the couple.
+     RE-AIMED 2026-10-24: the approved prototype draws the switch AS the row (no fold) — still its own row, still never for the couple. */
+  const toggle = /\{isCouple \? null : \([\s\S]{0,400}?<div[^>]*data-card-passed-away=""[^>]*>\s*<K\.Toggle\s+name="passed_away"/;
   assert.match(body, toggle, 'the Passed away toggle is missing, or offered to the bride and groom');
-  assert.match(body, /label="Passed away"/);
+  assert.match(body, /label="Passed [Aa]way"/); // RE-AIMED 2026-10-24: the row is its title, in the groups' case ("Passed Away")
   const action = read('app/dashboard/[eventId]/guests/[guestId]/actions.ts');
   assert.match(
     action,

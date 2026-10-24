@@ -229,7 +229,7 @@ export function AddPaymentMethod({ vendorProfileId, linkAsks }: Props) {
                 size="xs"
               />
               <span>
-                Payment links are part of Pro and Enterprise. Fill it in here — saving asks for the
+                Payment links are part of Pro and Ultra. Fill it in here — saving asks for the
                 plan. Bank, e-wallet, and QR are free on every plan.
               </span>
               <Link

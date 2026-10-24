@@ -154,7 +154,9 @@ test('(4) every surface reads the same N — one count, one set of words', () =>
   // The guest's Reply card (Welcome · Me) — and so the cover — carry it.
   const body = stripComments(read('app/[slug]/_components/site-body.tsx'));
   assert.match(body, /moreAnswers: g\.moreAnswers,/, 'the guest’s Reply card does not read N');
-  assert.match(body, /: coverRsvpOf\(\{ card: replyCard, toPart: true \}\);/, 'the cover does not read the guest’s Reply card');
+  // (2026-10-24, the Me redraw: on a tabbed page the cover's part is Me's one Reply — the card it reads is the same.)
+  assert.match(body, /: coverRsvpOf\(\{ card: replyCard, toPart: true, partHref: tabs\.on \? `#\$\{ME_REPLY_ID\}` : null \}\);/, 'the cover does not read the guest’s Reply card');
+  assert.match(body, /<MeReply ask=\{greetingAskOf\(meReplyCard\)!\}/, 'Me’s one Reply does not read the guest’s Reply card (and its N)');
   // The landing door: the reply page's own call, on its own row (the select carries `mobile`).
   const enter = stripComments(read('app/[slug]/invite/enter/page.tsx'));
   assert.match(enter, /\.select\('[^']*\brsvp_status, meal_preference, mobile\b[^']*'\)/, 'the landing reads no mobile — every attending guest would owe one');

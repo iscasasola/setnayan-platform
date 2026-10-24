@@ -228,7 +228,7 @@ export const routeMeta = {
     },
     hosts: { icon: UserPlus, label: 'nav.hosts' },
     invitation: { icon: Pencil, label: 'Invitation & URL' },
-    live: { icon: MonitorPlay, label: 'Live Wall' },
+    live: { icon: MonitorPlay, label: 'Memory lane' },
     manpower: { icon: HardHat, label: 'Manpower' },
     messages: { icon: MessageSquare, label: 'Messages' },
     monogram: { icon: Type, label: 'Monogram' },

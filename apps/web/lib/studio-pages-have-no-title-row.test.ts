@@ -89,7 +89,8 @@ test('(1) no row is added: nothing is drawn over a Studio page — no title row,
   // The bar is the bar on every page (it was hidden on Wedding March and Seat plan).
   assert.match(shell, /className="sn-glass-bare relative z-20 flex shrink-0 flex-nowrap items-center gap-x-1 px-2 py-1 max-lg:h-\[52px\] lg:gap-1\.5 lg:px-2\.5"/, 'the top bar’s shape changed, or it is hidden on some page');
   // Over the work area the Studio draws its home of cards, and nothing else.
-  assert.match(shell, /\{studioHomeOn \? \(\s*<StudioCover tiles=\{studio\?\.tiles \?\? null\} onOpen=\{openStudio\} \/>\s*\) : null\}/);
+  /* `pending={latePending}` (2026-10-23): the home's tiles may still be on their way (`lib/maker-late.ts`) — the cover says loading. */
+  assert.match(shell, /\{studioHomeOn \? \(\s*<StudioCover tiles=\{studio\?\.tiles \?\? null\} pending=\{latePending\} onOpen=\{openStudio\} \/>\s*\) : null\}/);
   const css = studioFullScreenCss();
   assert.ok(css.includes('{--maker-lt-h:calc(100dvh - 44px)}'), 'a form page still leaves room for a row (52 px of nothing)');
   assert.doesNotMatch(css, /100dvh - 96px/);

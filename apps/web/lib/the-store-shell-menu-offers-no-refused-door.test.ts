@@ -120,12 +120,13 @@ test('🍎 no event menu offers a door the app would refuse — in the shell, an
   }
 });
 
-test('🍎 the store-shell bar is the web\'s bar minus More — none blank, none repeated', () => {
+test('🍎 the store-shell bar is the web\'s bar — the same five, none blank, none repeated', () => {
   /*
     Owner 2026-10-21 (TestFlight build 5): *"if all is at home already, then we
     can remove more"*. In the app the five services are all paid and dropped,
     so More only re-opened Home; it is not built there. The other four pillars
-    are the web's own. (`the-app-bar-has-no-more.test.ts` holds the why.)
+    are the web's own. (`the-app-bar-has-no-more.test.ts` holds the why.) Since 22 Oct 2026 the web
+    has no More either (owner, *"Yes remove more"*), so the two bars are the same four.
   */
   for (const phase of PHASES) {
     const web = buildCustomerMenuTree(EVENT_ID, { phase, websiteEnabled: true, studioRows: STUDIO_ROWS });
@@ -137,11 +138,12 @@ test('🍎 the store-shell bar is the web\'s bar minus More — none blank, none
     });
     assert.deepEqual(
       app.map((m) => m.key),
-      web.map((m) => m.key).filter((k) => k !== 'studio'),
-      `${phase}: the app bar lost a pillar, or kept More`,
+      web.map((m) => m.key),
+      `${phase}: the app bar and the web bar differ`,
     );
+    // Memories joined after Hub on 23 Oct 2026 — viewing your photos is free, so the app keeps it too.
     assert.equal(web.length, 5, `${phase}: the web bar is not five`);
-    assert.equal(app.length, 4, `${phase}: ${app.length} tab(s) in the store shell`);
+    assert.equal(app.length, 5, `${phase}: ${app.length} tab(s) in the store shell`);
     for (const m of app) {
       assert.ok(m.label.trim().length > 0 && m.href.length > 0, `${phase}: a tab with no label or href`);
     }
@@ -157,7 +159,7 @@ test('the one filter answers the refusal list, and nothing else', () => {
   assert.equal(storeShellRefusesMenuRow(`${base}/studio/papic`, false), false);
   assert.equal(storeShellRefusesMenuRow(`${base}/studio/papic`, undefined), false);
   // Planning stays — that is what the store shell exists for.
-  for (const open of [base, `${base}/guests`, `${base}/vendors`, `${base}/launch`, `${base}/galleries`]) {
+  for (const open of [base, `${base}/guests`, `${base}/vendors`, `${base}/launch`, `${base}/galleries`, `${base}/memories`]) {
     assert.equal(storeShellRefusesMenuRow(open, true), false, `${open} was refused`);
   }
 });

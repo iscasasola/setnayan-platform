@@ -361,6 +361,13 @@ export const DASHBOARD_ROW_CARRIES = [
   'papic_on',
   'papic_window_start',
   'papic_window_end',
+  // Home's control row (owner-approved 2026-10-24): the Countdown's place, and when the Invitation page opens.
+  'venue_name',
+  'std_invitation_launch_date',
+  // …and the stage the couple PINNED (owner 2026-10-25, "Pick what shows": Save the Date · Invitation · The Day ·
+  // Post Event) — `manualLaunchPhase(launch_mode, manual_phase)`, so the tile says the page guests really see.
+  'launch_mode',
+  'manual_phase',
   // The head count the Suppliers and Budget tabs plan for (`readFinalizeState`, lib/pax.ts).
   'headcount_basis',
   'guest_count_locked_at',

@@ -200,7 +200,6 @@ export default async function NewServicePage({
           coverageAsk={ctx.coverageAsk}
           schedules={ctx.schedules}
           scheduleOfKind={ctx.scheduleOfKind}
-          slotsPerDay={ctx.slotsPerDay}
           branches={ctx.branches}
           detailsKind={details ? category : null}
           detailsSlot={

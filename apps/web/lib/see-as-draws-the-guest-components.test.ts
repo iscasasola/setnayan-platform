@@ -127,7 +127,8 @@ test('3 · Me draws on the canvas for the sample guest — the guest page’s ow
 
   const branch = sampleBranch();
   const me = branch.slice(branch.indexOf('meSection={'));
-  assert.match(me, /<GuestMeSection[\s\S]*?meSlot=\{\s*<GuestTicket[\s\S]*?state=\{sampleTicketState\(seeAs\)\}[\s\S]*?src=\{sampleTicketSrc\(event\.event_id\)\}/, 'Me is not the guest page’s own GuestMeSection + GuestTicket');
+  // (2026-10-24, the Me redraw: the slot draws no ticket while a reply is still owed on the redrawn Me — Me's one Reply asks.)
+  assert.match(me, /<GuestMeSection[\s\S]*?meSlot=\{[\s\S]{0,300}?<GuestTicket[\s\S]*?state=\{sampleTicketState\(seeAs\)\}[\s\S]*?src=\{sampleTicketSrc\(event\.event_id\)\}/, 'Me is not the guest page’s own GuestMeSection + GuestTicket');
   // The body draws the Me group for a sample viewer, not only on a tabbed page.
   assert.match(BODY, /\{tabs\.on \|\| sampleViewer !== null \? group\('me', \(/, 'SiteBody does not draw Me for the sample guest');
   // The navigator: no "can’t be shown" note while Me IS shown, and a Me pick goes to it.

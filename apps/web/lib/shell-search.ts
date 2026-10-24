@@ -28,3 +28,19 @@ export function shellSearchHref(query: string): string {
   const q = query.trim();
   return q ? `${SHELL_SEARCH_PATH}?q=${encodeURIComponent(q)}` : SHELL_SEARCH_PATH;
 }
+
+/**
+ * DISCOVER ANSWERS ON DISCOVER (owner 2026-10-24, on `/dashboard/search`: *"it went to a different page?"* — and
+ * pressing Clear there left him on a page with no search at all). Discover's thumb row searches the page it stands
+ * on: the words ride in `?q=` on the SAME address, the page draws its results in place of its sections, and an empty
+ * box takes the `q` away again. Every other parameter is kept. No route change, by construction — this only ever
+ * edits the query string of the address it is handed.
+ */
+export function stayOnPageSearchHref(currentHref: string, query: string): string {
+  const u = new URL(currentHref, 'https://setnayan.invalid');
+  const q = query.trim();
+  if (q) u.searchParams.set('q', q);
+  else u.searchParams.delete('q');
+  const qs = u.searchParams.toString();
+  return `${u.pathname}${qs ? `?${qs}` : ''}`;
+}

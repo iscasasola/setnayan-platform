@@ -117,7 +117,9 @@ test('3 · the card asks at the versioned address — one address for the thumb,
   const page = src('app/dashboard/[eventId]/guests/page.tsx');
   assert.match(page, /passCardTicketVersion\(createAdminClient\(\), inspectParam\)\.catch\(\(\) => null\)/, 'started early, never thrown');
   assert.match(page, /ticketVersion=\{inspectedTicketVP\}/, 'handed to the card as a promise — the card does not wait');
-  assert.match(src('app/dashboard/[eventId]/guests/[guestId]/page.tsx'), /ticketVersion=\{passCardTicketVersion\(/);
+  // The ONE card reader (the standalone route, the Wedding March, the parents — 2026-10-24) hands it on as a promise too.
+  assert.match(src('app/dashboard/[eventId]/guests/_components/guest-card-read.ts'), /ticketVersion: passCardTicketVersion\(createAdminClient\(\), guestId\)\.catch\(\(\) => null\)/, 'the reader waits for the ticket version, or throws');
+  assert.match(src('app/dashboard/[eventId]/guests/_components/guest-card.tsx'), /ticketVersion=\{ticketVersion\}/, 'the card does not hand its body the version');
 });
 
 test('4 · the screen card is drawn from the screen kit (photos downscaled), never the print one', () => {

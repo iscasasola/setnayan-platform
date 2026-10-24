@@ -7,6 +7,8 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { submitPaymentProof } from '../actions';
 import { payAmount } from '@/lib/pay-amount';
 import { PAYMENTS_PAUSED_MESSAGE } from '@/lib/payment-channels';
+import { useModalA11y } from '@/lib/use-modal-a11y';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 import {
   ChannelToggle,
   PaymentDetailsBlock,
@@ -534,6 +536,8 @@ function ProofForm({
   const [preview, setPreview] = useState<string | null>(null);
   const [big, setBig] = useState(false);
   const urlRef = useRef<string | null>(null);
+  const bigRef = useRef<HTMLDivElement>(null);
+  useModalA11y({ open: big && !!preview, onClose: () => setBig(false), containerRef: bigRef });
   const idempotencyKey = useMemo(() => crypto.randomUUID(), []);
 
   useEffect(
@@ -644,20 +648,19 @@ function ProofForm({
 
       {big && preview && (
         <div
-          className="fixed inset-0 z-50 grid place-items-center bg-ink/85 p-5"
-          role="button"
-          tabIndex={0}
-          aria-label="Close the enlarged screenshot"
-          onClick={() => setBig(false)}
-          onKeyDown={(e) => {
-            if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') setBig(false);
-          }}
+          ref={bigRef}
+          className="fixed inset-0 z-50 grid place-items-center p-5"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Your payment screenshot, enlarged"
         >
+          <OverlayBackdrop onClose={() => setBig(false)} label="Close the enlarged screenshot" />
+          {/* A tap on the picture still closes it, as before: it lets the tap through to the backdrop. */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={preview}
             alt="Your payment screenshot, enlarged"
-            className="max-h-[86vh] max-w-[min(420px,88vw)] rounded-xl bg-white"
+            className="pointer-events-none relative max-h-[86vh] max-w-[min(420px,88vw)] rounded-xl bg-white"
           />
         </div>
       )}

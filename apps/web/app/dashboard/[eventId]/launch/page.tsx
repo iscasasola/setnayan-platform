@@ -721,7 +721,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         ? 'This one runs at the venue, on the day.'
         : 'Project guest photos at the venue in real time.',
       owned: ownsLiveWall,
-      launchLabel: 'Open the wall',
+      launchLabel: 'Open Memory lane',
       launchHref: `${base}/live`,
       addHref: studioHubHref(eventId),
       Icon: MonitorPlay,

@@ -78,8 +78,10 @@ export function QrCard({
 
   const dataUri = qrSvg ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(qrSvg)}` : '';
   const plate = 'relative block h-[200px] w-[200px] rounded-card bg-white p-[14px] shadow-[0_1px_0_rgba(0,0,0,.04),0_10px_26px_-16px_rgba(0,0,0,.35)] [&_svg]:block [&_svg]:h-full [&_svg]:w-full';
+  // The plate is WHITE in both themes (QR rule), so in dark its letter is the fixed terracotta #C24E25 —
+  // `dark:text-mulberry-700` meant that until 700 lifted for words on the dark page (dark 3a, 2026-10-23).
   const mark = (
-    <span aria-hidden className="absolute left-1/2 top-1/2 flex h-[38px] w-[38px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded bg-white font-serif text-[18px] font-bold text-sn-accent dark:text-mulberry-700">
+    <span aria-hidden className="absolute left-1/2 top-1/2 flex h-[38px] w-[38px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded bg-white font-serif text-[18px] font-bold text-sn-accent dark:text-[#C24E25]">
       S
     </span>
   );

@@ -8,6 +8,8 @@
  *   ?easy=<moment>&sup=<supplier>   THE SIMPLER TODAY (owner APPROVE 2026-10-14) on the prototype's own people —
  *                     moments normal · setup · ask · eventday · locked · hallask · agreed; suppliers parish · caterer ·
  *                     studio · venue (`today-easy-lab.tsx`; the same assembly + screen as the page)
+ *   &shell=1          the REAL One Shell around the body (rail · the 72-px strip from 701 · the 440 panel), as the
+ *                     dashboard draws it — `../_components/supplier-lab-shell.tsx` (desktop, 2026-10-23)
  *   ?s=today          Today — Next card "1 of 3", numbers, Coming up, Also waiting, Shop (frame 01)
  *   ?s=day            Today on an event day — the dark card, Run the day        (frame 02)
  *   ?s=fail           the desk and payday could not be read — said, never 0     (frame 15)
@@ -48,7 +50,9 @@
  * does — the lab adds no server action of its own for them (the library state's one dev-only stand-in, `library-lab-server.ts`, holds no database). With no session every one
  * of them refuses; nothing is written from here.
  */
+import type { ReactNode } from 'react';
 import { notFound } from 'next/navigation';
+import { SupplierLabShell, type SupplierLabMeasure } from '../_components/supplier-lab-shell';
 import { Check, MessageSquare, Phone, Plus, Send, Wallet } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { SupplierThumbRow } from '@/app/vendor-dashboard/_components/supplier-thumb-row';
@@ -284,13 +288,16 @@ function TodayLab({ state, toast }: { state: TodayState; toast: string | undefin
 export default async function SupplierLabPage({
   searchParams,
 }: {
-  searchParams: Promise<{ thumb?: string; s?: string; toast?: string; q?: string; lane?: string; add?: string; open?: string; next?: string; mpage?: string; easy?: string; sup?: string; who?: string; draft?: string; library?: string; view?: string; sent?: string; rail?: string; logo?: string; gift?: string; invited?: string; wallet?: string }>;
+  searchParams: Promise<{ thumb?: string; s?: string; toast?: string; q?: string; lane?: string; add?: string; open?: string; next?: string; mpage?: string; easy?: string; sup?: string; who?: string; draft?: string; library?: string; view?: string; sent?: string; rail?: string; logo?: string; gift?: string; invited?: string; shell?: string; wallet?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
+  /* &shell=1 — the REAL One Shell around the body, as the dashboard draws it (rail · strip from 701 · the 440 panel). */
+  const wrap = (node: ReactNode, measure: SupplierLabMeasure) =>
+    q.shell === '1' ? <SupplierLabShell measure={measure}>{node}</SupplierLabShell> : node;
   if (q.easy && (EASY_MOMENTS as readonly string[]).includes(q.easy)) {
     const sup = (EASY_SUPPLIERS as readonly string[]).includes(q.sup ?? '') ? (q.sup as EasySupplier) : 'studio';
-    return <TodayEasyLab sup={sup} moment={q.easy as EasyMoment} actions={ACTIONS} library={q.library === '1'} rail={q.rail === 'service' || q.rail === 'docs' ? q.rail : null} logoNext={q.logo === '1'} gift={q.gift === 'running' || q.gift === 'soon' ? q.gift : null} />;
+    return wrap(<TodayEasyLab sup={sup} moment={q.easy as EasyMoment} actions={ACTIONS} library={q.library === '1'} rail={q.rail === 'service' || q.rail === 'docs' ? q.rail : null} logoNext={q.logo === '1'} gift={q.gift === 'running' || q.gift === 'soon' ? q.gift : null} />, 'today');
   }
   if (q.s === 'suggest') {
     /* 🤝🖼 A booked florist on a lab couple's Palette (prototype frames 1–2) — `&sent=1` one photo already waiting;
@@ -330,19 +337,19 @@ export default async function SupplierLabPage({
     );
   }
   if (q.s && (PEOPLE_STATES as readonly string[]).includes(q.s)) {
-    return <PeopleLab variant={q.s} q={q.q} lane={q.lane} toast={q.toast} add={q.add === '1'} />;
+    return wrap(<PeopleLab variant={q.s} q={q.q} lane={q.lane} toast={q.toast} add={q.add === '1'} />, 'own');
   }
   if (q.s && (DATES_STATES as readonly string[]).includes(q.s)) {
-    return <DatesLab state={q.s as DatesState} toast={q.toast} open={q.open} />;
+    return wrap(<DatesLab state={q.s as DatesState} toast={q.toast} open={q.open} />, 'wide');
   }
   if (q.s && (PAGE_LAB_STATES as readonly string[]).includes(q.s)) {
-    return <PageLab state={q.s as PageLabState} who={q.who} draft={q.draft === '1'} invited={q.invited === '1'} />;
+    return wrap(<PageLab state={q.s as PageLabState} who={q.who} draft={q.draft === '1'} invited={q.invited === '1'} />, 'own');
   }
   if (q.s && (MONEY_STATES as readonly string[]).includes(q.s)) {
-    return <MoneyLab state={q.s as MoneyState} next={q.next} open={q.open} mpage={q.mpage} wallet={q.wallet} />;
+    return wrap(<MoneyLab state={q.s as MoneyState} next={q.next} open={q.open} mpage={q.mpage} wallet={q.wallet} />, 'reading');
   }
   const today = q.s ? TODAY[q.s] : undefined;
-  if (today) return <TodayLab state={today} toast={q.toast} />;
+  if (today) return wrap(<TodayLab state={today} toast={q.toast} />, 'today');
   const thumb = q.thumb ?? 'people';
   return (
     <div className="min-h-screen bg-cream px-4 pb-40 pt-3" data-supplier-lab={thumb}>

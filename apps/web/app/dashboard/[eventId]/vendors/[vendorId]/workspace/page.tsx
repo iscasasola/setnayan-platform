@@ -2405,7 +2405,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
                   step="1"
                   inputMode="numeric"
                   defaultValue={thisVendorCrew ?? ''}
-                  className="w-32 rounded-md border border-ink/15 bg-white px-2 py-1 text-right font-medium text-ink focus:border-terracotta focus:outline-none"
+                  className="w-32 rounded-md border border-ink/15 bg-white dark:bg-raised px-2 py-1 text-right font-medium text-ink focus:border-terracotta focus:outline-none"
                 />
               </label>
               {hasCrewMealProvider ? (
@@ -2468,7 +2468,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             {crewFields}
             {paidSoFarRow}
             {ev.category === 'crew_meals' ? null : (
-              <SubmitButton pendingLabel="Saving…" className="mt-1 inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-mulberry-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta">Save crew</SubmitButton>
+              <SubmitButton pendingLabel="Saving…" className="mt-1 inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-sm font-medium text-white dark:text-cream transition-colors hover:bg-mulberry-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta">Save crew</SubmitButton>
             )}
           </form>
         </section>
@@ -2528,7 +2528,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
                   step="0.01"
                   inputMode="decimal"
                   defaultValue={line.value ?? ''}
-                  className="w-32 rounded-md border border-ink/15 bg-white px-2 py-1 text-right font-medium text-ink focus:border-terracotta focus:outline-none"
+                  className="w-32 rounded-md border border-ink/15 bg-white dark:bg-raised px-2 py-1 text-right font-medium text-ink focus:border-terracotta focus:outline-none"
                 />
               </span>
             </label>
@@ -2560,7 +2560,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
               one source: the same `paidSoFarFormatted` the header shows. */}
           {paidSoFarRow}
 
-          <SubmitButton pendingLabel="Saving…" className="mt-1 inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-mulberry-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta">Save costs</SubmitButton>
+          <SubmitButton pendingLabel="Saving…" className="mt-1 inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-sm font-medium text-white dark:text-cream transition-colors hover:bg-mulberry-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta">Save costs</SubmitButton>
         </form>
         </section>
       );
@@ -2853,7 +2853,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             <input type="hidden" name="vendor_id" value={ev.vendor_id} />
             <SubmitButton
               pendingLabel="Confirming…"
-              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-mulberry-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-sm font-medium text-white dark:text-cream transition-colors hover:bg-mulberry-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
             >
               Yes, I got everything
             </SubmitButton>
@@ -2927,7 +2927,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
         </p>
         <Link
           href={reviewHref}
-          className="mt-4 inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-mulberry-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+          className="mt-4 inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-sm font-medium text-white dark:text-cream transition-colors hover:bg-mulberry-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
         >
           Leave a review
         </Link>

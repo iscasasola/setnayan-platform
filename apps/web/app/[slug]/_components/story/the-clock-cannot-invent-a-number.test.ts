@@ -162,6 +162,9 @@ const CLIENT_IMPORTS_ALLOWED = [
   // This file's own header says it — the needle, the readout and the entry
   // being read are one fact, and splitting them is how they end up disagreeing.
   /^@\/lib\/story-reader-position$/,
+  // THE ONE BACKDROP (owner 2026-10-25: every pop-up darkens + blurs the same way and holds the page still). A
+  // <button> with house classes — no fetch, no client, no route — and the test below proves it imports nothing.
+  /^@\/app\/_components\/overlay-backdrop$/,
 ];
 
 test('THE DIAL’S CLIENT HALF HAS NO PATH TO A COUNT', () => {
@@ -426,4 +429,14 @@ test('A WRITTEN MINUTE NEVER LOSES THE INSTANT THAT PLACES IT', () => {
       `a day chapter is built without atIso near \`time: ${m[1]!.slice(0, 40)}\``,
     );
   }
+});
+
+test('the backdrop on the allowlist imports nothing', () => {
+  const src = readFileSync(resolve(HERE, '../../../_components/overlay-backdrop.tsx'), 'utf8');
+  const imports = [...src.matchAll(/from\s+['"]([^'"]+)['"]/g)].map((m) => m[1]!);
+  assert.deepEqual(
+    imports,
+    [],
+    `overlay-backdrop.tsx imports ${imports.join(', ')}. It is on story-clock's allowlist BECAUSE it reaches nothing.`,
+  );
 });

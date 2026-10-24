@@ -7,6 +7,7 @@ import { useModalA11y } from '@/lib/use-modal-a11y';
 import { startPapicGuestPurchase, releaseGuestDedicatedShots } from '../buy/actions';
 import type { DedicatedShotsStanding, PapicGuestOffer } from '@/lib/papic-guest-buy';
 import type { BuyWait } from '@/lib/papic-buy-urgency';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 
 /**
  * "ADD SHOTS" — the guest's doorway, on the capture screen itself.
@@ -143,9 +144,10 @@ export function PapicBuyShell({
           role="dialog"
           aria-modal="true"
           aria-label="Add credits"
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 focus:outline-none sm:items-center sm:p-4"
+          className="fixed inset-0 z-50 flex items-end justify-center p-0 focus:outline-none sm:items-center sm:p-4"
         >
-          <div className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-t-2xl bg-surface p-5 text-ink shadow-xl sm:rounded-2xl">
+          <OverlayBackdrop onClose={close} />
+          <div className="relative max-h-[85vh] w-full max-w-md overflow-y-auto overscroll-contain rounded-t-2xl bg-surface p-5 text-ink shadow-xl sm:rounded-2xl">
             <div className="flex items-start justify-between gap-3">
               <div className="space-y-1">
                 <h2 className="text-lg font-semibold tracking-tight">Add credits</h2>

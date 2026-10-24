@@ -901,7 +901,7 @@ const BUNDLE_BENEFIT: Record<string, string> = {
   pakanta: "An original song written just for your wedding. Yours, forever — the only couple in the world who'll ever dance to it.",
   panood: "Livestream your day to family abroad — multi-camera, broadcast quality, so Lolo in California feels like he was in the front row.",
   live_background: "An LED stage backdrop with your palette and monogram — your story on the wall, instead of generic venue draping.",
-  live_photowall: "Memory lane at the venue — the night writes itself, guest pictures appearing on the wall minutes after each moment.",
+  live_photowall: "Memory lane at the venue — the night writes itself, guest pictures appearing on it minutes after each moment.",
   indoor_blueprint: "A venue floor map — guests find their seats in seconds. Zero confused tito wandering around looking for table 7.",
   high_res: "Full-quality archive of all your originals, stored safely. Free with Setnayan — yours to keep, no subscription fees.",
 };

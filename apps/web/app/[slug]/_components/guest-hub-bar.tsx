@@ -19,6 +19,7 @@ import { TOP_CORNER_SLOT_ID } from '../_lib/top-corner';
 import { PAGE_COLUMN } from '../_lib/measures';
 import { PASS_ANCHOR } from '@/lib/arrival-action';
 import { formatCount } from '@/lib/format-number';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 
 // Guest event-page hub bar (owner 2026-06-26). When a guest scans their
 // personal QR they land on their own InvitationSite view; this turns that page
@@ -403,9 +404,9 @@ export function GuestSheet({
   useModalA11y({ open: true, onClose, containerRef: dialogRef });
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/60 p-4 backdrop-blur-sm"
-      onClick={onClose}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
     >
+      <OverlayBackdrop onClose={onClose} />
       <div
         ref={dialogRef}
         role="dialog"

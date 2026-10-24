@@ -146,6 +146,73 @@ test('2 · the pin: no result → the Add row stands above the band; a result �
   }
 });
 
+test('2b · a section head that will stick over the first hit: the hit lands under its foot, stuck yet or not', () => {
+  // Owner 2026-10-25, live: *"Search is still not showing the first search result properly"* — the first "Buanhog"
+  // sat under the sticky "VIP · 2" head. The head was in the flow above its row, so the hit-test saw nothing stuck,
+  // the row went to the top, the head then stuck over it.
+  const g = globalThis as unknown as Record<string, unknown>;
+  const saved = { window: g.window, document: g.document, getComputedStyle: g.getComputedStyle };
+  try {
+    let scrollY = 0;
+    type El = { top: number; bottom: number; style: Record<string, string>; sel: string[]; parentElement: El | null; children: El[] };
+    const mk = (top: number, bottom: number, style: Record<string, string> = {}, sel: string[] = []): El => ({
+      top, bottom, style, sel, parentElement: null, children: [],
+    });
+    const body = mk(0, 0);
+    const screen = mk(0, 3000);
+    const stick = mk(0, 200, { position: 'sticky', top: '0px' }); // List · Map · Setup, counts, meter
+    const sec = mk(600, 760);
+    const head = mk(600, 660, { position: 'sticky', top: '200px' }); // "VIP · 2"
+    const row = mk(660, 760, {}, ['[data-search-result]']); // the first hit
+    const link = (p: El, kids: El[]) => {
+      p.children = kids;
+      for (const k of kids) k.parentElement = p;
+    };
+    link(body, [screen]);
+    link(screen, [stick, sec]);
+    link(sec, [head, row]);
+    const rect = (e: El) => {
+      // A sticky box rests at its `top` once the page has scrolled past it.
+      const stuckAt = e.style.position === 'sticky' ? parseFloat(e.style.top ?? '') : -Infinity;
+      const top = Math.max(e.top - scrollY, stuckAt);
+      return { top, bottom: top + (e.bottom - e.top), height: e.bottom - e.top, width: 390, left: 0, right: 390 };
+    };
+    const all = [screen, stick, sec, head, row];
+    for (const e of all) Object.assign(e, { getBoundingClientRect: () => rect(e), contains: (o: unknown) => o === e });
+    Object.assign(globalThis, {
+      window: {
+        innerHeight: 844,
+        innerWidth: 390,
+        get scrollY() {
+          return scrollY;
+        },
+        visualViewport: { height: 544, offsetTop: 0, scale: 1 },
+        scrollBy: ({ top }: { top: number }) => {
+          scrollY += top;
+        },
+      },
+      document: {
+        body,
+        activeElement: null,
+        documentElement: { style: { setProperty() {}, removeProperty() {} }, setAttribute() {}, removeAttribute() {} },
+        querySelectorAll: (sel: string) => {
+          const want = sel.split(',').map((x) => x.trim());
+          return all.filter((e) => e.sel.some((x) => want.includes(x)));
+        },
+        elementsFromPoint: () => [],
+      },
+      getComputedStyle: (e: El) => ({ position: 'static', overflowY: 'visible', visibility: 'visible', top: 'auto', ...e.style }),
+    });
+    pinFirstResult();
+    const r = rect(row);
+    const h = rect(head);
+    assert.ok(r.top >= h.bottom, `the first hit's top ${r.top} is under the section head, whose foot is ${h.bottom}`);
+    assert.equal(r.top, 260 + PIN_GAP, 'the first hit does not sit a gap under the section head');
+  } finally {
+    Object.assign(globalThis, saved);
+  }
+});
+
 test('3 · one mechanism: the riding row pins on every input, ThumbRow hands it its field, every surface marks', () => {
   const band = read('app/_components/typing-band.tsx');
   assert.match(band, /const pin = useSearchPin\(rowRef\);/, 'the one riding row does not mount the pin');
@@ -210,4 +277,83 @@ test('6 · the float: the thumb row’s seats and the band’s plate wear the ho
   const g = read('app/globals.css');
   assert.equal((g.match(/--sn-sh-float:/g) ?? []).length, 2, 'the float token lost its light/dark pair');
   assert.equal((g.match(/--sn-sh-rise:/g) ?? []).length, 2, 'the rise token has no light/dark pair');
+});
+
+test('2c · inside an overflow:auto scroller, a page head stuck OUTSIDE it is not counted twice', () => {
+  // `stickyHeadsFoot` reads a sticky `top` inside the scroller from the scroller's top edge (the caller adds `s.top`).
+  // A head stuck outside the scroller is already the scroller's top — counting it again pinned the hit too low.
+  const g = globalThis as unknown as Record<string, unknown>;
+  const saved = { window: g.window, document: g.document, getComputedStyle: g.getComputedStyle };
+  try {
+    let scrollTop = 0;
+    type El = {
+      top: number; bottom: number; style: Record<string, string>; sel: string[]; parentElement: El | null; children: El[];
+      inScroller?: boolean; scrollHeight?: number; clientHeight?: number; scrollTop?: number; scrollBy?: (o: { top: number }) => void;
+    };
+    const mk = (top: number, bottom: number, style: Record<string, string> = {}, sel: string[] = []): El => ({
+      top, bottom, style, sel, parentElement: null, children: [],
+    });
+    const body = mk(0, 0);
+    const page = mk(0, 844);
+    const pageHead = mk(0, 60, { position: 'sticky', top: '0px' }); // outside the scroller
+    const scroller = mk(60, 844, { overflowY: 'auto' });
+    const sec = mk(500, 650);
+    const head = mk(500, 550, { position: 'sticky', top: '0px' }); // sticks at the scroller's top edge
+    const row = mk(550, 650, {}, ['[data-search-result]']);
+    for (const e of [sec, head, row]) e.inScroller = true;
+    Object.assign(scroller, {
+      scrollHeight: 3000,
+      clientHeight: 784,
+      get scrollTop() {
+        return scrollTop;
+      },
+      scrollBy: ({ top }: { top: number }) => {
+        scrollTop += top;
+      },
+    });
+    const link = (p: El, kids: El[]) => {
+      p.children = kids;
+      for (const k of kids) k.parentElement = p;
+    };
+    link(body, [page]);
+    link(page, [pageHead, scroller]);
+    link(scroller, [sec]);
+    link(sec, [head, row]);
+    const rect = (e: El) => {
+      const shift = e.inScroller ? scrollTop : 0;
+      const base = e.inScroller ? 60 : 0;
+      const stuckAt = e.style.position === 'sticky' ? base + parseFloat(e.style.top ?? '') : -Infinity;
+      const top = Math.max(e.top - shift, stuckAt);
+      return { top, bottom: top + (e.bottom - e.top), height: e.bottom - e.top, width: 390, left: 0, right: 390 };
+    };
+    const all = [page, pageHead, scroller, sec, head, row];
+    for (const e of all) Object.assign(e, { getBoundingClientRect: () => rect(e), contains: (o: unknown) => o === e });
+    Object.assign(globalThis, {
+      window: {
+        innerHeight: 844,
+        innerWidth: 390,
+        scrollY: 0,
+        visualViewport: { height: 544, offsetTop: 0, scale: 1 },
+        scrollBy: () => {},
+      },
+      document: {
+        body,
+        activeElement: null,
+        documentElement: { style: { setProperty() {}, removeProperty() {} }, setAttribute() {}, removeAttribute() {} },
+        querySelectorAll: (sel: string) => {
+          const want = sel.split(',').map((x) => x.trim());
+          return all.filter((e) => e.sel.some((x) => want.includes(x)));
+        },
+        elementsFromPoint: () => [],
+      },
+      getComputedStyle: (e: El) => ({ position: 'static', overflowY: 'visible', visibility: 'visible', top: 'auto', ...e.style }),
+    });
+    pinFirstResult();
+    const r = rect(row);
+    const h = rect(head);
+    assert.ok(r.top >= h.bottom, `the first hit's top ${r.top} is under the section head, whose foot is ${h.bottom}`);
+    assert.equal(r.top, 110 + PIN_GAP, 'the page head outside the scroller was counted again — the hit sits too low');
+  } finally {
+    Object.assign(globalThis, saved);
+  }
 });

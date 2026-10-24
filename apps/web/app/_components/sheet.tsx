@@ -3,6 +3,8 @@
 import { useRef, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { useBackCloses } from '@/lib/use-back-closes';
+import { OverlayBackdrop } from './overlay-backdrop';
 import { useShellBoundary, type ShellBoundary } from './shell-boundary';
 
 // Reusable mobile-first sheet primitive. Slides up from the bottom on
@@ -125,6 +127,12 @@ export type SheetProps = {
    * motion). Default false: every existing caller renders byte-identically.
    */
   rise?: boolean;
+  /**
+   * The phone's Back closes the sheet (owner 2026-10-25, `lib/use-back-closes.ts`). Default true. Off only for a sheet
+   * whose caller already owns the history entry for it (the reply panel's frame, Panood's setup step) — two entries
+   * for one sheet would make Back press twice.
+   */
+  backCloses?: boolean;
   children: ReactNode;
 };
 
@@ -135,12 +143,15 @@ export function Sheet({
   title,
   wide = false,
   rise = false,
+  backCloses = true,
   children,
 }: SheetProps) {
-  // Esc-to-close + body-scroll-lock + focus management (focus-in, Tab trap,
-  // restore on close) via the shared primitive.
+  // Esc-to-close + the page held still and inert behind it + focus management (focus-in, Tab trap, restore on close)
+  // via the shared primitive; Back through one history entry of our own.
   const dialogRef = useRef<HTMLDivElement>(null);
-  useModalA11y({ open, onClose, containerRef: dialogRef });
+  const viaBack = useBackCloses(open && backCloses, onClose);
+  const close = backCloses ? viaBack : onClose;
+  useModalA11y({ open, onClose: close, containerRef: dialogRef });
   const at = SHEET_AT[useShellBoundary()];
 
   if (!open) return null;
@@ -154,16 +165,9 @@ export function Sheet({
       data-sheet=""
       className={at.root}
     >
-      {/* Backdrop — clicking dismisses. Rendered as a button so keyboard
-          users get a focusable affordance, not just a div with onClick.
-          Its dark is the popup rule's ONE dark, `sn-popup-dark` (dark AND blurred — globals.css), not a hand-made
-          `bg-ink/40 backdrop-blur-sm` (2026-10-12 look sweep). */}
-      <button
-        type="button"
-        aria-label="Close"
-        onClick={onClose}
-        className={`sn-popup-dark absolute inset-0${rise ? ' sn-fade' : ''}`}
-      />
+      {/* Backdrop — tapping the darkened space dismisses. THE shared one (`overlay-backdrop.tsx`): fixed to the screen,
+          dark and blurred, a drag on it moves nothing (owner 2026-10-25). */}
+      <OverlayBackdrop onClose={close} fade={rise} />
 
       {/* Sheet body — `data-sheet-panel` is the hook globals.css's FOLDABLES block sizes on a
           tablet, an unfolded foldable, and a phone folded at a hinge. */}
@@ -181,7 +185,7 @@ export function Sheet({
             </p>
             <button
               type="button"
-              onClick={onClose}
+              onClick={close}
               aria-label="Close"
               className="inline-flex h-11 w-11 items-center justify-center rounded-full text-ink/55 hover:bg-ink/5 hover:text-ink"
             >
@@ -191,14 +195,14 @@ export function Sheet({
         ) : (
           <button
             type="button"
-            onClick={onClose}
+            onClick={close}
             aria-label="Close"
             className="absolute right-[calc(0.75rem+var(--sn-safe-r))] top-3 z-10 inline-flex h-11 w-11 items-center justify-center rounded-full bg-cream/80 text-ink/55 backdrop-blur hover:bg-ink/5 hover:text-ink"
           >
             <X aria-hidden className="h-4 w-4" strokeWidth={2} />
           </button>
         )}
-        <div className="flex-1 overflow-y-auto pb-[max(env(safe-area-inset-bottom),16px)]">
+        <div className="flex-1 overflow-y-auto overscroll-contain pb-[max(env(safe-area-inset-bottom),16px)]">
           {children}
         </div>
       </div>

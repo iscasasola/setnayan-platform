@@ -31,8 +31,14 @@ import { barSlideFor } from '@/lib/bar-set';
  * controller's `document` listener and its `preventDefault` makes that one
  * stand down for the same press (it checks `defaultPrevented` first).
  *
+ * ── ON A WIDE SCREEN THE SIDE MENU SLIDES (owner 23 Oct 2026, Q1) ─────────────
+ * Where the rail is a column (every tree from 1024; the event tree's strip from
+ * 701) the same press slides the RAIL the same way, at the same 280 ms: globals
+ * .css names `.fd-rail` `sn-rail` while `data-sn-bar-dir` is set. The dock is
+ * mounted (hidden) at every width, so this listener is already on a desktop.
+ *
  * ── NO SLIDE, PLAIN LINK ───────────────────────────────────────────────────────
- * Reduced motion, no View Transitions, no bar on screen (desktop), a modified
+ * Reduced motion, no View Transitions, neither a bar nor a rail on screen, a modified
  * click, another tab/origin, or a press within one set — nothing is prevented
  * and the link navigates as it always did (`barSlideFor`).
  */
@@ -62,13 +68,20 @@ export function BarSetSlide() {
       }
       if (url.origin !== location.origin) return;
       const dock = doc.querySelector('[data-bottom-dock]');
+      const rail = doc.querySelector<HTMLElement>('.fd-rail');
       const dir = barSlideFor({
         fromPath: location.pathname,
         toPath: url.pathname,
         reduced: matchMedia('(prefers-reduced-motion: reduce)').matches,
         supported: typeof doc.startViewTransition === 'function',
         dockShown: !!dock && getComputedStyle(dock).display !== 'none',
-        tabletUp: matchMedia('(min-width: 701px)').matches,
+        /* The side menu as a COLUMN — the same test globals.css names it by
+           (`sn-rail`): drawn, and not the phone's open drawer. */
+        railShown:
+          !!rail &&
+          getComputedStyle(rail).display !== 'none' &&
+          rail.dataset.open !== 'true' &&
+          rail.dataset.open !== 'closing',
       });
       if (!dir) return;
       e.preventDefault();
@@ -77,9 +90,12 @@ export function BarSetSlide() {
       root.dataset.snNavDir = dir;
       root.dataset.snBarDir = dir;
       const dest = url.pathname + url.search + url.hash;
-      // The bar's tabs, as addresses — a set change is exactly a change of these.
+      // The bar's tabs (and the side menu's rows), as addresses — a set change is
+      // exactly a change of these. The dock is mounted at every width (hidden by
+      // CSS on a wide screen), so its tabs answer on a desktop too; the rail's
+      // rows are read as well so a tree's wide screen never waits on a phone bar.
       const tabs = () =>
-        Array.from(doc.querySelectorAll('[data-bottom-dock] nav a'), (x) => x.getAttribute('href')).join(' ');
+        Array.from(doc.querySelectorAll('[data-bottom-dock] nav a, .fd-rail a'), (x) => x.getAttribute('href')).join(' ');
       const before = tabs();
       const vt = doc.startViewTransition!(() => {
         router.push(dest);

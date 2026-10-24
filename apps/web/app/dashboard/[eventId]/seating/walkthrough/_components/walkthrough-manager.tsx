@@ -120,7 +120,7 @@ export function WalkthroughManager({
           placeholder="New zone — e.g. “Garden side”, “Near the stage”"
           aria-label="New zone name"
           maxLength={80}
-          className="min-w-0 flex-1 rounded-xl border border-ink/15 bg-white px-4 py-2.5 text-base text-ink shadow-sm outline-none placeholder:text-ink/35 focus:border-terracotta focus:ring-2 focus:ring-terracotta/20"
+          className="min-w-0 flex-1 rounded-xl border border-ink/15 bg-white dark:bg-raised px-4 py-2.5 text-base text-ink shadow-sm outline-none placeholder:text-ink/35 focus:border-terracotta focus:ring-2 focus:ring-terracotta/20"
         />
         <button
           type="submit"
@@ -132,7 +132,7 @@ export function WalkthroughManager({
       </form>
 
       {zones.length === 0 ? (
-        <p className="rounded-2xl border border-dashed border-ink/15 bg-white p-6 text-center text-sm text-ink/55">
+        <p className="rounded-2xl border border-dashed border-ink/15 bg-white dark:bg-raised p-6 text-center text-sm text-ink/55">
           No zones yet. Add one above, tag its tables, and record the walk to it.
         </p>
       ) : (

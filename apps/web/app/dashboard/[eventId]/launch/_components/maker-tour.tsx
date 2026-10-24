@@ -4,6 +4,7 @@ import { useRef, useState, useTransition } from 'react';
 import { ArrowLeft, ArrowRight, X } from 'lucide-react';
 import type { TourKey } from '@/lib/tours';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 /* 🔴 The key lives in `maker-bar.ts` (the slides in `maker-tour-slides.tsx`), NOT here. This file is
    `'use client'`, and a server page that imports a CONSTANT from it gets a
    client reference, not the string — measured: `tour_seen_keys.includes(KEY)`
@@ -74,8 +75,9 @@ export function MakerTour({
       role="dialog"
       aria-modal="true"
       aria-labelledby="maker-tour-title"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/30 p-4 backdrop-blur-sm focus:outline-none"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 focus:outline-none"
     >
+      <OverlayBackdrop onClose={() => finish(false)} label="Skip the tour" />
       <div className="sn-glass-bare relative w-full max-w-md overflow-hidden rounded-3xl">
         <button
           type="button"

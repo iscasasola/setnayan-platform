@@ -6,6 +6,8 @@
 -- a photo, 8 a 10-second clip, paid once and kept while the shop exists. The
 -- free 50 COUNT CREDITS (*"yes they count credits"*) — a clip uses 8 of them.
 -- 50-free replaces the plan ladder; a shop already past 50 keeps what it has.
+-- A shop holding a personal invite's allowance (100) has that much free room
+-- (PR #6823 / 20271286262047 — the allowance is kept after the gift ends).
 --
 -- `shop_portfolio_commit` is the ONE step a portfolio save takes. It writes the
 -- new list AND charges the wallet in the same transaction, under the SAME
@@ -16,7 +18,8 @@
 -- ── THE ARITHMETIC (one formula, every case) ──────────────────────────────────
 --   kept    = credits of the photos already on the page that stay on it
 --   after   = credits of the whole new list
---   charge  = max(0, after − max(50, kept))
+--   free    = max(50, the shop's personal-invite allowance) — read from the row
+--   charge  = max(0, after − max(free, kept))
 -- So: a re-save, a reorder or a removal charges nothing; a shop under 50 fills
 -- its free room first; a shop already past 50 (grandfathered) pays for every
 -- NEW photo; a photo taken off returns no credit ("paid once, kept") but frees
@@ -78,7 +81,12 @@ DECLARE
   -- chooses every argument, and a free allowance it could pass would be a
   -- price it could set. Mirrored by PORTFOLIO_FREE_CREDITS in
   -- lib/shop-portfolio-credits.ts; a guard holds the two equal.
-  v_free    CONSTANT INTEGER := 50;
+  v_base    CONSTANT INTEGER := 50;
+  -- The shop's own free room: the base, or a personal invite's allowance
+  -- (`vendor_profiles.portfolio_photo_allowance`, admin / service-role only —
+  -- the shop cannot write it), whichever is more. Read under the row lock.
+  v_free    INTEGER;
+  v_allow   INTEGER;
 BEGIN
   IF p_vendor_profile_id IS NULL OR p_spend_ref IS NULL OR length(btrim(p_spend_ref)) = 0 THEN
     RETURN jsonb_build_object('status', 'invalid');
@@ -88,8 +96,8 @@ BEGIN
   PERFORM pg_advisory_xact_lock(
     hashtextextended('shop_papic_wallet:' || p_vendor_profile_id::text, 0));
 
-  SELECT vp.user_id, COALESCE(vp.portfolio_r2_keys, ARRAY[]::TEXT[])
-    INTO v_owner, v_old
+  SELECT vp.user_id, COALESCE(vp.portfolio_r2_keys, ARRAY[]::TEXT[]), vp.portfolio_photo_allowance
+    INTO v_owner, v_old, v_allow
     FROM public.vendor_profiles vp
    WHERE vp.vendor_profile_id = p_vendor_profile_id
    FOR UPDATE;
@@ -100,6 +108,7 @@ BEGIN
   IF v_owner IS DISTINCT FROM auth.uid() AND NOT COALESCE(public.is_admin(), FALSE) THEN
     RETURN jsonb_build_object('status', 'not_owner');
   END IF;
+  v_free := GREATEST(v_base, COALESCE(v_allow, 0));
 
   -- A save that already landed (a double tap, a retried request) is answered.
   IF EXISTS (

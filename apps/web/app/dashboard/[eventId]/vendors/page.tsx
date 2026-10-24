@@ -191,7 +191,8 @@ type Props = {
   // inspector column (`v:<vendorId>`); resolved server-side to a quick-view body.
   // part (2026-09-29) = which of Your Team's parts is showing — absent is the
   // team itself, `budget` is the shipped Budget page (lib/pillar-parts.ts).
-  searchParams: Promise<{ status?: string; tab?: string; open?: string; inspect?: string; part?: string }>;
+  // pay (2026-10-24) = one payment's line item — the Budget part opens its Pay sheet (Home's Budget widget).
+  searchParams: Promise<{ status?: string; tab?: string; open?: string; inspect?: string; part?: string; pay?: string }>;
 };
 
 type EventBudgetRow = {
@@ -286,7 +287,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         <PillarPartPicker label="Suppliers part" parts={teamParts} current="budget" />
         <BudgetPage
           params={Promise.resolve({ eventId })}
-          searchParams={Promise.resolve({ part: YOUR_TEAM_BUDGET_PART })}
+          searchParams={Promise.resolve({ part: YOUR_TEAM_BUDGET_PART, pay: sp.pay })}
         />
       </section>
     );

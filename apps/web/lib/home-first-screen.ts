@@ -425,6 +425,9 @@ export function paidSlimWords(key: HomeSkuKey, price: string | null, comebackHou
   if (key === 'ai' && comebackHoursLeft !== null && comebackHoursLeft > 0) {
     return `Comeback price · ${formatCount(comebackHoursLeft)}h left`;
   }
+  // ✨ Setnayan AI not added reads "Try it" — no price on Home (owner-approved 2026-10-24, the control center: "the
+  // not-added AI line says 'Try it' with no price"); the price lives on its own page, where it is bought.
+  if (key === 'ai') return 'Try it';
   if (!price) return 'See the price';
   if (key === 'live') return `1 camera free · ${price} for more`;
   if (key === 'booth') return `Free to record · ${price} to save & share`;

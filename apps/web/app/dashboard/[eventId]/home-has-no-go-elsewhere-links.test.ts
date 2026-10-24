@@ -82,7 +82,7 @@ test('every control on the Home is a button with icon + word, or a widget door',
   // The widgets are whole-tile / whole-card doors; their tiny actions and dots are named; everything else is an
   // ActionButton (class "ab …") with its word in aria-label. The ⓘ is InfoTip's own button.
   const plain = tags.filter(
-    (t) => !/class="ab |class="hc-door"|class="hc-card-door"|class="hc-fig|class="hc-pay hc-more|class="hc-tiny|class="hc-dot|class="hc-today|class="home-tile|class="home-card|aria-label="About /.test(t),
+    (t) => !/class="ab |class="hc-door"|class="hc-card-door"|class="hc-fig|class="hc-li"|class="hc-pay hc-more|class="hc-tiny|class="hc-dot|class="hc-today|class="home-tile|class="home-card|aria-label="About /.test(t),
   );
   assert.deepEqual(plain, [], 'a control that is neither an ActionButton nor a Home widget door');
   for (const t of tags.filter((x) => /class="(ab |hc-door|hc-card-door|hc-tiny|hc-dot|hc-today)/.test(x))) assert.match(t, /aria-label="[^"]+"/, `an unnamed control: ${t}`);

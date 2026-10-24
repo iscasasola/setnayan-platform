@@ -26,6 +26,7 @@ import { PUBLIC_STAGE_LABELS, PUBLIC_STAGE_ORDER } from '@/lib/public-site-stage
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
 import type { HomeNext } from '@/lib/home-first-screen';
 import type { MoneyLine } from '@/lib/budget-truth';
+import { checklistTaskAnchor } from '@/lib/checklist-anchor';
 
 /** The six upper widgets, in the owner's order (notes: "The order, top to bottom — and the one reason"). */
 export const HOME_CONTROL_KEYS = ['count', 'guests', 'hub', 'sup', 'budget', 'plan'] as const;
@@ -127,7 +128,7 @@ export type HomeSuppliersFacts = {
   booked: number;
   of: number;
   /** Quotes out with the answer the couple's to give — `SupplierStanding.needsYou` (`buildBenchStandings`). */
-  toDecide: Array<{ name: string; vendorId: string; tile: string | null }>;
+  toDecide: Array<{ name: string; vendorId: string }>;
   /** Suppliers who answered and wait on the couple — `standingRollUp` ("2 suppliers replied"). */
   replied: number;
 };
@@ -455,9 +456,9 @@ export function suppliersTile(input: HomeControlInput, today: HomeToday): HomeTi
   ];
   const first = s.toDecide[0];
   if (first) {
-    const decide = first.tile
-      ? `/dashboard/${e}/vendors?open=${encodeURIComponent(first.tile)}&inspect=v:${first.vendorId}`
-      : `/dashboard/${e}/vendors?inspect=v:${first.vendorId}`;
+    // The exact quote: that supplier's workspace, on its Quote tab (`?tab=quote` — the workspace's own sections).
+    const quote = { href: `/dashboard/${e}/vendors/${encodeURIComponent(first.vendorId)}/workspace?tab=quote` };
+    const decide = quote.href;
     faces.push({
       id: 'sup-decide',
       big: n(s.toDecide.length),
@@ -486,11 +487,14 @@ export function checklistTile(input: HomeControlInput, today: HomeToday): HomeTi
   if (pct !== null) faces.push({ id: 'plan-pct', big: `${n(pct)}%`, count: { value: pct, format: 'pct' }, unit: 'done', sm: 'of the plan', href: `/dashboard/${e}/checklist`, meter: pct });
   const first = c.next[0];
   if (c.open > 0) {
-    faces.push({ id: 'plan-open', big: n(c.open), count: { value: c.open, format: 'int' }, unit: 'open', sm: first ? `${first.title} first` : 'the next step is yours', href: `/dashboard/${e}/checklist` });
+    // The exact task: the one the plan ranks first (`/checklist#task-<id>`, `lib/checklist-anchor.ts`).
+    const firstTask = first ? { href: `/dashboard/${e}/checklist#${checklistTaskAnchor(first.id)}` } : { href: `/dashboard/${e}/checklist` };
+    faces.push({ id: 'plan-open', big: n(c.open), count: { value: c.open, format: 'int' }, unit: 'open', sm: first ? `${first.title} first` : 'the next step is yours', href: firstTask.href });
   }
   const soon = c.next.find((t) => t.daysUntilDue !== null && t.daysUntilDue <= 7);
   if (c.dueThisWeek > 0 && soon) {
-    faces.push({ id: 'plan-week', big: n(c.dueThisWeek), count: { value: c.dueThisWeek, format: 'int' }, unit: 'due this week', sm: [soon.title, shortDay(soon.dueDate)].filter(Boolean).join(' · '), href: `/dashboard/${e}/checklist` });
+    const soonTask = { href: `/dashboard/${e}/checklist#${checklistTaskAnchor(soon.id)}` };
+    faces.push({ id: 'plan-week', big: n(c.dueThisWeek), count: { value: c.dueThisWeek, format: 'int' }, unit: 'due this week', sm: [soon.title, shortDay(soon.dueDate)].filter(Boolean).join(' · '), href: soonTask.href });
   }
   if (faces.length === 0) return null;
   return { key: 'plan', label: 'Checklist', door: `/dashboard/${e}/checklist`, failed: false, span: false, today: isToday, faces };
@@ -511,15 +515,17 @@ export function budgetTile(input: HomeControlInput, today: HomeToday): HomeTileM
     const shown = pays.length > BUDGET_MAX_PAY_FACES ? pays.slice(0, BUDGET_MAX_PAY_FACES - 1) : pays;
     shown.forEach((p, i) => {
       const late = p.state === 'overdue' || (p.days !== null && p.days < 0);
+      // The exact payment: the Budget part opens this line's Pay sheet (`?pay=<line_item_id>`, `payTargetVendor`).
+      const thisPayment = { href: `/dashboard/${e}/vendors?part=budget&pay=${encodeURIComponent(p.id)}` };
       faces.push({
         id: `pay-${p.id}`,
         big: formatPhpRounded(p.owedPhp),
         count: { value: p.owedPhp, format: 'peso' },
         unit: `· ${dueWords(p)}`,
         sm: `${p.who} · ${p.what}`,
-        href: `/dashboard/${e}/vendors?part=budget`,
+        href: thisPayment.href,
         late,
-        action: { icon: 'pay', label: 'Pay', href: `/dashboard/${e}/vendors?part=budget`, pill: true, main: late || (isToday && i === 0) },
+        action: { icon: 'pay', label: 'Pay', href: thisPayment.href, pill: true, main: late || (isToday && i === 0) },
       });
     });
     if (pays.length > BUDGET_MAX_PAY_FACES) {

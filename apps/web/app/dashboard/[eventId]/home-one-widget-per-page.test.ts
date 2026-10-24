@@ -89,15 +89,19 @@ test('2 · each face opens the exact item the notes name', () => {
     ['hub', 'hub-now', PUBLIC],
     ['hub', 'hub-next', '/dashboard/e1/launch?stage=event'],
     ['sup', 'sup-booked', '/dashboard/e1/vendors'],
-    ['sup', 'sup-decide', '/dashboard/e1/vendors?open=catering&inspect=v:v-lumiere'],
+    // PR-E: the exact quote — that supplier's workspace on its Quote tab.
+    ['sup', 'sup-decide', '/dashboard/e1/vendors/v-lumiere/workspace?tab=quote'],
     ['sup', 'sup-replied', '/dashboard/e1/vendors?tab=shortlist'],
     ['budget', 'budget-summary', '/dashboard/e1/vendors?part=budget'],
+    // PR-E: the exact payment (its Pay sheet opens) and the exact task.
+    ['budget', 'pay-li-1', '/dashboard/e1/vendors?part=budget&pay=li-1'],
+    ['plan', 'plan-open', '/dashboard/e1/checklist#task-t1'],
     ['plan', 'plan-pct', '/dashboard/e1/checklist'],
   ];
   for (const [key, id, href] of table) {
     const f = face(key, id);
     assert.ok(f, `${key}: the "${id}" face is missing`);
-    assert.equal(f!.href.split('#')[0], href.split('#')[0], `${key}/${id} opens ${f!.href}, the notes say ${href}`);
+    assert.equal(f!.href, href, `${key}/${id} opens ${f!.href}, the notes say ${href}`);
   }
   // Each face's tiny action opens the same exact item as the face (Remind → the no-reply list, no reminder flow).
   for (const t of tiles) for (const f of t.faces) if (f.action?.href) assert.equal(pageOf(f.action.href), HOME_CONTROL_PAGE[t.key], `${t.key}/${f.id}: its action leaves the widget's page`);

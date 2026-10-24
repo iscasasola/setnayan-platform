@@ -34,7 +34,6 @@ import type { EventVendorRowInput } from '@/lib/wedding-plan-groups';
 import { BOOKED_BY_PAYMENT_EMBED, withEmbeddedPayments } from '@/lib/booked-by-payment';
 import { buildBenchStandings } from '@/lib/conversation-list';
 import { standingRollUp } from '@/lib/supplier-standing';
-import { tileForCategory } from '@/lib/shortlist-taxonomy';
 import type { VendorCategory } from '@/lib/vendors';
 import {
   checklistAnchorDateFor,
@@ -152,7 +151,7 @@ export async function readHomeSuppliers(
     if (!standings) return 'unread';
     toDecide = contactable
       .filter((v) => standings.get(v.vendor_id)?.needsYou === true)
-      .map((v) => ({ name: v.vendor_name, vendorId: v.vendor_id, tile: tileForCategory(v.category) }));
+      .map((v) => ({ name: v.vendor_name, vendorId: v.vendor_id }));
     replied = standingRollUp(contactable.map((v) => ({ name: v.vendor_name, standing: standings.get(v.vendor_id) ?? null })))?.count ?? 0;
   }
   return { booked, of, toDecide, replied };

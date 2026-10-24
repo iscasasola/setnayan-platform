@@ -27,7 +27,7 @@ import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 import { COUPLE_ORDERS_HIDE_VENDOR_FILTER } from '@/lib/orders';
 import { ShareBudgetBandToggle } from './_components/share-budget-band-toggle';
 import { BudgetScreen, type SupplierExtras } from './_components/budget-screen';
-import { buildBudgetList, pickNextPayment, type NextPayment } from '@/lib/budget-page-view';
+import { buildBudgetList, payTargetVendor, pickNextPayment, type NextPayment } from '@/lib/budget-page-view';
 import { bookedBudgetBlock } from '@/lib/booked-budget';
 import { costCategoryOptions } from '@/lib/event-costs';
 import { depositStepHref } from '@/lib/deposit-pay-step';
@@ -45,8 +45,8 @@ export const metadata = { title: 'Budget' };
 
 type Props = {
   params: Promise<{ eventId: string }>;
-  /** `part=budget` = rendered as Your Team's Budget part (see below). */
-  searchParams?: Promise<{ part?: string }>;
+  /** `part=budget` = rendered as Your Team's Budget part (see below). `pay=<line_item_id>` = open that payment's sheet. */
+  searchParams?: Promise<{ part?: string; pay?: string }>;
 };
 
 // Per-vendor itemization renders only vendors at-or-past 'contracted'.
@@ -80,7 +80,8 @@ export default async function BudgetPage({ params, searchParams }: Props) {
   // column Your Team itself gates on, so an event type without suppliers keeps
   // this page exactly as it was rather than being sent to a page that would
   // send it home.
-  if (YOUR_TEAM_BUDGET_PART !== (await searchParams)?.part && profile.marketplaceEnabled === true) {
+  const sp = await searchParams;
+  if (YOUR_TEAM_BUDGET_PART !== sp?.part && profile.marketplaceEnabled === true) {
     redirect(yourTeamBudgetHref(eventId));
   }
   const supabase = await createClient();
@@ -500,6 +501,8 @@ export default async function BudgetPage({ params, searchParams }: Props) {
           next: nextPayment,
         }}
         list={list}
+        /* 🔗 `?pay=<line_item_id>` (Home's Budget widget): the Pay sheet of that payment's supplier, open on arrival. */
+        initialPayVendorId={payTargetVendor(moneyRead?.lines ?? [], sp?.pay, list.suppliers)}
         supplierExtras={supplierExtras}
         categories={costCategories}
         targetNote={

@@ -48,7 +48,7 @@ export function SupplierLabShell({ measure, children }: { measure: SupplierLabMe
         topBarSlot={
           <div className="flex items-center gap-3" data-lab-cluster="">
             <span className="hidden text-sm text-ink/60 lg:inline">Lumina Studio</span>
-            <span className="grid h-11 w-11 place-items-center rounded-full bg-[#A9834B] text-xs font-semibold text-white">RM</span>
+            <span className="grid h-11 w-11 place-items-center rounded-full sn-initials text-xs font-semibold">RM</span>
           </div>
         }
       >

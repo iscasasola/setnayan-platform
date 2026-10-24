@@ -210,7 +210,8 @@ test('the camera comes back to the tab it was opened from — Live when opened d
   assert.match(src('app/papic/me/[token]/session/route.ts'), /cameraBackTab\(url\.searchParams\.get\(CAMERA_BACK_PARAM\)\)/);
   const cam = src('app/papic/guest/_components/papic-guest-capture.tsx');
   assert.match(cam, /data-camera-exit=""[\s\S]{0,80}href=\{cameraExitHref\(exitTo\.slug, exitTo\.tab, added\)\}/);
-  assert.match(cam, /data-camera-thumb=""[\s\S]{0,80}href=\{cameraExitHref\(exitTo\.slug, null, added, 'gallery'\)\}/);
+  // 🖼 The thumbnail opens "My shots" as a sheet OVER the camera (owner 2026-10-24) — no longer the hub's gallery.
+  assert.match(cam, /data-camera-thumb=""\s*onClick=\{\(\) => setShotsOpen\(true\)\}/);
   assert.match(src('app/papic/guest/page.tsx'), /exitTo=\{backSlug \? \{ slug: backSlug, tab: backTab \} : null\}/);
   const body = BODY();
   assert.match(body, /data-shots-added=""[\s\S]{0,900}See them/);

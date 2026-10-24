@@ -134,3 +134,7 @@ fe4801abcee5ec5bbf2b3701f844d00c0d58c7b7:apps/web/lib/feature-pages/day-memories
 # commits are pinned because gitleaks-action scans every commit in the PR range.
 d929a17031996793a37f6a1a9332b3835a30b0a7:apps/web/lib/visits/visits-are-private.test.ts:generic-api-key:208
 f1ac6e24695d137e4736aae2d1a94d85496530f6:apps/web/tests/db/site-visits.db.test.ts:generic-api-key:124
+# Same rule flags the Papic upload sweep's list of capture key COLUMN NAMES
+# ('safe_display_r2_key' …) — the columns its Guard A reference check reads
+# before deleting an attempt's final copy. Column names, not a credential.
+9c8357ad8027df27bce143a64a3ce6605c486ed2:apps/web/lib/papic-upload-sweep.ts:generic-api-key:50

@@ -88,7 +88,8 @@ test('2 · the thumb row is the shared glass, portalled, fitted and slid — wit
   assert.match(lower[1]!, /position:\s*fixed/);
   assert.match(lower[1]!, /transform:\s*translateY\(140%\)/, 'the row does not start below the screen, so it cannot slide up');
   assert.match(lower[1]!, /transition:\s*transform 320ms/);
-  assert.match(lower[1]!, /bottom:\s*calc\(var\(--sn-bottomdock-h/, 'it no longer sits on the measured bottom dock');
+  // On the measured bottom dock — or, while the phone's keyboard is up, on the keyboard (`--sn-ride-h`, 2026-10-24).
+  assert.match(lower[1]!, /bottom:\s*calc\(var\(--sn-ride-h,\s*var\(--sn-bottomdock-h/, 'it no longer sits on the measured bottom dock');
   assert.doesNotMatch(lower[1]!, /background|box-shadow|backdrop-filter/, 'the row took a fill, a shadow or a blur of its own — the shared recipe paints it');
   assert.match(css, /\.lower\[data-on='true'\]\s*\{\s*transform:\s*none;?\s*\}/, 'nothing brings it up');
   assert.match(css, /prefers-reduced-motion: reduce\)\s*\{\s*\.lower\s*\{\s*transition:\s*none/, 'reduced motion still slides');

@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "74ddc92bf4",
-  "routeCount": 465,
+  "generatedFromRef": "033bfe938a",
+  "routeCount": 466,
   "destinations": 1011,
   "actions": 666,
-  "blocks": 6946,
+  "blocks": 6967,
   "routes": {
     "/": {
       "files": [
@@ -1221,6 +1221,7 @@
         "EventCelebrants",
         "EventIconSource",
         "EventMedia",
+        "EventMonogram",
         "EventWords",
         "EventWordsContext.Provider",
         "EventWordsProvider",
@@ -3311,6 +3312,7 @@
         "ConsoleTable",
         "EditTrack",
         "HTMLAudioElement",
+        "HTMLDivElement",
         "HTMLInputElement",
         "HubMusicManager",
         "HubMusicResult",
@@ -5592,7 +5594,6 @@
         "dashboard/[eventId]/_components/nikah-essentials-card.tsx",
         "dashboard/[eventId]/_components/nikah-imam.ts",
         "dashboard/[eventId]/_components/not-shared-with-you.tsx",
-        "dashboard/[eventId]/_components/open-event-hub.ts",
         "dashboard/[eventId]/_components/overview-inspector-body.tsx",
         "dashboard/[eventId]/_components/papic-card-strip.tsx",
         "dashboard/[eventId]/_components/papic-home-card.tsx",
@@ -7099,7 +7100,6 @@
         "dashboard/[eventId]/launch/_components/stage-panel/block-animate.tsx",
         "dashboard/[eventId]/launch/_components/stage-panel/block-background.tsx",
         "dashboard/[eventId]/launch/_components/stage-panel/camera-face.tsx",
-        "dashboard/[eventId]/launch/_components/stage-panel/camera-look.tsx",
         "dashboard/[eventId]/launch/_components/stage-panel/camera-page.tsx",
         "dashboard/[eventId]/launch/_components/stage-panel/cover-animate.tsx",
         "dashboard/[eventId]/launch/_components/stage-panel/cover-lines.tsx",
@@ -7206,10 +7206,9 @@
         "Box",
         "BoxWithX",
         "BufferedCanvasFrame",
-        "CameraLook",
-        "CameraLookFace",
+        "CameraFace",
         "CameraPage",
-        "CameraPartTools",
+        "CameraPartNote",
         "CanvasSettle",
         "CanvasStaysOnThePage",
         "CategoryLine",
@@ -7218,6 +7217,7 @@
         "CeremonyTimeEditor",
         "ChangedSincePrinted",
         "ChineseSpecialistNudge",
+        "Chip",
         "Chips",
         "ChosenRow",
         "CityPick",
@@ -7334,6 +7334,7 @@
         "Image",
         "InMakerLiveStoryPanel",
         "IncludeSwitch",
+        "InfoDot",
         "InfoTip",
         "IntoLowerThird",
         "ItemPieces",
@@ -7652,6 +7653,7 @@
         "TuneFold",
         "TuneSlider",
         "TypedRow",
+        "TypingBand",
         "UndoToastHost",
         "Unread",
         "UpdateQrStyleResult",
@@ -10458,6 +10460,7 @@
         "TypeSession",
         "TypeStart",
         "TypedRow",
+        "TypingBand",
         "UploadPicture",
         "VisibilityPanel",
         "Window",
@@ -11240,6 +11243,21 @@
       "blocks": [
         "GenericOnboarding",
         "SimpleSetupFlow"
+      ]
+    },
+    "/dev/papic-camera-lab": {
+      "files": [
+        "dev/papic-camera-lab/lab-camera.tsx",
+        "dev/papic-camera-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "Blob",
+        "LabCamera",
+        "PapicCaptureController",
+        "PapicGuestCapture",
+        "UploaderSnapshot"
       ]
     },
     "/dev/people-lab": {
@@ -12374,8 +12392,11 @@
     "/papic/guest": {
       "files": [
         "papic/guest/_components/camera-focus-corners.tsx",
+        "papic/guest/_components/guest-camera-tools.tsx",
+        "papic/guest/_components/my-shots-sheet.tsx",
         "papic/guest/_components/papic-challenge-panel.tsx",
         "papic/guest/_components/papic-guest-capture.tsx",
+        "papic/guest/_components/tag-scanner-overlay.tsx",
         "papic/guest/loading.tsx",
         "papic/guest/page.tsx"
       ],
@@ -12392,23 +12413,33 @@
         "Blob",
         "CameraColumn",
         "CardFrame",
-        "ChallengePanelInner",
+        "ChallengeFollowUp",
+        "ChallengePill",
         "DayOfFaceEnroll",
         "DoorShell",
         "EventMonogram",
         "FocusCorners",
         "GridPageSkeleton",
+        "GuestCameraTools",
         "GuestColumnCard",
+        "GuestFocusSquare",
+        "GuestGridLines",
         "GuestGuidedTour",
         "HTMLButtonElement",
         "HTMLCanvasElement",
+        "HTMLDivElement",
+        "InfoTip",
         "Link",
         "MediaRecorder",
-        "PapicCameraControls",
-        "PapicChallengePanel",
+        "MyShot",
+        "MyShotsSheet",
+        "MyShotsWaitingBadge",
         "PapicGuestBuyPanel",
         "PapicGuestCapture",
-        "PapicStyle"
+        "PapicStyle",
+        "PapicUploadChip",
+        "PickMenu",
+        "TagScannerOverlay"
       ]
     },
     "/papic/join/[token]": {
@@ -14293,6 +14324,7 @@
         "MediaRecorder",
         "MediaStream",
         "MyLine",
+        "PapicUploadChip",
         "PauseToggle",
         "PaymentsPausedNote",
         "Person",

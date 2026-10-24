@@ -157,7 +157,8 @@ export default async function BarLab({
         <FrontDoorShell account={ACCOUNT} navLabels={{}}>
           <div
             data-fd-page=""
-            className="pb-[calc(var(--sn-bottomdock-h,calc(env(safe-area-inset-bottom)+64px))+1.5rem)] lg:pb-0"
+            data-sn-slide="while-sliding"
+            className="sn-vt-page pb-[calc(var(--sn-bottomdock-h,calc(env(safe-area-inset-bottom)+64px))+1.5rem)] lg:pb-0"
           >
             <Cards title="Discover" links={[toEvent]} />
           </div>
@@ -173,7 +174,11 @@ export default async function BarLab({
     return (
       <div className="sn-ambient min-h-dvh">
         <FrontDoorShell variant="app" account={ACCOUNT} navLabels={{}}>
-          <main className="pb-[calc(var(--sn-bottomdock-h,calc(env(safe-area-inset-bottom)+64px))+1.5rem)] lg:pb-0">
+          {/* The layouts' own `<main>` (2026-10-24: `.sn-vt-page`, named only while a slide runs). */}
+          <main
+            className="sn-vt-page pb-[calc(var(--sn-bottomdock-h,calc(env(safe-area-inset-bottom)+64px))+1.5rem)] lg:pb-0"
+            data-sn-slide="while-sliding"
+          >
             <Cards title={spoke} links={[toEvent, { href: `${P}/vendor-dashboard`, label: 'Switch to · Lab Florals (the shop)' }]} />
           </main>
           {accountBar}

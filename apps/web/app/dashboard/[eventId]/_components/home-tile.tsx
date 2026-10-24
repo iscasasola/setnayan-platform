@@ -26,6 +26,7 @@ import { ArrowRight, CalendarDays, Check, Eye, Mail, PenLine, Plus, RotateCw } f
 import type { FaceAction, FaceIcon, HomeFace, HomeTileModel } from './home-control-faces';
 import { FACE_MS, RESUME_MS, STAGGER_MS, TAP_PX, VISIBLE_THRESHOLD, swipeLands, tilePaused, tileRotates } from './home-tile-rotation';
 import { openEventHub } from './open-event-hub';
+import { Count } from '@/components/count';
 
 /* ─── One ticker for the page ─────────────────────────────────────────────── */
 
@@ -140,10 +141,15 @@ function TinyAction({ action, today }: { action: FaceAction; today?: boolean }) 
 
 /* ─── The tile ────────────────────────────────────────────────────────────── */
 
+/** The face's figure — counted to its value (`Count`, owner H2) when it is a number, its words when it is not. */
+export function FaceFigure({ face }: { face: HomeFace }) {
+  return face.count ? <Count value={face.count.value} format={face.count.format} id={`home-${face.id}`} /> : <>{face.big}</>;
+}
+
 function FaceBody({ face }: { face: HomeFace }) {
   const big = (
     <span className="hc-big">
-      {face.big}
+      <FaceFigure face={face} />
       {face.unit ? <small> {face.unit}</small> : null}
     </span>
   );
@@ -326,7 +332,9 @@ export function HomeTile({ model, eventId, stagger }: { model: HomeTileModel; ev
       <div className={`hc-tile hc-count${model.span ? ' hc-span' : ''}`} data-home-tile="count" data-home-tile-face={face.id} ref={root}>
         {model.today ? <span className="hc-chip">Today</span> : null}
         <span className="hc-cd" aria-hidden>
-          <span className={`hc-cd-n${/^[\d,]+$/.test(face.big) ? '' : ' hc-cd-word'}`}>{face.big}</span>
+          <span className={`hc-cd-n${face.count ? '' : ' hc-cd-word'}`}>
+            <FaceFigure face={face} />
+          </span>
           {face.unit ? <span className="hc-cd-w">{face.unit}</span> : null}
           {face.sm ? <span className="hc-cd-d">{face.sm}</span> : null}
         </span>

@@ -425,7 +425,7 @@ export default async function HomeLab({
   const days = glanceDays(F.days);
   const labControl = (unread ? fixtureControlUnread : fixtureControl)(E, {
     next,
-    countdown: { value: days.value, label: days.label, hasDate: days.value !== '—', long: 'Saturday, December 12, 2026', placeLine: 'Tagaytay', dateLine: null },
+    countdown: { value: days.value, label: days.label, days: F.days ?? null, hasDate: days.value !== '—', long: 'Saturday, December 12, 2026', placeLine: 'Tagaytay' },
     ...(labNeeds?.guestList === false ? { guests: null } : unread ? {} : { guests: { coming: F.coming, noReply: F.noReply, toInvite: 35, declined: 4, total: 131 } }),
     ...(q.hidden === '1' ? { budget: null } : unread ? {} : { budget: { paidPhp: F.paid, owingPhp: F.owing, pays: fixturePays() } }),
   });

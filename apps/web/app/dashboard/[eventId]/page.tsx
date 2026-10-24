@@ -97,7 +97,7 @@ import { HOST_PAGE_TOURS, HOST_PAGE_TOURS_AFTER } from '@/lib/host-page-tours';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { canPlanNextYear } from '@/lib/event-recurrence';
 import { resolvePapicHomeTile } from '@/lib/papic-home-tile';
-import { papicGlance, papicRowDoubled } from '@/lib/papic-glance';
+import { papicGlance } from '@/lib/papic-glance';
 import { resolveStoredWindow } from '@/lib/papic-window';
 import { papicIsOn } from '@/lib/event-answers';
 import { isSetnayanAiActiveForEvent } from '@/lib/setnayan-ai';
@@ -932,23 +932,16 @@ export default async function EventHomePage({
   /* 🧩 EVERY SERVICE AS A WIDGET (owner 2026-10-23): the couple's, on the web — the controls write as the couple, and
      the app keeps its own rows (Apple sells there). Each card streams in behind the row it replaces. */
   const serviceCards = viewerMemberType === 'couple' && !storeShell && !appleFacts;
+  /* ☀ NO SERVICE STANDS DOWN FOR TODAY (owner-approved 2026-10-24): the Next card that offered a service's button is
+     gone — the Today line only POINTS at the widget it names, so the widget must be there (`next: 'plan'` names none). */
   const homeServicesInput: Parameters<typeof homeServices>[0] = {
-    next: homeNext.kind,
+    next: 'plan',
     storeShell,
     eventId,
     paid: homePaidFactsNow,
     papic: papicNow.status,
-    // 🎨 The row's line, meter and doors (owner 2026-10-14). Buy more is the
-    // couple's (the purchase is couple-only); NEVER TWICE marks what the Next
-    // card already offers, hidden only while that card is on screen (`papicRowDoubled`).
-    papicDoors: canViewPapicCounts
-      ? {
-          glance: papicNow,
-          line: papicNow.line,
-          buy: papicNow.buy && viewerMemberType === 'couple',
-          whileNext: papicRowDoubled(homeNext.kind === 'papic' ? homeNext.papicMoment ?? null : null),
-        }
-      : null,
+    // 🎨 The row's line, meter and doors (owner 2026-10-14). Buy more is the couple's (the purchase is couple-only).
+    papicDoors: canViewPapicCounts ? { glance: papicNow, line: papicNow.line, buy: papicNow.buy && viewerMemberType === 'couple' } : null,
     ai: aiStatus(
       paywallOn === null
         ? null
@@ -981,10 +974,8 @@ export default async function EventHomePage({
         )
       : null,
   };
-  const homeServiceRow = homeServices(homeServicesInput);
-  // 🧾 On the day and after it no Next card is on screen, so no service stands down for one: the
-  // console and the after page draw the whole list (`next: 'plan'` names no service).
-  const homeServiceRowAll = homeServices({ ...homeServicesInput, next: 'plan' });
+  // 🧾 One list for every phase — the plan Home, the event-day console and the after page.
+  const homeServiceRowAll = homeServices(homeServicesInput);
   // 📷 Papic on the event day (owner 22 Oct 2026) — the console draws Your services' OWN Papic entry,
   // so the day and the plan Home can never say two things about one pool. None in the store shell.
   const dayPapicSvc = homeServiceRowAll.find((s) => s.key === 'papic');
@@ -1033,10 +1024,10 @@ export default async function EventHomePage({
     countdown: {
       value: facts.days.value,
       label: facts.days.label,
+      days: facts.figures.days ?? null,
       hasDate: facts.days.value !== '—',
       long: homeLongDate,
       placeLine: ((event as { venue_name?: string | null }).venue_name ?? '').trim() || null,
-      dateLine: homeLongDate,
     },
     guests: homeNeeds.guestList === false ? null : guestsMeasured ? { coming: homeRoster.yes, noReply: homeRoster.none, toInvite: homeRoster.toInvite, declined: homeRoster.no, total: homeRoster.total } : 'unread',
     hub: homeHub,
@@ -1056,7 +1047,7 @@ export default async function EventHomePage({
       cover={homeCover0}
       next={homeNext}
       control={homeControl}
-      services={homeServiceRow}
+      services={homeServiceRowAll}
       papicLeft={papicNow.count}
       papicCard={papicCard}
       serviceCards={serviceCards}

@@ -3,10 +3,11 @@ import type { ReactNode } from 'react';
 import { ArrowRight, CalendarDays, Check, ChevronRight, Eye, ListChecks, Mail, PenLine, Plus } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { InfoTip } from '@/app/_components/info-tip';
+import { Count } from '@/components/count';
 import { GlanceDot, GlanceMeter } from '@/app/_components/service-glance';
 import { EVENT_MENU_ICONS } from '@/lib/customer-menu';
 import { formatCount } from '@/lib/format-number';
-import { formatPhp } from '@/lib/php';
+import { formatPhpRounded } from '@/lib/php';
 import { PUBLIC_STAGE_LABELS, PUBLIC_STAGE_ORDER } from '@/lib/public-site-stage-labels';
 import type { ServiceMood } from '@/lib/service-glance';
 import {
@@ -185,7 +186,7 @@ function DetailCard({ k, input, tile }: { k: HomeControlKey; input: HomeControlI
               <Dot mood="ok">Date set{c.placeLine ? ` · ${c.placeLine}` : ''}</Dot>
               <span className="sg-status" data-glance-status="">
                 <span>
-                  <b>{c.value}</b> {c.label}
+                  <b>{c.days !== null ? <Count value={c.days} id="home-count" /> : c.value}</b> {c.label}
                 </span>
               </span>
             </>
@@ -224,15 +225,15 @@ function DetailCard({ k, input, tile }: { k: HomeControlKey; input: HomeControlI
             <span className="sg-status hc-figs" data-glance-status="">
               {/* The faces, side by side — each opens the exact list it counts. */}
               <Link href={`/dashboard/${e}/guests?q=coming`} className="hc-fig">
-                <b>{formatCount(g.coming)}</b> coming
+                <b><Count value={g.coming} id="home-guests-coming" /></b> coming
               </Link>
               <span aria-hidden className="hc-sep">·</span>
               <Link href={`/dashboard/${e}/guests?q=no+reply`} className="hc-fig">
-                <b>{formatCount(g.noReply)}</b> no reply
+                <b><Count value={g.noReply} id="home-guests-noreply" /></b> no reply
               </Link>
               <span aria-hidden className="hc-sep">·</span>
               <Link href={`/dashboard/${e}/guests?q=declined`} className="hc-fig">
-                <b>{formatCount(g.declined)}</b> can’t come
+                <b><Count value={g.declined} id="home-guests-declined" /></b> can’t come
               </Link>
             </span>
           ) : null}
@@ -385,13 +386,13 @@ function DetailCard({ k, input, tile }: { k: HomeControlKey; input: HomeControlI
                   <div key={p.id} className={`hc-pay${late ? ' hc-late' : ''}`} data-home-pay={p.id}>
                     <span className="min-w-0 flex-1">
                       <b className="block">
-                        {formatPhp(p.owedPhp)} <span className="hc-due">· {dueWords(p, true)}</span>
+                        {formatPhpRounded(p.owedPhp)} <span className="hc-due">· {dueWords(p, true)}</span>
                       </b>
                       <span className="hc-pay-s">
                         {p.who} · {p.what}
                       </span>
                     </span>
-                    <ActionButton tone={late ? 'brand' : 'ok'} main={late} icon={<ArrowRight aria-hidden="true" strokeWidth={1.9} />} label="Pay" name={`Pay ${formatPhp(p.owedPhp)} to ${p.who}`} href={href} />
+                    <ActionButton tone={late ? 'brand' : 'ok'} main={late} icon={<ArrowRight aria-hidden="true" strokeWidth={1.9} />} label="Pay" name={`Pay ${formatPhpRounded(p.owedPhp)} to ${p.who}`} href={href} />
                   </div>
                 );
               })}
@@ -405,18 +406,18 @@ function DetailCard({ k, input, tile }: { k: HomeControlKey; input: HomeControlI
           <div className="home-money mt-2">
             <div>
               <div className="home-k">Paid</div>
-              <div className="home-v">{formatPhp(b.paidPhp)}</div>
+              <div className="home-v"><Count value={b.paidPhp} format="peso" id="home-paid" /></div>
             </div>
             <div className="text-right">
               <div className="home-k">Still owing</div>
-              <div className="home-v">{formatPhp(b.owingPhp)}</div>
+              <div className="home-v"><Count value={b.owingPhp} format="peso" id="home-owing" /></div>
             </div>
           </div>
           {pct !== null ? <GlanceMeter mood="ok" pct={pct} label="Paid" /> : null}
           <Dot mood="ok">
             {pct !== null ? (
               <>
-                <b className="font-medium">{formatCount(pct)}% paid</b> · of {formatPhp(agreed)} agreed
+                <b className="font-medium"><Count value={pct} format="pct" id="home-paid-pct" /> paid</b> · of {formatPhpRounded(agreed)} agreed
               </>
             ) : (
               'Nothing agreed yet'

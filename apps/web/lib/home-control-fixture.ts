@@ -26,13 +26,15 @@ export function fixturePays(now = Date.now()): HomePayLine[] {
 }
 
 const INVITE_NEXT: HomeNext = pickHomeNext({ guide: null, hasDate: true, guests: { total: 131, unsent: 35 }, noun: 'wedding', papicReady: false, aiOffer: false });
+/** What the picker says when the guest read failed — "We couldn't read your guest list", never "on track". */
+const UNREAD_NEXT: HomeNext = pickHomeNext({ guide: null, hasDate: true, guests: null, noun: 'wedding', papicReady: false, aiOffer: false });
 
 /** Every widget, every read measured — the prototype's clean frame. `over` replaces any widget's facts. */
 export function fixtureControl(eventId: string, over: Partial<HomeControlInput> = {}, now = Date.now()): HomeControlInput {
   return {
     eventId,
     next: INVITE_NEXT,
-    countdown: { value: '51', label: 'days to go', hasDate: true, long: 'Saturday, December 12, 2026', placeLine: 'Tagaytay', dateLine: null },
+    countdown: { value: '51', label: 'days to go', days: 51, hasDate: true, long: 'Saturday, December 12, 2026', placeLine: 'Tagaytay' },
     guests: { coming: 96, noReply: 35, toInvite: 35, declined: 4, total: 131 },
     hub: {
       stage: 'rsvp',
@@ -60,5 +62,5 @@ export function fixtureControl(eventId: string, over: Partial<HomeControlInput> 
 
 /** The prototype's "guests + money reads failed" frame — every read that can fail, failed. */
 export function fixtureControlUnread(eventId: string, over: Partial<HomeControlInput> = {}): HomeControlInput {
-  return fixtureControl(eventId, { guests: 'unread', hub: 'unread', suppliers: 'unread', budget: 'unread', checklist: 'unread', ...over });
+  return fixtureControl(eventId, { next: UNREAD_NEXT, guests: 'unread', hub: 'unread', suppliers: 'unread', budget: 'unread', checklist: 'unread', ...over });
 }

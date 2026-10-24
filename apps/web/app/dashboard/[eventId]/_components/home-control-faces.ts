@@ -20,7 +20,8 @@
  * Pure: no React, no I/O, no clock of its own (`now` is handed in).
  */
 import { formatCount } from '@/lib/format-number';
-import { formatPhp } from '@/lib/php';
+import { formatPhpRounded } from '@/lib/php';
+import type { CountFormat } from '@/components/count';
 import { PUBLIC_STAGE_LABELS, PUBLIC_STAGE_ORDER } from '@/lib/public-site-stage-labels';
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
 import type { HomeNext } from '@/lib/home-first-screen';
@@ -59,6 +60,8 @@ export type FaceAction = {
 export type HomeFace = {
   id: string;
   big: string;
+  /** The figure as a number, so it COUNTS to its value on load and on change (owner 2026-10-07, H2 — `Count`). */
+  count?: { value: number; format: CountFormat } | null;
   unit?: string;
   sm: string;
   /** What a tap on this face opens — the exact item (notes: "A face opens the EXACT item"). */
@@ -164,7 +167,7 @@ export type HomeBudgetFacts = {
 export type HomeControlInput = {
   eventId: string;
   next: HomeNext;
-  countdown: { value: string; label: string; hasDate: boolean; dateLine: string | null; placeLine: string | null; long: string | null };
+  countdown: { value: string; label: string; days: number | null; hasDate: boolean; placeLine: string | null; long: string | null };
   /** null = this event keeps no guest list (the need is off) — the widget is ABSENT; 'unread' = the read failed. */
   guests: HomeGuestsCounts | 'unread' | null;
   /** null = this event has no Event Hub for this viewer; 'unread' = the read failed. */
@@ -310,7 +313,7 @@ export function countdownTile(input: HomeControlInput, today: HomeToday): HomeTi
     failed: false,
     span: true,
     today: today.target === 'count',
-    faces: [{ id: 'count', big: c.value, unit: c.label, sm: [c.long, c.placeLine].filter(Boolean).join(' · '), href: `/dashboard/${e}/details` }],
+    faces: [{ id: 'count', big: c.value, count: c.days !== null ? { value: c.days, format: 'int' } : null, unit: c.label, sm: [c.long, c.placeLine].filter(Boolean).join(' · '), href: `/dashboard/${e}/details` }],
   };
 }
 
@@ -326,17 +329,19 @@ export function guestsTile(input: HomeControlInput, today: HomeToday): HomeTileM
     faces.push({
       id: 'guests-empty',
       big: '0',
+      count: { value: 0, format: 'int' },
       unit: 'on the list',
       sm: 'Add your guests',
       href: `/dashboard/${e}/guests`,
       action: { icon: 'plus', label: 'Add guests', href: `/dashboard/${e}/guests`, main: isToday },
     });
   } else {
-    faces.push({ id: 'guests-coming', big: n(g.coming), unit: 'coming', sm: `of ${n(g.total)} on the list`, href: `/dashboard/${e}/guests?q=coming` });
+    faces.push({ id: 'guests-coming', big: n(g.coming), count: { value: g.coming, format: 'int' }, unit: 'coming', sm: `of ${n(g.total)} on the list`, href: `/dashboard/${e}/guests?q=coming` });
     if (g.noReply > 0) {
       faces.push({
         id: 'guests-noreply',
         big: n(g.noReply),
+        count: { value: g.noReply, format: 'int' },
         unit: 'no reply',
         sm: 'Remind them',
         href: `/dashboard/${e}/guests?q=no+reply`,
@@ -348,6 +353,7 @@ export function guestsTile(input: HomeControlInput, today: HomeToday): HomeTileM
       faces.push({
         id: 'guests-toinvite',
         big: n(g.toInvite),
+        count: { value: g.toInvite, format: 'int' },
         unit: 'not invited yet',
         sm: 'Send the invitations',
         href: `/dashboard/${e}/guests/send`,
@@ -355,11 +361,12 @@ export function guestsTile(input: HomeControlInput, today: HomeToday): HomeTileM
       });
     }
     if (g.declined > 0) {
-      faces.push({ id: 'guests-declined', big: n(g.declined), unit: 'can’t come', sm: 'sent their regrets', href: `/dashboard/${e}/guests?q=declined` });
+      faces.push({ id: 'guests-declined', big: n(g.declined), count: { value: g.declined, format: 'int' }, unit: 'can’t come', sm: 'sent their regrets', href: `/dashboard/${e}/guests?q=declined` });
     }
     faces.push({
       id: 'guests-total',
       big: n(g.total),
+      count: { value: g.total, format: 'int' },
       unit: 'on the list',
       sm: 'Add guests',
       href: `/dashboard/${e}/guests`,
@@ -434,6 +441,7 @@ export function suppliersTile(input: HomeControlInput, today: HomeToday): HomeTi
     {
       id: 'sup-booked',
       big: n(s.booked),
+      count: { value: s.booked, format: 'int' },
       unit: `of ${n(s.of)} booked`,
       sm: s.of > s.booked ? `${n(s.of - s.booked)} still to book` : 'all booked',
       href: `/dashboard/${e}/vendors`,
@@ -447,6 +455,7 @@ export function suppliersTile(input: HomeControlInput, today: HomeToday): HomeTi
     faces.push({
       id: 'sup-decide',
       big: n(s.toDecide.length),
+      count: { value: s.toDecide.length, format: 'int' },
       unit: plural(s.toDecide.length, 'quote to decide', 'quotes to decide'),
       sm: first.name,
       href: decide,
@@ -454,7 +463,7 @@ export function suppliersTile(input: HomeControlInput, today: HomeToday): HomeTi
     });
   }
   if (s.replied > 0) {
-    faces.push({ id: 'sup-replied', big: n(s.replied), unit: 'replied', sm: 'waiting on you', href: `/dashboard/${e}/vendors?tab=shortlist` });
+    faces.push({ id: 'sup-replied', big: n(s.replied), count: { value: s.replied, format: 'int' }, unit: 'replied', sm: 'waiting on you', href: `/dashboard/${e}/vendors?tab=shortlist` });
   }
   return { key: 'sup', label: 'Suppliers', door: `/dashboard/${e}/vendors`, failed: false, span: false, today: isToday, faces };
 }
@@ -468,14 +477,14 @@ export function checklistTile(input: HomeControlInput, today: HomeToday): HomeTi
   if (c === 'unread') return failedTile('plan', 'Checklist', 'Couldn’t load', 'not zero · unread', `/dashboard/${e}/checklist`, isToday);
   const pct = c.total > 0 ? Math.round((c.done / c.total) * 100) : null;
   const faces: HomeFace[] = [];
-  if (pct !== null) faces.push({ id: 'plan-pct', big: `${n(pct)}%`, unit: 'done', sm: 'of the plan', href: `/dashboard/${e}/checklist`, meter: pct });
+  if (pct !== null) faces.push({ id: 'plan-pct', big: `${n(pct)}%`, count: { value: pct, format: 'pct' }, unit: 'done', sm: 'of the plan', href: `/dashboard/${e}/checklist`, meter: pct });
   const first = c.next[0];
   if (c.open > 0) {
-    faces.push({ id: 'plan-open', big: n(c.open), unit: 'open', sm: first ? `${first.title} first` : 'the next step is yours', href: `/dashboard/${e}/checklist` });
+    faces.push({ id: 'plan-open', big: n(c.open), count: { value: c.open, format: 'int' }, unit: 'open', sm: first ? `${first.title} first` : 'the next step is yours', href: `/dashboard/${e}/checklist` });
   }
   const soon = c.next.find((t) => t.daysUntilDue !== null && t.daysUntilDue <= 7);
   if (c.dueThisWeek > 0 && soon) {
-    faces.push({ id: 'plan-week', big: n(c.dueThisWeek), unit: 'due this week', sm: [soon.title, shortDay(soon.dueDate)].filter(Boolean).join(' · '), href: `/dashboard/${e}/checklist` });
+    faces.push({ id: 'plan-week', big: n(c.dueThisWeek), count: { value: c.dueThisWeek, format: 'int' }, unit: 'due this week', sm: [soon.title, shortDay(soon.dueDate)].filter(Boolean).join(' · '), href: `/dashboard/${e}/checklist` });
   }
   if (faces.length === 0) return null;
   return { key: 'plan', label: 'Checklist', door: `/dashboard/${e}/checklist`, failed: false, span: false, today: isToday, faces };
@@ -498,7 +507,8 @@ export function budgetTile(input: HomeControlInput, today: HomeToday): HomeTileM
       const late = p.state === 'overdue' || (p.days !== null && p.days < 0);
       faces.push({
         id: `pay-${p.id}`,
-        big: formatPhp(p.owedPhp),
+        big: formatPhpRounded(p.owedPhp),
+        count: { value: p.owedPhp, format: 'peso' },
         unit: `· ${dueWords(p)}`,
         sm: `${p.who} · ${p.what}`,
         href: `/dashboard/${e}/vendors?part=budget`,
@@ -513,13 +523,14 @@ export function budgetTile(input: HomeControlInput, today: HomeToday): HomeTileM
   }
   faces.push({
     id: 'budget-summary',
-    big: formatPhp(b.owingPhp),
+    big: formatPhpRounded(b.owingPhp),
+    count: { value: b.owingPhp, format: 'peso' },
     unit: 'owing',
     sm:
       b.pays === 'unread'
         ? `${pct !== null ? `${n(pct)}% paid · ` : ''}payments couldn’t load`
         : pct !== null
-          ? `${n(pct)}% paid · ${formatPhp(b.paidPhp)} of ${formatPhp(agreed)}`
+          ? `${n(pct)}% paid · ${formatPhpRounded(b.paidPhp)} of ${formatPhpRounded(agreed)}`
           : 'nothing agreed yet',
     href: `/dashboard/${e}/vendors?part=budget`,
     meter: pct,

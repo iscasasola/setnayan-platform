@@ -316,8 +316,11 @@ export type HomeServiceKey = 'papic' | 'ai' | 'live' | 'music' | 'booth' | 'hub'
   is always on, and the rest are not needs.
 */
 
-/** The six rows, in the approved prototype's order. Papic is first and is its own glance. */
-export const HOME_PAID_KEYS = ['papic', 'ai', 'live', 'music', 'booth', 'hub'] as const;
+/**
+ * The six rows, in order. Papic is first and is its own glance; the Event Hub comes right after it (owner 2026-10-23,
+ * the service widgets: *"order Papic → Event Hub → rest"*), its Pro folded into its card.
+ */
+export const HOME_PAID_KEYS = ['papic', 'hub', 'ai', 'live', 'music', 'booth'] as const;
 export type HomePaidKey = (typeof HOME_PAID_KEYS)[number];
 /** The five that are a single catalogue SKU (Papic is credits, sold by the ladder). */
 export type HomeSkuKey = Exclude<HomePaidKey, 'papic'>;
@@ -342,6 +345,27 @@ export const HOME_PAID_CARD: Readonly<Record<Exclude<HomeSkuKey, 'hub'>, string>
 /** Event Hub Pro's two lines (2026-10-14 🧾): its name, and what it unlocks under it. */
 export const HUB_PRO_NAME = 'Event Hub Pro';
 export const HUB_PRO_UNLOCKS = '◆ Themes · photo and video backgrounds';
+/** The Event Hub card's name (owner 2026-10-23: Event Hub Pro is folded into the Event Hub — one card, its ◆ line). */
+export const EVENT_HUB_NAME = 'Event Hub';
+
+/**
+ * 💎 THE EVENT HUB CARD'S ◆ LINE — Pro is a state of the Hub, not a service of its own (ownership is per part,
+ * `HubOwnership.parts`; its only door was the Maker, the same door). From the Pro row's one state, and the parts the
+ * event holds when Full Pro is not on. Never a price: the Maker's Apply is where Pro is asked for.
+ */
+export function hubProLine(
+  row: PaidRow | null,
+  parts: { full: boolean; count: number } | null = null,
+  /** The per-part ownership read was REFUSED — never "Free" over a read that did not happen (review 2026-10-24). */
+  partsUnread = false,
+): string {
+  if (row?.state === 'unread') return '◆ —';
+  if (row?.state === 'owned' || parts?.full) return '◆ Pro on · themes, photo and video backgrounds';
+  if (row?.state === 'pending') return '◆ Pro · payment sent · switches on once approved';
+  if (partsUnread) return '◆ —';
+  if (parts && parts.count > 0) return `◆ Pro · ${formatCount(parts.count)} ${parts.count === 1 ? 'part' : 'parts'} on`;
+  return '◆ Free';
+}
 
 /** The row states. Exactly one per service — `homePaidState`. */
 export type HomePaidState = 'owned' | 'pending' | 'add' | 'open' | 'unread' | 'absent';
@@ -448,8 +472,10 @@ export type HomeService = {
    * "See N photos" (the gallery, opened directly). Absent = the plain row.
    */
   papic?: PapicRowDoors;
-  /** 🧾 A paid row (Planner · Live stream · Music · Video booth · Event Hub Pro) — its one state. */
+  /** 🧾 A paid row (Planner · Live stream · Music · Video booth) — its one state. */
   paid?: PaidRow;
+  /** 💎 The Event Hub card — its Pro row (null: not held, nothing waiting), drawn as the card's ◆ line. */
+  hub?: { pro: PaidRow | null };
 };
 
 /** What the Papic row draws beyond its name — from `papicGlance` (lib/papic-glance.ts). */
@@ -518,7 +544,7 @@ export function nikahStatus(done: number | null): string {
 
 /** Each paid row's names — `lib/service-names.ts` (one list); Event Hub Pro is not a service card. */
 function paidNames(key: HomeSkuKey): { name: string; brand: string } {
-  if (key === 'hub') return { name: HUB_PRO_NAME, brand: HUB_PRO_UNLOCKS };
+  if (key === 'hub') return { name: EVENT_HUB_NAME, brand: '' };
   const n = SERVICE_NAMES[HOME_PAID_CARD[key] as ServiceNameKey];
   return { name: n.plain, brand: n.brand };
 }
@@ -549,8 +575,14 @@ export function homeServices(input: {
     ...(input.papicDoors ? { papic: input.papicDoors } : {}),
   };
   const rest: HomeService[] = input.paid
-    ? (HOME_PAID_KEYS.filter((k): k is HomeSkuKey => k !== 'papic')).flatMap((key) => {
+    ? (HOME_PAID_KEYS.filter((k): k is HomeSkuKey => k !== 'papic')).flatMap((key): HomeService[] => {
         const row = paidRow(key, input.paid?.[key], input.eventId ?? '');
+        if (key === 'hub') {
+          // 💎 The Event Hub is always a card where the event has one; its Pro row is the card's ◆ line, never a slim "Add".
+          if (!row) return [];
+          const { name } = paidNames(key);
+          return [{ key, name, status: hubProLine(row.state === 'add' ? null : row), hub: { pro: row.state === 'add' ? null : row } }];
+        }
         return row ? [{ key, ...paidNames(key), status: row.price ?? glanceLineText(row.line), paid: row }] : [];
       })
     : [{ key: 'ai', name: SERVICE_NAMES['setnayan-ai'].plain, brand: SERVICE_NAMES['setnayan-ai'].brand, status: input.ai }];

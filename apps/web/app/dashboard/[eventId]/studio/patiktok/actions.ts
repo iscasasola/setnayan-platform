@@ -19,6 +19,7 @@ import { patiktokSaveUnlocked } from '@/lib/patiktok-save-gate';
 import {
   PATIKTOK_BOOTH_COOKIE_MAX_AGE,
   patiktokBoothCookieName,
+  patiktokBoothLegacyCookieName,
   patiktokBoothCookiePath,
   resolveBoothTemplates,
   serializeBoothTemplates,
@@ -748,7 +749,7 @@ export async function savePatiktokBoothTemplates(formData: FormData) {
   const { primary, backup } = resolveBoothTemplates({
     primaryParam: typeof primaryRaw === 'string' ? primaryRaw : null,
     backupParam: typeof backupRaw === 'string' ? backupRaw : null,
-    saved: jar.get(patiktokBoothCookieName(eventId))?.value ?? null,
+    saved: jar.get(patiktokBoothCookieName(eventId))?.value ?? jar.get(patiktokBoothLegacyCookieName(eventId))?.value ?? null,
   });
 
   jar.set(patiktokBoothCookieName(eventId), serializeBoothTemplates(primary.slug, backup.slug), {
@@ -759,5 +760,7 @@ export async function savePatiktokBoothTemplates(formData: FormData) {
     maxAge: PATIKTOK_BOOTH_COOKIE_MAX_AGE,
   });
 
+  // 🏠 Picked on Home's Video booth card — land back on Home (a fixed word picks a fixed path, never a URL).
+  if (formData.get('return_to') === 'home') redirect(`/dashboard/${eventId}`);
   redirect(`/dashboard/${eventId}/studio/patiktok/booth?saved=1`);
 }

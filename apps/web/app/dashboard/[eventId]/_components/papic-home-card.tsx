@@ -110,6 +110,7 @@ export function PapicHomeCard({
           onClick={() => setOpen((v) => !v)}
           className="block w-full min-w-0 text-left"
           data-papic-card-head=""
+          data-tour="home-papic-card"
         >
           <span className="sg-head">
             <span className="sg-mark" aria-hidden>

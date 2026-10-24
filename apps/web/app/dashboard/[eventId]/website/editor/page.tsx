@@ -1,4 +1,3 @@
-import { cameraLookFromPreferences } from '@/lib/camera-look';
 import { startAhead } from '@/lib/start-ahead';
 import { SCENE_ACCENTS_PREF_KEY, sceneAccentsFromPreferences } from '@/lib/art-kit-accents';
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
@@ -16,7 +15,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
-import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
+import { eventCoupleWebsiteProActive, eventHubPartActive } from '@/lib/couple-website-pro';
 import { asViewed } from '@/lib/view-as-free.server';
 import { makerProMark, makerProUsable } from '@/lib/paid-mark';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
@@ -285,6 +284,9 @@ export default async function WebsiteEditorPage({
          viewer who switched on "View as a free couple" gets every padlock and
          Pro offer below. Render only — each panel's action asks the real gate. */
       (async () => asViewed(eventCoupleWebsiteProActive(await eventEntitlementClient(eventId), eventId)))(),
+      /* 📷 The one camera's Pro dress (owner 2026-10-24, `lib/camera-dress.ts`): the Logo & QR part or Full Pro — the
+         SAME ownership answer the line above asked (`eventHubOwnership`, asked once per render), as the viewer is shown it. */
+      (async () => asViewed(eventHubPartActive(await eventEntitlementClient(eventId), eventId, 'logo_qr')))(),
       /*
         ⛔ THE PRICE, READ LIVE — the same read `launch/page.tsx` makes.
         `platform_retail_catalog_v2` is admin-managed and is the only figure a
@@ -332,7 +334,7 @@ export default async function WebsiteEditorPage({
   }
   if (!membership) redirect(`/dashboard/${eventId}`);
 
-  const [ownsPro, proSku] = await (proReads ?? readPro());
+  const [ownsPro, cameraPro, proSku] = await (proReads ?? readPro());
   // A plain string crosses to the client panels — never a function or icon.
   const proPriceLabel = proPriceLabelFrom(proSku?.price_php, formatPhp);
 
@@ -602,11 +604,6 @@ export default async function WebsiteEditorPage({
      shows the defaults, which is what the page draws without a pick. */
   const { data: prefsRow, error: prefsErr } = await prefsRead;
   if (prefsErr) logQueryError('WebsiteEditorPage.fixedStyles', prefsErr, { eventId }, 'graceful_degrade');
-  /* 🎛 The Camera's look — live with the drafted one laid on (`lib/camera-look.ts`). */
-  const cameraLook = cameraLookFromPreferences({
-    ...(((prefsRow as { style_preferences?: unknown } | null)?.style_preferences as Record<string, unknown> | null) ?? {}),
-    ...((hubDraft?.events.style_preferences as Record<string, unknown> | null | undefined) ?? {}),
-  });
   /* 🧱 The fixed blocks' looks (`lib/block-looks.ts`) — the RAW key, live with the drafted one laid on; the toolbar
      reads it strictly and saves it back whole. */
   const blockLooksRaw = (hubDraft?.events.style_preferences as Record<string, unknown> | null | undefined)?.block_looks ??
@@ -1830,7 +1827,7 @@ export default async function WebsiteEditorPage({
         heroPhoto: Boolean(heroRef || videoRef),
         fixedStyles,
         sceneAccents,
-        cameraLook,
+        cameraPro,
         blockLooks,
         names: { style: nameStyleOfPrintDetails(drafted.print_details), person: nameExample },
         /* 🎫 The Ticket style being edited — drafted over live (owner Q7 2026-10-02: it waits for Apply). */

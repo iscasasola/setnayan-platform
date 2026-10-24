@@ -87,6 +87,15 @@ export const FACE_SELFIE_PAPIC_CLOSE_GAP_MS = 30 * 60 * 1000;
 export const FACE_RESCAN_GAP_MS = 5 * 60 * 1000;
 
 /**
+ * Papic save-first upload sweep (lib/papic-upload-sweep.ts). HOURLY, not daily:
+ * review 2026-10-23 (major 6) — settled intent rows are forgotten ~15 minutes
+ * after their shot is recorded, so the table must be drained often or it grows
+ * by every piece every phone sends. Fired from admin traffic AND the capture
+ * routes, so a quiet admin console does not stall it.
+ */
+export const PAPIC_UPLOAD_SWEEP_GAP_MS = 60 * 60 * 1000;
+
+/**
  * How long after a claim a run may still legitimately be in flight.
  *
  * A job body runs inside a Vercel `after()` budget, measured in seconds to a
@@ -336,6 +345,17 @@ export const PERIODIC_JOBS: readonly PeriodicJob[] = [
     kind: 'operational',
     gapMs: 20 * 60 * 1000,
     what: 'Re-screen of captures whose NSFW screen was dropped',
+    reportsCount: true,
+  },
+  {
+    // 2026-10-23 — Papic save-first: a phone PUTs pieces straight to R2; one
+    // that was never recorded is an object nothing points at
+    // (lib/papic-upload-sweep.ts). Staging keys after the phone's 7-day TTL
+    // plus a day; an attempt's final copy only when no row points at it.
+    key: 'papic-upload-sweep',
+    kind: 'operational',
+    gapMs: PAPIC_UPLOAD_SWEEP_GAP_MS,
+    what: 'Removal of Papic uploads that were never recorded',
     reportsCount: true,
   },
   {

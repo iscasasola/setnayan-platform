@@ -96,6 +96,9 @@ const KNOWN_BUCKETS: readonly string[] = [MEDIA_BUCKET];
 export type DropCandidate = {
   r2_object_key: string;
   display_r2_key: string | null;
+  /** Web copies — read so a shot whose "original" IS one of them is never dropped. */
+  thumb_r2_key?: string | null;
+  tile_r2_key?: string | null;
   captured_at: string;
   full_res_dropped_at: string | null;
 };
@@ -137,6 +140,19 @@ export function isEligibleForDrop(
   if (row.full_res_dropped_at) return false;
   if (!row.display_r2_key) return false;
   if (!row.r2_object_key || row.r2_object_key.startsWith('sample/')) return false;
+  // 🛡 GUARD A — THE ORIGINAL IS NOT A SEPARATE FILE. A save-first shot from an
+  // event that does not keep full-res (2026-10-23, lib/papic-upload/) never
+  // sends an original: its r2_object_key IS its display copy (or, for a moment,
+  // its thumbnail). "Dropping the original" there would delete the only copy
+  // of the photograph. Only a key that is distinct from every web copy is an
+  // original this sweep may replace.
+  if (
+    row.r2_object_key === row.display_r2_key ||
+    (row.thumb_r2_key != null && row.r2_object_key === row.thumb_r2_key) ||
+    (row.tile_r2_key != null && row.r2_object_key === row.tile_r2_key)
+  ) {
+    return false;
+  }
   // captured_at must still PARSE — an unreadable timestamp is a row we do not
   // understand, and we never delete what we do not understand.
   const capturedMs = new Date(row.captured_at).getTime();

@@ -206,8 +206,6 @@ export const PhotoMomentsEditor = dynamic(
 );
 /* ▶ The Stages ▶'s status line — first pressed, then loaded (`stage-panel/play-status.tsx`). */
 export const StagePlayStatus = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stage-panel/play-status').then((m) => m.StagePlayStatus));
-/* 🎛 The Camera's own looks in Stages — loaded the first time the Camera is picked (`stage-panel/camera-look.tsx`). */
-export const CameraPartTools = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stage-panel/camera-look').then((m) => m.CameraPartTools), { loading: SlotRows });
 /** 🧱 A fixed block's own Animate (`lib/block-looks.ts`) — with the toolbar, never in the first load. */
 export const BlockAnimateRows = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stage-panel/block-animate').then((m) => m.BlockAnimateRows), { loading: SlotRows });
 

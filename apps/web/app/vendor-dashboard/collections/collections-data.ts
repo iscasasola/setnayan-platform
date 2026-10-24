@@ -9,6 +9,7 @@ import { pageSavedFrom, type PageSaved } from '@/lib/supplier-page-draft';
 import type { CollectionsInput } from '@/lib/supplier-collections';
 import { portfolioPhotoCap } from '@/lib/vendor-tier-caps';
 import { allowanceForCap, readPortfolioAllowance } from '@/lib/portfolio-allowance.server';
+import { fetchShopWalletBalance } from '@/lib/shop-wallet.server';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { isInstagramConnectConfigured } from '@/lib/vendor-instagram';
 import {
@@ -196,6 +197,8 @@ export async function loadCollectionsData(
 
   // Started with the rest, read at the cap below (its own select — `readPortfolioAllowance`).
   const allowanceRead = readPortfolioAllowance(supabase, vendorId);
+  // 💳 The shop wallet the portfolio spends past its free room (owner 2026-10-23). Unread → null, never 0.
+  const walletRead = fetchShopWalletBalance(supabase, vendorId);
   const [own, cards, albums, ownShots, delivered, ig, moodboard, portfolioDisplayMap] = await Promise.all([
     ownRead,
     cardsRead,
@@ -209,7 +212,7 @@ export async function loadCollectionsData(
 
   const saved = pageSavedFrom(micrositeFromRow(own), (profile.services ?? []) as string[], portfolioRefs);
   // 🎁 The shop's own allowance (a personal invite's 100, kept after the gift) lifts the base — `portfolioPhotoCap`.
-  const allowance = await allowanceRead;
+  const [allowance, walletBalance] = await Promise.all([allowanceRead, walletRead]);
   const portfolioCap = portfolioPhotoCap(
     (own?.tier_state as string | null | undefined) ?? null,
     allowanceForCap(allowance),
@@ -239,6 +242,7 @@ export async function loadCollectionsData(
     portfolioDisplayMap,
     portfolioMax: portfolioCap,
     portfolioAllowanceUnread: !allowance.ok,
+    walletBalance,
     galleryVideoLinks,
     igConfigured,
     igConnection: ig.connection,

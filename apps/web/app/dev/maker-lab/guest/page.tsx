@@ -456,6 +456,35 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
       ) : passIsHonoured(standing) ? null : (
         <HeldPassLine slug="maria-and-jose" firstName="Eufemia" mode={standing === 'set_aside_host' ? 'set_aside_host' : 'set_aside'} />
       );
+    /* 🎯 `&hub=1` — the line where the Event Hub draws it for a host: CENTRED, right under the cover's Reply card
+       (`site-body.tsx` `heldPassSlot`, the same `mx-auto mt-6 max-w-prose px-4` box), so its buttons can be seen
+       following the centring. `&look=<theme>` wears that Event Hub theme (`data-hub-theme`, as `GuestLookScope` does);
+       `&art=candlelight` the dark Look. */
+    if (sp.hub === '1') {
+      const look = typeof sp.look === 'string' && sp.look !== 'house' ? sp.look : null;
+      const card = replyCardOf({
+        action: resolveArrivalAction({ slug: 'maria-and-jose', rsvpStatus: 'pending', eventDate: '2026-12-12', today: '2026-10-14', hasPass: true }),
+        replyBy: null,
+        seats: 1,
+      });
+      return (
+        <div
+          className={look || sp.art === 'candlelight' ? 'sn-editorial contents text-ink' : 'sn-editorial contents'}
+          data-hub-theme={look ?? undefined}
+          data-guest-look={look || sp.art === 'candlelight' ? '' : undefined}
+          data-art={sp.art === 'candlelight' ? 'candlelight' : undefined}
+        >
+          <main className="pahina-in mx-auto min-h-[100dvh] w-full max-w-[480px] bg-paper px-4 pt-16 text-center text-ink" data-lab-heldpass={kase} data-lab-hub="" data-lab-standing={standing}>
+            <style>{EDITOR_CANVAS_HIDES_APP_CHROME}</style>
+            <p className="text-xs uppercase tracking-[0.28em] text-ink/60">Together with their families</p>
+            <h1 className="mt-4 font-pahina text-5xl font-light leading-tight text-ink">Maria &amp; Jose</h1>
+            <p className="mt-3 text-sm text-ink/70">Saturday, December 12, 2026 · Seda Vertis North</p>
+            <div className="mt-10">{card ? <ReplyCardRow card={card} /> : null}</div>
+            {line ? <div className="mx-auto mt-6 max-w-prose px-4">{line}</div> : null}
+          </main>
+        </div>
+      );
+    }
     return (
       <main className="sn-editorial pahina-in mx-auto min-h-[100dvh] w-full max-w-[480px] bg-cream px-4 py-10 text-ink" data-lab-heldpass={kase} data-lab-standing={standing}>
         <style>{EDITOR_CANVAS_HIDES_APP_CHROME}</style>

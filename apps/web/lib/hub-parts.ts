@@ -163,7 +163,9 @@ export const HUB_PRO_GATES: ReadonlyArray<{ id: string; gate: string; home: HubG
   { id: '28', gate: 'RSVP moving backdrop', home: 'background' },
   { id: '29', gate: 'Your logo on every QR, shape, pattern, colour', home: 'logo_qr' },
   { id: '30', gate: 'Animated logo', home: 'logo_qr' },
-  { id: '31', gate: 'Papic camera look', home: 'style' },
+  /* 📷 31 (owner 2026-10-24): no camera look to pick any more — ONE camera; a Pro event's camera wears its logo and
+     colours, and its saved photos its monogram (`lib/camera-dress.ts`). The Logo & QR part's, with the QR and the logo. */
+  { id: '31', gate: 'Your logo and colours on the Papic camera, your monogram on its photos', home: 'logo_qr' },
   { id: '32', gate: 'Venue "Our drawing"', home: 'own_scenes' },
   { id: '33', gate: 'Pro-theme print files', home: 'prints' },
   { id: '34', gate: 'Prints in your Hub look', home: 'prints' },
@@ -223,8 +225,8 @@ export const HUB_EVENT_COLUMN_PART: Readonly<Record<string, HubPartId>> = {
 };
 
 /** The part of one Pro piece of `style_preferences` (`StylePreferencesProPart`). */
-export function stylePreferencesPartOf(piece: 'qr' | 'accents' | 'camera' | 'blocks'): HubPartId {
-  return piece === 'qr' ? 'logo_qr' : piece === 'blocks' ? 'motion' : 'style'; // 29 · 17b · 16, 31
+export function stylePreferencesPartOf(piece: 'qr' | 'accents' | 'blocks'): HubPartId {
+  return piece === 'qr' ? 'logo_qr' : piece === 'blocks' ? 'motion' : 'style'; // 29 · 17b · 16
 }
 
 /** A reply line's Pro field (`RSVP_LINE_PRO_KEYS`) → its part: c f s l are Style (27a), i v are Build in (27b). */

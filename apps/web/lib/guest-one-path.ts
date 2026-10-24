@@ -76,6 +76,46 @@ export function resolveGuestViewer(input: {
 }
 
 /**
+ * 🗳 WHO A REPLY IS SENT AS (owner bug 2026-10-24 — the host, "Viewing as you" on cale-ice, tapped Reply and the sheet
+ * greeted "Gabriel dela Peña": the host card's Reply carried `?preview=draft`, the Maker preview's SAMPLE guest).
+ *
+ * The rule: the reply is sent as EXACTLY the identity the Event Hub says it is viewing as —
+ *   pass     the browser's pass for THIS event, as the account rule honours it (`readGuestSession`: a set-aside pass
+ *            is never in `viewer` — it is not a candidate here at all);
+ *   seat     a signed-in guest's own seat (`resolveGuestViewer`);
+ *   own_row  a signed-in account bound to ONE guest row here by any other membership — the host's own row (the groom),
+ *            which `findGuestSeatForUser` (guest seats only) never answers. The Hub says "Viewing as you"; this is you.
+ *   none     nobody to answer as. `not_on_list`: signed in, no row of their own here — the page SAYS so, never a sample
+ *            and never somebody else. `several_rows`: bound to more than one row — never silently one of them.
+ *            `unread`: the account's rows could not be read (fail closed). `no_key`: signed out with no pass.
+ *
+ * Pure; the reads are `readReplyIdentityForEvent` (guest-one-path.server.ts), and both the reply page and the save
+ * (`submitRsvp`) ask it, so the form and the write can never name two different people.
+ */
+export type ReplyIdentity =
+  | { kind: 'pass' | 'seat' | 'own_row'; session: GuestSessionLike }
+  | { kind: 'none'; why: 'no_key' | 'not_on_list' | 'several_rows' | 'unread' };
+
+export function resolveReplyIdentity(input: {
+  eventId: string;
+  viewer: GuestViewer;
+  signedIn: boolean;
+  /** The account's own, live guest rows on this event (any membership). Null = could not be read. */
+  ownRows: readonly { guestId: string; qrToken: string }[] | null;
+}): ReplyIdentity {
+  const { viewer } = input;
+  if (viewer.kind === 'cookie') return { kind: 'pass', session: viewer.session };
+  if (viewer.kind === 'seat') return { kind: 'seat', session: viewer.session };
+  if (!input.signedIn) return { kind: 'none', why: 'no_key' };
+  if (input.ownRows === null) return { kind: 'none', why: 'unread' };
+  const ids = [...new Set(input.ownRows.filter((r) => r.guestId && r.qrToken).map((r) => r.guestId))];
+  if (ids.length === 0) return { kind: 'none', why: 'not_on_list' };
+  if (ids.length > 1) return { kind: 'none', why: 'several_rows' };
+  const row = input.ownRows.find((r) => r.guestId === ids[0])!;
+  return { kind: 'own_row', session: { guest_id: row.guestId, event_id: input.eventId, qr_token: row.qrToken } };
+}
+
+/**
  * THE ONE ACCOUNT PROMPT on a guest's page, and which sentence it carries.
  *
  *   offer          — no account here yet. "Save to my account" by the device's

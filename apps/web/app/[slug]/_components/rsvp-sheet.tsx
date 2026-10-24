@@ -67,6 +67,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { hashOpensSheet, sheetAfterAddressChange, sheetOpensOnLoad, type RsvpSheetFlash } from './rsvp-sheet-state';
+import { readKeyboard, subscribeKeyboard } from '@/lib/keyboard-ride';
 
 /**
  * Structure lives here rather than in Tailwind utilities for two reasons: the
@@ -239,12 +240,12 @@ export function RsvpSheet({
    */
   useEffect(() => {
     const panel = panelRef.current;
-    const vv = typeof window !== 'undefined' ? window.visualViewport : null;
     if (!open || !panel) return;
+    /* The one keyboard reading (`lib/keyboard-ride.ts`): what of the screen's foot the keyboard covers. */
     const fit = () => {
-      if (!vv) return;
-      const covered = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
-      panel.style.setProperty('--sn-kb', `${Math.round(covered)}px`);
+      const k = readKeyboard();
+      if (!k.present) return;
+      panel.style.setProperty('--sn-kb', `${Math.round(k.bottom)}px`);
     };
     let timer: ReturnType<typeof setTimeout> | null = null;
     const onFocus = (event: FocusEvent) => {
@@ -257,13 +258,11 @@ export function RsvpSheet({
       }, 320);
     };
     fit();
-    vv?.addEventListener('resize', fit);
-    vv?.addEventListener('scroll', fit);
+    const stop = subscribeKeyboard((_k, cause) => (cause === 'resize' || cause === 'scroll' ? fit() : undefined));
     panel.addEventListener('focusin', onFocus);
     return () => {
       if (timer) clearTimeout(timer);
-      vv?.removeEventListener('resize', fit);
-      vv?.removeEventListener('scroll', fit);
+      stop();
       panel.removeEventListener('focusin', onFocus);
       panel.style.removeProperty('--sn-kb');
     };

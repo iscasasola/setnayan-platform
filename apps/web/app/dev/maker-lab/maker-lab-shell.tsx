@@ -2,7 +2,6 @@
 
 import type { SceneTypeWords } from '@/lib/hub-part-words';
 import type { FixedSceneStyles } from '@/lib/fixed-scene-styles';
-import type { CameraLook } from '@/lib/camera-look';
 import type { SceneAccents } from '@/lib/art-kit-accents';
 import { useEffect, useMemo, useState, type ComponentProps, type ReactNode } from 'react';
 import { LAB_SCRUB_GUEST } from './lab-scrub';
@@ -191,7 +190,6 @@ export function MakerLabShell({
   venuePictures = null,
   factEditors,
   fixedStyles = {},
-  cameraLook = 'classic',
   blockLooks = {},
   sceneAccents = {},
   kitTheme = null,
@@ -211,9 +209,8 @@ export function MakerLabShell({
   scrub?: boolean;
   /** ✓ The lab draft's summary as its "server" read it for this render (`lab_bar`; `?changes=N` stands in for it). */
   summary: HubDraftSummary;
-  /** 🎨 The lab's drafted part styles (`lab_styles`) and 🎛 camera look (`lab_camera`). */
+  /** 🎨 The lab's drafted part styles (`lab_styles`). */
   fixedStyles?: FixedSceneStyles;
-  cameraLook?: CameraLook;
   /** 🧱 The lab's drafted block looks (`lab_blocks`). */
   blockLooks?: Record<string, unknown>;
   /** 🕯 The lab's drafted Accent picks (`lab_accents`), and the look it wears for them (`lab_kit=vintage`). */
@@ -579,7 +576,8 @@ export function MakerLabShell({
           /* 🖼 The Cover Scene's Scene ◆ tiles — the lab's loop stills (its stand-ins where it has no media host). */
           loopPosters: Object.fromEntries(loops.map((l) => [l.id, l.stillUrl ?? null])),
           fixedStyles,
-          cameraLook,
+          /* 📷 The one camera's Pro dress — the lab's `?pro=1` stands in for Logo & QR / Full Pro. */
+          cameraPro: ownsPro,
           blockLooks,
           sceneAccents,
         }}

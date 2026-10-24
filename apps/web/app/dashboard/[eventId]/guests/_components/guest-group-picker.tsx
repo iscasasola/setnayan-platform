@@ -13,6 +13,7 @@ import type { GuestGroupTeamSide, GuestSide } from '@/lib/guests';
 import { GROUP_SIDE_WORD, listedOwnGroups, OFF_SIDE_WORD, sidesForNamesakes, teamSideForNewGroup } from '@/lib/groups-for-side';
 import { clashWords, groupNameClash, type GroupNameClash } from '@/lib/group-name-clash';
 import { revealAboveChrome } from '@/lib/reveal-above-chrome';
+import { subscribeKeyboard } from '@/lib/keyboard-ride';
 
 /**
  * guest-group-picker.tsx — 👥 THE ONE GROUP DROPDOWN (owner 2026-10-20: *"there are 2 groups."* · *"before we can always
@@ -219,12 +220,11 @@ export function GuestGroupPicker({
       revealAboveChrome(ed ?? box, ed ? null : btnRef.current);
     };
     const frame = requestAnimationFrame(show);
-    const vv = window.visualViewport;
-    const onKeyboard = () => (editor() ? show() : undefined);
-    vv?.addEventListener('resize', onKeyboard);
+    /* The keyboard moving the screen's edge (a viewport RESIZE — never its scroll), from the one reading. */
+    const stop = subscribeKeyboard((_k, cause) => (cause === 'resize' && editor() ? show() : undefined));
     return () => {
       cancelAnimationFrame(frame);
-      vv?.removeEventListener('resize', onKeyboard);
+      stop();
     };
   }, [open, mode, err, clash]);
 

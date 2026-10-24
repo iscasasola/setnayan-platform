@@ -57,12 +57,8 @@ import { AccountBottomNav } from '@/app/dashboard/(launcher)/_components/account
 import { BottomDock } from '@/app/_components/nav/bottom-nav';
 import { AddGuestSheet } from '@/app/dashboard/[eventId]/guests/_components/add-guest-sheet';
 import { QuickAddSheet } from '@/app/dashboard/[eventId]/guests/_components/quick-add-sheet';
-import { GuestCardBody } from '@/app/dashboard/[eventId]/guests/_components/guest-card-body';
+import { GuestCard } from '@/app/dashboard/[eventId]/guests/_components/guest-card';
 import { guestCardErrorCopy } from '@/app/dashboard/[eventId]/guests/_components/guest-card-error-copy';
-import { GuestInviteCell } from '@/app/dashboard/[eventId]/guests/_components/guest-invite-cell';
-import { GuestDeleteControl, GuestMoreMenu, GuestTicketThumb } from '@/app/dashboard/[eventId]/guests/_components/guest-ticket-parts';
-import { GuestPapicCamera } from '@/app/dashboard/[eventId]/guests/_components/guest-papic-camera';
-import { GuestAccessPick } from '@/app/dashboard/[eventId]/guests/_components/guest-access-pick';
 import type { GuestPapicState } from '@/lib/papic-guest-camera';
 import type { GuestCardData } from '@/app/dashboard/[eventId]/guests/_components/guest-card-data';
 import { guestOutfitOf, guestOutfitWords } from '@/lib/guest-outfit';
@@ -78,7 +74,6 @@ import { MakerRsvpSettings } from '@/app/dashboard/[eventId]/launch/_components/
 import { guestsGetInPatch, isGuestsGetIn } from '@/lib/who-can-reply';
 import { renderStyledUrlQrSvg } from '@/lib/qr';
 import { GuestsScreen } from '@/app/dashboard/[eventId]/guests/_components/guests-screen';
-import { TEMPLATE_KIT } from '@/app/dashboard/[eventId]/guests/_components/guest-card-template-kit';
 import type { TitleWaitingPerson } from '@/app/dashboard/[eventId]/guests/_components/titles-waiting';
 import { titleButtonText, titleKey } from '@/lib/guest-title';
 import { UndoToastHost } from '@/app/dashboard/[eventId]/guests/_components/undo-toast';
@@ -581,12 +576,12 @@ export default async function GuestsLabPage({
               <div className="ml-12 min-h-dvh rounded-l-3xl bg-cream px-[18px] pb-10 pt-6 shadow-xl" data-lab-card="" data-lab-render={labRenders}>
                 {low ? <div aria-hidden className="h-[440px]" data-lab-low="" /> : null}
                 <LabGuestActions refuse={labRefuses}>
-                <GuestCardBody
+                <GuestCard
+                  frame="page"
                   eventId={EVENT}
                   data={{ ...cardData(cardGuest, host), ...protoData, ...sidesData, ...seatOf, ...seatLines, ...linkedData, roleNames: labWords, outfit: { wear: labOutfit.wear, from: labOutfit.from } } as GuestCardData}
                   invitationBase="https://www.setnayan.com/maria-and-jose"
                   photoDisplayUrl={null}
-                  variant="page"
                   returnTo={labBack}
                   errorMessage={typeof sp.error === 'string' ? guestCardErrorCopy(sp.error) : null}
                   actions={{ update: labUpdate, release: labRelease, partnerLink: labPartnerLink }}
@@ -596,15 +591,11 @@ export default async function GuestsLabPage({
                     template: null,
                     slug: 'maria-and-jose',
                   }}
-                  SendInvite={GuestInviteCell}
-                  TicketThumb={GuestTicketThumb}
-                  MoreMenu={GuestMoreMenu}
-                  DeleteControl={GuestDeleteControl}
                   /* 📸 ?papic=off · ?papic=unknown · ?papic=set (40 credits) · ?papic=none — else on, sharing with everyone. */
                   papic={labPapic}
-                  PapicCamera={GuestPapicCamera}
-                  AccessPick={GuestAccessPick}
-                  kit={TEMPLATE_KIT}
+                  storeShell={false}
+                  ticketVersion={null}
+                  helper={null}
                 />
                 </LabGuestActions>
               </div>

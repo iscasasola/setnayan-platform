@@ -265,10 +265,11 @@ test('9 · the card on a +1 names the guest who brings them, in its title and it
   const named = plusOneOfWords({ guest_id: 's2', first_name: 'Paulo' }, host, 1);
   assert.equal(guestCardTitle(guestRow({ first_name: 'Paulo', last_name: 'Reyes' }), named), 'Paulo Reyes');
   assert.equal(guestCardEyebrow(seatRow, { hasSides: true, roleNames: {} }), "Guest · Groom's side", 'everyone else is unchanged');
-  // Every place the card is titled reads it: the panel over the List, the card's own page, and the card data loads it.
-  const page = stripComments(readFileSync(join(HERE, '..', 'page.tsx'), 'utf8'));
-  assert.match(page, /eyebrow=\{guestCardEyebrow\(inspectedCard\.guest, \{[^}]*plusOneOf: inspectedCard\.plusOneOf \}\)\}/);
-  assert.match(page, /title=\{guestCardTitle\(inspectedGuest, inspectedCard\.plusOneOf\)\}/);
+  // Every place the card is titled reads it: the panel's header (THE card, `guest-card.tsx` — every surface's), the card's
+  // own page, and the card data loads it.
+  const card = stripComments(readFileSync(join(HERE, 'guest-card.tsx'), 'utf8'));
+  assert.match(card, /eyebrow=\{guestCardEyebrow\(guest, \{[^}]*plusOneOf: data\.plusOneOf \}\)\}/);
+  assert.match(card, /const title = guestCardTitle\(guest, data\.plusOneOf\);[\s\S]*title=\{title\}/);
   const body = stripComments(readFileSync(join(HERE, 'guest-card-body.tsx'), 'utf8'));
   assert.match(body, /guestCardEyebrow\(guest, \{ hasSides, roleNames, plusOneOf: data\.plusOneOf \}\)/);
   assert.match(body, /\{guestCardTitle\(guest, data\.plusOneOf\)\}<\/h1>/);

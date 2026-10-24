@@ -6678,6 +6678,12 @@ html.dark .sn-popup-dark {
   .sn-inspector-peek,
   .sn-inspector-sheet { display: none; }
 }
+/* 🪪 The guest card opened with no list behind it (`InspectorSheetAlone` — the Wedding March, the parents): the same sheet,
+ * and at ≥ 1280 still the 440 panel — there is no rail to hand it to (owner 2026-10-24, one guest card everywhere). */
+@media (min-width: 1280px) {
+  .sn-inspector-peek.sn-inspector-peek--alone { display: block; }
+  .sn-inspector-sheet.sn-inspector-sheet--alone { display: block; left: auto; width: 27.5rem; }
+}
 @keyframes sn-peek-in { from { opacity: 0 } to { opacity: 1 } }
 @keyframes sn-sheet-in {
   from { transform: translateX(34px); opacity: 0 }

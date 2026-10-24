@@ -102,8 +102,6 @@ import { hubSetupApplies, hubSetupGuestsHref, type HubSetupFacts } from '@/lib/h
 import { formatBlockTime } from '@/lib/schedule';
 import { isCoordinatorP3Enabled } from '@/lib/coordinator-broadcasts-server';
 import { findSampleEventId } from '@/app/tour/_lib/sample-event';
-import { GuestCardBody } from '../guests/_components/guest-card-body';
-import { fetchInvitationBase, loadGuestCard } from '../guests/_components/guest-card-data';
 import { qrLookChoicesFromRow } from '@/lib/qr-look.server';
 import { updateQrStyle } from './qr-look-actions';
 import { boardIsTheCouples, sampleBoardQuery, themeSeedPalettes } from '@/lib/theme-colours';
@@ -1247,10 +1245,9 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
     if (printEvent) {
       /* ⚡ Started as soon as the event's print row is in (2026-10-23, the speed pass) — each needs only it and the
          event id, yet each was awaited after the reads above it. Each is awaited where it always was, on every path
-         below: the invitation base, where the reveal plays, the guests' count for the setup (only where the setup
+         below: where the reveal plays, the guests' count for the setup (only where the setup
          applies and the viewer may read the guest list, as before), the draft (it waited for the Menu's sources),
          the RSVP deadline and the requests count (they waited for Your event). */
-      const invitationBaseRead = startAhead(fetchInvitationBase(eventId, printEvent.slug).catch(() => null));
       const revealStagesRead = startAhead(readMakerRevealStages(eventId));
       const setupGuestsRead =
         hubSetupApplies(printEvent.event_type) && mayReadGuestList ? startAhead(countSetupGuests(printAdmin, eventId)) : null;
@@ -1456,31 +1453,10 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
           card: formatFor('card', one(search.card_format))!,
         },
       };
-      /* 👪 Each parent's OWN guest card (Details → The Invitation, option (a)):
-         the one loader the Guest list uses, so the card posts every column. */
-      const invitationBase = await invitationBaseRead;
-      const parentCards = await Promise.all(
-        printParents.map(async (p) => {
-          const data = p.guestId ? await loadGuestCard(supabase, eventId, p.guestId).catch(() => null) : null;
-          return {
-            guestId: data ? p.guestId : null,
-            side: p.side,
-            name: p.name,
-            card: data ? (
-              <GuestCardBody
-                eventId={eventId}
-                data={data}
-                invitationBase={invitationBase}
-                photoDisplayUrl={null}
-                variant="panel"
-                returnTo={`/dashboard/${eventId}/launch?tool=details&item=invitation`}
-                errorMessage={null}
-                inviteFlash={null}
-              />
-            ) : null,
-          };
-        }),
-      );
+      /* 👪 Each parent on the invitation — tapping one opens THEIR OWN guest card, THE guest card (`GuestCard`, owner
+         2026-10-24), read at the tap by the one action every in-place card uses (`openGuestCard`). Nothing of the card
+         is read or drawn with the Maker: it is not in the Maker's first load. */
+      const parentCards = printParents.map((p) => ({ guestId: p.guestId ?? null, side: p.side, name: p.name }));
       /* 🗓 Details part 2a — "Your event": names, date, venues, parents &
          hosts, the march — each read from the column its own screen reads. */
       const yourEvent = await loadYourEvent({

@@ -51,10 +51,9 @@ const ACTIONS = stripComments(readFileSync(resolve(HERE, '..', '[guestId]', 'act
 
 test('card top: the ticket (tap → full view + Save ticket), ONE Invite, ⋯, the status line — no QR look', () => {
   assert.match(CARD, /<TicketThumb guestId=\{guest\.guest_id\}/, 'the ticket thumbnail is gone');
-  // The Guest list and the standalone card hand in the real ticket view and ⋯.
-  for (const page of [PAGE, stripComments(readFileSync(resolve(HERE, '..', '[guestId]', 'page.tsx'), 'utf8'))]) {
-    assert.match(page, /TicketThumb=\{GuestTicketThumb\}\s*MoreMenu=\{GuestMoreMenu\}/, 'a guest page draws the card without its ticket view or ⋯');
-  }
+  // THE card (`guest-card.tsx` — the Guest list's panel, the standalone route, the march, the parents) hands in the real
+  // ticket view and ⋯ (2026-10-24, one card everywhere).
+  assert.match(read('guest-card.tsx'), /TicketThumb=\{GuestTicketThumb\}\s*MoreMenu=\{GuestMoreMenu\}/, 'the card is drawn without its ticket view or ⋯');
   assert.equal((CARD.match(/<SendInvite\b/g) ?? []).length, 1, 'the card draws more than one Invite');
   assert.match(CARD, /more=\{more\}/, 'the ⋯ is not beside Invite');
   assert.doesNotMatch(CARD, /Customize guest QRs|launch\?tool=details&item=qr|Copy message|Download QR/, 'the old QR tools are back on the card');
@@ -117,9 +116,10 @@ test('card body: the owner’s groups, in his order — every one folds, one ope
   assert.match(CARD, /const basicSummary = \[[^\n]*guest\.mobile/, 'the mobile is not Basic Info’s summary');
   assert.match(CARD, /<K\.Fold summary="RSVP Status" value=\{rsvpSummary\} open=\{Boolean\(guest\.guest_note\?\.trim\(\)\)\}>/);
   assert.match(CARD.slice(at[3]!, door), /data-guest-own-note=""/, 'the guest’s own note is not in RSVP Status');
-  assert.match(CARD, /<details name="guest-card-row"/, 'the Maker’s card is not one exclusive accordion');
-  // …and on the Guests pages the shared Fold is one-open-at-a-time too (`useOneOpen`).
-  assert.match(read('guest-card-rows.tsx'), /<Fold title=\{summary\}/, 'the templated card’s rows are not the shared Fold');
+  // ONE card, ONE kit (2026-10-24): every row is the shared Fold, one-open-at-a-time (`useOneOpen`) — the hand-drawn
+  // exclusive <details> rows (the Maker's "chevron rows") are gone.
+  assert.match(read('guest-card-rows.tsx'), /<Fold title=\{summary\}/, 'the card’s rows are not the shared Fold');
+  assert.doesNotMatch(CARD, /<details name="guest-card-row"/, 'a hand-drawn row is back on the card');
   assert.doesNotMatch(CARD, /data-guest-card-tags=""|tagWords/, 'the Tags line is back');
 });
 

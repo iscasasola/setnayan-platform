@@ -49,9 +49,8 @@ test('the card can delete its guest — from its own Delete group, never for the
   assert.ok(group.length > 0 && BODY.indexOf('<K.Fold summary="Delete"') > 0, 'the card has no Delete group');
   assert.match(BODY, /\{isCouple \? \(\s*<K\.Fold summary="Delete"[^>]*>\s*<p[^>]*>Foundation of the event[\s\S]*?\) : DeleteControl \? \(\s*<K\.Fold summary="Delete"[\s\S]*?<DeleteControl\b/, 'the Delete group offers Delete to the couple (or none to a guest)');
   assert.match(MENU, /<span data-guest-delete="">\s*<ActionButton tone="danger" icon=\{Trash2\} label="Delete guest" onClick=\{\(\) => setConfirmDelete\(true\)\} \/>/, 'the Delete group has no Delete guest button');
-  for (const page of [DETAIL, stripComments(readFileSync(resolve(HERE, '..', 'page.tsx'), 'utf8'))]) {
-    assert.match(page, /DeleteControl=\{GuestDeleteControl\}/, 'a guest page draws the card without its Delete');
-  }
+  // THE card hands in its Delete for every surface (2026-10-24, one card everywhere).
+  assert.match(stripComments(readFileSync(resolve(HERE, 'guest-card.tsx'), 'utf8')), /DeleteControl=\{GuestDeleteControl\}/, 'the card is drawn without its Delete');
   assert.match(MENU, /<DeleteGuestFlow\b/, 'the card’s Delete does not go through the one delete flow');
   /* …and the ⋯ no longer carries it (one Delete on the card, not two). */
   const more = MENU.slice(MENU.indexOf('export function GuestMoreMenu('), MENU.indexOf('export function GuestDeleteControl('));
@@ -70,7 +69,7 @@ test('there is ONE delete path — the old card remove is gone', () => {
   assert.equal(existsSync(join(HERE, 'remove-guest-confirm.tsx')), false, 'RemoveGuestConfirm is back');
   assert.doesNotMatch(GUEST_ACTIONS, /export async function softDeleteGuest\s*\(/, 'softDeleteGuest is back — a second delete with no Undo');
   assert.match(DELETE, /bulkSoftDeleteGuestsForUndo\(/);
-  assert.match(DETAIL, /<GuestCardBody/, 'the standalone route no longer renders the same card');
+  assert.match(DETAIL, /<GuestCard\b/, 'the standalone route no longer renders the same card');
 });
 
 test('the couple gets the sentence, not a button that always fails', () => {

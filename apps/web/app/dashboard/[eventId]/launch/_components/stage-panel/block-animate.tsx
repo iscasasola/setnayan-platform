@@ -19,7 +19,7 @@ const DELAY_S = { none: 0, short: 0.3, long: 0.8 } as const;
 const SHOWN_FRAME = 'iframe[data-maker-canvas-frame="shown"]';
 
 /**
- * THE ONE DRAFT DOOR, AS THE WORK AREA LENDS IT — the same door the Camera's look goes through (`camera-look.tsx`):
+ * THE ONE DRAFT DOOR, AS THE WORK AREA LENDS IT (`maker-part-ops.ts`, the door every other toolbar write goes through):
  * on a real event it IS `hubDraftAction`, so what a block's Animate posts is unchanged; on the Maker lab it is the
  * lab's stand-in, so it can be tried there (it could not: the server action sent the lab to the sign-in page — seen
  * 2026-10-10). No work area to ask: the action itself.

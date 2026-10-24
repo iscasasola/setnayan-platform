@@ -38,7 +38,7 @@ import { tallyHasMoney, type BuildTally } from '@/lib/suppliers-shell';
 export const CART_PEEK_MS = 2500;
 /** Above the thumb row, which sits above the phone's bottom bar (its measured
  *  height); a corner on a computer — where the prototype draws it. */
-const ABOVE_THE_THUMB = 'bottom-[calc(var(--sn-bottomdock-h,64px)_+_76px)] tab:bottom-24';
+const ABOVE_THE_THUMB = 'bottom-[calc(var(--sn-ride-h,var(--sn-bottomdock-h,64px))_+_76px)] tab:bottom-24';
 
 export function BuildCart({ tally }: { tally: BuildTally }) {
   // <body> exists only after mount — and the first paint does not need the peek.

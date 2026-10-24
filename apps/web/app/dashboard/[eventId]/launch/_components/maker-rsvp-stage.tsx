@@ -2,7 +2,6 @@
 
 import { StageStyle } from './stage-panel/stage-style';
 import { useCallback, useEffect, useRef, useState, type ComponentProps } from 'react';
-import { createPortal } from 'react-dom';
 import { IntoLowerThird, LOWER_THIRD_TILE, LOWER_THIRD_TILE_ON, LOWER_THIRD_TILE_PART } from './maker-lower-third';
 import { MakerPage } from './maker-page';
 import { MakerRsvpSettings, type CelebrationInputs } from './maker-rsvp-ask';
@@ -38,11 +37,9 @@ import {
   RSVP_TYPING_MESSAGE,
   RSVP_WORD_TYPED_EVENT,
 } from '@/app/[slug]/_components/rsvp-canvas-parts';
-import { SP_KEY_BAR_FIXED, SP_KEY_DONE } from '@/lib/maker-stage-room';
+
 import { readRsvpLook, rsvpLookCard } from '@/lib/rsvp-look';
 import { RSVP_SCENE_PART, arrangeRsvpScreen } from './rsvp-canvas-arrange';
-import { Check } from 'lucide-react';
-import { ActionButton } from '@/components/action-button';
 import { useStagePanelNow, useStageTool } from './stage-panel/store';
 import {
   RSVP_CELEBRATE_EVENT,
@@ -51,6 +48,8 @@ import {
   readCelebrationKey,
   type RsvpCelebration,
 } from '@/lib/rsvp-celebration';
+import { subscribeKeyboard } from '@/lib/keyboard-ride';
+import { TypingBand } from '@/app/_components/typing-band';
 
 /**
  * 🧰 THE RSVP'S THREE SCREENS AS THE LOWER THIRD'S PARTS (owner 2026-10-05,
@@ -380,15 +379,8 @@ export function MakerRsvpStage({
   const [keysTop, setKeysTop] = useState(0);
   useEffect(() => {
     if (!typingWord) return;
-    const vv = window.visualViewport;
-    const read = () => setKeysTop(Math.max(0, window.innerHeight - ((vv?.offsetTop ?? 0) + (vv?.height ?? window.innerHeight))));
-    read();
-    vv?.addEventListener('resize', read);
-    vv?.addEventListener('scroll', read);
-    return () => {
-      vv?.removeEventListener('resize', read);
-      vv?.removeEventListener('scroll', read);
-    };
+    /* The one keyboard reading (`lib/keyboard-ride.ts`): how much of the screen's foot it covers. */
+    return subscribeKeyboard((k) => setKeysTop(k.bottom), { now: true });
   }, [typingWord]);
 
   const phone = maker ? maker.device !== 'desktop' : false;
@@ -480,24 +472,19 @@ export function MakerRsvpStage({
       {/* ⌨ THE ONE BAR WHILE WORDS ARE TYPED ON THE PAGE — "Typing · Heading" and Done, which brings the panel
           back (the shipped typing bar's own words and look, `type-in-place.tsx`). */}
       {typingKey && typeof document !== 'undefined'
-        ? createPortal(
-            <div
+        ? (
+            /* Done is the bar's ONE action: the app's main button — the one typing band (`typing-band.tsx`). It was a
+               black pill written as a hex (owner 2026-10-08, the approved gallery § 9). */
+            <TypingBand
+              fixed
+              bottom={keysTop}
               role="toolbar"
               aria-label={`${RSVP_WORD_LABEL[typingKey as RsvpWordKey] ?? 'Words'} — words`}
               data-type-bar="rsvp"
               data-type-bar-keys=""
-              style={{ bottom: keysTop }}
-              className={`fixed inset-x-0 z-[85] ${SP_KEY_BAR_FIXED}`}
-            >
-              <span className="min-w-0 truncate">Typing · {RSVP_WORD_LABEL[typingKey as RsvpWordKey] ?? 'Words'}</span>
-              {/* Done is the bar's ONE action: the app's main button (the accent — `ActionButton`), never an ink pill —
-                  drawn exactly as the shipped typing bar draws it (`type-in-place.tsx`). It was a black pill written
-                  as a hex (owner 2026-10-08, the approved gallery § 9). */}
-              <span data-type-done="" className={SP_KEY_DONE}>
-                <ActionButton tone="brand" main icon={Check} label="Done" onClick={doneTyping} />
-              </span>
-            </div>,
-            document.body,
+              place={RSVP_WORD_LABEL[typingKey as RsvpWordKey] ?? 'Words'}
+              onDone={doneTyping}
+            />
           )
         : null}
       <MakerPage

@@ -48,34 +48,25 @@ import { shortDay } from '@/app/dashboard/[eventId]/_components/home-control-fac
 /** The slice of the event-type profile these reads ask about (`resolveProfile`). */
 type ProfileSlice = { marketplaceEnabled: boolean; enabledSurfaces: readonly string[] };
 
-/** ③ THE EVENT HUB — null for a type with no Event Hub. */
+/** The event row's columns the Event Hub widget reads — all carried by the page's one row (`DASHBOARD_ROW_CARRIES`). */
+export type HomeHubEventRow = {
+  slug: string | null;
+  landing_page_visibility: string | null;
+  event_date: string | null;
+  event_end_date: string | null;
+  cleared_at: string | null;
+  timezone: string | null;
+  std_invitation_launch_date: string | null;
+};
+
+/** ③ THE EVENT HUB — null for a type with no Event Hub. Reads only the owner's link segment; the row is the page's. */
 export async function readHomeHub(
-  supabase: SupabaseClient,
   eventId: string,
+  ev: HomeHubEventRow,
   opts: { website: boolean; guide: { stageTitle: string; left: number } | null },
 ): Promise<HomeHubFacts | 'unread' | null> {
   if (!opts.website) return null;
-  const [eventRes, ownerSlug] = await Promise.all([
-    supabase
-      .from('events')
-      .select('slug, landing_page_visibility, event_date, event_end_date, cleared_at, timezone, std_invitation_launch_date')
-      .eq('event_id', eventId)
-      .maybeSingle(),
-    resolveEventOwnerSlug(createAdminClient(), eventId).catch((): null => null),
-  ]);
-  if (eventRes.error || !eventRes.data) {
-    if (eventRes.error) logQueryError('HomeControl.hub', eventRes.error, { event_id: eventId }, 'graceful_degrade');
-    return 'unread';
-  }
-  const ev = eventRes.data as {
-    slug: string | null;
-    landing_page_visibility: string | null;
-    event_date: string | null;
-    event_end_date: string | null;
-    cleared_at: string | null;
-    timezone: string | null;
-    std_invitation_launch_date: string | null;
-  };
+  const ownerSlug = await resolveEventOwnerSlug(createAdminClient(), eventId).catch((): null => null);
   const stage = resolveHubStage({
     measured: true,
     eventDate: ev.event_date,

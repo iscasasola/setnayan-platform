@@ -7803,22 +7803,133 @@ html.dark .home-card-bad { background: color-mix(in srgb, rgb(var(--color-danger
   [data-home-column] > *, .home-sec.open > .home-bar .home-bar-ico { animation: none; }
   .home-fold, .home-chev, .home-tile { transition: none; }
 }
-/* 🖥 HOME AT FULL WIDTH, TWO COLUMNS (owner 2026-10-23, "shouldn't home, guests and suppliers maximize the width
- * as well?" → yes; prototype `home_service_widgets_2026-10-23.html` D1/D2). From 1024 the column has no cap
- * (`lg:max-w-none` in home-first-screen.tsx): body = viewport − rail − 2 × 32. The top splits 1.1 : 1 and is read
- * COLUMN BY COLUMN in the page's own order — the left column holds Next and the one QR (the three doors came off,
- * owner 2026-10-23), the right
- * the numbers and the money — then What's next and everything after span both. Every top piece has an explicit
- * place, so the reading and Tab order is the order you see (`the-home-grid-reads-in-order.test.ts`). Each piece keeps
- * its own box (an unfolding card grows in ITS column); the phone and the tablet are unchanged. */
-@media (min-width: 1024px) {
-  [data-home-column] { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); column-gap: 16px; align-items: start; }
-  [data-home-column] > * { grid-column: 1 / -1; }
-  [data-home-column] > [data-home-next] { grid-column: 1; grid-row: 1; }
-  [data-home-column] > [data-home-one-qr] { grid-column: 1; grid-row: 3; }
-  [data-home-column] > [data-home-numbers] { grid-column: 2; grid-row: 1; }
-  [data-home-column] > [data-home-money] { grid-column: 2; grid-row: 2; }
-  [data-home-column] > [data-home-whats-next] { grid-column: 1 / -1; grid-row: 4; }
+/* 🎛 HOME — A CONTROL CENTER (owner-approved 2026-10-24, "ok": `prototypes/home_control_center_2026-10-24_fable.html`,
+ * its `.today` · `.grid` · `.tile` · `.faces` · `.dots` · `.tiny` · `.wg` rules on the app's tokens). Producers:
+ * `home-parts.tsx` (the Today line), `home-tile.tsx` (the compact tile), `home-control-row.tsx` (the grid + the detail
+ * cards), `home-service-card.tsx` / `papic-home-card.tsx` (a service's closed face on a phone).
+ *
+ * 📱 COMPACT below 768 px (`md`): a 2-column grid of small tiles. 🖥 DETAIL from 768 px: the same widgets as cards in
+ * two columns, read COLUMN BY COLUMN (each column is its own stack, so the reading and Tab order is the order you see —
+ * `the-home-grid-reads-in-order.test.ts`). The column fills the body from `md` (moved down from `lg`, owner 2026-10-24),
+ * and "Your services" sits two to a row. */
+.hc-today { display: flex; align-items: center; gap: 10px; width: 100%; height: 40px; padding: 0 5px 0 14px; border: 1px solid color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent); border-radius: 999px; background: color-mix(in srgb, rgb(var(--color-ink)) 2%, rgb(var(--color-cream))); color: rgb(var(--color-ink)); font-size: 13.5px; text-align: left; transition: transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+.hc-today:active { transform: scale(0.98); }
+html.dark :is(.hc-today, .hc-tile) { background: rgb(var(--color-raised)); }
+.hc-today-k { flex: none; font-size: 10px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: rgb(var(--color-mulberry)); }
+.hc-today-t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+.hc-today-w { font-weight: 400; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); }
+.hc-today-arrow { flex: none; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; color: rgb(var(--color-mulberry)); background: color-mix(in srgb, rgb(var(--color-mulberry)) 9%, transparent); }
+.hc-today-arrow svg { width: 16px; height: 16px; }
+.hc-today.hc-calm :is(.hc-today-k, .hc-today-arrow) { color: rgb(var(--color-ok)); }
+.hc-today.hc-calm .hc-today-arrow { background: color-mix(in srgb, rgb(var(--color-ok)) 12%, transparent); }
+.hc-today-later { display: flex; align-items: center; gap: 6px; padding: 0 4px; font-size: 13px; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); }
+@media (min-width: 768px) {
+  .hc-today { height: 48px; padding-left: 16px; font-size: 15px; }
+  .hc-today-k { font-size: 10.5px; }
+  .hc-today-arrow { width: 34px; height: 34px; }
+}
+/* The ring the Today line leaves on the widget it names (1.8 s). */
+[data-home-spot] { outline: 2px solid rgb(var(--color-mulberry)) !important; outline-offset: 3px; }
+
+/* The compact grid and its tiles. */
+.hc-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
+.hc-tile { position: relative; min-width: 0; min-height: 104px; display: flex; flex-direction: column; gap: 5px; padding: 12px; border: 1px solid color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent); border-radius: 16px; background: color-mix(in srgb, rgb(var(--color-ink)) 2%, rgb(var(--color-cream))); color: rgb(var(--color-ink)); text-align: left; touch-action: pan-y; -webkit-user-select: none; user-select: none; transition: transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+.hc-tile:active { transform: scale(0.98); }
+.hc-span { grid-column: 1 / -1; }
+.hc-tile.hc-span { min-height: 0; }
+.hc-lab { font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hc-chip { position: absolute; right: 10px; top: 11px; z-index: 2; padding: 0 5px; border: 1px solid color-mix(in srgb, rgb(var(--color-mulberry)) 40%, transparent); border-radius: 999px; font-size: 8.5px; font-weight: 500; line-height: 1.5; letter-spacing: 0.12em; text-transform: uppercase; color: rgb(var(--color-mulberry)); pointer-events: none; }
+.hc-chip.hc-chip-inline { position: static; padding: 1px 6px; font-size: 9.5px; }
+.hc-big { font-size: 27px; font-weight: 600; line-height: 1.1; letter-spacing: -0.015em; font-variant-numeric: tabular-nums; }
+.hc-big small { font-size: 13px; font-weight: 400; letter-spacing: 0; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); }
+.hc-sm { padding-right: 36px; font-size: 12px; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hc-span .hc-sm { padding-right: 72px; }
+.hc-tile[data-home-tile="hub"] .hc-big { font-size: 23px; }
+.hc-tile[data-home-tile="hub"] .hc-sm { padding-right: 78px; }
+.hc-row { display: flex; align-items: center; gap: 10px; }
+.hc-thin { position: relative; flex: 1; height: 4px; border-radius: 2px; overflow: hidden; background: color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent); }
+.hc-thin > i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 2px; background: rgb(var(--color-ok)); }
+.hc-bad { border-color: color-mix(in srgb, rgb(var(--color-danger)) 40%, transparent); }
+.hc-bad .hc-big { font-size: 15px; color: rgb(var(--color-danger)); }
+/* Faces — one counter at a time; the track slides 320 ms on the house ease. */
+.hc-faces { width: 100%; min-width: 0; margin-top: auto; overflow: hidden; }
+.hc-track { display: flex; transition: transform 320ms cubic-bezier(0.2, 0.8, 0.2, 1); will-change: transform; }
+.hc-face { flex: 0 0 100%; min-width: 0; display: flex; flex-direction: column; gap: 5px; padding-bottom: 2px; }
+.hc-face-late .hc-big, .hc-face-late .hc-big small { color: rgb(var(--color-danger)); }
+.hc-dots { position: relative; z-index: 2; display: flex; align-items: center; gap: 5px; height: 14px; margin-top: 8px; }
+.hc-dot { position: relative; width: 6px; height: 6px; padding: 0; border-radius: 3px; background: color-mix(in srgb, rgb(var(--color-ink)) 16%, transparent); transition: width 240ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+.hc-dot::before { content: ""; position: absolute; inset: -9px -2px; }
+/* The active dot is a short bar that FILLS over the 4.5 s — "there is more here". */
+.hc-dot.on { width: 18px; }
+.hc-dot.on::after { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: calc(var(--p, 0) * 100%); border-radius: 3px; background: rgb(var(--color-mulberry)); }
+/* The door: a tap that is not a swipe opens the face's exact item. Under the dots and the actions. */
+.hc-door { position: absolute; inset: 0; z-index: 1; border-radius: 16px; touch-action: pan-y; -webkit-touch-callout: none; }
+.hc-door:focus-visible { outline: 2px solid rgb(var(--color-mulberry)); outline-offset: 2px; }
+.hc-acts, .hc-side { position: absolute; right: 10px; bottom: 10px; z-index: 2; display: flex; gap: 6px; }
+.hc-tiny { position: relative; width: 32px; height: 32px; display: grid; place-items: center; border: 1px solid color-mix(in srgb, rgb(var(--color-mulberry)) 40%, transparent); border-radius: 50%; background: color-mix(in srgb, rgb(var(--color-mulberry)) 9%, transparent); color: rgb(var(--color-mulberry)); }
+.hc-tiny::before { content: ""; position: absolute; inset: -6px; }
+.hc-tiny svg { width: 15px; height: 15px; }
+.hc-tiny.hc-tiny-main { background: rgb(var(--color-mulberry)); border-color: rgb(var(--color-mulberry)); color: #fff; }
+.hc-tiny.hc-tiny-pill { width: auto; display: inline-flex; align-items: center; gap: 4px; padding: 0 10px; border-radius: 999px; font-size: 12.5px; font-weight: 600; }
+/* The Countdown — the presentation piece: the number alone in the display face, centred. */
+.hc-count { min-height: 0; padding: 22px 14px 18px; align-items: center; gap: 0; text-align: center; }
+.hc-cd { display: flex; flex-direction: column; align-items: center; }
+.hc-cd-n { font-family: Georgia, "Times New Roman", serif; font-size: 64px; font-weight: 400; line-height: 1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.hc-cd-n.hc-cd-word { font-size: 30px; }
+.hc-cd-w { margin-top: 4px; font-size: 14px; letter-spacing: 0.02em; }
+.hc-cd-d { margin-top: 8px; font-size: 12px; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); }
+.hc-count .hc-acts { position: relative; right: auto; bottom: auto; margin-top: 10px; }
+/* A service's closed face on a phone — the tile is the press; the card's own control rides beside it as an icon. */
+.hc-svc-wrap { position: relative; display: flex; min-width: 0; }
+.hc-svc-wrap > .hc-svc-tile { flex: 1; width: 100%; }
+.hc-tiny-slot { position: absolute; right: 10px; bottom: 10px; z-index: 2; }
+.hc-tiny-slot :is(a, button).ab { width: 32px; height: 32px; min-height: 0; padding: 0; gap: 0; justify-content: center; border-radius: 50%; }
+.hc-tiny-slot .ab .lbl { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.hc-tiny-slot .ab svg { width: 15px; height: 15px; }
+.hc-tiny-slot [data-home-live-line] { display: none; }
+@media (min-width: 768px) { .home-svc > .hc-svc-wide { grid-column: auto; } }
+/* 🖥 The detail cards — the shipped card (`.sg-row`), no grow; the whole card is its ONE page (`.hc-card-door`). */
+.hc-two { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0 16px; align-items: start; }
+.hc-col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.hc-card { position: relative; }
+.hc-card > * { position: relative; z-index: 1; pointer-events: none; }
+.hc-card :is(a, button, [role="button"]) { pointer-events: auto; }
+.hc-card > .hc-card-door { position: absolute; inset: 0; z-index: 0; border-radius: 16px; pointer-events: auto; }
+.hc-card > .hc-card-door:focus-visible { outline: 2px solid rgb(var(--color-mulberry)); outline-offset: 2px; }
+.hc-card-bad { border-color: color-mix(in srgb, rgb(var(--color-danger)) 40%, transparent); }
+.hc-card-name { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.hc-dotline { font-size: 13px; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); }
+.hc-dotline b { color: rgb(var(--color-ink)); }
+.hc-dotline[data-mood="gone"], .hc-dotline[data-mood="gone"] b { color: rgb(var(--color-danger)); }
+.hc-figs { gap: 6px; }
+.hc-fig { color: inherit; text-underline-offset: 3px; }
+.hc-fig:hover { text-decoration: underline; }
+.hc-sep { color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); }
+.hc-rail { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-top: 10px; }
+.hc-rail > span { height: 4px; border-radius: 2px; background: color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent); }
+.hc-rail > span.done { background: color-mix(in srgb, rgb(var(--color-ok)) 55%, transparent); }
+.hc-rail > span.live { background: rgb(var(--color-ok)); }
+.hc-railw { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-top: 4px; font-size: 10px; letter-spacing: 0.02em; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); }
+.hc-railw > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hc-railw > span.live { font-weight: 600; color: rgb(var(--color-ink)); }
+.hc-pays { margin-top: 8px; border-top: 1px solid color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent); }
+.hc-pay { display: flex; align-items: center; gap: 10px; min-height: 50px; padding: 9px 0; border-bottom: 1px solid color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent); }
+.hc-pay b { font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.hc-due { font-size: 13px; font-weight: 400; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); }
+.hc-pay-s { display: block; font-size: 12px; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); }
+.hc-pay.hc-late :is(b, .hc-due) { color: rgb(var(--color-danger)); }
+.hc-pay.hc-more { min-height: 40px; font-size: 13px; font-weight: 500; color: rgb(var(--color-mulberry)); }
+.hc-list { margin-top: 6px; }
+.hc-li { display: flex; align-items: baseline; gap: 8px; padding: 6px 0; border-top: 1px solid color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent); font-size: 14px; }
+.hc-li:first-child { border-top: 0; }
+.hc-li-t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hc-li-due { flex: none; font-size: 12px; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); font-variant-numeric: tabular-nums; }
+.hc-li-due.soon { font-weight: 500; color: rgb(var(--color-warn)); }
+.hc-tick { flex: none; align-self: center; width: 14px; height: 14px; border: 1.5px solid color-mix(in srgb, rgb(var(--color-ink)) 22%, transparent); border-radius: 50%; }
+@media (prefers-reduced-motion: reduce) {
+  /* No rotation (the tile never joins the ticker), no slide; the active dot shows a full bar. */
+  .hc-track, .hc-dot, .hc-tile, .hc-today { transition: none; }
+  .hc-dot.on::after { width: 100%; }
 }
 
 /* ════════════════════════════════════════════════════════════════════════════

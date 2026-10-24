@@ -175,8 +175,6 @@ export type HomeControlInput = {
   budget: HomeBudgetFacts | 'unread' | null;
   /** null = nothing to show (never seeded); 'unread' = the read failed. */
   checklist: HomeChecklistFacts | 'unread' | null;
-  /** Today's date, `yyyy-mm-dd` in the event's clock — for the weekday words ("due Fri"). */
-  todayIso: string;
 };
 
 /* ─── Words ────────────────────────────────────────────────────────────────── */

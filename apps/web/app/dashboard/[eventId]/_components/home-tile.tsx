@@ -326,7 +326,7 @@ export function HomeTile({ model, eventId, stagger }: { model: HomeTileModel; ev
       <div className={`hc-tile hc-count${model.span ? ' hc-span' : ''}`} data-home-tile="count" data-home-tile-face={face.id} ref={root}>
         {model.today ? <span className="hc-chip">Today</span> : null}
         <span className="hc-cd" aria-hidden>
-          <span className="hc-cd-n">{face.big}</span>
+          <span className={`hc-cd-n${/^[\d,]+$/.test(face.big) ? '' : ' hc-cd-word'}`}>{face.big}</span>
           {face.unit ? <span className="hc-cd-w">{face.unit}</span> : null}
           {face.sm ? <span className="hc-cd-d">{face.sm}</span> : null}
         </span>

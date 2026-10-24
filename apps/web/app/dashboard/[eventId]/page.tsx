@@ -7,7 +7,9 @@ import { OUR_SERVICE_PARTS } from '@/lib/our-services';
 import type { PapicCardInput } from './_components/home-first-screen';
 import { switchOnRows } from '@/lib/event-needs';
 import { readEventNeedsFor } from '@/lib/event-needs-read.server';
-import { resolveProfile } from '@/lib/event-type-profile';
+import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
+import { readHomeChecklist, readHomeHub, readHomeSuppliers } from '@/lib/home-control.server';
+import type { HomeControlInput, HomePayLine } from './_components/home-control-faces';
 import { startAhead } from '@/lib/start-ahead';
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import type { Metadata } from 'next';
@@ -28,7 +30,7 @@ import { sweepLapsedSubscriptions } from '@/lib/subscriptions';
 import { sweepExpiredConcierge } from '@/lib/concierge';
 import { fetchGuestsByEventMeasured, unmeasuredGuests } from '@/lib/guests';
 import { measuredOr } from '@/lib/measured-read';
-import type { EventMoney } from '@/lib/budget-truth';
+import { moneyReadsAllOk, type EventMoney } from '@/lib/budget-truth';
 import { readBudgetLiveSummary } from '@/lib/budget-live-read';
 import { homeFacts, type HomeMoneyRead } from '@/lib/home-facts';
 import { LastSeenCapture } from '@/app/_components/last-seen/last-seen-capture';
@@ -83,8 +85,6 @@ import { SetDateNudge } from './_components/set-date-nudge';
 import { readHomeGuide } from './_components/details-guide-home-card';
 import { DayPapicRow, HomeFirstScreen, YourServices } from './_components/home-first-screen';
 import { rosterStats } from '@/lib/guest-roster-view';
-import { HomeWhatsNext } from './_components/home-parts';
-import { getNavSlotMap } from '@/lib/nav-registry';
 import { homeCoverFor } from '@/lib/home-cover.server';
 import { DateChangeDoorway } from './_components/date-change-doorway';
 import { PapicReadyNudge } from './_components/papic-ready-nudge';
@@ -131,7 +131,7 @@ export const dynamic = 'force-dynamic';
 */
 /** Home's own columns of the event row — every one is carried by `DASHBOARD_ROW_CARRIES`. */
 const HOME_EVENT_COLUMNS =
-  'event_id, event_date, event_end_date, event_type, ceremony_type, secondary_ceremony_type, cleared_at, timezone, venue_latitude, venue_longitude, region, mahr_description, gender_separation, slug, display_name, created_at, setnayan_ai_active, event_date_precision, planning_mode, setnayan_ai_active_until, date_candidates, papic_on, papic_window_start, papic_window_end';
+  'event_id, event_date, event_end_date, event_type, ceremony_type, secondary_ceremony_type, cleared_at, timezone, venue_latitude, venue_longitude, region, mahr_description, gender_separation, slug, display_name, created_at, setnayan_ai_active, event_date_precision, planning_mode, setnayan_ai_active_until, date_candidates, papic_on, papic_window_start, papic_window_end, landing_page_visibility, venue_name, std_invitation_launch_date';
 
 export async function generateMetadata({
   params,
@@ -306,11 +306,6 @@ export default async function EventHomePage({
     };
   })();
 
-  // 🧭 The bottom bar's own registry icons — Home's three doorway buttons wear the
-  // icon of the tab each opens (owner 2026-10-07: "an icon that should be similar
-  // to the bottom nav"). The same cached map the layout hands the bar; a refused
-  // read leaves the doors on the bar's code defaults, never a broken Home.
-  const navSlotsRead = getNavSlotMap().catch(() => null);
 
   // Day-of mode (iteration 0031): inside the day-of window, load the schedule
   // + seating + same-day data for the live grid that takes over above
@@ -686,6 +681,64 @@ export default async function EventHomePage({
     }).catch(() => null),
   );
 
+  /*
+    🎛 HOME'S CONTROL ROW (owner-approved 2026-10-24, `home_control_center_2026-10-24_fable.html`): the three widgets
+    whose facts the first screen did not hold before — Event Hub · Suppliers · Checklist — each through its SHIPPED
+    reader (`lib/home-control.server.ts`), started with the rest and chained only on the read that authorises it. A
+    refusal is 'unread' (the widget says "Couldn't load"), never an empty widget. The couple and their coordinator plan
+    here; any other viewer gets no planning widgets (a delegate's refused read must never draw "0 booked").
+  */
+  const homePlansRead = papicViewerRead.then(({ viewerMemberType }) => viewerMemberType === 'couple' || viewerMemberType === 'coordinator');
+  const homeSuppliersRead = startAhead(
+    Promise.all([homePlansRead, homeNeedsRead, homeTypeProfileRead])
+      .then(([plans, needs, profile]) =>
+        readHomeSuppliers(supabase, eventId, {
+          show: plans && needs.suppliers && profile.marketplaceEnabled === true,
+          eventType: (event.event_type as string | null) ?? null,
+        }),
+      )
+      .catch((): 'unread' => 'unread'),
+  );
+  const homeChecklistRead = startAhead(
+    Promise.all([homePlansRead, homeTypeProfileRead])
+      .then(([plans, profile]) =>
+        plans
+          ? readHomeChecklist(supabase, eventId, {
+              profile: { marketplaceEnabled: profile.marketplaceEnabled === true, enabledSurfaces: profile.enabledSurfaces },
+              event: {
+                event_type: (event.event_type as string | null) ?? null,
+                event_date: (event.event_date as string | null) ?? null,
+                date_candidates: (event as { date_candidates?: string[] | null }).date_candidates ?? null,
+                created_at: (event as { created_at?: string | null }).created_at ?? null,
+              },
+            })
+          : null,
+      )
+      .catch((): 'unread' => 'unread'),
+  );
+  const homeHubRead = startAhead(
+    Promise.all([homePlansRead, homeGuideRead, homeTypeProfileRead])
+      .then(([plans, guide, profile]) =>
+        readHomeHub(
+          eventId,
+          {
+            slug: (event.slug as string | null) ?? null,
+            landing_page_visibility: (event as { landing_page_visibility?: string | null }).landing_page_visibility ?? null,
+            event_date: (event.event_date as string | null) ?? null,
+            event_end_date: (event as { event_end_date?: string | null }).event_end_date ?? null,
+            cleared_at: (event as { cleared_at?: string | null }).cleared_at ?? null,
+            timezone: (event as { timezone?: string | null }).timezone ?? null,
+            std_invitation_launch_date: (event as { std_invitation_launch_date?: string | null }).std_invitation_launch_date ?? null,
+          },
+          {
+            website: plans && surfaceEnabled(profile, 'website'),
+            guide: guide ? { stageTitle: guide.stageTitle, left: Math.max(0, guide.stageTotal - guide.stageDone) } : null,
+          },
+        ),
+      )
+      .catch((): 'unread' => 'unread'),
+  );
+
   // ─── THE ONE WAIT ────────────────────────────────────────────────────────
   const [
     { rows: guests, measured: guestsMeasured, stats: guestStats },
@@ -706,8 +759,10 @@ export default async function EventHomePage({
     homeGuide,
     { now: moneyNow, guard: guardMoney },
     papicTile,
-    homeNavSlots,
     appleFacts,
+    homeSuppliers,
+    homeChecklist,
+    homeHub,
   ] = await Promise.all([
     guestsRead,
     afterSummaryRead,
@@ -719,8 +774,10 @@ export default async function EventHomePage({
     homeGuideRead,
     moneyRead,
     papicTileRead,
-    navSlotsRead,
     appleRead,
+    homeSuppliersRead,
+    homeChecklistRead,
+    homeHubRead,
   ]);
 
   /*
@@ -942,6 +999,52 @@ export default async function EventHomePage({
   /* 🖼 The header wears the Event Hub's main background (owner 2026-10-07); a
      refused read keeps today's colour, never a broken Home. */
   const homeCover = await homeCoverRead;
+  /*
+    🎛 THE CONTROL ROW'S FACTS (owner-approved 2026-10-24) — every number from the reader the page already ran:
+    the countdown from `homeFacts`, the guests from `rosterStats` (the Guests summary's own counts), the money from the
+    one budget read, every payment still to settle from the resolved ledger (`event_vendor_line_items`, banded by
+    `lib/budget-truth.ts` `dueState`). Never invented: an unread read is 'unread' and its widget says so.
+  */
+  const homeEventDate = (event.event_date as string | null) ?? null;
+  const homeLongDate = (() => {
+    const [y, m, d] = (homeEventDate ?? '').split('-').map(Number);
+    return y && m && d && facts.days.value !== '—'
+      ? new Date(y, m - 1, d).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
+      : null;
+  })();
+  const homePays: HomePayLine[] | 'unread' =
+    guardMoney && moneyReadsAllOk(guardMoney)
+      ? guardMoney.lines
+          .filter((l) => l.kind === 'committed' && l.stillOwedPhp > 0 && (l.source === 'vendor_line_item' || l.source === 'vendor_change_delta'))
+          .map((l) => ({
+            id: l.sourceRef,
+            vendorId: l.vendorId,
+            who: l.vendorName ?? 'Your supplier',
+            what: l.label,
+            owedPhp: l.stillOwedPhp,
+            dueDate: l.dueDate,
+            days: l.daysUntilDue,
+            state: l.dueState,
+          }))
+      : 'unread';
+  const homeControl: HomeControlInput = {
+    eventId,
+    next: homeNext,
+    countdown: {
+      value: facts.days.value,
+      label: facts.days.label,
+      hasDate: facts.days.value !== '—',
+      long: homeLongDate,
+      placeLine: ((event as { venue_name?: string | null }).venue_name ?? '').trim() || null,
+      dateLine: homeLongDate,
+    },
+    guests: homeNeeds.guestList === false ? null : guestsMeasured ? { coming: homeRoster.yes, noReply: homeRoster.none, toInvite: homeRoster.toInvite, declined: homeRoster.no, total: homeRoster.total } : 'unread',
+    hub: homeHub,
+    suppliers: homeSuppliers,
+    // 'hidden' = the budget is not shared with this viewer: ABSENT, never "—". null = the read failed: SAID.
+    budget: homeNeeds.suppliers === false || moneyNow === 'hidden' ? null : moneyNow === null ? 'unread' : { paidPhp: moneyNow.paid, owingPhp: moneyNow.owing, pays: homePays },
+    checklist: homeChecklist,
+  };
   const homeFirstScreen = (
     <>
     {/* 🍎 The App Store net (lib/iap/native-store.ts): on Home — where the app
@@ -952,12 +1055,7 @@ export default async function EventHomePage({
       eventId={eventId}
       cover={homeCover0}
       next={homeNext}
-      days={facts.days}
-      coming={facts.coming}
-      noReply={facts.noReply}
-      noReplyWaiting={facts.noReplyWaiting}
-      money={facts.money}
-      figures={facts.figures}
+      control={homeControl}
       services={homeServiceRow}
       papicLeft={papicNow.count}
       papicCard={papicCard}
@@ -991,25 +1089,7 @@ export default async function EventHomePage({
           : null
       }
       ground={homeCover}
-      navSlots={homeNavSlots}
       needs={homeNeeds}
-      whatsNext={
-        /* 📋 What's next unfolds IN PLACE (owner 2026-10-07, H7) — the decisions stream in
-           under their row; the first screen never waits for them. */
-        <Suspense fallback={<HomeWhatsNext open={null} rows={[]} checklist={null} />}>
-          <EventDashboard
-            eventId={eventId}
-            saiPreviewParam={search.sai}
-            lifecyclePhase={lifecyclePhase}
-            canViewPapicCounts={canViewPapicCounts}
-            daysOut={facts.daysOut}
-            daysToGo={facts.daysToGo}
-            guestStats={facts.guestStats}
-            guardMoney={guardMoney}
-            only="whatsnext"
-          />
-        </Suspense>
-      }
     />
     </>
   );

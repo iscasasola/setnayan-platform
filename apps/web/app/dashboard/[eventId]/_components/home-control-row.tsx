@@ -49,7 +49,7 @@ export function HomeControlRow({ input }: { input: HomeControlInput }) {
           return <HomeTile key={t.key} model={t} eventId={input.eventId} stagger={stagger} />;
         })}
       </div>
-      <div className="hc-two hidden md:grid" data-home-control="detail">
+      <div className="hc-two hidden md:grid" data-home-control="detail" data-tour="home-tiles">
         <div className="hc-col">
           {(['count', 'hub', 'budget'] as const).map((k) => (
             <DetailCard key={k} k={k} input={input} tile={tiles.find((t) => t.key === k) ?? null} />

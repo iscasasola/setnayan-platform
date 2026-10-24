@@ -1535,16 +1535,17 @@ export const TOURS: Record<TourKey, TourDefinition> = {
           go: true,
         },
         {
-          // 👋 The once-only welcome — rings the same Next card the step after it explains (P4 → P5).
-          anchor: 'home-next',
+          // 👋 The once-only welcome — rings the same Today line the step after it explains (P4 → P5). The Next card
+          // it named became the Today line (owner-approved 2026-10-24).
+          anchor: 'home-today',
           title: 'Welcome, {name}',
-          body: 'Your first event is made. The Next card always shows the one thing to do next.',
+          body: 'Your first event is made. Today always names the one thing to do next.',
           welcome: true,
         },
         {
-          anchor: 'home-next',
+          anchor: 'home-today',
           title: 'Start here, every time',
-          body: 'The Next card always shows the one thing to do next.',
+          body: 'Today always names the one thing to do next. Tap it and Home jumps there.',
         },
         {
           // The Event Hub door left Home with the three pills (owner 2026-10-23); the bar's Event Hub tab is the way in.
@@ -1786,35 +1787,36 @@ export const TOURS: Record<TourKey, TourDefinition> = {
     },
   },
   /* 🖼 AN EVENT'S MEMORIES — the event bar's fifth tab (owner 2026-10-23). A new feature gets its first-visit tour. */
-  // 🧩 HOME'S SERVICES GROW IN PLACE (owner 2026-10-23, `home_service_widgets_2026-10-23.html` build plan: "One
-  // first-visit spotlight tour on the first card"). Three stops; no price.
+  // 🎛 HOME — A CONTROL CENTER (owner-approved 2026-10-24, `home_control_center_2026-10-24_fable.html`: "one spotlight
+  // tour on the Today strip", drawn as step 1 of 3 → the tiles → Your services). The same key PR-C opened for Home's
+  // service cards (not yet merged when this replaced its steps — nobody has seen the old three). No price.
   customer_home_widgets_v1: {
     key: 'customer_home_widgets_v1',
-    label: 'Home services — first visit',
-    blurb: 'Each service you added is a card on Home that opens in place.',
+    label: 'Home — first visit',
+    blurb: 'Today, the parts of your event, and your services — on one screen.',
     slides: [],
     spotlight: {
       steps: [
         {
-          anchor: 'home-services',
+          anchor: 'home-today',
           hint: 'Press Next',
-          title: 'Your services, on Home',
-          body: 'Each one shows where it stands. Tap a card to open its settings right here — Home moves down.',
+          title: 'Today',
+          body: 'The one thing to do now. Tap it and Home jumps to that tile.',
         },
         {
-          anchor: 'home-papic-card',
-          title: 'Papic opens here',
-          body: 'Your dates, credits, filter and challenges — under the card. Tap again to fold it.',
+          anchor: 'home-tiles',
+          title: 'Every part of your event',
+          body: 'Each tile opens its page at the exact item. Swipe a tile to see its other counts.',
         },
         {
-          anchor: 'home-hub-card',
-          title: 'Your Event Hub',
-          body: 'Switch parts of the page on or off. Guests see a change after you press Apply.',
+          anchor: 'home-services',
+          title: 'Your services',
+          body: 'Tap one to open its controls right here — Home moves down. Tap its head to fold it.',
         },
       ],
       finale: {
         title: 'You’re set 🎉',
-        body: 'Every card folds back with one tap.',
+        body: 'Home always starts with Today.',
         button: 'Done',
       },
     },

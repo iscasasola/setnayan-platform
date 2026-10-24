@@ -93,11 +93,11 @@ async function GuestGallery({
   if (!gallery || gallery.photos.length === 0) return null;
   const groups = groupIntoChapters(gallery.photos, (p) => p.capturedAt ?? '', chapters);
   return (
-    <section aria-label="Photos of you" className="mt-6">
+    <section aria-label="Memories of you" className="mt-6">
       <div className="flex items-center justify-between gap-3">
         <p className="inline-flex items-center gap-2 font-mono text-xs uppercase tracking-[0.2em] text-mulberry">
           <Images aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-          Photos of you
+          Memories of you
         </p>
         <p className="text-sm text-ink/60">{gallery.total.toLocaleString()}</p>
       </div>

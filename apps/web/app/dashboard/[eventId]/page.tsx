@@ -1271,7 +1271,7 @@ export default async function EventHomePage({
                 Open the live desk
               </span>
               <span className="mt-0.5 block text-[12.5px] text-ink/55">
-                Announcements, the photo wall and what is happening now.
+                Announcements, Memory lane and what is happening now.
               </span>
             </span>
             <ArrowRight aria-hidden className="h-4 w-4 flex-none text-ink/40" />

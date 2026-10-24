@@ -1106,7 +1106,7 @@ export async function EditorialContent({
             // Live Photo Wall (LIVE_WALL SKU).
             liveWall: photo.liveWall ? (
               <div key="liveWall" {...anchorProps('liveWall')}>
-                <SectionRule title="Live Photo Wall" />
+                <SectionRule title="Memory lane" />
                 <LivePhotoWall photos={data.photoWallPhotos} photoCount={data.metrics.photos} />
               </div>
             ) : null,

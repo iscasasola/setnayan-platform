@@ -338,7 +338,7 @@ export const MAKER_PARTS: Readonly<Record<MakerPartKey, MakerPartDef>> = {
   camera: { label: 'Camera', source: 'tool', canvas: null, layouts: NONE },
   /* ✍ Its heading is typed in Studio › Info (owner 2026-10-15) — Edit's door goes there. */
   gallery: { label: 'Memories', source: 'info:photos_heading', canvas: 'w:our_photos', layouts: scene('gallery') },
-  myphotos: { label: 'Photos of you', source: 'tool', canvas: 'f:photos_of_you', layouts: scene('photos_of_you') },
+  myphotos: { label: 'Memories of you', source: 'tool', canvas: 'f:photos_of_you', layouts: scene('photos_of_you') },
   /* 🗳 The RSVP stage's two after-screens (owner 2026-10-07/08: "yes and no page for the rsvp is to show what the
      rsvp looks like after the reply yes or no"): the couple's heading and message, marked on the Maker's canvas of
      `invite/enter` (`f:yesnote` / `f:nonote`) and typed there on the second tap. */

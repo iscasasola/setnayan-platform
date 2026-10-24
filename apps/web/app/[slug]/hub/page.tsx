@@ -947,7 +947,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
           <div className="flex items-center justify-between">
             <p className="inline-flex items-center gap-1.5 font-mono text-xs uppercase tracking-[0.18em] text-terracotta">
               <Images aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-              Photos of you
+              Memories of you
             </p>
             <Link
               href={`/papic/me/${guest.qr_token}`}

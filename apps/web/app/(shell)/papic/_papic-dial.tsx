@@ -258,7 +258,7 @@ export function PapicDial({
               is what shipped a ~2.9× overstatement past a green suite once. */}
           <Row k="Or Snippets" v={count(papicVideosAffordable(total, clipCost))} />
           <Row k="Cameras" v="unlimited" />
-          <Row k="The live wall" v="included" />
+          <Row k="Memory lane" v="included" />
         </ul>
 
         <div className="mt-3.5 border-t border-[var(--m-line)] pt-3 text-sm text-[var(--m-slate-2)]">

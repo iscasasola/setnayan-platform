@@ -677,11 +677,11 @@ export default function PrivacyPage() {
           </p>
           <p className="pt-2">
             <strong>FaceBlock.</strong> A guest who does not want to appear on an
-            event&rsquo;s live photo wall can turn on FaceBlock. We then generate
+            event&rsquo;s Memory lane can turn on FaceBlock. We then generate
             a server-side copy with detected faces blurred into the pixels and
             only that blurred copy may be projected — the wall fails closed, so
             if the safe copy is not ready the photo is withheld. You can opt out
-            of the live wall this way at any time.
+            of Memory lane this way at any time.
           </p>
         </Section>
 

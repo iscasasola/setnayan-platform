@@ -167,7 +167,7 @@ function buildAppLd(read: PapicFreeGrantRead) {
       'Photo challenges and video greetings',
       'Snippets — ten-second candid videos, not just photographs',
       'A recap page, a keepsake magazine and a souvenir video',
-      'The live wall, included — open it on any venue screen from a browser',
+      'Memory lane, included — open it on any venue screen from a browser',
       'Lives on the couple’s own Event Hub',
       'The couple receives every photo, tagged or not',
     ],
@@ -188,7 +188,7 @@ function buildAppLd(read: PapicFreeGrantRead) {
 const FAQ = [
   {
     q: 'What is a credit?',
-    a: `A credit is one photograph — that is the whole meter. A video costs by its length instead: the longer it runs the more it takes, up to ${formatCount(PAPIC_POINTS_PER_SNIPPET)} credits for a Snippet, our ten-second video and the longest there is. Nothing else costs anything. The cameras are free and unlimited, the live wall is free, Memories are free, and keeping it all is free. Credits never expire and they are not a subscription.`,
+    a: `A credit is one photograph — that is the whole meter. A video costs by its length instead: the longer it runs the more it takes, up to ${formatCount(PAPIC_POINTS_PER_SNIPPET)} credits for a Snippet, our ten-second video and the longest there is. Nothing else costs anything. The cameras are free and unlimited, Memory lane is free, Memories are free, and keeping it all is free. Credits never expire and they are not a subscription.`,
   },
   {
     q: 'Do guests need an app?',
@@ -667,7 +667,7 @@ export default async function PapicLandingPage() {
                     free
                   </span>
                   <span className="mr-1.5">·</span>
-                  the cameras, the live wall, Memories, and keeping it all
+                  the cameras, Memory lane, Memories, and keeping it all
                 </li>
               </ul>
               <p className="mt-3 text-[0.82rem] text-[var(--m-slate-2)]">

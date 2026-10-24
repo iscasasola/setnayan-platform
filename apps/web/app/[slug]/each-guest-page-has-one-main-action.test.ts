@@ -128,12 +128,12 @@ test('Me · the section adds no heading over the guest’s name, no explainer, a
     React.createElement(GuestMeSection, { meSlot: React.createElement('p', null, 'me'), photosHref: null, galleryCount: 0, asTab: true }),
   );
   assert.equal(controls(quiet).length, 0, `Me's section draws ${controls(quiet).length} controls of its own with the ticket on the page`);
-  assert.doesNotMatch(quiet, /Your invitation|shows up under Photos of you/, 'the heading or the explainer is back');
+  assert.doesNotMatch(quiet, /Your invitation|shows up under (?:Photos|Memories) of you/, 'the heading or the explainer is back');
   // Once the page itself stops drawing the photos, ONE link to them.
   const after = renderToStaticMarkup(
     React.createElement(GuestMeSection, { meSlot: null, photosHref: '/papic/me/tok', galleryCount: 3, asTab: true }),
   );
-  assert.equal((after.match(/Photos of you/g) ?? []).length, 1);
+  assert.equal((after.match(/Memories of you/g) ?? []).length, 1);
   // page.tsx decides that once, from the phase — never "always".
   const page = read('page.tsx');
   assert.match(page, /const photosLeftThePage = eventIsPast && dayOfPhase !== 'live' && dayOfPhase !== 'post';/);

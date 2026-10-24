@@ -315,8 +315,8 @@ export default async function PrivacyEditorPage({
             Who can watch on the day
           </h2>
           <p className="max-w-prose text-sm text-ink/70">
-            Your invited guests can always watch your livestream and see the photo
-            wall. This decides whether someone <em>without</em> an invitation can
+            Your invited guests can always watch your livestream and see Memory
+            lane. This decides whether someone <em>without</em> an invitation can
             too &mdash; a relative abroad who was sent your link, or a friend
             watching from home. Turn it on when you&rsquo;re ready to go live, and
             off again afterwards.
@@ -343,7 +343,7 @@ export default async function PrivacyEditorPage({
         </div>
 
         <p className="text-xs text-ink/50">
-          This only affects the livestream and the live photo wall. It doesn&rsquo;t
+          This only affects the livestream and Memory lane. It doesn&rsquo;t
           change who can open your page, and it never shares anything before the
           day itself.
         </p>

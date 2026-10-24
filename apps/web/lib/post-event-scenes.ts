@@ -232,7 +232,7 @@ export const POST_EVENT_WAITING: Readonly<Record<string, string>> = {
   asked: 'Ask your guests something. Their answers land here.',
   letters: 'Guests who write a longer note appear here, once you approve them.',
   vendors: 'Photos from your suppliers appear here after the day.',
-  wall: 'If you run a Live Photo Wall, its photos appear here.',
+  wall: 'If you run Memory lane, its photos appear here.',
   said: 'What people say about the day appears here.',
   powered: 'The Setnayan services you use appear here.',
   loved: 'After the day, pick the suppliers you would book again.',
@@ -321,9 +321,9 @@ const FIXED: Record<string, Def> = {
   wall: {
     key: 'wall', name: POST_EVENT_SCENE_NAMES.wall!, template: 19, open: null, pin: null, block: 'liveWall', switch: 'liveWall',
     fill: (s) =>
-      !s.liveWall.active ? { skip: 'No Live Photo Wall on this event' }
-        : s.liveWall.photos > 0 ? { count: s.liveWall.photos, source: `Live Photo Wall · ${plural(s.liveWall.photos, 'photo')}` }
-          : { skip: 'Nothing on the Live Photo Wall' },
+      !s.liveWall.active ? { skip: 'No Memory lane on this event' }
+        : s.liveWall.photos > 0 ? { count: s.liveWall.photos, source: `Memory lane · ${plural(s.liveWall.photos, 'photo')}` }
+          : { skip: 'Nothing on Memory lane' },
   },
   said: {
     key: 'said', name: POST_EVENT_SCENE_NAMES.said!, template: 23, open: null, pin: null, block: 'reviews', switch: 'reviews',

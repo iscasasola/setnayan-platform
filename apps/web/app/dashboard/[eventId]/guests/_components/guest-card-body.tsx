@@ -923,7 +923,7 @@ export function GuestCardBody({
               <K.Toggle
                 name="faceblock_enabled"
                 defaultChecked={guest.faceblock_enabled}
-                label="Wants their face blurred on the Live Wall"
+                label="Wants their face blurred on Memory lane"
                 note="FaceBlock — blurs every face in the shot"
               />
             </div>

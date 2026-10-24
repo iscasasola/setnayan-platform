@@ -679,7 +679,7 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     scope: "customer",
     area: "customer-sidebar",
     route: "/dashboard/[eventId]/live",
-    label: "Live Wall",
+    label: "Memory lane",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "MonitorPlay",

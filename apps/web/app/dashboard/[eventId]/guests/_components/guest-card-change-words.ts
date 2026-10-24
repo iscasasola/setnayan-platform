@@ -26,7 +26,7 @@ const FIELD_LABELS: Record<string, string> = {
   role: 'Role',
   attire: 'Attire',
   photo_consent: 'Photo consent',
-  faceblock_enabled: 'Live Wall blur',
+  faceblock_enabled: 'Memory lane blur',
   face_recognition_excluded: 'Face recognition',
   notes: 'Private note',
   host_note_for_guest: 'Note for them',

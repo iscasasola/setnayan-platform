@@ -238,7 +238,7 @@ export const ADD_ON_DETAILS: Record<string, AddOnDetail> = {
       },
       {
         caption: 'Each guest finds the photos they’re in.',
-        hint: '“Photos of you” fills through the day — theirs to keep.',
+        hint: '“Memories of you” fills through the day — theirs to keep.',
         accent: '#2a1f24',
       },
     ],

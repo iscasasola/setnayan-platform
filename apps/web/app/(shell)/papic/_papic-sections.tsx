@@ -88,7 +88,7 @@ const SPOTLIGHTS: readonly Spotlight[] = [
     media: { kind: 'photo', src: '/demo/maria-jose/firstdance.webp', alt: 'A couple dancing under lights' },
   },
   {
-    chip: 'The live wall',
+    chip: 'Memory lane',
     t: 'The night, on the venue screen',
     d: 'The wall has its own web address. Open it on whatever the venue has — a TV, a projector, a laptop — type the short code once, and the night plays there as it happens. Included.',
     media: { kind: 'photo', src: '/demo/maria-jose/reception.webp', alt: 'A reception laid out under strings of lights' },
@@ -269,7 +269,7 @@ export function PapicHub() {
         </div>
 
         <div className="sn-gal p-5">
-          <HubHead kick="Live from the wedding" big="1,284" small="moments and counting" />
+          <HubHead kick="Memory lane" big="1,284" small="moments and counting" />
           <div className="mt-3.5 grid grid-cols-3 gap-1.5">
             {WALL.map((w) => (
               <figure key={w.src} className="relative m-0 aspect-square overflow-hidden rounded-lg">
@@ -283,7 +283,7 @@ export function PapicHub() {
         </div>
 
         <div className="sn-gal border-t border-[rgb(251_250_247/0.12)] p-5">
-          <HubHead kick="Photos of you — so far" big="34" small="so far" />
+          <HubHead kick="Memories of you — so far" big="34" small="so far" />
           <div className="mt-3.5 grid grid-cols-3 gap-1.5">
             {MINE.map((src) => (
               <div key={src} className="relative aspect-square overflow-hidden rounded-lg">

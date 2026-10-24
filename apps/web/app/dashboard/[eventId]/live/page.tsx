@@ -35,7 +35,7 @@ import { FlashAutoWallToggle } from './_components/flash-auto-wall-toggle';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { formatCount } from '@/lib/format-number';
 
-export const metadata = { title: 'Live Wall' };
+export const metadata = { title: 'Memory lane' };
 export const dynamic = 'force-dynamic';
 
 /**
@@ -88,10 +88,10 @@ export default async function LiveWallConsolePage({
       <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
         <div className="rounded-2xl border border-ink/10 bg-surface p-8 text-center">
           <MonitorPlay aria-hidden className="mx-auto h-8 w-8 text-terracotta" strokeWidth={1.75} />
-          <h1 className="mt-3 text-lg font-semibold text-ink">Live Photo Wall</h1>
+          <h1 className="mt-3 text-lg font-semibold text-ink">Memory lane</h1>
           <p className="mx-auto mt-2 max-w-md text-sm text-ink/60">
             Project your guests&rsquo; photos at the venue in real time — a collage that
-            fills itself as the night unfolds. The Live Wall is a Papic add-on.
+            fills itself as the night unfolds. Memory lane is a Papic add-on.
           </p>
           <Link
             href={studioHubHref(eventId)}
@@ -270,7 +270,7 @@ export default async function LiveWallConsolePage({
         titleNode={
           <span>
             <MonitorPlay aria-hidden strokeWidth={2} />
-            Live Wall
+            Memory lane
           </span>
         }
       />

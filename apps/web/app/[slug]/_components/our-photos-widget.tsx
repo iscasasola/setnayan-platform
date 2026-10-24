@@ -33,7 +33,7 @@ export function OurPhotosWidget({
   return (
     <section className="space-y-5">
       <p className="pahina-eyebrow">
-        <span>Our photos</span>
+        <span>Memories</span>
       </p>
       <PhotosHeading heading={heading} />
       {lead ? (

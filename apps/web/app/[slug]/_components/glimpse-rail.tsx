@@ -39,7 +39,7 @@ function prefersReducedMotion(): boolean {
 
 export function GlimpseRail({
   urls,
-  label = 'Our photos',
+  label = 'Memories',
   preview = false,
   width = GLIMPSE_CARD_WIDTH,
   whole = false,

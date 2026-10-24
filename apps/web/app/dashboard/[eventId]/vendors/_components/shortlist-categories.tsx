@@ -3674,6 +3674,8 @@ export function ShortlistCategories({
             key={folder.folder}
             id={benchFolderAnchorId(folder.slug)}
             className={`fold${folderOpen ? ' open' : ''}${replan ? ' flat' : ''}`}
+            // 📌 While searching, a folder that is still drawn holds a hit — the first is pinned (lib/search-pin.ts).
+            data-search-result={searching ? '' : undefined}
           >
             {replan ? null : (
             <>

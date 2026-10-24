@@ -3502,6 +3502,10 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
   --sn-dock-press: rgba(255, 255, 255, 0.95); /* the white press-light bloom */
   --sn-sh-float: 0 1px 2px rgba(40,34,24,.07), 0 10px 24px -12px rgba(30,26,18,.30),
                  0 30px 60px -30px rgba(30,26,18,.28);
+  /* The same float, cast UP — for a layer that rises from the screen's foot (the typing band on the keyboard), whose
+     downward shadow would fall under the keyboard. Same numbers, y mirrored; owner 2026-10-24 "a soft shadow above it". */
+  --sn-sh-rise: 0 -1px 2px rgba(40,34,24,.07), 0 -10px 24px -12px rgba(30,26,18,.30),
+                0 -30px 60px -30px rgba(30,26,18,.28);
   --sn-sh-panel: -2px 0 8px -4px rgba(30,26,18,.12), -30px 0 70px -30px rgba(30,26,18,.45);
 
   /* The floating row's glass (`.sn-glass-row` — BUTTON_RULE_2026-10-07 Rule 7):
@@ -3561,6 +3565,8 @@ html.dark {
   --sn-sh-hi:   0 1px 2px rgba(0,0,0,.35), 0 28px 54px -30px rgba(0,0,0,.8);
   --sn-sh-float: 0 1px 2px rgba(0,0,0,.35), 0 10px 24px -12px rgba(0,0,0,.6),
                  0 30px 60px -30px rgba(0,0,0,.55);
+  --sn-sh-rise: 0 -1px 2px rgba(0,0,0,.35), 0 -10px 24px -12px rgba(0,0,0,.6),
+                0 -30px 60px -30px rgba(0,0,0,.55);
   --sn-sh-panel: -2px 0 8px -4px rgba(0,0,0,.4), -30px 0 70px -30px rgba(0,0,0,.7);
 
   --sn-canvas: #17160F;
@@ -7823,9 +7829,14 @@ html[data-keyboard='open'] [data-bottom-dock] { transform: translateY(100%); opa
 /* ⌨ A riding row that is not a ThumbRow (`useRidingRow`, typing-band.tsx) folds what is not its field while it rides:
  * each such piece wears `data-ride-fold` (Filters on the marketplace bar, its chips). */
 [data-ride-row][data-riding] [data-ride-fold] { display: none !important; }
-/* The marketplace's suggestions rise above its field — while it rides, above the band too (the bar's 12 px top
- * padding + the band's 44 + the list's own 8 px gap), never over Done. */
-[data-ride-row][data-riding] #taxonomy-suggestions { margin-bottom: 64px; }
+/* 📏 THE PAGE MAKES ROOM FOR THE BAND (owner 2026-10-24: *"it overlaps with the content under it"*). While a riding row's
+ * band is up (`html[data-ride-reserve]`, written by `useRidingRow`), the page's foot gains the keyboard's height plus the
+ * band's (`--sn-ride-band-h`: the band, the row and the plate down to the keyboard) — so the content ENDS above the band
+ * and the last result can scroll up into view instead of living under it. On <body>, so every page gets it whatever
+ * its own column pads; gone the moment the band is. */
+html[data-ride-reserve] body { padding-bottom: calc(var(--sn-keyboard-h, 0px) + var(--sn-ride-band-h, 0px)); }
+/* (The marketplace's suggestions no longer step over a band: a search band has no words and no Done since 2026-10-24,
+ * so they stand where they always did, over the field.) */
 /* The typing band's neutrals outside the Maker (inside it, the Maker's own `STAGE_PANEL_VARS`): its cream plate, its
  * hairline and its words — with a dark pair (`typing-band.tsx`). */
 [data-typing-band='app'] { --tb-plate: #F3F0EA; --sp-line: #E6E1D8; --sp-ink2: #5A5755; }

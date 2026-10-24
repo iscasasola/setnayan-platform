@@ -53,6 +53,17 @@
 .actionNode :global(.ab) { width: 44px; height: 44px; min-width: 44px; padding: 0; gap: 0; border-color: transparent; }
 .actionNode :global(.ab .lbl) { display: none; }
 .nodeRound :global(.ab) { width: 44px; height: 44px; min-width: 44px; padding: 0; border-color: transparent; background: transparent; }
+/* 🪶 THE ROW FLOATS OVER THE LIST (owner 2026-10-24, live on Guests: a soft shadow so the row "reads as a separate layer
+   floating over the list"). Each seat — the glass pill, the glass rounds and the main verb — wears the house float
+   (`--sn-sh-float`, with its dark pair); still NO BAND (nothing is drawn between the seats). The shared `.sn-glass-row`
+   stays shadowless (Rule 7, `floating-rows-are-glass.test.ts`) — this is the thumb row's own layer. Its Safari mask is
+   dropped HERE ONLY because a mask clips the element's own shadow; `overflow: hidden` + the round radius still clip the
+   blur and the seat's 44 px contents. Held by `lib/a-search-pins-its-first-result.test.ts`. */
+.row[data-thumb-row] > :global(.sn-glass-row) { -webkit-mask-image: none; mask-image: none; box-shadow: var(--sn-sh-float); }
+.row[data-thumb-row] > .round:global(.sn-glass-row) { box-shadow: inset 0 0 0 1px var(--sn-glass-line), var(--sn-sh-float); }
+.row[data-thumb-row] > [data-thumb-seat='action'] { box-shadow: var(--sn-sh-float); }
+/* While it rides, the band's plate carries the float (typing-band.tsx); the seats on it sit flat. */
+.row[data-thumb-row][data-riding] > [data-thumb-seat='clear'] { box-shadow: none; }
 /* ⌨ RIDING THE KEYBOARD (thumb-row.tsx; owner 2026-10-24, buttons fold): while the field is typed into with the
    keyboard up, the field is the whole row — ⇕ · ≡ · ＋ fold, ✕ (clear) stands beside it — and it is the Maker's open
    field: a white pill with the accent ring, on the typing band's cream plate (`typing-band.tsx`). */

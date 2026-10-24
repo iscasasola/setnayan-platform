@@ -188,7 +188,7 @@ export function BudgetScreen({
         </div>
       ) : null}
 
-      <div className={`${styles.list} ${styles.listRoom}`} id="budget-payments" data-budget-list="" data-tour="budget-list">
+      <div className={`${styles.list} ${styles.listRoom}`} id="budget-payments" data-budget-list="" data-tour="budget-list" data-search-results="">
         <SupplierGroup
           rows={list.suppliers}
           shown={shown.suppliers}

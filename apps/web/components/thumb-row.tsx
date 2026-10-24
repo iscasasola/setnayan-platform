@@ -29,11 +29,12 @@
  * ⌨ IT RIDES THE KEYBOARD — BY DEFAULT (owner 2026-10-24, "Yes", buttons fold;
  * `prototypes/keyboard_rides_the_input_2026-10-24.html`). While its field is
  * being typed into and the keyboard is up (`useKeyboardRide`), the row is the
- * Maker's typing template: the ONE typing band ("Typing · <the placeholder>" +
- * ✓ Done, `app/_components/typing-band.tsx`) stands on it, the band's cream
- * plate reaching down behind it to the keyboard; the field takes the whole row,
- * wears the accent ring and gains ✕ (clear); ⇕ · ≡ · ＋ FOLD and come back on
- * Done (the keyboard's own key does the row's verb). The row itself does not
+ * SEARCH BAND (`app/_components/typing-band.tsx`): a cream plate behind it
+ * down to the keyboard — no "Typing ·" and no Done since the owner's 2026-10-24
+ * *"can this be gone? just tap away and keyboard should disappear"*; the field
+ * takes the whole row, wears the accent ring and gains ✕ (clear); ⇕ · ≡ · ＋
+ * FOLD and come back when the keyboard closes — a tap or a drag away, Escape,
+ * or the keyboard's own key (the keyboard's Enter does the row's verb). The row itself does not
  * move: its host stands it on `--sn-bottomdock-h`, which is the keyboard's while
  * it is up (`bottom-nav.tsx`). `rides={false}` opts out — only with a written
  * reason at the call (`every-bottom-input-rides-the-keyboard.test.ts` counts them).
@@ -165,11 +166,13 @@ export function ThumbRow({
   const FieldIcon = field && 'kind' in field && field.kind === 'date' ? CalendarDays : Search;
   const rowRef = useRef<HTMLDivElement>(null);
   const ownInput = useRef<HTMLInputElement | null>(null);
-  /* ⌨ The ONE riding row (`useRidingRow`): the band's words are the field's placeholder. */
+  /* ⌨ The ONE riding row (`useRidingRow`): the search band, and a tap away closes the keyboard. */
   const ride = useRidingRow(rowRef, { rides, mode: Boolean(children), place: field && !('node' in field) ? field.placeholder : undefined });
   const riding = ride.riding;
   const onFieldFocus = ride.rowProps.onFocus;
   const onFieldBlur = ride.rowProps.onBlur;
+  /* 📌 The words changed → the first result is pinned (`lib/search-pin.ts`, through the one riding row). */
+  const onFieldInput = ride.rowProps.onInput;
   const setInputRef = useCallback(
     (el: HTMLInputElement | null) => {
       ownInput.current = el;
@@ -197,11 +200,12 @@ export function ThumbRow({
               data-rides={rides ? '' : undefined}
               onFocus={onFieldFocus}
               onBlur={onFieldBlur}
+              onInput={onFieldInput}
             >
               {field.node}
             </span>
           ) : field ? (
-            <label data-glass-row="thumb-row-field" className={`sn-glass-row ${styles.field}`} data-thumb-seat="field" data-tour={field.tour} data-rides={rides ? '' : undefined} onFocus={onFieldFocus} onBlur={onFieldBlur}>
+            <label data-glass-row="thumb-row-field" className={`sn-glass-row ${styles.field}`} data-thumb-seat="field" data-tour={field.tour} data-rides={rides ? '' : undefined} onFocus={onFieldFocus} onBlur={onFieldBlur} onInput={onFieldInput}>
               <FieldIcon className={styles.glyph} strokeWidth={1.9} aria-hidden />
               <input
                 type={field.kind === 'date' ? 'date' : 'search'}

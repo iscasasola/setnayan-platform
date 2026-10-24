@@ -12,7 +12,7 @@
  *       own row reads as a standard one.
  *   2 · THE WIRING (source, comments stripped): the Group dropdown draws its small word from that rule, in the shipped
  *       off-side style; every other list of own groups (the Guests screen's Set ▾ › Group, the Quick add sheet's Group,
- *       the Maker card's Group) names each option with the same rule.
+ *       the one card's Group) names each option with the same rule.
  *
  * ── Caveats ───────────────────────────────────────────────────────────────────────────────────────────────────────
  *   · No browser runs here: that the word is PAINTED in the open list is the lab walk's claim (the PR's 375 + desktop
@@ -103,7 +103,7 @@ test('2 · every list of own groups names a shared name’s side with the same r
   const sheet = read('quick-add-sheet.tsx');
   assert.match(sheet, /label: groupLabelWithSide\(g\.label, namesakes\.get\(g\.group_id\)\)/, 'the Quick add sheet’s Group draws two same-name groups alike');
   assert.match(read('..', 'page.tsx'), /label: g\.label,\s*team_side: g\.team_side,\s*\}\)\);/, 'the Quick add sheet is handed its groups without their sides');
-  const maker = read('guest-card-body.tsx');
-  assert.match(maker, /const namesakes = sidesForNamesakes\(own \?\? \[\], standard\.map\(\(o\) => o\.label\)\);/, 'the Maker card’s Group does not run the rule');
-  assert.match(maker, /label: groupLabelWithSide\(g\.label, namesakes\.get\(g\.groupId\)\), group: GROUP_OWN_HEADING/, 'the Maker card’s Group draws two same-name groups alike');
+  // The Maker's own Group (the hand-drawn kit) is gone (2026-10-24, one guest card everywhere): every card's Group is the
+  // picker above. Its absence is held, so a second Group cannot come back without this guard being re-read.
+  assert.doesNotMatch(read('guest-card-body.tsx'), /function OldGroup\b|const OLD_KIT\b/, 'a second, hand-drawn Group is back on the card');
 });

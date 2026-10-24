@@ -180,7 +180,7 @@ test('2c · "Turn on ›" lands on the switch — the Event Details answer when 
   assert.equal(forTheCouple(no, true, true)?.door, '/dashboard/e1/details/field/papic-answer');
   assert.equal(forTheCouple(no, true, false)?.door, null, 'a door to an Event Details answer this event type never asks');
   assert.equal(forTheCouple(state, true, false)?.door, '/dashboard/e1/studio/papic', 'the Papic page door depends on the Event Details question');
-  for (const page of [join(HERE, '..', 'page.tsx'), join(HERE, '..', '[guestId]', 'page.tsx')]) {
+  for (const page of [join(HERE, '..', 'page.tsx'), join(HERE, 'guest-card-read.ts')]) { // the Guest list · the one reader (route, march, parents)
     assert.match(stripComments(readFileSync(page, 'utf8')), /forTheCouple\([^;]*papicAnswerOffered\((?:eventProfile|profile)\)\)/, `${page}: the door is not gated on the event type asking the question`);
   }
   const src = read('guest-papic-read.ts');

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ArrowDown, ArrowUp, ChevronRight, GripVertical, Plus, Upload, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
@@ -9,7 +9,6 @@ import { PillSelector } from '@/app/_components/pill-selector';
 import { StatusLine } from '@/app/_components/status-line';
 import { PeekToast } from '@/app/_components/toast/peek-toast';
 import { ConfirmDialog } from '@/app/_components/confirm-dialog';
-import { Sheet } from '@/app/_components/sheet';
 import { CHIP_CLASS, CHIP_OFF_CLASS } from '@/app/_components/chips';
 import { FileUpload } from '@/app/_components/file-upload';
 import { parseGuestInput } from '@/lib/guest-parse';
@@ -17,6 +16,7 @@ import { makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
 import { MENU_DISH_MAX, MENU_MAX_DISHES, MENU_MAX_MOMENTS, MENU_TITLE_MAX, POSTER_PHOTO_MIN_PX, posterPhotoTooSmall, type MenuMoment, type PosterPhoto } from '@/lib/print-pieces';
 import { menuPayload, studioMenuSaveWords } from '@/lib/studio-prints-six';
 import { addSingleGuest } from '../../guests/inline-actions';
+import { GuestCardSheet, SHIPPED_GUEST_CARD } from '../../guests/_components/guest-card-sheet';
 import { SAME_FIELD_ATTR } from './same-field';
 
 /**
@@ -44,7 +44,7 @@ import { SAME_FIELD_ATTR } from './same-field';
 
 /* ── 2 · PARENTS ───────────────────────────────────────────────────────────── */
 
-export type StudioParent = { guestId: string | null; name: string; side: 'bride' | 'groom' | null; card: ReactNode };
+export type StudioParent = { guestId: string | null; name: string; side: 'bride' | 'groom' | null };
 
 /** "MS" — the first letters of the first and last word. */
 function initials(name: string): string {
@@ -57,8 +57,8 @@ export function parentLineWords(side: StudioParent['side']): string {
 }
 
 /**
- * The parents on the invitation: one hairline row per parent → their OWN guest card (the shipped `GuestCardBody`, which posts
- * every column — `the-card-posts-every-column.test.ts`) opens as a sheet. Never a name box: a names-only write would erase a
+ * The parents on the invitation: one hairline row per parent → their OWN guest card — THE guest card (`GuestCard`, which posts
+ * every column — `the-card-posts-every-column.test.ts`; owner 2026-10-24, one card everywhere) — opens in its sheet. Never a name box: a names-only write would erase a
  * parent's side, role, RSVP and contact (`parent-cards.tsx`). "＋ Add a parent" is the Guest list's own single-guest add.
  */
 export function StudioParents({ eventId, parents }: { eventId: string; parents: StudioParent[] }) {
@@ -71,10 +71,9 @@ export function StudioParents({ eventId, parents }: { eventId: string; parents: 
   const [pending, setPending] = useState(false);
   /* The parent being added — drawn in the list AT the press, before the server's new guest arrives (a refusal takes it out and says so). */
   const [adding1, setAdding1] = useState<{ name: string; side: 'bride' | 'groom' } | null>(null);
-  const headId = useId();
   /* The new parent's card opens once the refreshed list carries it. */
   useEffect(() => {
-    if (pendingOpen && parents.some((p) => p.guestId === pendingOpen && p.card)) {
+    if (pendingOpen && parents.some((p) => p.guestId === pendingOpen)) {
       setOpen(pendingOpen);
       setPendingOpen(null);
     }
@@ -106,8 +105,6 @@ export function StudioParents({ eventId, parents }: { eventId: string; parents: 
       });
   };
   const openParent = parents.find((p) => p.guestId && p.guestId === open) ?? null;
-  const [body, setBody] = useState<HTMLElement | null>(null);
-  useEffect(() => setBody(document.body), []);
   return (
     <div data-studio-parents="" className="flex flex-col">
       {parents.length || adding1 ? (
@@ -126,7 +123,7 @@ export function StudioParents({ eventId, parents }: { eventId: string; parents: 
             );
             return (
               <li key={p.guestId ?? `${p.name}-${i}`} className="border-t border-ink/10 first:border-t-0">
-                {p.guestId && p.card ? (
+                {p.guestId ? (
                   <button type="button" data-parent-open={p.guestId} onClick={() => setOpen(p.guestId)} className="sn-press flex min-h-14 w-full items-center gap-3 px-0.5 text-left">
                     {row}
                     <ChevronRight aria-hidden className="h-4 w-4 flex-none text-sn-accent" strokeWidth={2.2} />
@@ -206,20 +203,15 @@ export function StudioParents({ eventId, parents }: { eventId: string; parents: 
           {error}
         </StatusLine>
       ) : null}
-      {/* The parent's OWN guest card, as a sheet — drawn on <body> (the dashboard's transformed box would capture `fixed`). */}
-      {body && openParent
-        ? createPortal(
-            <Sheet open onClose={() => setOpen(null)} labelledById={headId} rise>
-              <div data-parent-card={openParent.guestId} className="flex min-h-0 flex-col gap-2 overflow-y-auto px-4 pb-6 pt-3">
-                <h2 id={headId} className="pr-12 text-[17px] font-semibold text-ink">
-                  {openParent.name}
-                </h2>
-                {openParent.card}
-              </div>
-            </Sheet>,
-            body,
-          )
-        : null}
+      {/* The parent's OWN guest card — THE guest card, in its sheet (`GuestCardSheet`, drawn on <body> over the Maker). */}
+      {openParent?.guestId ? (
+        <GuestCardSheet
+          eventId={eventId}
+          person={{ id: openParent.guestId, name: openParent.name }}
+          open={SHIPPED_GUEST_CARD.invitation}
+          onClose={() => setOpen(null)}
+        />
+      ) : null}
     </div>
   );
 }

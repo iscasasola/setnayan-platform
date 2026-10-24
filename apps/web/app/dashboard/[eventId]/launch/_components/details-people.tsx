@@ -1,7 +1,8 @@
 'use client';
 
-import type { ReactNode } from 'react';
-import { HubSavesImmediately } from '../../website/_components/hub-draft-field';
+import { useState, type ReactNode } from 'react';
+import { ChevronRight } from 'lucide-react';
+import { GuestCardSheet, SHIPPED_GUEST_CARD } from '../../guests/_components/guest-card-sheet';
 import { DetailsPieceButton, useDetailsPiece } from './details-go';
 
 /**
@@ -11,8 +12,8 @@ import { DetailsPieceButton, useDetailsPiece } from './details-go';
  *   LEFT    the people — each parent, "Add a parent", each host;
  *   MIDDLE  where they print — the parents on The Invitation, a host on the
  *           card that carries "Kindly reply" (The Finer Details);
- *   RIGHT   the picked parent's OWN guest card (`GuestCardBody`, loaded by the
- *           Guest list's loader — it posts every column), the Guest list's own
+ *   RIGHT   the picked parent — a tap opens their OWN guest card, THE guest card
+ *           (`GuestCard` in its sheet, owner 2026-10-24), the Guest list's own
  *           single-guest add for a new parent (`ParentCards`), or the host.
  *
  * +0 writers: the cards and the add are part 1's (`parent-cards.tsx`); a host's
@@ -97,14 +98,16 @@ export function PeopleControls({
   parents,
   hosts,
   parentsOffered,
-  cards,
+  eventId,
+  guestIds,
   add,
 }: {
   parents: readonly PersonPiece[];
   hosts: readonly HostPiece[];
   parentsOffered: boolean;
-  /** Each parent's own guest card, by piece key (null when it could not be loaded). */
-  cards: Readonly<Record<string, ReactNode>>;
+  eventId: string;
+  /** Each parent's guest, by piece key (null: not on the guest list). Their card opens at the tap. */
+  guestIds: Readonly<Record<string, string | null>>;
   /** Part 1's parent list + add (`ParentCards`). */
   add: ReactNode;
 }) {
@@ -122,11 +125,35 @@ export function PeopleControls({
   }
   const parent = parents.find((p) => p.key === pick);
   if (!parent) return <p className="text-sm text-ink/65">No hosts yet.</p>;
-  const card = cards[parent.key] ?? null;
+  const guestId = guestIds[parent.key] ?? null;
   return (
     <section data-people-controls="parent" className="flex flex-col gap-2">
-      <HubSavesImmediately />
-      {card ?? <p className="text-sm text-ink/65">{parent.name} prints on the invitation, but their guest card could not be opened just now.</p>}
+      {guestId ? (
+        <ParentCardDoor eventId={eventId} guestId={guestId} name={parent.name} />
+      ) : (
+        <p className="text-sm text-ink/65">{parent.name} prints on the invitation, but is not on your guest list.</p>
+      )}
     </section>
+  );
+}
+
+/** The picked parent's row — a tap opens THE guest card in its sheet (the same one the Guest list and the march open). */
+function ParentCardDoor({ eventId, guestId, name }: { eventId: string; guestId: string; name: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button
+        type="button"
+        data-parent-open={guestId}
+        onClick={() => setOpen(true)}
+        className="sn-press flex min-h-11 items-center justify-between gap-2 rounded-md border border-ink/15 bg-white px-3 text-left text-sm text-ink hover:border-ink/30 dark:bg-raised"
+      >
+        <span className="truncate">{name}</span>
+        <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-ink/45" strokeWidth={2} />
+      </button>
+      {open ? (
+        <GuestCardSheet eventId={eventId} person={{ id: guestId, name }} open={SHIPPED_GUEST_CARD.invitation} onClose={() => setOpen(false)} />
+      ) : null}
+    </>
   );
 }

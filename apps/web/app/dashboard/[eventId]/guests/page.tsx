@@ -70,14 +70,9 @@ import { InvitePanel } from './invite/_components/invite-panel';
 import { AddFromPeopleSheet } from './_components/add-from-people-sheet';
 import { QuickAddSheet } from './_components/quick-add-sheet';
 import { UndoToastHost } from './_components/undo-toast';
-import { GuestCardBody, guestCardEyebrow, guestCardReply, guestCardTitle } from './_components/guest-card-body';
-import { GuestInviteCell } from './_components/guest-invite-cell';
-import { GuestDeleteControl, GuestMoreMenu, GuestTicketThumb } from './_components/guest-ticket-parts';
-import { GuestPapicCamera } from './_components/guest-papic-camera';
-import { GuestAccessPick } from './_components/guest-access-pick';
+import { GuestCard } from './_components/guest-card';
 import { forTheCouple, papicAnswerOffered, readEventPapicAccess, readGuestPapic } from './_components/guest-papic-read';
 import { isStoreShellRequest } from '@/lib/request-platform';
-import { TEMPLATE_KIT } from './_components/guest-card-template-kit';
 import { guestCardErrorCopy } from './_components/guest-card-error-copy';
 import { guestListErrorCopy } from './_components/guest-list-error-copy';
 import { loadInviteSetup } from './_components/invite-message-setup';
@@ -86,17 +81,13 @@ import { isUuid } from '@/lib/is-uuid';
 import { PageMasthead } from '@/app/_components/page-masthead';
 // The Guest list's two other parts are the SHIPPED pages, rendered whole in
 // this page's body (owner 2026-09-29) — never a second copy of either.
-import {
-  InspectorColumn,
-  InspectorLayout,
-} from '@/app/_components/inspector/inspector-column';
+import { InspectorLayout } from '@/app/_components/inspector/inspector-column';
 import { formatCount } from '@/lib/format-number';
 import { toGuestListRow, type GuestListRow } from '@/lib/guest-list-rows';
 import { passCardTicketVersion } from '@/lib/pass-card.server';
 
 import { MiniTour } from '@/app/_components/mini-tour';
 import { loadGuestHelperCard } from '@/lib/guest-helper-card.server';
-import { GuestHelperAccess } from './_components/guest-helper-access';
 import { quickAddTips } from '@/lib/quick-add-tips';
 import { tableWords } from '@/lib/table-words';
 import { AddGuestSheet, OpenAddGuestTextButton } from './_components/add-guest-sheet';
@@ -894,55 +885,31 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   // Send invite · Copy message: the event's words + the couple's wording —
   // read once above for the Invite column.
   const inspectedInviteSetup = inspectedGuest ? inviteSetup : null;
+  // 🪪 THE ONE GUEST CARD (`GuestCard`, owner 2026-10-24) — the same component every surface opens a guest in.
   const inspectorBody = inspectedGuest && inspectedCard ? (
-    <InspectorColumn
-      eyebrow={guestCardEyebrow(inspectedCard.guest, { hasSides: inspectedCard.hasSides, roleNames: inspectedCard.roleNames, plusOneOf: inspectedCard.plusOneOf })}
-      title={guestCardTitle(inspectedGuest, inspectedCard.plusOneOf)}
-      badge={guestCardReply(inspectedCard.guest)}
-      swapKey={inspectedGuest.guest_id}
-      ariaLabel={`${guestCardTitle(inspectedGuest, inspectedCard.plusOneOf)} details`}
-    >
-      <GuestCardBody
-        eventId={eventId}
-        data={inspectedCard}
-        invitationBase={invitationBase}
-        photoDisplayUrl={
-          photoDisplayUrls[inspectedGuest.photo_url ?? ''] ??
-          accountFaceByGuest[inspectedGuest.guest_id] ??
-          null
-        }
-        variant="panel"
-        headerShown
-        inviteSetup={inspectedInviteSetup}
-        SendInvite={GuestInviteCell}
-        TicketThumb={GuestTicketThumb}
-        MoreMenu={GuestMoreMenu}
-        DeleteControl={GuestDeleteControl}
-        papic={inspectedPapic}
-        PapicCamera={GuestPapicCamera}
-        AccessPick={GuestAccessPick}
-        storeShell={storeShell}
-        kit={TEMPLATE_KIT}
-        ticketVersion={inspectedTicketVP}
-        helperAccess={
-          inspectedHelper ? (
-            <GuestHelperAccess
-              eventId={eventId}
-              guestId={inspectedGuest.guest_id}
-              firstName={inspectedGuest.first_name}
-              helper={inspectedHelper}
-            />
-          ) : null
-        }
-        returnTo={`/dashboard/${eventId}/guests?inspect=${inspectedGuest.guest_id}`}
-        errorMessage={typeof search.error === 'string' ? guestCardErrorCopy(search.error) : null}
-        inviteFlash={
-          search.new_qr === '1'
-            ? { ok: true, msg: 'Done — a new QR and link. The old ones no longer work. Send them the new one.' }
-            : null
-        }
-      />
-    </InspectorColumn>
+    <GuestCard
+      frame="panel"
+      eventId={eventId}
+      data={inspectedCard}
+      invitationBase={invitationBase}
+      photoDisplayUrl={
+        photoDisplayUrls[inspectedGuest.photo_url ?? ''] ??
+        accountFaceByGuest[inspectedGuest.guest_id] ??
+        null
+      }
+      inviteSetup={inspectedInviteSetup}
+      papic={inspectedPapic}
+      storeShell={storeShell}
+      ticketVersion={inspectedTicketVP}
+      helper={inspectedHelper}
+      returnTo={`/dashboard/${eventId}/guests?inspect=${inspectedGuest.guest_id}`}
+      errorMessage={typeof search.error === 'string' ? guestCardErrorCopy(search.error) : null}
+      inviteFlash={
+        search.new_qr === '1'
+          ? { ok: true, msg: 'Done — a new QR and link. The old ones no longer work. Send them the new one.' }
+          : null
+      }
+    />
   ) : null;
 
   // The counts were worked out ONCE, with the read (`MeasuredGuests.stats`) — never

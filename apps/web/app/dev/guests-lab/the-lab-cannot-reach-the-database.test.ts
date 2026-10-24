@@ -163,7 +163,7 @@ test('(6) the lab’s CARD writes nothing: inline stand-ins for the card’s thr
   assert.match(page, /actions=\{\{ update: labUpdate, release: labRelease, partnerLink: labPartnerLink \}\}/, 'the lab’s card posts to the real actions');
   assert.match(page, /async function labUpdate\(formData: FormData\) \{\s*'use server';/);
   assert.doesNotMatch(page, /from '[^']*\[guestId\]\/actions'|updateGuest\b|releaseGuestClaim\b|inviteGuestByEmailAction\b/, 'the lab imports a real card action');
-  assert.match(page, /<LabGuestActions refuse=\{labRefuses\}>\s*<GuestCardBody/, 'the card is outside the stand-ins (its ⋯ would call the real release)');
+  assert.match(page, /<LabGuestActions refuse=\{labRefuses\}>\s*<GuestCard\b/, 'the card is outside the stand-ins (its ⋯ would call the real release)');
   const cardBranch = page.slice(page.indexOf("if (part === 'card' || part === 'host')"), page.indexOf("if (part === 'rsvp')"));
   assert.match(cardBranch, /<UndoToastHost \/>/, 'the lab card has no toast host for the autosave’s Undo');
   /* The card takes its writes from a prop (the lab) or the shipped actions (everywhere else). */
@@ -172,7 +172,7 @@ test('(6) the lab’s CARD writes nothing: inline stand-ins for the card’s thr
   assert.match(card, /const releaseAction = actions\?\.release \?\? releaseGuestClaim\.bind\(null, eventId, guest\.guest_id\);/);
   assert.match(card, /const partnerLinkAction = actions\?\.partnerLink \?\? inviteGuestByEmailAction\.bind\(null, eventId, guest\.guest_id\);/);
   /* No real page passes `actions`. */
-  for (const f of [join(APP, 'dashboard', '[eventId]', 'guests', 'page.tsx'), join(APP, 'dashboard', '[eventId]', 'guests', '[guestId]', 'page.tsx'), join(APP, 'dashboard', '[eventId]', 'launch', 'page.tsx')]) {
+  for (const f of [join(APP, 'dashboard', '[eventId]', 'guests', 'page.tsx'), join(APP, 'dashboard', '[eventId]', 'guests', '[guestId]', 'page.tsx'), join(APP, 'dashboard', '[eventId]', 'launch', 'page.tsx'), join(APP, 'dashboard', '[eventId]', 'guests', 'open-guest-card.tsx')]) {
     assert.doesNotMatch(read(f), /\bactions=\{\{/, `${f.slice(APP.length)} hands the card other writes`);
   }
   /* The ⋯ takes New QR / Unlink from the context. */

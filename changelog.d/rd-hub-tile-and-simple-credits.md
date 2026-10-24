@@ -5,10 +5,10 @@ Owner, 24 Oct, on the live new Home.
 **Event Hub tile (compact Home + the md+ card).**
 - A tap anywhere on the tile now opens the Event Hub (every face, through `openEventHub`: a new tab on the web, the in-app sheet in the app). With no public link yet, it opens the Maker.
 - The tile has two 32-px buttons, with their labels in `aria-label` and an ⓘ next to the label. **Pick what shows** opens the shared bottom `Sheet` in place. **Maker** goes to the Event Hub Maker (it was the pen). The tile no longer has its own View button, because the tile itself opens the Hub.
-- **Pick what shows is ONE choice** (owner 2026-10-25: *"pick what shows makes them choose between Save the Date, Invitation, The Day, Post Event only"*): the house `PickMenu` over those four, the one guests see now marked "Now".
+- **Pick what shows is ONE choice of four ROWS** (owner 2026-10-25: *"pick what shows makes them choose between Save the Date, Invitation, The Day, Post Event only"*, then *"make it choices. remove the guests see and place the choices there"*): four single-select rows in the sheet itself (`role="radio"`), the one guests see now marked ✓ "Now", each a 44-px framed press with its stage's one-line ⓘ. ⚠ A deliberate exception to "any set of choices is a dropdown", on the owner's word — noted in the code and held by the guard.
   - The write is the shipped `setLaunchPhase` — the Maker's "Which version guests see" door: host-gated, LIVE, not drafted (so no Apply bar). It lands back on Home.
   - No part switches and no page picker in the sheet; parts stay in the Maker. The pin is read on the tap (`readHomeHubPick`, hosts only).
-  - The ⓘ says what each stage is (the shipped `LAUNCH_PHASE_CHOICES` hints). The Maker greys no stage, so none is greyed here.
+  - Each row's ⓘ says what that stage is (the shipped `LAUNCH_PHASE_CHOICES` hints). The Maker greys no stage, so none is greyed here.
 - Home's tile now honours a pin: `manualLaunchPhase(launch_mode, manual_phase) ?? resolveHubStage(…)`. Both columns join `HOME_EVENT_COLUMNS` and `DASHBOARD_ROW_CARRIES` (the one dashboard row — no extra read), so the tile names the page guests really see.
 - The sheet body is a static import: a `next/dynamic` chunk grew the shared webpack runtime past the 202 KB budget.
 - A press inside the portalled sheet no longer starts a swipe of the tile.

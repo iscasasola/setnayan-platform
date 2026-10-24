@@ -5,15 +5,18 @@
  *       on the web, the in-app sheet in the app). With no public link yet, the Maker (there is no page to open).
  *   2 · TWO SMALL BUTTONS, 32 px, the label in `aria-label`, the ⓘ beside the tile's label: "Pick what shows" (a sheet
  *       IN PLACE — the shared `Sheet`) and "Maker" (the Event Hub Maker, as the pen was).
- *   3 · THE SHEET IS ONE CHOICE (owner 2026-10-25: *"pick what shows makes them choose between Save the Date,
- *       Invitation, The Day, Post Event only"*) — the house `PickMenu` over exactly those four, the one guests see now
- *       marked "Now"; written by the SHIPPED `setLaunchPhase` (the Maker's "Which version guests see" door, host-gated,
+ *   3 · THE SHEET IS ONE CHOICE OF FOUR ROWS (owner 2026-10-25: *"pick what shows makes them choose between Save the
+ *       Date, Invitation, The Day, Post Event only"*, then *"make it choices. remove the guests see and place the
+ *       choices there"*) — four single-select rows (`role="radio"`) in the sheet itself, the one guests see now marked ✓
+ *       "Now", each a 44-px press with its stage's one-line ⓘ. ⚠ A DELIBERATE EXCEPTION to "any set of choices is a
+ *       dropdown" (`lib/choices-are-one-dropdown.test.ts`), on the owner's word — this guard holds the exception to
+ *       THIS sheet. Written by the SHIPPED `setLaunchPhase` (the Maker's "Which version guests see" door, host-gated,
  *       live — the pin is not drafted, so no Apply bar). No part switches, no page picker: parts stay in the Maker.
  *       The pin is read on the tap, hosts only; Home's tile honours the pin (`manualLaunchPhase(…) ?? resolveHubStage`).
  *   4 · A press inside the sheet (portalled to <body>, but still inside the tile in React's tree) never swipes the tile.
  *
  * SABOTAGE (seen red, then restored): the hub-next face back on `/launch?stage=` (1 red) · the part switches put back
- * in the body (3 red) · the action without `requireHostMembershipOrThrow` (3 red) · Home's stage reading the date
+ * in the body (3 red) · the rows put back behind a PickMenu (3 red) · the action without `requireHostMembershipOrThrow` (3 red) · Home's stage reading the date
  * only (3 red) · the `outside(e)` check removed from the tile's pointer handler (4 red).
  */
 import test from 'node:test';
@@ -66,7 +69,7 @@ test('2 · two 32-px buttons, labels in aria, the ⓘ beside the label', () => {
   assert.match(card, /data-testid="home-hub-pick-open-card"/, 'the md+ card has no "Pick what shows"');
 });
 
-test('3 · the sheet is ONE stage choice of four, written by the shipped setLaunchPhase', () => {
+test('3 · the sheet is four stage rows, one choice, written by the shipped setLaunchPhase', () => {
   const button = read('_components/home-cards/hub-pick-button.tsx');
   assert.match(button, /import \{ Sheet \} from '@\/app\/_components\/sheet';/, 'not the shared Sheet');
   // NOT a `next/dynamic` chunk: a new async chunk grows webpack's shared runtime, and the shared budget had no headroom
@@ -74,11 +77,16 @@ test('3 · the sheet is ONE stage choice of four, written by the shipped setLaun
   assert.doesNotMatch(button, /next\/dynamic/, 'a lazy chunk again — it grows the shared runtime every page loads');
   assert.match(button, /const sheet = open \? \(\s*<Sheet open/, 'the sheet (and its body) is drawn before it is opened');
   const body = read('_components/home-cards/hub-pick-body.tsx');
-  // One house dropdown over exactly the four stages, in the page's order, the current one marked.
-  assert.match(body, /<PickMenu[\s\S]*?options=\{PUBLIC_STAGE_ORDER\.map\(/, 'the choice is not the house PickMenu over the four stages');
+  // Four choice ROWS in the sheet (owner 2026-10-25, "make it choices") — the exception to the one-dropdown rule.
+  assert.match(body, /role="radiogroup"/, 'the four stages are not one single-select group');
+  assert.match(body, /\{PUBLIC_STAGE_ORDER\.map\(\(s\) => \{[\s\S]*?role="radio"\s+aria-checked=\{on\}/, 'the stages are not drawn as choice rows');
+  assert.doesNotMatch(body, /<PickMenu\b|Guests see/, 'the "Guests see" dropdown is back — the owner asked for the choices themselves');
+  assert.match(body, /className="absolute inset-0 min-h-11 rounded-2xl"/, 'a row\'s press is not the whole row at 44 px');
+  assert.match(body, /min-h-\[52px\][^"]*rounded-2xl border/, 'a row lost its frame (it is pressable, so it has one)');
+  assert.match(body, /<InfoTip label=\{PUBLIC_STAGE_LABELS\[s\]\}[\s\S]*?\{hint\}/, 'a row lost its one-line ⓘ');
+  assert.match(body, /\{on \? \([\s\S]{0,200}?Now[\s\S]{0,120}?<Check /, 'the stage guests see now is not marked ✓ Now');
   assert.deepEqual([...PUBLIC_STAGE_ORDER], ['save_the_date', 'rsvp', 'event', 'editorial']);
   assert.deepEqual(PUBLIC_STAGE_ORDER.map((s) => PUBLIC_STAGE_LABELS[s]), ['Save the Date', 'Invitation', 'The Day', 'Post Event']);
-  assert.match(body, /s === now \? \{ trail: \{ text: 'Now'/, 'the stage guests see now is not marked');
   // The shipped write, with its own landing back on Home.
   assert.match(body, /import \{ setLaunchPhase \} from '\.\.\/\.\.\/website\/editor\/actions';/, 'not the shipped stage setter');
   assert.match(body, /fd\.set\('launch_phase', next\)/);

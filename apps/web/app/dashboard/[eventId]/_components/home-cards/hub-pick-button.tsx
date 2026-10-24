@@ -3,7 +3,7 @@
 /**
  * 🎛 "PICK WHAT SHOWS" — the Event Hub tile's small button (owner 2026-10-24, on the live Home; narrowed 2026-10-25:
  * *"pick what shows makes them choose between Save the Date, Invitation, The Day, Post Event only"*). It opens, IN
- * PLACE, the shared bottom sheet (`Sheet`) with ONE choice — which stage guests see — written by the shipped
+ * PLACE, the shared bottom sheet (`Sheet`) with ONE choice of four rows — which stage guests see — written by the shipped
  * `setLaunchPhase` (`hub-pick-body.tsx`; the pin is read when the sheet opens). Two looks, one door: the compact tile's 32-px icon (`hc-tiny`, the label in `aria-label`) and the
  * detail card's icon + word.
  *
@@ -17,8 +17,6 @@ import { ActionButton } from '@/components/action-button';
 import { Sheet } from '@/app/_components/sheet';
 import { InfoTip } from '@/app/_components/info-tip';
 import HubPickBody from './hub-pick-body';
-import { LAUNCH_PHASE_CHOICES } from '../../website/editor/_components/launch-phase-choices';
-import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 import type { HomeHubPickRead } from './hub-pick-types';
 
 /* A STATIC import, on purpose (2026-10-24, CI "bundle size check"): a `next/dynamic` chunk adds an entry to webpack's
@@ -27,8 +25,8 @@ import type { HomeHubPickRead } from './hub-pick-types';
    own page chunk instead; its DATA is still read only on the tap (`readHomeHubPick`). */
 export const HUB_PICK_LABEL = 'Pick what shows';
 
-/** The ⓘ — what each stage is, in the shipped words (`LAUNCH_PHASE_CHOICES`), and that the pick is live. */
-const STAGE_INFO = `${LAUNCH_PHASE_CHOICES.map((c) => `${PUBLIC_STAGE_LABELS[c.key]}: ${c.hint.replace(/\bcelebration\b/g, 'event')}`).join(' ')} Your pick is what guests see right away; the parts of each page are in the Maker.`;
+/** The title's ⓘ — that the pick is live, and where the parts are. Each stage's own line is in its row's ⓘ. */
+const STAGE_INFO = 'Tap the page guests should see. It changes right away; the parts of each page are in the Maker.';
 
 export function HubPickButton({
   eventId,

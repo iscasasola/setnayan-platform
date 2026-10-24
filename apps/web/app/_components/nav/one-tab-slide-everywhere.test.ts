@@ -4,6 +4,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { activeTabIndex, tabSlideDir, type SlideTab } from '@/lib/nav-slide';
+import { stripComments } from '@/lib/strip-comments';
 
 /**
  * ONE TAB SLIDE ON EVERY DASHBOARD.
@@ -40,7 +41,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const WEB = join(here, '..', '..', '..');
 const read = (...p: string[]) => readFileSync(join(WEB, ...p), 'utf8');
 /** Source with comments removed — a docblock that mentions a symbol must not satisfy a guard. */
-const code = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`])\/\/.*$/gm, '$1');
+const code = stripComments;
 const CSS = read('app', 'globals.css');
 
 /* ── 1 · behaviour ─────────────────────────────────────────────────────── */

@@ -9,11 +9,12 @@
  *   · the bars are every fixed / sticky box on the page (as `measureRouteBottomChrome` finds them), MINUS those under the
  *     thing we show: inside a fixed layer above them (the guest card's phone sheet, z-75, covers the dock) a lower bar
  *     covers nothing, so it is not counted;
- *   · the floor is also the iPhone keyboard's edge while it is up (`visualViewport`).
+ *   · the floor is also the iPhone keyboard's edge while it is up (the one reading, `lib/keyboard-ride.ts`).
  *
  * `revealAboveChrome` scrolls a box's own scroller into that band; `pickViewport` hands a PickMenu its floor.
  */
 import { bottomChromeLift, revealDelta, topChromeDrop, type ChromeBox } from '@/lib/bottom-chrome';
+import { visibleBottom } from '@/lib/keyboard-ride';
 
 const zOf = (el: Element) => parseInt(getComputedStyle(el).zIndex, 10) || 0;
 
@@ -37,8 +38,7 @@ export function clearBand(own: Element, skip?: Element | null): { top: number; b
     if (layer && !layer.contains(el) && zOf(el) < zOf(layer)) continue;
     boxes.push(el.getBoundingClientRect());
   }
-  const vv = window.visualViewport;
-  const screenBottom = vv ? Math.min(vh, vv.offsetTop + vv.height) : vh;
+  const screenBottom = visibleBottom();
   return { top: topChromeDrop(boxes, vh), bottom: Math.min(screenBottom, vh - bottomChromeLift(boxes, vh)) };
 }
 

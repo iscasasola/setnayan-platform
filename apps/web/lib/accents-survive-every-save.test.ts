@@ -108,7 +108,7 @@ test('PROPERTY: a drafted value of EVERY events column survives a Love Story sav
   const { SCENE_ACCENTS_PREF_KEY } = await import('./art-kit-accents');
   let checked = 0;
   for (const col of HUB_DRAFT_EVENT_COLUMNS) {
-    const sentinel = col === 'style_preferences' ? { camera_look: 'brand' } : { kept: col };
+    const sentinel = col === 'style_preferences' ? { block_looks: { schedule: { fade: true } } } : { kept: col };
     const start = { ...emptyHubDraft(), events: { [col]: sentinel } } as import('./hub-draft').HubDraft;
     let d = start;
     if (col !== 'love_story') d = await save(d, { love_story: MOMENTS });
@@ -117,7 +117,7 @@ test('PROPERTY: a drafted value of EVERY events column survives a Love Story sav
       assert.deepEqual(d.events[col], sentinel, `a later save erased the drafted ${col}`);
     } else {
       d = await save(d, { style_preferences: { [SCENE_ACCENTS_PREF_KEY]: { countdown: 'narra-columns' } } });
-      assert.equal((d.events.style_preferences as Record<string, unknown>).camera_look, 'brand', 'an Accent save erased the drafted camera look');
+      assert.deepEqual((d.events.style_preferences as Record<string, unknown>).block_looks, { schedule: { fade: true } }, 'an Accent save erased the drafted block looks');
     }
     checked += 1;
   }
@@ -129,7 +129,7 @@ test('PROPERTY: every key of the drafted style_preferences survives a save of ev
   const { SCENE_ACCENTS_PREF_KEY } = await import('./art-kit-accents');
   const parts: Record<string, Record<string, unknown>> = {
     accents: { [SCENE_ACCENTS_PREF_KEY]: { hero: 'drapes', rsvp: 'garland' } },
-    camera: { camera_look: 'challenges' },
+    qr: { qr: { pattern: 'dots' } },
     blocks: { block_looks: { schedule: { fade: true } } },
   };
   for (const [a, pa] of Object.entries(parts)) {

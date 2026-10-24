@@ -18,7 +18,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { drainGuestCaptureWith, type GuestPostResult } from './offline/service-handlers/papic-drain';
+import { classifyAnswer } from './papic-upload/schedule';
 import { papicCaptureCost, PAPIC_POINTS_PER_SNIPPET } from './papic-cameras';
 
 const ROUTE = readFileSync(
@@ -72,31 +72,18 @@ test('🪤 one call carries every argument the record needs — no ladder that c
   assert.deepEqual(record, [2], 'a direct record call writes a row with no points booked');
 });
 
-const payload = () => ({
-  mode: 'guest' as const,
-  media_type: 'photo' as const,
-  content_type: 'image/jpeg',
-  filename: 'p.jpg',
-  bytes: new Blob([new Uint8Array([1, 2, 3])], { type: 'image/jpeg' }),
-  captured_at_ms: 1,
-});
-
-test('🚨 a ceiling refusal on a DRAINED shot is kept and surfaced — never dropped, never a false success', async () => {
+test('🚨 a ceiling refusal on a QUEUED shot is kept and surfaced — never dropped, never a false success', () => {
   // ⚖ THE DECISION §7d DEMANDED BE MADE EXPLICITLY. Terminal would throw away a
   // photograph the guest watched themselves take. Unregistered would retry it
-  // ~50 times and let the 7-day TTL evict it in silence while the screen said
-  // it was saved. So it is registered as retryable, with the pool, because a
-  // ceiling can be LIFTED exactly as a pot can be topped up.
-  const post = async (): Promise<GuestPostResult> => ({
-    ok: false,
-    status: 409,
-    body: { status: 'quota_exhausted', reason: 'guest_spend_ceiling' } as {
-      status?: string; error?: string;
-    },
+  // forever while the screen said it was saved. So it is a CREDITS refusal,
+  // with the pool, because a ceiling can be LIFTED exactly as a pot can be
+  // topped up — the save-first uploader keeps the shot on the phone and the
+  // chip says "Credits ran out · N not sent" (lib/papic-upload/schedule.ts).
+  const verdict = classifyAnswer(409, { status: 'quota_exhausted', reason: 'guest_spend_ceiling' } as {
+    status?: string;
   });
-  const result = await drainGuestCaptureWith(post, payload());
-  assert.deepEqual(result, { ok: false, error: 'camera_points_exhausted' });
-  assert.notEqual(result.ok, true, 'ok:true is the DEQUEUE signal — it would discard the shot');
+  assert.deepEqual(verdict, { verdict: 'credits', error: 'quota_exhausted' });
+  assert.equal(classifyAnswer(409, { status: 'camera_points_exhausted' }).verdict, 'credits');
 });
 
 test('the refusal carries a reason, so the guest’s screen can stop inheriting the pot’s copy', () => {

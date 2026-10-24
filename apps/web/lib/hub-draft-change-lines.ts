@@ -18,7 +18,6 @@
  * `HubDraftSummary.changes`, so none of this reaches the Maker's first-load JS.
  */
 import { ACCENT_SCENES, ACCENT_SCENE_LABEL, SCENE_ACCENTS_PREF_KEY, sceneAccentsFromPreferences } from '@/lib/art-kit-accents';
-import { CAMERA_LOOK_LABEL } from '@/lib/camera-look';
 import { WIDGET_CATALOG_BY_TYPE, WIDGET_PHASES, type LifecyclePhase, type WidgetType } from '@/lib/invitation-widgets';
 import { makerSceneLabel } from '@/lib/maker-scene-list';
 import { MAKER_PARTS } from '@/lib/maker-parts';
@@ -29,7 +28,6 @@ import { LOOK_PART_LABEL, LOOK_SECTION_LABEL } from '@/lib/maker-look-sections';
 import { sanitizeHubCanvas, type HubSectionCanvas } from '@/lib/hub-canvas';
 import {
   FIXED_STYLE_LABEL,
-  cameraLookOfDraft,
   canvasLookFacets,
   hubDraftCountedChanges,
   hubDraftItemParts,
@@ -262,11 +260,8 @@ export function hubDraftChangePlace(item: HubDraftItem, live: HubLiveState, stag
           return { place: DETAILS, what: keys.map((k) => words[k]).join(', ') };
         }
       }
-      /* 🎛 The camera's look (owner 2026-10-07) — "Camera · Look · Your brand", not the QR. */
       if (item.column === 'style_preferences') {
-        const cam = cameraLookOfDraft(item.value);
         const qrMoved = isPlainObjectValue(item.value) && 'qr' in item.value;
-        if (cam && cam !== cameraLookOfDraft(live.events.style_preferences ?? null) && !qrMoved) return { place: 'Camera', what: `Look · ${CAMERA_LOOK_LABEL[cam]}` };
         /* 🧱 A fixed block's look (`lib/block-looks.ts`) — "Event Hub · How a block looks", not the QR. */
         if (!qrMoved && isPlainObjectValue(item.value) && 'block_looks' in item.value) return { place: 'Event Hub', what: 'How a block looks' };
         /* 🕯 Each scene's Accent (owner 2026-10-16) — "Countdown, Cover · Decorations", the word the Pro sheet uses, not

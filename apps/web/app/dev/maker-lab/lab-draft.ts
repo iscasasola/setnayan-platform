@@ -436,7 +436,7 @@ export function labDraftCookies(draftOnly: HubDraft, scrub: boolean, published: 
     if (some(row)) rows[type] = row;
   }
   const hero = draft.widgets.hero;
-  const prefs = (draft.events.style_preferences ?? null) as { camera_look?: unknown; block_looks?: unknown; scene_accents?: unknown } | null;
+  const prefs = (draft.events.style_preferences ?? null) as { block_looks?: unknown; scene_accents?: unknown } | null;
   const styles = Object.fromEntries(Object.entries(draft.fixedStyles ?? {}).filter(([, v]) => v !== null));
   const bar = summarizeHubDraft(draftOnly, labLive(scrub, published), false);
   return {
@@ -444,7 +444,6 @@ export function labDraftCookies(draftOnly: HubDraft, scrub: boolean, published: 
     [LAB_ROWS_COOKIE]: some(rows) ? json(rows) : null,
     lab_main: hero && 'main' in hero ? json(hero.main ?? null) : null,
     lab_styles: some(styles) ? json(styles) : null,
-    lab_camera: typeof prefs?.camera_look === 'string' ? prefs.camera_look : null,
     lab_blocks: prefs?.block_looks && typeof prefs.block_looks === 'object' ? json(prefs.block_looks) : null,
     /* 🕯 Each scene's drafted Accent pick (`style_preferences.scene_accents`) — the lab's closing is drawn with it. */
     lab_accents: prefs?.scene_accents && typeof prefs.scene_accents === 'object' ? json(prefs.scene_accents) : null,

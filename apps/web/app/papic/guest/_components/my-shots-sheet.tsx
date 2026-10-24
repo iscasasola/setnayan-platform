@@ -116,7 +116,7 @@ export function MyShotsSheet({
         aria-label="My shots"
         // Full width: the house rule pads it by the left and right safe areas (globals.css `[data-safe-x]`).
         data-safe-x=""
-        className="fixed inset-x-0 bottom-0 z-[46] flex h-[72%] flex-col rounded-t-2xl bg-[#1f1d1a] text-cream"
+        className="fixed inset-x-0 bottom-0 z-[46] flex h-[72%] flex-col rounded-t-2xl bg-[#1f1d1a] pb-[env(safe-area-inset-bottom)] text-cream"
         style={{
           transform: open ? `translateY(${drag}px)` : 'translateY(100%)',
           transition: startY.current === null ? 'transform 300ms cubic-bezier(.2,.8,.2,1)' : 'none',

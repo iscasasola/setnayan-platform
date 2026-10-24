@@ -144,7 +144,8 @@ test('6 · the bar’s Camera opens the camera page itself — no bar on it — 
   const page = read('app/papic/guest/page.tsx');
   assert.doesNotMatch(page, /GuestHubBar|SiteMenuBar|HubShell|SiteFooter|<footer/, 'the camera page draws a guest bar, menu or footer');
   assert.match(page, /dress=\{cameraDress\}/);
-  assert.match(page, /eventHubPartActive\(admin, session\.event_id, 'logo_qr'\)/);
+  assert.match(page, /cameraProFor\(admin, session\.event_id\)/);
+  assert.match(read('lib/papic-photo-mark.server.ts'), /eventHubPartActive\(admin, eventId, 'logo_qr'\)/);
   assert.doesNotMatch(page, /camera_look|cameraLook|style_preferences/, 'the camera page still reads a look');
 });
 

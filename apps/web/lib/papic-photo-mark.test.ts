@@ -73,7 +73,8 @@ test('3 · small, bottom-right, inside the picture — on a phone tile and a dis
 
 test('4 · both camera mounts ask the one resolver, with the Logo & QR part', () => {
   const page = read('app/papic/guest/page.tsx');
-  assert.match(page, /eventHubPartActive\(admin, session\.event_id, 'logo_qr'\)/);
+  assert.match(page, /cameraProFor\(admin, session\.event_id\)/);
+  assert.match(read('lib/papic-photo-mark.server.ts'), /return eventHubPartActive\(admin, eventId, 'logo_qr'\)\.catch\(\(\) => false\);/);
   assert.match(page, /photoMarkOfEvent\(dressRow, pro\)/);
   assert.match(page, /photoMark=\{photoMark\}/);
   const loaders = read('app/[slug]/_lib/loaders.ts');

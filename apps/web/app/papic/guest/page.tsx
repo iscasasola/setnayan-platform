@@ -26,7 +26,7 @@ import { GuestColumnCard } from '@/app/[slug]/_components/guest-column-card';
 import { guestColumnsActive } from '@/lib/guest-columns-gate';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
 import { cameraDressTintOfEvent } from '@/lib/camera-dress-of-event';
-import { eventHubPartActive } from '@/lib/couple-website-pro';
+import { cameraProFor } from '@/lib/papic-photo-mark.server';
 import { photoMarkOfEvent } from '@/lib/papic-photo-mark-of-event';
 import { EventMonogram } from '@/app/_components/event-monogram';
 import { HERO_MONOGRAM_COLUMNS } from '@/lib/hero-monogram-data';
@@ -373,7 +373,7 @@ export default async function PapicGuestPage({
       .select(`${HERO_MONOGRAM_COLUMNS}, logo_wanted, invite_theme, role_palette`)
       .eq('event_id', session.event_id)
       .maybeSingle(),
-    eventHubPartActive(admin, session.event_id, 'logo_qr').catch(() => false),
+    cameraProFor(admin, session.event_id),
   ]);
   if (dressRead.error) console.error('[supabase-error] app/papic/guest/page.tsx · from:events.select (camera dress)', dressRead.error);
   const dressRow = (dressRead.data ?? null) as

@@ -18,11 +18,17 @@ import { HERO_MONOGRAM_COLUMNS } from '@/lib/hero-monogram-data';
 import { SETNAYAN_PHOTO_MARK, type PapicMark } from '@/lib/papic-photo-mark';
 import { photoMarkOfEvent, type MarkEventRow } from '@/lib/papic-photo-mark-of-event';
 
+/** Is this event's camera dressed Pro? The Logo & QR part or Full Pro — the existing part gate.
+ *  A failed read is the free camera, never a guess at Pro. */
+export async function cameraProFor(admin: SupabaseClient, eventId: string): Promise<boolean> {
+  return eventHubPartActive(admin, eventId, 'logo_qr').catch(() => false);
+}
+
 export async function serverPhotoMarkFor(admin: SupabaseClient, eventId: string): Promise<PapicMark> {
   try {
     const [row, pro] = await Promise.all([
       admin.from('events').select(`${HERO_MONOGRAM_COLUMNS}, logo_wanted`).eq('event_id', eventId).maybeSingle(),
-      eventHubPartActive(admin, eventId, 'logo_qr').catch(() => false),
+      cameraProFor(admin, eventId),
     ]);
     if (row.error) {
       console.error('[supabase-error] lib/papic-photo-mark.server.ts · from:events.select (photo mark)', row.error);

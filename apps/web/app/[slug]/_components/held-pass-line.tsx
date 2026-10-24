@@ -1,17 +1,54 @@
+import type { ReactNode } from 'react';
+import { Eye, LogOut, Undo2 } from 'lucide-react';
 import { heldPassLine, hostPreviewLine } from '@/lib/pass-account-rule';
 
 /**
  * 🪪 ONE PLAIN LINE when this browser holds an invitation that is not the signed-in viewer's (owner bug 2026-10-19 —
  * `lib/pass-account-rule.ts`). Drawn in Me (and under the host's cover, where Me is not drawn), in the slot "Not you?
- * Switch" uses: the same quiet text and the same underlined buttons, no box (nothing here is a card to press).
+ * Switch" uses, with no box around it (nothing here is a card to press).
  *
  *   set_aside     "This browser also holds Milagros's invitation. Viewing as you."
  *                 · a HOST also gets "Open as Milagros" (hosts preview guests);
  *                 · everyone gets "Remove it from this browser" — that event's pass only (`/{slug}/sign-out`).
  *   host_preview  "You're viewing as Milagros — this browser holds their invitation." · "Back to you".
  *
+ * 🔘 THE ACTIONS LOOK PRESSABLE, AND STAND WHERE THE LINE STANDS (owner 2026-10-24, on cale-ice: the sentence sat
+ * centred under "Will you join us? · Reply" while its two underlined words sat flush left, "out of line with
+ * everything above them"). Each is a small quiet pill — icon + word, a hairline in the page's own ink, a 44 px tap
+ * target — painted only with the Event Hub's theme tokens (`ink`), so it wears every couple's design and the dark
+ * Look. The row is INLINE (`inline-flex` pills in a block, no `flex` row of its own), so it follows whatever text
+ * alignment the place it is drawn in has: centred under the cover's centred line, flush left beside the reply's name.
+ * (A `flex` row has its own `justify-content` and ignores `text-align` — that was the bug.)
+ *
  * Every button is a POST form: a link would be run by a prefetch.
  */
+const PILL =
+  'inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-ink/20 px-4 text-sm font-medium text-ink transition-colors hover:border-ink/40 hover:bg-ink/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink/60';
+const ICON = 'h-4 w-4 shrink-0';
+
+/** One pill, as a POST form that sits inline (so the row follows its parent's alignment). */
+function PassAction({
+  action,
+  value,
+  icon,
+  children,
+}: {
+  action: string;
+  value?: string;
+  icon: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <form method="post" action={action} className="m-1 inline-block align-middle">
+      {value ? <input type="hidden" name="do" value={value} /> : null}
+      <button type="submit" className={PILL}>
+        {icon}
+        <span>{children}</span>
+      </button>
+    </form>
+  );
+}
+
 export function HeldPassLine({
   slug,
   firstName,
@@ -24,38 +61,30 @@ export function HeldPassLine({
   className?: string;
 }) {
   const name = firstName?.trim() || null;
-  const button =
-    'min-h-[44px] min-w-[44px] font-medium text-ink underline underline-offset-4 hover:text-link';
   if (mode === 'host_preview') {
     return (
       <div data-held-pass="host_preview" className={`text-sm text-ink/70 ${className}`}>
         <p>{hostPreviewLine(name)}</p>
-        <form method="post" action={`/${slug}/open-as-pass`}>
-          <input type="hidden" name="do" value="back" />
-          <button type="submit" className={button}>
+        <div data-held-pass-actions="" className="-m-1 mt-2">
+          <PassAction action={`/${slug}/open-as-pass`} value="back" icon={<Undo2 aria-hidden className={ICON} />}>
             Back to you
-          </button>
-        </form>
+          </PassAction>
+        </div>
       </div>
     );
   }
   return (
     <div data-held-pass={mode} className={`text-sm text-ink/70 ${className}`}>
       <p>{heldPassLine(name)}</p>
-      <div className="flex flex-wrap gap-x-5">
+      <div data-held-pass-actions="" className="-m-1 mt-2">
         {mode === 'set_aside_host' ? (
-          <form method="post" action={`/${slug}/open-as-pass`}>
-            <input type="hidden" name="do" value="open" />
-            <button type="submit" className={button}>
-              {name ? `Open as ${name}` : 'Open as this guest'}
-            </button>
-          </form>
+          <PassAction action={`/${slug}/open-as-pass`} value="open" icon={<Eye aria-hidden className={ICON} />}>
+            {name ? `Open as ${name}` : 'Open as this guest'}
+          </PassAction>
         ) : null}
-        <form method="post" action={`/${slug}/sign-out`}>
-          <button type="submit" className={button}>
-            Remove it from this browser
-          </button>
-        </form>
+        <PassAction action={`/${slug}/sign-out`} icon={<LogOut aria-hidden className={ICON} />}>
+          Remove it from this browser
+        </PassAction>
       </div>
     </div>
   );

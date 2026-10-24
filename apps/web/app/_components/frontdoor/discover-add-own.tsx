@@ -77,9 +77,11 @@ export function DiscoverAddOwn({
           categories={categories}
           onClose={() => setPicked(null)}
           // The record exists — re-read the results behind the link step, so the answer is there on Done.
+          // one-render: keep (no-revalidate) — the add-your-own walk files the card in place (`ANSWER_IN_PLACE_FIELD`): `addManualSupplier` revalidates nothing.
           onRecorded={() => router.refresh()}
           onDone={(outcome) => {
             setPicked(null);
+            // one-render: keep (no-revalidate) — the ask revalidates the event’s own pages (`/dashboard/{id}`), never Discover’s `/`, where these results are drawn.
             if (outcome.kind === 'asked') router.refresh();
           }}
         />

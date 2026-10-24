@@ -21,6 +21,7 @@ import { X } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
 import { usePapicUploads } from '@/app/papic/_components/upload-chip';
 import { formatCount } from '@/lib/format-number';
+import { useModalA11y } from '@/lib/use-modal-a11y';
 import type { UploaderSnapshot } from '@/lib/papic-upload/replayer';
 
 export type MyShot = {
@@ -86,20 +87,15 @@ export function MyShotsSheet({
   const [drag, setDrag] = useState(0);
   const startY = useRef<number | null>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  // The house modal: focus in (on ✕), Tab held inside, Esc closes, focus handed back, the page behind held still.
+  useModalA11y({ open, onClose, containerRef: dialogRef, initialFocusRef: closeRef });
 
   useEffect(() => {
-    if (!open) {
-      setViewing(null);
-      setDrag(0);
-      return;
-    }
-    closeRef.current?.focus();
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [open, onClose]);
+    if (open) return;
+    setViewing(null);
+    setDrag(0);
+  }, [open]);
 
   const n = shots.length;
   return (
@@ -114,9 +110,12 @@ export function MyShotsSheet({
         className={`fixed inset-0 z-[45] bg-black/45 transition-opacity duration-300 ${open ? 'opacity-100' : 'opacity-0'}`}
       />
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-label="My shots"
+        // Full width: the house rule pads it by the left and right safe areas (globals.css `[data-safe-x]`).
+        data-safe-x=""
         className="fixed inset-x-0 bottom-0 z-[46] flex h-[72%] flex-col rounded-t-2xl bg-[#1f1d1a] text-cream"
         style={{
           transform: open ? `translateY(${drag}px)` : 'translateY(100%)',

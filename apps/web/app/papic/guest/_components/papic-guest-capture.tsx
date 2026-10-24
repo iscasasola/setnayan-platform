@@ -5,6 +5,7 @@ import { DEFAULT_EVENT_POOL_CONFIG } from '@/lib/papic-event-pool';
 import {
   useCallback,
   useEffect,
+  useId,
   useRef,
   useState,
   type MouseEvent as RMouseEvent,
@@ -398,6 +399,8 @@ export function PapicGuestCapture({
   // of the two gates the public showcase needs (the couple's approval is the
   // other). A persistent per-session preference, so the guest sets it once.
   const [sharePublicly, setSharePublicly] = useState(false);
+  // The share line's <label> also holds the ⓘ button, so it names its checkbox (a tap on the row ticks the box).
+  const shareId = useId();
   const [justSaved, setJustSaved] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [blocked, setBlocked] = useState(false);
@@ -1951,9 +1954,11 @@ export function PapicGuestCapture({
              never ticks the box; pressing the line does. */
           <label
             data-camera-share=""
+            htmlFor={shareId}
             className="flex min-h-11 items-center gap-2.5 rounded-xl border border-cream/15 px-2.5 text-[12.5px] text-cream/90 [&_button]:border-cream/50 [&_button]:text-cream/80"
           >
             <input
+              id={shareId}
               type="checkbox"
               checked={sharePublicly}
               onChange={(e) => setSharePublicly(e.target.checked)}

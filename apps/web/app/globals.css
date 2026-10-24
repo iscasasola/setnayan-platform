@@ -7168,7 +7168,9 @@ html:active-view-transition .sn-page-enter { animation: none; }
 .sn-gal-btn-cta { background: var(--sn-ob-cta); border-color: var(--sn-ob-cta); color: var(--sn-ob-page); }
 
 /* Lightbox — obsidian scrim + raised card. */
-.sn-gal-scrim { background: rgb(23 22 15 / 0.92); }
+/* OPAQUE (owner 2026-10-24: a Love Story photo opened see-through). Nothing of the page may show behind a photo
+   that has the whole screen — `lib/a-photo-viewer-is-a-real-screen.test.ts` reads this rule. */
+.sn-gal-scrim { background: var(--sn-ob-page); }
 .sn-gal-lb-card {
   background: var(--sn-ob-card);
   border: 1px solid rgb(251 250 247 / 0.14);

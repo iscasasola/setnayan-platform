@@ -164,7 +164,10 @@ test('Your shots: three states, three sets of words — and everyone’s only be
     }),
   );
   assert.match(some, />14</, 'the count is the read’s own total');
-  assert.match(some, /href="\/papic\/me\/tok\/photo\?id=c1&amp;src=guest"/, 'a guest saves their own shot');
+  /* 2026-10-24: the shot opens IN PLACE (the shared viewer) and saves the same full-size route from there — never a
+     new tab on the bare picture. */
+  assert.match(some, /data-save-src="\/papic\/me\/tok\/photo\?id=c1&amp;src=guest"/, 'a guest saves their own shot');
+  assert.doesNotMatch(some, /target="_blank"/, 'a shot opens a bare picture in a new tab again');
   assert.doesNotMatch(some, /Everyone/, 'not shared → no way into everyone’s photos');
   const shared = html(
     h(YourShotsGallery, { shots: { shots: [], total: 0 }, qrToken: 'tok', cameraOn: true, everyoneHref: '/papic/me/tok/session?next=pool' }),

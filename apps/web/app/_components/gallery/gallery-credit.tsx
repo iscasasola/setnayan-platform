@@ -1,4 +1,4 @@
-import { creditLine } from '@/lib/capture-credit-pure';
+import { capturedAtLabel, creditLine } from '@/lib/capture-credit-pure';
 
 /**
  * THE CREDIT ON A TILE — "Ninang Cora · 4:12 PM".
@@ -45,9 +45,31 @@ export function GalleryCredit({
    * addition rather than to delete a control people use.
    */
   raised?: boolean;
+  /**
+   * ✂ NEVER CLIPPED (owner 2026-10-24, the day-of wall read "NINANG CORA · 8:…"). On a 3-up phone grid a tile is
+   * ~110px, and one `truncate`d uppercase line cannot hold a name and a time — the TIME was what got cut, the one half
+   * a guest at a live wall wants. Stacked: the name on its own line (it may wrap, never cut), the time under it.
+   */
+  stacked?: boolean;
 }) {
   const line = creditLine(name, capturedAt, timeZone);
   if (!line) return null;
+  if (stacked) {
+    const when = capturedAtLabel(capturedAt, timeZone);
+    const who = when && line.endsWith(` · ${when}`) ? line.slice(0, -` · ${when}`.length) : line;
+    return (
+      <div data-credit-stacked="" className={`sn-gal-credit ${raised ? 'sn-gal-credit-raised' : ''}`}>
+        <span className="block break-words font-mono text-[9.5px] font-bold uppercase leading-tight tracking-[0.08em]">
+          {who}
+        </span>
+        {when && who !== line ? (
+          <span className="block whitespace-nowrap font-mono text-[9.5px] font-bold uppercase leading-tight tracking-[0.08em] opacity-80">
+            {when}
+          </span>
+        ) : null}
+      </div>
+    );
+  }
   return (
     <div className={`sn-gal-credit ${raised ? 'sn-gal-credit-raised' : ''}`}>
       <span

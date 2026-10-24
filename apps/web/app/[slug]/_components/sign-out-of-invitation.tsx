@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { LogOut } from 'lucide-react';
+import { ME_PILL } from './me-pill';
 
 /**
  * "SIGN OUT OF THIS INVITATION" — legible, and never by accident.
@@ -27,10 +28,6 @@ import { LogOut } from 'lucide-react';
  *
  * 🛡 app/[slug]/_components/the-sign-out-asks-first.test.ts
  */
-/** 🔘 Me's small pill (owner 2026-10-24): icon + word, a hairline in the page's ink, 44 px — the Hub's theme token only. */
-export const ME_PILL =
-  'inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-ink/20 px-4 text-sm font-medium text-ink transition-colors hover:border-ink/40 hover:bg-ink/5';
-
 export const SIGN_OUT_COSTS = 'You’ll need your invitation link or your QR to get back in.';
 
 /** The first press asks; only a press made after the question goes through. */

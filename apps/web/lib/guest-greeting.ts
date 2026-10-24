@@ -74,7 +74,7 @@ export function greetingAskOf(card: ReplyCard | null): GuestGreetingAsk | null {
 export function guestGreetingOf(input: {
   /** The formal name in the event's Name style (`placeCardName`), else the display name. */
   name: string | null;
-  /** The guest's role code ('guest', 'best_man', 'groom' …) and its word (`roleWordOfGuest`). */
+  /** The guest's role code ('guest', 'groom', a sponsor …) and its word (`roleWordOfGuest`). */
   roleCode: string | null;
   roleWord: string | null;
   /** "Groom's side" etc. — null where the event has no sides (`side_labels`). */

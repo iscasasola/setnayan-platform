@@ -168,7 +168,8 @@ for (const look of PALETTE_LOOK_IDS) {
       const fig = block[2]!.indexOf('data-role-figure=');
       const colours = block[2]!.indexOf('data-your-colours');
       assert.ok(fig >= 0 && colours > fig, `${look} · ${part}: a bride's figure and colours are not in the centred look, figure first`);
-      if (look === 'tags') assert.match(block[2]!, /<ul class="[^"]*\bjustify-center\b/, `${part}: a bride's chips are not centred`);
+      // (2026-10-24, the Me redraw: Me › What to wear draws the Studio's named circles — a centred list of its own.)
+      if (look === 'tags' || part === 'wear') assert.match(block[2]!, /<(?:ul|div) class="[^"]*\bjustify-center\b/, `${part}: a bride's chips are not centred`);
 
       /* A principal sponsor the page cannot tell is a ninong or a ninang is shown both picks — two looks. */
       const two = await widget({ config: CONFIG, rolePalette: PALETTE, paletteLook: look, guestRole: 'principal_sponsor', part });

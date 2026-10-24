@@ -105,6 +105,7 @@ import { stdOpeningsActiveCached } from './_components/reveal/reveal-overlay-ser
 import { resolveWeddingOnlyParts } from '@/lib/wedding-only-parts';
 import { storedStdLead, type StdLead } from '@/lib/stage-scenes';
 import { GuestTicket } from './_components/guest-ticket';
+import { MeKeepInvitation } from './_components/me-keep-invitation';
 import { SpatialBackdrop } from '@/app/_components/spatial-backdrop';
 import {
   type LifecyclePhase,
@@ -2512,6 +2513,22 @@ async function invitationBody({
           moreAnswers,
           checklist,
         })}
+        /* 🪪 Me's FIRST offer — "Keep this invitation", under the greeting (owner 2026-10-24: "on the me part, we start
+           offering the linking of this event to their account"). The shipped Save and every state of it; on this Me,
+           GuestMe draws no Save of its own (one place). */
+        meSave={
+          guestPageTabbed && !isEditorCanvas && account ? (
+            <MeKeepInvitation
+              state={account}
+              eventId={event.event_id}
+              slug={event.slug ?? slug}
+              personalLink={invitationUrl}
+              userAgent={meUserAgent}
+              termsCarried={meTermsCarried}
+              termsMissing={search.keep === 'terms'}
+            />
+          ) : null
+        }
         meSection={
           guestPageTabbed ? (
             ({ replyHref, inMe, replyOwed }: { replyHref: string | null; inMe?: boolean; replyOwed?: boolean }) => (

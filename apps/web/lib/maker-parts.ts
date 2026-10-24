@@ -358,8 +358,10 @@ export const MAKER_PARTS: Readonly<Record<MakerPartKey, MakerPartDef>> = {
   /* 🖼 The cover's photo — drawn where the cover has a hero photo and no Cover Scene background (the plate). Its
      picture is Details' "Cover photo"; here it takes Animate only — Reveal ▾ and the picture's Action ▾. */
   coverphoto: { label: 'Photo', source: 'tool', canvas: 'f:hero', el: 'photo', layouts: NONE },
-  /* The Details page's "THE DETAILS · WHEN · WHERE" block (`PublicEventDetails`) — its date and place come from the
-     booked venue, so its door is Suppliers'; its looks are the shipped event_details styles. */
+  /* The Details page's "THE DETAILS · WHEN · WHERE" block (`PublicEventDetails`). 🪪 RETIRED FROM EVERY PAGE 2026-10-24
+     (owner: "isn't this a dupe?" — `OFF_THE_PAGE`): no canvas draws its `f:details` mark any more, so the Maker never
+     offers its tile (`makerPartsTappable` offers only what the page drew). The key — and its place in
+     `MAKER_STAGE_PAGES` — stay: `at('f:details', …)` still files the Details section on its page. */
   details: { label: 'The details', source: 'supplier:date', canvas: 'f:details', layouts: scene('event_details') },
   /* The Day's "Happening now · Watch the event live →" card (`SpotlightCard`). */
   spotlight: { label: 'Happening now', source: 'tool', canvas: 'f:spotlight', layouts: NONE },

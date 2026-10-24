@@ -386,7 +386,7 @@ test('the frame and its ＋ stop in the gap — never on the neighbour’s words
 
 test('every piece the cover draws picks a part of its own (owner 2026-10-07: "every visible piece of the page must be a pickable part")', async () => {
   const { HUB_HERO_ELEMENT_KEYS } = await import('./element-style');
-  const { MAKER_PARTS, MAKER_STAGE_PAGES, makerPartOfTap, HERO_EL_INSIDE } = await import('./maker-parts');
+  const { MAKER_PARTS, MAKER_STAGE_PAGES, makerPartOfTap, makerPartsTappable, HERO_EL_INSIDE } = await import('./maker-parts');
   /* The one piece with no part yet — the cover photo's caption — is named here, so it stays visible as a gap. */
   const GAPS = ['caption'];
   for (const [stage, page] of [['save_the_date', 'home'], ['rsvp', 'home'], ['event', 'live']] as const) {
@@ -403,9 +403,13 @@ test('every piece the cover draws picks a part of its own (owner 2026-10-07: "ev
   }
   /* The two blocks that drew no marker — every tap on them was dead — now stand after one. */
   const body = read('app/[slug]/_components/site-body.tsx');
-  assert.match(body, /\{makerMark\('f:details'\)\}\s*<PublicEventDetails/, 'THE DETAILS · WHEN · WHERE is a part');
+  /* 🪪 RE-AIMED 2026-10-24: THE DETAILS · WHEN · WHERE is drawn on no page (owner, "isn't this a dupe?" —
+     `OFF_THE_PAGE`), so it has no marker and no page of the Maker lists it as a part. */
+  assert.doesNotMatch(body, /makerMark\('f:details'\)|<PublicEventDetails/, 'a retired Details block still draws');
+  /* …and so the Maker never offers its tile: only what the page drew is a tile (`makerPartsTappable`). */
+  assert.ok(!makerPartsTappable('rsvp', 'details', new Set(['w:schedule', 'w:venue_map'])).includes('details'), 'the Maker offers a tile for a block no page draws');
   assert.equal((body.match(/makerMark\('f:spotlight'\)/g) ?? []).length, 2, 'both Happening-now mounts are a part');
-  for (const [k, canvas] of [['details', 'f:details'], ['spotlight', 'f:spotlight']] as const) assert.equal(MAKER_PARTS[k].canvas, canvas);
+  for (const [k, canvas] of [['spotlight', 'f:spotlight']] as const) assert.equal(MAKER_PARTS[k].canvas, canvas);
 });
 
 test('the opening is the Cover Scene’s on every page it plays over — no Reveal tile leads a page (2026-10-16)', async () => {

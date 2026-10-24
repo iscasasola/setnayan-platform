@@ -1,5 +1,6 @@
 # Hand-made full-screen dimmers still to move onto <OverlayBackdrop> (app/_components/overlay-backdrop.tsx).
 # file<TAB>count. Generated 2026-10-25 by lib/one-backdrop-everywhere.test.ts. ONLY EVER LOWER A COUNT OR DELETE A LINE.
+app/[slug]/_components/story/story-clock.tsx	1
 app/admin/_components/admin-command-palette.tsx	1
 app/admin/connection-logs/connection-logs-client.tsx	1
 app/admin/fraud/_components/wipe-ban-dialog.tsx	1

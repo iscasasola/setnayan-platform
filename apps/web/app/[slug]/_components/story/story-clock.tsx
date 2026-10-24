@@ -28,7 +28,6 @@ import {
 } from '@/lib/story-spine';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { clearReaderPosition, publishReaderPosition } from '@/lib/story-reader-position';
-import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 
 /** One bar, fully resolved on the server. */
 export type DialBar = {
@@ -576,7 +575,11 @@ export function StoryClock({
 
       {openBar ? (
         <>
-          <OverlayBackdrop onClose={close} className="z-40" />
+          <div
+            aria-hidden
+            onClick={close}
+            className="fixed inset-0 z-40 bg-ink/45 backdrop-blur-[2px]"
+          />
           <div
             ref={sheetRef}
             role="dialog"

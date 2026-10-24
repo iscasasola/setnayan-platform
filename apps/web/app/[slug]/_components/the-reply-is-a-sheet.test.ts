@@ -390,7 +390,10 @@ test('with the bundle dead the reply card is still a reachable section', () => {
   // No door on a guest's page is a fragment link to the sheet any more; each is a plain link to the reply page,
   // which needs no script either.
   assert.ok(!BODY_CODE.includes('href="#your-details"'), 'a door on the guest page opens the sheet again — two reply forms');
-  assert.ok((BODY_CODE.match(/href=\{replyDoor\}/g) ?? []).length >= 2, 'the reply doors no longer point at the reply page');
+  // (2026-10-24, the Me redraw: Me's "Change your reply" bar left — Me's one Reply, `MeReply`, carries the page's own
+  // action, whose door is the reply page; the Welcome's line still names `replyDoor`.)
+  assert.ok((BODY_CODE.match(/href=\{replyDoor\}/g) ?? []).length >= 1, 'the reply doors no longer point at the reply page');
+  assert.match(BODY_CODE, /<MeReply ask=\{greetingAskOf\(meReplyCard\)!\}/, 'Me’s one Reply is gone');
   assert.match(BODY_CODE, /const replyDoor = inviteReplyPath\(event\.slug \?\? ''\);/);
   // …and the sheet is drawn for the Maker's canvas only.
   assert.match(BODY_CODE, /const replySheetDrawn = plan\.rsvpShouldRender && isEditorCanvas;/);

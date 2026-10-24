@@ -290,7 +290,7 @@ test('What to wear in Me: the mark rides with the `wear` part alone, right befor
   const markEl = React.createElement('span', { hidden: true, [BLOCK_MARK_ATTR]: 'look' });
   /* Her outfit is her row's women's Wear — the Studio dresses a ninang by the Principal Sponsors row (2026-10-17);
      `{}` = nothing picked for her. */
-  const look = (women: Record<string, unknown>) => ({ config: (Object.keys(women).length ? { women: { groups: { principal_sponsors: women } } } : {}) as never, ceremonyType: null, genderSeparation: null, guestRole: 'principal_sponsor_ninang' as never, march: null, rolePalette: null });
+  const look = (women: Record<string, unknown>) => ({ config: (Object.keys(women).length ? { women: { groups: { principal_sponsors: women } } } : {}) as never, ceremonyType: null, genderSeparation: null, guestRole: 'principal_sponsor_ninang' as never, /* (2026-10-24, the Me redraw: Me's role part is "Your place" — drawn for a guest who walks.) */ march: { position: 5, total: 9, partner: null, after: 'Carlos Reyes and Nena Reyes' }, rolePalette: null });
   const draw = (roles: Record<string, unknown>, wearMark: unknown, partLooks: unknown = null) =>
     renderToStaticMarkup(React.createElement(GuestMeParts as unknown as React.FC<Record<string, unknown>>, { parts: ['role', 'wear'], words: eventWordsFromProfile(WEDDING_PROFILE), look: look(roles), comingWith: [], wearMark, partLooks }));
   for (const partLooks of [null, { wear: 'card' }]) {

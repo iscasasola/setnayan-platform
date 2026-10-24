@@ -65,7 +65,10 @@ export function GuestMe({
   canAddCelebrants = false,
   celebrantActions = null,
   profileName = null,
+  plain = false,
 }: {
+  /** 🪪 The redrawn Me (owner 2026-10-24): no name of its own (Me's top says it), no cards. */
+  plain?: boolean;
   name: string;
   slug: string;
   eventId: string;
@@ -108,14 +111,18 @@ export function GuestMe({
   profileName?: { name: string; adopt: AdoptSeatName } | null;
 }) {
   return (
-    <div className="sn-hub-cards space-y-4" data-guest-me>
+    /* 🪪 `plain` — the redrawn Me (owner 2026-10-24): the name is Me's hero at its top (`MeGreeting`), so this draws no
+       name of its own, and no box on anything that is not pressed (frames only on what you press). */
+    <div className={plain ? 'space-y-8' : 'sn-hub-cards space-y-4'} data-guest-me>
       <section className="space-y-5" data-me-card="guests">
+        {plain && !profileName ? null : (
         <div className="space-y-1">
-          <p className="font-serif text-2xl leading-tight text-ink">{displayPersonName(name)}</p>
+          {plain ? null : <p className="font-serif text-2xl leading-tight text-ink">{displayPersonName(name)}</p>}
           {profileName ? (
             <UseOnProfile eventId={eventId} guestId={guestId} name={profileName.name} adopt={profileName.adopt} />
           ) : null}
         </div>
+        )}
         <YourGuests
           guests={guests}
           eventName={eventName}
@@ -132,7 +139,8 @@ export function GuestMe({
         canAdd={canAddCelebrants}
         actions={celebrantActions}
       />
-      {account ? (
+      {/* The host viewing as a guest is told "Only they can save it" in Me's slim bar's ⓘ (owner 2026-10-24). */}
+      {account && !(plain && account.kind === 'host_viewing') ? (
         <section data-me-card="account">
           <SaveToAccount
             state={account}

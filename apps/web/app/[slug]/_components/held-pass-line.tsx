@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Eye, LogOut, Undo2 } from 'lucide-react';
 import { heldPassLine, hostPreviewLine } from '@/lib/pass-account-rule';
+import { InfoTip } from '@/app/_components/info-tip';
 
 /**
  * 🪪 ONE PLAIN LINE when this browser holds an invitation that is not the signed-in viewer's (owner bug 2026-10-19 —
@@ -54,13 +55,31 @@ export function HeldPassLine({
   firstName,
   mode,
   className = '',
+  bar = false,
 }: {
   slug: string;
   firstName: string | null;
   mode: 'set_aside' | 'set_aside_host' | 'host_preview';
   className?: string;
+  /** 🪪 THE SLIM HOST BAR at the top of the redrawn Me (owner 2026-10-24): "Viewing as Indalecia ⓘ · Back to you" —
+   *  the rest ("Only they can save it to their account") inside the ⓘ. Host preview only. */
+  bar?: boolean;
 }) {
   const name = firstName?.trim() || null;
+  if (mode === 'host_preview' && bar) {
+    return (
+      <div data-held-pass="host_preview" data-held-pass-bar="" className={`text-center text-sm text-ink/70 ${className}`}>
+        <InfoTip label={`Viewing as ${name ?? 'this guest'}`} className="justify-center align-middle" labelClassName="text-ink" ariaLabel="About viewing as a guest">
+          This browser holds their invitation. Only they can save it to their account.
+        </InfoTip>
+        <div data-held-pass-actions="" className="-m-1 ml-1 inline-block align-middle">
+          <PassAction action={`/${slug}/open-as-pass`} value="back" icon={<Undo2 aria-hidden className={ICON} />}>
+            Back to you
+          </PassAction>
+        </div>
+      </div>
+    );
+  }
   if (mode === 'host_preview') {
     return (
       <div data-held-pass="host_preview" className={`text-sm text-ink/70 ${className}`}>

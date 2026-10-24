@@ -148,9 +148,10 @@ test('side_labels: a wedding has sides, a generic event and a wake do not', () =
 test('the guest page renders a side only when the event type has sides', () => {
   const body = src('app/[slug]/_components/site-body.tsx');
   assert.match(body, /const sideLabel: string \| null = !weddingOnly\.side_labels\s*\? null/, 'sideLabel must be null unless side_labels');
-  // The "You're joining us as … · <side>." sentence.
-  assert.match(body, /\{sideLabel \? \(\s*<>\s*\{' '\}·\{' '\}\s*<span className="text-ink\/80">\{sideLabel\}<\/span>/);
-  assert.doesNotMatch(body, /·\{' '\}\s*\n\s*<span className="text-ink\/80">\{sideLabel\}<\/span>\.\s*\n/, 'the side is printed unconditionally again');
+  // Me's greeting role line (2026-10-24 — it replaced the Welcome's "You're joining us as … · <side>."): its side is
+  // `sideLabel` and nothing else, and a null side draws no tail.
+  assert.match(body, /guestGreetingOf\(\{[\s\S]{0,300}?\bsideLabel,/);
+  assert.match(src('lib/guest-greeting.ts'), /const tail = input\.sideLabel\?\.trim\(\) \|\| null/, 'the side is printed unconditionally again');
 
   const widget = src('app/[slug]/_components/hideable-widget-render.tsx');
   assert.match(widget, /sideLabel: string \| null;/);

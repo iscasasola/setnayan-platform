@@ -59,11 +59,19 @@ for (const [who, props, kind] of READERS) {
     const button = /<a [^>]*data-cover-rsvp="ask"[^>]*>/.exec(head)?.[0];
     assert.ok(button, 'anti-vacuity: no RSVP button on the cover');
     const href = /href="([^"]*)"/.exec(button!)![1]!;
-    assert.equal(href, `#${COVER_RSVP_PART}`, `the cover’s button goes to ${href}, not to the page’s RSVP part`);
+    /* 🔁 2026-10-24 (owner, the Me redraw — one place): a guest's RSVP part is Me's one Reply (`#me-reply`, on the Me
+       tab — the hub shell opens that tab at it); the host's page has no Me, and keeps its card under the cover. */
+    const PART = kind === 'guest' ? 'me-reply' : COVER_RSVP_PART;
+    assert.equal(href, `#${PART}`, `the cover’s button goes to ${href}, not to the page’s RSVP part`);
     // The part is ON this page, after the cover, exactly once.
-    assert.equal(html.split(`id="${COVER_RSVP_PART}"`).length - 1, 1, 'the RSVP part is not on the page exactly once — the button leads nowhere');
-    const at = html.indexOf(`id="${COVER_RSVP_PART}"`);
+    assert.equal(html.split(`id="${PART}"`).length - 1, 1, 'the RSVP part is not on the page exactly once — the button leads nowhere');
+    const at = html.indexOf(`id="${PART}"`);
     assert.ok(at > cover.end, 'the RSVP part is not under the cover');
+    if (kind === 'guest') {
+      const meTab = html.lastIndexOf('data-hub-tab="me"', at);
+      assert.ok(meTab > cover.end, 'Me’s Reply is not on the Me tab — the shell has no tab to open at it');
+      assert.ok(!html.includes(`id="${COVER_RSVP_PART}"`), 'the Welcome still draws a second RSVP part');
+    }
     const partTag = html.lastIndexOf('<', at);
     const part = html.slice(partTag, html.indexOf('</div>', html.indexOf('</a>', at)) + 6);
     const into = /<a [^>]*href="([^"]*)"/.exec(part)?.[1];
@@ -96,7 +104,7 @@ test('the glide is mounted by the foot whenever its button is an in-page link, a
   assert.match(foot, /rsvp\.href\.startsWith\('#'\) \? <CoverRsvpGoes \/> : null/, 'the foot no longer mounts the glide for an in-page button');
   const glide = readFileSync(join(__dirname, 'cover-rsvp-goes.tsx'), 'utf8');
   // It only steps in when the part exists — otherwise the browser's own jump (or navigation) stands.
-  assert.match(glide, /if \(!part\) return;[^\n]*\n\s*e\.preventDefault\(\);/, 'the glide prevents the jump before it has found the part');
+  assert.match(glide, /if \(!part\) return;[^\n]*\n[\s\S]{0,200}?if \(part\.closest\('\[hidden\]'\)\) return;\s*e\.preventDefault\(\);/, 'the glide prevents the jump before it has found the part — or takes a part on another tab (Me’s Reply) from the shell');
   // It listens on the document, so nothing laid over the button's words can stand between the tap and the move.
   assert.match(glide, /document\.addEventListener\('click', onClick\)/);
 });

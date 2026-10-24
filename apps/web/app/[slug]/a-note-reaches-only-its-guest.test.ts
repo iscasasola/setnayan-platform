@@ -182,18 +182,20 @@ async function drawMe(who: Who, opts: { role?: string; note?: string | null } = 
       parts,
       note,
       words: WORDS,
-      look: { config: DRESSED as never, ceremonyType: null, genderSeparation: null, guestRole: role as never, march: null, rolePalette: BOARD },
+      /* (2026-10-24, the Me redraw: Me's first part is "Your place" — where they walk; the role itself is said once, at
+         the top of Me. So the fixture walks: 5th of 9, after the parents.) */
+      look: { config: DRESSED as never, ceremonyType: null, genderSeparation: null, guestRole: role as never, march: { position: 5, total: 9, partner: null, after: 'Carlos Reyes and Nena Reyes' }, rolePalette: BOARD },
       comingWith: [],
     }),
   );
 }
 
-test('③ Me: the note sits under Your role and above What to wear, headed with the couple’s names', async () => {
+test('③ Me: the note sits under Your place and above What to wear, headed with the couple’s names', async () => {
   const html = await drawMe(LISTED);
   const role = html.indexOf('data-me-part="role"');
   const note = html.indexOf('data-me-note=""');
   const wear = html.indexOf('data-me-part="wear"');
-  assert.ok(role >= 0 && wear >= 0, 'the fixture no longer draws Your role and What to wear — this test is vacuous');
+  assert.ok(role >= 0 && wear >= 0, 'the fixture no longer draws Your place and What to wear — this test is vacuous');
   assert.ok(note > role && note < wear, `the note is not between Your role and What to wear (role ${role} · note ${note} · wear ${wear})`);
   assert.match(html, /<span>A note from Jodalicca &amp; Claire<\/span>/);
   assert.match(html, /Tita, please bring the Santo Niño for the blessing\.\nSee you at the door!/);

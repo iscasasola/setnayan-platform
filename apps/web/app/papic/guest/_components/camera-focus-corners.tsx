@@ -1,6 +1,6 @@
 /**
  * 🎯 THE FOCUS CORNERS — four L-shaped corners framing the viewfinder, drawn in
- * `tint` (white for Classic and Challenges, the theme's colour for Your brand).
+ * `tint` (white on a free event, the theme's colour on a Pro event — lib/camera-dress.ts).
  * Decorative only: no hit area, nothing a screen reader reads.
  *
  * Its own file (2026-10-07) so the Maker's Camera › Style › Look miniatures

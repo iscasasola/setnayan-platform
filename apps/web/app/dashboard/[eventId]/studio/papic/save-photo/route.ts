@@ -58,7 +58,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
     .eq(idCol, id)
     .eq('event_id', eventId)
     .is('hidden_at', null)
-    .neq('moderation_state', 'nsfw_blocked')
+    .eq('moderation_state', 'clean')
     .maybeSingle();
   if (!row) return NextResponse.json({ error: 'not_found' }, { status: 404 });
 

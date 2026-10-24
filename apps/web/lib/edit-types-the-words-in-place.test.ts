@@ -255,11 +255,15 @@ test('(5) the typing bar: while a field is open the toolbar is "Typing · <part>
   /* The mark those rules read is the typed row's own, set while its field is open. */
   assert.match(read('app/_components/form-row.tsx'), /data-form-row-editing=\{editing \? '' : undefined\}/);
   /* The bar: what is typed, and Done — the app's MAIN button (the accent), 44 px. */
-  const bar = tools.slice(tools.indexOf('<div data-stage-keys=""'), tools.indexOf('<div className={STAGE_ROW}'));
-  assert.ok(bar.length > 200, 'anti-vacuity: the typing bar was not found');
-  assert.match(bar, /Typing · \{picked \? makerPartLabelOn\(stageKey, picked\) : ''\}/);
-  assert.match(bar, /<ActionButton tone="brand" main icon=\{Check\} label="Done"/, 'Done is not the app’s main button');
-  assert.equal((bar.match(/<ActionButton/g) ?? []).length, 1);
+  // It is the ONE typing band (`typing-band.tsx`, 2026-10-24), in flow, wearing `data-stage-keys`.
+  const bar = tools.slice(tools.indexOf('<TypingBand inline data-stage-keys=""'), tools.indexOf('<div className={STAGE_ROW}'));
+  assert.ok(bar.length > 80, 'anti-vacuity: the typing bar was not found');
+  assert.match(bar, /place=\{picked \? makerPartLabelOn\(stageKey, picked\) : ''\}/);
+  const band = read('app/_components/typing-band.tsx');
+  const face = band.slice(band.indexOf('function Face('), band.indexOf('/** In flow'));
+  assert.match(face, /Typing · \{place\}/);
+  assert.match(face, /<ActionButton tone="brand" main icon=\{Check\} label="Done"/, 'Done is not the app’s main button');
+  assert.equal((face.match(/<ActionButton/g) ?? []).length, 1);
   assert.equal(phoneHeightPx(SP_KEY_BAR, 812), 44);
 });
 

@@ -2,7 +2,6 @@ import { sanitizeSceneAccents, type SceneAccents } from '@/lib/art-kit-accents';
 import { NEED_PRESETS, needsColumns, needsForPreset, needsHidesStage, needsHidesStudioTile, readEventNeeds, type NeedPreset } from '@/lib/event-needs';
 import { MAKER_PAGE_STAGES } from '@/app/dashboard/[eventId]/launch/_components/maker-bar';
 import { sanitizeFixedSceneStyles, type FixedSceneStyles } from '@/lib/fixed-scene-styles';
-import { isCameraLook, type CameraLook } from '@/lib/camera-look';
 import { notFound } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { sanitizeHubCanvas, type HubSectionCanvas } from '@/lib/hub-canvas';
@@ -100,7 +99,7 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
     drafted = {};
   }
   drafted = labScrubCanvases(scrub, drafted);
-  /* 🎨 🎛 The lab's drafted part styles and camera look (set by the lab's save stand-in). */
+  /* 🎨 The lab's drafted part styles (set by the lab's save stand-in). */
   let fixedStyles: FixedSceneStyles = {};
   try {
     fixedStyles = sanitizeFixedSceneStyles(JSON.parse(decodeURIComponent((await cookies()).get('lab_styles')?.value ?? '{}')));
@@ -121,8 +120,6 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
       }
     }
   }
-  const camRaw = (await cookies()).get('lab_camera')?.value;
-  const cameraLook: CameraLook = isCameraLook(camRaw) ? camRaw : 'classic';
   /* 🧱 The lab's drafted block looks (`lab_blocks`, the stand-in for `style_preferences.block_looks`). */
   let blockLooks: Record<string, unknown> = {};
   try {
@@ -226,7 +223,6 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
       scrub={scrub}
       ownsPro={sp.pro === '1'}
       fixedStyles={fixedStyles}
-      cameraLook={cameraLook}
       blockLooks={blockLooks}
       sceneAccents={sceneAccents}
       kitTheme={labKitTheme}

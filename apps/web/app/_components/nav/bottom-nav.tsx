@@ -91,6 +91,7 @@ import { isStoreShellWebOnlyPath } from '@/lib/store-shell';
 import { useIsStoreShell } from '@/lib/use-store-shell';
 import { formatCount } from '@/lib/format-number';
 import type { ShellBoundary } from '@/app/_components/shell-boundary';
+import { useKeyboardRide } from '@/lib/keyboard-ride';
 
 type FlatProps = {
   items: BottomNavItem[];
@@ -765,6 +766,12 @@ export function BottomDock({
   useEffect(() => {
     void import('./bar-set-slide').then((m) => setSetSlide(() => m.BarSetSlide));
   }, []);
+  /* ⌨ KEYBOARD UP → BAR DOWN (owner 2026-10-24, "Yes", `prototypes/keyboard_rides_the_input_2026-10-24.html`): the
+     dock listens to the one keyboard reading (`lib/keyboard-ride.ts`) — listening is what publishes
+     `html[data-keyboard="open"]`, under which the bar slides away and cannot be focused (globals.css) — on every page
+     that has a bar, whatever field took the focus. Its clearance (`--sn-bottomdock-h`) stays ITS OWN height; a row
+     that stood on it stands on the keyboard through `--sn-ride-h` instead. */
+  useKeyboardRide();
   useEffect(() => {
     const el = dockRef.current;
     if (!el || typeof ResizeObserver === 'undefined') return;

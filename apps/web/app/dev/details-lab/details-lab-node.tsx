@@ -329,14 +329,14 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
             ? []
             : studioLab
               ? [
-                  /* A stand-in for each parent's guest card (the real one needs the database) — the sheet it opens in is the real one. */
-                  { guestId: 'lab-p1', name: 'Maria Santos', side: 'bride' as const, card: <p data-lab-guest-card="">Maria Santos’s guest card opens here (the lab has no guest list).</p> },
-                  { guestId: 'lab-p2', name: 'Jose Santos', side: 'bride' as const, card: <p data-lab-guest-card="">Jose Santos’s guest card opens here (the lab has no guest list).</p> },
-                  { guestId: 'lab-p3', name: 'Lourdes Reyes', side: 'groom' as const, card: <p data-lab-guest-card="">Lourdes Reyes’s guest card opens here (the lab has no guest list).</p> },
+                  /* The lab's parents — a tap opens THE guest card's sheet (one card everywhere, 2026-10-24); with no database its read says it could not open. */
+                  { guestId: 'lab-p1', name: 'Maria Santos', side: 'bride' as const },
+                  { guestId: 'lab-p2', name: 'Jose Santos', side: 'bride' as const },
+                  { guestId: 'lab-p3', name: 'Lourdes Reyes', side: 'groom' as const },
                 ]
               : [
-                { guestId: null, name: 'Atty. Eufrocina M. Sacdalan-Casasola', card: null },
-                { guestId: null, name: 'Mrs. Milagros Buanhog', card: null },
+                { guestId: null, name: 'Atty. Eufrocina M. Sacdalan-Casasola' },
+                { guestId: null, name: 'Mrs. Milagros Buanhog' },
               ]
         }
         pabuyaMessage={pabuyaMessage}

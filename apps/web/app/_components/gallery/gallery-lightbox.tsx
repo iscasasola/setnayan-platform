@@ -109,7 +109,8 @@ export function GalleryLightbox({
     const dy = t.clientY - s.y;
     if (!s.axis && Math.max(Math.abs(dx), Math.abs(dy)) > 10) s.axis = sideways && Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
     if (s.axis === 'x') setDragX(dx);
-    else if (s.axis === 'y') setDragY(dy > 0 ? dy : 0);
+    /* A tall card (the guest's own controls under the photo) scrolls — only a pull from its top dismisses. */
+    else if (s.axis === 'y') setDragY(dy > 0 && (dialogRef.current?.scrollTop ?? 0) <= 0 ? dy : 0);
   };
   const onTouchEnd = () => {
     if (dragY > 110) close();
@@ -133,7 +134,7 @@ export function GalleryLightbox({
         aria-modal="true"
         aria-label={label ?? (kind === 'clip' ? 'Video clip' : 'Photograph')}
         tabIndex={-1}
-        className="sn-gal-lb-card relative flex max-h-full w-full max-w-2xl flex-col overflow-hidden outline-none"
+        className="sn-gal-lb-card relative flex max-h-full w-full max-w-2xl flex-col overflow-y-auto overscroll-contain outline-none"
         style={dragY > 0 ? { transform: `translateY(${dragY}px)` } : dragX !== 0 ? { transform: `translateX(${dragX}px)` } : undefined}
         onClick={(e) => e.stopPropagation()}
         onTouchStart={onTouchStart}

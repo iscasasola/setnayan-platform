@@ -73,7 +73,7 @@ test('every Photos style draws the heading under "Our photos"; with none, not on
     assert.ok(!plain.includes('data-photos-heading'), `${sceneStyle}: no heading drawn when none was typed`);
     const out = renderToStaticMarkup(h(OurPhotosWidget, { urls, sceneStyle, heading: 'Glimpse of Us' }));
     assert.match(out, /<h2[^>]*data-photos-heading=""[^>]*>Glimpse of Us<\/h2>/, `${sceneStyle}: the heading is drawn`);
-    assert.ok(out.indexOf('Our photos') < out.indexOf('Glimpse of Us'), `${sceneStyle}: under the "Our photos" line`);
+    assert.ok(out.indexOf('Memories') < out.indexOf('Glimpse of Us'), `${sceneStyle}: under the "Memories" line`);
     assert.ok(out.indexOf('Glimpse of Us') < out.indexOf('https://m/1.jpg'), `${sceneStyle}: above the photos`);
   }
 });

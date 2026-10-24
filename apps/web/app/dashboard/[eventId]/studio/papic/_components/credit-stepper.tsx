@@ -46,12 +46,18 @@ export type StepperRung = {
 export function CreditStepper({
   rungs,
   onRungChange,
+  jump = null,
 }: {
   rungs: readonly StepperRung[];
   /** 🎨 Told the rung on screen, so the sheet can say "After this: N credits" (owner 2026-10-14). */
   onRungChange?: (rung: StepperRung) => void;
+  /** 🧮 "How many do I need?" lands the stepper on a rung (`seq` changes on every new answer); − / + still work. */
+  jump?: { index: number; seq: number } | null;
 }) {
   const [i, setI] = useState(0);
+  useEffect(() => {
+    if (jump) setI(jump.index);
+  }, [jump]);
   const liveId = useId();
   const shown = rungs[Math.min(Math.max(i, 0), rungs.length - 1)];
   useEffect(() => {

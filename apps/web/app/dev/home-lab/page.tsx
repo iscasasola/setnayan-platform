@@ -28,6 +28,8 @@
  *     [&bought=web|app] [&v11=1]     🍎 1.1: where Live Watch was bought ("On · bought on the web / in the app"),
  *                                    and the 1.1 doors — the Papic row opens its page, an owned Live Watch has Go live
  *   ?view=papic&apple=1              🍎 the Papic page's band in that app — Buy more is Apple's sheet
+ *   ?view=papic&need=1               🧮 the sheet reads its sizes AND "How many do I need?" on the tap, as the page does
+ *                                    (`papicBuySizes`) — against whatever the lab's Supabase URL answers (a walk's stub)
  *   ?view=pro                        💎 what Event Hub Pro includes (owner 2026-10-22, Host 5): the REAL
  *                                    controller offer (`resolveHubProOffer` → `HubProOffer`) and the REAL
  *                                    editor lock (`ProLockPanel`), both reading `WEBSITE_PRO_ITEMS`. No price
@@ -57,6 +59,11 @@
  *                                    2026-10-14): before the window · on · running low ·
  *                                    stopped (Next card) · no photos yet (Next card) · low on the day
  */
+import { PapicCardStripView } from '@/app/dashboard/[eventId]/_components/papic-card-strip';
+import { PapicBuySheet } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-buy-sheet';
+import { PapicCameraSettings, PapicSwitch } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-camera-settings';
+import { papicCardPhase, papicCoverageWords } from '@/lib/papic-home-card';
+import type { PapicCardInput } from '@/app/dashboard/[eventId]/_components/home-first-screen';
 import { LabShell } from '@/app/dev/_components/lab-shell';
 import { labEventBar } from '@/app/dev/bar-lab/lab-event';
 import { DayOfModeGrid } from '@/app/dashboard/[eventId]/_components/day-of-mode/grid';
@@ -72,8 +79,7 @@ import type { ForTag } from '@/lib/for-tag';
 import { notFound } from 'next/navigation';
 import { NEED_PRESETS, needsColumns, needsForPreset, readEventNeeds, switchOnRows, type NeedPreset } from '@/lib/event-needs';
 import { DayPapicRow, HomeFirstScreen, YourServices } from '@/app/dashboard/[eventId]/_components/home-first-screen';
-import { HomeWhatsNext } from '@/app/dashboard/[eventId]/_components/home-parts';
-import { getNavSlotMap } from '@/lib/nav-registry';
+import { fixtureControl, fixtureControlUnread, fixturePays } from '@/lib/home-control-fixture';
 import { resolveSiteNav } from '@/app/[slug]/_lib/site-nav';
 import { STAGE_BAR } from '@/app/[slug]/_lib/stage-bar';
 import { SiteMenuBar } from '@/app/[slug]/_components/site-menu-bar';
@@ -93,9 +99,7 @@ import {
   HOME_PAID_SKU,
   aiStatus,
   dayPapicFace,
-  glanceCount,
   glanceDays,
-  glanceMoney,
   homeServices,
   pickHomeNext,
   type HomeNextInput,
@@ -164,10 +168,42 @@ const STATES: Record<string, HomeNextInput> = {
   plan: { guide: null, hasDate: true, guests: DONE_GUESTS, noun: 'wedding', papicReady: false, aiOffer: false },
 };
 
+/* 📷 PAPIC'S CARD (owner 2026-10-23, "expanding opens the rest of the settings under it") — `?card=1[&cardphase=before|live|after]`:
+   the REAL card and coverage words on fixture dates, a strip of fixture frames (the real view), and the REAL camera
+   settings (in a lab with no database they say "couldn't load" — the failed-read state, drawn as it ships). */
+function labPapicCard(eventId: string, phase: string | undefined, failed: boolean): PapicCardInput {
+  const startIso = '2026-12-10T16:00:00.000Z';
+  const endIso = '2026-12-13T04:00:00.000Z';
+  const now = phase === 'after' ? Date.parse('2026-12-14T02:00:00Z') : phase === 'live' ? Date.parse('2026-12-12T06:00:00Z') : Date.parse('2026-10-23T02:00:00Z');
+  const ph = papicCardPhase(startIso, endIso, now);
+  const tones = [['#D7B77C', '#9A7A3C'], ['#B9856A', '#6F4A33'], ['#E2D59C', '#A7A14B'], ['#6E8296', '#2E3F50'], ['#B8788D', '#6D3F50']];
+  const frames = tones.map(([a, b], i) => ({
+    id: `f${i}`,
+    url:
+      'data:image/svg+xml;utf8,' +
+      encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${a}"/><stop offset="1" stop-color="${b}"/></linearGradient></defs><rect width="160" height="160" fill="url(#g)"/></svg>`),
+  }));
+  return {
+    coverage: papicCoverageWords({ startIso, endIso, now }),
+    phase: ph,
+    strip: <PapicCardStripView eventId={eventId} frames={failed ? null : ph === 'before' ? [] : frames} total={failed ? null : ph === 'before' ? 0 : 1284} phase={ph} />,
+    thankYouHref: '#thank-you',
+    headControl: <PapicSwitch eventId={eventId} saved />,
+    settings: (
+      <PapicCameraSettings
+        eventId={eventId}
+        seat="home"
+        credits={{ total: failed ? null : 2000, left: failed ? null : 1240 }}
+        buy={<PapicBuySheet eventId={eventId} left={failed ? null : 1240} tone="brand" main label="Add more" />}
+      />
+    ),
+  };
+}
+
 export default async function HomeLab({
   searchParams,
 }: {
-  searchParams: Promise<{ bought?: string; v11?: string; proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string; shell?: string; paid?: string; order?: string; spot?: string; face?: string; before?: string; type?: string; phase?: string; for?: string; one?: string }>;
+  searchParams: Promise<{ bought?: string; v11?: string; proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string; shell?: string; paid?: string; order?: string; spot?: string; face?: string; before?: string; type?: string; phase?: string; for?: string; one?: string; card?: string; cardphase?: string; open?: string; need?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
@@ -298,7 +334,7 @@ export default async function HomeLab({
     const band = (
       <div className="min-h-screen bg-cream px-4 pb-6 pt-3">
         <div className="mx-auto flex max-w-xl flex-col gap-7">
-          <PapicTopBand eventId={E} glance={papicNow} canBuy sizes={LAB_SIZES} apple={q.apple === '1'} />
+          <PapicTopBand eventId={E} glance={papicNow} canBuy sizes={q.need === '1' ? undefined : LAB_SIZES} apple={q.apple === '1'} />
         </div>
       </div>
     );
@@ -384,7 +420,15 @@ export default async function HomeLab({
   const input0: HomeNextInput = unread ? { ...base, guide: null, guests: null } : base;
   const input: HomeNextInput = labNeeds ? { ...input0, needs: labNeeds } : input0;
   const next = pickHomeNext(input);
-  const slots = await getNavSlotMap().catch(() => null);
+  /* 🎛 The control row on the prototype's own sample (`lib/home-control-fixture.ts`, the guards' own fixture) — with
+     the unread states the page hands over when its reads fail, and the lab's own days / coming / no reply / money. */
+  const days = glanceDays(F.days);
+  const labControl = (unread ? fixtureControlUnread : fixtureControl)(E, {
+    next,
+    countdown: { value: days.value, label: days.label, days: F.days ?? null, hasDate: days.value !== '—', long: 'Saturday, December 12, 2026', placeLine: 'Tagaytay' },
+    ...(labNeeds?.guestList === false ? { guests: null } : unread ? {} : { guests: { coming: F.coming, noReply: F.noReply, toInvite: 35, declined: 4, total: 131 } }),
+    ...(q.hidden === '1' ? { budget: null } : unread ? {} : { budget: { paidPhp: F.paid, owingPhp: F.owing, pays: fixturePays() } }),
+  });
   const home = (
     /* The EVENT LAYOUT's own gutter (`app/dashboard/[eventId]/layout.tsx` — px-4 · sm:px-6 · lg:px-8, pt-3 ·
        sm:pt-6): the cover band cancels exactly that gutter to run edge to edge, so a lab that pads by less draws
@@ -395,36 +439,11 @@ export default async function HomeLab({
         eventId={E}
         cover={{ eyebrow: F.eyebrow, name: F.name, ...(labForWho ? { forWho: labForWho } : {}) }}
         next={next}
-        days={glanceDays(F.days)}
-        coming={glanceCount(F.coming, !unread)}
-        noReply={glanceCount(F.noReply, !unread)}
-        noReplyWaiting={!unread}
-        figures={{
-          days: F.days,
-          coming: unread ? null : F.coming,
-          noReply: unread ? null : F.noReply,
-          money: q.hidden === '1' ? null : unread ? 'unread' : { paid: F.paid, owing: F.owing },
-        }}
-        navSlots={slots}
+        control={labControl}
         needs={labNeeds ? { ...labNeeds, switchOn: switchOnRows(labNeeds, { marketplace: true }) } : null}
-        whatsNext={
-          <HomeWhatsNext
-            open={3}
-            rows={[
-              { id: 'b', title: 'Book a supplier', sub: 'Catering · 2 quotes in', href: `/dashboard/${E}/vendors`, verb: 'book', cta: 'Book' },
-              { id: 'p', title: 'Settle a payment', sub: 'Seda Vertis North · first payment · by Oct 5', href: `/dashboard/${E}/vendors`, verb: 'pay', cta: 'Pay' },
-              { id: 'r', title: 'Fill a role', sub: 'Emcee · nobody picked yet', href: `/dashboard/${E}/guests`, verb: 'role', cta: 'Pick' },
-            ]}
-            checklist={{ href: `/dashboard/${E}/checklist`, pct: 47 }}
-          />
-        }
-        money={
-          q.hidden === '1'
-            ? null
-            : { paid: glanceMoney(unread ? null : F.paid), owing: glanceMoney(unread ? null : F.owing) }
-        }
         papicLeft={papicNow.count}
         papicSizes={LAB_SIZES}
+        papicCard={q.card === '1' ? labPapicCard(E, q.cardphase, q.fail === '1' || q.unread === '1') : null}
         apple={
           q.store === '1' && q.apple === '1'
             ? {

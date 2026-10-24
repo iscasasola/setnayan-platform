@@ -238,7 +238,7 @@ export function GuestHubBar({
           {/* Bottom-right: the guest's photos ("Photos of you"). */}
           <Link
             href={galleryHref}
-            aria-label="Photos of you"
+            aria-label="Memories of you"
             className="relative inline-flex h-[3.25rem] w-[3.25rem] flex-col items-center justify-center gap-0.5 rounded-2xl border border-ink/10 bg-cream/95 text-ink shadow-lg backdrop-blur transition hover:border-terracotta hover:text-terracotta-700"
           >
             <Images aria-hidden className="h-5 w-5" strokeWidth={1.75} />
@@ -510,7 +510,7 @@ export function GuestMeSection({
               className="relative inline-flex items-center gap-2 rounded-2xl border border-ink/10 bg-cream px-4 py-3 text-sm font-medium text-ink shadow-sm transition hover:border-terracotta hover:text-terracotta-700"
             >
               <Images aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-              <span>Photos of you</span>
+              <span>Memories of you</span>
               {galleryCount > 0 ? (
                 <span className="inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-terracotta-700 px-1.5 text-[0.65rem] font-semibold leading-5 text-cream">
                   {galleryCount > 99 ? '99+' : formatCount(galleryCount)}

@@ -23,7 +23,9 @@
  *   /dev/bar-lab/dashboard/ev-lab        an event (Home)
  *   /dev/bar-lab/dashboard/ev-lab/memories  the event's Memories tab (owner 2026-10-23) — the REAL
  *                                        `EventMemoriesGallery` on fixture photos (inline pictures, nothing fetched):
- *                                        ?n=<count> (default 60) · ?empty=1 · ?fail=1
+ *                                        ?n=<count> (default 60) · ?empty=1 · ?fail=1 · ?guest=1 (not the host)
+ *                                        Every album has fixtures: Papic (some screened / reported / hidden), Challenges
+ *                                        (3 challenges, one a supplier's), Event Hub (4 files), Suppliers, Your uploads.
  *
  *   ?shop=0   an account that owns no shop (four tabs, no Shop)
  *
@@ -44,6 +46,7 @@ import { LabBar } from '../lab-bar';
 import { labEventBar } from '../lab-event';
 import { EventMemoriesGallery } from '@/app/_components/memories/event-memories-gallery';
 import type { GalleryPhoto } from '@/lib/papic-gallery';
+import type { MemoriesChallenge, MemoriesItem } from '@/lib/event-memories';
 
 export const dynamic = 'force-dynamic';
 
@@ -78,6 +81,34 @@ function labPhoto(i: number): GalleryPhoto {
     capturedAt: new Date(Date.UTC(2026, 11, 12, 12, 0) - i * 240_000).toISOString(),
     capturedBy: WHO[i % WHO.length] ?? null,
   };
+}
+
+const LAB_CHALLENGES: MemoriesChallenge[] = [
+  { id: 'ch-1', title: 'Dance with the oldest guest', supplier: null },
+  { id: 'ch-2', title: 'Your table, all in one frame', supplier: null },
+  { id: 'ch-3', title: 'A polaroid with the props', supplier: 'Lumen Studio' },
+];
+const HUB_USES = ['Cover photo', 'Background', 'Love story', 'Our photos'];
+/** A fixture file for every album: the photo's number decides its source, its mark and its challenge. */
+function labItem(i: number): MemoriesItem {
+  const p = labPhoto(i);
+  const vendor = p.source === 'vendor';
+  const uploads = !vendor && i % 13 === 7;
+  return {
+    ...p,
+    largeUrl: p.url,
+    memSource: vendor ? 'suppliers' : uploads ? 'uploads' : 'papic',
+    look: i === 1 || i === 9 ? 'screened' : i === 4 ? 'reported' : i === 6 ? 'hidden' : 'ok',
+    table: vendor ? 'vendor_papic_captures' : uploads ? 'papic_photos' : 'papic_guest_captures',
+    challengeId: !vendor && !uploads && i % 5 === 2 ? LAB_CHALLENGES[(i / 5) % 3 | 0]!.id : null,
+    hubUse: null,
+    guestId: vendor ? null : `g-${i}`,
+    vendorProfileId: vendor ? 'vp-lumen' : null,
+  };
+}
+function labHub(i: number): MemoriesItem {
+  const p = labPhoto(100 + i);
+  return { ...p, id: `hub-${i}`, largeUrl: p.url, capturedBy: HUB_USES[i]!, memSource: 'hub', look: 'ok', table: 'hub', challengeId: null, hubUse: HUB_USES[i]!, downloadUrl: p.url };
 }
 
 function Cards({ title, links }: { title: string; links: { href: string; label: string }[] }) {
@@ -167,13 +198,19 @@ export default async function BarLab({
               <main className="sn-vt-page">
                 <div data-shell-main="" className="px-4 pt-3 sm:px-6 sm:pt-6 lg:px-8">
                   <EventMemoriesGallery
-                    photos={photos}
-                    countLine={sp.fail === '1' ? null : `${n.toLocaleString('en-PH')} ${n === 1 ? 'photo' : 'photos'}`}
+                    eventId={EVENT}
+                    items={sp.fail === '1' ? [] : [...photos.map((_, i) => labItem(i)), ...(n ? [0, 1, 2, 3].map(labHub) : [])]}
+                    host={sp.guest !== '1'}
+                    challenges={LAB_CHALLENGES}
+                    chapters={null}
+                    totals={{ all: sp.fail === '1' ? null : n + (n ? 4 : 0), papic: null }}
                     footLine="opens in 51 days"
                     cappedLine={null}
                     emptyLine="Your photos land here as your guests and suppliers shoot."
                     unreadable={sp.fail === '1'}
                     timeZone="Asia/Manila"
+                    addPhotos={<p className="text-sm text-ink/65">The uploader opens here (a lab has no camera seat).</p>}
+                    suppliers={[{ vendorProfileId: 'vp-lumen', vendorRowId: 'v-lumen', name: 'Lumen Studio', hidden: false }]}
                   />
                 </div>
               </main>

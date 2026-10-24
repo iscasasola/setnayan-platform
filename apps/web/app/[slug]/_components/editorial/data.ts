@@ -135,7 +135,7 @@ const SERVICE_LABELS: Record<string, string> = {
   // LIVE_BACKGROUND removed 2026-08-11 with the LED wall backdrop itself. No
   // order was ever placed under it, so no "Powered by" label loses its name.
   STD_PREMIUM_OPENINGS: 'Cinematic Reveal',
-  LIVE_WALL: 'Live Photo Wall',
+  LIVE_WALL: 'Memory lane',
   PAKANTA: 'Music Maker',
   PANOOD_SYSTEM: 'Live Watch',
   PAPIC_ADDON_STORIES: 'Guest Stories',

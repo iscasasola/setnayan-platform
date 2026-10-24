@@ -198,7 +198,8 @@ export type TourKey =
   | 'customer_papic_v2'
   | 'customer_seat_plan_v2'
   | 'customer_mood_board_v1'
-  | 'customer_memories_v1';
+  | 'customer_memories_v1'
+  | 'customer_home_widgets_v1';
 
 export const TOUR_KEYS: ReadonlyArray<TourKey> = [
   'couple_welcome_v1',
@@ -251,6 +252,7 @@ export const TOUR_KEYS: ReadonlyArray<TourKey> = [
   'customer_seat_plan_v2',
   'customer_mood_board_v1',
   'customer_memories_v1',
+  'customer_home_widgets_v1',
 ];
 
 export type TourDefinition = {
@@ -300,7 +302,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       {
         Icon: PartyPopper,
         title: 'The Day',
-        body: 'From noon the day before, the Day-of card shows you the timeline, lets you reach your coordinator, and surfaces the photo wall. Your guests get the same view, scoped to their seat + role.',
+        body: 'From noon the day before, the Day-of card shows you the timeline, lets you reach your coordinator, and surfaces Memory lane. Your guests get the same view, scoped to their seat + role.',
       },
     ],
   },
@@ -354,7 +356,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       {
         Icon: PartyPopper,
         title: 'On the day, come back here',
-        body: 'From one hour before the event, this same page shows you the live schedule, your table number, and (if enabled) the photo wall where everyone shares snaps.',
+        body: 'From one hour before the event, this same page shows you the live schedule, your table number, and (if enabled) Memory lane where everyone shares snaps.',
       },
     ],
   },
@@ -498,7 +500,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       },
       {
         Icon: Images,
-        title: 'Photos of you',
+        title: 'Memories of you',
         body: 'When someone takes a photo you are in, it shows up here, in the order the day happened.',
       },
       {
@@ -1533,19 +1535,22 @@ export const TOURS: Record<TourKey, TourDefinition> = {
           go: true,
         },
         {
-          // 👋 The once-only welcome — rings the same Next card the step after it explains (P4 → P5).
-          anchor: 'home-next',
+          // 👋 The once-only welcome — rings the same control row the step after it explains (P4 → P5). The Next card
+          // it rang is gone (owner-approved 2026-10-24); the Today line is the Home page tour's own first stop, so the
+          // journey rings the widgets (a page tour never repeats a journey stop — `the-host-page-tours-land.test.ts`).
+          anchor: 'home-tiles',
           title: 'Welcome, {name}',
-          body: 'Your first event is made. The Next card always shows the one thing to do next.',
+          body: 'Your first event is made. Every part of it has a tile here.',
           welcome: true,
         },
         {
-          anchor: 'home-next',
+          anchor: 'home-tiles',
           title: 'Start here, every time',
-          body: 'The Next card always shows the one thing to do next.',
+          body: 'Each tile opens its page at the exact thing to do. Today, on top, names the one to start with.',
         },
         {
-          anchor: 'home-launch',
+          // The Event Hub door left Home with the three pills (owner 2026-10-23); the bar's Event Hub tab is the way in.
+          anchor: 'tab-launch',
           title: 'Your Event Hub',
           body: 'Tap words on the page to type over them. Your guests see nothing until you press Apply.',
         },
@@ -1594,7 +1599,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         {
           anchor: 'day-live',
           title: 'Your event day',
-          body: 'Announcements, the photo wall and what is happening now — all from here.',
+          body: 'Announcements, Memory lane and what is happening now — all from here.',
         },
         {
           anchor: 'day-planning',
@@ -1752,7 +1757,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
   customer_papic_v2: {
     key: 'customer_papic_v2',
     label: 'Papic — first visit',
-    blurb: 'The band, the days, the one shared code and the library — no price in any step.',
+    blurb: 'The band, the days and the camera’s settings — no price in any step.',
     slides: [],
     spotlight: {
       steps: [
@@ -1768,14 +1773,11 @@ export const TOURS: Record<TourKey, TourDefinition> = {
           body: 'Choose when the cameras can shoot. They can start before the day itself, so they catch the preparations too.',
         },
         {
-          anchor: 'papic-qrs',
-          title: 'One code for everyone',
-          body: 'Print it or show it at the door — each scan turns a phone into a camera. Every guest’s invite QR is a camera too, and every shot comes out of one shared pot of credits.',
-        },
-        {
-          anchor: 'papic-library',
-          title: 'Everything lands in your library',
-          body: 'Filter by “Photos of us”, save any shot to your phone, or download everything at once. Guests find the photos they are in, too.',
+          // (The one shared code moved to Home › Settings › How guests get in, and the library to Memories —
+          //  owner 2026-10-23, Papic is the camera. This page's last stop is the camera's own settings.)
+          anchor: 'papic-settings',
+          title: 'Your camera, your rules',
+          body: 'Pick the filter, set challenges and choose face tagging. The photos land in Memories, and each guest’s camera is on their guest card.',
         },
       ],
       finale: {
@@ -1786,10 +1788,44 @@ export const TOURS: Record<TourKey, TourDefinition> = {
     },
   },
   /* 🖼 AN EVENT'S MEMORIES — the event bar's fifth tab (owner 2026-10-23). A new feature gets its first-visit tour. */
+  // 🎛 HOME — A CONTROL CENTER (owner-approved 2026-10-24, `home_control_center_2026-10-24_fable.html`: "one spotlight
+  // tour on the Today strip", drawn as step 1 of 3 → the tiles → Your services). The same key PR-C opened for Home's
+  // service cards (not yet merged when this replaced its steps — nobody has seen the old three). No price.
+  customer_home_widgets_v1: {
+    key: 'customer_home_widgets_v1',
+    label: 'Home — first visit',
+    blurb: 'Today, the parts of your event, and your services — on one screen.',
+    slides: [],
+    spotlight: {
+      steps: [
+        {
+          anchor: 'home-today',
+          hint: 'Press Next',
+          title: 'Today',
+          body: 'The one thing to do now. Tap it and Home jumps to that tile.',
+        },
+        {
+          anchor: 'home-faces',
+          title: 'More on every tile',
+          body: 'Swipe a tile to see its other counts — they turn by themselves too. Tap one to open that exact item.',
+        },
+        {
+          anchor: 'home-services',
+          title: 'Your services',
+          body: 'Tap one to open its controls right here — Home moves down. Tap its head to fold it.',
+        },
+      ],
+      finale: {
+        title: 'You’re set 🎉',
+        body: 'Home always starts with Today.',
+        button: 'Done',
+      },
+    },
+  },
   customer_memories_v1: {
     key: 'customer_memories_v1',
     label: 'Memories — first visit',
-    blurb: 'This event’s photos edge to edge, the pinch that changes the columns, and the search.',
+    blurb: 'This event’s photos edge to edge, the albums, and the search.',
     slides: [],
     spotlight: {
       steps: [
@@ -1800,14 +1836,14 @@ export const TOURS: Record<TourKey, TourDefinition> = {
           body: 'The photos and clips of this event that are yours to see. Pinch to see more at once — or one large.',
         },
         {
-          anchor: 'memories-count',
-          title: 'Counted for you',
-          body: 'How many are here so far — and, under the photos, when the cameras open or close.',
+          anchor: 'memories-albums',
+          title: 'Albums',
+          body: 'Papic, the challenges, your Event Hub’s own pictures, your suppliers’ and your own uploads — one at a time, or All.',
         },
         {
           anchor: 'memories-search',
           title: 'Find a photo',
-          body: 'Type who took it, and only their photos stay.',
+          body: 'Type who took it, a challenge, or a place on your Event Hub.',
         },
       ],
       finale: {

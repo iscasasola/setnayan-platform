@@ -361,6 +361,9 @@ export const DASHBOARD_ROW_CARRIES = [
   'papic_on',
   'papic_window_start',
   'papic_window_end',
+  // Home's control row (owner-approved 2026-10-24): the Countdown's place, and when the Invitation page opens.
+  'venue_name',
+  'std_invitation_launch_date',
   // The head count the Suppliers and Budget tabs plan for (`readFinalizeState`, lib/pax.ts).
   'headcount_basis',
   'guest_count_locked_at',

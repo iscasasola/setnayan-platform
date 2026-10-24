@@ -1,21 +1,18 @@
 /**
- * GUARD — HOME'S DESKTOP GRID IS READ IN THE ORDER IT IS SEEN.
+ * GUARD — HOME IS READ IN THE ORDER IT IS SEEN (2026-10-23; RE-AIMED 2026-10-24 to the control center).
  *
- * Owner 2026-10-23, "shouldn't home, guests and suppliers maximize the width as well?" → yes. From 1024 Home's top
- * splits into two columns (`globals.css`, "HOME AT FULL WIDTH, TWO COLUMNS"). A CSS grid can draw a piece anywhere,
- * but a screen reader and the Tab key still follow the page's own order. So a piece placed above one that comes
- * before it in the page reads out of order. Review of #6858: the three doors and the one QR, which come early in
- * the page, were drawn under the split.
+ * A CSS grid can draw a piece anywhere, but a screen reader and the Tab key follow the page's own order — so a piece
+ * placed above one that comes before it in the page reads out of order (review of #6858). The control center
+ * (owner-approved `home_control_center_2026-10-24_fable.html`) gets its order from the DOM alone, never from placement:
  *
- * The property:
- *   1. Every top piece of Home's column has an explicit place (a column and a row) from 1024. None is left to
- *      auto-placement.
- *   2. Read column by column (the left column top to bottom, then the right, then the full-width rows), the places
- *      give exactly the page's order of those pieces in `home-first-screen.tsx`.
- *   3. The grid exists only from 1024, so the phone and the tablet keep their one flex column.
+ *   1. COMPACT (below md): the tiles sit in the grid in the order drawn — Countdown / Guests · Event Hub / Suppliers ·
+ *      Checklist / Budget — row by row, which IS the reading order (no `order`, no `grid-row`).
+ *   2. DETAIL (from md): two independent stacks, drawn column by column — Countdown · Event Hub · Budget, then Guests ·
+ *      Suppliers · Checklist — so Tab walks the left column, then the right, exactly as the eye does.
+ *   3. No Home piece is placed by `grid-column` / `grid-row` / `order` at any width — the old ≥1024 placement block is
+ *      gone with the pieces it placed (Next card · numbers · money · What's next).
  *
- * Sabotage (2026-10-23): What's next back to `grid-column: 1; grid-row: 2` (2 red); the doors' rule removed (1 red);
- * the grid rule moved out of its media query (3 red).
+ * Sabotage (2026-10-24): swap Budget and Checklist in the detail columns (2 red); add `order: 2` to `.hc-tile` (3 red).
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -23,71 +20,38 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
+import { drawHome, loadHome, slice } from './home-render.harness';
 
+test.before(loadHome);
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = join(HERE, '..', '..', '..');
 const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
-
 const CSS = read('app/globals.css');
-const HOME = read('app/dashboard/[eventId]/_components/home-first-screen.tsx');
-const PARTS = read('app/dashboard/[eventId]/_components/home-parts.tsx');
+const order = (html: string, marker: string) => [...html.matchAll(new RegExp(`${marker}="([a-z]+)"`, 'g'))].map((m) => m[1]);
 
-/** The top pieces, each with the source token that places it in the page and the marker its root wears. */
-const PIECES: Array<{ marker: string; token: RegExp }> = [
-  { marker: 'data-home-next', token: /marker="data-home-next"/ },
-  { marker: 'data-home-doors', token: /<HomeDoorways\b/ },
-  { marker: 'data-home-one-qr', token: /data-home-one-qr=""/ },
-  { marker: 'data-home-numbers', token: /data-home-numbers\b/ },
-  { marker: 'data-home-money', token: /data-home-money\b/ },
-  { marker: 'data-home-whats-next', token: /\{whatsNext \?\?/ },
-];
-
-/** The ≥1024 block that holds Home's grid. */
-function deskBlock(): string {
-  const at = CSS.search(/@media \(min-width: 1024px\) \{\s*\[data-home-column\] \{/);
-  assert.ok(at >= 0, 'Home has no desktop grid block');
-  const end = CSS.indexOf('\n}\n', at);
-  return CSS.slice(at, end);
-}
-
-function placeOf(block: string, marker: string): { col: string; row: number } | null {
-  const m = new RegExp(`\\[data-home-column\\] > \\[${marker}\\] \\{\\s*grid-column:\\s*([^;]+);\\s*grid-row:\\s*(\\d+);\\s*\\}`).exec(block);
-  return m ? { col: m[1]!.trim(), row: Number(m[2]) } : null;
-}
-
-test('1 · every top piece of Home has an explicit place from 1024', () => {
-  const block = deskBlock();
-  for (const p of PIECES) assert.ok(placeOf(block, p.marker), `${p.marker} is left to auto-placement — it lands wherever the grid finds room`);
-  // The markers are on the pieces' ROOTS (a grid places only its direct children).
-  assert.match(PARTS, /<div ref=\{row\} className="home-doors" data-home-doors=""/, 'the doors’ root lost its marker');
-  assert.match(PARTS, /<div className=\{`home-sec\$\{open \? ' open' : ''\}`\} data-home-whats-next="">/, 'What’s next’s root lost its marker');
+test('1 · the phone reads the tiles row by row, in the order drawn', () => {
+  const html = drawHome();
+  const compact = slice(html, 'data-home-control="compact"', ['data-home-control="detail"']);
+  assert.deepEqual(order(compact, 'data-home-tile'), ['count', 'guests', 'hub', 'sup', 'plan', 'budget']);
 });
 
-test('2 · read column by column, the places are the page’s own order', () => {
-  const block = deskBlock();
-  const pageOrder = [...PIECES].sort((a, b) => HOME.search(a.token) - HOME.search(b.token)).map((p) => p.marker);
-  for (const p of PIECES) assert.ok(HOME.search(p.token) >= 0, `${p.marker}: not found in home-first-screen.tsx`);
-  const key = (m: string) => {
-    const at = placeOf(block, m)!;
-    const span = at.col === '1 / -1';
-    return [span ? 1 : 0, span ? at.row : Number(at.col), at.row];
-  };
-  const seen = [...pageOrder].sort((a, b) => {
-    const [x, y] = [key(a), key(b)];
-    return x[0]! - y[0]! || x[1]! - y[1]! || x[2]! - y[2]!;
-  });
-  assert.deepEqual(seen, pageOrder, 'the grid draws a piece before one that comes earlier in the page — Tab and a screen reader jump');
-  // …and the full-width rows sit below every split row.
-  const splitRows = pageOrder.filter((m) => placeOf(block, m)!.col !== '1 / -1').map((m) => placeOf(block, m)!.row);
-  const spanRows = pageOrder.filter((m) => placeOf(block, m)!.col === '1 / -1').map((m) => placeOf(block, m)!.row);
-  for (const r of spanRows) assert.ok(r > Math.max(...splitRows), `a full-width row (${r}) is drawn inside the split`);
-  // Everything after the top pieces (Your services, Switch on more) is auto-placed after them, in page order.
-  const last = Math.max(...PIECES.map((p) => HOME.search(p.token)));
-  assert.ok(HOME.search(/<YourServices\b/) > last, 'Your services comes before a placed piece in the page');
+test('2 · from md, the two columns are read column by column, as seen', () => {
+  const html = drawHome();
+  const detail = slice(html, 'data-home-control="detail"', ['data-home-services']);
+  const cols = detail.split('class="hc-col"').slice(1);
+  assert.equal(cols.length, 2, 'the detail version is not two columns');
+  assert.deepEqual(order(cols[0]!, 'data-home-card-key'), ['count', 'hub', 'budget'], 'the left column');
+  assert.deepEqual(order(cols[1]!, 'data-home-card-key'), ['guests', 'sup', 'plan'], 'the right column');
+  // The Today line comes first, the services after the control row.
+  assert.ok(html.indexOf('data-home-today=') < html.indexOf('data-home-control="compact"'), 'Today is not first');
+  assert.ok(html.indexOf('data-home-control="detail"') < html.indexOf('data-home-services'), 'Your services come before the control row');
 });
 
-test('3 · the grid exists only from 1024 — the phone and tablet keep one flex column', () => {
-  const outside = CSS.replace(deskBlock(), '');
-  assert.doesNotMatch(outside, /\[data-home-column\]\s*\{[^}]*display:\s*grid/, 'Home is a grid below 1024');
-  assert.doesNotMatch(outside, /\[data-home-column\] > \[data-home-[a-z-]+\]\s*\{[^}]*grid-(column|row)/, 'a Home piece is placed below 1024');
+test('3 · no Home piece is placed out of the page order, at any width', () => {
+  assert.doesNotMatch(CSS, /\[data-home-column\] > \[data-home-[a-z-]+\][^{]*\{[^}]*grid-(column|row)/, 'a Home piece is placed by the grid');
+  for (const rule of [...CSS.matchAll(/\.(hc-[a-z-]+)[^{]*\{([^}]*)\}/g)]) {
+    assert.doesNotMatch(rule[2]!, /(^|;|\s)order\s*:/, `.${rule[1]} reorders what the page says`);
+    assert.doesNotMatch(rule[2]!, /grid-row\s*:/, `.${rule[1]} places a widget on a row`);
+  }
+  assert.doesNotMatch(CSS, /@media \(min-width: 1024px\) \{\s*\[data-home-column\] \{/, 'the old desktop placement block is back');
 });

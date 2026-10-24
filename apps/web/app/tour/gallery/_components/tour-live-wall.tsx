@@ -80,13 +80,13 @@ export function TourLiveWall({
 
   return (
     <section
-      aria-label="Live photo wall"
+      aria-label="Memory lane"
       className="rounded-2xl border border-[#A9834B]/40 bg-[#FBF8F1] p-5 shadow-sm sm:p-6"
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="inline-flex items-center gap-2 font-mono text-xs uppercase tracking-[0.2em] text-[#8C6932]">
           <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#1B1A17]" />
-          Live from the event
+          Memory lane
         </p>
         {count > 0 ? (
           <p className="text-xs text-[#5F5E5A]">

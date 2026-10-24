@@ -749,7 +749,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
         slug: 'how-papic-tagging-works',
         title: 'How do my photos get matched to the right guests?',
         appBody: HELP_NOT_IN_THE_APP,
-        body: "Two ways, both automatic. (1) Face matching: guests who add a selfie are recognized in candid shots, and those photos appear in their 'Photos of you'. (2) QR scan: your crew can scan a guest's invitation QR or a table sign to mark who's in a shot. Either way, every photo reaches your Memories — tagged or not. Face matching is private and per-wedding: a guest's face data is never shared or reused across events, and it only works with the guest's consent.",
+        body: "Two ways, both automatic. (1) Face matching: guests who add a selfie are recognized in candid shots, and those photos appear in their 'Memories of you'. (2) QR scan: your crew can scan a guest's invitation QR or a table sign to mark who's in a shot. Either way, every photo reaches your Memories — tagged or not. Face matching is private and per-wedding: a guest's face data is never shared or reused across events, and it only works with the guest's consent.",
       },
       {
         slug: 'find-download-papic-photos',
@@ -767,13 +767,13 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
         slug: 'add-your-face',
         title: 'Guest: how do I make sure I get my photos? (add your face)',
         appBody: HELP_NOT_IN_THE_APP,
-        body: "When you RSVP, tap 'Add your photo' and take one selfie (you'll be asked to agree first — it's optional). That lets the candid photos of you find their way to you automatically, under 'Photos of you' on your page. On the wedding day you can also add it from the 'Add your face' card if you skipped it. No selfie? You'll still get any photo where the crew scans your invitation QR.",
+        body: "When you RSVP, tap 'Add your photo' and take one selfie (you'll be asked to agree first — it's optional). That lets the candid photos of you find their way to you automatically, under 'Memories of you' on your page. On the wedding day you can also add it from the 'Add your face' card if you skipped it. No selfie? You'll still get any photo where the crew scans your invitation QR.",
       },
       {
         slug: 'photos-of-you',
         title: "Guest: where do I find the photos I'm in?",
         appBody: HELP_NOT_IN_THE_APP,
-        body: "On the wedding day (from about an hour before it starts), open your personal invitation page and look for 'Photos of you — so far'. As the crew and guests shoot, the photos you're in collect there through the day — and they're yours to keep afterward. You show up there once you've added a selfie, or once someone scans your invitation QR onto a photo.",
+        body: "On the wedding day (from about an hour before it starts), open your personal invitation page and look for 'Memories of you — so far'. As the crew and guests shoot, the photos you're in collect there through the day — and they're yours to keep afterward. You show up there once you've added a selfie, or once someone scans your invitation QR onto a photo.",
       },
       {
         slug: 'papic-crew-how-to-shoot',

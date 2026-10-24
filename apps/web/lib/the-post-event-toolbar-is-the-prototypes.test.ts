@@ -474,7 +474,7 @@ test('(7) every scene the story can draw is a part: the ten are picked by their 
   /* …and THE DAY IS UNCHANGED: Photos of you keeps its three looks, its marker and its word, on every stage. */
   assert.equal(makerPartToolWorks('myphotos', 'style'), true);
   assert.equal(MAKER_PARTS.myphotos.canvas, 'f:photos_of_you');
-  assert.equal(makerPartLabelOn('event', 'myphotos'), 'Photos of you');
+  assert.equal(makerPartLabelOn('event', 'myphotos'), 'Memories of you');
   assert.equal(makerPostEventSceneOf('editorial', 'myphotos'), null);
 
   /* THE ENTRIES ARE AS SMALL AS THEY CAN BE (the map rides close to the Maker's first-load ceiling): nine are their

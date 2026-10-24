@@ -11,6 +11,7 @@ import { updatePaxSettings } from '../../actions';
 import { setGuestListFinalized } from '../finalize-actions';
 import { releaseGuestClaim } from '../[guestId]/actions';
 import { editGuestGroupInPlace } from '../group-edit-actions';
+import { setGuestAllotment } from '../../studio/papic/actions';
 
 /**
  * The guest list's writes that a plain press reaches — the SHIPPED server actions by default.
@@ -51,6 +52,8 @@ export type GuestActions = {
   /** ✋ Select → Set reply ▾ (owner 2026-10-21) — the one host reply write, and its Undo. */
   setGuestRsvp: typeof setGuestRsvp;
   restoreGuestRsvpAndSeat: typeof restoreGuestRsvpAndSeat;
+  /** 📸 The card's "Their camera ▾" and Select → Set… › Papic (owner 2026-10-23) — the shipped ceiling writer, quiet. */
+  setGuestAllotment: typeof setGuestAllotment;
 };
 
 export const REAL_GUEST_ACTIONS: GuestActions = {
@@ -73,6 +76,7 @@ export const REAL_GUEST_ACTIONS: GuestActions = {
   editGuestGroupInPlace,
   setGuestRsvp,
   restoreGuestRsvpAndSeat,
+  setGuestAllotment,
 };
 
 export const GuestActionsContext = createContext<Partial<GuestActions> | null>(null);

@@ -42,12 +42,12 @@ export const dynamic = 'force-dynamic';
 export const metadata = {
   title: 'Memories · Maria & Jose',
   description:
-    'See a wedding come alive on Setnayan — the live photo wall filling in as the day unfolds, and the couple’s mood-board palette. No sign-up, nothing saved.',
+    'See a wedding come alive on Setnayan — Memory lane filling in as the day unfolds, and the couple’s mood-board palette. No sign-up, nothing saved.',
   alternates: { canonical: '/tour/gallery' },
   openGraph: {
     images: BRAND_OG_IMAGES,
     title: 'Memories · Maria & Jose · Setnayan',
-    description: 'The day, captured by everyone — explore a real wedding’s live photo wall and palette.',
+    description: 'The day, captured by everyone — explore a real wedding’s Memory lane and palette.',
     url: '/tour/gallery',
     type: 'website',
   },
@@ -195,13 +195,13 @@ export default async function TourGalleryPage() {
           See it come alive
         </h1>
         <p className="mx-auto mt-4 max-w-xl text-base text-[#5F5E5A] sm:text-lg">
-          On the day, every photo {couple}&rsquo;s guests take flows onto one live wall &mdash; the same feed the
+          On the day, every photo {couple}&rsquo;s guests take flows onto Memory lane &mdash; the same feed the
           venue screen shows, mirrored to every phone. And it all stays true to the palette they set months before.
         </p>
       </header>
 
       {/* Live Photo Wall — client-only fork of LiveWallBlock (no network poll). */}
-      <section aria-label="Live photo wall" className="mx-auto mt-12 max-w-3xl">
+      <section aria-label="Memory lane" className="mx-auto mt-12 max-w-3xl">
         <div className="flex items-center gap-2">
           <Camera aria-hidden className="h-4 w-4 text-[#8C6932]" strokeWidth={1.75} />
           <h2 className="font-serif text-2xl text-[#1B1A17]">The wall, live</h2>
@@ -227,7 +227,7 @@ export default async function TourGalleryPage() {
           <h2 className="font-serif text-2xl text-[#1B1A17]">The palette behind it all</h2>
         </div>
         <p className="mt-2 text-sm text-[#5F5E5A]">
-          Every render &mdash; the invitation, the live wall chrome, the editorial &mdash; pulls from one colour story.
+          Every render &mdash; the invitation, the Memory lane chrome, the editorial &mdash; pulls from one colour story.
           Drag the preview to recolor it in your own head; it&rsquo;s a local sketch and nothing here is saved.
         </p>
 

@@ -100,7 +100,7 @@ type PanoodScreenRow = {
  */
 
 const WALL_SOURCES = [
-  { key: 'photos', label: 'Photo wall', Icon: Images },
+  { key: 'photos', label: 'Memory lane', Icon: Images },
   { key: 'live_bg', label: 'Live background', Icon: Sparkles },
 ] as const;
 

@@ -299,6 +299,8 @@ const EVENT_LEVEL_BY_OWN_GATE: Record<string, string> = {
   'app/dashboard/[eventId]/invitation/print/page.tsx': 'print page gated by its own read; service client',
   'app/dashboard/[eventId]/invitation/actions.ts':
     'the rename’s Custom address gate (2026-10-22) — service client; the rename itself writes on the couple’s own session (RLS)',
+  'app/dashboard/[eventId]/guests/_components/guest-papic-read.ts':
+    'the guest card’s Papic row (2026-10-23) — service client, started on the page’s first trip (the list may be 2 deep); its answer is handed only to the couple (`forTheCouple`, `viewer.isCouple`)',
 };
 
 /** A first argument that came from the one resolver. */

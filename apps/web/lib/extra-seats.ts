@@ -112,6 +112,36 @@ export function plusOneSeatLines(
     });
 }
 
+/**
+ * 🪑 THE SAME SEATS AS PEOPLE — the guest card's Additional Guests draws one card per seat (owner-approved prototype
+ * `guest_card_groups_and_papic_2026-10-23.html`: avatar · name · "+1 of Rosario · Attending"). Same order and same naming
+ * rule as `plusOneSeatLines` (a seat waiting for its name has `name: null`, never "TBA +1"); the reply is the seat's own,
+ * an unread one is "pending". Pure.
+ */
+export function plusOneSeatPeople<S extends string>(
+  bringerGuestId: string,
+  rows: readonly {
+    guest_id: string;
+    first_name: string | null;
+    last_name: string | null;
+    plus_one_name_confirmed_at: string | null;
+    created_at?: string | null;
+    rsvp_status?: S | null;
+  }[],
+): { guestId: string; name: string | null; status: S | 'pending' }[] {
+  return [...rows]
+    .sort((a, b) => (a.created_at ?? '').localeCompare(b.created_at ?? '') || a.guest_id.localeCompare(b.guest_id))
+    .map((r) => {
+      const named = !plusOneHasNoName({ ...r, plus_one_of_guest_id: bringerGuestId });
+      const n = realNameParts(r.first_name, r.last_name);
+      return {
+        guestId: r.guest_id,
+        name: named ? [n.first, n.last].filter(Boolean).join(' ') || null : null,
+        status: r.rsvp_status ?? 'pending',
+      };
+    });
+}
+
 /** One +1 seat row as the companion readers select it. */
 export type CompanionSeatRow = {
   guest_id: string;

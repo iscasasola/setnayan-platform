@@ -54,7 +54,7 @@ export const PUBLIC_SITE_PAGES: PublicSitePage[] = [
   {
     key: 'event',
     name: PUBLIC_STAGE_LABELS.event,
-    blurb: 'The live page on the day — schedule, each guest’s seat, the photo wall, and the livestream.',
+    blurb: 'The live page on the day — schedule, each guest’s seat, Memory lane, and the livestream.',
     phaseParam: 'event',
     Icon: Radio,
   },

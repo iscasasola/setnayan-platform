@@ -34,12 +34,21 @@ import type { HomeCommandItem } from '@/app/_components/frontdoor/command-item';
 /** The tag a supplier row wears everywhere it is drawn — one string, one place. */
 export const ON_YOUR_EVENT = 'On your event';
 
+/**
+ * The tag of a supplier the couple ADDED THEMSELVES — no shop on Setnayan behind the row (owner 2026-10-24: the
+ * "seda" he found was his own reception venue, added by hand, and "On your event" read like a shop). The words are
+ * the add walk's own ("Add your own supplier", `ADD_OWN_TITLE`), so the row says what the couple made.
+ */
+export const YOUR_OWN_SUPPLIER = 'Your own supplier';
+
 /** The `event_vendors` columns this reads (the select lives in `command-data.ts`). */
 export type OwnSupplierRow = {
   vendor_id: string;
   event_id: string;
   vendor_name: string | null;
   archived_at?: string | null;
+  /** The shop behind the row; `null` (read, and empty) = added by the couple themselves. Unread → "On your event". */
+  marketplace_vendor_id?: string | null;
 };
 
 export type OwnSupplierEvent = { event_id: string; display_name: string };
@@ -67,7 +76,7 @@ export function ownSupplierItems(
     out.push({
       id: `supplier-${r.vendor_id}`,
       label: name,
-      sublabel: `${ON_YOUR_EVENT} · ${eventName}`,
+      sublabel: r.marketplace_vendor_id === null ? `${YOUR_OWN_SUPPLIER} · on ${eventName}` : `${ON_YOUR_EVENT} · ${eventName}`,
       href: ownSupplierHref(r.event_id, r.vendor_id),
       kind: 'supplier',
       icon: 'store',

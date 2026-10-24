@@ -718,7 +718,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
     },
     {
       key: 'livewall',
-      name: 'Live Photo Wall',
+      name: 'Memory lane',
       blurb: eventHasHappened
         ? 'This one runs at the venue, on the day.'
         : 'Project guest photos at the venue in real time.',

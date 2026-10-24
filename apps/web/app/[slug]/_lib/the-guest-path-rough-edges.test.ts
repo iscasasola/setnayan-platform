@@ -67,17 +67,16 @@ test('2 · the Me tab’s anchor does not open the reply sheet; the reply’s ow
   }
 });
 
-test('2 · "Change your reply" is a button ON Me, gated like the sheet it opens', () => {
-  const at = BODY.indexOf('data-me-change-reply');
-  assert.ok(at > -1, 'Me has no "Change your reply" button');
-  const gate = BODY.lastIndexOf('plan.rsvpShouldRender', at);
-  assert.ok(gate > BODY.indexOf("group('me'"), 'the button is not gated on the sheet’s own gate — it could point at nothing');
-  const tag = BODY.slice(BODY.lastIndexOf('<a', at), BODY.indexOf('</a>', at));
-  // 🔁 RE-AIMED 2026-10-11 (owner, "ONE REPLY FORM"): every reply door opens the reply PAGE (`inviteReplyPath`); the sheet is drawn only in the Maker's canvas.
-  assert.match(tag, /href=\{replyDoor\}/);
-  assert.match(tag, /Change your reply/);
-  // Only a guest who HAS replied; a pending guest is asked from the Home door.
-  assert.match(BODY.slice(gate, at), /'attending'[\s\S]{0,60}'declined'/);
+test('2 · "Change my reply" is ON Me — Me’s one Reply, gated like the reply it opens', () => {
+  /* 🔁 RE-AIMED 2026-10-24 (owner, the Me redraw — "one place"): the separate "Change your reply" bar folded into Me's
+     one Reply (`MeReply`): after a reply it reads "You're coming ✓ · Change my reply" (`replyCardOf`). Still ON Me,
+     still gated on the reply's own gate (`plan.rsvpShouldRender`), never a door that points at nothing. */
+  assert.ok(!BODY.includes('data-me-change-reply'), 'the separate "Change your reply" bar is back — a second door');
+  const at = BODY.indexOf('<MeReply ask={greetingAskOf(meReplyCard)!}');
+  assert.ok(at > BODY.indexOf("group('me'"), 'Me has no Reply of its own');
+  const card = BODY.slice(BODY.indexOf('const replyCardHere ='), BODY.indexOf('const meReplyCard ='));
+  assert.match(card, /plan\.rsvpShouldRender/, 'Me’s Reply is not gated on the reply’s own gate — it could point at nothing');
+  assert.match(card, /replyCardOf\(\{\s*action: arrivalAction,/, 'Me’s Reply is not the page’s own action (the reply page)');
 });
 
 // ── 3 · MOBILE IS ASKED IN THE REPLY, MARKED, AND NEVER ON A SECOND SCREEN ──

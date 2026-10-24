@@ -102,7 +102,7 @@ export function PutAwayCard({
           Owner found it by pressing the button. No test could have.
         */}
         <p className="mt-2 max-w-prose text-sm text-ink/70">
-          {eventName} is off your active list, and its cameras and photo wall are
+          {eventName} is off your active list, and its cameras and Memory lane are
           quiet — no new photos come in while it is put away.{' '}
           <strong className="font-semibold text-ink">Nothing is deleted</strong> — every
           photo, the guest list and the page your guests use are all still here.
@@ -152,7 +152,7 @@ export function PutAwayCard({
         Tidies {eventName} off your active list and stops its reminders.{' '}
         <strong className="font-semibold text-ink">Nothing is deleted</strong> — every
         photo, the guest list and the page your guests use all stay exactly as they
-        are. The cameras and the photo wall go quiet, so no new photos come in until
+        are. The cameras and Memory lane go quiet, so no new photos come in until
         you bring it back — and you can do that any time.
       </p>
       {error ? (

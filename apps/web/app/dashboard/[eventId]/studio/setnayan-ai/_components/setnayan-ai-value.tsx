@@ -1,11 +1,5 @@
 import { ShieldCheck, Sparkles } from 'lucide-react';
-import {
-  type AiActivity,
-  figureRanked,
-  figureDeadlines,
-  figureNextMove,
-  figurePayments,
-} from '@/lib/setnayan-ai-activity';
+import { AI_LIVE_FIGURES as LIVE_FIGURES, type AiActivity } from '@/lib/setnayan-ai-activity';
 import { Spotlights } from '@/app/_components/marketing/_spotlights';
 import {
   buildAiValueSpotlights,
@@ -55,13 +49,6 @@ import {
  * shows, aimed at the thing that now does the showing.
  */
 
-/** Live per-event figures, keyed by the capability the number belongs to. */
-const LIVE_FIGURES: ReadonlyArray<{ label: string; of: (a: AiActivity) => string }> = [
-  { label: 'Ranked', of: figureRanked },
-  { label: 'Deadlines', of: figureDeadlines },
-  { label: 'Next', of: figureNextMove },
-  { label: 'Payments', of: figurePayments },
-];
 
 export function SetnayanAiValue({
   mode,

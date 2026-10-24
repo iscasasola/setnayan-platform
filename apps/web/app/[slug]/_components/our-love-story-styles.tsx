@@ -214,8 +214,8 @@ const photosOf = (s: LoveStoryScene, mediaUrls?: Readonly<Record<string, string>
  * 🎞 A MOMENT'S PHOTOS, AS GLIMPSE (owner 2026-10-17, DECISION_LOG "A LOVE STORY MOMENT'S PHOTOS SHOW AS GLIMPSE"),
  * verbatim: *"Use the Glimpse swipe for a moment's photos: one big, the next peeking, swipe or auto-scroll; one photo
  * stays as now."* A moment holding two or more photos draws them at its photo slot as the Photos scene's OWN rail
- * (`GlimpseRail` — the drift, the pause on touch, the still under reduced motion, tap → the shipped full-screen
- * photo); never a second carousel. ONE photo is not this: each look keeps its own `<img>`, unchanged.
+ * (`GlimpseRail` — still until the guest swipes (owner 2026-10-24: *"there shouldnt be the auto scrolling photos"*),
+ * tap → the shipped full-screen photo, the moment's title under it); never a second carousel. ONE photo is not this: each look keeps its own `<img>`, unchanged.
  *
  * The rail is sized from the moment, not the window: the box is a size container and `width` is in its `cqw`, so the
  * centre card sits where the look's single photo sits and the neighbours peek inside the moment. The look's own
@@ -243,7 +243,7 @@ function MomentGlimpse({
       style={at ? ({ '--love-at': at } as React.CSSProperties) : undefined}
       className={`w-full min-w-0 [container-type:inline-size] ${className}`}
     >
-      <GlimpseRail urls={photos} width={width} label={label} whole />
+      <GlimpseRail urls={photos} width={width} label={label} caption={label} whole />
     </div>
   );
 }

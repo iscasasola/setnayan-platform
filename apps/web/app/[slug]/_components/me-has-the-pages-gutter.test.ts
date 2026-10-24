@@ -169,9 +169,11 @@ test('(5) the record note can be read and its button pressed', () => {
   assert.ok(tint, `the note sets no ink of its own (${form.join(' ')})`);
   assert.ok(contrast(Number(tint![1])) >= 4.5, `the note is ${contrast(Number(tint![1])).toFixed(2)}:1 (text-ink/${tint![1]})`);
   assert.match(notice, /<SubmitButton\s+className="[^"]*\bmin-h-\[44px\][^"]*"/, 'the button is under 44px tall');
-  // The event's OWN word, never a fixed "wedding".
-  assert.equal((notice.match(/at this \$\{w\.eventWord\}/g) ?? []).length, 3, 'a sentence names a fixed kind of event');
-  assert.doesNotMatch(notice, /at this (?:wedding|celebration)/);
+  // 🔁 RE-AIMED 2026-10-24 (owner, the Me redraw: "at this wedding" → "at this event"): our copy says "event" — never
+  // the event type's word, never a fixed "wedding". The words live in `lib/scan-trail-words.ts`.
+  const words = readFileSync(join(__dirname, '..', '..', '..', 'lib', 'scan-trail-words.ts'), 'utf8');
+  assert.equal((words.match(/at this event\./g) ?? []).length, 3, 'a sentence does not say "at this event"');
+  assert.doesNotMatch(notice + words, /at this (?:wedding|celebration)|eventWord/);
   // Reversible at once, by the same button — which is why it does not ask.
   assert.match(notice, /\{optedOut \? 'Keep a record again' : 'Stop keeping a record'\}/);
   assert.match(notice, /setGuestScanTracking\.bind\(null, eventId, guestId, scanOptOutTarget\(optedOut\)\)/);

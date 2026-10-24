@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "e2248edbdc",
-  "routeCount": 464,
-  "destinations": 1006,
+  "generatedFromRef": "44a5616311",
+  "routeCount": 465,
+  "destinations": 1007,
   "actions": 662,
-  "blocks": 6896,
+  "blocks": 6902,
   "routes": {
     "/": {
       "files": [
@@ -979,6 +979,7 @@
         "[slug]/_components/selfie-capture.tsx",
         "[slug]/_components/selfie-no-thanks-confirm.tsx",
         "[slug]/_components/send-their-invite.tsx",
+        "[slug]/_components/sign-in-back-here.tsx",
         "[slug]/_components/sign-out-of-invitation.tsx",
         "[slug]/_components/site-body.tsx",
         "[slug]/_components/site-menu-bar.tsx",
@@ -1100,7 +1101,7 @@
         "/api/guest/qr",
         "/dashboard/profile",
         "/join/[seg]",
-        "/login",
+        "/login?next=[seg]",
         "/papic/guest",
         "/papic/me/[seg]/photo?id=[seg]&src=guest",
         "/privacy",
@@ -1528,6 +1529,7 @@
         "Sheet",
         "SheetClip",
         "SheetEntry",
+        "SignInBackHere",
         "SignOutOfInvitation",
         "SiteBody",
         "SiteMenuBar",
@@ -11257,6 +11259,21 @@
         "RosterPerson"
       ]
     },
+    "/dev/shop-preview-lab": {
+      "files": [
+        "dev/shop-preview-lab/page.tsx"
+      ],
+      "destinations": [
+        "/"
+      ],
+      "actions": [],
+      "blocks": [
+        "Link",
+        "SlugNotFound",
+        "TeamPreviewBanner",
+        "Wordmark"
+      ]
+    },
     "/dev/spotlight-lab/[[...page]]": {
       "files": [
         "dev/spotlight-lab/[[...page]]/page.tsx"
@@ -12832,6 +12849,7 @@
         "v/[slug]/_components/service-details-sheet.tsx",
         "v/[slug]/_components/services-gallery.tsx",
         "v/[slug]/_components/share-button.tsx",
+        "v/[slug]/_components/team-preview-banner.tsx",
         "v/[slug]/_components/venue-matched-events.tsx",
         "v/[slug]/_components/verified-price-card.tsx",
         "v/[slug]/inquiry-actions.ts",
@@ -12889,6 +12907,7 @@
         "StartServiceInquiryResult",
         "StorytellerTile",
         "SubmitButton",
+        "TeamPreviewBanner",
         "TrackRecord",
         "TrustedBySection",
         "TrustedByVendor",

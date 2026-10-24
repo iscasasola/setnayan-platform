@@ -459,7 +459,7 @@ export function buildStoryIndex(input: StoryIndexInput): IndexTab[] {
   if (input.wallActive) {
     pushGuestTab(tabs, guestOpen, {
       key: 'wall',
-      title: 'Photo wall',
+      title: 'Memory lane',
       count: countWorthStating(countForLayer(wallEntries.length, guestOpen)),
       layer: 'guest',
       entries: wallEntries,

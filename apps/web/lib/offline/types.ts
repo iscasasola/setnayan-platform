@@ -61,7 +61,7 @@ export const SERVICE_LABELS: Record<ServiceCode, string> = {
   panood: 'Live Watch — livestream cache',
   patiktok: 'Patiktok — booth video',
   camera_bridge: 'Camera Bridge — DSLR transit',
-  live_wall: 'Live Wall — gallery cache',
+  live_wall: 'Memory lane — Memories cache',
 };
 
 /**

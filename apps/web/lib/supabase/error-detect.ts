@@ -173,7 +173,7 @@ export function logQueryError(
       // `typeof window` per bundle, so the server keeps the synchronous call
       // and the browser bundle no longer carries the static import.
       // 🛡 lib/sentry-stays-out-of-the-first-load.test.ts.
-      void import('@sentry/nextjs').then(
+      void import(/* webpackExports: ["captureException"] */ '@sentry/nextjs').then(
         (S) => S.captureException(err, hint),
         () => {},
       );

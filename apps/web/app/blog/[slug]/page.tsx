@@ -501,7 +501,7 @@ export default async function BlogArticlePage({ params }: Props) {
         <div className="absolute inset-0 bg-gradient-to-t from-black/82 via-black/35 to-black/10" />
         <div className="absolute inset-x-0 bottom-0 mx-auto w-full max-w-3xl px-5 pb-10 sm:px-6 sm:pb-14">
           <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-[#E6D4A6]">
-            {categoryLabel} · the Filipino wedding edit
+            {categoryLabel} · the Filipino event edit
           </p>
           <h1 className="mt-3 max-w-[20ch] font-display text-3xl font-medium leading-[1.05] tracking-tight text-white sm:text-5xl">
             {article.title}
@@ -614,6 +614,14 @@ export default async function BlogArticlePage({ params }: Props) {
           >
             <ChevronLeft aria-hidden className="mr-1 h-4 w-4" strokeWidth={1.75} />
             All articles
+          </Link>
+          {/* The way to /realstories (owner 2026-10-23) — real events live there. */}
+          <Link
+            href="/realstories"
+            className="inline-flex items-center text-sm font-medium text-ink/70 underline-offset-4 hover:text-terracotta hover:underline"
+          >
+            Stories from real events
+            <ArrowRight aria-hidden className="ml-1 h-4 w-4" strokeWidth={1.75} />
           </Link>
         </div>
       </article>

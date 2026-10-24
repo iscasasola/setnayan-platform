@@ -164,7 +164,10 @@ test('Your shots: three states, three sets of words — and everyone’s only be
     }),
   );
   assert.match(some, />14</, 'the count is the read’s own total');
-  assert.match(some, /href="\/papic\/me\/tok\/photo\?id=c1&amp;src=guest"/, 'a guest saves their own shot');
+  /* 2026-10-24: the shot opens IN PLACE (the shared viewer) and saves the same full-size route from there — never a
+     new tab on the bare picture. */
+  assert.match(some, /data-save-src="\/papic\/me\/tok\/photo\?id=c1&amp;src=guest"/, 'a guest saves their own shot');
+  assert.doesNotMatch(some, /target="_blank"/, 'a shot opens a bare picture in a new tab again');
   assert.doesNotMatch(some, /Everyone/, 'not shared → no way into everyone’s photos');
   const shared = html(
     h(YourShotsGallery, { shots: { shots: [], total: 0 }, qrToken: 'tok', cameraOn: true, everyoneHref: '/papic/me/tok/session?next=pool' }),
@@ -210,7 +213,8 @@ test('the camera comes back to the tab it was opened from — Live when opened d
   assert.match(src('app/papic/me/[token]/session/route.ts'), /cameraBackTab\(url\.searchParams\.get\(CAMERA_BACK_PARAM\)\)/);
   const cam = src('app/papic/guest/_components/papic-guest-capture.tsx');
   assert.match(cam, /data-camera-exit=""[\s\S]{0,80}href=\{cameraExitHref\(exitTo\.slug, exitTo\.tab, added\)\}/);
-  assert.match(cam, /data-camera-thumb=""[\s\S]{0,80}href=\{cameraExitHref\(exitTo\.slug, null, added, 'gallery'\)\}/);
+  // 🖼 The thumbnail opens "My shots" as a sheet OVER the camera (owner 2026-10-24) — no longer the hub's gallery.
+  assert.match(cam, /data-camera-thumb=""\s*onClick=\{\(\) => setShotsOpen\(true\)\}/);
   assert.match(src('app/papic/guest/page.tsx'), /exitTo=\{backSlug \? \{ slug: backSlug, tab: backTab \} : null\}/);
   const body = BODY();
   assert.match(body, /data-shots-added=""[\s\S]{0,900}See them/);

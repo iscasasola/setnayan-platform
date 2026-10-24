@@ -11,6 +11,9 @@
  *       already wear, hairline and shadow kept (owner's answer 1). Rendered, not read: Me's root is the card column and
  *       every child it draws is a section (a bare child would be words on the photo again); the record note is the
  *       same card on Me, and a plain line at the foot of a page that is one scroll.
+ *       🔁 2026-10-24 (owner, approving the Me redraw): the TABBED Me wears no cards — "no box around the name, the
+ *       note, or the notice" (`GuestMe plain`) — and reads on paper through its own feathered veil (the stage's `before:` layer);
+ *       the one-scroll Me keeps the cards held here.
  *   3 · A NAME IS SHOWN CASED, NEVER REWRITTEN — `displayPersonName` on the Me name line, Your guests, the Save and
  *       the sheet's words, the invite message's greeting, the ticket PNG, the printed batches, the plus-one's door and
  *       the couple's Guest list (owner's answer 2). The table itself is `lib/person-name-case.test.ts`.
@@ -94,16 +97,22 @@ test('2 · Me is the Hub’s card column, and every topic it draws is one of its
   assert.doesNotMatch(css, /data-guest-me|data-me-card/, 'Me got CSS of its own — it wears the hub’s card, nothing new');
 });
 
-test('2 · the record note is a card on Me (its one mount), a plain line at the foot', async () => {
+test('2 · the record note on Me is one line with its ⓘ and a small pill (its one mount); a plain line at the foot', async () => {
+  /* 🔁 RE-AIMED 2026-10-24 (owner, approving the Me redraw — `me_tab_redraw_2026-10-24_fable.html`: "no box around
+     the name, the note, or the notice"; frames only on what you press): on Me the record note is ONE line with its ⓘ
+     (the rest of the sentence inside) and a small icon-and-word pill — no card. Me reads on paper through its own
+     feathered veil (the stage's `before:` layer), not through boxes. A page that is one scroll keeps the plain line. */
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { ScanTrailForm } = await import('./_components/scan-trail-notice');
   const props = { sentence: 'We keep a record.', optedOut: false, toggle: async () => {} };
-  const card = renderToStaticMarkup(React.createElement(ScanTrailForm, { ...props, card: true }));
-  assert.match(card, /^<div class="sn-hub-cards[^"]*" data-me-card="record"><section><form/, 'on Me the record note is not a scene card');
+  const me = renderToStaticMarkup(React.createElement(ScanTrailForm, { ...props, me: true, lines: { main: 'We keep a record.', more: 'It is how this page knows.' } }));
+  assert.doesNotMatch(me, /sn-hub-cards|data-me-card="record"/, 'on Me the record note is a box again');
+  assert.match(me, /<form[^>]*data-scan-trail=""[^>]*>[\s\S]*rounded-full[\s\S]*<svg/, 'on Me the record note’s button is not a small icon-and-word pill');
   const line = renderToStaticMarkup(React.createElement(ScanTrailForm, props));
   assert.match(line, /^<form/, 'at the foot of a one-scroll page the note became a card');
   const body = read('app/[slug]/_components/site-body.tsx');
-  assert.match(body, /<ScanTrailNotice eventId=\{event\.event_id\} guestId=\{guest\.guest_id\} preview=\{isEditorCanvas\} card=\{tabs\.on\} \/>/, 'the note is not a card exactly where Me draws it (a tabbed page)');
+  assert.match(body, /<ScanTrailNotice eventId=\{event\.event_id\} guestId=\{guest\.guest_id\} preview=\{isEditorCanvas\} me=\{tabs\.on\} \/>/, 'the note is not Me’s line exactly where Me draws it (a tabbed page)');
+  assert.match(body, /<div data-me-stage="" className=\{`[^`]*before:bg-\[rgb\(var\(--color-cream\)\/0\.62\)\][^`]*`\}>/, 'Me lost its veil — words would sit straight on the photo again');
 });
 
 test('3 · Me prints every name cased — the typed name never reaches the screen', async () => {

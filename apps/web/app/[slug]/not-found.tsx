@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { SignInBackHere } from './_components/sign-in-back-here';
 
 // Bare-root 404 — the slug resolved to NOTHING the dispatcher could serve.
 //
@@ -17,7 +18,9 @@ import Link from 'next/link';
 // Recovery paths, in the order a real visitor needs them: (a) a guest with a
 // mistyped/expired link who should ask whoever sent it, (b) someone handed a
 // shop address before that shop was approved, (c) the host or vendor
-// themselves, who should sign in.
+// themselves, who should sign in — and come BACK here once they have
+// (SignInBackHere). Signed in, a shop's owner and helpers no longer reach this
+// page for their own shop: they see it with a team banner (lib/own-shop-preview.ts).
 //
 // Per feedback_setnayan_no_dev_text_post_launch: brand-voice on every visible
 // surface. This page is reachable by guests at the venue scanning a printed
@@ -47,12 +50,8 @@ export default function SlugNotFound() {
           below.
         </p>
         <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 items-stretch sm:items-center justify-center">
-          <Link
-            href="/login"
-            className="inline-flex items-center justify-center px-6 py-3 bg-mulberry text-cream font-sans text-sm font-medium tracking-wide hover:bg-mulberry-600 transition-colors rounded-sm"
-          >
-            Sign in
-          </Link>
+          {/* Back to THIS address after signing in — a signed-out owner lands on their own page (23 Oct). */}
+          <SignInBackHere className="inline-flex min-h-11 items-center justify-center px-6 py-3 bg-mulberry text-cream font-sans text-sm font-medium tracking-wide hover:bg-mulberry-600 transition-colors rounded-sm" />
           <Link
             href="/"
             className="inline-flex items-center justify-center px-6 py-3 border border-ink/20 text-ink font-sans text-sm font-medium tracking-wide hover:bg-ink/5 transition-colors rounded-sm"

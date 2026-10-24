@@ -144,10 +144,16 @@ test('4 · where a scene cannot be, true is refused — and the rule that refuse
   assert.equal(whyNotInStageList(presetRow, { stage: 'editorial', reader: 'guest', film: false }), null);
   assert.ok(guest(preset, 'editorial').includes('custom_1'), 'on Post Event it is drawn');
   // A reader with no key never gets a guest's own scene, whatever is stored.
-  const own = rows({ event_details: show({ event: true }), your_photos: show({ rsvp: true }) });
-  assert.ok(guest(own, 'event').includes('event_details') && guest(own, 'rsvp').includes('your_photos'), 'a guest does');
-  assert.ok(!stranger(own, 'event').includes('event_details') && !stranger(own, 'rsvp').includes('your_photos'));
-  assert.equal(whyNotInStageList(own.find((r) => r.widget_type === 'event_details')!, { stage: 'event', reader: 'anonymous', film: false }), 'PUBLIC_WIDGET_ALLOWLIST');
+  const own = rows({ your_photos: show({ rsvp: true }) });
+  assert.ok(guest(own, 'rsvp').includes('your_photos'), 'a guest does');
+  assert.ok(!stranger(own, 'rsvp').includes('your_photos'));
+  assert.equal(whyNotInStageList(own.find((r) => r.widget_type === 'your_photos')!, { stage: 'rsvp', reader: 'anonymous', film: false }), 'PUBLIC_WIDGET_ALLOWLIST');
+  // 🪪 …and the Event Details card is on NO reader's page, whatever is stored (owner 2026-10-24, "isn't this a dupe?").
+  const card = rows({ event_details: show({ event: true, rsvp: true }) });
+  for (const stage of ['rsvp', 'event'] as const) {
+    assert.ok(!guest(card, stage).includes('event_details') && !stranger(card, stage).includes('event_details'), `the Event Details card is back on ${stage}`);
+    assert.equal(whyNotInStageList(card.find((r) => r.widget_type === 'event_details')!, { stage, reader: 'guest', film: false }), 'OFF_THE_PAGE');
+  }
 });
 
 test('5 · an always-on row takes no choice: the reply, the greeting, the ticket and the names are where they were', () => {

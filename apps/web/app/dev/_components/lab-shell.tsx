@@ -26,11 +26,11 @@
 import type { ReactNode } from 'react';
 import '@/app/_components/frontdoor/front-door.css';
 import { FrontDoorShell } from '@/app/_components/frontdoor/front-door-shell';
-import { BottomDock } from '@/app/_components/nav/bottom-nav';
+import { BottomDock, BottomNav } from '@/app/_components/nav/bottom-nav';
+import { labEventBarItems, type LabEventBar } from '@/app/dev/bar-lab/lab-bar';
 import { EventRailContext } from '@/app/dashboard/[eventId]/_components/event-rail-context';
 import { eventRailMatchRows } from '@/app/dashboard/[eventId]/_components/event-rail-match-rows';
 import type { EventMenuChild } from '@/lib/customer-menu';
-import { builderRailItems, togetherRailItems } from '@/lib/free-tools-rail';
 import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
 import { UnreadMessagesBadge } from '@/app/_components/unread-messages-badge';
 
@@ -49,9 +49,15 @@ export function LabShell({
   eventId,
   children,
   gutter = true,
+  eventBar,
+  homeAt,
 }: {
+  /** The lab address that stands for the event's Home — lit as Home on the real bar. */
+  homeAt?: string;
   eventId: string;
   children: ReactNode;
+  /** The REAL event tab list for a type's gates (`/dev/bar-lab`'s `labEventBar`) in place of the stand-in labels. */
+  eventBar?: LabEventBar;
   /** Draw the event layout's own content gutter (`px-4 sm:px-6 lg:px-8`). Off for a lab that draws it itself. */
   gutter?: boolean;
 }) {
@@ -61,14 +67,7 @@ export function LabShell({
       <FrontDoorShell
         variant="app"
         boundary="tab"
-        insideEvent
         account={{ signedIn: true, initials: 'AM', shopName: null, isAdmin: false }}
-        tools={[]}
-        /* The tool groups the event layout hands the shell inside an event
-           (`app-rail-shell.tsx`: Studio empty, Planner empty, Builder and
-           Together from these two) — so the strip's tool rows can be walked. */
-        builderTools={builderRailItems(eventId)}
-        togetherTools={togetherRailItems(eventId)}
         navLabels={{}}
         topBarSlot={
           <div className="flex items-center gap-3" data-lab-cluster="">
@@ -80,7 +79,7 @@ export function LabShell({
               ariaBaseLabel="Notifications"
               ariaUnreadSuffix="unread"
             />
-            <span className="grid h-11 w-11 place-items-center rounded-full bg-[#A9834B] text-xs font-semibold text-white">AM</span>
+            <span className="grid h-11 w-11 place-items-center rounded-full sn-initials text-xs font-semibold">AM</span>
           </div>
         }
         railContext={<EventRailContext {...inputs} eventName="Ana & Miguel" />}
@@ -95,13 +94,21 @@ export function LabShell({
         </div>
       </FrontDoorShell>
       <BottomDock boundary="tab">
+        {eventBar ? (
+          <BottomNav
+            items={labEventBarItems(eventId, eventBar).map((i) =>
+              /* The lab draws Home at its own address (`/dev/home-lab`), so Home lights there too. */
+              i.key === 'home' && homeAt ? { ...i, activeMatchAlsoExact: [...(i.activeMatchAlsoExact ?? []), homeAt] } : i,
+            )}
+          />
+        ) : (
         <nav className="flex h-16 items-center justify-around text-xs text-ink/70" data-lab-dock="">
           <span>Home</span>
           <span>Guests</span>
           <span>Suppliers</span>
           <span>Hub</span>
-          <span>More</span>
         </nav>
+        )}
       </BottomDock>
     </>
   );

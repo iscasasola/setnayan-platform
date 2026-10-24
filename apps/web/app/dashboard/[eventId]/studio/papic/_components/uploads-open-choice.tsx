@@ -27,19 +27,23 @@ export function UploadsOpenChoice({
   eventId,
   open,
   variant = 'card',
+  back = null,
 }: {
   eventId: string;
   open: boolean;
   variant?: 'card' | 'row';
+  /** 🖼 'memories' when drawn in Memories' + Add photos sheet — the save lands back there. */
+  back?: 'memories' | null;
 }) {
   const explanation = open
     ? 'Photos and snippets can be added from a phone or laptop — older memories included. Each one uses a credit, the same as a camera shot.'
-    : 'Only what your cameras capture goes into this gallery. Nothing can be added from a phone or laptop.';
+    : 'Only what your cameras capture goes into your Memories. Nothing can be added from a phone or laptop.';
 
   const control = (
     <form action={setPapicUploadsOpen} className="flex flex-wrap items-center gap-2">
       <input type="hidden" name="event_id" value={eventId} />
       <input type="hidden" name="open" value={open ? '0' : '1'} />
+      {back ? <input type="hidden" name="back" value={back} /> : null}
       <SubmitButton className={open ? 'sn-btn-secondary' : 'sn-btn-primary'}>
         {open ? 'Turn this off' : 'Turn this on'}
       </SubmitButton>

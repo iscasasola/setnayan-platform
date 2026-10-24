@@ -33,6 +33,7 @@ import { fileURLToPath } from 'node:url';
 const PAPIC = dirname(dirname(fileURLToPath(import.meta.url)));
 const PICKER = readFileSync(join(PAPIC, '_components/add-to-library.tsx'), 'utf8');
 const PAGE = readFileSync(join(PAPIC, 'page.tsx'), 'utf8');
+const MEMORIES = readFileSync(join(PAPIC, '..', '..', 'memories', 'page.tsx'), 'utf8');
 
 test('the picker still exists and still uploads — or every rule below is vacuous', () => {
   assert.ok(/export function AddToLibrary/.test(PICKER), 'the picker is gone');
@@ -99,11 +100,12 @@ test('🚨 refusals name something a person can actually do', () => {
 
 test('the picker only renders for a camera this couple actually holds', () => {
   assert.ok(
-    /uploadsToken \? \(\s*<AddToLibrary/.test(PAGE),
+    // 📍 + Add photos lives in Memories now (2026-10-23) — the picker and its claimer check moved with it.
+    /token \? \(\s*<AddToLibrary/.test(MEMORIES),
     'the picker renders without a resolved token — every upload would be refused by the presign with no explanation',
   );
   assert.ok(
-    /uploadsClaimed = !!up\.claimer_user_id && up\.claimer_user_id === user\.id/.test(PAGE),
+    /const token = seat\?\.claimer_user_id === user\.id \?/.test(MEMORIES),
     'the studio no longer checks that the Uploads camera belongs to THIS person — a token resolved for somebody else is a camera handed to the wrong hands',
   );
 });

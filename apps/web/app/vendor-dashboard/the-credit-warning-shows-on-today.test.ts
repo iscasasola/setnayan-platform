@@ -49,7 +49,9 @@ test('3 · Today reads the two columns and draws the notice — as a row, in the
   // production snapshot. A refused read is LOGGED and degrades to "no notice", never to "no credit".
   assert.match(
     server,
-    /\.select\('verification_state, in_business_since_date, subscription_credit_php, tier_expires_at'\)/,
+    // 🎁 + tier_state, tier_source (2026-10-23): a plan Setnayan gave reads as a gift on the same row — both columns
+    // in the production snapshot, so the one read stays one read.
+    /\.select\('verification_state, in_business_since_date, subscription_credit_php, tier_expires_at, tier_state, tier_source'\)/,
     'the credit columns left the one shop-row read',
   );
   assert.match(server, /logQueryError\('supplier-today: shop row'/, 'a failed read is silent');

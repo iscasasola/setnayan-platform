@@ -150,13 +150,13 @@ export function buildMakerNavigatorData(input: {
     tier_comparison: { eyebrow: 'Your access', title: 'Two ways to celebrate' },
     special_message: { eyebrow: 'A message', title: firstLine(facts.specialMessage, 40) ?? 'Special message', line: undefined },
     what_to_bring: { eyebrow: 'Reminders', title: firstLine(facts.whatToBring, 40) ?? 'Reminders' },
-    our_photos: { eyebrow: 'Gallery', title: 'Photo gallery', photoUrl: facts.firstGalleryUrl ?? undefined },
+    our_photos: { eyebrow: 'Your photos', title: 'Photos you add', photoUrl: facts.firstGalleryUrl ?? undefined },
     our_love_story: (() => {
       const first = loveStoryScenes(facts.loveStory)[0];
       return { eyebrow: first?.chapterLabel ?? 'Love story', title: first ? firstLine(first.line, 40) ?? 'Love story' : 'Love story moments', line: first?.when || undefined };
     })(),
     event_details: { eyebrow: 'Event details', title: facts.dateLabel ?? 'Event details' },
-    your_photos: { eyebrow: 'Photos of you', title: 'Photos of each guest' },
+    your_photos: { eyebrow: 'Memories of you', title: 'Photos of each guest' },
   };
 
   for (const row of input.sectionRows) {

@@ -472,7 +472,7 @@ export async function buildKwentoMagazine(input: MagazineInput): Promise<Uint8Ar
     }
     const droppedHere = chapter.captures.length - picks.length;
     if (droppedHere > 0) {
-      drawParagraph(c, fonts, `+ ${droppedHere} more from this moment in your gallery`, {
+      drawParagraph(c, fonts, `+ ${droppedHere} more from this moment in your Memories`, {
         size: 9,
         font: fonts.sans,
         color: SOFT,

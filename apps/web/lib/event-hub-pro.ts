@@ -96,7 +96,7 @@ const LEAD_BY_CHANNEL: Record<LifecyclePhase, WebsiteProItem> = {
   // The reveal is the thing the couple watches and cannot have yet.
   save_the_date: 'Cinematic Reveal',
   // The invitation is where the photos go.
-  rsvp: 'Photo gallery',
+  rsvp: 'Photos you add',
   /*
     The day itself. Nothing here is for sale on the day — `hubOffersAllowed`
     collapses the whole block — so this entry exists for totality. It names a
@@ -105,7 +105,7 @@ const LEAD_BY_CHANNEL: Record<LifecyclePhase, WebsiteProItem> = {
   */
   event: 'Background music',
   // The story. Photos again — editorial editing is free for everyone and is not on the list.
-  editorial: 'Photo gallery',
+  editorial: 'Photos you add',
 };
 
 /**
@@ -129,10 +129,10 @@ const PITCH: Partial<Record<WebsiteProItem, { headline: string; blurb: string }>
     blurb:
       'A clip of the two of you, where the hero photo is — the first thing anyone sees when your link goes out.',
   },
-  'Photo gallery': {
+  'Photos you add': {
     headline: 'Give your guests the photos.',
     blurb:
-      'A gallery on the page itself, so the people you invited can look through the day rather than hunt for a folder.',
+      'Photos on the page itself, so the people you invited can look through the day rather than hunt for a folder.',
   },
   'Background music': {
     headline: 'Your page can have a song.',

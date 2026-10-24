@@ -38,9 +38,11 @@ const PAGE = join(PAPIC_DIR, 'page.tsx');
 // against the stage. Neither was dropped — check both files before concluding
 // this guard got easier.
 const READER = join(PAPIC_DIR, '..', '..', '..', '..', '..', 'lib', 'papic-standings.ts');
-const STAGE = join(PAPIC_DIR, '_components/papic-stage.tsx');
 const READS = readFileSync(READER, 'utf8');
-const SRC = readFileSync(STAGE, 'utf8');
+// 📍 The dark stage that DREW the facts (`papic-stage.tsx`) is deleted (2026-10-24): it was mounted nowhere once the
+// library moved to Memories (`tests/db/ugat-both-ends` found it). Its two render rules went with it — the honest count
+// is now Memories' own (`memories/the-memories-tab-is-this-events-memories.test.ts`) and Home's card says "—" through
+// `papicGlance`. The READ rules below stay: the shared reader still feeds the band and the card.
 
 /** The reads this strip makes, derived from the source rather than typed here. */
 function countReads(): string[] {
@@ -97,98 +99,19 @@ test('🚨 a failed read resolves to null, never to a number', () => {
   );
 });
 
-test('🚨 an unmeasured fact renders a dash, and 0 is only ever a real 0', () => {
-  assert.ok(SRC.includes('function Unmeasured()'), 'the Unmeasured fallback is gone');
-  const uses = SRC.split('<Unmeasured />').length - 1;
-  assert.ok(uses >= 3, `only ${uses} facts fall back to a dash — every read needs one`);
-  // The empty-library sentence must sit behind an explicit `=== 0`, never behind
-  // a falsy check that a null would also satisfy.
-  assert.ok(
-    /inLibrary === 0 \?/.test(SRC),
-    '"Empty — yours to start" is no longer gated on an exact 0 — a null would render it, telling a couple their photographs are gone',
-  );
-});
-
-/**
- * The blocks that TELL A COUPLE WHERE THEY STAND, as opposed to asking them to
- * decide something. Only these may lead a phase.
- *
- * - `credits` is the running credit balance and what it buys.
- * - `gallery` carries `<PapicStage>` — the facts strip, on the thing it describes.
- *
- * Everything else (dates, guests, filter, challenges, wall, kwento, made, more)
- * opens by asking for a decision.
- */
-const STANDING_BLOCKS = new Set(['credits', 'gallery']);
-
-/** `BLOCK_ORDER[phase]` as it is written in the page, block → N from `order-N`. */
-function phaseOrder(phase: 'before' | 'after'): Record<string, number> {
-  const page = readFileSync(PAGE, 'utf8');
-  const block = page.match(new RegExp(`${phase}:\\s*\\{([^}]*)\\}`));
-  assert.ok(block, `BLOCK_ORDER.${phase} is gone — this guard has lost the mechanism it reads`);
-  const out: Record<string, number> = {};
-  for (const e of block[1]!.matchAll(/(\w+):\s*'order-(\d+)'/g)) out[e[1]!] = Number(e[2]);
-  assert.ok(
-    Object.keys(out).length >= 8,
-    `only ${Object.keys(out).length} blocks parsed out of BLOCK_ORDER.${phase} — ` +
-      'the map changed shape and this guard would judge a fragment of the page',
-  );
-  return out;
-}
-
 test('a person is told where they stand before anything asks them to decide', () => {
-  // ⚠ RE-POINTED 2026-09-22. THE OLD FORM COMPARED `indexOf` POSITIONS IN THE
-  // SOURCE, and it had already been re-anchored once before that ("this used to
-  // read 'above the rooms'"). It cannot work on this page any more: the ten
-  // blocks are children of one `flex flex-col` section and carry `order-1..10`
-  // from `${ord(key)}`, so **DOM order is not visual order here**. A source-order
-  // assertion encodes a sequence nobody sees.
-  //
-  // 🔑 AND THE RULE ITSELF WAS NEVER ABOUT THE STAGE. It is: a person is told
-  // where they stand BEFORE anything asks them to decide. The owner reordered
-  // the page on 2026-09-22 — *"the top one needs to be the credits purchase and
-  // running credits / Then Coverage / Then alotment"* — which means before the
-  // event the leading block is the running balance, not the facts strip. The
-  // property holds; the block carrying it changed. So this asserts the PROPERTY
-  // against the real mechanism, per phase, rather than pinning one component to
-  // one position.
+  // 📷 2026-10-23 (owner): the Papic page is the camera only, in ONE order — the phase map that re-ordered the files is
+  // gone with the files (Memories). So DOM order IS visual order again, and the property is asserted on it directly:
+  // the running balance (the credits band — where they stand) comes before the camera settings (what they decide).
+  // 📷 2026-10-24 (owner: ONE Papic card): the balance is the card's controller — the counter, inside the camera
+  // settings, comes before the first decision (the Settings heading).
   const page = readFileSync(PAGE, 'utf8');
-  assert.ok(page.indexOf('<PapicStage') > 0, 'the stage is not mounted');
-
-  for (const phase of ['before', 'after'] as const) {
-    const order = phaseOrder(phase);
-
-    // A duplicate `order-1` would give the phase two leaders and let a decision
-    // block share the top slot with a standing one.
-    const slots = Object.values(order);
-    assert.equal(
-      new Set(slots).size,
-      slots.length,
-      `BLOCK_ORDER.${phase} assigns the same order-N twice — the phase has no single first block`,
-    );
-
-    const leader = Object.entries(order).sort((a, b) => a[1] - b[1])[0]!;
-    assert.ok(
-      STANDING_BLOCKS.has(leader[0]),
-      `in the "${phase}" phase the page opens on "${leader[0]}" (order-${leader[1]}), which asks ` +
-        'the couple to decide something before telling them where they stand. Only ' +
-        `${[...STANDING_BLOCKS].join(' or ')} may lead a phase.`,
-    );
-  }
-});
-
-test('the two phases are not the same order — the page really does rearrange', () => {
-  // If a bad merge collapsed both maps to one, the guard above would still pass
-  // while the page stopped responding to the day entirely.
-  const before = phaseOrder('before');
-  const after = phaseOrder('after');
-  assert.notDeepEqual(
-    before,
-    after,
-    'BLOCK_ORDER.before and .after are identical — the page no longer rearranges around the event',
-  );
-});
-
-test('the attention colour is the one that passes in BOTH themes', () => {
-  assert.ok(!SRC.includes('mulberry-700'), 'mulberry-700 is 3.05:1 on a dark panel — a fail a light-only check waves through');
+  assert.match(page, /<PapicCameraSettings eventId=\{eventId\} credits=\{\{ total: papicBand\.total, left: papicBand\.count \}\}/, 'the page hands the card no balance — it tells nobody where they stand');
+  const cam = readFileSync(join(PAPIC_DIR, '_components', 'papic-camera-settings.tsx'), 'utf8');
+  const band = cam.indexOf('data-papic-counter=""');
+  const settings = cam.indexOf('data-papic-settings=""');
+  assert.ok(band > 0, 'the counter is not drawn — the card tells nobody where they stand');
+  assert.ok(settings > 0, 'the camera settings are not drawn');
+  assert.ok(band < settings, 'the camera settings ask for decisions before the balance says where the couple stands');
+  assert.doesNotMatch(page, /\bBLOCK_ORDER\b/, 'a phase map is back — DOM order would stop being visual order');
 });

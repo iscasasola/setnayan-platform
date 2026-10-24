@@ -1,6 +1,5 @@
-import { GuestCardBody } from '@/app/dashboard/[eventId]/guests/_components/guest-card-body';
+import { GuestCard, type GuestCardResult } from '@/app/dashboard/[eventId]/guests/_components/guest-card';
 import type { GuestCardData } from '@/app/dashboard/[eventId]/guests/_components/guest-card-data';
-import type { MarchCardResult } from '@/app/dashboard/[eventId]/launch/march-card-actions';
 import type { GuestRow } from '@/lib/guests';
 import { parseTitleKey } from '@/lib/guest-title';
 import { LAB_MARCH_RENAMES, labMarchPerson } from './march-fixture';
@@ -10,8 +9,8 @@ import { LAB_MARCH_RENAMES, labMarchPerson } from './march-fixture';
  * `/dev/maker-lab?studio=1`; production 404s the labs).
  *
  * The Wedding March opens a person's OWN guest card over the march (owner 2026-10-14). In the Maker that card is read by
- * `openMarchGuestCard`; here, with no database, this INLINE server action (not exported from a "use server" file, so the
- * server-action budget does not count it) draws the SAME `GuestCardBody` — the hand-drawn kit, the panel variant — over
+ * `openGuestCard`; here, with no database, this INLINE server action (not exported from a "use server" file, so the
+ * server-action budget does not count it) draws the SAME `GuestCard` — the one card, its panel frame (owner 2026-10-24) — over
  * maria-and-jose's lab march, with the card's three writes stood in: a save of the name keeps it in this dev server's memory
  * (`LAB_MARCH_RENAMES`, read by the lab march), so "rename → close → the march shows the new name" can be walked. Nothing
  * reaches a database.
@@ -66,7 +65,7 @@ function labGuest(p: NonNullable<ReturnType<typeof labMarchPerson>>): GuestRow {
   } as unknown as GuestRow;
 }
 
-export async function labOpenMarchCard(eventId: string, guestId: string): Promise<MarchCardResult> {
+export async function labOpenMarchCard(eventId: string, guestId: string): Promise<GuestCardResult> {
   'use server';
   const p = labMarchPerson(guestId);
   if (!p) return { ok: false, reason: 'This lab card is not on the lab’s guest list — the owner-shaped march has no cards.' };
@@ -116,12 +115,22 @@ export async function labOpenMarchCard(eventId: string, guestId: string): Promis
   return {
     ok: true,
     card: (
-      <GuestCardBody
+      <GuestCard
+        frame="panel"
         eventId={eventId}
         data={data}
         invitationBase="https://www.setnayan.com/maria-and-jose"
         photoDisplayUrl={null}
-        variant="panel"
+        /* The Guest list's lab stand-ins: the event's Invite words, and Papic on (sharing with everyone). */
+        inviteSetup={{
+          facts: { hostsName: 'Maria & Jose', eventWord: 'wedding', eventDate: '2026-12-12', datePrecision: 'day' },
+          template: null,
+          slug: 'maria-and-jose',
+        }}
+        papic={{ access: 'on', ceiling: null }}
+        storeShell={false}
+        ticketVersion={null}
+        helper={null}
         returnTo={`/dev/details-lab?item=march`}
         errorMessage={null}
         inviteFlash={null}

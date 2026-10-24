@@ -49,7 +49,7 @@ export function WallClaim({ eventId }: { eventId: string }) {
     <main className="flex min-h-screen items-center justify-center bg-ink px-6 text-cream">
       <div className="w-full max-w-lg text-center">
         <MonitorPlay aria-hidden className="mx-auto h-10 w-10 text-cream/60" strokeWidth={1.5} />
-        <h1 className="mt-4 text-2xl font-semibold tracking-tight">Light up the photo wall</h1>
+        <h1 className="mt-4 text-2xl font-semibold tracking-tight">Light up Memory lane</h1>
         <p className="mt-2 text-sm text-cream/60">
           Enter the screen code from the couple&rsquo;s Setnayan dashboard.
         </p>

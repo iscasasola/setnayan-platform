@@ -122,6 +122,14 @@ export type RosterPerson = {
   samahan: string[];
   /** Only the person who made the claim may label it. */
   canLabel: boolean;
+  /**
+   * The handle `/dashboard/people?person=` opens this card by (owner 2026-10-22: a person result in the
+   * shell's search opens their card here). Their ACCOUNT's `users.public_id` (S89U-…) when somebody claims
+   * the person — the same handle the People search already gives the browser — else the person node's own
+   * `people.public_id` (S89P-…). Never a `user_id`. Connection rows only; NULL/absent = not read (the link
+   * then opens the list, never a guess).
+   */
+  publicId?: string | null;
 };
 
 export type PeopleRoster = {
@@ -204,6 +212,8 @@ export async function getPeopleRoster(userId: string): Promise<PeopleRoster> {
   const names = new Map<string, string>();
   const eventByConnection = new Map<string, { name: string; type: string }>();
   const userIdByPerson = new Map<string, string>();
+  // The card's handle (see `RosterPerson.publicId`) — public ids only, read beside the accounts.
+  const publicIdByPerson = new Map<string, string>();
   const sharedEventByPerson = new Map<string, boolean | null>();
 
   const connectionsRead = (async () => {
@@ -290,12 +300,26 @@ export async function getPeopleRoster(userId: string): Promise<PeopleRoster> {
         const admin = createAdminClient();
         const { data, error } = await admin
           .from('people')
-          .select('person_id, claimed_by_user_id')
-          .in('person_id', [...new Set(personIdsToResolve)])
-          .not('claimed_by_user_id', 'is', null);
+          // The account's own public id rides along as an EMBED on the same request (no extra trip — the
+          // roster's depth is held by the-people-roster-reads-together.test.ts).
+          .select('person_id, claimed_by_user_id, public_id, account:users!claimed_by_user_id(public_id)')
+          .in('person_id', [...new Set(personIdsToResolve)]);
         if (error) logQueryError('getPeopleRoster.accounts', error, {}, 'graceful_degrade');
-        for (const r of (data ?? []) as Array<{ person_id: string; claimed_by_user_id: string }>) {
-          userIdByPerson.set(r.person_id, r.claimed_by_user_id);
+        for (const r of (data ?? []) as unknown as Array<{
+          person_id: string;
+          claimed_by_user_id: string | null;
+          public_id: string | null;
+          account: { public_id: string | null } | Array<{ public_id: string | null }> | null;
+        }>) {
+          const account = Array.isArray(r.account) ? r.account[0] : r.account;
+          if (r.claimed_by_user_id) {
+            userIdByPerson.set(r.person_id, r.claimed_by_user_id);
+            // A claimed person is opened by their ACCOUNT's id; unread, no handle at all — two handles for
+            // one person would let one link open and the other miss.
+            if (account?.public_id) publicIdByPerson.set(r.person_id, account.public_id);
+          } else if (r.public_id) {
+            publicIdByPerson.set(r.person_id, r.public_id);
+          }
         }
       } catch {
         // An admin client that cannot be built must not empty the roster.
@@ -483,6 +507,7 @@ export async function getPeopleRoster(userId: string): Promise<PeopleRoster> {
       fromEvent: state === 'waiting_you' ? (eventByConnection.get(r.connection_id) ?? null) : null,
       samahan: (otherUser && samahanByUser.get(otherUser)) || [],
       canLabel: iDeclared,
+      publicId: publicIdByPerson.get(otherId) ?? null,
     });
   }
   people.push(...alagaPeople);

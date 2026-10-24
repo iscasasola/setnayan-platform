@@ -40,8 +40,8 @@ import { ActionButton } from '@/components/action-button';
 import { PeekToast } from '@/app/_components/toast/peek-toast';
 import { plainRefusal } from '../../guests/_components/plain-refusal';
 import { MarchTray } from './details-march-tray';
-import { MarchGuestCard, type MarchCardPerson } from './march-guest-card';
-import type { MarchCardResult } from '../march-card-actions';
+import { GuestCardSheet, SHIPPED_GUEST_CARD, type GuestCardPerson } from '../../guests/_components/guest-card-sheet';
+import type { GuestCardResult } from '../../guests/_components/guest-card';
 
 /**
  * THE WEDDING MARCH MAKER — drag the names (owner 2026-10-06, DECISION_LOG "THE
@@ -104,10 +104,7 @@ export const EDGE_PX = 56;
  * 🪪 A TAP ON A NAME OPENS THEIR GUEST CARD (owner 2026-10-14) — read through the shipped action, loaded at the first tap
  * (opening the march reaches for no server door). The lab hands in its own stand-in (`openCard`).
  */
-async function openCardShipped(eventId: string, guestId: string): Promise<MarchCardResult> {
-  const { openMarchGuestCard } = await import('../march-card-actions');
-  return openMarchGuestCard(eventId, guestId);
-}
+const openCardShipped = SHIPPED_GUEST_CARD.march;
 /** 🪪 A finger's tap is a pointerup and THEN a click, at the same spot. The card opens at the pointerup, so that click
  *  would land on the sheet's scrim and close the card the instant it opened (measured in the lab: dialog 1 → 0 in 15 ms).
  *  The click that belongs to this tap is swallowed — once, and only for half a second. */
@@ -188,8 +185,8 @@ type MarchMakerProps = {
   lab?: boolean;
   /** 🚶 The Event Hub draft could not be read — the drafted moves are unknown, so nothing may be dragged. */
   draftUnread?: boolean;
-  /** 🪪 How a tapped name's guest card is read (the dev lab's stand-in); absent = the shipped `openMarchGuestCard`. */
-  openCard?: (eventId: string, guestId: string) => Promise<MarchCardResult>;
+  /** 🪪 How a tapped name's guest card is read (the dev lab's stand-in); absent = the shipped `openGuestCard`. */
+  openCard?: (eventId: string, guestId: string) => Promise<GuestCardResult>;
   /** 🪪 The lab's re-read after a card saved (the Maker's one refresh otherwise). */
   onCardSaved?: () => void;
 };
@@ -293,7 +290,7 @@ function MarchMakerBody({
   const [carried, setCarried] = useState<{ source: MarchSource; key: string; name: string } | null>(null);
   const [heard, setHeard] = useState('');
   /* 🪪 The person whose guest card is open over the march (a tap on their name). */
-  const [card, setCard] = useState<MarchCardPerson | null>(null);
+  const [card, setCard] = useState<GuestCardPerson | null>(null);
   const refocus = useRef<string | null>(null);
 
   const root = useRef<HTMLElement>(null);
@@ -965,11 +962,12 @@ function MarchMakerBody({
         </PeekToast>
       ) : null}
     </section>
-    {/* 🪪 The tapped person's own guest card, as a sheet over the march (`march-guest-card.tsx`) — OUTSIDE the march's
+    {/* 🪪 The tapped person's own guest card — THE guest card (`GuestCard`), in its sheet over the march
+        (`guest-card-sheet.tsx`) — OUTSIDE the march's
         section, so a key or a press inside the card never reaches the drag's handlers (a portal's events bubble through
         the React tree). */}
     {card && card.id ? (
-      <MarchGuestCard eventId={eventId} person={card} open={openCard} onClose={() => setCard(null)} onSaved={onCardSaved} />
+      <GuestCardSheet eventId={eventId} person={card} open={openCard} onClose={() => setCard(null)} onSaved={onCardSaved} />
     ) : null}
     </>
   );

@@ -118,7 +118,7 @@ test('1 · the Invitation and Save the Date are one page; The Day keeps its tabs
 
 /* ══ 2 · THE THREE ANCHORS, IN ORDER, ON ONE PAGE ════════════════════════════ */
 
-test('2 · the real Invitation: Home (after the cover) → Details (the event-details card first) → Story, all on the one page', async () => {
+test('2 · the real Invitation: Home (after the cover) → Details → Story, all on the one page', async () => {
   const html = await renderSiteBodyFixture(STORY);
   for (const id of ['site-home', 'site-details', 'site-story']) assert.ok(at(html, `id="${id}"`) > 0, `#${id} is not on the page`);
   assert.equal(html.split('id="site-home"').length - 1, 1, '#site-home is drawn twice');
@@ -130,9 +130,11 @@ test('2 · the real Invitation: Home (after the cover) → Details (the event-de
   assert.ok(home! < details! && details! < story!, `the marks are out of order (home ${home} · details ${details} · story ${story})`);
   // Home's mark comes after the cover's one action too (the guest's RSVP), so Home never lands on the cover.
   assert.ok(at(html, 'data-arrival-action=') < home!, 'Home lands before the cover’s RSVP');
-  // The event-details card is the first thing in Details.
+  // 🪪 Details no longer opens on an "Event details" card (owner 2026-10-24, "isn't this a dupe?" —
+  // `the-details-tab-repeats-nothing.test.ts`): it opens on the couple's own scenes.
   const afterDetails = html.slice(html.indexOf('>', details!) + 1, details! + 1500).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-  assert.match(afterDetails, /^Event details Date /, `Details does not open on the event-details card: “${afterDetails.slice(0, 80)}”`);
+  assert.ok(afterDetails.length > 0, 'anti-vacuity: Details opens on nothing');
+  assert.doesNotMatch(afterDetails, /^Event details /, `Details still opens on the event-details card: “${afterDetails.slice(0, 80)}”`);
   // Every group of Home · Details · Story is on the one page, and shown; Me is a page of its own, not shown.
   const groups = groupsOf(html);
   assert.ok(groups.length >= 5, `precondition: the page’s groups were found (${groups.length})`);

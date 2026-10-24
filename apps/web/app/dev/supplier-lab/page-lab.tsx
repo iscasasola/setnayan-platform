@@ -32,6 +32,7 @@ import { OpenFoldButton } from '@/app/vendor-dashboard/_components/open-fold-but
 import { AccountSwitcher } from '@/app/_components/account-switcher/account-switcher';
 import { supplierAvatarRows } from '@/app/vendor-dashboard/_components/supplier-avatar-rows';
 import { LabSeedDraft } from './lab-seed-draft';
+import { PORTFOLIO_FREE_BASE } from '@/lib/vendor-tier-caps';
 
 export const PAGE_LAB_STATES = ['details', 'page', 'collections', 'avatar'] as const;
 export type PageLabState = (typeof PAGE_LAB_STATES)[number];
@@ -268,6 +269,50 @@ function detailsFixture(who: Who): DetailsData {
   };
 }
 
+/**
+ * 🎁 A shop fresh from Setnayan's personal invite (prototype `supplier_personal_invite_2026-10-23` frame B4): the
+ * admin staged the name, the category and the email; nothing else is in yet. `?s=details&invited=1`.
+ */
+function invitedDetailsFixture(): DetailsData {
+  const base = detailsFixture('caterer');
+  const has = new Set(['business_name', 'contact_email', 'services']);
+  const checklist = base.checklist.map((i) => ({ ...i, ok: has.has(i.key) }));
+  return {
+    ...base,
+    vendorId: 'lab-invited',
+    businessName: 'Tita Nena’s Catering',
+    isVerified: false,
+    tier: 'pro',
+    checklist,
+    profileComplete: false,
+    fieldsLeft: checklist.filter((i) => !i.ok && i.key !== 'logo').length,
+    profileFields: {
+      ...base.profileFields,
+      business_name: 'Tita Nena’s Catering',
+      business_owner_name: '',
+      hq_address: '',
+      location_city: '',
+      contact_phone: '',
+      contact_email: 'nena@gmail.com',
+      in_business_since_year: '',
+      services: ['catering'],
+      serviceLabels: { catering: 'Catering' },
+      vendorProfileId: 'lab-invited',
+    },
+    about: null,
+    docsIn: 0,
+    pay: { methods: [], measured: true },
+    verify: { ...base.verify, status: null, vendorComplete: 0, requiredIn: 0, requiredDocsIn: false } as DetailsData['verify'],
+    progress: detailsProgress({
+      checklist,
+      docs: { measured: true, isVerified: false, status: null, requiredIn: 0, requiredTotal: 4 },
+      payMethods: 0,
+    }),
+    fromInvite: true,
+    hasLogo: false,
+  };
+}
+
 /** The site's own sample wedding photos (public/realstories) — the lab's portfolio. */
 const SAMPLE_PHOTOS = [
   '/realstories/jack-jill-g1.jpg',
@@ -317,7 +362,7 @@ function pageFixture(who: Who): PageClientData {
   };
 }
 
-export function PageLab({ state, who: rawWho, draft }: { state: PageLabState; who?: string; draft?: boolean }) {
+export function PageLab({ state, who: rawWho, draft, invited = false }: { state: PageLabState; who?: string; draft?: boolean; /** 🎁 `&invited=1` on details — fresh from a personal invite (B4). */ invited?: boolean }) {
   const who: Who = rawWho === 'caterer' || rawWho === 'studio' ? rawWho : 'parish';
   if (state === 'avatar') {
     return (
@@ -339,7 +384,7 @@ export function PageLab({ state, who: rawWho, draft }: { state: PageLabState; wh
     );
   }
   if (state === 'details') {
-    const d = detailsFixture(who);
+    const d = invited ? invitedDetailsFixture() : detailsFixture(who);
     return (
       <DetailsScreen
         d={d}
@@ -366,10 +411,8 @@ export function PageLab({ state, who: rawWho, draft }: { state: PageLabState; wh
           autoReplyBody={
             <AutoReplyCard
               initialEnabled
-              initialDailyCap={30}
               initialAutoAcceptEnabled={false}
               initialAutoAcceptThreshold={80}
-              initialDailyAutoAcceptCap={5}
             />
           }
         />
@@ -392,7 +435,7 @@ export function PageLab({ state, who: rawWho, draft }: { state: PageLabState; wh
               vendorProfileId={`lab-${who}`}
               portfolioRefs={[]}
               portfolioDisplayMap={{}}
-              portfolioMax={30}
+              portfolioMax={PORTFOLIO_FREE_BASE}
               galleryVideoLinks={[]}
               igConfigured={false}
               igConnection={null}

@@ -23,8 +23,8 @@ type DayPart = Exclude<FixedStyleScene, 'entourage'>;
 const EYEBROW: Record<DayPart, string> = {
   announcements: 'Announcements',
   find_your_seat: '✦ Your seat',
-  live_hub: 'Watch live · Live photo wall',
-  photos_of_you: '✦ Photos of you',
+  live_hub: 'Watch live · Memory lane',
+  photos_of_you: '✦ Memories of you',
 };
 
 /** Each look's arrangement, keyed `<part>:<style id>` (`lib/scene-styles-stages.ts`). */

@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { papicPoolGalleryActive } from '@/lib/papic-pool-gate';
 import { eventPapicActive } from '@/lib/papic-seats';
 import { PoolGalleryToggle } from './pool-gallery-toggle';
+import { InfoTip } from '@/app/_components/info-tip';
 
 /**
  * Shared Pool Gallery — the couple's control card on the Papic studio page
@@ -18,7 +19,7 @@ import { PoolGalleryToggle } from './pool-gallery-toggle';
  * session guest, who may also tag themselves into photos. Closing is
  * retroactive on the next read.
  */
-export async function PoolGalleryCard({ eventId }: { eventId: string }) {
+export async function PoolGalleryCard({ eventId, variant = 'card' }: { eventId: string; variant?: 'card' | 'row' }) {
   if (!(await papicPoolGalleryActive())) return null;
 
   const papicActive = await eventPapicActive(await eventEntitlementClient(eventId), eventId);
@@ -42,10 +43,10 @@ export async function PoolGalleryCard({ eventId }: { eventId: string }) {
       <section className="rounded-2xl border border-ink/10 bg-surface p-5 sm:p-6">
         <h2 className="flex items-center gap-2 text-base font-semibold text-ink">
           <Images aria-hidden className="h-4.5 w-4.5 text-terracotta" strokeWidth={2} />
-          Shared gallery
+          Shared Memories
         </h2>
         <p className="mt-1 text-sm text-terracotta-700">
-          We couldn&rsquo;t check whether your shared gallery is open just now. Refresh the
+          We couldn&rsquo;t check whether your shared Memories are open just now. Refresh the
           page to see it and change it.
         </p>
       </section>
@@ -55,18 +56,33 @@ export async function PoolGalleryCard({ eventId }: { eventId: string }) {
 
   const open = ev.pool_gallery_open === true;
 
+  // 'row' — Memories › ⚙ Gallery settings (owner 2026-10-23, "Guests see all photos"): the switch, its words in the ⓘ.
+  if (variant === 'row') {
+    return (
+      <section className="py-3" data-memories-setting="see-all">
+        <InfoTip label="Guests see all photos" labelAs="h3" labelClassName="text-[15px] font-semibold text-ink" align="start">
+          On: every guest can browse every screened photo and clip in your Memories (web copies only) and tag themselves
+          into photos they are in — those join their own. Turning it off closes it for everyone at once.
+        </InfoTip>
+        <div className="mt-1">
+          <PoolGalleryToggle eventId={eventId} initialOpen={open} />
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="rounded-2xl border border-ink/10 bg-surface p-5 sm:p-6">
       <h2 className="flex items-center gap-2 text-base font-semibold text-ink">
         <Images aria-hidden className="h-4.5 w-4.5 text-terracotta" strokeWidth={2} />
-        Shared gallery
+        Shared Memories
       </h2>
       <p className="mt-1 text-sm text-ink/60">
         Let your guests browse <span className="font-medium text-ink/75">every</span>{' '}
         clean-screened photo and clip in your Papic library (web copies only) and tag
         themselves into photos they&rsquo;re in — tagged photos join their personal
-        gallery and download. Off by default; turning it off later closes the
-        gallery for everyone immediately.
+        Memories and download. Off by default; turning it off later closes the
+        shared Memories for everyone immediately.
       </p>
       <div className="mt-4">
         <PoolGalleryToggle eventId={eventId} initialOpen={open} />

@@ -1641,8 +1641,8 @@ export function PapicSeatCapture({
             {capNotice && !saveError && (
               <p className="text-center text-xs text-cream/80">
                 {capNotice === 'photos'
-                  ? 'That’s all your free photos — every one’s in the gallery.'
-                  : 'That’s all your free snippets — every one’s in the gallery.'}
+                  ? 'That’s all your free photos — every one’s in Memories.'
+                  : 'That’s all your free snippets — every one’s in Memories.'}
               </p>
             )}
             {poolNotice && !saveError && !capNotice && (
@@ -1679,7 +1679,7 @@ export function PapicSeatCapture({
                     <PartyPopper aria-hidden className="mx-auto h-6 w-6 text-terracotta" strokeWidth={1.75} />
                     <p className="mt-2 text-sm font-medium text-cream">
                       That&rsquo;s everything you can shoot &mdash; every photo and clip
-                      is in the host&rsquo;s gallery.
+                      is in the host&rsquo;s Memories.
                     </p>
                   </>
                 ) : arrivalNote ? (
@@ -1798,7 +1798,7 @@ export function PapicSeatCapture({
                         // still said 5, on the same screen. Interpolate so the
                         // next re-price cannot leave one of the three behind.
                         `Tap for a photo · press and hold to record (up to ${CLIP_MAX_MS / 1000}s).`
-                      : 'Tap to take a photo. Every shot lands in the host’s gallery.'}
+                      : 'Tap to take a photo. Every shot lands in the host’s Memories.'}
                 </p>
               </>
             )}

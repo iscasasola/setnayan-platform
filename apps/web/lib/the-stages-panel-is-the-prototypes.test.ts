@@ -69,10 +69,13 @@ test('under the flag the TypeBar is the keyboard’s ONE bar: Done — no Wordin
   const src = read(`${EDITOR}/type-in-place.tsx`);
   const at = src.indexOf('if (stagesStudio && !p.inline');
   assert.ok(at > 0, 'the flag-on keyboard bar exists');
-  const end = src.indexOf('document.body,\n    );\n  }', at);
+  const end = src.indexOf('</TypingBand>', at);
+  assert.ok(end > at, 'the flag-on bar is not the one typing band');
   const bar = src.slice(at, end);
   assert.match(bar, /data-type-bar-keys/);
-  assert.match(bar, /label="Done"/);
+  // Its ONE action is the band's Done (`typing-band.tsx`), handed the session's close.
+  assert.match(bar, /onDone=\{p\.onClose\}/);
+  assert.match(read('app/_components/typing-band.tsx'), /label="Done"/);
   for (const old of ['Wording', 'Style ▾', 'Hide', 'data-type-style', 'data-type-hide']) {
     assert.ok(!bar.includes(old), `the flag-on bar carries no "${old}"`);
   }
@@ -383,7 +386,7 @@ test('the frame and its ＋ stop in the gap — never on the neighbour’s words
 
 test('every piece the cover draws picks a part of its own (owner 2026-10-07: "every visible piece of the page must be a pickable part")', async () => {
   const { HUB_HERO_ELEMENT_KEYS } = await import('./element-style');
-  const { MAKER_PARTS, MAKER_STAGE_PAGES, makerPartOfTap, HERO_EL_INSIDE } = await import('./maker-parts');
+  const { MAKER_PARTS, MAKER_STAGE_PAGES, makerPartOfTap, makerPartsTappable, HERO_EL_INSIDE } = await import('./maker-parts');
   /* The one piece with no part yet — the cover photo's caption — is named here, so it stays visible as a gap. */
   const GAPS = ['caption'];
   for (const [stage, page] of [['save_the_date', 'home'], ['rsvp', 'home'], ['event', 'live']] as const) {
@@ -400,9 +403,13 @@ test('every piece the cover draws picks a part of its own (owner 2026-10-07: "ev
   }
   /* The two blocks that drew no marker — every tap on them was dead — now stand after one. */
   const body = read('app/[slug]/_components/site-body.tsx');
-  assert.match(body, /\{makerMark\('f:details'\)\}\s*<PublicEventDetails/, 'THE DETAILS · WHEN · WHERE is a part');
+  /* 🪪 RE-AIMED 2026-10-24: THE DETAILS · WHEN · WHERE is drawn on no page (owner, "isn't this a dupe?" —
+     `OFF_THE_PAGE`), so it has no marker and no page of the Maker lists it as a part. */
+  assert.doesNotMatch(body, /makerMark\('f:details'\)|<PublicEventDetails/, 'a retired Details block still draws');
+  /* …and so the Maker never offers its tile: only what the page drew is a tile (`makerPartsTappable`). */
+  assert.ok(!makerPartsTappable('rsvp', 'details', new Set(['w:schedule', 'w:venue_map'])).includes('details'), 'the Maker offers a tile for a block no page draws');
   assert.equal((body.match(/makerMark\('f:spotlight'\)/g) ?? []).length, 2, 'both Happening-now mounts are a part');
-  for (const [k, canvas] of [['details', 'f:details'], ['spotlight', 'f:spotlight']] as const) assert.equal(MAKER_PARTS[k].canvas, canvas);
+  for (const [k, canvas] of [['spotlight', 'f:spotlight']] as const) assert.equal(MAKER_PARTS[k].canvas, canvas);
 });
 
 test('the opening is the Cover Scene’s on every page it plays over — no Reveal tile leads a page (2026-10-16)', async () => {
@@ -546,7 +553,7 @@ test('the Dress code part carries ONE Figures ▾ (Drawn · Hidden) writing the 
       every style card is the ONE phone-shaped frame, so "as wide as its picture" (#6428's F) became "the frame".
       The walk of every picker is `every-style-card-is-phone-shaped.test.ts`; this keeps the two cards' own facts. ── */
 
-test('the Reveal and Camera look cards are the phone-shaped frame — the Camera’s screen fills it, the Reveal is drawn at its shape', () => {
+test('the Reveal’s look cards are the phone-shaped frame, drawn at its shape — and the one camera’s screen fills its page', () => {
   const reveal = read(`${LAUNCH}/maker-reveal.tsx`);
   /* Re-aimed 2026-10-17 (controller on #6596, the approved prototype's `.lc .pic`): an Opening card is the toolbar's
      Style card (`StyleCards`, like every part's) — the couple's real cover (`StylePreview` of `f:hero`) with the
@@ -555,12 +562,10 @@ test('the Reveal and Camera look cards are the phone-shaped frame — the Camera
   assert.match(card, /<StyleCards\s+data="reveal"/, 'an Opening card is not the toolbar’s Style card');
   assert.match(card, /<StylePreview canvasKey="f:hero" sceneType="opening" styleId=\{id\} current=\{on\} focus="header\[data-pahina-first-screen\]" screen hide=\{id === REVEAL_NONE_ID \? null : '\[data-cover-line\]'\} \/>/, 'the card is not the couple’s own cover');
   assert.match(card, /<RevealPicture kind=\{id\} colours=\{look\.colours\} fill over \/>/, 'the opening is not drawn over the cover at the frame’s shape');
-  const camera = read(`${LAUNCH}/stage-panel/camera-look.tsx`);
-  /* (Re-aimed 2026-10-10: the approved prototype now draws The Day › Camera — its looks are the toolbar's Style cards,
-     `StyleCards`, like every other part's; `every-style-card-is-phone-shaped.test.ts` holds the card.) */
-  assert.match(camera, /<StyleCards\s/, 'a Camera card is not the toolbar’s Style card');
-  assert.match(read(`${LAUNCH}/stage-panel/camera-face.tsx`), /data-camera-look-face=\{look\} className="absolute inset-0 /, 'the camera screen no longer fills the frame');
-  assert.doesNotMatch(camera + card, /spCardWidth|SP_LAYOUT_CARD/, 'a card is sized apart from the frame again');
+  /* 📷 The Camera has no look cards any more (owner 2026-10-24: one camera — `the-maker-offers-no-camera-style.test.ts`);
+     its one screen still fills its page. */
+  assert.match(read(`${LAUNCH}/stage-panel/camera-face.tsx`), /data-camera-face-screen="" className="absolute inset-0 /, 'the camera screen no longer fills its page');
+  assert.doesNotMatch(card, /spCardWidth|SP_LAYOUT_CARD/, 'a card is sized apart from the frame again');
 });
 
 /* ── 14 · the Reveal's NONE card — one fact with the three switches (owner, live Maker 2026-10-08: "and none.") ── */

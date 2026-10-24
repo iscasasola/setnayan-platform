@@ -20,6 +20,7 @@ import { advanceScheduleBlock } from '@/app/_actions/run-of-show';
 import { fetchScheduleBlocks } from '@/lib/schedule';
 import { computeRetimePatches } from '@/lib/schedule-ros';
 import { checkRetime } from '@/lib/floor-command';
+import { notifyScheduleShifted } from '@/lib/schedule-shift-notify.server';
 import { isCoordinatorTrade } from '@/lib/coordinator-trade';
 import { eventFeeBlocksAction } from '@/lib/vendor-event-fee-access.server';
 
@@ -145,6 +146,16 @@ export async function floorRetimeFrom(
     }
     moved += 1;
   }
+
+  /* ⏱ The floor's +N is a shift of the day: every OTHER booked supplier is told, once (owner 2026-10-23). */
+  const anchor = blocks.find((b) => b.block_id === fromBlockId) ?? null;
+  await notifyScheduleShifted({
+    eventId,
+    deltaMinutes: check.minutes,
+    fromStartAt: anchor?.start_at ?? null,
+    fromLabel: anchor?.label ?? null,
+    actorUserId: ctx.user.id,
+  });
 
   revalidatePath(`/vendor-dashboard/on-the-day/live/${eventId}`);
   revalidatePath(`/dashboard/${eventId}/schedule`);

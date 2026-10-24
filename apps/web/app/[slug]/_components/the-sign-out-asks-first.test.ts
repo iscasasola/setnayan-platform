@@ -52,6 +52,10 @@ function signOutOf(html: string): string {
   const forms = [...html.matchAll(/<form\b[^>]*action="[^"]*\/sign-out"[^>]*>[\s\S]*?<\/form>/g)].map((m) => m[0]);
   assert.equal(forms.length, 1, `a guest's page has ${forms.length} sign-outs — one place per control`);
   const at = html.indexOf(forms[0]!);
+  /* 🔁 2026-10-24 (owner, the Me redraw): on a tabbed page the sign-out is Me's small pill, in Me's foot beside
+     "Stop keeping a record" — the form itself is the control; a page that is one scroll keeps its section. */
+  const foot = html.lastIndexOf('<div data-me-foot=""', at);
+  if (foot > -1 && html.lastIndexOf('<section', at) < foot) return forms[0]!;
   const open = html.lastIndexOf('<section', at);
   return html.slice(open, at + forms[0]!.length);
 }
@@ -89,7 +93,8 @@ test('(3) it can be read and pressed: ≥14px, ≥4.5:1 on the page, ≥44px tal
   // Anti-vacuity: the measure sees the fault it was written for (12px ink/50 was 3.0:1).
   assert.ok(inkContrast(50) < 3.2 && inkContrast(50) > 2.8, `ink/50 measures ${inkContrast(50).toFixed(2)}:1 — the measure is off`);
   const section = signOutOf(await renderSiteBodyFixture());
-  const cls = (section.match(/^<section class="([^"]*)"/)?.[1] ?? '').split(/\s+/);
+  // The words' size and ink: the section's (a page that is one scroll), or Me's pill's own (a tabbed page).
+  const cls = (section.match(/^<section class="([^"]*)"/)?.[1] ?? section.match(/<button\b[^>]*class="([^"]*)"/)?.[1] ?? '').split(/\s+/);
   const size = cls.find((c) => /^text-(?:xs|sm|base|lg|xl)$/.test(c));
   assert.ok(size && size !== 'text-xs', `the sign-out's words are ${size ?? 'unsized'} — under 14px`);
   const alpha = Number(cls.map((c) => c.match(/^text-ink(?:\/(\d+))?$/)).find(Boolean)?.[1] ?? 100);

@@ -40,6 +40,17 @@ type Row = { role: GuestRole; name_prefix: string | null; display_name: string; 
 
 /** Invitation › Me for one row, exactly as `site-body.tsx` hands it over (`guestNamePartsOf` · `guestAttireOf`). */
 async function me(row: Row, part: 'role' | 'wear' | 'arrive'): Promise<string> {
+  /* 🔁 2026-10-24 (owner, the Me redraw): the role is said ONCE on Me — under the name at Me's top (`MeGreeting`), from
+     the same word site-body hands it (`roleWord: roleWordOfGuest(guest, roleNames)`, asserted below). */
+  if (part === 'role') {
+    const { MeGreeting } = await import('../app/[slug]/_components/guest-greeting');
+    const { guestGreetingOf } = await import('./guest-greeting');
+    return renderToStaticMarkup(
+      React.createElement(MeGreeting, {
+        greeting: guestGreetingOf({ name: row.display_name, roleCode: row.role, roleWord: roleWordOfGuest(row), sideLabel: null, date: null, venues: null, venueName: null }),
+      }),
+    );
+  }
   const { GuestMeParts } = await import('../app/[slug]/_components/guest-me-parts');
   return renderToStaticMarkup(
     React.createElement(GuestMeParts, {
@@ -70,6 +81,7 @@ const kinWord = (base: string, said: 'woman' | 'man' | null) =>
   said === null ? base : base === 'Parent' ? (said === 'woman' ? 'Mother' : 'Father') : said === 'woman' ? 'Grandmother' : 'Grandfather';
 
 test('1 · Me › Your role — the owner\'s row: an "Atty. (Woman)" groom\'s parent is "Mother of the Groom"', async () => {
+  assert.match(read('app/[slug]/_components/site-body.tsx'), /const meGreeting = guestGreetingOf\(\{[\s\S]{0,200}?roleWord: roleWordOfGuest\(guest, roleNames\),/, 'Me’s role line is not the one role word');
   const her: Row = { role: 'groom_parents', name_prefix: 'Atty.', display_name: 'Eufrocina M. Sacdalan-Casasola', gender: 'woman', attire: 'neutral' };
   const said = text(await me(her, 'role'));
   assert.match(said, /Mother of the Groom/, `her Me page said: ${said}`);
@@ -83,7 +95,7 @@ test('1 · Me › Your role — every kin role × woman · man · unknown, by ge
       const row: Row = { role, name_prefix: 'Atty.', display_name: 'Lee Cruz', gender, attire: 'neutral' };
       const want = `${kinWord(base, gender)} of the ${side}`;
       assert.match(text(await me(row, 'role')), new RegExp(want), `${role} · ${gender ?? 'unknown'}: Me`);
-      // …and the same word on every other "you" line (the Welcome's "joining us as", Event details' "Your role").
+      // …and the same word on every other "you" line (Me's greeting role line, Event details' "Your role").
       assert.equal(roleWordOfGuest(row), want, `${role} · ${gender ?? 'unknown'}: the other "you" lines`);
       checked += 1;
     }

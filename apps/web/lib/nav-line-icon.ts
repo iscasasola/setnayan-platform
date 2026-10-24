@@ -21,7 +21,6 @@
 import type { LucideIcon } from 'lucide-react';
 import { getLucideIcon } from '@/lib/nav-icons';
 import type { NavIconDescriptor, NavSlotLite } from '@/lib/nav-registry-types';
-import { HOME_DOORWAY_ICONS } from '@/lib/customer-menu';
 
 /** A registry icon for one of the five, or `fallback` when it is not a line icon. */
 export function navLineIcon(icon: NavIconDescriptor | null | undefined, fallback: LucideIcon): LucideIcon {
@@ -29,15 +28,3 @@ export function navLineIcon(icon: NavIconDescriptor | null | undefined, fallback
   return getLucideIcon(icon.lucideName) ?? fallback;
 }
 
-export type HomeDoorwayKey = keyof typeof HOME_DOORWAY_ICONS;
-
-/**
- * The icon for one Home doorway button ("Guests" → `guests`, "Suppliers" →
- * `explore`, "Event Hub" → `launch`; `HOME_DOOR_LABELS`) — the
- * SAME registry slot the bottom-bar tab it opens reads
- * (`customer.bottom-nav.<key>`), through the same line-only rule, so a doorway
- * and its tab can never wear two icons.
- */
-export function homeDoorwayIcon(key: HomeDoorwayKey, navSlots?: Record<string, NavSlotLite> | null): LucideIcon {
-  return navLineIcon(navSlots?.[`customer.bottom-nav.${key}`]?.icon, HOME_DOORWAY_ICONS[key]);
-}

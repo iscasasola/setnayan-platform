@@ -125,7 +125,8 @@ test('2b · the guest’s Dress with us (the Guests card) draws and says the sam
     const html = renderToStaticMarkup(React.createElement(DressCodeWidget as never, { words, config: CONFIG, rolePalette: PALETTE, guestRole, readerOnly: guestRole !== null }));
     assertTieWearers(html, guestRole ? 'a guest’s Dress with us' : 'the host’s Dress with us');
     const said = [...html.matchAll(/data-dot-word="([^"]*)"/g)].map((m) => m[1]!.replace(/&amp;/g, '&'));
-    assert.equal(said.filter((w) => w === TIE_AND_ACCENT).length, GUESTS.length, `${guestRole ?? 'host'}: the Guests card does not say "Tie" under each man's option (${JSON.stringify(said)})`);
+    /* (2026-10-24, owner: "the colors have names" — the word, then the colour's own name: "Tie & accent · Gold".) */
+    assert.equal(said.filter((w) => w === TIE_AND_ACCENT || w.startsWith(`${TIE_AND_ACCENT} · `)).length, GUESTS.length, `${guestRole ?? 'host'}: the Guests card does not say "Tie" under each man's option (${JSON.stringify(said)})`);
   }
   const stored = sanitizeRolePalette(PALETTE);
   const row = dressCodeForEveryone({ config: CONFIG, stored, board: resolveDisplayPalette(stored) }).rows.find((r) => r.rowKey === 'guest');

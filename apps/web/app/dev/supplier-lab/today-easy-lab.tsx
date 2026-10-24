@@ -14,7 +14,9 @@ import type { UpcomingEventRow, WhatsNewCard } from '@/lib/vendor-overview';
 import type { DueFeeBill, FeeDisclosure } from '@/lib/booking-fee-disclosure';
 import { bookingFeeForecast } from '@/lib/booking-fee-disclosure';
 import { BOOKING_FEE, bookingFeePhp } from '@/lib/booking-fee';
+import { FREE_BOOKING_LIMIT } from '@/lib/booking-fee-lock';
 import { buildFirstStepsRail } from '@/lib/vendor-first-steps';
+import { giftDoorWords, giftShopLine, planGiftOf } from '@/lib/plan-gift';
 import { splitDesk } from '@/lib/vendor-desk-disposition';
 import { lockAgreeNotice } from '@/lib/lock-answer-notice';
 import { SupplierTodayScreen, type TodayActions } from '@/app/vendor-dashboard/_components/supplier-today-screen';
@@ -248,14 +250,20 @@ const SUPS: Record<EasySupplier, Sup> = {
 
 function forecastFor(price: number, freeUsed: number): FeeDisclosure | null {
   return bookingFeeForecast(
-    freeUsed < 5
+    freeUsed < FREE_BOOKING_LIMIT
       ? { kind: 'free', ordinal: freeUsed + 1, ordinalIsFrozen: false, schedule: BOOKING_FEE }
       : { kind: 'billable', ordinal: freeUsed + 1, ordinalIsFrozen: false, schedule: BOOKING_FEE },
     price,
   );
 }
 
-export function TodayEasyLab({ sup: supKey, moment, actions, library = false, rail = null, logoNext = false }: { sup: EasySupplier; moment: EasyMoment; actions: TodayActions; library?: boolean; /** `setup` only — how far along the first steps are: `service` (details done) · `docs` (a service too) — prototype first_run S4 / S5. */ rail?: 'service' | 'docs' | null; /** `&logo=1` on setup: details done, no logo — the logo step is next (2026-10-22). */ logoNext?: boolean }) {
+export function TodayEasyLab({ sup: supKey, moment, actions, library = false, rail = null, logoNext = false, gift: giftMode = null }: { sup: EasySupplier; moment: EasyMoment; actions: TodayActions; library?: boolean; /** `setup` only — how far along the first steps are: `service` (details done) · `docs` (a service too) — prototype first_run S4 / S5. */ rail?: 'service' | 'docs' | null; /** `&logo=1` on setup: details done, no logo — the logo step is next (2026-10-22). */ logoNext?: boolean; /** 🎁 `&gift=running|soon` — a plan Setnayan gave (personal invite B6 · C2): Pro until 31 Jan 2027, or a week left. */ gift?: 'running' | 'soon' | null }) {
+  // 🎁 The gift's end: 31 Jan 2027 23:59:59 Manila for `running`; seven days after the lab's now for `soon`.
+  const giftRow = giftMode
+    ? { tier_state: 'pro', tier_source: 'admin_comp', tier_expires_at: giftMode === 'soon' ? new Date(NOW + 7 * 86_400_000 - 60_000).toISOString() : '2027-01-31T15:59:59.000Z' }
+    : null;
+  const labGift = planGiftOf(giftRow, NOW);
+  const labGiftDoor = labGift ? giftDoorWords(labGift) : null;
   const sup = SUPS[moment === 'hallask' ? 'venue' : supKey];
   const setup = moment === 'setup';
   const withAsk = moment === 'ask' || moment === 'hallask' || moment === 'agreed';
@@ -283,6 +291,8 @@ export function TodayEasyLab({ sup: supKey, moment, actions, library = false, ra
         docsTotal: 4,
         submitMissing: rail ? [] : ['Finish your business profile'],
         customerCount: 0,
+        // 🌱🖼 A trade that supplies a part counts the library as a step (personal invite B6).
+        inspiration: library ? { count: 0 } : null,
       })
     : null;
 
@@ -300,6 +310,7 @@ export function TodayEasyLab({ sup: supKey, moment, actions, library = false, ra
     feeEnforced: true, // production measured 2026-10-14: the fee lock IS enforced
     earnings: { confirmedPhp: 0, expectedPhp: setup ? 0 : sup.owedPhp, paydayMeasured: true },
     credit: setup || !sup.credit ? null : { ...sup.credit, href: '/vendor-dashboard/subscription' },
+    gift: labGiftDoor ? { ...labGiftDoor, href: '/vendor-dashboard/subscription' } : null,
     payoutReadiness: setup ? 'unreadable' : sup.payout,
     payoutHref: '/vendor-dashboard/shop?open=payments#shop-folds',
     shop: {
@@ -308,6 +319,7 @@ export function TodayEasyLab({ sup: supKey, moment, actions, library = false, ra
       details: setup ? { done: 4, total: 6, complete: false } : sup.details,
       awardWord: setup ? null : sup.award,
       milestoneWord: setup ? null : sup.milestone,
+      giftLine: labGift ? giftShopLine(labGift) : null,
     },
     views: setup ? null : sup.views,
     inquiries28: setup ? null : sup.asked,
@@ -330,7 +342,7 @@ export function TodayEasyLab({ sup: supKey, moment, actions, library = false, ra
 
   return (
     <div className="min-h-screen bg-cream px-4 pb-32 pt-4" data-supplier-lab="today-easy" data-easy-moment={moment} data-easy-sup={supKey}>
-      <SupplierTodayScreen view={view} outcome={outcome} feeForecasts={forecasts} cards={desk} askStatus="" deskIncomplete={false} actions={actions} library={library} />
+      <SupplierTodayScreen view={view} outcome={outcome} feeForecasts={forecasts} cards={desk} askStatus="" deskIncomplete={false} actions={actions} library={library && !firstSteps?.steps.some((st) => st.key === 'inspiration' && st.state !== 'done')} />
     </div>
   );
 }

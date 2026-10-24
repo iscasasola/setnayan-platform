@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { checklistTaskAnchor } from '@/lib/checklist-anchor';
 import { Circle, CheckCircle2, ArrowRight, CalendarPlus, Wallet, Sparkles } from 'lucide-react';
 import {
   CHECKLIST_CATEGORY_LABELS,
@@ -257,7 +258,10 @@ function PhaseRows({
         return (
           <li
             key={item.item_id}
-            className={`sn-row flex items-center gap-3 px-3 py-2.5 sm:px-4 sm:py-3 ${
+            // 🔗 Home's Checklist widget opens THIS task (`/checklist#task-<id>`) — the address lands here.
+            id={checklistTaskAnchor(item.item_id)}
+            data-checklist-task=""
+            className={`sn-row flex scroll-mt-24 items-center gap-3 px-3 py-2.5 sm:px-4 sm:py-3 ${
               done ? 'opacity-70' : ''
             }`}
           >

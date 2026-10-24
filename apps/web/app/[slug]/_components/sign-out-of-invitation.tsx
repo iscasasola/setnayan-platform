@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, type FormEvent, type ReactNode } from 'react';
+import { LogOut } from 'lucide-react';
+import { ME_PILL } from './me-pill';
 
 /**
  * "SIGN OUT OF THIS INVITATION" — legible, and never by accident.
@@ -37,6 +39,7 @@ export function SignOutOfInvitation({
   action,
   erases = null,
   children,
+  pill = false,
 }: {
   /** `/{slug}/sign-out` — the POST route that clears this browser's guest pass. */
   action: string;
@@ -44,6 +47,9 @@ export function SignOutOfInvitation({
   erases?: ReactNode;
   /** The control's words. */
   children: ReactNode;
+  /** 🔘 On Me (owner 2026-10-24, the Me redraw): a small icon-and-word pill, inline, beside "Stop keeping a record" —
+   *  a pressable thing looks pressable. Absent: the shipped underlined words. */
+  pill?: boolean;
 }) {
   const [asked, setAsked] = useState(false);
   const onSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -52,7 +58,7 @@ export function SignOutOfInvitation({
     setAsked(true);
   };
   return (
-    <form action={action} method="post" onSubmit={onSubmit} data-sign-out="" data-asked={asked ? '1' : '0'}>
+    <form action={action} method="post" onSubmit={onSubmit} data-sign-out="" data-asked={asked ? '1' : '0'} className={pill && !asked ? 'm-1 inline-block align-middle' : undefined}>
       {erases}
       {asked ? (
         <div role="group" aria-label="Sign out of this invitation?">
@@ -69,9 +75,14 @@ export function SignOutOfInvitation({
       ) : (
         <button
           type="submit"
-          className="inline-flex min-h-[44px] items-center px-3 underline underline-offset-4 hover:text-ink"
+          className={
+            pill
+              ? ME_PILL
+              : 'inline-flex min-h-[44px] items-center px-3 underline underline-offset-4 hover:text-ink'
+          }
         >
-          {children}
+          {pill ? <LogOut aria-hidden className="h-4 w-4 shrink-0" /> : null}
+          {pill ? <span>{children}</span> : children}
         </button>
       )}
     </form>

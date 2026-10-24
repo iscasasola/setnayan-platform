@@ -56,15 +56,14 @@ test('🔴 the guest page greets NOBODY as a return — the "Hi again" card is n
 test('🔒 no greeting on the guest page says "Welcome" to someone at home', () => {
   // "Welcome" means "checked in at the door" in five other places. The
   // salutation that remains ("Hi, <name>.") must not borrow it.
-  const body = stripSrc(readFileSync(join(COMPONENTS, 'site-body.tsx'), 'utf8'));
-  const at = body.indexOf('const greetingBlock');
-  assert.ok(at > -1, 'the salutation moved — re-point this guard');
-  const greeting = body.slice(at, body.indexOf('</section>', at));
-  // The "Hi, <name>." salutation left on 2026-09-30 (DECISION_LOG "NO CASUAL
-  // GREETINGS", #6171); the sentence that stays is the one this block renders.
-  assert.match(greeting, /joining us as/, 'precondition: this is the greeting block');
-  assert.doesNotMatch(greeting, /Hi, /, 'a casual greeting is back');
-  assert.doesNotMatch(greeting, /welcome/i);
+  // 2026-10-24: the greeting is the top of Me (`guest-greeting.tsx`, words in `lib/guest-greeting.ts`).
+  const words = stripSrc(readFileSync(join(__dirname, '..', '..', '..', 'lib', 'guest-greeting.ts'), 'utf8'));
+  const scene = stripSrc(readFileSync(join(COMPONENTS, 'guest-greeting.tsx'), 'utf8'));
+  assert.match(words, /'Your invitation'/, 'precondition: this is the greeting');
+  for (const [name, src] of [['lib/guest-greeting.ts', words], ['guest-greeting.tsx', scene]] as const) {
+    assert.doesNotMatch(src, /Hi, /, `${name}: a casual greeting is back`);
+    assert.doesNotMatch(src, /welcome/i, `${name}: the greeting borrows "Welcome"`);
+  }
 });
 
 // ── The signal ──────────────────────────────────────────────────────────────

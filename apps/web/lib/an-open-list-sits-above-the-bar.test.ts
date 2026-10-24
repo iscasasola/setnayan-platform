@@ -112,11 +112,14 @@ test('4 · the wiring: PickMenu floors at the bar, the Group picker reveals its 
   assert.match(picker, /\}, \[open, mode, err, clash\]\);/, 'the reveal does not follow the editor opening (or its sentence)');
   assert.match(picker, /const frame = requestAnimationFrame\(show\);/, 'the reveal is never run when the list opens');
   assert.match(picker, /querySelector\('\[data-group-rename\],\[data-group-delete\]'\) \?\? box\?\.querySelector\('\[data-group-new\]'\)\?\.closest\('li'\)/, 'the open editor is not the thing revealed');
-  assert.match(picker, /vv\?\.addEventListener\('resize', onKeyboard\)/, 'a keyboard move does not re-reveal the editor');
+  // The keyboard moving the screen's edge — the one keyboard reading (`lib/keyboard-ride.ts`), its RESIZE only.
+  assert.match(picker, /subscribeKeyboard\(\(_k, cause\) => \(cause === 'resize' && editor\(\) \? show\(\) : undefined\)\)/, 'a keyboard move does not re-reveal the editor');
   assert.match(picker, /el\?\.focus\(\{ preventScroll: true \}\)/, 'the name box’s focus scrolls on its own, fighting the reveal');
 
   const dom = read('lib/reveal-above-chrome.ts');
   assert.match(dom, /if \(layer && !layer\.contains\(el\) && zOf\(el\) < zOf\(layer\)\) continue;/, 'a bar under the card’s sheet is counted as covering it');
   assert.match(dom, /import \{ bottomChromeLift, revealDelta, topChromeDrop, type ChromeBox \} from '@\/lib\/bottom-chrome';/, 'not the one shared bottom-bar rule');
-  assert.match(dom, /vv\.offsetTop \+ vv\.height/, 'the keyboard’s edge is not the floor');
+  // The keyboard's edge is the floor — from the one keyboard reading (`lib/keyboard-ride.ts`).
+  assert.match(dom, /const screenBottom = visibleBottom\(\);/, 'the keyboard’s edge is not the floor');
+  assert.match(read('lib/keyboard-ride.ts'), /Math\.min\(window\.innerHeight, k\.offsetTop \+ k\.height\)/, 'the keyboard’s edge is not the floor');
 });

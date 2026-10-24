@@ -1,4 +1,6 @@
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
+import { OneCodeUnderGetIn } from '@/app/dashboard/[eventId]/studio/papic/_components/one-code';
+import { readSupplierShots } from '@/lib/event-memories.server';
 import { coupleNamesLine } from '@/lib/typed-names';
 import { PlanMyselfSwitch } from '../launch/_components/plan-myself';
 import { planMyselfOn } from '@/lib/plan-myself';
@@ -228,6 +230,8 @@ export default async function EventDetailsPage({
   // 🤝 Suppliers who joined from the couple's link, waiting for Approve (owner
   // 2026-10-20) — the approval card at the top of Event access.
   const claimsRead = viewer.isCouple ? readClaimAccessAsks(supabase, eventId) : null;
+  // 📷 The suppliers who shot here — their rows carry the whole-delivery switch for Memories (owner 2026-10-23).
+  const supplierShotsRead = viewer.isCouple ? readSupplierShots(supabase, eventId).catch(() => null) : null;
 
   const [vendorsRead, scheduleRead, upcomingRead, guestsRead, ordersRead, vatRead, privateRead, moneyRead, snapshotRead, proRead, poolRead, draftRead, guideRead, storeShell] =
     await Promise.all([
@@ -467,6 +471,7 @@ export default async function EventDetailsPage({
 
   const people = accessRead ? await accessRead : null;
   const claims = claimsRead ? await claimsRead : null;
+  const supplierShots = supplierShotsRead ? await supplierShotsRead : null;
   // The closed fold says when someone is waiting for Approve (owner 2026-10-20).
   const claimsWaitingNote =
     claims?.measured && claims.asks.length > 0 ? ` · ${formatCount(claims.asks.length)} waiting for you` : '';
@@ -646,6 +651,19 @@ export default async function EventDetailsPage({
               record={record}
               waiting={waiting('rsvp_ask_config')}
             />
+            {/* 📷 …AND AS A CAMERA (owner 2026-10-23: "the how guests get in will be on event settings"): the one code
+                for everyone and every guest's own QR, under this ONE row — moved here from the Papic page. */}
+            {setupOfType.cameraDefault !== 'off' ? (
+              viewer.isCouple ? (
+                <OneCodeUnderGetIn eventId={eventId} />
+              ) : (
+                /* 🔒 The one code is a door into the couple's Papic credits — the couple's to hand out. A delegate is
+                   told so plainly, never shown an empty space that reads as "there is no code" (review 2026-10-24). */
+                <p className="pb-3 text-[13px] text-ink/60" data-one-code="not-yours">
+                  The couple holds the one code for guests&rsquo; cameras.
+                </p>
+              )
+            ) : null}
             {guestsReply ? (
               <>
                 <Row
@@ -992,6 +1010,7 @@ export default async function EventDetailsPage({
               failed={Boolean(people && !people.measured)}
               flash={accessFlash}
               claims={claims}
+              supplierPhotos={supplierShots}
             />
           </RecordFold>
         ) : null}

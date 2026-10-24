@@ -60,7 +60,8 @@ test('both layouts reserve the dock\'s MEASURED height, to the dock\'s own line'
   for (const f of [LAUNCHER_LAYOUT, ACCOUNT_LAYOUT]) {
     assert.match(
       code(f),
-      /<main className="pb-\[calc\(var\(--sn-bottomdock-h,[^"]*\] lg:pb-0">/,
+      // `sn-vt-page` leads since 2026-10-24 — the bar's page slide moves this <main> (one-tab-slide-everywhere.test.ts).
+      /<main\s+className="sn-vt-page pb-\[calc\(var\(--sn-bottomdock-h,[^"]*\] lg:pb-0"/,
       `${f}: <main> no longer reserves the dock's measured height up to lg`,
     );
   }

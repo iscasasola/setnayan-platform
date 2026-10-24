@@ -150,7 +150,8 @@ test('the OFF state tells the guest what it costs', () => {
   // The trail's only reader is the first-arrival greeting. A guest who turns
   // this off stops being welcomed on arrival, and finding that out by accident
   // is how a privacy control earns a reputation for breaking things.
-  const src = code(NOTICE);
+  // (2026-10-24: the notice's words live in `lib/scan-trail-words.ts` — "at this event", the Me redraw.)
+  const src = code(NOTICE) + code(join(HERE, '..', '..', '..', 'lib', 'scan-trail-words.ts'));
   assert.match(
     src,
     /greet you the same way every time/,

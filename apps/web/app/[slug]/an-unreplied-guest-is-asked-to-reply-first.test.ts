@@ -114,18 +114,24 @@ test('2 · the render: not replied → the reply button and NO ticket; Yes → t
 });
 
 test('3 · the wiring: SiteBody decides from its plan; page.tsx hands it to both Me mounts', () => {
+  /* 🔁 RE-AIMED 2026-10-24 (owner, the Me redraw — "one place"): on a tabbed page Me asks its reply with its ONE Reply
+     (`MeReply`, from the page's own action) — so the ticket carries no reply button of its own, and while a reply is
+     owed Me draws NO ticket at all (its anchor stays, so "My QR" opens no side door). THE PROPERTY IS UNCHANGED: an
+     unreplied guest is asked to reply first, and is shown no ticket. */
   const body = read('app/[slug]/_components/site-body.tsx');
   assert.match(
     body,
-    /typeof meSection === 'function'\s*\?\s*meSection\(\{\s*replyHref: meLeadsWithReply\(\{\s*action: arrivalAction,\s*replyOpen: replyOpenHere,/,
-    'Me must ask meLeadsWithReply with the page’s own action and reply-sheet gate',
+    /typeof meSection === 'function' \? meSection\(\{ replyHref: null, inMe: true, replyOwed: meReplyCard\?\.kind === 'ask' \}\)/,
+    'Me must tell its slot whether a reply is still owed (no ticket before the reply)',
   );
+  assert.match(body, /<MeReply ask=\{greetingAskOf\(meReplyCard\)!\}/, 'Me does not ask its reply');
   const page = read('app/[slug]/page.tsx');
   const mounts = page.match(/<GuestTicket\b[\s\S]*?\/>/g) ?? [];
   assert.equal(mounts.length, 2, `expected the real guest's and the See as sample's GuestTicket, found ${mounts.length}`);
-  for (const m of mounts) assert.match(m, /replyHref=\{replyHref\}/, `a Me ticket mount ignores the reply rule:\n${m}`);
-  // Both Me sections are the function form, so the answer reaches them.
-  assert.equal((page.match(/\(\{ replyHref \}: \{ replyHref: string \| null \}\) => \(/g) ?? []).length, 2);
+  for (const m of mounts) assert.match(m, /replyHref=\{(?:me\.)?inMe \? null : replyHref\}/, `a Me ticket mount ignores the reply rule:\n${m}`);
+  // Both Me sections are the function form, and both draw NO ticket while a reply is owed on the redrawn Me.
+  assert.equal((page.match(/\(\{ replyHref, inMe, replyOwed \}: \{ replyHref: string \| null; inMe\?: boolean; replyOwed\?: boolean \}\) => \(/g) ?? []).length, 2);
+  assert.equal((page.match(/inMe && (?:me\.)?replyOwed \? \(\s*<span id=\{PASS_ANCHOR\}|me\.inMe && me\.replyOwed \? \(\s*<span id=\{PASS_ANCHOR\}/g) ?? []).length, 2, 'a Me mount draws the ticket while a reply is still owed');
 });
 
 test('4 · a page WITHOUT tabs asks the same rule for the Me it hands GuestHubBar', async () => {

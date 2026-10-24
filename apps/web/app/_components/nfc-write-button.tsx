@@ -1,9 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { Check, Nfc, X } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { Check, Copy, Nfc, RotateCcw, ScanLine, X } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
-import { CopyButton } from '@/app/_components/copy-button';
+import { ActionButton, useFitRow } from '@/components/action-button';
+import { InfoTip } from '@/app/_components/info-tip';
+import { StatusLine } from '@/app/_components/status-line';
 import { useNfcEnabled } from '@/app/_components/use-nfc-enabled';
 import {
   NFC_READBACK_TIMEOUT_MS,
@@ -73,9 +75,9 @@ import type { NfcDevice } from '@/lib/nfc-tag';
  * (use-nfc-enabled.ts). Download + Copy on the same strip are not.
  */
 
-type Writer = 'app' | 'web' | 'none' | 'absent';
+export type Writer = 'app' | 'web' | 'none' | 'absent';
 
-type SheetState =
+export type SheetState =
   | { kind: 'closed' }
   | { kind: 'unsupported' }
   | { kind: 'waiting'; step: 'write' | 'confirm' }
@@ -223,129 +225,196 @@ export function NfcWriteButton({
         Write to NFC
       </button>
 
-      <Sheet open={open} onClose={close} labelledById="nfc-write-title" title="Write to NFC">
-        <div className="space-y-4 p-5">
-          {state.kind === 'unsupported' ? (
-            <>
-              <h2 id="nfc-write-title" className="text-base font-semibold text-ink">
-                {device === 'desktop' ? 'Do this on your phone' : 'Not in this browser'}
-              </h2>
-              <p className="text-sm text-ink/70">{nfcWrongDeviceCopy(device, isIosBrowser())}</p>
-              <LinkBox url={eligibility.url} />
-              <p className="text-xs text-ink/55">{tagSizeCopy(eligibility.url)}</p>
-            </>
-          ) : null}
-
-          {state.kind === 'waiting' ? (
-            <>
-              <h2 id="nfc-write-title" className="text-base font-semibold text-ink">
-                {state.step === 'write'
-                  ? writer === 'app'
-                    ? 'Hold a blank tag to the top of your phone'
-                    : 'Hold a blank tag against the back of your phone'
-                  : 'Tap the tag once more to confirm'}
-              </h2>
-              <p className="text-sm text-ink/70">
-                {state.step === 'write'
-                  ? 'Keep it still until this changes. Nothing else to press.'
-                  : 'Written. Lift the tag away, then touch it to the phone again so we can read it back.'}
-              </p>
-              <div className="flex items-center gap-3 text-sm text-ink/60">
-                <span
-                  aria-hidden
-                  className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-ink/20 border-t-ink"
-                />
-                {state.step === 'write' ? 'Waiting for a tag…' : 'Waiting to read it back…'}
-              </div>
-              {state.step === 'write' ? <p className="text-xs text-ink/55">{tagSizeCopy(eligibility.url)}</p> : null}
-              <button type="button" onClick={close} className={ACTION_CLASS}>
-                <X aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                Cancel
-              </button>
-            </>
-          ) : null}
-
-          {state.kind === 'written' ? (
-            <>
-              <h2 id="nfc-write-title" className="flex items-center gap-2 text-base font-semibold text-ink">
-                <Check aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={2.25} />
-                Tag written
-              </h2>
-              <p className="text-sm text-ink/70">
-                Read back from the tag — it now opens this link when a phone taps it.
-              </p>
-              <LinkBox url={eligibility.url} />
-              <div className="flex flex-wrap gap-2">
-                <button type="button" onClick={() => void run('write')} className={ACTION_CLASS}>
-                  Write another
-                </button>
-                <button type="button" onClick={close} className={ACTION_CLASS}>
-                  Done
-                </button>
-              </div>
-            </>
-          ) : null}
-
-          {state.kind === 'unconfirmed' ? (
-            <>
-              <h2 id="nfc-write-title" className="text-base font-semibold text-ink">
-                Not confirmed
-              </h2>
-              <p className="text-sm text-ink/70">
-                The write finished, but the tag was not read back. It may well be written —
-                hold it to the phone and tap Check tag.
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <button type="button" onClick={() => void run('check')} className={ACTION_CLASS}>
-                  Check tag
-                </button>
-                <button type="button" onClick={() => void run('write')} className={ACTION_CLASS}>
-                  Try again
-                </button>
-                <button type="button" onClick={close} className={ACTION_CLASS}>
-                  Close
-                </button>
-              </div>
-            </>
-          ) : null}
-
-          {state.kind === 'failed' ? (
-            <>
-              <h2 id="nfc-write-title" className="text-base font-semibold text-terracotta-700">
-                Write failed
-              </h2>
-              <p role="alert" className="text-sm text-ink/70">
-                {nfcFailureCopy(state.reason)}
-              </p>
-              {state.reason === 'unsupported-browser' || state.reason === 'no-nfc' || state.reason === 'permission-denied' ? (
-                <LinkBox url={eligibility.url} />
-              ) : null}
-              <div className="flex flex-wrap gap-2">
-                {state.reason !== 'unsupported-browser' && state.reason !== 'no-nfc' ? (
-                  <button type="button" onClick={() => void run('write')} className={ACTION_CLASS}>
-                    Try again
-                  </button>
-                ) : null}
-                <button type="button" onClick={close} className={ACTION_CLASS}>
-                  Close
-                </button>
-              </div>
-            </>
-          ) : null}
-        </div>
+      <Sheet open={open} onClose={close} labelledById={NFC_TITLE_ID} rise>
+        <NfcSheetBody
+          state={state}
+          url={eligibility.url}
+          writer={writer}
+          device={device}
+          onWrite={() => void run('write')}
+          onCheck={() => void run('check')}
+          onClose={close}
+        />
       </Sheet>
     </>
   );
 }
 
-/** The link, selectable, with the same Copy the strip offers. */
-function LinkBox({ url }: { url: string }) {
+const NFC_TITLE_ID = 'nfc-write-title';
+
+/** The house sheet title — the type scale's 19 px, never the mono eyebrow. Room on the right for the sheet's own ✕. */
+const TITLE_CLASS = 'text-[19px] font-semibold leading-snug tracking-tight text-ink';
+
+/**
+ * 🏠 THE SHEET'S BODY, drawn from props alone — the house look (owner 2026-10-25, "the NFC write does not follow our
+ * design templates"): the shared `Sheet` with its own ✕ (no mono eyebrow strip), a 19 px title whose details sit
+ * in its ⓘ, the house `StatusLine` (✓ · ⓘ · ⚠) for every outcome, the link as a read-only field with a Copy
+ * `ActionButton`, and ONE `ActionButton` row toned by meaning — one main verb per state, the rest quiet.
+ * Exported so a lab can draw every state without a radio (Web NFC cannot run in a test browser).
+ * Guard: app/_components/the-nfc-sheet-is-a-house-sheet.test.ts.
+ */
+export function NfcSheetBody({
+  state,
+  url,
+  writer,
+  device,
+  onWrite,
+  onCheck,
+  onClose,
+}: {
+  state: SheetState;
+  url: string;
+  writer: Writer | null;
+  device: NfcDevice;
+  onWrite: () => void;
+  onCheck: () => void;
+  onClose: () => void;
+}) {
   return (
-    <div className="flex items-center gap-2">
-      <code className="min-w-0 flex-1 truncate rounded-lg border border-ink/15 bg-white px-3 py-2 text-xs text-ink/75">
-        {url}
-      </code>
-      <CopyButton value={url} label="Copy link" />
+    <div className="space-y-4 px-5 pb-5 pt-4" data-nfc-sheet={state.kind}>
+      {state.kind === 'unsupported' ? (
+        <>
+          <SheetTitle tip={tagSizeCopy(url)}>
+            {device === 'desktop' ? 'Do this on your phone' : 'Not in this browser'}
+          </SheetTitle>
+          <p className="text-sm text-ink/70">{nfcWrongDeviceCopy(device, isIosBrowser())}</p>
+          <LinkBox url={url} />
+        </>
+      ) : null}
+
+      {state.kind === 'waiting' ? (
+        <>
+          <SheetTitle tip={state.step === 'write' ? tagSizeCopy(url) : null}>
+            {state.step === 'write'
+              ? writer === 'app'
+                ? 'Hold a blank tag to the top of your phone'
+                : 'Hold a blank tag against the back of your phone'
+              : 'Tap the tag once more to confirm'}
+          </SheetTitle>
+          <p className="text-sm text-ink/70">
+            {state.step === 'write'
+              ? 'Keep it still until this changes. Nothing else to press.'
+              : 'Written. Lift the tag away, then touch it to the phone again so we can read it back.'}
+          </p>
+          <div className="flex items-center gap-3 text-sm text-ink/60" role="status">
+            <span
+              aria-hidden
+              className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-ink/20 border-t-ink"
+            />
+            {state.step === 'write' ? 'Waiting for a tag…' : 'Waiting to read it back…'}
+          </div>
+          <ActionRow>
+            <ActionButton tone="neutral" quiet icon={X} label="Cancel" onClick={onClose} />
+          </ActionRow>
+        </>
+      ) : null}
+
+      {state.kind === 'written' ? (
+        <>
+          <SheetTitle tip="Read back from the tag — it now opens this link when a phone taps it.">Tag written</SheetTitle>
+          <StatusLine tone="info" data="nfc-written">
+            Written and checked. A tap opens this link.
+          </StatusLine>
+          <LinkBox url={url} />
+          <ActionRow>
+            <ActionButton tone="brand" main icon={Nfc} label="Write another" onClick={onWrite} />
+            <ActionButton tone="neutral" quiet icon={Check} label="Done" onClick={onClose} />
+          </ActionRow>
+        </>
+      ) : null}
+
+      {state.kind === 'unconfirmed' ? (
+        <>
+          <SheetTitle tip="The write finished, but the tag was not read back. It may well be written.">
+            Not confirmed
+          </SheetTitle>
+          <StatusLine tone="warn" data="nfc-unconfirmed">
+            Hold the tag to the phone and tap Check tag.
+          </StatusLine>
+          <ActionRow>
+            <ActionButton tone="brand" main icon={ScanLine} label="Check tag" onClick={onCheck} />
+            <ActionButton tone="neutral" quiet icon={RotateCcw} label="Try again" onClick={onWrite} />
+            <ActionButton tone="neutral" quiet icon={X} label="Close" onClick={onClose} />
+          </ActionRow>
+        </>
+      ) : null}
+
+      {state.kind === 'failed' ? (
+        <>
+          <SheetTitle tip={null}>Write failed</SheetTitle>
+          <StatusLine tone="bad" data="nfc-failed">
+            {nfcFailureCopy(state.reason)}
+          </StatusLine>
+          {state.reason === 'unsupported-browser' || state.reason === 'no-nfc' || state.reason === 'permission-denied' ? (
+            <LinkBox url={url} />
+          ) : null}
+          <ActionRow>
+            {state.reason !== 'unsupported-browser' && state.reason !== 'no-nfc' ? (
+              <ActionButton tone="brand" main icon={RotateCcw} label="Try again" onClick={onWrite} />
+            ) : null}
+            <ActionButton tone="neutral" quiet icon={X} label="Close" onClick={onClose} />
+          </ActionRow>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+/** The title, with its details in an ⓘ when it has any. `pr-12` keeps it clear of the sheet's ✕. */
+function SheetTitle({ children, tip }: { children: string; tip: string | null }) {
+  if (!tip) {
+    return (
+      <h2 id={NFC_TITLE_ID} className={`pr-12 ${TITLE_CLASS}`}>
+        {children}
+      </h2>
+    );
+  }
+  return (
+    <InfoTip label={children} labelAs="h2" labelId={NFC_TITLE_ID} labelClassName={TITLE_CLASS} align="start" className="pr-12">
+      {tip}
+    </InfoTip>
+  );
+}
+
+/** One row of house buttons; the right-most secondaries drop to their icon before anything wraps. */
+function ActionRow({ children }: { children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useFitRow(ref);
+  return (
+    <div ref={ref} className="flex flex-nowrap items-center gap-2 pt-1" data-nfc-actions="">
+      {children}
+    </div>
+  );
+}
+
+/** The link as the house read-only field, with a Copy button beside it. */
+function LinkBox({ url }: { url: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [copied, setCopied] = useState(false);
+  useFitRow(ref);
+  return (
+    <div ref={ref} className="flex items-center gap-2" data-nfc-link="">
+      <input
+        readOnly
+        value={url}
+        aria-label="The link this tag opens"
+        onFocus={(e) => e.currentTarget.select()}
+        className="min-h-11 min-w-0 flex-1 truncate rounded-xl border border-ink/15 bg-cream px-3 text-sm text-ink/80 outline-none focus:border-ink/40"
+      />
+      <ActionButton
+        tone="neutral"
+        icon={copied ? Check : Copy}
+        label={copied ? 'Copied' : 'Copy'}
+        onClick={async () => {
+          try {
+            await navigator.clipboard.writeText(url);
+            setCopied(true);
+            window.setTimeout(() => setCopied(false), 1500);
+          } catch {
+            /* clipboard blocked — the link stays visible and selectable */
+          }
+        }}
+      />
     </div>
   );
 }

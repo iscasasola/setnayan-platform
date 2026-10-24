@@ -27,6 +27,7 @@
  * otherwise a `<button type="button">` unless `type` says submit.
  */
 import Link from 'next/link';
+import { ChevronDown } from 'lucide-react';
 import { iconIsAComponent } from '@/lib/icon-is-a-component';
 import {
   forwardRef,
@@ -93,6 +94,12 @@ type Common = {
   'data-testid'?: string;
   /** 🔦 A spotlight tour's anchor token (`data-tour`, `lib/tours.ts` → `spotlight`). */
   tour?: string;
+  /**
+   * ▾ IT OPENS A SHORT LIST OF CHOICES — a small down-arrow after the word (the guest card's "Invite ▾", owner-approved
+   * prototype `guest_card_groups_and_papic_2026-10-23.html`). Decoration only (`aria-hidden`); say the popup with
+   * `aria-haspopup`. Absent → the button is exactly as it was.
+   */
+  caret?: boolean;
 };
 
 type AsButton = Common & {
@@ -147,12 +154,13 @@ function renderIcon(icon: Common['icon']) {
 
 export const ActionButton = forwardRef<HTMLButtonElement | HTMLAnchorElement, ActionButtonProps>(
   function ActionButton(props, ref) {
-    const { tone, icon, label, name, main, quiet, iconOnly, filled, className, title, waiting } = props;
+    const { tone, icon, label, name, main, quiet, iconOnly, filled, className, title, waiting, caret } = props;
     const cls = actionButtonClass(tone, { main, quiet, iconOnly, filled, extra: className });
     const inner = (
       <>
         {renderIcon(icon)}
         <span className="lbl">{label}</span>
+        {caret ? <ChevronDown aria-hidden data-caret="" className="-mr-0.5 h-4 w-4 shrink-0" strokeWidth={2} /> : null}
       </>
     );
     if (props.href !== undefined) {

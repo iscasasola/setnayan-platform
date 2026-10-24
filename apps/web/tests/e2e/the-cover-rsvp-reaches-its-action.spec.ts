@@ -72,6 +72,33 @@ for (const reader of ['guest', 'host'] as const) {
       const before = page.url();
       const button = page.locator('header[data-pahina-first-screen] a[data-cover-rsvp]');
       await expect(button, 'anti-vacuity: no RSVP button on the cover').toHaveCount(1);
+      /* 🔁 2026-10-24 (owner, the Me redraw — "one place for everything"): a guest's RSVP part is Me's one Reply
+         (`#me-reply`), on the Me tab. Opening a mark on another tab is the hub shell's (`hub-shell.tsx`, a mark on
+         another tab), which this static harness does not mount — so for the guest the harness measures what the page
+         itself promises: the button is that mark, the mark is on the Me tab exactly once, it holds the reply door, and
+         the cover's own glide steps aside for it (the plain link is not prevented). The host keeps the full tap. */
+      if (reader === 'guest') {
+        await expect(button).toHaveAttribute('href', '#me-reply');
+        const where = await page.evaluate(() => {
+          const part = document.querySelectorAll('#me-reply');
+          const one = part[0] as HTMLElement | undefined;
+          return { count: part.length, onMe: Boolean(one?.closest('[data-hub-tab="me"]')), into: one?.querySelector('a')?.getAttribute('href') ?? null, welcomeCard: document.getElementById('site-reply') !== null };
+        });
+        expect(where.count, 'Me’s Reply is not on the page exactly once').toBe(1);
+        expect(where.onMe, 'Me’s Reply is not on the Me tab').toBe(true);
+        expect(where.into, 'Me’s Reply holds no way into the Reply').toMatch(/\/invite\/reply/);
+        expect(where.welcomeCard, 'the Welcome still draws a second Reply card').toBe(false);
+        const prevented = await page.evaluate(() => {
+          const a = document.querySelector('header[data-pahina-first-screen] a[data-cover-rsvp]') as HTMLAnchorElement;
+          let seen = false;
+          document.addEventListener('click', (e) => { seen = e.defaultPrevented; e.preventDefault(); }, { once: true });
+          a.click();
+          return seen;
+        });
+        expect(prevented, 'the cover’s glide takes the tap from the shell (it must step aside for a part on another tab)').toBe(false);
+        await ctx.close();
+        return;
+      }
       const box = (await button.boundingBox())!;
       if (touch) await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
       else await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);

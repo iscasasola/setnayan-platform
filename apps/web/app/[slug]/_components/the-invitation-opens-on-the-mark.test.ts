@@ -84,23 +84,16 @@ test('a shared phone does not announce the reader before the couple', () => {
      So this now measures every MOUNT and counts them. That forbids strictly
      more than one index ever could: a single index cannot notice a second slot
      appearing above the hero, and cannot notice a slot being dropped. */
-  const mounts = [
-    ...SRC.matchAll(/\{dayOfLead\.greetingStepsBack \? (?:null : greetingBlock|greetingBlock : null)\}/g),
-  ];
-  assert.equal(mounts.length, 2, `the salutation has exactly two slots (found ${mounts.length})`);
+  /* 🔁 RE-AIMED 2026-10-24 (owner, the Me redraw — "one place for everything"): the Welcome's salutation is gone; the
+     guest's name is the top of Me (`MeGreeting`), a tab of its own. THE PROPERTY IS UNCHANGED: it is mounted ONCE,
+     below the mark, and still honours the editor's own visibility flag. */
+  const mounts = [...SRC.matchAll(/<MeGreeting greeting=\{meGreeting\} \/>/g)];
+  assert.equal(mounts.length, 1, `the guest's name has exactly one slot (found ${mounts.length})`);
   for (const m of mounts) {
-    assert.ok(
-      (m.index ?? -1) > hero,
-      'every slot the salutation can render in sits below the mark',
-    );
+    assert.ok((m.index ?? -1) > hero, 'every slot the guest’s name can render in sits below the mark');
   }
-
-  // Written once, and still gated on the editor's own visibility flag.
-  assert.equal(
-    SRC.split('const greetingBlock = plan.greetingShouldRender ? (').length - 1,
-    1,
-    'the salutation is declared exactly once, and still honours plan.greetingShouldRender',
-  );
+  assert.match(SRC, /\{plan\.greetingShouldRender \? <MeGreeting greeting=\{meGreeting\} \/> : null\}/, 'the guest’s name no longer honours plan.greetingShouldRender');
+  assert.ok(!/greetingBlock/.test(SRC), 'the Welcome’s salutation is back');
 });
 
 test('nothing was dropped in the move', () => {

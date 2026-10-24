@@ -145,39 +145,17 @@ globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
 
 type ViewReport = { calls: number; depth: number; ms: number; steps: string[]; repeats: string[]; authReads: number; shelfDrawn: boolean };
 
-/** The `<AlbumShelf>` element the page returned — the child React draws after the page. */
-function findShelf(tree: unknown, Shelf: unknown, seen = new Set<unknown>()): { props: Record<string, unknown> } | null {
-  if (!tree || typeof tree !== 'object' || seen.has(tree)) return null;
-  seen.add(tree);
-  if (Array.isArray(tree)) {
-    for (const t of tree) {
-      const hit = findShelf(t, Shelf, seen);
-      if (hit) return hit;
-    }
-    return null;
-  }
-  const el = tree as { type?: unknown; props?: Record<string, unknown> };
-  if (el.type === Shelf && el.props) return el as { props: Record<string, unknown> };
-  if (!el.props) return null;
-  for (const value of Object.values(el.props)) {
-    const hit = findShelf(value, Shelf, seen);
-    if (hit) return hit;
-  }
-  return null;
-}
-
 async function main() {
   const { default: MemoriesPage } = await import('./page');
-  const { AlbumShelf } = await import('./_components/album-shelf');
+  // #6778 (Memories wears the Papic gallery): the shelf is gone — the page itself reads the albums beside the wall
+  // (one `Promise.all`), so the page alone is the whole view.
 
   async function view(tab: string | undefined): Promise<ViewReport> {
     viewMemo = new Map();
     sent = [];
     returned = 0;
     const t0 = performance.now();
-    const tree = await MemoriesPage({ searchParams: Promise.resolve(tab ? { tab } : {}) } as never);
-    const shelf = findShelf(tree, AlbumShelf);
-    if (shelf) await (AlbumShelf as (p: never) => Promise<unknown>)(shelf.props as never);
+    await MemoriesPage({ searchParams: Promise.resolve(tab ? { tab } : {}) } as never);
     const keys = sent.map((s) => s.key);
     return {
       calls: sent.length,
@@ -186,7 +164,7 @@ async function main() {
       steps: sent.map((s) => `${s.step} ${s.what}`),
       repeats: [...new Set(keys.filter((k, i) => keys.indexOf(k) !== i))],
       authReads: sent.filter((s) => s.what.startsWith('/auth/v1/user')).length,
-      shelfDrawn: Boolean(shelf),
+      shelfDrawn: sent.some((s) => /events\(event_id,slug/.test(s.what)),
     };
   }
 

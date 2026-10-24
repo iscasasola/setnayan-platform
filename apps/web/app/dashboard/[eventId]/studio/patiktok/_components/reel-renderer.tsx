@@ -281,7 +281,7 @@ export function ReelRenderer({
             </button>
           </div>
           <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/45">
-            Saved to your event gallery{renderMode ? ` · ${renderMode.replace('client_', '')}` : ''}
+            Saved to your Memories{renderMode ? ` · ${renderMode.replace('client_', '')}` : ''}
           </p>
         </div>
       ) : null}

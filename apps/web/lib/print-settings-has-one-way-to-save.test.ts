@@ -188,7 +188,7 @@ test('4 · ONE HOME PER FACT: print_details keeps only print-only keys; the rout
   const fields = [...words.matchAll(/form\.(?:get|has)\('([a-z_]+)'\)/g)].map((m) => m[1]!);
   const on = [...words.matchAll(/on\('([a-z_]+)'\)/g)].map((m) => m[1]!);
   for (const f of [...fields, ...on]) {
-    assert.ok(/^inc_[a-z_]+$/.test(f) || ['rsvp_choice', 'rsvp_manual', 'include_form', 'seat_plan_kind', 'opening_line', 'opening_line_to_draft'].includes(f), `the words route reads a field that is not print-only: ${f}`);
+    assert.ok(/^inc_[a-z_]+$/.test(f) || ['rsvp_choice', 'rsvp_manual', 'include_form', 'seat_plan_kind', 'pass_corners', 'opening_line', 'opening_line_to_draft'].includes(f), `the words route reads a field that is not print-only: ${f}`);
   }
   assert.ok(fields.length + on.length >= 8, 'the scan read too few of the route’s fields to prove anything');
 

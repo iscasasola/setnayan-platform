@@ -104,7 +104,7 @@ const GUESTS: Row[] = [
 const SCREENS_AND_CHOICES: Row[] = [
   {
     name: 'setnayan_live_screen · setnayan_wall_display',
-    what: 'Pairs a venue screen or photo wall with an event, so it keeps showing it.',
+    what: 'Pairs a venue screen or Memory lane with an event, so it keeps showing it.',
     keeps: '30 days · 1 day',
   },
   { name: 'sn-theme', what: 'Your Appearance choice (light or dark).', keeps: '1 year' },
@@ -145,14 +145,15 @@ export default function CookiesPage() {
   return (
     <LegalLayout
       title="Cookies & browser storage"
-      meta="Effective 2026-10-22 · subject to RA 10173 (Philippines Data Privacy Act)"
+      meta="Effective 2026-10-22 · last updated 2026-10-23 · subject to RA 10173 (Philippines Data Privacy Act)"
     >
       <LegalSection title="The short version">
         <p>
           Setnayan uses <strong>essential cookies only</strong> — the ones that
           sign you in, keep the service secure, remember an invitation pass, and
           remember choices you make — plus a few that stop one browser being
-          counted twice on a page&rsquo;s view count (listed below). We do{' '}
+          counted twice on a page&rsquo;s view count (listed below). Our daily
+          count of visits uses no cookie at all. We do{' '}
           <strong>not</strong> use analytics, advertising or cross-site tracking
           cookies, we set no third-party cookies, and we don&rsquo;t sell your
           data. Because there is nothing optional to accept, there is no cookie
@@ -166,6 +167,11 @@ export default function CookiesPage() {
 
       <LegalSection title="Signing in">
         <CookieList rows={SIGN_IN} />
+        <p>
+          If you sign in with Google or Apple, you go to their page for a
+          moment; any cookies there are theirs, under their own policies. Back
+          on Setnayan, the same sign-in cookie above keeps you signed in.
+        </p>
       </LegalSection>
 
       <LegalSection title="Invitations and guests">
@@ -187,6 +193,21 @@ export default function CookiesPage() {
           They are never used for advertising or to follow you to other sites.
         </p>
         <CookieList rows={VIEW_COUNTS} />
+      </LegalSection>
+
+      <LegalSection title="Counting visits — no cookie">
+        <p>
+          We also count how many people open Setnayan each day. This sets{' '}
+          <strong>no cookie</strong> and stores nothing in your browser. To
+          count you once a day, we turn your IP address and browser into a
+          one-way code, mixed with a random value that changes every day. That
+          code and that day&rsquo;s random value are deleted the next day, and
+          we never store your IP address. Only the daily totals are kept (see{' '}
+          <Link href="/privacy#visits" className="text-terracotta hover:underline">
+            Counting visits
+          </Link>{' '}
+          in our privacy policy).
+        </p>
       </LegalSection>
 
       <LegalSection title="Browser storage">
@@ -227,7 +248,8 @@ export default function CookiesPage() {
         <ul className="ml-5 list-disc space-y-1">
           <li>
             No analytics service and no analytics cookies — beyond the view
-            counts above, nothing measures how you use Setnayan.
+            counts and the daily visit count above, nothing measures how you use
+            Setnayan.
           </li>
           <li>No advertising or retargeting cookies.</li>
           <li>No cross-site tracking, and no data brokers.</li>

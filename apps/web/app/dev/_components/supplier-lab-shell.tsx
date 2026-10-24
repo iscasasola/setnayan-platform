@@ -40,7 +40,6 @@ export function SupplierLabShell({ measure, children }: { measure: SupplierLabMe
         variant="app"
         boundary="tab"
         account={{ signedIn: true, initials: 'RM', shopName: 'Lumina Studio', isAdmin: false }}
-        tools={[]}
         navLabels={{}}
         focus={{ href: '/dashboard', label: 'My Home', caption: 'Home' }}
         railContext={

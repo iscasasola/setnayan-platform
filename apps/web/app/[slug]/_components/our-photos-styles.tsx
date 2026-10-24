@@ -84,10 +84,10 @@ export function OurPhotosFilmStrip({ urls, heading = null }: { urls: readonly st
 }
 
 /**
- * Glimpse — one 3:4 photo at a time, centred; the previous and next peek in at both edges, and the rail drifts slowly
- * sideways (owner 2026-10-15, DECISION_LOG "GLIMPSE PHOTO STYLE APPROVED" + "…A SLOW CONTINUOUS DRIFT"; prototype
+ * Glimpse — one 3:4 photo at a time, centred; the previous and next peek in at both edges; it moves only when the guest
+ * swipes (owner 2026-10-15, DECISION_LOG "GLIMPSE PHOTO STYLE APPROVED"; the drift was removed 2026-10-24); prototype
  * `photos_glimpse_style_2026-10-15_fable.html`). Save the Date only — its own id, not one of Post Event's. The rail,
- * its drift, the dots and the full-screen photo are the small client leaf `glimpse-rail.tsx`; the server draws it as a
+ * the dots and the full-screen photo are the small client leaf `glimpse-rail.tsx`; the server draws it as a
  * plain snap rail, every photo once, so the page reads before any JavaScript.
  */
 export function OurPhotosGlimpse({ urls, heading = null }: { urls: readonly string[]; heading?: string | null }) {

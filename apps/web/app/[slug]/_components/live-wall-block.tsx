@@ -8,6 +8,7 @@ import { jittered } from '@/lib/live-day-timing';
 import { SavePhotoButton } from '@/app/_components/save-photo-button';
 import { GalleryCredit } from '@/app/_components/gallery/gallery-credit';
 import { GalleryLightbox } from '@/app/_components/gallery/gallery-lightbox';
+import { LightboxSaveButton } from '@/app/_components/gallery/lightbox-save-button';
 
 /**
  * LiveWallBlock — the Salamisim Live Photo Wall, mirrored onto the guest's
@@ -307,6 +308,7 @@ export function LiveWallBlock({
               capturedAt={tile.capturedAt}
               timeZone={timeZone}
               raised
+              stacked
             />
           </figure>
         ))}
@@ -331,14 +333,9 @@ export function LiveWallBlock({
             // NOT SavePhotoButton — that control is `absolute inset-x-0 bottom-0`
             // by design, correct pinned to a tile and wrong inside a dialog,
             // where it would leave the card and sit over its own credit.
-            <a
-              href={opened.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="sn-gal-btn inline-flex min-h-[44px] items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium"
-            >
-              Open full size to save
-            </a>
+            // And never "Open full size" in a new tab: in the app that left a
+            // bare picture with no way back (owner 2026-10-24).
+            <LightboxSaveButton url={opened.url} filename={`setnayan-photo-${opened.feedId}.jpg`} />
           }
         />
       ) : null}

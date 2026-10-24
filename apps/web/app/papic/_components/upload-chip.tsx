@@ -10,7 +10,7 @@
 // refused, say so — with a number.
 
 import { useEffect, useState } from 'react';
-import { Check, CircleAlert, Loader2, Send, WifiOff } from 'lucide-react';
+import { Check, Circle, CircleAlert, Loader2, Send, WifiOff } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
 import { EVENT_PUT_AWAY_CAPTURE_COPY } from '@/lib/event-accepts-captures-rule';
 import { chipLabel, type ChipState } from '@/lib/papic-upload/schedule';
@@ -81,11 +81,41 @@ function detail(state: ChipState): string {
   }
 }
 
-/** `surface` — the pill's colours over this camera (default: the guest camera's). */
-export function PapicUploadChip({ surface = 'bg-cream/10 text-cream' }: { surface?: string }) {
+/** What "Ready" means — the guest camera's resting state (owner prototype 2026-10-24). */
+export const PAPIC_READY_DETAIL =
+  'Your camera is ready. Every shot is kept on this phone first, then sent — you can keep shooting while it sends.';
+
+/**
+ * `surface` — the pill's colours over this camera (default: the guest camera's).
+ * `readyWhenIdle` — the guest camera (owner 2026-10-24, prototype
+ * `papic_camera_complete_2026-10-24_fable.html`) says "Ready ⓘ" while nothing
+ * is waiting, instead of drawing no chip; the supplier camera keeps no chip.
+ */
+export function PapicUploadChip({
+  surface = 'bg-cream/10 text-cream',
+  readyWhenIdle = false,
+}: {
+  surface?: string;
+  readyWhenIdle?: boolean;
+}) {
   const snap = usePapicUploads();
   if (!snap) return null;
   const label = chipLabel(snap.chip);
+  if (!label && readyWhenIdle && snap.chip.kind === 'idle') {
+    return (
+      <span
+        role="status"
+        aria-live="polite"
+        data-papic-upload-chip="ready"
+        className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${surface} [&_button]:border-cream/50 [&_button]:text-cream/80`}
+      >
+        <Circle aria-hidden className="h-3 w-3 shrink-0" strokeWidth={2.4} />
+        <InfoTip label="Ready" align="center">
+          {PAPIC_READY_DETAIL}
+        </InfoTip>
+      </span>
+    );
+  }
   if (!label) return null;
   const kind = snap.chip.kind;
   const Icon =

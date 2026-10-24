@@ -30,7 +30,7 @@ type Props = {
 };
 
 function lensLabel(factor: LensFactor): string {
-  return factor === 0.5 ? '.5' : '1';
+  return factor === 0.5 ? '.5' : String(factor);
 }
 
 export function PapicCameraControls({

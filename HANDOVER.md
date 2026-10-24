@@ -10,8 +10,8 @@ Stacked on PR-C `rd/home-service-widgets` (#6861). PR-E `rd/home-ai-and-params` 
 - Compact tile + rotation: `home-tile.tsx` + `home-tile-rotation.ts` (timing constants, pure rules).
 - Detail cards + compact grid: `home-control-row.tsx`. Today line + Later fold: `home-parts.tsx`.
 - Services: `HomeServiceCard` / `PapicHomeCard` take a `tile` (the phone's closed face) and join `useOneOpen`.
-- View Event Hub: `HubViewLink` → local `openEventHub(url)` (`open-event-hub.ts`) — swap for
-  `lib/open-external.ts` once `rd/app-in-app-browser` lands (coordinator will say when).
+- View Event Hub: `HubViewLink` → the shared `openEventHub(url)` in `lib/open-external.ts` (#6866, merged in from main);
+  the local stand-in is gone.
 - Fixture shared by the lab and guards: `lib/home-control-fixture.ts`.
 
 ## Decisions taken (not covered by the record)

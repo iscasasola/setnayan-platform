@@ -22,12 +22,14 @@
  */
 
 import { SwitchCamera } from 'lucide-react';
-import { cameraInkOn } from '@/lib/camera-look';
+import { cameraInkOn } from '@/lib/camera-dress';
 import { zoomLabel, type ZoomStep } from '@/lib/papic-camera-steps';
 
 // `min-h-0` drops the global 44-px button floor from the DRAWING (globals.css);
-// the halo keeps the PRESS at 44.
-const HALO = "relative min-h-0 after:absolute after:-inset-1 after:content-['']";
+// the halo keeps the PRESS at 44. ⚠ No `relative` here: these buttons are
+// `absolute` (which already anchors the halo), and `relative` beside it wins in
+// the stylesheet and drops them into the flow, under the picture.
+const HALO = "min-h-0 after:absolute after:-inset-1 after:content-['']";
 
 export function GuestGridLines() {
   return (
@@ -61,7 +63,7 @@ export function GuestCameraTools({
   lens: number;
   onSelectLens: (step: ZoomStep) => void;
   disabled?: boolean;
-  /** Your brand: the chosen zoom step and the grid's "on" wear the theme colour. */
+  /** A Pro event: the chosen zoom step and the grid's "on" wear the theme colour. */
   tint?: string | null;
 }) {
   const onStyle = tint ? { backgroundColor: tint, color: cameraInkOn(tint) } : undefined;

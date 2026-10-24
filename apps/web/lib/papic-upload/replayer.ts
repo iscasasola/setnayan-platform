@@ -27,6 +27,7 @@
 // Everything with I/O is injected (`UploaderDeps`) so the unit test drives the
 // whole loop — offline, reconnect, duplicates — without a browser.
 
+import type { PapicMark } from '../papic-photo-mark';
 import {
   backoffMs,
   chipState,
@@ -68,8 +69,9 @@ export interface UploaderStore {
 }
 
 export interface UploaderPrepare {
-  photoPieces(original: Blob): Promise<{ thumb: Blob; tile: Blob; display: Blob } | null>;
-  poster(source: Blob): Promise<Blob | null>;
+  /** The copies of a photo — with `mark` burned into each, never into `original`. */
+  photoPieces(original: Blob, mark?: PapicMark | null): Promise<{ thumb: Blob; tile: Blob; display: Blob } | null>;
+  poster(source: Blob, mark?: PapicMark | null): Promise<Blob | null>;
   clipWeb(clip: Blob): Promise<Blob | null>;
   faceVectors(clean: Blob): Promise<{ vectors: number[][]; subjectCenter: { x: number; y: number } | null }>;
 }
@@ -136,6 +138,8 @@ export interface NewShot {
   faceSource?: Blob | null;
   /** The camera's owner tag (see QueuedShot.ownerTag). */
   ownerTag?: string | null;
+  /** 🏷 The mark for this shot's copies (see QueuedShot.mark). */
+  mark?: PapicMark | null;
   /** From the old queue: held until confirmed (see QueuedShot.adopted). */
   adopted?: boolean;
 }
@@ -353,6 +357,7 @@ export class PapicUploader {
       lastError: null,
       ownerTag: input.ownerTag ?? null,
       adopted: input.adopted === true && !input.ownerTag,
+      mark: input.mark ?? null,
     };
     const type = input.primary.type || (input.media === 'clip' ? 'video/mp4' : 'image/jpeg');
     const kept = this.memBlobs.size;
@@ -465,7 +470,8 @@ export class PapicUploader {
       if (shot.media === 'photo') {
         const original = await this.getBlob(shot.id, 'original');
         if (!original) return this.lose(shot, 'lost_on_phone');
-        const pieces = await prepare.photoPieces(original);
+        // 🏷 The mark goes on the COPIES only; `original` is stored and sent as taken.
+        const pieces = await prepare.photoPieces(original, shot.mark ?? null);
         if (pieces) {
           for (const tier of ['thumb', 'tile', 'display'] as const) {
             await this.putBlob(shot, tier, pieces[tier]);
@@ -475,7 +481,7 @@ export class PapicUploader {
       } else {
         const source = await this.getBlob(shot.id, 'source');
         if (source) {
-          const poster = (await prepare.poster(source)) ?? source;
+          const poster = (await prepare.poster(source, shot.mark ?? null)) ?? source;
           await this.putBlob(shot, 'poster', poster);
           shot.tiers.poster = { contentType: poster.type || 'image/jpeg', size: poster.size, uploaded: false };
           await this.dropBlob(shot.id, 'source');

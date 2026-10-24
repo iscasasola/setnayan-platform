@@ -12,6 +12,12 @@
 // so the returned type is checked rather than trusted.
 //
 // Runs in the replayer's background step, never on the shutter.
+//
+// 🏷 THE MARK (owner 2026-10-24: "a small Setnayan mark on saved photos" /
+// "their monogram" on Pro) is burned into the copies made HERE — thumb, tile,
+// display, a clip's poster — and never into the original (lib/papic-photo-mark.ts).
+
+import { paintMark, type PapicMark } from '../papic-photo-mark';
 
 export const THUMB_EDGE = 320;
 export const TILE_EDGE = 640;
@@ -47,7 +53,7 @@ export async function encodeStill(canvas: HTMLCanvasElement, quality: number): P
   return jpeg && jpeg.size > 0 ? jpeg : null;
 }
 
-export async function resizeTo(src: Drawable, edge: number, quality: number): Promise<Blob | null> {
+export async function resizeTo(src: Drawable, edge: number, quality: number, mark?: PapicMark | null): Promise<Blob | null> {
   const { w, h } = sizeOf(src);
   if (!w || !h) return null;
   const fit = fitLongEdge(w, h, edge);
@@ -59,6 +65,7 @@ export async function resizeTo(src: Drawable, edge: number, quality: number): Pr
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
   ctx.drawImage(src, 0, 0, fit.w, fit.h);
+  if (mark) await paintMark(ctx, fit.w, fit.h, mark);
   const out = await encodeStill(canvas, quality);
   // Free the backing store now — iOS caps total canvas memory per page.
   canvas.width = 0;
@@ -100,13 +107,13 @@ export interface PhotoPieces {
  * cannot decode or resize it — the shot then records with its original and the
  * server makes the copies, as it always did (phaseOf, hasThumb === false).
  */
-export async function makePhotoPieces(original: Blob): Promise<PhotoPieces | null> {
+export async function makePhotoPieces(original: Blob, mark: PapicMark | null = null): Promise<PhotoPieces | null> {
   const img = await decode(original);
   if (!img) return null;
   try {
-    const thumb = await resizeTo(img, THUMB_EDGE, QUALITY.thumb);
-    const tile = await resizeTo(img, TILE_EDGE, QUALITY.tile);
-    const display = await resizeTo(img, DISPLAY_EDGE, QUALITY.display);
+    const thumb = await resizeTo(img, THUMB_EDGE, QUALITY.thumb, mark);
+    const tile = await resizeTo(img, TILE_EDGE, QUALITY.tile, mark);
+    const display = await resizeTo(img, DISPLAY_EDGE, QUALITY.display, mark);
     if (!thumb || !tile || !display) return null;
     return { thumb, tile, display };
   } finally {
@@ -115,11 +122,11 @@ export async function makePhotoPieces(original: Blob): Promise<PhotoPieces | nul
 }
 
 /** A clip's poster at display size (the NSFW proxy and the still others see first). */
-export async function makePoster(poster: Blob): Promise<Blob | null> {
+export async function makePoster(poster: Blob, mark: PapicMark | null = null): Promise<Blob | null> {
   const img = await decode(poster);
   if (!img) return null;
   try {
-    return await resizeTo(img, DISPLAY_EDGE, QUALITY.poster);
+    return await resizeTo(img, DISPLAY_EDGE, QUALITY.poster, mark);
   } finally {
     if ('close' in img && typeof img.close === 'function') img.close();
   }

@@ -45,7 +45,17 @@ async function posterOf(clip: Blob): Promise<Blob | null> {
   }
 }
 
-export function LabCamera({ lane }: { lane: 'guest' | 'vendor' }) {
+const LAB_TINT = '#7A1F2B';
+const LAB_LOGO = (
+  <svg viewBox="0 0 48 48" width="40" height="40" aria-hidden>
+    <circle cx="24" cy="24" r="22" fill="none" stroke={LAB_TINT} strokeWidth="2" />
+    <text x="24" y="30" textAnchor="middle" fontFamily="Georgia, serif" fontStyle="italic" fontSize="17" fill={LAB_TINT}>
+      A&amp;B
+    </text>
+  </svg>
+);
+
+export function LabCamera({ lane, pro = false }: { lane: 'guest' | 'vendor'; pro?: boolean }) {
   const [snap, setSnap] = useState<UploaderSnapshot | null>(null);
   useEffect(() => papicUploader().subscribe(setSnap), []);
   // The walk's probes reach the real modules through this (lab only).
@@ -110,6 +120,8 @@ export function LabCamera({ lane }: { lane: 'guest' | 'vendor' }) {
           faceMode="mode_b"
           embedded={false}
           exitTo={{ slug: 'lab', tab: null }}
+          dress={pro ? { pro: true, tint: LAB_TINT, logo: LAB_LOGO } : { pro: false, tint: '#FFFFFF', logo: null }}
+          photoMark={pro ? { kind: 'monogram', svg: null, text: 'A&B', ink: LAB_TINT } : { kind: 'setnayan' }}
         />
       ) : (
         <div className="bg-cream px-4">

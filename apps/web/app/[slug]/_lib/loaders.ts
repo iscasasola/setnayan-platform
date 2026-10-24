@@ -59,7 +59,7 @@ import { compositeOver } from '@/lib/hub-legibility';
 import { hubButtonPage, resolveHubButtons, type HubButtonsLook } from '@/lib/hub-buttons';
 import { siteFontLook } from '@/lib/site-role-look';
 import { pageWordBase, pinPlateInk, pinWordInks, proSiteVarsFor } from './pro-site-vars';
-import { hubOwnershipFor, resolveHubTheme, websiteProActiveFor } from './hub-look';
+import { hubOwnershipFor, hubPartActiveFor, resolveHubTheme, websiteProActiveFor } from './hub-look';
 import { HUB_PART_IDS, type HubPartId } from '@/lib/hub-parts';
 import { eventPapicGuestActive, fetchGuestQuota } from '@/lib/papic-guest';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
@@ -133,6 +133,7 @@ import type {
   WatchLiveData,
 } from './types';
 import { papicOwnerTag } from '@/lib/papic-upload/owner-tag.server';
+import { photoMarkOfEvent } from '@/lib/papic-photo-mark-of-event';
 
 /** The service-role Supabase client the orchestrator creates once per request
  *  and threads into every loader — a stable per-request reference, so it is a
@@ -1896,6 +1897,8 @@ export const loadGuestContext = cache(
         ]);
       if (!blockRow) {
         papicGuest = {
+          // 🏷 One rule for both camera mounts (owner 2026-10-24): Pro = the Logo & QR part or Full Pro.
+          photoMark: photoMarkOfEvent(event, await hubPartActiveFor(event.event_id, 'logo_qr').catch(() => false)),
           uploadOwner: papicOwnerTag('guest', guest.guest_id, event.event_id),
           initialRemaining: quota.remaining,
           total: quota.total,

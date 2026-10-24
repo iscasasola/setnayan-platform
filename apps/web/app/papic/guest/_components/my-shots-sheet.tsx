@@ -56,7 +56,7 @@ export function MyShotsWaitingBadge({ eventId }: { eventId: string }) {
   return (
     <span
       data-camera-thumb-waiting=""
-      className="absolute -right-1.5 -top-1.5 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-terracotta px-[5px] text-[10px] font-semibold text-cream"
+      className="absolute -right-1.5 -top-1.5 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-terracotta-700 px-[5px] text-[10px] font-semibold text-cream"
     >
       {formatCount(n)}
     </span>
@@ -117,7 +117,7 @@ export function MyShotsSheet({
         role="dialog"
         aria-modal="true"
         aria-label="My shots"
-        className="fixed inset-x-0 bottom-0 z-[46] flex h-[72%] flex-col rounded-t-[22px] bg-[#1f1d1a] text-cream"
+        className="fixed inset-x-0 bottom-0 z-[46] flex h-[72%] flex-col rounded-t-2xl bg-[#1f1d1a] text-cream"
         style={{
           transform: open ? `translateY(${drag}px)` : 'translateY(100%)',
           transition: startY.current === null ? 'transform 300ms cubic-bezier(.2,.8,.2,1)' : 'none',
@@ -189,7 +189,7 @@ export function MyShotsSheet({
                     </span>
                   ) : null}
                   {s.waiting ? (
-                    <span className="absolute inset-x-0 bottom-0 bg-terracotta/85 py-0.5 text-center text-[9.5px]">
+                    <span className="absolute inset-x-0 bottom-0 bg-terracotta-700/90 py-0.5 text-center text-[9.5px]">
                       waiting
                     </span>
                   ) : null}
@@ -200,7 +200,7 @@ export function MyShotsSheet({
         )}
 
         {viewing ? (
-          <div className="absolute inset-0 z-10 flex flex-col rounded-t-[22px] bg-[#1f1d1a]">
+          <div className="absolute inset-0 z-10 flex flex-col rounded-t-2xl bg-[#1f1d1a]">
             <div className="flex justify-end p-2">
               <button
                 type="button"

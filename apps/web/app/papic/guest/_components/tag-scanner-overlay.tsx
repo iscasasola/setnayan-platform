@@ -29,13 +29,13 @@ export function TagScannerOverlay({ tagCount, confirmation }: { tagCount: number
       {/* The shade with a 220 × 220 window, 20 px above the middle. */}
       <div
         aria-hidden
-        className="absolute left-1/2 top-[calc(50%-20px)] h-[220px] w-[220px] -translate-x-1/2 -translate-y-1/2 rounded-[14px]"
+        className="absolute left-1/2 top-[calc(50%-20px)] h-[220px] w-[220px] -translate-x-1/2 -translate-y-1/2 rounded-xl"
         style={{ boxShadow: '0 0 0 100vmax rgba(31,29,26,.6)' }}
       >
-        <span className={`${CORNER} -left-0.5 -top-0.5 rounded-tl-[10px] border-l-[3px] border-t-[3px]`} />
-        <span className={`${CORNER} -right-0.5 -top-0.5 rounded-tr-[10px] border-r-[3px] border-t-[3px]`} />
-        <span className={`${CORNER} -bottom-0.5 -left-0.5 rounded-bl-[10px] border-b-[3px] border-l-[3px]`} />
-        <span className={`${CORNER} -bottom-0.5 -right-0.5 rounded-br-[10px] border-b-[3px] border-r-[3px]`} />
+        <span className={`${CORNER} -left-0.5 -top-0.5 rounded-tl-lg border-l-[3px] border-t-[3px]`} />
+        <span className={`${CORNER} -right-0.5 -top-0.5 rounded-tr-lg border-r-[3px] border-t-[3px]`} />
+        <span className={`${CORNER} -bottom-0.5 -left-0.5 rounded-bl-lg border-b-[3px] border-l-[3px]`} />
+        <span className={`${CORNER} -bottom-0.5 -right-0.5 rounded-br-lg border-b-[3px] border-r-[3px]`} />
         <span
           data-tag-sweep=""
           className="absolute left-[10px] right-[10px] top-1/2 h-0.5 bg-[#ffd978]"

@@ -5,6 +5,7 @@
 // credits", and what the status chip says. `replayer.ts` is the thin I/O loop
 // that runs these against IndexedDB, fetch and the page's events.
 
+import type { PapicMark } from '../papic-photo-mark';
 import { formatCount } from '../format-number';
 import {
   PHASE_ORDER,
@@ -38,6 +39,12 @@ export interface QueuedShot {
   sharePublicly?: boolean;
   /** Guest lane, mode_a events only: run the on-device face pass before record. */
   wantsFaceVectors?: boolean;
+  /**
+   * 🏷 The small mark burned into this shot's COPIES (thumb · tile · display ·
+   * poster) as they are made on the phone — never into the original
+   * (lib/papic-photo-mark.ts). Absent = no mark (the supplier camera).
+   */
+  mark?: PapicMark | null;
   faceVectors?: number[][];
   subjectCenter?: { x: number; y: number } | null;
   /** Vendor lane: the controller's consent gate was passed for this shot. */

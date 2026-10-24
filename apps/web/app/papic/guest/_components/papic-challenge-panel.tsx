@@ -57,16 +57,6 @@ type Props = {
    *  challenge-completion reward CTA. Server-resolved from the guest session;
    *  absent → no reward CTA renders. */
   storyHref?: string | null;
-  /**
-   * 🎛 THE CAMERA'S "CHALLENGES" LOOK (owner 2026-10-06, DECISION_LOG "THE
-   * CAMERA HAS ITS OWN THREE LAYOUTS": *"another layout is having the challenge
-   * more accessible"*): `'chips'` draws every challenge as a row of tappable
-   * chips just above the shutter — tap = Start (or Cancel), a done one greyed
-   * and tappable for a Retake. Same state, same endpoints, same consent tap and
-   * reward (the list opens under the chips after a completion, as it does
-   * here). `'list'` (default) is the shipped panel, unchanged.
-   */
-  layout?: 'list' | 'chips';
 };
 
 export function PapicChallengePanel({
@@ -74,7 +64,6 @@ export function PapicChallengePanel({
   lastCaptureKind,
   onArmedChange,
   storyHref,
-  layout = 'list',
 }: Props) {
   // Hard flag gate — no fetch, no render, nothing mounts until the owner flips it.
   if (!papicGamesEnabled()) return null;
@@ -84,7 +73,6 @@ export function PapicChallengePanel({
       lastCaptureKind={lastCaptureKind}
       onArmedChange={onArmedChange}
       storyHref={storyHref}
-      layout={layout}
     />
   );
 }
@@ -94,7 +82,6 @@ function ChallengePanelInner({
   lastCaptureKind,
   onArmedChange,
   storyHref,
-  layout = 'list',
 }: Props) {
   // Name the last shot: "photo" / "video" once taken, generic "shot" before.
   const shotNoun =
@@ -479,51 +466,8 @@ function ChallengePanelInner({
     </>
   );
 
-  if (layout === 'chips') {
-    return (
-      <section className="mx-auto w-full max-w-sm space-y-2" aria-label="Papic Challenges" data-challenge-chips="">
-      {pauseNotice}
-        <ul className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none]">
-          {ordered.map((m) => {
-            const isArmed = armed?.missionId === m.mission_id;
-            return (
-              <li key={m.mission_id} className="shrink-0">
-                <button
-                  type="button"
-                  data-challenge-chip={m.completed ? 'done' : isArmed ? 'armed' : 'open'}
-                  onClick={() => (isArmed ? disarm() : arm(m, m.completed))}
-                  disabled={busyId === m.mission_id}
-                  aria-pressed={isArmed}
-                  className={`inline-flex min-h-[40px] max-w-[16rem] items-center gap-1.5 rounded-full px-3.5 text-xs font-medium transition disabled:opacity-40 ${
-                    isArmed
-                      ? 'bg-terracotta text-cream'
-                      : m.completed
-                        ? 'bg-cream/10 text-cream/40'
-                        : 'bg-cream/15 text-cream'
-                  }`}
-                >
-                  {m.completed ? (
-                    <Check aria-hidden className="h-3.5 w-3.5 shrink-0" strokeWidth={2.5} />
-                  ) : (
-                    <Trophy aria-hidden className="h-3.5 w-3.5 shrink-0" strokeWidth={2} />
-                  )}
-                  <span className="truncate">{m.prompt}</span>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-        {open ? (
-          <div className="pt-1">
-            {header}
-            {listBody}
-          </div>
-        ) : null}
-        {error && !open ? <p className="text-xs text-terracotta">{error}</p> : null}
-      </section>
-    );
-  }
-
+  // ONE CAMERA (owner 2026-10-24): the Challenges look's chips row is retired
+  // with the other two looks; the challenges are this one panel.
   return (
     <section
       className="mx-auto w-full max-w-sm rounded-xl border border-cream/15 bg-cream/5"

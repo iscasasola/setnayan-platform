@@ -3651,6 +3651,7 @@ export async function SiteBody({
                   sponsorShare={papicGuest.sponsorShare}
                   eventStyle={papicGuest.eventStyle}
                   faceMode={papicGuest.faceMode}
+                  photoMark={papicGuest.photoMark}
                 />
               ) : null, { chapters: true, className: 'space-y-12' })}
 

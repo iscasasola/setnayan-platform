@@ -2,7 +2,7 @@
 
 import { SwitchCamera } from 'lucide-react';
 import type { LensFactor } from '@/lib/use-papic-camera';
-import { cameraInkOn } from '@/lib/camera-look';
+import { cameraInkOn } from '@/lib/camera-dress';
 
 // Papic · on-viewfinder camera controls (shared by seat + guest capture)
 //

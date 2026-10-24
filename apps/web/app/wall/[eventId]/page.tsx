@@ -42,7 +42,7 @@ export default async function WallPage({ params }: Props) {
   if (!owns) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-ink px-6 text-cream">
-        <p className="text-sm text-cream/50">This wall isn&rsquo;t lit. Check the link with the couple.</p>
+        <p className="text-sm text-cream/50">This Memory lane isn&rsquo;t lit. Check the link with the couple.</p>
       </main>
     );
   }

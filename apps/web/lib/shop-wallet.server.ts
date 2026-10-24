@@ -153,7 +153,11 @@ export async function fetchShopWalletPackMeta(
       .from('orders')
       .select('order_id, requested_total_php, payments(channel, status)')
       .in('order_id', [...orderIds]);
-    if (error) return out;
+    if (error) {
+      // The ₱ / rail beside each pack is a courtesy — the credits still show; say why the money words are missing.
+      console.error('[supabase-error] shop-wallet: pack meta', error);
+      return out;
+    }
     for (const r of (data ?? []) as {
       order_id: string;
       requested_total_php: number | string | null;

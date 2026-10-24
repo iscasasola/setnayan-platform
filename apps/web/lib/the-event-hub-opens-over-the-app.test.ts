@@ -131,6 +131,7 @@ test('5 · the native half ships: @capacitor/browser in the app, the iOS package
   const browser = pkg.dependencies['@capacitor/browser'];
   const core = pkg.dependencies['@capacitor/core'];
   assert.ok(browser, '@capacitor/browser must be a dependency of apps/mobile');
+  assert.ok(core, '@capacitor/core must be a dependency of apps/mobile');
   assert.equal(browser.match(/\d+/)?.[0], core.match(/\d+/)?.[0], 'same Capacitor major as @capacitor/core');
 
   const spm = read('ios/App/CapApp-SPM/Package.swift');

@@ -39,6 +39,7 @@ import { DEFAULT_VEIL_LOOK, type VeilLook, type RevealFeatures } from '@/lib/rev
 import { usePrefersReducedMotion } from '@/lib/use-responsive';
 import { claimVeilHold } from '@/lib/hub-veil';
 import { liftedValance, weaveOf } from '@/lib/veil-style';
+import { computeIndexedNormals, writePositions } from '@/lib/veil-cloth';
 
 type Props = {
   /** Veil tulle colour (hex), Mood-Board-driven. Ivory fallback handled by caller. */
@@ -433,6 +434,13 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
     const petals = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1), pmat, NP);
     petals.renderOrder = 2;
     petals.frustumCulled = false;
+    /* 🐢 THE PETALS' COLOUR EXISTS BEFORE THE FIRST FRAME (owner 2026-10-24, "…and the petal falling"). three.js
+       creates `instanceColor` on the first `setColorAt` — which used to be the first petal, mid-lift — and an
+       instanced mesh WITH colour is a different shader program from one without, so the petals' material was
+       recompiled and re-linked on the spot: one ~300 ms frame (CPU ×4, live /cale-ice) right as the petals began to
+       fall. Made here, white (exactly what `setColorAt` would fill it with), the program the first frame compiles is
+       the one the petals keep. Every falling petal still gets its own colour from `spawnFalling`. */
+    petals.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(NP * 3).fill(1), 3);
     scene.add(petals);
     const pPos: THREE.Vector3[] = [];
     const pVel: THREE.Vector3[] = [];
@@ -1032,9 +1040,13 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
       mat.color.set(colorRef.current || '#f3ece1');
       step(1 / 60);
       const zc = camZ - 0.7;
-      for (let k = 0; k < N; k++) posAttr.setXYZ(k, px[k]!, py[k]!, Math.min(zc, pz[k]!));
+      // 🐢 Straight into the attribute's own array, and the normals by `computeIndexedNormals` — three.js's
+      // `setXYZ` + `computeVertexNormals`, bit for bit, without a Vector3 round-trip per vertex (`lib/veil-cloth.ts`).
+      writePositions(posAttr.array as Float32Array, px, py, pz, N, zc);
       posAttr.needsUpdate = true;
-      geo.computeVertexNormals();
+      const nrm = geo.attributes.normal as THREE.BufferAttribute;
+      computeIndexedNormals(posAttr.array as Float32Array, geo.index!.array, nrm.array as Float32Array);
+      nrm.needsUpdate = true;
       // Petals begin the moment the veil first lifts — none on the covered veil.
       // Honors the live `features.petals` toggle (parks them when turned off).
       const wantPetals = featuresRef.current.petals;

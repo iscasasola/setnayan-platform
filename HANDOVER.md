@@ -24,3 +24,8 @@ Stacked on PR-C `rd/home-service-widgets` (#6861). PR-E `rd/home-ai-and-params` 
 
 ## Walk
 Fixture stub: copy of `shots-2026-10-24/prb/scripts/fixture-stub.mjs` under `shots-2026-10-24/home-control/scripts/`.
+
+# PR-E `rd/home-ai-and-params` (stacked on PR-D)
+- Setnayan AI card = `home-cards/home-planner-card.tsx` (alerts from `lib/home-ai-card.server.ts`, picks from the cockpit).
+- Ask box NOT built: no assistant chat exists in the product (the Setnayan AI page is buy + showcase).
+- Params: `?q=declined` (existed) · workspace `?tab=quote` (existed) · `#task-<id>` (new anchor) · `?pay=<line_item_id>` (new).

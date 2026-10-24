@@ -119,7 +119,7 @@ export function PhotosOfYouGallery({
       <WallBadge state={wallOf(p.id, p.wall)} />
       {/* WHO GOT THIS SHOT OF YOU — the question a guest actually has, and
           one this page could not answer at all before. Silent when unknown. */}
-      <GalleryCredit name={p.capturedBy} capturedAt={p.capturedAt} timeZone={timeZone} />
+      <GalleryCredit name={p.capturedBy} capturedAt={p.capturedAt} timeZone={timeZone} stacked />
     </figure>
   );
 

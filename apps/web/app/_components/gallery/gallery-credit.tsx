@@ -22,6 +22,7 @@ export function GalleryCredit({
   timeZone,
   clearsCorners = false,
   raised = false,
+  stacked = false,
 }: {
   name?: string | null;
   capturedAt?: string | null;

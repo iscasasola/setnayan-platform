@@ -31,8 +31,12 @@ test('1 · no upper widget grows in place — every one is a door', () => {
   const html = drawHome();
   const row = slice(html, 'data-home-control="compact"', ['data-home-services']);
   assert.ok(row.length > 0, 'premise: the control row is drawn');
-  // The only `aria-expanded` allowed is the ⓘ's own (InfoTip, "About …") — a tip, never the widget growing.
-  const expanding = [...row.matchAll(/<button [^>]*aria-expanded[^>]*>/g)].map((m) => m[0]).filter((b) => !/aria-label="About /.test(b));
+  // The only `aria-expanded` allowed is the ⓘ's own (InfoTip, "About …") — a tip, never the widget growing — and a
+  // button that opens a SHEET over the page (`aria-haspopup="dialog"`): the Event Hub tile's "Pick what shows" (owner
+  // 2026-10-24, "opens, in place, as a bottom sheet"). The sheet rises over Home; the tile itself never grows.
+  const expanding = [...row.matchAll(/<button [^>]*aria-expanded[^>]*>/g)]
+    .map((m) => m[0])
+    .filter((b) => !/aria-label="About /.test(b) && !/aria-haspopup="dialog"/.test(b));
   assert.deepEqual(expanding, [], 'an upper widget expands in place');
   assert.doesNotMatch(row, /role="region"/, 'an upper widget holds a settings region');
   for (const key of HOME_CONTROL_KEYS) {

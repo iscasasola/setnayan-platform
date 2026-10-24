@@ -17,6 +17,7 @@ import type { HomeCoverWords } from '@/lib/home-cover-words';
 import { HomeToday, HomeTodayFold } from './home-parts';
 import { HomeCoverBand } from './home-cover-band';
 import { HomeControlRow } from './home-control-row';
+import type { HomeHubPickRead } from './home-cards/hub-pick-types';
 import { homeToday, type HomeControlInput } from './home-control-faces';
 import { PapicBuySheet } from '../studio/papic/_components/papic-buy-sheet';
 import { IapPapicSheet } from '@/app/_components/iap/iap-papic-sheet';
@@ -128,6 +129,13 @@ export type HomeFirstScreenProps = {
    * row opens the Papic page (`open`) and an owned Live Watch carries its Go live door (`goLive`, the controller).
    * Absent / null = the row as #6637 shipped it.
    */
+  /** 🎛 The Event Hub tile's "Pick what shows" read, ONLY when a dev lab already holds it — Home reads it on the tap. */
+  hubPick?: HomeHubPickRead | null;
+  /**
+   * 🎛 …and that sheet's Apply bar — the shipped `HubDraftDock`, RENDERED by the page (its loader reads the "view as a
+   * free couple" switch, which the tap's server action may never see). Absent = the sheet draws no Apply bar.
+   */
+  hubApply?: ReactNode;
   apple?: {
     papic: { status: string; buy: boolean; open?: string | null } | null;
     liveWatch: { status: string; owned: boolean; askReady: boolean; goLive?: string | null } | null;
@@ -147,6 +155,8 @@ export function HomeFirstScreen({
   serviceCards = false,
   needs = null,
   apple = null,
+  hubPick = null,
+  hubApply = null,
 }: HomeFirstScreenProps) {
   const noList = needs?.guestList === false;
   const today = homeToday(next, control.guests);
@@ -175,7 +185,7 @@ export function HomeFirstScreen({
           ) : null}
 
           {/* 🎛 THE CONTROL ROW — Countdown · Guests · Event Hub · Suppliers · Budget · Checklist; each opens its ONE page. */}
-          <HomeControlRow input={control} />
+          <HomeControlRow input={control} hubPick={hubPick} hubApply={hubApply} />
 
           {/* YOUR SERVICES — each grows in place with its quick controls; the Event Hub rose into the control row. */}
           <YourServices

@@ -6,7 +6,7 @@
  * whose faces rotate (`home-tile.tsx`); from `md` up it is a detail CARD (`home-control-row.tsx`). Both are drawn from
  * what this file returns, so the phone and the desktop can never say two things about one fact.
  *
- *   ① Countdown → Event Details · ② Guests → Guests · ③ Event Hub → the page guests see (Edit → the Maker)
+ *   ① Countdown → Event Details · ② Guests → Guests · ③ Event Hub → the page guests see (Pick what shows · Maker)
  *   ④ Suppliers → Suppliers · ⑤ Budget → Budget · ⑥ Checklist → Checklist          — ONE page per widget.
  *
  * 🔒 NOTHING HERE IS NEW KNOWLEDGE, AND NOTHING IS INVENTED. Every count arrives already read by the page (each from
@@ -44,7 +44,7 @@ export const HOME_CONTROL_PAGE: Readonly<Record<HomeControlKey, string>> = {
 };
 
 /** A face's one tiny action — an icon (the compact tile) or icon + word (the detail card). */
-export type FaceIcon = 'mail' | 'plus' | 'check' | 'pay' | 'reload' | 'pen' | 'eye' | 'cal';
+export type FaceIcon = 'mail' | 'plus' | 'check' | 'pay' | 'reload' | 'pen' | 'eye' | 'cal' | 'sliders';
 export type FaceAction = {
   icon: FaceIcon;
   /** The word — the detail card's button and the tiny icon's accessible name. */
@@ -57,6 +57,11 @@ export type FaceAction = {
   pill?: boolean;
   /** Opens the couple's PUBLIC Event Hub — a new tab on the web, the app's in-app browser in the app. */
   external?: boolean;
+  /**
+   * 🎛 Opens a sheet IN PLACE instead of a page (`href` is then null): `hub-pick` = the Event Hub tile's "Pick what
+   * shows" — the shipped part switches, page picker and Apply bar (`home-cards/hub-pick-button.tsx`).
+   */
+  sheet?: 'hub-pick';
 };
 
 /** One counter of a tile — one figure, one short line, at most one tiny action, and the EXACT item a tap opens. */
@@ -89,8 +94,10 @@ export type HomeTileModel = {
   failed: boolean;
   /** Spans both columns in the compact grid (Countdown · Budget). */
   span: boolean;
-  /** Event Hub's two small icons (Edit · View) — the tile's buttons, never other pages' doors. */
+  /** Event Hub's two small icons (Pick what shows · Maker) — the tile's buttons, never other pages' doors. */
   side?: FaceAction[];
+  /** The tile's ⓘ beside its label — what the tile and its small buttons do (owner 2026-10-23: details go in the ⓘ). */
+  info?: string | null;
   /** The Today strip points here. */
   today: boolean;
 };
@@ -386,19 +393,30 @@ export function nextHubStage(stage: LifecyclePhase | null): LifecyclePhase | nul
   return at >= 0 && at < PUBLIC_STAGE_ORDER.length - 1 ? PUBLIC_STAGE_ORDER[at + 1]! : null;
 }
 
-/** ③ EVENT HUB — what guests see now · what comes next; its two buttons: Edit in Maker · View Event Hub. */
+/**
+ * ③ EVENT HUB — what guests see now · what comes next. Owner 2026-10-24, on the live Home: A TAP ON THE TILE OPENS THE
+ * EVENT HUB (every face — `openEventHub`: a new tab on the web, the in-app sheet in the app); its two small buttons are
+ * "Pick what shows" (the shipped part switches + page picker + Apply bar, in a sheet in place) and "Maker".
+ * With no link guests can open yet, the tile opens the Maker instead (there is no page to open).
+ */
+export const HUB_TILE_INFO =
+  'Tap to open your Event Hub. Pick what shows: the parts each page shows — guests see a change after Apply. Maker: design the page.';
+
 export function hubTile(input: HomeControlInput, today: HomeToday): HomeTileModel | null {
   const e = input.eventId;
   const h = input.hub;
   const isToday = today.target === 'hub';
   if (h === null) return null;
   if (h === 'unread') return failedTile('hub', 'Event Hub', 'Couldn’t load', 'unread · not private', `/dashboard/${e}/launch`, isToday);
-  // When Today is "Finish your Event Hub", Edit in Maker opens the Maker on its guided "What's left" — the same door the
+  // When Today is "Finish your Event Hub", Maker opens the Maker on its guided "What's left" — the same door the
   // Next card's "Pick a stage" was (`?tool=details&guide=1`).
   const maker = { href: `/dashboard/${e}/launch` };
   const guided = { href: `/dashboard/${e}/launch?tool=details&guide=1` };
-  const edit: FaceAction = { icon: 'pen', label: 'Edit in Maker', href: (input.next.kind === 'guide' ? guided : maker).href, main: true };
-  const view: FaceAction | null = h.publicUrl ? { icon: 'eye', label: 'View Event Hub', href: h.publicUrl, external: true } : null;
+  const pick: FaceAction = { icon: 'sliders', label: 'Pick what shows', href: null, sheet: 'hub-pick' };
+  const edit: FaceAction = { icon: 'pen', label: 'Maker', href: (input.next.kind === 'guide' ? guided : maker).href, main: true };
+  // THE TILE'S ONE DOOR — the page guests see, from every face.
+  const door = h.publicUrl ?? `/dashboard/${e}/launch`;
+  const external = Boolean(h.publicUrl);
   const faces: HomeFace[] = [];
   if (h.stage) {
     faces.push({
@@ -406,11 +424,11 @@ export function hubTile(input: HomeControlInput, today: HomeToday): HomeTileMode
       big: PUBLIC_STAGE_LABELS[h.stage],
       unit: 'live',
       sm: h.publicUrl ? 'guests see it' : 'not shared yet',
-      href: h.publicUrl ?? `/dashboard/${e}/launch`,
-      external: Boolean(h.publicUrl),
+      href: door,
+      external,
     });
   } else {
-    faces.push({ id: 'hub-now', big: 'Not set', unit: 'yet', sm: 'pick your date to place it', href: `/dashboard/${e}/launch` });
+    faces.push({ id: 'hub-now', big: 'Not set', unit: 'yet', sm: 'pick your date to place it', href: door, external });
   }
   const after = nextHubStage(h.stage);
   if (after) {
@@ -422,18 +440,20 @@ export function hubTile(input: HomeControlInput, today: HomeToday): HomeTileMode
       big: label,
       unit: 'next',
       sm: [when, fill].filter(Boolean).join(' · ') || 'in the Maker',
-      href: `/dashboard/${e}/launch?stage=${after}`,
+      href: door,
+      external,
     });
   }
   return {
     key: 'hub',
     label: 'Event Hub',
-    door: h.publicUrl ?? `/dashboard/${e}/launch`,
+    door,
     failed: false,
     span: false,
     today: isToday,
     faces,
-    side: view ? [edit, view] : [edit],
+    side: [pick, edit],
+    info: HUB_TILE_INFO,
   };
 }
 

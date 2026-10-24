@@ -7855,6 +7855,13 @@ html.dark :is(.hc-today, .hc-tile) { background: rgb(var(--color-raised)); }
 .hc-span { grid-column: 1 / -1; }
 .hc-tile.hc-span { min-height: 0; }
 .hc-lab { font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* The Event Hub tile's ⓘ beside its label (owner 2026-10-24). The ⓘ sits above the tile's door (z 1) so a tap on it
+   reads the tip; the tip itself hangs from the TILE, inside its width — a 288-px popover from a label in the right
+   column ran 100 px past a 390-px phone and widened the whole page. The 16-px ⓘ never makes the tile taller. */
+.hc-lab-tip { align-self: flex-start; max-width: calc(100% - 64px); height: 13px; display: flex; align-items: center; }
+.hc-lab-tip > span { position: static; }
+.hc-lab-tip button { position: relative; z-index: 3; }
+.hc-tile .hc-lab-tip .sn-tip { top: 30px; left: 6px; right: 6px; width: auto; max-width: none; }
 .hc-chip { position: absolute; right: 10px; top: 11px; z-index: 2; padding: 0 5px; border: 1px solid color-mix(in srgb, rgb(var(--color-mulberry)) 40%, transparent); border-radius: 999px; font-size: 8.5px; font-weight: 500; line-height: 1.5; letter-spacing: 0.12em; text-transform: uppercase; color: rgb(var(--color-mulberry)); pointer-events: none; }
 .hc-chip.hc-chip-inline { position: static; padding: 1px 6px; font-size: 9.5px; }
 .hc-big { font-size: 27px; font-weight: 600; line-height: 1.1; letter-spacing: -0.015em; font-variant-numeric: tabular-nums; }

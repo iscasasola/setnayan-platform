@@ -1,4 +1,5 @@
 import { Suspense } from 'react';
+import { HubDraftDock } from './website/_components/hub-draft-dock';
 import { PapicCardStrip } from './_components/papic-card-strip';
 import { PapicBuySheet } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-buy-sheet';
 import { PapicCameraSettings, PapicSwitch } from './studio/papic/_components/papic-camera-settings';
@@ -1057,6 +1058,15 @@ export default async function EventHomePage({
       }
       ground={homeCover}
       needs={homeNeeds}
+      /* 🎛 The Event Hub tile's "Pick what shows" sheet carries the shipped Apply bar (owner 2026-10-24) — RENDERED here
+         (its loader reads the view switch, which the tap's server action may never see); only where there is a Hub. */
+      hubApply={
+        homeHub && homeHub !== 'unread' ? (
+          <Suspense fallback={null}>
+            <HubDraftDock eventId={eventId} />
+          </Suspense>
+        ) : null
+      }
     />
     </>
   );

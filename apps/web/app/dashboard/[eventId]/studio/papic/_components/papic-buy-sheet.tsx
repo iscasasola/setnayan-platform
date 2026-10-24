@@ -2,11 +2,13 @@
 
 import { useEffect, useId, useState, useTransition } from 'react';
 import { createPortal } from 'react-dom';
-import { Plus, X } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { ActionButton, type ActionTone } from '@/components/action-button';
 import { Sheet } from '@/app/_components/sheet';
+import { InfoTip } from '@/app/_components/info-tip';
 import { papicBuySizes } from '../actions';
 import { PapicBuyForm } from './papic-buy-form';
+import { ladderEnds } from './credit-stepper';
 import type { PoolRung } from '@/lib/papic-pool-rungs';
 
 const ERROR_COPY: Record<string, string> = {
@@ -18,8 +20,11 @@ const ERROR_COPY: Record<string, string> = {
 
 /**
  * 🎨 "BUY MORE" — the sheet (owner "approve all", 2026-10-14, prototype
- * `renderBuySheet`): "Add credits", what you have now, the shipped − / +
- * stepper, "After this: N credits", Continue to payment → /pay. The same sheet
+ * `renderBuySheet`; made simpler 2026-10-24, owner: *"it should just ask how much
+ * they want to add more and purchase. no need for not now because there is (X) on
+ * upper right"*): "Add credits" with its ⓘ and the sheet's own ✕ · "You have N
+ * credits" · the shipped − / + stepper · "New total: N credits" · ONE button,
+ * "Add N credits · ₱X" → /pay. The range of sizes lives in the ⓘ. The same sheet
  * on Home's row, on Home's Next card and on the Papic page's band.
  *
  * 🔌 THE LADDER IS READ ON THE TAP, NOT ON THE VIEW (`papicBuySizes`): Home is
@@ -57,7 +62,6 @@ export function PapicBuySheet({
   const headingId = useId();
   const [open, setOpen] = useState(defaultOpen);
   const [rungs, setRungs] = useState<PoolRung[] | null>(sizes);
-  const [need, setNeed] = useState<{ coming: number | null; each: number | null; named: { count: number; sum: number } | null } | null>(null);
   const [refusal, setRefusal] = useState<string | null>(null);
   const [pending, start] = useTransition();
 
@@ -67,10 +71,7 @@ export function PapicBuySheet({
     start(async () => {
       try {
         const r = await papicBuySizes(eventId);
-        if (r.ok) {
-          setRungs(r.rungs);
-          setNeed(r.need);
-        }
+        if (r.ok) setRungs(r.rungs);
         else
           setRefusal(
             r.reason === 'not_couple'
@@ -93,14 +94,22 @@ export function PapicBuySheet({
   const sheet = open ? (
     <Sheet open onClose={() => setOpen(false)} labelledById={headingId} rise>
       <div className="px-4 pb-4 pt-3.5" data-papic-buy-sheet="">
-        <h3 id={headingId} className="text-[19px] font-semibold tracking-tight text-ink">
-          Add credits
-        </h3>
-        <p className="mb-3.5 text-sm text-ink/60">
+        {/* The title and its ONE ⓘ; the sheet's own ✕ closes it (no "Not now" — owner 2026-10-24). */}
+        <InfoTip
+          label="Add credits"
+          labelAs="h3"
+          labelId={headingId}
+          labelClassName="text-[19px] font-semibold tracking-tight text-ink"
+          align="start"
+        >
+          One credit is one photo; a short clip uses a little more.
+          {rungs && ladderEnds(rungs) ? ` ${ladderEnds(rungs)} — add more any time.` : ' Add more any time.'}
+        </InfoTip>
+        <p className="mb-3.5 text-sm text-ink/60" data-papic-buy-have="">
           {left === 0
             ? 'Your cameras restart the moment this is paid.'
             : left !== null
-              ? `You have ${left.toLocaleString('en-PH')} credits now.`
+              ? `You have ${left.toLocaleString('en-PH')} credits`
               : 'Credits land once your payment is confirmed.'}
         </p>
         {error ? (
@@ -109,7 +118,7 @@ export function PapicBuySheet({
           </p>
         ) : null}
         {rungs ? (
-          <PapicBuyForm eventId={eventId} rungs={rungs} left={left} need={need} />
+          <PapicBuyForm eventId={eventId} rungs={rungs} left={left} />
         ) : refusal ? (
           <p className="text-sm" role="alert" style={{ color: 'rgb(var(--color-danger))' }}>
             {refusal}
@@ -119,9 +128,6 @@ export function PapicBuySheet({
             Loading sizes…
           </p>
         )}
-        <div className="mt-1.5 text-center">
-          <ActionButton tone="neutral" quiet icon={<X aria-hidden="true" strokeWidth={1.9} />} label="Not now" onClick={() => setOpen(false)} />
-        </div>
       </div>
     </Sheet>
   ) : null;

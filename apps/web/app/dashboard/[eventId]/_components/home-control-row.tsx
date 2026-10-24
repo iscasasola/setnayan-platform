@@ -24,6 +24,8 @@ import {
   type HomeTileModel,
 } from './home-control-faces';
 import { HomeTile, HubViewLink } from './home-tile';
+import { HubPickButton } from './home-cards/hub-pick-button';
+import type { HomeHubPickRead } from './home-cards/hub-pick-types';
 import { HomeLater, HomeReload } from './home-parts';
 
 /**
@@ -40,7 +42,17 @@ import { HomeLater, HomeReload } from './home-parts';
  * ONE DATA SHAPE (`home-control-faces.ts`), drawn twice; the same doors in both. Details live inside each card's ⓘ
  * (title + one short line visible). A failed read is ONE "Couldn't load" line with ⟳ Reload — never 0, never ₱0.
  */
-export function HomeControlRow({ input }: { input: HomeControlInput }) {
+export function HomeControlRow({
+  input,
+  hubPick = null,
+  hubApply = null,
+}: {
+  input: HomeControlInput;
+  /** 🎛 The Event Hub's "Pick what shows" read, when the caller already holds it (the dev lab) — else on the tap. */
+  hubPick?: HomeHubPickRead | null;
+  /** 🎛 The shipped Apply bar (`HubDraftDock`), rendered by the page, for that sheet. */
+  hubApply?: ReactNode;
+}) {
   const { tiles } = homeControlTiles(input);
   let rotating = 0;
   return (
@@ -50,13 +62,23 @@ export function HomeControlRow({ input }: { input: HomeControlInput }) {
           const rotates = t.faces.length > 1 && !t.failed;
           const stagger = rotates ? rotating++ : 0;
           // The first-visit tour's "More on every tile" rings the first tile with faces to swipe.
-          return <HomeTile key={t.key} model={t} eventId={input.eventId} stagger={stagger} tour={rotates && stagger === 0 ? 'home-faces' : undefined} />;
+          return (
+            <HomeTile
+              key={t.key}
+              model={t}
+              eventId={input.eventId}
+              stagger={stagger}
+              tour={rotates && stagger === 0 ? 'home-faces' : undefined}
+              hubPick={t.key === 'hub' ? hubPick : null}
+              hubApply={t.key === 'hub' ? hubApply : null}
+            />
+          );
         })}
       </div>
       <div className="hc-two hidden md:grid" data-home-control="detail" data-tour="home-tiles">
         <div className="hc-col">
           {(['count', 'hub', 'budget'] as const).map((k) => (
-            <DetailCard key={k} k={k} input={input} tile={tiles.find((t) => t.key === k) ?? null} />
+            <DetailCard key={k} k={k} input={input} tile={tiles.find((t) => t.key === k) ?? null} hubPick={hubPick} hubApply={hubApply} />
           ))}
         </div>
         <div className="hc-col">
@@ -98,7 +120,7 @@ const NAME: Record<HomeControlKey, string> = {
 const INFO: Record<HomeControlKey, string> = {
   count: 'Counts down to your date. This card is the one door to your date, place and time.',
   guests: 'Who said yes, who has not replied, who has no invitation yet — and the one thing to do about it.',
-  hub: 'Which of the four pages your guests see now, and what comes next. Edit in Maker opens the Event Hub Maker; the card and View Event Hub open the page your guests see.',
+  hub: 'Which of the four pages your guests see now, and what comes next. The card and View Event Hub open the page your guests see; Pick what shows chooses which parts each page shows (guests see a change after you press Apply); Edit in Maker opens the Event Hub Maker.',
   sup: 'How many of your plan’s categories are booked, and what waits on you: a quote to decide, suppliers who replied.',
   budget: 'Every payment still to settle, soonest first; then what you have paid and what is still owing.',
   plan: 'Only the plan: how far along you are and the next three dated tasks, soonest first. Guests, suppliers and money live on their own cards.',
@@ -181,7 +203,19 @@ function Failed({ words }: { words: string }) {
   );
 }
 
-function DetailCard({ k, input, tile }: { k: HomeControlKey; input: HomeControlInput; tile: HomeTileModel | null }) {
+function DetailCard({
+  k,
+  input,
+  tile,
+  hubPick = null,
+  hubApply = null,
+}: {
+  k: HomeControlKey;
+  input: HomeControlInput;
+  tile: HomeTileModel | null;
+  hubPick?: HomeHubPickRead | null;
+  hubApply?: ReactNode;
+}) {
   if (!tile) return null;
   const e = input.eventId;
   const today = tile.today;
@@ -315,7 +349,9 @@ function DetailCard({ k, input, tile }: { k: HomeControlKey; input: HomeControlI
             </span>
           ) : null}
           <div className="sg-acts">
-            <ActionButton tone="brand" main icon={<PenLine aria-hidden="true" strokeWidth={1.9} />} label="Edit in Maker" href={tile.side?.[0]?.href ?? `/dashboard/${e}/launch`} />
+            <ActionButton tone="brand" main icon={<PenLine aria-hidden="true" strokeWidth={1.9} />} label="Edit in Maker" href={tile.side?.find((a) => a.icon === 'pen')?.href ?? `/dashboard/${e}/launch`} />
+            {/* 🎛 The tile's "Pick what shows", with its word (owner 2026-10-24) — the same sheet in place. */}
+            <HubPickButton eventId={e} look="button" preset={hubPick} apply={hubApply} />
             {h.publicUrl ? (
               <HubViewLink url={h.publicUrl} className="ab ab-neutral" label="View Event Hub" marker="card-button">
                 <Eye aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.9} />

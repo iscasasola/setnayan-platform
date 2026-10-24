@@ -80,8 +80,7 @@ export default async function BudgetPage({ params, searchParams }: Props) {
   // column Your Team itself gates on, so an event type without suppliers keeps
   // this page exactly as it was rather than being sent to a page that would
   // send it home.
-  const sp = await searchParams;
-  if (YOUR_TEAM_BUDGET_PART !== sp?.part && profile.marketplaceEnabled === true) {
+  if (YOUR_TEAM_BUDGET_PART !== (await searchParams)?.part && profile.marketplaceEnabled === true) {
     redirect(yourTeamBudgetHref(eventId));
   }
   const supabase = await createClient();
@@ -502,7 +501,7 @@ export default async function BudgetPage({ params, searchParams }: Props) {
         }}
         list={list}
         /* 🔗 `?pay=<line_item_id>` (Home's Budget widget): the Pay sheet of that payment's supplier, open on arrival. */
-        initialPayVendorId={payTargetVendor(moneyRead?.lines ?? [], sp?.pay, list.suppliers)}
+        initialPayVendorId={payTargetVendor(moneyRead?.lines ?? [], (await searchParams)?.pay, list.suppliers)}
         supplierExtras={supplierExtras}
         categories={costCategories}
         targetNote={

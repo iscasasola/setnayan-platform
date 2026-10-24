@@ -140,6 +140,7 @@ const OWN_MECHANISM = [
 
 /** Hits that are not an app user being shown a paid service, each with its reason. A stale entry fails. */
 const NOT_SHOWN = new Map<string, string>([
+  ['app/dashboard/[eventId]/_components/home-cards/home-planner-card.tsx', 'Setnayan AI\'s Home card (2026-10-24) — drawn only through `paidCard`, which runs only where `serviceCards` (`couple && !storeShell && !appleFacts`, page.tsx) — never in the app'],
   ['app/dashboard/[eventId]/monogram/page.tsx', 'the page\'s <title> metadata (the free monogram design page shares the word), and the Logo & QR checkout name, built only under `!ownsAnimated && !storeShell` (2026-10-22)'],
   ['app/dashboard/[eventId]/monogram/animated-monogram-upgrade.tsx', 'the Logo & QR part\'s checkout names (2026-10-22); the component is mounted only by monogram/page.tsx as `!storeShell && ownsAnimated ? <AnimatedMonogramUpgrade …/> : null` — never in the app'],
   ['app/dashboard/[eventId]/vendors/_components/merkado-guard-banner.tsx', 'mounted only when `aiActive`, which is `storeShellAllowsPaidFeature`-gated (the owner\'s free-feature rule)'],

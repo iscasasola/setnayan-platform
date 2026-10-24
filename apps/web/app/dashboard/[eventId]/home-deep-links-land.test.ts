@@ -90,7 +90,7 @@ test('4 · a payment’s Pay opens that payment’s sheet', () => {
   assert.equal(payTargetVendor(lines, null, listed), null);
   // The address reaches the sheet: Suppliers hands `pay` to the Budget part, the page resolves it, the screen opens it.
   assert.match(src('vendors/page.tsx'), /searchParams=\{Promise\.resolve\(\{ part: YOUR_TEAM_BUDGET_PART, pay: sp\.pay \}\)\}/, 'Suppliers drops ?pay= on the way to its Budget part');
-  assert.match(src('budget/page.tsx'), /initialPayVendorId=\{payTargetVendor\(moneyRead\?\.lines \?\? \[\], sp\?\.pay, list\.suppliers\)\}/);
+  assert.match(src('budget/page.tsx'), /initialPayVendorId=\{payTargetVendor\(moneyRead\?\.lines \?\? \[\], \(await searchParams\)\?\.pay, list\.suppliers\)\}/);
   const screen = src('budget/_components/budget-screen.tsx');
   assert.match(screen, /useState<BudgetSheetState>\(initialPayVendorId \? \{ kind: 'pay', vendorId: initialPayVendorId \} : null\)/, 'the Pay sheet does not open on arrival');
   assert.match(screen, /useState\(Boolean\(initialPayVendorId\)\)/, 'the sheet’s code is not loaded for an arrival that opens it');

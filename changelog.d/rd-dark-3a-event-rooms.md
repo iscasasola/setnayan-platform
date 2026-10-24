@@ -15,3 +15,10 @@ tree and opens with 3c (one prefix rule, no exception list). Light is unchanged 
   base class it replaces (sabotage: `dark:text-[#FFFFFF]` on the white plate → red).
 
 SPEC IMPACT: None — implements the approved plan.
+
+Finished 2026-10-25: merged origin/main (the shortlist's whole-marketplace block was deleted on main — kept
+deleted; its search field keeps the warm dark #232019). The D-4 pin in `four-small-truths-on-the-event-page.test.ts`
+now counts the priority badge's `rgb(var(--color-cream))` ink as the same single gold fill. Walked at 390×844 on
+the dev labs (Home, Papic band, Guests list / card / setup, Suppliers Find / Build, Budget), light and dark,
+before vs after: light unchanged (the only light pixel differences are the dev overlay badge, the Home tiles'
+autoplay dots and the lab ticket's load timing).

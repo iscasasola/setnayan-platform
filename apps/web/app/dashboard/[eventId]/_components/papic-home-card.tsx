@@ -93,7 +93,8 @@ export function PapicHomeCard({
   return (
     <div ref={root} className="col-span-full flex min-w-0 scroll-mt-20 flex-col" data-papic-home-card={open ? 'open' : 'rest'}>
       <div className="sg-row relative" data-mood={mood} {...marker}>
-        {headControl ? (
+        {/* The switch shows with the card OPEN (the approved sketch: closed › · open [switch] ⌄). Folded, it is not drawn. */}
+        {headControl && open ? (
           <div className="absolute right-12 top-3.5 z-[1] [&_[data-form-row-name]]:sr-only [&_[data-form-row]]:!min-h-0 [&_[data-form-row]]:!p-0" data-papic-head-switch="">
             {headControl}
           </div>
@@ -111,7 +112,7 @@ export function PapicHomeCard({
             <span className="sg-mark" aria-hidden>
               {icon}
             </span>
-            <span className={`min-w-0 ${headControl ? 'pr-16' : ''}`}>
+            <span className={`min-w-0 ${headControl && open ? 'pr-16' : ''}`}>
               <span className="sg-name block truncate">{name}</span>
               {brand ? <span className="sg-brand block truncate">{brand}</span> : null}
             </span>

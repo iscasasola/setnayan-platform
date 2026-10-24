@@ -24,7 +24,7 @@ import { PAGE_COLUMN, PLATE } from '../_lib/measures';
 import { greetingDateLine, greetingAskOf, guestGreetingOf } from '@/lib/guest-greeting';
 import { MeGreeting, MeReply, ME_REPLY_ID } from './guest-greeting';
 import { DRESS_CODE_ANCHOR } from './dress-code-widget';
-import { plusOneSeats, type RsvpStatus } from '@/lib/guests';
+import { guestFullName, plusOneSeats, type RsvpStatus } from '@/lib/guests';
 import { guestAttireOf, guestNamePartsOf } from '@/lib/attire-rows';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { loadEventNameStyle, loadEventRoleNames } from '../_lib/loaders';
@@ -2987,7 +2987,7 @@ export async function SiteBody({
        paragraph — our own default copy, which no field held — and with it the word "celebrate". The role's colours are
        named in What to wear, never on this line (one place for the colour fact). */
     const meGreeting = guestGreetingOf({
-      name: placeCardName(guest, eventNameStyle) ?? guest.display_name ?? null,
+      name: placeCardName(guest, eventNameStyle) ?? (guestFullName(guest) || null),
       roleCode: guest.role,
       roleWord: roleWordOfGuest(guest, roleNames),
       sideLabel,
@@ -3095,7 +3095,7 @@ export async function SiteBody({
       <ScanTrailNotice eventId={event.event_id} guestId={guest.guest_id} preview={isEditorCanvas} me={tabs.on} />
     );
     // 👁 A See as sample guest has no session to sign out of — no form at all.
-    const signOut = sampleViewer !== null ? null : tabs.on ? (
+    const signOut = sampleViewer !== null ? null : (tabs.on ? (
       /* 🔘 ON ME (owner 2026-10-24, the Me redraw): a small icon-and-word pill beside "Stop keeping a record" — still
          asking first (`SignOutOfInvitation`). Me's own hairline sits above the two. */
       <SignOutOfInvitation
@@ -3127,7 +3127,7 @@ export async function SiteBody({
           Sign out of this invitation
         </SignOutOfInvitation>
       </section>
-    );
+    ));
     /* 📱 THIS GUEST'S PAGES, FILED LIKE THE MAKER'S (owner 2026-10-08 — `readerAt`, the one filing; a See as
        sample guest in the Maker's canvas is this same page, so it follows). The couple's scenes in three runs, each
        in the couple's order: the Invitation's Welcome scenes (Countdown, Message — the prototype's Welcome), the

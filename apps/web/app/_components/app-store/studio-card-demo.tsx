@@ -126,12 +126,12 @@ const PAPIC_SCENES: RichFrame[] = [
   },
   {
     caption: 'Each guest finds the photos they’re in.',
-    hint: '“Photos of you” fills through the day — theirs to keep.',
+    hint: '“Memories of you” fills through the day — theirs to keep.',
     scene: (
       <div className="absolute inset-0 flex flex-col justify-center bg-cream text-ink">
         <div className="flex items-center justify-between px-3 pt-3">
           <span className="inline-flex items-center gap-1.5 font-mono text-[9px] uppercase tracking-[0.18em] text-terracotta">
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" /> Photos of you
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" /> Memories of you
           </span>
           <span className="text-[10px] text-ink/55">12 tagged</span>
         </div>

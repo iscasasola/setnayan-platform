@@ -151,13 +151,13 @@ export function PhotosOfYouGallery({
   );
 
   return (
-    <section aria-label="Photos of you" className="sn-gal p-5 sm:p-6">
+    <section aria-label="Memories of you" className="sn-gal p-5 sm:p-6">
       <div className="flex items-center justify-between gap-3">
         <p className="sn-gal-kick inline-flex items-center gap-2 font-mono text-xs font-bold uppercase tracking-[0.2em]">
           {isLive ? (
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--sn-ob-gold)]" />
           ) : null}
-          Photos of you{isLive ? ' — so far' : ''}
+          Memories of you{isLive ? ' — so far' : ''}
         </p>
         <p className="sn-gal-soft text-sm">
           {(gallery?.total ?? 0).toLocaleString()}

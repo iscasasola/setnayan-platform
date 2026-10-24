@@ -291,7 +291,7 @@ test('the card does not promise that everything keeps working exactly as now', (
   );
   assert.match(
     src,
-    /cameras and the photo wall go quiet/,
+    /cameras and Memory lane go quiet/,
     'the card must say what STOPS. A couple cannot discover the cameras going ' +
       'quiet any other way before they press.',
   );

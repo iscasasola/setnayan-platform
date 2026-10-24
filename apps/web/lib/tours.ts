@@ -300,7 +300,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       {
         Icon: PartyPopper,
         title: 'The Day',
-        body: 'From noon the day before, the Day-of card shows you the timeline, lets you reach your coordinator, and surfaces the photo wall. Your guests get the same view, scoped to their seat + role.',
+        body: 'From noon the day before, the Day-of card shows you the timeline, lets you reach your coordinator, and surfaces Memory lane. Your guests get the same view, scoped to their seat + role.',
       },
     ],
   },
@@ -354,7 +354,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       {
         Icon: PartyPopper,
         title: 'On the day, come back here',
-        body: 'From one hour before the event, this same page shows you the live schedule, your table number, and (if enabled) the photo wall where everyone shares snaps.',
+        body: 'From one hour before the event, this same page shows you the live schedule, your table number, and (if enabled) Memory lane where everyone shares snaps.',
       },
     ],
   },
@@ -498,7 +498,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       },
       {
         Icon: Images,
-        title: 'Photos of you',
+        title: 'Memories of you',
         body: 'When someone takes a photo you are in, it shows up here, in the order the day happened.',
       },
       {
@@ -1594,7 +1594,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         {
           anchor: 'day-live',
           title: 'Your event day',
-          body: 'Announcements, the photo wall and what is happening now — all from here.',
+          body: 'Announcements, Memory lane and what is happening now — all from here.',
         },
         {
           anchor: 'day-planning',

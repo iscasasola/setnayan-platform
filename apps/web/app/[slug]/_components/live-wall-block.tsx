@@ -241,7 +241,7 @@ export function LiveWallBlock({
   if (display.length === 0) {
     return (
       <section
-        aria-label="Live photo wall"
+        aria-label="Memory lane"
         className="sn-gal p-6 text-center"
       >
         <LiveWallHeader count={0} occasion={w.occasion} />
@@ -250,7 +250,7 @@ export function LiveWallBlock({
             ? // Said plainly, and without blame. The wall did not break and the
               // guest did nothing wrong — the couple chose to keep it to the
               // room. A card that simply emptied itself would read as a fault.
-              `The photo wall is playing on the screens at the venue. ${w.TheOrganizer} has kept it off phones for this ${w.occasion}.`
+              `Memory lane is playing on the screens at the venue. ${w.TheOrganizer} has kept it off phones for this ${w.occasion}.`
             : stalled
               ? 'We can’t reach the wall right now — this venue’s signal may be busy. It keeps trying, and photos appear the moment it reconnects.'
               : 'The wall is warming up — photos appear here the moment they’re taken.'}
@@ -262,7 +262,7 @@ export function LiveWallBlock({
 
   return (
     <section
-      aria-label="Live photo wall"
+      aria-label="Memory lane"
       className="sn-gal p-5 sm:p-6"
     >
       <LiveWallHeader count={count} occasion={w.occasion} />
@@ -353,12 +353,12 @@ export function LiveWallBlock({
   );
 }
 
-function LiveWallHeader({ count, occasion }: { count: number; occasion: string }) {
+function LiveWallHeader({ count }: { count: number; occasion: string }) {
   return (
     <div className="flex items-center justify-between gap-3">
       <p className="sn-gal-kick inline-flex items-center gap-2 font-mono text-xs font-bold uppercase tracking-[0.2em]">
         <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--sn-ob-gold)]" />
-        Live from the {occasion}
+        Memory lane
       </p>
       {count > 0 ? (
         <p className="sn-gal-soft flex items-baseline gap-1">

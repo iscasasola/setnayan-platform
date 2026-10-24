@@ -23,7 +23,7 @@ export const POST_EVENT_SCENE_NAMES: Readonly<Record<string, string>> = {
   asked: 'Papic Challenge',
   letters: 'Messages',
   vendors: 'Supplier Stories',
-  wall: 'Live Photo Wall',
+  wall: 'Memory lane',
   said: 'What They Said',
   powered: 'Powered by Setnayan',
   loved: 'Suppliers We Loved',

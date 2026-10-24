@@ -152,7 +152,7 @@ function visible(html: string): string {
 const STAGE_DATE: Record<LifecyclePhase, string> = { save_the_date: '2027-06-12', rsvp: '2026-12-12', event: '2026-10-10', editorial: '2026-10-01' };
 /** The part's own words / link on the page — gone when it is hidden. Null: told by the page changing (the ticket's picture). */
 const OWN: Record<FixedPart, readonly string[] | null> = {
-  gifts: ['/pabuya'], entourage: [PART_WORDS.sponsor], seat: [PART_WORDS.table, '/venue'], live: ['fxtr-stream'], camera: ['/papic/guest'], photosofyou: ['Photos of you'],
+  gifts: ['/pabuya'], entourage: [PART_WORDS.sponsor], seat: [PART_WORDS.table, '/venue'], live: ['fxtr-stream'], camera: ['/papic/guest'], photosofyou: ['Memories of you'],
   pass: null, reply: null, announce: null,
 };
 

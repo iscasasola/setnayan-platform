@@ -54,7 +54,7 @@ export async function LiveWallCard({ eventId, appleIap = false }: { eventId: str
       <section className="rounded-2xl border border-ink/10 bg-surface p-5 sm:p-6">
         <h2 className="flex items-center gap-2 text-base font-semibold text-ink">
           <MonitorPlay aria-hidden className="h-4.5 w-4.5 text-terracotta" strokeWidth={2} />
-          Live Photo Wall
+          Memory lane
         </h2>
         <p className="mt-1 text-sm text-ink/60">
           The wall projects your Papic photos — set up your Papic crew first and
@@ -81,10 +81,10 @@ export async function LiveWallCard({ eventId, appleIap = false }: { eventId: str
       <section className="rounded-2xl border border-ink/10 bg-surface p-5 sm:p-6">
         <h2 className="flex items-center gap-2 text-base font-semibold text-ink">
           <MonitorPlay aria-hidden className="h-4.5 w-4.5 text-terracotta" strokeWidth={2} />
-          Live Photo Wall
+          Memory lane
         </h2>
         <div className="mt-3">
-          <PaymentUnderReview feature="live photo wall" />
+          <PaymentUnderReview feature="Memory lane" />
         </div>
       </section>
     );
@@ -147,7 +147,7 @@ export async function LiveWallCard({ eventId, appleIap = false }: { eventId: str
         <div>
           <h2 className="flex items-center gap-2 text-base font-semibold text-ink">
             <MonitorPlay aria-hidden className="h-4.5 w-4.5 text-terracotta" strokeWidth={2} />
-            Live Photo Wall
+            Memory lane
           </h2>
           {/* ⚠ THE SECOND HALF WAS MISSING. This described the wall as a venue
               projection only, so a couple weighing it up saw a screen rental

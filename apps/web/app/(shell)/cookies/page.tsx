@@ -104,7 +104,7 @@ const GUESTS: Row[] = [
 const SCREENS_AND_CHOICES: Row[] = [
   {
     name: 'setnayan_live_screen · setnayan_wall_display',
-    what: 'Pairs a venue screen or photo wall with an event, so it keeps showing it.',
+    what: 'Pairs a venue screen or Memory lane with an event, so it keeps showing it.',
     keeps: '30 days · 1 day',
   },
   { name: 'sn-theme', what: 'Your Appearance choice (light or dark).', keeps: '1 year' },

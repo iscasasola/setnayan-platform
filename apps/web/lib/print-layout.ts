@@ -1846,6 +1846,22 @@ function layoutStoryPoster(ctx: Ctx): PrintDoc[] {
  * TABLE · SEAT · TIME where a gate and a seat would be). One composition, sized
  * from the sheet's own height — so a format is laid out, never stretched.
  */
+/**
+ * 🎟 THE PASS'S DATE / TIME / VENUE LINES (owner 2026-10-25: *"there are 2 venues. why did I only see 1 venue on the event
+ * card?"*). One venue (or two of the same name): as before — the date, "Ceremony <time>", the venue. Two different venues: the
+ * date, then "Ceremony · <time> · <place>" and "Reception · <time> · <place>" — each its own line, wrapped by word by the
+ * caller (never a word cut). The boarding style, which never printed the time, names the two places the same way, without it.
+ */
+export function passMetaLines(data: Pick<PrintSetData, 'dateLabel' | 'ceremonyTime' | 'ceremonyVenue' | 'receptionTime' | 'receptionVenue'>, boarding = false): string[] {
+  const cv = data.ceremonyVenue?.trim() || null;
+  const rv = data.receptionVenue?.trim() || null;
+  if (cv && rv && cv.toLowerCase() !== rv.toLowerCase()) {
+    const at = (word: string, time: string | null, place: string) => [word, boarding ? null : time, place].filter(Boolean).join(' · ');
+    return [data.dateLabel, at('Ceremony', data.ceremonyTime, cv), at('Reception', data.receptionTime, rv)].filter(Boolean) as string[];
+  }
+  return (boarding ? [data.dateLabel, cv ?? rv] : [data.dateLabel, data.ceremonyTime ? `Ceremony ${data.ceremonyTime}` : null, cv ?? rv]).filter(Boolean) as string[];
+}
+
 function layoutPass(ctx: Ctx, rawPass: PrintPass, fmt: PrintFormat = PRINT_FORMATS['calling-card']): PrintDoc {
   // 🎟 The table / seat is drawn only when the reader filled it — on the day
   // (`ticketShowsTable`, lib/guests-may-see-seats.ts).
@@ -1981,10 +1997,7 @@ function layoutPass(ctx: Ctx, rawPass: PrintPass, fmt: PrintFormat = PRINT_FORMA
     }
     // The date / time / venue lines — WRAPPED, not squeezed (a long church name
     // used to be shrunk to fit one line, down to 3.5 pt); narrower beside the NFC spot.
-    const meta = (style === 'boarding'
-      ? [data.dateLabel, data.ceremonyVenue]
-      : [data.dateLabel, data.ceremonyTime ? `Ceremony ${data.ceremonyTime}` : null, data.ceremonyVenue]
-    ).filter(Boolean) as string[];
+    const meta = passMetaLines(data, style === 'boarding');
     const mSize = Math.max(PRINT_MIN_BODY_PT, 6.4 * k * f);
     const lead = mSize * 1.31;
     let yy = y + mSize * 0.7;

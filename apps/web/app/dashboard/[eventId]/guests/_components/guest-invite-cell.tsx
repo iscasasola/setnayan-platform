@@ -344,6 +344,8 @@ export function GuestInviteCell({
             onClick={invite}
             disabled={pending}
             aria-haspopup="dialog"
+            /* ▾ on the card — Invite opens its send choices (owner-approved prototype `guest_card_groups_and_papic_2026-10-23.html`). */
+            caret={layout === 'card'}
             className="relative z-20"
           />
         </span>

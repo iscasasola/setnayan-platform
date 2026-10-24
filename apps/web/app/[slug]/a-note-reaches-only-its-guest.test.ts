@@ -142,11 +142,13 @@ test('② the card round-trips the note: a changed box is written, an untouched 
 
   // The card draws the box, beside the private note, in both kits' words.
   const card = read('app/dashboard/[eventId]/guests/_components/guest-card-body.tsx');
-  assert.match(card, /<K\.Fold summary="Note for them · they see it"/);
-  assert.match(card, /<K\.Fold summary="Private note · only you"/);
+  /* RE-AIMED 2026-10-23: one group, two fields, as the owner wrote it ("Note for them · Private note"); each field says who reads it. */
+  assert.match(card, /<K\.Fold summary="Note for them · Private note"/);
+  assert.match(card, /label="Note for them · they see it"/);
+  assert.match(card, /label="Private note · only you"/);
   assert.match(card, /id="host_note_for_guest"[\s\S]{0,80}maxLength=\{HOST_NOTE_MAX\}/);
   assert.match(card, /defaultValue=\{guest\.host_note_for_guest \?\? ''\}/);
-  assert.ok(card.indexOf('summary="Note for them') < card.indexOf('summary="Private note'), 'the note for them is not beside the private note');
+  assert.ok(card.indexOf('label="Note for them') < card.indexOf('label="Private note'), 'the note for them is not beside the private note');
 });
 
 /* ── ③ Me ─────────────────────────────────────────────────────────────────────────────────────────────────────────── */

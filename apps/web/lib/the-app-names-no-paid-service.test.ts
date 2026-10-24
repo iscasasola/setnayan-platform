@@ -154,6 +154,7 @@ const NOT_SHOWN = new Map<string, string>([
   ['app/dashboard/[eventId]/_components/home-cards/home-booth-card.tsx', 'a Home service card (owner 2026-10-23, the service widgets) — drawn only under `cards`, which is `serviceCards = couple && !storeShell && !appleFacts` (app/dashboard/[eventId]/page.tsx); the app keeps the shipped rows'],
   ['app/dashboard/[eventId]/_components/home-cards/home-music-card.tsx', 'same — a Home service card, drawn only under `serviceCards` (`!storeShell && !appleFacts`)'],
   ['app/dashboard/[eventId]/_components/papic-ready-nudge.tsx', 'mounted only `&& !storeShell` (app/dashboard/[eventId]/page.tsx)'],
+  ['app/dashboard/[eventId]/guests/_components/guest-papic-bulk.tsx', 'the Select › Set… › Papic sheet: its options are offered only while `papic === \'on\'`, which the Guests page hands as `viewer.isCouple && !storeShell ? eventPapic : null` (2026-10-23)'],
   ['app/dashboard/[eventId]/_components/setnayan-ai-comeback-offer.tsx', 'mounted only `aiOffer && aiOfferSettings && !storeShell` (app/dashboard/[eventId]/page.tsx)'],
   ['app/dashboard/[eventId]/_components/reveal-preview-card.tsx', 'used by Save the Date only, after an Event Hub Pro opening is picked — see StdBuilderClient'],
   ['app/dashboard/[eventId]/website/photo-moments/config.ts', 'the Papic-only hint is drawn only by photo-moments-editor.tsx, which shows app words under `data-app-only`'],

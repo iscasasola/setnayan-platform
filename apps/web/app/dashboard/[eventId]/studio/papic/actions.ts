@@ -9,7 +9,7 @@ import { loadPoolRungs, type PoolRung } from '@/lib/papic-pool-rungs';
 import { keepFirstTwin, openTwinReference } from '@/lib/one-press-one-order';
 import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { ALLOTMENT_RPC, ALLOTMENT_STORAGE } from '@/lib/papic-guest-allotments';
+import { ALLOTMENT_BATCH_MAX, ALLOTMENT_RPC, ALLOTMENT_STORAGE } from '@/lib/papic-guest-allotments';
 import { reviewVendorChallenge } from '@/lib/papic-games';
 import { papicGamesEnabled } from '@/lib/papic-games-flag';
 import { activationRefused, coupleSlots } from '@/lib/papic-missions';
@@ -1619,24 +1619,48 @@ export async function setGuestAllotments(formData: FormData) {
  * no separate "remove" verb, because two verbs for one state is how a list and
  * its total come to disagree. A blank box here means "stop naming this guest",
  * which is a different act from giving her zero, and both are honoured.
+ *
+ * 📸 ALSO THE GUEST CARD'S "Their camera ▾" AND THE GUEST LIST'S Set… › Papic (owner 2026-10-23, prototype
+ * `guest_card_groups_and_papic_2026-10-23.html`): the same door, not a second writer — the server-action budget sits
+ * one under its ceiling, and two writers of one ceiling is how a card and a sheet come to disagree.
+ *   · `quiet=1` — answered IN PLACE: `{ ok: true }` or `{ refused: <code> }`, never a redirect (a redirect would
+ *     navigate the card away). The guest list is revalidated with the Papic page.
+ *   · several `guest_id` — one RPC call per guest, the SAME target for each (never a delta), in order; the first
+ *     refusal stops the run and says how many were set before it.
  */
-export async function setGuestAllotment(formData: FormData) {
+export async function setGuestAllotment(formData: FormData): Promise<void | { ok: true; set: number } | { refused: string; set: number }> {
+  const quiet = formData.get('quiet') === '1';
   const result = await getCoupleEventId(formData.get('event_id'));
-  if (!result.ok) redirect(result.redirectTo);
+  if (!result.ok) {
+    if (quiet) return { refused: 'not_a_couple', set: 0 };
+    redirect(result.redirectTo);
+  }
   const { eventId } = result;
   const back = `/dashboard/${eventId}/studio/papic`;
 
   const fail = (code: string): never =>
     redirect(`${back}?allotment_error=${encodeURIComponent(code)}`);
 
-  const guestId = String(formData.get('guest_id') ?? '').trim();
-  if (!guestId) fail('unknown_guest');
+  const guestIds = [...new Set(formData.getAll('guest_id').map((v) => String(v).trim()).filter(Boolean))];
+  if (guestIds.length === 0) {
+    if (quiet) return { refused: 'unknown_guest', set: 0 };
+    fail('unknown_guest');
+  }
+  // 🧱 One call sets at most ALLOTMENT_BATCH_MAX guests — refused BEFORE the first RPC, never cut off half-way by a
+  // timeout with nothing said. The bulk sheet sends its selection in chunks of that many.
+  if (guestIds.length > ALLOTMENT_BATCH_MAX) {
+    if (quiet) return { refused: 'too_many', set: 0 };
+    fail('too_many');
+  }
 
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
+  if (!user) {
+    if (quiet) return { refused: 'not_a_couple', set: 0 };
+    redirect('/login');
+  }
 
   // 🔑 A TARGET, NOT A DELTA — and NULL un-names her. Naming and un-naming are
   // therefore the SAME call rather than two code paths that can disagree about
@@ -1649,7 +1673,10 @@ export async function setGuestAllotment(formData: FormData) {
   let points: number | null = null;
   if (raw !== '') {
     const n = Number(raw);
-    if (!Number.isFinite(n) || n < 0 || !Number.isInteger(n)) fail('bad_number');
+    if (!Number.isFinite(n) || n < 0 || !Number.isInteger(n)) {
+      if (quiet) return { refused: 'bad_number', set: 0 };
+      fail('bad_number');
+    }
     points = n;
   }
 
@@ -1657,30 +1684,50 @@ export async function setGuestAllotment(formData: FormData) {
   // this event, that the figure is sane, that a named allotment is protected
   // from the release. None of it is re-implemented here. Deriving the same
   // arithmetic twice is how a screen and a ledger come to disagree.
-  const { error } = await createAdminClient().rpc(ALLOTMENT_RPC.setOne, {
-    p_event_id: eventId,
-    p_guest_id: guestId,
-    p_points: points,
-    p_actor: user!.id,
-  });
+  const admin = createAdminClient();
+  let set = 0;
+  for (const guestId of guestIds) {
+    const { error } = await admin.rpc(ALLOTMENT_RPC.setOne, {
+      p_event_id: eventId,
+      p_guest_id: guestId,
+      p_points: points,
+      p_actor: user!.id,
+    });
 
-  if (error) {
-    // The refusal has to reach the screen. 42501 is "that guest is not on this
-    // event" — a guest id is not a capability — and 22023 is a negative figure.
-    const code = String((error as { code?: string }).code ?? '');
-    if (code === '42501') fail('unknown_guest');
-    if (code === '22023') fail('bad_number');
-    logQueryError(
-      'setGuestAllotment',
-      error,
-      { event_id: eventId, guest_id: guestId, points },
-      'graceful_degrade',
-    );
-    fail('save_failed');
+    if (error) {
+      // The refusal has to reach the screen. 42501 is "that guest is not on this
+      // event" — a guest id is not a capability — and 22023 is a negative figure.
+      const code = String((error as { code?: string }).code ?? '');
+      const why = code === '42501' ? 'unknown_guest' : code === '22023' ? 'bad_number' : 'save_failed';
+      if (why === 'save_failed') {
+        logQueryError(
+          'setGuestAllotment',
+          error,
+          { event_id: eventId, guest_id: guestId, points },
+          'graceful_degrade',
+        );
+      }
+      if (quiet) {
+        if (set > 0) revalidateAllotmentReaders(eventId);
+        return { refused: why, set };
+      }
+      fail(why);
+    }
+    set += 1;
   }
 
+  if (quiet) {
+    revalidateAllotmentReaders(eventId);
+    return { ok: true, set };
+  }
   revalidatePath(back);
   redirect(`${back}?allotment_set=${points === null ? 'cleared' : points}`);
+}
+
+/** The pages that draw a guest's ceiling: the Papic page's named guests, and the guest card's Papic row. */
+function revalidateAllotmentReaders(eventId: string) {
+  revalidatePath(`/dashboard/${eventId}/studio/papic`);
+  revalidatePath(`/dashboard/${eventId}/guests`, 'layout');
 }
 
 /**

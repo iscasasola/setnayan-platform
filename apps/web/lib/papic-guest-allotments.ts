@@ -144,6 +144,21 @@ export const ALLOTMENT_RPC = {
   headcount: 'papic_event_guest_headcount',
 } as const;
 
+/**
+ * 🧱 THE MOST GUESTS ONE `setGuestAllotment` CALL SETS (review 2026-10-23). The action sends one RPC per guest, in turn,
+ * under its own row lock — uncapped, a 400-guest selection was one request holding a server for minutes and dying of its
+ * timeout half-way with nothing said. The bulk sheet sends its selection in chunks of this many and says "X of N set";
+ * the action refuses a bigger list (`too_many`) rather than start it.
+ */
+export const ALLOTMENT_BATCH_MAX = 50;
+
+/** A list cut into the chunks one call may set (`ALLOTMENT_BATCH_MAX`), in order. PURE. */
+export function allotmentChunks<T>(ids: readonly T[], size: number = ALLOTMENT_BATCH_MAX): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < ids.length; i += size) out.push(ids.slice(i, i + size));
+  return out;
+}
+
 /** The sponsor roles that earn a bigger default. Mirrors `SponsorTier`. */
 export type AllotmentRole = 'principal' | 'cord' | 'veil' | 'coin' | 'candle' | 'guest';
 

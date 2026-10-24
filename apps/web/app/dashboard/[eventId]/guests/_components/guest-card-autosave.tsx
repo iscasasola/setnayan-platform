@@ -143,8 +143,11 @@ export function AutosaveForm({
   action,
   returnTo,
   className,
+  id,
   children,
 }: {
+  /** The form's `id`, for a field drawn outside it that posts with it (`form={id}`). */
+  id?: string;
   action: (formData: FormData) => void | { refused: string } | Promise<void | { refused: string }>;
   /** Where `updateGuest` should send an ERROR back to — the surface the card is
    *  open on, so a failed save lands on the card and not on some other page.
@@ -272,11 +275,27 @@ export function AutosaveForm({
     }, DEBOUNCE_MS);
   };
 
+  /* 🕯 A FIELD OF THIS FORM DRAWN OUTSIDE IT (`form={id}`) — the card's Passed Away sits below Access, whose own small forms
+     cannot be nested in this one (owner's order, 2026-10-23). It posts with the form (the browser counts it), and it is heard
+     here: its change never bubbles through this element. `schedule` reads only refs, so the first one is the one. */
+  useEffect(() => {
+    const form = formRef.current;
+    if (!id || !form) return;
+    const hear = (e: Event) => {
+      const el = e.target as HTMLInputElement | null;
+      if (el && el.form === form && !form.contains(el)) schedule();
+    };
+    document.addEventListener('change', hear);
+    return () => document.removeEventListener('change', hear);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+
   const retry = useCallback(() => formRef.current?.requestSubmit(), []);
   return (
     <OutcomeContext.Provider value={{ outcome, retry }}>
     <form
       ref={formRef}
+      id={id}
       action={run}
       className={className}
       /* ⇥ The card's rows are ONE Tab order (owner 2026-10-21: "pressing tab on keyboard should allow next row on the guest

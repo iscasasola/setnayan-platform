@@ -182,13 +182,17 @@ test('the window: closed after the seventh day, never for a host, never on a gue
   assert.equal(ended.ended, true);
 });
 
-test('ONE home: outside People with access, no screen sets access', () => {
+test('ONE mechanism: outside People with access — and the guest card’s Access ▾ — no screen sets access', () => {
   // The four setters of a seat's access, and the files allowed to CALL them.
+  // RE-AIMED 2026-10-24 (owner, verbatim: "Add the Access dropdown on the guest card too."): a LINKED guest's card is a
+  // second DOOR to the same `setGuestAccess` — one mechanism, two doors (`the-access-column-is-the-cards-access-line.test.ts`
+  // holds that both call it the same way). Every other screen still only shows access.
   const SETTERS = ['setDelegateArea', 'setGuestAccess', 'setDelegateBudget', 'setDelegatePhotos', 'revokeArea'];
   const ALLOWED = new Set([
     'app/dashboard/[eventId]/details/_components/people-with-access.tsx',
     'app/dashboard/[eventId]/hosts/actions.ts',
     'app/dashboard/[eventId]/guests/[guestId]/access-actions.ts',
+    'app/dashboard/[eventId]/guests/_components/guest-access-pick.tsx',
   ]);
   const offenders: string[] = [];
   const walk = (dir: string) => {

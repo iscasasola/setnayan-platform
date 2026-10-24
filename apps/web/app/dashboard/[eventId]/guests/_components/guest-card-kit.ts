@@ -32,13 +32,36 @@ export type CardFieldProps = {
   /** The sentence behind the row's ⓘ (the old kit prints it beside the control instead — the body decides). */
   about?: string;
 };
-export type CardToggleProps = { name: string; defaultChecked: boolean; label: string; note: string; soft?: boolean };
+export type CardToggleProps = {
+  name: string;
+  defaultChecked: boolean;
+  label: string;
+  note: string;
+  soft?: boolean;
+  /** The `id` of the form it posts with, when it is drawn OUTSIDE it (the card's Passed Away, below Access). */
+  form?: string;
+};
+/**
+ * 🚪 ONE LINE WITH ONE DOOR — a row that is a fact and the one place it is changed, nothing to open (owner 2026-10-23: the
+ * guest card's Papic row reads "Papic is off · Turn on ›" while the event's Papic is off). Never a go-edit-elsewhere for
+ * something the card itself holds — only for a switch that is the whole event's.
+ */
+export type CardDoorProps = {
+  label: string;
+  value: string;
+  /** Where the door lands — `null` when this viewer cannot press it: the fact alone, no door. */
+  href: string | null;
+  action: string;
+  data: string;
+};
 export type CardFoldProps = {
   summary: string;
   value: string | null;
   emptyValue?: string;
   open?: boolean;
   last?: boolean;
+  /** The title in the danger colour — the card's Delete (prototype `guest_card_groups_and_papic_2026-10-23.html`). */
+  danger?: boolean;
   children: ReactNode;
 };
 export type CardPickProps = {
@@ -148,6 +171,8 @@ export type CardKit = {
   InvitedTo: ComponentType<CardInvitedToProps>;
   /** A fact the host cannot change here (the couple's role). */
   Locked: ComponentType<CardLockedProps>;
+  /** 🚪 One line with one door ("Papic is off · Turn on ›") — `CardDoorProps`. */
+  Door: ComponentType<CardDoorProps>;
   /** 🪪 A fact read from elsewhere, with where it comes from (the attire their role's dress code gives them). */
   Fact: ComponentType<CardFactProps>;
   /** One list of rows (the app's Form rows draw one list; the old kit a spaced column). */

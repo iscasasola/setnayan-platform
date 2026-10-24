@@ -2987,7 +2987,7 @@ export async function SiteBody({
        paragraph — our own default copy, which no field held — and with it the word "celebrate". The role's colours are
        named in What to wear, never on this line (one place for the colour fact). */
     const meGreeting = guestGreetingOf({
-      name: placeCardName(guest, eventNameStyle) ?? (guestFullName(guest) || null),
+      name: placeCardName(guest, eventNameStyle) ?? (guestFullName(guest, eventNameStyle) || null),
       roleCode: guest.role,
       roleWord: roleWordOfGuest(guest, roleNames),
       sideLabel,

@@ -321,7 +321,7 @@ function TakeItDown({
         }
         setSent(true);
       }}
-      className="basis-full rounded-lg border border-[rgb(251_250_247/0.18)] p-2.5 text-left"
+      className="basis-full pt-1 text-left"
     >
       <label className="block text-xs font-semibold text-[var(--sn-ob-text)]">
         Ask us to take this photo down

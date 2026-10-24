@@ -46,7 +46,7 @@ export function PabuyaQrThumb({
         data-egift-qr={primary ? 'primary' : 'side'}
         aria-haspopup="dialog"
         aria-label={`Open the ${label} QR code full size`}
-        className={`inline-flex ${primary ? 'h-32 w-32' : 'h-28 w-28'} shrink-0 overflow-hidden rounded-xl border border-ink/10 bg-white p-0 transition hover:border-terracotta focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta sm:h-36 sm:w-36`}
+        className={`inline-flex ${primary ? 'h-32 w-32' : 'h-28 w-28'} shrink-0 overflow-hidden rounded-xl border border-ink/10 bg-white p-0 transition hover:border-terracotta focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta sm:h-36 sm:w-36`} // no-card-ok: the QR thumbnail is the press that opens the viewer
       >
         {/* Raw <img>: the QR is an app route, not a build-time asset, and
             next/image would add an optimiser hop in front of a gated route. */}

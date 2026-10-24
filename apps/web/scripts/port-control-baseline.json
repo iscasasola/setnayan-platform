@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "209fe16ac7",
-  "routeCount": 463,
-  "destinations": 1002,
+  "generatedFromRef": "68687216be",
+  "routeCount": 465,
+  "destinations": 1005,
   "actions": 662,
-  "blocks": 6873,
+  "blocks": 6894,
   "routes": {
     "/": {
       "files": [
@@ -979,6 +979,7 @@
         "[slug]/_components/selfie-capture.tsx",
         "[slug]/_components/selfie-no-thanks-confirm.tsx",
         "[slug]/_components/send-their-invite.tsx",
+        "[slug]/_components/sign-in-back-here.tsx",
         "[slug]/_components/sign-out-of-invitation.tsx",
         "[slug]/_components/site-body.tsx",
         "[slug]/_components/site-menu-bar.tsx",
@@ -1032,6 +1033,7 @@
         "[slug]/_components/your-photos-widget.tsx",
         "[slug]/_components/your-seat-block.tsx",
         "[slug]/_components/your-seat-styles.tsx",
+        "[slug]/_components/your-shot-tile.tsx",
         "[slug]/_components/your-shots-gallery.tsx",
         "[slug]/_lib/album-door.server.ts",
         "[slug]/_lib/back-cover.server.ts",
@@ -1100,9 +1102,8 @@
         "/api/guest/qr",
         "/dashboard/profile",
         "/join/[seg]",
-        "/login",
+        "/login?next=[seg]",
         "/papic/guest",
-        "/papic/me/[seg]/photo?id=[seg]&src=guest",
         "/privacy",
         "/signup",
         "/terms",
@@ -1295,6 +1296,7 @@
         "HeroBackgroundMedia",
         "HeroDesignId",
         "HeroMonogram",
+        "HeroMonogramData",
         "HeroPhoto",
         "HideableWidgetRender",
         "HostDraftLook",
@@ -1329,6 +1331,7 @@
         "Layer",
         "LeadArticle",
         "LeadMedia",
+        "LightboxSaveButton",
         "Line",
         "Link",
         "List",
@@ -1528,6 +1531,7 @@
         "Sheet",
         "SheetClip",
         "SheetEntry",
+        "SignInBackHere",
         "SignOutOfInvitation",
         "SiteBody",
         "SiteMenuBar",
@@ -1626,6 +1630,7 @@
         "YourPhotosWidget",
         "YourPlaceLine",
         "YourSeatBlock",
+        "YourShotTile",
         "YourShotsGallery"
       ]
     },
@@ -3618,6 +3623,8 @@
       "files": [
         "admin/papic-storage/actions.ts",
         "admin/papic-storage/backfill-tiles-button.tsx",
+        "admin/papic-storage/old-photos-actions.ts",
+        "admin/papic-storage/old-photos-button.tsx",
         "admin/papic-storage/page.tsx"
       ],
       "destinations": [],
@@ -3626,7 +3633,9 @@
         "BackfillResult",
         "BackfillTilesButton",
         "ConsoleTable",
+        "CopyRun",
         "KpiStatCard",
+        "OldPhotosButton",
         "PageMasthead"
       ]
     },
@@ -4507,7 +4516,11 @@
       "destinations": [],
       "actions": [],
       "blocks": [
-        "AdminInviteResult"
+        "ActionButton",
+        "AdminInviteResult",
+        "InviteResult",
+        "PickMenu",
+        "Sec"
       ]
     },
     "/admin/vendors/[vendorProfileId]": {
@@ -4779,6 +4792,7 @@
         "/blog",
         "/blog/[seg]",
         "/blog?category=[seg]",
+        "/realstories",
         "/signup"
       ],
       "actions": [],
@@ -4801,6 +4815,7 @@
         "/blog",
         "/blog/[seg]",
         "/blog?category=[seg]",
+        "/realstories",
         "/signup",
         "/u/[seg]",
         "/u/[seg]/c/[seg]"
@@ -11160,6 +11175,19 @@
         "TreeStandIn"
       ]
     },
+    "/dev/personal-invite-lab": {
+      "files": [
+        "dev/personal-invite-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "ActionButton",
+        "InviteResult",
+        "InviteVendorForm",
+        "TeamInviteDoor"
+      ]
+    },
     "/dev/pro-parts-lab": {
       "files": [
         "dev/pro-parts-lab/lab-client.tsx",
@@ -11214,6 +11242,21 @@
         "FrontDoorResults",
         "FrontDoorShell",
         "RosterPerson"
+      ]
+    },
+    "/dev/shop-preview-lab": {
+      "files": [
+        "dev/shop-preview-lab/page.tsx"
+      ],
+      "destinations": [
+        "/"
+      ],
+      "actions": [],
+      "blocks": [
+        "Link",
+        "SlugNotFound",
+        "TeamPreviewBanner",
+        "Wordmark"
       ]
     },
     "/dev/spotlight-lab/[[...page]]": {
@@ -12791,6 +12834,7 @@
         "v/[slug]/_components/service-details-sheet.tsx",
         "v/[slug]/_components/services-gallery.tsx",
         "v/[slug]/_components/share-button.tsx",
+        "v/[slug]/_components/team-preview-banner.tsx",
         "v/[slug]/_components/venue-matched-events.tsx",
         "v/[slug]/_components/verified-price-card.tsx",
         "v/[slug]/inquiry-actions.ts",
@@ -12848,6 +12892,7 @@
         "StartServiceInquiryResult",
         "StorytellerTile",
         "SubmitButton",
+        "TeamPreviewBanner",
         "TrackRecord",
         "TrustedBySection",
         "TrustedByVendor",
@@ -14955,6 +15000,7 @@
         "vendor-dashboard/subscription/photo-challenge-actions.ts"
       ],
       "destinations": [
+        "/vendor-dashboard/collections",
         "/vendor-dashboard/deep-search",
         "/vendor-dashboard/on-the-day",
         "/vendor-dashboard/profile",
@@ -15111,6 +15157,7 @@
         "ActionButton",
         "AutoReplySection",
         "Badge",
+        "ColourPickerSheet",
         "DatesRow",
         "DomainActionResult",
         "DomainManager",
@@ -15175,6 +15222,7 @@
         "Link",
         "Perk",
         "SnapshotField",
+        "TeamInviteDoor",
         "TerminalCard"
       ]
     },

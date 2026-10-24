@@ -209,6 +209,8 @@ describe('the signed-in top bar has no search', () => {
 
 describe('the account rows search inside', () => {
   const REFUSED = /^\/(explore|marketplace|vendors|suppliers)(\/|$|\?)/;
+  // Discover answers on Discover since 2026-10-24 (owner: "not a new screen") — its row is held by
+  // `app/_components/frontdoor/discover-search-stays-on-page.test.ts`; `searchRowHref` still serves every scope.
   for (const scope of ['events', 'discover'] as const) {
     for (const q of ['seda', 'Cale & Ice', '  reyes  ']) {
       it(`${scope} "${q}" → the step-out destination, never a marketplace or a web-only path`, () => {

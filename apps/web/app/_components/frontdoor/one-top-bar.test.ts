@@ -538,7 +538,9 @@ test('the search keeps its way out — the thumb rows go where the escape row we
   const rows = code(read(join(APP, '_components', 'frontdoor', 'shell-thumb-rows.tsx')));
   assert.match(rows, /marketplaceEscapeItem\(q, SEARCH_SCOPES\[scope\]\)\?\.href/, 'the account rows lost the way out');
   assert.match(rows, /useEnterSearches\('events'\)/);
-  assert.match(rows, /useEnterSearches\('discover'\)/);
+  // Discover IS the widest place (owner 2026-10-24: "we will show the result on the page itself. not a new screen"):
+  // its row answers on Discover itself, in the shell's results form — held by `discover-search-stays-on-page.test.ts`.
+  assert.match(rows, /router\.push\(stayOnPageSearchHref\(window\.location\.href, words\)/, 'Discover’s row lost its answer');
 });
 
 test('the launcher no longer builds a second command index', () => {

@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "e8d1184d63",
+  "generatedFromRef": "c533224670",
   "routeCount": 466,
-  "destinations": 1005,
+  "destinations": 1006,
   "actions": 662,
-  "blocks": 6915,
+  "blocks": 6920,
   "routes": {
     "/": {
       "files": [
@@ -1033,7 +1033,6 @@
         "[slug]/_components/your-photos-widget.tsx",
         "[slug]/_components/your-seat-block.tsx",
         "[slug]/_components/your-seat-styles.tsx",
-        "[slug]/_components/your-shot-tile.tsx",
         "[slug]/_components/your-shots-gallery.tsx",
         "[slug]/_lib/album-door.server.ts",
         "[slug]/_lib/back-cover.server.ts",
@@ -1104,6 +1103,7 @@
         "/join/[seg]",
         "/login?next=[seg]",
         "/papic/guest",
+        "/papic/me/[seg]/photo?id=[seg]&src=guest",
         "/privacy",
         "/signup",
         "/terms",
@@ -1332,7 +1332,6 @@
         "Layer",
         "LeadArticle",
         "LeadMedia",
-        "LightboxSaveButton",
         "Line",
         "Link",
         "List",
@@ -1405,6 +1404,7 @@
         "ParishDrawingFigure",
         "PartHead",
         "PartLook",
+        "PassAction",
         "PatternGround",
         "PeWaiting",
         "Person",
@@ -1483,6 +1483,7 @@
         "RsvpPlusOnes",
         "RsvpQuestionHeader",
         "RsvpSheet",
+        "RsvpStatus",
         "RsvpStepNext",
         "RsvpStepProgress",
         "RsvpStyledAnswers",
@@ -1631,7 +1632,6 @@
         "YourPhotosWidget",
         "YourPlaceLine",
         "YourSeatBlock",
-        "YourShotTile",
         "YourShotsGallery"
       ]
     },
@@ -1843,7 +1843,9 @@
       "files": [
         "[slug]/invite/reply/page.tsx"
       ],
-      "destinations": [],
+      "destinations": [
+        "/[seg]"
+      ],
       "actions": [],
       "blocks": [
         "ArrivalLoading",
@@ -1855,6 +1857,7 @@
         "HeldPassLine",
         "InviteReplyBody",
         "Link",
+        "NoReplyHere",
         "NotYouSwitch",
         "ReplyWindowNote",
         "RsvpCanvasBridge",
@@ -5410,9 +5413,7 @@
       "files": [
         "dashboard/(account)/search/page.tsx"
       ],
-      "destinations": [
-        "/dashboard/[seg]/vendors"
-      ],
+      "destinations": [],
       "actions": [],
       "blocks": [
         "FrontDoorResults",
@@ -11248,6 +11249,7 @@
     },
     "/dev/search-lab": {
       "files": [
+        "dev/search-lab/lab-add-own.tsx",
         "dev/search-lab/page.tsx"
       ],
       "destinations": [
@@ -11257,9 +11259,13 @@
       "actions": [],
       "blocks": [
         "AccountBarSlot",
+        "AddOwnStandInCtx.Provider",
         "Avatar",
+        "DiscoverThumbRow",
+        "FrontDoorFeed",
         "FrontDoorResults",
         "FrontDoorShell",
+        "LabAddOwn",
         "RosterPerson"
       ]
     },

@@ -178,6 +178,3 @@ Dark shots force `.dark` — the event tree is not on the dark ready-list yet, s
 - /api/vendor/papic-portfolio-import still takes its file through the function (12 MB cap > 4.5 MB): same fault, not a camera.
 - C (native iPhone background upload): register a transport via setPapicTransport (lib/papic-upload/transport.ts); the OS
   must also persist the queue across app kills (today the queue is IndexedDB in the WebView).
->>
-=======
->>>>>>> origin/rd/home-control-row

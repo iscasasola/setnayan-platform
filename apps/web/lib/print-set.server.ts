@@ -822,6 +822,7 @@ export async function loadPrintSet(
       nfc: inc.nfc,
       storyExcerpt: inc.loveStory === 'excerpt' ? excerpt(storyText(event.love_story)) : null,
       guestNames: inc.guestNames,
+      passCorners: inc.passCorners,
       // The couple's ONE pick of the pass card's look — the Phone card print
       // and every saved card draw it (lib/pass-card.ts).
       passDesign: stored.passDesign,

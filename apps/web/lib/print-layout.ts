@@ -101,6 +101,15 @@ export type PrintDoc = {
   /** The die outline in trim coordinates. */
   diePath: string;
   ops: PrintOp[];
+  /**
+   * 🔁 THE BACK OF THIS SHEET, when it has one — a guest pass with NFC on carries its 25 mm sticker spot on the back, behind
+   * the QR (owner 2026-10-24: on the front the sticker covered the date and venue). Drawn in the back's OWN coordinates, i.e.
+   * already mirrored: the imposition puts it on the next page in the mirrored column, so a long-edge flip lands it behind
+   * its front.
+   */
+  back?: PrintDoc;
+  /** This sheet IS a back: printed without die line or cut marks (the cuts are made from the front). */
+  isBack?: true;
 };
 
 /** The images a layout names by `ref`; the backends are handed the bytes. */
@@ -619,7 +628,7 @@ function sheet(piece: PrintPieceKey, ctx: Ctx, size?: { w: number; h: number }):
   const w = size?.w ?? spec.widthPt;
   const h = size?.h ?? spec.heightPt;
   const bleed = ctx.mode === 'print' ? BLEED_MM * PT_PER_MM : 0;
-  const die = dieCutFor(ctx.look.theme, piece, size && size.w > size.h ? { wMm: size.w / PT_PER_MM, hMm: size.h / PT_PER_MM } : null);
+  const die = dieCutFor(ctx.look.theme, piece, size && size.w > size.h ? { wMm: size.w / PT_PER_MM, hMm: size.h / PT_PER_MM } : null, ctx.data.details.passCorners);
   const doc: PrintDoc = { piece, w, h, bleed, die, diePath: diePathFor(die, w, h), ops: [] };
   doc.ops.push({ t: 'rect', x: -bleed, y: -bleed, w: doc.w + 2 * bleed, h: doc.h + 2 * bleed, fill: ctx.look.paper });
   return doc;
@@ -1276,7 +1285,7 @@ export function nfcFits(areaW: number, areaH: number): boolean {
  * glyph and "Tap here" inside, drawn where the sticker will cover it. The
  * caller keeps ≥ 2 mm clear around it (`NFC_SPOT_CLEAR_R`).
  */
-function nfcSpot(ops: PrintOp[], look: PrintLook, cx: number, cy: number) {
+function nfcSpot(ops: PrintOp[], look: PrintLook, cx: number, cy: number, words: string[] = ['Tap here']) {
   const r = NFC_SPOT_R;
   ops.push({ t: 'circle', cx, cy, r, stroke: look.muted, sw: 0.6, dash: true, nfc: true });
   const x0 = cx - r * 0.22;
@@ -1291,7 +1300,8 @@ function nfcSpot(ops: PrintOp[], look: PrintLook, cx: number, cy: number) {
       sw: 0.9,
     });
   }
-  text(ops, 'Tap here', cx, cy + r * 0.52, { font: look.bodyFont, size: Math.max(5, r * 0.2), color: look.muted, align: 'center', caps: true, tracking: 0.14 });
+  const size = Math.max(5, r * (words.length > 1 ? 0.15 : 0.2));
+  words.forEach((wd, i) => text(ops, wd, cx, cy + r * 0.48 + i * size * 1.3, { font: look.bodyFont, size, color: look.muted, align: 'center', caps: true, tracking: 0.14 }));
 }
 
 // ─── A card of flowing words: measured, paged, never off the card ──────────
@@ -1846,8 +1856,12 @@ function layoutPass(ctx: Ctx, rawPass: PrintPass, fmt: PrintFormat = PRINT_FORMA
   // the lowest line of its own foot, inside its frame (`cardFoot` — there is no room below a frame that sits on the safe
   // line); a Pro card takes the mark from `brandPiece`.
   if (fmt.style === 'phone') {
-    const printed: Ctx = { ...ctx, data: { ...ctx.data, details: { ...ctx.data.details, setnayanMark: false, brandLine: printBrandOf(ctx.look) === 'line' } } };
-    return PASS_CARD_LAYOUTS[ctx.data.details.passDesign ?? DEFAULT_PASS_CARD_DESIGN](printed, pass, fmt);
+    const nfcBack = ctx.data.details.nfc === true;
+    const printed: Ctx = { ...ctx, data: { ...ctx.data, details: { ...ctx.data.details, setnayanMark: false, brandLine: printBrandOf(ctx.look) === 'line', nfcBack } } };
+    const card = PASS_CARD_LAYOUTS[ctx.data.details.passDesign ?? DEFAULT_PASS_CARD_DESIGN](printed, pass, fmt);
+    // 🔁 The sticker behind the code, wherever this look drew it.
+    const code = card.ops.find((o): o is Extract<PrintOp, { t: 'image' }> => o.t === 'image' && o.ref === pass.qrRef);
+    return nfcBack && code ? { ...card, back: passBack(ctx, card, { x: code.x + code.w / 2, y: code.y + code.h / 2 }) } : card;
   }
   const { look, data } = ctx;
   const doc = sheet('pass', ctx, { w: fmt.wMm * PT_PER_MM, h: fmt.hMm * PT_PER_MM });
@@ -1866,12 +1880,11 @@ function layoutPass(ctx: Ctx, rawPass: PrintPass, fmt: PrintFormat = PRINT_FORMA
   const pad = Math.max(14 * k, SAFE_PT + 2);
   // 🏷 A free pass keeps its foot for the "Made with Setnayan" line (`brandFoot`): the words and the NFC spot stand above it.
   const foot = Math.max(0, brandFoot(doc, ctx) - SAFE_PT);
-  const nfcOn = data.details.nfc === true && nfcFits(mainW, h - foot);
-  const nfcRoom = nfcOn ? NFC_SPOT_CLEAR_R * 2 : 0;
-  const spotTop = nfcOn ? h - SAFE_PT - foot - 2 * NFC_SPOT_R - NFC_STICKER_MARGIN_MM * PT_PER_MM : Infinity;
+  // 🔁 NFC on: the 25 mm sticker goes on the BACK, behind the QR (`passBack`) — the front keeps its whole width for the words.
+  const nfcBack = data.details.nfc === true;
   const floor = h - SAFE_PT - foot;
-  /** The room a line has across the main area — narrower beside the NFC spot. */
-  const widthAt = (base: number, size: number) => (base + size * DESC_EM < spotTop - 2 ? mainW - pad * 2 : mainW - pad * 2 - nfcRoom);
+  /** The room a line has across the main area. */
+  const widthAt = (_base: number, _size: number) => mainW - pad * 2;
 
   // ── The top line: the kind, the serial — and the stub's ADMIT on the SAME
   // baseline, at the SAME size (siblings across the tear line line up).
@@ -2019,14 +2032,9 @@ function layoutPass(ctx: Ctx, rawPass: PrintPass, fmt: PrintFormat = PRINT_FORMA
   }
   const chosen = plans.find((p) => !p.cut && !p.small) ?? plans.find((p) => !p.cut) ?? plans[0] ?? null;
   for (const d of (chosen ?? plan(0.5, true)).draw) d();
-  // An NFC sticker spot, 25 mm true to size, in the main area's corner (on a
-  // calling card that is the only place a 25 mm sticker fits).
-  // Its ring sits on the safe line, never past it.
-  if (nfcOn) nfcSpot(ops, look, mainW - NFC_SPOT_CLEAR_R, h - SAFE_PT - foot - NFC_SPOT_R);
-  // the stub, and its tear line
+  // The stub — the QR's panel. NO tear line (owner 2026-10-24: *"the qr code will not be cut out the event card. because it
+  // is their access to the event"*): a dashed line read as "cut here"; the panel's own paper is the only divide.
   ops.push({ t: 'rect', x: mainW, y: -bleed, w: stubW + bleed, h: h + 2 * bleed, fill: look.paper });
-  const dash = style === 'train' ? 3 : 5;
-  for (let py = SAFE_PT; py + (dash / 2) * k <= h - SAFE_PT; py += dash * k) ops.push({ t: 'rect', x: mainW - 0.3, y: py, w: 0.6, h: (dash / 2) * k, fill: look.ink, opacity: 0.45 });
   // The stub's words and QR are centred in what is SAFE of it: from the tear
   // line to 5 mm inside the card's right edge, 4 pt clear of each.
   const stubRight = w - SAFE_PT;
@@ -2049,9 +2057,11 @@ function layoutPass(ctx: Ctx, rawPass: PrintPass, fmt: PrintFormat = PRINT_FORMA
     stubY = drawFit(ops, fit, sx, first, { font: look.bodyFont, size: fit.size, color: look.accent, align: 'center', caps: true, tracking: 0.18, lead: 1.25 }) + fit.size * 0.3;
   }
   const footY = h - SAFE_PT - 1.5; // "Scan at the door", on the safe line
-  const door = fitWords('Scan at the door', { font: look.bodyFont, size: Math.max(PRINT_MIN_BODY_PT, 4.8 * k), maxWidth: stubInner, floor: PRINT_MIN_BODY_PT, caps: true, tracking: 0.22, minTracking: 0.04 });
+  // With the sticker on the back, the QR's panel is also where a phone taps.
+  const doorWords = nfcBack ? 'Scan or tap' : 'Scan at the door';
+  const door = fitWords(doorWords, { font: look.bodyFont, size: Math.max(PRINT_MIN_BODY_PT, 4.8 * k), maxWidth: stubInner, floor: PRINT_MIN_BODY_PT, caps: true, tracking: 0.22, minTracking: 0.04 });
   // Too wide even closed up (a calling card's stub is 62 pt): two lines, the last on the safe line.
-  const doorFit = door.lines[0]?.endsWith('…') ? fitWords('Scan at the door', { font: look.bodyFont, size: Math.max(PRINT_MIN_BODY_PT, 4.8 * k), maxWidth: stubInner, floor: PRINT_MIN_BODY_PT, maxLines: 2, caps: true, tracking: 0.12 }) : door;
+  const doorFit = door.lines[0]?.endsWith('…') ? fitWords(doorWords, { font: look.bodyFont, size: Math.max(PRINT_MIN_BODY_PT, 4.8 * k), maxWidth: stubInner, floor: PRINT_MIN_BODY_PT, maxLines: 2, caps: true, tracking: 0.12 }) : door;
   const doorLead = doorFit.size * 1.2;
   const doorFirst = footY - (doorFit.lines.length - 1) * doorLead;
   const doorTop = doorFirst - doorFit.size * 0.75;
@@ -2064,7 +2074,56 @@ function layoutPass(ctx: Ctx, rawPass: PrintPass, fmt: PrintFormat = PRINT_FORMA
     ops.push({ t: 'image', ref: pass.qrRef, x: sx - q / 2, y: qy, w: q, h: q });
   }
   doorFit.lines.forEach((l, i) => text(ops, l, sx, doorFirst + i * doorLead, { font: look.bodyFont, size: doorFit.size, color: look.muted, align: 'center', caps: true, tracking: doorFit === door ? (door.tracking ?? 0.22) : 0.12 }));
-  return settlePassInk(doc, look);
+  const settled = settlePassInk(doc, look);
+  return nfcBack ? { ...settled, back: passBack(ctx, settled, { x: sx, y: qy + q / 2 }) } : settled;
+}
+
+/**
+ * 🔁 THE PASS'S BACK — the 25 mm NFC sticker spot, behind the QR (owner 2026-10-24: *"a back to back print where it can
+ * place the sticker at the back and a label in front"*, *"it needs to align properly"*). The back is the front seen from
+ * behind, so the spot's centre is the QR's, mirrored left to right, kept ≥ 3 mm inside the trim; the couple's initials
+ * and the Event Hub address sit in the rest of the card. Paper runs into the bleed, so a duplex drift shows no white edge.
+ * No cut marks and no die line — the cuts are made from the front.
+ */
+function passBack(ctx: Ctx, front: PrintDoc, qr: { x: number; y: number }): PrintDoc {
+  const { look, data } = ctx;
+  const { w, h, bleed } = front;
+  const r = NFC_SPOT_R;
+  const clamp = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo), hi);
+  // The whole ring inside the safe line (a hair inside, for the rounded corner's diagonal).
+  const cx = clamp(w - qr.x, r + SAFE_PT + 1, w - r - SAFE_PT - 1);
+  const cy = clamp(qr.y, r + SAFE_PT + 1, h - r - SAFE_PT - 1);
+  const ops: PrintOp[] = [{ t: 'rect', x: -bleed, y: -bleed, w: w + 2 * bleed, h: h + 2 * bleed, fill: look.paper }];
+  nfcSpot(ops, look, cx, cy, ['Place NFC', 'sticker here']);
+  // The words take the room the spot leaves: beside it on a landscape card, above or below it on a portrait one.
+  const k = Math.min(w, h) / 153;
+  const left = cx < w / 2;
+  const beside = left ? w - SAFE_PT - (cx + NFC_SPOT_CLEAR_R) : cx - NFC_SPOT_CLEAR_R - SAFE_PT;
+  const above = cy - NFC_SPOT_CLEAR_R - SAFE_PT;
+  const below = h - SAFE_PT - (cy + NFC_SPOT_CLEAR_R);
+  const band =
+    beside >= 110
+      ? { x0: left ? cx + NFC_SPOT_CLEAR_R : SAFE_PT, x1: left ? w - SAFE_PT : cx - NFC_SPOT_CLEAR_R, y0: SAFE_PT, y1: h - SAFE_PT }
+      : above >= below
+        ? { x0: SAFE_PT, x1: w - SAFE_PT, y0: SAFE_PT, y1: cy - NFC_SPOT_CLEAR_R }
+        : { x0: SAFE_PT, x1: w - SAFE_PT, y0: cy + NFC_SPOT_CLEAR_R, y1: h - SAFE_PT };
+  const room = band.x1 - band.x0;
+  const tall = band.y1 - band.y0;
+  if (room > 40 && tall > 40) {
+    const mid = (band.x0 + band.x1) / 2;
+    const small = Math.max(PRINT_MIN_BODY_PT, 5.6 * k);
+    const hub = data.hubAddress ? fitWords(data.hubAddress, { font: look.bodyFont, size: small, maxWidth: room, floor: PRINT_MIN_BODY_PT }) : null;
+    const hubY = band.y1 - (hub?.size ?? 0) * DESC_EM - 1;
+    const date = data.dateLabel ? fitWords(data.dateLabel, { font: look.bodyFont, size: small, maxWidth: room, floor: PRINT_MIN_BODY_PT, caps: true, tracking: 0.22, minTracking: 0.06 }) : null;
+    // The couple's own mark (the Maker's Logo — `medallion`), else their initials in a ring; sized to what is left.
+    const wordsH = (date ? small * 2.2 : 0) + (hub ? small * 2.4 : 0);
+    const mr = Math.max(0, Math.min(18 * k, room / 2.6, (tall - wordsH) / 2.4));
+    const markY = band.y0 + (tall - wordsH) / 2;
+    if (mr >= 8) medallion(ops, look, data, mid, markY, mr, false);
+    if (date) text(ops, date.lines[0] ?? '', mid, markY + mr + small * 1.9, { font: look.bodyFont, size: date.size, color: look.muted, align: 'center', caps: true, tracking: date.tracking ?? 0.22 });
+    if (hub) text(ops, hub.lines[0] ?? '', mid, hubY, { font: look.bodyFont, size: hub.size, color: look.muted, align: 'center' });
+  }
+  return { piece: front.piece, w, h, bleed, die: front.die, diePath: front.diePath, ops, isBack: true };
 }
 
 /**
@@ -2386,6 +2445,8 @@ function cardMark(ops: PrintOp[], look: PrintLook, data: PrintSetData, cx: numbe
 function cardFoot(ops: PrintOp[], look: PrintLook, data: PrintSetData, u: number, x0: number, x1: number, y: number, mode: PrintMode, door = 'Scans once at the door'): number {
   const o = { font: look.bodyFont, size: Math.max(PRINT_MIN_BODY_PT, 9.5 * u), color: look.muted, caps: true, tracking: 0.16 } as const;
   const gap = Math.max(1.2, 3 * u);
+  // 🔁 On paper with the NFC sticker on the back, the code is also where a phone taps.
+  const said = data.details.nfcBack && door === 'Scans once at the door' ? 'Scan or tap at the door' : door;
   if (data.details.brandLine) {
     // 🏷 The printed card's Setnayan line — the lowest line of the foot; the door line stands above it.
     const bo = { ...brandLineOpts(PRINT_MIN_BODY_PT, contrast(PRINT_BRAND_GREY, look.paper) >= MIN_CONTRAST ? PRINT_BRAND_GREY : look.muted), align: 'center' as const, maxWidth: x1 - x0 };
@@ -2399,14 +2460,14 @@ function cardFoot(ops: PrintOp[], look: PrintLook, data: PrintSetData, u: number
     const markO = { ...o, tracking: 0.2 };
     const markW = measure('SETNAYAN', o.font, o.size, 0.2 * o.size);
     const room = x1 - x0 - markW - 8 * u - 10 * u;
-    const fit = fitWords(door, { font: o.font, size: o.size, maxWidth: room, floor: PRINT_MIN_BODY_PT, caps: true, tracking: 0.16, minTracking: 0.04 });
+    const fit = fitWords(said, { font: o.font, size: o.size, maxWidth: room, floor: PRINT_MIN_BODY_PT, caps: true, tracking: 0.16, minTracking: 0.04 });
     const line = fit.lines[0] ?? '';
     text(ops, line, x0, y, { ...o, size: fit.size, align: 'left', tracking: fit.tracking ?? 0.16 });
     const w = text(ops, 'Setnayan', x1, y, { ...markO, align: 'right' });
     ops.push({ t: 'circle', cx: x1 - w - 5 * u, cy: y - 3.2 * u, r: 3 * u, fill: look.accent });
     top = Math.min(y + lineInk(line, { ...o, size: fit.size }).top, y + lineInk('SETNAYAN', markO).top, y - 6.2 * u);
   } else {
-    const fit = fitWords(door, { font: o.font, size: o.size, maxWidth: x1 - x0, floor: PRINT_MIN_BODY_PT, caps: true, tracking: 0.16, minTracking: 0.04 });
+    const fit = fitWords(said, { font: o.font, size: o.size, maxWidth: x1 - x0, floor: PRINT_MIN_BODY_PT, caps: true, tracking: 0.16, minTracking: 0.04 });
     const line = fit.lines[0] ?? '';
     text(ops, line, (x0 + x1) / 2, y, { ...o, size: fit.size, align: 'center', tracking: fit.tracking ?? 0.16 });
     top = y + lineInk(line, { ...o, size: fit.size }).top;
@@ -3286,14 +3347,16 @@ export function layoutPieceDocs(piece: PrintSetKey, input: LayoutInput & { pass?
         return layoutDetails(ctx).map((d) => fitDoc(d, w, h, ctx));
       case 'menu':
         return layoutMenu(ctx).map((d) => fitDoc(d, w, h, ctx));
-      case 'pass':
-        return [
-          layoutPass(
-            ctx,
-            input.pass ?? { name: 'Your guest’s name', seat: 'Table 1', seatNumber: '3', qrRef: 'eventqr', serial: 'Nº 0001' },
-            fmt ?? PRINT_FORMATS['calling-card'],
-          ),
-        ];
+      case 'pass': {
+        const front = layoutPass(
+          ctx,
+          input.pass ?? { name: 'Your guest’s name', seat: 'Table 1', seatNumber: '3', qrRef: 'eventqr', serial: 'Nº 0001' },
+          fmt ?? PRINT_FORMATS['calling-card'],
+        );
+        // One guest's pass, printed on its own: its back is the second side.
+        const { back, ...face } = front;
+        return back ? [face, back] : [face];
+      }
       case 'poster':
         return [layoutPoster(ctx)];
       case 'story-poster':
@@ -3349,9 +3412,12 @@ export function layoutPieceView(piece: PrintSetKey, input: LayoutInput & { pass?
 
 export function layoutPasses(input: LayoutInput, passes: PrintPass[]): PrintDoc[] {
   return passes.map((pass) => {
-    // 🏷 Every guest's ticket is cut out and handed over on its own — each one carries Setnayan (`brandPiece`).
-    const doc = brandPiece([layoutPass({ look: input.look, data: input.data, mode: input.mode, foil: input.foil }, pass, formatFor('pass', input.format)!)], input.look)[0]!;
-    return input.mode === 'print' && input.whiteInk ? underprintWhite(doc) : doc;
+    // 🏷 Every guest's ticket is cut out and handed over on its own — each one carries Setnayan (`brandPiece`: the Pro
+    // mark goes on the back when there is one).
+    const { back, ...face } = layoutPass({ look: input.look, data: input.data, mode: input.mode, foil: input.foil }, pass, formatFor('pass', input.format)!);
+    const white = (d: PrintDoc) => (input.mode === 'print' && input.whiteInk ? underprintWhite(d) : d);
+    const [front, backSide] = brandPiece(back ? [face, back] : [face], input.look).map(white);
+    return backSide ? { ...front!, back: backSide } : front!;
   });
 }
 

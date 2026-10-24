@@ -150,7 +150,8 @@ export async function FrontDoor({ q }: { q?: string }) {
       >
       {searchQuery ? (
         shellSearch ? (
-          <div data-discover-results="">
+          // 📌 Where a search's results draw — pinned under the chrome (lib/search-pin.ts).
+          <div data-discover-results="" data-search-results="">
             <FrontDoorResults
               query={searchQuery}
               data={data}

@@ -21,12 +21,13 @@
  * globals.css, with a dark pair); inside it, it reads the Maker's (`STAGE_PANEL_VARS`) — so the Maker is unchanged.
  * This is the only typing band (`every-bottom-input-rides-the-keyboard.test.ts`).
  */
-import { useCallback, useEffect, useLayoutEffect, useState, type CSSProperties, type FocusEvent, type ReactNode, type Ref, type RefObject } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useState, type CSSProperties, type FocusEvent, type FormEvent, type ReactNode, type Ref, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
 import { Check } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { SP_KEY_BAR, SP_KEY_BAR_FIXED, SP_KEY_DONE } from '@/lib/maker-stage-room';
-import { useKeyboardRide } from '@/lib/keyboard-ride';
+import { rideSmoothly, useKeyboardRide } from '@/lib/keyboard-ride';
+import { useSearchPin } from '@/lib/search-pin';
 
 /** Done's default: leave the field (a press outside it KEEPS — the typed row's own rule). */
 export function blurTyping() {
@@ -50,6 +51,9 @@ type Common = {
 };
 
 const holdFocus = (e: { preventDefault: () => void }) => e.preventDefault();
+
+/** The band's height over a riding row (`over`: drawn from 44 px above the row). */
+export const BAND_H = 44;
 
 function Face({ place, onDone }: { place: ReactNode; onDone?: () => void }) {
   return (
@@ -111,11 +115,12 @@ export function TypingBand(
         // insets by the app's one rule (globals.css `[data-safe-x]`).
         data-safe-x=""
         {...attrs}
-        style={{ left, width, top: -44, bottom: -below }}
+        style={{ left, width, top: -BAND_H, bottom: -below }}
         // A press on the band never takes the focus from the field it is typing for (Done's own press blurs it). On
         // `mousedown` ONLY: a cancelled `pointerdown` also cancels a touch's click in WebKit (measured 2026-10-24).
         onMouseDown={holdFocus}
-        className="pointer-events-none absolute z-[-1] flex flex-col rounded-t-2xl bg-[var(--tb-plate)]"
+        // 🪶 The plate floats over the list (owner 2026-10-24): the house float, cast up off the keyboard.
+        className="pointer-events-none absolute z-[-1] flex flex-col rounded-t-2xl bg-[var(--tb-plate)] shadow-[var(--sn-sh-rise)]"
       >
         <div className={`pointer-events-auto !border-t-0 !bg-transparent ${SP_KEY_BAR}`}>
           {before}
@@ -172,6 +177,7 @@ export function useRidingRow(
     'data-riding': string | undefined;
     onFocus: (e: FocusEvent<HTMLElement>) => void;
     onBlur: (e: FocusEvent<HTMLElement>) => void;
+    onInput: (e: FormEvent<HTMLElement>) => void;
   };
 } {
   const { rides = true, mode = false, place } = opts;
@@ -190,6 +196,21 @@ export function useRidingRow(
     if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
     setTyping(null);
   }, []);
+  /* 📌 A SEARCH SHOWS ITS FIRST RESULT (`lib/search-pin.ts`): the words changed → once they are still, the first result
+     sits under the top chrome, or, with none, the Add row just above the band. */
+  const pin = useSearchPin(rowRef);
+  const onInput = useCallback(
+    (e: FormEvent<HTMLElement>) => {
+      const t = e.target as HTMLInputElement;
+      if (t.tagName === 'INPUT' && (t.type === 'search' || t.type === 'text' || !t.getAttribute('type'))) pin.poke(t.value);
+    },
+    [pin],
+  );
+  /* 🛗 The row's host GLIDES with the keyboard (`rideSmoothly`, lib/keyboard-ride.ts): transform only, timed to it. */
+  useEffect(() => {
+    const layer = layerOf(rowRef.current);
+    return layer ? rideSmoothly(layer) : undefined;
+  }, [rowRef]);
   /* Where the band's plate reaches: out to the screen's edges, and down past the row to its host's foot (the host's
      own bottom padding) — measured, because each host pads its row its own way. */
   const [over, setOver] = useState<{ left: number; width: number; below: number } | null>(null);
@@ -203,17 +224,28 @@ export function useRidingRow(
       const foot = layer && layer !== row ? layer.getBoundingClientRect().bottom : r.bottom;
       const next = { left: Math.round(-r.left), width: document.documentElement.clientWidth, below: Math.max(0, Math.round(foot - r.bottom)) };
       setOver((o) => (o && o.left === next.left && o.width === next.width && o.below === next.below ? o : next));
+      /* 📏 THE PAGE MAKES ROOM FOR THE BAND (owner 2026-10-24: the bar "overlaps with the content under it"): while the
+         band is up the page's foot gains the band's height (its top, 44 px over the row, down to the host's foot) on top
+         of the keyboard's (`--sn-keyboard-h`) — globals.css `html[data-ride-reserve]` — so the last result can scroll
+         up above the band instead of living under it. Differences of two boxes, so a glide in flight cannot skew it. */
+      root.style.setProperty('--sn-ride-band-h', `${Math.max(0, Math.round(foot - (r.top - BAND_H)))}px`);
+      root.setAttribute('data-ride-reserve', '');
     };
+    const root = document.documentElement;
     read();
     const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(read) : null;
     ro?.observe(row);
     if (layer && layer !== row) ro?.observe(layer);
-    return () => ro?.disconnect();
+    return () => {
+      ro?.disconnect();
+      root.removeAttribute('data-ride-reserve');
+      root.style.removeProperty('--sn-ride-band-h');
+    };
   }, [riding, kb.bottom, kb.height, rowRef]);
   return {
     riding,
     typing,
     band: riding && over ? <TypingBand over={over} place={typing} data-ride-band="" /> : null,
-    rowProps: { 'data-ride-row': '', 'data-riding': riding ? '' : undefined, onFocus, onBlur },
+    rowProps: { 'data-ride-row': '', 'data-riding': riding ? '' : undefined, onFocus, onBlur, onInput },
   };
 }

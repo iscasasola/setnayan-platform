@@ -279,6 +279,27 @@ const MJ_ROSTER: ReadonlyArray<[string, string, GuestRow['role'], GuestRow['side
  * has something real to draw. Two of them (Rosa Santos, Cita Ramos) said they
  * can't come before anything was sent: they are in NO "to invite" count.
  */
+/** `&many=N` — N generated guests (a long list to scroll), every name distinct and none matching the roster's. */
+const MANY_FIRST = ['Ana', 'Ben', 'Celia', 'Dado', 'Ellen', 'Fermin', 'Gina', 'Hector', 'Iris', 'Jun', 'Karla', 'Leo', 'Mila', 'Noel', 'Olga', 'Pido'];
+const MANY_LAST = ['Aquino', 'Bautista', 'Castillo', 'Domingo', 'Espiritu', 'Flores', 'Gonzales', 'Hernandez', 'Ilagan', 'Jacinto', 'Katigbak', 'Lualhati', 'Macaraeg', 'Navarro', 'Ocampo'];
+function manyGuests(n: number): GuestRow[] {
+  return Array.from({ length: n }, (_, i) =>
+    guest({
+      guest_id: `g-many-${i}`,
+      public_id: `S89G-LABMN${String(i).padStart(5, '0')}`,
+      first_name: MANY_FIRST[i % MANY_FIRST.length]!,
+      last_name: `${MANY_LAST[Math.floor(i / MANY_FIRST.length) % MANY_LAST.length]!}${i >= MANY_FIRST.length * MANY_LAST.length ? ` ${Math.floor(i / (MANY_FIRST.length * MANY_LAST.length)) + 1}` : ''}`,
+      role: 'guest',
+      side: i % 2 ? 'groom' : 'bride',
+      group_category: 'friends',
+      rsvp_status: 'pending',
+      invitation_sent_at: '2026-09-20T00:00:00Z',
+      plus_one_count: 0,
+      plus_one_allowed: false,
+    }),
+  );
+}
+
 function planningRoster(): GuestRow[] {
   const RSVP: GuestRow['rsvp_status'][] = ['attending', 'attending', 'attending', 'pending', 'maybe', 'attending', 'declined', 'pending'];
   return MJ_ROSTER.map(([first, last, role, side], i) =>
@@ -645,7 +666,10 @@ export default async function GuestsLabPage({
   }
 
   if (part === 'screen' || part === 'setup') {
-    const roster0 = sp.plusones === '1' ? withPlusOnes(planningRoster(), sp.backfilled === '1', sp.paired === '1') : planningRoster();
+    const roster00 = sp.plusones === '1' ? withPlusOnes(planningRoster(), sp.backfilled === '1', sp.paired === '1') : planningRoster();
+    /* 📜 `&many=N` — N more guests after maria-and-jose's (owner 2026-10-24, live: a search on a long list left the hit
+       above the screen), so a search can be walked on a list a phone has to scroll. */
+    const roster0 = roster00.concat(manyGuests(Math.min(400, Math.max(0, Number(typeof sp.many === 'string' ? sp.many : 0) || 0))));
     /* 🖐 `&marked=1` — two replies the host set (owner 2026-10-21), so the rows' quiet "marked" can be seen. */
     const roster1 = sp.marked === '1'
       ? roster0.map((g) => (g.guest_id === 'g-mj-5' || g.guest_id === 'g-mj-9' ? { ...g, rsvp_status: 'attending' as const, rsvp_set_by: 'host' as const } : g))

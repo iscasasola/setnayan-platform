@@ -1117,7 +1117,8 @@ export function GuestsScreen(props: GuestsScreenProps) {
               {needs}
             </p>
           ) : null}
-          <span className={styles.acts} data-fit-acts="">
+          {/* 📌 With no result this row is what a search shows: pinned just above the band (lib/search-pin.ts). */}
+          <span className={styles.acts} data-fit-acts="" data-search-none="">
             {copy ? null : (
               <ActionButton
                 tone="brand"
@@ -1430,6 +1431,8 @@ function GuestRowLine({
     <div
       className={`${styles.g} ${picked ? styles.picked : ''} ${g.plus_one_of_guest_id ? styles.plus : ''} ${joined ? styles.joined : ''}`}
       data-guest-row=""
+      // 📌 A result: a search pins the first one under the chrome (lib/search-pin.ts).
+      data-search-result=""
       data-guest-id={g.guest_id}
       data-plus-one-of={plusWords?.hostId}
     >

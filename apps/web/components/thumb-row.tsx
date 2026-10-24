@@ -170,6 +170,8 @@ export function ThumbRow({
   const riding = ride.riding;
   const onFieldFocus = ride.rowProps.onFocus;
   const onFieldBlur = ride.rowProps.onBlur;
+  /* 📌 The words changed → the first result is pinned (`lib/search-pin.ts`, through the one riding row). */
+  const onFieldInput = ride.rowProps.onInput;
   const setInputRef = useCallback(
     (el: HTMLInputElement | null) => {
       ownInput.current = el;
@@ -197,11 +199,12 @@ export function ThumbRow({
               data-rides={rides ? '' : undefined}
               onFocus={onFieldFocus}
               onBlur={onFieldBlur}
+              onInput={onFieldInput}
             >
               {field.node}
             </span>
           ) : field ? (
-            <label data-glass-row="thumb-row-field" className={`sn-glass-row ${styles.field}`} data-thumb-seat="field" data-tour={field.tour} data-rides={rides ? '' : undefined} onFocus={onFieldFocus} onBlur={onFieldBlur}>
+            <label data-glass-row="thumb-row-field" className={`sn-glass-row ${styles.field}`} data-thumb-seat="field" data-tour={field.tour} data-rides={rides ? '' : undefined} onFocus={onFieldFocus} onBlur={onFieldBlur} onInput={onFieldInput}>
               <FieldIcon className={styles.glyph} strokeWidth={1.9} aria-hidden />
               <input
                 type={field.kind === 'date' ? 'date' : 'search'}

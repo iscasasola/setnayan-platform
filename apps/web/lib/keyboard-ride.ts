@@ -109,6 +109,62 @@ function publish(k: KeyboardRead) {
   }
 }
 
+/* ── 🛗 THE RISE (owner 2026-10-24, live: *"When the search bars peek upward … does not look smooth."*) ─────────────────
+ * A riding row's host stands on `--sn-ride-h`, so it MOVES the moment that number is written — in one jump, after the
+ * keyboard has already risen. Every riding layer registered here (`rideSmoothly`, which `useRidingRow` calls for its
+ * host) is instead GLIDED: its layout moves at once (no height, no top, nothing re-laid out twice), and a transform
+ * that starts where the eye last saw it and runs to zero carries it there — `transform` only, `RIDE_MS` ease-out, the
+ * iPhone keyboard's own timing — up on the keyboard and back down when it closes. A pan of the screen (`scroll`) moves
+ * it at once (it must track the finger), and `prefers-reduced-motion` gets no glide at all. */
+export const RIDE_MS = 250;
+export const RIDE_EASE = 'cubic-bezier(0.2, 0.8, 0.2, 1)';
+
+const riders = new Map<HTMLElement, { top: number; anim: Animation | null }>();
+
+/** The layout top of a riding layer — its box WITHOUT any transform (a glide or a slide-in in flight). */
+function layoutTop(el: HTMLElement): number {
+  return el.offsetTop;
+}
+
+function reducedMotion(): boolean {
+  return typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+/** The glide's own keyframes — `transform` only, from `from` px to rest (pure, so the guard can hold it). */
+export function riseKeyframes(from: number): Keyframe[] {
+  return [{ transform: `translateY(${Math.round(from)}px)` }, { transform: 'translateY(0px)' }];
+}
+
+/** Move every riding layer by its glide: called after `publish`, when the layers have already taken their new place. */
+function glide(cause: KeyboardCause) {
+  if (riders.size === 0) return;
+  const still = cause === 'scroll' || reducedMotion();
+  for (const [el, r] of riders) {
+    const now = layoutTop(el);
+    const moved = r.top - now;
+    r.top = now;
+    if (still || Math.abs(moved) < 1 || typeof el.animate !== 'function') continue;
+    // A glide already in flight: start the new one from where the eye sees the layer now.
+    let residual = 0;
+    if (r.anim && r.anim.playState === 'running') {
+      const seen = el.getBoundingClientRect().top;
+      r.anim.cancel();
+      residual = seen - el.getBoundingClientRect().top;
+    }
+    r.anim = el.animate(riseKeyframes(moved + residual), { duration: RIDE_MS, easing: RIDE_EASE, composite: 'add' });
+  }
+}
+
+/** Glide `el` (a riding row's fixed host) with the keyboard. Returns the cleanup. */
+export function rideSmoothly(el: HTMLElement): () => void {
+  if (typeof window === 'undefined') return () => {};
+  riders.set(el, { top: layoutTop(el), anim: null });
+  return () => {
+    riders.get(el)?.anim?.cancel();
+    riders.delete(el);
+  };
+}
+
 function emit(cause: KeyboardCause) {
   const next = readKeyboard();
   // A new object only when something moved — `useSyncExternalStore` compares by identity.
@@ -123,6 +179,7 @@ function emit(cause: KeyboardCause) {
     snapshot = next;
   }
   publish(snapshot);
+  glide(cause);
   for (const fn of listeners) fn(snapshot, cause);
 }
 

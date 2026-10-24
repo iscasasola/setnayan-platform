@@ -1,7 +1,7 @@
 import { Suspense } from 'react';
 import { PapicCardStrip } from './_components/papic-card-strip';
 import { PapicBuySheet } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-buy-sheet';
-import { PapicCameraSettings } from './studio/papic/_components/papic-camera-settings';
+import { PapicCameraSettings, PapicSwitch } from './studio/papic/_components/papic-camera-settings';
 import { papicCardPhase, papicCoverageWords } from '@/lib/papic-home-card';
 import { OUR_SERVICE_PARTS } from '@/lib/our-services';
 import type { PapicCardInput } from './_components/home-first-screen';
@@ -859,6 +859,7 @@ export default async function EventHomePage({
             </Suspense>
           ),
           thankYouHref: OUR_SERVICE_PARTS.papic ? addOnHref(OUR_SERVICE_PARTS.papic.key, eventId) : null,
+          headControl: <PapicSwitch eventId={eventId} saved={papicSwitch === undefined ? null : papicIsOn(papicSwitch)} />,
           settings: (
             <Suspense fallback={null}>
               <PapicCameraSettings

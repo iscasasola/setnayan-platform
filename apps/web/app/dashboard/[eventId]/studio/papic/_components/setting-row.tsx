@@ -103,7 +103,7 @@ export function SettingRow({
           {switchControl || bare ? null : (
             <span className="shrink-0 font-mono text-[11.5px] text-ink/55">{value}</span>
           )}
-          <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-ink/30" strokeWidth={1.75} />
+          {bare ? null : <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-ink/30" strokeWidth={1.75} />}
         </button>
         {switchControl ? <div className="shrink-0 pr-4">{switchControl}</div> : null}
       </div>

@@ -3,6 +3,8 @@ import { ScanFace } from 'lucide-react';
 
 import { SubmitButton } from '@/app/_components/submit-button';
 import { SettingRow } from './setting-row';
+import { InfoTip } from '@/app/_components/info-tip';
+import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
 import { createClient } from '@/lib/supabase/server';
 import { resolveFaceTagging } from '@/lib/face-tagging-gate';
 import { setCoupleFaceTaggingDeclined } from '../face-tagging-actions';
@@ -36,9 +38,15 @@ export async function FaceTaggingChoice({
   eventId,
   variant = 'card',
   returnTo = null,
+  subLine = null,
 }: {
   eventId: string;
   variant?: 'card' | 'row';
+  /**
+   * 📷 Inside the Papic card (owner 2026-10-24, the approved sketch): the EVENT switch on its row — "Face tagging",
+   * its ⓘ, and the sub-line "On/Off · <subLine>" (each guest's own answer is on their guest card).
+   */
+  subLine?: string | null;
   /** 🏠 'home' when drawn in Home's Papic card — the save lands back on Home (`return_to`). */
   returnTo?: 'home' | null;
 }) {
@@ -128,6 +136,29 @@ export async function FaceTaggingChoice({
       </SubmitButton>
     </form>
   );
+
+  if (subLine) {
+    return (
+      <div className="flex items-center gap-3 py-3" data-papic-setting="face-tagging">
+        <span className="min-w-0 flex-1">
+          <InfoTip label="Face tagging" labelClassName="text-[15px] font-semibold text-ink" align="start">
+            {explanation}
+          </InfoTip>
+          <span className="block text-[12.5px] text-ink/60">
+            {declined ? 'Off' : 'On'} · {subLine}
+          </span>
+        </span>
+        <form action={setCoupleFaceTaggingDeclined} className="shrink-0">
+          <input type="hidden" name="event_id" value={eventId} />
+          <input type="hidden" name="declined" value={declined ? '0' : '1'} />
+          {returnTo ? <input type="hidden" name="return_to" value={returnTo} /> : null}
+          <button type="submit" role="switch" aria-checked={!declined} aria-label="Face tagging" className={SWITCH_BUTTON}>
+            <SwitchTrack on={!declined} />
+          </button>
+        </form>
+      </div>
+    );
+  }
 
   if (variant === 'row') {
     return (

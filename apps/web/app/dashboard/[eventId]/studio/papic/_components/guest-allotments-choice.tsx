@@ -44,6 +44,8 @@ import { setGuestAllotment, setGuestAllotments, releaseTheRest } from '../action
 import { SettingRow } from './setting-row';
 import { GuestAllotmentPicker } from './guest-allotment-picker';
 import { formatCount } from '@/lib/format-number';
+import { InfoTip } from '@/app/_components/info-tip';
+import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
 
 /**
  * "HOW MANY CREDITS EACH GUEST GETS" — the couple's own numbers, one row.
@@ -506,6 +508,89 @@ export async function GuestAllotmentsChoice({
     shareEach: splitTheRest({ ...inputs, everyoneElse: null }).perHead,
     everyoneElse,
   });
+
+  if (eventWide) {
+    // 📷 IN THE PAPIC CARD, INLINE (owner 2026-10-24, the approved sketch): "Credits per guest" and its switch, then
+    // "Each guest, at most" and "The least anybody gets", each a box saved on its own — the same three fields of the
+    // same action, every form carrying the others (`setGuestAllotments` writes all three on one UPDATE). Off, the boxes
+    // stay and go quiet (they never jump). Each guest's own number is on their guest card.
+    const carry = (
+      <>
+        <input type="hidden" name="event_id" value={eventId} />
+        {returnTo ? <input type="hidden" name="return_to" value={returnTo} /> : null}
+      </>
+    );
+    return (
+      <div className="flex flex-col gap-1 py-2" data-papic-setting="credits-per-guest">
+        <div className="flex items-center gap-3">
+          <span className="min-w-0 flex-1">
+            <InfoTip label="Credits per guest" labelClassName="text-[15px] font-semibold text-ink" align="start">
+              Off, every guest draws from the one pot until it runs out. On, each guest may take up to the number below —
+              an equal share of what is left when you leave it blank. A guest&rsquo;s own number is on their guest card.
+              Every credit still comes out of the one pot, first come first served.
+            </InfoTip>
+            <span className="block text-[12.5px] text-ink/60">{value}</span>
+          </span>
+          <form action={setGuestAllotments} className="shrink-0">
+            {carry}
+            <input type="hidden" name="enabled" value={enabled ? '0' : '1'} />
+            {enabled ? (
+              <>
+                <input type="hidden" name="everyone_else" value={everyoneElse ?? ''} />
+                <input type="hidden" name="minimum_each" value={floorPoints ?? ''} />
+              </>
+            ) : null}
+            <button type="submit" role="switch" aria-checked={enabled} aria-label="Credits per guest" className={SWITCH_BUTTON}>
+              <SwitchTrack on={enabled} />
+            </button>
+          </form>
+        </div>
+        <div inert={!enabled} aria-hidden={!enabled} className={`flex flex-col transition-opacity ${enabled ? '' : 'opacity-45'}`}>
+          <form action={setGuestAllotments} className="flex items-center gap-3 py-2" data-allotment-at-most="">
+            {carry}
+            <input type="hidden" name="enabled" value="1" />
+            <input type="hidden" name="minimum_each" value={floorPoints ?? ''} />
+            <label className="min-w-0 flex-1 text-[14px] text-ink">
+              Each guest, at most
+              <span className="block text-[12.5px] text-ink/55">Blank = an equal share of what is left</span>
+            </label>
+            <input
+              type="number"
+              name="everyone_else"
+              min={1}
+              step={1}
+              defaultValue={enabled ? (everyoneElse ?? '') : ''}
+              placeholder={enabled ? String(split.perHead) : '—'}
+              aria-label="Each guest, at most"
+              className="h-10 w-24 rounded-full border border-ink/15 bg-paper px-3 text-right text-[14px] text-ink"
+            />
+            <SubmitButton className="inline-flex h-10 shrink-0 items-center rounded-full border border-ink/15 px-4 text-[13px] font-medium text-ink hover:bg-ink/5 disabled:opacity-45">Save</SubmitButton>
+          </form>
+          <form action={setGuestAllotments} className="flex items-center gap-3 py-2" data-allotment-least="">
+            {carry}
+            <input type="hidden" name="enabled" value="1" />
+            <input type="hidden" name="everyone_else" value={everyoneElse ?? ''} />
+            <label className="min-w-0 flex-1 text-[14px] text-ink">
+              The least anybody gets
+              <span className="block text-[12.5px] text-ink/55">Blank = no minimum</span>
+            </label>
+            <input
+              type="number"
+              name="minimum_each"
+              min={1}
+              step={1}
+              defaultValue={enabled ? (floorPoints ?? '') : ''}
+              placeholder="—"
+              aria-label="The least anybody gets"
+              className="h-10 w-24 rounded-full border border-ink/15 bg-paper px-3 text-right text-[14px] text-ink"
+            />
+            <SubmitButton className="inline-flex h-10 shrink-0 items-center rounded-full border border-ink/15 px-4 text-[13px] font-medium text-ink hover:bg-ink/5 disabled:opacity-45">Save</SubmitButton>
+          </form>
+          {minimumLine ? <p className="pb-1 text-[12.5px] text-ink/60">{minimumLine}</p> : null}
+        </div>
+      </div>
+    );
+  }
 
   if (variant === 'row') {
     return (

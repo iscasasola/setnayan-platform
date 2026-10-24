@@ -57,7 +57,7 @@ import { StudioBuyHero } from '@/app/dashboard/[eventId]/studio/_components/stud
 import { addOnHeroCopy } from '@/lib/add-ons-catalog';
 import { LifeFlashCard } from './_components/life-flash-card';
 import { type DriveGrant } from './_components/drive-copy-card';
-import { PapicCameraSettings } from './_components/papic-camera-settings';
+import { PapicCameraSettings, PapicSwitch } from './_components/papic-camera-settings';
 
 // Iteration 0012 — Papic studio (couple setup surface).
 //
@@ -214,6 +214,21 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   // page no longer pays a second auth round trip of its own before its first read.
   const user = await getCurrentUser();
   if (!user) redirect('/login');
+
+  // 🏠 THE CONTROLLER PAGE IS RETIRED FOR THE COUPLE ON THE WEB (owner 2026-10-24: "the Papic card is a widget on Home
+  // … its contents live inside the expanded card"). A plain visit opens Home with the card grown in place
+  // (`?papic=open`, which the card clears). The page still answers what it must: an outcome to say (a save's banner, a
+  // purchase error, "?buy=1"), the iPhone app (which keeps its own Papic page) and a coordinator (no card on Home).
+  const answering = Object.entries(search).some(([k, v]) => v !== undefined && k !== 'tab');
+  if (!answering) {
+    const [{ storeShell }, member] = await Promise.all([
+      getIapGate(),
+      supabase.from('event_members').select('member_type').eq('event_id', eventId).eq('user_id', user.id).maybeSingle(),
+    ]);
+    if (!storeShell && (member.data as { member_type?: string } | null)?.member_type === 'couple') {
+      redirect(`/dashboard/${eventId}?papic=open`);
+    }
+  }
 
   /*
     ⏱ THE PAGE'S INDEPENDENT READS START TOGETHER, RIGHT AFTER THE GATE (2026-10-22, "the
@@ -621,6 +636,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
         actions={papicBuy(false)}
         settings={<PapicCameraSettings eventId={eventId} credits={{ total: papicBand.total, left: papicBand.count }} buy={papicBuy(true, papicPoolError ?? null)} />}
         marker={{ 'data-papic-page-card': '' }}
+        headControl={<PapicSwitch eventId={eventId} saved={papicIsOn((ev as { papic_on?: unknown }).papic_on)} />}
         defaultOpen
       />
 

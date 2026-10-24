@@ -49,3 +49,12 @@ test('3 · Home hands over the event-wide settings, and the latest five open Mem
   assert.ok((s.match(/\/memories`/g) ?? []).length >= 1, 'the strip opens something other than Memories');
   assert.doesNotMatch(s, /studio\/papic/, 'the strip opens the Papic page');
 });
+
+test('4 · the controller page is retired for the couple on the web — an old link opens the card on Home (owner 2026-10-24)', () => {
+  const page = code('app/dashboard/[eventId]/studio/papic/page.tsx');
+  assert.match(page, /if \(!storeShell && [\s\S]{0,120}member_type === 'couple'\) \{\s*redirect\(`\/dashboard\/\$\{eventId\}\?papic=open`\);/, 'a plain visit still draws the separate Papic page for the couple');
+  const c = code(CARD);
+  assert.match(c, /searchParams\.get\('papic'\) !== 'open'/, 'the card does not open itself for an old link');
+  assert.match(c, /window\.history\.replaceState\(/, 'the card leaves ?papic=open in the address — Home’s own URL must come back');
+  assert.match(c, /<ChevronRight[\s\S]{0,200}rotate-90/, 'the head’s › does not turn to ⌄ as the card grows');
+});

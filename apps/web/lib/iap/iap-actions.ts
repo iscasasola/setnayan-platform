@@ -10,7 +10,9 @@ import { eventIsOver } from '@/lib/event-is-over.server';
 import { eventOwnsSku } from '@/lib/entitlements';
 import { papicPassPointsForSku } from '@/lib/papic-pass-tiers';
 import { ADD_ONS } from '@/lib/add-ons-catalog';
-import { iapProductById, papicCreditsMatch } from './products';
+import { iapProductById, iapProductFitsAiTier, iapProductIsRepeatable, moodBoardRendersMatch, papicCreditsMatch } from './products';
+import { readMoodboardRenderConfig } from '@/lib/moodboard-render-credits';
+import { setnayanAiTierInApp } from './setnayan-ai-in-app.server';
 import { eventHubOwnership, eventOwnsHubPart } from '@/lib/couple-website-pro';
 import { hubPartOfSku } from '@/lib/hub-parts';
 import { verifyAppleTransaction } from './apple-transaction';
@@ -74,7 +76,12 @@ export async function startAppStorePurchase(input: {
     .maybeSingle();
   if (!membership) return startRefusal('not_member');
   const admin = createAdminClient();
-  if (product.kind === 'papic-credits' && (membership as { member_type?: string }).member_type !== 'couple') {
+  // 🎨 Mood Board render credits are the couple's too: only the couple spends them (owner 2026-09-11), and the web
+  // shows the pack's Buy only to them (`mayStartRenders`, make-it-real.tsx).
+  if (
+    (product.kind === 'papic-credits' || product.kind === 'mood-board-pack') &&
+    (membership as { member_type?: string }).member_type !== 'couple'
+  ) {
     return startRefusal('couple_only');
   }
   if (!(await coordinatorMoneyScopeAllowed(admin, eventId, user.id, 'checkout'))) {
@@ -89,12 +96,24 @@ export async function startAppStorePurchase(input: {
     const points = await papicPassPointsForSku(admin, product.serviceKey);
     if (!papicCreditsMatch(product, points)) return startRefusal('not_on_sale');
   }
+  // 🎨 The pack's App Store name promises 50 renders: on sale only while the admin config still grants exactly that.
+  if (product.kind === 'mood-board-pack' && !moodBoardRendersMatch(product, await readMoodboardRenderConfig(admin))) {
+    return startRefusal('not_on_sale');
+  }
+  // ✦ Setnayan AI: one product per web tier (owner 2026-10-23). The event's tier, read the way the web's charge
+  // reads it (setnayan-ai-in-app.server.ts), must be THIS product's — a Tier D product never unlocks a wedding.
+  if (product.serviceKey === 'SETNAYAN_AI') {
+    const sai = await setnayanAiTierInApp(admin, eventId);
+    if (sai.status === 'error') return startRefusal('try_again');
+    if (sai.status !== 'sellable') return startRefusal('not_on_sale');
+    if (!iapProductFitsAiTier(product, sai.tier)) return startRefusal('not_on_sale');
+  }
   if ((product.kind === 'papic-credits' || DAY_OF_ONLY_KEYS.has(product.serviceKey)) && (await eventIsOver(admin, eventId))) {
     return startRefusal('event_over');
   }
 
-  // 🔒 Owned is never sold twice (prototype frames 10 · 11). Credits are
-  // consumable and always buyable; Pro and Live Watch are one per event.
+  // 🔒 Owned is never sold twice (prototype frames 10 · 11). Credits (Papic, Mood Board renders) are
+  // consumable and always buyable; Pro, Live Watch and every 'event-unlock' are one per event.
   // 💎 Part by part (owner 2026-10-22): a part is owned by its own order, Full Pro or the cap — and "everything" is
   // not sold in the app once ANY part is owned (it would charge the full Apple price for what is less on the web,
   // and the app may not say so); the event finishes on the web.
@@ -105,8 +124,13 @@ export async function startAppStorePurchase(input: {
     const own = await eventHubOwnership(admin, eventId, 'owned');
     if (own.full) return startRefusal('owned');
     if (own.parts.size > 0 || own.paidPhp > 0) return startRefusal('not_on_sale');
-  } else if (product.kind !== 'papic-credits' && (await eventOwnsSku(admin, eventId, product.serviceKey))) {
+  } else if (!iapProductIsRepeatable(product) && (await eventOwnsSku(admin, eventId, product.serviceKey))) {
     return startRefusal('owned');
+  } else if (product.serviceKey === 'SETNAYAN_AI') {
+    // The stored flag is Setnayan AI's own "owned" (sku-activation.ts) — a comp or a bundle can set it with no order.
+    const { data: ev, error: evErr } = await admin.from('events').select('setnayan_ai_active').eq('event_id', eventId).maybeSingle();
+    if (evErr) return startRefusal('try_again');
+    if ((ev as { setnayan_ai_active?: boolean | null } | null)?.setnayan_ai_active === true) return startRefusal('owned');
   }
 
   const intent = await createPurchaseIntent(createMoneyWriterClient(), {

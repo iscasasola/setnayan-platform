@@ -97,21 +97,21 @@ test('2 · parents: one row each → the card as a sheet (never a name box); ＋
     React.createElement(StudioParents as never, {
       eventId: 'E1',
       parents: [
-        { guestId: 'g1', name: 'Maria Santos', side: 'bride', card: React.createElement('p', null, 'card') },
-        { guestId: null, name: 'Jose Santos', side: 'bride', card: null },
+        { guestId: 'g1', name: 'Maria Santos', side: 'bride' },
+        { guestId: null, name: 'Jose Santos', side: 'bride' },
       ],
     } as never),
   );
   assert.match(m, /data-parent-open="g1"[\s\S]*?>MS<[\s\S]*?Maria Santos[\s\S]*?Bride’s parent · on your guest list[\s\S]*?text-sn-accent/, 'a parent is not the list row with the accent arrow');
-  assert.match(m, />JS<[\s\S]*?Jose Santos/, 'a parent with no card is not still listed');
+  assert.match(m, />JS<[\s\S]*?Jose Santos/, 'a parent not on the guest list is not still listed');
   assert.doesNotMatch(m, /<input\b/, 'a name box is drawn for a parent');
   assert.match(m, /class="ab ab-brand quiet[^"]*"[\s\S]*?Add a parent/, '＋ Add a parent is not the quiet action');
   assert.equal(parentLineWords('groom'), 'Groom’s parent · on your guest list');
   const none = await html(React.createElement(StudioParents as never, { eventId: 'E1', parents: [] } as never));
   assert.match(none, /data-parent-empty=""[\s\S]*?No parents on your guest list yet[\s\S]*?Add a parent/);
   const six = read(SIX);
-  assert.match(six, /<Sheet open onClose=\{\(\) => setOpen\(null\)\} labelledById=\{headId\} rise>[\s\S]{0,400}\{openParent\.card\}/, 'the card does not open as the sheet');
-  assert.match(six, /createPortal\(\s*<Sheet/, 'the sheet is not drawn on <body>');
+  // THE guest card, in its sheet (2026-10-24, one card everywhere) — `GuestCardSheet` portals itself to <body>.
+  assert.match(six, /<GuestCardSheet\s+eventId=\{eventId\}\s+person=\{\{ id: openParent\.guestId, name: openParent\.name \}\}\s+open=\{SHIPPED_GUEST_CARD\.invitation\}/, 'the card does not open as THE guest card’s sheet');
   assert.match(six, /addSingleGuest\(eventId, draft\)/, 'adding a parent is not the Guest list’s own add');
   assert.match(six, /<PillSelector\s+label="Whose parent"/, 'the side is not the two-way pill');
 });

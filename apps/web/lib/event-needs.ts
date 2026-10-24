@@ -15,9 +15,10 @@
  * everyone" is NOT stored here: it is the reply/entry the setup already writes (`rsvp_ask_config`,
  * `setupColumns`), so this module only maps the row onto those answers.
  *
- * 🔒 A NEED THAT IS OFF IS ABSENT, NEVER GREYED (matrix §2): the bottom bar, Home, the Maker's stages
- * and the Studio tiles each drop what is off (the helpers at the bottom), and Home keeps ONE
- * "Switch on more" row so nothing is lost.
+ * 🔒 A NEED THAT IS OFF IS ABSENT, NEVER GREYED (matrix §2): Home, the Maker's stages and the Studio
+ * tiles each drop what is off (the helpers at the bottom), and Home keeps ONE "Switch on more" row so
+ * nothing is lost. ⚖ NOT THE BOTTOM BAR (owner 22 Oct 2026, "Fix both"): every event wears the
+ * wedding's bar, whatever it left off — `lib/event-menu-gates.ts`.
  *
  * Pure and client-safe: no I/O, no React.
  */
@@ -230,7 +231,10 @@ export function readEventNeeds(row: EventNeedsRow | null | undefined): EventNeed
   };
 }
 
-/** The bottom bar's keys this event drops (`buildEventMenuSections` hideKeys): Guests · Suppliers. */
+/**
+ * The menu keys of what this event left off: Guests · Suppliers. ⚖ The BAR no longer drops them (owner
+ * 22 Oct 2026 — `lib/event-menu-gates.ts`); only `/dev/bar-lab?was=1` replays the old rule with this.
+ */
 export function needsHiddenNavKeys(n: EventNeedsRead): string[] {
   return [...(n.guestList ? [] : ['guests']), ...(n.suppliers ? [] : ['explore'])];
 }
@@ -296,7 +300,7 @@ export function isSwitchOnNeed(v: unknown): v is SwitchOnNeed {
 export const LIMIT_LINE_BY_TYPE: Readonly<Record<string, string>> = {
   wedding: 'Everything is here. Cord, coins and arrhae are not tracked as items yet.',
   debut: '18 Roses · Candles · Treasures are guest roles; the dance order is not timed.',
-  birthday: 'One QR for everyone by default. Face tagging is on — turn it off for a child’s party if you prefer.',
+  birthday: 'One QR for everyone by default. Face tagging is off unless you turn it on.',
   christening: 'Ninong and Ninang are on the list. No sponsor letters or counts yet.',
   anniversary: 'Yearly by itself — the years are counted for you.',
   corporate: 'Replies and seats work. No name badges or check-in desk beyond the QR.',

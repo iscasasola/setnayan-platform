@@ -27,25 +27,25 @@ const SITE_URL = (
 ).replace(/\/$/, '');
 
 export const metadata = {
-  title: 'Setnayan Articles — Filipino wedding planning guides',
+  title: 'Setnayan Articles — Filipino event planning guides',
   description:
-    'Planning timelines, supplier cost guides, and Filipino wedding customs explained — practical, no-nonsense advice for couples planning a wedding in the Philippines.',
+    'Planning timelines, supplier cost guides, and Filipino customs explained — practical, no-nonsense advice for anyone planning an event in the Philippines.',
   alternates: { canonical: `${SITE_URL}/blog` },
   openGraph: {
     type: 'website',
     url: `${SITE_URL}/blog`,
     title: 'Setnayan Articles',
     description:
-      'Filipino wedding planning guides — timelines, supplier costs, and customs explained.',
+      'Filipino event planning guides — timelines, supplier costs, and customs explained.',
     siteName: 'Setnayan',
     locale: 'en_PH',
     images: [{ url: `${SITE_URL}/blog/hero.webp`, width: 1820, height: 1024 }],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Setnayan Articles — Filipino wedding planning guides',
+    title: 'Setnayan Articles — Filipino event planning guides',
     description:
-      'Filipino wedding planning guides — timelines, supplier costs, and customs explained.',
+      'Filipino event planning guides — timelines, supplier costs, and customs explained.',
     images: [`${SITE_URL}/blog/hero.webp`],
   },
 };
@@ -55,7 +55,6 @@ function isCategoryKey(value: string | undefined): value is BlogCategoryKey {
     value === 'planning' ||
     value === 'vendors' ||
     value === 'culture' ||
-    value === 'real-weddings' ||
     value === 'news'
   );
 }
@@ -130,7 +129,7 @@ export default async function BlogIndexPage({ searchParams }: Props) {
     '@type': 'Blog',
     name: 'Setnayan Articles',
     description:
-      'Filipino wedding planning guides — timelines, supplier cost guides, and customs explained.',
+      'Filipino event planning guides — timelines, supplier cost guides, and customs explained.',
     url: `${SITE_URL}/blog`,
     inLanguage: 'en-PH',
     publisher: { '@type': 'Organization', '@id': `${SITE_URL}/#organization` },
@@ -188,10 +187,10 @@ export default async function BlogIndexPage({ searchParams }: Props) {
           <div className="absolute inset-x-0 bottom-0 mx-auto w-full max-w-6xl px-5 pb-12 sm:px-8 sm:pb-16">
             <p className="inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.24em] text-[#E6D4A6]">
               <Newspaper aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-              Setnayan Articles · the Filipino wedding edit
+              Setnayan Articles · the Filipino event edit
             </p>
             <h1 className="mt-4 max-w-[15ch] font-display text-4xl font-medium leading-[1.02] tracking-tight text-white sm:text-6xl">
-              Wedding planning, the Filipino way.
+              Event planning, the Filipino way.
             </h1>
             <div className="mt-6 max-w-xl">
               <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#E6D4A6]">
@@ -325,8 +324,28 @@ export default async function BlogIndexPage({ searchParams }: Props) {
           </div>
         ) : null}
 
+        {/* The way to /realstories (owner 2026-10-23). Real events are the
+            post-event editorials, and their one home is Stories; this card is
+            how a reader of the guides gets there. */}
+        <section className="mt-16">
+          <Eyebrow>Stories</Eyebrow>
+          <h2 className="mt-2 font-display text-2xl font-medium tracking-tight text-ink sm:text-3xl">
+            Real events, told in full
+          </h2>
+          <p className="mt-2 text-[15px] text-ink/65">
+            Weddings, debuts, reunions and more — from the people who were there.
+          </p>
+          <Link
+            href="/realstories"
+            className="group mt-3 inline-flex min-h-[44px] items-center gap-1.5 text-sm font-semibold text-terracotta"
+          >
+            See the stories
+            <ArrowRight aria-hidden className="h-4 w-4 transition group-hover:translate-x-0.5" strokeWidth={1.75} />
+          </Link>
+        </section>
+
         {/* Conversion footer — sells the free workspace, no quoted SKU price. */}
-        <div className="mt-16 rounded-3xl border border-terracotta/25 bg-accent-soft p-8 text-center sm:p-12">
+        <div className="mt-12 rounded-3xl border border-terracotta/25 bg-accent-soft p-8 text-center sm:p-12">
           <h2 className="font-display text-2xl font-medium tracking-tight text-ink sm:text-3xl">
             Ready to start your own plan?
           </h2>

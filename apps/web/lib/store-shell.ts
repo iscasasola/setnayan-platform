@@ -293,6 +293,15 @@ export const STORE_SHELL_WEB_ONLY_PATH = '/web-only';
  *   · `/dashboard/<id>/studio/panood/cameras` (+ `/print`) — the camera QR
  *     codes the controller links to; they carry no price.
  *
+ *   · 🍎 (owner 2026-10-23, "five more Apple products") the homes of Setnayan AI
+ *     (`studio/setnayan-ai`), Music Maker (`studio/pakanta`), Patiktok
+ *     (`studio/patiktok` + its booth and templates) and the Thank-You Video
+ *     (`studio/thank-you`). Each page's ONE pay step becomes Apple's sheet
+ *     (`IapUnlockSheet`) and draws no web price, no GCash / BDO and no web link
+ *     when `getIapGate().iap` is true. (Mood Board is a free planning page that
+ *     is never refused; its paid part, Make it real, mounts there behind the same
+ *     gate.)
+ *
  * NOT here, deliberately: the Live Watch detail / buy page
  * (`studio/live-studio-control`), the legacy setup and broadcast rooms, the
  * program output, `/studio/about/<key>` and every purchase route — those keep
@@ -300,7 +309,7 @@ export const STORE_SHELL_WEB_ONLY_PATH = '/web-only';
  * every build while the switch is off) nothing here opens.
  */
 const IAP_OPENED_ROUTE =
-  /^\/(?:dashboard\/[^/]+\/studio\/(?:papic|panood\/cameras)|panood\/control\/[^/]+)(?:\/|$)/;
+  /^\/(?:dashboard\/[^/]+\/studio\/(?:papic|panood\/cameras|setnayan-ai|pakanta|patiktok|thank-you)|panood\/control\/[^/]+)(?:\/|$)/;
 
 /**
  * Does this pathname belong to a feature the store shell must not open?
@@ -389,14 +398,33 @@ export function storeShellRefusesPayable(
  * none of ours is until v1.1. So in the store shell a web-bought Setnayan AI,
  * for one, does not light up; off the store shell nothing changes.
  *
+ * 🍎 `iap` (owner 2026-10-23): where Apple sells Setnayan AI in this app
+ * (`getIapGate().iap`), a Setnayan AI bought on the web OR in the app lights
+ * up — it is now also purchasable by In-App Purchase. Default false: every
+ * caller that does not pass it answers exactly as before.
+ *
  * `paywallEnabled = false` means the feature is FREE for everyone (the owner's
  * paywall switch), and a free feature is planning, not a purchase — it stays.
  * That is why this takes the paywall and does not simply answer `!storeShell`:
  * turning a free assistant off in the app would remove planning the app exists
  * to provide.
  */
-export function storeShellAllowsPaidFeature(storeShell: boolean, paywallEnabled: boolean): boolean {
-  return !storeShell || !paywallEnabled;
+/**
+ * 🍎 The pay settings handed to a client component in the store shell: none. The app pays only through Apple, so
+ * the bank and GCash details (`platform_settings`) are never shipped to it — not even unrendered, in a prop
+ * (review of #6844, 2026-10-23). Same shape as the checkout drawer's `settings`.
+ */
+export const STORE_SHELL_NO_PAY_SETTINGS = Object.freeze({
+  bdo_account_name: null,
+  bdo_account_number: null,
+  bdo_qr_url: null,
+  gcash_account_name: null,
+  gcash_number: null,
+  gcash_qr_url: null,
+});
+
+export function storeShellAllowsPaidFeature(storeShell: boolean, paywallEnabled: boolean, iap = false): boolean {
+  return !storeShell || !paywallEnabled || iap;
 }
 
 /**

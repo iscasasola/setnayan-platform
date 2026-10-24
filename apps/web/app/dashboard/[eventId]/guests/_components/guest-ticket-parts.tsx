@@ -186,9 +186,13 @@ export function GuestTicketThumb({
 const MORE_MENU_WIDTH = 224;
 
 /**
- * ⋯ — Write to NFC · New QR · Unlink account · Delete guest, one list. Every
- * line carries its icon (owner 2026-10-04: "every item gets an icon, or none
- * do" — Write to NFC had one, New QR had none).
+ * ⋯ — Write to NFC · New QR · Unlink account, one list. Every line carries its
+ * icon (owner 2026-10-04: "every item gets an icon, or none do" — Write to NFC
+ * had one, New QR had none).
+ *
+ * 🗑 Delete guest LEFT this list (owner 2026-10-23, prototype
+ * `guest_card_groups_and_papic_2026-10-23.html`): it is the card's own last
+ * group now — `GuestDeleteControl` below, the same warning and the same delete.
  */
 export function GuestMoreMenu({
   eventId,
@@ -197,8 +201,6 @@ export function GuestMoreMenu({
   nfcUrl,
   linked,
   returnTo,
-  deletable = false,
-  seatWithNoName = false,
 }: {
   eventId: string;
   guestId: string;
@@ -209,26 +211,10 @@ export function GuestMoreMenu({
   linked: boolean;
   /** Where New QR lands — the surface the ⋯ was opened on. */
   returnTo: string;
-  /**
-   * ⚖ Delete guest, on the CARD's ⋯ (owner 2026-10-03, DECISION_LOG "A HOST CAN
-   * DELETE A GUEST WHO ALREADY ACCEPTED"). Any reply state; never the couple.
-   * The same warning and the same delete as the swipe and the selection bar
-   * (`guest-delete.tsx`), and the card closes itself once it is done.
-   */
-  deletable?: boolean;
-  /**
-   * 🪑 This card is a +1 with no name yet (`plusOneHasNoName`) — the ⋯ says "Release seat" in place of Delete guest:
-   * gone at once, with Undo, their guest's "+N" one lower (owner 2026-10-21). A named +1 keeps Delete and its warning.
-   */
-  seatWithNoName?: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const { release: releaseSeat } = useGuestRemoval(eventId);
   const [confirm, setConfirm] = useState<'new_qr' | 'unlink' | null>(null);
-  const [confirmDelete, setConfirmDelete] = useState(false);
   useOneOpen(open, setOpen); // one open at a time — lib/one-open.ts
-  const inspector = useInspectorContext();
-  const router = useRouter();
   const wrapRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -411,60 +397,8 @@ export function GuestMoreMenu({
             Unlink account
           </button>
         ) : null}
-        {deletable ? (
-          seatWithNoName ? (
-          <button
-            type="button"
-            role="menuitem"
-            className={`${item} border-t border-ink/[0.06] text-danger-700`}
-            data-guest-release-seat=""
-            onClick={() => {
-              setOpen(false);
-              void releaseSeat([guestId], {
-                // The card is of a seat that is gone — close it, as Delete does.
-                onReleased: () => {
-                  if (inspector) inspector.close();
-                  else router.push(`/dashboard/${eventId}/guests`);
-                },
-              });
-            }}
-          >
-            <Armchair aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-            Release seat
-          </button>
-          ) : (
-          <button
-            type="button"
-            role="menuitem"
-            className={`${item} border-t border-ink/[0.06] text-danger-700`}
-            data-guest-delete=""
-            onClick={() => {
-              setOpen(false);
-              setConfirmDelete(true);
-            }}
-          >
-            <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-            Delete guest
-          </button>
-          )
-        ) : null}
       </div>,
       )}
-
-      {confirmDelete ? (
-        <DeleteGuestFlow
-          eventId={eventId}
-          guestId={guestId}
-          guestName={guestName}
-          onClose={() => setConfirmDelete(false)}
-          onDeleted={() => {
-            // The card is of a guest who is gone — close it (the panel over the
-            // list, or the standalone page back to the list).
-            if (inspector) inspector.close();
-            else router.push(`/dashboard/${eventId}/guests`);
-          }}
-        />
-      ) : null}
 
       {confirm !== null ? (
       <GuestPopup kind="confirm" onClose={() => setConfirm(null)} labelledById={confirmId}>
@@ -506,6 +440,60 @@ export function GuestMoreMenu({
           />
         </form>
       </GuestPopup>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * 🗑 THE CARD'S OWN DELETE — the last group of the guest card (owner 2026-10-23, prototype
+ * `guest_card_groups_and_papic_2026-10-23.html`: "Delete (out of ⋯)"). Moved, not re-made: the same warning
+ * (`DeleteGuestFlow` — never a browser `confirm()`; its button is the second tap) and the same delete as the swipe and
+ * the selection bar (`guest-delete.tsx`, owner 2026-10-03 DECISION_LOG "A HOST CAN DELETE A GUEST WHO ALREADY
+ * ACCEPTED"), and the card closes itself once it is done. Any reply state; never the couple (the body says why instead).
+ *
+ * 🪑 A +1 with no name yet (`seatWithNoName`, `plusOneHasNoName`) reads "Release seat": gone at once, with Undo, their
+ * guest's "+N" one lower (owner 2026-10-21). A named +1 keeps Delete and its warning.
+ */
+export function GuestDeleteControl({
+  eventId,
+  guestId,
+  guestName,
+  seatWithNoName = false,
+}: {
+  eventId: string;
+  guestId: string;
+  guestName: string;
+  seatWithNoName?: boolean;
+}) {
+  const { release: releaseSeat } = useGuestRemoval(eventId);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const inspector = useInspectorContext();
+  const router = useRouter();
+  // The card is of a guest (or a seat) who is gone — close it: the panel over the list, or the standalone page back to the list.
+  const closeCard = () => {
+    if (inspector) inspector.close();
+    else router.push(`/dashboard/${eventId}/guests`);
+  };
+  return (
+    <div data-guest-delete-control="">
+      {seatWithNoName ? (
+        <span data-guest-release-seat="">
+          <ActionButton tone="danger" icon={Armchair} label="Release seat" onClick={() => void releaseSeat([guestId], { onReleased: closeCard })} />
+        </span>
+      ) : (
+        <span data-guest-delete="">
+          <ActionButton tone="danger" icon={Trash2} label="Delete guest" onClick={() => setConfirmDelete(true)} />
+        </span>
+      )}
+      {confirmDelete ? (
+        <DeleteGuestFlow
+          eventId={eventId}
+          guestId={guestId}
+          guestName={guestName}
+          onClose={() => setConfirmDelete(false)}
+          onDeleted={closeCard}
+        />
       ) : null}
     </div>
   );

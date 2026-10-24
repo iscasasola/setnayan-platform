@@ -8,6 +8,7 @@
 import type { ReactNode } from 'react';
 import { Phone, Sparkles, UserPlus } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
+import { formatCount } from '@/lib/format-number';
 import { DoorShell } from '@/app/_components/door/door-shell';
 
 /**
@@ -134,6 +135,121 @@ export function CoupleLinkDoor({
         </div>
         <p className="text-xs text-ink/50">
           Not the right supplier? Just ignore this page — we won&rsquo;t follow up.
+        </p>
+      </article>
+    </DoorShell>
+  );
+}
+
+/**
+ * 🎁 THE DOOR ON SETNAYAN'S OWN INVITE (`vendor_invites.source = 'admin'`) — prototype
+ * `supplier_personal_invite_2026-10-23.html` frame B1 (owner-approved 2026-10-23). The same shape as the couple's
+ * door: eyebrow · title · what is recorded · what you get · one main button. A personal invite adds **Your offer**
+ * — the plan and until when, the photos when the admin gave them, and the booking-fee line from the live rule —
+ * as rows with dividers, nothing boxed. An invite with no offer draws no offer rows.
+ */
+export function TeamInviteDoor({
+  businessName,
+  categoryLabel,
+  offer,
+  commissionPerk,
+  claimHref,
+  claimLabel,
+  decline,
+}: {
+  businessName: string;
+  /** "Caterer", or null when the admin set no category. */
+  categoryLabel: string | null;
+  /** The offer rows, or null for an invite that carries none. */
+  offer: {
+    /** e.g. { plan: 'Pro', until: '31 Jan 2027' } — null when no plan was given. */
+    plan: { word: string; until: string } | null;
+    /** 100 — the portfolio photos given (kept after the offer ends); null when the switch was off. */
+    photos: number | null;
+    /** The live free-booking sentence, short. */
+    fee: string;
+    /** "Nothing to pay, nothing renews by itself. On 1 Feb you choose: stay on Free, or keep Pro." */
+    note: string | null;
+  } | null;
+  /** The live booking-fee perk (`supplierCommissionShort`) — the shipped perk list, unchanged. */
+  commissionPerk: string;
+  claimHref: string;
+  /** "Claim & sign up", or "Sign in & claim" for an email that already runs a shop. */
+  claimLabel: string;
+  decline: ReactNode;
+}) {
+  return (
+    <DoorShell
+      width="lg"
+      eyebrow="Your invite"
+      title={
+        <>
+          Your shop is ready, <strong className="font-semibold">{businessName}</strong>.
+        </>
+      }
+      sub={
+        <>
+          Set up for you by the Setnayan team
+          {categoryLabel ? (
+            <>
+              {' '}as a <strong className="text-ink">{categoryLabel}</strong>
+            </>
+          ) : null}
+          . Claim it to add your photos, services and prices.
+        </>
+      }
+    >
+      <article className="space-y-6" data-claim-door="team">
+        {offer ? (
+          <section data-claim-offer="">
+            <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">Your offer</p>
+            <dl className="mt-2 divide-y divide-ink/10 border-y border-ink/10">
+              {offer.plan ? (
+                <div className="flex items-baseline justify-between gap-4 py-2.5" data-claim-offer-row="plan">
+                  <dt className="shrink-0 text-[13px] text-ink/60">Plan</dt>
+                  <dd className="min-w-0 text-right text-sm text-ink">
+                    <strong className="font-semibold">{offer.plan.word}</strong> · free until {offer.plan.until}
+                  </dd>
+                </div>
+              ) : null}
+              {offer.photos ? (
+                <div className="flex items-baseline justify-between gap-4 py-2.5" data-claim-offer-row="photos">
+                  <dt className="shrink-0 text-[13px] text-ink/60">Portfolio photos</dt>
+                  <dd className="min-w-0 text-right text-sm text-ink">
+                    <strong className="font-semibold">{formatCount(offer.photos)}</strong> · yours to keep
+                  </dd>
+                </div>
+              ) : null}
+              <SnapshotField label="Booking fee" value={offer.fee} />
+            </dl>
+            {offer.note ? <p className="mt-2 text-xs text-ink/55">{offer.note}</p> : null}
+          </section>
+        ) : null}
+
+        <section>
+          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">What you get</p>
+          <ul className="mt-2 divide-y divide-ink/10 border-y border-ink/10 text-sm text-ink/70">
+            <Perk>Free supplier profile + marketplace listing</Perk>
+            <Perk>Chat with couples in-app</Perk>
+            <Perk>Calendar + bookings dashboard</Perk>
+            {/* A perk list is where half a promise hides best: short form, still BOTH halves. */}
+            <Perk>{commissionPerk}</Perk>
+            <Perk>No upfront cost · no credit card required</Perk>
+          </ul>
+        </section>
+
+        <div className="flex flex-wrap gap-3">
+          <ActionButton
+            tone="brand"
+            main
+            icon={<UserPlus aria-hidden className="h-4 w-4" strokeWidth={1.9} />}
+            label={claimLabel}
+            href={claimHref}
+          />
+          {decline}
+        </div>
+        <p className="text-xs text-ink/50">
+          Not the right business? Just ignore this page — we won&rsquo;t follow up.
         </p>
       </article>
     </DoorShell>

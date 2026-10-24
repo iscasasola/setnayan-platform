@@ -276,7 +276,7 @@ function logRetry(route: string, what: string, recovered: boolean, firstMs: numb
   }
   // Lazily, like `logQueryError` in the browser: this module sits under the one
   // fetch every Supabase client is built on, and must not import the SDK.
-  void import('@sentry/nextjs').then(
+  void import(/* webpackExports: ["captureMessage"] */ '@sentry/nextjs').then(
     (S) =>
       S.captureMessage(`read-limit:retry ${recovered ? 'recovered' : 'did not recover'}: ${what}`, {
         level: recovered ? 'warning' : 'error',

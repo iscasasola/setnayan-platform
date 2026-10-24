@@ -1,23 +1,23 @@
-import { Info } from 'lucide-react';
-import { ActionButton } from '@/components/action-button';
 import type { HomeCover } from '@/lib/home-cover';
 import type { HomeCoverWords } from '@/lib/home-cover-words';
 import { forTagWords, type ForTag } from '@/lib/for-tag';
 import { ForTagMark } from '@/app/_components/for-tag-mark';
 
 /**
- * home-cover-band.tsx — THE EVENT HOME'S COVER BAND (the name, the date line, Event Details),
+ * home-cover-band.tsx — THE EVENT HOME'S COVER BAND (the name and the date line),
  * lifted out of `HomeFirstScreen` unchanged so the Home's LOADING screen can draw the very same
  * band the moment an event is tapped (`home-loading-cover.tsx`, 2026-10-16). No hooks, no data:
  * the words come in (`lib/home-cover-words.ts`), so both callers draw them one way.
  * `ground` null = the plain colour band (the loading screen has not read the hub's background).
+ *
+ * ⚙ NO SETTINGS PILL (owner-approved 2026-10-24, `home_control_center_2026-10-24_fable.html`: "Keeps the cover; drops
+ * the pill so Event Settings has one door"). The Countdown widget is Event Details' ONE door now — the pill that opened
+ * the same page (the 23 Oct ruling) was a second door to it.
  */
 export function HomeCoverBand({
-  eventId,
   cover,
   ground = null,
 }: {
-  eventId: string;
   cover: HomeCoverWords;
   ground?: HomeCover | null;
 }) {
@@ -50,9 +50,6 @@ export function HomeCoverBand({
           <p aria-hidden className="text-[26px] font-semibold leading-[1.1] tracking-[-0.01em]">{cover.name}</p>
           {cover.forWho ? <HomeForLine tag={cover.forWho} /> : null}
         </div>
-        <span className="relative shrink-0" data-home-event-details="">
-          <ActionButton href={`/dashboard/${eventId}/details`} tone="neutral" icon={<Info aria-hidden="true" strokeWidth={1.9} />} label="Event Details" className="home-cover-ab" />
-        </span>
       </div>
   );
 }

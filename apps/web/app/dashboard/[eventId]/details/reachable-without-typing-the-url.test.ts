@@ -27,6 +27,7 @@ import { fileURLToPath } from 'node:url';
 
 import { stripComments } from '@/lib/strip-comments';
 import { buildCustomerNavGroups } from '../_components/customer-nav-config';
+import { buildCustomerMenuTree } from '@/lib/customer-menu';
 import { PEOPLE_GROUP_COPY } from '@/lib/event-people-roster';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -104,12 +105,24 @@ const MUST_HAVE_A_DOOR: { segment: string; whatIsLost: string }[] = [
  *           reaches it from the People roster's "Running the day with you";
  *   refer → the account menu: the event layout hands `referHref` to the
  *           mounted <AccountSwitcher>, which draws "Refer a couple".
+ *   details → the Home cover's "Event Details" button (owner 2026-10-23: "only
+ *           keep the Event Details button and remove the event settings"). The
+ *           rail's name row stopped being a link, so `/details` is no longer a
+ *           DRAWN rail href — `drawnRailHrefs` below drops the `event` group the
+ *           rail does not draw, or this guard would keep counting a door nobody
+ *           can see.
  *
  * Each proof reads the REAL builder and the REAL mount, so deleting the new
  * door turns this red exactly as deleting the old rail row did.
  */
 const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
 const MOVED_DOOR: Record<string, (railHrefs: string[]) => boolean> = {
+  // The Countdown widget since 24 Oct 2026 (owner-approved control center) — the cover's ⚙ Settings pill went.
+  details: () =>
+    read('app/dashboard/[eventId]/_components/home-control-faces.ts').includes('door: `/dashboard/${e}/details`') &&
+    read('app/dashboard/[eventId]/_components/home-control-row.tsx').includes('<Shell k="count" door={`/dashboard/${e}/details`}') &&
+    read('app/dashboard/[eventId]/_components/home-first-screen.tsx').includes('<HomeControlRow ') &&
+    isMounted('app/dashboard/[eventId]/_components/home-first-screen.tsx'),
   hosts: (railHrefs) =>
     railHrefs.includes('/dashboard/EVT123/guests') &&
     read('app/dashboard/[eventId]/hosts/page.tsx').includes(
@@ -122,6 +135,22 @@ const MOVED_DOOR: Record<string, (railHrefs: string[]) => boolean> = {
     isMounted('app/_components/account-switcher/account-switcher.tsx'),
 };
 
+/**
+ * The hrefs the rail actually DRAWS. `event-rail-context.tsx` drops the `event`
+ * group (`groupsWithHub.filter((g) => g.key !== 'event')`) — its row is in the
+ * tree for the lit-row resolver, not on screen — so counting it would be a door
+ * in data only. The filter is read from the rail itself, so if the rail starts
+ * drawing that group again this follows.
+ */
+function drawnRailHrefs(): string[] {
+  const rail = read('app/dashboard/[eventId]/_components/event-rail-context.tsx');
+  const dropsEvent = rail.includes("groupsWithHub.filter((g) => g.key !== 'event')");
+  return buildCustomerNavGroups('EVT123', { websiteEnabled: true })
+    .filter((g) => !(dropsEvent && g.key === 'event'))
+    .flatMap((g) => g.items)
+    .map((i) => i.href);
+}
+
 /** Is this event page reachable by clicking — a rail row, or a proven moved door? */
 function hasDoor(segment: string, railHrefs: string[]): boolean {
   if (railHrefs.includes(`/dashboard/EVT123/${segment}`)) return true;
@@ -129,9 +158,11 @@ function hasDoor(segment: string, railHrefs: string[]): boolean {
 }
 
 test('the pages people go to are linked from the event rail, not just addressable', () => {
-  const groups = buildCustomerNavGroups('EVT123', { websiteEnabled: true });
-  const hrefs = groups.flatMap((g) => g.items).map((i) => i.href);
-  assert.ok(hrefs.length >= 5, 'the rail lost destinations — every check below would pass vacuously');
+  const hrefs = drawnRailHrefs();
+  // The floor is the ruled bar (owner 22 Oct 2026, "Yes remove more"): every tab's page is a drawn rail destination.
+  const bar = buildCustomerMenuTree('EVT123', { websiteEnabled: true }).map((m) => m.href.split('?')[0]!);
+  assert.ok(bar.length >= 4, 'the bar lost a ruled tab — every check below would pass vacuously');
+  for (const tab of bar) assert.ok(hrefs.includes(tab), `the rail lost ${tab} — every check below would pass vacuously`);
 
   const unreachable = MUST_HAVE_A_DOOR.filter(({ segment }) => !hasDoor(segment, hrefs)).map(({ segment, whatIsLost }) => `${segment} — ${whatIsLost}`);
 
@@ -189,9 +220,7 @@ test('every event link in the retired menu has a home in a mounted surface', () 
       'the list was shrunk, so this test would pass while proving nothing',
   );
 
-  const hrefs = buildCustomerNavGroups('EVT123', { websiteEnabled: true })
-    .flatMap((g) => g.items)
-    .map((i) => i.href);
+  const hrefs = drawnRailHrefs();
 
   const stranded = segments.filter((seg) => !hasDoor(seg, hrefs));
   assert.deepEqual(

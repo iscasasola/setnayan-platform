@@ -65,14 +65,16 @@ test('grants only for a CURRENT limited-helper seat; the record from any seat th
   assert.match(loader, /fetchDelegateActivity\(admin, input\.eventId, 10, actor\)/, 'the card reads a second activity stream');
 });
 
-test('it sits under the Access line, on the Guest list\'s card screens only — never in the Maker', () => {
+test('it sits under the Access line, on THE card — handed in once, loaded only for a viewer who manages access', () => {
   const body = read(join(EVENT, 'guests', '_components', 'guest-card-body.tsx'));
   const at = body.indexOf('<GuestAccessControl');
   const slot = body.indexOf('{helperAccess ?? null}');
   assert.ok(at > -1 && slot > at, 'the helper pieces are not under the Access line');
-  for (const f of [join(EVENT, 'guests', 'page.tsx'), join(EVENT, 'guests', '[guestId]', 'page.tsx')]) {
-    assert.match(read(f), /helperAccess=\{/, `${f} does not hand the card its helper pieces`);
+  /* ONE card (2026-10-24): `GuestCard` draws them for every surface — the Guest list, its standalone route, the march. */
+  assert.match(read(join(EVENT, 'guests', '_components', 'guest-card.tsx')), /helperAccess=\{\s*helper \? <GuestHelperAccess /, 'the card does not hand its body the helper pieces');
+  for (const f of [join(EVENT, 'guests', 'page.tsx'), join(EVENT, 'guests', '_components', 'guest-card-read.ts')]) {
     assert.match(read(f), /\.canManageAccess/, `${f} loads the helper pieces for a viewer who cannot manage access`);
   }
-  assert.doesNotMatch(read(join(EVENT, 'launch', 'page.tsx')), /GuestHelperAccess|loadGuestHelperCard/, 'the Maker carries the helper pieces');
+  assert.match(read(join(EVENT, 'guests', 'page.tsx')), /helper=\{inspectedHelper\}/, 'the Guest list does not hand the card its helper pieces');
+  assert.doesNotMatch(read(join(EVENT, 'launch', 'page.tsx')), /GuestHelperAccess|loadGuestHelperCard/, 'the Maker’s page loads the helper pieces up front');
 });

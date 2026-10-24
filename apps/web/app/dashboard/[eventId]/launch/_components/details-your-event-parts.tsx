@@ -16,7 +16,7 @@ import {
 import type { VenueSlot } from './details-your-event';
 import type { MarchSectionData } from './details-march';
 import type { MarchOut } from '@/lib/march-drag';
-import type { MarchCardResult } from '../march-card-actions';
+import type { GuestCardResult } from '../../guests/_components/guest-card';
 import type { HostPiece, PersonPiece } from './details-people';
 /* ⚡ Your event's editors and pictures load when Details is opened — never with the Maker (`details-lazy.tsx`). */
 import {
@@ -108,7 +108,7 @@ export type YourEventInput = {
     /** 🚶 The march itself could not be read — its row says so instead of "Nobody walks yet". */
     marchUnread?: boolean;
     /** 🪪 The dev Maker lab only: its stand-in for reading a tapped name's guest card (a server action that reaches no database). */
-    openCard?: (eventId: string, guestId: string) => Promise<MarchCardResult>;
+    openCard?: (eventId: string, guestId: string) => Promise<GuestCardResult>;
   };
 };
 
@@ -132,7 +132,7 @@ export function yourEventParts({
   eventId: string;
   input: YourEventInput;
   prints: PrintsInput;
-  parents: Array<{ guestId: string | null; name: string; card: ReactNode }>;
+  parents: Array<{ guestId: string | null; name: string }>;
   hosts: Array<{ moderatorId: string; label: string; contact: string | null }>;
 }): {
   keys: EventItemKey[];
@@ -171,8 +171,9 @@ export function yourEventParts({
   /* 👪 Parents & hosts — the people as pieces (`details-people.tsx`). */
   const offered = parentsOffered(kind);
   const people: PersonPiece[] = offered ? parents.map((p, i) => ({ key: `p:${p.guestId ?? i}`, name: p.name })) : [];
-  const cards: Record<string, ReactNode> = {};
-  if (offered) parents.forEach((p, i) => (cards[`p:${p.guestId ?? i}`] = p.card));
+  /* Each parent's guest, by piece key — their card is THE guest card, opened at the tap (`GuestCardSheet`). */
+  const guestIds: Record<string, string | null> = {};
+  if (offered) parents.forEach((p, i) => (guestIds[`p:${p.guestId ?? i}`] = p.guestId));
   /* 👪 Where the invitation prints parents, THEY are its hosts (owner, live walk
      2026-10-05): a dashboard co-host / planner account — and its email — is
      never listed here. Only a type with no parents keeps its Kindly-reply host. */
@@ -225,7 +226,8 @@ export function yourEventParts({
         parents={people}
         hosts={hostPieces}
         parentsOffered={offered}
-        cards={cards}
+        eventId={eventId}
+        guestIds={guestIds}
         /* The SAME parents K built under The Invitation — the list and its add. */
         add={<ParentCards eventId={eventId} parents={parents} />}
       />

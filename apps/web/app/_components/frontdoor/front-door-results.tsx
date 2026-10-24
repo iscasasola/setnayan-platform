@@ -52,9 +52,29 @@ import { searchLiveShops, type FrontDoorData, type FrontDoorShop } from './data'
 import type { HomeCommandItem } from './command-item';
 import { shopInitials } from '@/lib/shop-initials';
 import { formatCount } from '@/lib/format-number';
-import { ON_YOUR_EVENT } from '@/lib/own-supplier-items';
+import { ON_YOUR_EVENT, YOUR_OWN_SUPPLIER } from '@/lib/own-supplier-items';
 import { ShellOnward } from './shell-search-onward';
 import { SHELL_SEARCH_PATH } from '@/lib/shell-search';
+import type { ShellPeopleResults } from '@/lib/shell-people-results';
+import { ShellPeopleSection } from './shell-people-section';
+import { DiscoverAddOwn } from './discover-add-own';
+import { readAddOwnCategories } from '@/lib/add-own-categories.server';
+
+/** Reads "What they do" only when the add is drawn — a search with results pays nothing for it. A refused read draws
+ *  no add: the empty state above already says plainly that nothing matched. */
+async function DiscoverAddOwnSlot({
+  query,
+  event,
+  given,
+}: {
+  query: string;
+  event: { eventId: string; eventName: string };
+  given?: Awaited<ReturnType<typeof readAddOwnCategories>>;
+}) {
+  const categories = given !== undefined ? given : await readAddOwnCategories(event.eventId);
+  if (!categories) return null;
+  return <DiscoverAddOwn query={query} eventId={event.eventId} eventName={event.eventName} categories={categories} />;
+}
 
 /** Delegates to the shared shop/vendor helper (lib/shop-initials.ts). Also
  * used for `item.label` (the searcher's own event/space) below — that call
@@ -164,10 +184,11 @@ function OwnCard({ item }: { item: HomeCommandItem }) {
                 sublabel already starts with it, so the tag is the whole of it
                 and the sublabel's rest (which event) follows. Anything else of
                 yours is "Yours". */}
+            {/* One the couple added themselves wears "Your own supplier · on {event}" instead (owner 2026-10-24). */}
             {item.kind === 'supplier' ? (
               <>
-                <span className="fd-kindtag">{ON_YOUR_EVENT}</span>{' '}
-                {item.sublabel.replace(`${ON_YOUR_EVENT} · `, '')}
+                <span className="fd-kindtag">{item.sublabel.startsWith(ON_YOUR_EVENT) ? ON_YOUR_EVENT : YOUR_OWN_SUPPLIER}</span>{' '}
+                {item.sublabel.replace(`${ON_YOUR_EVENT} · `, '').replace(`${YOUR_OWN_SUPPLIER} · `, '')}
               </>
             ) : (
               <>
@@ -187,6 +208,9 @@ export async function FrontDoorResults({
   commandItems,
   place = 'front-door',
   findSuppliers = null,
+  people = null,
+  addOwnEvent = null,
+  addOwnCategories,
 }: {
   /** Already trimmed and known non-empty by the caller. */
   query: string;
@@ -203,7 +227,16 @@ export async function FrontDoorResults({
    *                  The suppliers on your events are part of your own things,
    *                  and the empty state says where it looked.
    */
-  place?: 'front-door' | 'shell';
+  place?: 'front-door' | 'shell' | 'discover';
+  /**
+   * Discover only (`discover` — signed in, `/?q=`, IN PLACE: owner 2026-10-24, *"we will show the result on the page
+   * itself. not a new screen"*). The shell form, drawn on Discover under its own search row: Clear takes the words
+   * away and Discover's sections come back. With nothing found and ONE event you host, the last row adds what was
+   * typed as your own supplier (`addOwnEvent` — the shipped add walk, opened in place).
+   */
+  addOwnEvent?: { eventId: string; eventName: string } | null;
+  /** `/dev/search-lab` only (no session there): the event's "What they do" list, in place of the read. */
+  addOwnCategories?: Awaited<ReturnType<typeof readAddOwnCategories>>;
   /**
    * Shell only: the in-shell door to find a NEW supplier — the Suppliers page
    * of the one event this person hosts. `null` draws none (several events,
@@ -211,6 +244,13 @@ export async function FrontDoorResults({
    * `app/dashboard/(account)/search/page.tsx`.
    */
   findSuppliers?: { href: string; eventName: string } | null;
+  /**
+   * Shell only: PEOPLE (owner 2026-10-22, "follow your recommendation") — your people whose name matches, then
+   * people on Setnayan you could ask, each opening their card on the People page. Read by the page through
+   * `searchShellPeople` (the roster + `searchPeopleByName`, no new fence). `null` = not searched here (signed
+   * out, the front door, or connections switched off).
+   */
+  people?: ShellPeopleResults | null;
   /**
    * The searcher's own events and spaces — ALREADY LOADED by the page for the
    * palette, so filtering it here costs nothing and adds no read. `[]` for a
@@ -259,7 +299,10 @@ export async function FrontDoorResults({
     return slug ? bySlug.get(slug) : undefined;
   };
 
-  const total = own.length + shops.length + hits.length;
+  /** Signed in — the shell's results and Discover's in-place results are one form. */
+  const inShell = place !== 'front-door';
+  const peopleRows = inShell && people ? people.rows.length : 0;
+  const total = own.length + peopleRows + shops.length + hits.length;
 
   return (
     <>
@@ -291,6 +334,9 @@ export async function FrontDoorResults({
         </div>
       ) : null}
 
+      {/* PEOPLE — after your own things, before the shops (owner 2026-10-22). A refused read says so. */}
+      {inShell && people ? <ShellPeopleSection people={people} /> : null}
+
       {shops.length > 0 ? (
         <div className="fd-grid">
           {shops.map((s) => (
@@ -307,8 +353,12 @@ export async function FrontDoorResults({
         </div>
       ) : null}
 
-      {place === 'shell' ? (
-        <ShellOnward query={query} total={total} findSuppliers={findSuppliers} />
+      {inShell ? (
+        <>
+          <ShellOnward query={query} total={total} findSuppliers={findSuppliers} />
+          {/* Nothing found on Discover, with an event to file it under: the last row adds it (the shipped walk). */}
+          {place === 'discover' && total === 0 && addOwnEvent ? <DiscoverAddOwnSlot query={query} event={addOwnEvent} given={addOwnCategories} /> : null}
+        </>
       ) : (
       <>
       {/*

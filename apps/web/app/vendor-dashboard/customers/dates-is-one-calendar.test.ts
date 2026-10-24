@@ -305,9 +305,9 @@ test('6 · the old day route forwards to the day; its Not available switch is a 
   assert.match(DAY, /This removes “\$\{c\.repeatWords\}” — every one of those days opens again\./, 'opening a repeat does not say every day opens');
   assert.match(DAY, /Who works it/);
   assert.doesNotMatch(DAY, /<PickMenu|<select/, '"Who works it" is a dropdown with nothing to save');
-  // "Holding this date · N of M" — the plan's ceiling is back (checklist X11 drift).
+  // "Holding this date · N of M" — the ceiling is back (checklist X11 drift); the same on every plan since 2026-10-23.
   const held = await paint(h(DaySheet, { data: { ...base, closures: [], holders: [{ threadId: 't1', title: 'Dela Cruz', line: 'asked Oct 1' }] }, actions }));
-  assert.match(held, /Holding this date[\s\S]{0,200}1 of 5 · your plan’s ceiling/, 'the day lost "Holding this date · N of M"');
+  assert.match(held, /Holding this date[\s\S]{0,200}1 of 5 · the most for one date/, 'the day lost "Holding this date · N of M"');
 });
 
 /* ── 7 · the counter ──────────────────────────────────────────────────── */

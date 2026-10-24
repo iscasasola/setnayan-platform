@@ -111,7 +111,7 @@ test('6 · 🔒 the ticks live in a table NO browser role can read — private t
 
 test('6 · the save is the guest\'s OWN reply action (+0 routes), after the key check, touching nothing of the reply', () => {
   const start = ACTIONS.indexOf('export async function submitRsvp(');
-  const keyCheck = ACTIONS.indexOf('const session = await readGuestSessionForEvent(eventId);', start);
+  const keyCheck = ACTIONS.indexOf('const replyAs = await readReplyIdentityForEvent(eventId);', start); // the reply's ONE identity (2026-10-24)
   const branch = ACTIONS.indexOf("const checklistItem = clean(formData.get('checklist_item'));", start);
   const replyRead = ACTIONS.indexOf("const status = clean(formData.get('rsvp_status'))", start);
   assert.ok(start > -1 && keyCheck > start, 'submitRsvp no longer checks the key first');
@@ -199,7 +199,9 @@ test('4 · Me holds the name, the plus-ones, and Save — mounted INTO the one #
   // One #site-me: Me is a SLOT in GuestHubBar's section, never a second one.
   // (📱 `asTab` — the same section is the Me TAB on a tabbed page, owner 2026-09-30.)
   assert.match(HUBBAR, /<section id="site-me" className=\{asTab \? 'scroll-mt-6' : 'mt-12 scroll-mt-6'\}>\s*\{meSlot \?/);
-  assert.match(PAGE, /meSlot=\{meSlotFor\(replyHref\)\}/); // Me as a function of the reply rule (an-unreplied-guest-is-asked-to-reply-first.test.ts)
+  // Me as a function of the reply rule (an-unreplied-guest-is-asked-to-reply-first.test.ts) — and, since 2026-10-24, of
+  // the redrawn Me (`inMe`: Me draws its own name, bar and one Reply).
+  assert.match(PAGE, /meSlot=\{meSlotFor\(replyHref, \{ inMe, replyOwed \}\)\}/);
   assert.match(PAGE, /yourGuestsFor\(admin, \{ event_id: event\.event_id, slug: event\.slug \}, guest\.guest_id,/);
 });
 

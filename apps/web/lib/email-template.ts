@@ -101,7 +101,7 @@ export function renderBrandedEmail(parts: BrandedEmailParts): string {
     parts.footer ??
     (isAdmin
       ? ADMIN_EMAIL_FOOTER
-      : "You're receiving this because you started a Papic gallery for your event.");
+      : "You're receiving this because you started Papic Memories for your event.");
   const tagline = isAdmin ? ADMIN_EMAIL_TAGLINE : EMAIL_TAGLINE;
   const sections = (parts.sections ?? [])
     .filter((sec) => sec.rows.length > 0)

@@ -20,6 +20,7 @@ import {
   hubDraftAnswer,
   hubDraftOutcome,
   isHubDraftIntent,
+  HUB_DROP_ALL_PRO,
   type HubDraftActionResult,
   type HubDraftBarLive,
   type HubDraftIntent,
@@ -78,7 +79,9 @@ import { IconPill } from '../../launch/_components/icon-pill';
  * 💳 NO PRICE IS TYPED. `priceLabel` is the live catalogue row, formatted
  * server-side, or null (and then the figure is simply absent). In the store
  * shell (`storeShell`) there is no price, no link and no pay path — a Pro key
- * reads "Apply on the web" (owner 2026-09-25: Pro in the iPhone app, NOT YET).
+ * is held and reads "◆ N waiting for Pro", with "Remove Pro changes" (owner 2026-10-08, "keep, marked"), and never
+ * names the web (anti-steering, 3.1.1 — controller 2026-10-23). Where Apple sells Pro (`appleIap`) the dock hands
+ * `storeShell: false` and the Apply sheet names the parts on Apple's sheet.
  */
 
 export type HubDraftBarProps = {
@@ -127,7 +130,7 @@ export { DraftButton } from './hub-draft-button';
 
 const HELD_REASON: Record<HubDraftRefusal, string> = {
   needs_pro: 'needs Event Hub Pro — it stays in your draft',
-  apply_on_the_web: 'can be applied on the web — it stays in your draft',
+  waits_for_pro: 'is waiting for Pro — it stays in your draft',
   not_your_photo: 'uses a photo that is not in your Event Hub',
   song_off_the_list: 'is no longer on our music list — pick another song',
   empty_section: 'has nothing in it yet, so it cannot be shown',
@@ -623,7 +626,8 @@ export function HubDraftToolbar({
           effects={asksForPro ? proEffects : []}
           changeCount={summary.changeCount}
           changes={summary.changes}
-          heldOnWeb={storeShell ? summary.proCount : 0}
+          heldForPro={storeShell ? summary.proCount : 0}
+          onRemoveHeld={storeShell ? () => run({ intent: 'drop', effect: HUB_DROP_ALL_PRO }) : undefined}
           priceLabel={priceLabel}
           proHref={proHref}
           pending={pending}
@@ -681,8 +685,9 @@ export function HubDraftToolbar({
           )}
           {summary.proCount > 0 &&
             (storeShell ? (
-              <p className="text-sm text-ink/70">
-                {summary.proCount === 1 ? 'One change' : `${formatCount(summary.proCount)} changes`} can be applied on the web.
+              <p className="inline-flex items-center gap-1 text-sm text-ink/70" data-maker-held-for-pro="">
+                <PaidMark state="try" bare label="Event Hub Pro" size="xs" />
+                {formatCount(summary.proCount)} waiting for Pro
               </p>
             ) : (
               <p className="text-sm text-ink/70">

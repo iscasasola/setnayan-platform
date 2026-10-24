@@ -187,7 +187,7 @@ export default async function AdminVendorPlanPage({
           {!currentTierExpiresAt && currentTier !== 'free' && (
             <span className="ml-1 text-warn-700">(open-ended — no auto-downgrade)</span>
           )}
-          . Set Pro/Enterprise after confirming an off-platform subscription payment
+          . Set Pro/Ultra after confirming an off-platform subscription payment
           (self-serve checkout is a later phase).
         </p>
         <form action={setVendorTier} className="space-y-3">
@@ -246,7 +246,7 @@ export default async function AdminVendorPlanPage({
           </div>
           <p className="text-xs text-ink/50">
             Leave end date blank for open-ended comp access (you&rsquo;ll need to revert manually).
-            Pro/Enterprise billing is 28-day cycles — 1 cycle from today ={' '}
+            Pro/Ultra billing is 28-day cycles — 1 cycle from today ={' '}
             {new Date(Date.now() + 28 * 24 * 60 * 60 * 1000).toLocaleDateString('en-PH', {
               month: 'short',
               day: 'numeric',

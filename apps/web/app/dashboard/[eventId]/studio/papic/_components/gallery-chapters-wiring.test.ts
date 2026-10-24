@@ -17,12 +17,15 @@ import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const PAGE = stripComments(readFileSync(resolve(HERE, '..', 'page.tsx'), 'utf8'));
+// 📍 The library moved to Memories (2026-10-23): the day's moments are computed in its one read
+// (`lib/event-memories.server.ts`) and handed to the Memories page's gallery. Same rules, new address.
+const PAGE = stripComments(readFileSync(resolve(HERE, '..', '..', '..', '..', '..', '..', 'lib', 'event-memories.server.ts'), 'utf8'));
+const MEMORIES = stripComments(readFileSync(resolve(HERE, '..', '..', '..', 'memories', 'page.tsx'), 'utf8'));
 const GRID = stripComments(readFileSync(resolve(HERE, 'papic-gallery-grid.tsx'), 'utf8'));
 
 test('the studio page actually computes chapters and hands them to the grid', () => {
   assert.ok(/groupIntoChapters\(/.test(PAGE), 'the engine is never called');
-  assert.ok(/chapters=\{galleryChapters\}/.test(PAGE), 'the result never reaches the grid');
+  assert.ok(/chapters=\{read\.chapters\}/.test(MEMORIES), 'the result never reaches the gallery');
   assert.ok(/fetchScheduleBlocks\(/.test(PAGE), 'the run of show is never read');
 });
 
@@ -43,7 +46,7 @@ test('the schedule is converted, never compared raw', () => {
 
 test('a schedule that cannot be read leaves the gallery whole', () => {
   assert.ok(
-    /catch\s*\{[\s\S]{0,80}galleryChapters = undefined/.test(PAGE),
+    /fetchScheduleBlocks\(supabase, eventId\)\.catch\(\(\) => null\)/.test(PAGE) && /if \(blocksRes && blocksRes\.length > 0/.test(PAGE),
     'A failed schedule read must fall back to the flat gallery. A gallery is ' +
       "somebody's wedding; it must never be a blank page because a heading " +
       'could not be computed.',

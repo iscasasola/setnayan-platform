@@ -98,7 +98,8 @@ test('3 · the welcome shows once, and is not one of the steps', () => {
   const steps = TOURS.host_spotlight_v1.spotlight!.steps;
   const welcome = steps.filter((s) => s.welcome);
   assert.equal(welcome.length, 1, 'the host tour has no (or two) welcome steps');
-  assert.equal(welcome[0]!.anchor, 'home-next', 'the welcome does not ring the Next card');
+  // The Next card is gone (owner-approved 2026-10-24); the welcome rings Home's control row, the widgets it opens.
+  assert.equal(welcome[0]!.anchor, 'home-tiles', 'the welcome does not ring Home\'s widgets');
   assert.match(welcome[0]!.title, /\{name\}/);
   const i = steps.indexOf(welcome[0]!);
   assert.equal(steps[i + 1]!.title, 'Start here, every time', 'the shipped step does not follow the welcome');

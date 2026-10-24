@@ -35,7 +35,6 @@ export type BlogCategoryKey =
   | 'planning'
   | 'vendors'
   | 'culture'
-  | 'real-weddings'
   | 'news';
 
 export type BlogCategory = { key: BlogCategoryKey; label: string };
@@ -43,11 +42,13 @@ export type BlogCategory = { key: BlogCategoryKey; label: string };
 // Fixed roster (0038 § 2.1). The index only renders chips for categories that
 // actually have ≥1 published article, so empty categories never show a dead
 // filter — see blogCategoriesInUse().
+// No "Real Weddings" category (removed 2026-10-23): real events are the
+// post-event editorials, and their one home is /realstories (whose one shelf
+// already shows articles; /blog and each article link back to it).
 export const BLOG_CATEGORIES: ReadonlyArray<BlogCategory> = [
   { key: 'planning', label: 'Planning' },
   { key: 'vendors', label: 'Suppliers' },
   { key: 'culture', label: 'Culture' },
-  { key: 'real-weddings', label: 'Real Weddings' },
   { key: 'news', label: 'Setnayan News' },
 ];
 

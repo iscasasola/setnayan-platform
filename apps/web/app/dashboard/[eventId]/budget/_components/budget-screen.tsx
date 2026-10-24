@@ -68,6 +68,7 @@ import type { CostCategoryOption } from '@/lib/event-costs';
 import { formatCount } from '@/lib/format-number';
 import { BudgetSummary, Peso } from './budget-summary';
 import styles from './budget-page.module.css';
+import { useRidingRow } from '@/app/_components/typing-band';
 
 /** One payment already made to a supplier — a "Paid" row in their sheet. */
 export type SupplierPayment = {
@@ -115,6 +116,7 @@ export function BudgetScreen({
   supplierExtras,
   categories,
   targetNote,
+  initialPayVendorId = null,
 }: {
   eventId: string;
   /** Writing money is the couple's alone; a delegate who may read sees the same rows without the verbs. */
@@ -135,8 +137,10 @@ export function BudgetScreen({
   categories: CostCategoryOption[];
   /** More words in the Target's ⓘ — the tradition notes, for the event types that have one. */
   targetNote?: ReactNode;
+  /** 🔗 `?pay=<line_item_id>` resolved to its supplier (`payTargetVendor`): that Pay sheet opens on arrival. */
+  initialPayVendorId?: string | null;
 }) {
-  const [sheet, setSheet] = useState<BudgetSheetState>(null);
+  const [sheet, setSheet] = useState<BudgetSheetState>(initialPayVendorId ? { kind: 'pay', vendorId: initialPayVendorId } : null);
   const [filter, setFilter] = useState<ListFilter>('all');
   const [query, setQuery] = useState('');
   const shown = useMemo(() => filterBudgetList(list, filter, query), [list, filter, query]);
@@ -146,7 +150,7 @@ export function BudgetScreen({
   const retry = () => startRetry(() => router.refresh());
   const line = filterLine(filter);
   // Once a sheet has been opened its code stays mounted, so the next open is instant.
-  const [sheetsWanted, setSheetsWanted] = useState(false);
+  const [sheetsWanted, setSheetsWanted] = useState(Boolean(initialPayVendorId));
 
   const open = (next: BudgetSheetState) => {
     setSheetsWanted(true);
@@ -184,7 +188,7 @@ export function BudgetScreen({
         </div>
       ) : null}
 
-      <div className={`${styles.list} ${styles.listRoom}`} id="budget-payments" data-budget-list="" data-tour="budget-list">
+      <div className={`${styles.list} ${styles.listRoom}`} id="budget-payments" data-budget-list="" data-tour="budget-list" data-search-results="">
         <SupplierGroup
           rows={list.suppliers}
           shown={shown.suppliers}
@@ -290,6 +294,9 @@ function ThumbRow({
 }) {
   const rowRef = useRef<HTMLDivElement>(null);
   useFitRow(rowRef);
+  /* ⌨ It rides the keyboard (owner 2026-10-24, "Applies all textbox like that"): the ONE riding row — the band
+     ("Typing · Search" + Done) stands on it; ＋ and Show fold while the field is typed into. */
+  const ride = useRidingRow(rowRef);
   const [searching, setSearching] = useState(false);
   const [text, setText] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
@@ -311,7 +318,8 @@ function ThumbRow({
   };
 
   return (
-    <div ref={rowRef} className={`${styles.page} ${styles.lower}`} data-budget-thumb="" data-tour="budget-thumb">
+    <div ref={rowRef} className={`${styles.page} ${styles.lower}`} data-budget-thumb="" data-tour="budget-thumb" {...ride.rowProps}>
+      {ride.band}
       {canEdit ? (
         // Full colour at every width — on glass it is the one solid thing. `filled`
         // rather than `main`, so on a phone with the search open it may drop its

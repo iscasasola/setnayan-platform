@@ -2,7 +2,6 @@ import Link from 'next/link';
 import { MEAL_LABELS, MEAL_PREFERENCES } from '@/lib/guests';
 import { redirect } from 'next/navigation';
 import {
-  ArrowLeft,
   Download,
   AlertTriangle,
   ChevronRight,
@@ -15,7 +14,6 @@ import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { isPlaceholderEmail } from '@/lib/anon-onboarding';
 import { CONCIERGE_ENABLED } from '@/lib/concierge';
-import { fetchUserEvents } from '@/lib/events';
 import { restartTour } from '@/lib/tour-actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { Field } from '@/app/_components/forms/field';
@@ -23,6 +21,7 @@ import { FormFlash } from '@/app/_components/forms/form-flash';
 import { FileUpload } from '@/app/_components/file-upload';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { makeT } from '@/lib/i18n';
+import { DASHBOARD_TAGALOG_READY } from '@/lib/i18n/tagalog-ready';
 import { ConfirmForm } from '@/app/_components/confirm-form';
 import { TurnstileField } from '@/app/_components/auth/turnstile-field';
 import {
@@ -40,7 +39,6 @@ import {
   requestAccountDeletion,
   updateLocalePreference,
   updatePersonalInfo,
-  updatePlannerMode,
   updatePublicProfileEnabled,
   updateDiscoverableByName,
   updateSharePhotoWithHosts,
@@ -137,7 +135,7 @@ export default async function ProfilePage({ searchParams }: Props) {
   const { data: profile, error: profileErr } = await supabase
     .from('users')
     .select(
-      'public_id, email, display_name, name_prefix, first_name, middle_name, last_name, name_suffix, phone, profile_photo_url, account_type, is_internal, is_team_member, locale, planner_mode, marketing_opt_in, birth_date, public_greeting_opt_in, religion, civil_status, sex, meal_preference, dietary_restrictions, reminders_enabled, slug, public_profile_enabled, discoverable_by_name, share_profile_photo_with_hosts, theme_preference, created_at',
+      'public_id, email, display_name, name_prefix, first_name, middle_name, last_name, name_suffix, phone, profile_photo_url, account_type, is_internal, is_team_member, locale, marketing_opt_in, birth_date, public_greeting_opt_in, religion, civil_status, sex, meal_preference, dietary_restrictions, reminders_enabled, slug, public_profile_enabled, discoverable_by_name, share_profile_photo_with_hosts, theme_preference, created_at',
     )
     .eq('user_id', user.id)
     .maybeSingle();
@@ -199,7 +197,6 @@ export default async function ProfilePage({ searchParams }: Props) {
   const formalNameOffer =
     formalNameSuggestion && formalNameFill.length > 0 ? composeFormalName(formalNameSuggestion.name) : null;
 
-  const activePlannerMode = (profile?.planner_mode ?? 'guided') as 'guided' | 'diy';
   const remindersOn = (profile?.reminders_enabled ?? true) as boolean;
 
   // Public account handle (#7a/#7b). `slug` is backfilled for every account;
@@ -232,9 +229,10 @@ export default async function ProfilePage({ searchParams }: Props) {
   const publicProfileShareTitle = profile?.display_name?.trim()
     ? `${profile.display_name.trim()} · Setnayan`
     : 'My Setnayan profile';
-  // Iteration 0025 — runtime EN/TL toggle. The DB enum also has 'ceb' but the
-  // UI exposes EN/TL only; anything else falls back to EN in the toggle.
-  const activeLocale: 'en' | 'tl' = profile?.locale === 'tl' ? 'tl' : 'en';
+  // Iteration 0025 — runtime EN/TL toggle. 🙈 HIDDEN until the whole app is translated
+  // (owner 23 Oct: Tagalog covers 59 labels on 3 screens), so everyone reads English —
+  // a saved 'tl' included. `DASHBOARD_TAGALOG_READY` turns both back on together.
+  const activeLocale: 'en' | 'tl' = DASHBOARD_TAGALOG_READY && profile?.locale === 'tl' ? 'tl' : 'en';
   const tr = makeT(activeLocale);
   /* 🍎 Restore purchases is shown only where the app sells through Apple (lib/iap/iap-gate.ts). */
   const appleIap = (await getIapGate()).iap;
@@ -358,15 +356,11 @@ export default async function ProfilePage({ searchParams }: Props) {
     faceReuseEvents = faceReuseEvents.slice(0, 50);
   }
 
-  // If the user has exactly one active event, "Back" lands on that event's
-  // home rather than the event-picker. Two+ events fall through to /dashboard.
-  const events = await fetchUserEvents(supabase, user.id, 'couple');
-  const activeEvents = events.filter((e) => !e.archived);
-  const backHref =
-    activeEvents.length === 1 && activeEvents[0]
-      ? `/dashboard/${activeEvents[0].event_id}`
-      : '/dashboard';
-  const backLabel = activeEvents.length === 1 ? 'Back to Home' : 'Back to events';
+  /* ↩ ONE BACK PER SCREEN (owner "yes", 23 Oct). The masthead's "Back to events" /
+     "Back to Home" chip is gone: the shell already carries that way back — the account
+     bar's Events tab on a phone, the rail's Events row on a desktop — so on a phone an
+     open group showed TWO backs (the chip and "‹ Settings"). The one left is the group's
+     own "‹ Settings", one level up, the shell's pattern (a focused rail's one way back). */
 
   /* ── GROUPED SETTINGS (owner-approved prototype, 2026-09-21) ───────────────
      Twelve sections on one long page became six groups — Profile · Guest
@@ -1245,18 +1239,11 @@ export default async function ProfilePage({ searchParams }: Props) {
       <div className="space-y-6">
         <div className="sn-tile divide-y divide-ink/10">
           {appearanceSwitchShown() ? <AppearanceChoice saved={profile?.theme_preference ?? null} /> : null}
-          <Segmented
-            label="Planner mode"
-            help="Guided shows the 9-step checklist on your Overview tab. DIY hides it."
-            action={updatePlannerMode}
-            name="planner_mode"
-            value={activePlannerMode}
-            options={[
-              { key: 'guided', label: 'Guided' },
-              { key: 'diy', label: 'DIY' },
-            ]}
-          />
-          {/* Iteration 0025 — runtime EN/TL toggle. */}
+          {/* 🗑 PLANNER MODE (Guided · DIY) IS GONE (owner 23 Oct). Nothing ever read
+              `users.planner_mode` — Home's checklist shows for everyone, which is what
+              "Guided" promised — so the choice changed nothing (handles-have-gates, 2026-08-17). */}
+          {/* Iteration 0025 — runtime EN/TL toggle, hidden until the app is translated. */}
+          {DASHBOARD_TAGALOG_READY ? (
           <Segmented
             label="Display language"
             help="Dashboard menus, headings and buttons. What you typed stays as you typed it."
@@ -1268,6 +1255,7 @@ export default async function ProfilePage({ searchParams }: Props) {
               { key: 'tl', label: 'Tagalog' },
             ]}
           />
+          ) : null}
         </div>
 
         <div className="sn-tile divide-y divide-ink/10">
@@ -1276,7 +1264,7 @@ export default async function ProfilePage({ searchParams }: Props) {
             on={remindersOn}
             id="planning-reminders"
             label="Planning reminders"
-            help="Nudges on your Overview tab for when to book each supplier."
+            help="Nudges on Home for when to book each supplier."
           >
             <input type="hidden" name="reminders_enabled" value={remindersOn ? 'false' : 'true'} />
           </SwitchRow>
@@ -1322,7 +1310,7 @@ export default async function ProfilePage({ searchParams }: Props) {
         <dl className="sn-tile grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Row label="Account ID" value={profile?.public_id ?? '—'} mono />
           <Row label="Account type" value={profile?.account_type ?? '—'} />
-          <Row label="Locale" value={profile?.locale ?? '—'} />
+          <Row label="Language" value={activeLocale === 'tl' ? 'Tagalog' : 'English'} />
           <Row
             label="Internal account"
             value={
@@ -1501,15 +1489,7 @@ export default async function ProfilePage({ searchParams }: Props) {
 
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
-      <PageMasthead
-        title="Profile &amp; settings"
-        actions={
-          <Link href={backHref} className="sn-chip sn-press w-fit">
-            <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-            {backLabel}
-          </Link>
-        }
-      />
+      <PageMasthead title="Profile &amp; settings" />
 
       <SettingsShell
         // Remount on every navigation to a new URL (an action's redirect), so

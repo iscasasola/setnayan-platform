@@ -14,7 +14,7 @@
  */
 import { bookingFeeScheduleSummary } from './booking-fee';
 import type { BookingFeeStanding } from './booking-fee-disclosure';
-import { FREE_BOOKING_LIMIT } from './booking-fee-lock';
+import { FIRST_BOOKING_ON_US_CLAUSE } from './booking-fee-lock';
 import { FREE_HELPER_SEATS } from './vendor-free-helper';
 import { formatCount } from './format-number';
 import { TIER_CAPS, VENDOR_TIERS, asVendorTier, type VendorTier } from './vendor-tier-caps';
@@ -119,17 +119,17 @@ export function bookingFeeRow(
       return { line: 'Setnayan launch offer · your next booking’s fee is waived', badge: due ?? { tone: 'ok', word: 'Waived' } };
     case 'promo_window':
       return { line: `${bookingFeeScheduleSummary(standing.schedule)} · waived while a Setnayan promotion runs`, badge: due ?? { tone: 'ok', word: 'Waived' } };
-    case 'free': {
-      const used = Math.max(0, Math.min(FREE_BOOKING_LIMIT, standing.ordinal - 1));
+    // ⚖ ONE FREE BOOKING (owner 2026-10-23: "Your first booking is on us. Not 5.").
+    // The badge says whether it is still to come — never a count of free ones.
+    case 'free':
       return {
-        line: `${bookingFeeScheduleSummary(standing.schedule)} · your first ${formatCount(FREE_BOOKING_LIMIT)} are free`,
-        badge: due ?? { tone: 'quiet', word: `${formatCount(used)} of ${formatCount(FREE_BOOKING_LIMIT)} used` },
+        line: `${bookingFeeScheduleSummary(standing.schedule)} · ${FIRST_BOOKING_ON_US_CLAUSE}`,
+        badge: due ?? { tone: 'quiet', word: 'First booking free' },
       };
-    }
     case 'billable':
       return {
         line: `${bookingFeeScheduleSummary(standing.schedule)} · locked until settled`,
-        badge: due ?? { tone: 'quiet', word: `${formatCount(FREE_BOOKING_LIMIT)} of ${formatCount(FREE_BOOKING_LIMIT)} used` },
+        badge: due ?? { tone: 'quiet', word: 'Free booking used' },
       };
   }
 }

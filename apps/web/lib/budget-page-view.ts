@@ -383,3 +383,21 @@ export function suggestedPayment(row: Pick<SupplierRow, 'dues' | 'owedPhp'>): {
   if (next) return { amountPhp: next.amountPhp, dueDate: next.dueDate };
   return row.owedPhp > 0 ? { amountPhp: row.owedPhp, dueDate: null } : null;
 }
+
+/**
+ * 🔗 ONE PAYMENT'S ADDRESS (owner-approved 2026-10-24, `home_control_center_2026-10-24_fable.html`: *"it opens the
+ * exact payment and not just the budget page"*). Home's Budget widget links `?part=budget&pay=<line_item_id>`; the page
+ * opens the Pay sheet of the supplier that payment belongs to — the one sheet a payment is recorded in. Resolved from
+ * the page's OWN ledger lines (`resolveEventMoney`), never a second read; a line that is not this event's, not a
+ * supplier's, already settled, or whose supplier is not listed here opens nothing (the page as it always was).
+ */
+export function payTargetVendor(
+  lines: ReadonlyArray<{ source: string; sourceRef: string; vendorId: string | null; stillOwedPhp: number }>,
+  pay: string | null | undefined,
+  listed: ReadonlyArray<{ vendorId: string }> | null,
+): string | null {
+  if (!pay) return null;
+  const line = lines.find((l) => (l.source === 'vendor_line_item' || l.source === 'vendor_change_delta') && l.sourceRef === pay);
+  if (!line?.vendorId || line.stillOwedPhp <= 0) return null;
+  return (listed ?? []).some((r) => r.vendorId === line.vendorId) ? line.vendorId : null;
+}

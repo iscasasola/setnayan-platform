@@ -148,7 +148,7 @@ test('2 · the shell form draws no door out of the shell — rendered', async ()
 
 test('2 · in the shared view, the marketplace row lives only in the front-door branch', () => {
   const src = code(join(APP, '_components', 'frontdoor', 'front-door-results.tsx'));
-  const branch = src.indexOf("place === 'shell' ?");
+  const branch = src.indexOf('{inShell ? (');
   assert.ok(branch > 0, 'the shell/front-door branch is gone — re-anchor');
   const shellSide = src.slice(branch, src.indexOf(') : (', branch));
   assert.match(shellSide, /<ShellOnward\b/, 'the shell side no longer draws ShellOnward');
@@ -166,12 +166,14 @@ test('2 · Clear on the shell results stays in the shell', () => {
   assert.equal(landsInShell(SHELL_SEARCH_PATH).ok, true);
 });
 
-test('3 · a member’s /?q= goes to the shell; a stranger’s stays on the front door', () => {
+test('3 · a member’s /?q= answers ON Discover, in the shell form; a stranger’s stays on the front door', () => {
+  // Superseded 2026-10-24 (owner: "we will show the result on the page itself. not a new screen"): `/` draws the
+  // account bar and Discover's own search row for a member now, so the words stay on it. The shell FORM still holds:
+  // the member's results on `/` are the same shell results (no door out to the marketplace) — `place="discover"`.
   const src = code(join(APP, 'page.tsx'));
-  const flat = src.replace(/\s+/g, ' ');
-  assert.ok(
-    flat.includes('if (q?.trim() && (await getCurrentUser().catch(() => null))) { redirect(shellSearchHref(q)); }'),
-    'app/page.tsx no longer sends a signed-in search to the shell',
-  );
-  assert.match(src, /<FrontDoor[^>]*\bq=\{q\}/, 'the signed-out front door lost its query');
+  assert.doesNotMatch(src, /redirect\(/, 'app/page.tsx sends a search somewhere else again');
+  assert.match(src, /<FrontDoor[^>]*\bq=\{q\}/, 'the front door lost its query');
+  const fd = code(join(APP, '_components', 'frontdoor', 'front-door.tsx'));
+  assert.match(fd, /<FrontDoorResults[\s\S]*?place="discover"/, 'a member’s results on Discover are not the shell form');
+  assert.match(fd, /<FrontDoorAccountBar \/>/, 'Discover lost the account bar the in-place results rely on');
 });

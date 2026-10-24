@@ -21,9 +21,10 @@ const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8')
 
 test('the Printed ticket batch asks for tickets only; the free QR sheet does not', () => {
   const route = read('app/api/hub-print/[piece]/route.ts');
-  assert.match(route, /if \(piece === 'passes'\) \{\s*const \{ passes, images, measured \} = await loadGuestPasses\(set, \{ width: 600, ticketsOnly: true \}\)/);
+  /* + `onlyGuests: picked` (Pick guests, owner 2026-10-25) — the picked guests are still filtered by the ticket rule first. */
+  assert.match(route, /if \(piece === 'passes'\) \{\s*const \{ passes, images, measured, refused \} = await loadGuestPasses\(set, \{ width: 600, ticketsOnly: true, onlyGuests: picked \}\)/);
   /* The sheet's thumbnail lists everyone and draws one page's codes (`drawOnly`, Studio › Prints' pages, 2026-10-14) — still never `ticketsOnly`. */
-  assert.match(route, /await loadGuestPasses\(set, \{ width: thumb \? 160 : 420, \.\.\.\(thumb \? \{ drawOnly: \{ from: \(askedPage - 1\) \* 12, count: 12 \} \} : \{\}\) \}\)/, 'the free QR sheet started dropping guests');
+  assert.match(route, /await loadGuestPasses\(set, \{ width: thumb \? 160 : 420, \.\.\.\(thumb \? \{ drawOnly: \{ from: \(askedPage - 1\) \* 12, count: 12 \} \} : \{\}\), onlyGuests: picked \}\)/, 'the free QR sheet started dropping guests');
   const loader = read('lib/print-set.server.ts');
   /* RE-AIMED 2026-10-16: the read and the rule moved into `passGuestRows` — ONE read for every guest's file, one guest's pass and the
      "Pass for ▾" list (owner: one guest's pass, free). The batch asks it, with the rule, before any QR is drawn. */

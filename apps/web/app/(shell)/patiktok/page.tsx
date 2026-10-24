@@ -99,7 +99,7 @@ const APP_LD = {
     'The moments that travel, made the moment they happen',
     'Pick your favourite beats and a reel composes itself',
     'Perfect for sharing the day with everyone, fast',
-    'Lives alongside your gallery and Event Hub',
+    'Lives alongside your Memories and Event Hub',
   ],
   areaServed: 'Philippines',
   publisher: { '@id': `${SITE_URL}/#organization` },
@@ -201,7 +201,7 @@ const SPOTLIGHTS: readonly Spotlight[] = [
   {
     chip: 'Same night',
     t: 'Share it the day it happens',
-    d: 'Download the reel and post it to your stories, the group chat, everyone who wants to relive the day. It’s saved to your event gallery too, alongside everything else from your wedding.',
+    d: 'Download the reel and post it to your stories, the group chat, everyone who wants to relive the day. It’s saved to your Memories too, alongside everything else from your wedding.',
     media: { kind: 'still', src: '/add-ons/demo/stills/patiktok-3.jpg', alt: 'Patiktok — your reel, ready to share' },
   },
   {
@@ -223,7 +223,7 @@ export default function PatiktokLandingPage() {
       steps={STEPS}
       differentiator={{ heading: 'Made to be shared', lede: 'The keepsake film is for keeping. Patiktok is for sharing — fast, vertical, and ready the same night.', rows: VS }}
       faq={FAQ}
-      closing={{ heading: 'Share the day, the day it happens', body: 'Patiktok lives inside your free Setnayan wedding — alongside your gallery, your Event Hub and your guest list. Start planning free, and add your highlight reels when you’re ready.', href: '/onboarding/wedding?from=patiktok', label: 'Start planning · free' }}
+      closing={{ heading: 'Share the day, the day it happens', body: 'Patiktok lives inside your free Setnayan wedding — alongside your Memories, your Event Hub and your guest list. Start planning free, and add your highlight reels when you’re ready.', href: '/onboarding/wedding?from=patiktok', label: 'Start planning · free' }}
       structuredData={[APP_LD, FAQ_LD]}
     >
       <SpotlightSection

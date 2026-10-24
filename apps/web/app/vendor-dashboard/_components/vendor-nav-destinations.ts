@@ -97,7 +97,7 @@
  * `vendor-bar-is-four.test.ts` holds the four, on the bar and here.
  */
 
-import { CalendarCheck, Home, ShoppingBag, Users } from 'lucide-react';
+import { CalendarCheck, ShoppingBag, Store, Users } from 'lucide-react';
 import { navIconComponent } from '@/app/_components/nav/nav-icon-component';
 import type { NavGroup, NavItem, NavBadge } from '@/app/_components/nav/types';
 import type { NavSlotLite } from '@/lib/nav-registry-types';
@@ -123,7 +123,12 @@ export const VENDOR_DESTINATIONS: readonly NavItem[] = [
     key: 'overview',
     label: 'Today',
     href: '/vendor-dashboard',
-    icon: Home,
+    // 🏪 THE SHOP'S ICON, NOT A HOUSE (owner 2026-10-24: "Shop icon not home
+    // icon on Shop's Dashboard Today"). A house is the couple's event Home; in
+    // the shop the landing wears the storefront — the same `Store` glyph the
+    // couple's menu uses for suppliers. Registry slot `vendor.sidebar.overview`
+    // says `Store` too, and the registry wins — change both or neither.
+    icon: Store,
     matchPrefix: '__overview-exact__',
   },
   {

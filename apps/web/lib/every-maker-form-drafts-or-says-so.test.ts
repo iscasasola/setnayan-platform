@@ -416,7 +416,11 @@ const NO_FORM_WRITERS: Array<[file: string, anchor: RegExp, why: string]> = [
   // for apply" / "venues wait for Apply" — held by the test below.)
   // 🚶 The march left this list on 2026-10-06 (owner: *"Wait for apply"*): its drops are
   // DRAFTED now — held by `the-march-waits-for-apply.test.ts`.
-  ['app/dashboard/[eventId]/launch/_components/details-people.tsx', /data-people-controls="parent"[^>]*>[\s{}]*<HubSavesImmediately \/>/, "a parent's card writes live and must say so"],
+  // 🪪 A guest's card opened in the Maker (a parent, a Wedding March name) writes live: it is THE guest card since
+  // 2026-10-24 (`GuestCardSheet` → `GuestCard`), and it says so itself — its header's "✓ Saved" (`CardSaveState`), the
+  // Guest list's own line, never a second "Guests see this right away" the Guest list's card does not carry.
+  ['app/dashboard/[eventId]/launch/_components/details-people.tsx', /<GuestCardSheet\b/, "a parent's card writes live and must open THE card, which says so"],
+  ['app/dashboard/[eventId]/guests/_components/guest-card-body.tsx', /<K\.SaveState copy=\{GUEST_CARD_ERROR_COPY\} \/>/, 'the guest card writes live and must say so (✓ Saved)'],
 ];
 
 test('🔳 the QR look is a DRAFT door now — no live write, no "Saves immediately" beside it', () => {

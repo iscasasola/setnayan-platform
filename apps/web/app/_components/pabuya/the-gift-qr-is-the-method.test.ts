@@ -7,7 +7,7 @@
  * couple's preview share):
  *   1. a scan-first rail (`qrPrimary`: GCash, Maya) WITH an uploaded QR draws the
  *      QR itself where the icon tile stood — sized to scan (≥ 120 px, `h-32`),
- *      a link to the full-size image — and no icon tile, no second QR;
+ *      a tap that opens it full size in place (`PabuyaQrThumb`, 2026-10-24) — and no icon tile, no second QR;
  *   2. the same rail with NO QR keeps its mark (the icon tile), no image;
  *   3. bank and PayPal keep their details and their mark; a QR they uploaded
  *      stays beside them as before;
@@ -45,7 +45,9 @@ test('1 · GCash and Maya with a QR: the QR stands where the icon was, sized to 
     const html = await card(kind, QR);
     assert.match(html, /data-egift-qr="primary"/, `${kind}: the QR is not the method`);
     assert.match(html, /data-egift-qr="primary"[^>]*class="[^"]*\bh-32 w-32\b/, `${kind}: the QR is smaller than 120 px`);
-    assert.match(html, new RegExp(`href="${QR}"[^>]*data-egift-qr="primary"`), `${kind}: the QR does not open full size`);
+    /* 2026-10-24: tap = full size IN PLACE (a button that opens the viewer), never a link off to the raw image. */
+    assert.match(html, /<button[^>]*data-egift-qr="primary"[^>]*aria-haspopup="dialog"/, `${kind}: the QR does not open full size`);
+    assert.doesNotMatch(html, new RegExp(`<a[^>]*href="${QR}"`), `${kind}: the QR is a link to the bare image again`);
     assert.doesNotMatch(html, ICON_TILE, `${kind}: the icon tile is still drawn beside the QR`);
     assert.equal(imgs(html).length, 1, `${kind}: the QR is drawn twice`);
   }

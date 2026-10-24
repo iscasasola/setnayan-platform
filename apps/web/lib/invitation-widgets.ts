@@ -259,7 +259,7 @@ export const WIDGET_CATALOG: readonly WidgetCatalogEntry[] = [
   {
     type: 'our_photos',
     label: 'Photos you add',
-    description: 'A gallery of photos you upload yourself, shown to everyone.',
+    description: 'Photos you upload yourself, shown to everyone.',
     is_always_on: false,
     editor_subroute: 'our-photos',
   },

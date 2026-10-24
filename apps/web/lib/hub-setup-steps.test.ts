@@ -262,13 +262,14 @@ test('🚪 only the guests\' names left: the Invitation opens on that step\'s ow
   assert.match(code(`${D}/launch/page.tsx`), /guestsHref: hubSetupGuestsHref\(eventId\)/);
 });
 
-test('🚪 the three doors open the SAME address, read through the SAME derivation', () => {
-  // Door 2 (Home's slim card) and door 1 (the once-offer's Start) are the one Next card's link.
-  const home = code(`${D}/_components/home-first-screen.tsx`);
-  assert.match(home, /kind: 'guide', href: `\/dashboard\/\$\{eventId\}\/launch\?tool=details&guide=1`/);
-  assert.equal((home.match(/<NextCard/g) ?? []).length, 1, 'the offer is the Next card itself — not a second door');
-  // Its Later is drawn in the card's own button row (Home redraw, 2026-10-07) — the shipped tour action.
-  assert.match(home, /next\.offer \? \([\s\S]{0,300}?completeTour\.bind\(null, HUB_SETUP_OFFER_TOUR\)/);
+test('🚪 the doors open the SAME address, read through the SAME derivation', () => {
+  // Door 2 (Home) — the Next card went (owner-approved 2026-10-24): while Today is "Finish your Event Hub", the Event
+  // Hub widget's Edit in Maker is that door, the same `?tool=details&guide=1`. (The once-offer's Start / Later went with
+  // the card; Start was always the Maker's own first-visit tour, which marks the same key seen.)
+  const faces = code(`${D}/_components/home-control-faces.ts`);
+  assert.match(faces, /const guided = \{ href: `\/dashboard\/\$\{e\}\/launch\?tool=details&guide=1` \};/);
+  assert.match(faces, /href: \(input\.next\.kind === 'guide' \? guided : maker\)\.href/);
+  assert.equal((code(`${D}/_components/home-first-screen.tsx`).match(/<NextCard/g) ?? []).length, 0, 'the Next card is back on Home');
   // Door 3 (the Maker's What's left) is what `?guide=1` opens (`parseGuideParam`).
   // Both pages derive the setup from ONE function.
   const launch = code(`${D}/launch/page.tsx`);
@@ -301,10 +302,7 @@ test('🚪 Home\'s card reads "Finish your Event Hub — n of m · Pick a stage"
   const offer = pickHomeNext({ guide: { ...base, done: 0, offer: true }, hasDate: true, guests: null, noun: 'wedding', papicReady: false, aiOffer: false });
   assert.equal(offer.action, 'Start');
   assert.equal(offer.offer, true);
-  // Later answers the offer through the SHIPPED tour action — no new server action.
-  const home = code(`${D}/_components/home-first-screen.tsx`);
-  assert.match(home, /completeTour\.bind\(null, HUB_SETUP_OFFER_TOUR\)/);
-  // Start opens What's left, whose first-visit tour marks the same key seen.
+  // Start opens What's left, whose first-visit tour marks the same key seen (Home no longer draws the offer's Later).
   assert.match(code('lib/tours.ts'), /HUB_SETUP_OFFER_TOUR: TourKey = 'customer_details_guided_v1'/);
   assert.match(code(`${D}/launch/page.tsx`), /<MiniTour tourKey="customer_details_guided_v1"/);
   assert.match(offer.body, /we won’t ask again/);

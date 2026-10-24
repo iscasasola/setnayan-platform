@@ -1,7 +1,7 @@
 {
-  "generatedFromRef": "033bfe938a",
+  "generatedFromRef": "dcbbab7107",
   "routeCount": 466,
-  "destinations": 1011,
+  "destinations": 1013,
   "actions": 666,
   "blocks": 6967,
   "routes": {
@@ -5662,7 +5662,9 @@
         "/dashboard/[seg]/studio/papic",
         "/dashboard/[seg]/studio/setnayan-ai",
         "/dashboard/[seg]/vendors",
+        "/dashboard/[seg]/vendors/[seg]/workspace?tab=quote",
         "/dashboard/[seg]/vendors?part=budget",
+        "/dashboard/[seg]/vendors?part=budget&pay=[seg]",
         "/dashboard/[seg]/vendors?tab=shortlist",
         "/dashboard/[seg]/vendors?tab=shortlist&open=[seg]",
         "/dashboard/[seg]/website/editor?open=music",

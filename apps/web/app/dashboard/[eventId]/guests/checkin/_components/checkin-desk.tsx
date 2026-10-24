@@ -422,7 +422,7 @@ export function CheckinDesk({
             <button
               type="button"
               onClick={() => void nfc.start()}
-              className="flex w-full items-center justify-center gap-2 bg-white px-4 py-3 text-sm font-semibold text-ink transition-colors hover:bg-ink/[0.03]"
+              className="flex w-full items-center justify-center gap-2 bg-white dark:bg-raised px-4 py-3 text-sm font-semibold text-ink transition-colors hover:bg-ink/[0.03]"
             >
               <Nfc className="h-5 w-5" /> Read a guest&rsquo;s tag
             </button>
@@ -532,7 +532,7 @@ export function CheckinDesk({
                   setLive(null);
                   lastHitRef.current = null;
                 }}
-                className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-white px-4 text-base font-semibold text-ink shadow-sm"
+                className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-white dark:bg-raised px-4 text-base font-semibold text-ink shadow-sm"
               >
                 {DOOR_WORDS.next}
               </button>

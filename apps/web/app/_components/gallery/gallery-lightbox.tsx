@@ -125,6 +125,7 @@ export function GalleryLightbox({
   return createPortal(
     <div
       data-photo-viewer=""
+      data-overlay-backdrop=""
       className="sn-gal-scrim fixed inset-0 z-[80] flex items-center justify-center overscroll-contain p-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))]"
       onClick={close}
     >

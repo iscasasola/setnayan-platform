@@ -22,6 +22,7 @@ import { createPortal } from 'react-dom';
 import { Hammer, Check, X, Clock } from 'lucide-react';
 import { haptic } from '@/lib/haptics';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 import { useSaveLoader } from '@/components/sd-loader';
 import { announceBuildAdded } from '@/lib/budget-build';
 import { setBuildPick, removeBuildPick } from '../build-pick-actions';
@@ -143,12 +144,10 @@ export function AccordionBuildButton({
               ref={dialogRef}
               role="dialog"
               aria-modal="true"
-              className="fixed inset-0 z-[60] flex items-end justify-center bg-ink/45 p-0 focus:outline-none tab:items-center tab:p-4"
-              onClick={(e) => {
-                if (e.target === e.currentTarget) setConfirm(false);
-              }}
+              className="fixed inset-0 z-[60] flex items-end justify-center p-0 focus:outline-none tab:items-center tab:p-4"
             >
-              <div className="w-full max-w-md rounded-t-2xl bg-cream p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-xl ring-1 ring-ink/10 tab:rounded-2xl">
+              <OverlayBackdrop onClose={() => setConfirm(false)} />
+              <div className="relative w-full max-w-md rounded-t-2xl bg-cream p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-xl ring-1 ring-ink/10 tab:rounded-2xl">
                 <div className="flex items-start justify-between gap-3">
                   <h3 className="font-display text-xl italic text-ink">Replace on your build?</h3>
                   <button

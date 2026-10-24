@@ -42,6 +42,7 @@ import {
   type StartServiceInquiryResult,
 } from '@/app/v/[slug]/inquiry-actions';
 import { lockPackage, type LockPackageResult } from '../../dashboard/[eventId]/vendors/packages/actions';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 
 /**
  * Customize-and-lock modal for a vendor package (owner directive
@@ -499,12 +500,12 @@ export function LockPackageModal({
 
       {open ? (
         <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 backdrop-blur-sm sm:items-center sm:justify-end"
-          onClick={close}
+          className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:justify-end"
         >
+          <OverlayBackdrop onClose={close} />
           <div
             ref={dialogRef}
-            className="flex max-h-[95vh] w-full flex-col overflow-hidden rounded-t-2xl bg-cream shadow-2xl focus:outline-none sm:m-4 sm:h-full sm:max-h-full sm:w-[480px] sm:rounded-2xl"
+            className="relative flex max-h-[95vh] w-full flex-col overflow-hidden rounded-t-2xl bg-cream shadow-2xl focus:outline-none sm:m-4 sm:h-full sm:max-h-full sm:w-[480px] sm:rounded-2xl"
             onClick={(e) => e.stopPropagation()}
             role="dialog"
             aria-labelledby="lock-package-title"

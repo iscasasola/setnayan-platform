@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Search, Sparkles } from 'lucide-react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 import { claimCommandKey } from '@/lib/command-key-claim';
 import { rankBySentence } from '@/lib/admin-map/rank-by-sentence';
 import { ADMIN_JOBS } from '@/lib/admin-map/admin-jobs.generated';
@@ -511,11 +512,7 @@ export function AdminCommandPalette({ rows = [] }: { rows?: readonly RowDest[] }
   let lastGroup = '';
   return (
     <>
-      <div
-        className="fixed inset-0 z-[60] bg-ink/30"
-        onClick={close}
-        aria-hidden
-      />
+      <OverlayBackdrop onClose={close} className="z-[60]" />
       <div
         ref={dialogRef}
         role="dialog"

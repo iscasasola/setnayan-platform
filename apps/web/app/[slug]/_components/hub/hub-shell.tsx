@@ -108,6 +108,7 @@ import {
 } from '../../_lib/hub-tabs';
 import { SITE_MENU_ANCHORS, type SiteMenuTabKey } from '../../_lib/site-menu';
 import { hashOpensSheet } from '../rsvp-sheet-state';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 
 export type HubPanelKey =
   | 'now'
@@ -379,9 +380,9 @@ function HubStageFrame({
       {/* More overflow sheet — anchored above the menu. */}
       {moreOpen && overflow.length > 0 ? (
         <div
-          className="fixed inset-0 z-[60] flex items-end justify-center bg-ink/40 p-3 pb-[calc(env(safe-area-inset-bottom)+5rem)] backdrop-blur-sm"
-          onClick={() => setMoreOpen(false)}
+          className="fixed inset-0 z-[60] flex items-end justify-center p-3 pb-[calc(env(safe-area-inset-bottom)+5rem)]"
         >
+          <OverlayBackdrop onClose={() => setMoreOpen(false)} />
           <div
             ref={moreSheetRef}
             id={SHEET_ID}
@@ -390,7 +391,7 @@ function HubStageFrame({
             aria-label="More event functions"
             tabIndex={-1}
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-md rounded-3xl border border-ink/10 bg-cream p-3 shadow-2xl"
+            className="relative w-full max-w-md rounded-3xl border border-ink/10 bg-cream p-3 shadow-2xl"
           >
             <div className="mb-1 flex items-center justify-between px-2 pt-1">
               <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">

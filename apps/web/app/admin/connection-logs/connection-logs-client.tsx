@@ -32,6 +32,7 @@ import { PageMasthead } from '@/app/_components/page-masthead';
 import { PillButton, PillTrack } from '@/app/_components/pill-track';
 import { createClient } from '@/lib/supabase/client';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 
 import { useSaveLoader } from '@/components/sd-loader';
 
@@ -470,13 +471,13 @@ function InspectModal({ row, onClose }: { row: FaultLogRow; onClose: () => void 
   useModalA11y({ open: true, onClose, containerRef: dialogRef });
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-[#1B1A17]/40 p-0 backdrop-blur-sm sm:items-center sm:p-6"
-      onClick={onClose}
+      className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-6"
       role="presentation"
     >
+      <OverlayBackdrop onClose={onClose} />
       <div
         ref={dialogRef}
-        className="m-card flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-t-2xl bg-white focus:outline-none sm:rounded-2xl"
+        className="m-card relative flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-t-2xl bg-white focus:outline-none sm:rounded-2xl"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"

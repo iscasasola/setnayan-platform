@@ -249,7 +249,7 @@ export default async function LiveWallConsolePage({
   const stats: Array<{ icon: React.ReactNode; label: string; value: string }> = [
     {
       icon: <ImageIcon aria-hidden className="h-4 w-4" strokeWidth={2} />,
-      label: 'on the wall',
+      label: 'on Memory lane',
       value: String(visibleCount ?? 0),
     },
     {
@@ -305,7 +305,7 @@ export default async function LiveWallConsolePage({
                 {faceblockGuests === 1 ? 'guest' : 'guests'}.
               </span>{' '}
               Every photo is projected with faces blurred; photos still waiting for
-              their blurred copy stay off the wall automatically.{' '}
+              their blurred copy stay off Memory lane automatically.{' '}
               {formatCount(bakedCount)}/{formatCount(feed?.length ?? 0)} recent tiles are blur-ready.
             </span>
           </p>
@@ -324,7 +324,7 @@ export default async function LiveWallConsolePage({
         <p className="mt-3 text-xs text-ink/50">
           Projector URL:{' '}
           <span className="font-mono text-[12px] text-ink/70">/wall/{eventId}</span> — open
-          it on any TV or projector browser and enter a screen code. The wall also
+          it on any TV or projector browser and enter a screen code. Memory lane also
           plays on your guests&rsquo; own phones unless you switch that off above.
         </p>
       </section>
@@ -334,7 +334,7 @@ export default async function LiveWallConsolePage({
           <div>
             <h2 className="text-sm font-semibold text-ink">Guest Stories (Photo Notes)</h2>
             <p className="mt-0.5 text-xs text-ink/50">
-              Flash stories (⚡, ≤50 chars) can auto-post to the wall after 5 seconds — you can
+              Flash stories (⚡, ≤50 chars) can auto-post to Memory lane after 5 seconds — you can
               kill any one from the queue. Stories (≤280 chars) always go to review first.
             </p>
           </div>

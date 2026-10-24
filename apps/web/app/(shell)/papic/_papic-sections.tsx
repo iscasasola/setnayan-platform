@@ -90,7 +90,7 @@ const SPOTLIGHTS: readonly Spotlight[] = [
   {
     chip: 'Memory lane',
     t: 'The night, on the venue screen',
-    d: 'The wall has its own web address. Open it on whatever the venue has — a TV, a projector, a laptop — type the short code once, and the night plays there as it happens. Included.',
+    d: 'Memory lane has its own web address. Open it on whatever the venue has — a TV, a projector, a laptop — type the short code once, and the night plays there as it happens. Included.',
     media: { kind: 'photo', src: '/demo/maria-jose/reception.webp', alt: 'A reception laid out under strings of lights' },
   },
   {

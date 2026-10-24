@@ -305,10 +305,15 @@ function classPairing(className, palette, mode = 'light') {
   let darkLabel = null;
   if (mode === 'dark') {
     for (const raw of tokens) {
-      const d = raw.match(/^dark:(bg|text)-([a-z0-9-]+)$/);
-      if (!d || !palette.has(d[2])) continue;
-      if (d[1] === 'bg') darkFill = { name: 'dark:bg-' + d[2], rgb: palette.get(d[2]) };
-      else darkLabel = { name: 'dark:text-' + d[2], rgb: palette.get(d[2]) };
+      // An arbitrary hex (`dark:text-[#C24E25]`) is a dark value too — read it rather than fall back to the
+      // base class it replaces (dark 3a, 2026-10-23: the QR plate's fixed letter was judged as its base).
+      const d = raw.match(/^dark:(bg|text)-(?:([a-z0-9-]+)|\[(#[0-9a-fA-F]{3,6})\])$/);
+      if (!d) continue;
+      const rgb = d[3] ? parseHex(d[3]) : palette.get(d[2]);
+      if (!rgb) continue;
+      const nm = d[3] ? `[${d[3]}]` : d[2];
+      if (d[1] === 'bg') darkFill = { name: 'dark:bg-' + nm, rgb };
+      else darkLabel = { name: 'dark:text-' + nm, rgb };
     }
   }
   for (const raw of tokens) {

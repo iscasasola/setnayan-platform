@@ -458,6 +458,32 @@ const nextConfig: NextConfig = {
         ...oneCopyPerLayoutGroups(findLayoutAnchors(path.join(__dirname, 'app'))),
       };
     }
+    // ✂ A SHORTER CHUNK HASH, ONE FILENAME SHAPE (2026-10-25, Next 15.5.28).
+    // The webpack runtime loads on EVERY page and spells out every lazy chunk's
+    // file name: 184 entries, 3,151 B of its 5,489 B gzipped. Next names chunks
+    // two ways — initial `[name]-[contenthash].js`, lazy `[name].[contenthash].js`
+    // — so webpack writes the 66 chunks that are both as a long
+    // `id===e?"static/chunks/…-<hash>.js":` chain instead of a map entry, and
+    // every hash is 16 hex (Next's hashDigestLength), which gzip cannot fold.
+    // One shape + 10 hex shrinks that map; the CI bundle check holds the result.
+    // Same bytes in every file; only names change. 10 hex = 40 bits per chunk
+    // id (~1 in 10^12 that a changed chunk reuses its old name) and still
+    // matches the service worker's content-hashed rule (`IMMUTABLE_PATH`, ≥ 8
+    // hex). Client production build only. Without it the Next 15.5.28 security
+    // bump is 507 B over the 202KB lock (`scripts/check-bundle-size.mjs`).
+    if (!isServer && !dev && config.output) {
+      const CHUNK_HASH = '[contenthash:10]';
+      const { filename, chunkFilename } = config.output;
+      if (typeof filename === 'string' && filename.startsWith('static/chunks/')) {
+        config.output.filename = filename.replace('[contenthash]', CHUNK_HASH);
+      }
+      if (typeof chunkFilename === 'string' && chunkFilename.startsWith('static/chunks/')) {
+        config.output.chunkFilename = chunkFilename.replace(
+          '[name].[contenthash]',
+          `[name]-${CHUNK_HASH}`,
+        );
+      }
+    }
     return config;
   },
   images: {

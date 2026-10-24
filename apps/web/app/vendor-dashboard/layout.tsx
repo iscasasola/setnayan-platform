@@ -26,6 +26,7 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { AppPreload } from '@/app/_components/app-preload';
 import { appPreloadPlan, hostedEventOf } from '@/lib/app-preload-sets';
 import { VendorBottomNav } from './_components/vendor-bottom-nav';
+import { BottomDock } from '@/app/_components/nav/bottom-nav';
 import { resolveVendorRole, canManageVendor } from '@/lib/vendor-role';
 import { fetchVendorRoomEvents } from '@/lib/vendor-room-access';
 import { hasDayToday, phTodayIso } from '@/lib/vendor-day-picker';
@@ -51,8 +52,9 @@ import { SERVICE_MAKER_HREF } from '@/lib/service-picker-anchor';
  * person had on their own account pages, with the shop's own five menus
  * PUSHED IN below their rows through `railContext`. It also owns the sticky
  * top bar, into which this layout hands its own cluster through `topBarSlot`.
- * Below 1024 the shell paints nothing at all and `<VendorBottomNav>` is the
- * whole navigation, exactly as before.
+ * Below 701 the shell paints nothing at all and `<VendorBottomNav>` is the
+ * whole navigation, exactly as before; from 701 the rail's 72-px strip is the
+ * menu (the couple's line, `boundary="tab"`, 2026-10-23).
  *
  * ── WHAT WENT, AND WHERE ITS JOB WENT ─────────────────────────────────────
  * `<SidebarShell>` is no longer mounted here, and from 2026-08-15 it does not
@@ -506,11 +508,16 @@ export default async function VendorDashboardLayout({
         moving between their shop and their own account no longer watches the
         furniture change. Owner 2026-08-13; `ONE_SHELL_PLAN_2026-08-13.md`.
 
-        ⚠ AT WIDTHS BELOW 1024 THIS WRAPPER PAINTS NOTHING AT ALL — the app
+        ⚠ AT WIDTHS BELOW 701 THIS WRAPPER PAINTS NOTHING AT ALL — the app
         variant is inert there by design, and the phone keeps its locked
         bottom-bar grammar. Nothing about this change reaches a phone.
       */}
       <AppRailShell
+        /* 🖥 THE SUPPLIER DASHBOARD IS THE DESKTOP SYSTEM FROM 701 (owner 2026-10-22/23, area 3 of "DESKTOP COVERS THE
+           WHOLE APP" — prototype `desktop_layouts_2026-10-22.html` family 2: "the same shell as the couple's"). The
+           couple's line, handed to the shell AND the dock below: the 72-px strip replaces the phone's bar from 701,
+           every Sheet is the 440 right panel from 701. Below 701 nothing moves. */
+        boundary="tab"
         /* FOCUS (owner 2026-09-21): inside the shop the rail is its own menu
            plus one row back to My Home. */
         focus={{ href: '/dashboard', label: 'My Home', caption: 'Home' }}
@@ -604,7 +611,7 @@ export default async function VendorDashboardLayout({
           {/* Pad the bottom on mobile so BottomNav doesn't cover the last
               row of content. The desktop offset is the rail's grid now, so
               there is no padding math left here. */}
-          <div className="pb-[calc(env(safe-area-inset-bottom)+92px)] lg:pb-0">
+          <div className="pb-[calc(env(safe-area-inset-bottom)+92px)] tab:pb-0">
             {/* Live vendor deal announcement (self-gates to null when
                 PROMO_FREE_WINDOWS_ENABLED is off or nothing is granting THIS
                 vendor right now). */}
@@ -614,16 +621,19 @@ export default async function VendorDashboardLayout({
         </main>
       </div>
       </AppRailShell>
-      {/* Mobile BottomNav — auto-hides at lg via lg:hidden inside the
-          BottomNav primitive. Sits outside the rail's content column so it
-          doesn't inherit it. */}
-      <VendorBottomNav
-        role={vendorRole}
-        navSlots={navSlots}
-        bookingsBadge={bookingsPending}
-        threadsBadge={threadsUnread}
-        eventToday={eventToday}
-      />
+      {/* Mobile BottomNav — sits outside the rail's content column so it
+          doesn't inherit it. The dock carries the shell's line (`boundary="tab"`,
+          hidden from 701) — the bar used to dock ITSELF at the default 1024,
+          which would draw the phone bar under the strip in the tablet band. */}
+      <BottomDock boundary="tab">
+        <VendorBottomNav
+          role={vendorRole}
+          navSlots={navSlots}
+          bookingsBadge={bookingsPending}
+          threadsBadge={threadsUnread}
+          eventToday={eventToday}
+        />
+      </BottomDock>
       {/* 📲 What the account has, preloaded once the page is idle — the supplier
           app, plus the host app when they also host an event (owner 2026-10-02,
           "THE PRELOAD FOLLOWS WHAT THE ACCOUNT HAS"). From the switcher data

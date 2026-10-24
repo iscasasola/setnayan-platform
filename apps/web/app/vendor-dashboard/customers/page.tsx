@@ -1263,7 +1263,10 @@ export default async function VendorCustomersHub({ searchParams }: Props) {
   return (
     <>
       <section className="min-h-full">
-        <div className="mx-auto w-full max-w-3xl space-y-4 px-4 pb-6 pt-4 sm:px-6 lg:max-w-4xl lg:px-8" data-customers-seg-open={seg}>
+        <div
+          className={`mx-auto w-full max-w-3xl space-y-4 px-4 pb-6 pt-4 sm:px-6 lg:px-8 ${seg === 'money' ? 'tab:max-w-3xl' : 'tab:max-w-5xl'}`}
+          data-customers-seg-open={seg}
+        >
           <h1 className="sr-only">Customers</h1>
           {seg === 'people' || (seg === 'dates' && search.day) ? null : <CustomersSegments seg={seg} />}
           {seg === 'people' ? (
@@ -1294,7 +1297,7 @@ export default async function VendorCustomersHub({ searchParams }: Props) {
       {seg === 'money' ? <span id="bookings" aria-hidden className="block scroll-mt-24" /> : null}
       <div id="customer-tools" className="scroll-mt-24">
         {sections.length > 0 ? (
-          <FeatureAccordion sections={sections} openKey={open}>
+          <FeatureAccordion sections={sections} openKey={open} measure={seg === 'money' ? 'reading' : 'wide'}>
             {open ? (
               <Suspense fallback={<AccordionSkeleton />}>
                 <CustomerSectionBody open={open} sp={sp} />

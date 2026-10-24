@@ -18,6 +18,8 @@ import { orderTheDay } from '@/lib/samahan-reel';
 import type { SamahanStory } from '@/lib/samahan-stories';
 import { formatCount } from '@/lib/format-number';
 import { useCameraThatComesBack } from '@/lib/use-camera-that-comes-back';
+import { useModalA11y } from '@/lib/use-modal-a11y';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 
 // Samahan Stories strip (Setlog concept, owner 2026-08-24): raw short clips,
 // one per member per hour, gone in 24 hours.
@@ -111,6 +113,8 @@ export function SamahanStories({
   const [message, setMessage] = useState<string | null>(null);
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [removing, setRemoving] = useState<string | null>(null);
+  const cameraDialogRef = useRef<HTMLDivElement>(null);
+  const playerDialogRef = useRef<HTMLDivElement>(null);
 
   // THE DAY PLAYS THROUGH. The strip is newest-first (what is new), but a day
   // is watched FORWARDS, so the film runs oldest → newest: tapping any clip
@@ -236,6 +240,10 @@ export function SamahanStories({
 
   // Stop the camera when the component unmounts with the sheet open.
   useEffect(() => closeCamera, [closeCamera]);
+
+  // The shared pop-up contract: the page behind is held still and inert, Tab stays inside, Escape closes.
+  useModalA11y({ open: cameraOpen, onClose: closeCamera, containerRef: cameraDialogRef });
+  useModalA11y({ open: playing !== null, onClose: () => setPlayingId(null), containerRef: playerDialogRef });
 
   // Re-attach the stream once the overlay's <video> has actually mounted —
   // getUserMedia can resolve before React commits the sheet, leaving
@@ -591,10 +599,12 @@ export function SamahanStories({
 
       {cameraOpen ? (
         <div
-          className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-ink/95 p-4"
+          ref={cameraDialogRef}
+          className="fixed inset-0 z-50 flex flex-col items-center justify-center p-4"
           role="dialog"
           aria-label="Record your 3 seconds"
         >
+          <OverlayBackdrop onClose={closeCamera} />
           <div className="relative w-full max-w-sm overflow-hidden rounded-2xl bg-black">
             <video
               ref={previewRef}
@@ -617,7 +627,7 @@ export function SamahanStories({
               </div>
             ) : null}
           </div>
-          <div className="mt-4 flex w-full max-w-sm items-center justify-between">
+          <div className="relative mt-4 flex w-full max-w-sm items-center justify-between">
             <button
               type="button"
               onClick={closeCamera}
@@ -649,7 +659,7 @@ export function SamahanStories({
               <RefreshCw className="h-3.5 w-3.5" aria-hidden /> Flip
             </button>
           </div>
-          <p className="mt-3 text-xs text-white/60">
+          <p className="relative mt-3 text-xs text-white/60">
             {recording
               ? `${Math.max(0, Math.ceil((RECORD_MS - recElapsed) / 1000))}s`
               : 'It records three seconds and stops by itself.'}
@@ -659,10 +669,12 @@ export function SamahanStories({
 
       {playing ? (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-ink/90 p-4"
+          ref={playerDialogRef}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
           role="dialog"
           aria-label={`${playing.author_name}’s story`}
         >
+          <OverlayBackdrop onClose={() => setPlayingId(null)} />
           <div className="relative w-full max-w-sm">
             {/* One clip at a time, each played ONCE — `loop` is what used to stop
                 the day ever reaching its end. `key` remounts the element so a

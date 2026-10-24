@@ -1,10 +1,12 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { SwitcherPanelBody, type SheetPlace } from '@/app/_components/account-switcher/account-switcher';
 import type { SwitcherData, SwitcherShop } from '@/app/_components/account-switcher/get-switcher-data';
 import { supplierAvatarRows } from '@/app/vendor-dashboard/_components/supplier-avatar-rows';
 import type { SheetUnread } from '@/lib/avatar-sheet-counts';
+import { useModalA11y } from '@/lib/use-modal-a11y';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 
 const SETNAPROD: SwitcherShop = { id: 'S89V-LAB0000001', name: 'SetnaProd', logoUrl: null, publicHref: '/v/setnaprod', owned: true };
 const BLOOM: SwitcherShop = { id: 'S89V-LAB0000002', name: 'Bloom & Vine Florals', logoUrl: null, publicHref: '/v/bloom-and-vine', owned: false };
@@ -50,6 +52,8 @@ const CASES: Record<
 
 export function SheetLab({ who, app, dark, noCount }: { who: string; app: boolean; dark: boolean; noCount: boolean }) {
   const c = CASES[who] ?? CASES.owner!;
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useModalA11y({ open: true, onClose: () => {}, containerRef: dialogRef });
   useEffect(() => {
     const html = document.documentElement;
     html.classList.toggle('dark', dark);
@@ -68,8 +72,9 @@ export function SheetLab({ who, app, dark, noCount }: { who: string; app: boolea
         </span>
       </div>
       <h1 className="px-4 pt-4 font-display text-3xl">{c.title}</h1>
-      <div aria-hidden className="fixed inset-0 z-[51] bg-ink/40 backdrop-blur-[2px]" />
+      <OverlayBackdrop onClose={() => {}} fade={false} className="z-[51]" />
       <div
+        ref={dialogRef}
         role="dialog"
         aria-label="Account switcher"
         className="sn-sheet fixed inset-x-0 bottom-0 z-[52] flex max-h-[90vh] flex-col overflow-hidden rounded-t-2xl border-t border-ink/10 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl"

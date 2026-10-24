@@ -138,7 +138,7 @@ export function PeopleLab({
   return (
     <div className="min-h-screen bg-cream" data-supplier-lab="people">
       {/* <main>: the thumb row measures it on a computer, as it measures the dashboard's own column. */}
-      <main className="mx-auto w-full max-w-3xl space-y-4 px-4 pb-6 pt-4 sm:px-6 lg:max-w-4xl lg:px-8">
+      <main className="mx-auto w-full max-w-3xl space-y-4 px-4 pb-6 pt-4 sm:px-6 lg:px-8 tab:max-w-5xl">
         <CustomersSegments seg="people" waiting={view.laneCounts.waiting} hrefOf={(s) => (s === 'people' ? base : `${base}&seg=${s}`)} />
         <div className="pb-24">
           {notice ? <SupplierToast text={notice.text} tone={notice.tone} retry={'retry' in notice} retryHref={`${base}&add=1`} /> : null}

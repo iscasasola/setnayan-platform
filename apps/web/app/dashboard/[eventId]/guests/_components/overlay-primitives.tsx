@@ -30,6 +30,7 @@ import {
 import { createPortal } from 'react-dom';
 import { menuNudge, menuRoomOf, menuWidthIn, nudgeUp, placeMenuIn } from '@/lib/menu-place';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 import { OneOpenScope, useOneOpen } from '@/lib/one-open';
 
 /** Portal target = document.body, gated on mount so SSR/first paint match. */
@@ -60,12 +61,15 @@ export function Scrim({
   z?: number;
   label?: string;
 }) {
+  /* Behind the drawer: THE shared backdrop (owner 2026-10-25 — fixed, dark and blurred, a drag moves nothing). Behind
+     a popover: a clear catcher for the outside tap, as before. */
+  if (dim) return <OverlayBackdrop onClose={onClose} label={label} style={{ zIndex: z }} />;
   return (
     <button
       type="button"
       aria-label={label}
       onClick={onClose}
-      className={`gl-scrim fixed inset-0 ${dim ? 'bg-ink/30 backdrop-blur-[1px]' : ''}`}
+      className="gl-scrim fixed inset-0"
       style={{ zIndex: z }}
     />
   );
@@ -104,7 +108,7 @@ export function Drawer({
         role="dialog"
         aria-modal="true"
         aria-labelledby={labelledById}
-        className="gl-drawer fixed inset-x-0 bottom-0 z-[80] max-h-[90vh] w-full overflow-y-auto rounded-t-2xl border border-ink/10 bg-paper p-5 pl-[max(1.25rem,var(--sn-safe-l))] pr-[max(1.25rem,var(--sn-safe-r))] pb-[max(env(safe-area-inset-bottom),1.25rem)] shadow-xl outline-none tab:inset-y-0 tab:left-auto tab:right-0 tab:max-h-none tab:w-[min(27.5rem,calc(100vw-3.5rem))] tab:rounded-none tab:rounded-l-2xl"
+        className="gl-drawer fixed inset-x-0 bottom-0 z-[80] max-h-[90vh] w-full overflow-y-auto overscroll-contain rounded-t-2xl border border-ink/10 bg-paper p-5 pl-[max(1.25rem,var(--sn-safe-l))] pr-[max(1.25rem,var(--sn-safe-r))] pb-[max(env(safe-area-inset-bottom),1.25rem)] shadow-xl outline-none tab:inset-y-0 tab:left-auto tab:right-0 tab:max-h-none tab:w-[min(27.5rem,calc(100vw-3.5rem))] tab:rounded-none tab:rounded-l-2xl"
       >
         {children}
       </div>

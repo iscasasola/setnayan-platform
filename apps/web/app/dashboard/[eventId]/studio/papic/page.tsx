@@ -646,7 +646,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
       <LifeFlashCard eventId={eventId} />
 
       <p className="px-1 text-xs text-ink/55" data-papic-memories-line="">
-        Your photos, the photo wall and the thank-you video live in Memories.
+        Your photos, Memory lane and the thank-you video live in Memories.
       </p>
 
       {/* Setup & help — folded away, as today. */}

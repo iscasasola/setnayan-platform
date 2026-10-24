@@ -218,6 +218,8 @@ import { PickMenu } from '../../website/editor/_components/pick-menu';
 import { SeatPlanPortal } from './seat-plan-slots';
 import { useOneOpen } from '@/lib/one-open';
 import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
+import { useModalA11y } from '@/lib/use-modal-a11y';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 
 // True when a thrown error is the server lock-guard's "you no longer hold the
 // editor lock" signal (SeatingLockError · code 'seating_lock_not_held'). Server
@@ -1660,6 +1662,11 @@ export function SeatingEditor({
   };
 
   const [confirmFill, setConfirmFill] = useState(false);
+  // The two centred confirms below (Auto Arrange · Fill around locked) hold the page still while open.
+  const confirmAutoRef = useRef<HTMLDivElement>(null);
+  const confirmFillRef = useRef<HTMLDivElement>(null);
+  useModalA11y({ open: confirmAuto, onClose: () => setConfirmAuto(false), containerRef: confirmAutoRef });
+  useModalA11y({ open: confirmFill, onClose: () => setConfirmFill(false), containerRef: confirmFillRef });
   // Scroll-less frame (council verdict 2026-07-15): permanent save chip + the
   // "N notices" banner-collapse state.
   const [savedAt, setSavedAt] = useState<string | null>(null);
@@ -8113,8 +8120,9 @@ export function SeatingEditor({
 
       {/* auto-arrange confirm */}
       {confirmAuto ? (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-ink/40 p-4" onClick={() => setConfirmAuto(false)}>
-          <div className="max-h-[calc(100dvh-2rem)] w-full max-w-sm overflow-y-auto rounded-2xl border border-ink/10 bg-cream p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          <OverlayBackdrop onClose={() => setConfirmAuto(false)} />
+          <div ref={confirmAutoRef} role="dialog" aria-modal="true" aria-label="Auto Arrange" className="relative max-h-[calc(100dvh-2rem)] w-full max-w-sm overflow-y-auto rounded-2xl border border-ink/10 bg-cream p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
             <div className="mb-2 flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-mulberry" />
               <h3 className="text-lg font-semibold text-ink">Auto Arrange</h3>
@@ -8179,8 +8187,9 @@ export function SeatingEditor({
       {/* Fill-around-locked confirm (smart seat-plan Phase 4) — it CLEARS unlocked
           seats and re-seats around the locked ones, so it asks first. */}
       {confirmFill ? (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-ink/40 p-4" onClick={() => setConfirmFill(false)}>
-          <div className="w-full max-w-sm rounded-2xl border border-ink/10 bg-cream p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          <OverlayBackdrop onClose={() => setConfirmFill(false)} />
+          <div ref={confirmFillRef} role="dialog" aria-modal="true" aria-label="Fill around locked seats" className="relative w-full max-w-sm rounded-2xl border border-ink/10 bg-cream p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
             <div className="mb-2 flex items-center gap-2">
               <Lock className="h-5 w-5 text-mulberry" />
               <h3 className="text-lg font-semibold text-ink">Fill around locked seats</h3>

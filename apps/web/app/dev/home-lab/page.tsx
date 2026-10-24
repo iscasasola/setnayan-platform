@@ -61,7 +61,7 @@
  */
 import { PapicCardStripView } from '@/app/dashboard/[eventId]/_components/papic-card-strip';
 import { PapicBuySheet } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-buy-sheet';
-import { PapicCameraSettings } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-camera-settings';
+import { PapicCameraSettings, PapicSwitch } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-camera-settings';
 import { papicCardPhase, papicCoverageWords } from '@/lib/papic-home-card';
 import type { PapicCardInput } from '@/app/dashboard/[eventId]/_components/home-first-screen';
 import { LabShell } from '@/app/dev/_components/lab-shell';
@@ -191,6 +191,7 @@ function labPapicCard(eventId: string, phase: string | undefined, failed: boolea
     phase: ph,
     strip: <PapicCardStripView eventId={eventId} frames={failed ? null : ph === 'before' ? [] : frames} total={failed ? null : ph === 'before' ? 0 : 1284} phase={ph} />,
     thankYouHref: '#thank-you',
+    headControl: <PapicSwitch eventId={eventId} saved />,
     settings: (
       <PapicCameraSettings
         eventId={eventId}

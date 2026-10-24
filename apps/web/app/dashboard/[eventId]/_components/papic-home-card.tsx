@@ -42,6 +42,7 @@ export function PapicHomeCard({
   settings,
   marker,
   defaultOpen = false,
+  headControl = null,
 }: {
   name: string;
   brand?: string;
@@ -64,6 +65,11 @@ export function PapicHomeCard({
   marker?: Record<string, string>;
   /** Open on arrival — the Papic page draws this same card, open (owner ruling 2026-10-24: one card, everywhere). */
   defaultOpen?: boolean;
+  /**
+   * The Papic main switch, in the card's head beside the ⌄ (owner 2026-10-24). A SIBLING of the head's button, never
+   * inside it (a switch in a button is invalid HTML), placed over the head's right edge.
+   */
+  headControl?: ReactNode;
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const regionId = useId();
@@ -86,7 +92,12 @@ export function PapicHomeCard({
 
   return (
     <div ref={root} className="col-span-full flex min-w-0 scroll-mt-20 flex-col" data-papic-home-card={open ? 'open' : 'rest'}>
-      <div className="sg-row" data-mood={mood} {...marker}>
+      <div className="sg-row relative" data-mood={mood} {...marker}>
+        {headControl ? (
+          <div className="absolute right-12 top-3.5 z-[1] [&_[data-form-row-name]]:sr-only [&_[data-form-row]]:!min-h-0 [&_[data-form-row]]:!p-0" data-papic-head-switch="">
+            {headControl}
+          </div>
+        ) : null}
         {/* THE HEAD — the card's one press: it opens the settings under the card, never another page. */}
         <button
           type="button"
@@ -100,7 +111,7 @@ export function PapicHomeCard({
             <span className="sg-mark" aria-hidden>
               {icon}
             </span>
-            <span className="min-w-0">
+            <span className={`min-w-0 ${headControl ? 'pr-16' : ''}`}>
               <span className="sg-name block truncate">{name}</span>
               {brand ? <span className="sg-brand block truncate">{brand}</span> : null}
             </span>

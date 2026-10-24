@@ -12,7 +12,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { ALLOTMENT_RPC, ALLOTMENT_STORAGE } from '@/lib/papic-guest-allotments';
 import { reviewVendorChallenge } from '@/lib/papic-games';
 import { papicGamesEnabled } from '@/lib/papic-games-flag';
-import { coupleSlots } from '@/lib/papic-missions';
+import { activationRefused, coupleSlots } from '@/lib/papic-missions';
 import { isKwentoMomentKey } from '@/lib/papic-ceremony-sequence';
 import {
   CHALLENGE_DURATION_CHOICES,
@@ -130,6 +130,25 @@ export async function reviewVendorChallengeAction(formData: FormData) {
 
 /** The couple authors their own generic Photo Challenge. source='couple',
  *  mission_type='prompt', approved=true so it goes live to guests immediately. */
+/**
+ * 🔒 How many of this event's challenges are running, NOT counting `exceptMissionId` — null when the read failed (the
+ * cap then refuses; `activationRefused`). Read as the couple (RLS), the same rows the board draws.
+ */
+async function activeChallengesBesides(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  eventId: string,
+  exceptMissionId: string | null,
+): Promise<number | null> {
+  let q = supabase.from('papic_missions').select('mission_id', { count: 'exact', head: true }).eq('event_id', eventId).eq('approved', true).eq('is_active', true);
+  if (exceptMissionId) q = q.neq('mission_id', exceptMissionId);
+  const { count, error } = await q;
+  if (error) {
+    logQueryError('activeChallengesBesides', error, { event_id: eventId }, 'graceful_degrade');
+    return null;
+  }
+  return count ?? null;
+}
+
 export async function createCoupleChallengeAction(formData: FormData) {
   const rawEventId = formData.get('event_id');
   const eventId = typeof rawEventId === 'string' ? rawEventId.trim() : '';
@@ -145,13 +164,15 @@ export async function createCoupleChallengeAction(formData: FormData) {
   }
 
   const supabase = await createClient();
+  // 🔒 It turns on only if there is room under the hard cap of 10 (owner 2026-10-24); else it is kept, switched off.
+  const room = !activationRefused(await activeChallengesBesides(supabase, eventId, null));
   await supabase.from('papic_missions').insert({
     event_id: eventId,
     mission_type: 'prompt',
     source: 'couple',
     prompt: prompt.trim().slice(0, 280),
     approved: true,
-    is_active: true,
+    is_active: room,
   });
 
   revalidatePath(`/dashboard/${eventId}/studio/papic/challenges`);
@@ -325,6 +346,10 @@ export async function addLibraryChallengeAction(formData: FormData) {
   if (chosen >= coupleSlots(vendorUsed)) {
     redirect(`${returnTo}?add=full`);
   }
+  // 🔒 …and the event-wide hard cap of 10 running challenges, whatever lane they are in (owner 2026-10-24).
+  if (activationRefused(await activeChallengesBesides(supabase, eventId, null))) {
+    redirect(`${returnTo}?add=full`);
+  }
 
   await supabase.from('papic_missions').insert({
     event_id: eventId,
@@ -367,6 +392,10 @@ export async function setCoupleChallengeActiveAction(formData: FormData) {
   }
 
   const supabase = await createClient();
+  // 🔒 Turning one ON asks the hard cap first (owner 2026-10-24) — an 11th running challenge is refused.
+  if (active === 'true' && activationRefused(await activeChallengesBesides(supabase, eventId, missionId))) {
+    redirect(`${challengeReturnPath(eventId, formData.get('return_to'))}?add=full`);
+  }
   await supabase
     .from('papic_missions')
     .update({ is_active: active === 'true' })
@@ -493,7 +522,8 @@ export async function setChallengesPausedAction(formData: FormData) {
   if (!eventId) {
     redirect('/dashboard');
   }
-  const returnTo = `/dashboard/${eventId}/studio/papic/run-of-show`;
+  // 🏠 The Papic card's Challenges switch (owner 2026-10-24) saves back to Home; the run of show keeps its own page.
+  const returnTo = formData.get('return_to') === 'home' ? `/dashboard/${eventId}` : `/dashboard/${eventId}/studio/papic/run-of-show`;
   if (!papicGamesEnabled()) {
     redirect(returnTo);
   }

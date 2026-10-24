@@ -68,7 +68,7 @@ export default function StylePicker({
                     </span>
                   ) : null}
                 </span>
-                <span className={`mt-1 block truncate text-[12px] ${isActive ? 'font-semibold text-mulberry' : 'text-ink/65'}`}>{s.label}</span>
+                <span className={`mt-1 block truncate text-[12px] ${isActive ? 'font-semibold text-mulberry' : 'text-ink/65'}`}>{s.label === 'Orig' ? 'Original' : s.label}</span>
               </button>
             </form>
           );

@@ -57,7 +57,7 @@ import { StudioBuyHero } from '@/app/dashboard/[eventId]/studio/_components/stud
 import { addOnHeroCopy } from '@/lib/add-ons-catalog';
 import { LifeFlashCard } from './_components/life-flash-card';
 import { type DriveGrant } from './_components/drive-copy-card';
-import { PapicCameraSettings } from './_components/papic-camera-settings';
+import { PapicCameraSettings, PapicSwitch } from './_components/papic-camera-settings';
 
 // Iteration 0012 — Papic studio (couple setup surface).
 //
@@ -636,6 +636,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
         actions={papicBuy(false)}
         settings={<PapicCameraSettings eventId={eventId} credits={{ total: papicBand.total, left: papicBand.count }} buy={papicBuy(true, papicPoolError ?? null)} />}
         marker={{ 'data-papic-page-card': '' }}
+        headControl={<PapicSwitch eventId={eventId} saved={papicIsOn((ev as { papic_on?: unknown }).papic_on)} />}
         defaultOpen
       />
 

@@ -59,3 +59,9 @@ export function papicSpanWords(startIso: string | null, endIso: string | null): 
   if (!Number.isFinite(s) || !Number.isFinite(e)) return null;
   return `${day(new Date(s))} → ${close(e)}`;
 }
+
+/** One day as the controller says it — "Sat, Dec 12" (the venue's clock); null if unread. */
+export function papicDayWords(iso: string | null): string | null {
+  const t = iso ? Date.parse(iso) : NaN;
+  return Number.isFinite(t) ? day(new Date(t)) : null;
+}

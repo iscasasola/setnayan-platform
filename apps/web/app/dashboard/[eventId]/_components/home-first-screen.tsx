@@ -35,6 +35,8 @@ export type PapicCardInput = {
   strip: ReactNode;
   thankYouHref: string | null;
   settings: ReactNode;
+  /** The Papic main switch, in the card's head beside the ⌄ (owner 2026-10-24). */
+  headControl?: ReactNode;
 };
 
 /**
@@ -571,6 +573,7 @@ function PapicServiceRow({
         actions={acts}
         thankYouHref={card.thankYouHref}
         settings={card.settings}
+        headControl={card.headControl ?? null}
         marker={{ 'data-home-service': 'papic' }}
       />
     );

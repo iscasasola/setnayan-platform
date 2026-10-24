@@ -1701,7 +1701,7 @@ async function invitationBody({
       ? await hostOwnGuestRowFor(admin, event.event_id, viewerAccount.id)
       : null;
   /* 🗳 The host's OWN reply (owner bug 2026-10-24): the host's Reply card reads it and opens the reply page as them
-     (`readReplyIdentityForEvent`) — never the Maker's sample. Null: no live row of their own here, so no card. */
+     (`readReplyIdentityForEvent`) — never the Maker's sample. Null: no live row of their own here — the card stays, and the reply page tells them so. */
   const hostOwnRsvp = hostOwnGuestId ? await hostOwnRsvpFor(admin, event.event_id, hostOwnGuestId) : null;
   const siteProps = {
     // 🪪 Drawn under the host's / a signed-in stranger's cover (the guest tree draws it in Me, below).

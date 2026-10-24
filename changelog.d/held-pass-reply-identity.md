@@ -9,7 +9,7 @@
   - else the guest's own seat;
   - else a signed-in account's OWN guest row, under any membership. This is the host's own row, which the guest-only seat lookup never found.
 - **When there is no one to reply as**, the page says so (`NoReplyHere`). That covers an account with no row of its own, or one bound to more than one row. It never draws a sample, and it never draws somebody else.
-- **The host card** now opens the plain reply page and shows the host's real answer, e.g. "You're coming · 1 seat · Change my reply". A host with no row of their own gets no card.
+- **The host card** now opens the plain reply page and shows the host's real answer, e.g. "You're coming · 1 seat · Change my reply". A host with no row of their own keeps the card (the cover always has a way on), and the reply page tells them they are not on the list.
 - **Unchanged:**
   - A set-aside pass is never used to answer.
   - A host who pressed "Open as …" replies as that guest, which is exactly what the Hub says it is showing.

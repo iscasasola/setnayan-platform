@@ -20,7 +20,7 @@ async function main() {
     guest: await renderSiteBodyFixture({ guestStages: true, widgets }),
     host: await renderSiteBodyFixture({ identity: fixtureStranger(), widgets, heroPhotoUrl: 'https://cdn.test/fixture-hero.jpg', ownerCapability: host as never,
       /* 🗳 The host's OWN guest row, not yet answered (owner bug 2026-10-24): the host's Reply card is theirs — it reads
-         their row and opens the plain reply page, never the Maker's sample. A host with no row gets no card. */
+         their row and opens the plain reply page, never the Maker’s sample. */
       hostOwnGuestId: '00000000-0000-4000-8000-00000000a002', hostOwnRsvp: 'pending' }),
   };
   const fromTsx = createRequire(createRequire(join(WEB, '..', '..', 'package.json')).resolve('tsx/package.json'));

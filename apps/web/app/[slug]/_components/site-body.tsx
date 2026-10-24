@@ -550,7 +550,7 @@ type SiteBodyProps = {
    *  "You" in the entourage (owner ruling 2026-10-19 (a)). Null for everyone else, and never on the canvas. */
   hostOwnGuestId?: string | null;
   /** 🗳 The HOST's own row's reply status ('pending' · 'attending' · 'declined' …) — the host's Reply card reads it and
-   *  opens the reply page AS that row (owner bug 2026-10-24). Null: the host has no live row here — no card. */
+   *  opens the reply page AS that row (owner bug 2026-10-24). Null: the host has no live row here — the card asks, and the reply page tells them they are not on the list. */
   hostOwnRsvp?: RsvpStatus | null;
   /** A booked supplier's server-verified grant; drives the doorway strip. */
   /** Stories about THIS day, for the people of this day. Empty for anybody the
@@ -2115,13 +2115,15 @@ export async function SiteBody({
        greeted "Gabriel dela Peña" — the sample is named after a real guest — and asked the host to answer HIS RSVP.
        The card now opens the plain reply page, which replies as the host's OWN row (`readReplyIdentityForEvent`), and
        reads that row's real answer ("You're coming · 1 seat · Change my reply" for a groom already attending). A host
-       with no row of their own gets no card. 🛡 `the-reply-is-sent-as-who-the-hub-says.test.ts`. */
+       with no row of their own keeps the card (the cover always has a way on — `the-cover-always-has-a-way-on`), and
+       the reply page TELLS them they are not on the list (`NoReplyHere`) — never a sample.
+       🛡 `the-reply-is-sent-as-who-the-hub-says.test.ts`. */
     const hostReplyCard =
-      viewerIsHost && hostOwnGuestId !== null && hostOwnRsvp !== null && pageStage === 'rsvp' && plan.rsvpShouldRender && !isEditorCanvas
+      viewerIsHost && pageStage === 'rsvp' && plan.rsvpShouldRender && !isEditorCanvas
         ? replyCardOf({
             action: resolveArrivalAction({
               slug: event.slug ?? '',
-              rsvpStatus: hostOwnRsvp,
+              rsvpStatus: hostOwnRsvp ?? 'pending',
               eventDate: event.event_date,
               today: manilaToday(),
               hasPass: false,

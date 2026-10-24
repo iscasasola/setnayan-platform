@@ -333,11 +333,11 @@ export function EventMemoriesGallery({
       <div
         ref={gridRef}
         data-memories-grid=""
-        // 📌 Where a search's results draw (or its "Nothing here matches") — pinned under the chrome (lib/search-pin.ts).
-        data-search-results=""
         data-tour="memories-grid"
         className="-mx-4 touch-pan-y sm:-mx-6 lg:-mx-8"
         style={{ ['--mem-cols' as string]: String(cols) }}
+        // 📌 Where a search's results draw (or "Nothing here matches") — pinned under the chrome (lib/search-pin.ts).
+        data-search-results=""
       >
         {body}
       </div>

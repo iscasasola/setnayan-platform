@@ -157,7 +157,7 @@ test('the drawn row names its guest and wears their side', async () => {
 
   // A search opens every section, so every row is drawn.
   const html = await renderGuestsScreen({ guests: ROSTER, initialQuery: 'Sacdalan' });
-  const rows = [...html.matchAll(/<div class="([^"]*)" data-guest-row="" data-guest-id="([^"]+)"( data-plus-one-of="([^"]+)")?>([\s\S]*?)(?=<div class="[^"]*" data-guest-row=""|<\/section>)/g)].map(
+  const rows = [...html.matchAll(/<div class="([^"]*)" data-guest-row="" data-guest-id="([^"]+)"( data-plus-one-of="([^"]+)")?(?: data-search-result="")?>([\s\S]*?)(?=<div class="[^"]*" data-guest-row=""|<\/section>)/g)].map(
     (m) => ({ cls: m[1]!, id: m[2]!, of: m[4] ?? null, body: m[5]! }),
   );
   assert.deepEqual(rows.map((r) => r.id), ['juanita', 'juanita-tba', 'juanita-pedro'], 'Juanita, then her two +1s, in seat order');

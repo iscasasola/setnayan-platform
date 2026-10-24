@@ -156,11 +156,11 @@ test('3 · one mechanism: the riding row pins on every input, ThumbRow hands it 
   assert.equal((row.match(/onInput=\{onFieldInput\}/g) ?? []).length, 2, 'both field seats (input and node) must pin');
   // Every bottom search surface marks where its results draw — or its add when nothing matches.
   const MARKS: Array<[string, RegExp]> = [
-    ['app/dashboard/[eventId]/guests/_components/guests-screen.tsx', /data-guest-row=""\s+data-search-result=""/],
+    ['app/dashboard/[eventId]/guests/_components/guests-screen.tsx', /data-plus-one-of=\{plusWords\?\.hostId\}\s+data-search-result=""/],
     ['app/dashboard/[eventId]/guests/_components/guests-screen.tsx', /data-fit-acts="" data-search-none=""/],
     ['app/dashboard/[eventId]/vendors/_components/shortlist-categories.tsx', /data-search-result=\{searching \? '' : undefined\}/],
     ['components/search-add-row.tsx', /data-search-add=""/],
-    ['app/_components/memories/event-memories-gallery.tsx', /data-memories-grid=""\s+data-search-results=""/],
+    ['app/_components/memories/event-memories-gallery.tsx', /data-memories-grid=""[\s\S]{0,400}?data-search-results=""/],
     ['app/dashboard/(account)/people/_components/people-roster-view.tsx', /data-people-search="" data-search-results=""/],
     ['app/_components/frontdoor/front-door.tsx', /data-discover-results="" data-search-results=""/],
     ['app/dashboard/[eventId]/budget/_components/budget-screen.tsx', /data-budget-list=""[^>]*data-search-results=""/],

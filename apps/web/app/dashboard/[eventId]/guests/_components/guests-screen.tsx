@@ -1431,10 +1431,10 @@ function GuestRowLine({
     <div
       className={`${styles.g} ${picked ? styles.picked : ''} ${g.plus_one_of_guest_id ? styles.plus : ''} ${joined ? styles.joined : ''}`}
       data-guest-row=""
-      // 📌 A result: a search pins the first one under the chrome (lib/search-pin.ts).
-      data-search-result=""
       data-guest-id={g.guest_id}
       data-plus-one-of={plusWords?.hostId}
+      // 📌 A result: a search pins the first one under the chrome (lib/search-pin.ts).
+      data-search-result=""
     >
       <button
         type="button"

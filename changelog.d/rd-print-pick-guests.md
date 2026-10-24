@@ -8,3 +8,9 @@ Owner 2026-10-25, on the guest pass / QR print: *"instead of just making me sele
 - Tests: `lib/print-pick-guests.test.ts` (the rule executed; the QR route called with the real loader — picked only, foreign refused, no list = all; the passes route hands the pick to the loader and refuses). Guard regex in `printed-tickets-drop-who-cannot-come.test.ts` follows the new `onlyGuests: picked` argument.
 
 SPEC IMPACT: None — an addition under the 2026-10-22 "free is ready" print rules; no gate or price changes.
+
+## 2026-10-25 · fix(prints): the event pass names both venues
+
+Owner 2026-10-25: *"there are 2 venues. why did I only see 1 venue on the event card?"* — the pass card's date / time / venue lines read `ceremonyVenue` only. `passMetaLines` (`lib/print-layout.ts`): two different venues → "Ceremony · <time> · <place>" and "Reception · <time> · <place>", each wrapped by word (never a word cut); one venue prints as before. The QR sheet prints no venue. Role ▾ in Pick guests now speaks the couple's role words (`guestRoleLabel`). Test: `lib/the-pass-names-both-venues.test.ts`.
+
+SPEC IMPACT: None.

@@ -33,7 +33,7 @@ import { printPreviewVersion } from '@/lib/print-preview-cache';
 import { blocksWithDraftedCeremony } from '@/lib/ceremony-time';
 import { overlayHubDraftEvent, type HubDraftEvents } from '@/lib/hub-draft';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { GROUP_CATEGORY_LABELS, ROLE_LABELS, SIDE_LABELS, type GuestGroupCategory, type GuestRole, type GuestSide } from '@/lib/guests';
+import { GROUP_CATEGORY_LABELS, SIDE_LABELS, guestRoleLabel, type GuestGroupCategory, type GuestRole, type GuestSide } from '@/lib/guests';
 import { pickGuestRows } from '@/lib/print-picked-guests';
 import type { RoleNames } from '@/lib/role-names';
 import { readRoleNames } from '@/lib/role-names.server';
@@ -895,12 +895,27 @@ export function passGuestReply(row: { rsvp_status?: string | null; plus_one_of_g
  * (coordinator 2026-10-16 — the 2026-09-29 rule stands: a pass for everyone who has not declined). `null` when the list could not be
  * read: never an empty list that would say nobody is coming.
  */
+/** A guest's role in the couple's words, else the usual word (`guestRoleLabel`); null when none. */
+function roleWord(role: string | null, names: RoleNames): string | null {
+  return role ? guestRoleLabel(role as GuestRole, names) || null : null;
+}
+
 export async function loadPassGuestNames(
   eventId: string,
   /** The event's `print_details` (its Name style) — awaited beside the guests, so the caller's own event read is not waited on. */
   printDetails: PromiseLike<unknown>,
 ): Promise<Array<{ id: string; name: string; reply: PassGuestReply; side: string | null; group: string | null; role: string | null }> | null> {
-  const [read, details] = await Promise.all([passGuestRows(eventId, true), printDetails]);
+  const [read, details, roleNames] = await Promise.all([
+    passGuestRows(eventId, true),
+    printDetails,
+    // Role ▾ speaks the couple's words for roles (`events.role_names`, "Bride's Crew") — the usual word the fallback.
+    createAdminClient()
+      .from('events')
+      .select('role_names')
+      .eq('event_id', eventId)
+      .maybeSingle()
+      .then(({ data }) => readRoleNames((data as { role_names?: unknown } | null)?.role_names ?? null)),
+  ]);
   if (!read.measured) return null;
   const style = nameStyleOfPrintDetails(details);
   const byId = new Map(read.rows.map((g) => [g.guest_id, g]));
@@ -912,7 +927,7 @@ export async function loadPassGuestNames(
     side: g.side ? (SIDE_LABELS[g.side] ?? null) : null,
     group: g.group_category ? (GROUP_CATEGORY_LABELS[g.group_category] ?? null) : null,
     // …and Role ▾ (owner 2026-10-25, "side group and role for pick guests?") — the shipped role words (`ROLE_LABELS`).
-    role: (g as { role?: string | null }).role ? (ROLE_LABELS[(g as { role?: string | null }).role as GuestRole] ?? null) : null,
+    role: roleWord((g as { role?: string | null }).role ?? null, roleNames),
   }));
 }
 

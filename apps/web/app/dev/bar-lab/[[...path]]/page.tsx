@@ -43,6 +43,8 @@ import { notFound } from 'next/navigation';
 import '@/app/_components/frontdoor/front-door.css';
 import { FrontDoorShell } from '@/app/_components/frontdoor/front-door-shell';
 import { LabBar } from '../lab-bar';
+import { EventRailContext } from '@/app/dashboard/[eventId]/_components/event-rail-context';
+import { VendorRailContext } from '@/app/vendor-dashboard/_components/vendor-rail-context';
 import { labEventBar } from '../lab-event';
 import { EventMemoriesGallery } from '@/app/_components/memories/event-memories-gallery';
 import type { GalleryPhoto } from '@/lib/papic-gallery';
@@ -230,7 +232,26 @@ export default async function BarLab({
   return (
     <>
       <div className="sn-ambient min-h-screen">
-        <FrontDoorShell variant="app" account={ACCOUNT} navLabels={{}}>
+        {/* ↔ The rail SWAPS here as it does in the shop and event layouts (`focus` + the section's own rows,
+            owner 2026-09-21) — so a desktop walk sees the side menu change set and slide (owner 23 Oct, Q1). */}
+        <FrontDoorShell
+          variant="app"
+          account={ACCOUNT}
+          navLabels={{}}
+          boundary={event ? 'tab' : 'lg'}
+          focus={
+            event
+              ? { href: `${P}/dashboard`, label: 'Events', caption: 'Events', icon: 'events' }
+              : { href: `${P}/dashboard`, label: 'My Home', caption: 'Home' }
+          }
+          railContext={
+            event ? (
+              <EventRailContext eventId={EVENT} guestCount={32} services={[]} websiteEnabled eventName="Ana & Miguel" />
+            ) : (
+              <VendorRailContext shopName="Lab Florals" role="owner" navSlots={{}} bookingsBadge={2} threadsBadge={1} planHref={null} tier={null} />
+            )
+          }
+        >
           <div className="sn-ambient min-h-screen">
             <main className="sn-vt-page">
               <div className="pb-[calc(env(safe-area-inset-bottom)+92px)] lg:pb-0">

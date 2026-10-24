@@ -2949,6 +2949,48 @@ html[data-sn-bar-dir='back']::view-transition-old(sn-bottomnav) {
 html[data-sn-bar-dir='back']::view-transition-new(sn-bottomnav) {
   animation-name: sn-vt-in-left;
 }
+/*
+ * ↔ ON A WIDE SCREEN THE SIDE MENU IS THE BAR, AND IT SLIDES BY THE SAME RULE (owner 23 Oct 2026, DECISION_LOG "OWNER
+ * ANSWERS ON THE BUILD TRACKER" — Q1 of `prototypes/desktop_layouts_2026-10-22.html`: *"inside an event/shop the side
+ * menu swaps with a slide (one rule with the bottom bar)"*). The swap shipped 2026-09-21 (`rail-focus.ts`); this is its
+ * motion. While `data-sn-bar-dir` is set the rail takes a name of its own, `sn-rail`, and its old rows leave and the
+ * new set's arrive exactly as the dock's do above — the same keyframes, the same 280 ms, the same easing, clipped to the
+ * rail's own box, so the cream column stays and its rows move through it. The page slides with it (the rules above,
+ * which never asked the width) and the top bar holds still in `root`.
+ *   · ONE selector, no width test: a shut rail (`display: none`, every phone) is never captured, and the phone's OPEN
+ *     drawer is excluded by its own `data-open` — so below the boundary nothing changes, by construction.
+ *   · named for the length of the slide only — a named element is a containing block for `position: fixed`
+ *     descendants, and nothing in the rail should be one for longer than 280 ms.
+ * Held by `lib/bar-set.test.ts` (direction, timing, the phone exclusion) and `the-bar-outlives-the-slide.test.ts`
+ * (one selector per name).
+ */
+html[data-sn-bar-dir] .fd-rail:not([data-open='true']):not([data-open='closing']) {
+  view-transition-name: sn-rail;
+}
+html[data-sn-bar-dir]::view-transition-group(sn-rail) {
+  overflow: clip;
+  animation: none;
+}
+html[data-sn-bar-dir]::view-transition-old(sn-rail),
+html[data-sn-bar-dir]::view-transition-new(sn-rail) {
+  inset-block: 0 auto;
+  mix-blend-mode: normal;
+  animation-duration: 280ms;
+  animation-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1);
+  animation-fill-mode: both;
+}
+html[data-sn-bar-dir='fwd']::view-transition-old(sn-rail) {
+  animation-name: sn-vt-out-left;
+}
+html[data-sn-bar-dir='fwd']::view-transition-new(sn-rail) {
+  animation-name: sn-vt-in-right;
+}
+html[data-sn-bar-dir='back']::view-transition-old(sn-rail) {
+  animation-name: sn-vt-out-right;
+}
+html[data-sn-bar-dir='back']::view-transition-new(sn-rail) {
+  animation-name: sn-vt-in-left;
+}
 /* Reduced motion: the listener never starts a slide (`barSlideFor`), and should any transition run anyway, nothing in
    it moves — an instant swap. */
 @media (prefers-reduced-motion: reduce) {

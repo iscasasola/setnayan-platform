@@ -1,7 +1,6 @@
 'use client';
 
 import { useActionState, useEffect, useMemo, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { Check, Images, Wallet } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { InfoTip } from '@/app/_components/info-tip';
@@ -161,7 +160,6 @@ function PortfolioForm({
   labPicked?: string[];
   toast: ReturnType<typeof useToast>;
 }) {
-  const router = useRouter();
   const [state, formAction] = useActionState(updateVendorProfileField, null);
   const initial = useMemo(() => [...storedRefs, ...(labPicked ?? [])], [storedRefs, labPicked]);
   const [refs, setRefs] = useState<string[]>(initial);
@@ -174,12 +172,11 @@ function PortfolioForm({
       const p = state.portfolio;
       toast.success(p ? portfolioSavedText(p.added, p.charged, p.balance) : 'Portfolio saved.');
       setShort(null);
-      router.refresh();
     } else {
       toast.error(state.error);
       setShort(state.walletShort ? state.error : null);
     }
-  }, [state, toast, router]);
+  }, [state, toast]);
 
   const quote = portfolioQuote(storedRefs, refs, free);
   const counter = portfolioCounter(quote, free);
@@ -220,7 +217,7 @@ function PortfolioForm({
       {walletBalance == null ? (
         <p className="mt-2 text-xs" style={{ color: 'var(--m-slate-3)' }} role="status" data-portfolio-wallet="unread">
           Your shop wallet couldn&rsquo;t be read, so only free photos can be saved right now.{' '}
-          <button type="button" onClick={() => router.refresh()} className="underline" style={{ color: 'var(--m-ink)' }}>
+          <button type="button" onClick={() => window.location.reload()} className="underline" style={{ color: 'var(--m-ink)' }}>
             Retry
           </button>
         </p>

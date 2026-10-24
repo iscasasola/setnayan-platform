@@ -492,6 +492,10 @@ test('(5) it is tooling: no file of the app imports the fixture, the helper or t
     'lib/the-reply-panel-is-the-reply-page.test.ts',
     /* …and (2026-10-24, the Me redraw) Me is the one place: Me's order, the one Reply, read off the real page. A test. */
     'lib/me-is-the-one-place.test.ts',
+    /* …and (2026-10-24) Me offers "Keep this invitation" first: its slot under the greeting, read off the real page. A test. */
+    'lib/me-offers-save-first.test.ts',
+    /* …and (2026-10-24, cale-ice › Details) no Event Details card on any page: every stage, reader and style. A test. */
+    'lib/the-details-tab-repeats-nothing.test.ts',
   ]);
   const walk = (dir: string): string[] =>
     readdirSync(join(WEB, dir)).flatMap((name) => {

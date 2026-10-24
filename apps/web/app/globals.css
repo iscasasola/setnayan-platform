@@ -2680,6 +2680,26 @@ html.dark[data-sn-boot] #sn-init-splash {
 }
 
 /*
+ * ↔ ONE SLIDE ON EVERY DASHBOARD — THE ACCOUNT'S CONTENT IS NAMED ONLY WHILE IT SLIDES (owner 2026-10-24: *"The
+ * transition animation between menus found in event dashboard does not apply to the user and shop dashboard."*).
+ *
+ * The account trees (`(launcher)` and `(account)` layouts' `<main>`, Discover's `[data-fd-page]`) carry `.sn-vt-page`
+ * like the event and shop trees, so the SAME listener, keyframes and 320 ms move them. Until today they carried no name
+ * at all, so `NavSlideController` started a transition that animated nothing and the page simply swapped.
+ *
+ * 🔑 `data-sn-slide="while-sliding"` keeps their REST exactly as it was: a `view-transition-name` makes an element a
+ * stacking context AND a containing block for its `position: fixed` descendants (the trap `lib/live-studio-control.ts`
+ * and `panood/program/program-surface.tsx` record), and the account pages have never lived with either. So the name is
+ * off unless a slide is running — `NavSlideController` and `BarSetSlide` both set `html[data-sn-nav-dir]` before they
+ * start the transition and clear it after, the window the guests-glass rule above already relies on. During a SET
+ * change (`data-sn-bar-dir`, below) the same elements take `sn-acct-page` instead, as they did before.
+ * Held by `app/_components/nav/one-tab-slide-everywhere.test.ts`.
+ */
+html:not([data-sn-nav-dir]) .sn-vt-page[data-sn-slide='while-sliding'] {
+  view-transition-name: none;
+}
+
+/*
  * 🪟 A GLASS ROW INSIDE THE NAMED PAGE ONLY BLURS WHEN THE NAME IS OFF (owner 2026-10-09, the live guest list: *"the glass
  * row has a transparent background"* — the guest rows read straight through the band).
  *
@@ -2876,14 +2896,15 @@ html[data-sn-nav-dir='back']::view-transition-new(sn-page) {
  *     same frosted paper, so what reads is the bar staying and its icons moving through it. Bottom-anchored, so a dock
  *     whose height differs never draws its old icons halfway up.
  *   · the PAGE slides with it — the event and shop trees' `.sn-vt-page` already carries `sn-page`; the account trees'
- *     content (`.fd-col > main` in the launcher and account layouts, `[data-fd-page]` on Discover) takes a name of its
- *     OWN, `sn-acct-page`, for the length of the slide only — so a tab press inside the account bar is exactly what it
- *     was (no page slide), and no two selectors ever declare one name (`the-bar-outlives-the-slide.test.ts`). The two
+ *     content (`.sn-vt-page[data-sn-slide='while-sliding']` — the launcher and account layouts' `<main>`, Discover's
+ *     `[data-fd-page]`) takes a name of its OWN, `sn-acct-page`, for the length of the set slide — a tab press inside
+ *     the account bar slides it as `sn-page` (2026-10-24, above), and no two selectors ever declare one name
+ *     (`the-bar-outlives-the-slide.test.ts`). The two
  *     page groups never pair: the page leaving is old-only, the page arriving new-only, each with its own keyframes.
  *   · the top bar stays in the frozen `root` snapshot above — it holds still.
  * Without the attribute none of this applies, and the dock is frozen as the 2026-09-22 rules above say.
  */
-html[data-sn-bar-dir] :is(.fd-col > main:not(.sn-vt-page), [data-fd-page]) {
+html[data-sn-bar-dir] .sn-vt-page[data-sn-slide='while-sliding'] {
   view-transition-name: sn-acct-page;
 }
 html[data-sn-bar-dir]::view-transition-group(sn-bottomnav) {
@@ -3481,6 +3502,10 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
   --sn-dock-press: rgba(255, 255, 255, 0.95); /* the white press-light bloom */
   --sn-sh-float: 0 1px 2px rgba(40,34,24,.07), 0 10px 24px -12px rgba(30,26,18,.30),
                  0 30px 60px -30px rgba(30,26,18,.28);
+  /* The same float, cast UP — for a layer that rises from the screen's foot (the typing band on the keyboard), whose
+     downward shadow would fall under the keyboard. Same numbers, y mirrored; owner 2026-10-24 "a soft shadow above it". */
+  --sn-sh-rise: 0 -1px 2px rgba(40,34,24,.07), 0 -10px 24px -12px rgba(30,26,18,.30),
+                0 -30px 60px -30px rgba(30,26,18,.28);
   --sn-sh-panel: -2px 0 8px -4px rgba(30,26,18,.12), -30px 0 70px -30px rgba(30,26,18,.45);
 
   /* The floating row's glass (`.sn-glass-row` — BUTTON_RULE_2026-10-07 Rule 7):
@@ -3540,6 +3565,8 @@ html.dark {
   --sn-sh-hi:   0 1px 2px rgba(0,0,0,.35), 0 28px 54px -30px rgba(0,0,0,.8);
   --sn-sh-float: 0 1px 2px rgba(0,0,0,.35), 0 10px 24px -12px rgba(0,0,0,.6),
                  0 30px 60px -30px rgba(0,0,0,.55);
+  --sn-sh-rise: 0 -1px 2px rgba(0,0,0,.35), 0 -10px 24px -12px rgba(0,0,0,.6),
+                0 -30px 60px -30px rgba(0,0,0,.55);
   --sn-sh-panel: -2px 0 8px -4px rgba(0,0,0,.4), -30px 0 70px -30px rgba(0,0,0,.7);
 
   --sn-canvas: #17160F;
@@ -6651,6 +6678,12 @@ html.dark .sn-popup-dark {
   .sn-inspector-peek,
   .sn-inspector-sheet { display: none; }
 }
+/* 🪪 The guest card opened with no list behind it (`InspectorSheetAlone` — the Wedding March, the parents): the same sheet,
+ * and at ≥ 1280 still the 440 panel — there is no rail to hand it to (owner 2026-10-24, one guest card everywhere). */
+@media (min-width: 1280px) {
+  .sn-inspector-peek.sn-inspector-peek--alone { display: block; }
+  .sn-inspector-sheet.sn-inspector-sheet--alone { display: block; left: auto; width: 27.5rem; }
+}
 @keyframes sn-peek-in { from { opacity: 0 } to { opacity: 1 } }
 @keyframes sn-sheet-in {
   from { transform: translateX(34px); opacity: 0 }
@@ -7802,9 +7835,14 @@ html[data-keyboard='open'] [data-bottom-dock] { transform: translateY(100%); opa
 /* ⌨ A riding row that is not a ThumbRow (`useRidingRow`, typing-band.tsx) folds what is not its field while it rides:
  * each such piece wears `data-ride-fold` (Filters on the marketplace bar, its chips). */
 [data-ride-row][data-riding] [data-ride-fold] { display: none !important; }
-/* The marketplace's suggestions rise above its field — while it rides, above the band too (the bar's 12 px top
- * padding + the band's 44 + the list's own 8 px gap), never over Done. */
-[data-ride-row][data-riding] #taxonomy-suggestions { margin-bottom: 64px; }
+/* 📏 THE PAGE MAKES ROOM FOR THE BAND (owner 2026-10-24: *"it overlaps with the content under it"*). While a riding row's
+ * band is up (`html[data-ride-reserve]`, written by `useRidingRow`), the page's foot gains the keyboard's height plus the
+ * band's (`--sn-ride-band-h`: the band, the row and the plate down to the keyboard) — so the content ENDS above the band
+ * and the last result can scroll up into view instead of living under it. On <body>, so every page gets it whatever
+ * its own column pads; gone the moment the band is. */
+html[data-ride-reserve] body { padding-bottom: calc(var(--sn-keyboard-h, 0px) + var(--sn-ride-band-h, 0px)); }
+/* (The marketplace's suggestions no longer step over a band: a search band has no words and no Done since 2026-10-24,
+ * so they stand where they always did, over the field.) */
 /* The typing band's neutrals outside the Maker (inside it, the Maker's own `STAGE_PANEL_VARS`): its cream plate, its
  * hairline and its words — with a dark pair (`typing-band.tsx`). */
 [data-typing-band='app'] { --tb-plate: #F3F0EA; --sp-line: #E6E1D8; --sp-ink2: #5A5755; }
@@ -7855,6 +7893,13 @@ html.dark :is(.hc-today, .hc-tile) { background: rgb(var(--color-raised)); }
 .hc-span { grid-column: 1 / -1; }
 .hc-tile.hc-span { min-height: 0; }
 .hc-lab { font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* The Event Hub tile's ⓘ beside its label (owner 2026-10-24). The ⓘ sits above the tile's door (z 1) so a tap on it
+   reads the tip; the tip itself hangs from the TILE, inside its width — a 288-px popover from a label in the right
+   column ran 100 px past a 390-px phone and widened the whole page. The 16-px ⓘ never makes the tile taller. */
+.hc-lab-tip { align-self: flex-start; max-width: calc(100% - 64px); height: 13px; display: flex; align-items: center; }
+.hc-lab-tip > span { position: static; }
+.hc-lab-tip button { position: relative; z-index: 3; }
+.hc-tile .hc-lab-tip .sn-tip { top: 30px; left: 6px; right: 6px; width: auto; max-width: none; }
 .hc-chip { position: absolute; right: 10px; top: 11px; z-index: 2; padding: 0 5px; border: 1px solid color-mix(in srgb, rgb(var(--color-mulberry)) 40%, transparent); border-radius: 999px; font-size: 8.5px; font-weight: 500; line-height: 1.5; letter-spacing: 0.12em; text-transform: uppercase; color: rgb(var(--color-mulberry)); pointer-events: none; }
 .hc-chip.hc-chip-inline { position: static; padding: 1px 6px; font-size: 9.5px; }
 .hc-big { font-size: 27px; font-weight: 600; line-height: 1.1; letter-spacing: -0.015em; font-variant-numeric: tabular-nums; }

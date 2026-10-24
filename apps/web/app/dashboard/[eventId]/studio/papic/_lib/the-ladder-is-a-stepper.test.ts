@@ -34,6 +34,11 @@ const strip = (s: string) =>
   s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1');
 
 const STEPPER_CODE = strip(STEPPER);
+const FORM = readFileSync(join(PAPIC, '_components', 'papic-buy-form.tsx'), 'utf8');
+const SHEETS = [
+  { name: 'papic-buy-sheet.tsx', code: strip(readFileSync(join(PAPIC, '_components', 'papic-buy-sheet.tsx'), 'utf8')) },
+  { name: 'iap-papic-sheet.tsx', code: strip(readFileSync(join(PAPIC, '..', '..', '..', '..', '_components', 'iap', 'iap-papic-sheet.tsx'), 'utf8')) },
+];
 const CARD_CODE = strip(CARD);
 
 test('🚨 no peso figure and no credit count is spelled in the control', () => {
@@ -71,6 +76,9 @@ test('🚨 the rungs are sorted so that + always costs more', () => {
   );
 });
 
+// RE-AIMED 2026-10-24 (owner, on the live sheet: *"it should just ask how much they want to add more and purchase …
+// Make the texts and messages simpler here"*): the range line left the sheet for its ONE ⓘ. The ends are still read
+// from the rungs — now in `ladderEnds`, which both sheets print inside the ⓘ by the title.
 test('the ends of the ladder are read from the rungs, not described', () => {
   assert.match(
     STEPPER_CODE,
@@ -84,6 +92,34 @@ test('the ends of the ladder are read from the rungs, not described', () => {
   );
   assert.match(STEPPER_CODE, /peso\(floor\.pricePhp\)/, 'the floor is no longer shown');
   assert.match(STEPPER_CODE, /peso\(ceiling\.pricePhp\)/, 'the ceiling is no longer shown');
+  for (const sheet of SHEETS) {
+    assert.match(sheet.code, /<InfoTip[\s\S]*?label="Add credits"[\s\S]*?ladderEnds\(rungs\)[\s\S]*?<\/InfoTip>/, `${sheet.name}: the range is not in the title's ⓘ`);
+  }
+});
+
+/**
+ * 🧾 THE SHEET ASKS ONE THING (owner 2026-10-24, on the live "Add credits" sheet): *"asked for how many photos each
+ * doesn't need to show. it should just ask how much they want to add more and purchase. no need for not now because
+ * there is (X) on upper right … the −[amount/value]+ is good already. New total: and purchase button."*
+ *
+ * So, on the web sheet AND the iPhone app's: "Add credits" (+ ⓘ, the sheet's ✕) · "You have N credits" · the stepper ·
+ * "New total" · one button. This supersedes the 2026-10-23 "How many do I need?" helper (its component, its pure lib
+ * and that lib's test were deleted with it, and `papicBuySizes` stopped reading guests for it).
+ */
+test('🚨 the Add credits sheet asks only how much — no helper, no range line, no "Not now"', () => {
+  const all = [{ name: 'credit-stepper.tsx', code: STEPPER_CODE }, { name: 'papic-buy-form.tsx', code: strip(FORM) }, ...SHEETS];
+  for (const { name, code } of all) {
+    for (const gone of [/How many do I need/i, /How many photos each/i, /How much to add/i, /add any of them again later/, /label="Not now"/, /After this/, /<CreditNeed\b/]) {
+      assert.ok(!gone.test(code), `${name} draws ${gone} again — the owner took it off the sheet on 2026-10-24`);
+    }
+  }
+  assert.match(strip(FORM), /<span>New total<\/span>/, 'the web sheet no longer says "New total"');
+  assert.match(SHEETS[1]!.code, /<span>New total<\/span>/, 'the iPhone sheet no longer says "New total"');
+  assert.match(SHEETS[0]!.code, /`You have \$\{left\.toLocaleString\('en-PH'\)\} credits`/, 'the web sheet lost its one line');
+  assert.match(SHEETS[1]!.code, /`You have \$\{left\.toLocaleString\('en-PH'\)\} credits`/, 'the iPhone sheet lost its one line');
+  // The web button names the result; the iPhone's keeps Apple's word and Apple's price (never a web price).
+  assert.match(strip(FORM), /`Add \$\{shown\.points\.toLocaleString\('en-PH'\)\} credits · \$\{shown\.priceLabel \?\?/);
+  assert.match(SHEETS[1]!.code, /`Buy \$\{credits\(rung\.points\)\}`[\s\S]{0,80}rung\?\.priceLabel/);
 });
 
 test('🚨 the dropdown is gone from the card — one control, not two', () => {

@@ -9,7 +9,9 @@
  *      four bars draw it (no second copy).
  *   3. EVERY BOTTOM ROW'S FIELD RIDES (rendered): a ThumbRow's field seat is a riding seat by default, a
  *      `rides={false}` needs a written reason at the call, no file but ThumbRow draws a `data-thumb-row`, and the chat
- *      composer's message box rides too.
+ *      composer's message box rides too. A riding SEARCH row wears the search band — no "Typing ·", no Done — and a
+ *      tap or a drag away closes its keyboard (owner 2026-10-24: *"can this be gone? just tap away"*); the Maker keeps
+ *      its "Typing ·" + Done (2, 2b).
  *   5. EVERY BOTTOM TEXT BOX — a file that pins a row to the screen's foot AND draws a text field rides it (ThumbRow,
  *      `useRidingRow`, or the one band), or says in EXEMPT why its field is not in that row (owner, verbatim:
  *      *"Applies all textbox like that"*).
@@ -117,11 +119,18 @@ test('3 · every bottom row’s field rides — rendered — and an opt-out says
   assert.equal(thumbRowRides({ rides: true, typing: 'Search guests', open: false, mode: false }), false);
   assert.equal(thumbRowRides({ rides: false, typing: 'Search guests', open: true, mode: false }), false);
   assert.equal(thumbRowRides({ rides: true, typing: 'Search guests', open: true, mode: true }), false);
-  // …and riding draws THE band, through the ONE riding row.
+  // …and riding draws THE band, through the ONE riding row — the SEARCH band (owner 2026-10-24, on "Typing · Search
+  // guests" + ✓ Done: *"can this be gone? just tap away and keyboard should disappear"*): the plate only, no words, no
+  // Done, and a tap or a drag away closes the keyboard.
   const row = read('components/thumb-row.tsx');
   assert.match(row, /const ride = useRidingRow\(rowRef, \{ rides,/, 'ThumbRow does not ride through the one riding row');
   assert.match(row, /\{ride\.band\}/, 'a riding ThumbRow does not draw the band');
-  assert.match(read('app/_components/typing-band.tsx'), /band: riding && over \? <TypingBand over=\{over\}/, 'the riding row does not draw the one typing band');
+  const tb = read('app/_components/typing-band.tsx');
+  assert.match(tb, /band: riding && over \? <TypingBand over=\{over\} search place=\{typing\}/, 'the riding row does not draw the one band as the search band');
+  const searchBand = /if \(search\) \{([\s\S]*?)\n {4}\}/.exec(tb)?.[1] ?? '';
+  assert.match(searchBand, /aria-hidden/, 'the search band is not decorative (the field keeps its own label)');
+  assert.doesNotMatch(searchBand, /<Face\b|Done|Typing/, 'the search band still says "Typing ·" or carries Done');
+  assert.match(tb, /useTapAway\(rowRef, typing !== null\);/, 'a riding search row does not close on a tap away');
   assert.match(row, /rides = true,/, 'ThumbRow does not ride by default');
 
   // No file but ThumbRow draws a thumb row (every input in a [data-thumb-row] is ThumbRow's).
@@ -141,10 +150,25 @@ test('3 · every bottom row’s field rides — rendered — and an opt-out says
   }
   assert.deepEqual(optOuts, [], `rides={false} without a written reason:\n${optOuts.join('\n')}`);
 
-  // The chat composer: its message box rides (the row stays whole — Send is its verb).
+  // The chat composer: its message box rides (the row stays whole — Send is its verb), with no band since the owner's
+  // 2026-10-24 "can this be gone? just tap away" — a tap or a drag on the thread closes the keyboard.
   const chat = renderToStaticMarkup(createElement(ChatSendForm, { threadId: 't', sendAction: async () => ({ ok: true }) } as never));
   assert.match(chat, /<textarea[^>]*data-rides=""/, 'the composer’s message box does not ride');
-  assert.match(read('app/_components/chat-send-form.tsx'), /typing && kb\.open \? \(\s*<TypingBand\b/, 'the composer does not wear the one typing band');
+  const composer = read('app/_components/chat-send-form.tsx');
+  assert.match(composer, /useTapAway\(formRef, typing\);/, 'the composer does not close on a tap away');
+  assert.match(composer, /<form\s+ref=\{formRef\}/, 'tap-away does not know the composer');
+  assert.doesNotMatch(composer, /<TypingBand\b/, 'the composer wears a "Typing ·" band again');
+
+  // 👆 TAP AWAY, the one hook: a tap outside leaves the field AFTER the tap's own work (one tap opens a result), a drag
+  // that starts outside leaves it, Escape leaves it.
+  const tap = /export function useTapAway[\s\S]*?\n\}/.exec(tb)?.[0] ?? '';
+  assert.match(tap, /const onClick = \(e: MouseEvent\) => \{\s*if \(!inside\(e\.target\)\) later\(0\);/, 'a tap away blurs before the tap has acted (two taps to open a result)');
+  assert.match(tap, /window\.addEventListener\('click', onClick, true\);/, 'tap-away listens where a handler can swallow it');
+  assert.match(tap, /dragFromOutside = !inside\(e\.target\);/);
+  // On an iPhone a tap on plain content fires no click: the touch itself leaves — after the settle, so a click wins.
+  assert.match(tap, /if \(dragFromOutside && !inside\(e\.target\)\) later\(TAP_SETTLE_MS\);/, 'a tap on plain content does not close the keyboard on an iPhone');
+  assert.match(tap, /Math\.hypot\(t\.clientX - from\.x, t\.clientY - from\.y\) > TAP_SLOP/, 'a tap’s jitter counts as a drag');
+  assert.match(tap, /e\.key === 'Escape' && inside\(e\.target\)/, 'Escape does not close the keyboard');
 });
 
 test('4 · keyboard up → bar down; a row on the bar stands on the keyboard; the bar keeps its own height', () => {

@@ -449,7 +449,8 @@ export function PeopleRosterView({
   };
 
   const list = searching ? (
-    <div data-people-search="">
+    // 📌 Where a search's results draw — pinned under the chrome (lib/search-pin.ts).
+    <div data-people-search="" data-search-results="">
       {(() => {
         const mine = shown.filter(nameMatches);
         return mine.length > 0 ? (

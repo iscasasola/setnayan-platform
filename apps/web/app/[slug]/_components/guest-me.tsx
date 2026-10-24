@@ -139,8 +139,9 @@ export function GuestMe({
         canAdd={canAddCelebrants}
         actions={celebrantActions}
       />
-      {/* The host viewing as a guest is told "Only they can save it" in Me's slim bar's ⓘ (owner 2026-10-24). */}
-      {account && !(plain && account.kind === 'host_viewing') ? (
+      {/* 🪪 On the redrawn Me the Save is Me's FIRST offer, under the greeting (`MeKeepInvitation`, owner 2026-10-24:
+          "on the me part, we start offering the linking of this event to their account") — never a second one here. */}
+      {account && !plain ? (
         <section data-me-card="account">
           <SaveToAccount
             state={account}

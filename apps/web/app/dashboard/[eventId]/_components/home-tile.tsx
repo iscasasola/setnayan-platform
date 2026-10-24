@@ -22,10 +22,13 @@
 import Link from 'next/link';
 import { useCallback, useContext, useEffect, useRef, useState, type KeyboardEvent, type MouseEvent, type PointerEvent, type ReactNode } from 'react';
 import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared-runtime';
-import { ArrowRight, CalendarDays, Check, Eye, Mail, PenLine, Plus, RotateCw } from 'lucide-react';
+import { ArrowRight, CalendarDays, Check, Eye, Mail, PenLine, Plus, RotateCw, SlidersHorizontal } from 'lucide-react';
 import type { FaceAction, FaceIcon, HomeFace, HomeTileModel } from './home-control-faces';
 import { FACE_MS, RESUME_MS, STAGGER_MS, TAP_PX, VISIBLE_THRESHOLD, swipeLands, tilePaused, tileRotates } from './home-tile-rotation';
 import { openEventHub } from '@/lib/open-external';
+import { InfoTip } from '@/app/_components/info-tip';
+import { HubPickButton } from './home-cards/hub-pick-button';
+import type { HomeHubPickRead } from './home-cards/hub-pick-types';
 import { Count } from '@/components/count';
 import { formatCount } from '@/lib/format-number';
 
@@ -57,6 +60,7 @@ const ICONS: Record<FaceIcon, typeof Mail> = {
   pen: PenLine,
   eye: Eye,
   cal: CalendarDays,
+  sliders: SlidersHorizontal,
 };
 
 export function FaceIconMark({ icon, className }: { icon: FaceIcon; className?: string }) {
@@ -110,8 +114,20 @@ function useReload(): () => void {
   return useCallback(() => (router ? router.refresh() : window.location.reload()), [router]);
 }
 
-function TinyAction({ action, today }: { action: FaceAction; today?: boolean }) {
+function TinyAction({
+  action,
+  today,
+  eventId,
+  hubPick = null,
+}: {
+  action: FaceAction;
+  today?: boolean;
+  eventId: string;
+  hubPick?: HomeHubPickRead | null;
+}) {
   const reload = useReload();
+  // 🎛 A sheet in place, not a page — the Event Hub tile's "Pick what shows" (owner 2026-10-24).
+  if (action.sheet === 'hub-pick') return <HubPickButton eventId={eventId} preset={hubPick} />;
   const cls = `hc-tiny${action.main || today ? ' hc-tiny-main' : ''}${action.pill ? ' hc-tiny-pill' : ''}`;
   const inner = (
     <>
@@ -184,9 +200,12 @@ export function HomeTile({
   eventId,
   stagger,
   tour,
+  hubPick = null,
 }: {
   model: HomeTileModel;
   eventId: string;
+  /** 🎛 The Event Hub tile's "Pick what shows" read, when the caller already holds it (the dev lab) — else on the tap. */
+  hubPick?: HomeHubPickRead | null;
   /** this tile's place among the rotating tiles */
   stagger: number;
   /** A first-visit spotlight anchor on this tile's dots (`lib/tours.ts`). */
@@ -282,8 +301,11 @@ export function HomeTile({
   }, [index]);
 
   /* Swipe — a pointer that moves past 6 px is a swipe (captured from then on); under it, a tap. */
+  /* A press inside a sheet this tile opened (portalled to <body>) still bubbles HERE through React's tree — it is never
+     a swipe of this tile, and ← → typed in it never turn a face. */
+  const outside = (e: { target: EventTarget }) => !root.current?.contains(e.target as Node);
   const onPointerDown = (e: PointerEvent<HTMLDivElement>) => {
-    if (count < 2 || (e.target as HTMLElement).closest('[data-hc-act],[data-hc-dot]')) return;
+    if (count < 2 || outside(e) || (e.target as HTMLElement).closest('[data-hc-act],[data-hc-dot],[data-hc-tip]')) return;
     drag.current = { x0: e.clientX, dx: 0, width: root.current?.clientWidth || 1, captured: false, id: e.pointerId };
     t.current.holding = true;
   };
@@ -323,7 +345,7 @@ export function HomeTile({
     }
   };
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
-    if (count < 2) return;
+    if (count < 2 || outside(e)) return;
     if (e.key === 'ArrowRight') {
       e.preventDefault();
       go(t.current.index + 1, true);
@@ -354,7 +376,7 @@ export function HomeTile({
         <Link href={face.href} className={doorClass} aria-label={`${face.big}${face.unit ? ` ${face.unit}` : ''}${face.sm ? ` — ${face.sm}` : ''}`} draggable={false} />
         {face.action ? (
           <span className="hc-acts">
-            <TinyAction action={face.action} today={model.today} />
+            <TinyAction action={face.action} today={model.today} eventId={eventId} />
           </span>
         ) : null}
       </div>
@@ -377,7 +399,16 @@ export function HomeTile({
       onPointerCancel={onPointerEnd}
       onKeyDown={onKeyDown}
     >
-      {model.label ? <span className="hc-lab">{model.label}</span> : null}
+      {model.label && model.info ? (
+        /* The tile's ⓘ — what a tap and the small buttons do (owner 2026-10-23: details go inside the ⓘ). */
+        <span className="hc-lab-tip" data-hc-tip="">
+          <InfoTip label={model.label} labelClassName="hc-lab" align="start">
+            {model.info}
+          </InfoTip>
+        </span>
+      ) : model.label ? (
+        <span className="hc-lab">{model.label}</span>
+      ) : null}
       {model.today ? <span className="hc-chip">Today</span> : null}
       <div className="hc-faces">
         <div className="hc-track" ref={track} style={{ transform: `translateX(${-index * 100}%)` }} role="list" aria-label={`${model.label ?? model.key} — swipe for more`}>
@@ -414,12 +445,12 @@ export function HomeTile({
       {model.side ? (
         <span className="hc-side">
           {model.side.map((a) => (
-            <TinyAction key={a.label} action={a} />
+            <TinyAction key={a.label} action={a} eventId={eventId} hubPick={hubPick} />
           ))}
         </span>
       ) : face.action ? (
         <span className="hc-acts">
-          <TinyAction action={face.action} today={model.today && face.action.main} />
+          <TinyAction action={face.action} today={model.today && face.action.main} eventId={eventId} />
         </span>
       ) : null}
     </div>

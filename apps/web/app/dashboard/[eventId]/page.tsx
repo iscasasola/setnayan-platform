@@ -131,7 +131,7 @@ export const dynamic = 'force-dynamic';
 */
 /** Home's own columns of the event row — every one is carried by `DASHBOARD_ROW_CARRIES`. */
 const HOME_EVENT_COLUMNS =
-  'event_id, event_date, event_end_date, event_type, ceremony_type, secondary_ceremony_type, cleared_at, timezone, venue_latitude, venue_longitude, region, mahr_description, gender_separation, slug, display_name, created_at, setnayan_ai_active, event_date_precision, planning_mode, setnayan_ai_active_until, date_candidates, papic_on, papic_window_start, papic_window_end, landing_page_visibility, venue_name, std_invitation_launch_date';
+  'event_id, event_date, event_end_date, event_type, ceremony_type, secondary_ceremony_type, cleared_at, timezone, venue_latitude, venue_longitude, region, mahr_description, gender_separation, slug, display_name, created_at, setnayan_ai_active, event_date_precision, planning_mode, setnayan_ai_active_until, date_candidates, papic_on, papic_window_start, papic_window_end, landing_page_visibility, venue_name, std_invitation_launch_date, launch_mode, manual_phase';
 
 export async function generateMetadata({
   params,
@@ -729,6 +729,8 @@ export default async function EventHomePage({
             cleared_at: (event as { cleared_at?: string | null }).cleared_at ?? null,
             timezone: (event as { timezone?: string | null }).timezone ?? null,
             std_invitation_launch_date: (event as { std_invitation_launch_date?: string | null }).std_invitation_launch_date ?? null,
+            launch_mode: (event as { launch_mode?: string | null }).launch_mode ?? null,
+            manual_phase: (event as { manual_phase?: string | null }).manual_phase ?? null,
           },
           {
             website: plans && surfaceEnabled(profile, 'website'),

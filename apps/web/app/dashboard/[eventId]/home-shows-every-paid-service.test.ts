@@ -234,9 +234,10 @@ test('4 · an event that owns everything (cale-ice: an internal host) draws all 
   for (const key of ['papic', ...SKU_KEYS.filter((k) => k !== 'hub')]) assert.match(html, new RegExp(`data-home-service="${key}"`), `${key} missing`);
   assert.equal(html.split('data-home-paid="owned"').length - 1, 4, 'four owned rows besides Papic');
   assert.doesNotMatch(html, /Not added/, 'nothing is "not added" on an event that owns it all');
-  // The Event Hub is the control row's widget on the plan Home (Edit in Maker → the Maker); its ◆ Pro line stays on the
+  // The Event Hub is the control row's widget on the plan Home (its Maker button → the Maker — named "Maker" on the
+  // phone's tile since 2026-10-24, "Edit in Maker" on the md+ card); its ◆ Pro line stays on the
   // list the event day and after-the-day Homes draw (`homeServiceRowAll`), never dropped from the facts.
-  assert.match(html, /data-home-tile="hub"[\s\S]{0,4000}?aria-label="Edit in Maker"[^>]*href="\/dashboard\/e1\/launch"/, 'the Event Hub widget does not open the Maker');
+  assert.match(html, /data-home-tile="hub"[\s\S]{0,4000}?aria-label="(?:Edit in )?Maker"[^>]*href="\/dashboard\/e1\/launch"/, 'the Event Hub widget does not open the Maker');
   assert.equal(html.split('data-home-service="hub"').length - 1, 0, 'the Event Hub is drawn twice — as a widget and a service');
   const hub = homeServices({ next: 'plan', storeShell: false, papic: 'x', ai: 'y', eventId: E, paid: ALL_ON }).find((s) => s.key === 'hub');
   assert.match(hub?.status ?? '', /Pro on/, 'the Event Hub entry lost its Pro line');

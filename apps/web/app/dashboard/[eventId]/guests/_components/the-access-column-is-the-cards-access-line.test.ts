@@ -75,7 +75,8 @@ test('the card line: the dropdown only for a LINKED guest the viewer may manage 
   }
   assert.doesNotMatch(renderToStaticMarkup(React.createElement(GuestAccessControl, { ...base, linked: true, canManage: false })), /data-test-pick/, 'a viewer who may not change access is offered it');
   // The pages hand the pick in; the Maker hands none.
-  for (const page of [read('..', 'page.tsx'), read('..', '[guestId]', 'page.tsx')]) assert.match(page, /AccessPick=\{GuestAccessPick\}/);
+  // THE card hands its body the pick for every surface (2026-10-24, one guest card everywhere).
+  assert.match(read('guest-card.tsx'), /AccessPick=\{GuestAccessPick\}/);
 });
 
 test('the Guest list shows NO access at all (owner 2026-10-07: "remove access column since the access will be inside event details")', () => {

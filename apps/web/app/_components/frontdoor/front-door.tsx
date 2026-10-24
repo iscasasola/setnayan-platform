@@ -135,22 +135,25 @@ export async function FrontDoor({ q }: { q?: string }) {
       {/* 🔍 Signed in, Discover's search is its thumb row (owner 2026-10-22, "One thumb row") — the top bar has none. */}
       {account.signedIn ? <DiscoverThumbRow key={searchQuery} q={searchQuery} /> : null}
       {/*
-        `data-fd-page` is the content a set-change slide moves (globals.css,
-        `html[data-sn-bar-dir]`) — Discover is an account tab. Signed in, it also
+        `data-fd-page` is the content the bar's slide moves — Discover is an
+        account tab: `.sn-vt-page` + `while-sliding` (signed in, where the bar
+        is), the same slide as every other tab (owner 2026-10-24; globals.css). Signed in, it also
         reserves the account bar's MEASURED height below 1024, the launcher's own
         rule, so the last row of the feed clears the dock — and the thumb row on it (+4rem, 2026-10-22).
       */}
       <div
         data-fd-page=""
+        data-sn-slide="while-sliding"
         className={
           account.signedIn
-            ? 'pb-[calc(var(--sn-bottomdock-h,calc(env(safe-area-inset-bottom)+64px))+5.5rem)] lg:pb-0'
+            ? 'sn-vt-page pb-[calc(var(--sn-bottomdock-h,calc(env(safe-area-inset-bottom)+64px))+5.5rem)] lg:pb-0'
             : undefined
         }
       >
       {searchQuery ? (
         shellSearch ? (
-          <div data-discover-results="">
+          // 📌 Where a search's results draw — pinned under the chrome (lib/search-pin.ts).
+          <div data-discover-results="" data-search-results="">
             <FrontDoorResults
               query={searchQuery}
               data={data}

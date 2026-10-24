@@ -136,7 +136,14 @@ export default async function LauncherLayout({
         {/* The bar is anchored and FIXED, so the page reserves its measured
             height (+ a breath) wherever it is drawn — below 1024, the dock's own
             `lg:hidden` line. */}
-        <main className="pb-[calc(var(--sn-bottomdock-h,calc(env(safe-area-inset-bottom)+64px))+1.5rem)] lg:pb-0">{children}</main>
+        {/* ↔ `.sn-vt-page` — the bar's page slide moves THIS, the same slide as the event and the shop (owner
+            2026-10-24); `while-sliding` names it only while a slide runs (globals.css). */}
+        <main
+          className="sn-vt-page pb-[calc(var(--sn-bottomdock-h,calc(env(safe-area-inset-bottom)+64px))+1.5rem)] lg:pb-0"
+          data-sn-slide="while-sliding"
+        >
+          {children}
+        </main>
         {/* The account bar — rendered by the LAYOUT, not by a page, so it
             survives the tap that uses it. Its tabs are the 2026-10-21 ruling
             (lib/account-bar.ts): Shop only for an OWNER, from the switcher

@@ -57,7 +57,8 @@ import { PASS_CARD_ROUTE } from '@/lib/pass-card';
 import type { InviteSetup } from './invite-message-setup';
 import type { CardBoxProps, CardDoorProps, CardFactProps, CardFieldProps, CardFoldProps, CardGroupProps, CardInvitedToProps, CardKit, CardRolesProps, CardLockedProps, CardPickProps, CardSubmitProps, CardTipProps, CardTitleProps, CardToggleProps } from './guest-card-kit';
 import type { ComponentType } from 'react';
-import { AutosaveForm, AutosaveState } from './guest-card-autosave';
+import { AutosaveForm } from './guest-card-autosave';
+import { TEMPLATE_KIT } from './guest-card-template-kit';
 import { GuestAccessControl } from './guest-access-control';
 import { accessWordFor } from '@/lib/guest-access';
 import { THIS_IS_ME_REFUSAL_COPY } from '@/lib/creator-couple-row';
@@ -226,7 +227,6 @@ export function GuestCardBody({
   storeShell = false,
   helperAccess,
   actions,
-  kit,
   ticketVersion,
 }: {
   eventId: string;
@@ -292,11 +292,6 @@ export function GuestCardBody({
   helperAccess?: React.ReactNode;
   /** Other writes for the card's forms — the dev lab's stand-ins. Absent = the shipped actions. */
   actions?: GuestCardActions;
-  /**
-   * The card's leaf controls, drawn by the app's templates (`guest-card-kit.ts`). Handed in by the Guests pages; the Maker's
-   * parent cards hand none (the templates are not in the Maker's first load) and keep the hand-drawn rows below.
-   */
-  kit?: CardKit;
 }) {
   const {
     guest,
@@ -336,9 +331,9 @@ export function GuestCardBody({
   const needsTitle = needsWomanOrMan(guest);
   const titleText = titleButtonText(guest.name_prefix, guest.gender, needsTitle);
 
-  const K: CardKit = kit ?? OLD_KIT;
-  /** True when the templates draw the leaves — their helper sentences go behind each row's ⓘ, not beside the control. */
-  const templated = kit !== undefined;
+  /* 🪪 ONE CARD, ONE KIT (owner 2026-10-24): the leaves are the app's templates everywhere — the Maker's hand-drawn kit,
+     which drew the Wedding March's and the parents' cards as a second-looking card, is gone. */
+  const K: CardKit = TEMPLATE_KIT;
   const updateAction = actions?.update ?? updateGuest.bind(null, eventId, guest.guest_id);
   const releaseAction = actions?.release ?? releaseGuestClaim.bind(null, eventId, guest.guest_id);
   const partnerLinkAction = actions?.partnerLink ?? inviteGuestByEmailAction.bind(null, eventId, guest.guest_id);
@@ -602,7 +597,7 @@ export function GuestCardBody({
       <AutosaveForm action={updateAction} returnTo={returnTo} id={formId}>
         {/* The save line — Saving… · Saved · Couldn’t save, Try again (no caption — owner 2026-10-03). */}
         <div className="flex justify-end" data-guest-card-save="">
-          <K.SaveState copy={templated ? GUEST_CARD_ERROR_COPY : undefined} />
+          <K.SaveState copy={GUEST_CARD_ERROR_COPY} />
         </div>
         {/* 🪑 The couple has no extra seats to pick — their number is carried, so a save never clears it. */}
         {isCouple ? <input type="hidden" name="plus_one_count" value={String(seats)} /> : null}
@@ -721,12 +716,6 @@ export function GuestCardBody({
                   options={roleOptions}
                   solo={SINGLETON_GUEST_ROLES}
                 />
-                {isIncWedding && !templated ? (
-                  <p className="text-xs text-ink/55">
-                    INC note: non-member principal sponsors (Ninong/Ninang) are
-                    limited to one pair. Member sponsors aren&rsquo;t capped.
-                  </p>
-                ) : null}
                 {/* 🏷 Rename this role · Rename this section (owner 2026-09-30 / 2026-10-19) — the Guests pages' kit only. */}
                 {K.Rename ? <K.Rename eventId={eventId} role={guest.role} names={roleNames} /> : null}
               </K.Cols>
@@ -964,11 +953,6 @@ export function GuestCardBody({
                 in the 3D seat plan is said, read from their role's dress code (`guestOutfitWords`) — where it is set is
                 plain words, never a link. Nothing is posted: `guests.attire` stays as stored. A refused read says nothing. */}
             {outfit ? <K.Fact field="attire" label="Attire · 3D seat plan" value={outfit.wear} where={outfit.from} /> : null}
-            {templated ? null : (
-              <p className="text-xs text-ink/55">
-                Guests see their table on the day, not before. Moving them here moves them on the seat plan too.
-              </p>
-            )}
           </K.Fold>
 
           {/* ══ 7 · NOTE FOR THEM · PRIVATE NOTE — one group, two fields, as the owner wrote it ═══════════════════════════
@@ -985,11 +969,6 @@ export function GuestCardBody({
               placeholder="e.g. We saved you a seat beside Lola — she can’t wait to see you."
               about={`${callName} sees this on their invitation, under their role. No other guest does.`}
             />
-            {templated ? null : (
-              <p className="text-xs text-ink/50">
-                {callName} sees this on their invitation, under their role. No other guest does.
-              </p>
-            )}
             <K.Field
               id="notes"
               long
@@ -998,12 +977,7 @@ export function GuestCardBody({
               placeholder="e.g. Tito’s driver drops him at the side gate"
               about={`Only you and your co-hosts see this. ${callName} never sees it.`}
             />
-            {/* Said out loud, because until 2026-08-06 it was the opposite of true. */}
-            {templated ? null : (
-              <p className="text-xs text-ink/50">
-                Only you and your co-hosts see this. {callName} never sees it.
-              </p>
-            )}
+            {/* Said out loud (behind the row's ⓘ), because until 2026-08-06 it was the opposite of true. */}
           </K.Fold>
         </div>
       </AutosaveForm>
@@ -1144,199 +1118,3 @@ function seatInitials(name: string): string {
   const last = words.length > 1 ? (words[words.length - 1]?.[0] ?? '') : '';
   return `${first}${last}`.toUpperCase() || '+1';
 }
-
-/**
- * ONE ROW OF THE CARD — closed, with a one-line summary; open, its fields.
- * A native details element in ONE exclusive group (`name="guest-card-row"`), so
- * opening a row closes the one that was open — the card never grows long, and
- * there is no script to load (the card is in the Maker's first load too).
- */
-function Fold({ summary, value, emptyValue, open = false, last = false, danger = false, children }: CardFoldProps) {
-  return (
-    <details name="guest-card-row" open={open || undefined} className={`group ${last ? '' : 'border-b border-ink/[0.06]'}`}>
-      <summary className="flex min-h-[48px] cursor-pointer list-none items-center gap-3 px-3.5 text-sm text-ink transition-colors hover:bg-ink/[0.03]">
-        <span className={`font-medium ${danger ? 'text-danger-700' : ''}`}>{summary}</span>
-        <span className="ml-auto min-w-0 truncate text-ink/55">
-          {value ?? <span className="italic text-ink/40">{emptyValue ?? '—'}</span>}
-        </span>
-        <span aria-hidden className="text-ink/40 transition-transform group-open:rotate-90">
-          ›
-        </span>
-      </summary>
-      <div className="gl-disc space-y-3 border-t border-ink/[0.06] bg-ink/[0.02] px-3.5 py-3.5">{children}</div>
-    </details>
-  );
-}
-
-/** A yes/no answer, as a switch. A real checkbox underneath (posts `on`). */
-function Toggle({ name, defaultChecked, label, note, soft = false, form }: CardToggleProps) {
-  return (
-    <label
-      className={`flex min-h-[48px] cursor-pointer items-center justify-between gap-3 rounded-xl px-3 py-2 text-sm ${
-        soft ? 'bg-ink/[0.03] text-ink/75' : 'border border-ink/10 bg-white/70 text-ink'
-      }`}
-    >
-      <span className="min-w-0">
-        <span className="block font-medium">{label}</span>
-        <span className="block text-xs text-ink/55">{note}</span>
-      </span>
-      <input type="checkbox" name={name} form={form} defaultChecked={defaultChecked} className="sn-switch" />
-    </label>
-  );
-}
-
-function Field({ id, label, required = false, type = 'text', defaultValue, placeholder, long = false, maxLength }: CardFieldProps) {
-  if (long) {
-    return (
-      <textarea
-        id={id}
-        name={id}
-        rows={3}
-        aria-label={label}
-        defaultValue={defaultValue}
-        placeholder={placeholder}
-        maxLength={maxLength === undefined ? undefined : Math.max(maxLength, defaultValue.length)}
-        className="input-field min-h-[88px] resize-y py-2"
-      />
-    );
-  }
-  return (
-    <div className="min-w-0 space-y-1">
-      <label className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-ink/50" htmlFor={id}>
-        {label}
-      </label>
-      <input
-        id={id}
-        name={id}
-        type={type}
-        required={required}
-        defaultValue={defaultValue}
-        placeholder={placeholder}
-        className="input-field"
-      />
-    </div>
-  );
-}
-
-/* ── the hand-drawn kit: what the Maker's parent cards draw (the templates are not in the Maker's first load) ────────────────── */
-
-function OldPick({ about, ...pick }: CardPickProps) {
-  void about; // the old kit prints the sentence beside the control (the body does), not behind an ⓘ
-  return <FormPick {...pick} />;
-}
-/** The Title in the Maker's card: the same entries and the same posted key; no "Other title…" box (no room in its first load). */
-function OldTitle({ label, value, options, unlisted }: CardTitleProps) {
-  return <FormPick name="name_title" label={label} value={value} options={options} unlisted={unlisted} dataAttr="data-title-pick" />;
-}
-/** 👥 The Maker's one Group dropdown: the same list as the shipped checkmark PickMenu, ticks only (no editors — no room). */
-function OldGroup({ label, std, standard, own, ownPicked }: CardGroupProps) {
-  /* 👥 Same name, say the side (owner 2026-10-21): an own group whose name another row shares carries its side's word. */
-  const namesakes = sidesForNamesakes(own ?? [], standard.map((o) => o.label));
-  const options = [
-    ...standard.map((o) => ({ ...o, group: GROUP_STANDARD_HEADING })),
-    ...(own ?? []).map((g) => ({ key: g.groupId, label: groupLabelWithSide(g.label, namesakes.get(g.groupId)), group: GROUP_OWN_HEADING })),
-  ];
-  return (
-    <FormSplitPick
-      kind="group"
-      label={label}
-      names={['group_category', own ? 'group_ids' : null]}
-      value={[std, ...ownPicked].join(',')}
-      options={options}
-      one={standard.map((o) => o.key)}
-    />
-  );
-}
-/** 🎭 The Maker's one Role dropdown: several ticked, the first the main one. */
-function OldRoles({ label, value, options, solo }: CardRolesProps) {
-  return <FormSplitPick kind="role" label={label} names={['role', 'extra_roles']} value={value} options={options} one={solo} emptyText="Guest" doneNote={ROLE_DONE_NOTE} />;
-}
-function OldInvitedTo({ roleSelectId, initialRole, initialBlocks }: CardInvitedToProps) {
-  return (
-    <div className="space-y-1">
-      <span className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-ink/50">Invited to</span>
-      <InvitedToChips roleSelectId={roleSelectId} initialRole={initialRole as GuestRole} initialBlocks={initialBlocks as InvitedToBlock[] | undefined} look="toggles" />
-    </div>
-  );
-}
-function OldLocked({ label, value, note }: CardLockedProps) {
-  return (
-    <div className="space-y-1">
-      <span className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-ink/50">{label}</span>
-      <div className="flex min-h-10 items-center justify-between rounded-full border border-ink/15 bg-ink/[0.03] px-3 text-sm">
-        <span className="font-medium text-ink">{value}</span>
-        <span className="text-xs text-ink/45">{note}</span>
-      </div>
-    </div>
-  );
-}
-/** 🚪 One line with one door ("Papic is off · Turn on ›") — the row's look, no fold. No `href` → the line alone. */
-function OldDoor({ label, value, href, action, data }: CardDoorProps) {
-  return (
-    <div className="flex min-h-[48px] items-center gap-3 border-b border-ink/[0.06] px-3.5 text-sm" data-card-door={data}>
-      <span className="font-medium text-ink">{label}</span>
-      <span className="ml-auto min-w-0 truncate text-ink/55">{value}</span>
-      {href ? (
-        <Link href={href} className="shrink-0 font-medium text-sn-accent underline-offset-2 hover:underline">
-          {action} ›
-        </Link>
-      ) : null}
-    </div>
-  );
-}
-/** 🪪 A fact read from elsewhere — two quiet lines, no frame (nothing to press). */
-function OldFact({ field, label, value, where }: CardFactProps) {
-  return (
-    <div className="space-y-0.5" data-card-fact={field}>
-      <span className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-ink/50">{label}</span>
-      <p className="text-sm font-medium text-ink">{value}</p>
-      <p className="text-xs text-ink/55">{where}</p>
-    </div>
-  );
-}
-function OldList({ children }: CardBoxProps) {
-  return <div className="space-y-2.5">{children}</div>;
-}
-function OldCols({ className, children }: CardBoxProps) {
-  return <div className={className}>{children}</div>;
-}
-function OldSubmit({ main = false, pendingLabel, ariaLabel, children }: CardSubmitProps) {
-  return (
-    <SubmitButton
-      className={
-        main
-          ? 'button-primary w-full'
-          : 'block min-h-[44px] w-full rounded-full border border-ink/15 px-4 text-sm font-medium text-ink/75 transition-colors hover:border-ink/40 hover:text-ink disabled:opacity-60'
-      }
-      aria-label={ariaLabel}
-      pendingLabel={pendingLabel}
-    >
-      {children}
-    </SubmitButton>
-  );
-}
-function OldTip({ label, children }: CardTipProps) {
-  return (
-    <InfoTip label={label} align="start">
-      {children}
-    </InfoTip>
-  );
-}
-const OLD_KIT: CardKit = {
-  Field,
-  Toggle,
-  Fold,
-  Pick: OldPick,
-  Group: OldGroup,
-  Roles: OldRoles,
-  Title: OldTitle,
-  InvitedTo: OldInvitedTo,
-  Locked: OldLocked,
-  Door: OldDoor,
-  Fact: OldFact,
-  Submit: OldSubmit,
-  Tip: OldTip,
-  SaveState: AutosaveState,
-  List: OldList,
-  Cols: OldCols,
-};

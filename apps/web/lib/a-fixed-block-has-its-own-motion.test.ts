@@ -380,7 +380,9 @@ test('4 · a guest’s page: a mark only for a block that has a look, and the on
   assert.match(BODY, /\{blockCss \|\| isEditorCanvas \? <style \{\.\.\.\{ \[BLOCK_LOOKS_STYLE_ATTR\]: '' \}\}>\{blockCss\}<\/style> : null\}/);
   /* Each of the four is marked right BEFORE it — and before the Maker's own marker, which must stay next to the block
      (`sectionAfter` frames the element right after it). */
-  assert.match(BODY, /\{blockMark\('details'\)\}\s*\{makerMark\('f:details'\)\}\s*<PublicEventDetails/);
+  /* 🪪 RE-AIMED 2026-10-24: the Details block is drawn on no page (owner, "isn't this a dupe?" — `OFF_THE_PAGE`,
+     `the-details-tab-repeats-nothing.test.ts`), so it carries no mark: a mark with no block would frame the NEXT one. */
+  assert.doesNotMatch(BODY, /blockMark\('details'\)|makerMark\('f:details'\)|<PublicEventDetails/);
   /* 🔁 RE-AIMED 2026-10-12 ("What guests see", pass 2): each mount now asks `entourageShownOn(pageStage)` — the same
      stage rule (`stageShowsEntourage`), or the couple's own choice for that stage when they made one. */
   assert.match(BODY, /<>\{entourageShownOn\(pageStage\) \? blockMark\('entourage'\) : null\}\{entourageShownOn\(pageStage\) \? <EntourageSection groups=\{entourage\} id="site-entourage"/);

@@ -57,12 +57,8 @@ import { AccountBottomNav } from '@/app/dashboard/(launcher)/_components/account
 import { BottomDock } from '@/app/_components/nav/bottom-nav';
 import { AddGuestSheet } from '@/app/dashboard/[eventId]/guests/_components/add-guest-sheet';
 import { QuickAddSheet } from '@/app/dashboard/[eventId]/guests/_components/quick-add-sheet';
-import { GuestCardBody } from '@/app/dashboard/[eventId]/guests/_components/guest-card-body';
+import { GuestCard } from '@/app/dashboard/[eventId]/guests/_components/guest-card';
 import { guestCardErrorCopy } from '@/app/dashboard/[eventId]/guests/_components/guest-card-error-copy';
-import { GuestInviteCell } from '@/app/dashboard/[eventId]/guests/_components/guest-invite-cell';
-import { GuestDeleteControl, GuestMoreMenu, GuestTicketThumb } from '@/app/dashboard/[eventId]/guests/_components/guest-ticket-parts';
-import { GuestPapicCamera } from '@/app/dashboard/[eventId]/guests/_components/guest-papic-camera';
-import { GuestAccessPick } from '@/app/dashboard/[eventId]/guests/_components/guest-access-pick';
 import type { GuestPapicState } from '@/lib/papic-guest-camera';
 import type { GuestCardData } from '@/app/dashboard/[eventId]/guests/_components/guest-card-data';
 import { guestOutfitOf, guestOutfitWords } from '@/lib/guest-outfit';
@@ -78,7 +74,6 @@ import { MakerRsvpSettings } from '@/app/dashboard/[eventId]/launch/_components/
 import { guestsGetInPatch, isGuestsGetIn } from '@/lib/who-can-reply';
 import { renderStyledUrlQrSvg } from '@/lib/qr';
 import { GuestsScreen } from '@/app/dashboard/[eventId]/guests/_components/guests-screen';
-import { TEMPLATE_KIT } from '@/app/dashboard/[eventId]/guests/_components/guest-card-template-kit';
 import type { TitleWaitingPerson } from '@/app/dashboard/[eventId]/guests/_components/titles-waiting';
 import { titleButtonText, titleKey } from '@/lib/guest-title';
 import { UndoToastHost } from '@/app/dashboard/[eventId]/guests/_components/undo-toast';
@@ -279,6 +274,27 @@ const MJ_ROSTER: ReadonlyArray<[string, string, GuestRow['role'], GuestRow['side
  * has something real to draw. Two of them (Rosa Santos, Cita Ramos) said they
  * can't come before anything was sent: they are in NO "to invite" count.
  */
+/** `&many=N` — N generated guests (a long list to scroll), every name distinct and none matching the roster's. */
+const MANY_FIRST = ['Ana', 'Ben', 'Celia', 'Dado', 'Ellen', 'Fermin', 'Gina', 'Hector', 'Iris', 'Jun', 'Karla', 'Leo', 'Mila', 'Noel', 'Olga', 'Pido'];
+const MANY_LAST = ['Aquino', 'Bautista', 'Castillo', 'Domingo', 'Espiritu', 'Flores', 'Gonzales', 'Hernandez', 'Ilagan', 'Jacinto', 'Katigbak', 'Lualhati', 'Macaraeg', 'Navarro', 'Ocampo'];
+function manyGuests(n: number): GuestRow[] {
+  return Array.from({ length: n }, (_, i) =>
+    guest({
+      guest_id: `g-many-${i}`,
+      public_id: `S89G-LABMN${String(i).padStart(5, '0')}`,
+      first_name: MANY_FIRST[i % MANY_FIRST.length]!,
+      last_name: `${MANY_LAST[Math.floor(i / MANY_FIRST.length) % MANY_LAST.length]!}${i >= MANY_FIRST.length * MANY_LAST.length ? ` ${Math.floor(i / (MANY_FIRST.length * MANY_LAST.length)) + 1}` : ''}`,
+      role: 'guest',
+      side: i % 2 ? 'groom' : 'bride',
+      group_category: 'friends',
+      rsvp_status: 'pending',
+      invitation_sent_at: '2026-09-20T00:00:00Z',
+      plus_one_count: 0,
+      plus_one_allowed: false,
+    }),
+  );
+}
+
 function planningRoster(): GuestRow[] {
   const RSVP: GuestRow['rsvp_status'][] = ['attending', 'attending', 'attending', 'pending', 'maybe', 'attending', 'declined', 'pending'];
   return MJ_ROSTER.map(([first, last, role, side], i) =>
@@ -560,12 +576,12 @@ export default async function GuestsLabPage({
               <div className="ml-12 min-h-dvh rounded-l-3xl bg-cream px-[18px] pb-10 pt-6 shadow-xl" data-lab-card="" data-lab-render={labRenders}>
                 {low ? <div aria-hidden className="h-[440px]" data-lab-low="" /> : null}
                 <LabGuestActions refuse={labRefuses}>
-                <GuestCardBody
+                <GuestCard
+                  frame="page"
                   eventId={EVENT}
                   data={{ ...cardData(cardGuest, host), ...protoData, ...sidesData, ...seatOf, ...seatLines, ...linkedData, roleNames: labWords, outfit: { wear: labOutfit.wear, from: labOutfit.from } } as GuestCardData}
                   invitationBase="https://www.setnayan.com/maria-and-jose"
                   photoDisplayUrl={null}
-                  variant="page"
                   returnTo={labBack}
                   errorMessage={typeof sp.error === 'string' ? guestCardErrorCopy(sp.error) : null}
                   actions={{ update: labUpdate, release: labRelease, partnerLink: labPartnerLink }}
@@ -575,15 +591,11 @@ export default async function GuestsLabPage({
                     template: null,
                     slug: 'maria-and-jose',
                   }}
-                  SendInvite={GuestInviteCell}
-                  TicketThumb={GuestTicketThumb}
-                  MoreMenu={GuestMoreMenu}
-                  DeleteControl={GuestDeleteControl}
                   /* 📸 ?papic=off · ?papic=unknown · ?papic=set (40 credits) · ?papic=none — else on, sharing with everyone. */
                   papic={labPapic}
-                  PapicCamera={GuestPapicCamera}
-                  AccessPick={GuestAccessPick}
-                  kit={TEMPLATE_KIT}
+                  storeShell={false}
+                  ticketVersion={null}
+                  helper={null}
                 />
                 </LabGuestActions>
               </div>
@@ -645,7 +657,10 @@ export default async function GuestsLabPage({
   }
 
   if (part === 'screen' || part === 'setup') {
-    const roster0 = sp.plusones === '1' ? withPlusOnes(planningRoster(), sp.backfilled === '1', sp.paired === '1') : planningRoster();
+    const roster00 = sp.plusones === '1' ? withPlusOnes(planningRoster(), sp.backfilled === '1', sp.paired === '1') : planningRoster();
+    /* 📜 `&many=N` — N more guests after maria-and-jose's (owner 2026-10-24, live: a search on a long list left the hit
+       above the screen), so a search can be walked on a list a phone has to scroll. */
+    const roster0 = roster00.concat(manyGuests(Math.min(400, Math.max(0, Number(typeof sp.many === 'string' ? sp.many : 0) || 0))));
     /* 🖐 `&marked=1` — two replies the host set (owner 2026-10-21), so the rows' quiet "marked" can be seen. */
     const roster1 = sp.marked === '1'
       ? roster0.map((g) => (g.guest_id === 'g-mj-5' || g.guest_id === 'g-mj-9' ? { ...g, rsvp_status: 'attending' as const, rsvp_set_by: 'host' as const } : g))

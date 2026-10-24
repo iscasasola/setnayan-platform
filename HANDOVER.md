@@ -167,3 +167,17 @@ S9 daemon sends save-first items → daemon test red · S10 sweep raw-deletes �
 - Setnayan AI card = `home-cards/home-planner-card.tsx` (alerts from `lib/home-ai-card.server.ts`, picks from the cockpit).
 - Ask box NOT built: no assistant chat exists in the product (the Setnayan AI page is buy + showcase).
 - Params: `?q=declined` (existed) · workspace `?tab=quote` (existed) · `#task-<id>` (new anchor) · `?pay=<line_item_id>` (new).
+
+Fixture stub + scripts: `~/Documents/Claude/Projects/shots-2026-10-24/prb/scripts/` (stub with `INTERNAL=1 WIDGETS=1`,
+`FAIL=table,…` for refused reads), PR-C walk `~/Documents/Claude/Projects/shots-2026-10-24/prc/scripts/shots.mjs`.
+Dark shots force `.dark` — the event tree is not on the dark ready-list yet, so production paints it light.
+
+## Left (for the report)
+- Seat camera onto the uploader: needs papic_photos.client_capture_id + idempotent recordSeatCapture + a seat sign op
+  reusing /api/upload's seat gates. Seat bytes already go direct to R2 (no 413).
+- /api/vendor/papic-portfolio-import still takes its file through the function (12 MB cap > 4.5 MB): same fault, not a camera.
+- C (native iPhone background upload): register a transport via setPapicTransport (lib/papic-upload/transport.ts); the OS
+  must also persist the queue across app kills (today the queue is IndexedDB in the WebView).
+>>
+=======
+>>>>>>> origin/rd/home-control-row

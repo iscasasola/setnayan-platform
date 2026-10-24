@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "7e539aca59",
+  "generatedFromRef": "033bfe938a",
   "routeCount": 466,
   "destinations": 1011,
-  "actions": 665,
-  "blocks": 6994,
+  "actions": 666,
+  "blocks": 6967,
   "routes": {
     "/": {
       "files": [
@@ -863,7 +863,6 @@
         "[slug]/_components/guest-column-card.tsx",
         "[slug]/_components/guest-column-form.tsx",
         "[slug]/_components/guest-doorway-strip.tsx",
-        "[slug]/_components/guest-greeting.tsx",
         "[slug]/_components/guest-hub-bar.tsx",
         "[slug]/_components/guest-hub-card.tsx",
         "[slug]/_components/guest-in-canvas.ts",
@@ -1034,7 +1033,6 @@
         "[slug]/_components/your-photos-widget.tsx",
         "[slug]/_components/your-seat-block.tsx",
         "[slug]/_components/your-seat-styles.tsx",
-        "[slug]/_components/your-shot-tile.tsx",
         "[slug]/_components/your-shots-gallery.tsx",
         "[slug]/_lib/album-door.server.ts",
         "[slug]/_lib/back-cover.server.ts",
@@ -1105,6 +1103,7 @@
         "/join/[seg]",
         "/login?next=[seg]",
         "/papic/guest",
+        "/papic/me/[seg]/photo?id=[seg]&src=guest",
         "/privacy",
         "/signup",
         "/terms",
@@ -1116,6 +1115,7 @@
       ],
       "actions": [
         "action",
+        "arrivalAction",
         "joinAction",
         "toggle",
         "toggleBlur",
@@ -1317,7 +1317,6 @@
         "HubShell",
         "HubStageFrame",
         "Icon",
-        "InfoTip",
         "InvitationBody",
         "InvitationFacts",
         "InvitationShell",
@@ -1333,7 +1332,6 @@
         "Layer",
         "LeadArticle",
         "LeadMedia",
-        "LightboxSaveButton",
         "Line",
         "Link",
         "List",
@@ -1364,9 +1362,7 @@
         "MakerWelcomeGiftsEmpty",
         "MakerWelcomeLook",
         "Marked",
-        "MeGreeting",
         "MePart",
-        "MeReply",
         "MediaStream",
         "MessagesScene",
         "MineName",
@@ -1381,7 +1377,6 @@
         "Monogram",
         "MusicButtonFace",
         "NameStyle",
-        "NamedColourDot",
         "NativeSaveForm",
         "NativeSaveHandOff",
         "NearViewport",
@@ -1409,7 +1404,6 @@
         "ParishDrawingFigure",
         "PartHead",
         "PartLook",
-        "PassAction",
         "PatternGround",
         "PeWaiting",
         "Person",
@@ -1488,7 +1482,6 @@
         "RsvpPlusOnes",
         "RsvpQuestionHeader",
         "RsvpSheet",
-        "RsvpStatus",
         "RsvpStepNext",
         "RsvpStepProgress",
         "RsvpStyledAnswers",
@@ -1526,7 +1519,6 @@
         "SeatingScene",
         "SectionEmptyPlate",
         "SectionRule",
-        "SeeTheDressCode",
         "SeeWhereYouAre",
         "Select",
         "Selection",
@@ -1638,7 +1630,6 @@
         "YourPhotosWidget",
         "YourPlaceLine",
         "YourSeatBlock",
-        "YourShotTile",
         "YourShotsGallery"
       ]
     },
@@ -1850,9 +1841,7 @@
       "files": [
         "[slug]/invite/reply/page.tsx"
       ],
-      "destinations": [
-        "/[seg]"
-      ],
+      "destinations": [],
       "actions": [],
       "blocks": [
         "ArrivalLoading",
@@ -1864,7 +1853,6 @@
         "HeldPassLine",
         "InviteReplyBody",
         "Link",
-        "NoReplyHere",
         "NotYouSwitch",
         "ReplyWindowNote",
         "RsvpCanvasBridge",
@@ -5424,7 +5412,9 @@
       "files": [
         "dashboard/(account)/search/page.tsx"
       ],
-      "destinations": [],
+      "destinations": [
+        "/dashboard/[seg]/vendors"
+      ],
       "actions": [],
       "blocks": [
         "FrontDoorResults",
@@ -5672,9 +5662,7 @@
         "/dashboard/[seg]/studio/papic",
         "/dashboard/[seg]/studio/setnayan-ai",
         "/dashboard/[seg]/vendors",
-        "/dashboard/[seg]/vendors/[seg]/workspace?tab=quote",
         "/dashboard/[seg]/vendors?part=budget",
-        "/dashboard/[seg]/vendors?part=budget&pay=[seg]",
         "/dashboard/[seg]/vendors?tab=shortlist",
         "/dashboard/[seg]/vendors?tab=shortlist&open=[seg]",
         "/dashboard/[seg]/website/editor?open=music",
@@ -6462,7 +6450,6 @@
         "dashboard/[eventId]/guests/_components/card-fields.tsx",
         "dashboard/[eventId]/guests/_components/dock-follows-column.ts",
         "dashboard/[eventId]/guests/_components/guest-access-control.tsx",
-        "dashboard/[eventId]/guests/_components/guest-access-pick.tsx",
         "dashboard/[eventId]/guests/_components/guest-actions-context.tsx",
         "dashboard/[eventId]/guests/_components/guest-add-queue.ts",
         "dashboard/[eventId]/guests/_components/guest-card-autosave.tsx",
@@ -6484,9 +6471,6 @@
         "dashboard/[eventId]/guests/_components/guest-map-canvas.tsx",
         "dashboard/[eventId]/guests/_components/guest-name-fields.tsx",
         "dashboard/[eventId]/guests/_components/guest-optimistic-store.ts",
-        "dashboard/[eventId]/guests/_components/guest-papic-bulk.tsx",
-        "dashboard/[eventId]/guests/_components/guest-papic-camera.tsx",
-        "dashboard/[eventId]/guests/_components/guest-papic-read.ts",
         "dashboard/[eventId]/guests/_components/guest-popup.tsx",
         "dashboard/[eventId]/guests/_components/guest-selection-store.ts",
         "dashboard/[eventId]/guests/_components/guest-ticket-parts.tsx",
@@ -6567,7 +6551,6 @@
         "AutosaveOutcome",
         "CaptureBar",
         "CardBoxProps",
-        "CardDoorProps",
         "CardFactProps",
         "CardFieldProps",
         "CardFoldProps",
@@ -6586,7 +6569,6 @@
         "CoordinatorGrantChips",
         "Count",
         "Ctx",
-        "DeleteControl",
         "DeleteGuestFlow",
         "DeleteGuestSheet",
         "DeleteGuestWarning",
@@ -6609,11 +6591,8 @@
         "GroupEditResult",
         "GroupNameClash",
         "GuestAccessControl",
-        "GuestAccessLevel",
-        "GuestAccessState",
         "GuestActions",
         "GuestActionsContext.Provider",
-        "GuestCamera",
         "GuestCardBody",
         "GuestCardData",
         "GuestConfirmActions",
@@ -6622,8 +6601,6 @@
         "GuestListHasSidesContext.Provider",
         "GuestListStatus",
         "GuestMapCanvas",
-        "GuestPapicBulkSheet",
-        "GuestPapicState",
         "GuestPopup",
         "GuestRemovalActions",
         "GuestRole",
@@ -6638,7 +6615,6 @@
         "HTMLFormElement",
         "HTMLImageElement",
         "HTMLInputElement",
-        "HTMLSpanElement",
         "HTMLTextAreaElement",
         "Handed",
         "Icon",
@@ -6653,7 +6629,6 @@
         "Item",
         "JustAdded",
         "K.Cols",
-        "K.Door",
         "K.Fact",
         "K.Field",
         "K.Fold",
@@ -6688,12 +6663,9 @@
         "OpenQuickAddButton",
         "OutcomeContext.Provider",
         "PageMasthead",
-        "PapicCamera",
-        "PapicGuestAccess",
         "PeekSay",
         "PeekToast",
         "PeopleHits",
-        "Pick",
         "PickMenu",
         "PillThumb",
         "PlusOneFilter",
@@ -6711,7 +6683,6 @@
         "Said",
         "SaveFileLink",
         "Scrim",
-        "SearchAddRow",
         "SendInvite",
         "SetRsvpResult",
         "Sheet",
@@ -9707,7 +9678,8 @@
         "/dashboard/[seg]/vendors/[seg]/workspace",
         "/dashboard/[seg]/vendors/categories",
         "/dashboard/[seg]/vendors?open=[seg]",
-        "/dashboard/[seg]/vendors?part=budget"
+        "/dashboard/[seg]/vendors?part=budget",
+        "/explore?q=[seg]"
       ],
       "actions": [
         "acceptVendorReuseForm",
@@ -9899,7 +9871,6 @@
         "SaveSheetBody",
         "SaveVendorResult",
         "SavedPhotoMarker",
-        "SearchAddRow",
         "SearchMarketplaceVendorsResult",
         "SectionStub",
         "SelfAddedPrice",
@@ -11361,7 +11332,6 @@
     },
     "/dev/search-lab": {
       "files": [
-        "dev/search-lab/lab-add-own.tsx",
         "dev/search-lab/page.tsx"
       ],
       "destinations": [
@@ -11371,13 +11341,9 @@
       "actions": [],
       "blocks": [
         "AccountBarSlot",
-        "AddOwnStandInCtx.Provider",
         "Avatar",
-        "DiscoverThumbRow",
-        "FrontDoorFeed",
         "FrontDoorResults",
         "FrontDoorShell",
-        "LabAddOwn",
         "RosterPerson"
       ]
     },
@@ -11593,6 +11559,7 @@
         "LabFactSheets",
         "LabShell",
         "LabSuppliersShell",
+        "MarketSearchStandInCtx.Provider",
         "MerkadoGuardBanner",
         "MoreRowStandInCtx.Provider",
         "ServicesTakeover",

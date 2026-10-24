@@ -254,7 +254,7 @@
     --color-terracotta-700: 168 131 64; /* deepest → #A88340 */
     --color-mulberry: 229 121 78;        /* CTA → lightened terracotta #E5794E · 6.20:1 AA on the dark page */
     --color-mulberry-600: 236 138 95;   /* CTA hover lighter → #EC8A5F (7.22:1 AAA) */
-    --color-mulberry-700: 194 78 37;     /* CTA deepest → the light-mode #C24E25 */
+    --color-mulberry-700: 242 160 125;   /* words that act → #F2A07D · 8.5:1 on the page (dark 3a, 2026-10-23: it was the light-mode #C24E25 — 3.81:1, "Buy more" / "8 to invite" / "Download as Excel") */
     --sn-on-accent: 23 22 15;            /* words on the accent, dark (inert like the rest of this block): the page's ink-black on #E5794E — white reads 2.9:1 there */
     --color-link: 157 178 206;         /* link → lightened slate indigo #9DB2CE · 8.37:1 AAA */
     --color-link-600: 175 194 218;     /* link hover → #AFC2DA (9.97:1) */

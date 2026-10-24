@@ -158,7 +158,7 @@ export function ReplyBy({
       value={value || fallback || ''}
       onChange={(e) => void pick(e.target.value)}
       aria-label={layout === 'stack' ? 'Reply by — your own date' : REPLY_BY_LABEL}
-      className="min-h-10 rounded-full border border-ink/15 bg-white px-3 text-[13px] text-ink"
+      className="min-h-10 rounded-full border border-ink/15 bg-white dark:bg-raised px-3 text-[13px] text-ink"
     />
   );
   const status = note ? (

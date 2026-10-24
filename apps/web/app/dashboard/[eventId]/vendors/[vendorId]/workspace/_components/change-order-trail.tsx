@@ -244,7 +244,7 @@ export function ChangeOrderTrail({
               maxLength={120}
               required
               placeholder={kind === 'add-on' ? 'e.g. Extra hour of coverage' : 'e.g. Drop the photo booth'}
-              className="w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
+              className="w-full rounded-lg border border-ink/15 bg-white dark:bg-raised px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
             />
           </div>
 
@@ -262,7 +262,7 @@ export function ChangeOrderTrail({
                 required
                 inputMode="decimal"
                 placeholder="e.g. 5000"
-                className="w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
+                className="w-full rounded-lg border border-ink/15 bg-white dark:bg-raised px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
               />
             </div>
             <div className="space-y-1">
@@ -273,7 +273,7 @@ export function ChangeOrderTrail({
                 id="co_due"
                 name="proposed_due_date"
                 type="date"
-                className="w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
+                className="w-full rounded-lg border border-ink/15 bg-white dark:bg-raised px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
               />
             </div>
           </div>
@@ -288,7 +288,7 @@ export function ChangeOrderTrail({
               rows={2}
               maxLength={2000}
               placeholder="Anything the supplier should know"
-              className="w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
+              className="w-full rounded-lg border border-ink/15 bg-white dark:bg-raised px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
             />
           </div>
 
@@ -312,7 +312,7 @@ export function ChangeOrderTrail({
                 setErrorMsg(null);
               }}
               disabled={pending}
-              className="rounded-lg border border-ink/15 bg-white px-3 py-1.5 text-xs font-medium text-ink/70 transition-colors hover:bg-cream disabled:opacity-60"
+              className="rounded-lg border border-ink/15 bg-white dark:bg-raised px-3 py-1.5 text-xs font-medium text-ink/70 transition-colors hover:bg-cream disabled:opacity-60"
             >
               Cancel
             </button>
@@ -399,7 +399,7 @@ export function ChangeOrderTrail({
                       type="button"
                       disabled={pending}
                       onClick={() => handleRespond(co.change_order_id, 'decline')}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-1 text-[11px] font-medium text-ink/70 transition-colors hover:bg-cream disabled:opacity-60"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white dark:bg-raised px-3 py-1 text-[11px] font-medium text-ink/70 transition-colors hover:bg-cream disabled:opacity-60"
                     >
                       Decline
                     </button>
@@ -413,7 +413,7 @@ export function ChangeOrderTrail({
                       type="button"
                       disabled={pending}
                       onClick={() => handleWithdraw(co.change_order_id)}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-1 text-[11px] font-medium text-ink/70 transition-colors hover:bg-cream disabled:opacity-60"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white dark:bg-raised px-3 py-1 text-[11px] font-medium text-ink/70 transition-colors hover:bg-cream disabled:opacity-60"
                     >
                       {busy && pending ? (
                         <Loader2 aria-hidden className="h-3 w-3 animate-spin" strokeWidth={2} />

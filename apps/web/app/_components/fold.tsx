@@ -120,7 +120,7 @@ export function Fold({
       {lead}
       {summaryEnd ? (
         <>
-          <span className={`max-w-[62%] shrink-0 truncate font-medium ${danger ? 'text-danger-700' : ''}`}>{title}</span>
+          <span className={`shrink-0 font-medium ${danger ? 'text-danger-700' : ''}`}>{title}</span>
           <span className="ml-auto min-w-0 flex-1 truncate text-right text-[13.5px] font-normal text-ink/55">{summary}</span>
         </>
       ) : line !== undefined ? (

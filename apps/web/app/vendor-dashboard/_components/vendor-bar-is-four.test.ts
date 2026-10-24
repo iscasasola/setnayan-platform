@@ -32,6 +32,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { Home, ShoppingBag, Store } from 'lucide-react';
 
 import { VENDOR_BOTTOM_NAV_ITEMS, vendorBarItems } from './vendor-bottom-nav';
 import { resolveVendorDestinations } from './vendor-nav-destinations';
@@ -94,6 +95,29 @@ test('the laptop rail says the same four words, in the same order', () => {
   const bar = vendorBarItems({ role: 'admin' }).map((i) => pathOf(i.href));
   const rail = resolveVendorDestinations({ role: 'admin' }).map((r) => pathOf(r.href));
   assert.deepEqual(rail, bar, 'a tab and its rail row open different rooms');
+});
+
+/* ══ 2b · Today wears the shop's icon, never a house ═════════════════════ */
+
+// Owner, verbatim, 2026-10-24: "Shop icon not home icon on Shop's Dashboard Today."
+// Asked of what is DRAWN — the code's tab AND the registry's slot (the registry
+// wins, so a code-only change would leave the house on every real bar) — on the
+// bar and the rail alike. Today must also stay distinguishable from the Shop tab.
+test('Today wears the storefront (Store), not a house — bar and rail, code and registry', () => {
+  for (const navSlots of [undefined, DEFAULT_SLOTS]) {
+    const where = navSlots ? 'registry default' : 'code';
+    const bar = vendorBarItems({ role: 'owner', navSlots });
+    const today = bar.find((i) => i.key === 'profile');
+    const shop = bar.find((i) => i.key === 'shop');
+    assert.equal(today?.icon, Store, `the bar's Today (${where}) is not the storefront`);
+    assert.notEqual(today?.icon, Home, `the bar's Today (${where}) still wears a house`);
+    assert.notEqual(today?.icon, shop?.icon, `the bar's Today and Shop (${where}) wear the same icon`);
+    const rail = resolveVendorDestinations({ role: 'admin', navSlots });
+    assert.equal(rail[0]?.label, 'Today');
+    assert.equal(rail[0]?.icon, Store, `the rail's Today (${where}) is not the storefront`);
+  }
+  // The Shop tab keeps its bag — the two must not collapse into one glyph.
+  assert.equal(VENDOR_BOTTOM_NAV_ITEMS.find((i) => i.key === 'shop')?.icon, ShoppingBag);
 });
 
 /* ══ 3 · a helper: Today · Customers, plus the Hub on the day ══════════════ */

@@ -1197,7 +1197,7 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     label: "Today",
     labelKind: "literal",
     iconKind: "lucide",
-    lucideName: "Home",
+    lucideName: "Store", // the shop's icon, not a house — owner 2026-10-24
     customRef: null,
     sortOrder: 0,
   },
@@ -1237,7 +1237,7 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     label: "Today",
     labelKind: "literal",
     iconKind: "lucide",
-    lucideName: "Home",
+    lucideName: "Store", // the shop's icon, not a house — owner 2026-10-24
     customRef: null,
     sortOrder: 0,
   },

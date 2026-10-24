@@ -126,6 +126,7 @@ import { NewGroupInlineForm } from './new-group-inline-form';
 import { groupLabelWithSide, sidesForNamesakes } from '@/lib/groups-for-side';
 import { GuestListHasSidesContext } from './guest-list-has-sides-context';
 import { openAddGuest } from './add-guest-sheet';
+import { SearchAddRow, searchAddLabel } from '@/components/search-add-row';
 import { guestAdds, NEEDS_BOTH_NAMES, queueTypedGuest, useGuestAdds } from './guest-add-queue';
 import { JustAdded } from './just-added';
 import { hearAction } from './hear-action';
@@ -1074,10 +1075,16 @@ export function GuestsScreen(props: GuestsScreenProps) {
           </section>
         );
       })}
+      {/* SEARCH OR ADD (owner 2026-10-24: *"it is search or add for both guests and suppliers"*): while the box holds
+          words and the list has hits, the last row adds what was typed — the thumb row's own ＋ door (`openAddGuest`,
+          the sheet, name filled in). With no hit the block below is the add, its button in the same words. */}
+      {q && !noMatch && !copy ? <SearchAddRow className={styles.searchAdd} query={q} as="a guest" onAdd={openAddGuest} /> : null}
       {noMatch ? (
         <div className={styles.nomatch} data-no-match="">
           {copy ? null : <PeopleHits hits={peopleHits} onAdd={addPerson} />}
-          <div className={styles.title}>{peopleHits.length > 0 && !copy ? `Not them? Add “${q}” as new` : `Nobody matches “${q}”`}</div>
+          <div className={styles.title}>
+            {peopleHits.length > 0 && !copy ? `Not them? Add “${q}” as new` : copy ? `Nobody matches “${q}”` : `Nobody matches “${q}”. Add them below.`}
+          </div>
           <p className={styles.body}>
             If that’s a name, add them — one tap, the rest later. Words like “attending”, “no reply”, “VIP” or a group name also work here.
           </p>
@@ -1104,7 +1111,8 @@ export function GuestsScreen(props: GuestsScreenProps) {
                 tone="brand"
                 main
                 icon={Plus}
-                label={`Add “${q}”`}
+                label={searchAddLabel(q, 'a guest')}
+                name={`Add “${q}” as a guest`}
                 onClick={() => {
                   // One tap adds them, the same as Enter; a line the box cannot add alone (one name) opens the sheet.
                   if (addTyped(q) === NEEDS_BOTH_NAMES) openAddGuest(q);

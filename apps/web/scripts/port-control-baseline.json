@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "f44ca8e5c7",
+  "generatedFromRef": "ca3d7ba1c3",
   "routeCount": 466,
-  "destinations": 1007,
+  "destinations": 1005,
   "actions": 662,
-  "blocks": 6916,
+  "blocks": 6914,
   "routes": {
     "/": {
       "files": [
@@ -1404,7 +1404,6 @@
         "ParishDrawingFigure",
         "PartHead",
         "PartLook",
-        "PassAction",
         "PatternGround",
         "PeWaiting",
         "Person",
@@ -1483,7 +1482,6 @@
         "RsvpPlusOnes",
         "RsvpQuestionHeader",
         "RsvpSheet",
-        "RsvpStatus",
         "RsvpStepNext",
         "RsvpStepProgress",
         "RsvpStyledAnswers",
@@ -1843,9 +1841,7 @@
       "files": [
         "[slug]/invite/reply/page.tsx"
       ],
-      "destinations": [
-        "/[seg]"
-      ],
+      "destinations": [],
       "actions": [],
       "blocks": [
         "ArrivalLoading",
@@ -1857,7 +1853,6 @@
         "HeldPassLine",
         "InviteReplyBody",
         "Link",
-        "NoReplyHere",
         "NotYouSwitch",
         "ReplyWindowNote",
         "RsvpCanvasBridge",
@@ -6615,6 +6610,7 @@
         "Said",
         "SaveFileLink",
         "Scrim",
+        "SearchAddRow",
         "SendInvite",
         "SetRsvpResult",
         "Sheet",
@@ -9597,8 +9593,7 @@
         "/dashboard/[seg]/vendors/[seg]/workspace",
         "/dashboard/[seg]/vendors/categories",
         "/dashboard/[seg]/vendors?open=[seg]",
-        "/dashboard/[seg]/vendors?part=budget",
-        "/explore?q=[seg]"
+        "/dashboard/[seg]/vendors?part=budget"
       ],
       "actions": [
         "acceptVendorReuseForm",
@@ -9790,6 +9785,7 @@
         "SaveSheetBody",
         "SaveVendorResult",
         "SavedPhotoMarker",
+        "SearchAddRow",
         "SearchMarketplaceVendorsResult",
         "SectionStub",
         "SelfAddedPrice",
@@ -11478,7 +11474,6 @@
         "LabFactSheets",
         "LabShell",
         "LabSuppliersShell",
-        "MarketSearchStandInCtx.Provider",
         "MerkadoGuardBanner",
         "MoreRowStandInCtx.Provider",
         "ServicesTakeover",

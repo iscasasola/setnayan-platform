@@ -111,7 +111,7 @@ test('6 · 🔒 the ticks live in a table NO browser role can read — private t
 
 test('6 · the save is the guest\'s OWN reply action (+0 routes), after the key check, touching nothing of the reply', () => {
   const start = ACTIONS.indexOf('export async function submitRsvp(');
-  const keyCheck = ACTIONS.indexOf('const session = await readGuestSessionForEvent(eventId);', start);
+  const keyCheck = ACTIONS.indexOf('const replyAs = await readReplyIdentityForEvent(eventId);', start); // the reply's ONE identity (2026-10-24)
   const branch = ACTIONS.indexOf("const checklistItem = clean(formData.get('checklist_item'));", start);
   const replyRead = ACTIONS.indexOf("const status = clean(formData.get('rsvp_status'))", start);
   assert.ok(start > -1 && keyCheck > start, 'submitRsvp no longer checks the key first');

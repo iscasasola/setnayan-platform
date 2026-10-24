@@ -99,6 +99,7 @@ import { fetchRevealConfig } from '@/lib/reveal-config';
 import { REVEAL_NONE, revealAllowedFor } from '@/lib/reveal-access';
 import { coerceRevealTemplate } from './_lib/reveal-props';
 import { INVITE_THEMES } from '@/lib/invite-themes';
+import type { RsvpStatus } from '@/lib/guests';
 import { resolveHubTheme } from './_lib/hub-look';
 import { stdOpeningsActiveCached } from './_components/reveal/reveal-overlay-server';
 import { resolveWeddingOnlyParts } from '@/lib/wedding-only-parts';
@@ -752,6 +753,28 @@ async function hostOwnGuestRowFor(
   }
   const id = (data?.[0] as { guest_id?: string | null } | undefined)?.guest_id;
   return typeof id === 'string' ? id : null;
+}
+
+/** The host's own row's reply status, when that row is live (`deleted_at is null`); null otherwise or unread. */
+async function hostOwnRsvpFor(
+  admin: ReturnType<typeof createAdminClient>,
+  eventId: string,
+  guestId: string,
+): Promise<RsvpStatus | null> {
+  const { data, error } = await admin
+    .from('guests')
+    .select('rsvp_status')
+    .eq('event_id', eventId)
+    .eq('guest_id', guestId)
+    .is('deleted_at', null)
+    .maybeSingle();
+  if (error) {
+    console.error('[supabase-error] app/[slug]/page.tsx · from:guests.select (host own reply)', error);
+    return null;
+  }
+  if (!data) return null;
+  const status = (data as { rsvp_status?: string | null }).rsvp_status;
+  return status === 'attending' || status === 'declined' || status === 'maybe' ? status : 'pending';
 }
 
 /**
@@ -1677,10 +1700,14 @@ async function invitationBody({
     ownerCapability && viewerAccount?.id && !isEditorCanvas && search.as === undefined
       ? await hostOwnGuestRowFor(admin, event.event_id, viewerAccount.id)
       : null;
+  /* 🗳 The host's OWN reply (owner bug 2026-10-24): the host's Reply card reads it and opens the reply page as them
+     (`readReplyIdentityForEvent`) — never the Maker's sample. Null: no live row of their own here, so no card. */
+  const hostOwnRsvp = hostOwnGuestId ? await hostOwnRsvpFor(admin, event.event_id, hostOwnGuestId) : null;
   const siteProps = {
     // 🪪 Drawn under the host's / a signed-in stranger's cover (the guest tree draws it in Me, below).
     heldPassSlot: heldPassNode,
     hostOwnGuestId,
+    hostOwnRsvp,
     // 🔒 WITHHELD BY DEFAULT (owner 2026-09-20 · lib/venue-disclosure.ts). Every
     // render branch spreads this object, so a branch that knows nothing about
     // the viewer's reply shows no address, no map and no directions. The guest

@@ -413,7 +413,7 @@ function ConfirmReceiptState({
       </h1>
       <p className="max-w-prose text-base text-ink/65">
         <span className="font-medium text-ink">{vendorName}</span> marked their service
-        complete. Confirm you received everything to unlock your review and galleries — or, if
+        complete. Confirm you received everything to unlock your review and photos — or, if
         something is missing, let us know.
       </p>
       <div className="flex flex-wrap gap-2 pt-1">

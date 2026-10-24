@@ -36,7 +36,10 @@ export function GuestMeParts({
   partLooks = null,
   wearMark = null,
   note = null,
+  fullGuideAnchor = null,
 }: {
+  /** 👗 What to wear's "See the full dress code ›" — the Details guide's anchor (owner 2026-10-24, the Me redraw). */
+  fullGuideAnchor?: string | null;
   /**
    * 💌 The hosts' note to THIS guest (`guestMeNoteShown`, owner 2026-10-20) — drawn under Your role and above What to
    * wear, headed "A note from …". Null: nothing. Settled elsewhere, like the parts.
@@ -78,7 +81,7 @@ export function GuestMeParts({
   // Under Your role when it is drawn; else first — always above What to wear.
   const noteAfterRole = parts.includes('role');
   return (
-    <div data-me-parts="" className="space-y-10">
+    <div data-me-parts="" className="space-y-10 [&>*+*]:border-t [&>*+*]:border-ink/10 [&>*+*]:pt-10">
       {noteAfterRole ? null : noteBlock}
       {parts.flatMap((p) => {
         const drawn = p === 'guests' ? (
@@ -96,10 +99,10 @@ export function GuestMeParts({
           </section>
         ) : partLooks?.[p] ? (
           <div key={p} data-part-look={partLooks[p]!} className="empty:hidden">
-            <MePart p={p} words={words} look={look} mark={p === 'wear' ? wearMark : null} />
+            <MePart p={p} words={words} look={look} mark={p === 'wear' ? wearMark : null} guide={p === 'wear' ? fullGuideAnchor : null} />
           </div>
         ) : (
-          <MePart key={p} p={p} words={words} look={look} mark={p === 'wear' ? wearMark : null} />
+          <MePart key={p} p={p} words={words} look={look} mark={p === 'wear' ? wearMark : null} guide={p === 'wear' ? fullGuideAnchor : null} />
         );
         return p === 'role' && noteAfterRole && noteBlock ? [drawn, noteBlock] : [drawn];
       })}
@@ -108,7 +111,7 @@ export function GuestMeParts({
 }
 
 /** One of Your role · What to wear · Arrive by — the dress code's own "you" panel, one fact. */
-function MePart({ p, words, look, mark = null }: { p: Exclude<GuestMePart, 'guests'>; words: EventWords; look: Parameters<typeof GuestMeParts>[0]['look']; mark?: ReactNode }) {
+function MePart({ p, words, look, mark = null, guide = null }: { p: Exclude<GuestMePart, 'guests'>; words: EventWords; look: Parameters<typeof GuestMeParts>[0]['look']; mark?: ReactNode; guide?: string | null }) {
   return (
     <DressCodeWidget
       part={p}
@@ -126,6 +129,7 @@ function MePart({ p, words, look, mark = null }: { p: Exclude<GuestMePart, 'gues
       guestsArriveBy={p === 'arrive' ? (look.guestsArriveBy ?? null) : null}
       hideWhenEmpty
       mark={mark}
+      fullGuideAnchor={guide}
     />
   );
 }

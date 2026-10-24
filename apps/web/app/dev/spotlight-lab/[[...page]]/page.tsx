@@ -55,7 +55,7 @@ export default async function SpotlightLabPage({
           <Link href="/dev/spotlight-lab/after" className="sn-tile sn-press flex items-center justify-between gap-3 text-left" data-tour="day-live">
             <span className="min-w-0">
               <span className="block text-[15px] font-semibold text-ink">Open the live desk</span>
-              <span className="mt-0.5 block text-[12.5px] text-ink/55">Announcements, the photo wall and what is happening now.</span>
+              <span className="mt-0.5 block text-[12.5px] text-ink/55">Announcements, Memory lane and what is happening now.</span>
             </span>
             <ArrowRight aria-hidden className="h-4 w-4 flex-none text-ink/40" />
           </Link>

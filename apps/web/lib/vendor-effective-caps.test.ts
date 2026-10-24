@@ -33,7 +33,7 @@ test('custom overlay raises seats / reach / slots / photos', () => {
   const caps = vendorEffectiveCaps('custom', COMP);
   assert.equal(caps.agentAccounts, 15); // max(10, 15)
   assert.equal(caps.serviceRadiusKm, 300); // composed km
-  assert.equal(caps.slotsPerDay, 12);
+  assert.equal(caps.slotsPerDay, Infinity); // no plan limit on any plan (2026-10-23) — composed slots cannot lower it
   assert.equal(caps.portfolioPhotos, 800);
 });
 
@@ -53,8 +53,8 @@ test('custom overlay never lowers a base axis below the Enterprise clone', () =>
   const base = tierCaps('custom');
   assert.equal(caps.agentAccounts, base.agentAccounts); // 10, not 2
   assert.equal(caps.serviceRadiusKm, base.serviceRadiusKm); // 100, not 10
-  assert.equal(caps.slotsPerDay, base.slotsPerDay); // 8, not 1
-  assert.equal(caps.portfolioPhotos, base.portfolioPhotos); // 300, not 50
+  assert.equal(caps.slotsPerDay, base.slotsPerDay); // no plan limit, not 1
+  assert.equal(caps.portfolioPhotos, base.portfolioPhotos); // the free base
 });
 
 test('custom overlay leaves feature/boolean axes identical to the clone', () => {
@@ -73,12 +73,12 @@ test('the no-limit axis removes the customers-per-date ceiling', () => {
   assert.equal(caps.whitelistPerDate, Infinity);
 });
 
-test('WITHOUT it, a Custom shop keeps the Enterprise ceiling of 10', () => {
+test('WITHOUT it, a Custom shop keeps the every-plan ceiling of 5', () => {
   // The control. Without this the test above passes whether or not the axis is
-  // read — `whitelistPerDate` would be 10 either way if the overlay were wrong
+  // read — `whitelistPerDate` would be 5 either way if the overlay were wrong
   // in the other direction.
-  assert.equal(vendorEffectiveCaps('custom', COMP).whitelistPerDate, 10);
-  assert.equal(vendorEffectiveCaps('custom', null).whitelistPerDate, 10);
+  assert.equal(vendorEffectiveCaps('custom', COMP).whitelistPerDate, 5);
+  assert.equal(vendorEffectiveCaps('custom', null).whitelistPerDate, 5);
 });
 
 test('a composition predating the axis reads as NOT granted, not as undefined', () => {
@@ -86,7 +86,7 @@ test('a composition predating the axis reads as NOT granted, not as undefined', 
   // no key. It must fail CLOSED — the overlay tests `=== true`, never truthiness.
   const legacy = { ...COMP } as CustomComposition;
   assert.equal('pipelineUnlimited' in legacy, false, 'the fixture must really lack the key');
-  assert.equal(vendorEffectiveCaps('custom', legacy).whitelistPerDate, 10);
+  assert.equal(vendorEffectiveCaps('custom', legacy).whitelistPerDate, 5);
 });
 
 test('the axis lifts the booked-out waitlist TOO — one axis, both ceilings', () => {

@@ -18,8 +18,10 @@ const read = (...p: string[]) => readFileSync(join(HERE, ...p), 'utf8');
 const strip = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
 
 const ACTION = read('..', 'app', 'dashboard', '[eventId]', 'studio', 'papic', 'vendor-visibility-actions.ts');
-const CONTROL = read('..', 'app', 'dashboard', '[eventId]', 'studio', 'papic', '_components', 'vendor-media-controls.tsx');
-const PAGE = read('..', 'app', 'dashboard', '[eventId]', 'studio', 'papic', 'page.tsx');
+// 🗂 2026-10-23: the switch is on each supplier's row in Settings › Event access (and a supplier photo's sheet on
+// Memories) — `VendorMediaControls` on the Papic page is gone.
+const CONTROL = read('..', 'app', 'dashboard', '[eventId]', 'details', '_components', 'people-with-access.tsx');
+const PAGE = read('..', 'app', '_components', 'memories', 'event-memories-gallery.tsx');
 const GALLERY = read('papic-gallery.ts');
 
 test('THE HANDLE: something actually WRITES the column', () => {
@@ -34,8 +36,8 @@ test('THE HANDLE: something actually WRITES the column', () => {
 
 test('THE HANDLE IS REACHABLE: a control is mounted, not just written', () => {
   // A server action nobody renders is still a dead feature.
-  assert.match(strip(CONTROL), /action=\{setVendorCapturesHidden\}/, 'the form must call it');
-  assert.match(strip(PAGE), /<VendorMediaControls/, 'and the page must mount the control');
+  assert.match(strip(CONTROL), /action=\{setVendorCapturesHidden\}/, 'the Event access row must call it');
+  assert.match(strip(PAGE), /action=\{setVendorCapturesHidden\}/, 'and a supplier photo’s sheet on Memories too');
 });
 
 test('the gallery actually applies the flag', () => {

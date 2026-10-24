@@ -32,9 +32,8 @@ import { PageMasthead } from '@/app/_components/page-masthead';
 import { FrontDoorResults } from '@/app/_components/frontdoor/front-door-results';
 import { loadFrontDoorArticles } from '@/app/_components/frontdoor/data';
 import { resolveCommandItems } from '@/app/_components/frontdoor/command-data';
-import { resolveRailStudioEvent } from '@/app/_components/frontdoor/rail-data';
+import { resolveShellSearchContext } from '@/app/_components/frontdoor/shell-search-context';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
-import { isStoreShellRequest } from '@/lib/request-platform';
 import { SHELL_SEARCH_PATH } from '@/lib/shell-search';
 
 export const metadata = { title: 'Search' };
@@ -53,35 +52,17 @@ export default async function ShellSearchPage({
     redirect(loginRedirectPath(query ? `${SHELL_SEARCH_PATH}?q=${encodeURIComponent(query)}` : SHELL_SEARCH_PATH));
   }
 
-  if (!query) {
-    return (
-      <div className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
-        <PageMasthead title="Search" />
-        <p className="text-sm text-ink/60">
-          Type what you&rsquo;re looking for in the search at the top.
-        </p>
-      </div>
-    );
-  }
-
-  const [commandItems, studioEvent, storeShell] = await Promise.all([
-    resolveCommandItems(),
-    resolveRailStudioEvent(),
-    isStoreShellRequest(),
-  ]);
-
   /*
-    The find row — only for somebody hosting exactly ONE event (the rail's own
-    "which event" answer, checked against their organiser events), and never in
-    the store app, which shows no marketplace. Several events: no guess.
+    🚪 NO WORDS, NO PAGE OF ITS OWN — BACK TO DISCOVER (owner 2026-10-24, a screenshot: Clear landed on a page that
+    said only "Type what you're looking for in the search at the top." — there was no search at the top, and none at
+    the bottom either, so he was stuck). Discover holds the search box and answers in place; an empty `q` here (Clear,
+    a bookmark, Back) goes there. In the store app `/` is not a page, and the middleware takes it on to the board —
+    a page with its own search, never a blank one. Guarded by `discover-search-stays-on-page.test.ts`.
   */
-  const hosted = studioEvent.eventId
-    ? commandItems.find((i) => i.id === `event-${studioEvent.eventId}`)
-    : undefined;
-  const findSuppliers =
-    !storeShell && studioEvent.eventId && hosted
-      ? { href: `/dashboard/${studioEvent.eventId}/vendors`, eventName: hosted.label }
-      : null;
+  if (!query) redirect('/');
+
+  const commandItems = await resolveCommandItems();
+  const { people, findSuppliers } = await resolveShellSearchContext(query, user.id, commandItems);
 
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 lg:px-8" data-shell-search="">
@@ -92,6 +73,7 @@ export default async function ShellSearchPage({
         commandItems={commandItems}
         place="shell"
         findSuppliers={findSuppliers}
+        people={people}
       />
     </div>
   );

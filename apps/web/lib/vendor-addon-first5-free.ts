@@ -6,6 +6,13 @@ import type { VendorAddonSku } from './vendor-addon-tier-pricing';
  * vendor-addon-first5-free.ts — "free until your 6th booking" for the two
  * COUPLE-VISIBILITY add-ons (owner-locked 2026-07-25).
  *
+ * ⚖ SINCE 2026-10-23 THE WINDOW IS ONE BOOKING, NOT FIVE. The owner moved the
+ * free booking fee to one (*"Your first booking is on us. Not 5."*), and this
+ * window is defined as that SAME window (it reads `FREE_BOOKING_LIMIT`), so it
+ * now reads "free until your second booking". The file and symbol names keep
+ * "first5" only because they are imported by name across the subscription
+ * page and its actions.
+ *
  * THE RULE: while a vendor is still inside their first 5 bookings — the exact
  * same window in which Setnayan charges them **no booking fee** — the 3D Plan Ads
  * and Papic Challenge add-ons cost **₱0**. The moment their 6th booking locks and

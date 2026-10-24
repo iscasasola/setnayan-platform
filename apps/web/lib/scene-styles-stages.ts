@@ -226,9 +226,9 @@ export const STAGE_SCENE_STYLE_SETS: readonly SceneStyleSet[] = [
     type: 'live_hub',
     label: 'Live hub',
     styles: [
-      { id: 'player-and-wall', name: 'Player and wall', line: 'The live player, then the photo wall.', stages: DAY },
+      { id: 'player-and-wall', name: 'Player and wall', line: 'The live player, then Memory lane.', stages: DAY },
       { id: 'theatre', name: 'Theatre', line: 'Dark, the player first and large, the wall under it.', stages: DAY },
-      { id: 'wall-first', name: 'Wall first', line: 'The photo wall leads; the player follows.', stages: DAY },
+      { id: 'wall-first', name: 'Wall first', line: 'Memory lane leads; the player follows.', stages: DAY },
     ],
   },
 ];

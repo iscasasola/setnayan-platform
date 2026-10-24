@@ -21,11 +21,19 @@
  * provider asks the script instead of shipping the list a second time.
  */
 
-export type Appearance = 'light' | 'dark';
-export const APPEARANCES: readonly Appearance[] = ['light', 'dark'];
+/**
+ * 🌗 AUTOMATIC (owner 2026-10-23, verbatim: "yes add automatic" … "set it to automatic") — supersedes call 1
+ * of 2026-10-13 ("no follow the phone"). Three choices: Light · Dark · Automatic, where Automatic follows the
+ * phone / OS (`prefers-color-scheme`, live). LIGHT is the DEFAULT (owner 2026-10-23: "make light the default first"
+ * until dark covers every screen): no cookie, no choice → Light. Automatic is a choice a person makes.
+ * It still only paints on a DARK_READY route, for a signed-in person; signed out is always Light (call 4).
+ */
+export type Appearance = 'light' | 'dark' | 'auto';
+export const APPEARANCES: readonly Appearance[] = ['light', 'dark', 'auto'];
+export const DEFAULT_APPEARANCE: Appearance = 'light';
 
 export function isAppearance(value: unknown): value is Appearance {
-  return value === 'light' || value === 'dark';
+  return value === 'light' || value === 'dark' || value === 'auto';
 }
 
 /**
@@ -37,7 +45,8 @@ export const APPEARANCE_COOKIE = 'sn-theme';
 export const APPEARANCE_COOKIE_MAX_AGE_S = 60 * 60 * 24 * 365;
 
 /** The browser-bar colour of each look. Light is the layout's own `viewport.themeColor`, unchanged. */
-export const THEME_COLOR: Record<Appearance, string> = {
+/** Keyed by what a screen PAINTS (light | dark) — Automatic is a choice, not a paint. */
+export const THEME_COLOR: Record<'light' | 'dark', string> = {
   light: '#FBFBFA',
   dark: '#17160F', // the approved dark page (control_templates_round2_2026-10-12)
 };
@@ -87,9 +96,15 @@ export function appearanceSwitchShown(ready: readonly string[] = DARK_READY): bo
 }
 
 
-/** The person's choice from `document.cookie` — anything but an explicit `dark` is Light. */
+/** The person's choice from `document.cookie` — `light` / `dark` / `auto`; no (or an unknown) value is the default, Light. */
 export function appearanceFromCookie(cookie: string): Appearance {
-  return /(?:^|;\s*)sn-theme=dark(?:;|$)/.test(cookie) ? 'dark' : 'light';
+  const m = /(?:^|;\s*)sn-theme=(light|dark|auto)(?:;|$)/.exec(cookie);
+  return m ? (m[1] as Appearance) : DEFAULT_APPEARANCE;
+}
+
+/** Does this choice mean dark, given what the phone / OS prefers right now? */
+export function choiceIsDark(choice: Appearance, prefersDark: boolean): boolean {
+  return choice === 'dark' || (choice === 'auto' && prefersDark);
 }
 
 /**
@@ -116,13 +131,21 @@ export function isAppRoute(pathname: string, appRoutes: ReadonlySet<string>): bo
   return first === '' || appRoutes.has(first);
 }
 
-/** THE RULE: dark is painted only for a signed-in person who chose it, on a swept app screen. */
+/**
+ * THE RULE: dark is painted only for a signed-in person whose choice means dark (Dark, or Automatic on a phone
+ * that prefers dark), on a swept app screen.
+ */
 export function darkApplies(
-  { pathname, cookie, appRoutes }: { pathname: string; cookie: string; appRoutes: ReadonlySet<string> },
+  {
+    pathname,
+    cookie,
+    appRoutes,
+    prefersDark = false,
+  }: { pathname: string; cookie: string; appRoutes: ReadonlySet<string>; prefersDark?: boolean },
   ready: readonly string[] = DARK_READY,
 ): boolean {
   return (
-    appearanceFromCookie(cookie) === 'dark' &&
+    choiceIsDark(appearanceFromCookie(cookie), prefersDark) &&
     signedInFromCookie(cookie) &&
     isAppRoute(pathname, appRoutes) &&
     isDarkReady(pathname, ready)

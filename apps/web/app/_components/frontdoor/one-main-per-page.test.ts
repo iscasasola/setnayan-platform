@@ -176,7 +176,8 @@ test('the landmark and the page-slide name are the same element in every tree', 
     if (!/\bsn-vt-page\b/.test(src)) continue;
     assert.match(
       src,
-      /<main className="sn-vt-page"/,
+      // The class LEADS the <main>'s className; the account layouts carry their dock padding after it (2026-10-24).
+      /<main\s+className="sn-vt-page[\s"]/,
       `${p} carries \`.sn-vt-page\` on something that is not its <main>. The ` +
         'landmark and the element the phone slides must be the same one.',
     );

@@ -8,6 +8,7 @@ import type { WallTileState } from '@/lib/guest-wall-unpost';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { GalleryCredit } from '@/app/_components/gallery/gallery-credit';
 import { GalleryLightbox } from '@/app/_components/gallery/gallery-lightbox';
+import { LightboxSaveButton } from '@/app/_components/gallery/lightbox-save-button';
 import { PhotosOfYouLead, PhotosOfYouPolaroids } from './photos-of-you-styles';
 
 /**
@@ -81,9 +82,10 @@ export function PhotosOfYouGallery({
   const [wallSaid, setWallSaid] = useState<Record<string, WallTileState>>({});
   const wallOf = (id: string, fallback: WallTileState): WallTileState => wallSaid[id] ?? fallback;
 
-  /* 🎨 ONE TILE, BUILT ONCE — photo, "Not me", "Take it down", the wall
-     badge and the credit — then placed by the scene's style
-     (`photos-of-you-styles.tsx`). A style moves pictures, never consent. */
+  /* 🎨 ONE TILE, BUILT ONCE — photo, the wall badge and the credit — then
+     placed by the scene's style (`photos-of-you-styles.tsx`). "Not me" and
+     "Take it down" are in the viewer the tile opens (2026-10-24), the same for
+     every style. A style moves pictures, never consent. */
   const tileOf = (p: (typeof photos)[number]) => (
     <figure key={p.id} className="sn-gal-tile group aspect-square">
       {/* Tapping the photo opens it here rather than navigating away to a
@@ -101,23 +103,6 @@ export function PhotosOfYouGallery({
         <img src={p.url} alt="" loading="lazy" className="h-full w-full object-cover" />
       </button>
       {/*
-        TWO DIFFERENT WISHES, TWO CONTROLS — and until 2026-08-28 there was
-        one, which could not act on either.
-
-        "Not me"  → that is somebody else, stop filing it under my name.
-                    Removes the TAG, never the photograph. This used to
-                    work only on face-recognition guesses, of which
-                    production has never held a single one, so it rendered
-                    on every photo and did nothing on any of them.
-
-        "Take it down" → that IS me, and I do not want it up. The tag comes
-                    off in the same press (that part is theirs), and the
-                    photograph goes to a person, because it was taken by
-                    somebody else and may hold four other guests.
-
-        Both are real ≥44px labelled controls, legible over the photo.
-      */}
-      {/*
         IS IT ON THE SCREEN IN THIS ROOM RIGHT NOW? A one-word answer, on
         the tile, because the wall is a thing happening in front of her —
         and it is the state she needs BEFORE she decides to open anything.
@@ -132,32 +117,20 @@ export function PhotosOfYouGallery({
         already fill a ~111px tile on a phone.
       */}
       <WallBadge state={wallOf(p.id, p.wall)} />
-      <div className="absolute right-1.5 top-1.5 z-10 flex flex-col items-end gap-1.5">
-        <form action={removeMyTag.bind(null, eventId, p.sourceTable, p.id)}>
-          <SubmitButton
-            className="inline-flex min-h-[44px] items-center gap-1 rounded-full bg-[rgb(23_22_15/0.7)] px-3 text-sm font-semibold text-[var(--sn-ob-text)] shadow-sm backdrop-blur-sm transition hover:bg-[rgb(23_22_15/0.85)] focus-visible:bg-[rgb(23_22_15/0.85)]"
-            pendingLabel="Removing…"
-          >
-            <X aria-hidden className="h-4 w-4" strokeWidth={2.5} />
-            Not me
-          </SubmitButton>
-        </form>
-        <TakeItDown eventId={eventId} sourceTable={p.sourceTable} sourceId={p.id} />
-      </div>
       {/* WHO GOT THIS SHOT OF YOU — the question a guest actually has, and
           one this page could not answer at all before. Silent when unknown. */}
-      <GalleryCredit name={p.capturedBy} capturedAt={p.capturedAt} timeZone={timeZone} />
+      <GalleryCredit name={p.capturedBy} capturedAt={p.capturedAt} timeZone={timeZone} stacked />
     </figure>
   );
 
   return (
-    <section aria-label="Photos of you" className="sn-gal p-5 sm:p-6">
+    <section aria-label="Memories of you" className="sn-gal p-5 sm:p-6">
       <div className="flex items-center justify-between gap-3">
         <p className="sn-gal-kick inline-flex items-center gap-2 font-mono text-xs font-bold uppercase tracking-[0.2em]">
           {isLive ? (
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--sn-ob-gold)]" />
           ) : null}
-          Photos of you{isLive ? ' — so far' : ''}
+          Memories of you{isLive ? ' — so far' : ''}
         </p>
         <p className="sn-gal-soft text-sm">
           {(gallery?.total ?? 0).toLocaleString()}
@@ -191,8 +164,8 @@ export function PhotosOfYouGallery({
         </p>
       ) : null}
 
-      {/* 3-up (not 4-up) so the photos — and the readable "Not me" control —
-          are big enough for an older guest (Guest Legibility Floor). */}
+      {/* 3-up (not 4-up) so the photos are big enough for an older guest
+          (Guest Legibility Floor). */}
       {sceneStyle === 'lead' && photos.length > 0 ? (
         <PhotosOfYouLead tiles={photos.map((p) => ({ key: p.id, node: tileOf(p), capturedAt: p.capturedAt }))} />
       ) : sceneStyle === 'polaroids' && photos.length > 0 ? (
@@ -215,8 +188,8 @@ export function PhotosOfYouGallery({
           {isLive
             ? `More arrive as the day unfolds — and every photo of you is yours to keep after the ${occasion}.`
             : 'Tap any photo to open it full size and save it.'}{' '}
-          Tap <span className="sn-gal-text font-medium">Not me</span> on any photo that isn&rsquo;t
-          you.{' '}
+          Open a photo that isn&rsquo;t you and tap{' '}
+          <span className="sn-gal-text font-medium">Not me</span>.{' '}
           {photos.some((p) => wallOf(p.id, p.wall) !== 'off') ? (
             <>
               A photo marked <span className="sn-gal-text font-medium">On the wall</span> is on the
@@ -236,14 +209,40 @@ export function PhotosOfYouGallery({
           onClose={() => setOpenedId(null)}
           actions={
             <>
-              <a
-                href={opened.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="sn-gal-btn inline-flex min-h-[44px] items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium"
-              >
-                Open full size to save
-              </a>
+              {/* Saved from HERE — never "Open full size" in a new tab, which in the app left a bare picture with
+                  no way back (owner 2026-10-24). */}
+              <LightboxSaveButton url={opened.url} filename={`setnayan-photo-${opened.id}.jpg`} />
+              {/*
+                TWO DIFFERENT WISHES, TWO CONTROLS — and until 2026-08-28 there was
+                one, which could not act on either.
+
+                "Not me"  → that is somebody else, stop filing it under my name.
+                            Removes the TAG, never the photograph.
+
+                "Take it down" → that IS me, and I do not want it up. The tag comes
+                            off in the same press (that part is theirs), and the
+                            photograph goes to a person, because it was taken by
+                            somebody else and may hold four other guests.
+
+                📍 THEY LIVE IN THE VIEWER, NOT ON THE TILE (owner 2026-10-24: the two
+                pills were the size of a tile and covered most of each photo). The
+                Guest Legibility Floor still holds IN FULL — both are labelled,
+                ≥44px, legible — they only moved to where there is room for them,
+                the same move the wall control made: a guest opens the photo, sees
+                it full size, and then decides. A ⋯ on the tile corner was the other
+                option; it was not taken because it hides a consent control behind
+                an unlabelled icon an older guest may never find.
+              */}
+              <form action={removeMyTag.bind(null, eventId, opened.sourceTable, opened.id)}>
+                <SubmitButton
+                  className="sn-gal-btn inline-flex min-h-[44px] items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-semibold"
+                  pendingLabel="Removing…"
+                >
+                  <X aria-hidden className="h-4 w-4" strokeWidth={2.5} />
+                  Not me
+                </SubmitButton>
+              </form>
+              <TakeItDown key={opened.id} eventId={eventId} sourceTable={opened.sourceTable} sourceId={opened.id} />
               <WallControl
                 eventId={eventId}
                 sourceTable={opened.sourceTable}
@@ -287,7 +286,7 @@ function TakeItDown({
 
   if (sent) {
     return (
-      <p className="max-w-[13rem] rounded-lg bg-[rgb(23_22_15/0.8)] px-2.5 py-2 text-right text-xs font-semibold text-[var(--sn-ob-text)] backdrop-blur-sm">
+      <p className="sn-gal-text basis-full text-sm font-semibold">
         We have your request. You are no longer tagged in it, and someone will
         look at the photo.
       </p>
@@ -299,7 +298,7 @@ function TakeItDown({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex min-h-[44px] items-center rounded-full bg-[rgb(23_22_15/0.7)] px-3 text-sm font-semibold text-[var(--sn-ob-text)] shadow-sm backdrop-blur-sm transition hover:bg-[rgb(23_22_15/0.85)] focus-visible:bg-[rgb(23_22_15/0.85)]"
+        className="sn-gal-btn inline-flex min-h-[44px] items-center rounded-md px-3 py-1.5 text-sm font-semibold"
       >
         Take it down
       </button>
@@ -322,7 +321,7 @@ function TakeItDown({
         }
         setSent(true);
       }}
-      className="w-[15rem] rounded-lg bg-[rgb(23_22_15/0.85)] p-2.5 text-left backdrop-blur-sm"
+      className="basis-full pt-1 text-left"
     >
       <label className="block text-xs font-semibold text-[var(--sn-ob-text)]">
         Ask us to take this photo down
@@ -343,12 +342,12 @@ function TakeItDown({
         <button
           type="button"
           onClick={() => setOpen(false)}
-          className="rounded-full px-2.5 py-1.5 text-xs font-bold text-[var(--sn-ob-text)] opacity-70"
+          className="min-h-[44px] rounded-full px-3 py-1.5 text-sm font-bold text-[var(--sn-ob-text)] opacity-70"
         >
           Cancel
         </button>
         <SubmitButton
-          className="rounded-full bg-[var(--sn-ob-text)] px-2.5 py-1.5 text-xs font-bold text-[rgb(23_22_15)]"
+          className="min-h-[44px] rounded-full bg-[var(--sn-ob-text)] px-3 py-1.5 text-sm font-bold text-[rgb(23_22_15)]"
           pendingLabel="Sending…"
         >
           Send it

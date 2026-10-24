@@ -256,9 +256,15 @@ export function InspectorLayout({
  */
 function InspectorSheet({
   onClose,
+  alone = false,
+  layer,
   children,
 }: {
   onClose: () => void;
+  /** Opened by a surface with no list behind it (`InspectorSheetAlone`): shown at EVERY width, the 440 panel from 701. */
+  alone?: boolean;
+  /** A positioned, z-indexed wrapper for the portal — a surface drawn over a higher layer (the Maker) lifts the sheet with it. */
+  layer?: string;
   children: ReactNode;
 }) {
   const [portal, setPortal] = useState<HTMLElement | null>(null);
@@ -277,20 +283,20 @@ function InspectorSheet({
   useModalA11y({ open: true, onClose, containerRef: ref });
 
   if (!portal) return null;
-  return createPortal(
+  const sheet = (
     <>
       <button
         type="button"
-        aria-label="Back to the list"
+        aria-label={alone ? 'Close' : 'Back to the list'}
         onClick={onClose}
-        className="sn-inspector-peek"
+        className={alone ? 'sn-inspector-peek sn-inspector-peek--alone' : 'sn-inspector-peek'}
       />
       <div
         ref={ref}
         role="dialog"
         aria-modal="true"
         tabIndex={-1}
-        className="sn-inspector-sheet"
+        className={alone ? 'sn-inspector-sheet sn-inspector-sheet--alone' : 'sn-inspector-sheet'}
       >
         {/* The tap opens the panel at once; until the card arrives it says so,
             never a blank white sheet that reads as "nothing happened". */}
@@ -300,8 +306,43 @@ function InspectorSheet({
           </p>
         )}
       </div>
-    </>,
-    portal,
+    </>
+  );
+  return createPortal(layer ? <div className={layer}>{sheet}</div> : sheet, portal);
+}
+
+/**
+ * 🪪 THE SAME PANEL, OPENED WHERE THERE IS NO LIST BEHIND IT (owner 2026-10-24: *"the guest card on wedding march is not
+ * same with the guest card"*). A surface that opens ONE guest's card in place — the Wedding March, the parents on the
+ * invitation — draws the very sheet the Guest list draws (`InspectorSheet`, the peek, the 440 panel from 701), holding the
+ * very `<InspectorColumn>` (its sticky eyebrow · name · reply header, its ✕, Escape). It gives the column the context a
+ * list would: ✕ and Escape close it, focus goes to its heading once. Unlike the list's sheet it stays at ≥ 1280 too
+ * (`.sn-inspector-sheet--alone`): there is no rail to hand the card to.
+ */
+export function InspectorSheetAlone({ onClose, layer, children }: { onClose: () => void; layer?: string; children: ReactNode }) {
+  const focused = useRef(false);
+  const ctx = useMemo<InspectorContextValue>(
+    () => ({
+      paramKey: '',
+      selectedId: null,
+      open: true,
+      select: () => undefined,
+      close: onClose,
+      consumePanelFocus: () => {
+        if (focused.current) return false;
+        focused.current = true;
+        return true;
+      },
+      sheet: true,
+    }),
+    [onClose],
+  );
+  return (
+    <InspectorContext.Provider value={ctx}>
+      <InspectorSheet onClose={onClose} alone layer={layer}>
+        {children}
+      </InspectorSheet>
+    </InspectorContext.Provider>
   );
 }
 

@@ -8,7 +8,6 @@ import {
   Users,
   CalendarClock,
   Images,
-  Globe,
   Sparkles,
   BadgeCheck,
   ShieldCheck,
@@ -34,6 +33,7 @@ import {
 } from '../actions';
 import { formatCount } from '@/lib/format-number';
 import { PillButton, PillTrack } from '@/app/_components/pill-track';
+import { WHITELIST_PER_DATE_ALL_PLANS } from '@/lib/vendor-tier-caps';
 
 export type VendorOption = { id: string; name: string; tier: string | null };
 
@@ -225,9 +225,9 @@ export function CustomComposer({
                 label={
                   comp.pipelineUnlimited
                     ? 'Customers per date · No limit'
-                    : 'Customers per date · 10'
+                    : `Customers per date · ${WHITELIST_PER_DATE_ALL_PLANS}`
                 }
-                hint="10 live customers per date included. This removes the ceiling."
+                hint={`${WHITELIST_PER_DATE_ALL_PLANS} live customers per date included. This removes the ceiling.`}
               >
                 <label className="mt-1.5 flex items-center gap-2 text-xs text-ink/70">
                   <input
@@ -288,26 +288,11 @@ export function CustomComposer({
                 />
               </Knob>
 
-              <Knob
-                icon={<Globe className="h-4 w-4" strokeWidth={2} />}
-                label="Custom domain"
-                hint="A branded custom domain for the supplier's public website."
-              >
-                <label className="flex items-center gap-2 text-xs text-ink/70">
-                  <input
-                    type="checkbox"
-                    checked={comp.domain}
-                    onChange={(e) => setK('domain', e.target.checked)}
-                    className="h-4 w-4 rounded border-ink/30 accent-ink"
-                  />
-                  Include a custom domain
-                </label>
-              </Knob>
 
               <Knob
                 icon={<Terminal className="h-4 w-4" strokeWidth={2} />}
                 label="API access"
-                hint="Enterprise SDK — mint API keys + sync leads, bookings, availability, reviews into their own systems. Grant only when the supplier requests it."
+                hint="Ultra SDK — mint API keys + sync leads, bookings, availability, reviews into their own systems. Grant only when the supplier requests it."
               >
                 <label className="flex items-center gap-2 text-xs text-ink/70">
                   <input
@@ -351,7 +336,6 @@ export function CustomComposer({
                         ['reachNationwide', 'Nationwide'],
                         ['seat', 'Per extra seat'],
                         ['slot', 'Per +1 slot'],
-                        ['domain', 'Custom domain'],
                       ] as Array<[keyof CustomUnitPrices, string]>
                     ).map(([key, label]) => (
                       <label key={key} className="block">
@@ -431,14 +415,14 @@ export function CustomComposer({
               <h2 className="text-base font-semibold text-ink">What this supplier gets</h2>
             </div>
             <p className="mb-4 text-xs text-ink/55">
-              Everything in Enterprise, automatically — plus the dialed-in
+              Everything in Ultra, automatically — plus the dialed-in
               ceilings below.
             </p>
 
             <ul className="space-y-1.5 text-sm text-ink/80">
               <li className="flex items-center gap-2">
                 <ShieldCheck className="h-4 w-4 shrink-0 text-ink/45" strokeWidth={2} />
-                All Enterprise features, with its limits removed
+                All Ultra features, with its limits removed
               </li>
               <li className="flex items-center gap-2">
                 <Building2 className="h-4 w-4 shrink-0 text-ink/45" strokeWidth={2} />
@@ -453,7 +437,7 @@ export function CustomComposer({
                 <InfinityIcon className="h-4 w-4 shrink-0 text-ink/45" strokeWidth={2} />
                 {comp.pipelineUnlimited
                   ? 'No limit on customers per date'
-                  : '10 customers per date'}
+                  : `${WHITELIST_PER_DATE_ALL_PLANS} customers per date`}
               </li>
               <li className="flex items-center gap-2">
                 <Users className="h-4 w-4 shrink-0 text-ink/45" strokeWidth={2} />
@@ -464,16 +448,10 @@ export function CustomComposer({
                 {comp.slotsPerCategory} event slots / category
                 {extraSlots > 0 ? ` (+${extraSlots})` : ''}
               </li>
-              {comp.domain ? (
-                <li className="flex items-center gap-2">
-                  <Globe className="h-4 w-4 shrink-0 text-ink/45" strokeWidth={2} />
-                  Branded custom domain
-                </li>
-              ) : null}
               {comp.api_access ? (
                 <li className="flex items-center gap-2">
                   <Terminal className="h-4 w-4 shrink-0 text-ink/45" strokeWidth={2} />
-                  API access — Enterprise SDK + API keys
+                  API access — Ultra SDK + API keys
                 </li>
               ) : null}
             </ul>

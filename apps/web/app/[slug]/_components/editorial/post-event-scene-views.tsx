@@ -38,7 +38,7 @@ import type { PostEventStyleId } from '@/lib/post-event-styles';
 import { postEventElementScope } from '@/lib/post-event-styles';
 import { GlimpseRail } from '../glimpse-rail';
 
-/** Glimpse in the flow draws this many photos (the rail draws them three times once live). */
+/** Glimpse in the flow draws this many photos. */
 export const GLIMPSE_PREVIEW_MAX = 12;
 
 export type PeWords = Partial<Record<'label' | 'heading' | 'body', string>>;
@@ -676,7 +676,7 @@ export function GalleryPreview({
       <div>
         {head}
         <span className="-mx-5 mt-3.5 block sm:-mx-10">
-          <GlimpseRail preview urls={photos.slice(0, GLIMPSE_PREVIEW_MAX)} label={`${names} — the gallery`} />
+          <GlimpseRail preview urls={photos.slice(0, GLIMPSE_PREVIEW_MAX)} label={`${names} — Memories`} />
         </span>
       </div>
     );

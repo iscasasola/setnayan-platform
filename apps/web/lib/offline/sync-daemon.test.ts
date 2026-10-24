@@ -54,3 +54,16 @@ test('a malformed queued_at never ages out on time alone — the retry cap is th
     true,
   );
 });
+
+test('📮 the daemon leaves save-first Papic shots to the page uploader — two senders race', async () => {
+  const { ownedByPageUploader } = await import('../papic-upload/ownership');
+  for (const mode of ['save-first', 'save-first-blob', 'guest', 'vendor']) {
+    assert.equal(ownedByPageUploader({ payload: { mode } }), true, mode);
+  }
+  // The seat camera's items (no mode) are still the daemon's.
+  assert.equal(ownedByPageUploader({ payload: { seat_token: 't' } }), false);
+  const src = (await import('node:fs')).readFileSync(new URL('./sync-daemon.ts', import.meta.url), 'utf8');
+  const skip = src.indexOf("if (service === 'papic' && ownedByPageUploader(item)) continue;");
+  const evict = src.indexOf('if (isOfflineItemExpired(item))');
+  assert.ok(skip > -1 && skip < evict, 'the skip must come before the daemon evicts or sends anything');
+});

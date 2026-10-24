@@ -141,7 +141,6 @@ import { parseRsvpBackdropConfig } from '@/lib/spatial-backdrop';
 import { siteMediaServeRef, siteMediaServeRefs } from '@/lib/site-media-ref';
 import { isHubMusicRef } from '@/lib/hub-music-ref';
 import { QR_STYLE_PREF_KEY, qrStyleFromPreferences, sanitizeQrStyle } from '@/lib/qr-look';
-import { CAMERA_LOOK_PREF_KEY, isCameraLook, type CameraLook } from '@/lib/camera-look-key';
 import {
   classifyPostEventDraft,
   postEventItemLabel,
@@ -977,13 +976,13 @@ export function sanitizeHubDraftEventValue(
       return [...new Set(refs)].slice(0, HUB_DRAFT_GALLERY_MAX);
     }
     case 'style_preferences': {
-      // ONLY the QR's look and 🎛 the camera's look (owner 2026-10-07, `lib/camera-look.ts`) — never another
-      // key of the blob. Each is kept only when the save carries it, so a camera pick never resets a drafted
-      // QR and the other way round (`mergeHubDraft` merges the two key by key).
+      // ONLY the QR's look, the blocks' looks and the accents — never another key of the blob. Each is kept only
+      // when the save carries it, so one pick never resets another (`mergeHubDraft` merges them key by key).
+      // 📷 No camera look any more (owner 2026-10-24: ONE camera, its Pro dress decided by the Logo & QR part —
+      // `lib/camera-dress.ts`): a `camera_look` a save carries is dropped here, so it never reaches a draft.
       if (!isPlainObject(raw)) return undefined;
       const out: Record<string, unknown> = {};
       if (QR_STYLE_PREF_KEY in raw) out[QR_STYLE_PREF_KEY] = sanitizeQrStyle(raw[QR_STYLE_PREF_KEY]);
-      if (isCameraLook(raw[CAMERA_LOOK_PREF_KEY])) out[CAMERA_LOOK_PREF_KEY] = raw[CAMERA_LOOK_PREF_KEY];
       // 🧱 The fixed blocks' looks (`lib/block-looks.ts`) are CARRIED: `readBlockLooks` is their one strict reader.
       if (isPlainObject(raw.block_looks)) out.block_looks = raw.block_looks;
       // 🕯 Each scene's Accent pick (owner 2026-10-16, `lib/art-kits.ts`) — known scenes and their own choices only.
@@ -1765,16 +1764,15 @@ export function eventColumnChange(column: HubDraftEventColumn, live: unknown, ne
     case 'site_bg_music_enabled':
       return refChange(live === true ? 'on' : null, next === true ? 'on' : null);
     case 'style_preferences': {
-      // Only the QR's look and the camera's look are compared; the blob's other keys are not the Maker's.
+      // Only the QR's look, the blocks' and the accents are compared; the blob's other keys are not the Maker's.
       const qr = (v: unknown) => {
         const s = qrStyleFromPreferences(v);
-        const cam = cameraLookOfDraft(v);
         // 🧱 …and the fixed blocks' looks: an empty one is no look at all (a look put back to still).
         const b = isPlainObject(v) && isPlainObject(v.block_looks) && Object.keys(v.block_looks).length > 0 ? v.block_looks : undefined;
         // 🕯 …and the scenes' Accent picks (none picked = the look's defaults, no change).
         const a = sceneAccentsFromPreferences(v);
         const ac = Object.keys(a).length > 0 ? canonicalJson(a) : undefined;
-        return Object.keys(s).length > 0 || cam || b || ac ? JSON.stringify({ qr: s, cam, b, ac }) : null;
+        return Object.keys(s).length > 0 || b || ac ? JSON.stringify({ qr: s, b, ac }) : null;
       };
       return refChange(qr(live), qr(next));
     }
@@ -1867,12 +1865,10 @@ export function eventItemIsPro(
   // Build in (owner 2026-10-16, "all animate, effects, styles, accents are pro") — `rsvpLookGrowing`.
   if (column === 'rsvp_ask_config') return celebrationDraftIsPro(live, value) || rsvpLookGrowing(live, value).length > 0;
   // 🔳 The QR's shape · pattern · colour are Event Hub Pro (`updateQrStyle`);
-  // going back to the plain code is a removal, which is free. 🎛 The camera's
-  // look is a style pick — FREE, like every scene style — so the blob is Pro
-  // only while its QR moves.
+  // going back to the plain code is a removal, which is free.
   // 🕯 …or turns a scene's accent ON (Event Hub Pro while `ART_KIT_IS_PRO`; turning one off is free).
-  // 💎 …or (2026-10-16, "all animate, effects, styles, accents are pro") picks a camera look that is not the classic
-  // one, or gives a fixed block a motion it does not have live. Each part is asked by `stylePreferencesProParts`.
+  // 💎 …or (2026-10-16, "all animate, effects, styles, accents are pro") gives a fixed block a motion it does not
+  // have live. Each part is asked by `stylePreferencesProParts`.
   if (column === 'style_preferences') return stylePreferencesProParts(live, value).length > 0;
   if (column === 'invite_theme') {
     // 🎨 The free themes (Classic, Modern, Cyber Neon — `tier: 'free'`, owner
@@ -2685,12 +2681,6 @@ function rsvpLookFreePart(liveLook: unknown, draftedLook: unknown, keep?: (part:
   return out;
 }
 
-/** 🎛 The camera look a `style_preferences` value names (live blob or drafted part) — null when none. */
-export function cameraLookOfDraft(v: unknown): CameraLook | null {
-  const c = isPlainObject(v) ? v[CAMERA_LOOK_PREF_KEY] : undefined;
-  return isCameraLook(c) ? c : null;
-}
-
 /** 🔳 Does the drafted `style_preferences` move the QR's look from live? (Only the QR is Pro.) */
 function styleQrMoves(live: unknown, drafted: unknown): boolean {
   if (!isPlainObject(drafted) || !(QR_STYLE_PREF_KEY in drafted)) return false;
@@ -2701,13 +2691,7 @@ function styleQrMoves(live: unknown, drafted: unknown): boolean {
 }
 
 /** The Pro parts of a drafted `style_preferences` — what Apply holds and the sheet names. Empty = all free. */
-export type StylePreferencesProPart = 'qr' | 'accents' | 'camera' | 'blocks';
-
-/** 🎛 A camera look that is a CHOICE — any but Classic, the camera's own (absent ≡ Classic). */
-function cameraChoice(v: unknown): CameraLook | null {
-  const c = cameraLookOfDraft(v);
-  return c && c !== 'classic' ? c : null;
-}
+export type StylePreferencesProPart = 'qr' | 'accents' | 'blocks';
 
 /** 🧱 One fixed block's motion in a `style_preferences` value, as comparable text — null when it is still. */
 function blockMotionText(v: unknown, block: string): string | null {
@@ -2726,7 +2710,6 @@ export function stylePreferencesProParts(live: unknown, drafted: unknown): Style
   const out: StylePreferencesProPart[] = [];
   if (styleQrMoves(live, drafted)) out.push('qr');
   if (isPlainObject(drafted) && SCENE_ACCENTS_PREF_KEY in drafted && accentsTurnOn(sceneAccentsFromPreferences(live), sceneAccentsFromPreferences(drafted)).length > 0) out.push('accents');
-  if (isPlainObject(drafted) && CAMERA_LOOK_PREF_KEY in drafted && grows(refChange(cameraChoice(live), cameraChoice(drafted)))) out.push('camera');
   if (blockMotionsGrowing(live, drafted).length > 0) out.push('blocks');
   return out;
 }
@@ -2873,16 +2856,11 @@ export function planHubDraftApply(
         apply.push({ kind: 'event', column: 'rsvp_ask_config', value: rsvpAskFreePart(liveConfig, item.value, keep), change: 'change', pro: false, freePart: true });
       }
     }
-    /* 🎛 A held QR look still gets its free camera look: the drafted camera pick is
-       written now (merged into the blob like the QR); the whole drafted blob stays
-       in the draft (below), where it now differs from live only by the QR. */
+    /* 🧱 A held blob still gets its free parts: written now (merged into the blob like the QR); the whole drafted
+       blob stays in the draft (below), where it now differs from live only by what is held. */
     if (!allowed && item.kind === 'event' && item.column === 'style_preferences') {
-      const cam = cameraLookOfDraft(item.value);
       const liveBlob = live.events.style_preferences ?? null;
       const free: Record<string, unknown> = {};
-      /* 💎 The camera's look is free only back to Classic (2026-10-16); any other new look waits with the rest. */
-      /* 💎 Part by part (2026-10-22): a camera look is Style's (31) — owned, any drafted look goes live. */
-      if (cam && cam !== cameraLookOfDraft(liveBlob) && (keep('style') || !grows(refChange(cameraChoice(liveBlob), cameraChoice(item.value))))) free[CAMERA_LOOK_PREF_KEY] = cam;
       /* 🧱 …and the blocks' backgrounds (free) go live, each block's new motion put back to live's — unless Motion is owned (17b). */
       const blocks = keep('motion') && isPlainObject(item.value) && isPlainObject(item.value.block_looks) ? item.value.block_looks : blockLooksFreePart(liveBlob, item.value);
       if (blocks && canonicalJson(blocks) !== canonicalJson(isPlainObject(liveBlob) ? (liveBlob.block_looks ?? {}) : {})) free.block_looks = blocks;
@@ -3039,7 +3017,7 @@ const STAGE_EVENT_COLUMNS: Record<Exclude<HubResetScope, 'all'>, HubDraftEventCo
 export const HUB_RESET_NEVER_TOUCHES = [
   'your guest list and their replies',
   'your schedule',
-  'your photos and galleries',
+  'your photos and Memories',
   'orders and payments',
   'your Post Event story',
   'your Event Hub address and who can view it',
@@ -3196,10 +3174,14 @@ export function isHubDraftIntent(v: unknown): v is HubDraftIntent {
   return typeof v === 'string' && (HUB_DRAFT_INTENTS as readonly string[]).includes(v);
 }
 
+/** The Apply sheet's "Remove Pro changes": the `effect` a `drop` carries to take EVERY held Pro effect off the draft. */
+export const HUB_DROP_ALL_PRO = '*';
+
 /** Why Apply held a key back. */
 export type HubDraftRefusal =
   | 'needs_pro'
-  | 'apply_on_the_web'
+  /** 📵 The store shell where Apple does not sell Pro: held, said neutrally — never "on the web" (anti-steering, 3.1.1). */
+  | 'waits_for_pro'
   | 'not_your_photo'
   /** 🎵 A drafted song from "Our music" whose track is no longer published. */
   | 'song_off_the_list'
@@ -3412,10 +3394,6 @@ export function hubDraftItemLabel(item: HubDraftItem, sectionLabel: (t: WidgetTy
       if (pass && !name) return opening ? 'Your ticket style and opening line' : 'Your ticket style';
       if (pass && name) return opening ? 'Your name style, ticket style and opening line' : 'Your name style and ticket style';
       if (name && opening) return 'Your name style and opening line';
-    }
-    // 🎛 The drafted camera look says so — "Your camera look", not "Your QR code".
-    if (item.column === 'style_preferences' && isPlainObject(item.value) && !(QR_STYLE_PREF_KEY in item.value) && cameraLookOfDraft(item.value)) {
-      return 'Your camera look';
     }
     if (item.column === 'style_preferences' && isPlainObject(item.value) && !(QR_STYLE_PREF_KEY in item.value) && item.value.block_looks) return 'How your blocks look';
     if (item.column === 'style_preferences' && isPlainObject(item.value) && !(QR_STYLE_PREF_KEY in item.value) && SCENE_ACCENTS_PREF_KEY in item.value) return 'Your accents';

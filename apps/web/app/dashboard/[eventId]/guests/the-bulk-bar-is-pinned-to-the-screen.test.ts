@@ -40,8 +40,9 @@ test('the thumb row (and Select mode’s bulk row) is fixed on the measured dock
   );
   const lower = css.slice(css.indexOf('.lower {'), css.indexOf('}', css.indexOf('.lower {')));
   assert.match(lower, /position: fixed;/, 'the thumb row is no longer fixed to the screen');
-  // In the iOS app the bottom chrome is the measured dock (`--sn-bottomdock-h`).
-  assert.match(lower, /bottom: calc\(var\(--sn-bottomdock-h, calc\(env\(safe-area-inset-bottom\) \+ 64px\)\)\);/, 'the thumb row no longer stands on the measured dock');
+  // In the iOS app the bottom chrome is the measured dock (`--sn-bottomdock-h`) — and while the keyboard is up, the
+  // keyboard (`--sn-ride-h`, lib/keyboard-ride.ts, 2026-10-24).
+  assert.match(lower, /bottom: calc\(var\(--sn-ride-h, var\(--sn-bottomdock-h, calc\(env\(safe-area-inset-bottom\) \+ 64px\)\)\)\);/, 'the thumb row no longer stands on the measured dock');
   // The row's own ancestors in the screen never animate a transform (a
   // transformed ancestor makes `fixed` relative to it — the bar leaves the screen).
   const screen = stripComments(

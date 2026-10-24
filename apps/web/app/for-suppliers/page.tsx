@@ -66,7 +66,7 @@ import { getVendorPrices } from '@/lib/v2-catalog';
 import { getLiveBookingFeeSchedule } from '@/lib/booking-fee-settings.server';
 import type { BookingFeeSchedule } from '@/lib/booking-fee';
 import { supplierCommissionPromise, supplierCommissionShort } from '@/lib/commission-promise';
-import { FREE_BOOKING_LIMIT } from '@/lib/booking-fee-lock';
+import { FIRST_BOOKING_ON_US_CLAUSE } from '@/lib/booking-fee-lock';
 import { BRAND_OG_IMAGES, BRAND_TWITTER_IMAGES } from '@/lib/brand-og';
 
 // Per-request rendering (owner 2026-06-08 "make sure these prices are based on
@@ -92,7 +92,7 @@ function tierPriceCopy(
     pro: p.proMonthly,
     enterprise: p.enterpriseMonthly,
   } as const;
-  const name = { solo: 'Solo', pro: 'Pro', enterprise: 'Enterprise' } as const;
+  const name = { solo: 'Solo', pro: 'Pro', enterprise: 'Ultra' } as const;
   return tiers
     .filter((t) => price[t] !== null)
     .map((t) => `${name[t]} ${price[t]}${perEach}`)
@@ -110,7 +110,7 @@ export async function generateMetadata() {
   const perBlockTwo = tierPriceCopy(p, ['solo', 'pro'], '/28d');
   return {
     title,
-    description: `Run your whole wedding business here free — import clients, get a search-ready Setnayan page, get discovered. Free to join. ${supplierCommissionShort(fee)} — your first ${FREE_BOOKING_LIMIT} are free, and your own clients always stay free.${perBlock ? ` ${perBlock}.` : ''}`,
+    description: `Run your whole wedding business here free — import clients, get a search-ready Setnayan page, get discovered. Free to join. ${supplierCommissionShort(fee)} — ${FIRST_BOOKING_ON_US_CLAUSE}, and your own clients always stay free.${perBlock ? ` ${perBlock}.` : ''}`,
     alternates: { canonical: '/for-suppliers' },
     openGraph: {
       images: BRAND_OG_IMAGES,
@@ -203,7 +203,7 @@ function forVendorsJsonLd(p: VendorPrices, fee: BookingFeeSchedule | null) {
       ),
       offer(
         'enterprise-subscription',
-        'Enterprise Supplier (28-day prepaid block)',
+        'Ultra Supplier (28-day prepaid block)',
         'All marketplace categories · up to 10 team accounts + multi-admin · flagship page + video films · reach up to 100 km. 28-day prepaid blocks.',
         p.num.enterpriseMonthly,
       ),

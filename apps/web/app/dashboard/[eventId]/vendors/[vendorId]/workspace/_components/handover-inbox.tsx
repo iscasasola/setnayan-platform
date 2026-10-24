@@ -48,7 +48,7 @@ const KIND_META: Record<
   HandoverRow['kind'],
   { label: string; Icon: typeof Link2 }
 > = {
-  gallery_link: { label: 'Gallery link', Icon: Link2 },
+  gallery_link: { label: 'Album link', Icon: Link2 },
   file: { label: 'Sample / proof', Icon: FileText },
   note: { label: 'Note', Icon: MessageSquare },
   signoff: { label: 'All delivered', Icon: PackageCheck },
@@ -171,7 +171,7 @@ function HandoverItem({
           className="mt-1 inline-flex items-center gap-1.5 text-[11px] font-medium text-terracotta-700 underline-offset-2 hover:underline"
         >
           <Link2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-          Open gallery
+          Open album
         </a>
       ) : handover.kind === 'file' && handover.payload ? (
         <a

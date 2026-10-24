@@ -1,0 +1,51 @@
+## 2026-10-23 · feat(iap): five more Apple products — Setnayan AI, Music Maker, Patiktok, Thank You, Mood Board pack
+
+Owner, verbatim (23 Oct): *"Add Setnayan AI, Music Maker, Patiktok, Thank You and Mood Board pack as Apple products
+before submitting build 6."* Web-only change: the iPhone 1.0 (6) shell already announces `SetnayanIAP/2` and its
+StoreKit plugin takes any `com.setnayan.app.` id from the web. Everything below sits behind the one gate
+(`getIapGate().iap` — store shell + `/2` + `NEXT_PUBLIC_APPLE_IAP_ENABLED`); with it false the app, the web and the
+desktop are exactly as before.
+
+- `lib/iap/products.ts`: `com.setnayan.app.setnayan_ai` (SETNAYAN_AI), `music_maker` (PAKANTA), `patiktok`
+  (PATIKTOK_COMPILER), `papic_thank_you` (PAPIC_ADDON_THANK_YOU) — kind `event-unlock`, one per event; and
+  `mood_board_renders_50` (MOODBOARD_RENDER_PACK) — kind `mood-board-pack`, repeatable like Papic credits. All
+  CONSUMABLE.
+- `startAppStorePurchase`: the Mood Board pack is couple-only and on sale only while `moodboard_render_config` grants
+  exactly 50 from its own row; Patiktok keeps the day-of `event_over` refusal; Setnayan AI is refused when owned (order
+  or the stored flag), when the paywall is off, and for any event whose web price row is not the product's own
+  (`lib/iap/setnayan-ai-in-app.server.ts` — one Apple price cannot honour the per-event-type ladder; today that sells
+  Tier A / weddings only, the other bands are an owner decision).
+- The four studio homes open in the app (`IAP_OPENED_ROUTE`); each page's existing pay step becomes
+  `IapUnlockSheet` (new, the Live Watch sheet's look; Apple's `displayPrice` only, no web price, no GCash / BDO, no web
+  link). Mood Board mounts Make it real in the app with Apple's pack sheet. A web- or Apple-bought Setnayan AI lights up
+  in the app (`storeShellAllowsPaidFeature(…, iap)`), and the Suppliers page's Sai banner shows there for an event
+  Apple sells it to.
+- Refund: `deactivateOrderSku` now takes back a refunded Mood Board pack's render-credit grant (by `order_id`) — on the
+  web's admin refund AND Apple's REFUND. It had no reversal at all. Held by
+  `tests/db/an-app-store-purchase-is-one-order.db.test.ts`.
+- Restore hides Mood Board packs like Papic packs.
+- `/dev/iap-doors-lab` draws the five doors for walks (404 in production).
+- 🧭 The app never steers to the web (controller 23 Oct, build-6 blocker; owner 2026-10-08 "Apply + Pro" and "keep,
+  marked"). In the store shell with the gate OFF, held ◆ Pro changes no longer say "can be applied on the web": the
+  Apply sheet and the draft panel read "◆ N waiting for Pro", the sheet adds "Remove Pro changes" (the existing
+  `drop` intent with `effect = HUB_DROP_ALL_PRO` — no new server action), and the held reason reads "is waiting for
+  Pro — it stays in your draft" (refusal `apply_on_the_web` → `waits_for_pro`). With the gate ON the dock already hands
+  `storeShell: false` and the Apply sheet names Apple's parts — unchanged. New property guard
+  `lib/the-app-never-steers-to-the-web.test.ts` reads every string in app/ and lib/ (and every Help answer the app
+  shows through `helpBodyFor`).
+
+- ✦ **Setnayan AI = four Apple products, one per web tier** (owner 23 Oct): `com.setnayan.app.setnayan_ai` stays Tier
+  A; `setnayan_ai_tier_b` · `_tier_c` · `_tier_d` added. All sell the one `SETNAYAN_AI` order; each is floored on its
+  tier's catalogue row (`iapPriceRowFor` → `AI_TIER_SKU`). The tier is read the way the web's charge reads it
+  (`resolveAiBandForEventType`, same per-event switch; off ⇒ Tier A for all); Tier E not offered. The intent refuses a
+  product of another tier (`iapProductFitsAiTier`). The door says "One purchase · yours for this event." — never
+  "wedding", never a sign-up or comeback price.
+- Review fixes: the steering guard now also reads every page the app opens with the gate ON; a Sai lights up / is
+  offered in the app only where Apple sells THIS event's tier; "Remove Pro changes" is one save and one undo step
+  (`dropAllHubProEffects`); Music Maker, Patiktok and the Mood Board pack draw Apple's door only while the catalogue
+  (and, for the pack, the 50-render config) still sells it; no web price, VAT or GCash / BDO details are read or
+  shipped to the app's client components (`STORE_SHELL_NO_PAY_SETTINGS`); Patiktok's "custom reel template … our
+  team will quote" is `data-web-only`.
+
+SPEC IMPACT: DECISION_LOG.md row "23 Oct: five more Apple products" (corpus) — the second wave of In-App Purchase,
+the product ids, and the Setnayan AI band question left open for the owner.

@@ -33,6 +33,7 @@
 # ══ DECLINED — not product entities ═════════════════════════════════════════
 
 seo_* | declined — SEO health and telemetry tooling; observability, not a product entity
+media_web_copies | declined — the ledger of small web copies written beside oversized old cover photos (migration 20271284663331, owner 2026-10-23): which original, which copy, both sizes, who pressed; ops tooling for storage weight, not a product entity — read and run on /admin/papic-storage
 site_visit_* | declined — site traffic counted in our own database (site_visit_days daily aggregates, site_visit_seen + site_visit_salts today-only salted hashes, migration 20271282829207); observability about the site, not a product entity — read on /admin/app-performance?tab=visits
 app_* | declined — the Problems list (app_telemetry_logs traces, app_fault_issues grouped failures, app_action_daily_counts success/step counters, migration 20271260713505) and the load-time log (app_load_timings, migration 20271270180398); observability about the app, not a product entity. ALSO under this prefix, for a different reason: app_store_purchases (Apple In-App Purchase intents + verified transactions, migration 20271276386641) — money plumbing whose every purchase becomes an ordinary orders + payments row, which the orders node already carries; the table itself grants nothing
 platform_* | declined — platform ops config and internal registries; the map documents product entities, not our own plumbing

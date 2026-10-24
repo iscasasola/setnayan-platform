@@ -11,6 +11,7 @@
  *   ?s=notifs          Notifications › Recent (incl. "Someone else was booked")      &empty=1
  *   ?s=help            Help
  *   ?s=business        How is my business doing (who=…)               &new=1 — nobody has found you yet
+ *   ?s=march           Event Hub › the Wedding March, read-only (band · coordinator)   &unread=1
  *   (?s=more is gone with More itself — 2026-10-21, the bar is Today · Customers · Shop · Hub; /more redirects to Settings)
  */
 import { notFound } from 'next/navigation';
@@ -32,10 +33,16 @@ import {
 import { SettingsView } from '@/app/vendor-dashboard/settings/settings-view';
 import { settingsMoreTools, SUPPLIER_HELP_ROWS } from '@/app/vendor-dashboard/settings/settings-rows';
 import { NotificationsView } from '@/app/vendor-dashboard/notifications/notifications-view';
+import { MarchRead } from '@/app/vendor-dashboard/on-the-day/live/[eventId]/_components/march-read';
+import { ConsolePlate } from '@/app/vendor-dashboard/on-the-day/_components/pahina-console';
+import type { MarchSection } from '@/lib/march-drag';
 import { BusinessDoing, type DoingWindow } from '@/app/vendor-dashboard/performance/_components/business-doing';
 import { DatesRow } from '@/app/vendor-dashboard/customers/_components/dates-row';
 import { BOOKING_FEE } from '@/lib/booking-fee';
 import { bookingFeeRow, planGivesLines, planPickLine } from '@/lib/vendor-plan-rows';
+import { giftEndedLine, giftEndsSoon, giftPlanLine, planGiftOf, portfolioPlanRowLine } from '@/lib/plan-gift';
+import { dayAfterWords } from '@/lib/personal-invite-offer';
+import { portfolioPhotoCap } from '@/lib/vendor-tier-caps';
 import { seatLine, teamSeats } from '@/lib/vendor-free-helper';
 import { barHeights, businessSentence, fromLine, ratingLine, replyLine } from '@/lib/business-doing';
 import type { VendorTeamMemberWithUser } from '@/lib/vendor-team';
@@ -62,7 +69,7 @@ function planFixture(who: Who, unverified: boolean, fail: boolean) {
     { key: 'free', name: 'Free', price: {}, tooShort: {}, pickLine: planPickLine(shop.tier, 'free', shop.expires) },
     ...(['solo', 'pro', 'enterprise'] as const).map((t) => ({
       key: t,
-      name: t === 'solo' ? 'Solo' : t === 'pro' ? 'Pro' : 'Enterprise',
+      name: t === 'solo' ? 'Solo' : t === 'pro' ? 'Pro' : 'Ultra',
       price: LAB_PRICES[t]!,
       tooShort: { monthly: who === 'studio' ? 'You are paid up to 3 October 2027 — pick a year so it covers that.' : null, annual: null },
       pickLine: planPickLine(shop.tier, t, shop.expires),
@@ -96,6 +103,67 @@ function planFixture(who: Who, unverified: boolean, fail: boolean) {
       }
       papicPackPrice={500}
       featured={shop.tier === 'pro'}
+    />
+  );
+}
+
+/**
+ * 🎁 `?s=plan&gift=running|soon|ended` (+ `&photos=100`) — a shop on a plan Setnayan gave, from a personal invite
+ * (prototype `supplier_personal_invite_2026-10-23` C1 · C3): Pro free until 31 Jan 2027, in its last week (Pay is back
+ * on Pro, starting 1 Feb — no Free gap), or after it ended. The words are the shipped helpers' (`lib/plan-gift.ts`);
+ * the lab's "now" is 1 Nov 2026 (running), 27 Jan 2027 (soon) or 2 Feb 2027 (ended).
+ */
+function giftPlanFixture(mode: 'running' | 'soon' | 'ended', photos100: boolean) {
+  const now = Date.parse(
+    mode === 'running' ? '2026-11-01T02:00:00Z' : mode === 'soon' ? '2027-01-27T02:00:00Z' : '2027-02-02T02:00:00Z',
+  );
+  const tier = mode === 'ended' ? 'free' : 'pro';
+  const gift = planGiftOf({ tier_state: 'pro', tier_source: 'admin_comp', tier_expires_at: '2027-01-31T15:59:59.000Z' }, now);
+  const plans: PlanPick[] = [
+    { key: 'free', name: 'Free', price: {}, tooShort: {}, pickLine: planPickLine(tier, 'free', gift ? '31 January 2027' : null) },
+    ...(['solo', 'pro', 'enterprise'] as const).map((t) => ({
+      key: t,
+      name: t === 'solo' ? 'Solo' : t === 'pro' ? 'Pro' : 'Ultra',
+      price: LAB_PRICES[t]!,
+      tooShort: { monthly: null, annual: null },
+      pickLine: planPickLine(tier, t, gift ? '31 January 2027' : null),
+    })),
+  ];
+  const cap = portfolioPhotoCap(tier, photos100 ? 100 : null);
+  return (
+    <PlanRows
+      tier={tier}
+      pays="nothing to pay"
+      expiresOn={null}
+      expiresSoon={false}
+      isPaid={tier !== 'free'}
+      picker={
+        <PlanPicker
+          plans={plans}
+          current={tier}
+          cycle="monthly"
+          verified
+          action={startSubscriptionPurchase}
+          gift={
+            gift
+              ? { untilShort: '31 Jan', untilFull: '31 Jan 2027', endsSoon: giftEndsSoon(gift), startsShort: dayAfterWords(gift.untilDay) }
+              : null
+          }
+        />
+      }
+      feeRow={bookingFeeRow({ kind: 'free', ordinal: 1, ordinalIsFrozen: false, schedule: BOOKING_FEE } as const, 0)}
+      gives={planGivesLines(tier, false)}
+      receipts={[]}
+      papicPackPrice={500}
+      featured={tier === 'pro'}
+      gift={gift ? { line: giftPlanLine(gift) } : { line: giftEndedLine('Pro', '2027-01-31') }}
+      photosLine={portfolioPlanRowLine({
+        held: mode === 'ended' ? 62 : 14,
+        cap,
+        gifted: photos100,
+        giftUntilDay: gift ? gift.untilDay : null,
+        giftEnded: mode === 'ended',
+      })}
     />
   );
 }
@@ -155,7 +223,18 @@ function helpersFixture(who: Who) {
   );
 }
 
+/* 🚶 The march a band reads (owner 2026-10-23) — the shape `marchSections` hands the console. Names are samples. */
+const MARCH_FIXTURE: MarchSection[] = [
+  { key: 'groom', label: 'The Groom & his parents', rows: [[{ id: 'm1', name: 'Mr. Peregrino Dela Cruz', role: 'parent' }, { id: 'm2', name: 'Mrs. Milagros Dela Cruz', role: 'parent' }], [{ id: 'm3', name: 'Jose Dela Cruz', role: 'groom', tag: 'Groom' }, null]] },
+  { key: 'family', label: 'Immediate family', rows: [[{ id: 'm4', name: 'Ms. Carmen Reyes', role: 'family' }, { id: 'm5', name: 'Mr. Fidel Santos', role: 'family' }]] },
+  { key: 'honor', label: 'Maid of Honor & Best Man', rows: [[{ id: 'm6', name: 'Mr. Daniel Ramos', role: 'honor_attendant' }, { id: 'm7', name: 'Ms. Ana Reyes Dela Cruz', role: 'honor_attendant' }]] },
+  { key: 'sponsors', label: 'Principal sponsors', rows: [[{ id: 'm8', name: 'Hon. Ricardo Villahermosa', role: 'sponsor' }, { id: 'm9', name: 'Mrs. Jessica Villahermosa', role: 'sponsor' }], [{ id: 'm10', name: 'Atty. Cesar Lim', role: 'sponsor' }, { id: 'm11', name: 'Mrs. Pilar Lim', role: 'sponsor' }]] },
+  { key: 'bride', label: 'The Bride & her parents', rows: [[{ id: 'm12', name: 'Maria Santos', role: 'bride', tag: 'Bride' }, { id: 'm13', name: 'Mr. Andres Santos', role: 'parent' }]] },
+];
+
 const NOTICES: NotificationRow[] = [
+  // ⏱ The couple shifted the day (owner 2026-10-23) — one notice per shift, words from `scheduleShiftTitle`.
+  { notification_id: 'n0', user_id: ME, type: 'schedule_shifted', title: 'Schedule moved +30 min from 4:00 PM', body: 'Ana & Paolo shifted the day from Cocktails on. Open the schedule for the new times.', related_url: '/vendor-dashboard/on-the-day/live/e1#schedule', read_at: null, created_at: '2026-10-14T04:00:00Z' },
   { notification_id: 'n1', user_id: ME, type: 'inquiry_displaced', title: 'Someone else was booked', body: 'Reyes · Sat 12 Dec · the couple booked another supplier, so this ask was released.', related_url: '/vendor-dashboard/messages/t1', read_at: null, created_at: '2026-10-14T03:00:00Z' },
   { notification_id: 'n2', user_id: ME, type: 'vendor_inquiry_received', title: 'New booking inquiry', body: 'Ana & Miguel asked about Sat 12 Dec.', related_url: '/vendor-dashboard/messages/t2', read_at: null, created_at: '2026-10-14T01:00:00Z' },
   { notification_id: 'n3', user_id: ME, type: 'review_request', title: 'A review came in', body: '5 ★ · reply when you can', related_url: '/vendor-dashboard/reviews', read_at: '2026-10-13T00:00:00Z', created_at: '2026-10-12T01:00:00Z' },
@@ -200,7 +279,12 @@ export default async function SupplierPlanLabPage({
   const who: Who = sp.who === 'parish' || sp.who === 'studio' ? sp.who : 'caterer';
 
   let body: React.ReactNode = null;
-  if (s === 'plan') body = planFixture(who, sp.unverified === '1', sp.fail === '1');
+  if (s === 'plan') {
+    body =
+      sp.gift === 'running' || sp.gift === 'soon' || sp.gift === 'ended'
+        ? giftPlanFixture(sp.gift, sp.photos === '100')
+        : planFixture(who, sp.unverified === '1', sp.fail === '1');
+  }
   else if (s === 'helpers') return helpersFixture(who);
   else if (s === 'settings')
     body = (
@@ -225,6 +309,12 @@ export default async function SupplierPlanLabPage({
           ))}
         </div>
       </>
+    );
+  else if (s === 'march')
+    body = (
+      <ConsolePlate>
+        <MarchRead sections={sp.unread === '1' ? [] : MARCH_FIXTURE} unread={sp.unread === '1'} />
+      </ConsolePlate>
     );
   else if (s === 'business')
     body = (

@@ -8,6 +8,7 @@ import { jittered } from '@/lib/live-day-timing';
 import { SavePhotoButton } from '@/app/_components/save-photo-button';
 import { GalleryCredit } from '@/app/_components/gallery/gallery-credit';
 import { GalleryLightbox } from '@/app/_components/gallery/gallery-lightbox';
+import { LightboxSaveButton } from '@/app/_components/gallery/lightbox-save-button';
 
 /**
  * LiveWallBlock — the Salamisim Live Photo Wall, mirrored onto the guest's
@@ -241,7 +242,7 @@ export function LiveWallBlock({
   if (display.length === 0) {
     return (
       <section
-        aria-label="Live photo wall"
+        aria-label="Memory lane"
         className="sn-gal p-6 text-center"
       >
         <LiveWallHeader count={0} occasion={w.occasion} />
@@ -250,7 +251,7 @@ export function LiveWallBlock({
             ? // Said plainly, and without blame. The wall did not break and the
               // guest did nothing wrong — the couple chose to keep it to the
               // room. A card that simply emptied itself would read as a fault.
-              `The photo wall is playing on the screens at the venue. ${w.TheOrganizer} has kept it off phones for this ${w.occasion}.`
+              `Memory lane is playing on the screens at the venue. ${w.TheOrganizer} has kept it off phones for this ${w.occasion}.`
             : stalled
               ? 'We can’t reach the wall right now — this venue’s signal may be busy. It keeps trying, and photos appear the moment it reconnects.'
               : 'The wall is warming up — photos appear here the moment they’re taken.'}
@@ -262,7 +263,7 @@ export function LiveWallBlock({
 
   return (
     <section
-      aria-label="Live photo wall"
+      aria-label="Memory lane"
       className="sn-gal p-5 sm:p-6"
     >
       <LiveWallHeader count={count} occasion={w.occasion} />
@@ -307,6 +308,7 @@ export function LiveWallBlock({
               capturedAt={tile.capturedAt}
               timeZone={timeZone}
               raised
+              stacked
             />
           </figure>
         ))}
@@ -331,14 +333,9 @@ export function LiveWallBlock({
             // NOT SavePhotoButton — that control is `absolute inset-x-0 bottom-0`
             // by design, correct pinned to a tile and wrong inside a dialog,
             // where it would leave the card and sit over its own credit.
-            <a
-              href={opened.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="sn-gal-btn inline-flex min-h-[44px] items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium"
-            >
-              Open full size to save
-            </a>
+            // And never "Open full size" in a new tab: in the app that left a
+            // bare picture with no way back (owner 2026-10-24).
+            <LightboxSaveButton url={opened.url} filename={`setnayan-photo-${opened.feedId}.jpg`} />
           }
         />
       ) : null}
@@ -353,12 +350,12 @@ export function LiveWallBlock({
   );
 }
 
-function LiveWallHeader({ count, occasion }: { count: number; occasion: string }) {
+function LiveWallHeader({ count }: { count: number; occasion: string }) {
   return (
     <div className="flex items-center justify-between gap-3">
       <p className="sn-gal-kick inline-flex items-center gap-2 font-mono text-xs font-bold uppercase tracking-[0.2em]">
         <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--sn-ob-gold)]" />
-        Live from the {occasion}
+        Memory lane
       </p>
       {count > 0 ? (
         <p className="sn-gal-soft flex items-baseline gap-1">

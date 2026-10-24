@@ -29,6 +29,9 @@ export type TodayShopRow = {
   businessStartDate: string | null;
   creditPhp: number;
   tierExpiresAt: string | null;
+  /** The plan and who set it — a plan Setnayan gave (`admin_comp`) reads as a gift on Today (`lib/plan-gift.ts`). */
+  tierState?: string | null;
+  tierSource?: string | null;
 };
 
 /** ONE row read in place of three. Null when refused — each reader then degrades exactly as it did alone. */
@@ -36,7 +39,7 @@ export async function readTodayShopRow(supabase: SupabaseClient, vendorProfileId
   try {
     const { data, error } = await supabase
       .from('vendor_profiles')
-      .select('verification_state, in_business_since_date, subscription_credit_php, tier_expires_at')
+      .select('verification_state, in_business_since_date, subscription_credit_php, tier_expires_at, tier_state, tier_source')
       .eq('vendor_profile_id', vendorProfileId)
       .maybeSingle();
     if (error) {
@@ -49,12 +52,16 @@ export async function readTodayShopRow(supabase: SupabaseClient, vendorProfileId
       in_business_since_date?: string | null;
       subscription_credit_php?: number | string | null;
       tier_expires_at?: string | null;
+      tier_state?: string | null;
+      tier_source?: string | null;
     };
     return {
       verified: row.verification_state === 'verified',
       businessStartDate: row.in_business_since_date ?? null,
       creditPhp: Number(row.subscription_credit_php ?? 0),
       tierExpiresAt: row.tier_expires_at ?? null,
+      tierState: row.tier_state ?? null,
+      tierSource: row.tier_source ?? null,
     };
   } catch {
     return null;

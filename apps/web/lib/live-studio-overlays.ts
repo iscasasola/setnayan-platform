@@ -334,15 +334,15 @@ export function mapOverlayRow(row: OverlayRow | null | undefined): OverlaySettin
 }
 
 /**
- * Read this event's overlay settings. Missing row → all-off defaults, which is the
- * correct state for a host who has not touched an overlay yet. Missing table /
- * column (pre-migration) → the same defaults rather than a crash, so the controller
- * still operates the broadcast.
+ * Read this event's overlay settings, saying when it could NOT read them: `null` = refused (or the table is missing),
+ * never the all-off defaults. Home's Live stream card draws no switch over an unread state (owner 2026-10-23, the
+ * service widgets — a refusal is never "Off"). A missing ROW is still the defaults: a host who has not touched an
+ * overlay has every one off.
  */
-export async function fetchOverlaySettings(
+export async function readOverlaySettingsMeasured(
   supabase: SupabaseClient,
   eventId: string,
-): Promise<OverlaySettings> {
+): Promise<OverlaySettings | null> {
   try {
     const { data, error } = await supabase
       .from('live_studio_overlay_settings')
@@ -353,12 +353,25 @@ export async function fetchOverlaySettings(
       console.error('[supabase-error] lib/live-studio-overlays.ts · from:live_studio_overlay_settings.select', error, {
         event_id: eventId,
       });
-      return DEFAULT_OVERLAY_SETTINGS;
+      return null;
     }
     return mapOverlayRow(data as OverlayRow | null);
   } catch {
-    return DEFAULT_OVERLAY_SETTINGS;
+    return null;
   }
+}
+
+/**
+ * Read this event's overlay settings. Missing row → all-off defaults, which is the
+ * correct state for a host who has not touched an overlay yet. Missing table /
+ * column (pre-migration) → the same defaults rather than a crash, so the controller
+ * still operates the broadcast.
+ */
+export async function fetchOverlaySettings(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<OverlaySettings> {
+  return (await readOverlaySettingsMeasured(supabase, eventId)) ?? DEFAULT_OVERLAY_SETTINGS;
 }
 
 /**

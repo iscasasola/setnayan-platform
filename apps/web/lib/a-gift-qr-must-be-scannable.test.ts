@@ -193,12 +193,16 @@ test('the save action checks a newly attached QR, and only a changed one', () =>
 // ── And it has to be scannable ON THE PAGE, not just in the database. ──────
 
 test('🔑 the guest card draws the QR big enough to scan, and lets you open it full size', () => {
+  /* 2026-10-24: the thumbnail moved into its own client leaf (`PabuyaQrThumb`) so a tap can open it IN PLACE. The
+     card must still mount it; the size and the press are read where they now live. */
+  const card = readFileSync(join(process.cwd(), 'app/_components/pabuya/pabuya-card-list.tsx'), 'utf8');
+  assert.match(card, /<PabuyaQrThumb[\s\S]{0,200}?qrUrl=\{m\.qrUrl\}/, 'the card no longer mounts the QR thumbnail');
   const src = readFileSync(
-    join(process.cwd(), 'app/_components/pabuya/pabuya-card-list.tsx'),
+    join(process.cwd(), 'app/_components/pabuya/pabuya-qr-viewer.tsx'),
     'utf8',
   );
   // Find the element that wraps the QR <img>, and read its size classes.
-  const at = src.indexOf('src={m.qrUrl}');
+  const at = src.indexOf('src={qrUrl}');
   assert.ok(at > 0, 'the QR image mount is gone — re-point this guard');
   const wrapper = src.slice(Math.max(0, at - 900), at);
 
@@ -217,13 +221,9 @@ test('🔑 the guest card draws the QR big enough to scan, and lets you open it 
     `the QR is drawn at h-${Math.min(...h)} — too small to scan (floor is h-28)`,
   );
 
-  // Tappable: a guest scans from a SECOND phone, so they need it full-screen.
-  assert.match(
-    wrapper,
-    /<a\s[^>]*href=\{m\.qrUrl\}/s,
-    'the QR is not a link — there is no way to open it full size or save it',
-  );
-  assert.match(wrapper, /rel="noopener noreferrer"/, 'target=_blank without rel');
+  // Tappable: a guest scans from a SECOND phone, so they need it full-screen — opened IN PLACE, with a way back.
+  assert.match(wrapper, /<button\s[^>]*onClick=\{\(\) => setOpen\(true\)\}/s, 'the QR does not open full size');
+  assert.match(src, /<GalleryLightbox[\s\S]*?plate="white"/, 'the full-size QR is not the shared viewer on a white plate');
 });
 
 test('⚠ the shared gift card stays presentational — no client bundle', () => {

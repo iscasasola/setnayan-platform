@@ -4,7 +4,7 @@ import Link from 'next/link';
 // renders the same constant the sweep deletes by. Two hand-typed numbers
 // agreeing today is how `llms.txt` drifted for three weeks with green CI.
 import { CONNECTION_REQUEST_RETENTION_DAYS } from '@/lib/connection-request-expiry-core';
-import { ERROR_LOG_RETENTION_DAYS } from '@/lib/rule-constants';
+import { DB_BACKUP_RETENTION_DAYS, ERROR_LOG_RETENTION_DAYS } from '@/lib/rule-constants';
 // The sign-in button's own words, so this page quotes the button exactly (lib/one-oauth-wording.test.ts).
 import { OAUTH_VERB } from '@/lib/oauth-words';
 
@@ -59,7 +59,7 @@ export default function PrivacyPage() {
             How we handle your data
           </h1>
           <p className="text-xs text-ink/55">
-            Effective 2026-05-13 · last updated 2026-10-22 · subject to RA 10173 (Philippines Data Privacy Act)
+            Effective 2026-05-13 · last updated 2026-10-23 · subject to RA 10173 (Philippines Data Privacy Act)
           </p>
         </header>
 
@@ -157,13 +157,24 @@ export default function PrivacyPage() {
               the reference you typed — see below)
             </li>
             <li>
+              If you buy something in the iPhone app through Apple (when
+              available in the app) — what you bought, the price, and
+              Apple&rsquo;s purchase number. Apple takes the payment; we never
+              see your card or your Apple password.
+            </li>
+            <li>
               <strong>No product analytics.</strong> We do not run an analytics
               service or set analytics cookies — Setnayan uses essential cookies
               only (see our{' '}
               <Link href="/cookies" className="text-terracotta hover:underline">
                 cookie policy
               </Link>
-              , which lists each one).
+              , which lists each one). We do keep one daily count of visits,
+              with no cookie — see{' '}
+              <a href="#visits" className="text-terracotta hover:underline">
+                Counting visits
+              </a>{' '}
+              below.
             </li>
             <li>Error reports — uncaught exceptions + their stack traces sent to Sentry so we can fix bugs; no message bodies, payment details, or guest data are included</li>
             <li>
@@ -181,6 +192,13 @@ export default function PrivacyPage() {
                 Google user data
               </a>{' '}
               below)
+            </li>
+            <li>
+              If you sign in with Apple — your name (Apple sends it only the
+              first time), your email address (which can be a private relay
+              address Apple makes for you), and the account identifier Apple
+              uses for you. We also keep a sealed Apple sign-in key, used only
+              to cancel the Apple link when you delete your account.
             </li>
           </ul>
           <p className="pt-2">
@@ -367,6 +385,40 @@ export default function PrivacyPage() {
           </p>
         </Section>
 
+        {/* ── Counting visits ───────────────────────────────────────────────
+            Added 2026-10-23 from the DPO pack (ROPA DPS-21). Read off the code:
+            visitorKey() in lib/visits/visit-capture.ts hashes IP + browser in
+            the middleware; record_site_visit() (migration
+            20271282829207_site_visits_daily.sql) re-hashes it with a salt minted
+            per Manila day, and deletes older salts and seen-hashes on the first
+            visit of a new day. Only site_visit_days totals are kept; admin-only
+            RLS. Guarded by lib/legal-retention-promises-have-a-mechanism.test.ts. */}
+        <Section id="visits" title="Counting visits (no cookie)">
+          <p>
+            We count how many people open Setnayan each day, so we can see
+            which pages are used. This uses <strong>no cookie</strong> and no
+            outside analytics service.
+          </p>
+          <ul className="ml-5 mt-2 list-disc space-y-1">
+            <li>
+              To count you once a day, we turn your IP address and browser into
+              a one-way code, mixed with a random value that changes every day.
+              We never store your IP address.
+            </li>
+            <li>
+              That day&rsquo;s code and that day&rsquo;s random value are
+              deleted the next day, so yesterday&rsquo;s visit cannot be linked
+              to today&rsquo;s.
+            </li>
+            <li>
+              What we keep is only the daily totals: the kind of page (for
+              example &ldquo;an Event Hub page&rdquo;, never its address), the
+              site that sent you, phone, tablet or computer, the country, and
+              whether you were signed in. Only the Setnayan team can see them.
+            </li>
+          </ul>
+        </Section>
+
         <Section title="Device identifier (fraud prevention)">
           <p>
             To keep our marketplace safe from fake accounts and coordinated
@@ -390,8 +442,14 @@ export default function PrivacyPage() {
             <li>
               Legal basis: our legitimate interest in preventing fraud and
               protecting our vendors (RA 10173 &sect; 12). The hash is
-              pseudonymous, included in your data export, and deleted when you
-              delete your account.
+              pseudonymous.
+            </li>
+            <li>
+              It is <strong>not</strong> deleted when you delete your account:
+              it stays, tied only to the blanked-out account, so a removed
+              account cannot simply sign up again. Nothing deletes it on a
+              timer yet; how long we keep it is under review by our Data
+              Protection Officer.
             </li>
           </ul>
         </Section>
@@ -409,8 +467,8 @@ export default function PrivacyPage() {
           </p>
           <ul className="ml-5 mt-2 list-disc space-y-1">
             <li>
-              with your explicit, opt-in consent, recorded with a timestamp when
-              you enroll;
+              with your explicit, opt-in consent — a separate tick, never
+              ticked for you — recorded with a timestamp when you enroll;
             </li>
             <li>
               for adults 18 and older only (enrollment is not offered to
@@ -422,6 +480,12 @@ export default function PrivacyPage() {
             </li>
           </ul>
           <p className="pt-2">
+            <strong>It does not outlast the event.</strong> Your selfie and your
+            face vector are erased 12 hours after the event ends, or sooner when
+            you sign out. Photo tags already made stay, so your photos still
+            reach you.
+          </p>
+          <p className="pt-2">
             You may withdraw consent at any time, which permanently deletes your
             face vector and enrolled selfie. If you never enroll a selfie, we
             collect no biometric data about you.
@@ -432,6 +496,11 @@ export default function PrivacyPage() {
             Data Protection Officer&rsquo;s review. Until it is enabled and
             separately disclosed here, all face matching stays scoped to the one
             event you consented to.
+          </p>
+          <p className="pt-2">
+            <strong>Face tagging is off unless the hosts turn it on.</strong> It
+            is off for every event by default. If the hosts turn it on, each
+            guest still chooses for themselves.
           </p>
         </Section>
 
@@ -547,13 +616,19 @@ export default function PrivacyPage() {
             information, shown to your guests at your choice.
           </p>
           <p className="pt-2">
-            <strong>
-              Setnayan never holds, moves, or records the transfer of any money.
-            </strong>{' '}
-            We store only the receiving details you enter so we can display them
-            — there is no wallet, balance, or transaction ledger. You can edit or
-            remove these details at any time, and they are deleted with your
-            event.
+            <strong>Setnayan never holds or moves any money.</strong> The gift
+            goes straight from your guest to you, and there is no wallet or
+            balance. You can edit or remove your receiving details at any time,
+            and they are deleted with your event.
+          </p>
+          <p className="pt-2">
+            <strong>Gift records.</strong> When a guest sends a gift, they can
+            leave a record of it for you: their name, the amount, a short note,
+            and a screenshot of the transfer. Only the hosts of the event can
+            see these. If you remove a record it is hidden from you; every
+            record and screenshot is deleted with the event. If a guest deletes
+            their own account, their screenshot is deleted, and their name,
+            amount and note stay with you.
           </p>
         </Section>
 
@@ -602,11 +677,11 @@ export default function PrivacyPage() {
           </p>
           <p className="pt-2">
             <strong>FaceBlock.</strong> A guest who does not want to appear on an
-            event&rsquo;s live photo wall can turn on FaceBlock. We then generate
+            event&rsquo;s Memory lane can turn on FaceBlock. We then generate
             a server-side copy with detected faces blurred into the pixels and
             only that blurred copy may be projected — the wall fails closed, so
             if the safe copy is not ready the photo is withheld. You can opt out
-            of the live wall this way at any time.
+            of Memory lane this way at any time.
           </p>
         </Section>
 
@@ -794,13 +869,10 @@ export default function PrivacyPage() {
               honest notice. RoPA DPS-17 records the same point as the open
               question for the DPO. */}
           <p className="pt-2">
-            <strong>You cannot switch this one off.</strong> There is no setting
-            that removes your own inquiry from the counts other couples see. We
-            are telling you plainly rather than leaving it unsaid: what leaves our
-            servers is a number, at three or above, with nothing attached to it
-            that points back to you — that is the protection, and it is the
-            reason we consider the trade a fair one. If you would rather not be
-            counted at all, not sending the inquiry is the only way.
+            <strong>You can switch this off.</strong> In your event&rsquo;s
+            privacy settings, turn off <em>Count us for other couples</em> and
+            your inquiries are left out of the counts other couples see. It does
+            not change what you see, and it never reaches a supplier.
           </p>
         </Section>
 
@@ -1090,7 +1162,7 @@ export default function PrivacyPage() {
             </li>
             <li>
               One-click opt-out from{' '}
-              <code className="font-mono text-[12px]">/dashboard/{'{eventId}'}/privacy</code>{' '}
+              <code className="font-mono text-[12px]">/dashboard/{'{eventId}'}/website/privacy</code>{' '}
               removes the page from the index immediately.
             </li>
             <li>
@@ -1208,18 +1280,20 @@ export default function PrivacyPage() {
               <strong>6 months</strong> from the event&rsquo;s first photo (never
               less than <strong>3 months</strong> after the event ends), and are
               then replaced by a compressed copy. That{' '}
-              <strong>compressed gallery stays online, free, for life</strong> —
-              we do not delete your photos, and there is no end date on that
-              gallery. If you connect Google Drive, every original is also saved to a
+              <strong>compressed copy of your Memories stays online, free, for life</strong> —
+              we do not delete your photos, and there is no end date on those
+              Memories. If you connect Google Drive, every original is also saved to a
               folder you own, and that copy is yours to keep for as long as you want
               it.
             </li>
             <li>
-              <strong>Face-recognition data</strong> — for the one event only,
-              and deleted <strong>3 months after the event ends</strong>. That
-              covers the face vector, the enrolment record and the selfie you
-              uploaded for it. You can end it sooner at any time: withdrawing
-              your consent or asking us to remove it deletes it immediately.
+              <strong>Face-recognition data</strong> — for the one event only.
+              The selfie you uploaded, your face vector and the enrolment record
+              are erased <strong>12 hours after the event ends</strong> (sooner
+              if you sign out), and a weekly check deletes anything left{' '}
+              <strong>3 months after the event ends</strong>. You can end it
+              sooner at any time: withdrawing your consent or asking us to
+              remove it deletes it immediately.
               Deleting it takes away <em>no photo and no tag</em> — the pictures
               already delivered to you stay yours.
             </li>
@@ -1239,28 +1313,68 @@ export default function PrivacyPage() {
             </li>
             <li>
               <strong>Your account and profile</strong> — for as long as the
-              account is open. When you close it, a short 30–90 day tail, then
-              permanent deletion.
+              account is open. When you ask us to delete it, our team reviews
+              the request within <strong>24 hours</strong>. Once approved, your
+              name, email, phone and photo are blanked out straight away; the
+              records the law makes us keep, listed above, stay. There is no
+              waiting period after that.
             </li>
             <li>
-              <strong>Support tickets</strong> — <strong>2 years</strong> after
-              the ticket closes.
+              <strong>Support messages</strong> — kept while your account is
+              open. When your account is deleted, your name, email and the words
+              of your messages are blanked out.
             </li>
             <li>
-              <strong>Error and usage logs</strong> — <strong>{ERROR_LOG_RETENTION_DAYS} days</strong> or
-              less, and they carry no personal data by design.
+              <strong>Error reports</strong> — kept by Sentry, our
+              error-reporting service, which deletes them after its own time
+              limit (<strong>{ERROR_LOG_RETENTION_DAYS} days</strong> or less on
+              our plan). We run no deletion of our own for them.
             </li>
             <li>
-              <strong>The fraud-prevention device identifier</strong> — for the
-              life of the account, and device records unused for more than 24
-              months are pruned.
+              <strong>The fraud-prevention device identifier</strong> — kept,
+              and not deleted when you delete your account (see{' '}
+              <em>Device identifier</em> above). Nothing deletes it on a timer
+              yet.
+            </li>
+            <li>
+              <strong>Gift records (Pabuya)</strong> — until the event is
+              deleted.
+            </li>
+            <li>
+              <strong>Daily visit codes</strong> — deleted the next day; only
+              the daily totals are kept.
+            </li>
+            <li>
+              <strong>Database backups</strong> — our database provider keeps a
+              daily backup for <strong>{DB_BACKUP_RETENTION_DAYS} days</strong>. Something deleted from
+              Setnayan can stay in a backup until that backup ages out.
+              Photos and files are not in these backups.
             </li>
           </ul>
           <p className="pt-2">
             Where you can end something sooner, you can: withdrawing face
             recognition deletes that data immediately, withdrawing a column takes
-            it off the page, and closing your account starts the tail above. The
+            it off the page, and you can ask us to delete your account. The
             two 10-year items are the exception — those we are required to keep.
+          </p>
+        </Section>
+
+        {/* ── Breach notices ── DPO ruling 2026-10-23 (corpus DECISION_LOG,
+            "OWNER ANSWERS ON THE BUILD TRACKER"): breach notices to affected
+            guests may go by email — only for a breach the law requires us to
+            report. Mirrors NPC_Compliance/04 Breach Policy § 6.2. */}
+        <Section id="breach" title="If there is a data breach">
+          <p>
+            If a breach of personal data happens that the law requires us to
+            report, we tell the National Privacy Commission and the people
+            affected within 72 hours of finding out, as RA 10173 and the
+            NPC&rsquo;s breach rules require. We tell you what happened, what
+            data was involved, what we are doing about it, and what you can do.
+          </p>
+          <p className="pt-2">
+            We may send that notice by email, including to guests. Guests
+            otherwise get no email from Setnayan; a breach the law makes us
+            report is the one exception.
           </p>
         </Section>
 
@@ -1280,14 +1394,15 @@ export default function PrivacyPage() {
             </li>
             <li>
               <strong>Right to erasure:</strong> the same profile page has an
-              account-deletion action (type DELETE to confirm). When you request
-              account deletion, our team reviews and permanently erases your
-              personal data within one business day of the request — except
-              records we are legally required to keep, such as tax and receipt
-              records under BIR rules, which we retain for the required period
-              and then delete. Because
-              deletion is permanent and immediate upon processing, it cannot be
-              undone once completed — please contact{' '}
+              account-deletion action (type DELETE to confirm). That sends a
+              request; our team reviews it within 24 hours. Once approved, your
+              personal details are blanked out straight away — except records
+              we are legally required to keep, such as tax and receipt records
+              under BIR rules, which we keep for the required period. One thing
+              is not yet automatic: the copy of your Google or Apple sign-in
+              details held by our sign-in provider; ask our Data Protection
+              Officer to remove it. Because deletion takes effect as soon as it
+              is approved, it cannot be undone — please contact{' '}
               <a
                 href="mailto:dpo@setnayan.com"
                 className="text-terracotta hover:underline"
@@ -1309,7 +1424,7 @@ export default function PrivacyPage() {
               if a supplier working an event photographs you, you can ask for that
               photograph to be removed, and we remove it from the supplier&rsquo;s
               own copy too &mdash; including their portfolio album &mdash; not only
-              from the couple&rsquo;s gallery.
+              from the couple&rsquo;s Memories.
             </li>
           </ul>
         </Section>
@@ -1858,11 +1973,6 @@ export default function PrivacyPage() {
               no payment details, and no message bodies are sent.
             </li>
             <li>
-              LanguageTool (spelling and grammar · public API) — the same
-              editorial text, checked for spelling and grammar. The suggestions
-              are advisory; a person decides.
-            </li>
-            <li>
               OpenStreetMap / Nominatim (turning an address into a map pin) — a
               venue or shop address you type is sent to look up its
               coordinates, and a pin you drop is sent back to find its city.
@@ -1899,6 +2009,10 @@ export default function PrivacyPage() {
             <li>
               TikTok (Personal-tier Patiktok only · for couples who explicitly
               connect their TikTok account via OAuth)
+            </li>
+            <li>
+              Apple (signing in with Apple, for people who choose it; and purchases
+              made in the iPhone app through Apple, when available in the app)
             </li>
           </ul>
         </Section>

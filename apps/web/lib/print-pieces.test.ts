@@ -45,7 +45,7 @@ import {
   printLookFor,
   spotLayersFor,
 } from './print-pieces';
-import { NFC_SPOT_R, layoutPasses, layoutPiece, opsOnLayer, watermarkOps, type PrintOp, type PrintSetData } from './print-layout';
+import { NFC_SPOT_R, layoutPasses, layoutPiece, layoutPieceDocs, opsOnLayer, watermarkOps, type PrintOp, type PrintSetData } from './print-layout';
 import { renderImposedPdf, renderPrintPdf } from './print-render-pdf';
 import {
   SAMPLE_JPEG_QUALITY,
@@ -192,6 +192,22 @@ test('the PRINT-READY PDF: bleed + trim boxes, and Foil / White ink / Die cut la
   // The Pro file carries no watermark: the layout has none of the watermark's ops.
   const wm = new Set(watermarkOps(docs[0]!.w, docs[0]!.h).map((o) => (o.t === 'path' ? o.d : '')));
   assert.ok(!docs[0]!.ops.some((o) => o.t === 'path' && wm.has(o.d)), 'a print-ready layout must not carry the sample watermark');
+});
+
+test('🔁 with NFC on, every sheet of passes is followed by its backs — mirrored, so a duplex flip lands each back behind its front', async () => {
+  const d = data();
+  const withNfc = { ...d, details: { ...d.details, nfc: true } };
+  for (const f of Object.values(PRINT_FORMATS).filter((x) => x.for === 'pass')) {
+    const passes = Array.from({ length: 3 }, (_, i) => ({ name: `Guest ${i + 1}`, seat: null, qrRef: 'eventqr', serial: null }));
+    const docs = layoutPasses({ look: printLookFor('vintage'), data: withNfc, mode: 'print', foil: false, format: f.id }, passes);
+    assert.ok(docs.every((x) => x.back?.isBack), `${f.id}: every pass has its back`);
+    const perPage = f.sheet!.cols * f.sheet!.rows;
+    const pdf = await PDFDocument.load(await renderImposedPdf(docs, await qrImages(), { ...f.sheet!, title: 'passes' }));
+    assert.equal(pdf.getPageCount(), Math.ceil(3 / perPage) * 2, `${f.id}: a backs page after each fronts page`);
+  }
+  // NFC off: fronts only.
+  const plain = layoutPasses({ look: printLookFor('vintage'), data: d, mode: 'print', foil: false, format: 'calling-card' }, [{ name: 'A', seat: null, qrRef: 'eventqr', serial: null }]);
+  assert.ok(!plain[0]!.back);
 });
 
 test('the per-guest pass batch gangs onto A4 with cut lines, the count its format says', async () => {
@@ -399,8 +415,13 @@ test('the NFC sticker spot is 25 mm, true to size, in every format that draws it
   const spots: Array<[string, PrintOp | undefined]> = [];
   for (const f of Object.values(PRINT_FORMATS)) {
     const piece = f.for === 'pass' ? 'pass' : f.for === 'card' ? 'card' : 'details';
-    const doc = layoutPiece(piece, { look: printLookFor('vintage'), data: withNfc, mode: 'print', foil: false, format: f.id });
-    spots.push([`${piece}/${f.id}`, doc.ops.find((o) => o.t === 'circle' && o.nfc)]);
+    // A pass carries its spot on the BACK (its second side), behind the QR; every other piece on its face.
+    const sides = layoutPieceDocs(piece, { look: printLookFor('vintage'), data: withNfc, mode: 'print', foil: false, format: f.id });
+    if (piece === 'pass') {
+      assert.equal(sides.length, 2, `pass/${f.id}: with NFC on, a pass has a back`);
+      assert.ok(!sides[0]!.ops.some((o) => o.t === 'circle' && o.nfc), `pass/${f.id}: the front no longer carries the spot`);
+    }
+    spots.push([`${piece}/${f.id}`, sides[piece === 'pass' ? 1 : 0]!.ops.find((o) => o.t === 'circle' && o.nfc)]);
   }
   spots.push(['poster', layoutPiece('poster', { look: printLookFor('vintage'), data: withNfc, mode: 'print', foil: false }).ops.find((o) => o.t === 'circle' && o.nfc)]);
   let drawn = 0;
@@ -410,10 +431,11 @@ test('the NFC sticker spot is 25 mm, true to size, in every format that draws it
     assert.ok(Math.abs((op.r * 2) / PT_PER_MM - NFC_STICKER_DIAMETER_MM) < 0.01, `${where}: the spot is ${(op.r * 2) / PT_PER_MM} mm, not 25`);
     assert.ok(op.dash, `${where}: the guide ring is dashed`);
   }
-  assert.ok(spots.find(([w]) => w === 'pass/calling-card')?.[1], 'the calling card carries the spot (in its corner)');
+  assert.ok(spots.find(([w]) => w === 'pass/calling-card')?.[1], 'the calling card carries the spot (on its back)');
   assert.ok(drawn >= 6, `only ${drawn} formats drew the spot`);
   assert.equal(NFC_SPOT_R * 2, NFC_STICKER_DIAMETER_MM * PT_PER_MM);
   // Off by default: no spot unless the couple adds one.
-  const off = layoutPiece('pass', { look: printLookFor('vintage'), data: d, mode: 'print', foil: false });
-  assert.ok(!off.ops.some((o) => o.t === 'circle' && o.nfc));
+  const off = layoutPieceDocs('pass', { look: printLookFor('vintage'), data: d, mode: 'print', foil: false });
+  assert.equal(off.length, 1, 'no NFC, no back');
+  assert.ok(!off[0]!.ops.some((o) => o.t === 'circle' && o.nfc));
 });

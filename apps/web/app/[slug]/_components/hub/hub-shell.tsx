@@ -130,7 +130,7 @@ const MENU: { key: HubPanelKey; label: string; icon: LucideIcon }[] = [
   { key: 'now', label: 'Live', icon: Activity },
   { key: 'watch', label: 'Watch', icon: Radio },
   { key: 'camera', label: 'Camera', icon: Camera },
-  { key: 'photos', label: 'Gallery', icon: Images },
+  { key: 'photos', label: 'Memories', icon: Images },
   { key: 'me', label: 'Me', icon: User },
   { key: 'schedule', label: 'Schedule', icon: CalendarClock },
   { key: 'directions', label: 'Directions', icon: MapPin },

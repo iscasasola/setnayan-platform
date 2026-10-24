@@ -56,7 +56,7 @@ import { guestListIsClosed } from '@/lib/guest-list-closed';
 import { inviteEnterPath, inviteReplyPath } from '@/lib/invite-arrival';
 import { checklistShows, sanitizeTicks, type ChecklistKey } from '@/lib/guest-checklist';
 import { manilaToday } from '@/lib/std-views';
-import { meLeadsWithReply, resolveArrivalAction } from '@/lib/arrival-action';
+import { PASS_ANCHOR, meLeadsWithReply, resolveArrivalAction } from '@/lib/arrival-action';
 import { BLOCK_MARK_ATTR, readBlockLooks } from '@/lib/block-looks';
 import { rsvpReplyOpen } from '@/lib/site-body-plan';
 import { partsHiddenOn } from '@/lib/what-guests-see';
@@ -99,11 +99,13 @@ import { fetchRevealConfig } from '@/lib/reveal-config';
 import { REVEAL_NONE, revealAllowedFor } from '@/lib/reveal-access';
 import { coerceRevealTemplate } from './_lib/reveal-props';
 import { INVITE_THEMES } from '@/lib/invite-themes';
+import type { RsvpStatus } from '@/lib/guests';
 import { resolveHubTheme } from './_lib/hub-look';
 import { stdOpeningsActiveCached } from './_components/reveal/reveal-overlay-server';
 import { resolveWeddingOnlyParts } from '@/lib/wedding-only-parts';
 import { storedStdLead, type StdLead } from '@/lib/stage-scenes';
 import { GuestTicket } from './_components/guest-ticket';
+import { MeKeepInvitation } from './_components/me-keep-invitation';
 import { SpatialBackdrop } from '@/app/_components/spatial-backdrop';
 import {
   type LifecyclePhase,
@@ -752,6 +754,28 @@ async function hostOwnGuestRowFor(
   }
   const id = (data?.[0] as { guest_id?: string | null } | undefined)?.guest_id;
   return typeof id === 'string' ? id : null;
+}
+
+/** The host's own row's reply status, when that row is live (`deleted_at is null`); null otherwise or unread. */
+async function hostOwnRsvpFor(
+  admin: ReturnType<typeof createAdminClient>,
+  eventId: string,
+  guestId: string,
+): Promise<RsvpStatus | null> {
+  const { data, error } = await admin
+    .from('guests')
+    .select('rsvp_status')
+    .eq('event_id', eventId)
+    .eq('guest_id', guestId)
+    .is('deleted_at', null)
+    .maybeSingle();
+  if (error) {
+    console.error('[supabase-error] app/[slug]/page.tsx · from:guests.select (host own reply)', error);
+    return null;
+  }
+  if (!data) return null;
+  const status = (data as { rsvp_status?: string | null }).rsvp_status;
+  return status === 'attending' || status === 'declined' || status === 'maybe' ? status : 'pending';
 }
 
 /**
@@ -1671,16 +1695,21 @@ async function invitationBody({
       mode={heldPassAside.standing === 'set_aside_host' ? 'set_aside_host' : 'set_aside'}
     />
   ) : hostOpenedPass ? (
-    <HeldPassLine slug={event.slug ?? slug} firstName={heldPassFirstName} mode="host_preview" />
+    /* 🪪 The guest tree draws it as Me's slim bar (owner 2026-10-24, the Me redraw); the reply page keeps its line. */
+    <HeldPassLine slug={event.slug ?? slug} firstName={heldPassFirstName} mode="host_preview" bar />
   ) : null;
   const hostOwnGuestId =
     ownerCapability && viewerAccount?.id && !isEditorCanvas && search.as === undefined
       ? await hostOwnGuestRowFor(admin, event.event_id, viewerAccount.id)
       : null;
+  /* 🗳 The host's OWN reply (owner bug 2026-10-24): the host's Reply card reads it and opens the reply page as them
+     (`readReplyIdentityForEvent`) — never the Maker's sample. Null: no live row of their own here — the card stays, and the reply page tells them so. */
+  const hostOwnRsvp = hostOwnGuestId ? await hostOwnRsvpFor(admin, event.event_id, hostOwnGuestId) : null;
   const siteProps = {
     // 🪪 Drawn under the host's / a signed-in stranger's cover (the guest tree draws it in Me, below).
     heldPassSlot: heldPassNode,
     hostOwnGuestId,
+    hostOwnRsvp,
     // 🔒 WITHHELD BY DEFAULT (owner 2026-09-20 · lib/venue-disclosure.ts). Every
     // render branch spreads this object, so a branch that knows nothing about
     // the viewer's reply shows no address, no map and no directions. The guest
@@ -1946,17 +1975,22 @@ async function invitationBody({
              host's own preview (the sample has no ticket session). */
           meSection={
             widgetShouldRender(widgetByType(widgets, 'qr_card')) ? (
-              ({ replyHref }: { replyHref: string | null }) => (
+              ({ replyHref, inMe, replyOwed }: { replyHref: string | null; inMe?: boolean; replyOwed?: boolean }) => (
                 <GuestMeSection
                   meSlot={
+                    /* 🪪 The redrawn Me (owner 2026-10-24): its one Reply is Me's own — no ticket while one is owed. */
+                    inMe && replyOwed ? (
+                      <span id={PASS_ANCHOR} aria-hidden className="sr-only" />
+                    ) : (
                     <GuestTicket
                       state={sampleTicketState(seeAs)}
                       name={sampleName}
                       invitationUrl={SIMULATED_GUEST_INVITATION_TEXT}
                       src={sampleTicketSrc(event.event_id)}
-                      replyHref={replyHref}
+                      replyHref={inMe ? null : replyHref}
                       mark={passBlockMark}
                     />
+                    )
                   }
                   galleryCount={0}
                   asTab
@@ -2310,24 +2344,32 @@ async function invitationBody({
   const seatPassActive = seatPassHeld && !partsOffHere.has('seat');
   /* The door to the guest's own photos (the bar's and Me's) — none on a stage the couple hid Photos of you on. */
   const myPhotosHref = partsOffHere.has('photosofyou') ? null : `/papic/me/${guest.qr_token}`;
-  const meSlotFor = (replyHref: string | null) => isEditorCanvas ? null : (
+  /* 🪪 `inMe` — the redrawn Me (owner 2026-10-24, `me_tab_redraw_2026-10-24_fable.html`): the held-pass bar, the
+     guest's name and the ONE Reply are drawn by Me itself (`site-body.tsx`), so this slot draws none of them — no
+     name card, no "Reply to the invitation" bar on the ticket, and no ticket at all while a reply is still owed (the
+     ticket shows after a Yes). Its anchor stays, so the bar's "My QR" does not offer a code before the reply. */
+  const meSlotFor = (replyHref: string | null, me: { inMe?: boolean; replyOwed?: boolean } = {}) => isEditorCanvas ? null : (
     <>
     {/* 🪪 "This browser also holds <name>'s invitation. Viewing as you." — or the host's "Back to you". */}
-    {heldPassNode ? <div className="mb-6">{heldPassNode}</div> : null}
+    {heldPassNode && !me.inMe ? <div className="mb-6">{heldPassNode}</div> : null}
     {/* 🎫 THE DIGITAL TICKET — first on Me, and only on Me (owner 2026-09-30).
         Follows the couple's own "QR card" switch, as the pass on Home did; with
         it off, Me offers "My QR" instead (GuestHubBar asks the page for the
         anchor this carries). */}
     {passCard && widgetShouldRender(widgetByType(widgets, 'qr_card')) ? (
+      me.inMe && me.replyOwed ? (
+        <span id={PASS_ANCHOR} aria-hidden className="sr-only" />
+      ) : (
       <div className="mb-8">
         <GuestTicket
           state={passCard}
           name={guest.display_name?.trim() || `${guest.first_name ?? ''} ${guest.last_name ?? ''}`.trim() || 'You'}
           invitationUrl={invitationUrl}
-          replyHref={replyHref}
+          replyHref={me.inMe ? null : replyHref}
           mark={passBlockMark}
         />
       </div>
+      )
     ) : null}
     {/* 🪑 Me repeats the seat (owner 2026-09-27, "FIND YOUR SEAT, REDESIGNED"
         (4)) — the same line the Details scene carries; never a bar slot. */}
@@ -2335,6 +2377,7 @@ async function invitationBody({
       <SeatDoorLine slug={event.slug ?? slug} tableLabel={guestHubData.tableLabel} className="mb-3" />
     ) : null}
     <GuestMe
+      plain={me.inMe}
       name={
         guest.display_name?.trim() || `${guest.first_name ?? ''} ${guest.last_name ?? ''}`.trim() || 'You'
       }
@@ -2470,10 +2513,26 @@ async function invitationBody({
           moreAnswers,
           checklist,
         })}
+        /* 🪪 Me's FIRST offer — "Keep this invitation", under the greeting (owner 2026-10-24: "on the me part, we start
+           offering the linking of this event to their account"). The shipped Save and every state of it; on this Me,
+           GuestMe draws no Save of its own (one place). */
+        meSave={
+          guestPageTabbed && !isEditorCanvas && account ? (
+            <MeKeepInvitation
+              state={account}
+              eventId={event.event_id}
+              slug={event.slug ?? slug}
+              personalLink={invitationUrl}
+              userAgent={meUserAgent}
+              termsCarried={meTermsCarried}
+              termsMissing={search.keep === 'terms'}
+            />
+          ) : null
+        }
         meSection={
           guestPageTabbed ? (
-            ({ replyHref }: { replyHref: string | null }) => (
-              <GuestMeSection meSlot={meSlotFor(replyHref)} photosHref={photosLeftThePage ? myPhotosHref : null} galleryCount={galleryCountHere} asTab />
+            ({ replyHref, inMe, replyOwed }: { replyHref: string | null; inMe?: boolean; replyOwed?: boolean }) => (
+              <GuestMeSection meSlot={meSlotFor(replyHref, { inMe, replyOwed })} photosHref={photosLeftThePage ? myPhotosHref : null} galleryCount={galleryCountHere} asTab />
             )
           ) : null
         }

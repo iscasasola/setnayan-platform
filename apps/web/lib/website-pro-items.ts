@@ -112,7 +112,7 @@ export const PRINT_LOOK_ITEM = 'Prints in your Event Hub look' as const;
 export const WEBSITE_PRO_ITEMS = [
   'Cinematic Reveal',
   'Save-the-Date video',
-  'Photo gallery',
+  'Photos you add',
   'Background music',
   // "Editorial editing" stood here until 2026-10-22 — free for every couple
   // (`EDITORIAL_PRO` ∈ `FREE_FOR_ALL_SKUS`), so it is not something Pro buys.

@@ -291,7 +291,8 @@ test('EVERY guest’s ticket — each one cut and handed over on its own — car
         assert.equal(docs.length, PASSES.length);
         docs.forEach((d, i) => {
           tickets += 1;
-          problems.push(...brandProblems([d], kind, `${id} · ticket ${i + 1} · ${f.id} · ${mode}`, kind === 'mark' ? look.ink : undefined));
+          // A pass with NFC has a back (its sticker spot): the brand is once across BOTH sides.
+          problems.push(...brandProblems(d.back ? [d, d.back] : [d], kind, `${id} · ticket ${i + 1} · ${f.id} · ${mode}`, kind === 'mark' ? look.ink : undefined));
         });
       }
     }

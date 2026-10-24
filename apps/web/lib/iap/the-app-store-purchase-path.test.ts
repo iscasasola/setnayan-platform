@@ -64,6 +64,9 @@ test('the intent is written only AFTER every check a web checkout makes (and own
     /coordinatorMoneyScopeAllowed\(/,
     /resolveServiceSellability\(/,
     /papicCreditsMatch\(/,
+    /moodBoardRendersMatch\(/,
+    /setnayanAiTierInApp\(/,
+    /if \(!iapProductFitsAiTier\(product, sai\.tier\)\) return startRefusal\('not_on_sale'\);/,
     /eventIsOver\(/,
     /eventOwnsSku\(/,
   ]) {
@@ -105,6 +108,8 @@ test('the app shows no web price, no GCash/BDO, no web link on an Apple surface'
   const surfaces = [
     'app/_components/iap/iap-papic-sheet.tsx',
     'app/_components/iap/iap-live-watch-sheet.tsx',
+    'app/_components/iap/iap-unlock-sheet.tsx',
+    'lib/iap/setnayan-ai-in-app.server.ts',
     'app/_components/iap/restore-purchases-row.tsx',
     'app/_components/iap/apple-pro-screen.tsx',
     'app/dashboard/[eventId]/apple-pro/page.tsx',
@@ -154,4 +159,19 @@ test('every Apple surface is mounted ONLY behind the three-part gate', () => {
   // 💎 Part by part (2026-10-22): "owned" is Full Pro (or the cap reached) through the one ownership read.
   assert.match(code('app/dashboard/[eventId]/apple-pro/page.tsx'), /if \(own\?\.full\) redirect\(`\$\{back\}\?apply=1`\);/);
   assert.match(code('lib/iap/iap-actions.ts'), /const \{ iap \} = await getIapGate\(\);\s*if \(!iap\) return startRefusal\('unavailable'\);/);
+});
+
+test('✦ the app picks Setnayan AI’s tier the way the web charges it — no second event-type → tier map', () => {
+  const src = code('lib/iap/setnayan-ai-in-app.server.ts');
+  // The web's charge reads the band through resolveAiBandForEventType (event_type_vocab); so does the app.
+  assert.match(src, /await resolveAiBandForEventType\(admin, /);
+  assert.match(src, /resolveSetnayanAiPerEventPricingEnabled\(\)\)\) return \{ status: 'sellable', tier: 'A' \}/, 'switch off ⇒ the web charges the flat row ⇒ Tier A');
+  assert.doesNotMatch(src, /AI_TIER_BY_EVENT_TYPE|setnayanAiTierForEventType|'wedding'|'debut'|'birthday'/, 'a second event-type → tier map');
+  assert.match(code('lib/setnayan-ai-event-pricing.ts'), /const bandRes = await resolveAiBandForEventType\(client, eventType\);/, 'premise: the web charge reads the same resolver');
+  // The page sells the tier's product, and says nothing about a wedding to a birthday.
+  const page = code('app/dashboard/[eventId]/studio/setnayan-ai/page.tsx');
+  assert.match(page, /const appleProduct =\s*appleTier\?\.status === 'sellable' && \(await resolveServiceSellability\(SKU_CODE\)\) === 'sellable'\s*\?\s*iapSetnayanAiProductForTier\(appleTier\.tier\)\s*:\s*null;/);
+  const door = page.slice(page.indexOf('<IapUnlockSheet'), page.indexOf('/>', page.indexOf('<IapUnlockSheet')));
+  assert.match(door, /productId=\{appleProduct\.productId\}/);
+  assert.doesNotMatch(door, /wedding|eventWord|sign-up|comeback|discount/i, 'the Apple door names a wedding, or a web-only discount');
 });

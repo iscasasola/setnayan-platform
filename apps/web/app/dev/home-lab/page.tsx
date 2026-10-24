@@ -28,6 +28,8 @@
  *     [&bought=web|app] [&v11=1]     🍎 1.1: where Live Watch was bought ("On · bought on the web / in the app"),
  *                                    and the 1.1 doors — the Papic row opens its page, an owned Live Watch has Go live
  *   ?view=papic&apple=1              🍎 the Papic page's band in that app — Buy more is Apple's sheet
+ *   ?view=papic&need=1               the sheet reads its sizes on the tap, as the page does
+ *                                    (`papicBuySizes`) — against whatever the lab's Supabase URL answers (a walk's stub)
  *   ?view=pro                        💎 what Event Hub Pro includes (owner 2026-10-22, Host 5): the REAL
  *                                    controller offer (`resolveHubProOffer` → `HubProOffer`) and the REAL
  *                                    editor lock (`ProLockPanel`), both reading `WEBSITE_PRO_ITEMS`. No price
@@ -45,11 +47,26 @@
  *                                    cale = all on (cale-ice, an internal host, measured 2026-10-20) ·
  *                                    none = nothing added (slim lines) · mix = Planner + Pro on, the rest
  *                                    not added · pending = payments waiting · unread = the reads failed
+ *   ?view=day                        📷 the EVENT-DAY console (owner 22 Oct 2026, "Fix both"): the REAL
+ *                                    `DayOfModeGrid` with Home › Your services' own Papic row beside the Live
+ *                                    photo wall (`DayPapicRow`, face from `dayPapicFace`)
+ *     [&face=off|none|failed]        Papic switched off · not on yet · the credits read failed
+ *     [&store=1]                     the App Store / Play shell — no Papic row, as Your services
+ *     [&before=1]                    the console as `main` drew it before 22 Oct (no Papic; with &shell=1,
+ *                                    main's bar rule too — `/dev/bar-lab`'s `was=1`)
+ *     [&shell=1&type=…&needs=…]      the REAL event bar for that type (`/dev/bar-lab`'s gates), phase dayof
  *   ?papic=before|on|low|stopped|empty|lowday  🎨 the approved prototype's states (owner
  *                                    2026-10-14): before the window · on · running low ·
  *                                    stopped (Next card) · no photos yet (Next card) · low on the day
  */
+import { PapicCardStripView } from '@/app/dashboard/[eventId]/_components/papic-card-strip';
+import { PapicBuySheet } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-buy-sheet';
+import { PapicCameraSettings, PapicSwitch } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-camera-settings';
+import { papicCardPhase, papicCoverageWords } from '@/lib/papic-home-card';
+import type { PapicCardInput } from '@/app/dashboard/[eventId]/_components/home-first-screen';
 import { LabShell } from '@/app/dev/_components/lab-shell';
+import { labEventBar } from '@/app/dev/bar-lab/lab-event';
+import { DayOfModeGrid } from '@/app/dashboard/[eventId]/_components/day-of-mode/grid';
 import { LabSpotlight } from './lab-spotlight';
 import { TOURS } from '@/lib/tours';
 import { coupleNameColumns } from '@/lib/typed-names';
@@ -60,10 +77,10 @@ import { StanceChip } from '@/app/dashboard/(launcher)/_components/stance-chip';
 import type { EventPosterFacts } from '@/lib/event-poster';
 import type { ForTag } from '@/lib/for-tag';
 import { notFound } from 'next/navigation';
+import type { HomeHubPickRead } from '@/app/dashboard/[eventId]/_components/home-cards/hub-pick-types';
 import { NEED_PRESETS, needsColumns, needsForPreset, readEventNeeds, switchOnRows, type NeedPreset } from '@/lib/event-needs';
-import { HomeFirstScreen } from '@/app/dashboard/[eventId]/_components/home-first-screen';
-import { HomeWhatsNext } from '@/app/dashboard/[eventId]/_components/home-parts';
-import { getNavSlotMap } from '@/lib/nav-registry';
+import { DayPapicRow, HomeFirstScreen, YourServices } from '@/app/dashboard/[eventId]/_components/home-first-screen';
+import { fixtureControl, fixtureControlUnread, fixturePays } from '@/lib/home-control-fixture';
 import { resolveSiteNav } from '@/app/[slug]/_lib/site-nav';
 import { STAGE_BAR } from '@/app/[slug]/_lib/stage-bar';
 import { SiteMenuBar } from '@/app/[slug]/_components/site-menu-bar';
@@ -82,9 +99,8 @@ import { homePaidFacts, type HomeSkuRead } from '@/lib/home-paid-services';
 import {
   HOME_PAID_SKU,
   aiStatus,
-  glanceCount,
+  dayPapicFace,
   glanceDays,
-  glanceMoney,
   homeServices,
   pickHomeNext,
   type HomeNextInput,
@@ -153,10 +169,46 @@ const STATES: Record<string, HomeNextInput> = {
   plan: { guide: null, hasDate: true, guests: DONE_GUESTS, noun: 'wedding', papicReady: false, aiOffer: false },
 };
 
+/* 📷 PAPIC'S CARD (owner 2026-10-23, "expanding opens the rest of the settings under it") — `?card=1[&cardphase=before|live|after]`:
+   the REAL card and coverage words on fixture dates, a strip of fixture frames (the real view), and the REAL camera
+   settings (in a lab with no database they say "couldn't load" — the failed-read state, drawn as it ships). */
+function labPapicCard(eventId: string, phase: string | undefined, failed: boolean): PapicCardInput {
+  const startIso = '2026-12-10T16:00:00.000Z';
+  const endIso = '2026-12-13T04:00:00.000Z';
+  const now = phase === 'after' ? Date.parse('2026-12-14T02:00:00Z') : phase === 'live' ? Date.parse('2026-12-12T06:00:00Z') : Date.parse('2026-10-23T02:00:00Z');
+  const ph = papicCardPhase(startIso, endIso, now);
+  const tones = [['#D7B77C', '#9A7A3C'], ['#B9856A', '#6F4A33'], ['#E2D59C', '#A7A14B'], ['#6E8296', '#2E3F50'], ['#B8788D', '#6D3F50']];
+  const frames = tones.map(([a, b], i) => ({
+    id: `f${i}`,
+    url:
+      'data:image/svg+xml;utf8,' +
+      encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${a}"/><stop offset="1" stop-color="${b}"/></linearGradient></defs><rect width="160" height="160" fill="url(#g)"/></svg>`),
+  }));
+  return {
+    coverage: papicCoverageWords({ startIso, endIso, now }),
+    phase: ph,
+    strip: <PapicCardStripView eventId={eventId} frames={failed ? null : ph === 'before' ? [] : frames} total={failed ? null : ph === 'before' ? 0 : 1284} phase={ph} />,
+    thankYouHref: '#thank-you',
+    headControl: <PapicSwitch eventId={eventId} saved />,
+    settings: (
+      <PapicCameraSettings
+        eventId={eventId}
+        seat="home"
+        credits={{ total: failed ? null : 2000, left: failed ? null : 1240 }}
+        buy={<PapicBuySheet eventId={eventId} left={failed ? null : 1240} tone="brand" main label="Add more" />}
+      />
+    ),
+  };
+}
+
+/** 🎛 The Event Hub tile's "Pick what shows", handed in so the sheet opens with no database (nothing pinned; the date
+ * gives the Invitation). Its pick still calls the real `setLaunchPhase`, which refuses a made-up event. */
+const LAB_HUB_PICK: HomeHubPickRead = { ok: true, pinned: null, byDate: 'rsvp' };
+
 export default async function HomeLab({
   searchParams,
 }: {
-  searchParams: Promise<{ bought?: string; v11?: string; proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string; shell?: string; paid?: string; order?: string; spot?: string; for?: string; one?: string }>;
+  searchParams: Promise<{ bought?: string; v11?: string; proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string; shell?: string; paid?: string; order?: string; spot?: string; face?: string; before?: string; type?: string; phase?: string; for?: string; one?: string; card?: string; cardphase?: string; open?: string; need?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
@@ -266,7 +318,7 @@ export default async function HomeLab({
     return (
       <div className="min-h-screen bg-cream px-4 pb-28 pt-3">
         <div className="mx-auto flex max-w-xl flex-col gap-6">
-          <p className="sn-eye text-ink/70">Gallery · before the day</p>
+          <p className="sn-eye text-ink/70">Memories · before the day</p>
           {early ? (
             <YourShotsGallery
               shots={{ shots: Array.from({ length: n }, (_, i) => ({ id: `lab-${i}`, url: '/portraits/' + LAB_PHOTOS[i % LAB_PHOTOS.length]!, capturedAt: null })), total: n }}
@@ -276,7 +328,7 @@ export default async function HomeLab({
               cameraHref="/papic/guest?from=lab"
             />
           ) : (
-            <p className="text-sm text-ink/60">(Early shooting off — the bar keeps its four; there is no Gallery before the day.)</p>
+            <p className="text-sm text-ink/60">(Early shooting off — the bar keeps its four; there are no Memories before the day.)</p>
           )}
         </div>
         <SiteMenuBar slots={bar} />
@@ -287,11 +339,72 @@ export default async function HomeLab({
     const band = (
       <div className="min-h-screen bg-cream px-4 pb-6 pt-3">
         <div className="mx-auto flex max-w-xl flex-col gap-7">
-          <PapicTopBand eventId={E} glance={papicNow} canBuy sizes={LAB_SIZES} apple={q.apple === '1'} />
+          <PapicTopBand eventId={E} glance={papicNow} canBuy sizes={q.need === '1' ? undefined : LAB_SIZES} apple={q.apple === '1'} />
         </div>
       </div>
     );
     return q.shell === '1' ? <LabShell eventId={E} gutter={false}>{band}</LabShell> : band;
+  }
+  if (q.view === 'day') {
+    /* The event day: the page's own wiring — `homeServices` builds Your services, the console draws its Papic entry. */
+    const store = q.store === '1';
+    const face = q.face;
+    const dayGlance =
+      face === 'failed' || face === 'none'
+        ? papicGlance({ permitted: true, tile: face === 'failed' ? 'failed' : null, window: { startDate: null, endIso: null }, papicOn: true })
+        : papicNow;
+    const dayServices = homeServices({
+      next: 'plan',
+      storeShell: store,
+      papic: dayGlance.status,
+      papicDoors: { glance: dayGlance, line: dayGlance.line, buy: dayGlance.buy, whileNext: papicRowDoubled(null) },
+      ai: aiStatus(false),
+      eventId: E,
+      paid: store ? null : labPaid(q.paid ?? 'none', E),
+    });
+    const svc = dayServices.find((x) => x.key === 'papic');
+    const now = Date.now();
+    const at = (min: number) => new Date(now + min * 60_000).toISOString();
+    const blocks = [
+      { block_id: 'b1', label: 'Ceremony', start_at: at(-90), end_at: at(-30), location: 'Garden' },
+      { block_id: 'b2', label: 'Cocktails', start_at: at(-30), end_at: at(30), location: 'Terrace' },
+      { block_id: 'b3', label: 'Dinner & toasts', start_at: at(30), end_at: at(150), location: 'Main hall' },
+    ];
+    const day = (
+      <div className="mx-auto min-h-screen w-full bg-cream px-4 pb-28 pt-3 sm:px-6 sm:pt-6 lg:px-8" data-lab-day="">
+        <DayOfModeGrid
+          eventId={E}
+          blocks={blocks}
+          headTable={null}
+          nearbyTables={[]}
+          liveWallActive={!store}
+          papic={
+            q.before === '1' ? null : (
+              <DayPapicRow
+                eventId={E}
+                face={dayPapicFace({ svc, papicOn: face === 'off' ? false : true, permitted: true, tile: face === 'failed' ? 'failed' : face === 'none' ? null : {} })}
+                svc={svc}
+                left={dayGlance.count}
+                sizes={LAB_SIZES}
+              />
+            )
+          }
+        />
+        {/* The rest of Your services on the day (More left the bar, owner 22 Oct 2026) — as the page draws it. */}
+        {q.before === '1' ? null : (
+          <div className="mt-4">
+            <YourServices eventId={E} services={dayServices.filter((x) => x.key !== 'papic')} papicLeft={dayGlance.count} />
+          </div>
+        )}
+      </div>
+    );
+    return q.shell === '1' ? (
+      <LabShell eventId={E} gutter={false} eventBar={labEventBar({ type: q.type, needs: q.needs, phase: q.phase ?? 'dayof', store: q.store, was: q.before })}>
+        {day}
+      </LabShell>
+    ) : (
+      day
+    );
   }
   /* An unread guest list reaches the picker as `null` — exactly as the page hands it. */
   const base: HomeNextInput = ps
@@ -312,7 +425,15 @@ export default async function HomeLab({
   const input0: HomeNextInput = unread ? { ...base, guide: null, guests: null } : base;
   const input: HomeNextInput = labNeeds ? { ...input0, needs: labNeeds } : input0;
   const next = pickHomeNext(input);
-  const slots = await getNavSlotMap().catch(() => null);
+  /* 🎛 The control row on the prototype's own sample (`lib/home-control-fixture.ts`, the guards' own fixture) — with
+     the unread states the page hands over when its reads fail, and the lab's own days / coming / no reply / money. */
+  const days = glanceDays(F.days);
+  const labControl = (unread ? fixtureControlUnread : fixtureControl)(E, {
+    next,
+    countdown: { value: days.value, label: days.label, days: F.days ?? null, hasDate: days.value !== '—', long: 'Saturday, December 12, 2026', placeLine: 'Tagaytay' },
+    ...(labNeeds?.guestList === false ? { guests: null } : unread ? {} : { guests: { coming: F.coming, noReply: F.noReply, toInvite: 35, declined: 4, total: 131 } }),
+    ...(q.hidden === '1' ? { budget: null } : unread ? {} : { budget: { paidPhp: F.paid, owingPhp: F.owing, pays: fixturePays() } }),
+  });
   const home = (
     /* The EVENT LAYOUT's own gutter (`app/dashboard/[eventId]/layout.tsx` — px-4 · sm:px-6 · lg:px-8, pt-3 ·
        sm:pt-6): the cover band cancels exactly that gutter to run edge to edge, so a lab that pads by less draws
@@ -323,36 +444,12 @@ export default async function HomeLab({
         eventId={E}
         cover={{ eyebrow: F.eyebrow, name: F.name, ...(labForWho ? { forWho: labForWho } : {}) }}
         next={next}
-        days={glanceDays(F.days)}
-        coming={glanceCount(F.coming, !unread)}
-        noReply={glanceCount(F.noReply, !unread)}
-        noReplyWaiting={!unread}
-        figures={{
-          days: F.days,
-          coming: unread ? null : F.coming,
-          noReply: unread ? null : F.noReply,
-          money: q.hidden === '1' ? null : unread ? 'unread' : { paid: F.paid, owing: F.owing },
-        }}
-        navSlots={slots}
+        control={labControl}
         needs={labNeeds ? { ...labNeeds, switchOn: switchOnRows(labNeeds, { marketplace: true }) } : null}
-        whatsNext={
-          <HomeWhatsNext
-            open={3}
-            rows={[
-              { id: 'b', title: 'Book a supplier', sub: 'Catering · 2 quotes in', href: `/dashboard/${E}/vendors`, verb: 'book', cta: 'Book' },
-              { id: 'p', title: 'Settle a payment', sub: 'Seda Vertis North · first payment · by Oct 5', href: `/dashboard/${E}/vendors`, verb: 'pay', cta: 'Pay' },
-              { id: 'r', title: 'Fill a role', sub: 'Emcee · nobody picked yet', href: `/dashboard/${E}/guests`, verb: 'role', cta: 'Pick' },
-            ]}
-            checklist={{ href: `/dashboard/${E}/checklist`, pct: 47 }}
-          />
-        }
-        money={
-          q.hidden === '1'
-            ? null
-            : { paid: glanceMoney(unread ? null : F.paid), owing: glanceMoney(unread ? null : F.owing) }
-        }
         papicLeft={papicNow.count}
         papicSizes={LAB_SIZES}
+        hubPick={unread ? { ok: false, reason: 'unread' } : LAB_HUB_PICK}
+        papicCard={q.card === '1' ? labPapicCard(E, q.cardphase, q.fail === '1' || q.unread === '1') : null}
         apple={
           q.store === '1' && q.apple === '1'
             ? {
@@ -400,7 +497,14 @@ export default async function HomeLab({
     home
   );
   /* `&shell=1` — the REAL One Shell (rail + bar, `boundary="tab"`); the Home draws the layout's gutter itself. */
-  return q.shell === '1' ? <LabShell eventId={E} gutter={false}>{lit}</LabShell> : lit;
+  /* The REAL event bar (`labEventBar` — five tabs since 23 Oct 2026, Memories after Hub), Home lit. */
+  return q.shell === '1' ? (
+    <LabShell eventId={E} gutter={false} eventBar={labEventBar({ type: q.type, needs: q.needs, phase: q.phase, store: q.store })} homeAt="/dev/home-lab">
+      {lit}
+    </LabShell>
+  ) : (
+    lit
+  );
 }
 
 /* 🏷 "For <name>" fixtures (prototype for_tag_on_event_cards_2026-10-22.html): the shop's round

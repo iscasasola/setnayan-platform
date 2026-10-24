@@ -22,7 +22,8 @@ export const dynamic = 'force-dynamic';
  * free until then and ends at the end of that 4-week cycle; 50 free Papic
  * credits per booked event; *"ONE admin page, admin-editable, never
  * hard-coded."* ⚖ 2026-10-12 #3–#6: the 2,000 counts Setnayan-sourced bookings
- * at fee creation; launch bookings do not use up a supplier's free five; free
+ * at fee creation; launch bookings do not use up a supplier's free first booking
+ * (one since 2026-10-23, was five); free
  * Pro's end is ONE platform-wide date, shown here; the credits are granted once
  * per launch-waived charge.
  *
@@ -33,7 +34,8 @@ export const dynamic = 'force-dynamic';
  *     of the cycle running now, which rolls forward);
  *   · the three numbers, editable;
  *   · the free-fee window (`booking_fee_free_from/until`) — it worked in SQL
- *     and had no screen (audit 2026-10-12, C9).
+ *     and had no screen (audit 2026-10-12, C9) — and its required reason
+ *     (DECISION_LOG 2026-09-23 #3), kept only in `admin_audit_log.reason`.
  *
  * ⚠ A FAILED READ SAYS SO. It never renders as "off" or "0 used".
  */
@@ -48,6 +50,19 @@ export default async function AdminLaunchOfferPage() {
     .maybeSingle();
   if (winErr) logQueryError('admin/launch-offer.window', winErr);
   const w = (win ?? {}) as { booking_fee_free_from?: string | null; booking_fee_free_until?: string | null };
+  // The window's reason lives only in the admin-only audit log — the latest window edit's row.
+  // A failed read just leaves the box empty: saving an open window still demands a reason.
+  const { data: lastWindowEdit, error: reasonErr } = await admin
+    .from('admin_audit_log')
+    .select('reason')
+    .eq('action', 'booking_fee_free_window_edit')
+    .eq('target_id', 'launch_offer')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (reasonErr) logQueryError('admin/launch-offer.window-reason', reasonErr);
+  const windowOpen = Boolean(w.booking_fee_free_from || w.booking_fee_free_until);
+  const storedReason = windowOpen ? ((lastWindowEdit as { reason?: string | null } | null)?.reason ?? '') : '';
 
   const now = Date.now();
   const open = offer ? launchOfferIsOpen(offer, now) : false;
@@ -131,6 +146,7 @@ export default async function AdminLaunchOfferPage() {
         <FreeFeeWindowForm
           from={isoToManilaLocal(w.booking_fee_free_from ?? null)}
           until={isoToManilaLocal(w.booking_fee_free_until ?? null)}
+          reason={storedReason}
         />
       )}
     </div>

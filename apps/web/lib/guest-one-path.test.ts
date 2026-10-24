@@ -99,7 +99,8 @@ test('3 · the page renders the guest tree from the RESOLVED viewer, not the coo
   const submit = actions.slice(actions.indexOf('export async function submitRsvp'));
   assert.match(
     submit.slice(0, 900),
-    /readGuestSessionForEvent\(eventId\)/,
+    // (2026-10-24: through the reply's ONE identity, `readReplyIdentityForEvent`, which asks `readGuestViewerForEvent` first.)
+    /readReplyIdentityForEvent\(eventId\)/,
     'submitRsvp only honours the cookie — the new-device guest sees a form whose Save bounces',
   );
   // The seat's pass is adopted on MOUNT, from a Server Action — never a render or a GET.

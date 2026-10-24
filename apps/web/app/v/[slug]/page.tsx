@@ -26,7 +26,6 @@ import {
 import { formatPhpRounded } from '@/lib/php';
 import {
   isBookable,
-  isPubliclyVisible,
   parseVisibility,
   type VendorPublicVisibility,
 } from '@/lib/vendor-visibility';
@@ -178,6 +177,8 @@ import {
 import type { AttributeFieldDef } from '@/lib/marketplaces/schemas';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { recordVendorProfileView } from '@/lib/record-vendor-view';
+import { shopPageGate } from '@/lib/own-shop-preview';
+import { TeamPreviewBanner } from './_components/team-preview-banner';
 // The compatibility-badge labels — DERIVED, never re-typed here. See the note
 // at their former hand-typed definitions further down this file.
 import {
@@ -358,6 +359,33 @@ async function isAdminInDemoMode(): Promise<boolean> {
   return isAdminProfile(profile);
 }
 
+/**
+ * Is the signed-in viewer this shop's OWNER (`vendor_profiles.user_id`) or one of its HELPERS (a
+ * `vendor_team_members` seat)? Asked only when the page is not public (lib/own-shop-preview.ts). Fails CLOSED: no
+ * session, a degraded row with no `user_id`, or a refused seat read all answer "a stranger" — here an absence
+ * DENIES, and the worst case is the not-found page the viewer got before this existed.
+ */
+async function viewerIsShopTeam(vendor: Pick<PublicVendorRow, 'vendor_profile_id' | 'user_id'>): Promise<boolean> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return false;
+  if (typeof vendor.user_id === 'string' && vendor.user_id === user.id) return true;
+  // The session's own client: `vendor_team_members_member_read` admits a member to their own team's rows.
+  const { data, error } = await supabase
+    .from('vendor_team_members')
+    .select('vendor_team_member_id')
+    .eq('vendor_profile_id', vendor.vendor_profile_id)
+    .eq('user_id', user.id)
+    .maybeSingle();
+  if (error) {
+    logQueryError('renderVendorBySlug.viewerIsShopTeam', error, { vendorProfileId: vendor.vendor_profile_id }, 'graceful_degrade');
+    return false;
+  }
+  return data != null;
+}
+
 // E1 (2026-09-11) — exported for the same reason as `PublicVendorRow` above:
 // the OG-card route needs the identical hide-if-hidden / hide-if-demo read
 // `vendorMetadataBySlug` uses, including its full-select-then-legacy-select
@@ -443,16 +471,11 @@ async function resolveDisplayUrl(value: string | null | undefined): Promise<stri
 // reuse the exact same vendor metadata when a bare slug resolves to a vendor.
 export async function vendorMetadataBySlug(slug: string) {
   const vendor = await fetchVendor(slug);
-  if (!vendor || !isPubliclyVisible(vendor.public_visibility)) {
-    return { title: 'Setnayan supplier' };
-  }
-  // Demo vendors are admin-only. Don't leak their business name in
-  // metadata to crawlers / link previews — generic title only. Admins
-  // in demo mode still see the real page title on the dashboard tab
-  // because the page itself sets `metadata` per render via the
-  // surrounding header text.
-  if (vendor.is_demo === true) {
-    return { title: 'Setnayan supplier' };
+  // A page a stranger cannot open (lib/own-shop-preview.ts — not live, a demo shop, closed) gets the generic title
+  // and is never indexed, even when its own team is the one rendering it: the team preview must not leak the name
+  // to a crawler or a link preview, and must not be indexed if a crawler ever carries a team member's cookie.
+  if (!vendor || shopPageGate(vendor, { isTeam: false, adminDemoMode: false }).open !== 'public') {
+    return { title: 'Setnayan supplier', robots: { index: false, follow: false } };
   }
   const suffix = vendor.public_visibility === 'coming_soon' ? ' · Coming soon' : '';
   const siteUrl = (
@@ -829,38 +852,28 @@ export async function renderVendorBySlug({
     if (movedTo) redirect(movedTo);
   }
 
-  // Hidden + archived vendors 404 from the public surface (don't leak the
-  // existence of suspended / closed profiles). Coming-soon + verified render.
-  if (!vendor || !isPubliclyVisible(vendor.public_visibility)) notFound();
+  if (!vendor) notFound();
 
-  // PR brief 2026-05-22 evening — demo vendor gate. A vendor with
-  // `is_demo=TRUE` only renders on /v/[slug] when the requesting
-  // session is an admin AND demo mode is on. Non-demo vendors are
-  // unaffected. Defensive null-coalesce: if Agent 1's `is_demo`
-  // column hasn't shipped yet, every vendor reads as non-demo (false),
-  // which is the conservative outcome that preserves current behavior.
+  // 🔒 WHO MAY OPEN THIS PAGE — ONE rule, `shopPageGate` (lib/own-shop-preview.ts). PUBLIC when the shop is live
+  // (`isShopLive`: listed AND documents approved) and not a demo shop; an admin in demo mode needs only the listing
+  // (demo inventory dogfooding, unchanged). Otherwise the shop's OWNER and HELPERS see it with the team banner, and
+  // everyone else gets the not-found page — which never says whether a shop exists. Archived (closed) shops are
+  // shut for everyone.
+  //
+  // ⚠ THIS USED TO BE THREE 404s IN A ROW, and the owner carve-out sat under the last one: a `hidden` shop (every
+  // shop not yet approved) and a demo shop 404'd for their own owner, and helpers were never let in. Owner, 23 Oct:
+  // "why can't i see setnaprod's website?" — SetnaProd is a demo shop (DECISION_LOG 2026-09-29 "LANE 2 §2C" (1)).
+  // The membership read runs ONLY when the page is not public, so a stranger's view costs no extra query.
   const isDemoVendor = vendor.is_demo === true;
   const inDemoMode = await isAdminInDemoMode();
-  if (isDemoVendor && !inDemoMode) notFound();
-
-  // PR-B public-visibility verification gate. An UNVERIFIED vendor has no
-  // public website — the page 404s so it never surfaces on the public web.
-  // Two carve-outs: (1) admins in demo mode (so they can preview demo
-  // inventory, which may include unverified rows); (2) the OWNING vendor —
-  // when the logged-in viewer's user_id matches vendor.user_id, the vendor
-  // can preview their own page before verification lands. The reconcile
-  // migration 20270331400000 marked the founder + every paid vendor
-  // 'verified', so no real/paid public site is hidden. Defensive: a missing
-  // verification_state column reads as not-verified (hidden) — conservative.
-  if (vendor.verification_state !== 'verified' && !inDemoMode) {
-    const supabase = await createClient();
-    const {
-      data: { user: viewer },
-    } = await supabase.auth.getUser();
-    const isOwner =
-      viewer != null && vendor.user_id != null && viewer.id === vendor.user_id;
-    if (!isOwner) notFound();
-  }
+  const publicGate = shopPageGate(vendor, { isTeam: false, adminDemoMode: inDemoMode });
+  const gate =
+    publicGate.open === 'public'
+      ? publicGate
+      : shopPageGate(vendor, { isTeam: await viewerIsShopTeam(vendor), adminDemoMode: inDemoMode });
+  if (gate.open === 'nobody') notFound();
+  /** Non-null = the owner or a helper is looking at a page couples cannot see yet; the banner says why. */
+  const teamPreview = gate.open === 'team' ? gate.reason : null;
 
   const visibility = parseVisibility(vendor.public_visibility);
   const bookable = isBookable(visibility);
@@ -2078,8 +2091,9 @@ export async function renderVendorBySlug({
   // sha256(salt || id), never the raw id). Skip demo vendors — their views are
   // admin-only browsing, not real funnel signal. `source='profile_direct'`
   // marks a /v/[slug] view; the explore-card impression source is a separate
-  // entry point (deferred — see PR notes).
-  if (!isDemoVendor) {
+  // entry point (deferred — see PR notes). A team preview is not a couple's visit either — the
+  // shop's own people opening a page nobody else can see must not count as one (lib/own-shop-preview.ts).
+  if (!isDemoVendor && teamPreview === null) {
     const utmParam =
       search.utm ??
       (search.utm_source || search.utm_medium || search.utm_campaign
@@ -2142,10 +2156,11 @@ export async function renderVendorBySlug({
           )}
         </div>
       </header>
+      {teamPreview ? <TeamPreviewBanner reason={teamPreview} /> : null}
 
       <article
         className={`mx-auto w-full px-4 py-12 sm:px-6 sm:py-16 lg:px-8 ${
-          /* Pro/Enterprise maximize the screen width (owner 2026-07-03); Free/Solo
+          /* Pro and up maximize the screen width (owner 2026-07-03); Free/Solo
              stay at a comfortable single-column reading width. */
           premiumLayout ? 'max-w-screen-2xl' : 'max-w-3xl'
         }`}
@@ -2154,7 +2169,8 @@ export async function renderVendorBySlug({
            chrome above keeps the site accent. undefined = default champagne. */
         style={accentVars as React.CSSProperties | undefined}
       >
-        {isDemoVendor ? <DemoVendorBanner /> : null}
+        {/* Admin-in-demo-mode only: a team preview of a demo shop says so in its own band above. */}
+        {isDemoVendor && teamPreview === null ? <DemoVendorBanner /> : null}
         {/* Hybrid-anonymity (V2.1 amendment #2 · 2026-05-30): pass the
             resolved display label so the ComingSoon banner copy + Logo
             initial fallback + alt text all surface the safe placeholder

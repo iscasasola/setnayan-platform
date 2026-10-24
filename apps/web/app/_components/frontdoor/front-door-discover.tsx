@@ -13,9 +13,10 @@
  *   4 · People to follow
  *
  * ─── THREE STATES PER SHELF, THREE DIFFERENT SENTENCES ────────────────────
- * ok + cards · ok + none (a written invitation saying what the shelf is FOR,
- * never "you have none") · unavailable ("couldn't load" in the heading and in
- * the card — the page's own CountText rule: an unknown is not a nought).
+ * ok + cards · ok + none (ONE line saying what the shelf is for + ONE action,
+ * details in the ⓘ — owner 23 Oct) · unavailable ("couldn't load" beside the
+ * heading and in the line — the page's own CountText rule: an unknown is not a
+ * nought). `empty-shelf.tsx`.
  *
  * The event card itself is `discover-event-card.tsx` (two doors on one card,
  * never nested); its cover is `discover-event-cover.tsx`.
@@ -28,6 +29,8 @@ import { shopInitials } from '@/lib/shop-initials';
 import { formatCount } from '@/lib/format-number';
 import { DiscoverFollowButton } from './discover-follow-button';
 import { DiscoverEventCard as EventCard } from './discover-event-card';
+import { EmptyShelf } from './empty-shelf';
+import { InfoTip } from '@/app/_components/info-tip';
 
 /** The id the "Find people to follow" invitation scrolls to. Always rendered. */
 export const PEOPLE_TO_FOLLOW_ID = 'people-to-follow';
@@ -46,62 +49,49 @@ function EventGrid({ items }: { items: DiscoverEventCard[] }) {
   );
 }
 
-function Invite({
-  title,
-  body,
-  href,
-  go,
-}: {
-  title: string;
-  body: string;
-  href: string;
-  go: string;
-}) {
-  return (
-    <div className="fd-grid">
-      <div className="fd-invite fd-invite-full">
-        <h3>{title}</h3>
-        <p>{body}</p>
-        <Link href={href} className="fd-go">
-          {go} &rarr;
-        </Link>
-      </div>
-    </div>
-  );
-}
-
 /** Shelves 1 and 2 — the two event layers. Rendered above the shops. */
 export function DiscoverEventShelves({ discover }: { discover: DiscoverData }) {
   const { people, world, viewerRegionLabel } = discover;
+  /*
+    🧹 NO EXPLAINER LABELS BESIDE THE HEADINGS (owner 2026-10-01, "NO SMALL
+    'EXPLAINER' LABELS"; 23 Oct: "title + one short line, every detail inside an
+    ⓘ"). "soonest first", "Metro Manila first", "public events only · the host
+    approves who joins" moved into each heading's ⓘ. A failed read still says
+    "couldn't load" beside the heading — that is a status, not an explainer.
+  */
   const worldOrder = viewerRegionLabel
-    ? `soonest first · ${viewerRegionLabel} first`
-    : 'soonest first';
+    ? `Soonest first, ${viewerRegionLabel} first.`
+    : 'Soonest first.';
 
   return (
     <>
       {/* ═ 1 · YOUR PEOPLE — signed in only; a stranger follows nobody ═ */}
       {people ? (
         <section aria-labelledby="discover-people" data-discover-shelf="people">
-          <h2 className="fd-sechead" id="discover-people">
+          <h2 className="fd-sechead">
             <span className="fd-badge" aria-hidden="true">
               ◷
             </span>
-            <span>Upcoming from people you follow</span>
-            <span className="fd-meta">
-              {people.status === 'unavailable' ? <Unknown /> : 'soonest first'}
-            </span>
+            <InfoTip label="Upcoming from people you follow" labelId="discover-people" align="start" className="fd-sechead-tip">
+              Public events from people you follow or are connected to, soonest first. Ask to
+              join, and the host approves who gets in.
+            </InfoTip>
+            {people.status === 'unavailable' ? (
+              <span className="fd-meta">
+                <Unknown />
+              </span>
+            ) : null}
           </h2>
           {people.status === 'unavailable' ? (
-            <Invite
-              title="We couldn’t check who you follow just now."
-              body="This does not mean nothing is coming up. Try again in a moment — the shelf shows public events from people you follow or are connected to, soonest first."
+            <EmptyShelf
+              line="We couldn’t check who you follow just now."
+              tip="This does not mean nothing is coming up. Try again in a moment."
               href="/"
               go="Try again"
             />
           ) : people.items.length === 0 ? (
-            <Invite
-              title="Public events from your people land here."
-              body="Follow the people and groups whose events you’d turn up for. When one of them announces a public event — a birthday, a concert, a grand opening — it appears on this shelf, soonest first, with one button to ask to join."
+            <EmptyShelf
+              line="Follow people to see their public events here."
               href={`#${PEOPLE_TO_FOLLOW_ID}`}
               go="Find people to follow"
             />
@@ -113,27 +103,33 @@ export function DiscoverEventShelves({ discover }: { discover: DiscoverData }) {
 
       {/* ═ 2 · THE REST OF THE WORLD — everyone, signed out included ═ */}
       <section aria-labelledby="discover-world" data-discover-shelf="world">
-        <h2 className="fd-sechead" id="discover-world">
+        <h2 className="fd-sechead">
           <span className="fd-badge" aria-hidden="true">
             ◷
           </span>
-          <span>{people ? 'More upcoming on Setnayan' : 'Upcoming on Setnayan'}</span>
-          <span className="fd-meta">
-            {world.status === 'unavailable' ? <Unknown /> : worldOrder}
-          </span>
-          <span className="fd-rule">public events only · the host approves who joins</span>
+          <InfoTip
+            label={people ? 'More upcoming on Setnayan' : 'Upcoming on Setnayan'}
+            labelId="discover-world" align="start" className="fd-sechead-tip"
+          >
+            Public events only. {worldOrder} Anyone can ask to join; the host approves who gets in.
+          </InfoTip>
+          {world.status === 'unavailable' ? (
+            <span className="fd-meta">
+              <Unknown />
+            </span>
+          ) : null}
         </h2>
         {world.status === 'unavailable' ? (
-          <Invite
-            title="We couldn’t load upcoming events just now."
-            body="This does not mean nothing is coming up. Try again in a moment — this shelf shows every public event on Setnayan, soonest first."
+          <EmptyShelf
+            line="We couldn’t load upcoming events just now."
+            tip="This does not mean nothing is coming up. Try again in a moment."
             href="/"
             go="Try again"
           />
         ) : world.items.length === 0 ? (
-          <Invite
-            title="Public events will appear here."
-            body="When a host makes an event public — a birthday, a concert, a grand opening — it shows here for everyone, soonest first. Anyone can ask to join; the host approves who gets in."
+          <EmptyShelf
+            line="No public events yet."
+            tip="When a host makes an event public — a birthday, a concert, a grand opening — it shows here for everyone."
             href="/dashboard/create-event"
             go="Create an event"
           />
@@ -189,23 +185,28 @@ export function PeopleToFollowShelf({ discover }: { discover: DiscoverData }) {
       aria-labelledby="discover-people-to-follow"
       data-discover-shelf="people-to-follow"
     >
-      <h2 className="fd-sechead" id="discover-people-to-follow">
-        <span>People to follow</span>
-        <span className="fd-meta">
-          {peopleToFollow.status === 'unavailable' ? <Unknown /> : 'public profiles, most followed first'}
-        </span>
+      <h2 className="fd-sechead">
+        <InfoTip label="People to follow" labelId="discover-people-to-follow" align="start" className="fd-sechead-tip">
+          Public profiles, most followed first. Follow someone and their public events show at
+          the top of Discover.
+        </InfoTip>
+        {peopleToFollow.status === 'unavailable' ? (
+          <span className="fd-meta">
+            <Unknown />
+          </span>
+        ) : null}
       </h2>
       {peopleToFollow.status === 'unavailable' ? (
-        <Invite
-          title="We couldn’t load people to follow just now."
-          body="This does not mean there is nobody here. Try again in a moment."
+        <EmptyShelf
+          line="We couldn’t load people to follow just now."
+          tip="This does not mean there is nobody here. Try again in a moment."
           href="/"
           go="Try again"
         />
       ) : peopleToFollow.items.length === 0 ? (
-        <Invite
-          title="People with public profiles will appear here."
-          body="Anyone can turn on a public profile. Follow them and their public events show at the top of Discover."
+        <EmptyShelf
+          line="No public profiles yet."
+          tip="Anyone can turn on a public profile."
           href="/dashboard/people"
           go="Find someone you know"
         />

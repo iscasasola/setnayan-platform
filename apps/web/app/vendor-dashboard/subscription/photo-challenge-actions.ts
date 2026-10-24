@@ -17,9 +17,7 @@ import { isVendorAddonFirst5FreeEnabled } from '@/lib/vendor-addon-first5-free-f
 import {
   addonIsFreeUnderFirst5,
   fetchVendorCommittedBookingCount,
-  first5BookingsRemaining,
 } from '@/lib/vendor-addon-first5-free';
-import { FREE_BOOKING_LIMIT } from '@/lib/booking-fee-lock';
 import { papicGamesEnabled } from '@/lib/papic-games-flag';
 import {
   VENDOR_PHOTO_CHALLENGE_SKU_CODE,
@@ -31,7 +29,6 @@ import {
   fetchPhotoChallengeExpiry,
   PHOTO_CHALLENGE_DENY_MESSAGE,
 } from '@/lib/vendor-photo-challenge';
-import { formatCount } from '@/lib/format-number';
 import { isSafeNext } from '@/lib/safe-next';
 
 /**
@@ -254,7 +251,7 @@ export async function sponsorPhotoChallenge(
           { userId: user.id, eventId: null, vendorProfileId },
           {
             service_key: VENDOR_PHOTO_CHALLENGE_SKU_CODE,
-            description: `Papic Challenges (unlimited · ${VENDOR_PHOTO_CHALLENGE_PERIOD_DAYS} days · free · first 5 bookings)`,
+            description: `Papic Challenges (unlimited · ${VENDOR_PHOTO_CHALLENGE_PERIOD_DAYS} days · free · until your second booking)`,
             reference_code: referenceCode,
           },
         ),
@@ -295,13 +292,11 @@ export async function sponsorPhotoChallenge(
 
     revalidatePath(returnPath);
     revalidatePath('/vendor-dashboard/subscription');
-    const remaining = first5BookingsRemaining(committedBookings);
     return {
       status: 'activated',
       message:
-        `Papic Challenges is on for every event you're booked for — free while you're on your first ${formatCount(FREE_BOOKING_LIMIT)} bookings` +
-        (remaining > 0 ? ` (${remaining} to go)` : '') +
-        `. From your ${FREE_BOOKING_LIMIT + 1}th booking it's ₱${listPricePhp.toLocaleString('en-PH')} every ${VENDOR_PHOTO_CHALLENGE_PERIOD_DAYS} days.`,
+        `Papic Challenges is on for every event you're booked for — free until your second booking` +
+        `. From your second booking it's ₱${listPricePhp.toLocaleString('en-PH')} every ${VENDOR_PHOTO_CHALLENGE_PERIOD_DAYS} days.`,
     };
   }
 

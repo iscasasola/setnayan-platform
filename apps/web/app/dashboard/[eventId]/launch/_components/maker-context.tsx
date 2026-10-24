@@ -1,7 +1,6 @@
 'use client';
 import type { HubPartId } from '@/lib/hub-parts';
 
-import type { CameraLook } from '@/lib/camera-look';
 import { createContext, useContext, useEffect, useRef, type ComponentType, type ReactNode } from 'react';
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
 import type { DetailsItemKey } from '@/lib/maker-details-items';
@@ -361,8 +360,8 @@ export type MakerLookPages = {
   fontsInUse?: readonly HubFontKey[];
   /** The guest page's address (`/<slug>`), or null before there is one. */
   publicLandingUrl: string | null;
-  /** 🎛 The Camera part's look, drafted over live (`events.style_preferences.camera_look`) — Stages' Camera › Style. */
-  camera?: { look: CameraLook } | null;
+  /** 📷 The one camera's dress (owner 2026-10-24): `pro` = the event holds Logo & QR or Full Pro, as the viewer is shown it. */
+  camera?: { pro: boolean } | null;
   /** 🧱 The fixed blocks' looks — the RAW `events.style_preferences.block_looks`, drafted over live (`lib/block-looks.ts`). */
   blocks?: Record<string, unknown> | null;
 };

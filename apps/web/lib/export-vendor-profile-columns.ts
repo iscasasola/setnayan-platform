@@ -109,7 +109,9 @@ export const VENDOR_PROFILE_EXPORT_SELECT =
   'papic_challenge_expires_at, pending_tier, pending_tier_billing_cycle, ' +
   'pending_tier_period_days, ' +
   'pending_tier_purchase_id, pending_tier_scheduled_at, pending_tier_sku_code, ' +
-  'portfolio_r2_keys, presentation_pattern, public_id, public_visibility, ' +
+  // portfolio_photo_allowance (migration 20271286262047) — the photos a personal
+  // invite gave the subject's shop, kept after the offer ends. Their own account.
+  'portfolio_photo_allowance, portfolio_r2_keys, presentation_pattern, public_id, public_visibility, ' +
   'real_name_unlocked_at, registered_address, registered_business_name, registered_zip, ' +
   'registration_number_needs_review, registration_number_normalized, ' +
   'registration_number_raw, registration_number_submitted_at, same_day_available, ' +

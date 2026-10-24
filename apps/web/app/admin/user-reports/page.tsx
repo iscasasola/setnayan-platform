@@ -333,7 +333,7 @@ export default async function AdminUserReportsPage({
       <PageMasthead title="User reports" />
       <div className="mb-6">
         <p className="text-sm text-ink/70">
-          Reports filed against guest gallery content (Papic), Setnayan AI
+          Reports filed against guest Memories content (Papic), Setnayan AI
           output (Play GenAI policy), and public pages (an invitation page,
           a profile, or a creator chapter). Hide the photo, block the uploader
           for that event, escalate for owner/legal review, or dismiss. The

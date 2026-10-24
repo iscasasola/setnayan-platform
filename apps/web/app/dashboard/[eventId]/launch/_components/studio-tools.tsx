@@ -1,5 +1,6 @@
 'use client';
 
+import { WHO_CAN_VIEW } from '@/lib/event-visibility';
 import { StudioColourField } from './studio-colour-field';
 import { OpenInPlace } from './open-in-place';
 import { StudioWishList } from './studio-wish-list';
@@ -451,13 +452,6 @@ export type StudioHubFacts = {
   launched: boolean;
   scheduledAt: string | null;
 };
-
-/** Who can view — the shipped three, in the shipped words (`VisibilityPanel`). */
-const WHO_CAN_VIEW = [
-  { key: 'private', label: 'Private', hint: 'Only your hosts and your guests.' },
-  { key: 'unlisted', label: 'Unlisted', hint: 'Anyone with the link — not listed publicly.' },
-  { key: 'public', label: 'Public', hint: 'Anyone can find and open it. Turns on “Accept” — people can ask to join.' },
-] as const;
 
 /** A shipped Maker form's own landing: back on the address the couple is on (`lib/maker-stay.ts`). */
 function stayForm(eventId: string, fields: Record<string, string>): FormData {
@@ -1063,7 +1057,22 @@ export function StudioIncludeSwitch({
 }
 
 /** 🖨 The seat plan's kind (3D · 2D · List) — a choice of three: the one dropdown, posting through the print words form as the radios did. */
-export function StudioSeatKind({ form, name, value, options }: { form: string; name: string; value: string; options: Array<[string, string]> }) {
+export function StudioSeatKind({
+  form,
+  name,
+  value,
+  options,
+  label = 'Show it as',
+  dataAttr = 'data-seat-plan-kind',
+}: {
+  form: string;
+  name: string;
+  value: string;
+  options: Array<[string, string]>;
+  /** The row's name — the seat plan's "Show it as" unless another pick borrows the row (the passes' Corners). */
+  label?: string;
+  dataAttr?: string;
+}) {
   const [now, setNow] = useState(value);
   /* 📮 A PERSON's pick tells the form (it posts on every press — `SoftPost autosave`); a render or a re-seed never does. */
   const carrier = useRef<HTMLInputElement>(null);
@@ -1076,14 +1085,14 @@ export function StudioSeatKind({ form, name, value, options }: { form: string; n
   return (
     <FormRows data="seat-kind" attrs={STUDIO_PRINT_ROWS}>
       <ChosenRow
-        name="Show it as"
+        name={label}
         value={now}
         options={options.map(([key, label]) => ({ key, label }))}
         onPick={(k) => {
           picked.current = true;
           setNow(k);
         }}
-        dataAttr="data-seat-plan-kind"
+        dataAttr={dataAttr}
       />
       <input ref={carrier} type="hidden" form={form} name={name} value={now} data-form-pick="" />
     </FormRows>

@@ -49,8 +49,11 @@ export type AllotmentPickerGuest = {
 type Props = {
   eventId: string;
   guests: readonly AllotmentPickerGuest[];
-  /** The `setGuestAllotment` server action, passed down from the server component. */
-  action: (formData: FormData) => void | Promise<void>;
+  /**
+   * The `setGuestAllotment` server action, passed down from the server component. Its in-place answer (`quiet=1`) is the
+   * guest card's (2026-10-23); this plain form posts no `quiet`, so the action redirects back here as it always did.
+   */
+  action: (formData: FormData) => Promise<unknown>;
 };
 
 export function GuestAllotmentPicker({ eventId, guests, action }: Props) {
@@ -95,7 +98,7 @@ export function GuestAllotmentPicker({ eventId, guests, action }: Props) {
           {ordered.map((g) => (
             <li key={g.guestId}>
               <form
-                action={action}
+                action={action as (formData: FormData) => Promise<void>}
                 className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-ink/[0.03]"
               >
                 <input type="hidden" name="event_id" value={eventId} />

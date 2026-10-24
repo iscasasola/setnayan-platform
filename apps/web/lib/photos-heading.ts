@@ -17,7 +17,7 @@ export const PHOTOS_HEADING_KEY = 'photos_heading';
 /** The longest heading — a scene of their own's heading (`CUSTOM_COLUMN_TITLE_MAX`), held equal by the test. */
 export const PHOTOS_HEADING_MAX = 80;
 /** What the Photos scene says above the photos, typed or not — its small line, unchanged. */
-export const PHOTOS_EYEBROW = 'Our photos';
+export const PHOTOS_EYEBROW = 'Memories';
 
 const isPlain = (v: unknown): v is Record<string, unknown> => Boolean(v) && typeof v === 'object' && !Array.isArray(v);
 

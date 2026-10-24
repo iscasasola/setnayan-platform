@@ -44,6 +44,7 @@ const SHARED = [
   'app/_components/door/door-shell.tsx',
   'app/_components/guest-to-host-cta.tsx',
   'app/_components/pabuya/pabuya-card-list.tsx',
+  'app/_components/pabuya/pabuya-qr-viewer.tsx',
   'app/_components/vendor-location-map.tsx',
   'app/_components/wayfinding-map.tsx',
 ];

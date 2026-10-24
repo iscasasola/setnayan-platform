@@ -1,6 +1,7 @@
 'use client';
 
 import { useActionState } from 'react';
+import { FREE_FEE_REASON_MAX } from '@/lib/launch-offer';
 import { saveLaunchOffer, type LaunchOfferActionState } from './actions';
 
 /**
@@ -110,7 +111,12 @@ export function LaunchOfferNumbersForm({
   );
 }
 
-export function FreeFeeWindowForm({ from, until }: { from: string; until: string }) {
+/**
+ * 🔑 A WINDOW NEEDS ITS REASON TO OPEN, NOT TO CLOSE (DECISION_LOG 2026-09-23
+ * #3) — so the box is not `required` in HTML (clearing both dates must still
+ * save); `saveLaunchOffer` refuses an open window without one.
+ */
+export function FreeFeeWindowForm({ from, until, reason }: { from: string; until: string; reason: string }) {
   const [state, formAction] = useActionState<LaunchOfferActionState, FormData>(saveLaunchOffer, {
     ok: false,
     message: null,
@@ -142,6 +148,20 @@ export function FreeFeeWindowForm({ from, until }: { from: string; until: string
             defaultValue={until}
             className="input-field mt-1 w-full rounded-full"
           />
+        </label>
+        <label className="block sm:col-span-2" htmlFor="booking_fee_free_reason">
+          <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+            Reason
+          </span>
+          <input
+            id="booking_fee_free_reason"
+            name="booking_fee_free_reason"
+            type="text"
+            maxLength={FREE_FEE_REASON_MAX}
+            defaultValue={reason}
+            className="input-field mt-1 w-full rounded-full"
+          />
+          <span className="mt-1 block text-xs text-ink/60">Needed to open a window — kept with the change.</span>
         </label>
       </div>
       <div className="mt-4 flex flex-wrap items-center gap-2">

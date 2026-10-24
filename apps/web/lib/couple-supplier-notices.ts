@@ -67,6 +67,11 @@ export const COUPLE_SUPPLIER_NOTICES = {
   inquiry_declined: { to: 'couple', reach: 'app_only', why: NO_NEW_EMAILS },
   quote_accepted: { to: 'supplier', reach: 'app_only', why: NO_NEW_EMAILS },
   quote_declined: { to: 'supplier', reach: 'app_only', why: NO_NEW_EMAILS },
+  schedule_shifted: {
+    to: 'supplier',
+    reach: 'app_only',
+    why: 'owner 2026-10-23: the couple shifted the day — every booked supplier, in the app, one notice per shift; no email',
+  },
   chat_message: {
     to: 'either',
     reach: 'email',

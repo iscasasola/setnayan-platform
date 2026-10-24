@@ -209,7 +209,7 @@ export async function PhotosTab({
                 className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[#1877F2] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#1666d4]"
               >
                 <FacebookGlyph className="h-4 w-4" />
-                Share the gallery link
+                Share the Memories link
               </a>
             ) : null}
           </div>

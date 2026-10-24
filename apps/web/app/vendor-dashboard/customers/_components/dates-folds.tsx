@@ -322,7 +322,7 @@ export function DatesFolds({
                 data="halls-free"
                 lead={<RowTile><BadgeCheck strokeWidth={1.75} /></RowTile>}
                 title="Halls are free on every plan"
-                line="They never count against your plan’s limit"
+                line="Every plan takes as many a day as you set"
               />
               <div className="mt-3">
                 <HallSheet createAction={actions.createCalendar} editAction={actions.editCalendar} month={month} />
@@ -361,7 +361,7 @@ export function DatesFolds({
                       <span className="block truncate text-[15px] font-medium text-ink">{c.label}</span>
                     )}
                     <span className="block truncate text-[13px] text-ink/60">
-                      {c.isHall ? 'A hall · not counted in your plan' : 'At the same time'}
+                      {c.isHall ? 'A hall' : 'At the same time'}
                       {c.line ? ` · ${c.line}` : ''}
                     </span>
                   </span>

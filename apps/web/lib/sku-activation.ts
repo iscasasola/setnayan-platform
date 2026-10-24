@@ -801,6 +801,45 @@ async function reverseBookingFeeCharge(ctx: ActivationContext, chargeId: string)
   }
 }
 
+/**
+ * 🎨 MOODBOARD_RENDER_PACK refunded → take back THAT order's render credits (2026-10-23, the Apple build: "refund the
+ * money, keep the renders" was open on BOTH rails — an admin refund on the web and Apple's REFUND notification).
+ *
+ * The mirror of `grantMoodboardRenderPackCredits`: its grant row is keyed by `order_id` (partial UNIQUE), so deleting
+ * by order_id takes back exactly what this order gave — never a comp, the consent bonus or another pack — and is
+ * naturally idempotent (a second refund deletes nothing). Credits already SPENT stay spent: the balance is
+ * `GREATEST(granted − used, 0)` (moodboard_render_balance), so it reads zero and the reserve refuses the next render,
+ * the same fail-closed outcome `reversePapicPassPoints` documents for Papic.
+ *
+ * NON-FATAL per the dispatcher contract — but never silent: a failure is reported, because it leaves paid-back
+ * credits spendable.
+ */
+async function reverseMoodboardRenderPackCredits(ctx: ActivationContext): Promise<void> {
+  if (ctx.serviceKey !== MOODBOARD_RENDER_PACK_SKU) return;
+  try {
+    const { data, error } = await ctx.admin
+      .from('event_render_credit_grants')
+      .delete()
+      .eq('order_id', ctx.orderId)
+      .select('grant_id, credits');
+    if (error) {
+      reportActivationFault('deactivate:moodboard_render_pack', ctx, error);
+      return;
+    }
+    if (!Array.isArray(data) || data.length === 0) return;
+    const revoked = data.reduce((sum, r) => sum + (typeof r.credits === 'number' ? r.credits : 0), 0);
+    await appendLedger(ctx.admin, {
+      order_id: ctx.orderId,
+      event_type: 'order_refunded',
+      actor_user_id: ctx.actorUserId,
+      actor_role: 'admin',
+      metadata: { service_key: ctx.serviceKey, event_id: ctx.eventId, credits_revoked: revoked },
+    });
+  } catch (e) {
+    reportActivationFault('deactivate:moodboard_render_pack', ctx, e);
+  }
+}
+
 async function reversePapicPassPoints(ctx: ActivationContext): Promise<void> {
   try {
     const { data, error } = await ctx.admin
@@ -2492,6 +2531,9 @@ export async function deactivateOrderSku(ctx: ActivationContext): Promise<void> 
   // and the fail-closed gate stops capture — which is the correct outcome for a
   // reversed order, not a bug to paper over.
   await reversePapicPassPoints(ctx);
+
+  // Mood Board render pack — reverse that order's render-credit grant (no-op for any other SKU).
+  await reverseMoodboardRenderPackCredits(ctx);
 
   // Booking fee — the SUPPLIER's own bill to Setnayan. Mirrors the
   // `vendor_booking_fee__{charge_id}` arm in `activateOrderSku`; see

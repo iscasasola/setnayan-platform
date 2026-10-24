@@ -170,7 +170,7 @@ function triedEverything() {
       rsvp_backdrop: { theme: SPATIAL_THEME_KEYS[0], intensity: 'standard' }, // background
       site_magic_traveller: 'bar', // logo & qr
       our_photos: [ref('our-photos/one.jpg')], // photos
-      style_preferences: { qr: { shape: 'circle' }, camera_look: 'brand', block_looks: { entourage: { motion: { in: { fade: true } } } } },
+      style_preferences: { qr: { shape: 'circle' }, block_looks: { entourage: { motion: { in: { fade: true } } } } },
       rsvp_ask_config: { look: { lines: { 'rsvp.question': { c: '#8a1c2b', i: { fade: true } } } } },
     },
     widgets: {

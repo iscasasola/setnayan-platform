@@ -75,7 +75,7 @@ const SHOPS: Record<'church' | 'caterer' | 'studio', Shop> = {
       { value: 'same_day_edit', label: 'Same-day edit' },
       { value: 'drone_coverage', label: 'Drone' },
     ],
-    edit: { kind: 'photo_video', title: 'Full-day coverage · Lumina Studio', price: 85000, basis: 'fixed', inclusions: ['2 shooters', '12 hours', 'Online gallery'] },
+    edit: { kind: 'photo_video', title: 'Full-day coverage · Lumina Studio', price: 85000, basis: 'fixed', inclusions: ['2 shooters', '12 hours', 'Online album'] },
   },
 };
 
@@ -242,7 +242,6 @@ export default async function CardMakerLabPage({
         coverageAsk={isEdit ? {} : coverageAsk}
         schedules={shop.schedules}
         scheduleOfKind={shop.scheduleOfKind}
-        slotsPerDay={typeKey === 'studio' ? 3 : typeKey === 'church' ? 1 : 0}
         branches={[]}
         initial={fx?.initial ?? null}
         editing={fx?.editing ?? null}

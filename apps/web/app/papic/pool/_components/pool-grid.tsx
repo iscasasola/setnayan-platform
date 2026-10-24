@@ -59,7 +59,7 @@ export function PoolGrid({
         // Unlink removed nothing: the live tag isn't the guest's own manual
         // pick (a crew QR / face tag). It stays in their gallery — say so
         // honestly instead of flipping the tile to a lie.
-        setNotice('This photo was tagged for you by the crew, so it stays in your gallery.');
+        setNotice('This photo was tagged for you by the crew, so it stays in your Memories.');
       } else if (data?.ok) {
         setTiles((prev) =>
           prev.map((t) => (t.id === tile.id ? { ...t, linked: !tile.linked } : t)),
@@ -69,7 +69,7 @@ export function PoolGrid({
       } else if (data?.error === 'removed_by_host') {
         setNotice('The host removed this tag, so it can’t be re-added.');
       } else if (data?.error === 'pool_closed') {
-        setNotice('The host has closed the shared gallery.');
+        setNotice('The host has closed the shared Memories.');
       } else {
         setNotice('That didn’t save — try again in a moment.');
       }
@@ -113,7 +113,7 @@ export function PoolGrid({
   if (tiles.length === 0 && initialUnreadable) {
     return (
       <p className="mt-8 rounded-xl border border-terracotta/30 bg-terracotta/5 p-6 text-center text-sm text-terracotta-700">
-        We couldn&rsquo;t load the gallery just now. Nothing is lost — refresh the page
+        We couldn&rsquo;t load Memories just now. Nothing is lost — refresh the page
         to try again.
       </p>
     );
@@ -122,7 +122,7 @@ export function PoolGrid({
   if (tiles.length === 0) {
     return (
       <p className="mt-8 rounded-xl border border-ink/10 bg-surface p-6 text-center text-sm text-ink/60">
-        No photos yet — the gallery fills up as the crew and guests start
+        No photos yet — Memories fill up as the crew and guests start
         shooting. Check back soon!
       </p>
     );
@@ -178,7 +178,7 @@ export function PoolGrid({
                   ) : tile.linked ? (
                     <>
                       <Check aria-hidden className="h-3 w-3" strokeWidth={2.5} />
-                      In your gallery
+                      In your Memories
                       <X aria-hidden className="ml-0.5 h-3 w-3 opacity-70" strokeWidth={2} />
                     </>
                   ) : (

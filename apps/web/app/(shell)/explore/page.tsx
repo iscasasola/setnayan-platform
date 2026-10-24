@@ -3716,7 +3716,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
             only to satisfy a type. Same call shape the vendor's own card list
             uses, so all three surfaces draw the identical card.
           */
-          <ul className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <ul className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3" data-search-results="">
             {serviceCards.map((c) => (
               <li key={c.row.vendor_service_id}>
                 {/*
@@ -3767,7 +3767,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
             ))}
           </ul>
           ) : (
-          <ul className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <ul className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3" data-search-results="">
             {visible.map((v) => {
               /* ⛔ THE PHASE-C REVIEW-DISPLAY GATE IS RETIRED (2026-08-09).
                  It hid a Free vendor's stars and count (the card rendered

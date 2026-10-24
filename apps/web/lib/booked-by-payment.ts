@@ -98,7 +98,7 @@ export function supplierStandingWord(row: BookedByPaymentRow, paid: ReadonlySet<
  * The same payments, read INSIDE an `event_vendors` select (one round trip):
  * `select(\`…, ${BOOKED_BY_PAYMENT_EMBED}\`)` then `withEmbeddedPayments(rows)`.
  */
-export const BOOKED_BY_PAYMENT_EMBED = 'vendor_payments:event_vendor_payments(payment_refused_at)';
+export const BOOKED_BY_PAYMENT_EMBED = 'vendor_payments:event_vendor_payments!event_vendor_payments_event_vendor_fk(payment_refused_at)';
 
 export function withEmbeddedPayments<
   T extends BookedByPaymentRow & { vendor_payments?: ReadonlyArray<{ payment_refused_at?: string | null }> | null },
@@ -107,3 +107,9 @@ export function withEmbeddedPayments<
   for (const r of rows) if ((r.vendor_payments ?? []).some((p) => !p.payment_refused_at)) paid.add(r.vendor_id);
   return withBookedByPayment(rows, paid);
 }
+
+/* 🔗 THE EMBED NAMES ITS FOREIGN KEY (prod 2026-10-24: PGRST201 on Home's Suppliers tile, the schedule's suppliers and the
+   dashboard decisions). `event_vendor_payments` has TWO keys to `event_vendors` — the event-scoped pair
+   (`event_vendor_payments_event_vendor_fk`, event_id + vendor_id) and the bare `vendor_id` one — so an unnamed embed is
+   ambiguous and PostgREST refuses the whole read. The event-scoped key is the right one: a payment belongs to this
+   event's booking. Held by `booked-by-payment-names-its-key.test.ts`. */

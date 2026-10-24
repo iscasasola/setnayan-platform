@@ -1,38 +1,38 @@
 {
- "_about": "RECORDED AGAIN 2026-10-21 (rd/every-hub-button-works: the guest-to-host line under the card is a 44 px press, `min-h-[40px]` → `min-h-[44px]` in guest-to-host-cta.tsx — the Hub button walk; only the three “a host pitch” cases move, same byte length; meant for every guest). Before that RECORDED AGAIN 2026-10-13 (rd/hub-leftovers item 2 again, batch-4 walk: the terms line is a wrapping flex row whose links are 44px boxes of their own — no two press zones overlap when “Privacy Notice” wraps; meant for every guest). Before that RECORDED AGAIN 2026-10-13 (rd/hub-leftovers item 2: the terms line’s two links are positioned above the sentence text and “Privacy Notice” does not break — meant for every guest). Before that RECORDED AGAIN 2026-10-13 (rd/hub-leftovers item 1: every later step’s question — tagging, plus-ones, meal, dietary, song, note, contact — wears step 1’s 32 px question line, one-at-a-time cards only; meant for every guest). Before that RECORDED AGAIN 2026-10-13 (release batch 3 joining main: #6488 guest-leftovers-2 — the Terms line one shared piece and faint ink /45–/60 → /70, meant for every guest — together with main’s rd/reply-steps-one-look below; both sides had re-recorded, the join is recorded once). Before that 2026-10-13 (rd/reply-steps-one-look: the tagging question’s answers wear the card’s own answer — the style’s one class, the Look › Buttons hook and, on the reply card, the couple’s Yes / No look — meant for every guest asked it; only the three “the tagging question asked” cases move). Before that 2026-10-12 (rd/release-leftovers: the terms line’s two links pressable at 44px, its “Required” readable at 4.5:1 — meant for every guest). First recorded 2026-10-10 from RsvpWidget AS IT STOOD at origin/main 64746f064, BEFORE the reply card’s lines were drawn from a list (the RSVP stage’s ＋, drag and Group). Each case is the sha-256 and the byte length of the whole card’s HTML (react-dom/server renderToStaticMarkup); `inFull` keeps the reply’s own fieldset of two cases so a person can read it. `widgetSha256` is rsvp-widget.tsx at recording — compare with `git show 64746f064:\"apps/web/app/[slug]/_components/rsvp-widget.tsx\" | shasum -a 256`. Held by the-reply-card-is-todays-page.test.ts. Record again ONLY when the card is meant to change for every guest.",
- "widgetSha256": "ef4697a8f85e4bb218e25392cbc83842d7f27f66b1c5c2034817042c95555cdb",
+ "_about": "RECORDED AGAIN 2026-10-24 (rd/held-pass-reply-identity: the card’s default question reads “Will you join us?” — the Event Hub Reply card’s own words, “event” never “celebration” — in place of “Will you celebrate with us?”; a couple’s own question is unchanged; meant for every guest whose couple typed none). Before that RECORDED AGAIN 2026-10-21 (rd/every-hub-button-works: the guest-to-host line under the card is a 44 px press, `min-h-[40px]` → `min-h-[44px]` in guest-to-host-cta.tsx — the Hub button walk; only the three “a host pitch” cases move, same byte length; meant for every guest). Before that RECORDED AGAIN 2026-10-13 (rd/hub-leftovers item 2 again, batch-4 walk: the terms line is a wrapping flex row whose links are 44px boxes of their own — no two press zones overlap when “Privacy Notice” wraps; meant for every guest). Before that RECORDED AGAIN 2026-10-13 (rd/hub-leftovers item 2: the terms line’s two links are positioned above the sentence text and “Privacy Notice” does not break — meant for every guest). Before that RECORDED AGAIN 2026-10-13 (rd/hub-leftovers item 1: every later step’s question — tagging, plus-ones, meal, dietary, song, note, contact — wears step 1’s 32 px question line, one-at-a-time cards only; meant for every guest). Before that RECORDED AGAIN 2026-10-13 (release batch 3 joining main: #6488 guest-leftovers-2 — the Terms line one shared piece and faint ink /45–/60 → /70, meant for every guest — together with main’s rd/reply-steps-one-look below; both sides had re-recorded, the join is recorded once). Before that 2026-10-13 (rd/reply-steps-one-look: the tagging question’s answers wear the card’s own answer — the style’s one class, the Look › Buttons hook and, on the reply card, the couple’s Yes / No look — meant for every guest asked it; only the three “the tagging question asked” cases move). Before that 2026-10-12 (rd/release-leftovers: the terms line’s two links pressable at 44px, its “Required” readable at 4.5:1 — meant for every guest). First recorded 2026-10-10 from RsvpWidget AS IT STOOD at origin/main 64746f064, BEFORE the reply card’s lines were drawn from a list (the RSVP stage’s ＋, drag and Group). Each case is the sha-256 and the byte length of the whole card’s HTML (react-dom/server renderToStaticMarkup); `inFull` keeps the reply’s own fieldset of two cases so a person can read it. `widgetSha256` is rsvp-widget.tsx at recording — compare with `git show 64746f064:\"apps/web/app/[slug]/_components/rsvp-widget.tsx\" | shasum -a 256`. Held by the-reply-card-is-todays-page.test.ts. Record again ONLY when the card is meant to change for every guest.",
+ "widgetSha256": "804741eb245ecddca1b6559746057e3f484c8884f5992a349e5ba44ff5284c50",
  "cases": {
   "reply-card · celebratory · the Event Hub sheet · one page · a guest": {
-   "sha256": "cdda9f1e46b17a041f401907aa92479b6609d06bbc0238bc58fa9309bd9ab947",
-   "bytes": 11305
+   "sha256": "995316f2478ed9db7b053bb5f46cca88185e091d13af33ee864578963f95228f",
+   "bytes": 11285
   },
   "reply-card · celebratory · the Event Hub sheet · one page · the Maker’s sample": {
-   "sha256": "922d851dd7e5edd54d35b2478ec02b2a40a9ed1086ac19017b9ce78eeb6bb8c2",
-   "bytes": 11066
+   "sha256": "ca1529d1fd0cc2ce48f9716dc269ad69d8b8d52798c21d22fe05d9f197649be5",
+   "bytes": 11046
   },
   "reply-card · celebratory · the Event Hub sheet · one at a time · a guest": {
-   "sha256": "fcac6e2ae9ebb821832def62e1f17ee8e1ce73e16e6fb881a7f140f36a452400",
-   "bytes": 12278
+   "sha256": "90f0b4ef05ccf18fe893a88c7c3e3a5a8f03d37b0cfc65b1451656692df868fc",
+   "bytes": 12258
   },
   "reply-card · celebratory · the Event Hub sheet · one at a time · the Maker’s sample": {
-   "sha256": "1d3ce8e616efcb9937686a11b4d67e978f53a804ea32ff732c7d3a1a6630f3d3",
-   "bytes": 12039
+   "sha256": "acc2fa6b9f357544fa3b76a8bfa15acbbdc46d855f536dc1aeb6fc55fea2721a",
+   "bytes": 12019
   },
   "reply-card · celebratory · the Reply door · one page · a guest": {
-   "sha256": "75a53532d71bb4e4a903920ee16fc9877265a26f7cb89ad3d43eb1116153d059",
-   "bytes": 10739
+   "sha256": "da7412b6638d870603e83f69617eb3a329115be825c8a136b6d8507372e42e15",
+   "bytes": 10719
   },
   "reply-card · celebratory · the Reply door · one page · the Maker’s sample": {
-   "sha256": "818e8133a8cb604ab59d97bd06d580db48603d5db05cffe54f57829f4ec33167",
-   "bytes": 10500
+   "sha256": "f9dd4c862e12e9c75ea0d9dc1036a852e17b433e730915d972e46694c44d69d4",
+   "bytes": 10480
   },
   "reply-card · celebratory · the Reply door · one at a time · a guest": {
-   "sha256": "7ba3400e1d94ba445cc1075dc15ab8a98d221a3b8c01a428a2d20caa596b0248",
-   "bytes": 11691
+   "sha256": "2b1ba9c6f11bd82bc8ddfe400ae8333a0a775e9336b27ed999ff54ec81368e04",
+   "bytes": 11671
   },
   "reply-card · celebratory · the Reply door · one at a time · the Maker’s sample": {
-   "sha256": "b76855bf646da7d3bf2d25589b818376e9f1901407f11b9a5fd825cfde439ebb",
-   "bytes": 11452
+   "sha256": "97d2e65c069dd45c87e5833e918dcf3e180d0c7c6070201bb1bc07c4e2623b17",
+   "bytes": 11432
   },
   "reply-card · solemn · the Event Hub sheet · one page · a guest": {
    "sha256": "e4b0e1c7d5db90d5df793fd9beb54f475306c3e2be2fc7cb70f2f5fd842b79b9",
@@ -195,16 +195,16 @@
    "bytes": 11296
   },
   "reply-card · already attending": {
-   "sha256": "ad76a1ad1018b7fbd8341e76ce1dfa8c829578b52b8de48c032bfb1343794a43",
-   "bytes": 10958
+   "sha256": "15ac6520b53c0f07fbf5e60e8fea1f15f53cb6bf84f202bb63ff69cb8947d124",
+   "bytes": 10938
   },
   "reply-card · already declined": {
-   "sha256": "dc678fe1815a590046b2c8977b61a4bee95866af7319f85ce9e35a0b2603717a",
-   "bytes": 10750
+   "sha256": "3c423c8d9a6706391c5353623c588b3f086cb084f9204bdfc31b7c1005410f06",
+   "bytes": 10730
   },
   "reply-card · already maybe": {
-   "sha256": "75a53532d71bb4e4a903920ee16fc9877265a26f7cb89ad3d43eb1116153d059",
-   "bytes": 10739
+   "sha256": "da7412b6638d870603e83f69617eb3a329115be825c8a136b6d8507372e42e15",
+   "bytes": 10719
   },
   "reply-card · the guest list is closed, attending": {
    "sha256": "c87277bc36f14d460ddab53ed87bc3263d6e581ae7df0711b321f6d32d658088",
@@ -215,28 +215,28 @@
    "bytes": 4243
   },
   "reply-card · the couple’s own words": {
-   "sha256": "950a2852b3912a32c4ce2412d36403e4c835ebfb2d87d3afb847511ae4eb7137",
-   "bytes": 10735
+   "sha256": "7e26d0d65f4d0206b099a5a956e4c9036719219a53ceb9c8e54e133cbc09ee34",
+   "bytes": 10725
   },
   "reply-card · the couple’s own words, one at a time": {
-   "sha256": "efc9267c5d060c4eeec1fa0eceae58a9ba9834856e1d70bf6ae38ea485321aea",
-   "bytes": 11687
+   "sha256": "1dd15688de1cf342a41482d09557a2aef90ffeb544674254b6949951ea4613be",
+   "bytes": 11677
   },
   "reply-card · the couple’s own words, the Maker’s sample": {
-   "sha256": "eadd663c75dde37bcf723a60737ed89d393dd23702c760b1d87d447ec0428ba3",
-   "bytes": 11448
+   "sha256": "79e2b2adc55264cad48fadd3bbf9892704938e62e5aa77c65990d181ddeb35fd",
+   "bytes": 11438
   },
   "reply-card · every question switched off": {
-   "sha256": "08214f96db5149af3674b6d339d4551b5ebbf1e178b01ce677600b19872746f7",
-   "bytes": 4881
+   "sha256": "1d51de1c2b6e76e506ef0fd1a9543eb5066869802de6aa235ec176ee6e8cbc4f",
+   "bytes": 4861
   },
   "reply-card · the tagging question asked": {
-   "sha256": "8b6e2eb35f8cc934275fdf8117b4c8c2fed6e3c6481f88fe62cbea0a97cdbb6b",
-   "bytes": 11890
+   "sha256": "c6019bfb768c122f2a83b28bc6598f15a99edd4b9a1b69e7cd876bf79b2afb64",
+   "bytes": 11870
   },
   "reply-card · a flash, a host pitch, no terms": {
-   "sha256": "fbbdea97a85d0d472afaf9434fe95738ebe05d559d9207a7c42dfdc7e9a78338",
-   "bytes": 10324
+   "sha256": "d2105bf5dc24bb4873229639cf7ab29b3b5581ef4b34657844b26148911f108d",
+   "bytes": 10304
   },
   "question · already attending": {
    "sha256": "31dea1a66efacbf673b4d838f1b58363bc342721d431e98d9d22787ed7d156f7",
@@ -331,12 +331,12 @@
    "bytes": 4264
   },
   "the key gate · the answer is missing": {
-   "sha256": "75a53532d71bb4e4a903920ee16fc9877265a26f7cb89ad3d43eb1116153d059",
-   "bytes": 10739
+   "sha256": "da7412b6638d870603e83f69617eb3a329115be825c8a136b6d8507372e42e15",
+   "bytes": 10719
   }
  },
  "inFull": {
-  "reply-card · celebratory · the Reply door · one page · a guest": "<fieldset data-rsvp-step=\"true\" class=\"space-y-2\"><legend class=\"mb-3\"><span data-rsvp-line=\"eyebrow\" data-rsvp-word=\"rsvp:eyebrow\" data-rsvp-default=\"Your reply\" class=\"block text-xs font-semibold uppercase tracking-[0.26em] text-mulberry\">Your reply</span><span data-rsvp-line=\"question\" data-rsvp-word=\"rsvp:question\" data-rsvp-default=\"Will you celebrate with us?\" class=\"mt-2 block font-serif text-[32px] font-medium leading-[1.1] tracking-tight text-ink\">Will you celebrate with us?</span></legend><label data-rsvp-line=\"yes\" data-rsvp-answer=\"\" class=\"flex min-h-12 cursor-pointer items-center justify-center rounded-full bg-white px-5 text-sm font-medium leading-tight text-ink ring-[1.5px] ring-ink transition-colors has-[:checked]:bg-ink has-[:checked]:text-cream\"><input type=\"radio\" required=\"\" class=\"sr-only\" name=\"rsvp_status\" value=\"attending\"/><span data-rsvp-word=\"rsvp:attending\">Joyfully accepts</span></label><label data-rsvp-line=\"no\" data-rsvp-answer=\"\" class=\"flex min-h-12 cursor-pointer items-center justify-center rounded-full bg-white px-5 text-sm font-medium leading-tight text-ink ring-[1.5px] ring-ink transition-colors has-[:checked]:bg-ink has-[:checked]:text-cream\"><input type=\"radio\" required=\"\" class=\"sr-only\" name=\"rsvp_status\" value=\"declined\"/><span data-rsvp-word=\"rsvp:declined\">Regretfully declines</span></label></fieldset>",
-  "reply-card · celebratory · the Reply door · one at a time · the Maker’s sample": "<fieldset data-rsvp-step=\"true\" class=\"space-y-2\"><legend class=\"mb-3\"><span data-rsvp-line=\"eyebrow\" data-rsvp-word=\"rsvp:eyebrow\" data-rsvp-default=\"Your reply\" class=\"block text-xs font-semibold uppercase tracking-[0.26em] text-mulberry\">Your reply</span><span data-rsvp-line=\"question\" data-rsvp-word=\"rsvp:question\" data-rsvp-default=\"Will you celebrate with us?\" class=\"mt-2 block font-serif text-[32px] font-medium leading-[1.1] tracking-tight text-ink\">Will you celebrate with us?</span></legend><label data-rsvp-line=\"yes\" data-rsvp-answer=\"\" class=\"flex min-h-12 cursor-pointer items-center justify-center rounded-full bg-white px-5 text-sm font-medium leading-tight text-ink ring-[1.5px] ring-ink transition-colors has-[:checked]:bg-ink has-[:checked]:text-cream\"><input type=\"radio\" required=\"\" class=\"sr-only\" name=\"rsvp_status\" value=\"attending\"/><span data-rsvp-word=\"rsvp:attending\">Joyfully accepts</span></label><label data-rsvp-line=\"no\" data-rsvp-answer=\"\" class=\"flex min-h-12 cursor-pointer items-center justify-center rounded-full bg-white px-5 text-sm font-medium leading-tight text-ink ring-[1.5px] ring-ink transition-colors has-[:checked]:bg-ink has-[:checked]:text-cream\"><input type=\"radio\" required=\"\" class=\"sr-only\" name=\"rsvp_status\" value=\"declined\"/><span data-rsvp-word=\"rsvp:declined\">Regretfully declines</span></label></fieldset>"
+  "reply-card · celebratory · the Reply door · one page · a guest": "<fieldset data-rsvp-step=\"true\" class=\"space-y-2\"><legend class=\"mb-3\"><span data-rsvp-line=\"eyebrow\" data-rsvp-word=\"rsvp:eyebrow\" data-rsvp-default=\"Your reply\" class=\"block text-xs font-semibold uppercase tracking-[0.26em] text-mulberry\">Your reply</span><span data-rsvp-line=\"question\" data-rsvp-word=\"rsvp:question\" data-rsvp-default=\"Will you join us?\" class=\"mt-2 block font-serif text-[32px] font-medium leading-[1.1] tracking-tight text-ink\">Will you join us?</span></legend><label data-rsvp-line=\"yes\" data-rsvp-answer=\"\" class=\"flex min-h-12 cursor-pointer items-center justify-center rounded-full bg-white px-5 text-sm font-medium leading-tight text-ink ring-[1.5px] ring-ink transition-colors has-[:checked]:bg-ink has-[:checked]:text-cream\"><input type=\"radio\" required=\"\" class=\"sr-only\" name=\"rsvp_status\" value=\"attending\"/><span data-rsvp-word=\"rsvp:attending\">Joyfully accepts</span></label><label data-rsvp-line=\"no\" data-rsvp-answer=\"\" class=\"flex min-h-12 cursor-pointer items-center justify-center rounded-full bg-white px-5 text-sm font-medium leading-tight text-ink ring-[1.5px] ring-ink transition-colors has-[:checked]:bg-ink has-[:checked]:text-cream\"><input type=\"radio\" required=\"\" class=\"sr-only\" name=\"rsvp_status\" value=\"declined\"/><span data-rsvp-word=\"rsvp:declined\">Regretfully declines</span></label></fieldset>",
+  "reply-card · celebratory · the Reply door · one at a time · the Maker’s sample": "<fieldset data-rsvp-step=\"true\" class=\"space-y-2\"><legend class=\"mb-3\"><span data-rsvp-line=\"eyebrow\" data-rsvp-word=\"rsvp:eyebrow\" data-rsvp-default=\"Your reply\" class=\"block text-xs font-semibold uppercase tracking-[0.26em] text-mulberry\">Your reply</span><span data-rsvp-line=\"question\" data-rsvp-word=\"rsvp:question\" data-rsvp-default=\"Will you join us?\" class=\"mt-2 block font-serif text-[32px] font-medium leading-[1.1] tracking-tight text-ink\">Will you join us?</span></legend><label data-rsvp-line=\"yes\" data-rsvp-answer=\"\" class=\"flex min-h-12 cursor-pointer items-center justify-center rounded-full bg-white px-5 text-sm font-medium leading-tight text-ink ring-[1.5px] ring-ink transition-colors has-[:checked]:bg-ink has-[:checked]:text-cream\"><input type=\"radio\" required=\"\" class=\"sr-only\" name=\"rsvp_status\" value=\"attending\"/><span data-rsvp-word=\"rsvp:attending\">Joyfully accepts</span></label><label data-rsvp-line=\"no\" data-rsvp-answer=\"\" class=\"flex min-h-12 cursor-pointer items-center justify-center rounded-full bg-white px-5 text-sm font-medium leading-tight text-ink ring-[1.5px] ring-ink transition-colors has-[:checked]:bg-ink has-[:checked]:text-cream\"><input type=\"radio\" required=\"\" class=\"sr-only\" name=\"rsvp_status\" value=\"declined\"/><span data-rsvp-word=\"rsvp:declined\">Regretfully declines</span></label></fieldset>"
  }
 }

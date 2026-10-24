@@ -269,7 +269,7 @@ export default async function NewGuestPage({ params, searchParams }: Props) {
             <span>
               <span className="font-medium">Photo consent</span>{' '}
               <span className="text-ink/60">
-                — guest agrees to be tagged in the event gallery (per RA 10173).
+                — guest agrees to be tagged in the event’s Memories (per RA 10173).
               </span>
             </span>
           </label>

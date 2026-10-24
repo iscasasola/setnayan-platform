@@ -51,7 +51,7 @@ const SURFACES: { key: string; label: string }[] = [
   { key: 'schedule', label: 'Schedule' },
   { key: 'monogram', label: 'Monogram' },
   { key: 'day_of', label: 'Day-of' },
-  { key: 'gallery', label: 'Gallery' },
+  { key: 'gallery', label: 'Memories' },
 ];
 
 // Prefill for a type with no saved profile row yet. 'website' is REQUIRED here,
@@ -340,7 +340,7 @@ export async function EventTypePanel({
             </label>
           ))}
         </div>
-        <ReadOnly>Day-of and Gallery need Website on — the save refuses otherwise.</ReadOnly>
+        <ReadOnly>Day-of and Memories need Website on — the save refuses otherwise.</ReadOnly>
         <SubmitButton disabled={profileReadFailed} form={formId} className={SAVE} pendingLabel="Saving…">
           Save
         </SubmitButton>

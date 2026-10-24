@@ -12,7 +12,7 @@
  * `StudioApp.href` verbatim, so a description page is what makes that row real.
  * And `doorwayOnly`, so the row leaves the Studio group the moment an event
  * opens — the event's own rail already carries Budget, and a second copy is the
- * "same destination, two names" defect `lib/free-tools-rail.ts` records.
+ * "same destination, two names" defect the retired `lib/free-tools-rail.ts` recorded.
  *
  * ─── NOTHING HERE IS NEWLY INVENTED COPY ─────────────────────────────────
  * Traced before it was written, to `/features`'s "Budget · the truth, in PHP"

@@ -19,7 +19,7 @@ export const LAB_MOOD_BOARD_ACTIONS: Partial<MoodBoardActions> = {
     return { status: 'ok', image_url: url };
   },
   removeMoodboardSlot: async () => ({ status: 'ok' }),
-  applyGalleryPick: async () => ({ status: 'error', message: 'The lab has no supplier gallery.' }),
+  applyGalleryPick: async () => ({ status: 'error', message: 'The lab has no supplier Inspiration.' }),
   fetchGalleryAssets: async () => ({ assets: [], total: 0, hiddenCount: 0 }) as never,
   updateDressCodeLists: async () => undefined,
   /* 🤝🖼 A supplier's suggestion kept / declined / its Keep undone — answered here; the Palette moves the photo itself. */

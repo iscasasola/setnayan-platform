@@ -45,13 +45,13 @@ function loader(): string {
   return page.slice(start, end);
 }
 
-/** The body of one of the page's own async section components. */
-function section(name: string): string {
-  const start = page.indexOf(`async function ${name}(`);
+/** The body of one of the page's own async section components — or, given a file, of one in that file. */
+function section(name: string, src: string = page): string {
+  const start = src.indexOf(`async function ${name}(`);
   assert.ok(start > -1, `${name} is gone from the page — re-anchor this guard`);
-  const end = page.indexOf('\n  return (', start);
+  const end = src.indexOf('\n  return (', start);
   assert.ok(end > start, `${name} lost its end anchor (\`return (\`)`);
-  return page.slice(start, end);
+  return src.slice(start, end);
 }
 
 const at = (body: string, needle: string): number => {
@@ -79,17 +79,11 @@ test('(2) the independent reads are started together, right after the gate', () 
   for (const read of [
     ".from('events')",
     ".from('oauth_grants')",
-    'getDriveOAuthConfig()',
-    'fetchCameraRates(supabase)',
-    'fetchPapicTierConfig(supabase)',
-    'fetchPapicOneTiers(supabase)',
+    // (Drive's config, Keep full-res's price and ownership and the checkout settings left with the files —
+    //  Memories ⚙, owner 2026-10-23 — so this page no longer asks them.)
+    // (the camera rates, tier config, One tiers and the PAPIC_UNLOCK reads are gone with the camera
+    // tiers they priced — owner 2026-10-23, `lib/papic-sells-only-credits.ts`)
     'eventEntitlementClient(eventId)',
-    ".from('platform_package_catalog')",
-    "ownsSkuRead('PAPIC_UNLOCK')",
-    "ownsSkuRead('PAPIC_UNLOCK_LTD')",
-    'fetchPlatformSettings(supabase)',
-    ".eq('service_code', 'HIGH_RES_ARCHIVE')",
-    "ownsSkuRead('HIGH_RES_ARCHIVE')",
     ".eq('service_code', 'CAMERA_BRIDGE')",
     'countLimitedGuests(supabase, eventId)',
     'fetchActiveLimitedSnapshot(supabase, eventId)',
@@ -125,11 +119,11 @@ test('(3) the order that keeps it a pure speed-up: event check → heals togethe
   const healsStart = at(body, 'const freeCamerasHeal = provisionFreeCamerasAdmin(unlockAdmin, eventId');
   const healsAwait = at(body, 'await Promise.all([freeCamerasHeal, freePoolHeal, uploadsCameraHeal]);');
   assert.ok(notFound < healsStart, 'a self-heal WRITE starts before the event row is confirmed');
-  // The heals also wait for the catalogue batch, because that batch is where the ENTITLEMENT
-  // CLIENT is first awaited — and that client refuses anyone who is not a host of this event.
-  // Starting the service-role writes before it would let a non-host member's view write seats.
-  const hostGate = body.search(/\] = await Promise\.all\(\[\s*unlockPkgRead,\s*ownsPapicUnlockRead,/);
-  assert.ok(hostGate > notFound, 'the catalogue batch (the first await on the host-only entitlement client) is gone');
+  // The heals wait for the ENTITLEMENT CLIENT — it refuses anyone who is not a host of this event. Starting the
+  // service-role writes before it would let a non-host member's view write seats. (It was first awaited inside the
+  // catalogue batch that left with the files on 2026-10-23; it is awaited on its own now.)
+  const hostGate = body.indexOf('await entitlementClientRead;');
+  assert.ok(hostGate > notFound, 'the host-only entitlement client is never awaited after the event check');
   assert.ok(hostGate < healsStart, 'a self-heal WRITE starts before the host-only entitlement client has answered');
   // …and NO write of any kind is reached before the event row is confirmed — the started block
   // above it is reads only.
@@ -151,36 +145,29 @@ test('(3) the order that keeps it a pure speed-up: event check → heals togethe
   assert.ok(at(body, 'const freePoolHeal = (async () => {') > healsStart);
   assert.ok(at(body, 'const uploadsCameraHeal = provisionUploadsCameraAdmin(unlockAdmin, eventId') < healsAwait);
   // Every started read that must see the heals starts after them.
+  // (The uploads seat read left with + Add photos for Memories, 2026-10-23 — the heal that provisions it stays here.)
   for (const after of [
-    'const uploadsSeatRead = startRead(',
-    'const extraCameraCountRead = startRead(',
-    'const claimSeatRowsRead = startRead(',
     'const standingsRead = startRead(readPapicStandings(',
   ]) {
     assert.ok(at(body, after) > healsAwait, `${after} starts before the self-heals it must see`);
   }
   // The three seat counts start only after the guest sync, which can add, revoke and re-tier seats.
   const sync = at(body, 'await syncGuestCameras(');
-  for (const after of ['const extraCameraCountRead = startRead(', 'const claimSeatRowsRead = startRead(', 'const standingsRead = startRead(']) {
+  for (const after of ['const standingsRead = startRead(']) {
     assert.ok(at(body, after) > sync, `${after} starts before the guest sync it must see`);
   }
   // A thrown guest-list read still surfaces AFTER the heals ran, as it did when it was asked there.
   assert.ok(at(body, 'const limitedGuestCount = await limitedGuestCountRead;') > healsAwait);
   assert.ok(at(body, 'const limitedSnapshot = await limitedSnapshotRead;') > healsAwait);
-  // The SKU questions wait on the ONE entitlement client, not on a fresh ask each.
-  assert.match(body, /const ownsSkuRead = \(sku: string\) =>\s*startRead\(entitlementClientRead\.then\(\(ent\) => eventSkuActive\(ent, eventId, sku\)\)\);/);
+  // The entitlement client is asked ONCE and started with the other reads.
+  assert.match(body, /const entitlementClientRead = startRead\(eventEntitlementClient\(eventId\)\);/);
 });
 
-test('(4) the gallery’s run of show and the Drive panel’s two reads travel together', () => {
-  const gallery = section('GalleryPreviewCard');
-  const started = at(gallery, 'const scheduleBlocksRead = startRead(fetchScheduleBlocks(supabase, eventId));');
-  assert.ok(started < at(gallery, 'await Promise.all(['), 'the run of show waits for the photos before it is asked');
-  assert.doesNotMatch(gallery, /await fetchScheduleBlocks\(/);
-  // …and is still awaited INSIDE the try, so a refused schedule still falls back to the flat grid.
-  const tryAt = at(gallery, 'try {');
-  assert.ok(at(gallery, 'const blocks = await scheduleBlocksRead;') > tryAt);
-
-  const drive = section('DriveConnectedPanel');
+test('(4) the Drive panel’s two reads travel together', () => {
+  // (The gallery and its run of show left with the files — Memories, owner 2026-10-23 — and the Drive card moved
+  //  whole to `_components/drive-copy-card.tsx`, drawn in the Memories ⚙ sheet.)
+  const driveFile = stripComments(readFileSync(join(HERE, '_components', 'drive-copy-card.tsx'), 'utf8'));
+  const drive = section('DriveConnectedPanel', driveFile);
   const second = at(drive, 'const strandedFullRead = startRead(');
   assert.ok(at(drive, 'const overflowGrantRead = startRead(') < second);
   assert.ok(second < at(drive, 'await overflowGrantRead'), 'the stranded-files count waits for the 2nd Drive before it is asked');

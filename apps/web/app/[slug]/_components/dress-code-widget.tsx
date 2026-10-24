@@ -19,7 +19,10 @@ import { pickDots, singleWearerOf } from '@/lib/role-figure';
 import { roleGroupOf } from '@/lib/role-groups';
 import { roleLabel } from '@/lib/entourage';
 import { marchPlaceLine, type MarchPlace } from '@/lib/march-place';
-import { SeeWhereYouAre } from './see-where-you-are';
+import { nearestColorName } from '@/lib/color-names';
+import { wordWithColourName } from '@/lib/colour-word';
+import { NamedColourDot } from '@/app/dashboard/[eventId]/studio/mood-board/_components/colour-dot';
+import { SeeTheDressCode, SeeWhereYouAre } from './see-where-you-are';
 import { DressCodeLine, DressCodePalette } from './dress-code-styles';
 import { DotWords, PaletteLookList } from './dress-code-palette-looks';
 import { PALETTE_LOOK_DEFAULT, type PaletteLookId } from '@/lib/palette-looks';
@@ -94,6 +97,10 @@ const MODEST_GUIDANCE = {
  * off the same row, which on the Maker canvas is the draft-overlaid one. So
  * this scene moves when the Mood Board moves, exactly as the rest of the hub.
  */
+/** 🪪 Where the full dress code stands on Details — Me › What to wear's "See the full dress code ›" lands here (owner
+ *  2026-10-24, the Me redraw: personal = Me · general = Details). */
+export const DRESS_CODE_ANCHOR = 'site-dress-code';
+
 export function DressCodeWidget({
   config,
   ceremonyType,
@@ -107,6 +114,7 @@ export function DressCodeWidget({
   roleNames = null,
   hideWhenEmpty = false,
   part = 'all',
+  fullGuideAnchor = null,
   sceneStyle = null,
   paletteLook = null,
   dosLook = null,
@@ -167,6 +175,8 @@ export function DressCodeWidget({
    * is not set (never a default style, never "to be confirmed").
    */
   part?: 'all' | 'you' | 'role' | 'wear' | 'arrive';
+  /** 👗 Me › What to wear: the Details guide's anchor (`DRESS_CODE_ANCHOR`) for "See the full dress code ›". */
+  fullGuideAnchor?: string | null;
   /**
    * 🚶 WHERE THIS READER WALKS (owner 2026-09-29, DECISION_LOG "THE WEDDING
    * MARCH ON THE INVITATION TELLS EACH ENTOURAGE MEMBER THEIR ROLE…"): their
@@ -379,12 +389,12 @@ export function DressCodeWidget({
     mineLone && (mineFigure || mineColours) ? (
       <div className="flex flex-col items-center gap-3 text-center" data-dress-code-lone="">
         {mineFigure}
-        {mineColours ? <YourColours groups={mineDots} look={look} centre /> : null}
+        {mineColours ? <YourColours groups={mineDots} look={look} centre named={part === 'wear'} /> : null}
       </div>
     ) : (
       <>
         {mineFigure}
-        {mineColours ? <YourColours groups={mineDots} look={look} /> : null}
+        {mineColours ? <YourColours groups={mineDots} look={look} named={part === 'wear'} /> : null}
       </>
     );
 
@@ -416,17 +426,18 @@ export function DressCodeWidget({
   /* 👤 THE FOR-EACH-GUEST PARTS — one fact each, from the SAME `mine` (owner
      2026-10-06). A part whose fact is unset draws nothing. */
   if (part === 'role') {
-    const named = mine?.roleLabel ?? (guestRole && guestRole !== 'guest' ? (roleLabel(guestRole, roleNames) ?? guestRoleLabel(guestRole, roleNames)) : null);
-    if (!named) return null;
+    /* 🪪 "YOUR PLACE" (owner 2026-10-24, the Me redraw): the role itself now stands under the name at the top of Me
+       (`MeGreeting`), so this part says only where they walk — "You walk 5th, after …" — and the way to their marked
+       name. No walk: nothing (the role is already said once). */
+    if (!marchLine) return null;
     return (
       <section className="space-y-2" data-me-part="role">
         <p className="pahina-eyebrow">
-          <span>Your role</span>
+          <span>Your place</span>
         </p>
-        <p className="font-pahina text-2xl font-light leading-snug tracking-tight text-ink">{named}</p>
         {marchLine}
         {/* 🫵 Their marked name in the entourage, one tap away (owner 2026-10-17) — drawn only when it is on the page. */}
-        <SeeWhereYouAre />
+        <SeeWhereYouAre pill />
       </section>
     );
   }
@@ -461,6 +472,8 @@ export function DressCodeWidget({
         ) : null}
         {mine.note ? <p className="text-sm leading-relaxed text-ink/70">{mine.note}</p> : null}
         {mineLook}
+        {/* 👗 Everyone's guide stays on Details (personal = Me · general = Details) — one quiet way there. */}
+        {fullGuideAnchor ? <SeeTheDressCode target={fullGuideAnchor} /> : null}
       </section>
       </>
     );
@@ -568,7 +581,7 @@ export function DressCodeWidget({
           <span>What to wear</span>
         </p>
       ) : (
-      <header className="space-y-2">
+      <header id={DRESS_CODE_ANCHOR} className="scroll-mt-24 space-y-2">
         <p className="pahina-eyebrow">
           <span>Dress code</span>
         </p>
@@ -844,7 +857,10 @@ function GuestsBoard({ row, look }: { row: EveryoneDressRow; look: PaletteLookId
  *  chips), the words in one key line under them (`DotWords`). */
 function RowDots({ dots, look, label, centre = false }: { dots: readonly EveryoneDot[]; look: PaletteLookId; label: string; centre?: boolean }) {
   if (dots.length === 0) return null;
-  const items = dots.map((d) => ({ hex: d.hex, name: d.word }));
+  /* 🎨 EVERY COLOUR CARRIES ITS NAME (owner 2026-10-24: "the colors have names, so they can find the color name
+     easier") — what it colours, then the colour's own name (`nearestColorName`, the Mood Board's resolver; never a
+     code). Details › Dress with us keeps its figures; this is its one delta. */
+  const items = dots.map((d) => ({ hex: d.hex, name: wordWithColourName(d) }));
   /* `centre`: a lone look — its colours and their words centred under its figure. */
   if (look !== 'tags') return <PaletteLookList look={look} size="row" items={items} label={label} words centre={centre} />;
   return (
@@ -865,7 +881,29 @@ function RowDots({ dots, look, label, centre = false }: { dots: readonly Everyon
 /** 🎨 THE READER'S OWN COLOURS — every colour their role wears, in the scene's palette look (Tags = the shipped
  *  chips), each said by WHAT IT COLOURS (owner 2026-10-17) — per person when both are shown. One drawing for the
  *  Welcome's "you" panel and Me's "What to wear". */
-function YourColours({ groups, look, centre = false }: { groups: ReadonlyArray<{ label: string | null; dots: readonly EveryoneDot[] }>; look: PaletteLookId; centre?: boolean }) {
+function YourColours({ groups, look, centre = false, named = false }: { groups: ReadonlyArray<{ label: string | null; dots: readonly EveryoneDot[] }>; look: PaletteLookId; centre?: boolean; named?: boolean }) {
+  /* 🪪 ME › WHAT TO WEAR (owner 2026-10-24, the Me redraw): the colour circle with its NAME under it — the Studio's own
+     named circle (`NamedColourDot`: what it colours, then the colour's name), centred under the figure. */
+  if (named) {
+    return (
+      <div className="w-full space-y-3" data-your-colours="" data-your-colours-named="">
+        {groups.map((g, gi) =>
+          g.dots.length === 0 ? null : (
+            <div key={gi} className="space-y-1.5">
+              {g.label ? <p className="text-xs leading-relaxed text-ink/65">{g.label}</p> : null}
+              <div className="flex flex-wrap justify-center gap-3" role="list" aria-label={g.label ? `Your colours — ${g.label.toLowerCase()}` : 'Your colours'}>
+                {g.dots.map((d, i) => (
+                  <span key={`${d.hex}-${i}`} role="listitem">
+                    <NamedColourDot label={wordWithColourName(d)} colour={d.hex} name={nearestColorName(d.hex)} slot={d.word || undefined} data={`me-${i}`} />
+                  </span>
+                ))}
+              </div>
+            </div>
+          ),
+        )}
+      </div>
+    );
+  }
   return (
     <div className={centre ? 'w-full space-y-3' : 'space-y-3'} data-your-colours="">
       {groups.map((g, gi) =>
@@ -873,7 +911,7 @@ function YourColours({ groups, look, centre = false }: { groups: ReadonlyArray<{
           <div key={gi} className="space-y-1.5">
             {g.label ? <p className="text-xs leading-relaxed text-ink/65">{g.label}</p> : null}
             {look !== 'tags' ? (
-              <PaletteLookList look={look} items={g.dots.map((d) => ({ hex: d.hex, name: d.word }))} label={g.label ? `Your colours — ${g.label.toLowerCase()}` : 'Your colours'} />
+              <PaletteLookList look={look} items={g.dots.map((d) => ({ hex: d.hex, name: wordWithColourName(d) }))} label={g.label ? `Your colours — ${g.label.toLowerCase()}` : 'Your colours'} />
             ) : (
               <ul className={`flex flex-wrap gap-2 ${centre ? 'justify-center' : ''}`} aria-label={g.label ? `Your colours — ${g.label.toLowerCase()}` : 'Your colours'}>
                 {g.dots.map((d, i) => (
@@ -882,6 +920,12 @@ function YourColours({ groups, look, centre = false }: { groups: ReadonlyArray<{
                     <span className={`mt-2 block text-center font-mono text-[0.75rem] uppercase leading-tight tracking-[0.06em] text-ink/70 ${HUB_SCENE_WORDS_CLASS}`}>
                       {d.word}
                     </span>
+                    {/* 🎨 The colour's own name under what it colours (owner 2026-10-24: "the colors have names"). */}
+                    {nearestColorName(d.hex) && nearestColorName(d.hex)!.toLowerCase() !== d.word.toLowerCase() ? (
+                      <span data-colour-name="" className="mt-0.5 block text-center text-[0.75rem] leading-tight text-ink/70">
+                        {nearestColorName(d.hex)}
+                      </span>
+                    ) : null}
                   </li>
                 ))}
               </ul>

@@ -25,7 +25,8 @@ import type { MenuLifecyclePhase } from '@/lib/day-of-mode';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
-import { isStoreShellRequest } from '@/lib/request-platform';
+import { getIapGate, isStoreShellRequest } from '@/lib/request-platform';
+import { setnayanAiTierInApp } from '@/lib/iap/setnayan-ai-in-app.server';
 import { storeShellAllowsPaidFeature } from '@/lib/store-shell';
 import { resolveBudgetVisibility } from '@/lib/budget-visibility';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -121,7 +122,6 @@ import {
 import { formatCount } from '@/lib/format-number';
 import { BOOKED_BY_PAYMENT_EMBED, withEmbeddedPayments } from '@/lib/booked-by-payment';
 import { startAhead } from '@/lib/start-ahead';
-import { HomeWhatsNext, type HomeDecisionRow, type HomeDecisionVerb } from './home-parts';
 import { eventMemberTypeOnce } from '@/lib/event-membership-once';
 
 /**
@@ -233,7 +233,6 @@ export async function EventDashboard({
   dayOfActive = false,
   lifecyclePhase = 'plan',
   canViewPapicCounts = false,
-  only,
   daysOut,
   daysToGo = null,
   guestStats,
@@ -245,14 +244,6 @@ export async function EventDashboard({
    *  (`d:<id>`) or a Sai-on-watch (`w:<key>`) row into the inspector column. */
   inspectId?: string;
   slotAfterBento?: ReactNode;
-  /**
-   * 📋 `'whatsnext'` — draw ONLY the ranked decisions list (with "Today's one
-   * thing") and "Coming up": the body of the Home's "What's next" sheet (owner
-   * "yes", 2026-10-03). The same components and the same data, moved — nothing is
-   * redrawn — and without the inspector column (a row just opens its room).
-   * Omitted ⇒ the whole dashboard, as the day-of and after-the-day views draw it.
-   */
-  only?: 'whatsnext';
   /**
    * True inside the T-1h..T+8h day-of window (resolved by the Home page). When
    * set, the page's DayOfModeGrid renders its "happening now" obsidian focal
@@ -797,6 +788,8 @@ export async function EventDashboard({
     resolveSetnayanAiDisplayPricePhp(supabase, event.event_type as string | null, 'regular').catch(() => 0),
   );
   const storeShellRead = startAhead(isStoreShellRequest());
+  // 🍎 Apple sells Setnayan AI in this app (`getIapGate().iap`, owner 2026-10-23) — false everywhere else.
+  const appleIapRead = startAhead(getIapGate().then((g) => g.iap, () => false));
   const remindersEnabled =
     (viewerRes.data as { reminders_enabled?: boolean | null } | null)?.reminders_enabled ??
     true;
@@ -1128,7 +1121,13 @@ export async function EventDashboard({
   const aiActive =
     (aiEntitled || saiPreview) &&
     cockpitEnabled() &&
-    storeShellAllowsPaidFeature(storeShell, aiPaywallEnabled);
+    storeShellAllowsPaidFeature(
+      storeShell,
+      aiPaywallEnabled,
+      // ✦ Apple sells Setnayan AI in this app FOR THIS EVENT'S TIER (one product per web tier, owner 2026-10-23).
+      storeShell && aiPaywallEnabled && (await appleIapRead) === true &&
+        (await setnayanAiTierInApp(createAdminClient(), eventId)).status === 'sellable',
+    );
 
   // ---- Upcoming items — the Schedule card + the AI What's-next rail. ------
   const upcoming =
@@ -2163,53 +2162,10 @@ export async function EventDashboard({
   const MAX_MINIS = 4;
   if (miniTiles.length > MAX_MINIS) miniTiles.length = MAX_MINIS;
 
-  /*
-    📋 HOME'S "WHAT'S NEXT" — the Home draws this board IN PLACE under its row
-    (owner 2026-10-07, HOME_AND_GUESTS H7: pop → unfold, no `?sheet=next`
-    portal), in the prototype's rows: the group's name, the item's own words,
-    and one button per decision — 📅 Book · 💳 Pay · 👤 Pick (H1). The same
-    groups, the same counts, the same hrefs as the board below; only the drawing
-    is the Home's (`HomeWhatsNext`, plain data across the client boundary).
-  */
-  if (only === 'whatsnext') {
-    const homeVerb = (id: DecisionGroupView['id']): HomeDecisionVerb =>
-      id === 'book' ? 'book' : id === 'pay' ? 'pay' : id === 'role' ? 'role' : id === 'deadline' ? 'date' : 'other';
-    const homeRows = (groups: DecisionGroupView[]): HomeDecisionRow[] =>
-      groups.flatMap((g) =>
-        g.items.map((it) => ({
-          id: it.id,
-          title: g.title,
-          sub: it.sub ? `${it.label} · ${it.sub}` : it.label,
-          href: it.href,
-          verb: homeVerb(g.id),
-          cta: it.ctaLabel,
-        })),
-      );
-    return (
-      <HomeWhatsNext
-        open={openDecisionCount}
-        rows={homeRows(decisionGroups)}
-        coming={datesGroup ? homeRows([datesGroup]) : []}
-        checklist={{
-          href: `${base}/checklist`,
-          // Absent when never seeded or unread — "0% done" would be a fact nobody measured.
-          pct: checklistProgress ? Math.round((checklistProgress.done / checklistProgress.total) * 100) : null,
-        }}
-        emptyNote="Nothing needs a decision right now — your plan keeps moving on its own."
-      >
-        {venueOfferAvailable ? (
-          <div className="mb-2">
-            <FreeVenueShortlistOffer eventId={eventId} variant="card" fullSaiPhp={fullSaiPhp} sell={!storeShell} />
-          </div>
-        ) : null}
-      </HomeWhatsNext>
-    );
-  }
-
   const inspectorMaster = (
     <div className="relative">
       <div className="space-y-10">
-        {only ? null : (
+        
         <>
         {/* ── Hero ─────────────────────────────────────────────────────── */}
         <header className="sn-reveal pt-1">
@@ -2659,7 +2615,7 @@ export async function EventDashboard({
           </div>
         </section>
         </>
-        )}
+        
 
         {/* Today's one thing — the resolver's #1 (AI state), a gold-hairlined
          *  glass tile below the top grid. */}
@@ -2720,7 +2676,7 @@ export async function EventDashboard({
          *   `slotAfterBento` slot so the Muslim / Chinese / set-date cards
          *   land in the right visual place on the event Home. Null on the
          *   standalone dashboard. */}
-        {slotAfterBento && !only ? (
+        {slotAfterBento ? (
           <div className="space-y-4 !mt-6">{slotAfterBento}</div>
         ) : null}
 
@@ -2834,7 +2790,7 @@ export async function EventDashboard({
           </section>
         ) : null}
 
-        {only ? null : (
+        
         <>
         {/* ── Meanwhile — a delivery is waiting ──────────────────────────
          *  Renders ONLY when a vendor has delivered something still
@@ -2880,7 +2836,7 @@ export async function EventDashboard({
                 />
                 <span className="min-w-0 flex-1 text-[13.5px]" style={{ color: '#6E6A62' }}>
                   {latestHandover.kind === 'gallery_link'
-                    ? `${handoverVendorName} delivered your gallery.`
+                    ? `${handoverVendorName} delivered your photos.`
                     : latestHandover.kind === 'file'
                       ? `${handoverVendorName} sent you a file${
                           latestHandover.label ? ` — ${latestHandover.label}` : ''
@@ -3230,7 +3186,7 @@ export async function EventDashboard({
           </div>
         </section>
         </>
-        )}
+        
 
         {/* The "Sai on watch" section moved INTO the Big-Day focal's lower half
          *  (top grid, above) so the tall focal is filled and the watch lives in
@@ -3239,7 +3195,6 @@ export async function EventDashboard({
     </div>
   );
 
-  if (only) return inspectorMaster;
 
   return (
     <InspectorLayout

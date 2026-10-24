@@ -140,7 +140,8 @@ test('🔒 your own photo shows on your own row, read as YOU — both pages pass
   const lib = read('lib/guest-account-photos.ts');
   assert.match(lib, /await supabase\s*\.from\('users'\)\s*\.select\('user_id, profile_photo_url'\)\s*\.eq\('user_id', viewerUserId\)/);
   assert.match(lib, /userIds\.includes\(viewerUserId\)/, 'the viewer’s photo can reach a list they are not on');
-  for (const f of ['app/dashboard/[eventId]/guests/page.tsx', 'app/dashboard/[eventId]/guests/[guestId]/page.tsx']) {
-    assert.match(read(f), /accountPhotoRefsByGuest\(supabase, eventId, user\.id\)/, `${f} does not pass the viewer`);
-  }
+  // The Guest list, and the ONE card reader (the standalone route, the Wedding March, the parents — 2026-10-24).
+  assert.match(read('app/dashboard/[eventId]/guests/page.tsx'), /accountPhotoRefsByGuest\(supabase, eventId, user\.id\)/, 'the Guest list does not pass the viewer');
+  assert.match(read('app/dashboard/[eventId]/guests/_components/guest-card-read.ts'), /accountPhotoRefsByGuest\(supabase, eventId, viewerUserId\)/, 'the card reader does not pass the viewer');
+  assert.match(read('app/dashboard/[eventId]/guests/[guestId]/page.tsx'), /readGuestCard\(supabase, eventId, guestId, user\.id\)/, 'the standalone route does not hand the reader the viewer');
 });

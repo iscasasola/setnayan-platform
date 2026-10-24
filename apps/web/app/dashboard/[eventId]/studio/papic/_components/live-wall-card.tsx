@@ -13,6 +13,9 @@ import {
   wallGuestMirrorOn,
 } from '@/lib/live-wall-logic';
 import { LiveWallControls, type WallScreenRow, type WallTileRow } from './live-wall-controls';
+import { InfoTip } from '@/app/_components/info-tip';
+import { CopyButton } from '@/app/_components/copy-button';
+import { siteOrigin } from '@/lib/site-origin';
 
 /**
  * Salamisim Live Photo Wall — the couple's control card on the Papic add-on
@@ -29,7 +32,19 @@ import { LiveWallControls, type WallScreenRow, type WallTileRow } from './live-w
  * verify_and_activate_manual_payment, has zero callers), so paying never lit
  * this card.
  */
-export async function LiveWallCard({ eventId, appleIap = false }: { eventId: string; appleIap?: boolean }) {
+export async function LiveWallCard({
+  eventId,
+  appleIap = false,
+  variant = 'card',
+}: {
+  eventId: string;
+  appleIap?: boolean;
+  /**
+   * 'row' — inside Memories › ⚙ Gallery settings (owner 2026-10-23: the photo wall left the Papic page for the
+   * gallery's settings): a heading with the explanation in its ⓘ, then the same controls — no frame around them.
+   */
+  variant?: 'card' | 'row';
+}) {
   /* 🍎 The iPhone app where Apple sells: the Live Photo Wall is a web extra Apple does not sell, and its own page
      (`/dashboard/<id>/live`) stays refused in the app — so nothing of it is drawn there (guideline 3.1.3(b)). */
   if (appleIap) return null;
@@ -54,7 +69,7 @@ export async function LiveWallCard({ eventId, appleIap = false }: { eventId: str
       <section className="rounded-2xl border border-ink/10 bg-surface p-5 sm:p-6">
         <h2 className="flex items-center gap-2 text-base font-semibold text-ink">
           <MonitorPlay aria-hidden className="h-4.5 w-4.5 text-terracotta" strokeWidth={2} />
-          Live Photo Wall
+          Memory lane
         </h2>
         <p className="mt-1 text-sm text-ink/60">
           The wall projects your Papic photos — set up your Papic crew first and
@@ -64,7 +79,7 @@ export async function LiveWallCard({ eventId, appleIap = false }: { eventId: str
           href={`/dashboard/${eventId}/studio/papic/crew`}
           className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-terracotta hover:text-terracotta-700"
         >
-          Set up your Papic crew
+          Open your shared code
           <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={2} />
         </Link>
       </section>
@@ -81,10 +96,10 @@ export async function LiveWallCard({ eventId, appleIap = false }: { eventId: str
       <section className="rounded-2xl border border-ink/10 bg-surface p-5 sm:p-6">
         <h2 className="flex items-center gap-2 text-base font-semibold text-ink">
           <MonitorPlay aria-hidden className="h-4.5 w-4.5 text-terracotta" strokeWidth={2} />
-          Live Photo Wall
+          Memory lane
         </h2>
         <div className="mt-3">
-          <PaymentUnderReview feature="live photo wall" />
+          <PaymentUnderReview feature="Memory lane" />
         </div>
       </section>
     );
@@ -141,13 +156,39 @@ export async function LiveWallCard({ eventId, appleIap = false }: { eventId: str
 
   const wallUrl = `/wall/${eventId}`;
 
+  const controls = (
+    <LiveWallControls
+      eventId={eventId}
+      screens={screens}
+      tiles={tiles}
+      photoCount={clampWallPhotoCount(cfg?.wall_photo_count as number | null)}
+      tileLayout={asWallTileLayout(cfg?.wall_tile_layout as string | null)}
+      guestMirrorOn={wallGuestMirrorOn(cfg?.live_photo_wall_visibility as string | null)}
+    />
+  );
+  if (variant === 'row') {
+    return (
+      <section className="py-3" data-memories-setting="wall">
+        <div className="flex items-center justify-between gap-3">
+          <InfoTip label="Photo wall" labelAs="h3" labelClassName="text-[15px] font-semibold text-ink" align="start">
+            The wall shows the day&rsquo;s photos as they are shot — at the venue on any screen, and on your guests&rsquo;
+            phones on your event page while the event is on. Free. Open the link on a TV, projector or laptop and type a
+            screen code once.
+          </InfoTip>
+          <CopyButton value={`${siteOrigin()}${wallUrl}`} label="Copy link" />
+        </div>
+        <div className="mt-2">{controls}</div>
+      </section>
+    );
+  }
+
   return (
     <section className="rounded-2xl border border-ink/10 bg-surface p-5 sm:p-6">
       <div className="flex items-start justify-between gap-4">
         <div>
           <h2 className="flex items-center gap-2 text-base font-semibold text-ink">
             <MonitorPlay aria-hidden className="h-4.5 w-4.5 text-terracotta" strokeWidth={2} />
-            Live Photo Wall
+            Memory lane
           </h2>
           {/* ⚠ THE SECOND HALF WAS MISSING. This described the wall as a venue
               projection only, so a couple weighing it up saw a screen rental
@@ -176,16 +217,7 @@ export async function LiveWallCard({ eventId, appleIap = false }: { eventId: str
           </p>
         </div>
       </div>
-      <LiveWallControls
-        eventId={eventId}
-        screens={screens}
-        tiles={tiles}
-        photoCount={clampWallPhotoCount(cfg?.wall_photo_count as number | null)}
-        tileLayout={asWallTileLayout(cfg?.wall_tile_layout as string | null)}
-        guestMirrorOn={wallGuestMirrorOn(
-          cfg?.live_photo_wall_visibility as string | null,
-        )}
-      />
+      {controls}
     </section>
   );
 }

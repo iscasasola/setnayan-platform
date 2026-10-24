@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { BadgeCheck, Camera, CircleX, ReceiptText, Sparkles, Star, Store, type LucideIcon } from 'lucide-react';
+import { BadgeCheck, Camera, CircleX, Images, ReceiptText, Sparkles, Star, Store, type LucideIcon } from 'lucide-react';
 import { Fold } from '@/app/_components/fold';
 import { DatesRow } from '../../customers/_components/dates-row';
 import { VENDOR_BOOKING_FEES_PATH } from '@/lib/vendor-booking-fees';
@@ -38,6 +38,8 @@ export function PlanRows({
   receipts,
   papicPackPrice,
   featured,
+  gift = null,
+  photosLine = null,
 }: {
   tier: string;
   pays: string;
@@ -52,13 +54,20 @@ export function PlanRows({
   receipts: readonly { key: string; title: string; line: string; receiptId: string | null }[] | null;
   papicPackPrice: number | null;
   featured: boolean;
+  /**
+   * 🎁 A plan Setnayan gave (prototype `supplier_personal_invite_2026-10-23` C1 · C3): the answer line says so in
+   * place of the price — "free until 31 Jan 2027 · a gift from Setnayan", or, once it ended, "your Pro gift ended …".
+   */
+  gift?: { line: string } | null;
+  /** The Portfolio photos row's line (`portfolioPlanRowLine`); null = the row is not drawn. */
+  photosLine?: string | null;
 }) {
   return (
     <>
       <h1 className="sn-h1">Your plan</h1>
       <p className="mt-2 text-[15px] text-ink" data-plan-answer="">
-        <b className="font-semibold">You are on {planWord(tier)}</b> · {pays}
-        {expiresOn ? <span className={expiresSoon ? 'font-medium text-orange' : 'text-ink/60'}> · until {expiresOn}</span> : null}
+        <b className="font-semibold">You are on {planWord(tier)}</b> · {gift ? gift.line : pays}
+        {expiresOn && !gift ? <span className={expiresSoon ? 'font-medium text-orange' : 'text-ink/60'}> · until {expiresOn}</span> : null}
       </p>
 
       {notices ? <div className="mt-3 space-y-3">{notices}</div> : null}
@@ -79,6 +88,10 @@ export function PlanRows({
             </div>
           </Fold>
         </div>
+
+        {photosLine ? (
+          <DatesRow data="plan-photos" lead={ic(Images)} title="Portfolio photos" line={photosLine} href="/vendor-dashboard/collections" />
+        ) : null}
 
         <div className="border-t border-ink/10" data-plan-fold="receipts">
           <Fold
@@ -139,7 +152,7 @@ export function PlanRows({
           data="plan-custom"
           lead={ic(Sparkles)}
           title="Custom plan"
-          line={tier === 'custom' ? 'Yours · branches, reach, seats' : 'Branches · reach · seats — beyond Enterprise'}
+          line={tier === 'custom' ? 'Yours · branches, reach, seats' : 'Branches · reach · seats — beyond Ultra'}
           href="/vendor-dashboard/subscription/custom"
         />
         <DatesRow

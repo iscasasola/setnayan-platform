@@ -64,7 +64,7 @@ const RADIO = 'a radio group (aria-checked): at this branch’s base the thumb r
 
 export const CONVERTED: readonly Converted[] = [
   /* ── area 1 · the couple's dashboard and the shared pieces ── */
-  { area: 'couple', what: 'Planner mode · Display language (Guided | DIY · English | Tagalog)', file: `${A}/profile/page.tsx`, anchor: 'data-setting-segmented={name}', via: 'track', thumb: 'slides', gone: 'rounded-md border border-ink/15 bg-cream p-1' },
+  { area: 'couple', what: 'Display language (English | Tagalog — hidden until the app is translated, owner 23 Oct)', file: `${A}/profile/page.tsx`, anchor: 'data-setting-segmented={name}', via: 'track', thumb: 'slides', gone: 'rounded-md border border-ink/15 bg-cream p-1' },
   { area: 'couple', what: 'Seat plan view (List | 2D | 3D)', file: `${D}/seating/_components/seating-frame.tsx`, anchor: 'data-seating-view-segment=""', via: 'track', thumb: 'slides', gone: 'bg-mulberry/15 text-mulberry-700 ring-1' },
   { area: 'couple', what: 'Seat-plan panel (People | Tables | Rules)', file: `${D}/seating/_components/seating-editor.tsx`, anchor: 'aria-label="Seat-plan panel"', via: 'track', thumb: 'slides', gone: "'border-terracotta text-ink' : 'border-transparent" },
   { area: 'couple', what: 'Who can sit here (guest | group | role)', file: `${D}/seating/_components/seating-editor.tsx`, anchor: 'data-seat-pick-tabs=""', via: 'track', thumb: 'slides', gone: 'inline-flex flex-1 rounded-lg border border-ink/15 bg-cream p-0.5' },

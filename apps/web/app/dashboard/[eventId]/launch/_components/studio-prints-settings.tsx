@@ -4,7 +4,7 @@ import { ProQuietLine } from './pro-quiet-line';
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import dynamic from 'next/dynamic';
-import { ChevronDown, ChevronRight, Download, Palette, Settings } from 'lucide-react';
+import { ChevronDown, ChevronRight, Download, ListChecks, Palette, Settings } from 'lucide-react';
 import { pickArrowClass, pickButtonClass } from '../../website/editor/_components/pick-menu-place';
 import { ActionButton } from '@/components/action-button';
 import { ChosenRow, FORM_PICK_CLASS, FormRow, FormRows, usePillWidth } from '@/app/_components/form-row';
@@ -308,6 +308,7 @@ export function StudioGuestPiece({
   holds,
   none,
   changed = null,
+  pickNoun = null,
 }: {
   eventId: string;
   item: string;
@@ -328,8 +329,15 @@ export function StudioGuestPiece({
   /** Said in place when nobody has a pass yet. */
   none: string;
   changed?: ReactNode;
+  /**
+   * 🎟 PICK GUESTS (owner 2026-10-25): "Pick guests" beside "All guests" — some guests' passes / QR codes in one file. Given only by
+   * the rows whose all-guests file the route narrows (`guests=`): the Event pass and the Guest QR codes.
+   */
+  pickNoun?: { one: string; many: string } | null;
 }) {
   const list = guests ?? [];
+  const [picking, setPicking] = useState(false);
+  const canPick = pickNoun !== null && all !== null && all.kind === 'save' && list.length > 0;
   const [picked, setPicked] = usePrintGuest(eventId, list[0]?.id ?? null);
   const guest = list.find((g) => g.id === picked) ?? list[0] ?? null;
   const oneFile = guest ? { href: swap(one.href, guest), file: swap(one.file, guest), label: 'Download' } : null;
@@ -339,6 +347,7 @@ export function StudioGuestPiece({
     <>
       {oneFile ? <PrintSaveButton href={oneFile.href} file={oneFile.file} variant="action" main label="Download" icon={<Download aria-hidden strokeWidth={1.9} />} /> : null}
       <AllInOneButton f={all} label="All guests" />
+      {canPick ? <ActionButton tone="neutral" label="Pick guests" icon={ListChecks} caret onClick={() => setPicking(true)} /> : null}
     </>
   );
   const sheet: PrintSheetParts = { actions, changed };
@@ -368,6 +377,7 @@ export function StudioGuestPiece({
         {holds}
       </p>
       {changed}
+      {picking && canPick && all?.kind === 'save' ? <GuestManySheet guests={list} href={all.href} file={all.file} noun={pickNoun!} onClose={() => setPicking(false)} /> : null}
     </div>
   );
 }
@@ -377,6 +387,7 @@ export function StudioGuestPiece({
  * (`print-guest-sheet.tsx`, loaded the first time it is pressed — its own lazy piece; `PickMenu` never grows).
  */
 const GuestPickSheet = dynamic(() => import(/* webpackChunkName: "prints-guest-sheet" */ './print-guest-sheet').then((m) => m.GuestPickSheet), { ssr: false });
+const GuestManySheet = dynamic(() => import(/* webpackChunkName: "prints-guest-sheet" */ './print-guest-sheet').then((m) => m.GuestManySheet), { ssr: false });
 function ViewAsRow({ item, guests, guest, onPick }: { item: string; guests: readonly PrintGuest[]; guest: PrintGuest; onPick: (id: string) => void }) {
   const [open, setOpen] = useState(false);
   const width = usePillWidth();

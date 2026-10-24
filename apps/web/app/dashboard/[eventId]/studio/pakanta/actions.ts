@@ -66,6 +66,8 @@ export async function adoptPakantaSongAsSiteMusic(eventId: string): Promise<Resu
     if (updErr) return { ok: false, error: updErr.message };
 
     revalidatePath(`/dashboard/${id}/studio/pakanta`);
+    // Home's Music card offers the same button (owner 2026-10-23, the service widgets) — it re-reads too.
+    revalidatePath(`/dashboard/${id}`);
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'Could not set the song.' };

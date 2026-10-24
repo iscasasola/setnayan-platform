@@ -3,6 +3,8 @@ import { ScanFace } from 'lucide-react';
 
 import { SubmitButton } from '@/app/_components/submit-button';
 import { SettingRow } from './setting-row';
+import { InfoTip } from '@/app/_components/info-tip';
+import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
 import { createClient } from '@/lib/supabase/server';
 import { resolveFaceTagging } from '@/lib/face-tagging-gate';
 import { setCoupleFaceTaggingDeclined } from '../face-tagging-actions';
@@ -35,9 +37,18 @@ import { setCoupleFaceTaggingDeclined } from '../face-tagging-actions';
 export async function FaceTaggingChoice({
   eventId,
   variant = 'card',
+  returnTo = null,
+  subLine = null,
 }: {
   eventId: string;
   variant?: 'card' | 'row';
+  /**
+   * 📷 Inside the Papic card (owner 2026-10-24, the approved sketch): the EVENT switch on its row — "Face tagging",
+   * its ⓘ, and the sub-line "On/Off · <subLine>" (each guest's own answer is on their guest card).
+   */
+  subLine?: string | null;
+  /** 🏠 'home' when drawn in Home's Papic card — the save lands back on Home (`return_to`). */
+  returnTo?: 'home' | null;
 }) {
   // The caller's own client checks the row is theirs to read (RLS)…
   const supabase = await createClient();
@@ -92,19 +103,23 @@ export async function FaceTaggingChoice({
   // the gate read, so the button can never say the opposite of what runs.
   const declined = (data as { face_tagging_declined_by_couple?: boolean | null }).face_tagging_declined_by_couple === true;
 
+  // ⚖ DPO ruling 2026-10-23: face tagging is OFF by default — the couple opts
+  // in. `declined` defaults to TRUE (migration 20271284831032), so "Off" is the
+  // answer nobody chose and "Turn it on" is the opt-in.
   const explanation = declined ? (
     <>
-      Off for your event. Guests get their photos when someone scans their QR
-      or tags them — nobody&rsquo;s face is measured.
+      Off for your event — face tagging stays off unless you turn it on.
+      Guests get their photos when someone scans their QR or tags them, and
+      nobody&rsquo;s face is measured. If you turn it on, each guest still
+      chooses for themselves.
     </>
   ) : (
     <>
-      On automatically because your event has Papic. Guests who say
-      &ldquo;Yes, tag me&rdquo; take one selfie on the day and get their photos
-      found for them. It is always their choice — nothing is stored unless
-      they agree — and you can switch it off for your whole event. Switching
-      it off erases every guest&rsquo;s selfie; photos already tagged stay
-      tagged.
+      On for your event, because you turned it on. Guests who say &ldquo;Yes,
+      tag me&rdquo; take one selfie on the day and get their photos found for
+      them. It is always their choice — nothing is stored unless they agree.
+      Turning it off erases every guest&rsquo;s selfie; photos already tagged
+      stay tagged.
     </>
   );
 
@@ -112,14 +127,38 @@ export async function FaceTaggingChoice({
     <form action={setCoupleFaceTaggingDeclined}>
       <input type="hidden" name="event_id" value={eventId} />
       <input type="hidden" name="declined" value={declined ? '0' : '1'} />
+      {returnTo ? <input type="hidden" name="return_to" value={returnTo} /> : null}
       <SubmitButton
         pendingLabel="Saving…"
         className="rounded-lg bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10"
       >
-        {declined ? 'Turn it back on' : 'Turn it off for my event'}
+        {variant === 'row' ? (declined ? 'Turn on' : 'Turn off') : declined ? 'Turn it on for my event' : 'Turn it off for my event'}
       </SubmitButton>
     </form>
   );
+
+  if (subLine) {
+    return (
+      <div className="flex items-center gap-3 py-3" data-papic-setting="face-tagging">
+        <span className="min-w-0 flex-1">
+          <InfoTip label="Face tagging" labelClassName="text-[15px] font-semibold text-ink" align="start">
+            {explanation}
+          </InfoTip>
+          <span className="block text-[12.5px] text-ink/60">
+            {declined ? 'Off' : 'On'} · {subLine}
+          </span>
+        </span>
+        <form action={setCoupleFaceTaggingDeclined} className="shrink-0">
+          <input type="hidden" name="event_id" value={eventId} />
+          <input type="hidden" name="declined" value={declined ? '0' : '1'} />
+          {returnTo ? <input type="hidden" name="return_to" value={returnTo} /> : null}
+          <button type="submit" role="switch" aria-checked={!declined} aria-label="Face tagging" className={SWITCH_BUTTON}>
+            <SwitchTrack on={!declined} />
+          </button>
+        </form>
+      </div>
+    );
+  }
 
   if (variant === 'row') {
     return (
@@ -138,9 +177,9 @@ export async function FaceTaggingChoice({
       */
       <SettingRow
         icon={<ScanFace aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
-        label="Finding people in photos"
+        label="Face tagging"
         value={declined ? 'Off' : 'On'}
-        sheetTitle="Finding people in photos"
+        sheetTitle="Face tagging"
         switchControl={control}
       >
         <p className="mb-4 text-sm text-ink/65">{explanation}</p>

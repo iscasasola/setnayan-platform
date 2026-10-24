@@ -243,7 +243,7 @@ export default async function CoupleRecapPage({
           </li>
           <li>
             • The <strong>{formatCount(summary.publicVoices)}</strong> guest{' '}
-            {summary.publicVoices === 1 ? 'message' : 'messages'} you approved to the Live Wall.
+            {summary.publicVoices === 1 ? 'message' : 'messages'} you approved to Memory lane.
           </li>
           <li>• Your love story and the milestones you wrote.</li>
         </ul>

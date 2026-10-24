@@ -1,3 +1,4 @@
+import { papicOwnerTag } from '@/lib/papic-upload/owner-tag.server';
 import { guestReusesAccountFace } from '@/lib/account-face-profile';
 import { formatPapicDayInWords } from '@/lib/papic-window';
 import { Camera } from 'lucide-react';
@@ -24,10 +25,9 @@ import { guidedTourView } from '@/app/_components/guided-tour';
 import { GuestColumnCard } from '@/app/[slug]/_components/guest-column-card';
 import { guestColumnsActive } from '@/lib/guest-columns-gate';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
-import { guestStagesOn } from '@/lib/guest-stages-on';
-import { cameraLookFromPreferences, cameraLookTint, cameraLookDrawsLogo } from '@/lib/camera-look';
-import { themeColours } from '@/lib/theme-colours';
-import { isInviteThemeId } from '@/lib/invite-themes';
+import { cameraDressTintOfEvent } from '@/lib/camera-dress-of-event';
+import { cameraProFor } from '@/lib/papic-photo-mark.server';
+import { photoMarkOfEvent } from '@/lib/papic-photo-mark-of-event';
 import { EventMonogram } from '@/app/_components/event-monogram';
 import { HERO_MONOGRAM_COLUMNS } from '@/lib/hero-monogram-data';
 
@@ -237,7 +237,7 @@ export default async function PapicGuestPage({
           ) : (
             <>
               Thanks for shooting at {eventName} — the cameras are closed now.
-              Your photos are still in your gallery.
+              Your photos are still in your Memories.
             </>
           )
         }
@@ -311,10 +311,9 @@ export default async function PapicGuestPage({
   // selfie to ask for. Flag OFF → false with no read (lib/account-face-profile.ts).
   const [reusesAccountFace, ownShots] = await Promise.all([
     guestReusesAccountFace(admin, session.event_id, session.guest_id),
-    // 📸 The thumbnail beside the shutter is the guest's OWN latest shot (owner
-    // 2026-10-01: "the photos one the left will show all their shots") — only
-    // when there is an Event Hub to open them in.
-    backSlug ? getGuestOwnShots(session.event_id, session.guest_id, 1) : Promise.resolve(null),
+    // 📸 The guest's OWN shots: the newest is the thumbnail beside the shutter,
+    // and the rest fill "My shots", the sheet over the camera (owner 2026-10-24).
+    getGuestOwnShots(session.event_id, session.guest_id, 30),
   ]);
   // The guest's own "Want to be tagged in the photos?" answer — null when never
   // answered. A FAILED read turns the catch off (below) rather than reading as
@@ -352,7 +351,7 @@ export default async function PapicGuestPage({
           </>
         }
         title="Camera unavailable."
-        sub={`Your guest camera for ${eventName} has been turned off. Photos you already shared stay in the gallery. If you think this is a mistake, reach out to the host directly.`}
+        sub={`Your guest camera for ${eventName} has been turned off. Photos you already shared stay in Memories. If you think this is a mistake, reach out to the host directly.`}
       >
         {backSlug ? (
           <Link href={`/${backSlug}`} className="button-secondary">
@@ -363,30 +362,29 @@ export default async function PapicGuestPage({
     );
   }
 
-  // 🎛 THE CAMERA'S LOOK, FULL SCREEN (owner 2026-10-06 — "THE CAMERA HAS ITS
-  // OWN THREE LAYOUTS"), only where the new Maker's guest side is on for this
-  // event (`guestStagesOn`); everywhere else `look` is null and the camera is
-  // exactly as shipped. One read, only then. A failed read is Classic.
-  const cameraLook = (await guestStagesOn(admin, session.event_id))
-    ? await (async () => {
-        const { data: lookRow, error: lookErr } = await admin
-          .from('events')
-          .select(`${HERO_MONOGRAM_COLUMNS}, logo_wanted, style_preferences, invite_theme, role_palette`)
-          .eq('event_id', session.event_id)
-          .maybeSingle();
-        if (lookErr) console.error('[supabase-error] app/papic/guest/page.tsx · from:events.select (camera look)', lookErr);
-        const row = (lookRow ?? null) as
-          | (Parameters<typeof EventMonogram>[0]['event'] & { style_preferences?: unknown; invite_theme?: string | null; role_palette?: unknown })
-          | null;
-        const kind = cameraLookFromPreferences(row?.style_preferences);
-        const themeId = isInviteThemeId(row?.invite_theme) ? row.invite_theme : 'house';
-        return {
-          kind,
-          tint: cameraLookTint(kind, themeColours(themeId, row?.role_palette ?? null).colours.accent),
-          logo: cameraLookDrawsLogo(kind) && row ? <EventMonogram event={row} size="lg" /> : null,
-        };
-      })()
-    : null;
+  // 📷 ONE CAMERA, AND ITS PRO DRESS (owner 2026-10-24, final ruling — lib/camera-dress.ts):
+  // free = the plain camera, and a small Setnayan mark on the photos' copies;
+  // Pro (the event's Logo & QR part or Full Pro — the existing part gate) = the
+  // event's logo on the shutter, the theme's colour, and their monogram on the
+  // copies. A failed read is the free camera — never a guess at Pro.
+  const [dressRead, pro] = await Promise.all([
+    admin
+      .from('events')
+      .select(`${HERO_MONOGRAM_COLUMNS}, logo_wanted, invite_theme, role_palette`)
+      .eq('event_id', session.event_id)
+      .maybeSingle(),
+    cameraProFor(admin, session.event_id),
+  ]);
+  if (dressRead.error) console.error('[supabase-error] app/papic/guest/page.tsx · from:events.select (camera dress)', dressRead.error);
+  const dressRow = (dressRead.data ?? null) as
+    | (Parameters<typeof EventMonogram>[0]['event'] & { logo_wanted?: boolean | null; invite_theme?: string | null; role_palette?: unknown })
+    | null;
+  const cameraDress = {
+    pro,
+    tint: cameraDressTintOfEvent(pro, dressRow),
+    logo: pro && dressRow ? <EventMonogram event={dressRow} size="lg" /> : null,
+  };
+  const photoMark = photoMarkOfEvent(dressRow, pro);
 
   return (
     <>
@@ -396,6 +394,7 @@ export default async function PapicGuestPage({
       guestName={guestName}
       eventName={eventName}
       eventId={session.event_id}
+      uploadOwner={papicOwnerTag('guest', session.guest_id, session.event_id)}
       initialRemaining={quota.remaining}
       total={quota.total}
       termsAccepted={termsAccepted}
@@ -424,7 +423,9 @@ export default async function PapicGuestPage({
       storyToken={((g as { qr_token?: string | null } | null)?.qr_token as string | null) ?? null}
       exitTo={backSlug ? { slug: backSlug, tab: backTab } : null}
       lastShotUrl={ownShots?.shots[0]?.url ?? null}
-      look={cameraLook}
+      dress={cameraDress}
+      photoMark={photoMark}
+      myShots={ownShots?.shots ?? null}
     />
     {/* ✍ "WRITE A COLUMN" ON THE DAY LIVES IN THE CAMERA (owner 2026-10-04,
         DECISION_LOG "STORY-TAB PLACEMENT CORRECTED AND APPROVED"), under the

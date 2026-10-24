@@ -31,7 +31,8 @@ import { guestOutfitOf, guestOutfitWords } from '@/lib/guest-outfit';
 import { sanitizeRolePalette } from '@/lib/mood-board';
 import { resolveDisplayPalette } from '@/lib/room-palette';
 import { plusOneOfWords, type PlusOneOf } from '@/lib/plus-one-of';
-import { plusOneSeatLines } from '@/lib/extra-seats';
+import { plusOneSeatLines, plusOneSeatPeople } from '@/lib/extra-seats';
+import type { RsvpStatus } from '@/lib/guests';
 
 /**
  * The base every guest's own invitation link (and NFC tag) is built from —
@@ -91,6 +92,13 @@ export type GuestCardData = {
    * yet" (a failure is not an emptiness — 2026-10-22, two-seat guests were told they had none).
    */
   plusOneLines: readonly string[] | null;
+  /**
+   * 🪑 The same seats as people — one tappable card each in Additional Guests (owner-approved prototype
+   * `guest_card_groups_and_papic_2026-10-23.html`: avatar · name · "+1 of Rosario · Attending" · ›). `name` is null while the
+   * seat waits for its name (`plusOneHasNoName`). Same order as `plusOneLines`; NULL when the read was refused. Optional: a
+   * card drawn from elsewhere (the Maker) without it keeps the one-line list.
+   */
+  plusOnePeople?: readonly { guestId: string; name: string | null; status: RsvpStatus }[] | null;
   /** The oldest seat's row, or null when there is none (or the read was refused). */
   plusOneGuestId: string | null;
   /** The guest's saved invited-to blocks, filtered to values we still know. */
@@ -210,7 +218,7 @@ export async function loadGuestCard(
     supabase
       .from('guests')
       // 🪑 EVERY seat row — never `.maybeSingle()`: two seats were an error that drew "no +1 added yet" (2026-10-22).
-      .select('guest_id, first_name, last_name, plus_one_name_confirmed_at, created_at')
+      .select('guest_id, first_name, last_name, plus_one_name_confirmed_at, created_at, rsvp_status')
       .eq('event_id', eventId)
       .eq('plus_one_of_guest_id', guestId)
       .is('deleted_at', null)
@@ -270,8 +278,10 @@ export async function loadGuestCard(
     last_name: string | null;
     plus_one_name_confirmed_at: string | null;
     created_at: string | null;
+    rsvp_status: RsvpStatus | null;
   }>;
   const plusOneLines = plusOneRowError ? null : plusOneSeatLines(guestId, plusOneRowList);
+  const plusOnePeople = plusOneRowError ? null : plusOneSeatPeople(guestId, plusOneRowList);
 
   // Filter to known valid InvitedToBlock values — schema column is
   // string[] so legacy data could contain stale block names.
@@ -470,6 +480,7 @@ export async function loadGuestCard(
     isIncWedding,
     showTeaCeremony,
     plusOneLines,
+    plusOnePeople,
     plusOneGuestId: plusOneRowError ? null : (plusOneRowList[0]?.guest_id ?? null),
     initialInvited,
     seatedAt,

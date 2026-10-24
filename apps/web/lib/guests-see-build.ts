@@ -76,7 +76,7 @@ const FIXED: Record<FixedKey, { label: string; cols: string; note?: string; alwa
   photosofyou: {
     label: FIXED_PART_LABEL.photosofyou,
     cols: 'XXXBB',
-    why: { 0: 'Photos of you come from the day.', 1: 'Photos of you come from the day.', 2: 'Photos of you come from the day.' },
+    why: { 0: 'Memories of you come from the day.', 1: 'Memories of you come from the day.', 2: 'Memories of you come from the day.' },
   },
   reveal: { label: 'Reveal', cols: 'LLLLX', why: { 4: 'The opening plays before the day.' } },
 };

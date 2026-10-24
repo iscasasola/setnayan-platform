@@ -9,6 +9,7 @@ import { GET as seatingPrintGET } from '@/app/dashboard/[eventId]/seating/print/
 import { GET as seatingExportGET } from '@/app/dashboard/[eventId]/seating/export/route';
 import { GET as catererGET } from '@/app/dashboard/[eventId]/seating/caterer/route';
 import { PRINT_VERSION_HEADER } from '@/lib/printed-stamp';
+import { PICKED_GUESTS_PARAM, PICKED_GUEST_REFUSAL, parsePickedGuests } from '@/lib/print-picked-guests';
 import { bytesStream } from '@/lib/stream-file';
 import { qrLookForHostDraft, resolveEventQrLook } from '@/lib/qr-look.server';
 import { layoutPasses, layoutPieceDocs, layoutPieceView, layoutQrCodes, type PrintDoc, type PrintImages, type PrintSetData } from '@/lib/print-layout';
@@ -186,7 +187,7 @@ async function freeSheet(
   admin: ReturnType<typeof createAdminClient>,
   eventId: string,
   event: NonNullable<Awaited<ReturnType<typeof readPrintEvent>>>,
-  { thumb, url }: { thumb: boolean; url: URL },
+  { thumb, url, picked = null }: { thumb: boolean; url: URL; picked?: ReadonlySet<string> | null },
 ): Promise<FreeSheet> {
   let docs: PrintDoc[];
   let images: PrintImages = {};
@@ -219,8 +220,10 @@ async function freeSheet(
     };
     /* 📄 The thumbnail draws ONE page's twelve codes (page 1 unless `?page=N`), the sheet still laid out whole. */
     const askedPage = Math.max(1, Number.parseInt(url.searchParams.get('page') ?? '1', 10) || 1);
-    const loaded = await loadGuestPasses(set, { width: thumb ? 160 : 420, ...(thumb ? { drawOnly: { from: (askedPage - 1) * 12, count: 12 } } : {}) });
+    const loaded = await loadGuestPasses(set, { width: thumb ? 160 : 420, ...(thumb ? { drawOnly: { from: (askedPage - 1) * 12, count: 12 } } : {}), onlyGuests: picked });
     if (!loaded.measured) return { ok: false, res: new NextResponse('We could not read your guest list just now. Please try again.', { status: 503 }) };
+    // 🎟 A picked guest who is not on this event's list refuses the sheet — never dropped, never included (`pickGuestRows`).
+    if (loaded.refused) return { ok: false, res: new NextResponse(PICKED_GUEST_REFUSAL, { status: 403 }) };
     images = loaded.images;
     docs = layoutQrCodes(
       event.display_name ?? 'Guest QR codes',
@@ -354,6 +357,13 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
   const wantsSet = rawPiece === 'set' || wantsEverything;
   if (!wantsSet && !isPrintPieceKey(rawPiece)) return new NextResponse('No such piece.', { status: 404 });
   const piece = (wantsSet ? 'invitation' : rawPiece) as PrintPieceKey;
+  /* 🎟 PICK GUESTS (owner 2026-10-25): `guests=<id>,<id>,…` narrows the two all-guests files — every guest's pass (`passes`) and the
+     Guest QR sheet (`qr-codes`) — to the guests picked. Read AFTER the host gate above; each id is then checked against THIS event's
+     own list by the loader (`pickGuestRows`) and one unknown id refuses the file. Absent: every guest, exactly as before. The
+     Free/Pro gates below are untouched — picking guests changes WHO is drawn, never whether the file may be drawn. */
+  const pickedParam = piece === 'passes' || piece === 'qr-codes' ? parsePickedGuests(url.searchParams.get(PICKED_GUESTS_PARAM)) : { ok: true as const, ids: null };
+  if (!pickedParam.ok) return new NextResponse(pickedParam.why, { status: 400 });
+  const picked = pickedParam.ids;
   const rawMode = url.searchParams.get('mode');
   const mode: PrintMode = wantsEverything || rawMode === 'print' ? 'print' : rawMode === 'screen' ? 'screen' : 'sample';
   const allName = wantsEverything ? 'everything' : wantsSet ? 'set' : piece;
@@ -377,7 +387,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
     /* 🎟 EVERY GUEST'S QR ON ONE SHEET IS FREE (owner 2026-10-22, DECISION_LOG "FREE IS READY, PRO IS PERSONAL — ALL TICKETS AND THE
        QR SHEET ARE FREE": *"the goal of the free is to keep everything minimum ready but no personalization."*). It was an all-guests
        ◆ file from 2026-10-17; it is a plain utility sheet a free event needs to run its day, so no Pro question is asked here. */
-    const sheet = await freeSheet(piece, admin, eventId, event, { thumb, url });
+    const sheet = await freeSheet(piece, admin, eventId, event, { thumb, url, picked: piece === 'qr-codes' ? picked : null });
     if (!sheet.ok) return sheet.res;
     const { docs, images, subject, paper } = sheet;
     if (thumb) {
@@ -455,8 +465,10 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
 
     if (piece === 'passes') {
       // 🎟 Printed tickets only for who is coming (owner 2026-09-29, OWNER ANSWERS (9)).
-      const { passes, images, measured } = await loadGuestPasses(set, { width: 600, ticketsOnly: true });
+      const { passes, images, measured, refused } = await loadGuestPasses(set, { width: 600, ticketsOnly: true, onlyGuests: picked });
       if (!measured) return new NextResponse('We could not read your guest list just now. Please try again.', { status: 503 });
+      // 🎟 A picked guest who is not on this event's list (or has no pass) refuses the file — never dropped, never included.
+      if (refused) return new NextResponse(PICKED_GUEST_REFUSAL, { status: 403 });
       const docs = layoutPasses({ ...input, format: formatParam('passes') }, passes);
       if (!docs.length) return new NextResponse('No guest has a ticket yet — a ticket appears once a guest is on your list and coming.', { status: 409 });
       // Ganged on A4 with cut lines (owner: print at home or at a shop).
@@ -717,6 +729,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ piece: string 
   const include = form.get('include_form')
     ? {
         guestNames: on('inc_guest_names'),
+        passCorners: form.get('pass_corners'),
         parents: on('inc_parents'),
         seatPlan: on('inc_seat_plan') ? String(form.get('seat_plan_kind') ?? 'list') : 'none',
         giftDetails: on('inc_gift_details'),
@@ -758,7 +771,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ piece: string 
     }
   }
   const error = said(
-    await updatePrintDetails(admin, eventId, (now) => ({ ...now, openingLine: draftLine ? now.openingLine : words.openingLine, rsvp: words.rsvp, include: words.include })),
+    await updatePrintDetails(admin, eventId, (now) => ({ ...now, openingLine: draftLine ? now.openingLine : words.openingLine, rsvp: words.rsvp, include: { ...words.include, passCorners: form.has('pass_corners') ? words.include.passCorners : now.include.passCorners } })),
   );
   if (error) logQueryError('hub-print.words', error, { event_id: eventId }, 'graceful_degrade');
   /* 🧷 The Maker saves this form IN PLACE (`launch/_components/soft-post.tsx`,

@@ -23,7 +23,7 @@ import { inviteEnterPath, inviteReplyPath, isInviteReturn } from '@/lib/invite-a
 import { takePhotoOffTheWall, putPhotoBackOnTheWall } from '@/lib/guest-wall-unpost';
 import { applyReconcileForEvent } from '@/lib/seating-reconcile';
 import { emitNotification } from '@/lib/notification-emit';
-import { readGuestSessionForEvent } from '@/lib/guest-one-path.server';
+import { readGuestSessionForEvent, readReplyIdentityForEvent } from '@/lib/guest-one-path.server';
 import { findGuestSeatForUser } from '@/lib/guest-membership-session';
 import { linkGuestSessionToUser } from '@/lib/link-guest-account';
 import { connectHostsTicked } from '@/lib/guest-connects-hosts';
@@ -261,7 +261,9 @@ export async function submitRsvp(
   // The browser's pass for this event, or — for a signed-in guest on a new phone
   // — the seat their account holds (lib/guest-one-path.server.ts). Either way it
   // must be THIS guest on THIS event, exactly as before.
-  const session = await readGuestSessionForEvent(eventId);
+  // 🗳 The reply's ONE identity (owner bug 2026-10-24) — the same answer the reply page drew its form from.
+  const replyAs = await readReplyIdentityForEvent(eventId);
+  const session = replyAs.kind === 'none' ? null : replyAs.session;
   if (!session || session.event_id !== eventId || session.guest_id !== guestId) {
     // Session got out of sync — kick them back to the slug landing (or, from
     // the arrival, back to its first door, where they can find themselves again).

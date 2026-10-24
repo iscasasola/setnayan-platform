@@ -51,7 +51,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ eventId: strin
       .select('photo_id, r2_object_key, clip_web_r2_key, display_r2_key, full_res_dropped_at, photo_type, captured_at')
       .eq('event_id', eventId)
       .is('hidden_at', null)
-      .neq('moderation_state', 'nsfw_blocked')
+      .eq('moderation_state', 'clean')
       .order('captured_at', { ascending: true })
       .limit(MAX_ITEMS),
     supabase
@@ -59,7 +59,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ eventId: strin
       .select('capture_id, r2_object_key, clip_web_r2_key, display_r2_key, full_res_dropped_at, media_type, captured_at')
       .eq('event_id', eventId)
       .is('hidden_at', null)
-      .neq('moderation_state', 'nsfw_blocked')
+      .eq('moderation_state', 'clean')
       .order('captured_at', { ascending: true })
       .limit(MAX_ITEMS),
   ]);

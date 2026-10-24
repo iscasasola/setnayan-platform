@@ -55,7 +55,7 @@ test('2 · the dark behind a guest sheet is the app\'s ONE pop-up dark — no wa
   }
 });
 
-test('4 · the doors are ONE segmented control — List · Map · Setup, one word each (G1)', () => {
+test('4 · the doors are ONE segmented control — List · Map · Settings, one word each (G1; "Setup" → "Settings", owner 2026-10-23)', () => {
   const nav = SCREEN.slice(SCREEN.indexOf('<nav'), SCREEN.indexOf('</nav>'));
   // 2026-10-08: the doors are drawn by the app's ONE pill selector (owner: "adjust all pill selectors to this"),
   // no longer by this screen's own `.seg` CSS — so the pin is the template's track and thumb.
@@ -64,7 +64,7 @@ test('4 · the doors are ONE segmented control — List · Map · Setup, one wor
   assert.match(SCREEN, /className=\{`\$\{pillSegClass\(gview === key\)\} /, 'a door does not wear the pill selector’s look');
   assert.doesNotMatch(SCREEN, /styles\.seg\b/, 'the doors are drawn by this screen’s own CSS again');
   const words = [...nav.matchAll(/seg\('(\w+)', '([^']+)'/g)].map((m) => m[2]);
-  assert.deepEqual(words, ['List', 'Map', 'Setup'], `the segments read ${words.join(' · ')}`);
+  assert.deepEqual(words, ['List', 'Map', 'Settings'], `the segments read ${words.join(' · ')}`);
 });
 
 test('4 · the segmented doors are a <nav> of LINKS — never a broken tab', () => {

@@ -40,7 +40,15 @@ export const PRINT_SETTINGS_SIZES_LINE = 'Sizes are picked on each piece’s row
 export const GUEST_PRINT_KEYS = ['pass', 'digital-ticket', 'qr-codes', 'seating-pack'] as const;
 export type GuestPrintKey = (typeof GUEST_PRINT_KEYS)[number];
 
-export type PrintGuest = { id: string; name: string; reply: 'attending' | 'pending' | 'maybe' };
+export type PrintGuest = {
+  id: string;
+  name: string;
+  reply: 'attending' | 'pending' | 'maybe';
+  /** Pick guests' Side ▾ and Group ▾ (owner 2026-10-25) — the guest list's own words; absent on a sample guest. */
+  side?: string | null;
+  group?: string | null;
+  role?: string | null;
+};
 
 /**
  * View as ▾ — the guests, coming first, then not replied, then maybe, each group named with its count (prototype `guestItems`).

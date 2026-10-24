@@ -71,19 +71,21 @@ test('1 · the paid names come from the one filter (premise)', () => {
   assert.ok(!PAID.test('Event Hub'), 'the free Event Hub must not count as a paid name');
 });
 
-test('2 · RENDERED — the finished-event summary names no paid service in the app, and keeps More Services on the web', async () => {
+test('2 · RENDERED — the finished-event summary names no paid service in the app, and keeps its services card on the web', async () => {
   const { FinishedEventSummary } = await import('@/app/dashboard/[eventId]/_components/after/finished-event-summary');
   const summary = { guests: 180, guestsAttending: 152, checkedIn: 140, suppliers: 6, services: 2, photos: 1240, editorial: 'none', editorialMeasured: true } as const;
   const draw = (storeShell: boolean) =>
     renderToStaticMarkup(
       React.createElement(FinishedEventSummary, { eventId: E, noun: 'wedding', dateLabel: 'March 13, 2027', slug: 'ana-and-miguel', summary, storeShell }),
     );
+  // More left the bar (owner 22 Oct 2026, "Yes remove more"): the web card is "Your services" and scrolls to
+  // that list on the same page; the app draws neither.
   const web = draw(false);
-  assert.match(web, /More Services/, 'premise: the web draws the More Services card');
-  assert.ok(web.includes(MORE_ADDRESS), 'premise: the web card opens the More menu');
+  assert.match(web, /Your services/, 'premise: the web draws the services card');
+  assert.ok(web.includes('#your-services'), 'premise: the web card opens Your services');
   const app = draw(true);
-  assert.doesNotMatch(app, /More Services/, 'the app draws the More Services card');
-  assert.ok(!app.includes(MORE_ADDRESS), 'the app links to the More menu, which only re-opens Home there');
+  assert.doesNotMatch(app, /Your services|More Services/, 'the app draws the services card');
+  assert.ok(!app.includes('#your-services') && !app.includes(MORE_ADDRESS), 'the app links to the services, which it does not sell');
   assert.doesNotMatch(app, PAID, 'the app names a paid service');
 });
 
@@ -138,6 +140,7 @@ const OWN_MECHANISM = [
 
 /** Hits that are not an app user being shown a paid service, each with its reason. A stale entry fails. */
 const NOT_SHOWN = new Map<string, string>([
+  ['app/dashboard/[eventId]/_components/home-cards/home-planner-card.tsx', 'Setnayan AI\'s Home card (2026-10-24) — drawn only through `paidCard`, which runs only where `serviceCards` (`couple && !storeShell && !appleFacts`, page.tsx) — never in the app'],
   ['app/dashboard/[eventId]/monogram/page.tsx', 'the page\'s <title> metadata (the free monogram design page shares the word), and the Logo & QR checkout name, built only under `!ownsAnimated && !storeShell` (2026-10-22)'],
   ['app/dashboard/[eventId]/monogram/animated-monogram-upgrade.tsx', 'the Logo & QR part\'s checkout names (2026-10-22); the component is mounted only by monogram/page.tsx as `!storeShell && ownsAnimated ? <AnimatedMonogramUpgrade …/> : null` — never in the app'],
   ['app/dashboard/[eventId]/vendors/_components/merkado-guard-banner.tsx', 'mounted only when `aiActive`, which is `storeShellAllowsPaidFeature`-gated (the owner\'s free-feature rule)'],
@@ -147,7 +150,11 @@ const NOT_SHOWN = new Map<string, string>([
   ['app/dashboard/[eventId]/website/living-hero/page.tsx', 'same — WebsiteProLock description'],
   ['app/dashboard/[eventId]/website/site-chrome/page.tsx', 'same — WebsiteProLock description'],
   ['app/dashboard/[eventId]/website/widgets/page.tsx', 'the Pro mark comes from `paidMarkState({ owns, storeShell })`, null for a non-Pro couple in the app'],
+  ['app/dashboard/[eventId]/_components/papic-home-card.tsx', 'the Home Papic widget (owner 2026-10-23) is drawn only from `papicCard`, built only `&& !appleFacts && !storeShell` (app/dashboard/[eventId]/page.tsx) — the app keeps its own Papic row'],
+  ['app/dashboard/[eventId]/_components/home-cards/home-booth-card.tsx', 'a Home service card (owner 2026-10-23, the service widgets) — drawn only under `cards`, which is `serviceCards = couple && !storeShell && !appleFacts` (app/dashboard/[eventId]/page.tsx); the app keeps the shipped rows'],
+  ['app/dashboard/[eventId]/_components/home-cards/home-music-card.tsx', 'same — a Home service card, drawn only under `serviceCards` (`!storeShell && !appleFacts`)'],
   ['app/dashboard/[eventId]/_components/papic-ready-nudge.tsx', 'mounted only `&& !storeShell` (app/dashboard/[eventId]/page.tsx)'],
+  ['app/dashboard/[eventId]/guests/_components/guest-papic-bulk.tsx', 'the Select › Set… › Papic sheet: its options are offered only while `papic === \'on\'`, which the Guests page hands as `viewer.isCouple && !storeShell ? eventPapic : null` (2026-10-23)'],
   ['app/dashboard/[eventId]/_components/setnayan-ai-comeback-offer.tsx', 'mounted only `aiOffer && aiOfferSettings && !storeShell` (app/dashboard/[eventId]/page.tsx)'],
   ['app/dashboard/[eventId]/_components/reveal-preview-card.tsx', 'used by Save the Date only, after an Event Hub Pro opening is picked — see StdBuilderClient'],
   ['app/dashboard/[eventId]/website/photo-moments/config.ts', 'the Papic-only hint is drawn only by photo-moments-editor.tsx, which shows app words under `data-app-only`'],

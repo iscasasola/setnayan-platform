@@ -287,7 +287,7 @@ export type MakerDetailsProps = {
   stored: StoredPrintDetails;
   hosts: Array<{ moderatorId: string; label: string; contact: string | null }>;
   /** The parents on the invitation, each with their own guest card. */
-  parents: Array<{ guestId: string | null; name: string; card: ReactNode; side?: StudioParent['side'] }>;
+  parents: Array<{ guestId: string | null; name: string; side?: StudioParent['side'] }>;
   pabuyaMessage: string | null;
   specialMessage: string | null;
   hasPalette: boolean;
@@ -937,6 +937,16 @@ export function MakerDetails(props: MakerDetailsProps) {
     </>
   );
   const guestNamesSwitch = <IncludeSwitch form={WORDS_FORM} name="inc_guest_names" label="Guest list — names on passes" on={inc.guestNames} />;
+  /* ✂ The passes' corners — rounded (the card standard) or square, for a couple cutting straight with a trimmer or scissors. */
+  const cornerOptions: Array<[string, string]> = [['rounded', 'Rounded'], ['square', 'Square']];
+  const passCornersPick = props.studio ? (
+    <StudioTool part="seat-kind" form={WORDS_FORM} name="pass_corners" value={inc.passCorners} options={cornerOptions} label="Corners" dataAttr="data-pass-corners" />
+  ) : (
+    <div data-pass-corners="" className="flex items-center justify-between gap-3">
+      <span className="text-sm text-ink/80">Pass corners</span>
+      <Segmented form={WORDS_FORM} name="pass_corners" value={inc.passCorners} options={cornerOptions} />
+    </div>
+  );
   const seatPlanSwitch = (
     <IncludeSwitch form={WORDS_FORM} name="inc_seat_plan" label="Offer a seat plan with the set" on={inc.seatPlan !== 'none'} tip="Prints your seating chart from the Seat plan you already made.">
       {props.studio ? (
@@ -1015,6 +1025,7 @@ export function MakerDetails(props: MakerDetailsProps) {
       <>
         <PrintPieceEditor input={prints} piece="pass">
           {guestNamesSwitch}
+          {passCornersPick}
           {qrPerPiece}
           {save}
         </PrintPieceEditor>
@@ -1225,6 +1236,7 @@ export function MakerDetails(props: MakerDetailsProps) {
               body: (
                 <>
                   {guestNamesSwitch}
+                  {passCornersPick}
                   <TicketStyle input={prints} />
                 </>
               ),

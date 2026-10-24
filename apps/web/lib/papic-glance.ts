@@ -44,6 +44,12 @@ export function creditsWord(n: number): string {
   return `${formatCount(n)} ${n === 1 ? 'credit' : 'credits'}`;
 }
 
+/**
+ * The row's "nothing shot yet" tail. Home's Papic CARD says it with its empty frames instead ("Frames fill as your guests
+ * shoot", the approved sketch) and drops this tail — so it is one named value, never a phrase matched twice.
+ */
+export const PAPIC_NO_PHOTOS_TAIL = ' · No photos yet';
+
 /** "See 1 photo" · "See 240 photos" (Home). */
 export function seePhotosWord(n: number): string {
   return `See ${formatCount(n)} ${n === 1 ? 'photo' : 'photos'}`;
@@ -186,8 +192,8 @@ export function papicGlance(input: PapicGlanceInput): PapicGlance {
   return {
     ...base,
     mood: 'ok',
-    status: `${creditsWord(count)} left${photos === 0 ? ' · No photos yet' : ''}`,
-    line: { strong: `${creditsWord(count)} left`, tail: photos === 0 ? ' · No photos yet' : '' },
+    status: `${creditsWord(count)} left${photos === 0 ? PAPIC_NO_PHOTOS_TAIL : ''}`,
+    line: { strong: `${creditsWord(count)} left`, tail: photos === 0 ? PAPIC_NO_PHOTOS_TAIL : '' },
     buy: true,
     // Cameras ready, nothing shot yet — the old "free camera" nudge's moment.
     moment: isOn && photos === 0 ? 'ready' : null,

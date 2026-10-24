@@ -68,7 +68,7 @@ export default function GlobalError({ error, reset }: Props) {
     // reasoning as _components/deferred-observability.tsx); a root-layout crash
     // is rare enough that loading the SDK on demand here is fine. No-ops safely
     // when the DSN is unset or the SDK never initialised.
-    void import('@sentry/nextjs')
+    void import(/* webpackExports: ["captureException"] */ '@sentry/nextjs')
       .then((Sentry) => {
         Sentry.captureException(error, {
           tags: { boundary: 'global-error' },

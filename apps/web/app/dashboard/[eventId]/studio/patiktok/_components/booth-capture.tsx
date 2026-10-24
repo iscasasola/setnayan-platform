@@ -685,7 +685,7 @@ export function BoothCapture({
       ) : null}
 
       <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/45">
-        Captured clips upload to your event gallery · the reel renders in your
+        Captured clips upload to your Memories · the reel renders in your
         browser (no server)
         {faceEnabled ? ' · faces auto-recognised on-device (Papic)' : ''}
       </p>

@@ -5,7 +5,8 @@ import { createPortal } from 'react-dom';
 import { Plus, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { Sheet } from '@/app/_components/sheet';
-import { CreditStepper, type StepperRung } from '@/app/dashboard/[eventId]/studio/papic/_components/credit-stepper';
+import { InfoTip } from '@/app/_components/info-tip';
+import { CreditStepper, ladderEnds, type StepperRung } from '@/app/dashboard/[eventId]/studio/papic/_components/credit-stepper';
 import { IAP_PAPIC_PRODUCTS } from '@/lib/iap/products';
 import { buyWithApple } from '@/lib/iap/native-store';
 import { useAppStorePrices } from '@/lib/iap/use-app-store-prices';
@@ -17,21 +18,25 @@ import { IAP_COPY, pendingLine, type IapScreen } from '@/lib/iap/iap-outcome';
  * rulings 1 and 5).
  *
  * The SHIPPED Buy more sheet (`papic-buy-sheet.tsx` + `papic-buy-form.tsx`),
- * redrawn with exactly its delta: "Add credits", "You have N credits now.", the
- * − / + stepper and "After this" are unchanged; the stepper walks the FIVE Apple
- * packs (100 · 500 · 1,000 · 5,000 · 10,000) at StoreKit's prices; "Continue to
- * payment" becomes "Buy · ₱" and opens Apple's sheet. No web price, no GCash.
- * After Apple's sheet the sheet says the one true outcome (frames 7 · 8 · 9).
+ * redrawn with exactly its delta: "Add credits" with its ⓘ and the sheet's ✕,
+ * "You have N credits", the − / + stepper and "New total" are the web sheet's
+ * (made simpler 2026-10-24 — no "How many do I need?", no range line, no "Not
+ * now"); the stepper walks the Apple packs at StoreKit's prices; the one button
+ * is "Buy N credits · <Apple's price>" and opens Apple's sheet. No web price, no
+ * GCash. After Apple's sheet the sheet says the one true outcome (frames 7 · 8 · 9).
  */
 export function IapPapicSheet({
   eventId,
   left,
   main = false,
+  label = 'Buy more',
 }: {
   eventId: string;
   left: number | null;
   /** The Papic page's band: Buy more is that page's one main button (the web sheet's own `main`). */
   main?: boolean;
+  /** The button's word — the Papic page's band says the owner's "Add more" (2026-10-23), as the web sheet does. */
+  label?: string;
 }) {
   const headingId = useId();
   const [open, setOpen] = useState(false);
@@ -124,7 +129,7 @@ export function IapPapicSheet({
             <CreditStepper rungs={rungs} onRungChange={onRung} />
             {left !== null && rung ? (
               <div className="sg-after" data-papic-after="">
-                <span>After this</span>
+                <span>New total</span>
                 <b>{credits(left + rung.points)}</b>
               </div>
             ) : null}
@@ -138,27 +143,31 @@ export function IapPapicSheet({
               >
                 {buying
                   ? 'Opening the App Store…'
-                  : `${screen?.kind === 'failed' ? 'Try again' : 'Buy'}${rung?.priceLabel ? ` · ${rung.priceLabel}` : ''}`}
+                  : `${screen?.kind === 'failed' ? 'Try again' : rung ? `Buy ${credits(rung.points)}` : 'Buy'}${rung?.priceLabel ? ` · ${rung.priceLabel}` : ''}`}
               </button>
-              <p className="sg-step">Credits land on this event the moment Apple confirms.</p>
             </div>
           </>
         )}
-        <div className="mt-1.5 text-center">
-          <ActionButton tone="neutral" quiet icon={<X aria-hidden="true" strokeWidth={1.9} />} label="Not now" onClick={close} />
-        </div>
       </>
     );
 
   const sheet = open ? (
     <Sheet open onClose={close} labelledById={headingId} rise>
       <div className="px-4 pb-4 pt-3.5" data-iap-papic-sheet="">
-        <h3 id={headingId} className="text-[19px] font-semibold tracking-tight text-ink">
-          Add credits
-        </h3>
+        {/* The title and its ONE ⓘ; the sheet's own ✕ closes it (no "Not now" — owner 2026-10-24). */}
+        <InfoTip
+          label="Add credits"
+          labelAs="h3"
+          labelId={headingId}
+          labelClassName="text-[19px] font-semibold tracking-tight text-ink"
+          align="start"
+        >
+          One credit is one photo; a short clip uses a little more. Credits land on this event the moment Apple confirms.
+          {ladderEnds(rungs) ? ` ${ladderEnds(rungs)} — add more any time.` : ''}
+        </InfoTip>
         {screen?.kind === 'on' || screen?.kind === 'pending' ? null : (
           <p className="mb-3.5 text-sm text-ink/60">
-            {left !== null ? `You have ${left.toLocaleString('en-PH')} credits now.` : 'Credits land once Apple confirms.'}
+            {left !== null ? `You have ${left.toLocaleString('en-PH')} credits` : 'Credits land once Apple confirms.'}
           </p>
         )}
         {body}
@@ -172,7 +181,7 @@ export function IapPapicSheet({
         tone="brand"
         main={main}
         icon={<Plus aria-hidden="true" strokeWidth={1.9} />}
-        label="Buy more"
+        label={label}
         onClick={() => setOpen(true)}
         aria-haspopup="dialog"
         aria-expanded={open}

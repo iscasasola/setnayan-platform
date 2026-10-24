@@ -385,7 +385,9 @@ test('5 · a guest’s page: no mark and no style unless something is kept; the 
      Welcomes that can draw a guest's own look, and Me's What to wear — its panel is bare: the root takes the ground,
      §3/§4) and the Live hub's seven (a block that takes NO ground: nothing to re-walk). Announcements is marked by
      the layout (`announcement-look.tsx`), not here. Same claim. */
-  assert.equal((BODY.match(/blockMark\(/g) ?? []).length, 19, 'a block is marked in a new place (or one fewer): re-walk where its ground lands');
+  /* 🔁 RE-AIMED 2026-10-24 (owner: "isn't this a dupe?"): 19 → 18. The one gone is THE DETAILS' — the block is drawn
+     on no page (`OFF_THE_PAGE`), so nothing is left for a ground to land on. Same claim. */
+  assert.equal((BODY.match(/blockMark\(/g) ?? []).length, 18, 'a block is marked in a new place (or one fewer): re-walk where its ground lands');
   assert.equal((BODY.match(/blockMark\('look'\)/g) ?? []).length, 4);
   assert.equal((BODY.match(/blockMark\('live_hub'\)/g) ?? []).length, 7);
   assert.equal((BODY.match(/blockMark\('photos_of_you'\)/g) ?? []).length, 1);
@@ -413,7 +415,7 @@ test('6 · the draft carries it and counts it: one change toward Apply, free; pu
   const look = { details: { g: 'frost' }, entourage: { g: 'plain', motion: { in: { fade: true } } } };
   const part = sanitizeHubDraft({ events: { style_preferences: { [BLOCK_LOOKS_PREF_KEY]: look } } });
   assert.deepEqual(part?.events.style_preferences, { [BLOCK_LOOKS_PREF_KEY]: look }, 'the draft’s cleaner drops a block’s background');
-  const merged = mergeHubDraft(part!, sanitizeHubDraft({ events: { style_preferences: { camera_look: 'film' } } })!);
+  const merged = mergeHubDraft(part!, sanitizeHubDraft({ events: { style_preferences: { qr: { pattern: 'dots' } } } })!);
   assert.deepEqual((merged.events.style_preferences as Record<string, unknown>)[BLOCK_LOOKS_PREF_KEY], look);
 
   const counted = (draft: ReturnType<typeof sanitizeHubDraft>, live: unknown) => hubDraftCountedChanges(planHubDraftApply(draft, { events: { style_preferences: live }, widgets: {} } as unknown as HubLiveState, false));

@@ -39,11 +39,13 @@
  * Day › Camera (`TOOLBAR-SPEC-2026-10-09.md` "The Day › Camera": *"only have style"* — the three camera looks as
  * tall phone-shaped cards): the same `.lc` card as every other part, over all four rows. So the Camera has no card
  * of its own any more — it hands `StyleCards` its picture (the camera's own pieces) and is held below as that.
+ * 📷 2026-10-24 — …AND LEFT THEM: one camera, no look to pick (owner: "remove the other style template"). The
+ * drawn-picture handover is still held below, with a stand-in picture (the Logo's and the Reveal's use it).
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import React from 'react';
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from './strip-comments';
 import { SP_LOOK_CARD, SP_PHONE_CARD, SP_PHONE_PICTURE, SP_STYLE_CARD, SP_STYLE_CARD_WIDE, SP_STYLE_NAME, SP_STYLE_PICTURE, SP_STYLE_WIDE_ASPECT, styleCardFit, styleCardIsWide } from './maker-stage-room';
@@ -174,36 +176,33 @@ test('no audited picker sizes a card as a share of the row or by its part’s sh
   assert.match(car, /const w = styleCardIsWide\(shape\);/, 'a card is widened by something other than its part’s measured shape');
 });
 
-test('the Camera’s three looks are the toolbar’s Style cards — it draws no card of its own, only what fills the picture', async () => {
-  const camera = read(`${LAUNCH}/stage-panel/camera-look.tsx`);
-  assert.equal(camera.split('<StyleCards').length - 1, 1, 'the Camera’s looks are not ONE strip of the toolbar’s Style cards');
-  assert.match(camera, /<StyleCards\s[^>]*options=\{CAMERA_LOOK_OPTIONS\}[\s\S]*?picture=\{\(id\) => <CameraLookFace look=\{id as CameraLook\} logo=\{brand\.logo\} accent=\{brand\.accent\} \/>\}/);
-  assert.doesNotMatch(camera, /data-style-card=|data-style-card-preview=|SP_LOOK_CARD|SP_PHONE_PICTURE|SP_LAYOUT_CARD|spCardWidth/, 'the Camera draws a card of its own again');
+test('a card whose picture is drawn (not copied off the page) is still the toolbar’s Style card — the Camera has none now', async () => {
+  /* 📷 Owner 2026-10-24: ONE camera — the Camera part draws no Style cards at all (its looks were the last drawn ones
+     besides the Logo's and the Reveal's). */
+  assert.ok(!existsSync(join(WEB, LAUNCH, 'stage-panel', 'camera-look.tsx')), 'the Camera’s look picker is back');
+  assert.doesNotMatch(read(`${LAUNCH}/stage-panel/camera-face.tsx`), /<StyleCards/, 'the Camera draws Style cards again');
   /* The strip hands the picture over WITHOUT changing the card: the same frame, the same foot. */
   const car = read(`${LAUNCH}/stage-panel/style-carousel.tsx`);
   assert.match(car, /\{picture \? \(\s*picture\(o\.id, on\)\s*\) : \(\s*<StylePreview/);
-  /* RENDERED: three cards, each the frame as tall as its rows, each filled by that look's camera screen. */
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { StyleCards } = await import(`../${LAUNCH}/stage-panel/style-carousel`);
-  const { CameraLookFace } = await import(`../${LAUNCH}/stage-panel/camera-face`);
-  const { CAMERA_LOOKS, CAMERA_LOOK_LABEL } = await import('./camera-look');
   const html = renderToStaticMarkup(
     React.createElement(StyleCards, {
-      options: CAMERA_LOOKS.map((l: string) => ({ id: l, name: CAMERA_LOOK_LABEL[l as keyof typeof CAMERA_LOOK_LABEL] })),
-      value: 'classic',
+      options: ['a', 'b', 'c'].map((id) => ({ id, name: id.toUpperCase() })),
+      value: 'a',
       onPick: () => {},
       pending: false,
       canvasKey: null,
       sceneType: '',
-      picture: (id: string) => React.createElement(CameraLookFace, { look: id, logo: null, accent: null }),
+      picture: (id: string) => React.createElement('span', { 'data-drawn-picture': id, className: 'absolute inset-0 ' }),
     }),
   );
   const buttons = [...html.matchAll(/<button[^>]*role="radio"[^>]*class="([^"]*)"[^>]*>/g)].map((m) => m[1]!);
   assert.equal(buttons.length, 3);
   for (const b of buttons) assert.equal(b, SP_STYLE_CARD);
-  assert.deepEqual([...html.matchAll(/data-camera-look-face="([a-z]+)" class="absolute inset-0 /g)].map((m) => m[1]), ['classic', 'brand', 'challenges'], 'a card’s camera screen does not fill its picture');
+  assert.deepEqual([...html.matchAll(/data-drawn-picture="([a-z]+)"/g)].map((m) => m[1]), ['a', 'b', 'c']);
   assert.equal(html.split(`class="${SP_STYLE_PICTURE}"`).length - 1, 3);
-  assert.doesNotMatch(html, /iframe/, 'a Camera card loads a page — the camera is never opened in the Maker');
+  assert.doesNotMatch(html, /iframe/, 'a drawn card loads a page');
 });
 
 test('a picker that draws look cards and is not in the audit fails — it joins the list', () => {

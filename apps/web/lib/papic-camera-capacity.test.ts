@@ -26,7 +26,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -40,48 +40,17 @@ const read = (rel: string) => readFileSync(join(WEB, rel), 'utf8');
 const PICKER = 'app/dashboard/[eventId]/studio/papic/extra-cameras-picker.tsx';
 const PAPIC_PAGE = 'app/dashboard/[eventId]/studio/papic/page.tsx';
 
-test('the picker takes a lifetime BUCKET, not a per-day meter', () => {
-  const src = read(PICKER);
-  assert.match(
-    src,
-    /points:\s*number\s*\|\s*null/,
-    `${PICKER} must expose \`points\` (a lifetime bucket).`,
-  );
-  assert.doesNotMatch(
-    src,
-    /\bpointsPerDay\b/,
-    `${PICKER} must not carry \`pointsPerDay\` — that is the RETIRED per-camera-` +
-      `per-DAY meter whose 'mini' row is NULL on prod, which every copy helper ` +
-      `reads as "unlimited". It is what made a 50-shot camera advertise "No limit".`,
-  );
-});
-
-test('the picker never claims a camera is unlimited', () => {
-  assert.doesNotMatch(
-    read(PICKER),
-    /No limit/i,
-    `${PICKER} must not print "No limit". Every rung it can still show is a ` +
-      `fixed bucket granted by papic_grant_camera_points(); an unbounded claim ` +
-      `there is unbacked by the enforcement path.`,
-  );
-});
-
-test('the page resolves the bucket from papic_one_tiers, keyed by the rung SKU', () => {
+/*
+  ⛔ 2026-10-23 — THE PICKER THESE RULES HELD IS DELETED, and with it the only couple surface that ever
+  advertised a per-camera capacity. Owner, over the crew-camera tier ladder on his own page: "why do i
+  have these?" Papic sells shared credits only (`lib/papic-sells-only-credits.ts`), so no camera has a
+  capacity of its own to advertise — the three tests that pinned the picker's bucket became one: the
+  picker stays gone, and the page asks nothing about a camera's own bucket.
+*/
+test('no couple surface advertises a camera’s own capacity — the picker is gone', () => {
+  assert.equal(existsSync(join(WEB, PICKER)), false, `${PICKER} is back — Papic does not sell cameras`);
   const src = read(PAPIC_PAGE);
-  assert.match(
-    src,
-    /fetchPapicOneTiers\(/,
-    `${PAPIC_PAGE} must read papic_one_tiers — the same table the grant reads.`,
-  );
-  assert.match(
-    src,
-    /papicOneTiers\.find\(\(t\) => t\.serviceCode === papicRungSku\(rung\)\)/,
-    'the bucket must be keyed by the rung SKU so a rung with no tier row goes ' +
-      'silent rather than inheriting another rung’s number',
-  );
-  // The mini rung is the one that actually ships today; pin the SKU it keys on
-  // so a rename cannot silently detach the lookup from the grant function.
-  assert.equal(PAPIC_CAMERA_MINI_SKU, 'PAPIC_CAMERA_MINI_DAY');
+  assert.doesNotMatch(src, /fetchPapicOneTiers\(|papicRungSku\(|ExtraCamerasPicker/, 'the Papic page prices a camera again');
 });
 
 test('papicBucketPhrase discloses the one-purse trade-off, derived', () => {

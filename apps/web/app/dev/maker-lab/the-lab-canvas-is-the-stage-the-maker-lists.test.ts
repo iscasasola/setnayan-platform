@@ -158,7 +158,7 @@ test('G1 — a Day part the couple hid in "What guests see" is not drawn on the 
   const after = draw(draftedRows(cookiesOf(hidden, false)[ROWS] ?? undefined));
   for (const part of ['live_hub', 'photos_of_you', 'find_your_seat', 'entourage']) assert.equal(after.tiles.includes(`f:${part}`), false, `the Maker's list still has ${part}`);
   /* The stand-ins themselves (their eyebrows) are drawn before and gone after; the parts nobody hid stay. */
-  for (const eyebrow of ['✦ Your seat', 'Watch live · Live photo wall', '✦ Photos of you']) {
+  for (const eyebrow of ['✦ Your seat', 'Watch live · Memory lane', '✦ Memories of you']) {
     assert.ok(before.html.includes(eyebrow), `the Day draws "${eyebrow}" with nothing stored`);
     assert.equal(after.html.includes(eyebrow), false, `the Day still draws "${eyebrow}" after the couple hid it`);
   }

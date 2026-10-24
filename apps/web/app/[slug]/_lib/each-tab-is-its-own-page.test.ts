@@ -86,14 +86,14 @@ test('1 · the Invitation: Welcome · Details · Our Love Story · Me — keys h
   assert.deepEqual(bar.map((s) => s.key), ['home', 'details', 'story', 'me'], 'the keys stay (links keep working)');
 });
 
-test('1 · The Day: Live · Welcome · Camera · Gallery · Me — broadcast or not', () => {
+test('1 · The Day: Live · Welcome · Camera · Memories · Me — broadcast or not', () => {
   for (const liveBroadcast of [false, true]) {
     const bar = guestAt('event', { liveBroadcast });
-    assert.deepEqual(bar.map((s) => s.label), ['Live', 'Home', 'Camera', 'Gallery', 'Me']);
+    assert.deepEqual(bar.map((s) => s.label), ['Live', 'Home', 'Camera', 'Memories', 'Me']);
     assert.deepEqual(bar.map((s) => s.key), ['live', 'home', 'camera', 'gallery', 'me'], 'the day’s Welcome is `home`, the guest’s own page');
   }
   // A reader with no Welcome on the day → no dead tab.
-  assert.deepEqual(guestAt('event', { hasWelcome: false }).map((s) => s.label), ['Live', 'Camera', 'Gallery', 'Me']);
+  assert.deepEqual(guestAt('event', { hasWelcome: false }).map((s) => s.label), ['Live', 'Camera', 'Memories', 'Me']);
 });
 
 test('1 · NO RSVP SLOT — for anyone, in any phase, tabbed or not', () => {
@@ -110,7 +110,7 @@ test('1 · NO RSVP SLOT — for anyone, in any phase, tabbed or not', () => {
 
 test('1 · the Maker’s Page ▾ offers the same pages, in the same words', () => {
   assert.deepEqual(makerGuestPages('rsvp', []).map((p) => p.label), ['Home', 'Details', 'Story', 'Me']);
-  assert.deepEqual(makerGuestPages('event', []).map((p) => p.label), ['Live', 'Home', 'Camera', 'Gallery', 'Me']);
+  assert.deepEqual(makerGuestPages('event', []).map((p) => p.label), ['Live', 'Home', 'Camera', 'Memories', 'Me']);
 });
 
 /* ══ 2 · EACH TAB HAS ITS OWN ADDRESS ════════════════════════════════════════ */

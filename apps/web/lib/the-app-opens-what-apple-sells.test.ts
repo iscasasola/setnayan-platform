@@ -26,6 +26,7 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { fixtureControl } from '@/lib/home-control-fixture';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { isStoreShellSignals, isStoreShellWebOnlyPath, storeShellHidesHref } from './store-shell';
@@ -34,7 +35,7 @@ import { boughtWhere, liveWatchHomeStatus } from './iap/where-bought';
 import { APP_STORE_CHANNEL_KEY } from './iap/products';
 import { POOL_ONLY_APP_NOTICE, POOL_ONLY_DEFAULT_NOTICE, poolOnlyConnectNotice } from './live-studio-pool-only';
 import { stripComments } from './strip-comments';
-import { glanceCount, glanceDays, glanceMoney, pickHomeNext, type HomeNextInput } from './home-first-screen';
+import { pickHomeNext, type HomeNextInput } from './home-first-screen';
 
 (globalThis as unknown as { React: unknown }).React = React;
 
@@ -79,6 +80,13 @@ const OPENS = [
   `/panood/control/${E}`,
   `/dashboard/${E}/studio/panood/cameras`,
   `/dashboard/${E}/studio/panood/cameras/print`,
+  // 🍎 23 Oct (owner: "five more Apple products") — each home's pay step is Apple's sheet (section 6 below).
+  `/dashboard/${E}/studio/setnayan-ai`,
+  `/dashboard/${E}/studio/pakanta`,
+  `/dashboard/${E}/studio/patiktok`,
+  `/dashboard/${E}/studio/patiktok/booth`,
+  `/dashboard/${E}/studio/patiktok/sunset-glow`,
+  `/dashboard/${E}/studio/thank-you`,
 ];
 const STAYS_REFUSED = [
   `/dashboard/${E}/studio/live-studio-control`, // the Live Watch buy page — its price, plans, checkout
@@ -90,10 +98,13 @@ const STAYS_REFUSED = [
   `/panood/control`, // no event: not the controller
   `/dashboard/${E}/studio/about/papic`, // the App-Store-style detail page: a price + Get
   `/dashboard/${E}/studio/papic-guest`,
-  `/dashboard/${E}/studio/patiktok`,
-  `/dashboard/${E}/studio/pakanta`,
-  `/dashboard/${E}/studio/setnayan-ai`,
+  // The App-Store-style detail pages of the five stay refused — each is a web price and a "Get".
+  `/dashboard/${E}/studio/about/setnayan-ai`,
+  `/dashboard/${E}/studio/about/pakanta`,
+  `/dashboard/${E}/studio/about/patiktok`,
+  `/dashboard/${E}/studio/about/thank-you`,
   `/dashboard/${E}/studio/website-pro`,
+  `/dashboard/${E}/studio/animated-monogram`,
   `/dashboard/${E}/orders/new`,
   `/dashboard/${E}/checkout`,
   `/dashboard/${E}/live`, // the Live Photo Wall — a web extra Apple does not sell
@@ -203,11 +214,9 @@ function home(apple: unknown): string {
       eventId: E,
       cover: { eyebrow: 'Wedding · December 18, 2026', name: 'Ana & Miguel' },
       next: pickHomeNext(NOTHING),
-      days: glanceDays(120),
-      coming: glanceCount(96, true),
-      noReply: glanceCount(35, true),
-      noReplyWaiting: true,
-      money: null,
+      // The control row as the app draws it: the budget not shared here (as the old `money: null`), the Hub's link
+      // named without its web address (`readHomeHub` `app`).
+      control: fixtureControl(E, { next: pickHomeNext(NOTHING), budget: null, hub: { stage: 'rsvp', publicUrl: `https://setnayan.com/x`, where: 'Public', dayShort: 'Dec 18', guide: null } }),
       services: [],
       papicLeft: 320,
       apple,
@@ -241,7 +250,8 @@ test('2 · GATE ON — Papic opens its page; an owned Live Watch says where it w
   assert.match(goLive, /Go live/, 'no Go live door to the controller');
   assert.match(html, /On · bought in the app/);
   assert.match(html, /data-testid="iap-papic-buy-more"/, 'Papic keeps its Apple Buy more');
-  assert.doesNotMatch(html, /₱|GCash|BDO|setnayan\.com/i, 'a web price or web pay on Home in the app');
+  // What a person READS (an href is where a tap goes — the public Event Hub opens in the app's own browser sheet).
+  assert.doesNotMatch(html.replace(/href="[^"]*"/g, ''), /₱|GCash|BDO|setnayan\.com/i, 'a web price or web pay on Home in the app');
   // Not owned: Activate (Apple's sheet), never Go live.
   const notOwned = home({ papic: null, liveWatch: { status: 'Not on yet · one camera is free', owned: false, askReady: true, goLive: null } });
   assert.doesNotMatch(notOwned, />Go live</);
@@ -309,32 +319,41 @@ function asksAppleIap(src: string, at: number): boolean {
 test('3 · the Papic page reads the gate once, and every web-only offer on it asks it', () => {
   const src = code(PAPIC_PAGE);
   assert.match(src, /const appleIap = \(await getIapGate\(\)\)\.iap;/);
-  // Each mount of a thing sold only on the web (apply-then-pay → /pay) — found by name, counted, every one gated.
-  const SOLD_ON_THE_WEB = ['InlineCheckoutDrawer', 'ExtraCamerasPicker', 'GuestCameraTierPicker', 'DslrBridgeSection'];
+  // (2026-10-23: the crew-camera ladder, the guest-camera tier sheet and the unlock bundle are GONE from the page —
+  //  not gated, removed; Papic sells credits only. They may not come back on either platform.)
+  for (const gone of ['ExtraCamerasPicker', 'GuestCameraTierPicker', 'LimitedCard', 'PAPIC_UNLOCK']) {
+    assert.ok(!new RegExp(`<${gone}\\b|serviceKey="${gone}"`).test(src), `${gone} is on the Papic page again`);
+  }
+  // Each mount of a thing sold only on the web — found by name, counted, every one gated. (Keep full-res left with
+  // the files for the Memories ⚙ sheet on 2026-10-23 — gated there, below.)
+  const SOLD_ON_THE_WEB = ['InlineCheckoutDrawer', 'DslrBridgeSection'];
   let mounts = 0;
   const ungated: string[] = [];
   for (const name of SOLD_ON_THE_WEB) {
     for (const m of src.matchAll(new RegExp(`<${name}\\b`, 'g'))) {
       mounts++;
-      const inLimitedCard = name === 'GuestCameraTierPicker';
-      // The tier picker sits inside LimitedCard, whose own `appleIap` prop decides it (and the page hands it in).
-      if (!asksAppleIap(src, m.index!)) ungated.push(`${name} @${src.slice(0, m.index!).split('\n').length}${inLimitedCard ? ' (LimitedCard)' : ''}`);
+      if (!asksAppleIap(src, m.index!)) ungated.push(`${name} @${src.slice(0, m.index!).split('\n').length}`);
     }
   }
-  assert.ok(mounts >= 5, `found only ${mounts} web-offer mounts — the anchor moved`);
+  assert.ok(mounts >= 1, `found only ${mounts} web-offer mounts — the anchor moved`);
   assert.deepEqual(ungated, [], 'A web-only offer is drawn on the Papic page with nothing asking `appleIap`:\n  ' + ungated.join('\n  '));
-  // The ₱ fallbacks of both offers sit inside the same gated sections.
-  for (const m of src.matchAll(/formatPhp\((papicUnlockPricePhp|keepFullResPricePhp)\)/g)) {
-    assert.ok(asksAppleIap(src, m.index!), `a bare ₱ (${m[1]}) is drawn in the app`);
-  }
-  // Every part handed the gate.
-  for (const mount of ['<StatusBanners', '<PapicTopBand', '<LiveWallCard', '<LimitedCard', '<GalleryPreviewCard']) {
+  // Every part handed the gate — the credits band draws Add more as Apple's sheet there.
+  // 📷 The card's Add more (2026-10-24, one Papic card): Apple's sheet in the app, the web's elsewhere — one switch.
+  assert.match(src, /appleIap \? \(\s*<IapPapicSheet\b[\s\S]{0,200}?\) : \(\s*<PapicBuySheet\b/, 'the card’s Add more is not Apple’s sheet in the app');
+  for (const mount of ['<StatusBanners']) {
     const at = src.indexOf(mount);
     assert.ok(at > 0, `${mount} moved`);
     assert.match(src.slice(at, src.indexOf('/>', at)), /appleIap=\{appleIap\}|apple=\{appleIap\}/, `${mount} is not handed the gate`);
   }
-  assert.match(src, /preservationTotals=\{appleIap \? null : preservationTotals\}/, 'the keep-at-full-size ₱ line is drawn in the app');
-  assert.match(src, /href=\{appleIap \? `\/dashboard\/\$\{eventId\}` : studioHubHref\(eventId\)\}/, 'Back goes to the More menu, which the app does not build');
+  // 🗂 The files' web-only offers moved to the Memories ⚙ sheet with the files — gated there.
+  const sheet = code('app/dashboard/[eventId]/memories/_components/memories-settings.tsx');
+  assert.match(sheet, /\{appleIap \? null : \(/, 'Keep full-res is drawn in the app');
+  assert.ok(asksAppleIap(sheet, sheet.indexOf('<InlineCheckoutDrawer')), 'the Keep full-res checkout is drawn in the app');
+  assert.match(sheet, /<LiveWallCard eventId=\{eventId\} appleIap=\{appleIap\}/, 'the photo wall is not handed the gate');
+  assert.match(code('app/dashboard/[eventId]/memories/page.tsx'), /appleIap=\{appleIap\}/, 'Memories does not hand its sheet the gate');
+  // …and the gate there is the APP, not only Apple's switch: with In-App Purchase off the store shell still shows no web
+  // price (review 2026-10-24: "Keep full resolution · Turn on · ₱…/yr" reached the app).
+  assert.match(code('app/dashboard/[eventId]/memories/page.tsx'), /const appleIap = iap\.iap \|\| iap\.storeShell;/, 'Memories shows web prices in the app when Apple does not sell');
   assert.match(code('app/dashboard/[eventId]/studio/papic/_components/live-wall-card.tsx'), /if \(appleIap\) return null;/);
 });
 
@@ -427,4 +446,87 @@ test('5 · Our Story: the ◆ mark shows where Pro is tried in the app; gate off
   assert.match(on, /try it here; Apply asks for it/, 'the app tries Pro with no ◆ mark');
   assert.doesNotMatch(on, /Add as many moments as you like/, 'the app tells a non-Pro couple Pro is theirs');
   assert.doesNotMatch(on, /website-pro|₱/, 'a web Pro link or price in the app');
+});
+
+/* ═══ 6 · THE FIVE MORE (owner 2026-10-23) — each page's ONE pay step is Apple's sheet, only where Apple sells ═══ */
+
+const STUDIO = 'app/dashboard/[eventId]/studio';
+const DOORS: Array<[file: string, gate: RegExp[]]> = [
+  [
+    `${STUDIO}/setnayan-ai/page.tsx`,
+    [
+      /const appleIap = \(await getIapGate\(\)\)\.iap;/,
+      /const appleTier = appleIap && paywallOn \? await setnayanAiTierInApp\(createAdminClient\(\), eventId\) : null;/,
+      /const appleSells = appleProduct !== null;/,
+      // A paid Sai — bought, owned or for sale — is shown in the app only where Apple sells this event's tier.
+      /if \(appleIap && paywallOn && !appleSells\) redirect\(`\/dashboard\/\$\{eventId\}`\);/,
+      /price=\{pricePhp != null && !appleIap \? priceLabel : undefined\}/,
+      /appleProduct && showBuy \? \(\s*<IapUnlockSheet\b/,
+      /const settings = showBuy && !appleIap \?/,
+    ],
+  ],
+  [`${STUDIO}/pakanta/page.tsx`, [/const appleIap = \(await getIapGate\(\)\)\.iap;/, /const skuRecord = appleIap \? null :/]],
+  [
+    `${STUDIO}/pakanta/_components/pakanta-music-form.tsx`,
+    [/readyToPay && apple \? \(\s*<IapUnlockSheet\b/, /readyToPay && apple && !appleOnSale \? \(/, /const priceSuffix = !apple && pricePhp != null \?/, /\{apple \? 'Continue' : `Continue to payment\$\{priceSuffix\}`\}/],
+  ],
+  [
+    `${STUDIO}/patiktok/page.tsx`,
+    [
+      /const appleIap = \(await getIapGate\(\)\)\.iap;/,
+      /const saveCardMounted = !patiktokActive && \(!storeShell \|\| appleIap\);/,
+      /pricePhp=\{appleIap \? null : pricePhp\}/,
+      /\) : apple \? \(\s*<div className="pt-1">\s*<IapUnlockSheet\b/,
+      /\) : apple && !appleOnSale \? \(/,
+      /const settings = storeShell \? STORE_SHELL_NO_PAY_SETTINGS : await fetchPlatformSettings\(supabase\);/,
+      /<p data-web-only="" className="text-xs text-ink\/55">\s*Need a custom reel template\?/,
+    ],
+  ],
+  [
+    `${STUDIO}/thank-you/page.tsx`,
+    [/const appleIap = \(await getIapGate\(\)\)\.iap;/, /if \(!owned && appleIap\) \{/, /settings: STORE_SHELL_NO_PAY_SETTINGS,\s*apple: sellability === 'sellable',/],
+  ],
+  [`${STUDIO}/thank-you/_components/thank-you-maker.tsx`, [/if \(checkout\.apple\) \{\s*return \(\s*<div className="space-y-2">\s*<IapUnlockSheet\b/]],
+  [
+    `${STUDIO}/mood-board/_components/mood-board-editor.tsx`,
+    [/const appleIap = storeShell && \(await getIapGate\(\)\)\.iap;/, /const makeItReal = storeShell && !appleIap \? null : \(\s*<MakeItReal\s+apple=\{appleIap\}/],
+  ],
+  [`${STUDIO}/mood-board/_components/make-it-real.tsx`, [/\{apple \? \(\s*mayStartRenders && !configUnavailable && appleOnSale \? \(\s*<IapUnlockSheet\b/, /\$\{apple \? '' : ' Payment is verified by hand/]],
+];
+
+test('6 · the five doors: each page reads the one gate, and Apple’s sheet is mounted only inside it', () => {
+  for (const [file, gates] of DOORS) {
+    const src = code(file);
+    for (const re of gates) assert.match(src, re, `${file}: ${re}`);
+  }
+  // Every IapUnlockSheet mount in the product is one of these (the /dev lab aside) — a new mount is a new decision.
+  const mounts = DOORS.map(([f]) => f).filter((f) => /<IapUnlockSheet\b/.test(code(f)));
+  assert.deepEqual(mounts.sort(), [
+    `${STUDIO}/mood-board/_components/make-it-real.tsx`,
+    `${STUDIO}/pakanta/_components/pakanta-music-form.tsx`,
+    `${STUDIO}/patiktok/page.tsx`,
+    `${STUDIO}/setnayan-ai/page.tsx`,
+    `${STUDIO}/thank-you/_components/thank-you-maker.tsx`,
+  ]);
+  // GATE OFF: with `apple` false each component takes the web branch it always took.
+  assert.match(code(`${STUDIO}/pakanta/_components/pakanta-music-form.tsx`), /\) : readyToPay && pricePhp != null \? \(\s*<InlineCheckoutDrawer\b/);
+  assert.match(code(`${STUDIO}/mood-board/_components/make-it-real.tsx`), /\) : packPlan && mayStartRenders \? \(\s*<ChoosePlanSheet\b/);
+});
+
+test('6 · a Setnayan AI bought on the web or in the app lights up in the app only where Apple sells THIS EVENT’S TIER', async () => {
+  const { storeShellAllowsPaidFeature } = await import('./store-shell');
+  assert.equal(storeShellAllowsPaidFeature(true, true), false, 'gate off: as before — no web-bought Sai in the app');
+  assert.equal(storeShellAllowsPaidFeature(true, true, false), false);
+  assert.equal(storeShellAllowsPaidFeature(true, true, true), true, 'gate on: Sai is sold by Apple here, so it is usable');
+  assert.equal(storeShellAllowsPaidFeature(false, true), true, 'the web: unchanged');
+  const vendors = code('app/dashboard/[eventId]/vendors/page.tsx');
+  assert.match(vendors, /const appleIap = storeShell && \(await appleIapRead\) === true;/);
+  assert.match(vendors, /const appleSai = appleIap && paywallEnabled && \(await setnayanAiTierInApp\(createAdminClient\(\), eventId\)\)\.status === 'sellable';/);
+  assert.match(vendors, /storeShellAllowsPaidFeature\(storeShell, paywallEnabled, appleSai\)/, 'the Suppliers page lights Sai without asking the tier');
+  assert.match(vendors, /\(!storeShell \|\| appleSai\);/, 'the Sai banner shows in the app for an event Apple does not sell');
+  assert.match(
+    code('app/dashboard/[eventId]/_components/event-dashboard.tsx'),
+    /storeShellAllowsPaidFeature\(\s*storeShell,\s*aiPaywallEnabled,[^;]*storeShell && aiPaywallEnabled && \(await appleIapRead\) === true &&\s*\(await setnayanAiTierInApp\(createAdminClient\(\), eventId\)\)\.status === 'sellable',\s*\)/,
+    'the dashboard lights Sai without asking the tier',
+  );
 });

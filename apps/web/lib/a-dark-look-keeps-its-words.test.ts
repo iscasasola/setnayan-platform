@@ -588,8 +588,8 @@ function cascade(themeId: InviteThemeId, event: Event): Record<string, string> {
 }
 
 test('(9) every gild word on the REAL page reads on the ground of its nearest surface — Welcome and Details, every Look', async () => {
-  // ── The pages: a listed guest (Welcome · Details · the story), and a stranger whose Details opens with the
-  //    "THE DETAILS · WHEN" plate — the gold date card measured on the preview.
+  // ── The pages: a listed guest (Welcome · Details · the story), and a stranger (whose Details USED to open with the
+  //    "THE DETAILS · WHEN" plate — the gold date card measured on the preview; retired 2026-10-24).
   const stranger = anonymousIdentity({ reason: null, publicCandidCameraActive: false, publicAlbumHref: null });
   const pages: Record<string, string> = {
     'a guest': await renderSiteBodyFixture({ event: { ...FIXTURE_EVENT, love_story: { how_we_met: 'On a jeepney in Cubao.' } } as never }),
@@ -603,9 +603,11 @@ test('(9) every gild word on the REAL page reads on the ground of its nearest su
   // Not vacuous: both tabs, the plate the fault was on, a veil row, and the page itself.
   assert.ok(list.length >= 12, `only ${list.length} gild words were found on the real page`);
   for (const tab of ['home', 'details']) assert.ok(list.some((w) => w.tab === tab), `no gild word was found on the ${tab} tab`);
-  const when = list.find((w) => w.text === 'When' && w.surface === PLATE && w.tab === 'details');
-  assert.ok(when, 'the "When" label on the details plate is not on the rendered page — the measured fault is no longer drawn here');
-  assert.ok(list.some((w) => w.tag === 'svg' && w.surface === PLATE), 'the calendar icon on the plate is not found');
+  /* 🔁 RE-AIMED 2026-10-24: the stranger's "THE DETAILS · WHEN" plate — where the fault was measured — is drawn on no
+     page any more (owner, "isn't this a dupe?" — `OFF_THE_PAGE`, `the-details-tab-repeats-nothing.test.ts`), so its
+     "When" and calendar icon are not on the rendered page to find. The plate's rule is still held below by the
+     measured arithmetic (the gold card, three ways) — it is the surface every other plate (venue, seat, reminders) wears. */
+  assert.equal(PLATE.key, 'plate', 'the plate surface the fault was measured on is no longer the first gild surface');
   assert.ok(list.some((w) => w.surface?.veil), 'no gild word on a veil row was found');
   assert.ok(list.some((w) => w.surface === null && w.tab === 'home'), 'the "and" between the names is not found');
 

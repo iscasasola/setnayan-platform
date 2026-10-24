@@ -51,10 +51,12 @@ test('the fee line reads the LIVE schedule handed in, never the code default', (
   assert.doesNotMatch(row.line, /5%/);
 });
 
-test('first five: "N of 5 used" comes from the standing’s ordinal', () => {
-  const row = bookingFeeRow({ kind: 'free', ordinal: 3, ordinalIsFrozen: false, schedule: BOOKING_FEE }, 0)!;
-  assert.deepEqual(row.badge, { tone: 'quiet', word: '2 of 5 used' });
-  assert.match(row.line, /your first 5 are free$/);
+test('the free first booking: still to come, then used — never a count (owner 2026-10-23)', () => {
+  const row = bookingFeeRow({ kind: 'free', ordinal: 1, ordinalIsFrozen: false, schedule: BOOKING_FEE }, 0)!;
+  assert.deepEqual(row.badge, { tone: 'quiet', word: 'First booking free' });
+  assert.match(row.line, /your first booking from Setnayan is on us$/);
+  const used = bookingFeeRow({ kind: 'billable', ordinal: 2, ordinalIsFrozen: false, schedule: BOOKING_FEE }, 0)!;
+  assert.deepEqual(used.badge, { tone: 'quiet', word: 'Free booking used' });
 });
 
 test('waived (launch offer / promotion) reads Waived; a bill waiting outranks it', () => {

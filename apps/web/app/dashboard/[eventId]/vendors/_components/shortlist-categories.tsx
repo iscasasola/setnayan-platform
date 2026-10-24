@@ -111,10 +111,6 @@ import { addOwnCategoriesFromRows } from '@/lib/add-your-own';
 import { INVITE_STATUS_UNREAD_LINE, joinedLine, ownRecordLine, type InviteStatusByVendorId } from '@/lib/supplier-invite-status';
 import { InspectorTrigger } from '@/app/_components/inspector/inspector-column';
 import {
-  searchMarketplaceForBench,
-  type BenchMarketResult,
-} from '../_actions/bench-marketplace-search';
-import {
   clearCategoryDecision,
   excludeTileFromPlan,
   restoreTileToPlan,
@@ -127,6 +123,7 @@ import { FindThumbRow } from './find-thumb-row';
 import { SUP_REACH_Y, categoryRowState, isCategoryOpen, ringCoveredCount, thumbScopeTile } from '@/lib/suppliers-shell';
 import { Count } from '@/components/count';
 import { ActionButton } from '@/components/action-button';
+import { SearchAddRow } from '@/components/search-add-row';
 import { cardVerbWords } from '@/lib/supplier-card-verbs';
 import { Sheet } from '@/app/_components/sheet';
 import { cardDates, dateOutcome, type CardDates, type DateOutcome } from '@/lib/card-dates';
@@ -572,28 +569,6 @@ html.dark .slcat .sortseg button.on{color:#17160F;background:#E5794E}
 .slcat .bench-search .bs-x{flex:0 0 auto;border:0;background:none;color:var(--ink-faint);cursor:pointer;font-size:18px;line-height:1;padding:2px;display:inline-flex}
 .slcat .bench-search .bs-x:hover{color:var(--mulberry)}
 .slcat .bench-empty{padding:26px 16px;text-align:center;color:var(--ink-faint);font-size:13px}
-/* search the WHOLE marketplace — a one-tap jump to /explore?q= (beyond the shortlist) */
-.slcat .bench-mkt{display:flex;align-items:center;gap:10px;margin:0 0 12px;padding:11px 14px;background:var(--card);border:1px solid var(--line);border-radius:var(--m-r-md);text-decoration:none;color:var(--ink);font-size:13px;transition:border-color .18s var(--ease),background .18s var(--ease)}
-.slcat .bench-mkt:hover{border-color:rgba(30,26,18,.28);background:rgba(30,26,18,.02)}
-.slcat .bench-mkt>svg{color:var(--mulberry);flex:0 0 auto}
-.slcat .bench-mkt>span{flex:1;min-width:0}
-.slcat .bench-mkt b{font-weight:600;color:var(--mulberry)}
-.slcat .bench-mkt .bench-mkt-arr{color:var(--ink-faint);flex:0 0 auto;transition:transform .18s var(--ease)}
-.slcat .bench-mkt:hover .bench-mkt-arr{transform:translateX(2px);color:var(--mulberry)}
-html.dark .slcat .bench-mkt{background:#232019}
-/* inline whole-marketplace results — top matches below the shortlist filter */
-.slcat .bench-mkt-results{margin:0 0 10px;background:var(--card);border:1px solid var(--line);border-radius:var(--m-r-md);overflow:hidden}
-.slcat .bmr-head{font-family:var(--mono);font-size:9px;letter-spacing:.11em;text-transform:uppercase;color:var(--ink-faint);padding:10px 14px 6px}
-.slcat .bmr-loading{padding:6px 14px 14px;font-size:12.5px;color:var(--ink-soft)}
-.slcat .bmr-row{display:flex;align-items:center;gap:11px;padding:9px 14px;border-top:1px solid var(--line-soft);text-decoration:none;color:inherit;transition:background .15s var(--ease)}
-.slcat .bmr-row:hover{background:rgba(30,26,18,.03)}
-.slcat .bmr-av{width:32px;height:32px;border-radius:var(--m-r-sm);flex:0 0 auto;display:grid;place-items:center;font-family:var(--serif);font-style:italic;font-size:13px;color:#fff;background:linear-gradient(135deg,#3a3f47,#565b63)}
-.slcat .bmr-m{flex:1;min-width:0}
-.slcat .bmr-m b{font-size:13.5px;font-weight:600;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.slcat .bmr-m span{font-size:11px;color:var(--ink-soft)}
-.slcat .bmr-arr{color:var(--ink-faint);flex:0 0 auto;transition:transform .15s var(--ease)}
-.slcat .bmr-row:hover .bmr-arr{transform:translateX(2px);color:var(--mulberry)}
-html.dark .slcat .bench-mkt-results{background:#232019}
 html.dark .slcat .bench-search{background:#232019}
 .slcat .vc .meta{padding:11px 13px 13px;flex:1 1 auto;display:flex;flex-direction:column;gap:5px}
 .slcat .vc .vn{font-family:var(--sans);font-weight:700;font-size:13.5px;color:var(--ink);line-height:1.2}
@@ -1032,12 +1007,8 @@ html.dark .slcat .fold.open .fold-nm,html.dark .slcat .cat.open .cat-nm,html.dar
 .slcat .mrsk-l{display:block;height:11px;border-radius:var(--m-r-full);width:80%}
 .slcat .mrsk-l.short{width:45%}
 .slcat .mrfirst{display:block;margin-top:8px}
-/* Lists are hairline rows with a terracotta arrow, not framed boxes (owner 2026-10-12, look call 8); a single
-   standalone door ("See all results…") keeps its frame. */
-.slcat .bench-mkt-results{border:0;border-radius:0;background:none}
-.slcat .bmr-row{border-top:1px solid var(--line);padding-left:0;padding-right:0}
-.slcat .bmr-arr,.slcat .bench-mkt-arr{color:rgb(var(--sn-accent))}
-html.dark .slcat .bench-mkt-results{background:none}
+/* SEARCH OR ADD (owner 2026-10-24): the last row while searching is the one button that adds what was typed. */
+.slcat .bench-add{margin:4px 0 14px}
 /* A note is read, not pressed: no dashed box, it sits on the page (owner 2026-10-11). */
 .slcat .vact.note{border:0;padding-left:0;padding-right:0;background:none;min-height:0}
 `;
@@ -2554,13 +2525,6 @@ export const MoreRowStandInCtx = createContext<
   null | ((input: Parameters<typeof fetchInlineMoreRow>[0]) => ReturnType<typeof fetchInlineMoreRow>)
 >(null);
 
-/**
- * A STAND-IN FOR THE WHOLE-MARKETPLACE NAME SEARCH — `/dev/suppliers-lab` only
- * (no session, no database there). `null` everywhere else: the real page always
- * calls `searchMarketplaceForBench`.
- */
-export const MarketSearchStandInCtx = createContext<null | typeof searchMarketplaceForBench>(null);
-
 export function ShortlistCategories({
   folders: foldersFromServer,
   eventId,
@@ -2712,7 +2676,6 @@ export function ShortlistCategories({
   findPanel?: ReactNode;
 }) {
   const router = useRouter();
-  const marketSearch = useContext(MarketSearchStandInCtx) ?? searchMarketplaceForBench;
 
   // ── A PRESS ANSWERS IN PLACE (owner 2026-10-12, `bench-local.ts`) ─────────
   // A removed supplier leaves THIS list at once and for the visit, whatever
@@ -2861,11 +2824,6 @@ export function ShortlistCategories({
   // categories (and their considered vendors). Empty = the normal single-open
   // accordion; a query filters to matching tiles and auto-expands them.
   const [query, setQuery] = useState('');
-  // Inline whole-marketplace results (2026-07-10) — debounced server search that
-  // shows top matching vendors from the WHOLE marketplace below the shortlist
-  // filter, so a couple can discover a vendor they haven't shortlisted.
-  const [mktResults, setMktResults] = useState<BenchMarketResult[]>([]);
-  const [mktLoading, setMktLoading] = useState(false);
 
   // ── Inline "More in {category}" row · ROW 2 (owner 2026-09-06) ─────────────
   // Owner: "when they also click the find reception button, it must show a
@@ -3528,36 +3486,6 @@ export function ShortlistCategories({
         .filter((f) => f.tiles.length > 0)
     : folders;
 
-  // Debounced whole-marketplace search — fires ~280ms after typing settles; a
-  // cancel flag drops stale responses so results can't arrive out of order.
-  useEffect(() => {
-    if (q.length < 2) {
-      setMktResults([]);
-      setMktLoading(false);
-      return;
-    }
-    let cancelled = false;
-    setMktLoading(true);
-    const handle = window.setTimeout(() => {
-      marketSearch(q)
-        .then((res) => {
-          if (!cancelled) {
-            setMktResults(res);
-            setMktLoading(false);
-          }
-        })
-        .catch(() => {
-          if (!cancelled) {
-            setMktResults([]);
-            setMktLoading(false);
-          }
-        });
-    }, 280);
-    return () => {
-      cancelled = true;
-      window.clearTimeout(handle);
-    };
-  }, [q, marketSearch]);
 
   // Rebuilt from pairs on this side of the boundary — see the `unread` prop.
   // `measured: false` when the prop is absent, so a page that has not plumbed
@@ -3698,7 +3626,7 @@ export function ShortlistCategories({
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search suppliers"
-          aria-label="Search your shortlist or the marketplace"
+          aria-label="Search your shortlist or add your own"
         />
         {query ? (
           <button type="button" className="bs-x" aria-label="Clear search" onClick={() => setQuery('')}>
@@ -3707,57 +3635,14 @@ export function ShortlistCategories({
         ) : null}
       </div>
       )}
-      {searching && (mktLoading || mktResults.length > 0) ? (
-        <div className="bench-mkt-results">
-          <div className="bmr-head">From the whole marketplace</div>
-          {mktLoading && mktResults.length === 0 ? (
-            <div className="bmr-loading">Searching the marketplace…</div>
-          ) : (
-            mktResults.map((r) => (
-              <Link
-                key={r.vendorProfileId}
-                href={r.slug ? `/v/${r.slug}` : '#'}
-                prefetch={false}
-                className="bmr-row"
-              >
-                <span className="bmr-av">{initials(r.name)}</span>
-                <span className="bmr-m">
-                  <b>{r.name}</b>
-                  <span>
-                    {[
-                      r.city,
-                      r.rating != null
-                        ? `★ ${r.rating.toFixed(1)}`
-                        : typeof r.reviewCount === 'number'
-                          ? NEW_TO_SETNAYAN_LABEL
-                          : null,
-                    ]
-                      .filter(Boolean)
-                      .join(' · ')}
-                  </span>
-                </span>
-                <ArrowRight className="bmr-arr" size={15} strokeWidth={2} aria-hidden />
-              </Link>
-            ))
-          )}
-        </div>
-      ) : null}
-      {searching ? (
-        <Link
-          href={`/explore?q=${encodeURIComponent(query.trim())}`}
-          prefetch={false}
-          className="bench-mkt"
-        >
-          <Search size={15} strokeWidth={1.9} aria-hidden />
-          <span>
-            See all results in the marketplace for <b>“{query.trim()}”</b>
-          </span>
-          <ArrowRight className="bench-mkt-arr" size={16} strokeWidth={2} aria-hidden />
-        </Link>
-      ) : null}
+      {/* SEARCH OR ADD (owner 2026-10-24: *"we will show the result on the page itself. not a new screen. So it
+          searches what we already have on the shortlist, what service card has that, or add my own new supplier's
+          service card manually that i can give the supplier itself."*). The results stay HERE: a hit opens under its
+          own category row below, and nothing in this block leaves the page — the whole-marketplace rows to `/v/…`
+          and the "See all results" door to `/explore` are gone. The last row adds what was typed (`bench-add`). */}
       {searching && visibleFolders.length === 0 ? (
-        <div className="bench-empty">
-          Nothing in your shortlist matches “{query.trim()}” — try the whole marketplace above.
+        <div className="bench-empty" data-bench-empty="">
+          Nothing in your shortlist matches “{query.trim()}”. Add them as your own below.
         </div>
       ) : null}
       {visibleFolders.map((folder) => {
@@ -3789,6 +3674,8 @@ export function ShortlistCategories({
             key={folder.folder}
             id={benchFolderAnchorId(folder.slug)}
             className={`fold${folderOpen ? ' open' : ''}${replan ? ' flat' : ''}`}
+            // 📌 While searching, a folder that is still drawn holds a hit — the first is pinned (lib/search-pin.ts).
+            data-search-result={searching ? '' : undefined}
           >
             {replan ? null : (
             <>
@@ -4420,6 +4307,12 @@ export function ShortlistCategories({
           </section>
         );
       })}
+      {/* THE LAST ROW WHILE SEARCHING, ALWAYS: "＋ Add “…” as your own supplier". It is the thumb row's own ＋ door
+          (`addYourOwn`) — one category open files it there, none asks which first — and the walk it opens checks the
+          marketplace by name at step 1 ("Is this them?") and hands over the link and QR at step 4. No new mechanism. */}
+      {searching ? (
+        <SearchAddRow className="bench-add" query={query} as="your own supplier" onAdd={addYourOwn} />
+      ) : null}
       {/* "Need something else? ＋ Add to your event" — every category NOT on the
           event, as ONE dropdown under the list (owner rule: a set of choices is
           one dropdown; these were a chip pool at the foot of each folder).

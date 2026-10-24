@@ -101,7 +101,7 @@ export async function libraryLab(input: LibraryLabOp, form?: FormData): Promise<
     case 'gallery': {
       /* The couple's Search ideas — the shipped clamp, then the shipped shaping (credit, withholding). */
       const query = normalizeGalleryQuery(input);
-      if (!query) throw new Error('No supplier gallery for that slot');
+      if (!query) throw new Error('No supplier Inspiration for that slot');
       const published = s.assets.filter((a) => a.asset_subtype === query.slotKey && a.approved_at && !a.retired_at && (!query.q || a.label.toLowerCase().includes(query.q.toLowerCase())));
       const range = published.slice(query.offset, query.offset + query.limit);
       const rows: RawGalleryRow[] = range.map((a) => ({

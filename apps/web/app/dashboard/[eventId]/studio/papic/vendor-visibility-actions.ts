@@ -45,7 +45,15 @@ export async function setVendorCapturesHidden(formData: FormData): Promise<void>
   const vendorRowId = String(formData.get('vendor_id') ?? '').trim();
   const hidden = String(formData.get('hidden') ?? '') === '1';
 
-  const back = `/dashboard/${eventId}/studio/papic`;
+  // Where the switch was pressed: a supplier file's sheet in Memories, or the supplier's row in Event Details ›
+  // Event access (owner 2026-10-23 — the per-supplier switch left the Papic page). A fixed choice, never a free path.
+  const from = String(formData.get('back') ?? '');
+  const back =
+    from === 'memories'
+      ? `/dashboard/${eventId}/memories`
+      : from === 'details'
+        ? `/dashboard/${eventId}/details`
+        : `/dashboard/${eventId}/studio/papic`;
   if (!eventId || !vendorRowId) redirect(back);
 
   const supabase = await createClient();
@@ -66,5 +74,6 @@ export async function setVendorCapturesHidden(formData: FormData): Promise<void>
   if (error) redirect(`${back}?vendorMedia=error`);
 
   revalidatePath(back);
+  revalidatePath(`/dashboard/${eventId}/memories`);
   redirect(`${back}?vendorMedia=${hidden ? 'hidden' : 'shown'}`);
 }

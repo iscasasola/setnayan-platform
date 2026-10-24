@@ -101,7 +101,7 @@ export type InviteThemeId = (typeof INVITE_THEME_IDS)[number];
 export const THEME_BACKGROUND_NAMES: Readonly<Record<InviteThemeId, string | null>> = {
   house: null,
   abaca: 'Rustic sunset table',
-  galeriya: 'Modern gallery walls',
+  galeriya: 'Modern museum walls',
   cinderella: 'Cinderella moonlit frost',
   velvet: 'Luxe chandeliers',
   vintage: 'Vintage capiz light',
@@ -340,7 +340,7 @@ export const INVITE_THEMES: Record<InviteThemeId, InviteTheme> = {
     opening: 'veil-sheer',
     signatureReveal: 'acrylic-slide',
     ready: true,
-    blurb: 'Plaster, acrylic and one green line — a gallery that breathes.',
+    blurb: 'Plaster, acrylic and one green line — a room that breathes.',
     door: 'galeriya',
     palette: {
       canvas: '#f5f0eb',

@@ -145,6 +145,16 @@ export const DAY_WELCOME_SCENES: readonly WidgetType[] = ['dress_code', 'what_to
  */
 export const SCENES_RETIRED_ON_THE_DAY: readonly WidgetType[] = ['countdown'];
 
+/**
+ * 🪪 SCENES NO READER'S PAGE DRAWS ANY MORE — on any stage, whatever the couple stores (owner 2026-10-24, on cale-ice ›
+ * Details as a guest: "why do we have this details… isn't this a dupe?"). The Event Details card repeated facts that
+ * each have ONE home: the guest's role and side are Me's, the date and the venues are the Venues scene's and Me's
+ * greeting. Asked by the stage list (`whyNotInStageList`, `sceneInStageList`) — so the page, the Maker's list and
+ * "What guests see" agree — and by `resolveSiteBodyPlan` for a page with no stages. Held by
+ * `the-details-tab-repeats-nothing.test.ts`.
+ */
+export const OFF_THE_PAGE: ReadonlySet<WidgetType> = new Set<WidgetType>(['event_details']);
+
 /** The scenes a guest's page draws on The Day off the list and off the eye: the schedule block, the directions. */
 export const DAY_OWN_BLOCKS: readonly WidgetType[] = ['schedule', 'venue_map'];
 
@@ -168,6 +178,7 @@ export type StageFacts = {
  */
 export function whyNotInStageList(row: ChoiceRow, facts: Pick<StageFacts, 'stage' | 'reader' | 'film'>): string | null {
   const t = row.widget_type;
+  if (OFF_THE_PAGE.has(t)) return 'OFF_THE_PAGE';
   if (row.is_always_on) return 'is_always_on';
   if (!stageChoiceApplies(t)) return 'STAGE_SCENES';
   if (!sceneMeetsGuestsOn(row, facts.stage)) return 'sceneMeetsGuestsOn';
@@ -187,6 +198,7 @@ export function whyNotInStageList(row: ChoiceRow, facts: Pick<StageFacts, 'stage
  * paths, unchanged).
  */
 export function sceneInStageList(row: InvitationWidgetRow, shownToday: boolean, facts: StageFacts): boolean {
+  if (OFF_THE_PAGE.has(row.widget_type)) return false;
   const choice = stageChoice(row, facts.stage, true);
   if (choice === false) return false;
   if (choice === true) {
@@ -233,6 +245,7 @@ export function shownBeforeStages(
   facts: Pick<StageFacts, 'stage' | 'reader' | 'openBrowse' | 'content'>,
 ): boolean {
   if (row.is_always_on) return false;
+  if (OFF_THE_PAGE.has(row.widget_type)) return false;
   if (facts.reader === 'anonymous' && !PUBLIC_WIDGET_ALLOWLIST.includes(row.widget_type)) return false;
   if (!facts.openBrowse) return row.is_visible;
   return (
@@ -306,6 +319,7 @@ export type GuestsSeeInput = {
 
 const NOT_POSSIBLE_WHY: Record<string, string> = {
   STAGE_SCENES: 'Not shown on any stage.',
+  OFF_THE_PAGE: 'Not shown on any stage — Me and the Venues scene already say it.',
   sceneMeetsGuestsOn: 'A Post Event scene — it can only be on Post Event.',
   resolveWidgetTerminalState: 'Retired after the day.',
   SCENES_RETIRED_ON_THE_DAY: 'The countdown ends on the day.',

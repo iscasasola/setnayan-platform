@@ -520,7 +520,7 @@ export function RsvpWidget({
         <fieldset data-rsvp-step className="space-y-2" aria-labelledby={led ? undefined : `${FORM_LINE_ID.eyebrow} ${FORM_LINE_ID.question}`}>
           {(() => {
             /* 2a · THE FABLE WORDS (owner 2026-09-30, "APPROVED — THE FABLE DESIGNS…"):
-               "Your reply" over "Will you celebrate with us?". */
+               "Your reply" over "Will you join us?". */
             /* 🧩 Each line carries its NAME (`data-rsvp-line`, `rsvp-canvas-parts.ts`): on the Maker's RSVP stage
                every line is its own part. For a guest it is only a name — it draws nothing. */
             /* 📝 …and its WORDS: the couple's own (`answerWords`), else the card's — the same two lines as before

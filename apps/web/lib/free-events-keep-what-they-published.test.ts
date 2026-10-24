@@ -5,7 +5,7 @@
  *
  * The fixture is a FREE event whose page went live before the ruling, wearing every kind of choice the ruling made
  * Pro: a scene's own colour · size · font · width and a letter's colour, a part's motion and Glow, a scene's style
- * card, the Dress code's palette look, a fixed part's card, the camera's look, a block's motion, a reply line's look
+ * card, the Dress code's palette look, a fixed part's card, a block's motion, a reply line's look
  * and Build in, and a Post Event scene's card. Held, through the ONE gate (`planHubDraftApply`) and the ONE list the
  * Apply sheet shows (`hubDraftProEffects`):
  *
@@ -49,7 +49,7 @@ const HERO: HubSectionCanvas = {
   elements: { names: { runs: [{ start: 0, end: 5, color: '#112233' }], of: hubTextHash(NAMES), was: NAMES } as HubElementStyle },
 } as HubSectionCanvas;
 const DRESS: HubSectionCanvas = { palette: 'ribbon' } as HubSectionCanvas;
-const STYLE_PREFS = { camera_look: 'brand', block_looks: { entourage: { motion: { in: { fade: true } } } } };
+const STYLE_PREFS = { block_looks: { entourage: { motion: { in: { fade: true } } } } };
 const RSVP = { look: { lines: { 'rsvp.question': { c: '#8a1c2b', f: 'script', i: { fade: true } } } } };
 const EDITORIAL = { sceneLooks: { couple: { style: 'words-only' } } };
 
@@ -77,7 +77,7 @@ test('anti-vacuity: every published choice in the fixture is one the ruling made
   assert.deepEqual(kinds, ['dress_code.canvas', 'editorial', 'fixed-style', 'hero.canvas', 'rsvp_ask_config', 'schedule.canvas', 'style_preferences']);
   const lines = hubDraftProEffects(all, bare, false).map(hubProEffectLine);
   console.log(`[grandfather] named on a bare page: ${lines.join(' | ')}`);
-  for (const want of ['Font · Colour · Size · Width · Schedule', 'Letters · Event title on the Hero', 'Clock face · Schedule', 'Glow · Heading on the Schedule', 'Ribbon · Dress code', 'One line', 'Words only', /* 💎 part by part (2026-10-22): one line per part — the camera look is Style's, a block's motion Motion's */ 'Camera look · Your brand', 'Animation', 'Style · RSVP', 'Animation · RSVP']) {
+  for (const want of ['Font · Colour · Size · Width · Schedule', 'Letters · Event title on the Hero', 'Clock face · Schedule', 'Glow · Heading on the Schedule', 'Ribbon · Dress code', 'One line', 'Words only', /* 💎 part by part (2026-10-22): one line per part — a block's motion is Motion's */ 'Animation', 'Style · RSVP', 'Animation · RSVP']) {
     assert.ok(lines.some((l) => l.startsWith(want) || l.includes(want)), `"${want}" is not named at ✓ Apply — got ${JSON.stringify(lines)}`);
   }
 });
@@ -110,7 +110,7 @@ test('(2) a free edit beside the published choices is written, and every publish
 test('(3) taking a published choice off is free', () => {
   const off = mergeHubDraft(emptyHubDraft(), {
     widgets: { schedule: { canvas: { ...liveSchedule, style: undefined, elements: { heading: { motion: { during: 'glow' } } as HubElementStyle } } } },
-    events: { style_preferences: { camera_look: 'classic' }, rsvp_ask_config: { look: {} } },
+    events: { style_preferences: { block_looks: {} }, rsvp_ask_config: { look: {} } },
     fixedStyles: { hero_names: null },
   });
   const plan = planHubDraftApply(off, LIVE, false);

@@ -214,7 +214,7 @@ export const MAKER_FIXED_LABEL: Record<MakerFixedKey, { label: string; why: stri
   find_your_seat: { label: 'Find your seat', why: 'Each guest sees their own table here, once your seating plan is published.' },
   photos_of_you: { label: "Each guest's own photos", why: 'Each guest sees the photos they are in, as they are taken.' },
   announcements: { label: 'Announcements', why: 'Your messages to guests appear at the top of the page once you send one.' },
-  live_hub: { label: 'Live hub', why: 'Your live stream and live photo wall, when you have them on the day.' },
+  live_hub: { label: 'Live hub', why: 'Your live stream and Memory lane, when you have them on the day.' },
   details: { label: 'The details', why: 'Your date and venue, from the venue you booked.' },
   spotlight: { label: 'Happening now', why: 'On the day, guests are pointed to the live stream here.' },
   closing: { label: 'Closing', why: 'Always last on the page — "See you soon." and your names.' },
@@ -336,11 +336,11 @@ export const MAKER_FIXED_SOURCE: Partial<
   /* 🎨 The day's own parts: their Style is picked in the panel; what fills them
      comes from here. */
   find_your_seat: { text: 'Each table comes from your seating plan.', page: 'seating', link: 'Open your seating plan', from: 'your seating plan' },
-  photos_of_you: { text: 'Filled from the photos taken on the day.', page: 'galleries', link: 'Open your galleries', from: 'the photos taken on the day' },
+  photos_of_you: { text: 'Filled from the photos taken on the day.', page: 'galleries', link: 'Open your Memories', from: 'the photos taken on the day' },
   announcements: { text: 'You send them from your schedule on the day.', page: 'schedule', link: 'Open your schedule', from: 'your schedule' },
-  live_hub: { text: 'Filled from your live stream and your live photo wall.', page: 'live', link: 'Open your live wall', from: 'your live settings' },
+  live_hub: { text: 'Filled from your live stream and your Memory lane.', page: 'live', link: 'Open your Memory lane', from: 'your live settings' },
   details: { text: 'Your date and venue come from the venue you booked.', page: 'schedule', link: 'Open your schedule', from: 'the venue you booked' },
-  spotlight: { text: 'Shown on the day while your live stream is on.', page: 'live', link: 'Open your live wall', from: 'your live settings' },
+  spotlight: { text: 'Shown on the day while your live stream is on.', page: 'live', link: 'Open your Memory lane', from: 'your live settings' },
   /* 🕯 The closing's words are the cover's (the names, the date) and its oval holds the cover photo; its one choice — the
      Accent — is picked right here (`accent-row.tsx`). */
   closing: { text: 'Your names, your date and your cover photo — from your cover.', page: 'schedule', link: 'Open your schedule', from: 'your cover' },

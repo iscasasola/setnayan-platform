@@ -88,11 +88,14 @@ async function paintCard(guest: GuestRow, withKit: boolean, plusOneOf: unknown =
 const seatControls = (html: string) => html.match(/<(?:input|select|button)\b[^>]*name="plus_one_count"[^>]*>/g) ?? [];
 /** The "+1 … +4" choices a seat pick offers (a PickMenu option, a select option or a radio). */
 const offersSeats = (html: string) => /(?:>|")\+[1-4](?:<|")/.test(html);
-/** The section of the card that holds the seats — "Seats and food" up to the next fold. */
+/** The section of the card that holds the seats — the "Additional Guests" group (out of RSVP, owner 2026-10-23) up to the
+ *  next group, RSVP Status. */
 const seatsAndFood = (html: string) => {
-  const at = html.indexOf('Seats and food');
-  assert.ok(at > 0, 'the card lost its "Seats and food" section (the probe would read nothing)');
-  return html.slice(at, at + 6000);
+  const at = html.indexOf('>Additional Guests<');
+  assert.ok(at > 0, 'the card lost its "Additional Guests" group (the probe would read nothing)');
+  const end = html.indexOf('>RSVP Status<', at);
+  assert.ok(end > at, 'the card’s RSVP Status group no longer follows Additional Guests (the probe would read past it)');
+  return html.slice(at, end);
 };
 
 for (const withKit of [false, true]) {

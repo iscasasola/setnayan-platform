@@ -381,7 +381,7 @@ export async function runFullResDropSweep(
   const [seat, guest, vendorOwn] = await Promise.all([
     admin
       .from('papic_photos')
-      .select('photo_id, event_id, r2_object_key, display_r2_key, orig_bytes, captured_at, full_res_dropped_at, preserved_at')
+      .select('photo_id, event_id, r2_object_key, display_r2_key, thumb_r2_key, tile_r2_key, orig_bytes, captured_at, full_res_dropped_at, preserved_at')
       .eq('photo_type', 'photo')
       .is('full_res_dropped_at', null)
       .not('display_r2_key', 'is', null)
@@ -395,7 +395,7 @@ export async function runFullResDropSweep(
       .limit(limit),
     admin
       .from('papic_guest_captures')
-      .select('capture_id, event_id, guest_id, r2_object_key, display_r2_key, orig_bytes, captured_at, full_res_dropped_at, preserved_at')
+      .select('capture_id, event_id, guest_id, r2_object_key, display_r2_key, thumb_r2_key, tile_r2_key, orig_bytes, captured_at, full_res_dropped_at, preserved_at')
       .or('media_type.is.null,media_type.eq.photo')
       .is('full_res_dropped_at', null)
       .not('display_r2_key', 'is', null)
@@ -409,7 +409,7 @@ export async function runFullResDropSweep(
       .limit(limit),
     admin
       .from('vendor_papic_captures')
-      .select('capture_id, event_id, vendor_profile_id, r2_object_key, display_r2_key, orig_bytes, captured_at, full_res_dropped_at, preserved_at')
+      .select('capture_id, event_id, vendor_profile_id, r2_object_key, display_r2_key, thumb_r2_key, tile_r2_key, orig_bytes, captured_at, full_res_dropped_at, preserved_at')
       .eq('media_type', 'photo')
       .is('full_res_dropped_at', null)
       // The web copy MUST already exist. This is the whole safety property: a

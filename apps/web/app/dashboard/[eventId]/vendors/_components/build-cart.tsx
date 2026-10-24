@@ -38,7 +38,7 @@ import { tallyHasMoney, type BuildTally } from '@/lib/suppliers-shell';
 export const CART_PEEK_MS = 2500;
 /** Above the thumb row, which sits above the phone's bottom bar (its measured
  *  height); a corner on a computer — where the prototype draws it. */
-const ABOVE_THE_THUMB = 'bottom-[calc(var(--sn-bottomdock-h,64px)_+_76px)] tab:bottom-24';
+const ABOVE_THE_THUMB = 'bottom-[calc(var(--sn-ride-h,var(--sn-bottomdock-h,64px))_+_76px)] tab:bottom-24';
 
 export function BuildCart({ tally }: { tally: BuildTally }) {
   // <body> exists only after mount — and the first paint does not need the peek.
@@ -79,7 +79,7 @@ export function BuildCart({ tally }: { tally: BuildTally }) {
       role="status"
       aria-live="polite"
       inert={!peekOn}
-      className={`fixed left-[max(1rem,var(--sn-safe-l))] right-[max(1rem,var(--sn-safe-r))] z-[27] flex items-center gap-3 rounded-2xl bg-ink px-3.5 py-3 text-sm text-cream dark:bg-raised dark:text-ink dark:ring-1 dark:ring-inset dark:ring-ink/15 transition-[transform,opacity] duration-300 ease-out motion-reduce:transition-none tab:left-auto tab:right-[max(1.75rem,var(--sn-safe-r))] tab:w-[380px] ${ABOVE_THE_THUMB} ${
+      className={`fixed left-[max(1rem,var(--sn-safe-l))] right-[max(1rem,var(--sn-safe-r))] z-[27] flex items-center gap-3 rounded-2xl bg-ink px-3.5 py-3 text-sm text-cream dark:bg-raised dark:text-ink dark:ring-1 dark:ring-inset dark:ring-ink/15 transition-[transform,opacity] duration-300 ease-out motion-reduce:transition-none tab:left-auto tab:right-[var(--sup-col-right,max(1.75rem,var(--sn-safe-r)))] tab:w-[380px] ${ABOVE_THE_THUMB} ${
         peekOn ? 'translate-y-0 opacity-100' : 'pointer-events-none translate-y-4 opacity-0'
       }`}
     >

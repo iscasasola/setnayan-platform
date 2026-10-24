@@ -1,22 +1,9 @@
 import Link from 'next/link';
-import { loadGuestHelperCard } from '@/lib/guest-helper-card.server';
-import { guestDisplayName } from '@/lib/guests';
-import { GuestHelperAccess } from '../_components/guest-helper-access';
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
-import { passCardTicketVersion } from '@/lib/pass-card.server';
-import { eventSkuActive } from '@/lib/entitlements';
-import { guestPhotoDisplayUrls } from '@/lib/uploads';
-import { accountPhotoRefsByGuest } from '@/lib/guest-account-photos';
-import { logQueryError } from '@/lib/supabase/error-detect';
 import { isUuid } from '@/lib/is-uuid';
-import { fetchInvitationBase, loadGuestCard } from '../_components/guest-card-data';
-import { loadInviteSetup } from '../_components/invite-message-setup';
-import { GuestCardBody } from '../_components/guest-card-body';
-import { GuestInviteCell } from '../_components/guest-invite-cell';
-import { GuestMoreMenu, GuestTicketThumb } from '../_components/guest-ticket-parts';
-import { TEMPLATE_KIT } from '../_components/guest-card-template-kit';
+import { GuestCard } from '../_components/guest-card';
+import { readGuestCard } from '../_components/guest-card-read';
 import { guestCardErrorCopy } from '../_components/guest-card-error-copy';
 import { UndoToastHost } from '../_components/undo-toast';
 
@@ -24,7 +11,7 @@ export const metadata = { title: 'Guest detail' };
 
 /**
  * The standalone guest route. Since 2026-09-22 it is a LOADER, not a screen of
- * its own: it renders the same `GuestCardBody` the roster opens in place, so
+ * its own: it renders the same `GuestCard` the roster opens in place, so
  * the two presentations of a guest can never drift.
  *
  * ── Why it still exists ─────────────────────────────────────────────────────
@@ -59,47 +46,10 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const [data, inviteSetup] = await Promise.all([
-    loadGuestCard(supabase, eventId, guestId),
-    // Send invite · Copy message — the event's words + the couple's wording.
-    loadInviteSetup(supabase, eventId),
-  ]);
-  if (!data) notFound();
-  const { guest } = data;
-  // A limited helper's grants, colours and record (the Hosts fold, F2) — couple only.
-  const helper = data.canManageAccess
-    ? await loadGuestHelperCard({ eventId, guestId, viewerUserId: user.id, displayName: guestDisplayName(guest) })
-    : null;
-
-  const { data: eventRow, error: eventRowError } = await supabase
-    .from('events')
-    .select('slug')
-    .eq('event_id', eventId)
-    .maybeSingle();
-  // ⚠ Refused, `invitationBase` falls to null and the QR card silently drops its
-  // ⚠ Download / NFC / Copy strip — the guest's own link stops being reachable
-  // ⚠ from here, with nothing on screen saying why.
-  if (eventRowError) {
-    logQueryError('GuestDetailPage.eventRow', eventRowError, { eventId }, 'graceful_degrade');
-  }
-  const invitationBase = await fetchInvitationBase(
-    eventId,
-    (eventRow as { slug?: string | null } | null)?.slug ?? null,
-  );
-
-  /* The face. `guests.photo_url` holds an `r2://…` REFERENCE — handing a raw one
-     to an <img> is a broken-image glyph, which is the defect three sibling
-     screens shipped with. Both sources go through the same resolver, and the
-     couple's own upload wins over the linked account's photo (owner 2026-09-20). */
-  const photoDisplayUrls = await guestPhotoDisplayUrls([guest]);
-  const accountRefByGuest = await accountPhotoRefsByGuest(supabase, eventId, user.id);
-  const accountRef = accountRefByGuest[guest.guest_id];
-  const accountUrls = accountRef
-    ? await guestPhotoDisplayUrls([{ photo_url: accountRef }])
-    : {};
-  const photoDisplayUrl =
-    photoDisplayUrls[guest.photo_url ?? ''] ??
-    (accountRef ? (accountUrls[accountRef] ?? null) : null);
+  // The card and everything drawn on it — the one reader every in-place card uses too (`readGuestCard`).
+  const read = await readGuestCard(supabase, eventId, guestId, user.id);
+  if (!read) notFound();
+  const { guest } = read.data;
 
   /* Said in the card's own words — a code it knows, a sentence an action wrote for the host, or one plain line; never the database's. */
   const errorMessage = search.error ? guestCardErrorCopy(search.error) : null;
@@ -128,22 +78,11 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
         ‹ Back to guest list
       </Link>
 
-      <GuestCardBody
+      {/* 🪪 THE ONE GUEST CARD (`GuestCard`, owner 2026-10-24) — its page frame. */}
+      <GuestCard
+        frame="page"
         eventId={eventId}
-        data={data}
-        invitationBase={invitationBase}
-        photoDisplayUrl={photoDisplayUrl}
-        variant="page"
-        inviteSetup={inviteSetup}
-        SendInvite={GuestInviteCell}
-        TicketThumb={GuestTicketThumb}
-        MoreMenu={GuestMoreMenu}
-        kit={TEMPLATE_KIT}
-        // 🎟 The ticket at its versioned, year-long cached address (streamed — the card never waits).
-        ticketVersion={passCardTicketVersion(createAdminClient(), guestId).catch(() => null)}
-        helperAccess={
-          helper ? <GuestHelperAccess eventId={eventId} guestId={guestId} firstName={guest.first_name} helper={helper} /> : null
-        }
+        {...read}
         returnTo={`/dashboard/${eventId}/guests/${guestId}`}
         errorMessage={errorMessage}
         inviteFlash={inviteFlash}

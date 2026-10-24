@@ -112,7 +112,8 @@ test('1 · WIRING: the RSVP page asks the SAME rule for which answers are missin
   );
   assert.match(REPLY, /gate=\{gate\.kind === 'ask' \? \{ missing: gate\.missing, coupleMarked: gate\.coupleMarked \} : null\}/);
   // Both the event page and the RSVP page recognise the SAME key.
-  assert.match(REPLY, /readGuestSessionForEvent\(event\.event_id as string\)/);
+  // (2026-10-24: the reply's ONE identity — the same pass or seat, plus a signed-in host's own row.)
+  assert.match(REPLY, /readReplyIdentityForEvent\(event\.event_id as string\)/);
 });
 
 // ═══ 2 · THE RSVP PAGE ════════════════════════════════════════════════════

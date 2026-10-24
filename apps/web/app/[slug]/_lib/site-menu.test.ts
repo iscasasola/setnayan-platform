@@ -1,7 +1,7 @@
 /**
  * Unit suite for the open-browse site-menu model (PR6 shell). Invariants: the
- * five tabs are Home · Details · Story · Gallery · Me; "Gallery" is the owner
- * rename (never "Photos"); Home + Me are always present; a middle tab appears
+ * five tabs are Home · Details · Story · Memories · Me; "Memories" is the owner
+ * rename (never "Photos"; "Gallery" retired 2026-10-23); Home + Me are always present; a middle tab appears
  * ONLY when its section rendered (no dead anchors — the rejected Program Board
  * bug); and the enable gate is ON by default, opt-out via env (PR11).
  */
@@ -26,15 +26,16 @@ test('all sections present → the full five tabs in order', () => {
     // Owner 2026-09-30: "Welcome - Details - Our Love Story - Me" (keys unchanged);
     // the tab's word became "Story" with a heart 2026-10-14 ("(heart) Story?") — the
     // section title stays "Our Love Story".
-    ['Home', 'Details', 'Story', 'Gallery', 'Me'],
+    ['Home', 'Details', 'Story', 'Memories', 'Me'],
   );
 });
 
-test('"Gallery" is the label — never "Photos"', () => {
+test('"Memories" is the label — never "Photos", never "Gallery" (owner 2026-10-23)', () => {
   const tabs = siteMenuTabs({ details: true, story: true, gallery: true });
   const gallery = tabs.find((t) => t.key === 'gallery');
-  assert.equal(gallery?.label, 'Gallery');
+  assert.equal(gallery?.label, 'Memories');
   assert.ok(!tabs.some((t) => t.label === 'Photos'), 'no tab is labelled Photos');
+  assert.ok(!tabs.some((t) => /galler/i.test(t.label)), 'no tab is labelled Gallery');
 });
 
 test('Home and Me are always present; middle tabs only when their section is', () => {

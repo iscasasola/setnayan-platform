@@ -2680,6 +2680,26 @@ html.dark[data-sn-boot] #sn-init-splash {
 }
 
 /*
+ * ↔ ONE SLIDE ON EVERY DASHBOARD — THE ACCOUNT'S CONTENT IS NAMED ONLY WHILE IT SLIDES (owner 2026-10-24: *"The
+ * transition animation between menus found in event dashboard does not apply to the user and shop dashboard."*).
+ *
+ * The account trees (`(launcher)` and `(account)` layouts' `<main>`, Discover's `[data-fd-page]`) carry `.sn-vt-page`
+ * like the event and shop trees, so the SAME listener, keyframes and 320 ms move them. Until today they carried no name
+ * at all, so `NavSlideController` started a transition that animated nothing and the page simply swapped.
+ *
+ * 🔑 `data-sn-slide="while-sliding"` keeps their REST exactly as it was: a `view-transition-name` makes an element a
+ * stacking context AND a containing block for its `position: fixed` descendants (the trap `lib/live-studio-control.ts`
+ * and `panood/program/program-surface.tsx` record), and the account pages have never lived with either. So the name is
+ * off unless a slide is running — `NavSlideController` and `BarSetSlide` both set `html[data-sn-nav-dir]` before they
+ * start the transition and clear it after, the window the guests-glass rule above already relies on. During a SET
+ * change (`data-sn-bar-dir`, below) the same elements take `sn-acct-page` instead, as they did before.
+ * Held by `app/_components/nav/one-tab-slide-everywhere.test.ts`.
+ */
+html:not([data-sn-nav-dir]) .sn-vt-page[data-sn-slide='while-sliding'] {
+  view-transition-name: none;
+}
+
+/*
  * 🪟 A GLASS ROW INSIDE THE NAMED PAGE ONLY BLURS WHEN THE NAME IS OFF (owner 2026-10-09, the live guest list: *"the glass
  * row has a transparent background"* — the guest rows read straight through the band).
  *
@@ -2876,14 +2896,15 @@ html[data-sn-nav-dir='back']::view-transition-new(sn-page) {
  *     same frosted paper, so what reads is the bar staying and its icons moving through it. Bottom-anchored, so a dock
  *     whose height differs never draws its old icons halfway up.
  *   · the PAGE slides with it — the event and shop trees' `.sn-vt-page` already carries `sn-page`; the account trees'
- *     content (`.fd-col > main` in the launcher and account layouts, `[data-fd-page]` on Discover) takes a name of its
- *     OWN, `sn-acct-page`, for the length of the slide only — so a tab press inside the account bar is exactly what it
- *     was (no page slide), and no two selectors ever declare one name (`the-bar-outlives-the-slide.test.ts`). The two
+ *     content (`.sn-vt-page[data-sn-slide='while-sliding']` — the launcher and account layouts' `<main>`, Discover's
+ *     `[data-fd-page]`) takes a name of its OWN, `sn-acct-page`, for the length of the set slide — a tab press inside
+ *     the account bar slides it as `sn-page` (2026-10-24, above), and no two selectors ever declare one name
+ *     (`the-bar-outlives-the-slide.test.ts`). The two
  *     page groups never pair: the page leaving is old-only, the page arriving new-only, each with its own keyframes.
  *   · the top bar stays in the frozen `root` snapshot above — it holds still.
  * Without the attribute none of this applies, and the dock is frozen as the 2026-09-22 rules above say.
  */
-html[data-sn-bar-dir] :is(.fd-col > main:not(.sn-vt-page), [data-fd-page]) {
+html[data-sn-bar-dir] .sn-vt-page[data-sn-slide='while-sliding'] {
   view-transition-name: sn-acct-page;
 }
 html[data-sn-bar-dir]::view-transition-group(sn-bottomnav) {
@@ -3464,6 +3485,13 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
      a 1px contact layer plus two soft ambients, warm, never grey. */
   --sn-glass-bg-raised: rgba(255,255,255,.86);
 
+  /* 🔤 AVATAR INITIALS ON GOLD — one pair for every initials chip that sits on the gold wash (owner yes,
+     2026-10-23). The chips read gold-700 #8C6932 on the wash #F3ECDF = 4.27:1, and the labs drew white on
+     gold-500 #A9834B = 3.48:1; both under AA. The house's own "text on the gold wash" ink is gold-800
+     (#5C4726 on #F3ECDF ≈ 8:1 · dark #ECD9AE on #413827 ≈ 8.3:1). Aliases, so dark follows the pair. */
+  --sn-initials-bg:  var(--sn-gold-100);
+  --sn-initials-ink: var(--sn-gold-800);
+
   /* 🌗 The phone's bottom dock (`bottom-nav.tsx` BottomDock / TravelPill / PressFlash).
      These are the bar's locked literals (NAV-9) moved into tokens, byte for byte, so
      light does not move; dark B1 (dark_mode_rollout_2026-10-22) gives them a pair.
@@ -3474,6 +3502,10 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
   --sn-dock-press: rgba(255, 255, 255, 0.95); /* the white press-light bloom */
   --sn-sh-float: 0 1px 2px rgba(40,34,24,.07), 0 10px 24px -12px rgba(30,26,18,.30),
                  0 30px 60px -30px rgba(30,26,18,.28);
+  /* The same float, cast UP — for a layer that rises from the screen's foot (the typing band on the keyboard), whose
+     downward shadow would fall under the keyboard. Same numbers, y mirrored; owner 2026-10-24 "a soft shadow above it". */
+  --sn-sh-rise: 0 -1px 2px rgba(40,34,24,.07), 0 -10px 24px -12px rgba(30,26,18,.30),
+                0 -30px 60px -30px rgba(30,26,18,.28);
   --sn-sh-panel: -2px 0 8px -4px rgba(30,26,18,.12), -30px 0 70px -30px rgba(30,26,18,.45);
 
   /* The floating row's glass (`.sn-glass-row` — BUTTON_RULE_2026-10-07 Rule 7):
@@ -3533,6 +3565,8 @@ html.dark {
   --sn-sh-hi:   0 1px 2px rgba(0,0,0,.35), 0 28px 54px -30px rgba(0,0,0,.8);
   --sn-sh-float: 0 1px 2px rgba(0,0,0,.35), 0 10px 24px -12px rgba(0,0,0,.6),
                  0 30px 60px -30px rgba(0,0,0,.55);
+  --sn-sh-rise: 0 -1px 2px rgba(0,0,0,.35), 0 -10px 24px -12px rgba(0,0,0,.6),
+                0 -30px 60px -30px rgba(0,0,0,.55);
   --sn-sh-panel: -2px 0 8px -4px rgba(0,0,0,.4), -30px 0 70px -30px rgba(0,0,0,.7);
 
   --sn-canvas: #17160F;
@@ -3548,6 +3582,13 @@ html.dark {
   --sn-glass-row-blur: blur(16px) saturate(1.3);
 }
 
+
+/* 🔤 The initials chip — `.sn-initials` is the one look for initials on gold outside the shell; the shell's
+   `.fd-avatar` / `.fd-ava` read the same ink (front-door.css). Held by lib/avatar-initials-read.test.ts. */
+.sn-initials {
+  background: var(--sn-initials-bg);
+  color: var(--sn-initials-ink);
+}
 
 /* ── Guest-tree editorial scope (owner exclusion, 2026-07-12) ──
  * Applied by app/[slug]/layout.tsx around the whole invitation/event tree so
@@ -6637,6 +6678,12 @@ html.dark .sn-popup-dark {
   .sn-inspector-peek,
   .sn-inspector-sheet { display: none; }
 }
+/* 🪪 The guest card opened with no list behind it (`InspectorSheetAlone` — the Wedding March, the parents): the same sheet,
+ * and at ≥ 1280 still the 440 panel — there is no rail to hand it to (owner 2026-10-24, one guest card everywhere). */
+@media (min-width: 1280px) {
+  .sn-inspector-peek.sn-inspector-peek--alone { display: block; }
+  .sn-inspector-sheet.sn-inspector-sheet--alone { display: block; left: auto; width: 27.5rem; }
+}
 @keyframes sn-peek-in { from { opacity: 0 } to { opacity: 1 } }
 @keyframes sn-sheet-in {
   from { transform: translateX(34px); opacity: 0 }
@@ -7154,7 +7201,9 @@ html:active-view-transition .sn-page-enter { animation: none; }
 .sn-gal-btn-cta { background: var(--sn-ob-cta); border-color: var(--sn-ob-cta); color: var(--sn-ob-page); }
 
 /* Lightbox — obsidian scrim + raised card. */
-.sn-gal-scrim { background: rgb(23 22 15 / 0.92); }
+/* OPAQUE (owner 2026-10-24: a Love Story photo opened see-through). Nothing of the page may show behind a photo
+   that has the whole screen — `lib/a-photo-viewer-is-a-real-screen.test.ts` reads this rule. */
+.sn-gal-scrim { background: var(--sn-ob-page); }
 .sn-gal-lb-card {
   background: var(--sn-ob-card);
   border: 1px solid rgb(251 250 247 / 0.14);
@@ -7676,29 +7725,6 @@ html:has([data-sticky-top]) [data-home-after-cover] {
 .home-card-title { font-size: 19px; font-weight: 600; margin: 4px 0 2px; letter-spacing: -0.01em; line-height: 1.25; }
 .home-card-body { color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); font-size: 14px; margin: 0 0 10px; line-height: 1.45; }
 .home-acts { display: flex; gap: 8px; align-items: center; flex-wrap: nowrap; overflow: hidden; min-width: 0; }
-/* Rule 3a — the doorway row is ONE state: icon + word → word → icon. */
-.home-doors { display: flex; gap: 8px; min-width: 0; }
-/* The prototype's door has no side padding of its own — the pill is a third of the row and the word sits centred
- * in it (journey_fixes_2026-10-22 § Host 2: icon + word at 375, word only at 320). The house 14px side padding is
- * what pushed "Suppliers" + its icon past a 109px third, so the door keeps only a 6px breathing edge. */
-.home-doors > .ab { flex: 1 1 0; min-width: 0; justify-content: center; padding-inline: 6px; gap: 6px; }
-.home-doors .ab.text-only svg { display: none; }
-.home-doors .ab.icon-only .lbl { display: none; }
-/* The prototype's neutral pill (`button.ic.t-neutral`): GREY FILLED — the muted tone's
- * 9% wash, 45% border, muted word — one line, never wrapped. */
-.home-doors > :is(button, a).ab.ab-neutral {
-  --home-door: color-mix(in srgb, rgb(var(--color-ink)) 62%, rgb(var(--color-cream)));
-  /* 44, not 40 (fits-every-phone 2026-10-21): the pill clips its own overflow (so the row's fit pass reads it as
-   * one box and drops to icons), which also clips the `.ab::after` expander — so the PAINT is the press, and the
-   * paint is 44. Held by action-link-presses-at-44.test.ts. */
-  height: 44px;
-  overflow: hidden;
-  white-space: nowrap;
-  color: var(--home-door);
-  border-color: color-mix(in srgb, var(--home-door) 45%, transparent);
-  background: color-mix(in srgb, var(--home-door) 9%, transparent);
-}
-.home-doors > .ab.icon-only { width: auto; padding: 0; }
 .home-nums { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
 .home-tile {
   border: 1px solid color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent);
@@ -7749,9 +7775,6 @@ html.dark .home-card-bad { background: color-mix(in srgb, rgb(var(--color-danger
  * its `.svc` · `.band` · `.meter` · `.dot` rules on the app's tokens). The mood is in WORDS
  * and in the dot/meter colour — gold before the window, amber under 10%, red at zero.
  * Producers: app/_components/service-glance.tsx. */
-/* NEVER TWICE — ONLY WHILE THE CARD IS ON SCREEN (walk-b6 F1, 2026-10-14): what the Papic Next card already
- * offers stands down in the row while that card is visible; "Later" (`hidden`) brings it straight back. */
-[data-home-first-screen]:has([data-home-next="papic"]:not([hidden])) [data-while-next] { display: none; }
 .sg-row { grid-column: 1 / -1; border: 1px solid color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent); border-radius: 16px; background: color-mix(in srgb, rgb(var(--color-ink)) 2%, rgb(var(--color-cream))); padding: 12px 14px; min-width: 0; color: rgb(var(--color-ink)); }
 .sg-head { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .sg-mark { width: 34px; height: 34px; border-radius: 10px; background: var(--sn-gold-100); display: grid; place-items: center; flex: none; }
@@ -7799,8 +7822,31 @@ html.dark .home-card-bad { background: color-mix(in srgb, rgb(var(--color-danger
 :is(button).ab.sg-pay:disabled { opacity: 1; transform: scale(0.97); filter: brightness(0.88); }
 .sg-step { font-size: 13px; text-align: center; margin: 8px 0 0; min-height: 18px; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); }
 @media (prefers-reduced-motion: reduce) { .sg-meter > span { transition: none; } }
-/* The cover's one button wears the cover's ink (`currentColor`), like the prototype's glass pill. */
+/* The cover-ink button (`currentColor`), like the prototype's glass pill — the supplier Today's grey Chat on its dark card. */
 :is(button, a).ab.ab-neutral.home-cover-ab { color: inherit; border-color: color-mix(in srgb, currentColor 50%, transparent); background: color-mix(in srgb, currentColor 14%, transparent); }
+/* ⌨ KEYBOARD UP → BAR DOWN (owner 2026-10-24, "Yes", `prototypes/keyboard_rides_the_input_2026-10-24.html`): while the
+ * phone's keyboard is up (`html[data-keyboard="open"]`, published by `lib/keyboard-ride.ts`) the bottom bar slides
+ * under it and back when it closes — it is useless while typing. Its clearance (`--sn-bottomdock-h`) stays its own; a
+ * row that stood on it stands on the keyboard through `--sn-ride-h` (`lib/keyboard-ride.ts`). */
+[data-bottom-dock] { transition: transform 200ms ease-out, opacity 200ms ease-out, visibility 0s linear 0s; }
+/* `visibility: hidden` once it has slid (after its 200 ms): out of the Tab order and the screen reader while away. */
+html[data-keyboard='open'] [data-bottom-dock] { transform: translateY(100%); opacity: 0; pointer-events: none; visibility: hidden; transition: transform 200ms ease-out, opacity 200ms ease-out, visibility 0s linear 200ms; }
+@media (prefers-reduced-motion: reduce) { [data-bottom-dock] { transition: none; } }
+/* ⌨ A riding row that is not a ThumbRow (`useRidingRow`, typing-band.tsx) folds what is not its field while it rides:
+ * each such piece wears `data-ride-fold` (Filters on the marketplace bar, its chips). */
+[data-ride-row][data-riding] [data-ride-fold] { display: none !important; }
+/* 📏 THE PAGE MAKES ROOM FOR THE BAND (owner 2026-10-24: *"it overlaps with the content under it"*). While a riding row's
+ * band is up (`html[data-ride-reserve]`, written by `useRidingRow`), the page's foot gains the keyboard's height plus the
+ * band's (`--sn-ride-band-h`: the band, the row and the plate down to the keyboard) — so the content ENDS above the band
+ * and the last result can scroll up into view instead of living under it. On <body>, so every page gets it whatever
+ * its own column pads; gone the moment the band is. */
+html[data-ride-reserve] body { padding-bottom: calc(var(--sn-keyboard-h, 0px) + var(--sn-ride-band-h, 0px)); }
+/* (The marketplace's suggestions no longer step over a band: a search band has no words and no Done since 2026-10-24,
+ * so they stand where they always did, over the field.) */
+/* The typing band's neutrals outside the Maker (inside it, the Maker's own `STAGE_PANEL_VARS`): its cream plate, its
+ * hairline and its words — with a dark pair (`typing-band.tsx`). */
+[data-typing-band='app'] { --tb-plate: #F3F0EA; --sp-line: #E6E1D8; --sp-ink2: #5A5755; }
+html.dark [data-typing-band='app'] { --tb-plate: #232019; --sp-line: rgba(251, 250, 247, 0.16); --sp-ink2: #B3AEA3; }
 /* Rise on load, staggered — once (the prototype's `up`). */
 @keyframes home-up { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 /* `backwards`, not `both`: nothing keeps a transform after the rise (an identity transform
@@ -7811,6 +7857,147 @@ html.dark .home-card-bad { background: color-mix(in srgb, rgb(var(--color-danger
 @media (prefers-reduced-motion: reduce) {
   [data-home-column] > *, .home-sec.open > .home-bar .home-bar-ico { animation: none; }
   .home-fold, .home-chev, .home-tile { transition: none; }
+}
+/* 🎛 HOME — A CONTROL CENTER (owner-approved 2026-10-24, "ok": `prototypes/home_control_center_2026-10-24_fable.html`,
+ * its `.today` · `.grid` · `.tile` · `.faces` · `.dots` · `.tiny` · `.wg` rules on the app's tokens). Producers:
+ * `home-parts.tsx` (the Today line), `home-tile.tsx` (the compact tile), `home-control-row.tsx` (the grid + the detail
+ * cards), `home-service-card.tsx` / `papic-home-card.tsx` (a service's closed face on a phone).
+ *
+ * 📱 COMPACT below 768 px (`md`): a 2-column grid of small tiles. 🖥 DETAIL from 768 px: the same widgets as cards in
+ * two columns, read COLUMN BY COLUMN (each column is its own stack, so the reading and Tab order is the order you see —
+ * `the-home-grid-reads-in-order.test.ts`). The column fills the body from `md` (moved down from `lg`, owner 2026-10-24),
+ * and "Your services" sits two to a row. */
+.hc-today { display: flex; align-items: center; gap: 10px; width: 100%; height: 44px; padding: 0 5px 0 14px; border: 1px solid color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent); border-radius: 999px; background: color-mix(in srgb, rgb(var(--color-ink)) 2%, rgb(var(--color-cream))); color: rgb(var(--color-ink)); font-size: 13.5px; text-align: left; transition: transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+.hc-today:active { transform: scale(0.98); }
+html.dark :is(.hc-today, .hc-tile) { background: rgb(var(--color-raised)); }
+.hc-today-k { flex: none; font-size: 10px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: rgb(var(--color-mulberry)); }
+.hc-today-t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+.hc-today-w { font-weight: 400; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); }
+.hc-today-arrow { flex: none; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; color: rgb(var(--color-mulberry)); background: color-mix(in srgb, rgb(var(--color-mulberry)) 9%, transparent); }
+.hc-today-arrow svg { width: 16px; height: 16px; }
+.hc-today.hc-calm :is(.hc-today-k, .hc-today-arrow) { color: rgb(var(--color-ok)); }
+.hc-today.hc-calm .hc-today-arrow { background: color-mix(in srgb, rgb(var(--color-ok)) 12%, transparent); }
+.hc-today-later { display: flex; align-items: center; gap: 6px; padding: 0 4px; font-size: 13px; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); }
+@media (min-width: 768px) {
+  .hc-today { height: 48px; padding-left: 16px; font-size: 15px; }
+  .hc-today-k { font-size: 10.5px; }
+  .hc-today-arrow { width: 34px; height: 34px; }
+}
+/* The ring the Today line leaves on the widget it names (1.8 s). */
+[data-home-spot] { outline: 2px solid rgb(var(--color-mulberry)) !important; outline-offset: 3px; }
+
+/* The compact grid and its tiles. */
+.hc-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
+.hc-tile { position: relative; min-width: 0; min-height: 104px; display: flex; flex-direction: column; gap: 5px; padding: 12px; border: 1px solid color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent); border-radius: 16px; background: color-mix(in srgb, rgb(var(--color-ink)) 2%, rgb(var(--color-cream))); color: rgb(var(--color-ink)); text-align: left; touch-action: pan-y; -webkit-user-select: none; user-select: none; transition: transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+.hc-tile:active { transform: scale(0.98); }
+.hc-span { grid-column: 1 / -1; }
+.hc-tile.hc-span { min-height: 0; }
+.hc-lab { font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* The Event Hub tile's ⓘ beside its label (owner 2026-10-24). The ⓘ sits above the tile's door (z 1) so a tap on it
+   reads the tip; the tip itself hangs from the TILE, inside its width — a 288-px popover from a label in the right
+   column ran 100 px past a 390-px phone and widened the whole page. The 16-px ⓘ never makes the tile taller. */
+.hc-lab-tip { align-self: flex-start; max-width: calc(100% - 64px); height: 13px; display: flex; align-items: center; }
+.hc-lab-tip > span { position: static; }
+.hc-lab-tip button { position: relative; z-index: 3; }
+.hc-tile .hc-lab-tip .sn-tip { top: 30px; left: 6px; right: 6px; width: auto; max-width: none; }
+.hc-chip { position: absolute; right: 10px; top: 11px; z-index: 2; padding: 0 5px; border: 1px solid color-mix(in srgb, rgb(var(--color-mulberry)) 40%, transparent); border-radius: 999px; font-size: 8.5px; font-weight: 500; line-height: 1.5; letter-spacing: 0.12em; text-transform: uppercase; color: rgb(var(--color-mulberry)); pointer-events: none; }
+.hc-chip.hc-chip-inline { position: static; padding: 1px 6px; font-size: 9.5px; }
+.hc-big { font-size: 27px; font-weight: 600; line-height: 1.1; letter-spacing: -0.015em; font-variant-numeric: tabular-nums; }
+.hc-big small { font-size: 13px; font-weight: 400; letter-spacing: 0; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); }
+.hc-sm { padding-right: 36px; font-size: 12px; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hc-span .hc-sm { padding-right: 72px; }
+.hc-tile[data-home-tile="hub"] .hc-big { font-size: 23px; }
+.hc-tile[data-home-tile="hub"] .hc-sm { padding-right: 78px; }
+.hc-row { display: flex; align-items: center; gap: 10px; }
+.hc-thin { position: relative; flex: 1; height: 4px; border-radius: 2px; overflow: hidden; background: color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent); }
+.hc-thin > i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 2px; background: rgb(var(--color-ok)); }
+.hc-bad { border-color: color-mix(in srgb, rgb(var(--color-danger)) 40%, transparent); }
+.hc-bad .hc-big { font-size: 15px; color: rgb(var(--color-danger)); }
+/* Faces — one counter at a time; the track slides 320 ms on the house ease. */
+.hc-faces { width: 100%; min-width: 0; margin-top: auto; overflow: hidden; }
+.hc-track { display: flex; transition: transform 320ms cubic-bezier(0.2, 0.8, 0.2, 1); will-change: transform; }
+.hc-face { flex: 0 0 100%; min-width: 0; display: flex; flex-direction: column; gap: 5px; padding-bottom: 2px; clip-path: inset(0); } /* each face clips its own glyph overhang (the ₱'s left bearing peeked into the face before it) */
+.hc-face-late .hc-big, .hc-face-late .hc-big small { color: rgb(var(--color-danger)); }
+.hc-dots { position: relative; z-index: 2; display: flex; align-items: center; gap: 5px; height: 14px; margin-top: 8px; }
+.hc-dot { position: relative; flex: none; width: 6px; height: 6px; min-height: 0; padding: 0; border-radius: 3px; background: color-mix(in srgb, rgb(var(--color-ink)) 16%, transparent); transition: width 240ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+/* The 6 px dot presses at 44 tall (the global button floor, without its drawing): an invisible halo. */
+.hc-dot::before { content: ""; position: absolute; inset: -19px -2.5px; }
+/* The active dot is a short bar that FILLS over the 4.5 s — "there is more here". */
+.hc-dot.on { width: 18px; }
+.hc-dot.on::after { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: calc(var(--p, 0) * 100%); border-radius: 3px; background: rgb(var(--color-mulberry)); }
+/* The door: a tap that is not a swipe opens the face's exact item. Under the dots and the actions. */
+.hc-door { position: absolute; inset: 0; z-index: 1; border-radius: 16px; touch-action: pan-y; -webkit-touch-callout: none; }
+.hc-door:focus-visible { outline: 2px solid rgb(var(--color-mulberry)); outline-offset: 2px; }
+.hc-acts, .hc-side { position: absolute; right: 10px; bottom: 10px; z-index: 2; display: flex; gap: 6px; }
+.hc-tiny { position: relative; width: 32px; height: 32px; min-height: 0; display: grid; place-items: center; border: 1px solid color-mix(in srgb, rgb(var(--color-mulberry)) 40%, transparent); border-radius: 50%; background: color-mix(in srgb, rgb(var(--color-mulberry)) 9%, transparent); color: rgb(var(--color-mulberry)); }
+.hc-tiny::before { content: ""; position: absolute; inset: -6px; } /* drawn 32, presses at 44 */
+.hc-tiny svg { width: 15px; height: 15px; }
+.hc-tiny.hc-tiny-main { background: rgb(var(--color-mulberry)); border-color: rgb(var(--color-mulberry)); color: #fff; }
+/* Dark: the filled main verb's word reads dark on the lighter accent — the same pair as `.ab-main` in dark. */
+html.dark .hc-tiny.hc-tiny-main { color: #161513; }
+.hc-tiny.hc-tiny-pill { width: auto; display: inline-flex; align-items: center; gap: 4px; padding: 0 10px; border-radius: 999px; font-size: 12.5px; font-weight: 600; }
+/* The Countdown — the presentation piece: the number alone in the display face, centred. */
+.hc-count { min-height: 0; padding: 22px 14px 18px; align-items: center; gap: 0; text-align: center; }
+.hc-cd { display: flex; flex-direction: column; align-items: center; }
+.hc-cd-n { font-family: Georgia, "Times New Roman", serif; font-size: 64px; font-weight: 400; line-height: 1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.hc-cd-n.hc-cd-word { font-size: 30px; }
+.hc-cd-w { margin-top: 4px; font-size: 14px; letter-spacing: 0.02em; }
+.hc-cd-d { margin-top: 8px; font-size: 12px; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); }
+.hc-count .hc-acts { position: relative; right: auto; bottom: auto; margin-top: 10px; }
+/* A service's closed face on a phone — the tile is the press; the card's own control rides beside it as an icon. */
+.hc-svc-wrap { position: relative; display: flex; min-width: 0; }
+.hc-svc-wrap > .hc-svc-tile { flex: 1; width: 100%; }
+.hc-tiny-slot { position: absolute; right: 10px; bottom: 10px; z-index: 2; }
+.hc-tiny-slot :is(a, button).ab { width: 32px; height: 32px; min-height: 0; padding: 0; gap: 0; justify-content: center; border-radius: 50%; }
+.hc-tiny-slot .ab .lbl { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.hc-tiny-slot .ab svg { width: 15px; height: 15px; }
+.hc-tiny-slot [data-home-live-line] { display: none; }
+@media (min-width: 768px) { .home-svc > .hc-svc-wide { grid-column: auto; } }
+/* 🖥 The detail cards — the shipped card (`.sg-row`), no grow; the whole card is its ONE page (`.hc-card-door`). */
+.hc-two { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0 16px; align-items: start; }
+.hc-col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.hc-card { position: relative; }
+.hc-card > * { position: relative; z-index: 1; pointer-events: none; }
+.hc-card :is(a, button, [role="button"]) { pointer-events: auto; }
+.hc-card > .hc-card-door { position: absolute; inset: 0; z-index: 0; border-radius: 16px; pointer-events: auto; }
+.hc-card > .hc-card-door:focus-visible { outline: 2px solid rgb(var(--color-mulberry)); outline-offset: 2px; }
+.hc-card-bad { border-color: color-mix(in srgb, rgb(var(--color-danger)) 40%, transparent); }
+.hc-card-name { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.hc-dotline { font-size: 13px; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); }
+.hc-dotline b { color: rgb(var(--color-ink)); }
+.hc-dotline[data-mood="gone"], .hc-dotline[data-mood="gone"] b { color: rgb(var(--color-danger)); }
+.hc-figs { gap: 6px; }
+.hc-fig { color: inherit; text-underline-offset: 3px; }
+.hc-fig:hover { text-decoration: underline; }
+.hc-sep { color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); }
+.hc-rail { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-top: 10px; }
+.hc-rail > span { height: 4px; border-radius: 2px; background: color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent); }
+.hc-rail > span.done { background: color-mix(in srgb, rgb(var(--color-ok)) 55%, transparent); }
+.hc-rail > span.live { background: rgb(var(--color-ok)); }
+.hc-railw { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-top: 4px; font-size: 10px; letter-spacing: 0.02em; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); }
+.hc-railw > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hc-railw > span.live { font-weight: 600; color: rgb(var(--color-ink)); }
+.hc-pays { margin-top: 8px; border-top: 1px solid color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent); }
+.hc-pay { display: flex; align-items: center; gap: 10px; min-height: 50px; padding: 9px 0; border-bottom: 1px solid color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent); }
+.hc-pay b { font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.hc-due { font-size: 13px; font-weight: 400; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); }
+.hc-pay-s { display: block; font-size: 12px; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); }
+.hc-pay.hc-late :is(b, .hc-due) { color: rgb(var(--color-danger)); }
+.hc-pay.hc-more { min-height: 40px; font-size: 13px; font-weight: 500; color: rgb(var(--color-mulberry)); }
+.hc-list { margin-top: 6px; }
+.hc-list > li:first-child .hc-li { border-top: 0; }
+.hc-li { color: inherit; display: flex; align-items: baseline; gap: 8px; padding: 6px 0; border-top: 1px solid color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent); font-size: 14px; }
+/* (first row: no rule above it) */
+.hc-li-t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hc-li-due { flex: none; font-size: 12px; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); font-variant-numeric: tabular-nums; }
+.hc-li-due.soon { font-weight: 500; color: rgb(var(--color-warn)); }
+/* 🔗 A checklist task opened by its address (Home's Checklist widget → /checklist#task-<id>) is ringed while targeted. */
+[data-checklist-task]:target { outline: 2px solid rgb(var(--color-mulberry)); outline-offset: 2px; }
+.hc-tick { flex: none; align-self: center; width: 14px; height: 14px; border: 1.5px solid color-mix(in srgb, rgb(var(--color-ink)) 22%, transparent); border-radius: 50%; }
+@media (prefers-reduced-motion: reduce) {
+  /* No rotation (the tile never joins the ticker), no slide; the active dot shows a full bar. */
+  .hc-track, .hc-dot, .hc-tile, .hc-today { transition: none; }
+  .hc-dot.on::after { width: 100%; }
 }
 
 /* ════════════════════════════════════════════════════════════════════════════

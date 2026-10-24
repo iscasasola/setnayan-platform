@@ -165,7 +165,7 @@ test('5 · Home: one line under the name, only with a subject; the eyebrow untou
   assert.equal('forWho' in homeCoverWords({ ...base, for_tag: { name: ' ', markUrl: null } }), false);
 
   const draw = (cover: ReturnType<typeof homeCoverWords>) =>
-    renderToStaticMarkup(React.createElement(HomeCoverBand, { eventId: 'e1', cover }));
+    renderToStaticMarkup(React.createElement(HomeCoverBand, { cover }));
   const withLine = draw(tagged);
   assert.match(withLine, /data-home-for=""/);
   assert.match(withLine, />For SetnaProd</);

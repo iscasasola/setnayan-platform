@@ -158,7 +158,7 @@ test('3 · Print settings holds every switch of every piece, under the prototype
   for (const [key, body] of [
     ['invitation', /\{parentsSwitch\}\{openingSwitch\}/],
     ['details', /body: detailsSwitches/],
-    ['passes', /\{guestNamesSwitch\}\s*<TicketStyle input=\{prints\} \/>/],
+    ['passes', /\{guestNamesSwitch\}\s*\{passCornersPick\}\s*<TicketStyle input=\{prints\} \/>/],
     ['story', /part="poster-photo"/],
     ['seating', /\{seatPlanSwitch\}[\s\S]*?part="chart-layout"/],
   ] as const) {

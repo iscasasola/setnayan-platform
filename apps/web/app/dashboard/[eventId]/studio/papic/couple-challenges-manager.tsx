@@ -19,6 +19,8 @@ import { ensurePapicBoard } from '@/lib/papic-games';
 import {
   BOARD_SIZE,
   boardIsTrustworthy,
+  boardLaneCounts,
+  boardShowingWords,
   boardOccupancyClaim,
   coupleSlots,
   displayChallengePrompt,
@@ -48,11 +50,17 @@ import {
   createCoupleChallengeAction,
   addLibraryChallengeAction,
   setCoupleChallengeActiveAction,
+  setChallengesPausedAction,
   deleteCoupleChallengeAction,
   armChallengeAction,
   stopChallengeAction,
 } from './actions';
 import { formatCount } from '@/lib/format-number';
+import { fetchPauseState } from '@/lib/papic-challenge-pause';
+import { ACTIVE_CHALLENGE_CAP } from '@/lib/papic-missions';
+import { ChallengeAddSheet } from './_components/challenge-add-sheet';
+import { InfoTip } from '@/app/_components/info-tip';
+import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
 
 type MissionRow = {
   mission_id: string;
@@ -65,6 +73,8 @@ type MissionRow = {
   source: PapicMissionSource;
   prompt: string;
   is_active: boolean;
+  /** The library row it came from — null for one written by hand. */
+  library_id?: number | null;
   /** The guest board position, 1..20. NULL = this challenge exists but is NOT
    *  being shown to guests — see the split below. */
   board_slot: number | null;
@@ -147,6 +157,8 @@ export async function CoupleChallengesManager({
   eventId,
   search,
   standalone = false,
+  inCard = false,
+  returnTo = null,
 }: {
   eventId: string;
   /** The picker's own URL keys, prefixed `c` so they cannot collide with the
@@ -163,6 +175,14 @@ export async function CoupleChallengesManager({
    * one reads the board ONCE and decides how much of it to show.
    */
   standalone?: boolean;
+  /**
+   * 📷 INSIDE THE PAPIC CARD (owner rulings 2026-10-24, the approved sketch): the board a guest sees, IN PLACE — a
+   * tag and a switch per challenge (`setCoupleChallengeActiveAction`) and "+ Add your own" (`createCoupleChallengeAction`),
+   * under one "Challenges" row that says how many are showing. The same read as the other two arms.
+   */
+  inCard?: boolean;
+  /** 🏠 'home' inside Home's card — every press lands back on Home. */
+  returnTo?: 'home' | null;
 }) {
   if (!papicGamesEnabled()) return null;
 
@@ -202,7 +222,7 @@ export async function CoupleChallengesManager({
   // booked; it means nothing to the couple and matched no other screen.
   const { data, error: missionsErr } = await supabase
     .from('papic_missions')
-    .select('mission_id,source,prompt,is_active,board_slot,capture_kind')
+    .select('mission_id,source,prompt,is_active,board_slot,capture_kind,library_id')
     .eq('event_id', eventId)
     .eq('approved', true)
     .order('board_slot', { ascending: true, nullsFirst: false })
@@ -363,6 +383,100 @@ export async function CoupleChallengesManager({
   const soldAway = BOARD_SIZE - ceiling;
 
   // ── EMBEDDED: a summary and a door, never a second copy of the screen ──────
+  if (inCard) {
+    // 📷 IN THE PAPIC CARD (owner rulings 2026-10-24): ONE "Challenges" row with "N of 10" — its switch is the board's
+    // master switch, the shipped PAUSE (`setChallengesPausedAction`: the board stays, untouched, and comes back as it
+    // was). Off: only the row, "Off". On: ONLY the running challenges grow in under it — each with its Photo / Clip tag
+    // (`capture_kind`) and its own switch (`setCoupleChallengeActiveAction`; off takes it out of this list) — then
+    // "+ Add a challenge", the shared bottom sheet over the 631-row library (`ChallengeAddSheet`), which also holds
+    // "+ Add your own". No new action; the hard cap of 10 is the server's (`activationRefused`).
+    const [pause, typeRes] = await Promise.all([
+      fetchPauseState(supabase, eventId),
+      supabase.from('events').select('event_type').eq('event_id', eventId).maybeSingle(),
+    ]);
+    const off = pause.measured && pause.pausedAt !== null;
+    const running = missions.filter((m) => m.is_active);
+    const full = running.length >= ACTIVE_CHALLENGE_CAP;
+    const taken = missions.map((m) => m.library_id).filter((id): id is number => typeof id === 'number');
+    const ret = returnTo ? <input type="hidden" name="return_to" value={returnTo} /> : null;
+    return (
+      <section className="flex flex-col" data-papic-challenges-card={off ? 'off' : 'on'}>
+        <div className="flex items-center gap-3 py-3">
+          <span className="min-w-0 flex-1">
+            <span className="flex items-baseline gap-2">
+              <InfoTip label="Challenges" labelClassName="text-[15px] font-semibold text-ink" align="start">
+                Little photo missions on every guest&rsquo;s board — at most 10 at a time. Off pauses the whole board (for a
+                moment everybody must be watching) and it comes back exactly as it was. Switch one challenge off to take
+                just that one away.
+              </InfoTip>
+              {missionsReadable ? (
+                <span className="text-[12.5px] text-ink/55" data-papic-challenges-count="">
+                  {formatCount(running.length)} of {formatCount(ACTIVE_CHALLENGE_CAP)}
+                </span>
+              ) : null}
+            </span>
+            <span className="block text-[12.5px] text-ink/60" data-papic-challenges-showing="">
+              {!pause.measured ? 'Couldn’t check whether they are on' : off ? 'Off' : missionsReadable ? 'On' : 'Couldn’t load your challenges'}
+            </span>
+          </span>
+          {pause.measured ? (
+            <form action={setChallengesPausedAction} className="shrink-0">
+              <input type="hidden" name="event_id" value={eventId} />
+              {off ? <input type="hidden" name="resume" value="1" /> : null}
+              {ret}
+              <button type="submit" role="switch" aria-checked={!off} aria-label="Challenges" className={SWITCH_BUTTON}>
+                <SwitchTrack on={!off} />
+              </button>
+            </form>
+          ) : null}
+        </div>
+        {off ? null : (
+          <>
+            {missionsReadable ? (
+              <ul className="divide-y divide-ink/10" data-papic-challenges-running="">
+                {running.map((m) => (
+                  <li key={m.mission_id} className="flex items-center gap-3 py-2.5" data-papic-challenge={m.mission_id}>
+                    <span className="min-w-0 flex-1 text-[14px] text-ink">
+                      {m.prompt}
+                      {m.capture_kind ? (
+                        <span className="ml-1.5 inline-block rounded-full bg-ink/10 px-1.5 py-0.5 align-middle text-[10px] font-medium uppercase tracking-[0.08em] text-ink/60">
+                          {m.capture_kind === 'clip' ? 'Clip' : 'Photo'}
+                        </span>
+                      ) : null}
+                    </span>
+                    <form action={setCoupleChallengeActiveAction} className="shrink-0">
+                      <input type="hidden" name="event_id" value={eventId} />
+                      <input type="hidden" name="mission_id" value={m.mission_id} />
+                      <input type="hidden" name="active" value="false" />
+                      {ret}
+                      <button type="submit" role="switch" aria-checked aria-label={m.prompt} className={SWITCH_BUTTON}>
+                        <SwitchTrack on />
+                      </button>
+                    </form>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            <div className="flex flex-col gap-1 pt-3">
+              <ChallengeAddSheet
+                eventId={eventId}
+                eventType={((typeRes.data as { event_type?: string | null } | null)?.event_type ?? null) as string | null}
+                taken={taken}
+                full={full}
+                returnTo={returnTo}
+              />
+              {full ? (
+                <p className="text-[12.5px] text-ink/60" data-papic-challenges-full="">
+                  10 are running — turn one off first.
+                </p>
+              ) : null}
+            </div>
+          </>
+        )}
+      </section>
+    );
+  }
+
   if (!standalone) {
     return (
       <section className="rounded-2xl border border-ink/10 bg-surface p-5 sm:p-6">
@@ -384,9 +498,12 @@ export async function CoupleChallengesManager({
           <p className="mt-3 text-sm text-ink/80">
             <span className="font-semibold tabular-nums">{formatCount(chosen)}</span> of{' '}
             <span className="tabular-nums">{formatCount(ceiling)}</span> chosen
+            {/* 🧮 ONE TRUE SENTENCE (2026-10-23): "10 showing to guests" beside "3 of 8 chosen" read as a
+                bug. The board is always filled to its size — suppliers' and Setnayan's suggestions fill
+                what the couple did not pick — so the card names the parts (`boardShowingWords`). */}
             {onBoard.length > 0 ? (
               <>
-                {' '}&middot; <span className="tabular-nums">{onBoard.length}</span> showing to guests
+                {' '}&middot; {boardShowingWords(boardLaneCounts(missions))}
               </>
             ) : null}
             .

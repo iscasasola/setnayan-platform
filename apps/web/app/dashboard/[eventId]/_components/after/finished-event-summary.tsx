@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import { studioHubHref } from '@/lib/studio-hub';
 import { ArrowRight, Users, Compass, Sparkles, Newspaper, Images } from 'lucide-react';
 import type { AfterSummary } from '@/lib/after-summary';
 import { formatCount } from '@/lib/format-number';
@@ -187,7 +186,9 @@ export function FinishedEventSummary({ eventId, noun, dateLabel, slug, summary, 
         </Card>
 
         {storeShell ? null : (
-          <Card href={studioHubHref(eventId)} Icon={Sparkles} title="More Services" cta="Open More Services">
+          /* More left the bar (owner 22 Oct 2026, "Yes remove more"): the services are listed on this page,
+             under the summary (`YourServices`, id="your-services") — the card scrolls there. */
+          <Card href={`${base}#your-services`} Icon={Sparkles} title="Your services" cta="See your services">
             <Figure value={summary.services} unit="service" />
             <span className="mt-0.5 block text-[12.5px] text-ink/55">
               What you had switched on for this one.
@@ -195,7 +196,7 @@ export function FinishedEventSummary({ eventId, noun, dateLabel, slug, summary, 
           </Card>
         )}
 
-        <Card href={`${base}/galleries`} Icon={Images} title="Galleries" cta="Open the photos" tour="post-photos">
+        <Card href={`${base}/galleries`} Icon={Images} title="Memories" cta="Open the photos" tour="post-photos">
           <Figure value={summary.photos} unit="photo" />
           <span className="mt-0.5 block text-[12.5px] text-ink/55">
             {summary.photos === 0

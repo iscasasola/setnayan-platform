@@ -90,12 +90,12 @@ export default async function PapicPoolPage() {
             "— the whole gallery". One of the two was the other one, and this is
             a page a guest meets once, on a phone, at a party. */}
         <h1 className="text-2xl font-semibold tracking-tight">
-          {(ev.display_name as string | null) ?? 'The event'} — the whole gallery
+          {(ev.display_name as string | null) ?? 'The event'} — all Memories
         </h1>
         <p className="mt-2 text-sm text-ink/65">
           Every photo and clip the crew and guests have captured so far. Spot
           yourself? Tap <span className="font-medium text-ink/80">I&rsquo;m in this</span>{' '}
-          and the photo joins <span className="font-medium text-ink/80">your</span> gallery
+          and the photo joins <span className="font-medium text-ink/80">your</span> Memories
           and download.
         </p>
         {/* Chapters (owner 2026-08-02: "split by x months away. to x days away").

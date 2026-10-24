@@ -4,7 +4,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import type { VendorProfileRow } from '@/lib/vendor-profile';
 import { MICROSITE_COLUMNS, micrositeFromRow } from '@/lib/vendor-microsite';
-import { isShopLive, isPubliclyVisible } from '@/lib/vendor-visibility';
+import { isShopLive } from '@/lib/vendor-visibility';
+import { shopPageGate } from '@/lib/own-shop-preview';
 import { fetchReviewStats, fetchReviewsForVendorWithCouple } from '@/lib/reviews';
 import { fetchVendorPoolBookings } from '@/lib/vendor-schedule';
 import { loadVendorFeaturedStories } from '@/lib/realstories-vendor';
@@ -74,11 +75,13 @@ const titleCase = (s: string) =>
 
 /** What each plan adds to the page — composed from the plan table, never typed (`TIER_CAPS` is the one source). */
 export function pagePlanLines(): PagePlanLine[] {
-  const photos = (t: keyof typeof TIER_CAPS) => `up to ${TIER_CAPS[t].portfolioPhotos.toLocaleString('en-PH')} photos`;
+  // 📸 The photo count is the SAME free base on every plan (owner 2026-10-23), so it is said once, on Free — a plan
+  // line never sells a photo count. Read from the table, never typed.
+  const photos = `${TIER_CAPS.free.portfolioPhotos.toLocaleString('en-PH')} photos free`;
   return [
-    { plan: 'Free', line: `Name · services · reviews · ${photos('free')}`, pro: false },
-    { plan: 'Solo', line: `Your About · your colour · what shows · ${photos('solo')}`, pro: true },
-    { plan: 'Pro', line: `A cover photo · a pinned review · stories · ${photos('pro')}`, pro: true },
+    { plan: 'Free', line: `Name · services · reviews · ${photos}`, pro: false },
+    { plan: 'Solo', line: 'Your About · your colour · what shows', pro: true },
+    { plan: 'Pro', line: 'A cover photo · a pinned review · stories', pro: true },
   ];
 }
 
@@ -184,7 +187,13 @@ export async function loadPageData(supabase: SupabaseClient, profile: VendorProf
     label: vocab.serviceLabels?.[key] ?? titleCase(key),
   }));
   const slug = profile.business_slug ?? null;
-  const visible = isPubliclyVisible(profile.public_visibility ?? 'coming_soon');
+  // The page opens for its own team whenever a stranger's not-found is not "closed" (lib/own-shop-preview.ts) — so
+  // 👁 View my page works BEFORE couples can see it, which is the whole point of the button. This used to be
+  // `isPubliclyVisible`, which greyed the button for every shop not yet listed: the very shops that need a preview.
+  const visible = shopPageGate(
+    { public_visibility: profile.public_visibility, verification_state: own?.verification_state ?? null },
+    { isTeam: true, adminDemoMode: false },
+  ).open !== 'nobody';
   const live = isShopLive({ public_visibility: profile.public_visibility, verification_state: own?.verification_state ?? null });
 
   const saved: PageSaved = pageSavedFrom(

@@ -27,21 +27,25 @@ function person(over: Partial<SwitcherData> & { shops?: SwitcherShop[]; isAdmin?
       canOpenShop: over.canOpenShop ?? false,
       shops,
     },
+    otherAccounts: over.otherAccounts ?? [],
+    canAddAccount: over.canAddAccount ?? true,
   };
 }
+
+const CLAIRE = { uid: '22222222-2222-4222-8222-222222222222', email: 'claire@example.com', name: 'Claire Casasola' };
 
 const CASES: Record<
   string,
   { data: SwitcherData; here: SheetPlace; activeShopId?: string; unread: SheetUnread; refer: boolean; shopRows: boolean; title: string }
 > = {
-  owner: { title: 'Events', data: person({ shops: [SETNAPROD], isAdmin: true }), here: 'events', unread: { events: 2, shop: 3, admin: 7 }, refer: true, shopRows: false },
-  supplier: { title: 'Today', data: person({ shops: [SETNAPROD], isAdmin: true }), here: 'shop', activeShopId: SETNAPROD.id, unread: { events: 2, shop: 3, admin: 7 }, refer: false, shopRows: true },
+  owner: { title: 'Events', data: person({ shops: [SETNAPROD], isAdmin: true, otherAccounts: [CLAIRE] }), here: 'events', unread: { events: 2, shop: 3, admin: 7 }, refer: true, shopRows: false },
+  supplier: { title: 'Today', data: person({ shops: [SETNAPROD], isAdmin: true, otherAccounts: [CLAIRE] }), here: 'shop', activeShopId: SETNAPROD.id, unread: { events: 2, shop: 3, admin: 7 }, refer: false, shopRows: true },
   // An OWNER of SetnaProd who also helps Bloom & Vine (owner 2026-10-22: every account switches between all of its
   // shops). `owner2` stands in their own shop; `owner2b` is the same person after pressing Bloom & Vine.
   owner2: { title: 'Today', data: person({ shops: [SETNAPROD, BLOOM] }), here: 'shop', activeShopId: SETNAPROD.id, unread: { events: 2, shop: null, admin: 0 }, refer: false, shopRows: true },
   owner2b: { title: 'Today', data: person({ shops: [SETNAPROD, BLOOM] }), here: 'shop', activeShopId: BLOOM.id, unread: { events: 2, shop: null, admin: 0 }, refer: false, shopRows: true },
   helper: { title: 'Today', data: person({ displayName: 'Pia Reyes', email: 'pia@example.com', shops: [BLOOM, LENS], canOpenShop: true }), here: 'shop', activeShopId: BLOOM.id, unread: { events: 1, shop: null, admin: 0 }, refer: false, shopRows: true },
-  couple: { title: 'Events', data: person({ displayName: 'Claire Casasola', email: 'claire@example.com', canOpenShop: true }), here: 'events', unread: { events: 4, shop: null, admin: 0 }, refer: true, shopRows: false },
+  couple: { title: 'Events', data: person({ displayName: 'Claire Casasola', email: 'claire@example.com', canOpenShop: true, otherAccounts: [{ uid: '11111111-1111-4111-8111-111111111111', email: 'iscasasolaii@gmail.com', name: 'Ice Casasola' }] }), here: 'events', unread: { events: 4, shop: null, admin: 0 }, refer: true, shopRows: false },
 };
 
 export function SheetLab({ who, app, dark, noCount }: { who: string; app: boolean; dark: boolean; noCount: boolean }) {

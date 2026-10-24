@@ -3,7 +3,10 @@
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import { GUEST_PAGE_ICON } from '../../website/editor/_components/page-pick';
 import { createPortal } from 'react-dom';
-import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from 'react';
+import type { MakerLate } from '@/lib/maker-late';
+import { MakerLateBridge } from './maker-late';
+import { TimelineRowsLoading } from '@/app/_components/timeline-states';
 import { Check, ChevronLeft, Eye, List, X } from 'lucide-react';
 import type { TourKey } from '@/lib/tours';
 import { SPOTLIGHT_REPLAY_EVENT } from '@/app/_components/spotlight-mount';
@@ -101,6 +104,7 @@ import { detailsItemLayout } from '@/lib/maker-details-items';
 import { studioTileItem, type StudioTileKey } from '@/lib/studio-tile-defs';
 import type { StudioTileModel } from '@/lib/studio-tiles';
 import { BookOpen, ClipboardList, Info, PanelsTopLeft, Printer, RotateCcw, Undo, Users } from 'lucide-react';
+import { keyboardIsOpen, readKeyboard, subscribeKeyboard } from '@/lib/keyboard-ride';
 
 /**
  * THE EVENT HUB MAKER — the full-screen shell (Phase 1 of
@@ -184,10 +188,11 @@ export function MakerShell({
   renderStamp,
   more,
   applySlot = null,
-  details = null,
-  rsvpStage = null,
-  factEditors = NO_FACT_EDITORS,
-  venuePictures = null,
+  details: detailsGiven = null,
+  rsvpStage: rsvpStageGiven = null,
+  factEditors: factEditorsGiven = NO_FACT_EDITORS,
+  venuePictures: venuePicturesGiven = null,
+  late = null,
   hasWork,
   viewAsFree = null,
   theHost = 'the host',
@@ -196,7 +201,7 @@ export function MakerShell({
   desktopColumns = false,
   deskTitle = null,
   proLine = null,
-  studio = null,
+  studio: studioGiven = null,
   seeAsRoles = NO_ROLE_ROWS,
   hiddenStages,
   children,
@@ -275,6 +280,10 @@ export function MakerShell({
   factEditors?: Partial<Record<DetailsItemKey, ReactNode>>;
   /** 📱 The venue cards' Picture ▾ for the new Maker's Venue scene › Edit — `MakerState.venuePictures`. */
   venuePictures?: MakerVenuePictures | null;
+  /** ⚡ Details · RSVP · the fact editors · the venue pictures · Studio's tiles and the guided door, ON THEIR
+   *  WAY (`lib/maker-late.ts`): once in, they replace the four props above and `studio`. Until then every
+   *  panel says it is loading — never "could not be loaded". */
+  late?: Promise<MakerLate> | null;
   /** False when the work area is not the editor (a coordinator, or an event
    *  type with no Event Hub): the doors then have nothing to open. */
   hasWork: boolean;
@@ -287,6 +296,14 @@ export function MakerShell({
      (`lib/maker-draft-store.ts` — the only pick of a visit undone was written back by the next one). Told while the
      shell renders, before any panel under it reads; the same stamp again is nothing. */
   makerRendered(renderStamp);
+  /* ⚡ The panels that arrive behind the Maker (`late`) — the props above until they are in. */
+  const [lateValue, setLateValue] = useState<MakerLate | null>(null);
+  const latePending = late != null && lateValue === null;
+  const details = lateValue ? lateValue.details : detailsGiven;
+  const rsvpStage = lateValue ? lateValue.rsvpStage : rsvpStageGiven;
+  const factEditors = lateValue ? lateValue.factEditors : factEditorsGiven;
+  const venuePictures = lateValue ? lateValue.venuePictures : venuePicturesGiven;
+  const studio = lateValue ? lateValue.studio : studioGiven;
   const [stage, setStage] = useState<LifecyclePhase>(initialStage);
   const [device, setDevice] = useState<MakerDevice>('desktop');
   /* 🖥📱 Both needs 1024 px (`makerViewOptions`); narrower, it is drawn as
@@ -385,6 +402,32 @@ export function MakerShell({
   /** The address named what to open — memory then never moves Details' item. */
   const addressNamed = useRef(initialSelection !== null && !opensOnGuide);
   const openedOnGuide = useRef(opensOnGuide);
+  /** This tab remembered a place in the Maker (`memoryKey`) — it wins over the guided door, as it always did. */
+  const rememberedPlace = useRef(false);
+  /** The couple has already pressed something — a door that lands later never moves them. */
+  const touched = useRef(false);
+  useEffect(() => {
+    const on = () => {
+      touched.current = true;
+    };
+    window.addEventListener('pointerdown', on, { capture: true, once: true });
+    window.addEventListener('keydown', on, { capture: true, once: true });
+    return () => {
+      window.removeEventListener('pointerdown', on, { capture: true });
+      window.removeEventListener('keydown', on, { capture: true });
+    };
+  }, []);
+  /* 🪜 THE GUIDED DOOR, ARRIVING WITH THE PANELS (`late.opensOnGuide`): an unfinished event whose address names no
+     place opens on What's left — as it did when the page waited for the panels — unless the couple pressed
+     something first or this tab remembered where it was. */
+  const lateOpensOnGuide = lateValue?.opensOnGuide === true;
+  useEffect(() => {
+    if (!lateOpensOnGuide || touched.current || rememberedPlace.current || addressNamed.current) return;
+    openedOnGuide.current = true;
+    const moved = movedSelection({ kind: 'tool', key: 'details' });
+    setSelection((cur) => cur ?? moved.selection);
+    if (moved.item) setDetailsItem((d) => d ?? moved.item);
+  }, [lateOpensOnGuide]);
   useEffect(() => {
     let saved: { stage?: string; device?: string; navOpen?: boolean; selection?: MakerSelection } | null = null;
     try {
@@ -396,6 +439,7 @@ export function MakerShell({
     if (isMakerDevice(saved?.device)) setDevice(saved.device);
     else if (desktopColumns || window.matchMedia('(max-width: 767px)').matches) setDevice('phone');
     if (typeof saved?.navOpen === 'boolean') setNavOpen(saved.navOpen);
+    rememberedPlace.current = Boolean(saved && 'selection' in saved);
     // An address that names what to open (a save's `?scene=`) wins over memory.
     if (openedOnGuide.current && saved && 'selection' in saved) {
       // 🪜 Opened on What's left by default: the tab's own last place wins — a stage included.
@@ -451,22 +495,19 @@ export function MakerShell({
      the shell is sized to what is visible. */
   const shellRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    const vv = window.visualViewport;
     const el = shellRef.current;
-    if (!vv || !el) return;
-    const fit = () => {
-      const keyboard = Math.abs(vv.scale - 1) < 0.01 && vv.height < window.innerHeight - 80;
-      el.style.height = keyboard ? `${Math.round(vv.height)}px` : '';
-      el.style.top = keyboard ? `${Math.round(vv.offsetTop)}px` : '';
-      el.style.bottom = keyboard ? 'auto' : '';
-    };
-    fit();
-    vv.addEventListener('resize', fit);
-    vv.addEventListener('scroll', fit);
-    return () => {
-      vv.removeEventListener('resize', fit);
-      vv.removeEventListener('scroll', fit);
-    };
+    if (!el || !readKeyboard().present) return;
+    /* The one keyboard reading (`lib/keyboard-ride.ts`) — the viewport's own rule, as before (never the iOS app's
+       event: there the WebView itself shrinks, and the shell is already the visible height). */
+    return subscribeKeyboard(
+      (k) => {
+        const keyboard = keyboardIsOpen(k.scale, k.height, window.innerHeight);
+        el.style.height = keyboard ? `${Math.round(k.height)}px` : '';
+        el.style.top = keyboard ? `${Math.round(k.offsetTop)}px` : '';
+        el.style.bottom = keyboard ? 'auto' : '';
+      },
+      { now: true },
+    );
   }, []);
 
   /* 🧷 A MAKER SAVE NEVER REMOUNTS THE MAKER (owner 2026-09-28: *"a lot of
@@ -1221,12 +1262,18 @@ export function MakerShell({
               <MakerPage
                 pageKey="details"
                 page={
-                  details?.page ?? (
+                  details?.page ??
+                  (latePending ? (
+                    /* ⚡ Still on its way (`late`) — said as loading, never as a failure. */
+                    <div className="m-auto w-full max-w-md px-4" data-maker-late-pending="details">
+                      <TimelineRowsLoading label="Loading your details" rows={4} />
+                    </div>
+                  ) : (
                     /* A read that failed is SAID, never an empty page. */
                     <p role="alert" className="m-auto max-w-sm px-4 text-center text-sm text-terracotta-700">
                       Your details could not be loaded just now. Nothing was changed — please reopen this in a moment.
                     </p>
-                  )
+                  ))
                 }
                 controls={details?.controls ?? null}
               />
@@ -1237,18 +1284,23 @@ export function MakerShell({
               underneath. Picking another page puts that stage back. */}
           {hasWork && selection?.kind === 'tool' && selection.key === 'rsvp-stage' ? (
             <div className="absolute inset-0 z-30 flex bg-cream" data-maker-rsvp-layer="">
-              {rsvpStage ?? (
-                <p role="alert" className="m-auto max-w-sm px-4 text-center text-sm text-terracotta-700">
-                  Your RSVP could not be loaded just now. Nothing was changed — please reopen this in a moment.
-                </p>
-              )}
+              {rsvpStage ??
+                (latePending ? (
+                  <div className="m-auto w-full max-w-md px-4" data-maker-late-pending="rsvp">
+                    <TimelineRowsLoading label="Loading your RSVP" rows={3} />
+                  </div>
+                ) : (
+                  <p role="alert" className="m-auto max-w-sm px-4 text-center text-sm text-terracotta-700">
+                    Your RSVP could not be loaded just now. Nothing was changed — please reopen this in a moment.
+                  </p>
+                ))}
             </div>
           ) : null}
           {/* 🧭 THE NEW MAKER'S STUDIO, over the work area (appended last, so the shipped Maker's tree is
               unchanged): its HOME of cards (`studio-home.tsx`, loaded when first opened). A Studio PAGE draws
               nothing here: where you are is said in the top bar's pill (`StudioSideSwitch`, above) — no row is added. */}
           {studioHomeOn ? (
-            <StudioCover tiles={studio?.tiles ?? null} onOpen={openStudio} />
+            <StudioCover tiles={studio?.tiles ?? null} pending={latePending} onOpen={openStudio} />
           ) : null}
         </div>
 
@@ -1311,6 +1363,13 @@ export function MakerShell({
           />
         ) : null}
       </div>
+      {/* ⚡ The panels arriving behind the Maker (`lib/maker-late.ts`) — appended last, in a boundary of its own,
+          so waiting for them suspends nothing on screen. */}
+      {late ? (
+        <Suspense fallback={null}>
+          <MakerLateBridge late={late} onLate={setLateValue} />
+        </Suspense>
+      ) : null}
         </>,
       )}
     </MakerContext.Provider>

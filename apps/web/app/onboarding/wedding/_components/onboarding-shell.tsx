@@ -888,12 +888,12 @@ function HeroImg({ src, alt = '' }: { src: string; alt?: string }) {
    onboarding-pricing.ts → buildOnboardingPricing reading platform_retail_catalog_v2). These maps carry
    only display copy + posters; pricing.svc[k] carries the numbers. */
 const BUNDLE_ITEMS: Record<string, string> = {
-  advanced_website: 'Advanced Website', papic_guest: 'Papic — add credits', guest_stories: 'Guest Stories', papic_seats: 'Papic — a camera with its own shots', animated_monogram: 'Animated Monogram', thank_you: 'Thank-You Video', pakanta: 'Music Maker · your song', panood: 'Live Watch livestream', live_background: 'Live Background', live_photowall: 'Live Photo Wall', indoor_blueprint: 'Indoor Blueprint', high_res: 'High-Res Archive',
+  advanced_website: 'Advanced Website', papic_guest: 'Papic — add credits', guest_stories: 'Guest Stories', papic_seats: 'Papic — a camera with its own shots', animated_monogram: 'Animated Monogram', thank_you: 'Thank-You Video', pakanta: 'Music Maker · your song', panood: 'Live Watch livestream', live_background: 'Live Background', live_photowall: 'Memory lane', indoor_blueprint: 'Indoor Blueprint', high_res: 'High-Res Archive',
 };
 /* Plain-language benefit copy — functional outcome + emotional anchor (JTBD · Bundle_Benefits_Best_Practices_2026-06-02.md). */
 const BUNDLE_BENEFIT: Record<string, string> = {
   advanced_website: "One link replaces 200 group-chat messages. RSVP, schedule, dress code, photos — your guests find their own answers, you stay present.",
-  papic_guest: "One shared pool of credits that every guest's phone can spend from — their candids land in your gallery live, so you keep the unposed moments a single photographer would miss. Top it up any time; what you add stacks on what you already have.",
+  papic_guest: "One shared pool of credits that every guest's phone can spend from — their candids land in your Memories live, so you keep the unposed moments a single photographer would miss. Top it up any time; what you add stacks on what you already have.",
   guest_stories: "Tito Boy's joke, Lola's blessing, your maid of honor's tears — short video greetings captured at the event, before the night blurs.",
   papic_seats: "A camera of its own for the friend who always sees the moment first — its own QR, its own shots that nobody else can spend. Add as many as you like, reload any of them whenever one runs low.",
   animated_monogram: "Your monogram drawn in gold the moment a guest opens the invite — the small detail that says we took our wedding seriously.",
@@ -901,7 +901,7 @@ const BUNDLE_BENEFIT: Record<string, string> = {
   pakanta: "An original song written just for your wedding. Yours, forever — the only couple in the world who'll ever dance to it.",
   panood: "Livestream your day to family abroad — multi-camera, broadcast quality, so Lolo in California feels like he was in the front row.",
   live_background: "An LED stage backdrop with your palette and monogram — your story on the wall, instead of generic venue draping.",
-  live_photowall: "A live photo wall at the venue — the night writes itself, guest pictures appearing on the wall minutes after each moment.",
+  live_photowall: "Memory lane at the venue — the night writes itself, guest pictures appearing on the wall minutes after each moment.",
   indoor_blueprint: "A venue floor map — guests find their seats in seconds. Zero confused tito wandering around looking for table 7.",
   high_res: "Full-quality archive of all your originals, stored safely. Free with Setnayan — yours to keep, no subscription fees.",
 };

@@ -24,6 +24,7 @@ import { GlanceDot, GlanceLineText, GlanceMeter } from '@/app/_components/servic
 import { ActionButton } from '@/components/action-button';
 import type { GlanceLine, ServiceMood } from '@/lib/service-glance';
 import type { PapicCardPhase } from '@/lib/papic-home-card';
+import { PAPIC_NO_PHOTOS_TAIL } from '@/lib/papic-glance';
 
 
 export function PapicHomeCard({
@@ -72,6 +73,8 @@ export function PapicHomeCard({
   headControl?: ReactNode;
 }) {
   const [open, setOpen] = useState(defaultOpen);
+  // The empty frames say "Frames fill as your guests shoot" — the status line drops its own "No photos yet".
+  const shownLine: GlanceLine = line.tail === PAPIC_NO_PHOTOS_TAIL ? { ...line, tail: '' } : line;
   const regionId = useId();
   const root = useRef<HTMLDivElement>(null);
   // 🔗 An old link to the retired Papic page lands on Home as `?papic=open` (owner 2026-10-24: "the controller page is
@@ -136,7 +139,7 @@ export function PapicHomeCard({
           <span className="sg-status" data-mood={mood} data-glance-status="">
             {mood !== 'plain' ? <GlanceDot mood={mood} /> : null}
             <span>
-              <GlanceLineText line={line} />
+              <GlanceLineText line={shownLine} />
             </span>
           </span>
           <GlanceMeter mood={mood} pct={pct} label={meterLabel} />

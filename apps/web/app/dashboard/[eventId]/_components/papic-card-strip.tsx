@@ -59,6 +59,8 @@ export async function PapicCardStrip({
   return <PapicCardStripView eventId={eventId} frames={frames} total={total} phase={phase} />;
 }
 
+const EMPTY_FRAME = 'block aspect-square rounded-lg border border-dashed border-ink/20 bg-ink/[0.03]'; // no-card-ok: an empty photo frame the sketch draws (a placeholder tile, not a section box)
+
 /** The strip as drawn — `frames` null = the read was refused (said, never an empty strip). */
 export function PapicCardStripView({
   eventId,
@@ -79,12 +81,17 @@ export function PapicCardStripView({
     );
   }
   if (frames.length === 0) {
-    // Once the cameras are open the card's own status line already says "No photos yet" — never twice.
-    if (phase !== 'before') return null;
+    // 🖼 THE SKETCH'S EMPTY ROW (approved 2026-10-24): five empty dashed frames and one line — the same row the photos
+    // fill, latest first, once they come. The card's status line then says no "No photos yet" of its own.
     return (
-      <p className="mt-2 text-[12.5px] text-ink/60" data-papic-strip="empty">
-        Frames fill as your guests shoot
-      </p>
+      <div className="mt-2" data-papic-strip="empty">
+        <div className="grid grid-cols-5 gap-1.5" aria-hidden>
+          {[0, 1, 2, 3, 4].map((i) => (
+            <span key={i} className={EMPTY_FRAME} />
+          ))}
+        </div>
+        <p className="mt-1.5 text-[12.5px] text-ink/60">Frames fill as your guests shoot</p>
+      </div>
     );
   }
   const memories = `/dashboard/${eventId}/memories`;

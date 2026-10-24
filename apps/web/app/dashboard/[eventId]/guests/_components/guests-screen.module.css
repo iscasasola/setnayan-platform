@@ -419,6 +419,10 @@ button.ico {
   padding: 8px 0;
   color: var(--gs-mute);
 }
+/* SEARCH OR ADD — the last row while a search has hits: one button, no frame of its own around it. */
+.searchAdd {
+  margin-top: 14px;
+}
 .nomatch {
   border: 1px solid var(--gs-line);
   border-radius: var(--m-r-md);

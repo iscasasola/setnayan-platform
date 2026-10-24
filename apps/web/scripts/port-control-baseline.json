@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "c533224670",
+  "generatedFromRef": "29f552c6bb",
   "routeCount": 466,
-  "destinations": 1006,
+  "destinations": 1005,
   "actions": 662,
-  "blocks": 6920,
+  "blocks": 6921,
   "routes": {
     "/": {
       "files": [
@@ -6613,6 +6613,7 @@
         "Said",
         "SaveFileLink",
         "Scrim",
+        "SearchAddRow",
         "SendInvite",
         "SetRsvpResult",
         "Sheet",
@@ -9595,8 +9596,7 @@
         "/dashboard/[seg]/vendors/[seg]/workspace",
         "/dashboard/[seg]/vendors/categories",
         "/dashboard/[seg]/vendors?open=[seg]",
-        "/dashboard/[seg]/vendors?part=budget",
-        "/explore?q=[seg]"
+        "/dashboard/[seg]/vendors?part=budget"
       ],
       "actions": [
         "acceptVendorReuseForm",
@@ -9788,6 +9788,7 @@
         "SaveSheetBody",
         "SaveVendorResult",
         "SavedPhotoMarker",
+        "SearchAddRow",
         "SearchMarketplaceVendorsResult",
         "SectionStub",
         "SelfAddedPrice",
@@ -11481,7 +11482,6 @@
         "LabFactSheets",
         "LabShell",
         "LabSuppliersShell",
-        "MarketSearchStandInCtx.Provider",
         "MerkadoGuardBanner",
         "MoreRowStandInCtx.Provider",
         "ServicesTakeover",

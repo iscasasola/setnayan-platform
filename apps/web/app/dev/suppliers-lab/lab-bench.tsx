@@ -9,10 +9,10 @@
  * refuses them), so the lab shows a press answering in place.
  */
 import type { ComponentProps } from 'react';
-import { MarketSearchStandInCtx, MoreRowStandInCtx, ShortlistCategories } from '@/app/dashboard/[eventId]/vendors/_components/shortlist-categories';
+import { MoreRowStandInCtx, ShortlistCategories } from '@/app/dashboard/[eventId]/vendors/_components/shortlist-categories';
 import { BenchWritesStandInCtx, type BenchWrites } from '@/app/dashboard/[eventId]/vendors/_components/bench-local';
 import { AddOwnStandInCtx } from '@/app/dashboard/[eventId]/_components/add-your-own-walk';
-import { LAB_CLAIM_URL, LAB_MARKET, labMarketSearch, labNameMatches, labSheet } from './fixtures';
+import { LAB_CLAIM_URL, LAB_MARKET, labNameMatches, labSheet } from './fixtures';
 
 export function LabBench({
   fail,
@@ -84,10 +84,7 @@ export function LabBench({
         return { results: rows, freeDaysByProfileId: {}, noProbeWindow: true, serviceCardByProfileId: m?.cards ?? {} };
       }}
     >
-      {/* The bottom search's whole-marketplace NAME search, typed with no category open. */}
-      <MarketSearchStandInCtx.Provider value={async (q) => (fail ? [] : labMarketSearch(q))}>
-        <ShortlistCategories {...props} />
-      </MarketSearchStandInCtx.Provider>
+      <ShortlistCategories {...props} />
     </MoreRowStandInCtx.Provider>
     </AddOwnStandInCtx.Provider>
     </BenchWritesStandInCtx.Provider>

@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "209fe16ac7",
-  "routeCount": 463,
-  "destinations": 1002,
+  "generatedFromRef": "e2819cebad",
+  "routeCount": 464,
+  "destinations": 1004,
   "actions": 662,
-  "blocks": 6873,
+  "blocks": 6889,
   "routes": {
     "/": {
       "files": [
@@ -3308,6 +3308,7 @@
         "ConsoleTable",
         "EditTrack",
         "HTMLAudioElement",
+        "HTMLDivElement",
         "HTMLInputElement",
         "HubMusicManager",
         "HubMusicResult",
@@ -3618,6 +3619,8 @@
       "files": [
         "admin/papic-storage/actions.ts",
         "admin/papic-storage/backfill-tiles-button.tsx",
+        "admin/papic-storage/old-photos-actions.ts",
+        "admin/papic-storage/old-photos-button.tsx",
         "admin/papic-storage/page.tsx"
       ],
       "destinations": [],
@@ -3626,7 +3629,9 @@
         "BackfillResult",
         "BackfillTilesButton",
         "ConsoleTable",
+        "CopyRun",
         "KpiStatCard",
+        "OldPhotosButton",
         "PageMasthead"
       ]
     },
@@ -4507,7 +4512,11 @@
       "destinations": [],
       "actions": [],
       "blocks": [
-        "AdminInviteResult"
+        "ActionButton",
+        "AdminInviteResult",
+        "InviteResult",
+        "PickMenu",
+        "Sec"
       ]
     },
     "/admin/vendors/[vendorProfileId]": {
@@ -4779,6 +4788,7 @@
         "/blog",
         "/blog/[seg]",
         "/blog?category=[seg]",
+        "/realstories",
         "/signup"
       ],
       "actions": [],
@@ -4801,6 +4811,7 @@
         "/blog",
         "/blog/[seg]",
         "/blog?category=[seg]",
+        "/realstories",
         "/signup",
         "/u/[seg]",
         "/u/[seg]/c/[seg]"
@@ -6595,6 +6606,7 @@
         "Said",
         "SaveFileLink",
         "Scrim",
+        "SearchAddRow",
         "SendInvite",
         "SetRsvpResult",
         "Sheet",
@@ -7565,6 +7577,7 @@
         "TuneFold",
         "TuneSlider",
         "TypedRow",
+        "TypingBand",
         "UndoToastHost",
         "Unread",
         "UpdateQrStyleResult",
@@ -9576,8 +9589,7 @@
         "/dashboard/[seg]/vendors/[seg]/workspace",
         "/dashboard/[seg]/vendors/categories",
         "/dashboard/[seg]/vendors?open=[seg]",
-        "/dashboard/[seg]/vendors?part=budget",
-        "/explore?q=[seg]"
+        "/dashboard/[seg]/vendors?part=budget"
       ],
       "actions": [
         "acceptVendorReuseForm",
@@ -9769,6 +9781,7 @@
         "SaveSheetBody",
         "SaveVendorResult",
         "SavedPhotoMarker",
+        "SearchAddRow",
         "SearchMarketplaceVendorsResult",
         "SectionStub",
         "SelfAddedPrice",
@@ -10358,6 +10371,7 @@
         "TypeSession",
         "TypeStart",
         "TypedRow",
+        "TypingBand",
         "UploadPicture",
         "VisibilityPanel",
         "Window",
@@ -11160,6 +11174,19 @@
         "TreeStandIn"
       ]
     },
+    "/dev/personal-invite-lab": {
+      "files": [
+        "dev/personal-invite-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "ActionButton",
+        "InviteResult",
+        "InviteVendorForm",
+        "TeamInviteDoor"
+      ]
+    },
     "/dev/pro-parts-lab": {
       "files": [
         "dev/pro-parts-lab/lab-client.tsx",
@@ -11413,7 +11440,6 @@
         "LabFactSheets",
         "LabShell",
         "LabSuppliersShell",
-        "MarketSearchStandInCtx.Provider",
         "MerkadoGuardBanner",
         "MoreRowStandInCtx.Provider",
         "ServicesTakeover",
@@ -14955,6 +14981,7 @@
         "vendor-dashboard/subscription/photo-challenge-actions.ts"
       ],
       "destinations": [
+        "/vendor-dashboard/collections",
         "/vendor-dashboard/deep-search",
         "/vendor-dashboard/on-the-day",
         "/vendor-dashboard/profile",
@@ -15111,6 +15138,7 @@
         "ActionButton",
         "AutoReplySection",
         "Badge",
+        "ColourPickerSheet",
         "DatesRow",
         "DomainActionResult",
         "DomainManager",
@@ -15175,6 +15203,7 @@
         "Link",
         "Perk",
         "SnapshotField",
+        "TeamInviteDoor",
         "TerminalCard"
       ]
     },

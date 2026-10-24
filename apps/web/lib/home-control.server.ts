@@ -63,7 +63,8 @@ export type HomeHubEventRow = {
 export async function readHomeHub(
   eventId: string,
   ev: HomeHubEventRow,
-  opts: { website: boolean; guide: { stageTitle: string; left: number } | null },
+  /** `app` — the iPhone app (the store shell / Apple's gate): the link is named without its web address. */
+  opts: { website: boolean; guide: HomeHubFacts['guide']; app: boolean },
 ): Promise<HomeHubFacts | 'unread' | null> {
   if (!opts.website) return null;
   const ownerSlug = await resolveEventOwnerSlug(createAdminClient(), eventId).catch((): null => null);
@@ -82,7 +83,9 @@ export async function readHomeHub(
   return {
     stage,
     publicUrl: path && open ? `${origin}${path}` : null,
-    where: `${path ? `${origin.replace(/^https?:\/\//, '')}${path}` : 'No link yet'} · ${whoCanViewLabel(ev.landing_page_visibility)}`,
+    where: opts.app
+      ? whoCanViewLabel(ev.landing_page_visibility)
+      : `${path ? `${origin.replace(/^https?:\/\//, '')}${path}` : 'No link yet'} · ${whoCanViewLabel(ev.landing_page_visibility)}`,
     dayShort: shortDay(ev.event_date),
     guide: opts.guide,
   };

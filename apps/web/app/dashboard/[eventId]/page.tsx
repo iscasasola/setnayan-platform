@@ -9,7 +9,7 @@ import { switchOnRows } from '@/lib/event-needs';
 import { readEventNeedsFor } from '@/lib/event-needs-read.server';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { readHomeChecklist, readHomeHub, readHomeSuppliers } from '@/lib/home-control.server';
-import type { HomeControlInput, HomePayLine } from './_components/home-control-faces';
+import { composeHomeControl } from './_components/home-control-faces';
 import { startAhead } from '@/lib/start-ahead';
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import type { Metadata } from 'next';
@@ -717,8 +717,8 @@ export default async function EventHomePage({
       .catch((): 'unread' => 'unread'),
   );
   const homeHubRead = startAhead(
-    Promise.all([homePlansRead, homeGuideRead, homeTypeProfileRead])
-      .then(([plans, guide, profile]) =>
+    Promise.all([homePlansRead, homeGuideRead, homeTypeProfileRead, storeShellRead, appleRead])
+      .then(([plans, guide, profile, shell, apple]) =>
         readHomeHub(
           eventId,
           {
@@ -732,7 +732,8 @@ export default async function EventHomePage({
           },
           {
             website: plans && surfaceEnabled(profile, 'website'),
-            guide: guide ? { stageTitle: guide.stageTitle, left: Math.max(0, guide.stageTotal - guide.stageDone) } : null,
+            guide: guide ? { stageTitle: guide.stageTitle, left: Math.max(0, guide.stageTotal - guide.stageDone), done: guide.done, total: guide.total } : null,
+            app: Boolean(shell || apple),
           },
         ),
       )
@@ -996,46 +997,21 @@ export default async function EventHomePage({
     one budget read, every payment still to settle from the resolved ledger (`event_vendor_line_items`, banded by
     `lib/budget-truth.ts` `dueState`). Never invented: an unread read is 'unread' and its widget says so.
   */
-  const homeEventDate = (event.event_date as string | null) ?? null;
-  const homeLongDate = (() => {
-    const [y, m, d] = (homeEventDate ?? '').split('-').map(Number);
-    return y && m && d && facts.days.value !== '—'
-      ? new Date(y, m - 1, d).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
-      : null;
-  })();
-  const homePays: HomePayLine[] | 'unread' =
-    guardMoney && moneyReadsAllOk(guardMoney)
-      ? guardMoney.lines
-          .filter((l) => l.kind === 'committed' && l.stillOwedPhp > 0 && (l.source === 'vendor_line_item' || l.source === 'vendor_change_delta'))
-          .map((l) => ({
-            id: l.sourceRef,
-            vendorId: l.vendorId,
-            who: l.vendorName ?? 'Your supplier',
-            what: l.label,
-            owedPhp: l.stillOwedPhp,
-            dueDate: l.dueDate,
-            days: l.daysUntilDue,
-            state: l.dueState,
-          }))
-      : 'unread';
-  const homeControl: HomeControlInput = {
+  const homeControl = composeHomeControl({
     eventId,
     next: homeNext,
-    countdown: {
-      value: facts.days.value,
-      label: facts.days.label,
-      days: facts.figures.days ?? null,
-      hasDate: facts.days.value !== '—',
-      long: homeLongDate,
-      placeLine: ((event as { venue_name?: string | null }).venue_name ?? '').trim() || null,
-    },
-    guests: homeNeeds.guestList === false ? null : guestsMeasured ? { coming: homeRoster.yes, noReply: homeRoster.none, toInvite: homeRoster.toInvite, declined: homeRoster.no, total: homeRoster.total } : 'unread',
+    days: facts.days,
+    daysN: facts.figures.days ?? null,
+    eventDate: (event.event_date as string | null) ?? null,
+    venueName: (event as { venue_name?: string | null }).venue_name ?? null,
+    needs: homeNeeds,
+    roster: guestsMeasured ? homeRoster : null,
+    money: moneyNow,
+    ledger: guardMoney ? { allOk: moneyReadsAllOk(guardMoney), lines: guardMoney.lines } : null,
     hub: homeHub,
     suppliers: homeSuppliers,
-    // 'hidden' = the budget is not shared with this viewer: ABSENT, never "—". null = the read failed: SAID.
-    budget: homeNeeds.suppliers === false || moneyNow === 'hidden' ? null : moneyNow === null ? 'unread' : { paidPhp: moneyNow.paid, owingPhp: moneyNow.owing, pays: homePays },
     checklist: homeChecklist,
-  };
+  });
   const homeFirstScreen = (
     <>
     {/* 🍎 The App Store net (lib/iap/native-store.ts): on Home — where the app

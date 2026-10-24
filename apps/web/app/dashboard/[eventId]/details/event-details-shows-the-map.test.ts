@@ -185,15 +185,15 @@ test('the fixed bugs stay fixed: venues come from bookings, never a setting type
   assert.deepEqual(said, [], 'the word "vendor" is back in Event Details copy');
 });
 
-test('Event Home carries the Event Details door — ⚙ Settings — beside the event name', () => {
-  // The cover band is its own file since 2026-10-16 (the Home's loading screen draws the same one);
-  // the Home still draws it.
-  assert.match(read('app/dashboard/[eventId]/_components/home-first-screen.tsx'), /<HomeCoverBand eventId=\{eventId\} cover=\{cover\}/);
-  const home = read('app/dashboard/[eventId]/_components/home-cover-band.tsx');
-  // ⚙ "Settings" since 23 Oct 2026 (the header image's one button) — the same door to Event Details.
-  assert.match(home, /href=\{`\/dashboard\/\$\{eventId\}\/details`\}[\s\S]{0,200}label="Settings"/);
-  const cover = home.slice(home.indexOf('{cover.name}'), home.indexOf('{cover.name}') + 600);
-  assert.ok(cover.includes('data-home-event-details'), 'the button is not on the cover beside the name');
+test('Event Home carries the Event Details door — the Countdown widget', () => {
+  // Owner-approved 2026-10-24 (`home_control_center_2026-10-24_fable.html`): the cover keeps its name and drops the ⚙
+  // Settings pill; the Countdown — the first widget, right under the name — is Event Details' one door.
+  const first = read('app/dashboard/[eventId]/_components/home-first-screen.tsx');
+  assert.match(first, /<HomeCoverBand cover=\{cover\}/);
+  assert.match(first, /<HomeControlRow input=\{control\} \/>/);
+  const faces = read('app/dashboard/[eventId]/_components/home-control-faces.ts');
+  assert.match(faces, /key: 'count',[\s\S]{0,120}?door: `\/dashboard\/\$\{e\}\/details`/, 'the Countdown is not the door to Event Details');
+  assert.doesNotMatch(read('app/dashboard/[eventId]/_components/home-cover-band.tsx'), /data-home-event-details/, 'the cover’s pill is back — a second door');
 });
 
 test('how guests get in — one fact, the shipped readers', () => {

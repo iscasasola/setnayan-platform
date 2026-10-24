@@ -214,7 +214,7 @@ test('c · the page hands the measurement to the render, not only the rows', () 
   assert.match(PAGE, /guests:\s*\{\s*stats:\s*guestStats,\s*measured:\s*guestsMeasured,\s*noReply:\s*homeRoster\.none,\s*coming:\s*homeRoster\.yes\s*\}/, 'the page must pass the measured flag with the counts');
   assert.match(FACTS, /glanceCount\(comingN,\s*guests\.measured\)/, '"coming" must know whether it was measured');
   assert.match(FACTS, /glanceMoney\(money\?\.paid \?\? null\)/, 'Paid must print "—" when the money read failed');
-  assert.match(PAGE, /guestsMeasured \? \{ coming: homeRoster\.yes/, 'the Guests widget must know whether the list was measured');
+  assert.match(PAGE, /roster: guestsMeasured \? homeRoster : null,/, 'the Guests widget must know whether the list was measured');
   assert.doesNotMatch(PAGE, /measured:\s*true[^}]*\}\s*as Awaited/, 'a failed guest read must never be recast as measured');
 });
 

@@ -11,7 +11,7 @@ import { ForTagMark } from '@/app/_components/for-tag-mark';
  * `ground` null = the plain colour band (the loading screen has not read the hub's background).
  *
  * ⚙ NO SETTINGS PILL (owner-approved 2026-10-24, `home_control_center_2026-10-24_fable.html`: "Keeps the cover; drops
- * the pill so Event Settings has one door"). The Countdown widget is Event Settings' ONE door now — the pill that opened
+ * the pill so Event Settings has one door"). The Countdown widget is Event Details' ONE door now — the pill that opened
  * the same page (the 23 Oct ruling) was a second door to it.
  */
 export function HomeCoverBand({

@@ -178,7 +178,19 @@ function readReduced(): boolean {
   }
 }
 
-export function HomeTile({ model, eventId, stagger }: { model: HomeTileModel; eventId: string; /** this tile's place among the rotating tiles */ stagger: number }) {
+export function HomeTile({
+  model,
+  eventId,
+  stagger,
+  tour,
+}: {
+  model: HomeTileModel;
+  eventId: string;
+  /** this tile's place among the rotating tiles */
+  stagger: number;
+  /** A first-visit spotlight anchor on this tile's dots (`lib/tours.ts`). */
+  tour?: string;
+}) {
   const faces = model.faces;
   const count = faces.length;
   const [index, setIndex] = useState(0);
@@ -356,6 +368,8 @@ export function HomeTile({ model, eventId, stagger }: { model: HomeTileModel; ev
       data-home-tile-face={face.id}
       data-home-tile-rotates={rotates ? '' : undefined}
       data-home-tile-failed={model.failed ? '' : undefined}
+      /* 💾 Money is never kept as last-seen data (lib/last-seen) — the Budget tile is dropped from the snapshot. */
+      data-money={model.key === 'budget' ? '' : undefined}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerEnd}
@@ -374,7 +388,7 @@ export function HomeTile({ model, eventId, stagger }: { model: HomeTileModel; ev
         </div>
       </div>
       {count > 1 ? (
-        <div className="hc-dots" ref={dots}>
+        <div className="hc-dots" ref={dots} data-tour={tour}>
           {faces.map((f, i) => (
             <button
               key={f.id}

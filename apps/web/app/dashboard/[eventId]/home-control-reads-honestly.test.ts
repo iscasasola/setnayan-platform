@@ -20,7 +20,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
 import { fixtureControl, fixtureControlUnread } from '@/lib/home-control-fixture';
-import { HOME_CONTROL_KEYS, homeControlTiles } from './_components/home-control-faces';
+import { HOME_CONTROL_KEYS, composeHomeControl, homeControlTiles } from './_components/home-control-faces';
 import { count, drawHome, loadHome, slice } from './home-render.harness';
 
 test.before(loadHome);
@@ -79,9 +79,17 @@ test('3 · each reader answers "unread" on a refusal, and the page hands it on �
   assert.match(reads, /if \(!standings\) return 'unread';/, 'Suppliers: a refused standing read is not "unread"');
   assert.match(reads, /const raw = await readChecklistItems\(supabase, eventId\)[^;]*;\s*if \(raw === null\) return 'unread';/, 'Checklist: a refused read is not "unread"');
   const page = read('app/dashboard/[eventId]/page.tsx');
-  assert.match(page, /guestsMeasured \? \{ coming: homeRoster\.yes, noReply: homeRoster\.none, toInvite: homeRoster\.toInvite, declined: homeRoster\.no, total: homeRoster\.total \} : 'unread'/, 'Guests: an unmeasured read reaches the widget as a count');
-  assert.match(page, /moneyNow === null \? 'unread'/, 'Budget: a failed money read reaches the widget as a figure');
-  assert.match(page, /guardMoney && moneyReadsAllOk\(guardMoney\)[\s\S]{0,600}?: 'unread';/, 'Budget: an unresolved ledger reaches the widget as "nothing to settle"');
+  assert.match(page, /roster: guestsMeasured \? homeRoster : null,/, 'Guests: an unmeasured read reaches the widget as a count');
+  assert.match(page, /money: moneyNow,/);
+  assert.match(page, /ledger: guardMoney \? \{ allOk: moneyReadsAllOk\(guardMoney\), lines: guardMoney\.lines \} : null,/, 'Budget: the ledger reaches the widget without its honesty');
+  // …and the ONE composer says it (run, not grepped):
+  const base = { eventId: 'e1', next: fixtureControl('e1').next, days: { value: '51', label: 'days to go' }, daysN: 51, eventDate: '2026-12-12', venueName: null, needs: { guestList: true, suppliers: true }, hub: null, suppliers: null, checklist: null };
+  assert.equal(composeHomeControl({ ...base, roster: null, money: 'hidden', ledger: null }).guests, 'unread', 'Guests: an unmeasured read reaches the widget as a count');
+  assert.equal(composeHomeControl({ ...base, roster: null, money: null, ledger: null }).budget, 'unread', 'Budget: a failed money read reaches the widget as a figure');
+  const unresolved = composeHomeControl({ ...base, roster: null, money: { paid: 1, owing: 2 }, ledger: null }).budget;
+  assert.ok(unresolved && unresolved !== 'unread' && unresolved.pays === 'unread', 'Budget: an unresolved ledger reaches the widget as "nothing to settle"');
+  const partial = composeHomeControl({ ...base, roster: null, money: { paid: 1, owing: 2 }, ledger: { allOk: false, lines: [] } }).budget;
+  assert.ok(partial && partial !== 'unread' && partial.pays === 'unread', 'Budget: a ledger with a refused source reads as complete');
   for (const r of ['homeSuppliersRead', 'homeChecklistRead', 'homeHubRead']) {
     assert.match(page, new RegExp(`const ${r} = startAhead\\([\\s\\S]*?\\.catch\\(\\(\\): 'unread' => 'unread'\\),\\s*\\);`), `${r}: a throw is not "unread"`);
   }

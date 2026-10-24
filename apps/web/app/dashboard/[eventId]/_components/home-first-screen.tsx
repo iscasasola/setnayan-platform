@@ -76,7 +76,7 @@ const SERVICE_ICON: Record<HomeServiceKey, LucideIcon> = {
  * One widget per page, and no page appears twice. REMOVED (owner): the "Your next step" card (its verb now sits on the
  * widget it is about, the Today line names it), the aggregate "What's next" (it became the Checklist widget — the plan
  * only), the separate coming / no-reply tiles (merged into Guests), the cover's Settings pill (the Countdown is Event
- * Settings' one door). The Event Hub rose out of Your services into the control row.
+ * Details' one door). The Event Hub rose out of Your services into the control row.
  *
  * 📱 COMPACT ON THE PHONE, DETAIL FROM `md` (owner: *"we also want the compact version"* → no toggle): below 768 px a
  * 2-column grid of small tiles whose faces rotate; from 768 px the same widgets as cards in two columns. The column

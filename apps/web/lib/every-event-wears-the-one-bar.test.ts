@@ -205,10 +205,13 @@ test('with More gone, Home draws Your services in every phase — first screen, 
   const after = page.slice(page.indexOf(') : afterActive && afterSummary ? ('));
   assert.match(after, /<YourServices eventId=\{eventId\} services=\{homeServiceRowAll\}/, 'after the day lost Your services');
   const first = code('app/dashboard/[eventId]/_components/home-first-screen.tsx');
-  assert.match(first, /<YourServices eventId=\{eventId\} services=\{services\}/, 'the first screen lost Your services');
+  // (The Event Hub rose into the control row on the first screen, owner-approved 2026-10-24.)
+  assert.match(first, /<YourServices\s+eventId=\{eventId\}\s+services=\{services\.filter\(\(s\) => s\.key !== 'hub'\)\}/, 'the first screen lost Your services');
   assert.match(first, /id="your-services"/, 'Your services has no address for a door to scroll to');
-  // On the day and after it no Next card is on screen — nothing stands down for one.
-  assert.match(page, /const homeServiceRowAll = homeServices\(\{ \.\.\.homeServicesInput, next: 'plan' \}\)/);
+  // No Next card is on screen in any phase (owner-approved 2026-10-24) — one list, nothing stands down: the input
+  // itself names no service (`next: 'plan'`).
+  assert.match(page, /const homeServiceRowAll = homeServices\(homeServicesInput\)/);
+  assert.match(page, /const homeServicesInput: Parameters<typeof homeServices>\[0\] = \{\s*next: 'plan',/);
   const summary = code('app/dashboard/[eventId]/_components/after/finished-event-summary.tsx');
   assert.match(summary, /href=\{`\$\{base\}#your-services`\}/, 'the after summary’s services card points at the retired More again');
 });

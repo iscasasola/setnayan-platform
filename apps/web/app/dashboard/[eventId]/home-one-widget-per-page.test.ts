@@ -39,7 +39,7 @@ function pageOf(href: string): string {
   const h = href.replace(/&amp;/g, '&');
   if (h.startsWith(PUBLIC)) return 'Event Hub';
   const path = h.replace(/^\/dashboard\/e1/, '');
-  if (/^\/(details|date-selection)\b/.test(path)) return 'Event Settings';
+  if (/^\/(details|date-selection)\b/.test(path)) return 'Event Details';
   if (/^\/guests\b/.test(path)) return 'Guests';
   if (/^\/launch\b/.test(path)) return 'Event Hub';
   if (/^\/vendors\?part=budget\b/.test(path)) return 'Budget';

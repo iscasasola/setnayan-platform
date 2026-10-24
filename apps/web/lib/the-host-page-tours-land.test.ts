@@ -134,9 +134,10 @@ function settle(i: number, present: (j: number) => boolean): Set<number> {
 
 test('a Simple event’s Home: the hidden tabs take their pages, the count is honest, and Next reaches the finale', () => {
   // (The Event Hub stop lights the bar's Hub tab since Home's door pills came off — owner 2026-10-23.)
-  const i = idx('home-next');
+  // (Home's stop rings the control row since the Next card went — owner-approved 2026-10-24.)
+  const i = idx('home-tiles');
   assert.ok(i > 0 && JOURNEY[idx('tab-guests')]!.go && JOURNEY[idx('tab-vendors')]!.go, 'the journey shape moved');
-  const dropped = settle(i, at(['home-next', 'tab-launch']));
+  const dropped = settle(i, at(['home-tiles', 'tab-launch']));
   for (const a of ['tab-guests', 'guests-add', 'guests-setup', 'tab-vendors', 'suppliers-find']) {
     assert.ok(dropped.has(idx(a)), `"${a}" was not dropped on a Simple event — the tour would sit silent`);
   }
@@ -146,7 +147,7 @@ test('a Simple event’s Home: the hidden tabs take their pages, the count is ho
 });
 
 test('a full event’s Home drops nothing', () => {
-  assert.deepEqual([...settle(idx('home-next'), at(['home-next', 'tab-launch', 'tab-guests', 'tab-vendors']))], []);
+  assert.deepEqual([...settle(idx('home-tiles'), at(['home-tiles', 'tab-launch', 'tab-guests', 'tab-vendors']))], []);
 });
 
 test('a page that is merely elsewhere drops nothing (the host is still in the event-type picker)', () => {

@@ -46,8 +46,10 @@ export function HomeControlRow({ input }: { input: HomeControlInput }) {
     <>
       <div className="hc-grid md:hidden" data-home-control="compact" data-tour="home-tiles">
         {tiles.map((t) => {
-          const stagger = t.faces.length > 1 && !t.failed ? rotating++ : 0;
-          return <HomeTile key={t.key} model={t} eventId={input.eventId} stagger={stagger} />;
+          const rotates = t.faces.length > 1 && !t.failed;
+          const stagger = rotates ? rotating++ : 0;
+          // The first-visit tour's "More on every tile" rings the first tile with faces to swipe.
+          return <HomeTile key={t.key} model={t} eventId={input.eventId} stagger={stagger} tour={rotates && stagger === 0 ? 'home-faces' : undefined} />;
         })}
       </div>
       <div className="hc-two hidden md:grid" data-home-control="detail" data-tour="home-tiles">
@@ -120,7 +122,13 @@ function Shell({
 }) {
   const label = `Open ${HOME_CONTROL_PAGE[k]}`;
   return (
-    <article className={`sg-row hc-card${failed ? ' hc-card-bad' : ''}`} data-home-card-key={k} data-mood={failed ? 'gone' : 'plain'}>
+    <article
+      className={`sg-row hc-card${failed ? ' hc-card-bad' : ''}`}
+      data-home-card-key={k}
+      data-mood={failed ? 'gone' : 'plain'}
+      /* 💾 Money is never kept as last-seen data (lib/last-seen) — the Budget card is dropped from the snapshot. */
+      data-money={k === 'budget' ? '' : undefined}
+    >
       {/* THE DOOR — the whole card is its ONE page; the buttons inside sit above it (never a link in a link). */}
       {external ? (
         <HubViewLink url={door} className="hc-card-door" label={label} marker="card">
@@ -165,7 +173,7 @@ function Failed({ words }: { words: string }) {
       <Dot mood="gone" marker="failed">
         <b className="font-medium">{words}</b>
       </Dot>
-      <div className="sg-acts hc-above">
+      <div className="sg-acts">
         <HomeReload />
       </div>
     </>
@@ -193,7 +201,7 @@ function DetailCard({ k, input, tile }: { k: HomeControlKey; input: HomeControlI
           ) : (
             <>
               <Dot mood="wait">No date yet</Dot>
-              <div className="sg-acts hc-above">
+              <div className="sg-acts">
                 <ActionButton tone="brand" main={today} icon={<CalendarDays aria-hidden="true" strokeWidth={1.9} />} label="Set your date" href={`/dashboard/${e}/date-selection`} />
               </div>
             </>
@@ -222,7 +230,7 @@ function DetailCard({ k, input, tile }: { k: HomeControlKey; input: HomeControlI
                 : 'Everyone has an invitation'}
           </Dot>
           {g.total > 0 ? (
-            <span className="sg-status hc-figs" data-glance-status="">
+            <span className="sg-status hc-figs" data-glance-status="" data-tour="home-faces">
               {/* The faces, side by side — each opens the exact list it counts. */}
               <Link href={`/dashboard/${e}/guests?q=coming`} className="hc-fig">
                 <b><Count value={g.coming} id="home-guests-coming" /></b> coming
@@ -238,7 +246,7 @@ function DetailCard({ k, input, tile }: { k: HomeControlKey; input: HomeControlI
             </span>
           ) : null}
           {invite || g.total === 0 ? (
-            <div className="sg-acts hc-above">
+            <div className="sg-acts">
               {g.total === 0 ? (
                 <ActionButton tone="brand" main icon={<Plus aria-hidden="true" strokeWidth={1.9} />} label="Add guests" href={`/dashboard/${e}/guests`} />
               ) : (
@@ -276,6 +284,11 @@ function DetailCard({ k, input, tile }: { k: HomeControlKey; input: HomeControlI
               'No page is live yet · pick your date to place it'
             )}
           </Dot>
+          {h.guide && input.next.kind === 'guide' ? (
+            <Dot mood="wait" marker="setup">
+              {formatCount(h.guide.done)} of {formatCount(h.guide.total)} parts set up
+            </Dot>
+          ) : null}
           {after ? (
             <span className="sg-status" data-glance-status="">
               <span>
@@ -300,8 +313,8 @@ function DetailCard({ k, input, tile }: { k: HomeControlKey; input: HomeControlI
               ))}
             </span>
           ) : null}
-          <div className="sg-acts hc-above">
-            <ActionButton tone="brand" main icon={<PenLine aria-hidden="true" strokeWidth={1.9} />} label="Edit in Maker" href={`/dashboard/${e}/launch`} />
+          <div className="sg-acts">
+            <ActionButton tone="brand" main icon={<PenLine aria-hidden="true" strokeWidth={1.9} />} label="Edit in Maker" href={tile.side?.[0]?.href ?? `/dashboard/${e}/launch`} />
             {h.publicUrl ? (
               <HubViewLink url={h.publicUrl} className="ab ab-neutral" label="View Event Hub" marker="card-button">
                 <Eye aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.9} />
@@ -335,13 +348,13 @@ function DetailCard({ k, input, tile }: { k: HomeControlKey; input: HomeControlI
           </Dot>
           {s.replied > 0 ? (
             <span className="sg-status" data-glance-status="">
-              <Link href={`/dashboard/${e}/vendors?tab=shortlist`} className="hc-fig hc-above">
+              <Link href={`/dashboard/${e}/vendors?tab=shortlist`} className="hc-fig">
                 <b>{formatCount(s.replied)}</b> replied · waiting on you
               </Link>
             </span>
           ) : null}
           {decide ? (
-            <div className="sg-acts hc-above">
+            <div className="sg-acts">
               <ActionButton tone="neutral" icon={<Check aria-hidden="true" strokeWidth={1.9} />} label="Decide the quote" href={decide.href} />
             </div>
           ) : null}
@@ -378,7 +391,7 @@ function DetailCard({ k, input, tile }: { k: HomeControlKey; input: HomeControlI
           today={today}
         >
           {listed.length > 0 ? (
-            <div className="hc-pays hc-above">
+            <div className="hc-pays">
               {listed.map((p) => {
                 const late = p.state === 'overdue' || (p.days !== null && p.days < 0);
                 const href = payFace(p.id)?.action?.href ?? `/dashboard/${e}/vendors?part=budget`;

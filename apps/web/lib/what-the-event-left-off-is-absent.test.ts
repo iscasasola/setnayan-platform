@@ -57,8 +57,16 @@ test('Home drops the numbers and the money of what is off, and keeps ONE Switch 
   // (Home's three door pills are gone — owner 2026-10-23, "we already have those menus on the nav" — so there are no
   // doors left to follow the needs; the bar keeps every tab, test above. `the-home-leads-with-one-next.test.ts` b.)
   assert.doesNotMatch(home, /HomeDoorways|doorsHidden/, 'the door pills are back on Home');
-  assert.match(home, /\{noList \? null : guestsUnread \?/, 'the guest numbers show without a guest list');
-  assert.match(home, /money && !noSuppliers/, 'the money shows without suppliers');
+  // Since the control row (owner-approved 2026-10-24) the widgets are ABSENT (null) for what is off — decided where the
+  // page builds them, and drawn by nothing when null (`home-control-faces.ts`: `if (g === null) return null`).
+  const page0 = read('app/dashboard/[eventId]/page.tsx');
+  assert.match(page0, /needs: homeNeeds,\s*roster:/, 'the control row is not told what the event needs');
+  const faces0 = read('app/dashboard/[eventId]/_components/home-control-faces.ts');
+  assert.match(faces0, /i\.needs\.guestList === false\s*\?\s*null/, 'the Guests widget shows without a guest list');
+  assert.match(faces0, /i\.needs\.suppliers === false \|\| i\.money === 'hidden'\s*\?\s*null/, 'the Budget widget shows without suppliers');
+  assert.match(page0, /show: plans && needs\.suppliers && profile\.marketplaceEnabled === true/, 'the Suppliers widget shows without suppliers');
+  const faces = read('app/dashboard/[eventId]/_components/home-control-faces.ts');
+  for (const w of ['g', 's', 'b']) assert.match(faces, new RegExp(`if \\(${w} === null\\) return null;`), `a widget that is off is drawn anyway (${w})`);
   assert.match(home, /data-home-switch-on/, 'Switch on more is gone — what was left off is lost');
   assert.match(home, /data-home-one-qr/, 'an event with no list has no way in on Home');
   const page = read('app/dashboard/[eventId]/page.tsx');

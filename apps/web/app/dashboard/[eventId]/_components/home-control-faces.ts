@@ -6,7 +6,7 @@
  * whose faces rotate (`home-tile.tsx`); from `md` up it is a detail CARD (`home-control-row.tsx`). Both are drawn from
  * what this file returns, so the phone and the desktop can never say two things about one fact.
  *
- *   ① Countdown → Event Settings · ② Guests → Guests · ③ Event Hub → the page guests see (Edit → the Maker)
+ *   ① Countdown → Event Details · ② Guests → Guests · ③ Event Hub → the page guests see (Edit → the Maker)
  *   ④ Suppliers → Suppliers · ⑤ Budget → Budget · ⑥ Checklist → Checklist          — ONE page per widget.
  *
  * 🔒 NOTHING HERE IS NEW KNOWLEDGE, AND NOTHING IS INVENTED. Every count arrives already read by the page (each from
@@ -25,6 +25,7 @@ import type { CountFormat } from '@/components/count';
 import { PUBLIC_STAGE_LABELS, PUBLIC_STAGE_ORDER } from '@/lib/public-site-stage-labels';
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
 import type { HomeNext } from '@/lib/home-first-screen';
+import type { MoneyLine } from '@/lib/budget-truth';
 
 /** The six upper widgets, in the owner's order (notes: "The order, top to bottom — and the one reason"). */
 export const HOME_CONTROL_KEYS = ['count', 'guests', 'hub', 'sup', 'budget', 'plan'] as const;
@@ -32,7 +33,8 @@ export type HomeControlKey = (typeof HOME_CONTROL_KEYS)[number];
 
 /** The ONE page each widget opens (notes: "One widget → the ONE page it opens"). */
 export const HOME_CONTROL_PAGE: Readonly<Record<HomeControlKey, string>> = {
-  count: 'Event Settings',
+  // The page titled Event Details — its one name (owner 2026-10-23: "only keep the Event Details button").
+  count: 'Event Details',
   guests: 'Guests',
   hub: 'Event Hub',
   sup: 'Suppliers',
@@ -116,8 +118,8 @@ export type HomeHubFacts = {
   where: string;
   /** The event date in short words ("Dec 12") — The Day's opening. */
   dayShort: string | null;
-  /** `readHomeGuide` — the guided flow's stage still to fill, when the reader drew one. */
-  guide: { stageTitle: string; left: number } | null;
+  /** `readHomeGuide` — the guided flow: the whole setup's count and the stage still to fill, when the reader drew one. */
+  guide: { stageTitle: string; left: number; done: number; total: number } | null;
 };
 
 export type HomeSuppliersFacts = {
@@ -390,7 +392,14 @@ export function hubTile(input: HomeControlInput, today: HomeToday): HomeTileMode
   const isToday = today.target === 'hub';
   if (h === null) return null;
   if (h === 'unread') return failedTile('hub', 'Event Hub', 'Couldn’t load', 'unread · not private', `/dashboard/${e}/launch`, isToday);
-  const edit: FaceAction = { icon: 'pen', label: 'Edit in Maker', href: `/dashboard/${e}/launch`, main: true };
+  // When Today is "Finish your Event Hub", Edit in Maker opens the Maker on its guided "What's left" — the same door the
+  // Next card's "Pick a stage" was (`?tool=details&guide=1`).
+  const edit: FaceAction = {
+    icon: 'pen',
+    label: 'Edit in Maker',
+    href: input.next.kind === 'guide' ? `/dashboard/${e}/launch?tool=details&guide=1` : `/dashboard/${e}/launch`,
+    main: true,
+  };
   const view: FaceAction | null = h.publicUrl ? { icon: 'eye', label: 'View Event Hub', href: h.publicUrl, external: true } : null;
   const faces: HomeFace[] = [];
   if (h.stage) {
@@ -565,4 +574,82 @@ export function homeControlTiles(input: HomeControlInput): { today: HomeToday; t
   }
   if (open) open.span = true;
   return { today, tiles };
+}
+
+/* ─── The page's facts → the control row's input (ONE composer, the page's and the guards') ─── */
+
+/**
+ * Every payment still to settle, from the resolved ledger (`resolveEventMoney`): the supplier lines (`event_vendor_line_items`
+ * — a breakdown line or a settled change), committed, with money still owed — each with its own due band
+ * (`MoneyLine.dueState`, `lib/budget-truth.ts`). A ledger that is unresolved, or whose sources did not all answer, is
+ * 'unread': never "nothing to settle".
+ */
+export function homePaysFrom(ledger: { allOk: boolean; lines: readonly MoneyLine[] } | null): HomePayLine[] | 'unread' {
+  if (!ledger || !ledger.allOk) return 'unread';
+  return ledger.lines
+    .filter((l) => l.kind === 'committed' && l.stillOwedPhp > 0 && (l.source === 'vendor_line_item' || l.source === 'vendor_change_delta'))
+    .map((l) => ({
+      id: l.sourceRef,
+      vendorId: l.vendorId,
+      who: l.vendorName ?? 'Your supplier',
+      what: l.label,
+      owedPhp: l.stillOwedPhp,
+      dueDate: l.dueDate,
+      days: l.daysUntilDue,
+      state: l.dueState,
+    }));
+}
+
+/** "Saturday, December 12, 2026" — a firm day only (a month or a year has no countdown, so no long date). */
+function longDay(iso: string | null, firm: boolean): string | null {
+  const d = iso && firm ? dayOf(iso) : null;
+  return d ? d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) : null;
+}
+
+/**
+ * THE PAGE'S FACTS, WORDED INTO THE CONTROL ROW'S INPUT — pure, so the page and the guards run the very same chain.
+ *
+ *   days       `homeFacts().days` / `.figures.days` — the countdown's own rule;
+ *   roster     `rosterStats(guests)` — the Guests summary's counts; null = the guest read was NOT measured → 'unread';
+ *   money      the one budget read: figures · null (failed → 'unread', SAID) · 'hidden' (not shared → ABSENT);
+ *   ledger     the resolved money (`EventMoney`) for the payments to settle;
+ *   needs      what the event left off — a widget that is off is ABSENT (null), never greyed.
+ */
+export function composeHomeControl(i: {
+  eventId: string;
+  next: HomeNext;
+  days: { value: string; label: string };
+  daysN: number | null;
+  eventDate: string | null;
+  venueName: string | null;
+  needs: { guestList: boolean; suppliers: boolean };
+  roster: { yes: number; none: number; toInvite: number; no: number; total: number } | null;
+  money: { paid: number; owing: number } | null | 'hidden';
+  ledger: { allOk: boolean; lines: readonly MoneyLine[] } | null;
+  hub: HomeControlInput['hub'];
+  suppliers: HomeControlInput['suppliers'];
+  checklist: HomeControlInput['checklist'];
+}): HomeControlInput {
+  const hasDate = i.days.value !== '—';
+  return {
+    eventId: i.eventId,
+    next: i.next,
+    countdown: { value: i.days.value, label: i.days.label, days: i.daysN, hasDate, long: longDay(i.eventDate, hasDate), placeLine: i.venueName?.trim() || null },
+    guests:
+      i.needs.guestList === false
+        ? null
+        : i.roster
+          ? { coming: i.roster.yes, noReply: i.roster.none, toInvite: i.roster.toInvite, declined: i.roster.no, total: i.roster.total }
+          : 'unread',
+    hub: i.hub,
+    suppliers: i.suppliers,
+    // 'hidden' = the budget is not shared with this viewer: ABSENT, never "—". null = the read failed: SAID.
+    budget:
+      i.needs.suppliers === false || i.money === 'hidden'
+        ? null
+        : i.money === null
+          ? 'unread'
+          : { paidPhp: i.money.paid, owingPhp: i.money.owing, pays: homePaysFrom(i.ledger) },
+    checklist: i.checklist,
+  };
 }

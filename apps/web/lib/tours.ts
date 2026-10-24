@@ -1535,17 +1535,18 @@ export const TOURS: Record<TourKey, TourDefinition> = {
           go: true,
         },
         {
-          // 👋 The once-only welcome — rings the same Today line the step after it explains (P4 → P5). The Next card
-          // it named became the Today line (owner-approved 2026-10-24).
-          anchor: 'home-today',
+          // 👋 The once-only welcome — rings the same control row the step after it explains (P4 → P5). The Next card
+          // it rang is gone (owner-approved 2026-10-24); the Today line is the Home page tour's own first stop, so the
+          // journey rings the widgets (a page tour never repeats a journey stop — `the-host-page-tours-land.test.ts`).
+          anchor: 'home-tiles',
           title: 'Welcome, {name}',
-          body: 'Your first event is made. Today always names the one thing to do next.',
+          body: 'Your first event is made. Every part of it has a tile here.',
           welcome: true,
         },
         {
-          anchor: 'home-today',
+          anchor: 'home-tiles',
           title: 'Start here, every time',
-          body: 'Today always names the one thing to do next. Tap it and Home jumps there.',
+          body: 'Each tile opens its page at the exact thing to do. Today, on top, names the one to start with.',
         },
         {
           // The Event Hub door left Home with the three pills (owner 2026-10-23); the bar's Event Hub tab is the way in.
@@ -1804,9 +1805,9 @@ export const TOURS: Record<TourKey, TourDefinition> = {
           body: 'The one thing to do now. Tap it and Home jumps to that tile.',
         },
         {
-          anchor: 'home-tiles',
-          title: 'Every part of your event',
-          body: 'Each tile opens its page at the exact item. Swipe a tile to see its other counts.',
+          anchor: 'home-faces',
+          title: 'More on every tile',
+          body: 'Swipe a tile to see its other counts — they turn by themselves too. Tap one to open that exact item.',
         },
         {
           anchor: 'home-services',

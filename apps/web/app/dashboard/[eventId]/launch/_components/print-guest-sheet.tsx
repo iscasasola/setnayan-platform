@@ -6,7 +6,7 @@ import { Printer, Search } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
 import { ActionButton } from '@/components/action-button';
 import { MAX_PICKED_GUESTS, filterPickGuests, pickFilterValues, pickedGuestsHref } from '@/lib/print-picked-guests';
-import { PickMenu } from '../../website/editor/_components/pick-menu';
+import { ChosenRow, FormRows } from '@/app/_components/form-row';
 import { PrintSaveButton } from './print-save-button';
 import { formatCount } from '@/lib/format-number';
 import { useModalA11y } from '@/lib/use-modal-a11y';
@@ -122,8 +122,7 @@ export function GuestPickSheet({
  * pick multiple guests to compile together as well."*).
  *
  * Opened in place from "Pick guests" beside "All guests" (which stays the default) on the Event pass and the Guest QR codes rows.
- * The shared `Sheet`: "Search guests", Side ▾ and Group ▾ (the house dropdown, `PickMenu` — never a pill row), the guests with a tick
- * box each, "Select all shown" / "Clear", "12 picked", and ONE button — "Print 12 passes". The file is the all-guests file's own
+ * The shared `Sheet`: "Search guests", Side ▾ and Group ▾ (the Form row's dropdown, `ChosenRow` — never a pill row), the guests as ticked options (View as ▾'s option look, many at once), "Select all shown" / "Clear", "12 picked", and ONE button — "Print 12 passes". The file is the all-guests file's own
  * address narrowed by `guests=<ids>` (`pickedGuestsHref`); the route checks every id against this event's list and refuses one it
  * does not know (`lib/print-picked-guests.ts`). Same lazy chunk as View as ▾.
  */
@@ -182,14 +181,14 @@ export function GuestManySheet({
           />
         </label>
         {sides.length > 0 || groups.length > 0 ? (
-          <div data-print-pick-filters="" className="flex shrink-0 flex-wrap gap-2 px-4 pb-2">
+          <FormRows data="pick-filters" width="short" attrs={{ 'data-print-pick-filters': '' }} className="shrink-0 px-2">
             {sides.length > 0 ? (
-              <PickMenu label="Side" value={side} options={[{ key: '', label: 'Any side' }, ...sides.map((s) => ({ key: s, label: s }))]} onPick={setSide} dataAttr="data-print-pick-side" compact />
+              <ChosenRow name="Side" label="Side" value={side} options={[{ key: '', label: 'Any side' }, ...sides.map((x) => ({ key: x, label: x }))]} onPick={setSide} dataAttr="data-print-pick-side" data="pick-side" />
             ) : null}
             {groups.length > 0 ? (
-              <PickMenu label="Group" value={group} options={[{ key: '', label: 'Any group' }, ...groups.map((s) => ({ key: s, label: s }))]} onPick={setGroup} dataAttr="data-print-pick-group" compact />
+              <ChosenRow name="Group" label="Group" value={group} options={[{ key: '', label: 'Any group' }, ...groups.map((x) => ({ key: x, label: x }))]} onPick={setGroup} dataAttr="data-print-pick-group" data="pick-group" />
             ) : null}
-          </div>
+          </FormRows>
         ) : null}
         <div className="flex shrink-0 items-center gap-3 border-b border-ink/10 px-5 pb-2 text-[13px]">
           <span data-print-pick-count="" className="font-semibold text-ink">
@@ -199,7 +198,7 @@ export function GuestManySheet({
             type="button"
             data-print-pick-all-shown=""
             onClick={() => setPicked((p) => new Set([...p, ...shown.map((g) => g.id)]))}
-            className="ml-auto min-h-10 font-medium text-terracotta"
+            className="ml-auto min-h-10 font-medium text-ink"
           >
             Select all shown
           </button>
@@ -207,16 +206,21 @@ export function GuestManySheet({
             Clear
           </button>
         </div>
-        <ul aria-label="Guests" className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-1">
-          {shown.map((g) => (
-            <li key={g.id}>
-              <label data-print-pick-guest={g.id} className="flex min-h-11 items-center gap-3 rounded-xl px-3 hover:bg-ink/[0.04]">
-                <input type="checkbox" checked={picked.has(g.id)} onChange={() => toggle(g.id)} className="h-5 w-5 shrink-0 accent-terracotta" />
-                <span className="min-w-0 flex-1 truncate text-[15px] text-ink">{g.name}</span>
-                {g.side || g.group ? <span className="shrink-0 text-[12px] text-ink/50">{[g.side, g.group].filter(Boolean).join(' · ')}</span> : null}
-              </label>
-            </li>
-          ))}
+        <ul role="listbox" aria-multiselectable="true" aria-label="Pick guests" className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-1.5 py-1">
+          {shown.map((g) => {
+            const on = picked.has(g.id);
+            return (
+              <li key={g.id} role="none">
+                <button type="button" role="option" aria-selected={on} data-print-pick-guest={g.id} onClick={() => toggle(g.id)} className={pickOptionClass(false, on)}>
+                  <span className="min-w-0 flex-1 truncate text-left font-semibold">{g.name}</span>
+                  {g.side || g.group ? <span className="shrink-0 pl-2 text-[12px] font-normal text-ink/50">{[g.side, g.group].filter(Boolean).join(' · ')}</span> : null}
+                  <span aria-hidden data-pick-tick="" className={`${pickTickClass(false)} w-4 shrink-0 text-center`}>
+                    {on ? '✓' : ''}
+                  </span>
+                </button>
+              </li>
+            );
+          })}
           {shown.length === 0 ? (
             <li data-print-pick-none="" className="px-3 py-4 text-[14px] text-ink/60">
               No guest matches.

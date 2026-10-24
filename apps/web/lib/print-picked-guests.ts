@@ -13,6 +13,8 @@
  * Pure (no server import): the route, the loader and the sheet share it, and the tests execute it.
  */
 
+import { formatCount } from '@/lib/format-number';
+
 /** The address parameter that carries the picked guests. */
 export const PICKED_GUESTS_PARAM = 'guests';
 
@@ -37,7 +39,7 @@ export function parsePickedGuests(raw: string | null): PickedGuests {
     .map((s) => s.trim())
     .filter(Boolean);
   if (parts.length === 0) return { ok: false, why: 'Pick at least one guest.' };
-  if (parts.length > MAX_PICKED_GUESTS) return { ok: false, why: `Pick up to ${MAX_PICKED_GUESTS} guests at a time — or print All guests.` };
+  if (parts.length > MAX_PICKED_GUESTS) return { ok: false, why: `Pick up to ${formatCount(MAX_PICKED_GUESTS)} guests at a time — or print All guests.` };
   if (parts.some((p) => !UUID.test(p))) return { ok: false, why: PICKED_GUEST_REFUSAL };
   return { ok: true, ids: new Set(parts.map((p) => p.toLowerCase())) };
 }

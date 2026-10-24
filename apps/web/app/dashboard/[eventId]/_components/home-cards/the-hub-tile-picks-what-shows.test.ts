@@ -5,15 +5,16 @@
  *       on the web, the in-app sheet in the app). With no public link yet, the Maker (there is no page to open).
  *   2 · TWO SMALL BUTTONS, 32 px, the label in `aria-label`, the ⓘ beside the tile's label: "Pick what shows" (a sheet
  *       IN PLACE — the shared `Sheet`) and "Maker" (the Event Hub Maker, as the pen was).
- *   3 · THE SHEET REUSES WHAT SHIPPED (owner: "don't invent a new mechanism") — PR-C's `HubPartsSwitches` (the page
- *       picker + a switch per part, each written into the Maker's draft with its ↺), its table read by Home's own Event
- *       Hub reader (`readHomeHubCard`) ON THE TAP, hosts only (the draft's own gate), mounted only when opened (no
- *       `next/dynamic` chunk: it would grow the shared webpack runtime, whose budget had no headroom); and the Maker's Apply bar, `HubDraftDock`, rendered by Home and handed in.
+ *   3 · THE SHEET IS ONE CHOICE (owner 2026-10-25: *"pick what shows makes them choose between Save the Date,
+ *       Invitation, The Day, Post Event only"*) — the house `PickMenu` over exactly those four, the one guests see now
+ *       marked "Now"; written by the SHIPPED `setLaunchPhase` (the Maker's "Which version guests see" door, host-gated,
+ *       live — the pin is not drafted, so no Apply bar). No part switches, no page picker: parts stay in the Maker.
+ *       The pin is read on the tap, hosts only; Home's tile honours the pin (`manualLaunchPhase(…) ?? resolveHubStage`).
  *   4 · A press inside the sheet (portalled to <body>, but still inside the tile in React's tree) never swipes the tile.
  *
- * SABOTAGE (seen red, then restored): the hub-next face back on `/launch?stage=` (1 red) · the pick button drawn as a
- * Link (2 red) · the body importing a new switch list instead of `HubPartsSwitches` (3 red) · the action without
- * `requireHostMembershipOrThrow` (3 red) · the `outside(e)` check removed from the tile's pointer handler (4 red).
+ * SABOTAGE (seen red, then restored): the hub-next face back on `/launch?stage=` (1 red) · the part switches put back
+ * in the body (3 red) · the action without `requireHostMembershipOrThrow` (3 red) · Home's stage reading the date
+ * only (3 red) · the `outside(e)` check removed from the tile's pointer handler (4 red).
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -24,6 +25,7 @@ import { stripComments } from '@/lib/strip-comments';
 import { homeControlTiles } from '../home-control-faces';
 import { fixtureControl } from '@/lib/home-control-fixture';
 import { drawHome, loadHome, slice } from '../../home-render.harness';
+import { PUBLIC_STAGE_LABELS, PUBLIC_STAGE_ORDER } from '@/lib/public-site-stage-labels';
 
 test.before(loadHome);
 
@@ -64,7 +66,7 @@ test('2 · two 32-px buttons, labels in aria, the ⓘ beside the label', () => {
   assert.match(card, /data-testid="home-hub-pick-open-card"/, 'the md+ card has no "Pick what shows"');
 });
 
-test('3 · the sheet is the shipped switches + Apply bar, read on the tap, hosts only, mounted on open', () => {
+test('3 · the sheet is ONE stage choice of four, written by the shipped setLaunchPhase', () => {
   const button = read('_components/home-cards/hub-pick-button.tsx');
   assert.match(button, /import \{ Sheet \} from '@\/app\/_components\/sheet';/, 'not the shared Sheet');
   // NOT a `next/dynamic` chunk: a new async chunk grows webpack's shared runtime, and the shared budget had no headroom
@@ -72,20 +74,26 @@ test('3 · the sheet is the shipped switches + Apply bar, read on the tap, hosts
   assert.doesNotMatch(button, /next\/dynamic/, 'a lazy chunk again — it grows the shared runtime every page loads');
   assert.match(button, /const sheet = open \? \(\s*<Sheet open/, 'the sheet (and its body) is drawn before it is opened');
   const body = read('_components/home-cards/hub-pick-body.tsx');
-  assert.match(body, /import \{ HubPartsSwitches \} from '\.\/hub-parts-switches';/, 'the sheet does not reuse the shipped part switches');
-  assert.match(body, /<HubPartsSwitches eventId=\{eventId\} table=\{read\.table\} now=\{read\.stage\} \/>/);
-  // The Apply bar is the shipped `HubDraftDock`, RENDERED by Home (its loader reads the view switch — never a server
-  // action's: `lib/view-as-free-never-changes-a-save.test.ts`) and drawn by the sheet under the switches.
-  assert.match(body, /data-home-hub-apply="">\s*\{apply\}/, 'the sheet does not draw the Apply bar it is handed');
-  assert.match(read('page.tsx'), /hubApply=\{[\s\S]{0,200}?<HubDraftDock eventId=\{eventId\} \/>/, 'Home does not hand the sheet the shipped Apply bar');
-  assert.match(body, /readHomeHubPick\(eventId\)/, 'the sheet does not read on the tap');
+  // One house dropdown over exactly the four stages, in the page's order, the current one marked.
+  assert.match(body, /<PickMenu[\s\S]*?options=\{PUBLIC_STAGE_ORDER\.map\(/, 'the choice is not the house PickMenu over the four stages');
+  assert.deepEqual([...PUBLIC_STAGE_ORDER], ['save_the_date', 'rsvp', 'event', 'editorial']);
+  assert.deepEqual(PUBLIC_STAGE_ORDER.map((s) => PUBLIC_STAGE_LABELS[s]), ['Save the Date', 'Invitation', 'The Day', 'Post Event']);
+  assert.match(body, /s === now \? \{ trail: \{ text: 'Now'/, 'the stage guests see now is not marked');
+  // The shipped write, with its own landing back on Home.
+  assert.match(body, /import \{ setLaunchPhase \} from '\.\.\/\.\.\/website\/editor\/actions';/, 'not the shipped stage setter');
+  assert.match(body, /fd\.set\('launch_phase', next\)/);
+  assert.match(body, /fd\.set\('return_to', /, 'the pick does not land back on Home');
+  // No part switches, no page picker, no Apply bar.
+  assert.doesNotMatch(body, /HubPartsSwitches|HubDraftToolbar|hubDraftAction|role="switch"/, 'parts are back in the sheet — they stay in the Maker');
   const action = read('_components/home-cards/hub-pick-actions.ts');
   assert.match(action, /^'use server';/, 'the read is not a server action');
   assert.match(action, /await requireHostMembershipOrThrow\(eventId\)/, 'the read is not hosts-only');
-  assert.match(action, /readHomeHubCard\(supabase, eventId\)/, 'the read is not Home\'s own Event Hub reader');
+  assert.match(action, /pinned: manualLaunchPhase\(e\.launch_mode, e\.manual_phase\)/, 'the read does not know the pin');
   assert.doesNotMatch(action, /loadHubDraftBarData/, 'the tap\'s server action reads the view switch');
-  // Home's first screen never reads it on the view.
-  assert.doesNotMatch(read('page.tsx'), /readHomeHubPick/, 'Home reads the pick sheet on every view');
+  assert.doesNotMatch(read('page.tsx'), /readHomeHubPick|HubDraftDock/, 'Home reads the sheet, or draws an Apply bar, on every view');
+  // The tile says the page guests really see: a pin wins over the date.
+  const server = readFileSync(join(EVENT, '..', '..', '..', 'lib', 'home-control.server.ts'), 'utf8');
+  assert.match(server, /const stage = manualLaunchPhase\(ev\.launch_mode, ev\.manual_phase\) \?\? resolveHubStage\(/, 'Home\'s tile ignores the pin');
 });
 
 test('4 · a press inside the sheet never swipes the tile', () => {

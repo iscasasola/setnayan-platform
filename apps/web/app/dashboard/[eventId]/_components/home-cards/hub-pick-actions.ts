@@ -1,20 +1,17 @@
 'use server';
 
 /**
- * 🎛 "PICK WHAT SHOWS" — THE READ, ON THE TAP (owner 2026-10-24: the Event Hub tile's small button opens, in place,
- * "the existing choice of which Event Hub stage or parts are live").
+ * 🎛 "PICK WHAT SHOWS" — THE READ, ON THE TAP (owner 2026-10-25: the sheet chooses ONE stage — Save the Date ·
+ * Invitation · The Day · Post Event). Reads the event's pin and the stage its date gives, nothing else; the WRITE is
+ * the shipped `setLaunchPhase` (`website/editor/actions.ts`), the one the Maker's "Which version guests see" calls.
  *
- * Nothing here is new: it is Home's Event Hub card's own read (`readHomeHubCard` — the part switches' table and the
- * page guests see now). Read only when somebody opens the sheet — Home is the most-opened screen, so its own view pays
- * nothing for the table (the same rule as Papic's `papicBuySizes`). The Apply bar is NOT read here: its loader reads
- * the "view as a free couple" switch, which a server action must never see — Home renders `HubDraftDock` instead.
- *
- * 🔒 Hosts only — the gate the draft's own save uses (`hubDraftAction` → `requireHostMembershipOrThrow`), so the sheet
- * never draws switches a viewer could not save. A failed read is said, never an empty list.
+ * 🔒 Hosts only — the gate `setLaunchPhase` itself uses (`requireHostMembership`), so the sheet never offers a choice
+ * the viewer could not make. A failed read is said, never guessed (an unread pin is not "Automatic").
  */
 import { createClient } from '@/lib/supabase/server';
-import { readHomeHubCard } from '@/lib/home-hub-card.server';
 import { requireHostMembershipOrThrow } from '@/lib/host-gate';
+import { resolveHubStage } from '@/lib/event-hub-control';
+import { manualLaunchPhase } from '@/lib/invitation-widgets';
 import type { HomeHubPickRead } from './hub-pick-types';
 
 export async function readHomeHubPick(eventId: string): Promise<HomeHubPickRead> {
@@ -25,7 +22,24 @@ export async function readHomeHubPick(eventId: string): Promise<HomeHubPickRead>
     return { ok: false, reason: 'not_host' };
   }
   const supabase = await createClient();
-  const read = await readHomeHubCard(supabase, eventId).catch(() => ({ ok: false }) as const);
-  if (!read.ok) return { ok: false, reason: 'unread' };
-  return { ok: true, table: read.table, stage: read.stage, draftUnread: read.draftUnread };
+  const { data, error } = await supabase
+    .from('events')
+    .select('launch_mode, manual_phase, event_date, event_end_date, cleared_at, timezone, slug, std_invitation_launch_date')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  if (error || !data) return { ok: false, reason: 'unread' };
+  const e = data as Record<string, string | null>;
+  return {
+    ok: true,
+    pinned: manualLaunchPhase(e.launch_mode, e.manual_phase),
+    byDate: resolveHubStage({
+      measured: true,
+      eventDate: e.event_date ?? null,
+      eventEndDate: e.event_end_date ?? null,
+      clearedAt: e.cleared_at ?? null,
+      timezone: e.timezone ?? null,
+      slug: e.slug ?? null,
+      invitationLaunchDate: e.std_invitation_launch_date ?? null,
+    }),
+  };
 }

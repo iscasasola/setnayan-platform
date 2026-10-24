@@ -396,11 +396,11 @@ export function nextHubStage(stage: LifecyclePhase | null): LifecyclePhase | nul
 /**
  * ③ EVENT HUB — what guests see now · what comes next. Owner 2026-10-24, on the live Home: A TAP ON THE TILE OPENS THE
  * EVENT HUB (every face — `openEventHub`: a new tab on the web, the in-app sheet in the app); its two small buttons are
- * "Pick what shows" (the shipped part switches + page picker + Apply bar, in a sheet in place) and "Maker".
+ * "Pick what shows" (which of the four pages guests see, in a sheet in place — the shipped `setLaunchPhase`) and "Maker".
  * With no link guests can open yet, the tile opens the Maker instead (there is no page to open).
  */
 export const HUB_TILE_INFO =
-  'Tap to open your Event Hub. Pick what shows: the parts each page shows — guests see a change after Apply. Maker: design the page.';
+  'Tap to open your Event Hub. Pick what shows: which page guests see — Save the Date, Invitation, The Day or Post Event. Maker: design the page.';
 
 export function hubTile(input: HomeControlInput, today: HomeToday): HomeTileModel | null {
   const e = input.eventId;

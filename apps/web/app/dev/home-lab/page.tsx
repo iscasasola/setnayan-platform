@@ -77,11 +77,7 @@ import { StanceChip } from '@/app/dashboard/(launcher)/_components/stance-chip';
 import type { EventPosterFacts } from '@/lib/event-poster';
 import type { ForTag } from '@/lib/for-tag';
 import { notFound } from 'next/navigation';
-import { buildGuestsSeeTable } from '@/lib/guests-see-build';
-import { labDraftedRows } from '../maker-lab/lab-draft';
-import { labSeen } from '../maker-lab/lab-navigator';
 import type { HomeHubPickRead } from '@/app/dashboard/[eventId]/_components/home-cards/hub-pick-types';
-import { HubDraftToolbar } from '@/app/dashboard/[eventId]/website/_components/hub-draft-bar';
 import { NEED_PRESETS, needsColumns, needsForPreset, readEventNeeds, switchOnRows, type NeedPreset } from '@/lib/event-needs';
 import { DayPapicRow, HomeFirstScreen, YourServices } from '@/app/dashboard/[eventId]/_components/home-first-screen';
 import { fixtureControl, fixtureControlUnread, fixturePays } from '@/lib/home-control-fixture';
@@ -205,21 +201,9 @@ function labPapicCard(eventId: string, phase: string | undefined, failed: boolea
   };
 }
 
-/**
- * 🎛 The Event Hub tile's "Pick what shows" on the Maker lab's own sample (`labDraftedRows` + `labSeen` — the rows
- * the Maker lab draws), handed in so the sheet opens with no database. Its switches still call the real draft action,
- * which refuses a made-up event — the lab shows the sheet, not a save. Its Apply bar is the shipped toolbar with an
- * empty draft (the page's own is `HubDraftDock`, which reads the database).
- */
-function labHubPick(): HomeHubPickRead {
-  const rows = labDraftedRows(undefined);
-  return {
-    ok: true,
-    stage: 'rsvp',
-    draftUnread: false,
-    table: buildGuestsSeeTable({ ...labSeen(rows), hasEntourage: true, giftsOff: false }),
-  };
-}
+/** 🎛 The Event Hub tile's "Pick what shows", handed in so the sheet opens with no database (nothing pinned; the date
+ * gives the Invitation). Its pick still calls the real `setLaunchPhase`, which refuses a made-up event. */
+const LAB_HUB_PICK: HomeHubPickRead = { ok: true, pinned: null, byDate: 'rsvp' };
 
 export default async function HomeLab({
   searchParams,
@@ -464,18 +448,7 @@ export default async function HomeLab({
         needs={labNeeds ? { ...labNeeds, switchOn: switchOnRows(labNeeds, { marketplace: true }) } : null}
         papicLeft={papicNow.count}
         papicSizes={LAB_SIZES}
-        hubPick={unread ? { ok: false, reason: 'unread' } : labHubPick()}
-        hubApply={
-          unread ? null : (
-            <HubDraftToolbar
-              eventId={E}
-              summary={{ hasChanges: false, changeCount: 0, proCount: 0, canUndo: false }}
-              storeShell={false}
-              priceLabel={null}
-              proHref={null}
-            />
-          )
-        }
+        hubPick={unread ? { ok: false, reason: 'unread' } : LAB_HUB_PICK}
         papicCard={q.card === '1' ? labPapicCard(E, q.cardphase, q.fail === '1' || q.unread === '1') : null}
         apple={
           q.store === '1' && q.apple === '1'

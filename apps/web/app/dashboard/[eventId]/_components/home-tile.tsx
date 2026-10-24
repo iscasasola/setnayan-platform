@@ -119,17 +119,15 @@ function TinyAction({
   today,
   eventId,
   hubPick = null,
-  hubApply = null,
 }: {
   action: FaceAction;
   today?: boolean;
   eventId: string;
   hubPick?: HomeHubPickRead | null;
-  hubApply?: ReactNode;
 }) {
   const reload = useReload();
   // 🎛 A sheet in place, not a page — the Event Hub tile's "Pick what shows" (owner 2026-10-24).
-  if (action.sheet === 'hub-pick') return <HubPickButton eventId={eventId} preset={hubPick} apply={hubApply} />;
+  if (action.sheet === 'hub-pick') return <HubPickButton eventId={eventId} preset={hubPick} />;
   const cls = `hc-tiny${action.main || today ? ' hc-tiny-main' : ''}${action.pill ? ' hc-tiny-pill' : ''}`;
   const inner = (
     <>
@@ -203,14 +201,11 @@ export function HomeTile({
   stagger,
   tour,
   hubPick = null,
-  hubApply = null,
 }: {
   model: HomeTileModel;
   eventId: string;
   /** 🎛 The Event Hub tile's "Pick what shows" read, when the caller already holds it (the dev lab) — else on the tap. */
   hubPick?: HomeHubPickRead | null;
-  /** 🎛 The shipped Apply bar (`HubDraftDock`), rendered by the page, for the "Pick what shows" sheet. */
-  hubApply?: ReactNode;
   /** this tile's place among the rotating tiles */
   stagger: number;
   /** A first-visit spotlight anchor on this tile's dots (`lib/tours.ts`). */
@@ -450,7 +445,7 @@ export function HomeTile({
       {model.side ? (
         <span className="hc-side">
           {model.side.map((a) => (
-            <TinyAction key={a.label} action={a} eventId={eventId} hubPick={hubPick} hubApply={hubApply} />
+            <TinyAction key={a.label} action={a} eventId={eventId} hubPick={hubPick} />
           ))}
         </span>
       ) : face.action ? (

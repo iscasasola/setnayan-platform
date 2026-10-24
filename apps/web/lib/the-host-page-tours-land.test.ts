@@ -153,7 +153,7 @@ test('a full event’s Home drops nothing', () => {
 test('a page that is merely elsewhere drops nothing (the host is still in the event-type picker)', () => {
   // The picker holds none of Home's stops — nor the event's tabs. Waiting, not dropping, is right there.
   assert.deepEqual([...settle(1, at([]))], []);
-  assert.deepEqual([...settle(idx('home-next'), at(['create-event']))], []);
+  assert.deepEqual([...settle(idx('home-tiles'), at(['create-event']))], []);
 });
 
 test('the engine runs the rule and counts from what is left', () => {

@@ -83,15 +83,12 @@ test('2 · the page is the shared, frameless, zoomable grid — and a refused re
   assert.match(g, /couldn’t load/, 'a refused read has no words');
 });
 
-test('3 · Home’s header carries one Settings button — the Event Details door — and Home has no tabs', () => {
+test('3 · Home’s header carries no button — the Countdown is the Event Details door — and Home has no tabs', () => {
+  // RE-AIMED 2026-10-24 (owner-approved control center): the cover's ⚙ Settings opened the same page as the Countdown —
+  // "drops the pill so Event Settings has one door". The cover is the name alone; the Countdown widget is the door.
   const cover = code(COVER);
-  const count = cover.match(/<ActionButton\b/g)?.length ?? 0;
-  assert.equal(count, 1, `the cover carries ${count} buttons, not one`);
-  const btn = cover.match(/<ActionButton\b[\s\S]*?className="home-cover-ab"\s*\/>/g) ?? [];
-  assert.equal(btn.length, 1, 'premise: the cover button is drawn whole on one element');
-  assert.match(btn[0]!, /href=\{`\/dashboard\/\$\{eventId\}\/details`\}/, 'the cover button is not the Event Details door');
-  assert.match(btn[0]!, /label="Settings"/, 'the cover button does not say Settings');
-  assert.match(btn[0]!, /icon=\{<Settings\b/, 'the cover button does not wear the gear');
+  assert.equal(cover.match(/<ActionButton\b|<Link\b|<a\b/g)?.length ?? 0, 0, 'the cover carries a door again — a second door to Event Details');
+  assert.match(code('app/dashboard/[eventId]/_components/home-control-faces.ts'), /key: 'count',[\s\S]{0,120}?door: `\/dashboard\/\$\{e\}\/details`/, 'the Countdown is not the Event Details door');
   const home = code(HOME);
   assert.doesNotMatch(home, /['">]Overview['"<]/, 'Home grew an Overview tab — the 23 Oct ruling has Home with no tabs');
   assert.doesNotMatch(home, /role="tablist"/, 'Home grew a tab list');

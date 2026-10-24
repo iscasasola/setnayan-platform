@@ -33,6 +33,8 @@ import { printPreviewVersion } from '@/lib/print-preview-cache';
 import { blocksWithDraftedCeremony } from '@/lib/ceremony-time';
 import { overlayHubDraftEvent, type HubDraftEvents } from '@/lib/hub-draft';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { GROUP_CATEGORY_LABELS, SIDE_LABELS, guestRoleLabel, type GuestGroupCategory, type GuestRole, type GuestSide } from '@/lib/guests';
+import { pickGuestRows } from '@/lib/print-picked-guests';
 import type { RoleNames } from '@/lib/role-names';
 import { readRoleNames } from '@/lib/role-names.server';
 import type { PrintEntourageStyle, PrintImages, PrintMonogram, PrintPass, PrintSetData } from '@/lib/print-layout';
@@ -848,7 +850,7 @@ export async function loadPrintSet(
   return { event, theme, look, data, images, appUrl, ownerSlug, qrLook };
 }
 
-export type PassGuestRow = PassCardRow & { guest_id: string; first_name: string | null; middle_name: string | null; last_name: string | null; display_name: string | null; name_prefix: string | null; name_suffix: string | null; qr_token: string | null; plus_one_name_confirmed_at: string | null };
+export type PassGuestRow = PassCardRow & { guest_id: string; first_name: string | null; middle_name: string | null; last_name: string | null; display_name: string | null; name_prefix: string | null; name_suffix: string | null; qr_token: string | null; plus_one_name_confirmed_at: string | null; side?: GuestSide | null; group_category?: GuestGroupCategory | null };
 
 /** The guests a pass is printed for, in the files' order — ONE read and ONE rule for every guest's file, one guest's pass and the list that names them. */
 export async function passGuestRows(eventId: string, ticketsOnly: boolean): Promise<{ rows: PassGuestRow[]; measured: boolean }> {
@@ -856,7 +858,7 @@ export async function passGuestRows(eventId: string, ticketsOnly: boolean): Prom
   const { data, error } = await admin
     .from('guests')
     // The canonical entourage columns (the dup-rule guard's reference list) + the QR token.
-    .select(`${ENTOURAGE_COLUMNS}, qr_token, event_id, rsvp_status, plus_one_of_guest_id, plus_one_name_confirmed_at, entry_source, passed_away, deleted_at`)
+    .select(`${ENTOURAGE_COLUMNS}, qr_token, event_id, rsvp_status, plus_one_of_guest_id, plus_one_name_confirmed_at, entry_source, passed_away, deleted_at, side, group_category`)
     .eq('event_id', eventId)
     .is('deleted_at', null)
     // 🛂 No pass for a request until Keep or Link.
@@ -893,12 +895,27 @@ export function passGuestReply(row: { rsvp_status?: string | null; plus_one_of_g
  * (coordinator 2026-10-16 — the 2026-09-29 rule stands: a pass for everyone who has not declined). `null` when the list could not be
  * read: never an empty list that would say nobody is coming.
  */
+/** A guest's role in the couple's words, else the usual word (`guestRoleLabel`); null when none. */
+function roleWord(role: string | null, names: RoleNames): string | null {
+  return role ? guestRoleLabel(role as GuestRole, names) || null : null;
+}
+
 export async function loadPassGuestNames(
   eventId: string,
   /** The event's `print_details` (its Name style) — awaited beside the guests, so the caller's own event read is not waited on. */
   printDetails: PromiseLike<unknown>,
-): Promise<Array<{ id: string; name: string; reply: PassGuestReply }> | null> {
-  const [read, details] = await Promise.all([passGuestRows(eventId, true), printDetails]);
+): Promise<Array<{ id: string; name: string; reply: PassGuestReply; side: string | null; group: string | null; role: string | null }> | null> {
+  const [read, details, roleNames] = await Promise.all([
+    passGuestRows(eventId, true),
+    printDetails,
+    // Role ▾ speaks the couple's words for roles (`events.role_names`, "Bride's Crew") — the usual word the fallback.
+    createAdminClient()
+      .from('events')
+      .select('role_names')
+      .eq('event_id', eventId)
+      .maybeSingle()
+      .then(({ data }) => readRoleNames((data as { role_names?: unknown } | null)?.role_names ?? null)),
+  ]);
   if (!read.measured) return null;
   const style = nameStyleOfPrintDetails(details);
   const byId = new Map(read.rows.map((g) => [g.guest_id, g]));
@@ -906,6 +923,11 @@ export async function loadPassGuestNames(
     id: g.guest_id,
     name: displayPersonName(ticketName(g, style)),
     reply: passGuestReply(g, g.plus_one_of_guest_id ? (byId.get(g.plus_one_of_guest_id) ?? null) : null),
+    // 🎟 Pick guests' Side ▾ and Group ▾ (owner 2026-10-25) — the guest list's own words (`SIDE_LABELS`, `GROUP_CATEGORY_LABELS`).
+    side: g.side ? (SIDE_LABELS[g.side] ?? null) : null,
+    group: g.group_category ? (GROUP_CATEGORY_LABELS[g.group_category] ?? null) : null,
+    // …and Role ▾ (owner 2026-10-25, "side group and role for pick guests?") — the shipped role words (`ROLE_LABELS`).
+    role: roleWord((g as { role?: string | null }).role ?? null, roleNames),
   }));
 }
 
@@ -941,14 +963,22 @@ export async function loadGuestPasses(
      * rules above give them a pass; its serial is still their place in the whole list, so it matches every guest's file.
      */
     onlyGuest?: string;
+    /**
+     * 🎟 PICKED GUESTS (owner 2026-10-25, *"allow me to pick multiple guests to compile together"*): only these guests, in the
+     * file's own order — each still numbered by their place in the whole list. Any id not among this file's guests REFUSES the file
+     * (`refused`, `pickGuestRows`): never dropped, never included. `null`/absent: every guest, unchanged.
+     */
+    onlyGuests?: ReadonlySet<string> | null;
   },
-): Promise<{ passes: PrintPass[]; images: PrintImages; measured: boolean }> {
+): Promise<{ passes: PrintPass[]; images: PrintImages; measured: boolean; refused?: string[] }> {
   const admin = createAdminClient();
   const eventId = set.event.event_id;
   const read = await passGuestRows(eventId, Boolean(opts.ticketsOnly));
   if (!read.measured) return { passes: [], images: {}, measured: false };
   const all = read.rows;
-  const guests = opts.onlyGuest ? all.filter((g) => g.guest_id === opts.onlyGuest) : opts.limit ? all.slice(0, opts.limit) : all;
+  const pick = pickGuestRows(all, opts.onlyGuests ?? null);
+  if (!pick.ok) return { passes: [], images: {}, measured: true, refused: pick.unknown };
+  const guests = opts.onlyGuest ? all.filter((g) => g.guest_id === opts.onlyGuest) : opts.limit ? all.slice(0, opts.limit) : pick.rows;
   /** Each guest's place in the whole list — the serial every file prints (`Nº 0007`). */
   const place = new Map(all.map((g, i) => [g.guest_id, i + 1]));
 

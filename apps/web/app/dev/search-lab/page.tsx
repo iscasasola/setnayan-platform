@@ -14,6 +14,10 @@
  *                    the app top bar, the account bar, the supplier on your
  *                    event tagged "On your event".
  *   ?state=empty   — the shell's empty state for a word nothing matches.
+ *   ?state=discover — DISCOVER ANSWERS IN PLACE (owner 2026-10-24): Discover as a member sees it — its sections,
+ *                    its own search row and the account bar; Enter puts the words in THIS address's `?q=` and the
+ *                    results take the sections' place under the same row; ✕ / Clear bring the sections back. Nothing
+ *                    found → "＋ Add “…” as your own supplier", the shipped add walk with this lab's stand-ins.
  *   &q=…           — the words (default "seda"; try "ana" for people).
  *   &people=fail   — the People read refused: "We couldn't search people…", never "nobody".
  *   The People rows (owner 2026-10-22) are the shipped builder `shellPeopleResults` over a fixture roster
@@ -23,7 +27,12 @@ import { notFound } from 'next/navigation';
 import '@/app/_components/frontdoor/front-door.css';
 import { FrontDoorShell } from '@/app/_components/frontdoor/front-door-shell';
 import { FrontDoorResults } from '@/app/_components/frontdoor/front-door-results';
-import { loadFrontDoorArticles } from '@/app/_components/frontdoor/data';
+import { loadFrontDoorArticles, loadFrontDoorData } from '@/app/_components/frontdoor/data';
+import { FrontDoorFeed } from '@/app/_components/frontdoor/front-door-feed';
+import { DiscoverThumbRow } from '@/app/_components/frontdoor/shell-thumb-rows';
+import { renderUrlQrSvg } from '@/lib/qr';
+import { LAB_CLAIM_URL } from '@/app/dev/suppliers-lab/fixtures';
+import { LabAddOwn } from './lab-add-own';
 import { AccountBarSlot } from '@/app/dashboard/(launcher)/_components/account-bar-slot';
 import type { HomeCommandItem } from '@/app/_components/frontdoor/command-item';
 import { ownSupplierItems } from '@/lib/own-supplier-items';
@@ -48,9 +57,17 @@ const EVENT_ITEMS: HomeCommandItem[] = [
 
 /** The owner's case: a supplier added by hand and booked — no Setnayan account, never published. */
 const SUPPLIER_ITEMS = ownSupplierItems(EVENTS, [
-  { vendor_id: 'lab-seda', event_id: EVENT_ID, vendor_name: 'Seda Vertis North', archived_at: null },
+  { vendor_id: 'lab-seda', event_id: EVENT_ID, vendor_name: 'Seda Vertis North', archived_at: null, marketplace_vendor_id: null },
   { vendor_id: 'lab-saysay', event_id: EVENT_ID, vendor_name: 'Saysay Studio', archived_at: null },
 ]);
+
+/** "What they do" for the lab's event — a few of a wedding's rows, as `readAddOwnCategories` shapes them. */
+const LAB_ADD_OWN_CATEGORIES = [
+  { category: 'catering', tile: 'catering', label: 'Catering', group: 'Food & drinks' },
+  { category: 'cake_maker', tile: 'cake', label: 'Cake', group: 'Food & drinks' },
+  { category: 'photographer', tile: 'photo_video', label: 'Photo & video', group: 'Capture' },
+  { category: 'live_band', tile: 'live_band', label: 'Live band', group: 'Music' },
+];
 
 const labPerson = (key: string, name: string, extra: Partial<RosterPerson> = {}): RosterPerson => ({
   key,
@@ -92,8 +109,8 @@ export default async function SearchLabPage({
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const sp = await searchParams;
-  const state = sp.state === 'before' || sp.state === 'empty' ? sp.state : 'after';
-  const query = (sp.q ?? (state === 'empty' ? 'xyzzy' : 'seda')).trim();
+  const state = sp.state === 'before' || sp.state === 'empty' || sp.state === 'discover' ? sp.state : 'after';
+  const query = (sp.q ?? (state === 'empty' ? 'xyzzy' : state === 'discover' ? '' : 'seda')).trim();
   const account = { signedIn: true, initials: 'IC', shopName: null, isAdmin: false } as const;
 
   if (state === 'before') {
@@ -113,6 +130,42 @@ export default async function SearchLabPage({
   }
 
   const items = [...EVENT_ITEMS, ...SUPPLIER_ITEMS];
+  const people = shellPeopleResults({
+    query,
+    roster: sp.people === 'fail' ? null : LAB_ROSTER,
+    found: sp.people === 'fail' ? { hits: [], failed: true } : { hits: LAB_HITS.filter((h) => h.name.toLowerCase().includes(query.toLowerCase())), failed: false },
+  });
+
+  if (state === 'discover') {
+    // As `FrontDoor` draws it signed in: no top-bar search, the thumb row, the sections OR the results, the bar.
+    const data = await loadFrontDoorData();
+    return (
+      <LabAddOwn claimQrSvg={await renderUrlQrSvg(LAB_CLAIM_URL)}>
+        <FrontDoorShell account={account} navLabels={{}} topBarSlot={<Avatar />} search={false}>
+          <DiscoverThumbRow key={query} q={query} />
+          <div data-fd-page="" data-search-lab="discover" className="pb-[calc(var(--sn-bottomdock-h,calc(env(safe-area-inset-bottom)+64px))+5.5rem)] lg:pb-0">
+            {query ? (
+              <div data-discover-results="">
+                <FrontDoorResults
+                  query={query}
+                  data={data}
+                  commandItems={items}
+                  place="discover"
+                  people={people}
+                  findSuppliers={{ href: `/dashboard/${EVENT_ID}/vendors`, eventName: 'Cale & Ice' }}
+                  addOwnEvent={{ eventId: EVENT_ID, eventName: 'Cale & Ice' }}
+                  addOwnCategories={LAB_ADD_OWN_CATEGORIES}
+                />
+              </div>
+            ) : (
+              <FrontDoorFeed data={data} />
+            )}
+          </div>
+        </FrontDoorShell>
+        <AccountBarSlot tabs={['events', 'discover', 'memories', 'people']} />
+      </LabAddOwn>
+    );
+  }
   return (
     <div className="sn-ambient min-h-dvh">
       <FrontDoorShell
@@ -130,11 +183,7 @@ export default async function SearchLabPage({
               commandItems={items}
               place="shell"
               findSuppliers={{ href: `/dashboard/${EVENT_ID}/vendors`, eventName: 'Cale & Ice' }}
-              people={shellPeopleResults({
-                query,
-                roster: sp.people === 'fail' ? null : LAB_ROSTER,
-                found: sp.people === 'fail' ? { hits: [], failed: true } : { hits: LAB_HITS.filter((h) => h.name.toLowerCase().includes(query.toLowerCase())), failed: false },
-              })}
+              people={people}
             />
           </div>
         </main>

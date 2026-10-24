@@ -653,7 +653,17 @@ export default async function EventDetailsPage({
             />
             {/* 📷 …AND AS A CAMERA (owner 2026-10-23: "the how guests get in will be on event settings"): the one code
                 for everyone and every guest's own QR, under this ONE row — moved here from the Papic page. */}
-            {setupOfType.cameraDefault !== 'off' ? <OneCodeUnderGetIn eventId={eventId} /> : null}
+            {setupOfType.cameraDefault !== 'off' ? (
+              viewer.isCouple ? (
+                <OneCodeUnderGetIn eventId={eventId} />
+              ) : (
+                /* 🔒 The one code is a door into the couple's Papic credits — the couple's to hand out. A delegate is
+                   told so plainly, never shown an empty space that reads as "there is no code" (review 2026-10-24). */
+                <p className="pb-3 text-[13px] text-ink/60" data-one-code="not-yours">
+                  The couple holds the one code for guests&rsquo; cameras.
+                </p>
+              )
+            ) : null}
             {guestsReply ? (
               <>
                 <Row

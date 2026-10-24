@@ -103,11 +103,15 @@ test('a person is told where they stand before anything asks them to decide', ()
   // 📷 2026-10-23 (owner): the Papic page is the camera only, in ONE order — the phase map that re-ordered the files is
   // gone with the files (Memories). So DOM order IS visual order again, and the property is asserted on it directly:
   // the running balance (the credits band — where they stand) comes before the camera settings (what they decide).
+  // 📷 2026-10-24 (owner: ONE Papic card): the balance is the card's controller — the counter, inside the camera
+  // settings, comes before the first decision (the Settings heading).
   const page = readFileSync(PAGE, 'utf8');
-  const band = page.indexOf('<PapicTopBand');
-  const settings = page.indexOf('<PapicCameraSettings');
-  assert.ok(band > 0, 'the credits band is not mounted — the page tells nobody where they stand');
-  assert.ok(settings > 0, 'the camera settings are not mounted');
+  assert.match(page, /<PapicCameraSettings eventId=\{eventId\} credits=\{\{ total: papicBand\.total, left: papicBand\.count \}\}/, 'the page hands the card no balance — it tells nobody where they stand');
+  const cam = readFileSync(join(PAPIC_DIR, '_components', 'papic-camera-settings.tsx'), 'utf8');
+  const band = cam.indexOf('data-papic-counter=""');
+  const settings = cam.indexOf('data-papic-settings=""');
+  assert.ok(band > 0, 'the counter is not drawn — the card tells nobody where they stand');
+  assert.ok(settings > 0, 'the camera settings are not drawn');
   assert.ok(band < settings, 'the camera settings ask for decisions before the balance says where the couple stands');
   assert.doesNotMatch(page, /\bBLOCK_ORDER\b/, 'a phase map is back — DOM order would stop being visual order');
 });

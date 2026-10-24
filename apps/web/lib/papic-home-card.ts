@@ -51,3 +51,11 @@ export function papicCoverageWords({
   if (phase === 'live') return `Open now → ${close(e)}`;
   return `${day(new Date(Date.parse(startIso!)))} → ${close(e)}`;
 }
+
+/** The window as the controller says it — "Sat, Dec 12 → Sun, Dec 13, 12 noon" (the venue's clock); null if unread. */
+export function papicSpanWords(startIso: string | null, endIso: string | null): string | null {
+  const s = startIso ? Date.parse(startIso) : NaN;
+  const e = endIso ? Date.parse(endIso) : NaN;
+  if (!Number.isFinite(s) || !Number.isFinite(e)) return null;
+  return `${day(new Date(s))} → ${close(e)}`;
+}

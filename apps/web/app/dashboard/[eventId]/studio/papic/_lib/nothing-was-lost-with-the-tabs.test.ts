@@ -93,8 +93,8 @@ const CONTROLS_BEFORE_THE_REDESIGN = [
   'MagazineCard',
   // The first-visit tour: the MiniTour carousel became the SPOTLIGHT on 2026-10-22. Replaced, not lost.
   'Spotlight',
-  // 🎨 MOVED, NOT REMOVED (2026-10-14): the balance, the meter and Buy more are ONE band first on the page.
-  'PapicTopBand',
+  // 🎨 MOVED, NOT REMOVED: the balance, the meter and Add more were ONE band (2026-10-14); since 2026-10-24 they are
+  // the one Papic card's controller (owner: "ONE Home Papic card component") — see REPLACED_OR_REMOVED.
   'PapicWindowPicker',
   'PoolGalleryCard',
   'RecapCard',
@@ -119,6 +119,9 @@ const REPLACED_OR_REMOVED: Record<string, string> = {
   // A supplier's whole delivery: the switch is on that supplier's row in Settings › Event access and on a supplier
   // photo's sheet in Memories (`vendor-media-switch.test.ts` holds both mounts).
   VendorMediaControls: 'replaced by the per-supplier switch on Settings › Event access and the photo sheet',
+  // 📷 ONE PAPIC CARD (owner ruling 2026-10-24): the page draws Home's card, open — its counter, meter, window line and
+  // Add more ARE the band's balance and buy (`papic-camera-settings.tsx`).
+  PapicTopBand: 'replaced by the one Papic card (PapicHomeCard, open) — its controller holds the balance and Add more',
 };
 
 test('🚨 every control the three rooms held is still mounted — on the Papic page or where it moved', () => {

@@ -85,7 +85,13 @@ for (const [route, before] of Object.entries(base.routes)) {
   if (!after) continue;
 
   checkedRoutes += 1;
-  const lostDestinations = before.destinations.filter((d) => !after.destinations.includes(d));
+  // A page is still reached when the link now carries a query onto it: `/login` → `/login?next=[seg]` (the
+  // not-found's Sign in that brings you back, 2026-10-23). Only a baseline entry with NO query of its own widens
+  // this way — `/explore?category=catering` must still be matched exactly. Regenerating the baseline instead would
+  // have recorded `/login` as a deliberate removal that never happened (see port-controls.mjs on blind spots).
+  const reached = (d) =>
+    after.destinations.includes(d) || (!d.includes('?') && after.destinations.some((a) => a.startsWith(`${d}?`)));
+  const lostDestinations = before.destinations.filter((d) => !reached(d));
   const lostActions = before.actions.filter((a) => !after.actions.includes(a));
   // A pre-blocks baseline has no `blocks` key. Treat that as "not recorded" and
   // check nothing, rather than reading undefined as an empty set — which would

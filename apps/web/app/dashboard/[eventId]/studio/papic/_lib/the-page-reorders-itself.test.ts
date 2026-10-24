@@ -33,6 +33,6 @@ test('the owner’s order: way back · credits · camera settings · made from p
     assert.ok(i > 0, `${needle} is not on the page`);
     return i;
   };
-  const seq = ['data-papic-back=""', '<PapicTopBand', '<PapicCameraSettings', '<MagazineCard', '<ShutterSection'].map(at);
+  const seq = ['data-papic-back=""', '<PapicHomeCard', '<PapicCameraSettings', '<MagazineCard', '<ShutterSection'].map(at);
   assert.deepEqual([...seq].sort((a, b) => a - b), seq, 'the camera page is out of the owner’s order');
 });

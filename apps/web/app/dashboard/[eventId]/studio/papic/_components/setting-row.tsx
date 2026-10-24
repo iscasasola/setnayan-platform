@@ -55,6 +55,7 @@ export function SettingRow({
   value,
   sheetTitle,
   switchControl,
+  bare = false,
   children,
 }: {
   icon?: React.ReactNode;
@@ -68,6 +69,11 @@ export function SettingRow({
    * Omit it for anything that is not a switch — the sheet is still the door.
    */
   switchControl?: React.ReactNode;
+  /**
+   * A line, not a row: the label IS the answer (the Papic controller's dates, "Sat, Dec 12 → Sun, Dec 13, 12 noon"),
+   * in the house face, with no gutter and no value column — still the door to the sheet.
+   */
+  bare?: boolean;
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
@@ -83,13 +89,18 @@ export function SettingRow({
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="flex min-w-0 flex-1 items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-ink/[0.03]"
+          className={
+            bare
+              ? 'flex min-w-0 flex-1 items-center gap-2 py-1.5 text-left'
+              : 'flex min-w-0 flex-1 items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-ink/[0.03]'
+          }
+          data-setting-row={bare ? 'bare' : undefined}
         >
           {icon ? <span className="shrink-0 text-ink/45">{icon}</span> : null}
-          <span className="min-w-0 flex-1 truncate text-sm text-ink">{label}</span>
+          <span className={bare ? 'min-w-0 truncate border-b border-dashed border-ink/25 text-[15px] text-ink' : 'min-w-0 flex-1 truncate text-sm text-ink'}>{label}</span>
           {/* With a switch on the row the switch IS the answer, so repeating
               "On" beside it is the same fact written twice. */}
-          {switchControl ? null : (
+          {switchControl || bare ? null : (
             <span className="shrink-0 font-mono text-[11.5px] text-ink/55">{value}</span>
           )}
           <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-ink/30" strokeWidth={1.75} />

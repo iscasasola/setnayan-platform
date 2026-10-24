@@ -78,9 +78,19 @@ import { formatCount } from '@/lib/format-number';
 export async function GuestAllotmentsChoice({
   eventId,
   variant = 'card',
+  eventWide = false,
+  returnTo = null,
 }: {
   eventId: string;
   variant?: 'card' | 'row';
+  /**
+   * 👥 THE EVENT-WIDE LIMIT ONLY (owner ruling 2026-10-24: "the event-wide 'Each guest, at most ___' moves INTO the Home
+   * Papic card's settings; guest cards override per person"): the switch, everyone's number, the least anybody gets
+   * and the release — and NOT the named list, which is each guest card's own Papic group (#6854).
+   */
+  eventWide?: boolean;
+  /** 🏠 'home' inside Home's Papic card — a save lands back on Home. */
+  returnTo?: 'home' | null;
 }) {
   const supabase = await createClient();
   const admin = createAdminClient();
@@ -258,6 +268,7 @@ export async function GuestAllotmentsChoice({
       <form action={setGuestAllotments} className="flex flex-wrap items-center gap-2">
         <input type="hidden" name="event_id" value={eventId} />
         <input type="hidden" name="enabled" value={enabled ? '0' : '1'} />
+        {returnTo ? <input type="hidden" name="return_to" value={returnTo} /> : null}
         {/* ⚠ CARRY BOTH NUMBERS THROUGH EVERY FORM. `setGuestAllotments` writes
             all three fields on one UPDATE, so a form that posts only its own box
             silently clears the other — the switch would wipe the minimum. */}
@@ -307,6 +318,7 @@ export async function GuestAllotmentsChoice({
           <form action={setGuestAllotments} className="space-y-2">
             <input type="hidden" name="event_id" value={eventId} />
             <input type="hidden" name="enabled" value="1" />
+            {returnTo ? <input type="hidden" name="return_to" value={returnTo} /> : null}
             <label className="block text-sm font-medium text-ink">
               Everyone you have not named
             </label>
@@ -361,6 +373,7 @@ export async function GuestAllotmentsChoice({
           <form action={setGuestAllotments} className="space-y-2">
             <input type="hidden" name="event_id" value={eventId} />
             <input type="hidden" name="enabled" value="1" />
+            {returnTo ? <input type="hidden" name="return_to" value={returnTo} /> : null}
             <input type="hidden" name="everyone_else" value={everyoneElse ?? ''} />
             <label className="block text-sm font-medium text-ink">
               The least anybody gets
@@ -397,6 +410,16 @@ export async function GuestAllotmentsChoice({
           </form>
 
           {/* NAMING GUESTS — the real new control. */}
+          {eventWide ? (
+            <Link
+              href={`/dashboard/${eventId}/guests`}
+              className="flex min-h-11 items-center justify-between gap-3 text-[14px] text-ink/70"
+              data-allotment-guest-cards=""
+            >
+              <span>Someone gets their own number on their guest card</span>
+              <span aria-hidden>›</span>
+            </Link>
+          ) : (
           <div className="space-y-2">
             <p className="text-sm font-medium text-ink">Give someone their own number</p>
             {/* ⚖ THE COUPLE DOES NOT ADD GUESTS HERE (owner, 2026-09-22, asked
@@ -455,10 +478,12 @@ export async function GuestAllotmentsChoice({
               not use is not held for her: it stays in the pot and anybody may take it.
             </p>
           </div>
+          )}
 
           {/* THE RELEASE. */}
           <form action={releaseTheRest} className="space-y-2 border-t border-ink/10 pt-4">
             <input type="hidden" name="event_id" value={eventId} />
+            {returnTo ? <input type="hidden" name="return_to" value={returnTo} /> : null}
             <p className="text-sm font-medium text-ink">Open the rest to everyone</p>
             <p className="text-xs text-ink/55">
               {releasedAt
@@ -486,7 +511,7 @@ export async function GuestAllotmentsChoice({
     return (
       <SettingRow
         icon={<Coins aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
-        label="Each guest"
+        label={eventWide ? 'Each guest, at most' : 'Each guest'}
         value={value}
         sheetTitle="Credits for each guest"
       >

@@ -41,6 +41,7 @@ export function PapicHomeCard({
   thankYouHref,
   settings,
   marker,
+  defaultOpen = false,
 }: {
   name: string;
   brand?: string;
@@ -61,8 +62,10 @@ export function PapicHomeCard({
   /** The camera settings, drawn by the server — revealed under the card. */
   settings: ReactNode;
   marker?: Record<string, string>;
+  /** Open on arrival — the Papic page draws this same card, open (owner ruling 2026-10-24: one card, everywhere). */
+  defaultOpen?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
   const regionId = useId();
 
   return (
@@ -92,6 +95,10 @@ export function PapicHomeCard({
               strokeWidth={1.9}
             />
           </span>
+          {/* THE QUICK VIEW folds away as the card opens — open, the controller below says the same facts in full
+              (owner 2026-10-24: "the same card collapsed and expanded, not two drawings"). */}
+          <span className={`grid transition-[grid-template-rows,opacity] duration-[420ms] ease-[cubic-bezier(0.2,0.7,0.2,1)] motion-reduce:transition-none ${open ? 'grid-rows-[0fr] opacity-0' : 'grid-rows-[1fr] opacity-100'}`} data-papic-quick-view={open ? 'folded' : 'shown'}>
+          <span className="block min-h-0 overflow-hidden">
           {coverage ? (
             <span className="sg-status" data-mood={phase === 'live' ? 'ok' : 'plain'} data-papic-coverage="">
               <GlanceDot mood={phase === 'live' ? 'ok' : phase === 'after' ? 'plain' : 'wait'} />
@@ -105,18 +112,24 @@ export function PapicHomeCard({
             </span>
           </span>
           <GlanceMeter mood={mood} pct={pct} label={meterLabel} />
+          </span>
+          </span>
         </button>
 
-        {/* THE LATEST FIVE — "See all ›" opens Memories (the photos live there). Drawn by the server, streamed. */}
-        {strip}
+        <div className={`grid transition-[grid-template-rows,opacity] duration-[420ms] ease-[cubic-bezier(0.2,0.7,0.2,1)] motion-reduce:transition-none ${open ? 'grid-rows-[0fr] opacity-0' : 'grid-rows-[1fr] opacity-100'}`} inert={open}>
+          <div className="min-h-0 overflow-hidden">
+            {/* THE LATEST FIVE — "See all ›" opens Memories (the photos live there). Drawn by the server, streamed. */}
+            {strip}
 
-        {phase === 'after' && thankYouHref ? (
-          <div className="sg-acts">
-            <ActionButton tone="brand" icon={<Clapperboard aria-hidden="true" strokeWidth={1.9} />} label="Thank-You Video" href={thankYouHref} />
+            {phase === 'after' && thankYouHref ? (
+              <div className="sg-acts">
+                <ActionButton tone="brand" icon={<Clapperboard aria-hidden="true" strokeWidth={1.9} />} label="Thank-You Video" href={thankYouHref} />
+              </div>
+            ) : actions ? (
+              <div className="sg-acts">{actions}</div>
+            ) : null}
           </div>
-        ) : actions ? (
-          <div className="sg-acts">{actions}</div>
-        ) : null}
+        </div>
         {/* THE SETTINGS, INSIDE THE CARD'S OWN FRAME (the approved controller: "the card's own frame expands") — the
             height grows, the settings fade in; folded, they are inert. */}
         <div
@@ -130,7 +143,7 @@ export function PapicHomeCard({
           }`}
         >
           <div className="min-h-0 overflow-hidden">
-            <div className="mt-4 border-t border-ink/10 pt-5">{settings}</div>
+            <div className="pt-4">{settings}</div>
           </div>
         </div>
       </div>

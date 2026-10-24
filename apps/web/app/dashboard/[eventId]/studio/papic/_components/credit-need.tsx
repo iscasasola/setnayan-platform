@@ -29,7 +29,8 @@ export function CreditNeed({
   const n = creditsNeeded({ coming: need.coming, each: Number.isFinite(perGuest) ? perGuest : null, left, named: need.named });
   const at = n === null ? null : rungForNeed(rungs, n);
   useEffect(() => {
-    if (at) onJump(at.index);
+    // No guests yet is not "you have enough" — nothing is worked out, the stepper stays where the couple put it.
+    if (at && need.coming !== 0) onJump(at.index);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- jumps when the answer changes
   }, [n]);
 
@@ -61,7 +62,9 @@ export function CreditNeed({
       <p className="text-[13.5px] font-medium text-ink" aria-live="polite" data-credit-need-answer="">
         {need.coming === null
           ? 'Add what you like below.'
-          : perGuest === null
+          : need.coming === 0
+            ? 'Add your guests first — then this works it out.'
+            : perGuest === null
             ? 'Type how many photos each.'
             : n === null
               ? 'Add what you like below.'

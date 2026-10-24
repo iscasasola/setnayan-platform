@@ -76,11 +76,14 @@ test('the hand-out control is not mounted', () => {
   assert.ok(!/papic-cameras-card/.test(page), 'the retired card is imported again');
 });
 
-test('the promise it contradicted is still on the page', () => {
+test('the promise it contradicted is still said where a camera is handed out', () => {
+  // 📍 The Crew-cameras sheet is retired (2026-10-23, one shared pot) and the way in moved to Event Details' "How
+  // guests get in" — the one code (`one-code.tsx`). Read with comments STRIPPED: on main this matched only a comment.
+  const oneCode = stripComments(readFileSync(join(PAPIC, '_components', 'one-code.tsx'), 'utf8'));
   assert.match(
-    PAGE,
-    /Every shot draws from your shared credits/,
-    'the Crew-cameras sheet must still say every shot comes from the shared pot — that is the model the retirement chose',
+    oneCode,
+    /from\s+your shared credits/,
+    'the one code must still say every shot comes from the shared pot — that is the model the retirement chose',
   );
 });
 

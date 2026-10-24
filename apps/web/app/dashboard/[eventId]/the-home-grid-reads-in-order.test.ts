@@ -35,7 +35,7 @@ const PARTS = read('app/dashboard/[eventId]/_components/home-parts.tsx');
 /** The top pieces, each with the source token that places it in the page and the marker its root wears. */
 const PIECES: Array<{ marker: string; token: RegExp }> = [
   { marker: 'data-home-next', token: /marker="data-home-next"/ },
-  { marker: 'data-home-doors', token: /<HomeDoorways\b/ },
+  // (Home's three door pills came off, owner 2026-10-23 — `the-home-leads-with-one-next.test.ts` b holds that.)
   { marker: 'data-home-one-qr', token: /data-home-one-qr=""/ },
   { marker: 'data-home-numbers', token: /data-home-numbers\b/ },
   { marker: 'data-home-money', token: /data-home-money\b/ },
@@ -59,8 +59,10 @@ test('1 · every top piece of Home has an explicit place from 1024', () => {
   const block = deskBlock();
   for (const p of PIECES) assert.ok(placeOf(block, p.marker), `${p.marker} is left to auto-placement — it lands wherever the grid finds room`);
   // The markers are on the pieces' ROOTS (a grid places only its direct children).
-  assert.match(PARTS, /<div ref=\{row\} className="home-doors" data-home-doors=""/, 'the doors’ root lost its marker');
   assert.match(PARTS, /<div className=\{`home-sec\$\{open \? ' open' : ''\}`\} data-home-whats-next="">/, 'What’s next’s root lost its marker');
+  // "Later" folds the Next card into one line IN ITS PLACE (owner 2026-10-23): the line is a top piece too, so it wears
+  // the card's marker and takes the card's place — never auto-placed across both columns.
+  assert.match(PARTS, /if \(folded\) \{[\s\S]{0,400}?<p [^>]*data-home-next="later"/, 'the folded "Back tomorrow" line has no place in the grid');
 });
 
 test('2 · read column by column, the places are the page’s own order', () => {

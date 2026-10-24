@@ -46,7 +46,10 @@ export default function PapicWindowPicker({
   windowIsSet,
   days,
   summary,
+  returnTo = null,
 }: {
+  /** 🏠 'home' when drawn in Home's Papic card — the save lands back on Home (`return_to`). */
+  returnTo?: 'home' | null;
   eventId: string;
   eventType: string | null;
   eventDate: string | null;
@@ -137,6 +140,7 @@ export default function PapicWindowPicker({
 
       <form action={setPapicWindow} className="mt-4 space-y-3">
         <input type="hidden" name="event_id" value={eventId} />
+        {returnTo ? <input type="hidden" name="return_to" value={returnTo} /> : null}
         {!travel ? (
           <input type="hidden" name="end_date" value={anchor ?? ''} readOnly />
         ) : null}

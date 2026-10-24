@@ -1155,7 +1155,8 @@ export function GuestsScreen(props: GuestsScreenProps) {
             <PillThumb />
             {seg('list', 'List', stats.total)}
             {seg('map', 'Map')}
-            {seg('share', 'Setup')}
+            {/* "Setup" → "Settings" (owner 2026-10-23, one word — the same word as Home's ⚙ Settings). */}
+            {seg('share', 'Settings')}
           </nav>
           {/* 📋 The copy line — in the flow, under the selector, never over anything (guest-copy-mark.tsx). */}
           <GuestListStatus copy={copy} fresh={props.measured} />

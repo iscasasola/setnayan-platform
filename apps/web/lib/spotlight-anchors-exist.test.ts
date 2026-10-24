@@ -32,7 +32,7 @@ function walk(dir: string, out: string[] = []): string[] {
 const FILES = ROOTS.flatMap((r) => walk(join(WEB, r)));
 const SOURCES = FILES.map((f) => ({ f: relative(WEB, f), src: readFileSync(f, 'utf8') }));
 
-/** A token is drawn when some file writes it as `data-tour="…"`, `tour="…"`, or `tour={`home-${…}`}` with that key. */
+/** A token is drawn when some file writes it as `data-tour="…"` or `tour="…"`. */
 function drawn(token: string): string[] {
   const lit = new RegExp(`(?:data-tour|\\btour)=["'{\`]+${token.replace(/[-]/g, '\\-')}["'}\`]`);
   // …or chosen inside a data-tour expression: `data-tour={key === 'share' ? 'guests-setup' : undefined}`.
@@ -56,8 +56,8 @@ test('there are spotlight tours to check (the scan is not looking at nothing)', 
 test('every spotlight anchor is drawn by a real element', () => {
   const missing: string[] = [];
   for (const { k, s } of steps) {
-    // Checked below: the bar derives tab-* from each tab's address, the Home doors stamp home-<key>.
-    if (s.anchor.startsWith('tab-') || s.anchor.startsWith('home-door') || /^home-(guests|explore|launch)$/.test(s.anchor)) continue;
+    // Checked below: the bar derives tab-* from each tab's address.
+    if (s.anchor.startsWith('tab-')) continue;
     if (drawn(s.anchor).length === 0) missing.push(`${k} → ${s.anchor}`);
   }
   assert.deepEqual(missing, [], 'a spotlight step names a data-tour token no element carries');
@@ -70,15 +70,9 @@ test('the ONE thumb row stamps a seat’s tour token on a real element', () => {
   assert.match(row.src, /tour: r\.tour,/, 'a round no longer draws its tour token');
 });
 
-test('the home doors draw home-<key> tokens, and launch is one of the keys', () => {
-  const parts = SOURCES.find(({ f }) => f.endsWith('dashboard/[eventId]/_components/home-parts.tsx'));
-  assert.ok(parts, 'home-parts.tsx moved');
-  assert.match(parts.src, /tour=\{`home-\$\{d\.key\}`\}/, 'the doors no longer stamp home-<key>');
-  assert.match(parts.src, /key: 'launch' as const/, 'the Event Hub door key changed — host_spotlight_v1 points at home-launch');
-  for (const { s } of steps.filter(({ s }) => /^home-(guests|explore|launch)$/.test(s.anchor))) {
-    assert.match(parts.src, new RegExp(`key: '${s.anchor.slice(5)}' as const`), `no Home door has key ${s.anchor.slice(5)}`);
-  }
-});
+// (The Home doors — Guests · Suppliers · Event Hub — are gone, owner 2026-10-23: "remove Home's three pills". Their
+//  home-<key> tokens went with them, so a step naming one is now an ordinary missing anchor, caught above; the
+//  Event Hub step rides the bar's tab-launch.)
 
 test('bar tabs carry tab-<last path segment>, and every tab step names a real tab', () => {
   const nav = SOURCES.find(({ f }) => f.endsWith('_components/nav/bottom-nav.tsx'));

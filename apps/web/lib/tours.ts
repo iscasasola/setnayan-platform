@@ -1545,7 +1545,8 @@ export const TOURS: Record<TourKey, TourDefinition> = {
           body: 'The Next card always shows the one thing to do next.',
         },
         {
-          anchor: 'home-launch',
+          // The Event Hub door left Home with the three pills (owner 2026-10-23); the bar's Event Hub tab is the way in.
+          anchor: 'tab-launch',
           title: 'Your Event Hub',
           body: 'Tap words on the page to type over them. Your guests see nothing until you press Apply.',
         },
@@ -1752,7 +1753,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
   customer_papic_v2: {
     key: 'customer_papic_v2',
     label: 'Papic — first visit',
-    blurb: 'The band, the days, the one shared code and the library — no price in any step.',
+    blurb: 'The band, the days and the camera’s settings — no price in any step.',
     slides: [],
     spotlight: {
       steps: [
@@ -1768,14 +1769,11 @@ export const TOURS: Record<TourKey, TourDefinition> = {
           body: 'Choose when the cameras can shoot. They can start before the day itself, so they catch the preparations too.',
         },
         {
-          anchor: 'papic-qrs',
-          title: 'One code for everyone',
-          body: 'Print it or show it at the door — each scan turns a phone into a camera. Every guest’s invite QR is a camera too, and every shot comes out of one shared pot of credits.',
-        },
-        {
-          anchor: 'papic-library',
-          title: 'Everything lands in your library',
-          body: 'Filter by “Photos of us”, save any shot to your phone, or download everything at once. Guests find the photos they are in, too.',
+          // (The one shared code moved to Home › Settings › How guests get in, and the library to Memories —
+          //  owner 2026-10-23, Papic is the camera. This page's last stop is the camera's own settings.)
+          anchor: 'papic-settings',
+          title: 'Your camera, your rules',
+          body: 'Pick the filter, set challenges and choose face tagging. The photos land in Memories, and each guest’s camera is on their guest card.',
         },
       ],
       finale: {
@@ -1789,7 +1787,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
   customer_memories_v1: {
     key: 'customer_memories_v1',
     label: 'Memories — first visit',
-    blurb: 'This event’s photos edge to edge, the pinch that changes the columns, and the search.',
+    blurb: 'This event’s photos edge to edge, the albums, and the search.',
     slides: [],
     spotlight: {
       steps: [
@@ -1800,14 +1798,14 @@ export const TOURS: Record<TourKey, TourDefinition> = {
           body: 'The photos and clips of this event that are yours to see. Pinch to see more at once — or one large.',
         },
         {
-          anchor: 'memories-count',
-          title: 'Counted for you',
-          body: 'How many are here so far — and, under the photos, when the cameras open or close.',
+          anchor: 'memories-albums',
+          title: 'Albums',
+          body: 'Papic, the challenges, your Event Hub’s own pictures, your suppliers’ and your own uploads — one at a time, or All.',
         },
         {
           anchor: 'memories-search',
           title: 'Find a photo',
-          body: 'Type who took it, and only their photos stay.',
+          body: 'Type who took it, a challenge, or a place on your Event Hub.',
         },
       ],
       finale: {

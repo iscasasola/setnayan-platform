@@ -122,7 +122,7 @@ test('the balance itself is untouched — this guard must not have silenced the 
     'utf8',
   );
   // 🎨 One band now carries the balance, the meter and Buy more (owner 2026-10-14).
-  assert.match(page, /<PapicTopBand\b/, 'the live credit balance is gone from the Papic page');
+  assert.match(page, /credits=\{\{ total: papicBand\.total, left: papicBand\.count \}\}/, 'the live credit balance is gone from the Papic page (the card’s counter)');
 });
 
 test('🎟 onboarding recommends NOTHING either — each pack states its own estimate (owner 2026-10-15)', () => {

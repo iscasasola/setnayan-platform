@@ -319,12 +319,13 @@ function asksAppleIap(src: string, at: number): boolean {
 test('3 · the Papic page reads the gate once, and every web-only offer on it asks it', () => {
   const src = code(PAPIC_PAGE);
   assert.match(src, /const appleIap = \(await getIapGate\(\)\)\.iap;/);
-  // Each mount of a thing sold only on the web (apply-then-pay → /pay) — found by name, counted, every one gated.
-  // (2026-10-23: the crew-camera ladder, the guest-camera tier sheet and the unlock bundle are GONE from the
-  //  page — not gated, removed; Papic sells credits only. They may not come back on either platform.)
+  // (2026-10-23: the crew-camera ladder, the guest-camera tier sheet and the unlock bundle are GONE from the page —
+  //  not gated, removed; Papic sells credits only. They may not come back on either platform.)
   for (const gone of ['ExtraCamerasPicker', 'GuestCameraTierPicker', 'LimitedCard', 'PAPIC_UNLOCK']) {
     assert.ok(!new RegExp(`<${gone}\\b|serviceKey="${gone}"`).test(src), `${gone} is on the Papic page again`);
   }
+  // Each mount of a thing sold only on the web — found by name, counted, every one gated. (Keep full-res left with
+  // the files for the Memories ⚙ sheet on 2026-10-23 — gated there, below.)
   const SOLD_ON_THE_WEB = ['InlineCheckoutDrawer', 'DslrBridgeSection'];
   let mounts = 0;
   const ungated: string[] = [];
@@ -334,20 +335,25 @@ test('3 · the Papic page reads the gate once, and every web-only offer on it as
       if (!asksAppleIap(src, m.index!)) ungated.push(`${name} @${src.slice(0, m.index!).split('\n').length}`);
     }
   }
-  assert.ok(mounts >= 2, `found only ${mounts} web-offer mounts — the anchor moved`);
+  assert.ok(mounts >= 1, `found only ${mounts} web-offer mounts — the anchor moved`);
   assert.deepEqual(ungated, [], 'A web-only offer is drawn on the Papic page with nothing asking `appleIap`:\n  ' + ungated.join('\n  '));
-  // The ₱ fallbacks of both offers sit inside the same gated sections.
-  for (const m of src.matchAll(/formatPhp\((papicUnlockPricePhp|keepFullResPricePhp)\)/g)) {
-    assert.ok(asksAppleIap(src, m.index!), `a bare ₱ (${m[1]}) is drawn in the app`);
-  }
-  // Every part handed the gate.
-  for (const mount of ['<StatusBanners', '<PapicTopBand', '<LiveWallCard', '<GalleryPreviewCard']) {
+  // Every part handed the gate — the credits band draws Add more as Apple's sheet there.
+  // 📷 The card's Add more (2026-10-24, one Papic card): Apple's sheet in the app, the web's elsewhere — one switch.
+  assert.match(src, /appleIap \? \(\s*<IapPapicSheet\b[\s\S]{0,200}?\) : \(\s*<PapicBuySheet\b/, 'the card’s Add more is not Apple’s sheet in the app');
+  for (const mount of ['<StatusBanners']) {
     const at = src.indexOf(mount);
     assert.ok(at > 0, `${mount} moved`);
     assert.match(src.slice(at, src.indexOf('/>', at)), /appleIap=\{appleIap\}|apple=\{appleIap\}/, `${mount} is not handed the gate`);
   }
-  assert.match(src, /preservationTotals=\{appleIap \? null : preservationTotals\}/, 'the keep-at-full-size ₱ line is drawn in the app');
-  assert.match(src, /href=\{appleIap \? `\/dashboard\/\$\{eventId\}` : studioHubHref\(eventId\)\}/, 'Back goes to the More menu, which the app does not build');
+  // 🗂 The files' web-only offers moved to the Memories ⚙ sheet with the files — gated there.
+  const sheet = code('app/dashboard/[eventId]/memories/_components/memories-settings.tsx');
+  assert.match(sheet, /\{appleIap \? null : \(/, 'Keep full-res is drawn in the app');
+  assert.ok(asksAppleIap(sheet, sheet.indexOf('<InlineCheckoutDrawer')), 'the Keep full-res checkout is drawn in the app');
+  assert.match(sheet, /<LiveWallCard eventId=\{eventId\} appleIap=\{appleIap\}/, 'the photo wall is not handed the gate');
+  assert.match(code('app/dashboard/[eventId]/memories/page.tsx'), /appleIap=\{appleIap\}/, 'Memories does not hand its sheet the gate');
+  // …and the gate there is the APP, not only Apple's switch: with In-App Purchase off the store shell still shows no web
+  // price (review 2026-10-24: "Keep full resolution · Turn on · ₱…/yr" reached the app).
+  assert.match(code('app/dashboard/[eventId]/memories/page.tsx'), /const appleIap = iap\.iap \|\| iap\.storeShell;/, 'Memories shows web prices in the app when Apple does not sell');
   assert.match(code('app/dashboard/[eventId]/studio/papic/_components/live-wall-card.tsx'), /if \(appleIap\) return null;/);
 });
 

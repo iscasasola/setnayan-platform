@@ -61,11 +61,13 @@ test('2 · the page is the shared, frameless, zoomable grid — and a refused re
   const page = code(PAGE);
   assert.match(page, /<EventMemoriesGallery\b/, 'the page does not draw the shared Memories grid');
   assert.match(page, /memoriesUnreadable\(/, 'the page decides "empty" without the count beside it');
-  assert.match(page, /fetchPapicGallery\(/, 'the page does not read this event’s photos');
+  assert.match(page, /readEventMemories\(/, 'the page does not read this event’s photos (every album, one read)');
 
   const g = code(GALLERY);
   // Columns from the zoom state — never a fixed number.
-  assert.match(g, /gridTemplateColumns:\s*`repeat\(\$\{cols\},/, 'the grid’s columns no longer follow the zoom');
+  // One wrapper carries the zoom as \`--mem-cols\`; every grid under it (moments, challenges) reads it.
+  assert.match(g, /'--mem-cols' as string\]:\s*String\(cols\)/, 'the grid’s columns no longer follow the zoom');
+  assert.match(g, /repeat\(var\(--mem-cols\),minmax\(0,1fr\)\)/, 'a grid does not read the zoom');
   assert.doesNotMatch(g, /grid-cols-\d/, 'a fixed column count crept in');
   // Edge to edge: the grid cancels the layout gutter, and nothing frames it.
   assert.match(g, /data-memories-grid=""[\s\S]{0,200}-mx-4[^"]*sm:-mx-6[^"]*lg:-mx-8/, 'the grid sits inside the gutter');
@@ -135,7 +137,10 @@ test('6 · the count matches the grid, a refused read is said, and a missing cop
   const page = code(PAGE);
   assert.match(page, /countGalleryFrames\(supabase,\s*eventId\)/, 'the count is not the grid-filtered count');
   assert.doesNotMatch(page, /countPapicCaptures/, 'the count counts hidden or blocked frames the grid never draws');
-  assert.match(page, /status\.refused\.length\s*>\s*0\s*\|\|/, 'a refused read can render as a smaller gallery');
+  // The photo read lives in `readEventMemories` (one read for every album); any refused capture read sets
+  // `refused.photos`, and the page says "couldn't load" on it.
+  assert.match(page, /const unreadable = read\.refused\.photos \|\|/, 'a refused read can render as a smaller gallery');
+  assert.match(code('lib/event-memories.server.ts'), /photos: status\.refused\.length > 0/, 'a refused capture read is not reported');
   assert.match(page, /viewerIsCouple:\s*isCouple/, 'a non-couple viewer does not fail closed on the hidden-suppliers read');
   const lib = code('lib/papic-gallery.ts');
   assert.match(lib, /hiddenSuppliersFailClosed\s*\?\s*\[\]|hiddenSuppliersFailClosed \? \[\]/, 'a failed hidden-suppliers read still shows supplier shots');

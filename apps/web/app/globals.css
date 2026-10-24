@@ -7690,29 +7690,6 @@ html:has([data-sticky-top]) [data-home-after-cover] {
 .home-card-title { font-size: 19px; font-weight: 600; margin: 4px 0 2px; letter-spacing: -0.01em; line-height: 1.25; }
 .home-card-body { color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); font-size: 14px; margin: 0 0 10px; line-height: 1.45; }
 .home-acts { display: flex; gap: 8px; align-items: center; flex-wrap: nowrap; overflow: hidden; min-width: 0; }
-/* Rule 3a — the doorway row is ONE state: icon + word → word → icon. */
-.home-doors { display: flex; gap: 8px; min-width: 0; }
-/* The prototype's door has no side padding of its own — the pill is a third of the row and the word sits centred
- * in it (journey_fixes_2026-10-22 § Host 2: icon + word at 375, word only at 320). The house 14px side padding is
- * what pushed "Suppliers" + its icon past a 109px third, so the door keeps only a 6px breathing edge. */
-.home-doors > .ab { flex: 1 1 0; min-width: 0; justify-content: center; padding-inline: 6px; gap: 6px; }
-.home-doors .ab.text-only svg { display: none; }
-.home-doors .ab.icon-only .lbl { display: none; }
-/* The prototype's neutral pill (`button.ic.t-neutral`): GREY FILLED — the muted tone's
- * 9% wash, 45% border, muted word — one line, never wrapped. */
-.home-doors > :is(button, a).ab.ab-neutral {
-  --home-door: color-mix(in srgb, rgb(var(--color-ink)) 62%, rgb(var(--color-cream)));
-  /* 44, not 40 (fits-every-phone 2026-10-21): the pill clips its own overflow (so the row's fit pass reads it as
-   * one box and drops to icons), which also clips the `.ab::after` expander — so the PAINT is the press, and the
-   * paint is 44. Held by action-link-presses-at-44.test.ts. */
-  height: 44px;
-  overflow: hidden;
-  white-space: nowrap;
-  color: var(--home-door);
-  border-color: color-mix(in srgb, var(--home-door) 45%, transparent);
-  background: color-mix(in srgb, var(--home-door) 9%, transparent);
-}
-.home-doors > .ab.icon-only { width: auto; padding: 0; }
 .home-nums { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
 .home-tile {
   border: 1px solid color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent);
@@ -7847,7 +7824,8 @@ html.dark [data-typing-band='app'] { --tb-plate: #232019; --sp-line: rgba(251, 2
 /* 🖥 HOME AT FULL WIDTH, TWO COLUMNS (owner 2026-10-23, "shouldn't home, guests and suppliers maximize the width
  * as well?" → yes; prototype `home_service_widgets_2026-10-23.html` D1/D2). From 1024 the column has no cap
  * (`lg:max-w-none` in home-first-screen.tsx): body = viewport − rail − 2 × 32. The top splits 1.1 : 1 and is read
- * COLUMN BY COLUMN in the page's own order — the left column holds Next, the three doors and the one QR, the right
+ * COLUMN BY COLUMN in the page's own order — the left column holds Next and the one QR (the three doors came off,
+ * owner 2026-10-23), the right
  * the numbers and the money — then What's next and everything after span both. Every top piece has an explicit
  * place, so the reading and Tab order is the order you see (`the-home-grid-reads-in-order.test.ts`). Each piece keeps
  * its own box (an unfolding card grows in ITS column); the phone and the tablet are unchanged. */
@@ -7855,7 +7833,6 @@ html.dark [data-typing-band='app'] { --tb-plate: #232019; --sp-line: rgba(251, 2
   [data-home-column] { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); column-gap: 16px; align-items: start; }
   [data-home-column] > * { grid-column: 1 / -1; }
   [data-home-column] > [data-home-next] { grid-column: 1; grid-row: 1; }
-  [data-home-column] > [data-home-doors] { grid-column: 1; grid-row: 2; }
   [data-home-column] > [data-home-one-qr] { grid-column: 1; grid-row: 3; }
   [data-home-column] > [data-home-numbers] { grid-column: 2; grid-row: 1; }
   [data-home-column] > [data-home-money] { grid-column: 2; grid-row: 2; }

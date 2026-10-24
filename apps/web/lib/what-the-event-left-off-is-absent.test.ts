@@ -52,9 +52,11 @@ test('the bottom bar keeps every tab — the layout hands no switched-off need t
   assert.match(layout, /eventMenuGates\(profile\)/, 'the layout no longer reads the one menu rule');
 });
 
-test('Home drops the doors, the numbers and the money of what is off, and keeps ONE Switch on more', () => {
+test('Home drops the numbers and the money of what is off, and keeps ONE Switch on more', () => {
   const home = read('app/dashboard/[eventId]/_components/home-first-screen.tsx');
-  assert.match(home, /hide=\{doorsHidden\}/, 'the doors no longer follow the needs');
+  // (Home's three door pills are gone — owner 2026-10-23, "we already have those menus on the nav" — so there are no
+  // doors left to follow the needs; the bar keeps every tab, test above. `the-home-leads-with-one-next.test.ts` b.)
+  assert.doesNotMatch(home, /HomeDoorways|doorsHidden/, 'the door pills are back on Home');
   assert.match(home, /\{noList \? null : guestsUnread \?/, 'the guest numbers show without a guest list');
   assert.match(home, /money && !noSuppliers/, 'the money shows without suppliers');
   assert.match(home, /data-home-switch-on/, 'Switch on more is gone — what was left off is lost');
@@ -62,8 +64,6 @@ test('Home drops the doors, the numbers and the money of what is off, and keeps 
   const page = read('app/dashboard/[eventId]/page.tsx');
   assert.match(page, /needs=\{homeNeeds\}/);
   assert.match(page, /needs: eventNeeds,/, 'the Next card is not told what the event needs');
-  const parts = read('app/dashboard/[eventId]/_components/home-parts.tsx');
-  assert.match(parts, /\.filter\(\(d\) => !hide\.includes\(d\.key\)\)/);
 });
 
 test('the Maker drops the stages and Studio tiles of what is off, and never opens on one', () => {

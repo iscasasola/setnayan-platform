@@ -1,5 +1,8 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
+import { PapicHomeCard } from './papic-home-card';
+import type { PapicCardPhase } from '@/lib/papic-home-card';
+
 import { ArrowRight, BookOpen, Camera, CalendarDays, Check, ChevronDown, Clapperboard, Gem, ListChecks, Mail, Music, Plus, QrCode, Radio, Sparkles, UserPlus, type LucideIcon } from 'lucide-react';
 import { NextCard } from '@/app/_components/next-card';
 import { ActionButton, type ActionTone } from '@/components/action-button';
@@ -11,7 +14,7 @@ import type { HomeCoverWords } from '@/lib/home-cover-words';
 import type { NavSlotLite } from '@/lib/nav-registry-types';
 import { completeTour } from '@/lib/tour-actions';
 import { HUB_SETUP_OFFER_TOUR } from '@/lib/tours';
-import { HomeDoorways, HomeLater, HomeReload, HomeWhatsNext } from './home-parts';
+import { HomeLater, HomeNextFold, HomeReload, HomeWhatsNext } from './home-parts';
 import { HomeCoverBand } from './home-cover-band';
 import { PapicBuySheet } from '../studio/papic/_components/papic-buy-sheet';
 import { IapPapicSheet } from '@/app/_components/iap/iap-papic-sheet';
@@ -23,6 +26,18 @@ import { seePhotosWord } from '@/lib/papic-glance';
 import type { PoolRung } from '@/lib/papic-pool-rungs';
 import { SWITCH_ON_LABEL, type SwitchOnNeed } from '@/lib/event-needs';
 import { switchOnNeed } from '../switch-on-actions';
+
+/** 📷 What Home hands Papic's card: its two new lines, and the camera settings it opens under itself. */
+export type PapicCardInput = {
+  coverage: string | null;
+  phase: PapicCardPhase | null;
+  /** The latest five (`PapicCardStrip`, a streamed server slot). */
+  strip: ReactNode;
+  thankYouHref: string | null;
+  settings: ReactNode;
+  /** The Papic main switch, in the card's head beside the ⌄ (owner 2026-10-24). */
+  headControl?: ReactNode;
+};
 
 /**
  * Where each Next card goes. Written as `href:` literals ON PURPOSE: the
@@ -152,7 +167,7 @@ export type HomeFirstScreenProps = {
   services: HomeService[];
   /** 🖼 The Event Hub's main background under the name (`lib/home-cover.ts`); null = today's colour. */
   ground?: HomeCover | null;
-  /** 🧭 The bottom bar's registry slots — the doorways read their tabs' icons from them (`getNavSlotMap`). */
+  /** 🧭 The bottom bar's registry slots — read by nothing since the door row went (owner 2026-10-23); kept so callers stand. */
   navSlots?: Record<string, NavSlotLite> | null;
   /** 📋 What's next — the decisions, unfolding in place (`EventDashboard only="whatsnext"`). */
   whatsNext?: ReactNode;
@@ -160,6 +175,12 @@ export type HomeFirstScreenProps = {
   papicLeft?: number | null;
   /** The credit ladder, ONLY when a dev lab already holds it — Home reads it on the tap. */
   papicSizes?: PoolRung[] | null;
+  /**
+   * 📷 PAPIC'S CARD (owner 2026-10-23, "a smaller widget on home. Then we can expand it" · "expanding opens the rest
+   * of the settings under it"): the coverage line, the latest five, and the camera settings it opens under itself.
+   * Absent = the shipped row (a lab, the app).
+   */
+  papicCard?: PapicCardInput | null;
   /**
    * 🚪 WHAT THIS EVENT NEEDS (owner 2026-10-08, Level 1 — `lib/event-needs.ts`). Absent = every need on
    * (yesterday's Home, byte-identical). A need that is off is ABSENT, never greyed: no guest list → no
@@ -185,16 +206,6 @@ export type HomeFirstScreenProps = {
   } | null;
 };
 
-/** Only the three slots the doorways read cross to the client — not the whole registry. */
-function doorSlots(all: Record<string, NavSlotLite> | null): Record<string, NavSlotLite> | null {
-  if (!all) return null;
-  const out: Record<string, NavSlotLite> = {};
-  for (const k of ['guests', 'explore', 'launch']) {
-    const slot = all[`customer.bottom-nav.${k}`];
-    if (slot) out[`customer.bottom-nav.${k}`] = slot;
-  }
-  return out;
-}
 
 /** A number the Home counts, or its word ("—", "Today") when it is not a number. */
 function Figure({ n, word, id }: { n: number | null | undefined; word: string; id: string }) {
@@ -213,16 +224,15 @@ export function HomeFirstScreen({
   figures,
   services,
   ground = null,
-  navSlots = null,
   whatsNext,
   papicLeft = null,
   papicSizes = null,
+  papicCard = null,
   needs = null,
   apple = null,
 }: HomeFirstScreenProps) {
   const noList = needs?.guestList === false;
   const noSuppliers = needs?.suppliers === false;
-  const doorsHidden = [...(noList ? ['guests'] : []), ...(noSuppliers ? ['explore'] : [])];
   const guestsUnread = figures ? figures.coming === null : coming === '—';
   const moneyUnread = figures ? figures.money === 'unread' : money !== null && money.paid === '—';
   const m = figures && figures.money && figures.money !== 'unread' ? figures.money : null;
@@ -253,32 +263,34 @@ export function HomeFirstScreen({
 
         {/* ① THE ONE NEXT CARD — the shared `NextCard`, drawn with the button rule's row:
             the main verb (+ 📅 Later). An unread guest list is SAID here, with ⟳ Reload (H3). */}
-        <NextCard
-          marker="data-home-next"
-          kind={next.kind}
-          title={next.title}
-          body={next.body}
-          action={next.action}
-          href={nextHref(next.kind, eventId)}
-          bad={next.kind === 'unread'}
-          actions={
-            <>
-              {nextMain}
-              {next.offer ? (
-                /* 🧭 The once-offer's Later answers it — the shipped tour action, no new one. */
-                <form action={completeTour.bind(null, HUB_SETUP_OFFER_TOUR)} className="contents">
-                  <ActionButton type="submit" tone="neutral" icon={<CalendarDays aria-hidden="true" strokeWidth={1.9} />} label="Later" data-testid="home-next-later" />
-                </form>
-              ) : next.kind !== 'unread' ? (
-                <HomeLater eventId={eventId} kind={next.kind} />
-              ) : null}
-            </>
-          }
-        />
+        {/* 📅 "Later" folds the card to "Back tomorrow · Undo" (owner 2026-10-23) — `HomeNextFold` owns the fold. */}
+        <HomeNextFold eventId={eventId} kind={next.kind}>
+          <NextCard
+            marker="data-home-next"
+            kind={next.kind}
+            title={next.title}
+            body={next.body}
+            action={next.action}
+            href={nextHref(next.kind, eventId)}
+            bad={next.kind === 'unread'}
+            actions={
+              <>
+                {nextMain}
+                {next.offer ? (
+                  /* 🧭 The once-offer's Later answers it — the shipped tour action, no new one. */
+                  <form action={completeTour.bind(null, HUB_SETUP_OFFER_TOUR)} className="contents">
+                    <ActionButton type="submit" tone="neutral" icon={<CalendarDays aria-hidden="true" strokeWidth={1.9} />} label="Later" data-testid="home-next-later" />
+                  </form>
+                ) : next.kind !== 'unread' ? (
+                  <HomeLater />
+                ) : null}
+              </>
+            }
+          />
+        </HomeNextFold>
 
-        {/* ② THE THREE DOORS (owner 2026-10-07: "maybe add the 3 buttons") — the bottom bar's icons,
-            named Guests · Suppliers · Event Hub (owner 2026-10-22, `HOME_DOOR_LABELS`). */}
-        <HomeDoorways eventId={eventId} navSlots={doorSlots(navSlots)} hide={doorsHidden} />
+        {/* ② THE THREE DOORS ARE GONE (owner 2026-10-23: "remove Home's three pills (Guests · Suppliers · Event Hub)") —
+            the event bar already carries all three, one tap away; Home leads with the Next card and the widgets. */}
 
         {/* 🚪 ONE QR FOR EVERYONE — where an event has no guest list, the QR IS the way in
             (owner 2026-10-08; prototype frame 2, its words). Opens the event's QR page. */}
@@ -375,7 +387,7 @@ export function HomeFirstScreen({
         {whatsNext ?? <HomeWhatsNext open={null} rows={[]} checklist={{ href: `/dashboard/${eventId}/checklist`, pct: null }} />}
 
         {/* ⑥ YOUR SERVICES — compact, one line each; never the one that is Next. */}
-        <YourServices eventId={eventId} services={services} apple={apple} papicLeft={papicLeft} papicSizes={papicSizes} />
+        <YourServices eventId={eventId} services={services} apple={apple} papicLeft={papicLeft} papicSizes={papicSizes} papicCard={papicCard} />
 
         {/* 🚪 SWITCH ON MORE — the ONE row that keeps what this event left off (owner 2026-10-08:
             "the rest stays off but can be switched on later from Home's quick setup"). It unfolds in
@@ -422,12 +434,14 @@ export function YourServices({
   apple = null,
   papicLeft,
   papicSizes = null,
+  papicCard = null,
 }: {
   eventId: string;
   services: HomeService[];
   apple?: HomeFirstScreenProps['apple'];
   papicLeft: number | null;
   papicSizes?: PoolRung[] | null;
+  papicCard?: PapicCardInput | null;
 }) {
   if (!(services.length > 0 || apple?.papic || apple?.liveWatch)) return null;
   return (
@@ -466,7 +480,7 @@ export function YourServices({
         {services.map((svc, i) => {
           const Icon = SERVICE_ICON[svc.key];
           if (svc.key === 'papic' && svc.papic) {
-            return <PapicServiceRow key={svc.key} eventId={eventId} svc={svc} doors={svc.papic} left={papicLeft} sizes={papicSizes} />;
+            return <PapicServiceRow key={svc.key} eventId={eventId} svc={svc} doors={svc.papic} left={papicLeft} sizes={papicSizes} card={papicCard} />;
           }
           if (svc.paid) {
             /* 🧾 "Not added" heads the slim lines once (prototype: owned rows, then Not added). */
@@ -506,8 +520,24 @@ export function YourServices({
  * Papic holds the Next card — and only while that card is on screen (`papicRowDoubled`,
  * `[data-while-next]`): a "Later" brings the row's own Buy more straight back (walk-b6 F1).
  */
-function PapicServiceRow({ eventId, svc, doors, left, sizes }: { eventId: string; svc: HomeService; doors: PapicRowDoors; left: number | null; sizes: PoolRung[] | null }) {
-  const photos = typeof doors.glance.result === 'number' && doors.glance.result > 0 ? doors.glance.result : null;
+function PapicServiceRow({
+  eventId,
+  svc,
+  doors,
+  left,
+  sizes,
+  card = null,
+}: {
+  eventId: string;
+  svc: HomeService;
+  doors: PapicRowDoors;
+  left: number | null;
+  sizes: PoolRung[] | null;
+  card?: PapicCardInput | null;
+}) {
+  // 📷 The card's own strip carries "See all ›" (→ Memories), so the card draws no second photos door (contract
+  // 2026-10-24: quick view = coverage · credits · the latest five with See all · Add more). The plain row keeps it.
+  const photos = !card && typeof doors.glance.result === 'number' && doors.glance.result > 0 ? doors.glance.result : null;
   const acts =
     doors.buy || photos ? (
       <>
@@ -515,16 +545,39 @@ function PapicServiceRow({ eventId, svc, doors, left, sizes }: { eventId: string
           doors.whileNext?.buy ? (
             /* NEVER TWICE, only while the card that offers it is on screen (walk-b6 F1). */
             <span data-while-next="" className="contents">
-              <PapicBuySheet eventId={eventId} left={left} tone="brand" sizes={sizes} />
+              <PapicBuySheet eventId={eventId} left={left} tone="brand" sizes={sizes} label={card ? 'Add more' : undefined} />
             </span>
           ) : (
-            <PapicBuySheet eventId={eventId} left={left} tone="brand" sizes={sizes} />
+            <PapicBuySheet eventId={eventId} left={left} tone="brand" sizes={sizes} label={card ? 'Add more' : undefined} />
           )
         ) : null}
         {/* The photos live on the event bar's Memories tab now (owner 2026-10-23) — the door opens it. */}
         {photos ? <PapicSeePhotos tone="neutral" label={seePhotosWord(photos)} href={`/dashboard/${eventId}/memories`} /> : null}
       </>
     ) : null;
+  const line = doors.whileNext?.tail ? { ...doors.line, tailWhileNext: true } : doors.line;
+  // 📷 THE CARD THAT OPENS UNDER ITSELF (owner 2026-10-23) — nothing on Home navigates to the Papic page now.
+  if (card) {
+    return (
+      <PapicHomeCard
+        name={svc.name}
+        brand={svc.brand}
+        icon={<Camera aria-hidden strokeWidth={1.9} />}
+        mood={doors.glance.mood}
+        pct={doors.glance.pct}
+        line={line}
+        meterLabel="Credits left"
+        coverage={card.coverage}
+        phase={card.phase}
+        strip={card.strip}
+        actions={acts}
+        thankYouHref={card.thankYouHref}
+        settings={card.settings}
+        headControl={card.headControl ?? null}
+        marker={{ 'data-home-service': 'papic' }}
+      />
+    );
+  }
   return (
     <ServiceGlanceRow
       href={`/dashboard/${eventId}/studio/papic`}
@@ -533,7 +586,7 @@ function PapicServiceRow({ eventId, svc, doors, left, sizes }: { eventId: string
       icon={<Camera aria-hidden strokeWidth={1.9} />}
       mood={doors.glance.mood}
       pct={doors.glance.pct}
-      line={doors.whileNext?.tail ? { ...doors.line, tailWhileNext: true } : doors.line}
+      line={line}
       meterLabel="Credits left"
       actions={acts}
       marker={{ 'data-home-service': 'papic' }}
@@ -554,18 +607,20 @@ export function DayPapicRow({
   svc,
   left,
   sizes = null,
+  card = null,
 }: {
   eventId: string;
   face: DayPapicFace;
   svc: HomeService | undefined;
   left: number | null;
   sizes?: PoolRung[] | null;
+  card?: PapicCardInput | null;
 }) {
   const view = dayPapicView(face, svc, eventId);
   if (view.kind === 'hidden' || !svc) return null;
   const body =
     view.kind === 'row' ? (
-      <PapicServiceRow eventId={eventId} svc={svc} doors={view.doors} left={left} sizes={sizes} />
+      <PapicServiceRow eventId={eventId} svc={svc} doors={view.doors} left={left} sizes={sizes} card={card} />
     ) : view.kind === 'say' ? (
       <ServiceGlanceRow
         href={view.href}

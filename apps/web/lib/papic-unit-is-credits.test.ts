@@ -15,7 +15,7 @@ const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SURFACES = [
   'app/dashboard/[eventId]/studio/papic/_components/credit-stepper.tsx',
   'app/dashboard/[eventId]/studio/papic/_components/guest-contributions-card.tsx',
-  'app/dashboard/[eventId]/studio/papic/_components/papic-stage.tsx',
+  // (papic-stage.tsx deleted 2026-10-24 — unmounted once the library moved to Memories)
   // (extra-cameras-picker.tsx deleted 2026-10-23 — the crew-camera tiers retired)
   'app/dashboard/[eventId]/studio/papic/couple-challenges-manager.tsx',
   'app/papic/guest/_components/papic-guest-capture.tsx',

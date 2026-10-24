@@ -32,7 +32,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 export async function setPapicGuestCaptureEarly(formData: FormData): Promise<void> {
   const eventId = String(formData.get('event_id') ?? '').trim();
   const early = String(formData.get('early') ?? '') === '1';
-  const back = `/dashboard/${eventId}/studio/papic`;
+  // 🏠 Saved inside Home's Papic card (`return_to=home`) → back to Home; a fixed word, never a URL from the form.
+  const back = formData.get('return_to') === 'home' ? `/dashboard/${eventId}` : `/dashboard/${eventId}/studio/papic`;
   if (!eventId) redirect('/dashboard');
 
   const supabase = await createClient();
@@ -62,8 +63,10 @@ export async function setPapicGuestCaptureEarly(formData: FormData): Promise<voi
   // ⚠ Supabase RESOLVES with { error } — it does not throw. Without this check a
   // failed write would redirect to the success state and the host would believe
   // they had opened the cameras.
-  if (error) redirect(`${back}?guestCameras=error`);
+  // A failure lands on the Papic page, where its banner is read — never a silent return to Home.
+  if (error) redirect(`/dashboard/${eventId}/studio/papic?guestCameras=error`);
 
   revalidatePath(back);
+  if (back === `/dashboard/${eventId}`) redirect(back);
   redirect(`${back}?guestCameras=${early ? 'early' : 'eventday'}`);
 }

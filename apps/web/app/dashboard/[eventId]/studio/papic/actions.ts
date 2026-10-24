@@ -12,7 +12,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { ALLOTMENT_RPC, ALLOTMENT_STORAGE } from '@/lib/papic-guest-allotments';
 import { reviewVendorChallenge } from '@/lib/papic-games';
 import { papicGamesEnabled } from '@/lib/papic-games-flag';
-import { coupleSlots } from '@/lib/papic-missions';
+import { activationRefused, coupleSlots } from '@/lib/papic-missions';
 import { isKwentoMomentKey } from '@/lib/papic-ceremony-sequence';
 import {
   CHALLENGE_DURATION_CHOICES,
@@ -130,6 +130,25 @@ export async function reviewVendorChallengeAction(formData: FormData) {
 
 /** The couple authors their own generic Photo Challenge. source='couple',
  *  mission_type='prompt', approved=true so it goes live to guests immediately. */
+/**
+ * 🔒 How many of this event's challenges are running, NOT counting `exceptMissionId` — null when the read failed (the
+ * cap then refuses; `activationRefused`). Read as the couple (RLS), the same rows the board draws.
+ */
+async function activeChallengesBesides(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  eventId: string,
+  exceptMissionId: string | null,
+): Promise<number | null> {
+  let q = supabase.from('papic_missions').select('mission_id', { count: 'exact', head: true }).eq('event_id', eventId).eq('approved', true).eq('is_active', true);
+  if (exceptMissionId) q = q.neq('mission_id', exceptMissionId);
+  const { count, error } = await q;
+  if (error) {
+    logQueryError('activeChallengesBesides', error, { event_id: eventId }, 'graceful_degrade');
+    return null;
+  }
+  return count ?? null;
+}
+
 export async function createCoupleChallengeAction(formData: FormData) {
   const rawEventId = formData.get('event_id');
   const eventId = typeof rawEventId === 'string' ? rawEventId.trim() : '';
@@ -138,24 +157,26 @@ export async function createCoupleChallengeAction(formData: FormData) {
     redirect('/dashboard');
   }
   if (!papicGamesEnabled()) {
-    redirect(`/dashboard/${eventId}/studio/papic/challenges`);
+    redirect(challengeReturnPath(eventId, formData.get('return_to')));
   }
   if (typeof prompt !== 'string' || prompt.trim().length === 0) {
-    redirect(`/dashboard/${eventId}/studio/papic/challenges`);
+    redirect(challengeReturnPath(eventId, formData.get('return_to')));
   }
 
   const supabase = await createClient();
+  // 🔒 It turns on only if there is room under the hard cap of 10 (owner 2026-10-24); else it is kept, switched off.
+  const room = !activationRefused(await activeChallengesBesides(supabase, eventId, null));
   await supabase.from('papic_missions').insert({
     event_id: eventId,
     mission_type: 'prompt',
     source: 'couple',
     prompt: prompt.trim().slice(0, 280),
     approved: true,
-    is_active: true,
+    is_active: room,
   });
 
   revalidatePath(`/dashboard/${eventId}/studio/papic/challenges`);
-  redirect(`/dashboard/${eventId}/studio/papic/challenges`);
+  redirect(challengeReturnPath(eventId, formData.get('return_to')));
 }
 
 /**
@@ -198,6 +219,9 @@ export async function createCoupleChallengeAction(formData: FormData) {
  */
 function challengeReturnPath(eventId: string, raw: FormDataEntryValue | null): string {
   const base = `/dashboard/${eventId}/studio/papic`;
+  // 🏠 'home' — pressed inside Home's open Papic card (owner 2026-10-23: the card "expands on home"); a fixed word
+  // picks a fixed path, never a URL from the form.
+  if (raw === 'home') return `/dashboard/${eventId}`;
   return raw === 'run-of-show' ? `${base}/run-of-show` : `${base}/challenges`;
 }
 
@@ -322,6 +346,10 @@ export async function addLibraryChallengeAction(formData: FormData) {
   if (chosen >= coupleSlots(vendorUsed)) {
     redirect(`${returnTo}?add=full`);
   }
+  // 🔒 …and the event-wide hard cap of 10 running challenges, whatever lane they are in (owner 2026-10-24).
+  if (activationRefused(await activeChallengesBesides(supabase, eventId, null))) {
+    redirect(`${returnTo}?add=full`);
+  }
 
   await supabase.from('papic_missions').insert({
     event_id: eventId,
@@ -353,17 +381,21 @@ export async function setCoupleChallengeActiveAction(formData: FormData) {
     redirect('/dashboard');
   }
   if (!papicGamesEnabled()) {
-    redirect(`/dashboard/${eventId}/studio/papic/challenges`);
+    redirect(challengeReturnPath(eventId, formData.get('return_to')));
   }
   if (
     typeof missionId !== 'string' ||
     missionId.length === 0 ||
     (active !== 'true' && active !== 'false')
   ) {
-    redirect(`/dashboard/${eventId}/studio/papic/challenges`);
+    redirect(challengeReturnPath(eventId, formData.get('return_to')));
   }
 
   const supabase = await createClient();
+  // 🔒 Turning one ON asks the hard cap first (owner 2026-10-24) — an 11th running challenge is refused.
+  if (active === 'true' && activationRefused(await activeChallengesBesides(supabase, eventId, missionId))) {
+    redirect(`${challengeReturnPath(eventId, formData.get('return_to'))}?add=full`);
+  }
   await supabase
     .from('papic_missions')
     .update({ is_active: active === 'true' })
@@ -371,7 +403,7 @@ export async function setCoupleChallengeActiveAction(formData: FormData) {
     .eq('event_id', eventId);
 
   revalidatePath(`/dashboard/${eventId}/studio/papic/challenges`);
-  redirect(`/dashboard/${eventId}/studio/papic/challenges`);
+  redirect(challengeReturnPath(eventId, formData.get('return_to')));
 }
 
 /**
@@ -410,10 +442,10 @@ export async function armChallengeAction(formData: FormData) {
     redirect('/dashboard');
   }
   if (!papicGamesEnabled()) {
-    redirect(`/dashboard/${eventId}/studio/papic/challenges`);
+    redirect(challengeReturnPath(eventId, formData.get('return_to')));
   }
   if (typeof missionId !== 'string' || missionId.length === 0) {
-    redirect(`/dashboard/${eventId}/studio/papic/challenges`);
+    redirect(challengeReturnPath(eventId, formData.get('return_to')));
   }
 
   // 🔑 THE RUN OF SHOW ARMS THROUGH THIS ACTION, IT DOES NOT RE-IMPLEMENT IT.
@@ -490,7 +522,8 @@ export async function setChallengesPausedAction(formData: FormData) {
   if (!eventId) {
     redirect('/dashboard');
   }
-  const returnTo = `/dashboard/${eventId}/studio/papic/run-of-show`;
+  // 🏠 The Papic card's Challenges switch (owner 2026-10-24) saves back to Home; the run of show keeps its own page.
+  const returnTo = formData.get('return_to') === 'home' ? `/dashboard/${eventId}` : `/dashboard/${eventId}/studio/papic/run-of-show`;
   if (!papicGamesEnabled()) {
     redirect(returnTo);
   }
@@ -590,10 +623,10 @@ export async function stopChallengeAction(formData: FormData) {
     redirect('/dashboard');
   }
   if (!papicGamesEnabled()) {
-    redirect(`/dashboard/${eventId}/studio/papic/challenges`);
+    redirect(challengeReturnPath(eventId, formData.get('return_to')));
   }
   if (typeof missionId !== 'string' || missionId.length === 0) {
-    redirect(`/dashboard/${eventId}/studio/papic/challenges`);
+    redirect(challengeReturnPath(eventId, formData.get('return_to')));
   }
 
   const supabase = await createClient();
@@ -606,7 +639,7 @@ export async function stopChallengeAction(formData: FormData) {
   }
 
   revalidatePath(`/dashboard/${eventId}/studio/papic/challenges`);
-  redirect(`/dashboard/${eventId}/studio/papic/challenges`);
+  redirect(challengeReturnPath(eventId, formData.get('return_to')));
 }
 
 /** Delete one of the couple's OWN challenges. Auto/vendor missions are hidden via
@@ -620,10 +653,10 @@ export async function deleteCoupleChallengeAction(formData: FormData) {
     redirect('/dashboard');
   }
   if (!papicGamesEnabled()) {
-    redirect(`/dashboard/${eventId}/studio/papic/challenges`);
+    redirect(challengeReturnPath(eventId, formData.get('return_to')));
   }
   if (typeof missionId !== 'string' || missionId.length === 0) {
-    redirect(`/dashboard/${eventId}/studio/papic/challenges`);
+    redirect(challengeReturnPath(eventId, formData.get('return_to')));
   }
 
   const supabase = await createClient();
@@ -635,7 +668,7 @@ export async function deleteCoupleChallengeAction(formData: FormData) {
     .eq('source', 'couple');
 
   revalidatePath(`/dashboard/${eventId}/studio/papic/challenges`);
-  redirect(`/dashboard/${eventId}/studio/papic/challenges`);
+  redirect(challengeReturnPath(eventId, formData.get('return_to')));
 }
 
 /** The five event-wide Papic looks (mirrors the CHECK on events.papic_style and
@@ -689,11 +722,19 @@ const PAPIC_STYLE_VALUES = ['ORIG', 'RETRO', 'MONO', 'CINE', 'LOMO'] as const;
  * saved into the void; the guard written afterwards is why this redirect
  * carries a param the banner reads.
  */
+/**
+ * 🖼 Where an uploads save lands: Memories when it was made there (+ Add photos, owner 2026-10-23 — the files moved
+ * there), else the Papic page. A fixed word picks a fixed path — never a URL from the form.
+ */
+function papicBack(formData: FormData, eventId: string): string {
+  return formData.get('back') === 'memories' ? `/dashboard/${eventId}/memories` : `/dashboard/${eventId}/studio/papic`;
+}
+
 export async function setPapicUploadsOpen(formData: FormData) {
   const result = await getCoupleEventId(formData.get('event_id'));
   if (!result.ok) redirect(result.redirectTo);
   const { eventId } = result;
-  const back = `/dashboard/${eventId}/studio/papic`;
+  const back = papicBack(formData, eventId);
 
   // The form posts the value it wants, not a flip of what it read — a toggle
   // that flips whatever it last saw double-fires on a double-tap and lands on
@@ -717,7 +758,7 @@ export async function claimUploadsCamera(formData: FormData) {
   const result = await getCoupleEventId(formData.get('event_id'));
   if (!result.ok) redirect(result.redirectTo);
   const { eventId } = result;
-  const back = `/dashboard/${eventId}/studio/papic`;
+  const back = papicBack(formData, eventId);
 
   const admin = createAdminClient();
   const { data: seat, error: seatError } = await admin
@@ -781,6 +822,10 @@ export async function setPapicStyle(formData: FormData) {
   }
 
   revalidatePath(`/dashboard/${eventId}/studio/papic`);
+  if (savedFromHome(formData)) {
+    revalidatePath(`/dashboard/${eventId}`);
+    redirect(`/dashboard/${eventId}`);
+  }
   redirect(`/dashboard/${eventId}/studio/papic?style_set=${style}`);
 }
 
@@ -1145,9 +1190,23 @@ export async function setPapicWindow(formData: FormData) {
   }
 
   revalidatePath(`/dashboard/${eventId}/studio/papic`);
+  // 🏠 Saved from Home's Papic card: land back on Home, the card still open (a failure still lands on the Papic
+  // page above, where its banner is read).
+  if (savedFromHome(formData)) {
+    revalidatePath(`/dashboard/${eventId}`);
+    redirect(`/dashboard/${eventId}`);
+  }
   redirect(
     `/dashboard/${eventId}/studio/papic?papic_window_saved=${win.days}`,
   );
+}
+
+/**
+ * 🏠 Was this saved from Home's Papic card (owner 2026-10-23: the card *"expands on home"*, the URL unchanged)?
+ * 🔒 A fixed word (`return_to=home`) picks a fixed path — never a URL from the form.
+ */
+function savedFromHome(formData: FormData): boolean {
+  return formData.get('return_to') === 'home';
 }
 
 // ── Papic ONE IS RETIRED AS A PURCHASE (owner 2026-08-11) ─────────────────
@@ -1178,13 +1237,49 @@ export async function setPapicWindow(formData: FormData) {
  */
 export async function papicBuySizes(
   rawEventId: string,
-): Promise<{ ok: true; rungs: PoolRung[] } | { ok: false; reason: 'not_couple' | 'over' | 'none' }> {
+): Promise<
+  | {
+      ok: true;
+      rungs: PoolRung[];
+      /**
+       * 🧮 "How many do I need?" (owner 2026-10-23) — the event's own inputs, never a guess: the head count the
+       * allotment rule divides by (`papic_event_guest_headcount`; null = the read was refused) and the per-guest
+       * number only when the couple has set one (null = none — the sheet asks).
+       */
+      need: { coming: number | null; each: number | null; named: { count: number; sum: number } | null };
+    }
+  | { ok: false; reason: 'not_couple' | 'over' | 'none' }
+> {
   const who = await getCoupleEventId(rawEventId);
   if (!who.ok) return { ok: false, reason: 'not_couple' };
   const admin = createAdminClient();
   if (await eventIsOver(admin, who.eventId)) return { ok: false, reason: 'over' };
-  const rungs = await loadPoolRungs(admin);
-  return rungs.length > 0 ? { ok: true, rungs } : { ok: false, reason: 'none' };
+  const [rungs, headRes, capRes, namedRes] = await Promise.all([
+    loadPoolRungs(admin),
+    admin.rpc('papic_event_guest_headcount', { p_event_id: who.eventId }),
+    admin.from('events').select('papic_guest_spend_ceiling_on, papic_guest_spend_ceiling_points').eq('event_id', who.eventId).maybeSingle(),
+    // The named guests' set numbers (each guest card's own Papic number) — read with the admin client, as the rule's
+    // own readers do (the table is never reachable from a browser).
+    // …only for guests still counted — not removed (`deleted_at`) and not declined — exactly as the DB rule sums them
+    // (`papic_guest_spend_ceiling`, migration 20271241532112): a removed guest's old number is not a share anyone has.
+    admin
+      .from('papic_guest_spend_ceilings')
+      .select('ceiling_points, guests!inner(deleted_at, rsvp_status)')
+      .eq('event_id', who.eventId)
+      .is('guests.deleted_at', null)
+      .neq('guests.rsvp_status', 'declined'),
+  ]);
+  if (namedRes.error) logQueryError('papicBuySizes.named', namedRes.error, { event_id: who.eventId }, 'graceful_degrade');
+  if (headRes.error) logQueryError('papicBuySizes.headcount', headRes.error, { event_id: who.eventId }, 'graceful_degrade');
+  if (capRes.error) logQueryError('papicBuySizes.ceiling', capRes.error, { event_id: who.eventId }, 'graceful_degrade');
+  const coming = headRes.error || typeof headRes.data !== 'number' ? null : headRes.data;
+  const cap = capRes.data as { papic_guest_spend_ceiling_on?: boolean | null; papic_guest_spend_ceiling_points?: number | null } | null;
+  const each = cap?.papic_guest_spend_ceiling_on === true && typeof cap.papic_guest_spend_ceiling_points === 'number' ? cap.papic_guest_spend_ceiling_points : null;
+  const namedRows = (namedRes.data ?? []) as { ceiling_points: number | null }[];
+  const named = namedRes.error
+    ? null
+    : { count: namedRows.length, sum: namedRows.reduce((n, r) => n + (typeof r.ceiling_points === 'number' ? r.ceiling_points : 0), 0) };
+  return rungs.length > 0 ? { ok: true, rungs, need: { coming, each, named } } : { ok: false, reason: 'none' };
 }
 
 /**
@@ -1509,6 +1604,11 @@ export async function setGuestAllotments(formData: FormData) {
   }
 
   revalidatePath(back);
+  // 🏠 Saved inside Home's Papic card — land back on Home (a failure above still lands here, where its banner is read).
+  if (savedFromHome(formData)) {
+    revalidatePath(`/dashboard/${eventId}`);
+    redirect(`/dashboard/${eventId}`);
+  }
   redirect(`${back}?allotment_set=${enabled ? '1' : '0'}`);
 }
 
@@ -1624,5 +1724,9 @@ export async function releaseTheRest(formData: FormData) {
   }
 
   revalidatePath(back);
+  if (savedFromHome(formData)) {
+    revalidatePath(`/dashboard/${eventId}`);
+    redirect(`/dashboard/${eventId}`);
+  }
   redirect(`${back}?allotment_set=released`);
 }

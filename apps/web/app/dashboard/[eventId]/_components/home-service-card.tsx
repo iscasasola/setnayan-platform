@@ -20,7 +20,7 @@
 import { useId, useState, useTransition, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ChevronDown, ChevronRight, RotateCw } from 'lucide-react';
+import { ChevronRight, RotateCw } from 'lucide-react';
 import { GlanceDot, GlanceLineText, GlanceMeter } from '@/app/_components/service-glance';
 import { ActionButton } from '@/components/action-button';
 import type { GlanceLine, ServiceMood } from '@/lib/service-glance';
@@ -114,9 +114,10 @@ export function HomeServiceCard({
           {brand ? <span className="sg-brand block truncate">{brand}</span> : null}
         </span>
         {grows ? (
-          <ChevronDown
+          /* › turns to ⌄ as the card grows in place — the one card shape, as Papic's (owner 2026-10-24). */
+          <ChevronRight
             aria-hidden
-            className={`sg-arrow h-[18px] w-[18px] transition-transform duration-[420ms] ease-[cubic-bezier(0.2,0.7,0.2,1)] motion-reduce:transition-none ${open ? 'rotate-180' : ''}`}
+            className={`sg-arrow h-[18px] w-[18px] transition-transform duration-[420ms] ease-[cubic-bezier(0.2,0.7,0.2,1)] motion-reduce:transition-none ${open ? 'rotate-90' : ''}`}
             strokeWidth={1.9}
           />
         ) : (

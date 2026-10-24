@@ -1361,14 +1361,10 @@ export default async function EventHomePage({
         </>
       ) : (
         /* 📱 THE FIRST SCREEN, AND NOTHING ELSE (owner 2026-10-02, DECISION_LOG
-         *  "HOME IS THE FIRST SCREEN ONLY"): Next · Edit your Event Hub · the
-         *  numbers · the money line · your services. The old dashboard under it
-         *  (the wedding-day / Sai / decisions / schedule / Papic / messages
-         *  tiles) is NOT mounted here — it repeated the first screen and drew a
-         *  second, wider page. The whole `<EventDashboard>` is mounted only by the
-         *  two receded views above (day-of · after the day); here it is drawn only
-         *  as `only="whatsnext"`, unfolding in place under the first screen's
-         *  "What's next" row (owner 2026-10-07, H7 — no sheet). */
+         *  "HOME IS THE FIRST SCREEN ONLY"; the control center, owner-approved
+         *  2026-10-24): Today · the six widgets · your services. The whole
+         *  `<EventDashboard>` is mounted only by the two receded views above
+         *  (day-of · after the day) — never here. */
         <>
           {homeFirstScreen}
         </>

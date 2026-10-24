@@ -192,7 +192,7 @@ export function PhotosOfYouGallery({
           <span className="sn-gal-text font-medium">Not me</span>.{' '}
           {photos.some((p) => wallOf(p.id, p.wall) !== 'off') ? (
             <>
-              A photo marked <span className="sn-gal-text font-medium">On the wall</span> is on the
+              A photo marked <span className="sn-gal-text font-medium">On Memory lane</span> is on the
               screens here now — open it to take it off.
             </>
           ) : null}
@@ -379,7 +379,7 @@ function WallBadge({ state }: { state: WallTileState }) {
       {posted ? (
         <span className="h-1.5 w-1.5 flex-none animate-pulse rounded-full bg-[var(--sn-ob-gold)]" />
       ) : null}
-      <span className="truncate">{posted ? 'On the wall' : 'Off the wall'}</span>
+      <span className="truncate">{posted ? 'On Memory lane' : 'Off Memory lane'}</span>
     </span>
   );
 }
@@ -425,7 +425,7 @@ function WallControl({
   if (state === 'pulled_by_host') {
     return (
       <p className="sn-gal-soft text-xs">
-        The hosts took this one off the wall.
+        The hosts took this one off Memory lane.
       </p>
     );
   }
@@ -459,8 +459,8 @@ function WallControl({
             ? 'Taking it off…'
             : 'Putting it back…'
           : posted
-            ? 'Take it off the wall'
-            : 'Put it back on the wall'}
+            ? 'Take it off Memory lane'
+            : 'Put it back on Memory lane'}
       </button>
       {error ? (
         <span role="alert" className="text-xs font-semibold text-[var(--sn-ob-text)]">

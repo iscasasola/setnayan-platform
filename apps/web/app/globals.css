@@ -254,7 +254,7 @@
     --color-terracotta-700: 168 131 64; /* deepest → #A88340 */
     --color-mulberry: 229 121 78;        /* CTA → lightened terracotta #E5794E · 6.20:1 AA on the dark page */
     --color-mulberry-600: 236 138 95;   /* CTA hover lighter → #EC8A5F (7.22:1 AAA) */
-    --color-mulberry-700: 194 78 37;     /* CTA deepest → the light-mode #C24E25 */
+    --color-mulberry-700: 242 160 125;   /* words that act → #F2A07D · 8.5:1 on the page (dark 3a, 2026-10-23: it was the light-mode #C24E25 — 3.81:1, "Buy more" / "8 to invite" / "Download as Excel") */
     --sn-on-accent: 23 22 15;            /* words on the accent, dark (inert like the rest of this block): the page's ink-black on #E5794E — white reads 2.9:1 there */
     --color-link: 157 178 206;         /* link → lightened slate indigo #9DB2CE · 8.37:1 AAA */
     --color-link-600: 175 194 218;     /* link hover → #AFC2DA (9.97:1) */
@@ -2947,6 +2947,48 @@ html[data-sn-bar-dir='back']::view-transition-old(sn-bottomnav) {
   animation-name: sn-vt-out-right;
 }
 html[data-sn-bar-dir='back']::view-transition-new(sn-bottomnav) {
+  animation-name: sn-vt-in-left;
+}
+/*
+ * ↔ ON A WIDE SCREEN THE SIDE MENU IS THE BAR, AND IT SLIDES BY THE SAME RULE (owner 23 Oct 2026, DECISION_LOG "OWNER
+ * ANSWERS ON THE BUILD TRACKER" — Q1 of `prototypes/desktop_layouts_2026-10-22.html`: *"inside an event/shop the side
+ * menu swaps with a slide (one rule with the bottom bar)"*). The swap shipped 2026-09-21 (`rail-focus.ts`); this is its
+ * motion. While `data-sn-bar-dir` is set the rail takes a name of its own, `sn-rail`, and its old rows leave and the
+ * new set's arrive exactly as the dock's do above — the same keyframes, the same 280 ms, the same easing, clipped to the
+ * rail's own box, so the cream column stays and its rows move through it. The page slides with it (the rules above,
+ * which never asked the width) and the top bar holds still in `root`.
+ *   · ONE selector, no width test: a shut rail (`display: none`, every phone) is never captured, and the phone's OPEN
+ *     drawer is excluded by its own `data-open` — so below the boundary nothing changes, by construction.
+ *   · named for the length of the slide only — a named element is a containing block for `position: fixed`
+ *     descendants, and nothing in the rail should be one for longer than 280 ms.
+ * Held by `lib/bar-set.test.ts` (direction, timing, the phone exclusion) and `the-bar-outlives-the-slide.test.ts`
+ * (one selector per name).
+ */
+html[data-sn-bar-dir] .fd-rail:not([data-open='true']):not([data-open='closing']) {
+  view-transition-name: sn-rail;
+}
+html[data-sn-bar-dir]::view-transition-group(sn-rail) {
+  overflow: clip;
+  animation: none;
+}
+html[data-sn-bar-dir]::view-transition-old(sn-rail),
+html[data-sn-bar-dir]::view-transition-new(sn-rail) {
+  inset-block: 0 auto;
+  mix-blend-mode: normal;
+  animation-duration: 280ms;
+  animation-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1);
+  animation-fill-mode: both;
+}
+html[data-sn-bar-dir='fwd']::view-transition-old(sn-rail) {
+  animation-name: sn-vt-out-left;
+}
+html[data-sn-bar-dir='fwd']::view-transition-new(sn-rail) {
+  animation-name: sn-vt-in-right;
+}
+html[data-sn-bar-dir='back']::view-transition-old(sn-rail) {
+  animation-name: sn-vt-out-right;
+}
+html[data-sn-bar-dir='back']::view-transition-new(sn-rail) {
   animation-name: sn-vt-in-left;
 }
 /* Reduced motion: the listener never starts a slide (`barSlideFor`), and should any transition run anyway, nothing in
@@ -5906,6 +5948,11 @@ html.dark div:has(> [data-apply-pro-sheet]),
 html.dark .sn-popup-dark {
   background-color: rgb(0 0 0 / 0.55);
 }
+/* The side panel's and the guest card's backdrops are the same dark in dark mode (2026-10-25). */
+html.dark .sn-inspector-peek,
+html.dark .sn-side-panel-scrim {
+  background-color: rgb(0 0 0 / 0.55);
+}
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   html.dark div:has(> [data-apply-pro-sheet]),
   html.dark .sn-popup-dark {
@@ -6018,9 +6065,12 @@ html.dark .sn-popup-dark {
   inset: 0;
   z-index: var(--sn-z-scrim);
   border: 0;
-  background: rgba(30, 26, 18, 0.32);
-  backdrop-filter: blur(3px);
-  -webkit-backdrop-filter: blur(3px);
+  background: rgb(var(--color-ink) / 0.42);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  /* The house popup dark (owner 2026-10-25): the same dark and blur as `.sn-popup-dark`; a drag on it moves nothing. */
+  touch-action: none;
+  overscroll-behavior: none;
   animation: sn-peek-in var(--sn-dur-elem) var(--sn-ease) backwards;
   transition: opacity var(--sn-dur-elem) var(--sn-ease);
 }
@@ -6577,9 +6627,12 @@ html.dark .sn-popup-dark {
   inset: 0;
   z-index: 74;
   border: 0;
-  background: rgba(30, 26, 18, 0.4);
-  backdrop-filter: blur(3px);
-  -webkit-backdrop-filter: blur(3px);
+  background: rgb(var(--color-ink) / 0.42);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  /* The house popup dark (owner 2026-10-25): the same dark and blur as `.sn-popup-dark`; a drag on it moves nothing. */
+  touch-action: none;
+  overscroll-behavior: none;
   animation: sn-peek-in 0.28s var(--sn-ease) both;
 }
 .sn-inspector-sheet {

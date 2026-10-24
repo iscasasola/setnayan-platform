@@ -463,8 +463,8 @@ export function buildStoryIndex(input: StoryIndexInput): IndexTab[] {
       count: countWorthStating(countForLayer(wallEntries.length, guestOpen)),
       layer: 'guest',
       entries: wallEntries,
-      note: 'The wall as the room saw it — minus anything a guest has un-posted since.',
-      empty: 'The wall ran, and nothing on it has been kept.',
+      note: 'Memory lane as the room saw it — minus anything a guest has un-posted since.',
+      empty: 'Memory lane ran, and nothing on it has been kept.',
     });
   }
 

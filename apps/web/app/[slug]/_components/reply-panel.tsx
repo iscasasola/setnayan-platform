@@ -158,7 +158,7 @@ export function ReplyPanel({
   }, [src, replyPath, thanksPath, router, close]);
 
   return (
-    <Sheet open={src !== null} onClose={() => close()} labelledById={headingId} title="Your reply" rise>
+    <Sheet open={src !== null} onClose={() => close()} labelledById={headingId} title="Your reply" rise backCloses={false}>
       {src ? (
         <iframe
           ref={frame}

@@ -77,6 +77,18 @@ export function barSlideDir(from: BarSet | null, to: BarSet | null): 'fwd' | 'ba
  * Every condition the set-change slide needs, as one pure answer — so the guard
  * can hold, by behaviour, that reduced motion (or no View Transitions, or no
  * bar on screen) means NO slide: the press then navigates as a plain link.
+ *
+ * ↔ THE SIDE MENU IS THE BAR ON A WIDE SCREEN, AND IT SLIDES BY THE SAME RULE
+ * (owner, 23 Oct 2026, DECISION_LOG "OWNER ANSWERS ON THE BUILD TRACKER", Q1 of
+ * `prototypes/desktop_layouts_2026-10-22.html`: *"inside an event/shop the side
+ * menu swaps with a slide (one rule with the bottom bar)"*). The swap itself
+ * shipped 2026-09-21 (`rail-focus.ts`: inside an event or the shop the rail is
+ * that section's menu plus one row back); what the rail lacked was the motion.
+ * Where the rail is drawn as a column — every tree from 1024, the event tree's
+ * 72-px strip from 701 — a press that changes the set slides the RAIL the way
+ * the phone's bar slides: the same direction, the same 280 ms, the same easing
+ * (globals.css, `sn-rail`). So a slide needs a bar OR a rail on screen, and
+ * nothing else about the width matters any more.
  */
 export function barSlideFor(c: {
   fromPath: string;
@@ -87,12 +99,9 @@ export function barSlideFor(c: {
   supported: boolean;
   /** this page's dock is drawn at this width */
   dockShown: boolean;
-  /** ≥ 701 px — where the event tree draws the rail strip instead of a dock */
-  tabletUp: boolean;
+  /** this page's side menu is drawn as a column (not shut, not an open drawer) */
+  railShown: boolean;
 }): 'fwd' | 'back' | null {
-  if (c.reduced || !c.supported || !c.dockShown) return null;
-  const from = barSetOf(c.fromPath);
-  const to = barSetOf(c.toPath);
-  if (c.tabletUp && (from === 'event' || to === 'event')) return null;
-  return barSlideDir(from, to);
+  if (c.reduced || !c.supported || (!c.dockShown && !c.railShown)) return null;
+  return barSlideDir(barSetOf(c.fromPath), barSetOf(c.toPath));
 }

@@ -24,10 +24,15 @@ import { useCallback, useEffect, useRef } from 'react';
  */
 const MARK = 'snLayer';
 
+/** Our entry is the one on top — never step back over somebody else's (a navigation the pop-up itself started). */
+const ours = () => Boolean((window.history.state as Record<string, unknown> | null)?.[MARK]);
+
 export function useBackCloses(open: boolean, onClose: () => void): () => void {
   const pushed = useRef(false);
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
+  const openRef = useRef(open);
+  openRef.current = open;
 
   useEffect(() => {
     if (!open) return;
@@ -41,7 +46,17 @@ export function useBackCloses(open: boolean, onClose: () => void): () => void {
       closeRef.current();
     };
     window.addEventListener('popstate', onPop);
-    return () => window.removeEventListener('popstate', onPop);
+    return () => {
+      window.removeEventListener('popstate', onPop);
+      /* 🧹 CLOSED BY ITS OWNER, NOT BY BACK — a sheet whose `open` prop went false (a Save, a Cancel the caller wired
+         itself). Take our entry off so the next Back leaves the page as it should. Deferred one tick (React's dev
+         double-effect), and only while our entry is still the top one. */
+      window.setTimeout(() => {
+        if (openRef.current || !pushed.current) return;
+        pushed.current = false;
+        if (ours()) window.history.back();
+      }, 0);
+    };
   }, [open]);
 
   /* 🧹 UNMOUNTED WITHOUT BEING CLOSED — the photo it showed went away under it ("Not me" took the tag off and the list
@@ -55,7 +70,7 @@ export function useBackCloses(open: boolean, onClose: () => void): () => void {
       window.setTimeout(() => {
         if (alive.current || !pushed.current) return;
         pushed.current = false;
-        window.history.back();
+        if (ours()) window.history.back();
       }, 0);
     };
   }, []);

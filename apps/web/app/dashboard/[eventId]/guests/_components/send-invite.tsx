@@ -396,7 +396,7 @@ export function SendInviteActions({
               Your phone blocked the copy — select the message below and copy it.
             </p>
             <textarea
-              className="w-full rounded-xl border border-ink/15 bg-white p-3 text-sm leading-relaxed text-ink"
+              className="w-full rounded-xl border border-ink/15 bg-white dark:bg-raised p-3 text-sm leading-relaxed text-ink"
               ref={manualRef}
               readOnly
               value={said.text}
@@ -476,7 +476,7 @@ export function InviteMessageEditor({
         Your message — for every guest
       </label>
       <textarea
-        className="w-full rounded-xl border border-ink/15 bg-white p-3 text-[15px] leading-relaxed text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mulberry"
+        className="w-full rounded-xl border border-ink/15 bg-white dark:bg-raised p-3 text-[15px] leading-relaxed text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mulberry"
         id={boxId}
         value={text}
         maxLength={INVITE_TEMPLATE_MAX}

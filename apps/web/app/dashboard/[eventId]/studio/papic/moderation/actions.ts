@@ -403,7 +403,7 @@ export async function kwentoToWall(
     return {
       ok: false,
       error: error.message.includes('kwento:not_clean')
-        ? 'Held messages can never go on the wall.'
+        ? 'Held messages can never go on Memory lane.'
         : error.message.slice(0, 80),
     };
   }

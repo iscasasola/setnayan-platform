@@ -4,6 +4,7 @@ import { useCallback, useRef, useState, useTransition } from 'react';
 import { Flag, X, Check } from 'lucide-react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { fileReport } from '@/lib/reports';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 
 /**
  * ReportPageButton — the reusable "Report this page" entry for PUBLIC pages.
@@ -97,11 +98,11 @@ export function ReportPageButton({
           role="dialog"
           aria-modal="true"
           aria-label="Report this page"
-          className="fixed inset-0 z-[60] flex items-end justify-center bg-ink/40 p-4 backdrop-blur-sm focus:outline-none sm:items-center"
-          onClick={close}
+          className="fixed inset-0 z-[60] flex items-end justify-center p-4 focus:outline-none sm:items-center"
         >
+          <OverlayBackdrop onClose={close} />
           <div
-            className="w-full max-w-sm rounded-2xl border border-ink/15 bg-cream p-5 shadow-xl"
+            className="relative w-full max-w-sm rounded-2xl border border-ink/15 bg-cream p-5 shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-3 flex items-center justify-between">

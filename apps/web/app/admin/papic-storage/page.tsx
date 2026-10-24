@@ -181,9 +181,9 @@ export default async function PapicStoragePage() {
           needs. Rows captured before 2026-08-13 have no tile and fall back to
           display, so this is where they get one. */}
       <section className="rounded-2xl border border-ink/10 bg-white p-4 shadow-sm">
-        <h2 className="text-base font-semibold text-ink">Wall-size copies</h2>
+        <h2 className="text-base font-semibold text-ink">Memory lane copies</h2>
         <p className="mt-1 text-sm text-ink/60">
-          The 640px copy the memory wall renders. Photos taken before it existed fall
+          The 640px copy Memory lane renders. Photos taken before it existed fall
           back to the full-view copy — sharp, but about four times heavier than the
           tile needs.
         </p>

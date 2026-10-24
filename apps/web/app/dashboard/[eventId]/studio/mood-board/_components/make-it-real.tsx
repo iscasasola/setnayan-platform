@@ -42,6 +42,7 @@
 
 import { useMemo, useRef, useState } from 'react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 import { nearestColorName } from '@/lib/color-names';
 import { type RolePalette } from '@/lib/mood-board';
 import { type PartId, type ReceptionDesign } from '@/lib/reception-scene';
@@ -589,13 +590,8 @@ export function MakeItReal({
       )}
 
       {chooserOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 backdrop-blur-sm">
-          <button
-            type="button"
-            aria-label="Close part chooser"
-            onClick={() => setChooserOpen(false)}
-            className="absolute inset-0"
-          />
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <OverlayBackdrop label="Close part chooser" onClose={() => setChooserOpen(false)} />
           <div
             ref={chooserRef}
             role="dialog"

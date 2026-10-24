@@ -267,7 +267,7 @@ async function ShopHome({
 
   if (!data) {
     return (
-      <section className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">
+      <section className="mx-auto w-full max-w-6xl tab:max-w-3xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">
         <header className="space-y-2">
           <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">My Shop</h1>
           <p className="max-w-prose text-base text-ink/65">
@@ -298,7 +298,7 @@ async function ShopHome({
   const sp = await searchParams;
 
   return (
-    <section className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl space-y-8 px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
+    <section className="mx-auto w-full max-w-6xl tab:max-w-3xl space-y-8 px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
       {/* Shop › Services · Page · How it is going (step 5) — Page is the door to Your page, details and collections. */}
       <div className="mx-auto max-w-3xl">
         <ShopSegments on="services" />
@@ -769,7 +769,7 @@ export default async function VendorShopHub({
       {/* Everything else folds in below — one open at a time, loaded on expand.
           The id is where Settings' Manpower row lands (`settings-rows.ts`). */}
       <div id="shop-folds" className="scroll-mt-24">
-        <FeatureAccordion sections={SHOP_SECTIONS} openKey={open}>
+        <FeatureAccordion sections={SHOP_SECTIONS} openKey={open} measure="reading">
           {open ? (
             <Suspense fallback={<AccordionSkeleton />}>
               <ShopSectionBody open={open} />

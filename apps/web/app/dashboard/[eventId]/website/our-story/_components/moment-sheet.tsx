@@ -6,6 +6,7 @@ import { Plus, X } from 'lucide-react';
 import { FileUpload } from '@/app/_components/file-upload';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 import {
   LOVE_STORY_CHAPTER_LABEL,
   MOMENT_MEDIA_MAX,
@@ -512,14 +513,15 @@ export function MomentSheet({
            (measured in the harness, 2026-09-25). */
         <div
           style={vars as React.CSSProperties}
-          className="fixed inset-0 z-[80] flex items-end justify-center bg-black/45 lg:items-stretch lg:justify-end"
+          className="fixed inset-0 z-[80] flex items-end justify-center lg:items-stretch lg:justify-end"
         >
+          <OverlayBackdrop onClose={() => setOpen(false)} />
           <div
             ref={ref}
             role="dialog"
             aria-modal="true"
             aria-labelledby="moment-sheet-title"
-            className="max-h-[92dvh] w-full overflow-y-auto rounded-t-3xl bg-[color:var(--ls-canvas)] px-5 pb-8 pt-5 text-[color:var(--ls-ink)] shadow-2xl lg:max-h-none lg:w-[440px] lg:rounded-none lg:px-7"
+            className="relative max-h-[92dvh] w-full overflow-y-auto rounded-t-3xl bg-[color:var(--ls-canvas)] px-5 pb-8 pt-5 text-[color:var(--ls-ink)] shadow-2xl lg:max-h-none lg:w-[440px] lg:rounded-none lg:px-7"
           >
             {body}
           </div>

@@ -455,7 +455,7 @@ export function SupplierTodayFirstScreen({
   );
 
   return (
-    <section data-today-first-screen aria-label="Today" className="mx-auto flex w-full max-w-xl flex-col">
+    <section data-today-first-screen aria-label="Today" className="mx-auto flex w-full max-w-xl tab:max-w-none flex-col">
       {/* ① THE ONE NEXT CARD — the shared card, drawn with the button rule's row. */}
       <NextCard
         marker="data-today-next"

@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { Pencil, X } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 
 type Props = {
   eventId: string;
@@ -80,11 +81,9 @@ export function EditSponsorModal({
           role="dialog"
           aria-modal="true"
           aria-labelledby={headingId}
-          className="fixed inset-0 z-50 flex items-end justify-center bg-ink/45 p-3 focus:outline-none sm:items-center sm:p-6"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setOpen(false);
-          }}
+          className="fixed inset-0 z-50 flex items-end justify-center p-3 focus:outline-none sm:items-center sm:p-6"
         >
+          <OverlayBackdrop onClose={() => setOpen(false)} />
           <div className="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-ink/10 bg-cream shadow-2xl">
             <header className="flex items-start justify-between gap-3 border-b border-ink/10 bg-cream/80 px-5 py-4">
               <div>

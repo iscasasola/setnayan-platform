@@ -26,6 +26,7 @@
 import { useRef, useState, useTransition } from 'react';
 import { X, Receipt, Sparkles } from 'lucide-react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 import { updateVendorCosts } from '../../../actions';
 import { useSaveLoader } from '@/components/sd-loader';
 
@@ -248,9 +249,14 @@ export function QuoteBridge({
           role="dialog"
           aria-modal="true"
           aria-labelledby="quote-bridge-heading"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-ink/55 p-4 backdrop-blur-sm focus:outline-none"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 focus:outline-none"
         >
-          <div className="w-full max-w-md rounded-xl bg-cream p-6 shadow-xl ring-1 ring-ink/10">
+          <OverlayBackdrop
+            onClose={() => {
+              if (!pending) setOpen(false);
+            }}
+          />
+          <div className="relative w-full max-w-md rounded-xl bg-cream p-6 shadow-xl ring-1 ring-ink/10">
             <header className="flex items-start justify-between gap-3">
               <div className="space-y-1">
                 <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-terracotta-700">
@@ -306,7 +312,7 @@ export function QuoteBridge({
                       value={line.value}
                       onChange={(e) => line.set(e.target.value)}
                       autoFocus={line.name === 'service'}
-                      className="w-32 rounded-md border border-ink/15 bg-white px-2 py-1 text-right font-medium text-ink focus:border-terracotta focus:outline-none"
+                      className="w-32 rounded-md border border-ink/15 bg-white dark:bg-raised px-2 py-1 text-right font-medium text-ink focus:border-terracotta focus:outline-none"
                     />
                   </span>
                 </label>

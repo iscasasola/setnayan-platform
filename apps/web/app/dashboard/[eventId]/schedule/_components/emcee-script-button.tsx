@@ -4,6 +4,7 @@ import { useRef, useState, useTransition } from 'react';
 import { ScrollText, Copy, Check, Download, X } from 'lucide-react';
 import { generateEmceeScript } from '../actions';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 
 /**
  * EmceeScriptButton — one-tap "Generate emcee script" affordance for the
@@ -108,11 +109,11 @@ export function EmceeScriptButton({ eventId, coupleName, variant = 'button' }: P
           role="dialog"
           aria-modal="true"
           aria-label="Emcee script"
-          className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 p-0 focus:outline-none sm:items-center sm:p-4"
-          onClick={() => setOpen(false)}
+          className="fixed inset-0 z-50 flex items-end justify-center p-0 focus:outline-none sm:items-center sm:p-4"
         >
+          <OverlayBackdrop onClose={() => setOpen(false)} />
           <div
-            className="flex max-h-[85vh] w-full max-w-2xl flex-col rounded-t-2xl bg-paper shadow-xl sm:rounded-2xl"
+            className="relative flex max-h-[85vh] w-full max-w-2xl flex-col rounded-t-2xl bg-paper shadow-xl sm:rounded-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <header className="flex items-center justify-between gap-3 border-b border-ink/10 px-4 py-3">

@@ -72,8 +72,8 @@ export async function LiveWallCard({
           Memory lane
         </h2>
         <p className="mt-1 text-sm text-ink/60">
-          The wall projects your Papic photos — set up your Papic crew first and
-          your wall controls appear here.
+          Memory lane projects your Papic photos — set up your Papic crew first and
+          your Memory lane controls appear here.
         </p>
         <Link
           href={`/dashboard/${eventId}/studio/papic/crew`}
@@ -170,8 +170,8 @@ export async function LiveWallCard({
     return (
       <section className="py-3" data-memories-setting="wall">
         <div className="flex items-center justify-between gap-3">
-          <InfoTip label="Photo wall" labelAs="h3" labelClassName="text-[15px] font-semibold text-ink" align="start">
-            The wall shows the day&rsquo;s photos as they are shot — at the venue on any screen, and on your guests&rsquo;
+          <InfoTip label="Memory lane" labelAs="h3" labelClassName="text-[15px] font-semibold text-ink" align="start">
+            Memory lane shows the day&rsquo;s photos as they are shot — at the venue on any screen, and on your guests&rsquo;
             phones on your event page while the event is on. Free. Open the link on a TV, projector or laptop and type a
             screen code once.
           </InfoTip>
@@ -210,7 +210,7 @@ export async function LiveWallCard({
           <p className="mt-1 text-sm text-ink/60">
             Project the day&rsquo;s photos at the venue as they&rsquo;re shot. Open{' '}
             <span className="font-mono text-[13px] text-ink/80">{wallUrl}</span> on any
-            screen&rsquo;s browser and enter a screen code. The same wall also appears
+            screen&rsquo;s browser and enter a screen code. The same Memory lane also appears
             on your guests&rsquo; phones on your event page while the event is
             running — so everyone sees the photos, screen or no screen. If you
             would rather keep it to the venue, you can switch the phones off below.

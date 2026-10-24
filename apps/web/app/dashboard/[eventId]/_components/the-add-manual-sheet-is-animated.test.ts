@@ -54,6 +54,7 @@ describe('the add-manually sheet is animated', () => {
   const modal = readFileSync(MODAL, 'utf8');
   const css = readFileSync(GLOBALS, 'utf8');
   const sheet = readFileSync(SHEET, 'utf8');
+  const BACKDROP = readFileSync(path.resolve(HERE, '..', '..', '..', '_components', 'overlay-backdrop.tsx'), 'utf8');
 
   it('found the files', () => {
     assert.ok(modal.length > 1000, 'modal source looks wrong — re-point this guard');
@@ -73,7 +74,9 @@ describe('the add-manually sheet is animated', () => {
       const decl = css.slice(i, css.indexOf('}', i));
       assert.match(decl, /\bbackwards\b/, `.${c} is not \`backwards\``);
       assert.doesNotMatch(decl, /\bboth\b/, `.${c} uses \`both\``);
-      assert.ok(sheet.includes(c), `the Sheet no longer wears .${c}`);
+      // The fade is worn by the Sheet's backdrop since 2026-10-25 — one `<OverlayBackdrop fade={rise}>` behind every pop-up.
+      const wearer = c === 'sn-fade' && sheet.includes('<OverlayBackdrop') ? BACKDROP : sheet;
+      assert.ok(wearer.includes(c), `the Sheet no longer wears .${c}`);
     }
   });
 });

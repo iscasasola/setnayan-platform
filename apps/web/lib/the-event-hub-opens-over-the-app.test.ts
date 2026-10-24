@@ -15,6 +15,12 @@
  *   5. THE NATIVE HALF IS REALLY THERE — the plugin in apps/mobile's
  *      package.json, the iOS Swift package and the Android gradle. The web half
  *      alone would pass 1–4 and do nothing on a phone.
+ *
+ * SABOTAGES (each run, each red, each restored — 2026-10-24):
+ *   · drop the `new URL(url, location)` absolutising        → 1, 2, 3, 4 RED
+ *   · old-build arm: `win.open(...)` instead of `assign`     → 3 RED
+ *   · `.catch(sameView)` → `.catch(() => undefined)`         → 4 RED
+ *   · isNative = `Boolean(win.Capacitor)`                    → 2 RED
  */
 
 import test from 'node:test';
@@ -94,9 +100,11 @@ test('2 · on the web: a new tab, noopener — never the plugin, never the same 
 
   // A page that is not the native shell but happens to carry a Browser stub
   // (e.g. a stray Capacitor web build) still opens a tab.
-  const stray = fakeWindow({ native: false, plugin: 'present' });
+  const stray = fakeWindow({ native: true, plugin: 'present' });
+  stray.win.Capacitor!.isNativePlatform = () => false;
   assert.equal(openEventHub('/x', stray.win), 'new-tab');
   assert.deepEqual(stray.calls.browser, []);
+  assert.deepEqual(stray.calls.assign, []);
 });
 
 test('3 · an app build without the plugin falls back to the same web view', () => {

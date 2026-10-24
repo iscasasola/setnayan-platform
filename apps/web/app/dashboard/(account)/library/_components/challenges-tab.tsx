@@ -53,10 +53,11 @@ export async function ChallengesTab({ albums }: { albums: Album[] }) {
     logQueryError('ChallengesTab.captures', capRes.error, {}, 'graceful_degrade');
     return <MemoriesUnreadable what="memories" />;
   }
-  // The screening rule holds here too: a frame the screen held back, or the host hid, is never drawn.
+  // The screening rule holds here too: only a frame the screen PASSED ('clean' — 'unscreened' is unseen,
+  // not safe), and never one the host hid.
   const shownCaps = new Map(
     (capRes.data ?? [])
-      .filter((c) => c.moderation_state !== 'nsfw_blocked' && !c.hidden_at)
+      .filter((c) => c.moderation_state === 'clean' && !c.hidden_at)
       .map((c) => [c.capture_id as string, c]),
   );
   const vendorIds = [...new Set(((missionsRes.data ?? []) as { source: string | null; vendor_id: string | null }[]).filter((m) => m.source === 'vendor' && m.vendor_id).map((m) => m.vendor_id as string))];

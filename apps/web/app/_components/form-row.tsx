@@ -696,6 +696,9 @@ export function TypedRow({
         <div key={`box-${back}`} data-form-row-back={back > 0 ? '' : undefined} data-form-row-boxed="" className="flex flex-col gap-2 pb-3 pt-2.5">
           <RowName name={name} about={about} needed={needed} nameId={nameId} />
           <button
+            className={`sn-press sn-press-ring min-h-[76px] w-full rounded-2xl border bg-white px-[18px] py-3 text-left text-[15px] leading-snug dark:bg-raised ${
+              wrong || failed ? 'border-danger-700' : needed ? 'border-sn-accent ring-[3px] ring-sn-accent/15' : 'border-ink/15'
+            }`}
             ref={pill}
             type="button"
             {...pillAttrs}
@@ -703,9 +706,6 @@ export function TypedRow({
             aria-label={`${name}: ${words || 'not set yet'}. Tap to change`}
             aria-busy={state.kind === 'saving' || undefined}
             onClick={open}
-            className={`sn-press sn-press-ring min-h-[76px] w-full rounded-2xl border bg-white px-[18px] py-3 text-left text-[15px] leading-snug dark:bg-raised ${
-              wrong || failed ? 'border-danger-700' : needed ? 'border-sn-accent ring-[3px] ring-sn-accent/15' : 'border-ink/15'
-            }`}
           >
             <span data-form-row-words="" className={`line-clamp-4 whitespace-pre-wrap break-words ${words ? 'text-ink' : 'text-ink/45'}`}>
               {words || empty}

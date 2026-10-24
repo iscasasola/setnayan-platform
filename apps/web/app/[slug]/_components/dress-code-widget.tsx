@@ -917,7 +917,7 @@ function YourColours({ groups, look, centre = false, named = false }: { groups: 
           <div key={gi} className="space-y-1.5">
             {g.label ? <p className="text-xs leading-relaxed text-ink/65">{g.label}</p> : null}
             {look !== 'tags' ? (
-              <PaletteLookList look={look} items={g.dots.map((d) => ({ hex: d.hex, name: d.word }))} label={g.label ? `Your colours — ${g.label.toLowerCase()}` : 'Your colours'} />
+              <PaletteLookList look={look} items={g.dots.map((d) => ({ hex: d.hex, name: wordWithColourName(d) }))} label={g.label ? `Your colours — ${g.label.toLowerCase()}` : 'Your colours'} />
             ) : (
               <ul className={`flex flex-wrap gap-2 ${centre ? 'justify-center' : ''}`} aria-label={g.label ? `Your colours — ${g.label.toLowerCase()}` : 'Your colours'}>
                 {g.dots.map((d, i) => (
@@ -926,6 +926,12 @@ function YourColours({ groups, look, centre = false, named = false }: { groups: 
                     <span className={`mt-2 block text-center font-mono text-[0.75rem] uppercase leading-tight tracking-[0.06em] text-ink/70 ${HUB_SCENE_WORDS_CLASS}`}>
                       {d.word}
                     </span>
+                    {/* 🎨 The colour's own name under what it colours (owner 2026-10-24: "the colors have names"). */}
+                    {nearestColorName(d.hex) && nearestColorName(d.hex)!.toLowerCase() !== d.word.toLowerCase() ? (
+                      <span data-colour-name="" className="mt-0.5 block text-center text-[0.75rem] leading-tight text-ink/70">
+                        {nearestColorName(d.hex)}
+                      </span>
+                    ) : null}
                   </li>
                 ))}
               </ul>

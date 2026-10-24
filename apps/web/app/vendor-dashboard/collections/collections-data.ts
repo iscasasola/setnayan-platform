@@ -43,6 +43,8 @@ export type CollectionsData = {
   portfolioMax: number;
   /** The shop's own allowance could not be read — the widget says so instead of "first 50 free". */
   portfolioAllowanceUnread: boolean;
+  /** 💳 The shop wallet the portfolio spends past its free room. `null` = unread — never 0. */
+  walletBalance: number | null;
   galleryVideoLinks: string[];
   igConfigured: boolean;
   igConnection: VendorIgConnectionStatus | null;

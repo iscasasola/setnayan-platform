@@ -132,6 +132,7 @@ import type {
   LiveWallData,
   WatchLiveData,
 } from './types';
+import { papicOwnerTag } from '@/lib/papic-upload/owner-tag.server';
 
 /** The service-role Supabase client the orchestrator creates once per request
  *  and threads into every loader — a stable per-request reference, so it is a
@@ -1895,6 +1896,7 @@ export const loadGuestContext = cache(
         ]);
       if (!blockRow) {
         papicGuest = {
+          uploadOwner: papicOwnerTag('guest', guest.guest_id, event.event_id),
           initialRemaining: quota.remaining,
           total: quota.total,
           termsAccepted: Boolean(

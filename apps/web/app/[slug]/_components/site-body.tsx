@@ -3639,6 +3639,7 @@ export async function SiteBody({
                   guestName={guest.first_name}
                   eventName={event.display_name}
                   eventId={event.event_id}
+                  uploadOwner={papicGuest.uploadOwner}
                   initialRemaining={papicGuest.initialRemaining}
                   total={papicGuest.total}
                   termsAccepted={papicGuest.termsAccepted}

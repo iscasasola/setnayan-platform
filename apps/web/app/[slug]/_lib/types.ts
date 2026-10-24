@@ -358,6 +358,10 @@ export type LiveLayerData = {
  * drifts, and the copy that drifts is the one nobody re-read.
  */
 export type GuestPapicCamera = {
+  /** The server-stamped owner tag of THIS guest at THIS event — every queued
+   *  shot carries it, so a shot can never record as another pass
+   *  (lib/papic-upload/owner-tag.server.ts). Null when the seal is missing. */
+  uploadOwner: string | null;
   initialRemaining: number;
   total: number;
   termsAccepted: boolean;

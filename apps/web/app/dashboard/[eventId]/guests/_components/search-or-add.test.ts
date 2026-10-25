@@ -89,7 +89,21 @@ test('the read-only copy offers no add', async () => {
   });
   assert.equal(count(html, 'data-search-add=""'), 0);
   assert.equal(count(html, 'data-typed-ways=""'), 0, 'the read-only copy offers ways to add');
-  assert.match(SCREEN, /const addWays: PickOption\[\] = copy\s*\? \[\]/, 'the read-only copy’s ≡ offers ways to add');
+  assert.match(SCREEN, /const addWays: PickOption\[\] = writesOff\s*\? \[\]/, 'the read-only copy’s ≡ offers ways to add');
+});
+
+test('a view-only helper (owner 2026-09-28 · 2026-10-26) is offered no add — the same seam as the copy', async () => {
+  const html = await renderGuestsScreen({
+    guests: [guestRow({ first_name: 'Maria', last_name: 'Santos' })],
+    initialQuery: 'Maria',
+    viewOnly: true,
+  });
+  assert.equal(count(html, 'data-search-add=""'), 0, 'a view-only helper is offered “Add … as a guest”');
+  assert.equal(count(html, 'data-typed-ways=""'), 0, 'a view-only helper is offered ways to add');
+  assert.match(SCREEN, /const writesOff = copy !== null \|\| viewOnly;/, 'view-only no longer joins the copy’s “nothing that writes”');
+  // …and the same list for a host still offers them (the seam is the prop, not a blanket hide).
+  const host = await renderGuestsScreen({ guests: [guestRow({ first_name: 'Maria', last_name: 'Santos' })], initialQuery: 'Maria' });
+  assert.ok(count(host, 'data-typed-ways=""') + count(host, 'data-search-add=""') > 0, 'the host lost the add');
 });
 
 test('≡ holds the same ways — ONE list, the imported openers — on the list AND the map', () => {

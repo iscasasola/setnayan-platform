@@ -32,6 +32,7 @@ import { fileURLToPath } from 'node:url';
 
 const PAPIC = dirname(dirname(fileURLToPath(import.meta.url)));
 const PICKER = readFileSync(join(PAPIC, '_components/add-to-library.tsx'), 'utf8');
+const SENDER = readFileSync(join(PAPIC, '..', '..', '..', '..', '..', 'lib', 'upload-send.ts'), 'utf8');
 const PAGE = readFileSync(join(PAPIC, 'page.tsx'), 'utf8');
 const MEMORIES = readFileSync(join(PAPIC, '..', '..', 'memories', 'page.tsx'), 'utf8');
 
@@ -41,9 +42,16 @@ test('the picker still exists and still uploads — or every rule below is vacuo
 });
 
 test('🚨 it uses the SHARED presign route, not a new one', () => {
+  // 2026-10-25: the bytes go through the shared sender (`lib/upload-send.ts` — the signer, the stall watchdog and the
+  // progress `<FileUpload>` uses), which presigns at /api/upload; the seat token rides along, so the server still
+  // decides where the bytes land and whether the camera may shoot.
   assert.ok(
-    /fetch\('\/api\/upload'/.test(PICKER),
-    'the picker no longer presigns through /api/upload. A new route means a second place that decides where bytes land and whether a camera may shoot — the server derives both from the seat token today.',
+    /import\('@\/lib\/upload-send'\)/.test(PICKER) && /sendToStorage\(/.test(PICKER),
+    'the picker no longer sends through the shared sender — a hand-rolled PUT has no stall clock, so a dead upload spins for ever',
+  );
+  assert.ok(
+    /doFetch\('\/api\/upload'/.test(SENDER),
+    'the shared sender no longer presigns through /api/upload. A new route means a second place that decides where bytes land and whether a camera may shoot — the server derives both from the seat token today.',
   );
   assert.ok(
     /papicSeatToken: token/.test(PICKER),
@@ -75,15 +83,16 @@ test('🚨 a clip is MEASURED and REFUSED, never passed through unmeasured', () 
 });
 
 test('🚨 a clip always carries a poster, or it is refused', () => {
-  const clip = /if \(isVideo\) \{[\s\S]*?\} else \{/.exec(PICKER)?.[0] ?? '';
+  const clip = /if \(r\.probe\) \{[\s\S]*?\} else \{/.exec(PICKER)?.[0] ?? '';
   assert.ok(clip, 'the clip branch was restructured beyond recognition');
   assert.ok(
-    /posterRef = await put\(probe\.poster/.test(clip),
+    /poster = await send\(r\.probe\.poster/.test(clip),
     'a clip no longer uploads a poster. The safety screen reads a clip THROUGH its poster; a posterless clip stays unscreened forever and is excluded from every guest surface silently.',
   );
-  const posterAt = clip.indexOf('posterRef');
-  const clipAt = clip.indexOf('clipRef = await put(file');
+  const posterAt = clip.indexOf('poster = await send');
+  const clipAt = clip.indexOf('clip = await send(r.file');
   assert.ok(posterAt > 0 && clipAt > posterAt, 'the clip is uploaded before its poster — a failed poster then leaves a stored clip that can never be screened');
+  assert.ok(/if \(!poster\.ok\) \{[\s\S]{0,80}continue;/.test(clip), 'a failed poster no longer stops its clip');
 });
 
 test('🚨 refusals name something a person can actually do', () => {
@@ -91,7 +100,9 @@ test('🚨 refusals name something a person can actually do', () => {
   // them to the ladder two cards down. A refusal that misdescribes itself sends
   // people to fix the thing that was never the problem.
   assert.ok(/function readable\(/.test(PICKER), 'the refusal translator is gone');
-  for (const code of ['out_of_points', 'capture_window_closed', 'clip_too_long']) {
+  // `camera_points_exhausted` is the code BOTH seams actually send for an empty pot (2026-10-25) — the two older
+  // names were the only ones listed, so an out-of-credits couple was told to "try again in a moment".
+  for (const code of ['camera_points_exhausted', 'out_of_points', 'capture_window_closed', 'clip_too_long', 'uploads_closed', 'awaiting_payment']) {
     assert.ok(PICKER.includes(`'${code}'`), `${code} no longer has words a person can read`);
   }
   const fn = /function readable\([\s\S]*?\n}/.exec(PICKER)?.[0] ?? '';

@@ -38,6 +38,7 @@ import { getPeopleYouCanInvite } from '@/lib/people-you-can-invite';
 import { quickAddGuest } from './quick-add-actions';
 import { addSingleGuest } from './inline-actions';
 import type { GuestGroupCategory, GuestRole, GuestSide } from '@/lib/guests';
+import { limitedHelperRefusal } from '@/lib/host-gate';
 
 const SIDE_VALUES: GuestSide[] = ['bride', 'groom', 'both'];
 
@@ -84,6 +85,8 @@ export async function addGuestsFromPeople(
   side: GuestSide,
   withPicks?: PeopleAddPicks,
 ): Promise<AddFromPeopleResult> {
+  const helperRefusal = await limitedHelperRefusal(eventId, 'guest_list');
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   if (!eventId) return { ok: false, error: 'Missing event.' };
   if (!Array.isArray(picks) || picks.length === 0) {
     return { ok: false, error: 'Pick at least one person.' };

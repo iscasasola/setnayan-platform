@@ -14,45 +14,19 @@ import { paidMarkLabel } from '@/lib/paid-mark';
 import type { MakerDevice } from './maker-context';
 
 /**
- * THE MAKER IN 4 — THE TOOLBAR, as the approved design draws it
- * (`prototypes/maker_in_four_2026-09-30_fable.html`; DECISION_LOG "THE MAKER IN
- * 4 IS A DIRECTION, NOT A COUNT" — the test is that a first-time host
- * understands what to do; FIRST_TIMER_TEST_2026-10-02 fix 4, task H2 "Hard"),
- * as rearranged on 2026-10-04 (PR-0 of the Maker rearrangement; owner, verbatim:
- * *"that can be a preview icon?"* and *"apply icon · undo icon · exit icon"*):
+ * 🧭 THE MAKER'S TOP NAV — the ONE Maker's, for every viewer on every width (owner 2026-10-25: *"delete that old
+ * event hub maker"*; it was the new Maker's phone bar — owner 2026-10-06: *"studio, will have the same top nav, but a
+ * different approach on the 10 studio pages"*; plan `EVENT_HUB_MAKER_STAGES_STUDIO_BUILD_PLAN_2026-10-06.md` PR 1,
+ * prototype `maker_two_dropdowns_owner_wireframe_2026-10-06_fable.html`):
  *
- *     ‹ Exit · Page ▾ · Look · Event Details · ↶ Undo · 👁 Preview · ✓ Apply (n)
+ *     ✕ Exit · Stages | Studio · ↺ Undo · ✓ Apply (n)        (a desktop adds 👁 Preview between Undo and Apply)
  *
- * Every bar button is a 44 × 44 icon with its name. ⋯ is gone: its rows moved —
- * See as · Phone / Desktop · Both · Scenes · Play this scene · Preview the
- * stage into 👁 Preview's menu; Add a scene · Reset this stage · Prints ·
- * Restore · the address · who can view · About the Maker into Page ▾
- * (`makerPageActions`). Held on the RENDER by `the-toolbar-is-the-maker-in-four.test.ts`.
- *
- *   · 'undo' and 'apply' are the draft bar's (`hub-draft-bar.tsx`), mounted in
- *     the shell's `applySlot`; 'preview' is the shell's, drawn between them
- *     through the Maker's context (`MakerState.previewMenu`).
- *   · Apply's first tap opens the Apply sheet; only its labelled Apply publishes.
- */
-/* 🗂 ONE "Event Details" button (owner 2026-10-06, DECISION_LOG "EVENT DETAILS IS
-   REBUILT: ONE BUTTON…"): the separate Look chip is gone — its items head the
-   Event Details list (the Look group). */
-export const MAKER_TOOLBAR = ['exit', 'page', 'details', 'undo', 'preview', 'apply'] as const;
-export type MakerToolbarItem = (typeof MAKER_TOOLBAR)[number];
-
-/**
- * 🧭 THE NEW MAKER'S TOP NAV — a PHONE's, behind `makerStagesStudioEnabled`
- * (owner 2026-10-06: *"studio, will have the same top nav, but a different
- * approach on the 10 studio pages"*; plan `EVENT_HUB_MAKER_STAGES_STUDIO_BUILD_PLAN_2026-10-06.md`
- * PR 1, prototype `maker_two_dropdowns_owner_wireframe_2026-10-06_fable.html`):
- *
- *     ✕ Exit · Stages | Studio · ↺ Undo · ✓ Apply (n)
- *
- * `side` is ONE `ISegmented` (sections = one segmented control, INTERACTION_RULES
- * §8). No Page ▾, no Event Details, no 👁 Preview on this list — the stage ▾
- * lives in the lower third, Studio's tools on its home, and ▶ Play joins the
- * lower third in a later PR. A desktop keeps `MAKER_TOOLBAR` this round; with
- * the flag off every width does. Held by `lib/maker-stages-studio-ships-dark.test.ts`.
+ * `side` is ONE `ISegmented` (sections = one segmented control, INTERACTION_RULES §8). The old bar
+ * (‹ Exit · Page ▾ · Event Details · ↶ Undo · 👁 Preview · ✓ Apply — "the Maker in 4", 2026-10-02 → 2026-10-06) is
+ * deleted; its places are the Stages ▾ list and its acts the lower third's and Studio's. 'undo' and 'apply' are the
+ * draft bar's (`hub-draft-bar.tsx`), mounted in the shell's `applySlot`; 'preview' is the shell's, drawn between them
+ * through the Maker's context (`MakerState.previewMenu`). Held on the RENDER by `the-toolbar-is-the-maker-in-four.test.ts`
+ * and against any switch that would bring the old bar back by `lib/there-is-one-maker.test.ts`.
  */
 export const MAKER_TOOLBAR_STAGES_STUDIO = ['exit', 'side', 'undo', 'apply'] as const;
 export type MakerSide = 'stages' | 'studio';

@@ -204,7 +204,8 @@ test('✍ the Do’s and Don’ts are one list, fixable in the Dress code scene 
   assert.match(action, /draftedEventColumn\(eventId, 'dress_code_config'\)/, 'a draft save builds on the drafted dress code');
 
   const board = stripComments(readFileSync(join(WEB, 'app/dashboard/[eventId]/studio/mood-board/_components/mood-board-editor.tsx'), 'utf8'));
-  assert.match(board, /<MoodPart part="palette">\{parts\.dressLists\}<\/MoodPart>/, 'the Maker’s Mood Board shows the lists');
+  /* The Maker's Mood Board is Studio › Mood Board & Dress Code since the old Maker went (2026-10-25) — handed the SAME lists. */
+  assert.match(board, /dosLists=\{studio\.dressLists \? \{ dos: studio\.dressLists\.dos, donts: studio\.dressLists\.donts/, 'the Maker’s Mood Board shows the lists');
   assert.match(board, /\{parts\.dressLists\}<\/div>/, 'and so does its own page');
   // 👗 THE DRESS CODE IS SET IN THE MOOD BOARD (2026-10-01; replace means remove,
   // 2026-10-04): the form and its writer live with the Mood Board, a live save

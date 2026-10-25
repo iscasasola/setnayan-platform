@@ -87,6 +87,7 @@ import {
 import { resolveLivePax } from '@/lib/pax';
 import { resolveAllocationInputs } from '@/lib/budget-allocation-data';
 import { computeBudgetAllocation } from '@/lib/budget-allocation';
+import { refuseLimitedHelper } from '@/lib/host-gate';
 
 export type CategoryVendorResult = {
   vendorProfileId: string;
@@ -397,6 +398,7 @@ export async function searchCategoryVendors(input: {
    *  See lib/bench-bookable-days. */
   hideUnbookable?: boolean;
 }): Promise<CategorySearchResult> {
+  await refuseLimitedHelper(input.eventId, 'vendors');
   const eventId = String(input.eventId ?? '').trim();
   const groupId = String(input.groupId ?? '').trim();
   const tile = String(input.tile ?? '').trim();

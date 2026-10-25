@@ -9,6 +9,10 @@
  * ease-out`, slid away below 768 px only) — so the pinned block under it is
  * measured against the motion the real page has, not against a bar that never
  * moves.
+ *
+ * ⬇ The content wrapper pads EXACTLY like the real event column's (`pb-6`, `app/dashboard/[eventId]/layout.tsx`) — it
+ * was `pb-28`, 88 px of room the real page never had, and that hid the 2026-10-25 "the last line sits under the thumb
+ * row" bug from every walk (`lib/a-thumb-row-leaves-room.test.ts` § 6 holds the two equal).
  */
 import type { ReactNode } from 'react';
 import { BottomDock } from '@/app/_components/nav/bottom-nav';
@@ -31,7 +35,7 @@ export function SuppliersLabStage({ children }: { children: ReactNode }) {
       </div>
       <main className="sn-vt-page">
         <div data-shell-main>
-          <div className="mx-auto w-full px-4 pb-28 pt-3 sm:px-6 sm:pt-6 lg:px-8">{children}</div>
+          <div className="mx-auto w-full px-4 pb-6 pt-3 sm:px-6 sm:pt-6 lg:px-8">{children}</div>
         </div>
       </main>
       <BottomDock>

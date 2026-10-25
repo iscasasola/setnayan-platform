@@ -12,6 +12,7 @@ import { authorizePlanNextYear } from '@/lib/plan-next-year-authz';
 import { anchorForType } from '@/lib/event-anchor';
 import { NEVER_OFFERED_AS_NEXT, NOTHING_YET, writeAnnouncement } from '@/lib/whats-next';
 import { hostUserId } from './_lib/host-authority';
+import { limitedHelperRefusal } from '@/lib/host-gate';
 
 /**
  * WHAT'S NEXT — the two actions, and the difference between them (`02` §7).
@@ -53,6 +54,8 @@ export async function announceNext(
   eventId: string,
   kind: unknown,
 ): Promise<NextActionResult> {
+  const helperRefusal = await limitedHelperRefusal(eventId, null);
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   if (!(await hostUserId(eventId))) return { ok: false, error: NO_ACCESS };
 
   const value = typeof kind === 'string' ? kind.trim() : '';
@@ -111,6 +114,8 @@ export async function startTheNextCelebration(
   eventId: string,
   kind: unknown,
 ): Promise<NextActionResult> {
+  const helperRefusal = await limitedHelperRefusal(eventId, null);
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   const value = typeof kind === 'string' ? kind.trim() : '';
   if (!value || value === NOTHING_YET || NEVER_OFFERED_AS_NEXT.has(value)) {
     return { ok: false, error: NOT_OFFERED };

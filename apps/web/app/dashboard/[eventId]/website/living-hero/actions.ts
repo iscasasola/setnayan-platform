@@ -14,6 +14,7 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { refChange } from '@/lib/hub-look-pro';
 import { lookProAllows } from '@/lib/hub-look-gate';
+import { limitedHelperRefusal } from '@/lib/host-gate';
 
 async function hostUserId(eventId: string): Promise<string | null> {
   const supabase = await createClient();
@@ -47,6 +48,8 @@ export async function saveLivingHero(
   clipRef: string | null,
   stillRef: string,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
+  const helperRefusal = await limitedHelperRefusal(eventId, 'invitations');
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   if (typeof stillRef !== 'string' || !stillRef.startsWith('r2://')) {
     return { ok: false, error: 'That upload didn’t come through — please try again.' };
   }

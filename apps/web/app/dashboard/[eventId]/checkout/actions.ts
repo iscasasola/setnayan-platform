@@ -71,6 +71,7 @@ import { notifyAdminsOrderAwaitingReconciliation } from '@/lib/order-admin-notif
 import { isUniqueRefusal, orderInsertRefusal, PAYMENT_NOT_LOGGED } from '@/lib/checkout-submit-refusal';
 import { HUB_PARTS_ORDER_KEY, hubPart, parseHubPartsField } from '@/lib/hub-parts';
 import { hubPartPrices } from '@/lib/couple-website-pro';
+import { refuseLimitedHelper } from '@/lib/host-gate';
 
 /**
  * Same reference-code shape as createOrder · 'SN' prefix + 8 uppercase hex.
@@ -253,6 +254,7 @@ export type SubmitOrderResult =
 export async function submitOrderAction(
   formData: FormData,
 ): Promise<SubmitOrderResult> {
+  await refuseLimitedHelper(formData.get('event_id'), null);
   const eventId = formData.get('event_id');
   const serviceKey = formData.get('service_key');
   const displayName = formData.get('display_name');

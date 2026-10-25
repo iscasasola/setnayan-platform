@@ -85,31 +85,6 @@ const FLAGS: FlagSpec[] = [
     locals: ['appleIap'],
   },
   {
-    // 🧭 The new Event Hub Maker, "Stages | Studio" (owner 2026-10-06; plan
-    // EVENT_HUB_MAKER_STAGES_STUDIO_BUILD_PLAN_2026-10-06.md PR 1). Registered
-    // the day it shipped dark. Also on for an internal viewer — handed in.
-    env: 'NEXT_PUBLIC_MAKER_STAGES_STUDIO_ENABLED',
-    helper: 'lib/maker-stages-studio-flag.ts',
-    fn: 'makerStagesStudioEnabled',
-    // The ONE place it is decided; the shell is handed the boolean. (The guest
-    // side no longer asks it — every guest gets it, owner 2026-10-26;
-    // `lib/every-guest-gets-the-new-side.test.ts`.)
-    gates: ['app/dashboard/[eventId]/launch/page.tsx'],
-    // Take the decision as a prop / input, never ask it themselves.
-    pureCores: ['app/dashboard/[eventId]/launch/_components/maker-shell.tsx', 'lib/studio-tiles.ts'],
-    locals: ['stagesStudio'],
-  },
-  {
-    // 🖥 The new Maker on a desktop, three columns (owner 2026-10-07 all "A"; 2026-10-15 desktop first).
-    // Dark for couples while its PRs land; on for an internal viewer — handed in.
-    env: 'NEXT_PUBLIC_MAKER_DESKTOP_COLUMNS_ENABLED',
-    helper: 'lib/maker-desktop-columns-flag.ts',
-    fn: 'makerDesktopColumnsEnabled',
-    gates: ['app/dashboard/[eventId]/launch/page.tsx'],
-    pureCores: ['app/dashboard/[eventId]/launch/_components/maker-shell.tsx'],
-    locals: ['desktopColumns'],
-  },
-  {
     // 🖥 The guest's Event Hub on a desktop — the approved system sheet (DL 2026-10-15). Dark for guests while it is
     // checked; on for an internal viewer. The guest page asks once and writes the desk <style> or not.
     env: 'NEXT_PUBLIC_GUEST_HUB_DESKTOP_ENABLED',

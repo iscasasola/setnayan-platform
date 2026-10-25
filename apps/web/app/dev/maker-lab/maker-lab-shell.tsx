@@ -183,8 +183,6 @@ export function MakerLabShell({
   ownWords = {},
   typeHere = [],
   renderStamp = 'lab',
-  stagesStudio = false,
-  desktopColumns = false,
   hiddenStages = [],
   studio = null,
   venuePictures = null,
@@ -216,14 +214,10 @@ export function MakerLabShell({
   /** 🕯 The lab's drafted Accent picks (`lab_accents`), and the look it wears for them (`lab_kit=vintage`). */
   sceneAccents?: SceneAccents;
   kitTheme?: 'vintage' | null;
-  /** 🧭 `?studio=1` — the new Maker ("Stages | Studio"), with its tiles. */
-  stagesStudio?: boolean;
-  /** 🖥 `?studio=1&desk=1` — the new Maker on a desktop too, in three columns (`makerDesktopColumnsEnabled`). */
-  desktopColumns?: boolean;
   /** 🚪 `?needs=` — the stages this event does not need (`needsHidesStage`). */
   hiddenStages?: readonly string[];
   studio?: { tiles: readonly StudioTileModel[] } | null;
-  /** 📱 The Venue scene › Edit's Picture ▾ rows (`?studio=1&venue=church`). */
+  /** 📱 The Venue scene › Edit's Picture ▾ rows (`?venue=church`). */
   venuePictures?: MakerVenuePictures | null;
   /** ✍ `&facts=1` — the fact editors the real Maker is handed (`detailsFactEditors`). */
   factEditors?: ComponentProps<typeof MakerShell>['factEditors'];
@@ -386,11 +380,7 @@ export function MakerLabShell({
     font: {
       label: 'Font',
       /* 🔤 The Studio's four font rows, on the lab's own draft stand-in (no write leaves the lab). */
-      node: stagesStudio ? (
-        <FontsLookRows eventId={eventId} themeId="house" fontKey={null} roles={null} draftAction={labDraft as never} />
-      ) : (
-        <ColorsPanel action={formDraft} eventId={eventId} rowKey="font" part="font" bgColor={null} buttonColor={null} artDirection={null} fontKey={null} proMark="try" />
-      ),
+      node: <FontsLookRows eventId={eventId} themeId="house" fontKey={null} roles={null} draftAction={labDraft as never} />,
     },
     /* 🌈 The page fill — Look › Background's since 2026-10-08 (`LOOK_ROW_OF.page`). */
     'page-colour': {
@@ -457,9 +447,7 @@ export function MakerLabShell({
       rsvpStage={<MakerRsvpStage {...rsvpProps} />}
       hasWork
       theHost="the couple"
-      stagesStudio={stagesStudio}
-      desktopColumns={desktopColumns}
-      deskTitle={desktopColumns ? 'Maria & Jose' : null}
+      deskTitle="Maria & Jose"
       studio={studio}
       venuePictures={venuePictures}
       factEditors={factEditors}

@@ -61,7 +61,9 @@ test('both layouts reserve the dock\'s MEASURED height, to the dock\'s own line'
     assert.match(
       code(f),
       // `sn-vt-page` leads since 2026-10-24 — the bar's page slide moves this <main> (one-tab-slide-everywhere.test.ts).
-      /<main\s+className="sn-vt-page pb-\[calc\(var\(--sn-bottomdock-h,[^"]*\] lg:pb-0"/,
+      // ⬇ 2026-10-25: the dock's clearance is the first term of max(…, the floating thumb row's measured room), and
+      // from `lg` only that room is left (lib/thumb-room.ts · lib/a-thumb-row-leaves-room.test.ts).
+      /<main\s+className="sn-vt-page pb-\[max\(calc\(var\(--sn-bottomdock-h,[^"]*\),var\(--sn-thumb-room,0px\)\)\] lg:pb-\[var\(--sn-thumb-room,0px\)\]"/,
       `${f}: <main> no longer reserves the dock's measured height up to lg`,
     );
   }

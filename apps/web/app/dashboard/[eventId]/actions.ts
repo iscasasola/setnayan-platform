@@ -54,6 +54,7 @@ import {
 } from '@/lib/personalization-conflicts';
 import { formatCount } from '@/lib/format-number';
 import { eventDetailsToWrite } from '@/lib/event-details-merge';
+import { refuseLimitedHelper } from '@/lib/host-gate';
 
 const ALLOWED_PRECISIONS = ['year', 'month', 'day'] as const;
 
@@ -87,6 +88,7 @@ function isPrecision(value: unknown): value is EventDatePrecision {
  * defense-in-depth against direct form submits.
  */
 export async function updateEventDate(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), null);
   const eventId = formData.get('event_id');
   const dateRaw = formData.get('event_date');
   const precisionRaw = formData.get('precision');
@@ -188,6 +190,7 @@ export async function updateEventDate(formData: FormData) {
  * Mirrors updateEventDate's auth + `event_id` update + layout revalidate.
  */
 export async function setPlanningMode(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), null);
   const eventId = formData.get('event_id');
   const modeRaw = formData.get('mode');
   if (typeof eventId !== 'string') throw new Error('event_id required');
@@ -308,6 +311,7 @@ type SetCeremonyResult =
   | { ok: false; code: 'invalid_input' | 'unauthorized' | 'vendor_lock' | 'not_wedding' | 'db_error'; message: string };
 
 export async function setEventCeremonyType(formData: FormData): Promise<SetCeremonyResult> {
+  await refuseLimitedHelper(formData.get('event_id'), null);
   const eventId = formData.get('event_id');
   const ceremonyRaw = formData.get('ceremony_type');
 
@@ -529,6 +533,7 @@ const INVALID = Symbol('invalid');
 export async function updateEventMatchCriteria(
   posted: FormData,
 ): Promise<UpdateMatchCriteriaResult> {
+  await refuseLimitedHelper(posted.get('event_id'), null);
   /* 👥 TWO HOSTS NEVER OVERWRITE EACH OTHER (owner 2026-10-18 — `lib/event-details-merge.ts`). A form that says what it
      started from (`MERGE_BASE_FIELD`) is written only where THIS screen changed it: every field it did not change is
      left out, and an absent field is untouched below — the other host's region, feel or budget stands. */
@@ -1010,6 +1015,7 @@ const ALLOWED_CEREMONY_VENUE_SETTINGS = [
 type AllowedCeremonyVenueSetting = (typeof ALLOWED_CEREMONY_VENUE_SETTINGS)[number];
 
 export async function updateVenueSetting(formData: FormData): Promise<GovernedFieldResult> {
+  await refuseLimitedHelper(formData.get('event_id'), null);
   const eventId = formData.get('event_id');
   const venueRaw = formData.get('venue_setting');
   if (typeof eventId !== 'string' || !eventId) {
@@ -1079,6 +1085,7 @@ export async function updateVenueSetting(formData: FormData): Promise<GovernedFi
 export async function updateCeremonyVenueSetting(
   formData: FormData,
 ): Promise<GovernedFieldResult> {
+  await refuseLimitedHelper(formData.get('event_id'), null);
   const eventId = formData.get('event_id');
   const venueRaw = formData.get('ceremony_venue_setting');
   if (typeof eventId !== 'string' || !eventId) {
@@ -1132,6 +1139,7 @@ export async function updateCeremonyVenueSetting(
 }
 
 export async function updateGuestCount(formData: FormData): Promise<GovernedFieldResult> {
+  await refuseLimitedHelper(formData.get('event_id'), null);
   const eventId = formData.get('event_id');
   const paxRaw = formData.get('estimated_pax');
   if (typeof eventId !== 'string' || !eventId) {
@@ -1191,6 +1199,7 @@ export async function updateGuestCount(formData: FormData): Promise<GovernedFiel
  * audit pattern as updateGuestCount.
  */
 export async function updatePaxSettings(formData: FormData): Promise<GovernedFieldResult> {
+  await refuseLimitedHelper(formData.get('event_id'), null);
   const eventId = formData.get('event_id');
   if (typeof eventId !== 'string' || !eventId) {
     return { ok: false, code: 'invalid_input', message: 'event_id required' };

@@ -364,17 +364,17 @@ function fitsOneRow(row: ReturnType<typeof barRow>, need: string[], where: strin
 test('📏 the top bar is ONE row at 375 px — ✕ Exit · the screen · ↶ Undo · 👁 Preview · ✓ Apply; the old bottom bar is gone', async () => {
   const html = await shell(null);
   const top = barRow(html, '<header', '</header>');
-  fitsOneRow(top, ['Exit', 'Stage', 'Undo', 'Preview', 'Apply'], 'top');
+  fitsOneRow(top, ['Exit', 'Stages or Studio', 'Undo', 'Preview', 'Apply'], 'top');
   assert.match(top.head, /max-lg:h-\[52px\]/, 'the top bar is no longer one 52 px row');
   // 🧰 The bottom bar (Page ▾ · Look · Event Details) is REPLACED by the lower third (owner 2026-10-05).
   assert.doesNotMatch(html, /aria-label="Maker tools"|data-maker-bottom-bar=""/, 'the old bottom bar is back');
   const lt = /<section\b[^>]*data-maker-lower-third=""[^>]*>/.exec(html)?.[0] ?? '';
   assert.ok(lt, 'the lower third is not drawn');
   assert.match(lt, /env\(safe-area-inset-bottom\)/, 'the lower third does not respect the phone’s bottom safe area');
-  // 🏷 The screen you are on (owner 2026-10-05, "RSVP · When yes"): the stage and its page — never "as a guest sees it".
+  // 🏷 Where you are is said by Stages | Studio (owner 2026-10-08) — the old screen label went with the old Maker (2026-10-25).
   const header = html.slice(html.indexOf('<header'), html.indexOf('</header>'));
-  // The screen's name is the guest bar's tab word — "Home" since 2026-10-14 (DECISION_LOG "Home").
-  assert.match(header, /data-maker-screen-label=""[^>]*>Invitation · Home</, 'the top bar does not name the screen the couple is on');
+  assert.match(header, /data-maker-tool="side"/, 'the top bar does not draw Stages | Studio');
+  assert.doesNotMatch(header, /data-maker-screen-label/, 'the old Maker’s screen label is back');
   assert.doesNotMatch(header, /as a guest sees it/, 'the cut-off "as a guest sees it" is back on the top bar');
   // The draft bar draws Undo and Apply with exactly these phone props (the stub above is its copy).
   const bar = read('app/dashboard/[eventId]/website/_components/hub-draft-bar.tsx');

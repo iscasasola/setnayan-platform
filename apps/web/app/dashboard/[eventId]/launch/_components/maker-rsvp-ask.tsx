@@ -145,7 +145,7 @@ export function MakerRsvpSettings({
    */
   picked?: { tool: MakerPartTool; part: string | null; line: string | null };
   /**
-   * 🧭 STUDIO › RSVP (the new Maker, `makerStagesStudioEnabled` — owner 2026-10-06,
+   * 🧭 STUDIO › RSVP (the new Maker, `stagesStudio`, the one Maker since 2026-10-25 — owner 2026-10-06,
    * DECISION_LOG "'ASK ONE BY ONE' IS HOW THE GUEST'S RSVP ASKS"): the same
    * settings, drawn as the prototype's full-screen tool — Reply by · How guests
    * answer ▾ · Words · What the reply asks · Celebration ▾ ◆. "How guests get in"

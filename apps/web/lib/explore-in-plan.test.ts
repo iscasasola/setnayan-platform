@@ -23,7 +23,7 @@ import { popularTilesFor } from './supplier-find';
 import { stripComments } from './strip-comments';
 import { categoriesForTile, LOCKED_VENDOR_STATUSES } from './shortlist-taxonomy';
 import {
-  ADD_TO_PLAN_HEADING,
+  ADD_CATEGORY_TITLE,
   REMOVE_BLOCKED_LOCKED,
   REMOVE_FROM_PLAN_LABEL,
   addToPlanChipLabel,
@@ -202,7 +202,7 @@ test('every PR-C string is non-empty and lives in explore-info-copy', () => {
   // saved alternative team you compare, never the category set). The visible
   // heading and BOTH aria-labels must agree: a screen reader saying "plan" over
   // an "event" chip pool is the regression these three lines pin together.
-  assert.ok(ADD_TO_PLAN_HEADING.includes('Add to your event'));
+  assert.ok(ADD_CATEGORY_TITLE.length > 0 && !/\bplan\b/i.test(ADD_CATEGORY_TITLE));
   assert.ok(REMOVE_FROM_PLAN_LABEL.length > 0);
   assert.ok(REMOVE_BLOCKED_LOCKED.toLowerCase().includes('undo'));
   assert.ok(REMOVE_BLOCKED_LOCKED.toLowerCase().includes('never cancels'));

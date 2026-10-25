@@ -40,6 +40,39 @@
  * "(6)" with "no step heading", never a pass.
  */
 import type React from 'react';
+import CjsModule from 'node:module';
+import { join } from 'node:path';
+
+/*
+ * 🧭 `server-only` RESOLVES TO AN EMPTY MODULE HERE (2026-10-25, "there is one Maker"). The Maker's lower third is the
+ * Stages panel for every viewer now (`StageTools`, lazy), and its code reaches the Maker's server actions (`'use
+ * server'` files, which Next turns into references — they never run in a test). Under Node their `import
+ * 'server-only'` cannot be resolved, so the panel never loaded and every shell render kept its loading slot. The same
+ * stub the single-module tests install (`a-dark-look-keeps-its-words.test.ts`), once, for every render that settles
+ * the Maker's lazy pieces. Nothing is executed on the server side by it: a server action is still only imported.
+ */
+{
+  const M = CjsModule as unknown as {
+    new (id: string): { filename: string; loaded: boolean; exports: object; paths: string[] };
+    _cache: Record<string, unknown>;
+    _resolveFilename: (request: string, ...rest: unknown[]) => string;
+  };
+  const STUB = join(process.cwd(), '__server_only_stub_render_settled__.js');
+  if (!M._cache[STUB]) {
+    const stub = new M(STUB);
+    stub.filename = STUB;
+    stub.loaded = true;
+    stub.exports = {};
+    stub.paths = [];
+    M._cache[STUB] = stub;
+    const original = M._resolveFilename;
+    M._resolveFilename = function (this: unknown, request: string, ...rest: unknown[]) {
+      if (request === 'server-only') return STUB;
+      return original.call(this, request, ...rest);
+    };
+  }
+}
+// eslint-disable-next-line import/first -- the stub above must be installed before the lazy modules are loaded
 import * as detailsLazy from '../app/dashboard/[eventId]/launch/_components/details-lazy';
 
 type Preloadable = { render?: { preload?: () => Promise<unknown> } };

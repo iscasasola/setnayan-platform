@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { refuseLimitedHelper } from '@/lib/host-gate';
 
 /**
  * The host opens guest cameras before the event day — or closes them again.
@@ -30,6 +31,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
  * runs both.
  */
 export async function setPapicGuestCaptureEarly(formData: FormData): Promise<void> {
+  await refuseLimitedHelper(formData.get('event_id'), 'photos');
   const eventId = String(formData.get('event_id') ?? '').trim();
   const early = String(formData.get('early') ?? '') === '1';
   // 🏠 Saved inside Home's Papic card (`return_to=home`) → back to Home; a fixed word, never a URL from the form.

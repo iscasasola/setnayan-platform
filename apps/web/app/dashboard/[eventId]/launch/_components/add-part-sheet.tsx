@@ -52,7 +52,7 @@ import { useMaker } from './maker-context';
 
 /**
  * ＋ ↕ 🗑 🎭 THE PARTS OF A PAGE — ADD, MOVE, TAKE OFF; AND THE REVEAL AS A PART
- * (the new Maker's Stages side, behind `makerStagesStudioEnabled`; plan
+ * (the new Maker's Stages side, behind `stagesStudio`, the one Maker since 2026-10-25; plan
  * `EVENT_HUB_MAKER_STAGES_STUDIO_BUILD_PLAN_2026-10-06.md` §3 PR 3; the approved
  * prototype's `paintPage` edges, `openAddScene`, `partsHTML`, `askRemove` and the
  * grip drag). Loaded with the lazy Stages panel (`stage-tools.tsx`), never with

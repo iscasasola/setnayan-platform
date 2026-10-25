@@ -38,11 +38,16 @@
  * move: its host stands it on `--sn-bottomdock-h`, which is the keyboard's while
  * it is up (`bottom-nav.tsx`). `rides={false}` opts out — only with a written
  * reason at the call (`every-bottom-input-rides-the-keyboard.test.ts` counts them).
+ *
+ * ⬇ IT LEAVES ROOM FOR ITSELF (owner 2026-10-25): floating, it publishes its covered height as `--sn-thumb-room` and
+ * the page column pads by it (`lib/thumb-room.ts`, `lib/a-thumb-row-leaves-room.test.ts`) — a host never adds its own
+ * bottom padding for the row.
  */
 import { useCallback, useRef, type InputHTMLAttributes, type ReactNode, type Ref } from 'react';
 import { CalendarDays, Search, X } from 'lucide-react';
 import { ActionButton, type ActionButtonProps } from '@/components/action-button';
 import { rowRides, useRidingRow } from '@/app/_components/typing-band';
+import { useThumbRoom } from '@/lib/thumb-room';
 import { PickMenu, type PickOption } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import styles from './thumb-row.module.css';
 
@@ -170,6 +175,10 @@ export function ThumbRow({
   const ownInput = useRef<HTMLInputElement | null>(null);
   /* ⌨ The ONE riding row (`useRidingRow`): the search band, and a tap away closes the keyboard. */
   const ride = useRidingRow(rowRef, { rides, mode: Boolean(children), place: field && !('node' in field) ? field.placeholder : undefined });
+  /* ⬇ A FLOATING ROW LEAVES ROOM FOR ITSELF (owner 2026-10-25, *"the suppliers page does not scroll up anymore"*): it
+     publishes how much of the screen's foot it covers as `--sn-thumb-room`, and every page column pads by it
+     (`lib/thumb-room.ts`) — so the last element always scrolls above the row, with no per-page number. */
+  useThumbRoom(rowRef);
   const riding = ride.riding;
   const onFieldFocus = ride.rowProps.onFocus;
   const onFieldBlur = ride.rowProps.onBlur;

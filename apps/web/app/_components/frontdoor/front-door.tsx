@@ -140,14 +140,16 @@ export async function FrontDoor({ q }: { q?: string }) {
         account tab: `.sn-vt-page` + `while-sliding` (signed in, where the bar
         is), the same slide as every other tab (owner 2026-10-24; globals.css). Signed in, it also
         reserves the account bar's MEASURED height below 1024, the launcher's own
-        rule, so the last row of the feed clears the dock — and the thumb row on it (+4rem, 2026-10-22).
+        rule, so the last row of the feed clears the dock — and the thumb row on it: since 2026-10-25 by the row's own
+        measured room (`--sn-thumb-room`, lib/thumb-room.ts) at every width, not a hand-added +4rem that a computer
+        never got.
       */}
       <div
         data-fd-page=""
         data-sn-slide="while-sliding"
         className={
           account.signedIn
-            ? 'sn-vt-page pb-[calc(var(--sn-bottomdock-h,calc(env(safe-area-inset-bottom)+64px))+5.5rem)] lg:pb-0'
+            ? 'sn-vt-page pb-[max(calc(var(--sn-bottomdock-h,calc(env(safe-area-inset-bottom)+64px))+1.5rem),var(--sn-thumb-room,0px))] lg:pb-[var(--sn-thumb-room,0px)]'
             : undefined
         }
       >

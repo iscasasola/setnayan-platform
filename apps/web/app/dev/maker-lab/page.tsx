@@ -190,7 +190,7 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
       revealLab={revealLab}
       scenes={scenes}
       navigator={navigator}
-      details={detailsLabNode({ ...sp, shape: 'mj', ...(sp.studio === '1' || sp.ss === '1' ? { look: '1' } : {}), labPass: (await cookies()).get(LAB_PASS_COOKIE)?.value })}
+      details={detailsLabNode({ ...sp, shape: 'mj', look: '1', labPass: (await cookies()).get(LAB_PASS_COOKIE)?.value })}
       /* ✍ `&facts=1` — the fact editors the launch page hands the real Maker (`factEditors`): a tap that opens one in the
          work area is seen as it is on a couple's Maker (the Love Story's moments, 2026-10-19). Off by default. */
       factEditors={sp.facts === '1' ? detailsLabFacts(sp, { specialMessage: LAB_SAMPLE.message, pabuyaMessage: 'Thank you for joining us — every gift is received with thanks.' }) : undefined}
@@ -235,41 +235,35 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
       }
       /* Moves with every render, as the real Maker's stamp does — a save's refresh reaches the canvas. */
       renderStamp={String(Date.now())}
-      /* 🧭 `?studio=1` (or `?ss=1`) — the new Maker on the lab's fixtures (its cards' states are the lab's stand-in, `LAB_STUDIO_DONE`). */
-      stagesStudio={sp.studio === '1' || sp.ss === '1'}
-      /* 🖥 `&desk=1` — …and on a desktop in three columns (`MAKER_DESKTOP_ADAPTATION_2026-10-07_fable.md`). */
-      desktopColumns={(sp.studio === '1' || sp.ss === '1') && sp.desk === '1'}
       /* 🚪 `?needs=simple|open|list|full` (owner 2026-10-08, Level 1): the stages this event does not need are absent. */
       hiddenStages={labNeeds ? MAKER_PAGE_STAGES.filter((st) => needsHidesStage(st, labNeeds)) : []}
-      /* 📱 `?studio=1&venue=church` — the Venue scene › Edit's Picture ▾ rows, on the SAME fixture Details › Venues draws
+      /* 📱 `?venue=church` — the Venue scene › Edit's Picture ▾ rows, on the SAME fixture Details › Venues draws
          (`&vpic=photo|drawing|none`, `&pro=1`). */
       venuePictures={
-        (sp.studio === '1' || sp.ss === '1') && sp.venue === 'church'
+        sp.venue === 'church'
           ? ((v) => ({ slots: v.slots, pro: v.pro ?? { owns: false, storeShell: false } }))(labChurchVenues(typeof sp.vpic === 'string' ? sp.vpic : undefined, sp.pro === '1'))
           : null
       }
-      studio={
-        sp.studio === '1' || sp.ss === '1'
-          ? {
-              /* 🪑 No Seat plan tile: the lab's Studio draws no seat plan (`MakerDetails` is handed none), and a tile
-                 with nothing behind it opened the Wedding March under the name "Seat plan" (P03). The real Maker
-                 drops such a tile the same way (`lib/studio-tiles.ts` `studioTiles` — `offered`). */
-              tiles: STUDIO_TILE_KEYS.filter((key) => !LAB_STUDIO_NOT_DRAWN.includes(key)).map((key) => ({
-                key,
-                label: STUDIO_TILES[key].label,
-                short: STUDIO_TILES[key].short,
-                item: STUDIO_TILES[key].item,
-                immersive: STUDIO_TILES[key].immersive === true,
-                /* 🧪 The lab's stand-in for what the server measures (the real Maker reads each from the event): a mix,
-                   so Ready, Missing and "no claim" can each be seen on a card — and the head's count beside them. */
-                done: LAB_STUDIO_DONE[key],
-                status: STUDIO_TILES[key].sub,
-              }))
-                /* 🚪 `&needs=simple|open|list|full` — what the event needs drops tiles, as the real Maker does. */
-                .filter((t) => !(labNeeds && needsHidesStudioTile(t.key, labNeeds))),
-            }
-          : null
-      }
+      /* 🧭 The Maker on the lab's fixtures — there is one Maker (2026-10-25), so `?studio=1` / `&desk=1` are no longer
+         needed (still accepted: they change nothing). Its cards' states are the lab's stand-in, `LAB_STUDIO_DONE`. */
+      studio={{
+        /* 🪑 No Seat plan tile: the lab's Studio draws no seat plan (`MakerDetails` is handed none), and a tile
+           with nothing behind it opened the Wedding March under the name "Seat plan" (P03). The real Maker
+           drops such a tile the same way (`lib/studio-tiles.ts` `studioTiles` — `offered`). */
+        tiles: STUDIO_TILE_KEYS.filter((key) => !LAB_STUDIO_NOT_DRAWN.includes(key)).map((key) => ({
+          key,
+          label: STUDIO_TILES[key].label,
+          short: STUDIO_TILES[key].short,
+          item: STUDIO_TILES[key].item,
+          immersive: STUDIO_TILES[key].immersive === true,
+          /* 🧪 The lab's stand-in for what the server measures (the real Maker reads each from the event): a mix,
+             so Ready, Missing and "no claim" can each be seen on a card — and the head's count beside them. */
+          done: LAB_STUDIO_DONE[key],
+          status: STUDIO_TILES[key].sub,
+        }))
+          /* 🚪 `&needs=simple|open|list|full` — what the event needs drops tiles, as the real Maker does. */
+          .filter((t) => !(labNeeds && needsHidesStudioTile(t.key, labNeeds))),
+      }}
     />
     {/* 🔦 `&spot=1` — the Maker's own spotlight (owner 2026-10-22), inside the Maker, first run. */}
     {sp.spot === '1' && TOURS[HOST_PAGE_TOURS.maker].spotlight ? (

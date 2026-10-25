@@ -39,7 +39,7 @@ test('List: ⇕ · Search guests · ≡ (Sort, ☑ Select and the ways to add in
   assert.deepEqual([...order].sort((a, b) => a - b), order, 'the thumb row is out of order');
   assert.ok(!row.includes('action='), 'the List row has a main verb (the ＋) again');
   assert.match(SCREEN, /<ThumbRow name="guests-map" field=\{field\} right=\{\[arrangeMenu\]\} \/>/, 'the Map row has a main verb (the ＋) again');
-  assert.match(SCREEN, /copy \? \[\] : \[\{ key: 'select', label: 'Select…', group: 'List'/, '☑ Select is not in the ≡ menu');
+  assert.match(SCREEN, /writesOff \? \[\] : \[\{ key: 'select', label: 'Select…', group: 'List'/, '☑ Select is not in the ≡ menu');
   assert.match(SCREEN, /if \(k === 'select'\) return setSelectMode\(true\);/);
 });
 

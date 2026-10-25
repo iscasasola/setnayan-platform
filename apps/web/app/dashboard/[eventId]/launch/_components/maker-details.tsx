@@ -210,7 +210,7 @@ const WORDS_FORM = 'details-print-words';
 
 export type MakerDetailsProps = {
   /**
-   * 🧭 THE NEW MAKER'S STUDIO (`makerStagesStudioEnabled`, decided once by the
+   * 🧭 THE NEW MAKER'S STUDIO (`stagesStudio`, the one Maker since 2026-10-25, decided once by the
    * launch page; plan `EVENT_HUB_MAKER_STAGES_STUDIO_BUILD_PLAN_2026-10-06.md`
    * PR 4): the Studio tools redrawn to the prototype over the SAME editors —
    * Info is one form (Date and Venue read-only, from Suppliers; Your Event Hub;

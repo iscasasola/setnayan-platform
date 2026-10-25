@@ -7,7 +7,7 @@
  * Same stand-ins as `../guests/guests-page-reads.harness.ts` (the shape this
  * copies). The fixture is one couple on a wedding with the new Maker (Stages |
  * Studio) on, as production runs it — here through the internal viewer, the other door
- * `makerStagesStudioEnabled` opens, so no second module reads the flag.
+ * `stagesStudio`, the one Maker since 2026-10-25 opens, so no second module reads the flag.
  * Depth is the longest chain of database trips each waiting for the one before;
  * `MAKER_PAGE_READS_DELAY_MS=150` makes every answer take 150 ms and `ms` the
  * simulated wait; `MAKER_PAGE_READS_WHO=1` names who sent each request.

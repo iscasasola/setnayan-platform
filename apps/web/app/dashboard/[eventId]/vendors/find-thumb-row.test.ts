@@ -228,7 +228,9 @@ test('T7 · rule 6 — pinned and scrolled into: the first tap goes back to the 
   assert.match(tap, /if \(replan && !isOpen\) setLanding\(\(cur\) => \(\{ tile, n: \(cur\?\.n \?\? 0\) \+ 1 \}\)\);/);
   // …with no guessed delay: a frame after the commit, then once when the unfold has finished.
   const land = BENCH.slice(BENCH.indexOf('const [landing, setLanding]'), BENCH.indexOf('}, [landing]);'));
-  assert.match(land, /const frame = requestAnimationFrame\(\(\) => scrollBenchAnchor\(id\)\);/);
-  assert.match(land, /if \(e\.propertyName !== 'grid-template-rows'\) return;\s*row\?\.removeEventListener\('transitionend', settle\);\s*scrollBenchAnchor\(id\);/);
+  // Each landing makes the page's room first, then scrolls (`land`, 2026-10-25 — lib/an-opened-row-reaches-the-top.test.ts).
+  assert.match(land, /const land = \(\) => \{[\s\S]*?makeRoomToPin\(row, benchRef\.current\);\s*scrollBenchAnchor\(id\);\s*\};/);
+  assert.match(land, /const frame = requestAnimationFrame\(land\);/);
+  assert.match(land, /if \(e\.propertyName !== 'grid-template-rows'\) return;\s*row\?\.removeEventListener\('transitionend', settle\);\s*land\(\);/);
   assert.doesNotMatch(BENCH, /setTimeout\([\s\S]{0,200}benchTileAnchorId/);
 });

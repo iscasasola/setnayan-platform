@@ -68,15 +68,19 @@ test('🔴 People draws with the Guest list’s own stylesheet and button — im
   }
 });
 
-test('🔴 THE ONE THUMB ROW (owner 2026-10-22): ≡ · "Find or invite" · ＋ Invite — no band, each control its own glass', () => {
+test('🔴 THE ONE THUMB ROW (owner 2026-10-22; no ＋ since 2026-10-25): ≡ · "Find or invite" — no band, each control its own glass', () => {
   // Every People row is the one row component — never a band of its own.
   for (const [name, src] of [['people-roster-view', ROSTER], ['people-thumb', THUMB]] as const) {
     assert.ok(src.includes(ROW_IMPORT), `${name} draws its own bottom row instead of the one row`);
     assert.ok(!/gs\.lower|sn-glass-row`\} data-on=/.test(src), `${name} brought back the Guests band`);
   }
   const list = ROSTER.slice(ROSTER.indexOf("<AccountThumbRow data={{ 'data-people-thumb': 'list' }}"));
-  assert.match(list, /^<AccountThumbRow data=\{\{ 'data-people-thumb': 'list' \}\} tools=\{filterPick\} field=\{<FindField f=\{find\} \/>\} action=\{<InviteAction f=\{find\} \/>\} \/>/, 'the list row is not ≡ · field · ＋');
-  assert.match(THUMB, /field=\{<FindField f=\{find\} \/>\}\s*action=\{<InviteAction f=\{find\} \/>\}/, 'the other views lost the same row');
+  // Owner 2026-10-25: "Yes, remove the + on the guest list… Do the same on People." — no main verb on either row.
+  assert.match(list, /^<AccountThumbRow data=\{\{ 'data-people-thumb': 'list' \}\} tools=\{filterPick\} field=\{<FindField f=\{find\} \/>\} \/>/, 'the list row is not ≡ · field (no ＋)');
+  assert.match(THUMB, /field=\{<FindField f=\{find\} \/>\}\s*\/>/, 'the other views lost the same row, or grew a ＋');
+  for (const [name, src] of [['people-roster-view', ROSTER], ['people-thumb', THUMB], ['find-or-invite', FIND]] as const) {
+    assert.ok(!/InviteAction|people-invite-open|action=\{</.test(src), `${name}: the ＋ Invite is back on the row`);
+  }
   // The row paints nothing; the SHARED row (components/thumb-row.tsx) draws each seat's glass — swapped in
   // 2026-10-22, as account-thumb-row.tsx planned. Its seats are tools · field · action, in that order.
   const band = ROW.slice(ROW.indexOf('data-one-thumb-row=""'), ROW.indexOf('<ThumbRow'));
@@ -96,6 +100,37 @@ test('🔒 ≡ is one dropdown that keeps the list’s own tools — Expand / Co
   assert.match(pick, /key: 'list:fold'/, 'Expand / Collapse all lost its seat');
   assert.match(pick, /key: 'list:select'/, 'Select lost its seat');
   assert.match(pick, /router\.push\(peopleViewHref\(k as PeopleView, picker\.gates\)\)/);
+  // The former ＋ Invite lives in ≡ (2026-10-25), so an empty field still has a door to the invite sheet.
+  assert.match(pick, /\{ key: INVITE_SOMEONE_KEY, label: 'Invite someone', group: 'Add'/, '≡ lost "Invite someone"');
+  assert.match(pick, /if \(k === INVITE_SOMEONE_KEY\) return setInviting\(true\);/, '"Invite someone" does not open the sheet');
+  assert.match(ROSTER, /<InviteSheet f=\{find\} open=\{inviting\} onClose=\{\(\) => setInviting\(false\)\} \/>/);
+  // …and on the views that are not the roster.
+  assert.match(THUMB, /<PeopleViewPicker [^/]*onInvite=\{\(\) => setInviting\(true\)\} \/>/, 'Following / Followers / Groups lost "Invite someone"');
+  assert.match(THUMB, /<InviteSheet f=\{find\} open=\{inviting\} onClose=\{\(\) => setInviting\(false\)\} \/>/);
+  const picker = code('_components/people-view-picker.tsx');
+  assert.match(picker, /label: 'Invite someone', group: 'Add'/);
+  assert.match(picker, /if \(key === INVITE_SOMEONE_KEY\) return onInvite\?\.\(\);/);
+});
+
+test('🔒 THE TYPED LINE IS THE INVITE (owner 2026-10-25): its first result is "Invite “…” by email", email in place', () => {
+  const card = fn(FIND, 'InviteCard');
+  assert.match(card, /label=\{`Invite “\$\{name\}” by email`\}/, 'the first result does not say Invite “…”');
+  assert.match(card, /data-invite-card="" data-search-result=""/, 'the invite is not marked as the first result for the pin');
+  assert.match(card, /typedAnAddress \? \([\s\S]*?\) : \(\s*<input\s+type="email"/, 'no email box in place when the line holds no address');
+  assert.match(card, /onClick=\{f\.submitAdd\}/, 'the card’s Invite is not the shipped invite');
+  assert.match(FIND, /addPersonConnection\(\{ name, email: to \}\)/);
+  // Enter on the line still invites when it holds a name and an email.
+  assert.match(fn(FIND, 'FindField'), /if \(e\.key === 'Enter'\) \{\s*e\.preventDefault\(\);\s*f\.submitAdd\(\);/);
+  // FIRST: the roster draws it before "On your list"; the other views' results draw it before "On Setnayan".
+  const search = ROSTER.slice(ROSTER.indexOf('<div data-people-search="" data-search-results="">'));
+  assert.ok(search.indexOf('<InviteCard f={find} />') > -1 && search.indexOf('<InviteCard f={find} />') < search.indexOf('On your list'), 'the invite is not the roster’s first result');
+  assert.ok(search.includes('<FindResults f={find} card={false} />'), 'the roster draws the invite twice');
+  const results = fn(FIND, 'FindResults');
+  assert.ok(results.indexOf('<InviteCard f={f} />') > -1 && results.indexOf('<InviteCard f={f} />') < results.indexOf('On Setnayan'), 'the invite is not the first result');
+  // A done invite clears the line (and the results) — its note is drawn by the host, outside them.
+  for (const [name, src] of [['people-roster-view', ROSTER], ['people-thumb', THUMB]] as const) {
+    assert.ok(src.includes('<FindNotes f={find} />'), `${name}: "Invited …" vanishes with the results`);
+  }
 });
 
 // ── 2 · nothing shipped lost its seat (the prototype's §5 map) ──────────────
@@ -139,7 +174,7 @@ test('🔒 the ≡ list holds Groups · Following · Followers — and every vie
   // The views that are not the roster carry the same thumb row (field + ≡), so a phone can always get back.
   assert.ok(FOLLOW.includes('<PeopleThumb picker={picker} />'), 'Following / Followers have no way back on a phone');
   assert.ok(PAGE.slice(PAGE.indexOf("view === 'samahan' ? (")).includes('<PeopleThumb picker={picker} />'), 'Groups has no way back on a phone');
-  assert.match(THUMB, /<PeopleViewPicker view=\{picker\.view\} options=\{picker\.options\} gates=\{picker\.gates\} \/>/);
+  assert.match(THUMB, /<PeopleViewPicker view=\{picker\.view\} options=\{picker\.options\} gates=\{picker\.gates\} onInvite=\{\(\) => setInviting\(true\)\} \/>/);
 });
 
 test('🔒 select mode has the two verbs and only two — no bulk label (a label needs each person’s yes)', () => {

@@ -7,17 +7,18 @@ import {
   ChevronDown,
   ChevronsDownUp,
   ChevronsUpDown,
-  ListFilter,
   CircleDashed,
   Clock,
   HandHeart,
   Heart,
   HeartHandshake,
+  ListFilter,
   Network,
   Pencil,
   Plus,
   Send,
   SquareCheck,
+  UserPlus,
   Users,
   UsersRound,
   X,
@@ -54,7 +55,7 @@ import {
 } from '../actions';
 import { formatCount } from '@/lib/format-number';
 import { removeFromPeople } from '@/lib/people-remove';
-import { FindField, FindResults, InviteAction, useFindOrInvite } from './find-or-invite';
+import { FindField, FindNotes, FindResults, INVITE_SOMEONE_KEY, InviteCard, InviteSheet, useFindOrInvite } from './find-or-invite';
 import { AccountThumbRow, ThumbTool } from '../../_components/account-thumb-row';
 import { PersonAvatar } from './person-avatar';
 import ps from './people-screen.module.css';
@@ -266,6 +267,7 @@ export function PeopleRosterView({
   }, [openPerson]);
   const [toRemove, setToRemove] = useState<RosterPerson[] | null>(null);
   const find = useFindOrInvite();
+  const [inviting, setInviting] = useState(false);
   const router = useRouter();
   const rootRef = useRef<HTMLDivElement>(null);
   useShellBarOffset(rootRef);
@@ -451,6 +453,9 @@ export function PeopleRosterView({
   const list = searching ? (
     // 📌 Where a search's results draw — pinned under the chrome (lib/search-pin.ts).
     <div data-people-search="" data-search-results="">
+      {/* ✉ The first result is the invite (owner 2026-10-25, "do the same on People") — then who is on your list, then
+          who is on Setnayan. 🔒 people/people-wears-the-guest-list.test.ts */}
+      <InviteCard f={find} />
       {(() => {
         const mine = shown.filter(nameMatches);
         return mine.length > 0 ? (
@@ -468,7 +473,7 @@ export function PeopleRosterView({
           </section>
         ) : null;
       })()}
-      <FindResults f={find} />
+      <FindResults f={find} card={false} />
     </div>
   ) : (
     <div data-people-rows="">
@@ -525,9 +530,10 @@ export function PeopleRosterView({
     </div>
   );
 
-  /* ═══ THE ONE THUMB ROW (owner 2026-10-22; prototypes/one_thumb_row_2026-10-22.html): ≡ · [Find or invite] · ＋ ═══
-     ≡ is ONE dropdown (any set of choices is a dropdown): the views (Your people · Following · Followers · Groups) and
-     the list's own two tools — Expand / Collapse all and Select — so the field keeps its 60 % at 320. */
+  /* ═══ THE ONE THUMB ROW (owner 2026-10-22; prototypes/one_thumb_row_2026-10-22.html): ≡ · [Find or invite] ═══
+     ≡ is ONE dropdown (any set of choices is a dropdown): the views (Your people · Following · Followers · Groups),
+     the list's own two tools — Expand / Collapse all and Select — and "Invite someone", the row's former ＋ Invite
+     (owner 2026-10-25: "remove the +… do the same on People"; a typed name's first result is the invite). */
   const filterPick = (
     <ThumbTool tour="people-view">
       <span data-pick="" data-people-filter="" className="contents">
@@ -542,8 +548,10 @@ export function PeopleRosterView({
                   { key: 'list:fold', label: allOpen ? 'Collapse all' : 'Expand all', group: 'This list', icon: allOpen ? <ChevronsDownUp className="h-[18px] w-[18px]" strokeWidth={1.9} /> : <ChevronsUpDown className="h-[18px] w-[18px]" strokeWidth={1.9} /> },
                   { key: 'list:select', label: 'Select', group: 'This list', icon: <SquareCheck className="h-[18px] w-[18px]" strokeWidth={1.9} /> },
                 ]),
+            { key: INVITE_SOMEONE_KEY, label: 'Invite someone', group: 'Add', icon: <UserPlus className="h-[18px] w-[18px]" strokeWidth={1.9} /> },
           ]}
           onPick={(k) => {
+            if (k === INVITE_SOMEONE_KEY) return setInviting(true);
             if (k === 'list:fold') return setOpen(allOpen ? new Set() : new Set(allKeys));
             if (k === 'list:select') return setSelectMode(true);
             router.push(peopleViewHref(k as PeopleView, picker.gates));
@@ -589,7 +597,7 @@ export function PeopleRosterView({
       }
     />
   ) : (
-    <AccountThumbRow data={{ 'data-people-thumb': 'list' }} tools={filterPick} field={<FindField f={find} />} action={<InviteAction f={find} />} />
+    <AccountThumbRow data={{ 'data-people-thumb': 'list' }} tools={filterPick} field={<FindField f={find} />} />
   );
 
   return (
@@ -605,8 +613,10 @@ export function PeopleRosterView({
           {notice}
         </p>
       ) : null}
+      <FindNotes f={find} />
       {list}
       {thumb}
+      <InviteSheet f={find} open={inviting} onClose={() => setInviting(false)} />
       {card ? (
         <PersonCard
           person={card}

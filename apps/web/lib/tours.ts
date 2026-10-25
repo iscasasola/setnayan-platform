@@ -1194,17 +1194,12 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         {
           anchor: 'people-view',
           title: 'What the list shows',
-          body: 'Your people, Following, Followers or Groups. Select picks several at once.',
+          body: 'Your people, Following, Followers or Groups. Select picks several at once. Invite someone is here too.',
         },
         {
           anchor: 'people-find',
-          title: 'Find someone',
-          body: 'Type a name to find someone on Setnayan.',
-        },
-        {
-          anchor: 'people-invite',
-          title: 'Invite someone',
-          body: '＋ invites someone who isn’t on Setnayan yet.',
+          title: 'Find or invite',
+          body: 'Type a name to find someone on Setnayan. Not on it yet? The first result invites them by email.',
         },
       ],
       finale: {
@@ -2006,11 +2001,11 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       },
     },
   },
-  /* 🔦 GUESTS — a first-visit page tour (owner 2026-10-25, "the spotlight tour is missing so many parts for each page"), AFTER the journey (`lib/host-page-tours.ts`) and lighting none of its stops (the journey lit the search field `guests-add` and Settings `guests-setup`). Top → bottom, then the thumb row: ≡ Sort, ＋ Add. The old carousel (`customer_guest_list_v1`) stays as the script; its mount is gone. */
+  /* 🔦 GUESTS — a first-visit page tour (owner 2026-10-25, "the spotlight tour is missing so many parts for each page"), AFTER the journey (`lib/host-page-tours.ts`) and lighting none of its stops (the journey lit the search field `guests-add` and Settings `guests-setup`). Top → bottom, then the thumb row's ≡ (Sort, Select and the other ways to add — no ＋ since 2026-10-25: the search field adds). The old carousel (`customer_guest_list_v1`) stays as the script; its mount is gone. */
   customer_guest_list_v2: {
     key: 'customer_guest_list_v2',
     label: 'Guests — first visit',
-    blurb: 'The views, the counts, a guest’s row, sorting and ＋ Add.',
+    blurb: 'The views, the counts, a guest’s row, sorting and adding.',
     slides: [],
     spotlight: {
       steps: [
@@ -2031,13 +2026,8 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         },
         {
           anchor: 'guests-sort',
-          title: 'Sort and select',
-          body: 'Group the list by role, last name, side, group or reply. Select picks several at once.',
-        },
-        {
-          anchor: 'guests-plus',
-          title: 'Add a guest',
-          body: '＋ adds a guest by name.',
+          title: 'Sort, select, add',
+          body: 'Group the list by role, last name, side, group or reply. Select picks several at once. The other ways to add a guest are here too.',
         },
       ],
       finale: {

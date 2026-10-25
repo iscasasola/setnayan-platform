@@ -238,7 +238,9 @@ test('the account screens’ tours are spotlights, and their optional stop is ne
   assert.equal(TOURS.customer_account_bar_v2.spotlight!.steps.at(-1)!.anchor, 'account-avatar', 'the account-bar tour’s last stop is not the avatar — on a laptop it would stall');
   const people = TOURS.customer_people_v3.spotlight!.steps.map((s) => s.anchor);
   assert.notEqual(people.at(-1), 'people-loved-ones', 'Loved ones is People’s last stop — on an account without it the tour would stall');
-  // The thumb row, left to right, closes the tour (v3, 2026-10-25): the field, then ＋ Invite — both drawn by the list view
-  // the first visit opens on. (A stop missing from the page on screen is dropped since 2026-10-22, lib/spotlight-drops.ts.)
-  assert.deepEqual(people.slice(-2), ['people-find', 'people-invite'], 'People’s tour no longer ends on the thumb row’s field and ＋ Invite');
+  // The thumb row, left to right, closes the tour (v3, 2026-10-25): ≡, then the field — no ＋ Invite since 2026-10-25
+  // (owner: "remove the +… do the same on People"; the typed name's first result invites). Both are drawn by the list
+  // view the first visit opens on. (A stop missing from the page on screen is dropped since 2026-10-22, lib/spotlight-drops.ts.)
+  assert.deepEqual(people.slice(-2), ['people-view', 'people-find'], 'People’s tour no longer ends on the thumb row’s ≡ and field');
+  assert.ok(!people.includes('people-invite'), 'People’s tour points at a ＋ Invite the row no longer draws');
 });

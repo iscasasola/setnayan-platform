@@ -176,19 +176,21 @@ test('(e) the lock is gone, the save re-renders nothing, the control is the drop
   assert.doesNotMatch(body, /revalidatePath|cookies\(\)/, 'the Appearance save must not re-render on the server (least requests)');
   assert.match(body, /isAppearance\(raw\)/, 'the save must refuse anything but light / dark / auto');
 
-  const control = stripComments(read('app/dashboard/(account)/profile/_components/appearance-choice.tsx'));
+  // 🌗 MOVED TO THE ACCOUNT MENU (owner 2026-10-25 — one place for everything): the control lives beside the
+  // sheet it is drawn in, and Profile & settings › Preferences no longer draws a second copy.
+  const control = stripComments(read('app/_components/account-switcher/appearance-choice.tsx'));
   assert.match(control, /<PickMenu\b/, 'three choices are ONE PickMenu dropdown (house rule 2026-09-28; call 2 was for two)');
   for (const key of ['light', 'dark', 'auto']) assert.match(control, new RegExp(`key: '${key}'`), `the dropdown must offer '${key}'`);
-  const page = stripComments(read('app/dashboard/(account)/profile/page.tsx'));
-  const pane = page.slice(page.indexOf('const preferencesPane'));
-  // Planner mode left Preferences on 2026-10-23 (owner); Appearance stays the first row.
-  assert.ok(pane.indexOf('<AppearanceChoice') > -1 && pane.indexOf('<AppearanceChoice') < pane.indexOf('label="Display language"'),
-    'Appearance is the first row of Preferences, above Display language');
+  assert.match(control, /updateThemePreference\(fd\)/, 'the menu saves through the ONE existing action — no second save path');
+  assert.match(control, /let reconciled = false/, 'the cross-device bring-in is latched once per page load (a stale layout prop must not undo a pick)');
+  const sheet = stripComments(read('app/_components/account-switcher/account-switcher.tsx'));
   // 🚦 HIDDEN WHILE THE READY-LIST IS EMPTY (owner 2026-10-16): every mount sits behind the ONE condition.
-  const mounts = [...page.matchAll(/<AppearanceChoice\b/g)].length;
-  const gated = [...page.matchAll(/\{appearanceSwitchShown\(\) \? <AppearanceChoice\b[^}]*\} \/> : null\}/g)].length;
-  assert.equal(mounts, 1, 'one Appearance row');
+  const mounts = [...sheet.matchAll(/<AppearanceChoice\b/g)].length;
+  const gated = [...sheet.matchAll(/\{appearanceSwitchShown\(\) \? \(\s*<AppearanceChoice\b/g)].length;
+  assert.equal(mounts, 1, 'one Appearance row, in the account menu');
   assert.equal(gated, mounts, 'the Appearance row renders only when appearanceSwitchShown() — never with an empty ready-list');
+  const page = stripComments(read('app/dashboard/(account)/profile/page.tsx'));
+  assert.equal([...page.matchAll(/<AppearanceChoice\b/g)].length, 0, 'Preferences draws no second Appearance (one place for everything)');
 
   const dir = join(WEB, '..', '..', 'supabase', 'migrations');
   // 2026-10-23: Automatic is the default; the old auto → light rows that nobody picked follow the phone.

@@ -4,12 +4,8 @@ import { Plus, Receipt } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getEffectiveVatRatePct } from '@/lib/platform-settings';
 import { getCurrentUser } from '@/lib/auth';
-import {
-  ORDER_STATUS_LABEL,
-  ORDER_STATUS_TONE,
-  fetchOrdersForEvent,
-  formatPhp,
-} from '@/lib/orders';
+import { fetchOrdersForEvent } from '@/lib/orders';
+import { OrderLine, ORDER_ROW_CLASS, ORDER_ROW_PRESS } from '@/app/_components/orders/order-line';
 import { computeVatFromBase } from '@/lib/receipts';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { isStoreShellRequest } from '@/lib/request-platform';
@@ -99,36 +95,13 @@ export default async function CoupleOrdersPage({ params, searchParams }: Props) 
         <ul className="space-y-2">
           {orders.map((o) => {
             const row = (
-              <>
-                <div className="min-w-0 space-y-1">
-                  <p className="line-clamp-1 text-sm font-semibold text-ink">
-                    {o.description}
-                  </p>
-                  <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-                    {o.public_id} · {o.reference_code}
-                  </p>
-                </div>
-                <div className="flex shrink-0 items-center gap-3">
-                  <span className="font-mono text-sm text-ink">
-                    {formatPhp(
-                      computeVatFromBase(
-                        Number(o.confirmed_total_php ?? o.requested_total_php),
-                        vatRatePct,
-                      ).gross,
-                    )}
-                    <span className="ml-1 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
-                      incl. VAT
-                    </span>
-                  </span>
-                  <span
-                    className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${
-                      ORDER_STATUS_TONE[o.status]
-                    }`}
-                  >
-                    {ORDER_STATUS_LABEL[o.status]}
-                  </span>
-                </div>
-              </>
+              <OrderLine
+                description={o.description}
+                publicId={o.public_id}
+                referenceCode={o.reference_code}
+                grossPhp={computeVatFromBase(Number(o.confirmed_total_php ?? o.requested_total_php), vatRatePct).gross}
+                status={o.status}
+              />
             );
             return (
               <li key={o.order_id}>
@@ -137,7 +110,7 @@ export default async function CoupleOrdersPage({ params, searchParams }: Props) 
                 ) : (
                   <Link
                     href={`/dashboard/${eventId}/orders/${o.order_id}`}
-                    className={`${ORDER_ROW_CLASS} transition-colors hover:border-terracotta/40 hover:bg-terracotta/5`}
+                    className={`${ORDER_ROW_CLASS} ${ORDER_ROW_PRESS}`}
                   >
                     {row}
                   </Link>
@@ -150,7 +123,4 @@ export default async function CoupleOrdersPage({ params, searchParams }: Props) 
     </section>
   );
 }
-
-const ORDER_ROW_CLASS =
-  'sn-row group flex flex-col gap-2 p-4 sm:flex-row sm:items-center sm:justify-between';
 

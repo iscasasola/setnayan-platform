@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "687e03e244",
+  "generatedFromRef": "e8fcca33cf",
   "routeCount": 470,
   "destinations": 1009,
   "actions": 665,
-  "blocks": 7063,
+  "blocks": 7069,
   "routes": {
     "/": {
       "files": [
@@ -541,26 +541,30 @@
       "files": [
         "(shell)/pricing/_papic-estimator.tsx",
         "(shell)/pricing/_pricing-motion.tsx",
+        "(shell)/pricing/_pricing-pickers.tsx",
         "(shell)/pricing/loading.tsx",
         "(shell)/pricing/page.tsx"
       ],
       "destinations": [
         "/creators",
         "/for-suppliers",
-        "/onboarding/wedding?from=pricing"
+        "/signup"
       ],
       "actions": [],
       "blocks": [
+        "AddItem",
+        "AiTypeItem",
         "BuildStatusChip",
+        "ElsewhereLine",
         "HTMLDivElement",
         "HTMLHeadingElement",
         "HTMLParagraphElement",
+        "HubProWays",
         "InfoTip",
         "LineRevealHeading",
         "Link",
         "PapicEstimator",
-        "PlanGroup",
-        "PlanMark",
+        "PickMenu",
         "RevealBand"
       ]
     },
@@ -935,6 +939,7 @@
         "[slug]/_components/plus-one-seat-list.tsx",
         "[slug]/_components/preview-way-back.tsx",
         "[slug]/_components/private-landing.tsx",
+        "[slug]/_components/provider-button.tsx",
         "[slug]/_components/provider-stall.tsx",
         "[slug]/_components/public-event-day-bar.tsx",
         "[slug]/_components/public-hideable-widget.tsx",
@@ -1145,6 +1150,7 @@
         "AnnouncementLine",
         "AnnouncementLook",
         "AnnouncementNotice",
+        "AppleIcon",
         "AppleOnTouch",
         "AppleWalletButton",
         "AppleWalletSheetLink",
@@ -1268,6 +1274,7 @@
         "GiftPageContent",
         "GlimpseRail",
         "GlowBlob",
+        "GoogleGIcon",
         "GracefulFallback",
         "GrainFrame",
         "GroupHeading",
@@ -1456,6 +1463,7 @@
         "PreviousEdition",
         "PrivateLanding",
         "ProgressRing",
+        "ProviderButton",
         "ProviderStall",
         "PublicEventDayBar",
         "PublicHideableWidget",

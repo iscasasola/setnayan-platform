@@ -408,11 +408,3 @@ export function saveProvidersInOrder(
 export function saveMethodSignsIn(method: SaveMethod): method is 'apple' | 'google' {
   return method === 'apple' || method === 'google';
 }
-
-/** The one line under the Save button — what the device chose, said as a fact, never a choice. */
-export function saveMethodLine(method: SaveMethod): string {
-  if (method === 'apple') return 'with Apple · nothing to type';
-  if (method === 'google') return 'with Google · nothing to type';
-  if (method === 'browser') return 'copies your link · paste it into Safari or Chrome';
-  return 'your own link · it opens this invitation on any phone';
-}

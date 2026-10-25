@@ -2,10 +2,11 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { ProviderButton } from './provider-button';
+import { AppleIcon, GoogleGIcon, OAUTH_BUTTON_CLASS } from '@/app/_components/oauth-icons';
+import { OAUTH_VERB } from '@/lib/oauth-words';
 import { envFlagEnabled } from '@/lib/env-flag';
 import {
   saveMethodFor,
-  saveMethodLine,
   saveMethodSignsIn,
   saveProvidersInOrder,
   type GuestAccountState,
@@ -33,9 +34,10 @@ import {
  *
  * 🍏🤖 BOTH PROVIDERS, WHEN BOTH ARE ON (owner 2026-10-25 — asked "Do you want to keep it that way, or show both
  * Apple and Google buttons to everyone?", answered verbatim: "Show both"). This REVERSES "THE GUEST PATHWAY — ONE
- * BUTTON AT A TIME" (2026-09-26) FOR THIS OFFER ONLY. With Apple AND Google switched on, two buttons draw, same size:
- * the device's own (`saveMethodFor`) first as the primary, the other under it as the house secondary
- * (`saveProvidersInOrder`); each posts its own provider and the action opens the one PRESSED
+ * BUTTON AT A TIME" (2026-09-26) FOR THIS OFFER ONLY. With Apple AND Google switched on, both draw as THE LOGIN'S OWN
+ * provider buttons ("Continue with Apple" · "Continue with Google", the brand marks, `OAUTH_BUTTON_CLASS` — equal
+ * size and prominence, as Apple's and Google's button guidelines require) under one heading, "Save to my account ·
+ * Nothing to type"; the device's own (`saveMethodFor`) first (`saveProvidersInOrder`); each posts its own provider and the action opens the one PRESSED
  * (`saveMethodFromForm`, which refuses a provider that is off). One provider on → that one button. None → "Copy my
  * link". "Use my email instead" stays under them.
  *
@@ -200,33 +202,43 @@ export function SaveToAccount({
         method === 'browser' ? <OpenInBrowser link={personalLink} /> : <CopyMyLink link={personalLink} />
       ) : null;
     const termsTick = <TermsTick />;
-    /* 🍏🤖 THE PROVIDER BUTTONS (owner 2026-10-25, "Show both"): the device's method first — the primary, exactly the
-       shipped button — and, when the other provider is on too, the other one under it: same size, the house
-       secondary. Each button posts its OWN provider (`ProviderButton` → `SAVE_METHOD_FIELD`), so the action opens
-       the provider the guest pressed and no other (`saveMethodFromForm`, lib/guest-one-path.ts). */
+    /* 🍏🤖 THE PROVIDER BUTTONS (owner 2026-10-25, "Show both") — THE LOGIN'S OWN BUTTONS, not a drawing of our own
+       (Rule 0; controller 2026-10-25: Apple's HIG wants Sign in with Apple in an approved style and at least as
+       prominent as any other, Google's guidelines want the G and their button). Same chrome as /login's row
+       (`OAUTH_BUTTON_CLASS`), the same marks (`AppleIcon` · `GoogleGIcon`), the same words (`OAUTH_VERB`):
+       "Continue with Apple" · "Continue with Google", identical in size. The device's own first. Each posts its OWN
+       provider (`ProviderButton` → `SAVE_METHOD_FIELD`), so the action opens the provider the guest pressed and no
+       other (`saveMethodFromForm`, lib/guest-one-path.ts). "Save to my account" is the heading over them. */
     const order = saveProvidersInOrder(method, providers);
+    const heading = (
+      <div className="text-center" data-save-heading="">
+        <p className="text-base font-medium text-ink">Save to my account</p>
+        <p className="text-xs text-ink/70">
+          Nothing to type{carries ? ` — ${carries}` : null}
+        </p>
+      </div>
+    );
     const button = (
       <>
-        {order.map((m, i) => (
-          <ProviderButton
-            key={m}
-            method={m}
-            /* Same size: the secondary's 1 px border is taken out of its padding (9 px, not 10), so both are 62 px. */
-            className={`${i === 0 ? 'button-primary py-2.5' : 'button-secondary py-[9px]'} flex h-auto min-h-[56px] w-full flex-col items-center justify-center gap-0.5`}
-            pendingLabel={m === 'apple' ? 'Opening Apple…' : 'Opening Google…'}
-            /* No full-screen veil: the press leaves for the provider's site, whose page
-               has no loader of ours to take the veil down — a stalled or abandoned
-               sign-in left the whole screen covered (owner's live test 2026-10-02). */
-            overlay={false}
-            data-save-provider={m}
-          >
-            <span className="text-base">Save to my account</span>
-            <span className="text-xs font-normal">
-              {saveMethodLine(m)}
-              {carries && i === 0 ? ` — ${carries}` : null}
-            </span>
-          </ProviderButton>
-        ))}
+        {heading}
+        <div className="space-y-2.5">
+          {order.map((m) => (
+            <ProviderButton
+              key={m}
+              method={m}
+              className={OAUTH_BUTTON_CLASS}
+              pendingLabel={m === 'apple' ? 'Opening Apple…' : 'Opening Google…'}
+              /* No full-screen veil: the press leaves for the provider's site, whose page
+                 has no loader of ours to take the veil down — a stalled or abandoned
+                 sign-in left the whole screen covered (owner's live test 2026-10-02). */
+              overlay={false}
+              data-save-provider={m}
+            >
+              {m === 'apple' ? <AppleIcon fill="#000000" /> : <GoogleGIcon />}
+              {`${OAUTH_VERB} ${m === 'apple' ? 'Apple' : 'Google'}`}
+            </ProviderButton>
+          ))}
+        </div>
       </>
     );
     // The way back when the provider does not open (`ProviderStall` names the one PRESSED).

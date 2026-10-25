@@ -35,7 +35,9 @@ test('Patiktok is paid on /features — no free half, no "free" in its copy', ()
 test('Patiktok on /pricing reads its per-day price from the row', () => {
   const src = code('app/(shell)/pricing/page.tsx');
   assert.match(src, /rowPrice\(\s*'PATIKTOK_COMPILER'\s*\)/, '/pricing no longer reads the Patiktok row');
-  assert.match(src, /formatBillingPeriodSuffix\(\s*patiktokRow\?\.billing_period\s*\)/, 'the "/ day" no longer comes from the row');
+  // 2026-10-25 (pricing revision 4): the billing words ("per day of your event") are decided by the ROW's period.
+  assert.match(src, /patiktokRow\?\.billing_period === 'per_day'/, 'the per-day words no longer come from the row');
+  assert.match(src, /bill=\{patiktokBill\}/, 'the Patiktok item no longer says how it is billed');
   assert.doesNotMatch(src, /free to make/i, '/pricing sells Patiktok as free to make');
 });
 

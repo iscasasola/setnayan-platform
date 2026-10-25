@@ -62,3 +62,63 @@ account" offer (`app/[slug]/_components/save-to-account.tsx`).
 
 SPEC IMPACT: DECISION_LOG.md row 2026-10-25 "SAVE TO MY ACCOUNT SHOWS BOTH APPLE AND GOOGLE" (owner's "Show both"
 verbatim; reverses the one-button rule for this screen only).
+
+## 2026-10-25 · fix(guest-save): the two providers are the LOGIN'S OWN buttons — "Continue with Apple / Google"
+
+Controller follow-up on the "Show both" change above, after the owner asked whether official Sign in with Apple /
+Google buttons exist: they do, and /login already draws them. Apple's HIG wants Sign in with Apple in an approved
+style and at least as prominent as any other; Google's guidelines want the G and their button. The terracotta
+primary + house secondary pair is gone.
+
+- **The Save offer now draws the login's provider buttons** — the same chrome (`OAUTH_BUTTON_CLASS`, now exported
+  from `app/_components/oauth-icons.tsx` and used by `oauth-button-row.tsx`, `native-oauth-buttons.tsx`,
+  `desktop-oauth-buttons.tsx` and the Save offer: one string for every door), the same marks (`AppleIcon` black
+  glyph · `GoogleGIcon`), the same words (`OAUTH_VERB`: "Continue with Apple" · "Continue with Google"), identical
+  size. The device's own first. Over them, the heading "Save to my account" with one short line "Nothing to type"
+  (plus "— … come along" where the thank-you passes it). "Use my email instead" stays under them.
+- Every behaviour of the change above is unchanged: the pressed provider posts, a switched-off one is refused, the
+  stall names the pressed provider, native in the phone app, iPad Safari order.
+- **Dark looks:** the login row has no dark variant any more (it went with the obsidian login), and white with the
+  black Apple glyph is one of Apple's sanctioned styles on a dark ground. The shared chrome's words and edge now take
+  `ink-on-light` (the ink for a surface that stays light) instead of the page's `ink`: identical on every light page
+  (it falls back to `--color-ink`), and on Candlelight / a dark theme the label stays dark on its white instead of
+  cream on white.
+- `saveMethodLine` (lib/guest-one-path.ts) is gone — nothing reads it now.
+- Guard `the-save-offer-shows-both-providers.test.ts` rewritten: both buttons are the login's buttons (exact class,
+  mark, title) · Apple's chrome identical to Google's · the device's first · heading above · email link under ·
+  one chrome for all four doors · the label reads on its white under Candlelight — each seen red under sabotage.
+
+SPEC IMPACT: DECISION_LOG.md row 2026-10-25 "SAVE TO MY ACCOUNT USES THE LOGIN'S OWN APPLE / GOOGLE BUTTONS".
+
+## 2026-10-25 · feat(pricing): "Free here. Paid elsewhere. / Pay only for the upgrades you need."
+
+Owner 2026-10-25, verbatim: *"make sure they see that while Other websites pay for these services, we give it for
+free. And only pay what you need to upgrade."* Built to the approved prototype
+`prototypes/pricing_free_plus_addons_2026-10-25/index.html` (corpus 20b2a55c, revision 4). Replaces this PR's earlier
+Free-vs-Pro table.
+
+- **Hero** — "Free here. Paid elsewhere. Pay only for the upgrades you need." · Start free · What you can add ↓.
+- **Free** ("What you'd pay for elsewhere.") — five lines, each with what other event sites charge (guest caps 30–50 ·
+  about ₱2,500 for a full event site · seating charts paid past 15 guests, 3D enterprise-only · check-in only on a paid
+  plan · about ₱2,700–₱3,000 a livestream), the printables, "One place, instead of several tools" (at least ₱5,489
+  elsewhere · ₱0 here — the two per-event prices summed; seating and check-in marked "extra", not summed), and the
+  compact rest of the planner. **No competitor is named.** Every other-site figure lives in `lib/pricing-elsewhere.ts`
+  with its source URL and read date (2026-10-25); the "about" and "at least" figures are arithmetic on those.
+- **What you can add** ("Pay only for the upgrades you need.") — Event Hub Pro (COUPLE_WEBSITE_PRO, both prices, the
+  launch line) with ONE dropdown: "Everything · ₱…" (the ten things it gives) or "Just the parts you need · from ₱…"
+  (the eleven `COUPLE_HUB_PART_*` rows, names and blurbs from `lib/hub-parts.ts`, what you pay counts toward the full
+  price). Then Papic credits (from the lowest rung; the ⓘ quotes the 100 · 1,000 · 10,000 rungs), Live Watch
+  (LIVE_STUDIO, drawn only while its row is on sale), Patiktok (per day, from the row's billing period), Music Maker
+  (PAKANTA), Setnayan AI by event type (one dropdown over SETNAYAN_AI · _B · _C · _D, both prices each).
+  **Every peso of ours is a `platform_retail_catalog_v2` read** — a missing row draws no figure. The parts and AI bands
+  come from one extra read (`readPricingExtras`), since the customer catalogue deliberately leaves them out.
+- Below, unchanged: the grouped add-ons catalogue, the Papic estimator, "Everything you get for free", apply-then-pay.
+- ⓘ sit beside each item's name (the house `InfoTip`: an (i) always sits beside a visible label), where the prototype
+  drew some at the end of a paragraph. The pickers are the house `PickMenu` with a hairline (the page is white).
+- Guards: `app/(shell)/pricing/pricing-free-plus-addons.test.ts` (replaces `pricing-free-vs-pro-table.test.ts`) and
+  `lib/pricing-elsewhere.test.ts` — each seen red under sabotage. Updated: `setnayan-ai-two-prices.test.ts`,
+  `patiktok-paid-verification-free-copy.test.ts`, `public-copy-says-the-house-words.test.ts` (two phrase-exact
+  allowances for "other event sites" / "Event website, unlimited guests" — they name other companies' sites),
+  `the-couple-books-never-locks.test.ts` (the old "no lock-in" line is gone, so its allowance row went too).
+
+SPEC IMPACT: DECISION_LOG.md row 2026-10-25 "/PRICING BUILT TO THE FREE-HERE-PAID-ELSEWHERE PROTOTYPE".

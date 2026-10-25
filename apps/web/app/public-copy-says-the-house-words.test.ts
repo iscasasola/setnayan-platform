@@ -129,6 +129,20 @@ const ALLOWED: ReadonlyArray<{ file: string | RegExp; phrase: RegExp; why: strin
     phrase: /local government website/i,
     why: "A city hall's own website, where a supplier renews a business permit — not ours.",
   },
+  {
+    file: 'app/(shell)/pricing/page.tsx',
+    phrase: /other event sites/i,
+    why:
+      'Names OTHER companies\' event websites — the ones /pricing compares against (owner 2026-10-25: "while Other ' +
+      'websites pay for these services, we give it for free"; prototype pricing_free_plus_addons revision 4) — never our page.',
+  },
+  {
+    file: 'app/(shell)/pricing/page.tsx',
+    phrase: /Event website, unlimited guests/,
+    why:
+      'A row of "One place, instead of several tools": the product a couple would buy ELSEWHERE, at that site\'s price ' +
+      '(lib/pricing-elsewhere.ts) — not our Event Hub, which is the "₱0 here" beside it.',
+  },
 ];
 
 function walk(p: string): string[] {

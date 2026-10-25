@@ -101,13 +101,14 @@ function LockTile() {
   );
 }
 
-function WhyPoint({ shot, title, line, tip }: { shot: ReactNode; title: string; line: string; tip: string }) {
+/** `align`: the right-hand picture of a phone's two columns hangs its ⓘ from the right, or the popover runs off the page. */
+function WhyPoint({ shot, title, line, tip, align = 'start' }: { shot: ReactNode; title: string; line: string; tip: string; align?: 'start' | 'end' }) {
   return (
     <li>
       {shot}
       <p className="m-0 mt-3 font-pahina text-[18.5px] leading-[1.15] tracking-[-0.01em]">{title}</p>
       <div className="mt-1 text-[13.5px] leading-snug text-ink/65">
-        <InfoTip label={line} align="start">
+        <InfoTip label={line} align={align}>
           {tip}
         </InfoTip>
       </div>
@@ -342,6 +343,7 @@ export default async function PricingPage() {
             />
             <WhyPoint
               shot={<WhyShot src="/feature-shots/3d-plan-0.jpg" y="21%" zoom={1.25} />}
+              align="end"
               title="A seat plan you can walk in 3D"
               line="Lay the tables out, then walk the room."
               tip="Every chair named; tap a guest to see the room from their seat. Included with every event."
@@ -354,6 +356,7 @@ export default async function PricingPage() {
             />
             <WhyPoint
               shot={<LockTile />}
+              align="end"
               title="Private by default. You choose who can view."
               line="Only me, invited only, or public."
               tip="A new event is private until you say otherwise — open it to the people you invite, or list it in Discover for anyone to find. A fourth choice, Unlisted, lets anyone with the link open it."

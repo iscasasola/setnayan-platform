@@ -55,12 +55,20 @@ export function RsvpSeats({
 function SeatTile({ tag, sub, you = false }: { tag: string; sub: string; you?: boolean }) {
   return (
     <li
-      className={`min-w-0 flex-1 rounded-lg border px-2 pb-2.5 pt-3 text-center text-xs ${
-        you ? 'max-w-[7.5rem] border-mulberry text-ink' : 'border-dashed border-ink/25 text-ink/70'
-      }`}
+      className={`min-w-0 flex-1 px-2 pb-2.5 pt-3 text-center text-xs ${you ? 'max-w-[7.5rem] text-ink' : 'text-ink/70'}`}
       data-rsvp-seat-tile={tag}
     >
-      <svg aria-hidden viewBox="0 0 34 30" fill="none" stroke="currentColor" strokeWidth="1.6" className="mx-auto mb-1.5 block h-[30px] w-[34px]">
+      {/* 🪑 No frame on a seat — it is not pressed (lint-no-card · "frames only on what you press"): the seat icon
+          carries it, mulberry for the guest's own, a quiet dashed one for a seat still to name. */}
+      <svg
+        aria-hidden
+        viewBox="0 0 34 30"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeDasharray={you ? undefined : '3 2'}
+        className={`mx-auto mb-1.5 block h-[30px] w-[34px] ${you ? 'text-mulberry' : 'text-ink/45'}`}
+      >
         <path d="M7 4h20v12H7z" />
         <path d="M5 16h24v6H5z" />
         <path d="M8 22v6M26 22v6" />

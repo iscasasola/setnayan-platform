@@ -6,6 +6,8 @@ they confirm their name and their nickname and contact number then their plus se
 
 - **Seats step (new)** after "Joyfully accepts": "We reserved N seats for you" (N includes the guest), one tile per
   seat — You · +1 · +2 — and one line with the rest in its ⓘ (`rsvp-seats.tsx`, words in `lib/rsvp-seats-words.ts`).
+  A seat is not pressed, so it has no frame (`lint-no-card`): the seat icon carries it — mulberry for the guest's own,
+  dashed for one still to name.
 - **You step**: the guest's name READ-ONLY ("You're Teresita Aquino") with **"Wrong name? Tell the couple"** — a small
   sheet whose text rides with the reply as `name_correction` and is added to `guests.guest_note` as one
   "Name correction: …" line, even when the note question is off (`lib/rsvp-you-step.ts` `withNameCorrection`). Names

@@ -1,3 +1,4 @@
+import { FREE_THEMES, PRO_THEMES } from '@/lib/invite-themes';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { ArrowRight, Check, Sparkles, Brush, Clock3 } from 'lucide-react';
@@ -191,7 +192,7 @@ const AI_TYPE_WORDS: ReadonlyArray<{ band: 'A' | 'B' | 'C' | 'D'; label: string 
 
 /** What Event Hub Pro (everything) gives — prototype revision 4, the ten lines, each a gate of `HUB_PRO_GATES`. */
 const PRO_GIVES: ReadonlyArray<{ n: string; note?: string }> = [
-  { n: '7 Pro themes, for every event type', note: 'Classic, Modern and Cyber Neon stay free' },
+  { n: `${PRO_THEMES.length} Pro themes, for every event type`, note: `${FREE_THEMES.map((t) => t.name).join(', ').replace(/, ([^,]*)$/, ' and $1')} stay free` },
   { n: 'Your own photos and video on the Event Hub', note: 'behind the page, behind a scene, in a scene' },
   { n: 'Background music and a video at the top' },
   { n: 'The cinematic reveal', note: 'every opening and its effects' },
@@ -970,7 +971,7 @@ export default async function PricingPage() {
           </p>
           <ul className="mt-2.5 text-[13.5px]" data-elsewhere-combo>
             {[
-              { n: 'Event website, unlimited guests & RSVPs', elsewhere: `₱${formatPeso(ELSEWHERE.siteFull.value)}` },
+              { n: 'Event page, unlimited guests & RSVPs', elsewhere: `₱${formatPeso(ELSEWHERE.siteFull.value)}` },
               { n: 'Livestream, one camera', elsewhere: `₱${formatPeso(ELSEWHERE.livestreamPersonal.value)}` },
               { n: 'Seating chart, 2D and 3D', elsewhere: 'extra' },
               { n: 'Door check-in by QR', elsewhere: 'extra' },

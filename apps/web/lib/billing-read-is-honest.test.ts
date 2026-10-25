@@ -90,12 +90,10 @@ test('rows join their receipt, open it, and a supplier bill never opens the coup
   assert.equal(paid?.receiptId, 'r1');
   assert.equal(paid?.receiptNumber, 'TXN-2026-000041');
   assert.equal(paid?.grossPhp, 2500, 'a receipted row shows what was PAID (the receipt gross)');
-  assert.equal(purchaseHref(paid!, false), '/receipts/r1');
+  assert.equal(purchaseHref(paid!), '/receipts/r1');
   assert.equal(bill?.isSupplierBilling, true);
   assert.equal(bill?.grossPhp, 999, 'a vendor_ price is already gross — no VAT built on top');
-  assert.equal(purchaseHref(bill!, false), null, 'the couple’s event is not the supplier’s to open');
-  assert.equal(purchaseHref({ ...paid!, receiptId: null }, false), '/dashboard/e1/orders/o1', 'unpaid → where it is paid');
-  assert.equal(purchaseHref({ ...paid!, receiptId: null }, true), null, 'the store shell refuses the order page');
+  assert.equal(purchaseHref(bill!), '/receipts/order/o2', 'no receipt yet → the same slip for the order');
 });
 
 test('event names come from the person’s own event orders only; a refused names read never invents one', async () => {
@@ -166,4 +164,12 @@ test('the measurement reaches the RENDER — the refused state comes before the 
   assert.match(page, /fetchMyPurchasesMeasured\(supabase, user\.id, vatRatePct\)/, 'the page reads through the measured read');
   assert.match(page, /<BillingList read=\{read\}/, 'and hands the whole measurement to the list');
   assert.doesNotMatch(page, /createAdminClient|service_role/, 'reads on the person’s own client, under RLS');
+});
+
+test('the order slip is the payer’s alone, forwards to its receipt, and never shows a Pay door in the store shell', () => {
+  const slip = read('app/receipts/order/[orderId]/page.tsx');
+  assert.match(slip, /order\.user_id !== user\.id/, 'an admin or co-host can READ others’ orders — this page is for the payer');
+  assert.match(slip, /if \(receipt\) redirect\(`\/receipts\/\$\{receipt\.receipt_id\}`\)/, 'once paid, the receipt replaces the slip');
+  assert.match(slip, /!supplierBill && !storeShell/, 'no Pay door for a supplier’s own bill or in the App Store shell');
+  assert.doesNotMatch(slip, /createAdminClient|service_role/, 'reads on the person’s own client, under RLS');
 });

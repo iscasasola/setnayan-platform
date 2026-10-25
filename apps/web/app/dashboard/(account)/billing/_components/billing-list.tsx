@@ -11,8 +11,9 @@ import { purchaseHref, shapePurchases, type Purchase, type PurchasesRead } from 
  * his OK of the designer's prototype): one summary line · WAITING FOR PAYMENT pinned on top, each with a Pay door ·
  * then one group per event and "Your shop", newest first. Each row is ONE line — what it is on the left, the amount
  * on the right — with one small "date · status" line under it. No boxes: rows are divided by a hairline, and the
- * WHOLE row is the door (its receipt; an unpaid event order opens where it is paid). Reference numbers and "incl.
- * VAT" live on the receipt itself, not here.
+ * WHOLE row is the door — its receipt, or the same slip for an unpaid order (`purchaseHref`). Reference numbers and
+ * VAT live on the slip itself, not here. The Pay chip is not drawn in the App Store shell or on a supplier's own bill
+ * (the slip shows no Pay door there either).
  *
  * HONEST STATES, each its own words:
  *   · the read was REFUSED  → "Your purchases didn't load." — never the empty state (a refusal is not a fact);
@@ -63,7 +64,7 @@ export function BillingList({ read, storeShell }: { read: PurchasesRead; storeSh
           <h2 className="pb-1 font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">Waiting for payment</h2>
           <ul className="divide-y divide-ink/10 border-y border-ink/10">
             {awaiting.map((p) => (
-              <Row key={p.orderId} p={p} href={purchaseHref(p, storeShell)} pay />
+              <Row key={p.orderId} p={p} href={purchaseHref(p)} pay={!storeShell && !p.isSupplierBilling} />
             ))}
           </ul>
         </section>
@@ -74,7 +75,7 @@ export function BillingList({ read, storeShell }: { read: PurchasesRead; storeSh
           <h2 className="truncate pb-1 font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">{g.label}</h2>
           <ul className="divide-y divide-ink/10 border-y border-ink/10">
             {g.rows.map((p) => (
-              <Row key={p.orderId} p={p} href={purchaseHref(p, storeShell)} />
+              <Row key={p.orderId} p={p} href={purchaseHref(p)} />
             ))}
           </ul>
         </section>

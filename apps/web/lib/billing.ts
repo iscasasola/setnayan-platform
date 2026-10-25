@@ -150,14 +150,13 @@ export async function fetchMyPurchasesMeasured(
 }
 
 /**
- * Where a row opens: its receipt when there is one; otherwise the event's order page (where an unpaid order is
- * paid) — but never for a supplier's own billing (the couple's event is not theirs to open) and never in the
- * App Store shell, whose middleware refuses the order pages (`lib/store-shell.ts`). null = the row is read only.
+ * Where a row opens: its receipt (`/receipts/<id>`) when there is one; otherwise the same paper slip for the ORDER
+ * (`/receipts/order/<id>` — "awaiting payment", where to pay, the reference, and a Pay door to the event's order
+ * page). Every row is a door now (owner 2026-10-25: the whole row opens its slip). The slip page itself decides
+ * whether a Pay door may show (never for a supplier's own bill, never in the App Store shell).
  */
-export function purchaseHref(p: Purchase, storeShell: boolean): string | null {
-  if (p.receiptId) return `/receipts/${p.receiptId}`;
-  if (p.eventId && !p.isSupplierBilling && !storeShell) return `/dashboard/${p.eventId}/orders/${p.orderId}`;
-  return null;
+export function purchaseHref(p: Purchase): string {
+  return p.receiptId ? `/receipts/${p.receiptId}` : `/receipts/order/${p.orderId}`;
 }
 
 /** Statuses that count as money paid in the summary line (a refund is not money kept; a cancel was never paid). */

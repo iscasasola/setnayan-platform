@@ -26,5 +26,20 @@ the controller's two recommendations.
   route's lost `<AppearanceChoice>`/`<PickMenu>` is the deliberate move), `no-door.baseline.txt` (+ the dev lab).
   Lab: `/dev/billing-lab?state=rows|empty|unread|noreceipts`.
 
+- **The receipt is a paper slip** (owner approved the prototype 2026-10-25, "the rest on the receipts"):
+  `app/receipts/[receiptId]/page.tsx` now draws `app/receipts/_components/receipt-slip.tsx` — narrow centred slip,
+  SETNAYAN wordmark, "Transaction receipt" + No., amount big in mono, date · time · method, dashed tear, line items
+  (what · ×qty · amount) + a VAT line ONLY when the row carries VAT (same `vatWasCharged` rule), Total + "VAT included"
+  (also only with VAT), paid by / method / logged / confirmed, the references small at the foot, "Transaction receipt —
+  not a BIR Official Receipt", zigzag bottom edge; Save as PDF (print) · Share (the owner-only link — no public token)
+  under it. Dark: the slip stays light paper on the dark page. Same data + RLS: receipt row, plus its order and
+  payments on the person's own client (a refused read leaves those lines out).
+- **New `/receipts/order/[orderId]`** — the same slip before the money moves (payer-only; forwards to the receipt once
+  one exists): "Order · awaiting payment", Pay to (masked) + Reference, and a gold "Pay ₱X" to the event's order page
+  — never for a supplier's own bill, never in the App Store shell. Billing rows without a receipt now open it.
+- **`ReceiptStamp`** (`app/receipts/_components/receipt-stamp.tsx`) — ONE component, `status: 'paid' | 'awaiting'`,
+  neutral placeholder look until the owner picks one of the designer's three stamp pairs.
+- Lab: `/dev/receipt-lab?state=paid|novat|awaiting`.
+
 SPEC IMPACT: DECISION_LOG.md row 2026-10-25 "ACCOUNT MENU: BILLING & RECEIPTS + APPEARANCE MOVES INTO IT"
 (owner quote, the move, the page's scope).

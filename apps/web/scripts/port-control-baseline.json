@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "2747d59d17",
-  "routeCount": 468,
+  "generatedFromRef": "842c4f954f",
+  "routeCount": 470,
   "destinations": 1008,
   "actions": 665,
-  "blocks": 7029,
+  "blocks": 7041,
   "routes": {
     "/": {
       "files": [
@@ -11390,6 +11390,20 @@
         "ProQuietLine"
       ]
     },
+    "/dev/receipt-lab": {
+      "files": [
+        "dev/receipt-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "Link",
+        "ReceiptPage",
+        "ReceiptSlip",
+        "SaveAsPdfButton",
+        "ShareReceiptButton"
+      ]
+    },
     "/dev/schedule-lab": {
       "files": [
         "dev/schedule-lab/page.tsx",
@@ -12727,7 +12741,23 @@
       "destinations": [],
       "actions": [],
       "blocks": [
-        "Line"
+        "ReceiptPage",
+        "ReceiptSlip",
+        "SaveAsPdfButton",
+        "ShareReceiptButton"
+      ]
+    },
+    "/receipts/order/[orderId]": {
+      "files": [
+        "receipts/order/[orderId]/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "Link",
+        "ReceiptPage",
+        "ReceiptSlip",
+        "ShareReceiptButton"
       ]
     },
     "/reset-password": {

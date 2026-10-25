@@ -419,9 +419,29 @@ button.ico {
   padding: 8px 0;
   color: var(--gs-mute);
 }
-/* SEARCH OR ADD — the last row while a search has hits: one button, no frame of its own around it. */
-.searchAdd {
-  margin-top: 14px;
+/* SEARCH IS THE ADD (owner 2026-10-25) — the FIRST result while a search has hits: the one Add button, then the other
+   ways in as plain rows, two to a line. No frame around the block; only the buttons are pressable. */
+.typedAdd {
+  margin: 6px 0 12px;
+}
+.ways {
+  margin-top: 8px;
+}
+.waysLabel {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--gs-mute);
+  margin: 0 0 2px;
+}
+.waysGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 8px;
+}
+.waysGrid > * {
+  min-width: 0;
 }
 .nomatch {
   border: 1px solid var(--gs-line);

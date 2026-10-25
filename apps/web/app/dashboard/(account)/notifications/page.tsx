@@ -1,12 +1,8 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { CheckCheck } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnNotifications } from '@/lib/notifications';
-import { markAllNotificationsRead } from '@/lib/notification-actions';
-import { SubmitButton } from '@/app/_components/submit-button';
-import { NotificationsList } from '@/app/_components/notifications/notifications-list';
-import { PageMasthead } from '@/app/_components/page-masthead';
+import { NotificationsHead, NotificationsList } from '@/app/_components/notifications/notifications-list';
 
 export const metadata = { title: 'Notifications' };
 
@@ -22,25 +18,12 @@ export default async function CoupleNotificationsPage() {
   const returnTo = '/dashboard/notifications';
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
-      <PageMasthead
-        title="Notifications"
-        actions={
-          unreadCount > 0 ? (
-            <form action={markAllNotificationsRead}>
-              <input type="hidden" name="return_to" value={returnTo} />
-              <SubmitButton
-                className="button-secondary inline-flex items-center gap-2"
-                pendingLabel="Marking…"
-              >
-                <CheckCheck aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-                Mark all read
-              </SubmitButton>
-            </form>
-          ) : null
-        }
-        className="mb-6"
-      />
+    /*
+      "VIEW ALL" — THE SAME ROWS AS THE BELL'S POP-OVER (owner 2026-10-25: "view all notifications simpler"). A visible
+      "Notifications" title with the quiet "Mark all read" beside it; no cards, no type pills, no per-row buttons.
+    */
+    <div className="mx-auto w-full max-w-3xl pb-10 pt-4 lg:pt-7" data-notifications-page="">
+      <NotificationsHead unreadCount={unreadCount} returnTo={returnTo} level="page" />
 
       <NotificationsList
         items={items}

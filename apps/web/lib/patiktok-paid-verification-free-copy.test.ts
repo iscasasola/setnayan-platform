@@ -33,11 +33,13 @@ test('Patiktok is paid on /features — no free half, no "free" in its copy', ()
 });
 
 test('Patiktok on /pricing reads its per-day price from the row', () => {
+  // 2026-10-25 (prototype `pricing_ours_only` revision 5): the row is read in `_pricing-reads.ts`; "a day" is decided by
+  // the ROW's billing period, and the page draws it from there.
+  const reads = code('app/(shell)/pricing/_pricing-reads.ts');
+  assert.match(reads, /php\(\s*'PATIKTOK_COMPILER'\s*\)/, '/pricing no longer reads the Patiktok row');
+  assert.match(reads, /perDay: patiktokRow\?\.billing_period === 'per_day'/, 'the per-day words no longer come from the row');
   const src = code('app/(shell)/pricing/page.tsx');
-  assert.match(src, /rowPrice\(\s*'PATIKTOK_COMPILER'\s*\)/, '/pricing no longer reads the Patiktok row');
-  // 2026-10-25 (pricing revision 4): the billing words ("per day of your event") are decided by the ROW's period.
-  assert.match(src, /patiktokRow\?\.billing_period === 'per_day'/, 'the per-day words no longer come from the row');
-  assert.match(src, /bill=\{patiktokBill\}/, 'the Patiktok item no longer says how it is billed');
+  assert.match(src, /suffix=\{prices\.patiktok\.perDay \? 'a day' : undefined\}/, 'the Patiktok row no longer says how it is billed');
   assert.doesNotMatch(src, /free to make/i, '/pricing sells Patiktok as free to make');
 });
 

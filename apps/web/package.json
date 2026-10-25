@@ -35,6 +35,7 @@
     "capture:demos": "node scripts/capture-demo-videos.mjs",
     "capture:stills": "node scripts/capture-demo-stills.mjs",
     "capture:theme-samples": "tsx scripts/capture-theme-samples.ts",
+    "render:papic-looks": "tsx scripts/render-papic-looks.ts",
     "admin:jobs": "tsx scripts/gen-admin-jobs.ts",
     "admin:map": "tsx scripts/gen-admin-map.ts",
     "test:unit": "tsx --test $TEST_SHARD_FLAG \"lib/**/*.test.ts\" \"app/**/*.test.ts\"",

@@ -192,7 +192,6 @@ const ANCHOR_HOME: Record<string, string | string[]> = {
   'people-loved-ones': 'app/dashboard/(account)/people/_components/people-roster-view.tsx',
   'people-view': 'app/dashboard/(account)/people/_components/people-roster-view.tsx',
   'people-find': 'app/dashboard/(account)/people/_components/find-or-invite.tsx',
-  'people-invite': 'app/dashboard/(account)/people/_components/find-or-invite.tsx',
   'events-planning': 'app/dashboard/(launcher)/page.tsx',
   'events-worth': 'app/dashboard/(launcher)/page.tsx',
   'account-avatar': 'app/_components/account-switcher/account-switcher.tsx',
@@ -200,7 +199,6 @@ const ANCHOR_HOME: Record<string, string | string[]> = {
   'guests-counts': 'app/dashboard/[eventId]/guests/_components/guests-screen.tsx',
   'guests-row': 'app/dashboard/[eventId]/guests/_components/guests-screen.tsx',
   'guests-sort': 'app/dashboard/[eventId]/guests/_components/guests-screen.tsx',
-  'guests-plus': 'app/dashboard/[eventId]/guests/_components/guests-screen.tsx',
   'suppliers-segments': 'app/dashboard/[eventId]/vendors/_components/services-takeover.tsx',
   'suppliers-category': 'app/dashboard/[eventId]/vendors/_components/shortlist-categories.tsx',
   'suppliers-add-own': 'app/dashboard/[eventId]/vendors/_components/find-thumb-row.tsx',
@@ -227,6 +225,10 @@ const ANCHOR_HOME: Record<string, string | string[]> = {
   'me-photos': 'app/papic/me/[token]/page.tsx',
   'me-download': 'app/papic/me/[token]/page.tsx',
   'me-story': 'app/papic/me/[token]/_components/guest-story-maker.tsx',
+  // /pricing's first-visit tour (2026-10-25, prototype pricing_ours_only revision 5).
+  'pricing-why': 'app/(shell)/pricing/page.tsx',
+  'pricing-prices': 'app/(shell)/pricing/page.tsx',
+  'pricing-quiz': 'app/(shell)/pricing/page.tsx',
 };
 
 test('every spotlight stop names its home component, and that component draws it', () => {

@@ -122,7 +122,10 @@ test('the promise it does make is one the provider flow keeps', () => {
 // ═══ 3 · saving keeps the photos — said, and true ══════════════════════════
 
 test('the photos reason is given at the Save button, and not merely somewhere in the file', () => {
-  assert.match(flat(SAVE), /Keeps the photos of you/, 'the reason the owner asked for is not beside the Save button');
+  // 🎟 Option A (2026-10-25): the reason is the head's own line beside the buttons ("Your ticket and the photos of
+  // you, in one place."), and the ⓘ says it whole ("It keeps this ticket and the photos you’re in").
+  assert.match(flat(SAVE), /Your ticket and the photos of you, in one place\./, 'the reason the owner asked for is not beside the Save button');
+  assert.match(flat(SAVE), /keeps this ticket and the photos you’re in/, 'the ⓘ no longer says what saving keeps');
 });
 
 test('the photos sentence does not outrun the feature', () => {

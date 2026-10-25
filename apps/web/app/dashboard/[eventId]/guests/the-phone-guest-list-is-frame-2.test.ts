@@ -31,13 +31,16 @@ test('one screen at every width — no breakpoint hides a control', () => {
   assert.doesNotMatch(PAGE, /data-guests-phone-title|data-roster-doors-row/, 'the retired phone title or doors row is back on the page');
 });
 
-test('the add doors: ONE + (the thumb row’s Add) opens the sheet; the four other ways are ONE dropdown in it', () => {
+test('the add doors: no round + (owner 2026-10-25); the four other ways are ONE list, a dropdown in the sheet', () => {
+  // Owner 2026-10-25: "Yes, remove the + on the guest list. Typing in the search adds" — the field is the add; the
+  // typed results and ≡ carry the other ways (search-or-add.test.ts holds those two).
   const sheet = read('_components', 'add-guest-sheet.tsx');
   assert.match(sheet, /<PickMenu\b[\s\S]{0,200}label="Add another way"/, 'the four other ways are not one dropdown');
-  for (const w of ['From your people', 'With details', 'Import a file', 'Paste many names']) {
-    assert.ok(sheet.includes(`'${w}'`), `the dropdown lost "${w}"`);
+  assert.match(sheet, /options=\{ADD_WAYS\.map\(/, 'the sheet’s dropdown no longer reads the one list');
+  for (const w of ['From your people', 'Add with details', 'Import a file', 'Paste many names']) {
+    assert.ok(sheet.includes(`'${w}'`), `the list lost "${w}"`);
   }
-  assert.match(SCREEN, /openAddGuest\(q\)/, 'the thumb row’s Add does not open the sheet with the typed name');
+  assert.match(SCREEN, /if \(addTyped\(v\) === NEEDS_BOTH_NAMES\) openAddGuest\(v\);/, 'a one-name line no longer opens the sheet with the typed name');
 });
 
 test('the add sheet says what the name box understands — one example, one Tips fold, for THIS event', () => {

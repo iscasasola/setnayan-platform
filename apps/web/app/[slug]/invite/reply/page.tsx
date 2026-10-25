@@ -478,6 +478,7 @@ async function inviteReplyPage({ params, searchParams }: Props) {
               meal: s.meal,
               dietary: s.dietary,
               linked: s.linked,
+              rsvp_status: s.rsvpStatus,
             })),
           }}
           eventId={event.event_id as string}

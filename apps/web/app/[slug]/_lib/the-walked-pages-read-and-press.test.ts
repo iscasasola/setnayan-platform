@@ -114,7 +114,7 @@ const READ: Array<[string, string]> = [
   ['find-my-table/page.tsx', 'Powered by Setnayan · setnayan.com</p>'],
   ['recap/page.tsx', 'A living memory.</p>'],
   ['pabuya/page.tsx', 'Kept safe on Setnayan'],
-  ['_components/save-to-account.tsx', 'Keeps the photos of you'],
+  ['_components/save-to-account.tsx', 'Use my email instead'],
 ];
 
 const PRESS: Array<[string, string]> = [
@@ -192,12 +192,17 @@ test('a ROUND press stays round — its height and width are the same floor', ()
 
 test('the Terms line: the box is a 44×44 press drawing a 20px box, and the words keep their sentence', () => {
   const src = stripComments(readFileSync(join(ROOT, '_components/terms-tick.tsx'), 'utf8'));
-  const press = src.match(/<span className="([^"]*)">\s*<input/)?.[1]?.split(/\s+/) ?? [];
-  for (const c of ['h-11', 'w-11', '-mx-3', '-mb-3', '-mt-2.5']) assert.ok(press.includes(c), `the box's press lost ${c} (${press.join(' ')})`);
-  const input = src.match(/<input[^>]*className="([^"]*)"/)?.[1]?.split(/\s+/) ?? [];
+  // 2026-10-25: the box is the house tick (`tick-box.tsx`), shared with the reply's "They're coming" — the Terms line
+  // hands it the offsets that take the 44px press's extra room back; the piece draws the press, input and box.
+  const box = stripComments(readFileSync(join(ROOT, '_components/tick-box.tsx'), 'utf8'));
+  const offsets = src.match(/<TickBox press="([^"]*)"/)?.[1]?.split(/\s+/) ?? [];
+  for (const c of ['-mx-3', '-mb-3', '-mt-2.5']) assert.ok(offsets.includes(c), `the box's press lost ${c} (${offsets.join(' ')})`);
+  const press = box.match(/<span className=\{`([^`]*)`\}[^>]*>\s*<input/)?.[1]?.split(/\s+/) ?? [];
+  for (const c of ['h-11', 'w-11']) assert.ok(press.includes(c), `the box's press lost ${c} (${press.join(' ')})`);
+  const input = box.match(/<input[^>]*className="([^"]*)"/)?.[1]?.split(/\s+/) ?? [];
   assert.ok(input.includes('h-full') && input.includes('w-full') && input.includes('absolute'), `the input no longer fills its 44px press (${input.join(' ')})`);
-  assert.ok(/aria-hidden="true"\s+className="[^"]*\bh-5 w-5\b/.test(src), 'the painted box is no longer 20px');
-  assert.ok(!src.includes('>') || !/className="[^"]*[^-\w]\[&>/.test(src), 'a ">" in a class list breaks the guard that finds the input');
+  assert.ok(/aria-hidden="true"\s+className=\{`[^`]*\bh-5 w-5\b/.test(box), 'the painted box is no longer 20px');
+  assert.ok(!/className="[^"]*[^-\w]\[&>/.test(src + box), 'a ">" in a class list breaks the guard that finds the input');
   // BOTH places that show the line use this one piece — a copy in either would not carry the fix.
   for (const [rel, user] of [['_components/rsvp-widget.tsx', '<TermsTick id="rsvp_terms">'], ['_components/save-to-account.tsx', '<TermsTick />']] as const) {
     const code = stripComments(readFileSync(join(ROOT, rel), 'utf8'));

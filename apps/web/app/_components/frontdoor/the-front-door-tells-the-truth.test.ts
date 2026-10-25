@@ -16,9 +16,9 @@
  *      "keep every photo" (both overpromise: photos use Papic credits);
  *   3. the Papic line is there and carries NO number (free credits are first-event only;
  *      an amount on the front door reads as per event);
- *   4. the main button reaches `/dashboard/create-event` — the app's one event-type
- *      picker — and not the wedding-only onboarding, and that page still renders the
- *      picker;
+ *   4. the main button opens `/start` — the public event-type picker, before sign-up
+ *      (owner 2026-10-25) — which draws the SHIPPED create-event grid and routes each
+ *      type by the same rule as the signed-in picker; "How it works" opens /features;
  *   5. the main button wears the house terracotta token (`--m-mulberry`), not the gold.
  *
  * 🛡 Comments are stripped before any source match (`lib/strip-comments.ts`).
@@ -95,18 +95,54 @@ function mainButton(html: string): { href: string; cls: string } {
   return { cls: a[1] ?? '', href: (a[2] ?? '').replace(/&amp;/g, '&') };
 }
 
-test('4 · the main button reaches the event-type picker, not the wedding-only flow', async () => {
+test('4 · the main button opens the public type picker, which is the shipped grid and routes by the shared rule', async () => {
   const { href } = mainButton(await hero());
-  const url = new URL(href, 'https://setnayan.com');
-  const lands = url.pathname === '/signup' ? (url.searchParams.get('next') ?? '') : url.pathname;
   assert.equal(
-    lands.split('?')[0],
-    '/dashboard/create-event',
-    `"Start your event — free" goes to ${href}. The page says "any event"; the button must reach the ` +
-      'create-event type picker (directly, or through /signup?next=), never /onboarding/wedding alone.',
+    href,
+    '/start',
+    `"Start your event — free" goes to ${href}. Owner 2026-10-25: it opens the public event-type picker ` +
+      '(/start) BEFORE sign-up — never /onboarding/wedding alone, never a sign-up wall first.',
   );
-  const picker = stripComments(readFileSync(path.join(APP, 'dashboard/(account)/create-event/page.tsx'), 'utf8'));
-  assert.match(picker, /<EventTypePicker\b/, 'the create-event page no longer renders the event-type picker');
+  const page = stripComments(readFileSync(path.join(APP, '(shell)/start/page.tsx'), 'utf8'));
+  const grid = stripComments(readFileSync(path.join(APP, '(shell)/start/_components/start-type-grid.tsx'), 'utf8'));
+  assert.match(page, /getCreatableEventTypes\(\)/, '/start must read the same roster as /dashboard/create-event');
+  assert.match(page, /startHrefFor\(/, '/start must route each type by the shared rule (startHrefFor → onboardingRouteFor)');
+  assert.doesNotMatch(page, /\/signup|\/login/, '/start must not put sign-up or sign-in in front of a type');
+  assert.match(grid, /<EventTypePhotoPicker\b/, "/start must draw the shipped create-event grid, not a redrawn one");
+  const picker = stripComments(
+    readFileSync(path.join(APP, 'dashboard/(account)/create-event/_components/event-type-picker.tsx'), 'utf8'),
+  );
+  assert.match(picker, /onboardingRouteFor\(/, 'the signed-in picker stopped using the shared route rule');
+});
+
+test('4b · a type goes straight to its own onboarding (the shared rule, executed)', async () => {
+  const { onboardingRouteFor } = await import('@/app/dashboard/(account)/create-event/_components/event-types');
+  assert.equal(onboardingRouteFor({ key: 'wedding', onboardingHref: '/onboarding/wedding' }, true), '/onboarding/wedding');
+  assert.equal(onboardingRouteFor({ key: 'debut', onboardingHref: null }, true), '/onboarding/debut');
+  assert.equal(onboardingRouteFor({ key: 'simple_event', onboardingHref: '/onboarding/simple' }, true), '/onboarding/simple');
+  assert.equal(onboardingRouteFor({ key: 'debut', onboardingHref: null }, false), null);
+  assert.equal(onboardingRouteFor({ key: 'wedding', onboardingHref: null }, true), null);
+});
+
+test('4d · every public picker tile goes straight to /onboarding/<type> — no sign-up in front', async () => {
+  // Owner 2026-10-25: "Yes they can create an event. But saving an event must link by logging in."
+  const { startHrefFor, EVENT_TYPES_FALLBACK } = await import(
+    '@/app/dashboard/(account)/create-event/_components/event-types'
+  );
+  const roster = [...EVENT_TYPES_FALLBACK, { key: 'simple_event', onboardingHref: '/onboarding/simple' }, { key: 'wake', onboardingHref: null }];
+  for (const quizOn of [true, false]) {
+    for (const t of roster) {
+      const href = startHrefFor(t, quizOn);
+      assert.match(href, /^\/onboarding\/[a-z_]+$/, `/start sends ${t.key} to ${href} — it must be its own /onboarding/<type>`);
+    }
+  }
+  assert.equal(startHrefFor({ key: 'debut', onboardingHref: null }, true), '/onboarding/debut');
+});
+
+test('4c · "How it works" opens the Features hub', async () => {
+  const a = /<a\b(?=[^>]*\bclass="[^"]*\bfd-opening-alt\b)(?=[^>]*\bhref="([^"]*)")[^>]*>/.exec(await hero());
+  assert.ok(a, 'the hero lost its "How it works" link');
+  assert.equal(a[1], '/features', `"How it works" goes to ${a[1]} — owner 2026-10-25: the Features hub`);
 });
 
 test('5 · the main button is terracotta (the house token), not the gold', async () => {

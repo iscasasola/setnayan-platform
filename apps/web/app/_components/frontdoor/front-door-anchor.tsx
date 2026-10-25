@@ -106,27 +106,23 @@ export function FrontDoorAnchor() {
       <p className="fd-opening-papic">Unlimited cameras &middot; photos use Papic credits.</p>
       <div className="fd-opening-acts">
         {/*
-          🧭 ANY EVENT, SO THE DOOR ASKS WHICH ONE (owner 2026-10-25). This went
-          to `/onboarding/wedding` alone while the headline said "any event".
-          The app's ONE event-type choice is the create-event picker
-          (`/dashboard/(account)/create-event`, EventTypePicker), which sends
-          each of the live types on to its own `/onboarding/<type>`. It is
-          behind sign-in, and `/dashboard`'s layout drops the sub-path on its
-          login bounce — so a stranger reaches it the way the shop page's
-          signed-out composer does: through `/signup` with `next` (a person
-          already signed in is sent straight on by /signup's own bypass).
+          🧭 ANY EVENT, SO THE DOOR ASKS WHICH ONE — BEFORE SIGN-UP (owner
+          2026-10-25). This went to `/onboarding/wedding` alone while the
+          headline said "any event". `/start` is the shipped create-event grid
+          on a public page; each type goes straight to its own
+          `/onboarding/<type>`, and each onboarding asks for the account where
+          it always has. A signed-in visitor is sent on to the full picker.
 
           🎨 TERRACOTTA, NOT THIS PAGE'S GOLD (owner 2026-10-25: "If for event
           hub then use the event's color but for setnayan use our template").
           `.fd-btn-terra` wears `--m-mulberry`, the house main-button token.
         */}
-        <Link
-          href="/signup?next=%2Fdashboard%2Fcreate-event"
-          className="fd-btn-terra fd-opening-cta"
-        >
+        <Link href="/start" className="fd-btn-terra fd-opening-cta">
           Start your event — free
         </Link>
-        <Link href="/our-story" className="fd-opening-alt">
+        {/* "How it works" → the Features hub (owner 2026-10-25); /our-story is a
+            manifesto with no steps. */}
+        <Link href="/features" className="fd-opening-alt">
           How it works
         </Link>
       </div>

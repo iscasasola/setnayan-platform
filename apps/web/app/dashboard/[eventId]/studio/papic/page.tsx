@@ -48,6 +48,7 @@ import { MagazineCard } from './_components/magazine-card';
 import { RecapCard } from './_components/recap-card';
 import { PapicBuySheet } from './_components/papic-buy-sheet';
 import { IapPapicSheet } from '@/app/_components/iap/iap-papic-sheet';
+import { SERVICE_NAMES } from '@/lib/service-names';
 import { PapicHomeCard } from '@/app/dashboard/[eventId]/_components/papic-home-card';
 import { PapicCardStrip } from '@/app/dashboard/[eventId]/_components/papic-card-strip';
 import { papicCardPhase, papicCoverageWords } from '@/lib/papic-home-card';
@@ -615,8 +616,8 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
           framed counter, the meter, the window's line, Add more, what guests chipped in, then the settings — is the
           page. `papic-home-card.tsx` + `papic-camera-settings.tsx`, the very components Home draws. */}
       <PapicHomeCard
-        name="Guest photos"
-        brand="Papic"
+        name={SERVICE_NAMES.papic.plain}
+        brand={SERVICE_NAMES.papic.brand}
         icon={<Camera aria-hidden strokeWidth={1.9} />}
         mood={papicBand.mood}
         pct={papicBand.pct}

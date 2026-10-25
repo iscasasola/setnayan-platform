@@ -42,6 +42,7 @@ import {
   type AddWriteOptions,
   type QuickAddResult,
 } from './quick-add-actions';
+import { refuseLimitedHelper, limitedHelperRefusal } from '@/lib/host-gate';
 
 // Mirrors the closed sets in `[guestId]/actions.ts` — do not widen.
 const SIDE_VALUES: GuestSide[] = ['bride', 'groom', 'both'];
@@ -57,6 +58,8 @@ export async function setGuestSide(
   guestId: string,
   side: GuestSide,
 ): Promise<InlineResult> {
+  const helperRefusal = await limitedHelperRefusal(eventId);
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   if (!SIDE_VALUES.includes(side)) return { ok: false, error: 'Pick a valid side.' };
 
   const supabase = await createClient();
@@ -114,6 +117,8 @@ export async function setGuestRsvp(
   guestIds: string | readonly string[],
   rsvp: RsvpStatus,
 ): Promise<SetRsvpResult> {
+  const helperRefusal = await limitedHelperRefusal(eventId);
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   if (!RSVP_VALUES.includes(rsvp)) return { ok: false, error: 'Pick a valid RSVP.' };
   const ids = Array.from(new Set((typeof guestIds === 'string' ? [guestIds] : [...guestIds]).map((x) => String(x).trim()).filter(Boolean)));
   if (ids.length === 0) return { ok: false, error: 'Nothing selected.' };
@@ -223,6 +228,8 @@ export async function restoreGuestRsvpAndSeat(
   before: readonly ReplyBefore[],
   seats: { removedIds: string[]; releasedSeats: ReleasedSeat[] } | null = null,
 ): Promise<InlineResult> {
+  const helperRefusal = await limitedHelperRefusal(eventId);
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   const prior = [...(before ?? [])];
   if (prior.some((b) => !RSVP_VALUES.includes(b.rsvp_status))) return { ok: false, error: 'Pick a valid RSVP.' };
   if (prior.some((b) => b.rsvp_set_by !== null && b.rsvp_set_by !== 'guest' && b.rsvp_set_by !== 'host')) {
@@ -326,6 +333,8 @@ export async function setGuestPlusOneCount(
   guestId: string,
   count: number,
 ): Promise<InlineResult> {
+  const helperRefusal = await limitedHelperRefusal(eventId);
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   if (!Number.isInteger(count) || count < 0 || count > 4) {
     return { ok: false, error: 'Pick none, or +1 to +4.' };
   }
@@ -364,6 +373,8 @@ export async function addGuestToGroup(
   guestId: string,
   groupId: string,
 ): Promise<InlineResult> {
+  const helperRefusal = await limitedHelperRefusal(eventId);
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   const gid = (groupId ?? '').trim();
   if (!gid) return { ok: false, error: 'Pick a group.' };
 
@@ -417,6 +428,7 @@ export async function addSingleGuest(
   draft: ParsedGuestDraft,
   opts: AddWriteOptions = {},
 ): Promise<QuickAddResult> {
+  await refuseLimitedHelper(eventId);
   // Thin wrapper: the orchestration (name-guard → mint `#groups` → role hint →
   // insert → attach extra groups / plus-one → ON-FAILURE compensate the freshly
   // minted groups) lives in the DB-free, unit-tested `runAddSingleGuest` core.

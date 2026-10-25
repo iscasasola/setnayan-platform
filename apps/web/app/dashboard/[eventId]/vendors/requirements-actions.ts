@@ -32,6 +32,7 @@ import {
   isPersistableCanonicalService,
   type RequirementField,
 } from '@/lib/requirements-capture';
+import { refuseLimitedHelper } from '@/lib/host-gate';
 
 /** The saved template shape the modal pre-fills from (string[] facets). */
 export type SavedRequirementsPayload = {
@@ -116,6 +117,7 @@ export async function saveCategoryRequirements(
     autoSend: boolean;
   },
 ): Promise<SaveCategoryRequirementsResult> {
+  await refuseLimitedHelper(eventId);
   const key = (canonicalService ?? '').trim();
   if (!eventId || !key) {
     return { status: 'error', message: 'Missing category.' };

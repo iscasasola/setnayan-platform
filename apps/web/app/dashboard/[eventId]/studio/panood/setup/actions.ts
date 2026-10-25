@@ -36,6 +36,7 @@ import {
   deleteYoutubeStream,
 } from '@/lib/panood-youtube';
 import type { YoutubeStream } from '@/lib/panood-youtube';
+import { refuseLimitedHelper } from '@/lib/host-gate';
 
 /**
  * Server actions for the Panood setup page's watch-URL field — the FIRST real
@@ -89,6 +90,7 @@ async function requireHostMembership(eventId: string): Promise<void> {
 }
 
 export async function savePanoodWatchUrl(formData: FormData): Promise<void> {
+  await refuseLimitedHelper(formData.get('event_id'));
   const eventIdRaw = formData.get('event_id');
   const urlRaw = formData.get('watch_url');
   if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) return;
@@ -128,6 +130,7 @@ export async function savePanoodWatchUrl(formData: FormData): Promise<void> {
 // learn about Facebook, and clearing one must never clear the other.
 
 export async function savePanoodFacebookUrl(formData: FormData): Promise<void> {
+  await refuseLimitedHelper(formData.get('event_id'));
   const eventIdRaw = formData.get('event_id');
   const urlRaw = formData.get('facebook_url');
   if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) return;
@@ -152,6 +155,7 @@ export async function savePanoodFacebookUrl(formData: FormData): Promise<void> {
 }
 
 export async function clearPanoodFacebookUrl(formData: FormData): Promise<void> {
+  await refuseLimitedHelper(formData.get('event_id'));
   const eventIdRaw = formData.get('event_id');
   if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) return;
   const eventId = eventIdRaw;
@@ -194,6 +198,7 @@ export async function clearPanoodFacebookUrl(formData: FormData): Promise<void> 
 export type GoLiveResult = { ok: true; notice?: string | null } | { error: string };
 
 export async function goLivePanood(eventId: string): Promise<GoLiveResult> {
+  await refuseLimitedHelper(eventId);
   // (a) Host-only. requireHostMembership redirects (throws) for non-hosts.
   //     This is the ONLY gate on single-cam go-live: it's an auth scope, not a
   //     paywall. Owner model 2026-06-26 — single-cam Panood live is FREE for any
@@ -471,6 +476,7 @@ export async function goLivePanood(eventId: string): Promise<GoLiveResult> {
  * with a row they can't clear). Clears the embed's watch URL too. Host-only.
  */
 export async function endPanoodBroadcast(eventId: string): Promise<GoLiveResult> {
+  await refuseLimitedHelper(eventId);
   await requireHostMembership(eventId);
 
   // Read the active row first (broadcast_id needed for the YouTube transition),
@@ -579,6 +585,7 @@ export async function endPanoodBroadcast(eventId: string): Promise<GoLiveResult>
 }
 
 export async function clearPanoodWatchUrl(formData: FormData): Promise<void> {
+  await refuseLimitedHelper(formData.get('event_id'));
   const eventIdRaw = formData.get('event_id');
   if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) return;
   const eventId = eventIdRaw;

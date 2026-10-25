@@ -27,6 +27,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { limitedHelperRefusal } from '@/lib/host-gate';
 
 export type PakantaIntakeResponses = {
   how_you_met: string;
@@ -101,6 +102,8 @@ function readResponses(
 export async function savePakantaIntake(
   formData: FormData,
 ): Promise<SavePakantaIntakeResult> {
+  const helperRefusal = await limitedHelperRefusal(formData.get('event_id'));
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   const eventIdRaw = formData.get('event_id');
   const intentRaw = formData.get('intent');
   if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) {

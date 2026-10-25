@@ -26,6 +26,7 @@ import {
 import { emitNotification } from '@/lib/notification-emit';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { clearHomeShelf } from '@/lib/home-shelf-clear';
+import { refuseLimitedHelper } from '@/lib/host-gate';
 
 /**
  * delete-actions.ts — removing a celebration for good.
@@ -555,6 +556,7 @@ export async function getEventDeletionImpact(
  * wrong shape for that; typing the name is a second, deliberate act.
  */
 export async function deleteOwnEvent(formData: FormData): Promise<DeleteResult> {
+  await refuseLimitedHelper(formData.get('event_id'));
   const eventId = String(formData.get('event_id') ?? '').trim();
   const typed = String(formData.get('confirm_name') ?? '').trim();
   if (!eventId) {
@@ -779,6 +781,7 @@ export type AskResult =
 export async function askSuppliersToAgree(
   formData: FormData,
 ): Promise<AskResult> {
+  await refuseLimitedHelper(formData.get('event_id'));
   const eventId = String(formData.get('event_id') ?? '').trim();
   if (!eventId) return { ok: false, message: 'Which event?' };
 
@@ -868,6 +871,7 @@ export async function askSuppliersToAgree(
 export async function withdrawSupplierAsk(
   formData: FormData,
 ): Promise<AskResult> {
+  await refuseLimitedHelper(formData.get('event_id'));
   const eventId = String(formData.get('event_id') ?? '').trim();
   if (!eventId) return { ok: false, message: 'Which event?' };
 
@@ -927,6 +931,7 @@ export type RequestResult =
 export async function requestEventDeletion(
   formData: FormData,
 ): Promise<RequestResult> {
+  await refuseLimitedHelper(formData.get('event_id'));
   const eventId = String(formData.get('event_id') ?? '').trim();
   const reasonCode = String(formData.get('reason_code') ?? '').trim();
   const reasonText = String(formData.get('reason') ?? '').trim();
@@ -1024,6 +1029,7 @@ export async function requestEventDeletion(
 export async function cancelEventDeletionRequest(
   formData: FormData,
 ): Promise<RequestResult> {
+  await refuseLimitedHelper(formData.get('event_id'));
   const eventId = String(formData.get('event_id') ?? '').trim();
   if (!eventId) return { ok: false, message: 'Which event?' };
 

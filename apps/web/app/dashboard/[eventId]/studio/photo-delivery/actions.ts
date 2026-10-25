@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { enqueueRelease, processBatchForEvent } from '@/lib/photo-delivery-release';
 import { revokeDriveToken } from '@/lib/papic-drive';
+import { refuseLimitedHelper } from '@/lib/host-gate';
 
 // Iteration 0009 Photo Delivery — sync-mode server actions.
 //
@@ -92,6 +93,7 @@ async function updateSyncMode(
  * this behavior.
  */
 export async function setPhotoDeliverySyncModeManual(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'));
   const auth = await getCoupleEventId(formData.get('event_id'));
   if (!auth.ok) redirect(auth.redirectTo);
 
@@ -110,6 +112,7 @@ export async function setPhotoDeliverySyncModeManual(formData: FormData) {
  * trade the release gate for a live archive.
  */
 export async function setPhotoDeliverySyncModeAuto(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'));
   const auth = await getCoupleEventId(formData.get('event_id'));
   if (!auth.ok) redirect(auth.redirectTo);
 
@@ -136,6 +139,7 @@ export async function setPhotoDeliverySyncModeAuto(formData: FormData) {
  * state and refuses to fire if Drive isn't connected.
  */
 export async function releasePhotoDelivery(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'));
   const auth = await getCoupleEventId(formData.get('event_id'));
   if (!auth.ok) redirect(auth.redirectTo);
 
@@ -192,6 +196,7 @@ export async function releasePhotoDelivery(formData: FormData) {
  * can use a server-action form post instead of a JSON fetch.
  */
 export async function disconnectPhotoDelivery(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'));
   const auth = await getCoupleEventId(formData.get('event_id'));
   if (!auth.ok) redirect(auth.redirectTo);
 

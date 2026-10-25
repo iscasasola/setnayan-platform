@@ -36,6 +36,7 @@ import {
 import { publishSaveTheDate } from '@/lib/launch-save-the-date';
 import { LOOK_PRO_REQUIRED, refChange, type LookChange } from '@/lib/hub-look-pro';
 import { lookProAllows } from '@/lib/hub-look-gate';
+import { limitedHelperRefusal } from '@/lib/host-gate';
 
 /**
  * Server actions for the Save-the-Date builder (0024 PR4 · P4).
@@ -93,6 +94,8 @@ export async function chooseRevealTemplate(
   eventId: string,
   templateId: string,
 ): Promise<{ ok: boolean; error?: string }> {
+  const helperRefusal = await limitedHelperRefusal(eventId);
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   // Accept the 5 openings + 'none' (No Reveal — the free, no-opening choice).
   if (!eventId || !(templateId === NO_REVEAL || isRevealTemplateId(templateId))) {
     return { ok: false };
@@ -172,6 +175,8 @@ export async function saveAllStdContent(
     venueChoice?: { slot: VenueSlotKey; choice: VenueChoice };
   },
 ): Promise<{ ok: boolean; error?: string }> {
+  const helperRefusal = await limitedHelperRefusal(eventId);
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   if (!eventId) return { ok: false, error: 'missing-event' };
   const supabase = await requireCouple(eventId);
 
@@ -540,6 +545,8 @@ async function saveInvitationLaunchDate(formData: FormData): Promise<void> {
 export async function launchSaveTheDate(
   eventId: string,
 ): Promise<{ ok: boolean; error?: string }> {
+  const helperRefusal = await limitedHelperRefusal(eventId);
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   if (!eventId) return { ok: false, error: 'missing-event' };
   const supabase = await requireCouple(eventId, { secured: true });
   // Shared go-public flip (lib/launch-save-the-date.ts) — also clears any
@@ -573,6 +580,8 @@ export async function scheduleSaveTheDateLaunch(
   eventId: string,
   localDateTime: string,
 ): Promise<{ ok: boolean; error?: string; scheduledAtIso?: string }> {
+  const helperRefusal = await limitedHelperRefusal(eventId);
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   if (!eventId) return { ok: false, error: 'missing-event' };
   if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(localDateTime)) {
     return { ok: false, error: 'bad-datetime' };
@@ -600,6 +609,8 @@ export async function scheduleSaveTheDateLaunch(
 export async function cancelScheduledLaunch(
   eventId: string,
 ): Promise<{ ok: boolean; error?: string }> {
+  const helperRefusal = await limitedHelperRefusal(eventId);
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   if (!eventId) return { ok: false, error: 'missing-event' };
   const supabase = await requireCouple(eventId);
   const { error } = await supabase

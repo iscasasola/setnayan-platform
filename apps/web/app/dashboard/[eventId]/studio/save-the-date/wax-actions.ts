@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { sanitizeWaxSealConfig } from '@/lib/wax-seal/types';
+import { refuseLimitedHelper } from '@/lib/host-gate';
 
 /**
  * Server actions for the Candle Stamp Maker (0024 §3 · PR2 ·
@@ -46,6 +47,7 @@ async function requireCouple(eventId: string) {
 }
 
 export async function saveWaxSeal(formData: FormData): Promise<void> {
+  await refuseLimitedHelper(formData.get('event_id'));
   const eventId = String(formData.get('event_id') ?? '').trim();
   if (!eventId) throw new Error('Missing event_id');
   const supabase = await requireCouple(eventId);

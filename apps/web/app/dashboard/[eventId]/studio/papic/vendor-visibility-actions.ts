@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
 import { createClient } from '@/lib/supabase/server';
+import { refuseLimitedHelper } from '@/lib/host-gate';
 
 /**
  * The couple takes ONE supplier's photos out of their gallery — or puts them
@@ -38,6 +39,7 @@ import { createClient } from '@/lib/supabase/server';
  * the couple could already do by hand.
  */
 export async function setVendorCapturesHidden(formData: FormData): Promise<void> {
+  await refuseLimitedHelper(formData.get('event_id'));
   const eventId = String(formData.get('event_id') ?? '').trim();
   // ⚠ `vendor_id` is the PRIMARY KEY of event_vendors — verified against the
   // live schema, not assumed. `event_vendor_id` (which reads more naturally and

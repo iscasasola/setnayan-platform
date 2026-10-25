@@ -56,6 +56,7 @@ import { roomSnapshotOf } from '@/lib/story-room';
 import { loadLiveRoom } from '@/app/[slug]/_components/story/spine-data';
 import { loadDesk } from './_lib/load-desk';
 import { hostUserId } from './_lib/host-authority';
+import { limitedHelperRefusal } from '@/lib/host-gate';
 
 export type EditorialEditorInput = {
   headline: string;
@@ -294,6 +295,8 @@ export async function saveEditorial(
   input: EditorialEditorInput,
   baseInput?: EditorialEditorInput | null,
 ): Promise<{ ok: true; heldForPro?: StoryProExtraKey[] } | { ok: false; error: string }> {
+  const helperRefusal = await limitedHelperRefusal(eventId);
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   const userId = await hostUserId(eventId);
   if (!userId) return { ok: false, error: 'You don’t have access to this wedding.' };
 
@@ -723,6 +726,8 @@ export async function setStoryShowcase(
   eventId: string,
   optIn: boolean,
 ): Promise<{ ok: true; heldForPro?: StoryProExtraKey[] } | { ok: false; error: string }> {
+  const helperRefusal = await limitedHelperRefusal(eventId);
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   const userId = await hostUserId(eventId);
   if (!userId)
     return { ok: false, error: 'You don’t have access to this event.' };

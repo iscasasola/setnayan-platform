@@ -37,7 +37,7 @@ import { sanitizeHubFontKey } from '@/lib/hub-fonts';
 import { sanitizeMagicTraveller } from '@/lib/magic-move';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { requireHostMembership } from '@/lib/host-gate';
+import { requireHostMembership, refuseLimitedHelper } from '@/lib/host-gate';
 import { combineChanges, siteLookChange } from '@/lib/hub-look-pro';
 import { encodeSiteBackground, ombreLookChange, parseSiteBackground } from '@/lib/ombre';
 import { requireLookPro } from '@/lib/hub-look-gate';
@@ -72,6 +72,7 @@ export async function updateSiteColors(
   eventId: string,
   formData: FormData,
 ): Promise<void> {
+  await refuseLimitedHelper(eventId);
   await requireHostMembership(eventId);
 
   // ABSENT = UNCHANGED, like every other field on this row. A free couple's

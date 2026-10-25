@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { limitedHelperRefusal } from '@/lib/host-gate';
 
 // Guest Columns — review actions (OnTheDay BUILD ① · studies doc § 1).
 //
@@ -32,6 +33,8 @@ export async function approveColumn(
   eventId: string,
   columnId: string,
 ): Promise<ColumnActionResult> {
+  const helperRefusal = await limitedHelperRefusal(eventId);
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   if (!columnId?.trim()) return { ok: false, error: 'missing_input' };
   const supabase = await createClient();
   const {
@@ -64,6 +67,8 @@ export async function declineColumn(
   columnId: string,
   note?: string,
 ): Promise<ColumnActionResult> {
+  const helperRefusal = await limitedHelperRefusal(eventId);
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   if (!columnId?.trim()) return { ok: false, error: 'missing_input' };
   const trimmed = (note ?? '').trim().slice(0, 200);
   const supabase = await createClient();

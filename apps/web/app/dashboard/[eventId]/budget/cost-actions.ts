@@ -41,6 +41,7 @@ import {
 } from '@/lib/event-costs';
 import { buildClaimUrl, ensureAutoShareInvite } from '@/lib/vendor-invites';
 import { renderUrlQrSvg } from '@/lib/qr';
+import { limitedHelperRefusal } from '@/lib/host-gate';
 
 export type RecordCostResult =
   | {
@@ -258,6 +259,8 @@ async function updateRecordedCost(
 }
 
 export async function recordEventCost(formData: FormData): Promise<RecordCostResult> {
+  const helperRefusal = await limitedHelperRefusal(formData.get('event_id'));
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   const eventId = formData.get('event_id');
   if (typeof eventId !== 'string' || eventId.length === 0) {
     return { ok: false, error: 'Missing event reference. Please refresh and try again.' };
@@ -317,6 +320,8 @@ export async function recordEventCost(formData: FormData): Promise<RecordCostRes
 }
 
 export async function deleteEventCost(formData: FormData): Promise<DeleteCostResult> {
+  const helperRefusal = await limitedHelperRefusal(formData.get('event_id'));
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   const eventId = formData.get('event_id');
   const costId = formData.get('cost_id');
   if (typeof eventId !== 'string' || typeof costId !== 'string') {

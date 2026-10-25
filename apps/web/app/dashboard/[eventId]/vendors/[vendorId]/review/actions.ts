@@ -12,6 +12,7 @@ import {
   SELF_REVIEW_SIGNALS,
   type SelfReviewSignal,
 } from '@/lib/self-review-gate';
+import { refuseLimitedHelper } from '@/lib/host-gate';
 
 /**
  * Open a vendor_disputes row so the demotion cron has input (cross-account QA,
@@ -169,6 +170,7 @@ function parseOnTimeRating(raw: FormDataEntryValue | null): number {
  * with a clean redirect for non-members instead of bubbling an RLS error.
  */
 export async function submitCoupleReview(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'));
   const eventId = formData.get('event_id');
   const eventVendorId = formData.get('event_vendor_id');
   const vendorProfileId = formData.get('vendor_profile_id');
@@ -336,6 +338,7 @@ export async function submitCoupleReview(formData: FormData) {
  * believe the related-account block is a false positive.
  */
 export async function submitReviewAppeal(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'));
   const eventId = formData.get('event_id');
   const eventVendorId = formData.get('event_vendor_id');
   const vendorProfileId = formData.get('vendor_profile_id');
@@ -416,6 +419,7 @@ export async function submitReviewAppeal(formData: FormData) {
  * and are idempotent. Scope stays tight to genuine members of THIS event.
  */
 export async function coupleConfirmReceived(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'));
   const eventId = formData.get('event_id');
   const vendorId = formData.get('vendor_id');
   if (typeof eventId !== 'string' || typeof vendorId !== 'string') {
@@ -523,6 +527,7 @@ export async function coupleConfirmReceived(formData: FormData) {
  * is idempotent (can't dispute an already-confirmed delivery).
  */
 export async function coupleReportNonDelivery(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'));
   const eventId = formData.get('event_id');
   const vendorId = formData.get('vendor_id');
   if (typeof eventId !== 'string' || typeof vendorId !== 'string') {
@@ -580,6 +585,7 @@ export async function coupleReportNonDelivery(formData: FormData) {
  * key so re-submitting edits the one-line endorsement instead of erroring.
  */
 export async function recommendVendor(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'));
   const eventId = formData.get('event_id');
   const vendorId = formData.get('vendor_id');
   const vendorProfileId = formData.get('vendor_profile_id');
@@ -659,6 +665,7 @@ export async function recommendVendor(formData: FormData) {
 
 /** Withdraw a recommendation (reversible). RLS scopes the delete to own rows. */
 export async function withdrawRecommendation(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'));
   const eventId = formData.get('event_id');
   const vendorId = formData.get('vendor_id');
   const vendorProfileId = formData.get('vendor_profile_id');

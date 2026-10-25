@@ -71,7 +71,7 @@ import { revalidateMarch } from '@/lib/entourage-write';
 import { nameStyleFrom } from '@/lib/name-style';
 import { passCardDesignFrom } from '@/lib/pass-card';
 import { datePickClash } from '@/lib/date-clash.server';
-import { requireHostMembershipOrThrow } from '@/lib/host-gate';
+import { requireHostMembershipOrThrow, refuseLimitedHelper } from '@/lib/host-gate';
 import { hubOwnershipForWrite } from '@/lib/hub-look-gate';
 import { NO_HUB_PARTS } from '@/lib/hub-parts';
 import { renameEventSlug } from '@/lib/event-slug-rename.server';
@@ -155,6 +155,7 @@ export async function hubDraftAction(
   eventId: string,
   formData: FormData,
 ): Promise<HubDraftActionResult> {
+  await refuseLimitedHelper(eventId);
   const intentRaw = formData.get('intent');
   const intent = isHubDraftIntent(intentRaw) ? intentRaw : null;
   if (!intent || typeof eventId !== 'string' || eventId.length === 0) {

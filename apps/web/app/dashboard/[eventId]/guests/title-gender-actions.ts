@@ -11,10 +11,13 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { parseTitleKey } from '@/lib/guest-title';
+import { limitedHelperRefusal } from '@/lib/host-gate';
 
 export type TitleGenderResult = { ok: true } | { ok: false; error: string };
 
 export async function setGuestTitleGender(eventId: string, guestId: string, key: string): Promise<TitleGenderResult> {
+  const helperRefusal = await limitedHelperRefusal(eventId);
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   const { gender } = parseTitleKey(key);
   if (!gender) return { ok: false, error: 'Pick Woman or Man.' };
   const supabase = await createClient();

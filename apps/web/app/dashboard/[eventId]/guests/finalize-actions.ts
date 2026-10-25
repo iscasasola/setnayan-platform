@@ -23,11 +23,14 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { finalizeGuestList, reopenGuestList } from '@/lib/pax';
+import { limitedHelperRefusal } from '@/lib/host-gate';
 
 export async function setGuestListFinalized(
   eventId: string,
   finalized: boolean,
 ): Promise<{ ok: true; locked: boolean } | { ok: false; error: string }> {
+  const helperRefusal = await limitedHelperRefusal(eventId);
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   if (!eventId) return { ok: false, error: 'Missing event.' };
   const supabase = await createClient();
   const {

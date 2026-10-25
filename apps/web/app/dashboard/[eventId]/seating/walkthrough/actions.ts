@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { parseClientRef, walkthroughVideoPolicy } from '@/lib/r2-client-ref';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { refuseLimitedHelper } from '@/lib/host-gate';
 
 /**
  * Server actions for the zone-walkthrough manager (seat-finding PR 6).
@@ -44,6 +45,7 @@ async function authorize(
 
 /** Couple OR seat_plan-edit delegate? Used by the page to render-vs-redirect. */
 export async function canManageWalkthrough(eventId: string): Promise<boolean> {
+  await refuseLimitedHelper(eventId);
   const user = await getCurrentUser();
   if (!user) return false;
   const supabase = await createClient();
@@ -60,6 +62,7 @@ function revalidate(eventId: string): void {
 }
 
 export async function createWalkthroughZone(eventId: string, label: string): Promise<void> {
+  await refuseLimitedHelper(eventId);
   const clean = label.trim().replace(/\s+/g, ' ').slice(0, 80);
   if (!clean) throw new Error('Give the zone a name.');
   const user = await getCurrentUser();
@@ -89,6 +92,7 @@ export async function renameWalkthroughZone(
   zoneId: string,
   label: string,
 ): Promise<void> {
+  await refuseLimitedHelper(eventId);
   const clean = label.trim().replace(/\s+/g, ' ').slice(0, 80);
   if (!clean) throw new Error('Give the zone a name.');
   const user = await getCurrentUser();
@@ -105,6 +109,7 @@ export async function renameWalkthroughZone(
 }
 
 export async function deleteWalkthroughZone(eventId: string, zoneId: string): Promise<void> {
+  await refuseLimitedHelper(eventId);
   const user = await getCurrentUser();
   if (!user) throw new Error('Sign in to continue.');
   const supabase = await createClient();
@@ -125,6 +130,7 @@ export async function setWalkthroughZoneTables(
   zoneId: string,
   tableIds: string[],
 ): Promise<void> {
+  await refuseLimitedHelper(eventId);
   const ids = Array.from(new Set(tableIds)).filter((id) => UUID_RE.test(id));
   const user = await getCurrentUser();
   if (!user) throw new Error('Sign in to continue.');
@@ -175,6 +181,7 @@ export async function saveWalkthroughZoneVideo(
   zoneId: string,
   r2Ref: string,
 ): Promise<void> {
+  await refuseLimitedHelper(eventId);
   if (!r2Ref.startsWith('r2://')) throw new Error('Upload did not complete — try again.');
   const user = await getCurrentUser();
   if (!user) throw new Error('Sign in to continue.');
@@ -202,6 +209,7 @@ export async function saveWalkthroughZoneVideo(
 }
 
 export async function removeWalkthroughZoneVideo(eventId: string, zoneId: string): Promise<void> {
+  await refuseLimitedHelper(eventId);
   const user = await getCurrentUser();
   if (!user) throw new Error('Sign in to continue.');
   const supabase = await createClient();
@@ -228,6 +236,7 @@ export async function setWalkthroughZonePublished(
   zoneId: string,
   published: boolean,
 ): Promise<void> {
+  await refuseLimitedHelper(eventId);
   const user = await getCurrentUser();
   if (!user) throw new Error('Sign in to continue.');
   const supabase = await createClient();

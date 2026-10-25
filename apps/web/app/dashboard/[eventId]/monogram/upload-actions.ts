@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { isMarkInkMode, writeMarkInkMode, type MarkInkMode } from '@/lib/monogram-ink';
+import { refuseLimitedHelper } from '@/lib/host-gate';
 
 /**
  * Server actions for "upload your own mark" (owner 2026-07-17 — overriding the
@@ -39,6 +40,7 @@ async function requireCouple(eventId: string) {
 }
 
 export async function clearUploadedMarkAction(formData: FormData): Promise<void> {
+  await refuseLimitedHelper(formData.get('event_id'));
   const eventId = String(formData.get('event_id') ?? '').trim();
   if (!eventId) throw new Error('Missing event_id');
   const supabase = await requireCouple(eventId);

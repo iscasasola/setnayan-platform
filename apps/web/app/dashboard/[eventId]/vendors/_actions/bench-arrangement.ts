@@ -24,6 +24,7 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import type { BenchPin } from '@/lib/bench-arrangement';
+import { limitedHelperRefusal } from '@/lib/host-gate';
 
 export type ArrangementResult = { ok: true } | { ok: false; error: string };
 
@@ -53,6 +54,8 @@ export async function saveBenchArrangement(input: {
   tile: string;
   pins: BenchPin[];
 }): Promise<ArrangementResult> {
+  const helperRefusal = await limitedHelperRefusal(input.eventId);
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   const eventId = String(input.eventId ?? '').trim();
   const tile = cleanTile(input.tile);
   if (!eventId || !tile) return { ok: false, error: 'Missing event or category.' };
@@ -114,6 +117,8 @@ export async function resetBenchArrangement(input: {
   eventId: string;
   tile: string;
 }): Promise<ArrangementResult> {
+  const helperRefusal = await limitedHelperRefusal(input.eventId);
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   const eventId = String(input.eventId ?? '').trim();
   const tile = cleanTile(input.tile);
   if (!eventId || !tile) return { ok: false, error: 'Missing event or category.' };

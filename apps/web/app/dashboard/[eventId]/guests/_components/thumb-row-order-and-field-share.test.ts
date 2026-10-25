@@ -33,10 +33,10 @@ test('List: ⇕ · Search guests · ≡ Sort (☑ Select inside it) · ＋ Add �
   const at = SCREEN.indexOf('<ThumbRow\n        name="guests"');
   assert.notEqual(at, -1, 'the List row moved — re-aim this guard');
   const row = SCREEN.slice(at, SCREEN.indexOf('/>', SCREEN.indexOf('action=', at)));
-  const order = ['left={[', "testId: 'thumb-expand'", 'field={field}', 'right={[sortMenu]}', 'action={copy ? null : addRound}'].map((m) => row.indexOf(m));
+  const order = ['left={[', "testId: 'thumb-expand'", 'field={field}', 'right={[sortMenu]}', 'action={writesOff ? null : addRound}'].map((m) => row.indexOf(m));
   assert.ok(order.every((i) => i > -1), `a control is missing from the thumb row: ${order.join(',')}`);
   assert.deepEqual([...order].sort((a, b) => a - b), order, 'the thumb row is out of order');
-  assert.match(SCREEN, /copy \? \[\] : \[\{ key: 'select', label: 'Select…', group: 'List'/, '☑ Select is not in the ≡ menu');
+  assert.match(SCREEN, /writesOff \? \[\] : \[\{ key: 'select', label: 'Select…', group: 'List'/, '☑ Select is not in the ≡ menu');
   assert.match(SCREEN, /if \(k === 'select'\) return setSelectMode\(true\);/);
   assert.match(SCREEN, /const addRound: ThumbRound = \{ icon: Plus, label: 'Add', onClick: \(\) => openAddGuest\(q\)/);
 });

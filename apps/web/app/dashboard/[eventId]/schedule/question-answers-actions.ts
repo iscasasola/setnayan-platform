@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { hostAnswersThisScreenChanged } from '@/lib/host-answers-merge';
+import { refuseLimitedHelper } from '@/lib/host-gate';
 
 /**
  * The couple answers their host's questions. (DAY-7.)
@@ -21,6 +22,7 @@ function back(eventId: string, flag: 'saved' | 'error'): never {
 }
 
 export async function saveHostAnswers(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'));
   const eventId = String(formData.get('event_id') ?? '');
   if (!eventId) redirect('/dashboard');
 

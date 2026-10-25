@@ -15,6 +15,7 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { refuseLimitedHelper } from '@/lib/host-gate';
 
 export type KeepResult =
   | { status: 'ok'; slotPosition: number; replaced: boolean }
@@ -23,6 +24,7 @@ export type KeepResult =
   | { status: 'error' };
 
 export async function keepInspirationSuggestion(eventId: string, suggestionId: string, replacePosition: number | null): Promise<KeepResult> {
+  await refuseLimitedHelper(eventId);
   const supabase = await createClient();
   const { data, error } = await supabase.rpc('couple_decide_inspiration_suggestion', {
     p_suggestion_id: suggestionId,
@@ -43,6 +45,7 @@ export async function keepInspirationSuggestion(eventId: string, suggestionId: s
 }
 
 export async function declineInspirationSuggestion(eventId: string, suggestionId: string): Promise<{ status: 'ok' | 'gone' | 'error' }> {
+  await refuseLimitedHelper(eventId);
   const supabase = await createClient();
   const { data, error } = await supabase.rpc('couple_decide_inspiration_suggestion', {
     p_suggestion_id: suggestionId,
@@ -61,6 +64,7 @@ export async function declineInspirationSuggestion(eventId: string, suggestionId
 }
 
 export async function undoKeptInspirationSuggestion(eventId: string, suggestionId: string): Promise<{ status: 'ok' | 'error' }> {
+  await refuseLimitedHelper(eventId);
   const supabase = await createClient();
   const { data, error } = await supabase.rpc('couple_undo_kept_inspiration_suggestion', { p_suggestion_id: suggestionId });
   if (error) {

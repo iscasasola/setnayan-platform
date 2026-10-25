@@ -24,6 +24,7 @@ import {
   type PlaylistSlotType,
   type PlaylistVibe,
 } from '@/lib/playlist';
+import { refuseLimitedHelper } from '@/lib/host-gate';
 
 const VALID_SLOTS = new Set<PlaylistSlotType>(PLAYLIST_SLOT_TYPES);
 const VALID_VIBES = new Set<PlaylistVibe>(PLAYLIST_VIBES);
@@ -47,6 +48,7 @@ function trimToMax(raw: FormDataEntryValue | null, max: number): string | null {
  * of its section).
  */
 export async function addPlaylistPick(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'));
   const eventId = formData.get('event_id');
   const slotRaw = formData.get('slot_type');
   const songLabel = formData.get('song_label');
@@ -113,6 +115,7 @@ export async function addPlaylistPick(formData: FormData) {
 /** Update a single pick · label/artist/notes. Empty body fields nullify
  *  the column. */
 export async function updatePlaylistPick(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'));
   const eventId = formData.get('event_id');
   const pickId = formData.get('pick_id');
 
@@ -181,6 +184,7 @@ export async function updatePlaylistPick(formData: FormData) {
 
 /** Delete a single pick by id. RLS double-checks event_id ownership. */
 export async function deletePlaylistPick(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'));
   const eventId = formData.get('event_id');
   const pickId = formData.get('pick_id');
 
@@ -261,6 +265,7 @@ async function reorderPlaylistPicks(formData: FormData) {
  * a second "dinner" row would leave the surface picking one arbitrarily.
  */
 export async function setPlaylistSlotVibe(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'));
   const eventId = formData.get('event_id');
   const slotType = formData.get('slot_type');
   // '' (or absent) means clear. Anything else must be one of the six.

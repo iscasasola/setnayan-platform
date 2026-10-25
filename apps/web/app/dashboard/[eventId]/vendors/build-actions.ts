@@ -10,6 +10,7 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { planSaveAs, type NamedBuildRow } from '@/lib/named-builds';
+import { limitedHelperRefusal } from '@/lib/host-gate';
 
 // (2026-06-12 cleanup) The original Lean/Fits/Stretch estimate model —
 // BuildBasket · BuildSnapshotLeaf · BuildSnapshot · SavedBuild · the
@@ -27,6 +28,8 @@ export async function deleteBudgetBuild(input: {
   eventId: string;
   buildId: string;
 }): Promise<BuildActionResult> {
+  const helperRefusal = await limitedHelperRefusal(input.eventId);
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   const supabase = await createClient();
   const {
     data: { user },
@@ -101,6 +104,8 @@ export async function savePlanBuildNamed(input: {
   overwriteBuildId?: string | null;
   snapshot: PlanBuildSnapshot;
 }): Promise<BuildActionResult> {
+  const helperRefusal = await limitedHelperRefusal(input.eventId);
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   const supabase = await createClient();
   const {
     data: { user },

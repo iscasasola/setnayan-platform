@@ -49,7 +49,7 @@
 import { landAfterWrite } from '@/lib/maker-land.server';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { requireHostMembership } from '@/lib/host-gate';
+import { requireHostMembership, refuseLimitedHelper } from '@/lib/host-gate';
 import { galleryChange } from '@/lib/hub-look-pro';
 import { requireLookPro } from '@/lib/hub-look-gate';
 import { revalidateGuestSite, revalidateWebsiteEditor } from '@/lib/revalidate-site';
@@ -63,6 +63,7 @@ export async function updateOurPhotos(
   eventId: string,
   formData: FormData,
 ): Promise<void> {
+  await refuseLimitedHelper(eventId);
   await requireHostMembership(eventId);
 
   // The multi-file <FileUpload> emits one hidden input named `photos` per

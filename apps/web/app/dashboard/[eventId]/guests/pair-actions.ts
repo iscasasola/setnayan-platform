@@ -25,6 +25,7 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { refuseLimitedHelper } from '@/lib/host-gate';
 
 function backToList(eventId: string, params: Record<string, string>): string {
   const q = new URLSearchParams(params);
@@ -51,6 +52,7 @@ export async function unpairGuestAction(
   guestId: string,
   mode?: unknown,
 ): Promise<void> {
+  await refuseLimitedHelper(eventId);
   const inPlace = mode === 'in-place';
   const supabase = await createClient();
   const { error } = await supabase.rpc('unpair_guest', {

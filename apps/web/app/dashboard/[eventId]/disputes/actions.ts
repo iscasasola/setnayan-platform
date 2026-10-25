@@ -8,6 +8,7 @@ import { uploadPublicAsset } from '@/lib/storage';
 import { emitNotification } from '@/lib/notification-emit';
 import { FLAG_TYPE_LABEL, isFlagType } from '@/lib/force-majeure';
 import { disputeEvidencePolicy, parseClientRef } from '@/lib/r2-client-ref';
+import { refuseLimitedHelper } from '@/lib/host-gate';
 
 /**
  * Couple-side: file a force-majeure flag against an event.
@@ -24,6 +25,7 @@ import { disputeEvidencePolicy, parseClientRef } from '@/lib/r2-client-ref';
  * Handler picks it up promptly.
  */
 export async function fileForceMajeureFlag(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'));
   const eventId = formData.get('event_id');
   const flagType = formData.get('flag_type');
   const description = formData.get('description');

@@ -56,7 +56,9 @@ import { r2Upload, R2_BUCKETS, isR2Configured } from '@/lib/r2';
 import { readPooledGalleryBytes, signPooledGalleryImage } from '@/lib/moodboard-render-serve';
 
 import { readCoupleBookingStandings } from '@/lib/couple-booked-and-settled.server';
+import { refuseLimitedHelper } from '@/lib/host-gate';
 export async function saveRolePalette(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'));
   const eventId = formData.get('event_id');
   const paletteJson = formData.get('palette_json');
   if (typeof eventId !== 'string' || typeof paletteJson !== 'string') {
@@ -117,6 +119,7 @@ export async function reorderMoodboardSlot(
   from: MoodboardSlotRef,
   to: MoodboardSlotRef,
 ): Promise<void> {
+  await refuseLimitedHelper(eventId);
   if (from.slotKey === to.slotKey && from.slotPosition === to.slotPosition) return;
 
   const supabase = await createClient();
@@ -187,6 +190,7 @@ export async function saveMoodboardTheme(
   eventId: string,
   theme: { name: string; description: string },
 ): Promise<void> {
+  await refuseLimitedHelper(eventId);
   const name = theme.name.trim().slice(0, THEME_NAME_MAX);
   const description = theme.description.trim().slice(0, THEME_DESCRIPTION_MAX);
 
@@ -276,6 +280,7 @@ export async function applyThemeIntent(
   eventId: string,
   selection: unknown,
 ): Promise<ThemeIntentApplySummary> {
+  await refuseLimitedHelper(eventId);
   const kept = validateThemeSelection(selection);
 
   const supabase = await createClient();
@@ -500,6 +505,7 @@ export async function applyMoodboardTemplate(
   templateId: string,
   mode: ApplyMode = 'fill_empty',
 ): Promise<ApplyTemplateSummary & { nothingToFill: boolean }> {
+  await refuseLimitedHelper(eventId);
   const supabase = await createClient();
   const {
     data: { user },
@@ -739,6 +745,7 @@ export async function applyMoodboardTemplate(
 export async function shareMoodBoardWithVendors(
   eventId: string,
 ): Promise<{ sharedCount: number }> {
+  await refuseLimitedHelper(eventId);
   const supabase = await createClient();
   const {
     data: { user },
@@ -937,6 +944,7 @@ export async function applyGalleryPick(input: {
   slotPosition: number;
   assetId: string;
 }): Promise<{ status: 'ok' | 'error'; imageUrl?: string; message?: string }> {
+  await refuseLimitedHelper(input.eventId);
   if (!isMoodboardSlotKey(input.slotKey) || !slotHasSupplierTrade(input.slotKey)) {
     return { status: 'error', message: 'That slot has no supplier Inspiration.' };
   }
@@ -1069,6 +1077,7 @@ export async function fetchRenderPool(input: {
   limit?: number;
   offset?: number;
 }): Promise<RenderPoolPage> {
+  await refuseLimitedHelper(input.eventId);
   const query = normalizeRenderPoolQuery(input);
   if (!query) throw new Error('Not an inspiration slot');
 
@@ -1136,6 +1145,7 @@ export async function applyRenderPick(input: {
   slotPosition: number;
   renderId: string;
 }): Promise<{ status: 'ok' | 'error'; imageUrl?: string; message?: string }> {
+  await refuseLimitedHelper(input.eventId);
   if (!isMoodboardSlotKey(input.slotKey)) {
     return { status: 'error', message: 'That slot does not exist.' };
   }

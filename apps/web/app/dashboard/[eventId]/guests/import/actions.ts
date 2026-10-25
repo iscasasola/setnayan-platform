@@ -16,6 +16,7 @@ import {
   type ExistingGuest,
   type ImportPlan,
 } from '@/lib/guest-import-file';
+import { refuseLimitedHelper } from '@/lib/host-gate';
 
 /**
  * What the import page shows between the two clicks. `rows` is the whole
@@ -66,6 +67,7 @@ export async function importGuestsCsv(
   _prev: GuestImportState,
   formData: FormData,
 ): Promise<GuestImportState> {
+  await refuseLimitedHelper(eventId);
   const mode = String(formData.get('mode') ?? 'preview');
   if (mode === 'reset') return { stage: 'idle' };
 

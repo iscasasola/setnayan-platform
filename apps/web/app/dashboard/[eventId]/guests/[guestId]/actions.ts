@@ -39,6 +39,7 @@ import { generateEventConnections } from '@/app/dashboard/(account)/people/actio
 import { isSafeNext } from '@/lib/safe-next';
 import { GUEST_CARD_COMPARED_COLUMNS, MERGE_BASE_FIELD, guestCardMerge, guestColumnWritten } from '@/lib/guest-card-merge';
 import { HOST_NOTE_MAX } from '@/lib/guest-host-note';
+import { refuseLimitedHelper } from '@/lib/host-gate';
 
 // Iteration 0053 P2: the valid role set is per event type (resolveRoleSetForEvent).
 // SIDE_VALUES retired here — the shared resolver (lib/guest-side-question.ts)
@@ -224,6 +225,7 @@ async function syncCardTable(
  * email saved on their row.
  */
 export async function inviteGuestByEmailAction(eventId: string, guestId: string) {
+  await refuseLimitedHelper(eventId);
   const user = await getCurrentUser();
   if (!user) redirect('/login');
 
@@ -268,6 +270,7 @@ export async function inviteGuestByEmailAction(eventId: string, guestId: string)
 }
 
 export async function updateGuest(eventId: string, guestId: string, formData: FormData) {
+  await refuseLimitedHelper(eventId);
   const first_name = clean(formData.get('first_name'));
   const last_name = clean(formData.get('last_name'));
   // Optional name parts (2026-09-14). Editing is authoritative here: whatever
@@ -1094,6 +1097,7 @@ export async function releaseGuestClaim(
   guestId: string,
   formData: FormData,
 ): Promise<void> {
+  await refuseLimitedHelper(eventId);
   // "Give this spot to someone else" rides this door (+0 exports): a release
   // that also hands the seat to a named new person. See giveSpotToSomeoneElse.
   const swapName = String(formData.get('swap_name') ?? '').trim().slice(0, 120);

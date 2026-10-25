@@ -19,10 +19,13 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
 import { eventSkuActive } from '@/lib/entitlements';
+import { limitedHelperRefusal } from '@/lib/host-gate';
 
 type Result = { ok: true } | { ok: false; error: string };
 
 export async function adoptPakantaSongAsSiteMusic(eventId: string): Promise<Result> {
+  const helperRefusal = await limitedHelperRefusal(eventId);
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   try {
     const id = (eventId ?? '').trim();
     if (!id) return { ok: false, error: 'Missing event.' };

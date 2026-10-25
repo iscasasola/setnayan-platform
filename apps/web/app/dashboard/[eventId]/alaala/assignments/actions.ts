@@ -9,6 +9,7 @@ import { isEmailConfigured, sendEmail } from '@/lib/email';
 import { renderBrandedEmail } from '@/lib/email-template';
 import type { KwentoMomentKey } from '@/lib/kwento-moments';
 import { KWENTO_MOMENT_BY_KEY } from '@/lib/kwento-moments';
+import { refuseLimitedHelper, limitedHelperRefusal } from '@/lib/host-gate';
 
 const MAX_NUDGES = 3;
 const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(/\/+$/, '');
@@ -49,6 +50,8 @@ export async function createAssignment(
   momentKey: KwentoMomentKey,
   guestId: string,
 ): Promise<ActionResult> {
+  const helperRefusal = await limitedHelperRefusal(eventId);
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   const auth = await requireCoupleForKwento(eventId);
   if (!auth.ok) return auth;
 
@@ -78,6 +81,8 @@ export async function removeAssignment(
   momentKey: KwentoMomentKey,
   guestId: string,
 ): Promise<ActionResult> {
+  const helperRefusal = await limitedHelperRefusal(eventId);
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   const auth = await requireCoupleForKwento(eventId);
   if (!auth.ok) return auth;
 
@@ -114,6 +119,7 @@ export async function nudgeAssignee(assignmentId: string): Promise<ActionResult>
     .maybeSingle();
 
   if (readErr || !row) return { ok: false, error: 'Assignment not found' };
+  await refuseLimitedHelper(row.event_id);
 
   // Authorize against the assignment's own event — previously any authenticated
   // user could nudge (email) any guest by enumerating assignment ids.

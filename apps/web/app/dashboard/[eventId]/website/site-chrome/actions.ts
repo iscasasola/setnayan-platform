@@ -19,7 +19,7 @@ import { landAfterWrite } from '@/lib/maker-land.server';
 import { redirect } from 'next/navigation';
 import { parseClientRef, eventMediaPolicy } from '@/lib/r2-client-ref';
 import { createClient } from '@/lib/supabase/server';
-import { requireHostMembership } from '@/lib/host-gate';
+import { requireHostMembership, refuseLimitedHelper } from '@/lib/host-gate';
 import { refChange } from '@/lib/hub-look-pro';
 import { lookProAllows } from '@/lib/hub-look-gate';
 import { revalidateGuestSite, revalidateWebsiteEditor } from '@/lib/revalidate-site';
@@ -57,6 +57,7 @@ export async function updateSiteChrome(
   eventId: string,
   formData: FormData,
 ): Promise<void> {
+  await refuseLimitedHelper(eventId);
   await requireHostMembership(eventId);
 
   // Omit-when-untouched (council §1.4 hardening): only write a column when the

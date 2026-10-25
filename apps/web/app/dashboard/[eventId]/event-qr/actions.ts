@@ -27,12 +27,14 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { randomBytes } from 'node:crypto';
+import { refuseLimitedHelper } from '@/lib/host-gate';
 
 export type RegenerateResult =
   | { ok: true; rotated_at: string }
   | { ok: false; reason: 'not_signed_in' | 'not_found_or_not_host' | 'error'; message?: string };
 
 export async function regenerateEventMasterQR(formData: FormData): Promise<RegenerateResult> {
+  await refuseLimitedHelper(formData.get('event_id'));
   const eventId = formData.get('event_id');
   if (typeof eventId !== 'string' || !eventId) {
     return { ok: false, reason: 'error', message: 'Missing event_id' };

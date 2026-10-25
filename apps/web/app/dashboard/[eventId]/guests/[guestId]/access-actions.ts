@@ -36,6 +36,7 @@ import {
   type GuestAccessLevel,
   type GuestAccessState,
 } from '@/lib/guest-access';
+import { limitedHelperRefusal } from '@/lib/host-gate';
 
 const LEVELS: readonly GuestAccessLevel[] = ['none', 'co_host', 'limited_helper'];
 
@@ -74,6 +75,8 @@ export async function setGuestAccess(
   guestId: string,
   level: GuestAccessLevel,
 ): Promise<SetGuestAccessResult> {
+  const helperRefusal = await limitedHelperRefusal(eventId);
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   if (!LEVELS.includes(level)) return { ok: false, error: 'Pick an access level.' };
 
   const supabase = await createClient();

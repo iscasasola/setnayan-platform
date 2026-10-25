@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { hostUserId } from './_lib/host-authority';
 import { resolveStoryCover, sanitizeStoryCover } from '@/lib/story-cover';
+import { limitedHelperRefusal } from '@/lib/host-gate';
 
 /**
  * THE COVER'S ONE WRITE (`02` §6 · 08 step 1.5).
@@ -107,6 +108,8 @@ export async function setStoryCover(
   kind: unknown,
   ref: unknown,
 ): Promise<CoverActionResult> {
+  const helperRefusal = await limitedHelperRefusal(eventId);
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   if (!(await hostUserId(eventId))) return { ok: false, error: NO_ACCESS };
 
   const admin = createAdminClient();

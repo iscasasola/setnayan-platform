@@ -20,7 +20,7 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { ABSENT_IS_FINE_HEADER } from '@/lib/supabase/db-error-log';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { getHostUserId } from '@/lib/host-gate';
+import { getHostUserId, limitedHelperRefusal } from '@/lib/host-gate';
 import { writeStylePreferenceKey } from '@/lib/style-preferences.server';
 import { ADDED_CATEGORIES_KEY, withAddedCategory } from '@/lib/explore-in-plan';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -39,6 +39,8 @@ export async function markCategoryComplete(input: {
   eventId: string;
   planGroupId: string;
 }): Promise<CategoryDecisionResult> {
+  const helperRefusal = await limitedHelperRefusal(input.eventId);
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   const supabase = await createClient();
   const {
     data: { user },
@@ -66,6 +68,8 @@ export async function clearCategoryDecision(input: {
   eventId: string;
   planGroupId: string;
 }): Promise<CategoryDecisionResult> {
+  const helperRefusal = await limitedHelperRefusal(input.eventId);
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   const supabase = await createClient();
   const {
     data: { user },
@@ -115,6 +119,8 @@ export async function excludeTileFromPlan(input: {
   eventId: string;
   tile: string;
 }): Promise<CategoryDecisionResult> {
+  const helperRefusal = await limitedHelperRefusal(input.eventId);
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   if (!isExploreReplanEnabled()) return { ok: false, error: 'Not available.' };
   const supabase = await createClient();
   const {
@@ -232,6 +238,8 @@ export async function restoreTileToPlan(input: {
   eventId: string;
   tile: string;
 }): Promise<CategoryDecisionResult> {
+  const helperRefusal = await limitedHelperRefusal(input.eventId);
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   if (!isExploreReplanEnabled()) return { ok: false, error: 'Not available.' };
   const supabase = await createClient();
   const {

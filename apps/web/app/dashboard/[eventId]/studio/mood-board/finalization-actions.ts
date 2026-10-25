@@ -48,6 +48,7 @@ import {
   isFinalizablePartId,
   renderPartLabel,
 } from '@/lib/moodboard-finalization';
+import { refuseLimitedHelper } from '@/lib/host-gate';
 
 export type FinalizationActionResult =
   | { status: 'ok' }
@@ -70,6 +71,7 @@ export async function requestPartFinalization(
   partId: string,
   vendorId: string,
 ): Promise<FinalizationActionResult> {
+  await refuseLimitedHelper(eventId);
   if (!isFinalizablePartId(partId)) return { status: 'not_finalizable_part' };
 
   const supabase = await createClient();
@@ -158,6 +160,7 @@ export async function cancelPartFinalization(
   eventId: string,
   finalizationId: string,
 ): Promise<FinalizationActionResult> {
+  await refuseLimitedHelper(eventId);
   return simpleCoupleRpc(eventId, 'cancel_part_finalization_request', finalizationId);
 }
 
@@ -172,6 +175,7 @@ export async function requestPartReopen(
   eventId: string,
   finalizationId: string,
 ): Promise<FinalizationActionResult> {
+  await refuseLimitedHelper(eventId);
   const result = await simpleCoupleRpc(eventId, 'request_part_reopen', finalizationId);
   if (result.status !== 'ok') return result;
 
@@ -223,6 +227,7 @@ export async function cancelPartReopen(
   eventId: string,
   finalizationId: string,
 ): Promise<FinalizationActionResult> {
+  await refuseLimitedHelper(eventId);
   return simpleCoupleRpc(eventId, 'cancel_part_reopen_request', finalizationId);
 }
 

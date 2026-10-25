@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { requirePanoodControlRoomMember } from '@/lib/panood-control-room-access';
 import { reissuePanoodCameraToken } from '@/lib/panood-camera-seats';
+import { refuseLimitedHelper } from '@/lib/host-gate';
 
 /**
  * Reissue a camera's claim link — the couple's remedy when an operator drops out, loses their
@@ -19,6 +20,7 @@ export async function reissuePanoodCamera(
   eventId: string,
   cameraId: number,
 ): Promise<{ ok: true } | { error: string }> {
+  await refuseLimitedHelper(eventId);
   if (!eventId || !Number.isFinite(cameraId)) return { error: 'Missing camera.' };
 
   const supabase = await createClient();

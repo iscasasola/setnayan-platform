@@ -21,6 +21,7 @@ import { normalizeGuestName } from '@/lib/guest-name';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 import { pgArrayLiteral, updateJsonColumn, type JsonColumnClient } from '@/lib/update-json-column';
 import { makeGuestGroupOnce } from '@/lib/guest-group-made-once';
+import { limitedHelperRefusal } from '@/lib/host-gate';
 
 // Iteration 0053 P2: the valid role set is per event type — each action below
 // resolves it via resolveRoleSetForEvent(eventId) (wedding → the 24-role set;
@@ -110,6 +111,8 @@ export async function quickAddGuest(
   input: QuickAddInput,
   opts: AddWriteOptions = {},
 ): Promise<QuickAddResult> {
+  const helperRefusal = await limitedHelperRefusal(eventId);
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   // BACKSTOP. Callers that already split a name (capture bar, the detailed
   // form, the import) pass the parts explicitly and are trusted verbatim.
   // A caller that passes NONE of the three gets its first/last re-parsed here,
@@ -281,6 +284,8 @@ export async function quickCreateGroup(
    *  (owner 2026-09-21); anything unrecognised is 'both', as before. */
   rawSide?: unknown,
 ): Promise<QuickGroupResult> {
+  const helperRefusal = await limitedHelperRefusal(eventId);
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   const label = (rawLabel ?? '').trim();
   if (!label) return { ok: false, error: 'Type a group name.' };
   if (label.length > 64) return { ok: false, error: 'Keep it under 64 characters.' };
@@ -338,6 +343,8 @@ export async function addRoleToGuest(
   guestId: string,
   rawRole: string,
 ): Promise<QuickRoleResult> {
+  const helperRefusal = await limitedHelperRefusal(eventId);
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   const role = rawRole as GuestRole;
   const roleSet = await resolveRoleSetForEvent(eventId);
   if (!roleSet.offeredRoles.includes(role)) {
@@ -410,6 +417,8 @@ export async function setGuestPrimaryRole(
   guestId: string,
   rawRole: string,
 ): Promise<QuickRoleResult> {
+  const helperRefusal = await limitedHelperRefusal(eventId);
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   const role = rawRole as GuestRole;
   const roleSet = await resolveRoleSetForEvent(eventId);
   if (!roleSet.offeredRoles.includes(role)) {

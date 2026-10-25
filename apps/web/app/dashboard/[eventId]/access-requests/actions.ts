@@ -33,6 +33,7 @@ import {
   type DelegateArea,
   type ModeratorPermissions,
 } from '@/lib/event-moderators';
+import { limitedHelperRefusal } from '@/lib/host-gate';
 
 export type AnswerResult = { ok: boolean; error?: string };
 
@@ -56,6 +57,8 @@ export async function answerAccessRequest(
   requestId: string,
   verdicts: Record<string, AreaVerdict>,
 ): Promise<AnswerResult> {
+  const helperRefusal = await limitedHelperRefusal(eventId);
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   const supabase = await createClient();
   const {
     data: { user },

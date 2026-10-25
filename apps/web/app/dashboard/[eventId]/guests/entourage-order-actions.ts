@@ -51,6 +51,7 @@ import {
 } from '@/lib/entourage-write';
 import type { EntourageRow } from '@/lib/entourage';
 import type { MarchResult } from '@/lib/march-result';
+import { refuseLimitedHelper } from '@/lib/host-gate';
 
 /**
  * Set a whole group's line order at once, from an explicit sequence.
@@ -79,6 +80,7 @@ export async function setEntourageLineOrder(
   groupKey: string,
   leadGuestIds: readonly string[],
 ): Promise<MarchResult> {
+  await refuseLimitedHelper(eventId);
   const read = await readMarchLines(eventId, groupKey);
   if (!read.ok) return read;
   const { supabase, lines } = read;

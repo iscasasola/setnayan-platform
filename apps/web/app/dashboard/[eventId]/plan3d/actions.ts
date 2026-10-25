@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { publishSeating, unpublishSeating } from '../seating/actions';
+import { refuseLimitedHelper } from '@/lib/host-gate';
 
 /**
  * The control centre's switch — the SAME two actions the lab's panel uses
@@ -12,12 +13,14 @@ import { publishSeating, unpublishSeating } from '../seating/actions';
  * event scope and the "clear the gate, leave the printed signs" contract.
  */
 export async function publishFromControlCentre(formData: FormData): Promise<void> {
+  await refuseLimitedHelper(formData.get('event_id'));
   await publishSeating(formData);
   const eventId = formData.get('event_id');
   if (typeof eventId === 'string') revalidatePath(`/dashboard/${eventId}/plan3d`);
 }
 
 export async function unpublishFromControlCentre(formData: FormData): Promise<void> {
+  await refuseLimitedHelper(formData.get('event_id'));
   await unpublishSeating(formData);
   const eventId = formData.get('event_id');
   if (typeof eventId === 'string') revalidatePath(`/dashboard/${eventId}/plan3d`);

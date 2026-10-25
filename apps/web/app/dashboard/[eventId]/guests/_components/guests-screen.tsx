@@ -216,6 +216,13 @@ export type GuestsScreenProps = {
    * 2026-10-23, "Papic · set N each"). Anything else — off, a check that did not answer, not the couple — offers none.
    */
   papic?: 'on' | 'off' | 'unknown' | null;
+  /**
+   * 👁 The viewer may SEE this list but not change it — a limited helper, or any delegate whose guest-list
+   * area is not 'edit' (`viewerAreaLevel`). The same rule as the phone's last copy: nothing that writes is
+   * offered — no Select, no Remove, no Add. The server refuses them anyway (`refuseLimitedHelper`); this is
+   * so the page never draws a control that can only fail.
+   */
+  viewOnly?: boolean;
 };
 
 /** ⚡ The most rows the first draw holds; the rest arrive at the first idle moment. */
@@ -288,7 +295,10 @@ export function GuestsScreen(props: GuestsScreenProps) {
     empty,
     copy = null,
     roleSetKey = null,
+    viewOnly = false,
   } = live;
+  // 🔒 Nothing that writes is offered while this is the phone's old copy OR the viewer may only look.
+  const writesOff = copy !== null || viewOnly;
   // The list's rows carry only GUEST_LIST_ROW_FIELDS; every helper below reads within them —
   // 🔒 guests/the-list-sends-only-what-it-draws.test.ts runs this screen and those helpers over rows that
   // record each field read.
@@ -695,7 +705,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
           ? PLUS_ONE_FILTERS.map((f) => ({ key: `plus:${f.key}`, label: f.label, group: '+1', icon: <Armchair className="h-[18px] w-[18px]" strokeWidth={1.9} /> }))
           : [],
         // ☑ Select lives in this menu (owner 2026-10-22, question 1) — it was the row's fifth round.
-        copy ? [] : [{ key: 'select', label: 'Select…', group: 'List', icon: <SquareCheck className="h-[18px] w-[18px]" strokeWidth={1.9} /> }],
+        writesOff ? [] : [{ key: 'select', label: 'Select…', group: 'List', icon: <SquareCheck className="h-[18px] w-[18px]" strokeWidth={1.9} /> }],
       ),
     onPick: (k) => {
       if (k === 'select') return setSelectMode(true);
@@ -737,7 +747,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
   const [takenPeople, setTakenPeople] = useState<ReadonlySet<string>>(() => new Set());
   const peopleAsked = useRef(false);
   const loadPeople = () => {
-    if (peopleAsked.current || copy) return;
+    if (peopleAsked.current || writesOff) return;
     peopleAsked.current = true;
     void hearAction(() => listPeopleYouCanInvite(eventId).then((r) => ({ ok: true as const, r })))
       .then((res) => {
@@ -868,7 +878,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
       ? (['bride', 'groom', 'both'] as GuestSide[]).map((s) => ({ key: `side:${s}`, label: SIDE_LABELS[s], group: 'Side' }))
       : []),
     // 📸 Their camera, for everyone selected — only while the event's Papic is on (owner 2026-10-23).
-    ...(live.papic === 'on' && !copy ? PAPIC_SET_OPTIONS : []),
+    ...(live.papic === 'on' && !writesOff ? PAPIC_SET_OPTIONS : []),
   ];
   const selectedIds = [...selected];
   const invitable = selectedIds
@@ -970,11 +980,11 @@ export function GuestsScreen(props: GuestsScreenProps) {
         ]}
         field={field}
         right={[sortMenu]}
-        action={copy ? null : addRound}
+        action={writesOff ? null : addRound}
       />
     );
   } else if (gview === 'map') {
-    thumb = <ThumbRow name="guests-map" field={field} right={[arrangeMenu]} action={copy ? null : addRound} />;
+    thumb = <ThumbRow name="guests-map" field={field} right={[arrangeMenu]} action={writesOff ? null : addRound} />;
   }
 
   /* ═══ the list ═══ */
@@ -993,11 +1003,11 @@ export function GuestsScreen(props: GuestsScreenProps) {
           </span>
         </div>
       ) : null}
-      {titlesWaiting.length > 0 && !copy ? (
+      {titlesWaiting.length > 0 && !writesOff ? (
         <TitlesWaiting eventId={eventId} people={titlesWaiting} classes={{ row: `${styles.row} ${styles.rise}`, t: styles.t ?? '', s: styles.s ?? '', acts: styles.acts ?? '' }} />
       ) : null}
       {/* ⚡ The names just typed — here the moment Enter is pressed, until the re-read list draws their real rows. */}
-      {copy ? null : <JustAdded eventId={eventId} variant="list" classes={{ row: styles.row ?? '', t: styles.t ?? '', s: styles.s ?? '', acts: styles.acts ?? '' }} />}
+      {writesOff ? null : <JustAdded eventId={eventId} variant="list" classes={{ row: styles.row ?? '', t: styles.t ?? '', s: styles.s ?? '', acts: styles.acts ?? '' }} />}
       {empty && !q ? <Handed>{empty}</Handed> : null}
       {(empty && !q ? [] : sections).map((sec) => {
         const opened = isOpen(sec.key);
@@ -1065,7 +1075,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
                       face={faceByGuest[g.guest_id]}
                       table={tableByGuest[g.guest_id] ?? null}
                       verbs={
-                        copy
+                        writesOff
                           ? []
                           : rowVerbsFor(g, {
                               linked: linked ? linked.has(g.guest_id) : null,
@@ -1091,17 +1101,17 @@ export function GuestsScreen(props: GuestsScreenProps) {
       {/* SEARCH OR ADD (owner 2026-10-24: *"it is search or add for both guests and suppliers"*): while the box holds
           words and the list has hits, the last row adds what was typed — the thumb row's own ＋ door (`openAddGuest`,
           the sheet, name filled in). With no hit the block below is the add, its button in the same words. */}
-      {q && !noMatch && !copy ? <SearchAddRow className={styles.searchAdd} query={q} as="a guest" onAdd={openAddGuest} /> : null}
+      {q && !noMatch && !writesOff ? <SearchAddRow className={styles.searchAdd} query={q} as="a guest" onAdd={openAddGuest} /> : null}
       {noMatch ? (
         <div className={styles.nomatch} data-no-match="">
-          {copy ? null : <PeopleHits hits={peopleHits} onAdd={addPerson} />}
+          {writesOff ? null : <PeopleHits hits={peopleHits} onAdd={addPerson} />}
           <div className={styles.title}>
-            {peopleHits.length > 0 && !copy ? `Not them? Add “${q}” as new` : copy ? `Nobody matches “${q}”` : `Nobody matches “${q}”. Add them below.`}
+            {peopleHits.length > 0 && !writesOff ? `Not them? Add “${q}” as new` : writesOff ? `Nobody matches “${q}”` : `Nobody matches “${q}”. Add them below.`}
           </div>
           <p className={styles.body}>
             If that’s a name, add them — one tap, the rest later. Words like “attending”, “no reply”, “VIP” or a group name also work here.
           </p>
-          {copy ? null : (
+          {writesOff ? null : (
             <AddCardPicks
               eventId={eventId}
               hasSides={hasSides}
@@ -1120,7 +1130,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
           ) : null}
           {/* 📌 With no result this row is what a search shows: pinned just above the band (lib/search-pin.ts). */}
           <span className={styles.acts} data-fit-acts="" data-search-none="">
-            {copy ? null : (
+            {writesOff ? null : (
               <ActionButton
                 tone="brand"
                 main

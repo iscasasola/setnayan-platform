@@ -1,7 +1,7 @@
 'use server';
 
 import { getCurrentUser } from '@/lib/auth';
-import { requireHostMembership } from '@/lib/host-gate';
+import { requireHostMembership, refuseLimitedHelper } from '@/lib/host-gate';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { QR_STYLE_PREF_KEY, qrStyleFromPreferences, sanitizeQrStyle, type StoredQrStyle } from '@/lib/qr-look';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -26,6 +26,7 @@ import { draftedEventColumn, saveHubDraftPatch } from '@/lib/hub-draft-store';
 export type UpdateQrStyleResult = { ok: true } | { ok: false; reason: 'signed_out' | 'failed' };
 
 export async function updateQrStyle(eventId: string, patch: StoredQrStyle): Promise<UpdateQrStyleResult> {
+  await refuseLimitedHelper(eventId);
   const user = await getCurrentUser();
   if (!user) return { ok: false, reason: 'signed_out' };
   await requireHostMembership(eventId);

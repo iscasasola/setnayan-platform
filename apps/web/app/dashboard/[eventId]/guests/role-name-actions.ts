@@ -23,7 +23,7 @@
  * (`section:<key>`) in the same column. See `lib/role-names.ts`.
  */
 import { createAdminClient } from '@/lib/supabase/admin';
-import { requireHostMembership } from '@/lib/host-gate';
+import { requireHostMembership, refuseLimitedHelper } from '@/lib/host-gate';
 import { revalidateMarch } from '@/lib/entourage-write';
 import { isRenamableSection } from '@/lib/entourage';
 import { isRenamableRole, sectionNameKey, type RoleNames } from '@/lib/role-names';
@@ -75,6 +75,7 @@ export async function renameRole(
   one: string,
   many?: string | null,
 ): Promise<RenameRoleResult> {
+  await refuseLimitedHelper(eventId);
   await requireHostMembership(eventId);
   if (!isKnownGuestRole(role) || !isRenamableRole(role)) {
     return { ok: false, reason: 'That role can’t be renamed.' };
@@ -84,6 +85,7 @@ export async function renameRole(
 
 /** 🏷 "Rename this section" — one entourage section's heading, for this event. Blank = the usual heading. */
 export async function renameSection(eventId: string, section: string, one: string): Promise<RenameRoleResult> {
+  await refuseLimitedHelper(eventId);
   await requireHostMembership(eventId);
   if (!isRenamableSection(section)) return { ok: false, reason: 'That section can’t be renamed.' };
   return writeOneWord(eventId, { key: sectionNameKey(section), one });

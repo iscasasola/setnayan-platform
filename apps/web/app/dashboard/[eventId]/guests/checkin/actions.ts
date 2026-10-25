@@ -6,6 +6,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { eventWordsForEvent } from '@/app/[slug]/_lib/event-words';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { doorVerdict } from '@/lib/request-key';
+import { limitedHelperRefusal } from '@/lib/host-gate';
 
 /**
  * How a guest was checked in — `guest_checkins.method`, CHECKed in the DB
@@ -56,6 +57,8 @@ export async function checkInGuest(
   guestId: string,
   method: CheckinMethod,
 ): Promise<CheckinActionResult> {
+  const helperRefusal = await limitedHelperRefusal(eventId);
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   let user;
   try {
     user = await assertDoorCrew(eventId);
@@ -118,6 +121,8 @@ export async function undoCheckIn(
   eventId: string,
   guestId: string,
 ): Promise<UndoActionResult> {
+  const helperRefusal = await limitedHelperRefusal(eventId);
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   try {
     await assertDoorCrew(eventId);
   } catch {

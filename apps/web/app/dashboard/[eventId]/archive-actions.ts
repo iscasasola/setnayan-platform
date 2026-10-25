@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { clearHomeShelf } from '@/lib/home-shelf-clear';
+import { refuseLimitedHelper } from '@/lib/host-gate';
 
 /**
  * archive-actions.ts — putting a celebration away, and taking it back out.
@@ -68,6 +69,7 @@ export type ArchiveResult =
  * through this couple-facing action.
  */
 export async function setEventArchived(formData: FormData): Promise<ArchiveResult> {
+  await refuseLimitedHelper(formData.get('event_id'));
   const eventId = String(formData.get('event_id') ?? '').trim();
   // The desired STATE is posted, never a toggle. A toggle computed from a stale
   // page archives an event the moment two tabs disagree.

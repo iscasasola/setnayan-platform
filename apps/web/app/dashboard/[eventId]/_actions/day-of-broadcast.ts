@@ -18,6 +18,7 @@ import {
   isCoordinatorP3Enabled,
   resolveBroadcastAuthority,
 } from '@/lib/coordinator-broadcasts-server';
+import { refuseLimitedHelper, limitedHelperRefusal } from '@/lib/host-gate';
 
 /**
  * Coordinator P3 server actions — day-of broadcast + email call-times
@@ -44,6 +45,8 @@ export type SendBroadcastResult =
 export async function sendCoordinatorBroadcast(
   formData: FormData,
 ): Promise<SendBroadcastResult> {
+  const helperRefusal = await limitedHelperRefusal(formData.get('event_id'));
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   if (!(await isCoordinatorP3Enabled())) {
     return { ok: false, error: 'Broadcasts are not enabled yet.' };
   }
@@ -134,6 +137,7 @@ export type EmailCallTimesResult =
 export async function emailVendorCallTimes(
   formData: FormData,
 ): Promise<EmailCallTimesResult> {
+  await refuseLimitedHelper(formData.get('event_id'));
   if (!(await isCoordinatorP3Enabled())) return { ok: false, reason: 'not_enabled' };
   const eventId = formData.get('event_id');
   if (typeof eventId !== 'string' || eventId.length === 0) {

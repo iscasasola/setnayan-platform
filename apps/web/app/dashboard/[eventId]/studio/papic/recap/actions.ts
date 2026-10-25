@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { composeRecapSocialPost } from '@/lib/social/recap-post';
 import { runSocialFlush } from '@/lib/social/flush';
+import { refuseLimitedHelper, limitedHelperRefusal } from '@/lib/host-gate';
 
 // Iteration 0012 Papic — Auto-Recap publish controls (couple-side).
 //
@@ -58,6 +59,7 @@ async function slugFor(eventId: string): Promise<string | null> {
 }
 
 export async function publishRecap(formData: FormData): Promise<void> {
+  await refuseLimitedHelper(formData.get('eventId'));
   const eventId = eventIdFrom(formData);
   await requireCouple(eventId);
 
@@ -101,6 +103,8 @@ export async function setRecapSocialFeatureAllowed(
   eventId: string,
   allowed: boolean,
 ): Promise<{ ok: boolean; error?: string }> {
+  const helperRefusal = await limitedHelperRefusal(eventId);
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   const clean = eventId?.trim();
   if (!clean) return { ok: false, error: 'missing_event' };
   await requireCouple(clean);
@@ -117,6 +121,7 @@ export async function setRecapSocialFeatureAllowed(
 }
 
 export async function unpublishRecap(formData: FormData): Promise<void> {
+  await refuseLimitedHelper(formData.get('eventId'));
   const eventId = eventIdFrom(formData);
   await requireCouple(eventId);
 

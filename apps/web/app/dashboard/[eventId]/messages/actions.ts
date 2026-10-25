@@ -8,6 +8,7 @@ import { lookupExistingVendorByEmail } from '@/lib/vendor-invites';
 import { fetchThreadById } from '@/lib/chat';
 import { isFollowingVendor } from '@/lib/follow';
 import { followVendor } from '@/lib/follow-actions';
+import { refuseLimitedHelper } from '@/lib/host-gate';
 
 /**
  * Withdraw a couple-side inquiry / remove a vendor (inquiry-followthrough
@@ -31,6 +32,7 @@ import { followVendor } from '@/lib/follow-actions';
  * Idempotent — re-archiving an already-archived thread is a harmless re-stamp.
  */
 export async function withdrawInquiry(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'));
   const eventId = formData.get('event_id');
   const threadId = formData.get('thread_id');
   if (typeof eventId !== 'string' || typeof threadId !== 'string') {
@@ -61,6 +63,7 @@ export async function withdrawInquiry(formData: FormData) {
 }
 
 export async function startThreadByVendorEmail(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'));
   const eventId = formData.get('event_id');
   const vendorEmail = formData.get('vendor_email');
   if (typeof eventId !== 'string' || typeof vendorEmail !== 'string') {

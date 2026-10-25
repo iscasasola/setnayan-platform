@@ -200,6 +200,38 @@ test('a limited helper can VIEW the plan but cannot WRITE it', async () => {
   assert.equal(seen.rows[0]!.c, '1', 'a limited helper reads the plan — "can see progress"');
 });
 
+test('is_limited_helper answers for a viewer seat, never a co-host (the server-action gate asks THIS)', async () => {
+  // lib/limited-helper-gate.ts — every action under app/dashboard/[eventId] asks
+  // public.is_limited_helper(event_id) before it writes (owner 2026-10-25: a
+  // helper "can change table, delete guests"). The gate trusts this answer, so
+  // the answer is pinned here, as each kind of person on the event.
+  const { eventId, creator } = await newEvent('gate');
+  const helper = await newUser('gate-helper@cohost.test');
+  const cohost = await newUser('gate-cohost@cohost.test');
+  const hg = await newGuest(eventId, 'Helper');
+  const cg = await newGuest(eventId, 'Cohost');
+  for (const [g, u] of [[hg, helper], [cg, cohost]] as const) {
+    await link(eventId, g, u);
+    await sayYes(g);
+  }
+  const helperSeat = await pick(eventId, hg, 'viewer', creator);
+  await pick(eventId, cg, 'co_host', creator);
+
+  const asks = async (uid: string): Promise<boolean> => {
+    await db.exec('SET ROLE authenticated');
+    await setAuthUid(db, uid);
+    const r = await db.query<{ v: boolean }>(`SELECT public.is_limited_helper($1) AS v`, [eventId]);
+    await db.exec('RESET ROLE');
+    return r.rows[0]!.v;
+  };
+  assert.equal(await asks(helper), true, 'a live viewer seat is a limited helper');
+  assert.equal(await asks(cohost), false, 'a co-host is NOT a limited helper — they edit like the creator');
+  assert.equal(await asks(creator), false, 'the creator is not a limited helper');
+
+  await db.query(`UPDATE public.event_moderators SET removed_at = now() WHERE moderator_id = $1`, [helperSeat]);
+  assert.equal(await asks(helper), false, 'a removed seat is nobody’s helper seat');
+});
+
 test('every coordinator-writable table without an area check refuses a limited helper', async () => {
   const r = await db.query<{ t: string; ins: boolean; upd: boolean; del: boolean }>(`
     WITH w AS (

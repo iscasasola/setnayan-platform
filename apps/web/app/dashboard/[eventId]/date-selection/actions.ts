@@ -40,6 +40,7 @@ import {
   type MeaningfulDateKind,
 } from '@/lib/auspicious-date';
 import { isChineseWedding } from '@/lib/chinese-wedding';
+import { refuseLimitedHelper } from '@/lib/host-gate';
 
 const ALLOWED_KINDS: MeaningfulDateKind[] = [
   'honor',
@@ -69,6 +70,7 @@ function isKind(value: unknown): value is MeaningfulDateKind {
  * is typically pre-vendor so this rarely fires, but defense-in-depth.
  */
 export async function lockEventDate(formData: FormData): Promise<void> {
+  await refuseLimitedHelper(formData.get('event_id'));
   const eventId = formData.get('event_id');
   const dateRaw = formData.get('event_date');
   const precisionRaw = formData.get('precision');
@@ -187,6 +189,7 @@ export async function lockEventDate(formData: FormData): Promise<void> {
  * gates both the delete and insert by event_moderators membership.
  */
 export async function setMeaningfulDates(formData: FormData): Promise<void> {
+  await refuseLimitedHelper(formData.get('event_id'));
   const eventId = formData.get('event_id');
   if (typeof eventId !== 'string') throw new Error('event_id required');
 
@@ -295,6 +298,7 @@ export async function setMeaningfulDates(formData: FormData): Promise<void> {
 export async function setCeremonyTypeFromFlow(
   formData: FormData,
 ): Promise<{ ok: true } | { ok: false; message: string }> {
+  await refuseLimitedHelper(formData.get('event_id'));
   const eventId = formData.get('event_id');
   const ceremonyRaw = formData.get('ceremony_type');
   if (typeof eventId !== 'string') {
@@ -403,6 +407,7 @@ export async function setCeremonyTypeFromFlow(
  * standard EventDateInput component on event home.
  */
 export async function markDateUndecided(formData: FormData): Promise<void> {
+  await refuseLimitedHelper(formData.get('event_id'));
   const eventId = formData.get('event_id');
   if (typeof eventId !== 'string') throw new Error('event_id required');
 

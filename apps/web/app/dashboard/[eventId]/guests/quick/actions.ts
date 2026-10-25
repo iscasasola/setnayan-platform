@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 import { applyReconcileForEvent } from '@/lib/seating-reconcile';
 import { parsePersonName } from '@/lib/person-name-parse';
 import { takeGenderMark } from '@/lib/guest-title';
+import { refuseLimitedHelper } from '@/lib/host-gate';
 
 type QuickEntry = { firstName: string; lastName: string };
 
@@ -16,6 +17,7 @@ const MAX_BULK = 500;
 // later from the full guest editor. Enforces a soft cap of 500 names per
 // upload — anything beyond that should use CSV import.
 export async function bulkAddGuests(eventId: string, formData: FormData) {
+  await refuseLimitedHelper(eventId);
   const raw = formData.get('guests');
   if (typeof raw !== 'string') {
     return redirect(`/dashboard/${eventId}/guests/quick?error=missing`);

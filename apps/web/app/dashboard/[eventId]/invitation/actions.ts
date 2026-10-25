@@ -10,6 +10,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { sendEmail } from '@/lib/email';
 import { renameEventSlug } from '@/lib/event-slug-rename.server';
 import { eventHubPartActive } from '@/lib/couple-website-pro';
+import { refuseLimitedHelper } from '@/lib/host-gate';
 
 function randomHex(bytes = 16): string {
   const buf = new Uint8Array(bytes);
@@ -46,6 +47,7 @@ export async function reissueGuestToken(
   guestId: string,
   _formData: FormData,
 ): Promise<void> {
+  await refuseLimitedHelper(eventId);
   const supabase = await createClient();
 
   const { data: rpcData, error: rpcError } = await supabase.rpc(
@@ -139,6 +141,7 @@ export async function updateEventSlug(
   returnTo: SlugReturn,
   formData: FormData,
 ): Promise<void> {
+  await refuseLimitedHelper(eventId);
   const back = slugReturnPath(eventId, returnTo);
   const requested = String(formData.get('slug') ?? '')
     .trim()
@@ -180,6 +183,7 @@ export async function updateMonogram(
   eventId: string,
   formData: FormData,
 ): Promise<void> {
+  await refuseLimitedHelper(eventId);
   const rawText = String(formData.get('monogram_text') ?? '').trim();
   const rawColor = String(formData.get('monogram_color') ?? '').trim();
 
@@ -243,6 +247,7 @@ export async function markGuestInvitationSent(
   guestId: string,
   formData: FormData,
 ): Promise<void> {
+  await refuseLimitedHelper(eventId);
   const supabase = await createClient();
   const {
     data: { user },
@@ -316,6 +321,7 @@ export async function setGuestInvitationSent(
   guestId: string,
   sent: boolean,
 ): Promise<{ ok: true; sentAt: string | null } | { ok: false }> {
+  await refuseLimitedHelper(eventId);
   const supabase = await createClient();
   const {
     data: { user },

@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
+import { refuseLimitedHelper } from '@/lib/host-gate';
 
 // Allowed walima seating postures — must mirror the events_gender_separation_check
 // DB constraint (migration 20270308998862). Belt-and-suspenders: the DB guards
@@ -24,6 +25,7 @@ const MAHR_MAX = 600;
  * (no dead state).
  */
 export async function updateNikahDetails(eventId: string, formData: FormData) {
+  await refuseLimitedHelper(eventId);
   const user = await getCurrentUser();
   if (!user) return;
 

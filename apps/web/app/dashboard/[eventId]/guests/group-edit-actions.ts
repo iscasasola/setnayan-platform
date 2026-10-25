@@ -6,6 +6,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { GROUP_CATEGORY_LABELS, type GuestGroupTeamSide } from '@/lib/guests';
 import { clashWords, groupNameClash, type GroupNameClash } from '@/lib/group-name-clash';
 import { makeGuestGroupOnce } from '@/lib/guest-group-made-once';
+import { refuseLimitedHelper } from '@/lib/host-gate';
 
 /**
  * group-edit-actions.ts — ✎ RENAME AND 🗑 DELETE A COUPLE'S OWN GROUP IN PLACE (owner 2026-10-20: *"before we can always
@@ -43,6 +44,7 @@ export type GroupCountResult = { ok: true; n: number } | { ok: false; error: str
  */
 export type GroupEdit = { op: 'create'; label: string; side: GuestGroupTeamSide } | { op: 'rename'; label: string } | { op: 'delete' } | { op: 'count' };
 export async function editGuestGroupInPlace(eventId: string, groupId: string, edit: GroupEdit): Promise<GroupEditResult | GroupCountResult> {
+  await refuseLimitedHelper(eventId);
   if (edit.op === 'create') return createGuestGroupInPlace(eventId, edit.label, edit.side);
   if (edit.op === 'rename') return renameGuestGroupInPlace(eventId, groupId, edit.label);
   if (edit.op === 'delete') return deleteGuestGroupInPlace(eventId, groupId);

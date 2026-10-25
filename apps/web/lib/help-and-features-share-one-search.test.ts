@@ -101,9 +101,10 @@ test('1 · ONE SEARCH BAR, AT THE BOTTOM, ON BOTH PAGES — signed in AND signed
   assert.deepEqual([...DOORWAY_PAGE_SEARCH_PATHS].sort(), ['/features', '/help']);
   assert.match(code('app/_components/frontdoor/app-rail-shell.tsx'), /pageSearchPaths=\{variant === 'doorway' \? DOORWAY_PAGE_SEARCH_PATHS : undefined\}/);
   const shell = code('app/_components/frontdoor/front-door-shell.tsx');
-  assert.match(shell, /const searchHere = pageSearchPaths\?\.includes\(pathname \?\? ''\) \? false : search;/);
-  assert.equal((shell.match(/searchHere === false \? null/g) ?? []).length, 2, 'a top-bar box (desktop or phone row) ignores the switch');
-  assert.doesNotMatch(shell, /\{search \?\? <SearchBox \/>\}/, 'a top-bar box still reads the unswitched prop');
+  assert.match(shell, /search: searchProp,/, 'the shell reads the prop under one name and decides `search` once');
+  assert.match(shell, /const search = pageSearchPaths\?\.includes\(pathname \?\? ''\) \? false : searchProp;/);
+  assert.equal((shell.match(/search === false \? null/g) ?? []).length, 2, 'a top-bar box (desktop or phone row) ignores the switch');
+  assert.equal((shell.match(/\bsearchProp\b/g) ?? []).length, 2, 'the unswitched prop is read ONLY where `search` is decided — a top-bar box reading it would ignore /help and /features');
 });
 
 test('2 · its results are help answers, feature pages and guides — from the real corpora', () => {

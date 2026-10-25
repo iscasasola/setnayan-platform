@@ -14,6 +14,9 @@
  *
  * (The seed == consts, tier-2 homes and delete-with-photo halves of guard 3 are step ①'s
  * `inspiration-parts-seed-equals-the-consts.db.test.ts`.)
+ *
+ * 🛡 Sabotaged once (2026-10-26, builder; the migration restored after): the gallery trigger's condition made
+ * `IF FALSE AND …` → "an unknown key is refused on the couple's board AND in a supplier's gallery" red.
  */
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';

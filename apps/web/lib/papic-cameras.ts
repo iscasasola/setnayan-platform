@@ -395,7 +395,7 @@ export type CameraQuoteLine = {
   /**
    * count × rate, BEFORE the cap. FLAT per camera — the capture-window day
    * count is NOT a price multiplier (2026-07-22 flat naming lock · migration
-   * 20270830568357; matches /pricing _papic-estimator.tsx).
+   * 20270830568357; matched /pricing's former _papic-estimator.tsx, deleted 2026-10-25).
    */
   subtotalPhp: number;
   /** What is actually billed: 0 when freed by an unlock, else min(subtotal, cap). */
@@ -485,7 +485,7 @@ export type CameraQuoteOpts = {
  * `days` argument is the capture-WINDOW length: it still sets seat validity
  * (valid_from/valid_until, resolved by the caller) and rides the order
  * description, but it is NEVER a price multiplier. /pricing promises "flat per
- * camera — no per-day or per-hour math" (_papic-estimator.tsx: paidCameras ×
+ * camera — no per-day or per-hour math" (the former /pricing _papic-estimator.tsx: paidCameras ×
  * rate), and this charge path must equal that. The old `× days` engine was
  * retired with the flat rename.
  *

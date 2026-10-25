@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "f509aa9001",
+  "generatedFromRef": "702fc16bf1",
   "routeCount": 472,
-  "destinations": 1010,
-  "actions": 663,
-  "blocks": 7076,
+  "destinations": 1012,
+  "actions": 665,
+  "blocks": 7081,
   "routes": {
     "/": {
       "files": [
@@ -539,33 +539,55 @@
     },
     "/(shell)/pricing": {
       "files": [
-        "(shell)/pricing/_papic-estimator.tsx",
-        "(shell)/pricing/_pricing-motion.tsx",
         "(shell)/pricing/_pricing-pickers.tsx",
+        "(shell)/pricing/_pricing-reads.ts",
         "(shell)/pricing/loading.tsx",
         "(shell)/pricing/page.tsx"
       ],
       "destinations": [
-        "/creators",
+        "/features",
         "/for-suppliers",
-        "/signup"
+        "/pricing/plan",
+        "/start"
       ],
       "actions": [],
       "blocks": [
-        "AddItem",
-        "AiTypeItem",
-        "BuildStatusChip",
-        "ElsewhereLine",
-        "HTMLDivElement",
-        "HTMLHeadingElement",
-        "HTMLParagraphElement",
+        "Figure",
+        "GuestSpotlight",
         "HubProWays",
+        "Image",
+        "IncludedGroup",
         "InfoTip",
-        "LineRevealHeading",
         "Link",
-        "PapicEstimator",
+        "LockTile",
+        "Moment",
         "PickMenu",
-        "RevealBand"
+        "PriceRowShell",
+        "Shot",
+        "TogetherRow",
+        "WhyPoint",
+        "WhyShot"
+      ]
+    },
+    "/(shell)/pricing/plan": {
+      "files": [
+        "(shell)/pricing/plan/_plan-quiz.tsx",
+        "(shell)/pricing/plan/_plan-steps.ts",
+        "(shell)/pricing/plan/page.tsx"
+      ],
+      "destinations": [
+        "/pricing",
+        "/start"
+      ],
+      "actions": [],
+      "blocks": [
+        "InfoTip",
+        "Link",
+        "PickMenu",
+        "PlanQuiz",
+        "PlanState",
+        "Question",
+        "Result"
       ]
     },
     "/(shell)/privacy": {
@@ -5198,15 +5220,18 @@
         "/dashboard",
         "/dashboard/notifications"
       ],
-      "actions": [],
+      "actions": [
+        "markAllNotificationsRead"
+      ],
       "blocks": [
         "Link",
         "LoadingNarration",
-        "NotificationsHead",
         "NotificationsList",
+        "PageMasthead",
         "Screen",
         "Sk",
-        "SkLine"
+        "SkLine",
+        "SubmitButton"
       ]
     },
     "/dashboard/(account)/people": {
@@ -11357,21 +11382,6 @@
         "MemoriesThumb"
       ]
     },
-    "/dev/notifications-lab": {
-      "files": [
-        "dev/notifications-lab/page.tsx"
-      ],
-      "destinations": [
-        "/dev/notifications-lab"
-      ],
-      "actions": [],
-      "blocks": [
-        "LabShell",
-        "Link",
-        "NotificationsHead",
-        "NotificationsList"
-      ]
-    },
     "/dev/onboarding-lab": {
       "files": [
         "dev/onboarding-lab/page.tsx"
@@ -14357,15 +14367,17 @@
         "/vendor-dashboard/notifications",
         "/vendor-dashboard/settings"
       ],
-      "actions": [],
+      "actions": [
+        "markAllNotificationsRead"
+      ],
       "blocks": [
         "ArrayBuffer",
         "DatesRow",
         "ListPageSkeleton",
-        "NotificationsHead",
         "NotificationsList",
         "NotificationsView",
         "PermissionState",
+        "SupplierSubmit",
         "UnblockGuide"
       ]
     },

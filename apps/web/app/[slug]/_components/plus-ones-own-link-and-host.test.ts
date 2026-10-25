@@ -126,8 +126,6 @@ test('E · an id prefix never renames a field the seat rule reads', async () => 
   const html = renderToStaticMarkup(
     React.createElement(PlusOneSeatPanels, {
       slots: [{ seatId: 's2', first: '', last: '', meal: 'no_preference', dietary: '' }],
-      active: 0,
-      arranged: false,
       askMeal: true,
       askDietary: true,
       idPrefix: 'me-s2-',

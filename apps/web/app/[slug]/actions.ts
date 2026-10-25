@@ -949,7 +949,7 @@ async function nameTheSeats(
   // `splitUnconfirmedSeats`) — and said: the result names it, so "Add name" shows the reason.
   const { kept: seatNames, refused: unticked } = splitUnconfirmedSeats(readSeatNames(formData));
   if (unticked > 0) {
-    logQueryError('submitRsvp.seatNotTicked', { message: `${unticked} named seat(s) posted without "They're coming"` }, { event_id: eventId, guest_id: guestId }, 'graceful_degrade');
+    logQueryError('submitRsvp.seatNotTicked', { message: `${unticked} named seat(s) posted without the coming tick` }, { event_id: eventId, guest_id: guestId }, 'graceful_degrade');
   }
   if (seatNames.length > 0) {
     const { data: primary, error: primaryErr } = await admin

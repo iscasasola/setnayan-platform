@@ -45,13 +45,10 @@ export const MAKER_PHONE_BAR_PX = 52;
 export const MAKER_BAR_PHONE = {
   /* top */
   exit: 'max-md:w-11',
-  stage: 'max-md:min-w-[120px]',
   undoTop: 'max-md:w-11',
   preview: 'max-md:w-11',
   applyTop: 'max-md:w-11',
-  /** The bar's own Page ▾ — a desktop's; on a phone the lower third's menu and navigator are. */
-  pageTop: 'max-lg:hidden',
-  /** The new Maker's one Stages | Studio segmented control (`makerStagesStudioEnabled`) — it takes what is left of the row. */
+  /** The one Stages | Studio segmented control — it takes what is left of the row. */
   side: 'max-md:min-w-[150px]',
 } as const;
 

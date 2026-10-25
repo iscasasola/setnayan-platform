@@ -134,8 +134,8 @@ test('2 · SOURCE: the dropdown is the toolbar’s Page ▾ (the Maker in 4), an
   assert.doesNotMatch(nav, /<PickMenu\b|<MakerPagePick\b/, 'a second page picker is back in the navigator');
   assert.match(SHELL, /setGuestPagesCtx\(\{\s*stage,/, 'the work area no longer reports its pages to the toolbar');
   const TOOLBAR = read('app/dashboard/[eventId]/launch/_components/maker-shell.tsx');
-  assert.match(TOOLBAR, /<PickMenu\s+label="Page"\s+dataAttr="data-maker-page-menu"/);
-  assert.match(TOOLBAR, /GUEST_PAGE_ICON\[/, 'Page ▾ lost the guest bar’s icons');
+  /* The toolbar's Page ▾ became Stages ▾ (the old bar went with the old Maker, 2026-10-25): it lists the SAME pages. */
+  assert.match(TOOLBAR, /<StudioSideSwitch side=\{side\} onPick=\{pickSide\} stage=\{ltPick\} options=\{page\.options\} onStage=\{pickPage\}/);
   // + the profile's love_story part (P6a): a birthday's Page ▾ has no Our Love Story.
   assert.match(SHELL, /const guestPages = makerGuestPages\(stage, list\.shown\.map\(\(t\) => t\.key\), navigator\.hasStory\);/);
   assert.match(TOOLBAR, /makerGuestPages\(s, \[\], hasStory\)/, 'another stage’s pages ignore whether the event has a story');

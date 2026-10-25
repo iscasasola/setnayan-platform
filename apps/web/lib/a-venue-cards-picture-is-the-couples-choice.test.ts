@@ -320,7 +320,7 @@ test("5 · the toolbar draws them on the Venue scene, under its door, from the l
   const lazy = code(`${L}/details-lazy.tsx`);
   assert.match(lazy, /export const VenuePictureRows = dynamic\(\(\) => import\(\s*'\.\/details-your-event'\)\.then\(\(m\) => m\.VenuePictureRows\)/);
   const launch = code('app/dashboard/[eventId]/launch/page.tsx');
-  assert.match(launch, /if \(yourEvent && stagesStudio\) venuePictures = \{ slots: yourEvent\.venues\.slots, pro: yourEvent\.venues\.pro \?\? \{ owns: false, storeShell \} \};/);
+  assert.match(launch, /if \(yourEvent\) venuePictures = \{ slots: yourEvent\.venues\.slots, pro: yourEvent\.venues\.pro \?\? \{ owns: false, storeShell \} \};/);
   /* ⚡ Handed over with the tools that arrive behind the Maker (2026-10-23, `lib/maker-late.ts`): the page returns it
      in `late`, hands `late` to the shell, and the shell takes it from there. */
   assert.match(launch, /return \{[^}]*\bvenuePictures,[^}]*opensOnGuide:/s, 'the launch page no longer hands it over with the tools');

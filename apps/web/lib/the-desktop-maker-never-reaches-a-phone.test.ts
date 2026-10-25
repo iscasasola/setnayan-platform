@@ -98,7 +98,7 @@ async function paint(): Promise<string> {
         eventId: 'ev-1',
         slug: 'maria-and-jose',
         liveStage: 'rsvp',
-        initialStage: 'invitation',
+        initialStage: 'rsvp',
         initialSelection: null,
         storeShell: false,
         tourSlides: [],

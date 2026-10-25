@@ -157,7 +157,8 @@ test('(3) the bar says ONE title per stage while the flow is on screen — never
   assert.match(ws, /setGuideTitle\?\.\(guideTitle\);/);
   assert.match(ws, /useEffect\(\(\) => \(\) => setGuideTitle\?\.\(null\), \[setGuideTitle\]\);/, 'the title outlives the flow');
   const shell = read(`${L}/maker-shell.tsx`);
-  assert.match(shell, /const openStageWord = \(openDoor === 'look' \|\| openDoor === 'details'\) && guideTitle \? guideTitle :/, 'the bar does not read the flow’s title');
+  /* The old bar's screen label that read it went with the old Maker (2026-10-25); the title is still handed to every panel. */
+  assert.match(shell, /\bguideTitle,\s*setGuideTitle,/, 'the shell no longer hands the flow’s title to its panels');
 });
 
 /* ── (4) one Apply; the counts list what they count ────────────────────── */
@@ -362,9 +363,10 @@ test('(12) opening a step is never dirty; the Mood Board steps show the board, w
   assert.match(ws, /noteStepTouch\(touchRef\.current, e,/);
   assert.match(read('lib/guided-step-touch.ts'), /if \(!e\.isTrusted\) return false;/, 'a field a tool fills itself counts as touched');
   for (const key of ['colours', 'wear'] as const) assert.equal(guidedStepBody(key, 'rsvp').kind, 'own', key);
+  /* The old Maker's Mood Board controls (its note and downloads) were deleted with it (2026-10-25): Studio › Mood Board
+     is the one board in the Maker, and it draws neither in a step. */
   const mb = read('app/dashboard/[eventId]/studio/mood-board/_components/mood-board-editor.tsx');
-  assert.match(mb, /className="contents group-data-\[details-mode=guided\]\/ws:hidden" data-mood-board-note-wrap=""/, 'the board’s note shows in the step');
-  assert.match(mb, /group-data-\[details-mode=guided\]\/ws:hidden" data-mood-board-exports=""/, 'the downloads show in the step');
+  assert.doesNotMatch(mb, /export async function MoodBoardMakerControls\(/, 'the old Maker’s Mood Board controls are back');
 });
 
 test('(13) Reply by: one date line, the date in the field, one date format', () => {

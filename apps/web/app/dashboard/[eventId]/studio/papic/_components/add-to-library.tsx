@@ -327,7 +327,7 @@ export function AddToLibrary({
         </p>
       </div>
 
-      {pot === 0 && buy ? <div data-add-photos-buy="empty">{buy}</div> : null}
+      {pot === 0 && buy && !short && !ranDry ? <div data-add-photos-buy="empty">{buy}</div> : null}
 
       <label className="flex min-h-[44px] cursor-pointer flex-col items-center gap-2 rounded-xl border border-dashed border-ink/20 bg-cream/50 px-4 py-8 text-center hover:border-ink/35 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-terracotta/50">
         <Upload aria-hidden className="h-5 w-5 text-ink/45" strokeWidth={1.75} />
@@ -413,6 +413,8 @@ function whyNot(out: Extract<UploadOutcome, { ok: false }>): string {
     if (out.code) return readable(out.code);
     if (out.status === 403) return 'This upload door isn’t yours any more — close this and open Add photos again.';
     if (out.says && out.status !== null && out.status >= 400 && out.status < 500) return out.says;
+    // Our side, not their connection: nothing was reserved (the presign refuses before any credit moves).
+    if (out.status !== null && out.status >= 500) return 'Uploads aren’t working on our side right now — nothing was used. Try again in a few minutes.';
   }
   if (out.step === 'put' && out.kind === 'refused') return `Storage refused it (status ${out.status}). Try again in a moment.`;
   return readable('upload_failed');

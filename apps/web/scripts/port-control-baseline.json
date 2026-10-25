@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "702fc16bf1",
-  "routeCount": 471,
-  "destinations": 1009,
+  "generatedFromRef": "f509aa9001",
+  "routeCount": 472,
+  "destinations": 1010,
   "actions": 663,
-  "blocks": 7077,
+  "blocks": 7076,
   "routes": {
     "/": {
       "files": [
@@ -5198,18 +5198,15 @@
         "/dashboard",
         "/dashboard/notifications"
       ],
-      "actions": [
-        "markAllNotificationsRead"
-      ],
+      "actions": [],
       "blocks": [
         "Link",
         "LoadingNarration",
+        "NotificationsHead",
         "NotificationsList",
-        "PageMasthead",
         "Screen",
         "Sk",
-        "SkLine",
-        "SubmitButton"
+        "SkLine"
       ]
     },
     "/dashboard/(account)/people": {
@@ -5268,7 +5265,6 @@
         "DependentsSection",
         "Drawer",
         "FindField",
-        "FindNotes",
         "FindResults",
         "FollowListView",
         "FollowRowItem",
@@ -5280,9 +5276,7 @@
         "HTMLDivElement",
         "HTMLInputElement",
         "Icon",
-        "InfoTip",
-        "InviteCard",
-        "InviteSheet",
+        "InviteAction",
         "LabelCell",
         "LabelResult",
         "Layer",
@@ -6621,6 +6615,8 @@
         "/dashboard/profile"
       ],
       "actions": [
+        "addRound",
+        "null",
         "partnerLinkAction",
         "release",
         "releaseAction",
@@ -6802,7 +6798,6 @@
         "TitlePicker",
         "TitlesWaiting",
         "TypedRow",
-        "TypedWays",
         "UndoToastHost",
         "ViewReport",
         "Words"
@@ -11362,6 +11357,21 @@
         "MemoriesThumb"
       ]
     },
+    "/dev/notifications-lab": {
+      "files": [
+        "dev/notifications-lab/page.tsx"
+      ],
+      "destinations": [
+        "/dev/notifications-lab"
+      ],
+      "actions": [],
+      "blocks": [
+        "LabShell",
+        "Link",
+        "NotificationsHead",
+        "NotificationsList"
+      ]
+    },
     "/dev/onboarding-lab": {
       "files": [
         "dev/onboarding-lab/page.tsx"
@@ -14347,17 +14357,15 @@
         "/vendor-dashboard/notifications",
         "/vendor-dashboard/settings"
       ],
-      "actions": [
-        "markAllNotificationsRead"
-      ],
+      "actions": [],
       "blocks": [
         "ArrayBuffer",
         "DatesRow",
         "ListPageSkeleton",
+        "NotificationsHead",
         "NotificationsList",
         "NotificationsView",
         "PermissionState",
-        "SupplierSubmit",
         "UnblockGuide"
       ]
     },

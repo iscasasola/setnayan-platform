@@ -82,7 +82,7 @@ async function controls(page: Page): Promise<Box[]> {
     const pick: Array<[string, string]> = [
       ['menu', '.fd-topbar button[aria-label="Menu"]'],
       ['chat', '.fd-topright a[href$="/messages"]'],
-      ['bell', '.fd-topright a[href="/dashboard/notifications"]'],
+      ['bell', '.fd-topright button[data-notification-bell]'],
       ['avatar', '.fd-topright .fd-acct'],
     ];
     return pick.map(([name, sel]) => {

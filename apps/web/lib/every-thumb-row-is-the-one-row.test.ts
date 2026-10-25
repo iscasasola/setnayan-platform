@@ -199,10 +199,10 @@ describe('the signed-in top bar has no search', () => {
   });
   it('the shell draws neither search row for `false`', () => {
     const src = read('app/_components/frontdoor/front-door-shell.tsx');
-    // `searchHere` is `search`, or `false` on a page that searches in its own bottom row (/help, /features — 2026-10-25).
-    expect(src).toMatch(/const searchHere = pageSearchPaths\?\.includes\(pathname \?\? ''\) \? false : search;/);
-    expect(src).toMatch(/searchHere === false \? null : \(\s*<div className="fd-searchwrap">/);
-    expect(src).toMatch(/inApp \|\| searchHere === false \? null : \(\s*<div className="fd-searchrow">/);
+    // `search` is the prop (read as `searchProp`), or `false` on a page that searches in its own bottom row (/help, /features — 2026-10-25).
+    expect(src).toMatch(/const search = pageSearchPaths\?\.includes\(pathname \?\? ''\) \? false : searchProp;/);
+    expect(src).toMatch(/search === false \? null : \(\s*<div className="fd-searchwrap">/);
+    expect(src).toMatch(/inApp \|\| search === false \? null : \(\s*<div className="fd-searchrow">/);
   });
   it('nothing mounts the old top-bar palette', () => {
     for (const f of ['app/_components/frontdoor/app-rail-shell.tsx', 'app/_components/frontdoor/front-door.tsx', 'app/_components/frontdoor/front-door-shell.tsx']) {

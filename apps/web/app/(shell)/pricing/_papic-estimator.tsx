@@ -98,23 +98,20 @@ export function PapicEstimator({ rates }: { rates: EstimatorRates }) {
           it was one catalog flip away from offering a fork the owner has ruled
           does not exist, so it is deleted rather than left armed.
 
-          🔑 GIVING ONE CAMERA ITS OWN SHOTS IS A FEATURE OF THIS ONE PRODUCT,
-          NOT AN ALTERNATIVE TO IT. Owner: *"they just alot some photos for a
-          specific Papic. so for example they get 3000 photos. and then they can
-          assign the 500 photos to 1 papic."* That ships — `setCameraShots`
-          writes it and `papic_reserve_capture_split` spends the camera's own
-          allocation first, then the pot, under one row lock. Dedicated shots
-          are a FLOOR, never a ceiling. The estimator prices the pot; the
-          allocation happens later, inside the event. */}
+          🔑 AND SETTING SHOTS ASIDE FOR ONE CAMERA IS GONE TOO. It was a
+          feature of this one product until the owner retired it (2026-09-16,
+          *"no dedicated shots individually"*; built 2026-09-23 in #5905 — see
+          `no-camera-holds-its-own-credits.test.ts`). The line below promised it
+          to every visitor for a month after it stopped existing (fixed
+          2026-10-25). Every camera now draws the one pot. */}
 
       {/* The shot pots — flat buckets. */}
       {bucket ? (
         <div className="mt-6">
           <p className="max-w-2xl text-sm leading-relaxed text-ink/65">
             Papic is one pot of credits the whole event draws from &mdash; every
-            camera, every guest, no per-camera maths. Pick your pot below. You can
-            set some of it aside for a particular camera later, and take back
-            whatever they don&rsquo;t use.
+            camera, every guest, no per-camera maths. Pick your pot below, and
+            top it up any time.
           </p>
           <div className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-3">
             {rates.pool.map((b) => (

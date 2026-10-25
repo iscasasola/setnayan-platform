@@ -94,7 +94,7 @@ test('the policy states its own last-updated date as the day it last changed', (
   // It caught exactly that on 2026-09-15: a PR that removed a false analytics
   // claim and named four undisclosed processors had moved the page's date and
   // would otherwise have been judged only by whether it compiled.
-  assert.match(privacySrc, /last updated 2026-10-23/); // the DPO pack 2026-10-22: Visits, Apple, gift records, the real deletion flow
+  assert.match(privacySrc, /last updated 2026-10-25/); // rd/legal-pages-true: vendor → supplier, celebration → event, retired Patiktok tier names and stale Papic/Photo Delivery labels
 });
 
 test('the coverage map still shows the filing gap — the alarm is not silenced', async () => {

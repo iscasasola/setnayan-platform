@@ -59,6 +59,12 @@ import type { ShellPeopleResults } from '@/lib/shell-people-results';
 import { ShellPeopleSection } from './shell-people-section';
 import { DiscoverAddOwn } from './discover-add-own';
 import { readAddOwnCategories } from '@/lib/add-own-categories.server';
+import type { ShelfState } from '@/lib/discover-events';
+import type { DiscoverEventCard as DiscoverEventCardData } from '@/lib/discover-events-core';
+import { DiscoverEventCard } from './discover-event-card';
+
+/** Words Discover's results say when the events read was refused — never "nothing", never a 0. */
+export const EVENTS_UNREAD = 'We couldn’t search events just now. Nothing is lost — try again in a moment.';
 
 /** Reads "What they do" only when the add is drawn — a search with results pays nothing for it. A refused read draws
  *  no add: the empty state above already says plainly that nothing matched. */
@@ -211,6 +217,7 @@ export async function FrontDoorResults({
   people = null,
   addOwnEvent = null,
   addOwnCategories,
+  events = null,
 }: {
   /** Already trimmed and known non-empty by the caller. */
   query: string;
@@ -235,6 +242,12 @@ export async function FrontDoorResults({
    * typed as your own supplier (`addOwnEvent` — the shipped add walk, opened in place).
    */
   addOwnEvent?: { eventId: string; eventName: string } | null;
+  /**
+   * Discover only (owner 2026-10-25): the events of your people, then anybody's public event, matching the words
+   * (`searchDiscoverEvents`). `null` = not searched here. Discover lists EVENTS · PEOPLE · SUPPLIERS and nothing
+   * else — no stories or guides (DECISION_LOG 2026-10-01, "ARTICLES LEAVE DISCOVER"; they live under Features).
+   */
+  events?: ShelfState<DiscoverEventCardData> | null;
   /** `/dev/search-lab` only (no session there): the event's "What they do" list, in place of the read. */
   addOwnCategories?: Awaited<ReturnType<typeof readAddOwnCategories>>;
   /**
@@ -264,8 +277,10 @@ export async function FrontDoorResults({
     `searchLiveShops` returns [] on a rejected read — so a failure here is a
     thinner answer, never a broken page.
   */
+  const onDiscover = place === 'discover';
   const [hits, shops] = await Promise.all([
-    searchReads(query, 24),
+    // Discover reads no stories or guides (2026-10-01): its results are events, people and suppliers.
+    onDiscover ? Promise.resolve([] as Awaited<ReturnType<typeof searchReads>>) : searchReads(query, 24),
     searchLiveShops(query, 12),
   ]);
 
@@ -302,7 +317,24 @@ export async function FrontDoorResults({
   /** Signed in — the shell's results and Discover's in-place results are one form. */
   const inShell = place !== 'front-door';
   const peopleRows = inShell && people ? people.rows.length : 0;
-  const total = own.length + peopleRows + shops.length + hits.length;
+  const eventCards = onDiscover && events?.status === 'ok' ? events.items : [];
+  const total = own.length + peopleRows + shops.length + hits.length + eventCards.length;
+
+  if (onDiscover) {
+    return (
+      <DiscoverResults
+        query={query}
+        own={own}
+        people={people}
+        shops={shops}
+        events={events}
+        eventCards={eventCards}
+        findSuppliers={findSuppliers}
+        addOwnEvent={addOwnEvent}
+        addOwnCategories={addOwnCategories}
+      />
+    );
+  }
 
   return (
     <>
@@ -356,8 +388,6 @@ export async function FrontDoorResults({
       {inShell ? (
         <>
           <ShellOnward query={query} total={total} findSuppliers={findSuppliers} />
-          {/* Nothing found on Discover, with an event to file it under: the last row adds it (the shipped walk). */}
-          {place === 'discover' && total === 0 && addOwnEvent ? <DiscoverAddOwnSlot query={query} event={addOwnEvent} given={addOwnCategories} /> : null}
         </>
       ) : (
       <>
@@ -390,6 +420,124 @@ export async function FrontDoorResults({
       </div>
       </>
       )}
+    </>
+  );
+}
+
+/**
+ * 🔎 DISCOVER'S RESULTS — LIKE A VIDEO SEARCH (owner 2026-10-25: *"so it is like how youtube searches · find the
+ * user, and the videos related to the search"*). When the words name a person — or, with no person, a shop — that
+ * one leads, as the channel does; then the EVENTS the words match, as the main list: yours, then your people's, then
+ * anybody's public event; then the rest of the people; then the suppliers (yours, then the shops we publish).
+ * Nothing else — no stories, no guides, no spaces.
+ *
+ * PORTED, NOT REDRAWN: every row is a card this page already draws — `OwnCard`, the Discover shelves' own
+ * `DiscoverEventCard`, the people rows (`ShellPeopleSection`), `ShopHitCard`.
+ *
+ * 🔴 A REFUSED READ SAYS SO. A refused events or people read draws its own sentence, and with nothing found the
+ * heading says the search could not finish rather than "nothing here".
+ */
+function DiscoverResults({
+  query,
+  own,
+  people,
+  shops,
+  events,
+  eventCards,
+  findSuppliers,
+  addOwnEvent,
+  addOwnCategories,
+}: {
+  query: string;
+  own: HomeCommandItem[];
+  people: ShellPeopleResults | null;
+  shops: FrontDoorShop[];
+  events: ShelfState<DiscoverEventCardData> | null;
+  eventCards: DiscoverEventCardData[];
+  findSuppliers: { href: string; eventName: string } | null;
+  addOwnEvent: { eventId: string; eventName: string } | null;
+  addOwnCategories?: Awaited<ReturnType<typeof readAddOwnCategories>>;
+}) {
+  const ownEvents = own.filter((i) => i.kind === 'event');
+  const ownSuppliers = own.filter((i) => i.kind === 'supplier');
+  const personRows = people?.rows ?? [];
+  // The channel: the first person the words name; with none, the first shop.
+  const channelPerson = personRows[0] ?? null;
+  const channelShop = channelPerson ? null : (shops[0] ?? null);
+  const restPeople = channelPerson ? personRows.slice(1) : personRows;
+  const restShops = channelShop ? shops.slice(1) : shops;
+  const shown = ownEvents.length + eventCards.length + personRows.length + ownSuppliers.length + shops.length;
+  const incomplete = events?.status === 'unavailable' || people?.unavailable === true;
+
+  return (
+    <>
+      <h2 className="fd-sechead">
+        <span>Results for &ldquo;{query}&rdquo;</span>
+        <span className="fd-meta">
+          {shown === 0
+            ? incomplete
+              ? 'couldn’t finish'
+              : 'nothing here yet'
+            : `${formatCount(shown)} ${shown === 1 ? 'thing' : 'things'}`}
+        </span>
+        <Link href="/" className="fd-sechead-go">
+          Clear
+        </Link>
+      </h2>
+
+      {channelPerson ? (
+        <div data-discover-channel="">
+          <ShellPeopleSection people={{ rows: [channelPerson], unavailable: false }} />
+        </div>
+      ) : channelShop ? (
+        <div className="fd-grid" data-discover-channel="">
+          <ShopHitCard s={channelShop} />
+        </div>
+      ) : null}
+
+      {/* EVENTS — yours, then your people's, then anybody's public event. */}
+      {ownEvents.length + eventCards.length > 0 ? (
+        <div className="fd-grid fd-up" data-discover-events="">
+          {ownEvents.map((i) => (
+            <OwnCard key={i.id} item={i} />
+          ))}
+          {eventCards.map((c) => (
+            <DiscoverEventCard key={c.key} card={c} />
+          ))}
+        </div>
+      ) : null}
+      {events?.status === 'unavailable' ? (
+        <p role="status" className="mb-4 text-sm text-ink/65" data-events-unread="">
+          {EVENTS_UNREAD}
+        </p>
+      ) : null}
+
+      {/* PEOPLE — the rest of them (a refused read says so). */}
+      {people ? <ShellPeopleSection people={{ rows: restPeople, unavailable: people.unavailable }} /> : null}
+
+      {/* SUPPLIERS — yours, then the shops we publish. */}
+      {ownSuppliers.length + restShops.length > 0 ? (
+        <div className="fd-grid" data-discover-suppliers="">
+          {ownSuppliers.map((i) => (
+            <OwnCard key={i.id} item={i} />
+          ))}
+          {restShops.map((s) => (
+            <ShopHitCard key={s.href} s={s} />
+          ))}
+        </div>
+      ) : null}
+
+      <ShellOnward
+        query={query}
+        total={shown}
+        findSuppliers={findSuppliers}
+        incomplete={incomplete}
+        looked="We looked at your events, your people’s events, public events, people, and suppliers."
+      />
+      {/* Nothing found on Discover, with an event to file it under: the last row adds it (the shipped walk). */}
+      {shown === 0 && !incomplete && addOwnEvent ? (
+        <DiscoverAddOwnSlot query={query} event={addOwnEvent} given={addOwnCategories} />
+      ) : null}
     </>
   );
 }

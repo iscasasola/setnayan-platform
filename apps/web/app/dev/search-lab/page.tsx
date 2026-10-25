@@ -20,6 +20,8 @@
  *                    found → "＋ Add “…” as your own supplier", the shipped add walk with this lab's stand-ins.
  *   &q=…           — the words (default "seda"; try "ana" for people).
  *   &people=fail   — the People read refused: "We couldn't search people…", never "nobody".
+ *   &events=fail   — the events read refused: "We couldn't search events…", never "nothing" (owner 2026-10-25:
+ *                    Discover's results are EVENTS · PEOPLE · SUPPLIERS — try "cale", "ana", "santos").
  *   The People rows (owner 2026-10-22) are the shipped builder `shellPeopleResults` over a fixture roster
  *   and fixture hits — each opens `/dashboard/people?person=…`.
  */
@@ -38,6 +40,8 @@ import type { HomeCommandItem } from '@/app/_components/frontdoor/command-item';
 import { ownSupplierItems } from '@/lib/own-supplier-items';
 import { shellPeopleResults } from '@/lib/shell-people-results';
 import type { RosterPerson } from '@/lib/people-roster';
+import { matchesCommandQuery } from '@/lib/command-match';
+import { discoverCardMatchable, type DiscoverEventCard } from '@/lib/discover-events-core';
 
 export const dynamic = 'force-dynamic';
 
@@ -98,6 +102,27 @@ const LAB_HITS = [
   { publicId: 'S89U-LABMAR0001', name: 'Ana Santos', photoUrl: null, fullName: null, handle: '@anasantos', hint: 'Both at Cale & Ice', followable: true, following: false },
 ];
 
+/** Discover's event matches (owner 2026-10-25) — one from a person you are connected to, two public ones. */
+const labEvent = (key: string, title: string, slug: string, host: string | null, relation: DiscoverEventCard['relation'], datePlate: string): DiscoverEventCard => ({
+  key,
+  href: `/${slug}`,
+  title,
+  typeLabel: 'Wedding',
+  datePlate,
+  cover: title.slice(0, 1),
+  scene: null,
+  paper: null,
+  host: host ? { name: host, slug: slug.split('-')[0]! } : null,
+  regionLabel: 'Metro Manila',
+  relation,
+  askHref: null,
+});
+const LAB_EVENTS: DiscoverEventCard[] = [
+  labEvent('lab-e1', 'Ana & Paolo', 'ana-and-paolo', 'Ana Reyes', 'connected', 'Sat 14 Nov'),
+  labEvent('lab-e2', 'Cale’s 30th', 'cales-30th', null, null, 'Fri 4 Dec'),
+  labEvent('lab-e3', 'Santos Family Reunion', 'santos-reunion', 'Ana Santos', null, 'Sun 20 Dec'),
+];
+
 const Avatar = () => (
   <span className="grid h-11 w-11 place-items-center rounded-full sn-initials text-xs font-semibold">IC</span>
 );
@@ -105,7 +130,7 @@ const Avatar = () => (
 export default async function SearchLabPage({
   searchParams,
 }: {
-  searchParams: Promise<{ state?: string; q?: string; people?: string }>;
+  searchParams: Promise<{ state?: string; q?: string; people?: string; events?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const sp = await searchParams;
@@ -155,6 +180,11 @@ export default async function SearchLabPage({
                   findSuppliers={{ href: `/dashboard/${EVENT_ID}/vendors`, eventName: 'Cale & Ice' }}
                   addOwnEvent={{ eventId: EVENT_ID, eventName: 'Cale & Ice' }}
                   addOwnCategories={LAB_ADD_OWN_CATEGORIES}
+                  events={
+                    sp.events === 'fail'
+                      ? { status: 'unavailable' }
+                      : { status: 'ok', items: LAB_EVENTS.filter((c) => matchesCommandQuery(discoverCardMatchable(c), query)) }
+                  }
                 />
               </div>
             ) : (

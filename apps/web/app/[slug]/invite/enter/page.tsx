@@ -92,6 +92,7 @@ import {
   ticketFingerprint,
 } from '@/lib/guest-landing';
 import { SavePassCardButton } from '@/app/_components/save-pass-card-button';
+import { PlusOneSeatList } from '../../_components/plus-one-seat-list';
 import { TicketPicture } from '../../_components/ticket-picture';
 import { TicketPopup } from '../../_components/ticket-popup';
 import { InAppBar } from '../../_components/in-app-bar';
@@ -507,6 +508,13 @@ async function inviteEnterPage({ params, searchParams }: Props) {
   // coming (`passCardEligibility`). A blank seat keeps "Add name".
   const [passCard, plusOneTicketIds] = await Promise.all([passCardAhead, plusOneTicketIdsAhead]);
   const namedComing = seats.filter((s) => plusOneTicketIds.has(s.guest_id)).length;
+  /* 🎟 THE PASS STEP AFTER SEND (owner 2026-10-25, RSVP seats-first: the after-Send frames of scenarios B · C). Each
+     +1 the guest named who has a ticket is listed under theirs, and Save hands over every card at once — the shipped
+     "Save all tickets" (`PASS_CARD_WORDS.saveAll`; the bringer may fetch a +1's card, `decidePassCardAccess`). A
+     seat still TBA is listed, never ticketed. With no +1 ticket it is "Save my ticket", exactly as before. */
+  const plusOneCardHrefs = seats
+    .filter((s) => plusOneTicketIds.has(s.guest_id))
+    .map((s) => `${PASS_CARD_ROUTE}?guest=${encodeURIComponent(s.guest_id)}`);
 
   // ── THE ONE ACCOUNT BUTTON — the same decision the Event Hub's card makes.
   const {
@@ -533,7 +541,7 @@ async function inviteEnterPage({ params, searchParams }: Props) {
      the headline is today's and there is no extra message. Words only — the
      status, the tickets and the counts never read them. */
   const rsvpWords = readRsvpWords(event.rsvp_ask_config);
-  // The Fable defaults (frames 3 · 4): "You replied — see you there" · "We'll miss you."
+  // The defaults: "You're on the list." (owner 2026-10-25, decision 5) · "We'll miss you." (Fable frame 4).
   const ownHeadline = landingHeadline(status, words.solemn);
   const firstName = ((guest.display_name as string | null)?.trim() || (guest.first_name as string | null) || '').split(/\s+/)[0] ?? '';
   const theirWords = thankYouWords({ status, words: rsvpWords, ownHeadline, name: firstName });
@@ -877,6 +885,7 @@ async function inviteEnterPage({ params, searchParams }: Props) {
                 box around it, not on the button: on the Maker's canvas a button is inert, so a tap on it lands on
                 what it sits in — which must be this line, not the whole pass. A plain block: it draws nothing, takes
                 the section's rhythm where the button did, and HAS a box (the frame is drawn on it). */}
+            <PlusOneSeatList seats={seats} ticketed={plusOneTicketIds} />
             <div data-rsvp-line="save">
             {safariSave ? (
               <a href={safariSave} className="button-primary w-full" data-landing-save="safari">
@@ -884,12 +893,16 @@ async function inviteEnterPage({ params, searchParams }: Props) {
               </a>
             ) : (
               <SavePassCardButton
-                hrefs={[PASS_CARD_ROUTE]}
-                label={justIn ? REQUEST_WORDS.saveUpdated : LANDING_WORDS.saveTicket}
+                hrefs={[PASS_CARD_ROUTE, ...plusOneCardHrefs]}
+                label={plusOneCardHrefs.length > 0 ? PASS_CARD_WORDS.saveAll : justIn ? REQUEST_WORDS.saveUpdated : LANDING_WORDS.saveTicket}
                 variant="primary"
               />
             )}
             </div>
+            {/* 🍎 APPLE WALLET SLOT — PR #6548's `AppleWalletButton` (a plain link to `/api/guest/wallet/apple`, shown
+                on Apple devices only) goes HERE, under Save, once that PR merges. The guest's OWN pass only — a +1's
+                Wallet pass comes from their own link (owner 2026-10-25, decision 6). Not imported before it merges. */}
+            <div hidden data-landing-wallet-slot="" />
             {justIn ? <p className="text-xs text-ink/70">{REQUEST_WORDS.saveUpdatedWhy}</p> : null}
           </section>
         ) : ticket === 'faded' ? (

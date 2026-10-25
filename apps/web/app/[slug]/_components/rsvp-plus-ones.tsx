@@ -5,7 +5,8 @@ import { RSVP_STEP_QUESTION_CLASS } from './rsvp-question-class';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { LINKED_NAME_WORDS, plusOneNameSlots } from '@/lib/extra-seats';
 import { MEAL_LABELS, type MealPreference } from '@/lib/guests';
-import { formatCount } from '@/lib/format-number';
+import { plusOnesStepLine } from '@/lib/rsvp-seats-words';
+import { InfoTip } from '@/app/_components/info-tip';
 import { FormalNameInputs } from '@/app/_components/formal-name-inputs';
 
 /**
@@ -129,12 +130,18 @@ export function RsvpPlusOnes({
   count,
   seats,
   legacyName,
-  theOrganizer,
   askMeal,
   askDietary,
   youName = null,
   question = false,
+  fallback = false,
 }: {
+  /**
+   * 🧯 The seat list did not read (owner 2026-10-25, scenario E · decision 7): one box, and the line says so —
+   * no count claimed, no "add more". The Seats step just before still says the true number (it reads the guest's
+   * own row, which did not fail).
+   */
+  fallback?: boolean;
   /**
    * One question per screen (\`oneAtATime\`): the step's heading is drawn as
    * the screen's question — the same type every other step wears there.
@@ -151,7 +158,7 @@ export function RsvpPlusOnes({
   count: number;
   seats: readonly PlusOneSeatInput[] | undefined;
   legacyName: string | null | undefined;
-  /** "the couple" / "the family" — the event's own words. */
+  /** "the couple" / "the family" — the event's own words. (The count line that named them moved to the Seats step.) */
   theOrganizer: string;
   askMeal: boolean;
   askDietary: boolean;
@@ -176,19 +183,19 @@ export function RsvpPlusOnes({
   };
 
   const many = slots.length > 1;
-  const Organizer = theOrganizer.charAt(0).toUpperCase() + theOrganizer.slice(1);
+  /* 🪑 THE COUNT WAS ALREADY SAID (owner 2026-10-25, RSVP seats-first): the Seats step before this one says "We
+     reserved N seats for you", so this line names WHICH seats these are — "+1 · name them, or leave it for later" —
+     and the rest is inside its ⓘ. "+1 / +2" everywhere (decision 4). */
+  const said = plusOnesStepLine({ extra: slots.length, fallback });
 
   return (
     <div ref={rootRef} className="space-y-3" data-rsvp-plus-ones>
       <span className={question ? RSVP_STEP_QUESTION_CLASS : 'block text-sm font-medium text-ink'}>
         Who are you bringing?
       </span>
-      <p className="text-xs text-ink/70">
-        {/* ⚖ The number is the couple's (owner 2026-09-21: up to +4). */}
-        {Organizer} saved you {many ? `${formatCount(slots.length)} seats` : 'a seat for one more'}.{' '}
-        {many ? 'Name them and each one gets' : 'Name them and they get'} their own invitation, QR and photos — or
-        add {many ? 'names' : 'a name'} later.
-      </p>
+      <InfoTip label={said.line} labelAs="p" labelClassName="text-sm text-ink/70" align="start" ariaLabel="About naming your seats">
+        {said.tip}
+      </InfoTip>
 
       {many && arranged ? (
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1" data-plus-one-switcher>
@@ -202,13 +209,6 @@ export function RsvpPlusOnes({
             className="border border-ink/15 text-sm"
           />
         </div>
-      ) : null}
-
-      {many && arranged ? (
-        /* Every seat at a glance — "Ben Reyes ✓ · Guest 3 · Guest 4" (frame C). */
-        <p className="text-xs text-ink/70" aria-live="polite" data-plus-one-summary>
-          {names.map((n, i) => (n.trim() ? `${n.trim()} ✓` : seatLabel('', i))).join(' · ')}
-        </p>
       ) : null}
 
       <PlusOneSeatPanels

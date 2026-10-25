@@ -197,6 +197,7 @@ const EXEMPT: Record<string, string> = {
   'app/dashboard/[eventId]/seating/_components/seating-editor.tsx': 'the pinned box is a bottom sheet; the editor’s fields are in the page',
   'app/dashboard/[eventId]/vendors/_components/build-body.tsx': 'the pinned Build bar holds buttons only; the fields are in the page',
   'app/(shell)/explore/_components/taxonomy-search.tsx': 'its field rides with the bar that holds it (sticky-marketplace-header.tsx)',
+  'app/[slug]/_components/rsvp-name-correction.tsx': 'a modal <dialog> sheet, not a pinned row: its foot is set inline to the keyboard’s top from useKeyboardRide (the one reading), so its box rides',
 };
 
 test('5 · every bottom text box rides — a pinned row with a text field is a riding row, or says why not', () => {

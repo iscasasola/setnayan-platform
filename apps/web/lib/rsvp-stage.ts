@@ -92,7 +92,7 @@ export const RSVP_SCENE_WORDS: Record<RsvpStageScene, readonly RsvpWordKey[]> = 
 export const RSVP_WORD_LINES: Record<RsvpWordKey, { celebrate: readonly string[]; solemn: readonly string[] }> = {
   attending: { celebrate: ['Joyfully accepts', 'Wouldn’t miss it', 'Count me in'], solemn: ['Will be there'] },
   declined: { celebrate: ['Regretfully declines', 'Sadly can’t make it'], solemn: ['Unable to come'] },
-  thanksHeading: { celebrate: ['See you there!'], solemn: ['Thank you'] },
+  thanksHeading: { celebrate: ['You’re on the list.', 'See you there!'], solemn: ['Thank you'] },
   thanksMessage: {
     celebrate: ['Your place is reserved — we can’t wait to celebrate with you.'],
     solemn: ['Your place is noted — thank you for being with the family.'],

@@ -86,7 +86,9 @@ test('3 · on the thank-you, after a Yes the pass is drawn with its Save — aft
   assert.ok(at > -1, 'the pass section moved — re-point this guard');
   const pass = ENTER.slice(at, ENTER.indexOf('data-landing="how"', at));
   assert.match(pass, /<TicketPicture src=\{PASS_CARD_ROUTE\}/, 'the pass shown is not the file the Save hands over');
-  assert.match(pass, /<SavePassCardButton\s+hrefs=\{\[PASS_CARD_ROUTE\]\}/, 'the pass lost its Save');
+  // 🎟 Their own card FIRST, then each +1 ticket they hold — "Save all tickets" (owner 2026-10-25, RSVP seats-first:
+  // the after-Send pass step of scenarios B · C). With no +1 ticket the list is their own card alone, as before.
+  assert.match(pass, /<SavePassCardButton\s+hrefs=\{\[PASS_CARD_ROUTE, \.\.\.plusOneCardHrefs\]\}/, 'the pass lost its Save');
   // Inside a chat app on an iPhone the Save opens the same page in Safari first (approved ticket flow, 2026-09-29).
   assert.match(pass, /safariSave \? \(\s*<a href=\{safariSave\}/);
   // A new or changed pass pops up first, with the same Save — after a Yes only.

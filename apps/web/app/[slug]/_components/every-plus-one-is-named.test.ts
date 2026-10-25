@@ -21,6 +21,7 @@
  * 🪤 Harness as `ask-your-guests.test.ts`: `globalThis.React` before the dynamic
  * import (`"jsx": "preserve"`), `server-only`/`client-only` stubbed.
  */
+import { extraSeatList, seatCountWords } from '@/lib/rsvp-seats-words';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import React from 'react';
@@ -363,12 +364,16 @@ test('the labels run +1…+N for N = plus_one_count — never "Guest 3"', async 
   const { seatOptions } = await import('./rsvp-plus-ones');
   for (const n of [1, 2, 3, 4]) {
     // Before hydration every seat is drawn under its own heading.
-    const block = plusOneBlock(await renderWidget(n));
+    const whole = await renderWidget(n);
+    const block = plusOneBlock(whole);
     const heads = [...block.matchAll(/<p class="font-serif text-base text-ink">([^<]*)<\/p>/g)].map((m) => m[1]);
     const want = Array.from({ length: n }, (_, i) => `+${i + 1}`);
     assert.deepEqual(heads, n > 1 ? want : [], `+${n}: headings ${heads.join(',')}`);
     assert.doesNotMatch(block, /Guest \d|Seat \d/, `+${n}: a seat numbered by headcount`);
-    if (n > 1) assert.match(block, new RegExp(`saved you ${n} seats`));
+    // 🪑 2026-10-25 (RSVP seats-first, owner "all as recommended"): the COUNT is said once, on the Seats step before
+    // this one — "We reserved N seats for you", N = the guest + n — and this step names WHICH seats ("+1 and +2").
+    assert.ok(whole.includes(`We reserved ${seatCountWords(1 + n)} for you`), `+${n}: the Seats step does not say ${1 + n}`);
+    if (n > 1) assert.ok(block.includes(`${extraSeatList(n)} · name them`), `+${n}: the +1 step does not name its seats`);
     const labels = seatOptions(Array(n).fill('')).map((o) => o.label);
     assert.deepEqual(labels, want.map((w) => `${w} · not named yet`));
   }

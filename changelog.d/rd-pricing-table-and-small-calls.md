@@ -62,3 +62,30 @@ account" offer (`app/[slug]/_components/save-to-account.tsx`).
 
 SPEC IMPACT: DECISION_LOG.md row 2026-10-25 "SAVE TO MY ACCOUNT SHOWS BOTH APPLE AND GOOGLE" (owner's "Show both"
 verbatim; reverses the one-button rule for this screen only).
+
+## 2026-10-25 · fix(guest-save): the two providers are the LOGIN'S OWN buttons — "Continue with Apple / Google"
+
+Controller follow-up on the "Show both" change above, after the owner asked whether official Sign in with Apple /
+Google buttons exist: they do, and /login already draws them. Apple's HIG wants Sign in with Apple in an approved
+style and at least as prominent as any other; Google's guidelines want the G and their button. The terracotta
+primary + house secondary pair is gone.
+
+- **The Save offer now draws the login's provider buttons** — the same chrome (`OAUTH_BUTTON_CLASS`, now exported
+  from `app/_components/oauth-icons.tsx` and used by `oauth-button-row.tsx`, `native-oauth-buttons.tsx`,
+  `desktop-oauth-buttons.tsx` and the Save offer: one string for every door), the same marks (`AppleIcon` black
+  glyph · `GoogleGIcon`), the same words (`OAUTH_VERB`: "Continue with Apple" · "Continue with Google"), identical
+  size. The device's own first. Over them, the heading "Save to my account" with one short line "Nothing to type"
+  (plus "— … come along" where the thank-you passes it). "Use my email instead" stays under them.
+- Every behaviour of the change above is unchanged: the pressed provider posts, a switched-off one is refused, the
+  stall names the pressed provider, native in the phone app, iPad Safari order.
+- **Dark looks:** the login row has no dark variant any more (it went with the obsidian login), and white with the
+  black Apple glyph is one of Apple's sanctioned styles on a dark ground. The shared chrome's words and edge now take
+  `ink-on-light` (the ink for a surface that stays light) instead of the page's `ink`: identical on every light page
+  (it falls back to `--color-ink`), and on Candlelight / a dark theme the label stays dark on its white instead of
+  cream on white.
+- `saveMethodLine` (lib/guest-one-path.ts) is gone — nothing reads it now.
+- Guard `the-save-offer-shows-both-providers.test.ts` rewritten: both buttons are the login's buttons (exact class,
+  mark, title) · Apple's chrome identical to Google's · the device's first · heading above · email link under ·
+  one chrome for all four doors · the label reads on its white under Candlelight — each seen red under sabotage.
+
+SPEC IMPACT: DECISION_LOG.md row 2026-10-25 "SAVE TO MY ACCOUNT USES THE LOGIN'S OWN APPLE / GOOGLE BUTTONS".

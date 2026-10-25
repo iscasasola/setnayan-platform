@@ -19,6 +19,7 @@
  *   · saveProvidersInOrder → `[method]` (one button again)                  → 1 RED
  *   · saveProvidersInOrder → `[other, method]` (the device's one second)     → 1 RED
  *   · save-to-account.tsx: Apple drawn `button-secondary` (quieter than Google) → 1 RED
+ *   · save-to-account.tsx: Apple drawn `min-h-[36px]` (smaller than Google)  → 1 RED
  *   · save-to-account.tsx: the Google G swapped for the Apple glyph           → 1 RED
  *   · save-to-account.tsx: drop `{heading}`                                   → 1 RED
  *   · oauth-icons.tsx: the shared class back to `text-ink/90` (cream on white on a dark look) → 7 RED

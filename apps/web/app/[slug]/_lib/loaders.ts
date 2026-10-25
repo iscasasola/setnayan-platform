@@ -2140,7 +2140,7 @@ export const loadGuestContext = cache(
       const { data: seatRows, error: seatErr } = await admin
         .from('guests')
         // The shared guest-name columns, not a hand-picked few (lint:dup-rule).
-        .select(`${ENTOURAGE_COLUMNS}, plus_one_name_confirmed_at, created_at, meal_preference, dietary_restrictions`)
+        .select(`${ENTOURAGE_COLUMNS}, plus_one_name_confirmed_at, created_at, meal_preference, dietary_restrictions, rsvp_status`)
         .eq('event_id', event.event_id)
         .eq('plus_one_of_guest_id', guest.guest_id)
         .is('deleted_at', null)
@@ -2166,6 +2166,8 @@ export const loadGuestContext = cache(
             meal: (r.meal_preference as string | null) ?? null,
             dietary: (r.dietary_restrictions as string | null) ?? null,
             linked: linked.has(r.guest_id as string),
+            // The seat's own reply — the +1 step's "They're coming" reopens ticked only on `attending` (2026-10-25).
+            rsvp_status: (r.rsvp_status as string | null) ?? null,
           };
         });
       }

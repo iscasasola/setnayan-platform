@@ -93,6 +93,13 @@ export function CopyMyLink({
   );
 }
 
+/**
+ * 🔎 THE TRUE REASON (2026-10-25). This line said "Messenger can’t sign you in here" — false since the email sign-in
+ * works inside a chat app's browser (the offer draws "Sign in with email" right under this button), and wrong by name
+ * inside Instagram or Facebook. What is true: Apple and Google refuse a sign-in inside an in-app browser.
+ */
+export const OPEN_IN_BROWSER_WHY = 'Apple and Google need your browser';
+
 /** Frame F — "Save to my account" inside an in-app browser. */
 export function OpenInBrowser({ link }: { link: string }) {
   const [open, setOpen] = useState(false);
@@ -114,7 +121,7 @@ export function OpenInBrowser({ link }: { link: string }) {
         className="button-primary flex min-h-[56px] w-full flex-col items-center justify-center gap-0.5"
       >
         <span className="text-base">Open in your browser</span>
-        <span className="text-xs font-normal opacity-80">Save to my account · Messenger can’t sign you in here</span>
+        <span className="text-xs font-normal opacity-80">{OPEN_IN_BROWSER_WHY}</span>
       </button>
       {open ? (
         <div className="fixed inset-0 z-50 flex items-end justify-center">
@@ -133,7 +140,7 @@ export function OpenInBrowser({ link }: { link: string }) {
               Open in your browser
             </h2>
             <p className="text-sm text-ink/75">
-              Messenger can’t sign you in here. Your link is copied — it takes ten seconds:
+              {OPEN_IN_BROWSER_WHY}. Your link is copied — it takes ten seconds:
             </p>
             <ol className="space-y-2 text-sm text-ink/80">
               <li className="flex gap-3">

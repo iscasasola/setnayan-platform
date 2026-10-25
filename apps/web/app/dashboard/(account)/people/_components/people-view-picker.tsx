@@ -1,7 +1,8 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { ListFilter } from 'lucide-react';
+import { ListFilter, UserPlus } from 'lucide-react';
+import { INVITE_SOMEONE_KEY } from './find-or-invite';
 import { PickMenu, type PickOption } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { peopleViewHref, type PeopleView, type PeopleViewGates } from '@/lib/people-views';
 
@@ -27,19 +28,30 @@ export function PeopleViewPicker({
   view,
   options,
   gates,
+  onInvite,
 }: {
   view: PeopleView;
   options: readonly PickOption[];
   gates: PeopleViewGates;
+  /** ≡ → "Invite someone" (2026-10-25: the row's ＋ Invite moved here) — the host opens its invite sheet. */
+  onInvite?: () => void;
 }) {
   const router = useRouter();
   return (
     <PickMenu
-      label="People view"
+      label="People view, or invite"
       value={view}
-      options={options.map((o) => ({ ...o, icon: <ListFilter className="h-[18px] w-[18px]" strokeWidth={1.9} /> }))}
+      options={[
+        ...options.map((o) => ({ ...o, icon: <ListFilter className="h-[18px] w-[18px]" strokeWidth={1.9} /> })),
+        ...(onInvite
+          ? [{ key: INVITE_SOMEONE_KEY, label: 'Invite someone', group: 'Add', icon: <UserPlus className="h-[18px] w-[18px]" strokeWidth={1.9} /> }]
+          : []),
+      ]}
       dataAttr="data-people-view-picker"
-      onPick={(key) => router.push(peopleViewHref(key as PeopleView, gates))}
+      onPick={(key) => {
+        if (key === INVITE_SOMEONE_KEY) return onInvite?.();
+        router.push(peopleViewHref(key as PeopleView, gates));
+      }}
     />
   );
 }

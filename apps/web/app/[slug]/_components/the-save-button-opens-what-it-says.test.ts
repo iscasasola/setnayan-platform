@@ -131,8 +131,9 @@ test('a stalled sign-in is never a dead screen: no veil over it, and "Didn\'t op
     'the provider press raises the full-screen veil again',
   );
   // The stall line rides INSIDE each form that posts the press (it reads that form's status).
-  assert.match(SAVE, /\{button\}\s*\{stall\}\s*<\/>/, 'the plus-one door has no way back');
-  assert.match(SAVE, /\{button\}\s*\{stall\}\s*<\/form>/, 'the thank-you has no way back');
+  // (Option A, 2026-10-25: the head moved out of the buttons block — `{buttons}` is the presses alone.)
+  assert.match(SAVE, /\{buttons\}\s*\{stall\}\s*<\/>/, 'the plus-one door has no way back');
+  assert.match(SAVE, /\{buttons\}\s*\{stall\}\s*<\/form>/, 'the thank-you has no way back');
   assert.match(SAVE, /const stall = signsIn \? <ProviderStall provider=\{method === 'apple' \? 'Apple' : 'Google'\} \/> : null;/);
   // 🍏🤖 Two buttons share the form (2026-10-25): the stall names the provider PRESSED, not the device's.
   assert.match(read('app', '[slug]', '_components', 'provider-stall.tsx'), /pressedSaveMethod\(data\)/, 'the stall names the device’s provider, not the pressed one');

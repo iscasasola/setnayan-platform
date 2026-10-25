@@ -62,8 +62,21 @@ export function rsvpSeatsLine(input: { seats: number; namesNext: boolean; organi
 }
 
 /**
- * The +1 step's line under "Who are you bringing?" — the count was already said on the Seats step, so it names
- * WHICH seats these are. `fallback`: the seat list did not read (scenario E) — one box, no count claimed.
+ * ONE +1's OWN SCREEN — its line under "Who are you bringing?" (owner 2026-10-25: *"one at a time"*, then *"Tick only
+ * shows when there is name written. and that is required. If you are not yet sure, delete name"*). The count was
+ * already said on the Seats step, so the line names WHICH seat this screen is, then the owner's way out: leave the
+ * name empty. Two sentences at most in the ⓘ (house rule).
+ */
+export function plusOneScreenLine(index: number): { line: string; tip: string } {
+  return {
+    line: `${extraSeatTag(index)} · Not sure yet? Leave the name empty.`,
+    tip: 'A named seat gets its own invitation, QR and photos. Left empty, the seat stays held for you to name later.',
+  };
+}
+
+/**
+ * The +1 step's line when the seat list did NOT read (scenario E, decision 7) — one box, no count claimed. With the
+ * list read, each +1 screen says its own line (`plusOneScreenLine`).
  */
 export function plusOnesStepLine(input: { extra: number; fallback: boolean }): { line: string; tip: string } {
   if (input.fallback) {
@@ -72,14 +85,5 @@ export function plusOnesStepLine(input: { extra: number; fallback: boolean }): {
       tip: 'We could not read who is already named on your seats, so only one box is shown. Nothing you already named is lost.',
     };
   }
-  if (input.extra <= 1) {
-    return {
-      line: '+1 · name them, or leave it for later.',
-      tip: 'A named +1 gets their own invitation, QR and photos. Blank = the seat stays yours, marked “+1 TBA”. You can name them later from your invitation.',
-    };
-  }
-  return {
-    line: `${extraSeatList(input.extra)} · name them, or leave them for later.`,
-    tip: 'Each named seat gets its own invitation, QR and photos. Blank = held for you as “TBA”. Switch seats with the picker.',
-  };
+  return plusOneScreenLine(Math.max(0, input.extra - 1));
 }

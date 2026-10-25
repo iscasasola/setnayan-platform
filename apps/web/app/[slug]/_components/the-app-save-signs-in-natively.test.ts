@@ -98,7 +98,7 @@ for (const through of [false, true]) {
       const html = await render(ua, through);
       assert.ok(html.includes('data-native-save'), `${device}: the native Save form is drawn`);
       assert.ok(nativeFieldIn(html), `${device}: the form asks the action for the native hand-off`);
-      assert.ok(html.includes('Save to my account'), `${device}: the same Save button`);
+      assert.ok(html.includes('data-save-heading=""'), `${device}: the same save offer (option A's head)`);
       assert.equal((html.match(/<form/g) ?? []).length, 1, `${device}: one form, never a second door`);
       // 🍏🤖 2026-10-25 ("Show both"): BOTH provider presses sit inside that one native form, each naming its own
       // provider — the Apple sheet or Google in the system browser, whichever was pressed (guideline 4.8: Apple

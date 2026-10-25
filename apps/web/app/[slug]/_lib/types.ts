@@ -482,6 +482,9 @@ export type GuestRow = {
     /** 🔒 This seat's person linked their own account — their name is theirs
      *  (owner 2026-09-29, OWNER ANSWERS (10)); the reply shows it read-only. */
     linked?: boolean;
+    /** The seat's own reply — `attending` once its bringer ticked "They're coming" (owner 2026-10-25); the reply's
+     *  tick reopens ticked only then. */
+    rsvp_status?: string | null;
   }[];
   /** The name the host recorded for the +1, mirrored here so the host's own
    *  list chips stop reading "+ TBA" once the guest names them. */

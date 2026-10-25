@@ -110,8 +110,6 @@ export function AddNameInPlace({
         <input type="hidden" name="seat_names_only" value="1" />
         <PlusOneSeatPanels
           slots={[{ seatId, first: '', last: '', meal: 'no_preference', dietary: '' }]}
-          active={0}
-          arranged={false}
           askMeal={askMeal}
           askDietary={askDietary}
           idPrefix={`me-${seatId}-`}

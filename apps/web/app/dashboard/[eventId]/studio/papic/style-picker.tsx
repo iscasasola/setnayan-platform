@@ -3,10 +3,10 @@
 import { Check, Lock } from 'lucide-react';
 import {
   PAPIC_STYLES,
-  cssPreviewFilter,
   asPapicStyle,
   type PapicStyle,
 } from '@/lib/papic-photo-styles';
+import { papicLookSampleSrc } from '@/lib/papic-look-samples';
 import { setPapicStyle } from './actions';
 
 /**
@@ -16,17 +16,17 @@ import { setPapicStyle } from './actions';
  * every camera's photos (paid seats, free sampler, guest disposables). The
  * shooters never see a picker — this is the single place the look is chosen.
  *
- * Each card carries a CSS-`filter:` swatch over a representative portrait-ish
- * gradient so the couple can compare the looks at a glance (the exact pixel
- * pipeline runs on-device at capture; this is a faithful preview of direction).
+ * 📷 EACH TILE IS OUR SAMPLE PHOTOGRAPH, DEVELOPED THROUGH THAT LOOK — not a gradient
+ * (owner 2026-10-25: *"the filters should have a sample photo. which should be our
+ * photo. we already have a photo already used for this before"*). The photo is the
+ * frame the owner supplied for this on 2026-09-23; each tile is pre-rendered with the
+ * camera's own pixel pipeline (`pnpm render:papic-looks`, `lib/papic-look-samples.ts`),
+ * so a couple sees what the camera will really produce, not a CSS approximation.
+ * The name sits OUTSIDE the picture, so Mono never greys its own label.
  *
  * Self-contained beyond the server action + the (client-safe) style engine, so
  * nothing server-only can leak into the client bundle.
  */
-
-/** A warm skin-tone → sky gradient that reacts believably to each look. */
-const SWATCH_BG =
-  'linear-gradient(135deg, #f4c9a8 0%, #e0976b 38%, #8a5a7a 70%, #2b3a55 100%)';
 
 export default function StylePicker({
   eventId,
@@ -52,6 +52,7 @@ export default function StylePicker({
       <div className="grid grid-cols-5 gap-2" data-papic-filter-strip="">
         {PAPIC_STYLES.map((s) => {
           const isActive = s.id === active;
+          const label = s.label === 'Orig' ? 'Original' : s.label;
           const ring = isActive ? 'border-mulberry ring-2 ring-mulberry/30' : 'border-ink/10';
           const swatch = `relative block aspect-square w-full overflow-hidden rounded-lg border ${ring}`; // no-card-ok: the face of the look's own submit button
           return (
@@ -61,14 +62,15 @@ export default function StylePicker({
               {returnTo ? <input type="hidden" name="return_to" value={returnTo} /> : null}
               <button type="submit" aria-pressed={isActive} aria-label={`Set event look to ${s.label} — ${s.blurb}`} className="block w-full min-w-0 text-center">
                 <span className={swatch}>
-                  <span aria-hidden className="absolute inset-0" style={{ background: SWATCH_BG, filter: cssPreviewFilter(s.id) }} />
+                  {/* eslint-disable-next-line @next/next/no-img-element -- a committed 240 px still (public/papic/looks), versioned by `v` */}
+                  <img src={papicLookSampleSrc(s.id)} alt={label} width={240} height={240} loading="lazy" decoding="async" data-papic-look-sample={s.id} className="absolute inset-0 h-full w-full object-cover" />
                   {isActive ? (
                     <span className="absolute right-1 top-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-mulberry text-cream">
                       <Check aria-hidden className="h-3 w-3" strokeWidth={2.5} />
                     </span>
                   ) : null}
                 </span>
-                <span className={`mt-1 block truncate text-[12px] ${isActive ? 'font-semibold text-mulberry' : 'text-ink/65'}`}>{s.label === 'Orig' ? 'Original' : s.label}</span>
+                <span className={`mt-1 block truncate text-[12px] ${isActive ? 'font-semibold text-mulberry' : 'text-ink/65'}`}>{label}</span>
               </button>
             </form>
           );
@@ -96,10 +98,17 @@ export default function StylePicker({
                   : 'border-ink/10 hover:border-ink/25'
               }`}
             >
-              {/* Live look preview */}
-              <div
-                className="h-20 w-full"
-                style={{ background: SWATCH_BG, filter: cssPreviewFilter(s.id) }}
+              {/* The look, on our sample photograph — the camera's own render */}
+              {/* eslint-disable-next-line @next/next/no-img-element -- a committed 240 px still (public/papic/looks), versioned by `v` */}
+              <img
+                src={papicLookSampleSrc(s.id)}
+                alt={s.label === 'Orig' ? 'Original' : s.label}
+                width={240}
+                height={240}
+                loading="lazy"
+                decoding="async"
+                data-papic-look-sample={s.id}
+                className="block h-20 w-full object-cover"
               />
               {isActive ? (
                 <span className="absolute right-2 top-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-mulberry text-cream">

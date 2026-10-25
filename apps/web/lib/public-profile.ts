@@ -2,6 +2,7 @@ import { cache } from 'react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveEffectiveVisibility } from '@/lib/launch-save-the-date';
 import { RESERVED_SLUGS } from '@/lib/reserved-slugs';
+import { ACCOUNT_PUBLIC_ID } from '@/lib/person-page-link';
 import type { EventDatePrecision } from '@/lib/events';
 import {
   resolveProfile as resolveEventTypeProfile,
@@ -203,6 +204,16 @@ export const resolvePublicProfile = cache(async function resolvePublicProfile(
   if (!userSlug || RESERVED_SLUGS.has(userSlug)) return null;
 
   const admin = createAdminClient();
+  /*
+    🔑 THE SLUG FIRST, THEN THE ACCOUNT'S PUBLIC HANDLE (owner 2026-10-25, People: "i should be able to see
+    it because they have account already"). Most accounts have NO slug — the 2027-04 backfill ran once and
+    only the sign-up "you" step sets one after it (18 of 27 accounts had none on 2026-10-25) — so a page
+    keyed on the slug alone left most people with no page at all. `users.public_id` (S89U-…) is already
+    the public handle People acts on; `/u/S89U-…` resolves through it and the page forwards to the slug
+    whenever one exists. Every gate below (enabled · public events · chapters) is unchanged — this only
+    widens which ADDRESS finds the account, never what a stranger is shown at it.
+  */
+  const byPublicId = ACCOUNT_PUBLIC_ID.test(userSlugRaw ?? '');
   const { data: userRow } = await admin
     .from('users')
     .select(
@@ -224,7 +235,27 @@ export const resolvePublicProfile = cache(async function resolvePublicProfile(
     )
     .ilike('slug', userSlug)
     .maybeSingle();
-  if (!userRow) return null;
+  const row =
+    userRow ??
+    (byPublicId
+      ? (
+          await admin
+            .from('users')
+            .select(
+              'user_id, display_name, slug, public_profile_enabled, followers_count, profile_view_count, profile_photo_url',
+            )
+            .eq('public_id', (userSlugRaw ?? '').toUpperCase())
+            .maybeSingle()
+        ).data
+      : null);
+  if (!row) return null;
+  return finishResolve(admin, row);
+});
+
+async function finishResolve(
+  admin: ReturnType<typeof createAdminClient>,
+  userRow: Record<string, unknown>,
+): Promise<ResolvedPublicProfile> {
   const user: PublicProfileUser = {
     user_id: userRow.user_id as string,
     display_name: (userRow.display_name as string | null) ?? null,
@@ -253,7 +284,7 @@ export const resolvePublicProfile = cache(async function resolvePublicProfile(
   const publicWebsiteEvents = await filterPubliclyVisibleEvents(all);
 
   return { user, publicWebsiteEvents };
-});
+}
 
 /** Newest public chapter (by event_date desc, nulls last) — the OG card's hero
  *  source + the profile's representative celebration. Null when there are none. */

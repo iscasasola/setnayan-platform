@@ -139,7 +139,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
         slug: 'how-much-does-setnayan-cost',
         title: 'How much does Setnayan cost?',
         appBody: 'Planning in the Setnayan app is free: schedule, budget, guest list, seat plan, mood board, RSVP with a QR code for every guest, and marketplace browse with a match preview. Couples pay 0% commission on supplier bookings — they pay their suppliers directly and Setnayan never sits between them at checkout.',
-        body: 'Couples start free (planning workspace: schedule, budget, guest list, seat plan, mood board, plus marketplace browse with a match preview). The paid planner is Setnayan AI, a one-time purchase that unlocks the full planner with access through your wedding day. Individual services and the Setnayan AI rate are listed on the Pricing page. Supplier side: Verified is free during launch, with Pro and Ultra subscription tiers billed per 28-day prepaid block — what suppliers pay is set out on setnayan.com/for-suppliers. Couples pay 0% commission on supplier bookings — they pay their suppliers directly and Setnayan never sits between them at checkout. See setnayan.com/pricing for current rates.',
+        body: 'Couples start free (planning workspace: schedule, budget, guest list, seat plan, mood board, plus marketplace browse with a match preview). The paid planner is Setnayan AI, a one-time purchase that unlocks the full planner with access through your wedding day. Individual services and the Setnayan AI rate are listed on the Pricing page. Supplier side: Verified is free during launch, with Solo, Pro and Ultra plans — what suppliers pay is set out on setnayan.com/for-suppliers. Couples pay 0% commission on supplier bookings — they pay their suppliers directly and Setnayan never sits between them at checkout. See setnayan.com/pricing for current rates.',
       },
       {
         slug: 'is-setnayan-free-for-couples',
@@ -201,13 +201,13 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
         slug: 'what-is-papic',
         title: 'What is Papic?',
         appBody: HELP_NOT_IN_THE_APP,
-        body: "Candid photo (and short-video) capture for your event. A few friends you pick — your photo crew — shoot freely from their phones, and you can also let every guest snap photos too. Everyone opens a simple camera from a QR link (no app to install); every shot lands in your private Memories in real time and is matched to the right guests, so each person gets the photos they're in — and untagged photos still land (Papic never drops one). Clips run up to 10 seconds, and optional face-matching (only with each guest's consent) auto-sorts photos to the people in them. Your Memories stay online — keep the originals by downloading them or syncing to your own Google Drive. There's a free tier to try it; current prices are on setnayan.com/pricing.",
+        body: `Candid photo (and short-video) capture for your event. A few friends you pick — your photo crew — shoot freely from their phones, and you can also let every guest snap photos too. Everyone opens a simple camera from a QR link (no app to install); every shot lands in your private Memories in real time and is matched to the right guests, so each person gets the photos they're in — and untagged photos still land (Papic never drops one). Clips run up to 10 seconds, and optional face-matching (only with each guest's consent) auto-sorts photos to the people in them. Your Memories stay online — keep the originals by downloading them or syncing to your own Google Drive. One camera is free on every event. Free credits come ${PAPIC_FREE_CREDIT_CONDITION}, and more are priced on setnayan.com/pricing.`,
       },
       {
         slug: 'what-is-panood',
         title: 'What is Live Watch?',
         appBody: HELP_NOT_IN_THE_APP,
-        body: 'Live streaming for your wedding, embedded directly on your Event Hub — one unlock covers the whole event, unlimited streams (current rate on setnayan.com/pricing). Guests and family who couldn\'t attend in person can watch the ceremony and reception live without leaving Setnayan.',
+        body: 'Live streaming for your event, embedded directly on your Event Hub. Streaming one camera is free. Live Watch adds all your cameras with a one-time unlock that stays with the event, with unlimited streams (current rate on setnayan.com/pricing). Guests and family who couldn\'t attend in person can watch the ceremony and reception live without leaving Setnayan.',
       },
       {
         slug: 'what-is-pakulay',
@@ -345,8 +345,8 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
         slug: 'the-bar-at-the-bottom',
         title: 'What are the tabs at the bottom of the screen?',
         appBody:
-          'On your account screens the bar is Events, Memories and People — plus Shop if you own one. Events holds every event you host or are invited to, Memories keeps the photos and stories from all of them, and People is everyone you are connected to. Inside an event the bar changes to that event’s own: Home, Guests, Suppliers and Hub.',
-        body: 'On your account screens the bar is Events, Discover, Memories and People — plus Shop if you own one. Events holds every event you host or are invited to, Discover shows public events from people you follow, Memories keeps the photos and stories from all of them, and People is everyone you are connected to. Inside an event the bar changes to that event’s own: Home, Guests, Suppliers and Hub. On a laptop the same places run down the side.',
+          'On your account screens the bar is Events, Memories and People — plus Shop if you own one. Events holds every event you host or are invited to, Memories keeps the photos and stories from all of them, and People is everyone you are connected to. Inside an event the bar changes to that event’s own: Home, Guests, Suppliers, Hub and Memories.',
+        body: 'On your account screens the bar is Events, Discover, Memories and People — plus Shop if you own one. Events holds every event you host or are invited to, Discover shows public events from people you follow, Memories keeps the photos and stories from all of them, and People is everyone you are connected to. Inside an event the bar changes to that event’s own: Home, Guests, Suppliers, Hub and Memories. On a laptop the same places run down the side.',
       },
       {
         // Owner 2026-10-22: "In shop they do not create events, but them as a user, they can create their events".
@@ -737,13 +737,13 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
         slug: 'what-is-papic',
         title: 'What is Papic?',
         appBody: HELP_NOT_IN_THE_APP,
-        body: `Papic turns the phones at your wedding into candid cameras. You get one pot of credits for the whole event, and any guest can shoot from it — they scan your event QR and start, with no limit on how many phones join in. 50 credits come free ${PAPIC_FREE_CREDIT_CONDITION}, so you can try it before deciding to add any. If you want to be sure someone in particular never runs out, you can set aside some of your credits for their camera alone, where nobody else can spend them; when those run out, that camera simply carries on from the shared pot. Cameras themselves are free and you can make as many as you like. Every shot lands in your private Memories, each guest can find the photos they're in, and there's no app to install — it all runs in the browser.`,
+        body: `Papic turns the phones at your wedding into candid cameras. You get one pot of credits for the whole event, and any guest can shoot from it — they scan your event QR and start, with no limit on how many phones join in. Free credits come ${PAPIC_FREE_CREDIT_CONDITION}, so you can try it before deciding to add any. Cameras themselves are free and you can make as many as you like. Every shot lands in your private Memories, each guest can find the photos they're in, and there's no app to install — it all runs in the browser.`,
       },
       {
         slug: 'turn-on-papic',
         title: 'How do I turn on Papic and hand out cameras?',
         appBody: HELP_NOT_IN_THE_APP,
-        body: `Open your dashboard → Studio → Papic. It's already on: every wedding gets one free camera of its own. A free pool of credits also comes ${PAPIC_FREE_CREDIT_CONDITION} — so there is nothing to buy before you try it. To let guests shoot, share your event QR — any phone that scans it shoots from the shared pool, and there's no limit on how many join. To give one person their own camera, hand them that camera's link (or QR) from the same page; their credits come out of that camera's own balance, not the shared pool, so they can't be used up by anyone else. You can hand a camera to someone else at any time, and top up either the shared pool or a single camera whenever you want — current prices are on setnayan.com/pricing.`,
+        body: `Open your dashboard → Studio → Papic. It's already on: every wedding gets one free camera of its own. A free pool of credits also comes ${PAPIC_FREE_CREDIT_CONDITION} — so there is nothing to buy before you try it. To let guests shoot, share your event QR — any phone that scans it shoots from the shared pool, and there's no limit on how many join. To give one person a camera of their own, hand them that camera's link (or QR) from the same page; every shot it takes draws from your shared credits. Top up the shared pool whenever you want — current prices are on setnayan.com/pricing.`,
       },
       {
         slug: 'how-papic-tagging-works',
@@ -779,7 +779,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
         slug: 'papic-crew-how-to-shoot',
         title: 'Crew: I was asked to shoot — how does it work?',
         appBody: HELP_NOT_IN_THE_APP,
-        body: "The couple sent you a camera link. Open it on your phone and tap to claim it — your phone is now a candid camera for their wedding. Shoot photos and clips of up to 10 seconds; everything uploads to their Memories automatically. Your camera shows how many shots it has left, and the couple can top it up. To mark who's in a shot, tap 'Tag who's in it' and hold a guest's place-card QR or a table sign in frame — no typing. If you don't tag, the photo still reaches the couple.",
+        body: "The couple sent you a camera link. Open it on your phone and tap to claim it — your phone is now a candid camera for their wedding. Shoot photos and clips of up to 10 seconds; everything uploads to their Memories automatically. Your camera shows how many shots are left in the couple's shared credits. To mark who's in a shot, tap 'Tag who's in it' and hold a guest's place-card QR or a table sign in frame — no typing. If you don't tag, the photo still reaches the couple.",
       },
       {
         // ⚠ THIS ARTICLE ANSWERED A QUESTION THAT NO LONGER EXISTS. It was
@@ -792,13 +792,16 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
         slug: 'papic-giving-a-camera-its-own-shots',
         title: 'How do I make sure one person never runs out of shots?',
         appBody: HELP_NOT_IN_THE_APP,
-        body: "Set some of your credits aside for their camera. Everything you buy goes into one pot that every guest shoots from, which is usually what you want — but a few enthusiastic guests can spend a lot of it, and you might have someone in mind who you'd rather not have run dry: the cousin who actually frames a photo, or your maid of honor. On your Papic page, find their camera and type how many shots are theirs alone. Those leave the shared pot and nobody else can touch them. If they don't use them all, you can take the unused ones back at any time — just type a smaller number. And if they DO use them all, their camera doesn't stop: it carries on from the shared pot like everyone else's. So setting shots aside is a guarantee, never a limit. Cameras are free and you can make as many as you like, so there's no cost to giving several people their own.",
+        // Rewritten again 2026-10-25: setting credits aside for one camera was
+        // retired (owner 2026-09-16 "no dedicated shots individually", built in
+        // #5905). The worry stays real, so the answer is what ships now.
+        body: "Keep your shared credits topped up. Every camera — yours, your crew's and your guests' — shoots from one pot, so nobody can hold shots back for one person. Give the people you count on, like your maid of honor or the cousin who frames every photo, a camera of their own from your Papic page, and watch the shared balance there. When it runs low, add credits to the pot from Studio › Papic; top-ups stack on what your event already holds. Cameras are free and you can make as many as you like.",
       },
       {
         slug: 'how-papic-shots-work',
         title: 'How do shots work, and how do I add more?',
         appBody: HELP_NOT_IN_THE_APP,
-        body: `Everything Papic captures is counted in shots. ${SHOT_TERMS[0]}, and ${SHOT_TERMS[1]} — a clip costs more because it is a lot more to keep. They come out of one purse, so there's no separate photo and video allowance to juggle: shoot more clips and you'll get fewer photos out of the same balance, which is why we don't promise you an exact number of each. Every wedding gets one free camera with credits of its own. A free shared pool also comes ${PAPIC_FREE_CREDIT_CONDITION}. When something runs low, top it up from your dashboard → Studio → Papic: add to the shared pool for the whole event, or reload one camera on its own. Top-ups stack on whatever your wedding already holds — they never replace it — and current prices are on setnayan.com/pricing. Guests can also top up the pool or their own camera themselves from the camera screen, if you'd rather not.`,
+        body: `Everything Papic captures is counted in shots. ${SHOT_TERMS[0]}, and ${SHOT_TERMS[1]} — a clip costs more because it is a lot more to keep. They come out of one purse, so there's no separate photo and video allowance to juggle: shoot more clips and you'll get fewer photos out of the same balance, which is why we don't promise you an exact number of each. Every wedding gets one free camera with credits of its own. A free shared pool also comes ${PAPIC_FREE_CREDIT_CONDITION}. When it runs low, top it up from your dashboard → Studio → Papic: add to the shared pool for the whole event. Top-ups stack on whatever your wedding already holds — they never replace it — and current prices are on setnayan.com/pricing. Guests can also top up the pool or their own camera themselves from the camera screen, if you'd rather not.`,
       },
     ],
   },
@@ -877,7 +880,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
 // it in the same edit when an article body materially changes.
 // ───────────────────────────────────────────────────────────────────────────
 
-export const HELP_LASTMOD = '2026-10-19';
+export const HELP_LASTMOD = '2026-10-25';
 
 export type HelpArticleWithTopic = {
   article: HelpArticle;

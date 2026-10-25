@@ -26,6 +26,10 @@
  *                                        ?n=<count> (default 60) · ?empty=1 · ?fail=1 · ?guest=1 (not the host)
  *                                        Every album has fixtures: Papic (some screened / reported / hidden), Challenges
  *                                        (3 challenges, one a supplier's), Event Hub (4 files), Suppliers, Your uploads.
+ *                                        + Add photos opens the REAL uploader (`AddToLibrary`) and the real Add more door:
+ *                                        ?pot=<credits> (default 24) · ?pot=0 · ?pot=pass (the Unlock pass) · ?pot=x
+ *                                        (unread). A lab holds no camera seat, so a picked file is refused by the signer —
+ *                                        which is itself the "a failure says what failed, in place" walk.
  *
  *   ?shop=0   an account that owns no shop (four tabs, no Shop)
  *
@@ -47,6 +51,9 @@ import { EventRailContext } from '@/app/dashboard/[eventId]/_components/event-ra
 import { VendorRailContext } from '@/app/vendor-dashboard/_components/vendor-rail-context';
 import { labEventBar } from '../lab-event';
 import { EventMemoriesGallery } from '@/app/_components/memories/event-memories-gallery';
+import { AddToLibrary } from '@/app/dashboard/[eventId]/studio/papic/_components/add-to-library';
+import { PapicBuySheet } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-buy-sheet';
+import type { UploadPot } from '@/app/dashboard/[eventId]/studio/papic/_lib/upload-credits';
 import type { GalleryPhoto } from '@/lib/papic-gallery';
 import type { MemoriesChallenge, MemoriesItem } from '@/lib/event-memories';
 
@@ -197,6 +204,7 @@ export default async function BarLab({
   if (where === `dashboard/${EVENT}/memories`) {
     const n = sp.empty === '1' ? 0 : Math.max(0, Math.min(400, Number(sp.n ?? 60) || 60));
     const photos = sp.fail === '1' ? [] : Array.from({ length: n }, (_, i) => labPhoto(i));
+    const pot: UploadPot = sp.pot === 'pass' ? 'unmetered' : sp.pot === 'x' ? null : Math.max(0, Number(sp.pot ?? 24) || 0);
     return (
       <>
         <div className="sn-ambient min-h-screen">
@@ -216,7 +224,13 @@ export default async function BarLab({
                     emptyLine="Your photos land here as your guests and suppliers shoot."
                     unreadable={sp.fail === '1'}
                     timeZone="Asia/Manila"
-                    addPhotos={<p className="text-sm text-ink/65">The uploader opens here (a lab has no camera seat).</p>}
+                    addPhotos={
+                      <AddToLibrary
+                        token="lab-no-seat"
+                        pot={pot}
+                        buy={<PapicBuySheet eventId={EVENT} left={typeof pot === 'number' ? pot : null} tone="brand" label="Add more" />}
+                      />
+                    }
                     suppliers={[{ vendorProfileId: 'vp-lumen', vendorRowId: 'v-lumen', name: 'Lumen Studio', hidden: false }]}
                   />
                 </div>

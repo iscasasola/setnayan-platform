@@ -371,11 +371,12 @@ export function EventMemoriesGallery({
       {viewing ? <PapicLightbox photo={viewing} onClose={() => setViewing(null)} timeZone={timeZone} /> : null}
 
       {gearOpen ? (
+        <OnBody>
         <Sheet open onClose={() => setGearOpen(false)} labelledById={gearHeading} title="Memories settings" wide>
           <h2 id={gearHeading} className="sr-only">
             Memories settings
           </h2>
-          <div className="divide-y divide-ink/10 px-4 pb-[calc(var(--sn-bottomdock-h,64px)+12px)] lg:pb-4" data-memories-settings="">
+          <div className="divide-y divide-ink/10 px-4 pb-4" data-memories-settings="">
             {/* FOLLOW THE MOMENTS IN ORDER — the owner's word for the gallery grouped by the day's moments. */}
             <button
               type="button"
@@ -401,6 +402,7 @@ export function EventMemoriesGallery({
             {settings}
           </div>
         </Sheet>
+        </OnBody>
       ) : null}
     </section>
   );
@@ -586,9 +588,10 @@ function PhotoSheet({
                 : null;
 
   return (
+    <OnBody>
     <Sheet open onClose={onClose} labelledById={heading} title={title}>
-      {/* Clear of the dock (the bar stays drawn over the page while a sheet is up). */}
-      <div data-memories-photo-sheet={item.memSource} className="px-4 pt-3 pb-[calc(var(--sn-bottomdock-h,64px)+12px)] lg:pb-4">
+      {/* Drawn into <body> (`OnBody`), so it covers the bar — no pad by the dock's height. */}
+      <div data-memories-photo-sheet={item.memSource} className="px-4 pb-4 pt-3">
         <div className="flex items-center gap-3 pb-3">
           <button type="button" onClick={onView} aria-label="View full screen" className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-ink/[0.06]">
             {item.url ? (
@@ -708,7 +711,22 @@ function PhotoSheet({
         </div>
       </div>
     </Sheet>
+    </OnBody>
   );
+}
+
+/**
+ * 🔼 DRAWN INTO <body> — every sheet this gallery opens (the photo's, ⚙ settings, + Add photos). The event layout's
+ * `<main>` (`.sn-vt-page`) carries a `view-transition-name`, which makes it the containing block for `position: fixed`
+ * and a stacking context: a Sheet left inside it is placed against the page (under the top bar, running a full screen
+ * below that) and layered under the bar. At <body>, `fixed` is the screen and the Sheet's z-50 clears the bar's z-30 —
+ * the same pattern as `PapicBuySheet` and the thumb row below. Mounted on the client only (no `document` on the server);
+ * the Sheet inside renders on the pass that has its host, so its focus trap binds to a dialog that exists.
+ */
+function OnBody({ children }: { children: ReactNode }) {
+  const [host, setHost] = useState<HTMLElement | null>(null);
+  useEffect(() => setHost(document.body), []);
+  return host ? createPortal(children, host) : null;
 }
 
 /**
@@ -768,13 +786,19 @@ function MemoriesThumbRow({
         </div>,
         host,
       )}
+      {/* 🔼 INTO <body>, like the row above it (owner 2026-10-25, live: "adding photos on event memories is not fixed" —
+          the sheet ran behind the event bar and off the screen). Inside the page, `.sn-vt-page` is the containing block
+          for `fixed`, so the sheet started under the top bar, ran a full screen-height from there and sat at the page's
+          z-level under the bar. `the-add-photos-sheet-clears-the-bar.test.ts`. */}
       {adding && addPhotos ? (
+        <OnBody>
         <Sheet open onClose={() => setAdding(false)} labelledById={heading} title="Add photos" wide>
           <h2 id={heading} className="sr-only">
             Add photos
           </h2>
-          <div className="px-4 pt-3 pb-[calc(var(--sn-bottomdock-h,64px)+12px)] lg:pb-4">{addPhotos}</div>
+          <div className="px-4 pb-4 pt-3">{addPhotos}</div>
         </Sheet>
+        </OnBody>
       ) : null}
     </>
   );

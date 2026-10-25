@@ -72,9 +72,9 @@ import { maybeRunInterconnectionProbes } from '@/lib/interconnect/run';
 // ⚠ WEDDING IS STILL NAMED FIRST in the description and still leads
 // `keywords`. Widening the claim is not the same as dropping the strongest
 // query the brand ranks for — weddings remain the deepest surface.
-const HOME_TITLE = 'Setnayan · Plan any Filipino event free — and never lose a photo';
+const HOME_TITLE = 'Setnayan · Plan any event free. Every photo in one album.';
 const HOME_DESCRIPTION =
-  'Plan any Filipino event free — wedding, debut, christening, birthday, graduation, anniversary, reunion, corporate and more — then keep every photo, video, and memory in one place. Verified supplier marketplace at 0% commission.';
+  'Plan any Filipino event free — wedding, debut, christening, birthday, graduation, anniversary, reunion, corporate and more — with every guest’s photo in one album. Verified supplier marketplace at 0% commission.';
 
 export const metadata = {
   title: HOME_TITLE,

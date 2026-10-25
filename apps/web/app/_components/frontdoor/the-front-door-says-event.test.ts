@@ -57,7 +57,7 @@ test('the anchor: the folder has files and the reader finds real copy in them', 
   assert.ok(FILES.length >= 10, `only ${FILES.length} source files found — the folder moved?`);
   assert.ok(FILES.includes('front-door-anchor.tsx'), 'the Home hero file is gone');
   const hero = copyIn('front-door-anchor.tsx').map((c) => c.text).join(' ');
-  assert.match(hero, /planned in one place/, 'the reader did not pick up the hero copy');
+  assert.match(hero, /in one album/, 'the reader did not pick up the hero copy');
   // …and a comment is not copy: the hero's docblock prose must never be read as a string.
   assert.doesNotMatch(copyIn('front-door-anchor.tsx').map((c) => c.text).join(' '), /OAuth-brand rule/);
 });

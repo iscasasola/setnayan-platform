@@ -254,7 +254,8 @@ test('F · Ben’s door: his name and meal shown "from Maria", ONLY dietary aske
   assert.ok(!/name="first_name"/.test(missing), 'the name Maria gave is asked again');
   assert.ok(!/name="meal_preference"/.test(missing), 'the meal Maria gave is asked again');
   assert.match(html, /name="terms_agreed"/);
-  assert.equal((html.match(/Save to my account/g) ?? []).length, 1, 'not ONE save button');
+  // 🎟 Option A (2026-10-25): ONE save offer — one head ("Keep your ticket on every phone") over its buttons.
+  assert.equal((html.match(/data-save-heading=""/g) ?? []).length, 1, 'not ONE save offer');
   assert.match(html, /just show my ticket/);
 });
 
@@ -339,7 +340,7 @@ test('F · 📵 inside Messenger the door saves the answers and hands over "Open
   const html = await renderDoor(BEN, {
     userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) Mobile/15E148 [FBAN/MessengerForiOS;FBAV/430.0]',
   });
-  assert.equal((html.match(/Save to my account/g) ?? []).length, 1, 'the sheet eyebrow aside, no provider button may show');
+  assert.equal((html.match(/data-save-provider="/g) ?? []).length, 0, 'a provider button inside Messenger');
   assert.match(html, /data-save-open-in-browser=""/, 'Messenger is not handed "Open in your browser"');
   assert.match(html, />Open in your browser</);
   assert.match(html, /<button[^>]*value="done"[^>]*>Save<\/button>|>Save<\/button>/, 'the answers have no plain Save');

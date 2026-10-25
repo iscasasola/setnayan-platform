@@ -1,8 +1,9 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { InfoTip } from '@/app/_components/info-tip';
 import { ProviderButton } from './provider-button';
-import { AppleIcon, GoogleGIcon, OAUTH_BUTTON_CLASS } from '@/app/_components/oauth-icons';
+import { AppleIcon, GoogleGIcon, oauthOfficialClass } from '@/app/_components/oauth-icons';
 import { OAUTH_VERB } from '@/lib/oauth-words';
 import { envFlagEnabled } from '@/lib/env-flag';
 import {
@@ -34,12 +35,17 @@ import {
  *
  * 🍏🤖 BOTH PROVIDERS, WHEN BOTH ARE ON (owner 2026-10-25 — asked "Do you want to keep it that way, or show both
  * Apple and Google buttons to everyone?", answered verbatim: "Show both"). This REVERSES "THE GUEST PATHWAY — ONE
- * BUTTON AT A TIME" (2026-09-26) FOR THIS OFFER ONLY. With Apple AND Google switched on, both draw as THE LOGIN'S OWN
- * provider buttons ("Continue with Apple" · "Continue with Google", the brand marks, `OAUTH_BUTTON_CLASS` — equal
- * size and prominence, as Apple's and Google's button guidelines require) under one heading, "Save to my account ·
- * Nothing to type"; the device's own (`saveMethodFor`) first (`saveProvidersInOrder`); each posts its own provider and the action opens the one PRESSED
+ * BUTTON AT A TIME" (2026-09-26) FOR THIS OFFER ONLY. With Apple AND Google switched on, both draw with the login's
+ * marks and words ("Continue with Apple" · "Continue with Google"), equal in size; the device's own (`saveMethodFor`)
+ * first (`saveProvidersInOrder`); each posts its own provider and the action opens the one PRESSED
  * (`saveMethodFromForm`, which refuses a provider that is off). One provider on → that one button. None → "Copy my
  * link". "Use my email instead" stays under them.
+ *
+ * 🎟 OPTION A (owner 2026-10-25: *"No better presentation?"* · *"I thought your goal is to always make our app
+ * seamless"* → option A of prototypes/save_to_account_2026-10-25 → *"this was supposed to be built already"*). The
+ * head says the benefit — "Keep your ticket on every phone", one line, the details in the ⓘ, beside a little picture
+ * of their ticket (`SaveOfferHead`); the buttons are each brand's OWN style and the device's own provider is the
+ * FILLED one (`oauthOfficialClass`); on Me the owner's title is the one heading (`headless`).
  *
  *   offer          → the device's method (`saveMethodFor`):
  *                      iPhone / iPad → Apple · Android / desktop → Google — both
@@ -47,7 +53,8 @@ import {
  *                      Terms tick and returns through `/join/{eventId}/connect`
  *                      (binds this seat to the account and opens the event);
  *                      in-app webview → "Open in your browser" (`OpenInBrowser`,
- *                      prototype guest_ticket_flow_2026-09-29.html frame F);
+ *                      prototype guest_ticket_flow_2026-09-29.html frame F) for
+ *                      Apple / Google, and "Sign in with email", which works there;
  *                      no provider switched on → "Copy my link";
  *   link_this_seat → signed in already, seat free → one press binds it;
  *   sign_in        → the seat is kept in an account this browser is not signed
@@ -70,7 +77,8 @@ import {
  * The webview arm used to email a
  * sign-in link, and a guest without an address was asked for one here. Both
  * are gone: inside Messenger the button copies the guest's own link and says
- * how to paste it into Safari or Chrome, where Apple / Google is one tap.
+ * how to paste it into Safari or Chrome, where Apple / Google is one tap — and
+ * "Sign in with email" (2026-10-25) signs in right there, sending nothing.
  *
  * 🔒 THE TERMS. The guest ticked them on the RSVP page a screen earlier; that
  * agreement travels in a server-set cookie (`RSVP_TERMS_COOKIE`). When it is
@@ -88,10 +96,14 @@ export function SaveToAccount({
   termsMissing = false,
   carries = null,
   through,
-  whyInTip = false,
+  headless = false,
+  ticketNames = null,
 }: {
-  /** 🪪 Me's "Keep this invitation" (owner 2026-10-24): the reason is said in that block's ⓘ — not again under the button. */
-  whyInTip?: boolean;
+  /** 🪪 Me's "Keep this invitation" (owner 2026-10-24) draws its OWN head — the title is the ONE heading there, so the
+   *  offer draws none of its own (option A, 2026-10-25). */
+  headless?: boolean;
+  /** The couple's names (`events.display_name`), written on the little ticket in the head. */
+  ticketNames?: string | null;
   state: GuestAccountState;
   eventId: string;
   slug: string;
@@ -102,7 +114,7 @@ export function SaveToAccount({
   termsCarried: boolean;
   /** The last press came back because the Terms were not ticked (`?keep=terms`). */
   termsMissing?: boolean;
-  /** What comes along, said after the method (frame A: "your name, mobile, meal and your guests come along"). */
+  /** What comes along (frame A: "your name, mobile, meal and your guests come along") — said in the head's ⓘ. */
   carries?: string | null;
   /**
    * 👋 THE PLUS-ONE'S OWN DOOR (owner 2026-09-29, frame F: *"One button: Save
@@ -202,44 +214,42 @@ export function SaveToAccount({
         method === 'browser' ? <OpenInBrowser link={personalLink} /> : <CopyMyLink link={personalLink} />
       ) : null;
     const termsTick = <TermsTick />;
-    /* 🍏🤖 THE PROVIDER BUTTONS (owner 2026-10-25, "Show both") — THE LOGIN'S OWN BUTTONS, not a drawing of our own
-       (Rule 0; controller 2026-10-25: Apple's HIG wants Sign in with Apple in an approved style and at least as
-       prominent as any other, Google's guidelines want the G and their button). Same chrome as /login's row
-       (`OAUTH_BUTTON_CLASS`), the same marks (`AppleIcon` · `GoogleGIcon`), the same words (`OAUTH_VERB`):
-       "Continue with Apple" · "Continue with Google", identical in size. The device's own first. Each posts its OWN
-       provider (`ProviderButton` → `SAVE_METHOD_FIELD`), so the action opens the provider the guest pressed and no
-       other (`saveMethodFromForm`, lib/guest-one-path.ts). "Save to my account" is the heading over them. */
-    const order = saveProvidersInOrder(method, providers);
-    const heading = (
-      <div className="text-center" data-save-heading="">
-        <p className="text-base font-medium text-ink">Save to my account</p>
-        <p className="text-xs text-ink/70">
-          Nothing to type{carries ? ` — ${carries}` : null}
-        </p>
-      </div>
+    /* 🎟 OPTION A (owner 2026-10-25, "this was supposed to be built already"): the head says the BENEFIT — "Keep your
+       ticket on every phone", one line, the rest in the ⓘ, beside a little picture of their ticket and the photos of
+       them (`SaveOfferHead`). It replaces "Save to my account · Nothing to type" and the trailing "Keeps the photos of
+       you…" line (now in the ⓘ). On Me the owner's "Keep this invitation" is the ONE heading (`headless`). What comes
+       along (`carries`, the plus-one-less thank-you's Terms return) is a detail, so it is said in the ⓘ too. */
+    const head = headless ? null : (
+      <SaveOfferHead names={ticketNames} tip={carries ? `${SAVE_OFFER_TIP} ${capitalise(carries)}.` : undefined} />
     );
-    const button = (
-      <>
-        {heading}
-        <div className="space-y-2.5">
-          {order.map((m) => (
-            <ProviderButton
-              key={m}
-              method={m}
-              className={OAUTH_BUTTON_CLASS}
-              pendingLabel={m === 'apple' ? 'Opening Apple…' : 'Opening Google…'}
-              /* No full-screen veil: the press leaves for the provider's site, whose page
-                 has no loader of ours to take the veil down — a stalled or abandoned
-                 sign-in left the whole screen covered (owner's live test 2026-10-02). */
-              overlay={false}
-              data-save-provider={m}
-            >
-              {m === 'apple' ? <AppleIcon fill="#000000" /> : <GoogleGIcon />}
-              {`${OAUTH_VERB} ${m === 'apple' ? 'Apple' : 'Google'}`}
-            </ProviderButton>
-          ))}
-        </div>
-      </>
+    /* 🍏🤖 THE PROVIDER BUTTONS (owner 2026-10-25, "Show both") — the login's marks (`AppleIcon` · `GoogleGIcon`) and
+       words (`OAUTH_VERB`): "Continue with Apple" · "Continue with Google", in ONE box size. Option A: each brand's OWN
+       sanctioned style, and the DEVICE'S OWN provider (`method`, drawn first by `saveProvidersInOrder`) is the FILLED
+       one — Apple black on an iPhone, Google's dark theme on Android; the other takes its white official style
+       (`oauthOfficialClass`; a dark look swaps Apple to white, see globals.css). Each posts its OWN provider
+       (`ProviderButton` → `SAVE_METHOD_FIELD`), so the action opens the provider the guest pressed and no other
+       (`saveMethodFromForm`, lib/guest-one-path.ts). */
+    const order = saveProvidersInOrder(method, providers);
+    const buttons = (
+      <div className="space-y-2.5">
+        {order.map((m) => (
+          <ProviderButton
+            key={m}
+            method={m}
+            className={oauthOfficialClass(m, m === method)}
+            pendingLabel={m === 'apple' ? 'Opening Apple…' : 'Opening Google…'}
+            /* No full-screen veil: the press leaves for the provider's site, whose page
+               has no loader of ours to take the veil down — a stalled or abandoned
+               sign-in left the whole screen covered (owner's live test 2026-10-02). */
+            overlay={false}
+            data-save-provider={m}
+            data-save-filled={m === method ? '' : undefined}
+          >
+            {m === 'apple' ? <AppleIcon fill="currentColor" /> : <GoogleGIcon />}
+            {`${OAUTH_VERB} ${m === 'apple' ? 'Apple' : 'Google'}`}
+          </ProviderButton>
+        ))}
+      </div>
     );
     // The way back when the provider does not open (`ProviderStall` names the one PRESSED).
     const stall = signsIn ? <ProviderStall provider={method === 'apple' ? 'Apple' : 'Google'} /> : null;
@@ -248,34 +258,50 @@ export function SaveToAccount({
         Tick the Terms first — saving makes a Setnayan account.
       </p>
     ) : null;
-    // The reason, said once and only as wide as what ships: on the day this page
-    // shows each guest the photos they are in, and the account — not the pass in
-    // this browser — is what opens the event again later (`findGuestSeatForUser`).
-    const why = whyInTip ? null : (
-      <p className="text-center text-xs text-ink/70">
-        Keeps the photos of you, and opens this invitation on any phone.
+    /* ✉️ "USE MY EMAIL INSTEAD" (owner 2026-10-25, "If you have recommendation that
+       follow our design go for it"). One quiet text link under the provider button(s) for a
+       guest without Apple / Google to hand: the SHIPPED email sign-in (/login, whose
+       card links to /signup with the same `next`) returning to the SAME place the
+       button does — `/join/{eventId}/connect`, the seat-binding door, exactly as the
+       `sign_in` state above. No new auth, and 📵 no email is SENT by this: password
+       sign-in sends nothing, and an event sign-up gets no welcome email
+       (`welcomeEmailKind` → null for `isEventSignup`). A text link, not a frame —
+       the provider buttons stay the main action. Guarded by `use-my-email-instead.test.ts`. */
+    const emailHref = `/login?next=${encodeURIComponent(`/join/${eventId}/connect`)}`;
+    const emailInstead = (
+      <p className="text-center">
+        <Link
+          href={emailHref}
+          className="inline-flex min-h-[44px] items-center text-xs text-ink/70 underline underline-offset-2 hover:text-ink"
+          data-save-email-instead=""
+        >
+          Use my email instead
+        </Link>
       </p>
     );
     if (through) {
       return (
         <div className="space-y-2" data-save-method={method} data-save-through>
-          {refused}
           {native ? (
             <NativeSaveForm action={through.action} className="space-y-4">
               {through.fields}
+              {head}
+              {refused}
               {termsCarried ? null : termsTick}
               {nativeField}
-              {button}
+              {buttons}
               {stall}
               {through.after}
             </NativeSaveForm>
           ) : (
             <form action={through.action as WebFormAction} className="space-y-4">
               {through.fields}
+              {signsIn ? head : null}
+              {signsIn ? refused : null}
               {signsIn && !termsCarried ? termsTick : null}
               {signsIn ? (
                 <>
-                  {button}
+                  {buttons}
                   {stall}
                 </>
               ) : (
@@ -287,60 +313,168 @@ export function SaveToAccount({
             </form>
           )}
           {handOver}
-          {signsIn ? why : null}
         </div>
       );
     }
     if (!signsIn) {
-      return handOver ? (
-        <div className="space-y-2" data-save-method={method}>
+      if (method === 'browser') {
+        /* 💬 INSIDE MESSENGER / INSTAGRAM / FACEBOOK (`saveMethodFor` → 'browser'). Apple and Google refuse to sign
+           anyone in inside a chat app's browser, so "Open in your browser" stays for them (`OpenInBrowser`). But the
+           EMAIL sign-in works right here — it is a plain form — and before 2026-10-25 this branch drew nothing else:
+           a guest whose seat had been unlinked, opening their link from Messenger, had no way to sign in at all
+           (found live 2026-10-25). So the same email door as "Use my email instead" is drawn under it, worded
+           "Sign in with email" so a guest looking for a sign-in finds it, returning to the seat-binding door
+           (`/join/{eventId}/connect`). Guarded by `use-my-email-instead.test.ts`. */
+        return (
+          <div className="space-y-3" data-save-method={method}>
+            {head}
+            {handOver}
+            <Link
+              href={emailHref}
+              className="button-secondary flex min-h-[48px] w-full items-center justify-center text-sm"
+              data-save-email-signin=""
+            >
+              Sign in with email
+            </Link>
+          </div>
+        );
+      }
+      /* 🔗 NO PROVIDER SWITCHED ON (`link`): the guest's own link to copy — and, since 2026-10-25, the email sign-in
+         under it, so an unlinked guest is never left with nothing that links the event to an account (owner: "there
+         is no Save my account on me"). */
+      return (
+        <div className="space-y-3" data-save-method={method}>
           {handOver}
+          <p className="text-center">
+            <Link
+              href={emailHref}
+              className="inline-flex min-h-[44px] items-center text-sm font-medium text-ink underline underline-offset-4"
+              data-save-email-signin=""
+            >
+              Sign in with email
+            </Link>
+          </p>
         </div>
-      ) : null;
+      );
     }
     const returnTo = <input type="hidden" name="return_to" value={INVITE_RETURN} />;
-    /* ✉️ "USE MY EMAIL INSTEAD" (owner 2026-10-25, "If you have recommendation that
-       follow our design go for it"). One quiet text link under the provider button(s) for a
-       guest without Apple / Google to hand: the SHIPPED email sign-in (/login, whose
-       card links to /signup with the same `next`) returning to the SAME place the
-       button does — `/join/{eventId}/connect`, the seat-binding door, exactly as the
-       `sign_in` state above. No new auth, and 📵 no email is SENT by this: password
-       sign-in sends nothing, and an event sign-up gets no welcome email
-       (`welcomeEmailKind` → null for `isEventSignup`). A text link, not a frame —
-       the provider buttons stay the main action. Guarded by `use-my-email-instead.test.ts`. */
-    const emailInstead = (
-      <p className="text-center">
-        <Link
-          href={`/login?next=${encodeURIComponent(`/join/${eventId}/connect`)}`}
-          className="inline-flex min-h-[44px] items-center text-xs text-ink/70 underline underline-offset-2 hover:text-ink"
-          data-save-email-instead=""
-        >
-          Use my email instead
-        </Link>
-      </p>
-    );
+    /* The order (option A): the head · the Terms tick ONLY when it was not carried (unticked, between the benefit and
+       the press, the same form and field — `consent-is-affirmative.test.ts`; never a "By continuing you agree…"
+       sentence) · the two buttons · the quiet email link. */
     return (
       <div className="space-y-2" data-save-method={method}>
-        {refused}
         {native ? (
           <NativeSaveForm action={startAccountSaveAction.bind(null, eventId, slug)} className="space-y-3">
             {returnTo}
+            {head}
+            {refused}
             {termsCarried ? null : termsTick}
             {nativeField}
-            {button}
+            {buttons}
             {stall}
           </NativeSaveForm>
         ) : (
           <form action={startAccountSaveAction.bind(null, eventId, slug) as WebFormAction} className="space-y-3">
             {returnTo}
+            {head}
+            {refused}
             {termsCarried ? null : termsTick}
-            {button}
+            {buttons}
             {stall}
           </form>
         )}
         {emailInstead}
-        {why}
       </div>
     );
   }
+}
+
+function capitalise(s: string): string {
+  return s ? s[0]!.toUpperCase() + s.slice(1) : s;
+}
+
+/**
+ * 🎟 THE SAVE OFFER'S HEAD — OPTION A of the redesign (owner 2026-10-25, on the test render: *"No better
+ * presentation?"* · *"I thought your goal is to always make our app seamless"* → option A of
+ * `prototypes/save_to_account_2026-10-25/index.html`, then *"this was supposed to be built already"*).
+ *
+ * The offer reads as the next line of the ticket moment, not a form: a small picture of THEIR ticket with two photo
+ * cards fanned behind it, beside a heading that says the BENEFIT, one short line, and the rest inside the ⓘ
+ * ("Details go inside the ⓘ" — title + one line visible). No frame: nothing here is pressed but the ⓘ.
+ *
+ * Drawn by `SaveToAccount` with these words (the thank-you, the plus-one's door), and by Me's
+ * `MeKeepInvitation` with the owner's own title "Keep this invitation" — there it is the ONE heading and
+ * `SaveToAccount` is drawn `headless` (no second "Save to my account" over the same buttons).
+ */
+export const SAVE_OFFER_TITLE = 'Keep your ticket on every phone';
+export const SAVE_OFFER_LINE = 'Your ticket and the photos of you, in one place.';
+/** The ⓘ — the prototype's caption, verbatim: what saving makes, what it keeps, and that nothing needs it. */
+export const SAVE_OFFER_TIP =
+  'Saving makes a free Setnayan account — nothing to type. It keeps this ticket and the photos you’re in, and opens this event on any phone. Your QR and link keep working without it.';
+
+export function SaveOfferHead({
+  title = SAVE_OFFER_TITLE,
+  line = SAVE_OFFER_LINE,
+  tip = SAVE_OFFER_TIP,
+  tipLabel = 'About keeping your ticket',
+  as = 'h2',
+  names = null,
+}: {
+  title?: string;
+  line?: string;
+  tip?: string;
+  tipLabel?: string;
+  as?: 'h2' | 'h3';
+  /** The couple's names as the event shows them (`events.display_name`) — written on the little ticket. */
+  names?: string | null;
+}) {
+  return (
+    <div className="flex items-center gap-3.5 text-left" data-save-heading="">
+      <KeepTicketArt names={names} />
+      <div className="min-w-0 flex-1">
+        <InfoTip label={title} labelAs={as} align="end" labelClassName="font-pahina text-xl leading-tight text-ink" ariaLabel={tipLabel}>
+          {tip}
+        </InfoTip>
+        <p className="mt-1 text-sm text-ink/70">{line}</p>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The little picture: their ticket (the ticket's own stock, its gild rule, the couple's names in the script face, a
+ * QR) with two photo cards fanned behind it — "your ticket and the photos of you". Decorative: hidden from assistive
+ * tech (the heading says it), drawn in CSS (`.sn-keep-art`, globals.css), no image request. The QR is a drawing, not
+ * a code — 18px could never scan, and the real one is the ticket above.
+ */
+export function KeepTicketArt({ names = null }: { names?: string | null }) {
+  const shown = names?.trim() || null;
+  return (
+    <div aria-hidden="true" className="sn-keep-art" data-keep-art="">
+      <span className="sn-keep-photo sn-keep-photo-2">
+        <span className="sn-keep-face" />
+        <span className="sn-keep-body" />
+      </span>
+      <span className="sn-keep-photo sn-keep-photo-1">
+        <span className="sn-keep-face" />
+        <span className="sn-keep-body" />
+      </span>
+      <span className="sn-keep-ticket">
+        <span className="sn-keep-ticket-in">
+          {shown ? <span className="sn-keep-names font-script">{shown}</span> : null}
+          <span className="sn-keep-qr">
+            <svg viewBox="0 0 7 7" width="18" height="18" shapeRendering="crispEdges">
+              <path
+                fill="#111"
+                d="M0 0h3v3H0zM4 0h3v3H4zM0 4h3v3H0zM4 4h1v1H4zM6 4h1v1H6zM5 5h1v1H5zM4 6h1v1H4zM6 6h1v1H6z"
+              />
+              <path fill="#fff" d="M.5.5h2v2h-2zM4.5.5h2v2h-2zM.5 4.5h2v2h-2z" />
+              <path fill="#111" d="M1 1h1v1H1zM5 1h1v1H5zM1 5h1v1H1z" />
+            </svg>
+          </span>
+          <span className="sn-keep-rule" />
+        </span>
+      </span>
+    </div>
+  );
 }

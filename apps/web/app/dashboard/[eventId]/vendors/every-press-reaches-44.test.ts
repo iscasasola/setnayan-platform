@@ -46,7 +46,7 @@ test('Sort and "＋ Add a category" reach 44 tall', () => {
   /* "Add a category" is the list's last row now (owner 2026-10-26): the PickMenu wears `addcat`, and that rule's own
      min-height is the reach — read the number, so a shrink below 44 fails here. */
   const add = BENCH.slice(BENCH.indexOf('dataAttr="data-add-category"'), BENCH.indexOf('trigger={', BENCH.indexOf('dataAttr="data-add-category"')));
-  assert.match(add, /className="addcat\b/, 'the Add a category row lost its addcat class');
+  assert.match(add, /className=.addcat\b/, 'the Add a category row lost its addcat class');
   const rule = BENCH.match(/\.slcat \.addcat\{[^}]*min-height:(\d+)px/);
   assert.ok(rule, 'the .addcat rule lost its min-height');
   assert.ok(Number(rule[1]) >= 44, `the Add a category row is ${rule?.[1]}px tall, under 44`);

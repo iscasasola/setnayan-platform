@@ -13,7 +13,7 @@ import { loadPrintSet, printOwnsPro, type LoadedPrintSet } from '@/lib/print-set
 import { renderPassCardPng } from '@/lib/pass-card-render';
 import { renderInvitationQrPng } from '@/lib/qr';
 import { fetchPublicScheduleBlocks } from '@/lib/schedule';
-import { guestsArriveTime } from '@/lib/guests-arrive';
+import { guestsArriveSource, guestsArriveTime } from '@/lib/guests-arrive';
 import { guestsMaySeeSeatsFor } from '@/lib/guests-may-see-seats';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { nameStyleOfPrintDetails, ticketName, type NameStyle } from '@/lib/name-style';
@@ -157,6 +157,12 @@ export type PassCardKit = {
   /** When the doors open — the FIRST public block, formatted like the programme. A guest whose role has its own call
    *  time prints that instead (`passCardPass` → `guestArriveBy`). */
   arrive: string | null;
+  /**
+   * The same block's raw start — the venue's wall-clock PARKED IN UTC. Only the
+   * Apple Wallet pass reads it (its lock-screen time, `walletRelevantDate`);
+   * optional so every hand-built kit stays valid.
+   */
+  arriveAt?: string | null;
   /** bringer guest_id → how many NAMED companions they bring who are coming. */
   /** NULL = the seat rows could not be read — the card then prints no party at all, never the one-name mirror's guess. */
   party: Map<string, number> | null;
@@ -185,9 +191,10 @@ export async function loadPassCardKit(
     set = await loadPrintSet(eventId, { mode: 'screen', withEventQr: false, previewTheme: CLASSIC_PRINT_THEME });
     if (!set) return null;
   }
+  const arriveMoment: { at: string | null } = { at: null };
   const [words, arrive, party, seats] = await Promise.all([
     eventWordsForEvent(eventId).catch(() => null),
-    readArriveLabel(admin, eventId),
+    readArriveLabel(admin, eventId, arriveMoment),
     readPartyCounts(admin, eventId, opts.seatsFor),
     readTicketSeats(admin, eventId),
   ]);
@@ -204,7 +211,7 @@ export async function loadPassCardKit(
     qrLook: { ...set.qrLook, dark: '#111111', light: '#FFFFFF' },
     data: { ...set.data, eyebrow, eventWord, details: { ...set.data.details, guestNames: true, setnayanMark: !ownsPro } },
   };
-  return { set, arrive, party, seats };
+  return { set, arrive, arriveAt: arrive ? arriveMoment.at : null, party, seats };
 }
 
 /**
@@ -237,17 +244,20 @@ export async function readTicketSeats(admin: SupabaseClient, eventId: string): P
   return out;
 }
 
-async function readArriveLabel(admin: SupabaseClient, eventId: string): Promise<string | null> {
+/** 🍎 `out.at` — the SAME moment's raw start, for the Wallet pass's lock-screen time (lib/wallet-pass.ts); never a second pick. */
+async function readArriveLabel(admin: SupabaseClient, eventId: string, out: { at: string | null } = { at: null }): Promise<string | null> {
   try {
     const blocks = await fetchPublicScheduleBlocks(admin, eventId, await isCoordinatorPrepReleaseEnabled());
     // ⏰ THE guests' arrival (`guestsArriveTime`, owner 2026-10-19) — the dress code's Guests call time, the invitation's
     // "Guests arrive" and Event Details' row: one moment. It reads the stored wall clock as a wall clock (never
     // re-zoned — see site-body's pass for the 8-hour bug). No arrival moment → the invitation's first moment (the
     // Ceremony's time on a programme that opens on it, 2026-10-20) — the time the invitation itself prints.
+    out.at = guestsArriveSource(blocks)?.moment.start_at ?? null;
     return guestsArriveTime(blocks);
   } catch (err) {
     // Omitted, never guessed: a card with no ARRIVE is true; a wrong one is not.
     logQueryError('pass-card.arrive', err, { event_id: eventId }, 'graceful_degrade');
+    out.at = null;
     return null;
   }
 }

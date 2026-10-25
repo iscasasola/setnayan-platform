@@ -1,4 +1,7 @@
 import { Suspense, cache } from 'react';
+import { appleWalletLink } from '@/lib/wallet-pass';
+import { appleWalletOffered } from '@/lib/wallet-pass-config.server';
+import { AppleWalletButton } from '../../_components/apple-wallet-button';
 import Link from 'next/link';
 import { cookies, headers } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
@@ -631,6 +634,14 @@ async function inviteEnterPage({ params, searchParams }: Props) {
   });
   const inApp = canvas ? ({ kind: 'none' } as const) : inAppHandoff(userAgent, invitationUrl);
   const safariSave = inApp.kind === 'ios' ? inApp.safariHref : null;
+  // 🍎 "Add to Apple Wallet" under "Save my ticket" (lib/wallet-pass.ts) — on an iPhone, and only while the pass can be
+  // SIGNED right now (`appleWalletOffered`, on for everyone — owner 2026-10-25). Inside an iPhone's in-app browser the
+  // Save line is already the Safari hand-off, so no second hand-off is drawn; never on the Maker's canvas. In the
+  // Setnayan app it opens the in-app browser sheet, where Wallet's Add sheet works.
+  const appleWallet =
+    canvas || safariSave || passCard !== 'pass'
+      ? null
+      : appleWalletLink(userAgent, invitationUrl, await appleWalletOffered(), { storeShell: await isStoreShellRequest() });
   /* ✉️ …SAID AS "N MORE ANSWERS" WHILE THE COUPLE'S SWITCHED-ON QUESTIONS ARE STILL UNANSWERED (owner 2026-10-20,
      DECISION_LOG "THE COVER'S REPLY BUTTON HAS THREE STATES") — the reply page's own missing set: the SAME `rsvpGate`
      call `invite/reply/page.tsx` makes for the questions it shows, on this row, counted (`moreAnswersOf`). The link is
@@ -793,6 +804,7 @@ async function inviteEnterPage({ params, searchParams }: Props) {
             src={PASS_CARD_ROUTE}
             name={guestName}
             safariHref={safariSave}
+            appleWallet={appleWallet}
           />
         ) : null}
         {saved ? <DoorNotice kind={saved.kind}>{saved.text}</DoorNotice> : null}
@@ -899,10 +911,14 @@ async function inviteEnterPage({ params, searchParams }: Props) {
               />
             )}
             </div>
-            {/* 🍎 APPLE WALLET SLOT — PR #6548's `AppleWalletButton` (a plain link to `/api/guest/wallet/apple`, shown
-                on Apple devices only) goes HERE, under Save, once that PR merges. The guest's OWN pass only — a +1's
-                Wallet pass comes from their own link (owner 2026-10-25, decision 6). Not imported before it merges. */}
-            <div hidden data-landing-wallet-slot="" />
+            {/* 🍎 APPLE WALLET SLOT — directly under Save, the two together under the ticket (controller layout call,
+                2026-10-25); the +1 list (#6911) sits below them. The guest's OWN pass only. `!mt-2` pulls it up
+                against Save inside the section's `space-y-4` rhythm. */}
+            {appleWallet ? (
+              <div data-landing-wallet-slot="" className="!mt-2">
+                <AppleWalletButton link={appleWallet} />
+              </div>
+            ) : null}
             {justIn ? <p className="text-xs text-ink/70">{REQUEST_WORDS.saveUpdatedWhy}</p> : null}
           </section>
         ) : ticket === 'faded' ? (

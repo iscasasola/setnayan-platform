@@ -163,6 +163,6 @@ test('6 · after Send: Save hands over their card and each +1 ticket, and the Wa
   assert.match(enter, /const plusOneCardHrefs = seats\s*\.filter\(\(s\) => plusOneTicketIds\.has\(s\.guest_id\)\)/);
   assert.match(enter, /hrefs=\{\[PASS_CARD_ROUTE, \.\.\.plusOneCardHrefs\]\}/);
   assert.match(enter, /label=\{plusOneCardHrefs\.length > 0 \? PASS_CARD_WORDS\.saveAll : /);
-  assert.match(enter, /<div hidden data-landing-wallet-slot="" \/>/, 'the Apple Wallet slot (PR #6548) is not marked');
+  assert.match(enter, /<div data-landing-wallet-slot="" className="!mt-2">\s*<AppleWalletButton link=\{appleWallet\} \/>/, 'the Apple Wallet slot (PR #6548) is not filled with its button');
   assert.match(read('../lib/guest-landing.ts'), /replied: 'You’re on the list\.',/, 'the after-Send default is not "You’re on the list."');
 });

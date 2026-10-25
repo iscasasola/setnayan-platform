@@ -127,7 +127,8 @@ async function eventHome(eventId: string): Promise<string> {
  * from the form" — and the owner's live test then read "with Apple" on the
  * button and landed on Google sign-in, because two requests were asked the
  * same question separately. The form now carries the method the button SAID
- * and this takes it while that provider is on (`saveMethodFromForm`, whose
+ * — since 2026-10-25 ("Show both") the provider button the guest PRESSED, a
+ * switched-off one refused — and this takes it while that provider is on (`saveMethodFromForm`, whose
  * docblock says why a posted provider grants nothing). Inside an in-app
  * browser there is no press to post: the page draws "Open in your browser"
  * (a copy of the guest's own link) instead, so a POST from one is sent back.

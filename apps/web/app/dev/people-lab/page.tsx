@@ -22,6 +22,7 @@ import { AccountBottomNav } from '@/app/dashboard/(launcher)/_components/account
 import { PeopleRosterView } from '@/app/dashboard/(account)/people/_components/people-roster-view';
 import { FollowListView } from '@/app/dashboard/(account)/people/_components/follow-list-view';
 import { FoundPersonCard } from '@/app/dashboard/(account)/people/_components/found-person-card';
+import { GroupsFoldList, type GroupsFoldRow } from '@/app/dashboard/(account)/people/_components/samahan-people-section';
 import type { PeopleRoster, RosterPerson } from '@/lib/people-roster';
 import { peopleViewOptions, type PeopleView } from '@/lib/people-views';
 import { TOURS } from '@/lib/tours';
@@ -51,6 +52,12 @@ const PEOPLE: RosterPerson[] = [
   person({ key: 'mt', name: 'Marco Testing', samahan: ['Barkada'] }),
   person({ key: 'es', name: 'Elise Santos', publicId: 'S89U-LABELI0001' }),
   person({ key: 'pm', name: 'Paolo Mendoza', state: 'waiting_them', relation: 'partner', publicId: 'S89U-LABPAO0001' }),
+];
+
+/** The Groups section's rows — the same two groups `mySamahan` names below. */
+const GROUPS: GroupsFoldRow[] = [
+  { communityId: 'lab-sam-1', name: 'Barkada', role: 'organizer', memberCount: 12 },
+  { communityId: 'lab-sam-2', name: 'Sison family', role: 'member', memberCount: 8 },
 ];
 
 /** The note an unmarried account's card carries (`spouseAbsenceNote`, lib/people-add.ts) — the owner's sheet had it. */
@@ -166,6 +173,8 @@ export default async function PeopleLabPage({
                 extra={[
                   // ?noalaga=1 — an account without Loved ones (the gate off): the People tour's middle stop is skipped.
                   ...(sp.noalaga === '1' ? [] : [{ key: 'alaga' as const, label: 'Loved ones', count: r.counts.alaga, node: lovedOnes }]),
+                  // Groups — the REAL section's list (`GroupsFoldList`) on fixture rows (the reader asks the database).
+                  { key: 'groups', label: 'Groups', count: r.counts.samahan, node: <GroupsFoldList groups={kind === 'full' ? GROUPS : []} unreadable={kind === 'fail'} /> },
                   { key: 'tree', label: 'Your connection tree', count: null, folded: true, node: <TreeStandIn empty={kind !== 'full'} /> },
                 ]}
               />

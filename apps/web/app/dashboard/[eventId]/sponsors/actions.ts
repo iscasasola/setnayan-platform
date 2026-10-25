@@ -2,7 +2,6 @@
 
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
-import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
   parseSponsorTier,
@@ -13,49 +12,20 @@ import {
 } from '@/lib/event-sponsors';
 import { peopleConnectionsEnabled } from '@/lib/people-connections';
 import { generateEventConnections } from '@/app/dashboard/(account)/people/actions';
+import { refuseLimitedHelper, requireHostMembershipOrThrow } from '@/lib/host-gate';
 
 /**
  * Iteration · Principal + Secondary Sponsor coordination — server actions.
  * Per CLAUDE.md 2026-05-22 row "Principal Sponsor list builder".
  *
- * All form actions go through requireHostMembership() — caller must be an
+ * All form actions go through requireSponsorHost() — caller must be an
  * accepted host (event_moderators) OR a legacy event_members 'couple' row.
  * Mirrors the same gate as /dashboard/[eventId]/hosts (iteration 0048 V1).
  */
 
-async function requireHostMembership(eventId: string): Promise<string> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
-
-  // Source 1 — event_moderators (canonical going forward).
-  const { data: moderator } = await supabase
-    .from('event_moderators')
-    .select('moderator_id')
-    .eq('event_id', eventId)
-    .eq('user_id', user.id)
-    .not('accepted_at', 'is', null)
-    .neq('role_subtype', 'viewer') // a limited helper views, never edits (owner 2026-09-28)
-    .is('removed_at', null)
-    .maybeSingle();
-
-  if (moderator) return user.id;
-
-  // Source 2 — event_members couple row (V1 backwards-compat).
-  const { data: legacy } = await supabase
-    .from('event_members')
-    .select('member_type')
-    .eq('event_id', eventId)
-    .eq('user_id', user.id)
-    .maybeSingle();
-  if (legacy && (legacy as { member_type: string }).member_type === 'couple') {
-    return user.id;
-  }
-
-  throw new Error('Forbidden — only current hosts can manage sponsors.');
-}
+// The shared throwing host gate (lib/host-gate.ts) with this page's own words — this file carried a copy.
+const requireSponsorHost = (eventId: string): Promise<string> =>
+  requireHostMembershipOrThrow(eventId, 'Forbidden — only current hosts can manage sponsors.');
 
 function clean(value: FormDataEntryValue | null, max = 200): string {
   if (typeof value !== 'string') return '';
@@ -88,10 +58,11 @@ function parsePairIndex(raw: FormDataEntryValue | null): number | null {
  * form so this is one action for both shapes.
  */
 export async function addSponsor(formData: FormData): Promise<void> {
+  await refuseLimitedHelper(formData.get('event_id'), null);
   const eventId = parseEventId(formData);
   let userId: string;
   try {
-    userId = await requireHostMembership(eventId);
+    userId = await requireSponsorHost(eventId);
 
     const tier = parseSponsorTier(formData.get('sponsor_tier'));
     const side = parseSponsorSide(formData.get('side'));
@@ -143,12 +114,13 @@ export async function addSponsor(formData: FormData): Promise<void> {
  * insert — moving a sponsor between tiers means removing + re-adding.
  */
 export async function updateSponsor(formData: FormData): Promise<void> {
+  await refuseLimitedHelper(formData.get('event_id'), null);
   const eventId = parseEventId(formData);
   const sponsorId = clean(formData.get('sponsor_id'), 40);
   if (!sponsorId) redirect(`/dashboard/${eventId}/sponsors`);
 
   try {
-    await requireHostMembership(eventId);
+    await requireSponsorHost(eventId);
 
     const fullName = clean(formData.get('full_name'), 200);
     if (fullName.length === 0) {
@@ -198,12 +170,13 @@ export async function updateSponsor(formData: FormData): Promise<void> {
  * note in the UI.
  */
 export async function removeSponsor(formData: FormData): Promise<void> {
+  await refuseLimitedHelper(formData.get('event_id'), null);
   const eventId = parseEventId(formData);
   const sponsorId = clean(formData.get('sponsor_id'), 40);
   if (!sponsorId) redirect(`/dashboard/${eventId}/sponsors`);
 
   try {
-    await requireHostMembership(eventId);
+    await requireSponsorHost(eventId);
 
     const admin = createAdminClient();
     await admin.from('event_sponsors').delete().eq('id', sponsorId).eq('event_id', eventId);
@@ -225,12 +198,13 @@ export async function removeSponsor(formData: FormData): Promise<void> {
  * email). V1.x integrates Resend per 0028 email template pattern.
  */
 export async function sendInvitation(formData: FormData): Promise<void> {
+  await refuseLimitedHelper(formData.get('event_id'), null);
   const eventId = parseEventId(formData);
   const sponsorId = clean(formData.get('sponsor_id'), 40);
   if (!sponsorId) redirect(`/dashboard/${eventId}/sponsors`);
 
   try {
-    await requireHostMembership(eventId);
+    await requireSponsorHost(eventId);
 
     const admin = createAdminClient();
     const { error } = await admin
@@ -264,6 +238,7 @@ export async function sendInvitation(formData: FormData): Promise<void> {
  * (idempotent — host can flip status without duplicating guest rows).
  */
 export async function markResponse(formData: FormData): Promise<void> {
+  await refuseLimitedHelper(formData.get('event_id'), null);
   const eventId = parseEventId(formData);
   const sponsorId = clean(formData.get('sponsor_id'), 40);
   if (!sponsorId) redirect(`/dashboard/${eventId}/sponsors`);
@@ -275,7 +250,7 @@ export async function markResponse(formData: FormData): Promise<void> {
   const status = rawStatus as 'accepted' | 'declined';
 
   try {
-    await requireHostMembership(eventId);
+    await requireSponsorHost(eventId);
 
     const admin = createAdminClient();
 

@@ -47,6 +47,7 @@ import { CALENDAR_NOT_SET } from '@/lib/calendar-truth';
 import { openSuppliersFactSheet } from '@/lib/suppliers-fact-sheets';
 import { formatCount } from '@/lib/format-number';
 import { MAX_BUILD_TITLE_LEN } from '@/lib/named-builds';
+import { useThumbRoom } from '@/lib/thumb-room';
 import { formatPhp } from '@/lib/php';
 import { isMultiPickGroup } from '@/lib/wedding-plan-groups';
 import {
@@ -864,6 +865,8 @@ function BarButtons({
 }) {
   const rowRef = useRef<HTMLDivElement>(null);
   useFitRow(rowRef);
+  // ⬇ Not a ThumbRow, so it leaves its room itself (`lib/thumb-room.ts`) — the page pads by it, never by a number.
+  useThumbRoom(rowRef);
   return (
     <div ref={rowRef} data-build-bar-kind={kind} className="pointer-events-auto flex min-w-0 items-center gap-2.5">
       {kind === 'saved' ? (

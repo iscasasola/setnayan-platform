@@ -157,9 +157,8 @@ test('(2) a door that still says "open the Hero" opens Details — the shell tur
     assert.match(html, /data-maker-page="details"/, `${key}: Details did not open`);
     assert.match(html, /data-stub="details-page"/, `${key}: Details' page is not drawn`);
     assert.doesNotMatch(html, new RegExp(`data-maker-page="${key}"`), `${key}: still opened as a page of its own`);
-    // ONE door since 2026-10-06 ("EVENT DETAILS IS REBUILT"): Event Details, highlighted — no Look chip.
-    assert.match(html, /data-maker-tool="details"[^>]*aria-pressed="true"/, `${key}: Event Details is not the highlighted door`);
-    assert.doesNotMatch(html, /data-maker-tool="look"/, `${key}: the Look chip came back`);
+    // The old bar's doors (Look · Event Details) went with the old Maker (2026-10-25): Studio is the way in.
+    assert.doesNotMatch(html, /data-maker-tool="(details|look)"/, `${key}: an old bar door came back`);
   }
   // Every door goes through that one turn: the context's `select`, the address and the tab's memory.
   const shell = read(`${L}/maker-shell.tsx`);
@@ -300,8 +299,9 @@ test('(4) Details wires each Look item: its body, its editor, and the Mood Board
 
 test('(5) the Mood Board is ONE component — Details draws it, and its old page lands the couple there', () => {
   const launch = read('app/dashboard/[eventId]/launch/page.tsx');
-  assert.match(launch, /<Suspense fallback=\{[^}]*Opening your Mood Board…[\s\S]{0,80}<MoodBoardMakerBody eventId=\{eventId\} \/>/, 'Details does not stream the board');
-  assert.match(launch, /<Suspense fallback=\{[^}]*Opening your Mood Board…[\s\S]{0,80}<MoodBoardMakerControls eventId=\{eventId\} \/>/, 'Details does not stream the board’s controls');
+  assert.match(launch, /<Suspense fallback=\{[^}]*Opening your Mood Board…[\s\S]{0,80}<MoodBoardStudioBody eventId=\{eventId\} \/>/, 'Details does not stream the board');
+  /* Studio › Mood Board carries its tools inside it — the old Maker's right column went with it (2026-10-25). */
+  assert.match(launch, /moodBoardControls: null,/);
   const page = read(`${MB}/page.tsx`);
   assert.match(page, /if \(makerHasWork\(memberType, websiteOn\)\) redirect\(detailsItemHref\(eventId, 'mood-board'\)\);/);
   // Everyone else keeps the page: its return draws the board (beside the save notice, #6321).
@@ -316,7 +316,7 @@ test('(5) the Mood Board is ONE component — Details draws it, and its old page
 
 test('(5) inside the Maker the board keeps the Maker’s rules — and its supplier side is untouched', () => {
   const ed = read(`${MB}/_components/mood-board-editor.tsx`);
-  const maker = ed.slice(ed.indexOf('export async function MoodBoardMakerBody('));
+  const maker = ed.slice(ed.indexOf('export async function MoodBoardStudioBody('));
   assert.ok(maker.length > 200, 'anti-vacuity: the Maker views were not found');
   // No masthead, no "Back to", no fixed bar and no link out in the Maker's views.
   assert.doesNotMatch(maker, /PageMasthead|Back to|<Link\b|\bfixed\b/);
@@ -436,23 +436,14 @@ test('(7) Reveal: the openings are the navigator, the rest the right column — 
   assert.match(rv, /\[data-details-look="reveal"\] iframe/);
 });
 
-test('(7) Mood Board: its parts in the navigator, the picked part in the middle, its controls on the right', () => {
+test('(7) Mood Board: one board in the Maker — Studio › Mood Board; the old three-part board is gone', () => {
   const ed = read(`${MB}/_components/mood-board-editor.tsx`);
-  const body = ed.slice(ed.indexOf('export async function MoodBoardMakerBody('), ed.indexOf('export async function MoodBoardMakerControls('));
-  const controls = ed.slice(ed.indexOf('export async function MoodBoardMakerControls('));
+  /* The old Maker drew the board in three parts (navigator · middle · right column). It was deleted with the old Maker
+     (owner 2026-10-25, "delete that old event hub maker"); Studio › Mood Board & Dress Code is the board. */
+  assert.doesNotMatch(ed, /export async function MoodBoardMaker(Body|Controls)\(/, 'the old Maker’s three-part board is back');
+  assert.match(ed, /export async function MoodBoardStudioBody\(/);
   const parts = read(`${MB}/_components/mood-board-parts.tsx`);
-  for (const p of ['theme', 'inspiration', 'palette', 'reception', 'colours', 'make-it-real', 'share']) {
-    assert.match(parts, new RegExp(`key: '${p}'`), `${p} is not a part in the navigator`);
-    assert.match(body, new RegExp(`<MoodPart part="${p}">`), `${p} has no middle`);
-  }
-  // One provider around theme → palette, so the main colours still derive the palette live.
-  assert.equal((body.match(/<PaletteBoardProvider \{\.\.\.provider\}>/g) ?? []).length, 1);
-  // The right column: each part's own controls — the sign-offs beside the palette and the room, sharing.
-  assert.match(controls, /<MoodPart part="palette">\{parts\.peopleAgreed\}<\/MoodPart>/);
-  assert.match(controls, /<MoodPart part="reception">\{parts\.roomAgreed\}<\/MoodPart>/);
-  assert.match(controls, /<MoodPart part="share">\{parts\.shareButton\}<\/MoodPart>/);
-  // Parts stay mounted — hidden, never unmounted — so nothing typed is lost by switching.
-  assert.match(parts, /hidden=\{on !== part\} className=\{on === part \? 'block' : 'hidden'\}/);
+  assert.doesNotMatch(parts, /export function MoodPart(Note)?\(/, 'the old three-part board’s pieces are back');
   // "Make it real" is sold nowhere it is not offered.
   assert.match(read(`${L}/maker-details.tsx`), /<MoodBoardPieces makeItReal=\{!theme\.storeShell\} \/>/);
 });

@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { eventRowOnce, openDashboardEventRow } from '@/lib/event-row-once';
-import { fetchEventViewer, isDelegateWithoutArea, type EventViewer } from '@/lib/event-viewer.server';
+import { fetchEventViewer, isDelegateWithoutArea, viewerAreaLevel, type EventViewer } from '@/lib/event-viewer.server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveProfileByEvent, resolveRoleSetKeyForEvent } from '@/lib/event-type-profile';
 import { getCurrentUser } from '@/lib/auth';
@@ -989,6 +989,11 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       key: titleKey(g.name_prefix, g.gender),
       text: titleButtonText(g.name_prefix, g.gender, true),
     }));
+  // 👁 A delegate who may only LOOK at the guest list (a limited helper: every area 'view') is offered no
+  // control that writes — the same seam as the phone's last copy. Only a KNOWN delegate: a couple whose
+  // membership read blipped is never shown a read-only list (owner 2026-09-28 · live report 2026-10-25).
+  const guestsViewOnly =
+    !viewer.isCouple && viewer.delegatePermissions !== null && viewerAreaLevel(viewer, 'guest_list') !== 'edit';
   const guestsScreen = (
     <GuestsScreen
       eventId={eventId}
@@ -1011,7 +1016,8 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       rootLabel={mapRoot}
       // Setup's "☑ Pick who" (PR 4d) lands here: Select mode over "to invite".
       initialQuery={search.select === 'to-invite' ? 'to invite' : (search.q ?? '')}
-      initialSelect={search.select === 'to-invite'}
+      initialSelect={!guestsViewOnly && search.select === 'to-invite'}
+      viewOnly={guestsViewOnly}
       setup={gview === 'share' ? <InvitePanel eventId={eventId} /> : null}
       empty={
         !guestsMeasured || rosterAll.length === 0 ? (

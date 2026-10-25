@@ -128,7 +128,7 @@ const WIRED: ReadonlyArray<{ file: string; scope: boolean; calls?: number }> = [
   { file: 'app/dashboard/[eventId]/seating/_components/seating-frame.tsx', scope: true },
   { file: 'app/dashboard/[eventId]/seating/_components/seat-plan-phone.tsx', scope: true },
   { file: 'app/dashboard/[eventId]/seating/_components/seating-editor.tsx', scope: false, calls: 2 },
-  { file: 'app/dashboard/[eventId]/launch/_components/maker-shell.tsx', scope: true, calls: 2 },
+  { file: 'app/dashboard/[eventId]/launch/_components/maker-shell.tsx', scope: true, calls: 1 }, // ShutDoor went with the old bar (2026-10-25)
   { file: 'app/dashboard/[eventId]/launch/_components/sheet-sections.tsx', scope: false },
   { file: 'app/dashboard/[eventId]/launch/_components/print-menu-editor.tsx', scope: false },
   /* Both are the triggers of the ONE colour picker since 2026-10-08: opening it still closes an open dropdown. */

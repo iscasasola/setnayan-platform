@@ -43,6 +43,7 @@ import { loadSelfAddedSupplier, type SelfAddedSupplierPrefill } from '../actions
 import {
   Search,
   ChevronDown,
+  ChevronRight,
   ArrowRight,
   Star,
   MapPin,
@@ -117,6 +118,8 @@ import {
 } from '../category-decision-actions';
 import { isExploreReplanEnabled } from '@/lib/explore-replan-flag';
 import { benchFolderAnchorId, benchTileAnchorId, scrollBenchAnchor } from '@/lib/bench-anchors';
+import { dropPinRoom, makeRoomToPin } from '@/lib/pin-room';
+import { usePublishCoverRing, useCoverHeaderOwnsTheCount } from './cover-ring';
 import { benchSearchScopeForTile } from '@/lib/bench-category-search';
 import { CategorySearchOverlay } from './category-search-overlay';
 import { FindThumbRow } from './find-thumb-row';
@@ -145,7 +148,8 @@ import {
 } from '@/lib/coverage-strip';
 import { canRemoveTileFromPlan, resolveBenchRing } from '@/lib/explore-in-plan';
 import {
-  ADD_TO_PLAN_HEADING,
+  ADD_CATEGORY_TITLE,
+  addCategoryPreview,
   cardAddAnother,
   categoryHintButtonLabel,
   categoryHintForTile,
@@ -160,7 +164,6 @@ import {
   REMOVE_FROM_PLAN_CONFIRM_CANCEL,
   REMOVE_FROM_PLAN_CONFIRM_OK,
   removeFromPlanConfirmTitle,
-  ADD_TO_EVENT_ASK,
   removeFromEventLabel,
   removeFromPlanButtonLabel,
   INLINE_MORE_FAILED,
@@ -342,7 +345,16 @@ const SLCAT_CSS = `
 .slcat .cat-st.ok{color:rgb(var(--color-ok))}
 .slcat .cat-st.wn{color:var(--mulberry)}
 .slcat .rowsum{margin:0 0 10px;font-size:14px;font-weight:600;color:rgb(var(--color-ok))}
-.slcat .addmore{display:flex;align-items:center;flex-wrap:wrap;gap:10px;padding:14px 0 4px;border-top:1px solid var(--line-soft);font-size:14px;color:var(--ink-soft)}
+.slcat .addmore{padding-top:6px}
+/* ＋ ADD A CATEGORY — the list's last row (owner 2026-10-26, prototype 'suppliers_add_category_row_2026-10-26'): the
+   flat category row's own shape (56 px, the 36 px disc + 12 px gap, the 15 px name over the template's second line),
+   with the ＋ outlined in the accent and a dashed edge — a frame, because the whole row is ONE button (house rule:
+   frames only on what you press). The wrapper's top rule ('FORM_ROW_RULE') closes the list above it. */
+.slcat .addcat{display:flex;width:100%;align-items:center;gap:12px;min-height:56px;padding:10px 4px;border:1px dashed var(--line);border-radius:var(--m-r-md);background:transparent;color:var(--ink);font:inherit;text-align:left;cursor:pointer}
+.slcat .addcat-ic{display:inline-flex;flex:0 0 auto;width:36px;height:36px;align-items:center;justify-content:center;border-radius:var(--m-r-full);border:1.5px solid rgb(var(--sn-accent));color:rgb(var(--sn-accent))}
+.slcat .addcat-t{display:flex;flex-direction:column;flex:1 1 auto;min-width:0}
+.slcat .addcat-nm{font-weight:600;font-size:15px;line-height:1.25}
+.slcat .addcat-chev{flex:0 0 auto;color:var(--ink-soft)}
 /* A row's head PINS under the shell's pinned block while its category is open
    (owner 2026-10-07: "category pins … so they can collapse"), so the body must
    not be a scroll box ('overflow:visible' — a flat folder never collapses). The
@@ -970,6 +982,8 @@ html.dark .slcat .mrerr{color:#E39A9A}
    · ONE accent token (--sn-accent) for what is on, picked or tappable — in
      both themes; dark mode must work (owner 2026-10-07 / 2026-10-11). */
 .slcat{--mulberry:rgb(var(--sn-accent))}
+/* 📌 The room an opened row needs to reach the top (lib/pin-room.ts) — 0 unless a landing measured it short. */
+.slcat{padding-bottom:var(--pin-room,0px)}
 /* the supplier row: no box; a divider between suppliers; pressed = a soft fill */
 .slcat .fold.flat .vcw{border:0;border-bottom:1px solid var(--line);border-radius:0;background:none;padding:12px 0}
 .slcat .fold.flat .vcw:has(>.vc:active){transform:none;border-color:var(--line);background:color-mix(in srgb,var(--ink) 5%,transparent)}
@@ -3322,6 +3336,9 @@ export function ShortlistCategories({
   );
   // "Covered N of M" over the ring — booked or covered (`ringCoveredCount`).
   const ringCovered = ringCoveredCount(stripTiles.map((t) => coverageStateOf(t)));
+  // 🧭 Under the calm header the shell draws the count — "6 of 14 covered" and its bar (cover-ring.tsx).
+  const coverInHeader = useCoverHeaderOwnsTheCount() && replan;
+  usePublishCoverRing(ringCovered, stripTiles.length, coverInHeader);
   /** tile → its CoverageTile, for each row's own state word. */
   const coverageByTile = new Map([...coverageByFolder.values()].flat().map((t) => [t.tile, t] as const));
 
@@ -3351,16 +3368,23 @@ export function ShortlistCategories({
   // unfold (and the fold of whichever row closed above it) has finished —
   // `transitionend` is the moment the layout is final. The listener answers
   // ONCE, so folding the row later does not pull the page back to it.
+  // 📌 THE PAGE MAKES ROOM FIRST (owner 2026-10-25, *"when i tapped food trucks it should expand and pin foodtrucks on
+  // the top"*): a row low in the list cannot be scrolled past the page's end, so the bench gets exactly the padding the
+  // page is short of (`lib/pin-room.ts`) before each scroll — measured again once the unfold has finished.
   const [landing, setLanding] = useState<{ tile: string; n: number } | null>(null);
   useLayoutEffect(() => {
     if (!landing) return;
     const id = benchTileAnchorId(landing.tile);
     const row = document.getElementById(id);
-    const frame = requestAnimationFrame(() => scrollBenchAnchor(id));
+    const land = () => {
+      if (row && benchRef.current) makeRoomToPin(row, benchRef.current);
+      scrollBenchAnchor(id);
+    };
+    const frame = requestAnimationFrame(land);
     const settle = (e: TransitionEvent) => {
       if (e.propertyName !== 'grid-template-rows') return;
       row?.removeEventListener('transitionend', settle);
-      scrollBenchAnchor(id);
+      land();
     };
     row?.addEventListener('transitionend', settle);
     return () => {
@@ -3368,6 +3392,10 @@ export function ShortlistCategories({
       row?.removeEventListener('transitionend', settle);
     };
   }, [landing]);
+  // Nothing open → no room held: the page is its own length again.
+  useEffect(() => {
+    if (!openTile && !openAll) dropPinRoom(benchRef.current);
+  }, [openTile, openAll]);
   /** A header tap while every category is open folds, or re-opens, just that one. */
   function toggleFolded(tile: string) {
     setFolded((cur) => {
@@ -3397,6 +3425,8 @@ export function ShortlistCategories({
   const poolRows = inPlanTiles
     ? folders.flatMap((f) => f.tiles.filter((t) => !inPlanTiles.has(t.tile)).map((t) => ({ t, f })))
     : [];
+  /** The "Add a category" row's second line — the first three of `poolRows`, in its order. */
+  const addCategoryLine = addCategoryPreview(poolRows.map(({ t }) => t.label));
   /** ＋ Add your own: straight into the ONE open category; otherwise ask which first. */
   function addYourOwn(typed = '') {
     // The name typed in the box rides into the walk's first step (the
@@ -3557,7 +3587,7 @@ export function ShortlistCategories({
           carries at most this line; the per-supplier detail belongs on the
           bench card, in the wide left column where they spend their time. */}
       <BenchRollUp folders={folders} standings={standings} />
-      {replan && stripTiles.length > 0 ? (
+      {replan && stripTiles.length > 0 && coverInHeader ? null : replan && stripTiles.length > 0 ? (
         /* "Covered N of M" — the ring IS the rows below now (owner 2026-10-07:
            one screen; a category unfolds in place). The Coverage Strip's icon
            tiles drew the same categories a second time, so they are gone; its
@@ -3592,7 +3622,10 @@ export function ShortlistCategories({
           bench, because that is where the narrowing it reports is happening.
           Server-resolved; null on an open window, so the surface stays calm
           until the couple's build actually says something. */}
-      {convergence ? (
+      {/* 📅 A SETTLED date ('anchored' — "Your date is set: …") draws no banner under the calm header (owner
+          2026-10-26): the date is already on the date · place line above, and "free that day" is in the ⓘ. A conflict,
+          a narrowing build and "Booking these suppliers sets your date" still show here — they are news, not detail. */}
+      {convergence && !(coverInHeader && convergence.tone === 'anchored') ? (
         <div className={`convrg t-${convergence.tone}`} role="status">
           <span className="cv-i" aria-hidden>
             {convergence.tone === 'conflict' ? (
@@ -4315,19 +4348,18 @@ export function ShortlistCategories({
       {searching ? (
         <SearchAddRow className="bench-add" query={query} as="your own supplier" onAdd={addYourOwn} />
       ) : null}
-      {/* "Need something else? ＋ Add to your event" — every category NOT on the
-          event, as ONE dropdown under the list (owner rule: a set of choices is
-          one dropdown; these were a chip pool at the foot of each folder).
-          Picking one clears any removal, keeps the category on the event
-          (`restoreTileToPlan`) and opens its row. */}
+      {/* ＋ ADD A CATEGORY — the list's LAST ROW (owner 2026-10-26, verbatim: "yes. this will apply to the
+          inspiration board as well"; prototype `suppliers_add_category_row_2026-10-26`, DECISION_LOG "ADD A CATEGORY
+          IS THE LIST'S LAST ROW"). It replaced "Need something else? ＋ Add to your event": ONE row in the category
+          rows' own shape, naming the first three categories NOT on the event — and the whole row is the button of the
+          SAME one grouped dropdown (owner rule: a set of choices is one dropdown). Picking one clears any removal,
+          keeps the category on the event (`restoreTileToPlan`) and opens its row — unchanged. */}
       {replan && !searching && poolRows.length > 0 ? (
-        <div className="addmore" data-add-to-event="">
-          <span>{ADD_TO_EVENT_ASK}</span>
+        <div className={`addmore ${FORM_ROW_RULE}`} data-add-to-event="">
           <PickMenu
-            label={ADD_TO_PLAN_HEADING}
+            label={ADD_CATEGORY_TITLE}
             value={null}
-            // The shipped words already carry their ＋ — one mark, one phrase.
-            buttonText={ADD_TO_PLAN_HEADING}
+            buttonText={addCategoryLine}
             dataAttr="data-add-category"
             stickyGroups
             options={poolRows.map(({ t, f }) => ({ key: t.tile, label: t.label, group: f.label }))}
@@ -4335,10 +4367,22 @@ export function ShortlistCategories({
               const row = poolRows.find((r) => r.t.tile === tile);
               if (row && !planEditing) addTileToPlan(row.t.tile, row.f.folder, row.f.slug);
             }}
-            className={`border border-ink/15 ${SUP_REACH_Y}`}
+            className="addcat sn-press sn-press-ring"
+            trigger={
+              <>
+                <span className="addcat-ic" aria-hidden>
+                  <Plus size={18} strokeWidth={1.75} />
+                </span>
+                <span className="addcat-t">
+                  <span className="addcat-nm">{ADD_CATEGORY_TITLE}</span>
+                  <span className={FORM_ROW_SUBLINE}>{addCategoryLine}</span>
+                </span>
+                <ChevronRight className="addcat-chev" size={16} strokeWidth={1.75} aria-hidden />
+              </>
+            }
           />
           {planError && poolRows.some((r) => r.t.tile === planError.tile) ? (
-            <p className="plan-err" style={{ textAlign: 'left', flexBasis: '100%' }}>
+            <p className="plan-err" style={{ textAlign: 'left' }}>
               {planError.message}
               {planError.retry ? (
                 <>

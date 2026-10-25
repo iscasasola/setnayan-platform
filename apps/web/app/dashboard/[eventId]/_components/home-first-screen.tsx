@@ -27,20 +27,16 @@ import { OUR_SERVICE_PARTS } from '@/lib/our-services';
 import { PapicSeePhotos } from '../studio/papic/_components/papic-see-photos';
 import { ServiceGlanceRow } from '@/app/_components/service-glance';
 import { seePhotosWord } from '@/lib/papic-glance';
-import { formatCount } from '@/lib/format-number';
 import type { PoolRung } from '@/lib/papic-pool-rungs';
 import { SWITCH_ON_LABEL, type SwitchOnNeed } from '@/lib/event-needs';
 import { switchOnNeed } from '../switch-on-actions';
 
-/** 📷 What Home hands Papic's card: its two new lines, and the camera settings it opens under itself. */
+/** 📷 What Home hands Papic's card: its head switch, and the camera settings it opens under itself (owner 2026-10-26). */
 export type PapicCardInput = {
-  coverage: string | null;
   phase: PapicCardPhase | null;
-  /** The latest five (`PapicCardStrip`, a streamed server slot). */
-  strip: ReactNode;
   thankYouHref: string | null;
   settings: ReactNode;
-  /** The Papic main switch, in the card's head beside the ⌄ (owner 2026-10-24). */
+  /** The Papic ON/OFF switch, in the card's head beside the › — closed and open (owner 2026-10-26). */
   headControl?: ReactNode;
 };
 
@@ -277,7 +273,7 @@ export function YourServices({
           <AppleServiceRow
             marker="thank-you"
             name={OUR_SERVICE_PARTS.papic?.name ?? ''}
-            brand={SERVICE_NAMES.papic.brand}
+            brand={SERVICE_NAMES.papic.plain}
             icon={<Clapperboard aria-hidden strokeWidth={1.9} />}
             status={apple.thankYou.status}
             href={apple.thankYou.open}
@@ -418,9 +414,23 @@ function PapicServiceRow({
   sizes: PoolRung[] | null;
   card?: PapicCardInput | null;
 }) {
-  // 📷 The card's own strip carries "See all ›" (→ Memories), so the card draws no second photos door (contract
-  // 2026-10-24: quick view = coverage · credits · the latest five with See all · Add more). The plain row keeps it.
-  const photos = !card && typeof doors.glance.result === 'number' && doors.glance.result > 0 ? doors.glance.result : null;
+  // 📷 THE CARD THAT OPENS UNDER ITSELF (owner 2026-10-23) — nothing on Home navigates to the Papic page now. Closed it
+  // is the head and the switch only (owner 2026-10-26); credits, Add more and the dates live in the open settings.
+  if (card) {
+    return (
+      <PapicHomeCard
+        name={svc.name}
+        brand={svc.brand}
+        icon={<Camera aria-hidden strokeWidth={1.9} />}
+        phase={card.phase}
+        thankYouHref={card.thankYouHref}
+        settings={card.settings}
+        headControl={card.headControl ?? null}
+        marker={{ 'data-home-service': 'papic' }}
+      />
+    );
+  }
+  const photos = typeof doors.glance.result === 'number' && doors.glance.result > 0 ? doors.glance.result : null;
   const acts =
     doors.buy || photos ? (
       <>
@@ -428,10 +438,10 @@ function PapicServiceRow({
           doors.whileNext?.buy ? (
             /* NEVER TWICE, only while the card that offers it is on screen (walk-b6 F1). */
             <span data-while-next="" className="contents">
-              <PapicBuySheet eventId={eventId} left={left} tone="brand" sizes={sizes} label={card ? 'Add more' : undefined} />
+              <PapicBuySheet eventId={eventId} left={left} tone="brand" sizes={sizes} />
             </span>
           ) : (
-            <PapicBuySheet eventId={eventId} left={left} tone="brand" sizes={sizes} label={card ? 'Add more' : undefined} />
+            <PapicBuySheet eventId={eventId} left={left} tone="brand" sizes={sizes} />
           )
         ) : null}
         {/* The photos live on the event bar's Memories tab now (owner 2026-10-23) — the door opens it. */}
@@ -439,38 +449,6 @@ function PapicServiceRow({
       </>
     ) : null;
   const line = doors.whileNext?.tail ? { ...doors.line, tailWhileNext: true } : doors.line;
-  // 📷 THE CARD THAT OPENS UNDER ITSELF (owner 2026-10-23) — nothing on Home navigates to the Papic page now.
-  if (card) {
-    return (
-      <PapicHomeCard
-        name={svc.name}
-        brand={svc.brand}
-        icon={<Camera aria-hidden strokeWidth={1.9} />}
-        mood={doors.glance.mood}
-        pct={doors.glance.pct}
-        line={line}
-        meterLabel="Credits left"
-        coverage={card.coverage}
-        phase={card.phase}
-        strip={card.strip}
-        actions={acts}
-        thankYouHref={card.thankYouHref}
-        settings={card.settings}
-        headControl={card.headControl ?? null}
-        marker={{ 'data-home-service': 'papic' }}
-        /* 📱 The phone's closed face (owner-approved 2026-10-24): credits left · the coverage · Add more. */
-        tile={{
-          label: svc.brand,
-          big: typeof doors.glance.count === 'number' ? formatCount(doors.glance.count) : '—',
-          unit: 'credits left',
-          sm: card.coverage ?? '',
-          meter: typeof doors.glance.count === 'number' ? doors.glance.pct : null,
-          span: true,
-          action: doors.buy ? <PapicBuySheet eventId={eventId} left={left} tone="brand" sizes={sizes} label="Add more" /> : null,
-        }}
-      />
-    );
-  }
   return (
     <ServiceGlanceRow
       href={`/dashboard/${eventId}/studio/papic`}

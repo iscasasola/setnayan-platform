@@ -150,10 +150,10 @@ test('(4) Try again is ONE re-read per tap — nothing retries by itself', () =>
   }
 });
 
-test('(5) while either page streams in, the Studio shows the rows that are coming; the shipped Maker keeps its words', () => {
+test('(5) while either page streams in, the Studio shows the rows that are coming (one Maker since 2026-10-25)', () => {
   const launch = read('app/dashboard/[eventId]/launch/page.tsx');
-  assert.match(launch, /<Suspense fallback=\{stagesStudio \? <TimelineRowsLoading label="Loading your schedule" rows=\{4\} pills=\{2\} \/> : <p className="p-6 text-sm text-ink\/60">Opening your schedule…<\/p>\}>\s*<CoupleSchedulePage/);
-  assert.match(launch, /<Suspense fallback=\{stagesStudio \? <TimelineRowsLoading label="Loading your Love Story" rows=\{3\} \/> : <p className="p-6 text-sm text-ink\/60">Opening your Love Story…<\/p>\}>\s*<OurStoryEditorPage/);
+  assert.match(launch, /<Suspense fallback=\{<TimelineRowsLoading label="Loading your schedule" rows=\{4\} pills=\{2\} \/>\}>\s*<CoupleSchedulePage/);
+  assert.match(launch, /<Suspense fallback=\{<TimelineRowsLoading label="Loading your Love Story" rows=\{3\} \/>\}>\s*<OurStoryEditorPage/);
 });
 
 test('(6) the Love Story’s sample (an empty story) is not a loading list: it is still, it has words, and the first action is there', async () => {

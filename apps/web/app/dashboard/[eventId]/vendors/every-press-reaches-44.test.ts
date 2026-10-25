@@ -40,11 +40,16 @@ test('the reach: 3 px past a bordered face, on the short side, drawing nothing',
   }
 });
 
-test('Sort and "＋ Add to your event" reach 44 tall', () => {
+test('Sort and "＋ Add a category" reach 44 tall', () => {
   const sort = BENCH.slice(BENCH.indexOf('const sortMenu = ('), BENCH.indexOf('/>', BENCH.indexOf('const sortMenu = (')));
   assert.match(sort, /className=\{`border border-ink\/15 \$\{SUP_REACH_Y\}`\}/);
-  const add = BENCH.slice(BENCH.indexOf('dataAttr="data-add-category"'), BENCH.indexOf('/>', BENCH.indexOf('dataAttr="data-add-category"')));
-  assert.match(add, /className=\{`border border-ink\/15 \$\{SUP_REACH_Y\}`\}/);
+  /* "Add a category" is the list's last row now (owner 2026-10-26): the PickMenu wears `addcat`, and that rule's own
+     min-height is the reach — read the number, so a shrink below 44 fails here. */
+  const add = BENCH.slice(BENCH.indexOf('dataAttr="data-add-category"'), BENCH.indexOf('trigger={', BENCH.indexOf('dataAttr="data-add-category"')));
+  assert.match(add, /className=.addcat\b/, 'the Add a category row lost its addcat class');
+  const rule = BENCH.match(/\.slcat \.addcat\{[^}]*min-height:(\d+)px/);
+  assert.ok(rule, 'the .addcat rule lost its min-height');
+  assert.ok(Number(rule[1]) >= 44, `the Add a category row is ${rule?.[1]}px tall, under 44`);
 });
 
 test('Expand all and ＋ Add your own are 44 wide on their own face — the shared row draws them (2026-10-22)', () => {

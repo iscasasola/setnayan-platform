@@ -34,6 +34,7 @@ import {
   type CouplePlanRowInput,
 } from '@/lib/self-added-payment-plan';
 import { manilaTodayIso } from '@/lib/vendor-cashflow';
+import { refuseLimitedHelper } from '@/lib/host-gate';
 
 // ============================================================================
 // saveSelfAddedPaymentPlan (2026-09-20)
@@ -63,6 +64,7 @@ import { manilaTodayIso } from '@/lib/vendor-cashflow';
 //     from their own schedule at lock; a couple must not overwrite it.
 // ============================================================================
 export async function saveSelfAddedPaymentPlan(formData: FormData): Promise<void> {
+  await refuseLimitedHelper(formData.get('event_id'), 'vendors');
   const eventId = formData.get('event_id');
   const vendorId = formData.get('vendor_id');
   if (

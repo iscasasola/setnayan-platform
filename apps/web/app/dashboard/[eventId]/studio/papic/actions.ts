@@ -27,6 +27,7 @@ import { papicCameraSaleRefusedPath } from '@/lib/papic-sells-only-credits';
 import { fetchPapicPassTiers } from '@/lib/papic-pass-tiers';
 import { resolvePapicWindow } from '@/lib/papic-window';
 import { formatCount } from '@/lib/format-number';
+import { refuseLimitedHelper } from '@/lib/host-gate';
 
 // Iteration 0012 Papic — couple-side server actions.
 //
@@ -93,6 +94,7 @@ async function getCoupleEventId(rawEventId: FormDataEntryValue | null): Promise<
  * wrapper. Feedback is the revalidated panel (an actioned row leaves "pending").
  */
 export async function reviewVendorChallengeAction(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'photos');
   const rawEventId = formData.get('event_id');
   const eventId = typeof rawEventId === 'string' ? rawEventId.trim() : '';
   if (!eventId) {
@@ -150,6 +152,7 @@ async function activeChallengesBesides(
 }
 
 export async function createCoupleChallengeAction(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'photos');
   const rawEventId = formData.get('event_id');
   const eventId = typeof rawEventId === 'string' ? rawEventId.trim() : '';
   const prompt = formData.get('prompt');
@@ -226,6 +229,7 @@ function challengeReturnPath(eventId: string, raw: FormDataEntryValue | null): s
 }
 
 export async function addLibraryChallengeAction(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'photos');
   const rawEventId = formData.get('event_id');
   const eventId = typeof rawEventId === 'string' ? rawEventId.trim() : '';
   if (!eventId) {
@@ -373,6 +377,7 @@ export async function addLibraryChallengeAction(formData: FormData) {
 /** Hide (is_active=false) or show any of the event's missions — auto booth,
  *  approved vendor, or the couple's own. Curation, not deletion. */
 export async function setCoupleChallengeActiveAction(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'photos');
   const rawEventId = formData.get('event_id');
   const eventId = typeof rawEventId === 'string' ? rawEventId.trim() : '';
   const missionId = formData.get('mission_id');
@@ -435,6 +440,7 @@ export async function setCoupleChallengeActiveAction(formData: FormData) {
  * capture window closes the last one by itself.
  */
 export async function armChallengeAction(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'photos');
   const rawEventId = formData.get('event_id');
   const eventId = typeof rawEventId === 'string' ? rawEventId.trim() : '';
   const missionId = formData.get('mission_id');
@@ -517,6 +523,7 @@ export async function armChallengeAction(formData: FormData) {
  * updates no rows.
  */
 export async function setChallengesPausedAction(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'photos');
   const rawEventId = formData.get('event_id');
   const eventId = typeof rawEventId === 'string' ? rawEventId.trim() : '';
   if (!eventId) {
@@ -565,6 +572,7 @@ export async function setChallengesPausedAction(formData: FormData) {
  * conflating them would close a prompt mid-answer.
  */
 export async function clearMomentChallengeAction(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'photos');
   const rawEventId = formData.get('event_id');
   const eventId = typeof rawEventId === 'string' ? rawEventId.trim() : '';
   if (!eventId) {
@@ -616,6 +624,7 @@ export async function clearMomentChallengeAction(formData: FormData) {
  * a page that went stale cannot kill the one the host has just started.
  */
 export async function stopChallengeAction(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'photos');
   const rawEventId = formData.get('event_id');
   const eventId = typeof rawEventId === 'string' ? rawEventId.trim() : '';
   const missionId = formData.get('mission_id');
@@ -646,6 +655,7 @@ export async function stopChallengeAction(formData: FormData) {
  *  the toggle, never deleted here (a deleted auto mission would just regenerate;
  *  a vendor's challenge is theirs) — so this is scoped source='couple'. */
 export async function deleteCoupleChallengeAction(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'photos');
   const rawEventId = formData.get('event_id');
   const eventId = typeof rawEventId === 'string' ? rawEventId.trim() : '';
   const missionId = formData.get('mission_id');
@@ -731,6 +741,7 @@ function papicBack(formData: FormData, eventId: string): string {
 }
 
 export async function setPapicUploadsOpen(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'photos');
   const result = await getCoupleEventId(formData.get('event_id'));
   if (!result.ok) redirect(result.redirectTo);
   const { eventId } = result;
@@ -755,6 +766,7 @@ export async function setPapicUploadsOpen(formData: FormData) {
 }
 
 export async function claimUploadsCamera(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'photos');
   const result = await getCoupleEventId(formData.get('event_id'));
   if (!result.ok) redirect(result.redirectTo);
   const { eventId } = result;
@@ -795,6 +807,7 @@ export async function claimUploadsCamera(formData: FormData) {
 }
 
 export async function setPapicStyle(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'photos');
   const result = await getCoupleEventId(formData.get('event_id'));
   if (!result.ok) {
     redirect(result.redirectTo);
@@ -855,6 +868,7 @@ export async function setPapicStyle(formData: FormData) {
  * session so the fn's auth.uid() couple + ownership checks pass.
  */
 export async function provisionPapicSeats(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'photos');
   const result = await getCoupleEventId(formData.get('event_id'));
   if (!result.ok) {
     redirect(result.redirectTo);
@@ -886,6 +900,7 @@ export async function provisionPapicSeats(formData: FormData) {
  * permits the UPDATE under their own session.
  */
 export async function reissuePapicSeat(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'photos');
   const result = await getCoupleEventId(formData.get('event_id'));
   if (!result.ok) {
     redirect(result.redirectTo);
@@ -968,6 +983,7 @@ export async function reissuePapicSeat(formData: FormData) {
  * idempotent. Scoped to (event_id, photo_id) under the couple's session.
  */
 export async function setClipShowcaseApproval(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'photos');
   const result = await getCoupleEventId(formData.get('event_id'));
   if (!result.ok) {
     redirect(result.redirectTo);
@@ -1024,6 +1040,7 @@ export async function setClipShowcaseApproval(formData: FormData) {
  * to (capture_id, event_id) so a forged call can't touch another event's clip.
  */
 export async function setGuestClipShowcaseApproval(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'photos');
   const result = await getCoupleEventId(formData.get('event_id'));
   if (!result.ok) {
     redirect(result.redirectTo);
@@ -1095,16 +1112,19 @@ async function refuseRetiredCameraSale(formData: FormData): Promise<never> {
 
 /** ⛔ Retired — refuses. Papic sells shared credits only (see above). */
 export async function purchasePapicCameras(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'photos');
   return refuseRetiredCameraSale(formData);
 }
 
 /** ⛔ Retired — refuses. A guest's invite QR is their camera; it costs nothing on its own. */
 export async function activatePapicLimited(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'photos');
   return refuseRetiredCameraSale(formData);
 }
 
 /** ⛔ Retired — refuses. Anyone with the one shared code shoots from the same credits. */
 export async function purchasePapicExtras(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'photos');
   return refuseRetiredCameraSale(formData);
 }
 
@@ -1127,6 +1147,7 @@ export async function purchasePapicExtras(formData: FormData) {
 
 /** Set (or edit) the event's Papic capture window from the studio picker. */
 export async function setPapicWindow(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'photos');
   const result = await getCoupleEventId(formData.get('event_id'));
   if (!result.ok) {
     redirect(result.redirectTo);
@@ -1271,6 +1292,7 @@ export async function papicBuySizes(
  * client-supplied.
  */
 export async function purchasePapicPoolTopUp(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'photos');
   const result = await getCoupleEventId(formData.get('event_id'));
   if (!result.ok) {
     redirect(result.redirectTo);
@@ -1401,6 +1423,7 @@ export async function purchasePapicPoolTopUp(formData: FormData) {
  * acting on another is the exact shape that left the run-of-show gate open.
  */
 export async function setCapturePreserved(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'photos');
   const result = await getCoupleEventId(formData.get('event_id'));
   if (!result.ok) {
     redirect(result.redirectTo);
@@ -1496,6 +1519,7 @@ export async function setCapturePreserved(formData: FormData) {
  * somebody pressed if the page was stale or they double-tapped.
  */
 export async function setGuestAllotments(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'photos');
   const result = await getCoupleEventId(formData.get('event_id'));
   if (!result.ok) redirect(result.redirectTo);
   const { eventId } = result;
@@ -1595,6 +1619,7 @@ export async function setGuestAllotments(formData: FormData) {
  *     refusal stops the run and says how many were set before it.
  */
 export async function setGuestAllotment(formData: FormData): Promise<void | { ok: true; set: number } | { refused: string; set: number }> {
+  await refuseLimitedHelper(formData.get('event_id'), 'photos');
   const quiet = formData.get('quiet') === '1';
   const result = await getCoupleEventId(formData.get('event_id'));
   if (!result.ok) {
@@ -1710,6 +1735,7 @@ function revalidateAllotmentReaders(eventId: string) {
  * Do not re-propose it.
  */
 export async function releaseTheRest(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'photos');
   const result = await getCoupleEventId(formData.get('event_id'));
   if (!result.ok) redirect(result.redirectTo);
   const { eventId } = result;

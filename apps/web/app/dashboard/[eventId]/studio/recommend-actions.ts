@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { ADD_ONS } from '@/lib/add-ons-catalog';
 import { createClient } from '@/lib/supabase/server';
+import { refuseLimitedHelper } from '@/lib/host-gate';
 
 // ⚠ NO SCREEN POSTS THESE SINCE 2026-10-02. Their only form lived on the
 // /studio index, which production had redirected to /suite since 2026-07-22,
@@ -46,6 +47,7 @@ function str(form: FormData, key: string): string {
  * RLS rejects any event the caller isn't an accepted delegate of.
  */
 export async function recommendFeature(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), null);
   const eventId = str(formData, 'event_id');
   const addonKey = str(formData, 'addon_key');
   const noteRaw = str(formData, 'note').trim();
@@ -77,6 +79,7 @@ export async function recommendFeature(formData: FormData) {
  * badge clears and it can't reappear.
  */
 export async function dismissRecommendation(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), null);
   const eventId = str(formData, 'event_id');
   const addonKey = str(formData, 'addon_key');
 
@@ -114,6 +117,7 @@ export async function dismissRecommendation(formData: FormData) {
  * policy's USING/WITH CHECK still bounds it to current_couple_event_ids()).
  */
 export async function dismissVendorRecommendation(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), null);
   const eventId = str(formData, 'event_id');
   const vendorProfileId = str(formData, 'vendor_profile_id');
   const addonKey = str(formData, 'addon_key');

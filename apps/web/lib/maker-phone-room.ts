@@ -45,13 +45,10 @@ export const MAKER_PHONE_BAR_PX = 52;
 export const MAKER_BAR_PHONE = {
   /* top */
   exit: 'max-md:w-11',
-  stage: 'max-md:min-w-[120px]',
   undoTop: 'max-md:w-11',
   preview: 'max-md:w-11',
   applyTop: 'max-md:w-11',
-  /** The bar's own Page ▾ — a desktop's; on a phone the lower third's menu and navigator are. */
-  pageTop: 'max-lg:hidden',
-  /** The new Maker's one Stages | Studio segmented control (`makerStagesStudioEnabled`) — it takes what is left of the row. */
+  /** The one Stages | Studio segmented control — it takes what is left of the row. */
   side: 'max-md:min-w-[150px]',
 } as const;
 
@@ -119,7 +116,7 @@ export function makerLtHeightPx(viewportH: number): number {
  * ↕ THE LOWER THIRD CAN BE RESIZED (owner, live iPhone 2026-10-06: *"Also the
  * lower third screen can be resized up to lower half of the screen. Drag the
  * edge to resize"* — DECISION_LOG "THE LOWER THIRD CAN BE RESIZED"). The new
- * Maker only (`makerStagesStudioEnabled`): a grab handle on its top edge drags
+ * Maker only (`stagesStudio`, the one Maker since 2026-10-25): a grab handle on its top edge drags
  * it between its default (`MAKER_LT_HEIGHT`) and the LOWER HALF of the screen
  * (`MAKER_LT_HALF`), never more; a tap on the handle toggles default ↔ half.
  * The size is remembered per device as a SHARE of the screen (a convenience in

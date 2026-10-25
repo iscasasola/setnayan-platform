@@ -319,12 +319,13 @@ export async function rotateInviteToken(formData: FormData) {
   );
   if (error) {
     redirect(
-      `/dashboard/samahan/${communityId}?error=${encodeURIComponent(error.message)}`,
+      `/dashboard/samahan/${communityId}?tab=members&error=${encodeURIComponent(error.message)}`,
     );
   }
 
   revalidatePath(`/dashboard/samahan/${communityId}`);
-  redirect(`/dashboard/samahan/${communityId}?rotated=1`);
+  // The invite link lives under Members since the group page became one page (2026-10-26) — land back on it.
+  redirect(`/dashboard/samahan/${communityId}?tab=members&rotated=1`);
 }
 
 /**

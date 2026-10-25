@@ -5,13 +5,13 @@
  * Held four ways, each a way that promise breaks:
  *
  *   1 · ONE SWITCH, NEVER A PHONE'S — `data-maker-desk` is set only by the lazy `MakerDesk`, mounted only on a
- *       desktop's width with the columns on; the shell carries none of it; the launch page asks the flag once.
+ *       desktop's width; the shell carries none of it. (Since 2026-10-25 there is no flag: the columns are every
+ *       desktop's — `lib/there-is-one-maker.test.ts`.)
  *   2 · EVERY DESK RULE NEEDS THAT SWITCH — every selector in the desk rule sets (`maker-desk.tsx`,
  *       `stage-panel/desk.tsx`) names `data-maker-desk`, so none can match a phone's page whatever it says.
  *   3 · THE DESK CODE IS LAZY — `MakerDesk` is mounted only by the lazy Stages | Studio switch, under `desk` (no
  *       stand-in in the Maker's first load), and the toolbar draws its desk pieces only under `desk`.
- *   4 · THE FIRST PAINT IS THE SAME — the server render (what a phone paints first) with the desktop columns ON is
- *       byte-identical to the render with them OFF.
+ *   4 · THE FIRST PAINT CARRIES NO DESK — the server render (what a phone paints first) never wears the desk switch.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -19,20 +19,17 @@ import React from 'react';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from './strip-comments';
-import { makerDesktopColumnsEnabled } from './maker-desktop-columns-flag';
 
 (globalThis as unknown as { React: unknown }).React = React;
 
 const WEB = join(__dirname, '..');
 const L = 'app/dashboard/[eventId]/launch/_components';
 const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
-const KEY = 'NEXT_PUBLIC_MAKER_DESKTOP_COLUMNS_ENABLED';
 
-test('1 · one switch, never a phone’s — `desk` needs a desktop width, and the launch page decides once', () => {
+test('1 · one switch, never a phone’s — `desk` needs a desktop width', () => {
   const shell = read(`${L}/maker-shell.tsx`);
   assert.match(shell, /const wide = useIsDesktop\('lg'\);/);
   assert.match(shell, /const phone = !wide;/);
-  assert.match(shell, /const ss = stagesStudio && \(phone \|\| desktopColumns\);/, 'the new Maker no longer needs the flag');
   assert.doesNotMatch(shell, /data-maker-desk/, 'the shell writes the desk switch itself — a byte of the desktop in the phone’s first load');
   /* The one place it is written: the lazy layout, on mount — and taken off on unmount. */
   const desk = read(`${L}/maker-desk.tsx`);
@@ -41,18 +38,6 @@ test('1 · one switch, never a phone’s — `desk` needs a desktop width, and t
   const parts = read(`${L}/stages-studio-parts.tsx`);
   assert.match(parts, /const desk = useMaker\(\)\?\.stagesStudio === true && wide;/);
   assert.match(parts, /const wide = useIsDesktop\('lg'\);/);
-  assert.match(shell, /\bdesktopColumns = false,/, 'MakerShell no longer defaults to today’s desktop');
-  const page = read('app/dashboard/[eventId]/launch/page.tsx');
-  assert.match(page, /const desktopColumns = stagesStudio && makerDesktopColumnsEnabled\(\{ internal: freeSwitch\.offered \}\);/);
-  assert.match(page, /\bdesktopColumns=\{desktopColumns\}/);
-  const prev = process.env[KEY];
-  delete process.env[KEY];
-  try {
-    assert.equal(makerDesktopColumnsEnabled({ internal: false }), false, 'with the env unset a couple gets the desktop columns');
-    assert.equal(makerDesktopColumnsEnabled({ internal: true }), true, 'an internal viewer does not get them to check');
-  } finally {
-    if (prev !== undefined) process.env[KEY] = prev;
-  }
 });
 
 /** Every selector of a rule set, split out of its `@media` blocks. */
@@ -103,7 +88,7 @@ test('3 · the desk code is lazy — a phone never downloads it, and the toolbar
   assert.match(tools, /\(desk \? STAGE_DESK_CSS : ''\)/, 'the desk rule set is written without `desk`');
 });
 
-async function paint(desktopColumns: boolean): Promise<string> {
+async function paint(): Promise<string> {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { MakerShell } = await import(`../${L}/maker-shell`);
   return renderToStaticMarkup(
@@ -113,7 +98,7 @@ async function paint(desktopColumns: boolean): Promise<string> {
         eventId: 'ev-1',
         slug: 'maria-and-jose',
         liveStage: 'rsvp',
-        initialStage: 'invitation',
+        initialStage: 'rsvp',
         initialSelection: null,
         storeShell: false,
         tourSlides: [],
@@ -124,8 +109,6 @@ async function paint(desktopColumns: boolean): Promise<string> {
         hasWork: true,
         applySlot: null,
         details: null,
-        stagesStudio: true,
-        desktopColumns,
         studio: { tiles: [] },
       },
       React.createElement('div', { 'data-stub': 'work' }),
@@ -133,23 +116,16 @@ async function paint(desktopColumns: boolean): Promise<string> {
   );
 }
 
-test('4 · the first paint is the same — the desktop columns ON render byte-identical to OFF', async () => {
-  /* ⏱ SETTLE THE LAZY PARTS FIRST (2026-10-19). The shell's bar holds `next/dynamic` parts (`details-lazy.tsx`); a
-     render outside Next draws each one's stand-in until its import resolves, and the FIRST render is what starts
-     the import. So two back-to-back paints compared a stand-in with whichever part happened to load in between —
-     a race CI lost on #6668 in two different shards (OFF drew the "Stages or Studio" stand-in, ON the real switch)
-     while it passed on this Mac. Paint until two paints in a row agree, then compare ON with OFF: both now see the
-     same loaded parts, so a difference can only be the desktop columns — which is the property under test. */
-  let settled = await paint(false);
+test('4 · the first paint carries no desk — the server render never wears the desk switch', async () => {
+  /* ⏱ The bar holds `next/dynamic` parts (`details-lazy.tsx`): paint until two paints agree, so the loaded parts are
+     the ones checked (2026-10-19, #6668). */
+  let settled = await paint();
   for (let i = 0; i < 60; i++) {
     await new Promise((r) => setTimeout(r, 25));
-    const again = await paint(false);
+    const again = await paint();
     if (again === settled) break;
     settled = again;
   }
-  const off = await paint(false);
-  const on = await paint(true);
-  assert.ok(off.includes('data-maker-shell=""') && off.length > 2000, 'precondition: the shell was rendered');
-  assert.ok(!on.includes('data-maker-desk'), 'the first paint wears the desk switch');
-  assert.equal(on, off, 'the first paint changed with the desktop columns on');
+  assert.ok(settled.includes('data-maker-shell=""') && settled.length > 2000, 'precondition: the shell was rendered');
+  assert.ok(!settled.includes('data-maker-desk'), 'the first paint wears the desk switch');
 });

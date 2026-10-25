@@ -100,5 +100,7 @@ test('the strip says "couldn\'t load" before it can say "Nothing yet this day."'
 test('the page hands the strip the refusal, not a silent []', () => {
   const s = src('app/dashboard/(account)/samahan/[communityId]/page.tsx');
   assert.equal(all(s, 'storiesUnreadable={stories === null}').length, 1);
-  assert.equal(all(s, 'unreadable={storiesUnreadable}').length, 1);
+  // …and the group page (one page since 2026-10-26) passes it on to the strip.
+  const home = src('app/dashboard/(account)/samahan/[communityId]/_components/group-home.tsx');
+  assert.equal(all(home, 'unreadable={storiesUnreadable}').length, 1);
 });

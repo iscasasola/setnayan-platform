@@ -16,6 +16,7 @@ import { MERGE_BASE_FIELD } from '@/lib/merge-base-field';
 import { egiftFieldsThisScreenChanged, type EgiftEditField } from '@/lib/egift-method-merge';
 import { wishListWrite, type WishWriteResult } from './wish-items.server';
 import { GIFT_READ_OP } from './gift-records.server';
+import { limitedHelperRefusal } from '@/lib/host-gate';
 
 /**
  * Server actions for the Pabuya e-gift surface (/dashboard/[eventId]/pabuya).
@@ -105,6 +106,8 @@ async function revalidateSurfaces(eventId: string): Promise<void> {
 export async function saveEgiftMethod(
   formData: FormData,
 ): Promise<EgiftActionResult> {
+  const helperRefusal = await limitedHelperRefusal(formData.get('event_id'), null);
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   let eventId: string;
   try {
     eventId = await requireEventId(formData);
@@ -383,6 +386,8 @@ export async function saveEgiftMethod(
 export async function deleteEgiftMethod(
   formData: FormData,
 ): Promise<EgiftActionResult> {
+  const helperRefusal = await limitedHelperRefusal(formData.get('event_id'), null);
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   let eventId: string;
   try {
     eventId = await requireEventId(formData);
@@ -431,6 +436,8 @@ export async function deleteEgiftMethod(
 export async function setEgiftMethodEnabled(
   formData: FormData,
 ): Promise<EgiftActionResult> {
+  const helperRefusal = await limitedHelperRefusal(formData.get('event_id'), null);
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   let eventId: string;
   try {
     eventId = await requireEventId(formData);
@@ -469,6 +476,8 @@ export async function setEgiftMethodEnabled(
 export async function moveEgiftMethod(
   formData: FormData,
 ): Promise<EgiftActionResult> {
+  const helperRefusal = await limitedHelperRefusal(formData.get('event_id'), null);
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   let eventId: string;
   try {
     eventId = await requireEventId(formData);
@@ -552,6 +561,8 @@ export async function moveEgiftMethod(
 export async function savePabuyaMessage(
   formData: FormData,
 ): Promise<EgiftActionResult> {
+  const helperRefusal = await limitedHelperRefusal(formData.get('event_id'), null);
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   let eventId: string;
   try {
     eventId = await requireEventId(formData);

@@ -146,7 +146,7 @@ test('3 · the whole walk: Look › Music, a new version reloads the page, the M
 test('3 · WIRING: the shell reads the note once at mount, lands through the one rule, and keeps the note as it moves', () => {
   assert.match(SHELL, /takeMakerResume\(window\.sessionStorage, makerResumeKey\(memoryKey\), makerCameBackToItself\(makerLoadNow\(\)\)\)/);
   // Rule 3's own condition is unchanged — and its landing is the one function.
-  const at = SHELL.indexOf("if (!ss || side !== 'stages' || selection?.kind !== 'tool' || selection.key !== 'details') return;");
+  const at = SHELL.indexOf("if (side !== 'stages' || selection?.kind !== 'tool' || selection.key !== 'details') return;");
   assert.ok(at > 0, 'the Stages side still sends a Details selection away');
   const body = SHELL.slice(at, at + 1400);
   assert.match(body, /cameBack\.current = null;/, 'the note is spent by its one use');
@@ -154,7 +154,7 @@ test('3 · WIRING: the shell reads the note once at mount, lands through the one
   assert.match(body, /if \(land\.side === 'studio'\) setSide\('studio'\);\s*setStudioAt\(land\.at as StudioTileKey \| 'home'\);/);
   assert.match(body, /if \(!land\.keep\) select\(null\);/, 'a cold door drops the selection');
   // The note: side · tool · item, written as they change, only once memory has been read.
-  assert.match(SHELL, /if \(!restored\.current \|\| !stagesStudio\) return;\s*noteMakerResume\(window\.sessionStorage, makerResumeKey\(memoryKey\), \{ side, at: studioAt, item: detailsItem \}\);/);
+  assert.match(SHELL, /if \(!restored\.current\) return;\s*noteMakerResume\(window\.sessionStorage, makerResumeKey\(memoryKey\), \{ side, at: studioAt, item: detailsItem \}\);/);
   // The item comes back too, checked against the real items.
   assert.match(SHELL, /if \(isDetailsItemKey\(back\.item\)\) setDetailsItem\(back\.item\);/);
 });

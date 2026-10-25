@@ -45,6 +45,8 @@
  *   &paidbyhand=1       + "The Wedding Planner", added by hand, filed Shortlisted, with
  *                       a recorded payment — booked by the payment (owner 2026-10-20)
  *   &seed=proto|asked   only the prototype's own rows (for a side-by-side)
+ *   &date=set|conflict  the date banner under "Cover your event": a settled date (the calm header draws NO banner for it
+ *                       — owner 2026-10-26; "free that day" is in the ⓘ) · a build with no shared day (still a banner)
  *
  * THE DATE AND PLACE SHEETS (PR5 — `fact-sheet-fixtures.ts`; press the date or the place on the line):
  *   ?sheet=date|help|place   open one on load (help = the date sheet on Help me choose)
@@ -231,6 +233,17 @@ export default async function SuppliersLabPage({
       claimQrSvg={claimQrSvg}
       unread={{ pairs: [['t-lola', 2]], measured: true }}
       findPanel={findPanel}
+      convergence={
+        one('date') === 'set'
+          ? { tone: 'anchored', headline: 'Your date is set: Sat, Dec 12, 2026', detail: 'Every card below shows whether that supplier is free that day.' }
+          : one('date') === 'conflict'
+            ? {
+                tone: 'conflict',
+                headline: 'No single date works — swap one',
+                detail: 'Kusina ni Lola and Lumina Studio share no free day in the dates you are considering. Drop one of them from your build and the rest of your suppliers line up again.',
+              }
+            : null
+      }
     />
   );
 

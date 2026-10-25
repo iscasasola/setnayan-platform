@@ -614,9 +614,10 @@ export default async function VendorDashboardLayout({
       <div className="sn-ambient min-h-screen">
         <main className="sn-vt-page">
           {/* Pad the bottom on mobile so BottomNav doesn't cover the last
-              row of content. The desktop offset is the rail's grid now, so
-              there is no padding math left here. */}
-          <div className="pb-[calc(env(safe-area-inset-bottom)+92px)] tab:pb-0">
+              row of content. The desktop offset is the rail's grid now; what
+              is left at every width is the floating thumb row's measured room
+              (`--sn-thumb-room`, lib/thumb-room.ts). */}
+          <div className="pb-[max(calc(env(safe-area-inset-bottom)+92px),var(--sn-thumb-room,0px))] tab:pb-[var(--sn-thumb-room,0px)]">
             {/* Live vendor deal announcement (self-gates to null when
                 PROMO_FREE_WINDOWS_ENABLED is off or nothing is granting THIS
                 vendor right now). */}

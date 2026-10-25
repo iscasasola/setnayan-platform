@@ -463,7 +463,7 @@ export function ElementSheet({
   const at = parts && onPart ? parts.indexOf(target.el) : -1;
   const prevPart = at > 0 ? parts![at - 1]! : null;
   const nextPart = at >= 0 && at < parts!.length - 1 ? parts![at + 1]! : null;
-  /* 🧭 THE NEW MAKER (`makerStagesStudioEnabled`): its panel's Style | Text | Animate
+  /* 🧭 THE NEW MAKER (`stagesStudio`, the one Maker since 2026-10-25): its panel's Style | Text | Animate
      picks the section (`stage-tools.tsx`), Text is Font · Colour · Size, and Animate's
      steps are Build in · Action · Build out (`lib/maker-parts.ts`). */
   const stagesStudio = useMaker()?.stagesStudio === true;

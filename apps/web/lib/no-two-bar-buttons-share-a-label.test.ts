@@ -66,8 +66,8 @@ test('the exact bar seen live: Event Details open → "Page ▾ · Look · Event
   assert.equal(makerPageMenu({ stage: 'rsvp', rsvpOpen: false, liveStage: null, pagesOf, shownPage: 'welcome', hasWork: true }).pageText, 'Home'); // the guest bar's tab word since 2026-10-14 (DECISION_LOG "Home")
 });
 
-test('the shell draws the bar from those values — Page ▾ from the menu, the doors from their labels; a phone has no bottom bar', () => {
-  assert.match(SHELL, /dataAttr="data-maker-page-menu"\s+value=\{page\.value\}\s+buttonText=\{page\.buttonText\}/);
+test('the shell draws no old bar — no Page ▾, no doors (one Maker, 2026-10-25); a phone has no bottom bar', () => {
+  assert.doesNotMatch(SHELL, /dataAttr="data-maker-page-menu"|data-maker-tool=\{door\}/, 'the old Maker’s Page ▾ or its doors are back on the bar');
   assert.doesNotMatch(SHELL, /data-maker-page-menu-phone|data-maker-bottom-bar/, 'the phone’s bottom bar is back — the lower third replaced it');
   assert.match(SHELL, /openPage: openDoor === 'look' \? MAKER_LOOK_LABEL : openDoor === 'details' \? MAKER_DETAILS_LABEL/);
 });

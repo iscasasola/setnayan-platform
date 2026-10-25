@@ -135,9 +135,10 @@ test('2a · ✕ Exit is red, an X, its own pill — "‹" never again', async ()
   assert.match(exit[1]!, /lucide-chevron-left hidden h-6 w-6 lg:block/, 'the desktop lost its ‹');
 });
 
-test('2b · the bar names the screen you are on — "Invitation · Home" (the guest bar\'s word since 2026-10-14), never "as a guest sees it"', async () => {
+test('2b · the bar says where you are with Stages | Studio — the old screen label went with the old Maker (2026-10-25), never "as a guest sees it"', async () => {
   const header = (await shell()).split('<header')[1]!.split('</header>')[0]!;
-  assert.match(header, /data-maker-screen-label=""[^>]*class="[^"]*\btruncate\b[^"]*"[^>]*>Invitation · Home</);
+  assert.match(header, /data-maker-tool="side"/, 'the bar does not draw Stages | Studio');
+  assert.doesNotMatch(header, /data-maker-screen-label/, 'the old Maker’s screen label is back');
   assert.doesNotMatch(header, /as a guest sees it/);
 });
 
@@ -149,7 +150,7 @@ test('2c · [ ↺ Undo | 👁 Preview ] share ONE pill; ✓ Apply is its own GRE
   assert.match(MAKER_BAR_APPLY, /(?:^|\s)bg-mulberry(?:\s|$)/, 'the desktop’s Apply is no longer the wine circle');
   // With no draft bar (a viewer with nothing to draft) Preview still sits in a pill.
   const header = (await shell()).split('<header')[1]!.split('</header>')[0]!;
-  assert.match(header, /<span role="group" aria-label="Preview" data-icon-pill="shared" class="[^"]*max-lg:bg-ink\/\[0\.06\][^"]*"><span class="relative inline-flex shrink-0"><button[^>]*data-maker-tool="preview"/, 'the pill grounds the desktop’s bar');
+  assert.match(header, /<span role="group" aria-label="Preview" data-icon-pill="shared" class="[^"]*max-lg:bg-ink\/\[0\.06\][^"]*"><span class="contents max-lg:hidden"><span class="relative inline-flex shrink-0"><button[^>]*data-maker-tool="preview"/, 'the pill grounds the desktop’s bar');
 });
 
 /* ══ 3 · LOOK OPENS THE LOOK TOOLS ══════════════════════════════════════════ */
@@ -200,11 +201,11 @@ test('5 · the names & date sheet has no "Open Hero editor", no "Hero" word, and
 
 /* ══ 6 · PREVIEW IS SEEN ON A SETUP SCREEN ══════════════════════════════════ */
 
-test('6 · on a setup screen a view pick (See as · Phone/Desktop · Both) puts the stage back on screen', () => {
+test('6 · on a setup screen a view pick (See as · Phone/Desktop) puts the stage back on screen', () => {
   const src = read(`${L}/maker-shell.tsx`);
   assert.match(src, /const coveringPage = selection\?\.kind === 'tool' && isMakerShellPage\(selection\.key\);\s*const seeTheStage = \(\) => \{\s*if \(coveringPage\) select\(null\);\s*\};/);
   const rows = src.slice(src.indexOf('const previewRows'), src.indexOf('/* ▶ PLAY'));
-  for (const pick of ['setSeeAs(null)', 'setSeeAs(s.key)', 'setDevice(makerViewToggle(shownDevice))', "setDevice(device === 'both' ? 'desktop' : 'both')"]) {
+  for (const pick of ['setSeeAs(null)', 'setSeeAs(s.key)', 'setDevice(makerViewToggle(shownDevice))']) {
     const at = rows.indexOf(pick);
     assert.ok(at > 0, `the ${pick} row is gone — re-read this guard`);
     assert.match(rows.slice(at, at + 120), /seeTheStage\(\)/, `${pick} changes a page nobody can see on a setup screen`);

@@ -323,9 +323,11 @@ test('SITE 2 · the nudge notification does not point at the organiser shell', (
 });
 
 test('SITE 3 · the samahan Events row links by member_type, not by membership', () => {
+  // The row moved into ONE shared component when the group page became one page (2026-10-26): the home's first
+  // events and the full Events list draw the same `GroupEventRow`, so that is the function to watch.
   const body = sliceFunction(
-    'app/dashboard/(account)/samahan/[communityId]/page.tsx',
-    'EventsTab',
+    'app/dashboard/(account)/samahan/[communityId]/_components/group-home.tsx',
+    'GroupEventRow',
   );
   assert.ok(
     body.includes('eventBoardHref('),

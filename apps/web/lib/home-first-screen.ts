@@ -213,7 +213,7 @@ export function pickHomeNext(input: HomeNextInput): HomeNext {
       body: papic
         ? `${formatCount(papic.left)} credits are in. Share your Event Hub link — the first photo a guest shoots lands here.`
         : 'Your credits are in. Share your Event Hub link — the first photo a guest shoots lands here.',
-      action: `Open ${SERVICE_NAMES.papic.brand}`,
+      action: `Open ${SERVICE_NAMES.papic.plain}`,
     };
   }
   if (!noList && guests && guests.total === 0) {

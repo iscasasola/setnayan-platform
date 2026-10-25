@@ -9,8 +9,9 @@
  *       through <Count>, counting booked or covered (`ringCoveredCount`);
  *   T3  each row: the name, "· N yours", ONE state word from the pure rule —
  *       the old count bubble and "✓ Covered" chip do not also draw;
- *   T4  "＋ Add to your event" is ONE dropdown of every category not on the
- *       event, grouped; picking one runs the shipped add;
+ *   T4  "Add a category" (was "＋ Add to your event", 2026-10-26) is ONE
+ *       dropdown of every category not on the event, grouped; picking one runs
+ *       the shipped add — the row itself is guarded in `add-category-row.test.ts`;
  *   T5  "Not needed · Remove ‹Category›" names what it removes, and keeps the
  *       shipped confirm.
  *
@@ -30,7 +31,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from '@/lib/strip-comments';
-import { ADD_TO_EVENT_ASK, ADD_TO_PLAN_HEADING, COVERAGE_STRIP_HEADING, removeFromEventLabel } from '@/lib/explore-info-copy';
+import { ADD_CATEGORY_TITLE, COVERAGE_STRIP_HEADING, removeFromEventLabel } from '@/lib/explore-info-copy';
 
 const DIR = join(process.cwd(), 'app', 'dashboard', '[eventId]', 'vendors', '_components');
 const BENCH = stripComments(readFileSync(join(DIR, 'shortlist-categories.tsx'), 'utf8'));
@@ -86,8 +87,8 @@ test('T3 · a row: the name, "· N yours", and ONE state word from the pure rule
   assert.match(BENCH, /\{!replan && coveredGroup \? \(/);
 });
 
-test('T4 · "+ Add to your event" is ONE dropdown of the categories NOT on the event', () => {
-  assert.equal(ADD_TO_EVENT_ASK, 'Need something else?');
+test('T4 · "Add a category" is ONE dropdown of the categories NOT on the event', () => {
+  assert.equal(ADD_CATEGORY_TITLE, 'Add a category');
   assert.match(
     BENCH,
     /const poolRows = inPlanTiles\s*\? folders\.flatMap\(\(f\) => f\.tiles\.filter\(\(t\) => !inPlanTiles\.has\(t\.tile\)\)\.map\(\(t\) => \(\{ t, f \}\)\)\)\s*: \[\];/,
@@ -95,12 +96,11 @@ test('T4 · "+ Add to your event" is ONE dropdown of the categories NOT on the e
   const pool = BENCH.slice(BENCH.indexOf('data-add-to-event=""'), BENCH.indexOf('<FindThumbRow'));
   assert.ok(pool.length > 0, 'the dropdown moved — re-anchor');
   assert.equal((pool.match(/<PickMenu\b/g) ?? []).length, 1);
-  // ONE plus mark: the shipped words carry their own, and nothing is prefixed
-  // (measured on the preview: "+ ＋ Add to your event").
-  assert.match(pool, /buttonText=\{ADD_TO_PLAN_HEADING\}/);
-  assert.equal((ADD_TO_PLAN_HEADING.match(/[+＋]/g) ?? []).length, 1);
+  // ONE plus mark: the row's disc draws it, and no words carry a second one
+  // (measured on the preview once: "+ ＋ Add to your event").
+  assert.equal((pool.match(/<Plus\b/g) ?? []).length, 1);
+  assert.equal((ADD_CATEGORY_TITLE.match(/[+＋]/g) ?? []).length, 0);
   assert.doesNotMatch(pool, /buttonText=\{`[^`]*[+＋]/);
-  assert.equal(ADD_TO_PLAN_HEADING.toLowerCase().includes('your event'), true);
   assert.match(pool, /options=\{poolRows\.map\(\(\{ t, f \}\) => \(\{ key: t\.tile, label: t\.label, group: f\.label \}\)\)\}/);
   assert.match(pool, /if \(row && !planEditing\) addTileToPlan\(row\.t\.tile, row\.f\.folder, row\.f\.slug\);/);
   // A refusal is said beside the dropdown — never swallowed.

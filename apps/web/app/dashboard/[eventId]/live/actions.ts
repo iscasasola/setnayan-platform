@@ -17,6 +17,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import type { WallMode } from '@/lib/live-wall-logic';
+import { limitedHelperRefusal } from '@/lib/host-gate';
 
 type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -50,6 +51,8 @@ export async function setWallMode(
   eventId: string,
   mode: WallMode | null,
 ): Promise<ActionResult> {
+  const helperRefusal = await limitedHelperRefusal(eventId, null);
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   const clean = eventId?.trim();
   if (!clean) return { ok: false, error: 'missing_event' };
   if (mode !== null && !OVERRIDABLE.includes(mode)) {
@@ -77,6 +80,8 @@ export async function toggleFlashAutoWall(
   eventId: string,
   enabled: boolean,
 ): Promise<ActionResult> {
+  const helperRefusal = await limitedHelperRefusal(eventId, null);
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   const clean = eventId?.trim();
   if (!clean) return { ok: false, error: 'missing_event' };
   await requireCoupleOrCoordinator(clean);

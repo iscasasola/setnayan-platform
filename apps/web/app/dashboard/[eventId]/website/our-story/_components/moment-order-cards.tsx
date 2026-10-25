@@ -52,7 +52,7 @@ import { MomentSheetStudio } from './moment-sheet-studio';
  * guests see nothing until ✓ Apply). A NEW photo is the one thing only the server may keep (it is screened first) —
  * that form goes to the server action, as it always has.
  *
- * Drawn only in the new Maker's Studio (`makerStagesStudioEnabled` → `LoveStoryBook studio`). Opening it writes
+ * Drawn only in the new Maker's Studio (`stagesStudio`, the one Maker since 2026-10-25 → `LoveStoryBook studio`). Opening it writes
  * nothing.
  */
 

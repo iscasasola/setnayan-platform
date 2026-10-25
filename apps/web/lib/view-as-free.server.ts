@@ -48,11 +48,10 @@ import { NO_HUB_PARTS, type HubOwnership } from '@/lib/hub-parts';
  *
  * 🧯 2026-10-08 (production incident): while PostgREST was refusing
  * connections this read timed out, "not internal" came back, and the Maker's
- * gate — which is on for an internal viewer — drew the OLD Maker for the
- * owner. A read that did not answer picked a different product. The view
- * switch may still treat a failure as "off" (it then shows the real page);
- * the Maker's gate may not, so it asks `read` (`viewAsFreeSwitch().measured`,
- * `lib/maker-stages-studio-flag.ts` `makerChoiceIsUnread`).
+ * gate — then on for an internal viewer — drew the OLD Maker for the owner.
+ * ✅ 2026-10-25: the Maker no longer asks this read at all — there is one Maker
+ * (`lib/there-is-one-maker.test.ts`). The view switch still treats a failure as
+ * "off" (it then shows the real page).
  */
 const viewerInternalRead = cache(async (): Promise<{ read: boolean; internal: boolean }> => {
   const [{ getCurrentUser }, { createClient }, { logQueryError }] = await Promise.all([
@@ -98,19 +97,10 @@ export const viewingAsFreeCouple = cache(async (): Promise<boolean> => {
   return viewAsFreeHonoured({ cookie, isInternal });
 });
 
-/**
- * What the Maker needs to draw the switch: whether to offer it at all, and its
- * state — and `measured`: did the read behind `offered` ANSWER? `offered` is
- * false both for "not internal" and for "the read failed"; only `measured`
- * tells them apart, and the Maker's gate must (see `viewerInternalRead`).
- */
-export async function viewAsFreeSwitch(): Promise<{ offered: boolean; on: boolean; measured: boolean }> {
+/** What the Maker needs to draw the switch: whether to offer it at all, and its state. */
+export async function viewAsFreeSwitch(): Promise<{ offered: boolean; on: boolean }> {
   const [offered, on] = await Promise.all([viewerIsInternal().catch(() => false), viewingAsFreeCouple()]);
-  const measured = await viewerInternalRead().then(
-    (r) => r.read,
-    () => false,
-  );
-  return { offered, on: offered && on, measured };
+  return { offered, on: offered && on };
 }
 
 /**

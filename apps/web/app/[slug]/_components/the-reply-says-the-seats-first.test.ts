@@ -154,9 +154,10 @@ test('5 · a seat list that failed to read claims no count on the +1 step and of
   assert.ok(plus.includes('Your seat list didn’t load.'), 'the +1 step does not say the list failed');
   assert.doesNotMatch(plus, /\+1 and \+2|a seat for one more|\d seats|two seats|three seats/, 'the failed step claims a count');
   assert.equal((plus.match(/data-plus-one-seat="/g) ?? []).length, 1, 'more than the one box a failed read can support');
-  // A read seat list says which seats these are.
+  // A read seat list gives each seat its own screen, and each says which seat it is (2026-10-25, owner "one at a time").
   const ok = await yes(2);
-  assert.ok(ok.slice(ok.indexOf('id="plus-ones"')).includes('+1 and +2 · name them, or leave them for later.'));
+  const okPlus = ok.slice(ok.indexOf('id="plus-ones"'), ok.indexOf('data-face-tagging-choice'));
+  for (const tag of ['+1', '+2']) assert.ok(okPlus.includes(`${tag} · Not sure yet? Leave the name empty.`), `the ${tag} screen does not name its seat`);
 });
 
 test('6 · after Send: Save hands over their card and each +1 ticket, and the Wallet slot is marked', () => {

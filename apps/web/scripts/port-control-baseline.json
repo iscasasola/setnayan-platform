@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "5b1fcc6c50",
+  "generatedFromRef": "b39b06a70c",
   "routeCount": 466,
-  "destinations": 1008,
+  "destinations": 1009,
   "actions": 665,
-  "blocks": 7033,
+  "blocks": 7032,
   "routes": {
     "/": {
       "files": [
@@ -11400,6 +11400,7 @@
         "dev/search-lab/page.tsx"
       ],
       "destinations": [
+        "/[seg]",
         "/dashboard/[seg]",
         "/dashboard/[seg]/vendors"
       ],
@@ -11529,7 +11530,6 @@
         "Fix",
         "GalleryMedia",
         "KeptNotesFold",
-        "LabPageSpotlight",
         "LabSeedDraft",
         "LibraryLab",
         "Link",

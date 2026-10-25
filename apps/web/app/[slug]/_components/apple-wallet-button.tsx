@@ -4,10 +4,14 @@ import { AppleWalletSheetLink } from './apple-wallet-sheet-link';
 /**
  * 🍎 APPLE'S BADGE ARTWORK — the owner approved using it (2026-10-25). Apple's rules require the official "Add to
  * Apple Wallet" badge, unmodified, downloaded from Apple (developer.apple.com → Wallet → Add to Apple Wallet
- * guidelines). Until both English SVGs are committed under `public/brand/apple-wallet/` (with a SOURCE note) and named
- * here, the link stays a plain button with Apple's own words. `onLight` is Apple's black badge, `onDark` its white one.
+ * guidelines). It is committed under `public/brand/apple-wallet/` with a SOURCE note. Apple ships ONE English badge
+ * (black, with its own border), so both keys point at it. Set this to null and the link is a plain button again.
  */
-export const APPLE_WALLET_BADGE: { onLight: string; onDark: string } | null = null;
+export const APPLE_WALLET_BADGE: { onLight: string; onDark: string } | null = {
+  // Apple's own badge, unmodified (public/brand/apple-wallet/SOURCE.md). It carries its own border, so one file serves both.
+  onLight: '/brand/apple-wallet/add-to-apple-wallet-en.svg',
+  onDark: '/brand/apple-wallet/add-to-apple-wallet-en.svg',
+};
 
 /**
  * "Add to Apple Wallet" beside "Save my ticket" — drawn only when the page was handed a link (`appleWalletLink`: an

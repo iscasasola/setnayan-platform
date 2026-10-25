@@ -19,3 +19,7 @@ SPEC IMPACT: DECISION_LOG.md row 2026-10-25 "ADD TO APPLE WALLET IS ON FOR EVERY
 - Static route: +0 Vercel routes. Google Wallet: deferred by the owner.
 
 SPEC IMPACT: None in this PR. Builds Phase A (Apple half) of controller-2026-10-12/WALLET_PASS_PLAN_2026-10-13.md under the DECISION_LOG 2026-10-13 ruling, taking the plan's §5 recommendations Q2 · Q3 · Q5 · Q6 · Q7 · Q9 as written — they still want the owner's DECISION_LOG row.
+
+## 2026-10-25 · feat(wallet): Apple's official Add to Apple Wallet badge
+Owner downloaded Apple's badge files after accepting the Wallet Marketing Artwork License ("You can download it"). The English RGB SVG is committed unmodified under `public/brand/apple-wallet/` with a SOURCE note; the download link now draws the badge (48 px). Falls back to the plain button if `APPLE_WALLET_BADGE` is null.
+SPEC IMPACT: None.

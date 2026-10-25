@@ -37,8 +37,12 @@ import { hubOwnershipFor } from '@/app/[slug]/_lib/hub-look';
 import { eventWordsFor, eventWordsFromProfile } from '@/app/[slug]/_lib/event-words';
 import { posterThemeStill } from '@/lib/event-poster.server';
 import { guestLookFrom, type EventShellRow } from '@/app/[slug]/_lib/loaders';
+import { matchesCommandQuery } from '@/lib/command-match';
 import {
   DISCOVER_CAPS,
+  DISCOVER_SEARCH_CAPS,
+  discoverCardMatchable,
+  discoverSearchPattern,
   pickViewerRegion,
   selectDiscoverShelves,
   selectPeopleToFollow,
@@ -128,6 +132,8 @@ const PEOPLE_CANDIDATES = 60;
 /** Same bound the People page lists at (`FOLLOW_LIST_LIMIT`). */
 const MAX_PEOPLE_IDS = 300;
 const MAX_MEMBERSHIPS = 500;
+/** How many upcoming public events whose name or address holds the words a search reads before the matcher. */
+const SEARCH_CANDIDATES = 60;
 
 type Session = Awaited<ReturnType<typeof createClient>>;
 type Admin = ReturnType<typeof createAdminClient>;
@@ -520,14 +526,27 @@ async function readEventShelves(
   graph: Extract<ViewerGraph, { ok: true }> | null,
   viewerRegion: string | null,
   todayISO: string,
+  /**
+   * 🔎 A SEARCH (owner 2026-10-25): the world read narrows to upcoming public events whose name or address holds
+   * the words (never remembered — it is shaped by them), and every card kept must match them. Same allow-list.
+   */
+  search: { query: string } | null = null,
 ): Promise<EventShelves> {
-  const region = regionBySlug(viewerRegion);
+  const region = search ? null : regionBySlug(viewerRegion);
   const peopleIds = graph ? [...graph.people.keys()].slice(0, MAX_PEOPLE_IDS) : [];
+  const pattern = search ? discoverSearchPattern(search.query) : null;
 
   const [world, inRegion, hostedByPeople] = await Promise.all([
     // ⚡ The world's candidates are the same for every visitor — remembered.
     // The two reads beside it are shaped by the viewer and are asked every time.
-    asRead(rememberedWorldCandidates(todayISO)),
+    search
+      ? pattern
+        ? candidateEvents(admin, todayISO)
+            .or(`display_name.ilike.${pattern},slug.ilike.${pattern}`)
+            .limit(SEARCH_CANDIDATES)
+            .then(({ data, error }) => ({ data: (data ?? []) as unknown as DiscoverEventRow[], error }))
+        : Promise.resolve({ data: [] as DiscoverEventRow[], error: null })
+      : asRead(rememberedWorldCandidates(todayISO)),
     region
       ? candidateEvents(admin, todayISO)
           .in('region', [region.slug, ...region.aliases])
@@ -606,7 +625,14 @@ async function readEventShelves(
     todayISO,
     now: Date.now(),
     typeLabels,
+    // A search judges every eligible row, then keeps the matches — the shelves' caps would cut before matching.
+    caps: search ? { people: PEOPLE_CANDIDATES, world: SEARCH_CANDIDATES } : undefined,
   });
+  if (search) {
+    const hit = (c: DiscoverEventCard) => matchesCommandQuery(discoverCardMatchable(c), search.query);
+    shelves.people = shelves.people.filter(hit).slice(0, DISCOVER_SEARCH_CAPS.people);
+    shelves.world = shelves.world.filter(hit).slice(0, DISCOVER_SEARCH_CAPS.world);
+  }
   await dressCards([...shelves.people, ...shelves.world]).catch((caught) =>
     logQueryError('discover-events.covers', caught, {}, 'graceful_degrade'),
   );
@@ -741,4 +767,33 @@ export async function loadDiscover(): Promise<DiscoverData> {
     viewerRegionLabel: regionBySlug(viewerRegion)?.display_label ?? null,
     peopleToFollow,
   };
+}
+
+/**
+ * 🔎 DISCOVER'S SEARCH — EVENTS (owner 2026-10-25, *"from their own, the people they connected, to the rest of the
+ * users of setnayan that made their event public"*). The events of your people (followed or connected), then
+ * anybody's public event, whose title, address or public host name holds the words — the two shelves' own reads and
+ * allow-list (`readEventShelves`), people first. Your OWN events are not here: they are your search index
+ * (`resolveCommandItems`), which the results already match, and the allow-list leaves out every event you belong to.
+ *
+ * Signed in only. A refused read is `unavailable` — never an empty list, so the page never says "nothing" for a
+ * search it could not run.
+ */
+export async function searchDiscoverEvents(query: string): Promise<ShelfState<DiscoverEventCard>> {
+  try {
+    const admin = createAdminClient();
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return UNAVAILABLE;
+    void publicEventTypes();
+    const graph = await readViewerGraph(supabase, user.id);
+    if (!graph.ok) return UNAVAILABLE;
+    const shelves = await readEventShelves(admin, graph, null, manilaTodayISO(), { query });
+    return shelves.ok ? { status: 'ok', items: [...shelves.people, ...shelves.world] } : UNAVAILABLE;
+  } catch (e) {
+    logQueryError('discover-events.search', e, {}, 'graceful_degrade');
+    return UNAVAILABLE;
+  }
 }

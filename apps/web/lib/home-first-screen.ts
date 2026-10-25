@@ -555,6 +555,12 @@ function paidNames(key: HomeSkuKey): { name: string; brand: string } {
 export function homeServices(input: {
   next: HomeNextKind;
   storeShell: boolean;
+  /**
+   * 🍎 Apple sells in this app (`getIapGate().iap`, owner 2026-10-23). Then the store shell keeps the paid rows whose
+   * facts passed the page's ONE door rule (`isStoreShellHiddenAddon` + `isStoreShellWebOnlyPath(path, iap)` — Setnayan
+   * AI · Music Maker · Patiktok), each opening its page where Apple's sheet is the pay step. Absent/false = none.
+   */
+  iap?: boolean;
   papic: string;
   /** 📍 Papic's doors (Buy more · See N photos), when the glance offers them. */
   papicDoors?: PapicRowDoors | null;
@@ -590,8 +596,12 @@ export function homeServices(input: {
       })
     : [{ key: 'ai', name: SERVICE_NAMES['setnayan-ai'].plain, brand: SERVICE_NAMES['setnayan-ai'].brand, status: input.ai }];
   /* 🔒 NOT IN THE STORE SHELL — every paid row's page is web-only there (STORE_SHELL_HIDDEN_ADDON_KEYS), and the
-     iPhone app sells only through Apple (the `apple` rows HomeFirstScreen draws on their own). */
-  const paid: HomeService[] = input.storeShell ? [] : [papicRow, ...rest];
+     iPhone app sells only through Apple (the `apple` rows HomeFirstScreen draws on their own).
+     🍎 Where Apple sells (`iap`), the rows the facts let through stay — never Papic or Live Watch (their `apple` rows
+     draw them) and never the Event Hub (the control row's tile; Pro is asked for at the Maker's Apply). Never the
+     facts-less fallback either: no facts, no row. */
+  const appSold = input.storeShell && input.iap && input.paid ? rest.filter((s) => s.key !== 'hub' && s.key !== 'live') : [];
+  const paid: HomeService[] = input.storeShell ? appSold : [papicRow, ...rest];
   const all: HomeService[] = [
     /* ⛔ NEVER TWICE — for Papic the row STAYS and drops the button the Next
        card offers, while it is on screen (owner 2026-10-14, `papicRowDoubled`); a service with no

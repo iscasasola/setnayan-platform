@@ -47,7 +47,7 @@ import {
 import { homePaidFacts } from '@/lib/home-paid-services';
 import { ADD_ONS, addOnHref } from '@/lib/add-ons-catalog';
 import { addOnOfferedForEvent, addOnSellableNow } from '@/lib/add-on-event-scope';
-import { STORE_SHELL_HIDDEN_ADDON_KEYS, isStoreShellWebOnlyPath } from '@/lib/store-shell';
+import { isStoreShellHiddenAddon, isStoreShellWebOnlyPath } from '@/lib/store-shell';
 import { getCustomerSkuPriceLabel } from '@/lib/v2-catalog';
 import { resolveSetnayanAiDisplayPricePhp } from '@/lib/setnayan-ai-server';
 import { formatPhp } from '@/lib/php';
@@ -593,12 +593,14 @@ export default async function EventHomePage({
      through Apple, "Your services" carries Papic and Live Watch with their one
      control (lib/iap/iap-gate.ts). Three small reads, made ONLY in that app —
      the web and every other shell never start them. */
+  // 🍎 The gate again, for the paid rows' doors (`isStoreShellHiddenAddon`) — a header read, no database trip.
+  const iapGateRead = getIapGate().catch(() => ({ storeShell: false, iap: false }));
   const appleRead = getIapGate().then(async ({ iap }) => {
     if (!iap) return null;
     // The one host-surface entitlement client — a co-host reads what the EVENT owns.
     const ent = await eventEntitlementClient(eventId).catch(() => null);
-    if (!ent) return { liveActive: null, liveOwned: null, acked: null, liveWhere: null };
-    const [liveActive, liveOwned, ack, liveWhere] = await Promise.all([
+    if (!ent) return { liveActive: null, liveOwned: null, acked: null, liveWhere: null, thankYouOn: null };
+    const [liveActive, liveOwned, ack, liveWhere, thankYouOn] = await Promise.all([
       eventSkuActive(ent, eventId, 'LIVE_STUDIO').catch((): null => null),
       eventOwnsSku(ent, eventId, 'LIVE_STUDIO').catch((): null => null),
       supabase
@@ -616,8 +618,10 @@ export default async function EventHomePage({
         .eq('service_key', 'LIVE_STUDIO')
         .then(({ data, error }) => (error ? null : boughtWhere(data as { status: string | null; payment_method_key: string | null }[] | null)))
         .then(undefined, (): null => null),
+      /* 🍎 The Thank-You Video (an Apple product here, 23 Oct) — is it on: the gate its own page reads. */
+      eventSkuActive(ent, eventId, 'PAPIC_ADDON_THANK_YOU').catch((): null => null),
     ]);
-    return { liveActive, liveOwned, acked: ack, liveWhere };
+    return { liveActive, liveOwned, acked: ack, liveWhere, thankYouOn };
   }).catch(() => null); // never the reason Home fails to draw
 
   // 🪜 The guided "What's left" (Details part 5) — the FIRST candidate for the
@@ -661,8 +665,9 @@ export default async function EventHomePage({
     rest; the store shell reads nothing (its paid pages are web-only there). A failed read is `null` → "—".
   */
   const homePaidRead = startAhead(
-    storeShellRead.then(async (shell) => {
-      if (shell) return null;
+    Promise.all([storeShellRead, iapGateRead]).then(async ([shell, { iap }]) => {
+      // 🍎 The store shell reads these only where Apple sells (`iap`) — and never a web price there.
+      if (shell && !iap) return null;
       const ent = await eventEntitlementClient(eventId).catch(() => null);
       const skus = [HOME_PAID_SKU.live, HOME_PAID_SKU.music, HOME_PAID_SKU.booth, HOME_PAID_SKU.hub];
       const reads = await Promise.all(
@@ -670,7 +675,7 @@ export default async function EventHomePage({
           if (!ent) return [sku, null, null] as const;
           const active = await eventSkuActive(ent, eventId, sku).catch((): null => null);
           const pending = active === false ? await eventOwnsSku(ent, eventId, sku).catch((): null => null) : false;
-          const price = active === false && pending === false ? await getCustomerSkuPriceLabel(sku).catch((): null => null) : null;
+          const price = !shell && active === false && pending === false ? await getCustomerSkuPriceLabel(sku).catch((): null => null) : null;
           return [sku, { active, pending }, price] as const;
         }),
       );
@@ -853,6 +858,8 @@ export default async function EventHomePage({
     money: moneyNow,
   });
   const homePaid = await homePaidRead;
+  // 🍎 Settled long before (a header read started with the rest) — no extra trip.
+  const { iap } = await iapGateRead;
   const aiActiveNow =
     paywallOn === null
       ? null
@@ -872,7 +879,8 @@ export default async function EventHomePage({
     homePaidReads[sku] = read;
     if (price) homePaidPrices.set(sku, price);
   }
-  if (homePaid && homePaid.aiPricePhp > 0) homePaidPrices.set(HOME_PAID_SKU.ai, formatPhp(homePaid.aiPricePhp));
+  // 🍎 Never a web price in the app — Apple's sheet on the service's own page shows Apple's.
+  if (homePaid && homePaid.aiPricePhp > 0 && !storeShell) homePaidPrices.set(HOME_PAID_SKU.ai, formatPhp(homePaid.aiPricePhp));
   // 🧾 The More menu's ONE builder decides which of them this event is offered and where each opens.
   const homePaidFactsNow = homePaid
     ? homePaidFacts({
@@ -881,11 +889,11 @@ export default async function EventHomePage({
         reads: homePaidReads,
         prices: homePaidPrices,
         offered: (a) =>
-          !(storeShell && STORE_SHELL_HIDDEN_ADDON_KEYS.has(a.key)) &&
+          !(storeShell && isStoreShellHiddenAddon(a.key, iap)) &&
           addOnOfferedForEvent(a, needsProfile, (event as { community_id?: string | null }).community_id ?? null),
         sellableNow: (e) => addOnSellableNow(e, lifecyclePhase === 'after' ? 'after' : 'plan'),
         aiSellable: homePaid.aiPricePhp > 0,
-        refusesPath: (p) => storeShell && isStoreShellWebOnlyPath(p),
+        refusesPath: (p) => storeShell && isStoreShellWebOnlyPath(p, iap),
         comebackHoursLeft:
           aiOfferShown && aiOffer?.kind === 'comeback'
             ? Math.ceil((aiOffer.expiresAt.getTime() - Date.now()) / 3_600_000)
@@ -940,6 +948,7 @@ export default async function EventHomePage({
   const homeServicesInput: Parameters<typeof homeServices>[0] = {
     next: 'plan',
     storeShell,
+    iap,
     eventId,
     paid: homePaidFactsNow,
     papic: papicNow.status,
@@ -1014,6 +1023,14 @@ export default async function EventHomePage({
     suppliers: homeSuppliers,
     checklist: homeChecklist,
   });
+  const appleThankYouEntry = ADD_ONS.find((a) => a.key === 'thank-you');
+  const appleThankYouOffered = Boolean(
+    appleFacts &&
+      appleThankYouEntry &&
+      appleThankYouEntry.status !== 'coming_soon' &&
+      !isStoreShellHiddenAddon(appleThankYouEntry.key, iap) &&
+      addOnOfferedForEvent(appleThankYouEntry, needsProfile, (event as { community_id?: string | null }).community_id ?? null),
+  );
   const homeFirstScreen = (
     <>
     {/* 🍎 The App Store net (lib/iap/native-store.ts): on Home — where the app
@@ -1039,6 +1056,15 @@ export default async function EventHomePage({
                     buy: viewerMemberType === 'couple',
                     /* 🍎 Version 1.1: the Papic page opens in this app (`IAP_OPENED_ROUTE`) — the row is its door. */
                     open: `/dashboard/${eventId}/studio/papic`,
+                  }
+                : null,
+              /* 🍎 THE THANK-YOU VIDEO — an Apple product here (owner 2026-10-23); App Review must find its door. Papic's
+                 part, so it rides with the Papic row; offered as its catalogue entry is for this event. */
+              thankYou: canViewPapicCounts && appleThankYouOffered
+                ? {
+                    status: appleFacts.thankYouOn === null ? '—' : appleFacts.thankYouOn ? 'On' : 'Not added',
+                    owned: appleFacts.thankYouOn !== false,
+                    open: `/dashboard/${eventId}/studio/thank-you`,
                   }
                 : null,
               // A read that failed is "—" and offers nothing — never "Not on yet" over a refusal.

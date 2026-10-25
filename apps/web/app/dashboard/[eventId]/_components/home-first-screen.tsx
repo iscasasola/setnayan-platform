@@ -23,6 +23,7 @@ import { PapicBuySheet } from '../studio/papic/_components/papic-buy-sheet';
 import { IapPapicSheet } from '@/app/_components/iap/iap-papic-sheet';
 import { IapLiveWatchSheet } from '@/app/_components/iap/iap-live-watch-sheet';
 import { SERVICE_NAMES } from '@/lib/service-names';
+import { OUR_SERVICE_PARTS } from '@/lib/our-services';
 import { PapicSeePhotos } from '../studio/papic/_components/papic-see-photos';
 import { ServiceGlanceRow } from '@/app/_components/service-glance';
 import { seePhotosWord } from '@/lib/papic-glance';
@@ -134,6 +135,8 @@ export type HomeFirstScreenProps = {
   apple?: {
     papic: { status: string; buy: boolean; open?: string | null } | null;
     liveWatch: { status: string; owned: boolean; askReady: boolean; goLive?: string | null } | null;
+    /** 🍎 The Thank-You Video (owner 2026-10-23) — its page opens here and its one pay step is Apple's sheet. */
+    thankYou?: { status: string; owned: boolean; open: string } | null;
   } | null;
 };
 
@@ -254,7 +257,7 @@ export function YourServices({
    */
   cards?: boolean;
 }) {
-  if (!(services.length > 0 || apple?.papic || apple?.liveWatch)) return null;
+  if (!(services.length > 0 || apple?.papic || apple?.liveWatch || apple?.thankYou)) return null;
   return (
     <nav aria-label="Your services" id="your-services" data-home-services className="flex flex-col">
       <p className="home-k2 !mt-1" data-tour="home-services">Your services</p>
@@ -268,6 +271,21 @@ export function YourServices({
             status={apple.papic.status}
             href={apple.papic.open ?? null}
             action={apple.papic.buy ? <IapPapicSheet eventId={eventId} left={papicLeft} /> : null}
+          />
+        ) : null}
+        {apple?.thankYou ? (
+          <AppleServiceRow
+            marker="thank-you"
+            name={OUR_SERVICE_PARTS.papic?.name ?? ''}
+            brand={SERVICE_NAMES.papic.brand}
+            icon={<Clapperboard aria-hidden strokeWidth={1.9} />}
+            status={apple.thankYou.status}
+            href={apple.thankYou.open}
+            action={
+              apple.thankYou.owned ? null : (
+                <ActionButton tone="brand" icon={<Plus aria-hidden="true" strokeWidth={1.9} />} label="Add" href={apple.thankYou.open} />
+              )
+            }
           />
         ) : null}
         {apple?.liveWatch ? (

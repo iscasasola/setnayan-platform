@@ -24,6 +24,7 @@ export function labWindow(v: unknown): ReplyWindow | null {
  * grey italic answers). The lab's own words and look are handed in by the lab page.
  *
  *   `&ask=all` every question on (else the owner's own event's: mobile and plus-ones) · `&plus=<n>` seats ·
+ *   🪑 `&seats=fail` the seat list as a FAILED read (scenario E of the 2026-10-25 seats-first prototype) ·
  *   `&scene=question|ticket` · `&look=<json>` a stored look ·
  *   📬 `&replies=not_yet|closed` the couple's reply window shut (the page's own `ReplyWindowNote`, no form) ·
  *   `&refused=1` as a Send refused outside it (`?rsvp=window`).
@@ -79,7 +80,10 @@ export function LabReplyDoor({
         ) : (
         <RsvpWidget
           words={words}
-          guest={{ ...guest, plus_one_allowed: plus > 0, plus_one_count: plus } as GuestRow}
+          /* 🪑 `plus_one_seats` as the REAL loaders pass it (`loadGuestContext`, `invite/reply`): read and empty —
+             no seat named yet — so `&plus=2` draws two boxes; `undefined` only for a failed read (`&seats=fail`).
+             Without it every `&plus=<n>` walked the failed-read fallback (STEPS.md, 2026-10-25). */
+          guest={{ ...guest, plus_one_allowed: plus > 0, plus_one_count: plus, plus_one_seats: plus > 0 && sp.seats !== 'fail' ? [] : undefined } as GuestRow}
           eventId="lab"
           eventPublicId="lab"
           faceMode="mode_b"

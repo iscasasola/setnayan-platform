@@ -16,6 +16,8 @@ import { cookies, headers } from 'next/headers';
 import { TicketPicture } from '@/app/[slug]/_components/ticket-picture';
 import { TicketPopup } from '@/app/[slug]/_components/ticket-popup';
 import { SavePassCardButton } from '@/app/_components/save-pass-card-button';
+import { PlusOneSeatList } from '@/app/[slug]/_components/plus-one-seat-list';
+import { PASS_CARD_WORDS } from '@/lib/pass-card';
 import { ShortcutLine } from '@/app/[slug]/invite/_components/shortcut-line';
 import { shortcutLineShows } from '@/lib/home-screen-shortcut';
 import { isStoreShellRequest } from '@/lib/request-platform';
@@ -1101,6 +1103,9 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
          share sheet, else a download) on the me-lab's real pass drawing, and the shortcut line under its one decision
          (`shortcutLineShows`, for THIS request's phone). No canvas bridge and no part marks: a tap presses, as a guest's does. */
       const labPass = '/dev/me-lab/ticket?who=guest&couple=mj';
+      const labPlus = Math.max(0, Math.min(4, Number(sp.plus) || 0));
+      const labSeats = Array.from({ length: labPlus }, (_, i) => ({ guest_id: `lab-plus-${i + 1}`, name: i === 0 ? 'Ben Reyes' : null }));
+      const labTicketed = new Set(labSeats.filter((s) => s.name).map((s) => s.guest_id));
       const userAgent = (await headers()).get('user-agent');
       const shortcut = shortcutLineShows({ reply: 'yes', userAgent, storeShell: await isStoreShellRequest() });
       return (
@@ -1130,7 +1135,15 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
               <div className="mx-auto w-[min(260px,100%)] overflow-hidden rounded-2xl shadow-[0_24px_48px_-26px_rgba(30,34,41,0.45)]">
                 <TicketPicture src={labPass} alt="Ana Reyes’s Digital ticket" fallback={null} />
               </div>
-              <SavePassCardButton hrefs={[labPass]} label={LANDING_WORDS.saveTicket} variant="primary" />
+              {/* 🪑 `&plus=<n>` — the guest brings n (+1 named, the rest TBA), as `invite/enter` draws it (2026-10-25). */}
+              <PlusOneSeatList seats={labSeats} ticketed={labTicketed} />
+              <SavePassCardButton
+                hrefs={[labPass, ...labSeats.filter((s) => labTicketed.has(s.guest_id)).map(() => '/dev/me-lab/ticket?who=plus&couple=mj')]}
+                label={labTicketed.size > 0 ? PASS_CARD_WORDS.saveAll : LANDING_WORDS.saveTicket}
+                variant="primary"
+              />
+              {/* 🍎 The Apple Wallet slot (PR #6548), as on `invite/enter`. */}
+              <div hidden data-landing-wallet-slot="" />
             </section>
             {shortcut ? <ShortcutLine userAgent={userAgent} /> : null}
           </div>

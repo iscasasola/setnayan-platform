@@ -211,7 +211,10 @@ test('4 · each screen\'s question is its heading', async () => {
   const out = await card({ oneAtATime: true, previewEveryQuestion: true, doorAction: async () => {}, termsOnSend: true, ask: {} });
   // A guest bringing plus-ones is asked for THEIR OWN meal and notes (each seat's
   // are small labels inside "Who are you bringing?", one screen — #6145).
-  for (const q of ['Who are you bringing?', 'Your meal preference', 'Your dietary notes', 'A song to get you dancing (optional)', 'A note to the couple (optional)', 'How the couple can reach you']) {
+  // 🪑 2026-10-25 (RSVP seats-first): the sample walks the YES path, which now opens with the Seats step ("We reserved
+  // …") and the You step ("You’re <name>" + nickname + mobile) — the decline arm's "How the couple can reach you" is a
+  // No's screen and is not drawn on the sample.
+  for (const q of ['We reserved', 'You’re ', 'Who are you bringing?', 'Your meal preference', 'Your dietary notes', 'A song to get you dancing (optional)', 'A note to the couple (optional)']) {
     const at = out.indexOf(q);
     assert.ok(at > -1, `${q} is not drawn`);
     const tag = out.slice(out.lastIndexOf('<', at), at);

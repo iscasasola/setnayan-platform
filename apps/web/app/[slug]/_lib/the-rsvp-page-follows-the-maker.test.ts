@@ -197,8 +197,10 @@ test('4 · every switched-on question is shown in the canvas, none waiting on "a
   }
   const plus = html.indexOf('id="plus-ones"');
   assert.doesNotMatch(html.slice(plus, plus + 200), /attending-reveal/, 'the canvas hides the plus-one question behind a tap');
-  // …in the reference order: answer · who you bring · meal · dietary · song · note · contact · Terms.
-  const order = ['name="rsvp_status"', 'id="plus-ones"', 'name="meal_preference"', 'name="dietary_restrictions"', 'name="song_title"', 'name="guest_note"', 'name="contact_mobile"', 'name="terms_agreed"'];
+  // …in the reference order: answer · seats · you (contact) · who you bring · meal · dietary · song · note · Terms.
+  // 🪑 2026-10-25 (RSVP seats-first, owner: "We reserved … seats for you · then a screen where they confirm their name
+  // and their nickname and contact number then their plus seat"): the contact boxes moved up into the You step.
+  const order = ['name="rsvp_status"', 'data-rsvp-seats=', 'data-rsvp-you', 'name="contact_mobile"', 'id="plus-ones"', 'name="meal_preference"', 'name="dietary_restrictions"', 'name="song_title"', 'name="guest_note"', 'name="terms_agreed"'];
   const at = order.map((k) => html.indexOf(k));
   assert.deepEqual([...at].sort((a, b) => a - b), at, `the questions are out of order: ${at.join(',')}`);
 });

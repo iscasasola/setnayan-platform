@@ -55,14 +55,16 @@ export const LANDING_WORDS = {
   inAppChrome: 'Open in Chrome to save your ticket',
   /** Under the faint ticket before a reply (owner 2026-10-11) — why it is faint. */
   ticketWaiting: 'Your ticket — ready once you reply.',
-  replied: 'You replied — see you there',
+  /** 🪑 After a Yes when the couple wrote no heading of their own (owner 2026-10-25, RSVP seats-first decision 5:
+   *  "You're on the list." is the new default — a couple's own "After they submit" words still replace it). */
+  replied: 'You’re on the list.',
   repliedSolemn: 'You replied — thank you',
 } as const;
 
 /**
  * The heading after a reply when the couple wrote none of their own (the
- * Maker's RSVP stage, "After they submit" / "When they decline"): the Fable
- * frames' own words — "You replied — see you there" (frame 3) and "We'll miss
+ * Maker's RSVP stage, "After they submit" / "When they decline"): "You're on the
+ * list." (owner 2026-10-25; was the Fable frame 3's "You replied — see you there") and "We'll miss
  * you." (frame 4). `thankYouWords` puts the couple's words in their place.
  */
 export function landingHeadline(status: string, solemn = false): string {

@@ -1,5 +1,6 @@
 'use server';
 
+import { NAME_CORRECTION_FIELD, adoptDeclinedContactArm, readNameCorrection, withNameCorrection } from '@/lib/rsvp-you-step';
 import { redirect } from 'next/navigation';
 import { lockLinkedSeatNames, planSeatNames, readSeatNames, seatNamePartColumns, type ExtraSeatRow } from '@/lib/extra-seats';
 import { A_PLUS_ONE_BRINGS_NO_ONE, isAPlusOne, plusOneSeats } from '@/lib/guests';
@@ -362,8 +363,14 @@ export async function submitRsvp(
   // The guest's OWN contact details. Named `contact_*` on the form so nothing
   // here can ever collide with the sign-in-link box elsewhere on this page,
   // which posts `email` to a completely different action.
+  // 🪑 TWO HOMES, ONE ANSWER (owner 2026-10-25, RSVP seats-first): on a Yes these boxes are the reply's You step;
+  // on a No they are the decline arm after the note, posted as `declined_contact_*` (both arms are in the form, the
+  // card's CSS shows one). A No's own boxes take these names first, so the reads below are the ones they always were.
+  adoptDeclinedContactArm(formData, status);
   const contactMobile = clean(formData.get('contact_mobile')) || null;
   const contactName = clean(formData.get('contact_display_name')) || null;
+  // ✍ "Wrong name? Tell the couple" (decision 1): one line added to the guest's note below — never the name itself.
+  const nameCorrection = readNameCorrection(formData.get(NAME_CORRECTION_FIELD));
 
   if (meal && !MEAL_VALUES.includes(meal)) {
     return;
@@ -535,6 +542,10 @@ export async function submitRsvp(
   const mealToWrite = ask.meal ? meal : before ? ((before.meal_preference as MealPreference | null) ?? meal) : undefined;
   const dietaryToWrite = ask.dietary ? dietary : before ? ((before.dietary_restrictions as string | null) ?? null) : undefined;
   const guestNoteToWrite = ask.note ? guestNote : before ? ((before.guest_note as string | null) ?? null) : undefined;
+  // ✍ …and a "Wrong name? Tell the couple" line rides on top of it, WHETHER OR NOT the note question is asked (owner
+  // 2026-10-25, RSVP seats-first decision 1 — the door always works). Only `guest_note`: names stay host-only
+  // (2026-08-01). No correction → exactly `guestNoteToWrite`; a failed read with the question off stays undefined.
+  const guestNoteWritten = withNameCorrection(guestNoteToWrite, nameCorrection);
   const mobileToWrite = ask.mobile ? contactMobile : before ? ((before.mobile as string | null) ?? null) : undefined;
 
   /*
@@ -579,7 +590,7 @@ export async function submitRsvp(
             }),
         meal_preference: mealToWrite,
         dietary_restrictions: dietaryToWrite,
-        guest_note: guestNoteToWrite,
+        guest_note: guestNoteWritten,
         // ⚠ OUTSIDE the frozen branch on purpose. Only the ANSWER freezes: a
         // phone number corrected the week of the event is worth more then than
         // at any other time.
@@ -728,7 +739,7 @@ export async function submitRsvp(
     // then nothing was written, and there is no `before` to compare against.
     meal: mealToWrite ?? meal,
     dietary: dietaryToWrite ?? null,
-    guestNote: guestNoteToWrite ?? null,
+    guestNote: guestNoteWritten ?? null,
     // What was STORED, not what was posted. A blank box no longer changes the
     // email, so reporting it from `contactEmail` would tell the host a detail
     // moved when the row is untouched.
@@ -791,7 +802,7 @@ export async function submitRsvp(
       // there — a trip made for nothing, and the second time it teaches them to
       // ignore the notification.
       if (changed.includes('note')) {
-        parts.push(guestNote ? 'They left you a note.' : 'They removed their note.');
+        parts.push(guestNoteWritten ? 'They left you a note.' : 'They removed their note.');
       }
       // The three the guest could never give until 2026-08-21. Each says WHICH
       // detail moved and never the value: a phone number and an email address

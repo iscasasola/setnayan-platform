@@ -117,6 +117,7 @@ import {
 } from '../category-decision-actions';
 import { isExploreReplanEnabled } from '@/lib/explore-replan-flag';
 import { benchFolderAnchorId, benchTileAnchorId, scrollBenchAnchor } from '@/lib/bench-anchors';
+import { usePublishCoverRing, useCoverHeaderOwnsTheCount } from './cover-ring';
 import { benchSearchScopeForTile } from '@/lib/bench-category-search';
 import { CategorySearchOverlay } from './category-search-overlay';
 import { FindThumbRow } from './find-thumb-row';
@@ -3322,6 +3323,9 @@ export function ShortlistCategories({
   );
   // "Covered N of M" over the ring — booked or covered (`ringCoveredCount`).
   const ringCovered = ringCoveredCount(stripTiles.map((t) => coverageStateOf(t)));
+  // 🧭 Under the calm header the shell draws the count — "6 of 14 covered" and its bar (cover-ring.tsx).
+  const coverInHeader = useCoverHeaderOwnsTheCount() && replan;
+  usePublishCoverRing(ringCovered, stripTiles.length, coverInHeader);
   /** tile → its CoverageTile, for each row's own state word. */
   const coverageByTile = new Map([...coverageByFolder.values()].flat().map((t) => [t.tile, t] as const));
 
@@ -3557,7 +3561,7 @@ export function ShortlistCategories({
           carries at most this line; the per-supplier detail belongs on the
           bench card, in the wide left column where they spend their time. */}
       <BenchRollUp folders={folders} standings={standings} />
-      {replan && stripTiles.length > 0 ? (
+      {replan && stripTiles.length > 0 && coverInHeader ? null : replan && stripTiles.length > 0 ? (
         /* "Covered N of M" — the ring IS the rows below now (owner 2026-10-07:
            one screen; a category unfolds in place). The Coverage Strip's icon
            tiles drew the same categories a second time, so they are gone; its
@@ -3592,7 +3596,10 @@ export function ShortlistCategories({
           bench, because that is where the narrowing it reports is happening.
           Server-resolved; null on an open window, so the surface stays calm
           until the couple's build actually says something. */}
-      {convergence ? (
+      {/* 📅 A SETTLED date ('anchored' — "Your date is set: …") draws no banner under the calm header (owner
+          2026-10-26): the date is already on the date · place line above, and "free that day" is in the ⓘ. A conflict,
+          a narrowing build and "Booking these suppliers sets your date" still show here — they are news, not detail. */}
+      {convergence && !(coverInHeader && convergence.tone === 'anchored') ? (
         <div className={`convrg t-${convergence.tone}`} role="status">
           <span className="cv-i" aria-hidden>
             {convergence.tone === 'conflict' ? (

@@ -1,9 +1,8 @@
 /**
- * papic-home-card.ts — THE HOME PAPIC CARD'S ONE COVERAGE LINE (owner 2026-10-23, approved
- `prototypes/papic_controller_one_page_2026-10-23.html` — "Home — the Papic widget": *"a smaller widget on home.
- * Then we can expand it"*). Before the day: "Fri, Dec 11 → Sun, Dec 13, 12 noon"; on it: "Open now → Sun, Dec 13,
- * 12 noon"; after: "Closed Sun, Dec 13, 12 noon"; Papic switched off: "Papic is off". The venue's clock (Manila).
- * Pure — `papic-home-card.test.ts`.
+ * papic-home-card.ts — THE PAPIC CARD'S WORDS FOR ITS WINDOW (the venue's clock, Manila): where the window stands
+ * (`papicCardPhase` — after the day, the open card leads with the Thank-You Video door), and the dates as the open
+ * settings say them ("Sat, Dec 12 → Sun, Dec 13, 12 noon"). The closed card's coverage line was retired 2026-10-26
+ * (owner: "it just needs to have a quick on off button and expand for more settings"). Pure — `papic-home-card.test.ts`.
  */
 
 export type PapicCardPhase = 'before' | 'live' | 'after';
@@ -29,27 +28,6 @@ export function papicCardPhase(startIso: string | null, endIso: string | null, n
   const e = endIso ? Date.parse(endIso) : NaN;
   if (!Number.isFinite(s) || !Number.isFinite(e)) return null;
   return now >= e ? 'after' : now >= s ? 'live' : 'before';
-}
-
-/** The line, or null when the window cannot be read (the card then draws no coverage line — never a guess). */
-export function papicCoverageWords({
-  startIso,
-  endIso,
-  now,
-  on = true,
-}: {
-  startIso: string | null;
-  endIso: string | null;
-  now: number;
-  on?: boolean;
-}): string | null {
-  if (!on) return 'Papic is off';
-  const phase = papicCardPhase(startIso, endIso, now);
-  if (!phase) return null;
-  const e = Date.parse(endIso!);
-  if (phase === 'after') return `Closed ${close(e)}`;
-  if (phase === 'live') return `Open now → ${close(e)}`;
-  return `${day(new Date(Date.parse(startIso!)))} → ${close(e)}`;
 }
 
 /** The window as the controller says it — "Sat, Dec 12 → Sun, Dec 13, 12 noon" (the venue's clock); null if unread. */

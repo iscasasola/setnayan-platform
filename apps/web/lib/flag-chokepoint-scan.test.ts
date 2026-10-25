@@ -91,10 +91,10 @@ const FLAGS: FlagSpec[] = [
     env: 'NEXT_PUBLIC_MAKER_STAGES_STUDIO_ENABLED',
     helper: 'lib/maker-stages-studio-flag.ts',
     fn: 'makerStagesStudioEnabled',
-    // The ONE place it is decided; the shell is handed the boolean.
-    // …and the guest side (plan PR 6): the one helper the guest page and the
-    // camera page ask, for the event's host instead of the viewer.
-    gates: ['app/dashboard/[eventId]/launch/page.tsx', 'lib/guest-stages-on.ts'],
+    // The ONE place it is decided; the shell is handed the boolean. (The guest
+    // side no longer asks it — every guest gets it, owner 2026-10-26;
+    // `lib/every-guest-gets-the-new-side.test.ts`.)
+    gates: ['app/dashboard/[eventId]/launch/page.tsx'],
     // Take the decision as a prop / input, never ask it themselves.
     pureCores: ['app/dashboard/[eventId]/launch/_components/maker-shell.tsx', 'lib/studio-tiles.ts'],
     locals: ['stagesStudio'],

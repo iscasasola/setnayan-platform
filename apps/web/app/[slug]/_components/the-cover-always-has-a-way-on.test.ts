@@ -38,7 +38,7 @@ const VIEWERS = [
   ['a signed-in stranger not on the list', { identity: { ...fixtureStranger(), signedInNotListed: true }, widgets: FULL }, 'door'],
   ['the host on their own page', { identity: fixtureStranger(), widgets: FULL, ownerCapability: HOST }, 'rsvp'],
   ['the host · the photo cover', { identity: fixtureStranger(), ...PHOTO, ownerCapability: HOST }, 'rsvp'],
-  ['a guest with a key', { widgets: FULL, guestStages: true }, 'rsvp'],
+  ['a guest with a key', { widgets: FULL }, 'rsvp'],
 ] as const;
 
 /** Every cover header on the page, whole. */

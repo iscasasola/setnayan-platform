@@ -58,7 +58,7 @@ test('(2) no style brings it back, and Details still has the venues’ own scene
     const widgets = base.widgets.map((w) =>
       w.widget_type === 'event_details' ? { ...w, config_json: { ...((w.config_json as object) ?? {}), ...(style ? { style } : {}) } } : w,
     );
-    const { html } = await renderSiteBodyFixtureFull({ guestStages: true, widgets } as never);
+    const { html } = await renderSiteBodyFixtureFull({ widgets } as never);
     noCard(html, `the guest page (style ${style ?? 'list'})`);
     const tab = detailsTab(html);
     assert.doesNotMatch(tab, /data-scene-style="(big-date|card)"[\s\S]{0,600}data-venue-role/, `a styled details card on Details (${style})`);
@@ -70,7 +70,7 @@ test('(3) the guest’s role is said on Me, never on Details', async () => {
   const base = siteBodyFixtureProps();
   const id = base.identity as { kind: string; guest: Record<string, unknown> };
   const identity = { ...id, guest: { ...id.guest, role: 'best_woman', side: 'groom', gender: 'woman' } } as never;
-  const { html } = await renderSiteBodyFixtureFull({ guestStages: true, identity } as never);
+  const { html } = await renderSiteBodyFixtureFull({ identity } as never);
   const me = html.slice(html.indexOf('data-me-stage=""'));
   assert.match(me, /Best Woman/, 'anti-vacuity: Me no longer says the role');
   assert.doesNotMatch(detailsTab(html), /Best Woman/, 'Details repeats the role Me already says');

@@ -17,6 +17,11 @@
  *
  * 🔑 EVERY REFUSAL INSERTS OR DELETES A REAL ROW. A trigger that compiles is not a
  * trigger that fires.
+ *
+ * 🛡 Sabotaged once each (2026-10-26, builder; the migration restored after): the seed's `cake` home set to
+ * `dessert` → "the seed equals the consts" red; the tier-2 trigger made to wave everything through → "a part with
+ * no home, or a home that is not a tier-2 category, is refused" red (and, as collateral, the RLS test counted the
+ * tier-1 part that got in).
  */
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';

@@ -3,6 +3,8 @@
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2, UploadCloud } from 'lucide-react';
+import { papicCaptureCost } from '@/lib/papic-cameras-pure';
+import { countNoun } from '@/lib/format-number';
 
 /**
  * Import ONE finished photo into the private portfolio album, spending one
@@ -79,7 +81,7 @@ export function PortfolioImportForm({
         ) : (
           <UploadCloud aria-hidden className="h-4 w-4" strokeWidth={1.75} />
         )}
-        {busy ? 'Importing…' : 'Import a photo · 1 credit'}
+        {busy ? 'Importing…' : `Import a photo · ${countNoun(papicCaptureCost('photo', null, 'upload'), 'credit', 'credits')}`}
         <input
           ref={inputRef}
           type="file"

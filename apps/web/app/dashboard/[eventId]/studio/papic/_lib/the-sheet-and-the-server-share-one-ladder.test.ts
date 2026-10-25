@@ -32,6 +32,8 @@ const HELPER = read('app/dashboard/[eventId]/studio/papic/_lib/upload-credits.ts
 const RECORD = read('app/papic/actions.ts');
 const PRESIGN = read('app/api/upload/route.ts');
 const CAMERAS = read('lib/papic-cameras.ts');
+const PORTFOLIO = read('app/api/vendor/papic-portfolio-import/route.ts');
+const PORTFOLIO_FORM = read('app/vendor-dashboard/on-the-day/live/[eventId]/_components/portfolio-import-form.tsx');
 
 test('💰 an ADDED photo costs 2, a CAMERA photo 1 (owner 2026-10-26) — one function, keyed on the source', () => {
   assert.equal(papicCaptureCost('photo', null, 'upload'), 2, 'a photo added by hand');
@@ -116,4 +118,12 @@ test('🔒 no second ladder: neither the sheet nor its helper re-types the bands
     assert.doesNotMatch(src, /Math\.ceil\([^)]*1000/, `${name} rounds a snippet’s seconds itself — that is papicSnippetCost’s job`);
     assert.doesNotMatch(src, /papicSnippetCost|PAPIC_POINTS_PER_PHOTO|PAPIC_POINTS_PER_UPLOADED_PHOTO/, `${name} prices from a lower-level piece than papicCaptureCost`);
   }
+});
+
+test('💰 a supplier’s portfolio import is an added photo too — 2, from the same function ("regardless of event or supplier")', () => {
+  assert.match(PORTFOLIO, /const cost = papicCaptureCost\('photo', null, 'upload'\);/, 'the portfolio import no longer prices as an added photo');
+  assert.match(PORTFOLIO, /left < cost\b/, 'the portfolio import checks the balance against something other than its price');
+  assert.match(PORTFOLIO, /credits_spent: cost,/, 'the portfolio row records a different number than it charged');
+  assert.doesNotMatch(PORTFOLIO, /credits_spent:\s*\d/, 'the portfolio row records a typed price');
+  assert.match(PORTFOLIO_FORM, /papicCaptureCost\('photo', null, 'upload'\)/, 'the import button names a typed price');
 });

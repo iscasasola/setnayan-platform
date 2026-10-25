@@ -89,7 +89,7 @@ export async function POST(req: Request) {
   // capture AND prior portfolio imports). Re-checked here rather than trusted
   // from the client, the same posture canCapture uses for the camera. `null`
   // means Unli (uncapped) — nothing to check.
-  // 📤 A portfolio import is a photo ADDED BY HAND: 2 credits, a camera photo 1 (owner 2026-10-26, "regardless of event
+  // 📤 A portfolio import is a photo ADDED BY HAND: PAPIC_POINTS_PER_UPLOADED_PHOTO (3), a camera photo 1 (owner 2026-10-26, "regardless of event
   // or supplier") — the one function every Papic seam prices with. The row records what was spent.
   const cost = papicCaptureCost('photo', null, 'upload');
   const admin = createAdminClient();

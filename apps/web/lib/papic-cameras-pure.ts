@@ -42,8 +42,9 @@ export const PAPIC_POINTS_PER_PHOTO = 1;
 export const PAPIC_POINTS_PER_SNIPPET = 8;
 
 /**
- * 📤 A PHOTO ADDED BY HAND COSTS 2 (owner 2026-10-26, verbatim: *"unlike photos taken on our app which takes 1 credit
- * per photos, uploads take 2 credits."* · *"regardless of event or supplier"*). Superseded: the 2026-08-26 rule that an
+ * 📤 A PHOTO ADDED BY HAND COSTS 3 — TRIPLE A CAMERA PHOTO (owner 2026-10-26, verbatim: *"unlike photos taken on our app
+ * which takes 1 credit per photos, uploads take 2 credits."* · *"regardless of event or supplier"*; then, the same day:
+ * *"Sorry change the concept. Not 2 but 3. So it will be triple the credits to upload instead of coming from papic"*). Superseded: the 2026-08-26 rule that an
  * uploaded photo costs the same as a captured one.
  *
  * "Added by hand" is the capture's SOURCE — the Uploads camera seat (`PAPIC_UPLOADS_CAMERA_INDEX`, resolved by
@@ -53,7 +54,7 @@ export const PAPIC_POINTS_PER_SNIPPET = 8;
  * ⏸ CLIPS ADDED BY HAND ARE NOT RULED YET — they keep the length ladder below, exactly as a camera clip. When the owner
  * rules, the change is the `clip` arm of `papicCaptureCost` for `source === 'upload'`, nowhere else.
  */
-export const PAPIC_POINTS_PER_UPLOADED_PHOTO = 2;
+export const PAPIC_POINTS_PER_UPLOADED_PHOTO = 3;
 
 /** Where a capture came from: a camera in the app, or a file added by hand (the Uploads camera). */
 export type PapicCaptureSource = 'camera' | 'upload';

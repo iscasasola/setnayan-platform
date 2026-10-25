@@ -482,7 +482,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         // This seam's stated job has always been "no URL ⇒ no orphan R2 bytes",
         // never "decide the price". It now refuses only when the camera cannot
         // afford ANY clip at all.
-        // 📤 A photo ADDED BY HAND (the Uploads camera) costs 2, a camera photo 1 (owner 2026-10-26) — the source is
+        // 📤 A photo ADDED BY HAND (the Uploads camera) costs PAPIC_POINTS_PER_UPLOADED_PHOTO (3), a camera photo 1 (owner 2026-10-26) — the source is
         // the seat this route resolved from the token, the same answer the record step charges with.
         const cost =
           cameraKind === 'clip'

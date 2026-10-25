@@ -142,7 +142,7 @@ export default async function EventMemoriesPage({ params, searchParams }: Props)
         pot = typeof left === 'number' ? Math.max(0, left) : null;
       }
     }
-    // 📤 An added photo costs 2, a camera photo 1 (owner 2026-10-26) — said from the one function, never typed.
+    // 📤 An added photo costs 3, a camera photo 1 (owner 2026-10-26) — said from the one function, never typed.
     const addedPhotoWords = `Each photo you add uses ${countNoun(papicCaptureCost('photo', null, 'upload'), 'credit', 'credits')}.`;
     // The ONE Add more — Apple's sheet in the app (it sells there), the web's sheet on the web; the app without Apple's
     // shop offers no web checkout (the rule `appleIap` above records), so no door there.

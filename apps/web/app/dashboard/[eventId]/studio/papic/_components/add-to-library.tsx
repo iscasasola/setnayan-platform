@@ -22,8 +22,7 @@ import {
  * Owner 2026-08-26: *"papic is the source where they collect media files for
  * that event"*, *"they can upload their work via papic credits as well per
  * event"*, and an uploaded photo takes *"the same spot as 1 papic photo"*.
- * 💰 PRICE SUPERSEDED 2026-10-26 (owner): *"unlike photos taken on our app which takes 1 credit per photos, uploads take
- * 2 credits."* — an added photo costs `PAPIC_POINTS_PER_UPLOADED_PHOTO`, charged by both seams from the Uploads seat.
+ * 💰 PRICE SUPERSEDED 2026-10-26 (owner): *"Sorry change the concept. Not 2 but 3. So it will be triple the credits to upload instead of coming from papic"* — an added photo costs `PAPIC_POINTS_PER_UPLOADED_PHOTO`, charged by both seams from the Uploads seat.
  *
  * 🔑 THIS IS NOT A NEW CAPTURE PATH. It presigns through the SAME `/api/upload`
  * seat route and records through the SAME `recordSeatCapture` that every camera

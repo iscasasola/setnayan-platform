@@ -1,6 +1,6 @@
 /**
  * + ADD PHOTOS — WHAT A PICK COSTS, AND WHETHER THE POT COVERS IT (owner 2026-10-25: *"adding photos will use up papic
- * credits"*; 2026-10-26: an added photo costs 2, a camera photo 1 — `PAPIC_POINTS_PER_UPLOADED_PHOTO`).
+ * credits"*; 2026-10-26: an added photo costs 3, a camera photo 1 — `PAPIC_POINTS_PER_UPLOADED_PHOTO`).
  *
  * 🔑 ONE LADDER. Every number here comes from `papicCaptureCost` / `PAPIC_CLIP_COST_BANDS`
  * (`lib/papic-cameras-pure.ts`) — the SAME function `recordSeatCapture` bills with (`app/papic/actions.ts`) and the
@@ -64,7 +64,7 @@ export function clipLadderWords(): string {
 
 /**
  * The ⓘ's sentence on cost — an added photo, a camera photo and the clip ladder, all read from the one function
- * (owner 2026-10-26: *"unlike photos taken on our app which takes 1 credit per photos, uploads take 2 credits."*).
+ * (owner 2026-10-26: *"Sorry change the concept. Not 2 but 3. So it will be triple the credits to upload instead of coming from papic"*).
  */
 export function costInfoLine(): string {
   const added = papicCaptureCost('photo', null, 'upload');

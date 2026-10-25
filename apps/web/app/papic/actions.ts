@@ -609,7 +609,7 @@ export async function recordSeatCapture(
       //
       // An event holding the Papic Unlock pass shoots unmetered — cost stays 0.
       if (!unlocked) {
-        // 📤 Added by hand (the Uploads camera's seat) → 2 for a photo; a camera photo → 1 (owner 2026-10-26).
+        // 📤 Added by hand (the Uploads camera's seat) → PAPIC_POINTS_PER_UPLOADED_PHOTO (3) for a photo; a camera photo → 1 (owner 2026-10-26).
         meterCost = papicCaptureCost(
           kind === 'clip' ? 'clip' : 'photo',
           durationMs,

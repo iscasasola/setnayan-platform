@@ -27,14 +27,14 @@ PHOTOS sheet's lower part ran behind the event bar and off the screen.
   `app/dashboard/[eventId]/studio/papic/_lib/the-sheet-and-the-server-share-one-ladder.test.ts`;
   `an-upload-is-a-capture.test.ts` follows the sender.
 
-- **💰 A photo ADDED BY HAND costs 2 credits; a camera photo 1** (owner 2026-10-26: *"unlike photos taken on our app
-  which takes 1 credit per photos, uploads take 2 credits."* · *"regardless of event or supplier"*). One source:
-  `papicCaptureCost(kind, durationMs, source)` with `PAPIC_POINTS_PER_UPLOADED_PHOTO = 2`; the source is read off the
+- **💰 A photo ADDED BY HAND costs 3 credits — triple a camera photo's 1** (owner 2026-10-26: *"uploads take 2
+  credits"* · *"regardless of event or supplier"*, then the same day *"Sorry change the concept. Not 2 but 3. So it will be triple the credits to upload instead of coming from papic"*). One source:
+  `papicCaptureCost(kind, durationMs, source)` with `PAPIC_POINTS_PER_UPLOADED_PHOTO = 3`; the source is read off the
   seat (`papicSeatCaptureSource` — the Uploads camera, index 150). The presign gate, `recordSeatCapture` (it passes
   `p_cost`; the SQL spends what it is handed, so no migration), the sheet's pre-check and ⓘ, the Memories "Turn this on"
   line, and the supplier portfolio import (`/api/vendor/papic-portfolio-import`: checks `left < cost`, records
-  `credits_spent: cost`, button "Import a photo · 2 credits") all read it. ⏸ Clips added by hand keep the camera ladder
+  `credits_spent: cost`, button "Import a photo · 3 credits") all read it. ⏸ Clips added by hand keep the camera ladder
   until the owner rules — a one-line change in the `clip` arm.
 
-SPEC IMPACT: Owner price ruling 2026-10-26 (uploads 2 credits) needs its DECISION_LOG row — flagged to the controller, not written by this builder. Otherwise implements the shipped rulings (DECISION_LOG 2026-09-16 PAP-13 ladder; 2026-10-23 Memories joins
+SPEC IMPACT: Owner price ruling 2026-10-26 (uploads 3 credits — triple a camera photo) needs its DECISION_LOG row — flagged to the controller, not written by this builder. Otherwise implements the shipped rulings (DECISION_LOG 2026-09-16 PAP-13 ladder; 2026-10-23 Memories joins
 the event bar; details inside the ⓘ).

@@ -32,7 +32,6 @@ const WEB = join(__dirname, '..');
 const EDITOR = 'app/dashboard/[eventId]/website/editor/_components';
 const read = (p: string) => stripComments(readFileSync(join(WEB, p), 'utf8'));
 const SHELL = read(`${EDITOR}/editor-shell.tsx`);
-const PICK = read(`${EDITOR}/page-pick.tsx`);
 const LIB = read('lib/maker-guest-pages.ts');
 
 /* An owner-shaped page: names, six sections, the entourage, the love story. */
@@ -79,7 +78,7 @@ test('1 · the guest bar asked is the REAL one — the same function a guest’s
   }).map((s) => s.label);
   assert.deepEqual(makerGuestPages('rsvp', tilesOf('rsvp')).map((p) => p.label), direct);
   // …and nothing in the Maker names a page: no label literal survives in the lib or the picker.
-  for (const [name, src] of [['maker-guest-pages.ts', LIB], ['page-pick.tsx', PICK], ['maker-bar.ts', read('app/dashboard/[eventId]/launch/_components/maker-bar.ts')]] as const) {
+  for (const [name, src] of [['maker-guest-pages.ts', LIB], ['maker-bar.ts', read('app/dashboard/[eventId]/launch/_components/maker-bar.ts')]] as const) {
     assert.doesNotMatch(
       src,
       /['"`](Home|Welcome|Details|Story|Our Love Story|Me|Now|Live|Schedule|Camera|Gallery|Recap)['"`]/,
@@ -89,18 +88,8 @@ test('1 · the guest bar asked is the REAL one — the same function a guest’s
   assert.match(LIB, /return resolveSiteNav\(\{/);
 });
 
-test('1 · the icons are the guest bar’s icons', () => {
-  const BAR = read('app/[slug]/_components/site-menu-bar.tsx');
-  const barIcons = /const ICONS[^=]*=\s*\{([\s\S]*?)\};/.exec(BAR)?.[1];
-  const pickIcons = /GUEST_PAGE_ICON[^=]*=\s*\{([\s\S]*?)\};/.exec(PICK)?.[1];
-  assert.ok(barIcons && pickIcons, 'an icon map moved — re-anchor this test');
-  const iconOf = (src: string, key: string) => new RegExp(`\\b${key}:\\s*(\\w+)`).exec(src)?.[1];
-  const offered = new Set(PUBLIC_STAGE_ORDER.flatMap((s) => guestBarForStage(s).map((b) => b.key)));
-  for (const key of offered) {
-    assert.ok(iconOf(pickIcons!, key), `${key}: offered in Page ▾ with no icon`);
-    assert.equal(iconOf(pickIcons!, key), iconOf(barIcons!, key), `${key}: the dropdown's icon is not the guest bar's`);
-  }
-});
+/* ✂ 2026-10-26: "the icons are the guest bar's icons" went with `page-pick.tsx` (the old Maker's Page ▾, deleted with
+   the old Maker). The new Maker's Stages ▾ draws page names only. */
 
 test('2 · a pick jumps and never filters: every scene sits under exactly one page, in page order', () => {
   for (const stage of PUBLIC_STAGE_ORDER) {

@@ -1,5 +1,5 @@
 {
-  "generatedFromRef": "20e6c4656e",
+  "generatedFromRef": "9b4534a4c9",
   "routeCount": 473,
   "destinations": 1013,
   "actions": 661,
@@ -10322,7 +10322,6 @@
         "dashboard/[eventId]/website/editor/_components/motion-fx-rows.tsx",
         "dashboard/[eventId]/website/editor/_components/music-button-row.tsx",
         "dashboard/[eventId]/website/editor/_components/our-music.tsx",
-        "dashboard/[eventId]/website/editor/_components/page-pick.tsx",
         "dashboard/[eventId]/website/editor/_components/palette-look-row.tsx",
         "dashboard/[eventId]/website/editor/_components/part-inspector.tsx",
         "dashboard/[eventId]/website/editor/_components/pick-menu-place.ts",

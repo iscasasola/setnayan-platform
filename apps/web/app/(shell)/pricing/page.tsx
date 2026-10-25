@@ -1,5 +1,7 @@
 import Link from 'next/link';
 import { ArrowRight, Check, Sparkles, Brush, Clock3 } from 'lucide-react';
+import { InfoTip } from '@/app/_components/info-tip';
+import { PAPIC_FREE_CREDIT_CONDITION } from '@/lib/papic-free-credit-promise';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
   fetchV2CustomerCatalog,
@@ -133,6 +135,52 @@ function BuildStatusChip({ status }: { status: BuildStatus }) {
       <Brush aria-hidden className="h-3 w-3" strokeWidth={1.75} />
       Coming soon
     </span>
+  );
+}
+
+// ── The Free vs Pro table — rows and their two marks ──
+// `free: false` = Pro only (an em dash under Free). Every row is in Pro: Pro is
+// Free plus the Event Hub unlock, never a different product.
+type PlanTableRow = { n: string; note?: string; free: boolean };
+type PlanTableGroup = { title: string; rows: PlanTableRow[] };
+
+function PlanMark({ on }: { on: boolean }) {
+  return on ? (
+    <td className="py-2.5 text-center align-top font-bold text-terracotta">
+      <span aria-hidden>✓</span>
+      <span className="sr-only">Included</span>
+    </td>
+  ) : (
+    <td className="py-2.5 text-center align-top text-ink/45">
+      <span aria-hidden>—</span>
+      <span className="sr-only">Not included</span>
+    </td>
+  );
+}
+
+function PlanGroup({ title, rows }: PlanTableGroup) {
+  return (
+    <>
+      <tr>
+        <th
+          scope="colgroup"
+          colSpan={3}
+          className="pt-4 pb-1 text-left font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-ink/55"
+        >
+          {title}
+        </th>
+      </tr>
+      {rows.map((r) => (
+        <tr key={r.n} className="border-b border-ink/10">
+          <td className="py-2.5 pr-2 align-top text-ink">
+            {r.n}
+            {r.note ? <span className="mt-0.5 block text-xs text-ink/55">{r.note}</span> : null}
+          </td>
+          <PlanMark on={r.free} />
+          <PlanMark on />
+        </tr>
+      ))}
+    </>
   );
 }
 
@@ -472,6 +520,94 @@ export default async function PricingPage() {
       .filter((r): r is { sku: V2CustomerSku; withPapic: boolean } => r !== null),
   })).filter((g) => g.rows.length > 0);
 
+  // ── The Free vs Pro table (owner 2026-10-25) ─────────────────────────────
+  // Pro = Event Hub Pro (COUPLE_WEBSITE_PRO), one-time per event. Its two prices
+  // go through the SAME resolver as Setnayan AI's (`resolveAiPrices` is generic
+  // over the row: NULL sign-up = no discount, a sign-up at/above regular is
+  // ignored, an unreadable row = no figure). Never a typed peso.
+  const proRow = customerSkus.find((s) => s.service_code === 'COUPLE_WEBSITE_PRO');
+  const pro = resolveAiPrices(proRow);
+  const proRegularLabel = pro.regularPhp > 0 ? `₱${formatPeso(pro.regularPhp)}` : null;
+  const proSignupLabel = pro.hasSignupPrice ? `₱${formatPeso(pro.introPhp)}` : null;
+  // Live Watch (LIVE_STUDIO): absent from the catalogue read while its launch
+  // switch is off — then the row simply carries no figure.
+  const rowPrice = (code: string): string | null => {
+    const row = customerSkus.find((s) => s.service_code === code);
+    const php = row ? Number(row.retail_price_php) : NaN;
+    return Number.isFinite(php) && php > 0 ? `₱${formatPeso(php)}` : null;
+  };
+  const liveWatchRow = customerSkus.find((s) => s.service_code === 'LIVE_STUDIO');
+  const liveWatchPrice = rowPrice('LIVE_STUDIO');
+  // Patiktok is PAID PER DAY (owner 2026-10-25: "Patiktok has a per day
+  // amount.") — no free part. The figure and its "/ day" both come from the row.
+  const patiktokRow = customerSkus.find((s) => s.service_code === 'PATIKTOK_COMPILER');
+  const patiktokPrice = rowPrice('PATIKTOK_COMPILER');
+  const musicMakerRow = customerSkus.find((s) => s.service_code === 'PAKANTA');
+  const musicMakerPrice = rowPrice('PAKANTA');
+  const papicFromLabel = papicPoolBuckets.length
+    ? `₱${formatPeso(papicPoolBuckets[0]!.pricePhp)}`
+    : null;
+  const PLAN_TABLE: PlanTableGroup[] = [
+    {
+      title: 'Plan',
+      rows: [
+        { n: 'Guest list & unlimited RSVPs', free: true },
+        { n: 'Seat plan', note: '2D layout + 3D walkthrough', free: true },
+        { n: 'Budget & schedule', free: true },
+        { n: 'Suppliers', note: `find, compare, book · ${COMMISSION_PCT}% commission`, free: true },
+      ],
+    },
+    {
+      title: 'Your Event Hub',
+      rows: [
+        { n: 'The Event Hub your guests open', free: true },
+        { n: 'Memories', note: 'every photo in one place', free: true },
+        { n: 'Your own photos, music and video on it', free: false },
+        { n: 'Pro themes, your fonts, animation, the cinematic reveal', free: false },
+        { n: 'Your logo animated and on every QR', free: false },
+        { n: 'Setnayan mark taken off everywhere guests look', free: false },
+      ],
+    },
+    {
+      title: 'Capture & go live',
+      rows: [
+        {
+          n: 'Papic · unlimited cameras',
+          note: `every photo uses credits · free credits ${PAPIC_FREE_CREDIT_CONDITION}`,
+          free: true,
+        },
+        { n: 'Livestream from one camera', free: true },
+      ],
+    },
+    {
+      title: 'Add as you go',
+      rows: [
+        {
+          n: 'Papic credits',
+          note: papicFromLabel ? `from ${papicFromLabel} · one pot for the event` : 'one pot for the event',
+          free: true,
+        },
+        {
+          n: liveWatchRow?.title ?? 'Live Watch',
+          note: `every camera · one unlock that stays with the event${liveWatchPrice ? ` · ${liveWatchPrice}` : ''}`,
+          free: true,
+        },
+        {
+          n: patiktokRow?.title ?? 'Patiktok',
+          note: patiktokPrice
+            ? `${patiktokPrice}${formatBillingPeriodSuffix(patiktokRow?.billing_period)}`
+            : 'paid per day',
+          free: true,
+        },
+        {
+          n: musicMakerRow?.title ?? 'Music Maker',
+          note: `your own song${musicMakerPrice ? ` · ${musicMakerPrice}` : ''}`,
+          free: true,
+        },
+      ],
+    },
+  ];
+
   // Estimator inputs — the SAME derived ladder the description above renders
   // (rungs + rates + per-rung capacity + per-rung WEDDING cap). Nothing about
   // Papic capacity or caps is spelled here. Add-on prices come from the catalog.
@@ -661,120 +797,92 @@ export default async function PricingPage() {
         </div>
       </section>
 
-      {/* Free · Explore vs Setnayan AI */}
+      {/* Free vs Pro — ONE plain table (owner 2026-10-25, approved prototype
+          `prototypes/ceremo_deltas_2026-10-25/02_pricing.html`, frame "Pro = Event
+          Hub Pro"). It replaced the two tall cards ("Free · Explore" / "Setnayan AI"),
+          each a list a reader had to walk both of to learn what Free lacks.
+          🔑 EVERY PESO IS READ — Pro from COUPLE_WEBSITE_PRO, the launch-offer line
+          from its onboarding_price_php, Papic / Live Watch from their rows, Setnayan
+          AI through the shared resolver. An unreadable row renders NO figure.
+          Guarded by `pricing-free-vs-pro-table.test.ts`. */}
       <section id="plans" className="border-b border-ink/5 bg-ink/[0.02]">
-        <div className="mx-auto w-full max-w-5xl px-4 py-20 sm:px-6 sm:py-24 lg:px-8">
-          <div className="mb-12 max-w-2xl space-y-3">
+        <div className="mx-auto w-full max-w-3xl px-4 py-16 sm:px-6 sm:py-24 lg:px-8">
+          <div className="mb-8 max-w-2xl space-y-3">
             <p className="m-eyebrow">Two ways to plan</p>
             <LineRevealHeading className="text-balance text-4xl font-semibold tracking-tight sm:text-5xl">
-              Free to start. Paid only when it helps.
+              Free to start. Pro when you want it yours.
             </LineRevealHeading>
             <p className="text-base leading-relaxed text-ink/65">
-              Plan free for as long as you like. Add Setnayan AI when you want
-              the matching done for you — then pick exactly the software you
-              want below.
+              One price, one time, for the whole event — everyone on it gets it.
             </p>
           </div>
-          <RevealBand className="grid grid-cols-1 gap-4 sm:grid-cols-2" stagger={0.07}>
-            <article
-              data-reveal-item
-              className="flex flex-col gap-3 rounded-2xl border border-ink/15 bg-cream p-6 sm:p-8"
-            >
-              <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
-                Free · Explore
-              </p>
-              <p className="flex items-baseline gap-2">
-                <span className="font-sans text-4xl font-semibold tracking-tight text-ink">₱0</span>
-                <span className="text-sm text-ink/55">/ forever</span>
-              </p>
-              <p className="text-sm leading-relaxed text-ink/65">
-                A whole planning workspace, your Event Hub, and the tools
-                to share your day.
-              </p>
-              <ul className="mt-2 space-y-2 text-sm">
-                {[
-                  'All five planning tools',
-                  'Your free 4-in-1 Event Hub',
-                  'Unlimited RSVP collection',
-                  'Browse suppliers + a match preview',
-                  'Single-camera livestream & free Custom QR',
-                ].map((f) => (
-                  <li key={f} className="flex items-start gap-2">
-                    <Check aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-terracotta" strokeWidth={2} />
-                    <span className="text-ink">{f}</span>
-                  </li>
-                ))}
-              </ul>
-              <Link href="#free" className="mt-3 inline-flex items-center gap-1.5 self-start text-sm font-medium text-ink/70 hover:text-ink">
-                See everything free ↓
-              </Link>
-            </article>
-            <article
-              data-reveal-item
-              className="flex flex-col gap-3 rounded-2xl border-2 border-terracotta/40 bg-cream p-6 sm:p-8 shadow-[0_30px_80px_-40px_rgba(197,160,89,0.35)]"
-            >
-              <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
-                Setnayan AI
-              </p>
-              {/* THE PRICE, AND THE SECOND ONE THAT WAS NEVER SHOWN.
-                  When the catalog carries a sign-up price, THAT is the headline
-                  figure — it is what this reader pays if they start now, and
-                  quoting the higher number first was quietly overcharging the
-                  page's own visitor. The regular price stays visible beside it
-                  so nobody discovers it later. When the row carries no sign-up
-                  price the block is a single figure, exactly as before; when the
-                  catalog is unreadable it renders nothing rather than a guess. */}
-              {aiRegularLabel ? (
-                <>
-                  <p className="flex items-baseline gap-2">
-                    <span className="font-sans text-4xl font-semibold tracking-tight text-ink">
-                      {aiSignupLabel ?? aiRegularLabel}
+          <table className="w-full border-collapse text-sm">
+            <thead>
+              <tr className="border-b border-ink">
+                <th scope="col" className="pb-2.5 text-left font-normal">
+                  <span className="sr-only">What you get</span>
+                </th>
+                <th scope="col" className="w-[76px] pb-2.5 text-center align-bottom font-normal">
+                  <span className="block font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">Free</span>
+                  <span className="mt-1.5 block text-xl font-bold leading-none tracking-tight">₱0</span>
+                  <span className="mt-1 block text-[11px] text-ink/55">forever</span>
+                </th>
+                <th scope="col" className="w-[96px] pb-2.5 text-center align-bottom font-normal">
+                  <span className="block font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">Pro</span>
+                  {proRegularLabel ? (
+                    <span className="mt-1.5 block text-xl font-bold leading-none tracking-tight">{proRegularLabel}</span>
+                  ) : null}
+                  <span className="mt-1 block text-[11px] text-ink/55">one-time · per event</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {PLAN_TABLE.map((group) => (
+                <PlanGroup key={group.title} title={group.title} rows={group.rows} />
+              ))}
+              <tr className="border-b border-ink/10">
+                <td className="py-2.5 pr-2 align-top text-ink">
+                  <InfoTip label="Setnayan AI" align="start">
+                    Suggests your supplier team and watches your plan. Priced by event
+                    type — this is a wedding&rsquo;s price; other events pay less.
+                  </InfoTip>
+                  {aiRegularLabel ? (
+                    <span className="mt-0.5 block text-xs text-ink/55">
+                      {aiSignupLabel ? (
+                        <>
+                          <span className="text-ink">{aiSignupLabel ?? aiRegularLabel}</span> while you set up ·{' '}
+                          <span className="line-through decoration-ink/30">{aiRegularLabel}</span> after
+                        </>
+                      ) : (
+                        <span>{aiRegularLabel}</span>
+                      )}
+                      {aiPeriod}
                     </span>
-                    {aiSignupLabel ? (
-                      <span className="text-sm text-ink/55">
-                        <span className="line-through decoration-ink/30">{aiRegularLabel}</span>{' '}
-                        later
-                      </span>
-                    ) : null}
-                    <span className="text-sm text-ink/55">{aiPeriod}</span>
-                  </p>
-                  <p className="text-sm font-medium text-ink/70">
-                    {aiSignupLabel
-                      ? 'One-time · this price while you’re setting up your wedding · access until the day.'
-                      : 'One-time · access until your wedding.'}
-                  </p>
-                </>
-              ) : (
-                <p className="text-sm font-medium text-ink/70">
-                  One-time · access until your wedding. See the price when you start.
-                </p>
-              )}
-              <p className="text-sm leading-relaxed text-ink/65">
-                The planner that matches, sorts and cross-references every
-                supplier for your exact wedding.
-              </p>
-              <ul className="mt-2 space-y-2 text-sm">
-                {[
-                  'Everything in Free',
-                  'Full matching — date, budget, venue, pax, faith & reviews',
-                  'Your sorted, ready-to-book shortlist',
-                  'A planning assistant that keeps you on track',
-                  'Runs until your wedding day, then stops',
-                ].map((f) => (
-                  <li key={f} className="flex items-start gap-2">
-                    <Check aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-terracotta" strokeWidth={2} />
-                    <span className="text-ink">{f}</span>
-                  </li>
-                ))}
-              </ul>
-              <Link
-                href="/onboarding/wedding?from=pricing"
-                className="m-btn m-btn-primary mt-3 self-start"
-              >
-                Unlock Setnayan AI
-              </Link>
-            </article>
-          </RevealBand>
+                  ) : null}
+                </td>
+                <PlanMark on />
+                <PlanMark on />
+              </tr>
+            </tbody>
+          </table>
+          {proRegularLabel && proSignupLabel ? (
+            <p className="mt-4 text-[13px] text-ink">
+              <b className="font-bold text-terracotta">{proSignupLabel} while you set up your event</b>
+              {' '}— {proRegularLabel} after.
+            </p>
+          ) : null}
+          <div className="mt-5 flex flex-wrap items-center gap-4">
+            <Link href="/onboarding/wedding?from=pricing" className="m-btn m-btn-primary">
+              Unlock Pro
+            </Link>
+            <Link href="#free" className="text-sm font-semibold text-ink/70 hover:text-ink">
+              See everything free ↓
+            </Link>
+          </div>
+          <p className="mt-3.5 text-[12.5px] text-ink/65">
+            <i className="font-semibold text-terracotta">Set na &rsquo;yan</i> — paid once, for
+            this event and everyone on it. No subscription.
+          </p>
         </div>
       </section>
 
@@ -939,7 +1047,7 @@ export default async function PricingPage() {
           <p className="mt-5 text-xs leading-relaxed text-ink/45">
             Prices render live from the Setnayan catalog and are admin-managed.
             The free single-camera livestream and the full planner always stay
-            free. Provisional pending the holistic pricing review.
+            free.
           </p>
         </div>
       </section>

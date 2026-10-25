@@ -55,8 +55,10 @@ import {
  * so the account lands in the app, not in Safari. Same `next`, same linking
  * path (lib/native-account-save.ts). The web and the desktop app are unchanged.
  *
- * 📵 NO EMAIL, ANYWHERE ON IT (owner 2026-09-29, DECISION_LOG "NO EMAIL TO
- * GUESTS — THE QR AND THE LINK DO EVERYTHING"). The webview arm used to email a
+ * 📵 NO EMAIL IS SENT FROM IT (owner 2026-09-29, DECISION_LOG "NO EMAIL TO
+ * GUESTS — THE QR AND THE LINK DO EVERYTHING"). (The quiet "Use my email
+ * instead" link of 2026-10-25 signs in WITH an email address; it sends none.)
+ * The webview arm used to email a
  * sign-in link, and a guest without an address was asked for one here. Both
  * are gone: inside Messenger the button copies the guest's own link and says
  * how to paste it into Safari or Chrome, where Apple / Google is one tap.
@@ -271,6 +273,26 @@ export function SaveToAccount({
       ) : null;
     }
     const returnTo = <input type="hidden" name="return_to" value={INVITE_RETURN} />;
+    /* ✉️ "USE MY EMAIL INSTEAD" (owner 2026-10-25, "If you have recommendation that
+       follow our design go for it"). One quiet text link under the ONE button for a
+       guest without Apple / Google to hand: the SHIPPED email sign-in (/login, whose
+       card links to /signup with the same `next`) returning to the SAME place the
+       button does — `/join/{eventId}/connect`, the seat-binding door, exactly as the
+       `sign_in` state above. No new auth, and 📵 no email is SENT by this: password
+       sign-in sends nothing, and an event sign-up gets no welcome email
+       (`welcomeEmailKind` → null for `isEventSignup`). A text link, not a frame —
+       the button stays the one main action. Guarded by `use-my-email-instead.test.ts`. */
+    const emailInstead = (
+      <p className="text-center">
+        <Link
+          href={`/login?next=${encodeURIComponent(`/join/${eventId}/connect`)}`}
+          className="inline-flex min-h-[44px] items-center text-xs text-ink/70 underline underline-offset-2 hover:text-ink"
+          data-save-email-instead=""
+        >
+          Use my email instead
+        </Link>
+      </p>
+    );
     return (
       <div className="space-y-2" data-save-method={method}>
         {refused}
@@ -292,6 +314,7 @@ export function SaveToAccount({
             {stall}
           </form>
         )}
+        {emailInstead}
         {why}
       </div>
     );

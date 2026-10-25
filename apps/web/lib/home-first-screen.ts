@@ -510,7 +510,9 @@ export function papicStatus(input: PapicStatusInput): string {
   if (tile === null) return 'Not added';
   // A refused count is not "nothing shot yet" (S41b).
   if (tile.photosGathered === null) return '—';
-  if (tile.preCapture || tile.photosGathered === 0) return 'Free camera ready';
+  // 25 Oct: was "Free camera ready" — there is no free camera with credits of its own; cameras are unlimited and
+  // every photo spends the event's credits (owner: "unlimited camera but papic credits is used").
+  if (tile.preCapture || tile.photosGathered === 0) return 'Ready';
   return `On · ${formatCount(tile.photosGathered)} ${tile.photosGathered === 1 ? 'photo' : 'photos'}`;
 }
 

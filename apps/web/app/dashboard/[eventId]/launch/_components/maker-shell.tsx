@@ -2,6 +2,7 @@
 
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import { GUEST_PAGE_ICON } from '../../website/editor/_components/page-pick';
+import Link from 'next/link';
 import { createPortal } from 'react-dom';
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from 'react';
 import type { MakerLate } from '@/lib/maker-late';
@@ -88,8 +89,6 @@ import { VIEW_AS_FREE_LABEL } from '@/lib/view-as-free';
 import { ViewAsFreeKeeper, ViewAsFreeStrip, useViewAsFreeToggle } from './view-as-free';
 import { OneOpenScope, useOneOpen } from '@/lib/one-open';
 import { ICON_PILL_EXIT, IconPill } from './icon-pill';
-/* 🚪 Its own line on purpose: the lazy door of the ✕ sheet (`details-lazy.tsx`). */
-import { MakerExitSheet } from './details-lazy';
 import { LOWER_THIRD_GLOBAL_ICON, MakerLowerThird, type LowerThirdPick, type LowerThirdTile } from './maker-lower-third';
 import { MAKER_LT_HEIGHT, MAKER_LT_TOOL } from '@/lib/maker-phone-room';
 import { MAKER_PAGE_STAGES, makerStageLabel } from './maker-bar';
@@ -380,8 +379,6 @@ export function MakerShell({
   const clearPageJump = useCallback(() => setPageJump(null), []);
   /* ↺ Restore, as the draft bar registered it (Page ▾ › Restore). */
   const [draft, setDraft] = useState<MakerDraftDoor | null>(null);
-  /* 🚪 ✕ opens the way-out sheet (Back to this event · All events) — it never leaves by itself. */
-  const [exitOpen, setExitOpen] = useState(false);
 
   /*
     🪤 MEASURED IN THE BROWSER: EVERY SAVE REMOUNTS THIS SHELL. Each panel
@@ -1149,31 +1146,24 @@ export function MakerShell({
         >
           {/* ✕ EXIT — red, its OWN pill (owner 2026-10-05: *"exit on the left side is
               red with an X icon"* — "‹" read as back one step); the draft is kept. */}
-          {/* 🚪 …AND IT OFFERS BOTH WAYS OUT (owner, live at 896 px: *"why can't i go back to events?"* → *"Okay, fix
-              the three step."*): the Maker covers the app's own bar and rail, so ✕ → this event → ☰ → Events was
-              three taps. ✕ opens the Maker's one sheet — Back to this event · All events (`MakerExitSheet`) — and
-              no longer leaves by itself. */}
+          {/* 🚪 …AND IT GOES STRAIGHT TO THIS EVENT'S DASHBOARD (owner, 25 Oct, over the "Leave the Maker · Back to
+              this event · All events" sheet: *"It just needs to go back to the event's dashboard"*). One tap, no
+              choice — the 08 Oct sheet is gone. Unapplied changes stay in the draft, exactly as they did with the
+              sheet (which guarded nothing either: its doors were plain links too). */}
           <IconPill tone="exit">
-            <button
-              type="button"
+            <Link
+              href={`/dashboard/${eventId}`}
               aria-label="Exit"
-              aria-haspopup="dialog"
-              aria-expanded={exitOpen}
               title="Exit — your draft is kept"
               data-maker-tool="exit"
               data-bar-item="Exit"
-              onClick={() => setExitOpen(true)}
               className={`${ICON_PILL_EXIT} ${MAKER_BAR_PHONE.exit}`}
             >
               <X aria-hidden className="h-5 w-5 lg:hidden" strokeWidth={2.4} />
               {/* 🖥 A desktop keeps its ‹ this round. */}
               <ChevronLeft aria-hidden className="hidden h-6 w-6 lg:block" strokeWidth={2} />
-            </button>
+            </Link>
           </IconPill>
-          {/* 🚪 The way out, over everything (the sheet is fixed to the screen — portalled, like every Maker sheet). */}
-          {exitOpen && typeof document !== 'undefined'
-            ? createPortal(<MakerExitSheet eventId={eventId} changes={draft?.count ?? 0} onClose={() => setExitOpen(false)} />, document.body)
-            : null}
 
           {/* 📱 THE SCREEN YOU ARE ON (owner 2026-10-05: "RSVP · When yes") — the
               stage and its page ("Invitation · Welcome"), or the Maker page that

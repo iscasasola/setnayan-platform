@@ -657,7 +657,7 @@ export async function EventDashboard({
       }
     })(),
     // Papic on home (PR-G · owner picked options A + B on 2026-07-30). ONE
-    // resolver feeds BOTH the mini-tile below and the "your free camera is ready"
+    // resolver feeds BOTH the mini-tile below and the "Papic is ready"
     // nudge the Home mounts in slotAfterBento, so the two can never disagree —
     // and it rides this existing batch rather than adding a round-trip. Returns
     // null (⇒ neither surface renders) when the event has no Papic signal at all.

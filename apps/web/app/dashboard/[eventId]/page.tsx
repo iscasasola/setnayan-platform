@@ -1106,10 +1106,10 @@ export default async function EventHomePage({
         <SetDateNudge eventId={eventId} eventType={event.event_type as string | null} />
       ) : null}
 
-      {/* "Your free camera is ready" — Papic promotion PR-G option B (owner picked
-       *  A + B on 2026-07-30). Every event is armed at creation with a free shared
-       *  pool of credits AND one free dedicated camera, and until now the couple was
-       *  never told so anywhere on their home. Renders ONLY while nothing has been
+      {/* "Papic is ready" — Papic promotion PR-G option B (owner picked A + B on
+       *  2026-07-30). Re-worded 25 Oct: it promised a free camera of its own, which
+       *  does not exist (owner: "unlimited camera but papic credits is used") — see
+       *  the component's header. Renders ONLY while nothing has been
        *  shot yet; dismissible per-event; the mini-tile in the bento is the
        *  permanent "where it stands" readout once shooting starts.
        *

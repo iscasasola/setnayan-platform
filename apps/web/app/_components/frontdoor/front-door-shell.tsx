@@ -1362,7 +1362,9 @@ export function FrontDoorShell({
                 <span className="fd-label-text">Features</span>
                 <span className="fd-icon-caption">Features</span>
               </Link>
-              <Link href="/our-story" className="fd-row">
+              {/* "How it works" opens the Features hub (owner 2026-10-25) — the same
+                  door as the home hero's link; /our-story is a manifesto, not steps. */}
+              <Link href="/features" className="fd-row">
                 <RailIcon as={Sparkles} />
                 <span className="fd-label-text">How it works</span>
                 <span className="fd-icon-caption">How it works</span>

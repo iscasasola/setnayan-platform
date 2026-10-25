@@ -1009,7 +1009,7 @@ function sceneWordName(key: RsvpWordKey): string {
 
 /** What an empty heading or message box says it will show. */
 function sceneWordPlaceholder(key: RsvpWordKey): string {
-  if (key === 'thanksHeading') return 'Automatic — “See you on the 18th, Ana!”';
+  if (key === 'thanksHeading') return 'Automatic — “You’re on the list.”';
   if (key === 'declineHeading') return 'Automatic — “Thank you, Ana — you’ll be missed”';
   return 'No message';
 }

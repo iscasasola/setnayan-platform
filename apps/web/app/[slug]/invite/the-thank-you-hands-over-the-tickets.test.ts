@@ -57,7 +57,9 @@ test('1 · the landing page draws their Digital ticket only when they have one, 
   assert.ok(at > -1, 'the ticket section moved — re-point this guard');
   const block = ENTER.slice(at, ENTER.indexOf('data-landing="how"', at));
   assert.match(block, /<TicketPicture src=\{PASS_CARD_ROUTE\}/, 'the ticket is no longer the route’s own picture');
-  assert.match(block, /<SavePassCardButton\s+hrefs=\{\[PASS_CARD_ROUTE\]\}/, 'the ticket lost its Save');
+  // 🎟 Their own card FIRST, then each +1 ticket they hold — "Save all tickets" (owner 2026-10-25, RSVP seats-first:
+  // the after-Send pass step of scenarios B · C). With no +1 ticket the list is their own card alone, as before.
+  assert.match(block, /<SavePassCardButton\s+hrefs=\{\[PASS_CARD_ROUTE, \.\.\.plusOneCardHrefs\]\}/, 'the ticket lost its Save');
   assert.match(block, /Your \{PASS_CARD_WORDS\.digitalTicket\}/);
   assert.match(block, /<InviteQrPanel\b/, 'a guest with no ticket lost their QR');
   // ✂ ONE PLACE EACH (2026-10-03): no plus-one tickets, no Copy my link here.

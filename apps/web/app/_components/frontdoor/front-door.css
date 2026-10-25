@@ -2726,30 +2726,38 @@ button.fd-ask.quiet {
   color: var(--fd-ink);
   font-weight: 700;
 }
-/* 2026-09-03 — the anchor's three short claims, replacing the retired
-   opening's one-paragraph lede. Same contrast rule as `.fd-opening-lede`
-   above (--fd-m1, never --fd-m2, for body-weight text). */
-.fd-opening-claims {
+/* 2026-10-25 — Option B's trust chips (front-door-anchor.tsx), replacing the
+   three claims. Plain text with a gold dot, never a frame: nothing here is
+   pressable. Same contrast rule as `.fd-opening-lede` (--fd-m1, not --fd-m2). */
+.fd-opening-trust {
   list-style: none;
-  margin: 0 0 22px;
+  margin: 0 0 8px;
   padding: 0;
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 26px;
-  font-size: 14.5px;
+  gap: 6px 18px;
+  font-size: 13.5px;
   color: var(--fd-m1);
 }
-.fd-opening-claims li {
+.fd-opening-trust li {
   white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
-@media (max-width: 620px) {
-  .fd-opening-claims {
-    flex-direction: column;
-    gap: 6px;
-  }
-  .fd-opening-claims li {
-    white-space: normal;
-  }
+.fd-opening-trust li::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--fd-gold);
+}
+/* The one line under the chips — cameras unlimited, photos use Papic credits.
+   No number on purpose (owner 2026-10-25): the free credits are first-event only. */
+.fd-opening-papic {
+  margin: 0 0 22px;
+  font-size: 12.5px;
+  color: var(--fd-m1);
 }
 .fd-opening-acts {
   display: flex;
@@ -2761,6 +2769,38 @@ button.fd-ask.quiet {
   min-height: 48px;
   padding: 0 24px;
   font-size: 15px;
+}
+/* 🎨 THE FRONT DOOR'S MAIN BUTTON IS TERRACOTTA (owner 2026-10-25: "for
+   setnayan use our template"). Same geometry as `.fd-btn-gold`; the colour is
+   DERIVED from the house CTA token `--m-mulberry` (globals.css), never re-typed.
+   White on #C24E25 is 4.76:1, AA. Signed-out pages are always light
+   (lib/appearance.ts), which is the only place this hero renders. */
+.fd-btn-terra {
+  white-space: nowrap;
+  min-height: 44px;
+  padding: 0 15px;
+  border-radius: var(--m-r-full);
+  background: var(--m-mulberry);
+  color: #fff;
+  border: 0;
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 650;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-decoration: none;
+}
+.fd-btn-terra:hover {
+  background: var(--m-mulberry-2);
+}
+/* Dark is never painted signed out (lib/appearance.ts), but if this button is
+   ever reached in dark, the lightened terracotta takes the page colour as its
+   label — white on it would be 2.5:1. Same pairing as the gold button. */
+html.dark .fd-btn-terra,
+html.dark .fd-btn-terra:hover {
+  color: var(--fd-cream);
 }
 .fd-opening-alt {
   /* 44px press with no change to the line it sits on (was 22px tall) —
@@ -2780,6 +2820,71 @@ button.fd-ask.quiet {
 .fd-opening-alt:hover {
   text-decoration: underline;
 }
+/* Before → After (Option B). A divider above, no boxes — the tiles are drawn
+   squares, not frames. Labels in --fd-m2 are metadata (small caps); the lines
+   are body copy in ink. */
+.fd-opening-ba {
+  display: grid;
+  grid-template-columns: 1fr 28px 1fr;
+  gap: 0 10px;
+  align-items: start;
+  max-width: 560px;
+  margin: 22px 0 4px;
+  padding-top: 18px;
+  border-top: 1px solid var(--fd-line);
+}
+.fd-opening-ba-lab {
+  margin: 0 0 10px;
+  font: 700 10px/1 var(--fd-mono);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--fd-m2);
+}
+.fd-opening-ba-arrow {
+  align-self: center;
+  justify-self: center;
+  color: var(--fd-gold);
+  font-size: 20px;
+  line-height: 1;
+}
+.fd-opening-ba-line {
+  margin: 10px 0 0;
+  font-size: 13px;
+  line-height: 1.35;
+  color: var(--fd-ink);
+}
+.fd-opening-ba-line b {
+  font-weight: 650;
+}
+.fd-opening-scatter {
+  position: relative;
+  height: 64px;
+  max-width: 170px;
+}
+.fd-opening-scatter i {
+  position: absolute;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--m-r-xs);
+  background: var(--fd-line);
+}
+.fd-opening-scatter i:nth-child(1) { left: 4px; top: 6px; transform: rotate(-12deg); }
+.fd-opening-scatter i:nth-child(2) { left: 48px; top: 30px; transform: rotate(9deg); background: var(--fd-invite-line); }
+.fd-opening-scatter i:nth-child(3) { left: 92px; top: 2px; transform: rotate(-5deg); background: var(--fd-chip-hover); }
+.fd-opening-scatter i:nth-child(4) { left: 124px; top: 32px; transform: rotate(14deg); }
+.fd-opening-album {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 3px;
+  max-width: 170px;
+}
+.fd-opening-album i {
+  aspect-ratio: 1;
+  border-radius: var(--m-r-xs);
+  background: var(--fd-line);
+}
+.fd-opening-album i:nth-child(2n) { background: var(--fd-invite-line); }
+.fd-opening-album i:nth-child(3n) { background: var(--fd-chip-hover); }
 .fd-opening-fine {
   margin: 18px 0 0;
   font-size: 12.5px;

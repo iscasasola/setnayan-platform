@@ -119,7 +119,10 @@ test('Me · the name once, no second sign-out, ONE Save to my account, ONE main 
   assert.doesNotMatch(html, /\/sign-out"/, 'Me carries a second sign-out ("Not you? Switch") again');
   assert.equal((html.match(/>Save to my account</g) ?? []).length, 1, '"Save to my account" is not drawn exactly once');
   assert.equal((html.match(/Send their invite/g) ?? []).length, 1, 'one plus-one, one "Send their invite"');
-  assert.equal(primaries(html).length, 1, `Me has ${primaries(html).length} main actions`);
+  // 🍏🤖 2026-10-25 ("Show both"): the Save press is the login's own provider button (white, the brand mark — Apple's
+  // and Google's button guidelines), not a terracotta primary. With one provider on, it is still ONE main action.
+  const mainActions = primaries(html).length + (html.match(/data-save-provider="/g) ?? []).length;
+  assert.equal(mainActions, 1, `Me has ${mainActions} main actions`);
   assert.doesNotMatch(html, /Each name gets their own/, 'the grey line explaining the plus-ones is back');
 });
 

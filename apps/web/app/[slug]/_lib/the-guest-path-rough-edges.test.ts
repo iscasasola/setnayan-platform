@@ -225,10 +225,15 @@ test('6 · the film reserves the room the scaled lockup paints, so the label is 
   assert.ok(film.indexOf('<HeroMonogram', at) > at && film.indexOf('<HeroMonogram', at) < film.indexOf('</div>\n    );', at), 'the lockup is not inside its slot');
 });
 
-test('6 · the Save-to-account button grows with its two-line sub-label and pads it', () => {
+/* ⚠ CHANGED 2026-10-25 ("Show both"): the two-line terracotta Save button this pinned (h-auto + py-2.5, so its
+   sub-label did not touch the edge) is gone — the providers are the login's own one-line buttons, and the two lines
+   moved into a heading above them. What stays true: neither line is squeezed into a fixed-height box. */
+test('6 · the Save-to-account words sit in a heading over the login’s provider buttons, never in a fixed-height box', () => {
   const src = code('app/[slug]/_components/save-to-account.tsx');
-  const at = src.indexOf('Save to my account');
-  const open = src.slice(src.lastIndexOf('<SubmitButton', at), at);
-  assert.match(open, /\bh-auto\b/, '.button-primary’s fixed h-11 still pins the box');
-  assert.match(open, /\bpy-2\.5\b/, 'the sub-label touches the bottom edge');
+  const at = src.indexOf('data-save-heading');
+  assert.ok(at > -1, 'the "Save to my account" heading is gone');
+  const block = src.slice(at, src.indexOf('</div>', at));
+  assert.match(block, />Save to my account</);
+  assert.match(block, /Nothing to type/);
+  assert.match(src, /className=\{OAUTH_BUTTON_CLASS\}/, 'the provider buttons are not the login’s');
 });

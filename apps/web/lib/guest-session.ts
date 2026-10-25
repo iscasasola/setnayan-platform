@@ -1,7 +1,7 @@
 import { cache } from 'react';
 import { guestSessionSurvivesTokenCheck } from '@/lib/guest-session-token-rule';
 import { insideRender } from '@/lib/request-once';
-import { SignJWT, jwtVerify } from 'jose';
+import { SignJWT, jwtVerify, type JWTPayload } from 'jose';
 import { cookies } from 'next/headers';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient as createSessionClient } from '@/lib/supabase/server';
@@ -202,11 +202,45 @@ const sessionTokenMatchesDb = cache(
  *
  * ⚠ THE SERVICE-ROLE FALLBACK IS DELIBERATELY KEPT. Two unrelated secrets
  * sharing one value is poor hygiene and it should end — but ending it HERE, in
- * code, is the wrong lever. Production has no dedicated GUEST_SESSION_SECRET
- * today, so deleting the fallback would not "improve" anything; it would sign
- * out every live guest the moment the deploy landed. The correct order is:
- * set GUEST_SESSION_SECRET in Vercel first, accept the one-time sign-out at a
- * moment of the owner's choosing, and only then retire the fallback.
+ * code, is the wrong lever. Production had no dedicated GUEST_SESSION_SECRET
+ * when this was written, so deleting the fallback would not "improve" anything;
+ * it would sign out every live guest the moment the deploy landed.
+ *
+ * 🔁 SETTING THE DEDICATED KEY NO LONGER SIGNS ANYBODY OUT (2026-10-25). It used
+ * to: the moment GUEST_SESSION_SECRET appeared, every live cookie — all of them
+ * sealed with the service-role key — failed to verify. Now there is ONE SIGNER
+ * and up to TWO VERIFIERS (`resolveGuestSessionVerifiers`):
+ *
+ *   · SIGN — always and only with the seal `resolveGuestSessionSecret` picks
+ *     (the dedicated key whenever it is present and long enough). Unchanged.
+ *   · VERIFY — that same seal first; then, ONLY while a dedicated key is the
+ *     signer, the service-role key as a LEGACY verifier. With no dedicated key
+ *     there is exactly one verifier and nothing about the old behaviour moved.
+ *   · RE-ISSUE — a pass the legacy verifier accepted is re-signed with the
+ *     dedicated key on the same response, by the middleware's existing refresh
+ *     path (`guestPassRefreshFor` below, applied in middleware.ts). Same payload,
+ *     same expiry; only the seal changes. So old cookies migrate as guests visit.
+ *
+ * Every fail-closed rule below still holds for BOTH seals: a blank, whitespace or
+ * too-short service-role key is never used as a legacy verifier, and a dedicated
+ * key that is present but too short still refuses outright (it does NOT quietly
+ * fall back to the legacy seal for signing — never sign with a non-secret).
+ * Which seal verified is logged by NAME only — never a value.
+ *
+ * 🗓 RETIRING THE LEGACY VERIFIER (not now — record of when it becomes safe):
+ * every cookie sealed with the service-role key was minted BEFORE the deploy that
+ * first carried GUEST_SESSION_SECRET, and no guest cookie is ever minted with a
+ * lifetime longer than COOKIE_MAX_AGE_SECONDS (60 days; the pass book's own
+ * expiry is the newest of its passes', so it is bounded the same way). So:
+ *   retire it once BOTH hold —
+ *     (1) 60 days (COOKIE_MAX_AGE_SECONDS) plus a day of margin have passed since
+ *         the first production deploy that had GUEST_SESSION_SECRET set, and
+ *     (2) the line "[guest-session] re-sealed a guest pass" has stopped
+ *         appearing in production logs.
+ * Retiring = delete the legacy branch of `resolveGuestSessionVerifiers` (and the
+ * service-role fallback with it, in the same change). Until then, rotating the
+ * database key still signs out the guests who have not yet been re-sealed — and
+ * only them.
  *
  * 🔑 THE REAL COST OF THE SHARED VALUE, stated plainly so it isn't rediscovered:
  * while the fallback is in use, ROTATING THE DATABASE KEY SILENTLY SIGNS OUT
@@ -297,6 +331,89 @@ export function resolveGuestSessionSecret(
   }
 
   return { ok: true, material: picked.material, source: picked.source };
+}
+
+export type GuestSessionSeal = { material: string; source: SecretSource };
+
+export type GuestSessionVerifiers =
+  | { ok: true; seals: GuestSessionSeal[] }
+  | { ok: false; reason: string };
+
+/**
+ * The seals a guest token may be VERIFIED with, in order (see "SETTING THE
+ * DEDICATED KEY NO LONGER SIGNS ANYBODY OUT" above):
+ *
+ *   · the signer, always first — exactly `resolveGuestSessionSecret`'s pick, so
+ *     an unusable signer leaves NO verifier (fail closed, as before);
+ *   · then the service-role key as the LEGACY verifier — only when the signer is
+ *     the dedicated key, only when the service-role key itself passes the same
+ *     blank/whitespace/too-short judgement, and never when it is byte-identical
+ *     to the signer (that would be one seal listed twice).
+ *
+ * With no dedicated key the list is the single service-role seal: unchanged.
+ */
+export function resolveGuestSessionVerifiers(env: SecretEnv = process.env): GuestSessionVerifiers {
+  const signer = resolveGuestSessionSecret(env);
+  if (!signer.ok) return { ok: false, reason: signer.reason };
+  const seals: GuestSessionSeal[] = [{ material: signer.material, source: signer.source }];
+  if (signer.source === 'dedicated') {
+    const legacy = presentValue(env.SUPABASE_SERVICE_ROLE_KEY);
+    if (legacy && legacy.trim().length >= MIN_SECRET_CHARS && legacy !== signer.material) {
+      seals.push({ material: legacy, source: 'service_role' });
+    }
+  }
+  return { ok: true, seals };
+}
+
+/**
+ * Every material a guest-seal token or tag may be CHECKED against — signer first.
+ * For the other short-lived tokens keyed with this seal (the live-screen pairing,
+ * the venue wall's cookie, the Papic queued-shot tag), so setting the dedicated
+ * key does not unpair a screen or strand a queued shot either. Empty when no
+ * usable seal exists. Never use this to SIGN.
+ */
+export function guestSessionVerifyMaterials(env: SecretEnv = process.env): string[] {
+  const v = resolveGuestSessionVerifiers(env);
+  return v.ok ? v.seals.map((s) => s.material) : [];
+}
+
+/** The env var's NAME for a seal — the only thing about a seal that is ever logged. */
+function sealName(source: SecretSource): string {
+  return source === 'dedicated' ? 'GUEST_SESSION_SECRET' : 'SUPABASE_SERVICE_ROLE_KEY';
+}
+
+/**
+ * Verify `token` against each seal in order; the first that accepts it wins.
+ * `legacy` = it was accepted by the service-role seal WHILE a dedicated key is
+ * the signer — i.e. it should be re-sealed. A token no seal accepts → null.
+ */
+async function verifyUnderSeals(
+  token: string,
+  seals: readonly GuestSessionSeal[],
+): Promise<{ payload: JWTPayload; source: SecretSource; legacy: boolean } | null> {
+  for (let i = 0; i < seals.length; i += 1) {
+    const seal = seals[i]!;
+    try {
+      const { payload } = await jwtVerify(token, new TextEncoder().encode(seal.material));
+      const legacy = i > 0;
+      if (legacy) noteLegacyVerify(seal.source);
+      return { payload, source: seal.source, legacy };
+    } catch {
+      // not this seal — try the next
+    }
+  }
+  return null;
+}
+
+/** One line per process: the legacy seal is still answering (its NAME only). */
+let legacyNoted = false;
+function noteLegacyVerify(source: SecretSource): void {
+  if (legacyNoted) return;
+  legacyNoted = true;
+  console.warn(
+    `[guest-session] a guest pass verified with the legacy seal ${sealName(source)} — honoured, and re-sealed ` +
+      'with GUEST_SESSION_SECRET on that guest’s next page visit.',
+  );
 }
 
 /**
@@ -433,9 +550,10 @@ async function readHeldPass(
   // silence, on every request, for a deploy-wide fault.
   const resolution = resolveGuestSessionSecret();
   warnOnce(resolution);
-  if (!resolution.ok) return null; // fail closed, but now it is on the record
+  const verifiers = resolveGuestSessionVerifiers();
+  if (!resolution.ok || !verifiers.ok) return null; // fail closed, but now it is on the record
 
-  const active = cookie?.value ? await sessionFromToken(cookie.value, resolution.material) : null;
+  const active = cookie?.value ? await sessionFromToken(cookie.value, verifiers.seals) : null;
   if (!wanted || active?.event_id === wanted || !bookToken) return active;
 
   // This event's pass, from the book — verified by the same seal, DB-checked the same way.
@@ -534,9 +652,14 @@ async function standingOfPass(pass: GuestSessionPayload): Promise<PassStanding> 
   return passStanding({ userId, passGuestId: pass.guest_id, facts, hostPreviewGuestId });
 }
 
-async function sessionFromToken(token: string, material: string): Promise<GuestSessionPayload | null> {
+async function sessionFromToken(
+  token: string,
+  seals: readonly GuestSessionSeal[],
+): Promise<GuestSessionPayload | null> {
   try {
-    const { payload } = await jwtVerify(token, new TextEncoder().encode(material));
+    const verified = await verifyUnderSeals(token, seals);
+    if (!verified) return null;
+    const { payload } = verified;
     if (
       typeof payload.guest_id !== 'string' ||
       typeof payload.event_id !== 'string' ||
@@ -581,6 +704,13 @@ async function checkedSession(session: GuestSessionPayload): Promise<GuestSessio
 export type VerifiedGuestSessionToken = {
   payload: GuestSessionPayload;
   expiresAtSeconds: number;
+  /**
+   * True when only the LEGACY seal (the service-role key, while a dedicated key
+   * signs) accepted it — the middleware re-seals such a pass with the dedicated
+   * key on the same response (`guestPassRefreshFor`). Always false with no
+   * dedicated key.
+   */
+  legacySeal: boolean;
 };
 
 /**
@@ -595,10 +725,13 @@ export async function verifyGuestSessionToken(
 ): Promise<VerifiedGuestSessionToken | null> {
   const resolution = resolveGuestSessionSecret();
   warnOnce(resolution);
-  if (!resolution.ok) return null;
+  const verifiers = resolveGuestSessionVerifiers();
+  if (!resolution.ok || !verifiers.ok) return null;
 
   try {
-    const { payload } = await jwtVerify(token, new TextEncoder().encode(resolution.material));
+    const verified = await verifyUnderSeals(token, verifiers.seals);
+    if (!verified) return null;
+    const { payload } = verified;
     if (
       typeof payload.guest_id !== 'string' ||
       typeof payload.event_id !== 'string' ||
@@ -614,6 +747,7 @@ export async function verifyGuestSessionToken(
         qr_token: payload.qr_token,
       },
       expiresAtSeconds: payload.exp,
+      legacySeal: verified.legacy,
     };
   } catch {
     return null;
@@ -658,15 +792,24 @@ export async function signGuestPassBook(entries: readonly GuestPassBookEntry[]):
 export async function verifyGuestPassBook(
   token: string | null | undefined,
 ): Promise<GuestPassBookEntry[]> {
-  if (!token) return [];
+  return (await verifyGuestPassBookSealed(token)).entries;
+}
+
+/** The same, saying whether only the LEGACY seal accepted the book (→ re-seal it). */
+async function verifyGuestPassBookSealed(
+  token: string | null | undefined,
+): Promise<{ entries: GuestPassBookEntry[]; legacySeal: boolean }> {
+  if (!token) return { entries: [], legacySeal: false };
   const resolution = resolveGuestSessionSecret();
   warnOnce(resolution);
-  if (!resolution.ok) return [];
+  const verifiers = resolveGuestSessionVerifiers();
+  if (!resolution.ok || !verifiers.ok) return { entries: [], legacySeal: false };
   try {
-    const { payload } = await jwtVerify(token, new TextEncoder().encode(resolution.material));
-    return bookFromWire(payload.pb);
+    const verified = await verifyUnderSeals(token, verifiers.seals);
+    if (!verified) return { entries: [], legacySeal: false };
+    return { entries: bookFromWire(verified.payload.pb), legacySeal: verified.legacy };
   } catch {
-    return [];
+    return { entries: [], legacySeal: false };
   }
 }
 
@@ -799,6 +942,56 @@ export async function refreshedPassBook(
   const next = bookWithExp(await verifyGuestPassBook(bookToken), pass, exp);
   if (!next) return 'keep';
   return await bookWrite(next, Math.floor(Date.now() / 1000));
+}
+
+/**
+ * THE MIDDLEWARE'S REFRESH, PURE OVER THE JAR — what to write back on a plain
+ * page read (the caller has already checked `mayRefreshGuestPass`):
+ *
+ *   · the sliding window (unchanged): a verified pass with under 30 days left is
+ *     re-signed with a fresh 60-day expiry, and its book entry slides with it;
+ *   · 🔁 THE RE-SEAL (2026-10-25): a pass, or a book, that only the LEGACY seal
+ *     accepted is re-signed with the signer (the dedicated key) — same payload,
+ *     SAME expiry — so it migrates off the service-role key without anybody
+ *     being signed out. A re-seal is logged by seal NAME, never a value.
+ *
+ * `null` / 'keep' = leave that cookie alone. An unverifiable pass is never
+ * touched (a real page read signs that guest out on its own terms).
+ */
+export async function guestPassRefreshFor(input: {
+  jar: PassJar;
+  nowMs?: number;
+}): Promise<{ active: { value: string; maxAge: number } | null; book: PassCookieWrite | 'keep' }> {
+  const nowMs = input.nowMs ?? Date.now();
+  const nowSeconds = Math.floor(nowMs / 1000);
+  let active: { value: string; maxAge: number } | null = null;
+  let book: PassCookieWrite | 'keep' = 'keep';
+
+  const verified = input.jar.active ? await verifyGuestSessionToken(input.jar.active) : null;
+  if (verified && shouldRefreshGuestSession(verified.expiresAtSeconds, nowMs)) {
+    const exp = nowSeconds + COOKIE_MAX_AGE_SECONDS;
+    active = { value: await signGuestSessionUntil(verified.payload, exp), maxAge: COOKIE_MAX_AGE_SECONDS };
+    book = await refreshedPassBook(input.jar.book, verified.payload, exp);
+  } else if (verified?.legacySeal) {
+    active = {
+      value: await signGuestSessionUntil(verified.payload, verified.expiresAtSeconds),
+      maxAge: Math.max(1, Math.floor(verified.expiresAtSeconds - nowSeconds)),
+    };
+  }
+  if (verified?.legacySeal) {
+    console.info('[guest-session] re-sealed a guest pass: verified by SUPABASE_SERVICE_ROLE_KEY (legacy), re-signed with GUEST_SESSION_SECRET');
+  }
+
+  // The book re-seals on its own — it may be legacy while the active pass is not (or is absent).
+  if (book === 'keep' && input.jar.book) {
+    const sealed = await verifyGuestPassBookSealed(input.jar.book);
+    const live = sealed.entries.filter((e) => e.exp > nowSeconds);
+    if (sealed.legacySeal && live.length > 0) {
+      book = await bookWrite(live, nowSeconds);
+      console.info('[guest-session] re-sealed a guest pass book: verified by SUPABASE_SERVICE_ROLE_KEY (legacy), re-signed with GUEST_SESSION_SECRET');
+    }
+  }
+  return { active, book };
 }
 
 /** Event id → slug from the database (the book's routing hints). */

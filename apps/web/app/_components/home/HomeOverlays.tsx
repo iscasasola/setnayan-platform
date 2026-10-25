@@ -303,7 +303,7 @@ function VendorsOverlay({
       <div className="hr-ov-eyebrow">Free for suppliers</div>
       <h2 className="hr-ov-title">A whole business — free.</h2>
       <p className="hr-ov-sub">
-        Get found, get booked, keep 100%. Free while we launch.
+        Get found, get booked, keep 100%. Free, for good.
       </p>
       <ul className="hr-glist">
         <li>

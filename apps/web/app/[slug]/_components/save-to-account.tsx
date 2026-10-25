@@ -1,12 +1,14 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { ProviderButton } from './provider-button';
+import { AppleIcon, GoogleGIcon, OAUTH_BUTTON_CLASS } from '@/app/_components/oauth-icons';
+import { OAUTH_VERB } from '@/lib/oauth-words';
 import { envFlagEnabled } from '@/lib/env-flag';
 import {
-  SAVE_METHOD_FIELD,
   saveMethodFor,
-  saveMethodLine,
   saveMethodSignsIn,
+  saveProvidersInOrder,
   type GuestAccountState,
   type SaveMethod,
 } from '@/lib/guest-one-path';
@@ -28,9 +30,16 @@ import {
 } from '@/lib/native-account-save';
 
 /**
- * "SAVE TO MY ACCOUNT" — ONE button; the method is chosen by the device and
- * never shown as a choice (owner 2026-09-26, "THE GUEST PATHWAY — ONE BUTTON AT
- * A TIME"; reachable from the thank-you, Me, and on the day — owner 2026-09-27).
+ * "SAVE TO MY ACCOUNT" — reachable from the thank-you, Me, and on the day (owner 2026-09-27).
+ *
+ * 🍏🤖 BOTH PROVIDERS, WHEN BOTH ARE ON (owner 2026-10-25 — asked "Do you want to keep it that way, or show both
+ * Apple and Google buttons to everyone?", answered verbatim: "Show both"). This REVERSES "THE GUEST PATHWAY — ONE
+ * BUTTON AT A TIME" (2026-09-26) FOR THIS OFFER ONLY. With Apple AND Google switched on, both draw as THE LOGIN'S OWN
+ * provider buttons ("Continue with Apple" · "Continue with Google", the brand marks, `OAUTH_BUTTON_CLASS` — equal
+ * size and prominence, as Apple's and Google's button guidelines require) under one heading, "Save to my account ·
+ * Nothing to type"; the device's own (`saveMethodFor`) first (`saveProvidersInOrder`); each posts its own provider and the action opens the one PRESSED
+ * (`saveMethodFromForm`, which refuses a provider that is off). One provider on → that one button. None → "Copy my
+ * link". "Use my email instead" stays under them.
  *
  *   offer          → the device's method (`saveMethodFor`):
  *                      iPhone / iPad → Apple · Android / desktop → Google — both
@@ -49,14 +58,16 @@ import {
  *                    "You're viewing <name>'s invitation as the host." — no press.
  *
  * 📱 INSIDE THE PHONE APP (a build carrying `SetnayanSignIn/1`, 2026-10-04) the
- * same press posts the same action, but through `NativeSaveForm`: the action
+ * same press — whichever provider was pressed — posts the same action, but through `NativeSaveForm`: the action
  * hands back `{ native, next }` instead of redirecting to the provider, and the
  * app's NATIVE sign-in runs (the Apple sheet · Google in the system browser) —
  * so the account lands in the app, not in Safari. Same `next`, same linking
  * path (lib/native-account-save.ts). The web and the desktop app are unchanged.
  *
- * 📵 NO EMAIL, ANYWHERE ON IT (owner 2026-09-29, DECISION_LOG "NO EMAIL TO
- * GUESTS — THE QR AND THE LINK DO EVERYTHING"). The webview arm used to email a
+ * 📵 NO EMAIL IS SENT FROM IT (owner 2026-09-29, DECISION_LOG "NO EMAIL TO
+ * GUESTS — THE QR AND THE LINK DO EVERYTHING"). (The quiet "Use my email
+ * instead" link of 2026-10-25 signs in WITH an email address; it sends none.)
+ * The webview arm used to email a
  * sign-in link, and a guest without an address was asked for one here. Both
  * are gone: inside Messenger the button copies the guest's own link and says
  * how to paste it into Safari or Chrome, where Apple / Google is one tap.
@@ -164,7 +175,7 @@ export function SaveToAccount({
     );
   }
 
-  // offer
+  // offer — the device's method decides the ORDER of the provider buttons (`offerFor`).
   const providers = {
     apple: envFlagEnabled(process.env.NEXT_PUBLIC_OAUTH_APPLE_ENABLED),
     google: envFlagEnabled(process.env.NEXT_PUBLIC_OAUTH_GOOGLE_ENABLED),
@@ -174,7 +185,8 @@ export function SaveToAccount({
      2026-10-19), so the server's pick for it is Google. The browser can tell:
      the Apple block is drawn too, and an Apple touch device swaps to it after
      mount (`AppleOnTouch`). The iPad APP is already Apple above — its marker
-     reaches the server (lib/apple-device.ts). */
+     reaches the server (lib/apple-device.ts). With both providers on (2026-10-25)
+     the swap only changes the ORDER: both blocks hold both buttons. */
   if (method === 'google' && providers.apple && mightBeIpadSafari(userAgent)) {
     return <AppleOnTouch web={offerFor(method)} apple={offerFor('apple')} />;
   }
@@ -190,28 +202,46 @@ export function SaveToAccount({
         method === 'browser' ? <OpenInBrowser link={personalLink} /> : <CopyMyLink link={personalLink} />
       ) : null;
     const termsTick = <TermsTick />;
-    const button = (
-      <SubmitButton
-        name="then"
-        value="keep"
-        className="button-primary flex h-auto min-h-[56px] w-full flex-col items-center justify-center gap-0.5 py-2.5"
-        pendingLabel={method === 'apple' ? 'Opening Apple…' : 'Opening Google…'}
-        /* No full-screen veil: the press leaves for the provider's site, whose page
-           has no loader of ours to take the veil down — a stalled or abandoned
-           sign-in left the whole screen covered (owner's live test 2026-10-02). */
-        overlay={false}
-      >
-        <span className="text-base">Save to my account</span>
-        <span className="text-xs font-normal">
-          {saveMethodLine(method)}
-          {carries ? ` — ${carries}` : null}
-        </span>
-      </SubmitButton>
+    /* 🍏🤖 THE PROVIDER BUTTONS (owner 2026-10-25, "Show both") — THE LOGIN'S OWN BUTTONS, not a drawing of our own
+       (Rule 0; controller 2026-10-25: Apple's HIG wants Sign in with Apple in an approved style and at least as
+       prominent as any other, Google's guidelines want the G and their button). Same chrome as /login's row
+       (`OAUTH_BUTTON_CLASS`), the same marks (`AppleIcon` · `GoogleGIcon`), the same words (`OAUTH_VERB`):
+       "Continue with Apple" · "Continue with Google", identical in size. The device's own first. Each posts its OWN
+       provider (`ProviderButton` → `SAVE_METHOD_FIELD`), so the action opens the provider the guest pressed and no
+       other (`saveMethodFromForm`, lib/guest-one-path.ts). "Save to my account" is the heading over them. */
+    const order = saveProvidersInOrder(method, providers);
+    const heading = (
+      <div className="text-center" data-save-heading="">
+        <p className="text-base font-medium text-ink">Save to my account</p>
+        <p className="text-xs text-ink/70">
+          Nothing to type{carries ? ` — ${carries}` : null}
+        </p>
+      </div>
     );
-    /* 🔒 The method the button SAYS rides with the press, so the action opens that
-       provider and no other (`saveMethodFromForm`, lib/guest-one-path.ts). */
-    const chosen = <input type="hidden" name={SAVE_METHOD_FIELD} value={method} />;
-    // The way back when the provider does not open (`ProviderStall`).
+    const button = (
+      <>
+        {heading}
+        <div className="space-y-2.5">
+          {order.map((m) => (
+            <ProviderButton
+              key={m}
+              method={m}
+              className={OAUTH_BUTTON_CLASS}
+              pendingLabel={m === 'apple' ? 'Opening Apple…' : 'Opening Google…'}
+              /* No full-screen veil: the press leaves for the provider's site, whose page
+                 has no loader of ours to take the veil down — a stalled or abandoned
+                 sign-in left the whole screen covered (owner's live test 2026-10-02). */
+              overlay={false}
+              data-save-provider={m}
+            >
+              {m === 'apple' ? <AppleIcon fill="#000000" /> : <GoogleGIcon />}
+              {`${OAUTH_VERB} ${m === 'apple' ? 'Apple' : 'Google'}`}
+            </ProviderButton>
+          ))}
+        </div>
+      </>
+    );
+    // The way back when the provider does not open (`ProviderStall` names the one PRESSED).
     const stall = signsIn ? <ProviderStall provider={method === 'apple' ? 'Apple' : 'Google'} /> : null;
     const refused = termsMissing ? (
       <p role="alert" className="text-sm text-terracotta-700">
@@ -235,7 +265,6 @@ export function SaveToAccount({
               {through.fields}
               {termsCarried ? null : termsTick}
               {nativeField}
-              {chosen}
               {button}
               {stall}
               {through.after}
@@ -246,7 +275,6 @@ export function SaveToAccount({
               {signsIn && !termsCarried ? termsTick : null}
               {signsIn ? (
                 <>
-                  {chosen}
                   {button}
                   {stall}
                 </>
@@ -271,6 +299,26 @@ export function SaveToAccount({
       ) : null;
     }
     const returnTo = <input type="hidden" name="return_to" value={INVITE_RETURN} />;
+    /* ✉️ "USE MY EMAIL INSTEAD" (owner 2026-10-25, "If you have recommendation that
+       follow our design go for it"). One quiet text link under the provider button(s) for a
+       guest without Apple / Google to hand: the SHIPPED email sign-in (/login, whose
+       card links to /signup with the same `next`) returning to the SAME place the
+       button does — `/join/{eventId}/connect`, the seat-binding door, exactly as the
+       `sign_in` state above. No new auth, and 📵 no email is SENT by this: password
+       sign-in sends nothing, and an event sign-up gets no welcome email
+       (`welcomeEmailKind` → null for `isEventSignup`). A text link, not a frame —
+       the provider buttons stay the main action. Guarded by `use-my-email-instead.test.ts`. */
+    const emailInstead = (
+      <p className="text-center">
+        <Link
+          href={`/login?next=${encodeURIComponent(`/join/${eventId}/connect`)}`}
+          className="inline-flex min-h-[44px] items-center text-xs text-ink/70 underline underline-offset-2 hover:text-ink"
+          data-save-email-instead=""
+        >
+          Use my email instead
+        </Link>
+      </p>
+    );
     return (
       <div className="space-y-2" data-save-method={method}>
         {refused}
@@ -279,7 +327,6 @@ export function SaveToAccount({
             {returnTo}
             {termsCarried ? null : termsTick}
             {nativeField}
-            {chosen}
             {button}
             {stall}
           </NativeSaveForm>
@@ -287,11 +334,11 @@ export function SaveToAccount({
           <form action={startAccountSaveAction.bind(null, eventId, slug) as WebFormAction} className="space-y-3">
             {returnTo}
             {termsCarried ? null : termsTick}
-            {chosen}
             {button}
             {stall}
           </form>
         )}
+        {emailInstead}
         {why}
       </div>
     );

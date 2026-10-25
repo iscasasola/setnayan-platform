@@ -12,6 +12,22 @@
  * nominative-use sign-in affordances, not app-icon copies.
  */
 
+/**
+ * THE ONE GOOGLE / APPLE BUTTON CHROME — the white button with the brand mark, as /login, /signup, the desktop app's
+ * and the phone app's rows draw it, and (owner 2026-10-25, "Show both") the guest's "Save to my account". One string,
+ * so every door's provider buttons are the same buttons: equal size, equal prominence (Apple's HIG: Sign in with
+ * Apple at least as prominent as the others), the black Apple glyph on white being Apple's sanctioned style.
+ *
+ * 🌙 `ink-on-light`, not `ink`: the button's fill is a literal white that never darkens, so its words and edge take
+ * the ink for a surface that STAYS light (`--color-ink-on-light`, falling back to `--color-ink`). On every light page
+ * that fallback is the same ink as before — byte-identical; on a dark look (Candlelight, a dark theme) the label
+ * stays dark on its white instead of following the page's cream ink onto white (measured 2026-10-25: cream on white).
+ * The obsidian dark-rail variant was removed with the obsidian login, so this white button is the one variant, on any
+ * ground (white with the black glyph is one of Apple's sanctioned styles on a dark background).
+ */
+export const OAUTH_BUTTON_CLASS =
+  'flex min-h-[44px] w-full items-center justify-center gap-3 rounded-md border border-ink-on-light/20 bg-white px-4 py-2.5 text-sm font-medium text-ink-on-light/90 transition-colors hover:border-ink-on-light/40 hover:bg-ink-on-light/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta/40';
+
 export function GoogleGIcon() {
   return (
     <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" aria-hidden role="img" focusable={false}>

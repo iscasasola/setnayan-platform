@@ -9,7 +9,8 @@ import { browserStorage, readRecentColours, recentColourKey, rememberRecentColou
 import { customColourInput } from '@/lib/colour-name-search';
 import { useLastSeenScope } from '@/app/_components/last-seen/last-seen-scope';
 import { PickSheetContext, pickOpensAsSheet } from '../../../website/editor/_components/pick-menu-place';
-import { POPUP_DARK, POPUP_SCRIM, usePopupBehind } from '@/lib/use-popup-behind';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
+import { usePopupBehind } from '@/lib/use-popup-behind';
 
 /**
  * 🎨 THE COLOUR PICKER — THE ONE (owner 2026-10-06, DECISION_LOG "AUTO PALETTE BESIDE SAVED — AND A
@@ -318,7 +319,7 @@ export function StudioSheet({ label, onClose, children }: { label: string; onClo
  * 🌑 THE SAME POP-UP WHERE THERE IS NO MAKER SHEET (a computer; the Mood Board and the Logo on their own pages) —
  * UNDER THE POP-UP RULE (owner 2026-10-08, `INTERACTION_RULES.md` § 9): the rest of the screen is dark AND blurred
  * (`.sn-popup-dark`, never a wash of this file's own), nothing behind works or scrolls, Escape closes and Tab stays
- * inside (`usePopupBehind`), and a tap on the dark closes it. Held by `lib/every-stages-popup-follows-the-rule.test.ts`.
+ * inside (`usePopupBehind`), and a tap on the dark closes it — the dark IS the close button (`<OverlayBackdrop>`). Held by `lib/every-stages-popup-follows-the-rule.test.ts`.
  */
 export function StudioPopup({ label, onClose, children }: { label: string; onClose: () => void; children: ReactNode }) {
   const root = useRef<HTMLDivElement>(null);
@@ -326,8 +327,7 @@ export function StudioPopup({ label, onClose, children }: { label: string; onClo
   usePopupBehind({ root, panel, onClose });
   return (
     <div ref={root} className="fixed inset-0 z-[95] flex items-end justify-center sm:items-center" data-studio-sheet="">
-      <button type="button" aria-label="Close" data-studio-sheet-scrim="" onClick={onClose} className={POPUP_SCRIM} />
-      <span aria-hidden className={POPUP_DARK} />
+      <OverlayBackdrop onClose={onClose} />
       <div
         ref={panel}
         role="dialog"

@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "a612993d81",
-  "routeCount": 470,
+  "generatedFromRef": "01c58ee4df",
+  "routeCount": 471,
   "destinations": 1009,
   "actions": 665,
-  "blocks": 7049,
+  "blocks": 7073,
   "routes": {
     "/": {
       "files": [
@@ -541,23 +541,30 @@
       "files": [
         "(shell)/pricing/_papic-estimator.tsx",
         "(shell)/pricing/_pricing-motion.tsx",
+        "(shell)/pricing/_pricing-pickers.tsx",
         "(shell)/pricing/loading.tsx",
         "(shell)/pricing/page.tsx"
       ],
       "destinations": [
         "/creators",
         "/for-suppliers",
-        "/onboarding/wedding?from=pricing"
+        "/signup"
       ],
       "actions": [],
       "blocks": [
+        "AddItem",
+        "AiTypeItem",
         "BuildStatusChip",
+        "ElsewhereLine",
         "HTMLDivElement",
         "HTMLHeadingElement",
         "HTMLParagraphElement",
+        "HubProWays",
+        "InfoTip",
         "LineRevealHeading",
         "Link",
         "PapicEstimator",
+        "PickMenu",
         "RevealBand"
       ]
     },
@@ -687,6 +694,19 @@
         "SpotlightSection"
       ]
     },
+    "/(shell)/start": {
+      "files": [
+        "(shell)/start/_components/start-type-grid.tsx",
+        "(shell)/start/loading.tsx",
+        "(shell)/start/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "EventTypePhotoPicker",
+        "StartTypeGrid"
+      ]
+    },
     "/(shell)/suppliers/(index)": {
       "files": [
         "(shell)/suppliers/(index)/loading.tsx",
@@ -802,6 +822,8 @@
         "[slug]/_components/announcement-look.tsx",
         "[slug]/_components/announcement-styles.tsx",
         "[slug]/_components/apple-on-touch.tsx",
+        "[slug]/_components/apple-wallet-button.tsx",
+        "[slug]/_components/apple-wallet-sheet-link.tsx",
         "[slug]/_components/arrival-action.tsx",
         "[slug]/_components/arrival-greeting.tsx",
         "[slug]/_components/art-kit-motion.tsx",
@@ -927,8 +949,10 @@
         "[slug]/_components/photos-of-you-gallery.tsx",
         "[slug]/_components/photos-of-you-styles.tsx",
         "[slug]/_components/play-sequence.ts",
+        "[slug]/_components/plus-one-seat-list.tsx",
         "[slug]/_components/preview-way-back.tsx",
         "[slug]/_components/private-landing.tsx",
+        "[slug]/_components/provider-button.tsx",
         "[slug]/_components/provider-stall.tsx",
         "[slug]/_components/public-event-day-bar.tsx",
         "[slug]/_components/public-hideable-widget.tsx",
@@ -959,10 +983,12 @@
         "[slug]/_components/rsvp-canvas-parts.ts",
         "[slug]/_components/rsvp-lines.tsx",
         "[slug]/_components/rsvp-look-style.tsx",
+        "[slug]/_components/rsvp-name-correction.tsx",
         "[slug]/_components/rsvp-note-lines.tsx",
         "[slug]/_components/rsvp-one-at-a-time.tsx",
         "[slug]/_components/rsvp-plus-ones.tsx",
         "[slug]/_components/rsvp-question-class.ts",
+        "[slug]/_components/rsvp-seats.tsx",
         "[slug]/_components/rsvp-sheet-state.ts",
         "[slug]/_components/rsvp-sheet.tsx",
         "[slug]/_components/rsvp-styles.tsx",
@@ -1137,7 +1163,10 @@
         "AnnouncementLine",
         "AnnouncementLook",
         "AnnouncementNotice",
+        "AppleIcon",
         "AppleOnTouch",
+        "AppleWalletButton",
+        "AppleWalletSheetLink",
         "ArrangedSheet",
         "ArrivalActionRow",
         "ArrivalGreeting",
@@ -1258,6 +1287,7 @@
         "GiftPageContent",
         "GlimpseRail",
         "GlowBlob",
+        "GoogleGIcon",
         "GracefulFallback",
         "GrainFrame",
         "GroupHeading",
@@ -1286,6 +1316,7 @@
         "HTMLAudioElement",
         "HTMLButtonElement",
         "HTMLCanvasElement",
+        "HTMLDialogElement",
         "HTMLDivElement",
         "HTMLElement",
         "HTMLFormElement",
@@ -1445,6 +1476,7 @@
         "PreviousEdition",
         "PrivateLanding",
         "ProgressRing",
+        "ProviderButton",
         "ProviderStall",
         "PublicEventDayBar",
         "PublicHideableWidget",
@@ -1489,11 +1521,13 @@
         "RsvpFocusForm",
         "RsvpLines",
         "RsvpLookStyle",
+        "RsvpNameCorrection",
         "RsvpOneAtATime",
         "RsvpOneAtATimeLive",
         "RsvpPill",
         "RsvpPlusOnes",
         "RsvpQuestionHeader",
+        "RsvpSeats",
         "RsvpSheet",
         "RsvpStatus",
         "RsvpStepNext",
@@ -1530,6 +1564,7 @@
         "SeatFloorPlan",
         "SeatPlaceCard",
         "SeatTableNumber",
+        "SeatTile",
         "SeatingScene",
         "SectionEmptyPlate",
         "SectionRule",
@@ -1828,6 +1863,7 @@
       ],
       "actions": [],
       "blocks": [
+        "AppleWalletButton",
         "ArrivalLoading",
         "DoorNotice",
         "DoorShell",
@@ -1840,6 +1876,7 @@
         "Link",
         "LinkPreviewAnswer",
         "PassHopHeld",
+        "PlusOneSeatList",
         "ReplyWindowNote",
         "RsvpCanvasBridge",
         "RsvpLookStyle",
@@ -2268,6 +2305,7 @@
         "Screen",
         "Sk",
         "Suspense",
+        "TermsReacceptSheet",
         "Tile",
         "UnreadBellBadge",
         "WhatYouChange"
@@ -11201,6 +11239,7 @@
       "destinations": [],
       "actions": [],
       "blocks": [
+        "AppleWalletButton",
         "ClosingLine",
         "CountdownWidget",
         "CoverPlayOpening",
@@ -11242,6 +11281,7 @@
         "PahinaMasthead",
         "PahinaMotionObserver",
         "PahinaMotionRootFlag",
+        "PlusOneSeatList",
         "ReplyCardRow",
         "ReplyPanel",
         "ReplyWindowNote",
@@ -11300,6 +11340,7 @@
         "LabHostRequests",
         "Link",
         "MeFor",
+        "MeKeepInvitation",
         "MeStageLab",
         "PeopleRosterView",
         "ScanTrailForm",
@@ -13346,6 +13387,7 @@
         "Suspense",
         "SyncResult",
         "TapMark",
+        "TermsReacceptSheet",
         "ThumbFit",
         "TodayEyebrow",
         "TodayFigure",

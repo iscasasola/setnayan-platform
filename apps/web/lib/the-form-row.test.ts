@@ -284,10 +284,11 @@ test('(8) the ⓘ is its own 44-px button: a centred popup with "Got it" on a ph
   assert.doesNotMatch(html, /Got it|role="dialog"/, 'the explanation is drawn before it is asked for');
   const src = read(EXPLAIN);
   // The pop-up rule, on a phone: dark + blurred, nothing behind works, the page does not scroll, the dark closes.
-  assert.match(src, /<span aria-hidden className="sn-popup-dark pointer-events-none absolute inset-0" \/>/, 'the rest of the screen is not darkened and blurred');
+  // ⤷ 2026-10-25: the dark IS the close button (`<OverlayBackdrop>`) — a separate close layer under it went inert.
+  assert.match(src, /<OverlayBackdrop onClose=\{onClose\} \/>/, 'the rest of the screen is not darkened and blurred, or a tap on it does not close');
+  assert.doesNotMatch(src, /pointer-events-none absolute inset-0/, 'a dark that takes no tap is back over a separate close layer');
   assert.match(src, /return el \? inertBehind\(el\) : undefined;/, 'what is behind the popup still works');
   assert.match(src, /useModalA11y\(\{ open: true, onClose, containerRef: panel, initialFocusRef: got \}\);/);
-  assert.match(src, /<button type="button" aria-label="Close" data-explain-scrim="" onClick=\{onClose\}/, 'a tap on the dark does not close it');
   assert.match(src, /role="dialog"\s*aria-modal="true"/);
   assert.match(src, /data-explain-got-it=""\s*onClick=\{onClose\}[^>]*>\s*Got it\s*<\/button>/);
   assert.match(src, /max-h-\[calc\(100dvh-48px\)\]/, 'the popup can be taller than the screen');

@@ -22,7 +22,7 @@ import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { resolveGuestSessionSecret } from '@/lib/guest-session';
+import { guestSessionVerifyMaterials, resolveGuestSessionSecret } from '@/lib/guest-session';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { resolveCapturerNames } from '@/lib/capture-credit';
 import { getDayOfPhase, type DayOfPhase } from '@/lib/day-of-mode';
@@ -73,15 +73,21 @@ export async function readWallDisplayCookie(): Promise<WallDisplaySession | null
   const cookieStore = await cookies();
   const cookie = cookieStore.get(COOKIE_NAME);
   if (!cookie?.value) return null;
-  try {
-    const { payload } = await jwtVerify(cookie.value, getSecret());
-    if (typeof payload.session_id !== 'string' || typeof payload.event_id !== 'string') {
-      return null;
+  // Signed with the guest seal; checked against it AND, while a dedicated key is
+  // new, the legacy one — so setting GUEST_SESSION_SECRET never blanks a venue
+  // wall mid-day (lib/guest-session.ts, "SETTING THE DEDICATED KEY…").
+  for (const material of guestSessionVerifyMaterials()) {
+    try {
+      const { payload } = await jwtVerify(cookie.value, new TextEncoder().encode(material));
+      if (typeof payload.session_id !== 'string' || typeof payload.event_id !== 'string') {
+        return null;
+      }
+      return { session_id: payload.session_id, event_id: payload.event_id };
+    } catch {
+      // not this seal — try the next
     }
-    return { session_id: payload.session_id, event_id: payload.event_id };
-  } catch {
-    return null;
   }
+  return null;
 }
 
 /** A claimed screen is valid while its session row is unrevoked. */

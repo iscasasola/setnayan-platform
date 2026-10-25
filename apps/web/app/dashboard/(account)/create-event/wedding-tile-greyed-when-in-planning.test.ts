@@ -83,7 +83,9 @@ test('picker: tapping Wedding while one is in planning never reaches the onboard
   const body = extractBalanced(src, 'function handleSelect(');
 
   const guardIdx = body.indexOf(`type.key === 'wedding' && inPlanningWedding`);
-  const redirectIdx = body.indexOf('router.replace(withNext(type.onboardingHref))');
+  // The redirect reads its target from the shared rule (`onboardingRouteFor`, 2026-10-25 — the public
+  // `/start` picker uses the same one), so the branch is the `router.replace(withNext(route))` it feeds.
+  const redirectIdx = body.indexOf('router.replace(withNext(route))');
   assert.ok(guardIdx >= 0, 'handleSelect must check the in-planning state for Wedding');
   assert.ok(redirectIdx >= 0, 'the onboardingHref redirect branch should still exist for every other type');
   assert.ok(

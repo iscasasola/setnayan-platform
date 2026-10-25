@@ -1,0 +1,25 @@
+## 2026-10-25 · feat(wallet): Add to Apple Wallet switched ON for everyone — beside "Save my ticket", iPhone only, never without a signable pass
+
+- **No switch.** `WALLET_PASS_ENABLED` is gone and there is no `is_internal` gate (owner 2026-10-25: *"any build that we have should not be for internal only"*). `appleWalletOffered()` (lib/wallet-pass-config.server.ts) now answers from a real **probe signature** (`probeSigner`, lib/wallet-pass-pkpass.ts — same readers as `buildPkpass`; certificate in date; key is the certificate's own), once per instance, node-forge loaded on demand. A missing or broken set draws nothing.
+- **Honest failure.** If the route still cannot make a pass it answers with a small page — "Couldn't make your Wallet pass — Save my ticket instead." + the way back — never a broken download.
+- **Signed out → one way back in** (owner 2026-10-25, matching #6910's Save my ticket): the route's no-session case is no longer a bare plain-text 401 but the same small page — "Your sign-in on this phone ended.", the ⓘ "Nothing you sent is lost…", and ONE "Get back in" to the Event Hub path the guest pressed from (same-site `Referer`, path only; else `/`).
+- **Where.** Under the guest's own "Save my ticket" on Me (`GuestTicket`), the thank-you page, and now also its "ticket updated" pop-up (`TicketPopup`). **Who:** iPhone/iPad only — Mac Safari dropped (owner: Android/desktop nothing new). Messenger keeps the Safari hand-off; inside the Setnayan iOS app the button opens the guest's own link in the in-app browser sheet (`AppleWalletSheetLink` → `openEventHub`), drawn only when that build carries the Browser plugin.
+- **Pass truth.** The lock-screen time now follows the printed ARRIVE (the guest's own call time); the arrive moment is main's `guestsArriveTime` (merge with origin/main), its raw start read from the same moment (`guestsArriveSource`).
+- Guard `lib/the-wallet-button-stands-beside-save-my-ticket.test.ts` (rendered `GuestTicket`, per-component mount counts, an iPhone-only UA table, the probe over five broken sets), sabotaged three ways.
+
+SPEC IMPACT: DECISION_LOG.md row 2026-10-25 "ADD TO APPLE WALLET IS ON FOR EVERYONE" (applied directly in the corpus).
+
+## 2026-10-15 · feat(wallet): Add to Apple Wallet — the guest's own ticket as a signed .pkpass (flag-dark — switched on 2026-10-25, above)
+
+- **The pass is the ticket.** `lib/wallet-pass.ts` (pure) builds `pass.json` for an `eventTicket` from the SAME kit and `passCardPass` the saved PNG is drawn from: couple, date, arrive, venue NAME (never the address — dropped if it carries `venue_address`), guest in the Name style, "and 1 guest", the table only from the event day (`readTicketSeats`). The QR message is the PNG's own string (`buildInvitationUrl`, decoded back to the token by the door desk's `parseGuestQrPayload` in the test). No `altText`, no `locations`, no `expirationDate`, `sharingProhibited`. Lock-screen time = the parked-UTC wall clock read as Manila. Colours = the ticket look with contrast fallbacks.
+- **Signed.** `lib/wallet-pass-pkpass.ts`: SHA-1 manifest + detached PKCS#7 (node-forge 1.4.0, pinned — Node cannot write CMS; the key is decrypted by Node). Every failure is a fixed sentence naming a step, never a value.
+- **Route.** `GET /api/guest/wallet/apple` — the guest session for ITSELF only (no `?guest=`, no host, no pending request), the PNG's one 404 for every refusal, `private, no-store`. OFF unless `WALLET_PASS_ENABLED` is on AND the six Apple env vars are present (read by name in ONE module, `lib/wallet-pass-config.server.ts`).
+- **Button.** "Add to Apple Wallet" under "Save my ticket" on Me and the thank-you, Apple devices / Mac Safari only; the iPhone in-app browser gets the existing Safari hand-off. Plain link until Apple's official badge artwork is committed (`APPLE_WALLET_BADGE_SRC`).
+- **Secrets board** row `apple_wallet_pass` (expires 2027-11-12). Guard `the-wallet-pass-keeps-its-secrets.test.ts` (one reader; no console/log of a value on the path), sabotaged three ways.
+- Static route: +0 Vercel routes. Google Wallet: deferred by the owner.
+
+SPEC IMPACT: None in this PR. Builds Phase A (Apple half) of controller-2026-10-12/WALLET_PASS_PLAN_2026-10-13.md under the DECISION_LOG 2026-10-13 ruling, taking the plan's §5 recommendations Q2 · Q3 · Q5 · Q6 · Q7 · Q9 as written — they still want the owner's DECISION_LOG row.
+
+## 2026-10-25 · feat(wallet): Apple's official Add to Apple Wallet badge
+Owner downloaded Apple's badge files after accepting the Wallet Marketing Artwork License ("You can download it"). The English RGB SVG is committed unmodified under `public/brand/apple-wallet/` with a SOURCE note; the download link now draws the badge (48 px). Falls back to the plain button if `APPLE_WALLET_BADGE` is null.
+SPEC IMPACT: None.

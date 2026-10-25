@@ -94,10 +94,10 @@ test('2 · 🍎 the iPad APP is offered Sign in with Apple wherever Google would
   assert.equal(saveMethodFor(IPHONE_APP, BOTH), 'apple');
   assert.equal(saveMethodFor(ANDROID_APP, BOTH), 'google');
   assert.equal(saveMethodFor(MAC_SAFARI, BOTH), 'google', 'a Mac is unchanged');
-  // …and the rendered button says it and carries it.
+  // …and the rendered FIRST button says it and carries it (2026-10-25 "Show both": Google draws under it).
   const html = await renderSave(IPAD_APP);
-  assert.match(html, /with Apple · nothing to type/, 'the iPad app’s button does not say Apple');
-  assert.match(html, /name="save_method" value="apple"/, 'the iPad app’s press does not carry Apple');
+  assert.match(html, /Continue with Apple/, 'the iPad app’s button does not say Apple');
+  assert.deepEqual(pressOrder(html), ['apple', 'google'], 'the iPad app’s first press does not carry Apple');
   // The other pieces read the same device.
   assert.equal(homeScreenStepsFor(IPAD_APP).length, 1);
   assert.match(homeScreenStepsFor(IPAD_APP)[0]!.phone, /iPad/);
@@ -112,9 +112,10 @@ test('3 · 🍎 iPad Safari: the server draws the Apple block beside the Mac one
   assert.equal(el.type, AppleOnTouch, 'iPad Safari is handed the Mac’s Google button with no way to Apple');
   const { web, apple } = el.props as { web: React.ReactNode; apple: React.ReactNode };
   const appleHtml = renderToStaticMarkup(React.createElement(React.Fragment, null, apple));
-  assert.match(appleHtml, /with Apple · nothing to type/);
-  assert.match(appleHtml, /name="save_method" value="apple"/, 'the swapped-in button would open Google');
-  assert.match(renderToStaticMarkup(React.createElement(React.Fragment, null, web)), /value="google"/);
+  assert.match(appleHtml, /Continue with Apple/);
+  // 🍏🤖 2026-10-25 ("Show both"): both blocks hold both buttons — the swap decides only the ORDER.
+  assert.deepEqual(pressOrder(appleHtml), ['apple', 'google'], 'the swapped-in block does not put Apple first');
+  assert.deepEqual(pressOrder(renderToStaticMarkup(React.createElement(React.Fragment, null, web))), ['google', 'apple']);
   // Every other browser-side reading takes the touch points too.
   assert.equal(unblockSteps({ userAgent: IPAD_SAFARI, maxTouchPoints: IPAD_TOUCH }).platform, 'iPhone or iPad', 'iPad Safari is told "Safari on Mac"');
   assert.equal(unblockSteps({ userAgent: MAC_SAFARI, maxTouchPoints: 0 }).platform, 'Safari on Mac');
@@ -248,6 +249,14 @@ function withProviders<T>(fn: () => T): T {
     delete process.env.NEXT_PUBLIC_OAUTH_APPLE_ENABLED;
     delete process.env.NEXT_PUBLIC_OAUTH_GOOGLE_ENABLED;
   }
+}
+
+/** The provider each Save press carries, in drawn order (the button's own `name="save_method"` + `value`). */
+function pressOrder(html: string): string[] {
+  return [...html.matchAll(/<button\b[^>]*>/g)]
+    .map(([b]) => b)
+    .filter((b) => b.includes('name="save_method"'))
+    .map((b) => /\svalue="([a-z]+)"/.exec(b)?.[1] ?? '?');
 }
 
 async function renderSave(userAgent: string): Promise<string> {

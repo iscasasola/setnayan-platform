@@ -326,6 +326,8 @@ export const CANDLELIGHT_WORD_TOKENS: Readonly<Record<string, string>> = {
   '--color-mulberry-700': '201 163 106',
   '--color-terracotta-600': '201 163 106',
   '--color-terracotta-700': '201 163 106',
+  '--color-link': '157 178 206',
+  '--color-link-600': '175 194 218',
 };
 
 /**

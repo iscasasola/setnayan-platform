@@ -1,5 +1,10 @@
+import { formatCount } from '@/lib/format-number';
+import { FREE_THEMES, PRO_THEMES } from '@/lib/invite-themes';
 import Link from 'next/link';
+import type { ReactNode } from 'react';
 import { ArrowRight, Check, Sparkles, Brush, Clock3 } from 'lucide-react';
+import { InfoTip } from '@/app/_components/info-tip';
+import { PAPIC_FREE_CREDIT_CONDITION } from '@/lib/papic-free-credit-promise';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
   fetchV2CustomerCatalog,
@@ -34,6 +39,12 @@ import { COMMISSION_PCT, supplierCommissionShort } from '@/lib/commission-promis
 import { getLiveBookingFeeSchedule } from '@/lib/booking-fee-settings.server';
 import { resolveAiPrices } from '@/app/_components/home/pricing-data';
 import { BRAND_OG_IMAGES, BRAND_TWITTER_IMAGES } from '@/lib/brand-og';
+import { HUB_PARTS, HUB_PART_SKUS } from '@/lib/hub-parts';
+import { PASS_CARD_DESIGNS } from '@/lib/pass-card';
+import { AI_TIER_SKU } from '@/lib/setnayan-ai-type-pricing';
+import { ELSEWHERE, aboutPhp, elsewhereOneEventPhp } from '@/lib/pricing-elsewhere';
+// The page's two dropdowns (Event Hub "Get it as", Setnayan AI's event type) — client; figures arrive formatted.
+import { HubProWays, AiTypeItem, type AiTypeOption } from './_pricing-pickers';
 
 /**
  * Force dynamic rendering · skip static prerender.
@@ -133,6 +144,140 @@ function BuildStatusChip({ status }: { status: BuildStatus }) {
       <Brush aria-hidden className="h-3 w-3" strokeWidth={1.75} />
       Coming soon
     </span>
+  );
+}
+
+/**
+ * The rows /pricing reads that `fetchV2CustomerCatalog` leaves out ON PURPOSE: the eleven Event Hub Pro parts (kept off
+ * the add-on grid — they are listed inside the Event Hub Pro item's "Just the parts you need", owner 2026-10-25,
+ * prototype revision 4) and Setnayan AI's price-source rows B · C · D (is_active=false — they price an event type, they
+ * are not sold on their own). Read-only; an unreadable read returns no rows, and a missing row draws no figure.
+ */
+type PricingExtraRow = {
+  service_code: string;
+  retail_price_php: number | null;
+  onboarding_price_php: number | null;
+  is_active: boolean | null;
+};
+async function readPricingExtras(): Promise<PricingExtraRow[]> {
+  let admin;
+  try {
+    admin = createAdminClient();
+  } catch {
+    return [];
+  }
+  const aiCodes = Object.values(AI_TIER_SKU).filter((c): c is string => c !== null);
+  const { data, error } = await admin
+    .from('platform_retail_catalog_v2')
+    .select('service_code, retail_price_php, onboarding_price_php, is_active')
+    .in('service_code', [...HUB_PART_SKUS, ...aiCodes]);
+  if (error || !data) {
+    if (error) console.error('[supabase-error] app/(shell)/pricing/page.tsx · from:platform_retail_catalog_v2 (parts + AI tiers)', error);
+    return [];
+  }
+  return (data as PricingExtraRow[]).map((r) => ({
+    service_code: r.service_code,
+    retail_price_php: r.retail_price_php == null ? null : Number(r.retail_price_php),
+    onboarding_price_php: r.onboarding_price_php == null ? null : Number(r.onboarding_price_php),
+    is_active: r.is_active,
+  }));
+}
+
+/** Setnayan AI's event-type bands, in the dropdown's words (prototype revision 4; bands `lib/setnayan-ai-type-pricing.ts`). */
+const AI_TYPE_WORDS: ReadonlyArray<{ band: 'A' | 'B' | 'C' | 'D'; label: string }> = [
+  { band: 'A', label: 'wedding' },
+  { band: 'B', label: 'debut, corporate or gala' },
+  { band: 'C', label: 'birthday, christening, most events' },
+  { band: 'D', label: 'date, hangout, small get-together' },
+];
+
+/** What Event Hub Pro (everything) gives — prototype revision 4, the ten lines, each a gate of `HUB_PRO_GATES`. */
+const PRO_GIVES: ReadonlyArray<{ n: string; note?: string }> = [
+  { n: `${PRO_THEMES.length} Pro themes, for every event type`, note: `${FREE_THEMES.map((t) => t.name).join(', ').replace(/, ([^,]*)$/, ' and $1')} stay free` },
+  { n: 'Your own photos and video on the Event Hub', note: 'behind the page, behind a scene, in a scene' },
+  { n: 'Background music and a video at the top' },
+  { n: 'The cinematic reveal', note: 'every opening and its effects' },
+  { n: 'Style, decorations and animation for every part', note: 'and the \u201cWhen yes\u201d moment — confetti, fireworks, petals, sparklers' },
+  { n: 'Your logo animated, and on every QR', note: 'shape, pattern and colour too' },
+  { n: '500 MB of your own media', note: 'instead of 10 MB' },
+  { n: 'Prints in your Event Hub look, the whole designed set in one download', note: 'one guest ticket at a time, and the QR sheet, stay free' },
+  { n: 'Photos in your Love Story, and more than 5 moments' },
+  { n: 'No \u201cPowered by Setnayan\u201d where your guests look' },
+];
+
+/** One "What you can add" item: name (with its ⓘ when it has one), a one-line what, and the figure + its billing. */
+function AddItem({
+  code,
+  name,
+  tip,
+  what,
+  price,
+  from = false,
+  bill,
+  star = false,
+  children,
+}: {
+  code: string;
+  name: string;
+  tip?: ReactNode;
+  what: string;
+  price: string | null;
+  from?: boolean;
+  bill: string;
+  star?: boolean;
+  children?: ReactNode;
+}) {
+  return (
+    <li className="border-t border-ink/10 pb-[15px] pt-4 first:border-t-0 first:pt-1" data-pricing-item={code}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          {tip ? (
+            <InfoTip label={name} labelClassName="text-[17px] font-semibold leading-tight tracking-[-0.01em]" align="start">
+              {tip}
+            </InfoTip>
+          ) : (
+            <p className="text-[17px] font-semibold leading-tight tracking-[-0.01em]">
+              {star ? (
+                <span aria-hidden className="mr-1 align-[2px] text-[13px] text-terracotta-700">
+                  ◆
+                </span>
+              ) : null}
+              {name}
+            </p>
+          )}
+          <p className="mt-[3px] text-[13.5px] leading-snug text-ink/65">{what}</p>
+        </div>
+        {price ? (
+          <div className="shrink-0 text-right">
+            <span className="block whitespace-nowrap text-[19px] font-bold leading-none tracking-[-0.02em]">
+              {from ? <span className="mr-[3px] text-xs font-medium tracking-normal text-ink/65">from</span> : null}
+              {price}
+            </span>
+            <span className="mt-1 block whitespace-nowrap text-[11px] text-ink/65">{bill}</span>
+          </div>
+        ) : null}
+      </div>
+      {children}
+    </li>
+  );
+}
+
+/** One "What you'd pay for elsewhere" line: the free thing, FREE, and the elsewhere fact in bold before our line. */
+function ElsewhereLine({ n, elsewhere, here, tip }: { n: string; elsewhere: ReactNode; here: string; tip: ReactNode }) {
+  return (
+    <li className="border-t border-ink/10 pb-[13px] pt-3.5 first:border-t-0 first:pt-0.5" data-elsewhere-line>
+      <div className="flex items-baseline justify-between gap-2.5">
+        <InfoTip label={n} labelClassName="text-xl font-semibold leading-tight tracking-[-0.015em]" align="start">
+          {tip}
+        </InfoTip>
+        <span className="whitespace-nowrap font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-terracotta-700">
+          Free
+        </span>
+      </div>
+      <p className="mt-[5px] text-[13.5px] leading-snug text-ink/65">
+        <b className="font-semibold text-ink">{elsewhere}</b> {here}
+      </p>
+    </li>
   );
 }
 
@@ -247,7 +392,7 @@ export default async function PricingPage() {
   // Reads in parallel · helpers return [] on error, so the page still renders a
   // polite empty state rather than 500'ing. The Essentials/Complete bundle tiers
   // were removed 2026-06-29 (both deactivated).
-  const [customerSkus, vendorSkus, papicTierConfig, papicOneTiers, papicFreeOnePoints, feeSchedule] =
+  const [customerSkus, vendorSkus, papicTierConfig, papicOneTiers, papicFreeOnePoints, feeSchedule, pricingExtras] =
     await Promise.all([
       fetchV2CustomerCatalog(),
       fetchV2VendorCatalog(),
@@ -264,6 +409,8 @@ export default async function PricingPage() {
       // The LIVE supplier booking-fee schedule, for the supplier-plan
       // structured data (never the code default — audit 2026-10-12, item 5).
       getLiveBookingFeeSchedule(),
+      // The Event Hub Pro parts + Setnayan AI's event-type bands (see `readPricingExtras`).
+      readPricingExtras(),
     ]);
 
   // Setnayan AI is a ONE-TIME, wedding-anchored purchase (owner 2026-07-10): one
@@ -290,9 +437,6 @@ export default async function PricingPage() {
   // popup can never disagree about whether a sign-up price exists. Its docblock
   // carries the four rules; do not re-implement them here.
   const setnayanAi = customerSkus.find((s) => s.service_code === 'SETNAYAN_AI');
-  const ai = resolveAiPrices(setnayanAi);
-  const aiRegularLabel = ai.regularPhp > 0 ? `₱${formatPeso(ai.regularPhp)}` : null;
-  const aiSignupLabel = ai.hasSignupPrice ? `₱${formatPeso(ai.introPhp)}` : null;
   const aiPeriod = setnayanAi ? formatBillingPeriodSuffix(setnayanAi.billing_period) : '';
 
   // ── The Papic ONE ladder — DERIVED, never spelled ─────────────────────────
@@ -472,6 +616,80 @@ export default async function PricingPage() {
       .filter((r): r is { sku: V2CustomerSku; withPapic: boolean } => r !== null),
   })).filter((g) => g.rows.length > 0);
 
+  // ── FREE HERE, PAID ELSEWHERE · PAY ONLY FOR THE UPGRADES YOU NEED (owner 2026-10-25) ─────────────────
+  // Approved prototype `prototypes/pricing_free_plus_addons_2026-10-25/index.html` (corpus 20b2a55c, revision 4).
+  // 🔑 EVERY PESO OF OURS IS READ from platform_retail_catalog_v2 (an unreadable row draws no figure); every OTHER
+  // site's figure is `lib/pricing-elsewhere.ts`, sourced and dated, and no competitor is named.
+  //
+  // Event Hub Pro (COUPLE_WEBSITE_PRO): both prices through the SAME resolver as Setnayan AI's (`resolveAiPrices` is
+  // generic over the row: NULL sign-up = no discount, a sign-up at/above regular is ignored, unreadable = no figure).
+  const proRow = customerSkus.find((s) => s.service_code === 'COUPLE_WEBSITE_PRO');
+  const pro = resolveAiPrices(proRow);
+  const proRegularLabel = pro.regularPhp > 0 ? `₱${formatPeso(pro.regularPhp)}` : null;
+  const proSignupLabel = pro.hasSignupPrice ? `₱${formatPeso(pro.introPhp)}` : null;
+  const rowPrice = (code: string): string | null => {
+    const row = customerSkus.find((s) => s.service_code === code);
+    const php = row ? Number(row.retail_price_php) : NaN;
+    return Number.isFinite(php) && php > 0 ? `₱${formatPeso(php)}` : null;
+  };
+  // Live Watch (LIVE_STUDIO): absent from the catalogue read while its launch switch is off — then the item is not drawn.
+  const liveWatchRow = customerSkus.find((s) => s.service_code === 'LIVE_STUDIO');
+  const liveWatchPrice = rowPrice('LIVE_STUDIO');
+  // Patiktok is PAID PER DAY (owner 2026-10-25: "Patiktok has a per day amount.") — the figure AND its billing words
+  // come from the row (`billing_period`).
+  const patiktokRow = customerSkus.find((s) => s.service_code === 'PATIKTOK_COMPILER');
+  const patiktokPrice = rowPrice('PATIKTOK_COMPILER');
+  const patiktokPerDay = patiktokRow?.billing_period === 'per_day';
+  const patiktokBill = patiktokPerDay
+    ? 'per day of your event'
+    : `one-time${formatBillingPeriodSuffix(patiktokRow?.billing_period)}`;
+  const musicMakerRow = customerSkus.find((s) => s.service_code === 'PAKANTA');
+  const musicMakerPrice = rowPrice('PAKANTA');
+  const papicFromLabel = papicPoolBuckets.length
+    ? `₱${formatPeso(papicPoolBuckets[0]!.pricePhp)}`
+    : null;
+  // "₱70 adds 100 credits, ₱700 adds 1,000, ₱4,500 adds 10,000 — bigger packs too." (prototype revision 4) — every
+  // rung READ; the tip quotes the round ones (100 · 1,000 · 10,000 credits) so a ladder of many small steps still
+  // shows its range, and falls back to the first three if the catalogue has no round rungs.
+  const creditsOf = (label: string) => Number((/([\d,]+)\s+credits?/i.exec(label)?.[1] ?? '').replace(/,/g, ''));
+  const roundRungs = papicPoolBuckets.filter((b) => {
+    const n = creditsOf(b.label);
+    return n >= 100 && Number.isInteger(Math.log10(n));
+  });
+  const quotedRungs = (roundRungs.length >= 2 ? roundRungs : papicPoolBuckets).slice(0, 3);
+  const papicRungWords = quotedRungs
+    // "adds 100 credits", then "adds 1,000" — the unit said once, as the prototype says it.
+    .map((b, i) => `₱${formatPeso(b.pricePhp)} ${b.label.replace(/^add\b/i, 'adds').replace(i > 0 ? /\s+credits?$/i : /$^/, '')}`)
+    .join(', ');
+  const papicBiggerPacks =
+    quotedRungs.length > 0 && papicPoolBuckets.some((b) => creditsOf(b.label) > creditsOf(quotedRungs[quotedRungs.length - 1]!.label));
+
+  // The parts (COUPLE_HUB_PART_*) and Setnayan AI's bands — one extra read, see `readPricingExtras`.
+  const extraByCode = new Map(pricingExtras.map((r) => [r.service_code, r]));
+  const hubParts = HUB_PARTS.map((part) => {
+    const row = extraByCode.get(part.sku);
+    const php = row && row.is_active ? Number(row.retail_price_php) : NaN;
+    return Number.isFinite(php) && php > 0 ? { part, php } : null;
+  }).filter((x): x is { part: (typeof HUB_PARTS)[number]; php: number } => x !== null);
+  const hubPartFromLabel = hubParts.length ? `₱${formatPeso(Math.min(...hubParts.map((x) => x.php)))}` : null;
+  const aiOptions: AiTypeOption[] = AI_TYPE_WORDS.map(({ band, label }): AiTypeOption | null => {
+    const code = AI_TIER_SKU[band];
+    const row = code === 'SETNAYAN_AI' ? setnayanAi : code ? extraByCode.get(code) : undefined;
+    const prices = resolveAiPrices(row ? { retail_price_php: Number(row.retail_price_php), onboarding_price_php: row.onboarding_price_php } : null);
+    if (prices.regularPhp <= 0) return null;
+    return {
+      key: band,
+      label,
+      regular: `₱${formatPeso(prices.regularPhp)}`,
+      signup: prices.hasSignupPrice ? `₱${formatPeso(prices.introPhp)}` : null,
+    };
+  }).filter((o): o is AiTypeOption => o !== null);
+
+  // What other event sites charge — `lib/pricing-elsewhere.ts` (sources + read date there). Numbers only, formatted here.
+  const elsewhereGuests = `${formatCount(ELSEWHERE.freeGuestCapLow.value)}–${formatCount(ELSEWHERE.freeGuestCapHigh.value)} guests`;
+  const elsewhereSiteAbout = `₱${formatPeso(aboutPhp(ELSEWHERE.siteFull.value))}`;
+  const elsewhereLiveAbout = `₱${formatPeso(aboutPhp(ELSEWHERE.livestreamBusiness.value))}–₱${formatPeso(aboutPhp(ELSEWHERE.livestreamPersonal.value))}`;
+
   // Estimator inputs — the SAME derived ladder the description above renders
   // (rungs + rates + per-rung capacity + per-rung WEDDING cap). Nothing about
   // Papic capacity or caps is spelled here. Add-on prices come from the catalog.
@@ -629,152 +847,353 @@ export default async function PricingPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(pricingJsonLd) }}
       />
 
-      {/* Hero */}
+      {/* HERO · the one message (owner 2026-10-25, verbatim: "make sure they see that while Other websites pay for these
+          services, we give it for free. And only pay what you need to upgrade."). Prototype
+          `pricing_free_plus_addons_2026-10-25`, revision 4. */}
       <section className="border-b border-ink/5">
         <div /* The tall top padding existed to clear the FIXED glass nav. That nav no
              longer renders here (this page left NAV_ROUTES with the shell
              conversion), so keeping it would leave ~128px of dead cream above
              the first heading. */
-          className="mx-auto w-full max-w-5xl px-4 pt-8 pb-12 sm:px-6 sm:pt-10 sm:pb-16 lg:px-8 lg:pb-20">
+          /* px-0 on a phone: the shared shell already insets 16 px (prototype revision 4: text 16 px from the edge). */
+          className="mx-auto w-full max-w-5xl px-0 pt-10 pb-11 sm:px-6 sm:pt-10 sm:pb-16 lg:px-8 lg:pb-20">
           <p className="m-eyebrow">Set na &apos;yan · Pricing</p>
           <LineRevealHeading
             as="h1"
             trigger="mount"
-            className="mt-5 text-balance font-display text-5xl font-medium leading-[1.02] tracking-tight sm:text-7xl lg:text-[88px]"
+            className="mt-4 text-balance font-display text-[46px] font-medium leading-[1.02] tracking-[-0.035em] sm:text-7xl lg:text-[88px]"
           >
-            Plan for free.{' '}
-            <span className="text-ink/55">Add the magic as you go.</span>
+            Free here. Paid elsewhere.{' '}
+            <span className="text-ink/55">Pay only for the upgrades you need.</span>
           </LineRevealHeading>
-          <p className="mt-8 max-w-2xl text-xl leading-relaxed text-ink/65">
-            Start planning at no cost. Let Setnayan AI do the matching when
-            you&rsquo;re ready, then add only the services you actually want. No
-            bundles, no lock-in.
+          <p className="mt-6 max-w-2xl text-[19px] leading-[1.45] text-ink/65">
+            Unlimited guests, the Event Hub your guests open, the whole planner — what other event sites charge for,
+            you get free. Add an upgrade only when you want one.
           </p>
-          <div className="mt-8 flex flex-wrap items-center gap-3">
-            <Link href="#plans" className="m-btn m-btn-primary">
-              See plans
+          <div className="mt-6 flex flex-wrap items-center gap-3">
+            <Link href="/signup" className="m-btn m-btn-primary">
+              Start free
             </Link>
-            <Link href="#free" className="m-btn m-btn-ghost">
-              What&rsquo;s free ↓
+            <Link href="#add" className="m-btn m-btn-ghost">
+              What you can add ↓
             </Link>
           </div>
         </div>
       </section>
 
-      {/* Free · Explore vs Setnayan AI */}
-      <section id="plans" className="border-b border-ink/5 bg-ink/[0.02]">
-        <div className="mx-auto w-full max-w-5xl px-4 py-20 sm:px-6 sm:py-24 lg:px-8">
-          <div className="mb-12 max-w-2xl space-y-3">
-            <p className="m-eyebrow">Two ways to plan</p>
-            <LineRevealHeading className="text-balance text-4xl font-semibold tracking-tight sm:text-5xl">
-              Free to start. Paid only when it helps.
-            </LineRevealHeading>
-            <p className="text-base leading-relaxed text-ink/65">
-              Plan free for as long as you like. Add Setnayan AI when you want
-              the matching done for you — then pick exactly the software you
-              want below.
-            </p>
-          </div>
-          <RevealBand className="grid grid-cols-1 gap-4 sm:grid-cols-2" stagger={0.07}>
-            <article
-              data-reveal-item
-              className="flex flex-col gap-3 rounded-2xl border border-ink/15 bg-cream p-6 sm:p-8"
-            >
-              <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
-                Free · Explore
-              </p>
-              <p className="flex items-baseline gap-2">
-                <span className="font-sans text-4xl font-semibold tracking-tight text-ink">₱0</span>
-                <span className="text-sm text-ink/55">/ forever</span>
-              </p>
-              <p className="text-sm leading-relaxed text-ink/65">
-                A whole planning workspace, your Event Hub, and the tools
-                to share your day.
-              </p>
-              <ul className="mt-2 space-y-2 text-sm">
-                {[
-                  'All five planning tools',
-                  'Your free 4-in-1 Event Hub',
-                  'Unlimited RSVP collection',
-                  'Browse suppliers + a match preview',
-                  'Single-camera livestream & free Custom QR',
-                ].map((f) => (
-                  <li key={f} className="flex items-start gap-2">
-                    <Check aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-terracotta" strokeWidth={2} />
-                    <span className="text-ink">{f}</span>
-                  </li>
-                ))}
-              </ul>
-              <Link href="#free" className="mt-3 inline-flex items-center gap-1.5 self-start text-sm font-medium text-ink/70 hover:text-ink">
-                See everything free ↓
-              </Link>
-            </article>
-            <article
-              data-reveal-item
-              className="flex flex-col gap-3 rounded-2xl border-2 border-terracotta/40 bg-cream p-6 sm:p-8 shadow-[0_30px_80px_-40px_rgba(197,160,89,0.35)]"
-            >
-              <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
-                Setnayan AI
-              </p>
-              {/* THE PRICE, AND THE SECOND ONE THAT WAS NEVER SHOWN.
-                  When the catalog carries a sign-up price, THAT is the headline
-                  figure — it is what this reader pays if they start now, and
-                  quoting the higher number first was quietly overcharging the
-                  page's own visitor. The regular price stays visible beside it
-                  so nobody discovers it later. When the row carries no sign-up
-                  price the block is a single figure, exactly as before; when the
-                  catalog is unreadable it renders nothing rather than a guess. */}
-              {aiRegularLabel ? (
+      {/* FREE · proves the first half. Five sourced "elsewhere" lines (figures + sources: lib/pricing-elsewhere.ts — no
+          competitor is named), the printables, one place instead of several tools, then the rest of the planner. Nothing
+          here is pressable but the ⓘ and the two buttons, so nothing else wears a frame. Guarded by
+          `pricing-free-plus-addons.test.ts`. */}
+      <section id="plans" className="border-b border-ink/5 bg-ink/[0.02]" data-pricing-free>
+        <div className="mx-auto w-full max-w-3xl px-0 pb-9 pt-11 sm:px-6 sm:py-20 lg:px-8">
+          <p className="m-eyebrow">Free</p>
+          <LineRevealHeading className="mt-4 text-balance text-[32px] font-semibold leading-[1.08] tracking-[-0.03em] sm:text-5xl">
+            What you&rsquo;d pay for elsewhere.
+          </LineRevealHeading>
+          <p className="mt-2.5 text-[15.5px] leading-normal text-ink/65">
+            Five things other event sites charge for — free here, for every event, with no guest cap and no trial clock.
+          </p>
+          <ul className="mt-5">
+            <ElsewhereLine
+              n="Unlimited guests & RSVPs"
+              elsewhere={`Elsewhere, free plans stop at ${elsewhereGuests}.`}
+              here="Here every guest replies by link, no sign-in, no cap."
+              tip={
                 <>
-                  <p className="flex items-baseline gap-2">
-                    <span className="font-sans text-4xl font-semibold tracking-tight text-ink">
-                      {aiSignupLabel ?? aiRegularLabel}
-                    </span>
-                    {aiSignupLabel ? (
-                      <span className="text-sm text-ink/55">
-                        <span className="line-through decoration-ink/30">{aiRegularLabel}</span>{' '}
-                        later
-                      </span>
-                    ) : null}
-                    <span className="text-sm text-ink/55">{aiPeriod}</span>
-                  </p>
-                  <p className="text-sm font-medium text-ink/70">
-                    {aiSignupLabel
-                      ? 'One-time · this price while you’re setting up your wedding · access until the day.'
-                      : 'One-time · access until your wedding.'}
-                  </p>
+                  Other event sites&rsquo; free plans cap the guest list at {formatCount(ELSEWHERE.freeGuestCapLow.value)} to{' '}
+                  {formatCount(ELSEWHERE.freeGuestCapHigh.value)} guests and charge about {elsewhereSiteAbout} to lift it. Ours has
+                  no cap: as many guests and replies as your event has, free.
                 </>
-              ) : (
-                <p className="text-sm font-medium text-ink/70">
-                  One-time · access until your wedding. See the price when you start.
-                </p>
-              )}
-              <p className="text-sm leading-relaxed text-ink/65">
-                The planner that matches, sorts and cross-references every
-                supplier for your exact wedding.
-              </p>
-              <ul className="mt-2 space-y-2 text-sm">
-                {[
-                  'Everything in Free',
-                  'Full matching — date, budget, venue, pax, faith & reviews',
-                  'Your sorted, ready-to-book shortlist',
-                  'A planning assistant that keeps you on track',
-                  'Runs until your wedding day, then stops',
-                ].map((f) => (
-                  <li key={f} className="flex items-start gap-2">
-                    <Check aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-terracotta" strokeWidth={2} />
-                    <span className="text-ink">{f}</span>
-                  </li>
-                ))}
-              </ul>
-              <Link
-                href="/onboarding/wedding?from=pricing"
-                className="m-btn m-btn-primary mt-3 self-start"
+              }
+            />
+            <ElsewhereLine
+              n="The Event Hub your guests open"
+              elsewhere={`Elsewhere, about ${elsewhereSiteAbout} for the full version.`}
+              here="Free here in its plain design — Save-the-Date, RSVP, the day’s page and your story."
+              tip={
+                <>
+                  The plain design is complete and free: the page is written from your details, in Classic, Modern or
+                  Cyber Neon, with our pictures and your words. Making it <b>yours</b> — your photos, music, themes and
+                  logo — is{' '}
+                  <a href="#add" className="font-semibold text-mulberry">
+                    Event Hub Pro ↓
+                  </a>
+                  , or just the parts you need.
+                </>
+              }
+            />
+            <ElsewhereLine
+              n="Seat plan, with the 3D walkthrough"
+              elsewhere={`Elsewhere, seating charts are a paid upgrade past ${formatCount(ELSEWHERE.seatingTrialGuests.value)} guests, and 3D seating is an enterprise feature.`}
+              here="Here both are free."
+              tip="Lay the room out in 2D, then walk it in 3D before you publish. Guests find their seat on their own pass once the plan is published."
+            />
+            <ElsewhereLine
+              n="Door check-in by QR"
+              elsewhere="Elsewhere, check-in comes with a paid plan."
+              here="Here the door scans each guest’s own QR, on the day, free."
+              tip="Every accepted guest carries their own QR on their pass. On the day, your door crew opens the check-in desk on a phone and scans — arrivals, plus-ones and tables, live, no app to install."
+            />
+            <ElsewhereLine
+              n="Livestream from one camera"
+              elsewhere={`Elsewhere, about ${elsewhereLiveAbout} per event.`}
+              here="Here one camera streams free, for everyone who can’t be there."
+              tip={
+                <>
+                  One camera, live to your guests, free. Every camera at once — a directed Main Stage plus switchable
+                  guest cameras — is{' '}
+                  <a href="#add" className="font-semibold text-mulberry">
+                    Live Watch ↓
+                  </a>
+                  .
+                </>
+              }
+            />
+            <ElsewhereLine
+              n="Printables for your event"
+              elsewhere="Guest registry, guest QR codes, seat plan, table signs & place cards, entrance chart, caterer meal counts, event QR"
+              here="— print-ready, free."
+              tip={
+                <>
+                  Save each as a PDF (the seat plan in your colours or as a blueprint; meal counts as a spreadsheet too)
+                  and print it anywhere. <b>Prints dressed in your Event Hub look</b> — your theme on every sheet — are{' '}
+                  <a href="#add" className="font-semibold text-mulberry">
+                    Event Hub Pro ↓
+                  </a>
+                  , or its Prints part.
+                </>
+              }
+            />
+          </ul>
+
+          <p className="mt-[18px] font-mono text-[11px] uppercase tracking-[0.14em] text-ink/65">
+            One place, instead of several tools
+          </p>
+          <ul className="mt-2.5 text-[13.5px]" data-elsewhere-combo>
+            {[
+              { n: 'Event page, unlimited guests & RSVPs', elsewhere: `₱${formatPeso(ELSEWHERE.siteFull.value)}` },
+              { n: 'Livestream, one camera', elsewhere: `₱${formatPeso(ELSEWHERE.livestreamPersonal.value)}` },
+              { n: 'Seating chart, 2D and 3D', elsewhere: 'extra' },
+              { n: 'Door check-in by QR', elsewhere: 'extra' },
+            ].map((r) => (
+              <li key={r.n} className="grid grid-cols-[1fr_92px_44px] items-baseline gap-2 border-t border-ink/5 py-[7px] first:border-t-0">
+                <span>{r.n}</span>
+                <span className="whitespace-nowrap text-right text-ink/65">{r.elsewhere}</span>
+                <span className="whitespace-nowrap text-right font-bold text-terracotta-700">₱0</span>
+              </li>
+            ))}
+            <li className="mt-1 grid grid-cols-[1fr_92px_44px] items-baseline gap-2 border-t border-ink pt-2.5 text-sm">
+              <InfoTip label="For one event" align="start">
+                The &ldquo;elsewhere&rdquo; figure adds two per-event prices from other event sites: a site with
+                unlimited guests, and a one-camera livestream. Seating and check-in are sold there as business
+                subscriptions, so they are left out of the sum and marked &ldquo;extra&rdquo; — the real gap is wider.
+                Here all four are free, for every event.
+              </InfoTip>
+              <span className="whitespace-nowrap text-right">
+                <b>at least ₱{formatPeso(elsewhereOneEventPhp())}</b>
+                <small className="block text-[10.5px] font-normal tracking-[0.02em] text-ink/65">elsewhere</small>
+              </span>
+              <span className="whitespace-nowrap text-right font-bold text-terracotta-700">
+                <b>₱0</b>
+                <small className="block text-[10.5px] font-normal tracking-[0.02em] text-ink/65">here</small>
+              </span>
+            </li>
+          </ul>
+
+          <p className="mt-[18px] font-mono text-[11px] uppercase tracking-[0.14em] text-ink/65">
+            And the rest of the planner
+          </p>
+          <ul className="mt-2.5 grid grid-cols-2 gap-x-3.5 gap-y-2 text-[13.5px] leading-tight">
+            {[
+              { n: 'Budget & schedule' },
+              { n: 'Suppliers', note: `find, compare, book · ${COMMISSION_PCT}% commission` },
+              { n: 'Guest tickets', note: `each guest’s own pass, ${PASS_CARD_DESIGNS.length} styles` },
+              { n: 'Memories', note: 'every photo in one place' },
+              {
+                n: 'Papic · unlimited cameras',
+                note: `every photo uses credits · free credits ${PAPIC_FREE_CREDIT_CONDITION}`,
+                wide: true,
+              },
+            ].map((r) => (
+              <li key={r.n} className={`flex items-start gap-[7px]${r.wide ? ' col-span-2' : ''}`}>
+                <span aria-hidden className="-mt-px shrink-0 font-bold text-terracotta-700">
+                  ✓
+                </span>
+                <span>
+                  {r.n}
+                  {r.note ? <small className="mt-px block text-[11.5px] leading-tight text-ink/65">{r.note}</small> : null}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <div className="mt-5 flex flex-wrap items-center gap-3">
+            <Link href="/signup" className="m-btn m-btn-primary">
+              Start free
+            </Link>
+            <Link href="#free" className="text-sm font-semibold text-ink/65 hover:text-ink">
+              Everything that&rsquo;s free ↓
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* WHAT YOU CAN ADD · proves the second half: each upgrade its own purchase, its own figure from its own catalogue
+          row. Event Hub Pro as Everything or part by part (one dropdown). Guarded by `pricing-free-plus-addons.test.ts`. */}
+      <section id="add" className="border-b border-ink/5" data-pricing-add>
+        <div className="mx-auto w-full max-w-3xl px-0 pb-9 pt-11 sm:px-6 sm:py-20 lg:px-8">
+          <p className="m-eyebrow">What you can add</p>
+          <LineRevealHeading className="mt-4 text-balance text-[32px] font-semibold leading-[1.08] tracking-[-0.03em] sm:text-5xl">
+            Pay only for the upgrades you need.
+          </LineRevealHeading>
+          <p className="mt-2.5 text-[15.5px] leading-normal text-ink/65">
+            Each one is its own purchase — none of them includes another. For this event and everyone on it.
+          </p>
+          <ul className="mt-5">
+            {proRegularLabel ? (
+              <AddItem
+                code="COUPLE_WEBSITE_PRO"
+                name="Event Hub Pro"
+                star
+                what="Make the Event Hub yours — your photos, music, themes and logo, no Setnayan mark."
+                price={proRegularLabel}
+                bill="one-time · per event"
               >
-                Unlock Setnayan AI
-              </Link>
-            </article>
-          </RevealBand>
+                {proSignupLabel ? (
+                  <p className="mt-[9px] text-[13px] leading-snug text-ink">
+                    <b className="font-bold text-mulberry">{proSignupLabel} while you set up your event</b>
+                    {' '}— {proRegularLabel} after.
+                  </p>
+                ) : null}
+                <HubProWays
+                  everythingLabel={`Everything · ${proRegularLabel}`}
+                  partsLabel={hubPartFromLabel ? `Just the parts you need · from ${hubPartFromLabel}` : null}
+                  everything={
+                    <>
+                      <ul className="mt-3 text-[13.5px] leading-snug">
+                        {PRO_GIVES.map((g) => (
+                          <li key={g.n} className="flex items-start gap-2 border-t border-ink/5 py-1.5 first:border-t-0">
+                            <span aria-hidden className="mt-1 shrink-0 text-[10px] text-terracotta-700">
+                              ◆
+                            </span>
+                            <span>
+                              {g.n}
+                              {g.note ? <small className="mt-px block text-xs leading-snug text-ink/65">{g.note}</small> : null}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                      <p className="mt-2.5 border-t border-ink/10 pt-2.5 text-[12.5px] leading-snug text-ink/65">
+                        <b className="font-semibold text-ink">One unlock covers everyone on the event</b> — every host
+                        sees the Pro version.
+                      </p>
+                    </>
+                  }
+                  parts={
+                    <>
+                      <ul className="mt-3 text-[13.5px]" data-hub-parts>
+                        {hubParts.map(({ part, php }) => (
+                          <li key={part.id} className="flex items-start justify-between gap-2.5 border-t border-ink/5 py-[7px] first:border-t-0">
+                            <span className="font-semibold leading-tight">
+                              {part.name}
+                              <small className="mt-px block text-xs font-normal leading-snug text-ink/65">{part.blurb}</small>
+                            </span>
+                            <span className="whitespace-nowrap font-bold tracking-[-0.01em]">
+                              <i aria-hidden className="mr-1 align-[1px] text-[10px] not-italic text-terracotta-700">
+                                ◆
+                              </i>
+                              ₱{formatPeso(php)}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                      <p className="mt-2.5 border-t border-ink/10 pt-2.5 text-[12.5px] leading-snug text-ink/65">
+                        <b className="font-semibold text-ink">What you pay for parts counts toward {proRegularLabel}.</b>{' '}
+                        At {proRegularLabel} everything unlocks, and the &ldquo;Powered by Setnayan&rdquo; footer comes
+                        off. Each part is for this event and everyone on it.
+                      </p>
+                    </>
+                  }
+                />
+              </AddItem>
+            ) : null}
+            {papicFromLabel ? (
+              <AddItem
+                code="PAPIC_GUEST"
+                name="Papic credits"
+                tip={
+                  <>
+                    <b>One shared pot.</b> Every guest&rsquo;s camera spends from it; every top-up stacks on what the
+                    event already holds. {papicRungWords}
+                    {papicBiggerPacks ? ' — bigger packs too' : ''}. Free credits {PAPIC_FREE_CREDIT_CONDITION}.
+                  </>
+                }
+                what="Top up the pot every guest’s camera spends from."
+                price={papicFromLabel}
+                from
+                bill="credits · top up any time"
+              />
+            ) : null}
+            {liveWatchRow && liveWatchPrice ? (
+              <AddItem
+                code="LIVE_STUDIO"
+                name="Live Watch"
+                tip={
+                  <>
+                    Every camera streams live for the guests who can&rsquo;t be there — one directed Main Stage plus
+                    switchable guest cameras; phones join by the event QR, no install. Unlimited streams, no day limit.{' '}
+                    <b>Livestream from one camera stays free.</b>
+                  </>
+                }
+                what="Every camera live, for everyone who can’t be there."
+                price={liveWatchPrice}
+                bill="one unlock · stays with the event"
+              />
+            ) : null}
+            {patiktokPrice ? (
+              <AddItem
+                code="PATIKTOK_COMPILER"
+                name="Patiktok"
+                tip={`Turns the moments from your event into a short, vertical highlight reel, set to music — you pick the moments, the length and a song, and it renders in your browser.${patiktokPerDay ? ' Paid per day of your event.' : ''}`}
+                what="Your moments cut into short, vertical highlight reels."
+                price={patiktokPrice}
+                bill={patiktokBill}
+              />
+            ) : null}
+            {musicMakerRow && musicMakerPrice ? (
+              <AddItem
+                code="PAKANTA"
+                name="Music Maker"
+                what="Your own song, made for the event."
+                price={musicMakerPrice}
+                bill="one-time · per event"
+              />
+            ) : null}
+            {aiOptions.length > 0 ? (
+              <AiTypeItem
+                name="Setnayan AI"
+                tip={
+                  <>
+                    <b>Priced by event type.</b> A paid planner, not a chatbot: it suggests a team of verified suppliers
+                    by fit, then tracks your deadlines, payments, budget and dates and tells you the one thing to do
+                    next. One unlock, until the event day. Cheaper while you set up your event.
+                  </>
+                }
+                what="Suggests your best-fit team, then watches your plan."
+                bill={`one-time · until the event day${aiPeriod}`}
+                options={aiOptions}
+              />
+            ) : null}
+          </ul>
+          <p className="mt-[18px] border-t border-ink pt-3.5 text-[13.5px] leading-normal text-ink">
+            <b className="font-semibold">Each of these is bought on its own, Event Hub Pro included.</b> Buying one never
+            includes another, and there is no bundle. Paid once for the event and everyone on it
+            {patiktokPerDay ? ' — except Patiktok, which is paid per day' : ''}.
+          </p>
+          <p className="mt-3.5 text-[12.5px] leading-normal text-ink/65">
+            <i className="font-semibold text-terracotta-700">Set na &rsquo;yan</i> — no subscription. Prices are in
+            Philippine peso, read live from the Setnayan catalogue.
+          </p>
         </div>
       </section>
 
@@ -939,7 +1358,7 @@ export default async function PricingPage() {
           <p className="mt-5 text-xs leading-relaxed text-ink/45">
             Prices render live from the Setnayan catalog and are admin-managed.
             The free single-camera livestream and the full planner always stay
-            free. Provisional pending the holistic pricing review.
+            free.
           </p>
         </div>
       </section>

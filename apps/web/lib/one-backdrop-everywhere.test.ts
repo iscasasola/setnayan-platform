@@ -115,3 +115,72 @@ test('the check sees the backdrop it was written for, and not a fixed bar', () =
   assert.equal(handMadeBackdrops('<div className={`fixed inset-0 ${dim ? "bg-ink/30 backdrop-blur-[1px]" : ""}`} />'), 1);
   assert.equal(handMadeBackdrops('<nav className="fixed inset-x-0 bottom-0 bg-cream/90" />'), 0);
 });
+
+/*
+ * 🩹 A TAP ON THE DARK MUST REACH SOMETHING — owner on his iPhone, 2026-10-25, the People › Invite sheet: *"I cannot tap
+ * out the screen"*. Test 1 holds that the page lock makes everything beside the pop-up inert; it never held that the
+ * pop-up's OWN close layer survives that walk — and it did not: `GuestPopup`, the Maker sheet, the calendar and ⓘ
+ * pop-ups and ~15 hand-made sheets draw their close button `absolute inset-0` inside their fixed root, beside the panel,
+ * and `isolateOverlay(panel)` made it `inert` (measured in Playwright WebKit/iPhone and Chromium/Pixel: the tap landed on
+ * the root, onClose never ran). Two holds, so neither half can drift back:
+ *   4 · the walk keeps the backdrop — marked, full-screen fixed, or a full-screen BUTTON in any position;
+ *   5 · a dark that takes no tap (`sn-popup-dark pointer-events-none`) is not drawn over a separate close layer — the
+ *       dark IS the close button (`<OverlayBackdrop>`), except the Maker sheet, whose dark carries a hole round the live
+ *       preview the button must not have, and whose button therefore wears `data-overlay-backdrop`.
+ */
+test('4 · the page lock keeps the pop-up’s own close layer live — a tap on the dark always reaches it', async () => {
+  const { keepsBesidePopup } = await import('./overlay-lock');
+  const vp = { viewportWidth: 390, viewportHeight: 844 };
+  const full = { width: 390, height: 844 };
+  // The shared backdrop: marked.
+  assert.equal(keepsBesidePopup({ marked: true, tag: 'BUTTON', position: 'fixed', ...full, ...vp }), true);
+  // A full-screen fixed layer (a hand-made fixed dimmer, a pop-up's root).
+  assert.equal(keepsBesidePopup({ marked: false, tag: 'DIV', position: 'fixed', ...full, ...vp }), true);
+  // THE ONE THAT BROKE: an `absolute inset-0` close button inside the pop-up's fixed root.
+  assert.equal(keepsBesidePopup({ marked: false, tag: 'BUTTON', position: 'absolute', ...full, ...vp }), true, 'a full-screen close button beside the panel is made inert — a tap on the dark closes nothing');
+  assert.equal(keepsBesidePopup({ marked: false, tag: 'button', position: 'absolute', ...full, ...vp }), true);
+  // …and nothing else is let off: page content stays out of reach.
+  assert.equal(keepsBesidePopup({ marked: false, tag: 'DIV', position: 'absolute', ...full, ...vp }), false, 'a full-screen page layer stays live behind a pop-up');
+  assert.equal(keepsBesidePopup({ marked: false, tag: 'BUTTON', position: 'static', ...full, ...vp }), false);
+  assert.equal(keepsBesidePopup({ marked: false, tag: 'BUTTON', position: 'absolute', width: 44, height: 44, ...vp }), false, 'a small button behind the pop-up stays live');
+  assert.equal(keepsBesidePopup({ marked: false, tag: 'NAV', position: 'fixed', width: 390, height: 64, ...vp }), false, 'the bottom bar stays live behind a pop-up');
+  // The DOM reader asks exactly this — nothing of its own beside it.
+  const lock = stripComments(read('lib/overlay-lock.ts'));
+  const reader = lock.slice(lock.indexOf('function isBackdrop('), lock.indexOf('export function isolateOverlay('));
+  assert.match(reader, /if \(el\.hasAttribute\('data-overlay-backdrop'\)\) return true;/);
+  assert.match(reader, /return keepsBesidePopup\(\{/, 'the page lock decides which layer stays live somewhere else');
+  assert.doesNotMatch(reader, /position !== 'fixed'\) return false/, 'the fixed-only rule is back — an absolute close button goes inert');
+});
+
+test('5 · a dark that takes no tap is never drawn over a separate close layer — the dark IS the close button', () => {
+  const DARK_NO_TAP = /sn-popup-dark pointer-events-none/;
+  /* The two that may: the Maker sheet (the dark carries the preview hole; its button is marked) and "a scene of your
+     own" (the dark sits under the picker's own close button INSIDE the pop-up's container, which the walk never touches). */
+  const MAY = new Map<string, RegExp>([
+    ['app/dashboard/[eventId]/launch/_components/stages-studio-parts.tsx', /<button type="button" aria-label="Close" data-overlay-backdrop="" data-maker-sheet-scrim="" onClick=\{onClose\}/],
+    ['app/dashboard/[eventId]/launch/_components/add-part-sheet.tsx', /usePopupBehind\(\{ root, panel: root, onClose \}\);/],
+  ]);
+  const bad: string[] = [];
+  let seen = 0;
+  for (const f of walk(join(WEB, 'app'))) {
+    const rel = relative(WEB, f);
+    const src = stripComments(readFileSync(f, 'utf8'));
+    if (!DARK_NO_TAP.test(src)) continue;
+    seen += 1;
+    const why = MAY.get(rel);
+    if (!why) bad.push(`${rel}: a dark that takes no tap over a separate close layer — draw <OverlayBackdrop onClose> (the dark IS the button)`);
+    else if (!why.test(src)) bad.push(`${rel}: its exception no longer holds (${why})`);
+  }
+  assert.deepEqual(bad, [], bad.join('\n'));
+  assert.equal(seen, MAY.size, 'anti-vacuity: the two allowed darks were not both found');
+  /* The pop-ups that used the old pair now draw the one backdrop. */
+  for (const rel of [
+    'app/dashboard/[eventId]/guests/_components/guest-popup.tsx',
+    'app/dashboard/[eventId]/studio/mood-board/_components/colour-picker-sheet.tsx',
+    'app/dashboard/[eventId]/vendors/_components/lock-milestone.tsx',
+    'app/_components/calendar.tsx',
+    'app/_components/explain.tsx',
+  ]) {
+    assert.match(stripComments(read(rel)), /<OverlayBackdrop onClose=\{onClose\} \/>/, `${rel}: the dark is not the close button`);
+  }
+});

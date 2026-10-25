@@ -14,7 +14,7 @@ import { FrontDoorAnchor } from './front-door-anchor';
 import { FrontDoorFeed } from './front-door-feed';
 import { FrontDoorResults } from './front-door-results';
 import { DiscoverEventShelves, PeopleToFollowShelf } from './front-door-discover';
-import { loadDiscover } from '@/lib/discover-events';
+import { loadDiscover, searchDiscoverEvents } from '@/lib/discover-events';
 import { MiniTour } from '@/app/_components/mini-tour';
 import { SignedInCluster } from './signed-in-cluster';
 import { FrontDoorAccountBar } from './front-door-account-bar';
@@ -74,9 +74,10 @@ export async function FrontDoor({ q }: { q?: string }) {
     out to the marketplace), read only when there are words.
   */
   const user = account.signedIn && searchQuery ? await getCurrentUser().catch(() => null) : null;
-  const shellSearch: ShellSearchContext | null = user
-    ? await resolveShellSearchContext(searchQuery, user.id, commandItems)
-    : null;
+  /* 🔎 …and its EVENTS (owner 2026-10-25): your people's, then anybody's public event — read beside the rest. */
+  const [shellSearch, discoverEvents]: [ShellSearchContext | null, Awaited<ReturnType<typeof searchDiscoverEvents>> | null] = user
+    ? await Promise.all([resolveShellSearchContext(searchQuery, user.id, commandItems), searchDiscoverEvents(searchQuery)])
+    : [null, null];
 
   return (
     <>
@@ -162,6 +163,7 @@ export async function FrontDoor({ q }: { q?: string }) {
               people={shellSearch.people}
               findSuppliers={shellSearch.findSuppliers}
               addOwnEvent={shellSearch.addOwnEvent}
+              events={discoverEvents}
             />
           </div>
         ) : (

@@ -78,14 +78,27 @@ function featuresJsonLd(locale: MarketingLocale) {
   };
 }
 
-export function FeaturesPageBody({ locale }: { locale: MarketingLocale }) {
+export function FeaturesPageBody({
+  locale,
+  search,
+  results,
+  roomForRow = false,
+}: {
+  locale: MarketingLocale;
+  /** The one help · features · guides search (English hub only), under the head. */
+  search?: React.ReactNode;
+  /** A search's results — when present they draw IN PLACE of the sections below the head. */
+  results?: React.ReactNode;
+  /** The search is the thumb row docked at the screen's foot below 1024 — the page ends above it. */
+  roomForRow?: boolean;
+}) {
   return (
     <>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(featuresJsonLd(locale)) }}
       />
-      <main className="min-h-dvh pb-16">
+      <main className={roomForRow ? 'min-h-dvh pb-24 lg:pb-16' : 'min-h-dvh pb-16'}>
         {/* 2026-10-01 — THE HUB (DECISION_LOG "/FEATURES — THE FULL LIST" +
             "SIDEBAR COLLAPSE + FEATURES PAGE — OWNER ANSWERS"). The six
             numbered catalogue sections, the anchor-pill nav and the sticky
@@ -96,11 +109,22 @@ export function FeaturesPageBody({ locale }: { locale: MarketingLocale }) {
             after the map: the frame for a reader who wants it, below the
             features for the one who came to see them. */}
         <FeaturesHero locale={locale} />
-        <FeatureGroups locale={locale} />
-        <EcosystemBand locale={locale} />
-        <WhySetnayan locale={locale} />
-        <HowItWorks locale={locale} />
-        <FinalCTA locale={locale} />
+        {/* 🔎 2026-10-25 — the one search for "how does Setnayan work" (owner:
+            "also the HELP and Features where we can mazimize the app to be
+            searchable"). Empty → the hub exactly as before; words → the
+            results in the sections' place. */}
+        {search ? <div className="mx-auto w-full max-w-3xl px-4 sm:px-6">{search}</div> : null}
+        {results ? (
+          <div className="mx-auto w-full max-w-3xl px-4 pt-6 sm:px-6">{results}</div>
+        ) : (
+          <>
+            <FeatureGroups locale={locale} />
+            <EcosystemBand locale={locale} />
+            <WhySetnayan locale={locale} />
+            <HowItWorks locale={locale} />
+            <FinalCTA locale={locale} />
+          </>
+        )}
       </main>
     </>
   );

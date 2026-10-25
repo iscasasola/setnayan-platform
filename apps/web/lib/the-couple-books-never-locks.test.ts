@@ -54,7 +54,6 @@ const ALLOW: readonly WordAllow[] = [
   { prefix: 'lib/prove-the-flow-watch-format.ts', why: 'staff flow-watch report' },
   { prefix: 'lib/blog', why: 'public blog articles — a separate SEO pass' },
   { prefix: 'lib/data-privacy-controls.ts', why: 'the DPO register quotes the consent control by name and is mirrored by migration 20270902120000 — renamed through a data migration, not a code edit' },
-  { prefix: 'app/(shell)/privacy/', why: 'legal text — the privacy policy' },
   // ── 2 · not a supplier booking ──────────────────────────────────────────────
   { prefix: 'app/dashboard/[eventId]/seating/', why: 'a SEAT lock ("Lock this seat", "Fill around locked seats")' },
   { prefix: 'app/dashboard/[eventId]/guests/', why: 'a guest’s seat lock, or the finalized guest count' },
@@ -64,7 +63,6 @@ const ALLOW: readonly WordAllow[] = [
   { prefix: 'lib/user-delete-blockers.ts', why: 'an account locked out on deletion' },
   { prefix: 'app/(shell)/mood-board/', why: 'the mood board ("Nothing here is locked")' },
   { prefix: 'app/dashboard/[eventId]/studio/mood-board/', why: 'a mood-board preview the couple keeps as is' },
-  { prefix: 'lib/help.ts', text: /locked vision|locked behavior/, why: 'a locked mood-board vision and a locked display-name rule — neither is a booking' },
   { prefix: 'app/(shell)/papic/', why: 'Papic credits — "never locked into what you pick"' },
   { prefix: 'lib/camera-bridge/', why: 'a locked Papic clip cap — a developer error string' },
   { prefix: 'app/(shell)/pricing/', why: '"no lock-in" — a contract word, not a booking' },

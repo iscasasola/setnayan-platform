@@ -72,6 +72,8 @@ export type ThumbMenu = {
   buttonText?: string;
   /** A data attribute on the wrapper (`data-thumb-sort`), for tests and the tour. */
   mark?: string;
+  /** 🔦 A spotlight tour's anchor token, stamped on the menu's seat as `data-tour`. */
+  tour?: string;
 };
 
 /**
@@ -240,7 +242,7 @@ export function ThumbRow({
           ) : null}
           {right.map((r) =>
             'menu' in r ? (
-              <span key={r.label} className={`sn-glass-row ${styles.round} ${styles.menu}`} data-thumb-seat="menu" {...(r.mark ? { [r.mark]: '' } : {})}>
+              <span key={r.label} className={`sn-glass-row ${styles.round} ${styles.menu}`} data-thumb-seat="menu" data-tour={r.tour} {...(r.mark ? { [r.mark]: '' } : {})}>
                 <PickMenu label={r.label} value={r.value} options={r.menu} onPick={r.onPick} buttonText={r.buttonText} />
               </span>
             ) : (

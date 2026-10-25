@@ -167,6 +167,20 @@ export async function loadPublishedShowcases(limit = 24): Promise<ShowcaseEntry[
   }
 }
 
+/**
+ * The same read, and whether it ANSWERED — for a caller that must tell "no stories match" from "the stories did not
+ * load" (the /help · /features search, `lib/site-search.ts`). `ok: false` when any step refused; `items` is then what
+ * was built, exactly what `loadPublishedShowcases` would render.
+ */
+export async function loadPublishedShowcasesResult(limit = 24): Promise<{ items: ShowcaseEntry[]; ok: boolean }> {
+  try {
+    return { items: await rememberedShowcases(limit), ok: true };
+  } catch (error) {
+    if (error instanceof ReadRefused && Array.isArray(error.partial)) return { items: error.partial as ShowcaseEntry[], ok: false };
+    return { items: [], ok: false };
+  }
+}
+
 const rememberedShowcases = rememberPublicRead((limit: number) => readPublishedShowcases(limit), {
   key: 'showcases:published-v1',
   tags: [HOME_SHELF_TAGS.events, HOME_SHELF_TAGS.people, HOME_SHELF_TAGS.shops],

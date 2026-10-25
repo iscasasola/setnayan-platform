@@ -40,6 +40,7 @@
  * NOT mounted and would still need the same treatment first.
  */
 import { DOORWAY_BLEED_PATHS } from './shell-bleed';
+import { DOORWAY_PAGE_SEARCH_PATHS } from './shell-page-search';
 import 'server-only';
 
 import { getNavSlotMap } from '@/lib/nav-registry';
@@ -166,6 +167,8 @@ export async function AppRailShell({
         get `undefined` and pass `bleed` explicitly if they ever need it.
       */
       bleedPaths={variant === 'doorway' ? DOORWAY_BLEED_PATHS : undefined}
+      /* /help and /features search in their own bottom row (signed in and out) — no top-bar box there. */
+      pageSearchPaths={variant === 'doorway' ? DOORWAY_PAGE_SEARCH_PATHS : undefined}
       account={account}
       navLabels={navLabels}
       /*

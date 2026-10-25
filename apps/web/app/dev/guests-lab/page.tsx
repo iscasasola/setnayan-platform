@@ -47,6 +47,8 @@
  *                   "follows the guest's side" can be walked; on the card &side=bride|groom|both picks the guest's side
  *                   (default bride) and the guest is already in College (groom's side)
  */
+import { LabPageSpotlight } from '@/app/dev/_components/lab-page-spotlight';
+import { TOURS } from '@/lib/tours';
 import { notFound } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { WEDDING_ROLE_SET } from '@/lib/role-sets';
@@ -755,6 +757,8 @@ export default async function GuestsLabPage({
             </div>
           </main>
           <DockStandIn />
+          {/* &spot=1 — the Guests page's first-visit spotlight (customer_guest_list_v2), first run, nothing recorded. */}
+          {sp.spot === '1' ? <LabPageSpotlight tourKey="customer_guest_list_v2" script={TOURS.customer_guest_list_v2.spotlight!} /> : null}
           {/* The + sheet's name box reaches its add through the SAME stand-ins as the screen — never the real action. */}
           <LabGuestActions refuse={sp.refuse === '1'} addMs={labAddMs}>
             <AddGuestSheet eventId={EVENT} defaultSide="both" />

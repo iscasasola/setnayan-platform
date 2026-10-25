@@ -24,22 +24,32 @@ export function ShellOnward({
   query,
   total,
   findSuppliers,
+  incomplete = false,
+  looked,
 }: {
   query: string;
   total: number;
   findSuppliers: { href: string; eventName: string } | null;
+  /** A read was refused (Discover): with nothing shown, say the search could not finish — never "nothing matches". */
+  incomplete?: boolean;
+  /** Where the search looked, when it is not the shell's list (Discover: events, people, suppliers). */
+  looked?: string;
 }) {
   if (total > 0 && !findSuppliers) return null;
   return (
     <div className="fd-grid">
       <div className="fd-invite fd-invite-full" data-shell-search-onward="">
         <h3>
-          {total === 0 ? `Nothing matches “${query}”.` : 'Looking for a new supplier?'}
+          {total === 0
+            ? incomplete
+              ? `We couldn’t finish searching for “${query}”.`
+              : `Nothing matches “${query}”.`
+            : 'Looking for a new supplier?'}
         </h3>
-        {total === 0 ? (
+        {total === 0 && !incomplete ? (
           <p>
-            We looked in your events, the suppliers on your events, the shops published on
-            Setnayan, and our stories and guides.
+            {looked ??
+              'We looked in your events, the suppliers on your events, the shops published on Setnayan, and our stories and guides.'}
           </p>
         ) : null}
         {findSuppliers ? (

@@ -126,5 +126,7 @@ test('5 · nothing found on Discover: the last row is the shipped add, a button,
   const src = code('app/_components/frontdoor/discover-add-own.tsx');
   assert.match(src, /<AddYourOwnWalk\b[\s\S]*?initialName=\{query\}/, 'the add does not open the shipped walk with the name filled in');
   const results = code('app/_components/frontdoor/front-door-results.tsx');
-  assert.match(results, /place === 'discover' && total === 0 && addOwnEvent \? <DiscoverAddOwnSlot/, 'the add is drawn outside "nothing found on Discover"');
+  // 2026-10-25: Discover draws its own results (`DiscoverResults`) — the add follows "nothing shown", and never a
+  // search that could not finish (a refused read is not "nothing found").
+  assert.match(results, /shown === 0 && !incomplete && addOwnEvent \? \(\s*<DiscoverAddOwnSlot/, 'the add is drawn outside "nothing found on Discover"');
 });

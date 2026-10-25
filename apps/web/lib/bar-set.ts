@@ -39,6 +39,7 @@ const ORDER: Record<BarSet, number> = { event: 0, account: 1, shop: 2 };
  */
 export const ACCOUNT_SPOKES: readonly string[] = [
   'api-keys',
+  'billing',
   'clusters',
   'create-event',
   'creator',

@@ -86,7 +86,7 @@ export default async function YourCollectionsPage({
         />
       </section>
       <SupplierThumbRow name="collections" label="Your collections">
-        <OpenFoldButton anchor="gallery-media" label="Add photos" icon="photo" />
+        <OpenFoldButton anchor="gallery-media" label="Add photos" icon="photo" tour="collections-add" />
       </SupplierThumbRow>
     </>
   );

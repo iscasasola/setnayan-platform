@@ -4,7 +4,7 @@ import { useRef } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { SpotlightMount } from '@/app/_components/spotlight-mount';
 import type { SpotlightScript, TourKey } from '@/lib/tours';
-import { supplierPageTourOn, type SupplierPageTourKey } from '@/lib/supplier-page-tours';
+import { SUPPLIER_PAGE_TOURS_AFTER, supplierPageTourOn, type SupplierPageTourKey } from '@/lib/supplier-page-tours';
 
 /**
  * The client half of `SupplierPageSpotlight`: the page tour that belongs to THIS address, if it is still
@@ -32,6 +32,7 @@ export function SupplierPageSpotlightMount({
       tourKey={key}
       script={script}
       seen={false}
+      after={SUPPLIER_PAGE_TOURS_AFTER}
       completeAction={(k) => {
         done.current.add(k);
         return completeAction(k);

@@ -209,7 +209,7 @@ export default async function PeoplePage({
       {/* First visit only — the SPOTLIGHT (owner rule 2026-09-25: every feature gets a first-visit tour; 2026-10-10:
           "our tour is a spotlight tour"). It replaces the carousel `customer_people_v1`, switched off since 2026-10-03,
           whose words described the dropdown this page lost on 2026-10-22. After the host's journey, so two never stack. */}
-      <Spotlight tourKey="customer_people_v2" after="host_spotlight_v1" />
+      <Spotlight tourKey="customer_people_v3" after="host_spotlight_v1" />
       {errorMsg ? (
         <p
           role="alert"

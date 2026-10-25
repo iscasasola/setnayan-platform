@@ -17,7 +17,14 @@ import styles from './thumb-row.module.css';
 
 const DESK = '(min-width: 1024px)';
 
-export function ThumbDock({ children }: { children: ReactNode }) {
+export function ThumbDock({
+  children,
+  noBar = false,
+}: {
+  children: ReactNode;
+  /** The page has no account bar below it (/help, /features): stand on the screen's foot (safe area), not 64px up. */
+  noBar?: boolean;
+}) {
   const [desk, setDesk] = useState<boolean | null>(null);
   const [on, setOn] = useState(false);
   useEffect(() => {
@@ -38,7 +45,7 @@ export function ThumbDock({ children }: { children: ReactNode }) {
   if (desk === null) return null;
   if (desk) return <div className={styles.deskLine}>{children}</div>;
   return createPortal(
-    <div className={styles.dock} data-on={on ? 'true' : 'false'} data-thumb-dock="">
+    <div className={noBar ? `${styles.dock} ${styles.dockNoBar}` : styles.dock} data-on={on ? 'true' : 'false'} data-thumb-dock="">
       {children}
     </div>,
     document.body,

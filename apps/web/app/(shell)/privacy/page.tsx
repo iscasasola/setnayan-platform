@@ -29,7 +29,7 @@ import { OAUTH_VERB } from '@/lib/oauth-words';
 export const metadata = {
   title: 'Privacy policy',
   description:
-    'How Setnayan handles personal data under the Philippine Data Privacy Act (RA 10173). Guest data, couple consent, vendor data, receipts, and DPO contact.',
+    'How Setnayan handles personal data under the Philippine Data Privacy Act (RA 10173). Guest data, couple consent, supplier data, receipts, and DPO contact.',
   alternates: { canonical: '/privacy' },
   openGraph: {
     title: 'Privacy policy · Setnayan',
@@ -59,7 +59,7 @@ export default function PrivacyPage() {
             How we handle your data
           </h1>
           <p className="text-xs text-ink/55">
-            Effective 2026-05-13 · last updated 2026-10-23 · subject to RA 10173 (Philippines Data Privacy Act)
+            Effective 2026-05-13 · last updated 2026-10-25 · subject to RA 10173 (Philippines Data Privacy Act)
           </p>
         </header>
 
@@ -97,7 +97,7 @@ export default function PrivacyPage() {
             which is also where any biometric face vector is stored), the APAC
             region (Cloudflare R2, our media storage, which holds photos,
             videos, and the selfie image you upload if you enrol a face),
-            United States (Anthropic — Setnayan AI, vendor Deep Search, and reading
+            United States (Anthropic — Setnayan AI, supplier Deep Search, and reading
             an uploaded payment receipt), and United States
             (Google LLC, when you connect the optional Google Drive or YouTube
             integrations, and the Gemini image model when a mood board is
@@ -120,7 +120,7 @@ export default function PrivacyPage() {
           <p>
             Setnayan is a self-service platform, and most of what we hold about
             an account is <strong>self-declared</strong> — you provide your
-            profile, your event details, the vendors you name, and your story
+            profile, your event details, the suppliers you name, and your story
             yourself. We do <strong>not</strong> require a government ID and do
             not independently verify that this information is accurate; you
             control it and are responsible for keeping it correct. You can view,
@@ -129,8 +129,8 @@ export default function PrivacyPage() {
           </p>
           <p className="pt-2">
             We verify identity <strong>only where this notice says so</strong>.
-            The main case is <strong>vendor identity verification</strong>: a
-            vendor shown as verified has had that credential checked separately.
+            The main case is <strong>supplier identity verification</strong>: a
+            supplier shown as verified has had that credential checked separately.
             (Third-party identity-verification providers are not yet active — see
             &ldquo;Regulatory posture&rdquo; above.)
           </p>
@@ -149,7 +149,7 @@ export default function PrivacyPage() {
         <Section title="What we collect">
           <ul className="ml-5 list-disc space-y-1">
             <li>Account info — email, password (hashed), display name, optional phone + profile photo URL</li>
-            <li>Event data you create — guest lists, vendor records, budget items, schedule, mood-board palettes</li>
+            <li>Event data you create — guest lists, supplier records, budget items, schedule, mood-board palettes</li>
             <li>Messages you send via the in-app chat</li>
             <li>
               Payment metadata — order amounts, reference codes, channel, your
@@ -441,7 +441,7 @@ export default function PrivacyPage() {
             </li>
             <li>
               Legal basis: our legitimate interest in preventing fraud and
-              protecting our vendors (RA 10173 &sect; 12). The hash is
+              protecting our suppliers (RA 10173 &sect; 12). The hash is
               pseudonymous.
             </li>
             <li>
@@ -534,8 +534,8 @@ export default function PrivacyPage() {
               (&ldquo;Para kanino?&rdquo;), a child&rsquo;s birth date and
               gender, or an expected due date — are stored as part of your
               event. The celebrant&rsquo;s first name is used only to keep
-              their celebrations organized; it is never shown on public pages
-              or to vendors.
+              their events organized; it is never shown on public pages
+              or to suppliers.
             </li>
             <li>
               <strong>Guest RSVP details</strong> — when your guests reply we
@@ -670,7 +670,7 @@ export default function PrivacyPage() {
             couple, and not to the public or to anyone outside the event. Only the
             compressed web copies are shared, only after they pass the automatic
             screening that runs on every capture, and the sharing never crosses
-            events: a pool is scoped to the one celebration. Guests can also link
+            events: a pool is scoped to the one event. Guests can also link
             themselves to a photo they appear in. If you would rather your shots
             went only to the couple, ask the host to leave the shared pool off for
             their event, or capture without it.
@@ -690,7 +690,7 @@ export default function PrivacyPage() {
             A few Setnayan features connect two devices{' '}
             <strong>directly to each other</strong>, so that live audio and video
             travel between them rather than through us. That is how a voice or
-            video <strong>call</strong> inside a vendor conversation works; how a
+            video <strong>call</strong> inside a supplier conversation works; how a
             camera operator&rsquo;s phone sends its feed to the couple&rsquo;s Live
             Studio control room; how a guest who taps a side camera on an event
             page receives that angle (the operator&rsquo;s phone sends it straight
@@ -758,7 +758,7 @@ export default function PrivacyPage() {
           <p>
             Setnayan may feature finished work from real events — such as a
             published event recap, or a consented artifact like an animated
-            monogram, save-the-date, event website, or personal reel — on
+            monogram, save-the-date, Event Hub, or personal reel — on
             Setnayan&rsquo;s own social channels (for example our
             Facebook, Instagram, or TikTok) to showcase what the platform makes.
             This is optional and governed by consent:
@@ -823,21 +823,21 @@ export default function PrivacyPage() {
           </ul>
         </Section>
 
-        <Section title="Vendor identity masking">
+        <Section title="Supplier identity masking">
           <p>
-            When you chat with a Setnayan vendor, the vendor sees only your event display
+            When you chat with a Setnayan supplier, the supplier sees only your event display
             name and date — never your email or personal name unless you choose to share.
             This is a load-bearing product rule.
           </p>
         </Section>
 
-        <Section title="Vendor interest counts (what other couples can see)">
+        <Section title="Supplier interest counts (what other couples can see)">
           <p>
-            When you save a vendor to your plan, or send that vendor an inquiry, for an
+            When you save a supplier to your plan, or send that supplier an inquiry, for an
             event on a specific date, that action is counted toward an{' '}
             <strong>aggregate, de-identified</strong> number — how many other couples are
-            interested in that vendor on that same date. Other couples planning that date
-            can see that number next to the vendor.
+            interested in that supplier on that same date. Other couples planning that date
+            can see that number next to the supplier.
           </p>
           <p className="pt-2">
             <strong>What is shared is the count, and only the count.</strong> Never your
@@ -845,12 +845,12 @@ export default function PrivacyPage() {
             any contact detail; never <em>which</em> couples they are; and never anything
             that would let another couple work out who you are. The count is computed on
             our servers from data no couple can read directly, and only the final number
-            reaches the page. Vendors are not shown this count either.
+            reaches the page. Suppliers are not shown this count either.
           </p>
           <p className="pt-2">
             <strong>Small numbers are suppressed.</strong> In the Marketplace&rsquo;s
             &ldquo;In demand right now&rdquo; ranking, the number is only sourced from
-            couples who actually <em>inquired</em> with the vendor (not from couples who
+            couples who actually <em>inquired</em> with the supplier (not from couples who
             merely saved them), and it is not shown at all unless at least{' '}
             <strong>three</strong> other couples have inquired for your date — so one
             couple&rsquo;s planning is never exposed on its own. The count is also
@@ -858,7 +858,7 @@ export default function PrivacyPage() {
             count is computed and none is shown.
           </p>
           <p className="pt-2">
-            We never present this number as scarcity. Setnayan does not tell you a vendor
+            We never present this number as scarcity. Setnayan does not tell you a supplier
             is &ldquo;almost gone&rdquo; or that there are &ldquo;only N slots left&rdquo;
             — we do not hold a live capacity count, so any such claim would be invented.
           </p>
@@ -882,22 +882,22 @@ export default function PrivacyPage() {
             coordinator is someone on your side — a planner, a family member, a friend —
             not a Setnayan employee. Before they get any access, they accept a consent
             screen that names exactly what they will be able to see and do: your{' '}
-            <strong>guest list, seating, schedule, and your chats with vendors</strong>.
+            <strong>guest list, seating, schedule, and your chats with suppliers</strong>.
           </p>
           <p className="pt-2">
             Two abilities are <strong>off by default</strong> and only turn on if you
-            explicitly grant them: <strong>&ldquo;Can finalize vendors&rdquo;</strong>{' '}
-            (lock in a vendor choice for you) and{' '}
+            explicitly grant them: <strong>&ldquo;Can book suppliers&rdquo;</strong>{' '}
+            (book a supplier for you) and{' '}
             <strong>&ldquo;Can handle payments&rdquo;</strong> (complete an apply-then-pay
             checkout on your behalf). Even with the payments scope,{' '}
             <strong>Setnayan never holds, moves, or records the transfer of any money</strong>
             {' '}— the coordinator only prepares the same off-platform payment you would,
-            and settlement happens directly between you and the vendor.
+            and settlement happens directly between you and the supplier.
           </p>
           <p className="pt-2">
             A coordinator can also <strong>draft schedule items privately and release them
             to you</strong> when ready; drafts stay hidden from you, your guests, and your
-            vendors until the coordinator releases them.
+            suppliers until the coordinator releases them.
           </p>
           {/* Added 2026-08-02 by the per-clause audit follow-up. The section
               described a coordinator's READ access thoroughly but not the two
@@ -908,14 +908,14 @@ export default function PrivacyPage() {
             see.</strong>{' '}
             A day-of announcement (&ldquo;dinner is moving up fifteen minutes&rdquo;)
             is a short message, capped at 500 characters, that goes to{' '}
-            <em>everyone on that event</em> — you, your guests, and your vendors —
+            <em>everyone on that event</em> — you, your guests, and your suppliers —
             and it cannot be edited or unsent once posted. Only you and a
             coordinator you invited can write one, and every message records who
             sent it. Announcements never leave the event they belong to.
           </p>
           <p className="pt-2">
             <strong>They also run a day-of requests desk.</strong> Requests raised
-            during the event — a vendor asking for something, a change of plan on
+            during the event — a supplier asking for something, a change of plan on
             the floor — collect in one list the coordinator works through. It holds
             what a person wrote into the request and who raised it, stays scoped to
             that one event, and is deleted with it.
@@ -938,14 +938,14 @@ export default function PrivacyPage() {
           </p>
         </Section>
 
-        <Section title="Vendor AI assistant (automated replies)">
+        <Section title="Supplier AI assistant (automated replies)">
           <p>
-            A vendor may turn on a paid <strong>Vendor AI assistant</strong> for
+            A supplier may turn on a paid <strong>Supplier AI assistant</strong> for
             their own shop. When they do, it can read the messages in
-            <em> your chat with that vendor</em> and your event brief (event
+            <em> your chat with that supplier</em> and your event brief (event
             date, guest count, budget per head, and venue) to answer common
-            questions — and, if the vendor allows it, accept a booking request —
-            automatically, on that vendor&rsquo;s behalf.
+            questions — and, if the supplier allows it, accept a booking request —
+            automatically, on that supplier&rsquo;s behalf.
           </p>
           <p className="pt-2">
             You always see an automated message labelled{' '}
@@ -953,16 +953,16 @@ export default function PrivacyPage() {
             person didn&rsquo;t type it. The assistant is{' '}
             <strong>deterministic</strong> — it follows fixed rules and never
             invents answers or commitments — and it is <strong>single-tenant</strong>:
-            it only ever acts for the one vendor whose chat it is in, and never
-            reads across vendors or across your events.
+            it only ever acts for the one supplier whose chat it is in, and never
+            reads across suppliers or across your events.
           </p>
           <p className="pt-2">
             <strong>Lawful basis &amp; your rights.</strong> We process these
-            messages on the basis of your own act of messaging that vendor
-            (consent) and the couple&ndash;vendor relationship (contract). Because
+            messages on the basis of your own act of messaging that supplier
+            (consent) and the couple&ndash;supplier relationship (contract). Because
             a machine, not a person, is replying, RA 10173 &sect; 34 (automated
             processing) and &sect; 16(c) (right to object) apply: you can always
-            reach a human — every message you send still goes to the vendor, and
+            reach a human — every message you send still goes to the supplier, and
             nothing is hidden from them — and you may object through our{' '}
             <Link href="/help" className="text-terracotta hover:underline">
               Help Center
@@ -977,15 +977,15 @@ export default function PrivacyPage() {
           </p>
         </Section>
 
-        <Section title="Vendor Deep Search (vendor business research)">
+        <Section title="Supplier Deep Search (supplier business research)">
           <p>
-            Vendors can run <strong>Deep Search</strong>, a paid tool that uses AI
+            Suppliers can run <strong>Deep Search</strong>, a paid tool that uses AI
             to research <em>their own business</em> across public web sources —
             their own website, directory listings, and review sites — and builds a
-            short summary the vendor reviews to fill in their Setnayan profile.
+            short summary the supplier reviews to fill in their Setnayan profile.
           </p>
           <p className="pt-2">
-            This is about the vendor&rsquo;s business information. The research
+            This is about the supplier&rsquo;s business information. The research
             runs through <strong>Anthropic&rsquo;s AI web search</strong> (United
             States; see Subprocessors below). We <strong>never</strong> send your
             guest list, your messages, or your personal data into it. Public pages
@@ -995,7 +995,7 @@ export default function PrivacyPage() {
             {' '}basis.
           </p>
           <p className="pt-2">
-            <strong>Lawful basis.</strong> The vendor initiates it about their own
+            <strong>Lawful basis.</strong> The supplier initiates it about their own
             business (consent + contract); for any incidental, already-public
             third-party content we rely on legitimate interest (RA 10173 &sect;
             12(f)), minimised to a business summary and short retention.
@@ -1003,7 +1003,7 @@ export default function PrivacyPage() {
           <p className="pt-2">
             <strong>Free coverage suggestion at sign-up.</strong> Separately,
             Setnayan may also run this same read — once, for free, on{' '}
-            <strong>our own initiative</strong> rather than the vendor&rsquo;s —
+            <strong>our own initiative</strong> rather than the supplier&rsquo;s —
             the first time a shop adds its own website, to <strong>suggest</strong>{' '}
             additional service categories the shop can confirm belong on their
             profile. This never changes a shop&rsquo;s coverage by itself: the
@@ -1067,7 +1067,7 @@ export default function PrivacyPage() {
             To keep our marketplace signals honest — reviews, ratings, badges,
             and &ldquo;most-booked&rdquo; counts — we run automated checks that
             detect and prevent manipulation, such as fake or duplicate accounts
-            created to inflate a vendor&rsquo;s reputation. To spot rings of
+            created to inflate a supplier&rsquo;s reputation. To spot rings of
             accounts controlled by one person or household, we analyze signals we
             already hold (device and browser signals, the address on your
             account, and the payment-sender identity on your transactions) so
@@ -1076,17 +1076,17 @@ export default function PrivacyPage() {
           <p className="pt-2">
             <strong>Lawful basis.</strong> We rely on legitimate interest (RA
             10173 § 12(f)) — preventing fraud and protecting the integrity of the
-            marketplace for couples and honest vendors. We use only data we have
+            marketplace for couples and honest suppliers. We use only data we have
             already collected for other purposes; there is no new collection for
             this.
           </p>
           <p className="pt-2">
             <strong>Automated decisions &amp; your right to object.</strong> At a
-            high fraud-risk score a vendor&rsquo;s listing may be automatically
+            high fraud-risk score a supplier&rsquo;s listing may be automatically
             and <em>reversibly</em> hidden while we review — no data is deleted,
             and one review by our team reverses it. Permanent action (removing a
-            vendor&rsquo;s reviews or banning an account) is never automatic; it
-            requires two separate team members to confirm. If you are a vendor
+            supplier&rsquo;s reviews or banning an account) is never automatic; it
+            requires two separate team members to confirm. If you are a supplier
             affected by an automated suspension or enforcement action, you may
             object and request a review through our{' '}
             <Link href="/help" className="text-terracotta hover:underline">
@@ -1103,8 +1103,8 @@ export default function PrivacyPage() {
             <li>We do not capture or use your IP address for this.</li>
             <li>
               These groupings, signals, and scores are strictly internal — no
-              couple or vendor can view them, and they are never sold, shared,
-              used for advertising, or used to rank or promote vendors.
+              couple or supplier can view them, and they are never sold, shared,
+              used for advertising, or used to rank or promote suppliers.
             </li>
             <li>
               The evidence we store is non-identifying — counts and ratios, not
@@ -1115,20 +1115,20 @@ export default function PrivacyPage() {
 
         <Section title="Storyteller chapters — inquiry referrals and source labels">
           <p>
-            When you contact a vendor after tapping &ldquo;Book through this
+            When you contact a supplier after tapping &ldquo;Book through this
             chapter&rdquo; on a storyteller&rsquo;s public chapter, we record
-            which chapter referred your inquiry so the vendor can honor the promo
+            which chapter referred your inquiry so the supplier can honor the promo
             that chapter advertised and the storyteller&rsquo;s public profile
             can show an aggregate count of inquiries their chapters have driven.
-            We also label each inquiry with how it reached the vendor (for
+            We also label each inquiry with how it reached the supplier (for
             example: their website, a Setnayan recommendation, a storyteller
             chapter, an editorial feature, or a returning customer). These labels
-            and the referral are visible only to you and the vendor on your
+            and the referral are visible only to you and the supplier on your
             conversation — they are never public. The only public figure derived
             from them is the storyteller&rsquo;s aggregate
             &ldquo;inquiries driven&rdquo; number, which never identifies you,
             your event, or your conversation. Any discount is offered and settled
-            by the vendor directly; Setnayan never handles the money.
+            by the supplier directly; Setnayan never handles the money.
           </p>
         </Section>
 
@@ -1170,17 +1170,14 @@ export default function PrivacyPage() {
             </li>
             <li>
               Private-always field allowlist — guest list, RSVP data, budget
-              figures, vendor chat history, day-of broadcast video, and raw
+              figures, supplier chat history, day-of broadcast video, and raw
               photo feed never reach the public Summary.
             </li>
             <li>
-              Right to redact any field, photo, vendor credit, or whole page at
+              Right to redact any field, photo, supplier credit, or whole page at
               any time.
             </li>
           </ol>
-          <p className="pt-2 text-xs text-ink/55">
-            Per CLAUDE.md decision-log 2026-05-19 row 426.
-          </p>
         </Section>
 
         <Section title="Guest-written columns on an event page">
@@ -1298,7 +1295,7 @@ export default function PrivacyPage() {
               already delivered to you stay yours.
             </li>
             <li>
-              <strong>Messages between a couple and a vendor</strong> —{' '}
+              <strong>Messages between a couple and a supplier</strong> —{' '}
               <strong>5 years</strong> after the event date.
             </li>
             <li>
@@ -1435,12 +1432,11 @@ export default function PrivacyPage() {
                 figures predated the locked catalog (Patiktok is a flat-price
                 SKU; current price on /pricing). Privacy copy describes data
                 flows, not prices. */}
-            Couples on the Patiktok Personal tier connect their own
+            Couples who use Patiktok can connect their own
             TikTok account to Setnayan so Patiktok booth compilations can
             auto-post to the couple&rsquo;s handle. Setnayan uses TikTok&rsquo;s
-            Login Kit and Content Posting API. The Setnayan tier
-            does not require a couple-side TikTok connection — those
-            compilations post to <strong>@SetnayanWeddings</strong>, our
+            Login Kit and Content Posting API. Without a couple-side
+            TikTok connection, compilations post to <strong>@SetnayanWeddings</strong>, our
             company-owned handle, using credentials Setnayan manages directly.
           </p>
           <ul className="ml-5 list-disc space-y-1 pt-2">
@@ -1470,12 +1466,12 @@ export default function PrivacyPage() {
               stored in <code className="font-mono text-[12px]">patiktok_oauth_grants</code> in our
               Supabase database (Singapore region · encrypted at rest), scoped
               to one specific Setnayan event. These credentials are never
-              shared with vendors, other couples, or third parties. (That
+              shared with suppliers, other couples, or third parties. (That
               statement is about your TikTok credentials specifically — it is
               not a blanket claim that nothing you do on Setnayan is ever
               visible to another couple. For the one place where your planning
               activity feeds an anonymous count that other couples can see, see{' '}
-              <em>Vendor interest counts</em> above.)
+              <em>Supplier interest counts</em> above.)
             </li>
             <li>
               <strong>Retention.</strong> Grants are kept until you revoke them
@@ -1785,15 +1781,15 @@ export default function PrivacyPage() {
             to advertising networks or data brokers, do not use it for
             advertising or personalisation, and do not use it to train AI or
             machine-learning models. Your connection credential and your channel
-            details are not shared with vendors, other couples, or any other
+            details are not shared with suppliers, other couples, or any other
             Setnayan user. The one thing that is published is the broadcast
             itself &mdash; its link is embedded on your event page, which is
             public, so anyone with that page or the link can watch. That is what
             the feature is for, and you control it by choosing whether to go
             live. (This paragraph is about your YouTube connection, not about
-            everything you do on Setnayan &mdash; your vendor shortlisting also
+            everything you do on Setnayan &mdash; your supplier shortlisting also
             feeds an anonymous count other couples can see, described under{' '}
-            <em>Vendor interest counts</em> above.)
+            <em>Supplier interest counts</em> above.)
           </p>
 
           <p className="pt-3">
@@ -1821,8 +1817,8 @@ export default function PrivacyPage() {
 
         <Section id="google-drive" title="Google Drive integration (Photo Delivery + Papic)">
           <p>
-            Couples who use Photo Delivery (vendor-released final wedding
-            photos) or Papic (the V1.5+ camera mesh) connect a Google Drive
+            Couples who use Photo Delivery (supplier-released final event
+            photos) or Papic (our in-app camera) connect a Google Drive
             account so Setnayan can write photos and videos into that Drive
             on the couple&rsquo;s behalf. The connection uses Google&rsquo;s
             standard OAuth sign-in. You can revoke it at any time from your{' '}
@@ -1859,12 +1855,12 @@ export default function PrivacyPage() {
               your existing Drive contents.
             </li>
             <li>
-              <strong>How we use it.</strong> For Photo Delivery (0009), we
-              create one folder per event named after the wedding (for
+              <strong>How we use it.</strong> For Photo Delivery, we
+              create one folder per event named after the event (for
               example, <em>&ldquo;Setnayan · Maria &amp; Juan Wedding ·
-              2026-10-24&rdquo;</em>) and the vendor&rsquo;s release action
-              writes the finalized photo set into that folder. For Papic
-              (V1.5+), the camera-mesh capture pipeline writes event-day
+              2026-10-24&rdquo;</em>) and the supplier&rsquo;s release action
+              writes the finalized photo set into that folder. For Papic,
+              the capture pipeline writes event-day
               photos into a bootstrapped folder structure inside the same
               Drive. We never browse, modify, or delete any file we did not
               create.
@@ -1875,11 +1871,11 @@ export default function PrivacyPage() {
               <code className="font-mono text-[12px]">oauth_grants</code>{' '}
               in our Supabase database (Singapore region · encrypted at
               rest), scoped to one specific Setnayan event. These credentials
-              are never shared with vendors, other couples, or third parties.
+              are never shared with suppliers, other couples, or third parties.
               (That statement is about your Google Drive credentials
               specifically — it is not a blanket claim that nothing you do on
               Setnayan is ever visible to another couple. See{' '}
-              <em>Vendor interest counts</em> above for the one place where your
+              <em>Supplier interest counts</em> above for the one place where your
               planning activity feeds an anonymous count.)
             </li>
             <li>
@@ -1987,7 +1983,7 @@ export default function PrivacyPage() {
             </li>
             <li>
               Anthropic (AI features · United States · never trained on your
-              data) — AI web research for the vendor Deep Search tool, and
+              data) — AI web research for the supplier Deep Search tool, and
               reading the payment receipt you upload so we can check the
               reference number you typed. A receipt is a bank document: see
               &ldquo;Reading your payment receipt&rdquo; above for exactly what
@@ -2007,7 +2003,7 @@ export default function PrivacyPage() {
               &ldquo;Make it real&rdquo;)
             </li>
             <li>
-              TikTok (Personal-tier Patiktok only · for couples who explicitly
+              TikTok (Patiktok only · for couples who explicitly
               connect their TikTok account via OAuth)
             </li>
             <li>

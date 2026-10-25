@@ -6,7 +6,6 @@ import { classifyImageBytes, decideNsfw } from '@/lib/nsfw-screen';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { isVendorPapicCaptureEnabled } from '@/lib/vendor-dayof-flags';
 import { fetchVendorPapicPortfolioCredits } from '@/lib/vendor-papic-grants';
-import { papicCaptureCost } from '@/lib/papic-cameras-pure';
 
 // POST /api/vendor/papic-portfolio-import
 //
@@ -89,12 +88,9 @@ export async function POST(req: Request) {
   // capture AND prior portfolio imports). Re-checked here rather than trusted
   // from the client, the same posture canCapture uses for the camera. `null`
   // means Unli (uncapped) — nothing to check.
-  // 📤 A portfolio import is a photo ADDED BY HAND: PAPIC_POINTS_PER_UPLOADED_PHOTO (3), a camera photo 1 (owner 2026-10-26, "regardless of event
-  // or supplier") — the one function every Papic seam prices with. The row records what was spent.
-  const cost = papicCaptureCost('photo', null, 'upload');
   const admin = createAdminClient();
   const { left } = await fetchVendorPapicPortfolioCredits(admin, vendorProfileId, eventId);
-  if (left != null && left < cost) {
+  if (left != null && left < 1) {
     return NextResponse.json({ error: 'out_of_credits', left }, { status: 409 });
   }
 
@@ -127,7 +123,7 @@ export async function POST(req: Request) {
       vendor_profile_id: vendorProfileId,
       event_id: eventId,
       r2_object_key: r2Ref,
-      credits_spent: cost,
+      credits_spent: 1,
       nsfw_checked: false,
     })
     .select('photo_id')

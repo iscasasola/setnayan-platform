@@ -27,14 +27,16 @@ PHOTOS sheet's lower part ran behind the event bar and off the screen.
   `app/dashboard/[eventId]/studio/papic/_lib/the-sheet-and-the-server-share-one-ladder.test.ts`;
   `an-upload-is-a-capture.test.ts` follows the sender.
 
-- **💰 A photo ADDED BY HAND costs 3 credits — triple a camera photo's 1** (owner 2026-10-26: *"uploads take 2
-  credits"* · *"regardless of event or supplier"*, then the same day *"Sorry change the concept. Not 2 but 3. So it will be triple the credits to upload instead of coming from papic"*). One source:
-  `papicCaptureCost(kind, durationMs, source)` with `PAPIC_POINTS_PER_UPLOADED_PHOTO = 3`; the source is read off the
-  seat (`papicSeatCaptureSource` — the Uploads camera, index 150). The presign gate, `recordSeatCapture` (it passes
-  `p_cost`; the SQL spends what it is handed, so no migration), the sheet's pre-check and ⓘ, the Memories "Turn this on"
-  line, and the supplier portfolio import (`/api/vendor/papic-portfolio-import`: checks `left < cost`, records
-  `credits_spent: cost`, button "Import a photo · 3 credits") all read it. ⏸ Clips added by hand keep the camera ladder
-  until the owner rules — a one-line change in the `clip` arm.
+- **💰 Anything ADDED BY HAND costs the camera price × 3** (owner 2026-10-26, in order: *"uploads take 2 credits"* →
+  *"Not 2 but 3… triple the credits to upload"* → *"Normal papic credit is 1 credit when used papic. 3 credits for photo
+  if uploaded. So you multiply it by 3 always"*). One multiplier, `PAPIC_UPLOAD_MULTIPLIER = 3`, inside
+  `papicCaptureCost(kind, durationMs, source)`: an added photo 3, an added snippet 6 / 9 / 15 / 24 by length; the presign
+  floor for an added clip is `papicClipCostFloor('upload')` = 6. The source is read off the seat
+  (`papicSeatCaptureSource` — the Uploads camera, index 150). The presign gate, `recordSeatCapture` (it passes `p_cost`;
+  the SQL spends what it is handed, so no migration), the sheet's pre-check and ⓘ ("A photo you add uses 3 credits and a
+  snippet 6–24 by length (…) — three times the camera.") and the Memories "Turn this on" line all read it. This is the
+  couple's event uploads, from the event's own Papic. ⏸ Supplier uploads are unchanged from main: the owner put them
+  behind a separate admin switch (suppliers only, off at first), built with lifetime supplier credits in another PR.
 
-SPEC IMPACT: Owner price ruling 2026-10-26 (uploads 3 credits — triple a camera photo) needs its DECISION_LOG row — flagged to the controller, not written by this builder. Otherwise implements the shipped rulings (DECISION_LOG 2026-09-16 PAP-13 ladder; 2026-10-23 Memories joins
+SPEC IMPACT: Owner price ruling 2026-10-26 (uploads = camera × 3; supplier switch off at first) needs its DECISION_LOG row — flagged to the controller, not written by this builder. Otherwise implements the shipped rulings (DECISION_LOG 2026-09-16 PAP-13 ladder; 2026-10-23 Memories joins
 the event bar; details inside the ⓘ).

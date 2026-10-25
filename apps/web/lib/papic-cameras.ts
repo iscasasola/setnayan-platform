@@ -186,7 +186,7 @@ export const PAPIC_UPLOADS_CAMERA_INDEX = 150;
 
 /**
  * Was this capture added by hand? The Uploads camera's seat is the one door for a file picked from a phone or laptop
- * (owner 2026-10-26: an added photo costs PAPIC_POINTS_PER_UPLOADED_PHOTO (3), a camera photo 1 — `papicCaptureCost`). Read off the SEAT the server
+ * (owner 2026-10-26: anything added costs the camera price × PAPIC_UPLOAD_MULTIPLIER — `papicCaptureCost`). Read off the SEAT the server
  * resolved from the token, never from anything the client says.
  */
 export function papicSeatCaptureSource(seatIndex: number | null | undefined): PapicCaptureSource {

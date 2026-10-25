@@ -1,6 +1,6 @@
 /**
  * + ADD PHOTOS — WHAT A PICK COSTS, AND WHETHER THE POT COVERS IT (owner 2026-10-25: *"adding photos will use up papic
- * credits"*; 2026-10-26: an added photo costs 3, a camera photo 1 — `PAPIC_POINTS_PER_UPLOADED_PHOTO`).
+ * credits"*; 2026-10-26: anything added costs the camera price × `PAPIC_UPLOAD_MULTIPLIER`).
  *
  * 🔑 ONE LADDER. Every number here comes from `papicCaptureCost` / `PAPIC_CLIP_COST_BANDS`
  * (`lib/papic-cameras-pure.ts`) — the SAME function `recordSeatCapture` bills with (`app/papic/actions.ts`) and the
@@ -10,7 +10,7 @@
  *
  * Pure — no React, no I/O — so the test drives it directly.
  */
-import { PAPIC_CLIP_COST_BANDS, papicCaptureCost } from '@/lib/papic-cameras-pure';
+import { PAPIC_CLIP_COST_BANDS, papicCaptureCost, papicClipCostFloor, papicSourceMultiplier, type PapicCaptureSource } from '@/lib/papic-cameras-pure';
 import { countNoun, formatCount } from '@/lib/format-number';
 
 /** One picked file, after it was read: a photo, or a clip whose length was measured. */
@@ -50,24 +50,28 @@ export function creditsCount(n: number): string {
 }
 
 /**
- * The clip ladder in words, from the bands: "1–2 s · 2, 3 s · 3, 4–6 s · 5, 7–10 s · 8". Each band starts one second
- * after the previous band's top (seconds round UP — `papicSnippetCost`).
+ * A clip ladder in words, every price asked of `papicCaptureCost` at the band's top second: for 'upload' "1–2 s · 6,
+ * 3 s · 9, 4–6 s · 15, 7–10 s · 24". Each band starts one second after the previous band's top (seconds round UP).
  */
-export function clipLadderWords(): string {
+export function clipLadderWords(source: PapicCaptureSource = 'upload'): string {
   let from = 1;
   return PAPIC_CLIP_COST_BANDS.map((b) => {
     const span = from === b.maxSeconds ? `${b.maxSeconds} s` : `${from}–${b.maxSeconds} s`;
     from = b.maxSeconds + 1;
-    return `${span} · ${formatCount(b.points)}`;
+    return `${span} · ${formatCount(papicCaptureCost('clip', b.maxSeconds * 1000, source))}`;
   }).join(', ');
 }
 
+const TIMES: Record<number, string> = { 2: 'two', 3: 'three', 4: 'four', 5: 'five' };
+
 /**
- * The ⓘ's sentence on cost — an added photo, a camera photo and the clip ladder, all read from the one function
- * (owner 2026-10-26: *"Sorry change the concept. Not 2 but 3. So it will be triple the credits to upload instead of coming from papic"*).
+ * The ⓘ's sentence on cost — all read from the one function (owner 2026-10-26: *"Normal papic credit is 1 credit when
+ * used papic. 3 credits for photo if uploaded. So you multiply it by 3 always"*).
  */
 export function costInfoLine(): string {
-  const added = papicCaptureCost('photo', null, 'upload');
-  const camera = papicCaptureCost('photo', null, 'camera');
-  return `Each photo you add uses ${creditsCount(added)} — a photo taken with the camera uses ${creditsCount(camera)}. A snippet uses more the longer it runs (${clipLadderWords()}).`;
+  const photo = papicCaptureCost('photo', null, 'upload');
+  const low = papicClipCostFloor('upload');
+  const high = papicCaptureCost('clip', PAPIC_CLIP_COST_BANDS[PAPIC_CLIP_COST_BANDS.length - 1]!.maxSeconds * 1000, 'upload');
+  const m = papicSourceMultiplier('upload');
+  return `A photo you add uses ${creditsCount(photo)} and a snippet ${formatCount(low)}–${formatCount(high)} by length (${clipLadderWords('upload')}) — ${TIMES[m] ?? formatCount(m)} times the camera.`;
 }

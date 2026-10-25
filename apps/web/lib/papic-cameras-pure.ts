@@ -42,19 +42,19 @@ export const PAPIC_POINTS_PER_PHOTO = 1;
 export const PAPIC_POINTS_PER_SNIPPET = 8;
 
 /**
- * 📤 A PHOTO ADDED BY HAND COSTS 3 — TRIPLE A CAMERA PHOTO (owner 2026-10-26, verbatim: *"unlike photos taken on our app
- * which takes 1 credit per photos, uploads take 2 credits."* · *"regardless of event or supplier"*; then, the same day:
- * *"Sorry change the concept. Not 2 but 3. So it will be triple the credits to upload instead of coming from papic"*). Superseded: the 2026-08-26 rule that an
- * uploaded photo costs the same as a captured one.
+ * 📤 ANYTHING ADDED BY HAND COSTS THREE TIMES THE CAMERA (owner 2026-10-26, verbatim, in order: *"uploads take 2
+ * credits"* → *"Sorry change the concept. Not 2 but 3. So it will be triple the credits to upload instead of coming
+ * from papic"* → *"Normal papic credit is 1 credit when used papic. 3 credits for photo if uploaded. So you multiply it
+ * by 3 always"*). A photo added by hand is 1 × 3 = 3; a clip added by hand is the length ladder × 3 (2 / 3 / 5 / 8 →
+ * 6 / 9 / 15 / 24). Superseded: the 2026-08-26 rule that an upload costs the same as a camera shot.
  *
  * "Added by hand" is the capture's SOURCE — the Uploads camera seat (`PAPIC_UPLOADS_CAMERA_INDEX`, resolved by
  * `papicSeatCaptureSource` in `lib/papic-cameras.ts`), never what the file looks like. Both seams pass that source
- * to `papicCaptureCost`; the + Add photos sheet prices a pick with the same call.
- *
- * ⏸ CLIPS ADDED BY HAND ARE NOT RULED YET — they keep the length ladder below, exactly as a camera clip. When the owner
- * rules, the change is the `clip` arm of `papicCaptureCost` for `source === 'upload'`, nowhere else.
+ * to `papicCaptureCost`; the + Add photos sheet prices a pick with the same call. This is the COUPLE's event uploads
+ * (the event's own Papic). A supplier's uploads are not priced here — the owner put them behind a separate admin
+ * switch, suppliers only, off at first (2026-10-26), built with lifetime supplier credits.
  */
-export const PAPIC_POINTS_PER_UPLOADED_PHOTO = 3;
+export const PAPIC_UPLOAD_MULTIPLIER = 3;
 
 /** Where a capture came from: a camera in the app, or a file added by hand (the Uploads camera). */
 export type PapicCaptureSource = 'camera' | 'upload';
@@ -146,11 +146,21 @@ export function papicSnippetCost(durationMs: number | null | undefined): number 
 export function papicCaptureCost(
   kind: 'photo' | 'clip',
   durationMs?: number | null,
-  /** 'upload' = added by hand (the Uploads camera). Absent = a camera shot, so every existing caller is unchanged. */
+  /** 'upload' = added by hand (the Uploads camera): the camera price × PAPIC_UPLOAD_MULTIPLIER. Absent = a camera shot. */
   source: PapicCaptureSource = 'camera',
 ): number {
-  if (kind === 'clip') return papicSnippetCost(durationMs); // ⏸ an added clip: not ruled yet — the camera ladder
-  return source === 'upload' ? PAPIC_POINTS_PER_UPLOADED_PHOTO : PAPIC_POINTS_PER_PHOTO;
+  const camera = kind === 'clip' ? papicSnippetCost(durationMs) : PAPIC_POINTS_PER_PHOTO;
+  return camera * papicSourceMultiplier(source);
+}
+
+/** ×1 for a camera shot, ×`PAPIC_UPLOAD_MULTIPLIER` for anything added by hand — "multiply it by 3 always". */
+export function papicSourceMultiplier(source: PapicCaptureSource): number {
+  return source === 'upload' ? PAPIC_UPLOAD_MULTIPLIER : 1;
+}
+
+/** The cheapest clip from this source — the presign's floor (no file exists yet, so no length; see app/api/upload). */
+export function papicClipCostFloor(source: PapicCaptureSource = 'camera'): number {
+  return PAPIC_CLIP_COST_MIN * papicSourceMultiplier(source);
 }
 
 /**

@@ -15,6 +15,10 @@ import { EventMemoriesGallery } from '@/app/_components/memories/event-memories-
 import { Spotlight } from '@/app/_components/spotlight';
 import { HOST_PAGE_TOURS, HOST_PAGE_TOURS_AFTER } from '@/lib/host-page-tours';
 import { AddToLibrary } from '@/app/dashboard/[eventId]/studio/papic/_components/add-to-library';
+import type { UploadPot } from '@/app/dashboard/[eventId]/studio/papic/_lib/upload-credits';
+import { PapicBuySheet } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-buy-sheet';
+import { IapPapicSheet } from '@/app/_components/iap/iap-papic-sheet';
+import { eventHasPapicUnlock } from '@/lib/entitlements';
 import { UploadsOpenChoice } from '@/app/dashboard/[eventId]/studio/papic/_components/uploads-open-choice';
 import { claimUploadsCamera } from '@/app/dashboard/[eventId]/studio/papic/actions';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -110,19 +114,44 @@ export default async function EventMemoriesPage({ params, searchParams }: Props)
     // ⚠ ABSENT MEANS OPEN — the switch's own rule (`the-uploads-switch-is-real.test.ts`), read off the one event select.
     const uploadsRow = ev;
     const uploadsOpen = uploadsRow?.papic_uploads_open ?? true;
-    const { data: seat, error: seatErr } = await createAdminClient()
+    const admin = createAdminClient();
+    const { data: seat, error: seatErr } = await admin
       .from('paparazzi_seats')
-      .select('claim_qr_token, claimer_user_id')
+      .select('seat_id, claim_qr_token, claimer_user_id')
       .eq('event_id', eventId)
       .eq('seat_index', PAPIC_UPLOADS_CAMERA_INDEX)
       .is('revoked_at', null)
       .maybeSingle();
     if (seatErr) logQueryError('EventMemoriesPage.uploadsSeat', seatErr, { event_id: eventId }, 'graceful_degrade');
     const token = seat?.claimer_user_id === user.id ? ((seat?.claim_qr_token as string | null) ?? null) : null;
+    /* 🪙 WHAT THIS CAMERA CAN STILL SPEND (owner 2026-10-25: "adding photos will use up papic credits") — the presign
+       gate's OWN question (`papic_capture_points_available`: the seat's own credits + the event's one pot), so the
+       number on the sheet is the number the server refuses at. The Papic Unlock pass shoots unmetered, as at the gate.
+       A read that failed is null — "Couldn't check", never 0. Only asked when the uploader is drawn. */
+    let pot: UploadPot = null;
+    if (uploadsOpen && token && seat?.seat_id) {
+      const unlocked = await eventHasPapicUnlock(admin, eventId).catch(() => false);
+      if (unlocked) pot = 'unmetered';
+      else {
+        const { data: left, error: potErr } = await admin.rpc('papic_capture_points_available', {
+          p_seat_id: seat.seat_id as string,
+          p_event_id: eventId,
+        });
+        if (potErr) logQueryError('EventMemoriesPage.uploadsPot', potErr, { event_id: eventId }, 'graceful_degrade');
+        pot = typeof left === 'number' ? Math.max(0, left) : null;
+      }
+    }
+    // The ONE Add more — Apple's sheet in the app (it sells there), the web's sheet on the web; the app without Apple's
+    // shop offers no web checkout (the rule `appleIap` above records), so no door there.
+    const buy = iap.iap ? (
+      <IapPapicSheet eventId={eventId} left={typeof pot === 'number' ? pot : null} label="Add more" />
+    ) : iap.storeShell ? null : (
+      <PapicBuySheet eventId={eventId} left={typeof pot === 'number' ? pot : null} tone="brand" label="Add more" />
+    );
     addPhotos = !uploadsOpen ? (
       <UploadsOpenChoice eventId={eventId} open={false} variant="row" back="memories" />
     ) : token ? (
-      <AddToLibrary token={token} />
+      <AddToLibrary token={token} pot={pot} buy={buy} />
     ) : (
       <form action={claimUploadsCamera} className="space-y-3">
         <input type="hidden" name="event_id" value={eventId} />

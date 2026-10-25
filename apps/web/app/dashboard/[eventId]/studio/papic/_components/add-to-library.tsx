@@ -1,8 +1,20 @@
 'use client';
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useRouter } from 'next/navigation';
 import { Upload, Loader2, Check, AlertCircle } from 'lucide-react';
 import { recordSeatCapture } from '@/app/papic/actions';
+import { InfoTip } from '@/app/_components/info-tip';
+import type { UploadOutcome } from '@/lib/upload-send';
+import {
+  costInfoLine,
+  coverVerdict,
+  creditsCount,
+  selectionCost,
+  type CoverVerdict,
+  type PickedCost,
+  type UploadPot,
+} from '../_lib/upload-credits';
 
 /**
  * ADD TO YOUR LIBRARY — the shutter that is a file picker.
@@ -33,6 +45,17 @@ import { recordSeatCapture } from '@/app/papic/actions';
  * refused rather than uploaded into permanent limbo.
  */
 
+/*
+ * ⏱ EVERY FILE ENDS, AND SAYS HOW (owner 2026-10-25: *"adding photos on event memories is not fixed"*). The bytes go
+ * through the shared `sendToStorage` (`lib/upload-send.ts`) — the same signer, the same stall watchdog and the same
+ * progress as `<FileUpload>` — with the seat token, so nothing about WHERE a file lands or WHETHER the pot pays moved
+ * to the client. The budgets are FileUpload's own (`UPLOAD_STALL_MS` / `UPLOAD_RESPONSE_MS` in `file-upload.tsx`).
+ * The record step (`recordSeatCapture`) gets a clock too: a server action that never answers must not spin for ever.
+ */
+const UPLOAD_STALL_MS = 45_000;
+const UPLOAD_RESPONSE_MS = 300_000;
+const RECORD_STALL_MS = 60_000;
+
 const MAX_IMAGE_BYTES = 12 * 1024 * 1024;
 const MAX_VIDEO_BYTES = 48 * 1024 * 1024;
 /** The owner-locked 10s cap, with the same tolerance the server allows. */
@@ -41,9 +64,15 @@ const MAX_CLIP_MS = 10_500;
 type Row = {
   id: string;
   name: string;
-  state: 'waiting' | 'working' | 'done' | 'refused';
+  /** checking → (held: the pot is short, nothing sent) | waiting → working → done | refused */
+  state: 'checking' | 'held' | 'waiting' | 'working' | 'done' | 'refused';
+  /** 0–100, from the PUT itself — never invented. */
+  pct?: number;
   detail?: string;
 };
+
+/** A file that passed the checks, with what it will cost. */
+type Ready = { id: string; file: File; cost: PickedCost; probe: { durationMs: number; poster: Blob } | null };
 
 function ext(type: string): string {
   if (type.includes('png')) return 'png';
@@ -94,46 +123,71 @@ async function probeVideo(
   }
 }
 
-export function AddToLibrary({ token }: { token: string }) {
+export function AddToLibrary({
+  token,
+  pot: potAtOpen,
+  buy = null,
+}: {
+  token: string;
+  /**
+   * Credits this camera can still spend — the presign gate's own read (`papic_capture_points_available`), or
+   * 'unmetered' (the Papic Unlock pass), or null when it could not be read (said as "Couldn't check", never 0).
+   */
+  pot: UploadPot;
+  /** The shipped Add more door (`PapicBuySheet`, or Apple's in the app) — offered when the pot is short. */
+  buy?: ReactNode;
+}) {
+  const router = useRouter();
   const [rows, setRows] = useState<Row[]>([]);
   const [busy, setBusy] = useState(false);
+  const [pot, setPot] = useState<UploadPot>(potAtOpen);
+  // The page re-read the pot (after a pick lands, `router.refresh()`): the server's number replaces the local count.
+  useEffect(() => setPot(potAtOpen), [potAtOpen]);
+  const [short, setShort] = useState<Extract<CoverVerdict, { ok: false }> | null>(null);
+  const [landed, setLanded] = useState(0);
+  /** A file was refused because the pot ran dry mid-pick (a second tab, a guest camera spending at the same time). */
+  const [ranDry, setRanDry] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const patch = useCallback((id: string, next: Partial<Row>) => {
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...next } : r)));
   }, []);
 
-  /** Presign + PUT one blob; returns the stored r2:// ref. */
-  const put = useCallback(
-    async (blob: Blob, contentType: string, e: string): Promise<string> => {
-      const res = await fetch('/api/upload', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          papicSeatToken: token,
-          filename: `upload-${Date.now()}.${e}`,
-          contentType,
-          sizeBytes: blob.size,
-        }),
+  /** Sign + PUT one blob through the shared sender; the stored r2:// ref, or the words for why not. */
+  const send = useCallback(
+    async (
+      blob: Blob,
+      contentType: string,
+      e: string,
+      onProgress?: (pct: number) => void,
+    ): Promise<{ ok: true; ref: string } | { ok: false; why: string; code: string | null }> => {
+      const { sendToStorage } = await import('@/lib/upload-send');
+      // A neutral name, as before: the picked file's own name never reaches the object key.
+      const file = new File([blob], `upload-${Date.now()}.${e}`, { type: contentType });
+      const run = sendToStorage(
+        { file, contentType, papicSeatToken: token },
+        { stallMs: UPLOAD_STALL_MS, responseMs: UPLOAD_RESPONSE_MS, onProgress },
+      );
+      const out = await run.done;
+      return out.ok ? { ok: true, ref: out.r2Ref } : { ok: false, why: whyNot(out), code: out.code ?? null };
+    },
+    [token],
+  );
+
+  /** Record through the shared capture path — with a clock, so a reply that never comes is said. */
+  const record = useCallback(
+    async (ref: string, kind: 'photo' | 'clip', posterRef?: string, durationMs?: number) => {
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const stalled = new Promise<{ ok: false; error: string }>((resolve) => {
+        timer = setTimeout(() => resolve({ ok: false, error: 'record_stalled' }), RECORD_STALL_MS);
       });
-      if (!res.ok) {
-        let code: string | undefined;
-        try {
-          ({ code } = (await res.json()) as { code?: string });
-        } catch {
-          /* non-JSON body */
-        }
-        throw new Error(code || 'upload_refused');
+      try {
+        return await Promise.race([recordSeatCapture(token, ref, kind, posterRef, durationMs), stalled]);
+      } catch {
+        return { ok: false as const, error: 'record_failed' };
+      } finally {
+        clearTimeout(timer);
       }
-      const { uploadUrl, r2Ref } = (await res.json()) as { uploadUrl?: string; r2Ref?: string };
-      if (!uploadUrl || !r2Ref) throw new Error('upload_refused');
-      const putRes = await fetch(uploadUrl, {
-        method: 'PUT',
-        headers: { 'Content-Type': contentType },
-        body: blob,
-      });
-      if (!putRes.ok) throw new Error('upload_failed');
-      return r2Ref;
     },
     [token],
   );
@@ -143,95 +197,141 @@ export function AddToLibrary({ token }: { token: string }) {
       if (!files || files.length === 0) return;
       const stamp = Date.now();
       const picked = Array.from(files).map((file, i) => ({ file, id: `${stamp}-${i}` }));
-      setRows(picked.map(({ file, id }) => ({ id, name: file.name, state: 'waiting' as const })));
+      setRows(picked.map(({ file, id }) => ({ id, name: file.name, state: 'checking' as const })));
+      setShort(null);
+      setLanded(0);
+      setRanDry(false);
       setBusy(true);
 
-      // ⚠ ONE AT A TIME, DELIBERATELY. The per-camera burst limiter exists to
-      // stop a stuck loop emptying the pot, and twenty simultaneous presigns are
-      // indistinguishable from one. Serial also means a refusal is visible
-      // before the next file spends anything.
+      // ── 1 · READ EVERY FILE FIRST — its kind, its size, a clip's length and poster — so the WHOLE pick is priced
+      //        before a single credit is reserved. Keyed on the row id, never the filename (two cameras' IMG_0001).
+      const ready: Ready[] = [];
       for (const { file, id } of picked) {
-        // ⚠ KEYED ON THE ROW ID, NEVER THE FILENAME. Somebody uploading a
-        // folder of `IMG_0001.jpg` from two cameras would otherwise watch one
-        // row's outcome overwrite the other's.
-        const set = (next: Partial<Row>) => patch(id, next);
-
-        set({ state: 'working' });
         const isVideo = file.type.startsWith('video/');
-        const cap = isVideo ? MAX_VIDEO_BYTES : MAX_IMAGE_BYTES;
-
         if (!isVideo && !file.type.startsWith('image/')) {
-          set({ state: 'refused', detail: 'Only photos and snippets can go in your library.' });
+          patch(id, { state: 'refused', detail: 'Only photos and snippets can go in your Memories.' });
           continue;
         }
+        const cap = isVideo ? MAX_VIDEO_BYTES : MAX_IMAGE_BYTES;
         if (file.size > cap) {
-          set({
+          patch(id, {
             state: 'refused',
-            detail: `Too large — ${isVideo ? 'clips' : 'photos'} can be up to ${Math.round(cap / 1024 / 1024)} MB.`,
+            detail: `Too large — ${isVideo ? 'snippets' : 'photos'} can be up to ${Math.round(cap / 1024 / 1024)} MB.`,
           });
           continue;
         }
+        if (!isVideo) {
+          ready.push({ id, file, cost: { kind: 'photo' }, probe: null });
+          continue;
+        }
+        const probe = await probeVideo(file);
+        if (!probe) {
+          patch(id, { state: 'refused', detail: 'This snippet could not be read in your browser — try converting it first.' });
+          continue;
+        }
+        if (probe.durationMs > MAX_CLIP_MS) {
+          patch(id, {
+            state: 'refused',
+            detail: `This snippet is ${Math.round(probe.durationMs / 1000)} seconds — snippets are 10 seconds or less.`,
+          });
+          continue;
+        }
+        ready.push({ id, file, cost: { kind: 'clip', durationMs: probe.durationMs }, probe });
+      }
 
+      // ── 2 · CAN THE POT COVER IT? Priced by the server's own function (`selectionCost` → `papicCaptureCost`). Short
+      //        means NOTHING is sent: say so here, with Add more, rather than let file 7 of 12 be refused mid-way.
+      const verdict = coverVerdict(selectionCost(ready.map((r) => r.cost)), pot);
+      if (!verdict.ok) {
+        for (const r of ready) patch(r.id, { state: 'held' });
+        setShort(verdict);
+        setBusy(false);
+        if (inputRef.current) inputRef.current.value = '';
+        return;
+      }
+      for (const r of ready) patch(r.id, { state: 'waiting' });
+
+      // ── 3 · ONE AT A TIME, DELIBERATELY. The per-camera burst limiter exists to stop a stuck loop emptying the pot,
+      //        and twenty simultaneous presigns are indistinguishable from one. Serial also means a refusal is visible
+      //        before the next file spends anything.
+      let added = 0;
+      for (const r of ready) {
+        const set = (next: Partial<Row>) => patch(r.id, next);
+        const refuse = (detail: string, code: string | null) => {
+          set({ state: 'refused', detail });
+          if (code && EXHAUSTED.has(code)) setRanDry(true);
+        };
+        set({ state: 'working', pct: 0 });
+        const progress = (pct: number) => set({ pct });
         try {
-          if (isVideo) {
-            const probe = await probeVideo(file);
-            if (!probe) {
-              set({
-                state: 'refused',
-                detail: 'This snippet could not be read in your browser — try converting it first.',
-              });
+          let res: { ok: true } | { ok: false; error: string };
+          if (r.probe) {
+            // The poster goes up FIRST: a clip whose poster failed would be recorded unscreenable, and unscreened
+            // media is excluded from every guest surface silently and forever.
+            const poster = await send(r.probe.poster, 'image/jpeg', 'jpg');
+            if (!poster.ok) {
+              refuse(poster.why, poster.code);
               continue;
             }
-            if (probe.durationMs > MAX_CLIP_MS) {
-              set({
-                state: 'refused',
-                detail: `This clip is ${Math.round(probe.durationMs / 1000)} seconds — Papic clips are 10 seconds or less.`,
-              });
+            const clip = await send(r.file, r.file.type, ext(r.file.type), progress);
+            if (!clip.ok) {
+              refuse(clip.why, clip.code);
               continue;
             }
-            // The poster goes up FIRST: a clip whose poster failed would be
-            // recorded unscreenable, and unscreened media is excluded from
-            // every guest surface silently and forever.
-            const posterRef = await put(probe.poster, 'image/jpeg', 'jpg');
-            const clipRef = await put(file, file.type, ext(file.type));
-            const res = await recordSeatCapture(token, clipRef, 'clip', posterRef, probe.durationMs);
-            if (!res.ok) {
-              set({ state: 'refused', detail: readable(res.error) });
-              continue;
-            }
+            res = await record(clip.ref, 'clip', poster.ref, r.probe.durationMs);
           } else {
-            const ref = await put(file, file.type, ext(file.type));
-            const res = await recordSeatCapture(token, ref, 'photo');
-            if (!res.ok) {
-              set({ state: 'refused', detail: readable(res.error) });
+            const photo = await send(r.file, r.file.type, ext(r.file.type), progress);
+            if (!photo.ok) {
+              refuse(photo.why, photo.code);
               continue;
             }
+            res = await record(photo.ref, 'photo');
           }
-          set({ state: 'done' });
+          if (!res.ok) {
+            refuse(readable(res.error), res.error);
+            continue;
+          }
+          added += 1;
+          set({ state: 'done', pct: 100 });
+          // What it spent comes off the count on screen at once; the page re-reads the real pot below.
+          setPot((p) => (typeof p === 'number' ? Math.max(0, p - selectionCost([r.cost])) : p));
         } catch (e) {
           set({ state: 'refused', detail: readable(e instanceof Error ? e.message : undefined) });
         }
       }
 
       setBusy(false);
+      setLanded(added);
       if (inputRef.current) inputRef.current.value = '';
+      // 🔁 THE NEW PHOTOS REACH THE GRID WITHOUT A RELOAD — the server page re-reads Memories (and the pot).
+      if (added > 0) router.refresh();
     },
-    [put, token, patch],
+    [send, record, patch, pot, router],
   );
 
   return (
-    <div className="space-y-3">
-      <p className="max-w-prose text-sm text-ink/65">
-        From your phone or laptop. Older memories are welcome — the engagement
-        shoot, childhood photos, the proposal clip. Each photo uses one credit,
-        a clip two to eight depending on its length: the same as a camera shot.
-      </p>
+    <div className="space-y-3" data-add-photos="">
+      {/* The credits, and one short line — everything else in the ⓘ (house rule). */}
+      <div>
+        <InfoTip
+          label={potWords(pot)}
+          labelAs="h3"
+          labelClassName="text-[15px] font-semibold text-ink"
+          align="start"
+        >
+          {costInfoLine()} Older memories are welcome — the engagement shoot, childhood photos, the proposal clip. Credits
+          come from your event&rsquo;s one pot, the same your cameras use.
+        </InfoTip>
+        <p className="mt-0.5 text-sm text-ink/65" data-add-photos-pot={typeof pot === 'number' ? pot : String(pot)}>
+          From your phone or laptop — older memories too.
+        </p>
+      </div>
 
-      <label className="flex cursor-pointer flex-col items-center gap-2 rounded-xl border border-dashed border-ink/20 bg-cream/50 px-4 py-8 text-center hover:border-ink/35">
+      {pot === 0 && buy ? <div data-add-photos-buy="empty">{buy}</div> : null}
+
+      <label className="flex min-h-[44px] cursor-pointer flex-col items-center gap-2 rounded-xl border border-dashed border-ink/20 bg-cream/50 px-4 py-8 text-center hover:border-ink/35 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-terracotta/50">
         <Upload aria-hidden className="h-5 w-5 text-ink/45" strokeWidth={1.75} />
-        <span className="text-sm font-medium text-ink">
-          {busy ? 'Adding…' : 'Choose photos or snippets'}
-        </span>
+        <span className="text-sm font-medium text-ink">{busy ? 'Adding…' : 'Choose photos or snippets'}</span>
         <span className="text-xs text-ink/55">Snippets up to 10 seconds</span>
         <input
           ref={inputRef}
@@ -244,19 +344,47 @@ export function AddToLibrary({ token }: { token: string }) {
         />
       </label>
 
+      {short ? (
+        <div role="alert" className="space-y-2" data-add-photos-short={short.short}>
+          <p className="text-sm text-ink">
+            These need {creditsCount(short.cost)} — you have {creditsCount(short.left)}. Nothing was uploaded.
+          </p>
+          {buy ? <div data-add-photos-buy="short">{buy}</div> : <p className="text-sm text-ink/65">Add more from your event&rsquo;s Home.</p>}
+        </div>
+      ) : null}
+
+      {ranDry && !short ? (
+        <div className="space-y-2" data-add-photos-ran-dry="">
+          {buy ? <div data-add-photos-buy="ran-dry">{buy}</div> : <p className="text-sm text-ink/65">Add more from your event&rsquo;s Home.</p>}
+        </div>
+      ) : null}
+
+      {landed > 0 && !busy ? (
+        <p role="status" className="text-sm text-success-700" data-add-photos-landed={landed}>
+          {landed === 1 ? '1 added to your Memories.' : `${landed} added to your Memories.`}
+        </p>
+      ) : null}
+
       {rows.length > 0 ? (
-        <ul className="space-y-1.5">
+        <ul className="space-y-1.5" aria-live="polite">
           {rows.map((r) => (
-            <li key={r.id} className="flex items-start gap-2 text-xs">
+            <li key={r.id} className="flex items-start gap-2 text-xs" data-add-photos-row={r.state}>
               {r.state === 'done' ? (
                 <Check aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 text-success-700" strokeWidth={2} />
               ) : r.state === 'refused' ? (
                 <AlertCircle aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 text-danger-700" strokeWidth={2} />
+              ) : r.state === 'held' ? (
+                <span aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 rounded-full border border-ink/25" />
               ) : (
                 <Loader2 aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 animate-spin text-ink/40" strokeWidth={2} />
               )}
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-ink/80">{r.name}</span>
+                <span className="flex items-baseline gap-2">
+                  <span className="min-w-0 flex-1 truncate text-ink/80">{r.name}</span>
+                  {r.state === 'working' && typeof r.pct === 'number' ? (
+                    <span className="shrink-0 tabular-nums text-ink/55">{r.pct}%</span>
+                  ) : null}
+                </span>
                 {r.detail ? <span className="block text-ink/55">{r.detail}</span> : null}
               </span>
             </li>
@@ -265,6 +393,29 @@ export function AddToLibrary({ token }: { token: string }) {
       ) : null}
     </div>
   );
+}
+
+/** The credits line: what this camera can still spend, or why it is not a number. */
+function potWords(pot: UploadPot): string {
+  if (pot === 'unmetered') return 'Your pass covers these';
+  if (pot === null) return 'Couldn’t check your credits';
+  return `${creditsCount(pot)} left`;
+}
+
+/**
+ * Why a file did not reach storage — in words a person can act on. A refusal the SIGNER explained keeps its code
+ * (`camera_points_exhausted`, `uploads_closed`, the window…), so it reads the same as one the record step returns.
+ */
+function whyNot(out: Extract<UploadOutcome, { ok: false }>): string {
+  if (out.kind === 'stalled') return 'It stopped uploading — check your connection and pick it again.';
+  if (out.kind === 'cancelled') return 'Stopped.';
+  if (out.step === 'presign' && out.kind === 'refused') {
+    if (out.code) return readable(out.code);
+    if (out.status === 403) return 'This upload door isn’t yours any more — close this and open Add photos again.';
+    if (out.says && out.status !== null && out.status >= 400 && out.status < 500) return out.says;
+  }
+  if (out.step === 'put' && out.kind === 'refused') return `Storage refused it (status ${out.status}). Try again in a moment.`;
+  return readable('upload_failed');
 }
 
 /**
@@ -276,11 +427,31 @@ export function AddToLibrary({ token }: { token: string }) {
  * thing — the same failure the supplier camera's "Photos only on Papic Lite"
  * hint made when video moved onto the allowance.
  */
-function readable(code: string | undefined): string {
+/** Every code that means "the pot cannot pay" — the presign's and the record's (both say `camera_points_exhausted`). */
+const EXHAUSTED: ReadonlySet<string> = new Set(['camera_points_exhausted', 'out_of_points', 'pool_exhausted']);
+
+function readable(code: string | undefined | null): string {
   switch (code) {
+    // ⚠ `camera_points_exhausted` IS THE CODE BOTH SEAMS ACTUALLY RETURN (`/api/upload`'s 409, `recordSeatCapture`).
+    // Until 2026-10-25 only the two below were listed — neither is ever sent on this path — so a couple out of credits
+    // was told "Try again in a moment", which no retry can fix.
+    case 'camera_points_exhausted':
     case 'out_of_points':
     case 'pool_exhausted':
-      return 'You’re out of credits — add more below and this will go straight in.';
+      return 'You’re out of credits — Add more, then pick it again.';
+    case 'camera_points_unavailable':
+    case 'unavailable':
+      return 'We couldn’t check your credits just now — try again in a moment.';
+    case 'awaiting_payment':
+      return 'This camera turns on once your payment is confirmed.';
+    case 'event_put_away':
+      return 'This event has been put away, so nothing new can be added.';
+    case 'revoked':
+    case 'not_your_seat':
+      return 'This upload door was reset — close this and open Add photos again.';
+    // The upload reached storage; only the save did not answer. It may still land — re-picking could pay twice.
+    case 'record_stalled':
+      return 'It uploaded, but saving it didn’t answer — check your Memories in a minute before trying again.';
     case 'capture_not_started':
       return 'Your camera dates haven’t started yet.';
     case 'capture_window_closed':
@@ -291,7 +462,7 @@ function readable(code: string | undefined): string {
     // a stale page, a second tab, or a call that never went near the button. It
     // names the control, which is on this same screen.
     case 'uploads_closed':
-      return 'Adding photos by hand is switched off — turn it back on above.';
+      return 'Adding photos by hand is switched off — turn it on in Memories settings.';
     case 'too_fast':
       return 'Slow down a moment and try that one again.';
     case 'unauthenticated':

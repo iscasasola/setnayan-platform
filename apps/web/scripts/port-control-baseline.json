@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "9b4534a4c9",
-  "routeCount": 473,
-  "destinations": 1013,
+  "generatedFromRef": "7165c94427",
+  "routeCount": 474,
+  "destinations": 1014,
   "actions": 661,
-  "blocks": 7093,
+  "blocks": 7109,
   "routes": {
     "/": {
       "files": [
@@ -5298,6 +5298,8 @@
         "FollowRowItem",
         "FoundPersonCard",
         "Frame",
+        "GroupsFoldList",
+        "GroupsFoldSection",
         "GuestConfirmActions",
         "GuestPopup",
         "HTMLButtonElement",
@@ -5459,11 +5461,14 @@
     },
     "/dashboard/(account)/samahan/[communityId]": {
       "files": [
+        "dashboard/(account)/samahan/[communityId]/_components/group-home.tsx",
+        "dashboard/(account)/samahan/[communityId]/_components/member-actions-menu.tsx",
         "dashboard/(account)/samahan/[communityId]/_components/samahan-identity-header.tsx",
         "dashboard/(account)/samahan/[communityId]/_components/samahan-stories.tsx",
         "dashboard/(account)/samahan/[communityId]/page.tsx"
       ],
       "destinations": [
+        "/dashboard/people",
         "/dashboard/samahan"
       ],
       "actions": [
@@ -5480,16 +5485,21 @@
         "Blob",
         "CopyButton",
         "EventsTab",
+        "GroupEventRow",
+        "GroupHome",
+        "GroupSectionHead",
         "HTMLDivElement",
         "HTMLFormElement",
         "HTMLInputElement",
         "HTMLVideoElement",
+        "InfoTip",
         "Link",
         "MediaRecorder",
         "MediaStream",
+        "MemberActionsMenu",
         "MembersTab",
         "OverlayBackdrop",
-        "OverviewTab",
+        "PickMenu",
         "SamahanIdentityHeader",
         "SamahanStories",
         "SubmitButton",
@@ -7545,6 +7555,8 @@
         "Meta",
         "MiniTour",
         "MonthPick",
+        "MoodBoardMakerBody",
+        "MoodBoardMakerControls",
         "MoodBoardPieces",
         "MoodBoardStudioBody",
         "MoreSheet",
@@ -7675,6 +7687,7 @@
         "SheetSections",
         "ShopPinNote",
         "Shown",
+        "ShutDoor",
         "SiteStage",
         "Sk",
         "SkLine",
@@ -8938,6 +8951,8 @@
         "MoodBoardEditor",
         "MoodBoardSaveNotice",
         "MoodBoardStudio",
+        "MoodPart",
+        "MoodPartNote",
         "MoodboardBoard",
         "MoodboardMoodTag",
         "MoodboardStyleFamily",
@@ -10322,6 +10337,7 @@
         "dashboard/[eventId]/website/editor/_components/motion-fx-rows.tsx",
         "dashboard/[eventId]/website/editor/_components/music-button-row.tsx",
         "dashboard/[eventId]/website/editor/_components/our-music.tsx",
+        "dashboard/[eventId]/website/editor/_components/page-pick.tsx",
         "dashboard/[eventId]/website/editor/_components/palette-look-row.tsx",
         "dashboard/[eventId]/website/editor/_components/part-inspector.tsx",
         "dashboard/[eventId]/website/editor/_components/pick-menu-place.ts",
@@ -11108,6 +11124,18 @@
         "UploadOutcome"
       ]
     },
+    "/dev/group-lab": {
+      "files": [
+        "dev/group-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "AccountBottomNav",
+        "GroupHome",
+        "SamahanIdentityHeader"
+      ]
+    },
     "/dev/guests-lab": {
       "files": [
         "dev/guests-lab/lab-guest-actions.tsx",
@@ -11440,6 +11468,7 @@
         "AccountBottomNav",
         "FollowListView",
         "FoundPersonCard",
+        "GroupsFoldList",
         "LabTour",
         "PeopleRosterView",
         "RosterPerson",

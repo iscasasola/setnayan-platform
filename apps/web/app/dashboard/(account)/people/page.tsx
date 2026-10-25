@@ -21,7 +21,7 @@ import { PeopleThumb } from './_components/people-thumb';
 import { FollowListView } from './_components/follow-list-view';
 import { AddAlagaButton } from './_components/add-alaga-button';
 import { DependentsSection } from './_components/dependents-section';
-import { SamahanPeopleSection } from './_components/samahan-people-section';
+import { GroupsFoldSection, SamahanPeopleSection } from './_components/samahan-people-section';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { YourStorySection } from './_components/your-story-section';
 import { ConnectionTreeSection } from './_components/connection-tree-section';
@@ -239,6 +239,12 @@ export default async function PeoplePage({
           extra={[
             ...(lovedOnes
               ? [{ key: 'alaga' as const, label: 'Loved ones', count: roster.counts.alaga, node: lovedOnes }]
+              : []),
+            // GROUPS (owner 2026-10-25, "finding groups is so hard"; prototypes/groups_on_people_2026-10-25): a folded
+            // section of the list, after Loved ones and drawn like it — "New group" at its head, one row per group,
+            // each opening the group page. The ≡ "Groups" view below stays as it was. Never flag-gated.
+            ...(user
+              ? [{ key: 'groups' as const, label: 'Groups', count: roster.counts.samahan, node: <GroupsFoldSection expected={roster.counts.samahan} /> }]
               : []),
             // THE TREE. `kinship-derive.ts` shipped on 2026-07-31 and had NO CONSUMER until then. It is the
             // last folded section — what the people above add up to (spec §6: "Do not build a new page").

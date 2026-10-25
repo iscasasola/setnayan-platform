@@ -211,9 +211,9 @@ type Run = (fn: () => Promise<{ ok: true } | { ok: false; error: string }>) => v
 /** The ≡ filter button's list (Groups · Following · Followers — owner 2026-10-22). */
 export type PeoplePickerProps = { view: PeopleView; options: readonly PickOption[]; gates: PeopleViewGates };
 
-/** A folded section the page hands in (Loved ones · Your connection tree), drawn after the roster's own. */
+/** A folded section the page hands in (Loved ones · Groups · Your connection tree), drawn after the roster's own. */
 export type PeopleExtraSection = {
-  key: 'alaga' | 'tree';
+  key: 'alaga' | 'groups' | 'tree';
   label: string;
   /** null = not counted (unread, or nothing to count) — never printed as 0. */
   count: number | null;
@@ -526,7 +526,7 @@ export function PeopleRosterView({
                 {e.node}
               </div>
             ) : (
-              fold(e.key, e.label, e.key === 'alaga' ? HandHeart : Network, e.count, e.node)
+              fold(e.key, e.label, e.key === 'alaga' ? HandHeart : e.key === 'groups' ? UsersRound : Network, e.count, e.node)
             ),
           )
         : null}

@@ -1,3 +1,4 @@
+import { formatCount } from '@/lib/format-number';
 import { FREE_THEMES, PRO_THEMES } from '@/lib/invite-themes';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
@@ -685,7 +686,7 @@ export default async function PricingPage() {
   }).filter((o): o is AiTypeOption => o !== null);
 
   // What other event sites charge — `lib/pricing-elsewhere.ts` (sources + read date there). Numbers only, formatted here.
-  const elsewhereGuests = `${ELSEWHERE.freeGuestCapLow.value}–${ELSEWHERE.freeGuestCapHigh.value} guests`;
+  const elsewhereGuests = `${formatCount(ELSEWHERE.freeGuestCapLow.value)}–${formatCount(ELSEWHERE.freeGuestCapHigh.value)} guests`;
   const elsewhereSiteAbout = `₱${formatPeso(aboutPhp(ELSEWHERE.siteFull.value))}`;
   const elsewhereLiveAbout = `₱${formatPeso(aboutPhp(ELSEWHERE.livestreamBusiness.value))}–₱${formatPeso(aboutPhp(ELSEWHERE.livestreamPersonal.value))}`;
 
@@ -900,8 +901,8 @@ export default async function PricingPage() {
               here="Here every guest replies by link, no sign-in, no cap."
               tip={
                 <>
-                  Other event sites&rsquo; free plans cap the guest list at {ELSEWHERE.freeGuestCapLow.value} to{' '}
-                  {ELSEWHERE.freeGuestCapHigh.value} guests and charge about {elsewhereSiteAbout} to lift it. Ours has
+                  Other event sites&rsquo; free plans cap the guest list at {formatCount(ELSEWHERE.freeGuestCapLow.value)} to{' '}
+                  {formatCount(ELSEWHERE.freeGuestCapHigh.value)} guests and charge about {elsewhereSiteAbout} to lift it. Ours has
                   no cap: as many guests and replies as your event has, free.
                 </>
               }
@@ -924,7 +925,7 @@ export default async function PricingPage() {
             />
             <ElsewhereLine
               n="Seat plan, with the 3D walkthrough"
-              elsewhere={`Elsewhere, seating charts are a paid upgrade past ${ELSEWHERE.seatingTrialGuests.value} guests, and 3D seating is an enterprise feature.`}
+              elsewhere={`Elsewhere, seating charts are a paid upgrade past ${formatCount(ELSEWHERE.seatingTrialGuests.value)} guests, and 3D seating is an enterprise feature.`}
               here="Here both are free."
               tip="Lay the room out in 2D, then walk it in 3D before you publish. Guests find their seat on their own pass once the plan is published."
             />

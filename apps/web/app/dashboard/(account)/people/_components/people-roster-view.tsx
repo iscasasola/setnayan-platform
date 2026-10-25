@@ -59,6 +59,9 @@ import { FindField, FindNotes, FindResults, INVITE_SOMEONE_KEY, InviteCard, Invi
 import { AccountThumbRow, ThumbTool } from '../../_components/account-thumb-row';
 import { PersonAvatar } from './person-avatar';
 import ps from './people-screen.module.css';
+import Link from 'next/link';
+import { InfoTip } from '@/app/_components/info-tip';
+import { personPageHref } from '@/lib/person-page-link';
 
 /**
  * people-roster-view.tsx — People, wearing the Guest List's clothes.
@@ -743,17 +746,30 @@ function RequestRow({ person: p, pending, run }: { person: RosterPerson; pending
     });
   }
 
+  // 👤 The face and the sentence open their page (owner 2026-10-25); Accept / Decline stay where they are.
+  const href = personPageHref(p);
+  const sentence = isLabelAsk && p.ask ? labelRequestLine(p.name, p.ask.word) : connectionRequestSentence(p.name, p.fromEvent);
   return (
     <li className={gs.g} data-request-kind={isLabelAsk ? 'label' : 'connect'} data-people-request="">
-      <span className={gs.ava} aria-hidden>
-        <PersonAvatar name={p.name} size="row" />
-      </span>
+      {href ? (
+        <Link href={href} className={gs.ava} tabIndex={-1} aria-hidden data-person-page-link="">
+          <PersonAvatar name={p.name} size="row" />
+        </Link>
+      ) : (
+        <span className={gs.ava} aria-hidden>
+          <PersonAvatar name={p.name} size="row" />
+        </span>
+      )}
       <span className="min-w-0 text-[14px] leading-snug text-ink">
         {isLabelAsk && p.ask ? (
-          <span className="font-semibold" data-request-sentence>{labelRequestLine(p.name, p.ask.word)}</span>
+          <PersonNameLink href={href} name={p.name} className="font-semibold" data={{ 'data-request-sentence': '' }}>
+            {sentence}
+          </PersonNameLink>
         ) : (
           <>
-            <span className="font-semibold" data-request-sentence>{connectionRequestSentence(p.name, p.fromEvent)}</span>
+            <PersonNameLink href={href} name={p.name} className="font-semibold" data={{ 'data-request-sentence': '' }}>
+              {sentence}
+            </PersonNameLink>
             {p.storedRelation ? (
               <span className={`${gs.meta} block`} data-request-label>
                 {labelRequestLine(p.name, p.storedRelation)}
@@ -835,21 +851,38 @@ function PersonRow({
       if (!res.ok) setError(res.error);
       else setNotice(res.delivered ? 'Sent again.' : 'The email didn’t send — try again in a moment.');
     });
+  /* 👤 THE FACE AND THE NAME OPEN THEIR PAGE (owner 2026-10-25, the roster: "i want to see the 3") — every
+     kind of row with an account: labelled, no label yet, and waiting for them. ✎ Edit still opens the card
+     (which carries "See … page" too), ✕ stays. Select mode keeps both as the tick. No account handle → the
+     old press: the card. 🔒 people/every-person-row-opens-their-page.test.ts */
+  const href = selectMode ? null : personPageHref(p);
   return (
     <div className={`${gs.g} ${picked ? gs.picked : ''}`} data-person-row="" data-person-state={p.state}>
-      <button
-        type="button"
-        className={gs.ava}
-        onClick={act}
-        aria-label={`${selectMode ? (picked ? 'Unselect' : 'Select') : 'Open'} ${p.name}`}
-        aria-pressed={selectMode ? picked : undefined}
-      >
-        {selectMode ? picked ? <Check aria-hidden strokeWidth={2.2} /> : null : <PersonAvatar name={p.name} size="row" />}
-      </button>
-      <div className={gs.who}>
-        <button type="button" className={`${gs.nm} ${ps.nameBtn}`} onClick={act} data-row-name="">
-          <span className={gs.nmt}>{p.name}</span>
+      {href ? (
+        <Link href={href} className={gs.ava} aria-label={`Open ${p.name}’s page`} data-person-page-link="">
+          <PersonAvatar name={p.name} size="row" />
+        </Link>
+      ) : (
+        <button
+          type="button"
+          className={gs.ava}
+          onClick={act}
+          aria-label={`${selectMode ? (picked ? 'Unselect' : 'Select') : 'Open'} ${p.name}`}
+          aria-pressed={selectMode ? picked : undefined}
+        >
+          {selectMode ? picked ? <Check aria-hidden strokeWidth={2.2} /> : null : <PersonAvatar name={p.name} size="row" />}
         </button>
+      )}
+      <div className={gs.who}>
+        {href ? (
+          <Link href={href} className={`${gs.nm} ${ps.nameBtn}`} data-row-name="" data-person-page-link="">
+            <span className={gs.nmt}>{p.name}</span>
+          </Link>
+        ) : (
+          <button type="button" className={`${gs.nm} ${ps.nameBtn}`} onClick={act} data-row-name="">
+            <span className={gs.nmt}>{p.name}</span>
+          </button>
+        )}
         <div className={`${gs.meta} ${ps.meta}`}>
           {p.state === 'waiting_them' ? (
             <span className={`${gs.pill} ${gs.pillWine}`}>{STATE_LABEL.waiting_them}</span>
@@ -908,8 +941,10 @@ function PersonCard({
   setError: (s: string | null) => void;
 }) {
   const first = p.name.split(/\s+/)[0] ?? p.name;
-  const section = SECTIONS.find((s) => s.match(p))?.label ?? null;
-  const eyebrow = [STATE_LABEL[p.state], p.state === 'connected' ? section : null].filter(Boolean).join(' · ');
+  // 👤 Their page, near the top — what the owner was reaching for when he opened Elise (2026-10-25).
+  const href = personPageHref(p);
+  // The group line is only true where the group can be asked — CardGroup's own condition.
+  const canAskGroup = p.kind === 'connection' && p.state === 'connected' && samahan.length > 0;
   const outgoingAsk = p.state === 'connected' && p.ask?.state === 'waiting_them';
   return (
     <GuestPopup
@@ -925,8 +960,9 @@ function PersonCard({
         <span className={`${ps.cardFace} ${pillTint(p.relation)}`} aria-hidden>
           <PersonAvatar name={p.name} size="row" />
         </span>
+        {/* No eyebrow (owner 2026-10-25, "wording is too much"): it said the state the pill says and the label
+            the Label row says. Name + state, then the page. */}
         <div className="min-w-0">
-          <p className={ps.eyebrow}>{eyebrow}</p>
           <h2 id="person-card-name" className="mt-0.5 text-[26px] font-semibold leading-tight text-ink">
             {p.name}
           </h2>
@@ -936,6 +972,18 @@ function PersonCard({
           </span>
         </div>
       </div>
+
+      {href ? (
+        <Link
+          href={href}
+          className={`${ps.kv} mt-4 justify-between text-[16px] font-medium text-ink`}
+          data-card-page-link=""
+          data-person-page-link=""
+        >
+          <span>See {first}’s page</span>
+          <span aria-hidden className="text-ink/45">→</span>
+        </Link>
+      ) : null}
 
       {p.fromEvent || offersPlanTogether({
         relationForViewer: p.relation,
@@ -958,13 +1006,23 @@ function PersonCard({
         <div className="mt-5">
           <p className={ps.eyebrow}>What {first} is to you</p>
           <div className={ps.kv}>
-            <span className={ps.k}>Label</span>
+            {/* The two notes the card used to print in full live behind this ⓘ (owner 2026-10-25). */}
+            <InfoTip label="Label" className={ps.k} align="start">
+              {first} confirms a label before it counts — lolo, lola, pinsan and the in-laws come out of these on their own.
+              {spouseNote ? <span className="mt-1.5 block">{spouseNote}</span> : null}
+            </InfoTip>
             <span className={ps.v}>
               <CardLabel person={p} relations={relations} disabled={pending} setError={setError} />
             </span>
           </div>
           <div className={ps.kv}>
-            <span className={ps.k}>Group</span>
+            {canAskGroup ? (
+              <InfoTip label="Group" className={ps.k} align="start">
+                They get the group’s link. They’re in it once they open it — not before.
+              </InfoTip>
+            ) : (
+              <span className={ps.k}>Group</span>
+            )}
             <span className={ps.v}>
               <CardGroup
                 person={p}
@@ -981,10 +1039,6 @@ function PersonCard({
               />
             </span>
           </div>
-          {spouseNote ? <p className="mt-1.5 text-[12.5px] leading-snug text-ink/60">{spouseNote}</p> : null}
-          <p className="mt-1.5 text-[12.5px] leading-snug text-ink/60">
-            {first} confirms a label before it counts. Lolo, lola, pinsan, biyenan and the in-laws come out of these on their own.
-          </p>
           {outgoingAsk ? (
             <ActionButton
               tone="neutral"
@@ -1132,7 +1186,6 @@ function CardGroup({
       ) : person.samahan.length === 0 ? (
         <span className="text-[14px] text-ink/50">No group yet</span>
       ) : null}
-      {canAsk ? <span className="text-[12px] leading-snug text-ink/55">They get the group’s link. They’re in it once they open it — not before.</span> : null}
     </span>
   );
 }
@@ -1317,4 +1370,35 @@ function withoutPersonParam(): string {
   url.searchParams.delete(PERSON_PARAM);
   const qs = url.searchParams.toString();
   return `${url.pathname}${qs ? `?${qs}` : ''}`;
+}
+
+/**
+ * A person's name (or the sentence that carries it) as the door to their page — or plain text when there is
+ * no account to open (`personPageHref` → null). One shape for the roster's Requests rows.
+ */
+function PersonNameLink({
+  href,
+  name,
+  className,
+  data,
+  children,
+}: {
+  href: string | null;
+  name: string;
+  className?: string;
+  data?: Record<string, string>;
+  children: ReactNode;
+}) {
+  if (!href) {
+    return (
+      <span className={className} {...data}>
+        {children}
+      </span>
+    );
+  }
+  return (
+    <Link href={href} className={className} title={`Open ${name}’s page`} data-person-page-link="" {...data}>
+      {children}
+    </Link>
+  );
 }

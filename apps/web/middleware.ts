@@ -28,13 +28,9 @@ import { iapAvailable } from '@/lib/iap/iap-gate';
 import { isAppleIapEnabled } from '@/lib/apple-iap-flag';
 import {
   GUEST_PASS_BOOK_COOKIE_NAME,
-  GUEST_SESSION_COOKIE_MAX_AGE_SECONDS,
   GUEST_SESSION_COOKIE_NAME,
+  guestPassRefreshFor,
   passSwapForPath,
-  refreshedPassBook,
-  shouldRefreshGuestSession,
-  signGuestSession,
-  verifyGuestSessionToken,
 } from '@/lib/guest-session';
 
 // Matches a v4-style UUID exactly. Slugs are capped at 32 chars
@@ -183,42 +179,38 @@ async function refreshGuestSessionCookie(
   // themselves; re-signing the OLD pass onto the same response made two
   // writers of one cookie, and the phone kept whichever header came last.
   if (!mayRefreshGuestPass(request.method, request.nextUrl.pathname, request.nextUrl.search)) return;
-  const cookie = request.cookies.get(GUEST_SESSION_COOKIE_NAME)?.value;
-  if (!cookie) return;
+  const active = request.cookies.get(GUEST_SESSION_COOKIE_NAME)?.value;
+  const bookToken = request.cookies.get(GUEST_PASS_BOOK_COOKIE_NAME)?.value;
+  if (!active && !bookToken) return;
 
-  const verified = await verifyGuestSessionToken(cookie);
-  // Invalid, forged, or already-expired — leave it alone. A real page read
-  // still runs readGuestSession()'s DB-backed check and signs the guest out
-  // on its own terms; extending an unverifiable cookie here would not help.
-  if (!verified) return;
-  if (!shouldRefreshGuestSession(verified.expiresAtSeconds)) return;
-
-  const refreshed = await signGuestSession(verified.payload);
-  response.cookies.set({
-    name: GUEST_SESSION_COOKIE_NAME,
-    value: refreshed,
-    httpOnly: true,
-    secure: true,
-    sameSite: 'lax',
-    path: '/',
-    maxAge: GUEST_SESSION_COOKIE_MAX_AGE_SECONDS,
-  });
-  // The same pass's entry in the pass book slides with it, or it would fall out
-  // of the book while the active pass lives on.
-  const book = await refreshedPassBook(
-    request.cookies.get(GUEST_PASS_BOOK_COOKIE_NAME)?.value,
-    verified.payload,
-    Math.floor(Date.now() / 1000) + GUEST_SESSION_COOKIE_MAX_AGE_SECONDS,
-  );
-  if (book !== 'keep' && book !== null) {
+  // Invalid, forged, or already-expired — left alone. A real page read still
+  // runs readGuestSession()'s DB-backed check and signs the guest out on its own
+  // terms; extending an unverifiable cookie here would not help. A pass only the
+  // LEGACY seal accepts is re-sealed with GUEST_SESSION_SECRET (same payload,
+  // same expiry) — the rule and its retirement live in lib/guest-session.ts.
+  const next = await guestPassRefreshFor({ jar: { active, book: bookToken } });
+  if (next.active) {
     response.cookies.set({
-      name: GUEST_PASS_BOOK_COOKIE_NAME,
-      value: book.value,
+      name: GUEST_SESSION_COOKIE_NAME,
+      value: next.active.value,
       httpOnly: true,
       secure: true,
       sameSite: 'lax',
       path: '/',
-      maxAge: book.maxAge,
+      maxAge: next.active.maxAge,
+    });
+  }
+  // The same pass's entry in the pass book slides with it, or it would fall out
+  // of the book while the active pass lives on.
+  if (next.book !== 'keep' && next.book !== null) {
+    response.cookies.set({
+      name: GUEST_PASS_BOOK_COOKIE_NAME,
+      value: next.book.value,
+      httpOnly: true,
+      secure: true,
+      sameSite: 'lax',
+      path: '/',
+      maxAge: next.book.maxAge,
     });
   }
 }

@@ -2,13 +2,12 @@ import type { AppleWalletLink } from '@/lib/wallet-pass';
 import { AppleWalletSheetLink } from './apple-wallet-sheet-link';
 
 /**
- * 🍎 APPLE'S BADGE ARTWORK, when it is in the repo. Apple's rules require the
- * official "Add to Apple Wallet" badge, unmodified — downloaded from
- * developer.apple.com/wallet/add-to-apple-wallet-guidelines. Until somebody
- * places that file (e.g. `public/brand/wallet/add-to-apple-wallet.svg`) and
- * sets this to its path, the link is a plain button with Apple's own words.
+ * 🍎 APPLE'S BADGE ARTWORK — the owner approved using it (2026-10-25). Apple's rules require the official "Add to
+ * Apple Wallet" badge, unmodified, downloaded from Apple (developer.apple.com → Wallet → Add to Apple Wallet
+ * guidelines). Until both English SVGs are committed under `public/brand/apple-wallet/` (with a SOURCE note) and named
+ * here, the link stays a plain button with Apple's own words. `onLight` is Apple's black badge, `onDark` its white one.
  */
-export const APPLE_WALLET_BADGE_SRC: string | null = null;
+export const APPLE_WALLET_BADGE: { onLight: string; onDark: string } | null = null;
 
 /**
  * "Add to Apple Wallet" beside "Save my ticket" — drawn only when the page was handed a link (`appleWalletLink`: an
@@ -29,11 +28,14 @@ export function AppleWalletButton({ link, className }: { link: AppleWalletLink |
           href={link.href}
           data-wallet-link={link.kind}
           aria-label={link.label}
-          className={APPLE_WALLET_BADGE_SRC && link.kind === 'download' ? 'inline-flex' : plain}
+          className={APPLE_WALLET_BADGE && link.kind === 'download' ? 'inline-flex' : plain}
         >
-          {APPLE_WALLET_BADGE_SRC && link.kind === 'download' ? (
-            // eslint-disable-next-line @next/next/no-img-element -- Apple's badge, unmodified
-            <img src={APPLE_WALLET_BADGE_SRC} alt={link.label} height={48} className="h-12 w-auto" />
+          {APPLE_WALLET_BADGE && link.kind === 'download' ? (
+            <picture>
+              <source srcSet={APPLE_WALLET_BADGE.onDark} media="(prefers-color-scheme: dark)" />
+              {/* eslint-disable-next-line @next/next/no-img-element -- Apple's badge, unmodified */}
+              <img src={APPLE_WALLET_BADGE.onLight} alt={link.label} height={48} className="h-12 w-auto" />
+            </picture>
           ) : (
             link.label
           )}

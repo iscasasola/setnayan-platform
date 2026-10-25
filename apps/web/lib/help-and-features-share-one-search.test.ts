@@ -7,7 +7,9 @@
  *
  * Held here, each at the grain it can be held:
  *   1. BOTH PAGES MOUNT THE ONE SEARCH — the field and the in-place results, once each, from the one module; and /help
- *      no longer carries its old, narrower box (no two search boxes on one page);
+ *      no longer carries its old, narrower box (no two search boxes on one page). The field IS the bottom thumb row,
+ *      signed in and signed out (owner 2026-10-25, on the in-page box: "Should the search be consistent with the
+ *      search bar we have?" → yes), and the shell draws no top-bar box on these two pages;
  *   2. ITS RESULTS ARE ALL THREE KINDS — help answers, feature pages and guides, from the real corpora (executed);
  *      a help answer is never listed twice (searchReads' own help hits are dropped for the in-place answer), the
  *      /help role tile narrows the help answers, and the iPhone app's answers are its own;
@@ -16,7 +18,8 @@
  *   4. GOOGLE — a `?q=` address is `noindex`, and every sitemap speaks the sitemaps.org namespace.
  *
  * Seen to fail once: (1) `<HowSearchResults` deleted from the features hub → red; (2) `featurePageHits` dropped from
- * `composeHowSearch` → red.
+ * `composeHowSearch` → red; (3) the in-page form moved out of `<noscript>` → red; (4) `/help` dropped from
+ * `DOORWAY_PAGE_SEARCH_PATHS` → red.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -33,6 +36,11 @@ import { stripComments } from '@/lib/strip-comments';
   const load = Mod._load;
   Mod._load = function (request: string, ...rest: unknown[]) {
     if (request === 'server-only' || request === 'client-only') return {};
+    // The row calls useRouter(); a static render has no app router to mount.
+    if (request === 'next/navigation') {
+      const real = load.call(this, request, ...rest) as Record<string, unknown>;
+      return { ...real, useRouter: () => ({ push() {}, replace() {}, prefetch() {}, refresh() {} }) };
+    }
     return load.call(this, request, ...rest);
   };
   Mod._extensions['.css'] = (m: { exports: unknown }) => {
@@ -65,6 +73,39 @@ test('1 · /help and /features both mount the one search — field and results, 
   assert.ok(!existsSync(join(WEB, 'app/help/_components/help-search.tsx')), 'the old help-only box is back');
 });
 
+test('1 · ONE SEARCH BAR, AT THE BOTTOM, ON BOTH PAGES — signed in AND signed out (owner 2026-10-25: "This one")', async () => {
+  // The field is the bottom thumb row for everyone: no signed-in branch, no visible in-page form.
+  const field = code('app/_components/how-search/how-search.tsx');
+  assert.doesNotMatch(field, /signedIn/, 'the search still forks on who is looking');
+  const fn = field.slice(field.indexOf('export function HowSearchField('), field.indexOf('export function HowSearchResults('));
+  assert.match(fn, /return \(\s*<>\s*<HowSearchRow\b/, 'the bottom row is not what the field draws');
+  const noscript = fn.slice(fn.indexOf('<noscript>'), fn.indexOf('</noscript>'));
+  assert.equal((fn.match(/<form\b/g) ?? []).length, 1, 'premise: one fallback form');
+  assert.match(noscript, /<form\b/, 'the in-page form is visible — it may only be the <noscript> fallback');
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { HowSearchField } = await import('@/app/_components/how-search/how-search');
+  const html = renderToStaticMarkup(React.createElement(HowSearchField, { q: 'seating', action: '/help', keep: { role: 'guest' } }));
+  assert.doesNotMatch(html.replace(/<noscript>[\s\S]*?<\/noscript>/g, ''), /<input|<form/, 'a search field draws outside the bottom row');
+  // The row: the shared ThumbRow, docked at the screen's foot with the safe-area room — these pages have no account bar.
+  const row = code('app/_components/how-search/how-search-row.tsx');
+  assert.match(row, /<ThumbDock noBar>\s*<ThumbRow\b/, 'not the shared bottom row, docked without a bar');
+  const css = readFileSync(join(WEB, 'components/thumb-row.module.css'), 'utf8');
+  assert.match(css, /\.dockNoBar \{ bottom: var\(--sn-ride-h, var\(--sn-bottomdock-h, env\(safe-area-inset-bottom, 0px\)\)\); \}/, 'no-bar docking floats');
+  assert.match(code('components/thumb-dock.tsx'), /noBar \? `\$\{styles\.dock\} \$\{styles\.dockNoBar\}`/);
+  // Neither page decides the search by session any more.
+  for (const [name, rel] of Object.entries(PAGES)) {
+    assert.doesNotMatch(code(rel).match(/<HowSearchField[^>]*>/)?.[0] ?? '', /signedIn/, `${name}: the search forks on who is looking`);
+  }
+  // The shell's top-bar box is not drawn on these two pages — its own per-path switch, not a CSS hide.
+  const { DOORWAY_PAGE_SEARCH_PATHS } = await import('@/app/_components/frontdoor/shell-page-search');
+  assert.deepEqual([...DOORWAY_PAGE_SEARCH_PATHS].sort(), ['/features', '/help']);
+  assert.match(code('app/_components/frontdoor/app-rail-shell.tsx'), /pageSearchPaths=\{variant === 'doorway' \? DOORWAY_PAGE_SEARCH_PATHS : undefined\}/);
+  const shell = code('app/_components/frontdoor/front-door-shell.tsx');
+  assert.match(shell, /const searchHere = pageSearchPaths\?\.includes\(pathname \?\? ''\) \? false : search;/);
+  assert.equal((shell.match(/searchHere === false \? null/g) ?? []).length, 2, 'a top-bar box (desktop or phone row) ignores the switch');
+  assert.doesNotMatch(shell, /\{search \?\? <SearchBox \/>\}/, 'a top-bar box still reads the unswitched prop');
+});
+
 test('2 · its results are help answers, feature pages and guides — from the real corpora', () => {
   for (const q of ['seating', 'budget']) {
     const hits = composeHowSearch({ query: q, storeShell: false, reads: searchInCodeReads(q), limit: 100 });
@@ -73,6 +114,11 @@ test('2 · its results are help answers, feature pages and guides — from the r
     // A help answer is listed once — as the in-place answer, never also as a guide row.
     assert.equal(hits.filter((h) => h.kind === 'guide' && h.href.startsWith('/help/')).length, 0, `"${q}": a help answer listed twice`);
     for (const h of hits.filter((x) => x.kind === 'help')) assert.ok(h.answer && h.answer.length > 0, `${h.href}: no answer to open in place`);
+    // One address, one row (a duplicate slug in the help corpus drew a duplicate React key on "papic").
+    for (const qq of [q, 'papic']) {
+      const hrefs = composeHowSearch({ query: qq, storeShell: false, reads: searchInCodeReads(qq), limit: 100 }).map((h) => `${h.kind}:${h.href}`);
+      assert.equal(new Set(hrefs).size, hrefs.length, `"${qq}": one address listed twice`);
+    }
     // One order: the shared ranker's (score, then title).
     for (let i = 1; i < hits.length; i++) assert.ok(hits[i - 1]!.score >= hits[i]!.score, `"${q}": not ranked by score`);
   }

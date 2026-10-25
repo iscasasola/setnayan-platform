@@ -549,6 +549,11 @@ type Props = {
    * compare page full-bleed against its own design. See `shell-bleed.ts`.
    */
   bleedPaths?: readonly string[];
+  /**
+   * Whole paths whose page draws its OWN search as the bottom row (`shell-page-search.ts`) — the top bar draws no
+   * search box there, exactly as if `search={false}` had been handed in. Read like `bleedPaths`, during render.
+   */
+  pageSearchPaths?: readonly string[];
 };
 
 /** A count that failed to load says so. It NEVER says 0, and it never invents
@@ -621,6 +626,7 @@ export function FrontDoorShell({
   search,
   bleed,
   bleedPaths,
+  pageSearchPaths,
   boundary = 'lg',
 }: Props) {
   const [railOpen, setRailOpen] = useState(false);
@@ -799,6 +805,9 @@ export function FrontDoorShell({
     An explicit `bleed` prop still wins, for the signed-in trees.
   */
   const isBleed = bleed || (bleedPaths?.includes(pathname ?? '') ?? false);
+  /* 🔎 A page that searches in its own bottom row (/help, /features): no second box up here — `false`, the same
+     switch a signed-in host hands in. Exact path, so /features/<slug> keeps the box. */
+  const searchHere = pageSearchPaths?.includes(pathname ?? '') ? false : search;
 
   /*
     HIDE ON SCROLL — the app's universal top-nav rule (owner 2026-06-15), and
@@ -1066,9 +1075,9 @@ export function FrontDoorShell({
         {/* 🔍 NO SEARCH IN A SIGNED-IN TOP BAR (owner 2026-10-22, "One thumb row"): a host hands in `false` and the
             bar is wordmark · ✉ · 🔔 · avatar — the search lives in the thumb row of the place you stand in.
             Signed out (`undefined`) the marketplace box below is unchanged. */}
-        {search === false ? null : (
+        {searchHere === false ? null : (
         <div className="fd-searchwrap">
-          {search ?? <SearchBox />}
+          {searchHere ?? <SearchBox />}
           {/*
             🪤 THE PROTOTYPE DRAWS A MIC HERE AND IT IS NOT PORTED, ON PURPOSE.
             There is no voice search in this product. A focusable, labelled
@@ -1232,9 +1241,9 @@ export function FrontDoorShell({
           how wide the window happened to be. The `?? <SearchBox />` fallback
           is the same one the desktop row uses, so a page that hands in
           nothing is byte-identical to before. */}
-      {inApp || search === false ? null : (
+      {inApp || searchHere === false ? null : (
         <div className="fd-searchrow">
-          {search ?? <SearchBox />}
+          {searchHere ?? <SearchBox />}
         </div>
       )}
       </>

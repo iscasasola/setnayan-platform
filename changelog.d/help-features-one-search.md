@@ -3,9 +3,15 @@
 Owner, 25 Oct, right after Discover search was narrowed to suppliers · people · events: *"also the HELP and Features
 where we can mazimize the app to be searchable"*.
 
-- `/help` and `/features` (English hub) mount the same search (`app/_components/how-search/`): signed in, Discover's
-  thumb row (Enter → this page's `?q=`, ✕ → back); signed out, the page's own GET field. Results draw under the page
-  head, marked `data-search-results` for the shared search pin.
+- `/help` and `/features` (English hub) mount the same search (`app/_components/how-search/`): ONE bottom bar — the
+  shared ThumbRow Guests, Suppliers and Discover draw — signed in AND signed out (owner, on the first draft's in-page
+  box: *"Should the search be consistent with the search bar we have?"* → yes). Enter → this page's `?q=`, ✕ → back;
+  a `<noscript>` form is the only other copy. Results draw under the page head, marked `data-search-results`.
+- The shell's top-bar box ("Suppliers, stories, guides") is not drawn on `/help` and `/features` — a per-path switch
+  beside `bleedPaths` (`pageSearchPaths`, list in `shell-page-search.ts`), not a CSS hide. `/features/<slug>` keeps it.
+- These pages have no account bar, so the row stands on the screen's foot with the safe-area room
+  (`ThumbDock noBar` → `.dockNoBar`), not 64px up over nothing.
+- One address, one row: two different help answers share the slug `what-is-papic`; the better-scoring one stays.
 - Results (`lib/how-search-core.ts`, pure; `lib/how-search.ts`, IO): help answers (role tile + store-shell words, as
   /help lists them; open in place via `<details>`), the Features hub's own entries, and guides + stories from
   `searchReads` (its help hits dropped — no answer twice). Scored by `scoreDocument`, ordered by `rankReads` (now
@@ -16,6 +22,6 @@ where we can mazimize the app to be searchable"*.
 - Google: `/help?q=` and `/features?q=` are `noindex, follow`. Every sitemap route used the misspelled namespace
   `…/schemas/sitemap-0.9` (7 of 8, since the first sitemap); now `…/schemas/sitemap/0.9`.
 - Guard: `lib/help-and-features-share-one-search.test.ts` (seen red: results unmounted from /features; feature kind
-  dropped). Registered in the thumb-row and search-pin guards; port baseline regenerated (HelpSearch → HowSearch*).
+  dropped; the form moved out of `<noscript>`; `/help` dropped from the no-top-box paths; the de-dupe removed). Registered in the thumb-row and search-pin guards; port baseline regenerated (HelpSearch → HowSearch*).
 
 SPEC IMPACT: DECISION_LOG.md row 2026-10-25 "HELP AND FEATURES SHARE ONE SEARCH" (pushed to the corpus, 9cfadd3c).

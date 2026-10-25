@@ -9,48 +9,56 @@ import { HowSearchRow } from './how-search-row';
  * this (owner, 25 Oct 2026: *"also the HELP and Features where we can
  * mazimize the app to be searchable"*; "one place for everything").
  *
- *   signed in   the thumb row (Discover's: Enter → this page's `?q=`, ✕ → back)
- *   signed out  the page's own field — a plain GET form, so it works with no JS
+ * ONE BAR, AT THE BOTTOM, SIGNED IN AND SIGNED OUT (owner 2026-10-25, on the
+ * signed-out /help's bordered in-page box: *"Should the search be consistent
+ * with the search bar we have?"* → yes, *"This one"*). It is the thumb row
+ * Guests, Suppliers and Discover draw (`HowSearchRow`): Enter → this page's
+ * `?q=`, ✕ → the page comes back. The shell's top-bar box is not drawn on
+ * these two pages (`shell-page-search.ts`), so there is one search on the page.
+ * The only other copy is a `<noscript>` form — invisible whenever the bar can
+ * run, and the way to search when it cannot.
  *
  * The results draw IN PLACE, under the page head, and are marked
  * `data-search-results` so the shared search pin (`lib/search-pin.ts`) lands
  * the first one under the chrome. Help answers open in place (`<details>` —
  * no script); feature pages and guides link to their page.
  *
- * Server-rendered. The one client part (the signed-in row) is page-local.
+ * Server-rendered. The one client part (the row) is page-local.
  */
 export function HowSearchField({
   q,
-  signedIn,
   action,
   keep = {},
 }: {
   q: string;
-  signedIn: boolean;
-  /** This page's own path — the words stay on it. */
+  /** This page's own path — the words stay on it (the no-script form). */
   action: string;
   /** Other parameters the page keeps (the /help role tile). */
   keep?: Record<string, string | undefined>;
 }) {
-  if (signedIn) return <HowSearchRow key={q} q={q} />;
   return (
-    <form role="search" action={action} method="get" className="relative" data-how-search="">
-      {Object.entries(keep).map(([k, v]) => (v ? <input key={k} type="hidden" name={k} value={v} /> : null))}
-      <Search
-        aria-hidden
-        className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/45"
-        strokeWidth={1.75}
-      />
-      <input
-        type="search"
-        name="q"
-        defaultValue={q}
-        enterKeyHint="search"
-        placeholder={HOW_SEARCH_PLACEHOLDER}
-        aria-label={HOW_SEARCH_PLACEHOLDER}
-        className="input-field w-full pl-9"
-      />
-    </form>
+    <>
+      <HowSearchRow key={q} q={q} />
+      <noscript>
+        <form role="search" action={action} method="get" className="relative" data-how-search-noscript="">
+          {Object.entries(keep).map(([k, v]) => (v ? <input key={k} type="hidden" name={k} value={v} /> : null))}
+          <Search
+            aria-hidden
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/45"
+            strokeWidth={1.75}
+          />
+          <input
+            type="search"
+            name="q"
+            defaultValue={q}
+            enterKeyHint="search"
+            placeholder={HOW_SEARCH_PLACEHOLDER}
+            aria-label={HOW_SEARCH_PLACEHOLDER}
+            className="input-field w-full pl-9"
+          />
+        </form>
+      </noscript>
+    </>
   );
 }
 

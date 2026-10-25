@@ -88,7 +88,15 @@ export function helpAnswerHits(
       }
     }
   }
-  return out;
+  // 🪤 ONE ADDRESS, ONE ROW. Two different answers share the slug `what-is-papic` (one under "About Setnayan", one
+  // under "Papic") — /help/what-is-papic can only open one of them, and two rows with one address drew a duplicate
+  // React key. The better-scoring answer stays.
+  const byHref = new Map<string, HowHit>();
+  for (const h of out) {
+    const had = byHref.get(h.href);
+    if (!had || h.score > had.score) byHref.set(h.href, h);
+  }
+  return [...byHref.values()];
 }
 
 /** The Features hub's own entries — name, its one line, what it is, and the words people search. */

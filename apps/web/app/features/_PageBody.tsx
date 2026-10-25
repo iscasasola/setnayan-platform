@@ -89,7 +89,7 @@ export function FeaturesPageBody({
   search?: React.ReactNode;
   /** A search's results — when present they draw IN PLACE of the sections below the head. */
   results?: React.ReactNode;
-  /** Signed in, the search is the thumb row docked at the foot below 1024 — the page ends above it. */
+  /** The search is the thumb row docked at the screen's foot below 1024 — the page ends above it. */
   roomForRow?: boolean;
 }) {
   return (
@@ -98,7 +98,7 @@ export function FeaturesPageBody({
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(featuresJsonLd(locale)) }}
       />
-      <main className={roomForRow ? 'min-h-dvh pb-36 lg:pb-16' : 'min-h-dvh pb-16'}>
+      <main className={roomForRow ? 'min-h-dvh pb-24 lg:pb-16' : 'min-h-dvh pb-16'}>
         {/* 2026-10-01 — THE HUB (DECISION_LOG "/FEATURES — THE FULL LIST" +
             "SIDEBAR COLLAPSE + FEATURES PAGE — OWNER ANSWERS"). The six
             numbered catalogue sections, the anchor-pill nav and the sticky

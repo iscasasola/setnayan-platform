@@ -228,7 +228,7 @@ export default async function HelpPage({ searchParams }: Props) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(FAQ_JSONLD) }}
       />
-      <main className={`min-h-dvh bg-cream ${user ? 'pb-36 lg:pb-0' : ''}`}>
+      <main className="min-h-dvh bg-cream pb-24 lg:pb-0">
 
         <div className="mx-auto w-full max-w-6xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
           <div className="max-w-2xl space-y-3">
@@ -243,10 +243,11 @@ export default async function HelpPage({ searchParams }: Props) {
           </div>
 
           {/* 🔎 ONE SEARCH — help answers, feature pages and guides together
-              (owner 2026-10-25). Signed in it is the thumb row (docked at the
-              thumb below 1024, this line on a computer); signed out, this field. */}
-          <div className="mt-6 max-w-2xl">
-            <HowSearchField q={q} signedIn={Boolean(user)} action="/help" keep={{ role }} />
+              (owner 2026-10-25). The bottom thumb row for everyone, signed in
+              or out (docked at the screen's foot below 1024, this line on a
+              computer); the shell draws no top-bar box on this page. */}
+          <div className="max-w-2xl lg:mt-6">
+            <HowSearchField q={q} action="/help" keep={{ role }} />
           </div>
 
           {found ? (

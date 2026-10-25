@@ -18,6 +18,9 @@ import { isAppleTouchDevice } from '@/lib/apple-device';
  * agrees); after mount, an Apple touch device swaps to `apple`. The block
  * carries its own pick (`SAVE_METHOD_FIELD`), so the press opens the provider
  * the button now names — never a mix of the two.
+ *
+ * 🍏🤖 With BOTH providers on (owner 2026-10-25, "Show both") each block holds
+ * both buttons, so this swap decides only the ORDER (Apple first on an iPad).
  */
 export function AppleOnTouch({ web, apple }: { web: ReactNode; apple: ReactNode }) {
   const [touch, setTouch] = useState(false);

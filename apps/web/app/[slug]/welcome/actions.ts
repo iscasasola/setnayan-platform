@@ -29,8 +29,8 @@ import { NATIVE_SAVE_FIELD, nativeSaveHandOff, type NativeSaveHandOff } from '@/
  * also get their own QR Code. they can also link it to their account."*).
  *
  * One form, three ways out (`then`):
- *   · `keep` — "Save to my account": saves the answers and the Terms tick, then
- *     takes the method its button SAID (`saveMethodFromForm`) — Apple or
+ *   · `keep` — "Save to my account" (a provider button, posting its provider): saves the answers and the Terms
+ *     tick, then takes the provider PRESSED (`saveMethodFromForm`) — Apple or
  *     Google through `/join/{eventId}/connect`. The shipped doors, reused.
  *     📵 Never an emailed link (owner 2026-09-29, "NO EMAIL TO GUESTS").
  *   · `pass` — "Not now — just show my pass": saves whatever was typed (nothing
@@ -45,7 +45,11 @@ import { NATIVE_SAVE_FIELD, nativeSaveHandOff, type NativeSaveHandOff } from '@/
  * Their attendance is not touched — it follows their own reply if they give one.
  */
 export async function confirmPlusOneName(slug: string, formData: FormData): Promise<NativeSaveHandOff | void> {
-  const then = String(formData.get('then') ?? '');
+  /* 🍏🤖 "Save to my account" is now one button PER PROVIDER (owner 2026-10-25, "Show both"): the pressed button
+     posts its provider as `SAVE_METHOD_FIELD` instead of `then=keep`, so a provider press IS `keep`. */
+  const pressedProvider = formData.get(SAVE_METHOD_FIELD);
+  const then =
+    String(formData.get('then') ?? '') || (pressedProvider === 'apple' || pressedProvider === 'google' ? 'keep' : '');
   const first_name = String(formData.get('first_name') ?? '').trim();
   const last_name = String(formData.get('last_name') ?? '').trim();
 

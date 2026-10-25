@@ -63,12 +63,15 @@ async function renderButton(userAgent: string, through: boolean) {
   }
 }
 
-/** The provider the button's words name, and the pick its form carries. */
-function readBack(html: string): { said: string | null; carried: string | null } {
-  const said = /with (Apple|Google) · nothing to type/.exec(html)?.[1]?.toLowerCase() ?? null;
-  const carried =
-    new RegExp(`<input type="hidden" name="${SAVE_METHOD_FIELD}" value="([a-z]+)"`).exec(html)?.[1] ?? null;
-  return { said, carried };
+/**
+ * Every provider button drawn: the provider its WORDS name, and the pick its PRESS posts. Since 2026-10-25 ("Show
+ * both") the press carries its own provider — the button's `name`/`value` (`SAVE_METHOD_FIELD`), not a hidden field.
+ */
+function readBack(html: string): Array<{ said: string | null; carried: string | null }> {
+  return [...html.matchAll(/<button\b[^>]*data-save-provider="[a-z]+"[^>]*>[\s\S]*?<\/button>/g)].map(([b]) => ({
+    said: /with (Apple|Google) · nothing to type/.exec(b)?.[1]?.toLowerCase() ?? null,
+    carried: b.includes(`name="${SAVE_METHOD_FIELD}"`) ? (/\svalue="([a-z]+)"/.exec(b)?.[1] ?? null) : null,
+  }));
 }
 
 for (const through of [false, true]) {
@@ -79,23 +82,29 @@ for (const through of [false, true]) {
       ['Android', ANDROID, IPHONE],
       ['Mac', MAC, IPHONE],
     ] as const) {
-      const { said, carried } = readBack(await renderButton(ua, through));
-      assert.ok(said, `${device}: the button names no provider`);
-      assert.equal(carried, said, `${device}: the button says "${said}" but its form carries "${carried}"`);
-      // The action, asked from a request that does NOT look like the page's.
-      assert.equal(
-        saveMethodFromForm(carried, other, BOTH),
-        said,
-        `${device}: the button says ${said}, the press opens ${saveMethodFromForm(carried, other, BOTH)}`,
-      );
+      const buttons = readBack(await renderButton(ua, through));
+      assert.equal(buttons.length, 2, `${device}: both providers are on, so both buttons draw`);
+      for (const { said, carried } of buttons) {
+        assert.ok(said, `${device}: a button names no provider`);
+        assert.equal(carried, said, `${device}: the button says "${said}" but its press carries "${carried}"`);
+        // The action, asked from a request that does NOT look like the page's.
+        assert.equal(
+          saveMethodFromForm(carried, other, BOTH),
+          said,
+          `${device}: the button says ${said}, the press opens ${saveMethodFromForm(carried, other, BOTH)}`,
+        );
+      }
     }
   });
 }
 
-test('a pick that cannot be honoured falls back to the device rule — never an error, never a third door', () => {
+test('a field that names no provider falls back to the device rule; a provider switched OFF is refused, never swapped', () => {
   assert.equal(saveMethodFromForm(undefined, IPHONE, BOTH), 'apple');
   assert.equal(saveMethodFromForm('facebook', ANDROID, BOTH), 'google', 'a tampered value is not a provider');
-  assert.equal(saveMethodFromForm('apple', ANDROID, { apple: false, google: true }), 'google', 'a provider switched off is not opened');
+  // 🍏🤖 2026-10-25 ("Show both"): the guest PRESSED Apple; Apple is off → no sign-in at all (`link`, the action sends
+  // them back), never the Google they did not press.
+  assert.equal(saveMethodFromForm('apple', ANDROID, { apple: false, google: true }), 'link', 'a provider switched off is opened, or swapped for the other');
+  assert.equal(saveMethodFromForm('google', IPHONE, { apple: true, google: false }), 'link', 'a provider switched off is opened, or swapped for the other');
 });
 
 test('both actions take the button\'s pick — neither re-guesses the device from the POST', () => {
@@ -118,13 +127,15 @@ test('a stalled sign-in is never a dead screen: no veil over it, and "Didn\'t op
   // The press leaves for another site — the app-wide veil would never come down.
   assert.match(
     SAVE,
-    /pendingLabel=\{method === 'apple' \? 'Opening Apple…' : 'Opening Google…'\}\s*overlay=\{false\}/,
+    /pendingLabel=\{m === 'apple' \? 'Opening Apple…' : 'Opening Google…'\}\s*overlay=\{false\}/,
     'the provider press raises the full-screen veil again',
   );
   // The stall line rides INSIDE each form that posts the press (it reads that form's status).
-  assert.match(SAVE, /\{chosen\}\s*\{button\}\s*\{stall\}\s*<\/>/, 'the plus-one door has no way back');
-  assert.match(SAVE, /\{chosen\}\s*\{button\}\s*\{stall\}\s*<\/form>/, 'the thank-you has no way back');
+  assert.match(SAVE, /\{button\}\s*\{stall\}\s*<\/>/, 'the plus-one door has no way back');
+  assert.match(SAVE, /\{button\}\s*\{stall\}\s*<\/form>/, 'the thank-you has no way back');
   assert.match(SAVE, /const stall = signsIn \? <ProviderStall provider=\{method === 'apple' \? 'Apple' : 'Google'\} \/> : null;/);
+  // 🍏🤖 Two buttons share the form (2026-10-25): the stall names the provider PRESSED, not the device's.
+  assert.match(read('app', '[slug]', '_components', 'provider-stall.tsx'), /pressedSaveMethod\(data\)/, 'the stall names the device’s provider, not the pressed one');
   const { PROVIDER_STALL_MS, stallLine } = await import('./provider-stall');
   assert.ok(PROVIDER_STALL_MS > 0 && PROVIDER_STALL_MS <= 10_000, 'a guest waits too long before being offered a way back');
   assert.equal(stallLine('Google'), 'Google didn’t open?');

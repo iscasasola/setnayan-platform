@@ -98,8 +98,13 @@ for (const through of [false, true]) {
       const html = await render(ua, through);
       assert.ok(html.includes('data-native-save'), `${device}: the native Save form is drawn`);
       assert.ok(nativeFieldIn(html), `${device}: the form asks the action for the native hand-off`);
-      assert.ok(html.includes('Save to my account'), `${device}: the same one button`);
+      assert.ok(html.includes('Save to my account'), `${device}: the same Save button`);
       assert.equal((html.match(/<form/g) ?? []).length, 1, `${device}: one form, never a second door`);
+      // 🍏🤖 2026-10-25 ("Show both"): BOTH provider presses sit inside that one native form, each naming its own
+      // provider — the Apple sheet or Google in the system browser, whichever was pressed (guideline 4.8: Apple
+      // is offered wherever Google is).
+      const presses = [...html.matchAll(/<button\b[^>]*name="save_method"[^>]*>/g)].map(([b]) => /\svalue="([a-z]+)"/.exec(b)?.[1]);
+      assert.deepEqual([...presses].sort(), ['apple', 'google'], `${device}: both providers are pressable in the app`);
     }
   });
 
@@ -124,6 +129,9 @@ test('3 · the action hands back ONLY when the form asked AND this request is th
     nativeSaveHandOff({ posted, userAgent, providers, method, next });
   assert.deepEqual(ask('1', IOS_APP), { native: 'apple', next });
   assert.deepEqual(ask('1', ANDROID_APP, 'google'), { native: 'google', next });
+  // Whichever was PRESSED (2026-10-25, "Show both"): Google on the iOS app, Apple on the Android app.
+  assert.deepEqual(ask('1', IOS_APP, 'google'), { native: 'google', next });
+  assert.deepEqual(ask('1', ANDROID_APP, 'apple'), { native: 'apple', next });
   // The web, the desktop app and an older build: the redirect, exactly as before.
   for (const ua of [SAFARI, ANDROID, MAC, DESKTOP_APP, OLD_APP]) assert.equal(ask('1', ua), null, ua);
   // A plain web form never asked.

@@ -1,5 +1,5 @@
 /**
- * "USE MY EMAIL INSTEAD" — under the guest's ONE Save button (owner 2026-10-25,
+ * "USE MY EMAIL INSTEAD" — under the guest's Save button(s) (owner 2026-10-25,
  * "If you have recommendation that follow our design go for it").
  *
  * Rendered, not grepped: the offer is drawn for an iPhone (Apple) and an Android

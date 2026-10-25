@@ -27,7 +27,9 @@ import { placePickList, type PickListPlacement } from '@/app/dashboard/[eventId]
  * Only for what a person does NOT need in order to act. Costs, dates, errors and consequences stay on the page.
  *
  * 🎯 THE MARK IS THE HOUSE ⓘ, CLASS FOR CLASS — `<InfoTip>`'s drawn circle (16 px, an ink/25 hairline, a 10-px
- * semibold ink/55 "i"; the app's accent `sn-accent` only while hovered or open). Owner, 2026-10-25, on the Suppliers page's
+ * semibold ink/55 "i"). Open or hovered it turns the app's accent `sn-accent` where InfoTip turns `terracotta`: a
+ * template names no colour (`the-form-row.test.ts` (10)), and this one only draws on the app's own pages, where the
+ * two are the app's "on". Owner, 2026-10-25, on the Suppliers page's
  * "Cover your event": *"and the (i) is not consistent across the app"* — this mark was a 22-px white disc with an
  * ACCENT "i" while every InfoTip beside it was grey ink. One look now; only the behaviour differs (a 44-px button and
  * a popup here, a hover note there). Held by `app/_components/there-is-one-info-dot.test.ts`.

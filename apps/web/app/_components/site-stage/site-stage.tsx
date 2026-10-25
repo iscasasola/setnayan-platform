@@ -449,9 +449,9 @@ const MARK_WORD = { full: 'Yes:', partial: 'Partly:', none: 'No:' } as const;
  * 2026-10-25: *"the (i) is not consistent across the app"*; this one was a
  * lucide glyph. Only its two colours differ, and must: the stage is obsidian
  * in both themes and `ink/*` reads 1.27:1 here (`obsidian.ts`), so the hairline
- * is white/25, the "i" is `OB.soft` (9.22:1) and its hover/open colour is
- * `OB.cta` #E5794E (6.20:1) — the accent's own dark-ground value, as InfoTip
- * turns `sn-accent` — classes, not a `style`, so the open state can win. Not the shared component:
+ * is white/25, the "i" is `OB.soft` (9.22:1) and its hover/open gold is
+ * `OB.gold` #CBA766 (7.99:1) — the dark-ground value of InfoTip's `terracotta` —
+ * classes, not a `style`, so the open state can win. Not the shared component:
  * its popover and its ink are the light page's. `there-is-one-info-dot.test.ts`.
  */
 function InfoTip({ label, children }: { label: string; children: ReactNode }) {
@@ -467,7 +467,7 @@ function InfoTip({ label, children }: { label: string; children: ReactNode }) {
         onClick={() => setOpen((v) => !v)}
         onMouseEnter={() => setOpen(true)}
         onBlur={() => setOpen(false)}
-        className="sn-press sn-press-ring sn-dot-btn inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-white/25 text-[10px] font-semibold leading-none text-[#B6B9BE] transition-all duration-sn-control ease-sn hover:border-[#E5794E] hover:text-[#E5794E] aria-expanded:border-[#E5794E] aria-expanded:text-[#E5794E]"
+        className="sn-press sn-press-ring sn-dot-btn inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-white/25 text-[10px] font-semibold leading-none text-[#B6B9BE] transition-all duration-sn-control ease-sn hover:border-[#CBA766] hover:text-[#CBA766] aria-expanded:border-[#CBA766] aria-expanded:text-[#CBA766]"
       >
         <span aria-hidden="true">i</span>
       </button>

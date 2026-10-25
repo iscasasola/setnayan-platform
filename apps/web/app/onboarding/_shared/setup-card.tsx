@@ -96,7 +96,7 @@ export function SetupFrame({
           aria-expanded={infoOpen}
           aria-label="More about this"
           onClick={() => setInfoOpen((v) => !v)}
-          className="sn-press sn-press-ring sn-dot-btn mt-2 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-ink/25 text-[10px] font-semibold leading-none text-ink/55 transition-all duration-sn-control ease-sn hover:border-sn-accent hover:text-sn-accent aria-expanded:border-sn-accent aria-expanded:text-sn-accent sm:mt-3"
+          className="sn-press sn-press-ring sn-dot-btn mt-2 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-ink/25 text-[10px] font-semibold leading-none text-ink/55 transition-all duration-sn-control ease-sn hover:border-terracotta hover:text-terracotta aria-expanded:border-terracotta aria-expanded:text-terracotta sm:mt-3"
         >
           {/* The house ⓘ, class for class — `<InfoTip>`'s trigger (owner 2026-10-25: "the (i) is not consistent
               across the app"). Not InfoTip itself: this one opens the line in the page, under the title. */}

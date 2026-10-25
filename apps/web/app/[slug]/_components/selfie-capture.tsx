@@ -314,8 +314,7 @@ export function SelfieCapture({
             >
               {/* The house ⓘ, class for class (`<InfoTip>`'s drawn circle — owner 2026-10-25: "the (i) is not
                   consistent across the app"), inside this 44-px button, which opens the details sheet. Its hover
-                  colour is `terracotta`, not the app's `sn-accent`: a guest page wears the couple's colours
-                  (`the-accent-is-one-token.test.ts` (4)), and every hub look moves terracotta with it. */}
+                  colour is InfoTip's `terracotta` — on a guest page, the couple's own colour. */}
               <span
                 aria-hidden="true"
                 className="sn-press-ring inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-ink/25 text-[10px] font-semibold leading-none text-ink/55 transition-all duration-sn-control ease-sn group-hover/info:border-terracotta group-hover/info:text-terracotta" /* legibility-ok — the aria-hidden "i" of the house ⓘ (16 px dot, InfoTip's size); the button is named "Details" */

@@ -1633,7 +1633,7 @@ function ShelfInfo({ children }: { children: string }) {
   return (
     <details className="group relative shrink-0">
       <summary
-        className="relative flex h-4 w-4 cursor-pointer list-none items-center justify-center rounded-full border border-ink/25 text-[10px] font-semibold leading-none text-ink/55 transition-all duration-sn-control ease-sn before:absolute before:-inset-[15px] before:content-[''] hover:border-sn-accent hover:text-sn-accent group-open:border-sn-accent group-open:text-sn-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--sn-mulberry-600)] [&::-webkit-details-marker]:hidden"
+        className="relative flex h-4 w-4 cursor-pointer list-none items-center justify-center rounded-full border border-ink/25 text-[10px] font-semibold leading-none text-ink/55 transition-all duration-sn-control ease-sn before:absolute before:-inset-[15px] before:content-[''] hover:border-terracotta hover:text-terracotta group-open:border-terracotta group-open:text-terracotta focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--sn-mulberry-600)] [&::-webkit-details-marker]:hidden"
         aria-label="What is this row?"
       >
         i

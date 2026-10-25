@@ -70,16 +70,17 @@ type Site = {
   why: string;
   /**
    * `obsidian`: the surface is dark in both themes, where `ink/*` reads 1.27:1 — the shape is held, not the ink.
-   * `guest`: a guest page (`app/[slug]`) never names the app's accent (`the-accent-is-one-token.test.ts` (4)) — the
-   * couple's own colour, `terracotta` (every hub look moves it), stands in for `sn-accent` as the "on" colour.
+   * `template`: a shared template file names no colour (`the-form-row.test.ts` (10)) — it turns the app's accent
+   * `sn-accent` where InfoTip turns `terracotta`. Only for templates that draw on the app's own pages.
    */
-  colours?: 'obsidian' | 'guest';
+  colours?: 'obsidian' | 'template';
 };
 
 const SITES: Record<string, Site> = {
   [INFO_TIP]: { why: 'THE house ⓘ — the source of LOOK.' },
   'app/_components/explain.tsx': {
     why: 'the explanation template (a 44-px button; a centred popup on a phone) — its mark is InfoTip’s, inside that button',
+    colours: 'template',
   },
   'app/dashboard/[eventId]/schedule/_components/day-ui.tsx': {
     why: 'InfoTip PRINTS its label; every ⓘ on the day rail sits beside a label its caller already prints',
@@ -88,10 +89,7 @@ const SITES: Record<string, Site> = {
     why: 'the My Events shelf ⓘ is a server-rendered <details> so it opens with JavaScript off, on a venue’s bad signal',
   },
   'app/onboarding/_shared/setup-card.tsx': { why: 'it opens its line IN the page under the title, not a hover note' },
-  'app/[slug]/_components/selfie-capture.tsx': {
-    why: 'a 44-px button that opens the face-step details sheet',
-    colours: 'guest',
-  },
+  'app/[slug]/_components/selfie-capture.tsx': { why: 'a 44-px button that opens the face-step details sheet' },
   'app/_components/site-stage/site-stage.tsx': {
     why: 'the Maker’s who×when stage is obsidian in both themes; InfoTip’s ink and popover are the light page’s',
     colours: 'obsidian',
@@ -191,7 +189,7 @@ test('every listed ⓘ wears the house look, token for token — no accent "i", 
     if (site.colours !== 'obsidian') {
       const loud = d.cls.filter((t) => LOUD.test(t));
       assert.deepEqual(loud, [], `${where} wears a resting colour that is not the house ink: ${loud.join(' ')}`);
-      const ons = site.colours === 'guest' ? ON.map((t) => t.replace('sn-accent', 'terracotta')) : ON;
+      const ons = site.colours === 'template' ? ON.map((t) => t.replace('terracotta', 'sn-accent')) : ON;
       for (const on of ons) {
         assert.ok(
           d.cls.some((t) => t.endsWith(`:${on}`)),

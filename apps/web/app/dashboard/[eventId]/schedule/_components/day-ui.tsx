@@ -84,7 +84,7 @@ export function Tip({ children, align = 'center' }: { children: ReactNode; align
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
         onBlur={() => setOpen(false)}
-        className="sn-press sn-press-ring sn-dot-btn inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-ink/25 text-[10px] font-semibold leading-none text-ink/55 transition-all duration-sn-control ease-sn hover:border-sn-accent hover:text-sn-accent aria-expanded:border-sn-accent aria-expanded:text-sn-accent"
+        className="sn-press sn-press-ring sn-dot-btn inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-ink/25 text-[10px] font-semibold leading-none text-ink/55 transition-all duration-sn-control ease-sn hover:border-terracotta hover:text-terracotta aria-expanded:border-terracotta aria-expanded:text-terracotta"
       >
         <span aria-hidden="true">i</span>
       </button>

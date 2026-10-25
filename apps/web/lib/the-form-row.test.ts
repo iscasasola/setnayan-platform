@@ -283,7 +283,7 @@ test('(8) the ⓘ is its own 44-px button: a centred popup with "Got it" on a ph
   // ⤷ 2026-10-25 (owner: "the (i) is not consistent across the app"): the mark is the HOUSE ⓘ — InfoTip's grey ink
   //   circle — no longer an accent "i" on a white disc. `app/_components/there-is-one-info-dot.test.ts` holds the look.
   assert.match(html, /h-4 w-4 [^"]*border-ink\/25 [^"]*text-ink\/55/, 'the mark is not the house ⓘ');
-  // At rest only — the accent is still its "on" colour (`group-aria-expanded/explain:text-sn-accent`), as InfoTip's.
+  // At rest only — open, it still turns the accent (`group-aria-expanded/explain:text-sn-accent`).
   assert.doesNotMatch(html, /[\s"](?:text-sn-accent|bg-white)[\s"]/, 'the mark is an accent "i" on a white disc again');
   assert.doesNotMatch(html, /Got it|role="dialog"/, 'the explanation is drawn before it is asked for');
   const src = read(EXPLAIN);

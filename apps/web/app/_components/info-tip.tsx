@@ -25,9 +25,9 @@
  * is a control, and controls keep their radius (owner, 2026-09-24).
  *
  * 🎯 THIS IS THE ONE ⓘ LOOK (owner 2026-10-25, *"the (i) is not consistent across the app"*): grey ink at rest — an
- * ink/25 hairline, a 10-px semibold ink/55 "i" — and the app's accent (`sn-accent`, the one "on" colour) only while
- * hovered or open. `<Explain>` and every hand-drawn ⓘ copy these classes; `there-is-one-info-dot.test.ts` reads
- * them from HERE, so change the look in this file and every ⓘ is held to the new one.
+ * ink/25 hairline, a 10-px semibold ink/55 "i" — and `terracotta` only while hovered or open (on a guest page that is
+ * the couple's own colour: every hub look moves it). `<Explain>` and every hand-drawn ⓘ copy these classes;
+ * `there-is-one-info-dot.test.ts` reads them from HERE, so change the look in this file and every ⓘ is held to it.
  *
  * 👆 THE CIRCLE IS DRAWN 16 PX AND PRESSES AT 46 × 46: `.sn-dot-btn`'s invisible
  * `::after` halo (`globals.css`) reaches the 44-px floor around it, so the drawing
@@ -129,7 +129,7 @@ export function InfoTip({
         onClick={() => dispatch({ type: 'click' })}
         onFocus={() => dispatch({ type: 'focus' })}
         onBlur={() => dispatch({ type: 'blur' })}
-        className="sn-press sn-press-ring sn-dot-btn inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-ink/25 text-[10px] font-semibold leading-none text-ink/55 transition-all duration-sn-control ease-sn hover:border-sn-accent hover:text-sn-accent aria-expanded:border-sn-accent aria-expanded:text-sn-accent"
+        className="sn-press sn-press-ring sn-dot-btn inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-ink/25 text-[10px] font-semibold leading-none text-ink/55 transition-all duration-sn-control ease-sn hover:border-terracotta hover:text-terracotta aria-expanded:border-terracotta aria-expanded:text-terracotta"
       >
         <span aria-hidden="true">i</span>
       </button>

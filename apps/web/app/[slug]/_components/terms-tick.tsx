@@ -22,6 +22,9 @@ import { TickBox } from './tick-box';
  */
 export function TermsTick({ id, children }: { id?: string; children?: ReactNode }) {
   return (
+    /* `data-needed-at`: a Send without the tick says "Needed to continue" right under this line, not under the
+       button (the reply's walker, `rsvp-one-at-a-time.tsx` `markNeeded`). */
+    <div data-needed-at="">
     <label htmlFor={id} className="flex min-h-[44px] items-start gap-3 text-sm text-ink/80">
       <TickBox press="-mx-3 -mb-3 -mt-2.5" id={id} name={TERMS_FIELD} required />
       <span className="-my-3 flex flex-wrap items-center gap-x-1">
@@ -36,5 +39,6 @@ export function TermsTick({ id, children }: { id?: string; children?: ReactNode 
         {children ? <span className="basis-full">{children}</span> : null}
       </span>
     </label>
+    </div>
   );
 }

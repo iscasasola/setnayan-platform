@@ -179,9 +179,17 @@ export function RsvpOneAtATime({ hint = null }: { /** The couple's own hint unde
     // 🛑 A refused box says so AT the box (Next's check and Send's both fire `invalid`), and the line goes the
     // moment it is answered — read after React has re-drawn what the answer changes (a cleared name un-requires
     // its tick).
+    // Cancelling `invalid` also cancels the browser's own focus move on Send, so the first refused box of a press
+    // takes focus here (Next focuses its own first one in `go`).
+    let focusing = false;
     const onInvalid = (e: Event) => {
       e.preventDefault();
       markNeeded(e.target as HTMLInputElement);
+      if (focusing) return;
+      focusing = true;
+      (e.target as HTMLElement).focus({ preventScroll: true });
+      (e.target as HTMLElement).scrollIntoView({ block: 'center', behavior: 'smooth' });
+      window.setTimeout(() => (focusing = false), 0);
     };
     const onEdit = () => window.requestAnimationFrame(() => clearAnswered(form));
     form.addEventListener('change', onChange);

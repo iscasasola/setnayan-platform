@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "01c58ee4df",
+  "generatedFromRef": "29f26a0ffd",
   "routeCount": 471,
   "destinations": 1009,
   "actions": 665,
-  "blocks": 7073,
+  "blocks": 7074,
   "routes": {
     "/": {
       "files": [
@@ -1045,6 +1045,7 @@
         "[slug]/_components/supplier-ribbon.tsx",
         "[slug]/_components/tea-ceremony-card.tsx",
         "[slug]/_components/terms-tick.tsx",
+        "[slug]/_components/tick-box.tsx",
         "[slug]/_components/ticket-picture.tsx",
         "[slug]/_components/ticket-popup.tsx",
         "[slug]/_components/ticket-row.tsx",
@@ -1465,9 +1466,9 @@
         "PhotosOfYouGallery",
         "PhotosOfYouLead",
         "PhotosOfYouPolaroids",
-        "PickMenu",
         "PinnedMap",
         "PlusOneSeatPanels",
+        "PlusOneSeatRow",
         "Portrait",
         "PostEventSceneFrame",
         "PreviewPerson",
@@ -1632,6 +1633,7 @@
         "TermsTick",
         "ThankYouScene",
         "TheirSong",
+        "TickBox",
         "TicketPicture",
         "TicketRow",
         "TicketShow",

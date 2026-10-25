@@ -6,7 +6,7 @@
  *       (`aria-expanded`), a settings region, or open/closed state — each is a door (a link) to its page.
  *   2 · LOWER services DO grow in place: a service's phone tile is a button that opens the card in place
  *       (`aria-expanded`, `aria-controls` → the card's settings region); the card's head grows it; the "Open … ›" door
- *       comes LAST inside it.
+ *       comes LAST inside it. Papic draws no phone tile (owner 2026-10-26) — its head grows it on every width.
  *   3 · ONE OPEN AT A TIME: every growing service joins `useOneOpen` (`lib/one-open.ts`), and wraps what it holds in
  *       `OneOpenScope` so a dropdown inside never closes its own card.
  *
@@ -62,7 +62,9 @@ test('2 · a service grows IN PLACE — its phone tile opens the card, its door 
   const region = card.slice(card.indexOf('data-home-card-settings='));
   assert.ok(region.indexOf('{settings}') < region.indexOf('data-home-card-door'), 'the "Open … ›" door is not last inside the card');
   const papic = read('_components/papic-home-card.tsx');
-  assert.match(papic, /<button type="button" className="hc-tile hc-svc-tile" aria-expanded=\{false\} aria-controls=\{regionId\} onClick=\{\(\) => setOpen\(true\)\}>/, 'the Papic tile does not grow its card');
+  // 📷 Papic has no phone tile (owner 2026-10-26: one card, the head and its switch, on every width) — its HEAD grows it.
+  assert.doesNotMatch(papic, /hc-svc-tile/, 'Papic has its own phone tile again');
+  assert.match(papic, /<button\s+type="button"\s+aria-expanded=\{open\}\s+aria-controls=\{regionId\}\s+onClick=\{\(\) => setOpen\(\(v\) => !v\)\}/, 'the Papic head does not grow its card in place');
 });
 
 test('3 · one service open at a time', () => {

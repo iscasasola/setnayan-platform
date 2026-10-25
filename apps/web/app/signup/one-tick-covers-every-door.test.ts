@@ -26,7 +26,6 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
 import {
-  CLICKWRAP_SINCE,
   SIGNUP_TERMS_COOKIE_MAX_AGE,
   TERMS_VERSION,
   carriedTermsAgreement,
@@ -63,9 +62,8 @@ test('the callback records an agreement only on a tick somebody performed', () =
 });
 
 test('an account with no stamp still meets the one-time re-ask', () => {
-  const after = `${CLICKWRAP_SINCE}T09:00:00Z`;
-  assert.equal(needsTermsAgreement({ terms_accepted_at: null, created_at: after }), true);
-  assert.equal(needsTermsAgreement({ terms_accepted_at: after, created_at: after }), false);
+  assert.equal(needsTermsAgreement({ terms_version: null }), true);
+  assert.equal(needsTermsAgreement({ terms_version: TERMS_VERSION }), false);
 });
 
 // ── THE CARD ───────────────────────────────────────────────────────────────

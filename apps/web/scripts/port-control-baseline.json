@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "a612993d81",
+  "generatedFromRef": "310df16c33",
   "routeCount": 470,
   "destinations": 1009,
   "actions": 665,
-  "blocks": 7049,
+  "blocks": 7051,
   "routes": {
     "/": {
       "files": [
@@ -2268,6 +2268,7 @@
         "Screen",
         "Sk",
         "Suspense",
+        "TermsReacceptSheet",
         "Tile",
         "UnreadBellBadge",
         "WhatYouChange"
@@ -13346,6 +13347,7 @@
         "Suspense",
         "SyncResult",
         "TapMark",
+        "TermsReacceptSheet",
         "ThumbFit",
         "TodayEyebrow",
         "TodayFigure",

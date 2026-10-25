@@ -33,7 +33,7 @@
 
 import { createClient } from '@/lib/supabase/client';
 import { safeNext } from '@/lib/safe-next';
-import { acceptTermsNow } from '@/app/dashboard/_components/terms-reaccept-actions';
+import { acceptTermsNow } from '@/app/_components/terms-reaccept/actions';
 import { TERMS_FIELD } from '@/lib/terms-agreement';
 
 export type DesktopOAuthProvider = 'google' | 'apple' | 'facebook';
@@ -96,7 +96,7 @@ export async function signInWithProviderDesktop(
    * ✅ The sign-up card's ONE Terms box was ticked (owner 2026-10-22, Host 1). This loopback never passes through
    * `app/auth/callback` — where the web and phone doors record the carried tick — so it records it itself, right
    * after the session exists, through the SAME action the one-time re-ask posts (`acceptTermsNow`: fails closed
-   * without the tick, writes only where nothing is on record). Absent / false → nothing is recorded.
+   * without the tick, writes only where the current version is not already on record). Absent / false → nothing is recorded.
    */
   opts: { agreed?: boolean } = {},
 ): Promise<void> {

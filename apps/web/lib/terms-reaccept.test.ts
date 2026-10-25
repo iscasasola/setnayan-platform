@@ -66,7 +66,9 @@ test('the save writes the current version, which reads as agreed; the sheet clos
   assert.match(action, /revalidatePath\('\/dashboard', 'layout'\)/, 'the signed-in trees re-read the record');
 
   const sheet = read(SHEET);
-  assert.match(sheet, /if \(res\.ok\) \{\s*setOpen\(false\);\s*router\.refresh\(\);\s*\} else \{\s*setError\(res\.message\);/);
+  assert.match(sheet, /if \(res\.ok\) \{\s*setOpen\(false\);\s*\} else \{\s*setError\(res\.message\);/);
+  // No router.refresh(): the action already revalidates, and a refresh would render the page twice (a-save-renders-once.test.ts).
+  assert.doesNotMatch(sheet, /router\.refresh\(\)/);
 });
 
 // ── 3. EVERY SIGNED-IN TREE, AND NO GUEST PAGE ─────────────────────────────

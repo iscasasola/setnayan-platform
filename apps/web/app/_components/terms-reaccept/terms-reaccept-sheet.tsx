@@ -2,7 +2,6 @@
 
 import { useId, useState, useTransition } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { Check } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
 import { InfoTip } from '@/app/_components/info-tip';
@@ -28,7 +27,6 @@ import { acceptTermsNow, type TermsAgreementResult } from './actions';
  */
 export function TermsReacceptSheet() {
   const titleId = useId();
-  const router = useRouter();
   const [open, setOpen] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -46,7 +44,6 @@ export function TermsReacceptSheet() {
       }
       if (res.ok) {
         setOpen(false);
-        router.refresh();
       } else {
         setError(res.message);
       }

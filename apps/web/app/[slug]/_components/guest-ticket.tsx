@@ -135,7 +135,8 @@ export function GuestTicket({
         {pending ? REQUEST_WORDS.sentUnlocks : 'Show this at the door.'}
       </p>
       <GuestCodeKeepers invitationUrl={invitationUrl} className="mt-3" passCardHref={src} />
-      {state === 'pass' ? <AppleWalletButton link={appleWallet} className="mt-2" /> : null}
+      {/* 🍎 Under Save · Copy link, sized to its words and centred — a second control, never wider than the row above. */}
+      {state === 'pass' ? <AppleWalletButton link={appleWallet} className="mx-auto mt-2 w-fit" /> : null}
     </section>
     </>
   );

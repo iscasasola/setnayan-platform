@@ -652,7 +652,7 @@ export const SECRET_REGISTRY: readonly SecretDef[] = [
       'Come back here and click "Mark rotated".',
     ],
     impact:
-      'Signs every guest Apple Wallet pass. Expired or wrong: "Add to Apple Wallet" answers "Could not make your Wallet ticket" — the PNG ticket is unaffected.',
+      'Signs every guest Apple Wallet pass. Expired or wrong: "Add to Apple Wallet" stops showing (the page draws it only while a probe signature succeeds) — the PNG ticket and "Save my ticket" are unaffected.',
   },
 ];
 

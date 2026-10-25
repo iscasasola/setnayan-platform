@@ -74,6 +74,10 @@ export const PASS_CARD_WORDS = {
   appleWallet: 'Add to Apple Wallet',
   /** Inside Messenger on an iPhone: the Add-pass sheet does not open there. */
   appleWalletInApp: 'Open in Safari to add to Apple Wallet',
+  /** Inside the Setnayan iOS app: the ticket opens in the app's browser sheet, where Wallet's Add sheet works. */
+  appleWalletInAppSheet: 'Open my ticket to add to Apple Wallet',
+  /** The route could not sign a pass (owner 2026-10-25: never a broken download) — said on its own page. */
+  walletFailed: 'Couldn’t make your Wallet pass — Save my ticket instead.',
   /** Me, from 00:00 Manila on the date (Phase A has no pushes). */
   walletTableToday: 'Your table is on your ticket now — tap Add to Apple Wallet again to put it on your pass.',
   /** The back of the pass. */

@@ -626,9 +626,14 @@ async function inviteEnterPage({ params, searchParams }: Props) {
   });
   const inApp = canvas ? ({ kind: 'none' } as const) : inAppHandoff(userAgent, invitationUrl);
   const safariSave = inApp.kind === 'ios' ? inApp.safariHref : null;
-  // 🍎 "Add to Apple Wallet" under "Save my ticket" (lib/wallet-pass.ts). Inside an iPhone's in-app browser the
-  // Save line is already the Safari hand-off, so no second hand-off is drawn; never on the Maker's canvas.
-  const appleWallet = canvas || safariSave || passCard !== 'pass' ? null : appleWalletLink(userAgent, invitationUrl, appleWalletOffered());
+  // 🍎 "Add to Apple Wallet" under "Save my ticket" (lib/wallet-pass.ts) — on an iPhone, and only while the pass can be
+  // SIGNED right now (`appleWalletOffered`, on for everyone — owner 2026-10-25). Inside an iPhone's in-app browser the
+  // Save line is already the Safari hand-off, so no second hand-off is drawn; never on the Maker's canvas. In the
+  // Setnayan app it opens the in-app browser sheet, where Wallet's Add sheet works.
+  const appleWallet =
+    canvas || safariSave || passCard !== 'pass'
+      ? null
+      : appleWalletLink(userAgent, invitationUrl, await appleWalletOffered(), { storeShell: await isStoreShellRequest() });
   /* ✉️ …SAID AS "N MORE ANSWERS" WHILE THE COUPLE'S SWITCHED-ON QUESTIONS ARE STILL UNANSWERED (owner 2026-10-20,
      DECISION_LOG "THE COVER'S REPLY BUTTON HAS THREE STATES") — the reply page's own missing set: the SAME `rsvpGate`
      call `invite/reply/page.tsx` makes for the questions it shows, on this row, counted (`moreAnswersOf`). The link is
@@ -791,6 +796,7 @@ async function inviteEnterPage({ params, searchParams }: Props) {
             src={PASS_CARD_ROUTE}
             name={guestName}
             safariHref={safariSave}
+            appleWallet={appleWallet}
           />
         ) : null}
         {saved ? <DoorNotice kind={saved.kind}>{saved.text}</DoorNotice> : null}

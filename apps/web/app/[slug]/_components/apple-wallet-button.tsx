@@ -1,4 +1,5 @@
 import type { AppleWalletLink } from '@/lib/wallet-pass';
+import { AppleWalletSheetLink } from './apple-wallet-sheet-link';
 
 /**
  * 🍎 APPLE'S BADGE ARTWORK, when it is in the repo. Apple's rules require the
@@ -10,28 +11,34 @@ import type { AppleWalletLink } from '@/lib/wallet-pass';
 export const APPLE_WALLET_BADGE_SRC: string | null = null;
 
 /**
- * "Add to Apple Wallet" beside "Save my ticket" — a plain link, no script: the
- * route answers with the `.pkpass` and Safari opens Wallet's Add sheet. Shown
- * only when the page was handed a link (`appleWalletLink`: the switch on, every
- * Apple value present, an Apple device or the iPhone in-app hand-off).
+ * "Add to Apple Wallet" beside "Save my ticket" — drawn only when the page was handed a link (`appleWalletLink`: an
+ * iPhone, and a pass the server can sign right now). `download` is a plain link, no script: the route answers with
+ * the `.pkpass` and Safari opens Wallet's Add sheet (and if signing fails after all, the route's own page says so —
+ * "Save my ticket instead" — never a broken file). `safari` is the Messenger hand-off; `sheet` is the Setnayan app's
+ * in-app browser (`AppleWalletSheetLink`).
  */
 export function AppleWalletButton({ link, className }: { link: AppleWalletLink | null; className?: string }) {
   if (!link) return null;
+  const plain = 'button-secondary inline-flex w-full justify-center';
   return (
     <div data-wallet="apple" className={className}>
-      <a
-        href={link.href}
-        data-wallet-handoff={link.handoff ? '' : undefined}
-        aria-label={link.label}
-        className={APPLE_WALLET_BADGE_SRC && !link.handoff ? 'inline-flex' : 'button-secondary inline-flex w-full justify-center'}
-      >
-        {APPLE_WALLET_BADGE_SRC && !link.handoff ? (
-          // eslint-disable-next-line @next/next/no-img-element -- Apple's badge, unmodified
-          <img src={APPLE_WALLET_BADGE_SRC} alt={link.label} height={48} className="h-12 w-auto" />
-        ) : (
-          link.label
-        )}
-      </a>
+      {link.kind === 'sheet' ? (
+        <AppleWalletSheetLink href={link.href} label={link.label} className={plain} />
+      ) : (
+        <a
+          href={link.href}
+          data-wallet-link={link.kind}
+          aria-label={link.label}
+          className={APPLE_WALLET_BADGE_SRC && link.kind === 'download' ? 'inline-flex' : plain}
+        >
+          {APPLE_WALLET_BADGE_SRC && link.kind === 'download' ? (
+            // eslint-disable-next-line @next/next/no-img-element -- Apple's badge, unmodified
+            <img src={APPLE_WALLET_BADGE_SRC} alt={link.label} height={48} className="h-12 w-auto" />
+          ) : (
+            link.label
+          )}
+        </a>
+      )}
     </div>
   );
 }

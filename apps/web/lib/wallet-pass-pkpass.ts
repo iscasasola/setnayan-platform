@@ -137,3 +137,31 @@ export async function buildPkpass(
   const signature = signManifest(manifest, signer, now);
   return await zip({ ...files, 'manifest.json': manifest, signature });
 }
+
+/** What `probeSigner` found — `ok` with the certificate's last valid moment, or the STEP that failed. */
+export type WalletSignerProbe =
+  | { ok: true; notAfter: Date }
+  | { ok: false; step: WalletSigningError['step'] | 'expired' | 'mismatch' };
+
+/**
+ * 🧪 CAN THIS SET SIGN A PASS RIGHT NOW? — asked before "Add to Apple Wallet" is drawn (owner 2026-10-25: the button
+ * is on for everyone, so it must never be a link to a broken download). Not "are the six values present": the SAME
+ * readers `buildPkpass` uses parse the certificate, the WWDR certificate and the key; the certificate must be inside
+ * its validity window; the key must be the certificate's own; and a real detached signature is made over a probe
+ * manifest. Any failure is a STEP, never a value (`WalletSigningError`).
+ */
+export function probeSigner(signer: AppleWalletSigner, now: Date = new Date()): WalletSignerProbe {
+  try {
+    const cert = readCert(signer.certPem, 'certificate');
+    readCert(signer.wwdrPem, 'wwdr');
+    const key = readKey(signer.keyPem, signer.keyPassphrase);
+    const t = now.getTime();
+    if (t < cert.validity.notBefore.getTime() || t >= cert.validity.notAfter.getTime()) return { ok: false, step: 'expired' };
+    const pub = cert.publicKey as forge.pki.rsa.PublicKey;
+    if (!pub?.n || pub.n.compareTo(key.n) !== 0 || pub.e.compareTo(key.e) !== 0) return { ok: false, step: 'mismatch' };
+    signManifest(Buffer.from('{"probe":"setnayan-wallet"}', 'utf8'), signer, now);
+    return { ok: true, notAfter: cert.validity.notAfter };
+  } catch (err) {
+    return { ok: false, step: err instanceof WalletSigningError ? err.step : 'sign' };
+  }
+}

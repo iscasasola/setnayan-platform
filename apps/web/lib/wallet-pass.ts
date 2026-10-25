@@ -138,11 +138,17 @@ export function walletDateLabel(eventDate: string | null): string | null {
  * notes), so the instant is BUILT from its UTC hours, never passed through.
  * No arrive time → 09:00 on the date. No date → null.
  */
-export function walletRelevantDate(eventDate: string | null, arriveAt: string | null): string | null {
+export function walletRelevantDate(eventDate: string | null, arriveAt: string | null, arriveLabel: string | null = null): string | null {
   const day = eventDate && /^\d{4}-\d{2}-\d{2}/.test(eventDate) ? eventDate.slice(0, 10) : null;
   if (!day) return null;
   let hhmm = '09:00';
-  if (arriveAt) {
+  // The printed ARRIVE first ("8:00 AM" — the guest's OWN call time, `guestArriveBy`), so the lock screen rises at
+  // the time the pass says; then the programme's first moment; then 09:00.
+  const said = arriveLabel ? /^\s*(\d{1,2}):(\d{2})\s*([AP])\.?M\.?\s*$/i.exec(arriveLabel) : null;
+  if (said && Number(said[1]) >= 1 && Number(said[1]) <= 12) {
+    const h = (Number(said[1]) % 12) + (said[3]!.toUpperCase() === 'P' ? 12 : 0);
+    hhmm = `${String(h).padStart(2, '0')}:${said[2]}`;
+  } else if (arriveAt) {
     const t = new Date(arriveAt);
     if (!Number.isNaN(t.getTime())) hhmm = `${String(t.getUTCHours()).padStart(2, '0')}:${String(t.getUTCMinutes()).padStart(2, '0')}`;
   }
@@ -232,7 +238,7 @@ export function walletPassContent(f: WalletPassFacts): WalletPassContent {
     qrMessage: passCardQrUrl(f),
     organizationName: couple,
     description: `${PASS_CARD_WORDS.noun.charAt(0).toUpperCase()}${PASS_CARD_WORDS.noun.slice(1)} to ${couple}’s ${word}`,
-    relevantDate: walletRelevantDate(f.eventDate, f.arriveAt),
+    relevantDate: walletRelevantDate(f.eventDate, f.arriveAt, f.arriveLabel),
     colors: walletColors(f.look),
     header: field('date', 'DATE', date),
     primary: field('couple', f.eyebrow.trim() || 'The celebration of', couple),
@@ -312,31 +318,42 @@ export function pemFromEnvValue(raw: string | null | undefined): string | null {
 // ─── Who is offered the button ──────────────────────────────────────────────
 
 /**
- * 🍎 iPhone, iPad and Mac Safari can add a `.pkpass`. iPadOS reports a Mac;
- * Chrome/Firefox/Edge on a Mac cannot. Android and everything else: no button
- * (Google Wallet is deferred).
+ * 🍎 AN iPHONE (or an iPad that says so, or an iPod) — the phones Apple Wallet lives on. Owner, 2026-10-25: *"Add to
+ * Apple Wallet beside Save my ticket on iPhone"*; Android and desktop get nothing new (Google Wallet is deferred, and a
+ * desktop browser has no Wallet to hand a pass to). Chrome / Firefox / Edge on an iPhone count: every iOS browser is
+ * WebKit and hands a `.pkpass` to Wallet's Add sheet.
  */
 export function appleWalletDevice(userAgent: string | null | undefined): boolean {
-  const ua = userAgent ?? '';
-  if (/iPhone|iPad|iPod/i.test(ua)) return true;
-  if (/Macintosh/i.test(ua)) return /Safari\//.test(ua) && !/Chrome\/|CriOS|Chromium|Firefox\/|FxiOS|Edg\//.test(ua);
-  return false;
+  return /iPhone|iPad|iPod/i.test(userAgent ?? '');
 }
 
-/** What the ticket section offers: Apple's button, or (inside Messenger on an iPhone) the Safari hand-off. */
-export type AppleWalletLink = { href: string; label: string; handoff: boolean };
+/**
+ * What the ticket section offers beside "Save my ticket":
+ *   · `download` — the route itself: Safari (or any iOS browser) opens Wallet's Add sheet;
+ *   · `safari`   — inside Messenger / Instagram on an iPhone the Add sheet does not open, so the SAME Safari hand-off
+ *                  "Save my ticket" already uses there (`inAppHandoff`), the guest's own link;
+ *   · `sheet`    — inside the Setnayan iOS app's own web view, which cannot hand a download to Wallet: the guest's own
+ *                  link in the app's in-app browser sheet (SFSafariViewController, `openEventHub`), where the ticket
+ *                  page draws the `download` button. No sheet in that build → no button (never a dead link).
+ */
+export type AppleWalletLink = { kind: 'download' | 'safari' | 'sheet'; href: string; label: string };
 
 /**
- * The link beside "Save my ticket", or null. `offered` is the server's answer
- * (`appleWalletOffered`: the switch ON and every Apple value present). Inside an
- * iPhone's in-app browser the Add-pass sheet does not open, so the link is the
- * SAME Safari hand-off "Save my ticket" already uses there (`inAppHandoff`) —
- * the guest's own link, which signs them in on the Safari side.
+ * The link beside "Save my ticket", or null. `offered` is the server's answer (`appleWalletOffered`: the set in the
+ * env can sign a pass right now). `storeShell` is `isStoreShellRequest()` — the Setnayan iOS/Android app's web view.
  */
-export function appleWalletLink(userAgent: string | null | undefined, personalLink: string, offered: boolean): AppleWalletLink | null {
-  if (!offered) return null;
+export function appleWalletLink(
+  userAgent: string | null | undefined,
+  personalLink: string,
+  offered: boolean,
+  opts: { storeShell?: boolean } = {},
+): AppleWalletLink | null {
+  if (!offered || !appleWalletDevice(userAgent)) return null;
+  if (opts.storeShell) {
+    return /^https:\/\//.test(personalLink) ? { kind: 'sheet', href: personalLink, label: PASS_CARD_WORDS.appleWalletInAppSheet } : null;
+  }
   const inApp = inAppHandoff(userAgent, personalLink);
-  if (inApp.kind === 'ios') return { href: inApp.safariHref, label: PASS_CARD_WORDS.appleWalletInApp, handoff: true };
+  if (inApp.kind === 'ios') return { kind: 'safari', href: inApp.safariHref, label: PASS_CARD_WORDS.appleWalletInApp };
   if (inApp.kind !== 'none') return null;
-  return appleWalletDevice(userAgent) ? { href: APPLE_WALLET_ROUTE, label: PASS_CARD_WORDS.appleWallet, handoff: false } : null;
+  return { kind: 'download', href: APPLE_WALLET_ROUTE, label: PASS_CARD_WORDS.appleWallet };
 }

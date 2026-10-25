@@ -1,8 +1,8 @@
 import 'server-only';
 
-import { envFlagEnabled } from '@/lib/env-flag';
 import { pemFromEnvValue, type AppleWalletIds } from '@/lib/wallet-pass';
-import type { AppleWalletSigner } from '@/lib/wallet-pass-pkpass';
+import type { AppleWalletSigner, WalletSignerProbe } from '@/lib/wallet-pass-pkpass';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 /**
  * lib/wallet-pass-config.server.ts — THE ONE READER OF THE APPLE WALLET ENV.
@@ -16,7 +16,7 @@ import type { AppleWalletSigner } from '@/lib/wallet-pass-pkpass';
  * `apple_wallet_pass` carries the renewal steps).
  */
 
-/** The env var NAMES (never values). The flag is separate: the pass is offered only when it is ON. */
+/** The env var NAMES (never values). */
 export const APPLE_WALLET_ENV = {
   passTypeId: 'APPLE_PASS_TYPE_ID',
   teamId: 'APPLE_TEAM_ID',
@@ -29,14 +29,6 @@ export const APPLE_WALLET_ENV = {
 export type AppleWalletConfig =
   | { ok: true; ids: AppleWalletIds; signer: AppleWalletSigner }
   | { ok: false; missing: string[] };
-
-/**
- * 🚦 THE SWITCH — `WALLET_PASS_ENABLED` (server-only, default OFF). With it off
- * nothing is offered and the route answers 404, whatever the certificates.
- */
-export function isWalletPassEnabled(): boolean {
-  return envFlagEnabled(process.env.WALLET_PASS_ENABLED);
-}
 
 /** The signing set, or the NAMES of what is missing. Never a value. */
 export function readAppleWalletConfig(env: NodeJS.ProcessEnv = process.env): AppleWalletConfig {
@@ -57,8 +49,37 @@ export function readAppleWalletConfig(env: NodeJS.ProcessEnv = process.env): App
   return { ok: true, ids: { passTypeIdentifier, teamIdentifier }, signer: { certPem, keyPem, keyPassphrase, wwdrPem } };
 }
 
-/** Is the "Add to Apple Wallet" button offered at all — the switch ON and every value present. */
-export function appleWalletOffered(): boolean {
-  return isWalletPassEnabled() && readAppleWalletConfig().ok;
-}
+/**
+ * 🍎 IS "ADD TO APPLE WALLET" OFFERED — ON FOR EVERYONE, NEVER WITHOUT A SIGNABLE PASS.
+ *
+ * Owner, 2026-10-25 (DECISION_LOG "ADD TO APPLE WALLET IS ON FOR EVERYONE"): *"any build that we have should not be
+ * for internal only"* — so there is no switch and no `is_internal` gate. What stays is the honest half: the button is
+ * drawn only while the set in the env can actually SIGN a pass — every value present, the certificate inside its
+ * dates, the key its own, and a probe signature made by the same code the route signs with (`probeSigner`). A missing
+ * or broken set draws nothing; the guest still has "Save my ticket".
+ *
+ * The probe runs once per server instance (the env does not change under a running instance) and is re-asked once the
+ * certificate's own expiry passes. node-forge is loaded only here, on demand — the guest page never imports it at the
+ * top. A failure is logged by its STEP only.
+ */
+let probed: Promise<WalletSignerProbe | null> | null = null;
 
+export async function appleWalletOffered(now: Date = new Date()): Promise<boolean> {
+  const config = readAppleWalletConfig();
+  if (!config.ok) return false;
+  if (!probed) {
+    probed = import('@/lib/wallet-pass-pkpass')
+      .then(({ probeSigner }) => probeSigner(config.signer, now))
+      .catch(() => null)
+      .then((probe) => {
+        // Once per instance, by STEP only — never on every page.
+        if (!probe?.ok) logQueryError('wallet-pass.apple.probe', probe ? probe.step : 'load', {}, 'graceful_degrade');
+        return probe;
+      });
+  }
+  const probe = await probed;
+  if (!probe?.ok) return false;
+  if (now.getTime() < probe.notAfter.getTime()) return true;
+  probed = null; // the certificate's own date passed: ask again (it will say "expired" until it is renewed)
+  return false;
+}

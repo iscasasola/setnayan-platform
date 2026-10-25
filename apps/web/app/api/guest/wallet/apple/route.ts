@@ -6,7 +6,7 @@ import { asPassCardRow, loadPassCardKit, readPassCardGuest } from '@/lib/pass-ca
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { applePassJson, decideWalletPassAccess, walletPassContent } from '@/lib/wallet-pass';
 import { buildPkpass, WalletSigningError } from '@/lib/wallet-pass-pkpass';
-import { isWalletPassEnabled, readAppleWalletConfig } from '@/lib/wallet-pass-config.server';
+import { readAppleWalletConfig } from '@/lib/wallet-pass-config.server';
 import { walletPassFactsFor, walletPassFileNameFor, walletPassImages } from '@/lib/wallet-pass.server';
 
 /**
@@ -20,10 +20,13 @@ import { walletPassFactsFor, walletPassFileNameFor, walletPassImages } from '@/l
  * address names anybody: no `?guest=`, no token, no slug. No host, no plus-one
  * (`decideWalletPassAccess`). Every refusal after sign-in is the PNG's ONE 404.
  *
- * 🚦 OFF unless `WALLET_PASS_ENABLED` is on AND every Apple value is present —
- * then the same 404 as "no ticket here", so the route says nothing about the
- * set-up. A value that is present but unreadable is a 503 whose log line names
- * the STEP (`WalletSigningError`), never a value.
+ * 🍎 ON FOR EVERYONE (owner 2026-10-25 — no switch, no `is_internal`). The
+ * page draws the button only while the set can sign (`appleWalletOffered`). If
+ * a pass still cannot be made here — a value missing, or signing failing — the
+ * guest gets a small PAGE that says so in words ("Couldn't make your Wallet
+ * pass — Save my ticket instead") with the way back, never a broken download.
+ * Its log line names the STEP (`WalletSigningError`) or the missing NAMES,
+ * never a value.
  *
  * `private, no-store` — the code on the pass signs its holder in.
  */
@@ -32,13 +35,12 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
 
-export async function GET() {
-  if (!isWalletPassEnabled()) return new NextResponse(PASS_CARD_REFUSED, { status: 404 });
+export async function GET(request: Request) {
   const config = readAppleWalletConfig();
   if (!config.ok) {
     // Names only — which variables are absent, never what any of them hold.
     logQueryError('wallet-pass.apple.config', 'missing', { missing: config.missing }, 'graceful_degrade');
-    return new NextResponse(PASS_CARD_REFUSED, { status: 404 });
+    return couldNotMakeIt(request);
   }
 
   const session = await readGuestSession();
@@ -74,6 +76,29 @@ export async function GET() {
     // 🔒 A signing failure is logged by its STEP only; anything else by its name.
     const step = err instanceof WalletSigningError ? err.step : err instanceof Error ? err.name : 'unknown';
     logQueryError('wallet-pass.apple.build', step, { guest_id: target.guest_id }, 'graceful_degrade');
-    return new NextResponse(`Could not make your Wallet ${PASS_CARD_WORDS.noun} just now. Try again.`, { status: 503 });
+    return couldNotMakeIt(request);
   }
+}
+
+/**
+ * 🗣 THE HONEST FAILURE — a page, not a file. The button is a plain link, so whatever this answers is what the guest
+ * SEES: a `.pkpass` Wallet cannot open would be a broken download, and a bare text body a dead end. This says it in
+ * words and hands them back to the page they came from (same site only), where "Save my ticket" is.
+ */
+function couldNotMakeIt(request: Request): NextResponse {
+  let back = '/';
+  try {
+    const ref = request.headers.get('referer');
+    const here = new URL(request.url);
+    const from = ref ? new URL(ref) : null;
+    if (from && from.origin === here.origin) back = `${from.pathname}${from.search}`;
+  } catch {
+    /* no usable referer — the home page */
+  }
+  const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>${esc(PASS_CARD_WORDS.appleWallet)}</title></head><body style="font-family:-apple-system,system-ui,sans-serif;background:#FBFBFA;color:#1E2229;margin:0;padding:48px 20px;text-align:center"><p role="alert" style="font-size:17px;line-height:1.45;max-width:22rem;margin:0 auto 24px">${esc(PASS_CARD_WORDS.walletFailed)}</p><a href="${esc(back)}" style="display:inline-block;min-height:44px;line-height:44px;padding:0 22px;border-radius:999px;background:#1E2229;color:#fff;text-decoration:none;font-weight:600">${esc(PASS_CARD_WORDS.saveOwn)}</a></body></html>`;
+  return new NextResponse(html, {
+    status: 503,
+    headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'private, no-store' },
+  });
 }

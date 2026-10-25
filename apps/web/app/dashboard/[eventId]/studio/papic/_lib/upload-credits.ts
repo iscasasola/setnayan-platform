@@ -11,7 +11,7 @@
  * Pure — no React, no I/O — so the test drives it directly.
  */
 import { PAPIC_CLIP_COST_BANDS, papicCaptureCost } from '@/lib/papic-cameras-pure';
-import { countNoun } from '@/lib/format-number';
+import { countNoun, formatCount } from '@/lib/format-number';
 
 /** One picked file, after it was read: a photo, or a clip whose length was measured. */
 export type PickedCost = { kind: 'photo' | 'clip'; durationMs?: number | null };
@@ -54,7 +54,7 @@ export function clipLadderWords(): string {
   return PAPIC_CLIP_COST_BANDS.map((b) => {
     const span = from === b.maxSeconds ? `${b.maxSeconds} s` : `${from}–${b.maxSeconds} s`;
     from = b.maxSeconds + 1;
-    return `${span} · ${b.points}`;
+    return `${span} · ${formatCount(b.points)}`;
   }).join(', ');
 }
 

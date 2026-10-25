@@ -304,6 +304,7 @@ export function AddToLibrary({
       setLanded(added);
       if (inputRef.current) inputRef.current.value = '';
       // 🔁 THE NEW PHOTOS REACH THE GRID WITHOUT A RELOAD — the server page re-reads Memories (and the pot).
+      // one-render: keep (no-revalidate) — recordSeatCapture and the presigned PUT revalidate nothing, so only this re-reads the grid.
       if (added > 0) router.refresh();
     },
     [send, record, patch, pot, router],

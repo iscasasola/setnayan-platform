@@ -19,6 +19,7 @@ import type { UploadPot } from '@/app/dashboard/[eventId]/studio/papic/_lib/uplo
 import { PapicBuySheet } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-buy-sheet';
 import { IapPapicSheet } from '@/app/_components/iap/iap-papic-sheet';
 import { eventHasPapicUnlock } from '@/lib/entitlements';
+import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import { UploadsOpenChoice } from '@/app/dashboard/[eventId]/studio/papic/_components/uploads-open-choice';
 import { claimUploadsCamera } from '@/app/dashboard/[eventId]/studio/papic/actions';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -130,7 +131,7 @@ export default async function EventMemoriesPage({ params, searchParams }: Props)
        A read that failed is null — "Couldn't check", never 0. Only asked when the uploader is drawn. */
     let pot: UploadPot = null;
     if (uploadsOpen && token && seat?.seat_id) {
-      const unlocked = await eventHasPapicUnlock(admin, eventId).catch(() => false);
+      const unlocked = await eventHasPapicUnlock(await eventEntitlementClient(eventId), eventId).catch(() => false);
       if (unlocked) pot = 'unmetered';
       else {
         const { data: left, error: potErr } = await admin.rpc('papic_capture_points_available', {

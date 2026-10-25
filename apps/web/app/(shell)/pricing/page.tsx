@@ -646,11 +646,21 @@ export default async function PricingPage() {
   const papicFromLabel = papicPoolBuckets.length
     ? `₱${formatPeso(papicPoolBuckets[0]!.pricePhp)}`
     : null;
-  // "₱70 adds 100 credits, ₱700 adds 1,000, ₱4,500 adds 10,000 — bigger packs too." — every rung read, first three said.
-  const papicRungWords = papicPoolBuckets
-    .slice(0, 3)
-    .map((b) => `₱${formatPeso(b.pricePhp)} ${b.label.replace(/^add\b/i, 'adds')}`)
+  // "₱70 adds 100 credits, ₱700 adds 1,000, ₱4,500 adds 10,000 — bigger packs too." (prototype revision 4) — every
+  // rung READ; the tip quotes the round ones (100 · 1,000 · 10,000 credits) so a ladder of many small steps still
+  // shows its range, and falls back to the first three if the catalogue has no round rungs.
+  const creditsOf = (label: string) => Number((/([\d,]+)\s+credits?/i.exec(label)?.[1] ?? '').replace(/,/g, ''));
+  const roundRungs = papicPoolBuckets.filter((b) => {
+    const n = creditsOf(b.label);
+    return n >= 100 && Number.isInteger(Math.log10(n));
+  });
+  const quotedRungs = (roundRungs.length >= 2 ? roundRungs : papicPoolBuckets).slice(0, 3);
+  const papicRungWords = quotedRungs
+    // "adds 100 credits", then "adds 1,000" — the unit said once, as the prototype says it.
+    .map((b, i) => `₱${formatPeso(b.pricePhp)} ${b.label.replace(/^add\b/i, 'adds').replace(i > 0 ? /\s+credits?$/i : /$^/, '')}`)
     .join(', ');
+  const papicBiggerPacks =
+    quotedRungs.length > 0 && papicPoolBuckets.some((b) => creditsOf(b.label) > creditsOf(quotedRungs[quotedRungs.length - 1]!.label));
 
   // The parts (COUPLE_HUB_PART_*) and Setnayan AI's bands — one extra read, see `readPricingExtras`.
   const extraByCode = new Map(pricingExtras.map((r) => [r.service_code, r]));
@@ -1112,7 +1122,7 @@ export default async function PricingPage() {
                   <>
                     <b>One shared pot.</b> Every guest&rsquo;s camera spends from it; every top-up stacks on what the
                     event already holds. {papicRungWords}
-                    {papicPoolBuckets.length > 3 ? ' — bigger packs too' : ''}. Free credits {PAPIC_FREE_CREDIT_CONDITION}.
+                    {papicBiggerPacks ? ' — bigger packs too' : ''}. Free credits {PAPIC_FREE_CREDIT_CONDITION}.
                   </>
                 }
                 what="Top up the pot every guest’s camera spends from."

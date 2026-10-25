@@ -853,7 +853,8 @@ export default async function PricingPage() {
              longer renders here (this page left NAV_ROUTES with the shell
              conversion), so keeping it would leave ~128px of dead cream above
              the first heading. */
-          className="mx-auto w-full max-w-5xl px-4 pt-10 pb-11 sm:px-6 sm:pt-10 sm:pb-16 lg:px-8 lg:pb-20">
+          /* px-0 on a phone: the shared shell already insets 16 px (prototype revision 4: text 16 px from the edge). */
+          className="mx-auto w-full max-w-5xl px-0 pt-10 pb-11 sm:px-6 sm:pt-10 sm:pb-16 lg:px-8 lg:pb-20">
           <p className="m-eyebrow">Set na &apos;yan · Pricing</p>
           <LineRevealHeading
             as="h1"
@@ -883,7 +884,7 @@ export default async function PricingPage() {
           here is pressable but the ⓘ and the two buttons, so nothing else wears a frame. Guarded by
           `pricing-free-plus-addons.test.ts`. */}
       <section id="plans" className="border-b border-ink/5 bg-ink/[0.02]" data-pricing-free>
-        <div className="mx-auto w-full max-w-3xl px-4 pb-9 pt-11 sm:px-6 sm:py-20 lg:px-8">
+        <div className="mx-auto w-full max-w-3xl px-0 pb-9 pt-11 sm:px-6 sm:py-20 lg:px-8">
           <p className="m-eyebrow">Free</p>
           <LineRevealHeading className="mt-4 text-balance text-[32px] font-semibold leading-[1.08] tracking-[-0.03em] sm:text-5xl">
             What you&rsquo;d pay for elsewhere.
@@ -1038,7 +1039,7 @@ export default async function PricingPage() {
       {/* WHAT YOU CAN ADD · proves the second half: each upgrade its own purchase, its own figure from its own catalogue
           row. Event Hub Pro as Everything or part by part (one dropdown). Guarded by `pricing-free-plus-addons.test.ts`. */}
       <section id="add" className="border-b border-ink/5" data-pricing-add>
-        <div className="mx-auto w-full max-w-3xl px-4 pb-9 pt-11 sm:px-6 sm:py-20 lg:px-8">
+        <div className="mx-auto w-full max-w-3xl px-0 pb-9 pt-11 sm:px-6 sm:py-20 lg:px-8">
           <p className="m-eyebrow">What you can add</p>
           <LineRevealHeading className="mt-4 text-balance text-[32px] font-semibold leading-[1.08] tracking-[-0.03em] sm:text-5xl">
             Pay only for the upgrades you need.

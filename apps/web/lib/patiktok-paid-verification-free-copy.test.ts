@@ -26,7 +26,8 @@ test('Patiktok is paid on /features — no free half, no "free" in its copy', ()
   const p = DAY_MEMORIES_FEATURES.find((f) => f.slug === 'patiktok');
   assert.ok(p, 'the Patiktok feature entry moved');
   assert.equal(p.price.kind, 'paid', 'Patiktok must be priced as paid (per day), not free / free-plus');
-  if (p.price.kind !== 'free') assert.deepEqual([...p.price.codes], ['PATIKTOK_COMPILER']);
+  // `assert.equal` above already narrowed `kind` to 'paid', so `codes` is readable here.
+  assert.deepEqual([...p.price.codes], ['PATIKTOK_COMPILER']);
   const words = JSON.stringify([p.description, p.answer, p.steps, p.faq, p.line]);
   assert.doesNotMatch(words, /\bfree\b|\blibre/i, 'Patiktok copy on /features still implies a free part');
 });

@@ -15,7 +15,13 @@
  *   4. THE SERVER opens the provider PRESSED while it is on — from any device — and REFUSES one that is off (no
  *      sign-in, never the other provider). The plus-one door's action reads a provider press as "keep".
  *
- * SABOTAGES (each run red, then restored — see the PR):
+ * 🎟 RE-AIMED 2026-10-25 (option A, owner: "this was supposed to be built already"): each provider is its brand's
+ * OWN style (`oauthOfficialClass`), the DEVICE'S OWN provider the filled one; the head is the benefit ("Keep your
+ * ticket on every phone"); on a dark look Apple is white and Google dark (8).
+ *   · filled given to the OTHER provider (`m !== method`)  → 5 RED   · Apple black under Candlelight → 1 RED (8)
+ *   · the head dropped                                     → 4 RED
+ *
+ * SABOTAGES of the earlier version (each run red, then restored — see the PR):
  *   · saveProvidersInOrder → `[method]` (one button again)                  → 1 RED
  *   · saveProvidersInOrder → `[other, method]` (the device's one second)     → 1 RED
  *   · save-to-account.tsx: Apple drawn `button-secondary` (quieter than Google) → 1 RED
@@ -88,8 +94,8 @@ function presses(html: string) {
       return {
         posts: /\svalue="([a-z]+)"/.exec(open)?.[1] ?? null,
         says: new RegExp(`${OAUTH_VERB} (Apple|Google)`).exec(b)?.[1]?.toLowerCase() ?? null,
-        // The brand mark inside: the Google G's red quadrant, or the black Apple glyph.
-        mark: b.includes('fill="#EA4335"') ? 'google' : /<path fill="#000000" d="M16\.365/.test(b) ? 'apple' : null,
+        // The brand mark inside: the Google G's red quadrant, or the Apple glyph (drawn in the title's colour).
+        mark: b.includes('fill="#EA4335"') ? 'google' : /<path fill="currentColor" d="M16\.365/.test(b) ? 'apple' : null,
         cls: /\sclass="([^"]*)"/.exec(open)?.[1] ?? '',
         at: m.index ?? 0,
       };
@@ -104,25 +110,36 @@ for (const [device, ua, own, other] of [
 ] as const) {
   for (const through of [false, true]) {
     const where = through ? 'the plus-one door' : 'the landing';
-    test(`1 · ${device}, ${where}: BOTH on → the login's own two buttons, ${own} first, identical in size and prominence`, async () => {
-      const { OAUTH_BUTTON_CLASS } = await import('@/app/_components/oauth-icons');
+    test(`1 · ${device}, ${where}: BOTH on → each brand's official button, ${own} first and FILLED, identical in size`, async () => {
+      const { OAUTH_OFFICIAL_BASE_CLASS, oauthOfficialClass } = await import('@/app/_components/oauth-icons');
       const html = await render(ua, BOTH, through);
       const p = presses(html);
       assert.deepEqual(p.map((x) => x.posts), [own, other], `${device}: the device's own provider is not first, or one is missing`);
       for (const x of p) {
         assert.equal(x.says, x.posts, `${device}: a button says "${x.says}" but posts "${x.posts}"`);
         assert.equal(x.mark, x.posts, `${device}: the ${x.posts} button does not carry its own brand mark`);
-        // The login row's exact chrome (SubmitButton appends only its pending/disabled state, empty at rest).
-        assert.equal(x.cls.trim(), OAUTH_BUTTON_CLASS, `${device}: the ${x.posts} button is not the login's provider button`);
+        // Option A (2026-10-25): the DEVICE'S OWN provider is the filled one, the other its white official style.
+        assert.equal(
+          x.cls.trim(),
+          oauthOfficialClass(x.posts as 'apple' | 'google', x.posts === own),
+          `${device}: the ${x.posts} button is not its official ${x.posts === own ? 'FILLED' : 'white'} style`,
+        );
+        assert.ok(x.cls.includes(OAUTH_OFFICIAL_BASE_CLASS), `${device}: the ${x.posts} button is not the shared official box`);
       }
+      const filled = p.filter((x) => /\bsn-oauth-filled\b/.test(x.cls)).map((x) => x.posts);
+      assert.deepEqual(filled, [own], `${device}: the filled button is not the device's own provider`);
       const apple = p.find((x) => x.posts === 'apple')!;
       const google = p.find((x) => x.posts === 'google')!;
-      assert.equal(apple.cls, google.cls, 'Apple is drawn differently from Google — it must never be smaller or less prominent');
+      const box = (c: string) => c.replace(/\bsn-oauth-(apple|google|filled|plain)\b/g, '').replace(/\s+/g, ' ').trim();
+      assert.equal(box(apple.cls), box(google.cls), 'Apple is boxed differently from Google — it must never be smaller or less prominent');
       assert.doesNotMatch(html, /button-primary|button-secondary/, 'a house primary/secondary is back on a provider button');
-      // "Save to my account" is the heading ABOVE the buttons, "Nothing to type" its one short line.
+      // Option A's head ABOVE the buttons: the benefit, its one line — the old "Save to my account · Nothing to type" gone.
       const heading = html.indexOf('data-save-heading=""');
-      assert.ok(heading > 0 && heading < p[0]!.at, `${device}: the "Save to my account" heading is not above the buttons`);
-      assert.match(html.slice(heading, p[0]!.at), /Save to my account[\s\S]*Nothing to type/);
+      assert.ok(heading > 0 && heading < p[0]!.at, `${device}: the head is not above the buttons`);
+      assert.match(html.slice(heading, p[0]!.at), /Keep your ticket on every phone[\s\S]*Your ticket and the photos of you, in one place\./);
+      assert.doesNotMatch(html, /Nothing to type</, 'the old "Nothing to type" line is back');
+      assert.doesNotMatch(html, /Keeps the photos of you, and opens this invitation on any phone\.<\/p>/, 'the trailing reason line is back — it is in the ⓘ');
+      assert.doesNotMatch(html, /By continuing/i, 'a browsewrap "By continuing you agree…" line');
       if (!through) {
         // "Use my email instead" stays — under BOTH buttons, still a quiet link.
         const email = html.indexOf('data-save-email-instead=""');
@@ -195,7 +212,8 @@ test('7 · the provider button is ONE chrome for every door, and its words stay 
   for (const f of ['oauth-button-row.tsx', 'native-oauth-buttons.tsx', 'desktop-oauth-buttons.tsx']) {
     assert.match(read('app', '_components', f), /OAUTH_BUTTON_CLASS/, `${f} draws its own provider button chrome`);
   }
-  assert.match(read('app', '[slug]', '_components', 'save-to-account.tsx'), /className=\{OAUTH_BUTTON_CLASS\}/);
+  // The guest's Save offer draws the official filled/white pair beside it (option A, 2026-10-25).
+  assert.match(read('app', '[slug]', '_components', 'save-to-account.tsx'), /className=\{oauthOfficialClass\(m, m === method\)\}/);
   // The fill is a literal white; its words and edge take the ink for a surface that stays light — never the page's
   // own ink, which turns cream on a dark look (cream on white).
   assert.match(OAUTH_BUTTON_CLASS, /\bbg-white\b/);
@@ -206,4 +224,14 @@ test('7 · the provider button is ONE chrome for every door, and its words stay 
   const onLight = /\[data-art='candlelight'\] \{[^}]*--color-ink-on-light: ([\d ]+);/.exec(css)?.[1];
   assert.ok(onLight, 'Candlelight names no ink for a surface that stays light');
   assert.ok(contrastOf(onLight!, '255 255 255') >= 4.5, 'the button label does not read on its white under Candlelight');
+});
+
+test('8 · 🌙 on a dark look Apple takes its WHITE style and Google its DARK theme (Apple black is not for dark grounds)', () => {
+  const css = readFileSync(join(process.cwd(), 'app', 'globals.css'), 'utf8');
+  const rule = (who: 'apple' | 'google') =>
+    new RegExp(`\\[data-art='candlelight'\\][^{]*\\[data-hub-theme='velvet'\\][^{]*\\) \\.sn-oauth\\.sn-oauth-${who} \\{([^}]*)\\}`).exec(css)?.[1] ?? '';
+  assert.match(rule('apple'), /background: #fff;[^}]*color: #000;/, 'Apple is not white on a dark look');
+  assert.match(rule('google'), /background: #131314;/, 'Google is not its dark theme on a dark look');
+  assert.match(css, /\.sn-oauth\.sn-oauth-apple\.sn-oauth-filled \{ background: #000; color: #fff;/, 'Apple filled is not black on light');
+  assert.match(css, /\.sn-oauth\.sn-oauth-google\.sn-oauth-filled \{ background: #131314;/, 'Google filled is not its dark theme');
 });

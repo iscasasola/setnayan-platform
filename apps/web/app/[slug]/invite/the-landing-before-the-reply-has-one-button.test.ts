@@ -105,8 +105,11 @@ test('3 · everything removed from the pre-reply landing is drawn ONCE — after
   assert.ok(!afterBlock.includes('<YourGuests') && me.includes('<YourGuests'), 'Send their invite is not on Me alone');
   assert.ok(!afterBlock.includes('<CopyMyLink') && ticket.includes('<GuestCodeKeepers'), 'Copy my link is not on Me’s ticket alone');
   assert.ok(me.includes('<SaveToAccount'), 'Me lost Save to my account');
-  // On the landing, Save comes back only to finish a press refused for the Terms.
-  assert.equal((afterBlock.match(/termsMissing\b/g) ?? []).length, 1);
+  // 🔁 2026-10-25 (owner: "create a proper widget to link this event to your account" · "we are supposed to have
+  // that with the save to wallet"): the landing's ONE save widget (`saveNode`) — after a Yes under Save · Wallet,
+  // and to finish a press refused for the Terms.
+  assert.equal((ENTER.match(/termsMissing=\{search\.keep === 'terms'\}/g) ?? []).length, 1);
+  assert.equal((ENTER.match(/<SaveToAccount\b/g) ?? []).length, 1, 'the landing mounts two save offers');
   // The Terms tick is SaveToAccount's own (it is asked where the account is made).
   const save = stripComments(readFileSync(join(__dirname, '..', '_components', 'save-to-account.tsx'), 'utf8'));
   // …and since 2026-10-12 it is drawn by the one shared piece (terms-tick.tsx), which the reply page uses too.

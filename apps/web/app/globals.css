@@ -10209,6 +10209,65 @@ html:has(> head > style[data-cover-menu]) [data-first-screen-fit]:has(> header[d
 
 
 
+/* ── 🍏🤖 THE OFFICIAL SIGN-IN BUTTONS ON THE GUEST'S SAVE OFFER (owner 2026-10-25, option A of
+   prototypes/save_to_account_2026-10-25) ──────────────────────────────────────────────────────────────────────────
+   `oauthOfficialClass` (app/_components/oauth-icons.tsx) names one of these per button. Only the styles each brand
+   sanctions — Apple's HIG: BLACK · WHITE · WHITE-OUTLINE, logo + title; Google's branding guidelines: the G, the
+   LIGHT (white, #747775 edge, #1F1F1F words) and DARK (#131314, #8E918F edge, #E3E3E3 words) themes, Roboto. The
+   DEVICE'S OWN provider is the filled one (iPhone: Apple black; Android: Google dark), the other its white official
+   style; same box for both (equal height and width — Apple: at least as prominent as any other).
+   🌙 ON A DARK GROUND Apple's black is not allowed ("don't use it on black or dark backgrounds"), so Apple takes its
+   WHITE style and Google keeps its DARK theme, whichever is first. The guest page has no app dark mode
+   (lib/appearance.ts: `[slug]` keeps its own design) — its dark grounds are the couple's dark looks: Candlelight
+   (unless a light theme is worn over it, whose paper wins — see the candlelight block) and the dark themes
+   Velvet · Gatsby · Cyber. A NEW DARK THEME JOINS THIS LIST. */
+.sn-oauth { border: 1px solid transparent; }
+.sn-oauth-apple { font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', var(--font-sans, system-ui), sans-serif; }
+.sn-oauth-google { font-family: Roboto, var(--font-sans, system-ui), sans-serif; font-size: 14px; }
+.sn-oauth.sn-oauth-apple.sn-oauth-filled { background: #000; color: #fff; border-color: #000; }
+.sn-oauth.sn-oauth-apple.sn-oauth-plain { background: #fff; color: #000; border-color: #000; }
+.sn-oauth.sn-oauth-google.sn-oauth-filled { background: #131314; color: #e3e3e3; border-color: #8e918f; }
+.sn-oauth.sn-oauth-google.sn-oauth-plain { background: #fff; color: #1f1f1f; border-color: #747775; }
+:is(
+  [data-art='candlelight']:not([data-hub-theme='abaca'], [data-hub-theme='galeriya'], [data-hub-theme='cinderella'], [data-hub-theme='vintage'], [data-hub-theme='whimsical'], [data-hub-theme='regency']),
+  [data-hub-theme='velvet'], [data-hub-theme='gatsby'], [data-hub-theme='cyber']
+) .sn-oauth.sn-oauth-apple { background: #fff; color: #000; border-color: #fff; }
+:is(
+  [data-art='candlelight']:not([data-hub-theme='abaca'], [data-hub-theme='galeriya'], [data-hub-theme='cinderella'], [data-hub-theme='vintage'], [data-hub-theme='whimsical'], [data-hub-theme='regency']),
+  [data-hub-theme='velvet'], [data-hub-theme='gatsby'], [data-hub-theme='cyber']
+) .sn-oauth.sn-oauth-google { background: #131314; color: #e3e3e3; border-color: #8e918f; }
+
+/* 🎟 THE SAVE OFFER'S LITTLE PICTURE (`KeepTicketArt`, save-to-account.tsx): their ticket on its own stock with the
+   gild rule, two photo cards fanned behind it. Decorative. The stock follows the ground like the ticket does. */
+.sn-keep-art { position: relative; width: 84px; height: 84px; flex: none; --sn-keep-stock: #f6f1e6; }
+:is(
+  [data-art='candlelight']:not([data-hub-theme='abaca'], [data-hub-theme='galeriya'], [data-hub-theme='cinderella'], [data-hub-theme='vintage'], [data-hub-theme='whimsical'], [data-hub-theme='regency']),
+  [data-hub-theme='velvet'], [data-hub-theme='gatsby'], [data-hub-theme='cyber']
+) .sn-keep-art { --sn-keep-stock: #1f1d16; }
+.sn-keep-photo {
+  position: absolute; width: 46px; height: 58px; overflow: hidden;
+  border-radius: var(--m-r-xs); box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+}
+.sn-keep-photo-1 { left: 28px; top: 4px; transform: rotate(12deg); background: linear-gradient(160deg, #e9b86a, #c86a4a); }
+.sn-keep-photo-2 { left: 38px; top: 16px; transform: rotate(22deg); background: linear-gradient(160deg, #7f8a3c, #2c4a2a); }
+.sn-keep-face { position: absolute; left: 14px; top: 14px; width: 18px; height: 18px; border-radius: var(--m-r-full); background: rgba(255, 255, 255, 0.75); }
+.sn-keep-body { position: absolute; left: 8px; top: 34px; width: 30px; height: 30px; border-radius: 50% 50% 0 0; background: rgba(255, 255, 255, 0.55); }
+.sn-keep-ticket {
+  position: absolute; left: 0; top: 14px; width: 52px; height: 66px; padding: 4px;
+  border-radius: var(--m-r-sm); background: var(--sn-keep-stock); box-shadow: 0 3px 10px rgba(0, 0, 0, 0.18);
+}
+.sn-keep-ticket-in {
+  display: flex; height: 100%; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  overflow: hidden; border: 1px solid rgb(var(--color-gild) / 0.45); border-radius: var(--m-r-xs);
+}
+.sn-keep-names {
+  max-width: 40px; overflow: hidden; text-align: center; font-size: 10px; line-height: 1;
+  color: rgb(var(--color-gild)); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+}
+.sn-keep-qr { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 3px 3px 3px 3px; background: #fff; }
+.sn-keep-rule { width: 30px; height: 2px; background: rgb(var(--color-gild) / 0.45); }
+
+
 /* ══ 🎚 SCRUB — A HELD HAND-OVER (owner 2026-10-09, approved on `review/scrub-prototype.html`: *"them must be on the same
    position to create that keynote like transistion"* · *"let it enter on the last 20% of the build out"* · *"element
    run completely normal. we only control the effect"*).
@@ -10354,4 +10413,5 @@ html:has(> head > style[data-cover-menu]) [data-first-screen-fit]:has(> header[d
     animation-range: normal;
   }
 }
+
 

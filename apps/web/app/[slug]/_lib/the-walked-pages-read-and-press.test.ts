@@ -114,7 +114,7 @@ const READ: Array<[string, string]> = [
   ['find-my-table/page.tsx', 'Powered by Setnayan · setnayan.com</p>'],
   ['recap/page.tsx', 'A living memory.</p>'],
   ['pabuya/page.tsx', 'Kept safe on Setnayan'],
-  ['_components/save-to-account.tsx', 'Keeps the photos of you'],
+  ['_components/save-to-account.tsx', 'Use my email instead'],
 ];
 
 const PRESS: Array<[string, string]> = [

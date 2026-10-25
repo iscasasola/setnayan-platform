@@ -2358,10 +2358,33 @@ async function invitationBody({
      guest's name and the ONE Reply are drawn by Me itself (`site-body.tsx`), so this slot draws none of them — no
      name card, no "Reply to the invitation" bar on the ticket, and no ticket at all while a reply is still owed (the
      ticket shows after a Yes). Its anchor stays, so the bar's "My QR" does not offer a code before the reply. */
+  /* 🪪 KEEP IT ON EVERY PHONE — Me's ONE save offer (`MeKeepInvitation`: the offer · the host's labelled preview ·
+     "✓ Saved to your account"). WHERE: with the ticket's keep actions, directly under its Save · Add to Apple Wallet
+     (owner 2026-10-25, verbatim: "but we are supposed to have that with the save to wallet, correct?" — superseding the
+     2026-10-24 "first, under the greeting"), whenever a real ticket is drawn; otherwise in the ticket's place. */
+  const keepOnTicket = passCard === 'pass' && widgetShouldRender(widgetByType(widgets, 'qr_card'));
+  const keepNode = (
+    <MeKeepInvitation
+      state={account}
+      eventId={event.event_id}
+      slug={event.slug ?? slug}
+      personalLink={invitationUrl}
+      userAgent={meUserAgent}
+      termsCarried={meTermsCarried}
+      termsMissing={search.keep === 'terms'}
+      ticketNames={event.display_name}
+    />
+  );
   const meSlotFor = (replyHref: string | null, me: { inMe?: boolean; replyOwed?: boolean } = {}) => isEditorCanvas ? null : (
     <>
     {/* 🪪 "This browser also holds <name>'s invitation. Viewing as you." — or the host's "Back to you". */}
     {heldPassNode && !me.inMe ? <div className="mb-6">{heldPassNode}</div> : null}
+    {/* 🪪 THE ONE SAVE OFFER WHEN NO TICKET HOLDS IT (owner 2026-10-25: "there is no Save my account on me"). With a
+        real ticket the offer sits under its Save · Wallet (`keep`, below); without one — a reply still owed, a No, a
+        pending request, the couple's QR card switched off — it is drawn here instead, on this slot's own Me (a page
+        without tabs hands Me to `GuestHubBar` through it). The Me TAB draws the same fallback itself (`meSave`).
+        `GuestMe` draws none of its own: one offer per page. */}
+    {me.inMe || keepOnTicket ? null : <div className="mb-8">{keepNode}</div>}
     {/* 🎫 THE DIGITAL TICKET — first on Me, and only on Me (owner 2026-09-30).
         Follows the couple's own "QR card" switch, as the pass on Home did; with
         it off, Me offers "My QR" instead (GuestHubBar asks the page for the
@@ -2377,11 +2400,14 @@ async function invitationBody({
           invitationUrl={invitationUrl}
           replyHref={me.inMe ? null : replyHref}
           appleWallet={meAppleWallet}
+          keep={keepOnTicket ? keepNode : null}
           mark={passBlockMark}
         />
       </div>
       )
     ) : null}
+    {/* No ticket is drawn on the redrawn Me while a reply is owed — the offer still shows, where the ticket would be. */}
+    {keepOnTicket && me.inMe && me.replyOwed ? <div className="mb-8">{keepNode}</div> : null}
     {/* 🪑 Me repeats the seat (owner 2026-09-27, "FIND YOUR SEAT, REDESIGNED"
         (4)) — the same line the Details scene carries; never a bar slot. */}
     {seatPassActive ? (
@@ -2401,7 +2427,7 @@ async function invitationBody({
       eventName={event.display_name ?? 'the event'}
       guests={myGuests.guests}
       passCards={passCardHrefs}
-      account={account}
+      account={null}
       personalLink={invitationUrl}
       userAgent={meUserAgent}
       termsCarried={meTermsCarried}
@@ -2524,20 +2550,12 @@ async function invitationBody({
           moreAnswers,
           checklist,
         })}
-        /* 🪪 Me's FIRST offer — "Keep this invitation", under the greeting (owner 2026-10-24: "on the me part, we start
-           offering the linking of this event to their account"). The shipped Save and every state of it; on this Me,
-           GuestMe draws no Save of its own (one place). */
+        /* 🪪 Me's save offer, under the greeting ONLY when no ticket holds it (`keepOnTicket`): with a ticket it sits under
+           the ticket's Save · Wallet (owner 2026-10-25, "we are supposed to have that with the save to wallet"). One
+           offer per page — GuestMe draws no Save of its own. */
         meSave={
-          guestPageTabbed && !isEditorCanvas && account ? (
-            <MeKeepInvitation
-              state={account}
-              eventId={event.event_id}
-              slug={event.slug ?? slug}
-              personalLink={invitationUrl}
-              userAgent={meUserAgent}
-              termsCarried={meTermsCarried}
-              termsMissing={search.keep === 'terms'}
-            />
+          guestPageTabbed && !isEditorCanvas && !keepOnTicket ? (
+            keepNode
           ) : null
         }
         meSection={

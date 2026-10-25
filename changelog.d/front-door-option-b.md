@@ -17,7 +17,7 @@ their first event" · "DO NOT INVENT … we want to tell the truth").
   logging in." Each onboarding keeps its account gate at the save. Signed in, `/start` redirects to `/dashboard/create-event`.
 - Where a tapped type goes is one shared rule, `onboardingRouteFor` (+ `startHrefFor` for `/start`), now used by the
   signed-in picker too (behaviour unchanged there).
-- "How it works" → `/features` (was the `/our-story` manifesto).
+- "How it works" → `/features` (was the `/our-story` manifesto) — on the hero AND the signed-out rail row, so both doors match; `the-rail-lists-no-tools.test.ts` now counts the one Features row by its name and pins the rail row.
 - New top-level segment `start`: `public/sw.js` RESERVED, `lib/reserved-slugs.ts` (generator), telemetry
   `TOP_LEVEL_SEGMENTS`; prod measured 0 event/shop slugs named "start".
 - Guard: `app/_components/frontdoor/the-front-door-tells-the-truth.test.ts` (seen failing against origin/main, 5/5).

@@ -50,8 +50,6 @@ import { accountFaceProfileEnabled } from '@/lib/account-face-profile';
 import { slugForwardingLabel } from '@/lib/slug-forwarding-window';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { PillButton, PillTrack } from '@/app/_components/pill-track';
-import { AppearanceChoice } from './_components/appearance-choice';
-import { appearanceSwitchShown } from '@/lib/appearance';
 import {
   atTag,
   composeFormalName,
@@ -103,9 +101,9 @@ type Props = {
   }>;
 };
 
-// Appearance = Light · Dark is back (owner "approve all", DECISION_LOG 2026-10-13), as the first
-// row of Preferences — `_components/appearance-choice.tsx`. It supersedes the 2026-06-04 light lock.
-// HIDDEN until the first area is on the dark ready-list (owner 2026-10-16) — `appearanceSwitchShown`.
+// Appearance = Light · Dark · Automatic (owner "approve all", DECISION_LOG 2026-10-13) was the first row of
+// Preferences until 2026-10-25, when it MOVED to the account menu (owner: one place for everything) —
+// `app/_components/account-switcher/appearance-choice.tsx`. Preferences no longer draws it.
 
 export default async function ProfilePage({ searchParams }: Props) {
   const search = await searchParams;
@@ -135,7 +133,7 @@ export default async function ProfilePage({ searchParams }: Props) {
   const { data: profile, error: profileErr } = await supabase
     .from('users')
     .select(
-      'public_id, email, display_name, name_prefix, first_name, middle_name, last_name, name_suffix, phone, profile_photo_url, account_type, is_internal, is_team_member, locale, marketing_opt_in, birth_date, public_greeting_opt_in, religion, civil_status, sex, meal_preference, dietary_restrictions, reminders_enabled, slug, public_profile_enabled, discoverable_by_name, share_profile_photo_with_hosts, theme_preference, created_at',
+      'public_id, email, display_name, name_prefix, first_name, middle_name, last_name, name_suffix, phone, profile_photo_url, account_type, is_internal, is_team_member, locale, marketing_opt_in, birth_date, public_greeting_opt_in, religion, civil_status, sex, meal_preference, dietary_restrictions, reminders_enabled, slug, public_profile_enabled, discoverable_by_name, share_profile_photo_with_hosts, created_at',
     )
     .eq('user_id', user.id)
     .maybeSingle();
@@ -1237,13 +1235,16 @@ export default async function ProfilePage({ searchParams }: Props) {
     <>
       <GroupHeader eyebrow="How Setnayan works for you" title="Preferences" />
       <div className="space-y-6">
+        {/* 🌗 APPEARANCE MOVED TO THE ACCOUNT MENU (owner 2026-10-25 — one place for everything): it is the
+            menu's own row now (`app/_components/account-switcher/appearance-choice.tsx`), so Preferences draws no
+            second copy. The tile below exists only while Display language has something to show — an empty frame
+            is a frame on nothing. */}
+        {DASHBOARD_TAGALOG_READY ? (
         <div className="sn-tile divide-y divide-ink/10">
-          {appearanceSwitchShown() ? <AppearanceChoice saved={profile?.theme_preference ?? null} /> : null}
           {/* 🗑 PLANNER MODE (Guided · DIY) IS GONE (owner 23 Oct). Nothing ever read
               `users.planner_mode` — Home's checklist shows for everyone, which is what
               "Guided" promised — so the choice changed nothing (handles-have-gates, 2026-08-17). */}
           {/* Iteration 0025 — runtime EN/TL toggle, hidden until the app is translated. */}
-          {DASHBOARD_TAGALOG_READY ? (
           <Segmented
             label="Display language"
             help="Dashboard menus, headings and buttons. What you typed stays as you typed it."
@@ -1255,8 +1256,8 @@ export default async function ProfilePage({ searchParams }: Props) {
               { key: 'tl', label: 'Tagalog' },
             ]}
           />
-          ) : null}
         </div>
+        ) : null}
 
         <div className="sn-tile divide-y divide-ink/10">
           <SwitchRow

@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "b7ab63d610",
-  "routeCount": 466,
+  "generatedFromRef": "d7fea5d91e",
+  "routeCount": 470,
   "destinations": 1008,
   "actions": 665,
-  "blocks": 7025,
+  "blocks": 7041,
   "routes": {
     "/": {
       "files": [
@@ -4926,6 +4926,20 @@
         "SubmitButton"
       ]
     },
+    "/dashboard/(account)/billing": {
+      "files": [
+        "dashboard/(account)/billing/_components/billing-list.tsx",
+        "dashboard/(account)/billing/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "BillingList",
+        "Link",
+        "PageMasthead",
+        "Row"
+      ]
+    },
     "/dashboard/(account)/clusters": {
       "files": [
         "dashboard/(account)/clusters/_components/create-cluster-form.tsx",
@@ -5269,7 +5283,6 @@
     },
     "/dashboard/(account)/profile": {
       "files": [
-        "dashboard/(account)/profile/_components/appearance-choice.tsx",
         "dashboard/(account)/profile/_components/haptics-toggle.tsx",
         "dashboard/(account)/profile/_components/settings-shell.tsx",
         "dashboard/(account)/profile/actions.ts",
@@ -5307,8 +5320,6 @@
         "updateUserSlug"
       ],
       "blocks": [
-        "Appearance",
-        "AppearanceChoice",
         "ConfirmForm",
         "Field",
         "FileUpload",
@@ -5319,7 +5330,6 @@
         "Icon",
         "Link",
         "PageMasthead",
-        "PickMenu",
         "PillButton",
         "PillTrack",
         "PrefixSelect",
@@ -7095,6 +7105,7 @@
         "dashboard/[eventId]/launch/_components/maker-context.tsx",
         "dashboard/[eventId]/launch/_components/maker-desk.tsx",
         "dashboard/[eventId]/launch/_components/maker-details.tsx",
+        "dashboard/[eventId]/launch/_components/maker-exit-sheet.tsx",
         "dashboard/[eventId]/launch/_components/maker-hero-design.tsx",
         "dashboard/[eventId]/launch/_components/maker-late.tsx",
         "dashboard/[eventId]/launch/_components/maker-logo.tsx",
@@ -7203,6 +7214,7 @@
         "/[seg]",
         "/api/website/qr/[seg]",
         "/api/website/qr/guest/[seg]",
+        "/dashboard",
         "/dashboard/[seg]",
         "/dashboard/[seg]/guests",
         "/dashboard/[seg]/launch?tool=hero",
@@ -7421,6 +7433,7 @@
         "MakerDevice",
         "MakerDraftDoor",
         "MakerEventBar",
+        "MakerExitSheet",
         "MakerGuestPagesReport",
         "MakerHalfSheet",
         "MakerHeroDesignPicker",
@@ -10880,6 +10893,17 @@
         "VendorRailContext"
       ]
     },
+    "/dev/billing-lab": {
+      "files": [
+        "dev/billing-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "BillingList",
+        "PageMasthead"
+      ]
+    },
     "/dev/booking-ask-lab": {
       "files": [
         "dev/booking-ask-lab/page.tsx"
@@ -11366,6 +11390,20 @@
         "ProQuietLine"
       ]
     },
+    "/dev/receipt-lab": {
+      "files": [
+        "dev/receipt-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "Link",
+        "ReceiptPage",
+        "ReceiptSlip",
+        "SaveAsPdfButton",
+        "ShareReceiptButton"
+      ]
+    },
     "/dev/schedule-lab": {
       "files": [
         "dev/schedule-lab/page.tsx",
@@ -11391,7 +11429,6 @@
         "dev/search-lab/page.tsx"
       ],
       "destinations": [
-        "/[seg]",
         "/dashboard/[seg]",
         "/dashboard/[seg]/vendors"
       ],
@@ -12704,7 +12741,23 @@
       "destinations": [],
       "actions": [],
       "blocks": [
-        "Line"
+        "ReceiptPage",
+        "ReceiptSlip",
+        "SaveAsPdfButton",
+        "ShareReceiptButton"
+      ]
+    },
+    "/receipts/order/[orderId]": {
+      "files": [
+        "receipts/order/[orderId]/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "Link",
+        "ReceiptPage",
+        "ReceiptSlip",
+        "ShareReceiptButton"
       ]
     },
     "/reset-password": {

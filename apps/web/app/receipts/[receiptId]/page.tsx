@@ -2,17 +2,23 @@ import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { loginRedirectPath } from '@/lib/auth';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
-import {
-  fetchReceiptById,
-  formatReceiptNumber,
-  formatPhpFromString,
-} from '@/lib/receipts';
+import { fetchOrderById, fetchPaymentsForOrder, formatPhp, isVatInclusiveServiceKey, type OrderRow, type PaymentRow } from '@/lib/orders';
+import { fetchReceiptById, formatReceiptNumber, formatPhpFromString } from '@/lib/receipts';
+import { ReceiptPage, ReceiptSlip, slipDateTime, slipFigure, type SlipLine, type SlipRow } from '../_components/receipt-slip';
+import { SaveAsPdfButton, ShareReceiptButton } from '../_components/receipt-actions';
 
 export const metadata = { title: 'Transaction Receipt' };
 
 type Props = { params: Promise<{ receiptId: string }> };
 
-export default async function ReceiptPage({ params }: Props) {
+/**
+ * A TRANSACTION RECEIPT — the paper slip (owner 2026-10-25, approved from
+ * `prototypes/ceremo_deltas_2026-10-25/03_account_menu.html`; the anatomy is `_components/receipt-slip.tsx`).
+ * Same data and RLS as before: the receipt row (owner-only, `receipts_owner_read`), plus — read on the same client —
+ * its order (what was bought, the references) and the order's payments (how it was paid). A refused order or payment
+ * read leaves those lines out; it never invents them. The figures come from the RECEIPT row only.
+ */
+export default async function ReceiptPageRoute({ params }: Props) {
   const { receiptId } = await params;
   const supabase = await createClient();
   const {
@@ -33,180 +39,72 @@ export default async function ReceiptPage({ params }: Props) {
   // in case the policy changes.
   if (receipt.user_id !== user.id) notFound();
 
+  const [order, payments] = await Promise.all([
+    fetchOrderById(supabase, receipt.order_id).catch((): OrderRow | null => null),
+    fetchPaymentsForOrder(supabase, receipt.order_id).catch((): PaymentRow[] => []),
+  ]);
+  const paid = payments.find((p) => p.status === 'matched') ?? null;
+  let eventName: string | null = null;
+  if (order?.event_id && !isVatInclusiveServiceKey(order.service_key)) {
+    const { data } = await supabase.from('events').select('display_name').eq('event_id', order.event_id).maybeSingle();
+    eventName = (data as { display_name?: string | null } | null)?.display_name?.trim() || null;
+  }
+
   const receiptNumber = formatReceiptNumber(receipt.or_serial, receipt.issued_at);
   // Was VAT actually assessed on THIS receipt? Read from the row, never from a
-  // constant — see the note beside the amounts below. Both halves are checked:
-  // a rate of 0 and an amount of 0 each mean "no VAT", and a row that somehow
-  // carries a rate with no amount (the exact defect this fixes) prints no VAT
-  // line rather than a contradiction.
+  // constant. Both halves are checked: a rate of 0 and an amount of 0 each mean
+  // "no VAT", and a row that carries a rate with no amount prints no VAT line
+  // rather than a contradiction. A NON-VAT SELLER MUST NOT PRINT A VAT LINE —
+  // "VAT @ 0%  ₱0.00" tells the reader a tax was assessed. The day the threshold
+  // is crossed the rate is set in settings, new receipts carry it, and the line
+  // (and "VAT included") appears by itself; old receipts keep what they were issued at.
   const vatWasCharged = Number(receipt.vat_rate_pct) > 0 && Number(receipt.vat_amount_php) > 0;
 
-  return (
-    <>
-      <style>{PRINT_STYLES}</style>
-      <main className="mx-auto w-full max-w-2xl px-6 py-10 print:px-0 print:py-0">
-        <div className="print-toolbar screen-only mb-6 rounded-md border border-ink/10 bg-cream p-3 text-sm text-ink/70">
-          <p>
-            Press{' '}
-            <kbd className="rounded bg-ink/10 px-1.5 py-0.5 font-mono text-[11px]">⌘P</kbd>
-            {' '}or{' '}
-            <kbd className="rounded bg-ink/10 px-1.5 py-0.5 font-mono text-[11px]">Ctrl+P</kbd>
-            {' '}to print or save as PDF. Setnayan tax info is at the bottom.
-          </p>
-        </div>
-
-        <article className="space-y-6 rounded-2xl border border-ink/15 bg-cream p-8 print:rounded-none print:border-0 print:p-0">
-          <header className="flex items-start justify-between gap-4 border-b border-ink/10 pb-6">
-            <div className="space-y-1">
-              <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-terracotta">
-                {settings.business_name}
-                {settings.business_email ? ` · ${settings.business_email}` : ' · setnayan.com'}
-              </p>
-              {settings.business_tin ? (
-                <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
-                  TIN {settings.business_tin}
-                </p>
-              ) : null}
-              {settings.business_address ? (
-                <p className="text-[10px] text-ink/60 whitespace-pre-wrap">
-                  {settings.business_address}
-                </p>
-              ) : null}
-            </div>
-            <div className="text-right">
-              <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-ink/55">
-                Transaction Receipt
-              </p>
-              <p className="font-mono text-base font-semibold text-ink">{receiptNumber}</p>
-            </div>
-          </header>
-
-          <section className="space-y-1">
-            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
-              Issued to
-            </p>
-            <p className="text-base font-semibold text-ink">
-              {receipt.issued_to_name ?? receipt.issued_to_email}
-            </p>
-            <p className="text-sm text-ink/65">{receipt.issued_to_email}</p>
-            {receipt.issued_to_tin ? (
-              <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">
-                TIN {receipt.issued_to_tin}
-              </p>
-            ) : null}
-            <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">
-              Issued {new Date(receipt.issued_at).toLocaleDateString('en-PH', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-              })}
-            </p>
-          </section>
-
-          <section className="space-y-1">
-            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
-              For
-            </p>
-            <p className="text-sm text-ink">
-              Setnayan services rendered — see linked order for details.
-            </p>
-            <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">
-              Order · {receipt.order_id}
-            </p>
-          </section>
-
-          <section className="space-y-2 border-t border-ink/10 pt-4">
-            <dl className="space-y-1 text-sm">
-              {/*
-                A NON-VAT SELLER MUST NOT PRINT A VAT LINE. Setnayan is not
-                VAT-registered (sole prop, 8% flat; VAT only at the ₱3M
-                tripwire), so the configured rate is 0 — and a line reading
-                "VAT @ 0%  ₱0.00" is not a harmless zero, it tells the reader a
-                tax was assessed. "VAT-exclusive" on the sales line says the
-                same thing.
-
-                Driven by the rate STORED ON THE ROW, not by a constant: the day
-                the threshold is crossed the rate is set in settings, new
-                receipts carry it, and this line appears by itself. Old receipts
-                keep printing whatever they were actually issued at, which is
-                what a receipt is for.
-              */}
-              {vatWasCharged ? (
-                <>
-                  <Line
-                    label="Sales (VAT-exclusive)"
-                    value={formatPhpFromString(receipt.pre_vat_php)}
-                  />
-                  <Line
-                    label={`VAT @ ${receipt.vat_rate_pct}%`}
-                    value={formatPhpFromString(receipt.vat_amount_php)}
-                  />
-                </>
-              ) : (
-                <Line label="Sales" value={formatPhpFromString(receipt.pre_vat_php)} />
-              )}
-              <Line
-                label="Total amount paid"
-                value={formatPhpFromString(receipt.gross_total_php)}
-                bold
-              />
-            </dl>
-          </section>
-
-          <footer className="space-y-2 border-t border-ink/10 pt-4 text-xs text-ink/55">
-            <p>
-              This is a system-generated <strong>transaction receipt</strong> for your
-              records. It is <em>not</em> a BIR Official Receipt. The
-              corresponding BIR Official Receipt (where applicable) is issued by
-              Setnayan separately &mdash; please reach out to{' '}
-              {settings.business_email ?? 'live@setnayan.com'} if you need it for
-              accounting or reimbursement.
-            </p>
-            <p className="font-mono text-[10px] uppercase tracking-[0.15em]">
-              Transaction No. · {receipt.or_serial.toString().padStart(6, '0')}
-            </p>
-          </footer>
-        </article>
-      </main>
-    </>
-  );
-}
-
-function Line({
-  label,
-  value,
-  bold = false,
-}: {
-  label: string;
-  value: string;
-  bold?: boolean;
-}) {
-  return (
-    <div className={`flex items-center justify-between gap-3 ${bold ? 'pt-2' : ''}`}>
-      <dt
-        className={`text-sm ${
-          bold ? 'font-semibold text-ink' : 'text-ink/65'
-        }`}
-      >
-        {label}
-      </dt>
-      <dd
-        className={`font-mono text-sm ${
-          bold ? 'text-lg font-semibold text-ink' : 'text-ink'
-        }`}
-      >
-        {value}
-      </dd>
-    </div>
-  );
-}
-
-const PRINT_STYLES = `
-  @page { size: A4 portrait; margin: 20mm; }
-  @media print {
-    body { background: #ffffff !important; }
-    .screen-only { display: none !important; }
-    header, nav { display: none !important; }
-    main { padding: 0 !important; }
+  const lines: SlipLine[] = [
+    {
+      what: order?.description?.trim() || 'Setnayan services',
+      qty: 1,
+      amount: slipFigure(Number(vatWasCharged ? receipt.pre_vat_php : receipt.gross_total_php)),
+      detail: eventName ? `For ${eventName}` : null,
+    },
+  ];
+  if (vatWasCharged) {
+    lines.push({ what: `VAT ${Number(receipt.vat_rate_pct)}%`, qty: null, amount: slipFigure(Number(receipt.vat_amount_php)) });
   }
-`;
+
+  const rows: SlipRow[] = [{ label: 'Paid by', value: receipt.issued_to_name ?? receipt.issued_to_email }];
+  if (receipt.issued_to_tin) rows.push({ label: 'TIN', value: receipt.issued_to_tin });
+  if (paid) {
+    rows.push({ label: 'Method', value: paid.reference_number ? `${paid.channel} · ref ${paid.reference_number}` : paid.channel });
+    rows.push({ label: 'Logged', value: slipDateTime(paid.paid_at ?? paid.created_at) });
+  }
+  rows.push({ label: 'Confirmed', value: slipDateTime(receipt.issued_at) });
+
+  const refs = [receiptNumber, order?.public_id, order?.reference_code].filter((r): r is string => !!r);
+  if (settings.business_tin) refs.push(`${settings.business_name} · TIN ${settings.business_tin}`);
+
+  return (
+    <ReceiptPage
+      actions={
+        <>
+          <SaveAsPdfButton />
+          <ShareReceiptButton title={`Setnayan receipt ${receiptNumber}`} />
+        </>
+      }
+    >
+      <ReceiptSlip
+        kind="Transaction receipt"
+        number={receiptNumber.replace(/^TXN-/, '')}
+        stamp="paid"
+        amount={formatPhp(Number(receipt.gross_total_php))}
+        when={[slipDateTime(receipt.issued_at, ' · '), paid?.channel].filter(Boolean).join(' · ')}
+        lines={lines}
+        total={formatPhpFromString(receipt.gross_total_php)}
+        vatIncluded={vatWasCharged}
+        rows={rows}
+        refs={refs}
+        legal="Transaction receipt — not a BIR Official Receipt."
+      />
+    </ReceiptPage>
+  );
+}

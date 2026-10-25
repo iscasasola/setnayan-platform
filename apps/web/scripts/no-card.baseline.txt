@@ -491,7 +491,6 @@
 1 apps/web/app/download/page.tsx
 2 apps/web/app/features/_sections/_HowItWorks.tsx
 3 apps/web/app/features/_sections/_WhySetnayan.tsx
-3 apps/web/app/help/_components/help-search.tsx
 1 apps/web/app/join/[eventId]/success/page.tsx
 1 apps/web/app/monogram/_monogram-motion.tsx
 2 apps/web/app/monogram/page.tsx

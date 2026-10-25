@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "84909e9246",
+  "generatedFromRef": "d84c6e3318",
   "routeCount": 466,
-  "destinations": 1008,
+  "destinations": 1009,
   "actions": 665,
-  "blocks": 6996,
+  "blocks": 7029,
   "routes": {
     "/": {
       "files": [
@@ -284,7 +284,9 @@
       "destinations": [],
       "actions": [],
       "blocks": [
-        "FeaturesPageBody"
+        "FeaturesPageBody",
+        "HowSearchField",
+        "HowSearchResults"
       ]
     },
     "/(shell)/features/[slug]": {
@@ -318,14 +320,16 @@
         "(shell)/help/page.tsx"
       ],
       "destinations": [
-        "/help"
+        "/help",
+        "/help/[seg]"
       ],
       "actions": [
         "submitHelpMessage"
       ],
       "blocks": [
         "Field",
-        "HelpSearch",
+        "HowSearchField",
+        "HowSearchResults",
         "Icon",
         "Link",
         "SubmitButton"
@@ -1398,6 +1402,7 @@
         "OurPhotosGrid",
         "OurPhotosWidget",
         "OurStory",
+        "OverlayBackdrop",
         "OwnerCapability",
         "PahinaCoverParallax",
         "PahinaKeepsake",
@@ -2256,6 +2261,7 @@
         "MoreSearch",
         "NavFab",
         "NavItem",
+        "OverlayBackdrop",
         "PageMasthead",
         "ProgressRing",
         "Row",
@@ -2844,6 +2850,7 @@
         "InspectModal",
         "JsonTree",
         "LogRow",
+        "OverlayBackdrop",
         "PageMasthead",
         "PillButton",
         "PillTrack",
@@ -3247,6 +3254,7 @@
         "ErrorState",
         "EvidenceChips",
         "HTMLDivElement",
+        "OverlayBackdrop",
         "PageMasthead",
         "StateBadge",
         "SubmitButton",
@@ -5395,6 +5403,7 @@
         "Blob",
         "CopyButton",
         "EventsTab",
+        "HTMLDivElement",
         "HTMLFormElement",
         "HTMLInputElement",
         "HTMLVideoElement",
@@ -5402,6 +5411,7 @@
         "MediaRecorder",
         "MediaStream",
         "MembersTab",
+        "OverlayBackdrop",
         "OverviewTab",
         "SamahanIdentityHeader",
         "SamahanStories",
@@ -6700,6 +6710,7 @@
         "OpenDeleteGuestSheet",
         "OpenQuickAddButton",
         "OutcomeContext.Provider",
+        "OverlayBackdrop",
         "PageMasthead",
         "PapicCamera",
         "PapicGuestAccess",
@@ -7028,6 +7039,7 @@
         "HTMLTextAreaElement",
         "Icon",
         "Link",
+        "OverlayBackdrop",
         "PageMasthead",
         "PaidMark",
         "QrActions",
@@ -7328,6 +7340,7 @@
         "GuestCardResult",
         "GuestCardSheet",
         "GuestConfirmActions",
+        "GuestManySheet",
         "GuestPickSheet",
         "GuestPopup",
         "GuestsGetIn",
@@ -7476,6 +7489,7 @@
         "OpeningLineField",
         "OpensRow",
         "OurStoryEditorPage",
+        "OverlayBackdrop",
         "OwnScenePicker",
         "PabuyaCardList",
         "PabuyaManager",
@@ -7896,6 +7910,7 @@
         "MoltenMonogramInline",
         "MonogramDraft",
         "MonogramDraftRestore",
+        "OverlayBackdrop",
         "OwnedView",
         "PageMasthead",
         "PaymentUnderReview",
@@ -8223,6 +8238,7 @@
         "NewMomentRow",
         "NoDateYet",
         "NotSharedWithYou",
+        "OverlayBackdrop",
         "PageMasthead",
         "PhaseSection",
         "PickMenu",
@@ -8346,6 +8362,7 @@
         "MoveGuestSheet",
         "NotSharedWithYou",
         "OneOpenScope",
+        "OverlayBackdrop",
         "PeekToast",
         "PeopleSheet",
         "PhoneSeatPlanFoot",
@@ -8539,6 +8556,7 @@
         "HTMLTextAreaElement",
         "InvitationTemplateModal",
         "Link",
+        "OverlayBackdrop",
         "PageMasthead",
         "PairTargetPicker",
         "PrincipalPairRow",
@@ -8857,6 +8875,7 @@
         "NamedColourDot",
         "NeutralDrawing",
         "NoteSheet",
+        "OverlayBackdrop",
         "PageMasthead",
         "PaletteBoardContext.Provider",
         "PaletteBoardProvider",
@@ -9873,6 +9892,7 @@
         "NewManualVendorModal",
         "NextPayButton",
         "NotSharedWithYou",
+        "OverlayBackdrop",
         "PageMasthead",
         "PayDueCtx.Provider",
         "PaySheet",
@@ -10078,6 +10098,7 @@
         "Link",
         "ManualVenuePinResult",
         "MoveSupplierResult",
+        "OverlayBackdrop",
         "PaymentAsksCard",
         "PaymentHistoryList",
         "PaymentPlanStepper",
@@ -10408,6 +10429,7 @@
         "NameStyle",
         "OpenBrowsePanel",
         "OurMusicSong",
+        "OverlayBackdrop",
         "PaidMark",
         "PaletteLookCanvasRow",
         "PaletteLookRow",
@@ -10642,6 +10664,7 @@
         "MomentSheet",
         "MomentSheetStudio",
         "MomentVoicesFields",
+        "OverlayBackdrop",
         "PaidMark",
         "PanelFollowsThePage",
         "PhotoCount",
@@ -10841,6 +10864,8 @@
       "destinations": [],
       "actions": [],
       "blocks": [
+        "HTMLDivElement",
+        "OverlayBackdrop",
         "SheetLab",
         "SwitcherData",
         "SwitcherPanelBody"
@@ -10855,9 +10880,11 @@
       "blocks": [
         "Cards",
         "EventMemoriesGallery",
+        "EventRailContext",
         "FrontDoorShell",
         "LabBar",
-        "Link"
+        "Link",
+        "VendorRailContext"
       ]
     },
     "/dev/booking-ask-lab": {
@@ -11520,6 +11547,7 @@
         "StylistLibraryEditor",
         "SuggestBoardActions",
         "SuggestLab",
+        "SupplierLabShell",
         "SupplierSubmit",
         "SupplierSuggestBoard",
         "SupplierThumbRow",
@@ -12473,6 +12501,7 @@
         "MyShot",
         "MyShotsSheet",
         "MyShotsWaitingBadge",
+        "OverlayBackdrop",
         "PapicGuestBuyPanel",
         "PapicGuestCapture",
         "PapicStyle",
@@ -12627,7 +12656,9 @@
         "ChannelToggle",
         "CopyButton",
         "FileUpload",
+        "HTMLDivElement",
         "Link",
+        "OverlayBackdrop",
         "PayPanel",
         "PayStage",
         "PaymentDetailsBlock",
@@ -12869,6 +12900,7 @@
         "LineItemSection",
         "Link",
         "Money",
+        "OverlayBackdrop",
         "OverspendBanner",
         "PaymentSection",
         "PickMenu",
@@ -13190,6 +13222,7 @@
         "Badge",
         "BookingFeeBills",
         "BookingFeeNotice",
+        "BottomDock",
         "BottomNav",
         "BranchActionState",
         "BranchPinMap",
@@ -13377,6 +13410,7 @@
         "KindIcon",
         "Link",
         "ListPager",
+        "OverlayBackdrop",
         "PrepKind",
         "PrepKindPicker",
         "ShopEmpty",

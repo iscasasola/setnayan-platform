@@ -1,6 +1,9 @@
 import { localeAlternates } from '@/lib/marketing-i18n';
 import { FeaturesPageBody, FEATURES_PATHS } from '@/app/features/_PageBody';
 import { BRAND_OG_IMAGES, BRAND_TWITTER_IMAGES } from '@/lib/brand-og';
+import { getCurrentUser } from '@/lib/auth';
+import { runHowSearch } from '@/lib/how-search';
+import { HowSearchField, HowSearchResults } from '@/app/_components/how-search/how-search';
 
 // /features — the deep-dive feature catalog page. Per iteration 0015 §
 // Routes, this is the "features deep-dive (each tab + service explained
@@ -22,7 +25,7 @@ import { BRAND_OG_IMAGES, BRAND_TWITTER_IMAGES } from '@/lib/brand-og';
 // so its `loading.tsx` wraps the hub alone — /features/[slug] calls notFound()
 // and must not stream (see the boundary's own note).
 
-export const metadata = {
+const HUB_METADATA = {
   title: 'Every Feature in Setnayan · Wedding & Life-Events Platform Philippines',
   description:
     'Guest list, seating, budget, mood board, schedule, supplier ledger, plus day-of apparatus (Live Watch, Papic, Pakulay). The full feature catalog of the Filipino-first events platform.',
@@ -52,6 +55,39 @@ export const metadata = {
   },
 };
 
-export default function FeaturesPage() {
-  return <FeaturesPageBody locale="en" />;
+type Props = { searchParams: Promise<{ q?: string }> };
+
+/**
+ * 🔎 A search address (`/features?q=…`) is `noindex, follow` — every typed
+ * phrase would otherwise be a thin duplicate of the hub. The canonical stays
+ * `/features`; the bare hub is unchanged.
+ */
+export async function generateMetadata({ searchParams }: Props) {
+  const { q } = await searchParams;
+  return q?.trim() ? { ...HUB_METADATA, robots: { index: false, follow: true } } : HUB_METADATA;
+}
+
+export default async function FeaturesPage({ searchParams }: Props) {
+  // 🔎 The one search for help, features and guides (owner 2026-10-25) — the
+  // same one /help mounts. The words ride in this page's `?q=`.
+  const q = ((await searchParams).q ?? '').trim().slice(0, 120);
+  const [user, found] = await Promise.all([getCurrentUser(), q ? runHowSearch(q) : null]);
+  return (
+    <FeaturesPageBody
+      locale="en"
+      roomForRow={Boolean(user)}
+      search={<HowSearchField q={q} signedIn={Boolean(user)} action="/features" />}
+      results={
+        found ? (
+          <HowSearchResults
+            q={q}
+            hits={found.hits}
+            storiesFailed={found.storiesFailed}
+            clearHref="/features"
+            askHref="/help#contact"
+          />
+        ) : null
+      }
+    />
+  );
 }

@@ -71,6 +71,8 @@ const ADOPTERS: Record<string, { file: string; mounts: RegExp; count: number }> 
   page: { file: 'app/vendor-dashboard/website/_components/page-parts.tsx', mounts: /<ThumbRow\b/g, count: 1 },
   // People (and Memories, once it lands on the same component): the account row draws through the shared one.
   account: { file: 'app/dashboard/(account)/_components/account-thumb-row.tsx', mounts: /<ThumbRow\b/g, count: 1 },
+  // /help and /features, signed in: the one help · features · guides search (owner 2026-10-25).
+  how: { file: 'app/_components/how-search/how-search-row.tsx', mounts: /<ThumbRow\b/g, count: 1 },
 };
 
 function seats(html: string): string[] {

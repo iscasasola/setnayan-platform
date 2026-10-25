@@ -195,7 +195,7 @@ const PRO_GIVES: ReadonlyArray<{ n: string; note?: string }> = [
   { n: 'Your own photos and video on the Event Hub', note: 'behind the page, behind a scene, in a scene' },
   { n: 'Background music and a video at the top' },
   { n: 'The cinematic reveal', note: 'every opening and its effects' },
-  { n: 'Style, decorations and animation for every part', note: 'and the \u201cWhen yes\u201d celebration — confetti, fireworks, petals, sparklers' },
+  { n: 'Style, decorations and animation for every part', note: 'and the \u201cWhen yes\u201d moment — confetti, fireworks, petals, sparklers' },
   { n: 'Your logo animated, and on every QR', note: 'shape, pattern and colour too' },
   { n: '500 MB of your own media', note: 'instead of 10 MB' },
   { n: 'Prints in your Event Hub look, the whole designed set in one download', note: 'one guest ticket at a time, and the QR sheet, stay free' },

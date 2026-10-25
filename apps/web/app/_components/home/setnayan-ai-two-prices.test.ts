@@ -124,15 +124,18 @@ test('/pricing renders BOTH figures, and gets them from the shared resolver', ()
     /resolveAiPrices\s*\(/,
     '/pricing stopped using the shared resolver — it will drift from the nav overlay',
   );
-  // The act, not the import: the card must actually render the second figure.
+  // ⚠ CHANGED 2026-10-25 (approved prototype `pricing_free_plus_addons_2026-10-25`, revision 4): Setnayan AI is
+  // now an item priced by event type — the regular figure, then "₱… while you set up your event — ₱… after." Each
+  // band's two figures come from ITS row through the same shared resolver, and the picker renders both.
   assert.match(
     src,
-    /\{aiSignupLabel\s*\?\?\s*aiRegularLabel\}/,
-    'the headline figure is no longer the sign-up price when one exists',
+    /signup: prices\.hasSignupPrice \? `₱\$\{formatPeso\(prices\.introPhp\)\}` : null/,
+    'the sign-up figure no longer reaches the Setnayan AI item',
   );
+  const pickers = read('app/(shell)/pricing/_pricing-pickers.tsx');
   assert.match(
-    src,
-    /\{aiRegularLabel\}<\/span>/,
+    pickers,
+    /\{picked\.signup\} while you set up your event<\/b> — \{picked\.regular\} after\./,
     'the regular price is no longer shown beside the sign-up one — a visitor ' +
       'would discover it only after paying',
   );

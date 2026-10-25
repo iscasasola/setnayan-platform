@@ -40,7 +40,7 @@ const ROUTER = { push() {}, replace() {}, refresh() {}, prefetch() {}, back() {}
 
 type Who = { signedIn: boolean; shopName: string | null; isAdmin: boolean };
 
-async function rail(variant: 'front-door' | 'app' | 'doorway', who: Who, pathname: string): Promise<string[]> {
+async function railMenu(variant: 'front-door' | 'app' | 'doorway', who: Who, pathname: string): Promise<string> {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { AppRouterContext } = await import('next/dist/shared/lib/app-router-context.shared-runtime');
   const { PathnameContext } = await import('next/dist/shared/lib/hooks-client-context.shared-runtime');
@@ -65,8 +65,25 @@ async function rail(variant: 'front-door' | 'app' | 'doorway', who: Who, pathnam
   assert.ok(at > 0, 'the shell painted no rail — this guard is reading the wrong markup');
   const nav = html.slice(at, html.indexOf('</nav>', at));
   // The small print (About · Pricing · Help · policies …) is not a menu.
-  const menu = nav.slice(0, nav.indexOf('class="fd-smallprint"'));
+  return nav.slice(0, nav.indexOf('class="fd-smallprint"'));
+}
+
+async function rail(variant: 'front-door' | 'app' | 'doorway', who: Who, pathname: string): Promise<string[]> {
+  const menu = await railMenu(variant, who, pathname);
   return [...menu.matchAll(/<a\b[^>]*\bhref="([^"]+)"/g)].map((m) => m[1]!.split('?')[0]!);
+}
+
+/** Each rail row as { href, label } — the label is the row's `.fd-label-text`. */
+async function railRows(
+  variant: 'front-door' | 'app' | 'doorway',
+  who: Who,
+  pathname: string,
+): Promise<{ href: string; label: string }[]> {
+  const menu = await railMenu(variant, who, pathname);
+  return [...menu.matchAll(/<a\b[^>]*\bhref="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g)].map((m) => ({
+    href: m[1]!.split('?')[0]!,
+    label: (/class="fd-label-text"[^>]*>([^<]*)</.exec(m[2] ?? '')?.[1] ?? '').trim(),
+  }));
 }
 
 /** Every page a TOOL lives on — the doors that left the menu for /features. */
@@ -102,11 +119,15 @@ test('no rail row opens a tool — signed in or out, on every variant', async ()
       `${what}: the rail lists tools again (${tools.join(', ')}). The owner ruled the Planner · ` +
         'Builder · Together · Studio lists off the menu (2026-10-01) — every tool is on /features.',
     );
+    // ONE Features row. Counted by the row's NAME, not its href: signed out, "How it works"
+    // also opens /features (owner 2026-10-25), and that is one door to one page, not a second row.
+    const features = (await railRows(variant, who, path)).filter((r) => r.label === 'Features');
     assert.equal(
-      links.filter((h) => h === '/features').length,
+      features.length,
       1,
-      `${what}: the rail must carry exactly ONE Features row (→ /features); saw ${links.join(' · ')}`,
+      `${what}: the rail must carry exactly ONE Features row; saw ${links.join(' · ')}`,
     );
+    assert.equal(features[0]!.href, '/features', `${what}: the Features row must open /features`);
   }
   assert.ok(rows >= 25, `only ${rows} rail links read across ${STATES.length} renders — the read is wrong`);
 });
@@ -115,9 +136,20 @@ test('signed out the rail is the five things the owner named, in his order', asy
   const links = await rail('front-door', { signedIn: false, shopName: null, isAdmin: false }, '/');
   assert.deepEqual(
     links,
-    ['/', '/explore', '/features', '/our-story', '/login'],
-    'signed out = Discover · Find suppliers · Features · How it works · Sign in (owner 2026-10-01)',
+    ['/', '/explore', '/features', '/features', '/login'],
+    'signed out = Discover · Find suppliers · Features · How it works · Sign in (owner 2026-10-01); ' +
+      'How it works opens the Features hub (owner 2026-10-25)',
   );
+});
+
+test('signed out, "How it works" opens the Features hub, the same door as the hero (owner 2026-10-25)', async () => {
+  for (const [variant, path] of [['front-door', '/'], ['doorway', '/papic']] as const) {
+    const how = (await railRows(variant, { signedIn: false, shopName: null, isAdmin: false }, path)).filter(
+      (r) => r.label === 'How it works',
+    );
+    assert.equal(how.length, 1, `${variant}: the signed-out rail lost its "How it works" row`);
+    assert.equal(how[0]!.href, '/features', `${variant}: "How it works" opens ${how[0]!.href}, not /features`);
+  }
 });
 
 test('signed in the rail is your own rows and one Features row — no find row', async () => {

@@ -173,7 +173,7 @@ export const TOP_LEVEL_SEGMENTS: ReadonlySet<string> = new Set([
   'open-shop', 'our-story', 'pa3d', 'pakanta', 'palogo', 'panood', 'papic',
   'patiktok', 'pawebsite', 'pay', 'pricing', 'privacy', 'proposals',
   'realstories', 'receipts', 'refunds', 'reset-password', 'samahan', 'schedule',
-  'seat-plan', 'setnayan-ai', 'signup', 'site-editor', 'sitemap-blog.xml',
+  'seat-plan', 'setnayan-ai', 'signup', 'site-editor', 'sitemap-blog.xml', 'start',
   'sitemap-features.xml', 'sitemap-help.xml', 'sitemap-static.xml',
   'sitemap-suppliers.xml', 'sitemap-vendors.xml', 'sitemap-weddings.xml',
   'sitemap.xml', 'suppliers', 'terms', 'tl', 'tour', 'u', 'v', 'vendor',

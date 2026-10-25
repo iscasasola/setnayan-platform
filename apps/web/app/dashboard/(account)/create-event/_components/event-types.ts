@@ -49,6 +49,37 @@ export const EVENT_TYPES_FALLBACK: readonly EventTypeRow[] = [
   { key: 'christening', label: 'Christening', emoji: '🕯️', enabled: true, onboardingHref: null, description: 'A blessing to remember.' },
 ];
 
+/**
+ * Where a tapped type goes — THE ONE RULE, shared by the signed-in picker
+ * (`event-type-picker.tsx`) and the public `/start` picker (owner 2026-10-25:
+ * "Start your event — free" asks which event BEFORE sign-up). A type's own
+ * onboarding page wins; otherwise a non-wedding type takes the generic
+ * `/onboarding/<type>` while that flow is switched on. `null` = no onboarding
+ * route, and the caller decides (the signed-in picker shows its inline form).
+ */
+export function onboardingRouteFor(
+  t: Pick<EventTypeRow, 'key' | 'onboardingHref'>,
+  experienceQuizOn: boolean,
+): string | null {
+  if (t.onboardingHref) return t.onboardingHref;
+  if (experienceQuizOn && t.key !== 'wedding') return `/onboarding/${t.key}`;
+  return null;
+}
+
+/**
+ * Where a tile on the PUBLIC `/start` picker goes — always the type's own
+ * onboarding, never sign-up first. Owner 2026-10-25, verbatim: *"Yes they can
+ * create an event. But saving an event must link by logging in."* So the
+ * questions run with no account and each onboarding keeps its own account gate
+ * at the save. Same rule as the signed-in picker; the `/onboarding/<type>`
+ * fallback only matters while the generic flow is switched off, and it is ON in
+ * production (measured 2026-10-25: /onboarding/debut · birthday · wake ·
+ * concert · grand_opening all 200 signed out).
+ */
+export function startHrefFor(t: Pick<EventTypeRow, 'key' | 'onboardingHref'>, experienceQuizOn: boolean): string {
+  return onboardingRouteFor(t, experienceQuizOn) ?? `/onboarding/${t.key}`;
+}
+
 /** Hero-photo resolution shared by both pickers: admin upload → repo asset. */
 export function eventTypePhotoSrc(t: Pick<EventTypeRow, 'key' | 'heroPhotoUrl'>): string {
   return t.heroPhotoUrl ?? `/event-types/${t.key}.webp`;

@@ -15,7 +15,7 @@ function pesoShort(n: number): string {
     : `₱${Math.round(n / 1000)}K`;
 }
 import { createWeddingEvent } from '../actions';
-import { type EventTypeKey, type EventTypeRow } from './event-types';
+import { onboardingRouteFor, type EventTypeKey, type EventTypeRow } from './event-types';
 import { EventTypePhotoPicker } from './event-type-photo-picker';
 import { CreateDatePicker } from './create-date-picker';
 import { CreateLocationPicker } from './create-location-picker';
@@ -207,20 +207,17 @@ export function EventTypePicker({
       setSelectedKey(type.key);
       return;
     }
-    if (type.onboardingHref) {
+    // The type's own onboarding page, else (Iteration 0053 Phase 3) the generic
+    // experience onboarding /onboarding/[type] while the experience-quiz flag is
+    // on — with it off that route 404s, so we fall back to the inline name form.
+    // ONE rule, shared with the public `/start` picker (`onboardingRouteFor`).
+    const route = onboardingRouteFor(type, experienceQuizEnabled());
+    if (route) {
       // REPLACE (not push) so this legacy event-type picker never lingers in history
       // as a Back target behind the tailored onboarding — backing out of onboarding at
       // its first screen returns to the dashboard, never "the old onboarding page".
       // (owner bug 2026-06-15)
-      router.replace(withNext(type.onboardingHref));
-      return;
-    }
-    // Iteration 0053 Phase 3: non-wedding types route into the generic experience
-    // onboarding (/onboarding/[type]) when the experience-quiz flag is on; with it
-    // off the route 404s, so we fall back to the inline name form. Wedding never
-    // reaches here (its onboardingHref branch above is byte-identical / unchanged).
-    if (experienceQuizEnabled() && type.key !== 'wedding') {
-      router.replace(withNext(`/onboarding/${type.key}`));
+      router.replace(withNext(route));
       return;
     }
     setSelectedKey(type.key);

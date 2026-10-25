@@ -333,6 +333,7 @@ function isDayOfGuestNavigation(url) {
     'setnayan-ai',
     'signup',
     'site-editor',
+    'start',
     'suppliers',
     'sitemap-blog.xml',
     'sitemap-features.xml',

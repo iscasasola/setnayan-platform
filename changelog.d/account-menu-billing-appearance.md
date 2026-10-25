@@ -37,7 +37,7 @@ the controller's two recommendations.
 - **New `/receipts/order/[orderId]`** — the same slip before the money moves (payer-only; forwards to the receipt once
   one exists): "Order · awaiting payment", Pay to (masked) + Reference, and a gold "Pay ₱X" to the event's order page
   — never for a supplier's own bill, never in the App Store shell. Billing rows without a receipt now open it.
-- **`ReceiptStamp`** (`app/receipts/_components/receipt-stamp.tsx`) — ONE component, `status: 'paid' | 'awaiting'`,
+- **`ReceiptStamp`** (`app/receipts/_components/receipt-stamp.tsx`) — ONE component, `status: 'paid' | 'awaiting'`, owner pick "Paid 3 · Awaiting 1": PAID = diagonal worn-ink stamp with double rules over the amount corner (amount left-aligned); AWAITING = flat dashed amber tag with a clock, "Pay by" only from a real due date (orders carry none, so it is omitted). Was:
   neutral placeholder look until the owner picks one of the designer's three stamp pairs.
 - Lab: `/dev/receipt-lab?state=paid|novat|awaiting`.
 

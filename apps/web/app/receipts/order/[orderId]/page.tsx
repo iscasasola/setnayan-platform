@@ -79,6 +79,8 @@ export default async function OrderSlipPage({ params }: Props) {
     rows.push({ label: 'Status', value: ORDER_STATUS_LABEL[order.status] });
   }
 
+  // No "Pay by" on the AWAITING tag: orders carry no payment due date (`expires_at` is a subscription's END), so
+  // `ReceiptSlip` gets no `payBy` and the line is not drawn — a date is never invented.
   return (
     <ReceiptPage
       actions={

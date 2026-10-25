@@ -5,7 +5,8 @@ import { SaveAsPdfButton, ShareReceiptButton } from '@/app/receipts/_components/
 
 /**
  * 🧾 THE RECEIPT LAB — the shipped `ReceiptSlip` on fixture figures, no database.
- * `?state=paid|novat|awaiting` (novat = a receipt issued at a 0% rate: no VAT line, no "VAT included").
+ * `?state=paid|novat|awaiting|awaiting-dated` (awaiting-dated = the tag's "Pay by" line, drawn only when an order
+ * carries a real due date — none does today; novat = a receipt issued at a 0% rate: no VAT line, no "VAT included").
  * Dark: add `dark` to <html> (/dev is never on the dark ready-list). The stamp is `ReceiptStamp` — placeholder look.
  */
 export default async function ReceiptLabPage({
@@ -17,7 +18,7 @@ export default async function ReceiptLabPage({
   const sp = await searchParams;
   const state = typeof sp.state === 'string' ? sp.state : 'paid';
 
-  if (state === 'awaiting') {
+  if (state === 'awaiting' || state === 'awaiting-dated') {
     return (
       <ReceiptPage
         actions={
@@ -33,6 +34,7 @@ export default async function ReceiptLabPage({
           kind="Order · awaiting payment"
           number="S89O-7K2M9QX4TB"
           stamp="awaiting"
+          payBy={state === 'awaiting-dated' ? '30 Oct 2026' : null}
           amount="₱2,500"
           when="Ordered 23 Oct 2026 · 09:31"
           lines={[{ what: 'Live Studio', qty: 1, amount: '2,500.00', detail: 'For Cale & Ice — Wedding' }]}

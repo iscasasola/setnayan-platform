@@ -23,6 +23,7 @@ export function ReceiptSlip({
   kind,
   number,
   stamp,
+  payBy = null,
   amount,
   when,
   lines,
@@ -35,6 +36,8 @@ export function ReceiptSlip({
   kind: string;
   number: string;
   stamp: ReceiptStampStatus | null;
+  /** "Pay by <date>" on the AWAITING tag — only a real due date; none exists on orders today, so callers omit it. */
+  payBy?: string | null;
   amount: string;
   when: string;
   lines: SlipLine[];
@@ -51,11 +54,20 @@ export function ReceiptSlip({
       <p className="text-center text-[12.5px] font-bold tracking-[0.3em]">SETNAYAN</p>
       <p className="mt-[7px] text-center font-mono text-[9.5px] uppercase leading-none tracking-[0.22em] text-[#8A857B]">{kind}</p>
       <p className="mt-1.5 text-center font-mono text-[11px] leading-none text-[#6E6A62]">No. {number}</p>
-      {stamp ? <ReceiptStamp status={stamp} /> : null}
-      <p className="mb-1.5 mt-5 text-center font-mono text-[36px] font-bold leading-none tracking-[-0.02em]" data-receipt-amount="">
+      {/* The stamp owns the top-right corner; the amount steps left to give it room (owner's pick 2026-10-25). Its
+          own clipping box, so the PAID ink can run off the edge without clipping the slip's torn bottom. */}
+      {stamp ? (
+        <span className="pointer-events-none absolute inset-0 overflow-hidden">
+          <ReceiptStamp status={stamp} payBy={payBy} />
+        </span>
+      ) : null}
+      <p
+        className={`mb-1.5 font-mono text-[36px] font-bold leading-none tracking-[-0.02em] ${stamp ? 'mt-[22px] text-left' : 'mt-5 text-center'}`}
+        data-receipt-amount=""
+      >
         {amount}
       </p>
-      <p className="text-center text-[12.5px] text-[#6E6A62]">{when}</p>
+      <p className={`text-[12.5px] text-[#6E6A62] ${stamp ? 'text-left' : 'text-center'}`}>{when}</p>
 
       <hr className="sn-slip-tear" />
       <div className="grid grid-cols-[1fr_auto_auto] items-baseline gap-x-3 gap-y-1 text-[13px]">

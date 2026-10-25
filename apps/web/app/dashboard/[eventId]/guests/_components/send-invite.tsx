@@ -4,6 +4,16 @@ import { useEffect, useId, useRef, useState, useTransition } from 'react';
 import { Check, Copy, Download, Send, Undo2 } from 'lucide-react';
 import { SaveFileLink } from '@/app/_components/save-file-link';
 import { ActionButton, actionButtonClass } from '@/components/action-button';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
+import {
+  INVITE_APP_NAMES,
+  inviteAppHint,
+  inviteAppPlan,
+  inviteAppSaid,
+  inviteDevice,
+  runInviteAppPlan,
+  type InviteApp,
+} from '@/lib/invite-app-links';
 import {
   buildGuestInviteMessage,
   defaultInviteTemplate,
@@ -36,6 +46,12 @@ import { hearAction } from './hear-action';
  *     A share the phone completed stamps Sent ✓ (`invitation_sent_at`, through
  *     the ONE writer in `invitation/actions.ts`). Closing the sheet is not a
  *     failure and stamps nothing.
+ *   · SEND IN AN APP ▾ — ONE dropdown: WhatsApp · Viber · Messenger (owner
+ *     2026-10-26: *"Viber/Whatsapp invite buttons"*). What each does on a phone
+ *     and a computer is `inviteAppPlan` (lib/invite-app-links.ts). 🔑 OPENING AN
+ *     APP IS NOT A SEND, so a pick never stamps; it says what happened and offers
+ *     "Mark as sent", exactly as a copy does. "More apps…" is Send itself (the
+ *     phone's own share sheet), so it is not listed twice.
  *   · COPY MESSAGE — the full filled-in text, "Copied ✓", for couples who
  *     paste into Messenger/Viber themselves. 🔑 A COPY IS NOT A SEND, so it
  *     never stamps by itself; it OFFERS "Mark as sent".
@@ -208,6 +224,7 @@ type Said =
   | { kind: 'copied' } // Copy message — offers Mark as sent
   | { kind: 'copied-desktop' } // Send invite with no share sheet — copy + Download ticket + Mark as sent
   | { kind: 'manual'; text: string } // clipboard blocked — the text, selectable
+  | { kind: 'app'; text: string } // an app was opened (or its message copied) — offers Mark as sent
   | { kind: 'error'; text: string };
 
 export function SendInviteActions({
@@ -304,6 +321,34 @@ export function SendInviteActions({
     await copyText('copied-desktop');
   }
 
+  // WhatsApp · Viber · Messenger — opens or copies, SAYS which, and never stamps (see the docblock).
+  async function viaApp(key: string) {
+    const app = key as InviteApp;
+    const device = inviteDevice();
+    const text = message(false);
+    const plan = inviteAppPlan(app, text, device);
+    if (plan.kind === 'share') return send();
+    const out = await runInviteAppPlan(plan, text, device.touch);
+    setSaid(out === 'manual' ? { kind: 'manual', text } : { kind: 'app', text: inviteAppSaid(app, plan, first) });
+  }
+  const appDevice = inviteDevice();
+  const appMenu = (
+    <span className="contents" data-send-invite-apps="">
+      <PickMenu
+        label={`Send to ${first} in an app`}
+        buttonText="Send in an app"
+        value={null}
+        options={(['whatsapp', 'viber', 'messenger'] as const).map((app) => ({
+          key: app,
+          label: INVITE_APP_NAMES[app],
+          hint: inviteAppHint(app, appDevice),
+        }))}
+        onPick={viaApp}
+        className={size === 'run' ? 'min-h-12 w-full justify-center text-sm' : 'min-h-11'}
+      />
+    </span>
+  );
+
   const big = size === 'run';
   /* THE BUTTON RULE (`components/action-button.tsx`): the forward step is the filled brand button; Copy is its
      neighbour (neutral); Undo is the quiet one. The run's full-width phone buttons are the same buttons, stretched. */
@@ -323,6 +368,7 @@ export function SendInviteActions({
             className={wide}
           />
         </span>
+        {appMenu}
         <div className={big ? 'flex gap-2' : 'contents'}>
           <span className="contents" data-send-invite-copy="">
             <ActionButton
@@ -404,6 +450,15 @@ export function SendInviteActions({
             />
             {sentAt ? null : (
               <ActionButton tone="neutral" quiet icon={Check} label="Mark as sent" onClick={() => mark(true)} disabled={pending} />
+            )}
+          </div>
+        ) : null}
+
+        {said?.kind === 'app' ? (
+          <div className="space-y-1.5 text-[13px] text-ink/75" data-send-invite-app-said="">
+            <p>{said.text}</p>
+            {sentAt ? null : (
+              <ActionButton tone="brand" main icon={Check} label={pending ? 'Saving…' : 'Mark as sent'} onClick={() => mark(true)} disabled={pending} />
             )}
           </div>
         ) : null}

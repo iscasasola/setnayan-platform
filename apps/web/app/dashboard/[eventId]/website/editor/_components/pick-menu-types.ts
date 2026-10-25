@@ -24,6 +24,7 @@ import type { ReactNode } from 'react';
  * · The CURRENT option first — a selector list would return whichever comes first in the document, i.e. always the top option.
  * · A FONT ROW (`fontFamily`) is `content-visibility: auto`: a face is fetched when text is laid out in it, and that skips laying out a row that is off the list's screen — so a font row's face downloads only once it scrolls into view.
  * · ONE OPEN AT A TIME (owner 2026-10-04, "when a dropdown opens, the other dropdown collapses"): `useOneOpen(open, setOpen)` — opening this list, by tap OR keyboard, closes every other open dropdown, menu, popover or fold (`lib/one-open.ts`). It is a leaf: nothing inside the list can open, so it needs no `OneOpenScope`.
+ * · Esc peels one layer: the keydown listener is on window CAPTURE, so it runs before useModalA11y's — a list open inside a sheet closes, not the sheet.
  * · A labelled GROUP (owner 2026-09-27, the compact Maker bar: "combine them in 1 dropdown" — Stages and Pages in one list). The heading is not an option: no button, so the arrow keys and the first-focus query pass over it; the group is announced by its aria-label, the visible word is aria-hidden.
  */
 
@@ -133,4 +134,12 @@ export type PickMenuProps = {
    * `<li role="none">`; it is not an option, so the arrow keys and first-focus pass over its input. Omitted = none.
    */
   head?: ReactNode;
+  /**
+   * ▭ THE WHOLE ROW IS THE BUTTON (owner 2026-10-26, Suppliers' "Add a category" — the list's own last row:
+   * prototype `suppliers_add_category_row_2026-10-26`, DECISION_LOG "ADD A CATEGORY IS THE LIST'S LAST ROW").
+   * Drawn INSIDE the button in place of the ▾ pill's words and arrow, and the pill's look (`pickButtonClass`) is
+   * dropped — `className` alone dresses the button. The SAME list opens; `label` + `buttonText` still name it
+   * for a screen reader. Omitted = the ordinary ▾ pill (every other picker).
+   */
+  trigger?: ReactNode;
 };

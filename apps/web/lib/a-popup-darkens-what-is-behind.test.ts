@@ -275,6 +275,9 @@ test('(4) rendered: one button under the dark closes it, the dark takes no tap, 
   const scrim = /<button[^>]*data-maker-sheet-scrim=""[^>]*>/.exec(html)![0];
   assert.match(scrim, /aria-label="Close"/);
   assert.match(scrim, /class="absolute inset-0 h-full w-full[^"]*"/, 'the close button does not cover the whole screen — a tap on the dark could miss it');
+  // 2026-10-25: the page lock (`isolateOverlay`) makes every sibling of the dialog inert unless it is the backdrop —
+  // unmarked, this button went inert and a tap outside the sheet closed nothing ("I cannot tap out the screen").
+  assert.match(scrim, /data-overlay-backdrop=""/, 'the close button is not marked as the backdrop — the page lock makes it inert');
   const dark = /<span[^>]*data-maker-sheet-dark="whole"[^>]*>/.exec(html)![0];
   assert.match(dark, /class="sn-popup-dark pointer-events-none absolute inset-0"/, 'the dark is not the one pop-up look, or it swallows the tap that should close');
   assert.match(dark, /aria-hidden="true"/);

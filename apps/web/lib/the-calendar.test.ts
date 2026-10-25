@@ -214,10 +214,11 @@ test('(6) the pop: a sheet from the bottom on a phone (dark, blurred, locked, a 
   assert.match(fn(src, 'CalendarPop'), /calendarOpensAs\(window\.innerWidth\)/);
   const sheet = fn(src, 'CalendarSheet');
   // THE POP-UP RULE, each part.
-  assert.match(sheet, /<span aria-hidden className="sn-popup-dark pointer-events-none absolute inset-0" \/>/, 'the rest of the screen is not dark and blurred');
+  // ⤷ 2026-10-25: the dark IS the close button (`<OverlayBackdrop>`) — a separate close layer under it went inert.
+  assert.match(sheet, /<OverlayBackdrop onClose=\{onClose\} \/>/, 'the rest of the screen is not dark and blurred, or a tap on it does not close');
+  assert.doesNotMatch(sheet, /pointer-events-none absolute inset-0/, 'a dark that takes no tap is back over a separate close layer');
   assert.match(sheet, /return el \? inertBehind\(el\) : undefined;/, 'what is behind the sheet still works');
   assert.match(sheet, /useModalA11y\(\{ open: true, onClose, containerRef: panel \}\);/, 'Esc does not close it, or the page behind scrolls');
-  assert.match(sheet, /<button type="button" aria-label="Close" data-calendar-scrim="" onClick=\{onClose\}/, 'a tap on the dark does not close it');
   assert.match(sheet, /role="dialog"\s+aria-modal="true"\s+aria-labelledby=\{headId\}/);
   assert.match(sheet, /absolute inset-x-0 bottom-0 [^"]*max-h-\[calc\(100dvh-48px\)\][^"]*overflow-y-auto/, 'the sheet can be taller than the screen');
   // The panel is attached to its pill: it darkens nothing and locks nothing; a press elsewhere or Esc closes it.

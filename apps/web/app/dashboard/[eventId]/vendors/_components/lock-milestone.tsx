@@ -24,7 +24,8 @@ import { createPortal } from 'react-dom';
 import { ArrowRight, CalendarHeart, Check, Loader2, Lock, PartyPopper, Plus, RotateCcw, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { PeekToast } from '@/app/_components/toast/peek-toast';
-import { POPUP_DARK, POPUP_SCRIM, usePopupBehind } from '@/lib/use-popup-behind';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
+import { usePopupBehind } from '@/lib/use-popup-behind';
 import { lockImpactCopy, type LockImpact } from '@/lib/lock-impact';
 import type { LockMilestone } from '../actions';
 
@@ -44,8 +45,8 @@ export const LOCK_PENDING_ICON = <Loader2 aria-hidden className="animate-spin" s
  * LockPopup — THE ONE FRAME OF EVERY POP-UP IN THE BOOKING FLOW (2026-10-12 look sweep; `INTERACTION_RULES.md` § 9,
  * "Anything popped up over the page"). The exception, slot, confirm, reservation-terms and first-payment pop-ups each
  * drew their own `bg-ink/40` wash — and `ink` turns LIGHT in dark mode. Now:
- *   · the rest of the screen is the shared dark (`.sn-popup-dark`, `POPUP_DARK`) — dark and blurred, taking no tap;
- *   · one button under it, the whole screen (`POPUP_SCRIM`), closes — a tap on the dark is "keep", never the answer;
+ *   · the rest of the screen is the shared dark (`<OverlayBackdrop>`, `.sn-popup-dark`) — and the dark IS the close
+ *     button: a tap on it is "keep", never the answer;
  *   · nothing behind works and the page does not scroll (`usePopupBehind`), Esc closes, Tab stays in the panel;
  *   · the panel is `bg-cream` (it flips in dark mode); its ✕ is a 44-px target.
  * It draws on <body>: the bench card carries the coverflow `transform`, inside which `position: fixed` is not the
@@ -74,8 +75,7 @@ export function LockPopup({
   return portal(
     <div ref={root} data-lock-popup="" className="fixed inset-0 z-[90] flex items-end justify-center p-4 sm:items-center">
       {/* A tap on the dark closes it. */}
-      <button type="button" aria-label="Close" onClick={onClose} className={POPUP_SCRIM} />
-      <span aria-hidden className={POPUP_DARK} />
+      <OverlayBackdrop onClose={onClose} />
       <div
         ref={panel}
         role={alertRole ? 'alertdialog' : 'dialog'}

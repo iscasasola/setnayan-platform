@@ -28,7 +28,7 @@ const SITE_URL = (
 
 const PAGE_TITLE = 'Tungkol sa Setnayan — ang Philippines-first wedding platform';
 const PAGE_DESCRIPTION =
-  'Ang Setnayan ang all-in-one wedding at life-events platform ng Pilipinas — ang una ditong gawa para i-plan ang kasal, mag-run ng 0%-commission marketplace ng verified local suppliers, at i-capture ang araw para may sariling highlight reel ang bawat guest.';
+  'Ang Setnayan ang all-in-one wedding at life-events platform ng Pilipinas — ang una ditong gawa para i-plan ang kasal, mag-run ng 0%-commission marketplace ng verified local suppliers, at i-capture ang araw para mahanap ng bawat guest ang mga litratong kasama sila.';
 
 // Reciprocal hreflang — both /about and /tl/about list the same alternates.
 const LANGUAGES = {
@@ -178,7 +178,8 @@ export default function AboutPageTaglish() {
             wedding at life-events platform ng Pilipinas — at ang una ditong gawa
             para gawin ang buong event sa isang place: i-plan ang event,
             mag-hire from a 0%-commission marketplace ng verified local suppliers, at
-            i-capture ang araw para may sariling highlight reel ang bawat guest.
+            i-capture ang araw para mahanap ng bawat guest ang mga litratong
+            kasama sila.
           </p>
           <p className="mt-4 max-w-2xl text-lg leading-relaxed text-ink/75">
             Hindi &rsquo;to foreign directory na may Philippine filter — software
@@ -215,15 +216,15 @@ export default function AboutPageTaglish() {
               verified Pinoy wedding suppliers na direkta mong ma-message; at
               in-app services — libreng single-camera livestreaming sa sarili
               mong YouTube (Live Watch), candid photo capture (Papic), custom
-              wedding song (Music Maker), at bespoke monograms. Libreng gamitin ang
-              bawat service; may malinaw na presyo ang ilang upgrades, gaya ng
-              multicam control room ng Live Watch. Kayo ng supplier ang nag-uusap sa booking;
+              wedding song (Music Maker), at bespoke monograms. Libre ang simula
+              ng ilan, gaya ng isang Papic camera sa bawat event at single-camera
+              stream; nasa Pricing page ang presyo ng iba. Kayo ng supplier ang nag-uusap sa booking;
               hindi hinahawakan ng Setnayan ang pera.
             </p>
             <p className="text-base leading-relaxed text-ink/75">
-              Weddings muna ang first surface, pero gawa ang platform para sa mas
-              malawak na Filipino life-events — birthdays, debut, binyag, at iba pa
-              habang lumalabas ang next iterations.
+              Weddings ang pinakakumpletong surface, at gamit na rin ang parehong
+              tools sa debut, binyag, birthdays, anniversaries, reunions at iba pa.
+              Naiipon ang lahat ng ginawa mo sa Memories, isang lugar na sa iyo.
             </p>
             <div className="flex flex-wrap gap-3 pt-2">
               {/* 2026-09-01 — /how-it-works folded into /features.

@@ -16,6 +16,7 @@ import {
   VENDOR_PAPIC_PORTFOLIO_PACK_SKU_CODE,
 } from '@/lib/vendor-papic-credits';
 import { formatCount } from '@/lib/format-number';
+import { isVendorPapicCaptureEnabled } from '@/lib/vendor-dayof-flags';
 
 /**
  * Buy ONE Papic credit pack INTO THE SHOP WALLET — apply-then-pay, the same
@@ -37,7 +38,9 @@ import { formatCount } from '@/lib/format-number';
  * that lists this file (order-price authority, every-buy-button, closed-rail)
  * pointed at the one place a pack is minted.
  *
- * No tier or verification gate: any shop with an open rail may buy.
+ * No tier or verification gate: any shop with an open rail may buy — but only
+ * while the owner's Papic switch is on (owner 2026-10-25: "No. Papic needs to
+ * be on."). Off ⇒ refused here, not just hidden in the sheet.
  */
 
 export type BuyVendorPapicPortfolioPackState =
@@ -85,6 +88,10 @@ export async function buyVendorPapicPortfolioPack(
   const role = await resolveVendorRoleForProfile(supabase, user.id, vendorProfileId);
   if (!canManageVendor(role)) {
     return err('Only the owner or an admin can buy Papic credits.');
+  }
+
+  if (!(await isVendorPapicCaptureEnabled())) {
+    return err('Papic credit packs are not on sale right now.');
   }
 
   // Re-read the authoritative price from the admin-managed catalog — the

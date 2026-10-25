@@ -72,6 +72,7 @@ function labSheet(open: string, wallet: ShopWallet): ShopWalletSheetData {
       openRails: open === 'wallet-paused' ? [] : [{ id: 'gcash', label: 'GCash' }, { id: 'bdo', label: 'BDO' }],
       pricePhp: open === 'wallet-unavailable' ? null : 500,
       packCredits: 100,
+      papicOn: open !== 'wallet-papic-off',
     },
     storeShell: false,
   };

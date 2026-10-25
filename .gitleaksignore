@@ -138,3 +138,12 @@ f1ac6e24695d137e4736aae2d1a94d85496530f6:apps/web/tests/db/site-visits.db.test.t
 # ('safe_display_r2_key' …) — the columns its Guard A reference check reads
 # before deleting an attempt's final copy. Column names, not a credential.
 9c8357ad8027df27bce143a64a3ce6605c486ed2:apps/web/lib/papic-upload-sweep.ts:generic-api-key:50
+#
+# Spotlight tour version ids (the tour-name props and the seen-tours list in lib/tours.ts) — the generic-api-key
+# rule reads a "key" prop holding a snake_case id as a credential. They are tour names, not secrets.
+5b1fcc6c501875231ea07b2b7a0851b8c5d61733:apps/web/lib/tours.ts:generic-api-key:277
+5b1fcc6c501875231ea07b2b7a0851b8c5d61733:apps/web/app/papic/me/[token]/page.tsx:generic-api-key:301
+5b1fcc6c501875231ea07b2b7a0851b8c5d61733:apps/web/app/papic/me/[token]/page.tsx:generic-api-key:397
+5b1fcc6c501875231ea07b2b7a0851b8c5d61733:apps/web/lib/tours.ts:generic-api-key:2186
+5b1fcc6c501875231ea07b2b7a0851b8c5d61733:apps/web/lib/tours.ts:generic-api-key:2258
+6c9f208785248d1aa860df613c2611f02f960249:.gitleaksignore:generic-api-key:142

@@ -3861,6 +3861,8 @@ export function ShortlistCategories({
                       id={replan ? benchTileAnchorId(t.tile) : undefined}
                       className={`cat${tileOpen ? ' open' : ''}`}
                       data-tile={t.tile}
+                      // 🔦 The Suppliers tour rings the first category drawn (the engine takes the first visible match).
+                      data-tour="suppliers-category"
                     >
                       {/* The category head is a tap target to expand. The
                           "saved request" icon sits beside it as its OWN button

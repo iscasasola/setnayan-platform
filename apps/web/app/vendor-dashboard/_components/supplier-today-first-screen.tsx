@@ -521,7 +521,7 @@ export function SupplierTodayFirstScreen({
 
       {/* ② THREE NUMBERS — each goes to the list it counts, and counts up to it. A read that failed says so in words,
           in the number's own place — never 0, never ₱0. On an event day: waiting · next moment · checked in. */}
-      <div className="mt-3 grid grid-cols-3 gap-1 border-y border-ink/10 py-3" data-today-numbers>
+      <div className="mt-3 grid grid-cols-3 gap-1 border-y border-ink/10 py-3" data-today-numbers data-tour="today-numbers">
         <Link href="/vendor-dashboard/customers?lane=waiting#customers" className="grid gap-0.5 text-center" data-today-number="waiting">
           {numbers.waiting === null ? (
             <Unread />
@@ -590,7 +590,7 @@ export function SupplierTodayFirstScreen({
       ) : null}
 
       {/* ③ COMING UP — the next three booked events (Setnayan and outside), each opening its day. */}
-      <div data-today-coming-up>
+      <div data-today-coming-up data-tour="today-coming-up">
         <TodayEyebrow door={{ label: 'All dates', href: '/vendor-dashboard/customers?seg=dates' }}>Coming up</TodayEyebrow>
         {comingUp.length === 0 ? (
           <div className="[&>a:first-child]:border-t-0">
@@ -639,7 +639,7 @@ export function SupplierTodayFirstScreen({
       ) : null}
 
       {/* ⑤ THE SHOP ROW — its state (Checking · Live · Not yet) — and how business is doing. */}
-      <div data-today-shop>
+      <div data-today-shop data-tour="today-shop">
         <TodayEyebrow door={{ label: 'Open', href: '/vendor-dashboard/shop' }}>Shop</TodayEyebrow>
         <div className="[&>a:first-child]:border-t-0">
           <TodayRow

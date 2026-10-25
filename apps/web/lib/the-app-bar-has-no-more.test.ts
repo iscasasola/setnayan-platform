@@ -213,7 +213,8 @@ test('wiring: the event layout hands the bar `storeShell` and no services list (
   assert.match(layout, /<CustomerBottomNav[^>]*storeShell=\{storeShell\}/);
   assert.doesNotMatch(layout, /<CustomerBottomNav[^>]*services=/, 'the bar is handed a services list again');
   assert.equal(fs.existsSync(path.join(EV, '_components', 'more-services-sheet.tsx')), false, 'the More chooser sheet is back');
-  // …and Home's Your services keeps the shell filter (the app shows no paid row — App Review 3.1.1).
+  // …and Home's Your services keeps the shell filter (the app shows no paid row Apple does not sell there — App
+  // Review 3.1.1; the one rule is `isStoreShellHiddenAddon`, held both ways by the-app-shows-a-door-to-what-apple-sells).
   const page = fs.readFileSync(path.join(EV, 'page.tsx'), 'utf8');
-  assert.match(page, /!\(storeShell && STORE_SHELL_HIDDEN_ADDON_KEYS\.has\(a\.key\)\)/);
+  assert.match(page, /!\(storeShell && isStoreShellHiddenAddon\(a\.key, iap\)\)/);
 });

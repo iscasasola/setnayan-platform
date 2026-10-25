@@ -84,8 +84,8 @@ test('the story source exists in the server half and is wired to the public pool
   // The two already-public loaders /realstories reads. If a refactor drops
   // them, `stories` becomes a promise with nothing behind it and the words
   // above keep offering it.
-  assert.match(src, /\bloadPublishedShowcases\s*\(/, 'no editorial source in site-search.ts');
-  assert.match(src, /\bloadFeaturedChapters\s*\(/, 'no chapter source in site-search.ts');
+  assert.match(src, /\bloadPublishedShowcases(?:Result)?\s*\(/, 'no editorial source in site-search.ts');
+  assert.match(src, /\bloadFeaturedChapters(?:Result)?\s*\(/, 'no chapter source in site-search.ts');
   assert.match(
     src,
     /READ_SOURCE_NOUNS[\s\S]{0,200}STORY_NOUN/,

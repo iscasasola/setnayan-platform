@@ -288,7 +288,7 @@ function TodayLab({ state, toast }: { state: TodayState; toast: string | undefin
 export default async function SupplierLabPage({
   searchParams,
 }: {
-  searchParams: Promise<{ thumb?: string; s?: string; toast?: string; q?: string; lane?: string; add?: string; open?: string; next?: string; mpage?: string; easy?: string; sup?: string; who?: string; draft?: string; library?: string; view?: string; sent?: string; rail?: string; logo?: string; gift?: string; invited?: string; shell?: string; wallet?: string; port?: string }>;
+  searchParams: Promise<{ thumb?: string; s?: string; toast?: string; q?: string; lane?: string; add?: string; open?: string; next?: string; mpage?: string; easy?: string; sup?: string; who?: string; draft?: string; library?: string; view?: string; sent?: string; rail?: string; logo?: string; gift?: string; invited?: string; shell?: string; wallet?: string; port?: string; spot?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
@@ -349,7 +349,13 @@ export default async function SupplierLabPage({
     return wrap(<MoneyLab state={q.s as MoneyState} next={q.next} open={q.open} mpage={q.mpage} wallet={q.wallet} />, 'reading');
   }
   const today = q.s ? TODAY[q.s] : undefined;
-  if (today) return wrap(<TodayLab state={today} toast={q.toast} />, 'today');
+  if (today)
+    return wrap(
+      <>
+        <TodayLab state={today} toast={q.toast} />
+      </>,
+      'today',
+    );
   const thumb = q.thumb ?? 'people';
   return (
     <div className="min-h-screen bg-cream px-4 pb-40 pt-3" data-supplier-lab={thumb}>

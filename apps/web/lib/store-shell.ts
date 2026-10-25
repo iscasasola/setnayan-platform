@@ -312,6 +312,23 @@ const IAP_OPENED_ROUTE =
   /^\/(?:dashboard\/[^/]+\/studio\/(?:papic|panood\/cameras|setnayan-ai|pakanta|patiktok|thank-you)|panood\/control\/[^/]+)(?:\/|$)/;
 
 /**
+ * 🍎 IS THIS ADD-ON'S DOOR HIDDEN IN THE STORE SHELL? — the ONE rule every door site asks (owner 2026-10-23: App
+ * Review must be able to find every In-App Purchase product; a page that opens with nothing linking to it is a
+ * product the reviewer cannot locate, and the build is rejected).
+ *
+ * `iap` false (every build in people's hands, and every build while the switch is off): exactly
+ * `STORE_SHELL_HIDDEN_ADDON_KEYS` — guideline 3.1.1, no paid door without In-App Purchase.
+ * `iap` true: a hidden key whose Studio home `IAP_OPENED_ROUTE` opens (Apple sells it here — Setnayan AI · Music
+ * Maker · Patiktok · Thank You · Papic) gets its door back; every other paid key stays hidden. Derived from the
+ * route, never a second list, so a product cannot open without its door, nor get a door without opening.
+ * Held by `lib/the-app-shows-a-door-to-what-apple-sells.test.ts`.
+ */
+export function isStoreShellHiddenAddon(key: string, iap = false): boolean {
+  if (!STORE_SHELL_HIDDEN_ADDON_KEYS.has(key)) return false;
+  return !(iap && IAP_OPENED_ROUTE.test(`/dashboard/_/studio/${key}`));
+}
+
+/**
  * Does this pathname belong to a feature the store shell must not open?
  * Pure; used by middleware. The hub page itself (`/studio`) stays open — it
  * filters its own grid with STORE_SHELL_HIDDEN_ADDON_KEYS.

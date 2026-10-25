@@ -28,3 +28,7 @@ the booking-fee credits stay with their event.
 
 SPEC IMPACT: corpus DECISION_LOG row "Shop wallet — option A" (2026-10-23) records the build; prototype
 `shop_wallet_portfolio_credits_2026-10-23.html` is the contract.
+
+## 2026-10-25 · fix(shop-wallet): a credit pack sells only while Papic is on
+Owner, asked whether a shop may buy packs while Papic is off: "No. Papic needs to be on." The pack action refuses before minting an order when `isVendorPapicCaptureEnabled()` is false, and the wallet sheet draws no Buy (the balance still shows). Guard: `a-pack-needs-papic-on.test.ts`.
+SPEC IMPACT: None (ruling recorded in DECISION_LOG with the pricing batch).

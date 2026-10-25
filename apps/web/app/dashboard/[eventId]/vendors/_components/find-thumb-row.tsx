@@ -219,6 +219,7 @@ export function FindThumbRow({
         action={{
           icon: Plus,
           label: text.trim() ? 'Add' : 'Add your own',
+          tour: 'suppliers-add-own',
           onClick: () => {
             // The typed name goes INTO the walk; the box is then the search box
             // again, empty (the prototype's `add()`), and the list hears it now.

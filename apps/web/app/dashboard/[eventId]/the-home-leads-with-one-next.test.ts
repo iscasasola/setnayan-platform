@@ -231,7 +231,7 @@ test('d · the services row is on the first screen, last, under the control row'
 test('d · each status is the shipped reader\'s answer, and a failed read is "—"', () => {
   assert.equal(papicStatus({ permitted: true, tile: 'failed' }), '—', 'a thrown Papic read');
   assert.equal(papicStatus({ permitted: true, tile: { photosGathered: null, preCapture: false } }), '—', 'a refused count is not "nothing shot"');
-  assert.equal(papicStatus({ permitted: true, tile: { photosGathered: 0, preCapture: true } }), 'Free camera ready');
+  assert.equal(papicStatus({ permitted: true, tile: { photosGathered: 0, preCapture: true } }), 'Ready', 'no free camera is promised (owner 25 Oct: "unlimited camera but papic credits is used")');
   assert.equal(papicStatus({ permitted: true, tile: null }), 'Not added');
   assert.equal(papicStatus({ permitted: true, tile: { photosGathered: 1, preCapture: false } }), 'On · 1 photo');
   assert.equal(aiStatus(null), '—');

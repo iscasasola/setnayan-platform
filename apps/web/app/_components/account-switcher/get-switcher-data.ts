@@ -94,6 +94,12 @@ export type SwitcherData = {
   otherAccounts?: ParkedAccount[];
   /** May one more login be added on this device (MAX_ACCOUNTS_PER_DEVICE)? */
   canAddAccount?: boolean;
+  /**
+   * `users.theme_preference` — the account's Appearance, so the menu's Appearance row can bring THIS browser in
+   * line with a choice made on another device. `undefined` = not read (the users read failed, or a fallback
+   * literal): the row then reconciles nothing and shows what the browser paints. Never a guessed Light.
+   */
+  themePreference?: string | null;
 };
 
 /**
@@ -147,7 +153,7 @@ async function loadSwitcherData(userId: string): Promise<SwitcherData> {
   const [userRes, roles, membershipRes] = await Promise.all([
     supabase
       .from('users')
-      .select('display_name, email, profile_photo_url, is_internal, is_team_member')
+      .select('display_name, email, profile_photo_url, is_internal, is_team_member, theme_preference')
       .eq('user_id', userId)
       .maybeSingle(),
     fetchUserRoleSummary(supabase, userId),
@@ -180,6 +186,7 @@ async function loadSwitcherData(userId: string): Promise<SwitcherData> {
     profile_photo_url: string | null;
     is_internal: boolean;
     is_team_member: boolean;
+    theme_preference: string | null;
   } | null;
 
   const memberships = (membershipRes.data ?? []) as Array<{
@@ -278,6 +285,8 @@ async function loadSwitcherData(userId: string): Promise<SwitcherData> {
     events,
     eventsMeasured: !membershipRes.error,
     context,
+    // A refused users read is NOT "never chosen": undefined, so the menu reconciles nothing.
+    themePreference: userRes.error ? undefined : (profile?.theme_preference ?? null),
   };
   } catch (err) {
     console.error('[AccountSwitcher] getSwitcherData threw unexpectedly:', err);

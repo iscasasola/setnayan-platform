@@ -53,8 +53,6 @@ const NOUN_ALLOWED_PATHS: Record<string, string> = {
   'lib/erasure/': 'internal erasure register — not customer-facing',
   'lib/data-subject-register.ts': 'internal data-subject register — not customer-facing',
   'app/dev/': 'dev labs — never shipped to customers',
-  'app/(shell)/acceptable-use/': 'legal text — changes go through the owner',
-  'app/(shell)/privacy/': 'legal text — changes go through the owner',
   'lib/blog-batches/': 'editorial articles — ordinary English prose',
   'lib/blog.ts': 'editorial articles — ordinary English prose',
   'lib/auspicious-date.ts': 'cultural/astrological prose about dates',

@@ -183,7 +183,8 @@ test('1a · exactly three places draw the button — one mount each, and each is
     if (n) mounts[rel] = n;
   }
   console.log('[wallet-button mounts]', JSON.stringify(mounts));
-  assert.deepEqual(mounts, { [GUEST_TICKET]: 1, [POPUP]: 1, [THANK_YOU]: 1 });
+  // The maker-lab's thank-you mirrors `invite/enter` (a dev page, `notFound()` in production) — named, not skipped.
+  assert.deepEqual(mounts, { [GUEST_TICKET]: 1, [POPUP]: 1, [THANK_YOU]: 1, 'app/dev/maker-lab/guest/page.tsx': 1 });
 
   // The pop-up and the thank-you: the button comes RIGHT AFTER their own "Save my ticket" (the Safari hand-off
   // branch is the other side of the same conditional, and the page hands no Wallet link beside it).

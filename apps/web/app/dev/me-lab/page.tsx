@@ -1,4 +1,8 @@
 import { notFound } from 'next/navigation';
+import { APPLE_WALLET_ROUTE, PASS_CARD_WORDS } from '@/lib/pass-card';
+import { headers } from 'next/headers';
+import { appleWalletDevice, type AppleWalletLink } from '@/lib/wallet-pass';
+import { MeKeepInvitation } from '@/app/[slug]/_components/me-keep-invitation';
 import { MeStageLab } from './me-stage-lab';
 import { eventWordsFor } from '@/app/[slug]/_lib/event-words';
 import { GuestMeParts } from '@/app/[slug]/_components/guest-me-parts';
@@ -29,6 +33,13 @@ export default async function MeLabPage({ searchParams }: { searchParams: Promis
   const config = labMeDressConfig();
   const rolePalette = labMeRolePalette();
   const people = typeof sp.who === 'string' ? LAB_PEOPLE.filter((p) => p.key === sp.who) : LAB_PEOPLE;
+  /* 🍎 Me's "Add to Apple Wallet" under Save as an iPhone/iPad in Safari is handed it when the server can sign
+     (`appleWalletLink`'s `download` arm) — a lab fixture by the same device test, not a second caller of the gate.
+     `?keep=1` also draws Me's "Keep this invitation" offer (`MeKeepInvitation`) with its quiet "Use my email instead". */
+  const userAgent = (await headers()).get('user-agent');
+  const labWallet: AppleWalletLink | null = appleWalletDevice(userAgent)
+    ? { kind: 'download', href: APPLE_WALLET_ROUTE, label: PASS_CARD_WORDS.appleWallet }
+    : null;
   const labNote = sp.note === '1' ? 'Tita, we saved you a seat beside Lola — she can’t wait to see you.\nPlease bring the Santo Niño for the blessing.' : null;
   return (
     <main className="min-h-dvh bg-cream px-4 py-8 text-ink">
@@ -58,7 +69,10 @@ export default async function MeLabPage({ searchParams }: { searchParams: Promis
                 rolePalette,
               }}
             />
-            <GuestTicket state="pass" name={p.display_name} invitationUrl="/dev/me-lab" src={`/dev/me-lab/ticket?who=${p.key}`} />
+            <GuestTicket state="pass" name={p.display_name} invitationUrl="/dev/me-lab" src={`/dev/me-lab/ticket?who=${p.key}`} appleWallet={labWallet} />
+            {sp.keep === '1' ? (
+              <MeKeepInvitation state={{ kind: 'offer' }} eventId="lab-event" slug="lab" personalLink="https://www.setnayan.com/lab" userAgent={userAgent} termsCarried />
+            ) : null}
           </section>
         );
       })}

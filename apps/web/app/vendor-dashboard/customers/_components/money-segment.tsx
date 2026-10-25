@@ -27,6 +27,7 @@ import { MoneyView, type MoneyLegacyPayout } from './money-view';
 import { MoneyLog, type MoneyLogCustomer } from './money-log';
 import { ShopWalletSheet, type ShopWalletSheetData } from './shop-wallet-sheet';
 import { fetchShopWallet, fetchShopWalletEventPots, fetchShopWalletPackMeta } from '@/lib/shop-wallet.server';
+import { isVendorPapicCaptureEnabled } from '@/lib/vendor-dayof-flags';
 import { eventPotSub, eventPotTitle, walletHistoryLines, walletRowSubline, walletRowTitle } from '@/lib/shop-wallet';
 import { fetchVendorPapicPackPricePhp } from '@/lib/vendor-papic-grants';
 import { VENDOR_PAPIC_PORTFOLIO_PACK_CREDITS } from '@/lib/vendor-papic-credits';
@@ -245,12 +246,13 @@ async function readWalletSheet(
   wallet: Awaited<ReturnType<typeof fetchShopWallet>>,
 ): Promise<ShopWalletSheetData> {
   const packOrderIds = wallet.entries.filter((e) => e.kind === 'pack_order' && e.orderId).map((e) => e.orderId as string);
-  const [packMeta, rooms, pricePhp, settings, storeShell] = await Promise.all([
+  const [packMeta, rooms, pricePhp, settings, storeShell, papicOn] = await Promise.all([
     fetchShopWalletPackMeta(supabase, packOrderIds),
     fetchVendorRoomEvents(supabase, vendorProfileId).catch(() => null),
     fetchVendorPapicPackPricePhp(admin),
     fetchPlatformSettings(supabase),
     isStoreShellRequest(),
+    isVendorPapicCaptureEnabled(),
   ]);
   const events = rooms ? [...rooms].sort((a, b) => b.bookedDate.localeCompare(a.bookedDate)) : null;
   const pots = events ? await fetchShopWalletEventPots(admin, vendorProfileId, events).catch(() => null) : null;
@@ -276,7 +278,7 @@ async function readWalletSheet(
         sub: eventPotSub(pot),
         href: `/vendor-dashboard/on-the-day/live/${pot.eventId}/papic`,
       })) ?? null,
-    buy: { openRails: openRailOptions(settings), pricePhp, packCredits: VENDOR_PAPIC_PORTFOLIO_PACK_CREDITS },
+    buy: { openRails: openRailOptions(settings), pricePhp, packCredits: VENDOR_PAPIC_PORTFOLIO_PACK_CREDITS, papicOn },
     storeShell,
   };
 }

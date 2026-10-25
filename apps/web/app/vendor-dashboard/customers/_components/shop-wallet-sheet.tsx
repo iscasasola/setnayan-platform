@@ -52,6 +52,9 @@ export type ShopWalletSheetData = {
     /** null = the pack SKU is missing/inactive. */
     pricePhp: number | null;
     packCredits: number;
+    /** The owner's Papic switch (`isVendorPapicCaptureEnabled`). Off ⇒ no pack is sold —
+     *  owner 2026-10-25: "No. Papic needs to be on." The balance still shows. */
+    papicOn: boolean;
   };
   /** App Store / Play shell: no buying here (guideline 3.1.1). */
   storeShell: boolean;
@@ -132,8 +135,9 @@ export function ShopWalletSheet({ data, closeHref }: { data: ShopWalletSheetData
 }
 
 /**
- * The only place a pack is bought. Hidden in the store shell; withheld when the
- * balance is unread (F1 — no remembered price beside an unread balance).
+ * The only place a pack is bought. Hidden in the store shell and while Papic is
+ * off; withheld when the balance is unread (F1 — no remembered price beside an
+ * unread balance).
  */
 function BuyAPack({
   balance,
@@ -156,7 +160,7 @@ function BuyAPack({
     if (state.status === 'error') toast.error(state.message);
   }, [state, toast]);
 
-  if (storeShell || balance == null) return null;
+  if (storeShell || balance == null || !buy.papicOn) return null;
 
   return (
     <div className="mt-5" data-shop-wallet-buy="">

@@ -140,7 +140,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
         slug: 'how-much-does-setnayan-cost',
         title: 'How much does Setnayan cost?',
         appBody: 'Planning in the Setnayan app is free: schedule, budget, guest list, seat plan, mood board, RSVP with a QR code for every guest, and marketplace browse with a match preview. Couples pay 0% commission on supplier bookings — they pay their suppliers directly and Setnayan never sits between them at checkout.',
-        body: 'Planning is free: schedule, budget, guest list, seat plan, mood board, and marketplace browse with a match preview. Setnayan AI (a one-time purchase, with access through your event date) and each optional service are priced on setnayan.com/pricing. Couples pay 0% commission on supplier bookings — they pay suppliers directly. Suppliers: Verified is free during launch, with Solo, Pro and Ultra plans — see setnayan.com/for-suppliers.',
+        body: 'Planning is free: schedule, budget, guest list, seat plan, mood board, and marketplace browse with a match preview. Setnayan AI (a one-time purchase, with access through your event date) and each optional service are priced on setnayan.com/pricing. Couples pay 0% commission on supplier bookings — they pay suppliers directly. Suppliers: Verified is free, for good, with Solo, Pro and Ultra plans — see setnayan.com/for-suppliers.',
       },
       {
         slug: 'is-setnayan-free-for-couples',
@@ -190,7 +190,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'how-are-vendors-verified',
         title: 'How are suppliers verified on Setnayan?',
-        body: 'Suppliers complete a business-legitimacy check plus a short video call with a Setnayan admin. Verification is free during launch — no listing fee and no badge fee.',
+        body: 'Suppliers complete a business-legitimacy check plus a short video call with a Setnayan admin. Verification is free, for good — no listing fee and no badge fee.',
       },
       {
         slug: 'what-is-pakanta',

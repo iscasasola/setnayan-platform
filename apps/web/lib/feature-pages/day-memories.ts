@@ -9,9 +9,11 @@ import type { FeaturePageEntry } from './types';
  *     (`app/(shell)/papic/_papic-sections.tsx`). Per-guest credit limits are not
  *     claimed: that page's own docblock says they may be claimed only once shipped.
  *   · Live Watch — LIVE_STUDIO is one unlock for the whole event (`one_time`).
- *   · Patiktok — "use free, pay to save and share": making and watching a reel
- *     is free, the download is ◆ (free-plus). "Cleared for sharing" is NOT
- *     claimed; the music is Setnayan-owned, which is what the code can show.
+ *   · Patiktok — PAID PER DAY (owner 2026-10-25, verbatim: "Patiktok has a per
+ *     day amount."). It has no free part on any public page; the price is the
+ *     PATIKTOK_COMPILER row (`per_day`), never typed. (Was free-plus "make free,
+ *     pay to save" until 2026-10-25.) "Cleared for sharing" is NOT claimed; the
+ *     music is Setnayan-owned, which is what the code can show.
  *   · Memories — the event's Memories page gathers the keepsake tools; it does
  *     not take guest messages, so that line is gone.
  */
@@ -161,20 +163,20 @@ export const DAY_MEMORIES_FEATURES: readonly FeaturePageEntry[] = [
     line: { en: 'Turns your moments into short, vertical highlight reels.', tl: 'Ginagawang maiikling vertical na highlight reel ang mga sandali mo.' },
     title: { en: 'Patiktok: Short Highlight Reels', tl: 'Patiktok: Maikling Highlight Reels' },
     description: {
-      en: 'Pick the moments you love and a short, vertical reel composes itself with music, right in your browser. Make it free; pay to save and share.',
-      tl: 'Piliin ang mga sandaling gusto mo at bubuo ang maikli at vertical na reel na may musika, sa browser mo mismo. Libreng gawin; may bayad i-save at ibahagi.',
+      en: 'Pick the moments you love and a short, vertical reel composes itself with music, right in your browser. Paid per day of your event.',
+      tl: 'Piliin ang mga sandaling gusto mo at bubuo ang maikli at vertical na reel na may musika, sa browser mo mismo. May bayad kada araw ng event mo.',
     },
     answer: {
-      en: 'Patiktok turns the moments from your event into a short, vertical highlight reel, set to music. You pick the moments, the length and a song, and the reel renders right in your browser with no editing app. Making and watching it is free; saving and sharing it is the upgrade.',
-      tl: 'Ginagawang maikli at vertical na highlight reel ng Patiktok ang mga sandali ng event mo, may musika. Pipiliin mo ang mga sandali, haba at kanta, at mabubuo ang reel sa browser mo nang walang editing app. Libreng gawin at panoorin; ang pag-save at pagbabahagi ang upgrade.',
+      en: 'Patiktok turns the moments from your event into a short, vertical highlight reel, set to music. You pick the moments, the length and a song, and the reel renders right in your browser with no editing app. Patiktok is paid per day of your event.',
+      tl: 'Ginagawang maikli at vertical na highlight reel ng Patiktok ang mga sandali ng event mo, may musika. Pipiliin mo ang mga sandali, haba at kanta, at mabubuo ang reel sa browser mo nang walang editing app. May bayad ang Patiktok kada araw ng event mo.',
     },
     forWho: {
       en: 'Hosts who want something shareable the same night while the big film takes its time.',
       tl: 'Para sa mga host na gustong may maibabahagi sa parehong gabi habang matagal pa ang malaking film.',
     },
     steps: {
-      en: ['Photos and short clips from your event gather inside Setnayan.', 'Choose your moments, a length and a song.', 'Watch it free; unlock the download to save and share it.'],
-      tl: ['Naiipon sa Setnayan ang mga litrato at maiikling clip ng event mo.', 'Pumili ng mga sandali, haba at kanta.', 'Panoorin nang libre; i-unlock ang download para i-save at ibahagi.'],
+      en: ['Photos and short clips from your event gather inside Setnayan.', 'Choose your moments, a length and a song.', 'Unlock Patiktok for your event day to save and share the reel.'],
+      tl: ['Naiipon sa Setnayan ang mga litrato at maiikling clip ng event mo.', 'Pumili ng mga sandali, haba at kanta.', 'I-unlock ang Patiktok para sa araw ng event mo para i-save at ibahagi ang reel.'],
     },
     different: {
       en: ['The reel renders in your browser — no editing app and no waiting overnight.', 'Every reel uses music Setnayan owns.', 'It does not replace your event film; it is the fast, shareable version.'],
@@ -188,12 +190,12 @@ export const DAY_MEMORIES_FEATURES: readonly FeaturePageEntry[] = [
       en: [
         { q: 'What is a Patiktok reel?', a: 'A short, vertical highlight video of your event, set to music.' },
         { q: 'Do I need to edit anything?', a: 'No. Pick the moments, length and song, and the reel renders in your browser.' },
-        { q: 'What is free?', a: 'Making and watching a reel. Saving and sharing it is the ◆ upgrade, priced in the live catalogue.' },
+        { q: 'How is it priced?', a: 'Per day of your event. The price is read from our live catalogue and shown on this page.' },
       ],
       tl: [
         { q: 'Ano ang Patiktok reel?', a: 'Maikli at vertical na highlight video ng event mo, may musika.' },
         { q: 'Kailangan ko bang mag-edit?', a: 'Hindi. Piliin ang mga sandali, haba at kanta, at mabubuo ang reel sa browser mo.' },
-        { q: 'Ano ang libre?', a: 'Ang paggawa at panonood ng reel. Ang pag-save at pagbabahagi ang ◆ upgrade, nasa live catalogue ang presyo.' },
+        { q: 'Magkano?', a: 'Kada araw ng event mo. Binabasa ang presyo mula sa live catalogue namin at ipinapakita sa page na ito.' },
       ],
     },
     keywords: {
@@ -201,7 +203,7 @@ export const DAY_MEMORIES_FEATURES: readonly FeaturePageEntry[] = [
       tl: ['highlight reel ng kasal', 'vertical na video'],
     },
     shots: [],
-    price: { kind: 'free-plus', catalogue: 'retail', codes: ['PATIKTOK_COMPILER'] },
+    price: { kind: 'paid', catalogue: 'retail', codes: ['PATIKTOK_COMPILER'] },
     moreHref: '/patiktok',
     evidence: ['app/(shell)/patiktok/page.tsx', 'lib/patiktok.ts', 'app/dashboard/[eventId]/studio/patiktok/page.tsx'],
   },

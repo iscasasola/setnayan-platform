@@ -58,15 +58,15 @@ BEGIN
     EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', 'lh_ro_del_' || left(r.t, 40), r.t);
     EXECUTE format(
       'CREATE POLICY %I ON public.%I AS RESTRICTIVE FOR INSERT TO authenticated '
-      'WITH CHECK (NOT public.is_limited_helper(event_id) OR public.moderator_area_level(event_id, %L) = ''edit'')',
+      'WITH CHECK (NOT public.is_limited_helper(event_id) OR event_id IN (SELECT l.event_id FROM public.current_moderator_area_levels(%L) l WHERE l.level = ''edit''))',
       'lh_ro_ins_' || left(r.t, 40), r.t, r.area);
     EXECUTE format(
       'CREATE POLICY %I ON public.%I AS RESTRICTIVE FOR UPDATE TO authenticated '
-      'USING (NOT public.is_limited_helper(event_id) OR public.moderator_area_level(event_id, %L) = ''edit'')',
+      'USING (NOT public.is_limited_helper(event_id) OR event_id IN (SELECT l.event_id FROM public.current_moderator_area_levels(%L) l WHERE l.level = ''edit''))',
       'lh_ro_upd_' || left(r.t, 40), r.t, r.area);
     EXECUTE format(
       'CREATE POLICY %I ON public.%I AS RESTRICTIVE FOR DELETE TO authenticated '
-      'USING (NOT public.is_limited_helper(event_id) OR public.moderator_area_level(event_id, %L) = ''edit'')',
+      'USING (NOT public.is_limited_helper(event_id) OR event_id IN (SELECT l.event_id FROM public.current_moderator_area_levels(%L) l WHERE l.level = ''edit''))',
       'lh_ro_del_' || left(r.t, 40), r.t, r.area);
   END LOOP;
 END;

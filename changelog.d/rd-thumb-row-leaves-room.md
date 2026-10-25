@@ -17,8 +17,8 @@ page's end (walked at 1280 on /dev/suppliers-lab with the real column padding: d
 on `<html>` as `--sn-thumb-room` — mounted by the one `<ThumbRow>` (so every screen that draws it: Find, Guests,
 Budget, Memories, the account rows, the supplier rows, Discover) and by Build's Save bar (not a ThumbRow). Every column
 that clears the bottom chrome pads by `max(its dock clearance, --sn-thumb-room)` at every width: `[data-shell-main]`
-(event tree), the `(account)` and `(launcher)` `<main>`s, the supplier dashboard column. Find's hand-added
-`max-tab:pb-16` is gone. The Suppliers lab now wears the real column's `pb-6` (its `pb-28` hid this from every walk).
+(event tree), the `(account)` and `(launcher)` `<main>`s, Discover's `[data-fd-page]` (its hand-added `+4rem` for the
+row is gone too) and the supplier dashboard column. Find's hand-added `max-tab:pb-16` is gone. The Suppliers lab now wears the real column's `pb-6` (its `pb-28` hid this from every walk).
 
 **Opened category stays low — cause.** The landing (`scrollBenchAnchor`, unchanged since c45748a2c2 on 2026-10-08)
 runs, and is clamped by the page's end: a category low in the list with a short body cannot be scrolled to the top

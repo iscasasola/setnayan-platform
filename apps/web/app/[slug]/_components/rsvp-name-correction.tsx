@@ -71,7 +71,7 @@ export function RsvpNameCorrection({ theOrganizer }: { /** "the couple" / "the f
         /* A modal <dialog> stands in the top layer, fixed over the whole screen; the sheet sits on the screen's foot
            and RIDES the keyboard through the one keyboard reading (`useKeyboardRide`): while the keyboard is up its
            foot is the keyboard's top, so "How should your name read?" is never typed blind. */
-        className="w-full rounded-t-[22px] bg-cream px-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-3.5 text-ink shadow-[0_-14px_40px_rgba(0,0,0,0.12)] backdrop:bg-ink/20"
+        className="w-full rounded-t-2xl bg-cream px-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-3.5 text-ink shadow-[0_-14px_40px_rgba(0,0,0,0.12)] backdrop:bg-ink/20"
         style={{ top: 'auto', left: 0, right: 0, bottom: keyboard.open ? keyboard.bottom : 0, margin: '0 auto', maxWidth: 'min(100%, 28rem)' }}
       >
         <span aria-hidden className="mx-auto mb-4 block h-1 w-10 rounded-full bg-ink/15" />

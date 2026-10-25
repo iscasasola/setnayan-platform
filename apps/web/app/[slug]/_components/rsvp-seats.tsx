@@ -55,7 +55,7 @@ export function RsvpSeats({
 function SeatTile({ tag, sub, you = false }: { tag: string; sub: string; you?: boolean }) {
   return (
     <li
-      className={`min-w-0 flex-1 rounded-[14px] border px-2 pb-2.5 pt-3 text-center text-xs ${
+      className={`min-w-0 flex-1 rounded-lg border px-2 pb-2.5 pt-3 text-center text-xs ${
         you ? 'max-w-[7.5rem] border-mulberry text-ink' : 'border-dashed border-ink/25 text-ink/70'
       }`}
       data-rsvp-seat-tile={tag}

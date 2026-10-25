@@ -13,7 +13,7 @@
  *      a part with none, or one on a tier-1 group;
  *   3. a part holding a photo — on a couple's board or in a supplier's gallery —
  *      cannot be deleted (hide it instead); a part with none can;
- *   4. the key is permanent, and only an admin writes.
+ *   4. the key is permanent; a signed-in account reads, anon reaches nothing, and nobody but the service role writes.
  *
  * 🔑 EVERY REFUSAL INSERTS OR DELETES A REAL ROW. A trigger that compiles is not a
  * trigger that fires.
@@ -216,21 +216,23 @@ test('the key is permanent — a rename is a label change', async () => {
   await db.query(`UPDATE public.inspiration_parts SET label_en = 'Cake' WHERE slot_key = 'cake'`);
 });
 
-test('anyone reads the parts; a signed-in non-admin cannot write them', async () => {
+test('a signed-in account reads every part; anon reaches nothing; nobody signed in writes', async () => {
   const { userId } = await newCouple();
   try {
     await db.exec('SET ROLE anon');
-    const n = (await db.query<{ n: number }>(`SELECT count(*)::int AS n FROM public.inspiration_parts`)).rows[0]!.n;
-    assert.equal(n, MOODBOARD_SLOT_KEYS.length, 'anon does not read every part');
+    assert.match(await refused(() => db.query(`SELECT count(*) FROM public.inspiration_parts`)), /permission denied/, 'anon reads the parts');
+    assert.match(await refused(() => db.query(`SELECT count(*) FROM public.inspiration_part_categories`)), /permission denied/);
     await db.exec('RESET ROLE');
     await setAuthUid(db, userId);
     await db.exec('SET ROLE authenticated');
+    const n = (await db.query<{ n: number }>(`SELECT count(*)::int AS n FROM public.inspiration_parts`)).rows[0]!.n;
+    assert.equal(n, MOODBOARD_SLOT_KEYS.length, 'a signed-in account does not read every part');
     assert.match(
       await refused(() => db.query(`INSERT INTO public.inspiration_parts (slot_key, label_en, home_category_id) VALUES ('sneak', 'Sneak', 'florist')`)),
-      /row-level security|permission denied/,
+      /permission denied/,
     );
-    const upd = await db.query(`UPDATE public.inspiration_parts SET label_en = 'Hacked' WHERE slot_key = 'cake'`);
-    assert.equal(upd.affectedRows ?? 0, 0, 'a non-admin renamed a part');
+    assert.match(await refused(() => db.query(`UPDATE public.inspiration_parts SET label_en = 'Hacked' WHERE slot_key = 'cake'`)), /permission denied/);
+    assert.match(await refused(() => db.query(`DELETE FROM public.inspiration_part_categories WHERE slot_key = 'cake'`)), /permission denied/);
   } finally {
     await db.exec('RESET ROLE');
     await setAuthUid(db, null);

@@ -6,8 +6,8 @@ Step ① of the owner-approved package `prototypes/admin_inspiration_groups_2026
 - Migration `20271287668170_inspiration_parts_on_the_taxonomy.sql`: `inspiration_parts` (one row per
   part, keyed by today's slot key, with a tier-2 home category, `hidden`, `kind` part|system) and
   `inspiration_part_categories` ("also from", with `sort_order` — the credit's order is data). RLS at
-  CREATE TABLE in `service_categories`' pattern (anyone reads, `is_admin()` writes, anon write grants
-  revoked). Triggers: every category named must be tier 2; the key is permanent; a part holding a photo
+  CREATE TABLE: authenticated SELECT only, anon holds no grant, no write policy (writes go through the
+  service role, as `/admin/categories` writes `service_categories`) — narrowed for the exposure freeze. Triggers: every category named must be tier 2; the key is permanent; a part holding a photo
   on a couple's board or in a supplier's gallery can only be hidden, never deleted.
 - The seed is generated from the consts (`lib/inspiration-parts-seed.ts` →
   `scripts/gen-inspiration-parts-seed.ts`, `--check` compares the migration's block): home = the first

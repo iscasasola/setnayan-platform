@@ -32,10 +32,14 @@
 --   · a part that holds a photo, on the couple's board OR in a supplier's
 --     gallery, can only be HIDDEN, never deleted (trigger).
 --
--- RLS at CREATE TABLE time, `service_categories`' own pattern: anyone reads
--- (anon + authenticated — the couple, the supplier and the public gallery all
--- draw these names), only `is_admin()` writes. anon's write grants are revoked
--- outright, so RLS is not the only layer.
+-- RLS at CREATE TABLE time, NARROWER than `service_categories`' pattern (the
+-- exposure freeze, 2026-10-26): only `authenticated` reads — every reader is a
+-- signed-in couple's Studio, a supplier's library or a server action through the
+-- cookie client; no guest or anonymous page draws a part. `anon` holds NOTHING
+-- (all grants revoked), `authenticated` holds SELECT and nothing else, and there
+-- is no write policy at all: writes go through the service role, the way
+-- `/admin/categories` already writes `service_categories` (createAdminClient) —
+-- step ③'s admin actions do the same, behind their own admin check.
 --
 -- 🌱 THE SEED IS GENERATED, NOT TYPED: `apps/web/scripts/gen-inspiration-parts-
 -- seed.ts` prints the block between the GENERATED SEED markers from
@@ -81,19 +85,15 @@ CREATE INDEX IF NOT EXISTS inspiration_parts_home_idx
 ALTER TABLE public.inspiration_parts ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS inspiration_parts_read_all ON public.inspiration_parts;
-CREATE POLICY inspiration_parts_read_all
+DROP POLICY IF EXISTS inspiration_parts_read_signed_in ON public.inspiration_parts;
+CREATE POLICY inspiration_parts_read_signed_in
   ON public.inspiration_parts FOR SELECT
-  TO anon, authenticated
-  USING (TRUE);
-
-DROP POLICY IF EXISTS inspiration_parts_admin_write ON public.inspiration_parts;
-CREATE POLICY inspiration_parts_admin_write
-  ON public.inspiration_parts FOR ALL
   TO authenticated
-  USING (public.is_admin())
-  WITH CHECK (public.is_admin());
+  USING (TRUE);
+DROP POLICY IF EXISTS inspiration_parts_admin_write ON public.inspiration_parts;
 
-REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON public.inspiration_parts FROM anon;
+REVOKE ALL ON public.inspiration_parts FROM PUBLIC, anon, authenticated;
+GRANT SELECT ON public.inspiration_parts TO authenticated;
 
 -- ── 2. "Also from" ──────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.inspiration_part_categories (
@@ -116,19 +116,15 @@ CREATE INDEX IF NOT EXISTS inspiration_part_categories_category_idx
 ALTER TABLE public.inspiration_part_categories ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS inspiration_part_categories_read_all ON public.inspiration_part_categories;
-CREATE POLICY inspiration_part_categories_read_all
+DROP POLICY IF EXISTS inspiration_part_categories_read_signed_in ON public.inspiration_part_categories;
+CREATE POLICY inspiration_part_categories_read_signed_in
   ON public.inspiration_part_categories FOR SELECT
-  TO anon, authenticated
-  USING (TRUE);
-
-DROP POLICY IF EXISTS inspiration_part_categories_admin_write ON public.inspiration_part_categories;
-CREATE POLICY inspiration_part_categories_admin_write
-  ON public.inspiration_part_categories FOR ALL
   TO authenticated
-  USING (public.is_admin())
-  WITH CHECK (public.is_admin());
+  USING (TRUE);
+DROP POLICY IF EXISTS inspiration_part_categories_admin_write ON public.inspiration_part_categories;
 
-REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON public.inspiration_part_categories FROM anon;
+REVOKE ALL ON public.inspiration_part_categories FROM PUBLIC, anon, authenticated;
+GRANT SELECT ON public.inspiration_part_categories TO authenticated;
 
 -- ── 3. Every category named is a tier-2 category ────────────────────────────
 CREATE OR REPLACE FUNCTION public.inspiration_part_category_is_tier_2()
@@ -157,6 +153,8 @@ BEGIN
 END;
 $$;
 
+REVOKE ALL ON FUNCTION public.inspiration_part_category_is_tier_2() FROM PUBLIC, anon, authenticated;
+
 DROP TRIGGER IF EXISTS inspiration_parts_home_is_tier_2 ON public.inspiration_parts;
 CREATE TRIGGER inspiration_parts_home_is_tier_2
   BEFORE INSERT OR UPDATE OF home_category_id ON public.inspiration_parts
@@ -183,6 +181,8 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+
+REVOKE ALL ON FUNCTION public.inspiration_parts_before_update() FROM PUBLIC, anon, authenticated;
 
 DROP TRIGGER IF EXISTS inspiration_parts_before_update ON public.inspiration_parts;
 CREATE TRIGGER inspiration_parts_before_update

@@ -48,10 +48,9 @@ export const EXPLORE_INFO_WHAT =
   'Browse every service your event needs: open a folder, open a category, and its vendors appear as a carousel. Nothing here is committed — shortlisting, comparing and inquiring are all free.';
 
 /**
- * §11.1 — what the Coverage Strip means. Names the strip "your event" to match
- * `ADD_TO_PLAN_HEADING` below: the chip pool adds INTO this strip, so the two
- * must call the container the same thing or the panel explains a noun the
- * button never uses.
+ * §11.1 — what the Coverage Strip means. Names the strip "your event", the
+ * same noun every add / remove string below uses for the container, so the
+ * panel never explains a noun the buttons do not.
  */
 export const EXPLORE_INFO_STRIP =
   'The strip at the top is your event, one tile per category you chose during onboarding. It is ordered by what needs deciding soonest, categories you are done with sink to the right, and NEXT marks the one to pick up now.';
@@ -180,22 +179,41 @@ export function categoryHintButtonLabel(label: string): string {
    a one-file diff, so none of these strings may be inlined in JSX. */
 
 /**
- * Heading above a folder's "not in your event" chip pool. Says "event", not
- * "plan" — the couple thinks in terms of the event they are building, and
- * `EXPLORE_INFO_STRIP` above names the same container the same way.
- *
  * ⚠ "PLAN" IS A RESERVED WORD in this surface's copy
  * (`Explore_Integration_BUILD_SPEC_2026-07-29.md` §2, one word / one concept):
  * a **plan** is a saved, named alternative team you compare — never the set of
  * categories your event covers. Every string in this block therefore says
- * *event*, aria-labels included. The EXPORT NAMES keep `…PLAN…` on purpose:
- * they are also `explore-in-plan.ts`'s internal vocabulary (`notInPlan`,
- * `inPlanTiles`), which is a concept, not copy.
+ * *event* or *category*, aria-labels included. The EXPORT NAMES keep `…PLAN…`
+ * on purpose: they are also `explore-in-plan.ts`'s internal vocabulary
+ * (`notInPlan`, `inPlanTiles`), which is a concept, not copy.
+ *
+ * ＋ ADD A CATEGORY IS THE LIST'S LAST ROW (owner 2026-10-26, verbatim: *"yes. this will apply to the inspiration
+ * board as well"* — prototype `suppliers_add_category_row_2026-10-26`, DECISION_LOG "ADD A CATEGORY IS THE LIST'S
+ * LAST ROW"). It replaced "Need something else? ＋ Add to your event" (a sentence and a pill under the list): ONE
+ * row in the category rows' own shape — a ＋ in the icon disc, this title, and under it the first three categories
+ * the couple has NOT added (`addCategoryPreview`), so it is clear what the list behind it holds. The same grouped
+ * dropdown opens; picking one adds it and opens its row, unchanged.
  */
-export const ADD_TO_PLAN_HEADING = '＋ Add to your event';
+export const ADD_CATEGORY_TITLE = 'Add a category';
 
-/** aria-label on one pool chip. Mirrors the heading above — a screen reader must
- *  not say "plan" over a pool the eye reads as "event". */
+/** How many categories the row's second line names before it trails off. */
+export const ADD_CATEGORY_PREVIEW_COUNT = 3;
+
+/**
+ * The row's second line: the first three labels it would offer, in the list's own order — "Food trucks, photo
+ * booth, fireworks…". The first keeps its capital; each after it is lower-cased word by word, EXCEPT a word that is
+ * not simply Capitalised ("HMUA", "DJ", "LED wall") — lower-casing an acronym misspells it. "…" only when more
+ * categories wait behind the three; an empty list gives "" (the row is not drawn then).
+ */
+export function addCategoryPreview(labels: readonly string[]): string {
+  const shown = labels.slice(0, ADD_CATEGORY_PREVIEW_COUNT).map((label, i) =>
+    i === 0 ? label : label.replace(/\S+/g, (w) => (/^[A-Z][^A-Z]*$/.test(w) ? w.toLowerCase() : w)),
+  );
+  return `${shown.join(', ')}${labels.length > ADD_CATEGORY_PREVIEW_COUNT ? '…' : ''}`;
+}
+
+/** aria-label on one pool chip. Says "event" — a screen reader must not say
+ *  "plan" over a pool the eye reads as "event". */
 export function addToPlanChipLabel(label: string): string {
   return `Add ${label} to your event`;
 }
@@ -209,8 +227,6 @@ export function removeFromEventLabel(label: string): string {
   return `Not needed · Remove ${label}`;
 }
 
-/** The words before the one "＋ Add to your event" dropdown under the list. */
-export const ADD_TO_EVENT_ASK = 'Need something else?';
 
 /**
  * What removal actually does, said out loud (owner 2026-09-06: *"archive …

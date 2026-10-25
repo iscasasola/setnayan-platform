@@ -159,7 +159,7 @@ export function PostEventScenePanel({
 }) {
   // `tile` is new each time the Maker refreshes — the moment the draft is read back.
   const { pending, error, save, drawn } = useDraftSave(eventId, draftAction, tile, (p) => baseOf(p, arrangement, sectionCanvases));
-  /** 🧭 The new Maker's toolbar is on (a phone, `makerStagesStudioEnabled` — `maker-shell.tsx` `ss`). */
+  /** 🧭 The new Maker's toolbar is on (a phone, `stagesStudio`, the one Maker since 2026-10-25 — `maker-shell.tsx` `ss`). */
   const toolbar = useMaker()?.stagesStudio === true;
   const scene = tile.scene;
   const hiddenNow = drawn?.hidden ?? tile.hidden;

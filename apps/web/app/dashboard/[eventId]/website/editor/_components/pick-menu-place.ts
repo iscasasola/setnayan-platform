@@ -117,7 +117,7 @@ export function fontRowClass(fontFamily: string | undefined): string | undefined
  * ▁ ON A PHONE IN THE NEW MAKER A LIST OPENS AS THE ONE BOTTOM SHEET (owner
  * 2026-10-06: every pop-up opens from the bottom; `MakerSheet`, launch/_components/maker-sheet.tsx).
  * The shell hands the sheet down (`PickSheetContext`) only while
- * `makerStagesStudioEnabled` is on; with none handed — every other page, and
+ * `stagesStudio`, the one Maker since 2026-10-25 is on; with none handed — every other page, and
  * the shipped Maker — a list opens where `placePickList` puts it, as before.
  */
 export type PickSheet = (p: { label: string; onClose: () => void; children: ReactNode }) => ReactNode;

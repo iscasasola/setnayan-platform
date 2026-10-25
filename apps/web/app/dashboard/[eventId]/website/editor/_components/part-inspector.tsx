@@ -122,7 +122,7 @@ export function PartTextTab({
   threeControls = false,
 }: {
   /**
-   * 🔤 THE NEW MAKER'S TEXT TOOL (`makerStagesStudioEnabled`): exactly Font ·
+   * 🔤 THE NEW MAKER'S TEXT TOOL (`stagesStudio`, the one Maker since 2026-10-25): exactly Font ·
    * Colour · Size (`MAKER_PART_TEXT_TOOLS`, `lib/maker-parts.ts`) — owner
    * 2026-10-06 *"no"* to Weight, Bold/Italic/Underline, line and letter
    * spacing (DECISION_LOG "TEXT STYLING STAYS THREE CONTROLS"). The words are
@@ -506,7 +506,7 @@ export function PartAnimateTab({
   buildWords = false,
 }: {
   /**
-   * 🎬 The new Maker (`makerStagesStudioEnabled`) names the three steps as the
+   * 🎬 The new Maker (`stagesStudio`, the one Maker since 2026-10-25) names the three steps as the
    * owner did — Build in · Action · Build out (`MAKER_PART_ANIMATE_STEPS`). The
    * rows under each are the same.
    */

@@ -1,7 +1,7 @@
 /**
  * lib/maker-part-groups.ts — ＋ THE PARTS A PAGE CAN TAKE, GROUPED THE WAY
  * GUESTS MEET THEM; ↕ WHERE A DRAGGED PART LANDS; 🗑 WHAT TAKING ONE OFF DOES.
- * The new Maker's Stages side, behind `makerStagesStudioEnabled`.
+ * The new Maker's Stages side, behind `stagesStudio`, the one Maker since 2026-10-25.
  *
  * Owner, 2026-10-06, verbatim: *"yes"* (to: add the undrawn Post Event scenes as
  * ＋ parts) · *"they can also drag up and down and reposition elements"*. Plan

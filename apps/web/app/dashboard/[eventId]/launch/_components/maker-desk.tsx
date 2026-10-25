@@ -149,8 +149,8 @@ export const MAKER_DESK_CSS =
   `${D}:not(:has([data-stage-tools]))>:is([data-maker-lower-third],[data-maker-desk-parts]){display:none!important}` +
   `${D}>[data-maker-lower-third]{grid-column:3;grid-row:3;display:flex!important;height:auto!important;min-height:0;padding:0!important;border-top:0;border-left:1px solid rgba(44,42,41,.1)}` +
   `${D}>[data-maker-desk-parts]{grid-column:1;grid-row:3;min-height:0;overflow:hidden;border-right:1px solid rgba(44,42,41,.1);background:#FBFAF7}` +
-  /* ── the top nav: the phone's four controls with their words; the old desktop's Page ▾ and Event Details go ── */
-  `${D} [data-maker-tool="page"],${D} [data-maker-toolbar] [data-maker-tool="details"]{display:none!important}` +
+  /* ── the top nav: the phone's four controls with their words (the old desktop's Page ▾ and Event Details are
+        deleted from the shell, 2026-10-25 — nothing left to hide) ── */
   `${D} [data-maker-tool="side"]{display:flex!important;flex:0 1 380px;min-width:300px}` +
   `${D} [data-maker-tool="exit"]{${BAR_PILL};background:#B3261E;color:#FFF}` +
   `${D} [data-maker-tool="exit"]:hover{background:#9A1F19;color:#FFF}` +
@@ -175,9 +175,8 @@ export const MAKER_DESK_CSS =
   `${D} [data-maker-desk-title]{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);max-width:300px;margin:0}` +
   /* The phone's bar says why a control is grey in its title, not an ⓘ beside it — so does this one. */
   `${D} [data-maker-draft-actions] button[data-bar-item]:disabled~span{display:none}` +
-  /* 👁 Preview ▾ swaps the page — "Both" (the row after Phone / Desktop) is dropped (answer 1), and the old scenes
-     column is the parts column's. */
-  `${D} [data-maker-tool-menu] button:has([data-maker-tool-row="view"])+button:not(:has([data-maker-tool-row])),${D} [data-maker-tool-menu] button:has([data-maker-tool-row="scenes"]){display:none}` +
+  /* 👁 Preview ▾ swaps the page — "Both" (answer 1) and the old Scenes row are deleted from the shell (2026-10-25);
+     the old scenes column is the parts column's. */
   /* ── the page: the old desktop's scenes column, See as ▾ over it and the Event Bar switch under it are the
         phone's elsewhere (the parts column · ▶ held · Studio) ── */
   `${D} nav[aria-label="Scenes"],${D} [data-maker-see-as],${D} [data-maker-guest-bars]{display:none!important}` +

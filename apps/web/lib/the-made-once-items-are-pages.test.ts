@@ -54,11 +54,12 @@ test('Details is the bar’s one made-once item; Logo, Hero and Reveal are items
   // ✂ THE MAKER IN 4 (2026-10-02): the bar's door into Details (Prints is Page ▾'s since 2026-10-04) —
   // a DOOR into the one Details page, never a page of its own; Logo/Hero/Reveal are not on the bar.
   // 🗂 ONE button since 2026-10-06 ("EVENT DETAILS IS REBUILT"): the Look chip is gone.
-  const { MAKER_TOOLBAR, makerPressDoor } = await import(`../${L}/maker-bar`);
+  /* 🧭 One Maker since 2026-10-25: its bar holds no made-once door at all — Studio opens them. */
+  const { MAKER_TOOLBAR_STAGES_STUDIO, makerPressDoor } = await import(`../${L}/maker-bar`);
   assert.deepEqual(
-    (MAKER_TOOLBAR as readonly string[]).filter((k) => !['exit', 'page', 'undo', 'preview', 'apply'].includes(k)),
-    ['details'],
-    'the bar holds a made-once door besides Event Details again',
+    (MAKER_TOOLBAR_STAGES_STUDIO as readonly string[]).filter((k) => !['exit', 'side', 'undo', 'preview', 'apply'].includes(k)),
+    [],
+    'the bar holds a made-once door again',
   );
   for (const door of ['look', 'details', 'prints'] as const) {
     assert.equal(makerPressDoor({ detailsItem: null }, door).selectedTool, 'details', `${door} opens a page of its own`);

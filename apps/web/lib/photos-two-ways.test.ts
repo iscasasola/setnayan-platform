@@ -93,7 +93,7 @@ test('(1) requests: the Studio’s open no longer pays 2–3 reads for other eve
   assert.match(page, /inStudio \? Promise\.resolve<OtherEvent\[\] \| null>\(null\) : readOurEventsOffer\(user\.id, eventId\),/, 'the Studio’s open reads the pair’s other events again');
   assert.equal((page.match(/readOurEventsOffer\(|readOurEvents\(/g) ?? []).length, 1, 'the page reads other events in a second place');
   assert.match(page, /const pickSlot = inStudio \? null : \(\s*<PickFromOurEvents/, 'the Studio is handed a block it never draws');
-  assert.match(read('app/dashboard/[eventId]/launch/page.tsx'), /<OurStoryEditorPage[\s\S]{0,200}?maker: '1',\s*studio: stagesStudio \? '1' : undefined,/, 'the Maker’s page no longer tells the Love Story page it is the Studio');
+  assert.match(read('app/dashboard/[eventId]/launch/page.tsx'), /<OurStoryEditorPage[\s\S]{0,200}?maker: '1',\s*studio: '1',/, 'the Maker’s page no longer tells the Love Story page it is the Studio');
   // Outside the Studio the shipped block is drawn exactly as before (the offer is read with the page).
   assert.match(page, /<PickFromOurEvents\s+events=\{otherEvents\}/);
 

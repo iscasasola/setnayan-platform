@@ -207,7 +207,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
         slug: 'what-is-panood',
         title: 'What is Live Watch?',
         appBody: HELP_NOT_IN_THE_APP,
-        body: 'Live streaming for your wedding, embedded directly on your Event Hub — one unlock covers the whole event, unlimited streams (current rate on setnayan.com/pricing). Guests and family who couldn\'t attend in person can watch the ceremony and reception live without leaving Setnayan.',
+        body: 'Live streaming for your event, embedded directly on your Event Hub. Streaming one camera is free. Live Watch adds all your cameras with a one-time unlock that stays with the event, with unlimited streams (current rate on setnayan.com/pricing). Guests and family who couldn\'t attend in person can watch the ceremony and reception live without leaving Setnayan.',
       },
       {
         slug: 'what-is-pakulay',

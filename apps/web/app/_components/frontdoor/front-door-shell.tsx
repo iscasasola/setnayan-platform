@@ -1627,7 +1627,11 @@ export function FrontDoorShell({
           <div className="fd-rdiv" />
           <div className="fd-smallprint">
             <Link href="/about">About</Link>
-            <Link href="/pricing">Pricing</Link>
+            {/* 🍎 `data-web-only` (lib/store-shell.ts): /pricing is a refused door in the
+                iPhone app and /download offers other apps (/for-suppliers is refused too) — owner #6729 "the app names no
+                paid service". Hidden before first paint there; held by
+                the-app-footer-names-no-paid-door.test.ts. */}
+            <Link href="/pricing" data-web-only="">Pricing</Link>
             <Link href="/help">Help</Link>
             <Link href="/open-shop">Open your shop</Link>
             <br />
@@ -1658,10 +1662,10 @@ export function FrontDoorShell({
               change.
             */}
             <Link href="/refunds">Refunds</Link>
-            <Link href="/download">Download</Link>
+            <Link href="/download" data-web-only="">Download</Link>
             <Link href="/blog">Articles</Link>
             <Link href="/creators">For storytellers</Link>
-            <Link href="/for-suppliers">For suppliers</Link>
+            <Link href="/for-suppliers" data-web-only="">For suppliers</Link>
             <div className="fd-copy">© 2026 Setnayan</div>
             <div className="fd-tag2">Set na &rsquo;yan — that&rsquo;s all set.</div>
           </div>

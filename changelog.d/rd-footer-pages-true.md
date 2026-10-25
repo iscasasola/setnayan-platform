@@ -16,6 +16,16 @@ and the shipped code. What was false, and what it says now:
   (retired) → removed. Free list: seat plan names the free 3D walkthrough; "Memories hub" → Memories.
 - **/download** — "inside your wedding" → your events; one line for phone visitors (home-screen
   install; the iPhone app is linked only once `NEXT_PUBLIC_IOS_APP_STORE_URL` is set).
+- **Rail footer in the iPhone app** — Pricing, Download and For suppliers showed in the store shell, where
+  /pricing and /for-suppliers are refused doors and /download offers other apps (owner #6729). Each now
+  carries `data-web-only` (hidden before first paint in the app; web unchanged), held by the new
+  `the-app-footer-names-no-paid-door.test.ts`, which asks `isStoreShellWebOnlyPath` so a newly refused
+  door is covered too (seen to fail on /for-suppliers, and on /pricing with the attribute removed).
+  `doorway-shell.test.ts`'s presence check now allows an attribute after `href`.
+- **Help · What is Live Watch?** — "one unlock covers the whole event" → streaming one camera is free;
+  Live Watch is a one-time unlock that stays with the event and adds all your cameras.
+- **llms.txt** — the retired one-camera credit hand-out (two places) and "per-guest highlight reels"
+  removed; photos are matched to guests who consent.
 - Checked, already true: /open-shop, /blog, /creators, /for-suppliers (spot-checked), footer labels.
 
 SPEC IMPACT: None — copy now matches rulings already in DECISION_LOG (2026-09-16 Papic one pot,

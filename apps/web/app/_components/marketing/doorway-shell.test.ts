@@ -607,7 +607,10 @@ test('the stranded footer destinations are reachable from the rail', () => {
   for (const href of ['/refunds', '/download', '/blog', '/creators', '/for-suppliers']) {
     assert.match(
       shell,
-      new RegExp(`<Link href="${href}">`),
+      // `[\s>]`, not `>`: /download and /for-suppliers carry `data-web-only`
+      // (hidden in the iPhone app only — the-app-footer-names-no-paid-door.test.ts);
+      // on the web the link is still here, which is what this asserts.
+      new RegExp(`<Link href="${href}"[\\s>]`),
       `The rail's small print has lost ${href}. On a converted page the rail is ` +
         'the only chrome, so a destination missing from it is unreachable.',
     );

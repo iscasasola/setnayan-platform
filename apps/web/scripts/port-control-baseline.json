@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "01c58ee4df",
+  "generatedFromRef": "f63d98cf1a",
   "routeCount": 471,
   "destinations": 1009,
   "actions": 665,
-  "blocks": 7073,
+  "blocks": 7068,
   "routes": {
     "/": {
       "files": [
@@ -7518,8 +7518,6 @@
         "Meta",
         "MiniTour",
         "MonthPick",
-        "MoodBoardMakerBody",
-        "MoodBoardMakerControls",
         "MoodBoardPieces",
         "MoodBoardStudioBody",
         "MoreSheet",
@@ -7650,7 +7648,6 @@
         "SheetSections",
         "ShopPinNote",
         "Shown",
-        "ShutDoor",
         "SiteStage",
         "Sk",
         "SkLine",
@@ -8914,8 +8911,6 @@
         "MoodBoardEditor",
         "MoodBoardSaveNotice",
         "MoodBoardStudio",
-        "MoodPart",
-        "MoodPartNote",
         "MoodboardBoard",
         "MoodboardMoodTag",
         "MoodboardStyleFamily",

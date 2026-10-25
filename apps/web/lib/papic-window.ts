@@ -11,7 +11,7 @@
  *
  * ⚠ The window is NOT a price input. Papic is FLAT per camera (2026-07-22 naming
  * lock · migration 20270830568357): the charge is `cameras × rate`, no per-day
- * multiplier — matching /pricing (_papic-estimator.tsx). `days` (the calendar-
+ * multiplier — matching /pricing's former estimator (_papic-estimator.tsx, deleted 2026-10-25). `days` (the calendar-
  * inclusive span, ≥ 1) is surfaced for the seat window + labels only. The old
  * `cameras × rate/day × DAYS` bill engine was retired with the flat rename.
  *

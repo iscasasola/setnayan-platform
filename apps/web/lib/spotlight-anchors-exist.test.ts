@@ -227,6 +227,10 @@ const ANCHOR_HOME: Record<string, string | string[]> = {
   'me-photos': 'app/papic/me/[token]/page.tsx',
   'me-download': 'app/papic/me/[token]/page.tsx',
   'me-story': 'app/papic/me/[token]/_components/guest-story-maker.tsx',
+  // /pricing's first-visit tour (2026-10-25, prototype pricing_ours_only revision 5).
+  'pricing-why': 'app/(shell)/pricing/page.tsx',
+  'pricing-prices': 'app/(shell)/pricing/page.tsx',
+  'pricing-quiz': 'app/(shell)/pricing/page.tsx',
 };
 
 test('every spotlight stop names its home component, and that component draws it', () => {

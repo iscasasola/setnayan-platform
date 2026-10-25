@@ -211,7 +211,10 @@ export type TourKey =
   | 'vendor_people_v1'
   | 'vendor_collections_v1'
   | 'guest_papic_camera_v2'
-  | 'guest_papic_me_v2';
+  | 'guest_papic_me_v2'
+  // 🔦 /pricing — a first-visit spotlight (owner 2026-10-25, prototype `pricing_ours_only_2026-10-25`): Why Setnayan →
+  // Prices → the quiz link. A visitor is usually signed out, so it rides `GuestSpotlight` (localStorage).
+  | 'pricing_page_v1';
 
 export const TOUR_KEYS: ReadonlyArray<TourKey> = [
   'couple_welcome_v1',
@@ -276,6 +279,7 @@ export const TOUR_KEYS: ReadonlyArray<TourKey> = [
   'vendor_collections_v1',
   'guest_papic_camera_v2',
   'guest_papic_me_v2',
+  'pricing_page_v1',
 ];
 
 export type TourDefinition = {
@@ -2285,6 +2289,39 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       finale: {
         title: 'You’re set 🎉',
         body: 'Your photos land here as they’re taken.',
+        button: 'Done',
+      },
+    },
+  },
+  /* 🔦 /PRICING — a first-visit SPOTLIGHT (owner 2026-10-25: "Yes, build this pricing page and the questionnaire into the app"; prototype `pricing_ours_only_2026-10-25` revision 5, its three steps word for word). Signed-out visitors, so the seen mark is on their device (`guest-spotlight.tsx`). No price in the words — the prices are on the page. */
+  pricing_page_v1: {
+    key: 'pricing_page_v1',
+    label: 'Pricing — first visit',
+    blurb: 'Why Setnayan, the prices, and the questions that price your event.',
+    slides: [],
+    spotlight: {
+      steps: [
+        {
+          anchor: 'pricing-why',
+          title: 'Why Setnayan',
+          body: 'Four things made with care — the Event Hub, the 3D seat plan, Papic, and privacy by default.',
+          hint: 'Press Next',
+        },
+        {
+          anchor: 'pricing-prices',
+          title: 'Add only what you want',
+          body: 'Every price in one list, paid once for the event and everyone on it.',
+          hint: 'Press Next',
+        },
+        {
+          anchor: 'pricing-quiz',
+          title: 'See what it does for you',
+          body: 'Answer a few questions and get your event, priced — in under a minute.',
+        },
+      ],
+      finale: {
+        title: 'You’re set',
+        body: 'Start your event whenever you’re ready.',
         button: 'Done',
       },
     },

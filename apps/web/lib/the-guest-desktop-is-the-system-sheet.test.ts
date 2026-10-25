@@ -3,9 +3,9 @@
  * (DECISION_LOG 2026-10-15 "ONE-PAGE INVITATION + SAVE THE DATE, THE DESKTOP SYSTEM SHEET, AND FIVE ANSWERS —
  * APPROVED"; `lib/guest-hub-desktop.ts`). Held four ways:
  *
- *   1 · DARK — the desk `<style>` is written only when `guestHubDesktopEnabled` says so (the flag, or an internal
- *       viewer), never in the Maker's canvas; with the flag unset and a guest viewer it is OFF. Sabotage: the style
- *       written without `guestDesk` → red.
+ *   1 · ONE SWITCH — the desk `<style>` is written only when `guestHubDesktopEnabled` says so, never in the Maker's
+ *       canvas. Since 2026-10-23 (owner: "turn on … desktop guest Event Hub for everyone") an unset variable is ON and
+ *       the variable is a kill-switch (`false` · `0` · `off` · `no`). Sabotage: the style written without `guestDesk` → red.
  *   2 · NEVER A PHONE — every rule of the rule set is inside `min-width:1024px`. Sabotage: one rule outside → red.
  *   3 · THE SHEET'S PIECES — the rail and the bottom bar retired for the top bar (520 px of slots in the 68-px
  *       header), the 64-rem stage (no 76-rem ceiling), 440-px side panels, the 2-px gold hover ring and the ink focus
@@ -30,10 +30,17 @@ test('1 · dark — the style is the flag’s (or an internal viewer’s), and n
   const prev = process.env[KEY];
   delete process.env[KEY];
   try {
-    assert.equal(guestHubDesktopEnabled({ internal: false }), false, 'a guest gets the desktop with the flag unset');
-    assert.equal(guestHubDesktopEnabled({ internal: true }), true, 'an internal viewer cannot check it');
+    // 🟢 ON FOR EVERYONE (owner 2026-10-23): unset means ON; the variable is a kill-switch through the shared parser.
+    assert.equal(guestHubDesktopEnabled({ internal: false }), true, 'with the env unset a guest does not get the desktop');
+    process.env[KEY] = '  ';
+    assert.equal(guestHubDesktopEnabled({ internal: false }), true, 'a blank value (invisible in a dashboard) turned it off');
     process.env[KEY] = 'true';
     assert.equal(guestHubDesktopEnabled({ internal: false }), true);
+    for (const off of ['false', 'FALSE', '0', 'off', 'no']) {
+      process.env[KEY] = off;
+      assert.equal(guestHubDesktopEnabled({ internal: false }), false, `the kill-switch "${off}" does not turn it off`);
+      assert.equal(guestHubDesktopEnabled({ internal: true }), true, 'an internal viewer lost it with the kill-switch on');
+    }
   } finally {
     if (prev === undefined) delete process.env[KEY];
     else process.env[KEY] = prev;

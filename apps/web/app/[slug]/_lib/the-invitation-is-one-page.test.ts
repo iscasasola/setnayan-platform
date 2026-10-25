@@ -129,7 +129,11 @@ test('2 · the real Invitation: Home (after the cover) → Details → Story, al
   assert.ok(cover < home!, 'Home jumps to the cover — it must land on the first section AFTER it');
   assert.ok(home! < details! && details! < story!, `the marks are out of order (home ${home} · details ${details} · story ${story})`);
   // Home's mark comes after the cover's one action too (the guest's RSVP), so Home never lands on the cover.
-  assert.ok(at(html, 'data-arrival-action=') < home!, 'Home lands before the cover’s RSVP');
+  // 🧭 Since 2026-10-26 every guest gets the new guest side: that action is the cover's own RSVP button
+  // (`data-cover-rsvp`), not the Welcome's arrival row (on a tabbed page the one Reply is Me's).
+  const rsvp = at(html, 'data-cover-rsvp=');
+  assert.ok(rsvp > 0, 'anti-vacuity: the cover’s RSVP is not on the page');
+  assert.ok(rsvp < home!, 'Home lands before the cover’s RSVP');
   // 🪪 Details no longer opens on an "Event details" card (owner 2026-10-24, "isn't this a dupe?" —
   // `the-details-tab-repeats-nothing.test.ts`): it opens on the couple's own scenes.
   const afterDetails = html.slice(html.indexOf('>', details!) + 1, details! + 1500).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();

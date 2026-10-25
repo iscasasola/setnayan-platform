@@ -2787,21 +2787,26 @@ export async function SiteBody({
     /* 👤 INVITATION › ME — THE FOUR FOR-EACH-GUEST PARTS (owner 2026-10-06,
        `lib/guest-me-parts.ts`): List only · Guests reply, a guest on the list,
        and only the facts their own row carries. Drawn on the Invitation's Me
-       tab (a tabbed page — Me is a page of its own there). */
+       tab (a tabbed page — Me is a page of its own there).
+       👗 What to wear is the Dress code's own "you" half, so it keeps the Dress code's place on this stage: a couple who
+       hid the Dress code here ("WHAT GUESTS SEE", DECISION_LOG 2026-10-10 — withheld at the source) hides this guest's
+       Wear with it, exactly as the Welcome's look it replaced (`welcomeParts` needs `dress_code` among the scenes).
+       Every guest has these parts since 2026-10-26 (owner: "EVERY GUEST GETS THE NEW GUEST SIDE"). */
+    const meFactsHere = guestMeFacts({
+      role: guest.role ?? null,
+      dressCodeConfig: event.dress_code_config ?? null,
+      rolePalette: event.role_palette,
+      roleNames,
+      comingWith,
+      guestsArriveBy,
+      person: { ...guestNamePartsOf(guest), attire: guestAttireOf(guest) },
+    });
     const meParts =
       pageStage === 'rsvp' && tabsOn && !isMakerCanvas
         ? guestMePartsShown({
             getIn: readGuestsGetIn(event.rsvp_ask_config),
             listed: readerIsListed({ kind: 'guest', entrySource: (guest as { entry_source?: string | null }).entry_source ?? null }),
-            facts: guestMeFacts({
-              role: guest.role ?? null,
-              dressCodeConfig: event.dress_code_config ?? null,
-              rolePalette: event.role_palette,
-              roleNames,
-              comingWith,
-              guestsArriveBy,
-              person: { ...guestNamePartsOf(guest), attire: guestAttireOf(guest) },
-            }),
+            facts: { ...meFactsHere, wear: meFactsHere.wear && plan.hideableInOrder.some((w) => w.widget_type === 'dress_code') },
           })
         : [];
     /* 💌 THE HOSTS' NOTE TO THIS GUEST (owner 2026-10-20, `guestMeNoteShown`): under Your role on Me, by the same gate

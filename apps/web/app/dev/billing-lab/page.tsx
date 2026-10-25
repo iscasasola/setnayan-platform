@@ -10,10 +10,11 @@ import type { Purchase, PurchasesRead } from '@/lib/billing';
  * keeps /dev Light, so the provider would take a `?dark=1` class straight back off).
  */
 const ROWS: Purchase[] = [
-  { orderId: 'o1', publicId: 'S89O-7K2M9QX4TB', referenceCode: 'STN-PAPIC-4821', description: 'Papic — Thank-you add-on', status: 'paid', createdAt: '2026-10-23T09:12:00Z', eventId: 'e1', isSupplierBilling: false, grossPhp: 2500, receiptId: 'r1', receiptNumber: 'TXN-2026-000041' },
-  { orderId: 'o2', publicId: 'S89O-3HV8D1RW6N', referenceCode: 'STN-LIVE-1190', description: 'Live Studio', status: 'awaiting_payment', createdAt: '2026-10-20T02:40:00Z', eventId: 'e1', isSupplierBilling: false, grossPhp: 3000, receiptId: null, receiptNumber: null },
-  { orderId: 'o3', publicId: 'S89O-9PZ4C7MK2E', referenceCode: 'STN-PLAN-0077', description: 'Supplier plan — Pro (monthly)', status: 'paid', createdAt: '2026-10-02T11:05:00Z', eventId: null, isSupplierBilling: true, grossPhp: 999, receiptId: 'r3', receiptNumber: 'TXN-2026-000033' },
-  { orderId: 'o4', publicId: 'S89O-1QW5T8BN3V', referenceCode: 'STN-FEE-0410', description: 'Booking fee — Cale & Ice', status: 'cancelled', createdAt: '2026-09-14T06:30:00Z', eventId: 'e2', isSupplierBilling: true, grossPhp: 499, receiptId: null, receiptNumber: null },
+  { orderId: 'o1', publicId: 'S89O-7K2M9QX4TB', referenceCode: 'STN-PAPIC-4821', description: 'Papic — Thank-you add-on', status: 'paid', createdAt: '2026-10-23T09:12:00Z', eventId: 'e1', eventName: 'Cale & Ice — Wedding', isSupplierBilling: false, grossPhp: 2500, receiptId: 'r1', receiptNumber: 'TXN-2026-000041' },
+  { orderId: 'o2', publicId: 'S89O-3HV8D1RW6N', referenceCode: 'STN-LIVE-1190', description: 'Live Studio', status: 'awaiting_payment', createdAt: '2026-10-20T02:40:00Z', eventId: 'e1', eventName: 'Cale & Ice — Wedding', isSupplierBilling: false, grossPhp: 3000, receiptId: null, receiptNumber: null },
+  { orderId: 'o3', publicId: 'S89O-9PZ4C7MK2E', referenceCode: 'STN-PLAN-0077', description: 'Supplier plan — Pro (monthly)', status: 'paid', createdAt: '2026-10-02T11:05:00Z', eventId: null, eventName: null, isSupplierBilling: true, grossPhp: 999, receiptId: 'r3', receiptNumber: 'TXN-2026-000033' },
+  { orderId: 'o4', publicId: 'S89O-1QW5T8BN3V', referenceCode: 'STN-FEE-0410', description: 'Booking fee — Cale & Ice', status: 'cancelled', createdAt: '2026-09-14T06:30:00Z', eventId: 'e2', eventName: null, isSupplierBilling: true, grossPhp: 499, receiptId: null, receiptNumber: null },
+  { orderId: 'o5', publicId: 'S89O-5RT2W9KD4M', referenceCode: 'STN-PRO-2207', description: 'Event Hub Pro', status: 'paid', createdAt: '2026-08-30T03:15:00Z', eventId: 'e3', eventName: "Lola Nena's 80th", isSupplierBilling: false, grossPhp: 1499, receiptId: 'r5', receiptNumber: 'TXN-2026-000019' },
 ];
 
 export default async function BillingLabPage({

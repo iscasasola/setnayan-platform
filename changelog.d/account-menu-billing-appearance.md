@@ -13,14 +13,18 @@ the controller's two recommendations.
   data and is latched once per page load, so a stale layout prop can never undo a pick; a refused read
   (`themePreference: undefined`) reconciles nothing.
 - **New `/dashboard/billing`** (server component): every `orders` row this login paid for (`user_id` = them,
-  not drafts) — event orders, a supplier's own `vendor_…` billing, Papic top-ups, App Store purchases — newest
-  first, joined to `receipts`. A receipted row opens `/receipts/<id>`; an unpaid event order opens its order page
-  (not in the store shell, not for a supplier's own bill). Reads are honest (`lib/billing.ts`): a refused read
-  says "Your purchases didn't load", never "No purchases yet"; a refused receipts read says so. Held by
-  `lib/billing-read-is-honest.test.ts` (seen to fail on both a lib and a render sabotage).
-- The event Orders ledger's row is now the shared `app/_components/orders/order-line.tsx`, drawn by both pages.
+  not drafts) — event orders, a supplier's own `vendor_…` billing, Papic top-ups, App Store purchases — joined to
+  `receipts` and (for the person's own event orders) the event's name. Shape (controller direction after the owner
+  asked for "a better presentation for receipts", pending his OK of the designer's prototype): one summary line ·
+  "Waiting for payment" pinned on top with a gold Pay door · then one group per event and "Your shop" · one-line
+  rows (name left, amount right, "date · status" under it), hairline dividers, no boxes, the whole row opens its
+  receipt (an unpaid event order opens where it is paid; never in the store shell, never a supplier's own bill).
+  Reference numbers and "incl. VAT" stay on the receipt page. Reads are honest (`lib/billing.ts`): a refused read
+  says "Your purchases didn't load", never "No purchases yet"; a refused receipts read says so; an unreadable event
+  name is "An event". Held by `lib/billing-read-is-honest.test.ts` (seen to fail on a lib and a render sabotage).
 - Registered: `lib/ugat/screens.generated.json`, `scripts/port-control-baseline.json` (regenerated — the Profile
-  route's lost `<AppearanceChoice>`/`<PickMenu>` is the deliberate move). Lab: `/dev/billing-lab`.
+  route's lost `<AppearanceChoice>`/`<PickMenu>` is the deliberate move), `no-door.baseline.txt` (+ the dev lab).
+  Lab: `/dev/billing-lab?state=rows|empty|unread|noreceipts`.
 
 SPEC IMPACT: DECISION_LOG.md row 2026-10-25 "ACCOUNT MENU: BILLING & RECEIPTS + APPEARANCE MOVES INTO IT"
 (owner quote, the move, the page's scope).

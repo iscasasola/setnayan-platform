@@ -31,6 +31,9 @@ export type Purchase = {
   status: OrderStatus;
   createdAt: string;
   eventId: string | null;
+  /** The event's name for the group heading — null when there is none, it is the supplier's own bill, or the name
+   *  could not be read (the group then says "An event", never a wrong name). */
+  eventName: string | null;
   /** A supplier's own billing (`vendor_…`) — its pay screen is not the event's order page. */
   isSupplierBilling: boolean;
   /** What was paid (the receipt's gross) once a receipt exists; otherwise the gross owed on the order. */
@@ -99,7 +102,23 @@ export async function fetchMyPurchasesMeasured(
     receiptsMeasured ? (receiptsRes.data as ReceiptLite[]).map((r) => [r.order_id, r]) : [],
   );
 
-  const rows = (ordersRes.data as OrderLite[]).map((o): Purchase => {
+  // Event names for the group headings — only for the person's own event orders (a supplier's bill carries the
+  // COUPLE's event_id, which a supplier cannot and should not read). A refused read leaves the names unknown.
+  const orders = ordersRes.data as OrderLite[];
+  const eventIds = [
+    ...new Set(orders.filter((o) => o.event_id && !isVatInclusiveServiceKey(o.service_key)).map((o) => o.event_id as string)),
+  ];
+  const nameOf = new Map<string, string>();
+  if (eventIds.length > 0) {
+    const { data: evs, error: evErr } = await supabase.from('events').select('event_id,display_name').in('event_id', eventIds);
+    if (!evErr && Array.isArray(evs)) {
+      for (const e of evs as Array<{ event_id: string; display_name: string | null }>) {
+        if (e.display_name?.trim()) nameOf.set(e.event_id, e.display_name.trim());
+      }
+    }
+  }
+
+  const rows = orders.map((o): Purchase => {
     const receipt = receiptByOrder.get(o.order_id) ?? null;
     const isSupplierBilling = isVatInclusiveServiceKey(o.service_key);
     const owed = orderGrossOwed({
@@ -116,6 +135,7 @@ export async function fetchMyPurchasesMeasured(
       status: o.status,
       createdAt: o.created_at,
       eventId: o.event_id,
+      eventName: o.event_id && !isSupplierBilling ? (nameOf.get(o.event_id) ?? null) : null,
       isSupplierBilling,
       grossPhp: receipt ? Number(receipt.gross_total_php) : owed,
       receiptId: receipt?.receipt_id ?? null,
@@ -134,4 +154,44 @@ export function purchaseHref(p: Purchase, storeShell: boolean): string | null {
   if (p.receiptId) return `/receipts/${p.receiptId}`;
   if (p.eventId && !p.isSupplierBilling && !storeShell) return `/dashboard/${p.eventId}/orders/${p.orderId}`;
   return null;
+}
+
+/** Statuses that count as money paid in the summary line (a refund is not money kept; a cancel was never paid). */
+const PAID: readonly OrderStatus[] = ['paid', 'fulfilled'];
+
+export type PurchaseGroup = { key: string; label: string; rows: Purchase[] };
+
+/**
+ * The page's shape (controller direction 2026-10-25, pending the owner's OK of the prototype): ONE summary line,
+ * the orders WAITING FOR PAYMENT pinned on top (each with its Pay door), then everything else grouped — one group
+ * per event, and "Your shop" for a supplier's own billing — newest group first, newest row first. Pure.
+ */
+export function shapePurchases(rows: readonly Purchase[]): {
+  paidTotalPhp: number;
+  paidCount: number;
+  awaiting: Purchase[];
+  groups: PurchaseGroup[];
+} {
+  const awaiting = rows.filter((r) => r.status === 'awaiting_payment');
+  const paid = rows.filter((r) => PAID.includes(r.status));
+  const groups: PurchaseGroup[] = [];
+  const byKey = new Map<string, PurchaseGroup>();
+  for (const r of rows) {
+    if (r.status === 'awaiting_payment') continue;
+    const key = r.isSupplierBilling ? 'shop' : r.eventId ? `event:${r.eventId}` : 'other';
+    const label = r.isSupplierBilling ? 'Your shop' : r.eventId ? (r.eventName ?? 'An event') : 'Other';
+    let g = byKey.get(key);
+    if (!g) {
+      g = { key, label, rows: [] };
+      byKey.set(key, g);
+      groups.push(g); // rows arrive newest first, so groups land in order of their newest purchase
+    }
+    g.rows.push(r);
+  }
+  return {
+    paidTotalPhp: Math.round(paid.reduce((n, r) => n + r.grossPhp, 0) * 100) / 100,
+    paidCount: paid.length,
+    awaiting,
+    groups,
+  };
 }

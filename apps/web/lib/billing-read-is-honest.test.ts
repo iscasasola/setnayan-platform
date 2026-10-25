@@ -18,7 +18,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { fetchMyPurchasesMeasured, purchaseHref } from '@/lib/billing';
+import { fetchMyPurchasesMeasured, purchaseHref, shapePurchases } from '@/lib/billing';
 import { stripComments } from '@/lib/strip-comments';
 
 type Result = { data: unknown; error: unknown };
@@ -96,6 +96,48 @@ test('rows join their receipt, open it, and a supplier bill never opens the coup
   assert.equal(purchaseHref(bill!, false), null, 'the couple’s event is not the supplier’s to open');
   assert.equal(purchaseHref({ ...paid!, receiptId: null }, false), '/dashboard/e1/orders/o1', 'unpaid → where it is paid');
   assert.equal(purchaseHref({ ...paid!, receiptId: null }, true), null, 'the store shell refuses the order page');
+});
+
+test('event names come from the person’s own event orders only; a refused names read never invents one', async () => {
+  const calls: string[] = [];
+  const got = await fetchMyPurchasesMeasured(
+    stubClient(
+      {
+        orders: { data: [ORDER, SUPPLIER_ORDER], error: null },
+        receipts: { data: [], error: null },
+        events: { data: [{ event_id: 'e1', display_name: 'Cale & Ice' }], error: null },
+      },
+      calls,
+    ),
+    'u1',
+  );
+  assert.equal(got.rows[0]?.eventName, 'Cale & Ice');
+  assert.equal(got.rows[1]?.eventName, null, 'a supplier bill carries the COUPLE’s event — never named for the supplier');
+  assert.ok(calls.includes('events.in("event_id",["e1"])'), 'only the payer’s own event orders are looked up');
+  const refused = await fetchMyPurchasesMeasured(
+    stubClient({ orders: { data: [ORDER], error: null }, receipts: { data: [], error: null }, events: { data: null, error: { message: 'denied' } } }),
+    'u1',
+  );
+  assert.equal(refused.measured, true, 'the purchases are still known');
+  assert.equal(refused.rows[0]?.eventName, null);
+  assert.equal(shapePurchases(refused.rows).groups[0]?.label, 'An event', 'an unknown name is said as unknown');
+});
+
+test('the shape: waiting-for-payment pinned on top, then one group per event and "Your shop"', async () => {
+  const got = await fetchMyPurchasesMeasured(
+    stubClient({
+      orders: { data: [{ ...ORDER, order_id: 'o9', status: 'awaiting_payment' }, ORDER, { ...SUPPLIER_ORDER, status: 'paid' }], error: null },
+      receipts: { data: [RECEIPT], error: null },
+      events: { data: [{ event_id: 'e1', display_name: 'Cale & Ice' }], error: null },
+    }),
+    'u1',
+  );
+  const shape = shapePurchases(got.rows);
+  assert.deepEqual(shape.awaiting.map((r) => r.orderId), ['o9']);
+  assert.deepEqual(shape.groups.map((g) => g.label), ['Cale & Ice', 'Your shop']);
+  assert.ok(!shape.groups.some((g) => g.rows.some((r) => r.orderId === 'o9')), 'a pinned row is not drawn twice');
+  assert.equal(shape.paidCount, 2);
+  assert.equal(shape.paidTotalPhp, 3499);
 });
 
 test('the read is scoped to THIS payer, drops drafts, and is newest first', async () => {

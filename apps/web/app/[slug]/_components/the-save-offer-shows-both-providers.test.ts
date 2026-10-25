@@ -18,6 +18,8 @@
  *   · save-to-account.tsx: the second button `button-primary`               → 1 RED
  *   · saveMethodFromForm → `providers[posted] ? posted : saveMethodFor(...)` → 4 RED
  *   · save-to-account.tsx: drop `{emailInstead}`                            → 1 RED
+ *   · save-to-account.tsx: `<CopyMyLink …/>` → `null`                       → 3 RED
+ *   · welcome/actions.ts: drop the provider-press → "keep" fallback          → 4 RED
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';

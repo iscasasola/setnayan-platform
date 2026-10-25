@@ -623,7 +623,7 @@ export function FrontDoorShell({
   navLabels,
   topBarSlot,
   createSlot,
-  search,
+  search: searchProp,
   bleed,
   bleedPaths,
   pageSearchPaths,
@@ -807,7 +807,7 @@ export function FrontDoorShell({
   const isBleed = bleed || (bleedPaths?.includes(pathname ?? '') ?? false);
   /* 🔎 A page that searches in its own bottom row (/help, /features): no second box up here — `false`, the same
      switch a signed-in host hands in. Exact path, so /features/<slug> keeps the box. */
-  const searchHere = pageSearchPaths?.includes(pathname ?? '') ? false : search;
+  const search = pageSearchPaths?.includes(pathname ?? '') ? false : searchProp;
 
   /*
     HIDE ON SCROLL — the app's universal top-nav rule (owner 2026-06-15), and
@@ -1075,9 +1075,9 @@ export function FrontDoorShell({
         {/* 🔍 NO SEARCH IN A SIGNED-IN TOP BAR (owner 2026-10-22, "One thumb row"): a host hands in `false` and the
             bar is wordmark · ✉ · 🔔 · avatar — the search lives in the thumb row of the place you stand in.
             Signed out (`undefined`) the marketplace box below is unchanged. */}
-        {searchHere === false ? null : (
+        {search === false ? null : (
         <div className="fd-searchwrap">
-          {searchHere ?? <SearchBox />}
+          {search ?? <SearchBox />}
           {/*
             🪤 THE PROTOTYPE DRAWS A MIC HERE AND IT IS NOT PORTED, ON PURPOSE.
             There is no voice search in this product. A focusable, labelled
@@ -1241,9 +1241,9 @@ export function FrontDoorShell({
           how wide the window happened to be. The `?? <SearchBox />` fallback
           is the same one the desktop row uses, so a page that hands in
           nothing is byte-identical to before. */}
-      {inApp || searchHere === false ? null : (
+      {inApp || search === false ? null : (
         <div className="fd-searchrow">
-          {searchHere ?? <SearchBox />}
+          {search ?? <SearchBox />}
         </div>
       )}
       </>

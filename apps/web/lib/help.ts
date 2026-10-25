@@ -743,7 +743,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
         slug: 'turn-on-papic',
         title: 'How do I turn on Papic and hand out cameras?',
         appBody: HELP_NOT_IN_THE_APP,
-        body: `Open your dashboard → Studio → Papic. It's already on: every wedding gets one free camera of its own. A free pool of credits also comes ${PAPIC_FREE_CREDIT_CONDITION} — so there is nothing to buy before you try it. To let guests shoot, share your event QR — any phone that scans it shoots from the shared pool, and there's no limit on how many join. To give one person a camera of their own, hand them that camera's link (or QR) from the same page; every shot it takes draws from your shared credits. Top up the shared pool whenever you want — current prices are on setnayan.com/pricing.`,
+        body: `Open your dashboard → Studio → Papic. It's already on, with no limit on cameras. Every photo uses credits from one shared pool, and free credits come ${PAPIC_FREE_CREDIT_CONDITION} — so there is nothing to buy before you try it. To let guests shoot, share your event QR — any phone that scans it shoots from the shared pool, and there's no limit on how many join. To give one person a camera of their own, hand them that camera's link (or QR) from the same page; every shot it takes draws from your shared credits. Top up the shared pool whenever you want — current prices are on setnayan.com/pricing.`,
       },
       {
         slug: 'how-papic-tagging-works',
@@ -801,7 +801,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
         slug: 'how-papic-shots-work',
         title: 'How do shots work, and how do I add more?',
         appBody: HELP_NOT_IN_THE_APP,
-        body: `Everything Papic captures is counted in shots. ${SHOT_TERMS[0]}, and ${SHOT_TERMS[1]} — a clip costs more because it is a lot more to keep. They come out of one purse, so there's no separate photo and video allowance to juggle: shoot more clips and you'll get fewer photos out of the same balance, which is why we don't promise you an exact number of each. Every wedding gets one free camera with credits of its own. A free shared pool also comes ${PAPIC_FREE_CREDIT_CONDITION}. When it runs low, top it up from your dashboard → Studio → Papic: add to the shared pool for the whole event. Top-ups stack on whatever your wedding already holds — they never replace it — and current prices are on setnayan.com/pricing. Guests can also top up the pool or their own camera themselves from the camera screen, if you'd rather not.`,
+        body: `Everything Papic captures is counted in shots. ${SHOT_TERMS[0]}, and ${SHOT_TERMS[1]} — a clip costs more because it is a lot more to keep. They come out of one purse, so there's no separate photo and video allowance to juggle: shoot more clips and you'll get fewer photos out of the same balance, which is why we don't promise you an exact number of each. Cameras are unlimited. Free credits come ${PAPIC_FREE_CREDIT_CONDITION}. When it runs low, top it up from your dashboard → Studio → Papic: add to the shared pool for the whole event. Top-ups stack on whatever your wedding already holds — they never replace it — and current prices are on setnayan.com/pricing. Guests can also top up the pool or their own camera themselves from the camera screen, if you'd rather not.`,
       },
     ],
   },

@@ -231,9 +231,9 @@ export default async function AboutPage() {
               verified Filipino wedding suppliers you message directly, and
               in-app services — free single-camera livestreaming to YouTube
               (Live Watch), candid photo capture (Papic), a custom wedding
-              song (Music Maker), and bespoke monograms. Some start free, like
-              one Papic camera on every event and a single-camera stream; the
-              rest are priced on the Pricing page. Couples and suppliers
+              song (Music Maker), and bespoke monograms. Papic has no limit on
+              cameras: every photo uses credits, and your first event starts
+              with free credits; the rest is priced on the Pricing page. Couples and suppliers
               agree on bookings between themselves; Setnayan never holds the
               money.
             </p>

@@ -529,7 +529,7 @@ export function PeopleRosterView({
      ≡ is ONE dropdown (any set of choices is a dropdown): the views (Your people · Following · Followers · Groups) and
      the list's own two tools — Expand / Collapse all and Select — so the field keeps its 60 % at 320. */
   const filterPick = (
-    <ThumbTool>
+    <ThumbTool tour="people-view">
       <span data-pick="" data-people-filter="" className="contents">
         <PickMenu
           label="People — show, or work the list"

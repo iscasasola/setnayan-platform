@@ -9,8 +9,8 @@ import { getGuestLiveGallery } from '@/lib/guest-live-gallery';
 import { groupIntoChapters, type ChapterContext } from '@/lib/papic-chapters';
 import { papicPoolGalleryActive } from '@/lib/papic-pool-gate';
 import { GuestStoryMaker } from './_components/guest-story-maker';
-import { GuestGuidedTour } from '@/app/_components/guest-guided-tour';
-import { guidedTourView } from '@/app/_components/guided-tour';
+import { GuestSpotlight } from '@/app/_components/guest-spotlight';
+import { TOURS } from '@/lib/tours';
 
 // Papic · MY camera (guest personal-QR → Limited roll camera).
 //
@@ -93,7 +93,7 @@ async function GuestGallery({
   if (!gallery || gallery.photos.length === 0) return null;
   const groups = groupIntoChapters(gallery.photos, (p) => p.capturedAt ?? '', chapters);
   return (
-    <section aria-label="Memories of you" className="mt-6">
+    <section aria-label="Memories of you" className="mt-6" data-tour="me-photos">
       <div className="flex items-center justify-between gap-3">
         <p className="inline-flex items-center gap-2 font-mono text-xs uppercase tracking-[0.2em] text-mulberry">
           <Images aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
@@ -140,6 +140,7 @@ async function GuestGallery({
           preview grid above), streamed from the token-scoped download route. */}
       <a
         href={`/papic/me/${token}/download`}
+        data-tour="me-download"
         className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-md bg-ink/5 px-4 py-2 text-sm font-medium text-ink/80 transition hover:bg-ink/10"
       >
         <Download aria-hidden className="h-4 w-4" strokeWidth={2} />
@@ -280,6 +281,7 @@ export default async function PapicMyCameraPage({ params }: Props) {
         >
           <a
             href={`/papic/me/${encodeURIComponent(cleanToken!)}/session?next=guest`}
+            data-tour="me-camera"
             className="button-primary w-full gap-2"
           >
             <Camera aria-hidden className="h-4 w-4" strokeWidth={2} />
@@ -296,7 +298,7 @@ export default async function PapicMyCameraPage({ params }: Props) {
           {backLink}
           {/* First visit only (owner 2026-09-25) — on the two pages where the
               guest's camera is ready; a dead-end page gets no welcome. */}
-          <GuestGuidedTour tourKey="guest_papic_me_v1" tour={guidedTourView('guest_papic_me_v1')} />
+          <GuestSpotlight tourKey="guest_papic_me_v2" script={TOURS.guest_papic_me_v2.spotlight!} />
         </DoorShell>
       );
     }
@@ -377,6 +379,7 @@ export default async function PapicMyCameraPage({ params }: Props) {
     >
       <Link
         href={`/papic/seat/${encodeURIComponent(camera.claimToken)}`}
+        data-tour="me-camera"
         className="button-primary w-full gap-2"
       >
         <Camera aria-hidden className="h-4 w-4" strokeWidth={2} />
@@ -391,7 +394,7 @@ export default async function PapicMyCameraPage({ params }: Props) {
         />
       <PoolDoorway eventId={guest.event_id} token={cleanToken!} />
       {backLink}
-      <GuestGuidedTour tourKey="guest_papic_me_v1" tour={guidedTourView('guest_papic_me_v1')} />
+      <GuestSpotlight tourKey="guest_papic_me_v2" script={TOURS.guest_papic_me_v2.spotlight!} />
     </DoorShell>
   );
 }

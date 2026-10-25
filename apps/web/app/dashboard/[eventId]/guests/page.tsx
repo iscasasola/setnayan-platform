@@ -87,6 +87,8 @@ import { toGuestListRow, type GuestListRow } from '@/lib/guest-list-rows';
 import { passCardTicketVersion } from '@/lib/pass-card.server';
 
 import { MiniTour } from '@/app/_components/mini-tour';
+import { Spotlight } from '@/app/_components/spotlight';
+import { HOST_PAGE_TOURS, HOST_PAGE_TOURS_AFTER } from '@/lib/host-page-tours';
 import { loadGuestHelperCard } from '@/lib/guest-helper-card.server';
 import { quickAddTips } from '@/lib/quick-add-tips';
 import { tableWords } from '@/lib/table-words';
@@ -1200,9 +1202,9 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           feature gets a first-visit tour — the shipped MiniTour, never a new
           mechanism). */}
       <MiniTour tourKey="customer_guest_invite_v1" />
-      {/* The Guest list's own first-visit tour (owner 2026-09-25) — after the
-          Invite tour, so the two never stack on one first visit. */}
-      <MiniTour tourKey="customer_guest_list_v1" after="customer_guest_invite_v1" />
+      {/* 🔦 The Guest list's own first-visit SPOTLIGHT (owner 2026-10-25, "the spotlight tour is missing so many
+          parts for each page") — after the host journey; it replaces the switched-off carousel that sat here. */}
+      <Spotlight tourKey={HOST_PAGE_TOURS.guests} after={HOST_PAGE_TOURS_AFTER} replay="page" />
     </section>
   );
 

@@ -13,10 +13,13 @@ export function OpenFoldButton({
   anchor,
   label,
   icon = 'plus',
+  tour,
 }: {
   anchor: string;
   label: string;
   icon?: 'plus' | 'photo';
+  /** 🔦 A spotlight tour's anchor token (`data-tour`). */
+  tour?: string;
 }) {
   return (
     <ActionButton
@@ -24,6 +27,7 @@ export function OpenFoldButton({
       main
       icon={icon === 'photo' ? Images : Plus}
       label={label}
+      tour={tour}
       onClick={() => {
         const target = `#${anchor}`;
         if (window.location.hash === target) window.dispatchEvent(new HashChangeEvent('hashchange'));

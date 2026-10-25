@@ -49,6 +49,8 @@
  * does — the lab adds no server action of its own for them (the library state's one dev-only stand-in, `library-lab-server.ts`, holds no database). With no session every one
  * of them refuses; nothing is written from here.
  */
+import { LabPageSpotlight } from '@/app/dev/_components/lab-page-spotlight';
+import { TOURS } from '@/lib/tours';
 import type { ReactNode } from 'react';
 import { notFound } from 'next/navigation';
 import { SupplierLabShell, type SupplierLabMeasure } from '../_components/supplier-lab-shell';
@@ -348,7 +350,16 @@ export default async function SupplierLabPage({
     return wrap(<MoneyLab state={q.s as MoneyState} next={q.next} open={q.open} mpage={q.mpage} />, 'reading');
   }
   const today = q.s ? TODAY[q.s] : undefined;
-  if (today) return wrap(<TodayLab state={today} toast={q.toast} />, 'today');
+  // &spot=1 — Today's page spotlight (vendor_today_v2), first run, nothing recorded (the lab draws no top bar, so the
+  // envelope stop is dropped here as it would be on a page without it).
+  if (today)
+    return wrap(
+      <>
+        <TodayLab state={today} toast={q.toast} />
+        {q.spot === '1' ? <LabPageSpotlight tourKey="vendor_today_v2" script={TOURS.vendor_today_v2.spotlight!} /> : null}
+      </>,
+      'today',
+    );
   const thumb = q.thumb ?? 'people';
   return (
     <div className="min-h-screen bg-cream px-4 pb-40 pt-3" data-supplier-lab={thumb}>

@@ -196,7 +196,7 @@ export function HomeFirstScreen({
               "the rest stays off but can be switched on later from Home's quick setup"). It unfolds in
               place; each switch writes its need and lands on the shipped setup for it. */}
           {needs && needs.switchOn.length > 0 ? (
-            <details className="home-card group" data-home-switch-on="">
+            <details className="home-card group" data-home-switch-on="" data-tour="home-switch-on">
               <summary className="flex cursor-pointer list-none items-center gap-2">
                 <span className="min-w-0 flex-1">
                   <span className="block font-semibold">Switch on more</span>

@@ -173,8 +173,8 @@ export default async function PeopleLabPage({
       {/* 🔦 ?tour=bar | people — the account screens' spotlights on this fixture (help-sync, 2026-10-22). */}
       {sp.tour === 'bar' || sp.tour === 'people' ? (
         <LabTour
-          tourKey={sp.tour === 'bar' ? 'customer_account_bar_v1' : 'customer_people_v2'}
-          script={TOURS[sp.tour === 'bar' ? 'customer_account_bar_v1' : 'customer_people_v2'].spotlight!}
+          tourKey={sp.tour === 'bar' ? 'customer_account_bar_v2' : 'customer_people_v3'}
+          script={TOURS[sp.tour === 'bar' ? 'customer_account_bar_v2' : 'customer_people_v3'].spotlight!}
         />
       ) : null}
     </div>

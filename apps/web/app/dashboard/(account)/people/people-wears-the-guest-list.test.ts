@@ -120,7 +120,7 @@ const CAPABILITIES: Array<[string, string, RegExp]> = [
   ['Groups · New group', PAGE, /href="\/dashboard\/samahan\/new"/],
   ['Following / Followers lists', PAGE, /<FollowListView[\s\S]{0,200}picker=\{picker\}/],
   // The spotlight replaced the switched-off carousel (2026-10-22, help-sync) — still a first-visit tour on the page.
-  ['The first-visit tour', PAGE, /<Spotlight tourKey="customer_people_v2"/],
+  ['The first-visit tour', PAGE, /<Spotlight tourKey="customer_people_v3"/],
 ];
 
 for (const [what, src, re] of CAPABILITIES) {

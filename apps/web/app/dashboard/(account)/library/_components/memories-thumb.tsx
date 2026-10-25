@@ -70,7 +70,7 @@ export function MemoriesThumb({
       <AccountThumbRow
         data={{ 'data-memories-thumb': '' }}
         tools={
-          <ThumbTool>
+          <ThumbTool tour="library-show">
             <span data-pick="" className="contents">
               <PickMenu
                 label="Memories — event, what to show"
@@ -88,7 +88,7 @@ export function MemoriesThumb({
           </ThumbTool>
         }
         field={
-          <ThumbField words="Search memories">
+          <ThumbField words="Search memories" tour="library-search">
             <input
               type="search"
               value={q}

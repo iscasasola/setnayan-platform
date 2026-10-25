@@ -69,7 +69,7 @@ async function renderButton(userAgent: string, through: boolean) {
  */
 function readBack(html: string): Array<{ said: string | null; carried: string | null }> {
   return [...html.matchAll(/<button\b[^>]*data-save-provider="[a-z]+"[^>]*>[\s\S]*?<\/button>/g)].map(([b]) => ({
-    said: /with (Apple|Google) · nothing to type/.exec(b)?.[1]?.toLowerCase() ?? null,
+    said: /Continue with (Apple|Google)/.exec(b)?.[1]?.toLowerCase() ?? null,
     carried: b.includes(`name="${SAVE_METHOD_FIELD}"`) ? (/\svalue="([a-z]+)"/.exec(b)?.[1] ?? null) : null,
   }));
 }

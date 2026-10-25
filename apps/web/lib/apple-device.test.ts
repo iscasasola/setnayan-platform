@@ -96,7 +96,7 @@ test('2 · 🍎 the iPad APP is offered Sign in with Apple wherever Google would
   assert.equal(saveMethodFor(MAC_SAFARI, BOTH), 'google', 'a Mac is unchanged');
   // …and the rendered FIRST button says it and carries it (2026-10-25 "Show both": Google draws under it).
   const html = await renderSave(IPAD_APP);
-  assert.match(html, /with Apple · nothing to type/, 'the iPad app’s button does not say Apple');
+  assert.match(html, /Continue with Apple/, 'the iPad app’s button does not say Apple');
   assert.deepEqual(pressOrder(html), ['apple', 'google'], 'the iPad app’s first press does not carry Apple');
   // The other pieces read the same device.
   assert.equal(homeScreenStepsFor(IPAD_APP).length, 1);
@@ -112,7 +112,7 @@ test('3 · 🍎 iPad Safari: the server draws the Apple block beside the Mac one
   assert.equal(el.type, AppleOnTouch, 'iPad Safari is handed the Mac’s Google button with no way to Apple');
   const { web, apple } = el.props as { web: React.ReactNode; apple: React.ReactNode };
   const appleHtml = renderToStaticMarkup(React.createElement(React.Fragment, null, apple));
-  assert.match(appleHtml, /with Apple · nothing to type/);
+  assert.match(appleHtml, /Continue with Apple/);
   // 🍏🤖 2026-10-25 ("Show both"): both blocks hold both buttons — the swap decides only the ORDER.
   assert.deepEqual(pressOrder(appleHtml), ['apple', 'google'], 'the swapped-in block does not put Apple first');
   assert.deepEqual(pressOrder(renderToStaticMarkup(React.createElement(React.Fragment, null, web))), ['google', 'apple']);

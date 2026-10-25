@@ -25,3 +25,18 @@ where we can mazimize the app to be searchable"*.
   dropped; the form moved out of `<noscript>`; `/help` dropped from the no-top-box paths; the de-dupe removed). Registered in the thumb-row and search-pin guards; port baseline regenerated (HelpSearch → HowSearch*).
 
 SPEC IMPACT: DECISION_LOG.md row 2026-10-25 "HELP AND FEATURES SHARE ONE SEARCH" (pushed to the corpus, 9cfadd3c).
+
+### Help content pass (owner: "the content needs to be as updated and efficient as possible")
+
+- New answer **Can I get a refund?** (`/help/refunds`), worded only from `app/(shell)/refunds/page.tsx`: no refunds; an
+  unusable paid service waits for your next event or becomes Papic credits worth what you paid; double charges go back;
+  Apple purchases go to Apple (the app answer says only that); supplier refunds are the supplier's. The 7-day report
+  window reads `REFUND_REPORT_WINDOW_DAYS`. "refund" now leads with it.
+- The second `what-is-papic` (Papic topic) is now `how-papic-works` — the URL always opened the About answer, so it had
+  no page of its own. The guard now holds every help slug unique.
+- "One camera is free on every event" → "Cameras are free and unlimited; every photo uses credits" (2 answers).
+- Shorter, truer: What is Setnayan · How much does Setnayan cost · What is Setnayan AI · What is Pakulay (now the Mood
+  Board as shipped; dropped the unverified "finalizes once / locked vision") · How do I turn on Papic (numbered steps) ·
+  Reference codes (dropped "ingest automatically / reconciles within one business day") · the supplier reply-only inbox
+  (messages live in Customers / the envelope). "wedding" → "event" where it meant any event (Papic answers, venue
+  signal, planner apps). Wedding-specific search questions keep their words.

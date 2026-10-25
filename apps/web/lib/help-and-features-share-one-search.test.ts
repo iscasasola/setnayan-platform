@@ -50,7 +50,7 @@ import { stripComments } from '@/lib/strip-comments';
 
 import { composeHowSearch, helpAnswerHits } from '@/lib/how-search-core';
 import { searchInCodeReads } from '@/lib/site-search-core';
-import { HELP_NOT_IN_THE_APP, HELP_TOPICS } from '@/lib/help';
+import { ALL_HELP_ARTICLES, HELP_NOT_IN_THE_APP, HELP_TOPICS } from '@/lib/help';
 
 const WEB = process.cwd();
 const code = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
@@ -123,6 +123,22 @@ test('2 · its results are help answers, feature pages and guides — from the r
     for (let i = 1; i < hits.length; i++) assert.ok(hits[i - 1]!.score >= hits[i]!.score, `"${q}": not ranked by score`);
   }
   assert.deepEqual(composeHowSearch({ query: ' ', storeShell: false, reads: [] }), [], 'an empty box lists something');
+});
+
+test('2 · every help answer has its own address, and "refund" finds the refund answer', () => {
+  const slugs = ALL_HELP_ARTICLES.map((e) => e.article.slug);
+  const twice = slugs.filter((s, i) => slugs.indexOf(s) !== i);
+  assert.deepEqual(twice, [], `help slugs used twice — /help/<slug> can open only one: ${twice.join(', ')}`);
+  for (const q of ['refund', 'refunds', 'can I get a refund']) {
+    const hits = composeHowSearch({ query: q, storeShell: false, reads: searchInCodeReads(q) });
+    assert.equal(hits[0]?.href, '/help/refunds', `"${q}" does not lead with the refund answer`);
+  }
+  // The answer says the live policy, not an invented one (app/(shell)/refunds/page.tsx).
+  const refund = ALL_HELP_ARTICLES.find((e) => e.article.slug === 'refunds')!.article;
+  assert.match(refund.body, /^No — what you buy from Setnayan is not refunded\./);
+  assert.match(refund.body, /Papic credits to your event worth what you paid/);
+  assert.match(refund.appBody ?? '', /goes to Apple, under Apple’s own terms/); // the policy's iPhone-app line
+  assert.match(code('lib/help.ts'), /within \$\{REFUND_REPORT_WINDOW_DAYS\} days of payment/, 'the report window is typed, not the rule constant');
 });
 
 test('2 · the /help role tile narrows the help answers; the iPhone app answers in its own words', () => {

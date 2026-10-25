@@ -88,9 +88,9 @@ export function helpAnswerHits(
       }
     }
   }
-  // 🪤 ONE ADDRESS, ONE ROW. Two different answers share the slug `what-is-papic` (one under "About Setnayan", one
-  // under "Papic") — /help/what-is-papic can only open one of them, and two rows with one address drew a duplicate
-  // React key. The better-scoring answer stays.
+  // 🪤 ONE ADDRESS, ONE ROW. Two different answers once shared the slug `what-is-papic` — /help/what-is-papic could
+  // open only one of them, and two rows with one address drew a duplicate React key. The slug is fixed (the second is
+  // `how-papic-works`) and the guard holds slugs unique; this stays so a repeat can never draw the key twice.
   const byHref = new Map<string, HowHit>();
   for (const h of out) {
     const had = byHref.get(h.href);

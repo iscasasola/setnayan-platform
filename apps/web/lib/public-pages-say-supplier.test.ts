@@ -14,11 +14,12 @@
  * `'vendor'` key are NOT counted — code names are frozen on purpose, the same
  * split as "Event Hub, never website" (2026-09-24).
  *
- * ⚠ THE THREE LEGAL PAGES ARE NOT SCANNED, deliberately and visibly. In
- * /privacy, /terms and /acceptable-use "vendor" can be a defined term (the
- * Vendor Agreement), and renaming a defined term in a legal document is a legal
- * change, not a copy change — it waits for the owner. Delete them from
- * LEGAL_PENDING the day they are rewritten, and this guard will hold them too.
+ * ⚖ THE THREE LEGAL PAGES ARE SCANNED TOO (since 2026-10-25). They sat in
+ * LEGAL_PENDING because "vendor" can be a defined term (the Vendor Agreement),
+ * and renaming a defined term in a legal document is a legal change. Read before
+ * the rename: none of /privacy, /terms or /acceptable-use defined it or named the
+ * Agreement, so it was a copy change. A page that ever does define the term goes
+ * back into LEGAL_PENDING with the reason, not into PROPER_NAME.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -52,10 +53,10 @@ const PUBLIC = [
   'lib/marketing-i18n.tsx',
 ];
 
-const LEGAL_PENDING = new Set([
-  'app/(shell)/privacy/page.tsx',
-  'app/(shell)/terms/page.tsx',
-  'app/(shell)/acceptable-use/page.tsx',
+const LEGAL_PENDING = new Set<string>([
+  // Emptied 2026-10-25 (rd/legal-pages-true): /privacy, /terms and
+  // /acceptable-use now say "supplier" — none of them used "vendor" as a defined
+  // term — so this guard holds them like every other public page.
 ]);
 
 const WORD = /\b[Vv]endors?\b/g;

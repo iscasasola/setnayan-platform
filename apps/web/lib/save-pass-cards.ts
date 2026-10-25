@@ -18,7 +18,31 @@
 export type PassCardSave =
   | { k: 'saved' }
   | { k: 'needsTap'; files: File[] }
-  | { k: 'failed'; message: string };
+  | { k: 'failed'; message: string }
+  /** The guest's sign-in on this phone is missing or ended (the route's 401) — offer the way back in. */
+  | { k: 'signedOut' };
+
+/**
+ * 🔑 THE WAY BACK IN WHEN A SAVE MEETS A LAPSED SIGN-IN (owner 2026-10-25, verbatim: *"A button we can offer
+ * when they try to save the digital pass."* — and: *"After they have rsvped and opens the event hub."*).
+ *
+ * `/api/guest/pass-card` answers 401 ONLY when the request carries no guest pass at all (expired, cleared by the
+ * phone, or revoked by a QR rotation) — every refusal after sign-in is a 404. So a 401 is never shown as an error
+ * line (it used to read "Open your invitation link first." under a button that could do nothing): the Save
+ * becomes ONE button, "Get back in", to the page the guest is on, fresh from the server. Signed out, every guest
+ * page already shows its OWN door — the Event Hub's "Confirm your Booking · Upload your QR · Sign in"
+ * (`GetInside`), the thank-you's redirect to it — so no new sign-in method exists here, by rule. The path only
+ * (no query, no hash): a spent `?k=` is not replayed, and on a paid subdomain the path is still this event's.
+ */
+export const PASS_REENTRY_WORDS = {
+  button: 'Get back in',
+  line: 'Your sign-in on this phone ended.',
+  why: 'Nothing you sent is lost. Open your invitation again with your QR or by signing in, then save your ticket.',
+} as const;
+
+export function passReentryHref(loc: { pathname: string }): string {
+  return loc.pathname && loc.pathname.startsWith('/') ? loc.pathname : '/';
+}
 
 /** `attachment; filename="Maria-Santos-pass-….png"` → the name. */
 export function fileNameFromDisposition(header: string | null, fallback = 'pass.png'): string {
@@ -26,10 +50,13 @@ export function fileNameFromDisposition(header: string | null, fallback = 'pass.
   return m?.[1] ?? fallback;
 }
 
-export async function fetchPassCards(hrefs: readonly string[]): Promise<File[] | { message: string }> {
+export async function fetchPassCards(
+  hrefs: readonly string[],
+): Promise<File[] | { message: string; signedOut?: true }> {
   const out: File[] = [];
   for (const href of hrefs) {
     const res = await fetch(href, { credentials: 'same-origin' }).catch(() => null);
+    if (res && res.status === 401) return { message: 'signed out', signedOut: true };
     if (!res || !res.ok) {
       const said = res ? (await res.text().catch(() => '')).trim() : '';
       return { message: said && said.length < 200 ? said : 'Could not get your ticket just now. Try again.' };
@@ -83,6 +110,6 @@ export async function handPassCards(files: File[]): Promise<PassCardSave> {
 
 export async function savePassCards(hrefs: readonly string[]): Promise<PassCardSave> {
   const got = await fetchPassCards(hrefs);
-  if (!Array.isArray(got)) return { k: 'failed', message: got.message };
+  if (!Array.isArray(got)) return got.signedOut ? { k: 'signedOut' } : { k: 'failed', message: got.message };
   return handPassCards(got);
 }

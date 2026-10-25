@@ -123,7 +123,10 @@ test('3 · the middleware slides the pass only on a plain read that is not a pas
   const fn = mw.slice(mw.indexOf('async function refreshGuestSessionCookie('));
   const gate = fn.indexOf('if (!mayRefreshGuestPass(request.method, request.nextUrl.pathname, request.nextUrl.search)) return;');
   assert.ok(gate > -1, 'the refresh no longer asks mayRefreshGuestPass');
-  assert.ok(gate < fn.indexOf('signGuestSession('), 'the pass is re-signed before the hop is checked');
+  // The re-signing (the sliding window AND the legacy re-seal) lives in the pure `guestPassRefreshFor`.
+  const sign = fn.indexOf('guestPassRefreshFor(');
+  assert.ok(sign > -1, 'the refresh no longer goes through guestPassRefreshFor');
+  assert.ok(gate < sign, 'the pass is re-signed before the hop is checked');
 });
 
 test('4 · the redeem writes the link\'s pass unconditionally, then opens that guest\'s landing', () => {

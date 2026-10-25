@@ -1,5 +1,5 @@
 import 'server-only';
-import { resolveGuestSessionSecret } from '@/lib/guest-session';
+import { guestSessionVerifyMaterials, resolveGuestSessionSecret } from '@/lib/guest-session';
 import type { CaptureLane } from './tiers';
 import { ownerTagMatchesWith, ownerTagWith } from './owner-tag-core';
 
@@ -30,5 +30,9 @@ export function papicOwnerTag(lane: CaptureLane, ownerId: string, eventId: strin
 
 /** See ownerTagMatchesWith (lib/papic-upload/owner-tag-core.ts). */
 export function ownerTagMatches(sent: unknown, lane: CaptureLane, ownerId: string, eventId: string): boolean {
-  return ownerTagMatchesWith(material(), sent, lane, ownerId, eventId);
+  // A shot queued before GUEST_SESSION_SECRET was set carries a tag under the
+  // legacy seal; it is still this owner's shot (lib/guest-session.ts).
+  const keys = guestSessionVerifyMaterials();
+  if (keys.length === 0) return ownerTagMatchesWith(material(), sent, lane, ownerId, eventId);
+  return keys.some((k) => ownerTagMatchesWith(k, sent, lane, ownerId, eventId));
 }

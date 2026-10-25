@@ -434,8 +434,10 @@ export function ServicesTakeover({
       <div className="min-w-0 pt-4">
         {drawn('find') ? (
           <div data-suppliers-body="find" hidden={mode !== 'find'}>
-            {/* Room for Find's thumb row, so the last row is never under it. */}
-            <div className="max-tab:pb-16">
+            {/* Room for Find's thumb row is the row's OWN, at every width: it publishes `--sn-thumb-room` and the
+                column pads by it (lib/thumb-room.ts). This div's old `max-tab:pb-16` was phone-only — from #6858 the
+                computer's row spans the column and the last line hid under it (owner 2026-10-25). */}
+            <div>
               {/* NO SECOND DOOR TO FIND (owner 2026-10-21 — "Why do i have this
                   find supplier button? When we have the search bar at the
                   bottom?"). The bottom search is the one door: tapped empty it

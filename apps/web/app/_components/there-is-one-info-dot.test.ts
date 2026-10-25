@@ -134,16 +134,22 @@ const SRC = new Map(FILES.map((f) => [f, read(f)]));
 /** An element whose only text is "i": `>i<`, with any whitespace. */
 const DRAWN_I = />\s*i\s*<\//g;
 
-type Drawn = { file: string; line: number; cls: string[]; before: string };
+type Drawn = { file: string; line: number; cls: string[]; control: string[] };
 
 function drawnSites(): Drawn[] {
   const out: Drawn[] = [];
   for (const [file, src] of SRC) {
     for (const m of src.matchAll(DRAWN_I)) {
-      const before = src.slice(Math.max(0, m.index! - 900), m.index!);
+      // From the nearest opening <button>/<summary> (the control the "i" sits in), or 900 chars when there is none.
+      // Comments are blanked to spaces by `stripComments`, so a long note between the two must not cut the window.
+      const opener = Math.max(src.lastIndexOf('<button', m.index!), src.lastIndexOf('<summary', m.index!));
+      const before = src.slice(Math.max(0, Math.min(opener < 0 ? Infinity : opener, m.index! - 900)), m.index!);
       const all = [...before.matchAll(/className="([^"]*)"/g)];
       const cls = all.length ? all[all.length - 1]![1]!.split(/\s+/).filter(Boolean) : [];
-      out.push({ file, line: src.slice(0, m.index!).split('\n').length, cls, before });
+      // The enclosing control's OWN classes — the first className after its opening tag.
+      const own = opener < 0 ? null : /className=(?:"([^"]*)"|\{`([^`]*)`\})/.exec(src.slice(opener, m.index!));
+      const control = own ? (own[1] ?? own[2]!).split(/\s+/).filter(Boolean) : [];
+      out.push({ file, line: src.slice(0, m.index!).split('\n').length, cls, control });
     }
   }
   return out;
@@ -195,7 +201,9 @@ test('every listed ⓘ wears the house look, token for token — no accent "i", 
     }
     // The 44-px floor: InfoTip's halo, an enclosing 44-px button, or a <summary>'s halo layer reaching 46.
     const pressable =
-      d.cls.includes('sn-dot-btn') || /\bh-11 w-11\b/.test(d.before) || d.cls.includes('before:-inset-[15px]');
+      d.cls.includes('sn-dot-btn') ||
+      (d.control.includes('h-11') && d.control.includes('w-11')) ||
+      d.cls.includes('before:-inset-[15px]');
     assert.ok(pressable, `${where} presses at under 44 px — wear \`sn-dot-btn\` or sit inside a 44-px button`);
   }
 });

@@ -318,7 +318,7 @@ export function SelfieCapture({
                   (`the-accent-is-one-token.test.ts` (4)), and every hub look moves terracotta with it. */}
               <span
                 aria-hidden="true"
-                className="sn-press-ring inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-ink/25 text-[10px] font-semibold leading-none text-ink/55 transition-all duration-sn-control ease-sn group-hover/info:border-terracotta group-hover/info:text-terracotta"
+                className="sn-press-ring inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-ink/25 text-[10px] font-semibold leading-none text-ink/55 transition-all duration-sn-control ease-sn group-hover/info:border-terracotta group-hover/info:text-terracotta" /* legibility-ok — the aria-hidden "i" of the house ⓘ (16 px dot, InfoTip's size); the button is named "Details" */
               >
                 i
               </span>

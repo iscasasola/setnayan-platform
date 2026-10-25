@@ -80,7 +80,9 @@ test('2 · the content column pads by the MEASURED dock, counting the safe area 
   const pb = /padding-bottom\s*:\s*([^;]+);/.exec(base[0]!.body)?.[1] ?? '';
   assert.match(pb, /var\(--sn-bottomdock-h,/, `the column pads by a guess, not the dock: ${pb}`);
   assert.match(pb, /env\(safe-area-inset-bottom\)/, `the unmeasured fallback forgets the home indicator: ${pb}`);
-  assert.match(pb, /\+\s*[\d.]+rem\)\s*$/, `no breathing room past the dock: ${pb}`);
+  // ⬇ 2026-10-25: the dock's clearance is the FIRST term of `max(…, var(--sn-thumb-room, 0px))` — a page's floating
+  // thumb row may need more (lib/thumb-room.ts, held by lib/a-thumb-row-leaves-room.test.ts).
+  assert.match(pb, /\+\s*[\d.]+rem\)\s*,\s*var\(--sn-thumb-room,\s*0px\)\)\s*$/, `no breathing room past the dock: ${pb}`);
 });
 
 test('3 · from where the dock stops being drawn, the column cancels it — on the SAME line', () => {
@@ -94,7 +96,9 @@ test('3 · from where the dock stops being drawn, the column cancels it — on t
   assert.ok(px, `lib/use-responsive.ts has no "${dockBp}"`);
   const desktop = rulesFor('[data-shell-main]').filter((r) => new RegExp(`min-width:\\s*${px}px`).test(r.media ?? ''));
   assert.equal(desktop.length, 1, `no cancel for [data-shell-main] from ${px}px — dead space under every page where the dock is gone`);
-  assert.match(desktop[0]!.body, /padding-bottom\s*:\s*0\s*;/);
+  // The DOCK's clearance cancels; only a floating thumb row's measured room is left (0 when none floats).
+  assert.match(desktop[0]!.body, /padding-bottom\s*:\s*var\(--sn-thumb-room,\s*0px\)\s*;/);
+  assert.doesNotMatch(desktop[0]!.body, /--sn-bottomdock-h/, 'the column still clears a dock that is not drawn');
   const elsewhere = rulesFor('[data-shell-main]').filter((r) => r.media !== null && !new RegExp(`min-width:\\s*${px}px`).test(r.media));
   assert.equal(elsewhere.length, 0, 'a second width cancels the column — the dock and its clearance disagree in between');
 });

@@ -117,6 +117,7 @@ import {
 } from '../category-decision-actions';
 import { isExploreReplanEnabled } from '@/lib/explore-replan-flag';
 import { benchFolderAnchorId, benchTileAnchorId, scrollBenchAnchor } from '@/lib/bench-anchors';
+import { dropPinRoom, makeRoomToPin } from '@/lib/pin-room';
 import { benchSearchScopeForTile } from '@/lib/bench-category-search';
 import { CategorySearchOverlay } from './category-search-overlay';
 import { FindThumbRow } from './find-thumb-row';
@@ -970,6 +971,8 @@ html.dark .slcat .mrerr{color:#E39A9A}
    · ONE accent token (--sn-accent) for what is on, picked or tappable — in
      both themes; dark mode must work (owner 2026-10-07 / 2026-10-11). */
 .slcat{--mulberry:rgb(var(--sn-accent))}
+/* 📌 The room an opened row needs to reach the top (lib/pin-room.ts) — 0 unless a landing measured it short. */
+.slcat{padding-bottom:var(--pin-room,0px)}
 /* the supplier row: no box; a divider between suppliers; pressed = a soft fill */
 .slcat .fold.flat .vcw{border:0;border-bottom:1px solid var(--line);border-radius:0;background:none;padding:12px 0}
 .slcat .fold.flat .vcw:has(>.vc:active){transform:none;border-color:var(--line);background:color-mix(in srgb,var(--ink) 5%,transparent)}
@@ -3351,16 +3354,23 @@ export function ShortlistCategories({
   // unfold (and the fold of whichever row closed above it) has finished —
   // `transitionend` is the moment the layout is final. The listener answers
   // ONCE, so folding the row later does not pull the page back to it.
+  // 📌 THE PAGE MAKES ROOM FIRST (owner 2026-10-25, *"when i tapped food trucks it should expand and pin foodtrucks on
+  // the top"*): a row low in the list cannot be scrolled past the page's end, so the bench gets exactly the padding the
+  // page is short of (`lib/pin-room.ts`) before each scroll — measured again once the unfold has finished.
   const [landing, setLanding] = useState<{ tile: string; n: number } | null>(null);
   useLayoutEffect(() => {
     if (!landing) return;
     const id = benchTileAnchorId(landing.tile);
     const row = document.getElementById(id);
-    const frame = requestAnimationFrame(() => scrollBenchAnchor(id));
+    const land = () => {
+      if (row && benchRef.current) makeRoomToPin(row, benchRef.current);
+      scrollBenchAnchor(id);
+    };
+    const frame = requestAnimationFrame(land);
     const settle = (e: TransitionEvent) => {
       if (e.propertyName !== 'grid-template-rows') return;
       row?.removeEventListener('transitionend', settle);
-      scrollBenchAnchor(id);
+      land();
     };
     row?.addEventListener('transitionend', settle);
     return () => {
@@ -3368,6 +3378,10 @@ export function ShortlistCategories({
       row?.removeEventListener('transitionend', settle);
     };
   }, [landing]);
+  // Nothing open → no room held: the page is its own length again.
+  useEffect(() => {
+    if (!openTile && !openAll) dropPinRoom(benchRef.current);
+  }, [openTile, openAll]);
   /** A header tap while every category is open folds, or re-opens, just that one. */
   function toggleFolded(tile: string) {
     setFolded((cur) => {

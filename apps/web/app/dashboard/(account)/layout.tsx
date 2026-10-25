@@ -160,7 +160,7 @@ export default async function AccountDashboardLayout({
         {/* ↔ `.sn-vt-page` — the bar's page slide moves THIS, the same slide as the event and the shop (owner
             2026-10-24); `while-sliding` names it only while a slide runs (globals.css). */}
         <main
-          className="sn-vt-page pb-[calc(var(--sn-bottomdock-h,calc(env(safe-area-inset-bottom)+64px))+1.5rem)] lg:pb-0"
+          className="sn-vt-page pb-[max(calc(var(--sn-bottomdock-h,calc(env(safe-area-inset-bottom)+64px))+1.5rem),var(--sn-thumb-room,0px))] lg:pb-[var(--sn-thumb-room,0px)]"
           data-sn-slide="while-sliding"
         >
           {children}

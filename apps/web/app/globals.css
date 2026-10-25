@@ -781,11 +781,20 @@
  * inside the dock, so the dock's height already counts it. Mobile-only — the
  * dock is lg:hidden, so desktop cancels all of it below.
  */
+/*
+ * ⬇ …AND THE FLOATING THUMB ROW (owner 2026-10-25, live, Suppliers on his computer: *"the suppliers page does not scroll
+ * up anymore so i can add more categories"*). A page's floating row (⇕ · Search · ＋, Build's Save bar) covers the foot
+ * too, and on a phone it stands ON the dock. The row measures what it covers and publishes `--sn-thumb-room`
+ * (`lib/thumb-room.ts`, mounted by the one `<ThumbRow>`), so the column pads by whichever is taller — the dock's
+ * clearance or the row's room — never a number a page adds by hand (Find's `max-tab:pb-16` was phone-only, and from
+ * #6858 the computer's row spans the whole column, so the last ~80 px of the page lay under it with nothing to scroll
+ * into). Held by `lib/a-thumb-row-leaves-room.test.ts`.
+ */
 [data-shell-main] {
-  padding-bottom: calc(var(--sn-bottomdock-h, calc(env(safe-area-inset-bottom) + 64px)) + 1.5rem);
+  padding-bottom: max(calc(var(--sn-bottomdock-h, calc(env(safe-area-inset-bottom) + 64px)) + 1.5rem), var(--sn-thumb-room, 0px));
 }
 html.guests-subnav-docked [data-shell-main] {
-  padding-bottom: calc(var(--sn-bottomdock-h, calc(env(safe-area-inset-bottom) + 64px)) + 5.5rem);
+  padding-bottom: max(calc(var(--sn-bottomdock-h, calc(env(safe-area-inset-bottom) + 64px)) + 5.5rem), var(--sn-thumb-room, 0px));
 }
 
 /*
@@ -823,11 +832,12 @@ html.guests-subnav-docked [data-shell-main] {
    tree's dock is `tab:hidden` (BottomDock boundary="tab"), so its column stops
    reserving the dock's height on the SAME line — the page's own thumb docks
    then sit on the bottom edge. `[data-shell-main]` is the event tree's column
-   (and its labs'), nobody else's. */
+   (and its labs'), nobody else's.
+   ⬇ The dock's clearance goes; the floating thumb row's room stays (`--sn-thumb-room`, 0 when no row floats). */
 @media (min-width: 701px) {
   [data-shell-main],
   html.guests-subnav-docked [data-shell-main] {
-    padding-bottom: 0;
+    padding-bottom: var(--sn-thumb-room, 0px);
   }
 }
 

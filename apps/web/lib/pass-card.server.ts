@@ -191,9 +191,10 @@ export async function loadPassCardKit(
     set = await loadPrintSet(eventId, { mode: 'screen', withEventQr: false, previewTheme: CLASSIC_PRINT_THEME });
     if (!set) return null;
   }
-  const [words, arriveRead, party, seats] = await Promise.all([
+  const arriveMoment: { at: string | null } = { at: null };
+  const [words, arrive, party, seats] = await Promise.all([
     eventWordsForEvent(eventId).catch(() => null),
-    readArrive(admin, eventId),
+    readArriveLabel(admin, eventId, arriveMoment),
     readPartyCounts(admin, eventId, opts.seatsFor),
     readTicketSeats(admin, eventId),
   ]);
@@ -210,7 +211,7 @@ export async function loadPassCardKit(
     qrLook: { ...set.qrLook, dark: '#111111', light: '#FFFFFF' },
     data: { ...set.data, eyebrow, eventWord, details: { ...set.data.details, guestNames: true, setnayanMark: !ownsPro } },
   };
-  return { set, arrive: arriveRead.label, arriveAt: arriveRead.at, party, seats };
+  return { set, arrive, arriveAt: arrive ? arriveMoment.at : null, party, seats };
 }
 
 /**
@@ -243,21 +244,21 @@ export async function readTicketSeats(admin: SupabaseClient, eventId: string): P
   return out;
 }
 
-async function readArrive(admin: SupabaseClient, eventId: string): Promise<{ label: string | null; at: string | null }> {
+/** 🍎 `out.at` — the SAME moment's raw start, for the Wallet pass's lock-screen time (lib/wallet-pass.ts); never a second pick. */
+async function readArriveLabel(admin: SupabaseClient, eventId: string, out: { at: string | null } = { at: null }): Promise<string | null> {
   try {
     const blocks = await fetchPublicScheduleBlocks(admin, eventId, await isCoordinatorPrepReleaseEnabled());
     // ⏰ THE guests' arrival (`guestsArriveTime`, owner 2026-10-19) — the dress code's Guests call time, the invitation's
     // "Guests arrive" and Event Details' row: one moment. It reads the stored wall clock as a wall clock (never
     // re-zoned — see site-body's pass for the 8-hour bug). No arrival moment → the invitation's first moment (the
     // Ceremony's time on a programme that opens on it, 2026-10-20) — the time the invitation itself prints.
-    // 🍎 `at` is that SAME moment's raw start (the Wallet pass's lock-screen time, lib/wallet-pass.ts) — never a second pick.
-    const label = guestsArriveTime(blocks);
-    const moment = guestsArriveSource(blocks)?.moment ?? null;
-    return { label, at: label && moment ? moment.start_at : null };
+    out.at = guestsArriveSource(blocks)?.moment.start_at ?? null;
+    return guestsArriveTime(blocks);
   } catch (err) {
     // Omitted, never guessed: a card with no ARRIVE is true; a wrong one is not.
     logQueryError('pass-card.arrive', err, { event_id: eventId }, 'graceful_degrade');
-    return { label: null, at: null };
+    out.at = null;
+    return null;
   }
 }
 

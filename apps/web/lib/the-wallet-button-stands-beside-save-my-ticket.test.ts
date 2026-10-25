@@ -33,7 +33,7 @@ import { probeSigner } from './wallet-pass-pkpass';
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 const code = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
 
-const LINK = 'https://setnayan.com/indalecio-claire/invite?k=0123456789abcdef0123456789abcdef';
+const LINK = 'https://setnayan.com/indalecio-claire/invite?sample=guest-link';
 const UA = {
   iphoneSafari: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1',
   iphoneChrome: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/130.0 Mobile/15E148 Safari/604.1',

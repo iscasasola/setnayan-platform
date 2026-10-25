@@ -89,7 +89,7 @@ function parsePairIndex(raw: FormDataEntryValue | null): number | null {
  * form so this is one action for both shapes.
  */
 export async function addSponsor(formData: FormData): Promise<void> {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), null);
   const eventId = parseEventId(formData);
   let userId: string;
   try {
@@ -145,7 +145,7 @@ export async function addSponsor(formData: FormData): Promise<void> {
  * insert — moving a sponsor between tiers means removing + re-adding.
  */
 export async function updateSponsor(formData: FormData): Promise<void> {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), null);
   const eventId = parseEventId(formData);
   const sponsorId = clean(formData.get('sponsor_id'), 40);
   if (!sponsorId) redirect(`/dashboard/${eventId}/sponsors`);
@@ -201,7 +201,7 @@ export async function updateSponsor(formData: FormData): Promise<void> {
  * note in the UI.
  */
 export async function removeSponsor(formData: FormData): Promise<void> {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), null);
   const eventId = parseEventId(formData);
   const sponsorId = clean(formData.get('sponsor_id'), 40);
   if (!sponsorId) redirect(`/dashboard/${eventId}/sponsors`);
@@ -229,7 +229,7 @@ export async function removeSponsor(formData: FormData): Promise<void> {
  * email). V1.x integrates Resend per 0028 email template pattern.
  */
 export async function sendInvitation(formData: FormData): Promise<void> {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), null);
   const eventId = parseEventId(formData);
   const sponsorId = clean(formData.get('sponsor_id'), 40);
   if (!sponsorId) redirect(`/dashboard/${eventId}/sponsors`);
@@ -269,7 +269,7 @@ export async function sendInvitation(formData: FormData): Promise<void> {
  * (idempotent — host can flip status without duplicating guest rows).
  */
 export async function markResponse(formData: FormData): Promise<void> {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), null);
   const eventId = parseEventId(formData);
   const sponsorId = clean(formData.get('sponsor_id'), 40);
   if (!sponsorId) redirect(`/dashboard/${eventId}/sponsors`);

@@ -71,7 +71,7 @@ export async function requestPartFinalization(
   partId: string,
   vendorId: string,
 ): Promise<FinalizationActionResult> {
-  await refuseLimitedHelper(eventId);
+  await refuseLimitedHelper(eventId, 'mood_board');
   if (!isFinalizablePartId(partId)) return { status: 'not_finalizable_part' };
 
   const supabase = await createClient();
@@ -160,7 +160,7 @@ export async function cancelPartFinalization(
   eventId: string,
   finalizationId: string,
 ): Promise<FinalizationActionResult> {
-  await refuseLimitedHelper(eventId);
+  await refuseLimitedHelper(eventId, 'mood_board');
   return simpleCoupleRpc(eventId, 'cancel_part_finalization_request', finalizationId);
 }
 
@@ -175,7 +175,7 @@ export async function requestPartReopen(
   eventId: string,
   finalizationId: string,
 ): Promise<FinalizationActionResult> {
-  await refuseLimitedHelper(eventId);
+  await refuseLimitedHelper(eventId, 'mood_board');
   const result = await simpleCoupleRpc(eventId, 'request_part_reopen', finalizationId);
   if (result.status !== 'ok') return result;
 
@@ -227,7 +227,7 @@ export async function cancelPartReopen(
   eventId: string,
   finalizationId: string,
 ): Promise<FinalizationActionResult> {
-  await refuseLimitedHelper(eventId);
+  await refuseLimitedHelper(eventId, 'mood_board');
   return simpleCoupleRpc(eventId, 'cancel_part_reopen_request', finalizationId);
 }
 

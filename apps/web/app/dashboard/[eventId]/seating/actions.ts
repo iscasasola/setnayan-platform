@@ -112,7 +112,7 @@ function isValidTableType(value: unknown): value is TableType {
 }
 
 export async function createTable(formData: FormData) {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   const eventId = formData.get('event_id');
   const label = formData.get('table_label');
   const type = formData.get('table_type');
@@ -202,7 +202,7 @@ export async function createTable(formData: FormData) {
 }
 
 export async function deleteTable(formData: FormData) {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   const eventId = formData.get('event_id');
   const tableId = formData.get('table_id');
   if (typeof eventId !== 'string' || typeof tableId !== 'string') {
@@ -256,7 +256,7 @@ export async function deleteTable(formData: FormData) {
 }
 
 export async function assignGuest(formData: FormData) {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   const eventId = formData.get('event_id');
   const tableId = formData.get('table_id');
   const guestId = formData.get('guest_id');
@@ -309,7 +309,7 @@ export async function assignGuest(formData: FormData) {
 // inside ONE transaction, guarded by the new physical-chair unique index.
 // Lock-gated like every seating mutation.
 export async function swapSeats(formData: FormData) {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   const eventId = formData.get('event_id');
   const guestA = formData.get('guest_a_id');
   const guestB = formData.get('guest_b_id');
@@ -350,7 +350,7 @@ export async function swapSeats(formData: FormData) {
 // RPC, so the exchange is all-or-nothing and never transiently double-seats a
 // chair. Lock-gated like every seating mutation.
 export async function swapTableOccupants(formData: FormData) {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   const eventId = formData.get('event_id');
   const tableA = formData.get('table_id_a');
   const tableB = formData.get('table_id_b');
@@ -394,7 +394,7 @@ export async function swapTableOccupants(formData: FormData) {
 export async function assignGroup(
   formData: FormData,
 ): Promise<{ seated: number; requested: number; overflow: number }> {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   const eventId = formData.get('event_id');
   const tableId = formData.get('table_id');
   const idsRaw = formData.get('guest_ids');
@@ -472,7 +472,7 @@ export async function assignGroup(
 // tables to the stage, tier by tier. Idempotent — never moves a guest who is
 // already seated, never touches a sweetheart table, never seats the couple.
 export async function autoSeatGuests(formData: FormData) {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   const eventId = formData.get('event_id');
   if (typeof eventId !== 'string' || eventId.length === 0) {
     throw new Error('Invalid input');
@@ -554,7 +554,7 @@ export async function autoSeatGuests(formData: FormData) {
 // no longer auto-places a provisional seat — the couple seats manually via
 // Auto-Arrange / drag.
 export async function setSeatingAutoplace(formData: FormData) {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   const eventId = formData.get('event_id');
   if (typeof eventId !== 'string' || eventId.length === 0) return;
   const enabled = formData.get('enabled') === 'true';
@@ -585,7 +585,7 @@ export async function setSeatingAutoplace(formData: FormData) {
 // off, a group's overflow reverts to the classic stage-ranked fill instead of
 // the nearest table by floor coordinates. Couple-scoped.
 export async function setSeatingGroupAdjacency(formData: FormData) {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   const eventId = formData.get('event_id');
   if (typeof eventId !== 'string' || eventId.length === 0) return;
   const enabled = formData.get('enabled') === 'true';
@@ -612,7 +612,7 @@ export async function setSeatingGroupAdjacency(formData: FormData) {
 
 /** Master toggle: show/hide ghost booths for the whole event. */
 export async function setGhostBoothsEnabled(formData: FormData) {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   const eventId = formData.get('event_id');
   if (typeof eventId !== 'string' || eventId.length === 0) return;
   const enabled = formData.get('enabled') === 'true';
@@ -634,7 +634,7 @@ export async function setGhostBoothsEnabled(formData: FormData) {
 
 /** Per-booth dismiss: hide the ghost booth for one vendor category (the "×"). */
 export async function dismissGhostBooth(formData: FormData) {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   const eventId = formData.get('event_id');
   const category = formData.get('category');
   if (typeof eventId !== 'string' || eventId.length === 0) return;
@@ -689,7 +689,7 @@ async function restoreGhostBooths(formData: FormData) {
 // Save the floor-plan markers (stage position + the single entrance door).
 // Upserts the per-event singleton row; coords are clamped to 0–100 percent.
 export async function saveFloorPlan(formData: FormData) {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   const eventId = formData.get('event_id');
   if (typeof eventId !== 'string' || eventId.length === 0) {
     throw new Error('Invalid input');
@@ -781,7 +781,7 @@ export async function saveFloorPlan(formData: FormData) {
 const VALID_PHOTO_VISIBILITY = new Set(['table', 'all', 'none']);
 
 export async function saveVenuePhotoVisibility(formData: FormData) {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   const eventId = formData.get('event_id');
   if (typeof eventId !== 'string' || eventId.length === 0) {
     throw new Error('Invalid input');
@@ -827,7 +827,7 @@ export async function saveVenuePhotoVisibility(formData: FormData) {
 // route and the budget sits at its ceiling (lint-server-action-budget.mjs).
 // Lock-gated like every seating mutation.
 export async function savePriorityOrder(formData: FormData) {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   const eventId = formData.get('event_id');
   if (typeof eventId !== 'string' || eventId.length === 0) {
     throw new Error('Invalid input');
@@ -892,7 +892,7 @@ export async function savePriorityOrder(formData: FormData) {
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function addSeatingConstraint(formData: FormData) {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   const eventId = formData.get('event_id');
   const a = formData.get('guest_a_id');
   const b = formData.get('guest_b_id');
@@ -928,7 +928,7 @@ export async function addSeatingConstraint(formData: FormData) {
 }
 
 export async function removeSeatingConstraint(formData: FormData) {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   const eventId = formData.get('event_id');
   const a = formData.get('guest_a_id');
   const b = formData.get('guest_b_id');
@@ -968,7 +968,7 @@ export async function removeSeatingConstraint(formData: FormData) {
 // seat is fixed: lockAndFill (and any future solve) seats everyone else around
 // it. Lock-gated like every seating mutation.
 export async function toggleSeatLock(formData: FormData) {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   const eventId = formData.get('event_id');
   const guestId = formData.get('guest_id');
   if (
@@ -1007,7 +1007,7 @@ export async function toggleSeatLock(formData: FormData) {
 export async function lockAndFill(
   formData: FormData,
 ): Promise<{ seated: number; totalRules: number; satisfiedRules: number; unsatisfiedRules: number }> {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   const eventId = formData.get('event_id');
   if (typeof eventId !== 'string' || eventId.length === 0) {
     throw new Error('Invalid input');
@@ -1088,7 +1088,7 @@ export async function lockAndFill(
 }
 
 export async function updateTablePosition(formData: FormData) {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   const eventId = formData.get('event_id');
   const tableId = formData.get('table_id');
   const xRaw = formData.get('x_pos');
@@ -1132,7 +1132,7 @@ export async function updateTablePosition(formData: FormData) {
 }
 
 export async function unassignGuest(formData: FormData) {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   const eventId = formData.get('event_id');
   const guestId = formData.get('guest_id');
   if (typeof eventId !== 'string' || typeof guestId !== 'string') {
@@ -1161,7 +1161,7 @@ export async function unassignGuest(formData: FormData) {
 // Set a table's orientation (0–359°). Lets couples rotate a table so wedges /
 // banquets can be connected edge-to-edge into custom patterns.
 export async function updateTableRotation(formData: FormData) {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   const eventId = formData.get('event_id');
   const tableId = formData.get('table_id');
   const degRaw = formData.get('rotation_deg');
@@ -1203,7 +1203,7 @@ export async function updateTableRotation(formData: FormData) {
 // Rule: any gesture that changes both pos and rot persists both atomically or
 // neither. Payload: JSON `poses` = [{ tableId, xPct, yPct, rotationDeg }, ...].
 export async function commitWeld(formData: FormData) {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   const eventId = formData.get('event_id');
   const posesRaw = formData.get('poses');
   if (typeof eventId !== 'string' || typeof posesRaw !== 'string') {
@@ -1259,7 +1259,7 @@ export async function commitWeld(formData: FormData) {
 export async function updateTableType(
   formData: FormData,
 ): Promise<{ unseated: number }> {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   const eventId = formData.get('event_id');
   const tableId = formData.get('table_id');
   const newType = formData.get('table_type');
@@ -1324,7 +1324,7 @@ export async function updateTableType(
 // removed_seats). Clears the edge where two tables connect. Refuses to delete a
 // seat that's currently occupied — unseat the guest first.
 export async function setTableSeat(formData: FormData) {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   const eventId = formData.get('event_id');
   const tableId = formData.get('table_id');
   const seatRaw = formData.get('seat_number');
@@ -1379,7 +1379,7 @@ export async function setTableSeat(formData: FormData) {
 // weeks ahead is normal, so it must not quietly open seats to guests early.
 // Idempotent; qr_tokens are never re-rolled (publishSeating's own contract).
 export async function stampTableSigns(formData: FormData): Promise<{ stamped: number }> {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   const eventId = formData.get('event_id');
   if (typeof eventId !== 'string' || eventId.length === 0) {
     throw new Error('Invalid input');
@@ -1408,7 +1408,7 @@ export async function stampTableSigns(formData: FormData): Promise<{ stamped: nu
 // working); publishing only stamps the "last published" timestamps. Returns the
 // table count so the editor can confirm. RLS scopes every write to the couple.
 export async function publishSeating(formData: FormData): Promise<{ published: number }> {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), null);
   const eventId = formData.get('event_id');
   if (typeof eventId !== 'string' || eventId.length === 0) {
     throw new Error('Invalid input');
@@ -1465,7 +1465,7 @@ export async function publishSeating(formData: FormData): Promise<{ published: n
 // the couple. Returns whether a published row was actually found, so the editor
 // can tell "taken down" from "it already wasn't up".
 export async function unpublishSeating(formData: FormData): Promise<{ wasPublished: boolean }> {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), null);
   const eventId = formData.get('event_id');
   if (typeof eventId !== 'string' || eventId.length === 0) {
     throw new Error('Invalid input');
@@ -1495,7 +1495,7 @@ export async function unpublishSeating(formData: FormData): Promise<{ wasPublish
 // `table_label` already exists — no schema change. Trim + 1–64 chars, matching
 // createTable's validation.
 export async function updateTableLabel(formData: FormData) {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   const eventId = formData.get('event_id');
   const tableId = formData.get('table_id');
   const labelRaw = formData.get('table_label');
@@ -1552,7 +1552,7 @@ export async function updateTableLabel(formData: FormData) {
 // it now enforces the connectable-set gate (round / sweetheart reject) should
 // any future caller use it. It is NOT reachable from a drag.
 export async function linkTables(formData: FormData) {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   const eventId = formData.get('event_id');
   const tableA = formData.get('table_id_a');
   const tableB = formData.get('table_id_b');
@@ -1652,7 +1652,7 @@ export async function linkTables(formData: FormData) {
 // independent table again with its own name + QR sign, and moves/rotates on
 // its own. Positions/angles are left where they are.
 export async function unlinkTable(formData: FormData) {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   const eventId = formData.get('event_id');
   const tableId = formData.get('table_id');
   if (typeof eventId !== 'string' || typeof tableId !== 'string') {
@@ -1695,7 +1695,7 @@ export async function unlinkTable(formData: FormData) {
 export async function seatRoleAtTable(
   formData: FormData,
 ): Promise<{ seated: number; requested: number; overflow: number }> {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   const eventId = formData.get('event_id');
   const tableId = formData.get('table_id');
   const tierRaw = formData.get('tier');
@@ -1937,7 +1937,7 @@ async function nullOutForeignBoothVendors(
 }
 
 export async function saveBooths(formData: FormData) {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   const eventId = formData.get('event_id');
   if (typeof eventId !== 'string' || eventId.length === 0) throw new Error('Invalid input');
   const booths = parseBoothsPayload(formData.get('booths'));
@@ -2047,7 +2047,7 @@ async function persistSigns(
 }
 
 export async function saveSigns(formData: FormData) {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   const eventId = formData.get('event_id');
   if (typeof eventId !== 'string' || eventId.length === 0) throw new Error('Invalid input');
   const signs = parseSignsPayload(formData.get('signs'));
@@ -2073,7 +2073,7 @@ export async function saveSigns(formData: FormData) {
 // Explicit per-guest priority-tier override (guests.seating_priority). An
 // empty value clears the override back to the role-derived tier.
 export async function setGuestSeatingPriority(formData: FormData) {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   const eventId = formData.get('event_id');
   const guestId = formData.get('guest_id');
   const raw = formData.get('priority');
@@ -2189,7 +2189,7 @@ async function undoAutoArrange(eventId: string, formData: FormData): Promise<Aut
 }
 
 export async function autoArrange(formData: FormData): Promise<AutoArrangeResult> {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   const eventId = formData.get('event_id');
   if (typeof eventId === 'string' && eventId.length > 0 && formData.get('intent') === 'undo') {
     return undoAutoArrange(eventId, formData);
@@ -2391,7 +2391,7 @@ export async function autoArrange(formData: FormData): Promise<AutoArrangeResult
 export async function buildSeatingDraft(
   formData: FormData,
 ): Promise<{ tables: number; seated: number }> {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   const eventId = formData.get('event_id');
   if (typeof eventId !== 'string' || eventId.length === 0) {
     throw new Error('Invalid input');
@@ -2552,7 +2552,7 @@ export async function saveReceptionDesign(
    */
   base?: ReceptionDesign,
 ): Promise<{ elsewhere?: { design: ReceptionDesign; note: string } }> {
-  await refuseLimitedHelper(eventId);
+  await refuseLimitedHelper(eventId, 'seat_plan');
   const supabase = await createClient();
   const {
     data: { user },
@@ -2620,7 +2620,7 @@ export async function saveReceptionDesign(
  * uses, and a lost concurrent dismissal costs one re-tap of a chip.
  */
 export async function dismissRoomSuggestion(eventId: string, dismissKey: string): Promise<void> {
-  await refuseLimitedHelper(eventId);
+  await refuseLimitedHelper(eventId, 'seat_plan');
   const supabase = await createClient();
   const {
     data: { user },

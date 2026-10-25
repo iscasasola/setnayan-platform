@@ -44,7 +44,7 @@ export type GroupCountResult = { ok: true; n: number } | { ok: false; error: str
  */
 export type GroupEdit = { op: 'create'; label: string; side: GuestGroupTeamSide } | { op: 'rename'; label: string } | { op: 'delete' } | { op: 'count' };
 export async function editGuestGroupInPlace(eventId: string, groupId: string, edit: GroupEdit): Promise<GroupEditResult | GroupCountResult> {
-  await refuseLimitedHelper(eventId);
+  await refuseLimitedHelper(eventId, 'guest_list');
   if (edit.op === 'create') return createGuestGroupInPlace(eventId, edit.label, edit.side);
   if (edit.op === 'rename') return renameGuestGroupInPlace(eventId, groupId, edit.label);
   if (edit.op === 'delete') return deleteGuestGroupInPlace(eventId, groupId);

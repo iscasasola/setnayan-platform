@@ -57,7 +57,7 @@ export async function checkInGuest(
   guestId: string,
   method: CheckinMethod,
 ): Promise<CheckinActionResult> {
-  const helperRefusal = await limitedHelperRefusal(eventId);
+  const helperRefusal = await limitedHelperRefusal(eventId, 'guest_list');
   if (helperRefusal) return { ok: false, error: helperRefusal };
   let user;
   try {
@@ -121,7 +121,7 @@ export async function undoCheckIn(
   eventId: string,
   guestId: string,
 ): Promise<UndoActionResult> {
-  const helperRefusal = await limitedHelperRefusal(eventId);
+  const helperRefusal = await limitedHelperRefusal(eventId, 'guest_list');
   if (helperRefusal) return { ok: false, error: helperRefusal };
   try {
     await assertDoorCrew(eventId);

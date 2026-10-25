@@ -155,7 +155,7 @@ export async function hubDraftAction(
   eventId: string,
   formData: FormData,
 ): Promise<HubDraftActionResult> {
-  await refuseLimitedHelper(eventId);
+  await refuseLimitedHelper(eventId, 'invitations');
   const intentRaw = formData.get('intent');
   const intent = isHubDraftIntent(intentRaw) ? intentRaw : null;
   if (!intent || typeof eventId !== 'string' || eventId.length === 0) {

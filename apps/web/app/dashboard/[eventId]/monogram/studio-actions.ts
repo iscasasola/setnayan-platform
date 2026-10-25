@@ -51,7 +51,7 @@ async function requireCouple(eventId: string) {
 }
 
 export async function saveStudioAction(formData: FormData): Promise<void> {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'invitations');
   const eventId = String(formData.get('event_id') ?? '').trim();
   if (!eventId) throw new Error('Missing event_id');
   const supabase = await requireCouple(eventId);
@@ -111,7 +111,7 @@ export async function saveStudioAction(formData: FormData): Promise<void> {
 }
 
 export async function clearStudioAction(formData: FormData): Promise<void> {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'invitations');
   const eventId = String(formData.get('event_id') ?? '').trim();
   if (!eventId) throw new Error('Missing event_id');
   const supabase = await requireCouple(eventId);

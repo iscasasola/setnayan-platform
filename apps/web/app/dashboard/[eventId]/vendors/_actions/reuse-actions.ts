@@ -206,7 +206,7 @@ async function cancelVendorReuse(formData: FormData): Promise<ReuseActionResult>
 
 // ── void-returning <form action> adapters (React form actions must be void) ──
 export async function requestVendorReuseForm(formData: FormData): Promise<void> {
-  await refuseLimitedHelper(formData.get('target_event_id'));
+  await refuseLimitedHelper(formData.get('target_event_id'), 'vendors');
   await requestVendorReuse(formData);
 }
 export async function acceptVendorReuseForm(formData: FormData): Promise<void> {

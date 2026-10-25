@@ -53,7 +53,7 @@ async function draftHero(eventId: string, ref: string | null, formData: FormData
 }
 
 export async function uploadHeroPhoto(formData: FormData) {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'invitations');
   const eventIdRaw = formData.get('event_id');
   const heroImageUrlRaw = formData.get('hero_image_url');
 
@@ -124,7 +124,7 @@ export async function uploadHeroPhoto(formData: FormData) {
 }
 
 export async function removeHeroPhoto(formData: FormData) {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'invitations');
   const eventIdRaw = formData.get('event_id');
   if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) {
     redirect('/dashboard');

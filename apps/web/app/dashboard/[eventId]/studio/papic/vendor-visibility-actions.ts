@@ -39,7 +39,7 @@ import { refuseLimitedHelper } from '@/lib/host-gate';
  * the couple could already do by hand.
  */
 export async function setVendorCapturesHidden(formData: FormData): Promise<void> {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'photos');
   const eventId = String(formData.get('event_id') ?? '').trim();
   // ⚠ `vendor_id` is the PRIMARY KEY of event_vendors — verified against the
   // live schema, not assumed. `event_vendor_id` (which reads more naturally and

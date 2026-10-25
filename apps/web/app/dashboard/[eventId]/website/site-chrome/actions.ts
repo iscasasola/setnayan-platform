@@ -57,7 +57,7 @@ export async function updateSiteChrome(
   eventId: string,
   formData: FormData,
 ): Promise<void> {
-  await refuseLimitedHelper(eventId);
+  await refuseLimitedHelper(eventId, 'invitations');
   await requireHostMembership(eventId);
 
   // Omit-when-untouched (council §1.4 hardening): only write a column when the

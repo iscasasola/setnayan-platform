@@ -94,7 +94,7 @@ export async function chooseRevealTemplate(
   eventId: string,
   templateId: string,
 ): Promise<{ ok: boolean; error?: string }> {
-  const helperRefusal = await limitedHelperRefusal(eventId);
+  const helperRefusal = await limitedHelperRefusal(eventId, 'invitations');
   if (helperRefusal) return { ok: false, error: helperRefusal };
   // Accept the 5 openings + 'none' (No Reveal — the free, no-opening choice).
   if (!eventId || !(templateId === NO_REVEAL || isRevealTemplateId(templateId))) {
@@ -175,7 +175,7 @@ export async function saveAllStdContent(
     venueChoice?: { slot: VenueSlotKey; choice: VenueChoice };
   },
 ): Promise<{ ok: boolean; error?: string }> {
-  const helperRefusal = await limitedHelperRefusal(eventId);
+  const helperRefusal = await limitedHelperRefusal(eventId, 'invitations');
   if (helperRefusal) return { ok: false, error: helperRefusal };
   if (!eventId) return { ok: false, error: 'missing-event' };
   const supabase = await requireCouple(eventId);
@@ -545,7 +545,7 @@ async function saveInvitationLaunchDate(formData: FormData): Promise<void> {
 export async function launchSaveTheDate(
   eventId: string,
 ): Promise<{ ok: boolean; error?: string }> {
-  const helperRefusal = await limitedHelperRefusal(eventId);
+  const helperRefusal = await limitedHelperRefusal(eventId, 'invitations');
   if (helperRefusal) return { ok: false, error: helperRefusal };
   if (!eventId) return { ok: false, error: 'missing-event' };
   const supabase = await requireCouple(eventId, { secured: true });
@@ -580,7 +580,7 @@ export async function scheduleSaveTheDateLaunch(
   eventId: string,
   localDateTime: string,
 ): Promise<{ ok: boolean; error?: string; scheduledAtIso?: string }> {
-  const helperRefusal = await limitedHelperRefusal(eventId);
+  const helperRefusal = await limitedHelperRefusal(eventId, 'invitations');
   if (helperRefusal) return { ok: false, error: helperRefusal };
   if (!eventId) return { ok: false, error: 'missing-event' };
   if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(localDateTime)) {
@@ -609,7 +609,7 @@ export async function scheduleSaveTheDateLaunch(
 export async function cancelScheduledLaunch(
   eventId: string,
 ): Promise<{ ok: boolean; error?: string }> {
-  const helperRefusal = await limitedHelperRefusal(eventId);
+  const helperRefusal = await limitedHelperRefusal(eventId, 'invitations');
   if (helperRefusal) return { ok: false, error: helperRefusal };
   if (!eventId) return { ok: false, error: 'missing-event' };
   const supabase = await requireCouple(eventId);

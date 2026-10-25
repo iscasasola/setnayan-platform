@@ -25,7 +25,7 @@ import { refuseLimitedHelper } from '@/lib/host-gate';
  * authorises it. Exactly the shape the livestream audience switch uses.
  */
 export async function setCoupleFaceTaggingDeclined(formData: FormData): Promise<void> {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'photos');
   const eventId = String(formData.get('event_id') ?? '').trim();
   const declined = String(formData.get('declined') ?? '') === '1';
   const back = `/dashboard/${eventId}/studio/papic`;

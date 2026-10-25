@@ -108,7 +108,7 @@ export async function setStoryCover(
   kind: unknown,
   ref: unknown,
 ): Promise<CoverActionResult> {
-  const helperRefusal = await limitedHelperRefusal(eventId);
+  const helperRefusal = await limitedHelperRefusal(eventId, null);
   if (helperRefusal) return { ok: false, error: helperRefusal };
   if (!(await hostUserId(eventId))) return { ok: false, error: NO_ACCESS };
 

@@ -73,7 +73,7 @@ function parseDateInput(raw: FormDataEntryValue | null): string | null {
  * source_tag='couple_manual', created_by stamped from the session.
  */
 export async function addPreparationItem(formData: FormData): Promise<void> {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'schedule');
   const eventId = formData.get('event_id');
   if (typeof eventId !== 'string' || eventId.length === 0) {
     throw new Error('Invalid input');
@@ -126,7 +126,7 @@ export async function addPreparationItem(formData: FormData): Promise<void> {
  * scope the delete by item_id + event_id; RLS does the real authorization.
  */
 export async function deletePreparationItem(formData: FormData): Promise<void> {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'schedule');
   const eventId = formData.get('event_id');
   const itemId = formData.get('item_id');
   if (

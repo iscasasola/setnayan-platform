@@ -38,7 +38,7 @@ import { isHubDraftWrite, saveHubDraftPatch } from '@/lib/hub-draft-store';
 
 /** Set the RSVP-phase spatial backdrop (theme + intensity). */
 export async function saveRsvpBackdrop(formData: FormData): Promise<void> {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'invitations');
   const eventIdRaw = formData.get('event_id');
   const themeRaw = formData.get('theme');
   const intensityRaw = formData.get('intensity');
@@ -83,7 +83,7 @@ export async function saveRsvpBackdrop(formData: FormData): Promise<void> {
 
 /** Turn the spatial backdrop off (null the column). */
 export async function clearRsvpBackdrop(formData: FormData): Promise<void> {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'invitations');
   const eventIdRaw = formData.get('event_id');
   if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) return;
   const eventId = eventIdRaw;
@@ -106,7 +106,7 @@ export async function clearRsvpBackdrop(formData: FormData): Promise<void> {
  * backdrop actions above; honors `return_to` so the editor keeps its place.
  */
 export async function setOpenBrowse(formData: FormData): Promise<void> {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'invitations');
   const eventIdRaw = formData.get('event_id');
   const openRaw = formData.get('open_browse');
   if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) return;
@@ -144,7 +144,7 @@ export async function setOpenBrowse(formData: FormData): Promise<void> {
  * otherwise re-render saying the pin took when it did not.
  */
 export async function setLaunchPhase(formData: FormData): Promise<void> {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'invitations');
   const eventIdRaw = formData.get('event_id');
   const choice = formData.get('launch_phase');
   if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) return;

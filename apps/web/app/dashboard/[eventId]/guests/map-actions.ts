@@ -27,7 +27,7 @@ export async function mapAddGroup(
   rawLabel: string,
   rawTeamSide: string,
 ): Promise<MapActionResult> {
-  const helperRefusal = await limitedHelperRefusal(eventId);
+  const helperRefusal = await limitedHelperRefusal(eventId, 'guest_list');
   if (helperRefusal) return { ok: false, error: helperRefusal };
   const label = rawLabel.trim().slice(0, 60);
   const teamSide = (

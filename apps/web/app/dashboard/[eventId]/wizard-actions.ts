@@ -933,7 +933,7 @@ export async function uploadMoodboardSlot(formData: FormData): Promise<{
   palette?: string[];
   message?: string;
 }> {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), null);
   const eventIdRaw = formData.get('event_id');
   const slotKeyRaw = formData.get('slot_key');
   const slotPositionRaw = formData.get('slot_position');
@@ -1102,7 +1102,7 @@ export async function removeMoodboardSlot(formData: FormData): Promise<{
   status: 'ok' | 'error';
   message?: string;
 }> {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), null);
   const eventIdRaw = formData.get('event_id');
   const slotKeyRaw = formData.get('slot_key');
   const slotPositionRaw = formData.get('slot_position');

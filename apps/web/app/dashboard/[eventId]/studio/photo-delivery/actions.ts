@@ -93,7 +93,7 @@ async function updateSyncMode(
  * this behavior.
  */
 export async function setPhotoDeliverySyncModeManual(formData: FormData) {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'photos');
   const auth = await getCoupleEventId(formData.get('event_id'));
   if (!auth.ok) redirect(auth.redirectTo);
 
@@ -112,7 +112,7 @@ export async function setPhotoDeliverySyncModeManual(formData: FormData) {
  * trade the release gate for a live archive.
  */
 export async function setPhotoDeliverySyncModeAuto(formData: FormData) {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'photos');
   const auth = await getCoupleEventId(formData.get('event_id'));
   if (!auth.ok) redirect(auth.redirectTo);
 
@@ -139,7 +139,7 @@ export async function setPhotoDeliverySyncModeAuto(formData: FormData) {
  * state and refuses to fire if Drive isn't connected.
  */
 export async function releasePhotoDelivery(formData: FormData) {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'photos');
   const auth = await getCoupleEventId(formData.get('event_id'));
   if (!auth.ok) redirect(auth.redirectTo);
 
@@ -196,7 +196,7 @@ export async function releasePhotoDelivery(formData: FormData) {
  * can use a server-action form post instead of a JSON fetch.
  */
 export async function disconnectPhotoDelivery(formData: FormData) {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'photos');
   const auth = await getCoupleEventId(formData.get('event_id'));
   if (!auth.ok) redirect(auth.redirectTo);
 

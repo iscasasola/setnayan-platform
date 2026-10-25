@@ -33,7 +33,7 @@ export async function approveColumn(
   eventId: string,
   columnId: string,
 ): Promise<ColumnActionResult> {
-  const helperRefusal = await limitedHelperRefusal(eventId);
+  const helperRefusal = await limitedHelperRefusal(eventId, null);
   if (helperRefusal) return { ok: false, error: helperRefusal };
   if (!columnId?.trim()) return { ok: false, error: 'missing_input' };
   const supabase = await createClient();
@@ -67,7 +67,7 @@ export async function declineColumn(
   columnId: string,
   note?: string,
 ): Promise<ColumnActionResult> {
-  const helperRefusal = await limitedHelperRefusal(eventId);
+  const helperRefusal = await limitedHelperRefusal(eventId, null);
   if (helperRefusal) return { ok: false, error: helperRefusal };
   if (!columnId?.trim()) return { ok: false, error: 'missing_input' };
   const trimmed = (note ?? '').trim().slice(0, 200);

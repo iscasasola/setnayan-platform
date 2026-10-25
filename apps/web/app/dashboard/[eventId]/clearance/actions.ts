@@ -18,7 +18,7 @@ import { refuseLimitedHelper } from '@/lib/host-gate';
  * actions use).
  */
 export async function closeOutTheDay(eventId: string): Promise<void> {
-  await refuseLimitedHelper(eventId);
+  await refuseLimitedHelper(eventId, null);
   const user = await getCurrentUser();
   if (!user) redirect('/login');
   const supabase = await createClient();

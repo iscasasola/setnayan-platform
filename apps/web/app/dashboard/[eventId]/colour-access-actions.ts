@@ -71,7 +71,7 @@ export async function setVendorColourAccess(
   vendorId: string,
   active: boolean,
 ): Promise<ColourAccessResult> {
-  await refuseLimitedHelper(eventId);
+  await refuseLimitedHelper(eventId, null);
   const supabase = await createClient();
   const {
     data: { user },
@@ -107,7 +107,7 @@ export async function setCoordinatorColourDomain(
   domain: string,
   active: boolean,
 ): Promise<ColourAccessResult> {
-  await refuseLimitedHelper(eventId);
+  await refuseLimitedHelper(eventId, null);
   if (!isColourDomain(domain)) return { status: 'error', message: 'unknown_domain' };
 
   const supabase = await createClient();
@@ -161,7 +161,7 @@ export async function applyColourChange(
   targetIndex: number | null,
   newValue: string,
 ): Promise<ApplyColourResult> {
-  await refuseLimitedHelper(eventId);
+  await refuseLimitedHelper(eventId, null);
   const supabase = await createClient();
   const {
     data: { user },
@@ -224,7 +224,7 @@ export async function rejectColourChange(
   eventId: string,
   changeId: string,
 ): Promise<{ status: 'ok' | 'already' | 'frozen' | 'slot_gone' | 'error'; message?: string }> {
-  await refuseLimitedHelper(eventId);
+  await refuseLimitedHelper(eventId, null);
   const supabase = await createClient();
   const {
     data: { user },

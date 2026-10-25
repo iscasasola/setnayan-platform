@@ -295,7 +295,7 @@ export async function saveEditorial(
   input: EditorialEditorInput,
   baseInput?: EditorialEditorInput | null,
 ): Promise<{ ok: true; heldForPro?: StoryProExtraKey[] } | { ok: false; error: string }> {
-  const helperRefusal = await limitedHelperRefusal(eventId);
+  const helperRefusal = await limitedHelperRefusal(eventId, null);
   if (helperRefusal) return { ok: false, error: helperRefusal };
   const userId = await hostUserId(eventId);
   if (!userId) return { ok: false, error: 'You don’t have access to this wedding.' };
@@ -726,7 +726,7 @@ export async function setStoryShowcase(
   eventId: string,
   optIn: boolean,
 ): Promise<{ ok: true; heldForPro?: StoryProExtraKey[] } | { ok: false; error: string }> {
-  const helperRefusal = await limitedHelperRefusal(eventId);
+  const helperRefusal = await limitedHelperRefusal(eventId, null);
   if (helperRefusal) return { ok: false, error: helperRefusal };
   const userId = await hostUserId(eventId);
   if (!userId)

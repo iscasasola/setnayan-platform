@@ -51,7 +51,7 @@ export async function setWallMode(
   eventId: string,
   mode: WallMode | null,
 ): Promise<ActionResult> {
-  const helperRefusal = await limitedHelperRefusal(eventId);
+  const helperRefusal = await limitedHelperRefusal(eventId, null);
   if (helperRefusal) return { ok: false, error: helperRefusal };
   const clean = eventId?.trim();
   if (!clean) return { ok: false, error: 'missing_event' };
@@ -80,7 +80,7 @@ export async function toggleFlashAutoWall(
   eventId: string,
   enabled: boolean,
 ): Promise<ActionResult> {
-  const helperRefusal = await limitedHelperRefusal(eventId);
+  const helperRefusal = await limitedHelperRefusal(eventId, null);
   if (helperRefusal) return { ok: false, error: helperRefusal };
   const clean = eventId?.trim();
   if (!clean) return { ok: false, error: 'missing_event' };

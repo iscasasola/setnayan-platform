@@ -46,7 +46,7 @@ function readString(formData: FormData, key: string): string {
  * update its credit_mode instead of failing on the constraint.
  */
 export async function grantShareConsent(formData: FormData) {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), null);
   const eventId = readString(formData, 'event_id');
   const artifactTypeRaw = readString(formData, 'artifact_type');
   const artifactRef = readString(formData, 'artifact_ref');

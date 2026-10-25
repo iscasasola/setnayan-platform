@@ -72,7 +72,7 @@ export async function updateSiteColors(
   eventId: string,
   formData: FormData,
 ): Promise<void> {
-  await refuseLimitedHelper(eventId);
+  await refuseLimitedHelper(eventId, 'invitations');
   await requireHostMembership(eventId);
 
   // ABSENT = UNCHANGED, like every other field on this row. A free couple's

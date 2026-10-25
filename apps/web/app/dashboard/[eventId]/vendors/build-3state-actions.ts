@@ -98,7 +98,7 @@ function haversineKm(aLat: number, aLng: number, bLat: number, bLng: number): nu
 export async function proposeBuildFromQuotes(input: {
   eventId: string;
 }): Promise<RunBuildResult> {
-  const helperRefusal = await limitedHelperRefusal(input.eventId);
+  const helperRefusal = await limitedHelperRefusal(input.eventId, 'vendors');
   if (helperRefusal) return { ok: false, error: helperRefusal };
   const supabase = await createClient();
   const {

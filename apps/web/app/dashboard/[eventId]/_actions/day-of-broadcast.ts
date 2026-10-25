@@ -45,7 +45,7 @@ export type SendBroadcastResult =
 export async function sendCoordinatorBroadcast(
   formData: FormData,
 ): Promise<SendBroadcastResult> {
-  const helperRefusal = await limitedHelperRefusal(formData.get('event_id'));
+  const helperRefusal = await limitedHelperRefusal(formData.get('event_id'), 'schedule');
   if (helperRefusal) return { ok: false, error: helperRefusal };
   if (!(await isCoordinatorP3Enabled())) {
     return { ok: false, error: 'Broadcasts are not enabled yet.' };
@@ -137,7 +137,7 @@ export type EmailCallTimesResult =
 export async function emailVendorCallTimes(
   formData: FormData,
 ): Promise<EmailCallTimesResult> {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'schedule');
   if (!(await isCoordinatorP3Enabled())) return { ok: false, reason: 'not_enabled' };
   const eventId = formData.get('event_id');
   if (typeof eventId !== 'string' || eventId.length === 0) {

@@ -26,7 +26,7 @@ import { draftedEventColumn, saveHubDraftPatch } from '@/lib/hub-draft-store';
 export type UpdateQrStyleResult = { ok: true } | { ok: false; reason: 'signed_out' | 'failed' };
 
 export async function updateQrStyle(eventId: string, patch: StoredQrStyle): Promise<UpdateQrStyleResult> {
-  await refuseLimitedHelper(eventId);
+  await refuseLimitedHelper(eventId, 'invitations');
   const user = await getCurrentUser();
   if (!user) return { ok: false, reason: 'signed_out' };
   await requireHostMembership(eventId);

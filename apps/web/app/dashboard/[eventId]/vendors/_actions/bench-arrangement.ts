@@ -54,7 +54,7 @@ export async function saveBenchArrangement(input: {
   tile: string;
   pins: BenchPin[];
 }): Promise<ArrangementResult> {
-  const helperRefusal = await limitedHelperRefusal(input.eventId);
+  const helperRefusal = await limitedHelperRefusal(input.eventId, 'vendors');
   if (helperRefusal) return { ok: false, error: helperRefusal };
   const eventId = String(input.eventId ?? '').trim();
   const tile = cleanTile(input.tile);
@@ -117,7 +117,7 @@ export async function resetBenchArrangement(input: {
   eventId: string;
   tile: string;
 }): Promise<ArrangementResult> {
-  const helperRefusal = await limitedHelperRefusal(input.eventId);
+  const helperRefusal = await limitedHelperRefusal(input.eventId, 'vendors');
   if (helperRefusal) return { ok: false, error: helperRefusal };
   const eventId = String(input.eventId ?? '').trim();
   const tile = cleanTile(input.tile);

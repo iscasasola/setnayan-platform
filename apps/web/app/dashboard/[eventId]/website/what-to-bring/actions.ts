@@ -21,7 +21,7 @@ export async function updateWhatToBring(
   eventId: string,
   formData: FormData,
 ): Promise<void> {
-  await refuseLimitedHelper(eventId);
+  await refuseLimitedHelper(eventId, 'invitations');
   const user = await getCurrentUser();
   if (!user) redirect('/login');
 

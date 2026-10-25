@@ -48,7 +48,7 @@ export async function saveLivingHero(
   clipRef: string | null,
   stillRef: string,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  const helperRefusal = await limitedHelperRefusal(eventId);
+  const helperRefusal = await limitedHelperRefusal(eventId, 'invitations');
   if (helperRefusal) return { ok: false, error: helperRefusal };
   if (typeof stillRef !== 'string' || !stillRef.startsWith('r2://')) {
     return { ok: false, error: 'That upload didn’t come through — please try again.' };

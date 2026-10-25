@@ -106,7 +106,7 @@ async function revalidateSurfaces(eventId: string): Promise<void> {
 export async function saveEgiftMethod(
   formData: FormData,
 ): Promise<EgiftActionResult> {
-  const helperRefusal = await limitedHelperRefusal(formData.get('event_id'));
+  const helperRefusal = await limitedHelperRefusal(formData.get('event_id'), null);
   if (helperRefusal) return { ok: false, error: helperRefusal };
   let eventId: string;
   try {
@@ -386,7 +386,7 @@ export async function saveEgiftMethod(
 export async function deleteEgiftMethod(
   formData: FormData,
 ): Promise<EgiftActionResult> {
-  const helperRefusal = await limitedHelperRefusal(formData.get('event_id'));
+  const helperRefusal = await limitedHelperRefusal(formData.get('event_id'), null);
   if (helperRefusal) return { ok: false, error: helperRefusal };
   let eventId: string;
   try {
@@ -436,7 +436,7 @@ export async function deleteEgiftMethod(
 export async function setEgiftMethodEnabled(
   formData: FormData,
 ): Promise<EgiftActionResult> {
-  const helperRefusal = await limitedHelperRefusal(formData.get('event_id'));
+  const helperRefusal = await limitedHelperRefusal(formData.get('event_id'), null);
   if (helperRefusal) return { ok: false, error: helperRefusal };
   let eventId: string;
   try {
@@ -476,7 +476,7 @@ export async function setEgiftMethodEnabled(
 export async function moveEgiftMethod(
   formData: FormData,
 ): Promise<EgiftActionResult> {
-  const helperRefusal = await limitedHelperRefusal(formData.get('event_id'));
+  const helperRefusal = await limitedHelperRefusal(formData.get('event_id'), null);
   if (helperRefusal) return { ok: false, error: helperRefusal };
   let eventId: string;
   try {
@@ -561,7 +561,7 @@ export async function moveEgiftMethod(
 export async function savePabuyaMessage(
   formData: FormData,
 ): Promise<EgiftActionResult> {
-  const helperRefusal = await limitedHelperRefusal(formData.get('event_id'));
+  const helperRefusal = await limitedHelperRefusal(formData.get('event_id'), null);
   if (helperRefusal) return { ok: false, error: helperRefusal };
   let eventId: string;
   try {

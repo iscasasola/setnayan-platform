@@ -23,7 +23,7 @@ export async function updateSpecialMessage(
   eventId: string,
   formData: FormData,
 ): Promise<void> {
-  await refuseLimitedHelper(eventId);
+  await refuseLimitedHelper(eventId, 'invitations');
   const user = await getCurrentUser();
   if (!user) redirect('/login');
 

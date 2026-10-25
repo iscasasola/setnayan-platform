@@ -54,7 +54,7 @@ const FRIENDLY_ERROR =
 export async function buildFirstVenueShortlist(
   eventIdRaw: string,
 ): Promise<FirstVenueShortlistResult> {
-  await refuseLimitedHelper(eventIdRaw);
+  await refuseLimitedHelper(eventIdRaw, 'vendors');
   const eventId = String(eventIdRaw ?? '').trim();
   if (!eventId) return { status: 'error', message: FRIENDLY_ERROR };
 

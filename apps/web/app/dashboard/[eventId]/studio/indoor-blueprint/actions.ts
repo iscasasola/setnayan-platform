@@ -31,7 +31,7 @@ import { refuseLimitedHelper } from '@/lib/host-gate';
  * that hasn't caught up. Any other error surfaces.
  */
 export async function saveEntrance(formData: FormData) {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   const eventId = formData.get('event_id');
   const xRaw = formData.get('entrance_x');
   const yRaw = formData.get('entrance_y');

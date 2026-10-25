@@ -157,7 +157,7 @@ export async function updateDressCode(
   eventId: string,
   formData: FormData,
 ): Promise<void> {
-  await refuseLimitedHelper(eventId);
+  await refuseLimitedHelper(eventId, 'mood_board');
   const user = await getCurrentUser();
   if (!user) redirect('/login');
 
@@ -350,7 +350,7 @@ export async function updateDressCode(
  * guests meet it at Apply. From the Mood Board's own page it writes live.
  */
 export async function updateDressCodeLists(eventId: string, formData: FormData): Promise<void> {
-  await refuseLimitedHelper(eventId);
+  await refuseLimitedHelper(eventId, 'mood_board');
   const user = await getCurrentUser();
   if (!user) redirect('/login');
 

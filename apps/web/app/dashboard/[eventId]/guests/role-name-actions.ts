@@ -75,7 +75,7 @@ export async function renameRole(
   one: string,
   many?: string | null,
 ): Promise<RenameRoleResult> {
-  await refuseLimitedHelper(eventId);
+  await refuseLimitedHelper(eventId, 'guest_list');
   await requireHostMembership(eventId);
   if (!isKnownGuestRole(role) || !isRenamableRole(role)) {
     return { ok: false, reason: 'That role can’t be renamed.' };
@@ -85,7 +85,7 @@ export async function renameRole(
 
 /** 🏷 "Rename this section" — one entourage section's heading, for this event. Blank = the usual heading. */
 export async function renameSection(eventId: string, section: string, one: string): Promise<RenameRoleResult> {
-  await refuseLimitedHelper(eventId);
+  await refuseLimitedHelper(eventId, 'guest_list');
   await requireHostMembership(eventId);
   if (!isRenamableSection(section)) return { ok: false, reason: 'That section can’t be renamed.' };
   return writeOneWord(eventId, { key: sectionNameKey(section), one });

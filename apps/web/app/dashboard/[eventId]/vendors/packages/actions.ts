@@ -117,7 +117,7 @@ export async function lockPackage(
   packageId: string,
   customizations: PackageCustomizationsInput,
 ): Promise<LockPackageResult> {
-  await refuseLimitedHelper(eventId);
+  await refuseLimitedHelper(eventId, 'vendors');
   const supabase = await createClient();
   const {
     data: { user },
@@ -681,7 +681,7 @@ export type ReleasePackageResult =
  * available via the existing deleteVendor action.
  */
 export async function releasePackage(formData: FormData) {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'vendors');
   const eventId = formData.get('event_id');
   const bookingId = formData.get('booking_id');
   if (typeof eventId !== 'string' || typeof bookingId !== 'string') {
@@ -746,7 +746,7 @@ export async function releasePackage(formData: FormData) {
  * booked one separately."
  */
 export async function removeItemFromPackage(formData: FormData) {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'vendors');
   const eventId = formData.get('event_id');
   const bookingId = formData.get('booking_id');
   const itemId = formData.get('item_id');

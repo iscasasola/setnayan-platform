@@ -50,7 +50,7 @@ export async function createAssignment(
   momentKey: KwentoMomentKey,
   guestId: string,
 ): Promise<ActionResult> {
-  const helperRefusal = await limitedHelperRefusal(eventId);
+  const helperRefusal = await limitedHelperRefusal(eventId, 'photos');
   if (helperRefusal) return { ok: false, error: helperRefusal };
   const auth = await requireCoupleForKwento(eventId);
   if (!auth.ok) return auth;
@@ -81,7 +81,7 @@ export async function removeAssignment(
   momentKey: KwentoMomentKey,
   guestId: string,
 ): Promise<ActionResult> {
-  const helperRefusal = await limitedHelperRefusal(eventId);
+  const helperRefusal = await limitedHelperRefusal(eventId, 'photos');
   if (helperRefusal) return { ok: false, error: helperRefusal };
   const auth = await requireCoupleForKwento(eventId);
   if (!auth.ok) return auth;
@@ -119,7 +119,7 @@ export async function nudgeAssignee(assignmentId: string): Promise<ActionResult>
     .maybeSingle();
 
   if (readErr || !row) return { ok: false, error: 'Assignment not found' };
-  await refuseLimitedHelper(row.event_id);
+  await refuseLimitedHelper(row.event_id, 'photos');
 
   // Authorize against the assignment's own event — previously any authenticated
   // user could nudge (email) any guest by enumerating assignment ids.

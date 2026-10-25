@@ -73,7 +73,7 @@ function parseInvitedToBlocks(formData: FormData): InvitedToBlock[] {
 }
 
 export async function createGuest(eventId: string, formData: FormData) {
-  await refuseLimitedHelper(eventId);
+  await refuseLimitedHelper(eventId, 'guest_list');
   const first_name = normalizeGuestName(clean(formData.get('first_name')));
   const last_name = normalizeGuestName(clean(formData.get('last_name')));
   // The three OPTIONAL parts (2026-09-14). The client island pre-fills them by

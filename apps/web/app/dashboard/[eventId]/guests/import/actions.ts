@@ -67,7 +67,7 @@ export async function importGuestsCsv(
   _prev: GuestImportState,
   formData: FormData,
 ): Promise<GuestImportState> {
-  await refuseLimitedHelper(eventId);
+  await refuseLimitedHelper(eventId, 'guest_list');
   const mode = String(formData.get('mode') ?? 'preview');
   if (mode === 'reset') return { stage: 'idle' };
 

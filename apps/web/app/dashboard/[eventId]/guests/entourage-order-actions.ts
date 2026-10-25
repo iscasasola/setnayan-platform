@@ -80,7 +80,7 @@ export async function setEntourageLineOrder(
   groupKey: string,
   leadGuestIds: readonly string[],
 ): Promise<MarchResult> {
-  await refuseLimitedHelper(eventId);
+  await refuseLimitedHelper(eventId, 'guest_list');
   const read = await readMarchLines(eventId, groupKey);
   if (!read.ok) return read;
   const { supabase, lines } = read;

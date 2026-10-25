@@ -39,7 +39,7 @@ export async function markCategoryComplete(input: {
   eventId: string;
   planGroupId: string;
 }): Promise<CategoryDecisionResult> {
-  const helperRefusal = await limitedHelperRefusal(input.eventId);
+  const helperRefusal = await limitedHelperRefusal(input.eventId, 'vendors');
   if (helperRefusal) return { ok: false, error: helperRefusal };
   const supabase = await createClient();
   const {
@@ -68,7 +68,7 @@ export async function clearCategoryDecision(input: {
   eventId: string;
   planGroupId: string;
 }): Promise<CategoryDecisionResult> {
-  const helperRefusal = await limitedHelperRefusal(input.eventId);
+  const helperRefusal = await limitedHelperRefusal(input.eventId, 'vendors');
   if (helperRefusal) return { ok: false, error: helperRefusal };
   const supabase = await createClient();
   const {
@@ -119,7 +119,7 @@ export async function excludeTileFromPlan(input: {
   eventId: string;
   tile: string;
 }): Promise<CategoryDecisionResult> {
-  const helperRefusal = await limitedHelperRefusal(input.eventId);
+  const helperRefusal = await limitedHelperRefusal(input.eventId, 'vendors');
   if (helperRefusal) return { ok: false, error: helperRefusal };
   if (!isExploreReplanEnabled()) return { ok: false, error: 'Not available.' };
   const supabase = await createClient();
@@ -238,7 +238,7 @@ export async function restoreTileToPlan(input: {
   eventId: string;
   tile: string;
 }): Promise<CategoryDecisionResult> {
-  const helperRefusal = await limitedHelperRefusal(input.eventId);
+  const helperRefusal = await limitedHelperRefusal(input.eventId, 'vendors');
   if (helperRefusal) return { ok: false, error: helperRefusal };
   if (!isExploreReplanEnabled()) return { ok: false, error: 'Not available.' };
   const supabase = await createClient();

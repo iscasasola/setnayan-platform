@@ -225,7 +225,7 @@ async function syncCardTable(
  * email saved on their row.
  */
 export async function inviteGuestByEmailAction(eventId: string, guestId: string) {
-  await refuseLimitedHelper(eventId);
+  await refuseLimitedHelper(eventId, 'guest_list');
   const user = await getCurrentUser();
   if (!user) redirect('/login');
 
@@ -270,7 +270,7 @@ export async function inviteGuestByEmailAction(eventId: string, guestId: string)
 }
 
 export async function updateGuest(eventId: string, guestId: string, formData: FormData) {
-  await refuseLimitedHelper(eventId);
+  await refuseLimitedHelper(eventId, 'guest_list');
   const first_name = clean(formData.get('first_name'));
   const last_name = clean(formData.get('last_name'));
   // Optional name parts (2026-09-14). Editing is authoritative here: whatever
@@ -1097,7 +1097,7 @@ export async function releaseGuestClaim(
   guestId: string,
   formData: FormData,
 ): Promise<void> {
-  await refuseLimitedHelper(eventId);
+  await refuseLimitedHelper(eventId, 'guest_list');
   // "Give this spot to someone else" rides this door (+0 exports): a release
   // that also hands the seat to a named new person. See giveSpotToSomeoneElse.
   const swapName = String(formData.get('swap_name') ?? '').trim().slice(0, 120);

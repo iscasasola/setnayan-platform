@@ -119,7 +119,7 @@ function revalidateScheduleUnlessMaker(eventId: string, formData: FormData): voi
 }
 
 export async function createScheduleBlock(formData: FormData) {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'schedule');
   const eventId = formData.get('event_id');
   const label = formData.get('label');
   const blockTypeRaw = formData.get('block_type');
@@ -221,7 +221,7 @@ export async function createScheduleBlock(formData: FormData) {
 }
 
 export async function deleteScheduleBlock(formData: FormData) {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'schedule');
   const eventId = formData.get('event_id');
   const blockId = formData.get('block_id');
   if (typeof eventId !== 'string' || typeof blockId !== 'string') {
@@ -247,7 +247,7 @@ export async function deleteScheduleBlock(formData: FormData) {
 }
 
 export async function toggleBlockVisibility(formData: FormData) {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'schedule');
   const eventId = formData.get('event_id');
   const blockId = formData.get('block_id');
   const desiredRaw = formData.get('desired');
@@ -283,7 +283,7 @@ export async function toggleBlockVisibility(formData: FormData) {
  * this (the couple can't see staged blocks to begin with). Flag-gated.
  */
 export async function setBlockPrepVisibility(formData: FormData) {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'schedule');
   if (!(await isCoordinatorPrepReleaseEnabled())) {
     throw new Error('Prep-then-release is not enabled.');
   }
@@ -344,7 +344,7 @@ export async function setBlockPrepVisibility(formData: FormData) {
  * of fields they edit.
  */
 export async function updateScheduleBlock(formData: FormData) {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'schedule');
   const eventId = formData.get('event_id');
   const blockId = formData.get('block_id');
 
@@ -489,7 +489,7 @@ export async function updateScheduleBlock(formData: FormData) {
  * END statement via supabase.rpc.
  */
 export async function reorderScheduleBlocks(formData: FormData) {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'schedule');
   const eventId = formData.get('event_id');
   const orderedIdsRaw = formData.get('ordered_block_ids');
 
@@ -610,7 +610,7 @@ export async function generateEmceeScript(
  * couple and delegates holding schedule edit, nobody else.
  */
 export async function resolveScheduleSuggestion(formData: FormData) {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'schedule');
   const eventId = formData.get('event_id');
   const suggestionId = formData.get('suggestion_id');
   const decision = formData.get('decision');
@@ -792,7 +792,7 @@ export async function resolveScheduleSuggestion(formData: FormData) {
  * vendor registry so a row can never reference another event's vendor.
  */
 export async function setBlockResponsibleParty(formData: FormData) {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'schedule');
   const eventId = formData.get('event_id');
   const blockId = formData.get('block_id');
   if (typeof eventId !== 'string' || typeof blockId !== 'string') {
@@ -855,7 +855,7 @@ export async function setBlockResponsibleParty(formData: FormData) {
  * (~50 rows max) and each write re-checked by RLS.
  */
 export async function bulkRetimeScheduleBlocks(formData: FormData) {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'schedule');
   const eventId = formData.get('event_id');
   const fromBlockId = formData.get('from_block_id');
   const toBlockIdRaw = formData.get('to_block_id');
@@ -923,7 +923,7 @@ export async function bulkRetimeScheduleBlocks(formData: FormData) {
  * schedule-'edit' coordinator can load one; nobody else can.
  */
 export async function loadScheduleTemplate(formData: FormData) {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'schedule');
   const eventId = formData.get('event_id');
   const templateId = formData.get('template_id');
   if (typeof eventId !== 'string' || typeof templateId !== 'string') {

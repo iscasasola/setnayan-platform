@@ -254,7 +254,7 @@ export type SubmitOrderResult =
 export async function submitOrderAction(
   formData: FormData,
 ): Promise<SubmitOrderResult> {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), null);
   const eventId = formData.get('event_id');
   const serviceKey = formData.get('service_key');
   const displayName = formData.get('display_name');

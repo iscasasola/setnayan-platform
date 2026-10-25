@@ -66,7 +66,7 @@ export async function joinEntourageLine(
   anchorId: string,
   joinerId: string,
 ): Promise<MarchResult> {
-  await refuseLimitedHelper(eventId);
+  await refuseLimitedHelper(eventId, 'guest_list');
   const read = await readMarchLines(eventId, groupKey);
   if (!read.ok) return read;
   const { supabase, lines } = read;
@@ -95,7 +95,7 @@ export async function swapEntouragePlaces(
   aId: string,
   bId: string,
 ): Promise<MarchResult> {
-  await refuseLimitedHelper(eventId);
+  await refuseLimitedHelper(eventId, 'guest_list');
   const read = await readMarchLines(eventId, groupKey);
   if (!read.ok) return read;
   const { supabase, lines } = read;
@@ -130,7 +130,7 @@ export async function swapEntouragePlaces(
  * Writes no guest row and no chair.
  */
 export async function setMarchWalking(eventId: string, guestId: string, walks: boolean): Promise<MarchResult> {
-  await refuseLimitedHelper(eventId);
+  await refuseLimitedHelper(eventId, 'guest_list');
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('guests')
@@ -179,7 +179,7 @@ export async function moveEntourageSection(
   groupKey: string,
   direction: 'up' | 'down',
 ): Promise<MarchResult> {
-  await refuseLimitedHelper(eventId);
+  await refuseLimitedHelper(eventId, 'guest_list');
   await requireHostMembership(eventId);
   const read = await readAllGroups(eventId);
   if (!read.ok) return read;
@@ -190,7 +190,7 @@ export async function moveEntourageSection(
 }
 
 export async function resetEntourageSections(eventId: string): Promise<MarchResult> {
-  await refuseLimitedHelper(eventId);
+  await refuseLimitedHelper(eventId, 'guest_list');
   await requireHostMembership(eventId);
   return writeSectionOrder(eventId, null);
 }

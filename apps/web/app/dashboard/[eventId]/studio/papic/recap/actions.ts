@@ -59,7 +59,7 @@ async function slugFor(eventId: string): Promise<string | null> {
 }
 
 export async function publishRecap(formData: FormData): Promise<void> {
-  await refuseLimitedHelper(formData.get('eventId'));
+  await refuseLimitedHelper(formData.get('eventId'), 'photos');
   const eventId = eventIdFrom(formData);
   await requireCouple(eventId);
 
@@ -103,7 +103,7 @@ export async function setRecapSocialFeatureAllowed(
   eventId: string,
   allowed: boolean,
 ): Promise<{ ok: boolean; error?: string }> {
-  const helperRefusal = await limitedHelperRefusal(eventId);
+  const helperRefusal = await limitedHelperRefusal(eventId, 'photos');
   if (helperRefusal) return { ok: false, error: helperRefusal };
   const clean = eventId?.trim();
   if (!clean) return { ok: false, error: 'missing_event' };
@@ -121,7 +121,7 @@ export async function setRecapSocialFeatureAllowed(
 }
 
 export async function unpublishRecap(formData: FormData): Promise<void> {
-  await refuseLimitedHelper(formData.get('eventId'));
+  await refuseLimitedHelper(formData.get('eventId'), 'photos');
   const eventId = eventIdFrom(formData);
   await requireCouple(eventId);
 

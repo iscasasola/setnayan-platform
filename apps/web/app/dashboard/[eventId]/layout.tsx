@@ -39,6 +39,7 @@ import type { SwitcherData } from '@/app/_components/account-switcher/get-switch
 import { PromoFreeWindowBanner } from '@/app/_components/promo-free-window-banner';
 import { CohostWelcome, cohostWelcomeNotice } from './_components/cohost-welcome';
 import { ViewOnlyLine } from './_components/view-only-line';
+import { DELEGATE_AREAS, resolveAreaLevel, type DelegateArea, type ModeratorPermissions } from '@/lib/delegate-areas';
 import { resolveRailAccount } from '@/app/_components/frontdoor/rail-data';
 import { resolveCommandItems } from '@/app/_components/frontdoor/command-data';
 import { AppPreload } from '@/app/_components/app-preload';
@@ -127,10 +128,10 @@ export default async function EventLayout({ children, params }: Props) {
     );
   }
 
-  // 👁 A LIMITED HELPER VIEWS, NEVER EDITS (owner 2026-09-28). Read from the SAME seat row that admits a
-  // delegate below — no extra trip. Every page then says it once, in place (`ViewOnlyLine`), and every
-  // server action refuses their writes (`refuseLimitedHelper`, lib/host-gate.ts).
-  let limitedHelper = false;
+  // 👁 A LIMITED HELPER VIEWS, AND CHANGES ONLY WHAT THE HOST SET TO EDIT (owner 2026-09-28 · 2026-10-26). Read
+  // from the SAME seat row that admits a delegate below — no extra trip. Every page then says it once, in place
+  // (`ViewOnlyLine`), and every server action refuses the rest (`refuseLimitedHelper`, lib/host-gate.ts).
+  let limitedHelper: { editable: DelegateArea[] } | null = null;
   if (!membership || membership.member_type !== 'couple') {
     // Delegate path (feature-access program Phase 2, 2026-06-12): an
     // accepted, non-removed event_moderators row admits the user — this is
@@ -141,7 +142,7 @@ export default async function EventLayout({ children, params }: Props) {
       await withSchemaRetry(() =>
         supabase
           .from('event_moderators')
-          .select('moderator_id, role_subtype')
+          .select('moderator_id, role_subtype, permissions_json')
           .eq('event_id', eventId)
           .eq('user_id', user.id)
           .not('accepted_at', 'is', null)
@@ -185,7 +186,13 @@ export default async function EventLayout({ children, params }: Props) {
     if (!moderator) {
       notFound();
     }
-    limitedHelper = (moderator as { role_subtype?: string | null }).role_subtype === 'viewer';
+    const seat = moderator as { role_subtype?: string | null; permissions_json?: ModeratorPermissions | null };
+    if (seat.role_subtype === 'viewer') {
+      // What the host set to Edit for them in Event Details › Event access (owner 2026-10-26) — the line names it.
+      limitedHelper = {
+        editable: DELEGATE_AREAS.filter((a) => resolveAreaLevel(seat.permissions_json ?? null, a) === 'edit'),
+      };
+    }
   }
 
   // 5th hotfix pass extension (2026-05-23 PM) — same defensive pattern
@@ -780,7 +787,7 @@ export default async function EventLayout({ children, params }: Props) {
               {/* "You are now a co-host…" · CONFIRM — shows until acknowledged
                   (owner 2026-09-28). Renders nothing for everyone else. */}
               <CohostWelcome eventId={eventId} userId={user.id} />
-              {limitedHelper ? <ViewOnlyLine /> : null}
+              {limitedHelper ? <ViewOnlyLine editable={limitedHelper.editable} /> : null}
               {/* 💾 Whose last-seen data the five main pages keep and show
                   (owner 2026-10-02, DECISION_LOG "LAST-SEEN DATA SHOWS
                   INSTANTLY, THEN REFRESHES"). Context only — the store loads

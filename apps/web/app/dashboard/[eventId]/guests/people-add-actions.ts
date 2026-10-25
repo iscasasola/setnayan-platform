@@ -85,7 +85,7 @@ export async function addGuestsFromPeople(
   side: GuestSide,
   withPicks?: PeopleAddPicks,
 ): Promise<AddFromPeopleResult> {
-  const helperRefusal = await limitedHelperRefusal(eventId);
+  const helperRefusal = await limitedHelperRefusal(eventId, 'guest_list');
   if (helperRefusal) return { ok: false, error: helperRefusal };
   if (!eventId) return { ok: false, error: 'Missing event.' };
   if (!Array.isArray(picks) || picks.length === 0) {

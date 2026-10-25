@@ -64,7 +64,7 @@ import { refuseLimitedHelper } from '@/lib/host-gate';
 //     from their own schedule at lock; a couple must not overwrite it.
 // ============================================================================
 export async function saveSelfAddedPaymentPlan(formData: FormData): Promise<void> {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'vendors');
   const eventId = formData.get('event_id');
   const vendorId = formData.get('vendor_id');
   if (

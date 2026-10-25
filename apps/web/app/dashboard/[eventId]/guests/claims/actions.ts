@@ -89,7 +89,7 @@ async function readUnlistedGuest(
  * is re-checked here against what this event offers (`readKeepChoice`).
  */
 export async function keepGuestAction(eventId: string, formData: FormData) {
-  await refuseLimitedHelper(eventId);
+  await refuseLimitedHelper(eventId, 'guest_list');
   const user = await assertCouple(eventId);
   const admin = createAdminClient();
   const guestId = await readUnlistedGuest(admin, eventId, formData);
@@ -198,7 +198,7 @@ export async function keepGuestAction(eventId: string, formData: FormData) {
 
 /** REMOVE: soft-delete the unlisted guest and revoke any account membership. */
 export async function removeGuestAction(eventId: string, formData: FormData) {
-  await refuseLimitedHelper(eventId);
+  await refuseLimitedHelper(eventId, 'guest_list');
   const user = await assertCouple(eventId);
   const admin = createAdminClient();
   const guestId = await readUnlistedGuest(admin, eventId, formData);
@@ -293,7 +293,7 @@ export async function removeGuestAction(eventId: string, formData: FormData) {
  * open again. Groups and seats Accept made stay — they wait with the request.
  */
 export async function undoAcceptAction(eventId: string, formData: FormData) {
-  await refuseLimitedHelper(eventId);
+  await refuseLimitedHelper(eventId, 'guest_list');
   await assertCouple(eventId);
   const admin = createAdminClient();
   const guestId = String(formData.get('guest_id') ?? '');
@@ -329,7 +329,7 @@ export async function undoAcceptAction(eventId: string, formData: FormData) {
 
 /** UNDO DECLINE (frame G2) — within `UNDO_WINDOW_MS`, the request is back, pending. */
 export async function undoDeclineAction(eventId: string, formData: FormData) {
-  await refuseLimitedHelper(eventId);
+  await refuseLimitedHelper(eventId, 'guest_list');
   await assertCouple(eventId);
   const admin = createAdminClient();
   const guestId = String(formData.get('guest_id') ?? '');
@@ -373,7 +373,7 @@ export async function undoDeclineAction(eventId: string, formData: FormData) {
  * row, so they'd re-scan / use an email link to land on the merged guest.
  */
 export async function linkGuestAction(eventId: string, formData: FormData) {
-  await refuseLimitedHelper(eventId);
+  await refuseLimitedHelper(eventId, 'guest_list');
   const user = await assertCouple(eventId);
   const admin = createAdminClient();
   const backTo = `/dashboard/${eventId}/guests/claims`;

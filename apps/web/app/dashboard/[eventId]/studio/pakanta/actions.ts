@@ -24,7 +24,7 @@ import { limitedHelperRefusal } from '@/lib/host-gate';
 type Result = { ok: true } | { ok: false; error: string };
 
 export async function adoptPakantaSongAsSiteMusic(eventId: string): Promise<Result> {
-  const helperRefusal = await limitedHelperRefusal(eventId);
+  const helperRefusal = await limitedHelperRefusal(eventId, null);
   if (helperRefusal) return { ok: false, error: helperRefusal };
   try {
     const id = (eventId ?? '').trim();

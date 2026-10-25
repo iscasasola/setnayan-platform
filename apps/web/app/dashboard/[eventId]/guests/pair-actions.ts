@@ -52,7 +52,7 @@ export async function unpairGuestAction(
   guestId: string,
   mode?: unknown,
 ): Promise<void> {
-  await refuseLimitedHelper(eventId);
+  await refuseLimitedHelper(eventId, 'guest_list');
   const inPlace = mode === 'in-place';
   const supabase = await createClient();
   const { error } = await supabase.rpc('unpair_guest', {

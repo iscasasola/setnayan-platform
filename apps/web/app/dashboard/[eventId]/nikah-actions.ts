@@ -25,7 +25,7 @@ const MAHR_MAX = 600;
  * (no dead state).
  */
 export async function updateNikahDetails(eventId: string, formData: FormData) {
-  await refuseLimitedHelper(eventId);
+  await refuseLimitedHelper(eventId, null);
   const user = await getCurrentUser();
   if (!user) return;
 

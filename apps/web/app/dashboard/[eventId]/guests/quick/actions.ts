@@ -17,7 +17,7 @@ const MAX_BULK = 500;
 // later from the full guest editor. Enforces a soft cap of 500 names per
 // upload — anything beyond that should use CSV import.
 export async function bulkAddGuests(eventId: string, formData: FormData) {
-  await refuseLimitedHelper(eventId);
+  await refuseLimitedHelper(eventId, 'guest_list');
   const raw = formData.get('guests');
   if (typeof raw !== 'string') {
     return redirect(`/dashboard/${eventId}/guests/quick?error=missing`);

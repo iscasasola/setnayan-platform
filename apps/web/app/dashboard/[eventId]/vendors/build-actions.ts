@@ -28,7 +28,7 @@ export async function deleteBudgetBuild(input: {
   eventId: string;
   buildId: string;
 }): Promise<BuildActionResult> {
-  const helperRefusal = await limitedHelperRefusal(input.eventId);
+  const helperRefusal = await limitedHelperRefusal(input.eventId, 'vendors');
   if (helperRefusal) return { ok: false, error: helperRefusal };
   const supabase = await createClient();
   const {
@@ -104,7 +104,7 @@ export async function savePlanBuildNamed(input: {
   overwriteBuildId?: string | null;
   snapshot: PlanBuildSnapshot;
 }): Promise<BuildActionResult> {
-  const helperRefusal = await limitedHelperRefusal(input.eventId);
+  const helperRefusal = await limitedHelperRefusal(input.eventId, 'vendors');
   if (helperRefusal) return { ok: false, error: helperRefusal };
   const supabase = await createClient();
   const {

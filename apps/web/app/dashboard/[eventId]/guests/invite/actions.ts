@@ -63,7 +63,7 @@ async function assertCouple(eventId: string) {
 export async function regenerateInviteQr(
   eventId: string,
 ): Promise<RegenerateInviteQrResult> {
-  const helperRefusal = await limitedHelperRefusal(eventId);
+  const helperRefusal = await limitedHelperRefusal(eventId, 'guest_list');
   if (helperRefusal) return { ok: false, error: helperRefusal };
   try {
     await assertCouple(eventId);

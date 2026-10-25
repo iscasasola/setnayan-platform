@@ -111,7 +111,7 @@ export async function requestRender(args: {
   partId: string;
   note?: string | null;
 }): Promise<RenderActionResult> {
-  await refuseLimitedHelper(args.eventId);
+  await refuseLimitedHelper(args.eventId, 'mood_board');
   const { eventId, partId } = args;
 
   if (!isRenderPartId(partId)) {
@@ -446,7 +446,7 @@ async function readBalanceLeft(
 export async function readRenderBalance(args: {
   eventId: string;
 }): Promise<{ creditsLeft: number | null }> {
-  await refuseLimitedHelper(args.eventId);
+  await refuseLimitedHelper(args.eventId, 'mood_board');
   const supabase = await createClient();
   const {
     data: { user },
@@ -471,7 +471,7 @@ export async function abandonStalledRender(args: {
   eventId: string;
   renderId: string;
 }): Promise<{ ok: boolean }> {
-  await refuseLimitedHelper(args.eventId);
+  await refuseLimitedHelper(args.eventId, 'mood_board');
   const supabase = await createClient();
   const {
     data: { user },
@@ -497,7 +497,7 @@ export async function setShareConsent(args: {
   eventId: string;
   consented: boolean;
 }): Promise<{ ok: boolean; creditsLeft: number | null }> {
-  await refuseLimitedHelper(args.eventId);
+  await refuseLimitedHelper(args.eventId, 'mood_board');
   const supabase = await createClient();
   const {
     data: { user },

@@ -61,7 +61,7 @@ import { refuseLimitedHelper, limitedHelperRefusal } from '@/lib/host-gate';
  * name onto it. Reading it here costs one query that the gate needs anyway.
  */
 export async function createAutoShareInviteAction(formData: FormData): Promise<void> {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'vendors');
   const eventId = formData.get('event_id');
   const vendorId = formData.get('vendor_id');
 
@@ -115,7 +115,7 @@ const MAX_INCLUSIONS = 20;
 const MAX_INCLUSION_LEN = 120;
 
 export async function updateHostServiceDetails(formData: FormData): Promise<void> {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'vendors');
   const eventId = formData.get('event_id');
   const vendorId = formData.get('vendor_id');
   if (
@@ -252,7 +252,7 @@ export async function moveSupplierToCategory(input: {
   /** Undo only: "also covers" keys the move took off, put back. Validated like a save. */
   restoreCovers?: string[];
 }): Promise<MoveSupplierResult> {
-  const helperRefusal = await limitedHelperRefusal(input.eventId);
+  const helperRefusal = await limitedHelperRefusal(input.eventId, 'vendors');
   if (helperRefusal) return { ok: false, error: helperRefusal };
   const eventId = typeof input?.eventId === 'string' ? input.eventId : '';
   const vendorId = typeof input?.vendorId === 'string' ? input.vendorId : '';
@@ -398,7 +398,7 @@ async function resolveWorkingNoteViewer(
 
 /** Append one working-folder note. Form-only; silent no-op on bad input. */
 export async function addWorkingNoteAction(formData: FormData): Promise<void> {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'vendors');
   if (!isCoordinatorVendorNotesEnabled()) return;
 
   const eventId = formData.get('event_id');
@@ -452,7 +452,7 @@ export async function addWorkingNoteAction(formData: FormData): Promise<void> {
 
 /** Remove the caller's OWN note (author safety valve — RLS enforces author). */
 export async function deleteWorkingNoteAction(formData: FormData): Promise<void> {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'vendors');
   if (!isCoordinatorVendorNotesEnabled()) return;
 
   const eventId = formData.get('event_id');
@@ -547,7 +547,7 @@ function readNote(formData: FormData, key: string, max: number): string | null {
 }
 
 export async function saveSelfAddedServiceCard(formData: FormData): Promise<void> {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'vendors');
   const eventId = formData.get('event_id');
   const vendorId = formData.get('vendor_id');
   if (
@@ -715,7 +715,7 @@ export async function saveManualVenuePin(input: {
   address: string;
   pin: { lat: number; lng: number } | null;
 }): Promise<ManualVenuePinResult> {
-  const helperRefusal = await limitedHelperRefusal(input.eventId);
+  const helperRefusal = await limitedHelperRefusal(input.eventId, 'vendors');
   if (helperRefusal) return { ok: false, error: helperRefusal };
   const fd = new FormData();
   fd.set('event_id', input.eventId);

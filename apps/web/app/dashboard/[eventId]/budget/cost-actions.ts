@@ -259,7 +259,7 @@ async function updateRecordedCost(
 }
 
 export async function recordEventCost(formData: FormData): Promise<RecordCostResult> {
-  const helperRefusal = await limitedHelperRefusal(formData.get('event_id'));
+  const helperRefusal = await limitedHelperRefusal(formData.get('event_id'), 'budget');
   if (helperRefusal) return { ok: false, error: helperRefusal };
   const eventId = formData.get('event_id');
   if (typeof eventId !== 'string' || eventId.length === 0) {
@@ -320,7 +320,7 @@ export async function recordEventCost(formData: FormData): Promise<RecordCostRes
 }
 
 export async function deleteEventCost(formData: FormData): Promise<DeleteCostResult> {
-  const helperRefusal = await limitedHelperRefusal(formData.get('event_id'));
+  const helperRefusal = await limitedHelperRefusal(formData.get('event_id'), 'budget');
   if (helperRefusal) return { ok: false, error: helperRefusal };
   const eventId = formData.get('event_id');
   const costId = formData.get('cost_id');

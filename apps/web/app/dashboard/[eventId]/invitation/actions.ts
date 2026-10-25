@@ -47,7 +47,7 @@ export async function reissueGuestToken(
   guestId: string,
   _formData: FormData,
 ): Promise<void> {
-  await refuseLimitedHelper(eventId);
+  await refuseLimitedHelper(eventId, 'invitations');
   const supabase = await createClient();
 
   const { data: rpcData, error: rpcError } = await supabase.rpc(
@@ -141,7 +141,7 @@ export async function updateEventSlug(
   returnTo: SlugReturn,
   formData: FormData,
 ): Promise<void> {
-  await refuseLimitedHelper(eventId);
+  await refuseLimitedHelper(eventId, 'invitations');
   const back = slugReturnPath(eventId, returnTo);
   const requested = String(formData.get('slug') ?? '')
     .trim()
@@ -183,7 +183,7 @@ export async function updateMonogram(
   eventId: string,
   formData: FormData,
 ): Promise<void> {
-  await refuseLimitedHelper(eventId);
+  await refuseLimitedHelper(eventId, 'invitations');
   const rawText = String(formData.get('monogram_text') ?? '').trim();
   const rawColor = String(formData.get('monogram_color') ?? '').trim();
 
@@ -247,7 +247,7 @@ export async function markGuestInvitationSent(
   guestId: string,
   formData: FormData,
 ): Promise<void> {
-  await refuseLimitedHelper(eventId);
+  await refuseLimitedHelper(eventId, 'invitations');
   const supabase = await createClient();
   const {
     data: { user },
@@ -321,7 +321,7 @@ export async function setGuestInvitationSent(
   guestId: string,
   sent: boolean,
 ): Promise<{ ok: true; sentAt: string | null } | { ok: false }> {
-  await refuseLimitedHelper(eventId);
+  await refuseLimitedHelper(eventId, 'invitations');
   const supabase = await createClient();
   const {
     data: { user },

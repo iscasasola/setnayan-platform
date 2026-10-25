@@ -13,14 +13,14 @@ import { refuseLimitedHelper } from '@/lib/host-gate';
  * event scope and the "clear the gate, leave the printed signs" contract.
  */
 export async function publishFromControlCentre(formData: FormData): Promise<void> {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), null);
   await publishSeating(formData);
   const eventId = formData.get('event_id');
   if (typeof eventId === 'string') revalidatePath(`/dashboard/${eventId}/plan3d`);
 }
 
 export async function unpublishFromControlCentre(formData: FormData): Promise<void> {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), null);
   await unpublishSeating(formData);
   const eventId = formData.get('event_id');
   if (typeof eventId === 'string') revalidatePath(`/dashboard/${eventId}/plan3d`);

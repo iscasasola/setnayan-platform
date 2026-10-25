@@ -20,7 +20,7 @@ export async function reissuePanoodCamera(
   eventId: string,
   cameraId: number,
 ): Promise<{ ok: true } | { error: string }> {
-  await refuseLimitedHelper(eventId);
+  await refuseLimitedHelper(eventId, null);
   if (!eventId || !Number.isFinite(cameraId)) return { error: 'Missing camera.' };
 
   const supabase = await createClient();

@@ -9,13 +9,20 @@
  * Actions that write with the service-role client are not fenced by RLS at all.
  * `lib/limited-helper-gate.ts` has the full account.
  *
+ * Owner, 2026-10-26: *"Limited helpers can view but not change anything.
+ * limited helpers capabilities depend on the settings on their event
+ * details"* — so the gate names the AREA each action changes, and a helper the
+ * host set to Edit on that area (Event Details › Event access) passes.
+ *
  * ── THE PROPERTY ──────────────────────────────────────────────────────────
  * Every exported function of every `'use server'` file under
  * `app/dashboard/[eventId]` either
- *   · CALLS `refuseLimitedHelper(…)` (throws the refusal), or
- *   · assigns `limitedHelperRefusal(…)` and RETURNS on it,
- * both imported from `@/lib/host-gate` — or it is listed below in
- * `NO_EVENT_WRITE` with the reason it changes nothing on the event.
+ *   · CALLS `refuseLimitedHelper(eventId, area)` (throws the refusal), or
+ *   · assigns `limitedHelperRefusal(eventId, area)` and RETURNS on it,
+ * both imported from `@/lib/host-gate`, with `area` EXACTLY the one
+ * `AREA_RULES` below gives that action — or it is listed in `NO_EVENT_WRITE`
+ * with the reason it changes nothing on the event. `AREA_RULES` IS the map of
+ * every write path to its area; change an action's area here, not at the call.
  *
  * ── WHY IT IS BUILT THIS WAY (hub-a-guard-can-face-the-wrong-thing) ───────
  *   · The file set is DERIVED from the tree and FLOORED — a sweep that stops
@@ -35,6 +42,8 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
+
+import type { DelegateArea } from '@/lib/delegate-areas';
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 
@@ -81,6 +90,57 @@ const NO_EVENT_WRITE: Record<string, string> = {
   'studio/live-studio-control/actions.ts#setYoutubeLiveReadyAck': 'writes only the caller’s own users row',
   '_actions/share-consent.ts#revokeShareConsent': 'acts on the caller’s own consent row by id (RLS-scoped), not on the event',
 };
+
+
+/**
+ * WHICH AREA EACH ACTION CHANGES — the areas of Event Details › Event access
+ * (`lib/delegate-areas.ts`). First match wins; a key with '#' names one export.
+ * null = no area: the hosts' alone (event details, the hub's settings, hosts and
+ * access, purchases, Live/Panood, deletion…), so a helper is always refused.
+ * Today a host can set only Guest list · Seat plan · The Day · Suppliers to Edit
+ * (`areaChoices`); the other areas are mapped anyway so the day a dropdown
+ * grows an Edit, the gate already asks the right question.
+ */
+const AREA_RULES: ReadonlyArray<readonly [string, DelegateArea | null]> = [
+  // Granting co-host / helper access is the hosts' — never the guest-list area.
+  ['guests/[guestId]/access-actions.ts', null],
+  // "Arrange tables and seats. Publishing the plan stays with you." (DELEGATE_AREA_DOES.seat_plan)
+  ['seating/actions.ts#publishSeating', null],
+  ['seating/actions.ts#unpublishSeating', null],
+  // Unlocking a category is a purchase, not a supplier edit.
+  ['vendors/_actions/unlock-category.ts', null],
+  // The couple's own review of a supplier.
+  ['vendors/[vendorId]/review/', null],
+  ['guests/', 'guest_list'],
+  ['seating/', 'seat_plan'],
+  ['studio/indoor-blueprint/', 'seat_plan'],
+  ['schedule/', 'schedule'],
+  ['studio/playlist/', 'schedule'],
+  ['_actions/day-of-broadcast.ts', 'schedule'],
+  ['vendors/', 'vendors'],
+  ['manpower/', 'vendors'],
+  ['messages/', 'vendors'],
+  ['progress/_actions/free-venue-shortlist.ts', 'vendors'],
+  ['budget/', 'budget'],
+  ['studio/mood-board/', 'mood_board'],
+  ['website/', 'invitations'],
+  ['invitation/', 'invitations'],
+  ['studio/save-the-date/', 'invitations'],
+  ['launch/', 'invitations'],
+  ['event-qr/', 'invitations'],
+  ['monogram/', 'invitations'],
+  ['studio/papic/', 'photos'],
+  ['studio/patiktok/', 'photos'],
+  ['studio/photo-delivery/', 'photos'],
+  ['alaala/', 'photos'],
+];
+
+function areaOf(key: string): DelegateArea | null {
+  for (const [p, a] of AREA_RULES) {
+    if (p.includes('#') ? key === p : key.startsWith(p)) return a;
+  }
+  return null;
+}
 
 const GATES = new Set(['refuseLimitedHelper', 'limitedHelperRefusal']);
 
@@ -144,7 +204,7 @@ function check(file: string, src: string): { actions: string[]; findings: Findin
     );
     const allowed = Object.prototype.hasOwnProperty.call(NO_EVENT_WRITE, key);
     if (calls.length === 0) {
-      if (!allowed) findings.push({ key, problem: 'writes without the limited-helper gate (call refuseLimitedHelper(eventId) first)' });
+      if (!allowed) findings.push({ key, problem: 'writes without the limited-helper gate (call refuseLimitedHelper(eventId, area) first)' });
       continue;
     }
     if (allowed) findings.push({ key, problem: 'is gated AND allowlisted — drop it from NO_EVENT_WRITE' });
@@ -153,6 +213,16 @@ function check(file: string, src: string): { actions: string[]; findings: Findin
       if (!arg || ts.isStringLiteralLike(arg) || arg.kind === ts.SyntaxKind.NullKeyword) {
         findings.push({ key, problem: 'calls the gate without the event it writes to' });
       }
+      const areaArg = c.arguments[1];
+      const want = areaOf(key);
+      const got =
+        areaArg && areaArg.kind === ts.SyntaxKind.NullKeyword
+          ? null
+          : areaArg && ts.isStringLiteralLike(areaArg)
+            ? areaArg.text
+            : undefined;
+      if (got === undefined) findings.push({ key, problem: `names no area — pass ${want === null ? 'null' : `'${want}'`} (AREA_RULES)` });
+      else if (got !== want) findings.push({ key, problem: `names area ${String(got)} but AREA_RULES gives ${String(want)}` });
       if (!ts.isAwaitExpression(c.parent)) findings.push({ key, problem: 'calls the gate without awaiting it — the write runs before the answer' });
       if ((c.expression as ts.Identifier).text === 'limitedHelperRefusal') {
         // const X = await limitedHelperRefusal(…); if (X) return …
@@ -194,10 +264,10 @@ test('every dashboard server action asks the limited-helper gate (or says why it
   assert.deepEqual(
     findings.map((x) => `${x.key} — ${x.problem}`),
     [],
-    'A limited helper "may view but may not edit" (owner 2026-09-28). Gate the action with ' +
-      "`await refuseLimitedHelper(eventId)` from '@/lib/host-gate' as its first line, or — when its screen " +
-      'prints `{ ok: false, error }` — `const helperRefusal = await limitedHelperRefusal(eventId); if (helperRefusal) ' +
-      'return { ok: false, error: helperRefusal };`. Only a READ (or a write to the caller’s own row) goes in NO_EVENT_WRITE.',
+    'A limited helper views, and changes only the areas the host set to Edit (owner 2026-09-28 · 2026-10-26). Gate the ' +
+      "action with `await refuseLimitedHelper(eventId, <its AREA_RULES area>)` from '@/lib/host-gate' as its first line, or — " +
+      'when its screen prints `{ ok: false, error }` — `const helperRefusal = await limitedHelperRefusal(eventId, area); ' +
+      'if (helperRefusal) return { ok: false, error: helperRefusal };`. Only a READ (or a write to the caller’s own row) goes in NO_EVENT_WRITE.',
   );
 });
 
@@ -207,10 +277,13 @@ test('the checker convicts an ungated action, a comment-only gate and a gate in 
   const cases: Array<[string, RegExp]> = [
     [`export async function a(eventId: string) { await db.from('guests').update({}); }`, /without the limited-helper gate/],
     [`export async function a(eventId: string) { /* refuseLimitedHelper(eventId) */ await db.delete(); }`, /without the limited-helper gate/],
-    [`export async function a(eventId: string) { const f = async () => { await refuseLimitedHelper(eventId); }; await db.delete(); }`, /without the limited-helper gate/],
-    [`export async function a(eventId: string) { refuseLimitedHelper(eventId); await db.delete(); }`, /without awaiting/],
+    [`export async function a(eventId: string) { const f = async () => { await refuseLimitedHelper(eventId, 'guest_list'); }; await db.delete(); }`, /without the limited-helper gate/],
+    [`export async function a(eventId: string) { refuseLimitedHelper(eventId, 'guest_list'); await db.delete(); }`, /without awaiting/],
     [`export async function a(eventId: string) { await refuseLimitedHelper(); }`, /without the event/],
-    [`export async function a(eventId: string) { const r = await limitedHelperRefusal(eventId); await db.delete(); }`, /does not return on its answer/],
+    [`export async function a(eventId: string) { await refuseLimitedHelper(eventId); }`, /names no area/],
+    [`export async function a(eventId: string) { await refuseLimitedHelper(eventId, 'seat_plan'); }`, /names area seat_plan but AREA_RULES gives guest_list/],
+    [`export async function a(eventId: string) { await refuseLimitedHelper(eventId, null); }`, /names area null but AREA_RULES gives guest_list/],
+    [`export async function a(eventId: string) { const r = await limitedHelperRefusal(eventId, 'guest_list'); await db.delete(); }`, /does not return on its answer/],
   ];
   for (const [body, want] of cases) {
     const r = check(file, head + body);
@@ -218,12 +291,12 @@ test('the checker convicts an ungated action, a comment-only gate and a gate in 
     assert.match(r.findings.map((x) => x.problem).join(' | '), want, body);
   }
   // A gate imported from anywhere else is not the gate.
-  const local = check(file, `'use server';\nasync function refuseLimitedHelper(_: unknown) {}\nexport async function a(eventId: string) { await refuseLimitedHelper(eventId); }`);
+  const local = check(file, `'use server';\nasync function refuseLimitedHelper(_: unknown) {}\nexport async function a(eventId: string) { await refuseLimitedHelper(eventId, 'guest_list'); }`);
   assert.equal(local.findings.length, 1, 'a local look-alike passed for the gate');
   // And the two honest shapes pass.
-  assert.deepEqual(check(file, head + `export async function a(eventId: string) { await refuseLimitedHelper(eventId); await db.delete(); }`).findings, []);
+  assert.deepEqual(check(file, head + `export async function a(eventId: string) { await refuseLimitedHelper(eventId, 'guest_list'); await db.delete(); }`).findings, []);
   assert.deepEqual(
-    check(file, head + `export async function a(eventId: string) { const helperRefusal = await limitedHelperRefusal(eventId);\n if (helperRefusal) return { ok: false, error: helperRefusal }; return { ok: true }; }`).findings,
+    check(file, head + `export async function a(eventId: string) { const helperRefusal = await limitedHelperRefusal(eventId, 'guest_list');\n if (helperRefusal) return { ok: false, error: helperRefusal }; return { ok: true }; }`).findings,
     [],
   );
 });

@@ -33,7 +33,7 @@ export async function saveArrangement(
   arrangement: unknown,
   expectedVersion: number,
 ): Promise<SaveArrangementResult> {
-  await refuseLimitedHelper(eventId);
+  await refuseLimitedHelper(eventId, null);
   const userId = await hostUserId(eventId);
   if (!userId) {
     return { ok: false, reason: 'failed', message: 'You don’t have access to this event.' };

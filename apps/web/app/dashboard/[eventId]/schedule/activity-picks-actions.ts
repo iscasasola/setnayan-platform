@@ -42,7 +42,7 @@ async function client() {
  *  couple deletes the block itself, so we never silently remove a moment they
  *  may have already retimed. */
 export async function toggleActivityPick(formData: FormData) {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'schedule');
   const eventId = String(formData.get('event_id') ?? '');
   const activityId = String(formData.get('activity_id') ?? '');
   const picked = String(formData.get('picked') ?? '') === 'true';
@@ -81,7 +81,7 @@ export async function toggleActivityPick(formData: FormData) {
  * so a second run is a no-op rather than a duplicate.
  */
 export async function applyActivityPicks(formData: FormData) {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'schedule');
   const eventId = String(formData.get('event_id') ?? '');
   if (!eventId) redirect('/dashboard');
   const supabase = await client();

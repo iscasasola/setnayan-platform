@@ -53,7 +53,7 @@ import {
 export async function updatePhotoMoments(
   formData: FormData,
 ): Promise<UpdatePhotoMomentsResult> {
-  const helperRefusal = await limitedHelperRefusal(formData.get('event_id'));
+  const helperRefusal = await limitedHelperRefusal(formData.get('event_id'), 'invitations');
   if (helperRefusal) return { ok: false, error: helperRefusal };
   const eventIdRaw = formData.get('event_id');
   if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) {

@@ -111,7 +111,7 @@ export async function quickAddGuest(
   input: QuickAddInput,
   opts: AddWriteOptions = {},
 ): Promise<QuickAddResult> {
-  const helperRefusal = await limitedHelperRefusal(eventId);
+  const helperRefusal = await limitedHelperRefusal(eventId, 'guest_list');
   if (helperRefusal) return { ok: false, error: helperRefusal };
   // BACKSTOP. Callers that already split a name (capture bar, the detailed
   // form, the import) pass the parts explicitly and are trusted verbatim.
@@ -284,7 +284,7 @@ export async function quickCreateGroup(
    *  (owner 2026-09-21); anything unrecognised is 'both', as before. */
   rawSide?: unknown,
 ): Promise<QuickGroupResult> {
-  const helperRefusal = await limitedHelperRefusal(eventId);
+  const helperRefusal = await limitedHelperRefusal(eventId, 'guest_list');
   if (helperRefusal) return { ok: false, error: helperRefusal };
   const label = (rawLabel ?? '').trim();
   if (!label) return { ok: false, error: 'Type a group name.' };
@@ -343,7 +343,7 @@ export async function addRoleToGuest(
   guestId: string,
   rawRole: string,
 ): Promise<QuickRoleResult> {
-  const helperRefusal = await limitedHelperRefusal(eventId);
+  const helperRefusal = await limitedHelperRefusal(eventId, 'guest_list');
   if (helperRefusal) return { ok: false, error: helperRefusal };
   const role = rawRole as GuestRole;
   const roleSet = await resolveRoleSetForEvent(eventId);
@@ -417,7 +417,7 @@ export async function setGuestPrimaryRole(
   guestId: string,
   rawRole: string,
 ): Promise<QuickRoleResult> {
-  const helperRefusal = await limitedHelperRefusal(eventId);
+  const helperRefusal = await limitedHelperRefusal(eventId, 'guest_list');
   if (helperRefusal) return { ok: false, error: helperRefusal };
   const role = rawRole as GuestRole;
   const roleSet = await resolveRoleSetForEvent(eventId);

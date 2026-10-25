@@ -54,7 +54,7 @@ export async function announceNext(
   eventId: string,
   kind: unknown,
 ): Promise<NextActionResult> {
-  const helperRefusal = await limitedHelperRefusal(eventId);
+  const helperRefusal = await limitedHelperRefusal(eventId, null);
   if (helperRefusal) return { ok: false, error: helperRefusal };
   if (!(await hostUserId(eventId))) return { ok: false, error: NO_ACCESS };
 
@@ -114,7 +114,7 @@ export async function startTheNextCelebration(
   eventId: string,
   kind: unknown,
 ): Promise<NextActionResult> {
-  const helperRefusal = await limitedHelperRefusal(eventId);
+  const helperRefusal = await limitedHelperRefusal(eventId, null);
   if (helperRefusal) return { ok: false, error: helperRefusal };
   const value = typeof kind === 'string' ? kind.trim() : '';
   if (!value || value === NOTHING_YET || NEVER_OFFERED_AS_NEXT.has(value)) {

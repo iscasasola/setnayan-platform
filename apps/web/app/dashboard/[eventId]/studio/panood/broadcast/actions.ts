@@ -132,7 +132,7 @@ export async function setProgramSource(
   eventId: string,
   source: string,
 ): Promise<ControlActionResult> {
-  await refuseLimitedHelper(eventId);
+  await refuseLimitedHelper(eventId, null);
   const gate = await gateControlAction(eventId);
   if ('error' in gate) return gate;
   if (!source) return { error: 'No source selected.' };
@@ -152,7 +152,7 @@ export async function setLive(
   eventId: string,
   isLive: boolean,
 ): Promise<ControlActionResult> {
-  await refuseLimitedHelper(eventId);
+  await refuseLimitedHelper(eventId, null);
   const gate = await gateControlAction(eventId);
   if ('error' in gate) return gate;
 
@@ -217,7 +217,7 @@ export async function fireMoment(
   eventId: string,
   momentId: number,
 ): Promise<ControlActionResult> {
-  await refuseLimitedHelper(eventId);
+  await refuseLimitedHelper(eventId, null);
   const gate = await gateControlAction(eventId);
   if ('error' in gate) return gate;
   if (!Number.isInteger(momentId) || momentId <= 0) {
@@ -278,7 +278,7 @@ export async function setScreenSource(
   screenId: number,
   source: string,
 ): Promise<ControlActionResult> {
-  await refuseLimitedHelper(eventId);
+  await refuseLimitedHelper(eventId, null);
   const gate = await gateControlAction(eventId);
   if ('error' in gate) return gate;
   if (!Number.isInteger(screenId) || screenId <= 0 || !source) {
@@ -316,7 +316,7 @@ export async function setScreenSource(
 export async function markHighlight(
   eventId: string,
 ): Promise<ControlActionResult> {
-  await refuseLimitedHelper(eventId);
+  await refuseLimitedHelper(eventId, null);
   const gate = await gateControlAction(eventId);
   if ('error' in gate) return gate;
   // No persistence yet (stub). Best-effort acknowledgement only.

@@ -44,7 +44,7 @@ export type SetEventBudgetResult =
  * target on the next visit without a hard refresh).
  */
 export async function setEventBudget(formData: FormData): Promise<SetEventBudgetResult> {
-  const helperRefusal = await limitedHelperRefusal(formData.get('event_id'));
+  const helperRefusal = await limitedHelperRefusal(formData.get('event_id'), 'budget');
   if (helperRefusal) return { ok: false, error: helperRefusal };
   const eventIdRaw = formData.get('event_id');
   const budgetRaw = formData.get('budget_php');
@@ -130,7 +130,7 @@ export type SetShareBudgetBandResult =
 export async function setShareBudgetBand(
   formData: FormData,
 ): Promise<SetShareBudgetBandResult> {
-  const helperRefusal = await limitedHelperRefusal(formData.get('event_id'));
+  const helperRefusal = await limitedHelperRefusal(formData.get('event_id'), 'budget');
   if (helperRefusal) return { ok: false, error: helperRefusal };
   const eventIdRaw = formData.get('event_id');
   const shareRaw = formData.get('share');
@@ -188,7 +188,7 @@ function isIsoDate(value: string): boolean {
 }
 
 export async function addLineItem(formData: FormData) {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'budget');
   const eventId = formData.get('event_id');
   const vendorId = formData.get('vendor_id');
   const label = formData.get('label');
@@ -252,7 +252,7 @@ export type SuggestMilestonesResult =
 export async function addSuggestedMilestones(
   formData: FormData,
 ): Promise<SuggestMilestonesResult> {
-  const helperRefusal = await limitedHelperRefusal(formData.get('event_id'));
+  const helperRefusal = await limitedHelperRefusal(formData.get('event_id'), 'budget');
   if (helperRefusal) return { ok: false, error: helperRefusal };
   const eventId = formData.get('event_id');
   const vendorId = formData.get('vendor_id');
@@ -364,7 +364,7 @@ export async function addSuggestedMilestones(
 }
 
 export async function deleteLineItem(formData: FormData) {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'budget');
   const eventId = formData.get('event_id');
   const lineItemId = formData.get('line_item_id');
   if (typeof eventId !== 'string' || typeof lineItemId !== 'string') {
@@ -401,7 +401,7 @@ export async function deleteLineItem(formData: FormData) {
 }
 
 export async function logPayment(formData: FormData) {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'budget');
   const eventId = formData.get('event_id');
   const vendorId = formData.get('vendor_id');
   const lineItemRaw = formData.get('line_item_id');
@@ -602,7 +602,7 @@ export async function logPayment(formData: FormData) {
 export async function logScheduledPayment(
   formData: FormData,
 ): Promise<{ status: 'ok' } | { status: 'error'; message: string }> {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'budget');
   try {
     await logPayment(formData);
     return { status: 'ok' };
@@ -616,7 +616,7 @@ export async function logScheduledPayment(
 }
 
 export async function deletePayment(formData: FormData) {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'budget');
   const eventId = formData.get('event_id');
   const paymentId = formData.get('payment_id');
   if (typeof eventId !== 'string' || typeof paymentId !== 'string') {

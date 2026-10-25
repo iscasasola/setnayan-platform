@@ -38,7 +38,7 @@ export async function saveInviteMessage(
   eventId: string,
   text: string,
 ): Promise<{ ok: true; template: string | null } | { ok: false }> {
-  await refuseLimitedHelper(eventId);
+  await refuseLimitedHelper(eventId, 'guest_list');
   if (!UUID.test(eventId)) return { ok: false };
   const hostId = await getHostUserId(eventId);
   if (!hostId) return { ok: false };

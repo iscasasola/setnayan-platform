@@ -117,7 +117,7 @@ export async function saveCategoryRequirements(
     autoSend: boolean;
   },
 ): Promise<SaveCategoryRequirementsResult> {
-  await refuseLimitedHelper(eventId);
+  await refuseLimitedHelper(eventId, 'vendors');
   const key = (canonicalService ?? '').trim();
   if (!eventId || !key) {
     return { status: 'error', message: 'Missing category.' };

@@ -57,7 +57,7 @@ export async function answerAccessRequest(
   requestId: string,
   verdicts: Record<string, AreaVerdict>,
 ): Promise<AnswerResult> {
-  const helperRefusal = await limitedHelperRefusal(eventId);
+  const helperRefusal = await limitedHelperRefusal(eventId, null);
   if (helperRefusal) return { ok: false, error: helperRefusal };
   const supabase = await createClient();
   const {

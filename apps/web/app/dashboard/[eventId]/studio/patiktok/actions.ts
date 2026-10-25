@@ -43,7 +43,7 @@ import { refuseLimitedHelper } from '@/lib/host-gate';
 // caller is a couple on the event, insert the row.
 
 export async function submitPatiktokRender(formData: FormData) {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'photos');
   const eventId = formData.get('event_id');
   const templateSlug = formData.get('template_slug');
   const durationRaw = formData.get('duration_sec');
@@ -156,7 +156,7 @@ export async function recordPatiktokClip(input: {
   tableId?: string | null;
   tagSource?: string | null;
 }): Promise<{ clipId: string }> {
-  await refuseLimitedHelper(input.eventId);
+  await refuseLimitedHelper(input.eventId, 'photos');
   if (typeof input.eventId !== 'string' || input.eventId.length === 0) {
     throw new Error('eventId required');
   }
@@ -391,7 +391,7 @@ export async function claimPatiktokRenderJob(jobId: string): Promise<{
     .maybeSingle();
   if (jobError) throw new Error(jobError.message);
   if (!job) throw new Error('Render job not found.');
-  await refuseLimitedHelper(job.event_id);
+  await refuseLimitedHelper(job.event_id, 'photos');
 
   // Gather the event's captured clips (oldest first → chronological reel).
   const { data: clipRows, error: clipError } = await supabase
@@ -540,7 +540,7 @@ export async function finalizePatiktokRenderJob(input: {
     .eq('job_id', input.jobId)
     .maybeSingle();
   if (!job) throw new Error('Render job not found.');
-  await refuseLimitedHelper(job.event_id);
+  await refuseLimitedHelper(job.event_id, 'photos');
 
   // 💎 PAY TO SAVE (owner 2026-09-29). Finalizing is what makes a reel a KEPT
   // reel — a stored copy, a download link, the "reel ready" email, a row the
@@ -638,7 +638,7 @@ export async function failPatiktokRenderJob(input: {
     .eq('job_id', input.jobId)
     .maybeSingle();
   if (!job) return;
-  await refuseLimitedHelper(job.event_id);
+  await refuseLimitedHelper(job.event_id, 'photos');
 
   const admin = createAdminClient();
   await admin
@@ -666,7 +666,7 @@ export async function failPatiktokRenderJob(input: {
  * paths.
  */
 export async function disconnectPatiktokTiktok(formData: FormData) {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'photos');
   const eventId = formData.get('event_id');
   if (typeof eventId !== 'string' || eventId.length === 0) {
     throw new Error('event_id required');
@@ -729,7 +729,7 @@ export async function disconnectPatiktokTiktok(formData: FormData) {
  * not a column. Membership-checked so the booth pages stay event-scoped.
  */
 export async function savePatiktokBoothTemplates(formData: FormData) {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'photos');
   const eventId = formData.get('event_id');
   if (typeof eventId !== 'string' || eventId.length === 0) {
     throw new Error('event_id required');

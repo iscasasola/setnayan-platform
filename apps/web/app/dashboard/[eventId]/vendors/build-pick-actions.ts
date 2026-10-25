@@ -34,7 +34,7 @@ export async function setBuildPick(input: {
    *  whole render of the page back (`lib/answer-in-place.ts`). */
   answerInPlace?: boolean;
 }): Promise<BuildPickResult> {
-  const helperRefusal = await limitedHelperRefusal(input.eventId);
+  const helperRefusal = await limitedHelperRefusal(input.eventId, 'vendors');
   if (helperRefusal) return { ok: false, error: helperRefusal };
   const supabase = await createClient();
   const {
@@ -71,7 +71,7 @@ export async function removeBuildPick(input: {
    *  whole render of the page back (`lib/answer-in-place.ts`). */
   answerInPlace?: boolean;
 }): Promise<BuildPickResult> {
-  const helperRefusal = await limitedHelperRefusal(input.eventId);
+  const helperRefusal = await limitedHelperRefusal(input.eventId, 'vendors');
   if (helperRefusal) return { ok: false, error: helperRefusal };
   const supabase = await createClient();
   const {
@@ -112,7 +112,7 @@ export async function applyBuildToWorking(input: {
   picks: { planGroupId: string; vendorId: string }[];
   lockedPlanGroupIds?: string[];
 }): Promise<BuildPickResult> {
-  const helperRefusal = await limitedHelperRefusal(input.eventId);
+  const helperRefusal = await limitedHelperRefusal(input.eventId, 'vendors');
   if (helperRefusal) return { ok: false, error: helperRefusal };
   const supabase = await createClient();
   const {
@@ -193,7 +193,7 @@ export async function applyBuildToWorking(input: {
  *  individually. Surfaced on the Plans panel by
  *  Explore_Replan_BUILD_SPEC_2026-07-27 §8.3. */
 export async function clearBuildPicks(input: { eventId: string }): Promise<BuildPickResult> {
-  const helperRefusal = await limitedHelperRefusal(input.eventId);
+  const helperRefusal = await limitedHelperRefusal(input.eventId, 'vendors');
   if (helperRefusal) return { ok: false, error: helperRefusal };
   const supabase = await createClient();
   const {

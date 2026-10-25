@@ -183,7 +183,7 @@ export async function decideDeskItem(
   id: string,
   decision: DeskStatus,
 ): Promise<DeskActionResult> {
-  const helperRefusal = await limitedHelperRefusal(eventId);
+  const helperRefusal = await limitedHelperRefusal(eventId, null);
   if (helperRefusal) return { ok: false, error: helperRefusal };
   if (!id?.trim()) return { ok: false, error: 'missing_input' };
   const userId = await hostUserId(eventId);
@@ -248,7 +248,7 @@ export async function editDeskItem(
   id: string,
   body: string,
 ): Promise<DeskActionResult> {
-  const helperRefusal = await limitedHelperRefusal(eventId);
+  const helperRefusal = await limitedHelperRefusal(eventId, null);
   if (helperRefusal) return { ok: false, error: helperRefusal };
   if (!id?.trim()) return { ok: false, error: 'missing_input' };
   if (source !== 'kwento' && source !== 'letter') {

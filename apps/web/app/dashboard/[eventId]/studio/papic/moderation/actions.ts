@@ -92,7 +92,7 @@ function photoActionHome(formData: FormData, eventId: string): string {
  * both the couple and Setnayan admins. The capture must belong to the event.
  */
 export async function reportCapture(eventId: string, formData: FormData) {
-  await refuseLimitedHelper(eventId);
+  await refuseLimitedHelper(eventId, 'photos');
   const { userId } = await requireCouple(eventId);
   const home = photoActionHome(formData, eventId);
   const captureId = formData.get('capture_id');
@@ -141,7 +141,7 @@ export async function reportCapture(eventId: string, formData: FormData) {
  * out of the couple's gallery + any public surface; unhide clears it.
  */
 export async function setCaptureHidden(eventId: string, formData: FormData) {
-  await refuseLimitedHelper(eventId);
+  await refuseLimitedHelper(eventId, 'photos');
   await requireCouple(eventId);
   const home = photoActionHome(formData, eventId);
   const captureId = formData.get('capture_id');
@@ -187,7 +187,7 @@ export async function setCaptureHidden(eventId: string, formData: FormData) {
  * originals sweep, so a mis-click is recoverable.
  */
 export async function setSeatPhotoHidden(eventId: string, formData: FormData) {
-  await refuseLimitedHelper(eventId);
+  await refuseLimitedHelper(eventId, 'photos');
   await requireCouple(eventId);
   const home = photoActionHome(formData, eventId);
   const photoId = formData.get('photo_id');
@@ -229,7 +229,7 @@ export async function setSeatPhotoHidden(eventId: string, formData: FormData) {
  * unique constraint.
  */
 export async function blockUploader(eventId: string, formData: FormData) {
-  await refuseLimitedHelper(eventId);
+  await refuseLimitedHelper(eventId, 'photos');
   const { userId } = await requireCouple(eventId);
   const home = photoActionHome(formData, eventId);
   const guestId = formData.get('guest_id');
@@ -278,7 +278,7 @@ export async function blockUploader(eventId: string, formData: FormData) {
  * clobber consent/faceblock verdicts. Works on both capture tables.
  */
 export async function approveScreenedCapture(eventId: string, formData: FormData) {
-  await refuseLimitedHelper(eventId);
+  await refuseLimitedHelper(eventId, 'photos');
   await requireCouple(eventId);
   const home = photoActionHome(formData, eventId);
   const table = formData.get('table');
@@ -313,7 +313,7 @@ export async function approveScreenedCapture(eventId: string, formData: FormData
  * Lift an event-scoped block so the guest's camera works again on this event.
  */
 export async function unblockUploader(eventId: string, formData: FormData) {
-  await refuseLimitedHelper(eventId);
+  await refuseLimitedHelper(eventId, 'photos');
   await requireCouple(eventId);
   const home = photoActionHome(formData, eventId);
   const guestId = formData.get('guest_id');
@@ -358,7 +358,7 @@ export async function approveKwento(
   eventId: string,
   messageId: string,
 ): Promise<KwentoActionResult> {
-  const helperRefusal = await limitedHelperRefusal(eventId);
+  const helperRefusal = await limitedHelperRefusal(eventId, 'photos');
   if (helperRefusal) return { ok: false, error: helperRefusal };
   if (!messageId?.trim()) return { ok: false, error: 'missing_input' };
   const supabase = await createClient();
@@ -381,7 +381,7 @@ export async function rejectKwento(
   eventId: string,
   messageId: string,
 ): Promise<KwentoActionResult> {
-  const helperRefusal = await limitedHelperRefusal(eventId);
+  const helperRefusal = await limitedHelperRefusal(eventId, 'photos');
   if (helperRefusal) return { ok: false, error: helperRefusal };
   if (!messageId?.trim()) return { ok: false, error: 'missing_input' };
   const supabase = await createClient();
@@ -405,7 +405,7 @@ export async function kwentoToWall(
   eventId: string,
   messageId: string,
 ): Promise<KwentoActionResult> {
-  const helperRefusal = await limitedHelperRefusal(eventId);
+  const helperRefusal = await limitedHelperRefusal(eventId, 'photos');
   if (helperRefusal) return { ok: false, error: helperRefusal };
   if (!messageId?.trim()) return { ok: false, error: 'missing_input' };
   const supabase = await createClient();
@@ -428,7 +428,7 @@ export async function kwentoOffWall(
   eventId: string,
   messageId: string,
 ): Promise<KwentoActionResult> {
-  const helperRefusal = await limitedHelperRefusal(eventId);
+  const helperRefusal = await limitedHelperRefusal(eventId, 'photos');
   if (helperRefusal) return { ok: false, error: helperRefusal };
   if (!messageId?.trim()) return { ok: false, error: 'missing_input' };
   const supabase = await createClient();
@@ -445,7 +445,7 @@ export async function blockKwentoGuest(
   eventId: string,
   guestId: string,
 ): Promise<KwentoActionResult> {
-  const helperRefusal = await limitedHelperRefusal(eventId);
+  const helperRefusal = await limitedHelperRefusal(eventId, 'photos');
   if (helperRefusal) return { ok: false, error: helperRefusal };
   if (!guestId?.trim()) return { ok: false, error: 'missing_input' };
   const supabase = await createClient();
@@ -530,7 +530,7 @@ export async function blockKwentoGuest(
  * reported as not found rather than as a successful deletion of nothing.
  */
 export async function deletePhotoForever(eventId: string, formData: FormData) {
-  await refuseLimitedHelper(eventId);
+  await refuseLimitedHelper(eventId, 'photos');
   await requireCouple(eventId);
   const home = photoActionHome(formData, eventId);
   const table = formData.get('table');

@@ -21,7 +21,7 @@ import { isUuid } from '@/lib/is-uuid';
 import { SWITCH_ON, isSwitchOnNeed } from '@/lib/event-needs';
 
 export async function switchOnNeed(eventId: string, need: string): Promise<void> {
-  await refuseLimitedHelper(eventId);
+  await refuseLimitedHelper(eventId, null);
   if (!isUuid(eventId) || !isSwitchOnNeed(need)) throw new Error('That can’t be switched on here.');
   await requireHostMembershipOrThrow(eventId, 'Only the hosts can switch this on.');
   const { column, to } = SWITCH_ON[need];

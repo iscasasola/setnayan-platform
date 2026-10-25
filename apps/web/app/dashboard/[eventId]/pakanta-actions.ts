@@ -102,7 +102,7 @@ function readResponses(
 export async function savePakantaIntake(
   formData: FormData,
 ): Promise<SavePakantaIntakeResult> {
-  const helperRefusal = await limitedHelperRefusal(formData.get('event_id'));
+  const helperRefusal = await limitedHelperRefusal(formData.get('event_id'), null);
   if (helperRefusal) return { ok: false, error: helperRefusal };
   const eventIdRaw = formData.get('event_id');
   const intentRaw = formData.get('intent');

@@ -75,7 +75,7 @@ export async function setGuestAccess(
   guestId: string,
   level: GuestAccessLevel,
 ): Promise<SetGuestAccessResult> {
-  const helperRefusal = await limitedHelperRefusal(eventId);
+  const helperRefusal = await limitedHelperRefusal(eventId, null);
   if (helperRefusal) return { ok: false, error: helperRefusal };
   if (!LEVELS.includes(level)) return { ok: false, error: 'Pick an access level.' };
 

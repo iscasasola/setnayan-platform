@@ -29,7 +29,7 @@ export async function setGuestListFinalized(
   eventId: string,
   finalized: boolean,
 ): Promise<{ ok: true; locked: boolean } | { ok: false; error: string }> {
-  const helperRefusal = await limitedHelperRefusal(eventId);
+  const helperRefusal = await limitedHelperRefusal(eventId, 'guest_list');
   if (helperRefusal) return { ok: false, error: helperRefusal };
   if (!eventId) return { ok: false, error: 'Missing event.' };
   const supabase = await createClient();

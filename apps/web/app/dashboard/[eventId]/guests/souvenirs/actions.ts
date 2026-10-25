@@ -49,7 +49,7 @@ export async function markSouvenirReceived(
   guestId: string,
   method: 'qr_scan' | 'manual_search',
 ): Promise<SouvenirActionResult> {
-  const helperRefusal = await limitedHelperRefusal(eventId);
+  const helperRefusal = await limitedHelperRefusal(eventId, 'guest_list');
   if (helperRefusal) return { ok: false, error: helperRefusal };
   let user;
   try {
@@ -106,7 +106,7 @@ export async function undoSouvenirReceived(
   eventId: string,
   guestId: string,
 ): Promise<UndoActionResult> {
-  const helperRefusal = await limitedHelperRefusal(eventId);
+  const helperRefusal = await limitedHelperRefusal(eventId, 'guest_list');
   if (helperRefusal) return { ok: false, error: helperRefusal };
   try {
     await assertStationCrew(eventId);

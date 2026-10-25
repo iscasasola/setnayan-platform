@@ -398,7 +398,7 @@ export async function searchCategoryVendors(input: {
    *  See lib/bench-bookable-days. */
   hideUnbookable?: boolean;
 }): Promise<CategorySearchResult> {
-  await refuseLimitedHelper(input.eventId);
+  await refuseLimitedHelper(input.eventId, 'vendors');
   const eventId = String(input.eventId ?? '').trim();
   const groupId = String(input.groupId ?? '').trim();
   const tile = String(input.tile ?? '').trim();

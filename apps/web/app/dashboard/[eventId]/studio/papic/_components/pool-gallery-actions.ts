@@ -26,7 +26,7 @@ export async function setPoolGalleryOpen(
   eventId: string,
   open: boolean,
 ): Promise<ActionResult> {
-  const helperRefusal = await limitedHelperRefusal(eventId);
+  const helperRefusal = await limitedHelperRefusal(eventId, 'photos');
   if (helperRefusal) return { ok: false, error: helperRefusal };
   if (!(await papicPoolGalleryActive())) return { ok: false, error: 'unavailable' };
   const clean = eventId?.trim();

@@ -60,7 +60,7 @@ export type CommitMonogramInput = {
 export async function commitMonogram(
   input: CommitMonogramInput,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  const helperRefusal = await limitedHelperRefusal(input.eventId);
+  const helperRefusal = await limitedHelperRefusal(input.eventId, 'invitations');
   if (helperRefusal) return { ok: false, error: helperRefusal };
   const eventId = String(input.eventId ?? '').trim();
   if (!eventId) return { ok: false, error: 'Something went wrong — please refresh and try again.' };

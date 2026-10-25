@@ -49,7 +49,7 @@ import { refuseLimitedHelper } from '@/lib/host-gate';
  * reached this environment).
  */
 export async function ensureChecklistSeeded(eventId: string): Promise<number> {
-  await refuseLimitedHelper(eventId);
+  await refuseLimitedHelper(eventId, null);
   if (!eventId) throw new Error('event_id required');
 
   const supabase = await createClient();
@@ -314,7 +314,7 @@ async function reconcileChecklistCompletion(
  * scopes this to the host's own event.
  */
 export async function toggleChecklistItem(formData: FormData) {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), null);
   const eventId = formData.get('event_id');
   const itemId = formData.get('item_id');
   const desiredRaw = formData.get('desired'); // 'done' | 'pending'

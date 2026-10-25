@@ -22,7 +22,7 @@ function back(eventId: string, flag: 'saved' | 'error'): never {
 }
 
 export async function saveHostAnswers(formData: FormData) {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'schedule');
   const eventId = String(formData.get('event_id') ?? '');
   if (!eventId) redirect('/dashboard');
 

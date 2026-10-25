@@ -76,7 +76,7 @@ function revalidateBoth(eventId: string): void {
  * defaults to events.ceremony_type when not supplied).
  */
 export async function seedPaperworkForEvent(formData: FormData): Promise<void> {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), null);
   const eventIdRaw = formData.get('event_id');
   if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) {
     throw new Error('Missing event reference.');
@@ -155,7 +155,7 @@ export async function seedPaperworkForEvent(formData: FormData): Promise<void> {
  * Form contract: event_id, paperwork_id, tracking_reference (optional).
  */
 export async function markPaperworkRequested(formData: FormData): Promise<void> {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), null);
   const eventId = formData.get('event_id');
   const paperworkId = formData.get('paperwork_id');
   const trackingRaw = formData.get('tracking_reference');
@@ -202,7 +202,7 @@ export async function markPaperworkRequested(formData: FormData): Promise<void> 
  * Form contract: event_id, paperwork_id, document_type.
  */
 export async function markPaperworkReceived(formData: FormData): Promise<void> {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), null);
   const eventId = formData.get('event_id');
   const paperworkId = formData.get('paperwork_id');
   const documentTypeRaw = formData.get('document_type');
@@ -250,7 +250,7 @@ export async function markPaperworkReceived(formData: FormData): Promise<void> {
  * Form contract: event_id, paperwork_id, status.
  */
 export async function setPaperworkStatus(formData: FormData): Promise<void> {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), null);
   const eventId = formData.get('event_id');
   const paperworkId = formData.get('paperwork_id');
   const statusRaw = formData.get('status');
@@ -315,7 +315,7 @@ export async function setPaperworkStatus(formData: FormData): Promise<void> {
  * Form contract: event_id, paperwork_id, document_type, document_r2_key.
  */
 export async function uploadPaperworkScan(formData: FormData): Promise<void> {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), null);
   const eventId = formData.get('event_id');
   const paperworkId = formData.get('paperwork_id');
   const documentTypeRaw = formData.get('document_type');
@@ -407,7 +407,7 @@ export async function uploadPaperworkScan(formData: FormData): Promise<void> {
  * Form contract: event_id, paperwork_id, notes (empty string clears).
  */
 export async function setPaperworkNotes(formData: FormData): Promise<void> {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), null);
   const eventId = formData.get('event_id');
   const paperworkId = formData.get('paperwork_id');
   const notesRaw = formData.get('notes');

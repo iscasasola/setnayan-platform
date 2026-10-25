@@ -69,7 +69,7 @@ export type ArchiveResult =
  * through this couple-facing action.
  */
 export async function setEventArchived(formData: FormData): Promise<ArchiveResult> {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), null);
   const eventId = String(formData.get('event_id') ?? '').trim();
   // The desired STATE is posted, never a toggle. A toggle computed from a stale
   // page archives an event the moment two tabs disagree.

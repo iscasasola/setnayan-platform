@@ -83,7 +83,7 @@ async function requireHostMembership(
  * visible immediately (no hard refresh needed).
  */
 export async function updateLandingPageVisibility(formData: FormData) {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'invitations');
   const eventIdRaw = formData.get('event_id');
   const visibilityRaw = formData.get('visibility');
 
@@ -212,7 +212,7 @@ export async function updateLandingPageVisibility(formData: FormData) {
  * exposed to the anon/auth client).
  */
 export async function setShowcaseConsent(formData: FormData) {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'invitations');
   const eventIdRaw = formData.get('event_id');
   const optIn = formData.get('opt_in') === '1';
 
@@ -308,7 +308,7 @@ export async function setShowcaseConsent(formData: FormData) {
  * authorizes it; the admin client is only how it is written.
  */
 export async function setLiveMediaAudience(formData: FormData) {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), 'invitations');
   // 🔀 ONE ROUTE, TWO SWITCHES. Every exported server action is a Vercel route
   // and the repo sits at its ceiling (scripts/lint-server-action-budget.mjs), so
   // the same-date-count switch on this page rides this action with

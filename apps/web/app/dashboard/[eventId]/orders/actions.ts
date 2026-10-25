@@ -63,7 +63,7 @@ function nullIfBlank(raw: FormDataEntryValue | null): string | null {
  */
 
 export async function cancelOrder(formData: FormData) {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), null);
   const eventId = formData.get('event_id');
   const orderId = formData.get('order_id');
   if (typeof eventId !== 'string' || typeof orderId !== 'string') {
@@ -123,7 +123,7 @@ export async function cancelOrder(formData: FormData) {
 }
 
 export async function logPayment(formData: FormData) {
-  await refuseLimitedHelper(formData.get('event_id'));
+  await refuseLimitedHelper(formData.get('event_id'), null);
   const eventId = formData.get('event_id');
   const orderId = formData.get('order_id');
   const amountRaw = formData.get('amount_php');

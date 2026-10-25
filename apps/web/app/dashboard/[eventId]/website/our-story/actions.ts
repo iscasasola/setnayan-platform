@@ -54,7 +54,7 @@ import { applyMomentIntent } from '@/lib/love-story-moment-intent';
    same blob. */
 
 export async function updateOurStory(eventId: string, formData: FormData): Promise<void> {
-  await refuseLimitedHelper(eventId);
+  await refuseLimitedHelper(eventId, 'invitations');
   const user = await getCurrentUser();
   if (!user) redirect('/login');
 
@@ -150,7 +150,7 @@ type MomentIntent = (typeof MOMENT_INTENTS)[number];
    writing a voice never blanks the line told together. */
 
 export async function loveStoryMomentAction(eventId: string, formData: FormData): Promise<void> {
-  await refuseLimitedHelper(eventId);
+  await refuseLimitedHelper(eventId, 'invitations');
   const user = await getCurrentUser();
   if (!user) redirect('/login');
   const back = `/dashboard/${eventId}/website/our-story`;

@@ -16,7 +16,7 @@ import { limitedHelperRefusal } from '@/lib/host-gate';
 export type TitleGenderResult = { ok: true } | { ok: false; error: string };
 
 export async function setGuestTitleGender(eventId: string, guestId: string, key: string): Promise<TitleGenderResult> {
-  const helperRefusal = await limitedHelperRefusal(eventId);
+  const helperRefusal = await limitedHelperRefusal(eventId, 'guest_list');
   if (helperRefusal) return { ok: false, error: helperRefusal };
   const { gender } = parseTitleKey(key);
   if (!gender) return { ok: false, error: 'Pick Woman or Man.' };

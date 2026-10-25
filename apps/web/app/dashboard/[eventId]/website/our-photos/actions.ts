@@ -63,7 +63,7 @@ export async function updateOurPhotos(
   eventId: string,
   formData: FormData,
 ): Promise<void> {
-  await refuseLimitedHelper(eventId);
+  await refuseLimitedHelper(eventId, 'invitations');
   await requireHostMembership(eventId);
 
   // The multi-file <FileUpload> emits one hidden input named `photos` per

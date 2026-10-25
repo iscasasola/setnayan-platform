@@ -23,6 +23,7 @@ import {
   type ChecklistSignals,
 } from '@/lib/checklist-autocomplete';
 import { PASSED_AWAY, REQUEST_ENTRY_SOURCE } from '@/lib/guests';
+import { refuseLimitedHelper } from '@/lib/host-gate';
 
 /**
  * Idempotent TOP-UP seed for the couple planning checklist. Fires when the home
@@ -48,6 +49,7 @@ import { PASSED_AWAY, REQUEST_ENTRY_SOURCE } from '@/lib/guests';
  * reached this environment).
  */
 export async function ensureChecklistSeeded(eventId: string): Promise<number> {
+  await refuseLimitedHelper(eventId, null);
   if (!eventId) throw new Error('event_id required');
 
   const supabase = await createClient();
@@ -312,6 +314,7 @@ async function reconcileChecklistCompletion(
  * scopes this to the host's own event.
  */
 export async function toggleChecklistItem(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), null);
   const eventId = formData.get('event_id');
   const itemId = formData.get('item_id');
   const desiredRaw = formData.get('desired'); // 'done' | 'pending'

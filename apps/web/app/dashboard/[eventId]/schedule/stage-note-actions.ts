@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 
 import { createClient } from '@/lib/supabase/server';
 import { cleanStageNote } from '@/lib/stage-notes';
+import { refuseLimitedHelper } from '@/lib/host-gate';
 
 /**
  * SEND A NOTE TO THE HOST — from the EVENT side.
@@ -48,6 +49,7 @@ function backToSchedule(eventId: string, flash?: 'sent' | 'error'): never {
 }
 
 export async function sendStageNoteFromEvent(formData: FormData): Promise<void> {
+  await refuseLimitedHelper(formData.get('event_id'), 'schedule');
   const eventId = String(formData.get('event_id') ?? '').trim();
   const recipient = String(formData.get('recipient_vendor_profile_id') ?? '').trim();
   const body = cleanStageNote(formData.get('body'));

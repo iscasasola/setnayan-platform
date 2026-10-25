@@ -24,6 +24,7 @@ import {
   startServiceInquiry,
   type StartServiceInquiryResult,
 } from '@/app/v/[slug]/inquiry-actions';
+import { refuseLimitedHelper } from '@/lib/host-gate';
 
 export type ContactShortlistVendorResult =
   | StartServiceInquiryResult
@@ -93,6 +94,7 @@ export async function contactShortlistVendor(input: {
    */
   nudgeThreadId?: string;
 }): Promise<ContactShortlistVendorResult> {
+  await refuseLimitedHelper(input.eventId, 'vendors');
   const eventId = String(input.eventId ?? '').trim();
   const vendorId = String(input.vendorId ?? '').trim();
   if (!eventId || !vendorId) {
@@ -188,6 +190,7 @@ export async function contactVendorProfile(input: {
   eventId: string;
   vendorProfileId: string;
 }): Promise<StartServiceInquiryResult> {
+  await refuseLimitedHelper(input.eventId, 'vendors');
   const eventId = String(input.eventId ?? '').trim();
   const vendorProfileId = String(input.vendorProfileId ?? '').trim();
   if (!eventId || !vendorProfileId) {

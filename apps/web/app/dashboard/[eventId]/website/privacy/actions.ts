@@ -11,6 +11,7 @@ import { rsvpAskConfigOnGoingPublic } from '@/lib/going-public';
 import { parseTicketUrl, TICKET_URL_ERROR_TEXT } from '@/lib/ticket-url';
 import { carryAskToJoinIntoDraft } from '@/lib/going-public.server';
 import { clearHomeShelf } from '@/lib/home-shelf-clear';
+import { refuseLimitedHelper } from '@/lib/host-gate';
 
 /**
  * Landing-page visibility toggle — server actions.
@@ -30,7 +31,7 @@ import { clearHomeShelf } from '@/lib/home-shelf-clear';
 
 const ALLOWED_VISIBILITY = new Set<string>(EVENT_VISIBILITIES);
 
-async function requireHostMembership(
+async function requireVisibilityHost(
   eventId: string,
   opts?: { secured?: boolean },
 ): Promise<string> {
@@ -82,6 +83,7 @@ async function requireHostMembership(
  * visible immediately (no hard refresh needed).
  */
 export async function updateLandingPageVisibility(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'invitations');
   const eventIdRaw = formData.get('event_id');
   const visibilityRaw = formData.get('visibility');
 
@@ -97,7 +99,7 @@ export async function updateLandingPageVisibility(formData: FormData) {
 
   // Anon can set 'private' (harmless), but going public/unlisted requires a
   // secured account.
-  await requireHostMembership(eventId, { secured: visibility !== 'private' });
+  await requireVisibilityHost(eventId, { secured: visibility !== 'private' });
 
   // 🎟 THE TICKETS LINK rides this same form — the Maker's visibility panel
   // draws "Where to get tickets" right under Public (owner 2026-09-29: a public
@@ -210,6 +212,7 @@ export async function updateLandingPageVisibility(formData: FormData) {
  * exposed to the anon/auth client).
  */
 export async function setShowcaseConsent(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'invitations');
   const eventIdRaw = formData.get('event_id');
   const optIn = formData.get('opt_in') === '1';
 
@@ -219,7 +222,7 @@ export async function setShowcaseConsent(formData: FormData) {
   const eventId = eventIdRaw as string;
 
   // Gate: caller must be a host (couple / accepted moderator) of this event.
-  const userId = await requireHostMembership(eventId);
+  const userId = await requireVisibilityHost(eventId);
 
   const admin = createAdminClient();
 
@@ -305,6 +308,7 @@ export async function setShowcaseConsent(formData: FormData) {
  * authorizes it; the admin client is only how it is written.
  */
 export async function setLiveMediaAudience(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'invitations');
   // 🔀 ONE ROUTE, TWO SWITCHES. Every exported server action is a Vercel route
   // and the repo sits at its ceiling (scripts/lint-server-action-budget.mjs), so
   // the same-date-count switch on this page rides this action with
@@ -322,7 +326,7 @@ export async function setLiveMediaAudience(formData: FormData) {
   // Opening the broadcast to people with no invitation is a public-audience
   // act, exactly like going public/unlisted — so an anonymous draft account
   // must secure itself first. Closing it again is always allowed.
-  await requireHostMembership(eventId, { secured: open });
+  await requireVisibilityHost(eventId, { secured: open });
 
   const supabase = await createClient();
   const { data: event, error: fetchErr } = await supabase
@@ -383,7 +387,7 @@ async function setSameDateCountOptOut(formData: FormData) {
   }
   const eventId = eventIdRaw as string;
 
-  await requireHostMembership(eventId);
+  await requireVisibilityHost(eventId);
 
   const admin = createAdminClient();
   const { error } = await admin

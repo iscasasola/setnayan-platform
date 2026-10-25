@@ -30,7 +30,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { eventHubPartActive } from '@/lib/couple-website-pro';
 import { revalidateGuestSite } from '@/lib/revalidate-site';
-import { requireHostMembership } from '@/lib/host-gate';
+import { requireHostMembership, refuseLimitedHelper } from '@/lib/host-gate';
 import { draftEventsAndReturn, draftedEventColumn, isHubDraftWrite } from '@/lib/hub-draft-store';
 import { screenNewPhotoRefs } from '@/lib/love-story-screen';
 import { ourEventPhotoRefs } from './_components/our-events-read';
@@ -54,6 +54,7 @@ import { applyMomentIntent } from '@/lib/love-story-moment-intent';
    same blob. */
 
 export async function updateOurStory(eventId: string, formData: FormData): Promise<void> {
+  await refuseLimitedHelper(eventId, 'invitations');
   const user = await getCurrentUser();
   if (!user) redirect('/login');
 
@@ -149,6 +150,7 @@ type MomentIntent = (typeof MOMENT_INTENTS)[number];
    writing a voice never blanks the line told together. */
 
 export async function loveStoryMomentAction(eventId: string, formData: FormData): Promise<void> {
+  await refuseLimitedHelper(eventId, 'invitations');
   const user = await getCurrentUser();
   if (!user) redirect('/login');
   const back = `/dashboard/${eventId}/website/our-story`;

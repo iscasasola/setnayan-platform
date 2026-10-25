@@ -19,6 +19,7 @@ import {
   clampWallPhotoCount,
   storedWallGuestMirror,
 } from '@/lib/live-wall-logic';
+import { limitedHelperRefusal } from '@/lib/host-gate';
 
 type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -43,6 +44,8 @@ export async function saveWallConfig(
   photoCount: number,
   tileLayout: string,
 ): Promise<ActionResult> {
+  const helperRefusal = await limitedHelperRefusal(eventId, 'photos');
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   const clean = eventId?.trim();
   if (!clean) return { ok: false, error: 'missing_event' };
 
@@ -98,6 +101,8 @@ export async function setWallGuestMirror(
   eventId: string,
   on: boolean,
 ): Promise<{ ok: true; on: boolean } | { ok: false; error: string }> {
+  const helperRefusal = await limitedHelperRefusal(eventId, 'photos');
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   const clean = eventId?.trim();
   if (!clean) return { ok: false, error: 'missing_event' };
 
@@ -136,6 +141,8 @@ export async function setWallGuestMirror(
 
 /** Mint a single-use venue screen code (15-minute claim window per P0). */
 export async function createWallScreenCode(eventId: string): Promise<ActionResult> {
+  const helperRefusal = await limitedHelperRefusal(eventId, 'photos');
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   const clean = eventId?.trim();
   if (!clean) return { ok: false, error: 'missing_event' };
   const supabase = await createClient();
@@ -153,6 +160,8 @@ export async function revokeWallScreen(
   eventId: string,
   sessionId: string,
 ): Promise<ActionResult> {
+  const helperRefusal = await limitedHelperRefusal(eventId, 'photos');
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   if (!eventId?.trim() || !sessionId?.trim()) return { ok: false, error: 'missing_input' };
   const supabase = await createClient();
   const { error } = await supabase
@@ -176,6 +185,8 @@ export async function hideWallTile(
   sourceId: string,
   alsoGallery: boolean,
 ): Promise<ActionResult> {
+  const helperRefusal = await limitedHelperRefusal(eventId, 'photos');
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   if (!sourceId?.trim()) return { ok: false, error: 'missing_input' };
   const supabase = await createClient();
   const { error } = await supabase.rpc('wall_retract', {
@@ -194,6 +205,8 @@ export async function unhideWallTile(
   sourceTable: 'papic_photos' | 'papic_guest_captures',
   sourceId: string,
 ): Promise<ActionResult> {
+  const helperRefusal = await limitedHelperRefusal(eventId, 'photos');
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   if (!sourceId?.trim()) return { ok: false, error: 'missing_input' };
   const supabase = await createClient();
   const { error } = await supabase.rpc('wall_unhide', {

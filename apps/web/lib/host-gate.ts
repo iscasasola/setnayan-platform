@@ -22,6 +22,44 @@
 import { redirect } from 'next/navigation';
 import { AUTH_READ_FAILED_MESSAGE, authReadFailed } from '@/lib/auth-read';
 import { createClient } from '@/lib/supabase/server';
+import {
+  isEventIdShape,
+  limitedHelperRefusalWith,
+  refuseLimitedHelperWith,
+  type LimitedHelperRpcClient,
+} from '@/lib/limited-helper-gate';
+import type { DelegateArea } from '@/lib/delegate-areas';
+
+/**
+ * 👁 A LIMITED HELPER VIEWS — AND CHANGES ONLY WHAT THE HOST SET TO EDIT
+ * (owner 2026-09-28 · 2026-10-26; see `lib/limited-helper-gate.ts`). The FIRST
+ * line of every server action under `app/dashboard/[eventId]`, naming the area
+ * the action changes (null = no area: hosts only). Throws "You can view … but
+ * not change it." when the caller's seat on `eventId` is a live limited helper
+ * whose level for `area` is not 'edit'. A co-host, the creator and everybody
+ * else pass through to the action's own gate unchanged. Takes `unknown` so a raw
+ * `formData.get(...)` can be handed straight in — a value that is not an event
+ * id passes, and the action's own validation answers it.
+ */
+export async function refuseLimitedHelper(eventId: unknown, area: DelegateArea | null): Promise<void> {
+  if (!isEventIdShape(eventId)) return;
+  const supabase = await createClient();
+  await refuseLimitedHelperWith(supabase as unknown as LimitedHelperRpcClient, eventId, area);
+}
+
+/**
+ * The same gate for an action that answers `{ ok: false, error }` instead of
+ * throwing: returns the sentence to show ("You can view the seat plan but not
+ * change it."), or null when the caller may go on. In production a THROWN
+ * server-action message is replaced by a generic one, so an action whose
+ * screen already prints its `error` (through `plainRefusal`) says it this way
+ * and the helper reads the real reason in place.
+ */
+export async function limitedHelperRefusal(eventId: unknown, area: DelegateArea | null): Promise<string | null> {
+  if (!isEventIdShape(eventId)) return null;
+  const supabase = await createClient();
+  return limitedHelperRefusalWith(supabase as unknown as LimitedHelperRpcClient, eventId, area);
+}
 
 /**
  * The shared auth core. Returns the authenticated user's id when they are an

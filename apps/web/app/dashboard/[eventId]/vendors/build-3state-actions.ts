@@ -46,6 +46,7 @@ import {
   CHANGE_LINES_EMBED,
   type ChangeLineRow,
 } from '@/lib/agreed-total-and-its-changes';
+import { limitedHelperRefusal } from '@/lib/host-gate';
 
 export type RunBuildResult =
   | { ok: true; filled: number; cleared: number; unfilled: { groupId: string; label: string }[] }
@@ -97,6 +98,8 @@ function haversineKm(aLat: number, aLng: number, bLat: number, bLng: number): nu
 export async function proposeBuildFromQuotes(input: {
   eventId: string;
 }): Promise<RunBuildResult> {
+  const helperRefusal = await limitedHelperRefusal(input.eventId, 'vendors');
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   const supabase = await createClient();
   const {
     data: { user },

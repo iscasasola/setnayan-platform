@@ -54,6 +54,8 @@ export async function renderGuestsScreen(opts: {
   copy?: { freshness: 'updating' | 'failed'; savedAt: number } | null;
   /** What the List shows when there is nothing to section (the page's EmptyState). */
   empty?: unknown;
+  /** 👁 Draw it for a delegate who may only look (a limited helper, guest list not Edit). */
+  viewOnly?: boolean;
 }): Promise<string> {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { AppRouterContext } = await import('next/dist/shared/lib/app-router-context.shared-runtime');
@@ -87,6 +89,7 @@ export async function renderGuestsScreen(opts: {
           setup: null,
           empty: opts.empty ?? null,
           copy: opts.copy ?? null,
+          viewOnly: opts.viewOnly ?? false,
         } as never),
       ),
     ),

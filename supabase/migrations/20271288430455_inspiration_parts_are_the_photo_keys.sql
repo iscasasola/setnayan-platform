@@ -75,6 +75,9 @@ BEGIN
 END;
 $$;
 
+-- A trigger function is not an API: nobody calls it, so nobody holds EXECUTE (the exposure freeze).
+REVOKE ALL ON FUNCTION public.moodboard_library_assets_subtype_is_a_part() FROM PUBLIC, anon, authenticated;
+
 DROP TRIGGER IF EXISTS moodboard_library_assets_subtype_is_a_part ON public.moodboard_library_assets;
 CREATE TRIGGER moodboard_library_assets_subtype_is_a_part
   BEFORE INSERT OR UPDATE OF asset_type, asset_subtype ON public.moodboard_library_assets

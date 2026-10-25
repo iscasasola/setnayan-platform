@@ -2,7 +2,7 @@
 
 import { HUB_DRAFT_BAR_FIELD, makerRedrawSave, makerSave } from '@/lib/maker-refresh';
 import { useRouter } from 'next/navigation';
-import { useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { Check, Undo2 } from 'lucide-react';
 import { FileUpload } from '@/app/_components/file-upload';
 import { extractPosterFrame } from '../../../_components/std-media-picker';
@@ -13,7 +13,6 @@ import { INVITE_THEMES, type InviteTheme, type InviteThemeId } from '@/lib/invit
 import { PaidMark } from '@/app/_components/paid-mark';
 import { makerProMark, paidMarkLabel, type PaidMarkState } from '@/lib/paid-mark';
 import {
-  HUB_MAIN_BLURS,
   HUB_MAIN_FOCUSES,
   HUB_MAIN_PATTERNS,
   HUB_MAIN_PATTERN_LABEL,
@@ -25,7 +24,6 @@ import {
   isHubMainLoop,
   isHubMainOwn,
   mainGroundPosition,
-  type HubMainEffect,
   type HubMainFocus,
   type HubMainGround,
   type HubMainOwn,
@@ -52,7 +50,7 @@ import { BgCard, BgCards, BgPickLine, BgRow, LoopPicture, UploadPicture } from '
 import { BgColourWells } from './background-colour-wells';
 import { BgFadeBar } from './background-fade-bar';
 import { BgEffects } from './background-effects';
-import { EFFECT_NONE, effectMayApply, effectPicked, effectWith, keepEffect, withEffect } from '@/lib/background-effect';
+import { EFFECT_NONE, effectPicked, effectWith, keepEffect, pictureTakes, withBlur, withEffect, withParallax, type PictureBlur } from '@/lib/background-effect';
 import { fadeMain, fadeOf } from '@/lib/background-fade';
 import {
   BACKGROUND_PICK_CANCELLED,
@@ -87,6 +85,8 @@ import { useMaker } from '../../../launch/_components/maker-context';
 import { MAKER_MAX_CLIP_SECONDS, makeMakerVideoDurationValidator } from '@/lib/maker-media-limits';
 import { uploadStill } from '@/lib/upload-still';
 import { MakerMediaMeter } from '@/app/_components/maker-media-meter';
+import { coupleMediaCapBytes } from '@/lib/maker-media-limits';
+import { coupleMediaRefusalLink } from '@/lib/couple-media-allowance';
 
 /**
  * BEHIND EVERY SCENE — your hero, and the theme follows its colours
@@ -151,12 +151,13 @@ const PRO_TRAIL = { text: '◆', tone: 'muted' as const, label: 'Event Hub Pro' 
 const NO_PICTURE: HubMainGround = { ground: 'none' };
 /** A card with no picture of its own yet — paper, never a blank. */
 const PAPER_SWATCH = 'rgb(var(--color-ink) / 0.05)';
-const BLUR_LABEL = { soft: 'Soft', strong: 'Strong' } as const;
 /** The Colour row's ⓘ and the line a tap on a faint Plain says — the approved prototype's words. */
 const COLOUR_INFO =
   'The first circle is your page colour. Add a second and Dawn · Diagonal · Glow blend from the first to the second. Plain uses one colour — remove the second to pick it.';
 const PLAIN_NEEDS_ONE = 'Plain uses one colour — remove the second first';
-const FOCUS_LABEL = { top: 'Top', bottom: 'Bottom' } as const;
+const FOCUS_LABEL = { top: 'Top', bottom: 'Bottom', left: 'Left', right: 'Right' } as const;
+/** 🎯 What Focus does, behind its ⓘ — a phone crops the sides, a wide screen the top and bottom (owner 2026-10-14). */
+const FOCUS_INFO = 'Which part of your picture stays in view. A phone shows the middle and crops the sides — Left or Right keeps that side. A wide screen crops the top and bottom — Top or Bottom keeps that edge.';
 
 const IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
 const VIDEO_TYPES = ['video/mp4', 'video/quicktime', 'video/webm'];
@@ -301,6 +302,7 @@ export function HeroFrameSync({
         if (!res.ok) throw new Error(String(res.status));
         const frame = await readFrame(await res.blob());
         if (frame.length === 0) throw new Error('empty frame');
+        // one-render: keep (batched) — a Maker draft save goes through `lib/maker-refresh.ts`, which refreshes ONCE after the last save in flight; draft intents revalidate nothing.
         const r = await makerSave(() => saveMain(eventId, { follow: 'hero', of: heroRef, tint: { match, frame }, ...(effectNow.current ? { effect: effectNow.current } : {}) }), () => router.refresh());
         if (!r.ok) throw new Error(r.error);
         if (!cancelled) setState('idle');
@@ -410,12 +412,9 @@ export function MainBackgroundPanel({
   colours,
   draftAction = hubDraftAction,
   page = null,
-  heroVideo = null,
 }: {
   /** 🌈 Studio › Look › Background's Colour source and Shade ▾ (the new Maker). Absent = the colour is set elsewhere (the lab). */
   page?: MainBackgroundPage | null;
-  /** 🎬 The hero video's own uploader (Look › Background since 2026-10-08) — the Studio draws it under "Your photo or video". */
-  heroVideo?: ReactNode;
   eventId: string;
   /** The couple's saved theme. Classic has no moving background at all. */
   themeId: InviteThemeId;
@@ -443,7 +442,7 @@ export function MainBackgroundPanel({
   photoChoices?: readonly { ref: string; url: string }[];
   videoChoice?: { ref: string; url: string; poster?: string | null } | null;
   sceneUploads?: readonly SceneUpload[];
-  /** 💾 The event's settled `couple_media_bytes` — the 100 MB meter under the upload. Absent = no meter. */
+  /** 💾 The event's settled `couple_media_bytes` — the plan's media meter under the upload. Absent = no meter. */
   mediaUsedBytes?: number;
   /** The draft door — `hubDraftAction` (the default); the dev Maker lab hands its own stand-in so no write leaves it. */
   draftAction?: typeof hubDraftAction;
@@ -473,20 +472,8 @@ export function MainBackgroundPanel({
   const ground = studio ? lookGround.read(lookKey, server) : server;
   /** ⚡ The pick on its way — which card is ringed and marked, and what the one line says. */
   const [pick, setPick] = useState<BackgroundPick | null>(null);
-  /** ✨◆ A Pro effect being TRIED on the sample screen by a couple without Event Hub Pro — never written (`lib/background-effect.ts`). */
-  const [trying, setTrying] = useState<HubMainEffect | null>(null);
-  const tryingRef = useRef(trying);
-  tryingRef.current = trying;
   /** What "Try again" does: the refused pick, once more. */
   const retry = useRef<(() => void) | null>(null);
-  /* ◆ Leaving the panel ends a try: the sample goes back to what the draft holds (a tried effect is never left on a
-     screen that no longer says it is only being tried). */
-  useEffect(
-    () => () => {
-      if (tryingRef.current) tellLookSample(eventId, { main: lookGround.read(lookKey, serverRef.current).main });
-    },
-    [eventId, lookKey],
-  );
   /** The card just tapped (`data-bg-card`) — the strip says it before the card's own handler runs. */
   const tapped = useRef<string | null>(null);
   /** 🥧 The strip on screen (`data-bg-cards`) — a pick whose file loads holds THAT strip, and no other. */
@@ -641,8 +628,6 @@ export function MainBackgroundPanel({
     /* ✨ ANOTHER BACKGROUND KEEPS THE EFFECT THAT WAS ON — it lies on whatever is there. A write that is ABOUT the effect
        (`fx`: put on, changed, taken off) is taken as it is. */
     const write: LookWrite = 'main' in asked && !opts.fx ? { ...asked, main: keepEffect(asked.main ?? null, ground.main) } : asked;
-    /* ◆ A real pick ends a try: the sample is told what the draft holds, below. */
-    if (tryingRef.current) setTrying(null);
     const next: LookGround = {
       main: 'main' in write ? (write.main ?? null) : ground.main,
       bg: write.events && 'site_bg_color' in write.events ? (write.events.site_bg_color ?? null) : ground.bg,
@@ -715,9 +700,12 @@ export function MainBackgroundPanel({
       try {
         pickMark('write-sent');
         const r = opts.render
+          // one-render: keep (batched) — a Maker draft save goes through `lib/maker-refresh.ts`, which refreshes ONCE after the last save in flight; draft intents revalidate nothing.
           ? await makerSave(() => saveLookWrite(eventId, write, draftAction), () => router.refresh())
           : worn
+            // one-render: keep (batched) — a Maker draft save goes through `lib/maker-refresh.ts`, which refreshes ONCE after the last save in flight; draft intents revalidate nothing.
             ? await makerSave(() => landing(saveLookWrite(eventId, write, draftAction, true)), () => router.refresh(), { held: true })
+            // one-render: keep (batched) — a Maker draft save goes through `lib/maker-refresh.ts`, which refreshes ONCE after the last save in flight; draft intents revalidate nothing.
             : await makerRedrawSave(() => landing(saveLookWrite(eventId, write, draftAction, true)), () => router.refresh());
         pickMark('write-answered');
         if (!worn && !opts.render) pickMark('redraw-asked');
@@ -802,6 +790,7 @@ export function MainBackgroundPanel({
     start(async () => {
       setError(null);
       try {
+        // one-render: keep (batched) — a Maker draft save goes through `lib/maker-refresh.ts`, which refreshes ONCE after the last save in flight; draft intents revalidate nothing.
         const r = await makerSave(() => saveMain(eventId, main, draftAction), () => router.refresh());
         if (!r.ok) setError(r.error);
         else after?.();
@@ -963,16 +952,6 @@ export function MainBackgroundPanel({
        follow's photo is gone — what guests see). */
     const fx = hubMainEffect(current);
     const fxLay = backgroundLayOf({ main: current && isHubMainFollow(current) && !follow ? { ground: 'theme' } : (current ?? { ground: 'theme' }), bg: ground.bg }, lookPictures);
-    /** ◆ Tried on the sample screen — told, never written; the ring stays where the draft is. */
-    const tryEffect = (next: HubMainEffect) => {
-      setTrying(next);
-      tellLookSample(eventId, { main: withEffect(current, next) });
-    };
-    const endTry = () => {
-      if (!tryingRef.current) return;
-      setTrying(null);
-      tellLookSample(eventId, { main: current });
-    };
     const storedSource = backgroundSourceOf(current, {
       themeHasLoop: Boolean(INVITE_THEMES[themeId]?.media),
       followsHero: Boolean(follow) || (!current && Boolean(hero.photoRef) && themeId !== 'house'),
@@ -1152,7 +1131,7 @@ export function MainBackgroundPanel({
                   swatch={PAPER_SWATCH}
                   onPick={() => pickExisting({ kind: 'snippet', ref: videoChoice.ref, stillUrl: urlOf(videoChoice.poster), poster: videoChoice.poster })}
                 >
-                  <StillOverSwatch src={urlOf(videoChoice.poster)} swatch={PAPER_SWATCH} />
+                  <StillOverSwatch src={urlOf(videoChoice.poster)} swatch={PAPER_SWATCH} {...held(active && own?.kind === 'snippet' && own.media === videoChoice.ref)} />
                 </BgCard>
               ) : null}
               {sceneUploads.map((u) => (
@@ -1233,6 +1212,7 @@ export function MainBackgroundPanel({
             <FileUpload
               bucket="media"
               pathPrefix={`events/${eventId}/main-background`}
+              refusalLink={coupleMediaRefusalLink(ownsPro ? null : `/dashboard/${eventId}/studio/website-pro`)}
               multiple={false}
               maxSizeMB={100}
               acceptedTypes={[...IMAGE_TYPES, ...VIDEO_TYPES]}
@@ -1249,7 +1229,7 @@ export function MainBackgroundPanel({
               disabled={pending}
               label="Upload a photo or clip"
             />
-            {typeof mediaUsedBytes === 'number' ? <MakerMediaMeter usedBytes={mediaUsedBytes} /> : null}
+            {typeof mediaUsedBytes === 'number' ? <MakerMediaMeter usedBytes={mediaUsedBytes} capBytes={coupleMediaCapBytes(ownsPro)} proHref={ownsPro ? null : `/dashboard/${eventId}/studio/website-pro`} /> : null}
             <span className="text-[12px] text-ink/70" data-main-ground-tip="">
               <InfoTip label="Best size" align="start">
                 An upright (portrait) photo, {IMAGE_MAX_EDGE.toLocaleString('en-US')} pixels or more on its long side. Faces near the middle — the edges are cropped. Clips up to{' '}
@@ -1338,36 +1318,9 @@ export function MainBackgroundPanel({
                 onCommit={(at) => pickLook({ main: fadeTo(at) }, FAILED)}
               />
             ) : null}
-            {own?.kind === 'photo' ? (
-              <BgRow label="Motion" data="motion" info="Parallax: the picture moves a little slower than the page as guests scroll. Off under “reduce motion”.">
-                <PickMenu
-                  label="How the photo moves"
-                  dataAttr="data-main-ground-motion-pick"
-                  className={STUDIO_ROW_PICK}
-                  value={own.motion ?? 'still'}
-                  options={HUB_MEDIA_MOTIONS.map((m) => ({ key: m, label: HUB_MEDIA_MOTION_LABEL[m], ...(proOn && m === 'parallax' ? { trail: PRO_TRAIL } : {}) }))}
-                  onPick={(k) => {
-                    if (k === (own.motion ?? 'still')) return;
-                    const { motion: _m, ...rest } = own;
-                    save(k === 'parallax' ? { ...rest, motion: 'parallax' } : rest, FAILED);
-                  }}
-                />
-              </BgRow>
-            ) : null}
-            {takes.blur ? (
-              <BgRow label="Blur" data="blur">
-                <PickMenu
-                  label="Blur"
-                  dataAttr="data-studio-blur-pick"
-                  className={STUDIO_ROW_PICK}
-                  value={extra('blur') ?? 'none'}
-                  options={[{ key: 'none', label: 'None' }, ...HUB_MAIN_BLURS.map((k) => ({ key: k, label: BLUR_LABEL[k] }))]}
-                  onPick={(k) => k !== (extra('blur') ?? 'none') && save(withExtra('blur', k === 'none' ? null : k), FAILED)}
-                />
-              </BgRow>
-            ) : null}
+            {/* 🌄 Parallax · 🌫 Blur live in the Effects block below, under "The picture" (Look restudy row 8). */}
             {takes.focus ? (
-              <BgRow label="Focus" data="focus">
+              <BgRow label="Focus" data="focus" info={FOCUS_INFO}>
                 <PickMenu
                   label="Focus"
                   dataAttr="data-studio-focus-pick"
@@ -1416,37 +1369,50 @@ export function MainBackgroundPanel({
         ) : null}
 
         {/* ✨ EFFECTS — on top of whatever the background is, on every source (owner 2026-10-08). Drawn where the sample
-            screen is (it is what the cards are miniatures of). One tap = ONE draft write and no render; a ◆ effect, for
-            a couple without Event Hub Pro, is tried on the sample and never written. */}
+            screen is (it is what the cards are miniatures of). One tap = ONE draft write and no render. Every effect is ◆
+            (owner 2026-10-16): without Event Hub Pro it is tried free like any Pro choice — written to the draft, worn by
+            the sample, and named at ✓ Apply (`mainGroundChange`). */}
         {onSample ? (
           <BgEffects
             eventId={eventId}
             effect={fx}
-            trying={trying}
-            locked={proOn}
-            proHref={`/dashboard/${eventId}/studio/website-pro`}
+            /* ◆ only while it is TRIED (no Event Hub Pro): `proMark` is 'unlocked' — truthy — for an owner. */
+            locked={proMark === 'try'}
             swatch={fxLay?.still ? paper : fxLay?.image ? `${fxLay.image}${fxLay.color ? `, ${fxLay.color}` : ''}` : (fxLay?.color ?? paper)}
             picture={fxLay?.still ? <StillOverSwatch src={fxLay.still} swatch="transparent" position={fxLay.position} /> : null}
             onPick={(k) => {
               setNote(null);
-              if (k === EFFECT_NONE) return fx ? pickLook({ main: withEffect(current, null) }, FAILED, { fx: true }) : endTry();
-              const next = effectPicked(k, trying ?? fx, current, Boolean(INVITE_THEMES[themeId]?.media));
-              if (!effectMayApply(k, !proOn)) return tryEffect(next);
-              pickLook({ main: withEffect(current, next) }, FAILED, { fx: true });
+              if (k === EFFECT_NONE) return fx ? pickLook({ main: withEffect(current, null) }, FAILED, { fx: true }) : undefined;
+              pickLook({ main: withEffect(current, effectPicked(k, fx, current, Boolean(INVITE_THEMES[themeId]?.media))) }, FAILED, { fx: true });
             }}
             onChange={(change) => {
-              const on = trying ?? fx;
-              if (!on) return;
-              const next = effectWith(on, change);
-              if (trying) return tryEffect(next);
-              pickLook({ main: withEffect(current, next) }, FAILED, { fx: true });
+              if (fx) pickLook({ main: withEffect(current, effectWith(fx, change)) }, FAILED, { fx: true });
             }}
-            onTryEnd={endTry}
+            /* 🖼 THE PICTURE (Look restudy row 8): Parallax ◆ · Blur ▾ on every source — off, with the reason, where the
+               background has no picture. Each a write of the main background, every other key kept. */
+            treatment={{
+              takes: pictureTakes(current),
+              parallax: Boolean(current && 'motion' in current && current.motion === 'parallax'),
+              proMark: proMark === 'try',
+              onParallax: (on) => {
+                const next = withParallax(current, on);
+                if (next && next !== current) save(next, FAILED);
+              },
+              blur: ((current as { blur?: PictureBlur } | null)?.blur ?? 'none') as PictureBlur,
+              onBlur: (b) => {
+                const next = withBlur(current, b);
+                if (next && next !== current) save(next, FAILED);
+              },
+            }}
           />
         ) : null}
 
-        {/* 🎬 The hero video (it was under Music) — beside the other pictures of theirs. */}
-        {view === 'own' ? heroVideo : null}
+        {/* 🎬 NO HERO-VIDEO UPLOADER HERE (owner 2026-10-14, Maker test item 1: *"there is a part there hero video that
+            has no use for the background"*). It wrote `landing_page_hero_video_r2_key` — the hero's own clip, which is
+            not the main background and never reaches a guest (`GUEST_HERO_VIDEO_PLAYBACK`). The restudy's list for this
+            source (§ 2.1: "Your cover photo · Save the Date upload · Gallery · Your video ▶ + an Upload card") has the
+            hero video as the "Your video" CARD above — a pick that makes it the background — and a new clip comes in
+            through the Upload card, which saves it AS the background. */}
 
         {error ? (
           <p role="alert" className="text-[12px] text-terracotta-700">
@@ -1521,6 +1487,7 @@ export function MainBackgroundPanel({
           <FileUpload
             bucket="media"
             pathPrefix={`events/${eventId}/main-background`}
+            refusalLink={coupleMediaRefusalLink(ownsPro ? null : `/dashboard/${eventId}/studio/website-pro`)}
             multiple={false}
             maxSizeMB={100}
             acceptedTypes={[...IMAGE_TYPES, ...VIDEO_TYPES]}
@@ -1535,8 +1502,8 @@ export function MainBackgroundPanel({
             disabled={pending}
             label="Upload a photo or clip"
           />
-          {/* 💾 The event's 100 MB of uploads, beside the upload that spends it. */}
-          {typeof mediaUsedBytes === 'number' ? <MakerMediaMeter usedBytes={mediaUsedBytes} /> : null}
+          {/* 💾 The event's uploads against its PLAN's allowance (Free 10 MB · Pro 500 MB), beside the upload that spends it. */}
+          {typeof mediaUsedBytes === 'number' ? <MakerMediaMeter usedBytes={mediaUsedBytes} capBytes={coupleMediaCapBytes(ownsPro)} proHref={ownsPro ? null : `/dashboard/${eventId}/studio/website-pro`} /> : null}
           {/* 📐 The owner asked for the best size (2026-10-01). The photo fills
               the screen and is cropped to it, and 99% of guests are on a phone —
               so upright, and at least the size the upload keeps. */}

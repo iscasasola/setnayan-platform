@@ -18,6 +18,7 @@ import {
   plainGuestNames,
   ENTOURAGE_COLUMNS,
   ENTOURAGE_COUPLE_FIELDS,
+  ENTOURAGE_PARENT_FIELDS,
   ENTOURAGE_ROLES,
   type EntourageGuestRow,
 } from '@/lib/entourage';
@@ -141,7 +142,7 @@ export default async function EveryonePage({ params }: { params: Promise<{ slug:
     admin
       .from('guests')
       // + who is a real couple — the same read as the invitation's section.
-      .select(`${ENTOURAGE_COLUMNS}, ${ENTOURAGE_COUPLE_FIELDS}`)
+      .select(`${ENTOURAGE_COLUMNS}, ${ENTOURAGE_COUPLE_FIELDS}, ${ENTOURAGE_PARENT_FIELDS}`)
       .eq('event_id', event.event_id)
       .is('deleted_at', null)
       .or(
@@ -209,7 +210,9 @@ export default async function EveryonePage({ params }: { params: Promise<{ slug:
       {groups.length > 0 ? (
         <EntourageSection groups={groups} />
       ) : (
-        <p className="rounded-2xl border border-dashed border-ink/20 bg-cream/60 px-4 py-10 text-center text-sm text-ink/70">
+        /* 🖼 A frame only on what you press (owner rule; sweep 2026-10-19, C6): these two notes were dashed boxes
+           that pressed nothing. They are words, so they are set as words — centred, in the page's quiet ink. */
+        <p className="mx-auto max-w-md py-6 text-center text-sm leading-relaxed text-ink/70">
           The entourage hasn&rsquo;t been shared yet.{' '}
           {withDayNote('Check back closer to the day.', event.event_date)}
         </p>
@@ -239,7 +242,7 @@ export default async function EveryonePage({ params }: { params: Promise<{ slug:
           /* ⚠ SAY WHY, AND SAY IT AS A FACT ABOUT THE READER — not "you are not
              allowed". A relative opening a forwarded link is not doing anything
              wrong; they simply are not holding an invitation. */
-          <p className="mt-4 rounded-2xl border border-dashed border-ink/20 bg-cream/60 px-4 py-8 text-center text-sm text-ink/70">
+          <p className="mt-4 max-w-md text-sm leading-relaxed text-ink/70">
             The rest of the guest list is for invited guests. Open your own
             invitation link, or scan your QR, and it will appear here.
           </p>

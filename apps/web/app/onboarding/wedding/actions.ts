@@ -16,6 +16,7 @@ import {
   type SongBankRow,
 } from '@/lib/songs';
 import { generateUniqueSlug } from '@/lib/slugs';
+import { joinCoupleNames } from '@/lib/typed-names';
 import { resolveProfile } from '@/lib/event-type-profile';
 import { sanitizeSetupAnswers } from '@/lib/onboarding/setup-answers';
 import { setupViewForProfile } from '@/lib/onboarding/setup-view';
@@ -23,7 +24,6 @@ import { setupColumns } from '@/lib/onboarding/event-insert';
 import { setupArmsPapic } from '@/lib/event-answers';
 import { ensureFreePapicPoolGrantAdmin } from '@/lib/papic-free-grant';
 import { mintOnboardingServiceOrders } from '@/lib/onboarding-services-orders';
-import { captureEvent } from '@/lib/analytics';
 import { unlockCategoryWithInquiry } from '@/app/dashboard/[eventId]/vendors/_actions/unlock-category';
 import { fetchWizardVendorRecommendations, type WizardVendorRec } from '@/lib/wizard-recommendations';
 import { hasVerifiedBadge } from '@/lib/verified-badge';
@@ -46,6 +46,7 @@ import { ALLOWED_CEREMONY_VALUES } from '@/lib/faith-registry';
 import { captchaOptions } from '@/lib/turnstile';
 import { creatorCoupleRowId } from '@/lib/creator-couple-row';
 import { getInPlanningWedding } from '@/app/dashboard/(account)/create-event/wedding-guard';
+import { accountMayNotCreateEvents } from '@/lib/vendor-event-creation';
 import {
   RECEPTION_PICK_TO_VENUE_SETTING,
   venueSettingForReceptionPicks,
@@ -64,7 +65,7 @@ import {
  * the accumulated client state object and writes events + event_members in one
  * shot — the prototype's "create the event row at the account gate, all data at
  * once" model. It mirrors createWeddingEvent's insert path exactly (same auth
- * gate → admin-client inserts → slug → event_members couple row → captureEvent)
+ * gate → admin-client inserts → slug → event_members couple row)
  * so the row lands in a state valid against the events_wedding_fields_consistency
  * CHECK constraint (migration 20260521080000: wedding events must populate
  * ceremony_type + venue_setting).
@@ -423,6 +424,16 @@ export async function commitOnboardingWedding(
     }
   }
 
+  // The one creation gate (lib/vendor-event-creation.ts). ⚠ THIS DOOR NEVER
+  // ASKED IT: the 2026-08-15 roster listed four doors and missed the wedding
+  // wizard, so "a shop account may not create" was never true here. Owner
+  // 2026-10-22: one account is both, so nobody is refused today — and now every
+  // door, this one included, asks the same function (vendor-event-creation.test.ts
+  // fails on an events insert that does not).
+  if (await accountMayNotCreateEvents(supabase, user.id)) {
+    return { ok: false, error: 'not_allowed' };
+  }
+
   // Wedding cardinality — one wedding IN PLANNING at a time (owner-locked
   // 2026-07-12). The shipped guard lived only in create-event's server action;
   // this commit path could walk past it (council 2026-07-17 recon: an existing
@@ -468,8 +479,8 @@ export async function commitOnboardingWedding(
   const groomLast = payload.groomLastName?.trim() ?? '';
   const brideFullName = [brideFirst, brideLast].filter(Boolean).join(' ');
   const groomFullName = [groomFirst, groomLast].filter(Boolean).join(' ');
-  const displayName =
-    [brideFirst, groomFirst].filter(Boolean).join(' & ') || 'Our Wedding';
+  // The first event name, through the one composition (`joinCoupleNames`) — a new event reads the first person first.
+  const displayName = joinCoupleNames(brideFirst, groomFirst) || 'Our Wedding';
 
   let admin: ReturnType<typeof createAdminClient>;
   try {
@@ -701,18 +712,6 @@ export async function commitOnboardingWedding(
   } catch (songPickErr) {
     console.error('[onboarding] event_song_picks sync failed (non-fatal)', songPickErr);
   }
-
-  await captureEvent({
-    distinctId: user.id,
-    event: 'onboarding_wedding_committed',
-    properties: {
-      event_id: insertedEvent.event_id,
-      kind: payload.kind,
-      region: payload.region,
-      pax: payload.pax,
-      budget_band: payload.budgetBand,
-    },
-  });
 
   // Persist the find-vendor shortlist — the REAL reception venues the couple
   // tapped on screen 12 — as event_vendors 'considering' picks so they show on

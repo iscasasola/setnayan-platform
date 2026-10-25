@@ -42,7 +42,9 @@
  * `createDraftedCanvases` is the pure core (`maker-draft-store.test.ts`);
  * `noteDraftedCanvas` / `draftedCanvasOr` are the one shared instance.
  */
+import type { AccentScene, SceneAccents } from './art-kit-accents';
 import type { HubSectionCanvas } from './hub-canvas';
+import { MERGE_BASE_FIELD } from './merge-base-field';
 import { MAKER_UNHELD_WRITE_EVENT, makerSavesInFlight, makerUnheldSavesInFlight, makerWritesPending } from './maker-refresh';
 
 /** One canvas in one spelling — keys sorted, `undefined` dropped (absent = empty). */
@@ -164,6 +166,31 @@ export function draftedCanvasOr(type: string, server: HubSectionCanvas | null | 
 }
 
 /**
+ * 👥 THE CANVAS THIS SCREEN LAST SENT, per scene — the base its next canvas save is merged from (`lib/merge-from-base.ts`,
+ * owner 2026-10-18: two hosts never overwrite). A canvas goes in WHOLE, so a screen holding a copy from before another
+ * host's pick on the same scene wiped that pick. ONE map for every canvas writer (a part's look, the part sheet, the
+ * hero's design, the cover's rows, a scene's tabs): they share the scene's write queue, so each builds on what the
+ * others last SENT. Dropped when the page brings a newer canvas (`server` moved past it), or by `forgetCanvasSent` when a
+ * send was refused. Called at SEND time (inside `makerLatestWrite`'s write): a pick a later one replaced was never sent.
+ * `built`: a writer that sends every pick on its own (no burst) and builds on its OWN copy says what it built on — that,
+ * exactly, is its base.
+ */
+const sentCanvas = new Map<string, { server: string; canvas: HubSectionCanvas }>();
+export function sendCanvasBase(fd: FormData, type: string, server: HubSectionCanvas | null | undefined, next: HubSectionCanvas, built?: HubSectionCanvas): void {
+  const fp = canvasFingerprint(server);
+  const kept = sentCanvas.get(type);
+  const base = built ?? (kept && kept.server === fp ? kept.canvas : (server ?? {}));
+  sentCanvas.set(type, { server: fp, canvas: next });
+  // A save of several scenes at once (Every scene's background) says each one's base, in one field.
+  const had = fd.get(MERGE_BASE_FIELD);
+  const widgets = typeof had === 'string' ? (JSON.parse(had) as { widgets: Record<string, unknown> }).widgets : {};
+  fd.set(MERGE_BASE_FIELD, JSON.stringify({ widgets: { ...widgets, [type]: { canvas: base } } }));
+}
+export function forgetCanvasSent(type: string): void {
+  sentCanvas.delete(type);
+}
+
+/**
  * ✍ …AND EVERY SCENE OF THEIR OWN'S WORDS a typed heading or body wrote
  * (`type-in-place.tsx`). The draft replaces a scene's `custom` whole, so a
  * heading typed after its words must carry the words as just typed, not as the
@@ -203,12 +230,45 @@ export function draftedPassLookOr(server: string): string {
   return passLookShared.read('pass', { design: server }).design ?? server;
 }
 
+/**
+ * 🕯 …AND EVERY SCENE'S ACCENT PICK (owner 17 Oct, verbatim: *"the accents are not saving"*). The accents are ONE map
+ * (`style_preferences.scene_accents`, every scene's pick) and the draft takes it WHOLE, like a canvas — so the next pick
+ * must be built on the map as the Maker last wrote it, never on the render's. A pick is a held save (no Maker render),
+ * so the render's map stayed as it was: the Countdown's Narra columns, then the E-Gifts' spray — and the spray's map,
+ * built on the render, carried no columns, and the draft lost them. Measured on cale-ice: live held only the last
+ * scenes picked. The same rule, the same core, one more copy. Keyed by the one map there is (`accents`).
+ */
+const accentsShared = createDraftedCanvases<SceneAccents>(
+  () => makerSavesInFlight() > 0,
+  () => makerUnheldSavesInFlight() > 0,
+);
+/** An Accent pick was drawn: `picks` is the WHOLE map it saves (its draft save may still be on its way). */
+export function noteDraftedAccents(picks: SceneAccents, server: SceneAccents): void {
+  accentsShared.note('accents', picks, server);
+}
+/** The map to show and to build the next pick on: the Maker's own while it is newer than the render's, else the render's. */
+export function draftedAccentsOr(server: SceneAccents): SceneAccents {
+  return accentsShared.read('accents', server);
+}
+/**
+ * ONE Accent pick, as every scene's row makes it: the WHOLE map it saves — every scene's pick as the Maker last wrote it,
+ * with this scene's laid on — noted at once, so the next row (another scene, or this one opened again) builds on it.
+ * `before` is what a refused save puts back.
+ */
+export function noteAccentPick(scene: AccentScene, id: string, server: SceneAccents): { before: SceneAccents; next: SceneAccents } {
+  const before = draftedAccentsOr(server);
+  const next: SceneAccents = { ...before, [scene]: id };
+  noteDraftedAccents(next, server);
+  return { before, next };
+}
+
 /* ↺ THE ORDER OF THINGS (the docblock): an unheld write owes every copy kept now the truth… */
 if (typeof window !== 'undefined') {
   window.addEventListener(MAKER_UNHELD_WRITE_EVENT, () => {
     shared.unheld();
     ownWordsShared.unheld();
     passLookShared.unheld();
+    accentsShared.unheld();
   });
 }
 
@@ -220,4 +280,5 @@ export function makerRendered(stamp: string): void {
   shared.rendered(stamp);
   ownWordsShared.rendered(stamp);
   passLookShared.rendered(stamp);
+  accentsShared.rendered(stamp);
 }

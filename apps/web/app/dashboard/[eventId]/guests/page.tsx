@@ -3,7 +3,8 @@ import { guestMatchesSearch } from '@/lib/guest-search';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { fetchEventViewer, isDelegateWithoutArea } from '@/lib/event-viewer.server';
+import { eventRowOnce, openDashboardEventRow } from '@/lib/event-row-once';
+import { fetchEventViewer, isDelegateWithoutArea, type EventViewer } from '@/lib/event-viewer.server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveProfileByEvent, resolveRoleSetKeyForEvent } from '@/lib/event-type-profile';
 import { getCurrentUser } from '@/lib/auth';
@@ -15,6 +16,8 @@ import {
   fetchGuestGroupsByEventMeasured,
   fetchGuestsByEventMeasured,
   guestDisplayName,
+  guestRoleLabel,
+  REQUEST_ENTRY_SOURCE,
   RSVP_LABELS,
   SIDE_LABELS,
   SIDE_ORDER,
@@ -60,15 +63,16 @@ import { accountNamesByGuest } from '@/lib/linked-profile-names';
 import { withProfileName } from '@/lib/formal-name';
 import { ROLE_SECTION_ORDER } from './_components/role-section-order';
 import { GuestsScreen } from './_components/guests-screen';
+import type { TitleWaitingPerson } from './_components/titles-waiting';
+import { needsWomanOrMan, ROLES_WHOSE_WORD_NEEDS_GENDER, titleButtonText, titleKey } from '@/lib/guest-title';
 import { mapRootLabel } from '@/lib/guest-roster-view';
 import { InvitePanel } from './invite/_components/invite-panel';
 import { AddFromPeopleSheet } from './_components/add-from-people-sheet';
 import { QuickAddSheet } from './_components/quick-add-sheet';
 import { UndoToastHost } from './_components/undo-toast';
-import { GuestCardBody, guestCardEyebrow, guestCardReply } from './_components/guest-card-body';
-import { GuestInviteCell } from './_components/guest-invite-cell';
-import { GuestMoreMenu, GuestTicketThumb } from './_components/guest-ticket-parts';
-import { TEMPLATE_KIT } from './_components/guest-card-template-kit';
+import { GuestCard } from './_components/guest-card';
+import { forTheCouple, papicAnswerOffered, readEventPapicAccess, readGuestPapic } from './_components/guest-papic-read';
+import { isStoreShellRequest } from '@/lib/request-platform';
 import { guestCardErrorCopy } from './_components/guest-card-error-copy';
 import { guestListErrorCopy } from './_components/guest-list-error-copy';
 import { loadInviteSetup } from './_components/invite-message-setup';
@@ -77,15 +81,13 @@ import { isUuid } from '@/lib/is-uuid';
 import { PageMasthead } from '@/app/_components/page-masthead';
 // The Guest list's two other parts are the SHIPPED pages, rendered whole in
 // this page's body (owner 2026-09-29) — never a second copy of either.
-import {
-  InspectorColumn,
-  InspectorLayout,
-} from '@/app/_components/inspector/inspector-column';
+import { InspectorLayout } from '@/app/_components/inspector/inspector-column';
 import { formatCount } from '@/lib/format-number';
+import { toGuestListRow, type GuestListRow } from '@/lib/guest-list-rows';
+import { passCardTicketVersion } from '@/lib/pass-card.server';
 
 import { MiniTour } from '@/app/_components/mini-tour';
 import { loadGuestHelperCard } from '@/lib/guest-helper-card.server';
-import { GuestHelperAccess } from './_components/guest-helper-access';
 import { quickAddTips } from '@/lib/quick-add-tips';
 import { tableWords } from '@/lib/table-words';
 import { AddGuestSheet, OpenAddGuestTextButton } from './_components/add-guest-sheet';
@@ -266,22 +268,6 @@ type Props = {
 export default async function GuestsPage({ params, searchParams }: Props) {
   const { eventId } = await params;
   const search = await searchParams;
-  // Per-event-type role set for the quick-add picker (iteration 0053 P2),
-  // ceremony-aware so muslim weddings offer the Nikah roles (resolveRoleSetKeyForEvent
-  // returns 'wedding_muslim' for them) and Catholic weddings keep 'wedding'.
-  const guestRoleSetKey = await resolveRoleSetKeyForEvent(eventId);
-  // ⚖ Sides are a WEDDING idea (owner 2026-09-30: "why is there groom and
-  // bride's side for a simple event"). The event-type profile's role set says
-  // whether this event has sides at all (lib/guest-side-question.ts), and when
-  // it does not, no side control, column, filter or sort renders anywhere on
-  // this page. `guests.side` is still WRITTEN (NOT NULL): SIDELESS_SIDE.
-  const hasSides = eventHasSides(resolveRoleSet(guestRoleSetKey));
-  // The mind map's root reads "Your wedding" when no bride+groom are on the
-  // list — which is EVERY debut or birthday. Same cached profile read as above.
-  const eventWord = eventNoun((await resolveProfileByEvent(eventId)).eventType);
-  // Ceremony-aware View-sidebar filters: muslim weddings get the Nikah-principals
-  // filter and not the Catholic sponsor/bearer ones, and vice-versa.
-  const viewFilters = viewFiltersFor(guestRoleSetKey);
 
   /*
     🚶 THE WEDDING MARCH LIVES IN THE MAKER NOW (owner 2026-09-29, DECISION_LOG
@@ -293,12 +279,6 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   if (search.gview === 'walk' || search.view === 'march') {
     redirect(detailsItemHref(eventId, 'march'));
   }
-  const user = await getCurrentUser();
-  if (!user) redirect('/login');
-  const supabase = await createClient();
-  // The couple's own words for roles (owner 2026-09-30) — graceful: the usual words on a refusal.
-  const roleNames = await loadRoleNames(supabase, eventId, 'GuestsPage.roleNames');
-
   /*
     ⚖ THE GUESTS · HOSTS · CHECK-IN PARTS ROW IS GONE (owner 2026-09-30,
     DECISION_LOG "GUEST LIST: ACCESS + CHECK-IN BECOME COLUMNS; HOSTS FOLDS INTO
@@ -307,19 +287,58 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       · `?gview=hosts` → `/hosts`, the one router for it: the Guest list for
         anybody who holds it, a helper's own access view for one who does not;
       · `?gview=checkin` → the door crew's standalone desk, `/guests/checkin`.
+    (Both are decided by the address alone, so they leave before any read.)
   */
   if (search.gview === 'hosts') redirect(`/dashboard/${eventId}/hosts`);
   if (search.gview === 'checkin') redirect(`/dashboard/${eventId}/guests/checkin`);
 
+  const supabase = await createClient();
+
+  /*
+    ─── EVERY READ BELOW STARTS AT ONCE ─────────────────────────────────────
+    Owner, 2026-10-20, the day the database moved to Pro: *"why is it still
+    loading slow … loading the guests"*. The database was healthy; THIS PAGE
+    was the wait. Measured in the lab (150 ms a trip, `the-guests-page-asks-once.test.ts`):
+    it asked NINE times in a row — the role set, the role words, who is looking,
+    the roster, the linked names, the song requests, the invite's words, the
+    linked photos, the linked accounts — though none but the open card needed
+    another's answer. Every read now LEAVES HERE, as a promise, and they are
+    awaited together under THE ONE WAIT below.
+
+    🗂 The event's row is read ONCE for this viewer (`openDashboardEventRow`,
+    lib/event-row-once.ts) — the palette, the date, the share link's door, the
+    invite's words, the role words and the access window are each a few columns
+    of it, and so are the event layout's own.
+
+    🔒 Nothing here widens who can see what: every read is the signed-in
+    viewer's own client under RLS (the role set's profile and the open card's
+    ticket version keep the service role they always had). The address-only
+    redirects above still leave first; the sign-in redirect and the delegate's
+    redirect still happen before anything RENDERS — a delegate who may not see
+    the guest list is refused by RLS at the read and sent to their own view at
+    the wait, exactly as before, they just no longer make the couple wait.
+    ⚠ ADD A NEW READ AS ANOTHER STARTED PROMISE, NOT AS ANOTHER `await`.
+  */
+  openDashboardEventRow(supabase, eventId);
+  const userRead = getCurrentUser();
+  // Per-event-type role set for the quick-add picker (iteration 0053 P2),
+  // ceremony-aware so muslim weddings offer the Nikah roles (resolveRoleSetKeyForEvent
+  // returns 'wedding_muslim' for them) and Catholic weddings keep 'wedding'.
+  const roleSetKeyRead = resolveRoleSetKeyForEvent(eventId);
+  // The mind map's root reads "Your wedding" when no bride+groom are on the
+  // list — which is EVERY debut or birthday. Same cached profile read as above.
+  const profileRead = resolveProfileByEvent(eventId);
+  // The couple's own words for roles (owner 2026-09-30) — graceful: the usual words on a refusal.
+  const roleNamesRead = loadRoleNames(supabase, eventId, 'GuestsPage.roleNames');
   // A delegate the host never shared the guest list with reads ZERO guest rows
   // — an RLS refusal and an empty event are the same value — so without this
   // the page would tell a coordinator the couple has invited nobody. They land
   // on their OWN access view instead (`/hosts`, read-only: what they may open,
   // never a 404 and never a list that looks empty). The couple never reach this.
-  const viewer = await fetchEventViewer(supabase, eventId, user.id);
-  if (isDelegateWithoutArea(viewer, 'guest_list')) {
-    redirect(`/dashboard/${eventId}/hosts`);
-  }
+  // (Signed out → a stranger; the sign-in redirect below sends them away before anything is drawn.)
+  const viewerRead = userRead.then((u): Promise<EventViewer> | EventViewer =>
+    u ? fetchEventViewer(supabase, eventId, u.id) : { isCouple: false, delegatePermissions: null },
+  );
 
   // ⚡ THE OPEN CARD'S READS START NOW, beside the roster's (owner, live iPhone
   // test 2026-10-02: a guest's card took ~7–8 s to open). `?inspect=` used to
@@ -334,36 +353,53 @@ export default async function GuestsPage({ params, searchParams }: Props) {
     inspectParam && isUuid(inspectParam) ? loadGuestCard(supabase, eventId, inspectParam) : null;
   // A limited helper's grants (the Hosts pieces on their card, F2) chain off
   // the card — couple only — instead of waiting for the whole page first.
-  const inspectedHelperP = inspectedCardP?.then((card) =>
-    card?.canManageAccess
+  const inspectedHelperP = inspectedCardP?.then(async (card) => {
+    const viewerUser = await userRead;
+    return card?.canManageAccess && viewerUser
       ? loadGuestHelperCard({
           eventId,
           guestId: card.guest.guest_id,
-          viewerUserId: user.id,
+          viewerUserId: viewerUser.id,
           displayName: guestDisplayName(card.guest),
         })
-      : null,
-  );
+      : null;
+  });
   inspectedCardP?.catch(() => undefined);
+  // 🎟 THE OPEN CARD'S TICKET VERSION, started now beside everything else and handed to the card as a
+  // promise — the card never waits for it; it streams in, and the ticket is then asked for at its
+  // year-long cached address (owner 2026-10-16: "it always reloads i thought we have cache").
+  const inspectedTicketVP =
+    inspectParam && isUuid(inspectParam)
+      ? passCardTicketVersion(createAdminClient(), inspectParam).catch(() => null)
+      : null;
   inspectedHelperP?.catch(() => undefined);
+  // 📸 THE EVENT'S PAPIC, and the open card's camera (owner 2026-10-23: Papic per guest, on the card and in Select ›
+  // Set…) — started now, with the first trip; what they say is handed only to the couple, whose camera it is to set
+  // (`forTheCouple`, `viewer.isCouple`, `setGuestAllotment`).
+  const eventPapicRead = readEventPapicAccess(eventId);
+  // 🍎 The iPhone / Android app never names Papic (a paid service) — a header and a cookie, not a database trip.
+  const storeShellRead = isStoreShellRequest();
+  const inspectedPapicP = inspectParam && isUuid(inspectParam) ? readGuestPapic(eventId, inspectParam) : null;
+  inspectedPapicP?.catch(() => undefined);
 
-  // All reads fire in ONE parallel batch — including the share-invite token,
-  // which used to run as a 5th *sequential* round-trip after this block (owner
-  // perf pass 2026-06-03). Folding it in drops one Singapore RTT off every
-  // visit to the Guests tab.
-  const [guestsRead, eventRow, groupsRead, membershipsRead, joinUrl, pendingClaims, assignmentsRead, tablesRead, arrived, floorPlanRead] =
-    await Promise.all([
+  // The roster and everything drawn beside it — ONE parallel batch, as it always was, now started
+  // beside the reads above instead of after them (owner perf pass 2026-06-03 folded the share-invite
+  // token in here; 2026-10-20 folded in everything that used to wait for this batch to finish).
+  // ⚠ THIS PAGE DID NOT READ THE EVENT'S DATE AT ALL. Owner, the morning
+  // after his Movie Night: *"i can still invite"*. It could not have known
+  // otherwise — nothing here asked when the celebration was, so every
+  // affordance on it addressed a party that had not happened yet.
+  const eventRowRead = eventRowOnce(supabase, eventId, 'role_palette, estimated_pax, event_date, event_end_date, cleared_at, timezone, slug', () =>
+    supabase
+      .from('events')
+      .select('role_palette, estimated_pax, event_date, event_end_date, cleared_at, timezone, slug')
+      .eq('event_id', eventId)
+      .maybeSingle(),
+  );
+  const rosterRead = Promise.all([
       // The roster draws requests as their own rows; computeGuestStats leaves them out of every count.
       fetchGuestsByEventMeasured(supabase, eventId, { includeRequests: true, includePassedAway: true }),
-      supabase
-        .from('events')
-        // ⚠ THIS PAGE DID NOT READ THE EVENT'S DATE AT ALL. Owner, the morning
-        // after his Movie Night: *"i can still invite"*. It could not have known
-        // otherwise — nothing here asked when the celebration was, so every
-        // affordance on it addressed a party that had not happened yet.
-        .select('role_palette, estimated_pax, event_date, event_end_date, cleared_at, timezone, slug')
-        .eq('event_id', eventId)
-        .maybeSingle(),
+      eventRowRead,
       // 📏 MEASURED (2026-10-11): a refused groups read used to come back as "no groups" and draw every guest
       // without one — the same fault the guest read itself had. Each says whether it happened; see `sideReads` below.
       fetchGuestGroupsByEventMeasured(supabase, eventId),
@@ -436,6 +472,78 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       // drawer's PNG route now draws every guest's code in the event's look, so
       // there is nothing left to gate and no read to make.
     ]);
+  // 👤 A row linked to an account wears that profile's formal name (owner
+  // 2026-09-30) — read beside the roster, overlaid once it lands (below).
+  const profileNamesRead = accountNamesByGuest(supabase, eventId);
+  // Their song requests — the host reads their own event's (RLS
+  // `event_song_requests_read`). Refused → no song words, the rest still match.
+  const songsRead = supabase
+    .from('event_song_requests')
+    .select('guest_id, songs(title, artist)')
+    .eq('event_id', eventId)
+    .eq('origin', 'guest');
+  // The base every guest's own invitation link (and NFC tag) is built from —
+  // it needs the event's slug, so it follows the row (in hand at once when the
+  // layout or this page already opened it) — and, beside it, the event's words
+  // for every row's Invite (owner 2026-09-30: the Invite column). ONE read for
+  // the whole list — the same one the open card below reuses.
+  const invitationBaseRead = eventRowRead.then((r) =>
+    fetchInvitationBase(eventId, (r.data as { slug?: string | null } | null)?.slug ?? null),
+  );
+  const inviteSetupRead = loadInviteSetup(supabase, eventId);
+  /* ⚖ Owner 2026-09-20: "so when users create their accounts, when they have a
+     profile photo, it will show here too" — the account photos, beside everything else. */
+  const accountRefRead = userRead.then((user) => (user ? accountPhotoRefsByGuest(supabase, eventId, user.id) : ({} as Record<string, string>)));
+  // Which guests an account holds — a row's 💬 Message needs one (G35). Refused
+  // → null, and no row claims an account nobody measured.
+  const linkedGuestIdsRead = readLinkedGuestIds(supabase, eventId);
+
+  // ─── THE ONE WAIT ────────────────────────────────────────────────────────
+  const [
+    user,
+    guestRoleSetKey,
+    eventProfile,
+    roleNames,
+    viewer,
+    [guestsRead, eventRow, groupsRead, membershipsRead, joinUrl, pendingClaims, assignmentsRead, tablesRead, arrived, floorPlanRead],
+    profileNames,
+    songsRes,
+    invitationBase,
+    inviteSetup,
+    accountRefByGuest,
+    linkedGuestIds,
+    eventPapic,
+    storeShell,
+  ] = await Promise.all([
+    userRead,
+    roleSetKeyRead,
+    profileRead,
+    roleNamesRead,
+    viewerRead,
+    rosterRead,
+    profileNamesRead,
+    songsRead,
+    invitationBaseRead,
+    inviteSetupRead,
+    accountRefRead,
+    linkedGuestIdsRead,
+    eventPapicRead,
+    storeShellRead,
+  ]);
+  if (!user) redirect('/login');
+  if (isDelegateWithoutArea(viewer, 'guest_list')) {
+    redirect(`/dashboard/${eventId}/hosts`);
+  }
+  // ⚖ Sides are a WEDDING idea (owner 2026-09-30: "why is there groom and
+  // bride's side for a simple event"). The event-type profile's role set says
+  // whether this event has sides at all (lib/guest-side-question.ts), and when
+  // it does not, no side control, column, filter or sort renders anywhere on
+  // this page. `guests.side` is still WRITTEN (NOT NULL): SIDELESS_SIDE.
+  const hasSides = eventHasSides(resolveRoleSet(guestRoleSetKey));
+  const eventWord = eventNoun(eventProfile.eventType);
+  // Ceremony-aware View-sidebar filters: muslim weddings get the Nikah-principals
+  // filter and not the Catholic sponsor/bearer ones, and vice-versa.
+  const viewFilters = viewFiltersFor(guestRoleSetKey);
 
   // `measured: false` means the guest read was REFUSED — the rows are unknown,
   // NOT empty. Every count, meter and zero-state below is computed from
@@ -444,7 +552,6 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   // 👤 A row linked to an account wears that profile's formal name (owner
   // 2026-09-30) — overlaid HERE, once, so the list, the search and the open card
   // read the same name. lib/linked-profile-names.ts holds the gate.
-  const profileNames = await accountNamesByGuest(supabase, eventId);
   const guests = guestsRead.rows.map((g) => withProfileName(g, profileNames));
   const guestsMeasured = guestsRead.measured;
   // 📏 THE READS BESIDE THE LIST — each value, and whether it is real. A refused read is
@@ -589,13 +696,8 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       const label = tableLabelOf.get(a.table_id);
       if (label) tableLabelByGuestId.set(a.guest_id, label);
     }
-    // Their song requests — the host reads their own event's (RLS
-    // `event_song_requests_read`). Refused → no song words, the rest still match.
-    const { data: songRows, error: songErr } = await supabase
-      .from('event_song_requests')
-      .select('guest_id, songs(title, artist)')
-      .eq('event_id', eventId)
-      .eq('origin', 'guest');
+    // Their song requests — read in the one wait above. Refused → no song words, the rest still match.
+    const { data: songRows, error: songErr } = songsRes;
     if (songErr) logQueryError('GuestsPage (search · event_song_requests)', songErr, { event_id: eventId }, 'graceful_degrade');
     for (const row of (songRows ?? []) as { guest_id: string | null; songs: unknown }[]) {
       if (!row.guest_id) continue;
@@ -743,10 +845,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   // …and, beside it, the event's words for every row's Invite (owner
   // 2026-09-30: the Invite column). ONE read for the whole list — the same one
   // the open card below reuses, so a row and the card can never word it apart.
-  const [invitationBase, inviteSetup] = await Promise.all([
-    fetchInvitationBase(eventId, (eventRow.data as { slug?: string | null } | null)?.slug ?? null),
-    loadInviteSetup(supabase, eventId),
-  ]);
+  // (`invitationBase` and `inviteSetup` — read in the one wait above.)
 
   const photoDisplayUrls = await guestPhotoDisplayUrls(guests);
 
@@ -755,7 +854,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
      account falls back to that account's photo — the couple's own upload still
      wins. Resolved through the SAME resolver, because the stored value is an
      `r2://` ref, not a URL. */
-  const accountRefByGuest = await accountPhotoRefsByGuest(supabase, eventId, user.id);
+  // (`accountRefByGuest` — read in the one wait above, as the viewer.)
   const accountRefUrls = await guestPhotoDisplayUrls(
     Object.values(accountRefByGuest).map((ref) => ({ photo_url: ref })),
   );
@@ -782,75 +881,62 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   // onto their card (F2). Couple only; one more read, only when a card is open.
   const inspectedHelper =
     inspectedGuest && inspectedCard?.canManageAccess && inspectedHelperP ? await inspectedHelperP : null;
+  const inspectedPapic = inspectedGuest && inspectedCard && inspectedPapicP ? forTheCouple(await inspectedPapicP, inspectedCard.canManageAccess, papicAnswerOffered(eventProfile)) : null;
   // Send invite · Copy message: the event's words + the couple's wording —
   // read once above for the Invite column.
   const inspectedInviteSetup = inspectedGuest ? inviteSetup : null;
+  // 🪪 THE ONE GUEST CARD (`GuestCard`, owner 2026-10-24) — the same component every surface opens a guest in.
   const inspectorBody = inspectedGuest && inspectedCard ? (
-    <InspectorColumn
-      eyebrow={guestCardEyebrow(inspectedCard.guest, { hasSides: inspectedCard.hasSides, roleNames: inspectedCard.roleNames })}
-      title={guestDisplayName(inspectedGuest)}
-      badge={guestCardReply(inspectedCard.guest)}
-      swapKey={inspectedGuest.guest_id}
-      ariaLabel={`${guestDisplayName(inspectedGuest)} details`}
-    >
-      <GuestCardBody
-        eventId={eventId}
-        data={inspectedCard}
-        invitationBase={invitationBase}
-        photoDisplayUrl={
-          photoDisplayUrls[inspectedGuest.photo_url ?? ''] ??
-          accountFaceByGuest[inspectedGuest.guest_id] ??
-          null
-        }
-        variant="panel"
-        headerShown
-        inviteSetup={inspectedInviteSetup}
-        SendInvite={GuestInviteCell}
-        TicketThumb={GuestTicketThumb}
-        MoreMenu={GuestMoreMenu}
-        kit={TEMPLATE_KIT}
-        helperAccess={
-          inspectedHelper ? (
-            <GuestHelperAccess
-              eventId={eventId}
-              guestId={inspectedGuest.guest_id}
-              firstName={inspectedGuest.first_name}
-              helper={inspectedHelper}
-            />
-          ) : null
-        }
-        returnTo={`/dashboard/${eventId}/guests?inspect=${inspectedGuest.guest_id}`}
-        errorMessage={typeof search.error === 'string' ? guestCardErrorCopy(search.error) : null}
-        inviteFlash={
-          search.new_qr === '1'
-            ? { ok: true, msg: 'Done — a new QR and link. The old ones no longer work. Send them the new one.' }
-            : null
-        }
-      />
-    </InspectorColumn>
+    <GuestCard
+      frame="panel"
+      eventId={eventId}
+      data={inspectedCard}
+      invitationBase={invitationBase}
+      photoDisplayUrl={
+        photoDisplayUrls[inspectedGuest.photo_url ?? ''] ??
+        accountFaceByGuest[inspectedGuest.guest_id] ??
+        null
+      }
+      inviteSetup={inspectedInviteSetup}
+      papic={inspectedPapic}
+      storeShell={storeShell}
+      ticketVersion={inspectedTicketVP}
+      helper={inspectedHelper}
+      returnTo={`/dashboard/${eventId}/guests?inspect=${inspectedGuest.guest_id}`}
+      errorMessage={typeof search.error === 'string' ? guestCardErrorCopy(search.error) : null}
+      inviteFlash={
+        search.new_qr === '1'
+          ? { ok: true, msg: 'Done — a new QR and link. The old ones no longer work. Send them the new one.' }
+          : null
+      }
+    />
   ) : null;
 
   // The counts were worked out ONCE, with the read (`MeasuredGuests.stats`) — never
   // recounted here, so the meters, the counts line and the header cannot disagree.
   const stats = guestsRead.stats;
   const flash = pickFlash(search);
-  // Which guests an account holds — a row's 💬 Message needs one (G35). Refused
-  // → null, and no row claims an account nobody measured.
-  const linkedGuestIds = await readLinkedGuestIds(supabase, eventId);
+  // (`linkedGuestIds` — which guests an account holds, read in the one wait above.)
 
   // Minimal pool the quick-add sheet matches new names against for the
   // duplicate check — full unfiltered list, not the filtered `visible`.
-  const quickAddPool = guests.map((g) => ({
-    guest_id: g.guest_id,
-    first_name: g.first_name,
-    last_name: g.last_name,
-    side: g.side,
-    role: g.role,
-    extra_roles: g.extra_roles ?? [],
-  }));
+  /* ⚡ THE SAME ROWS, NOT A COPY (measured 2026-10-16). This pool was a fresh object per guest,
+     so the page sent every name twice — once to the list, once here (22 KB for 84 guests).
+     Handing the sheet the very row objects the list already gets lets the RSC payload send
+     each once and point at it. The sheet reads the six fields it always read (and keeps its
+     own `extra_roles ?? []`). 🔒 app/dashboard/[eventId]/guests/the-guest-list-does-no-work-twice.test.ts */
+  /* 📦 …AND ONLY WHAT THE LIST DRAWS (owner 2026-10-16, "loads fast"). The rows the phone gets carry the
+     fields the list draws and searches (`lib/guest-list-rows.ts` GUEST_LIST_ROW_FIELDS) — not the QR token,
+     the photo ref, the attire, the timestamps. One lean object per guest, shared by the list and the sheet,
+     so the payload still sends each guest once. The open card reads its own row (`loadGuestCard`).
+     🔒 guests/the-list-sends-only-what-it-draws.test.ts */
+  const listRowById = new Map(guests.map((g) => [g.guest_id, toGuestListRow(g)] as const));
+  const listRowOf = (g: GuestRow): GuestListRow => listRowById.get(g.guest_id) ?? toGuestListRow(g);
+  const quickAddPool = guests.map(listRowOf);
   const quickAddGroups = groups.map((g) => ({
     group_id: g.group_id,
     label: g.label,
+    team_side: g.team_side,
   }));
 
   // ── GUESTS › LIST AND MAP (Maker PR 4f) — what the client screen needs, read
@@ -883,25 +969,43 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       (a, b) =>
         honoreeRank(a.role) - honoreeRank(b.role) ||
         sortCompare(a, b, 'importance', undefined, seatByGuest),
-    );
+    )
+    .map(listRowOf);
   // The map's centre: the celebrants' first names ("Maria & Jose"), else the event word.
   const mapRoot = mapRootLabel(rosterAll, eventWord);
+  // 🪪 Whose printed word waits on Woman or Man (owner 2026-10-17) — the List's one prompt; gone when none are left.
+  const titlesWaiting: TitleWaitingPerson[] = guests
+    .filter((g) => g.entry_source !== REQUEST_ENTRY_SOURCE && needsWomanOrMan(g))
+    .map((g) => ({
+      guestId: g.guest_id,
+      name: guestDisplayName(g),
+      roleWord: guestRoleLabel(
+        [g.role, ...(g.extra_roles ?? [])].find((r) => (ROLES_WHOSE_WORD_NEEDS_GENDER as readonly string[]).includes(r)) ?? g.role,
+        roleNames,
+      ),
+      title: g.name_prefix,
+      key: titleKey(g.name_prefix, g.gender),
+      text: titleButtonText(g.name_prefix, g.gender, true),
+    }));
   const guestsScreen = (
     <GuestsScreen
       eventId={eventId}
+      roleSetKey={guestRoleSetKey}
       gview={gview}
       guests={rosterAll}
       measured={guestsMeasured}
       notLoaded={guestListUnreadLine(sideReads)}
       hasSides={hasSides}
       groupsByGuest={groupsByGuest}
-      groups={groups.map((g) => ({ group_id: g.group_id, label: g.label }))}
+      groups={groups.map((g) => ({ group_id: g.group_id, label: g.label, team_side: g.team_side }))}
       tables={tables.map((t) => ({ tableId: t.table_id, label: tableWords(t.table_label) }))}
       tableByGuest={tableByGuest}
       songsByGuest={songsByGuest}
       linkedGuestIds={linkedGuestIds}
       faceByGuest={faceByGuest}
       requests={pendingClaimsCount}
+      titlesWaiting={titlesWaiting}
+      papic={viewer.isCouple && !storeShell ? eventPapic : null}
       rootLabel={mapRoot}
       // Setup's "☑ Pick who" (PR 4d) lands here: Select mode over "to invite".
       initialQuery={search.select === 'to-invite' ? 'to invite' : (search.q ?? '')}
@@ -1116,7 +1220,10 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           open, then refreshed (owner 2026-10-02, DECISION_LOG "LAST-SEEN DATA
           SHOWS INSTANTLY, THEN REFRESHES"). A refused guest read is never
           kept — the next open shows the last list that WAS measured. */}
-      <LastSeenCapture page="guests" fresh={guestsMeasured}>
+      {/* 📋 The rows themselves are kept by the list's own screen (`GuestsScreen` → guest-list-copy.ts),
+          and its loading screen draws them LIVE; this keeps no picture of the page (`keepHtml={false}`) and
+          says "Updated just now" when a copy was on screen. */}
+      <LastSeenCapture page="guests" fresh={guestsMeasured} keepHtml={false} showMark={false}>
         <InspectorLayout
           paramKey="inspect"
           className="sn-inspector-shell--card"
@@ -1275,11 +1382,14 @@ async function fetchJoinUrl(
       .select('token, revoked_at, expires_at')
       .eq('event_id', eventId)
       .maybeSingle(),
-    supabase
-      .from('events')
-      .select('slug, landing_page_visibility, scheduled_launch_at, std_launched_at')
-      .eq('event_id', eventId)
-      .maybeSingle(),
+    // From the dashboard's one read of the row, when this render opened it (lib/event-row-once.ts).
+    eventRowOnce(supabase, eventId, 'slug, landing_page_visibility, scheduled_launch_at, std_launched_at', () =>
+      supabase
+        .from('events')
+        .select('slug, landing_page_visibility, scheduled_launch_at, std_launched_at')
+        .eq('event_id', eventId)
+        .maybeSingle(),
+    ),
   ]);
   if (evError) {
     logQueryError('GuestListPage.ev', evError, { event_id: eventId }, 'graceful_degrade');

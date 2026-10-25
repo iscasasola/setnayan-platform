@@ -15,7 +15,10 @@
  *
  *   ?part=notices   the Notifications list, scrolled under the account thumb bar
  *   ?part=head      (retired with the phone title + ⋯ — redirects to part=screen)
- *   ?part=card      a guest's card (Daniel Ramos) — tap Invite or ⋯
+ *   ?part=card      a guest's card (Daniel Ramos) — tap Invite or ⋯; &plusone=1 a +1's seat (TBA), &named=1 a named +1
+ *                   &seats=2 a guest who brings TWO +1s (one named, one not yet) — every seat a line (2026-10-22);
+ *                   &seatread=empty the card as origin/main's `.maybeSingle()` loader drew that guest (the read erred → []),
+ *                   &seatread=fail a refused seat read ("Couldn’t read …", never the empty state)
  *   ?part=host      the bride's card — a host, ⋯ only
  *   ?part=rows      (retired with the old GuestListMultiselect — redirects to part=screen)
  *   ?part=screen    Guests › List and Map (Maker PR 4f) — the whole screen on
@@ -37,22 +40,33 @@
  *                   and the ticket are a real event's, so they do not draw here.
  *   ?part=rsvp      the Maker's Studio › RSVP (`MakerRsvpSettings studio`) on the
  *                   same fixture, so the two doors can be compared side by side
+ *   &typed=1        (screen) two names typed all lower case — the list shows them cased (displayPersonName)
+ *   &marked=1       (card · screen) replies the host set — "Attending · Marked by you", the rows' quiet "marked"
+ *   &sides=1        (card · screen) cale-ice's own groups as measured 2026-10-20 — Childhood + College (groom),
+ *                   Family + Relatives (one bride, one groom) — plus one both-sides group, so the ONE Group list's
+ *                   "follows the guest's side" can be walked; on the card &side=bride|groom|both picks the guest's side
+ *                   (default bride) and the guest is already in College (groom's side)
  */
 import { notFound } from 'next/navigation';
+import { revalidatePath } from 'next/cache';
+import { WEDDING_ROLE_SET } from '@/lib/role-sets';
 import { redirect } from 'next/navigation';
 import { NotificationsList } from '@/app/_components/notifications/notifications-list';
 import type { NotificationRow } from '@/lib/notifications';
-import { HomePillNav } from '@/app/dashboard/(launcher)/_components/home-pill-nav';
+import { AccountBottomNav } from '@/app/dashboard/(launcher)/_components/account-bottom-nav';
 import { BottomDock } from '@/app/_components/nav/bottom-nav';
 import { AddGuestSheet } from '@/app/dashboard/[eventId]/guests/_components/add-guest-sheet';
-import { GuestCardBody } from '@/app/dashboard/[eventId]/guests/_components/guest-card-body';
+import { QuickAddSheet } from '@/app/dashboard/[eventId]/guests/_components/quick-add-sheet';
+import { GuestCard } from '@/app/dashboard/[eventId]/guests/_components/guest-card';
 import { guestCardErrorCopy } from '@/app/dashboard/[eventId]/guests/_components/guest-card-error-copy';
-import { GuestInviteCell } from '@/app/dashboard/[eventId]/guests/_components/guest-invite-cell';
-import { GuestMoreMenu, GuestTicketThumb } from '@/app/dashboard/[eventId]/guests/_components/guest-ticket-parts';
+import type { GuestPapicState } from '@/lib/papic-guest-camera';
 import type { GuestCardData } from '@/app/dashboard/[eventId]/guests/_components/guest-card-data';
+import { guestOutfitOf, guestOutfitWords } from '@/lib/guest-outfit';
 import { guestDisplayName, guestFullName, type GuestRow } from '@/lib/guests';
 import { DEFAULT_NAME_STYLE } from '@/lib/name-style';
 import { sendRunGuests, toInviteCount } from '@/lib/guest-roster-view';
+import { plusOneOfWords } from '@/lib/plus-one-of';
+import { plusOneSeatLines, plusOneSeatPeople } from '@/lib/extra-seats';
 import { invitationLinkOn } from '@/lib/invitation-link';
 import { SendRun } from '@/app/dashboard/[eventId]/guests/send/_components/send-run';
 import { GuestSetupRows } from '@/app/dashboard/[eventId]/_components/guest-setup/guest-setup-rows';
@@ -60,12 +74,33 @@ import { MakerRsvpSettings } from '@/app/dashboard/[eventId]/launch/_components/
 import { guestsGetInPatch, isGuestsGetIn } from '@/lib/who-can-reply';
 import { renderStyledUrlQrSvg } from '@/lib/qr';
 import { GuestsScreen } from '@/app/dashboard/[eventId]/guests/_components/guests-screen';
-import { TEMPLATE_KIT } from '@/app/dashboard/[eventId]/guests/_components/guest-card-template-kit';
+import type { TitleWaitingPerson } from '@/app/dashboard/[eventId]/guests/_components/titles-waiting';
+import { titleButtonText, titleKey } from '@/lib/guest-title';
 import { UndoToastHost } from '@/app/dashboard/[eventId]/guests/_components/undo-toast';
 import { LabGuestActions } from './lab-guest-actions';
+import { LabShell } from '@/app/dev/_components/lab-shell';
 import { RoleNamesProvider } from '@/app/dashboard/[eventId]/guests/_components/role-names-context';
 
 const EVENT = '00000000-0000-4000-8000-000000000000';
+/** 👥 `&sides=1` — cale-ice's own groups as measured in prod 2026-10-20 (names + sides only), plus one both-sides group;
+ *  and (measured 2026-10-21, the owner's "why do i see dupes on group names") the same-name pairs on two sides — Bob ·
+ *  Loo · Mama on both sides and the groom's, and a both-sides Relatives beside the bride's and the groom's. */
+const SIDE_GROUPS: { group_id: string; label: string; team_side: 'bride' | 'groom' | 'both' }[] = [
+  { group_id: 'lab-sg-barkada', label: 'Barkada', team_side: 'both' },
+  { group_id: 'lab-sg-bob', label: 'Bob', team_side: 'both' },
+  { group_id: 'lab-sg-bob-g', label: 'Bob', team_side: 'groom' },
+  { group_id: 'lab-sg-childhood', label: 'Childhood', team_side: 'groom' },
+  { group_id: 'lab-sg-college', label: 'College', team_side: 'groom' },
+  { group_id: 'lab-sg-family-b', label: 'Family', team_side: 'bride' },
+  { group_id: 'lab-sg-family-g', label: 'Family', team_side: 'groom' },
+  { group_id: 'lab-sg-loo', label: 'Loo', team_side: 'both' },
+  { group_id: 'lab-sg-loo-g', label: 'Loo', team_side: 'groom' },
+  { group_id: 'lab-sg-mama', label: 'Mama', team_side: 'both' },
+  { group_id: 'lab-sg-mama-g', label: 'Mama', team_side: 'groom' },
+  { group_id: 'lab-sg-relatives', label: 'Relatives', team_side: 'both' },
+  { group_id: 'lab-sg-relatives-b', label: 'Relatives', team_side: 'bride' },
+  { group_id: 'lab-sg-relatives-g', label: 'Relatives', team_side: 'groom' },
+];
 /** A stand-in Event Hub address for the run's personal links (the shipped builder makes the link). */
 const LAB_HUB = 'https://setnayan.com/maria-and-jose';
 
@@ -98,6 +133,14 @@ const NOTICES: NotificationRow[] = [
     created_at: new Date().toISOString(),
   },
 ] as NotificationRow[];
+
+/** 🪪 `?part=screen&titles=1` — the List's "N people need Woman or Man for their title" row, on stand-in names. */
+const LAB_TITLES_WAITING: TitleWaitingPerson[] = [
+  { guestId: 'g-t1', name: 'Atty. Eufemia Dela Cruz', roleWord: 'Parents of the Groom', title: 'Atty.', key: titleKey('Atty.', null), text: titleButtonText('Atty.', null, true) },
+  { guestId: 'g-t2', name: 'Dr. Eduardo Santos', roleWord: 'Parents of the Bride', title: 'Dr.', key: titleKey('Dr.', null), text: titleButtonText('Dr.', null, true) },
+  { guestId: 'g-t3', name: 'Regional Prosecutor Rex Diaz', roleWord: 'Grandparents of the Groom', title: 'Regional Prosecutor', key: titleKey('Regional Prosecutor', null), text: titleButtonText('Regional Prosecutor', null, true) },
+  { guestId: 'g-t4', name: 'Carmen Diaz', roleWord: 'Grandparents of the Groom', title: null, key: titleKey(null, null), text: titleButtonText(null, null, true) },
+];
 
 function guest(p: Partial<GuestRow>): GuestRow {
   return {
@@ -147,16 +190,24 @@ function guest(p: Partial<GuestRow>): GuestRow {
   } as GuestRow;
 }
 
+/** `&seats=2`'s two +1 rows: one named (Ana Cruz, attending), one still waiting for a name. */
+const LAB_TWO_SEATS = [
+  { guest_id: 'g-lab-s1', first_name: 'Ana', last_name: 'Cruz', plus_one_name_confirmed_at: '2026-10-01T00:00:00Z', created_at: '2026-09-30T00:00:00Z', rsvp_status: 'attending' as const },
+  { guest_id: 'g-lab-s2', first_name: 'TBA', last_name: '+1', plus_one_name_confirmed_at: null, created_at: '2026-09-30T00:00:01Z', rsvp_status: 'pending' as const },
+];
+
 function cardData(g: GuestRow, isCouple: boolean): GuestCardData {
   return {
     guest: g,
     isCouple,
     hasSides: true,
-    availableRoles: [],
+    /* The wedding's real role picker (what `guest-card-data.ts` offers a non-couple guest), so the card's
+       Details › Role in wedding opens on the shipped list rather than an empty menu. */
+    availableRoles: WEDDING_ROLE_SET.offeredRoles.filter((r) => !WEDDING_ROLE_SET.coupleRoles.has(r)),
     groupOptions: ['family', 'friends'],
     isIncWedding: false,
     showTeaCeremony: false,
-    plusOneStateLabel: null,
+    plusOneLines: [],
     plusOneGuestId: null,
     initialInvited: [],
     seatedAt: isCouple ? 'Sweetheart Table' : 'Entourage',
@@ -223,6 +274,27 @@ const MJ_ROSTER: ReadonlyArray<[string, string, GuestRow['role'], GuestRow['side
  * has something real to draw. Two of them (Rosa Santos, Cita Ramos) said they
  * can't come before anything was sent: they are in NO "to invite" count.
  */
+/** `&many=N` — N generated guests (a long list to scroll), every name distinct and none matching the roster's. */
+const MANY_FIRST = ['Ana', 'Ben', 'Celia', 'Dado', 'Ellen', 'Fermin', 'Gina', 'Hector', 'Iris', 'Jun', 'Karla', 'Leo', 'Mila', 'Noel', 'Olga', 'Pido'];
+const MANY_LAST = ['Aquino', 'Bautista', 'Castillo', 'Domingo', 'Espiritu', 'Flores', 'Gonzales', 'Hernandez', 'Ilagan', 'Jacinto', 'Katigbak', 'Lualhati', 'Macaraeg', 'Navarro', 'Ocampo'];
+function manyGuests(n: number): GuestRow[] {
+  return Array.from({ length: n }, (_, i) =>
+    guest({
+      guest_id: `g-many-${i}`,
+      public_id: `S89G-LABMN${String(i).padStart(5, '0')}`,
+      first_name: MANY_FIRST[i % MANY_FIRST.length]!,
+      last_name: `${MANY_LAST[Math.floor(i / MANY_FIRST.length) % MANY_LAST.length]!}${i >= MANY_FIRST.length * MANY_LAST.length ? ` ${Math.floor(i / (MANY_FIRST.length * MANY_LAST.length)) + 1}` : ''}`,
+      role: 'guest',
+      side: i % 2 ? 'groom' : 'bride',
+      group_category: 'friends',
+      rsvp_status: 'pending',
+      invitation_sent_at: '2026-09-20T00:00:00Z',
+      plus_one_count: 0,
+      plus_one_allowed: false,
+    }),
+  );
+}
+
 function planningRoster(): GuestRow[] {
   const RSVP: GuestRow['rsvp_status'][] = ['attending', 'attending', 'attending', 'pending', 'maybe', 'attending', 'declined', 'pending'];
   return MJ_ROSTER.map(([first, last, role, side], i) =>
@@ -241,6 +313,58 @@ function planningRoster(): GuestRow[] {
     }),
   ).map((g) => (g.invitation_sent_at === null && g.rsvp_status !== 'declined' ? { ...g, rsvp_status: 'pending' as const } : g));
 }
+
+/**
+ * 🤝 `?plusones=1` — the owner's 2026-10-19 shape (cale-ice's List, read-only count): unnamed "+1 · TBA" seats on
+ * side "both" under a bridesmaid, a principal sponsor, a family guest and a guest, plus one NAMED +1 — appended at
+ * the END, the way the page's sort put them together under GUESTS. Stand-in names; nothing is read.
+ */
+function withPlusOnes(roster: GuestRow[], backfilled = false, paired = false): GuestRow[] {
+  const seat = (id: string, of: string, p: Partial<GuestRow> = {}) =>
+    guest({
+      guest_id: id,
+      public_id: `S89G-LABP1${id.slice(-4).padStart(5, '0')}`,
+      first_name: 'TBA',
+      last_name: '+1',
+      display_name: '+1 · TBA',
+      side: 'both',
+      role: 'guest',
+      rsvp_status: 'pending',
+      invitation_sent_at: null,
+      plus_one_of_guest_id: of,
+      plus_one_mode: 'limited',
+      ...p,
+    });
+  const bring = new Set(['g-mj-4', 'g-mj-6', 'g-mj-14', 'g-mj-24', 'g-mj-2']);
+  return [
+    ...roster.map((g) => (bring.has(g.guest_id) ? { ...g, plus_one_count: g.guest_id === 'g-mj-14' ? 2 : 1, plus_one_allowed: true } : g)),
+    seat('g-p1-0004', 'g-mj-4'),
+    seat('g-p1-0006', 'g-mj-6'),
+    seat('g-p1-0014', 'g-mj-14'),
+    seat('g-p1-0114', 'g-mj-14'),
+    seat('g-p1-0024', 'g-mj-24'),
+    seat('g-p1-0002', 'g-mj-2', { first_name: 'Paulo', last_name: 'Reyes', display_name: null, rsvp_status: 'attending', invitation_sent_at: '2026-09-20T00:00:00Z' }),
+    /* 🪑 2026-10-20, live cale-ice, read-only: two of the groom's immediate family (`groom_immediate_family`, groom's side)
+       whose "+1" seat rows were REMOVED (soft-deleted 2026-10-14) while their "+1" stayed — so the List drew a +1 pill
+       over a seat with no row. Stand-in names, the same roles, sides and numbers; no seat row for either. */
+    guest({ guest_id: 'g-p1-h001', public_id: 'S89G-LABP1H0001', first_name: 'Juana', last_name: 'Sison', role: 'groom_immediate_family', side: 'groom', group_category: 'family', rsvp_status: 'pending', invitation_sent_at: '2026-09-20T00:00:00Z', plus_one_count: 1, plus_one_allowed: true, ...(paired ? { pair_with_guest_id: 'g-p1-h002' } : {}) }),
+    guest({ guest_id: 'g-p1-h002', public_id: 'S89G-LABP1H0002', first_name: 'Maxima', last_name: 'Sison', role: 'groom_immediate_family', side: 'groom', group_category: 'family', rsvp_status: 'pending', invitation_sent_at: '2026-09-20T00:00:00Z', plus_one_count: 1, plus_one_allowed: true, ...(paired ? { pair_with_guest_id: 'g-p1-h001' } : {}) }),
+    /* 🤝 `&paired=1` — the same two as a PAIR (`pair_with_guest_id`, as live: Juanita ↔ Maxima Sacdalan) after the owner
+       re-added their +1 on 2026-10-22: each has a live "+1 · TBA" row again, made the older way (host_seeded, limited).
+       A pair is not drawn on the List (pairs live in the Wedding March) — each +1 still sits under their own guest. */
+    ...(paired
+      ? [seat('g-p1-0h01', 'g-p1-h001', { side: 'groom', group_category: 'family' }), seat('g-p1-0h02', 'g-p1-h002', { side: 'groom', group_category: 'family' })]
+      : []),
+    /* 🪑 2026-10-21, live cale-ice, read-only: a guest allowed +1 since 2026-09-14 whose seat was NEVER made (Antonio
+       Loo, Ronald Llarena — owner: "why does Ronald Dane Llarena have a +1 but no row under him"). `&backfilled=1`
+       draws the row the backfill (20271282098748) mints for him; without it, the List as it stood. */
+    guest({ guest_id: 'g-p1-h003', public_id: 'S89G-LABP1H0003', first_name: 'Antonio', last_name: 'Loo', role: 'guest', side: 'groom', group_category: 'family', rsvp_status: 'pending', invitation_sent_at: '2026-09-20T00:00:00Z', plus_one_count: 1, plus_one_allowed: true }),
+    ...(backfilled ? [seat('g-p1-0003', 'g-p1-h003', { side: 'groom', group_category: 'family' })] : []),
+  ];
+}
+
+/** 🤝 `?part=card&plusone=1` — the card opened on a plain guest's unnamed seat (live: Rose Marie Buanhug's), bride's side. */
+const LAB_SEAT_HOST = { guest_id: 'g-mj-14', first_name: 'Rosa', last_name: 'Santos', display_name: null, side: 'bride' as const };
 
 /** A stand-in bottom bar, in the REAL anchored dock (z-30, outside <main>). */
 function DockStandIn() {
@@ -269,6 +393,10 @@ const LAB_PASS_SRC =
     '<svg xmlns="http://www.w3.org/2000/svg" width="320" height="426" viewBox="0 0 320 426"><rect width="320" height="426" rx="20" fill="#fbf7f0" stroke="#d9cfbf"/><text x="160" y="150" font-family="Georgia,serif" font-size="26" text-anchor="middle" fill="#1e1a12">Maria &amp; Jose</text><text x="160" y="184" font-family="sans-serif" font-size="13" text-anchor="middle" fill="#6b6455">Digital Pass (lab sample)</text><rect x="100" y="224" width="120" height="120" rx="8" fill="#fff" stroke="#d9cfbf"/></svg>',
   );
 
+/* ⚡ ONE SAVE, ONE RENDER — the lab counts its own server renders (dev log `[one-render]`, and `data-lab-render` on the card's
+   panel), so a walk can SEE how many times one press makes the server draw this page (`lib/one-save-one-render.ts`). */
+let labRenders = 0;
+
 export default async function GuestsLabPage({
   searchParams,
 }: {
@@ -276,6 +404,8 @@ export default async function GuestsLabPage({
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const sp = await searchParams;
+  labRenders += 1;
+  console.log(`[one-render] /dev/guests-lab render #${labRenders} part=${typeof sp.part === 'string' ? sp.part : 'head'}`);
 
   /* 🧪 THE CARD'S WRITES, AS STAND-INS (step 4A, 2026-10-09). The card binds the shipped `updateGuest` / `releaseGuestClaim` /
      `inviteGuestByEmailAction` in the page that draws it; the lab hands in its own — INLINE server actions (not exported, so
@@ -293,6 +423,8 @@ export default async function GuestsLabPage({
       if (formData.get('quiet') === '1') return { refused: labWords };
       redirect(labRefusal);
     }
+    // …and a save that lands REVALIDATES, as the real one does (`updateGuest` → `revalidatePath(…/guests)` before its quiet return).
+    revalidatePath('/dev/guests-lab');
   }
   async function labRelease(formData: FormData) {
     'use server';
@@ -320,7 +452,7 @@ export default async function GuestsLabPage({
             </div>
           </div>
         </main>
-        <HomePillNav hasSpaces spacesHref="/vendor-dashboard" />
+        <AccountBottomNav tabs={['events', 'discover', 'memories', 'people', 'shop']} />
       </div>
     );
   }
@@ -328,24 +460,128 @@ export default async function GuestsLabPage({
   if (part === 'card' || part === 'host') {
     const host = part === 'host';
     const low = sp.low === '1';
-    const g = host
+    const labPapic: GuestPapicState =
+      sp.papic === 'off'
+        ? { access: 'off', ceiling: undefined, door: `/dashboard/${EVENT}/studio/papic` }
+        : sp.papic === 'unknown'
+          ? { access: 'unknown', ceiling: undefined }
+          : { access: 'on', ceiling: sp.papic === 'set' ? 40 : sp.papic === 'none' ? 0 : null };
+    /* 🪪 `&title=atty` — the groom's mother as cale-ice holds her ("Atty.", no woman / man yet: the pending pick);
+       `&gender=woman` after she is picked as "Atty. (Woman)". */
+    const pickedGender: GuestRow['gender'] = sp.gender === 'woman' ? 'woman' : sp.gender === 'man' ? 'man' : null;
+    const titled: Partial<GuestRow> =
+      sp.title === 'atty'
+        ? { first_name: 'Eufemia', last_name: 'Dela Cruz', role: 'groom_parents', group_category: 'family', name_prefix: 'Atty.', gender: pickedGender }
+        : {};
+    /* 🏷 `&role=bride_immediate_family` — a sibling of the bride (stand-in name), for "Rename this section";
+       `&vip=1` — the event's words with Immediate Family renamed "VIP" (owner 2026-10-19). The lab has no event: a keep
+       is refused by the host fence, so the after-state is drawn from these fixture words. */
+    const labRole = typeof sp.role === 'string' && sp.role ? (sp.role as GuestRow['role']) : null;
+    const seatCard = sp.plusone === '1';
+    const g0 = host
       ? guest({ guest_id: 'g-maria', first_name: 'Maria', last_name: 'Santos', side: 'bride', group_category: 'family', role: 'bride' })
-      : guest({});
+      : seatCard
+        ? sp.named === '1'
+          ? /* 🚫 `&named=1` — a NAMED +1, as the owner's report showed one (2026-10-21, "Ms. pamela mitra labriaga · +1 of
+               Pam"): their card has no Extra seats pick — "A +1 can't bring their own +1." */
+            guest({ guest_id: 'g-p1-0015', name_prefix: 'Ms.', first_name: 'pamela', middle_name: 'mitra', last_name: 'labriaga', side: 'groom', group_category: 'work', rsvp_status: 'pending', invited_to_blocks: ['ceremony', 'reception', 'cocktails'] as GuestRow['invited_to_blocks'], plus_one_of_guest_id: LAB_SEAT_HOST.guest_id })
+          : guest({ guest_id: 'g-p1-0014', first_name: 'TBA', last_name: '+1', display_name: '+1 · TBA', side: 'bride', rsvp_status: 'pending', plus_one_of_guest_id: LAB_SEAT_HOST.guest_id })
+        : guest(labRole ? { ...titled, first_name: 'Bianca', last_name: 'Santos', role: labRole, group_category: 'family', side: 'bride' } : titled);
+    /* 🖐 `&marked=1` — the guest's reply was set by the host (owner 2026-10-21): the RSVP row reads "Attending · Marked by you". */
+    const g1: GuestRow = sp.marked === '1' ? { ...g0, rsvp_status: 'attending', rsvp_set_by: 'host' } : g0;
+    /* 🪑 `&seats=2` — live: Antonio Loo / Darryl Jan Patrick Lim bring two +1s each. Here one is named, one is not yet. */
+    const twoSeats = sp.seats === '2' && !seatCard && !host;
+    const g: GuestRow = twoSeats ? { ...g1, plus_one_count: 2, plus_one_allowed: true } : g1;
+    const seatLines = twoSeats
+      ? {
+          plusOneLines:
+            sp.seatread === 'fail'
+              ? null
+              : sp.seatread === 'empty'
+                ? []
+                : plusOneSeatLines(g.guest_id, LAB_TWO_SEATS),
+          /* 🪪 The same two seats as people — Additional Guests draws one card each (`plusOneSeatPeople`). */
+          plusOnePeople: sp.seatread === 'fail' ? null : sp.seatread === 'empty' ? [] : plusOneSeatPeople(g.guest_id, LAB_TWO_SEATS),
+        }
+      : {};
+    /* 🔗 `&linked=1` — a guest who has linked their account: Access › the level dropdown, and "Linked" under Account. */
+    const linkedData =
+      sp.linked === '1'
+        ? { access: { level: 'none', live: true, lock: null }, linkedAccount: { email: 'daniel.ramos@example.com', memberType: 'guest' } }
+        : {};
+    const seatOf = seatCard ? { plusOneOf: plusOneOfWords(g, LAB_SEAT_HOST, 0) } : {};
+    const labWords = sp.vip === '1' ? { 'section:immediate_family': { one: 'VIP' } } : {};
+    /* 👥 `&proto=1` — the prototype's guest (guest_group_and_fast_add_2026-10-20.html, strip A): Corazon Reyes, a Ninang who is
+       also the Candle Sponsor, in Family and two of the couple's own groups — the ONE Group / ONE Role dropdowns' after-state. */
+    const proto = sp.proto === '1';
+    const protoGuest = proto ? guest({ first_name: 'Corazon', last_name: 'Reyes', side: 'bride', group_category: 'family', role: 'principal_sponsor_ninang', extra_roles: ['candle_sponsor'] as GuestRow['extra_roles'] }) : null;
+    const protoData = proto
+      ? {
+          groupOptions: ['family', 'friends', 'work', 'school', 'officiant', 'other'],
+          groupChoices: {
+            options: [
+              { groupId: 'lab-g1', label: 'College Friends', teamSide: 'both' },
+              { groupId: 'lab-g3', label: 'Cebu cousins', teamSide: 'both' },
+              { groupId: 'lab-g4', label: 'Office — Makati', teamSide: 'both' },
+              { groupId: 'lab-g2', label: 'Out of town', teamSide: 'both' },
+            ],
+            memberIds: ['lab-g1', 'lab-g2'],
+          },
+          customGroups: [
+            { label: 'College Friends', teamSide: 'both' },
+            { label: 'Out of town', teamSide: 'both' },
+          ],
+        }
+      : {};
+    /* 👥 `&sides=1` — a guest on `&side=` (default bride) with cale-ice's groups, already in College (groom's side). */
+    const sides = sp.sides === '1';
+    const labSide: GuestRow['side'] = sp.side === 'groom' ? 'groom' : sp.side === 'both' ? 'both' : 'bride';
+    const sidesGuest = sides ? guest({ first_name: 'Lea', last_name: 'Ramos', side: labSide, group_category: 'friends', role: 'guest' }) : null;
+    const sidesData = sides
+      ? {
+          groupOptions: ['family', 'friends', 'work', 'school', 'officiant', 'other'],
+          groupChoices: {
+            options: SIDE_GROUPS.map((x) => ({ groupId: x.group_id, label: x.label, teamSide: x.team_side })).sort((x, y) => x.label.localeCompare(y.label)),
+            memberIds: ['lab-sg-college'],
+          },
+          customGroups: [{ label: 'College', teamSide: 'groom' }],
+        }
+      : {};
+    /* 👗 `&dress=1` — a dress code as the Studio stores it (VIP · Immediate Family: men Suit and tie · women Long gown;
+       Principal Sponsors: men Barong · women Filipiniana; Guests: men Suit · women Long dress), so the Seat fold's
+       "Attire · 3D seat plan" line is drawn by the ONE reading (`guestOutfitOf`); without it, nothing is picked. */
+    const cardGuest = sidesGuest ?? protoGuest ?? g;
+    const labDress = sp.dress === '1'
+      ? {
+          groups: { vip_family: { style: 'suit' }, principal_sponsors: { style: 'barong_tagalog' } },
+          roles: { guest: { style: 'suit' } },
+          women: { groups: { vip_family: { style: 'long_gown' }, principal_sponsors: { style: 'filipiniana' } }, roles: { guest: { style: 'long_gown' } } },
+        }
+      : null;
+    const labOutfit = guestOutfitWords(
+      guestOutfitOf({
+        role: cardGuest.role,
+        dressCodeConfig: labDress,
+        palette: {},
+        roleNames: labWords,
+        person: { name_prefix: cardGuest.name_prefix ?? null, display_name: cardGuest.display_name ?? null, gender: cardGuest.gender ?? null, attire: cardGuest.attire },
+      }),
+    );
     return (
       <div className="sn-ambient min-h-screen">
         <main className="sn-vt-page">
           <div data-shell-main>
             <div className="sn-page-enter">
               {/* The panel over the Guest list, as a phone shows it: inset from the left. */}
-              <div className="ml-12 min-h-dvh rounded-l-3xl bg-cream px-[18px] pb-10 pt-6 shadow-xl" data-lab-card="">
+              <div className="ml-12 min-h-dvh rounded-l-3xl bg-cream px-[18px] pb-10 pt-6 shadow-xl" data-lab-card="" data-lab-render={labRenders}>
                 {low ? <div aria-hidden className="h-[440px]" data-lab-low="" /> : null}
                 <LabGuestActions refuse={labRefuses}>
-                <GuestCardBody
+                <GuestCard
+                  frame="page"
                   eventId={EVENT}
-                  data={cardData(g, host)}
+                  data={{ ...cardData(cardGuest, host), ...protoData, ...sidesData, ...seatOf, ...seatLines, ...linkedData, roleNames: labWords, outfit: { wear: labOutfit.wear, from: labOutfit.from } } as GuestCardData}
                   invitationBase="https://www.setnayan.com/maria-and-jose"
                   photoDisplayUrl={null}
-                  variant="page"
                   returnTo={labBack}
                   errorMessage={typeof sp.error === 'string' ? guestCardErrorCopy(sp.error) : null}
                   actions={{ update: labUpdate, release: labRelease, partnerLink: labPartnerLink }}
@@ -355,10 +591,11 @@ export default async function GuestsLabPage({
                     template: null,
                     slug: 'maria-and-jose',
                   }}
-                  SendInvite={GuestInviteCell}
-                  TicketThumb={GuestTicketThumb}
-                  MoreMenu={GuestMoreMenu}
-                  kit={TEMPLATE_KIT}
+                  /* 📸 ?papic=off · ?papic=unknown · ?papic=set (40 credits) · ?papic=none — else on, sharing with everyone. */
+                  papic={labPapic}
+                  storeShell={false}
+                  ticketVersion={null}
+                  helper={null}
                 />
                 </LabGuestActions>
               </div>
@@ -420,7 +657,23 @@ export default async function GuestsLabPage({
   }
 
   if (part === 'screen' || part === 'setup') {
-    const roster = planningRoster();
+    const roster00 = sp.plusones === '1' ? withPlusOnes(planningRoster(), sp.backfilled === '1', sp.paired === '1') : planningRoster();
+    /* 📜 `&many=N` — N more guests after maria-and-jose's (owner 2026-10-24, live: a search on a long list left the hit
+       above the screen), so a search can be walked on a list a phone has to scroll. */
+    const roster0 = roster00.concat(manyGuests(Math.min(400, Math.max(0, Number(typeof sp.many === 'string' ? sp.many : 0) || 0))));
+    /* 🖐 `&marked=1` — two replies the host set (owner 2026-10-21), so the rows' quiet "marked" can be seen. */
+    const roster1 = sp.marked === '1'
+      ? roster0.map((g) => (g.guest_id === 'g-mj-5' || g.guest_id === 'g-mj-9' ? { ...g, rsvp_status: 'attending' as const, rsvp_set_by: 'host' as const } : g))
+      : roster0;
+    /* 🪪 `&typed=1` — two names typed all lower case (guest_page_fixes_2_4 fix 3, owner 2026-10-21): the list SHOWS them
+       cased ("Pamela Labriaga", "Jose de los Santos"), the rows keep what was typed. */
+    const TYPED: Record<string, [string, string]> = { Daniel: ['jose', 'dela cruz'], Gabriel: ['gabriel', 'de los santos'] };
+    const roster = sp.typed === '1'
+      ? roster1.map((g) => {
+          const t = g.first_name ? TYPED[g.first_name] : undefined;
+          return t ? { ...g, first_name: t[0], last_name: t[1], display_name: null } : g;
+        })
+      : roster1;
     const GROUPS: Record<string, string[]> = {
       'g-mj-24': ['Barkada'],
       'g-mj-25': ['Barkada'],
@@ -433,18 +686,11 @@ export default async function GuestsLabPage({
     const gview = sp.gview === 'map' ? 'map' : sp.gview === 'share' || part === 'setup' ? 'share' : 'list';
     const empty = sp.empty === '1';
     const fail = sp.fail === '1';
-    return (
-      <RoleNamesProvider names={{}}>
-        <div className="sn-ambient min-h-screen">
-          {/* A stand-in for the shell's sticky top bar (same class, same height). */}
-          <div className="shell-topbar sticky top-0 z-20 flex h-[61px] items-center border-b border-ink/10 bg-white/90 px-4 text-sm font-semibold tracking-[0.18em] text-[#A9834B]" data-hidden="false">
-            SETNAYAN
-          </div>
-          <main className="sn-vt-page">
-            <div data-shell-main>
-              <div className="mx-auto w-full px-4 pb-6 pt-3 sm:px-6 sm:pt-6 lg:px-8">
+    /* `&addMs=N`: an add answers after N ms, as a real one waits on the server (lab-stand-ins.ts › labTimedAdds). */
+    const labAddMs = Math.min(10_000, Math.max(0, Number(typeof sp.addMs === 'string' ? sp.addMs : 0) || 0));
+    const screen = (
                 <section className="sn-col max-w-none flex flex-col gap-6" data-lab-screen="">
-                  <LabGuestActions refuse={sp.refuse === '1'}>
+                  <LabGuestActions refuse={sp.refuse === '1'} addMs={labAddMs}>
                   <GuestsScreen
                     eventId={EVENT}
                     gview={gview}
@@ -452,16 +698,21 @@ export default async function GuestsLabPage({
                     measured={!fail}
                     hasSides
                     groupsByGuest={GROUPS}
-                    groups={[
-                      { group_id: 'grp-b', label: 'Barkada' },
-                      { group_id: 'grp-c', label: 'Choir' },
-                    ]}
+                    groups={
+                      sp.sides === '1'
+                        ? SIDE_GROUPS
+                        : [
+                            { group_id: 'grp-b', label: 'Barkada', team_side: 'both' },
+                            { group_id: 'grp-c', label: 'Choir', team_side: 'both' },
+                          ]
+                    }
                     tables={tables}
                     tableByGuest={tableByGuest}
                     songsByGuest={{}}
                     linkedGuestIds={roster.filter((_, i) => i % 2 === 0).map((g) => g.guest_id)}
                     faceByGuest={{}}
                     requests={3}
+                    titlesWaiting={sp.titles === '1' ? LAB_TITLES_WAITING : []}
                     rootLabel="Maria & Jose"
                     initialQuery={typeof sp.q === 'string' ? sp.q : ''}
                     setup={setupRows}
@@ -475,11 +726,48 @@ export default async function GuestsLabPage({
                   />
                   </LabGuestActions>
                 </section>
+    );
+    /* `&shell=1` — the REAL One Shell around the screen (rail + bar + the event's
+       menu, `boundary="tab"`), for the tablet/desktop walk. */
+    if (sp.shell === '1') {
+      return (
+        <RoleNamesProvider names={{}}>
+          <LabShell eventId={EVENT}>{screen}</LabShell>
+          <LabGuestActions refuse={sp.refuse === '1'} addMs={labAddMs}>
+            <AddGuestSheet eventId={EVENT} defaultSide="both" />
+          </LabGuestActions>
+          <UndoToastHost />
+        </RoleNamesProvider>
+      );
+    }
+    return (
+      <RoleNamesProvider names={{}}>
+        <div className="sn-ambient min-h-screen">
+          {/* A stand-in for the shell's sticky top bar (same class, same height). */}
+          <div className="shell-topbar sticky top-0 z-20 flex h-[61px] items-center border-b border-ink/10 bg-white/90 px-4 text-sm font-semibold tracking-[0.18em] text-[#A9834B]" data-hidden="false">
+            SETNAYAN
+          </div>
+          <main className="sn-vt-page">
+            <div data-shell-main>
+              <div className="mx-auto w-full px-4 pb-6 pt-3 sm:px-6 sm:pt-6 lg:px-8">
+                {screen}
               </div>
             </div>
           </main>
           <DockStandIn />
-          <AddGuestSheet eventId={EVENT} defaultSide="both" />
+          {/* The + sheet's name box reaches its add through the SAME stand-ins as the screen — never the real action. */}
+          <LabGuestActions refuse={sp.refuse === '1'} addMs={labAddMs}>
+            <AddGuestSheet eventId={EVENT} defaultSide="both" />
+            {/* "Add another way › With details" — the shipped Quick add, on the lab's roster. */}
+            <QuickAddSheet
+              eventId={EVENT}
+              existingGuests={roster.map((g) => ({ guest_id: g.guest_id, first_name: g.first_name, last_name: g.last_name, side: g.side, role: g.role, extra_roles: g.extra_roles ?? [] }))}
+              groups={[
+                { group_id: 'grp-b', label: 'Barkada' },
+                { group_id: 'grp-c', label: 'Choir' },
+              ]}
+            />
+          </LabGuestActions>
           {/* What the real page mounts (guests/page.tsx): the host that draws the Undo toast and every guest-list result. */}
           <UndoToastHost />
         </div>

@@ -1,6 +1,7 @@
 import 'server-only';
 
 import { cache } from 'react';
+import { chromeSnapshot } from '@/lib/chrome-snapshot';
 import { createClient } from '@/lib/supabase/server';
 import { fetchUserRoleSummary } from '@/lib/roles';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
@@ -8,6 +9,9 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { isPlaceholderEmail } from '@/lib/anon-onboarding';
 import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
 import { getPrimaryColor, sanitizeRolePalette } from '@/lib/mood-board';
+import { reachableShops } from '@/lib/active-shop';
+import { cookies } from 'next/headers';
+import { ACCOUNTS_LIST_COOKIE, canAddAnother, decodeParkedList, otherAccounts, type ParkedAccount } from '@/lib/account-jars';
 
 /**
  * Data shape returned by `getSwitcherData` — everything the AccountSwitcher
@@ -48,6 +52,22 @@ export type SwitcherContext = {
    * (a second shooter, an assistant), even though the cap allows them one.
    */
   canOpenShop: boolean;
+  /**
+   * EVERY shop this login can open — one avatar-sheet row each (Direction 2, owner 2026-10-22). It used to be
+   * `vendorName` alone (`vendorProfiles[0]`), so a helper in two shops saw one. `reachableShops` decides the list
+   * (every shop this login owns AND every shop it helps in — owner 2026-10-22; lib/active-shop.ts).
+   */
+  shops: SwitcherShop[];
+};
+
+export type SwitcherShop = {
+  id: string;
+  name: string;
+  /** Display URL of the shop's logo (presigned), or null → the sheet draws its initials. */
+  logoUrl: string | null;
+  /** Public page address `/v/<slug>` — the "View page ↗" row. Null → no row. */
+  publicHref: string | null;
+  owned: boolean;
 };
 
 export type SwitcherData = {
@@ -70,6 +90,10 @@ export type SwitcherData = {
    */
   eventsMeasured: boolean;
   context: SwitcherContext;
+  /** Other logins parked on this device (avatar sheet PR2) — display only, never a credential; never this one. */
+  otherAccounts?: ParkedAccount[];
+  /** May one more login be added on this device (MAX_ACCOUNTS_PER_DEVICE)? */
+  canAddAccount?: boolean;
 };
 
 /**
@@ -99,6 +123,23 @@ export type SwitcherData = {
  * or RLS error degrades to an empty array rather than crashing the chrome.
  */
 export const getSwitcherData = cache(async (userId: string): Promise<SwitcherData> => {
+  /* ⚡ A prefetch reuses the switcher this person's last page read (≤ 20 s, same verified
+     user, only a measured answer) — `lib/chrome-snapshot.ts`. A page they open reads fresh. */
+  const base = await chromeSnapshot('switcher', userId, () => loadSwitcherData(userId), (v) => v.eventsMeasured === true);
+  // The parked logins are THIS DEVICE's, read from its cookie every time — never from the per-user snapshot.
+  const parked = await readParkedAccounts();
+  return { ...base, otherAccounts: otherAccounts(parked, userId), canAddAccount: canAddAnother(otherAccounts(parked, userId)) };
+});
+
+async function readParkedAccounts(): Promise<ParkedAccount[]> {
+  try {
+    return decodeParkedList((await cookies()).get(ACCOUNTS_LIST_COOKIE)?.value);
+  } catch {
+    return [];
+  }
+}
+
+async function loadSwitcherData(userId: string): Promise<SwitcherData> {
   try {
   const supabase = await createClient();
 
@@ -205,14 +246,25 @@ export const getSwitcherData = cache(async (userId: string): Promise<SwitcherDat
     }));
   }
 
-  // Presign profile photo (kicked off in parallel above).
-  const photoUrl = await photoUrlPromise;
+  // Presign profile photo (kicked off in parallel above) and each listed shop's logo, together.
+  const listed = reachableShops(roles.vendorProfiles);
+  const [photoUrl, logoUrls] = await Promise.all([
+    photoUrlPromise,
+    Promise.all(listed.map((v) => displayUrlForStoredAsset(v.logo_url ?? null).catch(() => null))),
+  ]);
 
   const context: SwitcherContext = {
     hasVendor: roles.hasVendorAccess,
     vendorName: roles.vendorProfiles[0]?.business_name ?? null,
     isAdmin: roles.hasAdminAccess,
     canOpenShop: roles.canOpenShop,
+    shops: listed.map((v, i) => ({
+      id: v.vendor_profile_id,
+      name: v.business_name,
+      logoUrl: logoUrls[i] ?? null,
+      publicHref: v.business_slug ? `/v/${encodeURIComponent(v.business_slug)}` : null,
+      owned: v.owned,
+    })),
   };
 
   return {
@@ -237,7 +289,7 @@ export const getSwitcherData = cache(async (userId: string): Promise<SwitcherDat
       photoUrl: null,
       events: [],
       eventsMeasured: false,
-      context: { hasVendor: false, vendorName: null, isAdmin: false, canOpenShop: false },
+      context: { hasVendor: false, vendorName: null, isAdmin: false, canOpenShop: false, shops: [] },
     };
   }
-});
+}

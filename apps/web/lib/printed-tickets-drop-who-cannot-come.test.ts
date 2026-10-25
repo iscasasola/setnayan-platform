@@ -21,15 +21,23 @@ const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8')
 
 test('the Printed ticket batch asks for tickets only; the free QR sheet does not', () => {
   const route = read('app/api/hub-print/[piece]/route.ts');
-  assert.match(route, /if \(piece === 'passes'\) \{\s*const \{ passes, images, measured \} = await loadGuestPasses\(set, \{ width: 600, ticketsOnly: true \}\)/);
-  assert.match(route, /await loadGuestPasses\(set, \{ width: thumb \? 160 : 420, limit: thumb \? 12 : undefined \}\)/, 'the free QR sheet started dropping guests');
+  /* + `onlyGuests: picked` (Pick guests, owner 2026-10-25) — the picked guests are still filtered by the ticket rule first. */
+  assert.match(route, /if \(piece === 'passes'\) \{\s*const \{ passes, images, measured, refused \} = await loadGuestPasses\(set, \{ width: 600, ticketsOnly: true, onlyGuests: picked \}\)/);
+  /* The sheet's thumbnail lists everyone and draws one page's codes (`drawOnly`, Studio › Prints' pages, 2026-10-14) — still never `ticketsOnly`. */
+  assert.match(route, /await loadGuestPasses\(set, \{ width: thumb \? 160 : 420, \.\.\.\(thumb \? \{ drawOnly: \{ from: \(askedPage - 1\) \* 12, count: 12 \} \} : \{\}\), onlyGuests: picked \}\)/, 'the free QR sheet started dropping guests');
   const loader = read('lib/print-set.server.ts');
-  const body = loader.slice(loader.indexOf('export async function loadGuestPasses('));
-  assert.match(body, /const all = opts\.ticketsOnly\s*\?\s*filterPassCardRows\(listed,/, 'the batch no longer asks the ticket rule');
-  assert.ok(body.indexOf('filterPassCardRows') < body.indexOf('for (const g of guests)'), 'the rule is applied after the QRs are drawn');
+  /* RE-AIMED 2026-10-16: the read and the rule moved into `passGuestRows` — ONE read for every guest's file, one guest's pass and the
+     "Pass for ▾" list (owner: one guest's pass, free). The batch asks it, with the rule, before any QR is drawn. */
+  const rows = loader.slice(loader.indexOf('export async function passGuestRows('), loader.indexOf('export async function loadPassGuestNames('));
+  assert.match(rows, /const all = ticketsOnly\s*\?\s*filterPassCardRows\(listed,/, 'the batch no longer asks the ticket rule');
   for (const col of ['rsvp_status', 'plus_one_of_guest_id', 'plus_one_name_confirmed_at']) {
-    assert.match(body.slice(0, body.indexOf('.eq(')), new RegExp(col), `${col} is not read — the rule reads undefined and keeps everyone`);
+    assert.match(rows.slice(0, rows.indexOf('.eq(')), new RegExp(col), `${col} is not read — the rule reads undefined and keeps everyone`);
   }
+  const body = loader.slice(loader.indexOf('export async function loadGuestPasses('));
+  assert.match(body, /await passGuestRows\(eventId, Boolean\(opts\.ticketsOnly\)\)/, 'the batch no longer asks the ticket rule');
+  assert.ok(body.indexOf('passGuestRows(') < body.indexOf('for (const g of guests)'), 'the rule is applied after the QRs are drawn');
+  /* …and the names list is the SAME rule (the count over every guest's file is the file's own). */
+  assert.match(loader.slice(loader.indexOf('export async function loadPassGuestNames(')), /passGuestRows\(eventId, true\)/);
 });
 
 test('as the batch applies it: a decline, a declining bringer’s plus-one and a "+ TBA" seat drop; the rest print', () => {

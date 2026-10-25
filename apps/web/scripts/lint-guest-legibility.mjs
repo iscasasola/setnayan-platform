@@ -47,6 +47,13 @@ const SCAN_DIRS = ['app/[slug]', 'app/join'];
 const EXTRA_FILES = ['app/_components/save-photo-button.tsx', 'app/_components/wayfinding-map.tsx', 'app/_components/door/door-shell.tsx'];
 
 const SCAN_EXTENSIONS = new Set(['.tsx', '.ts']);
+// 🎨 THE GUEST PAGE'S OWN STYLESHEET (Batch 9 walk W4, 2026-10-16). The palette looks' names were drawn at 8.3–11.5 px
+// by `font-size` rules in globals.css, and this guard — which read only `text-[Npx]` in TSX — could not see them.
+// A `font-size` below 12 px (px, or rem × 16) in a rule whose selector is the guest page's
+// (`.sn-editorial` · `.pahina…` · `[data-pahina…`) now counts, under the same per-file baseline.
+const CSS_FILES = ['app/globals.css'];
+const GUEST_SELECTOR_RE = /\.sn-editorial\b|\.pahina|\[data-pahina/;
+const CSS_SIZE_RE = /font-size:\s*(\d+(?:\.\d+)?)(px|rem)\b/;
 const MAX_PX = 11; // flag text-[<=11px]; 12px / text-xs and up are allowed
 // 🔴 IT USED TO BE `(\d+)` AND A DECIMAL WALKED STRAIGHT PAST IT.
 // `text-[9.5px]` is not an unusual value — it is what you get copying a
@@ -94,11 +101,34 @@ function fileList() {
     const abs = join(WEB_ROOT, f);
     if (existsSync(abs)) files.push(abs);
   }
+  for (const f of CSS_FILES) {
+    const abs = join(WEB_ROOT, f);
+    if (existsSync(abs)) files.push(abs);
+  }
   return files;
 }
 
 function relOf(file) {
   return relative(REPO_ROOT, file).split(sep).join('/');
+}
+
+// A CSS file: every `font-size` under 12 px inside a rule whose selector is the guest page's. The selector is the last
+// line that opened a rule (`… {`, not an `@media`/`@supports`), which is how this file is written: one selector per rule.
+function scanCss(content) {
+  const hits = [];
+  const lines = content.split('\n');
+  let selector = '';
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const t = line.trim();
+    if (t.endsWith('{') && !t.startsWith('@')) selector = t;
+    if (line.includes(INLINE_OK)) continue;
+    const m = CSS_SIZE_RE.exec(line);
+    if (!m || !GUEST_SELECTOR_RE.test(selector)) continue;
+    const px = m[2] === 'rem' ? Number(m[1]) * 16 : Number(m[1]);
+    if (px < MAX_PX + 1) hits.push({ lineNumber: i + 1, px, snippet: `${selector} ${t}` });
+  }
+  return { count: hits.length, hits };
 }
 
 // Returns { count, hits: [{lineNumber, px, snippet}] } for one file.
@@ -109,6 +139,7 @@ function scanFile(file) {
   } catch {
     return { count: 0, hits: [] };
   }
+  if (file.endsWith('.css')) return scanCss(content);
   const hits = [];
   const lines = content.split('\n');
   for (let i = 0; i < lines.length; i++) {

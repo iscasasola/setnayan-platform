@@ -181,7 +181,7 @@ export default async function AdminOverview() {
         queueTile(
           'subscriptions',
           'Subscriptions',
-          'Supplier Pro / Enterprise to confirm',
+          'Supplier Pro / Ultra to confirm',
           '/admin/subscriptions',
         ),
         queueTile('booking-fees', 'Fees to sync', 'Suppliers who have not paid to sync', '/admin/booking-fees'),
@@ -198,7 +198,7 @@ export default async function AdminOverview() {
         queueTile(
           'user-reports',
           'User reports',
-          'Reported gallery content to moderate',
+          'Reported Memories content to moderate',
           '/admin/user-reports',
         ),
         queueTile(

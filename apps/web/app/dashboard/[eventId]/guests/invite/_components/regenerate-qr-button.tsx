@@ -1,7 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { useConfirm } from '@/app/_components/confirm-dialog';
 import { plainRefusal } from '../../_components/plain-refusal';
@@ -18,14 +17,13 @@ import { regenerateInviteQr } from '../actions';
  *
  * Local to the Invite stage (kept out of a shared module to avoid a
  * cross-feature import per [[project_setnayan_app_linking_contract]]); mirrors
- * the InviteLink co-location. After a successful rotation it router.refresh()es
- * so the server component re-renders the new QR + link from the rotated token.
+ * the InviteLink co-location. After a successful rotation the server component
+ * re-renders the new QR + link from the rotated token — in the action's own
+ * answer (`regenerateInviteQr` revalidates this page), so nothing refreshes here.
  */
 export function RegenerateQrButton({ eventId }: { eventId: string }) {
-  const router = useRouter();
   const [toast, toastNode] = usePeekToast();
   const { confirm, dialog } = useConfirm();
-  const [isPending, startTransition] = useTransition();
   const [busy, setBusy] = useState(false);
   const save = useSaveLoader();
 
@@ -57,10 +55,9 @@ export function RegenerateQrButton({ eventId }: { eventId: string }) {
       return;
     }
     toast.success('New invite QR ready. Share the fresh link with your guests.');
-    startTransition(() => router.refresh());
   }
 
-  const working = busy || isPending;
+  const working = busy;
 
   return (
     <>

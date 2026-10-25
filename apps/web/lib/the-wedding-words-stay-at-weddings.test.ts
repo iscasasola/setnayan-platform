@@ -79,8 +79,9 @@ test('1 · a type with no two people has no love-story scene and no Our Love Sto
   );
   // …and the guest's own bar agrees (both site-body paths).
   const body = read('app/[slug]/_components/site-body.tsx');
-  assert.match(body, /story: weddingOnly\.love_story && guestBodyRenders/);
-  assert.match(body, /story:\s*weddingOnly\.love_story &&\s*bodyRenders/);
+  /* 📜 (…or the Save the Date's film body, under which the page is always drawn — owner 2026-10-15.) */
+  assert.match(body, /story: weddingOnly\.love_story && \(guestBodyRenders \|\| plan\.body === 'save_the_date'\)/);
+  assert.match(body, /story:\s*weddingOnly\.love_story &&\s*\(bodyRenders \|\| plan\.body === 'save_the_date'\)/);
 });
 
 test('2 · the Maker’s stage blurbs name no monogram and no wedding day', () => {

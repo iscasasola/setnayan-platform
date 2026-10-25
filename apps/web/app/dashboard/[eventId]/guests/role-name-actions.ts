@@ -14,20 +14,60 @@
  * the admin client (the column has no session UPDATE grant, on purpose — see
  * its migration). Returns a result the picker says in place; never redirects.
  *
- * ⚠ READ-MODIFY-WRITE ON ONE JSONB. Two hosts renaming two different roles in
- * the same instant could lose one of the two words. Accepted: one couple, one
- * picker, a word they can see and re-type. Not accepted anywhere money is.
+ * 👥 TWO HOSTS NEVER OVERWRITE EACH OTHER: every word goes through the ONE writer
+ * of the column (`writeRoleNames`, a compare-and-set on the value as it is when
+ * the write lands) — the same one the Maker's section headings use at ✓ Apply.
+ *
+ * 🏷 "Rename this section" (owner 2026-10-19, on the entourage: *"Immediate
+ * Family change it to VIP."* → *"on guests?"*) — the same door, a section's key
+ * (`section:<key>`) in the same column. See `lib/role-names.ts`.
  */
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireHostMembership } from '@/lib/host-gate';
 import { revalidateMarch } from '@/lib/entourage-write';
-import { cleanRoleName, isRenamableRole, type RoleNames } from '@/lib/role-names';
-import { isKnownGuestRole, readRoleNames } from '@/lib/role-names.server';
+import { isRenamableSection } from '@/lib/entourage';
+import { isRenamableRole, sectionNameKey, type RoleNames } from '@/lib/role-names';
+import { isKnownGuestRole, writeRoleNames, type RoleWordChange } from '@/lib/role-names.server';
+import type { JsonColumnClient } from '@/lib/update-json-column';
+import type { GuestRole } from '@/lib/guests';
 import { revalidatePath } from 'next/cache';
 
 export type RenameRoleResult =
   | { ok: true; names: RoleNames }
   | { ok: false; reason: string };
+
+const NOT_SAVED = 'The new name was not saved — nothing was changed.';
+
+/** Write one word, then refresh every surface that prints a role word or a section heading. */
+async function writeOneWord(eventId: string, change: RoleWordChange): Promise<RenameRoleResult> {
+  let names: RoleNames | null;
+  try {
+    names = await writeRoleNames(createAdminClient() as unknown as JsonColumnClient, eventId, [change]);
+  } catch {
+    return { ok: false, reason: NOT_SAVED };
+  }
+  // A zero-row UPDATE returns no error — the write proves its row, or "saved" is a guess.
+  if (!names) return { ok: false, reason: NOT_SAVED };
+  await revalidateRoleWords(eventId);
+  return { ok: true, names };
+}
+
+/**
+ * Every surface that prints a role word or a section heading: the guest list + the invitation (`revalidateMarch`),
+ * and the host screens that read them outside /guests.
+ */
+async function revalidateRoleWords(eventId: string): Promise<void> {
+  await revalidateMarch(eventId);
+  for (const path of [
+    `/dashboard/${eventId}/invitation`,
+    `/dashboard/${eventId}/studio/mood-board`,
+    `/dashboard/${eventId}/prints`,
+    `/dashboard/${eventId}/schedule`,
+    `/dashboard/${eventId}/launch`,
+  ]) {
+    revalidatePath(path);
+  }
+}
 
 export async function renameRole(
   eventId: string,
@@ -39,46 +79,12 @@ export async function renameRole(
   if (!isKnownGuestRole(role) || !isRenamableRole(role)) {
     return { ok: false, reason: 'That role can’t be renamed.' };
   }
+  return writeOneWord(eventId, { key: role as GuestRole, one, many: many ?? null });
+}
 
-  const admin = createAdminClient();
-  const { data: ev, error: readErr } = await admin
-    .from('events')
-    .select('role_names')
-    .eq('event_id', eventId)
-    .maybeSingle();
-  if (readErr || !ev) {
-    return { ok: false, reason: 'Couldn’t read your role names — nothing was changed. Try again.' };
-  }
-
-  const current = readRoleNames((ev as { role_names?: unknown }).role_names);
-  const cleanOne = cleanRoleName(one);
-  const cleanMany = cleanRoleName(many ?? '');
-  const next: Record<string, { one: string; many?: string }> = { ...current };
-  // 🔑 Blank means "the usual word" — the key is removed, never stored empty.
-  if (!cleanOne) delete next[role];
-  else next[role] = cleanMany && cleanMany !== cleanOne ? { one: cleanOne, many: cleanMany } : { one: cleanOne };
-
-  const value = Object.keys(next).length > 0 ? next : null;
-  // A zero-row UPDATE returns no error — count the rows, or "saved" is a guess.
-  const { data, error } = await admin
-    .from('events')
-    .update({ role_names: value })
-    .eq('event_id', eventId)
-    .select('event_id');
-  if (error || !data || data.length === 0) {
-    return { ok: false, reason: 'The new name was not saved — nothing was changed.' };
-  }
-
-  // Every surface that prints a role word: the guest list + the invitation
-  // (revalidateMarch), and the host screens that read it outside /guests.
-  await revalidateMarch(eventId);
-  for (const path of [
-    `/dashboard/${eventId}/invitation`,
-    `/dashboard/${eventId}/studio/mood-board`,
-    `/dashboard/${eventId}/prints`,
-    `/dashboard/${eventId}/schedule`,
-  ]) {
-    revalidatePath(path);
-  }
-  return { ok: true, names: readRoleNames(value) };
+/** 🏷 "Rename this section" — one entourage section's heading, for this event. Blank = the usual heading. */
+export async function renameSection(eventId: string, section: string, one: string): Promise<RenameRoleResult> {
+  await requireHostMembership(eventId);
+  if (!isRenamableSection(section)) return { ok: false, reason: 'That section can’t be renamed.' };
+  return writeOneWord(eventId, { key: sectionNameKey(section), one });
 }

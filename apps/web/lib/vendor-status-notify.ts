@@ -149,8 +149,8 @@ export async function notifyVendorStatusChange(args: {
         A listing decision sends them to My Shop, where the listing state and
         its controls actually live. The verification decisions keep
         `/vendor-dashboard/verify` — which is itself now a redirect to
-        `/vendor-dashboard/shop#get-verified`, so both land on the same page and
-        the verification ones land on the right ANCHOR.
+        `/vendor-dashboard/profile#docs` (Your details › Your documents, step 5),
+        so the verification ones land on the papers, open.
       */
       relatedUrl:
         args.decision === 'listed' ||

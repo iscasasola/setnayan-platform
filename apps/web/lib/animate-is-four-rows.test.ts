@@ -149,9 +149,14 @@ test('(1) four rows of the one grid in every phase — nothing is a fifth row an
 });
 
 test('(2) row 4 by phase — Build in: Movement ◆ · Plays · Rows / Delay; Action: nothing; Build out: Movement ◆ · Leaves ◆, no Delay', async () => {
-  assert.deepEqual(smalls(rowOf(await draw('in', ALL), 4)), ['Movement ◆', 'Plays', 'Rows', 'Delay']);
-  assert.deepEqual(smalls(rowOf(await draw('in', ALL, { rows: null }), 4)), ['Movement ◆', 'Plays', 'Delay'], 'a part: Movement ◆ · Plays · Delay');
-  assert.deepEqual(smalls(rowOf(await draw('in', ALL, { delay: null }), 4)), ['Movement ◆', 'Plays', 'Rows'], 'a scene of rows: Movement ◆ · Plays · Rows');
+  assert.deepEqual(smalls(rowOf(await draw('in', ALL), 4)), ['Movement ◆', 'Plays ◆', 'Rows ◆', 'Delay ◆']); // 💎 RE-AIMED 2026-10-18: every Animate control wears ◆ (owner 2026-10-16)
+  assert.deepEqual(smalls(rowOf(await draw('in', ALL, { rows: null }), 4)), ['Movement ◆', 'Plays ◆', 'Delay ◆'], 'a part: Movement ◆ · Plays ◆ · Delay ◆');
+  assert.deepEqual(smalls(rowOf(await draw('in', ALL, { delay: null }), 4)), ['Movement ◆', 'Plays ◆', 'Rows ◆'], 'a scene of rows: Movement ◆ · Plays ◆ · Rows ◆');
+  /* ✨ A cover part's Words ▾ / Reveal ▾ (owner-approved 2026-10-16, prototype "Movement ◆ · Words ▾ · Delay"): Plays
+     stands beside it only while it is the way back from the scroll. */
+  const arrive = { small: 'Words', value: 'word', options: [{ key: 'all', label: 'All at once' }, { key: 'word', label: 'Word by word ◆' }], onPick: noop };
+  assert.deepEqual(smalls(rowOf(await draw('in', ALL, { rows: null, arrive, plays: { value: 'arrival', onPick: noop } }), 4)), ['Movement ◆', 'Words ◆', 'Delay ◆'], 'a cover word: Movement ◆ · Words ◆ · Delay ◆');
+  assert.deepEqual(smalls(rowOf(await draw('in', ALL, { rows: null, arrive }), 4)), ['Movement ◆', 'Plays ◆', 'Words ◆', 'Delay ◆'], 'on the scroll Plays is the way back');
   assert.equal(rowOf(await draw('act', ALL), 4), '', 'Action has a row 4');
   assert.deepEqual(smalls(rowOf(await draw('out', ALL), 4)), ['Movement ◆', 'Leaves ◆'], 'Build out has NO Delay (decision 8)');
   assert.deepEqual(smalls(rowOf(await draw('out', ALL, { leaves: null }), 4)), ['Movement ◆'], 'the stage’s last scene has no next one');
@@ -193,7 +198,7 @@ test('(4) row 2 — four that are each on or off, and a press writes the shipped
     assert.match(row, new RegExp(`role="group" aria-label="Build ${end}" data-chips="${end}-effects"`));
     assert.doesNotMatch(row, /data-pill-selector|data-seg=|sn-pill-thumb|data-seg-thumb/, 'row 2 is a selector’s track again');
     const chips = [...row.matchAll(/<button type="button" aria-pressed="(true|false)" data-chip="(\w+)" class="([^"]*)"><span[^>]*>([^<]*)</g)];
-    assert.deepEqual(chips.map((m) => `${m[4]}:${m[1]}`), ['Fade:true', 'Blur:false', 'Move:true', 'Size:false']);
+    assert.deepEqual(chips.map((m) => `${m[4]}:${m[1]}`), ['Fade ◆:true', 'Blur ◆:false', 'Move ◆:true', 'Size ◆:false']); // 💎 RE-AIMED 2026-10-18: each effect wears ◆
     for (const m of chips) assert.equal(m[3]!.replace(/&amp;/g, '&').replace(/&#x27;/g, "'").trim(), C.chipClass(m[1] === 'true'), `${m[4]} does not wear the app’s chip`);
     /* Four even chips on ONE line — the set is told so; it does not measure itself into three across and a second line. */
     const group = /<div role="group"[^>]*class="([^"]*)"/.exec(row)?.[1] ?? '';
@@ -227,7 +232,7 @@ test('(5) row 3 is only what the ON ones need — a half each', async () => {
     assert.equal(rowOf(await draw(end, null), 3), '', `${end}: row 3 is drawn with nothing on`);
     assert.equal(rowOf(await draw(end, { fade: true, blur: true }), 3), '', `${end}: Fade and Blur need nothing`);
     const move = rowOf(await draw(end, { move: 'below' }), 3);
-    assert.deepEqual(smalls(move), [end === 'in' ? 'From' : 'To']);
+    assert.deepEqual(smalls(move), [end === 'in' ? 'From ◆' : 'To ◆']); // 💎 RE-AIMED 2026-10-18: From / To wear ◆
     assert.match(move, /the bottom/i, 'the way is not said in words');
     assert.doesNotMatch(move, /data-pill-selector/);
     const size = rowOf(await draw(end, { size: 'shrink' }), 3);
@@ -256,6 +261,7 @@ test('(6) a part’s Build out follows the scroll — and Plays is the way back'
      On scroll), so that hidden second write is gone — the couple says which, in one place. */
   assert.doesNotMatch(body, /moveTo\('timeline', null\)/, 'switching the last Build out off still changes the drive behind the couple’s back');
   assert.match(sheet, /plays=\{\{\s*value: motion\.timeline === 'scroll' \? 'scroll' : 'arrival',\s*onPick: \(d\) => moveTo\('timeline', d === 'scroll' \? 'scroll' : null\),/, 'Plays does not write the part’s drive');
-  /* Delay is offered only where it plays: a Build in that is on, and not following the scroll. */
-  assert.match(sheet, /delay=\{\s*motionFxOn\(motion\.in\) && motion\.timeline !== 'scroll'/);
+  /* Delay is offered only where it plays: a Build in that is on (the chips, or ✨ Words ▾ / Reveal ▾ — owner-approved
+     2026-10-16), and not following the scroll. */
+  assert.match(sheet, /delay=\{\s*\(motionFxOn\(motion\.in\) \|\| motion\.words \|\| motion\.reveal\) && motion\.timeline !== 'scroll'/);
 });

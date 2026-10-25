@@ -112,7 +112,9 @@ const STUBS: Record<string, unknown> = {
     },
     loadPrintSet: async () => null,
     printInputsVersion: async () => null,
-    printOwnsPro: async () => false,
+    /* 🗂 Every guest's QR in one PDF is an all-guests file since 2026-10-17 (Event Hub Pro): the event may save it. The LOOK is still
+       the free event's (`eventCoupleWebsiteProActive` above) — what this test is about. */
+    printOwnsPro: async () => true,
     printThemeFor: () => 'house',
   },
 };

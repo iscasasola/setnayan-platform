@@ -100,7 +100,7 @@ const REPLY_WORDS: Record<RsvpStatus, readonly string[]> = {
  * substring of "not coming", so without this the attending search would also
  * list everybody who declined.
  */
-function replyStatusOf(normalizedQuery: string): RsvpStatus | null {
+export function replyStatusOf(normalizedQuery: string): RsvpStatus | null {
   // "yes" / "no" alone are too easily the start of a name ("Nora") — they only
   // count inside the haystack, never as a whole-query reply filter.
   if (normalizedQuery === 'yes' || normalizedQuery === 'no') return null;
@@ -119,8 +119,11 @@ const ROLE_ALIASES: Partial<Record<GuestRow['role'], readonly string[]>> = {
   groom: ['host', 'couple'],
   maid_of_honor: ['moh'],
   matron_of_honor: ['moh'],
+  man_of_honor: ['moh'],
   best_man: ['bm'],
   best_woman: ['bw'],
+  bride_grandparents: ['lolo', 'lola', 'grandfather', 'grandmother'],
+  groom_grandparents: ['lolo', 'lola', 'grandfather', 'grandmother'],
   principal_sponsor: ['ninong', 'ninang', 'godparent'],
   principal_sponsor_ninong: ['godfather', 'sponsor'],
   principal_sponsor_ninang: ['godmother', 'sponsor'],
@@ -250,4 +253,40 @@ export function guestMatchesSearch(query: string, g: GuestSearchRow, facts: Gues
     const max = t.length >= 8 ? 2 : 1;
     return roleTerms.some((w) => w.length >= 4 && within(t, w, max));
   });
+}
+
+/**
+ * IS THIS WHOLE LINE A WORD THE SEARCH UNDERSTANDS — not a person's name? A reply ("not coming", "no reply"), a role
+ * however it is said ("best man", "ninong", the couple's own word), a role group ("Bride & Groom"), a side, a group kind,
+ * a meal, VIP — and their plurals ("ninongs"). The Guests box adds a person on Enter when nobody matches (owner
+ * 2026-10-19: *"i type a name and it is not found there. when i press enter that should add that person"*); a line that
+ * is one of these words is a SEARCH that found nobody, and must never become a guest called "Best Man".
+ */
+export function isSearchVocabulary(query: string, roleNames?: RoleNames | null): boolean {
+  const q = normalizeSearchText(query ?? '');
+  if (!q) return false;
+  if (replyStatusOf(q) || q === 'yes' || q === 'no') return true;
+  const words = new Set<string>(['vip', 'vips', 'plus one', 'plus ones', '+1']);
+  const add = (w: string | null | undefined) => {
+    if (w && w.trim()) words.add(normalizeSearchText(w));
+  };
+  // The usual words AND the couple's own (a filter they would type is either) — vocabulary to match, never drawn.
+  for (const w of Object.values(ROLE_LABELS)) add(w);
+  for (const r of Object.keys(ROLE_LABELS) as GuestRow['role'][]) {
+    add(guestRoleLabel(r, roleNames));
+    add(r.replace(/_/g, ' '));
+    for (const a of ROLE_ALIASES[r] ?? []) add(a);
+  }
+  for (const w of Object.values(ROLE_GROUP_LABELS)) add(w);
+  for (const g of Object.keys(ROLE_GROUP_LABELS) as (keyof typeof ROLE_GROUP_LABELS)[]) add(roleGroupLabel(g, roleNames));
+  for (const w of Object.values(SIDE_LABELS)) add(w);
+  for (const w of Object.values(GROUP_CATEGORY_LABELS)) add(w);
+  for (const w of Object.values(MEAL_LABELS)) add(w);
+  const flat = squash(q);
+  for (const w of words) {
+    if (w === q || squash(w) === flat) return true;
+    // A plural ("ninongs", "bridesmaids", "best men" is rare enough to leave).
+    if (q.endsWith('s') && (w === q.slice(0, -1) || squash(w) === flat.slice(0, -1))) return true;
+  }
+  return false;
 }

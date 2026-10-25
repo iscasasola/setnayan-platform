@@ -62,6 +62,8 @@ type World = {
   basket: Record<string, string[]>;
   catalog: string[];
   bundles: Array<{ bundle_sku_code: string; component_service_code: string }>;
+  /** `event_entitlement_facts` refused (a deploy before its migration) — the render must fall back, unchanged. */
+  factsFail?: boolean;
 };
 
 const emptyWorld = (): World => ({
@@ -133,19 +135,37 @@ function client(world: World, calls: Counter, viewer: string | null): SupabaseCl
     };
     return b;
   };
+  const compSkus = (eventId: string) => {
+    const mine = grantsFor(eventId);
+    if (mine.some((g) => g.scope === 'all_services')) return world.catalog;
+    return [...new Set(mine.flatMap((g) => g.skus ?? []))];
+  };
   const rpc = (name: string, args: Record<string, string>) => {
     bump(calls, `rpc:${name}`);
     const eventId = args.p_event_id as string;
     const hosts = world.hosts[eventId] ?? [];
+    if (name === 'event_entitlement_facts' && world.factsFail) {
+      return Promise.resolve({ data: null, error: { code: 'PGRST202', message: 'Could not find the function public.event_entitlement_facts' } });
+    }
     const answer = (() => {
       switch (name) {
         case 'event_has_comp_for_sku':
           return grantsFor(eventId).some((g) => g.scope === 'all_services' || (g.skus ?? []).includes(args.p_service_key as string));
-        case 'event_comp_active_skus': {
-          const mine = grantsFor(eventId);
-          if (mine.some((g) => g.scope === 'all_services')) return world.catalog;
-          return [...new Set(mine.flatMap((g) => g.skus ?? []))];
-        }
+        case 'event_comp_active_skus':
+          return compSkus(eventId);
+        case 'event_entitlement_facts':
+          // As migration 20271275959355 answers it: the service role only (NULL for anyone else) —
+          // the same order rows, comp list, two host facts, and every basket line of the event.
+          if (viewer !== null) return null;
+          return {
+            orders: world.orders.filter((o) => o.event_id === eventId).map((o) => ({ service_key: o.service_key, status: o.status })),
+            comp_skus: compSkus(eventId),
+            host_internal: hosts.some((h) => world.internalUsers.includes(h)),
+            founder_seat: hosts.some((h) => world.founderUsers.includes(h)),
+            basket: world.orders
+              .filter((o) => o.event_id === eventId && o.order_id)
+              .flatMap((o) => (world.basket[o.order_id!] ?? []).map((code) => ({ service_code: code, order_id: o.order_id, status: o.status }))),
+          };
         case 'event_host_is_internal':
           return hosts.some((h) => world.internalUsers.includes(h));
         case 'event_host_holds_founder_seat':
@@ -192,6 +212,7 @@ const MAKER_AND_GUEST_ASKS: Array<(db: () => SupabaseClient, eventId: string) =>
 ];
 
 const ENTITLEMENT_SHAPES = [
+  'rpc:event_entitlement_facts',
   'orders:of-event',
   'orders:grid',
   'orders:per-product',
@@ -229,6 +250,33 @@ test('one render of everything the Maker and a guest page ask: at most ONE reque
   for (const shape of ENTITLEMENT_SHAPES) {
     assert.ok(count(calls, shape) <= 1, `${shape} was asked ${count(calls, shape)} times in one render`);
   }
+  // 2026-10-18 (event-day load L3): the orders, the comp list, the internal host and the founder seat
+  // are ONE request — `event_entitlement_facts` — beside the bundle map (remembered across requests).
+  assert.equal(count(calls, 'rpc:event_entitlement_facts'), 1);
+  assert.equal(count(calls, 'bundle_components'), 1);
+  for (const per of ['orders:of-event', 'rpc:event_comp_active_skus', 'rpc:event_host_is_internal', 'rpc:event_host_holds_founder_seat']) {
+    assert.equal(count(calls, per), 0, `${per} was asked although the facts answered it`);
+  }
+  assert.equal(count(calls, 'orders:per-product'), 0, 'a per-product orders read is back in a render');
+  assert.equal(count(calls, 'orders:grid'), 0, 'the Studio grid read the orders a second time');
+  assert.equal(count(calls, 'rpc:event_has_comp_for_sku'), 0, 'a per-product comp RPC is back for an event with no grant');
+  assert.ok(total(calls) <= 2, `the render made ${total(calls)} entitlement requests: ${JSON.stringify([...calls])}`);
+});
+
+test('…and when the facts are refused (a deploy before its migration), the render asks each fact exactly as before', async () => {
+  // The owner's own event in the incident: an internal host, nothing bought.
+  const world = emptyWorld();
+  world.hosts[E1] = [ANA];
+  world.internalUsers = [ANA];
+  world.factsFail = true;
+  const calls: Counter = new Map();
+  const db = () => client(world, calls, null);
+
+  await withRenderScopeForTest(async () => {
+    await Promise.all(MAKER_AND_GUEST_ASKS.map((ask) => ask(db, E1)));
+  });
+
+  assert.equal(count(calls, 'rpc:event_entitlement_facts'), 1, 'the refused facts were asked again — once per render is the rule');
   // The exact bill for this event: the orders, the bundle map, the comp list, the internal host, the founder seat.
   assert.equal(count(calls, 'orders:of-event'), 1);
   assert.equal(count(calls, 'bundle_components'), 1);
@@ -240,7 +288,33 @@ test('one render of everything the Maker and a guest page ask: at most ONE reque
   assert.equal(count(calls, 'orders:grid'), 0, 'the Studio grid read the orders a second time');
   assert.equal(count(calls, 'rpc:event_has_comp_for_sku'), 0, 'a per-product comp RPC is back for an event with no grant');
   assert.equal(count(calls, 'rpc:event_basket_orders_granting'), 0, 'the basket was asked about for an event with no orders at all');
-  assert.ok(total(calls) <= 5, `the render made ${total(calls)} entitlement requests: ${JSON.stringify([...calls])}`);
+  assert.ok(total(calls) <= 6, `the render made ${total(calls)} entitlement requests: ${JSON.stringify([...calls])}`);
+});
+
+test('💳 an event WITH orders and a basket: one facts request — never one basket request per product', async () => {
+  const world = emptyWorld();
+  world.hosts[E1] = [BEN];
+  world.orders = [
+    { event_id: E1, user_id: BEN, service_key: 'COUPLE_WEBSITE_PRO', status: 'paid' },
+    { event_id: E1, user_id: BEN, service_key: 'ONBOARDING_SERVICES', status: 'paid', order_id: 'o-1' },
+  ];
+  world.basket = { 'o-1': ['SETNAYAN_AI'] };
+  const calls: Counter = new Map();
+  const db = () => client(world, calls, null);
+  await withRenderScopeForTest(async () => {
+    await Promise.all(MAKER_AND_GUEST_ASKS.map((ask) => ask(db, E1)));
+    assert.equal(await eventSkuActive(db(), E1, 'SETNAYAN_AI'), true, 'the basket line no longer grants its product');
+  });
+  assert.equal(count(calls, 'rpc:event_basket_orders_granting'), 0, 'a basket request per product is back');
+  assert.equal(count(calls, 'rpc:event_entitlement_facts'), 1);
+  assert.equal(total(calls), 2, `${JSON.stringify([...calls])}`);
+  // 🔎 …and the old path, for the record: the same asks with the facts refused send one basket request per product.
+  const old: Counter = new Map();
+  world.factsFail = true;
+  await withRenderScopeForTest(async () => {
+    await Promise.all(MAKER_AND_GUEST_ASKS.map((ask) => ask(() => client(world, old, null), E1)));
+  });
+  assert.ok(count(old, 'rpc:event_basket_orders_granting') >= 3, `the old path asked the basket ${count(old, 'rpc:event_basket_orders_granting')} times`);
 });
 
 test('🔎 the same asks OUTSIDE a render cost dozens — so the "≤ 1" above is the fix holding, not a stub that cannot count', async () => {
@@ -268,9 +342,9 @@ test('an ordinary couple with no orders and no grant: five requests, whatever th
     await Promise.all(MAKER_AND_GUEST_ASKS.map((ask) => ask(db, E1)));
   });
   for (const shape of ENTITLEMENT_SHAPES) assert.ok(count(calls, shape) <= 1, `${shape} ×${count(calls, shape)}`);
-  // …the founder-seat question is reached too, because nothing before it said yes.
-  assert.equal(count(calls, 'rpc:event_host_holds_founder_seat'), 1);
-  assert.equal(total(calls), 5);
+  // …every fact, the founder seat included, rides the one facts request (2026-10-18).
+  assert.equal(count(calls, 'rpc:event_entitlement_facts'), 1);
+  assert.equal(total(calls), 2);
 });
 
 test('the comp gate asked directly, for product after product: one list, no per-product RPC for an event with no grant', async () => {
@@ -283,7 +357,8 @@ test('the comp gate asked directly, for product after product: one list, no per-
       assert.equal(await eventHasCompGrant(db(), E1, sku), false);
     }
   });
-  assert.equal(count(calls, 'rpc:event_comp_active_skus'), 1);
+  assert.equal(count(calls, 'rpc:event_entitlement_facts'), 1, 'the comp list rides the facts');
+  assert.equal(count(calls, 'rpc:event_comp_active_skus'), 0);
   assert.equal(count(calls, 'rpc:event_has_comp_for_sku'), 0, 'the comp gate asks per product in a render again');
 });
 
@@ -302,7 +377,7 @@ test('a comped event answers every covered product from ONE list, and asks per p
     assert.equal(await eventSkuActive(db(), E1, 'PAPIC_GUEST'), false);
     assert.equal(count(calls, 'rpc:event_has_comp_for_sku'), 1, 'asked once, however often it is needed');
   });
-  assert.equal(count(calls, 'rpc:event_comp_active_skus'), 1);
+  assert.equal(count(calls, 'rpc:event_entitlement_facts'), 1, 'the comp list rides the facts');
 });
 
 /* ═══ 2 · NO SHARING ═════════════════════════════════════════════════════ */
@@ -322,7 +397,7 @@ test('two events in one render never share an answer', async () => {
     assert.equal(await checkOrderActive(db(), E2, 'COUPLE_WEBSITE_PRO'), false);
     assert.equal(await eventHostIsInternal(db(), E1), false);
   });
-  assert.equal(count(calls, 'orders:of-event'), 2, 'each event’s orders are their own read');
+  assert.equal(count(calls, 'rpc:event_entitlement_facts'), 2, 'each event’s facts are their own read');
 });
 
 test('two products of one event never share an answer', async () => {
@@ -362,7 +437,9 @@ test('two signed-in people in one render never share an answer — nor does a pe
     assert.equal(await eventSkuActive(ben, E1, 'COUPLE_WEBSITE_PRO'), false, 'Ben was handed the service role’s answer');
     assert.equal(await eventSkuActive(ana, E1, 'COUPLE_WEBSITE_PRO'), true);
   });
-  assert.equal(count(calls, 'orders:of-event'), 3, 'Ana, Ben and the service role each read for themselves — once');
+  // Ana and Ben each read their own (purchaser-scoped) orders; the service role's ride its facts — once each.
+  assert.equal(count(calls, 'orders:of-event'), 2, 'Ana and Ben each read for themselves — once');
+  assert.equal(count(calls, 'rpc:event_entitlement_facts'), 1, 'the service role asked its facts more than once');
 });
 
 test('a signed-in viewer’s own orders read never decides the basket — only the service role may skip it', async () => {
@@ -389,7 +466,7 @@ test('a second render never receives the first render’s answer', async () => {
   // The payment is approved between the two renders.
   world.orders.push({ event_id: E1, user_id: ANA, service_key: 'COUPLE_WEBSITE_PRO', status: 'paid' });
   await withRenderScopeForTest(async () => assert.equal(await eventSkuActive(db(), E1, 'COUPLE_WEBSITE_PRO'), true, 'a paid order was hidden by the last render’s answer'));
-  assert.equal(count(calls, 'orders:of-event'), 2);
+  assert.equal(count(calls, 'rpc:event_entitlement_facts'), 2, 'the second render did not ask for itself');
 });
 
 test('the key names everything it was given: a different question or a different subject is a different slot', async () => {
@@ -502,16 +579,18 @@ test('every answer is the same in a render as outside one — for the service ro
   let compared = 0;
   let trues = 0;
   for (const [name, arrange] of SCENARIOS) {
-    for (const viewer of [null, ANA, BEN] as const) {
+    // The service role answers from the one facts request (2026-10-18) — and, refused, from each fact as before.
+    for (const [viewer, factsFail] of [[null, false], [null, true], [ANA, false], [BEN, false]] as const) {
       const world = emptyWorld();
       world.hosts[E1] = [ANA];
       world.hosts[E2] = [BEN];
+      world.factsFail = factsFail;
       arrange(world);
       const outside = await everyAnswer(() => client(world, new Map(), viewer));
       // One client for the whole render when it is a person's (the request builds one), a new one per ask for the service role.
       const person = viewer === null ? null : client(world, new Map(), viewer);
       const inside = await withRenderScopeForTest(() => everyAnswer(() => person ?? client(world, new Map(), null)));
-      assert.deepEqual(inside, outside, `"${name}" as ${viewer ?? 'the service role'}: a render answers differently from the per-product queries`);
+      assert.deepEqual(inside, outside, `"${name}" as ${viewer ?? 'the service role'}${factsFail ? ' (facts refused)' : ''}: a render answers differently from the per-product queries`);
       compared += Object.keys(outside).length;
       trues += Object.values(outside).filter((v) => v === true).length;
     }

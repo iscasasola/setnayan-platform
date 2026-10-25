@@ -1,14 +1,16 @@
 'use client';
 
 import Link from 'next/link';
-import { useRef, type ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
-import { ArrowUpRight, X } from 'lucide-react';
+import { Check, ChevronDown, X } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
 import { formatCount } from '@/lib/format-number';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { hubProEffectLine, unlockAndApplyHref, type HubProEffectView } from '@/lib/hub-pro-effect-view';
 import type { HubDraftChangeLine } from '@/lib/hub-draft';
+import { formatPhp } from '@/lib/php';
+import { applySheetParts, applySheetButtons, partsBuyHref, type ApplySheetPricing } from '@/lib/apply-sheet-parts';
 
 /** How many named changes the sheet shows before "+ N more" — a short list, never a scroll. */
 export const APPLY_SHEET_MAX_LINES = 8;
@@ -62,15 +64,28 @@ export function ApplyProSheet({
   tour = null,
   changeCount = 0,
   changes,
-  heldOnWeb = 0,
+  heldForPro = 0,
+  onRemoveHeld,
+  pricing = null,
 }: {
+  /**
+   * 💎 PART BY PART (owner 2026-10-22): each part's catalogue price, Full Pro's, and what the event holds — the sheet
+   * groups the held effects under their part, prices them, and offers everything for the rest. Null (the store shell,
+   * an unread catalogue) → the shipped one-unlock sheet.
+   */
+  pricing?: ApplySheetPricing | null;
   effects: readonly HubProEffectView[];
   /** How many changes guests do not see yet (`HubDraftSummary.changeCount`). */
   changeCount?: number;
   /** The same changes by name (`HubDraftSummary.changes`) — absent = not read, then only the count shows. */
   changes?: readonly HubDraftChangeLine[];
-  /** 📵 The store shell: how many of them can be applied on the web only. */
-  heldOnWeb?: number;
+  /**
+   * 📵 The store shell where Apple does not sell Pro: how many Pro changes are held. Said as "◆ N waiting for Pro" —
+   * never the web (anti-steering, 3.1.1) — with "Remove Pro changes" (owner 2026-10-08, "keep, marked").
+   */
+  heldForPro?: number;
+  /** "Remove Pro changes" — every held Pro change off the draft (`drop` · `HUB_DROP_ALL_PRO`). */
+  onRemoveHeld?: () => void;
   /** `formatPhp` over the live catalogue row, or null — then no figure is shown. */
   priceLabel: string | null;
   /** The one Event Hub Pro page — null in the store shell (then no effects are passed either). */
@@ -86,13 +101,17 @@ export function ApplyProSheet({
 }) {
   const titleId = 'maker-apply-pro-title';
   const none = effects.length === 0;
+  /* 💎 Part by part (owner 2026-10-22): the held effects under their part, priced; null → the one-unlock sheet. */
+  const grouped = none ? null : applySheetParts(effects, pricing);
+  const buttons = applySheetButtons(grouped, pricing);
+  const [openPart, setOpenPart] = useState<string | null>(null);
   /* The house modal hook: focus moves in and is trapped, Escape closes, and
      focus goes back to Apply when the sheet shuts (`lib/use-modal-a11y.ts`). */
   const dialogRef = useRef<HTMLDivElement>(null);
   useModalA11y({ open: true, onClose, containerRef: dialogRef });
   return (
     <div
-      className="fixed inset-0 z-[90] flex items-end justify-center bg-ink/30 lg:items-center"
+      className="fixed inset-0 z-[90] flex items-end justify-center lg:items-center"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -110,12 +129,13 @@ export function ApplyProSheet({
         <span aria-hidden className="mx-auto mt-2 h-1 w-10 rounded-full bg-ink/15 lg:hidden" />
         <div className="flex items-center gap-2 px-4 pt-3">
           <p id={titleId} className="min-w-0 flex-1 font-serif text-lg text-ink">
-            {none ? 'Ready to apply' : 'Apply needs Event Hub Pro'}
+            {none ? 'Ready to apply' : grouped ? `Apply needs ${grouped.parts.length === 1 ? '1 Pro part' : `${formatCount(grouped.parts.length)} Pro parts`}` : 'Apply needs Event Hub Pro'}
           </p>
           {none ? null : (
             <InfoTip label="" ariaLabel="About Event Hub Pro effects" align="end">
-              These are in your draft. Guests see them once you unlock Event Hub Pro. Take one off, or apply
-              the rest now — the Pro ones stay in your draft.
+              {grouped
+                ? 'These are in your draft. Guests see them once their part is unlocked for this event — everyone on it. Tap one to go to it, take one off, or apply the rest now; the Pro ones stay in your draft.'
+                : 'These are in your draft. Guests see them once you unlock Event Hub Pro. Take one off, or apply the rest now — the Pro ones stay in your draft.'}
             </InfoTip>
           )}
           <button
@@ -157,31 +177,159 @@ export function ApplyProSheet({
                 ) : null}
               </ul>
             ) : null}
-            {heldOnWeb > 0 ? (
-              <p className="mt-1">{heldOnWeb === 1 ? 'One change' : `${formatCount(heldOnWeb)} changes`} can be applied on the web.</p>
+            {heldForPro > 0 ? (
+              <div className="mt-2 flex min-h-11 items-center justify-between gap-2" data-apply-held-for-pro="">
+                <p className="inline-flex items-center gap-1.5">
+                  <PaidMark state="try" bare label="Event Hub Pro" size="xs" />
+                  {formatCount(heldForPro)} waiting for Pro
+                </p>
+                {onRemoveHeld ? (
+                  <button
+                    type="button"
+                    disabled={pending}
+                    onClick={onRemoveHeld}
+                    className="sn-press inline-flex min-h-11 items-center rounded-full px-3 text-sm font-medium text-ink/70 hover:bg-ink/5 hover:text-ink disabled:opacity-40"
+                  >
+                    Remove Pro changes
+                  </button>
+                ) : null}
+              </div>
             ) : null}
           </div>
         ) : (
+          grouped ? (
+            <div className="mt-2 min-h-0 flex-1 overflow-y-auto px-2" data-apply-pro-effects="" data-apply-parts="">
+              {grouped.parts.map((g) => {
+                const open = !grouped.collapsed || openPart === g.part;
+                return (
+                  <section key={g.part} data-apply-part={g.part} className="border-t border-ink/10 first:border-t-0">
+                    {/* The part's own line — its name and price. With many parts it is a press that opens its effects. */}
+                    <button
+                      type="button"
+                      disabled={!grouped.collapsed}
+                      aria-expanded={grouped.collapsed ? open : undefined}
+                      onClick={() => setOpenPart(open ? null : g.part)}
+                      className="flex min-h-11 w-full items-center gap-2 rounded-2xl px-2 text-left disabled:cursor-default"
+                    >
+                      <PaidMark state="try" bare label="Event Hub Pro" size="xs" />
+                      <span className="min-w-0 flex-1 text-sm">
+                        <span className="block font-semibold text-ink">{g.name}</span>
+                        {/* Closed, a part is ONE line a part — its effects said small underneath (prototype frame 1-closer). */}
+                        {grouped.collapsed && !open ? <span className="block truncate text-[12.5px] text-ink/60">{g.summary}</span> : null}
+                      </span>
+                      {g.pricePhp !== null ? <span className="font-mono text-[13px] text-ink">{formatPhp(g.pricePhp)}</span> : null}
+                      {grouped.collapsed ? <ChevronDown aria-hidden className={`h-4 w-4 text-ink/50 transition-transform ${open ? 'rotate-180' : ''}`} strokeWidth={2} /> : null}
+                    </button>
+                    {open ? (
+                      <ul className="pb-1">
+                        {g.effects.map((e) => (
+                          <li key={e.id} data-apply-pro-effect={e.id} className="flex min-h-11 items-center gap-1 pl-6">
+                            {/* 🚫 No "Go to ↗" (owner 2026-10-22: no go-edit-elsewhere links) — the row itself is the press. */}
+                            <button
+                              type="button"
+                              disabled={!e.jump}
+                              onClick={() => onGo(e)}
+                              aria-label={e.jump ? `Open ${hubProEffectLine(e)}` : undefined}
+                              className="flex min-h-11 min-w-0 flex-1 items-center rounded-2xl px-2 text-left text-sm text-ink hover:bg-ink/5 disabled:hover:bg-transparent"
+                            >
+                              <span className="min-w-0 truncate">
+                                <span className="font-semibold">{e.what}</span>
+                                <span className="text-ink/60"> · {e.where}</span>
+                              </span>
+                            </button>
+                            {e.removable ? (
+                              <button
+                                type="button"
+                                disabled={pending}
+                                onClick={() => onRemove(e)}
+                                aria-label={`Remove ${hubProEffectLine(e)}`}
+                                title="Remove from your draft"
+                                className="sn-press inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink/60 hover:bg-ink/5 hover:text-ink disabled:opacity-40"
+                              >
+                                <X aria-hidden className="h-4 w-4" strokeWidth={2} />
+                              </button>
+                            ) : null}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </section>
+                );
+              })}
+              {buttons?.appleStore ? (
+                /* 🍎 The app (1.1, flag-dark): no figure on this sheet — Apple's prices are on Apple's page. Once anything
+                   is owned the band names it and that it counts; "everything" is not offered here (owner 2026-10-22). */
+                <div className="border-t border-ink/10 px-2 pt-2" data-apply-parts-total="apple">
+                  {buttons.ownedNames.length > 0 ? (
+                    <div data-apply-cap-band="apple" className="rounded-2xl bg-ink/[0.05] px-3 py-2.5 text-[13px] leading-snug text-ink/80">
+                      You already have <strong className="text-ink">{buttons.ownedNames.join(' · ')}</strong>. Everything you unlock counts toward Event Hub Pro.
+                    </div>
+                  ) : (
+                    <p className="text-[13px] leading-snug text-ink/65">Or everything — all {formatCount(buttons.allParts)} parts and no &ldquo;Powered by Setnayan&rdquo; footer.</p>
+                  )}
+                </div>
+              ) : buttons ? (
+                <div className="border-t border-ink/10 px-2 pt-2" data-apply-parts-total="">
+                  {buttons.paidPhp > 0 ? (
+                    /* The cap band — information, not a press: the raised surface, never a border (frame 2). */
+                    <div data-apply-cap-band="" className="rounded-2xl bg-ink/[0.05] px-3 py-2.5 text-[13px] leading-snug text-ink/80">
+                      <p>
+                        You&rsquo;ve paid <strong className="text-ink">{formatPhp(buttons.paidPhp)}</strong> toward everything ({formatPhp(buttons.fullPhp)}).{' '}
+                        <strong className="text-ink">{formatPhp(buttons.restPhp)} more unlocks everything</strong> — {buttons.partsWord}, the other{' '}
+                        {formatCount(buttons.otherParts)} parts, and no &ldquo;Powered by Setnayan&rdquo; footer.
+                      </p>
+                      {buttons.ownedNames.length > 0 ? (
+                        <p className="mt-1 font-mono text-[11px] uppercase tracking-wide text-ink/55">
+                          {buttons.ownedNames.map((n, i) => (
+                            <span key={n}>
+                              {i > 0 ? ' · ' : ''}
+                              {n} <Check aria-hidden className="inline h-3 w-3" strokeWidth={2.4} />
+                            </span>
+                          ))}
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <>
+                      <p className="flex items-baseline justify-between text-sm text-ink">
+                        <span>{grouped.parts.length === 1 ? 'This part' : `These ${formatCount(grouped.parts.length)} parts`}</span>
+                        <span className="font-mono font-bold">{formatPhp(buttons.subtotalPhp)}</span>
+                      </p>
+                      {buttons.lead === 'parts' ? (
+                        <p className="mt-1 text-[13px] leading-snug text-ink/65">
+                          Or everything — all {formatCount(buttons.allParts)} parts and no &ldquo;Powered by Setnayan&rdquo; footer — for{' '}
+                          <strong className="text-ink">{formatPhp(buttons.morePhp)} more</strong>. What you pay counts toward it.
+                        </p>
+                      ) : (
+                        <p className="mt-1 text-[13px] leading-snug text-ink/65">
+                          Everything is only <strong className="text-ink">{formatPhp(buttons.morePhp)} more</strong> — the other{' '}
+                          {formatCount(buttons.otherParts)} parts and no footer mark.
+                        </p>
+                      )}
+                    </>
+                  )}
+                </div>
+              ) : null}
+            </div>
+          ) : (
           <ul className="mt-2 flex-1 overflow-y-auto px-2" data-apply-pro-effects="">
             {effects.map((e) => (
               <li key={e.id} data-apply-pro-effect={e.id} className="flex min-h-12 items-center gap-2 rounded-2xl px-2 py-1">
                 {/* Every row here is Pro — the diamond alone, no word repeated seven times. */}
                 <PaidMark state="try" bare label="Event Hub Pro" size="xs" />
-                <span className="min-w-0 flex-1 text-sm text-ink">
-                  <span className="font-semibold">{e.what}</span>
-                  <span className="text-ink/60"> · {e.where}</span>
-                </span>
-                {e.jump ? (
-                  <button
-                    type="button"
-                    onClick={() => onGo(e)}
-                    aria-label={`Go to ${hubProEffectLine(e)}`}
-                    className="sn-press inline-flex h-11 min-w-11 items-center justify-center gap-1 rounded-full px-2 text-[13px] font-semibold text-ink/70 hover:bg-ink/5 hover:text-ink"
-                  >
-                    Go to
-                    <ArrowUpRight aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                  </button>
-                ) : null}
+                {/* 🚫 No "Go to ↗" (owner 2026-10-22) — the row itself is the press. */}
+                <button
+                  type="button"
+                  disabled={!e.jump}
+                  onClick={() => onGo(e)}
+                  aria-label={e.jump ? `Open ${hubProEffectLine(e)}` : undefined}
+                  className="flex min-h-11 min-w-0 flex-1 items-center rounded-2xl text-left text-sm text-ink hover:bg-ink/5 disabled:hover:bg-transparent"
+                >
+                  <span className="min-w-0">
+                    <span className="font-semibold">{e.what}</span>
+                    <span className="text-ink/60"> · {e.where}</span>
+                  </span>
+                </button>
                 {e.removable ? (
                   <button
                     type="button"
@@ -197,6 +345,7 @@ export function ApplyProSheet({
               </li>
             ))}
           </ul>
+          )
         )}
 
         <div className="flex flex-col gap-2 px-4 pt-3">
@@ -209,7 +358,49 @@ export function ApplyProSheet({
               {/* Owner 2026-09-28, verbatim: "Unlock Pro and Apply". The one
                   purchase page, asked to come back and finish the Apply
                   (`unlockAndApplyOnReturn`); the price is the catalogue's. */}
-              {proHref ? (
+              {proHref && buttons ? (
+                /* 💎 THE LEAD RULE (prototype frames 1 · 1-closer · 2, `hubApplyOffer`): parts lead while they cost less
+                   than the "more"; everything leads once the "more" is no more than they cost; and the parts are not
+                   offered at all once they would cost more than everything — never charged above the rest. */
+                (() => {
+                  const apple = buttons.appleStore === true;
+                  const parts = (primary: boolean) => (
+                    <Link
+                      key="parts"
+                      href={unlockAndApplyHref(partsBuyHref(proHref, buttons.partIds))}
+                      data-apply-parts-unlock=""
+                      className={`${primary ? 'button-primary' : 'rounded-full border border-ink/60 text-sm font-semibold text-ink hover:bg-ink/5'} sn-press inline-flex min-h-11 w-full items-center justify-center gap-1.5 text-center`}
+                    >
+                      {apple
+                        ? `Unlock ${buttons.partsLabel} and Apply`
+                        : primary
+                          ? `Unlock ${buttons.partsLabel} and Apply · ${formatPhp(buttons.subtotalPhp)}`
+                          : `Just ${buttons.partIds.length === 1 ? buttons.partsLabel : `these ${formatCount(buttons.partIds.length)} parts`} · ${formatPhp(buttons.subtotalPhp)}`}
+                    </Link>
+                  );
+                  const everything = (primary: boolean) => (
+                    <Link
+                      key="everything"
+                      href={unlockAndApplyHref(partsBuyHref(proHref, 'full'))}
+                      data-apply-pro-unlock=""
+                      className={`${primary ? 'button-primary' : 'rounded-full border border-ink/60 text-sm font-semibold text-ink hover:bg-ink/5'} sn-press inline-flex min-h-11 w-full items-center justify-center gap-1.5 text-center`}
+                    >
+                      {apple ? 'Everything instead' : primary ? `Unlock everything and Apply · ${formatPhp(buttons.restPhp)}` : `Everything instead · ${formatPhp(buttons.restPhp)}`}
+                    </Link>
+                  );
+                  if (apple) {
+                    return [
+                      parts(true),
+                      ...(buttons.everythingOffered ? [everything(false)] : []),
+                      <p key="apple" className="text-center text-xs text-ink/60">
+                        Billed by Apple to your Apple account.
+                      </p>,
+                    ];
+                  }
+                  if (!buttons.showParts) return everything(true);
+                  return buttons.lead === 'parts' ? [parts(true), everything(false)] : [everything(true), parts(false)];
+                })()
+              ) : proHref ? (
               <Link
                 href={unlockAndApplyHref(proHref)}
                 data-apply-pro-unlock=""

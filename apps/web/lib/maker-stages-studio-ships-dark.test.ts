@@ -128,8 +128,8 @@ test('2 · flag OFF (not internal): the shipped bar, the shipped lower third —
 
 test('3 · the new chrome is unreachable with the flag off — Studio is a lazy piece drawn only under the flag', () => {
   const shell = read(`${L}/maker-shell.tsx`);
-  // `ss` is the only door, and it needs the flag (a phone's only).
-  assert.match(shell, /const ss = stagesStudio && phone;/);
+  // `ss` is the only door, and it needs the flag (a phone's — or a desktop's with its three columns on).
+  assert.match(shell, /const ss = stagesStudio && \(phone \|\| desktopColumns\);/);
   assert.match(shell, /const studioOn = ss && side === 'studio';/);
   assert.match(shell, /const studioHomeOn = studioOn && studioAt === 'home';/);
   assert.match(shell, /const studioTile = studioOn && /);

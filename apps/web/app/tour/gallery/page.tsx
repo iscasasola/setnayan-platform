@@ -6,6 +6,8 @@ import { getWallSnapshot } from '@/lib/live-wall';
 import { sanitizeRolePalette, PALETTE_LIMITS, type PaletteKey } from '@/lib/mood-board';
 import { TourLiveWall, type TourWallTile } from './_components/tour-live-wall';
 import { TourPalettePreview, type TourSwatchGroup } from './_components/tour-palette-preview';
+import { coupleNamesLine } from '@/lib/typed-names';
+import { BRAND_OG_IMAGES } from '@/lib/brand-og';
 
 /**
  * STOP 5 — "See it come alive."
@@ -38,13 +40,14 @@ import { TourPalettePreview, type TourSwatchGroup } from './_components/tour-pal
 export const dynamic = 'force-dynamic';
 
 export const metadata = {
-  title: 'The gallery · Maria & Jose',
+  title: 'Memories · Maria & Jose',
   description:
-    'See a wedding come alive on Setnayan — the live photo wall filling in as the day unfolds, and the couple’s mood-board palette. No sign-up, nothing saved.',
+    'See a wedding come alive on Setnayan — Memory lane filling in as the day unfolds, and the couple’s mood-board palette. No sign-up, nothing saved.',
   alternates: { canonical: '/tour/gallery' },
   openGraph: {
-    title: 'The gallery · Maria & Jose · Setnayan',
-    description: 'The day, captured by everyone — explore a real wedding’s live photo wall and palette.',
+    images: BRAND_OG_IMAGES,
+    title: 'Memories · Maria & Jose · Setnayan',
+    description: 'The day, captured by everyone — explore a real wedding’s Memory lane and palette.',
     url: '/tour/gallery',
     type: 'website',
   },
@@ -182,8 +185,8 @@ export default async function TourGalleryPage() {
       caption: r.caption ?? null,
     }));
 
-  const bride = ev.bride_name ?? 'Maria';
-  const groom = ev.groom_name ?? 'Jose';
+  // 🔀 The sample couple in the order its own name keeps (`coupleNamesLine`, owner 2026-10-21).
+  const couple = coupleNamesLine({ display_name: ev.display_name, bride_name: ev.bride_name ?? 'Maria', groom_name: ev.groom_name ?? 'Jose' });
 
   return (
     <main className="mx-auto w-full max-w-5xl px-5 pb-20 pt-12 sm:pt-16">
@@ -192,20 +195,20 @@ export default async function TourGalleryPage() {
           See it come alive
         </h1>
         <p className="mx-auto mt-4 max-w-xl text-base text-[#5F5E5A] sm:text-lg">
-          On the day, every photo {bride} & {groom}&rsquo;s guests take flows onto one live wall &mdash; the same feed the
+          On the day, every photo {couple}&rsquo;s guests take flows onto Memory lane &mdash; the same feed the
           venue screen shows, mirrored to every phone. And it all stays true to the palette they set months before.
         </p>
       </header>
 
       {/* Live Photo Wall — client-only fork of LiveWallBlock (no network poll). */}
-      <section aria-label="Live photo wall" className="mx-auto mt-12 max-w-3xl">
+      <section aria-label="Memory lane" className="mx-auto mt-12 max-w-3xl">
         <div className="flex items-center gap-2">
           <Camera aria-hidden className="h-4 w-4 text-[#8C6932]" strokeWidth={1.75} />
-          <h2 className="font-serif text-2xl text-[#1B1A17]">The wall, live</h2>
+          <h2 className="font-serif text-2xl text-[#1B1A17]">Memory lane, live</h2>
         </div>
         <p className="mt-2 text-sm text-[#5F5E5A]">
           Watch new moments drift in. On a real wedding day these appear the instant they&rsquo;re taken &mdash; here, tap
-          &ldquo;Bring the wall to life&rdquo; to see it fill. Nothing is saved; reload to start fresh.
+          &ldquo;Bring Memory lane to life&rdquo; to see it fill. Nothing is saved; reload to start fresh.
         </p>
         <div className="mt-6">
           <TourLiveWall
@@ -224,7 +227,7 @@ export default async function TourGalleryPage() {
           <h2 className="font-serif text-2xl text-[#1B1A17]">The palette behind it all</h2>
         </div>
         <p className="mt-2 text-sm text-[#5F5E5A]">
-          Every render &mdash; the invitation, the live wall chrome, the editorial &mdash; pulls from one colour story.
+          Every render &mdash; the invitation, the Memory lane chrome, the editorial &mdash; pulls from one colour story.
           Drag the preview to recolor it in your own head; it&rsquo;s a local sketch and nothing here is saved.
         </p>
 
@@ -251,7 +254,7 @@ export default async function TourGalleryPage() {
               <h3 className="font-serif text-xl text-[#1B1A17]">Their inspirations</h3>
             </div>
             <p className="mt-1.5 text-sm text-[#5F5E5A]">
-              The references {bride} & {groom} pinned &mdash; the look they&rsquo;re building toward.
+              The references {couple} pinned &mdash; the look they&rsquo;re building toward.
             </p>
             <ul className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
               {inspirations.map((item) => (
@@ -305,7 +308,7 @@ export default async function TourGalleryPage() {
       <section className="mx-auto mt-12 max-w-2xl rounded-3xl border border-[#A9834B]/40 bg-[#FBF6EA] px-6 py-10 text-center">
         <h2 className="font-serif text-2xl text-[#1B1A17] sm:text-3xl">That&rsquo;s the whole wedding.</h2>
         <p className="mx-auto mt-3 max-w-lg text-base text-[#5F5E5A]">
-          The invitation, the vendors, the seating, the budget, the gallery &mdash; one place, start to finish. Start your
+          The invitation, the suppliers, the seating, the budget, Memories &mdash; one place, start to finish. Start your
           own on Setnayan, free, in minutes. Set na &rsquo;yan.
         </p>
         <Link

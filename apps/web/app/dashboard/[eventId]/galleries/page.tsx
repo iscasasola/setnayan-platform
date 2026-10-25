@@ -15,8 +15,9 @@ import { RevealList } from '@/app/_components/reveal-list';
 import { formatCount } from '@/lib/format-number';
 import { addOnHeroCopy } from '@/lib/add-ons-catalog';
 import { MiniTour } from '@/app/_components/mini-tour';
+import { isStoreShellRequest } from '@/lib/request-platform';
 
-export const metadata = { title: 'Galleries' };
+export const metadata = { title: 'Memories' };
 
 type Props = { params: Promise<{ eventId: string }> };
 
@@ -162,8 +163,13 @@ export default async function GalleriesHubPage({ params }: Props) {
   };
 
   const sources: Source[] = [];
+  // 🍎 The iPhone app names no paid web extra and opens none of their pages
+  // (lib/store-shell.ts) — a web-bought Papic or Live Watch unlocks nothing
+  // there, so their two cards are not drawn (their buttons went to refused
+  // pages). Held by `lib/the-app-names-no-paid-service.test.ts`.
+  const storeShell = await isStoreShellRequest();
 
-  if (hasPapic) {
+  if (hasPapic && !storeShell) {
     const ready = papicCount !== null && papicCount > 0;
     sources.push({
       key: 'papic',
@@ -182,7 +188,7 @@ export default async function GalleriesHubPage({ params }: Props) {
     });
   }
 
-  if (ownsPanood) {
+  if (ownsPanood && !storeShell) {
     // The livestream recording lands on the broadcast archive after the event.
     sources.push({
       key: 'panood',
@@ -222,7 +228,7 @@ export default async function GalleriesHubPage({ params }: Props) {
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6">
-      <PageMasthead title="Galleries" />
+      <PageMasthead title="Memories" />
 
       <RevealList as="div" className="mt-6 space-y-3">
         {sources.map((s) => {
@@ -289,7 +295,7 @@ export default async function GalleriesHubPage({ params }: Props) {
             'utility', which Our Services filters out, and its only link was on
             Memories. It hands the photographer's full gallery to the couple's
             Google Drive, so it belongs beside the other photo sources.
-          · Memories (`/alaala`) — the Photo Notes your guests left, the most
+          · Guest Stories (`/alaala`) — the Photo Notes your guests left, the most
             storied moments, and Story Assignments — linked from nowhere at all.
           These are doorways, not sources: neither claims a "ready" or
           "collecting" state this page has not measured. */}
@@ -344,7 +350,7 @@ function DOORWAYS(base: string): {
     },
     {
       key: 'memories',
-      name: 'Memories',
+      name: 'Guest Stories',
       line: 'The stories your guests left, and who tells each moment.',
       href: `${base}/alaala`,
       Icon: BookHeart,

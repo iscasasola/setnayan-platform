@@ -1,5 +1,6 @@
 'use server';
 
+import { writeWidgetConfig, type WidgetConfigClient } from '@/lib/widget-config-write';
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import { forgetDraftedEventColumn } from '@/lib/hub-draft-store';
 import { stdBackgroundChanged } from '@/lib/std-background-changed';
@@ -18,7 +19,7 @@ import {
   revealTemplateWriteAllowed,
 } from '@/lib/reveal-access';
 import { eventOwnsStdOpenings } from '@/lib/std-openings';
-import { resolveStdBackground, type StdBackground, stdFollowTheme } from '@/lib/std-backgrounds';
+import { type StdBackground, stdFollowTheme } from '@/lib/std-backgrounds';
 import {
   resolveStdMedia,
   resolveStdNsfwVerdict,
@@ -27,14 +28,13 @@ import {
 } from '@/lib/std-media';
 import { screenStdVideo } from '@/lib/nsfw-screen';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
-import { presignClientRef } from '@/lib/r2-client-ref.server';
 import {
   eventMediaPolicy,
   parseClientRef,
   stdMediaPolicy,
 } from '@/lib/r2-client-ref';
 import { publishSaveTheDate } from '@/lib/launch-save-the-date';
-import { LOOK_PRO_REQUIRED, combineChanges, refChange, type LookChange } from '@/lib/hub-look-pro';
+import { LOOK_PRO_REQUIRED, refChange, type LookChange } from '@/lib/hub-look-pro';
 import { lookProAllows } from '@/lib/hub-look-gate';
 
 /**
@@ -115,25 +115,6 @@ export async function chooseRevealTemplate(
   if (error) return { ok: false };
   revalidate(eventId);
   return { ok: true };
-}
-
-/**
- * Presign a just-uploaded Step-1 background photo (r2:// ref) → a display URL,
- * so the builder preview can show it immediately. Gated to the event's couple.
- */
-export async function presignStdBackground(
-  eventId: string,
-  ref: string,
-): Promise<{ url: string | null }> {
-  if (!eventId || !ref) return { url: null };
-  await requireCouple(eventId);
-  // SEC-1: `ref` is a raw server-action argument — any signed-in caller can put
-  // ANY key in it. Membership on `eventId` says nothing about who owns the
-  // object, so this used to sign another couple's payment proof or another
-  // vendor's DTI permit (all five buckets) on request. Pin it to THIS event's
-  // own Save-the-Date uploads in the public media bucket; anything else → null.
-  const url = await presignClientRef(ref, stdMediaPolicy(eventId));
-  return { url: url ?? null };
 }
 
 /**
@@ -226,48 +207,34 @@ export async function saveAllStdContent(
      Echoing back what is stored ('none') and going back to ours ('remove') are
      never gated. Refused BEFORE anything is written, with a code the builder
      turns into a sentence — never a generic "error". */
-  const wantsBg =
-    data.background !== undefined && data.background !== null && data.backgroundFollowsTheme !== true
-      ? resolveStdBackground(data.background)
-      : null;
   const wantsMedia =
     data.media !== undefined && data.media !== null ? resolveStdMedia(data.media, eventId) : null;
   const wantsSong =
     typeof data.siteMusicKey === 'string' && data.siteMusicKey.trim()
       ? data.siteMusicKey.trim()
       : null;
-  if (wantsBg || wantsMedia || wantsSong) {
+  if (wantsMedia || wantsSong) {
     const { data: storedRow } = await supabase
       .from('events')
-      .select('std_background, std_media, site_bg_music_r2_key')
+      .select('std_media, site_bg_music_r2_key')
       .eq('event_id', eventId)
       .maybeSingle();
     const stored = (storedRow as Record<string, unknown> | null) ?? null;
-    const storedBg = resolveStdBackground(stored?.std_background);
     const storedMedia = resolveStdMedia(stored?.std_media, eventId);
-    const changes: LookChange[] = [];
-    if (wantsBg) {
-      changes.push(
-        refChange(
-          storedBg.kind === 'upload' ? storedBg.value : null,
-          wantsBg.kind === 'upload' ? wantsBg.value : null,
-        ),
-      );
-    }
-    if (wantsMedia) {
-      changes.push(
-        refChange(
+    /* 💎 PART BY PART (owner 2026-10-22): the film is the Reveal part's (gate 3), the song the Music part's (gate 4) —
+       each asked of its own part, and a refusal of either refuses the save. */
+    const filmChange: LookChange = wantsMedia
+      ? refChange(
           storedMedia.type === 'video' ? (storedMedia.videoKey ?? null) : null,
           wantsMedia.type === 'video' ? (wantsMedia.videoKey ?? null) : null,
-        ),
-      );
-    }
-    if (wantsSong) {
-      changes.push(
-        refChange(stored?.site_bg_music_r2_key as string | null | undefined, wantsSong),
-      );
-    }
-    if (!(await lookProAllows(eventId, combineChanges(...changes)))) {
+        )
+      : 'none';
+    const songChange: LookChange = wantsSong ? refChange(stored?.site_bg_music_r2_key as string | null | undefined, wantsSong) : 'none';
+    const [filmOk, songOk] = await Promise.all([
+      lookProAllows(eventId, filmChange, 'reveal'),
+      lookProAllows(eventId, songChange, 'music'),
+    ]);
+    if (!filmOk || !songOk) {
       return { ok: false, error: LOOK_PRO_REQUIRED };
     }
   }
@@ -322,38 +289,11 @@ export async function saveAllStdContent(
     }
     patch.std_reveal_effects = incomingEffects;
   }
-  // Step-1 background choice — validated to {kind, value}.
-  if (data.backgroundFollowsTheme === true) {
-    // 🎞 Same as theme — nothing of the film's own; the theme paints it, and the
-    // couple's Readability (Lighten / Darken) is kept (`stdFollowTheme`).
+  // 🎞 THE FILM WEARS THE MAIN BACKGROUND (Look restudy row 6, owner-approved 2026-10-08): it keeps no background
+  // of its own, so whatever Step 1 posts is stored as "follows" — only the couple's Readability (Lighten / Darken)
+  // travels (`stdFollowTheme`). The picture and the colour are the main background's (Studio › Look › Background).
+  if (data.backgroundFollowsTheme === true || (data.background !== undefined && data.background !== null)) {
     patch.std_background = stdFollowTheme(data.background?.legibility ?? null);
-  } else if (data.background !== undefined && data.background !== null) {
-    const bg = resolveStdBackground(data.background);
-    // SEC-1: an 'upload' background carries a client-supplied r2:// ref that is
-    // presigned LATER — by lib/std-bg-image.ts and by the PUBLIC wedding-site
-    // loaders, which serve anonymous visitors. `resolveStdBackground` accepts
-    // ANY non-empty string for kind==='upload', so an unvalidated ref turns
-    // this write into a cross-tenant read oracle with an anonymous delivery
-    // channel. Refuse a foreign ref rather than persisting it.
-    //
-    // Grandfather clause: a value IDENTICAL to what is already stored is
-    // allowed through even if it fails today's policy. Re-saving the builder
-    // must not brick on a row written before this rule existed — and echoing
-    // back a ref we already serve introduces nothing new.
-    if (bg.kind === 'upload' && !parseClientRef(bg.value, stdMediaPolicy(eventId))) {
-      const { data: curBg } = await supabase
-        .from('events')
-        .select('std_background')
-        .eq('event_id', eventId)
-        .maybeSingle();
-      const stored = resolveStdBackground(
-        (curBg as Record<string, unknown> | null)?.std_background,
-      );
-      if (!(stored.kind === 'upload' && stored.value === bg.value)) {
-        return { ok: false, error: 'bad-background-ref' };
-      }
-    }
-    patch.std_background = bg;
   }
   // Step-3 media choice — validated to {type, videoKey?, posterKey?, fit?}.
   //
@@ -491,13 +431,22 @@ export async function saveAllStdContent(
         : {};
     const bag = config[VENUE_CHOICES_KEY];
     const venue = bag && typeof bag === 'object' && !Array.isArray(bag) ? (bag as Record<string, unknown>) : {};
-    // A zero-row UPDATE is success-shaped (RLS refuses silently): ask for the row back.
-    const { data: wrote, error: ue } = await supabase
-      .from('invitation_widgets')
-      .update({ config_json: { ...config, [VENUE_CHOICES_KEY]: { ...venue, [slot]: choice } } })
-      .eq('widget_id', w.widget_id)
-      .select('widget_id');
-    if (ue || !wrote?.length) return { ok: false, error: 'db-error' };
+    // ⛪ "Our drawing ◆" is Event Hub Pro and only ever reaches the row through
+    // the Maker's Apply gate (`venueBagNewDrawings`, lib/hub-draft.ts). This live
+    // door neither sets nor clears it: the card keeps whatever the row holds.
+    delete choice.drawing;
+    if (readVenueChoices(config, eventId)[slot]?.drawing === true) choice.drawing = true;
+    /* A zero-row UPDATE is success-shaped (RLS refuses silently): the writer asks for the row back.
+       👥 One write at a time, merged from what was read — the other card, or another screen's write to this scene, is
+       kept (`lib/widget-config-write.ts`, owner 2026-10-18: two hosts never overwrite each other). */
+    try {
+      await writeWidgetConfig(supabase as unknown as WidgetConfigClient, { eventId, widgetId: w.widget_id as string }, config, {
+        ...config,
+        [VENUE_CHOICES_KEY]: { ...venue, [slot]: choice },
+      });
+    } catch {
+      return { ok: false, error: 'db-error' };
+    }
   }
 
   // Backfill the canonical wedding date from the Save-the-Date date when the

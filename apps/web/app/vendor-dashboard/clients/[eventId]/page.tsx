@@ -79,7 +79,7 @@ import {
   fetchMyPendingAsk,
 } from '@/app/vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/access-actions';
 import { FLOOR_REQUESTABLE_AREAS } from '@/lib/floor-command';
-import { COORDINATOR_TILE } from '@/lib/day-requests';
+import { isCoordinatorTrade } from '@/lib/coordinator-trade';
 import type { DelegateArea } from '@/lib/delegate-areas';
 import { holdsSpecialization } from '@/lib/vendor-specialization-gate';
 import { resolveEventFeeGate, resolveFeeEnforcement } from '@/lib/vendor-event-fee-access.server';
@@ -110,7 +110,7 @@ import {
 } from './actions';
 import { BookingAskOutcomeLine, LockAnswerLine, LockRequestAnswer } from './_components/booking-ask-panel';
 import { supplierAskOutcomeOf, type SupplierAskRow } from '@/lib/booking-ask-words';
-import { lockAgreeFeeHeld, lockAgreeNotice, lockDeclineNotice } from '@/lib/lock-answer-notice';
+import { lockAgreeFeeHeld, lockAgreeHalls, lockAgreeNotice, lockDeclineNotice } from '@/lib/lock-answer-notice';
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import { PaymentAsksPanel } from './_components/payment-asks-panel';
 import { CustomerMoneyFold } from './_components/customer-money-fold';
@@ -485,12 +485,15 @@ type Props = {
     /** `held` — the couple's news waits on the booking fee (`vendorAgreeToLock`). */
     fee?: string;
     lock_decline?: string;
+    /** `hall_taken` — the card's taken halls and the free ones to offer (`lockAgreeHallsParam`). */
+    taken?: string;
+    free?: string;
     competing?: string;
   }>;
 };
 
 const HANDOVER_KIND_LABEL: Record<'gallery_link' | 'file' | 'note' | 'signoff', string> = {
-  gallery_link: 'Gallery link',
+  gallery_link: 'Album link',
   file: 'Sample / proof',
   note: 'Note',
   signoff: 'All delivered',
@@ -577,7 +580,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // below this point renders only when `isBooked`, and the RPC re-checks both
   // regardless — this decides what to DRAW, never what is permitted.
   const isBookedCoordinator =
-    isBooked && ((profile as { services?: string[] | null }).services ?? []).includes(COORDINATOR_TILE);
+    isBooked && isCoordinatorTrade((profile as { services?: string[] | null }).services);
   const lockRequest = brief.stage === 'requested' ? (brief.lock_request ?? null) : null;
 
   // ── ASKING THE HOST FOR ACCESS, ON A DAY THAT IS NOT THE WEDDING ──────────
@@ -704,7 +707,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     isBooked || lockRequest ? null : supplierAskOutcomeOf(completionRow, isLockHandshakeEnabled());
   // The answer to Agree / Decline pressed HERE lands back here (`return_to`).
   const lockNotice =
-    lockAgreeNotice(search.lock_agree, { competing: Number(search.competing) || null, feeHeld: lockAgreeFeeHeld(search.fee) }) ??
+    lockAgreeNotice(search.lock_agree, { competing: Number(search.competing) || null, feeHeld: lockAgreeFeeHeld(search.fee), halls: lockAgreeHalls(search.taken, search.free) }) ??
     lockDeclineNotice(search.lock_decline);
   // 🔒 The couple's deposit receipt is a PRIVATE file. What reaches the card is
   // a short-lived link scoped to THIS event's deposit folder — never the stored
@@ -3223,7 +3226,7 @@ function FilesTab(props: {
 
       {isBooked ? (
         <p className="text-xs text-ink/45">
-          Deliver galleries and proofs from the Schedule tab&rsquo;s handover panel — the couple
+          Deliver albums and proofs from the Schedule tab&rsquo;s handover panel — the couple
           confirms receipt there.
         </p>
       ) : null}
@@ -3624,7 +3627,7 @@ function ScheduleTab(props: {
             <PackageCheck aria-hidden className="h-4 w-4 text-terracotta" /> Deliver the handover
           </h3>
           <p className="mt-1 text-xs text-ink/55">
-            Send the couple their finished work — a gallery link, a sample/proof image, or a closing
+            Send the couple their finished work — an album link, a sample/proof image, or a closing
             note. They confirm receipt, which marks your booking delivered.
           </p>
 
@@ -3636,7 +3639,7 @@ function ScheduleTab(props: {
           {search.handover && search.handover !== 'sent' ? (
             <p role="alert" className="mt-3 rounded-lg bg-warn-50 px-3 py-2 text-xs text-warn-900">
               {search.handover === 'badurl'
-                ? 'That gallery link needs to start with http(s)://.'
+                ? 'That album link needs to start with http(s)://.'
                 : search.handover === 'nofile'
                   ? 'Choose an image to upload.'
                   : search.handover === 'empty'
@@ -3650,14 +3653,14 @@ function ScheduleTab(props: {
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <details className="rounded-xl border border-ink/10 bg-white/50 p-3">
               <summary className="flex cursor-pointer items-center gap-1.5 text-sm font-medium">
-                <Link2 aria-hidden className="h-3.5 w-3.5 text-ink/55" /> Share a gallery link
+                <Link2 aria-hidden className="h-3.5 w-3.5 text-ink/55" /> Share an album link
               </summary>
               <form action={vendorPostHandover} className="mt-2 grid gap-2">
                 <input type="hidden" name="event_id" value={eventId} />
                 <input type="hidden" name="kind" value="gallery_link" />
-                <input type="text" name="label" maxLength={200} placeholder="e.g. Full wedding gallery" className={shopInputClass} />
+                <input type="text" name="label" maxLength={200} placeholder="e.g. Full wedding album" className={shopInputClass} />
                 <input type="url" name="payload" required placeholder="https://…" className={shopInputClass} />
-                <p className="text-[11px] text-ink/45">Big galleries stay on your link (Drive, Pixieset, etc.) — we don’t re-host them.</p>
+                <p className="text-[11px] text-ink/45">Big albums stay on your link (Drive, Pixieset, etc.) — we don’t re-host them.</p>
                 <SubmitButton pendingLabel="Sending…" className="justify-self-start rounded-lg bg-ink px-3 py-1.5 text-xs font-medium text-cream">
                   Send link
                 </SubmitButton>
@@ -3673,7 +3676,7 @@ function ScheduleTab(props: {
                 <input type="hidden" name="kind" value="file" />
                 <input type="text" name="label" maxLength={200} placeholder="e.g. Edited preview" className={shopInputClass} />
                 <input type="file" name="file" accept="image/png,image/jpeg,image/webp,image/gif,image/heic" required className="text-xs" />
-                <p className="text-[11px] text-ink/45">A single image, max 6 MB. For full sets, share a gallery link instead.</p>
+                <p className="text-[11px] text-ink/45">A single image, max 6 MB. For full sets, share an album link instead.</p>
                 <SubmitButton pendingLabel="Uploading…" className="justify-self-start rounded-lg bg-ink px-3 py-1.5 text-xs font-medium text-cream">
                   Upload
                 </SubmitButton>

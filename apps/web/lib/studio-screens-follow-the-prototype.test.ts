@@ -97,7 +97,7 @@ test('2 · the opening line: ONE dropdown in Studio, never a pill row — the sh
   assert.match(shipped, /name="opening_line"/);
 });
 
-test('3 · a print in Studio is one row of the list: name · sizes · size ▾ · its Saves under it', async () => {
+test('3 · a print in Studio is one row of the list: name · sizes · size ▾ · its ONE Download under it', async () => {
   const { PrintPieceEditor } = await import(`../${L}/maker-prints`);
   const { formatFor } = await import('./print-pieces');
   const input = {
@@ -113,13 +113,22 @@ test('3 · a print in Studio is one row of the list: name · sizes · size ▾ �
   /* The size ▾ and the Saves are client pieces (lazy on a server render) — their PLACES are read here, their shape from the source.
      RE-AIMED 2026-10-09 (Prints wears the templates): the name · sizes · size ▾ are ONE Form row, drawn by the lazy `print-head` part (its place is the
      lazy slot at the head of the editor), and the Saves — still right under it — are the ONE ActionButton (`variant="action"`), not the old chip. */
-  assert.match(studio, /data-print-studio=""[^>]*>[\s\S]*?<\/div><div [^>]*data-print-piece-saves="invitation"/, 'the Saves are not right under the piece’s row');
   assert.doesNotMatch(studio, /This piece/, 'the old “This piece” block is still drawn');
   const src = read(`${L}/maker-prints.tsx`);
   const editor = src.slice(src.indexOf('export function PrintPieceEditor('), src.indexOf('export function PassCardsPanel('));
-  assert.equal((editor.match(/variant="action"/g) ?? []).length, 3, 'a Studio Save is not the one ActionButton');
+  /* RE-AIMED 2026-10-17 (owner *"ok on prints"*: ONE Download per piece): the row's head, then its ONE Download right under it — the
+     lazy `piece-download` part (the ActionButton inside it, `studio-prints-settings.tsx`); the Event pass is the guest print part. */
+  const studioSrc = editor.slice(editor.indexOf('if (studio) {'));
+  assert.match(studioSrc, /part="print-head"[\s\S]*?\/>\s*\{menuEmpty \|\| storyMissing \? null : \(\s*<StudioTool\s+part="piece-download"/, 'the Download is not right under the piece’s row');
+  assert.equal((studioSrc.match(/part="piece-download"/g) ?? []).length, 1, 'a piece has more than its one Download');
+  assert.equal((studioSrc.match(/part="guest-piece"/g) ?? []).length, 1, 'the Event pass is not a guest print');
+  assert.doesNotMatch(studioSrc, /part="all-in-one"|part="one-pass"|Sample \(PDF\)|Save · Classic/, 'a retired Save is drawn on a Studio row');
+  const sheet = read(`${L}/studio-prints-settings.tsx`);
+  assert.match(sheet.slice(sheet.indexOf('export function StudioPieceDownload(')), /<PrintSaveButton href=\{href\} file=\{file\} variant="action" main label=\{label\}/, 'the Download is not the one ActionButton');
   assert.doesNotMatch(editor, /variant=\{studio \? 'chip'/, 'a Studio Save is still the old chip');
-  assert.match(editor.slice(editor.indexOf('if (studio) {')), /part="print-head"[\s\S]{0,200}line=\{sizes\.length > 1 \? sizes\.join\(sizes\.length > 2 \? ' · ' : ' or '\) : spec\.size\}/, 'the Studio row has no name · sizes · size ▾');
+  /* RE-AIMED 2026-10-16 (owner: "short size lines"): the row's line names the CHOSEN size only — every size stays in the ▾
+     (`lib/print-head-line.ts`, held by `studio-prints-navigation.test.ts`). */
+  assert.match(editor.slice(editor.indexOf('if (studio) {')), /part="print-head"[\s\S]{0,200}line=\{fam \? printHeadLine\(k, formats\[fam\]\) : spec\.size\}/, 'the Studio row has no name · chosen size · size ▾');
   const shipped = await html(React.createElement(PrintPieceEditor, { input, piece: 'invitation' }));
   assert.match(shipped, /This piece/, 'the shipped Details lost its block — flag-off must not change');
 });
@@ -151,16 +160,21 @@ test('5 · the full-screen surface: green switches, edge to edge, Look full widt
 
 test('6 · Attire: every colour a role wears is a button that opens the SAME picker, drafts the change, and can be removed', () => {
   const src = read('app/dashboard/[eventId]/studio/mood-board/_components/mood-board-studio.tsx');
-  const attire = src.slice(src.indexOf("{tab === 'attire' ? ("), src.indexOf("{tab === 'insp' ? ("));
+  const attire = src.slice(src.indexOf("{tab === 'attire' ? ("), src.indexOf("{tab === 'dos' ? ("));
   assert.doesNotMatch(attire, /<i key=\{i\} aria-label=\{c\}/, 'a role’s colour is still a static dot (owner: “the palettes can still be changed to colors manually”)');
-  assert.match(attire, /data-mood-board-role-colour=\{i\}[\s\S]*?onClick=\{\(\) => setSheet\(\{ kind: 'picker', target: \{ kind: 'role-colour'/, 'a dot does not open the picker');
+  /* RE-AIMED 2026-10-14 (two picks): the first pick's dot opens the role's colour; the second's, its own (`second-colour`). */
+  /* RE-AIMED 2026-10-16 (per-role attire): every dot is the one `RoleColourDot` (a zone's, a guest option's, a pick's). */
+  assert.match(attire, /<RoleColourDot[\s\S]*?index=\{i\}[\s\S]*?setSheet\(\{\s*kind: 'picker',\s*target:\s*pi === 0\s*\? \{ kind: 'role-colour'/, 'a dot does not open the picker');
+  /* RE-AIMED 2026-10-19 (owner: "just the circle like attire"): the dot moved to `colour-dot.tsx`, shared with the Palette. */
+  assert.match(read('app/dashboard/[eventId]/studio/mood-board/_components/colour-dot.tsx'), /function RoleColourDot\([\s\S]*?data-mood-board-role-colour=\{index\} onClick=\{onPick\}/, 'the dot is not a button that opens what it is handed');
   /* RE-AIMED 2026-10-09: the ＋ is the ActionButton, icon only — its label is its name. */
-  assert.match(attire, /label=\{`Add a colour for \$\{row\.label\}`\}/, 'the role lost its ＋');
+  assert.match(attire, /`Add a colour for \$\{row\.label\}`/, 'the role lost its ＋');
   /* The picker is the one sheet every colour here uses, and a pick goes through `commit` → the draft. */
   assert.equal((src.match(/<ColourPickerSheet/g) ?? []).length, 1, 'a second picker was invented');
   assert.match(src, /const setRoleColour = [\s\S]*?commit\(withRoleColours\(/, 'a role colour change does not go through the draft');
   assert.match(src, /const removeRoleColour = [\s\S]*?commit\(withRoleColours\(/, 'removing a role colour does not go through the draft');
   assert.match(src, /data-mood-board-role-remove/, 'no way to remove a role’s colour');
   /* RE-AIMED 2026-10-09: the fields come from `paletteDraftFields` (lib/studio-mood-board-saves.ts, held byte for byte by studio-mood-board-posts-the-same). */
-  assert.match(src, /paletteDraftFields\(wrote\)/, 'the palette no longer writes into the draft');
+  /* RE-AIMED 2026-10-18 (two hosts never overwrite): the board also sends the board it was built on (`sentPalette`). */
+  assert.match(src, /paletteDraftFields\(wrote, sentPalette\.current\)/, 'the palette no longer writes into the draft');
 });

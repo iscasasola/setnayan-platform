@@ -6,15 +6,19 @@ import { sanitizeCustomSection } from '@/lib/custom-sections';
 import { cache } from 'react';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/auth';
 import { landAfterWrite } from '@/lib/maker-land.server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
-import { asViewed } from '@/lib/view-as-free.server';
-import { isStoreShellRequest } from '@/lib/request-platform';
+import { eventHubOwnership, hubPartPrices } from '@/lib/couple-website-pro';
+import { asViewedOwnership } from '@/lib/view-as-free.server';
+import { HUB_PARTS, NO_HUB_PARTS, hubOwnershipView, type HubOwnership, type HubOwnershipView, type HubPartId } from '@/lib/hub-parts';
+import { getIapGate } from '@/lib/request-platform';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { formatPhp } from '@/lib/orders';
 import { readLiveCeremonyTime } from '@/lib/ceremony-time.server';
 import { hubDraftProEffects, hubProEffectView, type HubProEffectView } from '@/lib/hub-pro-effects';
+import { HUB_DRAFT_REBASE_WIDGET_FIELDS, hubDraftRebaseNeeds, rebaseHubDraftPatch, type HubDraftRebaseLive, type HubDraftRebased } from '@/lib/hub-draft-rebase';
+import { sanitizePostEventDraft } from '@/lib/post-event-draft';
 import {
   HUB_DRAFT_EVENT_READ_COLUMNS,
   HUB_DRAFT_FIELD,
@@ -22,9 +26,11 @@ import {
   emptyHubDraft,
   hubDraftBounceHref,
   hubDraftForWrite,
+  hubDraftAuthorOf,
   hubDraftSaveFailure,
   mergeHubDraft,
   sanitizeHubDraft,
+  sanitizeHubDraftPatch,
   summarizeHubDraft,
   type HubDraft,
   type HubDraftEventColumn,
@@ -74,6 +80,37 @@ export async function readHubDraft(supabase: SessionClient, eventId: string): Pr
 }
 
 /**
+ * 👥 THE DRAFT ROW AS READ, WITH ITS VERSION — `revision`, raised by one by the row's own trigger on every UPDATE
+ * (`touch_event_site_drafts`, 20271275174284): a counter, so it can never repeat the way a clock can.
+ * `stamp: null` = there was no row. A failed read THROWS, as `readHubDraft`.
+ * ⏳ Before that migration is applied (a build that runs ahead of the database) the version is `updated_at` — the
+ * same compare-and-set, on the trigger's clock.
+ */
+export type HubDraftStampValue = { column: 'revision' | 'updated_at'; value: string };
+export type HubDraftRow = { draft: HubDraft | null; stamp: HubDraftStampValue | null };
+export async function readHubDraftRow(supabase: SessionClient, eventId: string): Promise<HubDraftRow> {
+  let column: HubDraftStampValue['column'] = 'revision';
+  let res = await supabase.from('event_site_drafts').select('draft_json, revision').eq('event_id', eventId).maybeSingle();
+  if (res.error && (res.error as { code?: string }).code === '42703') {
+    column = 'updated_at';
+    res = await supabase.from('event_site_drafts').select('draft_json, updated_at').eq('event_id', eventId).maybeSingle();
+  }
+  const { data, error } = res;
+  if (error) throw new Error(`Could not read the Event Hub draft: ${error.message}`);
+  if (!data) return { draft: null, stamp: null };
+  const row = data as Record<string, unknown> & { draft_json: unknown };
+  return { draft: sanitizeHubDraft(row.draft_json), stamp: { column, value: String(row[column]) } };
+}
+
+/** Another screen wrote the draft between this writer's read and its write — the write was NOT made. */
+export class HubDraftMovedError extends Error {
+  constructor() {
+    super('The Event Hub draft changed on another screen while this save was on its way.');
+    this.name = 'HubDraftMovedError';
+  }
+}
+
+/**
  * Write a whole draft. UPDATE first, INSERT only when there is no row yet.
  *
  * NOT an upsert: PostgREST's `upsert(…, { onConflict: 'event_id' })` compiles to
@@ -86,6 +123,11 @@ export async function readHubDraft(supabase: SessionClient, eventId: string): Pr
  * Hide). Keep the grant tight; write the columns the grant allows.
  *
  * Asks for the row back each time: zero rows is a refusal, never a success.
+ *
+ * 👥 `expect` — THE COMPARE-AND-SET (owner 2026-10-18, two hosts never overwrite). Given the `stamp` the writer READ
+ * (`readHubDraftRow`), the UPDATE only lands while the row still carries it, and `null` (there was no row) only
+ * INSERTS. Either one missing its mark throws `HubDraftMovedError` — nothing was written — and `updateHubDraft`
+ * re-reads and builds again on the newer draft. Absent: the unconditional write it always was.
  *
  * 📏 THE ONE DOOR EVERY DRAFT WRITE PASSES, so the size rule lives here too:
  * the oldest Undo states are dropped until the draft fits
@@ -100,29 +142,34 @@ export async function writeHubDraft(
   eventId: string,
   draftIn: HubDraft,
   appliedSnapshot?: Record<string, unknown>,
+  expect?: HubDraftStampValue | null,
 ): Promise<void> {
   const draft = hubDraftForWrite(draftIn);
   const fields = {
     draft_json: draft,
     ...(appliedSnapshot ? { applied_snapshot: appliedSnapshot } : {}),
   };
-  const updated = await supabase
-    .from('event_site_drafts')
-    .update(fields)
-    .eq('event_id', eventId)
-    .select('event_id');
-  if (updated.error) {
-    throw new Error(`Could not save the Event Hub draft: ${updated.error.message}`);
+  if (expect !== null) {
+    let q = supabase.from('event_site_drafts').update(fields).eq('event_id', eventId);
+    if (expect) q = q.eq(expect.column, expect.value);
+    const updated = await q.select('event_id');
+    if (updated.error) {
+      throw new Error(`Could not save the Event Hub draft: ${updated.error.message}`);
+    }
+    if (Array.isArray(updated.data) && updated.data.length > 0) return;
+    // 👥 The row it read is gone or has moved on: nothing was written — build again on what is there now.
+    if (expect) throw new HubDraftMovedError();
   }
-  if (Array.isArray(updated.data) && updated.data.length > 0) return;
 
   const inserted = await supabase
     .from('event_site_drafts')
     .insert({ event_id: eventId, ...fields })
     .select('event_id');
   if (inserted.error) {
-    // Two first saves raced and the other one created the row: update it.
+    // Two first saves raced and the other one created the row.
     if (inserted.error.code === '23505') {
+      // 👥 A writer that read "no draft" builds again on the one the other screen just made.
+      if (expect === null) throw new HubDraftMovedError();
       const retry = await supabase
         .from('event_site_drafts')
         .update(fields)
@@ -139,6 +186,56 @@ export async function writeHubDraft(
   }
 }
 
+/** 👥 The session's own account id, from its token (checked locally) — or nothing (no session, an admin client, a test). */
+async function sessionAuthor(supabase: SessionClient): Promise<string | undefined> {
+  try {
+    const auth = (supabase as unknown as { auth?: { getClaims?: () => Promise<{ data: { claims?: { sub?: unknown } } | null }> } }).auth;
+    if (typeof auth?.getClaims !== 'function') return undefined;
+    const { data } = await auth.getClaims();
+    return hubDraftAuthorOf(data?.claims?.sub);
+  } catch {
+    return undefined;
+  }
+}
+
+/** How many times a draft write re-reads and builds again before it gives up (each lost round is another screen's save landing). */
+export const HUB_DRAFT_WRITE_ATTEMPTS = 5;
+
+/**
+ * 👥 EVERY READ → CHANGE → WRITE OF THE DRAFT, AS ONE STEP (owner 2026-10-18: two hosts on one event, or one host on two
+ * phones, save at once; the Maker saves every pick). Before this each writer read the draft, merged its change and wrote
+ * the WHOLE row back — and a save that landed in between was silently gone, with an Undo step. Now: read the row and its
+ * version, `build` the next draft from it, and write only if the row is still that version (`writeHubDraft`'s `expect`);
+ * otherwise read again and build again on the newer draft — the other save is kept, this one goes on top of it.
+ *
+ * `build` returns the draft to write (and anything it wants handed back), or `null` to write nothing. It may run more
+ * than once, so it must be a function of the draft it is given. Gives up after `HUB_DRAFT_WRITE_ATTEMPTS` rounds — a
+ * failed save the caller already tells in words, never a silent overwrite.
+ */
+export async function updateHubDraft<R = undefined>(
+  supabase: SessionClient,
+  eventId: string,
+  build: (current: HubDraft | null, by: string | undefined) => Promise<{ next: HubDraft; said?: R } | null> | { next: HubDraft; said?: R } | null,
+  appliedSnapshot?: Record<string, unknown>,
+  author?: string | null,
+): Promise<{ written: boolean; draft: HubDraft | null; said?: R }> {
+  /* 👥 WHO MAKES THIS STEP (owner 2026-10-18, rulings A + B — `lib/hub-draft-authors.ts`): handed to `build`, which
+     passes it to `mergeHubDraft(…, by)`. The caller's gate already knows it (`author`); otherwise the session's own
+     account, read from its token locally (`getClaims`, no round trip). `null` = say nobody. */
+  const by = author === null ? undefined : (hubDraftAuthorOf(author) ?? (await sessionAuthor(supabase)));
+  for (let attempt = 1; ; attempt += 1) {
+    const row = await readHubDraftRow(supabase, eventId);
+    const built = await build(row.draft, by);
+    if (!built) return { written: false, draft: row.draft };
+    try {
+      await writeHubDraft(supabase, eventId, built.next, appliedSnapshot, row.stamp);
+      return { written: true, draft: built.next, said: built.said };
+    } catch (e) {
+      if (!(e instanceof HubDraftMovedError) || attempt >= HUB_DRAFT_WRITE_ATTEMPTS) throw e;
+    }
+  }
+}
+
 /**
  * 🧹 A LIVE WRITE SUPERSEDES THE SAME FACT DRAFTED EARLIER (review 2026-10-05:
  * "Same as theme" drafted on the Theme step, then a background picked in the
@@ -150,14 +247,70 @@ export async function writeHubDraft(
  */
 export async function forgetDraftedEventColumn(supabase: SessionClient, eventId: string, column: HubDraftEventColumn): Promise<void> {
   try {
-    const draft = await readHubDraft(supabase, eventId);
-    if (!draft || !(column in draft.events)) return;
-    const events = { ...draft.events } as Record<string, unknown>;
-    delete events[column];
-    await writeHubDraft(supabase, eventId, { ...draft, events: events as HubDraft['events'] });
+    await updateHubDraft(supabase, eventId, (draft) => {
+      if (!draft || !(column in draft.events)) return null;
+      const events = { ...draft.events } as Record<string, unknown>;
+      delete events[column];
+      return { next: { ...draft, events: events as HubDraft['events'] } };
+    });
   } catch (e) {
     console.error(`[hub-draft] could not forget the drafted ${column}:`, e instanceof Error ? e.message : e);
   }
+}
+
+/**
+ * 👥 The LIVE values a based save compares with (`lib/hub-draft-rebase.ts`) for what the draft does not hold — only the
+ * columns and sections it names, through the couple's own session. A failed read THROWS: merging against a guessed
+ * "live" could put the screen's stale copy back over the other host's change.
+ */
+export async function readHubDraftRebaseLive(
+  supabase: SessionClient,
+  eventId: string,
+  needs: { columns: string[]; canvases: string[]; editorial?: boolean },
+): Promise<HubDraftRebaseLive> {
+  const columns = needs.columns.filter((c) => (HUB_DRAFT_EVENT_READ_COLUMNS as readonly string[]).includes(c));
+  const [ev, rows, story] = await Promise.all([
+    columns.length > 0
+      ? supabase.from('events').select(columns.join(', ')).eq('event_id', eventId).maybeSingle()
+      : Promise.resolve({ data: {}, error: null }),
+    needs.canvases.length > 0
+      ? supabase.from('invitation_widgets').select('widget_type, config_json').eq('event_id', eventId).in('widget_type', needs.canvases)
+      : Promise.resolve({ data: [], error: null }),
+    // 📖 Round 3: the story's own row, through its own reader — the same one the draft's `editorial` goes through.
+    needs.editorial
+      ? supabase.from('event_editorial').select('draft_json').eq('event_id', eventId).maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+  ]);
+  if (ev.error) throw new Error(`Could not read the live Event Hub: ${ev.error.message}`);
+  if (rows.error) throw new Error(`Could not read the live sections: ${rows.error.message}`);
+  if (story.error) throw new Error(`Could not read the live story: ${story.error.message}`);
+  const canvas: Record<string, unknown> = {};
+  const fields: Record<string, Record<string, unknown>> = {};
+  for (const r of (rows.data ?? []) as Array<{ widget_type: string; config_json: unknown }>) {
+    const cfg = (r.config_json ?? {}) as Record<string, unknown>;
+    if (cfg.canvas !== undefined) canvas[r.widget_type] = cfg.canvas;
+    fields[r.widget_type] = Object.fromEntries(HUB_DRAFT_REBASE_WIDGET_FIELDS.filter((f) => cfg[f] !== undefined).map((f) => [f, cfg[f]]));
+  }
+  return {
+    events: (ev.data ?? {}) as Record<string, unknown>,
+    canvas,
+    ...(needs.canvases.length > 0 ? { fields } : {}),
+    ...(needs.editorial ? { editorial: (sanitizePostEventDraft((story.data as { draft_json?: unknown } | null)?.draft_json) ?? {}) as Record<string, unknown> } : {}),
+  };
+}
+
+/** One save, merged from its `base` onto the draft as it is NOW (`rebaseHubDraftPatch`), with the live values it needs. */
+export async function rebaseOnDraft(
+  supabase: SessionClient,
+  eventId: string,
+  current: HubDraft,
+  patch: HubDraftPatch,
+  base: unknown,
+): Promise<HubDraftRebased> {
+  if (base === undefined || base === null) return rebaseHubDraftPatch(current, patch, undefined, { events: {}, canvas: {} });
+  const needs = hubDraftRebaseNeeds(current, patch, sanitizeHubDraftPatch(base));
+  const live = needs.columns.length + needs.canvases.length > 0 || needs.editorial ? await readHubDraftRebaseLive(supabase, eventId, needs) : { events: {}, canvas: {} };
+  return rebaseHubDraftPatch(current, patch, base, live);
 }
 
 /** Where a form's draft save goes back to when it did NOT land. */
@@ -173,11 +326,16 @@ export type HubDraftBounce = { formData: FormData; fallback: string };
  * (prod, 2026-09-27, digest 1691351420). Without `back` (a caller that RETURNS
  * a result, `updatePhotoMoments`) it throws, for that caller's own catch.
  */
-export async function saveHubDraftPatch(eventId: string, patch: HubDraftPatch, back?: HubDraftBounce): Promise<void> {
+export async function saveHubDraftPatch(eventId: string, patch: HubDraftPatch, back?: HubDraftBounce, base?: HubDraftPatch): Promise<void> {
   try {
     const supabase = await createClient();
-    const current = (await readHubDraft(supabase, eventId)) ?? emptyHubDraft();
-    await writeHubDraft(supabase, eventId, mergeHubDraft(current, patch));
+    /* 👥 `base` — what the writer built its whole value on (a canvas it read from the draft): merged from it onto the
+       draft as it is NOW, so a save that landed between the writer's read and this write is kept. */
+    await updateHubDraft(supabase, eventId, async (cur, by) => {
+      const current = cur ?? emptyHubDraft();
+      const rebased = await rebaseOnDraft(supabase, eventId, current, patch, base);
+      return { next: mergeHubDraft(current, rebased.patch, by) };
+    });
   } catch (e) {
     if (!back) throw e;
     console.error('[hub-draft] save failed:', e instanceof Error ? e.message : e);
@@ -313,7 +471,8 @@ export async function readHubLiveState(supabase: SessionClient, eventId: string)
     { data: prefs, error: prefsErr },
     ceremonyTime,
   ] = await Promise.all([
-    supabase.from('events').select(HUB_DRAFT_EVENT_READ_COLUMNS.join(', ')).eq('event_id', eventId).maybeSingle(),
+    // 💎 + `slug` — the address guests use today, what a drafted custom address is compared with (2026-10-22).
+    supabase.from('events').select([...HUB_DRAFT_EVENT_READ_COLUMNS, 'slug'].join(', ')).eq('event_id', eventId).maybeSingle(),
     supabase.from('invitation_widgets').select(WIDGET_LIVE_SELECT).eq('event_id', eventId),
     // 📖 Post Event's live arrangement — the story's own row (RLS: the couple's own).
     supabase.from('event_editorial').select('draft_json').eq('event_id', eventId).maybeSingle(),
@@ -331,9 +490,11 @@ export async function readHubLiveState(supabase: SessionClient, eventId: string)
   if (storyErr) throw new Error(`Could not read the live Post Event story: ${storyErr.message}`);
   // Unread is not "no picks" either — Apply would compare against a guess.
   if (prefsErr) throw new Error(`Could not read the live scene styles: ${prefsErr.message}`);
+  const { slug: liveSlug, ...evCols } = (ev ?? {}) as Record<string, unknown>;
   return {
+    slug: typeof liveSlug === 'string' ? liveSlug : null,
     events: {
-      ...((ev ?? {}) as HubLiveState['events']),
+      ...(evCols as HubLiveState['events']),
       ceremony_time: ceremonyTime,
       // 🎨 The five main colours the page wears live, by slot — what a drafted colour is compared with.
       main_colours: mainColourSlotsOf((ev as { role_palette?: unknown } | null)?.role_palette, (ev as { invite_theme?: unknown } | null)?.invite_theme),
@@ -355,8 +516,16 @@ export type HubDraftBarData = {
   storeShell: boolean;
   /** `formatPhp` over the live catalogue row, or null (unreadable, or the shell). */
   priceLabel: string | null;
-  /** The one Event Hub Pro buy surface (null in the shell). */
+  /** The one Event Hub Pro buy surface — Apple's page where Apple sells it, else null in the shell. */
   proHref: string | null;
+  /**
+   * 🍎 The store shell may sell Pro through Apple here (lib/iap/iap-gate.ts —
+   * the shell, a StoreKit build, the owner's switch). Then Pro behaves as on the
+   * web — tried in the draft, asked for at Apply — except that the Apply sheet's
+   * button opens Apple's sheet and its price is StoreKit's. Still no web price
+   * (`priceLabel` stays null) and no web link (`proHref` stays null).
+   */
+  appleIap: boolean;
   /**
    * 💎 The Pro effects this draft holds, by name and place — what the Apply
    * sheet lists (owner 2026-09-28). Derived from the SAME plan as `proCount`
@@ -365,11 +534,25 @@ export type HubDraftBarData = {
    */
   proEffects: HubProEffectView[];
   /**
-   * 👁 Does this viewer own Pro, AS SHOWN (the view switch applied) and outside
-   * the store shell — the toolbar's pick between the two halves of a save's
-   * answer (`hubDraftBarAfterSave`).
+   * 👁 Is this viewer shown the event's REAL ownership — not "viewing as a free
+   * couple", and outside the store shell — the toolbar's pick between the two
+   * halves of a save's answer (`hubDraftBarAfterSave`: `owned` is the event's
+   * real ownership, part by part; `free` is none).
    */
   ownsPro: boolean;
+  /**
+   * 💎 What the event holds of Event Hub Pro, AS SHOWN (owner 2026-10-22, part by
+   * part) — Full Pro, the parts one by one, and what it has paid toward
+   * everything. Serializable for the client; the Apply re-reads it server-side.
+   */
+  ownership: HubOwnershipView;
+  /**
+   * 💎 Each on-sale part's catalogue price, and Full Pro's (owner 2026-10-22) — what the Apply sheet groups, prices and
+   * sums, and what "₱X more unlocks everything" is worked from. Read, never typed; empty in the store shell (no web
+   * price there) and when unreadable — then the sheet names the parts with no figure.
+   */
+  partPricePhp: Partial<Record<HubPartId, number>>;
+  fullPricePhp: number | null;
 };
 
 /**
@@ -389,7 +572,11 @@ export type HubDraftBarData = {
 export const loadHubDraftBarData = cache(async function loadHubDraftBarData(
   eventId: string,
 ): Promise<HubDraftBarData & { readError: boolean }> {
-  const storeShell = await isStoreShellRequest();
+  const { storeShell, iap } = await getIapGate();
+  /* 📵 Pro is hidden/held in the store shell UNLESS Apple can sell it there
+     (owner 2026-10-18): with IAP, web-bought Pro is usable in the app too —
+     guideline 3.1.3(b) allows it once the same item is sold by In-App Purchase. */
+  const proShell = storeShell && !iap;
   const supabase = await createClient();
   let summary: HubDraftSummary = { hasChanges: false, changeCount: 0, proCount: 0, canUndo: false };
   let proEffects: HubProEffectView[] = [];
@@ -397,28 +584,47 @@ export const loadHubDraftBarData = cache(async function loadHubDraftBarData(
   /* ⚡ Read even with no draft yet: the toolbar needs it to pick which half of a
      save's answer (`hubDraftBarAfterSave`) is this viewer's — owner 2026-09-30,
      SPEED FIRST (a drawn pick brings no render any more). */
-  let ownsProViewed = false;
+  let ownedViewed: HubOwnership = NO_HUB_PARTS;
+  let viewedAsFree = false;
   try {
-    const [draft, ownsPro] = await Promise.all([
+    const realP = eventHubOwnership(createAdminClient(), eventId).catch(() => NO_HUB_PARTS);
+    const [draft, owned, real, me] = await Promise.all([
       readHubDraft(supabase, eventId),
       // Admin client: orders RLS is purchaser-scoped (see lib/hub-look-gate.ts).
       // 👁 As the viewer is shown it: the bar is a render (its Apply is not —
-      // `hubDraftAction` asks `lookProAllows`, which never reads the switch).
-      asViewed(eventCoupleWebsiteProActive(createAdminClient(), eventId).catch(() => false)),
+      // `hubDraftAction` asks `hubOwnershipForWrite`, which never reads the switch).
+      asViewedOwnership(realP),
+      realP,
+      // ↺ Whose steps are whose (ruling B): the request's own account — the same cached read the page already made.
+      getCurrentUser().then((u) => u?.id).catch(() => undefined),
     ]);
-    ownsProViewed = ownsPro;
+    ownedViewed = owned;
+    /* "As a free couple" — the switch handed back no parts for an event that holds some. */
+    viewedAsFree = owned === NO_HUB_PARTS && (real.full || real.parts.size > 0);
     if (draft) {
       const live = await readHubLiveState(supabase, eventId);
       // 📵 In the store shell web-bought Pro is not usable yet (owner 2026-09-25),
       // so a Pro key reads as needing the web even for an owning couple.
-      summary = summarizeHubDraft(draft, live, ownsPro && !storeShell);
-      if (!storeShell) proEffects = hubDraftProEffects(draft, live, ownsPro).map(hubProEffectView);
+      const forPlan = proShell ? NO_HUB_PARTS : owned;
+      summary = summarizeHubDraft(draft, live, forPlan, me);
+      if (!proShell) proEffects = hubDraftProEffects(draft, live, owned).map(hubProEffectView);
       // 📋 …and the same changes BY NAME, for the Apply sheet (one reader, one walk).
-      summary.changes = hubDraftChangeLines(draft, live, ownsPro && !storeShell);
+      summary.changes = hubDraftChangeLines(draft, live, forPlan);
     }
   } catch (e) {
     console.error('[hub-draft] could not load the draft bar:', e instanceof Error ? e.message : e);
     readError = true;
+  }
+  /* 💎 The parts' prices (one cached catalogue read) — never in any store shell. */
+  const partPricePhp: Partial<Record<HubPartId, number>> = {};
+  let fullPricePhp: number | null = null;
+  if (!storeShell) {
+    const read = await hubPartPrices(createAdminClient()).catch(() => null);
+    for (const p of HUB_PARTS) {
+      const php = read?.onSale.has(p.sku) ? read.parts.get(p.sku) : undefined;
+      if (php !== undefined) partPricePhp[p.id] = php;
+    }
+    fullPricePhp = read?.full ?? null;
   }
   let priceLabel: string | null = null;
   if (!storeShell && summary.proCount > 0) {
@@ -431,10 +637,17 @@ export const loadHubDraftBarData = cache(async function loadHubDraftBarData(
     storeShell,
     priceLabel,
     // `from=maker`: the buy page's way back is the Maker, where the draft waits.
-    proHref: storeShell ? null : `/dashboard/${eventId}/studio/website-pro?from=maker`,
+    // 🍎 Where Apple sells Pro (owner 2026-10-18), "Unlock Pro and Apply" opens
+    // Apple's page (`/apple-pro`, lib/iap) — never the web's price page — and it
+    // returns with `?apply=1` exactly as the web's does. Any other store shell: none.
+    proHref: iap ? `/dashboard/${eventId}/apple-pro?from=maker` : storeShell ? null : `/dashboard/${eventId}/studio/website-pro?from=maker`,
     proEffects,
     readError,
-    ownsPro: ownsProViewed && !storeShell,
+    ownsPro: !viewedAsFree && !proShell,
+    ownership: hubOwnershipView(proShell ? NO_HUB_PARTS : ownedViewed),
+    partPricePhp,
+    fullPricePhp,
+    appleIap: iap,
   };
 });
 
@@ -456,14 +669,21 @@ export async function hubDraftBarAfterSave(
   supabase: SessionClient,
   eventId: string,
   draft: HubDraft,
+  me?: string,
 ): Promise<HubDraftBarLive | null> {
   try {
     const live = await readHubLiveState(supabase, eventId);
-    const free = { ...summarizeHubDraft(draft, live, false), changes: hubDraftChangeLines(draft, live, false) };
-    const owned = { ...summarizeHubDraft(draft, live, true), changes: hubDraftChangeLines(draft, live, true) };
+    // ↺ `me` — whose steps ↺ may take back (ruling B); absent: every step, as before.
+    // 💎 Part by part (2026-10-22): still nobody is asked who owns what — every held line and effect carries the PARTS
+    // it needs, so the toolbar derives its own half from the ownership the render drew with (`hubSummaryFor`).
+    const free = { ...summarizeHubDraft(draft, live, false, me), changes: hubDraftChangeLines(draft, live, false) };
+    const owned = { ...summarizeHubDraft(draft, live, true, me), changes: hubDraftChangeLines(draft, live, true) };
     const proEffects = hubDraftProEffects(draft, live, false).map(hubProEffectView);
     let priceLabel: string | null = null;
-    if (free.proCount > 0) {
+    // 🍎 Never a web price in ANY store shell — including the one where Apple sells
+    // Pro: there the toolbar is handed `storeShell: false` for Pro (HubDraftDock),
+    // so this is the one place left that must refuse the catalogue figure itself.
+    if (free.proCount > 0 && !(await getIapGate()).storeShell) {
       const sku = await formatV2Sku('COUPLE_WEBSITE_PRO').catch(() => null);
       priceLabel = sku?.price_php != null ? formatPhp(sku.price_php) : null;
     }

@@ -8,7 +8,7 @@ import type { InvitationWidgetRow } from '@/lib/invitation-widgets';
 import { renderCustomSection } from './custom-section-widget';
 import { sceneFactsFor } from '../_lib/scene-facts';
 import type { InviteThemeId } from '@/lib/invite-themes';
-import { MakerEmptyScene, makerWordsLook } from './maker-empty-scene';
+import { MakerEmptyScene, makerOwnSlots, makerWordsLook } from './maker-empty-scene';
 import { HubCanvasFrame } from './hub-canvas-frame';
 import { sceneWidgetIsBare } from '@/lib/scene-ground';
 import { siteMediaServeRef } from '@/lib/site-media-ref';
@@ -21,6 +21,7 @@ import { CountdownWidget } from './countdown';
 import { DressCodeWidget } from './dress-code-widget';
 import { OurLoveStoryWidget } from './our-love-story-widget';
 import { OurPhotosWidget } from './our-photos-widget';
+import { photosHeadingOf } from '@/lib/photos-heading';
 import { PhotoMomentsWidget } from './photo-moments-widget';
 import { ScheduleWidget } from './schedule-widget';
 import { SpecialMessageWidget } from './special-message-widget';
@@ -29,7 +30,10 @@ import { TierComparisonWidget } from './tier-comparison-widget';
 import { VenueWidget } from './venue-widget';
 import { WhatToBringWidget } from './what-to-bring-widget';
 import type { HubStage } from '@/lib/hub-canvas';
-import { sceneStyleOfRow, paletteLookOfRow, dosLookOfRow, venueMapOfRow } from '@/lib/scene-style-of-row';
+import { sceneStyleOfRow, paletteLookOfRow, dosLookOfRow, venueMapOfRow, sceneHasEntranceOfRow } from '@/lib/scene-style-of-row';
+import { loveStoryPartners } from '@/lib/love-story-moments';
+import type { ArtKitView } from '@/lib/art-kits';
+import { KitSlot } from './kit-piece';
 
 /**
  * Per-widget renderer for the anonymous public landing path. Mirrors the
@@ -68,6 +72,11 @@ type PublicHideableWidgetProps = {
   /** The live theme, so a scene's text follows its own background (free). */
   hubTheme?: InviteThemeId;
   /**
+   * 🕯 THE LOOK'S ART KIT, already decided (`artKitShows`, `lib/art-kits.ts`) — the countdown card's narra posts.
+   * Null/absent → nothing drawn, the card byte for byte as before.
+   */
+  artKit?: ArtKitView | null;
+  /**
    * 🎞 The couple's own Maker canvas (`isMakerCanvas`, a VERIFIED host): their
    * scene clip plays (`sceneGround`'s `ownClipPlays`). Never set for a guest —
    * absent = the SEC-6 gate, and a guest sees the clip's still.
@@ -76,6 +85,12 @@ type PublicHideableWidgetProps = {
   /** 🎨 The stage this page draws — the scene's style (`canvas.style`) is
    *  resolved for it. Absent → every widget keeps its shipped look. */
   stage?: HubStage | null;
+  /**
+   * 👗 The couple / their hosts reading their own Event Hub: the dress code keeps every role (they set them). Every
+   * other reader of this path — a visitor not on the list — sees the Guests card and the Do's & Don'ts only (owner
+   * 2026-10-19, DECISION_LOG "DRESS WITH US SHOWS ONLY THE GUEST'S OWN ROLE").
+   */
+  dressCodeEveryRole?: boolean;
 };
 
 /**
@@ -93,7 +108,8 @@ export function PublicHideableWidget(props: PublicHideableWidgetProps) {
       {props.makerEmpty ? (
         <MakerEmptyScene
           type={props.widget.widget_type}
-          look={makerWordsLook(props.widget.widget_type)}
+          look={makerWordsLook(props.widget.widget_type, props.widget.config_json)}
+          ownSlots={makerOwnSlots(props.widget.widget_type, props.widget.config_json)}
           setupLocks={hubSetupApplies(props.event.event_type)}
           styleId={sceneStyleOfRow(props.widget, props.stage ?? null, props.event.event_type)}
         />
@@ -117,6 +133,8 @@ function PublicHideableWidgetBody({
   ownClipPlays = false,
   guestView = false,
   stage = null,
+  artKit = null,
+  dressCodeEveryRole = false,
 }: PublicHideableWidgetProps) {
   /* 🖼 The scene background owns the box — the widget then draws no card of
      its own (owner 2026-09-27, "no background means no box"). */
@@ -137,6 +155,7 @@ function PublicHideableWidgetBody({
           timeZone={eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude)}
           bare={bare}
           sceneStyle={sceneStyle}
+          kit={artKit ? <KitSlot kit={artKit} slot="countdown" /> : null}
         />
       ) : null;
 
@@ -187,7 +206,7 @@ function PublicHideableWidgetBody({
          nobody is identified here — so this is always the general view.
          `role_palette` is already on this row: `loadEventShell` selects it
          with the admin client, the same read the page's theme colours use. */
-      return <DressCodeWidget words={words} config={event.dress_code_config ?? null} ceremonyType={dressRiteOf(event)} genderSeparation={(event as { gender_separation?: string | null }).gender_separation ?? null} rolePalette={event.role_palette} roleNames={roleNames} hideWhenEmpty={guestView} sceneStyle={sceneStyle} paletteLook={paletteLookOfRow(widget)} dosLook={dosLookOfRow(widget)} makerSample={!guestView} />;
+      return <DressCodeWidget words={words} config={event.dress_code_config ?? null} ceremonyType={dressRiteOf(event)} genderSeparation={(event as { gender_separation?: string | null }).gender_separation ?? null} readerOnly={guestView && !dressCodeEveryRole} rolePalette={event.role_palette} roleNames={roleNames} hideWhenEmpty={guestView} sceneStyle={sceneStyle} paletteLook={paletteLookOfRow(widget)} dosLook={dosLookOfRow(widget)} makerSample={!guestView} />;
 
     case 'photo_moments':
       return <PhotoMomentsWidget words={words} config={event.photo_moments_config} hideWhenEmpty={guestView} bare={bare} sceneStyle={sceneStyle} />;
@@ -203,7 +222,7 @@ function PublicHideableWidgetBody({
     case 'our_photos':
       // Couple-curated gallery (Increment A.4) — event-level, no PII, so it
       // renders on the anonymous path too. Resolved display URLs threaded in.
-      return <OurPhotosWidget urls={ourPhotoUrls} sceneStyle={sceneStyle} />;
+      return <OurPhotosWidget urls={ourPhotoUrls} sceneStyle={sceneStyle} heading={photosHeadingOf(widget.config_json)} />;
 
     // The couple's own sections. One case for all six: the words live in the
     // row's own `config_json`, so the slot number is only which SEAT it takes
@@ -221,10 +240,22 @@ function PublicHideableWidgetBody({
         facts: sceneFactsFor(event, { solemn: words.solemn }),
         ownClipPlays,
         clipStillRef: siteMediaServeRef(event.landing_page_hero_image_url),
+        /* 🖼 `ownClipPlays` IS the Maker's canvas (`site-body.tsx` passes `isMakerCanvas`): its picture slots are drawn
+           in place there, tappable (owner 2026-10-18). A guest never gets them. */
+        makerSlots: ownClipPlays,
       });
 
     case 'our_love_story':
-      return <OurLoveStoryWidget config={event.love_story} mediaUrls={canvasMediaUrls} sceneStyle={sceneStyle} />;
+      /* 🗣 The partners' names, in the order the Maker's "Added by" gives them — voice a is the first (owner 2026-10-17). */
+      return (
+        <OurLoveStoryWidget
+          config={event.love_story}
+          mediaUrls={canvasMediaUrls}
+          sceneStyle={sceneStyle}
+          partners={loveStoryPartners(event.display_name, event.event_type)}
+          entrance={sceneHasEntranceOfRow(widget)}
+        />
+      );
 
     case 'tier_comparison':
       // limited=false on the anonymous path — anonymous visitors are

@@ -443,3 +443,22 @@ export function papicBucketPhrase(points: number): string {
     `you shoot snippets, since a snippet counts as ${formatCount(PAPIC_POINTS_PER_SNIPPET)}`
   );
 }
+
+/**
+ * 📷 WHAT A PACK BUYS, IN PLAIN WORDS — "about N photos, or N short clips".
+ *
+ * ⚖ Owner, 2026-10-15 (DECISION_LOG "SIX OWNER ANSWERS", answer 1): the
+ * onboarding Papic card stops recommending a pack from the guest count; each
+ * pack instead says what it buys. Both figures come from the capture-path
+ * weights (1 photo = PAPIC_POINTS_PER_PHOTO, a 10-second clip =
+ * PAPIC_POINTS_PER_SNIPPET) — never typed here — and are floored, because
+ * "about 63 clips" for 500 credits would promise a clip the pack cannot pay for.
+ *
+ * "or", never "and": it is one purse, so every clip is photos not taken.
+ */
+export function papicPackEstimatePhrase(points: number): string {
+  const p = Math.max(0, Math.floor(points));
+  const photos = Math.floor(p / PAPIC_POINTS_PER_PHOTO);
+  const clips = Math.floor(p / PAPIC_POINTS_PER_SNIPPET);
+  return `about ${formatCount(photos)} photos, or ${formatCount(clips)} short clips`;
+}

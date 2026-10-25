@@ -9,7 +9,28 @@ export type StepperRung = {
   pricePhp: number;
   /** Whole-percent saving against ₱1 a shot, or null when there is none. */
   discountPercent: number | null;
+  /**
+   * 🍎 In the iPhone app: Apple's own price string for this pack (StoreKit's
+   * `displayPrice`). When set it is the ONLY price drawn — `pricePhp` and the
+   * saving (both the web catalogue's) are not shown (owner 2026-10-18; the app
+   * never shows a web price).
+   */
+  priceLabel?: string;
 };
+
+const peso = (n: number) => `₱${n.toLocaleString('en-PH')}`;
+
+/**
+ * THE TWO ENDS OF THE LADDER, in words ("₱70 to ₱24,000 · 17 sizes") — for the sheet's ⓘ (owner 2026-10-24: the
+ * sheet asks only how much to add; the range moved off the sheet and into its one ⓘ). Both figures are the real first
+ * and last rung — never a typed range. Null when nothing is on sale.
+ */
+export function ladderEnds(rungs: readonly StepperRung[]): string | null {
+  const floor = rungs[0];
+  const ceiling = rungs[rungs.length - 1];
+  if (!floor || !ceiling) return null;
+  return `${floor.priceLabel ?? peso(floor.pricePhp)} to ${ceiling.priceLabel ?? peso(ceiling.pricePhp)} · ${rungs.length} sizes`;
+}
 
 /**
  * HOW MUCH TO ADD — a plus/minus, not a dropdown.
@@ -41,7 +62,7 @@ export function CreditStepper({
   onRungChange,
 }: {
   rungs: readonly StepperRung[];
-  /** 🎨 Told the rung on screen, so the sheet can say "After this: N credits" (owner 2026-10-14). */
+  /** 🎨 Told the rung on screen, so the sheet can say "New total: N credits" (owner 2026-10-14 · 2026-10-24). */
   onRungChange?: (rung: StepperRung) => void;
 }) {
   const [i, setI] = useState(0);
@@ -57,22 +78,14 @@ export function CreditStepper({
 
   const at = Math.min(Math.max(i, 0), rungs.length - 1);
   const rung = rungs[at];
-  const floor = rungs[0];
-  const ceiling = rungs[rungs.length - 1];
   // ⚠ `noUncheckedIndexedAccess` is on in this repo, and it is right to be: the
-  // clamp above guarantees these three exist, but a future edit to the clamp
-  // would not. Reading them once, here, is what keeps that guarantee in one
-  // place instead of at five render sites.
-  if (!rung || !floor || !ceiling) return null;
+  // clamp above guarantees the rung exists, but a future edit to the clamp would not.
+  if (!rung) return null;
   const atFloor = at === 0;
   const atCeiling = at === rungs.length - 1;
 
-  const peso = (n: number) => `₱${n.toLocaleString('en-PH')}`;
-
   return (
     <div className="space-y-2">
-      <span className="home-eyebrow block">How much to add</span>
-
       <div className="flex items-stretch gap-2">
         <button
           type="button"
@@ -93,11 +106,11 @@ export function CreditStepper({
           className="flex min-w-0 flex-1 flex-col items-center justify-center rounded-2xl border border-ink/15 bg-cream px-2.5 py-1.5 text-center"
         >
           <span className="text-2xl font-semibold leading-tight tracking-tight tabular-nums text-ink">
-            {peso(rung.pricePhp)}
+            {rung.priceLabel ?? peso(rung.pricePhp)}
           </span>
           <span className="whitespace-nowrap text-[12.5px] text-ink/65">
             adds {rung.points.toLocaleString('en-PH')} credits
-            {rung.discountPercent != null ? ` · ${rung.discountPercent}% off` : ''}
+            {rung.priceLabel === undefined && rung.discountPercent != null ? ` · ${rung.discountPercent}% off` : ''}
           </span>
         </div>
 
@@ -111,14 +124,6 @@ export function CreditStepper({
           <Plus aria-hidden className="h-4 w-4" strokeWidth={2} />
         </button>
       </div>
-
-      {/* The two ends of the ladder, said once, so a disabled button is never a
-          dead end somebody has to guess at. Both figures are the real first and
-          last rung — never a typed range. */}
-      <p className="text-xs text-ink/60">
-        {peso(floor.pricePhp)} to {peso(ceiling.pricePhp)} ·{' '}
-        {rungs.length} sizes · add any of them again later.
-      </p>
 
       <input type="hidden" name="service_code" value={rung.serviceCode} />
     </div>

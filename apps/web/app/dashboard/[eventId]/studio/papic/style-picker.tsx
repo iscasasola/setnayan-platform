@@ -31,11 +31,51 @@ const SWATCH_BG =
 export default function StylePicker({
   eventId,
   current,
+  returnTo = null,
+  variant = 'cards',
 }: {
   eventId: string;
   current: string;
+  /** 🏠 'home' when drawn in Home's Papic card — the save lands back on Home (`return_to`). */
+  returnTo?: 'home' | null;
+  /**
+   * 'strip' — the approved one-page controller's Filter A (`prototypes/papic_controller_one_page_2026-10-23.html`,
+   * "a look is chosen by eye: five thumbnails … fit across 375 in one thumb-width row, all visible, one tap saves"):
+   * the same five forms and the same action, drawn as one row of swatches with the name under each; the blurb rides
+   * the button's accessible name. 'cards' — the 2×3 cards, as before.
+   */
+  variant?: 'cards' | 'strip';
 }) {
   const active: PapicStyle = asPapicStyle(current);
+  if (variant === 'strip') {
+    return (
+      <div className="grid grid-cols-5 gap-2" data-papic-filter-strip="">
+        {PAPIC_STYLES.map((s) => {
+          const isActive = s.id === active;
+          const ring = isActive ? 'border-mulberry ring-2 ring-mulberry/30' : 'border-ink/10';
+          const swatch = `relative block aspect-square w-full overflow-hidden rounded-lg border ${ring}`; // no-card-ok: the face of the look's own submit button
+          return (
+            <form key={s.id} action={setPapicStyle} className="min-w-0">
+              <input type="hidden" name="event_id" value={eventId} />
+              <input type="hidden" name="style" value={s.id} />
+              {returnTo ? <input type="hidden" name="return_to" value={returnTo} /> : null}
+              <button type="submit" aria-pressed={isActive} aria-label={`Set event look to ${s.label} — ${s.blurb}`} className="block w-full min-w-0 text-center">
+                <span className={swatch}>
+                  <span aria-hidden className="absolute inset-0" style={{ background: SWATCH_BG, filter: cssPreviewFilter(s.id) }} />
+                  {isActive ? (
+                    <span className="absolute right-1 top-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-mulberry text-cream">
+                      <Check aria-hidden className="h-3 w-3" strokeWidth={2.5} />
+                    </span>
+                  ) : null}
+                </span>
+                <span className={`mt-1 block truncate text-[12px] ${isActive ? 'font-semibold text-mulberry' : 'text-ink/65'}`}>{s.label === 'Orig' ? 'Original' : s.label}</span>
+              </button>
+            </form>
+          );
+        })}
+      </div>
+    );
+  }
 
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -45,6 +85,7 @@ export default function StylePicker({
           <form key={s.id} action={setPapicStyle}>
             <input type="hidden" name="event_id" value={eventId} />
             <input type="hidden" name="style" value={s.id} />
+            {returnTo ? <input type="hidden" name="return_to" value={returnTo} /> : null}
             <button
               type="submit"
               aria-pressed={isActive}

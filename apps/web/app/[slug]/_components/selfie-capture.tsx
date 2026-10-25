@@ -15,6 +15,7 @@ import {
 import { FaceReceiptCard } from './face-receipt-card';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { PAPIC_CAPTURE_GRACE_HOURS } from '@/lib/papic-window';
+import { useCameraThatComesBack } from '@/lib/use-camera-that-comes-back';
 
 /**
  * THE FACE SCREEN — built from the approved design
@@ -105,6 +106,9 @@ export function SelfieCapture({
   const [live, setLive] = useState(false);
   const [busy, setBusy] = useState(false);
   const [blocked, setBlocked] = useState(false);
+  // Bumped when the camera must come back — re-runs the open effect below with
+  // the same front camera (see useCameraThatComesBack).
+  const [revival, setRevival] = useState(0);
   // The whole screen is a modal over the page (Escape = ×, the page behind it
   // cannot scroll); the ⓘ sheet is a modal over the screen.
   const screenRef = useRef<HTMLDivElement>(null);
@@ -155,7 +159,18 @@ export function SelfieCapture({
       cancelled = true;
       stopStream();
     };
-  }, [agreed, onFail, stopStream]);
+  }, [agreed, onFail, stopStream, revival]);
+
+  // THE CAMERA COMES BACK (Duo + iPad audit 2026-10-19, W4): iOS ends capture
+  // when the app goes to the background; reopen the same front camera instead of
+  // leaving a frozen oval. Held while a selfie is being taken and saved — a
+  // reopen is never a shot.
+  useCameraThatComesBack({
+    streamRef,
+    live,
+    restart: () => setRevival((n) => n + 1),
+    holdWhile: busy || saving,
+  });
 
   // The frame → the quality gate → the descriptor (mode_a only) → the upload
   // to this guest's own folder → the parent saves. Taken AND saved in one go.
@@ -261,7 +276,7 @@ export function SelfieCapture({
           type="button"
           onClick={onClose}
           aria-label="Not now"
-          className="mt-1 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-black/30"
+          className="mt-1 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-black/30"
         >
           <X aria-hidden className="h-4 w-4" strokeWidth={2} />
         </button>
@@ -295,7 +310,7 @@ export function SelfieCapture({
               type="button"
               onClick={() => setDetails(true)}
               aria-label="Details"
-              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-ink/70"
+              className="-m-1 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink/70"
             >
               <Info aria-hidden className="h-4 w-4" strokeWidth={1.75} />
             </button>

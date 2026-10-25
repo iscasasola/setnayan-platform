@@ -51,10 +51,16 @@
  * 🪤 That guard PRINTS A WARNING AND EXITS 0 locally, but CI treats it as
  * blocking — so checking `$?` locally says nothing. Read its OUTPUT.
  *
- * ─── LIGHT MODE ONLY, ON PURPOSE ─────────────────────────────────────────
- * There is no `prefers-color-scheme: dark` block and there must not be one.
- * The palette is a measured-contrast decision; a dark variant would be a new
- * design, not a port.
+ * ─── LIGHT, AND A DARK PAIR (owner "approve all", 2026-10-13) ─────────────
+ * There is still no `prefers-color-scheme: dark` block and there must not be
+ * one: dark follows the PERSON's choice (Appearance = Light · Dark, account
+ * settings), never the phone. What changed is that the shell — the top bar,
+ * rail and bottom bar of every signed-in tree — now carries a dark value for
+ * every colour token, under `html.dark .fd` right after each token block. It
+ * is the approved gallery's warm set (control_templates_round2_2026-10-12:
+ * page #17160F, card #232019, ink #FBFAF7, gold #CBA766). The light values
+ * are exactly as locked above. Inert until the theme switch puts `.dark` on
+ * <html> for a route on its ready-list.
  */
 
 .fd {
@@ -69,6 +75,23 @@
   --fd-line: #e1dcd1;
   --fd-wash: #f3ecdf;
   --fd-hover: #f4eee3;
+  /* 🌗 dark B1 (2026-10-23): the shell's remaining fills, moved out of their
+     rules into tokens BYTE FOR BYTE so light does not move — each was a light
+     literal that stayed light under html.dark (the dark-contrast guard's nine
+     front-door pairs: chips at 1.13:1, the ask pill's white on near-white 1.04:1). */
+  --fd-field: #f6f1e7;      /* the search's own button + the mic */
+  --fd-note: #f7f3ea;       /* a notice, a kind tag */
+  --fd-chip: #f2ece0;
+  --fd-chip-hover: #e9e1d2;
+  --fd-quiet: #f0ede6;      /* the quiet ask pill */
+  --fd-gold-press: #7b5c2c; /* the gold button under the pointer */
+  --fd-topglass: rgba(255, 255, 255, 0.55); /* the app's sticky top strip, over a blur */
+  --fd-chipglass: rgba(255, 255, 255, 0.92); /* a date chip over a photo */
+  --fd-invite: #fcf8f1;     /* the invite / empty-shelf panel */
+  --fd-invite-line: #dcd3c2;
+  --fd-warm: #fbf0e9;       /* the "W" kind tag */
+  --fd-warm-ink: #7a4a2e;
+  --fd-warm-line: #e6cdbc;
   --fd-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   --fd-sys: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica,
     Arial, sans-serif;
@@ -95,6 +118,34 @@
   font-family: var(--fd-sys);
   min-height: 100vh;
 }
+/* 🌗 The shell in dark — each token keeps its job (see the header). Measured on the page #17160F:
+ * ink 17.4 · gold 8.0 (and the page-coloured label on the gold button 8.0) · link 8.4 · m1 8.2 · m2 6.1. */
+html.dark .fd {
+  --fd-cream: #17160f;  /* the page */
+  --fd-ink: #fbfaf7;
+  --fd-gold: #cba766;   /* action fill; its label is --fd-cream, the page colour */
+  --fd-hi: #cba766;
+  --fd-link: #9db2ce;
+  --fd-m1: #b3aea3;
+  --fd-m2: #9a958c;
+  --fd-m3: #7e796f;
+  --fd-line: rgba(251, 250, 247, 0.16);
+  --fd-wash: #37301f;   /* gold at 18 % over the page */
+  --fd-hover: #292822;  /* paper at 8 % over the page — the gallery's pill */
+  --fd-field: #292822;  /* the gallery's pill, as the hover */
+  --fd-note: #1e1c15;   /* the paper — a notice sits one step off the page */
+  --fd-chip: #292822;
+  --fd-chip-hover: #34322b;
+  --fd-quiet: #292822;
+  --fd-gold-press: #d8b97f; /* the gold lifts under the pointer; its label is the page colour */
+  --fd-topglass: rgba(23, 22, 15, 0.72); /* the page, frosted — white at 55 % read as a grey band */
+  --fd-chipglass: rgba(35, 32, 25, 0.92); /* the card, frosted — its ink is near-white in dark */
+  --fd-invite: #1e1c15;
+  --fd-invite-line: rgba(251, 250, 247, 0.2);
+  --fd-warm: #3a2a22;
+  --fd-warm-ink: #f3b59a;
+  --fd-warm-line: rgba(243, 181, 154, 0.3);
+}
 
 .fd *,
 .fd *::before,
@@ -116,7 +167,8 @@
   grid-template-columns: 1fr minmax(0, 640px) 1fr;
   align-items: center;
   gap: 16px;
-  padding: 8px 16px;
+  /* The side gutters clear a side safe area (iPhone Duo pts 21·23; every-bar-clears-the-side-insets.test.ts). */
+  padding: 8px max(16px, var(--sn-safe-r)) 8px max(16px, var(--sn-safe-l));
   background: var(--fd-cream);
   position: sticky;
   top: 0;
@@ -126,6 +178,7 @@
 /* The drawing's `.tb-l` gap is 14px between the hamburger and the wordmark;
    the right cluster stays at 8. Not symmetric, and not a mistake. */
 .fd-topleft {
+  grid-column: 1;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -138,6 +191,11 @@
 .fd-topright {
   justify-content: flex-end;
   position: relative;
+  /* PINNED to the last column (owner 2026-10-23, "that button should be at the upper right corner").
+     A page that passes `search={false}` renders no middle child, and grid auto-placement then dropped
+     this cluster into the middle (search) column — the account button sat mid-bar on the Events board
+     while its menu opened at the right edge. The column is named, not inferred from sibling count. */
+  grid-column: -2 / -1;
 }
 
 /* The account menu. Signing out lives HERE and nowhere else — visiting the
@@ -207,6 +265,15 @@
      Removing this line changes the design; changing the markup to caps
      reintroduces the 2026-07-25 brand-verification rejection. */
   text-transform: uppercase;
+  /* The press area the 23px-tall wordmark never had (quality sweep 2026-10-13,
+     item 6) — the same expander the bar's other controls carry, so the paint
+     is unchanged and the press is 45px. */
+  position: relative;
+}
+.fd-wordmark::after {
+  content: '';
+  position: absolute;
+  inset: -11px 0;
 }
 
 .fd-searchwrap {
@@ -309,8 +376,16 @@
   .fd-searchbox {
     height: 44px;
   }
+  /* 🔴 44 ON THE BOX WAS STILL 42 ON THE FIELD (quality sweep 2026-10-19, B2).
+     The box's two 1px borders are the form's, not the input's, so a tap on
+     either edge landed on the <form> and focused nothing — measured 283×42 on
+     every public page. The field now reaches over both borders: it is
+     transparent, so the line still shows, and a 1px overlap is invisible.
+     Held by `tests/e2e/the-public-top-bar-presses-44.spec.ts`, which presses
+     every edge of every top-bar control in a real browser. */
   .fd-searchbox input {
-    min-height: 42px;
+    min-height: 44px;
+    margin: -1px 0;
   }
 }
 /* The search has its OWN button — the reference does, and a field with no
@@ -320,7 +395,7 @@
   align-self: stretch;
   display: grid;
   place-items: center;
-  background: #f6f1e7;
+  background: var(--fd-field);
   border: 0;
   border-left: 1px solid var(--fd-line);
   color: var(--fd-m1);
@@ -347,7 +422,7 @@
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  background: #f6f1e7;
+  background: var(--fd-field);
   border: 0;
   display: grid;
   place-items: center;
@@ -387,7 +462,7 @@
   text-decoration: none;
 }
 .fd-btn-gold:hover {
-  background: #7b5c2c;
+  background: var(--fd-gold-press);
 }
 .fd-btn-quiet {
   min-height: 44px;
@@ -427,7 +502,8 @@
   place-items: center;
   font-size: 11px;
   font-weight: 700;
-  color: var(--fd-gold);
+  /* 🔤 the house initials ink (gold-800), not the gold — 4.27:1 on the wash (owner 2026-10-23). */
+  color: var(--sn-initials-ink);
   font-family: var(--fd-mono);
 }
 .fd-avatar::after {
@@ -574,53 +650,11 @@
   font-size: 15px;
   line-height: 1;
 }
-/* ── A STUDIO ROW WITH ITS LINE ───────────────────────────────────────────
-   Owner 2026-08-14: "that is where we can talk about the different apps."
-   Signed out each product says what it is, so the row grows a second line and
-   stops being a fixed 44px. Signed in the line is absent and `.fd-row-2l` is
-   never applied, so those rows are byte-identical to before.
-   ⚠ The 44px tap floor is a MINIMUM, so a taller row is never a lock problem —
-   only a shorter one would be. */
-.fd-row-2l {
-  min-height: 56px;
-  align-items: flex-start;
-  padding-top: 8px;
-  padding-bottom: 8px;
-}
-.fd-row-2l .fd-dot {
-  margin-top: 7px;
-}
-.fd-toolwrap {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-.fd-toolline {
-  font-size: 11.5px;
-  line-height: 1.35;
-  color: var(--fd-m2);
-}
-/* The affordance that says this row opens a demo rather than navigating. It is
-   inside the label, so the icon-strip caption below 1280 never shows it. */
-.fd-toolplay {
-  margin-left: 7px;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  color: var(--fd-gold);
-  white-space: nowrap;
-}
-/* At the 72px icon strip the labels are hidden already; make sure the line and
-   the demo affordance go with them rather than reflowing the strip. */
-.fd-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--fd-hi);
-  flex: 0 0 6px;
-  margin: 0 7px;
-}
+/* ⛔ `.fd-dot` IS GONE (2026-10-20). The tool rows drew a 6-px bullet in the
+   icon slot; in the 72-px strip, where the word is hidden, a bullet over a
+   caption read as an icon that never loaded (iPad 13" upright, PR #6716 walk
+   D6). Every tool row now draws its own Lucide icon through `<RailIcon>`,
+   named by `RailTool.icon`. Do not bring the bullet back for a new row. */
 .fd-ct {
   margin-left: auto;
   font-size: 12px;
@@ -642,12 +676,6 @@
   gap: 6px;
   align-items: baseline;
 }
-.fd-rlabel small {
-  font-weight: 500;
-  color: var(--fd-m3);
-  font-size: 11px;
-}
-
 /* ── THE CONTEXT GROUP — "you are in this place, and here is its menu" ─────
    One Shell slice 1. Ported from the binding drawing's `.rctx` + `.rlab.sub`
    (`prototypes/one_shell_2026-08-13.html`). The group PUSHES in below the
@@ -705,7 +733,7 @@
   margin: 6px 12px;
   padding: 10px 12px;
   border-radius: var(--m-r-sm);
-  background: #f7f3ea;
+  background: var(--fd-note);
   font-size: 12.5px;
   line-height: 1.5;
   color: var(--fd-m1);
@@ -730,14 +758,16 @@
   vertical-align: middle;
 }
 
+/* Small print is text (quality sweep 2026-10-19, C3): the rail's Privacy · Terms line was
+   `--fd-m2`, 3.67:1 — readable-looking, still under AA's 4.5:1 at 12px. */
 .fd-smallprint {
   padding: 4px 12px;
   font-size: 12px;
   line-height: 1.9;
-  color: var(--fd-m2);
+  color: var(--fd-m1);
 }
 .fd-smallprint a {
-  color: var(--fd-m2);
+  color: var(--fd-m1);
   text-decoration: none;
   margin-right: 10px;
 }
@@ -839,13 +869,15 @@
     opacity: 0;
   }
 }
+/* The rail's last two lines are small print too — `--fd-m1`, not the 2.80:1
+   `--fd-m3` (quality sweep 2026-10-19, C3). */
 .fd-copy {
   margin-top: 10px;
-  color: var(--fd-m3);
+  color: var(--fd-m1);
   font-size: 11.5px;
 }
 .fd-tag2 {
-  color: var(--fd-m3);
+  color: var(--fd-m1);
   font-size: 11.5px;
   font-style: italic;
 }
@@ -946,7 +978,7 @@
   min-height: 32px;
   padding: 0 12px;
   border-radius: var(--m-r-sm);
-  background: #f2ece0;
+  background: var(--fd-chip);
   border: 0;
   font: inherit;
   font-size: 13.5px;
@@ -962,7 +994,7 @@
   inset: -6px 0;
 }
 .fd-chip:hover {
-  background: #e9e1d2;
+  background: var(--fd-chip-hover);
 }
 .fd-chip[data-on='true'] {
   background: var(--fd-ink);
@@ -1049,7 +1081,8 @@
   place-items: center;
   font-size: 11px;
   font-weight: 700;
-  color: var(--fd-gold);
+  /* 🔤 the house initials ink (gold-800), not the gold — 4.27:1 on the wash (owner 2026-10-23). */
+  color: var(--sn-initials-ink);
   font-family: var(--fd-mono);
 }
 .fd-itxt {
@@ -1146,12 +1179,12 @@
   padding: 1px 5px;
   margin-right: 5px;
   color: var(--fd-m1);
-  background: #f7f3ea;
+  background: var(--fd-note);
 }
 .fd-kindtag-w {
-  color: #7a4a2e;
-  border-color: #e6cdbc;
-  background: #fbf0e9;
+  color: var(--fd-warm-ink);
+  border-color: var(--fd-warm-line);
+  background: var(--fd-warm);
 }
 
 .fd-sechead {
@@ -1173,8 +1206,7 @@ h2.fd-sechead,
   font-weight: 700;
 }
 /* The meta and rule spans sit inside the heading and must NOT inherit 19px/700. */
-.fd-sechead .fd-meta,
-.fd-sechead .fd-rule {
+.fd-sechead .fd-meta {
   font-weight: 400;
   letter-spacing: normal;
 }
@@ -1182,11 +1214,8 @@ h2.fd-sechead,
   font-size: 13px;
   color: var(--fd-m2);
 }
-.fd-sechead .fd-rule {
-  margin-left: auto;
-  font-size: 11.5px;
-  color: var(--fd-m3);
-}
+/* `.fd-rule` (the shelf's grey house rule beside a heading) is gone — owner 2026-10-01,
+   NO SMALL EXPLAINER LABELS; its words live in the heading's ⓘ now. */
 /* THE SHELF HEADING IS A DOOR (2026-08-20). It replaces the rail's retired
    "Stories" row as the front page's one permanent link to the hub, so it must
    read as a heading first and reveal itself as a link on hover/focus —
@@ -1196,6 +1225,13 @@ h2.fd-sechead,
 .fd-sechead-go {
   color: inherit;
   text-decoration: none;
+  /* a 44px press on a 29px heading line (fits-every-phone 2026-10-21) */
+  position: relative;
+}
+.fd-sechead-go::after {
+  content: '';
+  position: absolute;
+  inset: -8px -4px;
 }
 .fd-sechead-go:hover,
 .fd-sechead-go:focus-visible {
@@ -1269,10 +1305,10 @@ h2.fd-sechead,
 
 /* An invitation, not an apology — the shape an empty rail takes. */
 .fd-invite {
-  border: 1px dashed #dcd3c2;
+  border: 1px dashed var(--fd-invite-line);
   border-radius: var(--m-r-md);
   padding: 20px 22px;
-  background: #fcf8f1;
+  background: var(--fd-invite);
 }
 .fd-invite h3 {
   margin: 0 0 7px;
@@ -1310,6 +1346,18 @@ h2.fd-sechead,
 .fd-more .fd-go:hover {
   text-decoration: underline;
 }
+/* fits-every-phone 2026-10-21: every `.fd-go` door ("Open your shop →",
+   "See how sharing works →", "Browse all stories →", "See all N articles →")
+   pressed 16px tall. An expander gives each 44px without moving a line. */
+.fd-go {
+  position: relative;
+  display: inline-block;
+}
+.fd-go::after {
+  content: '';
+  position: absolute;
+  inset: -14px -6px;
+}
 .fd-invite-wide {
   grid-column: span 2;
 }
@@ -1317,9 +1365,10 @@ h2.fd-sechead,
   grid-column: 1 / -1;
 }
 
-/* A count that failed to load says so. It NEVER says 0. */
+/* A count that failed to load says so. It NEVER says 0 — and it says so in a
+   colour that reads: `--fd-m1` (5.38:1), not the 2.80:1 `--fd-m3` it was. */
 .fd-unknown {
-  color: var(--fd-m3);
+  color: var(--fd-m1);
   font-style: italic;
 }
 
@@ -1380,9 +1429,19 @@ h2.fd-sechead,
      wrapping allowed rather than clipped — the one exception to the
      "44 stays on the base rule" note above `.fd-btn-gold` itself, which is
      about HEIGHT, not this. */
+  /* 🔄 2026-10-20 — AND THEN IT WRAPPED. `white-space: normal` inside the
+     prompt's own 12-px side padding left the button 40 px for "Sign in" at
+     11 px (≈37 px of ink plus 12 px of padding), so the word broke in two and
+     the pill became a gold circle reading "Sign / in" (iPad 13" upright,
+     PR #6716 walk D6). The prompt gives up its side padding in the strip —
+     the rail's own 4 px is the gutter — and the label never wraps: 64 px holds
+     it with room to spare. `rail-tool-rows-wear-icons.test.ts` holds it. */
+  .fd-signin-prompt {
+    padding: 4px 0 8px;
+  }
   .fd-signin-prompt .fd-btn-gold {
     width: 100%;
-    white-space: normal;
+    white-space: nowrap;
     padding: 4px 6px;
     font-size: 11px;
     justify-content: center;
@@ -1472,7 +1531,7 @@ h2.fd-sechead,
     background: var(--fd-cream);
     border-right: 1px solid var(--fd-line);
     z-index: 40;
-    padding: 16px 8px 40px;
+    padding: 16px 8px 40px max(8px, var(--sn-safe-l));
   }
   .fd {
     --fd-rail: 240px;
@@ -1485,33 +1544,15 @@ h2.fd-sechead,
   .fd-smallprint {
     display: revert;
   }
-  /* 🔑 THIS DRAWER IS 280px WIDE AND THE STUDIO LINES BELONG IN IT.
-     `.fd-toolline` / `.fd-toolplay` are switched off at ≤1279.98px for the
-     72px ICON STRIP, where they genuinely do not fit. The revert list directly
-     above restores the rail's other prose for this drawer and FORGOT THESE
-     TWO — so every Studio row rendered as a dot and a bare name, while the
-     one-line explanation of what each product does sat in the HTML, invisible.
-     Owner, seeing it: "content of each got lost."
-
-     Scoped with `.fd-rail` on purpose, not written bare: the strip's
-     `display: none` lives in a LATER block in this same file, so at equal
-     specificity a bare selector here would lose to it and change nothing. */
-  .fd-rail .fd-toolline,
-  .fd-rail .fd-toolplay,
+  /* The drawer restores the event menu's chevrons the 1279 strip hides. */
   .fd-rail .fd-mchev {
     display: revert;
   }
-  /* And the other half of the same bug: the strip also flattens `.fd-row-2l`
-     to a single 44px centred row. Restoring the text without restoring the
-     height squeezes two lines into one line's worth of space. */
-  .fd-rail .fd-row-2l {
-    min-height: 56px;
-    align-items: flex-start;
-    padding-top: 8px;
-    padding-bottom: 8px;
-  }
-  .fd-rail .fd-row-2l .fd-dot {
-    margin-top: 7px;
+  /* The 280-px drawer keeps the prompt's own side padding — the strip above
+     gives it up only because 72 px has none to spare. Scoped with `.fd-rail`
+     so it outranks the strip's bare rule, which sits in an earlier block. */
+  .fd-rail .fd-signin-prompt {
+    padding: 4px 12px 8px;
   }
   .fd-row {
     flex-direction: row;
@@ -1724,7 +1765,7 @@ h2.fd-sechead,
   position: absolute;
   left: 6px;
   top: 6px;
-  background: rgba(255, 255, 255, 0.92);
+  background: var(--fd-chipglass);
   color: var(--fd-ink);
   border-radius: var(--m-r-xs);
   padding: 3px 7px;
@@ -1754,7 +1795,9 @@ h2.fd-sechead,
   padding: 0 16px;
   border-radius: var(--m-r-full);
   background: var(--fd-ink);
-  color: #fff;
+  /* The page colour, which IS #fff in light (--fd-cream) — in dark the pill's
+     fill is the near-white ink, so a literal white label read 1.04:1. */
+  color: var(--fd-cream);
   font-weight: 650;
   font-size: 12.5px;
   border: 0;
@@ -1762,8 +1805,20 @@ h2.fd-sechead,
   white-space: nowrap;
   cursor: pointer;
 }
+/* fits-every-phone 2026-10-21: the pill never runs past its card. At 320 the
+   two-up grid leaves the text column 88px, and "Guest list only" (nowrap,
+   119px in WebKit) stuck out 15px and scrolled the whole page sideways
+   (iPad Audit W7). It may wrap inside its own column instead — still ≥ 44px. */
+.fd-act .fd-ask {
+  max-width: 100%;
+  white-space: normal;
+  text-align: center;
+  line-height: 1.2;
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
 .fd-ask.quiet {
-  background: #f0ede6;
+  background: var(--fd-quiet);
   color: var(--fd-ink);
   font-weight: 600;
   cursor: default;
@@ -1938,10 +1993,47 @@ button.fd-ask.quiet {
      (`HomeRail`'s backdrop-blur, `AdminStickyTopBar`'s blur+saturate). A
      transparent strip over scrolling content is unreadable; a solid one is the
      "generic header" band the owner struck down on 2026-07-30. */
-  background: rgba(255, 255, 255, 0.55);
+  background: var(--fd-topglass);
   backdrop-filter: blur(18px) saturate(1.4);
   -webkit-backdrop-filter: blur(18px) saturate(1.4);
   border-bottom: 1px solid var(--fd-line);
+}
+
+/* ══ THE ACCOUNT-LEVEL SCREENS WEAR THE MARK AND THE WORD (owner 2026-10-21) ══
+   Owner, "yes to all" to the controller's ruling 4: on the account-level
+   screens (the Events board, Memories, People, the other account spokes) the
+   top bar shows the Setnayan mark AND the word beside it, at every width, web
+   and app shell — "make sure there is Setnayan". Everywhere else (an event, the
+   shop, HQ) keeps the shipped grammar below: the mark alone on a phone, the
+   word alone from 701 up.
+
+   🔑 "ACCOUNT-LEVEL" IS READ FROM THE PAGE, NOT PASSED IN: those screens are
+   exactly the ones whose layout mounts the account bar, and the bar's wrapper
+   carries `data-account-bar` (it stays in the DOM on a desktop — the dock is
+   only `display: none` there). Keyed in CSS so the shell's client JavaScript,
+   which the Maker's first load carries at its ceiling, gains no byte.
+   The word is the markup's title-case "Setnayan"; `.fd-wordmark` capitalises
+   it, as it does on the front door. */
+.fd[data-chrome='app']:has([data-account-bar]) .fd-wordmark-app {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.fd[data-chrome='app']:has([data-account-bar]) .fd-mark {
+  display: block;
+}
+
+/* ══ WHERE DISCOVER DOES NOT OPEN, THE RAIL DOES NOT OFFER IT (2026-10-21) ══
+   In the app shell middleware bounces `/` to the board while Apple reviews
+   1.0 (`APP_EXCLUDED_MARKETING_PATHS`), so the rail's Discover row — the drawer
+   on a phone, the rail on an iPad — was a press that went nowhere. The server
+   renders `[data-discover-bounced]` into the shell on exactly those requests
+   (app-rail-shell.tsx · `discoverOpensHere()`), and the row and the divider
+   under it leave. `display: none` takes the row out of the tab order and the
+   accessibility tree as well as the paint — a real removal, not a look. */
+.fd:has([data-discover-bounced]) .fd-rail > a.fd-row[href='/'],
+.fd:has([data-discover-bounced]) .fd-rail > a.fd-row[href='/'] + .fd-rdiv {
+  display: none;
 }
 
 /* The glyph beside (or, on a phone, instead of) the word. Hidden from 701px up,
@@ -2013,8 +2105,18 @@ button.fd-ask.quiet {
    the events board, the account pages and HQ the drawer is the only way to
    most of the app on a phone.
 
-   Below 768 only. 768–1023 and the desktop are unchanged.                    */
-@media (max-width: 767.98px) {
+   Below 701 only — the phone. 701 and up keep the full bar.
+
+   📱→🖥 IT WAS 768 UNTIL 2026-10-19, and that left the bar half-switched in
+   701–767: the mark had already handed back to the wordmark at 701 (the block
+   above), while the controls stayed phone circles until 768. The couple
+   dashboard's tablet starts at 701 (owner 2026-10-19, DECISION_LOG "APPROVED —
+   COUPLE DASHBOARD DESKTOP + TABLET (AREA 2)"), and a phone bar over a tablet
+   rail is the "three widths" the iPad audit (W10) named. MEASURED for EVERY
+   tree's cluster at 701 / 720 / 744 before the move (the slim-phone-top-bar
+   renderer: event · guests · board · shop · hq) — one row, nothing past the
+   edge — so the line moved for all of them rather than forking the bar.      */
+@media (max-width: 700.98px) {
   .fd[data-chrome='app'] {
     /* The token everything parked under the bar reads (the budget summary,
        the explore strip, help's nav). Measured, not derived: 44 + 6 + 1. */
@@ -2050,6 +2152,18 @@ button.fd-ask.quiet {
     min-width: 44px;
     min-height: 44px;
     padding: 0;
+  }
+  /* The account-level screens: mark AND word on the phone too (owner ruling 4,
+     2026-10-21 — see the block above). Same 44px press height; the word sits
+     beside the mark instead of being dropped. Measured at 375 with the board's
+     cluster (☰ · mark + word · search · bell · avatar): one row, nothing past
+     the edge. */
+  .fd[data-chrome='app']:has([data-account-bar]) .fd-wordmark-app {
+    display: inline-flex;
+    padding: 0 4px;
+  }
+  .fd[data-chrome='app']:has([data-account-bar]) .fd-wordmark-text {
+    display: inline;
   }
   /* The round controls never give up width to a crowded row — a 44px circle
      squeezed by flex is the ellipse this block exists to remove. */
@@ -2282,39 +2396,6 @@ button.fd-ask.quiet {
   white-space: nowrap;
 }
 
-/* THE NAME ROW OPENS THE EVENT'S DETAILS (owner 2026-09-24 — Personalization,
-   renamed Details, moved onto the event's name). Still reads as the place you
-   are in — same size, same ink — with one quiet line under it saying what it
-   opens. Each line truncates on its own. */
-.fd[data-chrome='app'] .fd-rctx-link {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  text-decoration: none;
-}
-.fd[data-chrome='app'] .fd-rctx-link > span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.fd[data-chrome='app'] .fd-rctx-sub {
-  font-size: 11.5px;
-  font-weight: 500;
-  color: var(--fd-m2);
-}
-.fd[data-chrome='app'] .fd-rctx-link[data-on='true'] .fd-rctx-sub {
-  color: var(--fd-ink);
-}
-.fd[data-chrome='app'] .fd-rctx-settings {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-}
-.fd[data-chrome='app'] .fd-rctx-gear {
-  width: 13px;
-  height: 13px;
-  flex-shrink: 0;
-}
 /* ✦ — a Studio product at its moment (the Studio heading is dissolved). Gold
    is UI-only on cream, and this mark is decoration: the row's name carries the
    meaning, so the mark is aria-hidden. */
@@ -2361,21 +2442,6 @@ button.fd-ask.quiet {
     padding: 10px 2px 2px;
   }
 
-  /* 🪤 THESE LIVE HERE, IN THE EXISTING BLOCK, AND THAT IS THE POINT. Adding a
-     SECOND `@media (max-width: 1279.98px)` block for them broke a shipped guard
-     without breaking the code: `one-shell-event-rail.test.ts` finds the FIRST
-     1279 block and asserts the event name is hidden inside it, and the new
-     block came first. Correct code, red guard — the identical mistake this file
-     already records making with the 1024 band, made again two hours later.
-     ONE BLOCK PER BREAKPOINT. */
-  .fd-toolline,
-  .fd-toolplay {
-    display: none;
-  }
-  .fd-row-2l {
-    min-height: 44px;
-    align-items: center;
-  }
 }
 
 @media (max-width: 1023.98px) {
@@ -2484,6 +2550,127 @@ button.fd-ask.quiet {
    phone rail as painting. Correct code, red guard, and the next reader would
    have "fixed" the guard. Keep every app-variant sub-1024 rule here. */
 
+/* ══ THE TABLET BAND — 701 TO 1023, FOR A SURFACE THAT OPTS IN ══════════════
+   Owner 2026-10-19, DECISION_LOG "APPROVED — COUPLE DASHBOARD DESKTOP + TABLET
+   (AREA 2)"; prototype `couple_dashboard_desktop_tablet_2026-10-19.html` §0:
+   *"One boundary moves, 1024 → 701. The 72-px strip already exists; it is
+   handed down, not drawn."* A tablet is the desktop system at its width.
+
+   🔑 OPT-IN, BY ONE ATTRIBUTE. `data-boundary="tab"` is written on `.fd` by
+   the shell from the tree's `boundary` prop (`shell-boundary.tsx`), and only
+   the couple's event tree passes it. Every other tree — the front door, the
+   doorways, the launcher, the account spokes, the supplier dashboard, HQ —
+   carries no attribute and keeps the shipped off-canvas drawer below 1024:
+   they are areas 3–4 of the desktop plan and are not designed for this band.
+   The supplier dashboard and HQ would otherwise draw the strip AND their own
+   bottom bar at once.
+
+   WHAT THIS BLOCK IS: the 1024–1279 strip, restated for this band, over the
+   off-canvas rules the `max-width: 1023.98px` blocks above apply to every
+   tree. Each declaration below undoes exactly one of those; nothing new is
+   drawn. Specificity is `.fd[data-boundary='tab']` + the same selector the
+   drawer rule uses, and this block comes after all of them, so it wins
+   without `!important`.
+   ⚠ IF YOU ADD A RULE TO A SUB-1024 BLOCK ABOVE that changes the rail, the
+   hamburger, the scrim or the bar, decide here whether the tablet band undoes
+   it. `the-tablet-band-is-the-strip.test.ts` lists the selectors both sides
+   must name. */
+@media (min-width: 701px) and (max-width: 1023.98px) {
+  .fd[data-boundary='tab'] {
+    --fd-rail: 72px;
+  }
+  .fd[data-boundary='tab'] .fd-body {
+    display: grid;
+    grid-template-columns: var(--fd-rail) 1fr;
+  }
+  /* The rail is the inline strip again: sticky under the bar, filling its
+     column, never a drawer — so `data-open` means nothing here. */
+  .fd[data-boundary='tab'] .fd-rail,
+  .fd[data-boundary='tab'] .fd-rail[data-open='false'],
+  .fd[data-boundary='tab'] .fd-rail[data-open='true'],
+  .fd[data-boundary='tab'] .fd-rail[data-open='closing'] {
+    display: block;
+    position: sticky;
+    top: var(--fd-bar);
+    left: auto;
+    bottom: auto;
+    width: auto;
+    max-height: calc(100vh - var(--fd-bar));
+    min-height: calc(100vh - var(--fd-bar));
+    z-index: auto;
+    padding: 10px 4px 40px;
+    border-right: 1px solid var(--fd-line);
+    animation: none;
+  }
+  /* The strip's prose goes, as it does at 1024–1279. */
+  .fd[data-boundary='tab'] .fd-rail .fd-label-text,
+  .fd[data-boundary='tab'] .fd-rail .fd-ct,
+  .fd[data-boundary='tab'] .fd-rlabel,
+  .fd[data-boundary='tab'] .fd-signin-prompt p,
+  .fd[data-boundary='tab'] .fd-notice,
+  .fd[data-boundary='tab'] .fd-smallprint,
+  .fd[data-boundary='tab'] .fd-rail .fd-mchev {
+    display: none;
+  }
+  /* The strip's Sign-in prompt: no side padding, so the label fits on one line. */
+  .fd[data-boundary='tab'] .fd-rail .fd-signin-prompt {
+    padding: 4px 0 8px;
+  }
+  /* Icon over caption, the strip's row. */
+  .fd[data-boundary='tab'] .fd-row {
+    flex-direction: column;
+    gap: 4px;
+    padding: 8px 2px;
+    font-size: 10px;
+    min-height: 60px;
+    text-align: center;
+    justify-content: center;
+  }
+  .fd[data-boundary='tab'] .fd-row .fd-icon-caption {
+    display: block;
+  }
+  .fd[data-boundary='tab'] .fd-rail .fd-mchild {
+    padding-left: 2px;
+    font-size: 10px;
+  }
+  /* The five under More Services take no inset in a 72-px column — the
+     `min-width:1280px, max-width:1023.98px` margin is the wide rail's and the
+     drawer's, never the strip's. */
+  .fd[data-boundary='tab'] .fd-msub {
+    margin-left: 0;
+  }
+  /* No drawer, so no menu button and no scrim. */
+  .fd[data-boundary='tab'] .fd-only-narrow,
+  .fd[data-boundary='tab'] .fd-scrim {
+    display: none;
+  }
+  /* The bar stays put (hide-on-scroll is the phone's), and "+ Create" is back
+     — it is on the bar from 1024 today. */
+  .fd[data-boundary='tab'] .fd-topwrap[data-hidden='true'] {
+    transform: none;
+  }
+  .fd[data-boundary='tab'] .fd-btn-gold {
+    display: inline-flex;
+  }
+}
+
+/* 💍 A HOVER RING ONLY WHERE A POINTER IS FINE (prototype §notes: *"an iPad with
+   a finger never shows a hover ring; one with a trackpad does"*). On a touch
+   screen `:hover` sticks to the last row tapped, so the rail's hover wash would
+   mark a row nobody is pointing at. From 701 up, in the opted-in tree: the wash
+   and the system sheet's 2-px gold ring under `(hover: hover) and (pointer:
+   fine)`, nothing at all under a finger. The phone (below 701) is untouched. */
+@media (min-width: 701px) and (hover: hover) and (pointer: fine) {
+  .fd[data-boundary='tab'] .fd-rail .fd-row:hover {
+    box-shadow: inset 0 0 0 2px var(--fd-gold);
+  }
+}
+@media (min-width: 701px) and (hover: none), (min-width: 701px) and (pointer: coarse) {
+  .fd[data-boundary='tab'] .fd-rail .fd-row:not([data-on='true']):hover {
+    background: none;
+  }
+}
+
 /* ── THE OPENING ──────────────────────────────────────────────────────────
    Added 2026-08-21. The front door had no visible headline — its <h1> was
    `.fd-sr-only`, so the page opened on the chip bar and the card grid. Owner:
@@ -2498,10 +2685,17 @@ button.fd-ask.quiet {
   margin-bottom: 20px;
 }
 .fd-opening-kick {
+  /* A <span> inside the <h1> since 2026-10-22 (front-door-anchor.tsx), so it
+     states the block box, line height and letter-case the old <p> got for
+     free, and the h1's tight tracking does not reach it. The markup says
+     "Setnayan" — the OAuth consent-screen name — and the capitals are CSS. */
+  display: block;
   margin: 0 0 14px;
   font-size: 13px;
+  line-height: normal;
   font-weight: 700;
   letter-spacing: 0.3em;
+  text-transform: uppercase;
   color: var(--fd-gold);
 }
 .fd-opening-h1 {
@@ -2517,9 +2711,12 @@ button.fd-ask.quiet {
   text-wrap: balance;
 }
 .fd-opening-lede {
-  margin: 0 0 24px;
-  font-size: 16.5px;
-  line-height: 1.6;
+  /* 2026-10-22: back in use as the ONE purpose sentence under the headline
+     (Google OAuth review: "explain the purpose of your app"). Set a step
+     smaller than the retired paragraph so the hero keeps its shape. */
+  margin: 0 0 20px;
+  font-size: 15px;
+  line-height: 1.5;
   /* --fd-m1 is 6.14:1 on the white ground; --fd-m2 is 3.55:1 and would FAIL
      here. This is body copy, not metadata. */
   color: var(--fd-m1);
@@ -2566,11 +2763,19 @@ button.fd-ask.quiet {
   font-size: 15px;
 }
 .fd-opening-alt {
+  /* 44px press with no change to the line it sits on (was 22px tall) —
+     the same `::after` expander the top bar uses. */
+  position: relative;
   font-size: 14.5px;
   font-weight: 650;
   /* link slate, 8.22:1 — never the decorative gold, which is 3.48:1 and fails
      as text. Same rule the doors work closed in #4484. */
   color: var(--fd-link);
+}
+.fd-opening-alt::after {
+  content: '';
+  position: absolute;
+  inset: -11px -8px;
 }
 .fd-opening-alt:hover {
   text-decoration: underline;
@@ -2584,6 +2789,28 @@ button.fd-ask.quiet {
   font-style: italic;
   font-weight: 650;
   color: var(--fd-gold);
+}
+/* 2026-10-22 — Privacy Policy · Terms of Service under the fine print, so the
+   home page itself links both (Google OAuth homepage review). Link slate, never
+   gold (fails as text); 44px press via the same ::after expander as
+   `.fd-opening-alt`, so the line keeps its height. */
+.fd-opening-legal {
+  margin: 12px 0 0;
+  font-size: 12.5px;
+  color: var(--fd-m1);
+}
+.fd-opening-legal a {
+  position: relative;
+  font-weight: 650;
+  color: var(--fd-link);
+}
+.fd-opening-legal a::after {
+  content: '';
+  position: absolute;
+  inset: -14px -6px;
+}
+.fd-opening-legal a:hover {
+  text-decoration: underline;
 }
 @media (max-width: 620px) {
   .fd-opening {
@@ -2604,6 +2831,10 @@ button.fd-ask.quiet {
 .fd {
   --fd-panel: #f4f4f5;
   --fd-panel-line: #e6e6e8;
+}
+html.dark .fd {
+  --fd-panel: #232019;  /* the approved card */
+  --fd-panel-line: rgba(251, 250, 247, 0.12);
 }
 .fd-story {
   padding: 34px 0 8px;
@@ -2732,4 +2963,27 @@ button.fd-ask.quiet {
     width: auto;
     padding-top: 0;
   }
+}
+
+/* ── AN EMPTY SHELF: ONE LINE + ONE ACTION (owner 23 Oct 2026) ───────────────
+   Replaces the dashed "invite" card on Discover's shelves — a framed box that
+   nothing pressed. The action (`.fd-btn-quiet`) is the only framed thing; every
+   detail sits behind the line's ⓘ. `empty-shelf.tsx`. */
+.fd-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0 0 26px;
+}
+/* A heading's ⓘ label wraps beside its badge rather than dropping under it at 375. */
+.fd-sechead > .fd-sechead-tip {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.fd-empty-line {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--fd-m1);
 }

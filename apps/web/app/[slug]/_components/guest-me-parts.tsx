@@ -2,12 +2,14 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import type { EventRow } from '../_lib/types';
 import type { EventWords } from '../_lib/event-words';
-import type { GuestRole } from '@/lib/guests';
+import type { GuestAttire, GuestRole } from '@/lib/guests';
 import type { MarchPlace } from '@/lib/march-place';
 import type { PaletteLookId } from '@/lib/palette-looks';
 import type { RoleNames } from '@/lib/role-names';
-import type { GuestMePart, ReplyCard } from '@/lib/guest-me-parts';
+import type { GuestMeNote, GuestMePart, ReplyCard } from '@/lib/guest-me-parts';
 import { DressCodeWidget } from './dress-code-widget';
+import type { GuestNameParts } from '@/lib/attire-rows';
+import { displayPersonName } from '@/lib/person-name-case';
 
 /**
  * 👤 INVITATION › ME — THE FOUR FOR-EACH-GUEST PARTS, each its own part (owner
@@ -33,7 +35,16 @@ export function GuestMeParts({
   comingWith,
   partLooks = null,
   wearMark = null,
+  note = null,
+  fullGuideAnchor = null,
 }: {
+  /** 👗 What to wear's "See the full dress code ›" — the Details guide's anchor (owner 2026-10-24, the Me redraw). */
+  fullGuideAnchor?: string | null;
+  /**
+   * 💌 The hosts' note to THIS guest (`guestMeNoteShown`, owner 2026-10-20) — drawn under Your role and above What to
+   * wear, headed "A note from …". Null: nothing. Settled elsewhere, like the parts.
+   */
+  note?: GuestMeNote | null;
   /** 🧱 What to wear's own look (`lib/block-looks.ts`, block `look`): its hidden mark, handed to the `wear` part
    *  alone, which draws it right before its root only when it draws. */
   wearMark?: ReactNode;
@@ -46,18 +57,34 @@ export function GuestMeParts({
     ceremonyType: string | null;
     genderSeparation: string | null;
     guestRole: GuestRole | null;
+    guestAttire?: GuestAttire | null;
+    /** 👪 Title · shown name · the "Atty. (Woman)" pick (`guestNamePartsOf`) — a parent is named per person (`DressCodeWidget` `guestNameParts`). */
+    guestNameParts?: GuestNameParts | null;
     march: MarchPlace | null;
     rolePalette: unknown;
     roleNames?: RoleNames | null;
     paletteLook?: PaletteLookId | null;
+    /** ⏰ When guests arrive (`guestsArriveTime`) — Arrive by for a reader whose role has no call time of its own. */
+    guestsArriveBy?: string | null;
   };
   comingWith: readonly string[];
 }) {
-  if (parts.length === 0) return null;
+  if (parts.length === 0 && !note) return null;
+  const noteBlock = note ? (
+    <section key="note" className="space-y-2" data-me-note="">
+      <p className="pahina-eyebrow">
+        <span>{note.heading}</span>
+      </p>
+      <p className="whitespace-pre-wrap font-pahina text-xl font-light leading-snug text-ink">{note.text}</p>
+    </section>
+  ) : null;
+  // Under Your role when it is drawn; else first — always above What to wear.
+  const noteAfterRole = parts.includes('role');
   return (
-    <div data-me-parts="" className="space-y-10">
-      {parts.map((p) =>
-        p === 'guests' ? (
+    <div data-me-parts="" className="space-y-10 [&>*+*]:border-t [&>*+*]:border-ink/10 [&>*+*]:pt-10">
+      {noteAfterRole ? null : noteBlock}
+      {parts.flatMap((p) => {
+        const drawn = p === 'guests' ? (
           <section key={p} className="space-y-2" data-me-part="guests" {...(partLooks?.guests ? { 'data-part-look': partLooks.guests } : {})}>
             <p className="pahina-eyebrow">
               <span>Coming with you</span>
@@ -65,25 +92,26 @@ export function GuestMeParts({
             <ul className="space-y-1">
               {comingWith.map((name, i) => (
                 <li key={`${name}-${i}`} className="font-pahina text-xl font-light leading-snug text-ink">
-                  {name}
+                  {displayPersonName(name)}
                 </li>
               ))}
             </ul>
           </section>
         ) : partLooks?.[p] ? (
           <div key={p} data-part-look={partLooks[p]!} className="empty:hidden">
-            <MePart p={p} words={words} look={look} mark={p === 'wear' ? wearMark : null} />
+            <MePart p={p} words={words} look={look} mark={p === 'wear' ? wearMark : null} guide={p === 'wear' ? fullGuideAnchor : null} />
           </div>
         ) : (
-          <MePart key={p} p={p} words={words} look={look} mark={p === 'wear' ? wearMark : null} />
-        ),
-      )}
+          <MePart key={p} p={p} words={words} look={look} mark={p === 'wear' ? wearMark : null} guide={p === 'wear' ? fullGuideAnchor : null} />
+        );
+        return p === 'role' && noteAfterRole && noteBlock ? [drawn, noteBlock] : [drawn];
+      })}
     </div>
   );
 }
 
 /** One of Your role · What to wear · Arrive by — the dress code's own "you" panel, one fact. */
-function MePart({ p, words, look, mark = null }: { p: Exclude<GuestMePart, 'guests'>; words: EventWords; look: Parameters<typeof GuestMeParts>[0]['look']; mark?: ReactNode }) {
+function MePart({ p, words, look, mark = null, guide = null }: { p: Exclude<GuestMePart, 'guests'>; words: EventWords; look: Parameters<typeof GuestMeParts>[0]['look']; mark?: ReactNode; guide?: string | null }) {
   return (
     <DressCodeWidget
       part={p}
@@ -92,12 +120,16 @@ function MePart({ p, words, look, mark = null }: { p: Exclude<GuestMePart, 'gues
       ceremonyType={look.ceremonyType}
       genderSeparation={look.genderSeparation}
       guestRole={look.guestRole}
+      guestAttire={look.guestAttire ?? null}
+      guestNameParts={look.guestNameParts ?? null}
       march={p === 'role' ? look.march : null}
       rolePalette={look.rolePalette}
       roleNames={look.roleNames ?? null}
       paletteLook={look.paletteLook ?? null}
+      guestsArriveBy={p === 'arrive' ? (look.guestsArriveBy ?? null) : null}
       hideWhenEmpty
       mark={mark}
+      fullGuideAnchor={guide}
     />
   );
 }
@@ -107,15 +139,32 @@ function MePart({ p, words, look, mark = null }: { p: Exclude<GuestMePart, 'gues
  * top of Me: the line, the host's own reply-by date, and ONE control into the
  * shipped reply sheet. Never the Yes / No buttons; no box around it.
  */
-export function ReplyCardRow({ card, landed = false }: { card: ReplyCard; landed?: boolean }) {
+export function ReplyCardRow({
+  card,
+  landed = false,
+  kit = null,
+  partId = null,
+}: {
+  card: ReplyCard;
+  landed?: boolean;
+  /** 🧭 The page's RSVP part (`COVER_RSVP_PART`, lib/cover-rsvp.ts): the cover's button takes the reader here. */
+  partId?: string | null;
+  /**
+   * 🕯 THE LOOK'S ART KIT OVER THE REPLY (`<KitSlot slot="reply">`, owner 2026-10-16) — the garland over the card's top
+   * edge; the kit's stylesheet grows the card's top to clear its dip. Absent → the card byte for byte as before.
+   */
+  kit?: ReactNode;
+}) {
   return (
     <div
+      id={partId ?? undefined}
       data-reply-card={card.kind}
       data-arrival-action={card.kind}
       data-motion="arrive-action"
       data-pahina-first-screen=""
-      className="flex flex-col items-center gap-2 pt-2 text-center"
+      className={`flex flex-col items-center gap-2 pt-2 text-center${partId ? ' scroll-mt-24' : ''}`}
     >
+      {kit}
       <p className="font-pahina text-xl font-light leading-snug text-ink" data-motion={landed ? 'label-land' : undefined}>
         {card.line}
       </p>

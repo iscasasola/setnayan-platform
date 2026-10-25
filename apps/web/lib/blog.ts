@@ -35,7 +35,6 @@ export type BlogCategoryKey =
   | 'planning'
   | 'vendors'
   | 'culture'
-  | 'real-weddings'
   | 'news';
 
 export type BlogCategory = { key: BlogCategoryKey; label: string };
@@ -43,11 +42,13 @@ export type BlogCategory = { key: BlogCategoryKey; label: string };
 // Fixed roster (0038 § 2.1). The index only renders chips for categories that
 // actually have ≥1 published article, so empty categories never show a dead
 // filter — see blogCategoriesInUse().
+// No "Real Weddings" category (removed 2026-10-23): real events are the
+// post-event editorials, and their one home is /realstories (whose one shelf
+// already shows articles; /blog and each article link back to it).
 export const BLOG_CATEGORIES: ReadonlyArray<BlogCategory> = [
   { key: 'planning', label: 'Planning' },
-  { key: 'vendors', label: 'Vendors' },
+  { key: 'vendors', label: 'Suppliers' },
   { key: 'culture', label: 'Culture' },
-  { key: 'real-weddings', label: 'Real Weddings' },
   { key: 'news', label: 'Setnayan News' },
 ];
 
@@ -323,7 +324,7 @@ const CORE_BLOG_ARTICLES: ReadonlyArray<BlogArticle> = [
       },
       {
         type: 'p',
-        text: 'The final stretch is about confirmation, not new decisions. Chase RSVPs, lock the final headcount for your caterer, finalize the seating plan, and walk the day-of timeline with every supplier so call times line up. Then breathe — the planning is done, and the celebration is the easy part.',
+        text: 'The final stretch is about confirmation, not new decisions. Chase RSVPs, lock the final headcount for your caterer, finalize the seating plan, and walk the day-of timeline with every supplier so call times line up. Then breathe — the planning is done, and the day itself is the easy part.',
       },
       {
         type: 'cta',
@@ -483,7 +484,7 @@ const CORE_BLOG_ARTICLES: ReadonlyArray<BlogArticle> = [
       },
       {
         type: 'p',
-        text: 'Choose civil if you value simplicity, speed, and lower cost, or if a religious ceremony is not part of your story. Choose church if the sacrament and the tradition matter to you and your families. Many couples do both — a civil wedding for the legal date and a church celebration later — which is perfectly common and entirely up to you.',
+        text: 'Choose civil if you value simplicity, speed, and lower cost, or if a religious ceremony is not part of your story. Choose church if the sacrament and the tradition matter to you and your families. Many couples do both — a civil wedding for the legal date and a church wedding later — which is perfectly common and entirely up to you.',
       },
       {
         type: 'cta',

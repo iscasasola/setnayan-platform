@@ -76,7 +76,10 @@ import {
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { VENDOR_CATEGORY_LABEL, type VendorCategory } from '@/lib/vendors';
-import { PLAN_GROUPS, planGroupForCategory } from '@/lib/wedding-plan-groups';
+import { homeTileForRow } from '@/lib/shortlist-taxonomy';
+import { hasClaimAsk } from '@/lib/move-supplier-category.server';
+import { WEDDING_TILE_LABEL } from '@/lib/taxonomy';
+import { readCoverCatalog } from '@/lib/cover-catalog.server';
 import {
   formatCentavosPhp,
   VENDOR_PACKAGE_ITEM_SELECT,
@@ -336,7 +339,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   const { data: vendorRow, error: vendorErr } = await supabase
     .from('event_vendors')
     .select(
-      'vendor_id, event_id, category, vendor_name, contact_email, contact_phone, status, workspace_status, lock_request_state, lock_request_expires_at, total_cost_php, transport_php, food_allowance_php, deposit_paid_php, deposit_recorded_at, deposit_acknowledged_at, deposit_proof_url, notes, marketplace_vendor_id, manual_vendor_id, event_vendor_package_id, host_inclusions, covers_plan_groups, crew_size, crew_meal_covered, created_at',
+      'vendor_id, event_id, category, vendor_name, contact_email, contact_phone, status, workspace_status, lock_request_state, lock_request_expires_at, total_cost_php, transport_php, food_allowance_php, deposit_paid_php, deposit_recorded_at, deposit_acknowledged_at, deposit_proof_url, notes, marketplace_vendor_id, manual_vendor_id, event_vendor_package_id, host_inclusions, covers_plan_groups, category_key, crew_size, crew_meal_covered, created_at',
     )
     .eq('vendor_id', vendorId)
     .eq('event_id', eventId)
@@ -464,6 +467,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
     event_vendor_package_id: string | null;
     host_inclusions: string[] | null;
     covers_plan_groups: string[] | null;
+    category_key?: string | null;
     crew_size: number | null;
     crew_meal_covered: boolean | null;
     created_at: string;
@@ -600,26 +604,6 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   // Offer the "also mark delivered" opt-in only when the booking hasn't already
   // reached delivered/complete (matches updateVendorStatus's own emit guard).
   const canAdvanceToDelivered = ev.status !== 'delivered' && ev.status !== 'complete';
-
-  // DIY parity (2026-06-11): "also covers" options for the host-authored
-  // links on a manual vendor — every plan group except this vendor's own.
-  const ownGroupId = planGroupForCategory(ev.category as VendorCategory);
-  // 🔑 EVERY CATEGORY IS LISTED, INCLUDING THIS SUPPLIER'S OWN (owner
-  // 2026-09-20: "what services does this cover. so they can pick all
-  // categories" · "combine categories they picked").
-  //
-  // It used to `filter((g) => g.id !== ownGroupId)`. Logically defensible —
-  // the own group is covered by construction — but what the couple SAW was a
-  // list of everything except the one thing they knew this supplier does,
-  // which reads as an omission, not an implication. The own group is now
-  // present, always on, and not togglable: it states the fact instead of
-  // hiding it, and it cannot be switched off into a lie.
-  const coverOptions = PLAN_GROUPS.map((g) => ({
-    id: g.id as string,
-    label: g.label,
-    /** Always-on, disabled: this is where the couple added them. */
-    locked: g.id === ownGroupId,
-  }));
 
   // ── The couple's own service card for a self-added supplier (2026-09-20) ──
   // Under their own RLS (`event_manual_vendors_host_all`), keyed on the
@@ -1088,8 +1072,14 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   // --------------------------------------------------------------------------
   const displayName = marketplaceProfile?.business_name ?? ev.vendor_name;
   const logoUrl = safeHttpUrl(marketplaceProfile?.logo_url);
+  // A supplier moved to a row the enum cannot name (Food Truck stores `misc`)
+  // is called by that row's name, not by the enum's generic one.
+  const movedRow =
+    ev.category_key && homeTileForRow(ev) === ev.category_key
+      ? (WEDDING_TILE_LABEL as Record<string, string>)[ev.category_key]
+      : undefined;
   const categoryLabel =
-    (VENDOR_CATEGORY_LABEL as Record<string, string>)[ev.category] ?? 'Service';
+    movedRow ?? (VENDOR_CATEGORY_LABEL as Record<string, string>)[ev.category] ?? 'Service';
 
   // ── MB16 · colour access for this booking ────────────────────────────────
   // The lane comes from the CATEGORY, resolved by the same map
@@ -1564,6 +1554,29 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   const hasPackageLines =
     packageIncludedItems.length + packageAddOnItems.length > 0;
 
+  // DIY parity (2026-06-11): "also covers" for the host-authored links on a
+  // manual vendor. 🔑 THE SUPPLIERS PAGE'S OWN ROWS (owner 2026-10-20, "we do
+  // not have the categories synced properly"): `readCoverCatalog` runs the same
+  // `buildShortlistFolders` call the page draws its rows with, so Food Truck,
+  // Food Cart, Massage Chair … can be ticked here as on the card sheet. The
+  // booking's own row is said under the dropdown, locked (owner 2026-09-20:
+  // "so they can pick all categories" — it states the fact, it cannot be
+  // switched off into a lie). Only read when the editor below renders.
+  const showsHostEditor = !hasPackageLines && isOffPlatformSupplier(ev);
+  const [coverRead, claimAsk] = showsHostEditor
+    ? await Promise.all([readCoverCatalog(eventId), hasClaimAsk(supabase, eventId, ev.vendor_id)])
+    : [null, false];
+  const coverCatalog = coverRead?.ok ? coverRead.catalog : undefined;
+  // The row the card is drawn under — a moved supplier's `category_key` when
+  // the enum cannot name it (Food Truck), so the locked row and the Suppliers
+  // page say the same thing.
+  const ownTile = homeTileForRow(ev);
+  const ownCoverLabel =
+    coverCatalog?.flatMap((f) => f.options).find((o) => o.tile === ownTile)?.label ??
+    VENDOR_CATEGORY_LABEL[ev.category as VendorCategory] ??
+    'Their own category';
+
+
   const includedSection =
       packageIncludedItems.length > 0 ? (
         <section
@@ -1597,7 +1610,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             ))}
           </ul>
         </section>
-      ) : !hasPackageLines && isOffPlatformSupplier(ev) ? (
+      ) : showsHostEditor ? (
         /* DIY parity (owner doctrine 2026-06-11): an off-platform supplier has
            no vendor-authored package, so the HOST describes the order — what's
            included + which other plan categories it covers. The covers links
@@ -1615,7 +1628,11 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
           displayName={displayName}
           initialInclusions={ev.host_inclusions ?? []}
           initialCovers={ev.covers_plan_groups ?? []}
-          options={coverOptions}
+          category={ev.category}
+          homeTile={ownTile}
+          claimAsk={claimAsk}
+          ownLabel={ownCoverLabel}
+          catalog={coverCatalog}
         />
       ) : null;
 
@@ -2110,7 +2127,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
          reception scope — so it says the true thing instead of the specific
          one. Inventing "reception" would be wrong for every ceremony-only
          supplier on the platform. */
-      tradeLine={`${categoryLabel} · booked for this celebration`}
+      tradeLine={`${categoryLabel} · booked for this event`}
       lane={colourLane}
       isOn={colourAccessOn}
       changes={colourChanges}
@@ -2388,7 +2405,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
                   step="1"
                   inputMode="numeric"
                   defaultValue={thisVendorCrew ?? ''}
-                  className="w-32 rounded-md border border-ink/15 bg-white px-2 py-1 text-right font-medium text-ink focus:border-terracotta focus:outline-none"
+                  className="w-32 rounded-md border border-ink/15 bg-white dark:bg-raised px-2 py-1 text-right font-medium text-ink focus:border-terracotta focus:outline-none"
                 />
               </label>
               {hasCrewMealProvider ? (
@@ -2451,7 +2468,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             {crewFields}
             {paidSoFarRow}
             {ev.category === 'crew_meals' ? null : (
-              <SubmitButton pendingLabel="Saving…" className="mt-1 inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-mulberry-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta">Save crew</SubmitButton>
+              <SubmitButton pendingLabel="Saving…" className="mt-1 inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-sm font-medium text-white dark:text-cream transition-colors hover:bg-mulberry-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta">Save crew</SubmitButton>
             )}
           </form>
         </section>
@@ -2511,7 +2528,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
                   step="0.01"
                   inputMode="decimal"
                   defaultValue={line.value ?? ''}
-                  className="w-32 rounded-md border border-ink/15 bg-white px-2 py-1 text-right font-medium text-ink focus:border-terracotta focus:outline-none"
+                  className="w-32 rounded-md border border-ink/15 bg-white dark:bg-raised px-2 py-1 text-right font-medium text-ink focus:border-terracotta focus:outline-none"
                 />
               </span>
             </label>
@@ -2543,7 +2560,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
               one source: the same `paidSoFarFormatted` the header shows. */}
           {paidSoFarRow}
 
-          <SubmitButton pendingLabel="Saving…" className="mt-1 inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-mulberry-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta">Save costs</SubmitButton>
+          <SubmitButton pendingLabel="Saving…" className="mt-1 inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-sm font-medium text-white dark:text-cream transition-colors hover:bg-mulberry-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta">Save costs</SubmitButton>
         </form>
         </section>
       );
@@ -2828,7 +2845,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
         </h2>
         <p className="mt-1.5 text-xs text-ink/70">
           {displayName} marked their service complete. Confirm you received everything to
-          unlock your review and galleries — or let us know if something is missing.
+          unlock your review and photos — or let us know if something is missing.
         </p>
         <div className="mt-4 flex flex-wrap gap-2">
           <form action={coupleConfirmReceived}>
@@ -2836,7 +2853,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             <input type="hidden" name="vendor_id" value={ev.vendor_id} />
             <SubmitButton
               pendingLabel="Confirming…"
-              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-mulberry-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-sm font-medium text-white dark:text-cream transition-colors hover:bg-mulberry-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
             >
               Yes, I got everything
             </SubmitButton>
@@ -2910,7 +2927,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
         </p>
         <Link
           href={reviewHref}
-          className="mt-4 inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-mulberry-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+          className="mt-4 inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-sm font-medium text-white dark:text-cream transition-colors hover:bg-mulberry-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
         >
           Leave a review
         </Link>

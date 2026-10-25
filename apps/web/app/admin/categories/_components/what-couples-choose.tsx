@@ -14,7 +14,6 @@
  * category); the two reorders are the shipped JSON actions.
  */
 import { useCallback, useState, useTransition, type DragEvent } from 'react';
-import { useRouter } from 'next/navigation';
 import { ChevronDown, ChevronUp, GripVertical, ImageIcon, Lock, Plus, Trash2, X } from 'lucide-react';
 import { FileUpload } from '@/app/_components/file-upload';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -58,7 +57,6 @@ export function WhatCouplesChoose({
   tile: CategoryRef;
   refinements: RefinementCard[];
 }) {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [openLeaf, setOpenLeaf] = useState<string | null>(
     refinements.length === 1 ? refinements[0]!.leafKey : null,
@@ -72,14 +70,14 @@ export function WhatCouplesChoose({
       startTransition(async () => {
         const res = await fn();
         if (res.ok) {
+          // ⚡ The reorder revalidates this page: its answer carries the redraw (no second render).
           setFlash({ kind: 'ok', text: res.message });
-          router.refresh();
         } else {
           setFlash({ kind: 'error', text: res.error });
         }
       });
     },
-    [router],
+    [],
   );
 
   const leafKeys = refinements.map((l) => l.leafKey);

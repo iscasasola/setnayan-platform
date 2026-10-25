@@ -26,9 +26,10 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { guestDisplayName, type GuestRow } from '@/lib/guests';
 import { formatCount } from '@/lib/format-number';
-import type { MapBranch } from '@/lib/guest-roster-view';
+import type { MapBranch, PlusOneWords } from '@/lib/guest-roster-view';
 import { layoutMap, type MapNode } from '@/lib/guest-map-layout';
 import styles from './guests-screen.module.css';
+import { displayPersonName } from '@/lib/person-name-case';
 
 const useIso = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
@@ -45,10 +46,13 @@ export function GuestMapCanvas({
   isToInvite,
   onOpen,
   fitKey,
+  plusWords,
 }: {
   rootLabel: string;
   tree: readonly MapBranch[];
   isToInvite: (g: GuestRow) => boolean;
+  /** 🤝 Whose +1 each +1 is — an unnamed seat is named by its guest, as on the List (`plusOneWordsFrom`). */
+  plusWords?: ReadonlyMap<string, PlusOneWords>;
   onOpen: (guestId: string, el: HTMLElement) => void;
   /** Changes when the arrangement changes — the map re-fits. */
   fitKey: string;
@@ -206,7 +210,9 @@ export function GuestMapCanvas({
                 : g.rsvp_status === 'declined'
                   ? styles.leafNo
                   : '';
-          const name = guestDisplayName(g);
+          const words = plusWords?.get(g.guest_id);
+          const name = words?.name ?? displayPersonName(guestDisplayName(g));
+          const side = words?.side ?? g.side;
           return (
             <button
               key={g.guest_id}
@@ -214,12 +220,13 @@ export function GuestMapCanvas({
               className={`${styles.node} ${tone}`}
               style={style}
               onClick={(e) => onOpen(g.guest_id, e.currentTarget)}
-              aria-label={`${name} — ${toInvite ? 'to invite' : r.word}`}
+              aria-label={`${name}${words?.of ? `, ${words.of}` : ''} — ${toInvite ? 'to invite' : r.word}`}
               data-map-leaf=""
+              data-plus-one-of={words?.hostId}
             >
               <span
                 aria-hidden
-                className={`${styles.dot} ${g.side === 'bride' ? styles.sideBride : g.side === 'groom' ? styles.sideGroom : styles.sideBoth}`}
+                className={`${styles.dot} ${side === 'bride' ? styles.sideBride : side === 'groom' ? styles.sideGroom : styles.sideBoth}`}
               />
               {name}
               <span aria-hidden className={`${styles.pill} ${toInvite ? styles.pillGold : styles[r.cls]}`}>

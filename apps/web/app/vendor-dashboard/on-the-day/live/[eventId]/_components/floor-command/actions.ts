@@ -20,7 +20,8 @@ import { advanceScheduleBlock } from '@/app/_actions/run-of-show';
 import { fetchScheduleBlocks } from '@/lib/schedule';
 import { computeRetimePatches } from '@/lib/schedule-ros';
 import { checkRetime } from '@/lib/floor-command';
-import { COORDINATOR_TILE } from '@/lib/day-requests';
+import { notifyScheduleShifted } from '@/lib/schedule-shift-notify.server';
+import { isCoordinatorTrade } from '@/lib/coordinator-trade';
 import { eventFeeBlocksAction } from '@/lib/vendor-event-fee-access.server';
 
 export type FloorActionResult = { ok: boolean; error?: string; message?: string };
@@ -35,7 +36,7 @@ async function requireCoordinator(eventId: string) {
 
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) return { error: 'No supplier profile.' as const };
-  if (!profile.services?.includes(COORDINATOR_TILE)) {
+  if (!isCoordinatorTrade(profile.services)) {
     return { error: 'Only the coordinator can run the floor.' as const };
   }
 
@@ -125,23 +126,36 @@ export async function floorRetimeFrom(
 
   let moved = 0;
   for (const p of patches) {
-    const { error } = await ctx.supabase
+    const { data: changed, error } = await ctx.supabase
       .from('event_schedule_blocks')
       .update({ start_at: p.start_at, end_at: p.end_at })
       .eq('block_id', p.block_id)
-      .eq('event_id', eventId);
-    if (error) {
+      .eq('event_id', eventId)
+      .select('block_id');
+    // RLS answers a refused UPDATE with ZERO rows and no error (a booked coordinator without The Day = Edit) —
+    // counted as refused, so the floor never says "Moved 6 blocks." over an unmoved day.
+    if (error || !changed?.length) {
       // Report what actually happened rather than claiming a clean run.
       return {
         ok: false,
         error:
           moved === 0
-            ? 'You do not have permission to move this schedule.'
+            ? 'Nothing moved — the host has not given you edit access to the schedule.'
             : `Only ${moved} of ${patches.length} blocks moved — reload and check the timeline.`,
       };
     }
     moved += 1;
   }
+
+  /* ⏱ The floor's +N is a shift of the day: every OTHER booked supplier is told, once (owner 2026-10-23). */
+  const anchor = blocks.find((b) => b.block_id === fromBlockId) ?? null;
+  await notifyScheduleShifted({
+    eventId,
+    deltaMinutes: check.minutes,
+    fromStartAt: anchor?.start_at ?? null,
+    fromLabel: anchor?.label ?? null,
+    actorUserId: ctx.user.id,
+  });
 
   revalidatePath(`/vendor-dashboard/on-the-day/live/${eventId}`);
   revalidatePath(`/dashboard/${eventId}/schedule`);

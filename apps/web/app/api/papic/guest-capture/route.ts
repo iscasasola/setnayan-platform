@@ -3,7 +3,7 @@ import { tellTheCouplePapicPoolIsSpent } from '@/lib/papic-pool-spent-notice';
 import { eventAcceptsNewCaptures } from '@/lib/event-accepts-captures';
 import { readGuestSession } from '@/lib/guest-session';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { isR2Configured, r2Upload, R2_BUCKETS } from '@/lib/r2';
+import { isR2Configured } from '@/lib/r2';
 import { enforceRateLimit, rateLimited429 } from '@/lib/with-rate-limit';
 import {
   PAPIC_SEAT_BURST,
@@ -12,344 +12,151 @@ import {
 import { guestCaptureGate, GUEST_CAPTURE_GATE_COLUMNS } from '@/lib/papic-guest-window';
 import { ingestToWall } from '@/lib/live-wall';
 import { papicCaptureCost } from '@/lib/papic-cameras';
-import {
-  papicEventPoolPreCheckExhausted,
-  papicReserveEventPoolForCapture,
-} from '@/lib/papic-event-pool-gate';
-import { releaseCaptureCredits } from '@/lib/papic-release-capture';
-import {
-  resolveGuestOwnCamera,
-  reserveGuestOwnCameraCapture,
-} from '@/lib/papic-guest-own-camera';
+import { papicEventPoolPreCheckExhausted } from '@/lib/papic-event-pool-gate';
+import { resolveGuestOwnCamera } from '@/lib/papic-guest-own-camera';
 import { enqueueDriveCopy, runDriveCopyBatch } from '@/lib/drive-copy';
 import { screenCapture } from '@/lib/nsfw-screen';
 import { clipWebKeyDistinct } from '@/lib/papic-display-ref';
 import { capturedAtIso, parseCapturedAtMs } from '@/lib/papic-capture-minute';
+import { CLIENT_CAPTURE_ID_FIELD, readClientCaptureId } from '@/lib/papic-client-capture-id';
+import {
+  eventKeepsFullRes,
+  readCaptureIntents,
+  screenTierBytes,
+  settleCaptureIntents,
+  signCaptureTierPut,
+  discardPromoted,
+  dropStagingObjects,
+  newAttemptTag,
+  probeMp4DurationMs,
+  loadUploadedTiers,
+  promoteTier,
+  type IntentRow,
+} from '@/lib/papic-upload-intents.server';
+import { isCaptureTier, refHoldsTier, tiersFor, type CaptureTier } from '@/lib/papic-upload/tiers';
+import { judgedShotInstant } from '@/lib/papic-upload/shot-time';
+import { recordedClipNeedsRaw, webCopyPlayable } from '@/lib/papic-upload/mp4';
+import { ownerTagMatches } from '@/lib/papic-upload/owner-tag.server';
+import { maybeRunPapicUploadSweep } from '@/lib/papic-upload-sweep';
 
 // POST /api/papic/guest-capture
 //
 // The guest-camera capture endpoint for PAPIC_GUEST. The guest is identified by
 // their setnayan_guest_session cookie (guest_id + event_id) — no sign-in, so
-// /api/upload (which 401s anonymous callers) can't be used. This route does the
-// whole capture server-side: validate the cookie, PUT the JPEG to R2 with the
-// service-role R2 client, then record it through the SECURITY DEFINER
-// papic_record_guest_capture RPC, which atomically re-checks + enforces the
-// per-guest 150-credit pool (the client display is advisory only). Returns
-// { status: 'ok' | 'quota_exhausted' | 'invalid_guest' | 'not_owned', total,
-// used, remaining }.
+// /api/upload (which 401s anonymous callers) can't be used.
+//
+// ── 🚫 NO FILE BYTES COME THROUGH HERE (2026-10-23) ─────────────────────────
+// MEASURED in production: a 6 MB POST to this route answered 413
+// FUNCTION_PAYLOAD_TOO_LARGE from Vercel before this code ran — a Vercel
+// function refuses any request body over 4.5 MB, and a 10-second guest clip is
+// designed at ~12.5 MB, so EVERY normal clip failed. This route now takes a
+// small JSON body only; a multipart body is refused (415 bytes_not_accepted).
+// The phone saves a shot first (IndexedDB) and sends it later in pieces, each
+// PUT straight to R2 on a URL minted here (lib/papic-upload/). Three ops:
+//
+//   sign   — "may I upload this piece?" Checks the session, the terms, the
+//            window, put-away and the credits BEFORE minting one presigned PUT
+//            for one tier of one shot (key bound to the clientCaptureId + tier,
+//            Content-Type + Content-Length signed, minutes to live).
+//   record — the shot's first piece landed (photo: its thumbnail · clip: its
+//            poster + first playable). Verify the objects, then the SAME one
+//            transaction as before books the points and writes the row
+//            (papic_record_guest_capture_and_spend). Screened before answering.
+//   attach — a later piece landed (tile + display, the original, a clip's raw).
+//            Verified and SCREENED before its key is written onto the row, so
+//            nothing reaches another person unscreened.
+//
+// Guarded by lib/papic-upload/no-capture-route-takes-file-bytes.test.ts.
+// Returns the same statuses the camera always read: 'ok' | 'quota_exhausted' |
+// 'camera_points_exhausted' | 'event_put_away' | 'blocked' | 'terms_required' …
 
 export const runtime = 'nodejs';
 
-const MAX_BYTES = 12_000_000; // 12 MB — a phone JPEG is well under this
-// A 10-second 1440p clip at the client's bounded ~10 Mbps encode targets
-// 10 Mbps × 10 s ÷ 8 = ~12.5 MB. This ceiling keeps ~3× headroom over that for
-// VBR overshoot + the audio track + container overhead, so a legitimate 10s
-// clip never 413s. Oversized uploads are rejected (413 too_large) before any R2
-// round-trip. (Was 25 MB, sized for the retired 5-second/1080p clip.)
-const MAX_CLIP_BYTES = 40_000_000; // 40 MB
 // 10-SECOND CLIP CAP — owner 2026-07-22 · §0. The route rejects a client that
 // stamps a longer duration; the RPC ALSO clamps with LEAST(ms,10000).
 const MAX_CLIP_MS = 10000;
 
-// Byte floor for an accepted clip web copy — anything at/below this is a
-// truncated / empty transcode, not a real clip (raw stays the only copy).
-const MIN_CLIP_WEB_BYTES = 1024;
+// The JSON body carries at most the on-device face vectors (mode_a events) —
+// 200 KB covers dozens of 128-d descriptors; anything bigger is not ours.
+const MAX_JSON_BYTES = 256_000;
 
 type GuestSession = NonNullable<Awaited<ReturnType<typeof readGuestSession>>>;
+type Admin = ReturnType<typeof createAdminClient>;
 
-// ── Clip web-copy follow-up (Papic storage PR-1) ─────────────────────────────
+type CaptureRow = {
+  capture_id: string;
+  media_type: string | null;
+  r2_object_key: string | null;
+  poster_r2_key: string | null;
+  display_r2_key: string | null;
+  tile_r2_key: string | null;
+  thumb_r2_key: string | null;
+  clip_web_r2_key: string | null;
+  moderation_state: string | null;
+};
+
+type Body = Record<string, unknown>;
+
+const json = (body: Record<string, unknown>, status = 200) => NextResponse.json(body, { status });
+
+// ── WHEN may this guest shoot? (owner 2026-08-07) ──────────────────────────
+// Default: the event day only. If the host pressed "let guests shoot now",
+// the event's whole Papic window. Guests previously had NO time gate at all —
+// the pass check asks only WHETHER the event has guest cameras, never WHEN —
+// so someone who redeemed their invite months early could shoot into the
+// couple's gallery on any random Tuesday.
 //
-// The client produces a ~0.5 MB H.264 web copy of a clip AFTER the raw capture
-// has already recorded (best-effort, off-main-thread) and POSTs it back here as
-// a `mode=web_copy` follow-up keyed on the returned capture_id — it is NEVER
-// serialized into the capture POST (a multi-second wasm transcode must not block
-// the raw upload/record path or the next capture). This handler PUTs the web
-// copy to a SIBLING `-web.mp4` key (provably distinct from the poster still and
-// the raw), then writes clip_web_r2_key + the real object size via a
-// service-role UPDATE keyed on capture_id. It does NOT re-meter, reserve pool
-// points, re-run the RPC, or touch Drive — the raw already did all of that.
-async function handleGuestClipWebCopy(
-  form: FormData,
-  session: GuestSession,
-): Promise<NextResponse> {
-  const captureIdRaw = form.get('capture_id');
-  const captureId = typeof captureIdRaw === 'string' ? captureIdRaw.trim() : '';
-  if (!captureId) {
-    return NextResponse.json({ error: 'no_capture_id' }, { status: 400 });
-  }
-  const webFile = form.get('clip_web');
-  if (!(webFile instanceof File)) {
-    return NextResponse.json({ error: 'no_file' }, { status: 400 });
-  }
-  if (!webFile.type.startsWith('video/')) {
-    return NextResponse.json({ error: 'bad_type' }, { status: 415 });
-  }
-  if (webFile.size <= MIN_CLIP_WEB_BYTES) {
-    return NextResponse.json({ error: 'too_small' }, { status: 400 });
-  }
-  if (webFile.size > MAX_CLIP_BYTES) {
-    return NextResponse.json({ error: 'too_large' }, { status: 413 });
-  }
-  if (!isR2Configured()) {
-    return NextResponse.json({ error: 'uploads_unavailable' }, { status: 503 });
-  }
-
-  const admin = createAdminClient();
-
-  // OWNERSHIP: the capture must belong to THIS guest session (guest_id +
-  // event_id) and be a clip. Reading poster/display/raw keys lets us assert the
-  // web key is distinct before persisting (the poster-trap guard).
-  const { data: cap, error: capErr } = await admin
-    .from('papic_guest_captures')
-    .select('capture_id, media_type, r2_object_key, poster_r2_key, display_r2_key, clip_web_r2_key')
-    .eq('capture_id', captureId)
-    .eq('guest_id', session.guest_id)
+// 🔑 THIS IS THE ENFORCEMENT. The guest page hides the camera too, but a page
+// is a courtesy: this route is reachable directly and the RPC behind it checks
+// ownership and quota, never time.
+//
+// ⚠ Asked for a NEW shot only (sign before record, and record). A piece that
+// follows a shot we already accepted (attach, or a sign after record) is never
+// refused because the day has since rolled over — that would strand the row
+// with no display copy.
+//
+// 🕐 JUDGED BY THE SHUTTER, NOT BY ARRIVAL (review 2026-10-23, blocker 1): a
+// shot taken inside the window and sent after it closed is IN the window
+// (`judgedShotInstant`, lib/papic-upload/shot-time.ts — bounded by the server's
+// clock, so a phone cannot claim tomorrow).
+async function windowRefusal(session: GuestSession, admin: Admin, shotAtMs: number): Promise<NextResponse | null> {
+  const { data: gateRow, error: gateErr } = await admin
+    .from('events')
+    .select(GUEST_CAPTURE_GATE_COLUMNS)
     .eq('event_id', session.event_id)
     .maybeSingle();
-  if (capErr || !cap) {
-    return NextResponse.json({ error: 'not_found' }, { status: 404 });
-  }
-  if ((cap as { media_type?: string | null }).media_type !== 'clip') {
-    return NextResponse.json({ error: 'not_a_clip' }, { status: 400 });
-  }
-  // Idempotent: a web copy already landed for this capture — don't PUT a second.
-  if ((cap as { clip_web_r2_key?: string | null }).clip_web_r2_key) {
-    return NextResponse.json({ status: 'ok', already: true });
-  }
+  if (gateErr) console.error('[supabase-error] app/api/papic/guest-capture/route.ts · from:events.select', gateErr);
 
-  const bytes = new Uint8Array(await webFile.arrayBuffer());
-  // SIBLING key — a fresh stamp + `-web.mp4` suffix. Never the raw `.mp4` (older
-  // stamp, no suffix) nor the poster `-poster.jpg` (image). content-type video/*.
-  const stamp = Date.now();
-  const webKey = `papic/guest/${session.guest_id}/papic-${stamp}-web.mp4`;
-  const webRef = `r2://${R2_BUCKETS.media}/${webKey}`;
-
-  // Poster-trap guard: never persist a web key equal to the poster / display /
-  // raw key (would let the still + play resolvers collide, and PR-2's drop then
-  // delete a still a play surface points at). Structurally impossible here (the
-  // `-web.mp4` sibling can't equal an image poster), but assert it anyway.
-  if (
-    !clipWebKeyDistinct(webRef, {
-      poster_r2_key: (cap as { poster_r2_key?: string | null }).poster_r2_key ?? null,
-      display_r2_key: (cap as { display_r2_key?: string | null }).display_r2_key ?? null,
-      r2_object_key: (cap as { r2_object_key?: string | null }).r2_object_key ?? null,
-    })
-  ) {
-    return NextResponse.json({ error: 'key_collision' }, { status: 409 });
-  }
-
-  try {
-    await r2Upload({
-      bucket: R2_BUCKETS.media,
-      key: webKey,
-      body: bytes,
-      contentType: 'video/mp4',
+  // ⚠ Supabase RESOLVES with { error }, it does not throw. A phantom column
+  // here would return null and read exactly like "no event" — so an unreadable
+  // row must not be treated as a refusal. Fail OPEN on a read failure: the
+  // pass check and the quota still bound this, and silently refusing a guest
+  // at a live wedding is the worse outcome.
+  if (!gateErr && gateRow) {
+    const gate = guestCaptureGate({
+      earlyAllowed: gateRow.papic_guest_capture_early,
+      eventDate: gateRow.event_date,
+      windowStart: gateRow.papic_window_start,
+      windowEnd: gateRow.papic_window_end,
+      nowMs: shotAtMs,
     });
-  } catch {
-    return NextResponse.json({ error: 'upload_failed' }, { status: 502 });
+    if (gate.state !== 'open') {
+      return json(
+        {
+          error: gate.state === 'not_open_yet' ? 'guest_capture_not_open_yet' : 'guest_capture_closed',
+          eventDay: gate.eventDay,
+        },
+        403,
+      );
+    }
   }
-
-  // clip_web_bytes = the real object size (the exact bytes we just PUT).
-  const { error: updErr } = await admin
-    .from('papic_guest_captures')
-    .update({ clip_web_r2_key: webRef, clip_web_bytes: bytes.length })
-    .eq('capture_id', captureId)
-    .eq('guest_id', session.guest_id)
-    // Belt-and-suspenders: capture_id is already unique, but scope the write to the
-    // session's event too (symmetry with the ownership read above).
-    .eq('event_id', session.event_id);
-  if (updErr) {
-    return NextResponse.json({ error: 'persist_failed' }, { status: 500 });
-  }
-  return NextResponse.json({ status: 'ok' });
+  return null;
 }
 
-export async function POST(req: Request) {
-  const session = await readGuestSession();
-  if (!session) {
-    return NextResponse.json({ error: 'no_session' }, { status: 401 });
-  }
-
-  let form: FormData;
-  try {
-    form = await req.formData();
-  } catch {
-    return NextResponse.json({ error: 'bad_request' }, { status: 400 });
-  }
-
-  // CLIP WEB-COPY follow-up (Papic storage PR-1): a `mode=web_copy` POST is NOT a
-  // new capture — it carries the small H.264 web copy for an already-recorded
-  // clip, keyed on capture_id. Branch BEFORE any metering / pool reserve / RPC.
-  if (form.get('mode') === 'web_copy') {
-    return handleGuestClipWebCopy(form, session);
-  }
-
-  // ── WHEN may this guest shoot? (owner 2026-08-07) ────────────────────────
-  // Default: the event day only. If the host pressed "let guests shoot now",
-  // the event's whole Papic window. Guests previously had NO time gate at all —
-  // the pass check asks only WHETHER the event has guest cameras, never WHEN —
-  // so someone who redeemed their invite months early could shoot into the
-  // couple's gallery on any random Tuesday.
-  //
-  // 🔑 THIS IS THE ENFORCEMENT. The guest page hides the camera too, but a page
-  // is a courtesy: this route is reachable directly and the RPC behind it checks
-  // ownership and quota, never time.
-  //
-  // ⚠ Placed AFTER the web_copy branch on purpose. A web copy is the follow-up
-  // for a clip we already accepted; refusing it because the day has since rolled
-  // over would strand the raw with no playable copy.
-  {
-    const gateAdmin = createAdminClient();
-    const { data: gateRow, error: gateErr } = await gateAdmin
-      .from('events')
-      .select(GUEST_CAPTURE_GATE_COLUMNS)
-      .eq('event_id', session.event_id)
-      .maybeSingle();
-    if (gateErr) console.error('[supabase-error] app/api/papic/guest-capture/route.ts · from:events.select', gateErr);
-
-    // ⚠ Supabase RESOLVES with { error }, it does not throw. A phantom column
-    // here would return null and read exactly like "no event" — so an unreadable
-    // row must not be treated as a refusal. Fail OPEN on a read failure: the
-    // pass check and the quota still bound this, and silently refusing a guest
-    // at a live wedding is the worse outcome.
-    if (!gateErr && gateRow) {
-      const gate = guestCaptureGate({
-        earlyAllowed: gateRow.papic_guest_capture_early,
-        eventDate: gateRow.event_date,
-        windowStart: gateRow.papic_window_start,
-        windowEnd: gateRow.papic_window_end,
-      });
-      if (gate.state !== 'open') {
-        return NextResponse.json(
-          {
-            error:
-              gate.state === 'not_open_yet'
-                ? 'guest_capture_not_open_yet'
-                : 'guest_capture_closed',
-            eventDay: gate.eventDay,
-          },
-          { status: 403 },
-        );
-      }
-    }
-  }
-
-  // media_type: 'photo' (default · JPEG path) | 'clip' (a guest-recorded ≤10s
-  // video — Option A, the path that feeds the Alaala orb). The branch governs
-  // the MIME allow-list, size cap, R2 key, and the poster/duration the clip
-  // carries. An absent/unknown value → 'photo' so the original path is exact.
-  const mediaType = form.get('media_type') === 'clip' ? 'clip' : 'photo';
-  const isClip = mediaType === 'clip';
-
-  const file = form.get('file');
-  if (!(file instanceof File)) {
-    return NextResponse.json({ error: 'no_file' }, { status: 400 });
-  }
-  if (isClip) {
-    if (!file.type.startsWith('video/')) {
-      return NextResponse.json({ error: 'bad_type' }, { status: 415 });
-    }
-    if (file.size > MAX_CLIP_BYTES) {
-      return NextResponse.json({ error: 'too_large' }, { status: 413 });
-    }
-  } else {
-    if (!file.type.startsWith('image/')) {
-      return NextResponse.json({ error: 'bad_type' }, { status: 415 });
-    }
-    if (file.size > MAX_BYTES) {
-      return NextResponse.json({ error: 'too_large' }, { status: 413 });
-    }
-  }
-  if (!isR2Configured()) {
-    return NextResponse.json({ error: 'uploads_unavailable' }, { status: 503 });
-  }
-
-  // Clip extras (clip path only): the client-stamped duration (10s hard cap, also
-  // re-clamped in the RPC) and the poster frame — the NSFW-screen proxy (nsfwjs
-  // is image-only; we never classify the video bytes). A posterless clip stays
-  // 'unscreened' (excluded from guest surfaces structurally).
-  let durationMs: number | null = null;
-  let posterBytes: Uint8Array | undefined;
-  if (isClip) {
-    const durRaw = form.get('duration_ms');
-    if (typeof durRaw === 'string' && durRaw.length > 0) {
-      const parsed = Number.parseInt(durRaw, 10);
-      if (Number.isFinite(parsed) && parsed > 0) {
-        if (parsed > MAX_CLIP_MS) {
-          return NextResponse.json({ error: 'too_long' }, { status: 400 });
-        }
-        durationMs = parsed;
-      }
-    }
-    const posterFile = form.get('poster');
-    if (
-      posterFile instanceof File &&
-      posterFile.type.startsWith('image/') &&
-      posterFile.size > 0 &&
-      posterFile.size <= 5_000_000
-    ) {
-      posterBytes = new Uint8Array(await posterFile.arrayBuffer());
-    }
-  }
-
-  // GUEST public-sharing opt-in (Alaala orb gate · RA 10173 explicit consent).
-  // The capture UI sends 'share_publicly' = '1' ONLY when the guest ticked the
-  // opt-in for THIS shot; absent/anything-else → false. This sets
-  // consent_to_public on the row this guest captures (their own recording) —
-  // one of the two gates the public showcase requires (the other is the
-  // couple's approval). Default OFF: a missing flag never opts a guest in.
-  const sharePublicly = form.get('share_publicly') === '1';
-
-  // 🕐 THE SHUTTER — read on ingest, never asked and never surfaced (owner,
-  // 2026-09-07: "when we get the photos and snippets, we know. but the guest
-  // does not need to know"). The camera stamps it at the grab and the offline
-  // drain replays it, so a shot that spent six hours waiting for signal is
-  // still filed under the minute it was taken rather than the minute it landed.
-  // Absent or malformed → null → the RPC answers now(), which is what every row
-  // got before this shipped. Nothing here refuses a capture.
-  const capturedAtMs = parseCapturedAtMs(form.get('captured_at_ms'));
-  const capturedAtIsoValue = capturedAtIso(capturedAtMs);
-
-  // Optional on-device face descriptors (best-effort) — the phone detected faces
-  // + computed their 128-d vectors and sent only those; the face IMAGE stayed on
-  // the device. Parsed defensively: a malformed/oversized field just disables
-  // auto-tag for this shot, never rejects the capture. Absent entirely until a
-  // face model is hosted (NEXT_PUBLIC_FACE_MODEL_URL).
-  let faceVectors: number[][] = [];
-  const fvRaw = form.get('face_vectors');
-  if (typeof fvRaw === 'string' && fvRaw.length > 0 && fvRaw.length < 200_000) {
-    try {
-      const parsed = JSON.parse(fvRaw);
-      if (Array.isArray(parsed)) {
-        faceVectors = parsed.filter(
-          (v): v is number[] =>
-            Array.isArray(v) && v.length > 0 && v.every((n) => typeof n === 'number'),
-        );
-      }
-    } catch {
-      faceVectors = [];
-    }
-  }
-
-  // Optional dominant-face center (normalized 0..1) from the SAME on-device pass
-  // — Tier-2 auto-reframe. Parsed defensively; anything out of [0,1] is ignored.
-  let subjectCenterX: number | null = null;
-  let subjectCenterY: number | null = null;
-  {
-    const sx = Number(form.get('subject_center_x'));
-    const sy = Number(form.get('subject_center_y'));
-    if (Number.isFinite(sx) && Number.isFinite(sy) && sx >= 0 && sx <= 1 && sy >= 0 && sy <= 1) {
-      subjectCenterX = sx;
-      subjectCenterY = sy;
-    }
-  }
-
-  const admin = createAdminClient();
-
-  // UGC moderation pre-checks (Apple 1.2 / Google Play UGC) — cheap reads that
-  // keep R2 free of orphan objects we'd only reject. The capture RPC re-checks
-  // both authoritatively (it's the real gate); these just short-circuit the
-  // common rejected cases before the R2 PUT.
+// UGC moderation pre-checks (Apple 1.2 / Google Play UGC) — cheap reads that
+// keep R2 free of objects we'd only reject. The capture RPC re-checks both
+// authoritatively (it's the real gate).
+async function moderationRefusal(session: GuestSession, admin: Admin): Promise<NextResponse | null> {
   const [{ data: blockRow }, { data: guestRow }] = await Promise.all([
     admin
       .from('event_blocked_users')
@@ -357,196 +164,304 @@ export async function POST(req: Request) {
       .eq('event_id', session.event_id)
       .eq('blocked_guest_id', session.guest_id)
       .maybeSingle(),
-    admin
-      .from('guests')
-      .select('ugc_terms_accepted_at')
-      .eq('guest_id', session.guest_id)
-      .maybeSingle(),
+    admin.from('guests').select('ugc_terms_accepted_at').eq('guest_id', session.guest_id).maybeSingle(),
   ]);
-  if (blockRow) {
-    return NextResponse.json({ status: 'blocked' }, { status: 403 });
+  if (blockRow) return json({ status: 'blocked' }, 403);
+  if (!guestRow?.ugc_terms_accepted_at) return json({ status: 'terms_required' }, 403);
+  return null;
+}
+
+// ── PUT AWAY = the shutter stops (owner 2026-08-16) ────────────────────────
+// Fails OPEN on an unreadable row — see the helper for why a read failure must
+// never stop a live celebration's cameras.
+//
+// ── DOES THIS GUEST HOLD SHOTS THEY BOUGHT? (2026-08-02) ───────────────────
+// A guest who bought their own shots has a camera of their own with a
+// dedicated balance. Resolved here for the pre-check only: which ledger a shot
+// is BOOKED against is decided inside the one-transaction record.
+//
+// ⚠ Gated on `dedicated > 0` and nothing else: a guest whose camera holds
+// nothing of her own left draws the pot like everyone else.
+async function creditRefusal(
+  session: GuestSession,
+  admin: Admin,
+  cost: number,
+): Promise<NextResponse | null> {
+  if (!(await eventAcceptsNewCaptures(admin, session.event_id))) {
+    return json({ status: 'event_put_away' }, 409);
   }
-  if (!guestRow?.ugc_terms_accepted_at) {
-    return NextResponse.json({ status: 'terms_required' }, { status: 403 });
+  const ownCamera = await resolveGuestOwnCamera(admin, session.event_id, session.guest_id);
+  const spendOwn = (ownCamera?.dedicated ?? 0) > 0;
+  // Skipped for a guest spending their OWN points: the shared pool being
+  // empty is exactly the situation they bought their way out of.
+  if (
+    !spendOwn &&
+    (await papicEventPoolPreCheckExhausted(admin, session.event_id, cost))
+  ) {
+    // ⬇ THE COUPLE ARE THE ONLY PEOPLE WHO CAN ACT ON THIS. Deduped inside;
+    // after() so the refusal is not delayed.
+    after(async () => {
+      await tellTheCouplePapicPoolIsSpent(session.event_id);
+    });
+    return json({ status: 'camera_points_exhausted' }, 409);
+  }
+  return null;
+}
+
+function parseDuration(body: Body): { ok: true; ms: number | null } | { ok: false } {
+  const raw = body.duration_ms;
+  const n = typeof raw === 'number' ? raw : typeof raw === 'string' ? Number.parseInt(raw, 10) : NaN;
+  if (!Number.isFinite(n) || n <= 0) return { ok: true, ms: null };
+  if (n > MAX_CLIP_MS) return { ok: false };
+  return { ok: true, ms: Math.round(n) };
+}
+
+/**
+ * The tier's OPEN upload. A settled intent was already promoted and recorded —
+ * a late re-PUT on its still-valid URL lands in staging and is never promoted
+ * again (review 2026-10-23, major 3); the sweep removes it.
+ */
+function intentFor(intents: readonly IntentRow[], tier: CaptureTier): IntentRow | undefined {
+  return intents.find((i) => i.tier === tier && i.settled_at === null);
+}
+
+type Loaded = Awaited<ReturnType<typeof loadUploadedTiers>>['loaded'][number];
+
+/**
+ * Read + check the pieces the phone says it uploaded, or a 409 naming the ones
+ * it must PUT (again). Nothing is promoted here — the caller screens first.
+ */
+async function loadOrRedo(
+  intents: readonly IntentRow[],
+  tiers: readonly CaptureTier[],
+): Promise<{ ok: true; byTier: Map<CaptureTier, Loaded> } | { ok: false; res: NextResponse }> {
+  const missing = tiers.filter((t) => !intentFor(intents, t));
+  if (missing.length > 0) {
+    return { ok: false, res: json({ error: 'object_missing', missing }, 409) };
+  }
+  const { loaded, redo } = await loadUploadedTiers(tiers.map((t) => intentFor(intents, t)!));
+  if (redo.length > 0) {
+    return { ok: false, res: json({ error: 'object_rejected', missing: redo }, 409) };
+  }
+  return { ok: true, byTier: new Map(loaded.map((l) => [l.intent.tier, l])) };
+}
+
+/** Promote every loaded piece to its final key; answers tier → final ref. */
+async function promoteAll(
+  admin: Admin,
+  byTier: Map<CaptureTier, Loaded>,
+): Promise<Map<CaptureTier, string> | null> {
+  try {
+    // One attempt tag for this call: its copies are ITS OWN keys (major 3).
+    const attempt = newAttemptTag();
+    const out = new Map<CaptureTier, string>();
+    for (const [tier, loaded] of byTier) out.set(tier, await promoteTier(admin, loaded, attempt));
+    return out;
+  } catch (err) {
+    console.error('[papic-upload] promote failed', err instanceof Error ? err.message : err);
+    return null;
+  }
+}
+
+// ── sign ────────────────────────────────────────────────────────────────────
+async function handleSign(
+  session: GuestSession,
+  admin: Admin,
+  body: Body,
+  clientCaptureId: string,
+  mediaType: 'photo' | 'clip',
+  prior: CaptureRow | null,
+): Promise<NextResponse> {
+  const tier = body.tier;
+  if (!isCaptureTier(tier) || !tiersFor(mediaType).includes(tier)) {
+    return json({ error: 'bad_tier' }, 400);
+  }
+  const contentType = typeof body.content_type === 'string' ? body.content_type : '';
+  const sizeBytes = typeof body.size_bytes === 'number' ? body.size_bytes : NaN;
+
+  if (prior) {
+    // A piece that FOLLOWS an accepted shot: no window, no credits — the shot
+    // is already paid for. Only what is still missing on the row may be signed;
+    // a piece the row already shows can never be overwritten (it was screened).
+    if (tier === 'thumb' || tier === 'poster' || tier === 'clip_web') {
+      return json({ status: 'ok', already: true });
+    }
+    if ((tier === 'tile' && prior.tile_r2_key) || (tier === 'display' && prior.display_r2_key)) {
+      return json({ status: 'ok', already: true });
+    }
+    if (tier === 'original' || tier === 'clip_raw') {
+      if (refHoldsTier(prior.r2_object_key, tier)) return json({ status: 'ok', already: true });
+      // A clip whose web copy is not a verified playable MP4 always wants its raw
+      // (Guard A, review 2026-10-23 major 5).
+      const rawNeeded = tier === 'clip_raw' && (await rowNeedsRaw(prior));
+      if (!rawNeeded && !(await eventKeepsFullRes(admin, session.event_id))) {
+        return json({ error: 'full_not_wanted' }, 409);
+      }
+    }
+  } else {
+    if (tier === 'tile' || tier === 'display') {
+      // Never before the record: these pieces attach to a row. (An ORIGINAL may
+      // come first — that is a phone that could not make a thumbnail, and its
+      // original is the record's piece; see phaseOf in lib/papic-upload/tiers.ts.)
+      return json({ error: 'not_recorded_yet' }, 409);
+    }
+    const duration = parseDuration(body);
+    const refused =
+      (await windowRefusal(session, admin, judgedShotInstant(body.captured_at_ms, Date.now()))) ??
+      (await moderationRefusal(session, admin)) ??
+      (await creditRefusal(session, admin, papicCaptureCost(mediaType, duration.ok ? duration.ms : null)));
+    if (refused) return refused;
   }
 
-  // The capture's point cost (1 photo · 7 clip) — the ONE currency the shared
-  // event pool meters (Free / Papic One / Papic Pool all draw the same pool).
-  // Same as the seat record seam: the length is already parsed above (and
-  // clamped to the 10s cap), so a guest's video costs what its length costs.
-  // An absent or unparseable duration falls to the top band, never the cheap one.
-  const cost = papicCaptureCost(isClip ? 'clip' : 'photo', durationMs);
+  const signed = await signCaptureTierPut(admin, {
+    lane: 'guest',
+    eventId: session.event_id,
+    ownerId: session.guest_id,
+    clientCaptureId,
+    tier,
+    contentType,
+    sizeBytes,
+  });
+  if (!signed.ok) {
+    return json({ error: signed.error }, signed.error === 'sign_failed' ? 503 : signed.error === 'too_large' ? 413 : 400);
+  }
+  return json({ status: 'ok', uploadUrl: signed.uploadUrl, expiresIn: signed.expiresInSeconds });
+}
 
-  // Pre-check the shared event pool so we don't PUT an object the reserve would
-  // then refuse — keeps R2 free of orphans for the common exhausted case. The
-  // AUTHORITATIVE, race-safe gate is the papic_reserve_event_points reserve
-  // below (fail-CLOSED). This pre-check fails OPEN by design: a non-applies
-  // event (no grant / no pass) returns MAXINT so this is a no-op and the record
-  // RPC's own gate decides (legacy behaviour byte-identical), and any RPC error
-  // just skips the optimization — the reserve still gates.
-  //
-  // ── DOES THIS GUEST HOLD SHOTS THEY BOUGHT? (2026-08-02) ─────────────────
-  // A guest who bought their own shots has a camera of their own with a
-  // dedicated balance. Resolved ONCE here and reused by the reserve + unwind
-  // below, so the three cannot disagree about which ledger is in play.
-  //
-  // ⚠ Gated on `dedicated > 0` and nothing else. On a camera with no bought
-  // balance the seat reserve would fall through to the TIER's daily budget —
-  // a 20/day cap this surface has never had — so a guest who never bought
-  // anything must not touch that path. This keeps the whole feature invisible
-  // to everyone except the people who paid for it.
-  // ── PUT AWAY = the shutter stops (owner 2026-08-16) ─────────────────────
-  // The SECOND of the two capture entry points; they share no code path, which
-  // is why the rule lives in one helper rather than being written twice. Fails
-  // OPEN on an unreadable row — see the helper for why a read failure must
-  // never stop a live celebration's cameras.
+// ── record ──────────────────────────────────────────────────────────────────
+/**
+ * 🛡 Does a RECORDED clip still need its raw from the phone? Yes until the row
+ * names a web copy the server itself has read as a real, playable MP4 — or while
+ * the row names the raw already (nothing to ask). Guard A on the phone (review
+ * 2026-10-23 major 5; 2026-10-24: the replayed-record answer asks the same
+ * question, so a lost first answer cannot make the phone let go of the raw).
+ */
+async function rowNeedsRaw(prior: CaptureRow): Promise<boolean> {
+  return recordedClipNeedsRaw(prior, (ref) => probeMp4DurationMs(ref, Number.MAX_SAFE_INTEGER));
+}
+
+async function handleRecord(
+  session: GuestSession,
+  admin: Admin,
+  body: Body,
+  clientCaptureId: string,
+  mediaType: 'photo' | 'clip',
+  prior: CaptureRow | null,
+): Promise<NextResponse> {
+  // 🧹 Keep the upload sweep moving from the camera itself (at most hourly —
+  // a claimed window), so a quiet admin console cannot stall it.
+  after(() => maybeRunPapicUploadSweep());
+  // 🔁 THIS SHUTTER ALREADY LANDED. The phone never heard "saved" (the answer
+  // was lost on bad signal) and sent the record again. Answer with the first
+  // row — asked of the RPC with the same id, which replies `duplicate` with the
+  // guest's current figures and charges nothing — BEFORE any booking. A
+  // duplicate that races past this read is caught again inside the RPC's lock.
+  if (prior?.capture_id) {
+    const { data: again } = await admin.rpc('papic_record_guest_capture', {
+      p_guest_id: session.guest_id,
+      p_client_capture_id: clientCaptureId,
+    });
+    return json({
+      ...((again ?? {}) as Record<string, unknown>),
+      status: 'ok',
+      duplicate: true,
+      captureId: prior.capture_id,
+      // The SAME answer the first record gave: keep-full-res OR a web copy not
+      // (yet) verified playable — never the event's setting alone.
+      wantFull: (await eventKeepsFullRes(admin, session.event_id)) || (await rowNeedsRaw(prior)),
+    });
+  }
+
+  const isClip = mediaType === 'clip';
+  const duration = parseDuration(body);
+  if (!duration.ok) return json({ error: 'too_long' }, 400);
+  const durationMs = isClip ? duration.ms : null;
+
+  const shotAtMs = judgedShotInstant(body.captured_at_ms, Date.now());
+  const refusedEarly =
+    (await windowRefusal(session, admin, shotAtMs)) ?? (await moderationRefusal(session, admin));
+  if (refusedEarly) return refusedEarly;
+
   // ⏱ THE SAME PER-CAMERA CEILING, on the guest door. Keyed on the guest, not
   // the event: 250 captures/second across an event is the product working; 12
-  // from one phone is a loop. See PAPIC_SEAT_BURST for the reasoning and why it
-  // fails open.
+  // from one phone is a loop. See PAPIC_SEAT_BURST for the reasoning.
   const burst = await enforceRateLimit('papic_guest_capture', session.guest_id, {
     limit: PAPIC_SEAT_BURST,
     windowSecs: PAPIC_SEAT_BURST_WINDOW_S,
   });
   if (!burst.ok) return rateLimited429(burst.retryAfterSecs);
 
-  if (!(await eventAcceptsNewCaptures(admin, session.event_id))) {
-    return NextResponse.json({ status: 'event_put_away' }, { status: 409 });
+  // The capture's point cost (1 photo · 7 clip) — the ONE currency the shared
+  // event pool meters. An absent or unparseable duration falls to the top band.
+  const cost = papicCaptureCost(isClip ? 'clip' : 'photo', durationMs);
+  const refused = await creditRefusal(session, admin, cost);
+  if (refused) return refused;
+
+  // ── WHAT LANDED ────────────────────────────────────────────────────────
+  const intents = await readCaptureIntents(admin, session.guest_id, clientCaptureId);
+  if (!intents) return json({ error: 'record_failed' }, 503);
+  const playable: CaptureTier = intentFor(intents, 'clip_web') ? 'clip_web' : 'clip_raw';
+  // A photo records with its thumbnail — or, from a phone that could not make
+  // one, with its original (the server then makes the copies, as it always did).
+  const photoFirst: CaptureTier = intentFor(intents, 'thumb') ? 'thumb' : 'original';
+  const needed: CaptureTier[] = isClip ? ['poster', playable] : [photoFirst];
+  const checked = await loadOrRedo(intents, needed);
+  if (!checked.ok) return checked.res;
+  // Written to the FINAL keys before the row exists — the row is born pointing
+  // at copies no presigned URL can reach (lib/papic-upload/tiers.ts).
+  const finals = await promoteAll(admin, checked.byTier);
+  if (!finals) return json({ error: 'record_failed' }, 503);
+  const objectTier: CaptureTier = isClip ? playable : photoFirst;
+  const r2Ref = finals.get(objectTier)!;
+  const posterRef = isClip ? finals.get('poster')! : null;
+  const sizeOf = (t: CaptureTier) => checked.byTier.get(t)?.size ?? null;
+
+  // GUEST public-sharing opt-in (Alaala orb gate · RA 10173 explicit consent).
+  // Sent true ONLY when the guest ticked the opt-in for THIS shot.
+  const sharePublicly = body.share_publicly === true;
+  // 🏷 Did the PHONE burn the event's mark into the copies it sent (lib/papic-upload/prepare.ts)?
+  // When it did not, the copies the server makes below carry it instead (owner 2026-10-24).
+  const copiesMarked = body.copies_marked === true;
+
+  // 🕐 THE SHUTTER — read on ingest, never asked and never surfaced (owner,
+  // 2026-09-07). The camera stamps it at the grab and the queue replays it, so
+  // a shot that spent six hours waiting for signal is still filed under the
+  // minute it was taken rather than the minute it landed.
+  const capturedAtIsoValue = capturedAtIso(parseCapturedAtMs(body.captured_at_ms));
+
+  // Optional on-device face descriptors (mode_a only, best-effort). A
+  // malformed field just disables auto-tag for this shot.
+  let faceVectors: number[][] = [];
+  if (Array.isArray(body.face_vectors)) {
+    faceVectors = (body.face_vectors as unknown[]).filter(
+      (v): v is number[] => Array.isArray(v) && v.length > 0 && v.every((n) => typeof n === 'number'),
+    );
   }
-
-  const ownCamera = await resolveGuestOwnCamera(admin, session.event_id, session.guest_id);
-  const spendOwn = (ownCamera?.dedicated ?? 0) > 0;
-
+  let subjectCenterX: number | null = null;
+  let subjectCenterY: number | null = null;
   {
-    // Skipped for a guest spending their OWN points: the shared pool being
-    // empty is exactly the situation they bought their way out of, and
-    // refusing here would take their money and still not let them shoot.
-    if (
-      !spendOwn &&
-      (await papicEventPoolPreCheckExhausted(admin, session.event_id, cost))
-    ) {
-      // ⬇ THE COUPLE ARE THE ONLY PEOPLE WHO CAN ACT ON THIS. The guest's own
-      // screen already says so honestly ("Everybody here is sharing one set of
-      // shots… The host can add more") — but she is standing at their wedding
-      // and they are getting married, so nobody raises it and the celebration
-      // ends with them never learning their guests were cut off. Deduped
-      // inside; after() so the refusal is not delayed.
-      after(async () => {
-        await tellTheCouplePapicPoolIsSpent(session.event_id);
-      });
-      return NextResponse.json({ status: 'camera_points_exhausted' }, { status: 409 });
+    const c = body.subject_center as { x?: unknown; y?: unknown } | null | undefined;
+    const sx = Number(c?.x);
+    const sy = Number(c?.y);
+    if (c && Number.isFinite(sx) && Number.isFinite(sy) && sx >= 0 && sx <= 1 && sy >= 0 && sy <= 1) {
+      subjectCenterX = sx;
+      subjectCenterY = sy;
     }
   }
 
-  const bytes = new Uint8Array(await file.arrayBuffer());
-  const stamp = Date.now();
-  // Clip → .mp4 (video/mp4); photo → .jpg (image/jpeg). The poster (if present)
-  // rides a sibling .jpg key so the NSFW screen + clip thumbnail can find it.
-  const key = isClip
-    ? `papic/guest/${session.guest_id}/papic-${stamp}.mp4`
-    : `papic/guest/${session.guest_id}/papic-${stamp}.jpg`;
-  try {
-    await r2Upload({
-      bucket: R2_BUCKETS.media,
-      key,
-      body: bytes,
-      contentType: isClip ? 'video/mp4' : 'image/jpeg',
-    });
-  } catch {
-    return NextResponse.json({ error: 'upload_failed' }, { status: 502 });
-  }
-  const r2Ref = `r2://${R2_BUCKETS.media}/${key}`;
-
-  // Upload the clip's poster frame (best-effort). A failed/absent poster just
-  // leaves the clip 'unscreened' (excluded from guest surfaces) — it never fails
-  // the capture.
-  let posterRef: string | null = null;
-  if (isClip && posterBytes) {
-    const posterKey = `papic/guest/${session.guest_id}/papic-${stamp}-poster.jpg`;
-    try {
-      await r2Upload({
-        bucket: R2_BUCKETS.media,
-        key: posterKey,
-        body: posterBytes,
-        contentType: 'image/jpeg',
-      });
-      posterRef = `r2://${R2_BUCKETS.media}/${posterKey}`;
-    } catch {
-      posterRef = null;
-    }
-  }
-
-  // ── EVENT-POOL reserve (Phase 0c uniform gate) — the AUTHORITATIVE, race-safe
-  // cap for every guest capture. Free / Papic One / Papic Pool all draw this one
-  // shared pool; papic_reserve_event_points atomically books `cost` points (or
-  // allows unconditionally on a non-applies event, ledger untouched). Same
-  // fail-CLOSED posture as the seat path (papic/actions.ts): block on any RPC
-  // error EXCEPT function-not-found (the seam-cutover carve-out in
-  // resolvePointsGate). A refused reserve unwinds below if the record then fails.
-  // Two FIGURES, not two flags: a capture can be paid from the guest's own
-  // balance AND the pot at once, and an abort must put each half back where it
-  // came from (owner 2026-08-11: "spend 2 and take 6").
-  let dedicatedSpent = 0;
-  let poolSpent = 0;
-  {
-    // A guest spending their OWN shots books the pair the seat path books:
-    // their camera's balance first, then the pool, which stands down while
-    // that balance lasts. Everyone else takes the original path untouched.
-    const { outcome, booked } = ownCamera
-      ? await reserveGuestOwnCameraCapture(
-          admin,
-          session.event_id,
-          ownCamera.seatId,
-          cost,
-        ).then((r) => {
-          dedicatedSpent = r.dedicatedSpent;
-          return { outcome: r.outcome, booked: r.poolSpent };
-        })
-      // No camera of their own at all — nothing to split against, so the pot is
-      // the only ledger. Only a TRUE actually spent points; a fn-not-found
-      // 'allow' booked nothing.
-      : await papicReserveEventPoolForCapture(admin, session.event_id, cost).then((r) => ({
-          outcome: r.outcome,
-          booked: r.booked ? cost : 0,
-        }));
-    poolSpent = booked;
-    if (outcome === 'exhausted') {
-      // The authoritative reserve. Reached from BOTH shapes — the plain pool
-      // reserve, and the split, which refuses only when the guest's own balance
-      // AND the pot together cannot cover the cost. Either way the pot is short,
-      // so the couple is the right person to tell.
-      after(async () => {
-        await tellTheCouplePapicPoolIsSpent(session.event_id);
-      });
-      return NextResponse.json({ status: 'camera_points_exhausted' }, { status: 409 });
-    }
-    if (outcome === 'blocked') {
-      return NextResponse.json({ status: 'points_check_failed' }, { status: 503 });
-    }
-  }
-
-  // Record the capture, carrying the guest's public-share consent + (for clips)
-  // media_type + duration + poster on the row, and what it cost.
+  // ── ONE CALL: BOOK THE POINTS AND WRITE THE ROW — OR NEITHER ─────────────
+  // (20271276810836.) papic_record_guest_capture_and_spend books the shared
+  // pot / the guest's own camera and writes the row inside one transaction: they
+  // commit together or neither happens. A repeat of a shutter that already
+  // landed books nothing at all.
   //
-  // ── `p_points_cost` — THE COST IS PASSED IN, THE CEILING IS NOT ────────────
-  // The RPC stores this on the row and meters the couple's per-guest ceiling by
-  // SUMming it, so the meter is in CREDITS rather than rows (a ten-second clip
-  // costs 8 of them). It is the SAME `cost` the pool reserve above already
-  // booked — one number, computed once, spent against both ledgers, so the two
-  // can never disagree about what this capture was worth. The RPC does NOT take
-  // its LIMIT from us; it reads the couple's own table. Migration
-  // 20271184624871.
+  // ⚠ NO SIGNATURE-FALLBACK LADDER, deliberately: deploy-prod applies migrations
+  // BEFORE it triggers the deploy, and if the function were ever missing the
+  // error below answers 500, which the phone's queue retries (keyed by the
+  // shutter id, so the retry lands once).
   //
-  // Graceful-degrade: if a newer signature isn't deployed yet, retry the 7-arg,
-  // then the 6-arg, then the 3-arg, then the 2-arg so the capture still records.
-  // ⚠ THE 6-ARG RUNG IS THE DEPLOY-WINDOW RUNG AND IT IS NOT DECORATION. Vercel
-  // and the migration workflow both fire on a push to main and race; for the
-  // minutes where this code is live and 20271184624871 is not, the 7-arg call
-  // 42883s. Without this rung it would fall straight to shapes that cannot
-  // carry media_type — recording every clip of that window as a photo.
-  // 🕐 The 8-arg rung is the same rung for 20271214644139: during ITS window the
-  // capture records with its upload minute instead of not recording at all.
-  let { data, error } = await admin.rpc('papic_record_guest_capture', {
+  // ⚠ SERVICE-ROLE ONLY — `admin` is the service-role client.
+  const { data, error } = await admin.rpc('papic_record_guest_capture_and_spend', {
     p_guest_id: session.guest_id,
     p_r2_object_key: r2Ref,
     p_consent_to_public: sharePublicly,
@@ -555,257 +470,428 @@ export async function POST(req: Request) {
     p_poster_r2_key: posterRef,
     p_points_cost: cost,
     p_captured_at: capturedAtIsoValue,
+    p_client_capture_id: clientCaptureId,
   });
-  if (error && /p_captured_at|function .*papic_record_guest_capture/i.test(error.message ?? '')) {
-    ({ data, error } = await admin.rpc('papic_record_guest_capture', {
-      p_guest_id: session.guest_id,
-      p_r2_object_key: r2Ref,
-      p_consent_to_public: sharePublicly,
-      p_media_type: mediaType,
-      p_duration_ms: durationMs,
-      p_poster_r2_key: posterRef,
-      p_points_cost: cost,
-    }));
-  }
-  if (error && /p_points_cost|function .*papic_record_guest_capture/i.test(error.message ?? '')) {
-    ({ data, error } = await admin.rpc('papic_record_guest_capture', {
-      p_guest_id: session.guest_id,
-      p_r2_object_key: r2Ref,
-      p_consent_to_public: sharePublicly,
-      p_media_type: mediaType,
-      p_duration_ms: durationMs,
-      p_poster_r2_key: posterRef,
-    }));
-  }
-  if (error && /p_media_type|p_duration_ms|p_poster_r2_key|function .*papic_record_guest_capture/i.test(error.message ?? '')) {
-    ({ data, error } = await admin.rpc('papic_record_guest_capture', {
-      p_guest_id: session.guest_id,
-      p_r2_object_key: r2Ref,
-      p_consent_to_public: sharePublicly,
-    }));
-    if (error && /p_consent_to_public|function .*papic_record_guest_capture/i.test(error.message ?? '')) {
-      ({ data, error } = await admin.rpc('papic_record_guest_capture', {
-        p_guest_id: session.guest_id,
-        p_r2_object_key: r2Ref,
-      }));
-    }
-  }
-
-  // If the record failed OR came back non-ok (quota_exhausted / not_owned /
-  // invalid_guest), unwind the pool reservation so a refused capture never
-  // leaves points spent — symmetric to the seat path. Best-effort; a failed
-  // unwind costs the couple points, never a broken capture.
-  const recordStatus = (data as { status?: string } | null)?.status;
-  if (error || recordStatus !== 'ok') {
-    // ONE call, both halves — the guest's own balance and the host's pot each
-    // get back exactly what this capture took from them. Releasing the whole
-    // cost to either side alone would move credits between the two: the guest
-    // paid for theirs, and the leak in that direction is somebody's money
-    // rather than the host's allowance.
-    // ⚠ THIS USED TO END `.then(() => undefined, () => undefined)`. Supabase
-    // RESOLVES with { error } rather than throwing, so the FIRST handler
-    // discarded a real failure and the guest's own credits stayed spent on a
-    // photo that does not exist, silently. Best-effort was right; SILENT was
-    // the bug.
-    await releaseCaptureCredits(admin, {
-      seatId: ownCamera?.seatId ?? null,
-      eventId: session.event_id,
-      dedicatedSpent,
-      poolSpent,
-      callSite: 'papic.guestCapture.releaseAfterRecordFailed',
-    });
-  }
+  const neededIntents = needed.map((t) => intentFor(intents, t)!);
   if (error) {
-    return NextResponse.json({ error: 'record_failed' }, { status: 500 });
+    // Nothing was spent: the transaction rolled back with the error.
+    console.error('[supabase-error] app/api/papic/guest-capture/route.ts · rpc:papic_record_guest_capture_and_spend', error);
+    // ⚠ UNCLEAR, not a refusal (review 2026-10-24, major 3): the database may
+    // have committed the row and only the reply was lost. The promoted copies
+    // STAY — the intent remembers them (final_ref); the phone's retry answers
+    // `duplicate` against that row, and a copy no row names is removed by the
+    // next attempt or the sweep (deleteFinalIfUnreferenced, never a named key).
+    return json({ error: 'record_failed' }, 500);
   }
 
+  const recordStatus = (data as { status?: string } | null)?.status;
+  if (recordStatus === 'camera_points_exhausted') {
+    // The authoritative refusal — the pot is short, so the couple is told.
+    await discardPromoted(admin, neededIntents, finals);
+    after(async () => {
+      await tellTheCouplePapicPoolIsSpent(session.event_id);
+    });
+    return json({ status: 'camera_points_exhausted' }, 409);
+  }
   const result = (data ?? {}) as {
     status?: string;
     total?: number;
     used?: number;
     remaining?: number;
-    // ⚠ LINE COMMENTS ONLY IN THIS FILE — NEVER A JSDOC BLOCK. NOT A STYLE
-    // CHOICE, AND IT COST AN HOUR TO FIND. A comment further up ends with the
-    // MIME wildcard for video, which puts a block-comment OPENER inside a line
-    // comment. Several source-level guards over this file strip block comments
-    // with a naive non-greedy pattern that never looks at line comments first:
-    // today it finds no closing delimiter anywhere in the file, so it leaves
-    // everything alone. Introduce the first real closing delimiter — a single
-    // JSDoc block, anywhere — and that stray opener suddenly closes at it,
-    // swallowing 27,000 characters of source. SIX guards over this file went
-    // red at once, on a change that touched none of what they check. Measured
-    // by comparing the stripped length before and after: 16,218 → 6,430.
-    //
-    // ⏭ NO LONGER LOAD-BEARING, KEPT ANYWAY (2026-08-30, after PR #5018). The
-    // shared stripper was fixed — an unterminated opener no longer eats to EOF —
-    // and re-adding a JSDoc block here now leaves all 30 of those tests green.
-    // This is belt-and-braces, not a requirement. The paragraph above stays
-    // because it is what happened, and because a future reader deciding whether
-    // to reach for a JSDoc here deserves the history rather than the conclusion.
-    //
     // Which limit refused, when `status` is `quota_exhausted`:
     // `guest_spend_ceiling` — the COUPLE's per-guest ceiling (migration
-    // 20271184624871); `per_guest_credits` — the platform's own 150.
-    // 🔑 THE STATUS IS DELIBERATELY NOT NEW. The route already unwinds both
-    // ledgers on any non-ok status and the offline drain already classifies
-    // this one as retryable-not-terminal; a new string would have had to be
-    // taught to both. What the guest's SCREEN says is the thing that has to
-    // split, and this is what lets it — "your own allowance is spent" is not
-    // "the celebration's credits are spent", and a refusal that reuses another
-    // refusal's status inherits its copy. Undefined before the migration.
+    // 20271184624871); `per_guest_credits` — the platform's own 150. What the
+    // guest's SCREEN says is the thing that has to split, and this lets it.
     reason?: string;
     // The couple's ceiling on this guest in credits, or null when none binds.
     ceiling?: number | null;
   };
+  if (result.status !== 'ok') {
+    await discardPromoted(admin, neededIntents, finals);
+    return json(result, result.status === 'quota_exhausted' ? 409 : 400);
+  }
+  // 🔁 A `duplicate` answer is a success that spent nothing.
+  const recordDuplicate = (data as { duplicate?: boolean } | null)?.duplicate === true;
 
-  let captureId: string | null = null;
-  if (result.status === 'ok') {
-    // Resolve the new capture's id (the RPC reports quota only) — the Kwento
-    // author sheet anchors on it, and the wall ingest below reuses it.
-    try {
-      const { data: capRow } = await admin
-        .from('papic_guest_captures')
-        .select('capture_id')
-        .eq('r2_object_key', r2Ref)
-        .maybeSingle();
-      captureId = (capRow?.capture_id as string) ?? null;
-    } catch {
-      captureId = null;
-    }
+  let captureId: string | null =
+    typeof (data as { capture_id?: unknown } | null)?.capture_id === 'string'
+      ? (data as { capture_id: string }).capture_id
+      : null;
+  if (!captureId) {
+    const { data: capRow } = await admin
+      .from('papic_guest_captures')
+      .select('capture_id')
+      .eq('guest_id', session.guest_id)
+      .eq('client_capture_id', clientCaptureId)
+      .maybeSingle();
+    captureId = (capRow?.capture_id as string | undefined) ?? null;
+  }
+  // 🛡 GUARD A ON THE PHONE (review 2026-10-23, major 5): a clip recorded with
+  // its WEB COPY lets the phone forget the raw only when that web copy is a
+  // real, playable MP4 — its own `mvhd` says how long it runs. Otherwise the
+  // raw is wanted, whatever the event keeps.
+  let webVerified = true;
+  if (isClip && playable === 'clip_web') {
+    const web = checked.byTier.get('clip_web');
+    webVerified = webCopyPlayable(web ? await probeMp4DurationMs(web.intent.r2_ref, web.size) : null);
+  }
+  const wantFull = (await eventKeepsFullRes(admin, session.event_id)) || !webVerified;
+  if (recordDuplicate) {
+    // Another attempt of this shutter won the race: the row points at ITS
+    // copies, so this attempt's are nobody's (major 3).
+    await discardPromoted(admin, neededIntents, finals);
+    return json({ ...result, captureId, wantFull });
   }
 
-  // Persist the dominant-face center for Tier-2 auto-reframe (best-effort,
-  // additive; the Stories render falls back to a centered focal when absent).
-  if (captureId && subjectCenterX !== null && subjectCenterY !== null) {
-    try {
-      await admin
-        .from('papic_guest_captures')
-        .update({ subject_center_x: subjectCenterX, subject_center_y: subjectCenterY })
-        .eq('capture_id', captureId);
-    } catch {
-      // best-effort — never blocks the capture
+  // The first piece's own columns: a photo's thumbnail IS its thumb_r2_key; a
+  // clip's poster is its display still (lib/papic-derivatives.ts sets
+  // display = poster for clips). Plus the dominant-face center (Tier-2 reframe).
+  if (captureId) {
+    const patch: Record<string, unknown> = isClip
+      ? { display_r2_key: posterRef, display_bytes: sizeOf('poster') }
+      : photoFirst === 'thumb'
+        ? { thumb_r2_key: r2Ref, thumb_bytes: sizeOf('thumb') }
+        : { orig_bytes: sizeOf('original') };
+    if (subjectCenterX !== null && subjectCenterY !== null) {
+      patch.subject_center_x = subjectCenterX;
+      patch.subject_center_y = subjectCenterY;
     }
+    const { error: patchErr } = await admin.from('papic_guest_captures').update(patch).eq('capture_id', captureId);
+    if (patchErr) console.error('[supabase-error] app/api/papic/guest-capture/route.ts · from:papic_guest_captures.update(first piece)', patchErr);
   }
+  await settleCaptureIntents(admin, neededIntents.map((i) => i.r2_ref));
+  await dropStagingObjects(neededIntents);
 
-  if (result.status === 'ok') {
-    // Always-on NSFW screen (Apple 1.2 filter · corpus hard constraint) — runs
-    // in the BACKGROUND with after() so the shutter stays instant. We already
-    // hold the JPEG bytes, so no R2 round-trip. Fail-open: any classifier error
-    // leaves the row 'unscreened' and the photo flows normally.
-    // Salamisim chain: screen FIRST (the wall is an allowlist — only 'clean'
-    // projects), THEN the wall gate. The capture RPC doesn't return the row
-    // id, so resolve it by the (unique) r2 ref before ingesting.
-    after(async () => {
-      // Per-event fidelity tier (brief PR-4): the ingest READ seam of the
-      // single `events.papic_quality_tier` column the setup surface writes.
-      // Runs FIRST so derivatives / Drive / downloads flow from the tiered
-      // original. STILLS only; full_res / legacy / pre-migration rows are a
-      // strict no-op. Best-effort — the module never throws. (The NSFW screen
-      // below classifies the in-memory bytes, so it is unaffected either way.)
-      if (!isClip) {
-        try {
-          const { applyEventFidelityToOriginal } = await import(
-            '@/lib/papic-ingest-fidelity'
-          );
-          await applyEventFidelityToOriginal(session.event_id, r2Ref);
-        } catch {
-          // best-effort — fidelity never breaks a capture
-        }
-      }
-      // screenCapture classifies the image proxy: photo bytes directly, or — for
-      // a clip — it swaps to the row's poster_r2_key and reads that from R2 (the
-      // video bytes are never classified). So we hand it the photo bytes; for a
-      // clip the helper resolves the poster on its own. A posterless clip stays
-      // 'unscreened' (excluded from guest surfaces).
-      await screenCapture({
-        table: 'papic_guest_captures',
-        r2ObjectKey: r2Ref,
-        bytes: isClip ? undefined : bytes,
-      }).catch(() => {});
-      // Cheap display + thumbnail derivatives (best-effort, AFTER the screen)
-      // so guest/owner galleries serve compressed tiles instead of full-res
-      // originals. Dynamic import keeps the sharp/R2 cost off the shutter hot
-      // path; the module wraps everything (never throws). Clips have no
-      // transcode — derive the thumb from the poster.
-      if (captureId) {
-        try {
-          const { generatePhotoDerivatives, generateClipThumb } = await import(
-            '@/lib/papic-derivatives'
-          );
-          if (isClip) {
-            if (posterRef) {
-              await generateClipThumb(posterRef, 'papic_guest_captures', 'capture_id', captureId);
-            }
-          } else {
-            await generatePhotoDerivatives(r2Ref, 'papic_guest_captures', 'capture_id', captureId);
-          }
-        } catch {
-          // best-effort — derivatives never break a capture
-        }
-      }
+  // Always-on NSFW screen (Apple 1.2 filter · corpus hard constraint) — run
+  // BEFORE answering now that this call is off the shutter path (the phone's
+  // queue makes it). screenCapture classifies the photo's thumbnail, or a
+  // clip's poster (the video bytes are never classified); a classifier error
+  // leaves the row 'unscreened' and every shared surface keeps it hidden until
+  // the re-screen sweep (lib/papic-nsfw-rescreen-sweep.ts) heals it.
+  await screenCapture({ table: 'papic_guest_captures', r2ObjectKey: r2Ref }).catch(() => {});
+
+  after(async () => {
+    // FACE auto-tag (best-effort) — match the on-device descriptors against the
+    // event's CONSENTED enrollments. The small vectors never leave our server.
+    if (captureId && faceVectors.length > 0) {
       try {
-        if (captureId) {
-          // P2 FaceBlock bake sits between the screen and the wall gate: on
-          // a FaceBlock event the ingest withholds un-baked rows, so the blur
-          // derivative must exist first. Cheap no-op on non-FaceBlock /
-          // non-LIVE_WALL events; FAILS CLOSED (no markers, photo stays off
-          // the wall) on any error.
-          const { bakeFaceBlurForCapture } = await import('@/lib/face-blur');
-          await bakeFaceBlurForCapture({
-            table: 'papic_guest_captures',
-            sourceId: captureId,
-          });
-          await ingestToWall('papic_guest_captures', captureId);
-        }
+        const { autoTagCapture } = await import('@/lib/face-match');
+        await autoTagCapture({
+          eventId: session.event_id,
+          sourceTable: 'papic_guest_captures',
+          photoId: captureId,
+          faceVectors,
+        });
       } catch {
-        // best-effort — the wall reconcile never blocks a capture
+        // best-effort — face tagging never affects the saved photo
       }
-      // FACE auto-tag (best-effort) — match the on-device descriptors against the
-      // event's CONSENTED enrollments and write auto_face tags on this guest
-      // capture. Runs regardless of the wall gate; the small guest vectors are
-      // read only here and never leave our server. Dormant until enrollments
-      // carry vectors (no enrolled vectors → clean no-op). QR scan is the manual
-      // fallback either way.
-      if (captureId && faceVectors.length > 0) {
+    }
+    if (!captureId) return;
+    if (!isClip && photoFirst === 'thumb') return; // the display copy follows (attach)
+    // Complete at record: a clip (poster + playable), or a photo that came with
+    // its original only. The SERVER derivation — the fallback the phone's own
+    // copies replaced — makes the stills, then the wall gate.
+    try {
+      const { generatePhotoDerivatives, generateClipThumb } = await import('@/lib/papic-derivatives');
+      // 🏷 THE SAME MARK ON THE SERVER'S COPIES: a photo that came with its original
+      // only (the phone made no copies), or a clip whose poster came unmarked.
+      // Asked only here, on the fallback; a failed read is the Setnayan mark.
+      const needsMark = isClip ? !copiesMarked : true;
+      const { serverPhotoMarkFor } = await import('@/lib/papic-photo-mark.server');
+      const mark = needsMark ? await serverPhotoMarkFor(admin, session.event_id) : null;
+      if (isClip) {
+        if (posterRef) await generateClipThumb(posterRef, 'papic_guest_captures', 'capture_id', captureId, { mark });
+      } else {
+        await generatePhotoDerivatives(r2Ref, 'papic_guest_captures', 'capture_id', captureId, { mark });
+      }
+    } catch {
+      // best-effort — derivatives never break a capture
+    }
+    await afterVisible(session, captureId);
+  });
+  if (isClip && (!wantFull || playable === 'clip_raw')) {
+    await handOffToDrive(session, r2Ref, 'video/mp4', captureId);
+  } else if (!isClip && photoFirst === 'original') {
+    await handOffToDrive(session, r2Ref, 'image/jpeg', captureId);
+  }
+
+  return json({ ...result, captureId, wantFull });
+}
+
+/** FaceBlock bake, then the wall gate (the wall is an allowlist — only 'clean'). */
+async function afterVisible(session: GuestSession, captureId: string): Promise<void> {
+  try {
+    // P2 FaceBlock bake sits between the screen and the wall gate: on a
+    // FaceBlock event the ingest withholds un-baked rows. FAILS CLOSED.
+    const { bakeFaceBlurForCapture } = await import('@/lib/face-blur');
+    await bakeFaceBlurForCapture({ table: 'papic_guest_captures', sourceId: captureId });
+    await ingestToWall('papic_guest_captures', captureId);
+  } catch {
+    // best-effort — the wall reconcile never blocks a capture
+  }
+  void session;
+}
+
+// Auto-sync this guest capture into the couple's Google Drive (Phase 2),
+// cron-free: enqueue, then copy in the BACKGROUND. No-op until Drive is
+// connected; best-effort; dedup is per drive_copy_artifacts.r2_object_key.
+// Handed off ONCE, with the shot's final full copy (display, or the original).
+async function handOffToDrive(session: GuestSession, r2Ref: string, mimeType: string, captureId: string | null): Promise<void> {
+  try {
+    // 🧼 Only a shot the screen PASSED leaves for the couple's Drive.
+    if (!captureId) return;
+    const { data: row } = await createAdminClient()
+      .from('papic_guest_captures')
+      .select('moderation_state')
+      .eq('capture_id', captureId)
+      .maybeSingle();
+    if ((row as { moderation_state?: string } | null)?.moderation_state !== 'clean') return;
+    await enqueueDriveCopy({
+      eventId: session.event_id,
+      artifactType: 'papic',
+      files: [
+        {
+          r2ObjectKey: r2Ref,
+          fileName: r2Ref.split('/').pop() || 'papic',
+          mimeType,
+          sourceTable: 'papic_photos',
+        },
+      ],
+    });
+    after(() => runDriveCopyBatch({ eventId: session.event_id }).catch(() => {}));
+  } catch {
+    // best-effort
+  }
+}
+
+// ── attach ──────────────────────────────────────────────────────────────────
+async function handleAttach(
+  session: GuestSession,
+  admin: Admin,
+  body: Body,
+  clientCaptureId: string,
+  prior: CaptureRow | null,
+): Promise<NextResponse> {
+  if (!prior) return json({ error: 'not_recorded_yet' }, 409);
+  const isClip = prior.media_type === 'clip';
+  const asked = Array.isArray(body.tiers) ? (body.tiers as unknown[]).filter(isCaptureTier) : [];
+  const allowed: CaptureTier[] = isClip ? ['clip_raw'] : ['tile', 'display', 'original'];
+  const wanted = asked.filter((t) => allowed.includes(t));
+  if (wanted.length === 0) return json({ error: 'bad_tier' }, 400);
+  if (prior.moderation_state === 'nsfw_blocked') return json({ status: 'ok', blocked: true });
+  // A piece the row ALREADY has is never written again (review 2026-10-23,
+  // minor 8) — a replayed attach answers ok and changes nothing.
+  const has = (t: CaptureTier) =>
+    t === 'tile' ? !!prior.tile_r2_key : t === 'display' ? !!prior.display_r2_key : refHoldsTier(prior.r2_object_key, t);
+  const tiers = wanted.filter((t) => !has(t));
+  if (tiers.length === 0) return json({ status: 'ok', already: true });
+
+  // The record's own screen must have RUN before more of this shot is accepted.
+  // A classifier outage at record leaves the row 'unscreened' (hidden from every
+  // other person); the phone's retry of this call is what heals it — and until
+  // it does, the phone keeps the pieces and says it is still sending.
+  if (prior.moderation_state === 'unscreened' && prior.r2_object_key) {
+    await screenCapture({ table: 'papic_guest_captures', r2ObjectKey: prior.r2_object_key }).catch(() => {});
+    const { data: again } = await admin
+      .from('papic_guest_captures')
+      .select('moderation_state')
+      .eq('capture_id', prior.capture_id)
+      .maybeSingle();
+    const state = (again as { moderation_state?: string } | null)?.moderation_state;
+    if (state === 'unscreened') return json({ error: 'screen_unavailable' }, 503);
+    if (state === 'nsfw_blocked') return json({ status: 'ok', blocked: true });
+  }
+
+  const intents = await readCaptureIntents(admin, session.guest_id, clientCaptureId);
+  if (!intents) return json({ error: 'attach_failed' }, 503);
+  const checked = await loadOrRedo(intents, tiers);
+  if (!checked.ok) return checked.res;
+
+  // 🧼 SCREEN EVERY STILL BEFORE ITS KEY IS WRITTEN. A row's thumbnail was
+  // screened at record; a display copy or an original is a DIFFERENT file and
+  // could be a different picture. The bytes screened here are the bytes
+  // promoted below — nothing points at a file that has not passed.
+  for (const tier of tiers) {
+    const loaded = checked.byTier.get(tier)!;
+    if (!loaded.bytes) continue; // a clip's raw: video bytes are never classified
+    const verdict = await screenTierBytes({
+      subjectTable: 'papic_guest_captures',
+      ref: loaded.intent.r2_ref,
+      eventId: session.event_id,
+      bytes: loaded.bytes,
+    });
+    if (verdict === 'error') return json({ error: 'screen_unavailable' }, 503);
+    if (verdict === 'nsfw_blocked') {
+      const { error: blockErr } = await admin
+        .from('papic_guest_captures')
+        .update({ moderation_state: 'nsfw_blocked' })
+        .eq('capture_id', prior.capture_id)
+        .in('moderation_state', ['unscreened', 'clean']);
+      if (blockErr) {
+        // The verdict did not land: answer so the phone retries — never "ok".
+        console.error('[supabase-error] app/api/papic/guest-capture/route.ts · from:papic_guest_captures.update(blocked)', blockErr);
+        return json({ error: 'persist_failed' }, 500);
+      }
+      await settleCaptureIntents(admin, tiers.map((t) => intentFor(intents, t)!.r2_ref));
+      return json({ status: 'ok', blocked: true });
+    }
+  }
+  const finals = await promoteAll(admin, checked.byTier);
+  if (!finals) return json({ error: 'attach_failed' }, 503);
+  const refOf = (t: CaptureTier) => finals.get(t)!;
+  const sizeOf = (t: CaptureTier) => checked.byTier.get(t)?.size ?? null;
+
+  const patch: Record<string, unknown> = {};
+  if (tiers.includes('tile')) {
+    patch.tile_r2_key = refOf('tile');
+    patch.tile_bytes = sizeOf('tile');
+  }
+  if (tiers.includes('display')) {
+    patch.display_r2_key = refOf('display');
+    patch.display_bytes = sizeOf('display');
+    // The row was born pointing at its thumbnail; the display copy is now the
+    // photograph (unless an original already arrived).
+    if (!prior.r2_object_key || prior.r2_object_key === prior.thumb_r2_key) {
+      patch.r2_object_key = refOf('display');
+    }
+  }
+  if (tiers.includes('original')) {
+    patch.r2_object_key = refOf('original');
+    patch.orig_bytes = sizeOf('original');
+  }
+  if (tiers.includes('clip_raw')) {
+    // The web copy the row was born with becomes clip_web_r2_key; the raw is
+    // the original. Never let the two be the same object (the poster trap).
+    const web = prior.r2_object_key;
+    const raw = refOf('clip_raw');
+    if (!web || !clipWebKeyDistinct(web, { poster_r2_key: prior.poster_r2_key, display_r2_key: prior.display_r2_key, r2_object_key: raw })) {
+      return json({ error: 'key_collision' }, 409);
+    }
+    patch.clip_web_r2_key = web;
+    patch.clip_web_bytes = intentFor(intents, 'clip_web')?.size_bytes ?? null;
+    patch.r2_object_key = raw;
+  }
+
+  // Compare-and-set on what this call read: a concurrent attach that got there
+  // first wins, and THIS attempt's copies (its own keys) are discarded.
+  let cas = admin
+    .from('papic_guest_captures')
+    .update(patch)
+    .eq('capture_id', prior.capture_id)
+    .eq('guest_id', session.guest_id)
+    .eq('event_id', session.event_id);
+  cas = prior.r2_object_key ? cas.eq('r2_object_key', prior.r2_object_key) : cas.is('r2_object_key', null);
+  if (tiers.includes('tile')) cas = cas.is('tile_r2_key', null);
+  if (tiers.includes('display')) cas = cas.is('display_r2_key', null);
+  const { data: updated, error: updErr } = await cas.select('capture_id');
+  if (updErr) {
+    console.error('[supabase-error] app/api/papic/guest-capture/route.ts · from:papic_guest_captures.update(attach)', updErr);
+    // ⚠ UNCLEAR, not a refusal (review 2026-10-24, major 3): the database may
+    // have committed the row and only the reply was lost. The promoted copies
+    // STAY — the intent remembers them (final_ref); the phone's retry answers
+    // `duplicate` against that row, and a copy no row names is removed by the
+    // next attempt or the sweep (deleteFinalIfUnreferenced, never a named key).
+    return json({ error: 'persist_failed' }, 500);
+  }
+  if (!updated || updated.length === 0) {
+    await discardPromoted(admin, tiers.map((t) => intentFor(intents, t)!), finals);
+    return json({ status: 'ok', already: true });
+  }
+  await settleCaptureIntents(admin, tiers.map((t) => intentFor(intents, t)!.r2_ref));
+  await dropStagingObjects(tiers.map((t) => intentFor(intents, t)!));
+
+  const wantFull = await eventKeepsFullRes(admin, session.event_id);
+  if (tiers.includes('display')) {
+    const captureId = prior.capture_id;
+    const displayRef = refOf('display');
+    after(async () => {
+      // Server derivation stays the FALLBACK: a phone that sent no tile gets one
+      // made from the display copy.
+      if (!tiers.includes('tile') && !prior.tile_r2_key) {
         try {
-          const { autoTagCapture } = await import('@/lib/face-match');
-          await autoTagCapture({
-            eventId: session.event_id,
-            sourceTable: 'papic_guest_captures',
-            photoId: captureId,
-            faceVectors,
-          });
+          const { generateTileDerivative } = await import('@/lib/papic-derivatives');
+          await generateTileDerivative(displayRef, 'papic_guest_captures', 'capture_id', captureId);
         } catch {
-          // best-effort — face tagging never affects the saved photo
+          // best-effort
         }
       }
+      await afterVisible(session, captureId);
     });
-    // Auto-sync this guest capture into the couple's Google Drive (Phase 2),
-    // cron-free: enqueue the artifact, then copy it in the BACKGROUND with
-    // after() so the response returns immediately. No-op until Drive is
-    // connected; best-effort; dedup is per drive_copy_artifacts.r2_object_key.
-    try {
-      await enqueueDriveCopy({
-        eventId: session.event_id,
-        artifactType: 'papic',
-        files: [
-          {
-            r2ObjectKey: r2Ref,
-            fileName: key.split('/').pop() || (isClip ? 'papic.mp4' : 'papic.jpg'),
-            mimeType: isClip ? 'video/mp4' : 'image/jpeg',
-            sourceTable: 'papic_photos',
-          },
-        ],
-      });
-      after(() =>
-        runDriveCopyBatch({ eventId: session.event_id }).catch(() => {}),
-      );
-    } catch {
-      // best-effort
-    }
-    return NextResponse.json({ ...result, captureId });
+    if (!wantFull) await handOffToDrive(session, displayRef, 'image/webp', captureId);
   }
-  return NextResponse.json(result, {
-    status: result.status === 'quota_exhausted' ? 409 : 400,
-  });
+  if (tiers.includes('original')) await handOffToDrive(session, refOf('original'), 'image/jpeg', prior.capture_id);
+  if (tiers.includes('clip_raw')) await handOffToDrive(session, refOf('clip_raw'), 'video/mp4', prior.capture_id);
+
+  return json({ status: 'ok' });
+}
+
+export async function POST(req: Request) {
+  // 🚫 JSON ONLY. A multipart body is the old byte path, which Vercel cuts at
+  // 4.5 MB before this line runs; refusing it here keeps it from coming back.
+  const contentType = req.headers.get('content-type') ?? '';
+  if (!contentType.toLowerCase().startsWith('application/json')) {
+    return json({ error: 'bytes_not_accepted' }, 415);
+  }
+  const declared = Number(req.headers.get('content-length') ?? '0');
+  if (Number.isFinite(declared) && declared > MAX_JSON_BYTES) {
+    return json({ error: 'bad_request' }, 413);
+  }
+  let body: Body;
+  try {
+    const raw = await req.text();
+    if (raw.length > MAX_JSON_BYTES) return json({ error: 'bad_request' }, 413);
+    body = JSON.parse(raw) as Body;
+    if (!body || typeof body !== 'object') throw new Error('shape');
+  } catch {
+    return json({ error: 'bad_request' }, 400);
+  }
+
+  // 🔒 THE SHOT'S OWN EVENT (review 2026-10-23, blocker 2): a queued shot names
+  // the event it was taken at, and only THAT event's pass may record it. A phone
+  // whose pass now speaks for another event answers `other_event` — the shot
+  // waits; it is never recorded elsewhere and never dropped.
+  const askedEventId = typeof body.event_id === 'string' && body.event_id.trim() ? body.event_id.trim() : null;
+  const session = await readGuestSession(askedEventId ? { eventId: askedEventId } : undefined);
+  if (!session) {
+    return NextResponse.json({ error: 'no_session' }, { status: 401 });
+  }
+  if (askedEventId && session.event_id !== askedEventId) {
+    return json({ error: 'other_event' }, 409);
+  }
+  // …and the shot's own guest: a shared phone now holding someone else's pass
+  // answers `other_owner`, and the shot waits for its own camera.
+  if (!ownerTagMatches(body.owner_tag, 'guest', session.guest_id, session.event_id)) {
+    return json({ error: 'other_owner' }, 409);
+  }
+
+  const clientCaptureId = readClientCaptureId(body[CLIENT_CAPTURE_ID_FIELD]);
+  if (!clientCaptureId) return json({ error: 'bad_request' }, 400);
+  const mediaType = body.media_type === 'clip' ? 'clip' : 'photo';
+  if (!isR2Configured()) {
+    return NextResponse.json({ error: 'uploads_unavailable' }, { status: 503 });
+  }
+
+  const admin = createAdminClient();
+  const { data: priorRow, error: priorErr } = await admin
+    .from('papic_guest_captures')
+    .select('capture_id, media_type, r2_object_key, poster_r2_key, display_r2_key, tile_r2_key, thumb_r2_key, clip_web_r2_key, moderation_state')
+    .eq('guest_id', session.guest_id)
+    .eq('client_capture_id', clientCaptureId)
+    .maybeSingle();
+  if (priorErr) {
+    console.error('[supabase-error] app/api/papic/guest-capture/route.ts · from:papic_guest_captures.select(client_capture_id)', priorErr);
+    return json({ error: 'record_failed' }, 503);
+  }
+  const prior = (priorRow as CaptureRow | null) ?? null;
+
+  switch (body.op) {
+    case 'sign':
+      return handleSign(session, admin, body, clientCaptureId, mediaType, prior);
+    case 'record':
+      return handleRecord(session, admin, body, clientCaptureId, mediaType, prior);
+    case 'attach':
+      return handleAttach(session, admin, body, clientCaptureId, prior);
+    default:
+      return json({ error: 'bad_request' }, 400);
+  }
 }

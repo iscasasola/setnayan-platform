@@ -30,7 +30,7 @@ import { Dd, Swatch } from './kit';
  * just this element"*): In frame, How close, "Use this background on every scene?", "Remove this scene's photo" (pick
  * another source) and the ⓘ's sentence. What was stored for them is still honoured by the page.
  */
-export type StageBgSource = 'hub' | 'colour' | 'scene' | 'own';
+export type StageBgSource = 'hub' | 'colour' | 'scene' | 'video' | 'own';
 /** One choice of row 2: its key, its name, the picture it wears (CSS), and whether it moves (a clip). */
 /**
  * One choice of row 2 — a picture tile with its name written on it. `tone` and `fade` are the tile's own reading
@@ -48,6 +48,7 @@ export function StageBackground({
   onTile,
   onUpload,
   upload,
+  uploadDone = 0,
   colour,
   customColour,
   opacity,
@@ -57,7 +58,12 @@ export function StageBackground({
   motion,
   onMotion,
   pending,
+  hubLabel = 'The Event Hub’s',
+  hubLine = 'Uses the Event Hub’s own background.',
 }: {
+  /** 🖼 The first source's name and its one quiet line — the Cover Scene's is "The theme's own" (its written card). */
+  hubLabel?: string;
+  hubLine?: string;
   /** The source the stored background IS, and the ones offered (each with ◆ where Apply asks for Event Hub Pro). */
   source: StageBgSource;
   sources: ReadonlyArray<{ key: StageBgSource; pro: boolean }>;
@@ -69,6 +75,12 @@ export function StageBackground({
   /** Upload's first tile opens the in-place upload — null: not offered on this source. */
   onUpload: boolean;
   upload: ReactNode;
+  /**
+   * 📤 THE UPLOAD LEADS STRAIGHT ON (owner 2026-10-16, after a clip sat on "Uploaded": *"after the upload there is no
+   * more next step?"*). The caller counts each upload it has made the background; every new count closes the sheet,
+   * so the couple lands on the Upload row with the new card ringed, the page wearing it and ✓ Apply counting it.
+   */
+  uploadDone?: number;
   /** Row 3 on a colour: the colour worn (the one circle) and its picker — null: not a colour. */
   colour: string | null;
   customColour: (close: () => void) => ReactNode;
@@ -84,6 +96,9 @@ export function StageBackground({
   pending: boolean;
 }) {
   const [uploading, setUploading] = useState(false);
+  useEffect(() => {
+    if (uploadDone > 0) setUploading(false);
+  }, [uploadDone]);
   const [picking, setPicking] = useState(false);
   /* The bar's own position while it is dragged; the stored one otherwise. */
   const [live, setLive] = useState<number | null>(null);
@@ -138,14 +153,17 @@ export function StageBackground({
           label="Background"
           data="bg"
           value={source}
-          options={sources.map((s) => ({ key: s.key, label: `${s.key === 'hub' ? 'The Event Hub’s' : BACKGROUND_SOURCE_LABEL[s.key]}${s.pro ? ' ◆' : ''}` }))}
+          options={sources.map((s) => ({ key: s.key, label: `${s.key === 'hub' ? hubLabel : BACKGROUND_SOURCE_LABEL[s.key]}${s.pro ? ' ◆' : ''}` }))}
           onPick={(k) => onSource(k as StageBgSource)}
         />
       </div>
       {/* ══ ROW 2 — its choices ══ */}
       <div className="row-start-2 min-w-0" data-stage-bg="choices">
         {source === 'hub' ? (
-          <p className={`${SP_BG_ROW} ${SP_BG_QUIET}`}>Uses the Event Hub’s own background.</p>
+          <p className={`${SP_BG_ROW} ${SP_BG_QUIET}`}>
+            {/* Two lines at most: the Cover Scene's line is a sentence (the prototype wraps it); `truncate` on a flex row cut it mid-word. */}
+            <span className="line-clamp-2 min-w-0 whitespace-normal leading-snug">{hubLine}</span>
+          </p>
         ) : (
           <div ref={strip} role="group" aria-label={`${BACKGROUND_SOURCE_LABEL[source]} backgrounds`} data-stage-bg-strip={source} className={SP_BG_STRIP}>
             {onUpload ? (
@@ -198,19 +216,22 @@ export function StageBackground({
           {shadeBar}
         </div>
       ) : null}
-      {/* ══ ROW 4 — its shape ══ */}
-      {shape ? (
+      {/* ══ ROW 4 — its shape (and a photo's movement) ══ — a part with no shape choice (the Cover Scene, always full
+          screen since 2026-10-16) passes `shape: null` and keeps its photo's Still · Parallax here. */}
+      {shape || motion ? (
         <div className={`${SP_BG_ROW} row-start-4`} data-stage-bg="shape">
-          <PillSelector
-            label="Width"
-            data="bg-width"
-            value={shape}
-            options={[
-              { key: 'framed', label: 'Framed' },
-              { key: 'full', label: 'Full width' },
-            ]}
-            onPick={(k) => onShape(k)}
-          />
+          {shape ? (
+            <PillSelector
+              label="Width"
+              data="bg-width"
+              value={shape}
+              options={[
+                { key: 'framed', label: 'Framed' },
+                { key: 'full', label: 'Full width' },
+              ]}
+              onPick={(k) => onShape(k)}
+            />
+          ) : null}
           {motion ? (
             <PillSelector
               label="How the photo moves"

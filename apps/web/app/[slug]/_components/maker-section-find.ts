@@ -26,10 +26,19 @@ const SECTION_IDS: Record<string, string> = {
   'f:story': 'site-story',
 };
 
-/** The section a marker stands in front of: its next element that is not a marker. */
+/** 🎨 A section's picture laid over the page's own (`scene-look-lay.ts`), and the page's own section it hides. */
+export const SCENE_LOOK_COPY_ATTR = 'data-maker-look-copy';
+export const SCENE_LOOK_HIDDEN_ATTR = 'data-maker-look-hidden';
+
+/** The section a marker stands in front of: its next element that is not a marker — or, while a style pick's
+ *  picture is laid over it (`scene-look-lay.ts`), that picture: what the page SHOWS, where the next pick draws. */
 export function sectionAfter(marker: Element): HTMLElement | null {
   const next = marker.nextElementSibling;
   if (!next || next.hasAttribute('data-maker-section')) return null;
+  if (next.hasAttribute(SCENE_LOOK_HIDDEN_ATTR)) {
+    const laid = next.nextElementSibling;
+    if (laid && laid.getAttribute(SCENE_LOOK_COPY_ATTR) === marker.getAttribute('data-maker-section')) return laid as HTMLElement;
+  }
   return next as HTMLElement;
 }
 

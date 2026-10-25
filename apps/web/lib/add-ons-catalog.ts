@@ -472,7 +472,7 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     iteration: '0038',
     status: 'live',
     category: 'tool',
-    blurb: 'After the day — your event told as a story, with the gallery and a thank-you note.',
+    blurb: 'After the day — your event told as a story, with your Memories and a thank-you note.',
     cta: 'Edit your editorial',
     // STANDALONE CARD RETIRED 2026-08-14 — now the "Editorial" chip on the Your
     // Website card. Same `utility` mechanism as `event` above; the entry and
@@ -516,7 +516,8 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     category: 'digital_services',
     // 2026-09-28: "and colours" came out — colours are free for every couple
     // (the free-vs-Pro redraw); media backgrounds are what Pro adds.
-    blurb: 'One upgrade for your whole Event Hub — the cinematic reveal, music and video, your own gallery and photo backgrounds, a Pro theme for your invite link, and no watermark.',
+    // 💎 2026-10-22 (owner, part by part): "its blurb gains 'or part by part'" — the Studio tile keeps its name.
+    blurb: 'One upgrade for your whole Event Hub — the cinematic reveal, music and video, your own photos and photo backgrounds, a Pro theme for your invite link, and no watermark. Or part by part.',
     cta: 'Unlock Event Hub PRO',
     studioGroup: 'website',
     serviceKey: 'COUPLE_WEBSITE_PRO',
@@ -634,7 +635,8 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     iteration: '0004',
     status: 'web_v1',
     category: 'digital_services',
-    blurb: 'Your monogram, drawn to life on your QR, page, and signage. PRO adds the animation.',
+    // 💎 2026-10-22: the animation is Event Hub Pro's Logo & QR part (the standalone Animated Monogram is retired).
+    blurb: 'Your monogram, drawn to life on your QR, page, and signage. Event Hub Pro’s Logo & QR adds the animation.',
     cta: 'Open the maker',
     studioGroup: 'branding',
     // The maker itself is free (the lettered / cipher / upload monogram is
@@ -665,7 +667,7 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     iteration: '0012',
     status: 'web_v1',
     category: 'photography',
-    blurb: 'Your guests become the photographers — every candid and clip in your gallery by morning.',
+    blurb: 'Your guests become the photographers — every candid and clip in your Memories by morning.',
     cta: 'Set up',
     studioGroup: 'capture',
     freeTrial: 'Free to start',
@@ -757,7 +759,7 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     // not people — and "on the list" was the roster framing the pool doesn't use
     // (any phone that scans the event QR shoots from it). No number here: the
     // rungs and the free allowance are derived on the surface this card opens.
-    blurb: 'One shared pool of credits for the whole celebration — start free, add more any time.',
+    blurb: 'One shared pool of credits for the whole event — start free, add more any time.',
     cta: 'Open the pool',
     studioGroup: 'capture',
     // Every event is auto-armed with a free shared pool (`ensureFreePapicPoolGrantAdmin`),
@@ -826,7 +828,7 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     iteration: '0009',
     status: 'web_v1',
     category: 'tool',
-    blurb: 'Your photographer’s full-resolution gallery, handed straight to your Google Drive.',
+    blurb: 'Your photographer’s full-resolution photos, handed straight to your Google Drive.',
     cta: 'Set up',
     // Delivered THROUGH Papic (owner 2026-07-22: "Photo Delivery on Papic"), so
     // it is not a standalone free card. `utility` keeps the /studio/photo-delivery
@@ -1053,7 +1055,7 @@ const LIVE_STUDIO_ENTRY: AddOnEntry = {
   status: 'web_v1',
   category: 'photography',
   blurb:
-    'Stream your celebration live — direct a Main Stage between your cameras, or let remote guests pick their own view, across every angle and venue.',
+    'Stream your event live — direct a Main Stage between your cameras, or let remote guests pick their own view, across every angle and venue.',
   cta: 'Set up',
   studioGroup: 'capture',
   serviceKey: 'LIVE_STUDIO',

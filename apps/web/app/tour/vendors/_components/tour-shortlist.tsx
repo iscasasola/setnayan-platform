@@ -205,7 +205,7 @@ export function TourShortlist({
         <span className="flex items-center gap-2 text-sm text-[#5F5E5A]">
           <Gem className="h-4 w-4 text-[#8C6932]" strokeWidth={1.75} aria-hidden />
           {aiOn
-            ? `Setnayan AI ranked ${formatCount(vendorCount)} vendors by fit`
+            ? `Setnayan AI ranked ${formatCount(vendorCount)} suppliers by fit`
             : 'Setnayan AI is off — showing a plain search'}
         </span>
         <button
@@ -238,7 +238,7 @@ export function TourShortlist({
               </div>
             ) : (
               <p className="mt-3 rounded-xl border border-dashed border-[#1B1A17]/15 bg-white/50 p-5 text-sm text-[var(--m-slate-2)]">
-                No sample vendors seeded in this category yet.
+                No sample suppliers in this category yet.
               </p>
             )}
           </section>

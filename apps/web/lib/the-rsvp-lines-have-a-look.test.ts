@@ -201,8 +201,14 @@ test('3 · no save drops it: the sanitiser and every writer built on it carry `l
   assert.deepEqual(sanitizeRsvpAskConfig(stored).look, look);
   /* The public-listing switch rewrites the object from the sanitised one. */
   assert.deepEqual(rsvpAskConfigOnGoingPublic({ previousVisibility: 'unlisted', nextVisibility: 'public', rawConfig: stored })?.look, look);
-  /* The Pro check splits the draft into its free part — the look is in it. */
-  assert.deepEqual(rsvpAskFreePart({}, stored).look, look);
+  /* The Pro check splits the draft into its free part — the look is in it, whole, when it is already live (🏛 a
+     published look is grandfathered) … */
+  assert.deepEqual(rsvpAskFreePart(stored, stored).look, look);
+  /* … and, when it is new, with only its Style (💎 Pro since 2026-10-16) put back to live: the words, the added lines,
+     the order, the groups and unknown keys still ride. */
+  const { lines: _lines, ...rest } = look;
+  void _lines;
+  assert.deepEqual(rsvpAskFreePart({}, stored).look, rest);
   /* A shape that is not an object is not carried. */
   for (const bad of ['x', 3, null, [1], true]) assert.equal(sanitizeRsvpAskConfig({ look: bad }).look, undefined);
   /* THE OTHER WRITERS build on the sanitised object and spread their own patch over it: the two panels' saves. */
@@ -253,8 +259,9 @@ test('4 · the panel: Style on a text line is Font ▾, then ONE colour circle a
   assert.match(text, /<button type="button" aria-pressed="true" aria-label="Colour #6b7a3a — change it"[^>]*data-rsvp-look-colour="#6b7a3a"/);
   /* Font ▾ on its own row, first; then Colour and Size TOGETHER on the next (the cover line's last row). */
   assert.deepEqual(rows(text), ['font', 'size']);
-  assert.match(text, /data-rsvp-line-look-row="font">.*?>Font<\/span>.*?<button type="button" aria-label="Font: Cinzel" aria-haspopup="listbox"[^>]*data-rsvp-look-font=""/s, 'the Font is not the one dropdown, showing the font kept');
-  assert.match(text, /data-rsvp-line-look-row="size">.*?>Colour<\/span>.*?data-rsvp-look-colour=.*?>Size<\/span>.*?data-slider="rsvp-look-size".*?120%/s, 'Colour and Size do not share the row');
+  /* 💎 2026-10-18: each label wears ◆ — a reply line's Style is Event Hub Pro (owner 2026-10-16). */
+  assert.match(text, /data-rsvp-line-look-row="font">.*?>Font ◆<\/span>.*?<button type="button" aria-label="Font: Cinzel" aria-haspopup="listbox"[^>]*data-rsvp-look-font=""/s, 'the Font is not the one dropdown, showing the font kept');
+  assert.match(text, /data-rsvp-line-look-row="size">.*?>Colour ◆<\/span>.*?data-rsvp-look-colour=.*?>Size ◆<\/span>.*?data-slider="rsvp-look-size".*?120%/s, 'Colour and Size do not share the row');
   assert.match(await panel('form', { tool: 'style', part: 'rsvp', line: 'question' }, { look: { lines: { 'rsvp.question': { c: '#AA0011' } } } }), /aria-label="Colour #aa0011 — change it"[^>]*data-rsvp-look-colour="#aa0011"/);
   assert.doesNotMatch(text, /data-rsvp-word-field|data-rsvp-setting=/, 'Style on a line draws the words or the settings too');
   /* No look yet: the page's own colour (the striped circle), the line's font as designed, at 100%. */
@@ -273,7 +280,7 @@ test('4 · the panel: Style on a text line is Font ▾, then ONE colour circle a
   for (const [scene, part, line] of [['form', 'rsvp', 'yes'], ['form', 'rsvp', 'no'], ['thanks', 'pass', 'save']] as const) {
     const html = await panel(scene, { tool: 'style', part, line });
     assert.deepEqual(circles(html), [], `${line} offers a colour`);
-    assert.doesNotMatch(html, />Colour<\/span>/, `${line} names a colour`);
+    assert.doesNotMatch(html, />Colour( ◆)?<\/span>/, `${line} names a colour`);
     assert.deepEqual(rows(html), ['font', 'size', 'button-note']);
     assert.match(html, /data-rsvp-look-font=""/, `${line} has no font`);
   }
@@ -549,7 +556,8 @@ test('9 · the panel: the card’s Background is None · Plain · Frosted; a lin
   for (const [scene, part, line] of [['form', 'rsvp', 'question'], ['form', 'rsvp', null], ['thanks', 'pass', 'save'], ['decline', 'nonote', null]] as const) {
     const html = await panel(scene, { tool: 'animate', part, line }, { look: { lines: { 'rsvp.question': { i: { fade: true, move: 'below' }, v: 'quick' } } } });
     assert.match(html, /data-stage-animate-rows=""/, `${part}.${line}: not the toolbar’s Animate`);
-    assert.deepEqual([...html.matchAll(/>(Fade|Blur|Move|Size)</g)].map((m) => m[1]), ['Fade', 'Blur', 'Move', 'Size']);
+    // 💎 RE-AIMED 2026-10-18 (owner 2026-10-16, "all animate, effects, styles, accents are pro"): each effect wears ◆.
+    assert.deepEqual([...html.matchAll(/>(Fade|Blur|Move|Size) ◆</g)].map((m) => m[1]), ['Fade', 'Blur', 'Move', 'Size']);
     assert.match(html, /<button type="button" aria-pressed="true" data-stage-phase="in"[^>]*>Build in</, 'Build in is not the phase on show');
     for (const [k, words] of [['act', 'Action'], ['out', 'Build out']] as const) {
       assert.match(html, new RegExp(`<button type="button" aria-pressed="false" aria-disabled="true" data-stage-phase="${k}"[^>]*>${words}<`), `${words}: a phase a reply page cannot play can be picked`);
@@ -591,7 +599,8 @@ test('10 · WIRING: Background and Animate are live on a reply card and its line
   assert.match(src(`${L}/maker-rsvp-stage.tsx`), /\$\{rsvpToolPart\(pickedPart, pickedLine\) \? 'flex' : 'hidden'\}/);
   /* The toolbar's Animate has ONE new option and is otherwise as it was: every other caller draws its three phases. */
   const ANIMATE = src(`${L}/stage-panel/stage-animate.tsx`);
-  assert.match(ANIMATE, /const at: AnimatePhase = only \?\? phase;\s*const end = at === 'act' \? null : at;/);
+  /* 🖥 (2026-10-19) A desktop's stack hands each section its phase (`forced`) — `only` still wins over both. */
+  assert.match(ANIMATE, /const at: AnimatePhase = only \?\? forced \?\? phase;\s*const end = at === 'act' \? null : at;/);
   /* 🔁 RE-AIMED 2026-10-10 (the same list, item 4): row 1 is drawn for every caller; with `only` the other phases are
      handed to `Phases` as OFF — each with the caller's one line — and a pick does nothing. */
   assert.match(ANIMATE, /<div className=\{`\$\{SP_ROWS_ROW\} row-start-1`\}>\s*<Phases<AnimatePhase>[\s\S]{0,360}?onPick=\{only \? \(\) => \{\} : setPhase\}\s*off=\{only \? \(k\) => \(k === only \? null : \(\) => setWhy\(\(w\) => \(\{ words: onlyWhy \?\? '', n: \(w\?\.n \?\? 0\) \+ 1 \}\)\)\) : undefined\}/);

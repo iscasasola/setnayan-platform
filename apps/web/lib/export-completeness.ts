@@ -74,6 +74,16 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
 
   // ── Excluded, with the reason ───────────────────────────────────────────
   {
+    table: 'app_store_purchases',
+    decision: 'excluded',
+    why:
+      'Every App Store purchase the subject made is ALREADY in their export as an ordinary ' +
+      'orders row (platform ios) and payments row (channel app_store, reference = Apple\'s ' +
+      'transaction id, amount = what Apple charged). This table holds the same facts plus ' +
+      'the one-time token we minted for Apple to sign; it is service-role only, and the token ' +
+      'is an internal key, not information about the person (migration 20271276386641).',
+  },
+  {
     table: 'admin_audit_log',
     decision: 'excluded',
     why:
@@ -93,6 +103,11 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
     table: 'api_keys',
     decision: 'excluded',
     why: 'Credentials. Same reason as community_invite_tokens — an export must never carry a secret.',
+  },
+  {
+    table: 'apple_sign_in_tokens',
+    decision: 'excluded',
+    why: 'A sealed Sign in with Apple refresh token, held only so account erasure can revoke the grant at Apple. A credential — an export must never carry a secret.',
   },
   {
     table: 'push_subscriptions',

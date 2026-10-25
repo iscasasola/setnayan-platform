@@ -63,7 +63,7 @@ const QR_HREF = '/vendor-dashboard/invite';
 export default async function VendorQrCodesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ et?: string; cat?: string; mode?: string; issued?: string; error?: string; ledger?: string }>;
+  searchParams: Promise<{ et?: string; cat?: string; mode?: string; issued?: string; error?: string; ledger?: string; date?: string }>;
 }) {
   const search = await searchParams;
   const mode: 'shortlist' | 'locked' = search.mode === 'locked' ? 'locked' : 'shortlist';
@@ -228,6 +228,8 @@ export default async function VendorQrCodesPage({
             : coverage.map((c) => ({ value: c as string, label: VENDOR_CATEGORY_LABEL[c] ?? kindLabel(c as string) }))
         }
         contracts={contracts.filter((c) => c.status !== 'cancelled').map((c) => ({ value: c.contract_id, label: c.title }))}
+        // Dates › a day › "Show a QR" opens here with that day filled (2026-10-14).
+        initialDate={/^\d{4}-\d{2}-\d{2}$/.test(search.date ?? '') ? (search.date as string) : ''}
       />
     );
   }

@@ -237,14 +237,30 @@ test('(4) the names are marked on the three hero surfaces and nowhere else; ONE 
   /* THE STYLESHEET: exactly one rule names the mark's target, and it is gated by the scope's own mark. */
   const css = stripComments(raw('app/globals.css'));
   const rules = [...css.matchAll(/([^{}]*\[data-hub-names\][^{}]*)\{([^}]*)\}/g)].map((m) => [m[1]!.trim(), m[2]!.trim().replace(/\s+/g, ' ')]);
-  assert.deepEqual(rules, [["[data-hub-roles~='names'] [data-hub-names]", 'font-family: var(--hub-names-face);']], 'the names rule is not the ONE rule, or matches without the couple having chosen a Names font');
+  /* ONE rule sets the names' FONT (only under the mark), and ONE their COLOUR — the Mood Board's Dominant, which falls
+     back to the page's ink wherever it is taken off (owner 2026-10-14; `lib/the-five-show-on-the-sample.test.ts`). */
+  assert.deepEqual(
+    rules,
+    [
+      /* 🪆 The nearest scope decides (2026-10-17) and 🔤 the "&" follows the names (owner 2026-10-17) — held, with the
+         selectors EVALUATED, by `app/[slug]/_components/the-names-font-reaches-every-name.test.ts`. */
+      ["[data-hub-roles~='names'] [data-hub-names]:not([data-hub-roles~='names'] [data-guest-look]:not([data-hub-roles~='names']) *)", 'font-family: var(--hub-names-face);'],
+      ["[data-hub-roles~='names'] [data-hub-names] [data-hub-joiner]:not([data-hub-roles~='names'] [data-guest-look]:not([data-hub-roles~='names']) *)", 'font-family: var(--hub-names-face); font-synthesis-style: none;'],
+      ['[data-guest-look] [data-hub-names]', 'color: rgb(var(--hub-names-ink, var(--color-ink)));'],
+    ],
+    'the names rules are not the font rules (under the mark — the names and their "&") and the colour rule — or one of them changed what it sets',
+  );
   /* Every rule keyed on the marks: these four, and none that reaches `font-pahina` (the ~100 other texts do not move). */
   const marked = [...css.matchAll(/([^{}]*\[data-hub-roles~='[a-z]+'\][^{}]*)\{([^}]*)\}/g)].map((m) => m[1]!.trim().replace(/\s+/g, ' '));
   assert.deepEqual(marked, [
-    "[data-hub-roles~='names'] [data-hub-names]",
+    "[data-hub-roles~='names'] [data-hub-names]:not([data-hub-roles~='names'] [data-guest-look]:not([data-hub-roles~='names']) *)",
+    "[data-hub-roles~='names'] [data-hub-names] [data-hub-joiner]:not([data-hub-roles~='names'] [data-guest-look]:not([data-hub-roles~='names']) *)",
     "[data-hub-roles~='body']",
-    "[data-hub-roles~='eyebrow'] .pahina-eyebrow",
-    "[data-hub-roles~='button'] :is(.button-primary, .button-secondary, [data-rsvp-answer]), [data-hub-roles~='button'] [data-arrival-action] a.bg-mulberry",
+    /* 🪆 …and Text, Labels & buttons handed back on the canvas (2026-10-18) — the nearest scope decides here too; held,
+       with the selectors EVALUATED, by `app/[slug]/_components/a-font-handed-back-shows-on-the-canvas.test.ts`. */
+    "[data-hub-roles~='body'] [data-guest-look]:not([data-hub-roles~='body']):not([data-hub-theme])",
+    "[data-hub-roles~='eyebrow'] .pahina-eyebrow:not([data-hub-roles~='eyebrow'] [data-guest-look]:not([data-hub-roles~='eyebrow']) *)",
+    "[data-hub-roles~='button'] :is(.button-primary, .button-secondary, [data-rsvp-answer]):not([data-hub-roles~='button'] [data-guest-look]:not([data-hub-roles~='button']) *), [data-hub-roles~='button'] [data-arrival-action] a.bg-mulberry:not([data-hub-roles~='button'] [data-guest-look]:not([data-hub-roles~='button']) *)",
   ]);
   assert.doesNotMatch(css, /data-hub-roles[^{}]*font-pahina|--font-pahina-display\s*:/, 'a rule or a variable now moves every font-pahina text — only the names may change');
   /* The marks the stylesheet keys on are exactly the marks the page can wear. */

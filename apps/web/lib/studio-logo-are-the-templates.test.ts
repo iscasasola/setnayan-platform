@@ -68,7 +68,7 @@ async function door(studio: boolean, source: 'mark' | 'names' = 'mark') {
     ),
   );
 }
-async function tools(kind: 'frame' | 'text' | 'image', over: Record<string, unknown> = {}, studio = true) {
+async function tools(kind: 'frame' | 'text' | 'image', over: Record<string, unknown> = {}, studio = true, tool: 'character' | 'style' | 'animate' = 'style', phase: 'in' | 'action' | 'out' = 'in') {
   const { LayerTools } = await import(`../${LOGO}`);
   const { defaultMotion } = await import('./logo-layers');
   const { frameBody } = await import('./logo-layers-edit');
@@ -86,39 +86,61 @@ async function tools(kind: 'frame' | 'text' | 'image', over: Record<string, unkn
     ...over,
   };
   return html(
-    React.createElement(LayerTools as React.ComponentType<Record<string, unknown>>, { eventId: 'E1', layer, motionMark: null, studio: studio ? { five: ['#5B4A6B', '#D9C4CF', '#A9834B', '#F7F2EC', '#7A8B6F'] } : null, onWrite() {}, onChange() {}, onRemove() {} }),
+    React.createElement(LayerTools as React.ComponentType<Record<string, unknown>>, { eventId: 'E1', layer, tool, phase, motionMark: null, studio: studio ? { five: ['#5B4A6B', '#D9C4CF', '#A9834B', '#F7F2EC', '#7A8B6F'] } : null, onWrite() {}, onChange() {}, onRemove() {} }),
   );
+}
+/* RE-AIMED 2026-10-18 (L2–L4, LOGO_MAKER_REPLOT): the tools are three — Character (a text layer's) · Style · Animate
+   (Build in · Action · Build out) — so each is rendered in its own state; the add list and the cards are their own file. */
+const TRACED = { write: { w: 4, pts: [{ x: 0, y: 0 }, { x: 1, y: 1 }] } };
+async function addList() {
+  const { LogoAddLayer } = await import(`../${L}/logo-layer-cards`);
+  return html(React.createElement(LogoAddLayer as React.ComponentType<Record<string, unknown>>, { disabled: false, onAdd() {} }));
 }
 const STATES = async () => ({
   studioImage: await door(true),
   shippedImage: await door(false),
   studioText: await door(true, 'names'),
+  addList: await addList(),
   toolsFrame: await tools('frame'),
-  toolsText: await tools('text', { write: { w: 4, pts: [{ x: 0, y: 0 }, { x: 1, y: 1 }] } }),
+  animateFrame: await tools('frame', {}, true, 'animate'),
+  actionFrame: await tools('frame', {}, true, 'animate', 'action'),
+  outFrame: await tools('frame', {}, true, 'animate', 'out'),
+  characterText: await tools('text', {}, true, 'character'),
+  toolsText: await tools('text', TRACED),
+  animateText: await tools('text', TRACED, true, 'animate'),
   toolsImage: await tools('image'),
   toolsShipped: await tools('image', {}, false),
+  animateShipped: await tools('image', {}, false, 'animate'),
+  outShipped: await tools('image', {}, false, 'animate', 'out'),
 });
 const tagsOf = (m: string, tag: string) => [...m.matchAll(new RegExp(`<${tag}\\b[^>]*>`, 'g'))].map((x) => x[0]);
 const count = (m: string, re: RegExp) => (m.match(re) ?? []).length;
 
 test('1 · every button is a template’s — the action button, the Form row’s pill and switch, the dropdown, the ⓘ, the pill selector — and the three named drawings', async () => {
   const s = await STATES();
-  const ok = /class="ab |data-form-row-pill="|data-form-row-switch=|aria-haspopup="(?:dialog|listbox)"|data-explain=|data-seg=|data-logo-layer-row=|data-logo-ink=|data-studio-colour-field=/;
+  const ok = /class="ab |data-form-row-pill="|data-form-row-switch=|aria-haspopup="(?:dialog|listbox)"|data-explain=|data-seg=|data-logo-layer-row=|data-logo-add-card=|data-logo-add-kind=|data-style-card=|data-logo-ink=|data-studio-colour-field=/;
   for (const [state, markup] of Object.entries(s)) {
     assert.deepEqual(tagsOf(markup, 'button').filter((b) => !ok.test(b)), [], `${state}: a button that is not a template’s`);
   }
   assert.match(s.studioImage, /data-logo-play=""><button[^>]*class="ab ab-neutral/, 'Play is not the ActionButton');
-  for (const k of ['text', 'image', 'frame']) assert.match(s.studioImage, new RegExp(`data-logo-add-kind="${k}"><button[^>]*class="ab `), `Add ${k} is not the ActionButton`);
+  for (const k of ['text', 'image', 'frame']) assert.match(s.addList, new RegExp(`<button[^>]*data-logo-add-kind="${k}"`), `Add ${k} is not in the one Add list`);
   assert.match(s.toolsFrame, /<span class="lbl">Centre it<\/span>/);
-  assert.match(s.toolsText, /<span class="lbl">Trace it again<\/span>/);
-  assert.match(s.toolsText, /data-logo-write-reverse=""><button[^>]*class="ab /);
-  assert.match(s.toolsFrame, /data-logo-remove=""><button[^>]*class="ab ab-danger/, 'Remove this layer is not the danger ActionButton');
-  assert.equal(count(s.studioImage, /data-pill-selector="logo-panels"/g), 1, 'Layers | the layer is not the Pill selector');
+  assert.match(s.animateText, /<span class="lbl">Trace it again<\/span>/);
+  assert.match(s.animateText, /data-logo-write-reverse=""><button[^>]*class="ab /);
+  assert.match(s.toolsFrame, /data-logo-remove=""><button[^>]*class="ab ab-danger/, 'Delete is not the danger ActionButton');
+  for (const a of ['hide', 'lock', 'duplicate']) assert.match(s.toolsFrame, new RegExp(`data-logo-act="${a}"><button[^>]*class="ab `), `${a} is not the ActionButton`);
+  assert.match(s.characterText, /data-logo-split=""><button[^>]*class="ab /, 'Split into letters is not the ActionButton');
+  assert.equal(count(s.studioImage, /data-pill-selector="logo-tools"/g), 1, 'Character | Style | Animate is not the Pill selector');
+  assert.equal(count(s.animateFrame, /data-pill-selector="logo-phase"/g), 1, 'Build in | Action | Build out is not the Pill selector');
+  assert.equal(count(s.studioImage, /data-explain=/g), 1, 'the tools row has no ⓘ');
+  assert.match(s.toolsText, /data-style-carousel="logo-look"/, 'the looks are not the Stages’ Style cards');
   const src = read(LOGO);
   assert.doesNotMatch(src, /function IconBtn|function AddBtn|function Chip\b|function SwitchRow|<IconBtn|<AddBtn|<Chip\b/, 'a hand-made chrome control is back');
-  assert.doesNotMatch(src, /role="tablist"|role="tab"/, 'the Layers | layer row is hand-made again');
-  /* The only hand-made <button>s: the layer row (a list row), the shipped inks' circles. */
-  assert.equal((src.match(/<button\b/g) ?? []).length, 2, 'a hand-made button beside the templates');
+  assert.doesNotMatch(src, /role="tablist"|role="tab"/, 'a tools row is hand-made again');
+  /* The only hand-made <button>s: the shipped inks' circles here; the card (a list row), the Add card and the Add
+     list's rows (one list, drawn in place) in the carousel's own file. */
+  assert.equal((src.match(/<button\b/g) ?? []).length, 1, 'a hand-made button beside the templates');
+  assert.equal((read(`${L}/logo-layer-cards.tsx`).match(/<button\b/g) ?? []).length, 3, 'a hand-made button beside the cards');
 });
 
 test('2 · nothing is typed in a field of the page’s own, and every slider is the template’s', async () => {
@@ -128,8 +150,10 @@ test('2 · nothing is typed in a field of the page’s own, and every slider is 
     const inputs = tagsOf(markup, 'input').filter((i) => !/type="hidden"/.test(i) && !/aria-label="Upload an image layer"/.test(i));
     for (const i of inputs) assert.match(i, /type="range"[^>]*class="sn-slider /, `${state}: an input that is not the template’s slider: ${i.slice(0, 80)}`);
   }
-  assert.equal(count(s.toolsFrame, /type="range"/g), 6, 'Size · Across · Up and down · Rotate · Speed · Starts after');
-  assert.equal(count(s.toolsShipped, /type="range"/g), 5, 'the shipped editor has no Rotate');
+  assert.equal(count(s.toolsFrame, /type="range"/g), 4, 'Style: Size · Across · Up and down · Rotate');
+  assert.equal(count(s.animateFrame, /type="range"/g), 2, 'Build in: Starts after · Takes');
+  assert.equal(count(s.characterText, /type="range"/g), 2, 'Character: Size · Spacing');
+  assert.equal(count(s.toolsShipped, /type="range"/g), 3, 'the shipped editor has no Rotate');
   assert.equal(count(s.toolsFrame, /data-slider-centre=""/g), 3, 'the centre ticks of Across · Up and down · Rotate');
   const src = read(LOGO);
   assert.doesNotMatch(src, /<input\b[^>]*type="(?:text|range)"/, 'the page draws a field or a range of its own');
@@ -138,30 +162,39 @@ test('2 · nothing is typed in a field of the page’s own, and every slider is 
 
 test('3 · the typed answers are Form rows in one list; a choice is the one dropdown; a switch is the Form row’s', async () => {
   const s = await STATES();
-  assert.equal(count(s.toolsText, /data-form-row-pill="typed"/g), 2, 'Name and Words are not typed rows');
+  assert.equal(count(s.characterText, /data-form-row-pill="typed"/g), 1, 'Words is not a typed row');
+  assert.equal(count(s.toolsText, /data-form-row-pill="typed"/g), 1, 'Name is not a typed row');
   assert.equal(count(s.toolsFrame, /data-form-row-pill="typed"/g), 1, 'a frame has a name and no words');
   assert.equal(count(s.toolsFrame, /data-form-rows="logo-layer"/g), 1);
   assert.match(s.toolsText, /data-logo-layer-name=""/);
-  assert.match(s.toolsText, /data-logo-text-input=""/);
-  assert.match(s.toolsText, /data-explain=""/, 'the help under “How it’s written” is not behind the ⓘ');
-  assert.doesNotMatch(s.toolsText, /data-logo-write-help/, 'the helper sentence is back on the page');
-  assert.match(s.toolsFrame, /data-form-row-kind="chosen"[^>]*data-logo-motion="in"|data-logo-motion="in"[^>]*data-form-row-kind="chosen"/, 'Motion In is not the dropdown row');
-  assert.equal(count(s.toolsFrame, /data-logo-motion="(?:in|during|out)"/g), 3);
-  assert.equal(count(s.toolsShipped, /data-logo-motion="(?:in|during|out)"/g), 2, 'the shipped editor has no Out');
+  assert.match(s.characterText, /data-logo-text-input=""/);
+  assert.match(s.animateText, /data-explain=""/, 'the help under “How it’s written” is not behind the ⓘ');
+  assert.doesNotMatch(s.animateText, /data-logo-write-help/, 'the helper sentence is back on the page');
+  assert.match(s.animateFrame, /data-form-row-kind="chosen"[^>]*data-logo-motion="in"|data-logo-motion="in"[^>]*data-form-row-kind="chosen"/, 'Build in is not the dropdown row');
+  assert.equal(count(s.animateFrame, /data-logo-motion="in"/g), 1);
+  assert.equal(count(s.actionFrame, /data-logo-motion="during"/g), 1);
+  assert.equal(count(s.outFrame, /data-logo-motion="out"/g), 1);
+  assert.equal(count(s.outShipped, /data-logo-motion="out"/g), 0, 'the shipped editor has no Build out');
+  assert.doesNotMatch(s.animateShipped, /Build out/, 'the shipped editor has no Build out');
   assert.match(s.toolsFrame, /data-logo-frame-pick=""/, 'the frame is not a dropdown');
   assert.doesNotMatch(s.toolsFrame, /aria-pressed="(?:true|false)"[^>]*>(?:Ring|Double ring|Diamond|Arch)</, 'the frame is a row of chips again');
   assert.match(s.toolsImage, /<button[^>]*role="switch"[^>]*data-form-row-switch=""/, 'Remove white background is not the Form row’s switch');
   const src = read(LOGO);
   assert.doesNotMatch(src, /<PickMenu\b/, 'the page draws a dropdown of its own');
-  assert.equal((src.match(/<ChosenRow\b/g) ?? []).length, 4, 'Frame · In · During · Out');
-  assert.equal((src.match(/<TypedRow\b/g) ?? []).length, 2);
+  /* RE-AIMED 2026-10-18 (L5, DECISION_LOG 2026-10-08 "approve add ornament"): Style's Ornament ▾ is the fifth. */
+  assert.equal((src.match(/<ChosenRow\b/g) ?? []).length, 5, 'Frame · Ornament · In · During · Out');
+  assert.equal((src.match(/<TypedRow\b/g) ?? []).length, 2, 'Words · Name');
 });
 
 test('4 · no colour of the page’s own on a control — the accent is the token', () => {
   const src = read(LOGO);
   const HAND = /\bbg-(?:terracotta|mulberry|gild|gold|success|emerald|green|red|amber)|\bbg-ink\b(?!\/)|\btext-(?:terracotta|mulberry|gild|cream)|\bborder-(?:terracotta|mulberry)|\bring-ink\b(?!\/)|accent-terracotta/;
   assert.doesNotMatch(src, HAND, 'the page writes a colour of its own on a control');
-  assert.match(src, /bg-sn-accent text-sn-on-accent/, 'the picked layer is not the accent');
+  /* RE-AIMED 2026-10-18 (L2): the picked layer is the picked CARD, in the carousel's own file. */
+  const cards = read(`${L}/logo-layer-cards.tsx`);
+  assert.doesNotMatch(cards, HAND, 'the carousel writes a colour of its own on a control');
+  assert.match(cards, /ring-2 ring-sn-accent/, 'the picked card is not ringed in the accent');
+  assert.match(cards, /bg-sn-accent text-sn-on-accent/, 'the picked card’s name is not the accent');
   assert.doesNotMatch(src, /<ActionButton[^>]*className="[^"]*\bbg-/, 'an action button is filled by hand');
 });
 
@@ -170,8 +203,10 @@ test('5 · a layer comes off through the centred confirm box — keep first, the
   assert.match(src, /<GuestPopup kind="confirm" onClose=\{onKeep\}/, 'a tap on the dark would not close it as keep');
   assert.match(src, /keep=\{<ActionButton tone="neutral" icon=\{X\} label="Keep" onClick=\{onKeep\} \/>\}/);
   assert.match(src, /<ActionButton tone="danger" main icon=\{Trash2\} label="Remove" onClick=\{onRemove\} \/>/);
-  assert.match(src, /<ActionButton tone="danger" icon=\{Trash2\} label="Remove this layer" onClick=\{\(\) => setAskRemove\(true\)\} \/>/, 'the button removes without asking');
-  assert.doesNotMatch(src, /label="Remove this layer" onClick=\{onRemove\}/);
+  /* RE-AIMED 2026-10-18 (L3): Style's row says "Delete" (the prototype's word); the card's ⋯ Delete asks the same box. */
+  assert.match(src, /<ActionButton tone="danger" icon=\{Trash2\} label="Delete" onClick=\{\(\) => setAskRemove\(true\)\} \/>/, 'the button removes without asking');
+  assert.doesNotMatch(src, /label="Delete" onClick=\{onRemove\}/);
+  assert.match(src, /else if \(action === 'delete'\) setAskDelete\(id\);/, 'the card’s ⋯ Delete removes without asking');
 });
 
 test('6 · the drawing surface and its maths are as they were', () => {

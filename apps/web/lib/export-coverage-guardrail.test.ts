@@ -182,6 +182,14 @@ function exportedTables(routeSrc: string): Set<string> {
  * exporting the row is itself unsafe. These are answers, not debt.
  */
 const DELIBERATE_EXCLUSIONS: Record<string, string> = {
+  // ── added 2026-10-18 with the table itself (Apple In-App Purchase, PR #6637) ──
+  app_store_purchases:
+    'The subject IS the buyer here, and every purchase is already in their export as an ' +
+    'ordinary `orders` row (platform ios) + `payments` row (channel app_store, reference = ' +
+    'Apple’s transaction id, amount = what Apple charged). This table repeats those facts ' +
+    'beside the one-time token we minted for Apple to sign — an internal key, not ' +
+    'information about the person — and is service-role only. Same decision as ' +
+    'lib/export-completeness.ts.',
   // ── added 2026-10-08 with the table itself (the E-Gifts wish list) ──
   event_wish_items:
     'What an EVENT’s hosts would love as a gift — a name, an optional ' +
@@ -316,6 +324,8 @@ const DELIBERATE_EXCLUSIONS: Record<string, string> = {
     'Setnayan’s REFEREE RECORD of deposit refusals that have ended — admin-only (RLS on, no session grant). It is not withheld from the couple: the couple still sees the CURRENT refusal, and any ruling on it, on their own booking, and every payment they logged — refused or not — is in their export under payment_ledger. Its three *_user_id columns are actor stamps (who refused, which admin ruled, who ended it), not subject data; exporting by them would hand one party the other’s dispute record.',
   api_keys:
     '0033 gateway credential material — a key hash is a bearer secret, never exported (same rule as the alaga claim_token).',
+  apple_sign_in_tokens:
+    'A sealed Sign in with Apple refresh token, held only so account erasure can revoke the grant at Apple (App Store 5.1.1(v)). A bearer credential — never exported (same rule as api_keys).',
   vendor_locked_qr_tokens: 'Live bearer tokens — exporting one hands over a redeemable secret.',
   seating_editor_locks: 'Ephemeral advisory lock; holds no durable personal data.',
   blacklisted_emails:

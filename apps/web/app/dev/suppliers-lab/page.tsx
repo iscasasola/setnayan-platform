@@ -19,6 +19,10 @@
  *   &writefail=1        Save / Remove on a card are refused (they answer in place)
  *   &added=1            "Add your own": the row the walk leaves under Catering
  *   &links=fail         …and the claim-link read fails (the rows must say so)
+ *   &planned=1          HMUA and Florist are "in your plan" with nobody yet (the row's state word)
+ *   &covers=1           Seda's row also covers Cake and Catering ("Also covers") — the venue's name
+ *                       then shows, locked, under those two rows as well (the owner's 2026-10-21 report),
+ *                       "· with Reception" — on Find's rows and on Build's lines (?tab=build&covers=1)
  *   ?tab=build          open on Build — the REAL Build body on fixtures
  *   &build=garden       …with "Garden build" in use · &build=none (nothing yet)
  *                       · &build=unread (the saved builds could not be read)
@@ -38,6 +42,8 @@
  *                       received · refused (`money-pair.ts`; the supplier's end
  *                       of the same booking is `/dev/customer-money-lab?s=…`)
  *   &booked=0           nobody asked, nobody booked
+ *   &paidbyhand=1       + "The Wedding Planner", added by hand, filed Shortlisted, with
+ *                       a recorded payment — booked by the payment (owner 2026-10-20)
  *   &seed=proto|asked   only the prototype's own rows (for a side-by-side)
  *
  * THE DATE AND PLACE SHEETS (PR5 — `fact-sheet-fixtures.ts`; press the date or the place on the line):
@@ -56,11 +62,15 @@
 import { notFound } from 'next/navigation';
 import { InspectorLayout } from '@/app/_components/inspector/inspector-column';
 import { DatePlaceLine } from '@/app/dashboard/[eventId]/vendors/_components/date-place-line';
-import { buildShortlistFolders } from '@/lib/shortlist-taxonomy';
-import { popularTilesFor } from '@/lib/supplier-find';
+import { buildShortlistFolders, categoryKeyForAdd } from '@/lib/shortlist-taxonomy';
+import { WEDDING_TILES_BY_PARENT } from '@/lib/taxonomy';
+import { buildFindList, FIND_GROUP_OF_TILE, popularTilesFor } from '@/lib/supplier-find';
+import { homeTileForRow, LOCKED_VENDOR_STATUSES } from '@/lib/shortlist-taxonomy';
+import { FindCategoryList } from '@/app/dashboard/[eventId]/vendors/_components/find-category-list';
 import { resolveBenchRing } from '@/lib/explore-in-plan';
 import { type LiveTallyBase } from '@/lib/suppliers-shell';
 import { SuppliersLabStage } from './lab-stage';
+import { LabShell } from '@/app/dev/_components/lab-shell';
 import { LabBench } from './lab-bench';
 import { renderUrlQrSvg } from '@/lib/qr';
 import {
@@ -69,9 +79,12 @@ import {
   LAB_CLAIM_URL,
   LAB_ENRICHMENT,
   LAB_EVENT,
+  LAB_FIND_COUNTS,
   LAB_ROWS,
   LAB_STANDINGS,
+  labDunkinRow,
   labInviteStatuses,
+  labOwnRow,
 } from './fixtures';
 import { LabSuppliersShell } from './lab-build';
 import { BookedBody } from '@/app/dashboard/[eventId]/vendors/_components/booked-body';
@@ -93,7 +106,27 @@ export default async function SuppliersLabPage({
   const sp = await searchParams;
   const one = (k: string) => (typeof sp[k] === 'string' ? (sp[k] as string) : null);
   const empty = one('empty') === '1';
-  const rows = empty ? [] : one('added') === '1' ? [...LAB_ROWS, LAB_ADDED_ROW] : LAB_ROWS;
+  const dunkin =
+    one('dunkin') === 'before' || one('dunkin') === 'after' || one('dunkin') === 'moved'
+      ? (one('dunkin') as 'before' | 'after' | 'moved')
+      : null;
+  // `&own=` — the supplier the walk's Add just posted (lab stand-in), kept the way the real insert keeps it.
+  const ownParts = (one('own') ?? '').split('~');
+  const drawnTiles = new Set<string>(Object.values(WEDDING_TILES_BY_PARENT).flat() as string[]);
+  const own =
+    ownParts.length === 3 && ownParts[0]
+      ? labOwnRow(ownParts[0], categoryKeyForAdd(ownParts[0], ownParts[1], (t) => drawnTiles.has(t)), ownParts[2] ?? '')
+      : null;
+  const covers = one('covers') === '1';
+  const rows = empty
+    ? []
+    : [
+        ...(one('added') === '1' ? [...LAB_ROWS, LAB_ADDED_ROW] : LAB_ROWS).map((r) =>
+          covers && r.vendor_id === 'v-seda' ? { ...r, covers_plan_groups: ['cake', 'catering'] } : r,
+        ),
+        ...(dunkin ? [labDunkinRow(dunkin)] : []),
+        ...(own ? [own] : []),
+      ];
   const claimQrSvg = await renderUrlQrSvg(LAB_CLAIM_URL);
 
   const factOptions: LabFactOptions = {
@@ -118,6 +151,7 @@ export default async function SuppliersLabPage({
     faithSet: new Set(),
     eventId: LAB_EVENT,
     lockHandshakeEnabled: true,
+    plannedTiles: one('planned') === '1' ? new Set(['hmua', 'florist']) : undefined,
   });
 
   // The Booked body — its own fixtures, through the real derivations.
@@ -128,6 +162,7 @@ export default async function SuppliersLabPage({
     target: one('target') !== '0',
     room: one('room') === 'sent' ? 'sent' : one('room') === 'unread' ? 'unread' : 'not_sent',
     dateChange: one('datechange') === '1',
+    paidByHand: one('paidbyhand') === '1',
     booked: one('booked') !== '0',
     seed: one('seed') === 'proto' || one('seed') === 'asked' ? (one('seed') as 'proto' | 'asked') : null,
     money: moneyStageOf(one('money')),
@@ -153,6 +188,31 @@ export default async function SuppliersLabPage({
     ring: { tiles: folders.flatMap((f) => f.tiles.map((t) => ({ tile: t.tile, lockedCount: t.vendors.filter((v) => v.status === 'locked').length, vendorIds: t.vendors.map((v) => v.vendorId) }))), inPlan: [...ring.inPlan] },
     drawnIn: [],
   };
+  // The bottom search's empty state — the Find page's own list (`FindCategoryList`) on the lab's scope:
+  // the bench folders with no rows (as `readFindList` builds them), booked = the fixtures' locked rows.
+  // `&findfail=1` — the booked read was refused (no row may say "Booked ✓").
+  const findBooked = one('findfail') === '1'
+    ? null
+    : new Set(
+        rows
+          .filter((r) => LOCKED_VENDOR_STATUSES.includes(r.status ?? ''))
+          .map((r) => homeTileForRow({ category: r.category }))
+          .filter((t): t is NonNullable<typeof t> => t != null),
+      );
+  const findList = buildFindList({
+    // No database here, so no Admin › Scope categories: drop a wake's own services the way a wedding's scope does.
+    folders: buildShortlistFolders({ vendorRows: [], eventType: 'wedding', faithSet: new Set(), eventId: LAB_EVENT }).map((f) => ({
+      ...f,
+      tiles: f.tiles.filter((t) => (FIND_GROUP_OF_TILE as Record<string, string>)[t.tile] !== 'farewell'),
+    })),
+    eventType: 'wedding',
+    solemn: false,
+    booked: findBooked,
+    counts: LAB_FIND_COUNTS,
+  });
+  const findPanel = (
+    <FindCategoryList eventId={LAB_EVENT} list={findList} bookedMeasured={findBooked !== null} eventType="wedding" solemn={false} />
+  );
   const bench = (
     <LabBench
       key={`sl-${one('open') ?? ''}`}
@@ -170,15 +230,16 @@ export default async function SuppliersLabPage({
       inviteStatusByVendorId={one('links') === 'fail' ? null : labInviteStatuses(Date.now())}
       claimQrSvg={claimQrSvg}
       unread={{ pairs: [['t-lola', 2]], measured: true }}
+      findPanel={findPanel}
     />
   );
 
-  return (
-    <SuppliersLabStage>
+  const body = (
       <section className="sn-col max-w-none" data-lab-suppliers="">
         <LabSuppliersShell
           start={one('build')}
           answer={one('answer')}
+          covers={covers}
           eventId={LAB_EVENT}
           initialTab={one('mode') === 'booked' ? 'budget' : one('tab') === 'build' ? 'build' : one('tab') === 'budget' ? 'budget' : 'shortlist'}
           factsSlot={
@@ -224,6 +285,8 @@ export default async function SuppliersLabPage({
           }
         />
       </section>
-    </SuppliersLabStage>
   );
+  /* `&shell=1` — the REAL One Shell (rail + bar, `boundary="tab"`) instead of the stand-ins. */
+  if (one('shell') === '1') return <LabShell eventId={LAB_EVENT}>{body}</LabShell>;
+  return <SuppliersLabStage>{body}</SuppliersLabStage>;
 }

@@ -1,5 +1,7 @@
 import { cache } from 'react';
-import { isServiceRoleClient } from '@/lib/request-once';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { authorityOf, isServiceRoleClient } from '@/lib/request-once';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 /**
  * apps/web/lib/event-row-once.ts — THE EVENT'S ROW IS READ ONCE PER RENDER.
@@ -163,6 +165,15 @@ export function eventRowOnce<R>(
   columns: string,
   read: () => PromiseLike<R>,
 ): Promise<R> {
+  // 👤 A signed-in viewer's own client, on the couple's dashboard: the one read
+  // AS THAT VIEWER (`openDashboardEventRow`), when this render opened it.
+  if (!isServiceRoleClient(client)) {
+    const viewerHeld = viewerRows().get(viewerKey(client, eventId));
+    const asked = viewerHeld ? plainColumns(columns) : null;
+    if (viewerHeld && asked && asked.every((c) => DASHBOARD.has(c))) {
+      return viewerHeld.then((h) => (h.ok ? (h.row ? answerFrom<R>(h.row, asked) : noRow<R>()) : read()));
+    }
+  }
   const held = isServiceRoleClient(client) ? rows().get(eventId) : undefined;
   const wanted = held ? plainColumns(columns) : null;
   if (held && wanted && wanted.every((c) => c in held)) return Promise.resolve(answerFrom<R>(held, wanted));
@@ -230,10 +241,186 @@ function askedOfEventsBySlug(query: unknown, slug: string): string | null {
  */
 export async function withEventRowScopeForTest<T>(fn: () => Promise<T>): Promise<T> {
   const before = testRows;
+  const beforeViewer = testViewerRows;
   testRows = new Map();
+  testViewerRows = new Map();
   try {
     return await fn();
   } finally {
     testRows = before;
+    testViewerRows = beforeViewer;
   }
+}
+
+// ── 👤 THE COUPLE'S DASHBOARD: THE EVENT'S ROW, ONCE, AS THE VIEWER ─────────
+/*
+  WHY (measured 2026-10-20, owner: "why is it still loading slow even if we
+  already went pro on supabase?"). One render of a couple's Guests tab read the
+  SAME `events` row NINE times — the layout's chrome, the menu's needs, the
+  page's palette and date, the share link's visibility, the invite's words, the
+  role words, the access window — each its own request, as the signed-in
+  couple, a few columns at a time. Production's log: `events` 18k reads a day,
+  split into `select=event_date` 1,807 · `event_type` 1,691 · … .
+
+  WHAT THIS DOES. The dashboard OPENS the row for its viewer once per render
+  (`openDashboardEventRow`, called first thing by the event layout and by the
+  pages whose reads it carries): ONE request, as the viewer's own client, for
+  every column in `DASHBOARD_ROW_CARRIES`. Every `eventRowOnce` asker using
+  that same client, for that event, naming only those columns, is answered
+  from it; its own read is not sent.
+
+  🔒 THE SAME THREE RULES AS THE GUEST TREE'S ROW, plus one:
+    · NEVER ACROSS AUTHORITIES. Keyed by the asking client's authority
+      (`authorityOf` — one session client object = one viewer). The service
+      role is never answered from it, and a viewer is never answered from the
+      service role's row. RLS is not bypassed: the viewer's own client read it,
+      under the viewer's own policies and column grants — exactly the read each
+      asker would have sent, with more columns.
+    · NEVER ACROSS RENDERS. The Map is React's per-render `cache()`; outside a
+      render (an action, a route, a job) nothing is opened and every asker
+      reads for itself — a gate there still reads fresh.
+    · EVERY ASKER KEEPS ITS OWN FAILURE. If the one read fails for ANY reason —
+      refused, a column production does not know yet, the network — nothing
+      is answered from it: every asker sends its own read, exactly as before,
+      and degrades or throws on its own terms. A failure is never handed out
+      as a row, and never as "no row".
+    · "NO ROW" IS AN ANSWER ONLY WHEN THE READ SUCCEEDED. Then each asker gets
+      `{ data: null, error: null }` — what its own maybeSingle read would have
+      returned under the same client.
+
+  Held by `lib/event-row-once.test.ts` (8–10) and counted by the lab note in
+  `app/dashboard/[eventId]/guests/the-guests-page-asks-once.test.ts`.
+*/
+
+/**
+ * The columns the dashboard's one read carries. Every one is a plain column of
+ * `public.events` in production AND granted SELECT to `authenticated` — each is
+ * read today by a signed-in couple's own client somewhere on the dashboard.
+ * ⛔ NEVER a host-only private column (`estimated_budget_centavos`,
+ * `wizard_state`, …, the `private_columns` list in migration 20271025120000):
+ * it is not granted on `events`, so the one read would be refused on every
+ * view — every asker would fall back, a request ADDED, not saved.
+ * `lib/event-row-once.test.ts` fails on either.
+ *
+ * 🔑 NOT A CANONICAL SELECT, and named so (not `*_COLUMNS`). It is the UNION of
+ * what many dashboard readers each want — no reader is meant to ask for all of
+ * it, and a reader that names fewer (the account switcher's own list of events,
+ * a three-column access window) is not "dropping" any of it. `lint:dup-rule`'s
+ * omitted-column guard is for lists every caller should reproduce whole.
+ */
+export const DASHBOARD_ROW_CARRIES = [
+  // The event layout's own row (the rail, the menu, the monogram, the phase).
+  'event_id',
+  'public_id',
+  'display_name',
+  'event_date',
+  'archived',
+  'event_type',
+  'slug',
+  'monogram_text',
+  'monogram_color',
+  'monogram_frame_key',
+  'monogram_font_key',
+  'monogram_style',
+  'monogram_custom_svg',
+  'monogram_uploaded_svg',
+  'cleared_at',
+  'timezone',
+  'event_end_date',
+  'community_id',
+  'date_candidates',
+  // What this event needs (the menu's Level 1).
+  'guest_list_on',
+  'suppliers_on',
+  'hub_details_on',
+  // The access window (`fetchEventViewer`) and the invite's words.
+  'event_date_precision',
+  'print_details',
+  // The couple's role words.
+  'role_names',
+  // The Guests tab, and a guest's open card.
+  'role_palette',
+  'estimated_pax',
+  'ceremony_type',
+  'secondary_ceremony_type',
+  'dress_code_config',
+  // The share link's door.
+  'landing_page_visibility',
+  'scheduled_launch_at',
+  'std_launched_at',
+  // Home's own row (the day-of takeover, the cultural and set-date overlays, the Papic glance).
+  'venue_latitude',
+  'venue_longitude',
+  'region',
+  'mahr_description',
+  'gender_separation',
+  'created_at',
+  'setnayan_ai_active',
+  'setnayan_ai_active_until',
+  'planning_mode',
+  'papic_on',
+  'papic_window_start',
+  'papic_window_end',
+  // Home's control row (owner-approved 2026-10-24): the Countdown's place, and when the Invitation page opens.
+  'venue_name',
+  'std_invitation_launch_date',
+  // …and the stage the couple PINNED (owner 2026-10-25, "Pick what shows": Save the Date · Invitation · The Day ·
+  // Post Event) — `manualLaunchPhase(launch_mode, manual_phase)`, so the tile says the page guests really see.
+  'launch_mode',
+  'manual_phase',
+  // The head count the Suppliers and Budget tabs plan for (`readFinalizeState`, lib/pax.ts).
+  'headcount_basis',
+  'guest_count_locked_at',
+  'final_pax',
+] as const;
+
+const DASHBOARD = new Set<string>(DASHBOARD_ROW_CARRIES);
+
+type ViewerHeld = { ok: true; row: Row | null } | { ok: false };
+
+/** One Map per server render. A fresh one on every call outside a render. */
+const renderViewerRows = cache((): Map<string, Promise<ViewerHeld>> => new Map());
+let testViewerRows: Map<string, Promise<ViewerHeld>> | null = null;
+
+function viewerRows(): Map<string, Promise<ViewerHeld>> {
+  return testViewerRows ?? renderViewerRows();
+}
+
+const viewerKey = (client: object, eventId: string) => `${authorityOf(client)} ${eventId}`;
+
+/** What a one-row read that found no row returns (postgrest-js maybeSingle). */
+function noRow<R>(): R {
+  return { data: null, error: null, count: null, status: 200, statusText: 'OK' } as R;
+}
+
+/**
+ * Start the dashboard's one read of this event AS THIS VIEWER, for the rest of
+ * this render. Idempotent per (viewer, event, render); a no-op for the service
+ * role and outside a render (nothing would be kept, so nothing is sent).
+ * Call it BEFORE the first `eventRowOnce` asker — an asker that came first sent
+ * its own read, as before.
+ */
+export function openDashboardEventRow(client: SupabaseClient, eventId: string): void {
+  if (!eventId || isServiceRoleClient(client)) return;
+  const map = viewerRows();
+  if (!testViewerRows && map !== renderViewerRows()) return; // not inside a render
+  const key = viewerKey(client, eventId);
+  if (map.has(key)) return;
+  map.set(
+    key,
+    Promise.resolve(
+      client.from('events').select(DASHBOARD_ROW_CARRIES.join(', ')).eq('event_id', eventId).maybeSingle(),
+    ).then(
+      (res): ViewerHeld => {
+        if (res.error) {
+          // Every asker now reads for itself (and logs its own failure). This line is what tells a
+          // refused ONE read — which costs a request on every view — from a calm one.
+          logQueryError('openDashboardEventRow', res.error, { event_id: eventId }, 'graceful_degrade');
+          return { ok: false };
+        }
+        return { ok: true, row: (res.data as Row | null) ?? null };
+      },
+      (): ViewerHeld => ({ ok: false }),
+    ),
+  );
 }

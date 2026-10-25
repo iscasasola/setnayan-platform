@@ -115,7 +115,8 @@ test('1 · every writer takes the draft door before any Pro question', () => {
   assert.match(chrome.slice(door, chrome.indexOf('lookProAllows(')), /return draftEventsAndReturn\(eventId, events, formData,/);
 
   const photos = code('app/dashboard/[eventId]/website/our-photos/actions.ts');
-  assert.match(photos, /const drafting = isHubDraftWrite\(formData\);\s*if \(!drafting\) await requireLookPro\(eventId, galleryChange\(currentRefs, deduped\)\);/);
+  // RE-AIMED 2026-10-22 (part by part): the gallery is the Photos part's (gate 6).
+  assert.match(photos, /const drafting = isHubDraftWrite\(formData\);\s*if \(!drafting\) await requireLookPro\(eventId, galleryChange\(currentRefs, deduped\), 'photos'\);/);
   // The screen still runs BEFORE the draft door.
   assert.ok(photos.indexOf('classifyImageBytes') < photos.indexOf('draftEventsAndReturn(eventId, { our_photos: cleared }'));
 
@@ -176,13 +177,14 @@ test('3 · without Pro Apply holds every one; with Pro it writes every one', () 
 
 test('3 · the server merges the QR into the live blob, screens new photos, holds a foreign file, and stamps the song', () => {
   const action = code('app/dashboard/[eventId]/website/hub-draft-actions.ts');
-  assert.match(action, /\.update\(\{ style_preferences: \{ \.\.\.\(prefs \?\? \{\}\), \.\.\.qrWrite \} \}\)/, 'the QR is not merged into the live blob');
+  assert.match(action, /column: 'style_preferences', what: 'Your style' \},\s*\(raw\) => \(\{ next: \{ \.\.\.\(raw && typeof raw === 'object' && !Array\.isArray\(raw\) \? \(raw as Record<string, unknown>\) : \{\}\), \.\.\.qrWrite \} \}\)/, 'the QR is not merged into the live blob');
   assert.match(action, /delete eventsPatch\.style_preferences;/, 'the blob rides the session UPDATE whole');
   assert.match(action, /const blocked = await screenNewPhotoRefs\(fresh\);\s*if \(blocked\.length > 0\) eventsPatch\.our_photos =/);
   assert.match(action, /!newMediaIsOwn\(item\.column, item\.value\)\s*\) \{\s*held\.push\(\{ item, reason: 'not_your_photo' \}\);/);
   assert.match(action, /eventsPatch\.site_bg_music_source = eventsPatch\.site_bg_music_r2_key \? 'upload' : null;/);
   // The Pro gate itself is unchanged.
-  assert.match(action, /const ownsPro = storeShell \? false : await lookProAllows\(eventId, 'change'\);/);
+  // RE-AIMED 2026-10-22 (part by part): Apply asks what the event owns, part by part.
+  assert.match(action, /const owned = storeShell \? NO_HUB_PARTS : await hubOwnershipForWrite\(eventId\);/);
 });
 
 test('3 · the QR preview draws the draft for a verified host only, never cached', () => {

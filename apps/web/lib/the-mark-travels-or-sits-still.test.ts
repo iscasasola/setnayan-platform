@@ -22,6 +22,9 @@ import {
   MAGIC_TRAVELLERS,
   MAGIC_TRAVELLER_ATTR,
   sanitizeMagicTraveller,
+  LOGO_TRAVELS_ACTION,
+  logoTravelWrite,
+  logoTravelsOffered,
 } from './magic-move';
 
 const SCRIPT = readFileSync(
@@ -159,7 +162,9 @@ const src = (...p: string[]) => stripComments(readFileSync(join(WEB, ...p), 'utf
 const SHELL = src('app', '[slug]', '_components', 'invitation-shell.tsx');
 const BODY = src('app', '[slug]', '_components', 'site-body.tsx');
 const HERO = src('app', '[slug]', '_components', 'editorial', 'editorial-content.tsx');
-const PANEL = src('app', 'dashboard', '[eventId]', 'website', 'editor', '_components', 'pro-panels.tsx');
+/* ✈ The control is the cover Logo's Action since the Look restudy row 9 — the element sheet, not a Look form. */
+const PANEL = src('app', 'dashboard', '[eventId]', 'website', 'editor', '_components', 'element-sheet.tsx');
+const SHEET_SHELL = src('app', 'dashboard', '[eventId]', 'website', 'editor', '_components', 'editor-shell.tsx');
 const SAVE = src('app', 'dashboard', '[eventId]', 'website', 'colors', 'actions.ts');
 
 test('⛔ the script is MOUNTED — this is the test the guard asked for', () => {
@@ -227,15 +232,22 @@ test('⛔ the traveller is stamped at the SLOT, and has a box to transform', () 
   assert.match(wrapped, /<Monogram text=/, 'and so does the fallback circle');
 });
 
-test('⛔ a couple can turn it on, and can take it back', () => {
-  assert.match(PANEL, /name="site_magic_traveller"/, 'the editor needs the control');
-  // ONE dropdown (owner 2026-10-05: any set of choices is one dropdown) — its
-  // hidden field posts the pick; "Nothing travels" is first and posts the clear.
-  assert.match(PANEL, /<input type="hidden" name="site_magic_traveller" value=\{magic\} \/>/, 'the pick is not what the form posts');
-  assert.match(PANEL, /\{ key: 'none', label: 'Nothing travels' \},\s*\.\.\.MAGIC_TRAVELLERS\.map/, 'an off option, first, then the travellers');
-  assert.match(PANEL, /onPick=\{\(k\) => setMagic\(k === 'none' \? '' : k\)\}/, '"nothing travels" posts the clear');
-  assert.match(PANEL, /MAGIC_TRAVELLERS\.map/, 'the options come from the contract, not a retyped list');
-  assert.match(PANEL, /MAGIC_TRAVELLER_LABEL/, 'and so does their copy');
+test('⛔ a couple can turn it on, and can take it back — the cover Logo\'s Action "Travels to the bar"', () => {
+  // ONE dropdown (owner 2026-10-05: any set of choices is one dropdown) — Action ▾, where a part's motion lives
+  // (Look restudy row 9). Offered on the cover's Logo only, beside Still · Drift; picking it writes the mark, and
+  // picking Still or Drift writes the clear (`null`) through the same draft door.
+  assert.match(PANEL, /logoTravelsOffered\(target\)/, 'the Action is not limited to the cover Logo');
+  assert.match(PANEL, /key: LOGO_TRAVELS_ACTION, label: `\$\{LOGO_TRAVELS_LABEL\} ◆`/, 'the journey is not an option of Action ▾ (or lost its ◆)');
+  assert.match(PANEL, /site_magic_traveller: logoTravelWrite\(/, 'the pick does not write the one column');
+  assert.match(PANEL, /if \(travelOffered && travelling\) travelTo\(false\);/, 'Still or Drift does not end the journey');
+  assert.equal(logoTravelWrite(LOGO_TRAVELS_ACTION), 'mark', 'the journey writes the mark');
+  assert.equal(logoTravelWrite('still'), null, 'and any other Action writes the clear');
+  assert.equal(logoTravelWrite('drift'), null);
+  assert.equal(logoTravelsOffered({ key: 'f:hero', el: 'mark' }), true);
+  assert.equal(logoTravelsOffered({ key: 'f:hero', el: 'names' }), false, 'only the Logo travels');
+  assert.equal(logoTravelsOffered({ key: 's:gallery', el: 'mark' }), false, 'and only from the cover');
+  // The drafted value reaches the sheet, or Action ▾ always reads "Still".
+  assert.match(SHEET_SHELL, /travels=\{elementEditing\.magicTraveller \?\? null\}/, 'the sheet is never told the drafted journey');
 });
 
 test('⛔ the save writes it, and an absent field leaves it alone', () => {
@@ -257,8 +269,8 @@ test('⛔ the column is in every SELECT that has to carry it', () => {
   assert.match(editor, /site_magic_traveller/, 'and the editor cannot show the saved state');
   assert.match(
     editor,
-    /magicTraveller=\{/,
-    'the editor must hand it to the panel, or the radio always reads "nothing travels"',
+    /magicTraveller: \(drafted as \{ site_magic_traveller\?: string \| null \}\)\.site_magic_traveller \?\? null/,
+    'the editor must hand it to the Logo\'s Action, or Action ▾ always reads "Still"',
   );
 });
 

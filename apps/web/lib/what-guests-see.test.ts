@@ -39,7 +39,7 @@ import { STAGE_SCENES, STAGE_SHOW_KEY } from './stage-scenes';
 import { WIDGET_CATALOG_BY_TYPE, type InvitationWidgetRow, type LifecyclePhase, type WidgetType } from './invitation-widgets';
 import { resolveSiteBodyPlan } from './site-body-plan';
 import { makerStageList, widgetsGuestsMeet } from './maker-scene-list';
-import { sceneOnStage, scenesOnStage, whatGuestsSee, type GuestsSeeInput } from './what-guests-see';
+import { OFF_THE_PAGE, sceneOnStage, scenesOnStage, whatGuestsSee, type GuestsSeeInput } from './what-guests-see';
 
 const STAGES: readonly LifecyclePhase[] = ['save_the_date', 'rsvp', 'event', 'editorial'];
 const HIDEABLE: readonly WidgetType[] = [
@@ -272,8 +272,12 @@ test('4 · the four answers, by example', () => {
   assert.deepEqual(at(rows(), 'rsvp', 'our_love_story', { weddingOnlyParts: { love_story: false } }).notPossible, { rule: 'weddingOnlyParts.love_story', why: 'Not part of this kind of event.' });
   assert.deepEqual(at(rows(), 'rsvp', 'countdown', { solemn: true }).notPossible, { rule: 'solemn', why: 'Not shown for this kind of event.' });
   assert.deepEqual(at(rows(), 'event', 'countdown', { countdownPast: true }).notPossible, { rule: 'countdownPast', why: 'Retired — the day has arrived.' });
-  assert.deepEqual(at(rows(), 'rsvp', 'event_details', { reader: 'anonymous' }).notPossible, { rule: 'PUBLIC_WIDGET_ALLOWLIST', why: "Only on each guest's own link." });
-  assert.equal(at(rows(), 'rsvp', 'event_details').notPossible, null);
+  assert.deepEqual(at(rows(), 'rsvp', 'your_photos', { reader: 'anonymous' }).notPossible, { rule: 'PUBLIC_WIDGET_ALLOWLIST', why: "Only on each guest's own link." });
+  assert.equal(at(rows(), 'rsvp', 'our_love_story').notPossible, null);
+  // 🪪 The Event Details card is on no reader's page (owner 2026-10-24, "isn't this a dupe?") — for a guest too.
+  for (const reader of ['guest', 'anonymous'] as const) {
+    assert.deepEqual(at(rows(), 'rsvp', 'event_details', { reader }).notPossible, { rule: 'OFF_THE_PAGE', why: 'Not shown on any stage — Me and the Venues scene already say it.' });
+  }
 
   // 🧭 OFF THE LIST. The Day: the dress code and the reminders are OUR PICK there — drawn by the Welcome.
   for (const type of ['dress_code', 'what_to_bring'] as const) {
@@ -314,7 +318,7 @@ test('5 · SCENE × STAGE: where a "shown" is honoured and where it is refused �
   for (const t of TABLE) console.log(`  ${t.padEnd(16)} ${got[t]!.map((c) => c.padEnd(30)).join('')}`);
   assert.deepEqual(got, {
     //                 Save the Date                 Invitation   The Day          Post Event
-    event_details:   ['added',                      'ours',      'added',         'added'],
+    event_details:   ['no:OFF_THE_PAGE',            'no:OFF_THE_PAGE', 'no:OFF_THE_PAGE', 'no:OFF_THE_PAGE'],
     countdown:       ['ours',                       'ours',      'no:SCENES_RETIRED_ON_THE_DAY', 'no:resolveWidgetTerminalState'],
     special_message: ['added',                      'ours',      'added',         'ours'],
     our_love_story:  ['ours',                       'ours',      'ours:prose',    'ours'],
@@ -329,5 +333,6 @@ test('5 · SCENE × STAGE: where a "shown" is honoured and where it is refused �
     tier_comparison: ['no:STAGE_SCENES',            'no:STAGE_SCENES', 'no:STAGE_SCENES', 'no:STAGE_SCENES'],
   });
   // The table of our picks is `STAGE_SCENES` — plus the three places off the list.
-  for (const s of STAGES) for (const t of STAGE_SCENES[s]) assert.ok(cells[t]![STAGES.indexOf(s)]!.startsWith('ours'), `${t} × ${s} is the stage’s own and not our pick`);
+  // (…but for a scene retired from every page: `OFF_THE_PAGE` outranks the stage's list.)
+  for (const s of STAGES) for (const t of STAGE_SCENES[s].filter((x) => !OFF_THE_PAGE.has(x))) assert.ok(cells[t]![STAGES.indexOf(s)]!.startsWith('ours'), `${t} × ${s} is the stage’s own and not our pick`);
 });

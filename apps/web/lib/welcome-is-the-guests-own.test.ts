@@ -227,8 +227,9 @@ test('3 · both trees mount the one Welcome section and ask the one rule', () =>
   assert.match(BODY, /\{guestAround\.after\.map\(renderScene\)\}/);
   assert.match(BODY, /const detailsSceneList = storyScene \? detailsScenes\.filter\(\(w\) => w !== storyScene\) : detailsScenes;/);
   assert.match(BODY, /\{list\.map\(\(widget\) => \(\s*\/\*[\s\S]*?<PublicHideableWidget|\{list\.map\(\(widget\) => \(\s*<Fragment/);
-  // this guest's own look is on Welcome, so Details shows everyone's
-  assert.match(BODY, /dressCodeGeneral=\{welcome\.includes\('look'\)\}/);
+  // 👗 Details' dress code is the reader's own (owner 2026-10-19, "DRESS WITH US SHOWS ONLY THE GUEST'S OWN ROLE"):
+  // every role only for a host on their own Event Hub, as themselves (held by `dress-with-us-is-the-readers-own.test.ts`)
+  assert.match(BODY, /dressCodeEveryRole=\{viewerIsHost && sampleViewer === null && guest\.guest_id === hostOwnGuestId\}/);
   // the gift door is drawn once: the foot strip stands down when Welcome carries it
   assert.match(BODY, /welcomeCarriesGifts\(\{[^}]*giftHref: doorways\.pabuya[^}]*\}\)\s*\?\s*null\s*:\s*doorways\.pabuya/);
   // the guest tree's Welcome sits after the reply and before Details
@@ -245,5 +246,5 @@ test('3 · the navigator lists what the canvas draws, through the same rule', ()
   const LIST = read('lib/maker-scene-list.ts');
   assert.match(LIST, /const welcome = welcomeParts\(\{/);
   const DISPATCH = read('app/[slug]/_components/hideable-widget-render.tsx');
-  assert.match(DISPATCH, /guestRole=\{guestView && !dressCodeGeneral \?/);
+  assert.match(DISPATCH, /guestRole=\{guestView && !dressCodeEveryRole \?/);
 });

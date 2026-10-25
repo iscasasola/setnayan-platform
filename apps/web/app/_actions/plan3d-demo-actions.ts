@@ -35,7 +35,9 @@ import {
   isPubliclyVisible,
   type VendorPublicVisibility,
 } from '@/lib/vendor-visibility';
-import { guestDisplayName, resolveGuestAttire, type GuestRole, type GuestAttire } from '@/lib/guests';
+import { guestDisplayName, type GuestRole, type GuestAttire } from '@/lib/guests';
+import { guestOutfitOf, seatPlanOutfitOf, type SeatGarment } from '@/lib/guest-outfit';
+import { resolveDisplayPalette } from '@/lib/room-palette';
 import { displayUrlForStoredAsset, guestPhotoDisplayUrls } from '@/lib/uploads';
 import {
   shapeHintFor,
@@ -69,8 +71,11 @@ export type Plan3DGuest = {
    *  (resolveGuestAttire: explicit couple-set attire ≻ gendered role ≻
    *  neutral) — added 2026-07-08 after the hash-only derivation dressed
    *  male-named sample guests in gowns. Non-PII: it's clothing, and the cast
-   *  is fictional. 'neutral' guests render the unmarked humanoid shell. */
+   *  is fictional. 'neutral' guests render the unmarked humanoid shell.
+   *  👗 2026-10-20: from the sample's dress code for their role (`seatPlanOutfitOf`), as the couple lab is. */
   attire: 'gown' | 'suit' | 'neutral';
+  /** The kit garment their role's Wear names (a barong, a Filipiniana…) — null: no Wear said, the class's variety. */
+  outfit?: SeatGarment | null;
   /** The guest's role — drives the taxonomy-v2 attire-palette chain (a
    *  specific role palette key wins over the shared wedding_party fallback).
    *  Non-PII on the fictional sample cast, same posture as `attire`. */
@@ -232,7 +237,7 @@ export async function loadPlan3DDemoScene(): Promise<Plan3DScene> {
     fetchSigns(admin, eventId),
     admin
       .from('guests')
-      .select('guest_id,first_name,last_name,display_name,side,photo_url,role,attire')
+      .select('guest_id,first_name,last_name,name_prefix,display_name,side,photo_url,role,attire,gender')
       .eq('event_id', eventId)
       .is('deleted_at', null),
   ]);
@@ -261,6 +266,7 @@ export async function loadPlan3DDemoScene(): Promise<Plan3DScene> {
   });
 
   const seatByGuest = new Map(assignments.map((a) => [a.guest_id, a]));
+  const demoBoard = resolveDisplayPalette(sanitizeRolePalette(ev.role_palette ?? {}));
   type GuestNameRow = {
     guest_id: string;
     first_name: string | null;
@@ -270,6 +276,8 @@ export async function loadPlan3DDemoScene(): Promise<Plan3DScene> {
     photo_url: string | null;
     role: GuestRole;
     attire: GuestAttire;
+    name_prefix: string | null;
+    gender: string | null;
   };
   const guestRows = (guestResult.data ?? []) as GuestNameRow[];
 
@@ -283,6 +291,9 @@ export async function loadPlan3DDemoScene(): Promise<Plan3DScene> {
     .map((g): Plan3DGuest | null => {
       const seat = seatByGuest.get(g.guest_id);
       if (!seat) return null; // the demo only clicks guests who actually have a seat
+      /* 👗 Their role's dress code (owner 2026-10-20), the same reading the couple lab makes — never `guests.attire` itself. */
+      const person = { name_prefix: g.name_prefix ?? null, display_name: g.display_name ?? null, gender: g.gender ?? null, attire: g.attire };
+      const dressed = seatPlanOutfitOf(guestOutfitOf({ role: g.role, dressCodeConfig: ev.dress_code_config ?? null, palette: demoBoard, person }), g.role, person);
       return {
         id: g.guest_id,
         name: guestDisplayName({ ...g, first_name: g.first_name ?? '', last_name: g.last_name ?? '' }),
@@ -290,7 +301,8 @@ export async function loadPlan3DDemoScene(): Promise<Plan3DScene> {
         seatNumber: seat.seat_number,
         side: toPlan3DSide(g.side),
         photoUrl: g.photo_url ? photoDisplayUrls[g.photo_url] ?? null : null,
-        attire: resolveGuestAttire(g.role, g.attire),
+        attire: dressed.attire,
+        outfit: dressed.said,
         role: g.role,
       };
     })

@@ -152,7 +152,8 @@ test('the palette’s looks are pictures on the Dress code part — one row of f
   assert.equal(bodies.length, PALETTE_LOOK_IDS.length);
   for (const b of bodies) {
     assert.ok((b.match(/background-color:#/gi) ?? []).length >= 3, 'a look is drawn without the couple’s colours');
-    assert.match(b, /aria-label="Palette style: [A-Za-z ]+"/);
+    /* 💎 2026-10-18: a look that is not Tags (the theme's own) says ◆ — Event Hub Pro since 2026-10-16. */
+    assert.match(b, /aria-label="Palette style: [A-Za-z ]+( ◆)?"/);
   }
   assert.doesNotMatch(html, /aria-haspopup|data-palette-look=|<select/, 'a dropdown came back');
   assert.equal((html.match(/aria-checked="true"/g) ?? []).length, 1);
@@ -186,7 +187,8 @@ test('each palette card is the couple’s page in that look — one address each
     { widget_type: 'countdown', config_json: { canvas: { style: 'line' } } },
   ];
   const words = { eventWord: 'wedding', solemn: false, twoPeople: true } as never;
-  const board = { reception: ['#7A1F2B', '#C9A24B', '#F4E9DC'] };
+  /* A dressed row — the card is fitted on the roles' colours (no "Our colours" in this scene, owner 2026-10-17). */
+  const board = { reception: ['#7A1F2B', '#C9A24B', '#F4E9DC'], principal_sponsors: ['#7A1F2B', '#C9A24B'], touched_roles: ['principal_sponsors'] };
   const drawn: string[] = [];
   for (const id of PALETTE_LOOK_IDS) {
     const asked = canvasStylePreview({ style: new URL(srcs[PALETTE_LOOK_IDS.indexOf(id)]!, 'http://x.test').searchParams.get('style')! }, true);
@@ -198,7 +200,7 @@ test('each palette card is the couple’s page in that look — one address each
     const html = renderToStaticMarkup(
       React.createElement(DressCodeWidget, { words, config: { title: 'Garden formal' } as never, rolePalette: board, paletteLook: paletteLookOfRow(widgets[0]) }),
     );
-    assert.match(html, /data-dress-code="ours"/, `${id}: the block the card is fitted on (${PALETTE_LOOK_CARD_FOCUS}) is drawn`);
+    assert.match(html, /data-dress-code="roles"/, `${id}: the block the card is fitted on (${PALETTE_LOOK_CARD_FOCUS}) is drawn`);
     drawn.push(html);
   }
   assert.equal(new Set(drawn).size, PALETTE_LOOK_IDS.length, 'the five cards are five different pictures');
@@ -277,17 +279,17 @@ test('an EMPTY Dress code draws its three layouts and its five palette looks in 
   const byPalette = PALETTE_LOOK_IDS.map((id) => empty('colours-and-roles', id));
   assert.equal(new Set(byPalette).size, PALETTE_LOOK_IDS.length, 'two palette looks draw alike on an empty Dress code');
   for (const [i, h] of byPalette.entries()) {
-    assert.match(h, new RegExp(`data-dress-code="ours" data-sample-palette="${PALETTE_LOOK_IDS[i]}"`), 'the palette card’s own block is drawn');
+    assert.match(h, new RegExp(`data-dress-code="roles" data-sample-palette="${PALETTE_LOOK_IDS[i]}"`), 'the palette card’s own block is drawn');
   }
   /* A Dress code with words but no colours yet: the palette's place is still pictured, per look. */
   const noColours = PALETTE_LOOK_IDS.map((id) =>
     renderToStaticMarkup(React.createElement(DressCodeWidget, { words, config: { title: 'Garden formal' } as never, paletteLook: id, makerSample: true })),
   );
   assert.equal(new Set(noColours).size, PALETTE_LOOK_IDS.length);
-  for (const [i, h] of noColours.entries()) assert.match(h, new RegExp(`data-dress-code="ours" data-maker-sample="palette:${PALETTE_LOOK_IDS[i]}"`));
+  for (const [i, h] of noColours.entries()) assert.match(h, new RegExp(`data-dress-code="roles" data-maker-sample="palette:${PALETTE_LOOK_IDS[i]}"`));
   /* …and it vanishes when real colours exist. */
   const real = renderToStaticMarkup(
-    React.createElement(DressCodeWidget, { words, config: { title: 'Garden formal' } as never, rolePalette: { reception: ['#7A1F2B', '#C9A24B'] }, makerSample: true }),
+    React.createElement(DressCodeWidget, { words, config: { title: 'Garden formal' } as never, rolePalette: { reception: ['#7A1F2B', '#C9A24B'], principal_sponsors: ['#7A1F2B'], touched_roles: ['principal_sponsors'] }, makerSample: true }),
   );
   assert.doesNotMatch(real, /data-maker-sample="(palette|dress_code):|data-sample-palette/, 'a sample sits beside the couple’s real colours');
   /* Off the Maker's canvas the widget draws none at all. */

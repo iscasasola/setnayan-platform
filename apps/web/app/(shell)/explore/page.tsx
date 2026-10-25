@@ -54,6 +54,8 @@ import { SaveVendorButton } from './_components/save-vendor-button';
 // so the type import now points there instead.
 import { IconTileFolderStrip, type FolderTab } from './_components/icon-tile-folder-strip';
 import { countLiveShops } from '@/lib/live-shops';
+import { hidesEmptyShelfInApp } from '@/lib/empty-marketplace';
+import { isStoreShellRequest } from '@/lib/request-platform';
 import { fetchMarketplaceServiceCards } from '@/lib/marketplace-service-cards';
 import { serviceCardAddress, shopAddress } from '@/lib/service-card-address';
 import { toServiceCard, type ServiceShowcaseMedia } from '@/lib/service-card-view-model';
@@ -148,6 +150,7 @@ import {
 } from '@/lib/explore-event-type-scope';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { formatCount } from '@/lib/format-number';
+import { BRAND_OG_IMAGES, BRAND_TWITTER_IMAGES } from '@/lib/brand-og';
 
 // Mirrors TaxonomyEntry['faith']. `null` covers two cases: anonymous browse
 // (no event linked) AND civil ceremonies (secular by nature — no faith tag
@@ -382,6 +385,7 @@ export const metadata = {
     'Setnayan suppliers',
   ],
   openGraph: {
+    images: BRAND_OG_IMAGES,
     title: 'Filipino wedding suppliers · Setnayan marketplace',
     description:
       'Browse verified Filipino wedding suppliers. Free to discover. 0% commission on bookings.',
@@ -391,9 +395,12 @@ export const metadata = {
     type: 'website',
   },
   // SEO/GEO Bucket 6 (CLAUDE.md 2026-05-29 SEO/GEO Sprint row) · twitter
-  // card so social shares of /vendors render with the 1200×630 layout-level
-  // /brand/og-card.webp (Bucket 2 PR #607) instead of a 144×144 thumbnail.
+  // card so social shares render the 1200×630 /brand/og-card.webp instead of a
+  // 144×144 thumbnail. ⚠ The card must be NAMED here: a page's own `twitter` /
+  // `openGraph` object replaces the layout's whole object (shallow merge), so
+  // "layout-level" left this page with no picture at all until 2026-10-23.
   twitter: {
+    images: BRAND_TWITTER_IMAGES,
     card: 'summary_large_image',
     title: 'Filipino wedding suppliers · Setnayan marketplace',
     description:
@@ -629,7 +636,7 @@ function CompareShortlistBanner({ compareHref }: { compareHref: string | null })
         <p className="text-sm text-ink/80">
           <span className="font-medium text-ink">Compare your shortlist.</span>{' '}
           <span className="text-ink/70">
-            Put two saved vendors side by side — location, rating, services, faith fit.
+            Put two saved suppliers side by side — location, rating, services, faith fit.
           </span>
         </p>
         <Link
@@ -1826,6 +1833,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
           focusedMode={filters.focusedMode}
           faithFilter={filters.faithFilter}
           browseMode={browseMode}
+          emptyLineHidden={hidesEmptyShelfInApp(await isStoreShellRequest(), liveShopCount)}
         />
       </>
     );
@@ -3634,7 +3642,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
                   strokeWidth={1.75}
                 />
                 <span>
-                  Showing vendors with{' '}
+                  Showing suppliers with{' '}
                   <span className="font-medium text-ink">off-season savings</span>{' '}
                   — a live off-peak deal.
                 </span>
@@ -3643,7 +3651,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
                 href={buildHref(filters, { offSeason: false, page: 1 })}
                 className="text-sm font-medium text-terracotta underline-offset-4 hover:underline"
               >
-                Show all vendors
+                Show all suppliers
               </Link>
             </div>
           ) : (
@@ -3673,11 +3681,11 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
                 strokeWidth={1.75}
               />
               <span>
-                Showing vendors who serve{' '}
+                Showing suppliers who serve{' '}
                 <span className="font-medium text-ink">
                   {FAITH_KEY_TO_LABEL[filters.faithFilter]}
                 </span>{' '}
-                celebrations.
+                events.
               </span>
             </p>
             <Link
@@ -3708,7 +3716,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
             only to satisfy a type. Same call shape the vendor's own card list
             uses, so all three surfaces draw the identical card.
           */
-          <ul className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <ul className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3" data-search-results="">
             {serviceCards.map((c) => (
               <li key={c.row.vendor_service_id}>
                 {/*
@@ -3759,7 +3767,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
             ))}
           </ul>
           ) : (
-          <ul className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <ul className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3" data-search-results="">
             {visible.map((v) => {
               /* ⛔ THE PHASE-C REVIEW-DISPLAY GATE IS RETIRED (2026-08-09).
                  It hid a Free vendor's stars and count (the card rendered
@@ -4119,14 +4127,14 @@ function EmptyState({
           No live off-season offers match your search yet.
         </p>
         <p className="mx-auto mt-2 max-w-prose text-sm text-ink/65">
-          Vendors run off-peak deals for their quieter months. Check back as the
-          season shifts, or browse every vendor below.
+          Suppliers run off-peak deals for their quieter months. Check back as the
+          season shifts, or browse every supplier below.
         </p>
         <Link
           href={buildHref(filters, { offSeason: false, page: 1 })}
           className="mt-5 inline-flex items-center justify-center rounded-md bg-terracotta-700 px-5 py-2.5 text-sm font-medium text-cream hover:bg-terracotta-800"
         >
-          Show all vendors
+          Show all suppliers
         </Link>
       </div>
     );
@@ -4192,23 +4200,23 @@ function EmptyState({
     const label = eventTypeLabel ?? filters.eventType;
     return (
       <div className="mt-8 rounded-2xl border border-dashed border-terracotta/30 bg-terracotta/[0.04] p-10 text-center">
-        <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
+        <p data-coming-soon className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
           Coming soon
         </p>
         <p className="mt-3 text-base font-medium text-ink">
-          {label} vendors are being recruited for Setnayan.
+          {label} suppliers are being recruited for Setnayan.
         </p>
         <p className="mx-auto mt-2 max-w-prose text-sm text-ink/65">
           Setnayan launches each event-type marketplace once enough verified
-          vendors are onboarded. Wedding vendors are live now — other event
-          types open as their vendor pools mature.
+          suppliers are onboarded. Wedding suppliers are live now — other event
+          types open as their supplier pools mature.
         </p>
         <EventTypeNotifyForm eventType={filters.eventType} label={label} />
         <Link
           href={browseAllVendorsHref(filters.focusedMode)}
           className="mt-4 inline-flex items-center text-sm font-medium text-terracotta underline-offset-4 hover:underline"
         >
-          Or browse all vendors instead →
+          Or browse all suppliers instead →
         </Link>
       </div>
     );
@@ -4262,7 +4270,7 @@ function EmptyState({
             here.
           </p>
           <p className="mt-1 text-xs text-ink/60">
-            Setnayan is onboarding {outreachLabel} vendors now. Listing is free
+            Setnayan is onboarding {outreachLabel} suppliers now. Listing is free
             to start, and you choose this category in 90 seconds.
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
@@ -4446,6 +4454,7 @@ async function CatalogView({
   focusedMode,
   faithFilter,
   browseMode,
+  emptyLineHidden,
 }: {
   admin: ReturnType<typeof createAdminClient>;
   matchableEvent: {
@@ -4504,6 +4513,11 @@ async function CatalogView({
    *  "Browse all categories" link render. True for explicit browse/context
    *  visits (?browse=1 / folder / tile / from=plan). */
   browseMode: boolean;
+  /** 📱 Inside the App Store / Play Store shell the "no supplier has opened a
+   *  shop yet" line is hidden (owner, DECISION_LOG 2026-10-19 (2)); the search
+   *  hero and "Browse all categories" stay, so the page is never empty. One
+   *  live shop and this view is not rendered at all. Web: always false. */
+  emptyLineHidden: boolean;
 }) {
   // Phase 2b·2 — read the taxonomy from the DB snapshot so admin renames /
   // re-orders show on the live marketplace catalog (fallback-safe: getTaxonomy
@@ -4971,17 +4985,19 @@ async function CatalogView({
           joins"). One plain line for the couple, one door for the supplier —
           the same /open-shop door the front door's invite card uses.
         */}
-        <div className="mx-auto mt-6 max-w-2xl px-4 text-center">
-          <p className="text-base font-medium text-ink/80">
-            No supplier has opened a shop yet — new shops show up here the day they open.
-          </p>
-          <p className="mt-2 text-sm text-ink/60">
-            Are you a supplier?{' '}
-            <Link href="/open-shop" className="font-medium text-terracotta underline-offset-4 hover:underline">
-              Open your shop &rarr;
-            </Link>
-          </p>
-        </div>
+        {emptyLineHidden ? null : (
+          <div className="mx-auto mt-6 max-w-2xl px-4 text-center">
+            <p className="text-base font-medium text-ink/80">
+              No supplier has opened a shop yet — new shops show up here the day they open.
+            </p>
+            <p className="mt-2 text-sm text-ink/60">
+              Are you a supplier?{' '}
+              <Link href="/open-shop" className="font-medium text-terracotta underline-offset-4 hover:underline">
+                Open your shop &rarr;
+              </Link>
+            </p>
+          </div>
+        )}
 
         {/* 2026-06-14 search-first — owner "we just want a search bar". The
             curated browse catalog below the hero (icon strip + venue pickers +
@@ -5151,7 +5167,7 @@ function VenueFilterBanner({
   return (
     <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-terracotta/30 bg-terracotta/5 px-4 py-3">
       <p className="text-sm text-ink/80">
-        Showing vendors who work with{' '}
+        Showing suppliers who work with{' '}
         <span className="font-medium text-terracotta-700">{shortLabel}</span>{' '}
         venues — your wedding&rsquo;s picked setting (
         <span className="font-mono text-xs text-ink/60">{longLabel}</span>).

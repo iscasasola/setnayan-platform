@@ -3,6 +3,7 @@ import {
   fetchGuestsByEvent,
   fetchSingletonRoleHolders,
   GROUP_CATEGORY_LABELS,
+  SINGLETON_GUEST_ROLES,
   MEAL_LABELS,
   guestRolePickLabel,
   RSVP_LABELS,
@@ -25,7 +26,11 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { InvitedToChips } from '../_components/invited-to-chips';
 import { GuestNameFields, type NamePoolGuest } from '../_components/guest-name-fields';
+import { NewGuestGroupField, NewGuestRolesField } from '../_components/new-guest-group-role';
+import type { OwnGroup } from '../_components/guest-group-picker';
+import { pickItems } from '@/lib/role-alternatives';
 import { createGuest } from './actions';
+import { HOST_NOTE_MAX } from '@/lib/guest-host-note';
 
 export const metadata = { title: 'Add guest' };
 
@@ -98,6 +103,15 @@ export default async function NewGuestPage({ params, searchParams }: Props) {
   const availableRoles = roleSet.offeredRoles.filter(
     (r) => !roleSet.coupleRoles.has(r) && !(r in singletonHolders),
   );
+  // 👥 The couple's own groups, for the ONE Group dropdown (owner 2026-10-20). Refused → null: the dropdown offers the
+  // standard groups only and posts no memberships — never an empty "None yet." it did not measure.
+  const { data: ownRows, error: ownError } = await supabase.from('guest_groups').select('group_id, label, team_side').eq('event_id', eventId);
+  if (ownError) logQueryError('NewGuestPage.ownGroups', ownError, { eventId }, 'graceful_degrade');
+  const ownGroups = ownError
+    ? null
+    : ((ownRows ?? []) as { group_id: string; label: string | null; team_side: string | null }[])
+        .map((g): OwnGroup => ({ groupId: g.group_id, label: g.label?.trim() || 'Group', teamSide: g.team_side === 'bride' || g.team_side === 'groom' ? g.team_side : 'both' }))
+        .sort((a, b) => a.label.localeCompare(b.label));
 
   // Existing-guest pool for live duplicate detection on the name fields.
   // Mapped down to the slim NamePoolGuest shape so guest PII (email /
@@ -157,22 +171,23 @@ export default async function NewGuestPage({ params, searchParams }: Props) {
               options={SIDE_OPTIONS.map((v) => ({ value: v, label: SIDE_LABELS[v] }))}
             />
           ) : null}
-          <Select
-            id="group_category"
-            label="Group *"
-            required
-            options={guestGroupsFor(roleSet.key).map((v) => ({
-              value: v,
-              label: GROUP_CATEGORY_LABELS[v],
-            }))}
+          <NewGuestGroupField
+            eventId={eventId}
+            standard={guestGroupsFor(roleSet.key).map((v) => ({ key: v, label: GROUP_CATEGORY_LABELS[v] }))}
+            groups={ownGroups}
+            hasSides={hasSides}
           />
         </div>
 
-        <Select
-          id="role"
+        {/* 🎭 ONE Role dropdown, several ticked — the first is their main role (owner 2026-10-20). */}
+        <NewGuestRolesField
           label={hasSides ? 'Role in wedding' : 'Role'}
-          defaultValue="guest"
-          options={availableRoles.map((v) => ({ value: v, label: guestRolePickLabel(v, roleNames) }))}
+          options={pickItems(availableRoles).flatMap((it) =>
+            it.kind === 'pair'
+              ? it.roles.map((v) => ({ key: v, label: guestRolePickLabel(v, roleNames), group: it.heading }))
+              : [{ key: it.role, label: guestRolePickLabel(it.role, roleNames) }],
+          )}
+          solo={SINGLETON_GUEST_ROLES}
         />
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -254,7 +269,7 @@ export default async function NewGuestPage({ params, searchParams }: Props) {
             <span>
               <span className="font-medium">Photo consent</span>{' '}
               <span className="text-ink/60">
-                — guest agrees to be tagged in the event gallery (per RA 10173).
+                — guest agrees to be tagged in the event’s Memories (per RA 10173).
               </span>
             </span>
           </label>
@@ -269,6 +284,22 @@ export default async function NewGuestPage({ params, searchParams }: Props) {
             name="notes"
             rows={3}
             placeholder="Private to you — dietary notes, mobility needs, anything else."
+            className="input-field min-h-[88px] resize-y py-2"
+          />
+        </div>
+
+        {/* 💌 The hosts' note TO this guest (owner 2026-10-20) — the same field as the card's "Note for them · they see
+            it": shown on their own invitation, under their role, and to no other guest. */}
+        <div className="space-y-1.5">
+          <label htmlFor="host_note_for_guest" className="block text-sm font-medium text-ink">
+            Note for them · they see it
+          </label>
+          <textarea
+            id="host_note_for_guest"
+            name="host_note_for_guest"
+            rows={3}
+            maxLength={HOST_NOTE_MAX}
+            placeholder="Shown on their invitation, under their role. No other guest sees it."
             className="input-field min-h-[88px] resize-y py-2"
           />
         </div>

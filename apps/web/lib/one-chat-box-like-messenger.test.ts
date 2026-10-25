@@ -168,17 +168,27 @@ test('the call launcher and the deal menu are tool panels, not cards of their ow
   assert.equal(count(read(VENDOR), /VENDOR_THREAD_PANELS\.map\(/g), 1);
 });
 
-test('the composer row carries the deal and call icons, and nothing else new', () => {
-  for (const [rel, name] of PAGES) {
-    const s = read(rel);
+test('the composer row carries the deal and call icons (couple) · the one grey ＋ (supplier), and nothing else new', () => {
+  // The couple's row: attach · message · 🧾 · 📞 · send — unchanged.
+  {
+    const s = read(COUPLE);
     const a = s.indexOf('accessories={');
-    assert.ok(a > 0, `${name}: the composer has no accessories`);
+    assert.ok(a > 0, 'couple: the composer has no accessories');
     const b = s.indexOf('</>', a);
     const row = s.slice(a, b);
-    assert.equal(count(row, /<RevealToolButton affordance="deal"/g), 1, `${name}: no deal icon on the row`);
-    assert.equal(count(row, /<RevealToolButton affordance="call"/g), 1, `${name}: no call icon on the row`);
+    assert.equal(count(row, /<RevealToolButton affordance="deal"/g), 1, 'couple: no deal icon on the row');
+    assert.equal(count(row, /<RevealToolButton affordance="call"/g), 1, 'couple: no call icon on the row');
     // Two icons on the row, and none anywhere else — the row is at its ceiling.
-    assert.equal(count(s, /<RevealToolButton\b/g), 2, `${name}: ${count(s, /<RevealToolButton\b/g)} RevealToolButtons (expected 2)`);
+    assert.equal(count(s, /<RevealToolButton\b/g), 2, `couple: ${count(s, /<RevealToolButton\b/g)} RevealToolButtons (expected 2)`);
+  }
+  // The supplier's row (simpler supplier dashboard step 4, 2026-10-14): ＋ · message · Send. The ＋ opens ONE sheet of
+  // every tool; the 🧾 / 📞 icons and the paperclip button moved into it (the file input stays, by id).
+  {
+    const s = read(VENDOR);
+    assert.equal(count(s, /<RevealToolButton\b/g), 0, 'supplier: a composer icon is back beside the ＋ — two doors to one list');
+    assert.equal(count(s, /accessories=\{/g), 0, 'supplier: the composer carries accessories again');
+    assert.equal(count(s, /lead=\{<ThreadToolsSheet\b/g), 1, 'supplier: the ＋ is not the composer\'s lead');
+    assert.equal(count(s, /attachInputId=\{CHAT_ATTACH_INPUT_ID\}/g), 1, 'supplier: the attach input lost the id its sheet row opens');
   }
   const btn = read(BUTTON);
   assert.match(btn, /type="button"/, 'a reveal button that is not type=button would submit the send form');

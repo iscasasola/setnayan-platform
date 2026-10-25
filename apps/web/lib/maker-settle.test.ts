@@ -61,8 +61,10 @@ test('↺ shows its count from the action’s OWN answer — never only from the
   /* The real action: Undo and Reset write the next draft and, asked, read the bar of THAT SAME draft beside the write. */
   const action = read('app', 'dashboard', '[eventId]', 'website', 'hub-draft-actions.ts');
   const helper = action.slice(action.indexOf('const answerWithBar = '), action.indexOf("if (intent === 'save')"));
-  assert.match(helper, /writeHubDraft\(supabase, eventId, next\)/);
-  assert.match(helper, /formData\.get\(HUB_DRAFT_BAR_FIELD\) === '1' \? hubDraftBarAfterSave\(supabase, eventId, next\)/);
+  /* RE-AIMED 2026-10-18 (two hosts never overwrite): every draft write goes through `updateHubDraft` — the compare-and-set that builds again on the draft as it is when the write lands. Same property, new shape. */
+  /* RE-AIMED 2026-10-18 round 3 (owner rulings A + B): every step now carries who made it (`by`, handed to the builder by `updateHubDraft`) and ↺ takes back only the host's own step. Same property, new shape. */
+  assert.match(helper, /updateHubDraft\(supabase, eventId, \(cur, by\) => \{[\s\S]{0,200}?const next = build\(c, by\);/);
+  assert.match(helper, /if \(formData\.get\(HUB_DRAFT_BAR_FIELD\) === '1'\) barP = hubDraftBarAfterSave\(supabase, eventId, next, me\);/);
   assert.match(helper, /return bar \? \{ \.\.\.done\(\), bar, \.\.\.said \} : \{ \.\.\.done\(\), \.\.\.said \};/, 'the bar (and the state’s stamp) in the one answer');
   for (const intent of ['undo', 'reset']) {
     const at = action.indexOf(`if (intent === '${intent}') {`);

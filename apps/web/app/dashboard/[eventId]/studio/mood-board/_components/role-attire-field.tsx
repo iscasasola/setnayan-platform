@@ -1,6 +1,6 @@
 'use client';
 
-import { ATTIRE_STYLES, ATTIRE_STYLE_LABEL, type RoleAttireMap } from '@/lib/role-dress-code';
+import { ATTIRE_STYLE_LABEL, type RoleAttireMap } from '@/lib/role-dress-code';
 import type { GuestRole } from '@/lib/guests';
 import { formatCount } from '@/lib/format-number';
 
@@ -23,11 +23,14 @@ export function RoleAttireField({
   roles,
   saved,
   compact,
+  wear,
 }: {
   /** The roles present on this event's guest list, with their labels. */
   roles: { role: GuestRole; label: string; count: number }[];
   saved: RoleAttireMap;
   compact?: boolean;
+  /** The Wear as Studio › Mood Board & Dress Code says it (`wearSaid`) — the one place it is picked (2026-10-17). */
+  wear?: Readonly<Record<string, string>>;
 }) {
   if (roles.length === 0) {
     return (
@@ -56,49 +59,16 @@ export function RoleAttireField({
                   {formatCount(count)} {count === 1 ? 'person' : 'people'}
                 </span>
               </span>
-              <label htmlFor={`role-style-${role}`} className="sr-only">
-                What {label} wears
-              </label>
-              <select
-                id={`role-style-${role}`}
-                name="role_style"
-                defaultValue={current?.style ?? ''}
-                className="min-h-[44px] rounded-lg border border-ink/15 bg-white px-3 text-sm text-ink focus:border-terracotta focus:outline-none"
-              >
-                <option value="">Not set</option>
-                {ATTIRE_STYLES.map((style) => (
-                  <option key={style} value={style}>
-                    {ATTIRE_STYLE_LABEL[style]}
-                  </option>
-                ))}
-              </select>
+              {/* 👗 The Wear is the Studio's (2026-10-17): said here as the Studio says it, posted back unchanged so the
+                  zipped arrays stay aligned and the stored Wear is never rewritten from here. */}
+              <input type="hidden" name="role_style" value={current?.style ?? ''} />
+              <span className="max-w-[55%] text-right text-xs leading-snug text-ink/65" data-role-wear={role}>
+                {wear?.[`roles:${role}`] ?? (current?.style ? ATTIRE_STYLE_LABEL[current.style] : 'Not said yet')}
+              </span>
             </div>
-            {/* ⏰ CALL TIME (owner 2026-09-23: “what she needs most is her call
-                time”). `type="time"` so a phone offers its own wheel and the
-                value is always `HH:MM` — never “1pm”, “1:00” or “one”, which
-                `sanitizeCallTime` would drop on the floor rather than repair.
-
-                ⚠ IT SUBMITS EVEN WHEN EMPTY, and it has to: this row is one of
-                FOUR parallel arrays (`role_key`, `role_style`, `role_note`,
-                `role_call_time`) that the action zips BY INDEX. A control that
-                vanished when blank would shift every later role's time onto the
-                wrong person. */}
-            <div className="flex items-center gap-3">
-              <label
-                htmlFor={`role-call-${role}`}
-                className="font-mono text-[0.6rem] uppercase tracking-[0.16em] text-ink/55"
-              >
-                Call time
-              </label>
-              <input
-                id={`role-call-${role}`}
-                type="time"
-                name="role_call_time"
-                defaultValue={current?.callTime ?? ''}
-                className="min-h-[44px] rounded-lg border border-ink/15 bg-white px-3 text-sm text-ink focus:border-terracotta focus:outline-none"
-              />
-              <span className="text-xs text-ink/45">Optional</span>
-            </div>
+            {/* ⏰ NO CALL TIME HERE (owner 2026-10-18: "each role will have their call time") — it is set beside the
+                role's outfit in Studio › Mood Board & Dress Code. This row posts none, and `updateDressCode` keeps the
+                stored time (`withCallTimesCarried`), so a Save here never wipes one set there. */}
             <label htmlFor={`role-note-${role}`} className="sr-only">
               A note for {label}
             </label>

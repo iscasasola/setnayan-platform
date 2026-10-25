@@ -1415,7 +1415,7 @@ export const UGAT_FINDINGS: UgatFinding[] = [
       'origin/main@39f1ce0c3 · still denormalized with no re-sync trigger, but lib/sku-activation.ts:1280-1293 stamps tier_expires_at and migration 20270720243717_custom_plan_lapse_sweep.sql added sweep_vendor_tier_expiry',
     signalKey: 'tier-lapsed-badges',
     trace: [
-      ['Surface', 'Vendor profile badge (Solo/Pro/Enterprise pill)'],
+      ['Surface', 'Vendor profile badge (Solo/Pro/Ultra pill)'],
       ['Still true', 'tier_state remains denormalized on vendor_profiles; NO database trigger re-syncs it'],
       ['New since 07-05', 'Pay-activation stamps tier_expires_at = now+28d; a login-driven sweep fires from vendor-dashboard/layout.tsx:238 (write guard 20270920020000)'],
       ['The residual', 'Public readers are BUILT to pair the columns (v/[slug]/page.tsx:253-259,1516-1520 · vendorHoldsActivePaidSub · enterprise-vendor-gate.ts:32) — but any NEW reader of tier_state alone regresses silently. A convention cannot be enforced by review alone.'],
@@ -1652,14 +1652,18 @@ export const UGAT_JOINTS: UgatJoint[] = [
   },
   {
     id: 'J3',
-    claims: [{ kind: 'fk', table: 'guests', column: 'event_id', references: 'events' }],
+    claims: [
+      { kind: 'fk', table: 'guests', column: 'event_id', references: 'events' },
+      // The plus-one self-reference is ONE level deep (owner 2026-10-21: "a +1 of a guest cannot have their own +1").
+      { kind: 'check', table: 'guests', name: 'a_plus_one_brings_no_one', mentions: 'plus_one_of_guest_id' },
+    ],
     chain: 3,
     pair: ['TYPE-EVENTS', 'TYPE-GUESTS'],
     title: 'Guest → Event',
     joint: null,
     cardinality: 'One-to-many · direct FK, no joint table needed',
     implementedBy:
-      'Direct FK guests.event_id + personal qr_token per guest. Plus-one is a self-referencing guest row. households groups guests with ON DELETE SET NULL.',
+      'Direct FK guests.event_id + personal qr_token per guest. Plus-one is a self-referencing guest row (plus_one_of_guest_id), one level only: a +1 brings no +1 — CHECK a_plus_one_brings_no_one (their own count stays 0) + trigger a_plus_one_has_no_plus_one (their bringer is never a +1). A guest’s +N IS their +1 rows: the a_plus_ones_count_is_their_rows triggers run guest_plus_one_seats_follow_count (same advisory lock as guest_plus_one_seat_mint) on every write of plus_one_count — missing TBA seats minted, only unnamed placeholders removed. households groups guests with ON DELETE SET NULL.',
     writtenBy: 'Guest-list add/import flows · CSV bulk import · plus-one add action',
     guardedBy: 'current_event_ids() — same RLS spine as chain 1',
     traps: 'Not every edge hides a table — this one is a plain FK. Don’t assume every line on this map is a joint.',
@@ -2356,6 +2360,15 @@ export const UGAT_JOINTS: UgatJoint[] = [
       { kind: 'fk', table: 'vendor_calendar_blocks', column: 'pool_id', references: 'vendor_schedule_pools' },
       { kind: 'table', table: 'vendor_schedule_pool_categories' },
       { kind: 'table', table: 'vendor_schedule_calendar_services' },
+      // 2026-10-14: "Not available" repeats + hours, and an outside booking's time (migration 20271269411264).
+      { kind: 'column', table: 'vendor_calendar_blocks', column: 'repeat_rule' },
+      { kind: 'column', table: 'vendor_calendar_blocks', column: 'repeat_until' },
+      { kind: 'column', table: 'vendor_calendar_blocks', column: 'day_part' },
+      { kind: 'column', table: 'vendor_calendar_blocks', column: 'client_time' },
+      // 2026-10-14 🏛 halls: a pool may be a venue's hall; a card may use several (lifts the 06-20 one-schedule lock).
+      { kind: 'column', table: 'vendor_schedule_pools', column: 'is_hall' },
+      { kind: 'table', table: 'vendor_service_halls' },
+      { kind: 'fk', table: 'vendor_service_halls', column: 'pool_id', references: 'vendor_schedule_pools' },
     ],
     chain: 1,
     pair: ['TYPE-AVAILABILITY', 'TYPE-VENDORS'],
@@ -2365,7 +2378,7 @@ export const UGAT_JOINTS: UgatJoint[] = [
     implementedBy: 'vendor_calendar_blocks.pool_id + vendor_calendar_day_states.pool_id',
     writtenBy: 'the vendor calendar surface · acquire_schedule_pools()',
     guardedBy: 'pool-bypass-and-oauth-block.db.test.ts (the is_active half)',
-    traps: 'blocks.pool_id is ON DELETE SET NULL and NULL means ORG-WIDE — deleting a pool converts its scoped blocks into blocks that close the date for ALL of the vendor\u2019s pools. day_states cascades instead. The two differ.',
+    traps: 'blocks.pool_id is ON DELETE SET NULL and NULL means ORG-WIDE — deleting a pool converts its scoped blocks into blocks that close the date for ALL of the vendor\u2019s pools. day_states cascades instead. The two differ. A REPEATING block\u2019s stored range is only its first day — read it through calendar_block_on_day / lib/not-available.ts, never by the range; only day_part=all_day closes a date. A card with vendor_service_halls rows is on EXACTLY those halls, never also its category pool.',
   },
   {
     /**
@@ -3105,8 +3118,8 @@ export const UGAT_JOINTS: UgatJoint[] = [
       {
         kind: 'check',
         table: 'event_inspiration_assets',
-        name: 'event_inspiration_assets_source_kind_check_v3',
-        mentions: 'source_kind',
+        name: 'event_inspiration_assets_source_kind_check_v4',
+        mentions: 'supplier_suggestion',
       },
       {
         kind: 'check',
@@ -3140,15 +3153,63 @@ export const UGAT_JOINTS: UgatJoint[] = [
     title: 'Library photo \u2194 Event (the pick, and the credit that survives it)',
     joint: 'event_inspiration_assets',
     cardinality:
-      'One row per (event, slot_key, slot_position) among ACTIVE rows \u2014 24 slots \u00d7 3 photos; removed rows do not count toward it, so a slot can be re-filled',
+      'One row per (event, slot_key, slot_position) among ACTIVE rows \u2014 29 slots \u00d7 3 photos; removed rows do not count toward it, so a slot can be re-filled',
     implementedBy:
       'event_inspiration_assets.library_asset_id \u2192 moodboard_library_assets, paired with source_kind = \'gallery_pick\' by a CHECK biconditional',
     writtenBy:
       'applyGalleryPick (the couple\u2019s picker), applyRenderPick (MB9 \u2014 another couple\u2019s shared render, saved as a reference, costing nothing) and applyMoodboardTemplate (theme seeding) \u2014 all three in studio/mood-board/actions.ts; uploadMoodboardSlot writes the couple\u2019s OWN photos, which carry no id and no credit',
     guardedBy:
-      'RLS Pattern B \u2014 event_members-scoped select/insert/update, admin all; plus the provenance biconditional and the 24-key slot CHECK (last widened by 20271266380994 \u2014 the four attire boards)',
+      'RLS Pattern B \u2014 event_members-scoped select/insert/update, admin all; plus the provenance biconditional and the 29-key slot CHECK (last widened by 20271278232574 \u2014 the Palette\u2019s five parts with photos)',
     traps:
       'The one-row-per-cell rule is a PARTIAL UNIQUE INDEX (WHERE removed_at IS NULL), not a constraint, so it is invisible to pg_constraint and cannot be claimed above \u2014 verify with \\d event_inspiration_assets. Removal is SOFT (removed_at), so every read must filter it; a count that forgets tells a couple they saved photos they deleted. library_asset_id is ON DELETE CASCADE, so HARD-deleting a library photo (deleteAsset / deleteStylistAsset, which also remove the storage object) removes the tile from every board holding it. RETIRING one (retired_at) does not touch this FK at all and the tile keeps rendering, credited \u2014 the two paths behave completely differently and the UI copy for them must not be shared.',
+  },
+  {
+    /**
+     * 🤝🖼 A BOOKED SUPPLIER'S PHOTO WAITS FOR THE COUPLE'S KEEP (owner 2026-10-19, DECISION_LOG "SUPPLIERS ADD
+     * INSPIRATION BY THEIR CATEGORY — EVERY PART, ATTIRE INCLUDED" + "FIVE CONTROLLER RECOMMENDATIONS APPROVED" item 4,
+     * option (b); migration 20271279311294).
+     *
+     * ⚠ THE BOARD'S INSERT POLICY DID NOT MOVE. A supplier still cannot write event_inspiration_assets; its photo lives
+     * HERE until the couple keeps it, and the Keep is a SECURITY DEFINER function that writes the board row with
+     * source_kind = 'supplier_suggestion' paired to from_suggestion_id by a CHECK biconditional (J46's shape).
+     */
+    id: 'J54',
+    claims: [
+      { kind: 'table', table: 'event_inspiration_suggestions' },
+      { kind: 'fk', table: 'event_inspiration_suggestions', column: 'event_id', references: 'events' },
+      { kind: 'fk', table: 'event_inspiration_suggestions', column: 'event_vendor_id', references: 'event_vendors' },
+      { kind: 'fk', table: 'event_inspiration_suggestions', column: 'vendor_profile_id', references: 'vendor_profiles' },
+      { kind: 'column', table: 'event_inspiration_suggestions', column: 'shop_label' },
+      { kind: 'column', table: 'event_inspiration_suggestions', column: 'slot_key' },
+      { kind: 'column', table: 'event_inspiration_suggestions', column: 'state' },
+      {
+        kind: 'check',
+        table: 'event_inspiration_suggestions',
+        name: 'event_inspiration_suggestions_screened_has_photo',
+        mentions: 'image_url',
+      },
+      { kind: 'fk', table: 'event_inspiration_assets', column: 'from_suggestion_id', references: 'event_inspiration_suggestions' },
+      {
+        kind: 'check',
+        table: 'event_inspiration_assets',
+        name: 'event_inspiration_assets_suggestion_has_provenance',
+        mentions: 'from_suggestion_id',
+      },
+    ],
+    chain: 20,
+    pair: ['TYPE-VENDORS', 'TYPE-EVENTS'],
+    title: 'Booked supplier \u2194 Event board (a suggested photo, kept by the couple)',
+    joint: 'event_inspiration_suggestions',
+    cardinality:
+      'Up to three WAITING per (event, part, shop) \u2014 counted inside vendor_begin_inspiration_suggestion under an advisory lock; any number kept, declined or withdrawn',
+    implementedBy:
+      'event_inspiration_suggestions.event_vendor_id \u2192 event_vendors (the booking) + vendor_profile_id \u2192 vendor_profiles, the shop name kept in shop_label as it read; a Keep writes event_inspiration_assets.from_suggestion_id \u2192 this row',
+    writtenBy:
+      'suggestInspirationPhoto (app/vendor-dashboard/clients/[eventId]/mood-board/suggestion-actions.ts: vendor_begin_inspiration_suggestion under the supplier\u2019s session, then the content screen, then the service-role move to waiting) and the couple\u2019s keep/decline/undo (studio/mood-board/suggestion-actions.ts \u2192 couple_decide_inspiration_suggestion, couple_undo_kept_inspiration_suggestion)',
+    guardedBy:
+      'RLS at CREATE TABLE \u2014 couple read (current_couple_event_ids), booking read (current_vendor_event_vendor_ids), admin all; NO insert/update/delete for authenticated. Booking, fee, trade (inspiration_suggestion_services, the SQL mirror of MOODBOARD_SLOT_TRADES) and the 3-waiting cap are decided in SQL; tests/db/a-supplier-suggests-only-to-its-own-parts.db.test.ts holds the map and each refusal',
+    traps:
+      'inspiration_suggestion_services is a COPY of canonicalServicesForSlot \u2014 a taxonomy change re-lists it in a NEW migration (the db test names the slot that drifted). A row in \'screening\' is opened but has no photo yet and never reaches the couple; one older than ten minutes stops counting toward the cap. Keep on a full part answers \'full\' and writes nothing unless a position is named; the replaced photo is soft-deleted and Undo restores it only into a still-free place.',
   },
   {
     /**

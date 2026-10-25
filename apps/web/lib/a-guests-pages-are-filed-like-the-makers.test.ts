@@ -108,6 +108,9 @@ test('1 · the hand-copied prototype map IS what the one filing reads — every 
         if (canvas) named.add(canvas);
       }
     named.add('f:pass');
+    /* 🕯 The Closing (owner 2026-10-17) is the shell's footer, drawn under EVERY page — never filed on one, so the
+       prototype's map has no page for it (`the-closing-is-its-own-scene.test.ts`). */
+    named.delete('f:closing');
     assert.deepEqual([...named].sort(), Object.keys(PROTOTYPE[stage]).sort(), `${stage}: the test's copy of the prototype names other keys than the parts map`);
     for (const [key, page] of Object.entries(PROTOTYPE[stage])) {
       assert.equal(prototypePageOf(stage, key, pages), page, `${stage}: ${key}`);
@@ -644,7 +647,8 @@ test('5 · every group in both trees is filed by one of these — a new group ca
     ['leadTab', 1, 'the cover (f:hero — the stage’s first page by the prototype) and the reply card'],
     ["readerAt('f:spotlight', 'home')", 1, 'the "Happening now" card'],
     ['seatTab', 2, 'their table and the seat line (`readerAt(f:find_your_seat)`), for a reader whose bar has no Me'],
-    ["readerAt('f:greeting', leadTab)", 2, 'the salutation’s two slots'],
+    /* (2026-10-24, the Me redraw — "one place for everything": the Welcome's salutation left; the guest's name, role,
+       date and venues are the top of Me, which `group('me', …)` files. The Maker's canvas keeps its stand-in.) */
     ["'live'", 6, 'directions · the stream · the day’s programme · the wall · the song request · the camera card'],
     ["pageStage === 'event' ? 'live' : 'details'", 1, 'the tea ceremony card (no part names it)'],
     ["'gallery'", 1, 'Photos of you · your shots (f:photos_of_you — the prototype’s Gallery)'],
@@ -706,11 +710,13 @@ test('5 · WIRING: the guest’s look and their table are drawn INSIDE Me, once 
   assert.match(ANON, /const sceneTab = \(w: \{ widget_type: string \}\) => at\(`w:\$\{w\.widget_type\}`, scenesTab\);/);
   assert.equal(BODY.match(/= fileScenes\(\{\s*scenes: detailsSceneList,/g)?.length, 2, 'both trees file their scenes through the one function');
   assert.match(BODY, /const readerAt = \(key: string, want: string\): string =>\s*makerPages && pageTabs\.on \? readerPageOf\(pageStage, key, want, pageTabs\.inPage, makerPages\) : want;/);
-  // The Welcome's scenes stand around the greeting, in the prototype's order: countdown · greeting · message.
+  // The Welcome's own scenes, in the prototype's order (countdown · message) — with no salutation between them since
+  // 2026-10-24 (owner, the Me redraw): the guest's name, role, date and venues are the top of Me.
   assert.match(
     GUEST,
-    /\{scenesOnTabs\(leadBefore, [^\n]*\)\}\s*\{group\(readerAt\('f:greeting', leadTab\), <>\{dayOfLead\.greetingStepsBack \? null : greetingBlock\}<\/>,[^\n]*\n\s*\{scenesOnTabs\(leadAfter, [^\n]*\)\}/,
+    /\{scenesOnTabs\(leadBefore, [^\n]*\)\}\s*\{scenesOnTabs\(leadAfter, [^\n]*\)\}/,
   );
+  assert.ok(!/greetingBlock|readerAt\('f:greeting'/.test(GUEST), 'the Welcome’s salutation is back — the name has one home, Me');
   assert.match(GUEST, /const leadCut = leadScenes\.findIndex\(\(w\) => w\.widget_type === 'special_message'\);/);
   assert.match(GUEST, /const leadBefore = leadCut < 0 \? leadScenes : leadScenes\.slice\(0, leadCut\);\s*const leadAfter = leadCut < 0 \? \[\] : leadScenes\.slice\(leadCut\);/);
   // Me: the look, then the table, then the ticket — inside the Me group, in one column.
@@ -733,7 +739,8 @@ test('5 · WIRING: the guest’s look and their table are drawn INSIDE Me, once 
   assert.match(GUEST, /\{seatOnMe && typeof meSection === 'function' \? null : group\(seatTab, <>\{seatPassActive && !isMakerCanvas && !seatMap \? \(\s*<SeatDoorLine/);
   const PAGE = stripComments(readFileSync(join(WEB, 'app/[slug]/page.tsx'), 'utf8'));
   assert.match(PAGE, /\{seatPassActive \? \(\s*<SeatDoorLine slug=\{event\.slug \?\? slug\} tableLabel=\{guestHubData\.tableLabel\}/, 'Me’s own seat line');
-  assert.match(PAGE, /guestPageTabbed \? \(\s*\(\{ replyHref \}: \{ replyHref: string \| null \}\) => \(\s*<GuestMeSection meSlot=\{meSlotFor\(replyHref\)\}/, 'on a tabbed page Me is drawn by the page, with that line in it');
+  // (2026-10-24, the Me redraw: the slot also learns it is the redrawn Me — `inMe`, `replyOwed`.)
+  assert.match(PAGE, /guestPageTabbed \? \(\s*\(\{ replyHref, inMe, replyOwed \}: \{ replyHref: string \| null; inMe\?: boolean; replyOwed\?: boolean \}\) => \(\s*<GuestMeSection meSlot=\{meSlotFor\(replyHref, \{ inMe, replyOwed \}\)\}/, 'on a tabbed page Me is drawn by the page, with that line in it');
 });
 
 test('5 · 🔗 `#site-details` keeps landing — on the Welcome’s scenes when Details has nothing of its own', () => {

@@ -34,8 +34,9 @@ export type StdFinalizedVenues = {
  * query with its own copy of the ceremony/reception category lists. The Event
  * Hub's venue scene now answers the same question with addresses and pins
  * (`lib/event-venues.ts`), and two pickers of one fact would each pass their
- * own tests while naming different places — so the film and the prints take
- * the NAMES from the same pick the Event Hub draws.
+ * own tests while naming different places — so the film takes the NAMES from
+ * the same pick the Event Hub draws. (The prints read the Hub's whole pick —
+ * `resolveEventVenues` → `printVenueLines` — since 2026-10-21.)
  */
 export async function resolveStdFinalizedVenues(
   admin: SupabaseClient,

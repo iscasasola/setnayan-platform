@@ -6,6 +6,8 @@ import { rejectColourChange } from '../../../colour-access-actions';
 import { uploadMoodboardSlot, removeMoodboardSlot } from '../../../wizard-actions';
 import { applyGalleryPick, fetchGalleryAssets } from '../actions';
 import { updateDressCodeLists } from '../dress-code-actions';
+import { declineInspirationSuggestion, keepInspirationSuggestion, undoKeptInspirationSuggestion } from '../suggestion-actions';
+import { createScheduleBlock, updateScheduleBlock } from '../../../schedule/actions';
 
 /**
  * The Mood Board studio's writes that a plain press reaches — the SHIPPED server actions by default.
@@ -35,6 +37,13 @@ export type MoodBoardActions = {
   fetchGalleryAssets: typeof fetchGalleryAssets;
   /** The Do's & Don'ts lists (the form's own action; into the draft in the Maker). */
   updateDressCodeLists: typeof updateDressCodeLists;
+  /** 🤝🖼 A supplier's suggested photo: ✓ Keep (into a free place, or the one named) · ✕ No thanks · the Keep's Undo (live). */
+  keepInspirationSuggestion: typeof keepInspirationSuggestion;
+  declineInspirationSuggestion: typeof declineInspirationSuggestion;
+  undoKeptInspirationSuggestion: typeof undoKeptInspirationSuggestion;
+  /** ⏰ The guests' call time — the Schedule's arrival moment retimed, or added (live; the Schedule's own writers). */
+  updateScheduleBlock: typeof updateScheduleBlock;
+  createScheduleBlock: typeof createScheduleBlock;
 };
 
 export const REAL_MOOD_BOARD_ACTIONS: MoodBoardActions = {
@@ -45,6 +54,11 @@ export const REAL_MOOD_BOARD_ACTIONS: MoodBoardActions = {
   applyGalleryPick,
   fetchGalleryAssets,
   updateDressCodeLists,
+  keepInspirationSuggestion,
+  declineInspirationSuggestion,
+  undoKeptInspirationSuggestion,
+  updateScheduleBlock,
+  createScheduleBlock,
 };
 
 export const MoodBoardActionsContext = createContext<Partial<MoodBoardActions> | null>(null);

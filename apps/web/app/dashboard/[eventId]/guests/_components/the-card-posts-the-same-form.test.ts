@@ -84,13 +84,21 @@ export function postedForm(html: string): Record<string, string[]> {
   const open = html.lastIndexOf('<form', at);
   const close = html.indexOf('</form>', at);
   const form = html.slice(open, close);
+  /* 🕯 A control OUTSIDE the form that names it (`form="<id>"`) is the browser's too — the card's Passed Away sits below Access
+     (owner's groups, 2026-10-23) and posts with the form that way. Its tag is read with the form's own; one inside naming
+     ANOTHER form is not this form's. */
+  const formId = attrsOf(html.slice(open, html.indexOf('>', open) + 1)).id;
+  const outside = formId
+    ? [...(html.slice(0, open) + html.slice(close)).matchAll(/<(input|textarea|select)\b[^>]*>/g)].filter((m) => attrsOf(m[0]).form === formId).map((m) => m[0]).join('')
+    : '';
   const out: Record<string, string[]> = {};
   const add = (name: string, value: string) => (out[name] ??= []).push(value);
-  for (const m of form.matchAll(/<(input|textarea|select)\b[^>]*>/g)) {
+  for (const m of (form + outside).matchAll(/<(input|textarea|select)\b[^>]*>/g)) {
     const tag = m[0];
     const a = attrsOf(tag);
     const name = a.name;
     if (!name || 'disabled' in a) continue;
+    if (a.form && a.form !== formId) continue;
     if (m[1] === 'input') {
       const type = (a.type ?? 'text').toLowerCase();
       if (['submit', 'button', 'reset', 'image', 'file'].includes(type)) continue;
@@ -162,7 +170,7 @@ const BASE_DATA = {
   groupOptions: ['other'],
   isIncWedding: false,
   showTeaCeremony: false,
-  plusOneStateLabel: null,
+  plusOneLines: [],
   plusOneGuestId: null,
   initialInvited: [] as string[],
   seatedAt: null,
@@ -190,17 +198,19 @@ const RICH = {
   seatTableId: 't-2',
   seatedAt: 'Table 2',
   groupChoices: { options: [{ groupId: 'grp-b', label: 'Barkada' }, { groupId: 'grp-c', label: 'Choir' }], memberIds: ['grp-c'] },
+  // 👗 What their role's dress code dresses them in (`guestOutfitWords`) — said, never posted.
+  outfit: { wear: 'Barong Tagalog', from: 'from Principal Sponsors’ dress code' },
 };
 
 export const SCENARIOS: Record<string, Scenario> = {
   '01 a plain guest, unclaimed, nothing set': {},
   '02 a guest with sides, a seat, groups, extra roles, +1 of 2': {
-    guest: { side: 'groom', group_category: 'friends', role: 'principal_sponsor_ninong', extra_roles: ['groomsman'] as never, plus_one_allowed: true, plus_one_count: 2, mobile: '0917 555 0101', meal_preference: 'beef', dietary_restrictions: 'halal', notes: 'Driver drops him at the side gate', rsvp_status: 'maybe', attire: 'suit' },
-    data: { ...RICH, plusOneStateLabel: 'named — Ben', recordedAt: 'Sep 12' },
+    guest: { side: 'groom', group_category: 'friends', role: 'principal_sponsor_ninong', extra_roles: ['groomsman'] as never, plus_one_allowed: true, plus_one_count: 2, mobile: '0917 555 0101', meal_preference: 'beef', dietary_restrictions: 'halal', notes: 'Driver drops him at the side gate', host_note_for_guest: 'Please bring the Santo Niño for the blessing', rsvp_status: 'maybe', attire: 'suit' },
+    data: { ...RICH, plusOneLines: ['named — Ben'], recordedAt: 'Sep 12' },
   },
   '03 every toggle ON': { guest: { photo_consent: true, faceblock_enabled: true, face_recognition_excluded: true, passed_away: true } },
   '04 every toggle OFF': { guest: { photo_consent: false, faceblock_enabled: false, face_recognition_excluded: false, passed_away: false } },
-  '05 empty texts (null and empty string)': { guest: { mobile: '', dietary_restrictions: '', notes: '', display_name: '', middle_name: '', name_suffix: '', relation: '', email: '' } },
+  '05 empty texts (null and empty string)': { guest: { mobile: '', dietary_restrictions: '', notes: '', host_note_for_guest: '', display_name: '', middle_name: '', name_suffix: '', relation: '', email: '' } },
   '06 several Invited-to blocks ticked': { data: { initialInvited: ['ceremony', 'reception', 'cocktails'] } },
   '07 no Invited-to block ticked': { data: { initialInvited: [] } },
   '08 the couple (bride): locked role, always attending, no passed-away, no extra roles': {
@@ -220,15 +230,15 @@ export const SCENARIOS: Record<string, Scenario> = {
     data: { ...RICH, showTeaCeremony: false },
   },
   '12 quotes, ampersands and a long note survive': {
-    guest: { first_name: 'O’Brien "Bo"', last_name: 'Dela Cruz & Sons', display_name: 'The <Dela Cruz> family', notes: 'Line one\nLine two — "quoted" & more', dietary_restrictions: 'no nuts, no "shell"fish' },
+    guest: { first_name: 'O’Brien "Bo"', last_name: 'Dela Cruz & Sons', display_name: 'The <Dela Cruz> family', notes: 'Line one\nLine two — "quoted" & more', host_note_for_guest: 'Dear Tita — "see you" & <soon>\nLove, us', dietary_restrictions: 'no nuts, no "shell"fish' },
   },
 };
 
-async function paint(s: Scenario, withKit = false): Promise<string> {
+/** The card as it draws today — ONE kit, the templates (2026-10-24: the Maker's hand-drawn kit is gone, one card everywhere). */
+async function paint(s: Scenario): Promise<string> {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { AppRouterContext } = await import('next/dist/shared/lib/app-router-context.shared-runtime');
   const { GuestCardBody } = await import('./guest-card-body');
-  const kit = withKit ? (await import('./guest-card-template-kit')).TEMPLATE_KIT : undefined;
   const g = guest(s.guest);
   const data = { ...BASE_DATA, ...s.data, guest: g };
   const card = React.createElement(GuestCardBody as unknown as React.FC<Record<string, unknown>>, {
@@ -241,14 +251,13 @@ async function paint(s: Scenario, withKit = false): Promise<string> {
     returnTo: '/dashboard/e1/guests',
     errorMessage: null,
     inviteFlash: null,
-    ...(kit ? { kit } : {}),
   });
   return renderToStaticMarkup(React.createElement(AppRouterContext.Provider, { value: ROUTER as never }, card));
 }
 
-export async function everyScenario(withKit = false): Promise<Record<string, Record<string, string[]>>> {
+export async function everyScenario(): Promise<Record<string, Record<string, string[]>>> {
   const out: Record<string, Record<string, string[]>> = {};
-  for (const [name, s] of Object.entries(SCENARIOS)) out[name] = postedForm(await paint(s, withKit));
+  for (const [name, s] of Object.entries(SCENARIOS)) out[name] = postedForm(await paint(s));
   return out;
 }
 
@@ -275,63 +284,53 @@ test('the card’s form, in every state, posts exactly what it posted before any
   for (const name of Object.keys(golden)) assert.deepEqual(now[name], golden[name], `the posted form changed — ${name}`);
 });
 
-test('…and the card drawn by the TEMPLATES posts the very same form, in every state, column by column (4B)', async () => {
-  const golden = JSON.parse(readFileSync(GOLDEN, 'utf8')) as Record<string, Record<string, string[]>>;
-  const templated = await everyScenario(true);
-  assert.deepEqual(Object.keys(templated), Object.keys(golden));
-  const wrong: string[] = [];
-  for (const name of Object.keys(golden)) {
-    const a = golden[name]!;
-    const b = templated[name]!;
-    for (const k of new Set([...Object.keys(a), ...Object.keys(b)])) {
-      if (JSON.stringify(a[k] ?? null) !== JSON.stringify(b[k] ?? null)) wrong.push(`${name} › ${k}: before ${JSON.stringify(a[k] ?? null)} · templates ${JSON.stringify(b[k] ?? null)}`);
-    }
-  }
-  assert.deepEqual(wrong, [], 'the templated card posts a different form');
-});
+/* (4B's second half — "the card drawn by the TEMPLATES posts the very same form" — is the test above now: the golden was
+   committed from the hand-drawn card BEFORE any field moved, and the one card left is the templated one. 2026-10-24.) */
 
-test('anti-vacuity (4B): the templated card really IS drawn by the templates, and the old one is not', async () => {
+test('anti-vacuity (4B): the card really IS drawn by the templates — no hand-made control is left', async () => {
   const s = SCENARIOS['02 a guest with sides, a seat, groups, extra roles, +1 of 2']!;
-  const old = await paint(s, false);
-  const tpl = await paint(s, true);
-  assert.doesNotMatch(old, /data-form-row=|data-fold=|data-card-field=/, 'the Maker’s card is drawn by templates it cannot afford');
-  assert.match(old, /class="input-field"/);
+  const tpl = await paint(s);
   assert.match(tpl, /data-form-row-kind="typed"/);
   assert.match(tpl, /data-form-row-kind="switch"/);
   assert.match(tpl, /data-chips="invited-to"/);
   assert.match(tpl, /data-fold="card-details"/);
   assert.doesNotMatch(tpl, /class="input-field"|class="sn-switch"|<details\b|<select\b/, 'a hand-made control is left on the templated card');
   for (const f of ['first_name', 'last_name', 'mobile', 'display_name', 'notes', 'dietary_restrictions']) assert.match(tpl, new RegExp(`data-card-field="${f}"`), `${f} is not a typed row`);
-  for (const f of ['side', 'group_category', 'role', 'extra_roles', 'group_ids', 'rsvp_status', 'plus_one_count', 'meal_preference', 'table_id', 'attire']) assert.match(tpl, new RegExp(`data-card-field="${f}"`), `${f} is not a dropdown row`);
+  for (const f of ['side', 'group_category', 'role', 'rsvp_status', 'plus_one_count', 'meal_preference', 'table_id']) assert.match(tpl, new RegExp(`data-card-field="${f}"`), `${f} is not a dropdown row`);
+  /* 👗 2026-10-20: attire is a FACT row (their role's dress code), never a dropdown, and posts nothing. */
+  assert.match(tpl, /data-card-field="attire"[^>]*data-form-row-kind="fact"|data-form-row-kind="fact"[^>]*data-card-field="attire"/, 'attire is not a fact row on the templated card');
+  assert.doesNotMatch(tpl, /name="attire"/, 'the templated card posts an attire again');
+  /* 👥 2026-10-20: `group_ids` rides the ONE Group row and `extra_roles` the ONE Role row (owner: "there are 2 groups." ·
+     "Roles doesn't need also serves as") — no rows of their own, still posted. */
+  for (const f of ['group_ids', 'extra_roles']) assert.match(tpl, new RegExp(`name="${f}"`), `${f} is not posted by the templated card`);
 });
 
-test('one list of fields: every field the card\'s body names is drawn by BOTH kits, in some state (a field added to one path appears in the other)', async () => {
+test('one list of fields: every field the card\'s body names is drawn and posted by the card, in some state', async () => {
   const { stripComments } = await import('@/lib/strip-comments');
   const body = stripComments(readFileSync(join(HERE, 'guest-card-body.tsx'), 'utf8'));
   const named = new Set<string>([
     ...[...body.matchAll(/<K\.Field\s+id="(\w+)"/g)].map((m) => m[1]!),
     ...[...body.matchAll(/<K\.(?:Pick|Toggle)\s+name="(\w+)"/g)].map((m) => m[1]!),
+    /* 👥 The one Group / one Role dropdowns name their first column through the leaf (2026-10-20). */
+    ...(/<K\.Group\b/.test(body) ? ['group_category'] : []),
+    ...(/<K\.Roles\b/.test(body) ? ['role'] : []),
   ]);
   assert.ok(named.size >= 20, `the body names only ${named.size} fields — the scan is blind`);
-  const old: string[] = [];
   const tpl: string[] = [];
-  for (const sc of Object.values(SCENARIOS)) {
-    old.push(await paint(sc, false));
-    tpl.push(await paint(sc, true));
-  }
-  const oldAll = old.join('\n');
+  for (const sc of Object.values(SCENARIOS)) tpl.push(await paint(sc));
   const tplAll = tpl.join('\n');
   const lacking: string[] = [];
   for (const f of named) {
-    if (!new RegExp(`name="${f}"`).test(oldAll)) lacking.push(`${f}: not on the hand-drawn card`);
     if (!new RegExp(`data-card-field="${f}"`).test(tplAll)) lacking.push(`${f}: not on the templated card`);
     if (!new RegExp(`name="${f}"`).test(tplAll)) lacking.push(`${f}: the templated card does not post it`);
   }
   assert.deepEqual(lacking, []);
-  /* The kit's two halves implement the same list of leaves (the type says it; this names it so a leaf added to one is read). */
+  /* ONE kit: the card's leaves are the templates' (`TEMPLATE_KIT`), the hand-drawn kit is gone, and the Guests pages'
+     "Rename this section" is on every card now. */
   const rows = stripComments(readFileSync(join(HERE, 'guest-card-template-kit.ts'), 'utf8'));
-  const keys = (src: string, re: RegExp) => (re.exec(src)?.[1] ?? '').split(',').map((e) => e.split(':')[0]!.trim()).filter(Boolean).sort();
-  assert.deepEqual(keys(rows, /TEMPLATE_KIT: CardKit = \{([^}]*)\}/), keys(body, /const OLD_KIT: CardKit = \{([^}]*)\}/).map((k) => k), 'the two kits draw different leaves');
+  assert.match(rows, /TEMPLATE_KIT: CardKit = \{[^}]*\bRename\b[^}]*\}/, 'the card lost "Rename this section"');
+  assert.match(body, /const K: CardKit = TEMPLATE_KIT;/, 'the card draws its leaves with something other than the templates');
+  assert.doesNotMatch(body, /\bOLD_KIT\b|\bkit\?: CardKit\b/, 'a second kit (or a way to hand one in) is back');
 });
 
 test('anti-vacuity: the states really differ, and the form is not trivially small', async () => {
@@ -354,4 +353,47 @@ test('anti-vacuity: the states really differ, and the form is not trivially smal
   assert.deepEqual(s('12').first_name, ['O’Brien "Bo"']);
   /* 01 · 04 · 05 · 07 are the same form on purpose (defaults off, nothing ticked, empty = absent-or-empty); the other eight differ. */
   assert.ok(new Set(all.map((f) => JSON.stringify(f))).size >= 9, 'the states are not different enough to mean anything');
+});
+
+/*
+ * 👥 ONE GROUP DROPDOWN AND ONE ROLE DROPDOWN, EACH MULTI (owner 2026-10-20: "there are 2 groups." · "Roles doesn't need also
+ * serves as… they can have multiple row in that Role in Wedding" · "several group, several roles"; DECISION_LOG row of that
+ * name; prototype `guest_group_and_fast_add_2026-10-20.html` A1–A7). A PROPERTY of the painted card, every state:
+ * exactly ONE control opens the groups and ONE the roles; the two columns each pair posted are posted exactly once.
+ *
+ * SABOTAGE (each seen RED, then restored): the old "Also serves as" K.Pick put back · the old "Groups" K.Pick put back ·
+ * the Group leaf's second hidden input dropped.
+ */
+test('the card draws exactly ONE Group control and ONE Role control — every state', async () => {
+  const count = (html: string, re: RegExp) => (html.match(re) ?? []).length;
+  for (const [name, sc] of Object.entries(SCENARIOS)) {
+    {
+      const html = await paint(sc);
+      const where = name;
+      const form = postedForm(html);
+      assert.equal(count(html, /aria-label="Group: /g), 1, `${where}: not exactly one Group control`);
+      assert.doesNotMatch(html, /aria-label="Groups: |Also serves as/, `${where}: a second group or role control is back`);
+      assert.equal(form.group_category?.length, 1, `${where}: group_category is not posted exactly once`);
+      const couple = sc.data?.isCouple === true;
+      if (!couple) {
+        assert.equal(count(html, /aria-label="Role(?: in wedding)?: /g), 1, `${where}: not exactly one Role control`);
+        assert.equal(form.role?.length, 1, `${where}: role is not posted exactly once`);
+        assert.equal(form.extra_roles?.length, 1, `${where}: extra_roles is not posted exactly once`);
+      }
+      const groupsRead = (sc.data as { groupChoices?: unknown } | undefined)?.groupChoices !== null;
+      if (groupsRead && form.groups_posted) assert.equal(form.group_ids?.length, 1, `${where}: the own groups are not posted with their marker`);
+    }
+  }
+});
+
+test('the one Role control marks the first ticked "main"; the one Group control lists Standard before Your groups', async () => {
+  const s = SCENARIOS['02 a guest with sides, a seat, groups, extra roles, +1 of 2']!;
+  {
+    const html = await paint(s);
+    const form = postedForm(html);
+    // Scenario 02: main = principal_sponsor_ninong, extra = groomsman, Friends + Choir — the pill reads them in that order.
+    assert.deepEqual([form.role, form.extra_roles], [['principal_sponsor_ninong'], ['groomsman']]);
+    assert.match(html, /aria-label="Role in wedding: Ninong · Groomsman"/);
+    assert.match(html, /aria-label="Group: Friends · Choir"/);
+  }
 });

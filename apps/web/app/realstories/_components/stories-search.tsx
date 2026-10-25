@@ -86,7 +86,7 @@ function FacetRow({
   if (options.length === 0) return null;
   return (
     <div className="mt-3">
-      <span className="mb-1.5 block font-mono text-[10px] uppercase tracking-[0.16em] text-ink/45">
+      <span className="mb-1.5 block font-mono text-xs uppercase tracking-[0.16em] text-ink/70">
         {label}
       </span>
       <div className="flex flex-wrap gap-2" role="group" aria-label={`Filter by ${label.toLowerCase()}`}>
@@ -126,7 +126,7 @@ function SectionHead({ title, note }: { title: string; note?: string }) {
   return (
     <div className="mb-3 mt-10 flex items-baseline justify-between gap-3 sm:mt-12">
       <h2 className="text-base font-semibold tracking-tight text-ink sm:text-lg">{title}</h2>
-      {note ? <span className="text-[11px] text-ink/45">{note}</span> : null}
+      {note ? <span className="text-xs text-ink/70">{note}</span> : null}
     </div>
   );
 }

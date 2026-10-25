@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 're
 import { Check, ChevronDown, Eye } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { useOneOpen } from '@/lib/one-open';
+import { TimelineRowsLoading } from '@/app/_components/timeline-states';
 import { pickOptionClass, pickTickClass, pickTrailClass } from '../../website/editor/_components/pick-menu-place';
 import { inertBehind, popupClearRect, popupHolePath } from '@/lib/popup-behind';
 import { useModalA11y } from '@/lib/use-modal-a11y';
@@ -18,6 +19,9 @@ import { StageItemMenu, type StagePageOption } from './stage-item-menu';
 import { StudioHome, TILE_ICON } from './studio-home';
 import { GUESTS_SEE_WORDS, guestsSeeRowStatus } from '@/lib/guests-see-table';
 import { GuestsSeeSheet, guestsSeeWorkArea } from './guests-see-sheet';
+import { useMaker } from './maker-context';
+import { MakerDesk } from './maker-desk';
+import { useIsDesktop } from '@/lib/use-responsive';
 
 /**
  * 🧭 THE NEW MAKER'S PARTS — "Stages | Studio" (owner 2026-10-06; plan
@@ -108,8 +112,13 @@ export function StudioSideSwitch({
   const onStages = side === 'stages';
   const stageKey = stageOf(stage);
   const here = !onStages && page ? page : null;
+  /* 🖥 A desktop's three columns (`maker-desk.tsx`) — mounted by this switch, which every width of the new Maker
+     draws and which is lazy: so the desk layout costs the Maker's first load nothing and never reaches a phone. */
+  const wide = useIsDesktop('lg');
+  const desk = useMaker()?.stagesStudio === true && wide;
   return (
     <>
+      {desk ? <MakerDesk /> : null}
       <ISegmented label="Stages or Studio">
         <StudioHalf
           kind="stage"
@@ -335,12 +344,24 @@ export function StudioToolMenu({
   );
 }
 
-/** Studio's home over the work area — its tiles, or a read that failed, SAID. */
-export function StudioCover({ tiles, onOpen }: { tiles: readonly StudioTileModel[] | null; onOpen: (key: StudioTileKey) => void }) {
+/** Studio's home over the work area — its tiles, still on their way (`pending`, the Maker's `late`), or a read that failed, SAID. */
+export function StudioCover({
+  tiles,
+  pending = false,
+  onOpen,
+}: {
+  tiles: readonly StudioTileModel[] | null;
+  pending?: boolean;
+  onOpen: (key: StudioTileKey) => void;
+}) {
   return (
     <div className="absolute inset-0 z-30 flex flex-col bg-cream" data-maker-studio-layer="">
       {tiles ? (
         <StudioHome tiles={tiles} onOpen={onOpen} />
+      ) : pending ? (
+        <div className="w-full px-4 pt-6" data-maker-late-pending="studio">
+          <TimelineRowsLoading label="Loading your Studio" rows={5} />
+        </div>
       ) : (
         <p role="alert" className="m-auto max-w-sm px-4 text-center text-sm text-terracotta-700">
           Studio could not be loaded just now. Nothing was changed — please reopen this in a moment.

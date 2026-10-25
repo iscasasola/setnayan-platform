@@ -27,6 +27,7 @@ import {
   readerReached,
 } from '@/lib/story-spine';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 import { clearReaderPosition, publishReaderPosition } from '@/lib/story-reader-position';
 
 /** One bar, fully resolved on the server. */
@@ -575,18 +576,14 @@ export function StoryClock({
 
       {openBar ? (
         <>
-          <div
-            aria-hidden
-            onClick={close}
-            className="fixed inset-0 z-40 bg-ink/45 backdrop-blur-[2px]"
-          />
+          <OverlayBackdrop onClose={close} className="z-40" />
           <div
             ref={sheetRef}
             role="dialog"
             aria-modal="true"
             aria-labelledby={`${sheetId}-t`}
             tabIndex={-1}
-            className="fixed inset-x-0 bottom-0 z-50 max-h-[80vh] overflow-y-auto rounded-t-2xl border-t border-ink/15 bg-cream px-5 pb-8 pt-4 shadow-[0_-24px_60px_-30px_rgba(30,34,41,0.55)] sm:inset-x-auto sm:right-6 sm:bottom-6 sm:w-[26rem] sm:rounded-2xl sm:border"
+            className="fixed inset-x-0 bottom-0 z-50 max-h-[80vh] overflow-y-auto rounded-t-2xl border-t border-ink/15 bg-cream pl-[max(1.25rem,var(--sn-safe-l))] pr-[max(1.25rem,var(--sn-safe-r))] pb-[max(2rem,env(safe-area-inset-bottom))] pt-4 shadow-[0_-24px_60px_-30px_rgba(30,34,41,0.55)] sm:inset-x-auto sm:right-[max(1.5rem,var(--sn-safe-r))] sm:bottom-6 sm:w-[26rem] sm:rounded-2xl sm:border"
           >
             <div className="flex items-start justify-between gap-4">
               <b

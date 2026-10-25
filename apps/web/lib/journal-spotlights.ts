@@ -122,6 +122,8 @@ function toPublic(r: RawJoinedRow): JournalSpotlightPublic {
 export async function fetchApprovedSpotlightsForSlug(
   client: SupabaseClient,
   blogSlug: string,
+  /** Told when the read was REFUSED — the `[]` then is not "no credits" (the Journal keeps that render briefly). */
+  onRefused?: (error: unknown) => void,
 ): Promise<JournalSpotlightPublic[]> {
   const { data, error } = await client
     .from('journal_vendor_spotlights')
@@ -133,6 +135,7 @@ export async function fetchApprovedSpotlightsForSlug(
 
   if (error) {
     console.error('[journal-spotlights] public fetch failed', error.message);
+    onRefused?.(error);
     return [];
   }
   return ((data ?? []) as unknown as RawJoinedRow[]).map(toPublic);

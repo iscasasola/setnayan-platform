@@ -13,7 +13,6 @@ import {
   planHubDraftApply,
   sanitizeHubDraft,
   summarizeHubDraft,
-  undoHubDraft,
   type HubDraft,
   type HubDraftActionResult,
   type HubDraftBarLive,
@@ -24,6 +23,20 @@ import {
   type HubLiveState,
 } from '@/lib/hub-draft';
 import { hubDraftChangeLines } from '@/lib/hub-draft-change-lines';
+import { rebaseHubDraftPatch } from '@/lib/hub-draft-rebase';
+import { TWO_SCREENS_NOTE } from '@/lib/merge-from-base';
+import { hubDraftStepAuthorOf, twoScreensNoteFor, undoOwnHubDraftStep } from '@/lib/hub-draft-authors';
+
+/**
+ * 👥 THE LAB'S TWO HOSTS (owner 2026-10-18, rulings A + B). A tab opened with `?as=indalecio` or `?as=claire` is that
+ * host: its steps carry their id, its ↺ takes back only its own, and the note names the other — as the real action.
+ * No `as`: nobody in particular (every step undoable, the shipped "another screen" note), the lab as it always was.
+ */
+export const LAB_HOSTS: Readonly<Record<string, { id: string; name: string }>> = {
+  indalecio: { id: '11111111-1111-4111-8111-111111111111', name: 'Indalecio' },
+  claire: { id: '22222222-2222-4222-8222-222222222222', name: 'Claire' },
+};
+const labHostName = (id: string | undefined) => Object.values(LAB_HOSTS).find((h) => h.id === id)?.name ?? null;
 import { hubDraftProEffects, hubProEffectView } from '@/lib/hub-pro-effects';
 import { makerSceneLabel } from '@/lib/maker-scene-list';
 import type { InvitationWidgetRow, WidgetType } from '@/lib/invitation-widgets';
@@ -44,7 +57,7 @@ import { labScrubCanvases, labWidgetsCookie } from './lab-scrub';
  * them (`website/hub-draft-actions.ts` is the door they stand behind for a real event):
  *
  *   save     `mergeHubDraft`        — the state before goes onto `history`
- *   undo     `undoHubDraft`         — one state back
+ *   undo     `undoOwnHubDraftStep`  — one state back (this tab's host's own, `?as=`)
  *   restore  `emptyHubDraft`        — the draft thrown away
  *   reset    `hubResetPatch` merged — into the draft, undoable
  *   the ✓    `summarizeHubDraft`    — keys that DIFFER FROM LIVE (Fade on, then off, is no change)
@@ -98,13 +111,36 @@ const MJ_ROWS: ReadonlyArray<[WidgetType, boolean]> = [
 export const LAB_OWN_COOKIE = 'lab_own';
 /** The lab's one scene of the couple's own — what they wrote. */
 export const LAB_OWN_SCENE = { type: 'custom_1', config: { title: 'A note from us', body: 'We wrote this part ourselves — it is not one of the scenes Setnayan gives a page.' } } as const;
+/**
+ * ✍ `lab_own=tpl20` — the OWNER'S row of 2026-10-17, as production holds it (read SELECT-only by the controller): a
+ * scene of their own just added from template 20 (Photo strip), still empty — `{ canvas: { preset: 'still',
+ * template: 20 }, stage_order: { rsvp: 2 } }`, mode Auto. His Maker drew its placeholder and *"i cannot edit this"*.
+ */
+export const LAB_OWN_TPL20 = { type: 'custom_1', config: { canvas: { preset: 'still', template: 20 }, stage_order: { rsvp: 2 } } } as const;
+/**
+ * Which scene of their own the lab holds, from `lab_own`: `1` the written one, `tpl20` the owner's empty one, else none.
+ * 🖼 `tpl<N>` (1–25, owner 2026-10-18 "every template that has picture slots must work"): the same empty row made from
+ * template N — so a walk can try every template's picture slots on the phone.
+ */
+export type LabOwnKind = 'words' | 'tpl20' | `tpl${number}` | null;
+export function labOwnKind(cookie: string | undefined): LabOwnKind {
+  if (cookie === '1') return 'words';
+  const n = /^tpl([1-9]|1\d|2[0-5])$/.exec(cookie ?? '')?.[1];
+  return n ? (`tpl${n}` as LabOwnKind) : null;
+}
+/** The empty row made from template N, shaped as the owner's (`LAB_OWN_TPL20`). */
+function labOwnTemplateRow(kind: LabOwnKind) {
+  const n = typeof kind === 'string' && kind.startsWith('tpl') ? Number(kind.slice(3)) : 0;
+  return n === 20 || !n ? LAB_OWN_TPL20 : { type: 'custom_1', config: { canvas: { preset: 'still', template: n }, stage_order: { rsvp: 2 } } };
+}
 
 /** The sample's LIVE rows — what guests of the sample would see with no draft at all (`own`: see `LAB_OWN_COOKIE`). */
-export function labRows(own = false): InvitationWidgetRow[] {
+export function labRows(own: boolean | LabOwnKind = false): InvitationWidgetRow[] {
   const now = '2026-10-05T00:00:00Z';
+  const ownScene = typeof own === 'string' && own.startsWith('tpl') ? labOwnTemplateRow(own) : own ? LAB_OWN_SCENE : null;
   const types: ReadonlyArray<[WidgetType, boolean, InvitationWidgetRow['config_json']]> = [
     ...MJ_ROWS.map(([type, alwaysOn]) => [type, alwaysOn, {}] as [WidgetType, boolean, InvitationWidgetRow['config_json']]),
-    ...(own ? [[LAB_OWN_SCENE.type as WidgetType, false, LAB_OWN_SCENE.config as InvitationWidgetRow['config_json']] as [WidgetType, boolean, InvitationWidgetRow['config_json']]] : []),
+    ...(ownScene ? [[ownScene.type as WidgetType, false, ownScene.config as unknown as InvitationWidgetRow['config_json']] as [WidgetType, boolean, InvitationWidgetRow['config_json']]] : []),
   ];
   return types.map(([type, alwaysOn, config], i) => ({
     widget_id: `w-${type}`,
@@ -136,9 +172,12 @@ function layState(under: HubDraftState | null | undefined, over: HubDraftState):
  * What the draft is compared against: the sample's rows — on the Scrub chain (`?scrub=1`), wearing the chain's start
  * — with what the lab has PUBLISHED laid over them, by the page's own overlay.
  */
-export function labLive(scrub: boolean, published: HubDraftState | null = null): HubLiveState {
+export function labLive(scrub: boolean, published: HubDraftState | null = null, own: LabOwnKind = null): HubLiveState {
   const start = labScrubCanvases(scrub, {});
-  const sample = labRows().map((r) => (start[r.widget_type] ? { ...r, config_json: { canvas: start[r.widget_type] } as InvitationWidgetRow['config_json'] } : r));
+  /* 🖼 …with the lab's scene of their own (`lab_own`) when it holds one — its canvas (the template) is LIVE, so a save's
+     rebase (`rebaseHubDraftPatch`) reads the template as standing, as production's live row says (2026-10-18: without
+     it a picture put in a slot read as "the template taken off"). */
+  const sample = labRows(own).map((r) => (start[r.widget_type] ? { ...r, config_json: { canvas: start[r.widget_type] } as InvitationWidgetRow['config_json'] } : r));
   if (!published) return { events: {}, widgets: sample };
   const styles = Object.fromEntries(Object.entries(published.fixedStyles ?? {}).filter(([, v]) => v !== null));
   return {
@@ -150,19 +189,19 @@ export function labLive(scrub: boolean, published: HubDraftState | null = null):
 }
 
 /** The ✓ bar for the lab's draft — the SAME summary, named changes and Pro effects the real save answers with. */
-export function labDraftBar(draft: HubDraft, scrub: boolean, published: HubDraftState | null = null): HubDraftBarLive {
-  const live = labLive(scrub, published);
+export function labDraftBar(draft: HubDraft, scrub: boolean, published: HubDraftState | null = null, me?: string, own: LabOwnKind = null): HubDraftBarLive {
+  const live = labLive(scrub, published, own);
   return {
-    free: { ...summarizeHubDraft(draft, live, false), changes: hubDraftChangeLines(draft, live, false) },
-    owned: { ...summarizeHubDraft(draft, live, true), changes: hubDraftChangeLines(draft, live, true) },
+    free: { ...summarizeHubDraft(draft, live, false, me), changes: hubDraftChangeLines(draft, live, false) },
+    owned: { ...summarizeHubDraft(draft, live, true, me), changes: hubDraftChangeLines(draft, live, true) },
     proEffects: hubDraftProEffects(draft, live, false).map(hubProEffectView),
     priceLabel: null,
   };
 }
 
 /** The bar a RENDER of the lab is drawn with — the count AND its named lines, as the real render's bar carries them. */
-export function labRenderedSummary(draft: HubDraft, scrub: boolean, published: HubDraftState | null = null): HubDraftSummary {
-  return labDraftBar(draft, scrub, published).free;
+export function labRenderedSummary(draft: HubDraft, scrub: boolean, published: HubDraftState | null = null, as?: unknown): HubDraftSummary {
+  return labDraftBar(draft, scrub, published, typeof as === 'string' ? LAB_HOSTS[as]?.id : undefined).free;
 }
 
 /** A stored published state, read back through the real sanitiser — anything unreadable is nothing published. */
@@ -205,12 +244,17 @@ export const LAB_APPLY_MESSAGE = 'This is the sample event — that needs a real
  */
 export function labDraftStep(
   current: HubDraft,
-  fields: { intent?: unknown; patch?: unknown; stage?: unknown; bar?: unknown; expect?: unknown },
+  /** `pro` — 💎 `?pro=1`: the lab's event owns Event Hub Pro, so ✓ Apply holds nothing (the real gate's `ownsPro`). */
+  fields: { intent?: unknown; patch?: unknown; stage?: unknown; bar?: unknown; expect?: unknown; pro?: unknown; base?: unknown; as?: unknown },
   scrub: boolean,
   /** What the lab has published so far (`labPublishedFrom`) — null: nothing. Changed only by `apply`. */
   published: HubDraftState | null = null,
+  /** 🖼 The lab's scene of their own (`lab_own`), so the live state the save is merged against holds it. */
+  own: LabOwnKind = null,
 ): { draft: HubDraft; result: HubDraftActionResult; published: HubDraftState | null } {
   const intent = isHubDraftIntent(fields.intent) ? fields.intent : null;
+  /* 👥 This tab's host (`?as=`), if any — `LAB_HOSTS`. */
+  const me = typeof fields.as === 'string' ? LAB_HOSTS[fields.as]?.id : undefined;
   if (!intent) return { draft: current, published, result: { ok: false, intent, error: 'That did not look like an Event Hub change.' } };
   const done = (draft: HubDraft, withBar = false): { draft: HubDraft; result: HubDraftActionResult; published: HubDraftState | null } => {
     let fitted: HubDraft;
@@ -221,19 +265,20 @@ export function labDraftStep(
       return { draft: current, published, result: { ok: false, intent, error: HUB_DRAFT_TOO_LARGE_MESSAGE } };
     }
     /* ↺ …with the stamp of the state it left, as the real action answers (`lib/hub-draft-stamp.ts`). */
-    return { draft: fitted, published, result: { ok: true, intent, applied: 0, held: [], ...(withBar ? { bar: labDraftBar(fitted, scrub, published) } : {}), ...(intent === 'restore' ? {} : { stamp: hubDraftStamp(fitted) }) } };
+    return { draft: fitted, published, result: { ok: true, intent, applied: 0, held: [], ...(withBar ? { bar: labDraftBar(fitted, scrub, published, me, own) } : {}), ...(intent === 'restore' ? {} : { stamp: hubDraftStamp(fitted) }) } };
   };
   if (intent === 'restore') return done(emptyHubDraft());
   /* ↺ Undo and Reset answer with the bar when asked — as the real action (`answerWithBar`). */
   if (intent === 'undo') {
     /* ↺ A drawn undo says the state it expects to step back from — answered `matched`, as the real action does. */
     const matched = hubDraftUndoMatched(current, fields.expect);
-    const step = done(undoHubDraft(current), fields.bar === '1');
+    // ↺ Only this tab's host's own steps (ruling B) — with no host, the newest step, as before.
+    const step = done(undoOwnHubDraftStep(current, me), fields.bar === '1');
     return matched === undefined || !step.result.ok ? step : { ...step, result: { ...step.result, matched } };
   }
   if (intent === 'reset') {
     if (!isHubResetScope(fields.stage)) return { draft: current, published, result: { ok: false, intent, error: 'Choose which stage to reset.' } };
-    return done(mergeHubDraft(current, hubResetPatch(fields.stage)), fields.bar === '1');
+    return done(mergeHubDraft(current, hubResetPatch(fields.stage), me), fields.bar === '1');
   }
   if (intent === 'save') {
     let patch: HubDraftPatch;
@@ -242,15 +287,35 @@ export function labDraftStep(
     } catch {
       return { draft: current, published, result: { ok: false, intent, error: 'That change could not be read.' } };
     }
+    /* 👥 Merged from what the screen built it on (`MERGE_BASE_FIELD`), onto the draft as this browser holds it NOW — the
+       real action's own rebase (`lib/hub-draft-rebase.ts`). The lab's draft is this browser's, shared by its tabs: two
+       tabs are two screens. */
+    let base: unknown;
+    try {
+      base = typeof fields.base === 'string' && fields.base ? (JSON.parse(fields.base) as unknown) : undefined;
+    } catch {
+      base = undefined;
+    }
+    const live = labLive(scrub, published, own);
+    const canvas: Record<string, unknown> = {};
+    for (const row of live.widgets) {
+      const c = (row.config_json as { canvas?: unknown } | null)?.canvas;
+      if (c !== undefined) canvas[row.widget_type] = c;
+    }
+    const rebased = rebaseHubDraftPatch(current, patch, base, { events: live.events as Record<string, unknown>, canvas });
     /* ⚡ The bar comes back with the save only when the save asked for it (`HUB_DRAFT_BAR_FIELD`) — as the real one. */
-    return done(mergeHubDraft(current, patch), fields.bar === '1');
+    const step = done(mergeHubDraft(current, rebased.patch, me), fields.bar === '1');
+    // 👥 Ruling A: the note names the host whose step this save met — the real action's rule, with the lab's two names.
+    const met = rebased.moved ? hubDraftStepAuthorOf(current, rebased.merged) : { found: false };
+    const note = !me ? TWO_SCREENS_NOTE : twoScreensNoteFor(met.by === me ? { self: true } : { self: false, name: labHostName(met.by) });
+    return rebased.moved && step.result.ok ? { ...step, result: { ...step.result, elsewhere: { merged: rebased.merged, clashed: rebased.clashed, note } } } : step;
   }
   if (intent === 'apply') {
     /* ✓ APPLY PUBLISHES — IN THE LAB. The real planner decides, against what is published now: what is written, what a
        couple without Event Hub Pro is held on. What went is folded into the lab's published state by the real merge;
        the draft keeps only what was held, and no Undo history — as the real action leaves it. (A held scene's FREE
        part is not split out here: the whole scene waits. The lab's one shortcut.) */
-    const plan = planHubDraftApply(current, labLive(scrub, published), false);
+    const plan = planHubDraftApply(current, labLive(scrub, published), fields.pro === true);
     const went = withoutHeld(stateOf(current), plan.remaining);
     const next = layState(published, went);
     const some = Object.keys(next.events).length + Object.keys(next.widgets).length + Object.keys(next.editorial ?? {}).length + Object.keys(next.fixedStyles ?? {}).length > 0;
@@ -262,6 +327,8 @@ export function labDraftStep(
         intent,
         applied: hubDraftCountedChanges({ ...plan, refused: [] }).length,
         held: plan.refused.map((item) => ({ label: hubDraftItemLabel(item, makerSceneLabel), reason: 'needs_pro' as const })),
+        /* ✓ …and the bar of what is left, when asked — as the real Apply answers (`hub-draft-actions.ts`). */
+        ...(fields.bar === '1' ? { bar: labDraftBar({ v: 1, ...plan.remaining, history: [] }, scrub, some ? next : null) } : {}),
       },
     };
   }
@@ -291,8 +358,43 @@ export const LAB_BAR_COOKIE = 'lab_bar';
  * here (2026-10-11: "it did not make the secondary font").
  */
 export const LAB_NAMES_COOKIE = 'lab_names';
+/**
+ * 🔤 The fonts (`events.site_font_key` — the Names font — and `events.site_roles`), for the canvas's look, in the real
+ * canvas's two layers: `lab_fonts_live` is what is PUBLISHED (the guest-tree layout's scope), `lab_fonts` the draft laid
+ * over it, written only while the DRAFT holds a font (`HostDraftLook`, nested inside). The lab's canvas wore none of
+ * them, so "the Names font reaches the Event title" could not be walked here (2026-10-17). Both are worn through the
+ * guest page's own `siteFontLook`.
+ */
+export const LAB_FONTS_COOKIE = 'lab_fonts';
+export const LAB_FONTS_LIVE_COOKIE = 'lab_fonts_live';
+const FONT_COLUMNS = ['site_font_key', 'site_roles'] as const;
+const fontsOf = (state: HubDraftState | null | undefined) =>
+  state && FONT_COLUMNS.some((c) => c in state.events)
+    ? json({ site_font_key: state.events.site_font_key ?? null, site_roles: state.events.site_roles ?? null })
+    : null;
+/** The drafted fonts the lab's pages wear — `{}` for none or an unreadable cookie (the sanitisers read the rest). */
+export function labFontsFrom(value: string | undefined): { site_font_key?: unknown; site_roles?: unknown } {
+  if (!value) return {};
+  try {
+    const v = JSON.parse(decodeURIComponent(value)) as unknown;
+    return v && typeof v === 'object' ? (v as { site_font_key?: unknown; site_roles?: unknown }) : {};
+  } catch {
+    return {};
+  }
+}
 /** 🎫 The ticket style the lab's draft holds (`events.print_details.pass_design`) — Prints' strip is drawn from it, as the real page's is. */
 export const LAB_PASS_COOKIE = 'lab_pass';
+/** 🏷 The drafted section headings (`events.role_names`, section keys only) — the canvas's entourage wears them. */
+export const LAB_SECTIONS_COOKIE = 'lab_sections';
+/** The drafted section words the lab's canvas lays on — null for none or an unreadable cookie. */
+export function labSectionsFrom(value: string | undefined): unknown {
+  if (!value) return null;
+  try {
+    return JSON.parse(decodeURIComponent(value)) as unknown;
+  } catch {
+    return null;
+  }
+}
 /** The names the lab's cover draws: the drafted line, else the sample's. */
 export function labNamesFrom(value: string | undefined, sample: string): string {
   if (!value) return sample;
@@ -334,7 +436,7 @@ export function labDraftCookies(draftOnly: HubDraft, scrub: boolean, published: 
     if (some(row)) rows[type] = row;
   }
   const hero = draft.widgets.hero;
-  const prefs = (draft.events.style_preferences ?? null) as { camera_look?: unknown; block_looks?: unknown } | null;
+  const prefs = (draft.events.style_preferences ?? null) as { block_looks?: unknown; scene_accents?: unknown } | null;
   const styles = Object.fromEntries(Object.entries(draft.fixedStyles ?? {}).filter(([, v]) => v !== null));
   const bar = summarizeHubDraft(draftOnly, labLive(scrub, published), false);
   return {
@@ -342,12 +444,18 @@ export function labDraftCookies(draftOnly: HubDraft, scrub: boolean, published: 
     [LAB_ROWS_COOKIE]: some(rows) ? json(rows) : null,
     lab_main: hero && 'main' in hero ? json(hero.main ?? null) : null,
     lab_styles: some(styles) ? json(styles) : null,
-    lab_camera: typeof prefs?.camera_look === 'string' ? prefs.camera_look : null,
     lab_blocks: prefs?.block_looks && typeof prefs.block_looks === 'object' ? json(prefs.block_looks) : null,
+    /* 🕯 Each scene's drafted Accent pick (`style_preferences.scene_accents`) — the lab's closing is drawn with it. */
+    lab_accents: prefs?.scene_accents && typeof prefs.scene_accents === 'object' ? json(prefs.scene_accents) : null,
     [LAB_EDITORIAL_COOKIE]: draft.editorial && some(draft.editorial) ? json(draft.editorial) : null,
     [LAB_BAR_COOKIE]: bar.hasChanges || bar.canUndo ? json({ n: bar.changeCount, pro: bar.proCount, undo: bar.canUndo }) : null,
     [LAB_NAMES_COOKIE]: typeof draft.events.display_name === 'string' && draft.events.display_name.trim() ? encodeURIComponent(draft.events.display_name) : null,
     [LAB_PASS_COOKIE]: labPassDesignOf(draft.events.print_details),
+    [LAB_FONTS_LIVE_COOKIE]: fontsOf(published),
+    [LAB_FONTS_COOKIE]: FONT_COLUMNS.some((c) => c in draftOnly.events) ? fontsOf(draft) : null,
+    /* 🏷 The entourage's section headings named in the Wedding March's Edit (2026-10-19) — the canvas's entourage is
+       drawn with them, as the real host canvas draws them (`lib/drafted-role-names.ts`). */
+    [LAB_SECTIONS_COOKIE]: draft.events.role_names && typeof draft.events.role_names === 'object' ? json(draft.events.role_names) : null,
   };
 }
 
@@ -384,6 +492,6 @@ export function labRowsDraft(value: string | undefined): HubDraftState | null {
 }
 
 /** The sample's rows as the Maker and its canvas read them: the draft's place · eye · mode laid over (the real overlay). */
-export function labDraftedRows(value: string | undefined, own = false): InvitationWidgetRow[] {
+export function labDraftedRows(value: string | undefined, own: boolean | LabOwnKind = false): InvitationWidgetRow[] {
   return overlayHubDraftWidgets(labRows(own), labRowsDraft(value));
 }

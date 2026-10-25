@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { WEDDING_TILE_LABEL, type WeddingTile } from '@/lib/taxonomy';
+import { withBookedByPayment, type PaymentFact } from '@/lib/booked-by-payment';
 
 export type VendorCategory =
   | 'venue'
@@ -282,6 +283,8 @@ export type EventVendorRow = {
    */
   host_inclusions: string[] | null;
   covers_plan_groups: string[] | null;
+  /** The Suppliers-page row a moved supplier lives under when `category` cannot name it — read via `homeTileForRow`. */
+  category_key?: string | null;
   created_at: string;
   /**
    * FK to vendor_profiles. NULL = off-platform (couple-encoded only).
@@ -290,6 +293,13 @@ export type EventVendorRow = {
    * per 0019 § Booking-implies-follow auto-insert.
    */
   marketplace_vendor_id: string | null;
+  /** The couple's own contact card (`event_manual_vendors`) — set on a supplier they added by hand. */
+  manual_vendor_id?: string | null;
+  /**
+   * The stored status, when `withBookedByPayment` (lib/booked-by-payment.ts)
+   * reads a paid hand-added supplier as booked. Absent otherwise.
+   */
+  stored_status?: VendorStatus;
   /**
    * FK to event_vendor_packages (migration 20260604110000_vendor_packages.sql).
    * Populated by the cascade-lock flow when a host locks a vendor's
@@ -328,15 +338,26 @@ export async function fetchEventVendors(
   supabase: SupabaseClient,
   eventId: string,
 ): Promise<EventVendorRow[]> {
-  const { data, error } = await supabase
-    .from('event_vendors')
-    .select(
-      'vendor_id,public_id,event_id,category,vendor_name,contact_email,contact_phone,status,total_cost_php,transport_php,food_allowance_php,deposit_paid_php,notes,host_inclusions,covers_plan_groups,created_at,marketplace_vendor_id,pax_surcharge_php,pax_quote_base,cost_basis_pax,lock_request_state,lock_requested_at,lock_request_expires_at',
-    )
-    .eq('event_id', eventId)
-    .order('created_at', { ascending: true });
+  const [{ data, error }, paymentsRes] = await Promise.all([
+    supabase
+      .from('event_vendors')
+      .select(
+        'vendor_id,public_id,event_id,category,vendor_name,contact_email,contact_phone,status,total_cost_php,transport_php,food_allowance_php,deposit_paid_php,notes,host_inclusions,covers_plan_groups,category_key,created_at,marketplace_vendor_id,manual_vendor_id,pax_surcharge_php,pax_quote_base,cost_basis_pax,lock_request_state,lock_requested_at,lock_request_expires_at',
+      )
+      .eq('event_id', eventId)
+      .order('created_at', { ascending: true }),
+    // 💳 BOOKED IF PAID (owner 2026-10-20) — the payments that make a hand-added
+    // supplier read Booked. Couple-scoped by RLS; any other caller reads none,
+    // and the rows keep their stored status.
+    supabase.from('event_vendor_payments').select('vendor_id,payment_refused_at').eq('event_id', eventId),
+  ]);
   if (error) throw new Error(`fetchEventVendors failed: ${error.message}`);
-  return (data ?? []) as EventVendorRow[];
+  if (paymentsRes.error) {
+    // A refused payments read cannot turn a booking into "none": the rows keep
+    // their stored status, and the refusal is said, not swallowed.
+    console.error('[supabase-error] lib/vendors.ts · fetchEventVendors · from:event_vendor_payments.select', paymentsRes.error);
+  }
+  return withBookedByPayment((data ?? []) as EventVendorRow[], (paymentsRes.data ?? []) as PaymentFact[]);
 }
 
 /*

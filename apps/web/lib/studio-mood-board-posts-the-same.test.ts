@@ -129,7 +129,9 @@ test('8 · the page posts only through the builders and the context’s actions'
   assert.equal((src.match(/hubDraftAction\(eventId, fd\)/g) ?? []).length, 2, 'the page’s draft writes changed (colours · outfit) — re-read this guard');
   assert.doesNotMatch(src, /fd\.set\('(?:intent|patch|event_id|slot_key|slot_position|palette_json)'|JSON\.stringify\(\{ events/, 'a payload is hand-built beside the builder');
   assert.doesNotMatch(src, /from '\.\.\/\.\.\/\.\.\/(?:website\/hub-draft-actions|colour-access-actions|wizard-actions)'|from '\.\.\/actions'/, 'the page imports a real action again (the lab could then reach the database)');
-  assert.match(src, /const \{ hubDraftAction, rejectColourChange, uploadMoodboardSlot, removeMoodboardSlot, applyGalleryPick, fetchGalleryAssets \} = useMoodBoardActions\(\);/);
+  /* 🤝🖼 + a supplier's suggestion kept, declined and undone (2026-10-19) — also the context's, never imported. */
+  /* ⏰ + the Schedule's two writers for the guests' call time (2026-10-19) — the context's, the form built by `guestsArriveForm`. */
+  assert.match(src, /const \{ hubDraftAction, rejectColourChange, uploadMoodboardSlot, removeMoodboardSlot, applyGalleryPick, fetchGalleryAssets, keepInspirationSuggestion, declineInspirationSuggestion, undoKeptInspirationSuggestion, updateScheduleBlock, createScheduleBlock \} = useMoodBoardActions\(\);/);
   assert.doesNotMatch(src, /makerSave\([^)]*requestMakerRefresh/, 'a pick costs a whole-Maker render again');
 });
 

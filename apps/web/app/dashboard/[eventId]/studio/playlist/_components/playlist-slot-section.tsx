@@ -19,7 +19,6 @@
  */
 
 import { useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
 import { Music, Plus, X } from 'lucide-react';
 import { addPlaylistPick, setPlaylistSlotVibe } from '../actions';
 import { useSaveLoader } from '@/components/sd-loader';
@@ -52,7 +51,6 @@ export function PlaylistSlotSection({
   isBannedSlot,
   vibe,
 }: Props) {
-  const router = useRouter();
   const [addOpen, setAddOpen] = useState(false);
   const [songLabel, setSongLabel] = useState('');
   const [artist, setArtist] = useState('');
@@ -81,13 +79,12 @@ export function PlaylistSlotSection({
           steps: ['Adding to your playlist'],
           hint: 'Saving',
         });
-        // Reset form + close drawer · revalidatePath in the action will
-        // re-render the parent with the new pick.
+        // Reset form + close drawer · revalidatePath in the action re-renders the parent with the new pick — in the
+        // action's own answer, so nothing refreshes here (a refresh drew the page twice).
         setSongLabel('');
         setArtist('');
         setNotes('');
         setAddOpen(false);
-        router.refresh();
       } catch (err) {
         setErrorMessage(
           err instanceof Error

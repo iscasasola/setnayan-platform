@@ -15,13 +15,15 @@
  */
 
 import { redirect } from 'next/navigation';
+import { after } from 'next/server';
 import { fetchEventViewer, isDelegateWithoutArea } from '@/lib/event-viewer.server';
 import { NotSharedWithYou } from '../_components/not-shared-with-you';
 import { resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
 
 import { getCurrentUser } from '@/lib/auth';
 import { startRead } from '@/lib/start-read';
-import { isStoreShellRequest } from '@/lib/request-platform';
+import { getIapGate, isStoreShellRequest } from '@/lib/request-platform';
+import { setnayanAiTierInApp } from '@/lib/iap/setnayan-ai-in-app.server';
 import { storeShellAllowsPaidFeature } from '@/lib/store-shell';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -50,6 +52,8 @@ import { regionLabel } from '@/lib/region-source';
 import { plannedTileIdSet } from '@/lib/leaf-suggestions';
 import { addedCategoriesOf, resolveBenchRing, ringBuildCount } from '@/lib/explore-in-plan';
 import { popularTilesFor } from '@/lib/supplier-find';
+import { readFindList } from '@/lib/supplier-find-read';
+import { FindCategoryList } from './_components/find-category-list';
 import { hasVerifiedBadge } from '@/lib/verified-badge';
 import { readUnreadChatCountsByThread } from '@/lib/vendor-unread-threads';
 import { benchUnreadFrom } from '@/lib/bench-unread';
@@ -121,6 +125,8 @@ import { WaitingForQuotes, type WaitingInquiry } from './_components/waiting-for
 import {
   buildShortlistFolders,
   LOCKED_VENDOR_STATUSES,
+  COVER_TILE_PREFIX,
+  planGroupForCover,
   type ShortlistVendor,
 } from '@/lib/shortlist-taxonomy';
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
@@ -167,6 +173,7 @@ import { YOUR_TEAM_BUDGET_PART, yourTeamParts } from '@/lib/pillar-parts';
 // Your Team's Budget part IS the shipped Budget page, rendered whole — never a
 // second copy of it (owner 2026-09-29).
 import BudgetPage from '../budget/page';
+import { openDashboardEventRow } from '@/lib/event-row-once';
 
 // The browser tab says what the screen says ("supplier", never "vendor", in UI).
 export const metadata = { title: 'Suppliers' };
@@ -184,7 +191,8 @@ type Props = {
   // inspector column (`v:<vendorId>`); resolved server-side to a quick-view body.
   // part (2026-09-29) = which of Your Team's parts is showing — absent is the
   // team itself, `budget` is the shipped Budget page (lib/pillar-parts.ts).
-  searchParams: Promise<{ status?: string; tab?: string; open?: string; inspect?: string; part?: string }>;
+  // pay (2026-10-24) = one payment's line item — the Budget part opens its Pay sheet (Home's Budget widget).
+  searchParams: Promise<{ status?: string; tab?: string; open?: string; inspect?: string; part?: string; pay?: string }>;
 };
 
 type EventBudgetRow = {
@@ -249,8 +257,21 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // type where the assistant is not offered at all (owner lock 2026-07-27).
   // Gated on the COLUMN, never the type name, so a future vendor-free type is
   // covered without editing this file.
+  //
+  // 🧭 …AND IT IS A TAB ON EVERY EVENT NOW (owner 22 Oct 2026, "Fix both": every event wears the
+  // wedding's bar — `lib/event-menu-gates.ts`). A redirect here made the Suppliers tab of a vendor-free
+  // type a door that re-opened Home — the dead-tab shape the owner removed from the app's More
+  // (#6725). So the page answers in its own place, in the words Find a supplier already uses, and still
+  // renders NO bench and NO upsell.
   const profile = await resolveProfileByEvent(eventId);
-  if (profile.marketplaceEnabled !== true) redirect(`/dashboard/${eventId}`);
+  if (profile.marketplaceEnabled !== true) {
+    return (
+      <section className="sn-col space-y-6" data-suppliers-not-listed="">
+        <PageMasthead title="Suppliers" />
+        <p className="text-[15px] text-ink/65">Suppliers aren&rsquo;t listed for this kind of event yet.</p>
+      </section>
+    );
+  }
 
   // ⚖ YOUR TEAM'S BUDGET PART — owner 2026-09-29: "this is what an event
   // needs. Guestlist · Your Team · Event Hub Maker · Our Services", with Budget
@@ -266,7 +287,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         <PillarPartPicker label="Suppliers part" parts={teamParts} current="budget" />
         <BudgetPage
           params={Promise.resolve({ eventId })}
-          searchParams={Promise.resolve({ part: YOUR_TEAM_BUDGET_PART })}
+          searchParams={Promise.resolve({ part: YOUR_TEAM_BUDGET_PART, pay: sp.pay })}
         />
       </section>
     );
@@ -275,6 +296,9 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     <PillarPartPicker label="Suppliers part" parts={teamParts} current="team" />
   );
   const supabase = await createClient();
+  // 🗂 THE EVENT'S ROW, ONCE, AS THIS VIEWER (lib/event-row-once.ts): the layout's chrome, the menu's
+  // needs, the access window and the head count are each a few columns of it — one request for all.
+  openDashboardEventRow(supabase, eventId);
 
   // 👥 People with access (owner 2026-10-03): Suppliers is its own area. A
   // delegate the host set to Off reads no bookings (20271262573732 closed the
@@ -286,7 +310,13 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // No-cron lazy review-request sweep (PR #47, 2026-05-14). Any vendor still
   // in contracted/deposit_paid 24h after the event flips to delivered + fires
   // a review_request. Idempotent — flipped rows no longer match.
-  await sweepRipeReviewRequests(eventId, user.id);
+  // ⚡ AFTER THE RESPONSE, NOT IN FRONT OF IT (2026-10-20, the performance audit: it was awaited
+  // inline — its read, then each flip and each notice, one after another, before anything on the
+  // Suppliers screen was drawn). It is housekeeping that only matters a day after the event, the
+  // same lazy-sweep shape the event layout already runs in `after()` (`sweepGuardNotifications`).
+  // The flip shows on the next view of this page; it is never lost — the sweep is idempotent and
+  // every view runs it.
+  after(() => sweepRipeReviewRequests(eventId, user.id));
 
   const [vendorsRead, eventCtx, photoMaps, changeLines, hubDraft, openDateChange] = await Promise.all([
     // MEASURED, so a refused read reaches the screen as "Couldn't load your
@@ -407,6 +437,8 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // (`suppliers-opens-fast.test.ts`).
   const paywallRead = startRead(resolveSetnayanAiPaywallEnabled());
   const storeShellRead = startRead(isStoreShellRequest());
+  // 🍎 Apple sells Setnayan AI in this app (`getIapGate().iap`, owner 2026-10-23) — false everywhere else.
+  const appleIapRead = startRead(getIapGate().then((g) => g.iap, () => false));
   const taxonomyRead = startRead(getTaxonomy());
   const planGroupScopeRead = startRead(fetchPlanGroupScope(supabase));
   const buildPicksRead = startRead(
@@ -454,6 +486,25 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // one-screen page only; `null` from it = the read failed, and the card says so.
   const inviteStatusRead = isExploreReplanEnabled()
     ? startRead(readInviteStatusByVendorId(supabase, vendors.map((v) => v.vendor_id), Date.now()))
+    : null;
+  // The bottom search's EMPTY STATE (owner 2026-10-21 — the big "Find a supplier"
+  // button is gone; the search shows the categories when nothing is typed): the
+  // Find page's own list, from the Find page's own read (`lib/supplier-find-read.ts`).
+  // One-screen page only — the pre-replan bench has no bottom search.
+  const findListRead = isExploreReplanEnabled()
+    ? startRead(
+        taxonomyRead.then((taxonomy) =>
+          readFindList({
+            supabase,
+            eventId,
+            eventType: ev?.event_type ?? 'wedding',
+            ceremonyType: ev?.ceremony_type ?? null,
+            secondaryCeremonyType: ev?.secondary_ceremony_type ?? null,
+            taxonomy,
+            solemn: profile.terminology.register === 'solemn',
+          }),
+        ),
+      )
     : null;
 
   // Coordinator "propose a lock" (spec § 4) — pending proposals for the couple
@@ -997,6 +1048,8 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       // via the enrichment merge below.
       host_inclusions: v.host_inclusions ?? null,
       covers_plan_groups: v.covers_plan_groups ?? null,
+      // A moved supplier's row when the enum cannot name it (`homeTileForRow`).
+      category_key: v.category_key ?? null,
       // Hero photo (#8) — vendor's own service photo wins, then a manual
       // contact's uploaded photo; both null for off-platform picks with
       // neither → card falls through to logo → initials. Never fabricated.
@@ -1029,12 +1082,22 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     const groupLabelById = new Map<string, string>(
       PLAN_GROUPS.map((g) => [g.id as string, g.label]),
     );
+    // The Suppliers page's own row names, for a cover key that names a row no
+    // plan group opens on (`tile:food_truck`, 2026-10-20) — the same snapshot
+    // the rows below are drawn from (already in flight since the top).
+    const coverTileLabel = (await taxonomyRead).tileLabel as Record<string, string>;
     for (const v of vendors) {
-      // Carry the group id alongside the label (2026-06-12): host covers ARE
-      // plan-group ids, so they feed category-satisfaction directly.
+      // Carry the group id alongside the label (2026-06-12): a plan-group key
+      // feeds category-satisfaction directly; a row-only key (`tile:…`) says
+      // "comes with Food Truck" and carries no group (`planGroupForCover`).
       const covers = (v.covers_plan_groups ?? [])
-        .map((id) => ({ label: groupLabelById.get(id), groupId: id }))
-        .filter((c): c is { label: string; groupId: string } => Boolean(c.label));
+        .map((id) => {
+          const groupId = planGroupForCover(id);
+          const tile = id.startsWith(COVER_TILE_PREFIX) ? id.slice(COVER_TILE_PREFIX.length) : null;
+          const label = (groupId === id ? groupLabelById.get(id) : null) ?? (tile ? coverTileLabel[tile] : undefined);
+          return { label, groupId };
+        })
+        .filter((c): c is { label: string; groupId: string | null } => Boolean(c.label));
       if (covers.length === 0) continue;
       const existing = enrichmentByVendorId.get(v.vendor_id);
       enrichmentByVendorId.set(v.vendor_id, {
@@ -1130,7 +1193,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
             It was not hypothetical — this query has been returning PGRST201,
             so the caution has never once been shown to anybody.
           */
-          'marketplace_vendor_id, event_id, event:events!event_vendors_event_id_fkey!inner(event_date)',
+          'marketplace_vendor_id, event_id, event:events!event_vendors_event_id_fkey!inner(event_date, same_date_count_opt_out)',
         )
         .in('marketplace_vendor_id', marketplaceIds)
         .in('status', ['considering', 'contracted'])
@@ -1145,11 +1208,18 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       if (holdsError) {
         logQueryError('CoupleVendorsPage.sameDateHolds', holdsError, { eventId }, 'graceful_degrade');
       }
+      // ⚖ DPO ruling 2026-10-23: a couple may leave the same-date count. The
+      // flag rides on the same row, and `groupHoldsByVendor` drops it.
       const holdRows: SameDateHold[] = (
-        (holds ?? []) as Array<{ marketplace_vendor_id: string | null; event_id: string }>
+        (holds ?? []) as Array<{
+          marketplace_vendor_id: string | null;
+          event_id: string;
+          event?: { same_date_count_opt_out?: boolean | null } | null;
+        }>
       ).map((h) => ({
         marketplaceVendorId: h.marketplace_vendor_id,
         eventId: h.event_id,
+        optedOut: h.event?.same_date_count_opt_out === true,
       }));
       const otherEventsByProfile = groupHoldsByVendor(holdRows);
 
@@ -1225,12 +1295,17 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   const paywallEnabled = await paywallRead;
   const aiGateOpts = { paywallEnabled };
   const storeShell = await storeShellRead;
+  const appleIap = storeShell && (await appleIapRead) === true;
+  // ✦ …and Apple sells Setnayan AI for THIS event's tier (one product per web tier, owner 2026-10-23) — only then
+  // may a Sai bought anywhere be used here, or offered (3.1.3(b)).
+  const appleSai = appleIap && paywallEnabled && (await setnayanAiTierInApp(createAdminClient(), eventId)).status === 'sellable';
   // 🔒 A web-bought Sai does not light up in the App Store / Play Store shell
   // (guideline 3.1.3(b); lib/store-shell.ts) — unless the paywall is off and
   // Sai is free for everyone, in which case it is planning and stays.
+  // 🍎 …or Apple sells it in this app (2026-10-23): then a Sai bought on the web OR in the app lights up.
   const aiActive =
     isSetnayanAiActiveForEvent(ev, aiGateOpts) &&
-    storeShellAllowsPaidFeature(storeShell, paywallEnabled);
+    storeShellAllowsPaidFeature(storeShell, paywallEnabled, appleSai);
 
   // DB-driven category headers (owner 2026-06-09 — "taxonomy applies to all 5
   // menus"): the 10 folder labels/order/slugs come from `service_categories`
@@ -1305,7 +1380,11 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // checkout). Renders in both the takeover shortlist slot and the bare return.
   // Never in the App Store / Play Store shell: it advertises a paid purchase and
   // links to a route the store shell is refused (lib/store-shell.ts).
-  const aiOffer = !storeShell && shouldOfferSetnayanAiPurchaseForEvent(ev, aiGateOpts);
+  // 🍎 Where Apple sells Setnayan AI for THIS event (lib/iap/setnayan-ai-in-app.server.ts), the banner shows in the
+  // app too — it carries no price, and its page's pay step is Apple's sheet.
+  const aiOffer =
+    shouldOfferSetnayanAiPurchaseForEvent(ev, aiGateOpts) &&
+    (!storeShell || appleSai);
   const aiOfferBanner = aiOffer ? (
     <Link
       href={`/dashboard/${eventId}/studio/setnayan-ai`}
@@ -1900,6 +1979,23 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // read error degrades to the normal rails (the surface is unaffected).
   const coveredByTile: Record<string, string> = await coveredTilesRead;
   const inviteStatusByVendorId = inviteStatusRead ? await inviteStatusRead : undefined;
+  // The bottom search's empty state. A refused read is said, never drawn as an
+  // empty list: the box then opens on one line that says it could not load.
+  const findRead = findListRead ? await findListRead.catch(() => null) : undefined;
+  const findPanel =
+    findRead === undefined ? null : findRead === null ? (
+      <p role="alert" className="pt-4 text-[13px] text-ink/60">
+        We couldn&rsquo;t load the categories — reload in a moment.
+      </p>
+    ) : (
+      <FindCategoryList
+        eventId={eventId}
+        list={findRead.list}
+        bookedMeasured={findRead.bookedMeasured}
+        eventType={ev?.event_type ?? 'wedding'}
+        solemn={profile.terminology.register === 'solemn'}
+      />
+    );
   async function readCoveredTiles(): Promise<Record<string, string>> {
     const out: Record<string, string> = {};
     if (!isExploreReplanEnabled()) return out;
@@ -2181,6 +2277,8 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         // The starter ring for an event with no plan of its own — the four a
         // host of its type books first (the Find page's own "Popular" list).
         starterTiles={[...popularTilesFor(ev?.event_type ?? null)]}
+        // The bottom search, tapped empty: the Find page's own category list.
+        findPanel={findPanel}
         // Each pick's own service card (name · offer · price · what's included).
         // Null = the read failed: the cards then say nothing about a service
         // card, rather than "Price on request".
@@ -2354,6 +2452,9 @@ export default async function VendorsPage({ params, searchParams }: Props) {
               status: v.status,
               planGroupId: v.planGroupId,
               lockState: v.lockRequestState,
+              // "Also covers": the line names them "· with <their row>" and
+              // carries no money of its own (`lib/covered-row-name.ts`).
+              includedWith: v.includedWith,
             })),
           })),
         priceOf: (vendorId) => priceByVendorId.get(vendorId) ?? null,
@@ -2866,7 +2967,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
                     <BookThisBuild
                       eventId={eventId}
                       picks={buildLines.flatMap((l) =>
-                        l.pick && !l.booked && !l.pickAsked
+                        l.pick && !l.booked && !l.pickAsked && !l.pick.includedWith
                           ? [{ vendorId: l.pick.vendorId, name: l.pick.name, tile: l.tile, category: l.label, blockedNote: l.pickNote }]
                           : [],
                       )}

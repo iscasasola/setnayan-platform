@@ -11,6 +11,7 @@ import { MomentNotKept } from './moment-sheet';
 import { patchStoryWord, storyStr, STORY_SHORT_MAX } from '@/lib/love-story-words';
 import { loveStoryPreviewMessage, markMakerCanvasStale, postToMakerCanvas } from '@/lib/maker-live-preview';
 import { hubDraftAction } from '../../hub-draft-actions';
+import { MERGE_BASE_FIELD } from '@/lib/merge-base-field';
 import { LoveStoryBook, type LoveStoryBookProps } from './love-story-book';
 import { LoveStoryChaptersPanel } from './love-story-chapters-panel';
 import type { LoveStoryBlob } from './story-fields';
@@ -72,6 +73,8 @@ const subscribe = (l: () => void) => {
 };
 /** The last story the draft is known to hold — a refused save goes back here. */
 let savedStory: Story | null = null;
+/** 👥 The last story this page SENT — the base its next save is merged from (`lib/merge-from-base.ts`; saves run in order). */
+let sentStory: Story | null = null;
 /** A change the bridge could not draw is in this burst — reload the canvases once it lands. */
 let owesCanvas = false;
 /** The newest refusal, in words — every panel on the story shows it. */
@@ -96,14 +99,23 @@ export function useLoveStoryRefusal(): { seq: number; text: string } | null {
 /** What the canvases draw of the story — changes here the bridge cannot lay. */
 function sceneShape(story: Story): string {
   return loveStoryScenes(story)
-    .map((s) => `${s.id}|${s.chapter}|${s.media.join(',')}`)
+    /* 🗣 Which voices a moment has is its SHAPE (a bubble appears or goes) — the bridge lays words, never a bubble. */
+    .map((s) => `${s.id}|${s.chapter}|${s.media.join(',')}|${s.voices?.a ? 'a' : ''}${s.voices?.b ? 'b' : ''}`)
     .join(';');
 }
 
 function postPreview(story: Story) {
   postToMakerCanvas(
     loveStoryPreviewMessage(
-      loveStoryScenes(story).map((s) => ({ id: s.id, when: s.when, chapterLabel: s.chapterLabel, line: s.line, place: s.place ?? '' })),
+      loveStoryScenes(story).map((s) => ({
+        id: s.id,
+        when: s.when,
+        chapterLabel: s.chapterLabel,
+        line: s.line,
+        place: s.place ?? '',
+        ...(s.voices?.a ? { voiceA: s.voices.a } : {}),
+        ...(s.voices?.b ? { voiceB: s.voices.b } : {}),
+      })),
     ),
   );
 }
@@ -126,7 +138,10 @@ export async function editLoveStory(input: {
   const prev = liveStoryOf(server);
   /* Nothing of ours on its way: what is shown IS what the draft holds (a render
      — Apply, Restore — may have replaced it since our last save). */
-  if (savedStory === null || makerWritesPending(canvasWriteKey(LOVE_STORY_DRAFT_TYPE)) === 0) savedStory = prev;
+  if (savedStory === null || makerWritesPending(canvasWriteKey(LOVE_STORY_DRAFT_TYPE)) === 0) {
+    savedStory = prev;
+    sentStory = prev;
+  }
   if (input.redraw || sceneShape(prev) !== sceneShape(next)) owesCanvas = true;
   noteDraftedCanvas(LOVE_STORY_DRAFT_TYPE, next as HubSectionCanvas, asStory(server) as HubSectionCanvas);
   refusal = null;
@@ -147,6 +162,10 @@ export async function editLoveStory(input: {
           const fd = new FormData();
           fd.set('intent', 'save');
           fd.set('patch', JSON.stringify({ events }));
+          /* 👥 TWO HOSTS NEVER OVERWRITE EACH OTHER (owner 2026-10-18): the story goes in WHOLE, so it carries the story it
+             was built on — the server keeps every moment and word this page did not change (another host's included). */
+          if (sentStory) fd.set(MERGE_BASE_FIELD, JSON.stringify({ events: { love_story: sentStory } }));
+          sentStory = next;
           fd.set(HUB_DRAFT_BAR_FIELD, '1');
           return send(eventId, fd);
         }),
@@ -160,6 +179,17 @@ export async function editLoveStory(input: {
   if (res === SUPERSEDED) return 'carried';
   if (res.ok) {
     savedStory = next;
+    /* 👥 Another screen's moments or words reached this save: the draft holds both — show that (said once by `makerSave`).
+       A change made since is still on its way and will be merged on top of it. */
+    const merged = res.elsewhere?.merged.events?.love_story;
+    if (merged && typeof merged === 'object' && makerWritesPending(canvasWriteKey(LOVE_STORY_DRAFT_TYPE)) === 0) {
+      savedStory = asStory(merged);
+      sentStory = savedStory;
+      noteDraftedCanvas(LOVE_STORY_DRAFT_TYPE, savedStory as HubSectionCanvas, asStory(server) as HubSectionCanvas);
+      notify();
+      postPreview(savedStory);
+      owesCanvas = true;
+    }
     if (owesCanvas) {
       owesCanvas = false;
       markMakerCanvasStale();
@@ -168,6 +198,7 @@ export async function editLoveStory(input: {
   }
   /* Only what did not save goes back — on the page AND on the canvas — said in words. */
   const back = savedStory ?? asStory(server);
+  sentStory = back;
   owesCanvas = false;
   noteDraftedCanvas(LOVE_STORY_DRAFT_TYPE, back as HubSectionCanvas, asStory(server) as HubSectionCanvas);
   refusal = { seq: version + 1, text: `${what} did not save, so it is back as it was. ${res.error || 'Please try again.'}` };

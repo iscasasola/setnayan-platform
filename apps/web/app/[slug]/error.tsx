@@ -63,6 +63,7 @@ export default function InvitationError({ error, reset }: Props) {
   function openAgain() {
     setOpening(true);
     startTransition(() => {
+      // one-render: keep (retry) — the page failed to render; this asks for it once more (a person’s tap, or the one auto-retry).
       latest.current.router.refresh();
       latest.current.reset();
     });
@@ -102,6 +103,7 @@ export default function InvitationError({ error, reset }: Props) {
     setOpening(true);
     const timer = window.setTimeout(() => {
       startTransition(() => {
+        // one-render: keep (retry) — the page failed to render; this asks for it once more (a person’s tap, or the one auto-retry).
         latest.current.router.refresh();
         latest.current.reset();
       });

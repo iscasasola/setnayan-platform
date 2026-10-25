@@ -195,7 +195,7 @@ test('no inspiration slot both feeds a room/people part AND becomes a place of i
   // part). An unclassified slot is a compile error in SLOT_ROLE; this proves the
   // runtime agrees with the type.
   const places = new Set(renderPartsInGroup('places').map((p) => p.sourceKey));
-  const boardsOnly: readonly string[] = ['bridal_bouquet', 'centrepieces', 'bridesmaids', 'groomsmen', 'flower_girl', 'ring_bearer'];
+  const boardsOnly: readonly string[] = ['bridal_bouquet', 'centrepieces', 'chairs', 'ribbons_candles', 'lights', 'entourage_bouquets', 'flower_accents', 'bridesmaids', 'groomsmen', 'flower_girl', 'ring_bearer'];
   for (const slot of boardsOnly) {
     assert.ok(!places.has(slot) && !aliased.has(slot), `inspiration board "${slot}" became a render part`);
   }

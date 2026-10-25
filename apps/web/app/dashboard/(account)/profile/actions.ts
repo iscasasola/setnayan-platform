@@ -12,28 +12,11 @@ import { isSettingsGroup } from '@/lib/profile-settings-groups';
 import { seatNameOfferFor } from '@/lib/seat-name-offer.server';
 import type { FormalNameField } from '@/lib/formal-name';
 import { clearHomeShelf } from '@/lib/home-shelf-clear';
+import { isAppearance } from '@/lib/appearance';
 
-// 2026-05-22 brand pivot (CLAUDE.md decision-log). 5-theme list retired —
-// replaced with 3-mode (Light · Dark · Auto). Owner directive: "make our
-// default color be like facebook white and blue. and remove the personalization
-// of colors. It will be light, dark, auto. just like ios". The Postgres ENUM
-// `theme_preference` is migrated to the 3 new values via
-// `supabase/migrations/20260606000000_users_theme_preference_three_mode.sql` —
-// legacy rows remap to 'light' (setnayan_default / victorian / classy /
-// forest_champagne) or 'auto' (ios). See CLAUDE.md row for full rationale.
-const VALID_THEMES = ['light', 'dark', 'auto'] as const;
-type ThemePreference = (typeof VALID_THEMES)[number];
-
-function isValidTheme(value: unknown): value is ThemePreference {
-  return typeof value === 'string' && (VALID_THEMES as readonly string[]).includes(value);
-}
-
-const VALID_PLANNER_MODES = ['guided', 'diy'] as const;
-type PlannerMode = (typeof VALID_PLANNER_MODES)[number];
-
-function isValidPlannerMode(value: unknown): value is PlannerMode {
-  return typeof value === 'string' && (VALID_PLANNER_MODES as readonly string[]).includes(value);
-}
+// Appearance = Light · Dark (owner "approve all", DECISION_LOG 2026-10-13). The enum still holds
+// 'auto' (2026-06-06 three-mode migration), but there is NO "follow the phone" option (call 1) and
+// 20271267769389 moved every 'auto' row to 'light' — so 'auto' is refused here.
 
 // Iteration 0025 — runtime EN/TL toggle. 'ceb' stays in the DB enum for a
 // future Cebuano dictionary; the UI only exposes EN/TL today.
@@ -44,10 +27,20 @@ function isValidLocale(value: unknown): value is LocalePref {
   return typeof value === 'string' && (VALID_LOCALES as readonly string[]).includes(value);
 }
 
-export async function updateThemePreference(formData: FormData) {
+/**
+ * Records the person's Appearance on their account — the cross-device copy of the choice.
+ *
+ * ⚡ NO SERVER RE-RENDER (least-requests rule). The page has already changed by the time this runs:
+ * the Appearance control writes the `sn-theme` cookie IN THE BROWSER and the class flips on the spot
+ * (`useTheme().setMode`). This action deliberately neither sets the cookie nor revalidates —
+ * a `cookies().set` in a Server Action makes Next re-render the current route on the server, and
+ * `revalidatePath('/dashboard', 'layout')` (what this used to do) re-rendered every dashboard
+ * layout. Nothing on the server reads the column to draw a page, so there is nothing to refresh.
+ */
+export async function updateThemePreference(formData: FormData): Promise<{ ok: true } | { ok: false; error: string }> {
   const raw = formData.get('theme');
-  if (!isValidTheme(raw)) {
-    throw new Error('Invalid theme');
+  if (!isAppearance(raw)) {
+    return { ok: false, error: 'Pick Light, Dark or Automatic.' };
   }
 
   const supabase = await createClient();
@@ -61,9 +54,8 @@ export async function updateThemePreference(formData: FormData) {
     .update({ theme_preference: raw, updated_at: new Date().toISOString() })
     .eq('user_id', user.id);
 
-  if (error) throw new Error(error.message);
-
-  revalidatePath('/dashboard', 'layout');
+  if (error) return { ok: false, error: 'Your choice is on this device but could not be saved to your account. Try again.' };
+  return { ok: true };
 }
 
 /**
@@ -301,27 +293,8 @@ export async function updateLocalePreference(formData: FormData) {
   revalidatePath('/dashboard', 'layout');
 }
 
-export async function updatePlannerMode(formData: FormData) {
-  const raw = formData.get('planner_mode');
-  if (!isValidPlannerMode(raw)) {
-    throw new Error('Invalid planner mode');
-  }
-
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
-
-  const { error } = await supabase
-    .from('users')
-    .update({ planner_mode: raw, updated_at: new Date().toISOString() })
-    .eq('user_id', user.id);
-
-  if (error) throw new Error(error.message);
-
-  revalidatePath('/dashboard', 'layout');
-}
+// `updatePlannerMode` is gone with the Guided · DIY setting (owner 23 Oct 2026): nothing
+// ever read `users.planner_mode`, so the choice changed nothing. The column stays.
 
 // ---------------------------------------------------------------------------
 // Social-sharing follow-through #7a — vanity slug editor.

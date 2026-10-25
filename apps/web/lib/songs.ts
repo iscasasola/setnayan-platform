@@ -124,14 +124,26 @@ export async function fetchVendorSongs(
   supabase: SupabaseClient,
   vendorProfileId: string,
 ): Promise<RepertoireSong[]> {
+  return (await readVendorSongs(supabase, vendorProfileId)).rows;
+}
+
+/**
+ * `fetchVendorSongs`, saying whether the read FAILED — the Song Desk must not turn a refused repertoire read into
+ * "N requests you don't play yet" (coordinator walk 2026-10-23). `failed` ⇒ `rows` is empty and means nothing.
+ */
+export async function readVendorSongs(
+  supabase: SupabaseClient,
+  vendorProfileId: string,
+): Promise<{ rows: RepertoireSong[]; failed: boolean }> {
   const { data, error } = await supabase
     .from('vendor_songs')
     .select('song_id, created_at, performance_url, songs(song_id, title, artist)')
     .eq('vendor_profile_id', vendorProfileId)
     .order('created_at', { ascending: false });
   if (error) console.error('[supabase-error] lib/songs.ts · from:vendor_songs.select', error);
-  if (error || !data) return [];
-  return (data as unknown[]).flatMap((row) => {
+  if (error) return { rows: [], failed: true };
+  if (!data) return { rows: [], failed: false };
+  return { rows: (data as unknown[]).flatMap((row) => {
     const r = row as { songs: unknown; performance_url?: string | null };
     const s = (Array.isArray(r.songs) ? r.songs[0] : r.songs) as Song | undefined;
     return s
@@ -144,7 +156,7 @@ export async function fetchVendorSongs(
           },
         ]
       : [];
-  });
+  }), failed: false };
 }
 
 /** Search the master catalogue by title (public-read). Curated picks first. */
@@ -358,19 +370,32 @@ export async function fetchEventSongRequests(
   supabase: SupabaseClient,
   eventId: string,
 ): Promise<Song[]> {
+  return (await readEventSongRequests(supabase, eventId)).rows;
+}
+
+/**
+ * `fetchEventSongRequests`, saying whether the read FAILED — a refused read is not "the couple haven't picked any songs
+ * yet" (coordinator walk 2026-10-23). `failed` ⇒ `rows` is empty and means nothing.
+ */
+export async function readEventSongRequests(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<{ rows: Song[]; failed: boolean }> {
   const { data, error } = await supabase
     .from('event_song_picks')
     .select('song_id, songs(song_id, title, artist)')
     .eq('event_id', eventId);
   if (error) console.error('[supabase-error] lib/songs.ts · from:event_song_picks.select', error);
-  if (error || !data) return [];
-  return (data as unknown[])
+  if (error) return { rows: [], failed: true };
+  if (!data) return { rows: [], failed: false };
+  const rows = (data as unknown[])
     .flatMap((row) => {
       const r = row as { songs: unknown };
       const s = (Array.isArray(r.songs) ? r.songs[0] : r.songs) as Song | undefined;
       return s ? [{ song_id: s.song_id, title: s.title, artist: s.artist }] : [];
     })
     .sort((a, b) => a.title.localeCompare(b.title));
+  return { rows, failed: false };
 }
 
 /** The couple's chosen song_ids (the match query set). Empty on no picks / error. */

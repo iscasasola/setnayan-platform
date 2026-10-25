@@ -132,13 +132,28 @@ export async function eventPapicGuestAccess(
      read again. Same asker, same event, same question: asked once. Outside a
      render (an action, the capture route) nothing is remembered — every gate
      still reads every time, exactly as before. */
+  return (await eventPapicGuestAccessWhy(supabase, eventId)).access;
+}
+
+/**
+ * The same answer, and WHY it is 'off' (owner 2026-10-23, the guest card's "Papic is off · Turn on ›"): `answeredNo` is
+ * the host's own "Photos from your guests? — No" (`papic_on = false`, Event Details) — the switch they press to turn it
+ * back on — as against an event with no Papic yet (no pass, no pool), whose door is the Papic page. ONE read: the same
+ * remembered answer `eventPapicGuestAccess` gives (`lib/request-once.ts`), so asking why sends nothing more.
+ */
+export type PapicGuestAccessWhy = { access: PapicGuestAccess; answeredNo: boolean };
+
+export async function eventPapicGuestAccessWhy(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<PapicGuestAccessWhy> {
   return askedOnce(supabase, 'papic-guest-access', [eventId], () => readPapicGuestAccess(supabase, eventId));
 }
 
 async function readPapicGuestAccess(
   supabase: SupabaseClient,
   eventId: string,
-): Promise<PapicGuestAccess> {
+): Promise<PapicGuestAccessWhy> {
   const [owned, pool, papicSwitch] = await Promise.all([
     Promise.all(PAPIC_PASS_SERVICE_KEYS.map((key) => eventSkuActive(supabase, eventId, key))),
     readEventPoolStatus(supabase, eventId).catch(() => ({ ok: false, status: null })),
@@ -153,11 +168,11 @@ async function readPapicGuestAccess(
   // Only an explicit No: an unread switch makes no claim and the purchase and
   // the pool decide, exactly as before.
   if (!papicSwitch.error && papicSwitch.data && !papicIsOn((papicSwitch.data as { papic_on?: unknown }).papic_on)) {
-    return 'off';
+    return { access: 'off', answeredNo: true };
   }
-  if (owned.some(Boolean)) return 'on';
-  if (!pool.ok) return 'unknown';
-  return pool.status?.applies === true ? 'on' : 'off';
+  if (owned.some(Boolean)) return { access: 'on', answeredNo: false };
+  if (!pool.ok) return { access: 'unknown', answeredNo: false };
+  return { access: pool.status?.applies === true ? 'on' : 'off', answeredNo: false };
 }
 
 /**

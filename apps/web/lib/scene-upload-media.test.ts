@@ -63,6 +63,8 @@ async function paintRow(props: Record<string, unknown>): Promise<string> {
         stageLabel: 'Invitation',
         draftAction: async () => ({ ok: true, intent: 'save', applied: 0, held: [] }),
         themeColours: ['#1b1a17'],
+        videoChoice: null,
+        sceneUploads: [],
         ...props,
       }),
     ),
@@ -134,7 +136,7 @@ test('2 · the Save the Date upload is offered — through the page\'s ONE signi
 test('2b · a scene\'s own upload lands in its own folder and Apply accepts only THIS event\'s', async () => {
   const apply = stripComments(read('app/dashboard/[eventId]/website/hub-draft-actions.ts'));
   assert.match(apply, /const ownScenePrefix = `r2:\/\/\$\{PUBLIC_R2_BUCKET\}\/events\/\$\{eventId\}\/\$\{SCENE_BACKGROUND_FOLDER\}\/`/);
-  assert.match(apply, /\[drafted\?\.media, drafted\?\.poster\]/, 'the clip\'s still is checked too');
+  assert.match(apply, /\[drafted\?\.media, drafted\?\.poster(?:, cover\?\.media, cover\?\.poster)?\]/, 'the clip\'s still is checked too');
   const refs = sceneUploadRefs(E, [
     { canvas: { media: OWN, mediaMotion: 'parallax' } },
     { canvas: { kind: 'snippet', media: CLIP, poster: STILL } },
@@ -389,7 +391,8 @@ test('7 · the ready-made scenes are offered and accepted — by their EXACT pat
   assert.match(html, /data-inspector-row="scene-library"/);
   assert.equal((html.match(/title="[^"]+"/g) ?? []).length >= STD_REALISTIC_BACKGROUNDS.length, true, 'every ready-made scene is a tile');
   const apply = stripComments(read('app/dashboard/[eventId]/website/hub-draft-actions.ts'));
-  assert.match(apply, /const sceneIsOwn = \(ref: string\) => ownRefs\.has\(ref\) \|\| ref\.startsWith\(ownScenePrefix\) \|\| isStdLibrarySrc\(ref\);/);
+  // 🎞 …and (Look restudy row 7) one of OUR theme loops — a closed list too (`a-part-wears-our-videos.test.ts`).
+  assert.match(apply, /const sceneIsOwn = \(ref: string\) => ownRefs\.has\(ref\) \|\| ref\.startsWith\(ownScenePrefix\) \|\| isStdLibrarySrc\(ref\) \|\| isThemeLoopRef\(ref\);/);
   // The guest page paints it straight from its public path.
   const frame = await paintFrame({ media: golden }, { [golden]: golden });
   assert.match(frame, /--hub-media:url\(&quot;\/std\/backgrounds\/golden-hour\.webp&quot;\)/);

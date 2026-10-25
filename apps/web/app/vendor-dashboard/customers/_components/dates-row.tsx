@@ -20,6 +20,8 @@ export function DatesRow({
   end,
   data,
   strong,
+  download = false,
+  tour,
 }: {
   title: ReactNode;
   line?: ReactNode;
@@ -31,6 +33,10 @@ export function DatesRow({
   data?: string;
   /** A number at the right, read big (frame 35: "Holding this date … 2"). */
   strong?: ReactNode;
+  /** The row downloads a file (the phone calendar's .ics) — a plain link, never a client navigation. */
+  download?: boolean;
+  /** 🔦 A spotlight tour's anchor token (`data-tour`). */
+  tour?: string;
 }) {
   const inner = (
     <>
@@ -50,13 +56,32 @@ export function DatesRow({
     </>
   );
   const rowClass = 'flex min-h-[60px] items-center gap-3 border-t border-ink/10 py-2.5 first:border-t-0';
+  if (href && !end && download) {
+    return (
+      <a href={href} download className={`sn-press ${rowClass}`} data-dates-row={data ?? ''} data-tour={tour}>
+        {inner}
+      </a>
+    );
+  }
   return href && !end ? (
-    <Link href={href} scroll className={`sn-press ${rowClass}`} data-dates-row={data ?? ''}>
+    <Link href={href} scroll className={`sn-press ${rowClass}`} data-dates-row={data ?? ''} data-tour={tour}>
       {inner}
     </Link>
   ) : (
-    <div className={rowClass} data-dates-row={data ?? ''}>
+    <div className={rowClass} data-dates-row={data ?? ''} data-tour={tour}>
       {inner}
     </div>
+  );
+}
+
+/**
+ * The round icon tile at a row's left (the approved prototype's look pass, 2026-10-14: "icons on rows") — a soft
+ * disc with the row's mark. Shown, never pressed.
+ */
+export function RowTile({ children }: { children: ReactNode }) {
+  return (
+    <span aria-hidden className="grid h-10 w-10 flex-none place-items-center rounded-full bg-ink/[0.05] text-ink/70 [&>svg]:h-5 [&>svg]:w-5">
+      {children}
+    </span>
   );
 }

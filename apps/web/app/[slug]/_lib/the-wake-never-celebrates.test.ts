@@ -177,10 +177,14 @@ const TONE_SITES: Array<[string, string, string]> = [
     "'Thank you for celebrating'",
     "'Thank you for being here'",
   ],
+  /* (2026-10-24) The greeting's "We'd love to celebrate with you on" / "We hope you can be with us on" pair LEFT the
+     page with the Me redraw (owner-approved): the greeting now says no sentence at all — its only
+     question is the Reply card's, whose solemn arm ("Will you be with us?") `replyCardOf` keeps — pinned here in its
+     place, so the bill stays whole. Held below: the greeting carries no "celebrate" for anyone. */
   [
-    '_components/site-body.tsx',
-    "'We’d love to celebrate with you on'",
-    "'We hope you can be with us on'",
+    '../../lib/guest-me-parts.ts',
+    "'Will you join us?'",
+    "'Will you be with us?'",
   ],
   [
     '_components/rsvp-widget.tsx',
@@ -209,17 +213,17 @@ const TONE_SITES: Array<[string, string, string]> = [
   ],
   [
     'hub/page.tsx',
-    "'The celebration is underway — enjoy every moment.'",
+    "'The event is underway — enjoy every moment.'",
     "'The gathering is underway. Thank you for being here.'",
   ],
   [
     'hub/page.tsx',
-    "'The celebration has wrapped. Thank you for being part of the day.'",
+    "'The event has wrapped. Thank you for being part of the day.'",
     "'The gathering has ended. Thank you for standing with the family.'",
   ],
   [
     'hub/page.tsx',
-    "'The celebration is almost here. We can’t wait to see you.'",
+    "'The event is almost here. We can’t wait to see you.'",
     "'The gathering is near. It will mean a great deal to have you close.'",
   ],
   [
@@ -449,7 +453,7 @@ test('🎉 the arrival greeting is quiet at a wake — and unchanged everywhere 
 test('🖨 the printed card reads "In loving memory of" at a wake — the cover’s own words', () => {
   const print = libSrc('print-set.server.ts');
   assert.ok(
-    print.includes("eyebrow: isWedding ? 'The wedding of' : solemn ? 'In loving memory of' : 'The celebration of',"),
+    print.includes("eyebrow: isWedding ? 'The wedding of' : solemn ? 'In loving memory of' : 'Celebrating',"),
     'print-set.server.ts lost one of the three eyebrow arms',
   );
   assert.match(print, /const solemn = isWedding \? false : \(await eventWordsFor\(event\.event_type\)\)\.solemn;/,
@@ -465,8 +469,10 @@ test('🖨 the printed card reads "In loving memory of" at a wake — the cover�
 
 test('🗂 onboarding: no "Wake of the Year", no cheerful services framing at a wake', () => {
   const gen = appSrc('onboarding/[type]/_components/generic-onboarding.tsx');
+  // Whitespace-insensitive since 2026-10-22: a birthday now leads with its own example (`eventNameExample`,
+  // Host 6), so the two arms sit one ternary deeper and on their own lines — both must still be there.
   assert.ok(
-    gen.includes("placeholder={register === 'solemn' ? `e.g. ${label} for Lola Rosa` : `e.g. ${label} of the Year`}"),
+    gen.replace(/\s+/g, ' ').includes("register === 'solemn' ? `e.g. ${label} for Lola Rosa` : `e.g. ${label} of the Year`"),
     'the name placeholder has lost an arm',
   );
   assert.ok(
@@ -551,4 +557,13 @@ test('the seat pass does not bloom at a wake, and the page hands it the register
     /<ArrivalBloom[\s\S]{0,600}?solemn=\{words\.solemn\}/,
     'the seat page never tells the bloom it is at a wake',
   );
+});
+
+test('the guest greeting says no "celebrate" to anyone — its only question is the Reply card’s (2026-10-24)', () => {
+  const words = stripComments(readFileSync(join(TREE, '..', '..', 'lib', 'guest-greeting.ts'), 'utf8'));
+  const scene = stripComments(readFileSync(join(TREE, '_components', 'guest-greeting.tsx'), 'utf8'));
+  assert.match(words, /greetingAskOf/, 'precondition: the greeting takes its question from the Reply card');
+  for (const [name, src] of [['lib/guest-greeting.ts', words], ['guest-greeting.tsx', scene]] as const) {
+    assert.doesNotMatch(src, /celebrat/i, `${name}: the greeting celebrates again — a wake's guest would read it`);
+  }
 });

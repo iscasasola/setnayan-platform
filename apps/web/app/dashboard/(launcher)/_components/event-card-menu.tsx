@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from 'react';
 import { createPortal } from 'react-dom';
-import { useRouter } from 'next/navigation';
+import { useHydrated } from '@/lib/use-hydrated';
 import { Archive, CalendarPlus, MoreVertical, Trash2 } from 'lucide-react';
 
 import { setEventArchived } from '../../[eventId]/archive-actions';
@@ -164,7 +164,6 @@ export function EventCardMenu({
   const [noteOpen, setNoteOpen] = useState(false);
   useOneOpen(open, close); // one open at a time — lib/one-open.ts
   const [pending, startTransition] = useTransition();
-  const router = useRouter();
 
   function close() {
     setOpen(false);
@@ -200,10 +199,9 @@ export function EventCardMenu({
           return;
         }
         close();
-        /* revalidatePath marks the cache stale; it does not push fresh props
-           into a component already on screen. Without this the card does not
-           move and a silent success reads exactly like a dead button. */
-        router.refresh();
+        /* ⚡ The card moves on the action's own answer: `setEventArchived` revalidates, and an action that revalidates
+           answers WITH the page's new render, applied to what is on screen (measured 2026-10-20, `/dev/guests-lab` —
+           the old note here said it did not). A `router.refresh()` drew the whole page a second time. */
       } catch (err) {
         console.error('[event-card-menu] archive rejected', err);
         setError('We couldn’t save that just now. Please try again.');
@@ -245,7 +243,6 @@ export function EventCardMenu({
           return;
         }
         setAsked(res.asked);
-        router.refresh();
       } catch (err) {
         console.error('[event-card-menu] ask rejected', err);
         setError('We couldn’t send that just now. Please try again.');
@@ -265,7 +262,6 @@ export function EventCardMenu({
           return;
         }
         setAsked(null);
-        router.refresh();
       } catch (err) {
         console.error('[event-card-menu] withdraw rejected', err);
         setError('We couldn’t withdraw that just now. Please try again.');
@@ -288,7 +284,6 @@ export function EventCardMenu({
         }
         setRequested(true);
         setAsking(false);
-        router.refresh();
       } catch (err) {
         console.error('[event-card-menu] request rejected', err);
         setError('We couldn’t send that just now. Please try again.');
@@ -309,7 +304,6 @@ export function EventCardMenu({
         }
         setRequested(false);
         setImpact((prev) => (prev ? { ...prev, pendingRequest: null, canAsk: true } : prev));
-        router.refresh();
       } catch (err) {
         console.error('[event-card-menu] withdraw request rejected', err);
         setError('We couldn’t withdraw that just now. Please try again.');
@@ -332,7 +326,6 @@ export function EventCardMenu({
           return;
         }
         close();
-        router.refresh();
       } catch (err) {
         console.error('[event-card-menu] delete rejected', err);
         setError('We couldn’t remove that just now. Please try again.');
@@ -422,7 +415,7 @@ export function EventCardMenu({
                       Add to calendar
                     </span>
                     <span className="mt-0.5 block text-[11.5px] leading-snug text-ink/55">
-                      Just this celebration, on your phone.
+                      Just this event, on your phone.
                     </span>
                   </span>
                 </a>
@@ -905,13 +898,18 @@ function RemoveDialog({
   children: ReactNode;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
+  /* ⚡ NOT `typeof document` — that differs between the server pass and the hydration pass, so
+     the server sent no `<dialog>` and the first client render drew one: React #418 on every
+     phone load of the board, and the whole board rendered again on the phone (662–676 ms long
+     task at 4× CPU, measured 2026-10-16). `useHydrated` is false for both of those passes. */
+  const hydrated = useHydrated();
 
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
     if (open && !el.open) el.showModal();
     else if (!open && el.open) el.close();
-  }, [open]);
+  }, [open, hydrated]);
 
   /*
     A native dialog closes itself on ESC without telling React. Routing its
@@ -927,9 +925,9 @@ function RemoveDialog({
     }
     el.addEventListener('close', handleClose);
     return () => el.removeEventListener('close', handleClose);
-  }, [open, onDismiss]);
+  }, [open, onDismiss, hydrated]);
 
-  if (typeof document === 'undefined') return null;
+  if (!hydrated) return null;
 
   return createPortal(
     <dialog
@@ -999,7 +997,7 @@ function PermanenceWarning() {
   return (
     <p className="mt-1.5 text-[12px] leading-snug text-ink/70">
       <strong className="font-semibold text-ink">
-        Your photos and everything about this celebration are deleted for good
+        Your photos and everything about this event are deleted for good
       </strong>{' '}
       — you can’t bring any of it back, and neither can we.
     </p>
@@ -1035,7 +1033,7 @@ function SupplierRecordsNote() {
       record of payments they confirmed (the amount and date, never your bank details,
       notes or screenshots), plus the quotes and contracts they sent you. Your
       conversations with them, their payment schedules and their deliveries for this
-      celebration are removed with it.
+      event are removed with it.
     </p>
   );
 }

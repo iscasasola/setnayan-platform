@@ -1,15 +1,15 @@
-import { PaletteField } from './palette-field';
+import { ATTIRE_ROWS, attireRow, wearSaid } from '@/lib/attire-rows';
 import { RoleAttireField } from './role-attire-field';
 import { GroupAttireField } from './group-attire-field';
-import { sanitizeRoleAttire } from '@/lib/role-dress-code';
-import { sanitizeGroupAttire, ROLE_GROUPS_IN_ORDER } from '@/lib/role-group-dress-code';
+import { ROLE_GROUPS_IN_ORDER } from '@/lib/role-group-dress-code';
 import { roleGroupLabel, roleGroupOf, type RoleGroup } from '@/lib/role-groups';
 import type { RoleNames } from '@/lib/role-names';
-import { roleLabel } from '@/lib/entourage';
 import type { GuestRole } from '@/lib/guests';
 import { ListField } from './list-field';
 import { InfoTip } from '@/app/_components/info-tip';
 import type { DressCodeConfig } from '../dress-code-actions';
+/* The plain readers live in `dress-code-config.ts` (no client import) — re-exported for every existing caller. */
+export { foldEventRoles, normalizeDressCodeConfig } from './dress-code-config';
 
 /**
  * The dress-code form BODY, shared by its own editor page and the unified
@@ -78,6 +78,17 @@ export function DressCodeFields({
     people: groupTally.get(group)!.people,
   }));
 
+  /* 👗 THE WEAR IS THE STUDIO'S (2026-10-17, "ONE FACT"). Studio › Mood Board & Dress Code picks each row's Wear, per
+     person, from that person's own designs; this form shows it as the Studio says it and keeps only the call time and
+     the note. Its old Wear ▾ listed one global list for a whole group (a "Formal" for parents, a "Long gown" for a
+     father) — a second way to write the same fact that the Studio and the guest page then read as "Not said yet". */
+  /* A plain map (`tier:key` → words), never a function: the fields are client components (2026-10-17). */
+  const wearOf: Record<string, string> = Object.fromEntries(
+    ATTIRE_ROWS.map((row) => [`${row.tier}:${row.key}`, wearSaid(config as unknown as Record<string, unknown>, row)]),
+  );
+  /* Only the people the Studio dresses by their OWN row (the celebrant, the bride, the groom) are listed by role. */
+  const ownRowRoles = eventRoles.filter((r) => attireRow('roles', r.role) !== null);
+
   return (
     <div className={gap}>
       <div className="space-y-1.5">
@@ -112,15 +123,9 @@ export function DressCodeFields({
         <p className={hint}>Up to 600 characters.</p>
       </div>
 
-      <div className="space-y-1.5">
-        <p className={label}>Palette</p>
-        <p className={hint}>
-          Up to six swatches. Guests use these to dress in colors that match your {eventNoun}
-          &rsquo;s mood.
-        </p>
-        <PaletteField initial={config.palette} />
-      </div>
-
+      {/* 🎨 NO PALETTE HERE (2026-10-17). The colours are the Mood Board's five main colours — one palette (DECISION_LOG
+          2026-10-06) — set in Studio › Mood Board & Dress Code; a second list typed here was added after them on the
+          guest page (eleven against five). `updateDressCode` carries the stored list untouched. */}
       {/* 👗 THE OUTFIT FIGURE SWITCH (owner 2026-09-30: "they can opt not to
           add this"). The hidden 'off' always posts; the box adds 'on' after it
           when ticked, so `updateDressCode` reads the answer either way. A
@@ -148,8 +153,7 @@ export function DressCodeFields({
       <div className="space-y-2">
         <p className={label}>What each group wears</p>
         <p className="text-xs text-ink/55">
-          One line dresses everyone in the group. Anyone given their own outfit below keeps it —
-          each group says who, before you type.
+          What each group wears, and when they arrive, are set in Studio › Mood Board &amp; Dress Code. Here: a note.
         </p>
         <GroupAttireField
           groups={eventGroups}
@@ -157,6 +161,7 @@ export function DressCodeFields({
           roles={config.roles}
           roleNames={roleNames}
           compact={compact}
+          wear={wearOf}
         />
         {/* 🛟 NOT SHOWN HERE ≠ ERASED. Where this form cannot list the groups
             (the Maker's panel is not handed the guest list; a helper without
@@ -169,11 +174,12 @@ export function DressCodeFields({
       <div className="space-y-2">
         <p className={label}>What each role wears</p>
         <p className="text-xs text-ink/55">
-          Each role gets its own outfit and its colour from your mood board. A guest with a role
-          sees only their own line.
+          Their outfit and call time are set in Studio › Mood Board &amp; Dress Code. Here: a note.
         </p>
-        <RoleAttireField roles={eventRoles} saved={config.roles} compact={compact} />
-        {eventRoles.length === 0 ? <CarriedAttire prefix="role" saved={config.roles} /> : null}
+        <RoleAttireField roles={ownRowRoles} saved={config.roles} compact={compact} wear={wearOf} />
+        {/* 🛟 Every other role's stored line rides along unchanged — the Studio dresses those people by their group's
+            row (`resolveAttireFor`, 2026-10-17), and this form no longer lists them; a Save never wipes them. */}
+        <CarriedAttire prefix="role" saved={Object.fromEntries(Object.entries(config.roles).filter(([k]) => !ownRowRoles.some((r) => r.role === k)))} />
       </div>
 
       {/* ✅ Each list sits under its own heading. The two role sections above
@@ -199,9 +205,10 @@ export function DressCodeFields({
 
 /**
  * The saved outfits this form is not showing, posted back exactly as stored —
- * the same four parallel arrays the visible rows post (`<prefix>_key`,
- * `_style`, `_note`, `_call_time`, zipped BY INDEX in `actions.ts`), so they
- * pass through the one validator on the way back in.
+ * the same parallel arrays the visible rows post (`<prefix>_key`, `_style`,
+ * `_note`, zipped BY INDEX in `actions.ts`), so they pass through the one
+ * validator on the way back in. ⏰ No `_call_time` (owner 2026-10-18): this form
+ * posts no call time anywhere, and `updateDressCode` keeps every stored one.
  */
 function CarriedAttire({
   prefix,
@@ -218,73 +225,9 @@ function CarriedAttire({
             <input type="hidden" name={`${prefix}_key`} value={key} />
             <input type="hidden" name={`${prefix}_style`} value={rule.style} />
             <input type="hidden" name={`${prefix}_note`} value={rule.note ?? ''} />
-            <input type="hidden" name={`${prefix}_call_time`} value={rule.callTime ?? ''} />
           </span>
         ) : null,
       )}
     </>
   );
-}
-
-/**
- * The roles on a guest list, counted and labelled, for "What each role wears"
- * — the fold the Dress code page does inline, for the Maker's Dress code scene
- * (owner 2026-09-30: the couple sets each role's outfit where they are). Only
- * roles the invitation names are offered; a plain guest is not a role.
- */
-export function foldEventRoles(
-  rows: ReadonlyArray<{ role: string | null }>,
-  /** `events.role_names` — the couple's words for roles (#6170). Omitted → the usual words. */
-  names?: RoleNames | null,
-): { role: GuestRole; label: string; count: number }[] {
-  const counts = new Map<GuestRole, number>();
-  for (const { role } of rows) {
-    if (!role || role === 'guest') continue;
-    if (roleLabel(role as GuestRole) === null) continue;
-    counts.set(role as GuestRole, (counts.get(role as GuestRole) ?? 0) + 1);
-  }
-  return [...counts.entries()]
-    .map(([role, count]) => ({ role, label: roleLabel(role, names) as string, count }))
-    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
-}
-
-/**
- * The one parser for the `events.dress_code_config` JSONB shape — shared by the
- * page and the editor panel so they can never disagree about a malformed row.
- * Moved here from the page in PR-8 (was private there).
- */
-export function normalizeDressCodeConfig(raw: unknown): DressCodeConfig {
-  const obj = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
-  return {
-    title: typeof obj.title === 'string' ? obj.title : '',
-    description: typeof obj.description === 'string' ? obj.description : '',
-    dos: Array.isArray(obj.dos)
-      ? obj.dos.filter((v): v is string => typeof v === 'string')
-      : [],
-    donts: Array.isArray(obj.donts)
-      ? obj.donts.filter((v): v is string => typeof v === 'string')
-      : [],
-    // Per-role attire (owner 2026-09-20). Only PUBLISHED roles may carry an
-    // instruction — `roleLabel` returning null means the role is not one the
-    // invitation names, so an instruction for it could never be shown.
-    roles: sanitizeRoleAttire(obj.roles, (v) => roleLabel(v as GuestRole) !== null),
-    // Per-GROUP attire. `sanitizeGroupAttire` drops any key that is not one of
-    // the twelve, so a group retired in a later build stops being offered and
-    // stops being read on the same deploy.
-    groups: sanitizeGroupAttire(obj.groups),
-    // 👗 Only an explicit `false` turns the outfit figure off (owner 2026-09-30).
-    show_figure: obj.show_figure !== false,
-    palette: Array.isArray(obj.palette)
-      ? obj.palette
-          .map((row) => {
-            if (!row || typeof row !== 'object') return null;
-            const r = row as Record<string, unknown>;
-            const name = typeof r.name === 'string' ? r.name : '';
-            const hex = typeof r.hex === 'string' ? r.hex : '';
-            if (!/^#[0-9a-fA-F]{6}$/.test(hex)) return null;
-            return { name, hex };
-          })
-          .filter((row): row is { name: string; hex: string } => row !== null)
-      : [],
-  };
 }

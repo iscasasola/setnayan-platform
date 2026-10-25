@@ -1,7 +1,8 @@
 'use client';
 
+import type { SceneTypeWords } from '@/lib/hub-part-words';
 import type { FixedSceneStyles } from '@/lib/fixed-scene-styles';
-import type { CameraLook } from '@/lib/camera-look';
+import type { SceneAccents } from '@/lib/art-kit-accents';
 import { useEffect, useMemo, useState, type ComponentProps, type ReactNode } from 'react';
 import { LAB_SCRUB_GUEST } from './lab-scrub';
 import type * as LabDraft from './lab-draft';
@@ -10,7 +11,12 @@ import { HUB_DRAFT_BAR_FIELD, requestMakerRefresh } from '@/lib/maker-refresh';
 import { offerScrubOutInTheLab } from '@/lib/scrub-out-offered';
 import { setStudioDraftDoor } from '@/app/dashboard/[eventId]/launch/_components/studio-info';
 import { MakerShell } from '@/app/dashboard/[eventId]/launch/_components/maker-shell';
+import { previewRoleOptions } from '@/lib/preview-role';
+import { WEDDING_ROLE_SET } from '@/lib/role-sets';
+
+const LAB_ROLE_ROWS = previewRoleOptions(WEDDING_ROLE_SET.offeredRoles);
 import type { StudioTileModel } from '@/lib/studio-tiles';
+import type { MakerVenuePictures } from '@/app/dashboard/[eventId]/launch/_components/maker-context';
 import { MakerRsvpStage } from '@/app/dashboard/[eventId]/launch/_components/maker-rsvp-stage';
 import { MakerWork, type MakerScene } from '@/app/dashboard/[eventId]/website/editor/_components/editor-shell';
 import type { MakerNavigatorData } from '@/app/dashboard/[eventId]/website/editor/_components/maker-navigator-data';
@@ -31,6 +37,7 @@ import { MakerRevealPicker } from '@/app/dashboard/[eventId]/launch/_components/
 import { MakerLogoDoor } from '@/app/dashboard/[eventId]/launch/_components/details-lazy';
 import { LabStudioActions } from '../details-lab/lab-studio-actions';
 import { LabLogoActions } from './lab-logo-actions';
+import { LAB_COVER_PHOTO_CHOICES, LAB_PHOTO_CHOICES, LAB_SCENE_UPLOADS, LAB_VIDEO_CHOICE } from './lab-own-media';
 import { REVEAL_LIBRARY } from '@/app/[slug]/_components/reveal/reveal-templates';
 import { DEFAULT_REVEAL_EFFECTS } from '@/lib/std-reveal-effects';
 
@@ -135,9 +142,12 @@ async function labDraft(_eventId: string, fd: FormData): Promise<HubDraftActionR
   }
   const w = window as unknown as { __labDrafts?: Array<Record<string, string>> };
   (w.__labDrafts ??= []).push(Object.fromEntries([...fd].filter(([, v]) => typeof v === 'string')) as Record<string, string>);
-  const { labDraftStep } = await labEngine();
+  const { labDraftStep, labOwnKind } = await labEngine();
+  /* 🖼 The lab's scene of their own (`lab_own`), so the save is merged against a live state that holds it. */
+  const own = labOwnKind(document.cookie.split('; ').find((c) => c.startsWith('lab_own='))?.slice('lab_own='.length));
   const scrub = labScrubOn();
-  const { draft, result, published } = labDraftStep(readLabDraft(scrub), { intent: fd.get('intent'), patch: fd.get('patch'), stage: fd.get('stage'), bar: fd.get(HUB_DRAFT_BAR_FIELD), expect: fd.get('expect') }, scrub, readLabPublished(scrub));
+  /* 💎 `?pro=1` (`pro` below) — the lab's event owns Event Hub Pro: Apply holds nothing, as the real gate does for an unlocked event. */
+  const { draft, result, published } = labDraftStep(readLabDraft(scrub), { intent: fd.get('intent'), patch: fd.get('patch'), stage: fd.get('stage'), bar: fd.get(HUB_DRAFT_BAR_FIELD), expect: fd.get('expect'), pro: new URLSearchParams(window.location.search).get('pro') === '1', base: fd.get('base'), as: new URLSearchParams(window.location.search).get('as') }, scrub, readLabPublished(scrub), own);
   if (result.ok) {
     try {
       /* 📣 ✓ Apply moved the draft into the lab's published state — kept first, so the pages are drawn from both. */
@@ -170,30 +180,53 @@ export function MakerLabShell({
   pageColour = null,
   openDetails = false,
   canvases = {},
+  ownWords = {},
+  typeHere = [],
   renderStamp = 'lab',
   stagesStudio = false,
+  desktopColumns = false,
+  hiddenStages = [],
   studio = null,
+  venuePictures = null,
+  factEditors,
   fixedStyles = {},
-  cameraLook = 'classic',
   blockLooks = {},
+  sceneAccents = {},
+  kitTheme = null,
   summary,
   scrub = false,
   revealLab = null,
+  ownsPro = false,
+  tourHint = false,
 }: {
+  /** 💎 `?pro=1` — the ✓ bar of an event that owns Event Hub Pro (no Pro list at Apply). */
+  ownsPro?: boolean;
+  /** 🔦 `&spot=1` — the Maker's own spotlight is due: the quiet line shows (its stop 1). */
+  tourHint?: boolean;
   /** 🎭 `?reveal=owner|all` — the Reveal panel on the owner's map (`page.tsx` asks the guest page's own rule). */
   revealLab?: { themeName: string; defaultOpening: string; defaultIsTheme: boolean; openings: readonly string[] } | null;
   /** 🎚 `?scrub=1` — the canvas is the lab's Scrub chain (`./lab-scrub.ts`, `./guest/scrub`). */
   scrub?: boolean;
   /** ✓ The lab draft's summary as its "server" read it for this render (`lab_bar`; `?changes=N` stands in for it). */
   summary: HubDraftSummary;
-  /** 🎨 The lab's drafted part styles (`lab_styles`) and 🎛 camera look (`lab_camera`). */
+  /** 🎨 The lab's drafted part styles (`lab_styles`). */
   fixedStyles?: FixedSceneStyles;
-  cameraLook?: CameraLook;
   /** 🧱 The lab's drafted block looks (`lab_blocks`). */
   blockLooks?: Record<string, unknown>;
+  /** 🕯 The lab's drafted Accent picks (`lab_accents`), and the look it wears for them (`lab_kit=vintage`). */
+  sceneAccents?: SceneAccents;
+  kitTheme?: 'vintage' | null;
   /** 🧭 `?studio=1` — the new Maker ("Stages | Studio"), with its tiles. */
   stagesStudio?: boolean;
+  /** 🖥 `?studio=1&desk=1` — the new Maker on a desktop too, in three columns (`makerDesktopColumnsEnabled`). */
+  desktopColumns?: boolean;
+  /** 🚪 `?needs=` — the stages this event does not need (`needsHidesStage`). */
+  hiddenStages?: readonly string[];
   studio?: { tiles: readonly StudioTileModel[] } | null;
+  /** 📱 The Venue scene › Edit's Picture ▾ rows (`?studio=1&venue=church`). */
+  venuePictures?: MakerVenuePictures | null;
+  /** ✍ `&facts=1` — the fact editors the real Maker is handed (`detailsFactEditors`). */
+  factEditors?: ComponentProps<typeof MakerShell>['factEditors'];
   eventId: string;
   scenes: MakerScene[];
   navigator: MakerNavigatorData;
@@ -206,6 +239,9 @@ export function MakerLabShell({
   openDetails?: boolean;
   /** The lab's "server" canvases — what its draft holds (`lab_widgets`), read on every render. */
   canvases?: Record<string, HubSectionCanvas>;
+  /** ✍ Each scene of their own's words, and the scene words the canvas is told to find — as the real Maker hands them. */
+  ownWords?: Readonly<Record<string, { title: string; body: string }>>;
+  typeHere?: readonly SceneTypeWords[];
   /** Moves with every render of the lab page, as the real Maker's does (`String(Date.now())`). */
   renderStamp?: string;
 }) {
@@ -254,7 +290,8 @@ export function MakerLabShell({
     let here = true;
     void labEngine().then(
       ({ labRenderedSummary }) => {
-        if (here) setBar(standIn ? summary : labRenderedSummary(readLabDraft(scrub), scrub, readLabPublished(scrub)));
+        // 👥 …for this tab's host (`?as=`): ↺ greys when none of the steps are theirs.
+        if (here) setBar(standIn ? summary : labRenderedSummary(readLabDraft(scrub), scrub, readLabPublished(scrub), new URLSearchParams(window.location.search).get('as')));
       },
       () => {},
     );
@@ -306,7 +343,22 @@ export function MakerLabShell({
      maria-and-jose's shape: Classic, no hero photo, nothing chosen yet. A
      Background pick drafts into the lab (`window.__labDrafts`), never a database. */
   const house = INVITE_THEMES.house;
-  const formDraft = (fd: FormData) => void labDraft(eventId, fd);
+  const formDraft = (fd: FormData) => {
+    /* 🔤 The shipped Maker's Typeface row posts `site_font_key` as a form (`updateSiteColors`' draft door: `''` clears,
+       a key is sanitised), and that door's answer is a Maker render. The lab's door takes patches only, so the form
+       is read the same way and the render asked for — the shipped row can then be walked here (2026-10-17). */
+    const font = fd.get('site_font_key');
+    if (!fd.has('intent') && typeof font === 'string') {
+      const step = new FormData();
+      step.set('intent', 'save');
+      step.set('patch', JSON.stringify({ events: { site_font_key: font === '' ? null : font } }));
+      void labDraft(eventId, step).then((r) => {
+        if (r.ok) requestMakerRefresh();
+      });
+      return;
+    }
+    void labDraft(eventId, fd);
+  };
   const heroVideo = <SiteChromePanel action={formDraft} eventId={eventId} part="video" musicRef={null} musicEnabled={false} videoRef={null} />;
   const lookRows = {
     'main-background': {
@@ -320,12 +372,14 @@ export function MakerLabShell({
           hero={{ photoRef: null, photoUrl: null, hasClip: false, liveRef: null }}
           overrideStillUrl={null}
           drafted={false}
-          ownsPro={false}
+          ownsPro={ownsPro}
           loops={loops}
+          /* 🖼🎬 "Your photo or video" — a photo and a hero video of the lab's own (`lab-own-media.ts`), so Focus can be walked. */
+          photoChoices={LAB_PHOTO_CHOICES}
+          videoChoice={LAB_VIDEO_CHOICE}
           /* 🌈 Studio › Look › Background's Colour source — Classic's paper and maria-and-jose's five. */
           page={{ bgColor: pageColour, resolved: house.palette.canvas, five: LAB_FIVE, artDirection: null, ownButton: false }}
           draftAction={labDraft as never}
-          heroVideo={heroVideo}
         />
       ),
     },
@@ -346,7 +400,7 @@ export function MakerLabShell({
     colors: {
       label: 'Colours',
       node: (
-        <ColorsPanel action={formDraft} eventId={eventId} rowKey="colors" part="art" bgColor={null} buttonColor={null} artDirection={null} fontKey={null} magicTraveller={null} proMark="try" />
+        <ColorsPanel action={formDraft} eventId={eventId} rowKey="colors" part="art" bgColor={null} buttonColor={null} artDirection={null} fontKey={null} proMark="try" />
       ),
     },
     /* 🎵 The song and 🎬 the hero video — the REAL form parts, posting into the lab's stand-in (no file leaves it). */
@@ -386,22 +440,32 @@ export function MakerLabShell({
       /* The lab's own guest page stands in for /maria-and-jose (Preview's "Preview the stage"). */
       slug={scrub ? LAB_SCRUB_GUEST.slice(1) : 'dev/maker-lab/guest'}
       liveStage="rsvp"
-      initialStage="rsvp"
+      initialStage={hiddenStages.includes('rsvp') ? 'event' : 'rsvp'}
       /* `?tool=details` / `?guide=…` open on Details (the guided flow), as the real Maker does. */
       initialSelection={openDetails ? { kind: 'tool', key: 'details' } : null}
       storeShell={false}
       tourSlides={[]}
       firstVisit={false}
+      tourHint={tourHint}
       completeTourAction={noop}
       renderStamp={renderStamp}
       more={null}
-      applySlot={<HubDraftToolbar eventId={eventId} summary={bar} storeShell={false} priceLabel={null} proHref={null} draftAction={labDraft} />}
+      /* 💎 The Apply sheet names the Pro effects a free event tried (the real bar's `asksForPro` needs a purchase page —
+         the lab's own address stands in; nothing is bought here). `?pro=1`: the event owns Pro, so nothing is asked. */
+      applySlot={<HubDraftToolbar eventId={eventId} summary={bar} storeShell={false} priceLabel={null} proHref={ownsPro ? null : '/dev/maker-lab'} ownsPro={ownsPro} draftAction={labDraft} />}
       details={{ page: details, controls: null }}
       rsvpStage={<MakerRsvpStage {...rsvpProps} />}
       hasWork
       theHost="the couple"
       stagesStudio={stagesStudio}
+      desktopColumns={desktopColumns}
+      deskTitle={desktopColumns ? 'Maria & Jose' : null}
       studio={studio}
+      venuePictures={venuePictures}
+      factEditors={factEditors}
+      /* 🎭 See as · Role ▾ — the wedding's guest-list roles, as the launch page builds them. */
+      seeAsRoles={LAB_ROLE_ROWS}
+      hiddenStages={hiddenStages}
     >
       <MakerWork
         eventId={eventId}
@@ -410,7 +474,7 @@ export function MakerLabShell({
         navigator={navigator}
         scenePanels={Object.fromEntries(scenes.map((s) => [s.id, stand(`${s.label} — its settings`)]))}
         rows={lookRows}
-        ownsPro={false}
+        ownsPro={ownsPro}
         toggleAction={formNoop}
         setModeAction={formNoop}
         moveUpAction={formNoop}
@@ -440,7 +504,7 @@ export function MakerLabShell({
                 },
                 main: mainBackground ?? null,
                 coverRef: null,
-                sources: { loops, photoChoices: [], videoChoice: null, sceneUploads: [], cover: null, themeId: 'house' },
+                sources: { loops, photoChoices: LAB_PHOTO_CHOICES, videoChoice: LAB_VIDEO_CHOICE, sceneUploads: [], cover: null, themeId: 'house' },
                 words: { names: LAB_SAMPLE.names, date: LAB_SAMPLE.dateLabel, line: LAB_SAMPLE.venue },
                 /* On, so the sample shows the music button while Music is the tab open. */
                 musicOn: true,
@@ -488,16 +552,20 @@ export function MakerLabShell({
         }}
         elementEditing={{
           canvases,
+          ownWords,
+          typeHere,
           palette: { ink: '#2C2A29', heading: '#2C2A29', accent: '#A9834B', muted: '#8A8580', surface: '#FBF9F5' },
           draftAction: labDraft,
         }}
         sceneFormat={{
           /* maria-and-jose's Classic colours — Look › Colours › Palette needs some to show. */
           colorChoices: ['#A9834B', '#2C2A29', '#C7A27C', '#E8D9C5'],
-          photoChoices: [],
+          /* 🎞 cale-ice's shape (2026-10-17): one photo, and a clip the couple uploaded on the cover itself. */
+          photoChoices: LAB_COVER_PHOTO_CHOICES,
           videoChoice: null,
+          sceneUploads: LAB_SCENE_UPLOADS,
           mediaHref: '/dev/maker-lab',
-          hubTheme: 'house',
+          hubTheme: kitTheme ?? 'house',
           openBrowse: true,
           hideLocked: false,
           twoPeople: true,
@@ -505,9 +573,13 @@ export function MakerLabShell({
           heroCard: true,
           heroPhoto: false,
           ticketStyle: 'classic',
+          /* 🖼 The Cover Scene's Scene ◆ tiles — the lab's loop stills (its stand-ins where it has no media host). */
+          loopPosters: Object.fromEntries(loops.map((l) => [l.id, l.stillUrl ?? null])),
           fixedStyles,
-          cameraLook,
+          /* 📷 The one camera's Pro dress — the lab's `?pro=1` stands in for Logo & QR / Full Pro. */
+          cameraPro: ownsPro,
           blockLooks,
+          sceneAccents,
         }}
       />
     </MakerShell>

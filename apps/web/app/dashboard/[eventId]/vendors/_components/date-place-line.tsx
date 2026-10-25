@@ -46,7 +46,11 @@ export function DatePlaceLine({
         Couldn’t load your date and place.
         {/* A problem says so with Try again (§ 9 kind 16): the line is drawn on the
             server, so trying again is drawing the page again. */}
-        <ActionButton tone="neutral" quiet icon={RotateCcw} label="Try again" href={`/dashboard/${eventId}/vendors`} prefetch={false} />
+        {/* ⚠ A READY ELEMENT, never the bare component: this is a SERVER component and `ActionButton` a
+            client one — `icon={RotateCcw}` passes a function across the boundary and threw "Functions cannot
+            be passed directly to Client Components", so the one state that says a read failed crashed the
+            page instead (seen in the 2026-10-20 lab). Same shape as `booked-body.tsx`. */}
+        <ActionButton tone="neutral" quiet icon={<RotateCcw aria-hidden strokeWidth={1.9} />} label="Try again" href={`/dashboard/${eventId}/vendors`} prefetch={false} />
       </p>
     );
   }

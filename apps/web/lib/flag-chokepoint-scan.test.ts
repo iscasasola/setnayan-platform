@@ -72,6 +72,19 @@ type FlagSpec = {
 
 const FLAGS: FlagSpec[] = [
   {
+    // 🍎 Apple In-App Purchase in the iPhone app (owner 2026-10-18, DECISION_LOG
+    // "IN-APP PURCHASE — THE FIVE DECISIONS"). Registered the day it shipped dark.
+    // ONE of three conditions — the store shell and the StoreKit build's UA token
+    // are the others — so the gate itself is the pure `iapAvailable`, handed the
+    // flag; the server wrapper (getIapGate) is the one asker.
+    env: 'NEXT_PUBLIC_APPLE_IAP_ENABLED',
+    helper: 'lib/apple-iap-flag.ts',
+    fn: 'isAppleIapEnabled',
+    gates: ['lib/request-platform.ts'],
+    pureCores: ['lib/iap/iap-gate.ts'],
+    locals: ['appleIap'],
+  },
+  {
     // 🧭 The new Event Hub Maker, "Stages | Studio" (owner 2026-10-06; plan
     // EVENT_HUB_MAKER_STAGES_STUDIO_BUILD_PLAN_2026-10-06.md PR 1). Registered
     // the day it shipped dark. Also on for an internal viewer — handed in.
@@ -85,6 +98,26 @@ const FLAGS: FlagSpec[] = [
     // Take the decision as a prop / input, never ask it themselves.
     pureCores: ['app/dashboard/[eventId]/launch/_components/maker-shell.tsx', 'lib/studio-tiles.ts'],
     locals: ['stagesStudio'],
+  },
+  {
+    // 🖥 The new Maker on a desktop, three columns (owner 2026-10-07 all "A"; 2026-10-15 desktop first).
+    // Dark for couples while its PRs land; on for an internal viewer — handed in.
+    env: 'NEXT_PUBLIC_MAKER_DESKTOP_COLUMNS_ENABLED',
+    helper: 'lib/maker-desktop-columns-flag.ts',
+    fn: 'makerDesktopColumnsEnabled',
+    gates: ['app/dashboard/[eventId]/launch/page.tsx'],
+    pureCores: ['app/dashboard/[eventId]/launch/_components/maker-shell.tsx'],
+    locals: ['desktopColumns'],
+  },
+  {
+    // 🖥 The guest's Event Hub on a desktop — the approved system sheet (DL 2026-10-15). Dark for guests while it is
+    // checked; on for an internal viewer. The guest page asks once and writes the desk <style> or not.
+    env: 'NEXT_PUBLIC_GUEST_HUB_DESKTOP_ENABLED',
+    helper: 'lib/guest-hub-desktop-flag.ts',
+    fn: 'guestHubDesktopEnabled',
+    gates: ['app/[slug]/page.tsx'],
+    pureCores: [],
+    locals: ['guestDesk'],
   },
   {
     env: 'NEXT_PUBLIC_EXPLORE_REPLAN_ENABLED',

@@ -5,14 +5,8 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { servicesReturnBase } from '@/lib/vendor-services-return';
-import {
-  fetchSchemaWithSharedGroups,
-  parseAttributeFieldValue,
-  isAttributeFieldFilled,
-  isChipRefinementType,
-  computeAttributeCompleteness,
-  ATTRIBUTE_FIELD_NAME_PREFIX,
-} from '@/lib/vendor-service-attributes';
+import { fetchSchemaWithSharedGroups } from '@/lib/vendor-service-attributes';
+import { mergeServiceRefinements } from '@/lib/vendor-service-refinements-write';
 
 /**
  * Inline "refinement chips" writer for the fast service-card form.
@@ -53,84 +47,23 @@ export async function saveServiceRefinements(formData: FormData) {
     const profile = await fetchOwnVendorProfile(supabase, user.id);
     if (!profile) return redirect('/vendor-dashboard?error=no_profile');
 
-    // Full schema (category-specific + shared groups) — needed for parse defs,
-    // completeness scoring, and the visibility-gate recompute so the numbers
-    // stay identical to the full attributes tool.
+    // The one merge — shared with the maker's one save (lib/vendor-service-refinements-write.ts). A kind with no
+    // refinements schema is said, as before, rather than "saved".
     const schema = await fetchSchemaWithSharedGroups(supabase, canonicalService);
     if (!schema) {
       return redirect(
         `${base}?error=${encodeURIComponent(`No refinements for ${canonicalService}`)}`,
       );
     }
-
-    // Existing payload — the merge base. A missing row = first fill.
-    const { data: existingRow } = await supabase
-      .from('vendor_service_attributes')
-      .select('attribute_payload')
-      .eq('vendor_profile_id', profile.vendor_profile_id)
-      .eq('canonical_service', canonicalService)
-      .maybeSingle();
-    const merged: Record<string, unknown> = {
-      ...(((existingRow?.attribute_payload as Record<string, unknown>) ?? {})),
-    };
-
-    // The keys this submission is allowed to touch. Validated against the live
-    // schema + restricted to chip-shaped types so a hand-crafted POST can't
-    // reach in and clobber a non-chip field through this endpoint.
-    const ownedKeys = String(formData.get('refinement_keys') ?? '')
-      .split(',')
-      .map((k) => k.trim())
-      .filter((k) => k.length > 0);
-
-    const errors: string[] = [];
-    for (const key of ownedKeys) {
-      const def = schema.fields[key];
-      if (!def || !isChipRefinementType(def.type)) continue;
-      const rawValues = formData.getAll(`${ATTRIBUTE_FIELD_NAME_PREFIX}${key}`);
-      const parsed = parseAttributeFieldValue(key, def, rawValues);
-      if (!parsed.ok) {
-        errors.push(parsed.reason);
-        continue;
-      }
-      if (isAttributeFieldFilled(parsed.value)) {
-        merged[key] = parsed.value;
-      } else {
-        delete merged[key];
-      }
-    }
-
-    if (errors.length > 0) {
-      return redirect(`${base}?error=${encodeURIComponent(errors.join('; '))}`);
-    }
-
-    // Recompute the visibility gate + completeness over the FULL merged payload
-    // (not just the chips) so the listing-ready badge stays truthful.
-    const minimumFields = schema.required_for_visibility.minimum_fields ?? [];
-    const meetsVisibility = minimumFields.every((k) =>
-      isAttributeFieldFilled(merged[k]),
-    );
-    const completeness = await computeAttributeCompleteness(
+    const mergeErr = await mergeServiceRefinements(
       supabase,
-      merged,
-      schema.fields,
+      profile.vendor_profile_id,
+      canonicalService,
+      formData,
+      schema,
     );
-
-    const { error: upsertErr } = await supabase
-      .from('vendor_service_attributes')
-      .upsert(
-        {
-          vendor_profile_id: profile.vendor_profile_id,
-          canonical_service: canonicalService,
-          attribute_payload: merged,
-          schema_version_at_fill: schema.schema_version,
-          completeness_score: completeness,
-          meets_visibility_minimum: meetsVisibility,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'vendor_profile_id,canonical_service' },
-      );
-    if (upsertErr) {
-      return redirect(`${base}?error=${encodeURIComponent(upsertErr.message)}`);
+    if (mergeErr) {
+      return redirect(`${base}?error=${encodeURIComponent(mergeErr)}`);
     }
 
     revalidatePath('/vendor-dashboard/shop');

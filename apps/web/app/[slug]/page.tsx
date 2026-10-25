@@ -1,3 +1,4 @@
+import { loadGiftPage, type GiftPageEvent } from './pabuya/_lib/gift-page.server';
 import { sampleBoardFor } from '@/lib/sample-board.server';
 import { asksForHostCanvas, asksForEditorBridge, canvasOnlyScene, canvasStylePreview, canvasTriedTheme, previewWayBackHref } from './_lib/editor-canvas';
 import type { InviteThemeId } from '@/lib/invite-themes';
@@ -5,7 +6,7 @@ import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 import { eventShortcutMetadata } from '@/lib/event-app-icon';
 import { notFound, redirect } from 'next/navigation';
 import { headers } from 'next/headers';
-import { isLinkPreviewFetch, isUrlSecretShaped } from '@/lib/guest-pass-hop';
+import { invitationReentryHref, isLinkPreviewFetch, isUrlSecretShaped } from '@/lib/guest-pass-hop';
 import { invitationLinkOn } from '@/lib/invitation-link';
 import { after } from 'next/server';
 import { revalidatePath } from 'next/cache';
@@ -14,14 +15,16 @@ import { guestStagesOn } from '@/lib/guest-stages-on';
 import { getCurrentUser } from '@/lib/auth';
 import { ServerTimer } from '@/lib/server-timing';
 import { Suspense } from 'react';
-import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
+import { resolveProfile, resolveRoleSetForEvent, surfaceEnabled } from '@/lib/event-type-profile';
 import { eventWordsFor, eventWordsFromProfile, solemnAdjustedPhase } from './_lib/event-words';
 import { replyFaceOf, replyRefusedWords, replyWindow } from '@/lib/reply-window';
 import { resolveHero } from '@/lib/event-hero';
 import { resolveMonogram } from '@/lib/monogram';
+import { heroMarkSvg, logoSwitchedOff } from '@/lib/hero-monogram-data';
+import { shareCardLookToken } from '@/lib/social/share-card-look';
 import { venueNamesLine } from '@/lib/event-venues';
 import { InvitationSkeleton } from './_components/invitation-skeleton';
-import { heroDesignForSkeleton } from './_lib/hero-design-of';
+import { heroArrivingForSkeleton, heroDesignForSkeleton } from './_lib/hero-design-of';
 import { HERO_DESIGN_DEFAULT, type HeroDesignId } from '@/lib/hero-design';
 import { RESERVED_SLUGS } from '@/lib/reserved-slugs';
 import { isSetnayanHost, isLocalOrPreviewHost } from '@/lib/custom-domain-resolve';
@@ -38,28 +41,28 @@ import { resolveRenamedPath } from '@/lib/slug-forwarding';
 // Bare-root dispatch: a slug that isn't a renderable event may be a vendor
 // (setnayan.com/{vendor-slug}). Reuse the vendor route's render + metadata.
 import { renderVendorBySlug, vendorMetadataBySlug } from '@/app/v/[slug]/page';
-import { readGuestSession } from '@/lib/guest-session';
+import { readGuestPassStanding } from '@/lib/guest-session';
+import { HeldPassLine } from './_components/held-pass-line';
+import { heldPassFirstNameFor } from './_lib/held-pass-name';
 import { venueIsOpen, withheldVenue } from '@/lib/venue-disclosure';
 import { eventSongRequestDoor } from '@/lib/guest-song-request';
 import { findGuestSeatForUser } from '@/lib/guest-membership-session';
-import { guestAccountState, resolveGuestViewer, rsvpGate } from '@/lib/guest-one-path';
+import { guestAccountState, guestAnswersRead, moreAnswersOf, resolveGuestViewer, rsvpGate } from '@/lib/guest-one-path';
 import { isCoupleSeat, seatDisplayName } from '@/lib/seat-binding';
 import { SeatDoorLine } from './_components/seat-door-line';
 import { readGuestsReply, resolveRsvpAsk } from '@/lib/rsvp-ask';
 import { plusOneGate } from '@/lib/plus-one-welcome';
 import { guestListIsClosed } from '@/lib/guest-list-closed';
-import { inviteReplyPath } from '@/lib/invite-arrival';
-import { LANDING_OPEN_PARAM, LANDING_OPEN_VALUE } from '@/lib/guest-landing';
+import { inviteEnterPath, inviteReplyPath } from '@/lib/invite-arrival';
 import { checklistShows, sanitizeTicks, type ChecklistKey } from '@/lib/guest-checklist';
 import { manilaToday } from '@/lib/std-views';
-import { meLeadsWithReply, resolveArrivalAction } from '@/lib/arrival-action';
+import { PASS_ANCHOR, meLeadsWithReply, resolveArrivalAction } from '@/lib/arrival-action';
 import { BLOCK_MARK_ATTR, readBlockLooks } from '@/lib/block-looks';
 import { rsvpReplyOpen } from '@/lib/site-body-plan';
 import { partsHiddenOn } from '@/lib/what-guests-see';
 import { cookies } from 'next/headers';
 import { RSVP_TERMS_COOKIE, rsvpTermsCarried } from '@/lib/terms-agreement';
 import { yourGuestsFor } from './_lib/plus-one-seats.server';
-import { resolveEventQrLook } from '@/lib/qr-look.server';
 import { GuestMe } from './_components/guest-me';
 import { passCardEligibilityFor, plusOnePassCardIds } from '@/lib/pass-card.server';
 import { PASS_CARD_ROUTE, type PassCardEligibility } from '@/lib/pass-card';
@@ -92,10 +95,19 @@ import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
 import { GuestHubBar, GuestMeSection } from './_components/guest-hub-bar';
 import { CAMERA_ADDED_PARAM, addedShots, hubTabsOn } from './_lib/hub-tabs';
 import { pageStageFor } from './_lib/stage-bar';
-import { loadingScreenFor } from './_lib/loading-stage';
+import { loadingOpensUnderAVeil, loadingScreenFor } from './_lib/loading-stage';
+import { cinematicRevealPlays } from '@/lib/site-body-plan';
+import { fetchRevealConfig } from '@/lib/reveal-config';
+import { REVEAL_NONE, revealAllowedFor } from '@/lib/reveal-access';
+import { coerceRevealTemplate } from './_lib/reveal-props';
+import { INVITE_THEMES } from '@/lib/invite-themes';
+import type { RsvpStatus } from '@/lib/guests';
+import { resolveHubTheme } from './_lib/hub-look';
+import { stdOpeningsActiveCached } from './_components/reveal/reveal-overlay-server';
 import { resolveWeddingOnlyParts } from '@/lib/wedding-only-parts';
 import { storedStdLead, type StdLead } from '@/lib/stage-scenes';
 import { GuestTicket } from './_components/guest-ticket';
+import { MeKeepInvitation } from './_components/me-keep-invitation';
 import { SpatialBackdrop } from '@/app/_components/spatial-backdrop';
 import {
   type LifecyclePhase,
@@ -118,18 +130,20 @@ import {
   loadWidgets,
   loadEntourage,
   loadHostPreviewDraft,
+  loadEventRoleNames,
   guestLookFrom,
   type EventShellRow,
 } from './_lib/loaders';
+import { previewRoleOf } from '@/lib/preview-role';
 import {
   HUB_DRAFT_LOOK_COLUMNS,
   overlayHubDraftEvent,
   overlayHubDraftWidgets,
   type HubDraft,
 } from '@/lib/hub-draft';
+import { holdDraftedRoleNames } from '@/lib/drafted-role-names';
 import { nameStyleOfPrintDetails } from '@/lib/name-style';
 import { HostDraftLook } from './_components/host-draft-look';
-import { resolveHubTheme } from './_lib/hub-look';
 import {
   anonymousIdentity,
   guestIdentity,
@@ -148,8 +162,6 @@ import {
   SIMULATED_GUEST_INVITATION_TEXT,
 } from '@/lib/simulated-guest-preview';
 import { SampleViewerInert } from './_components/sample-viewer-inert';
-import { OwnerRibbon } from './_components/owner-ribbon';
-import { buildOwnerRibbon } from '@/lib/owner-ribbon';
 import { PrivateLanding } from './_components/private-landing';
 // The ONE body tree (OPEN-BROWSE PR3) — renders every identity tier; the
 // retained PublicLanding/InvitationSite pair (the duplicated 3-way body)
@@ -157,8 +169,13 @@ import { PrivateLanding } from './_components/private-landing';
 import { SiteBody } from './_components/site-body';
 import { envFlagEnabled } from '@/lib/env-flag';
 import { startAhead } from '@/lib/start-ahead';
+import { guestHubDesktopEnabled } from '@/lib/guest-hub-desktop-flag';
+import { GUEST_HUB_DESKTOP_CSS } from '@/lib/guest-hub-desktop';
+import { ReplyPanel } from './_components/reply-panel';
+import { viewerIsInternal } from '@/lib/view-as-free.server';
 import { isCoordinatorPrepReleaseEnabled } from '@/lib/coordinator-prep-release';
 import { withGuestReadLimit, withGuestReadLimitQuiet } from '@/lib/read-limit';
+import { hostAsksForCanvas, openSharedEventReads } from '@/lib/event-shared-reads';
 
 // Task #13 (Phase 1 day-of PWA fix, 2026-05-22) — swap `dynamic = 'force-dynamic'`
 // for ISR so this surface can be CDN-cached AND served from SHELL_CACHE when a
@@ -175,6 +192,8 @@ type Props = {
   params: Promise<{ slug: string }>;
   searchParams: Promise<{
     invite?: string;
+    /** 🔁 The redeem's 30-minute re-entry code (`REENTRY_PARAM`) — `invitationReentryHref`. */
+    k?: string;
     invite_error?: string;
     phase?: string;
     // Unified Website Editor (PR-1) — `?editor=1` mounts the click-to-edit
@@ -231,6 +250,9 @@ type Props = {
     // holding a server-verified OwnerCapability; inert for everyone else, so a
     // guest's bytes are unchanged. See lib/simulated-guest-preview.ts.
     as?: string;
+    /** 🎭 See as · Role ▾ — the wedding role the sample guest stands in (`lib/preview-role.ts`). Read only inside the
+     *  `?as=` branch, i.e. for a verified host; inert for everyone else. */
+    asrole?: string;
     /**
      * ⚠ NOT READ HERE — READ BY THE SHOP THIS ROUTE FALLS THROUGH TO.
      *
@@ -267,6 +289,8 @@ async function invitationMetadata({ params, searchParams }: Props) {
   // Bare-root dispatch (PR5): not a renderable event → use the vendor metadata
   // (vendorMetadataBySlug returns a generic title if it isn't a vendor either).
   if (!event) return vendorMetadataBySlug(slug);
+  // 🗂 The same rule as the body below (`openSharedEventReads`).
+  if (!hostAsksForCanvas(search)) openSharedEventReads(event.event_id);
   // Iteration 0053: the public couple website is the 'website' profile surface.
   // Generic (non-wedding) profiles don't enable it → fall through to vendor
   // metadata (config-driven; was a notFound() before PR5).
@@ -342,7 +366,20 @@ async function invitationMetadata({ params, searchParams }: Props) {
     version stamp could have taken down a couple's wedding page.** One guarded
     reader now owns it: a failed stamp costs the stamp, never the page.
   */
-  const ogCard = ogCardUrlFor(siteUrl, event.slug, shareState.versionAt);
+  /* 🖼 …AND THE MARK IT DRAWS (owner 2026-10-20, the cale-ice preview). The card now wears the couple's logo — the
+     cover's own `heroMarkSvg(event)`, so the Logo switch decides it here exactly as on the cover — and a changed
+     logo, or a flipped switch, must move the address too, or a crawler keeps the old face (lib/social/share-card-look.ts
+     `shareCardLookToken`). */
+  const ogCard = ogCardUrlFor(
+    siteUrl,
+    event.slug,
+    shareState.versionAt,
+    shareCardLookToken({
+      markSvg: heroMarkSvg(event),
+      monogramText: event.monogram_text ?? null,
+      monogramColor: event.monogram_color ?? null,
+    }),
+  );
   const description = `You're invited — ${event.display_name}${
     event.event_date ? `, ${formatEventDate(event.event_date)}` : ''
   }. RSVP on Setnayan.`;
@@ -494,6 +531,13 @@ async function publicInvitationPage({ params, searchParams }: Props) {
     // notFound()s itself if there's no vendor either.
     return renderVendorBySlug({ slug, searchParams });
   }
+  /* 🗂 WHAT EVERY VIEWER OF THIS EVENT SEES ALIKE IS REMEMBERED UNDER ITS STAMP
+     (event-day load L3 · `lib/event-shared-reads.ts`). Opened here, before any
+     body read, for a guest's or a stranger's view of THIS event only. A host's
+     canvas or preview (`?editor=1`, `?preview=draft`, a theme tile, "See as" —
+     any of `HOST_ONLY_PARAMS`) is never opened: every read of it goes to the
+     database, as before. What is read about the viewer never qualifies. */
+  if (!hostAsksForCanvas(search)) openSharedEventReads(event.event_id);
   // Iteration 0053: the whole public couple website is the 'website' profile
   // surface. Non-wedding (generic) profiles don't enable it → fall through to
   // the vendor check (config-driven; was a notFound() before PR5). The resolved
@@ -505,6 +549,9 @@ async function publicInvitationPage({ params, searchParams }: Props) {
   // read inside is `cache()`d and the body makes the same ones, so the body
   // pays nothing for them again. See `skeletonHeroDesign`.
   const skeletonDesign = skeletonHeroDesign(admin, event.event_id, search);
+  // 🎭 …and whether an opening would be mounted on it (`skeletonOpeningMounts`) — started now for the same reason;
+  // the reads are the ones `RevealOverlayServer` makes, `cache()`d, so the body pays for them once.
+  const skeletonOpening = skeletonOpeningMounts(event, search);
 
   // PR6 — three-tier URL cutover (slug-routing program), flag-gated (default
   // OFF). The canonical public URL for an event is now /u/{ownerSlug}/{slug}; a
@@ -585,6 +632,7 @@ async function publicInvitationPage({ params, searchParams }: Props) {
   // docblock.
   const skeletonHero = resolveHero(event);
   const skeletonHeroDesignId = await skeletonDesign;
+  const skeletonArriving = await skeletonHeroArriving(admin, event.event_id, search);
   // 🤫 …AND IT IS NEVER ANOTHER STAGE'S PAGE (a guest's walk 2026-10-11: the
   // invitation's cover stood here, then the Save the Date film replaced it
   // whole). Every fact below is already in hand — the event row, the profile,
@@ -608,6 +656,27 @@ async function publicInvitationPage({ params, searchParams }: Props) {
     storedLead: await skeletonStdLead(admin, event.event_id),
     stdFilm: search.film !== '0',
   });
+  // 🎭 BEHIND THE VEIL, NONE OF THE COVER'S WORDS SHOW (owner 2026-10-16) — nor on the loading frame before it.
+  const skeletonPhasesEnabled = isWebsitePhasesEnabled() || surfaceEnabled(eventTypeProfile, 'website');
+  const skeletonWeddingOnly = resolveWeddingOnlyParts(eventTypeProfile);
+  const skeletonVeiled = loadingOpensUnderAVeil({
+    makerCanvas: asksForEditorBridge(search),
+    openingMounts: await skeletonOpening,
+    revealPlaysOn: (lifecyclePhase) =>
+      cinematicRevealPlays({
+        phasesEnabled: skeletonPhasesEnabled,
+        lifecyclePhase,
+        weddingOnlyParts: skeletonWeddingOnly,
+        revealStages: event.reveal_stages,
+      }),
+    clockPhase: getLifecyclePhase(event.event_date, venueTz, event.event_end_date ?? null, undefined, event.std_invitation_launch_date ?? null),
+    pinnedPhase: manualLaunchPhase(event.launch_mode, event.manual_phase),
+    askedPhase:
+      askedPhase === 'save_the_date' || askedPhase === 'rsvp' || askedPhase === 'event' || askedPhase === 'editorial'
+        ? askedPhase
+        : null,
+    solemn: eventTypeProfile.terminology.register === 'solemn',
+  });
   return (
     <Suspense
       fallback={
@@ -620,10 +689,13 @@ async function publicInvitationPage({ params, searchParams }: Props) {
           heroMedia={skeletonHero.photoRef !== null || skeletonHero.guestVideoRef !== null}
           venueName={venueNamesLine(event)}
           design={skeletonHeroDesignId}
+          arriving={skeletonArriving}
+          veiled={skeletonVeiled}
           quiet={loadingScreen === 'quiet'}
           showHeader={!(asksForEditorBridge(search) && search.bars !== '1')}
           mark={
-            event.monogram_custom_svg || event.monogram_uploaded_svg
+            // 🔘 The Logo switch OFF draws initials, so the skeleton does too.
+            (event.monogram_custom_svg || event.monogram_uploaded_svg) && !logoSwitchedOff(event)
               ? null
               : { design: event, monogram: resolveMonogram(event) }
           }
@@ -662,6 +734,53 @@ async function hostCanvasDraft(
 }
 
 /**
+ * 🪪 The host's OWN guest row on this event — the groom, a co-host who is also a sponsor — the one id a host's page
+ * may mark "You" (owner ruling 2026-10-19 (a)). Their own `event_members` row only; none → no mark. A failed read is
+ * no mark (logged): marking nobody is recoverable, marking somebody else is the defect.
+ */
+async function hostOwnGuestRowFor(
+  admin: ReturnType<typeof createAdminClient>,
+  eventId: string,
+  userId: string,
+): Promise<string | null> {
+  const { data, error } = await admin
+    .from('event_members')
+    .select('guest_id')
+    .eq('event_id', eventId)
+    .eq('user_id', userId)
+    .not('guest_id', 'is', null)
+    .limit(1);
+  if (error) {
+    console.error('[supabase-error] app/[slug]/page.tsx · from:event_members.select (host own row)', error);
+    return null;
+  }
+  const id = (data?.[0] as { guest_id?: string | null } | undefined)?.guest_id;
+  return typeof id === 'string' ? id : null;
+}
+
+/** The host's own row's reply status, when that row is live (`deleted_at is null`); null otherwise or unread. */
+async function hostOwnRsvpFor(
+  admin: ReturnType<typeof createAdminClient>,
+  eventId: string,
+  guestId: string,
+): Promise<RsvpStatus | null> {
+  const { data, error } = await admin
+    .from('guests')
+    .select('rsvp_status')
+    .eq('event_id', eventId)
+    .eq('guest_id', guestId)
+    .is('deleted_at', null)
+    .maybeSingle();
+  if (error) {
+    console.error('[supabase-error] app/[slug]/page.tsx · from:guests.select (host own reply)', error);
+    return null;
+  }
+  if (!data) return null;
+  const status = (data as { rsvp_status?: string | null }).rsvp_status;
+  return status === 'attending' || status === 'declined' || status === 'maybe' ? status : 'pending';
+}
+
+/**
  * 🎴 THE LOADING SCREEN WEARS THE PAGE'S HERO DESIGN (owner: "loading skeleton =
  * the page"). It used to always draw Design 1 · The Card, so an Event Hub on
  * The Marquee, The Crest or The Letter loaded as the wrong design and jumped —
@@ -691,6 +810,20 @@ async function skeletonHeroDesign(
   }
 }
 
+/** 👻 The hero parts with a Build in of their own — undrawn on the loading screen for a moment (`heroArrivingForSkeleton`). Never throws. */
+async function skeletonHeroArriving(
+  admin: ReturnType<typeof createAdminClient>,
+  eventId: string,
+  search: Awaited<Props['searchParams']>,
+): Promise<string[]> {
+  try {
+    const [widgets, draft] = await Promise.all([loadWidgets(admin, eventId), hostCanvasDraft(admin, eventId, search)]);
+    return heroArrivingForSkeleton(widgets, draft);
+  } catch {
+    return [];
+  }
+}
+
 /**
  * 🎞 What the couple picked to lead their Save the Date — film or photos — read
  * off the same widget rows as the design above, for the loading screen
@@ -698,6 +831,37 @@ async function skeletonHeroDesign(
  * chosen", the rule's own default, and the body — which awaits the same cached
  * read — is what reports the failure.
  */
+/**
+ * 🎭 Would the page mount an opening (the veil)? The SAME decision `RevealMount` makes — `revealAllowedFor` over the
+ * admin's Reveal Studio config, the couple's own opening (else the theme's), and Event Hub Pro ownership — through the
+ * same `cache()`d reads (`fetchRevealConfig`, `stdOpeningsActiveCached`, `resolveHubTheme`). The host's draft preview
+ * (`?preview=draft`) plays a drafted opening before Pro is bought (try then pay), so it counts as owned here. Never
+ * throws: a failed read draws the loading screen as it always was.
+ */
+async function skeletonOpeningMounts(
+  event: Parameters<typeof resolveHubTheme>[0] & { event_id: string; std_reveal_template?: unknown },
+  search: Awaited<Props['searchParams']>,
+): Promise<boolean> {
+  try {
+    const isStaffPreview = process.env.NEXT_PUBLIC_STD_REVEAL === '1';
+    if (isStaffPreview) return true;
+    const [config, look, owns] = await Promise.all([
+      fetchRevealConfig(),
+      resolveHubTheme(event),
+      search.preview === 'draft' ? Promise.resolve(true) : stdOpeningsActiveCached(event.event_id),
+    ]);
+    const chosenTemplate =
+      coerceRevealTemplate(event.std_reveal_template) ??
+      (look.theme === 'house' ? null : coerceRevealTemplate(INVITE_THEMES[look.theme].opening));
+    return (
+      revealAllowedFor({ ownsPro: owns, chosenTemplate, adminDefault: config.defaultTemplate, isStaffPreview, allowed: config.templates }) !==
+      REVEAL_NONE
+    );
+  } catch {
+    return false;
+  }
+}
+
 async function skeletonStdLead(
   admin: ReturnType<typeof createAdminClient>,
   eventId: string,
@@ -791,6 +955,9 @@ async function invitationBody({
      written; `theme_try_on` lets the one theme gate paint a Pro theme the
      couple does not own yet (the fence still answers). */
   const draftedEvent = overlayHubDraftEvent(liveEvent, hostDraft);
+  /* 🏷 The entourage's section headings named in the Wedding March's Edit (owner 2026-10-19) — drafted, so the host's
+     canvas reads them through the guest tree's ONE reader of the couple's words (`lib/drafted-role-names.ts`). */
+  if (hostDraft && 'role_names' in hostDraft.events) holdDraftedRoleNames(liveEvent.event_id, hostDraft.events.role_names);
   /* 💎 A THEME PICKED INTO THE DRAFT IS WORN ON THE HOST'S CANVAS, Pro or not
      (owner 2026-09-28: *"they can edit it with pro features. but need to
      upgrade to pro when clicked on apply"*). `hostDraft` is non-null only for a
@@ -824,8 +991,7 @@ async function invitationBody({
           .then((hub) => guestLookFrom(event, hub, true))
           .catch(() => null)
       : null;
-  const wearDraft = (node: React.ReactNode) =>
-    draftLook ? <HostDraftLook look={draftLook}>{node}</HostDraftLook> : node;
+  /* (`wearDraft` — the host's draft look around the page — is made below, once the guest's desktop is decided.) */
   timer.mark('draft-look');
 
   /* ⏩ STARTED TOGETHER, AWAITED WHERE THEY ALWAYS WERE (`lib/start-ahead.ts`;
@@ -836,7 +1002,7 @@ async function invitationBody({
      same `cache()`d reads the lines below await (the session's one database
      check is `cache()`d inside `readGuestSession`). */
   startAhead(loadWidgets(admin, event.event_id));
-  startAhead(readGuestSession());
+  const passStandingAhead = startAhead(readGuestPassStanding());
   startAhead(getCurrentUser());
   /* ⏩ …and one platform switch (2026-10-12). The live layer cannot ask for the
      schedule until it knows whether coordinator prep is released — one row, the
@@ -853,13 +1019,12 @@ async function invitationBody({
     monogram,
     animatedMonogram,
     proWatermarkHidden,
+    hubParts,
     bespokeSvg,
     studioAnim,
     heroPhotoUrl,
     heroVideoUrl,
     bgMusicUrl,
-    stdBackground,
-    stdBackgroundUrl,
     stdVideoUrl,
     stdVideoPosterUrl,
     stdVenues,
@@ -884,8 +1049,25 @@ async function invitationBody({
   // accept a session-cookie-bearing guest without re-fetching guests
   // unnecessarily. The same `session` reference is consumed by the
   // existing guest-vs-public branch a few lines down — no extra DB call.
-  const session = await readGuestSession();
+  // 🪪 …asked AS THE ACCOUNT (owner bug 2026-10-19, lib/pass-account-rule.ts): signed in, a pass this browser holds
+  // for somebody else's row is SET ASIDE — `session` is null for it, and `passStandingNow.setAside` keeps it for the
+  // one line that says so ("This browser also holds <name>'s invitation. Viewing as you.").
+  const passStandingNow = await passStandingAhead;
+  const session = passStandingNow.session;
   timer.mark('guest-session');
+
+  /* 🔁 THE PERSONAL LINK NOW OPENS HERE, CARRYING ITS 30-MINUTE CODE (`?k=`, owner 2026-10-19 — see
+     `personalLinkLandingPath`). This browser holds no pass for THIS event (a chat app's "Open in Safari" opened the
+     bare address bar): spend the code once at the redeem, which comes back to the bare `/{slug}`. BEFORE the private
+     gate, so a guest holding a good code never meets the lock screen. A link-preview fetcher spends nothing — the
+     redeem answers it in place. No code (the plain address) or this event's pass → nothing happens here. */
+  const reentryHref = invitationReentryHref({
+    slug: event.slug ?? slug,
+    code: search.k,
+    passEventId: session?.event_id ?? null,
+    eventId: event.event_id,
+  });
+  if (reentryHref) redirect(reentryHref);
 
   // Private-mode gate (CLAUDE.md 2026-05-22 owner directive).
   //
@@ -1164,6 +1346,29 @@ async function invitationBody({
       isEditorCanvas = await loadHostMembership(admin, event.event_id, user.id);
     }
   }
+  /* 🖥 …the guest's desktop: never in the Maker's canvas (the Maker draws its own desktop preview); for the flag, or an
+     internal viewer. */
+  /* Asked here and answered where the page is handed back (`wearDraft`): the one small read runs beside everything
+     below, never in front of it — and only a signed-in viewer's asks the database at all (`viewerIsInternal`). */
+  const guestDeskP = isEditorCanvas ? Promise.resolve(false) : viewerIsInternal().then((internal) => guestHubDesktopEnabled({ internal })).catch(() => guestHubDesktopEnabled({ internal: false }));
+  /* …and only a guest page the flag lets in writes its `<style>` (`lib/guest-hub-desktop.ts`) — every other page is the
+     same bytes as before. */
+  const wearDraft = async (node: React.ReactNode) => {
+    const worn = draftLook ? <HostDraftLook look={draftLook}>{node}</HostDraftLook> : node;
+    const guestDesk = await guestDeskP;
+    return guestDesk ? (
+      <>
+        {worn}
+        <style data-guest-desk="">{GUEST_HUB_DESKTOP_CSS}</style>
+        {/* 🖥 …and its Reply opens the one reply page in the 440-px side panel (DECISION_LOG 2026-10-19 "FIVE
+            CONTROLLER RECOMMENDATIONS APPROVED" (3), `reply-panel.tsx`) — behind the same gate, so a page without the
+            desk keeps the plain link. */}
+        <ReplyPanel replyPath={inviteReplyPath(event.slug ?? slug)} thanksPath={inviteEnterPath(event.slug ?? slug)} />
+      </>
+    ) : (
+      worn
+    );
+  };
   // 🧱 THE DIGITAL PASS'S OWN LOOK (`lib/block-looks.ts`). The ticket is mounted HERE (`meSlotFor`, and the sample
   // guest's below), so its hidden mark is made here and handed to the ticket, which puts it right before its root
   // when it draws one. The same rule as every block's mark in `site-body.tsx`: on the Maker's canvas always; for a
@@ -1318,10 +1523,10 @@ async function invitationBody({
     viewerUserId: viewerAccount?.id ?? null,
     checkHostMembership: (userId) => loadHostMembership(admin, event.event_id, userId),
     // The stricter second question, asked only of somebody the first already
-    // admitted: are they one of the COUPLE? It decides which door the ribbon
-    // offers, because the site editor redirects every other member type. Same
-    // column, same value the editor itself checks — two copies of that rule is
-    // how the ribbon and the editor came to disagree about the same person.
+    // admitted: are they one of the COUPLE? (It decided which door the owner
+    // ribbon offered — the ribbon went on 2026-10-15, owner: "Remove it" — and
+    // `maySiteEdit` stays on the capability as the editor's own column.) Same
+    // column, same value the editor itself checks.
     checkSiteEditing: (userId) => loadCoupleMembership(admin, event.event_id, userId),
   });
 
@@ -1471,7 +1676,42 @@ async function invitationBody({
   // delta travels in the `identity` union (see _lib/site-identity.ts): the
   // anonymous variant is built by `anonymousIdentity()` (the key-pick
   // firewall) and structurally cannot carry guest-derived data.
+  /* 🪪 THE ACCOUNT OUTRANKS THE PASS (owner bug 2026-10-19 — lib/pass-account-rule.ts). The one plain line when this
+     browser holds an invitation that is not the signed-in viewer's (or a host has opened it on purpose), and the
+     host's OWN guest row — the only id a host's page may mark "You" in the entourage. Never on the Maker's canvas or
+     a See as sample: those are the host's previews, not the host. Reads only. */
+  const heldPassAside =
+    !isEditorCanvas && search.as === undefined && passStandingNow.setAside?.pass.event_id === event.event_id
+      ? passStandingNow.setAside
+      : null;
+  const hostOpenedPass =
+    !isEditorCanvas && search.as === undefined && passStandingNow.standing === 'host_preview' && session?.event_id === event.event_id
+      ? session
+      : null;
+  const heldPassGuestId = heldPassAside?.pass.guest_id ?? hostOpenedPass?.guest_id ?? null;
+  const heldPassFirstName = heldPassGuestId ? await heldPassFirstNameFor(admin, event.event_id, heldPassGuestId) : null;
+  const heldPassNode = heldPassAside ? (
+    <HeldPassLine
+      slug={event.slug ?? slug}
+      firstName={heldPassFirstName}
+      mode={heldPassAside.standing === 'set_aside_host' ? 'set_aside_host' : 'set_aside'}
+    />
+  ) : hostOpenedPass ? (
+    /* 🪪 The guest tree draws it as Me's slim bar (owner 2026-10-24, the Me redraw); the reply page keeps its line. */
+    <HeldPassLine slug={event.slug ?? slug} firstName={heldPassFirstName} mode="host_preview" bar />
+  ) : null;
+  const hostOwnGuestId =
+    ownerCapability && viewerAccount?.id && !isEditorCanvas && search.as === undefined
+      ? await hostOwnGuestRowFor(admin, event.event_id, viewerAccount.id)
+      : null;
+  /* 🗳 The host's OWN reply (owner bug 2026-10-24): the host's Reply card reads it and opens the reply page as them
+     (`readReplyIdentityForEvent`) — never the Maker's sample. Null: no live row of their own here — the card stays, and the reply page tells them so. */
+  const hostOwnRsvp = hostOwnGuestId ? await hostOwnRsvpFor(admin, event.event_id, hostOwnGuestId) : null;
   const siteProps = {
+    // 🪪 Drawn under the host's / a signed-in stranger's cover (the guest tree draws it in Me, below).
+    heldPassSlot: heldPassNode,
+    hostOwnGuestId,
+    hostOwnRsvp,
     // 🔒 WITHHELD BY DEFAULT (owner 2026-09-20 · lib/venue-disclosure.ts). Every
     // render branch spreads this object, so a branch that knows nothing about
     // the viewer's reply shows no address, no map and no directions. The guest
@@ -1491,8 +1731,6 @@ async function invitationBody({
     // 📸 Back from the camera: how many shots landed (`cameraExitHref`).
     shotsAdded: addedShots(search[CAMERA_ADDED_PARAM]),
     stdFilm,
-    stdBackground,
-    stdBackgroundUrl,
     stdVideoUrl,
     stdVideoPosterUrl,
     stdVenues,
@@ -1508,7 +1746,12 @@ async function invitationBody({
     watchLive,
     broadcastPlanned,
     doorwayFacts,
+    /* 🎁 E-Gifts on Welcome is the content (owner 2026-10-14): the gift page's OWN reader, the same one `/pabuya`
+       calls — identifiers withheld from a reader the event does not recognise. SiteBody calls it only where the gift
+       door would stand (`doorways.pabuya`) on a Welcome that carries E-Gifts. */
+    giftPageReader: (e: GiftPageEvent) => loadGiftPage(admin, e),
     proWatermarkHidden,
+    hubParts,
     isEditorCanvas,
     // 💾 Post Event's drafted scenes (owner 2026-09-25 / 2026-09-29) — the
     // host's draft only; `hostDraft` is null for every guest, so their story
@@ -1537,8 +1780,8 @@ async function invitationBody({
     // page. See `_lib/editor-canvas.ts`.
     makerWayBack: previewWayBackHref(search, event.event_id, isEditorCanvas),
     // ⚠ NO LONGER "declared but unconsumed", which this line claimed long after
-    // both had consumers. `ownerCapability` drives the read-only owner ribbon
-    // and the host's own body copy (lib/owner-ribbon.ts, site-body.tsx);
+    // both had consumers. `ownerCapability` drives the host's own body copy
+    // (site-body.tsx — the owner ribbon that also read it went 2026-10-15);
     // `vendorCapability` mounts the supplier doorway above the tier fork. Both
     // are null for everyone else, so nothing renders for a stranger.
     ownerCapability,
@@ -1647,10 +1890,9 @@ async function invitationBody({
   // 👁 SEE AS ▾ (PR-10, owner 2026-10-04) — the SAME branch, extended: `?as=`
   // may name any of the four See as states (lib/see-as.ts `SEE_AS`) on any
   // stage, for a verified host only — from the Maker's canvas (👁 Preview) or
-  // their own Event Hub (the ribbon's Preview ▾): one preview mechanism. The
+  // the Maker's hold-▶ preview on a phone (See as ▾ beside "Exit preview"): one preview mechanism. The
   // sample is drawn AS A GUEST, never as the host: the owner and supplier
-  // capabilities are dropped for the body (the ribbon keeps the host's, off the
-  // canvas), and `sampleViewer` makes the body swallow every submit and every
+  // capabilities are dropped for the body, and `sampleViewer` makes the body swallow every submit and every
   // press that could act (sample-viewer-inert.tsx). 🔒 READS ONLY —
   // `loadPreviewPerson` is a select; nothing here inserts, updates or deletes
   // (`see-as-never-writes.test.ts`).
@@ -1664,9 +1906,6 @@ async function invitationBody({
     ? {
         ...siteProps,
         ownerCapability: null,
-        // The host's own ribbon stays on their page (never in the canvas) — so
-        // the ribbon's Preview ▾ can switch back. The BODY is drawn as a guest.
-        ribbonCapability: ownerCapability,
         vendorCapability: null,
         supplierDesk: null,
         chaptersOnThisDay: [],
@@ -1681,19 +1920,6 @@ async function invitationBody({
     if (visibility === 'private' || visibility === 'invited_accounts') {
       return (
         <>
-          {/* Off the canvas, the host keeps their ribbon — its Preview ▾ is the way back. */}
-          {isEditorCanvas ? null : (
-            <OwnerRibbon
-              model={buildOwnerRibbon({
-                ownerCapability,
-                eventId: event.event_id,
-                slug: event.slug ?? null,
-                phasesEnabled,
-                lifecyclePhase,
-                seeAs,
-              })}
-            />
-          )}
           <PrivateLanding
             event={event}
             monogram={monogram}
@@ -1719,12 +1945,24 @@ async function invitationBody({
   }
   if (seeAs) {
     timer.flush();
+    /* 🎭 ROLE ▾ (owner 2026-10-17, "view it as a father of the bride"): the sample stands in one role of THIS event's
+       guest-list vocabulary, checked against its role set — anything else is no role. A role preview is named for
+       its role and reads NO guest row (⚖ 2026-09-14: a generic guest, never a real named one), so the preview
+       person is not loaded for it. */
+    const previewRole = search.asrole
+      ? previewRoleOf(
+          search.asrole,
+          (await resolveRoleSetForEvent(event.event_id)).offeredRoles,
+          await loadEventRoleNames(admin, event.event_id),
+        )
+      : null;
     const sampleIdentity = buildSimulatedGuestIdentity({
       slug: event.slug ?? slug,
       // "Each editor of each event will adapt to their event" (owner
       // 2026-09-27): a real person's name and plus-one allowance, read only.
-      person: await loadPreviewPerson(admin, event.event_id),
+      person: previewRole ? null : await loadPreviewPerson(admin, event.event_id),
       seeAs,
+      role: previewRole,
     });
     const sampleName =
       sampleIdentity.guest.display_name?.trim() ||
@@ -1739,17 +1977,22 @@ async function invitationBody({
              host's own preview (the sample has no ticket session). */
           meSection={
             widgetShouldRender(widgetByType(widgets, 'qr_card')) ? (
-              ({ replyHref }: { replyHref: string | null }) => (
+              ({ replyHref, inMe, replyOwed }: { replyHref: string | null; inMe?: boolean; replyOwed?: boolean }) => (
                 <GuestMeSection
                   meSlot={
+                    /* 🪪 The redrawn Me (owner 2026-10-24): its one Reply is Me's own — no ticket while one is owed. */
+                    inMe && replyOwed ? (
+                      <span id={PASS_ANCHOR} aria-hidden className="sr-only" />
+                    ) : (
                     <GuestTicket
                       state={sampleTicketState(seeAs)}
                       name={sampleName}
                       invitationUrl={SIMULATED_GUEST_INVITATION_TEXT}
                       src={sampleTicketSrc(event.event_id)}
-                      replyHref={replyHref}
+                      replyHref={inMe ? null : replyHref}
                       mark={passBlockMark}
                     />
+                    )
                   }
                   galleryCount={0}
                   asTab
@@ -1799,6 +2042,7 @@ async function invitationBody({
     redirect(`/${slug}/welcome`);
   }
 
+  // ⚠ ITS REDIRECT WAS RETIRED 2026-10-19 (owner: the reply opens only from the cover's button) — see 💌 below.
   // ── THE KEY GATE (owner 2026-09-26, "NOBODY WITHOUT A KEY"): *"if they enter.
   // using QR and they do not have the proper information, that should be filled
   // first until they are all answered."* A guest holding their key (link = QR =
@@ -1850,14 +2094,21 @@ async function invitationBody({
       // 📬 …nor while the couple's replies are not open (owner 2026-10-14): never sent to a form that refuses.
       repliesNow.state === 'open',
   });
-  // 🚪 "Open the invitation" on the guest's landing page (owner 2026-09-30,
-  // prototype guest_landing_page frame 1) opens it BEFORE a reply — the landing
-  // page itself leads with "Reply to the invitation", so the answers are still
-  // asked first. Only that link carries the mark (`openBeforeReplyHref`).
-  const openedFromLanding = search[LANDING_OPEN_PARAM] === LANDING_OPEN_VALUE;
-  if (!isPlusOne && keyGate.kind === 'ask' && !isEditorCanvas && !ownerCapability && !openedFromLanding) {
-    redirect(inviteReplyPath(event.slug ?? slug));
+  /* ✉️ "YOU'RE COMING ✓ · N MORE ANSWERS" (owner 2026-10-20, DECISION_LOG "THE COVER'S REPLY BUTTON HAS THREE STATES")
+     — N is THIS gate's own missing set, counted (`moreAnswersOf`): the same `rsvpGate` the reply page asks for the
+     questions it shows, on the same row. A row that did not carry the answers (`guestAnswersRead`) is not counted —
+     the cover then says the plain "Change" and the miss is logged, never a wrong number. */
+  const answersRead = guestAnswersRead(guestContext.guest);
+  if (!answersRead) {
+    console.error('[read-gap] app/[slug]/page.tsx · guests row without rsvp_status/meal_preference/mobile — the cover draws "Change", not "N more answers"');
   }
+  const moreAnswers = answersRead ? moreAnswersOf(keyGate) : null;
+  // 💌 THE EVENT HUB NEVER SENDS A KEY TO THE REPLY PAGE (owner 2026-10-19, 21:40 — "why am i at rsvp. we should
+  // be at the invitation page and not here" — and, the same evening: "so their QR code should not directly go to
+  // RSVP. they only go there when they click to the button on the cover"). This overrides the 2026-09-26 key gate's
+  // redirect: every personal link / QR opens the invitation, and the reply page opens only from the cover's own
+  // Reply button. `keyGate` still decides the "Didn't reply" mark below, and the reply page asks `rsvpGate` itself
+  // for which questions to show. 🛡 app/[slug]/redeem/a-personal-link-opens-the-invitation.test.ts
 
   const {
     guest,
@@ -1955,6 +2206,10 @@ async function invitationBody({
     seatHolderUserId,
     seatName: seatDisplayName(guest),
     seatIsCouple: isCoupleSeat(guest.role as string | null),
+    // 🔒 THE HOST HOLDS A GUEST'S LINK TO LOOK, NEVER TO KEEP (owner 2026-10-21, Pam's link on his own wedding):
+    // `ownerCapability` is the page's one host check (couple · coordinator · accepted delegate), so a host who
+    // pressed "Open as <name>" meets "You're viewing <name>'s invitation as the host", never "Save it to <you>?".
+    viewerManagesEvent: ownerCapability !== null,
   });
 
   const rsvpFlash =
@@ -2043,9 +2298,9 @@ async function invitationBody({
   const myGuests =
     event.slug && !isEditorCanvas
       ? await yourGuestsFor(admin, { event_id: event.event_id, slug: event.slug }, guest.guest_id, {
-          withPasses: true,
-          // Their passes wear the event's QR look (lib/qr-look.ts), like their own.
-          look: await resolveEventQrLook(admin, event.event_id, event),
+          // 🎫 No inline pass: each named plus-one's ticket IS their QR (`TicketRow`, guest_page_fixes_2_4 fix 4) —
+          // the route's own PNG, opened big in the sheet. The second drawing ("Show …'s ticket") was retired.
+          withPasses: false,
         })
       : { guests: [], passes: {} };
   // 🎫 THE PASS CARD (owner 2026-09-29: "only accepted accounts get their
@@ -2094,23 +2349,33 @@ async function invitationBody({
   const seatPassActive = seatPassHeld && !partsOffHere.has('seat');
   /* The door to the guest's own photos (the bar's and Me's) — none on a stage the couple hid Photos of you on. */
   const myPhotosHref = partsOffHere.has('photosofyou') ? null : `/papic/me/${guest.qr_token}`;
-  const meSlotFor = (replyHref: string | null) => isEditorCanvas ? null : (
+  /* 🪪 `inMe` — the redrawn Me (owner 2026-10-24, `me_tab_redraw_2026-10-24_fable.html`): the held-pass bar, the
+     guest's name and the ONE Reply are drawn by Me itself (`site-body.tsx`), so this slot draws none of them — no
+     name card, no "Reply to the invitation" bar on the ticket, and no ticket at all while a reply is still owed (the
+     ticket shows after a Yes). Its anchor stays, so the bar's "My QR" does not offer a code before the reply. */
+  const meSlotFor = (replyHref: string | null, me: { inMe?: boolean; replyOwed?: boolean } = {}) => isEditorCanvas ? null : (
     <>
+    {/* 🪪 "This browser also holds <name>'s invitation. Viewing as you." — or the host's "Back to you". */}
+    {heldPassNode && !me.inMe ? <div className="mb-6">{heldPassNode}</div> : null}
     {/* 🎫 THE DIGITAL TICKET — first on Me, and only on Me (owner 2026-09-30).
         Follows the couple's own "QR card" switch, as the pass on Home did; with
         it off, Me offers "My QR" instead (GuestHubBar asks the page for the
         anchor this carries). */}
     {passCard && widgetShouldRender(widgetByType(widgets, 'qr_card')) ? (
+      me.inMe && me.replyOwed ? (
+        <span id={PASS_ANCHOR} aria-hidden className="sr-only" />
+      ) : (
       <div className="mb-8">
         <GuestTicket
           state={passCard}
           name={guest.display_name?.trim() || `${guest.first_name ?? ''} ${guest.last_name ?? ''}`.trim() || 'You'}
           invitationUrl={invitationUrl}
-          replyHref={replyHref}
+          replyHref={me.inMe ? null : replyHref}
           appleWallet={meAppleWallet}
           mark={passBlockMark}
         />
       </div>
+      )
     ) : null}
     {/* 🪑 Me repeats the seat (owner 2026-09-27, "FIND YOUR SEAT, REDESIGNED"
         (4)) — the same line the Details scene carries; never a bar slot. */}
@@ -2118,6 +2383,7 @@ async function invitationBody({
       <SeatDoorLine slug={event.slug ?? slug} tableLabel={guestHubData.tableLabel} className="mb-3" />
     ) : null}
     <GuestMe
+      plain={me.inMe}
       name={
         guest.display_name?.trim() || `${guest.first_name ?? ''} ${guest.last_name ?? ''}`.trim() || 'You'
       }
@@ -2129,7 +2395,6 @@ async function invitationBody({
       askPlusOnes={resolveRsvpAsk(event.rsvp_ask_config).plus_ones}
       eventName={event.display_name ?? 'the event'}
       guests={myGuests.guests}
-      passes={myGuests.passes}
       passCards={passCardHrefs}
       account={account}
       personalLink={invitationUrl}
@@ -2251,12 +2516,29 @@ async function invitationBody({
           faceTaggingAskable,
           profileDetails,
           didntReply: keyGate.kind === 'inside' && keyGate.didntReply,
+          moreAnswers,
           checklist,
         })}
+        /* 🪪 Me's FIRST offer — "Keep this invitation", under the greeting (owner 2026-10-24: "on the me part, we start
+           offering the linking of this event to their account"). The shipped Save and every state of it; on this Me,
+           GuestMe draws no Save of its own (one place). */
+        meSave={
+          guestPageTabbed && !isEditorCanvas && account ? (
+            <MeKeepInvitation
+              state={account}
+              eventId={event.event_id}
+              slug={event.slug ?? slug}
+              personalLink={invitationUrl}
+              userAgent={meUserAgent}
+              termsCarried={meTermsCarried}
+              termsMissing={search.keep === 'terms'}
+            />
+          ) : null
+        }
         meSection={
           guestPageTabbed ? (
-            ({ replyHref }: { replyHref: string | null }) => (
-              <GuestMeSection meSlot={meSlotFor(replyHref)} photosHref={photosLeftThePage ? myPhotosHref : null} galleryCount={galleryCountHere} asTab />
+            ({ replyHref, inMe, replyOwed }: { replyHref: string | null; inMe?: boolean; replyOwed?: boolean }) => (
+              <GuestMeSection meSlot={meSlotFor(replyHref, { inMe, replyOwed })} photosHref={photosLeftThePage ? myPhotosHref : null} galleryCount={galleryCountHere} asTab />
             )
           ) : null
         }

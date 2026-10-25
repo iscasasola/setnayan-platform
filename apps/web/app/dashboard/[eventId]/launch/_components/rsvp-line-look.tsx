@@ -88,7 +88,8 @@ export function RsvpLineLookRows({
   return (
     <div className="contents" data-rsvp-line-look={line}>
       <div className={`${SP_ROWS_ROW} row-start-1`} data-rsvp-row="1" data-rsvp-line-look-row="font">
-        <span className={SP_LOOK_ROW_LABEL}>Font</span>
+        {/* 💎 ◆ — a reply line's Style is Event Hub Pro (2026-10-16): tried here, named at ✓ Apply. */}
+        <span className={SP_LOOK_ROW_LABEL}>Font ◆</span>
         <span className={SP_DD} data-stage-dd="font">
           <FontPick eventId={eventId} label="Font" dataAttr="data-rsvp-look-font" value={now.f ?? null} lead="Event Hub font" onPick={(f) => onPick({ f })} className={SP_DD_BUTTON} />
         </span>
@@ -96,7 +97,7 @@ export function RsvpLineLookRows({
       <div className={`${SP_ROWS_ROW} row-start-4`} data-rsvp-row="4" data-rsvp-line-look-row="size">
         {button ? null : (
           <>
-            <span className={SP_LOOK_ROW_LABEL}>Colour</span>
+            <span className={SP_LOOK_ROW_LABEL}>Colour ◆</span>
             <Swatch
               on
               label={colour ? `Colour ${colour} — change it` : 'The theme’s colour — change it'}
@@ -118,7 +119,7 @@ export function RsvpLineLookRows({
             ) : null}
           </>
         )}
-        <span className={SP_LOOK_ROW_LABEL}>Size</span>
+        <span className={SP_LOOK_ROW_LABEL}>Size ◆</span>
         <span className="relative flex h-11 min-w-0 flex-1 items-center px-1">
           <Slider label="Text size" data="rsvp-look-size" min={0} max={RSVP_LOOK_SIZES.length - 1} step={1} value={at} valueText={`${size}%`} onChange={(i) => onPick({ s: RSVP_LOOK_SIZES[i] ?? 100 })} />
         </span>
@@ -145,7 +146,7 @@ export function RsvpPictureLookRows({ line, now, onPick }: { line: RsvpAddedName
       <div className={`${SP_ROWS_ROW} row-start-1`} data-rsvp-row="1" data-rsvp-line-look-row="look">
         <Dd
           stacked
-          small="Look"
+          small="Look ◆"
           label="Look"
           data="rsvp-picture-look"
           value={value}

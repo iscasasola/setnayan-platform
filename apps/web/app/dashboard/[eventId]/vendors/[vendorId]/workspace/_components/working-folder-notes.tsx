@@ -188,7 +188,7 @@ export async function WorkingFolderNotes({
           )}
           <SubmitButton
             pendingLabel="Adding…"
-            className="inline-flex min-h-[40px] items-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-xs font-medium text-white transition-colors hover:bg-mulberry-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+            className="inline-flex min-h-[40px] items-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-xs font-medium text-white dark:text-cream transition-colors hover:bg-mulberry-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
           >
             Add note
           </SubmitButton>

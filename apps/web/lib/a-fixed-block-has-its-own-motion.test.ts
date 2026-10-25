@@ -65,6 +65,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { stripComments } from './strip-comments';
+import { NO_VIEW_GATE_OPEN } from './element-style';
 import {
   BLOCK_EMPTY_WHY,
   BLOCK_GATE_OPEN,
@@ -76,7 +77,7 @@ import {
   BLOCK_LOOK_BLOCKS,
   BLOCK_MARK_ATTR,
   BLOCK_SAMPLE_WHY,
-  blockLooksCss,
+  blockLooksCss as blockLooksCssAll,
   blockLooksWith,
   blockOfCanvas,
   blockSelector,
@@ -88,6 +89,11 @@ import { hubDraftCountedChanges, mergeHubDraft, planHubDraftApply, sanitizeHubDr
 
 const WEB = join(__dirname, '..');
 const raw = (rel: string) => readFileSync(join(WEB, rel), 'utf8');
+/* 🧭 The page's rules for an engine WITH scroll timelines — what every check below reads. Since F12 (2026-10-16) a
+   second, separate block follows for an engine without them (its arrival alone); test 2b reads that one. */
+const NO_VIEW_SPLIT = `\n${NO_VIEW_GATE_OPEN}\n`;
+const blockLooksCss = (looks: Parameters<typeof blockLooksCssAll>[0]) => blockLooksCssAll(looks).split(NO_VIEW_SPLIT)[0]!;
+const noViewOf = (looks: Parameters<typeof blockLooksCssAll>[0]) => blockLooksCssAll(looks).split(NO_VIEW_SPLIT)[1] ?? '';
 const src = (rel: string) => stripComments(raw(rel));
 const L = 'app/dashboard/[eventId]/launch/_components';
 
@@ -121,7 +127,7 @@ test('1 · the reader is strict: the real blocks, and only what the Event Hub’
   }
   assert.deepEqual(blockLooksWith({ block_looks: { live_hub: { g: 'frost' } } }, 'live_hub', { in: { fade: true } }), { live_hub: { motion: { in: { fade: true } } } });
   const LIVE_WALL = src('app/[slug]/_components/live-wall-block.tsx');
-  assert.equal((LIVE_WALL.match(/<section\s+aria-label="Live photo wall"\s+className="sn-gal /g) ?? []).length, 2, 'the live wall is no longer the dark gallery card: re-ask whether it takes a Background');
+  assert.equal((LIVE_WALL.match(/<section\s+aria-label="Memory lane"\s+className="sn-gal /g) ?? []).length, 2, 'the live wall is no longer the dark gallery card: re-ask whether it takes a Background');
   assert.match(src('app/[slug]/_components/watch-live-block.tsx'), /bg-ink px-4 py-3/, 'the player is no longer the ink card: re-ask whether the Live hub takes a Background');
   assert.deepEqual(readBlockLooks({ block_looks: { photos_of_you: { motion: { in: { fade: true, move: 'below' } } } } }), { photos_of_you: { motion: { in: { fade: true, move: 'below' } } } });
   for (const g of [...BLOCK_GROUNDS, 'paper', 'dark', true, { g: 'frost' }]) {
@@ -159,6 +165,17 @@ test('1 · the reader is strict: the real blocks, and only what the Event Hub’
   for (const none of [null, undefined, 'x', [], {}, { block_looks: null }, { block_looks: [] }, { block_looks: { entourage: null } }, { block_looks: { entourage: { motion: {} } } }]) assert.deepEqual(readBlockLooks(none), {});
 });
 
+test('2b 🧭 an engine without scroll timelines gets the block’s ARRIVAL alone — never its Build out (F12)', () => {
+  const both = { in: { fade: true, move: 'below' }, during: 'drift', timeline: 'scroll', out: { fade: true, size: 'grow' } } as const;
+  const nv = noViewOf(readBlockLooks({ block_looks: { gifts: { motion: both }, entourage: { motion: { in: { fade: true }, speed: 'gentle', delay: 'short' } } } }));
+  assert.ok(nv.endsWith('\n}}'), nv);
+  assert.match(nv, /el-in-/, 'no arrival where there are no scroll timelines');
+  assert.match(nv, /el-during-drift/, 'the Drift is a clock loop — it plays there too');
+  assert.match(nv, /1\.8s cubic-bezier\(0\.22, 0\.61, 0\.36, 1\) 0\.3s backwards el-in-fade/, 'the timed arrival keeps its own seconds and Delay');
+  assert.doesNotMatch(nv, /el-out-|animation-timeline|animation-range/, 'a Build out or a timeline where the engine has none');
+  assert.equal(noViewOf(readBlockLooks({ block_looks: { gifts: { motion: { timeline: 'scroll', out: { fade: true } } } } })), '', 'only a Build out → nothing there');
+});
+
 test('2 · the rules are the Event Hub’s own: both gates, a timed Build in waits for the observer, nothing when still', () => {
   assert.equal(blockLooksCss({}), '');
   assert.equal(blockLooksCss(readBlockLooks({ block_looks: { entourage: {} } })), '');
@@ -175,7 +192,7 @@ test('2 · the rules are the Event Hub’s own: both gates, a timed Build in wai
   /* Until the guest gets there the block RESTS, visible (a `0s none none` slot — never a hidden first frame)… */
   assert.ok(lines[0]!.startsWith(`${at}:not(#el-own){animation:0s none none,`), lines[0]);
   /* …and plays once the page's one observer marks the chapter it sits in. */
-  assert.ok(lines[1]!.startsWith(`.pahina-in ${at}:not(#el-own),.pahina-in${at}:not(#el-own){animation:1.8s cubic-bezier(0.22, 0.61, 0.36, 1) 0s none el-in-rise,`), lines[1]);
+  assert.ok(lines[1]!.startsWith(`.pahina-in ${at}:not(#el-own),.pahina-in${at}:not(#el-own){animation:1.8s cubic-bezier(0.22, 0.61, 0.36, 1) 0s backwards el-in-rise,`), lines[1]);
 
   /* 👤 A BLOCK ME DRAWS HAS NO CHAPTER (Your seat, where a guest's bar has Me): Me is a sibling of the chapters
      article, and the page's one observer marks chapters and scenes only — so the timed rule is bound there as well,
@@ -184,7 +201,7 @@ test('2 · the rules are the Event Hub’s own: both gates, a timed Build in wai
   const seatAt = `${blockSelector('find_your_seat')}:not(#el-own)`;
   assert.equal(seat.length, 2);
   assert.ok(seat[0]!.startsWith(`${seatAt}{animation:0s none none,`), seat[0]);
-  assert.ok(seat[1]!.startsWith(`.pahina-in ${seatAt},.pahina-in${seatAt},${seatAt}:not([data-pahina-chapters] *){animation:1.8s cubic-bezier(0.22, 0.61, 0.36, 1) 0s none el-in-rise,`), seat[1]);
+  assert.ok(seat[1]!.startsWith(`.pahina-in ${seatAt},.pahina-in${seatAt},${seatAt}:not([data-pahina-chapters] *){animation:1.8s cubic-bezier(0.22, 0.61, 0.36, 1) 0s backwards el-in-rise,`), seat[1]);
   /* The two facts that arm leans on: Me is filed with no chapters, and the observer marks nothing else. */
   const PAGE = src('app/[slug]/_components/site-body.tsx');
   const me = PAGE.slice(PAGE.indexOf("group('me', ("), PAGE.indexOf("group('me', (") + 200);
@@ -201,7 +218,7 @@ test('2 · the rules are the Event Hub’s own: both gates, a timed Build in wai
   const passAt = `${blockSelector('pass')}:not(#el-own):not(:target)`;
   assert.equal(pass.length, 2);
   assert.ok(pass[0]!.startsWith(`${passAt}{animation:0s none none,`), pass[0]);
-  assert.ok(pass[1]!.startsWith(`.pahina-in ${passAt},.pahina-in${passAt},${passAt}:not([data-pahina-chapters] *){animation:1.8s cubic-bezier(0.22, 0.61, 0.36, 1) 0s none el-in-rise,`), pass[1]);
+  assert.ok(pass[1]!.startsWith(`.pahina-in ${passAt},.pahina-in${passAt},${passAt}:not([data-pahina-chapters] *){animation:1.8s cubic-bezier(0.22, 0.61, 0.36, 1) 0s backwards el-in-rise,`), pass[1]);
   for (const line of pass) assert.equal(line.split('{')[0]!.split(':not(:target)').length - 1, line.split('{')[0]!.split(':not(#el-own)').length - 1, 'an arm of the pass’s motion reaches the pass while the address points at it');
   assert.match(raw('app/globals.css'), /\[data-motion='pass'\]:target \{\s*animation: sn-pass-lift var\(--sn-dur-enter\) var\(--sn-ease-out\) backwards;\s*\}/, 'the door’s lift is gone (or renamed): the pass’s `:not(:target)` guards nothing');
   /* No other block is kept from its target (none is one). */
@@ -214,7 +231,7 @@ test('2 · the rules are the Event Hub’s own: both gates, a timed Build in wai
   const rise = photos({ in: { fade: true, move: 'below' }, speed: 'gentle' });
   assert.equal(rise.length, 2, 'a timed Build in alone ends by itself: nothing more is written');
   assert.ok(rise[0]!.startsWith(`${photosAt}{animation:0s none none,`), rise[0]);
-  assert.ok(rise[1]!.startsWith(`.pahina-in ${photosAt},.pahina-in${photosAt}{animation:1.8s cubic-bezier(0.22, 0.61, 0.36, 1) 0s none el-in-rise,`), rise[1]);
+  assert.ok(rise[1]!.startsWith(`.pahina-in ${photosAt},.pahina-in${photosAt}{animation:1.8s cubic-bezier(0.22, 0.61, 0.36, 1) 0s backwards el-in-rise,`), rise[1]);
   /* 🖼 AN OPENED PHOTO IS DRAWN INSIDE THE BLOCK'S ROOT, OVER THE WHOLE SCREEN (`fixed inset-0`). An element being
      moved becomes the box its `fixed` children are measured from — measured in Chromium, 2026-10-10, 375 × 812, a
      300 px card: with Drift, or following the scroll, the opened photo's backdrop was the CARD (335 × 300), not the
@@ -228,7 +245,7 @@ test('2 · the rules are the Event Hub’s own: both gates, a timed Build in wai
   assert.ok(drift[2]!.startsWith(`${photosAt}${OPEN}{animation:0s none none,`), drift[2]);
   /* The timed Build in STAYS in the list (it has ended; taken out, it would play again each time a photo is closed
      — seen in the same measurement: only Drift starts again on closing). Drift does not. */
-  assert.ok(drift[3]!.startsWith(`.pahina-in ${photosAt}${OPEN},.pahina-in${photosAt}${OPEN}{animation:1.8s cubic-bezier(0.22, 0.61, 0.36, 1) 0s none el-in-rise,`), drift[3]);
+  assert.ok(drift[3]!.startsWith(`.pahina-in ${photosAt}${OPEN},.pahina-in${photosAt}${OPEN}{animation:1.8s cubic-bezier(0.22, 0.61, 0.36, 1) 0s backwards el-in-rise,`), drift[3]);
   for (const line of drift.slice(2)) assert.doesNotMatch(line, /el-during-drift|infinite/, 'the block still drifts while a photo is open');
   /* Following the scroll: every slot is bound to it, so none is left while a photo is open. */
   const followed = photos({ timeline: 'scroll', in: { fade: true }, out: { fade: true }, during: 'drift' });
@@ -241,7 +258,7 @@ test('2 · the rules are the Event Hub’s own: both gates, a timed Build in wai
   /* The two facts the rule leans on: the gallery draws its opened photo INSIDE its root, and that photo's card says
      it is modal. (Moved out of the root, or no longer modal: the rule matches nothing — re-walk it.) */
   const GALLERY = src('app/[slug]/_components/photos-of-you-gallery.tsx');
-  assert.match(GALLERY, /<section aria-label="Photos of you" className="sn-gal p-5 sm:p-6">[\s\S]*?\{opened \? \(\s*<GalleryLightbox[\s\S]*?\) : null\}\s*<\/section>\s*\);\s*\}/, 'the opened photo is no longer drawn inside the gallery’s root');
+  assert.match(GALLERY, /<section aria-label="Memories of you" className="sn-gal p-5 sm:p-6">[\s\S]*?\{opened \? \(\s*<GalleryLightbox[\s\S]*?\) : null\}\s*<\/section>\s*\);\s*\}/, 'the opened photo is no longer drawn inside the gallery’s root');
   assert.match(src('app/_components/gallery/gallery-lightbox.tsx'), /className="sn-gal-scrim fixed inset-0 [^"]*"[\s\S]{0,200}role="dialog"\s+aria-modal="true"/, 'the lightbox is no longer a fixed, modal card');
   /* No other block's rules are changed by this (none opens anything inside itself).
      🔁 RE-AIMED 2026-10-12: but the Live hub's wall does — the same lightbox, inside its root (held below). */
@@ -256,7 +273,7 @@ test('2 · the rules are the Event Hub’s own: both gates, a timed Build in wai
     const at = `${blockSelector(b)}:not(#el-own)`;
     const lines = blockLooksCss(readBlockLooks({ block_looks: { [b]: { motion: { in: { fade: true, move: 'below' }, speed: 'gentle' } } } })).split('\n').slice(1, -1);
     assert.equal(lines.length, 2, b);
-    assert.ok(lines[1]!.startsWith(`.pahina-in ${at},.pahina-in${at},${at}:not([data-pahina-chapters] *){animation:1.8s cubic-bezier(0.22, 0.61, 0.36, 1) 0s none el-in-rise,`), `${b}: ${lines[1]}`);
+    assert.ok(lines[1]!.startsWith(`.pahina-in ${at},.pahina-in${at},${at}:not([data-pahina-chapters] *){animation:1.8s cubic-bezier(0.22, 0.61, 0.36, 1) 0s backwards el-in-rise,`), `${b}: ${lines[1]}`);
   }
   /* 🖼 THE LIVE WALL OPENS A PHOTO INSIDE ITSELF — the gallery's own lightbox, in its root — so while one is open what
      keeps moving stands still, as for Photos of you; and since the live hub can stand outside a chapter, the timed
@@ -265,9 +282,9 @@ test('2 · the rules are the Event Hub’s own: both gates, a timed Build in wai
   const liveDrift = blockLooksCss(readBlockLooks({ block_looks: { live_hub: { motion: { in: { fade: true, move: 'below' }, speed: 'gentle', during: 'drift' } } } })).split('\n').slice(1, -1);
   assert.equal(liveDrift.length, 4);
   assert.ok(liveDrift[2]!.startsWith(`${liveAt}${OPEN}{animation:0s none none,`), liveDrift[2]);
-  assert.ok(liveDrift[3]!.startsWith(`.pahina-in ${liveAt}${OPEN},.pahina-in${liveAt}${OPEN},${liveAt}${OPEN}:not([data-pahina-chapters] *){animation:1.8s cubic-bezier(0.22, 0.61, 0.36, 1) 0s none el-in-rise,`), liveDrift[3]);
+  assert.ok(liveDrift[3]!.startsWith(`.pahina-in ${liveAt}${OPEN},.pahina-in${liveAt}${OPEN},${liveAt}${OPEN}:not([data-pahina-chapters] *){animation:1.8s cubic-bezier(0.22, 0.61, 0.36, 1) 0s backwards el-in-rise,`), liveDrift[3]);
   for (const line of liveDrift.slice(2)) assert.doesNotMatch(line, /el-during-drift|infinite/, 'the live hub still drifts while a photo is open');
-  assert.match(src('app/[slug]/_components/live-wall-block.tsx'), /<section\s+aria-label="Live photo wall"\s+className="sn-gal p-5 sm:p-6"\s*>(?:(?!<\/section>)[\s\S])*?\{opened \? \(\s*<GalleryLightbox[\s\S]*?\) : null\}[\s\S]*?<\/section>\s*\);\s*\}/, 'the wall’s opened photo is no longer drawn inside its root');
+  assert.match(src('app/[slug]/_components/live-wall-block.tsx'), /<section\s+aria-label="Memory lane"\s+className="sn-gal p-5 sm:p-6"\s*>(?:(?!<\/section>)[\s\S])*?\{opened \? \(\s*<GalleryLightbox[\s\S]*?\) : null\}[\s\S]*?<\/section>\s*\);\s*\}/, 'the wall’s opened photo is no longer drawn inside its root');
   /* 📌 ANNOUNCEMENTS RIDE STUCK TO THE SCREEN ON THE DAY (the layout's `sticky top-0`): there a motion that follows the
      scroll would hold the coordinator's words wherever their trip stopped — half gone. So while the block is the
      sticky wrapper's child, nothing follows the scroll; a timed Build in and Drift are left alone. */
@@ -307,8 +324,8 @@ test('3 · the draft carries it, counts it and names it; an empty look is no loo
   const part = sanitizeHubDraft({ events: { style_preferences: { [BLOCK_LOOKS_PREF_KEY]: look, anything_else: 1 } } });
   assert.deepEqual(part?.events.style_preferences, { [BLOCK_LOOKS_PREF_KEY]: look }, 'the draft’s cleaner drops the blocks’ looks (or keeps a key that is not the Maker’s)');
   for (const bad of ['x', 3, null, [1]]) assert.equal(sanitizeHubDraft({ events: { style_preferences: { [BLOCK_LOOKS_PREF_KEY]: bad } } })?.events.style_preferences, undefined);
-  /* A QR or camera save laid over it keeps it (the part is merged key by key). */
-  const merged = mergeHubDraft(part!, sanitizeHubDraft({ events: { style_preferences: { camera_look: 'film' } } })!);
+  /* A QR save laid over it keeps it (the part is merged key by key). */
+  const merged = mergeHubDraft(part!, sanitizeHubDraft({ events: { style_preferences: { qr: { pattern: 'dots' } } } })!);
   assert.deepEqual((merged.events.style_preferences as Record<string, unknown>)[BLOCK_LOOKS_PREF_KEY], look);
 
   /* COUNTED: a block look that differs from live is one change in the Apply count… */
@@ -316,22 +333,28 @@ test('3 · the draft carries it, counts it and names it; an empty look is no loo
   const counted = (draft: ReturnType<typeof sanitizeHubDraft>) => hubDraftCountedChanges(planHubDraftApply(draft, live, false));
   const moved = counted(part!);
   assert.equal(moved.length, 1, 'a block’s look does not move the Apply count');
-  assert.equal(moved[0]!.held, false, 'a block’s look is held as if it were Pro — it is free');
-  /* …and so is a look for a sample made real (Your seat): one change, free. */
+  /* 💎 RE-AIMED 2026-10-18 (owner 2026-10-16: *"all animate, effects, styles, accents are pro"*): a block's MOTION is
+     Animate — held at Apply for a couple without Pro, written for one with it; its background stays free. */
+  assert.equal(moved[0]!.held, true, 'a block’s new motion went live for a free couple — Animate is Pro');
+  assert.equal(hubDraftCountedChanges(planHubDraftApply(part!, live, true))[0]!.held, false, 'a Pro couple’s block motion was held');
+  const ground = counted(sanitizeHubDraft({ events: { style_preferences: { [BLOCK_LOOKS_PREF_KEY]: { later: { g: 'frost' } } } } }));
+  assert.equal(ground.length, 1);
+  assert.equal(ground[0]!.held, false, 'a block’s background is held — a background is free');
+  /* …and so is a look for a sample made real (Your seat): one change, Pro. */
   const seated = counted(sanitizeHubDraft({ events: { style_preferences: { [BLOCK_LOOKS_PREF_KEY]: { find_your_seat: { motion: { in: { fade: true } } } } } } }));
   assert.equal(seated.length, 1, 'Your seat’s look does not move the Apply count');
-  assert.equal(seated[0]!.held, false);
+  assert.equal(seated[0]!.held, true);
   const ticketed = counted(sanitizeHubDraft({ events: { style_preferences: { [BLOCK_LOOKS_PREF_KEY]: { pass: { motion: { in: { fade: true } } } } } } }));
   assert.equal(ticketed.length, 1, 'the pass’s look does not move the Apply count');
-  assert.equal(ticketed[0]!.held, false);
+  assert.equal(ticketed[0]!.held, true);
   const pictured = counted(sanitizeHubDraft({ events: { style_preferences: { [BLOCK_LOOKS_PREF_KEY]: { photos_of_you: { motion: { in: { fade: true } } } } } } }));
   assert.equal(pictured.length, 1, 'Photos of you’s motion does not move the Apply count');
-  assert.equal(pictured[0]!.held, false);
-  /* 📣 …and the three made real 2026-10-12: one change each, free. */
+  assert.equal(pictured[0]!.held, true);
+  /* 📣 …and the three made real 2026-10-12: one change each, Pro. */
   for (const b of ['announcements', 'look', 'live_hub']) {
     const c = counted(sanitizeHubDraft({ events: { style_preferences: { [BLOCK_LOOKS_PREF_KEY]: { [b]: { motion: { in: { fade: true } } } } } } }));
     assert.equal(c.length, 1, `${b}’s motion does not move the Apply count`);
-    assert.equal(c[0]!.held, false);
+    assert.equal(c[0]!.held, true);
   }
   /* …and a look put back to nothing (an empty object over none) is not. */
   const still = sanitizeHubDraft({ events: { style_preferences: { [BLOCK_LOOKS_PREF_KEY]: {} } } });
@@ -357,7 +380,9 @@ test('4 · a guest’s page: a mark only for a block that has a look, and the on
   assert.match(BODY, /\{blockCss \|\| isEditorCanvas \? <style \{\.\.\.\{ \[BLOCK_LOOKS_STYLE_ATTR\]: '' \}\}>\{blockCss\}<\/style> : null\}/);
   /* Each of the four is marked right BEFORE it — and before the Maker's own marker, which must stay next to the block
      (`sectionAfter` frames the element right after it). */
-  assert.match(BODY, /\{blockMark\('details'\)\}\s*\{makerMark\('f:details'\)\}\s*<PublicEventDetails/);
+  /* 🪪 RE-AIMED 2026-10-24: the Details block is drawn on no page (owner, "isn't this a dupe?" — `OFF_THE_PAGE`,
+     `the-details-tab-repeats-nothing.test.ts`), so it carries no mark: a mark with no block would frame the NEXT one. */
+  assert.doesNotMatch(BODY, /blockMark\('details'\)|makerMark\('f:details'\)|<PublicEventDetails/);
   /* 🔁 RE-AIMED 2026-10-12 ("What guests see", pass 2): each mount now asks `entourageShownOn(pageStage)` — the same
      stage rule (`stageShowsEntourage`), or the couple's own choice for that stage when they made one. */
   assert.match(BODY, /<>\{entourageShownOn\(pageStage\) \? blockMark\('entourage'\) : null\}\{entourageShownOn\(pageStage\) \? <EntourageSection groups=\{entourage\} id="site-entourage"/);
@@ -377,7 +402,7 @@ test('4 · a guest’s page: a mark only for a block that has a look, and the on
      you on (`partsOff`). The claim here is unchanged — the mark rides WITH the gallery, in this one mount. */
   assert.match(BODY, /\{group\('gallery', <>\{\(isLive \|\| isPost\) && !partsOff\.has\('photosofyou'\) \? \(\s*<>\s*\{blockMark\('photos_of_you'\)\}\s*<PhotosOfYouGallery\s[\s\S]*?\/>\s*<\/>\s*\) : null\}[\s\S]*?<\/>, \{ chapters: true, className: 'space-y-12', id: tabs\.on \? SITE_MENU_ANCHORS\.gallery : undefined \}\)\}/);
   assert.equal((BODY.match(/<PhotosOfYouGallery\s/g) ?? []).length, 1, 'the gallery is drawn from a second place: its motion would not reach it');
-  assert.match(src('app/[slug]/_components/photos-of-you-gallery.tsx'), /return \(\s*<section aria-label="Photos of you" className="sn-gal p-5 sm:p-6">/, 'the gallery’s root moved: the mark may no longer stand right before it');
+  assert.match(src('app/[slug]/_components/photos-of-you-gallery.tsx'), /return \(\s*<section aria-label="Memories of you" className="sn-gal p-5 sm:p-6">/, 'the gallery’s root moved: the mark may no longer stand right before it');
   /* 🎫 THE DIGITAL PASS — mounted by the page (`page.tsx`), not by SiteBody: the mark is made THERE by the same rule
      (the canvas always; a guest only when a look is kept), and handed to every mount of the ticket… */
   const PAGE = src('app/[slug]/page.tsx');
@@ -427,7 +452,9 @@ test('4 · a guest’s page: a mark only for a block that has a look, and the on
   assert.equal((BODY.match(/lookMark=\{blockMark\('look'\)\}/g) ?? []).length, 3, 'a Welcome that can draw the guest’s look is mounted with no mark');
   /* (Five Welcomes in all; the two that are handed no look — a stranger's — draw none and need no mark.) */
   assert.equal((BODY.match(/<GuestWelcome\s/g) ?? []).length - (BODY.match(/words=\{clientWords\}\s*look=\{null\}/g) ?? []).length, 3, 'anti-vacuity: the three Welcomes that draw a guest’s look were found');
-  assert.match(BODY, /<GuestMeParts[\s\S]{0,240}?wearMark=\{blockMark\('look'\)\}\s*\/>/);
+  /* Within the ONE element (`[^<]` never crosses into the next tag) — not a character count, which a new prop on the
+     mount (Me's 💌 `note`, 2026-10-20) pushed past while the mark was still right there. */
+  assert.match(BODY, /<GuestMeParts\b[^<]{0,600}?wearMark=\{blockMark\('look'\)\}\s*\/>/);
   const DRESS = src('app/[slug]/_components/dress-code-widget.tsx');
   assert.match(DRESS, /<>\s*\{mark\}\s*<section className="space-y-3" data-me-part="wear">/);
   assert.match(DRESS, /<>\s*\{part === 'you' \? mark : null\}\s*<section className="space-y-5">\s*\{part === 'you' \? \(/);
@@ -490,7 +517,7 @@ test('5 · the toolbar: Animate is live on the real blocks; the samples stay gre
   assert.match(ROWS, /<StageAnimate\s+pending=\{pending\}\s+error=\{error\}/);
   for (const prop of ['plays=', 'inFx=', 'outFx=', 'delay=', 'does=']) assert.ok(ROWS.includes(prop), `the block’s Animate lost ${prop}`);
   assert.doesNotMatch(ROWS, /only="in"|leaves=/, 'a block is not a one-screen page, and it hands over to nothing');
-  assert.match(ROWS, /fd\.set\('patch', JSON\.stringify\(\{ events: \{ style_preferences: \{ \[BLOCK_LOOKS_PREF_KEY\]: looks \} \} \}\)\);\s*const door = draftDoor\(\);\s*const r = await makerSave\(\(\) => door\(eventId, fd\), \(\) => router\.refresh\(\)\);/);
+  assert.match(ROWS, /fd\.set\('patch', JSON\.stringify\(\{ events: \{ style_preferences: \{ \[BLOCK_LOOKS_PREF_KEY\]: looks \} \} \}\)\);[\s\S]{0,400}?fd\.set\(MERGE_BASE_FIELD, [^\n]*\n\s*const door = draftDoor\(\);\s*const r = await makerSave\(\(\) => door\(eventId, fd\), \(\) => router\.refresh\(\)\);/);
   /* …through the work area's own draft door (the Camera look's): `hubDraftAction` on a real event, the lab's stand-in
      on the lab — the server action itself sent the lab to the sign-in page (seen 2026-10-10). */
   assert.match(ROWS, /return \(got as MakerPartRaw \| null\)\?\.elementEditing\?\.draftAction \?\? hubDraftAction;/);

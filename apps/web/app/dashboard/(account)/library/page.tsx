@@ -1,15 +1,20 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
+import { getCurrentUser } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
+import { getPhotosAlbums } from './_data/photos-albums';
 import { lifeStoryEnabled } from '@/lib/life-story-flag';
 import { getAlaalaWall } from '@/lib/alaala-wall-data';
 import { AlaalaLensBody } from '@/app/_components/alaala/lens-body';
 import { PhotosTab } from './_components/photos-tab';
 import { VendorsTab } from './_components/vendors-tab';
 import { EditorialsTab } from './_components/editorials-tab';
+import { ChallengesTab } from './_components/challenges-tab';
 import { PageMasthead } from '@/app/_components/page-masthead';
-import { AlbumShelf } from './_components/album-shelf';
-import { LinkPickMenu } from '@/app/_components/link-pick-menu';
+import { fetchScheduleBlocks } from '@/lib/schedule';
+import { formatCount } from '@/lib/format-number';
+import { MemoriesChapters } from './_components/memories-chapters';
+import { MemoriesThumb } from './_components/memories-thumb';
 import {
   KEPT,
   LENSES,
@@ -69,20 +74,29 @@ export const metadata = { title: 'Memories' };
  *
  * Tab/lens state lives in the query string so the whole page stays a Server
  * Component (no client island, no hydration cost on a media-heavy page).
+ *
+ * ── 2026-10-22: MEMORIES WEARS THE PAPIC GALLERY ───────────────────────────
+ * Owner: *"Memories must look similar to the gallery of papic. Somewhat but not exactly."* The approved
+ * prototype (`prototypes/people_and_memories_template_2026-10-22.html` M1–M4) folds the four shapes that stood
+ * before the first photograph — the framed Life-Flash card, the cover shelf, the "Gallery" rows, the dashed box —
+ * into ONE: the Life-Flash tile as the grid's first row, then one gold chapter per event (every event, the empty
+ * ones with their monogram), each with its Gallery › door (`memories-chapters.tsx`). The Show dropdown is the
+ * same list in a new seat — the glass thumb row, beside a new Event dropdown (`?event=`); one event picked, the
+ * chapters become the day's and ⤓ Download all joins the row. Owner, same day: NO counts line at the top.
+ * The People lens and the three "Also kept" views draw exactly what they drew.
  */
 
 export default async function AlaalaPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string }>;
+  searchParams: Promise<{ tab?: string; event?: string }>;
 }) {
   const sp = await searchParams;
   const active: ViewKey = resolveLibraryView(sp.tab);
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // ⚡ The account layout already asked the auth server who this is (`getCurrentUser`, remembered per request) —
+  // asking again here was a second auth round trip on every open of Memories (2026-10-23, the speed pass).
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
 
   // ONE read, whichever lens is open — the same wall the home renders, opened
@@ -94,100 +108,88 @@ export default async function AlaalaPage({
   // sixth key added to LENS_KEYS is then a compile error here rather than a
   // lens that silently renders nothing.
   const lens: LensKey | null = isLens(active) ? active : null;
-  const wall = lens ? await getAlaalaWall(user.id) : null;
+  // The events list — every event, the shelf's read — feeds the chapters AND the Event dropdown.
+  const [wall, albumsRead] = await Promise.all([
+    lens ? getAlaalaWall(user.id) : Promise.resolve(null),
+    getPhotosAlbums(user.id),
+  ]);
+  // Oldest first — the shelf's order (owner 2026-08-19: "chronological albums of each event").
+  const albums = [...albumsRead.albums].sort((a, b) => {
+    const da = a.event.event_date;
+    const db = b.event.event_date;
+    if (da && db) return da < db ? -1 : da > db ? 1 : 0;
+    if (da) return -1;
+    if (db) return 1;
+    return 0;
+  });
+  const picked = typeof sp.event === 'string' ? (albums.find((a) => a.event.event_id === sp.event) ?? null) : null;
+  const frameLens = lens && lens !== 'people' ? lens : null;
+
+  const href = (tab: string, eventId: string | null) =>
+    `/dashboard/library?tab=${tab}${eventId ? `&event=${encodeURIComponent(eventId)}` : ''}`;
+  const keep = picked?.event.event_id ?? null;
+  // SHOW — the shipped list, unchanged: five lenses, then "Also kept". A pick keeps the picked event.
+  const show = [
+    ...LENSES.map(({ key, label }) => ({ key, label, group: 'Memories', href: href(key, isLens(key) && key !== 'people' ? keep : null) })),
+    ...KEPT.map(({ key, label }) => ({ key, label, group: 'Also kept', href: href(key, null) })),
+  ];
+  // EVENT — the one new control: every event you host or attended, its count on the right (`getPhotosAlbums`).
+  const eventsMenu = frameLens
+    ? [
+        { key: 'all', label: 'All events', href: href(frameLens, null) },
+        ...albums.map((a) => ({
+          key: a.event.event_id,
+          label: a.event.display_name,
+          group: a.role === 'couple' ? 'Hosting' : 'Attended',
+          trail: { text: formatCount(a.count), tone: 'muted' as const },
+          href: href(frameLens, a.event.event_id),
+        })),
+      ]
+    : null;
 
   return (
-    <div className="mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-      {/* The account spokes' documented convention is a "Back to home" link
-          (see (account)/layout.tsx) — and home is where the Alaala tile lives,
-          so "back to events" named the wrong thing on the wrong surface. */}
-      <PageMasthead
-        title="Memories"
-      />
-
-      {/* Life-Flash entry — the everyone-reachable path (single-event couples
-          bypass the account hub via its redirect); flag-gated (Build Plan §5) */}
-      {lifeStoryEnabled() ? (
-        <Link
-          href="/dashboard/life-flash"
-          className="sn-card sn-press group mb-8 flex items-center justify-between gap-4 p-4"
-        >
-          <div>
-            <p className="text-sm font-semibold text-ink">Life-Flash</p>
-            <p className="text-xs text-ink/55">
-              The moments that mattered most, through every camera that was there — gathered
-              while you&rsquo;re living them
-            </p>
-          </div>
-          <span
-            aria-hidden
-            className="text-ink/40 transition-transform group-hover:translate-x-0.5 group-hover:text-terracotta"
-          >
-            ▶
-          </span>
-        </Link>
-      ) : null}
-
-      {/* THE SHELF — one cover per event, oldest first, above the library grid
-          (owner 2026-08-19: "first row should be chronological albums of each
-          event. then under it can be all the photos in grid"). */}
-      <AlbumShelf userId={user.id} />
-
-      {/* LENSES + ALSO KEPT — ONE dropdown (owner rule 2026-09-28: a choice of
-          several is a dropdown, never a pill row). The five lenses and the three
-          "also kept" views were two rows of chips; they are two labelled groups
-          in one list now, so "also kept" stays visibly NOT a lens. Each option
-          is still a plain address, so the page stays a Server Component.
-          `lg:hidden`: from 1024px up the rail carries these exact rows (owner
-          2026-09-21, "move the chips into it") — `MemoriesRailContext`, reading
-          the same `LENSES`/`KEPT` from `_data/library-views.ts`. Below 1024 the
-          rail paints nothing, so the phone keeps this dropdown. */}
-      <nav aria-label="Memories lenses" className="mb-8 lg:hidden">
-        <LinkPickMenu
-          label="Show"
-          value={active}
-          dataAttr="data-memories-view"
-          options={[
-            ...LENSES.map(({ key, label }) => ({
-              key,
-              label,
-              group: 'Memories',
-              href: `/dashboard/library?tab=${key}`,
-            })),
-            ...KEPT.map(({ key, label }) => ({
-              key,
-              label,
-              group: 'Also kept',
-              href: `/dashboard/library?tab=${key}`,
-            })),
-          ]}
-          className="border border-ink/15"
-        />
-      </nav>
+    <div className="mx-auto w-full max-w-7xl px-4 pb-24 pt-2 sm:px-6 lg:px-8">
+      <PageMasthead title="Memories" />
 
       {/* key remount on view change → the body cross-fades in (§ 2d) */}
-      <div key={active} className="sn-lens-swap">
-        {/* All five lenses answer with MEMORIES, from one read. They used to
-            answer with `PhotosTab` — one card per event with a photo count —
-            which made this page a second list of events, and left People and
-            With me as prose because neither is an album. Frames, not
-            occasions. */}
-        {lens && wall ? (
-          <AlaalaLensBody lens={lens} wall={wall} tiles={36} />
+      <div key={`${active}:${keep ?? ''}`} className="sn-lens-swap mx-auto w-full max-w-3xl">
+        {/* The four frame lenses answer with frames, chaptered — by event, or by the day once one event is
+            picked. The People lens keeps its faces and "Open People" (`AlaalaLensBody`, unchanged). */}
+        {frameLens && wall ? (
+          <MemoriesChapters
+            lens={frameLens}
+            wall={wall}
+            albums={albums}
+            albumsMeasured={albumsRead.albumsMeasured}
+            eventId={keep}
+            lifeFlash={lifeStoryEnabled()}
+            blocksFor={async (id) =>
+              (await fetchScheduleBlocks(await createClient(), id)).map((b) => ({
+                blockId: b.block_id,
+                label: b.label,
+                startAt: b.start_at,
+                endAt: b.end_at,
+                actualStartAt: b.actual_start_at,
+                actualEndAt: b.actual_end_at,
+              }))
+            }
+          />
         ) : null}
+        {lens === 'people' && wall ? <div className="pt-3"><AlaalaLensBody lens="people" wall={wall} tiles={36} /></div> : null}
         {active === 'albums' ? (
-          <div className="space-y-4">
-            <p className="rounded-2xl border border-ink/10 bg-white/60 p-4 text-sm text-ink/60">
-              One card per celebration — this is where a whole event downloads at
+          <div className="space-y-4 pt-3">
+            <p className="text-sm text-ink/60">
+              One card per event — this is where a whole event downloads at
               once. Your memories themselves live in the lenses above.
             </p>
             <PhotosTab userId={user.id} />
           </div>
         ) : null}
-        {active === 'editorials' ? <EditorialsTab userId={user.id} /> : null}
+        {active === 'challenges' ? <ChallengesTab albums={albums} /> : null}
+        {active === 'editorials' ? <div className="pt-3"><EditorialsTab userId={user.id} /></div> : null}
         {active === 'vendors' ? (
-          <div className="space-y-4">
-            <p className="rounded-2xl border border-ink/10 bg-white/60 p-4 text-sm text-ink/60">
+          <div className="space-y-4 pt-3">
+            <p className="text-sm text-ink/60">
               A shortlist isn&rsquo;t a memory — these live in{' '}
               <Link href="/dashboard" className="font-semibold text-ink underline decoration-ink/25 underline-offset-2 hover:decoration-ink">
                 Spaces on your home
@@ -199,6 +201,16 @@ export default async function AlaalaPage({
           </div>
         ) : null}
       </div>
+
+      {/* THE THUMB ROW — Event ▾ · Show ▾ · ⤓ (owner 2026-10-05: tools in the lower third). From 1024 the rail
+          also carries the Show rows (`MemoriesRailContext`, the same LENSES/KEPT). */}
+      <MemoriesThumb
+        events={eventsMenu}
+        eventValue={keep ?? 'all'}
+        show={show}
+        showValue={active}
+        download={picked && picked.role === 'couple' && picked.count > 0 ? `/dashboard/${picked.event.event_id}/studio/papic/gallery-zip` : null}
+      />
     </div>
   );
 }

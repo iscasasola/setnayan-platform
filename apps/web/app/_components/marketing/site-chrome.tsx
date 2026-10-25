@@ -83,18 +83,14 @@ const NAV_ROUTES = new Set<string>([
   '/creators',
   '/our-story',
   '/blog',
-  /* 2026-09-01 — /features ABSORBED /how-it-works, /why-setnayan and
-     /tl/how-it-works. Those three left this set with their routes: a chrome
-     entry for a path that no longer renders is dead config, and this set is
-     watched by `doorway-shell.test.ts`. /features and /tl/features stay. */
-  '/features',
+  /* 2026-10-19 — /features and /tl/features LEFT THIS SET (sweep row C5).
+     They wore this glass nav while every /features/<slug> page beneath them
+     wore the front-door bar, so a press from the hub into a feature swapped
+     the whole header. Both now live in app/(shell)/ beside their children and
+     inherit the one shared shell; `features-wear-one-bar.test.ts` holds it. */
   '/monogram',
   // "Pa-" feature landing pages (owner-approved 2026-06-27; Pa- naming LOCKED).
   '/tl/about',
-  // /tl/features shares FeaturesPageBody with /features (whose old in-body
-  // SiteFooter was removed), so it must join the shell to keep a footer + gain
-  // the glass nav its EN twin already has.
-  '/tl/features',
   // Added 2026-07-03 with the reskin chrome: the legal + support + download +
   // waitlist pages the homepage footer links to previously wore the legacy
   // SiteHeader, a page-local footer, or no chrome at all — they join the one
@@ -146,7 +142,15 @@ const FOOTER_ONLY_PREFIXES = ['/blog/', '/help/', '/tour'];
   `.fd-chipbar` use), and `lint-no-stacked-pinned-bars.mjs` checks the shelled
   routes for exactly that instead.
 */
-const UNFIXED_ROUTES = new Set<string>(['/features', '/tl/features']);
+/*
+  2026-10-19 — EMPTY ON PURPOSE. Its only two members, /features and
+  /tl/features, left NAV_ROUTES for the shared shell (sweep C5), so an entry
+  here for them would be unreachable — read after the early return for a
+  non-NAV route, exactly like the /explore note above. The set stays because
+  it is the remedy `lint-no-stacked-pinned-bars.mjs` prescribes the next time a
+  NAV_ROUTE pins its own bar.
+*/
+const UNFIXED_ROUTES = new Set<string>([]);
 
 /** Routes that render the floating glass NAV (+ overlays + footer). */
 export function isNavRoute(pathname: string | null): pathname is string {

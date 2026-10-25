@@ -3,7 +3,8 @@
  * standalone destination (2026-09-11): its 701-line "12-document … unlock Pro
  * Vendor" checklist is superseded by the current papers flow on My Shop
  * (#5395). This route now exists only to redirect to
- * /vendor-dashboard/shop#get-verified, copying the pattern already proven by
+ * the papers (since 2026-10-14: /vendor-dashboard/profile#docs, Your details ›
+ * Your documents; before that /vendor-dashboard/shop#get-verified), copying the pattern already proven by
  * /vendor-dashboard/services (RULE 0 — extend, don't reinvent).
  *
  * Guarded here: the redirect target is the papers anchor, not a bare
@@ -25,12 +26,12 @@ function stripComments(src: string): string {
   return src.replace(/\/\*[\s\S]*?\*\/|^\s*\/\/.*$/gm, '');
 }
 
-test('the route redirects to the My Shop papers anchor', () => {
+test('the route redirects to the papers — Your details › Your documents (step 5, 2026-10-14)', () => {
   const src = stripComments(readFileSync(path.join(HERE, 'page.tsx'), 'utf8'));
   assert.match(
     src,
-    /redirect\(`\/vendor-dashboard\/shop\$\{query \? `\?\$\{query\}` : ''\}#get-verified`\)/,
-    'The verify route no longer redirects to /vendor-dashboard/shop#get-verified with its query preserved.',
+    /redirect\(`\/vendor-dashboard\/profile\$\{query \? `\?\$\{query\}` : ''\}#docs`\)/,
+    'The verify route no longer redirects to /vendor-dashboard/profile#docs with its query preserved.',
   );
 });
 
@@ -52,7 +53,7 @@ test('the route no longer renders the retired 12-document form', () => {
   );
 });
 
-test('the Event Hub "Get verified" link points straight at the papers anchor', () => {
+test('the Event Hub "Get verified" link points straight at the papers (Your details › Your documents since step 5)', () => {
   const src = stripComments(
     readFileSync(
       path.join(HERE, '..', 'on-the-day', 'page.tsx'),
@@ -61,7 +62,7 @@ test('the Event Hub "Get verified" link points straight at the papers anchor', (
   );
   assert.match(
     src,
-    /href="\/vendor-dashboard\/shop#get-verified"/,
+    /href="\/vendor-dashboard\/profile#docs"/,
     'on-the-day/page.tsx "Get verified" link still points at the retired /vendor-dashboard/verify route.',
   );
 });
@@ -75,7 +76,7 @@ test('the sidebar nav entry points straight at the papers anchor', () => {
   );
   assert.match(
     src,
-    /key: "vendor\.sidebar\.verify",[\s\S]{0,200}route: "\/vendor-dashboard\/shop#get-verified"/,
+    /key: "vendor\.sidebar\.verify",[\s\S]{0,400}route: "\/vendor-dashboard\/profile#docs"/,
     'nav-registry-defaults.ts "vendor.sidebar.verify" entry still routes to the retired /vendor-dashboard/verify page.',
   );
 });

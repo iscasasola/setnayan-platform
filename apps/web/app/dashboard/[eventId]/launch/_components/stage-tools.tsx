@@ -4,7 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { PillThumb } from '@/app/_components/pill-selector';
 import { PeekToast } from '@/app/_components/toast/peek-toast';
 import { createPortal } from 'react-dom';
-import { Check, Play, Reply, Square, X, type LucideIcon } from 'lucide-react';
+import { Check, Play, Reply, RotateCw, Square, X, type LucideIcon } from 'lucide-react';
 import { RSVP_STAGE_KEY } from '@/lib/rsvp-stage-shared';
 import { RSVP_STAGE_SCENES, isRsvpStageScene, type RsvpStageScene } from '@/lib/rsvp-stage';
 import {
@@ -18,8 +18,14 @@ import {
   makerPartQuietRow,
   makerPartToolFor,
   makerPartToolWhy,
+  makerPartParent,
+  MAKER_COVER_SCENE,
+  MAKER_COVER_SCENE_DOOR,
+  MAKER_COVER_WORD_BG_WHY,
   makerPartToolWorks,
   makerPartsOnPage,
+  makerCoverLeads,
+  makerCoverLineParts,
   makerPartsTappable,
   makerStepPart,
   makerWorkTool,
@@ -27,32 +33,11 @@ import {
   type MakerPartTool,
   type MakerStageKey,
 } from '@/lib/maker-parts';
-import {
-  STAGE_BAR_FOOT_CSS,
-  STAGE_BAR_GRID_CSS,
-  STAGE_BAR_HANDLE,
-  STAGE_BAR_LINE,
-  STAGE_BAR_LINE_ABOUT,
-  STAGE_BAR_LINE_LEAD,
-  SP_KEY_BAR,
-  SP_KEY_DONE,
-  SP_ROWS,
-  STAGE_BAR_ROW_VARS,
-  STAGE_GUEST_TAB,
-  STAGE_ICON_BUTTON,
-  STAGE_ICON_FACE,
-  STAGE_PANEL_MS,
-  STAGE_PANEL_VARS,
-  STAGE_ROW,
-  STAGE_TOOL_BUTTON,
-  STAGE_TOOL_INSET,
-  STAGE_TOOL_PILL,
-  stageBarPx,
-  stageEditingLine,
-  partPickScroll,
-} from '@/lib/maker-stage-room';
+import { STAGE_BAR_FOOT_CSS, STAGE_BAR_GRID_CSS, STAGE_BAR_HANDLE, STAGE_BAR_LINE, STAGE_BAR_LINE_ABOUT, STAGE_BAR_LINE_LEAD, SP_ROWS, STAGE_BAR_ROW_VARS, STAGE_GUEST_TAB, STAGE_ICON_BUTTON, STAGE_ICON_FACE, STAGE_PANEL_MS, STAGE_PANEL_VARS, STAGE_ROW, STAGE_TOOL_BUTTON, STAGE_TOOL_INSET, STAGE_TOOL_PILL, stageBarPx, stageEditingLine, partPickScroll } from '@/lib/maker-stage-room';
 import { fixedOfKey, fixedScenePanel } from '@/lib/maker-selection';
-import { makerPartStudioDoor, makerStagePickedAttr, makerStageMayType } from '@/lib/maker-parts';
+import { makerCanvasKeyOf, makerOwnSceneType, makerPartStudioDoor, makerStagePickedAttr, makerStageMayType } from '@/lib/maker-parts';
+import { STAGE_NOTHING_PICKED_WORDS, stageRowOneLine } from '@/lib/maker-edit-owns-content';
+import { elementCanvasOwner } from '@/lib/closing-line';
 import { findMakerSection } from '@/app/[slug]/_components/maker-section-find';
 import { showHubTab, shownHubTab } from '@/app/[slug]/_components/hub-tab-dom';
 import {
@@ -75,32 +60,50 @@ import { useRsvpListStage } from './rsvp-list-stage';
 import { setStagePanelNow, setStageRevealColours, setStageTool, useAnimatePhase, useStagePanelNow, useStageRevealLook, type StageQuiet } from './stage-panel/store';
 import { stageStill } from './scene-drag';
 import { StageEdit } from './stage-panel/stage-edit';
+import { CoverLines, type CoverLine } from './stage-panel/cover-lines';
+import { useDraftMoves } from './stage-panel/follow-draft';
+import { CoverAnimate } from './stage-panel/cover-animate';
+import type { HubHeroElementKey } from '@/lib/element-style';
+import { draftedCanvasOr, draftedOwnWordsOr } from '@/lib/maker-draft-store';
 import { StageAbout } from './stage-panel/kit';
 import { StageLookRow } from './stage-panel/stage-look-row';
-import { keepPartLook, partLookFields, partLookTarget, partStyleIsEmptyOn } from './stage-panel/part-look';
+import { keepPartLook, partLookFields, partLookTarget, partStyleIsEmptyOn, type PartLookField } from './stage-panel/part-look';
 import type { MakerPartOps } from './maker-part-ops';
 import { keepPartWords, readPartWords, showPartWords, type PartWordsField } from './stage-panel/part-words';
 import { ActionButton } from '@/components/action-button';
-import { revealStubHtml } from './stage-panel/reveal-picture';
+import { PickMenu } from '../../website/editor/_components/pick-menu';
+import {
+  CANVAS_SILENT_RELOAD,
+  CANVAS_SILENT_WORDS,
+  MAKER_CANVAS_RELOAD_EVENT,
+  MAKER_CANVAS_SILENT_EVENT,
+  type MakerCanvasSilentDetail,
+} from '../../website/editor/_components/canvas-bridge-watch';
+import { SEE_AS, SEE_AS_ANY_ROLE, SEE_AS_EDITING, seeAsDrawingLine, seeAsDrawsMe, seeAsLabel, seeAsRoleDrawingLine, type SeeAs } from '@/lib/see-as';
+import { COVER_OPENING_TAG_ATTR, COVER_OPENING_TAG_CSS, coverOpeningTag, revealPageInk } from './stage-panel/reveal-picture';
 import type { StudioTileKey } from '@/lib/studio-tiles';
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
-import { MAKER_OPEN_PART_EVENT, MAKER_STAGE_PICK_EVENT, MAKER_STAGE_TOOL_EVENT, useMaker } from './maker-context';
+import { MAKER_OPEN_PART_EVENT, MAKER_STAGE_PICK_EVENT, MAKER_STAGE_SAY_EVENT, MAKER_STAGE_TOOL_EVENT, useMaker } from './maker-context';
 import { makerPagePick, makerPageValue, makerStageLabel } from './maker-bar';
 import type { StagePageOption } from './stage-item-menu';
 /* ＋ ↕ 🗑 🎭 PR 3 — the part's edges, the ＋ sheet, the one confirm, the Reveal part (same lazy chunk). */
 import { PART_PAD, RevealPartTools, RevealPlay, askPartOps, makerPartTopOnScreen, revealStageOf, usePartEdits } from './add-part-sheet';
 import { partsInPageOrder } from '@/lib/maker-part-step';
 import { SCENE_COLLAPSE_CALM_MS, SCENE_COLLAPSE_EASE, SCENE_COLLAPSE_MS, SCENE_STATUS_MS } from '@/lib/maker-scene-drag';
-import { BlockAnimateRows, CameraPartTools, StagePlayStatus } from './details-lazy';
+import { BlockAnimateRows, ScenePhotoRow, SectionNames, StagePlayStatus, VenuePictureRows } from './details-lazy';
 import { BLOCK_EMPTY_WHY, BLOCK_SAMPLE_WHY, blockOfCanvas, blockTakesGround } from '@/lib/block-looks';
 import { BlockGroundRows } from './stage-panel/block-background';
 import { CameraPage } from './stage-panel/camera-page';
+import { CameraPartNote } from './stage-panel/camera-face';
 import { keepPostEventWords, postEventAbout, postEventSceneNow } from './stage-panel/post-event-edit';
 import { PostEventShown } from './stage-panel/post-event-shown';
 import { POST_EVENT_ABOUT } from '../../website/editor/_components/post-event-scene-panel';
+import { DeskParts, DeskStep, STAGE_DESK_CSS, useDeskAnimate, useDeskLookInView, useDeskRowsTop } from './stage-panel/desk';
+import { useIsDesktop } from '@/lib/use-responsive';
 
 import { makerPartCanvasOn, makerPartLabelOn, makerPartOfCanvas, makerPartsWithAdded, makerPostEventSceneOf } from '@/lib/maker-part-groups';
-import { filedOnCanvas, firstMarkerOnPage, makerStagesPages } from '@/lib/maker-stage-filing';
+import { filedOnCanvas, makerStagesPages } from '@/lib/maker-stage-filing';
+import { TypingBand } from '@/app/_components/typing-band';
 
 /**
  * 🎬 THE STAGES TOOLBAR — the new Maker's bottom bar on the Stages side, on a phone (owner 2026-10-09, the approved
@@ -162,6 +165,9 @@ export const STAGE_HOLD_MS = 500;
 /** "Exit preview" sits this far above the screen's safe area — and above the guests' 44-px bar where there is one. */
 export const STAGE_EXIT_GAP_PX = 12;
 export const STAGE_EXIT_OVER_BAR_PX = 44 + STAGE_EXIT_GAP_PX;
+/** 🔘 Where "Exit preview" parks on a stage's pages: the right edge, a little above the middle — the cover's foot is the
+ *  RSVP button's and the "Swipe up" hint's (owner 2026-10-16, prototype v2 `.exitp`). */
+export const STAGE_EXIT_EDGE_TOP = '36%';
 /** What ▶ says the first time it is tapped — the long press's twin for whoever never holds a button (once a visit). */
 export const STAGE_HOLD_HINT = 'Hold ▶ to preview the whole page.';
 export const STAGE_PREVIEW_REFUSED = { link: 'Links are switched off in preview.', send: 'Nothing is sent from a preview.' } as const;
@@ -173,6 +179,8 @@ let resumeAt: { stage: MakerStageKey; page: string | null; part: MakerPartKey } 
 let lastTab: { of: string; stage: LifecyclePhase; tab: string } | null = null;
 
 const SHOWN_FRAME = 'iframe[data-maker-canvas-frame="shown"]';
+/** The shown canvas's document — read by a row that lists what the page draws (the march's section headings). */
+const readShownDoc = (): Document | null => document.querySelector<HTMLIFrameElement>(SHOWN_FRAME)?.contentDocument ?? null;
 
 /* ── 🗳 THE RSVP STAGE: three screens, each its own frame (`maker-rsvp-stage.tsx`), each piece a part ──────────── */
 
@@ -307,6 +315,10 @@ export function StageTools({
     lastTool = t;
     setToolNow(t);
   }, []);
+  const setToolRef = useRef(setTool);
+  setToolRef.current = setTool;
+  /** 🖼 A slot of a template scene tapped on the page — `ScenePhotoRow` opens its sheet once per `n`. */
+  const [slotAsk, setSlotAsk] = useState<{ type: string; slot: number; n: number } | null>(null);
   const [picked, setPicked] = useState<MakerPartKey | null>(null);
   const [typing, setTyping] = useState(false);
   /** The words last tapped on the page (the part inside the section — `[data-el]`): Edit's rows follow it. */
@@ -367,6 +379,9 @@ export function StageTools({
   const [previewing, setPreviewing] = useState(false);
   const previewingRef = useRef(false);
   previewingRef.current = previewing;
+  /** 👁 See as, as the Maker holds it (`maker-shell.tsx` seeAs/setSeeAs) — read by Exit preview, declared above it. */
+  const seeAsNow = useRef<{ seeAs: SeeAs | null; set?: (next: SeeAs | null) => void; setRole?: (next: string | null) => void }>({ seeAs: null });
+  seeAsNow.current = { seeAs: maker?.seeAs ?? null, set: maker?.setSeeAs, setRole: maker?.setSeeAsRole };
   /** Where they were when the preview began — the page, the part: Exit returns to exactly that. */
   const before = useRef<{ picked: MakerPartKey | null; page: string | null }>({ picked: null, page: null });
   /** Animate's phase (the same store the tool itself reads): ▶ plays the one they are on. */
@@ -379,6 +394,8 @@ export function StageTools({
   const goToPageRef = useRef<(key: string, option: string) => void>(() => {});
   /** ▶ The picked part's sequence as the canvas plays it: the phase now, and what it has none of (`play-sequence.ts`). */
   const [seq, setSeq] = useState<{ phase: string; skipped: string[] } | null>(null);
+  /** 🎬 ▶ is playing the Cover Scene: veil → unveil → entrance has no phases to name, so the status bar stays away. */
+  const [coverPlay, setCoverPlay] = useState(false);
   /* What it had none of stays said a moment after it rests, then goes. */
   useEffect(() => {
     if (playing || !seq) return;
@@ -429,7 +446,7 @@ export function StageTools({
       const drawnHere = makerPartsWithAdded({ stage, page, pages: pages.map((p) => p.key), drawn: [...present], filed }).filter((k) => makerPartIsDrawn(k, present));
       const withReveal = revealStage && page && makerPartsOnPage(stage, page)[0] === 'reveal' ? (['reveal', ...drawnHere] as MakerPartKey[]) : drawnHere;
       /* 🎛 The Camera is never drawn on the editing page (`the-maker-canvas-draws-no-camera`) — on its own page its
-         tile is the page map's, and its tools are this panel's own (`CameraPartTools`). */
+         tile is the page map's, and its rows are this panel's own (`CameraPartNote`). */
       return page && makerPartsOnPage(stage, page).includes('camera') && !withReveal.includes('camera') ? [...withReveal, 'camera'] : withReveal;
     },
     [filed, pages, present, revealStage, stage],
@@ -546,7 +563,7 @@ export function StageTools({
   /* ── the panel's height: half the screen while a part's tools are open ── */
   /* 🎭 The Reveal's tools are this panel's own (no work-area tool opens for it). */
   const revealOpen = picked === 'reveal' && revealStage !== null;
-  /* 🎛 …and so are the Camera's (its three looks, owner 2026-10-06/07). */
+  /* 📷 …and so are the Camera's: no look to pick any more (owner 2026-10-24) — one line saying what it wears. */
   const cameraOpen = picked === 'camera' && !rsvpOpen;
   /** A part whose only tool is Style (the pass is a guest's own card: no words or motion of its own to set). */
   const styleOnly = revealOpen || cameraOpen || rsvpOpen || picked === 'pass';
@@ -597,7 +614,8 @@ export function StageTools({
         const work = makerWorkTool(t);
         if (work !== 'style' && def?.canvas && def.el && !rsvpOpenRef.current) {
           window.dispatchEvent(
-            new CustomEvent(MAKER_OPEN_PART_EVENT, { detail: { key: def.canvas, widgetType: def.canvas === 'f:hero' ? 'hero' : def.canvas.slice(2), el: def.el } }),
+            /* 🕯 The cover's words and the closing's line are the hero row's (`elementCanvasOwner`). */
+            new CustomEvent(MAKER_OPEN_PART_EVENT, { detail: { key: def.canvas, widgetType: elementCanvasOwner(def.canvas), el: def.el } }),
           );
         }
         window.dispatchEvent(new CustomEvent(MAKER_STAGE_TOOL_EVENT, { detail: work }));
@@ -616,6 +634,7 @@ export function StageTools({
   const pickPart = useCallback(
     (k: MakerPartKey) => {
       setPicked(k);
+      setSlotAsk(null);
       if (k === 'reveal' || k === 'camera') {
         /* 🎭 🎛 Its tools are drawn here; whatever the work area had open folds. */
         openToolRef.current?.close();
@@ -670,8 +689,42 @@ export function StageTools({
         const k =
           makerPartOfTap(where.current.stageKey, where.current.shownPage, d.key, typeof d.el === 'string' ? d.el : null) ??
           makerPartOfCanvas(where.current.stageKey, d.key);
+        /* 🧭 A tap a REGION took (`f:story`, the Love Story's `#site-story`) names the part it holds — and the part's
+           own section is picked, so the work area holds the scene (its looks under Style, its motion under Animate),
+           never the region's panel (owner 2026-10-19, live: Style showed the Love Story's moments). */
+        const own = makerCanvasKeyOf(d.key);
+        /* The section's own tap, said for it — the work area selects the scene as if it were tapped (no page jump: the
+           part stays on the page it was tapped on); this panel hears its own message back and lets it pass, and the
+           pick below goes on as for any tap. */
+        if (k && own !== d.key && readPresent().has(own)) window.postMessage({ source: 'setnayan-site', t: 'edit', key: own }, window.location.origin);
+        /* ✋ A tap that names NO part (a legacy row's region — `home`, `details`, …): nothing is picked, and the work
+           area lets go of what it opened for it, so no tool shows a body the toolbar cannot name (the same day: Style
+           drew a panel under "INVITATION › HOME"). Two frames on — after the work area has drawn the tap. */
+        if (!k) {
+          setPicked(null);
+          setTapped(null);
+          setSlotAsk(null);
+          /* …only if nothing was picked since: a pick in those two frames keeps its body (a body never goes stale or empty
+             under a part the toolbar names). */
+          window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
+            if (pickedRef.current === null) openToolRef.current?.close();
+          }));
+          return;
+        }
         setPicked(k);
         setTapped(typeof d.el === 'string' ? d.el : null);
+        /* 🖼 A tap on one of a template scene's pictures (the bridge names its slot): Edit, with that picture's sheet
+           open — `ScenePhotoRow` (owner 2026-10-18, "just make them work"). */
+        const slot = (d as { slot?: unknown }).slot;
+        const ownType = k ? makerOwnSceneType(k) : null;
+        if (k && ownType && typeof slot === 'string' && /^[0-5]$/.test(slot)) {
+          setSlotAsk((was) => ({ type: ownType, slot: Number(slot), n: (was?.n ?? 0) + 1 }));
+          setToolRef.current('edit');
+          askTool('edit', k);
+          return;
+        }
+        /* Any other tap asks for no picture: a sheet asked for earlier never opens again by itself. */
+        setSlotAsk(null);
         askTool(toolFor(k), k);
       } else if (d.t === 'type' && d.phase === 'start') {
         /* 👆 A tap on the page only selects: the rule answers no for every part (`makerStageMayType`, 2026-10-09) —
@@ -729,6 +782,15 @@ export function StageTools({
     window.addEventListener(MAKER_STAGE_PICK_EVENT, onPick);
     return () => window.removeEventListener(MAKER_STAGE_PICK_EVENT, onPick);
   }, [pickPart]);
+  /* 💬 A line a body under the toolbar asks it to say (`MAKER_STAGE_SAY_EVENT`). */
+  useEffect(() => {
+    const onSay = (e: Event) => {
+      const words = (e as CustomEvent<unknown>).detail;
+      if (typeof words === 'string' && words) setWhyRef.current(words);
+    };
+    window.addEventListener(MAKER_STAGE_SAY_EVENT, onSay);
+    return () => window.removeEventListener(MAKER_STAGE_SAY_EVENT, onSay);
+  }, []);
   /* 🔑 Which part is picked, on the shell — the work area and the reply pages read it with every tap (the typing
      rule's `picked`; the answer is "select only" now, and the reply pages bring the picked part into view with it). */
   useEffect(() => {
@@ -958,6 +1020,10 @@ export function StageTools({
   const exitPreview = useCallback(() => {
     postToCanvas({ source: 'setnayan-editor', t: 'guest', on: false });
     setPreviewing(false);
+    /* 👁 Back to editing: the page is the couple's own again (the prototype's exitPreview — See as returns to You). */
+    if (seeAsNow.current.seeAs !== null) seeAsNow.current.set?.(null);
+    /* 🎭 …and Role ▾ to any guest, so the next See as starts plain. */
+    seeAsNow.current.setRole?.(null);
     /* Back to exactly where they were: the page they left, then the part they held (the tool was never changed). */
     const was = before.current;
     const page = was.page && was.page !== where.current.shownPage ? pagesRef.current.find((p) => p.key === was.page) : null;
@@ -981,6 +1047,19 @@ export function StageTools({
       document.removeEventListener('keydown', onKey);
     };
   }, [previewing, exitPreview]);
+  /* 👁 A SEE AS PICK REDRAWS THE CANVAS (its address gains `?as=`), and a fresh canvas takes taps as the Maker's again:
+     while the preview is on, a canvas of this stage that says it loaded is told at once that it is a guest's. */
+  useEffect(() => {
+    if (!previewing) return;
+    const onReady = (e: MessageEvent) => {
+      if (e.origin !== window.location.origin) return;
+      const d = e.data as { source?: unknown; t?: unknown } | null;
+      if (d?.source !== 'setnayan-site' || d.t !== 'ready') return;
+      stageCanvasOf(e.source, stage)?.postMessage({ source: 'setnayan-editor', t: 'guest', on: true }, window.location.origin);
+    };
+    window.addEventListener('message', onReady);
+    return () => window.removeEventListener('message', onReady);
+  }, [previewing, stage]);
   /* Leaving the stage, or the toolbar, while previewing: the canvas gets its taps back. */
   useEffect(() => () => postToCanvas({ source: 'setnayan-editor', t: 'guest', on: false }), []);
   /** ▶'s press: a tap plays, a hold previews. The pressed look is the button's own, at once (`sn-press`). */
@@ -1016,6 +1095,17 @@ export function StageTools({
     if (picked === 'reveal' && revealStage) return setRevealPlaying(true);
     /* 🎛 The Camera has nothing to play — its look is a still. */
     if (picked === 'camera') return;
+    /* 🎬 ▶ ON THE COVER SCENE (owner-approved 2026-10-16): the closed veil with no words → the unveil → every line
+       entering in its beat (`play-sequence.ts` `playCover`). No opening: the entrance alone. */
+    if (picked === MAKER_COVER_SCENE && !rsvpOpen) {
+      setSeq(null);
+      setCoverPlay(true);
+      /* The guests' own veil is played (`CoverPlayOpening`); a rigid opening opens on its seal, never by itself. */
+      postToCanvas({ source: 'setnayan-editor', t: 'playCover', key: 'f:hero', veil: revealStage !== null && revealLook.kind === 'veil-sheer' });
+      setPlaying(true);
+      return;
+    }
+    setCoverPlay(false);
     const def = picked ? MAKER_PARTS[picked] : null;
     /* ▶ A picked part plays its WHOLE life on the canvas — Build in · Action · Build out · rest (owner: "i cannot
        see the build out and action"); the canvas tells each phase back (`playSeq`). */
@@ -1055,16 +1145,17 @@ export function StageTools({
     };
   }, [playing, stopPlay]);
 
-
-  /* ── 🎭 THE PAGE IN STAGES: the Reveal drawn as the first part, one outline only ──
-     The Reveal plays over the cover for guests, so the editing page never drew it — in Stages it is drawn
-     where it sits, the first part (prototype `.el[data-el=reveal]`: the chosen opening in the event's
-     colours over "Opens once, over the cover"), and a tap on it picks it. The canvas's own gold `mark()`
-     outline is put away — the panel's outline is the one highlight (DECISION_LOG 2026-10-07 rule 2). */
+  /* ── 🎭 THE OPENING IS THE COVER SCENE'S STYLE — NAMED IN THE COVER'S CORNER, NEVER A TILE ABOVE IT ──
+     Owner-approved 2026-10-16 ("THE COVER SCENE'S OWN EDIT · STYLE (OPENING) · ANIMATE"): the Reveal's picture-tile that
+     floated above the cover ("Opens once, over the cover") is gone; the opening is picked in Cover Scene › Style (the
+     shipped picker, `RevealPartTools`) and the cover's top-right corner names it — "Sheer veil ◆ opens over it", or "No
+     opening". Maker canvas only (a guest's page is never touched); not in the whole-page preview. */
   const revealLook = useStageRevealLook();
   const pickRef = useRef(pickPart);
   pickRef.current = pickPart;
-  const revealLeadsHere = Boolean(revealStage && !rsvpOpen && shownPage && makerPartsOnPage(stage, shownPage)[0] === 'reveal');
+  /* 📜 The page ON SCREEN (`makerPartsOnShownPage`): on the one-page Invitation the bar may say "Details" while the cover is
+     the part picked — the Opening is still this page's (live 2026-10-20: Cover Scene › Style was empty there). */
+  const coverLeadsHere = Boolean(revealStage && !rsvpOpen && shownPage && makerCoverLeads(stage, shownPage));
   useEffect(() => {
     const paint = () => {
       try {
@@ -1073,44 +1164,33 @@ export function StageTools({
         if (!doc.getElementById('sn-stage-canvas-css')) {
           const css = doc.createElement('style');
           css.id = 'sn-stage-canvas-css';
-          css.textContent = '[data-setnayan-editor-bound],[data-setnayan-editor-bound] *{outline:none!important}[data-maker-reveal-part]{cursor:pointer}';
+          css.textContent = '[data-setnayan-editor-bound],[data-setnayan-editor-bound] *{outline:none!important}';
           doc.head.appendChild(css);
         }
-        /* The event's colours, as the page wears them (the names · the eyebrow · the page). */
-        const ink = getComputedStyle(doc.querySelector('[data-el="names"]') ?? doc.body).color;
-        const accent = getComputedStyle(doc.querySelector('[data-el="eyebrow"]') ?? doc.body).color;
+        /* The event's colours, as the page wears them — the Style cards draw the openings in them. */
+        const ink = revealPageInk(doc, '[data-el="names"]');
+        const accent = revealPageInk(doc, '[data-el="eyebrow"]');
         const bodyBg = getComputedStyle(doc.body).backgroundColor;
         const neutral = !bodyBg || bodyBg === 'rgba(0, 0, 0, 0)' ? '#F7F2EC' : bodyBg;
         setStageRevealColours({ dominant: ink, supporting: `color-mix(in srgb, ${ink} 30%, white)`, accent, neutral });
-        let part = doc.querySelector<HTMLElement>('[data-maker-reveal-part]');
-        if (!revealLeadsHere) {
-          part?.remove();
+        const cover = findMakerSection(doc, 'f:hero')?.querySelector<HTMLElement>('header[data-pahina-first-screen]') ?? null;
+        let tag = doc.querySelector<HTMLElement>(`[${COVER_OPENING_TAG_ATTR}]`);
+        if (!coverLeadsHere || !cover || previewingRef.current) {
+          tag?.remove();
           return;
         }
-        /* 🎭 The Reveal is the FIRST thing on its page (DECISION_LOG 2026-10-06) — before every marked part, the
-           day's "Happening now" card included, and on the tab that is SHOWN (a tabbed canvas hides the others). */
-        const first = firstMarkerOnPage(doc, shownPage);
-        if (part && first && part.nextElementSibling !== first) {
-          part.remove();
-          part = null;
+        if (!tag || tag.parentElement !== cover) {
+          tag?.remove();
+          tag = doc.createElement('span');
+          tag.setAttribute(COVER_OPENING_TAG_ATTR, '');
+          tag.setAttribute('aria-hidden', 'true');
+          tag.style.cssText = COVER_OPENING_TAG_CSS;
+          if (getComputedStyle(cover).position === 'static') cover.style.position = 'relative';
+          cover.appendChild(tag);
         }
-        if (!part) {
-          if (!first?.parentElement) return;
-          part = doc.createElement('section');
-          part.setAttribute('data-maker-reveal-part', '');
-          part.setAttribute('aria-label', 'Reveal');
-          part.style.cssText = 'padding:18px 14px 14px;margin:6px 14px;border-radius:var(--m-r-md,14px);text-align:center';
-          part.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            pickRef.current('reveal');
-          });
-          first.parentElement.insertBefore(part, first);
-        }
-        const mute = getComputedStyle(doc.body).color;
-        part.innerHTML = revealStubHtml(revealLook.kind, revealLook.colours, ink, mute);
+        tag.textContent = coverOpeningTag(revealLook.kind);
       } catch {
-        /* a canvas we cannot reach draws no Reveal part — its tile still picks it */
+        /* a canvas we cannot reach names no opening — Style still picks it */
       }
     };
     paint();
@@ -1121,7 +1201,37 @@ export function StageTools({
     };
     window.addEventListener('message', onReady);
     return () => window.removeEventListener('message', onReady);
-  }, [revealLeadsHere, revealLook.kind, revealLook.colours, shownPage]);
+  }, [coverLeadsHere, revealLook.kind, shownPage, previewing]);
+
+  /* 📷 The Camera page's drawing answers a tap too, as the Reveal's does: the canvas's stand-in
+     (`data-maker-page-stand-in="camera"`, `MakerPageStandIn`) carries no Maker marker, so a tap on it sent nothing.
+     It picks the Camera part (`pickRef.current('camera')`); bound once per element. */
+  useEffect(() => {
+    const bind = () => {
+      try {
+        const doc = document.querySelector<HTMLIFrameElement>(SHOWN_FRAME)?.contentDocument;
+        const stand = doc?.querySelector<HTMLElement>('[data-maker-page-stand-in="camera"]');
+        if (!stand || stand.hasAttribute('data-maker-camera-tap')) return;
+        stand.setAttribute('data-maker-camera-tap', '');
+        stand.style.cursor = 'pointer';
+        stand.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          pickRef.current('camera');
+        });
+      } catch {
+        /* a canvas we cannot reach — the Camera tile still picks it */
+      }
+    };
+    bind();
+    const onReady = (e: MessageEvent) => {
+      if (e.origin !== window.location.origin) return;
+      const d = e.data as { source?: unknown; t?: unknown } | null;
+      if (d?.source === 'setnayan-site' && d.t === 'ready') window.setTimeout(bind, 80);
+    };
+    window.addEventListener('message', onReady);
+    return () => window.removeEventListener('message', onReady);
+  }, [shownPage]);
 
   /* ── Style › Look's quiet bar and the part's own words behind ⓘ, said to the panel under the row ── */
   const canvasOfPick = picked ? MAKER_PARTS[picked].canvas : null;
@@ -1203,9 +1313,24 @@ export function StageTools({
   const blockRows = open && block !== null && shownTool === 'animate';
   /** 🃏 …or its Background: the three tiles, in the same four rows. */
   const blockGround = open && groundBlock !== null && shownTool === 'bg';
+  /** 🎭 THE COVER SCENE'S STYLE IS THE OPENING and 🎬 ITS ANIMATE IS ONE ENTRANCE (owner-approved 2026-10-16) — both
+   *  this toolbar's own rows: the shipped reveal picker (`RevealPartTools`), and `CoverAnimate`. */
+  const coverStyle = open && picked === MAKER_COVER_SCENE && !rsvpOpen && shownTool === 'style' && revealStage !== null;
+  const coverAnimate = open && picked === MAKER_COVER_SCENE && !rsvpOpen && shownTool === 'animate';
   /* …said to the work area's body under the selector (`StageStyle` shows that tool's part of the scene's Format). */
   useEffect(() => setStageTool(shownTool), [shownTool]);
   const [why, setWhy] = useState<{ words: string; n: number } | null>(null);
+  /* 👂 THE PAGE ON SCREEN DOES NOT ANSWER (`canvas-bridge-watch.ts`): said here, in plain words, with one Reload —
+     never a canvas that looks fine and takes no tap (2026-10-18, Safari, "cannot select again"). */
+  const [canvasSilent, setCanvasSilent] = useState(false);
+  useEffect(() => {
+    const on = (e: Event) => setCanvasSilent(Boolean((e as CustomEvent<MakerCanvasSilentDetail>).detail?.silent));
+    window.addEventListener(MAKER_CANVAS_SILENT_EVENT, on);
+    return () => window.removeEventListener(MAKER_CANVAS_SILENT_EVENT, on);
+  }, []);
+  /** 🖼 THE ONE TAP A COVER WORD'S BACKGROUND LINE ENDS IN: "This sits on the Cover Scene." → Select the Cover Scene ›
+   *  (`makerPartParent`, the approved prototype's door). It selects the group; it never navigates. */
+  const whyDoor = why && why.words === MAKER_COVER_WORD_BG_WHY && !rsvpOpen ? makerPartParent(picked) : null;
   setWhyRef.current = (words) => setWhy((w) => ({ words, n: (w?.n ?? 0) + 1 }));
   /** The one plain line a grey tool answers with. A SAMPLE on the canvas (each guest sees their own there) says so,
    *  naming the thing (`BLOCK_SAMPLE_WHY`); E-Gifts with nothing for a guest to see yet says that; any other, the
@@ -1235,6 +1360,13 @@ export function StageTools({
      held a <nav> the server's HTML did not, and React refused the server's panel and rebuilt it. The shell is now
      found once the panel is on the page (before the browser paints, so the bar never arrives a frame late). */
   const [shellEl, setShellEl] = useState<HTMLElement | null>(null);
+  /* 🖥 A desktop's three columns (`maker-desk.tsx`): the same toolbar, full height on the right (`stage-panel/desk.tsx`). */
+  /* (This toolbar is drawn only in the new Maker — on a desktop's width, only when its three columns are on.) */
+  const desk = useIsDesktop('lg');
+  const rowsRef = useRef<HTMLDivElement>(null);
+  useDeskRowsTop(desk, rowsRef);
+  useDeskAnimate(desk);
+  useDeskLookInView(desk, shownTool, picked);
   useLayoutEffect(() => setShellEl(document.querySelector<HTMLElement>('[data-maker-shell]')), []);
   /** Where the tab row is drawn: over the foot of the stage's canvas — or, on the RSVP stage, in that stage's own
    *  column (never the shell there: the RSVP layer would cover it). */
@@ -1324,7 +1456,10 @@ export function StageTools({
   const readFields = useCallback(() => {
     if (!picked || rsvpOpen) return setFields([]);
     const doc = document.querySelector<HTMLIFrameElement>(SHOWN_FRAME)?.contentDocument ?? null;
-    const next = readPartWords(doc, makerPartCanvasOn(stageKey, picked), MAKER_PARTS[picked].el ?? null, makerPartLabelOn(stageKey, picked));
+    /* ✍ A scene of their own: its words as the Maker has them, so Edit lists the Heading and Words the page does not draw yet. */
+    const ownType = makerOwnSceneType(picked);
+    const own = ownType ? draftedOwnWordsOr(ownType, askPartOps()?.ownWords?.[ownType] ?? null) : null;
+    const next = readPartWords(doc, makerPartCanvasOn(stageKey, picked), MAKER_PARTS[picked].el ?? null, makerPartLabelOn(stageKey, picked), own);
     setFields((was) => (JSON.stringify(was) === JSON.stringify(next) ? was : next));
   }, [picked, rsvpOpen, stageKey]);
   useEffect(() => {
@@ -1372,15 +1507,67 @@ export function StageTools({
     if (lookOn) setLookOps(askPartOps());
   }, [lookOn, lookTarget, renderStamp]);
   const keepLook = useCallback(
-    async (field: 'color' | 'size', value: string | number | null) => {
+    async (field: PartLookField, value: string | number | null) => {
       const o = askPartOps();
       if (!o?.draftAction || !lookTarget) return { ok: false as const, error: 'That could not be saved just now. Please try again.' };
       return keepPartLook(lookTarget, field, value, { eventId: o.eventId, draftAction: o.draftAction, canvases: o.canvases });
     },
     [lookTarget],
   );
+  /* ✏️ THE COVER'S LINES, for Cover Scene › Edit — read off the page (what it drew, and what it drew hidden) and the
+     Maker's own copy of the hero row (each line's `hidden`), again after every render. The Logo is the event's
+     "Show the logo" answer: on while the page draws the mark. ↺ …and after every move of that copy no render brings — a
+     drawn ↺, a merged save (`useDraftMoves`, `stage-panel/follow-draft.ts`) — so the switches turn back with the page. */
+  const draftMoves = useDraftMoves();
+  const [coverLines, setCoverLines] = useState<CoverLine[]>([]);
+  useEffect(() => {
+    /* (Animate's beats name the same lines.) */
+    if (picked !== MAKER_COVER_SCENE || rsvpOpen) return setCoverLines([]);
+    const read = () => {
+      const doc = document.querySelector<HTMLIFrameElement>(frameSel)?.contentDocument ?? null;
+      const hero = doc ? findMakerSection(doc, 'f:hero') : null;
+      const now = readPresent(frameSel);
+      const elements = draftedCanvasOr('hero', (askPartOps()?.canvases?.hero ?? null) as never).elements;
+      /* 📜 …the lines of the page ON SCREEN — on the one page, whichever tab the bar says (`makerPartsOnShownPage`). */
+      const next = makerCoverLineParts(stageKey, shownPage)
+        .filter((k) => k === 'logo' || now.has(`f:hero|${MAKER_PARTS[k].el}`))
+        .map((k): CoverLine => {
+          const el = MAKER_PARTS[k].el!;
+          const node = hero?.querySelector<HTMLElement>(`[data-el="${el}"]`) ?? null;
+          return {
+            part: k,
+            label: makerPartLabelOn(stageKey, k),
+            sample: k === 'logo' ? 'the monogram' : (node?.textContent ?? '').replace(/\s+/g, ' ').trim(),
+            shown: k === 'logo' ? now.has('f:hero|mark') : elements?.[el]?.hidden !== true,
+          };
+        });
+      setCoverLines((was) => (JSON.stringify(was) === JSON.stringify(next) ? was : next));
+    };
+    read();
+    const t = window.setTimeout(read, 400);
+    return () => window.clearTimeout(t);
+  }, [picked, rsvpOpen, frameSel, stageKey, shownPage, present, maker?.renderStamp, draftMoves]);
   /** Edit's rows are this toolbar's own; every other tool's are the work area's (or the Reveal's / the Camera's). */
   const editOn = picked !== null && shownTool === 'edit';
+  /* 📱 THE VENUE CARDS' PICTURE ▾, RIGHT HERE — Edit's rows 2–3 on the Venue scene (controller ruling 2026-10-17 on the
+     owner's "no go-edit-elsewhere links; put the same field right there"). Row 1 keeps the venue's own door to Suppliers
+     (the place is the booking's); each card's Picture ▾ is the SAME row Details › Venues draws (`VenuePictureRows`). */
+  const venuePictures = maker?.venuePictures ?? null;
+  /* 🖼 A SCENE OF THEIR OWN'S PICTURES, RIGHT HERE — Edit's row 3 (owner 2026-10-18): one tile per slot of its template,
+     each opening Upload and the couple's own media (`ScenePhotoRow`; nothing for a template with no pictures). */
+  const ownPhotoType = picked && !rsvpOpen && maker ? makerOwnSceneType(picked) : null;
+  const ownPhotoRow = ownPhotoType ? (
+    <ScenePhotoRow ask={askPartOps} type={ownPhotoType} stamp={maker?.renderStamp ?? null} open={slotAsk?.type === ownPhotoType ? slotAsk : null} onRefused={(words) => setWhy((w) => ({ words, n: (w?.n ?? 0) + 1 }))} />
+  ) : null;
+  const venuePictureRows =
+    picked === 'venue' && !rsvpOpen && venuePictures && venuePictures.slots.length > 0 && maker ? (
+      <VenuePictureRows eventId={maker.eventId} slots={venuePictures.slots} pro={venuePictures.pro} onRefused={(words) => setWhy((w) => ({ words, n: (w?.n ?? 0) + 1 }))} />
+    ) : null;
+  /* 🏷 THE WEDDING MARCH'S SECTION HEADINGS, RIGHT HERE — Edit's rows 2–3 under its door (owner 2026-10-19). */
+  const sectionNameRows =
+    picked === 'march' && !rsvpOpen && maker ? (
+      <SectionNames readDoc={readShownDoc} ask={askPartOps} stamp={maker.renderStamp ?? null} onRefused={(words) => setWhy((w) => ({ words, n: (w?.n ?? 0) + 1 }))} />
+    ) : null;
   /** The line under the tools is on screen: always on its own row (Edit, or nothing picked); for a moment under another tool. */
   const statusOn = edits.status !== null && (editOn || picked === null || statusFresh);
   /* "You're editing · Stage › Page › Part" — the page only where the stage has several, the part once one is picked.
@@ -1435,6 +1622,8 @@ export function StageTools({
       data-stage-edit-own={rsvpLineTypes && shownTool === 'edit' ? '' : undefined}
       data-stage-edit-card={rsvpCardEdits && shownTool === 'edit' ? '' : undefined}
       data-stage-own-rows={blockRows || blockGround ? '' : undefined}
+      /* 🎭 🎬 …and the Cover Scene's Opening and its one entrance: rows of this toolbar's own too. */
+      data-stage-cover-rows={coverStyle || coverAnimate ? '' : undefined}
       data-stage-tool-now={shownTool}
       data-stage-row4={lookOn ? '' : undefined}
       aria-hidden={away || undefined}
@@ -1469,6 +1658,7 @@ export function StageTools({
           /* 🧱 …and the other way round: a fixed block's Animate is drawn HERE, in the toolbar's own rows
              (`BlockAnimateRows`), so the work area's tool stands aside for it as it does for Edit. */
           '[data-maker-shell]:has([data-stage-tools][data-stage-own-rows]) [data-phone-chrome="panel"]{visibility:hidden;pointer-events:none}' +
+          '[data-maker-shell]:has([data-stage-tools][data-stage-cover-rows]) [data-phone-chrome="panel"]{visibility:hidden;pointer-events:none}' +
           /* …and while the toolbar itself is AWAY (▶ playing, the whole-page preview, typing): the work area's tool lay
              over the four rows, so it goes with them — seen on the review copy, 2026-10-09: it stayed on the page under
              a toolbar that had gone, and covered "Exit preview". */
@@ -1525,12 +1715,13 @@ export function StageTools({
           '[data-maker-shell]:has([data-stage-tools][data-scene-slide="back"]) [data-stage-guest-bar]{transition:none!important}' +
           `[data-maker-shell]:has([data-stage-tools][data-scene-slide]) [data-phone-chrome="panel"]{transition:opacity ${SCENE_COLLAPSE_CALM_MS}ms linear!important;transform:none!important}` +
           '[data-maker-shell]:has([data-stage-tools][data-scene-slide="away"]) [data-phone-chrome="panel"]{opacity:0}' +
-          '}'}
+          '}' +
+          (desk ? STAGE_DESK_CSS : '')}
       </style>
 
       {/* ══ ▶ WHAT IS PLAYING — Build in · Action · Build out, the one now in bold, and any phase the part has none of
           named ("Build out: none"), so a blank never reads as a fault. Shown over the page while it plays. ══ */}
-      {seq && (playing || seq.skipped.length > 0) ? <StagePlayStatus phase={seq.phase} skipped={seq.skipped} /> : null}
+      {seq && (playing || seq.skipped.length > 0) && !(coverPlay && seq.skipped.length === 0) ? <StagePlayStatus phase={seq.phase} skipped={seq.skipped} /> : null}
       {/* ══ 🚫 WHY A GREY TOOL DID NOTHING — one line, the app's toast, gone by itself ══ */}
       {/* The toolbar's one toast — drawn on the page's BODY, never inside the toolbar: the toolbar slides away for ▶ and
           for the whole-page preview (a transform), and a toast inside it went with it — seen on the review copy,
@@ -1540,7 +1731,7 @@ export function StageTools({
           (`the-maker-first-render-is-the-servers.test.ts`; 9c added one and broke that guard). */}
       {why
         ? createPortal(
-            <PeekToast key={why.n} tone="note" data="tool-why" onGone={() => setWhy((w) => (w?.n === why.n ? null : w))}>
+            <PeekToast key={why.n} tone="note" data="tool-why" onGone={() => setWhy((w) => (w?.n === why.n ? null : w))} action={whyDoor ? { label: MAKER_COVER_SCENE_DOOR, onPress: () => (setWhy(null), pickPartRef.current(whyDoor)) } : undefined}>
               {why.words}
             </PeekToast>,
             document.body,
@@ -1566,12 +1757,7 @@ export function StageTools({
       <StageAbout />
       {/* ══ ⌨ THE TYPING BAR — only while a field of Edit is open (the rule set above): what is typed, and Done.
           Done is a tap outside the field, which KEEPS (the typed row's own rule) — the app's main button. ══ */}
-      <div data-stage-keys="" className={`-mx-[10px] rounded-t-2xl !border-t-0 !bg-transparent ${SP_KEY_BAR}`}>
-        <span className="min-w-0 truncate">Typing · {picked ? makerPartLabelOn(stageKey, picked) : ''}</span>
-        <span data-type-done="" className={SP_KEY_DONE}>
-          <ActionButton tone="brand" main icon={Check} label="Done" onClick={() => (document.activeElement as HTMLElement | null)?.blur?.()} />
-        </span>
-      </div>
+      <TypingBand inline data-stage-keys="" className="-mx-[10px] rounded-t-2xl !border-t-0 !bg-transparent" place={picked ? makerPartLabelOn(stageKey, picked) : ''} />
 
       {/* ══ THE SELECTOR — [ Edit | Style | Background | Animate ] · ▶ ══ */}
       <div className={STAGE_ROW} data-stage-row="">
@@ -1628,9 +1814,11 @@ export function StageTools({
         </button>
       </div>
 
+      {/* ══ 🖥 A desktop's ‹ Previous · Next › · ✕ Done and the part's caption (the phone swipes) ══ */}
+      {desk ? <DeskStep stage={stageKey} picked={picked} order={desk && picked ? ordered() : []} onStep={(dir) => stepRef.current(dir)} onDone={deselect} /> : null}
       {/* ══ THE FOUR ROWS — Edit's are drawn here; the work area's tool lies over this same box for the other three.
           Nothing picked: empty (the prototype's `drawStrip` with no part). ══ */}
-      <div data-stage-rows="" className="relative flex min-h-0 flex-1 flex-col [&>*]:!mt-0">
+      <div ref={rowsRef} data-stage-rows="" className="relative flex min-h-0 flex-1 flex-col [&>*]:!mt-0">
         {lookOn && lookTarget ? (
           <div className={SP_ROWS} data-stage-look="">
             <div className="row-start-4 min-w-0">
@@ -1645,12 +1833,41 @@ export function StageTools({
             </div>
           </div>
         ) : null}
-        {editOn && !rsvpLineTypes ? (
-          <StageEdit key={picked} fields={fields} tapped={tapped} onType={showPartWords} onKeep={keepWords} second={canvasOfScene ? <PostEventShown canvasKey={canvasOfScene} stamp={maker?.renderStamp} onRefused={(words) => setWhy((w) => ({ words, n: (w?.n ?? 0) + 1 }))} /> : null} />
+        {editOn && picked === MAKER_COVER_SCENE && !rsvpOpen ? (
+          /* ✏️ COVER SCENE › EDIT — its lines, each with the house switch (owner-approved 2026-10-16). */
+          <CoverLines lines={coverLines} onPick={(k) => pickPartRef.current(k)} onSay={(words) => setWhy((w) => ({ words, n: (w?.n ?? 0) + 1 }))} />
+        ) : editOn && !rsvpLineTypes ? (
+          <StageEdit key={picked} fields={fields} tapped={tapped} onType={showPartWords} onKeep={keepWords} last={ownPhotoRow} second={canvasOfScene ? <PostEventShown canvasKey={canvasOfScene} stamp={maker?.renderStamp} onRefused={(words) => setWhy((w) => ({ words, n: (w?.n ?? 0) + 1 }))} /> : (venuePictureRows ?? sectionNameRows)} />
+        ) : null}
+        {/* ══ ✋ NOTHING PICKED — row 1 says so, in one plain line, under whichever tool is on: never a blank Edit
+            (owner 2026-10-19, live: "INVITATION › HOME" over an empty Edit). The silent page's own line below is a
+            different state and wins (`stageRowOneLine`). ══ */}
+        {stageRowOneLine({ picked: picked !== null, canvasSilent }) === 'pick' && !away ? (
+          <div className={SP_ROWS} data-stage-nothing-picked="">
+            <p className="row-start-1 flex min-w-0 items-center justify-center px-1 text-center text-[13px] text-[var(--sp-ink2)]">{STAGE_NOTHING_PICKED_WORDS}</p>
+          </div>
         ) : null}
         {/* ══ THE LINE UNDER THE TOOLS — row 4, where ↑ Earlier · ↓ Later · Remove stood until a scene could be held
             on the page (owner 2026-10-11): "Saving…", "<Scene> removed" beside Undo, why a part keeps its place, a
             save that failed (`scene-drag.tsx`). Laid over the four rows' own box, so it is row 4 under every tool. ══ */}
+        {/* ══ 👂 THE PAGE ISN'T ANSWERING TAPS — row 1, over whatever tool is open, until the page answers. ══ */}
+        {canvasSilent ? (
+          <div className={`pointer-events-none absolute inset-x-0 top-0 z-[3] ${SP_ROWS}`} data-stage-canvas-silent="">
+            <div role="alert" className="pointer-events-auto row-start-1 flex min-w-0 items-center justify-center gap-3 bg-[var(--sp-page)] px-1">
+              <span className="min-w-0 truncate text-[13px] font-medium text-[var(--sp-ink)]">{CANVAS_SILENT_WORDS}</span>
+              <ActionButton
+                tone="brand"
+                main
+                icon={RotateCw}
+                label={CANVAS_SILENT_RELOAD}
+                onClick={() => {
+                  setCanvasSilent(false);
+                  window.dispatchEvent(new Event(MAKER_CANVAS_RELOAD_EVENT));
+                }}
+              />
+            </div>
+          </div>
+        ) : null}
         {statusOn ? (
           <div className={`pointer-events-none absolute inset-x-0 top-0 z-[2] ${SP_ROWS}`} data-stage-status="">
             <div className="pointer-events-auto row-start-4 flex min-w-0 items-center justify-center bg-[var(--sp-page)]">{edits.status}</div>
@@ -1658,21 +1875,30 @@ export function StageTools({
         ) : null}
         {/* ══ 🎭 THE REVEAL'S TOOLS — its kinds, Extras ▾ — under Style. Mounted unseen while another part (or Edit)
             is on, so the page's Reveal draws the opening chosen. ══ */}
-        {revealStage && (revealOpen || revealLeadsHere) ? (
-          <div data-stage-reveal-tools="" hidden={!(open && revealOpen && !editOn)} className={open && revealOpen && !editOn ? 'flex min-h-0 flex-1 flex-col' : undefined}>
+        {revealStage && (revealOpen || coverLeadsHere) ? (
+          <div data-stage-reveal-tools="" hidden={!((open && revealOpen && !editOn) || coverStyle)} className={(open && revealOpen && !editOn) || coverStyle ? 'flex min-h-0 flex-1 flex-col' : undefined}>
             <RevealPartTools stage={revealStage} />
           </div>
         ) : null}
-        {/* ══ 🎛 THE CAMERA'S TOOLS — Style: Classic · Your brand · Challenges ══ */}
-        {open && cameraOpen && !editOn ? <CameraPartTools /> : null}
+        {/* ══ 📷 THE CAMERA'S ROWS — ONE camera, no style to pick (owner 2026-10-24): what it wears, in one line ══ */}
+        {open && cameraOpen && !editOn ? <CameraPartNote pro={maker?.lookPages?.camera?.pro ?? false} /> : null}
         {/* 🧱 A fixed block's own Animate — the toolbar's four rows, on the block's own save. */}
         {blockRows && block ? <BlockAnimateRows key={block} block={block} /> : null}
+        {/* 🎬 The Cover Scene's one entrance — Entrance ▾ · Movement ◆ · the beats · the words on their own. */}
+        {coverAnimate ? (
+          <CoverAnimate
+            key={maker?.renderStamp ?? 0}
+            words={coverLines.length > 0 ? coverLines.flatMap((l) => (MAKER_PARTS[l.part].el ? [{ key: MAKER_PARTS[l.part].el as HubHeroElementKey, label: l.label }] : [])) : []}
+            onSay={(words) => setWhy((w) => ({ words, n: (w?.n ?? 0) + 1 }))}
+          />
+        ) : null}
         {/* 🃏 …and its own Background — None · Plain · Frosted, on the same save. */}
         {blockGround && groundBlock ? <BlockGroundRows key={groundBlock} block={groundBlock} /> : null}
       </div>
       {revealPlaying && revealStage ? <RevealPlay stage={revealStage} onDone={() => setRevealPlaying(false)} /> : null}
       {/* ══ 🎛 THE CAMERA'S PAGE IS THE CAMERA (owner 2026-10-09: "Camera is a full screen design") — drawn on the canvas's
-          own Camera page, edge to edge, in the look picked; picked on arriving, and by a tap (`camera-page.tsx`). ══ */}
+          own Camera page, edge to edge — the one camera, in its Pro dress where the event has it; picked on arriving,
+          and by a tap (`camera-page.tsx`). ══ */}
       {rsvpOpen ? null : (
         <CameraPage stage={stage} on={makerPartsOnPage(stage, shownPage).includes('camera')} picked={open && cameraOpen} held={picked !== null} onPick={() => pickPartRef.current('camera')} />
       )}
@@ -1695,15 +1921,96 @@ export function StageTools({
                  area at z-30 in this same shell (`maker-shell.tsx`, `data-maker-rsvp-layer`); the button, one above the
                  guests' bar (26), was UNDER that layer's own frame — on the RSVP stage a tap on it reached the guest's
                  page and never left the preview (owner 2026-10-10: "has not return button?"). */
-              className="pointer-events-none absolute inset-x-0 z-[31] flex justify-center lg:hidden"
-              style={{ bottom: `calc(env(safe-area-inset-bottom) + ${pages.length > 1 || rsvpOpen ? STAGE_EXIT_OVER_BAR_PX : STAGE_EXIT_GAP_PX}px)` }}
+              /* 🔘 OFF THE COVER'S FOOT (owner 2026-10-16, approved prototype v2): the foot is the RSVP button's and the
+                 "Swipe up" hint's now, so on a stage's pages the pill parks at the RIGHT EDGE, a little above the middle
+                 (`top: 36%`), its See as ▾ under it. The RSVP stage has no cover — its pill stays over its row of screens. */
+              className="pointer-events-none absolute z-[31] flex gap-2 lg:hidden"
+              data-stage-exit-at={rsvpOpen ? 'foot' : 'edge'}
+              style={
+                rsvpOpen
+                  ? { left: 0, right: 0, justifyContent: 'center', padding: '0 12px', bottom: `calc(env(safe-area-inset-bottom) + ${STAGE_EXIT_OVER_BAR_PX}px)` }
+                  : { right: 12, top: STAGE_EXIT_EDGE_TOP, flexDirection: 'column', alignItems: 'flex-end' }
+              }
             >
               <ActionButton tone="brand" main icon={X} label="Exit preview" onClick={exitPreview} className="pointer-events-auto shadow-lg" />
+              {/* 👁 SEE AS ▾ — the phone's one See as (owner 2026-10-15, with the host strip removed: "See as on phone
+                  YES"). ONE PickMenu beside "Exit preview": the same rows and the same `setSeeAs` as the desktop's
+                  dropdown above the preview; a pick redraws the canvas at `?as=` and never leaves the preview. Not on
+                  the RSVP stage: that canvas is the reply page, always drawn for a guest who has not replied. */}
+              {maker?.setSeeAs && !rsvpOpen ? (
+                <PickMenu
+                  label="See as"
+                  value={maker.seeAs ?? SEE_AS_EDITING.key}
+                  buttonText={`See as · ${maker.seeAs ? seeAsLabel(maker.seeAs) : 'You'}`}
+                  options={[
+                    { key: SEE_AS_EDITING.key, label: SEE_AS_EDITING.label },
+                    ...SEE_AS.map((s) => ({ key: s.key, label: s.label, ...(s.note ? { hint: s.note } : {}) })),
+                  ]}
+                  onPick={(key) => {
+                    const next = SEE_AS.find((s) => s.key === key)?.key ?? null;
+                    if (next === (maker.seeAs ?? null)) return;
+                    maker.setSeeAs?.(next);
+                    setWhyRef.current(seeAsDrawingLine(next));
+                  }}
+                  dataAttr="data-stage-see-as"
+                  className="pointer-events-auto min-h-11 max-w-[200px] border border-[var(--sp-line)] bg-white shadow-lg"
+                />
+              ) : null}
+              {/* 🎭 ROLE ▾ (owner 2026-10-17: "for example i want to view it as a father of the bride") — under See as,
+                  only while it draws a guest: WHICH guest, from this event's own guest-list roles (the man / woman
+                  half where the role needs it). A pick redraws the canvas at `?asrole=`; the sample is named for its
+                  role and nothing is written. */}
+              {maker?.setSeeAsRole && !rsvpOpen && seeAsDrawsMe(maker.seeAs) && (maker.seeAsRoles?.length ?? 0) > 1 ? (
+                <PickMenu
+                  label="Role"
+                  value={maker.seeAsRole ?? SEE_AS_ANY_ROLE}
+                  buttonText={`Role · ${maker.seeAsRoles?.find((r) => r.key === (maker.seeAsRole ?? SEE_AS_ANY_ROLE))?.label ?? 'Any guest'}`}
+                  options={(maker.seeAsRoles ?? []).map((r) => (r.group ? { key: r.key, label: r.label, group: r.group } : { key: r.key, label: r.label }))}
+                  onPick={(key) => {
+                    const next = key === SEE_AS_ANY_ROLE ? null : key;
+                    if (next === (maker.seeAsRole ?? null)) return;
+                    maker.setSeeAsRole?.(next);
+                    setWhyRef.current(seeAsRoleDrawingLine(maker.seeAsRoles?.find((r) => r.key === next)?.label ?? null));
+                  }}
+                  stickyGroups
+                  dataAttr="data-stage-see-as-role"
+                  className="pointer-events-auto min-h-11 max-w-[200px] border border-[var(--sp-line)] bg-white shadow-lg"
+                />
+              ) : null}
             </div>,
             shellEl,
           )
         : null}
 
+      {/* ══ 🖥 A desktop's left column — the parts of this page — and "You're editing" under the page ══ */}
+      {desk && !away ? (
+        <DeskParts
+          stage={stageKey}
+          pages={pages}
+          shownPage={shownPage}
+          onPage={(key, option) => {
+            if (rsvpOpen) {
+              deselect();
+              goToScreen(key as RsvpStageScene);
+            } else {
+              goToPage(key, option);
+              askPage(key);
+            }
+          }}
+          order={ordered()}
+          picked={picked}
+          onPick={(k) => pickPartRef.current(k)}
+          tools={edits}
+        />
+      ) : null}
+      {desk && shellEl
+        ? createPortal(
+            <p data-desk-editing="" className="pointer-events-none absolute bottom-0 z-[24] truncate px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--sp-mute)]">
+              {STAGE_BAR_LINE_LEAD} · <b className="font-semibold text-[var(--sp-ink)]">{linePieces.join(' › ')}</b>
+            </p>,
+            shellEl,
+          )
+        : null}
       {/* ══ THE GUEST'S TAB BAR, a bar at the foot of the page preview (owner 2026-10-09: "that is the bottom nav of
           the actual event hub") — only where the stage has pages. "You're editing" left it for the toolbar's own line. ══ */}
       {/* 🗳 On the RSVP stage it stands IN the stage's own column, under its screens (`RSVP_STAGE_BAR_SLOT`): that
@@ -1791,7 +2098,8 @@ function centrePart(key: string, el: string | null, frameSel: string = SHOWN_FRA
     const k = frame.clientWidth > 0 ? fr.width / frame.clientWidth : 1;
     const bar = document.querySelector('[data-stage-guest-bar]')?.getBoundingClientRect();
     const lt = document.querySelector('[data-maker-lower-third]')?.getBoundingClientRect();
-    const bottom = Math.min(fr.bottom, bar && bar.height > 0 ? bar.top : Infinity, lt ? lt.top : Infinity);
+    /* 🖥 …the lower third only where it lies under the page (a desktop's is the column beside it). */
+    const bottom = Math.min(fr.bottom, bar && bar.height > 0 ? bar.top : Infinity, lt && lt.left < fr.right && lt.right > fr.left ? lt.top : Infinity);
     const band = (bottom - fr.top) / k;
     if (band <= 40) return;
     doc.body.style.paddingBottom = `${Math.round(band / 2)}px`;

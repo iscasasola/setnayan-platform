@@ -61,9 +61,12 @@ export function MainGround({
   /** `adaptiveThemeVars(adaptive, …)` — `{}` when the couple keeps the theme's colours. */
   vars: Record<string, string>;
   /**
-   * 🌄 Parallax on the couple's own photo — the SHIPPED hero parallax: the
-   * layer wears `data-pahina-parallax="page"` and `PahinaCoverParallax` drifts
-   * it with the PAGE's scroll (this layer is fixed, so its own box never moves).
+   * 🌄 Parallax on the picture — the SHIPPED hero parallax: the layer wears
+   * `data-pahina-parallax="page"` and `PahinaCoverParallax` drifts it with the
+   * PAGE's scroll (this layer is fixed, so its own box never moves). One wrapper
+   * around the still AND the clip (Look restudy row 8: a clip and a video of ours
+   * move too), outside the blur's own scale so the two never fight over one
+   * `transform`.
    */
   parallax?: boolean;
   /**
@@ -74,7 +77,7 @@ export function MainGround({
   veil?: { color: string; opacity: number } | null;
   /** 🌫 Blur ▾ — Soft · Strong; null = sharp. */
   blur?: HubMainBlur | null;
-  /** 🎯 Focus ▾ — which part of a photo stays in view; null = the centre. */
+  /** 🎯 Focus ▾ — which part of the picture (a photo or the clip) stays in view; null = the centre. */
   focus?: HubMainFocus | null;
 }) {
   if (!still && !clip) return null;
@@ -87,7 +90,8 @@ export function MainGround({
     .join('');
   const css =
     '[data-guest-ground] [data-theme-loop],[data-guest-ground] [data-theme-poster]{display:none}' +
-    (declarations ? `[data-guest-look]{${declarations}}` : '');
+    /* 🎨 Over a picture the names keep the measured ink — the Dominant was measured on the paper (`globals.css`). */
+    `[data-guest-look]{${declarations}--hub-names-ink:initial !important;}`;
   return (
     <>
       <style data-main-ground-style="">{css}</style>
@@ -97,11 +101,11 @@ export function MainGround({
         data-main-ground-tint={adaptive.tint ? 'match' : 'theme'}
         className="pointer-events-none fixed inset-0 -z-10 overflow-hidden"
       >
+        <div className="absolute inset-0" {...(parallax ? { 'data-pahina-parallax': 'page' } : {})}>
         {still ? (
           <div
             className="absolute inset-0 bg-cover"
             style={{ backgroundImage: `url(${JSON.stringify(still)})`, backgroundPosition: position, ...blurStyle }}
-            {...(parallax && !clip ? { 'data-pahina-parallax': 'page' } : {})}
           />
         ) : null}
         {clip ? (
@@ -116,11 +120,14 @@ export function MainGround({
             play="loop"
             open="inplace"
             label=""
-            className={`absolute inset-0 h-full w-full object-cover ${focus === 'top' ? 'object-top' : focus === 'bottom' ? 'object-bottom' : ''}`}
+            className="absolute inset-0 h-full w-full object-cover"
+            /* 🎯 The film is held where its still is — the ONE crop rule, not a second copy in class names. */
+            position={position}
               revealOnPlay
             />
           </div>
         ) : null}
+        </div>
         {veil ? (
           <div
             data-main-ground-scrim=""

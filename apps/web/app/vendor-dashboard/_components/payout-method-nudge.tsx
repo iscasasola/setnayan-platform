@@ -30,13 +30,13 @@ import { Wallet } from 'lucide-react';
 import type { PayoutReadiness } from '@/lib/deposit-pay-step';
 
 /**
- * The payment-options surface lives in the My Shop hub's folds. `open` is the
- * hub's canonical key (`tab` is its legacy alias) and `#shop-folds` is the
- * anchor the fold sits under — without it the tap landed at the TOP of My
- * Shop with the open fold several screens down (owner, 2026-09-19: "accessing
- * where to upload payment options feels too deep").
+ * The payment-options surface is Your details › How clients pay you (step 5,
+ * 2026-10-14; it was a fold of the My Shop hub). `#pay` is that fold's anchor —
+ * the fold opens and comes into view on arrival, so the tap lands ON the place
+ * to add GCash or a bank (owner, 2026-09-19: "accessing where to upload payment
+ * options feels too deep"). Old `?open=payments` links still forward there.
  */
-export const PAYMENT_OPTIONS_HREF = '/vendor-dashboard/shop?open=payments#shop-folds';
+export const PAYMENT_OPTIONS_HREF = '/vendor-dashboard/profile#pay';
 
 /**
  * THE NUDGE'S WORDS, ONCE. The tile below draws them; the supplier's Today

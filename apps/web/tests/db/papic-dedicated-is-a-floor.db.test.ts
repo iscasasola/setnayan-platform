@@ -205,25 +205,17 @@ test('the camera can still spend its own even when the pot is empty', async () =
 
 // ── the inverse ────────────────────────────────────────────────────────────
 
-test('🔑 releasing a split puts each half back where it came from', async () => {
-  const { eventId, seatId, poolStart } = await seed(100, 2);
-  const r = await reserve(seatId, eventId, 8);
-  assert.equal(await poolLeft(eventId), poolStart - 6);
-  assert.equal(await available(seatId, eventId), poolStart - 6);
-
-  await one(`SELECT public.papic_release_capture_split($1,$2,$3,$4)`, [
-    seatId,
-    eventId,
-    r.dedicated_spent,
-    r.pool_spent,
-  ]);
-
-  assert.equal(await poolLeft(eventId), poolStart, 'the pot must get its 6 back');
-  // the camera's own 2 are back too: available = 2 dedicated + the whole pot
+// ⏭ `papic_release_capture_split` WAS DROPPED in 20271276810836, with its last
+// caller. The split is now only ever booked inside a transaction that also
+// writes the row (`papic_record_seat_capture`, `papic_record_guest_capture_and_spend`),
+// and a refusal rolls BOTH halves back with the row rather than releasing them.
+// `a-guest-shot-spends-with-its-row.db.test.ts` proves each half comes back
+// ("a record that refuses after her camera was booked gives the booking back").
+test('🔑 the hand release is gone — a split is undone by its transaction, not by a refund', async () => {
   assert.equal(
-    await available(seatId, eventId),
-    poolStart + 2,
-    'releasing the whole cost to either side alone silently moves credits between the camera and the pot',
+    await one(`SELECT to_regprocedure('public.papic_release_capture_split(uuid,uuid,integer,integer)') IS NULL`),
+    true,
+    'the refund door is back — it can give back a spend that committed with its row',
   );
 });
 

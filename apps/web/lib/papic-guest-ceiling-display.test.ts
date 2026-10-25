@@ -194,15 +194,15 @@ test('points_cost stays a LITERAL .select() argument — not hidden behind a con
 // 4 · THE HONEST "NO" — a ceiling refusal names its remedy, the flat 150 does not
 // ─────────────────────────────────────────────────────────────────────────
 
-test('capReason is read from the server, wired in BOTH handlers, never inferred client-side', () => {
+test('capReason is read from the server, wired in the ONE uploader handler, never inferred client-side', () => {
   const src = code(web(...CAMERA));
   assert.match(src, /\bconst \[capReason, setCapReason\] = useState/, 'capReason state is gone');
-  const wired = src.match(/setCapReason\(json\.reason \?\? null\)/g) ?? [];
-  assert.equal(
-    wired.length,
-    2,
-    'capReason is no longer set from json.reason in both the photo and clip handlers',
-  );
+  // 📮 Since 2026-10-23 (save first, send later) the photo and the clip both
+  // reach the server through the uploader, and ONE event handler hears its
+  // answers — so the reason is set in exactly one place, from the server's body.
+  const wired = src.match(/setCapReason\(typeof e\.body\?\.reason === 'string' \? e\.body\.reason : null\)/g) ?? [];
+  assert.equal(wired.length, 1, 'capReason is no longer set from the server reason in the uploader handler');
+  assert.doesNotMatch(src, /setCapReason\('/, 'a reason is being invented client-side');
 });
 
 test('the remedy sentence is scoped to guest_spend_ceiling only, and stays honest', () => {

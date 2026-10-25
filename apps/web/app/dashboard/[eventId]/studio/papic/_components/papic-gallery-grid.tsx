@@ -182,7 +182,7 @@ export function PapicGalleryGrid({
       <div className="flex items-center gap-2">
         <span className="sn-gal-soft font-mono text-[10px] font-bold uppercase tracking-[0.15em]">Show</span>
         <PickMenu
-          label="Gallery filter"
+          label="Memories filter"
           value={filter}
           dataAttr="data-gallery-filter"
           options={FILTERS.map((f) => ({ key: f.id, label: f.label }))}
@@ -218,7 +218,7 @@ export function PapicGalleryGrid({
       ) : (
         <ul
           className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6"
-          aria-label="Papic gallery"
+          aria-label="Papic Memories"
         >
           {ordered.map((p) => (
             <Fragment key={p.id}>
@@ -240,11 +240,11 @@ export function PapicGalleryGrid({
                     alt={
                       p.kind === 'clip'
                         ? p.tagged
-                          ? 'Papic gallery snippet of tagged guests'
-                          : 'Papic gallery snippet'
+                          ? 'Papic Memories snippet of tagged guests'
+                          : 'Papic Memories snippet'
                         : p.tagged
-                          ? 'Papic gallery photo of tagged guests'
-                          : 'Papic gallery photo'
+                          ? 'Papic Memories photo of tagged guests'
+                          : 'Papic Memories photo'
                     }
                     loading="lazy"
                     className="h-full w-full object-cover"
@@ -348,7 +348,7 @@ export function PapicGalleryGrid({
  * archetype lightbox; a fourth private copy of it is how the three drift apart.
  * What stays here is what is genuinely the couple's: the clip download.
  */
-function PapicLightbox({
+export function PapicLightbox({
   photo,
   onClose,
   timeZone,
@@ -358,26 +358,32 @@ function PapicLightbox({
   timeZone?: string | null;
 }) {
   const [saving, setSaving] = useState(false);
-  const isClip = photo.kind === 'clip' && Boolean(photo.playUrl);
-  const src = isClip ? (photo.playUrl as string) : (photo.viewUrl ?? photo.url);
+  // ⚠ A CLIP IS A CLIP BY ITS KIND, NOT BY WHETHER IT CAN PLAY HERE (review of #6851). A clip with no web copy (every
+  // supplier clip, some older ones) opens on its still — and still carries its Download.
+  const isClip = photo.kind === 'clip';
+  const plays = isClip && Boolean(photo.playUrl);
+  const file = isClip ? (photo.downloadUrl ?? photo.playUrl ?? null) : null;
+  const src = plays ? (photo.playUrl as string) : (photo.viewUrl ?? photo.url);
   if (!src) return null;
 
   return (
     <GalleryLightbox
       src={src}
       posterSrc={photo.url}
-      kind={isClip ? 'clip' : 'photo'}
+      kind={plays ? 'clip' : 'photo'}
       capturedByName={photo.capturedBy}
       capturedAt={photo.capturedAt}
       timeZone={timeZone}
       onClose={onClose}
       actions={
-        isClip ? (
+        isClip && file ? (
           <button
             type="button"
             disabled={saving}
             onClick={async () => {
-              if (!photo.playUrl || saving) return;
+              // Memories hands a clip its explicit Download (the kept original, else the web copy); the Papic
+              // page has none and downloads what it plays, as before.
+              if (!file || saving) return;
               setSaving(true);
               // fetch→blob→download: a bare cross-origin <a download> is ignored
               // by browsers (opens instead of saves) + the ext is derived from
@@ -388,7 +394,7 @@ function PapicLightbox({
               // geo-strip changelog). Papic clips are recorded in-browser via
               // MediaRecorder, which writes no GPS, so the current exposure is nil;
               // the gap is only camera-roll/DSLR-origin clips (a future path).
-              await saveMediaToDevice(photo.playUrl, `setnayan-clip-${photo.id}`);
+              await saveMediaToDevice(file, `setnayan-clip-${photo.id}`);
               setSaving(false);
             }}
             className="sn-gal-btn inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium disabled:opacity-60"
@@ -548,7 +554,7 @@ function PreservationMeterLine({ totals }: { totals: PreservationTotals | null }
             one credit; a 10-second video is {formatCount(PAPIC_POINTS_PER_SNIPPET)}.
           </>
         )}{' '}
-        Nothing is ever deleted — anything you don&rsquo;t choose stays in your gallery, only
+        Nothing is ever deleted — anything you don&rsquo;t choose stays in your Memories, only
         smaller.
       </p>
     </div>
@@ -594,7 +600,7 @@ function PreserveToggle({
     );
   }
   const title = preserved
-    ? 'Kept at full resolution. Tap to release — it stays in your gallery, just smaller, and that cannot be undone later.'
+    ? 'Kept at full resolution. Tap to release — it stays in your Memories, just smaller, and that cannot be undone later.'
     : 'Released — it will be stored smaller. Tap to keep it at full resolution.';
   return (
     <form action={setCapturePreserved} className="absolute right-1 top-1">

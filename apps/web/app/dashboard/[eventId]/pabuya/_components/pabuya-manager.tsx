@@ -1,7 +1,6 @@
 'use client';
 
 import { useMemo, useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
 import {
   ArrowDown,
   ArrowUp,
@@ -30,6 +29,7 @@ import {
   setEgiftMethodEnabled,
   type EgiftActionResult,
 } from '../actions';
+import { MERGE_BASE_FIELD } from '@/lib/merge-base-field';
 
 /** A saved method as handed down from the server page. */
 export type ManagerMethod = {
@@ -100,7 +100,6 @@ export function PabuyaManager({
   /** The event's own mid-sentence noun — 'the couple' · 'the family'. */
   theOrganizer: string;
 }) {
-  const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -109,6 +108,9 @@ export function PabuyaManager({
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<DraftState>(EMPTY_DRAFT);
+  /* 👥 The way as it stood when the edit form opened — sent as the edit's base, so only the fields this screen changes
+     are written (`lib/egift-method-merge.ts`, owner 2026-10-18: two hosts never overwrite each other). */
+  const [opened, setOpened] = useState<ManagerMethod | null>(null);
 
   function openNew() {
     setEditingId(null);
@@ -119,6 +121,7 @@ export function PabuyaManager({
 
   function openEdit(m: ManagerMethod) {
     setEditingId(m.egift_method_id);
+    setOpened(m);
     setDraft({
       kind: m.method_kind,
       label: m.label,
@@ -137,8 +140,8 @@ export function PabuyaManager({
     setDraft(EMPTY_DRAFT);
   }
 
-  // Run a server action from a plain FormData, then refresh so the server
-  // page re-reads the fresh set. Surfaces the action's error on failure.
+  // Run a server action from a plain FormData. Each one revalidates the page (`revalidateSurfaces`), so its own answer
+  // re-reads the fresh set — no refresh after it. Surfaces the action's error on failure.
   function run(
     action: (fd: FormData) => Promise<EgiftActionResult>,
     fd: FormData,
@@ -156,7 +159,6 @@ export function PabuyaManager({
       }
       if (res.ok) {
         onOk?.();
-        router.refresh();
       } else {
         setError(res.error);
       }
@@ -173,6 +175,10 @@ export function PabuyaManager({
     fd.set('handle', draft.handle);
     fd.set('note', draft.note);
     fd.set('qr_r2_key', draft.qrRef);
+    if (editingId && opened?.egift_method_id === editingId) {
+      const { method_kind, label, account_name, handle, qr_r2_key, note } = opened;
+      fd.set(MERGE_BASE_FIELD, JSON.stringify({ method_kind, label, account_name, handle, qr_r2_key, note }));
+    }
     run(saveEgiftMethod, fd, closeForm);
   }
 
@@ -255,7 +261,7 @@ export function PabuyaManager({
               We couldn&rsquo;t load your event details just now.
             </span>{' '}
             Your gift methods below are correct and saved — but your
-            celebration&rsquo;s name and whether its page is live aren&rsquo;t
+            event&rsquo;s name and whether its page is live aren&rsquo;t
             shown on this screen until it loads. Reload in a moment; nothing
             here has changed.
           </p>

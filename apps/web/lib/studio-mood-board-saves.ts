@@ -11,17 +11,30 @@
  * Pure: no React, no I/O, no server import (this file rides the lazy Mood Board chunk with its caller, never the Maker's first load).
  */
 
-/** The draft door's two fields (`hubDraftAction(eventId, fd)`): the intent and the patch. */
-export type DraftFields = { intent: 'save'; patch: string };
+/**
+ * The draft door's fields (`hubDraftAction(eventId, fd)`): the intent and the patch — and 👥 `base`, the value the page
+ * built this save on (owner 2026-10-18, two hosts never overwrite; `lib/merge-from-base.ts`). The board and the dress
+ * code go in WHOLE, so without it a page holding a copy from before the other host's change wiped that change
+ * (2026-10-17, cale-ice: two colour sets). With it the server keeps everything this page did not change.
+ */
+export type DraftFields = { intent: 'save'; patch: string; base?: string };
 
 /** The five main colours, the room's parts and a role's colours — the WHOLE painted board goes in as `role_palette`. */
-export function paletteDraftFields(palette: unknown): DraftFields {
-  return { intent: 'save', patch: JSON.stringify({ events: { role_palette: palette } }) };
+export function paletteDraftFields(palette: unknown, base?: unknown): DraftFields {
+  return {
+    intent: 'save',
+    patch: JSON.stringify({ events: { role_palette: palette } }),
+    ...(base !== undefined ? { base: JSON.stringify({ events: { role_palette: base } }) } : {}),
+  };
 }
 
 /** A role's outfit — the WHOLE dress code goes in as `dress_code_config` (the writer keeps every other part as sent). */
-export function dressCodeDraftFields(next: unknown): DraftFields {
-  return { intent: 'save', patch: JSON.stringify({ events: { dress_code_config: next } }) };
+export function dressCodeDraftFields(next: unknown, base?: unknown): DraftFields {
+  return {
+    intent: 'save',
+    patch: JSON.stringify({ events: { dress_code_config: next } }),
+    ...(base !== undefined ? { base: JSON.stringify({ events: { dress_code_config: base } }) } : {}),
+  };
 }
 
 /** A photo into a part (`uploadMoodboardSlot`): the part, the first free place, the photo itself and the six colours read from it. */
@@ -46,4 +59,6 @@ export const MOOD_BOARD_NOT_SAVED = {
   undo: 'That did not undo. Nothing changed — please try again.',
   lists: 'Your do’s and don’ts did not save. Nothing changed — please try again.',
   look: 'That did not save. Nothing changed — please try again.',
+  /** ⏰ The guests' call time (the Schedule's arrival moment). */
+  arrive: 'The guests’ arrival time did not save. Nothing changed — please try again.',
 } as const;

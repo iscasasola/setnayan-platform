@@ -8,6 +8,7 @@ import {
   OPEN_SHOP_ERRORS,
   OPEN_SHOP_LOGO_REQUIRED,
   isValidOpenShopEmail,
+  LOGO_LATER,
 } from '@/lib/open-shop-validation';
 import { FileUpload } from '@/app/_components/file-upload';
 import { SERVICE_GROUPS, VENDOR_CATEGORY_LABEL } from '@/lib/vendors';
@@ -26,15 +27,19 @@ import { OAuthButtonRow } from '@/app/_components/oauth-button-row';
 import { DesktopOAuthButtons } from '@/app/_components/desktop-oauth-buttons';
 import { NativeOAuthButtons } from '@/app/_components/native-oauth-buttons';
 import { SignInHereLink } from '@/app/_components/auth/sign-in-here-link';
+import { FirstRunBrand } from '@/app/_components/first-run-brand';
 import { TurnstileField } from '@/app/_components/auth/turnstile-field';
 import { TERMS_FIELD, TERMS_REQUIRED_MESSAGE } from '@/lib/terms-agreement';
 import { OPEN_SHOP_ACCOUNT_ERRORS, OPEN_SHOP_PASSWORD_MIN } from '@/lib/open-shop-account';
 import {
   OPEN_SHOP_DRAFT_KEY,
   parseOpenShopDraft,
+  restoresOnThisLoad,
   serializeOpenShopDraft,
 } from '@/lib/open-shop-draft';
 import { formatCount } from '@/lib/format-number';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
+import { inBusinessSinceChoices } from '@/lib/in-business-since';
 
 /**
  * The vendor onboarding wizard (owner 2026-07-03: "we just need the basic";
@@ -94,6 +99,7 @@ export function OpenShopWizard({
   serviceLabels,
   serviceTree = [],
   savedServiceLabel = null,
+  savedSinceYear = null,
   existingSlug = null,
   eventTypeOptions,
   vendorProfileId,
@@ -122,6 +128,8 @@ export function OpenShopWizard({
   serviceTree?: PickerParentView[];
   /** Display name for an already-saved pick, so a re-run shows a NAME. */
   savedServiceLabel?: string | null;
+  /** The shop's "in business since" year when it already has one — then step 2 never asks it again. */
+  savedSinceYear?: number | null;
   /** The address this shop ALREADY holds. Present = it is settled and cannot
    *  be changed (owner 2026-08-10), so the picker renders read-only. */
   existingSlug?: string | null;
@@ -175,6 +183,9 @@ export function OpenShopWizard({
   const [events, setEvents] = useState<string[]>(
     defaults.eventTypes?.length ? defaults.eventTypes : ['wedding'],
   );
+  // "In business since" (owner 2026-10-22, journey_fixes Supplier 2 · A): '' = not answered (optional).
+  const [since, setSince] = useState('');
+  const sinceChoices = inBusinessSinceChoices(new Date().getFullYear());
   const toggleEvent = (k: string) =>
     setEvents((c) => (c.includes(k) ? c.filter((x) => x !== k) : [...c, k]));
   /**
@@ -191,6 +202,8 @@ export function OpenShopWizard({
    * reach the submit, so the server can finally redirect with `?error=`.
    */
   const [banner, setBanner] = useState<string | null>(error ?? null);
+  /** The web address a submit-time refusal sent back (`restoresOnThisLoad`) — AddressPreview remounts holding it. */
+  const [restoredSlug, setRestoredSlug] = useState<string | null>(null);
   // The form is ALWAYS MOUNTED (values survive step switches), so the gate can
   // read any step's inputs live instead of duplicating them all into state.
   const formRef = useRef<HTMLFormElement>(null);
@@ -327,21 +340,26 @@ export function OpenShopWizard({
       }
     }
     setBanner(null);
+    // 🧷 The form is going to the server: park what was typed, so a refusal there (an address taken in the same
+    // minute — the step-1 check makes it rare, not impossible) reloads with every field kept (journey_fixes_later
+    // Supplier 4c). Restored only on the `?error=` reload; never the password.
+    saveDraft({ atSubmit: true });
   };
 
   /**
    * Park the typed steps before Google / Apple take the page away, and restore
    * them when the callback lands back here. The forms in <OAuthButtonRow> post to
    * server actions; their submit bubbles to the wrapper below in React's tree.
+   * Also called by `submitGate` (`atSubmit`) with the address the form sends.
    */
-  const saveDraft = () => {
+  const saveDraft = (at?: { atSubmit: true }) => {
     const read = (name: string) =>
       (formRef.current?.elements.namedItem(name) as HTMLInputElement | null)?.value ?? '';
     try {
       sessionStorage.setItem(
         OPEN_SHOP_DRAFT_KEY,
         serializeOpenShopDraft({
-          step: 3,
+          step: at ? step : 3,
           shopName,
           logoUrl,
           service,
@@ -350,6 +368,8 @@ export function OpenShopWizard({
           position: read('contact_position'),
           phone: read('contact_phone'),
           email: read('contact_email'),
+          // The address box's own hidden field (`AddressPreview` renders it, not this file).
+          ...(at ? { atSubmit: true, slug: formRef.current?.querySelector<HTMLInputElement>('input[name="business_slug"]')?.value ?? '' } : {}),
         }),
       );
     } catch {
@@ -369,7 +389,7 @@ export function OpenShopWizard({
       return;
     }
     const d = parseOpenShopDraft(raw);
-    if (!d) return;
+    if (!d || !restoresOnThisLoad(d, Boolean(error))) return;
     if (d.shopName) setShopName(d.shopName);
     if (d.logoUrl) setLogoUrl(d.logoUrl);
     if (d.service) {
@@ -384,7 +404,11 @@ export function OpenShopWizard({
     write('contact_position', d.position);
     write('contact_phone', d.phone);
     write('contact_email', d.email);
-    setStep(d.step);
+    // Parked at submit: the server's `?step=` already names the step that owns the refusal — keep it. The address it
+    // refused comes back in its box, focused, so "Taken — try another." is the first thing read.
+    if (d.atSubmit) {
+      if (d.slug) setRestoredSlug(d.slug);
+    } else setStep(d.step);
     // Re-render dependencies are deliberately empty: this runs ONCE, on mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -405,6 +429,9 @@ export function OpenShopWizard({
             "Step 1 of 2" is replaced by four segments that fill. The SHAPE
             carries the count, so no words have to; `aria-valuenow` + the label
             keep that fact available to a screen reader, which cannot see it. */}
+        {/* The brand line (owner 2026-10-21, "make sure there is Setnayan"): the shipped wordmark, small, on every
+            step — it sits above the four segments, so it is the same line on all four. */}
+        <FirstRunBrand className="mb-4" color="var(--m-ink)" size={13} />
         <div
           className="mb-6 flex gap-1.5"
           role="progressbar"
@@ -446,7 +473,7 @@ export function OpenShopWizard({
             the browser drops the inner one), and the sign-in link opens a portal
             whose submit must never reach this form's gate. */}
         {guest && step === 3 ? (
-          <div className="mt-5 space-y-3" onSubmitCapture={saveDraft}>
+          <div className="mt-5 space-y-3" onSubmitCapture={() => saveDraft()}>
             {oauth.show ? (
               <>
                 {oauth.desktop ? (
@@ -504,7 +531,7 @@ export function OpenShopWizard({
                   <span className="ml-1 text-terracotta">*</span>
                 ) : (
                   <span className="ml-1 font-normal" style={{ color: 'var(--m-slate-3)' }}>
-                    optional
+                    · {LOGO_LATER.label}
                   </span>
                 )}
               </span>
@@ -542,7 +569,7 @@ export function OpenShopWizard({
                   fields, and the profile must be complete before documents can
                   be submitted. */}
               <span className="block text-xs" style={{ color: 'var(--m-slate-3)' }}>
-                Needed before your shop is approved — add it now or later.
+                {LOGO_LATER.hint}
               </span>
             </div>
             <label className="block space-y-1">
@@ -562,7 +589,12 @@ export function OpenShopWizard({
                   while they type is the only moment a vendor can still choose a
                   different name over it — afterwards the address is permanent,
                   because a save-the-date already points at it. */}
-              <AddressPreview shopName={shopName} existingSlug={existingSlug} />
+              <AddressPreview
+                key={restoredSlug ?? 'typed'}
+                shopName={shopName}
+                existingSlug={existingSlug}
+                initialValue={restoredSlug}
+              />
             </label>
           </div>
           {/* 2 · What you do. Service and events are the same question asked twice;
@@ -674,6 +706,27 @@ export function OpenShopWizard({
                 Pick all that apply.
               </span>
             </div>
+            {/* ── IN BUSINESS SINCE · optional (owner "Yes to all", 2026-10-22 — journey_fixes Supplier 2 · A).
+                Your details counts this year (EST) toward "business profile", and nothing used to ask it, so
+                every new shop opened "unfinished". Asked here, once, as ONE dropdown ("Just starting" first);
+                a shop that already has a year is never asked again. */}
+            {savedSinceYear ? null : (
+              <div className="block space-y-1.5" data-open-shop-since="">
+                <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
+                  In business since <span className="font-normal" style={{ color: 'var(--m-slate-3)' }}>optional</span>
+                </span>
+                <input type="hidden" name="in_business_since_year" value={since} />
+                <PickMenu
+                  label="In business since"
+                  value={since}
+                  options={sinceChoices}
+                  onPick={setSince}
+                  buttonText={since ? undefined : 'Pick a year'}
+                  dataAttr="data-open-shop-since-pick"
+                  className="input-field min-h-11 w-full justify-between"
+                />
+              </div>
+            )}
           </div>
           {/* 3 · Who you are, and how to reach you. */}
           <div className={step === 3 ? 'space-y-4' : 'hidden'}>
@@ -836,13 +889,18 @@ export function OpenShopWizard({
 
           {/* One nav row for every step. Back appears from step 2; the primary
               button becomes the real submit only on the last one — a
-              SubmitButton on an earlier step would post a half-filled form. */}
+              SubmitButton on an earlier step would post a half-filled form.
+              🔘 THE HOUSE PRIMARY SHAPE IS A PILL (live check 2026-10-23): /signup's
+              Create is a pill and these read as 8 px rectangles on the other
+              sign-up door. `rounded-full` overrides `.button-primary`'s
+              `rounded-md`; Back is the round icon beside it. Held by
+              app/open-shop/both-sign-up-doors-wear-one-button.test.ts. */}
           <div className="flex items-center gap-2 pt-1">
             {step > 1 ? (
               <button
                 type="button"
                 onClick={back}
-                className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border text-ink/60 hover:bg-ink/5"
+                className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full border text-ink/60 hover:bg-ink/5"
                 style={{ borderColor: 'var(--m-line)' }}
                 aria-label="Back"
               >
@@ -853,14 +911,14 @@ export function OpenShopWizard({
               <button
                 type="button"
                 onClick={next}
-                className="button-primary inline-flex h-12 w-full items-center justify-center gap-2 text-sm"
+                className="button-primary inline-flex h-12 w-full items-center justify-center gap-2 rounded-full text-sm"
               >
                 Continue
                 <ArrowRight className="h-4 w-4" strokeWidth={1.75} aria-hidden />
               </button>
             ) : (
               <SubmitButton
-                className="button-primary inline-flex h-12 w-full items-center justify-center gap-2 text-sm"
+                className="button-primary inline-flex h-12 w-full items-center justify-center gap-2 rounded-full text-sm"
                 pendingLabel="Opening your shop…"
               >
                 Open my shop — free

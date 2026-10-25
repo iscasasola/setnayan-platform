@@ -3,7 +3,17 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type MutableRefObject } from 'react';
 import { findMakerSection, makerSectionInView } from '@/app/[slug]/_components/maker-section-find';
 import { whenIdle } from '@/lib/maker-preload';
-import { CANVAS_REFRESH_MESSAGE, makerSavesStarted } from '@/lib/maker-refresh';
+import { CANVAS_REFRESH_MESSAGE, MAKER_SAVES_QUIET_EVENT, makerSavesInFlight, makerSavesStarted } from '@/lib/maker-refresh';
+import {
+  MAKER_CANVAS_RELOAD_EVENT,
+  MAKER_CANVAS_SILENT_EVENT,
+  createCanvasBridgeWatch,
+  readCanvasDoc,
+  reportSilentCanvas,
+  type CanvasBridgeWatch,
+  type CanvasFrameBirth,
+  type MakerCanvasSilentDetail,
+} from './canvas-bridge-watch';
 
 /**
  * 🪞 THE CANVAS, DOUBLE-BUFFERED — a new render loads BEHIND the page the
@@ -51,8 +61,10 @@ import { CANVAS_REFRESH_MESSAGE, makerSavesStarted } from '@/lib/maker-refresh';
  * The next stage in order (`warmStageOrder`; the previous one from the last
  * stage), after the stage on screen is up (its bridge said `ready`, or its
  * document finished loading), on an idle moment, with the tab visible, at most
- * once. The first save of the open ENDS it — nothing is warmed after a save,
- * during one, or again. And a save's redraw (`CANVAS_REFRESH_MESSAGE`, a server
+ * once per stage on screen. ⏳ A SAVE NO LONGER ENDS IT (2026-10-15, controller; measured on the production build:
+ * after any edit EVERY stage switch loaded a cold guest page, 3.0–4.4 s at production latency — the warm had been
+ * cancelled for the rest of the visit by the first write): nothing is warmed WHILE a save is on its way; once the
+ * Maker is quiet again, the next stage — if it is not already kept — is warmed, still only that one. And a save's redraw (`CANVAS_REFRESH_MESSAGE`, a server
  * render of the page) goes to the page on screen only: a kept stage OWES it and
  * pays when it is shown (`canvasPosts`). So an open costs at most ONE extra
  * guest page, once, and a save costs none — ever. A stage the couple OPENED is
@@ -149,7 +161,8 @@ export function warmOnce(
   max: number,
   at: { ready: (f: CanvasFrame) => boolean; hidden: boolean; saved: boolean },
 ): { state: CanvasFrames; left: readonly CanvasFrame[] | null } {
-  if (at.saved) return { state, left: [] };
+  /* ⏳ A save on its way: wait — the warm comes once it has landed (never during one). */
+  if (at.saved) return { state, left };
   const held = [state.shown, ...(state.warm ?? [])];
   if (max <= 0 || at.hidden || state.loading || !held.every(at.ready)) return { state, left };
   const rest = [...(left ?? wantedWarm(state, wanted, max))];
@@ -281,6 +294,7 @@ export function BufferedCanvasFrame({
   onShown,
   onSwapped,
   pageFrame = false,
+  watchBridge = false,
 }: {
   /** Changes with every render that must reach the canvas. */
   frameKey: string;
@@ -314,6 +328,11 @@ export function BufferedCanvasFrame({
   onSwapped: (ready: unknown) => void;
   /** A made-once PAGE's frame (`MakerPageFrame`): the shown one is marked `data-maker-page-frame`. */
   pageFrame?: boolean;
+  /**
+   * 👂 The Maker's canvas: a frame on screen whose bridge never says `ready` is loaded again once, then SAID in the
+   * toolbar, and recorded as a fault (`canvas-bridge-watch.ts`, 2026-10-18 "cannot select again" in Safari).
+   */
+  watchBridge?: boolean;
 }) {
   const next: CanvasFrame = { key: frameKey, group, src };
   const [frames, setFrames] = useState<CanvasFrames>({ shown: next, loading: null });
@@ -332,6 +351,10 @@ export function BufferedCanvasFrame({
   const loaded = useRef(new Set<string>());
   /** Picks the bridge drew while a kept frame was still loading — posted at its `ready` (`canvasPosts` `wait`). */
   const waiting = useRef<Record<string, unknown[]>>({});
+  /** Where each frame stood when it was first mounted — a silent frame's fault says whether it was a buffered/kept one. */
+  const birthOf = useRef<Record<string, CanvasFrameBirth>>({});
+  /** 👂 The watch on the frame on screen (`watchBridge`). */
+  const watch = useRef<CanvasBridgeWatch | null>(null);
 
   useEffect(() => {
     setFrames((s) => trimWarmFrames(planCanvasFrames(s, { key: frameKey, group, src }), wantedRef.current, warmMax));
@@ -383,6 +406,7 @@ export function BufferedCanvasFrame({
           const missed = waiting.current[id];
           delete waiting.current[id];
           for (const m of missed ?? []) el.contentWindow?.postMessage(m, window.location.origin);
+          watch.current?.ready(id);
           tick();
         }
       }
@@ -395,24 +419,40 @@ export function BufferedCanvasFrame({
     };
   }, []);
 
-  /* 🔥 THE ONE WARM OF THIS OPEN (`warmOnce`): on idle, the next stage only (`MAX_WARM_AHEAD`),
-     and over for good at the first save: a write this document has started
-     since this canvas mounted (`opened`), or a Maker render since (`warmOver`). */
+  /* 🔥 THE ONE WARM (`warmOnce`): on idle, the next stage only (`MAX_WARM_AHEAD`) — decided ONCE per stage on screen and
+     per quiet moment after saves: never while a save is on its way, and once they have all landed (`MAKER_SAVES_QUIET_EVENT`)
+     the next stage is warmed again only if it is not kept. A stage let go in between ("view as") is not fetched back by
+     an idle moment alone. */
   const warmLeft = useRef<readonly CanvasFrame[] | null>(null);
-  const opened = useRef(makerSavesStarted());
+  const warmedAt = useRef(makerSavesStarted());
+  const warmedFor = useRef<string | null>(null);
   useEffect(() => {
-    if (warmMax <= 0 || warmLeft.current?.length === 0) return;
+    const quiet = () => setWarmTick((n) => n + 1);
+    window.addEventListener(MAKER_SAVES_QUIET_EVENT, quiet);
+    return () => window.removeEventListener(MAKER_SAVES_QUIET_EVENT, quiet);
+  }, []);
+  useEffect(() => {
+    if (warmMax <= 0) return;
     return whenIdle(() => {
       const s = framesRef.current;
+      const busy = makerSavesInFlight() > 0;
+      const savesNow = makerSavesStarted();
+      if (!busy && (savesNow !== warmedAt.current || s.shown.group !== warmedFor.current)) {
+        /* a new stage on screen, or saves that have all landed since the last warm: one fresh decision */
+        warmLeft.current = null;
+        warmedAt.current = savesNow;
+        warmedFor.current = s.shown.group;
+      }
+      if (warmLeft.current?.length === 0) return;
       const step = warmOnce(s, warmLeft.current, wantedRef.current, Math.min(warmMax, MAX_WARM_AHEAD), {
         ready: (f) => canvasFrameId(f) in readyOf.current || loaded.current.has(canvasFrameId(f)),
         hidden: document.visibilityState === 'hidden',
-        saved: warmOver || makerSavesStarted() !== opened.current,
+        saved: busy,
       });
       warmLeft.current = step.left;
       if (step.state !== s) setFrames((prev) => (prev === s ? step.state : prev));
     });
-  }, [warmTick, warmMax, warmOver]);
+  }, [warmTick, warmMax, warmOver, frames.shown.group]);
 
   /* The loading frame's bridge says `ready` → swap. A task later, so the
      Maker's own `ready` listener (same event) still sees it as loading. */
@@ -425,6 +465,7 @@ export function BufferedCanvasFrame({
       if (!data || data.source !== 'setnayan-site' || data.t !== 'ready') return;
       if (event.source !== els.current[loadingKey]?.contentWindow) return;
       readyOf.current[loadingKey] = data;
+      watch.current?.ready(loadingKey);
       window.setTimeout(() => promote(loadingKey), 0);
     };
     window.addEventListener('message', onMessage);
@@ -435,6 +476,49 @@ export function BufferedCanvasFrame({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the loading frame only
   }, [loadingKey]);
+
+  /* 👂 THE FRAME ON SCREEN IS HEARD, OR SAID (`canvas-bridge-watch.ts`). Only the Maker's canvas (`watchBridge`). */
+  useEffect(() => {
+    if (!watchBridge) return;
+    const reload = (id: string) => {
+      const el = els.current[id];
+      if (!el) return;
+      loaded.current.delete(id);
+      delete readyOf.current[id];
+      try {
+        el.contentWindow?.location.reload();
+      } catch {
+        /* a document we may not reach: the same address again */
+        const at = el.getAttribute('src');
+        if (at) el.src = at;
+      }
+    };
+    const w = createCanvasBridgeWatch({
+      later: (fn, ms) => window.setTimeout(fn, ms),
+      clear: (h) => window.clearTimeout(h as number),
+      shown: () => canvasFrameId(framesRef.current.shown),
+      isReady: (id) => id in readyOf.current,
+      reload,
+      say: (silent) => window.dispatchEvent(new CustomEvent<MakerCanvasSilentDetail>(MAKER_CANVAS_SILENT_EVENT, { detail: { silent } })),
+      report: reportSilentCanvas,
+      readDoc: (id) => readCanvasDoc(els.current[id]),
+      birth: (id) => birthOf.current[id] ?? 'shown',
+    });
+    watch.current = w;
+    /* a frame that loaded before the watch began */
+    const now = canvasFrameId(framesRef.current.shown);
+    if (loaded.current.has(now)) w.loaded(now);
+    const onReload = () => w.reloadNow();
+    window.addEventListener(MAKER_CANVAS_RELOAD_EVENT, onReload);
+    return () => {
+      window.removeEventListener(MAKER_CANVAS_RELOAD_EVENT, onReload);
+      w.dispose();
+      watch.current = null;
+    };
+  }, [watchBridge]);
+  useEffect(() => {
+    watch.current?.shownNow(canvasFrameId(frames.shown));
+  }, [frames.shown]);
 
   /* After a swap — buffered, or a warm stage shown — the Maker re-marks the
      element and re-reads the bar from the new frame's own `ready`. A frame
@@ -512,6 +596,7 @@ export function BufferedCanvasFrame({
       {mounted && list.map((f) => {
         const role = f === frames.shown ? 'shown' : f === frames.loading ? 'loading' : 'warm';
         const loading = role === 'loading';
+        birthOf.current[canvasFrameId(f)] ??= role;
         return (
           <iframe
             key={canvasFrameId(f)}
@@ -527,6 +612,7 @@ export function BufferedCanvasFrame({
             onLoad={() => {
               loaded.current.add(canvasFrameId(f));
               setWarmTick((n) => n + 1);
+              watch.current?.loaded(canvasFrameId(f));
               if (!loading) return;
               window.setTimeout(() => {
                 if (!(canvasFrameId(f) in readyOf.current)) promote(canvasFrameId(f));

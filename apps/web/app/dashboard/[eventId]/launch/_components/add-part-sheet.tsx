@@ -39,7 +39,7 @@ import {
 import { postEventRun, postEventShow, type PostEventDraft } from '@/lib/post-event-draft';
 import { stageTakesOwnScenes, swapsForDrop, type MakerTile } from '@/lib/maker-scene-list';
 import type { RevealStage } from '@/lib/reveal-stages';
-import { PART_EDGE_ROOM, STAGE_SHEET_ROW, partFrameEdges } from '@/lib/maker-stage-room';
+import { PART_EDGE_ROOM, STAGE_SHEET_ROW, partFrameEdges, partNeighbourIsLayer } from '@/lib/maker-stage-room';
 import { SceneTemplatePicker } from '../../website/editor/_components/scene-template-picker';
 import { MakerSheet } from './stages-studio-parts';
 import { PLACE_ORDER_FIELD, PLACE_STAGE_FIELD, ownScenePlaceOrder } from '@/lib/own-scene-place';
@@ -142,6 +142,7 @@ export function partOpsOf(raw: MakerPartRaw): MakerPartOps {
               }
             : { note: addScene.note },
     onPickTemplate: raw.onPickTemplate,
+    sceneMedia: raw.sceneMedia ?? null,
   };
 }
 
@@ -209,7 +210,11 @@ function neighbourOf(node: Element, dir: -1 | 1): Element | null {
     let sib: Element | null = dir < 0 ? cur.previousElementSibling : cur.nextElementSibling;
     while (sib) {
       const sr = sib.getBoundingClientRect();
-      if (sr.height > 0 && sr.width > 0) return sib;
+      /* 🖼 A layer laid UNDER the parts is no neighbour (owner 2026-10-16, live: the Title's ＋ sat on "AND" and
+         "PARENTS"): the Cover Scene's background (`data-cover-scene-ground`) is the cover's FIRST child, as tall as the
+         screen and out of the flow — read as the part "above", the gap was 0 and the frame hugged the words. Only a
+         sibling in the flow lies above or below. Held by `lib/a-text-style-card-shows-its-words.test.ts`. */
+      if (sr.height > 0 && sr.width > 0 && !partNeighbourIsLayer(sib)) return sib;
       sib = dir < 0 ? sib.previousElementSibling : sib.nextElementSibling;
     }
     cur = cur.parentElement;
@@ -224,7 +229,9 @@ function visibleBand(frameSel: string = SHOWN_FRAME): { top: number; bottom: num
   /* The guest's tab bar is drawn over the foot of the page (`stage-tools.tsx`). */
   const bar = document.querySelector('[data-stage-guest-bar]')?.getBoundingClientRect();
   const top = fr ? fr.top : 0;
-  const bottom = Math.min(fr ? fr.bottom : window.innerHeight, lt ? lt.top : window.innerHeight, bar && bar.height > 0 ? bar.top : window.innerHeight);
+  /* 🖥 The lower third ends the band only where it lies UNDER the page — on a desktop it is the column beside it. */
+  const under = lt && fr ? lt.left < fr.right && lt.right > fr.left : Boolean(lt);
+  const bottom = Math.min(fr ? fr.bottom : window.innerHeight, lt && under ? lt.top : window.innerHeight, bar && bar.height > 0 ? bar.top : window.innerHeight);
   return { top, bottom };
 }
 
@@ -369,6 +376,13 @@ export type PartEditsNow = {
   statusKey: number | null;
   /** Say one line there (why a grey step did nothing). */
   say: (words: string) => void;
+  /** 🖥 The frame's own ＋ above / below, for the desktop's parts column — null where the frame draws none. */
+  addAbove: (() => void) | null;
+  addBelow: (() => void) | null;
+  /** 🖥 The parts the picked one may land among, by canvas key, measured now — the desktop list's grip. */
+  moveAmong: () => string[];
+  /** 🖥 Land it above / below one of those (the drop's own one order write) — false: nothing was written. */
+  moveNear: ((target: string, where: 'above' | 'below') => boolean) | null;
 };
 
 /** The presses still on their way to the page: a scene moved · taken off, a part brought back. */
@@ -473,7 +487,8 @@ export function usePartEdits({ stage, picked, frame, line = null, name, lineAdd 
   /* 🎭 THE REVEAL IS LOCKED FIRST (owner 2026-10-07: *"the move feature or add a slide above on reveal must be
      removed (for reveal only) because that should be its limitation"*): no grip, no ＋ above, no 🗑 — it hides per
      stage through Arrange › On this stage. Its ＋ below stays. `makerRevealEdges`. */
-  const edgesOf = makerRevealEdges(isReveal);
+  /* 🖼 …and the Cover Scene, which the opening now belongs to (owner-approved 2026-10-16): nothing above it, no grip. */
+  const edgesOf = makerRevealEdges(isReveal || picked === 'coverscene');
   /* 🗳 …and the RSVP stage's three screens are FIXED pages (`makerStageIsFixedPages`): a part there has its frame,
      its name and ↑ ↓ ✕ — never ＋, a grip or 🗑 (nothing can be added to a reply page, and the ＋ sheet would offer
      the stage mounted underneath's hidden scenes). */
@@ -856,6 +871,23 @@ export function usePartEdits({ stage, picked, frame, line = null, name, lineAdd 
     status: drag.status,
     statusKey: drag.statusKey,
     say: drag.say,
+    addAbove: working ? null : fixedPages ? (lineAdd?.above ? () => lineAdd.onAdd('above') : null) : edgesOf.addAbove ? () => askAdd('above') : null,
+    addBelow: working ? null : fixedPages ? (lineAdd?.below ? () => lineAdd.onAdd('below') : null) : edgesOf.addBelow ? () => askAdd('below') : null,
+    moveAmong: () => {
+      const o = askPartOps();
+      return o && canMove ? moveTargets(o).map((t) => t.key) : [];
+    },
+    moveNear:
+      working || !canMove
+        ? null
+        : (target, where) => {
+            const o = askPartOps();
+            const t = o ? moveTargets(o).find((x) => x.key === target) : null;
+            const done = o && t ? dropOn(o, t, where, here, false) : null;
+            if (!done) return false;
+            drag.run({ type: 'move', label, key: canvas }, done);
+            return true;
+          },
   };
   if (typeof document === 'undefined') return { node: null, ...now };
   /* What just happened is said even once the part is let go (a move re-renders the page). */
@@ -955,7 +987,7 @@ export function usePartEdits({ stage, picked, frame, line = null, name, lineAdd 
         </PeekToast>
       ) : null}
       {error ? (
-        <p role="alert" data-part-error="" className="fixed inset-x-3 top-16 z-[87] rounded-xl bg-white px-3 py-2 text-[13px] font-semibold text-[rgb(var(--color-danger))] shadow lg:hidden">
+        <p role="alert" data-part-error="" className="fixed left-[max(0.75rem,var(--sn-safe-l))] right-[max(0.75rem,var(--sn-safe-r))] top-16 z-[87] rounded-xl bg-white px-3 py-2 text-[13px] font-semibold text-[rgb(var(--color-danger))] shadow lg:hidden">
           {error}
         </p>
       ) : null}

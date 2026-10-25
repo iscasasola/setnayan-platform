@@ -241,9 +241,9 @@ const LOG_SITE_FLOORS: { file: string; sites: { label: string; floor: number }[]
     { label: '[supabase-error] lib/vendor-first-steps.server.ts · from:event_vendors.select', floor: 1 },
   ] },
   { file: 'lib/vendor-microsite.ts', sites: [
-    // The trailing quote disambiguates the plain select from the "(videos)" one below.
+    // ONE select since supplier-easy step 5 (2026-10-15): the separate "(videos)" probe guarded a migration window
+    // long closed, so the video column is read in the plain select and its log site is this one.
     { label: "[supabase-error] lib/vendor-microsite.ts · from:vendor_profiles.select'", floor: 1 },
-    { label: '[supabase-error] lib/vendor-microsite.ts · from:vendor_profiles.select (videos)', floor: 1 },
   ] },
 ];
 

@@ -441,23 +441,6 @@ export const SECRET_REGISTRY: readonly SecretDef[] = [
     impact:
       'Only sourcemap upload during builds; the app keeps running either way.',
   },
-  {
-    id: 'posthog_key',
-    label: 'PostHog project key',
-    group: 'observability',
-    store: 'vercel',
-    envVars: ['NEXT_PUBLIC_POSTHOG_KEY'],
-    editable: 'instructions-only',
-    policyDays: null,
-    providerUrl: 'https://app.posthog.com/settings/project',
-    steps: [
-      'This key is PUBLIC by design — it ships to every browser, so leaking it is not a breach.',
-      'It only changes if you rotate the PostHog PROJECT itself, which starts analytics history over.',
-      'If you do: update NEXT_PUBLIC_POSTHOG_KEY in Vercel, redeploy, then Mark rotated here.',
-    ],
-    impact:
-      'Public by design (ships to the browser); rotate only if you also rotate the PostHog project.',
-  },
 
   // ── internal (self-generated shared secrets) ──────────────────────────────
   {

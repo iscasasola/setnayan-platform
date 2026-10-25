@@ -16,6 +16,7 @@ import {
   PROPOSAL_STATUS_LABEL,
   PROPOSAL_STATUS_TONE,
   formatCentavos,
+  proposalPaperStatus,
   type ProposalLineItem,
   type ProposalStatus,
 } from '@/lib/vendor-proposals';
@@ -357,6 +358,8 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
     }
   }
 
+  const paperStatus = proposalPaperStatus(proposal.status);
+
   return (
     <main className="mx-auto w-full max-w-3xl space-y-6 px-4 py-10 sm:px-6 print:max-w-none print:space-y-4 print:py-2">
       <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
@@ -404,23 +407,28 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
 
       {/* Letterhead */}
       <header className="border-b border-ink/15 pb-4">
+        {paperStatus ? (
+          <p className="mb-3 hidden text-sm font-semibold uppercase tracking-wide text-ink print:block" data-paper-status="">
+            {paperStatus}
+          </p>
+        ) : null}
         <div className="flex items-center gap-3">
           {logoDisplayUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={logoDisplayUrl}
               alt=""
-              className="h-12 w-12 rounded-lg border border-ink/10 object-cover"
+              className="h-12 w-12 shrink-0 rounded-lg border border-ink/10 object-cover"
             />
           ) : null}
-          <div>
-            <p className="text-lg font-semibold">{businessName}</p>
+          <div className="min-w-0">
+            <p className="break-words text-lg font-semibold">{businessName}</p>
             {vendorProfile?.location_city ? (
               <p className="text-xs text-ink/55">{vendorProfile.location_city}</p>
             ) : null}
           </div>
         </div>
-        <h1 className="mt-4 text-2xl font-semibold tracking-tight">{proposal.title}</h1>
+        <h1 className="mt-4 break-words text-2xl font-semibold tracking-tight">{proposal.title}</h1>
         <p className="mt-1 text-xs text-ink/50">
           {proposal.public_id}
           {snapshotAt ? ` · details as of ${snapshotAt}` : ''}
@@ -440,13 +448,13 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
           {lineItems.length > 0 ? (
             <ul className="divide-y divide-ink/10">
               {lineItems.map((item, i) => (
-                <li key={i} className="flex items-baseline justify-between gap-3 py-2">
-                  <div>
-                    <p className="text-sm font-medium">{item.label}</p>
-                    {item.detail ? <p className="text-xs text-ink/50">{item.detail}</p> : null}
+                <li key={i} className="flex items-baseline justify-between gap-3 py-2 print:break-inside-avoid">
+                  <div className="min-w-0">
+                    <p className="break-words text-sm font-medium">{item.label}</p>
+                    {item.detail ? <p className="break-words text-xs text-ink/50">{item.detail}</p> : null}
                   </div>
                   {item.amount_centavos ? (
-                    <span className="text-sm tabular-nums text-ink/70">
+                    <span className="shrink-0 text-sm tabular-nums text-ink/70">
                       {formatCentavos(item.amount_centavos)}
                     </span>
                   ) : null}
@@ -484,8 +492,8 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
           <h2 className="text-sm font-semibold uppercase tracking-wide text-ink/55">Payment schedule</h2>
           <ul className="mt-2 divide-y divide-ink/10">
             {schedule.installments.map((inst) => (
-              <li key={inst.seq} className="flex items-baseline justify-between gap-3 py-2">
-                <div>
+              <li key={inst.seq} className="flex items-baseline justify-between gap-3 py-2 print:break-inside-avoid">
+                <div className="min-w-0">
                   <p className="flex items-center gap-2 text-sm font-medium">
                     {inst.label}
                     {inst.is_downpayment ? (
@@ -526,7 +534,7 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
           <h2 className="text-sm font-semibold uppercase tracking-wide text-ink/55">How to pay</h2>
           <ul className="mt-2 space-y-3">
             {paymentMethods.map((m) => (
-              <li key={m.payment_method_id} className="rounded-lg border border-ink/10 bg-cream/50 p-3">
+              <li key={m.payment_method_id} className="rounded-lg border border-ink/10 bg-cream/50 p-3 print:break-inside-avoid">
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-sm font-medium">
                     {m.label}
@@ -688,7 +696,6 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
               pendingLabel={isLockHandshakeEnabled() ? 'Asking…' : 'Booking…'}
               className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-mulberry px-4 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:opacity-60"
               wrapperClassName="flex w-full flex-col items-start"
-              source="quote_page"
             />
           ) : (
             <Link

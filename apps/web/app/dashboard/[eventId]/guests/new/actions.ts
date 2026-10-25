@@ -10,6 +10,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { maybeAutoSurfaceEventForGuest } from '@/lib/account-autosurface';
 import {
   INVITED_TO_BLOCKS,
+  SINGLETON_GUEST_ROLES,
   singletonRoleDuplicateMessage,
   singletonRoleFromIndexError,
   type GuestGroupCategory,
@@ -20,8 +21,10 @@ import {
   type RsvpStatus,
 } from '@/lib/guests';
 import { normalizeGuestName } from '@/lib/guest-name';
+import { parseTitleKey } from '@/lib/guest-title';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 import { resolveSubmittedSide } from '@/lib/guest-side-question';
+import { HOST_NOTE_MAX } from '@/lib/guest-host-note';
 
 // Iteration 0053 P2: the valid role set is per event type (resolveRoleSetForEvent).
 // The SIDE list + the "is a side meaningful here?" decision live in
@@ -74,7 +77,10 @@ export async function createGuest(eventId: string, formData: FormData) {
   // The three OPTIONAL parts (2026-09-14). The client island pre-fills them by
   // parsing what the host types, but they are plain editable inputs — whatever
   // the host leaves in the box is what is stored, and blank stores NULL.
-  const name_prefix = normalizeGuestName(clean(formData.get('name_prefix'))) || null;
+  // 🪪 The Title dropdown posts "Atty.|woman" (lib/guest-title.ts) — the title that prints, and the gender that never does.
+  const titled = parseTitleKey(formData.has('name_title') ? formData.get('name_title') : formData.get('name_prefix'));
+  const name_prefix = normalizeGuestName(titled.name_prefix ?? '') || null;
+  const gender = titled.gender;
   const middle_name = normalizeGuestName(clean(formData.get('middle_name'))) || null;
   const name_suffix = normalizeGuestName(clean(formData.get('name_suffix'))) || null;
   const submittedSide = clean(formData.get('side'));
@@ -87,6 +93,8 @@ export async function createGuest(eventId: string, formData: FormData) {
   const rsvp_status = (clean(formData.get('rsvp_status')) || 'pending') as RsvpStatus;
   const photo_consent = clean(formData.get('photo_consent')) === 'on';
   const notes = clean(formData.get('notes')) || null;
+  // 💌 The hosts' note TO this guest (owner 2026-10-20) — omitted when blank, so a row without one is byte-identical.
+  const host_note_for_guest = clean(formData.get('host_note_for_guest')).slice(0, HOST_NOTE_MAX) || null;
   // Tea-ceremony serving order (Chinese / Tsinoy weddings) — both optional. A
   // free-text relationship label + an integer within-side serve order (lower
   // serves first). Parse seniority defensively — non-numeric / empty → null.
@@ -134,6 +142,19 @@ export async function createGuest(eventId: string, formData: FormData) {
   if (!roleSet.offeredRoles.includes(role)) {
     return redirect(`/dashboard/${eventId}/guests/new?error=invalid_role`);
   }
+  /* 🎭 ONE Role dropdown, several ticked (owner 2026-10-20): the first ticked posts as `role`, the rest as `extra_roles` —
+     the same rule `updateGuest` keeps: offered roles only, never the main one twice, never Guest, never a one-per-event role. */
+  const extra_roles: GuestRole[] = [
+    ...new Set(
+      clean(formData.get('extra_roles'))
+        .split(',')
+        .map((v) => v.trim() as GuestRole)
+        .filter((r) => r !== role && r !== 'guest' && roleSet.offeredRoles.includes(r) && !SINGLETON_GUEST_ROLES.includes(r)),
+    ),
+  ];
+  /* 👥 ONE Group dropdown (owner 2026-10-20): the couple's own groups ticked here — joined after the insert, only groups of
+     THIS event (the same gate the card's `syncCardGroups` keeps). */
+  const groupIds = [...new Set(clean(formData.get('group_ids')).split(',').map((v) => v.trim()).filter(Boolean))];
   if (!RSVP_VALUES.includes(rsvp_status)) {
     return redirect(`/dashboard/${eventId}/guests/new?error=invalid_rsvp`);
   }
@@ -166,17 +187,20 @@ export async function createGuest(eventId: string, formData: FormData) {
       // Optional: omitted entirely when blank, so the row is byte-identical to
       // a pre-2026-09-14 insert when the guest carries no title.
       ...(name_prefix ? { name_prefix } : {}),
+      ...(gender ? { gender } : {}),
       ...(middle_name ? { middle_name } : {}),
       ...(name_suffix ? { name_suffix } : {}),
       side,
       group_category,
       role,
+      ...(extra_roles.length ? { extra_roles } : {}),
       email,
       mobile,
       meal_preference,
       rsvp_status,
       photo_consent,
       notes,
+      ...(host_note_for_guest ? { host_note_for_guest } : {}),
       custom_tags,
       invited_to_blocks,
       plus_one_allowed,
@@ -204,10 +228,52 @@ export async function createGuest(eventId: string, formData: FormData) {
     );
   }
 
-  // A NAMED plus-one (an older form that still posts the name fields) gets its
-  // own row first; `syncExtraSeats` below then tops up to the full +N with TBA
-  // seats, beside this guest (owner 2026-09-21).
-  if (plus_one_allowed && (plus_one_first_name || plus_one_last_name)) {
+  if (groupIds.length > 0) {
+    const { data: ours, error: oursError } = await supabase.from('guest_groups').select('group_id').eq('event_id', eventId).in('group_id', groupIds);
+    const rows = (ours ?? []).map((g) => ({ group_id: g.group_id as string, guest_id: inserted.guest_id }));
+    const { error: joinError } = oursError || rows.length === 0
+      ? { error: oursError }
+      : await supabase.from('guest_group_memberships').upsert(rows, { onConflict: 'group_id,guest_id', ignoreDuplicates: true });
+    // The guest is on the list; a group that did not take is SAID, never shown as joined.
+    if (joinError) {
+      return redirect(`/dashboard/${eventId}/guests?added=1&error=${encodeURIComponent('Added — but their groups could not be saved. Tick them on their card.')}`);
+    }
+  }
+
+  // A NAMED plus-one (an older form that still posts the name fields) takes the
+  // first of their seats. 🪑 The database minted those seats with the guest
+  // (`a_plus_ones_count_is_their_rows`, owner 2026-10-21 "fix it"), so the name
+  // NAMES the oldest "TBA" seat — a second row would be one +1 more than the
+  // number. Only when no seat is waiting is a row inserted, as before.
+  const namedPlusOne = plus_one_allowed && (plus_one_first_name || plus_one_last_name);
+  const { data: waitingSeat } = namedPlusOne
+    ? await supabase
+        .from('guests')
+        .select('guest_id')
+        .eq('event_id', eventId)
+        .eq('plus_one_of_guest_id', inserted.guest_id)
+        .is('deleted_at', null)
+        .is('plus_one_name_confirmed_at', null)
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .maybeSingle()
+    : { data: null };
+  if (namedPlusOne && waitingSeat) {
+    const { error: nameErr } = await supabase
+      .from('guests')
+      .update({
+        first_name: plus_one_first_name || 'TBA',
+        last_name: plus_one_last_name || '+1',
+        display_name: null,
+        plus_one_mode,
+        plus_one_name_confirmed_at: new Date().toISOString(),
+      })
+      .eq('event_id', eventId)
+      .eq('guest_id', (waitingSeat as { guest_id: string }).guest_id);
+    if (nameErr) {
+      return redirect(`/dashboard/${eventId}/guests/new?error=${encodeURIComponent('plus_one_failed: ' + nameErr.message)}`);
+    }
+  } else if (namedPlusOne) {
     const { error: plusOneErr } = await supabase.from('guests').insert({
       event_id: eventId,
       first_name: plus_one_first_name || 'TBA',

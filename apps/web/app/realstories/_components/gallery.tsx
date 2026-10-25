@@ -12,7 +12,7 @@
 //   3. Just published   — newest by date, of whatever's left.
 //   4. The archive      — everything still unseen.
 //
-// Event type filter chips collapse the cascade into a filtered grid.
+// The milestone dropdown (event type) collapses the cascade into a filtered grid.
 // A search box further filters across all stories.
 //
 // Live video: a card whose hero is a clip plays it on a seamless, continuous
@@ -31,6 +31,10 @@ import { StorytellerTile } from '@/app/_components/storyteller-tile';
 import type { StorytellerTileItem } from '@/lib/storytellers';
 import { StoryCard } from '@/app/blog/_components/story-card';
 import { blogCategoryLabel, type BlogArticle } from '@/lib/blog';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
+
+/** The dropdown's "no filter" row — a key no event type can collide with. */
+const ALL_MILESTONES = '__all__';
 
 export type GalleryItem = {
   href: string;
@@ -330,7 +334,7 @@ export function Tile({ item, size, tag }: { item: GalleryItem; size: TileSize; t
       <div className="mt-2 flex flex-wrap items-center gap-1.5 px-0.5">
         {item.vendors && item.vendors.length > 0 ? (
           <>
-            <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/40">
+            <span className="font-mono text-xs uppercase tracking-[0.15em] text-ink/70">
               Team
             </span>
             {item.vendors.map((v) => (
@@ -372,7 +376,7 @@ function SectionHead({ title, note }: { title: string; note?: string }) {
   return (
     <div className="mb-3 mt-10 flex items-baseline justify-between gap-3 sm:mt-12">
       <h2 className="text-base font-semibold tracking-tight text-ink sm:text-lg">{title}</h2>
-      {note ? <span className="text-[11px] text-ink/45">{note}</span> : null}
+      {note ? <span className="text-xs text-ink/70">{note}</span> : null}
     </div>
   );
 }
@@ -414,7 +418,7 @@ function Companions({
               wedding are two photos in a row — which is exactly the confusion
               the old "practical guides" heading prevented, and the reason the
               heading could only be removed if the card took the job. */}
-          <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.18em] text-ink/45">
+          <p className="mb-2 font-mono text-xs uppercase tracking-[0.18em] text-ink/70">
             Article
           </p>
           <StoryCard article={a} />
@@ -594,34 +598,22 @@ export function RealStoriesGallery({
         ) : null}
       </div>
 
-      {/* Event type filter chips */}
+      {/* 🔽 THE MILESTONE FILTER IS ONE DROPDOWN (sweep B10, 2026-10-19 · owner rule: any set of choices is a
+          PickMenu). It was a row of up to 18 pills that wrapped four deep on a phone before the first story. */}
       {eventTypes.length > 1 ? (
-        <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="Filter by milestone type">
-          <button
-            type="button"
-            onClick={() => setActiveType(null)}
-            className={`rounded-full px-3.5 py-1.5 text-xs font-medium transition ${
-              !activeType
-                ? 'bg-ink text-white'
-                : 'border border-ink/15 bg-white/60 text-ink/65 hover:bg-white hover:text-ink'
-            }`}
-          >
-            All
-          </button>
-          {eventTypes.map((type) => (
-            <button
-              key={type}
-              type="button"
-              onClick={() => setActiveType(activeType === type ? null : type)}
-              className={`rounded-full px-3.5 py-1.5 text-xs font-medium transition ${
-                activeType === type
-                  ? 'bg-ink text-white'
-                  : 'border border-ink/15 bg-white/60 text-ink/65 hover:bg-white hover:text-ink'
-              }`}
-            >
-              {type}
-            </button>
-          ))}
+        <div className="mt-3 flex items-center gap-2" data-stories-milestone="">
+          <span className="text-xs font-medium text-ink/55">Show</span>
+          <PickMenu
+            label="Filter by milestone type"
+            value={activeType ?? ALL_MILESTONES}
+            options={[
+              { key: ALL_MILESTONES, label: 'All milestones' },
+              ...eventTypes.map((type) => ({ key: type, label: type })),
+            ]}
+            onPick={(k) => setActiveType(k === ALL_MILESTONES ? null : k)}
+            dataAttr="data-stories-milestone-pick"
+            className="!min-h-11"
+          />
         </div>
       ) : null}
 

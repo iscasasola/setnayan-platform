@@ -8,6 +8,7 @@ import {
   type MutableRefObject,
   type RefObject,
 } from 'react';
+import { useCameraThatComesBack } from '@/lib/use-camera-that-comes-back';
 
 // Papic · shared camera controls (client)
 //
@@ -30,15 +31,29 @@ import {
 //      facing. Full lens parity arrives with native Papic (Phase 2).
 //
 // Front ↔ back flip works everywhere a second camera is enumerable.
+//
+// 2× (owner 2026-10-24, "2× shows on every phone"): `selectLens(2)` zooms the
+// live track where its own `zoom` capability reaches 2, and otherwise sets
+// `crop` to 2 — a DIGITAL crop the surface applies to its preview and its
+// stills (lib/papic-camera-steps.ts). Only the guest camera offers 2×; the seat
+// and supplier cameras keep reading `lensOptions` (0.5 / 1), unchanged.
+//
+// TAP-TO-FOCUS is offered (`canFocus`) only where the track reports a focus
+// mode; `focusAt` asks for a point of interest there. Elsewhere: nothing.
 
 export type Facing = 'environment' | 'user';
-export type LensFactor = 0.5 | 1;
+export type LensFactor = 0.5 | 1 | 2;
 
 /** TS DOM libs don't model the `zoom` capability/constraint yet — narrow casts. */
 type ZoomCapabilities = MediaTrackCapabilities & {
   zoom?: { min: number; max: number; step?: number };
+  focusMode?: string[];
 };
 type ZoomConstraintSet = MediaTrackConstraintSet & { zoom?: number };
+type FocusConstraintSet = MediaTrackConstraintSet & {
+  pointsOfInterest?: Array<{ x: number; y: number }>;
+  focusMode?: string;
+};
 
 /** Below this the track can render an ultra-wide (~0.5×) field of view. */
 const ULTRAWIDE_ZOOM_CEILING = 0.7;
@@ -85,10 +100,18 @@ export type PapicCamera = {
   canFlip: boolean;
   /** Flip front ↔ back. Resets the lens to 1× for the new facing. */
   flip: () => void;
-  /** Lens factors available for the CURRENT facing — `[1]` means hide the toggle. */
+  /** Lens factors available for the CURRENT facing — `[1]` means hide the toggle.
+   *  Hardware only (0.5 / 1): the guest camera adds its 2× step on top. */
   lensOptions: LensFactor[];
   lens: LensFactor;
   selectLens: (factor: LensFactor) => void;
+  /** 2 while 2× is a DIGITAL crop (no track zoom reaches it) — the surface
+   *  scales its preview and crops its stills by this. 1 otherwise. */
+  crop: 1 | 2;
+  /** The live track reports a focus mode → tap-to-focus is offered. */
+  canFocus: boolean;
+  /** Ask the camera to focus/expose at a 0–1 point of its own frame. */
+  focusAt: (point: { x: number; y: number }) => void;
   /** True while facing 'user' → mirror the preview (selfie convention). */
   mirrored: boolean;
   /** True while re-acquiring the stream (flip / deviceId lens swap) → freeze the shutter. */
@@ -101,14 +124,25 @@ export type PapicCamera = {
  * @param enabled  Acquire (and hold) the camera only while true. The guest
  *   surface flips this false behind its UGC gate and while the front-camera
  *   face-enroll panel owns the camera; the seat surface passes a constant true.
+ * @param holdRestart  True while a clip is recording. The camera that comes
+ *   back (iOS background, a Duo opening, a dead track) waits for the take to
+ *   finish — a reopen is never a shot, so it must never cut, post or spend one.
  */
-export function usePapicCamera({ enabled }: { enabled: boolean }): PapicCamera {
+export function usePapicCamera({
+  enabled,
+  holdRestart = false,
+}: {
+  enabled: boolean;
+  holdRestart?: boolean | (() => boolean);
+}): PapicCamera {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
   const [facing, setFacing] = useState<Facing>('environment');
   const [lens, setLens] = useState<LensFactor>(1);
   const [lensOptions, setLensOptions] = useState<LensFactor[]>([1]);
+  const [crop, setCrop] = useState<1 | 2>(1);
+  const [canFocus, setCanFocus] = useState(false);
   const [canFlip, setCanFlip] = useState(false);
   const [ready, setReady] = useState(false);
   const [camError, setCamError] = useState(false);
@@ -117,10 +151,20 @@ export function usePapicCamera({ enabled }: { enabled: boolean }): PapicCamera {
   // When set, open THIS device (the ultra-wide multi-camera path) instead of the
   // facingMode default. Cleared on flip / when returning to the 1× main lens.
   const [targetDeviceId, setTargetDeviceId] = useState<string | null>(null);
+  const wideDeviceInUseRef = useRef(false);
+  wideDeviceInUseRef.current = targetDeviceId !== null;
+  // Bumped when the camera must come back (see useCameraThatComesBack below):
+  // re-runs the acquire effect with the SAME facing + device, behind the
+  // shipped `switching` state, so the preview never sits frozen or black.
+  const [revival, setRevival] = useState(0);
 
   // Probe results for the active facing (refs so selectLens reads them without
   // re-rendering): can the live track zoom below 1×, and the ultra-wide deviceId.
   const zoomCapableRef = useRef(false);
+  // The live track's own zoom range (any range — a 1–8× main camera reaches 2×
+  // without reaching 0.5×). Null when the track has no zoom capability.
+  const trackZoomRef = useRef<{ min: number; max: number } | null>(null);
+  const focusModesRef = useRef<string[]>([]);
   const wideDeviceIdRef = useRef<string | null>(null);
   // The lens the user wants — applied after a fresh facingMode acquire so a 0.5×
   // request survives a flip-then-zoom on zoom-capable hardware.
@@ -138,6 +182,26 @@ export function usePapicCamera({ enabled }: { enabled: boolean }): PapicCamera {
     let factors: LensFactor[] = [1];
     let wideDeviceId: string | null = null;
 
+    trackZoomRef.current =
+      caps?.zoom && typeof caps.zoom.min === 'number' && typeof caps.zoom.max === 'number'
+        ? { min: caps.zoom.min, max: caps.zoom.max }
+        : null;
+    focusModesRef.current = Array.isArray(caps?.focusMode) ? caps.focusMode : [];
+    setCanFocus(focusModesRef.current.some((m) => m === 'single-shot' || m === 'continuous' || m === 'manual'));
+
+    // The flip target is enumerated on EVERY path. It used to be read only when
+    // the track had no sub-1× zoom, so a zoom-capable phone never got a flip.
+    let cams: MediaDeviceInfo[] = [];
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      cams = devices.filter((d) => d.kind === 'videoinput');
+      const hasFront = cams.some((c) => labelFacing(c.label) === 'user');
+      const hasBack = cams.some((c) => labelFacing(c.label) === 'environment');
+      setCanFlip((hasFront && hasBack) || cams.length > 1);
+    } catch {
+      /* enumerateDevices unavailable — fall back to a 1× camera, no flip */
+    }
+
     if (
       caps?.zoom &&
       typeof caps.zoom.min === 'number' &&
@@ -148,25 +212,16 @@ export function usePapicCamera({ enabled }: { enabled: boolean }): PapicCamera {
       factors = [0.5, 1];
     } else {
       // No sub-1× zoom on the track — look for a distinct ultra-wide device.
-      try {
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const cams = devices.filter((d) => d.kind === 'videoinput');
-        const hasFront = cams.some((c) => labelFacing(c.label) === 'user');
-        const hasBack = cams.some((c) => labelFacing(c.label) === 'environment');
-        setCanFlip((hasFront && hasBack) || cams.length > 1);
-        const wide = cams.find(
-          (c) =>
-            (labelFacing(c.label) === forFacing || labelFacing(c.label) === null) &&
-            isUltraWideLabel(c.label) &&
-            c.deviceId &&
-            c.deviceId !== settings.deviceId,
-        );
-        if (wide) {
-          factors = [0.5, 1];
-          wideDeviceId = wide.deviceId;
-        }
-      } catch {
-        /* enumerateDevices unavailable — fall back to a flip-only / 1× camera */
+      const wide = cams.find(
+        (c) =>
+          (labelFacing(c.label) === forFacing || labelFacing(c.label) === null) &&
+          isUltraWideLabel(c.label) &&
+          c.deviceId &&
+          c.deviceId !== settings.deviceId,
+      );
+      if (wide) {
+        factors = [0.5, 1];
+        wideDeviceId = wide.deviceId;
       }
     }
 
@@ -238,6 +293,15 @@ export function usePapicCamera({ enabled }: { enabled: boolean }): PapicCamera {
             applyZoom(track, 0.5);
           }
         }
+        // …and a 2× request: the track's own zoom where it reaches 2, else the crop stays.
+        if (lensWantedRef.current === 2 && !targetDeviceId) {
+          const track = stream.getVideoTracks()[0];
+          const caps = track?.getCapabilities?.() as ZoomCapabilities | undefined;
+          if (track && caps?.zoom && caps.zoom.max >= 2) {
+            applyZoom(track, 2);
+            setCrop(1);
+          }
+        }
         void probeLenses(stream, facing);
       } catch {
         setCamError(true);
@@ -251,10 +315,21 @@ export function usePapicCamera({ enabled }: { enabled: boolean }): PapicCamera {
       streamRef.current?.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
     };
-  }, [enabled, facing, targetDeviceId, probeLenses]);
+  }, [enabled, facing, targetDeviceId, probeLenses, revival]);
+
+  // THE CAMERA COMES BACK (Duo + iPad audit 2026-10-19, W4). iOS ends capture
+  // when the app goes to the background and a Duo can move the page to the
+  // other camera; without this the viewfinder stayed frozen or black.
+  useCameraThatComesBack({
+    streamRef,
+    live: enabled && ready && !switching && !camError,
+    restart: () => setRevival((n) => n + 1),
+    holdWhile: holdRestart,
+  });
 
   const flip = useCallback(() => {
     setLens(1);
+    setCrop(1);
     lensWantedRef.current = 1;
     setTargetDeviceId(null);
     setFacing((f) => (f === 'environment' ? 'user' : 'environment'));
@@ -263,6 +338,28 @@ export function usePapicCamera({ enabled }: { enabled: boolean }): PapicCamera {
   const selectLens = useCallback(
     (factor: LensFactor) => {
       lensWantedRef.current = factor;
+      if (factor === 2) {
+        // 2× — the live track's own zoom where it reaches 2, else a digital crop.
+        // From the ultra-wide device, go back to the main camera first (the
+        // re-acquire re-applies the wanted 2×).
+        const zoom = trackZoomRef.current;
+        const track = streamRef.current?.getVideoTracks()[0];
+        setLens(2);
+        if (zoom && zoom.max >= 2 && track && !wideDeviceInUseRef.current) {
+          applyZoom(track, 2);
+          setCrop(1);
+        } else {
+          setCrop(2);
+        }
+        setTargetDeviceId(null);
+        return;
+      }
+      setCrop(1);
+      if (trackZoomRef.current && !zoomCapableRef.current && factor === 1) {
+        // A 2× that rode the track's zoom comes back to 1× on the same track.
+        const track = streamRef.current?.getVideoTracks()[0];
+        if (track) applyZoom(track, 1);
+      }
       if (zoomCapableRef.current) {
         // Smooth path — zoom the live track, no re-acquire.
         const track = streamRef.current?.getVideoTracks()[0];
@@ -284,6 +381,18 @@ export function usePapicCamera({ enabled }: { enabled: boolean }): PapicCamera {
     [],
   );
 
+  const focusAt = useCallback((point: { x: number; y: number }) => {
+    const track = streamRef.current?.getVideoTracks()[0];
+    const modes = focusModesRef.current;
+    if (!track || modes.length === 0) return;
+    const mode = modes.includes('single-shot') ? 'single-shot' : modes.includes('continuous') ? 'continuous' : undefined;
+    const set: FocusConstraintSet = { pointsOfInterest: [point] };
+    if (mode) set.focusMode = mode;
+    void track.applyConstraints({ advanced: [set as MediaTrackConstraintSet] }).catch(() => {
+      /* refused — the camera keeps its own auto-focus */
+    });
+  }, []);
+
   return {
     videoRef,
     streamRef,
@@ -295,6 +404,9 @@ export function usePapicCamera({ enabled }: { enabled: boolean }): PapicCamera {
     lensOptions,
     lens,
     selectLens,
+    crop,
+    canFocus,
+    focusAt,
     mirrored: facing === 'user',
     switching,
   };

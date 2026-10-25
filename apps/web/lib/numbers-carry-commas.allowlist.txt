@@ -13,6 +13,7 @@
 # A row that no longer matches a finding FAILS the test — delete it.
 
 # ── TEXT: a string property whose digits were grouped where it was built ──
+app/dashboard/[eventId]/studio/mood-board/_components/mood-board-studio.tsx :: photosHead :: TEXT — RowSheet's "Photos · N" heading, a string whose count was grouped by formatCount where the sheet builds it
 app/dashboard/[eventId]/guests/page.tsx :: guestsScreen :: TEXT — a React element (the Guests screen), not a number; the scanner reads its name
 app/(shell)/papic/_papic-free-credits.tsx :: promise.count :: TEXT — PapicFreeCreditPromise.count is built by points.toLocaleString('en-PH') in lib/papic-free-credit-promise.ts
 app/(shell)/papic/_papic-free-credits.tsx :: promise.count :: TEXT — the second render of the same grouped string
@@ -36,3 +37,5 @@ app/dashboard/[eventId]/launch/_components/print-menu-editor.tsx :: j + 1 :: BOU
 app/admin/pricing/_components/papic-ladder-editor.tsx :: rung.ratePerCredit.toFixed(3) :: BOUNDED — a per-credit rate of a few centavos (₱0.087), shown to three decimals so admins can compare rungs; formatPhp would round it to ₱0.09
 app/dashboard/[eventId]/launch/_components/maker-hero-design.tsx :: HERO_DESIGN_LABEL[shown].suits :: TEXT — HERO_DESIGN_LABEL[*].suits is the design's one-line description, static copy in lib/hero-design.ts
 app/dashboard/[eventId]/launch/_components/studio-prints-six.tsx :: j + 1 :: BOUNDED — the dish's position in an aria-label ("Dish 3 of Cocktail hour"); a moment holds at most MENU_MAX_DISHES (16) dishes (lib/print-pieces.ts)
+app/dashboard/[eventId]/launch/_components/studio-info.tsx :: PHOTOS_EYEBROW :: TEXT — PHOTOS_EYEBROW is the scene's static "Memories" line (lib/photos-heading.ts), not a quantity
+app/_components/memories/event-memories-gallery.tsx :: addPhotos :: TEXT — addPhotos is a ReactNode (the shipped uploader, or its "Turn this on" form) handed in by the Memories page, not a quantity

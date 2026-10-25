@@ -132,7 +132,15 @@ export function PapicDemoOverlay({ current, onClose }: { current: OverlayId; onC
     }
   }, []);
 
-  const { presence, send } = useDemoChannel(pair?.sessionId ?? '', undefined, onMessage);
+  // 🔌 Only while the overlay is OPEN (2026-10-21). The overlay stays mounted
+  // when it closes (only the portal toggles) and `pair` is kept until the next
+  // open — so keyed on `pair` alone, the demo channel held the page's socket
+  // open long after the visitor closed the demo.
+  const { presence, send } = useDemoChannel(
+    current === 'papic-demo' && pair ? pair.sessionId : '',
+    undefined,
+    onMessage,
+  );
   sendRef.current = send;
 
   const pickStyle = useCallback(
@@ -235,7 +243,7 @@ export function PapicDemoOverlay({ current, onClose }: { current: OverlayId; onC
               <p style={{ marginTop: 8, fontSize: 11.5, color: '#8c8884', textAlign: 'center' }}>
                 {remaining > 0
                   ? `${remaining} demo shot${remaining === 1 ? '' : 's'} left. The style you pick here bakes into their saves.`
-                  : 'Demo roll finished. The real Papic puts no limit on how many phones shoot — and your first celebration starts with free credits.'}
+                  : 'Demo roll finished. The real Papic puts no limit on how many phones shoot — and your first event starts with free credits.'}
               </p>
             </>
           )}

@@ -1,0 +1,90 @@
+/**
+ * 🚪 WHAT THE EVENT LEFT OFF IS ABSENT — NEVER GREYED (owner 2026-10-08; the BAR left this list
+ * 22 Oct 2026 — see the bar test below; DECISION_LOG "ONBOARDING
+ * FOLLOWS WHAT THE EVENT NEEDS"; matrix §2 "A need that is OFF is not greyed out; it is absent (bottom
+ * bar, Home rows, Maker stages, Studio tiles). Home keeps one 'Switch on more' row").
+ *
+ * The rules are pure (`lib/event-needs.ts`, pinned in event-needs.test.ts); this file holds the FOUR
+ * places that must obey them to actually obey them — a rule nobody reads renders exactly like no rule.
+ */
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { pickHomeNext, type HomeNextInput } from './home-first-screen';
+
+const read = (f: string) => readFileSync(join(process.cwd(), f), 'utf8');
+
+const BASE: HomeNextInput = {
+  guide: null,
+  hasDate: true,
+  guests: { total: 0, unsent: 0 },
+  noun: 'event',
+  papicReady: false,
+  aiOffer: false,
+};
+
+test('Home’s Next card never asks for guests an event with no list will never have', () => {
+  assert.equal(pickHomeNext(BASE).kind, 'guests');
+  assert.notEqual(pickHomeNext({ ...BASE, needs: { guestList: false, hubDetails: true } }).kind, 'guests');
+  assert.notEqual(pickHomeNext({ ...BASE, guests: { total: 4, unsent: 4 }, needs: { guestList: false, hubDetails: true } }).kind, 'invite');
+  // …and an unread list is not that Home's to report.
+  assert.notEqual(pickHomeNext({ ...BASE, guests: null, needs: { guestList: false, hubDetails: true } }).kind, 'unread');
+  assert.equal(pickHomeNext({ ...BASE, guests: null }).kind, 'unread');
+});
+
+test('Home’s Next card never says "Finish your Event Hub" to cover + photos only', () => {
+  const guide = { done: 1, total: 5, stageTitle: 'The Day', stageDone: 0, stageTotal: 2 } as unknown as HomeNextInput['guide'];
+  assert.equal(pickHomeNext({ ...BASE, guide }).kind, 'guide');
+  assert.notEqual(pickHomeNext({ ...BASE, guide, needs: { guestList: true, hubDetails: false } }).kind, 'guide');
+});
+
+/*
+  ⚖ THE BAR IS NOT ONE OF THE PLACES ANY MORE (owner 22 Oct 2026, "Fix both", on a Simple event whose bar
+  read "Home · Hub · More"): every event wears the wedding's bar — `lib/event-menu-gates.ts`, held for EVERY
+  type × preset × phase × shell by `lib/every-event-wears-the-one-bar.test.ts` and, over the migrations' own
+  rows, `tests/db/every-event-type-wears-the-one-bar.db.test.ts`. Home, the Maker and Studio still drop
+  what is off (the tests around this one).
+*/
+test('the bottom bar keeps every tab — the layout hands no switched-off need to the menu tree', () => {
+  const layout = read('app/dashboard/[eventId]/layout.tsx');
+  assert.doesNotMatch(layout, /needsHiddenNavKeys\(/, 'the layout hides a switched-off tab from the bar again');
+  assert.match(layout, /eventMenuGates\(profile\)/, 'the layout no longer reads the one menu rule');
+});
+
+test('Home drops the numbers and the money of what is off, and keeps ONE Switch on more', () => {
+  const home = read('app/dashboard/[eventId]/_components/home-first-screen.tsx');
+  // (Home's three door pills are gone — owner 2026-10-23, "we already have those menus on the nav" — so there are no
+  // doors left to follow the needs; the bar keeps every tab, test above. `the-home-leads-with-one-next.test.ts` b.)
+  assert.doesNotMatch(home, /HomeDoorways|doorsHidden/, 'the door pills are back on Home');
+  // Since the control row (owner-approved 2026-10-24) the widgets are ABSENT (null) for what is off — decided where the
+  // page builds them, and drawn by nothing when null (`home-control-faces.ts`: `if (g === null) return null`).
+  const page0 = read('app/dashboard/[eventId]/page.tsx');
+  assert.match(page0, /needs: homeNeeds,\s*roster:/, 'the control row is not told what the event needs');
+  const faces0 = read('app/dashboard/[eventId]/_components/home-control-faces.ts');
+  assert.match(faces0, /i\.needs\.guestList === false\s*\?\s*null/, 'the Guests widget shows without a guest list');
+  assert.match(faces0, /i\.needs\.suppliers === false \|\| i\.money === 'hidden'\s*\?\s*null/, 'the Budget widget shows without suppliers');
+  assert.match(page0, /show: plans && needs\.suppliers && profile\.marketplaceEnabled === true/, 'the Suppliers widget shows without suppliers');
+  const faces = read('app/dashboard/[eventId]/_components/home-control-faces.ts');
+  for (const w of ['g', 's', 'b']) assert.match(faces, new RegExp(`if \\(${w} === null\\) return null;`), `a widget that is off is drawn anyway (${w})`);
+  assert.match(home, /data-home-switch-on/, 'Switch on more is gone — what was left off is lost');
+  assert.match(home, /data-home-one-qr/, 'an event with no list has no way in on Home');
+  const page = read('app/dashboard/[eventId]/page.tsx');
+  assert.match(page, /needs=\{homeNeeds\}/);
+  assert.match(page, /needs: eventNeeds,/, 'the Next card is not told what the event needs');
+});
+
+test('the Maker drops the stages and Studio tiles of what is off, and never opens on one', () => {
+  const page = read('app/dashboard/[eventId]/launch/page.tsx');
+  assert.match(page, /hiddenStages=\{hiddenStages\}/);
+  assert.match(page, /\.filter\(\(t\) => !needsHidesStudioTile\(t\.key, eventNeeds\)\)/, 'Studio tiles ignore the needs');
+  assert.match(page, /includes\(wantedStage\) \? 'event' : wantedStage/, 'the Maker can open on a stage this event does not have');
+  const shell = read('app/dashboard/[eventId]/launch/_components/maker-shell.tsx');
+  assert.match(shell, /!hiddenStages\?\.includes\(s\)\)/, 'the stage lists ignore the needs');
+  assert.match(shell, /hiddenStages,\n\s*\}\);/, 'Page ▾ is not told what is hidden');
+  const bar = read('app/dashboard/[eventId]/launch/_components/maker-bar.ts');
+  assert.match(bar, /if \(input\.hiddenStages\?\.includes\(s\)\) continue;/);
+  // …and the top bar's Stages ▾ sheet lists only the stages Page ▾ lists (walked 2026-10-18: it drew all five).
+  const sheet = read('app/dashboard/[eventId]/launch/_components/stage-item-menu.tsx');
+  assert.match(sheet, /if \(options\[0\] && !options\.some\(\(o\) => o\.key\.split\(':'\)\[0\] === s\)\) return null;/, 'the Stages sheet lists a stage this event does not have');
+});

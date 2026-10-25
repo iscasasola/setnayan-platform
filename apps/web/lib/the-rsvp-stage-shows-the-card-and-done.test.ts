@@ -61,9 +61,19 @@ test('3 · Done for a line’s words typed in the panel: the stage’s own typin
   /* Shown by rule while a typed row of the panel's rows is open — no state to fall out of step with the field. */
   assert.match(LIST, /'\[data-rsvp-panel-keys\]\{display:none!important\}' \+\s*'body:has\(\[data-rsvp-stage-rows\] \[data-form-row-editing\]\) \[data-rsvp-panel-keys\]\{display:flex!important\}'/);
   /* The stage's own bar: its classes, "Typing · <line>", the brand Done — which only leaves the box (the row keeps). */
-  assert.match(LIST, /data-rsvp-panel-keys="" style=\{\{ bottom \}\} className=\{`fixed inset-x-0 z-\[85\] \$\{SP_KEY_BAR\}`\}>/);
-  assert.match(LIST, /<span className="min-w-0 truncate">Typing · \{name\}<\/span>/);
-  assert.match(LIST, /<span data-type-done="" className=\{SP_KEY_DONE\}>\s*<ActionButton tone="brand" main icon=\{Check\} label="Done" onClick=\{\(\) => \(document\.activeElement as HTMLElement \| null\)\?\.blur\?\.\(\)\} \/>/);
+  // …drawn as the ONE typing band (`typing-band.tsx`, 2026-10-24): fixed on the keyboard, "Typing · <line>", and the
+  // band's own Done — no `onDone`, so Done only leaves the box.
+  assert.match(LIST, /<TypingBand\s+fixed\s+role="toolbar"\s+aria-label=\{`\$\{name\} — words`\}\s+data-type-bar="rsvp-panel"\s+data-rsvp-panel-keys=""/);
+  assert.match(LIST, /place=\{name\}\s*\/>/);
+  // …and it FOLLOWS THE KEYBOARD: no bottom of its own, so the band stands on the one keyboard reading's top.
+  const panelBar = LIST.slice(LIST.indexOf('export function RsvpPanelTypingBar'), LIST.indexOf('/>', LIST.indexOf('export function RsvpPanelTypingBar')));
+  assert.doesNotMatch(panelBar, /\bbottom=/, 'the panel bar is pinned at a bottom of its own, not the keyboard’s');
+  const BAND = src('app/_components/typing-band.tsx');
+  assert.match(BAND, /className=\{`fixed inset-x-0 z-\[85\] \$\{\(className as string \| undefined\) \?\? ''\} \$\{SP_KEY_BAR_FIXED\}`/);
+  assert.match(BAND, /<span className="min-w-0 truncate">Typing · \{place\}<\/span>/);
+  assert.match(BAND, /bottom: k\.open \? \(\(atBottom as number \| undefined\) \?\? k\.bottom\) : 0/, 'the fixed band does not stand on the keyboard');
+  assert.match(BAND, /<span data-type-done="" className=\{SP_KEY_DONE\}>\s*<ActionButton tone="brand" main icon=\{Check\} label="Done" onClick=\{onDone \?\? blurTyping\} \/>/);
+  assert.match(BAND, /export function blurTyping\(\) \{\s*\(document\.activeElement as HTMLElement \| null\)\?\.blur\?\.\(\);/);
   /* Both of the panel's word boxes for a line have it — one of the page's own lines, and one the couple added — and
      the rows it watches are the ones they stand in. */
   const PANEL = src(`${L}/maker-rsvp-ask.tsx`);

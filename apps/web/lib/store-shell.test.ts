@@ -183,7 +183,7 @@ test('the store shell is never shown a second, marked-up price', () => {
   // users, then point them at the cheaper web page. One price, from the
   // catalogue, everywhere.
   const src = readFileSync(
-    join(__dirname, '../app/vendor-dashboard/subscription/_components/subscription-cards.tsx'),
+    join(__dirname, '../app/vendor-dashboard/subscription/_components/plan-picker.tsx'),
     'utf8',
   );
   // Match the multiplier, not the digits: `1.5` alone hits Tailwind spacing
@@ -192,7 +192,7 @@ test('the store shell is never shown a second, marked-up price', () => {
     !/MOBILE_SRP|mobileSrp|SRP_MULTIPLIER/.test(src),
     'a channel-dependent price multiplier is back',
   );
-  assert.ok(!/isNativeApp/.test(src), 'plan cards should no longer branch on native-ness at all');
+  assert.ok(!/isNativeApp/.test(src), 'the plan picker should not branch on native-ness at all');
 });
 
 test('the build number is past the one App Review rejected', () => {
@@ -388,19 +388,29 @@ test('wiring: Mood Board "Make it real" (paid render credits) is not mounted in 
   const s = src('app/dashboard/[eventId]/studio/mood-board/_components/mood-board-editor.tsx');
   assert.equal((s.match(/<MakeItReal\b/g) ?? []).length, 1, 'one mount — every mount must be gated');
   // Since Details part 3 the board's parts are nodes, drawn by the page and the Maker alike.
-  assert.match(s, /const makeItReal = storeShell \? null : \(\s*<MakeItReal\b/);
-  assert.match(s, /\.\.\.\(storeShell \? \[\] : \[\{ href: '#make-it-real'/, 'the jump link would point at nothing');
+  // 🍎 …except where Apple sells the pack (2026-10-23): `appleIap` is false whenever the gate is (the store shell
+  // AND the build AND the switch), so with the gate off the store shell still mounts nothing.
+  assert.match(s, /const appleIap = storeShell && \(await getIapGate\(\)\)\.iap;/);
+  assert.match(s, /const makeItReal = storeShell && !appleIap \? null : \(\s*<MakeItReal\b/);
+  assert.match(s, /\.\.\.\(storeShell && !appleIap \? \[\] : \[\{ href: '#make-it-real'/, 'the jump link would point at nothing');
 });
 
 test('wiring: the dashboard withholds the Sai pitch and a web-bought Sai in the store shell', () => {
   const s = src('app/dashboard/[eventId]/_components/event-dashboard.tsx');
-  assert.match(s, /const aiActive =[^;]*storeShellAllowsPaidFeature\(storeShell, aiPaywallEnabled\)/);
+  // 🍎 The third argument is `iap` (2026-10-23) — false unless Apple sells Sai in this app.
+  assert.match(s, /const aiActive =[^;]*storeShellAllowsPaidFeature\(\s*storeShell,\s*aiPaywallEnabled,[^;]*\(await setnayanAiTierInApp\(createAdminClient\(\), eventId\)\)\.status === 'sellable',\s*\)/);
+  assert.match(s, /const appleIapRead = startAhead\(getIapGate\(\)\.then\(\(g\) => g\.iap, \(\) => false\)\);/);
   const mounts = s.match(/<FreeVenueShortlistOffer\b[^>]*\/>/g) ?? [];
   assert.ok(mounts.length > 0, 'anchor moved');
   for (const m of mounts) assert.match(m, /sell=\{!storeShell\}/, m);
   const v = src('app/dashboard/[eventId]/vendors/page.tsx');
-  assert.match(v, /const aiActive =[^;]*storeShellAllowsPaidFeature\(storeShell, paywallEnabled\)/);
-  assert.match(v, /const aiOffer = !storeShell && shouldOfferSetnayanAiPurchaseForEvent/);
+  assert.match(v, /const aiActive =[^;]*storeShellAllowsPaidFeature\(storeShell, paywallEnabled, appleSai\)/);
+  assert.match(v, /const appleIap = storeShell && \(await appleIapRead\) === true;/);
+  assert.match(
+    v,
+    /const aiOffer =\s*shouldOfferSetnayanAiPurchaseForEvent\(ev, aiGateOpts\) &&\s*\(!storeShell \|\| appleSai\);/,
+    'the Sai banner shows in the store shell beyond where Apple sells it',
+  );
 });
 
 test('wiring: a plan sheet (a price list) withdraws itself in the store shell', () => {
@@ -484,8 +494,14 @@ test('wiring: the link guard is mounted once, in the root layout, and hides with
   assert.equal((layout.match(/<StoreShellLinkGuard \/>/g) ?? []).length, 1);
   const guard = src('app/_components/store-shell-link-guard.tsx');
   assert.match(guard, /if \(!isStoreShellInBrowser\(navigator\.userAgent, document\.cookie\)\) return;/, 'must be a no-op off the store shell');
-  assert.match(guard, /setProperty\('display', 'none', 'important'\)/, '`hidden` alone loses to utility classes');
-  assert.match(guard, /storeShellHidesHref\(/, 'must key on the registry, not a list of its own');
+  /* RE-AIMED 2026-10-21: the work is its own chunk (`store-shell-link-guard-run.ts`), fetched only after that check —
+     the Maker's first load sits at its ceiling. Same three properties, read across the two files. */
+  const after = guard.slice(guard.indexOf('if (!isStoreShellInBrowser('));
+  assert.match(after, /import\('\.\/store-shell-link-guard-run'\)\.then\(\(m\) => \{\s*if \(!gone\) stop = m\.guardStoreShellLinks\(\);/, 'the work is not started after the store-shell check');
+  assert.doesNotMatch(guard, /^import[^;]*store-shell-link-guard-run/m, 'the work is imported statically — back in every first load');
+  const run = src('app/_components/store-shell-link-guard-run.ts');
+  assert.match(run, /setProperty\('display', 'none', 'important'\)/, '`hidden` alone loses to utility classes');
+  assert.match(run, /storeShellHidesHref\(/, 'must key on the registry, not a list of its own');
 });
 
 test('wiring: wedding onboarding drops every priced screen in the store shell', () => {
@@ -519,8 +535,11 @@ test('wiring: the vendor side shows no plan upsell, add-on price or pack in the 
   assert.match(gate, /export async function VendorTierTeaser[\s\S]*?if \(await isStoreShellRequest\(\)\) return null;/);
   // Try-first (2026-09-30): the manager mounts for every plan on the web, and
   // still never in the store shell.
-  before('app/vendor-dashboard/shop/page.tsx', /\{storeShell \? null : \(/, '<BranchManager');
-  assert.match(src('app/vendor-dashboard/team/page.tsx'), /\{canBuySeats && !storeShell \? \(/);
+  // Since step 5 (2026-10-14) the branch panel is its own file, mounted on Your details.
+  before('app/vendor-dashboard/shop/_components/branch-panel.tsx', /\{storeShell \? null : \(/, '<BranchManager');
+  // The Helpers screen moved into `helpers-view.tsx` (simpler supplier dashboard step 6); the page hands it storeShell.
+  assert.match(src('app/vendor-dashboard/team/_components/helpers-view.tsx'), /\{canBuySeats && !storeShell \? \(/);
+  assert.match(src('app/vendor-dashboard/team/page.tsx'), /storeShell=\{storeShell\}/);
   const recs = src('app/vendor-dashboard/recommendations/page.tsx');
   assert.equal((recs.match(/formatSkuPriceLabel\(/g) ?? []).length, 1, 'every price label goes through priceLabelFor');
   assert.match(recs, /storeShell \? null : formatSkuPriceLabel\(row, null\)/);
@@ -564,4 +583,462 @@ test('wiring: the Mood Board back-link to the paid add-ons hub is withheld in th
   // (owner 2026-10-02, tracker d1) — still withheld in the store shell.
   assert.match(page, /\{storeShell \? null : \(\s*<Link\s*\n\s*href=\{studioHubHref\(eventId\)\}/);
   assert.match(page, /‹ Back to add-ons/, 'anchor moved — the link text this test is guarding');
+});
+
+// ─── Sweep 2026-10-19 (rows A1 · C10 · C14) ────────────────────────────────
+
+test('A1 — every /features page that sells is refused in the store shell, found by walking the registry', () => {
+  // NOT a hand list: the registry decides. A feature priced anything but
+  // `free` quotes a ₱ figure and an "Unlock …" step — the store shell showed
+  // "PRICE ₱2,500 · Unlock Live Watch" before this. A `free` feature is a
+  // planning page and stays open.
+  const { FEATURE_PAGES } = require('./feature-pages') as typeof import('./feature-pages');
+  const { STORE_SHELL_WEB_ONLY_FEATURE_SLUGS } = require('./store-shell') as typeof import('./store-shell');
+  assert.ok(FEATURE_PAGES.length >= 20, `the registry walked only ${FEATURE_PAGES.length} pages — the anchor moved`);
+  const sells = FEATURE_PAGES.filter((f) => f.price.kind !== 'free');
+  assert.ok(sells.length > 0, 'no paid feature found — the anchor moved');
+  const leaks: string[] = [];
+  const overreach: string[] = [];
+  for (const f of FEATURE_PAGES) {
+    for (const path of [`/features/${f.slug}`, `/tl/features/${f.slug}`, `/features/${f.slug}/`]) {
+      const refused = isStoreShellWebOnlyPath(path);
+      if (f.price.kind !== 'free' && !refused) leaks.push(`${path} (${f.price.kind})`);
+      if (f.price.kind === 'free' && refused) overreach.push(path);
+    }
+  }
+  assert.deepEqual(leaks, [], `feature pages that quote a price, open in the store shell: ${leaks.join(', ')}`);
+  assert.deepEqual(overreach, [], `free planning feature pages refused in the store shell: ${overreach.join(', ')}`);
+  // No phantom slugs: every hand-listed slug is a real, selling registry page.
+  const selling = new Set(sells.map((f) => f.slug as string));
+  for (const s of STORE_SHELL_WEB_ONLY_FEATURE_SLUGS) assert.ok(selling.has(s), `"${s}" is not a selling feature page`);
+  // Both hubs list every price. /features is bounced by the native brochure
+  // rule in middleware; its Tagalog twin is a doorway here.
+  assert.equal(isStoreShellWebOnlyPath('/tl/features'), true, '/tl/features lists prices');
+  assert.match(src('middleware.ts'), /APP_EXCLUDED_MARKETING_PATHS = new Set\(\[[^\]]*'\/features',/, '/features must stay in the brochure bounce');
+  // And the link guard hides a "Works with" link to one from a free page.
+  const { storeShellHidesHref } = require('./store-shell') as typeof import('./store-shell');
+  assert.equal(storeShellHidesHref('/features/live-watch', 'https://www.setnayan.com/features/budget'), true);
+  assert.equal(storeShellHidesHref('/features/budget', 'https://www.setnayan.com/features/guest-list'), false);
+});
+
+test('C10 — /web-only offers a signed-out visitor Sign in, never a dashboard they do not have', () => {
+  const page = src('app/(shell)/web-only/page.tsx');
+  assert.match(page, /const user = await getCurrentUser\(\);/);
+  assert.match(page, /user\s*\?\s*\{ href: '\/dashboard', label: 'Back to your dashboard' \}\s*:\s*\{ href: '\/login', label: 'Sign in' \}/);
+  assert.equal((page.match(/href="\/dashboard"/g) ?? []).length, 0, 'an unconditional dashboard link is back');
+});
+
+test('C14 — the upsell lines whose links the guard hid say nothing in the store shell', () => {
+  const lock = src('app/dashboard/[eventId]/website/_components/website-pro-lock.tsx');
+  assert.match(lock, /if \(await isStoreShellRequest\(\)\) \{\s*if \(variant === 'inline'\) return null;/);
+  // The store-shell branch returns before the card, and names no PRO, price or unlock.
+  const shellBranch = lock.slice(lock.indexOf('if (await isStoreShellRequest())'), lock.indexOf('const upsellHref'));
+  assert.ok(shellBranch.length > 0, 'anchor moved');
+  assert.doesNotMatch(shellBranch, /PRO|Unlock|unlock|₱|studio\/website-pro/);
+  assert.match(
+    src('app/vendor-dashboard/shop/_components/voice-match-section.tsx'),
+    /if \(!advancedActive && \(await isStoreShellRequest\(\)\)\) return null;/,
+  );
+  assert.match(src('app/_components/thread-call-launcher.tsx'), /if \(viewerRole !== 'vendor' \|\| storeShell\) return null;/);
+  const otd = src('app/vendor-dashboard/on-the-day/page.tsx');
+  assert.match(otd, /\{storeShell\s*\?\s*'Your booking and shop listing are unaffected\.'/);
+  assert.match(otd, /\{storeShell \? null : \(\s*<Link\s*href="\/vendor-dashboard\/subscription"/);
+  // The Suppliers search overlay's last-minute "Unlock with Setnayan AI" (sweep
+  // 2026-10-19 leftover): its button points at a refused Studio page, so the link
+  // guard would leave the pitch with no button. In the app the plain empty line shows.
+  const overlay = src('app/dashboard/[eventId]/vendors/_components/category-search-overlay.tsx');
+  assert.match(overlay, /const storeShell = useIsStoreShell\(\);/);
+  assert.match(overlay, /results\.length === 0 && lastMinuteLocked && !storeShell \?/);
+});
+
+const STORE_SHELL_CASES: ReadonlyArray<{ ua: string; cookie: string }> = [
+  { ua: CAPACITOR_UA, cookie: '' },
+  { ua: CAPACITOR_UA, cookie: 'a=1; setnayan-client-type=capacitor' },
+  { ua: CAPACITOR_UA, cookie: 'setnayan-client-type=tauri' },
+  { ua: SAFARI_UA, cookie: 'setnayan-client-type=capacitor; b=2' },
+  { ua: SAFARI_UA, cookie: '' },
+  { ua: SAFARI_UA, cookie: 'other=capacitor' },
+  { ua: TAURI_UA, cookie: '' },
+  { ua: TAURI_UA, cookie: 'setnayan-client-type=tauri' },
+  { ua: '', cookie: '' },
+];
+
+test('"Coming soon" — the <head> mark answers exactly what isStoreShellInBrowser answers (the .dmg is never marked)', () => {
+  const { storeShellMarkScript, STORE_SHELL_HTML_ATTR } = require('./store-shell') as typeof import('./store-shell');
+  let sawTrue = false;
+  let sawFalse = false;
+  for (const c of STORE_SHELL_CASES) {
+    const attrs = new Map<string, string>();
+    const documentFake = {
+      cookie: c.cookie,
+      documentElement: { setAttribute: (k: string, v: string) => attrs.set(k, v) },
+    };
+    new Function('navigator', 'document', storeShellMarkScript)({ userAgent: c.ua }, documentFake);
+    const expected = isStoreShellInBrowser(c.ua, c.cookie);
+    if (expected) sawTrue = true;
+    else sawFalse = true;
+    assert.equal(attrs.has(STORE_SHELL_HTML_ATTR), expected, `ua=${c.ua.slice(-24)} cookie=${c.cookie}`);
+  }
+  assert.ok(sawTrue && sawFalse, 'the table must exercise both answers');
+});
+
+test('"Coming soon" — wiring: the mark runs in <head> and one CSS rule hides every [data-coming-soon] under it', () => {
+  const layout = src('app/layout.tsx');
+  assert.equal((layout.match(/__html: storeShellMarkScript/g) ?? []).length, 1, 'mounted exactly once');
+  assert.ok(
+    layout.indexOf('__html: storeShellMarkScript') < layout.indexOf('</head>'),
+    'the mark must run in <head>, before the first paint',
+  );
+  const css = src('app/globals.css');
+  assert.match(css, /html\[data-store-shell\] \[data-coming-soon\] \{\s*display: none !important;\s*\}/);
+});
+
+test('"Coming soon" — every one the store shell can open sits inside a [data-coming-soon] element', () => {
+  // A PROPERTY of the tree, not a list of files: every JSX text, string or
+  // template inside JSX that says "coming soon" must have an ancestor element
+  // carrying `data-coming-soon`. Routes the store shell is refused anyway
+  // (/pricing, /studio/papic, the vendor subscription page…) are skipped —
+  // found by asking `isStoreShellWebOnlyPath`, not by name — and so are the
+  // admin console and API routes (no JSX the app shows).
+  const ts = require('typescript') as typeof import('typescript');
+  const { readdirSync, statSync } = require('node:fs') as typeof import('node:fs');
+  const root = join(__dirname, '..');
+  const appDir = join(root, 'app');
+  const SAYS = /coming\s+soon/i;
+  // A bare "soon" LABEL says the same thing in one word — the onboarding faith
+  // chip, Alaala's "· soon", the download overlay's store tiles (sweep
+  // 2026-10-19). Only a whole label counts ("soon" alone, or "… · soon"), never
+  // prose that happens to contain the word ("we'll reply soon").
+  const SAYS_LABEL = /^\s*(?:·\s*)?soon\s*$|·\s*soon\s*$/i;
+  const FILE_SAYS = /coming\s+soon|\bsoon\b/i;
+  // A bare "soon" that is a STATUS of something real, not a roadmap pill.
+  // Each line is a reason; a new entry needs one.
+  const SOON_IS_A_STATUS = new Map<string, string>([
+    ['app/[slug]/find-seat/page.tsx', 'a guest\'s seat is shown on the event day — "Find your seat · soon" is a true date fact'],
+    ['app/vendor-dashboard/performance/_components/verified-median-card.tsx', 'the verified price appears once enough locked bookings exist — a metric status'],
+  ]);
+
+  const files: string[] = [];
+  const walk = (dir: string) => {
+    for (const name of readdirSync(dir)) {
+      const p = join(dir, name);
+      if (statSync(p).isDirectory()) {
+        if (name === 'node_modules' || name === '.next') continue;
+        walk(p);
+      } else if (name.endsWith('.tsx') && !name.endsWith('.test.tsx')) files.push(p);
+    }
+  };
+  walk(appDir);
+  assert.ok(files.length > 500, `walked only ${files.length} .tsx files — the anchor moved`);
+
+  /** The URL a file renders under: route groups dropped, private folders end it. */
+  const routeOf = (abs: string): string => {
+    const parts = abs.slice(appDir.length + 1).split('/').slice(0, -1);
+    const segs: string[] = [];
+    for (const s of parts) {
+      if (s.startsWith('_')) break;
+      if (s.startsWith('(') && s.endsWith(')')) continue;
+      segs.push(s.startsWith('[') ? 'x' : s);
+    }
+    return '/' + segs.join('/');
+  };
+
+  const offenders: string[] = [];
+  let scanned = 0;
+  let marked = 0;
+  for (const abs of files) {
+    const rel = abs.slice(root.length + 1);
+    if (/^app\/(admin|api)\//.test(rel)) continue;
+    const text = readFileSync(abs, 'utf8');
+    if (!FILE_SAYS.test(text)) continue;
+    if (isStoreShellWebOnlyPath(routeOf(abs))) continue;
+    scanned++;
+    const sf = ts.createSourceFile(rel, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+    const hasMark = (attrs: import('typescript').JsxAttributes) =>
+      attrs.properties.some((a) => ts.isJsxAttribute(a) && a.name.getText(sf) === 'data-coming-soon');
+    const inJsx = (n: import('typescript').Node): boolean => {
+      for (let p = n.parent; p; p = p.parent) {
+        if (ts.isJsxElement(p) || ts.isJsxSelfClosingElement(p) || ts.isJsxFragment(p)) return true;
+        if (ts.isFunctionLike(p)) return false;
+      }
+      return false;
+    };
+    const markedAbove = (n: import('typescript').Node): boolean => {
+      for (let p = n.parent; p; p = p.parent) {
+        if (ts.isJsxElement(p) && hasMark(p.openingElement.attributes)) return true;
+        if (ts.isJsxSelfClosingElement(p) && hasMark(p.attributes)) return true;
+      }
+      return false;
+    };
+    const visit = (n: import('typescript').Node) => {
+      const says =
+        (ts.isJsxText(n) || ts.isStringLiteral(n) || ts.isNoSubstitutionTemplateLiteral(n)) &&
+        (SAYS.test(n.text) || (ts.isJsxText(n) && SAYS_LABEL.test(n.text)))
+          ? true
+          : ts.isTemplateExpression(n) && SAYS.test(n.getText(sf));
+      if (says && inJsx(n) && !(SOON_IS_A_STATUS.has(rel) && !SAYS.test(n.getText(sf)))) {
+        if (markedAbove(n)) marked++;
+        else {
+          const { line } = sf.getLineAndCharacterOfPosition(n.getStart(sf));
+          offenders.push(`${rel}:${line + 1}`);
+        }
+      }
+      ts.forEachChild(n, visit);
+    };
+    visit(sf);
+  }
+  assert.ok(scanned >= 10, `only ${scanned} open files say "coming soon" — the anchor moved`);
+  assert.ok(marked >= 12, `only ${marked} marked "coming soon" found — the scan is not reaching them`);
+  assert.deepEqual(
+    offenders,
+    [],
+    `"Coming soon" the store shell would show — wrap it (or its card) in an element with data-coming-soon: ${offenders.join(', ')}`,
+  );
+});
+
+// ─── 🍎 Apple check 2026-10-19 (rows #5 · #14 · #26) ──────────────────────────
+// What the iPhone app SHOWS on a page it can open, not only which pages it may
+// open. Read: ~/Documents/Claude/Projects/shots-2026-10-19/apple-check/.
+
+test('🍎 #5/#26 — the marketing header shows no Prices · Download · Suppliers in the store shell, and HomeOverlays opens only Sign in there', () => {
+  const ts = require('typescript') as typeof import('typescript');
+  // 1. Every header button that opens an overlay other than Sign in sits
+  //    inside a [data-web-only] element — found by walking the JSX, not by label.
+  const navText = src('app/_components/marketing/site-nav.tsx');
+  const nav = ts.createSourceFile('site-nav.tsx', navText, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const hasAttr = (attrs: import('typescript').JsxAttributes, name: string) =>
+    attrs.properties.some((a) => ts.isJsxAttribute(a) && a.name.getText(nav) === name);
+  const opened: string[] = [];
+  const unhidden: string[] = [];
+  const visit = (n: import('typescript').Node) => {
+    if (ts.isCallExpression(n) && n.expression.getText(nav) === 'press' && n.arguments[0] && ts.isStringLiteral(n.arguments[0])) {
+      const id = n.arguments[0].text;
+      if (id !== 'signin') {
+        opened.push(id);
+        let hidden = false;
+        for (let p = n.parent; p; p = p.parent) {
+          if (ts.isJsxElement(p) && hasAttr(p.openingElement.attributes, 'data-web-only')) hidden = true;
+        }
+        if (!hidden) unhidden.push(id);
+      }
+    }
+    ts.forEachChild(n, visit);
+  };
+  visit(nav);
+  assert.ok(opened.length >= 3, `found only ${opened.length} header overlay buttons — the anchor moved`);
+  assert.deepEqual(unhidden, [], `header buttons that open a selling overlay and still show in the app: ${unhidden.join(', ')}`);
+
+  // 2. HomeOverlays' store-shell branch renders Sign in and nothing else —
+  //    compared against EVERY overlay the web branch mounts, derived from it.
+  const ov = src('app/_components/home/HomeOverlays.tsx');
+  const fnAt = ov.indexOf('export function HomeOverlays(');
+  assert.ok(fnAt > 0, 'HomeOverlays moved');
+  const body = ov.slice(fnAt);
+  const gate = body.search(/const storeShell = useIsStoreShell\(\);\s*if \(storeShell\) \{/);
+  assert.ok(gate > 0, 'HomeOverlays no longer asks the store-shell question');
+  const branch = body.slice(gate, body.indexOf('}', body.indexOf('if (storeShell) {', gate)) + 1);
+  const webBranch = body.slice(gate + branch.length);
+  const tag = /<([A-Z][A-Za-z0-9]*(?:Overlay|Panel))\b/g;
+  const everyOverlay = new Set([...webBranch.matchAll(tag)].map((m) => m[1]!));
+  assert.ok(everyOverlay.size >= 8, `the web branch mounts only ${everyOverlay.size} overlays — the anchor moved`);
+  assert.ok(everyOverlay.has('SignInHerePanel') && everyOverlay.has('PricesOverlay') && everyOverlay.has('DownloadOverlay'));
+  assert.deepEqual(
+    [...branch.matchAll(tag)].map((m) => m[1]),
+    ['SignInHerePanel'],
+    'the store-shell branch of HomeOverlays mounts something other than Sign in',
+  );
+  assert.ok(webBranch.indexOf('<PricesOverlay') > 0, 'a selling overlay now mounts BEFORE the store-shell gate');
+
+  // 3. The CSS halves: web-only hidden in the app, app-only hidden off it.
+  const css = src('app/globals.css');
+  assert.match(css, /html\[data-store-shell\] \[data-web-only\] \{\s*display: none !important;\s*\}/);
+  assert.match(css, /html:not\(\[data-store-shell\]\) \[data-app-only\] \{\s*display: none !important;\s*\}/);
+});
+
+test('🍎 #14 — /web-only, where every refused route in the app lands, names no other platform and no other place to buy', () => {
+  const { stripComments } = require('./strip-comments') as typeof import('./strip-comments');
+  const page = stripComments(src('app/(shell)/web-only/page.tsx'));
+  const jsx = page.slice(page.indexOf('export default'));
+  assert.ok(jsx.includes('LegalLayout'), 'anchor moved');
+  assert.doesNotMatch(jsx, /Android|Google Play|Windows|\bMac\b|desktop/i, '/web-only names another platform inside the iOS app');
+  assert.doesNotMatch(jsx, /setnayan\.com|on the web|website|pricing|₱/i, '/web-only points to where else to buy — the steering 3.1.1 forbids');
+});
+
+test('🍎 #5/#14 — nothing that sells or names Android renders on a route the app can open (every route walked)', () => {
+  // A PROPERTY of the tree. Every .tsx under app/ is walked; a file is skipped
+  // only when the app can never render it: admin and API routes, the dev labs
+  // (404 in production — the-lab-never-ships.test.ts), routes middleware
+  // refuses (`isStoreShellWebOnlyPath`), and route files of the brochure pages
+  // middleware bounces to /login (`APP_EXCLUDED_MARKETING_PATHS`, read from
+  // middleware.ts). Shared components (`_*` folders) are never skipped — they
+  // render everywhere.
+  //
+  // A hit — "Buy …", "Upgrade …", "Unlock Pro / Setnayan AI / Event Hub /
+  // Animation / with …" (the selling uses; a layer's Lock/Unlock or "Unlock
+  // my service" is not a sale), "Android", "Google Play",
+  // "setnayan.com/pricing", "one-time purchase" in JSX text or a string — is
+  // fine when ANY of these holds:
+  //   · it sits inside a [data-web-only] or [data-coming-soon] element (hidden
+  //     before first paint in the store shell);
+  //   · it sits inside a <Link>/<a> whose href the app refuses — a literal, a
+  //     template, or a const in the same file holding one — so the link guard
+  //     hides that element (storeShellHidesHref);
+  //   · a function it sits in asks the store-shell question (storeShell,
+  //     isStoreShellRequest, useIsStoreShell, the IAP gate, isNativeShell) —
+  //     the component decides, and its own wiring test holds the decision;
+  //   · its file is listed below with WHERE the decision is made instead —
+  //     and that gate is asserted to still be there, so a reason cannot rot.
+  const ts = require('typescript') as typeof import('typescript');
+  const { readdirSync, statSync } = require('node:fs') as typeof import('node:fs');
+  const root = join(__dirname, '..');
+  const appDir = join(root, 'app');
+  const SELLS =
+    /\b(?:Buy|Upgrade)\b|\bUnlock (?:Pro|Setnayan|Event Hub|Animation|with)\b|\bAndroid\b|Google Play|setnayan\.com\/pricing|one-time purchase/;
+  const FILE_SELLS = /Buy|Upgrade|Unlock|Android|Google Play|setnayan\.com\/pricing|one-time purchase/;
+  const ASKS = /\bstoreShell\b|isStoreShell|useIsStoreShell|StoreShell|iapAvailable|getIapGate|\biap\b|isNative(?:Shell|App)\b/;
+  type Why = { why: string; gate?: { file: string; re: RegExp } };
+  const DECIDED_ELSEWHERE = new Map<string, Why>([
+    ['app/_components/home/HomeOverlays.tsx', { why: 'the Download overlay names Android; HomeOverlays mounts it only off the store shell', gate: { file: 'app/_components/home/HomeOverlays.tsx', re: /const storeShell = useIsStoreShell\(\);\s*if \(storeShell\) \{/ } }],
+    ['app/_components/nfc-write-button.tsx', { why: '"…or Chrome on Android" is the title only when NO NFC writer exists; the app carries the native writer, so that branch never renders there' }],
+    ['app/_components/app-store/layout.tsx', { why: '"Buy what you need" heads the plans of a PAID Studio feature; every paid /studio/about/<key> and its home is refused in the app, and a free key has no plans' }],
+    ['app/_components/app-store/studio-card-demo.tsx', { why: 'drawn only inside app-store/layout.tsx (above)', gate: { file: 'app/_components/app-store/layout.tsx', re: /<StudioCardDemo\b/ } }],
+    ['app/_components/iap/iap-papic-sheet.tsx', { why: 'the Apple In-App Purchase sheet — selling through Apple is what 3.1.1 asks for; it mounts only when iapAvailable' }],
+    ['app/_components/iap/apple-pro-screen.tsx', { why: 'the Apple In-App Purchase screen (/apple-pro); it sends the user back unless iapAvailable' }],
+    ['app/_components/maker-media-meter.tsx', { why: '"Unlock Pro" needs a proHref; the Maker passes none in the store shell (an IAP build gets /apple-pro)', gate: { file: 'lib/hub-draft-store.ts', re: /proHref: iap \? [^:]+ : storeShell \? null :/ } }],
+    ['app/dashboard/[eventId]/website/_components/apply-pro-sheet.tsx', { why: '"Unlock Pro and Apply" renders only with a proHref — same Maker gate', gate: { file: 'lib/hub-draft-store.ts', re: /proHref: iap \? [^:]+ : storeShell \? null :/ } }],
+    ['app/dashboard/[eventId]/_components/setnayan-ai-comeback-offer.tsx', { why: 'the event dashboard mounts it only off the store shell', gate: { file: 'app/dashboard/[eventId]/page.tsx', re: /aiOffer && aiOfferSettings && !storeShell \? \(\s*<SetnayanAiComebackOffer\b/ } }],
+    ['app/dashboard/[eventId]/monogram/animate-rows.tsx', { why: 'its "Unlock Animation & Apply" drawer needs a `checkout`, which the page builds only off the store shell', gate: { file: 'app/dashboard/[eventId]/monogram/page.tsx', re: /if \(!ownsAnimated && !storeShell\) \{/ } }],
+    ['app/dashboard/[eventId]/monogram/animated-monogram-upgrade.tsx', { why: 'mounted only off the store shell', gate: { file: 'app/dashboard/[eventId]/monogram/page.tsx', re: /unlock=\{!storeShell && ownsAnimated \? <AnimatedMonogramUpgrade\b/ } }],
+    ['app/dashboard/[eventId]/studio/mood-board/_components/make-it-real.tsx', { why: '"Buy more credits" lives in Make it real, which the board mounts in the store shell ONLY where Apple sells the pack (2026-10-23) — and there its Buy is Apple\'s sheet (`apple`)', gate: { file: 'app/dashboard/[eventId]/studio/mood-board/_components/mood-board-editor.tsx', re: /const makeItReal = storeShell && !appleIap \? null : \(\s*<MakeItReal\s+apple=\{appleIap\}/ } }],
+    ['app/vendor-dashboard/shop/_components/voice-match-card.tsx', { why: 'drawn only by voice-match-section, which returns null in the store shell', gate: { file: 'app/vendor-dashboard/shop/_components/voice-match-section.tsx', re: /if \(!advancedActive && \(await isStoreShellRequest\(\)\)\) return null;/ } }],
+  ]);
+
+  const exclMatch = src('middleware.ts').match(/APP_EXCLUDED_MARKETING_PATHS = new Set\(\[([^\]]*)\]/);
+  assert.ok(exclMatch, 'APP_EXCLUDED_MARKETING_PATHS moved out of middleware.ts');
+  const bounced = new Set([...exclMatch![1]!.matchAll(/'([^']+)'/g)].map((m) => m[1]!));
+  assert.ok(bounced.has('/') && bounced.size >= 5, 'the brochure bounce list looks wrong');
+
+  const files: string[] = [];
+  const walk = (dir: string) => {
+    for (const name of readdirSync(dir)) {
+      const p = join(dir, name);
+      if (statSync(p).isDirectory()) {
+        if (name === 'node_modules' || name === '.next') continue;
+        walk(p);
+      } else if (name.endsWith('.tsx') && !name.endsWith('.test.tsx')) files.push(p);
+    }
+  };
+  walk(appDir);
+  assert.ok(files.length > 500, `walked only ${files.length} .tsx files — the anchor moved`);
+
+  const placeOf = (abs: string): { route: string; shared: boolean } => {
+    const parts = abs.slice(appDir.length + 1).split('/').slice(0, -1);
+    const segs: string[] = [];
+    let shared = false;
+    for (const s of parts) {
+      if (s.startsWith('_')) {
+        shared = true;
+        break;
+      }
+      if (s.startsWith('(') && s.endsWith(')')) continue;
+      segs.push(s.startsWith('[') ? 'x' : s);
+    }
+    return { route: '/' + segs.join('/'), shared };
+  };
+
+  const offenders: string[] = [];
+  let scanned = 0;
+  let gated = 0;
+  let listed = 0;
+  for (const abs of files) {
+    const rel = abs.slice(root.length + 1);
+    if (/^app\/(admin|api|dev)\//.test(rel)) continue;
+    const text = readFileSync(abs, 'utf8');
+    if (!FILE_SELLS.test(text)) continue;
+    const { route, shared } = placeOf(abs);
+    if (isStoreShellWebOnlyPath(route)) continue;
+    if (!shared && bounced.has(route)) continue;
+    scanned++;
+    const sf = ts.createSourceFile(rel, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+    const attrNamed = (attrs: import('typescript').JsxAttributes, name: string) =>
+      attrs.properties.find((a) => ts.isJsxAttribute(a) && a.name.getText(sf) === name) as
+        | import('typescript').JsxAttribute
+        | undefined;
+    const openingOf = (p: import('typescript').Node) =>
+      ts.isJsxElement(p) ? p.openingElement : ts.isJsxSelfClosingElement(p) ? p : null;
+    /** The path an href names: a literal, a template (`${…}` → a segment), or a same-file const holding either. */
+    const literalPath = (e: import('typescript').Node | undefined): string | null => {
+      if (!e) return null;
+      if (ts.isStringLiteral(e) || ts.isNoSubstitutionTemplateLiteral(e)) return e.text;
+      if (ts.isTemplateExpression(e)) return e.head.text + e.templateSpans.map((sp) => 'x' + sp.literal.text).join('');
+      return null;
+    };
+    const constInit = (name: string): import('typescript').Expression | undefined => {
+      let found: import('typescript').Expression | undefined;
+      const look = (k: import('typescript').Node) => {
+        if (!found && ts.isVariableDeclaration(k) && ts.isIdentifier(k.name) && k.name.text === name) found = k.initializer;
+        ts.forEachChild(k, look);
+      };
+      look(sf);
+      return found;
+    };
+    const hrefPath = (init: import('typescript').JsxAttributeValue): string | null => {
+      let e: import('typescript').Node | undefined = init;
+      if (ts.isJsxExpression(init)) e = init.expression;
+      if (e && ts.isIdentifier(e)) e = constInit(e.text);
+      const p = literalPath(e);
+      return p === null ? null : p.split(/[?#]/)[0]!;
+    };
+    const isGated = (n: import('typescript').Node): boolean => {
+      for (let p = n.parent; p; p = p.parent) {
+        const o = openingOf(p);
+        if (o) {
+          if (attrNamed(o.attributes, 'data-web-only') || attrNamed(o.attributes, 'data-coming-soon')) return true;
+          const tagName = o.tagName.getText(sf);
+          const href = attrNamed(o.attributes, 'href');
+          if ((tagName === 'Link' || tagName === 'a') && href?.initializer) {
+            const path = hrefPath(href.initializer);
+            if (path && isStoreShellWebOnlyPath(path)) return true;
+          }
+        }
+        if (ts.isFunctionLike(p) && ASKS.test(p.getText(sf))) return true;
+      }
+      return false;
+    };
+    const inJsx = (n: import('typescript').Node): boolean => {
+      for (let p = n.parent; p; p = p.parent) {
+        if (ts.isJsxElement(p) || ts.isJsxSelfClosingElement(p) || ts.isJsxFragment(p) || ts.isJsxAttribute(p)) return true;
+        if (ts.isFunctionLike(p)) return false;
+      }
+      return false;
+    };
+    const visit = (n: import('typescript').Node) => {
+      const says =
+        (ts.isJsxText(n) || ts.isStringLiteral(n) || ts.isNoSubstitutionTemplateLiteral(n)) && SELLS.test(n.text);
+      if (says && inJsx(n)) {
+        if (isGated(n)) gated++;
+        else if (DECIDED_ELSEWHERE.has(rel)) listed++;
+        else {
+          const { line } = sf.getLineAndCharacterOfPosition(n.getStart(sf));
+          offenders.push(`${rel}:${line + 1} "${n.getText(sf).trim().slice(0, 60)}"`);
+        }
+      }
+      ts.forEachChild(n, visit);
+    };
+    visit(sf);
+  }
+  console.log(`[store-shell sells-scan] ${scanned} app-reachable files say it · ${gated} gated · ${listed} listed · ${offenders.length} open`);
+  assert.ok(scanned >= 15, `only ${scanned} files scanned — the anchor moved`);
+  assert.ok(gated >= 10, `only ${gated} gated hits — the scan is not reaching them`);
+  assert.deepEqual(
+    offenders,
+    [],
+    'Words that sell (or name Android) on a page the iPhone app can open. Gate them on the store shell, mark them data-web-only, or list them in DECIDED_ELSEWHERE with where the decision is made:\n  ' +
+      offenders.join('\n  '),
+  );
+  // No stale reasons: every listed file still says it, and every cited gate is still where it is said to be.
+  for (const [rel, { gate }] of DECIDED_ELSEWHERE) {
+    assert.match(src(rel), FILE_SELLS, `${rel} no longer says it — drop it from DECIDED_ELSEWHERE`);
+    if (gate) assert.match(src(gate.file), gate.re, `${rel}: the gate it relies on moved out of ${gate.file}`);
+  }
 });

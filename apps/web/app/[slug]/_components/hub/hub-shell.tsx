@@ -27,8 +27,10 @@
  * area top) + the panel region (the only scrollable area, for a long Schedule)
  * + the bottom toggle menu (safe-area bottom). The PAGE never scrolls.
  *
- * REALTIME. `useDayOfLiveTick` re-runs the server component (router.refresh)
- * on a quiet cadence + on tab-focus while the wedding day is active — the
+ * REALTIME. `useEventPulse` re-runs the server component (router.refresh)
+ * when the event's shared "has anything changed?" answer moves (2026-10-18;
+ * `useDayOfLiveTick`'s 45 s refresh when the page has no pulse baseline)
+ * while the wedding day is active — the
  * pull-only "live propagation" the rest of the day-of surfaces already use, so
  * "everything shows in realtime" without any push/socket infra. The active
  * panel (client state) survives the refresh.
@@ -89,15 +91,24 @@ import {
 } from 'lucide-react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { useDayOfLiveTick } from '@/lib/use-day-of-live-refresh';
+import { useEventPulse } from '@/lib/use-event-pulse';
+import type { PulseBaseline } from '@/lib/event-pulse';
 import type { NavSlot } from '../../_lib/site-nav';
 import {
+  HUB_PAGE_ATTR,
   HUB_TAB_ATTR,
   HUB_TAB_PARAM,
+  SCROLL_PAGE,
   activeHubTab,
+  filingTabs,
+  hubPagesOf,
   hubTabOfHref,
   inPageTabs,
+  isJumpMarkTab,
 } from '../../_lib/hub-tabs';
+import { SITE_MENU_ANCHORS, type SiteMenuTabKey } from '../../_lib/site-menu';
 import { hashOpensSheet } from '../rsvp-sheet-state';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 
 export type HubPanelKey =
   | 'now'
@@ -120,7 +131,7 @@ const MENU: { key: HubPanelKey; label: string; icon: LucideIcon }[] = [
   { key: 'now', label: 'Live', icon: Activity },
   { key: 'watch', label: 'Watch', icon: Radio },
   { key: 'camera', label: 'Camera', icon: Camera },
-  { key: 'photos', label: 'Gallery', icon: Images },
+  { key: 'photos', label: 'Memories', icon: Images },
   { key: 'me', label: 'Me', icon: User },
   { key: 'schedule', label: 'Schedule', icon: CalendarClock },
   { key: 'directions', label: 'Directions', icon: MapPin },
@@ -132,6 +143,10 @@ type HubStageProps = {
   frame?: 'stage';
   /** Event date (drives the realtime tick; inert outside the wedding day). */
   eventDate: string | null;
+  /** 🧯 The event's address + the pulse baseline the page was drawn under (`pulseBaseline`). With both, the hub re-draws
+   *  only when something changed (`useEventPulse`); without, it keeps the 45 s refresh. */
+  slug?: string | null;
+  pulse?: PulseBaseline | null;
   /** Slim signature header (monogram / names + live badge), server-rendered. */
   header: ReactNode;
   now: ReactNode;
@@ -150,6 +165,9 @@ type HubPageProps = {
    *  The bar itself is the page's own `SiteMenuBar`, which reads the same
    *  address to mark the tab you are on. */
   slots: readonly NavSlot[];
+  /** 📜 The Invitation and Save the Date (owner 2026-10-15): ONE page of jump marks, and Me its own page. The frame
+   *  switches between those two pages; the marks are the page's own anchors. */
+  onePage?: boolean;
 };
 
 /** THE ONE SHELL. `frame="page"` → the event page's tabs; otherwise the stage. */
@@ -168,24 +186,28 @@ export function HubShell(props: HubStageProps | HubPageProps) {
  * search params in step — so every reader of the address moves together, Back
  * and Forward included, and a later refresh re-renders the SAME tab.
  */
-function useTabAddress(keys: readonly string[]) {
+function useTabAddress(keys: readonly string[], onePage = false) {
   const params = useSearchParams();
   const active = activeHubTab(params?.get(HUB_TAB_PARAM) ?? null, keys);
   const go = useCallback((key: string, mode: 'push' | 'replace', hash?: string) => {
     const url = new URL(window.location.href);
-    url.searchParams.set(HUB_TAB_PARAM, key);
+    /* 📜 The one page is the event's own bare address — its marks ride the #hash, never `?tab=`. */
+    if (onePage && key === SCROLL_PAGE) url.searchParams.delete(HUB_TAB_PARAM);
+    else url.searchParams.set(HUB_TAB_PARAM, key);
     url.hash = hash ? `#${hash}` : '';
     const next = `${url.pathname}${url.search}${url.hash}`;
     const here = `${window.location.pathname}${window.location.search}${window.location.hash}`;
     if (next === here) return;
     if (mode === 'push') window.history.pushState(null, '', next);
     else window.history.replaceState(null, '', next);
-  }, []);
+  }, [onePage]);
   return [active, go] as const;
 }
 
 function HubStageFrame({
   eventDate,
+  slug = null,
+  pulse = null,
   header,
   now,
   watch,
@@ -199,7 +221,14 @@ function HubStageFrame({
   // Pull-only realtime: re-read current truth on a quiet cadence while the
   // wedding day is active + the tab is visible (no push/socket). The active
   // panel is local state, so it survives the server refresh.
-  useDayOfLiveTick(eventDate, () => router.refresh());
+  // 🧯 2026-10-18: with a pulse baseline the hub asks "has anything changed?"
+  // (one shared answer per event, every ~12 s) and re-draws only on a change —
+  // it used to re-render the whole hub (~32 database reads) every 45 s per phone.
+  // No baseline → the 45 s refresh, exactly as before.
+  // one-render: keep (realtime) — the event pulse says something changed elsewhere; nothing was pressed here.
+  useEventPulse(slug, eventDate, pulse, () => router.refresh());
+  // one-render: keep (realtime) — the day-of cadence while no pulse is wired; nothing was pressed here.
+  useDayOfLiveTick(slug && pulse ? null : eventDate, () => router.refresh());
 
   const panels: Record<HubPanelKey, ReactNode | null> = {
     now,
@@ -351,9 +380,9 @@ function HubStageFrame({
       {/* More overflow sheet — anchored above the menu. */}
       {moreOpen && overflow.length > 0 ? (
         <div
-          className="fixed inset-0 z-[60] flex items-end justify-center bg-ink/40 p-3 pb-[calc(env(safe-area-inset-bottom)+5rem)] backdrop-blur-sm"
-          onClick={() => setMoreOpen(false)}
+          className="fixed inset-0 z-[60] flex items-end justify-center p-3 pb-[calc(env(safe-area-inset-bottom)+5rem)]"
         >
+          <OverlayBackdrop onClose={() => setMoreOpen(false)} />
           <div
             ref={moreSheetRef}
             id={SHEET_ID}
@@ -362,7 +391,7 @@ function HubStageFrame({
             aria-label="More event functions"
             tabIndex={-1}
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-md rounded-3xl border border-ink/10 bg-cream p-3 shadow-2xl"
+            className="relative w-full max-w-md rounded-3xl border border-ink/10 bg-cream p-3 shadow-2xl"
           >
             <div className="mb-1 flex items-center justify-between px-2 pt-1">
               <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
@@ -372,7 +401,7 @@ function HubStageFrame({
                 type="button"
                 onClick={() => setMoreOpen(false)}
                 aria-label="Close"
-                className="inline-flex h-8 w-8 items-center justify-center rounded-full text-ink/70 transition hover:bg-ink/5 hover:text-ink"
+                className="-m-1.5 inline-flex h-11 w-11 items-center justify-center rounded-full text-ink/70 transition hover:bg-ink/5 hover:text-ink"
               >
                 <X aria-hidden className="h-4 w-4" strokeWidth={2} />
               </button>
@@ -413,16 +442,18 @@ function HubStageFrame({
  * first thing on a tab sits at the top of it with no borrowed gap.
  */
 function showTab(key: string) {
+  /* 📜 By PAGE (`data-hub-page`): on a one-page stage Home · Details · Story are all the one page. */
   document.querySelectorAll<HTMLElement>(`[${HUB_TAB_ATTR}]`).forEach((el) => {
-    el.hidden = el.getAttribute(HUB_TAB_ATTR) !== key;
+    el.hidden = (el.getAttribute(HUB_PAGE_ATTR) ?? el.getAttribute(HUB_TAB_ATTR)) !== key;
   });
 }
 
-/** The tab holding an element, when that element is on one. */
+/** The page holding an element, when that element is on one. */
 function tabHolding(id: string): string | null {
   if (!id) return null;
   const el = document.getElementById(id);
-  return el?.closest(`[${HUB_TAB_ATTR}]`)?.getAttribute(HUB_TAB_ATTR) ?? null;
+  const group = el?.closest(`[${HUB_TAB_ATTR}]`);
+  return group ? (group.getAttribute(HUB_PAGE_ATTR) ?? group.getAttribute(HUB_TAB_ATTR)) : null;
 }
 
 /**
@@ -430,9 +461,10 @@ function tabHolding(id: string): string | null {
  * docblock). Renders the guest's bar and nothing else: the tabs' content is the
  * page's own, already on it.
  */
-function HubPageFrame({ slots }: HubPageProps) {
-  const keys = inPageTabs(slots);
-  const [active, go] = useTabAddress(keys);
+function HubPageFrame({ slots, onePage = false }: HubPageProps) {
+  /* 📜 One page: the pages are the one page (`SCROLL_PAGE`) and Me — the marks are not pages (`hubPagesOf`). */
+  const keys = onePage ? hubPagesOf(filingTabs(slots, true), true) : inPageTabs(slots);
+  const [active, go] = useTabAddress(keys, onePage);
   const activeRef = useRef(active);
   activeRef.current = active;
   const keysRef = useRef(keys);
@@ -455,6 +487,18 @@ function HubPageFrame({ slots }: HubPageProps) {
       document.getElementById(id)?.scrollIntoView({ block: 'start' });
       return true;
     };
+
+    /* 📜 AN OLD TAB'S ADDRESS ON THE ONE PAGE (`?tab=details`, `?tab=story` — every link shared before
+       2026-10-15) still lands: on the one page, scrolled to that section, the address made the mark it now is.
+       `?tab=home` was the page from its top: it is simply the bare address. */
+    if (onePage) {
+      const asked = new URLSearchParams(window.location.search).get(HUB_TAB_PARAM)?.trim() ?? '';
+      if (asked && isJumpMarkTab(asked, true) && keysRef.current.includes(SCROLL_PAGE)) {
+        const anchor = asked !== SCROLL_PAGE && asked in SITE_MENU_ANCHORS ? SITE_MENU_ANCHORS[asked as SiteMenuTabKey] : undefined;
+        go(SCROLL_PAGE, 'replace', anchor && !window.location.hash ? anchor : window.location.hash.slice(1) || undefined);
+        if (anchor) requestAnimationFrame(() => document.getElementById(anchor)?.scrollIntoView({ block: 'start' }));
+      }
+    }
 
     // An address that arrived with a mark on another tab (`/slug#site-details`).
     const arrived = decodeURIComponent(window.location.hash.slice(1));
@@ -498,7 +542,7 @@ function HubPageFrame({ slots }: HubPageProps) {
       document.removeEventListener('click', onClick);
       window.removeEventListener('hashchange', onHash);
     };
-  }, [go]);
+  }, [go, onePage]);
 
   // The bar is the page's own (`SiteMenuBar`, mounted beside this); this frame
   // is the mechanism behind it and draws nothing of its own.

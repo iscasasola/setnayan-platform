@@ -40,7 +40,9 @@ test('1 · the sheet has one importer — a lazy piece — and the builder has n
   const lazy = read('app/dashboard/[eventId]/launch/_components/details-lazy.tsx');
   assert.match(lazy, /export const StudioSideSwitch = dynamic\(\(\) => import\(\/\* webpackChunkName: "maker-details" \*\/ '\.\/stages-studio-parts'\)/);
   const builders = importers(/from ['"][^'"]*\/guests-see-build['"]/);
-  assert.deepEqual(builders, ['app/dashboard/[eventId]/website/editor/_components/maker-navigator-data.ts']);
+  // Home's Event Hub card builds the same table on the server (owner 2026-10-23, the service widgets) — a second
+  // SERVER builder, never a client one (the next line holds that for both).
+  assert.deepEqual(builders, ['app/dashboard/[eventId]/website/editor/_components/maker-navigator-data.ts', 'lib/home-hub-card.server.ts']);
   for (const f of builders) assert.doesNotMatch(read(f), /^'use client'/, `${f} is a client file`);
   // What the sheet's chunk carries of the table is rule-free.
   assert.doesNotMatch(stripComments(read('lib/guests-see-table.ts')), /from '\.\/(what-guests-see|site-body-plan|maker-scene-list|invitation-welcome|stage-scenes)'/);
@@ -54,7 +56,7 @@ test('2 · the sheet reaches no server module: the work area lends the table and
   assert.match(src, /const door = raw\?\.elementEditing\?\.draftAction;\s*if \(!raw \|\| !table \|\| !door\) return null;/);
   assert.match(src, /fd\.set\('intent', 'save'\);\s*fd\.set\('patch', JSON\.stringify\(patch\)\);/);
   assert.match(src, /makerSave\(\(\) => area\.door\(area\.eventId, fd\), requestMakerRefresh\)/);
-  assert.match(src, /const patch = guestsSeePatch\(writes\);\s*if \(!patch\) return setLine\(W\.nothingToApply\);/, 'Apply is not exactly the pending ticks');
+  assert.match(src, /const patch = guestsSeePatch\(writes\);\s*if \(!patch\) return setLine\(W\.nothingToKeep\);/, 'Keep is not exactly the pending ticks');
 });
 
 test('3 · one row in Studio ▾, only where the work area answers — and a sheet, never a twelfth Studio page', () => {

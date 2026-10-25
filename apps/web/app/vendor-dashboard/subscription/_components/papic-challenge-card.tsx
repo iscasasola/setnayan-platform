@@ -1,7 +1,6 @@
 'use client';
 
 import { useActionState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
 import { Check, Clock, Trophy } from 'lucide-react';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -75,10 +74,8 @@ export type PapicChallengeCardProps = {
   pricePhp: number;
   /** One cycle in days — 28. Passed in, never re-typed in copy. */
   periodDays: number;
-  /** "Free until your 6th booking" is ACTIVE right now (owner 2026-07-25). */
+  /** "Free until your second booking" is ACTIVE right now (owner 2026-07-25; one free booking since 2026-10-23). */
   first5Free?: boolean;
-  /** How many of the first 5 bookings remain — the honest "2 to go" line. */
-  first5Remaining?: number;
 };
 
 export function PapicChallengeCard(props: PapicChallengeCardProps) {
@@ -93,10 +90,8 @@ export function PapicChallengeCard(props: PapicChallengeCardProps) {
     openRails,
   } = props;
   const first5Free = props.first5Free === true;
-  const first5Remaining = Math.max(0, Math.floor(props.first5Remaining ?? 0));
 
   const toast = useToast();
-  const router = useRouter();
   const [state, formAction] = useActionState(sponsorPhotoChallenge, IDLE);
   const handled = useRef<PhotoChallengeActionState | null>(null);
 
@@ -105,10 +100,10 @@ export function PapicChallengeCard(props: PapicChallengeCardProps) {
     handled.current = state;
     if (state.status === 'error') toast.error(state.message);
     if (state.status === 'activated') {
+      // ⚡ The action revalidates: its own answer redrew the page — no second render.
       toast.success(state.message);
-      router.refresh();
     }
-  }, [state, toast, router]);
+  }, [state, toast]);
 
   return (
     <section className="sn-tile mt-8 p-6">
@@ -135,15 +130,15 @@ export function PapicChallengeCard(props: PapicChallengeCardProps) {
           <p className="mt-1 max-w-prose text-sm text-ink/65">
             Ask guests to photograph your work — the signature dish, the booth, the
             pour — and collect the shots they choose to share with you. Unlimited
-            challenges at every celebration you&rsquo;re booked for, not one at a
+            challenges at every event you&rsquo;re booked for, not one at a
             time. Free and fun for guests; each challenge needs the
             couple&rsquo;s okay before it goes live.
           </p>
           <p className="mt-2 text-sm font-medium text-ink">
             {first5Free ? (
               <>
-                Free while you&rsquo;re on your first 5 bookings
-                {first5Remaining > 0 ? <> &middot; {first5Remaining} to go</> : null}, then{' '}
+                {/* ⚖ One free booking since 2026-10-23 — the add-on rides the same window. */}
+                Free until your second booking, then{' '}
                 {peso(pricePhp)} / {formatCount(periodDays)} days.
               </>
             ) : (
@@ -182,7 +177,7 @@ export function PapicChallengeCard(props: PapicChallengeCardProps) {
             </span>
           ) : (
             <span>
-              Papic Challenges comes with a paid plan — Solo, Pro, Enterprise or
+              Papic Challenges comes with a paid plan — Solo, Pro, Ultra or
               Custom. Move up above to add it.
             </span>
           )}

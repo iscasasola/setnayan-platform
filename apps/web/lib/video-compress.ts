@@ -123,7 +123,7 @@ const WEB_AUDIO_BITRATE = '64k';
 // inside the Maker (background OR content) encodes at the SAME setting the
 // theme loops themselves measure at (`assets/theme-backgrounds-2026-09-24/`:
 // 1080×1920, ~1.1–1.9 Mbps, no audio) — H.264 CRF 23, maxrate ~1.9M, faststart.
-// A 15s clip lands ≈3–4 MB against the couple's 100 MB/event allowance.
+// A 15s clip lands ≈3–4 MB against the couple's per-event allowance (Free 10 MB · Pro 500 MB).
 //
 // Deliberately its OWN profile, not a tweak to `quality` (the couple's
 // Save-the-Date path, which stays 4K/CRF21 unchanged) or `web720` (the Papic

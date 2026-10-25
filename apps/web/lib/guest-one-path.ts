@@ -26,6 +26,9 @@
  * 📵 Saving the reply sends NOTHING (owner 2026-09-29, "NO EMAIL TO GUESTS").
  */
 
+import { isAppleTouchDevice } from './apple-device';
+import { formatCount } from './format-number';
+
 /** The shape `lib/guest-session.ts` signs. Re-declared so this stays pure. */
 export type GuestSessionLike = {
   guest_id: string;
@@ -73,6 +76,46 @@ export function resolveGuestViewer(input: {
 }
 
 /**
+ * 🗳 WHO A REPLY IS SENT AS (owner bug 2026-10-24 — the host, "Viewing as you" on cale-ice, tapped Reply and the sheet
+ * greeted "Gabriel dela Peña": the host card's Reply carried `?preview=draft`, the Maker preview's SAMPLE guest).
+ *
+ * The rule: the reply is sent as EXACTLY the identity the Event Hub says it is viewing as —
+ *   pass     the browser's pass for THIS event, as the account rule honours it (`readGuestSession`: a set-aside pass
+ *            is never in `viewer` — it is not a candidate here at all);
+ *   seat     a signed-in guest's own seat (`resolveGuestViewer`);
+ *   own_row  a signed-in account bound to ONE guest row here by any other membership — the host's own row (the groom),
+ *            which `findGuestSeatForUser` (guest seats only) never answers. The Hub says "Viewing as you"; this is you.
+ *   none     nobody to answer as. `not_on_list`: signed in, no row of their own here — the page SAYS so, never a sample
+ *            and never somebody else. `several_rows`: bound to more than one row — never silently one of them.
+ *            `unread`: the account's rows could not be read (fail closed). `no_key`: signed out with no pass.
+ *
+ * Pure; the reads are `readReplyIdentityForEvent` (guest-one-path.server.ts), and both the reply page and the save
+ * (`submitRsvp`) ask it, so the form and the write can never name two different people.
+ */
+export type ReplyIdentity =
+  | { kind: 'pass' | 'seat' | 'own_row'; session: GuestSessionLike }
+  | { kind: 'none'; why: 'no_key' | 'not_on_list' | 'several_rows' | 'unread' };
+
+export function resolveReplyIdentity(input: {
+  eventId: string;
+  viewer: GuestViewer;
+  signedIn: boolean;
+  /** The account's own, live guest rows on this event (any membership). Null = could not be read. */
+  ownRows: readonly { guestId: string; qrToken: string }[] | null;
+}): ReplyIdentity {
+  const { viewer } = input;
+  if (viewer.kind === 'cookie') return { kind: 'pass', session: viewer.session };
+  if (viewer.kind === 'seat') return { kind: 'seat', session: viewer.session };
+  if (!input.signedIn) return { kind: 'none', why: 'no_key' };
+  if (input.ownRows === null) return { kind: 'none', why: 'unread' };
+  const ids = [...new Set(input.ownRows.filter((r) => r.guestId && r.qrToken).map((r) => r.guestId))];
+  if (ids.length === 0) return { kind: 'none', why: 'not_on_list' };
+  if (ids.length > 1) return { kind: 'none', why: 'several_rows' };
+  const row = input.ownRows.find((r) => r.guestId === ids[0])!;
+  return { kind: 'own_row', session: { guest_id: row.guestId, event_id: input.eventId, qr_token: row.qrToken } };
+}
+
+/**
  * THE ONE ACCOUNT PROMPT on a guest's page, and which sentence it carries.
  *
  *   offer          — no account here yet. "Save to my account" by the device's
@@ -87,6 +130,12 @@ export function resolveGuestViewer(input: {
  *   linked         — "Linked to <email> ✓". Only NOW may the host pitch show.
  *   held_elsewhere — signed in, but the seat is bound to a DIFFERENT account.
  *                    Said plainly, never silently re-bound.
+ *   host_viewing   — signed in as somebody who MANAGES this event (host ·
+ *                    co-host · coordinator · helper) looking at a guest's seat
+ *                    that is not their own (owner 2026-10-21). No press: one
+ *                    quiet line, "You're viewing <name>'s invitation as the
+ *                    host" (`hostViewingLine`). The server refuses the bind too
+ *                    (`seatBindRefusal` → 'manager', lib/link-guest-account.ts).
  *
  * 📵 NO `link_sent` STATE ANY MORE (owner 2026-09-29, DECISION_LOG "NO EMAIL TO
  * GUESTS — THE QR AND THE LINK DO EVERYTHING"): *"No email. Either use the qr
@@ -98,7 +147,8 @@ export type GuestAccountState =
   | { kind: 'sign_in' }
   | { kind: 'link_this_seat'; seatName: string | null; accountEmail: string | null; coupleSeat: boolean }
   | { kind: 'linked'; accountEmail: string | null }
-  | { kind: 'held_elsewhere' };
+  | { kind: 'held_elsewhere' }
+  | { kind: 'host_viewing'; seatName: string | null };
 
 export function guestAccountState(input: {
   /** The signed-in account, or null for a cookie-only guest. */
@@ -110,10 +160,17 @@ export function guestAccountState(input: {
   seatName?: string | null;
   /** The seat is one of the celebration's own people (bride · groom · celebrant). */
   seatIsCouple?: boolean;
+  /**
+   * The signed-in viewer MANAGES this event (the page's host check: a `couple` /
+   * `coordinator` membership or an accepted delegate). Then a seat that is not
+   * their own is never offered to them — `host_viewing`, never `link_this_seat`.
+   */
+  viewerManagesEvent?: boolean;
 }): GuestAccountState {
   const { viewerUserId, viewerEmail, seatHolderUserId } = input;
   if (viewerUserId) {
     if (seatHolderUserId === viewerUserId) return { kind: 'linked', accountEmail: viewerEmail };
+    if (input.viewerManagesEvent === true) return { kind: 'host_viewing', seatName: input.seatName ?? null };
     if (seatHolderUserId) return { kind: 'held_elsewhere' };
     return {
       kind: 'link_this_seat',
@@ -210,6 +267,45 @@ export function rsvpGate(input: {
 }
 
 /**
+ * ✉️ "YOU'RE COMING ✓ · N MORE ANSWERS" — N, for a guest the couple has down as ATTENDING (owner 2026-10-20, DECISION_LOG
+ * "THE COVER'S REPLY BUTTON HAS THREE STATES": *"Show "You're coming ✓ · N more answers" when answers are missing (tap
+ * opens only the missing ones)"*). Measured live that day: an attending guest who skipped the couple's switched-on meal
+ * and mobile questions met "You're coming ✓ · Change" — byte for byte the complete reply's button — while the reply page
+ * asked them "Two more things".
+ *
+ * 🔒 N IS THE REPLY PAGE'S OWN MISSING SET, COUNTED — never a second count. It reads the verdict of `rsvpGate` (above),
+ * the ONE rule the reply page asks for which questions to show (`invite/reply/page.tsx` → `RsvpWidget gate`), so the
+ * number on the button and the questions behind it cannot disagree. Held by
+ * `lib/the-cover-counts-the-reply-pages-questions.test.ts`.
+ *
+ *   · attending, and the gate asks for something  → its `missing.length` (attendance itself is never in it then);
+ *   · attending and complete, or not attending    → 0: the shipped words stand ("Change", "Confirm attendance");
+ *   · a decline → 0 by the gate's own rule: a decliner is asked nothing more (owner 2026-09-11, "a decline must not go
+ *     on to ask for the rest"), so the decline keeps its shipped "You can't make it · Change";
+ *   · `null` gate — the answers could not be read (`guestAnswersRead`) → null: the caller draws the plain "Change" and
+ *     logs. A failure must not look like success, and must never draw a wrong number.
+ */
+export function moreAnswersOf(gate: RsvpGate | null): number | null {
+  if (!gate) return null;
+  return gate.kind === 'ask' && gate.coupleMarked ? gate.missing.length : 0;
+}
+
+/** "1 more answer" · "2 more answers" — the words after "You're coming ✓ ·" (owner 2026-10-20, singular for one). */
+export function moreAnswersWords(n: number): string {
+  return n === 1 ? '1 more answer' : `${formatCount(n)} more answers`;
+}
+
+/**
+ * 🔍 DID THE ROW CARRY THE ANSWERS `rsvpGate` COUNTS? A column left out of a `.select(...)` comes back `undefined`, and
+ * the gate reads `undefined` exactly like a blank answer — so a read that dropped `mobile` would tell every attending
+ * guest they owe one more answer. Only a row that HAS the keys (null is an answer: "not given") may be counted.
+ */
+export function guestAnswersRead(row: unknown): boolean {
+  if (!row || typeof row !== 'object') return false;
+  return ['rsvp_status', 'meal_preference', 'mobile'].every((k) => k in row);
+}
+
+/**
  * HOW "Save to my account" SIGNS THEM IN — chosen by the device, NEVER shown as
  * a choice (owner 2026-09-26, "THE GUEST PATHWAY — ONE BUTTON AT A TIME").
  *
@@ -218,7 +314,13 @@ export function rsvpGate(input: {
  *     webviews (`disallowed_useragent`), and most invitations are opened in one.
  *     The button copies the guest's OWN link and says how to paste it into
  *     Safari or Chrome, where Apple / Google is one tap;
- *   · an Apple device — iOS Safari, or the Setnayan iOS app → Apple;
+ *   · an Apple device — iOS Safari, or the Setnayan iOS app → Apple. The iPad
+ *     app's user-agent says `Macintosh` (measured 2026-10-19), so "Apple
+ *     device" is `isAppleTouchDevice` (lib/apple-device.ts), never a bare
+ *     `/iPhone|iPad/`: on that test the iPad app offered Google with no Sign
+ *     in with Apple — an App Store 4.8 rejection. iPad SAFARI cannot be told
+ *     from a Mac by a server at all; `SaveToAccount` lets the browser correct
+ *     it (`AppleOnTouch`);
  *   · everything else (Android Chrome, a desktop browser) → Google.
  *
  * A provider the deployment has not switched on falls back to the other; with
@@ -232,7 +334,6 @@ export type SaveMethod = 'apple' | 'google' | 'browser' | 'link';
 
 const IN_APP_WEBVIEW =
   /FBAN|FBAV|FB_IAB|FBIOS|Instagram|Messenger|\bLine\/|MicroMessenger|Snapchat|musical_ly|BytedanceWebview/i;
-const APPLE_DEVICE = /iPhone|iPad|iPod/i;
 
 export function isInAppWebview(userAgent: string | null | undefined): boolean {
   return IN_APP_WEBVIEW.test(userAgent ?? '');
@@ -244,7 +345,7 @@ export function saveMethodFor(
 ): SaveMethod {
   const ua = userAgent ?? '';
   if (isInAppWebview(ua)) return 'browser';
-  if (APPLE_DEVICE.test(ua)) return providers.apple ? 'apple' : providers.google ? 'google' : 'link';
+  if (isAppleTouchDevice(ua)) return providers.apple ? 'apple' : providers.google ? 'google' : 'link';
   return providers.google ? 'google' : providers.apple ? 'apple' : 'link';
 }
 

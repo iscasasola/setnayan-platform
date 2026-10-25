@@ -1,7 +1,6 @@
-import Link from 'next/link';
 import { resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
 import { redirect } from 'next/navigation';
-import { Download, Printer, Gift, ArrowRight, Sparkles } from 'lucide-react';
+import { Download, Printer } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { isChineseWedding, isMuslimWedding } from '@/lib/chinese-wedding';
 import { getCurrentUser } from '@/lib/auth';
@@ -28,7 +27,8 @@ import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 import { COUPLE_ORDERS_HIDE_VENDOR_FILTER } from '@/lib/orders';
 import { ShareBudgetBandToggle } from './_components/share-budget-band-toggle';
 import { BudgetScreen, type SupplierExtras } from './_components/budget-screen';
-import { buildBudgetList, pickNextPayment, type NextPayment } from '@/lib/budget-page-view';
+import { buildBudgetList, payTargetVendor, pickNextPayment, type NextPayment } from '@/lib/budget-page-view';
+import { bookedBudgetBlock } from '@/lib/booked-budget';
 import { costCategoryOptions } from '@/lib/event-costs';
 import { depositStepHref } from '@/lib/deposit-pay-step';
 import { paymentDoor, type PaymentDoor } from '@/lib/accepted-quote-terms';
@@ -36,15 +36,17 @@ import { PageMasthead } from '@/app/_components/page-masthead';
 import { YOUR_TEAM_BUDGET_PART, yourTeamBudgetHref } from '@/lib/pillar-parts';
 import { DeniedState } from '@/app/_components/states/denied-state';
 import { resolveBudgetVisibility } from '@/lib/budget-visibility';
-import { formatCount } from '@/lib/format-number';
-import { MiniTour } from '@/app/_components/mini-tour';
+import { Spotlight } from '@/app/_components/spotlight';
+import { HOST_PAGE_TOURS, HOST_PAGE_TOURS_AFTER } from '@/lib/host-page-tours';
+import { TraditionNotes } from './_components/tradition-notes';
+import { openDashboardEventRow } from '@/lib/event-row-once';
 
 export const metadata = { title: 'Budget' };
 
 type Props = {
   params: Promise<{ eventId: string }>;
-  /** `part=budget` = rendered as Your Team's Budget part (see below). */
-  searchParams?: Promise<{ part?: string }>;
+  /** `part=budget` = rendered as Your Team's Budget part (see below). `pay=<line_item_id>` = open that payment's sheet. */
+  searchParams?: Promise<{ part?: string; pay?: string }>;
 };
 
 // Per-vendor itemization renders only vendors at-or-past 'contracted'.
@@ -82,6 +84,9 @@ export default async function BudgetPage({ params, searchParams }: Props) {
     redirect(yourTeamBudgetHref(eventId));
   }
   const supabase = await createClient();
+  // 🗂 THE EVENT'S ROW, ONCE, AS THIS VIEWER (lib/event-row-once.ts): the layout's chrome, the menu's
+  // needs, the access window and the head count are each a few columns of it — one request for all.
+  openDashboardEventRow(supabase, eventId);
 
   // ── WHO IS READING THE MONEY ──────────────────────────────────────────────
   // The layout admits an accepted delegate to every event surface, and
@@ -100,7 +105,7 @@ export default async function BudgetPage({ params, searchParams }: Props) {
     // an RLS-shaped "you have none" on a page about money would tell a planner
     // her couple has no budget, which is a different and worse lie.
     return (
-      <section className="sn-col space-y-6">
+      <section className="sn-col max-w-3xl space-y-6">
         <PageMasthead id="budget-overview" className="scroll-mt-24" title="Budget" />
         <DeniedState
           title="The budget isn't shared with you"
@@ -201,8 +206,8 @@ export default async function BudgetPage({ params, searchParams }: Props) {
 
   // Muslim weddings carry a Mahr — the groom's mandatory gift to the bride. It
   // is hers alone and is NOT a Setnayan or vendor charge, so it never enters the
-  // budget math (committed totals / overspend); it's surfaced as a distinct,
-  // non-billable reminder card.
+  // budget math (committed totals / overspend); it's a non-billable note inside
+  // the Target's ⓘ (`TraditionNotes`, below).
   const isMuslimCeremony = isMuslimWedding({
     ceremony_type: event?.ceremony_type ?? null,
     secondary_ceremony_type: event?.secondary_ceremony_type ?? null,
@@ -212,7 +217,7 @@ export default async function BudgetPage({ params, searchParams }: Props) {
   // Chinese (Tsinoy) weddings carry tradition-specific spend that doesn't map
   // cleanly to a vendor line — ang pao (red envelopes) gifted during the tea
   // ceremony, and the lauriat banquet that is usually the single largest
-  // reception cost. Surfaced as a non-billable advisory (mirrors the Mahr card)
+  // reception cost. A non-billable note beside the Mahr one (`TraditionNotes`)
   // via the shared overlay predicate, so it also catches the common
   // church-primary + Chinese-secondary case, not just ceremony_type === 'chinese'.
   const isChineseCeremony = isChineseWedding({
@@ -224,7 +229,7 @@ export default async function BudgetPage({ params, searchParams }: Props) {
   // TABLE (~10 pax/table), so the one derived fact worth surfacing is the table
   // count — not a ₱ figure (prices are admin-managed, never hardcoded). Normalize
   // estimated_pax to a positive integer; anything missing/zero/invalid → null,
-  // which keeps the card on its "set your guest count" copy.
+  // which leaves the note without a table count.
   const paxRaw = event?.estimated_pax ?? null;
   const chineseGuestCount =
     paxRaw != null && Number.isFinite(Number(paxRaw)) && Number(paxRaw) > 0
@@ -290,15 +295,27 @@ export default async function BudgetPage({ params, searchParams }: Props) {
   // are unknown — drawn "—", never a legacy figure and never ₱0. (`moneyRead`
   // null is the kill-switch: the resolver was not asked at all, and the legacy
   // arithmetic in `stripMoney` / `liveSummaryMoney` is the figure, as before.)
+  //
+  // B3 · OWED IS A FLOOR, NOT AN UNKNOWN. What the sources that answered still
+  // owe is a true lower bound, and the prototype's failed frame prints it as
+  // "₱994,400+". The rule is the Suppliers block's own (`bookedBudgetBlock`:
+  // every source refused, or a floor of ₱0 → "—", never "₱0+"), so the two
+  // surfaces cannot print different Owed figures for one ledger.
   const ledgerRefused = moneyRead !== null && !moneyReadsAllOk(moneyRead);
-  const summaryFigures: { agreedPhp: number | null; paidPhp: number | null; owedPhp: number | null } =
-    ledgerRefused
-      ? { agreedPhp: null, paidPhp: null, owedPhp: null }
-      : {
-          agreedPhp: stripMoney.committedPhp,
-          paidPhp: liveSummaryMoney.paid,
-          owedPhp: liveSummaryMoney.remaining,
-        };
+  const owedFloor = ledgerRefused && moneyRead ? bookedBudgetBlock(moneyRead, stripMoney.targetPhp).owed : null;
+  const summaryFigures: {
+    agreedPhp: number | null;
+    paidPhp: number | null;
+    owedPhp: number | null;
+    owedAtLeast: boolean;
+  } = ledgerRefused
+    ? { agreedPhp: null, paidPhp: null, owedPhp: owedFloor?.php ?? null, owedAtLeast: owedFloor !== null }
+    : {
+        agreedPhp: stripMoney.committedPhp,
+        paidPhp: liveSummaryMoney.paid,
+        owedPhp: liveSummaryMoney.remaining,
+        owedAtLeast: false,
+      };
   // The ONE "Next" line. From the resolver's own lines — agreed money only —
   // so it cannot name a payment to a supplier the couple never booked. With
   // the resolver switched off, the legacy list's first row (what this page
@@ -408,7 +425,7 @@ export default async function BudgetPage({ params, searchParams }: Props) {
   }
 
   return (
-    <section className="sn-col space-y-6">
+    <section className="sn-col max-w-3xl space-y-6">
       {/* id targets for the Budget docked sub-nav (lib/customer-menu.ts anchor
           children: Overview · Allocate · Payments). scroll-mt keeps the section
           title clear of the top edge on smooth-scroll. */}
@@ -478,15 +495,24 @@ export default async function BudgetPage({ params, searchParams }: Props) {
           agreedPhp: summaryFigures.agreedPhp,
           paidPhp: summaryFigures.paidPhp,
           owedPhp: summaryFigures.owedPhp,
+          owedAtLeast: summaryFigures.owedAtLeast,
+          partial: ledgerRefused,
           next: nextPayment,
         }}
         list={list}
+        /* 🔗 `?pay=<line_item_id>` (Home's Budget widget): the Pay sheet of that payment's supplier, open on arrival. */
+        initialPayVendorId={payTargetVendor(moneyRead?.lines ?? [], (await searchParams)?.pay, list.suppliers)}
         supplierExtras={supplierExtras}
         categories={costCategories}
-      >
-        {isMuslimCeremony ? <MahrInfoCard eventId={eventId} mahrDescription={mahrDescription} /> : null}
-        {isChineseCeremony ? <ChineseTraditionInfoCard pax={chineseGuestCount} /> : null}
-      </BudgetScreen>
+        targetNote={
+          <TraditionNotes
+            muslim={isMuslimCeremony}
+            mahrDescription={mahrDescription}
+            chinese={isChineseCeremony}
+            pax={chineseGuestCount}
+          />
+        }
+      />
 
       {/* Share-my-budget (the couple's opt-in that shows a supplier a ROUNDED
           range for their own category). B2 unmounted it until plan row B4's ⋯
@@ -500,114 +526,8 @@ export default async function BudgetPage({ params, searchParams }: Props) {
         </div>
       ) : null}
 
-      {/* First visit only — the shipped MiniTour (owner 2026-09-25). */}
-      <MiniTour tourKey="customer_budget_v1" />
-    </section>
-  );
-}
-
-// The Mahr — a Muslim wedding's groom-to-bride gift. Deliberately rendered as a
-// distinct, NON-billable card (emerald, "gift" framing) so it never reads as a
-// Setnayan/vendor charge and is never folded into the committed/overspend math.
-// Setnayan neither holds nor processes the mahr; this is the couple's private
-// record, set from the Nikah-essentials card on Home.
-function MahrInfoCard({
-  eventId,
-  mahrDescription,
-}: {
-  eventId: string;
-  mahrDescription: string | null;
-}) {
-  const isSet = !!mahrDescription && mahrDescription.trim().length > 0;
-  return (
-    <section
-      aria-labelledby="mahr-info-heading"
-      className="rounded-xl border border-emerald-200/70 bg-emerald-50/40 p-4 sm:p-5"
-    >
-      <div className="flex items-center gap-2">
-        <Gift aria-hidden className="h-4 w-4 text-emerald-700" strokeWidth={1.75} />
-        <h2
-          id="mahr-info-heading"
-          className="tabular-nums text-[11px] uppercase tracking-[0.2em] text-emerald-800"
-        >
-          Mahr — a gift to the bride
-        </h2>
-      </div>
-      <p className="mt-2 text-sm text-ink/75">
-        {isSet ? (
-          <>
-            Your mahr: <span className="font-medium text-ink">{mahrDescription}</span>.
-            It belongs to the bride alone — Setnayan never charges or processes
-            it, so it stays out of your budget totals.
-          </>
-        ) : (
-          <>
-            A Muslim marriage includes the mahr — the groom&rsquo;s gift to the
-            bride, hers alone. It isn&rsquo;t a Setnayan or supplier charge, so it
-            lives outside your budget. Record yours from the Nikah card on Home.
-          </>
-        )}
-      </p>
-      <Link
-        href={`/dashboard/${eventId}`}
-        className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-emerald-800 hover:text-emerald-900"
-      >
-        {isSet ? 'Update mahr' : 'Set mahr'}
-        <ArrowRight aria-hidden className="h-3 w-3" strokeWidth={2} />
-      </Link>
-    </section>
-  );
-}
-
-// Chinese (Tsinoy) tradition note — a NON-billable advisory mirroring MahrInfoCard
-// (same card shell + emerald "gift" framing). It records nothing and charges
-// nothing: ang pao and the lauriat are the couple's own arrangements, not a
-// Setnayan or vendor charge, so the card carries no setter and no price. Purely
-// informational guidance to help the couple shape their own budget. Editorial
-// voice, no exclamation marks.
-//
-// The lauriat banquet is priced PER TABLE (~10 pax/table), not per head — that's
-// the one cost-model fact worth surfacing. When the couple's guest count is set,
-// we show the DERIVED TABLE COUNT (a fact, fine to compute), never a ₱ figure:
-// per-table catering rates are admin-managed and not readily in scope here, so we
-// keep the estimate advisory (table count + lauriat note) rather than hardcode a
-// price.
-const LAURIAT_PAX_PER_TABLE = 10;
-function ChineseTraditionInfoCard({ pax }: { pax: number | null }) {
-  const tables = pax !== null ? Math.ceil(pax / LAURIAT_PAX_PER_TABLE) : null;
-  return (
-    <section
-      aria-labelledby="chinese-tradition-heading"
-      className="rounded-xl border border-emerald-200/70 bg-emerald-50/40 p-4 sm:p-5"
-    >
-      <div className="flex items-center gap-2">
-        <Sparkles aria-hidden className="h-4 w-4 text-emerald-700" strokeWidth={1.75} />
-        <h2
-          id="chinese-tradition-heading"
-          className="tabular-nums text-[11px] uppercase tracking-[0.2em] text-emerald-800"
-        >
-          Chinese traditions — a budget note
-        </h2>
-      </div>
-      <p className="mt-2 text-sm text-ink/75">
-        Chinese traditions carry a few costs worth planning for. Ang pao — red
-        envelopes — are given to elders during the tea ceremony, kept aside from
-        your supplier spend. The lauriat banquet is typically the main reception
-        cost, and it&rsquo;s priced per table — about {formatCount(LAURIAT_PAX_PER_TABLE)}{' '}
-        guests to a table — so it&rsquo;s worth anchoring your budget around it
-        early. These are your own arrangements, not a Setnayan or supplier charge,
-        so they stay outside your committed totals.
-      </p>
-      {tables !== null && pax !== null ? (
-        <p className="mt-2 text-sm font-medium text-emerald-900">
-          About {tables} lauriat {tables === 1 ? 'table' : 'tables'} for {formatCount(pax)}{' '}
-          guests.
-        </p>
-      ) : (
-        <p className="mt-2 text-sm text-ink/60">
-          Set your guest count to see an estimated table count.
-        </p>
-      )}
+      {/* 🔦 First visit only — the spotlight (owner 2026-10-22, journey_fixes_later Host 4), after the journey. */}
+      <Spotlight tourKey={HOST_PAGE_TOURS.budget} after={HOST_PAGE_TOURS_AFTER} replay="page" />
     </section>
   );
 }

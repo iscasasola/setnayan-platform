@@ -237,5 +237,11 @@ test('the supplier is asked at the moment it matters — on the ask, and on a bo
     /<PayoutMethodNudge readiness=\{payoutReadiness\} context="lock" \/>/,
     'the nudge is not on the ask card, above Agree',
   );
-  assert.match(read(OVERVIEW), /payoutReadiness=\{payoutReadiness\}/, 'the overview never passes it');
+  // 💳 Today (simpler Today 2026-10-14) says it ONCE, as its own row — "Where couples pay you · Add GCash or a bank ·
+  // Set up" — whenever an ask or a booking is on screen, so the ask's own answer no longer repeats it. The page reads
+  // the readiness then, and the one assembly turns it into that row.
+  const overview = read(OVERVIEW);
+  assert.match(overview, /hasLockAsk \|\| hasBooking\s*\?\s*readSupplierPayoutReadiness\(/, 'the overview no longer asks while an ask is on screen');
+  assert.match(overview, /\n\s*payoutReadiness,\n/, 'the overview never passes it');
+  assert.match(read('./supplier-today-view.ts'), /payout: payoutRule\s*\?\s*\{ title: PAYOUT_DOOR_WORDS\.title/, 'the readiness never becomes Today’s row');
 });

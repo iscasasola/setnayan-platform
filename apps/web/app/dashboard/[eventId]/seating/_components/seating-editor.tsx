@@ -1,5 +1,7 @@
 'use client';
 
+import { MERGE_BASE_FIELD } from '@/lib/merge-base-field';
+import { floorPlanFieldsOf } from '@/lib/floor-plan-row';
 import { Fragment, useEffect, useLayoutEffect, useMemo, useOptimistic, useRef, useState, useTransition } from 'react';
 import { roomOverviewZoom } from '@/lib/seat-plan-overview';
 
@@ -184,7 +186,7 @@ import {
   updateTableType,
 } from '../actions';
 import { useSeatingPresence } from './use-seating-presence';
-import { useSeatingLock } from './use-seating-lock';
+import { lockSaysViewOnly, useSeatingLock } from './use-seating-lock';
 import { useSeatingLiveRefresh } from './use-seating-live-refresh';
 import { SeatingLockError } from '../seating-lock-error';
 import { usePrefersReducedMotion } from '@/lib/use-responsive';
@@ -216,6 +218,8 @@ import { PickMenu } from '../../website/editor/_components/pick-menu';
 import { SeatPlanPortal } from './seat-plan-slots';
 import { useOneOpen } from '@/lib/one-open';
 import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
+import { useModalA11y } from '@/lib/use-modal-a11y';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 
 // True when a thrown error is the server lock-guard's "you no longer hold the
 // editor lock" signal (SeatingLockError · code 'seating_lock_not_held'). Server
@@ -558,8 +562,14 @@ export function SeatingEditor({
   const boothsDirtyRef = useRef(false);
   boothsDirtyRef.current = boothsDirty;
   const tmpBoothSeq = useRef(0);
+  /* 👥 The booths (and signs, and floor) this editor STARTED FROM — sent as each save's base, so only what it changed
+     is written and a booth the other host added is never deleted here (owner 2026-10-18, two hosts never overwrite). */
+  const boothsBase = useRef(boothsProp);
   useEffect(() => {
-    if (!boothsDirtyRef.current) setBooths(boothsProp);
+    if (!boothsDirtyRef.current) {
+      setBooths(boothsProp);
+      boothsBase.current = boothsProp;
+    }
   }, [boothsProp]);
   // Wayfinding signs (rotatable arrow + label) — same local-state-then-save
   // model as booths: tmp- ids until the next save returns real rows.
@@ -568,8 +578,12 @@ export function SeatingEditor({
   const signsDirtyRef = useRef(false);
   signsDirtyRef.current = signsDirty;
   const tmpSignSeq = useRef(0);
+  const signsBase = useRef(signsProp);
   useEffect(() => {
-    if (!signsDirtyRef.current) setSigns(signsProp);
+    if (!signsDirtyRef.current) {
+      setSigns(signsProp);
+      signsBase.current = signsProp;
+    }
   }, [signsProp]);
   // Dock the cocktail room beside the reception at the entrance door: cross-axis
   // aligned to the door, out-axis pushed GAP + half-extent outside the wall
@@ -686,10 +700,12 @@ export function SeatingEditor({
   const floorDirtyRef = useRef(false);
   floorDirtyRef.current = floorDirty;
   const floorSeen = useRef(floorPlan);
+  const floorBase = useRef(floorPlanFieldsOf(floorPlan));
   useEffect(() => {
     if (!details || floorSeen.current === floorPlan) return;
     floorSeen.current = floorPlan;
     if (floorDirtyRef.current) return;
+    floorBase.current = floorPlanFieldsOf(floorPlan);
     setStage({ x: floorPlan.stage_x, y: floorPlan.stage_y, w: floorPlan.stage_w, h: floorPlan.stage_h });
     setEntrance({
       enabled: floorPlan.entrance_enabled,
@@ -880,7 +896,8 @@ export function SeatingEditor({
   const canEdit = lock.status === 'editing';
   // View-only surface follows the editor live (the 3D lab, or another viewer) —
   // the EDITING surface never auto-refreshes (would clobber unsaved drafts).
-  useSeatingLiveRefresh(eventId, !canEdit);
+  // 🔂 Only once the lock has SAID view-only — not in the moment before it answers (`lockSaysViewOnly`).
+  useSeatingLiveRefresh(eventId, lockSaysViewOnly(lock.status));
   useEffect(() => {
     // Try to take the lock as soon as the editor opens (the surface itself is
     // the intent to edit). Idempotent — re-acquire just refreshes when it's ours.
@@ -1423,7 +1440,6 @@ export function SeatingEditor({
       setPositions((p) => ({ ...p, ...back }));
       setDirty(new Set());
       setNotice('Put back — the seat plan is as it was before Auto arrange.');
-      router.refresh();
     });
   };
 
@@ -1646,6 +1662,11 @@ export function SeatingEditor({
   };
 
   const [confirmFill, setConfirmFill] = useState(false);
+  // The two centred confirms below (Auto Arrange · Fill around locked) hold the page still while open.
+  const confirmAutoRef = useRef<HTMLDivElement>(null);
+  const confirmFillRef = useRef<HTMLDivElement>(null);
+  useModalA11y({ open: confirmAuto, onClose: () => setConfirmAuto(false), containerRef: confirmAutoRef });
+  useModalA11y({ open: confirmFill, onClose: () => setConfirmFill(false), containerRef: confirmFillRef });
   // Scroll-less frame (council verdict 2026-07-15): permanent save chip + the
   // "N notices" banner-collapse state.
   const [savedAt, setSavedAt] = useState<string | null>(null);
@@ -1724,12 +1745,11 @@ export function SeatingEditor({
     // switch.
     startTransition(async () => {
       /* 📵 The sheet is already opening (it reads live data); a stamp that never answered is said, never thrown. */
-      const stamped = await runGated(async () => {
+      // ⚡ `stampTableSigns` revalidates: its own answer redraws the plan — no second render.
+      await runGated(async () => {
         await stampTableSigns(fd);
         return true;
       });
-      if (stamped === null) return;
-      if (details) router.refresh();
     });
     window.open(`/dashboard/${eventId}/seating/print`, '_blank');
   };
@@ -1926,10 +1946,10 @@ export function SeatingEditor({
         await commitWeld(fw);
         await linkTables(fl);
         setNotice(`Linked — “${a.table_label}” and “${b.table_label}” are one table now: one name, one count, one sign.`);
-        router.refresh();
       } catch (err) {
         if (!handleLockLost(err)) setNotice('Couldn’t link those tables — please try again.');
         // Re-read the saved plan so the screen shows what was really kept.
+        // one-render: keep (after-failure) — a link that threw revalidated nothing; this shows what landed.
         router.refresh();
       }
     });
@@ -4073,7 +4093,9 @@ export function SeatingEditor({
           fd.set('event_id', eventId);
           fd.set('lock_id', lockId);
           fd.set('booths', boothsPayload(booths));
+          fd.set(MERGE_BASE_FIELD, boothsPayload(boothsBase.current));
           await saveBooths(fd);
+          boothsBase.current = booths;
           setBoothsDirty(false);
         }
         if (sDirty) {
@@ -4081,7 +4103,9 @@ export function SeatingEditor({
           fd.set('event_id', eventId);
           fd.set('lock_id', lockId);
           fd.set('signs', signsPayload(signs));
+          fd.set(MERGE_BASE_FIELD, signsPayload(signsBase.current));
           await saveSigns(fd);
+          signsBase.current = signs;
           setSignsDirty(false);
         }
         for (const id of ids) {
@@ -4128,7 +4152,12 @@ export function SeatingEditor({
             fd.set('venue_width_m', String(venue.width));
             fd.set('venue_length_m', String(venue.length));
           }
+          // 👥 …and the floor it started from: only the columns this editor changed are written.
+          fd.set(MERGE_BASE_FIELD, JSON.stringify(floorBase.current));
           await saveFloorPlan(fd);
+          const sent: Record<string, string> = {};
+          for (const [k, v] of fd.entries()) if (k !== 'event_id' && k !== 'lock_id' && k !== MERGE_BASE_FIELD && typeof v === 'string') sent[k] = v;
+          floorBase.current = sent;
         }
         setDirty(new Set());
         setFloorDirty(false);
@@ -5777,7 +5806,6 @@ export function SeatingEditor({
       try {
         if (open) await publishSeating(fd);
         else await unpublishSeating(fd);
-        router.refresh();
       } catch {
         setDoorOpen(was);
         setDoorNote('That did not save — nothing changed. Please try again.');
@@ -6007,8 +6035,10 @@ export function SeatingEditor({
       }
       fd.set('seat_guest_ids', JSON.stringify(party.map((g) => g.guest_id)));
       startTransition(async () => {
-        await runGated(() => createTable(fd));
-        router.refresh();
+        const made = await runGated(() => createTable(fd));
+        // A table that landed is redrawn by `createTable`'s own answer (it revalidates); only a refused one re-reads.
+        // one-render: keep (after-failure) — the refused create revalidated nothing; re-read what the plan really holds.
+        if (made === null) router.refresh();
       });
       return;
     }
@@ -6179,7 +6209,6 @@ export function SeatingEditor({
             guestOptions={blueprintGuests}
             saveAction={async (fd) => {
               await saveEntrance(fd);
-              router.refresh();
             }}
             noSeatsNote="Seat a guest on the plan and you can preview their map here."
           />
@@ -8066,7 +8095,8 @@ export function SeatingEditor({
       {isNarrow && !details ? (
         <div
           ref={drawerRef}
-          className="fixed inset-x-0 bottom-0 z-40 flex flex-col overflow-hidden rounded-t-2xl border-t border-ink/15 bg-cream shadow-[0_-8px_30px_rgba(0,0,0,0.14)] motion-safe:transition-[height] motion-safe:duration-200"
+          data-safe-x=""
+          className="fixed inset-x-0 bottom-0 z-40 flex flex-col overflow-hidden rounded-t-2xl border-t border-ink/15 bg-cream pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_30px_rgba(0,0,0,0.14)] motion-safe:transition-[height] motion-safe:duration-200"
           style={{ height: drawerHeight }}
         >
           <button
@@ -8090,8 +8120,9 @@ export function SeatingEditor({
 
       {/* auto-arrange confirm */}
       {confirmAuto ? (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-ink/40 p-4" onClick={() => setConfirmAuto(false)}>
-          <div className="max-h-[calc(100dvh-2rem)] w-full max-w-sm overflow-y-auto rounded-2xl border border-ink/10 bg-cream p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          <OverlayBackdrop onClose={() => setConfirmAuto(false)} />
+          <div ref={confirmAutoRef} role="dialog" aria-modal="true" aria-label="Auto Arrange" className="relative max-h-[calc(100dvh-2rem)] w-full max-w-sm overflow-y-auto rounded-2xl border border-ink/10 bg-cream p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
             <div className="mb-2 flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-mulberry" />
               <h3 className="text-lg font-semibold text-ink">Auto Arrange</h3>
@@ -8156,8 +8187,9 @@ export function SeatingEditor({
       {/* Fill-around-locked confirm (smart seat-plan Phase 4) — it CLEARS unlocked
           seats and re-seats around the locked ones, so it asks first. */}
       {confirmFill ? (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-ink/40 p-4" onClick={() => setConfirmFill(false)}>
-          <div className="w-full max-w-sm rounded-2xl border border-ink/10 bg-cream p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          <OverlayBackdrop onClose={() => setConfirmFill(false)} />
+          <div ref={confirmFillRef} role="dialog" aria-modal="true" aria-label="Fill around locked seats" className="relative w-full max-w-sm rounded-2xl border border-ink/10 bg-cream p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
             <div className="mb-2 flex items-center gap-2">
               <Lock className="h-5 w-5 text-mulberry" />
               <h3 className="text-lg font-semibold text-ink">Fill around locked seats</h3>

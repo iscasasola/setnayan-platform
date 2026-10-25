@@ -141,15 +141,16 @@ test('(2b) the remove confirm answers with the second button and the DELETE butt
   /* Done (the typing bar) and Use (the colour sheet). */
   const bar = read(`${E}/type-in-place.tsx`);
   const keys = bar.slice(bar.indexOf('if (stagesStudio && !p.inline'), bar.indexOf('if (p.inline) {'));
-  assert.match(keys, /<ActionButton tone="brand" main icon=\{Check\} label="Done" onClick=\{p\.onClose\} \/>/, 'Done is not the main button');
+  // The ONE typing band (`typing-band.tsx`, 2026-10-24) draws Done; the bar hands it the session's close.
+  assert.match(keys, /<TypingBand\b(?:[^<>]|=>)*?onDone=\{p\.onClose\}/, 'the typing bar is not the one band');
+  assert.match(read('app/_components/typing-band.tsx'), /<span data-type-done="" className=\{SP_KEY_DONE\}>\s*<ActionButton tone="brand" main icon=\{Check\} label="Done" onClick=\{onDone \?\? blurTyping\} \/>/, 'Done is not the main button');
   assert.doesNotMatch(keys, /#[0-9a-fA-F]{6}\b/, 'the typing bar writes a colour');
   const picker = read('app/dashboard/[eventId]/studio/mood-board/_components/colour-picker-sheet.tsx');
-  assert.match(picker, /<ActionButton tone="brand" main icon=\{Check\} label="Use" disabled=\{!typed\}/, 'Use is not the main button');
-  /* …and the colour picked NOW is marked in the accent: its ring, its row, its tick. (The "AA ✗" badge is a state
-     badge and keeps its own colour.) */
+  assert.match(picker, /<ActionButton tone="brand" main icon=\{Check\} label="Use" disabled=\{!custom\.use\}/, 'Use is not the main button');
+  /* …and the colour picked NOW is marked in the accent: its ring. (The "AA ✗" badge is a state badge and keeps its own
+     colour.) Since 2026-10-17 every colour in the sheet is a dot in a row of five (owner: "Just have the Moodboard and
+     Recently Used 5 colors") — the list rows that carried an accent wash and a tick are gone; the ring marks it. */
   assert.match(picker, /\$\{on \? 'ring-2 ring-sn-accent ring-offset-2 ring-offset-white' : ''\}/);
-  assert.match(picker, /\$\{on \? 'bg-sn-accent\/10' : ''\}/);
-  assert.match(picker, /\{on \? <Check aria-hidden className="ml-auto h-4 w-4 shrink-0 text-sn-accent"/);
   assert.doesNotMatch(picker, /mulberry|bg-ink px-4|ring-terracotta|bg-terracotta-700\/10/, 'the colour sheet marks a pick, or draws a button, in a colour of its own');
 
   /* THE MAIN BUTTON IS THE ACCENT: its fill reads `--sn-accent`, its word `--sn-on-accent` — swap the line, it is blue. */
@@ -186,7 +187,7 @@ test('(3) Move draws ONE dropdown (no button per arrow) and Size draws the app�
     assert.match(move, new RegExp(`data-stage-dd="${end}-move-dir"`), `${end}: Move has no dropdown`);
     assert.equal((move.match(/aria-haspopup="listbox"/g) ?? []).length, 1, `${end}: Move’s direction is not one dropdown`);
     assert.equal((move.match(/<button\b/g) ?? []).length, 1, `${end}: Move draws more than its dropdown`);
-    assert.match(move, new RegExp(`>${end === 'in' ? 'From' : 'To'}</span>`), 'the dropdown does not say From / To');
+    assert.match(move, new RegExp(`>${end === 'in' ? 'From' : 'To'} ◆</span>`) /* 💎 RE-AIMED 2026-10-18: every Animate control wears ◆ */, 'the dropdown does not say From / To');
     assert.match(move, /the bottom/, 'the dropdown does not say the way in words');
     assert.doesNotMatch(html, /data-stage-dir=/, 'a button per arrow is back');
     /* Size: the shared selector, two choices, the picked one the accent — and nothing ink. */

@@ -19,9 +19,16 @@ export const LAB_MOOD_BOARD_ACTIONS: Partial<MoodBoardActions> = {
     return { status: 'ok', image_url: url };
   },
   removeMoodboardSlot: async () => ({ status: 'ok' }),
-  applyGalleryPick: async () => ({ status: 'error', message: 'The lab has no supplier gallery.' }),
+  applyGalleryPick: async () => ({ status: 'error', message: 'The lab has no supplier Inspiration.' }),
   fetchGalleryAssets: async () => ({ assets: [], total: 0, hiddenCount: 0 }) as never,
   updateDressCodeLists: async () => undefined,
+  /* 🤝🖼 A supplier's suggestion kept / declined / its Keep undone — answered here; the Palette moves the photo itself. */
+  keepInspirationSuggestion: async () => ({ status: 'ok', slotPosition: 0, replaced: false }),
+  declineInspirationSuggestion: async () => ({ status: 'ok' }),
+  undoKeptInspirationSuggestion: async () => ({ status: 'ok' }),
+  /* ⏰ The guests' call time — the Schedule's own writers answer like the real ones (they return nothing, or throw). */
+  updateScheduleBlock: async () => undefined,
+  createScheduleBlock: async () => undefined,
 };
 
 /** `?refuse=1`: the writes REFUSE with the database's own words (or throw), on purpose. */
@@ -32,5 +39,14 @@ export const LAB_MOOD_BOARD_REFUSALS: Partial<MoodBoardActions> = {
   removeMoodboardSlot: async () => ({ status: 'error', message: 'invalid input syntax for type uuid: "lab"' }),
   updateDressCodeLists: async () => {
     throw new Error('permission denied for table events');
+  },
+  keepInspirationSuggestion: async () => ({ status: 'error' }),
+  declineInspirationSuggestion: async () => ({ status: 'error' }),
+  undoKeptInspirationSuggestion: async () => ({ status: 'error' }),
+  updateScheduleBlock: async () => {
+    throw new Error('new row violates check constraint "event_schedule_blocks_check"');
+  },
+  createScheduleBlock: async () => {
+    throw new Error('permission denied for table event_schedule_blocks');
   },
 };

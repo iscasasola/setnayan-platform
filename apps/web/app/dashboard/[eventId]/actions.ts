@@ -33,7 +33,7 @@ import {
   MAX_NAME_LEN,
   sanitizeName,
 } from '@/lib/match-criteria';
-import { coupleNameColumns } from '@/lib/typed-names';
+import { coupleNameColumns, joinCoupleNames, nameOrderOf, type NameOrder } from '@/lib/typed-names';
 import { resolveRegion } from '@/lib/region-source';
 import { baziBirthDataEnabled } from '@/lib/bazi-birthdata';
 import { isChineseWedding } from '@/lib/chinese-wedding';
@@ -53,6 +53,7 @@ import {
   isCapacityBound,
 } from '@/lib/personalization-conflicts';
 import { formatCount } from '@/lib/format-number';
+import { eventDetailsToWrite } from '@/lib/event-details-merge';
 
 const ALLOWED_PRECISIONS = ['year', 'month', 'day'] as const;
 
@@ -526,8 +527,14 @@ type UpdateMatchCriteriaResult =
 const INVALID = Symbol('invalid');
 
 export async function updateEventMatchCriteria(
-  formData: FormData,
+  posted: FormData,
 ): Promise<UpdateMatchCriteriaResult> {
+  /* 👥 TWO HOSTS NEVER OVERWRITE EACH OTHER (owner 2026-10-18 — `lib/event-details-merge.ts`). A form that says what it
+     started from (`MERGE_BASE_FIELD`) is written only where THIS screen changed it: every field it did not change is
+     left out, and an absent field is untouched below — the other host's region, feel or budget stands. */
+  const toWrite = eventDetailsToWrite(posted);
+  const formData = toWrite.fd;
+  const based = toWrite.based;
   const eventId = formData.get('event_id');
   if (typeof eventId !== 'string' || !eventId) {
     return { ok: false, code: 'invalid_input', message: 'event_id required' };
@@ -586,7 +593,10 @@ export async function updateEventMatchCriteria(
   // window from wiping names).
   let brideName: string | null = null;
   let groomName: string | null = null;
-  let recomputedDisplay = '';
+  /* 🔀 The page's names are composed AFTER the stored row is read (below), in the ORDER the stored name keeps
+     (`nameOrderOf`, owner 2026-10-21 "it should be Indalecio & Claire") — never re-set to the first person first. */
+  let postedPeople: [{ first: string; last: string }, { first: string; last: string }] | null = null;
+  let legacyNames = false;
   // 🗂 ABSENT ⇒ UNTOUCHED, the rule the budget, the repeat and the celebrant
   // shape below already follow: Your info › Event settings posts this form
   // without the names (they are Your info › Names' own field, drafted until
@@ -599,13 +609,10 @@ export async function updateEventMatchCriteria(
     // ONE composition (`coupleNameColumns`, lib/typed-names.ts) — the Maker's
     // Names editor drafts exactly these columns through it (2026-10-01).
     const str = (v: FormDataEntryValue | null) => (typeof v === 'string' ? v : '');
-    const cols = coupleNameColumns(
+    postedPeople = [
       { first: str(formData.get('bride_first')), last: str(formData.get('bride_last')) },
       { first: str(formData.get('groom_first')), last: str(formData.get('groom_last')) },
-    );
-    brideName = cols.bride_name;
-    groomName = cols.groom_name;
-    recomputedDisplay = cols.display_name ?? '';
+    ];
   } else {
     // Legacy path (pre-split form). Combined names, display from full names.
     const brideRaw = formData.get('bride_name');
@@ -614,7 +621,7 @@ export async function updateEventMatchCriteria(
     const groomStr = (typeof groomRaw === 'string' ? sanitizeName(groomRaw).trim() : '').slice(0, MAX_NAME_LEN);
     brideName = brideStr === '' ? null : brideStr;
     groomName = groomStr === '' ? null : groomStr;
-    recomputedDisplay = [brideName, groomName].filter(Boolean).join(' & ');
+    legacyNames = true;
   }
 
   const supabase = await createClient();
@@ -732,9 +739,23 @@ export async function updateEventMatchCriteria(
     .eq('event_id', eventId)
     .maybeSingle();
 
+  // 🔀 The names, composed in the order the STORED name keeps (`nameOrderOf` over the row as it stands).
+  const storedRow = before as unknown as { display_name?: string | null; bride_name?: string | null; groom_name?: string | null } | null;
+  const storedOrder: NameOrder = nameOrderOf(storedRow?.display_name, storedRow?.bride_name, storedRow?.groom_name);
+  let recomputedDisplay = '';
+  if (postedPeople) {
+    const cols = coupleNameColumns(postedPeople[0], postedPeople[1], storedOrder);
+    brideName = cols.bride_name;
+    groomName = cols.groom_name;
+    recomputedDisplay = cols.display_name ?? '';
+  } else if (legacyNames) {
+    recomputedDisplay = joinCoupleNames(brideName, groomName, storedOrder);
+  }
+
   const updatePatch: Record<string, unknown> = {
-    region,
-    mood_feel_key: moodFeelKey,
+    // 👥 A based post leaves out what it did not change — absent ⇒ untouched, like the budget. Unbased: written, as before.
+    ...(!based || formData.has('region') ? { region } : {}),
+    ...(!based || formData.has('mood_feel_key') ? { mood_feel_key: moodFeelKey } : {}),
     ...(namesPosted ? { bride_name: brideName, groom_name: groomName } : {}),
   };
   // Untouched when the key never arrived — the same "absent ⇒ leave it alone"
@@ -809,6 +830,8 @@ export async function updateEventMatchCriteria(
   // limitation). Sensitive data; never read on any public/guest surface.
   const beforeRow = (before ?? null) as Record<string, unknown> | null;
   if (
+    // 👥 A based post that did not change the birth data leaves it (and its consent) exactly as stored.
+    (!based || formData.has('bazi_birthdata_consent')) &&
     baziBirthDataEnabled() &&
     isChineseWedding({
       ceremony_type: (beforeRow?.ceremony_type as string | null) ?? null,
@@ -870,6 +893,9 @@ export async function updateEventMatchCriteria(
       updatePatch.bazi_birthdata_consent_at = null;
     }
   }
+
+  // 👥 A based save that changed nothing writes nothing (and logs nothing) — the page is already what is stored.
+  if (based && Object.keys(updatePatch).length === 0) return { ok: true };
 
   const { error: updateError } = await admin
     .from('events')

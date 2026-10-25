@@ -1,0 +1,11 @@
+## 2026-10-20 · feat(guests, seating-3d): a guest's attire is their role's dress code — the card says it, the 3D seat plan wears it
+
+Owner, verbatim, on the guest card's Seat fold ("Attire · 3D seat plan — Neutral / auto"): *"the attire depends on the dress code of their role."*
+
+- **One reading, `guestOutfitOf` (new `lib/guest-outfit.ts`).** The role's answer (`resolveGuestAttireWithGroups`), then the guest's OWN column of it (`readerAttire`: a ninang the women's pick, a parent by the "Atty. (Woman)" pick → title → the stored `guests.attire` as the last resort, `womanOrManOf`). A plain guest reads the Studio's "Guests" row, their own column (`picksOf` + `readerPick`). `guestMeFacts` (Me › What to wear) now calls it, so Me, the card and the room share one function.
+- **The guest card** no longer offers an attire pick. The Seat fold says, read-only, what they wear in the 3D seat plan and where it came from — "Long gown" · "from VIP · Immediate Family’s dress code" — or "Not set yet" · "Set it in Studio › Mood Board & Dress Code" (plain words, no link). New kit leaf `K.Fact` (template kit: the shipped `FactRow`; the Maker's hand kit: two unframed lines). A refused dress-code read draws no line (its own query, so it never takes the ceremony context with it).
+- **The 3D seat plan** (couple lab + homepage demo) dresses each guest from `seatPlanOutfitOf(guestOutfitOf(…))`: the class from their column, and a said Wear worn as said (Barong Tagalog → barong, Filipiniana → Filipiniana; the hash variety only where no Wear is said). A man standing as a bridesmaid stays dressed as a man (2026-10-17 rule kept). Colours unchanged (`resolveAttirePaletteColor`).
+- **`guests.attire` untouched in the DB** — no migration, no rewrite. `updateGuest` writes it only when a form posts it (`attirePosted`), so a card save can never reset a stored Gown / Suit.
+- Guards: `lib/the-seat-plan-wears-the-role-dress-code.test.ts` (new) + `the-card-posts-every-column` (attire exempt only while conditional) + the card form golden regenerated (attire no longer posted) + `the-fable-card-and-rows` (no attire pick, a fact row).
+
+SPEC IMPACT: DECISION_LOG row "A GUEST'S ATTIRE IS THEIR ROLE'S DRESS CODE" (owner 2026-10-20) — the card's per-guest attire pick is retired; the 3D seat plan reads the role dress code.

@@ -13,6 +13,7 @@
  *     `lib/floating-rows-are-glass.test.ts`, which lists this row too)
  *   · the envelope seeded from the notification count        → test 4
  *   · `vendor_shop_v1` mounted on Today                      → test 5
+ *     (since 2026-10-22: Today mapped to a page tour           → test 5)
  *   · `useFitRow` called in the shell that renders null      → test 2
  */
 import test from 'node:test';
@@ -24,6 +25,7 @@ import { stripComments } from '@/lib/strip-comments';
 import { TOURS, TOUR_KEYS } from '@/lib/tours';
 import { customerLandingHref } from '../customers/anchors';
 import { leavesThePage } from './supplier-thumb-leave';
+import { supplierPageTourOn } from '@/lib/supplier-page-tours';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = join(HERE, '..', '..', '..');
@@ -86,7 +88,8 @@ test('2 · the thumb row is the shared glass, portalled, fitted and slid — wit
   assert.match(lower[1]!, /position:\s*fixed/);
   assert.match(lower[1]!, /transform:\s*translateY\(140%\)/, 'the row does not start below the screen, so it cannot slide up');
   assert.match(lower[1]!, /transition:\s*transform 320ms/);
-  assert.match(lower[1]!, /bottom:\s*calc\(var\(--sn-bottomdock-h/, 'it no longer sits on the measured bottom dock');
+  // On the measured bottom dock — or, while the phone's keyboard is up, on the keyboard (`--sn-ride-h`, 2026-10-24).
+  assert.match(lower[1]!, /bottom:\s*calc\(var\(--sn-ride-h,\s*var\(--sn-bottomdock-h/, 'it no longer sits on the measured bottom dock');
   assert.doesNotMatch(lower[1]!, /background|box-shadow|backdrop-filter/, 'the row took a fill, a shadow or a blur of its own — the shared recipe paints it');
   assert.match(css, /\.lower\[data-on='true'\]\s*\{\s*transform:\s*none;?\s*\}/, 'nothing brings it up');
   assert.match(css, /prefers-reduced-motion: reduce\)\s*\{\s*\.lower\s*\{\s*transition:\s*none/, 'reduced motion still slides');
@@ -111,12 +114,13 @@ test('4 · the shell hands the shared bar the envelope, seeded from the messages
   const cluster = layout.slice(at, layout.indexOf('timer.flush();', at));
   const env = cluster.match(/<UnreadMessagesBadge\b[\s\S]*?\/>/);
   assert.ok(env, 'the envelope is not in the cluster handed to the shared bar');
-  assert.equal(cluster.match(/<UnreadMessagesBadge\b/g)!.length, 1, 'two envelopes are two Realtime channels');
+  assert.equal(cluster.match(/<UnreadMessagesBadge\b/g)!.length, 1, 'two envelopes are two count polls');
   assert.match(env[0], /initialUnread=\{threadsUnread\}/, 'the envelope is seeded from something other than the unread MESSAGES count');
   assert.match(env[0], /href=\{customerLandingHref\('messages'\)\}/, 'the envelope does not land on the inbox through the anchors table');
   assert.equal(customerLandingHref('messages'), '/vendor-dashboard/customers?seg=people&open=messages#customer-tools');
   assert.ok(cluster.indexOf('<UnreadMessagesBadge') < cluster.indexOf('<AccountSwitcher'), 'the envelope sits after the avatar');
-  assert.match(cluster, /<AccountSwitcher data=\{switcherData\} \/>/, 'the avatar — and the only Sign out — left the bar');
+  // The supplier's own rows ride along (step 5's rows + step 6's sheet, prototype SHEETS.avatar).
+  assert.match(cluster, /<AccountSwitcher\s+data=\{switcherData\}\s+shopRows=\{switcherShopRows\}[^>]*\/>/, 'the avatar — and the only Sign out — left the bar');
   assert.match(cluster, /data-supplier-shell-shop=""[^>]*>\s*\{vendorSidebarName\}/, 'the bar names the person, not the shop');
 });
 
@@ -136,18 +140,20 @@ test('5 · the two new tour keys are registered — and each mounts only with it
   assert.equal(TOURS.vendor_hub_v1.slides[0]!.title, 'Run the day');
   assert.equal(TOURS.vendor_hub_v1.slides[0]!.body, 'Scan, schedule, shot list, headcount — for this event only.');
 
-  // A tour is a claim about a page. It mounts on that page and nowhere else.
-  const HOME: Record<string, string> = {
-    vendor_shop_v1: 'app/vendor-dashboard/shop/',
-    vendor_hub_v1: 'app/vendor-dashboard/on-the-day/',
-  };
+  // A tour is a claim about a page. It plays on that page and nowhere else. ⚠ CHANGED ON PURPOSE
+  // 2026-10-22 (owner "Yes to all", journey_fixes Supplier 3): both are switched on as spotlights and are
+  // mounted ONCE in the supplier layout (a page mount dies when Shop's first stop walks into Page), so
+  // "its own page" is now the address rule `supplierPageTourOn` — asked here, and in full by
+  // `each-supplier-page-has-its-tour.test.ts`.
+  assert.equal(supplierPageTourOn('/vendor-dashboard/shop', {}), 'vendor_shop_v1');
+  assert.equal(supplierPageTourOn('/vendor-dashboard/on-the-day', {}), 'vendor_hub_v1');
+  assert.equal(supplierPageTourOn('/vendor-dashboard', {}), null, 'a page tour plays on Today');
   const files = walk(join(WEB, 'app'));
-  for (const [key, home] of Object.entries(HOME)) {
+  for (const key of ['vendor_shop_v1', 'vendor_hub_v1']) {
     const mounts = files
       .filter((f) => new RegExp(`tourKey="${key}"`).test(stripComments(readFileSync(f, 'utf8'))))
       .map((f) => relative(WEB, f));
-    assert.ok(mounts.length <= 1, `${key} is mounted ${mounts.length} times: ${mounts.join(', ')}`);
-    for (const m of mounts) assert.ok(m.startsWith(home), `${key} is mounted on ${m}, not on the page it describes (${home})`);
+    assert.deepEqual(mounts, [], `${key} is mounted page by page: ${mounts.join(', ')}`);
   }
 });
 

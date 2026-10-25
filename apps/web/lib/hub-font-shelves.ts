@@ -104,28 +104,39 @@ export const HUB_FONT_LEAD = 'lead';
 /**
  * The dropdown's options, as `PickMenu` takes them: the lead (if any), then every
  * face on its shelf, named in its own face, "In use" where the page uses it.
+ *
+ * 🔤 `sample` — A LINE OF THE EVENT'S OWN WORDS UNDER EACH NAME, SET IN THAT FACE (owner 2026-10-14, Maker test
+ * item 4: *"font needs to show their look on their dropdown preview texts before showing on the preview screen"*;
+ * the approved frame `background-sources-amend-2026-10-08/15-el-font-375.png` — each face named in itself with a
+ * sample line under it). The row stays a font row (`content-visibility: auto`), so a face still downloads only
+ * when its row scrolls into the open list — never all of them up front.
  */
 export function hubFontPickOptions({
   recent,
   inUse,
   lead,
+  sample,
 }: {
   recent?: readonly HubFontKey[];
   inUse?: readonly HubFontKey[];
   lead?: string;
+  sample?: string | null;
 }): Array<{
   key: string;
   label: string;
   fontFamily?: string;
   group?: string;
+  hint?: string;
   trail?: { text: string; tone: 'muted' };
 }> {
+  const line = sample?.trim() ? sample.trim() : null;
   return [
     ...(lead ? [{ key: HUB_FONT_LEAD, label: lead }] : []),
     ...hubFontShelves({ recent, inUse }).map((f) => ({
       key: f.key,
       label: f.label,
       fontFamily: hubFontPreviewStack(f.key),
+      ...(line ? { hint: line } : {}),
       group: f.shelf,
       ...(f.inUse ? { trail: { text: HUB_FONT_IN_USE, tone: 'muted' as const } } : {}),
     })),

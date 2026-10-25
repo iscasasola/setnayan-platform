@@ -13,7 +13,6 @@
  */
 
 import { useActionState, useCallback, useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { Building2, MapPin, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -21,6 +20,7 @@ import { type OpenRail, type OpenRailDetails } from '@/lib/payment-channels';
 import { PaymentsPausedNote } from './payments-paused-note';
 import { Collapsible } from './collapsible';
 import { BranchPinMap, type LatLng } from './branch-pin-map';
+import { lookUpBranchPlace } from './branch-place-cache';
 import {
   createBranch,
   renewBranch,
@@ -71,7 +71,6 @@ export function BranchManager({
   pay,
 }: Props) {
   const toast = useToast();
-  const router = useRouter();
   const [adding, setAdding] = useState(false);
   // Bumped after a successful add so the form remounts fresh (pin back to the
   // HQ centre, city cleared, manual-edit flag reset) for the next branch.
@@ -103,7 +102,7 @@ export function BranchManager({
             onDone={() => {
               setAdding(false);
               setFormKey((k) => k + 1);
-              router.refresh();
+              // ⚡ `createBranch` revalidates: its own answer drew the new branch — no second render.
             }}
             toastSuccess={(m) => toast.success(m)}
             toastError={(m) => toast.error(m)}
@@ -163,7 +162,6 @@ export function BranchManager({
               key={b.branch_id}
               branch={b}
               feePhp={feePhp}
-              onDone={() => router.refresh()}
               toastSuccess={(m) => toast.success(m)}
               toastError={(m) => toast.error(m)}
             />
@@ -210,7 +208,7 @@ function AddBranchForm({
   const detect = useCallback((v: LatLng) => {
     const seq = ++detectSeq.current;
     setDetecting(true);
-    detectBranchLocation(v.lat, v.lng)
+    lookUpBranchPlace(v, detectBranchLocation)
       .then((res) => {
         if (seq !== detectSeq.current) return; // ignore stale pan responses
         if (!cityTouched.current) setCity(res.city);
@@ -224,11 +222,16 @@ function AddBranchForm({
       });
   }, []);
 
-  // Detect the opening centre once so the city is pre-filled.
-  useEffect(() => {
-    detect(initialCenter);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // 🔍 NO LOOKUP UNTIL THE PIN MOVES (QA 2026-10-22, F9). This form used to
+  // reverse-geocode its opening centre in a mount effect — and it MOUNTS WITH
+  // THE PAGE, folded shut inside <Collapsible>, so every open of Your details
+  // cost one server action + one Nominatim call before anyone pressed
+  // "Add a branch" (and a lab with no session was bounced to /login by it).
+  // The opening centre is the HQ — a branch is by definition somewhere else,
+  // so its city was the one answer the supplier would always have to replace.
+  // The city is looked up when the supplier moves the pin (onPinChange), and a
+  // spot already looked up is answered from `lookUpBranchPlace`'s cache.
+  // Held by `branch-place-is-looked-up-on-a-move.test.ts`.
 
   // Settle each submission once.
   useEffect(() => {
@@ -337,13 +340,11 @@ function AddBranchForm({
 function BranchRow({
   branch,
   feePhp,
-  onDone,
   toastSuccess,
   toastError,
 }: {
   branch: VendorBranchView;
   feePhp: number;
-  onDone: () => void;
   toastSuccess: (m: string) => void;
   toastError: (m: string) => void;
 }) {
@@ -362,8 +363,8 @@ function BranchRow({
     if (renewState === BRANCH_IDLE || renewState === handledRenew.current) return;
     handledRenew.current = renewState;
     if (renewState.status === 'success') {
+      // ⚡ Renew and Cancel revalidate: the row is redrawn by the action's own answer.
       toastSuccess(renewState.message);
-      onDone();
     } else if (renewState.status === 'error') {
       toastError(renewState.message);
     }
@@ -375,7 +376,6 @@ function BranchRow({
     handledCancel.current = cancelState;
     if (cancelState.status === 'success') {
       toastSuccess(cancelState.message);
-      onDone();
     } else if (cancelState.status === 'error') {
       toastError(cancelState.message);
     }

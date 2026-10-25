@@ -2,6 +2,7 @@
 
 import { LOVE_STORY_PREVIEW_T as LOVE_STORY_PREVIEW, SCHEDULE_PREVIEW_T as SCHEDULE_PREVIEW, applyLoveStoryPreview, applySchedulePreview } from '@/lib/maker-live-preview-apply';
 import { Component, useEffect, useRef, useTransition } from 'react';
+import { applyCoverShadePreview, sanitizeCoverShadePreview, undoCoverShadePreview } from './cover-shade-preview';
 import { useRouter } from 'next/navigation';
 import {
   HUB_ELEMENT_EXCLUDED_WIDGETS,
@@ -16,6 +17,8 @@ import {
   hubElementHeroMotionVars,
   hubElementSceneCss,
   hubSceneRunsAttr,
+  hubSceneFxAttr,
+  HUB_SCENE_FX_ATTR,
   hubTextHash,
   isHubElementKey,
   readHubSceneRuns,
@@ -23,19 +26,28 @@ import {
   type HubElementKey,
   type HubElementStyle,
   type HubElementStyles,
+  HUB_SHIMMER_ATTR,
+  hubElementShimmer,
 } from '@/lib/element-style';
 import { postEventElementScope } from '@/lib/post-event-styles';
-import { CANVAS_REDRAW_COMMITS_EVENT, findMakerSection, sectionAfter } from './maker-section-find';
+import { CLOSING_EL, closingLineMotionVars } from '@/lib/closing-line';
+import { CANVAS_REDRAW_COMMITS_EVENT, SCENE_LOOK_HIDDEN_ATTR, findMakerSection, sectionAfter } from './maker-section-find';
+import { layScenePicture, takeScenePicturesOff } from './scene-look-lay';
+import { keepReactChildren, keepReactNodes, putReactChildrenBack } from './react-children-keep';
 import { HUB_TAB_FREES, createPageTop, openHubTab, showHubTab, shownHubTab } from './hub-tab-dom';
 import { applySceneBgPreview, sanitizeSceneBgPreview, undoSceneBgPreviews } from './scene-bg-preview';
 import { applyButtonsPreview, sanitizeButtonsPreview } from './buttons-preview';
 import { createMainGroundPreviewer, sanitizeMainGroundPreview, type MainGroundPreviewer } from './main-ground-preview';
 import { applyPartRuns, applySceneRuns, type RunsDoc } from './part-runs';
+import { applyPartFxAttrs, applySceneFx, replayPartFx, unwrapPartFx, wrapPartFx } from './part-fx-cut';
 import { applySceneCardPreview } from '@/lib/scene-card-look';
 import { createCanvasTyping, markSceneWords, readSceneTypeWords, sceneTypeField, typeablePart } from './type-in-place-canvas';
 import { createCanvasBringUp } from './canvas-bring-up';
+import { createSectionBinder } from './canvas-section-binder';
 import { replaySceneIn, sceneFrameOf } from './scene-replay';
-import { playSequence } from './play-sequence';
+import { finishArrivals, playCover, playSequence } from './play-sequence';
+import { laySceneMotion, readSceneMotion } from './scene-motion-lay';
+import { startGuestArrivals } from './guest-preview-arrivals';
 import { guestLinkLeaves } from './guest-in-canvas';
 
 /**
@@ -278,6 +290,7 @@ export function previewSceneWords(section: Element, text: string): boolean {
     });
   }
   if (!target) return false;
+  keepReactChildren(target);
   target.textContent = text;
   return true;
 }
@@ -297,20 +310,32 @@ const LOOK_PROPS: readonly string[] = HUB_ELEMENT_LOOK_PROPS;
  * must not replay the entrance. `animation-name` goes with the motion because
  * ▶ Play leaves its `-p` twin inline.
  */
-export function applyHeroPartStyle(part: HTMLElement, style: HubElementStyle | null | undefined, motion: boolean): void {
+export function applyHeroPartStyle(
+  part: HTMLElement,
+  style: HubElementStyle | null | undefined,
+  motion: boolean,
+  /* 🕯 The closing's line lays its motion for the page's foot (`lib/closing-line.ts`) — the guest page's own vars. */
+  motionVars: (style: HubElementStyle | null | undefined) => Array<[string, string]> = hubElementHeroMotionVars,
+): void {
   const clear: string[] = [...LOOK_PROPS];
   if (motion) clear.push(...HUB_ELEMENT_MOTION_PROPS, 'animation-name');
   for (const p of clear) part.style.removeProperty(p);
-  // The Maker's canvas: a hidden part is ghosted, never gone (as the server
-  // draws it with `stampElements`).
-  for (const [p, v] of hubElementDeclarations(style, { editor: true })) part.style.setProperty(p, v);
+  // A hidden cover line LEAVES the canvas at once (owner-approved 2026-10-16) — as the server draws it — and comes
+  // back from Cover Scene › Edit's list; it is never ghosted on the cover.
+  for (const [p, v] of hubElementDeclarations(style, { editor: part.getAttribute('data-el') === 'joiner' })) part.style.setProperty(p, v);
   if (!motion) return;
   /* The motion as the guest page carries it: three custom properties and the
      `data-el-motion` hook the one gated rule in globals.css reads. */
-  const vars = hubElementHeroMotionVars(style);
+  const vars = motionVars(style);
   for (const [p, v] of vars) part.style.setProperty(p, v);
   if (vars.length > 0) part.setAttribute('data-el-motion', '');
   else part.removeAttribute('data-el-motion');
+  /* ✨ …and a shimmer's band, the hook of its one paint rule (`hubElementMotionAttr`). */
+  const band = hubElementShimmer(style?.motion);
+  if (band) part.setAttribute(HUB_SHIMMER_ATTR, band);
+  else part.removeAttribute(HUB_SHIMMER_ATTR);
+  /* ✨ …and the six new effects' hooks (Words ▾ · Glow · Reveal ▾ · the photo's Action), as the server lays them. */
+  applyPartFxAttrs(part, style);
 }
 
 /**
@@ -322,6 +347,7 @@ export function applyHeroPartStyle(part: HTMLElement, style: HubElementStyle | n
  */
 export function applyPartWords(part: HTMLElement, word: string | null | undefined): void {
   const target = part.querySelector<HTMLElement>('[data-el-words]') ?? part;
+  keepReactChildren(target);
   if (!target.hasAttribute('data-el-word')) target.setAttribute('data-el-word', target.textContent ?? '');
   target.textContent = word ?? target.getAttribute('data-el-word') ?? '';
 }
@@ -360,7 +386,7 @@ export function applySceneElementStyles(
   const runs = hubSceneRunsAttr(elements);
   let tag = sceneStyleOf(section, widgetType);
   if (!tag) {
-    if (!css && !runs) return null;
+    if (!css && !runs && !hubSceneFxAttr(elements)) return null;
     tag = doc.createElement('style');
     tag.hidden = true;
     tag.setAttribute('data-hub-els', widgetType);
@@ -369,6 +395,10 @@ export function applySceneElementStyles(
   tag.textContent = css;
   if (runs) tag.setAttribute('data-hub-runs', runs);
   else tag.removeAttribute('data-hub-runs');
+  /* ✨ …and its parts' word effects, as the frame renders them (`hubSceneFxAttr`). */
+  const fx = hubSceneFxAttr(elements);
+  if (fx) tag.setAttribute(HUB_SCENE_FX_ATTR, fx);
+  else tag.removeAttribute(HUB_SCENE_FX_ATTR);
   return tag;
 }
 
@@ -387,6 +417,20 @@ export function applyElementPreview(
   doc: PreviewDoc,
 ): HTMLElement[] {
   const parts = Array.from(section.querySelectorAll<HTMLElement>(`[data-el="${el}"]`));
+  /* 🕯 THE CLOSING'S LINE (`f:closing`, stored on the hero row): its look, its words and its cut — as the guest page
+     draws it (`closing-line.tsx`). No other part shares its alignment, so only it is re-laid. */
+  if (el === CLOSING_EL) {
+    for (const part of parts) {
+      applyHeroPartStyle(part, elements?.[el], motion, closingLineMotionVars);
+      /* The sign-off's own ink (the kit's, `data-el-ink`) is under the couple's colour — back when theirs is taken off. */
+      const ink = part.getAttribute('data-el-ink');
+      if (ink && !part.style.color) part.style.color = ink;
+      unwrapPartFx(part, doc);
+      applyPartWords(part, elements?.[el]?.word);
+      wrapPartFx(part, elements?.[el], doc);
+    }
+    return parts;
+  }
   if ((HUB_HERO_ELEMENT_KEYS as readonly string[]).includes(el)) {
     /* The hero's alignment is ONE choice for every part (`withElementAlign`), and
        "↺ Use the Event Hub style" takes it off every part — so every hero part's
@@ -398,8 +442,11 @@ export function applyElementPreview(
     }
     for (const part of parts) {
       applyHeroPartStyle(part, elements?.[el], motion);
+      /* ✂ The words' cut (Word by word · Spread · Glow) off first, laid again last — over the words and runs drawn now. */
+      unwrapPartFx(part, doc);
       if (HUB_ELEMENT_FIELDS[el].includes('word')) applyPartWords(part, elements?.[el]?.word);
       if (HUB_ELEMENT_RUN_KEYS.includes(el)) applyHeroPartRuns(part, elements?.[el], doc);
+      wrapPartFx(part, elements?.[el], doc);
     }
     return parts;
   }
@@ -413,8 +460,14 @@ export function applyElementPreview(
   // A ▶ Play leaves an inline `-p` twin that would outrank the new motion.
   if (motion) for (const part of parts) part.style.removeProperty('animation-name');
   applySceneElementStyles(section, scope, elements, doc);
+  /* ✨ The word effects' cut off first (the runs re-cut the words drawn now), then laid again over them — at once, the
+     couple is looking at the scene (`applySceneFx`). */
+  const cutNow = Boolean(section.querySelector('[data-el-w]') || section.querySelector('[data-el-sl]'));
+  const cutNext = hubSceneFxAttr(elements) !== null;
+  if (cutNow) applySceneFx(section, null, doc);
   // ✍ …and its runs, cut into the part they were made on (`applySceneRuns`).
   if (key.startsWith('w:') && !HUB_ELEMENT_EXCLUDED_WIDGETS.includes(scope)) applySceneRuns(section, elements, doc);
+  if (cutNext && !HUB_ELEMENT_EXCLUDED_WIDGETS.includes(scope)) applySceneFx(section, elements, doc);
   return parts;
 }
 
@@ -425,9 +478,14 @@ export function applyElementPreview(
  * on the clock for this one replay. False when the part has no In to play.
  */
 export function replayElementIn(part: HTMLElement, scroll = true): boolean {
+  /* ✨ The words' and the reveal's own arrival (Word by word · Spread · Develop · Curtain) play again too. */
+  const fx = replayPartFx(part);
   const names = getComputedStyle(part).animationName.split(',').map((n) => n.trim());
   const i = names.findIndex((n) => n.startsWith('el-in-'));
-  if (i < 0) return false;
+  if (i < 0) {
+    if (fx && scroll) part.scrollIntoView({ behavior: 'auto', block: 'center' });
+    return fx;
+  }
   names[i] = names[i]!.endsWith('-p') ? names[i]!.slice(0, -2) : `${names[i]}-p`;
   const prevOutline = part.style.outline;
   part.style.outline = 'none';
@@ -489,10 +547,17 @@ export class BeforeRedrawCommits extends Component<{ pending: boolean; run: () =
 /** What `BeforeRedrawCommits` runs: every hand-laid scene frame goes back to the page's own DOM. */
 const undoLaidPreviews = () => {
   undoSceneBgPreviews(document);
+  /* 🌗 …and the cover's Darker ↔ Lighter laid while the thumb moved: the render about to commit draws the saved shade. */
+  undoCoverShadePreview(document);
   /* ✋ …and whatever the Maker laid ON the page ahead of a save (a scene slid to where it was dropped, a place held for
      a part on its way): told NOW, synchronously, so it is taken off in the very commit that draws the server's order —
      never one frame of the order twice, never React finding a node it did not put there (the Maker's drag engine). */
   document.querySelector('[data-maker-scene-placeholder]')?.remove();
+  /* 🎨 …and a style pick's picture laid at the tap (`sceneLook`): the server's render of that style takes its place. */
+  takeScenePicturesOff(document);
+  /* 🧯 …and every node React made that the Maker wrote into (words typed in place, runs cut) is React's again —
+     else this very commit's `removeChild` throws and the page falls to its error screen (`react-children-keep.ts`). */
+  putReactChildrenBack();
   /* A scene ＋ brought back that this page had taken off (`sceneShow`): the render about to commit draws it. */
   for (const el of Array.from(document.querySelectorAll<HTMLElement>(`[${SHOW_ON_REDRAW_ATTR}]`))) {
     el.style.display = '';
@@ -519,9 +584,13 @@ export function EditorBridge() {
   const startRedrawRef = useRef(startRedraw);
   startRedrawRef.current = startRedraw;
   const wasRedrawing = useRef(false);
+  /** The tap sweep (`bindAll` in the bridge's effect) — run again once a redraw is on the page. */
+  const rebindRef = useRef<(() => void) | null>(null);
   useEffect(() => {
     if (wasRedrawing.current && !redrawing) {
       groundPreview.current?.redrawDone();
+      /* 👆 the server's render may have brought new section nodes: each is bound before the couple can tap it */
+      rebindRef.current?.();
       /* 🔁 The page now draws what the server holds — a held move / ＋ waits on this (the Maker's held-redraw watch). */
       window.parent?.postMessage({ source: 'setnayan-site', t: 'redrawn' }, window.location.origin);
     }
@@ -530,6 +599,9 @@ export function EditorBridge() {
   useEffect(() => {
     const origin = window.location.origin;
     const cleanups: Array<() => void> = [];
+    /* 🧯 the Maker's canvas: note React's nodes before every write into them (`react-children-keep.ts`) */
+    keepReactNodes(true);
+    cleanups.push(() => keepReactNodes(false));
     if (groundLayer.current) {
       groundPreview.current = createMainGroundPreviewer(groundLayer.current, (m) =>
         window.parent?.postMessage({ source: 'setnayan-site', t: 'mainGround', ...m }, origin),
@@ -561,6 +633,8 @@ export function EditorBridge() {
         if (a && guestLinkLeaves(a.href, a.target, window.location.href)) refuse(e, 'link');
       };
       const onSubmit = (e: Event) => refuse(e, 'send');
+      /* 👁 …and each scene ARRIVES as a guest gets it: on screen now, below as it is scrolled to (`guest-preview-arrivals.ts`). */
+      let arrivals: (() => void) | null = null;
       const set = (on: boolean) => {
         if (on === state.on) return;
         state.on = on;
@@ -569,7 +643,15 @@ export function EditorBridge() {
           document.documentElement.setAttribute('data-maker-guest', '');
           document.addEventListener('click', onClick, true);
           document.addEventListener('submit', onSubmit, true);
+          arrivals = startGuestArrivals(document, window, (frame) => {
+            replaySceneIn(frame as never, {
+              replayPart: (part) => replayElementIn(part as unknown as HTMLElement, false),
+              later: (fn, ms) => window.setTimeout(fn, ms),
+            });
+          }, (part) => void replayElementIn(part, false));
         } else {
+          arrivals?.();
+          arrivals = null;
           document.documentElement.removeAttribute('data-maker-guest');
           document.removeEventListener('click', onClick, true);
           document.removeEventListener('submit', onSubmit, true);
@@ -586,9 +668,9 @@ export function EditorBridge() {
     cleanups.push(() => typing.dispose());
 
     // ── canvas → Maker: a tapped section selects its navigator tile ─────────
-    const bind = (el: HTMLElement, key: string) => {
-      if (el.dataset.setnayanEditorBound === '1') return;
-      el.dataset.setnayanEditorBound = '1';
+    /* 🔑 WHAT IS BOUND IS WHAT THIS BRIDGE BOUND (`canvas-section-binder.ts`, 2026-10-16 live: "cannot select on maker
+       preview screen anymore") — a Style card's picture laid over a section arrives wearing another page's mark. */
+    const listen = (el: HTMLElement, key: string) => {
       const prevCursor = el.style.cursor;
       el.style.cursor = 'pointer';
       const send = (e: Event) => {
@@ -645,36 +727,34 @@ export function EditorBridge() {
         // schedule-widget.tsx), so the Maker opens THAT moment in Details.
         const momentId = (e.target as Element | null)?.closest?.('[data-schedule-moment]')?.getAttribute('data-schedule-moment');
         const moment = momentId ? { moment: momentId } : {};
+        // 🖼 A tap on one of a template scene's pictures names its slot (`data-scene-slot`, scene-template.tsx), so the
+        // Maker opens THAT picture in Edit (owner 2026-10-18).
+        const slotAt = (e.target as Element | null)?.closest?.('[data-scene-slot]')?.getAttribute('data-scene-slot');
+        const slot = slotAt ? { slot: slotAt } : {};
         window.parent?.postMessage(
           part
-            ? { source: 'setnayan-site', t: 'edit', key, el: part.getAttribute('data-el'), ...empty, ...moment }
-            : { source: 'setnayan-site', t: 'edit', key, ...empty, ...moment },
+            ? { source: 'setnayan-site', t: 'edit', key, el: part.getAttribute('data-el'), ...empty, ...moment, ...slot }
+            : { source: 'setnayan-site', t: 'edit', key, ...empty, ...moment, ...slot },
           origin,
         );
       };
       el.addEventListener('click', send);
-      cleanups.push(() => {
+      return () => {
         el.removeEventListener('click', send);
         el.style.cursor = prevCursor;
-        delete el.dataset.setnayanEditorBound;
-      });
+      };
     };
-    document.querySelectorAll('[data-maker-section]').forEach((m) => {
-      const el = sectionAfter(m);
-      if (!el) return;
-      const key = m.getAttribute('data-maker-section')!;
-      stampSceneElements(el, key);
-      bind(el, key);
+    const binder = createSectionBinder(document, listen, (el, key) => void stampSceneElements(el, key));
+    cleanups.push(() => binder.dispose());
+    /* 🔁 EVERY SECTION ON THE PAGE NOW — at mount, the moment a Style card's picture is laid over a section (that copy
+       IS the section the couple sees and taps), and after every in-place redraw (the server's render can bring a NEW
+       node where the bound one stood). A sweep that finds nothing new does nothing. */
+    const bindAll = binder.sweep;
+    bindAll();
+    rebindRef.current = bindAll;
+    cleanups.push(() => {
+      rebindRef.current = null;
     });
-    for (const key of ['f:entourage', 'f:story']) {
-      const el = findMakerSection(document, key);
-      if (el) bind(el, key);
-    }
-    // The legacy rows (details, …) — bubbling from a section above stops first.
-    for (const key of ['home', 'details', 'gallery', 'me']) {
-      const el = findMakerSection(document, key);
-      if (el) bind(el, key);
-    }
 
     /* 📱 A tap that lands on NO section (the page's margins, the ground between
        scenes) — the Maker folds an open part sheet to its bar on a phone
@@ -682,7 +762,7 @@ export function EditorBridge() {
        its own clicks, so only a stray tap reaches here. */
     const onStray = (e: MouseEvent) => {
       if (guest.on) return;
-      if ((e.target as Element | null)?.closest?.('[data-setnayan-editor-bound="1"]')) return;
+      if (binder.holds(e.target)) return;
       window.parent?.postMessage({ source: 'setnayan-site', t: 'tapOutside' }, origin);
     };
     document.addEventListener('click', onStray);
@@ -699,7 +779,9 @@ export function EditorBridge() {
         if (typing.typing()) return;
         const hit = selectionInPart(window.getSelection());
         const section = hit?.part.closest('[data-setnayan-editor-bound="1"]') as HTMLElement | null;
-        const marker = section?.previousElementSibling;
+        /* A laid Style picture stands after the page's own (hidden) section, which stands after the marker. */
+        let marker = section?.previousElementSibling ?? null;
+        if (marker?.hasAttribute(SCENE_LOOK_HIDDEN_ATTR)) marker = marker.previousElementSibling;
         const key = marker?.getAttribute('data-maker-section') ?? null;
         window.parent?.postMessage(
           hit && key
@@ -798,6 +880,7 @@ export function EditorBridge() {
         /* ⚡ …and a background laid ahead of its save steps aside for THIS render — never before it is on screen. */
         groundPreview.current?.redrawStarted();
         startRedrawRef.current(() => {
+          // one-render: keep (other-frame) — the Maker saved in the PARENT document; its answer re-rendered the Maker, never this canvas page.
           routerRef.current.refresh();
         });
         return;
@@ -813,6 +896,14 @@ export function EditorBridge() {
         const preview = sanitizeMainGroundPreview(data, origin);
         if (preview && 'landed' in preview) groundPreview.current?.land(preview.seq);
         else if (preview) groundPreview.current?.lay(preview);
+        return;
+      }
+      /* 🌗 THE COVER SCENE'S Darker ↔ Lighter, WHILE THE THUMB MOVES (`cover-shade-preview.ts`): one style this file
+         owns, checked; taken off by the redraw that draws the saved shade, or at once when the save was refused. */
+      if (data && data.source === 'setnayan-editor' && data.t === 'coverShade') {
+        const look = sanitizeCoverShadePreview(data);
+        if (look === 'off') undoCoverShadePreview(document);
+        else if (look) applyCoverShadePreview(document, look);
         return;
       }
       if (data && data.source === 'setnayan-editor' && data.t === 'sceneBg') {
@@ -943,8 +1034,10 @@ export function EditorBridge() {
         if (window.frameElement?.getAttribute('data-maker-canvas-frame') === 'warm') return;
         /* 🔝 From the top, the old page's resting place forgotten (`openHubTab`) — so the `settle` that follows a
            tab tap (it closes the part being edited) cannot send the page back down. */
-        if (!openHubTab(document, window, lift, tab)) return;
-        pageTop.hold();
+        const opened = openHubTab(document, window, lift, tab);
+        if (!opened) return;
+        /* 📜 A jump mark of the one page (owner 2026-10-15) went to its place — nothing to hold at the top. */
+        if (opened === true) pageTop.hold();
         window.parent?.postMessage({ source: 'setnayan-site', t: 'hubTab', tab }, origin);
         return;
       }
@@ -960,6 +1053,13 @@ export function EditorBridge() {
           const scene = typeof field === 'string' && field ? field : null;
           typing.set(findMakerSection(document, data.key), data.el, text.slice(0, scene ? 4000 : 240), scene);
         }
+        return;
+      }
+      if (data.t === 'sceneLook') {
+        /* 🎨 A STYLE PICK, ON THE PAGE AT THE TAP (`lib/maker-scene-look.ts`): the picked card's own section — the
+           guest page drawn in that style — laid over this one until the in-place redraw brings the server's. */
+        const html = (data as { html?: unknown }).html;
+        if (typeof html === 'string' && html.length < 400_000 && layScenePicture(document, data.key, html)) bindAll();
         return;
       }
       const el = findMakerSection(document, data.key);
@@ -1005,6 +1105,34 @@ export function EditorBridge() {
           /* ▶ where they are: Animate's Build in · Action · Build out plays that phase alone. */
           only === 'in' || only === 'act' || only === 'out' ? only : undefined,
         );
+        return;
+      }
+      if (data.t === 'playCover') {
+        /* 🎬 ▶ THE COVER SCENE: veil → unveil → every line in its beat (`playCover`). Told back like any ▶. */
+        seqStop?.();
+        const sel = 'header[data-pahina-first-screen]';
+        const header = (el as HTMLElement).matches?.(sel) ? (el as HTMLElement) : (el.querySelector<HTMLElement>(sel) ?? null);
+        if (!header) return;
+        seqStop = playCover(header, (data as { veil?: unknown }).veil === true, (r) => {
+          if (r.phase === 'rest') seqStop = null;
+          window.parent?.postMessage({ source: 'setnayan-site', t: 'playSeq', phase: r.phase, skipped: r.skipped }, origin);
+        });
+        return;
+      }
+      if (data.t === 'sceneMotion') {
+        /* 🎬 A SCENE'S MOTION PICK, ON THE CANVAS NOW (`scene-motion-lay.ts`, the 2026-10-15 walk F5 · F10): laid on the
+           frame on screen — so ▶ always plays the latest pick — and the picked phase played once, as ▶ plays it. The
+           page's own arrival restarted by the new values is finished first, so only the one replay is seen. */
+        const motion = readSceneMotion(data);
+        const frame = sceneFrameOf(el as never) as unknown as HTMLElement | null;
+        if (!motion || !frame) return;
+        laySceneMotion(frame as never, motion);
+        finishArrivals(frame, true);
+        if (!motion.play || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+        seqStop?.();
+        seqStop = playSequence(frame, true, (r) => {
+          if (r.phase === 'rest') seqStop = null;
+        }, motion.play);
         return;
       }
       if (data.t === 'playEl') {

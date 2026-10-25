@@ -13,6 +13,7 @@ import { Loader2 } from 'lucide-react';
 import { GoogleGIcon, AppleIcon, FacebookIcon } from '@/app/_components/oauth-icons';
 import { signInWithProviderDesktop, type DesktopOAuthProvider } from '@/lib/desktop-oauth';
 import { envFlagEnabled } from '@/lib/env-flag';
+import { OAUTH_VERB } from '@/lib/oauth-words';
 
 const GOOGLE_ENABLED = envFlagEnabled(process.env.NEXT_PUBLIC_OAUTH_GOOGLE_ENABLED);
 const APPLE_ENABLED = envFlagEnabled(process.env.NEXT_PUBLIC_OAUTH_APPLE_ENABLED);
@@ -49,7 +50,14 @@ const FACEBOOK_ENABLED =
 const BTN_LIGHT =
   'flex min-h-[44px] w-full items-center justify-center gap-3 rounded-md border border-ink/20 bg-white px-4 py-2.5 text-sm font-medium text-ink/90 transition-colors hover:border-ink/40 hover:bg-ink/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta/40 disabled:cursor-not-allowed disabled:opacity-60';
 
-export function DesktopOAuthButtons({ next, verb = 'Continue with' }: { next: string; verb?: string }) {
+export function DesktopOAuthButtons({
+  next,
+  termsBoxId,
+}: {
+  next: string;
+  /** /signup's one Terms box (owner 2026-10-22): ticked at the press → the agreement is recorded after sign-in. */
+  termsBoxId?: string;
+}) {
   const [pending, setPending] = useState<DesktopOAuthProvider | null>(null);
   if (!GOOGLE_ENABLED && !APPLE_ENABLED && !FACEBOOK_ENABLED) return null;
   const BTN = BTN_LIGHT;
@@ -59,7 +67,9 @@ export function DesktopOAuthButtons({ next, verb = 'Continue with' }: { next: st
     setPending(provider);
     // On success the helper navigates away; on any failure it routes to
     // /login?error. Either way, clear pending if it rejects synchronously.
-    signInWithProviderDesktop(provider, next).catch(() => setPending(null));
+    const box = termsBoxId ? document.getElementById(termsBoxId) : null;
+    const agreed = box instanceof HTMLInputElement && box.checked;
+    signInWithProviderDesktop(provider, next, null, { agreed }).catch(() => setPending(null));
   };
 
   return (
@@ -76,7 +86,7 @@ export function DesktopOAuthButtons({ next, verb = 'Continue with' }: { next: st
           ) : (
             <GoogleGIcon />
           )}
-          {pending === 'google' ? 'Opening your browser…' : `${verb} Google`}
+          {pending === 'google' ? 'Opening your browser…' : `${OAUTH_VERB} Google`}
         </button>
       ) : null}
       {APPLE_ENABLED ? (
@@ -91,7 +101,7 @@ export function DesktopOAuthButtons({ next, verb = 'Continue with' }: { next: st
           ) : (
             <AppleIcon fill={appleFill} />
           )}
-          {pending === 'apple' ? 'Opening your browser…' : `${verb} Apple`}
+          {pending === 'apple' ? 'Opening your browser…' : `${OAUTH_VERB} Apple`}
         </button>
       ) : null}
       {FACEBOOK_ENABLED ? (
@@ -106,7 +116,7 @@ export function DesktopOAuthButtons({ next, verb = 'Continue with' }: { next: st
           ) : (
             <FacebookIcon />
           )}
-          {pending === 'facebook' ? 'Opening your browser…' : `${verb} Facebook`}
+          {pending === 'facebook' ? 'Opening your browser…' : `${OAUTH_VERB} Facebook`}
         </button>
       ) : null}
     </div>

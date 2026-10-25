@@ -168,11 +168,22 @@ test('⛔ the PROTECTED 0.66rem gild eyebrows are untouched across the guest tre
   // label stood over a row of four phase pills; the pills became ONE dropdown
   // (`OwnerPhaseMenu`) that names itself, so the label went with them. Host
   // chrome, not a guest section head — the protected treatment is untouched.
+  //
+  // 19 SINCE 2026-10-17 (LOVE STORY, TWO VOICES — owner-approved Conversation ·
+  // Two-lane timeline · Swipe cards). Each look names a moment by its date
+  // ("2021 · Falling") exactly as the shipped Chapters look does, in the same
+  // protected treatment — written ONCE (`MomentWhen` in our-love-story-styles.tsx)
+  // for all three looks, so the source gains one line, not three. The treatment
+  // is untouched.
+  //
+  // 18 SINCE 2026-10-17 (owner, on the Dress code scene: "we must ommit the our colors here since we are talking
+  // about their dress code") — a REMOVAL: the "Our colours" section head left the scene with its colours. The
+  // treatment is untouched.
   assert.equal(
     gild,
     18,
     `the guest tree carries ${gild} of the 0.66rem gild section eyebrows; it ` +
-      `carried 18 from 2026-10-03, 19 from 2026-10-01, 18 from 2026-09-28, 17 from 2026-09-25 (19 from 2026-09-20, 20 between the role panel ` +
+      `carried 18 from 2026-10-17 (Our colours left the dress code), 19 earlier on 2026-10-17, 18 from 2026-10-03, 19 from 2026-10-01, 18 from 2026-09-28, 17 from 2026-09-25 (19 from 2026-09-20, 20 between the role panel ` +
       `and the reply sheet, 19 when AP-3 shipped). They are an explicitly PROTECTED design ` +
       `decision — AP-3 must not have crept into them. If a legitimate change ` +
       `moves this number, change it here deliberately and say why.`,
@@ -201,7 +212,10 @@ test('🎬 the film’s lettering left the terminal face — and stopped exactly
   for (const shape of [
     /labelCls: 'font-serif text-sm uppercase tracking-\[0\.18em\] text-white\/90'/,
     /labelCls: 'font-serif text-sm uppercase tracking-\[0\.18em\] text-black\/80'/,
-    /px-5 py-2\.5 font-serif text-sm uppercase tracking-\[0\.16em\] text-cream\/90/,
+    /* The hold cue: the approved face, size, case and tracking. Its pill (`bg-black/35`, `px-5 py-2.5`) and the
+       cream type it forced went on 2026-10-19 (sweep C7 — it read as a button and measured ~2:1 on a cream film);
+       the cue now takes the film's own text colour. The lettering is what this site holds, and it is unchanged. */
+    /<p data-film-hold-hint="" className="[^"]*\bfont-serif text-sm uppercase tracking-\[0\.16em\]"/,
     /px-5 py-3 font-serif text-sm uppercase tracking-\[0\.16em\] text-white/,
   ]) {
     assert.match(film, shape, `the film lost an approved lettering site: ${shape}`);

@@ -28,7 +28,11 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { TABBED_STAGES, hubTabFor, hubTabsOn, inPageTabs } from '../app/[slug]/_lib/hub-tabs';
+import { ONE_PAGE_STAGES, TABBED_STAGES as DAY_STAGES, hubTabFor, hubTabsOn, inPageTabs } from '../app/[slug]/_lib/hub-tabs';
+
+/** 📜 Every stage the Stages canvas draws as tabs: The Day's pages AND the one-page stages' jump marks + Me (owner
+ *  2026-10-15 — the Maker's per-tab view follows the guest's split, so both keep a page list here). */
+const TABBED_STAGES = [...DAY_STAGES, ...ONE_PAGE_STAGES];
 import { navPhaseFor, resolveSiteNav } from '../app/[slug]/_lib/site-nav';
 import { STAGE_BAR } from '../app/[slug]/_lib/stage-bar';
 import { HUB_TAB_FREES, HUB_TAB_HOLD_MS, createPageTop, openHubTab, showHubTab, shownHubTab } from '../app/[slug]/_components/hub-tab-dom';
@@ -84,7 +88,7 @@ const hostCanvasBar = (stage: 'rsvp' | 'event') =>
 
 test('a · the Stages pages ARE the Maker’s bar: Invitation four, The Day five — and they are the parts map’s pages', () => {
   assert.deepEqual(makerStagesPages('rsvp').map((p) => p.label), ['Home', 'Details', 'Story', 'Me']);
-  assert.deepEqual(makerStagesPages('event').map((p) => p.label), ['Live', 'Home', 'Camera', 'Gallery', 'Me']);
+  assert.deepEqual(makerStagesPages('event').map((p) => p.label), ['Live', 'Home', 'Camera', 'Memories', 'Me']);
   for (const stage of TABBED_STAGES) {
     assert.deepEqual(keysOf(stage), makerGuestPages(stage, []).map((p) => p.key as string), `${stage}: a second page list`);
     assert.deepEqual(keysOf(stage), Object.keys(MAKER_STAGE_PAGES[stage]), `${stage}: the parts map names other pages than the bar`);
@@ -117,7 +121,7 @@ test('a · the canvas groups by the Maker’s list — a tab the READER’s bar 
   }
   // The owner's own example: Our Love Story is its own page, never the foot of Details.
   assert.equal(makerStagesPageOf('rsvp', 'w:our_love_story', pageTabKeys({ tabsOn: true, bar: inv, stagesPages: keysOf('rsvp') })), 'story');
-  assert.match(BODY, /const inPage = pageTabKeys\(\{ tabsOn, bar, stagesPages \}\);/, 'the canvas asks the one function');
+  assert.match(BODY, /const inPage = pageTabKeys\(\{ tabsOn, bar, stagesPages, onePage \}\);/, 'the canvas asks the one function');
   assert.match(BODY, /tabsOn && stagesTabs && isMakerCanvas && canvasOnly === null \? makerStagesPages\(pageStage, weddingOnly\.love_story\) : null/);
 });
 
@@ -126,7 +130,7 @@ test('a · EVERY page of the list gets a group — a page nothing was filed on d
   assert.deepEqual(stagesPagesLeft(keysOf('rsvp'), new Set(keysOf('rsvp'))), []);
   // Both trees end with it, after every group() has run; it marks each page as a tab of its own.
   assert.equal(BODY.match(/\{tabs\.rest\(\)\}/g)?.length, 2, 'both trees draw the pages nothing was filed on');
-  assert.match(BODY, /stagesPagesLeft\(inPage, filled\)\.map\(\(p\) => \(\s*<div key=\{p\} \{\.\.\.\{ \[HUB_TAB_ATTR\]: p \}\}/);
+  assert.match(BODY, /stagesPagesLeft\(inPage, filled\)\.map\(\(p\) => \(\s*<div key=\{p\} \{\.\.\.\{ \[HUB_TAB_ATTR\]: p, \[HUB_PAGE_ATTR\]: pageOf\(p\) \}\}/);
   assert.match(BODY, /if \(!opts\.quiet\) filled\.add\(tab\);/, 'a group records the page it filled');
   const React = await import('react');
   /* The canvas's stand-ins are compiled with the classic JSX runtime under `tsx` — they read the global. */
@@ -153,7 +157,8 @@ test('b · every part the canvas marks is on the prototype’s page for it', () 
         assert.equal(makerStagesPageOf(stage, canvas, pages), page, `${stage}: ${part} (${canvas}) is not on ${page}`);
       }
     }
-    assert.ok(seen.size >= 8, `precondition: ${stage} marks several parts (${seen.size})`);
+    /* Save the Date is the smallest stage (cover, countdown, message, story, pass): five canvas keys. */
+    assert.ok(seen.size >= (stage === 'save_the_date' ? 5 : 8), `precondition: ${stage} marks several parts (${seen.size})`);
   }
 });
 
@@ -210,7 +215,9 @@ test('b · WIRING: in the canvas every marker is inside a group filed by its own
   // Every key the tree marks by name is filed by that name — or rides the lead group (asserted above to BE its page).
   const LEAD = new Set(['f:spotlight', 'f:hero']);
   const marked = [...anon.matchAll(/makerMark\('([a-z]:[a-z_]+)'\)/g)].map((m) => m[1]!);
-  assert.ok(marked.includes('f:details') && marked.includes('f:hero'), `precondition: the named markers were found (${marked.join(', ')})`);
+  /* 🔁 RE-AIMED 2026-10-24: THE DETAILS draws no marker any more (owner, "isn't this a dupe?" — `OFF_THE_PAGE`); its
+     section is still filed by its key (`at('f:details', scenesTab)`, held below). */
+  assert.ok(marked.includes('f:spotlight') && marked.includes('f:hero'), `precondition: the named markers were found (${marked.join(', ')})`);
   for (const key of marked) if (!LEAD.has(key)) assert.ok(anon.includes(`at('${key}',`), `${key} is marked but not filed by its own key`);
   // The cover's two markers sit inside the lead group.
   for (const key of LEAD) {
@@ -261,15 +268,18 @@ test('b · the Stages tools read the page of a part off the canvas — never a s
 
 /* ══ c · THE REVEAL'S STUB IS ON ONE PAGE ════════════════════════════════════ */
 
-test('c · the Reveal leads exactly one page of each stage it opens — the first', () => {
+test('c · the opening belongs to the Cover Scene of exactly one page of each stage it opens — the first; no Reveal tile', () => {
+  /* 🎭 2026-10-16 (owner-approved, "THE COVER SCENE'S OWN … STYLE (OPENING)"): the Reveal's tile is gone — the opening is
+     the Cover Scene's Style, and the Cover Scene stands on the stage's first page. */
   for (const stage of ['save_the_date', 'rsvp', 'event'] as const) {
     const pages = keysOf(stage);
-    const leads = pages.filter((p) => makerPartsOnPage(stage, p)[0] === ('reveal' satisfies MakerPartKey));
-    assert.deepEqual(leads, [pages[0]], `${stage}: the Reveal leads ${leads.join(', ') || 'no page'}`);
+    assert.ok(pages.every((p) => !makerPartsOnPage(stage, p).includes('reveal' satisfies MakerPartKey)), `${stage}: a page still lists the Reveal tile`);
+    const covers = pages.filter((p) => makerPartsOnPage(stage, p).includes('coverscene' satisfies MakerPartKey));
+    assert.deepEqual(covers, [pages[0]], `${stage}: the Cover Scene (and its opening) stands on ${covers.join(', ') || 'no page'}`);
   }
 });
 
-test('c · the stub stands before the first part of ITS page’s own group — never outside every tab', () => {
+test('c · a page’s first marker is its own group’s — never outside every tab (and no stub is drawn now)', () => {
   type M = { key: string; tab: string | null; getAttribute(n: string): string | null; closest(sel: string): { getAttribute(n: string): string | null } | null };
   const m = (key: string, tab: string | null): M => ({
     key,
@@ -283,10 +293,12 @@ test('c · the stub stands before the first part of ITS page’s own group — n
   assert.equal(firstMarkerOnPage(tabbed, 'story'), null, 'a page with no marked part gets no stub — never another page’s');
   // A canvas that is one page (Save the Date): the first marker, as before.
   assert.equal(firstMarkerOnPage({ querySelectorAll: () => [m('f:film', null), m('f:hero', null)] }, 'home')?.key, 'f:film');
-  // SOURCE: the panel asks it for the page on screen, and takes the stub away on a page the Reveal does not lead.
-  assert.match(TOOLS, /const first = firstMarkerOnPage\(doc, shownPage\);/);
-  assert.match(TOOLS, /if \(!revealLeadsHere\) \{\s*part\?\.remove\(\);\s*return;\s*\}/);
-  assert.match(TOOLS, /makerPartsOnPage\(stage, shownPage\)\[0\] === 'reveal'/);
+  // SOURCE (2026-10-16): no stub is drawn any more — the opening is named on the cover of the page on screen, and
+  // taken away where the Cover Scene does not lead (`the-cover-scene-has-its-own-animate.test.ts` (3)).
+  // 📜 2026-10-20: "the page on screen" is the one page's, whichever tab its bar names (`makerCoverLeads` →
+  // `makerPartsOnShownPage`; `the-cover-keeps-its-tools-on-the-one-page.test.ts` drives it).
+  assert.match(TOOLS, /const coverLeadsHere = Boolean\(revealStage && !rsvpOpen && shownPage && makerCoverLeads\(stage, shownPage\)\);/);
+  assert.match(TOOLS, /if \(!coverLeadsHere \|\| !cover \|\| previewingRef\.current\) \{\s*tag\?\.remove\(\);\s*return;\s*\}/);
 });
 
 /* ══ d · A TAB PICK SWAPS THE PAGE, AND THE CANVAS SAYS WHICH ════════════════ */
@@ -308,7 +320,8 @@ test('d · the canvas shows one tab’s groups, refuses a tab it has no page for
 test('d · WIRING: the swap starts at the top and stays there; the label follows the canvas, not a guess', () => {
   const tab = BRIDGE.slice(BRIDGE.indexOf("data.t === 'hubTab'"));
   const handler = tab.slice(0, tab.indexOf('return;\n      }') + 20);
-  assert.match(handler, /if \(!openHubTab\(document, window, lift, tab\)\) return;\s*pageTop\.hold\(\);/, 'a pick starts at the top');
+  /* 📜 A page of its own starts at the top and is held there; a jump mark of the one page (2026-10-15) is not held. */
+  assert.match(handler, /const opened = openHubTab\(document, window, lift, tab\);\s*if \(!opened\) return;\s*if \(opened === true\) pageTop\.hold\(\);/, 'a pick starts at the top');
   // After a RELOAD the page that was on screen is put back on the fresh page's own document, at once — before the
   // buffered swap carries the scroll — and never through a message that would send it to the top.
   assert.match(TOOLS, /if \(was\?\.stage === stage && was\.tab !== d\.tab && putTabBack\(from, was\.tab\)\) return;/);
@@ -426,7 +439,7 @@ test('d · 🔝 nothing in the Maker scrolls the canvas after a tab tap — no s
   assert.ok(body.length > 200 && body.length < 2500, `precondition: jumpToPage was found (${body.length})`);
   assert.doesNotMatch(body, /t: 'scrollTo'/, 'jumpToPage posts a scroll itself');
   // Its only scrolls go through `scrollPreviewTo`, which under Stages on a phone sends nothing at all…
-  assert.match(SHELL, /if \(!anchor \|\| \(stagesStudioRef\.current && window\.innerWidth < 1024\)\) return;\s*postToShownCanvases\(\{ source: 'setnayan-editor', t: 'scrollTo', key: anchor \}\);/);
+  assert.match(SHELL, /if \(!anchor \|\| stagesStudioRef\.current\) return;\s*postToShownCanvases\(\{ source: 'setnayan-editor', t: 'scrollTo', key: anchor \}\);/);
   assert.doesNotMatch(SHELL, /pageAskRef|takePageAsk/, 'the page pick is exempt from the skip again — it scrolls to its first tile');
   // …and should one arrive anyway, the canvas holds the fresh page's top against it.
   assert.match(BRIDGE, /if \(data\.t === 'scrollTo'\) \{\s*if \(pageTop\.held\(\)\) return;/);
@@ -455,11 +468,8 @@ test('⚡ what only a tap asks for stays out of the Maker’s first load', () =>
   }
   assert.match(SHELL_SRC, /import \{[^}]*\bMakerTour\b[^}]*\bStudioBackToPart\b[^}]*\} from '\.\/details-lazy';/);
   assert.doesNotMatch(SHELL_SRC, /data-focus-pending|data-maker-studio-back/, 'the jump’s focusing or its button is back in the shell');
-  // The hub draft (first load) reads the camera look's KEYS only — never the file with its words, tint and ink maths.
-  assert.match(src('lib/hub-draft.ts'), /from '@\/lib\/camera-look-key';/);
-  assert.doesNotMatch(src('lib/hub-draft.ts'), /from '@\/lib\/camera-look';/, 'the whole camera look rides the Maker’s first load again');
-  assert.doesNotMatch(src('lib/camera-look-key.ts'), /^import /m, 'the key file grew a dependency');
-  assert.match(src('lib/camera-look.ts'), /export \{ CAMERA_LOOKS, CAMERA_LOOK_PREF_KEY, isCameraLook, type CameraLook \};/, 'one spelling: the look re-exports its keys');
+  // The hub draft (first load) carries nothing of the camera (owner 2026-10-24: one camera, no look to draft).
+  assert.doesNotMatch(src('lib/hub-draft.ts'), /from '@\/lib\/camera-(look|look-key|dress)';/, 'the camera rides the Maker’s first load again');
 });
 
 /* ══ e · GUESTS ARE UNTOUCHED ════════════════════════════════════════════════ */

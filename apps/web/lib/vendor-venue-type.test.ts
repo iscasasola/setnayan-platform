@@ -54,10 +54,11 @@ test('a form in the product actually posts venue_type', () => {
 });
 
 test('the card is mounted on a page a vendor can open', () => {
-  const page = read('app/vendor-dashboard/shop/page.tsx');
+  // Since step 5 (2026-10-14): Your details › What you do (it was My Shop's Profile tile).
+  const page = read('app/vendor-dashboard/profile/_components/details-screen.tsx');
   assert.ok(
     /<VenueTypeCard\s/.test(page),
-    'VenueTypeCard is not rendered on My Shop. A writer nobody can reach is ' +
+    'VenueTypeCard is not rendered on Your details. A writer nobody can reach is ' +
       'the same as no writer.',
   );
 });

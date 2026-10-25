@@ -260,6 +260,10 @@ const READERS = [
   'eventOwnsCustomQrGuest',
   'eventOwnsCoupleWebsitePro',
   'eventCoupleWebsiteProActive',
+  // 💎 Event Hub Pro, part by part (2026-10-22) — the same question, asked of one part.
+  'eventHubPartActive',
+  'eventOwnsHubPart',
+  'eventHubOwnership',
   'isEditorialProActive',
   'eventOwnsEditorialPro',
   'resolvePanoodTier',
@@ -281,8 +285,8 @@ const HOST_TREES = ['app/dashboard/[eventId]', 'app/panood/control/[eventId]'];
  * defect; they are listed so a NEW call site cannot slip in unexamined.
  */
 const EVENT_LEVEL_BY_OWN_GATE: Record<string, string> = {
-  'app/dashboard/[eventId]/studio/papic/actions.ts':
-    'purchase actions — service client after the action’s own host gate; money path left untouched',
+  // (studio/papic/actions.ts left this list 2026-10-23: its three camera-sale actions, the only reads it
+  //  held here, now refuse before reading anything — Papic sells credits only.)
   'app/dashboard/[eventId]/website/widgets/actions.ts':
     'every action calls requireHostMembershipOrThrow first, then reads on the service client',
   'app/dashboard/[eventId]/story/actions.ts': 'service client after the action’s own host gate',
@@ -293,6 +297,10 @@ const EVENT_LEVEL_BY_OWN_GATE: Record<string, string> = {
   'app/dashboard/[eventId]/seating/print/route.ts': 'GET route gated by its own read; service client',
   'app/dashboard/[eventId]/seating/export/route.ts': 'GET route gated by its own read; service client',
   'app/dashboard/[eventId]/invitation/print/page.tsx': 'print page gated by its own read; service client',
+  'app/dashboard/[eventId]/invitation/actions.ts':
+    'the rename’s Custom address gate (2026-10-22) — service client; the rename itself writes on the couple’s own session (RLS)',
+  'app/dashboard/[eventId]/guests/_components/guest-papic-read.ts':
+    'the guest card’s Papic row (2026-10-23) — service client, started on the page’s first trip (the list may be 2 deep); its answer is handed only to the couple (`forTheCouple`, `viewer.isCouple`)',
 };
 
 /** A first argument that came from the one resolver. */
@@ -332,7 +340,9 @@ test('the scan sees the host surfaces it is about (a guard that reads nothing pr
     'app/dashboard/[eventId]/studio/live-studio-control/page.tsx',
     'app/panood/control/[eventId]/page.tsx',
     'app/dashboard/[eventId]/website/our-story/page.tsx',
-    'app/dashboard/[eventId]/layout.tsx',
+    // layout.tsx read what the event owned for the More menu; More left the menu (owner 22 Oct 2026,
+    // "Yes remove more") and the read with it. The event page reads them for Home › Your services.
+    'app/dashboard/[eventId]/page.tsx',
   ]) {
     assert.ok(files.has(f), `expected entitlement reads in ${f}`);
   }

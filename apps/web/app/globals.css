@@ -219,6 +219,9 @@
     --surface: #ffffff;                /* card = page (see the block comment above) */
     --surface-soft: #f4f2ec;           /* Warm card surface */
     --ink-soft: 79 83 91;               /* Deep slate #4F535B */
+    /* A CARD above the page (dark mode PR 1, 2026-10-13) — Tailwind `raised`. Light = white, exactly what
+     * `bg-white` paints today, so swapping one for the other moves no light pixel. Dark = the approved card. */
+    --color-raised: 255 255 255;
   }
 
   html.dark {
@@ -241,12 +244,17 @@
      */
     --color-cream: 23 22 15;           /* page bg → Atelier ink-black #17160F */
     --color-ink: 251 250 247;          /* primary text → Atelier paper #FBFAF7 */
+    /* Words on the PLATE paper (`bg-paper-deep`), which never darkens with the page: they keep the light ink #2C2A29
+     * (batch 7 join, 2026-10-16 — the Maker's look-sample card read cream on its light plate, 1.08:1). Every hub
+     * theme pins its own `--color-ink-on-plate`; candlelight, which paints a dark plate, is handed its own ink back
+     * just below. Dark only — light and the guest Event Hub (never dark) are untouched. */
+    --color-ink-on-plate: 44 42 41;
     --color-terracotta: 203 167 102;   /* accent → kit gold-300 #CBA766 (reads on dark) */
     --color-terracotta-600: 197 160 89; /* hover → #C5A059 */
     --color-terracotta-700: 168 131 64; /* deepest → #A88340 */
     --color-mulberry: 229 121 78;        /* CTA → lightened terracotta #E5794E · 6.20:1 AA on the dark page */
     --color-mulberry-600: 236 138 95;   /* CTA hover lighter → #EC8A5F (7.22:1 AAA) */
-    --color-mulberry-700: 194 78 37;     /* CTA deepest → the light-mode #C24E25 */
+    --color-mulberry-700: 242 160 125;   /* words that act → #F2A07D · 8.5:1 on the page (dark 3a, 2026-10-23: it was the light-mode #C24E25 — 3.81:1, "Buy more" / "8 to invite" / "Download as Excel") */
     --sn-on-accent: 23 22 15;            /* words on the accent, dark (inert like the rest of this block): the page's ink-black on #E5794E — white reads 2.9:1 there */
     --color-link: 157 178 206;         /* link → lightened slate indigo #9DB2CE · 8.37:1 AAA */
     --color-link-600: 175 194 218;     /* link hover → #AFC2DA (9.97:1) */
@@ -262,10 +270,53 @@
     --color-info: var(--color-link);
     --accent: #e0cca0;
     --accent-deep: #c5a059;
-    --accent-soft: #22262c;            /* Dark obsidian tint for accent backgrounds */
-    --surface: #1e2229;
-    --surface-soft: #2a2e36;           /* Slightly lighter obsidian */
+    /* 🌗 WARM, NOT COOL (owner "approve all" 2026-10-13, call 6): the dark set is the approved template
+     * gallery's (control_templates_round2_2026-10-12.html) — page #17160F, card #232019, paper #1E1C15 —
+     * replacing the cool obsidian #1E2229 / #2A2E36 / #22262C this block carried while it was unreachable. */
+    --accent-soft: #413827;            /* the gallery's gold-soft (gold at 18%) over the card */
+    --surface: #232019;                /* the approved card */
+    --surface-soft: #2b2821;           /* one step above the card — a wash, lighter in dark as the gallery's pill is */
     --ink-soft: 182 185 190;            /* Slate-3 #B6B9BE */
+    --color-raised: 35 32 25;           /* the approved card #232019 */
+  }
+
+  /*
+   * 🌗 THE COLOUR LADDERS AS TOKENS (dark mode PR 1, 2026-10-13). `tailwind.config.ts`'s
+   * success / warn / danger / info ramps and the static ends of terracotta / mulberry were hard-coded
+   * hex, so ~3,700 class uses (`bg-success-100`, `text-danger-700` …) could never follow a theme.
+   * They now read these. LIGHT = THE HEX THEY HELD, BYTE FOR BYTE (same three numbers), so nothing
+   * in Light moves. DARK = the same ladder read from its other end (50 ↔ 950, 100 ↔ 900 … 500 stays;
+   * the partial ladders mirror across their full 50–900 ladder), so a pale chip with deep words
+   * stays a quiet chip with readable words on the dark page. Gold / champagne / sage are below.
+   * Guarded by `lib/every-colour-token-has-a-dark-pair.test.ts`.
+   */
+  :root {
+    --ramp-success-50: 243 247 241; --ramp-success-100: 227 236 224; --ramp-success-200: 197 210 189; --ramp-success-300: 163 184 154; --ramp-success-400: 125 152 115; --ramp-success-500: 95 125 85; --ramp-success-600: 79 107 74; --ramp-success-700: 65 87 61; --ramp-success-800: 54 70 50; --ramp-success-900: 44 57 42; --ramp-success-950: 23 32 19;
+    --ramp-warn-50: 249 245 236; --ramp-warn-100: 243 236 223; --ramp-warn-200: 228 212 180; --ramp-warn-300: 203 167 102; --ramp-warn-400: 185 148 86; --ramp-warn-500: 169 131 75; --ramp-warn-600: 138 107 57; --ramp-warn-700: 122 94 50; --ramp-warn-800: 92 71 38; --ramp-warn-900: 63 48 25; --ramp-warn-950: 42 32 15;
+    --ramp-danger-50: 253 244 240; --ramp-danger-100: 244 215 201; --ramp-danger-200: 234 184 162; --ramp-danger-300: 221 148 119; --ramp-danger-400: 205 114 82; --ramp-danger-500: 191 93 63; --ramp-danger-600: 182 90 58; --ramp-danger-700: 151 73 48; --ramp-danger-800: 120 59 40; --ramp-danger-900: 95 48 33; --ramp-danger-950: 52 23 15;
+    --ramp-info-50: 242 245 247; --ramp-info-100: 226 234 239; --ramp-info-200: 197 211 221; --ramp-info-300: 159 180 195; --ramp-info-400: 114 146 168; --ramp-info-500: 84 118 144; --ramp-info-600: 78 108 130; --ramp-info-700: 64 87 103; --ramp-info-800: 55 74 87; --ramp-info-900: 47 62 73; --ramp-info-950: 30 40 49;
+    --ramp-terracotta-50: 249 245 236; --ramp-terracotta-100: 243 236 223; --ramp-terracotta-200: 228 212 180; --ramp-terracotta-300: 203 167 102; --ramp-terracotta-400: 185 148 86; --ramp-terracotta-800: 92 71 38; --ramp-terracotta-900: 63 48 25;
+    --ramp-mulberry-50: 249 241 234; --ramp-mulberry-100: 245 229 220; --ramp-mulberry-200: 235 199 184; --ramp-mulberry-300: 222 161 138; --ramp-mulberry-400: 208 120 87; --ramp-mulberry-800: 140 57 27; --ramp-mulberry-900: 97 40 19;
+    --ramp-gold: 169 131 75; --ramp-gold-deep: 138 107 57; --ramp-gold-dark: 92 71 38;
+    --ramp-gold-100: 243 236 223; --ramp-gold-300: 203 167 102; --ramp-gold-500: 169 131 75; --ramp-gold-600: 149 113 61; --ramp-gold-700: 138 107 57; --ramp-gold-800: 92 71 38;
+    --ramp-champagne: 197 160 89; --ramp-champagne-deep: 168 131 64;
+    --ramp-sage: 197 210 189; --ramp-sage-deep: 79 107 74;
+  }
+  html.dark {
+    --ramp-success-50: 23 32 19; --ramp-success-100: 44 57 42; --ramp-success-200: 54 70 50; --ramp-success-300: 65 87 61; --ramp-success-400: 79 107 74; --ramp-success-500: 95 125 85; --ramp-success-600: 125 152 115; --ramp-success-700: 163 184 154; --ramp-success-800: 197 210 189; --ramp-success-900: 227 236 224; --ramp-success-950: 243 247 241;
+    --ramp-warn-50: 42 32 15; --ramp-warn-100: 63 48 25; --ramp-warn-200: 92 71 38; --ramp-warn-300: 122 94 50; --ramp-warn-400: 138 107 57; --ramp-warn-500: 169 131 75; --ramp-warn-600: 185 148 86; --ramp-warn-700: 203 167 102; --ramp-warn-800: 228 212 180; --ramp-warn-900: 243 236 223; --ramp-warn-950: 249 245 236;
+    --ramp-danger-50: 52 23 15; --ramp-danger-100: 95 48 33; --ramp-danger-200: 120 59 40; --ramp-danger-300: 151 73 48; --ramp-danger-400: 182 90 58; --ramp-danger-500: 191 93 63; --ramp-danger-600: 205 114 82; --ramp-danger-700: 221 148 119; --ramp-danger-800: 234 184 162; --ramp-danger-900: 244 215 201; --ramp-danger-950: 253 244 240;
+    --ramp-info-50: 30 40 49; --ramp-info-100: 47 62 73; --ramp-info-200: 55 74 87; --ramp-info-300: 64 87 103; --ramp-info-400: 78 108 130; --ramp-info-500: 84 118 144; --ramp-info-600: 114 146 168; --ramp-info-700: 159 180 195; --ramp-info-800: 197 211 221; --ramp-info-900: 226 234 239; --ramp-info-950: 242 245 247;
+    --ramp-terracotta-50: 63 48 25; --ramp-terracotta-100: 92 71 38; --ramp-terracotta-200: 140 105 50; --ramp-terracotta-300: 168 131 64; --ramp-terracotta-400: 169 131 75; --ramp-terracotta-800: 243 236 223; --ramp-terracotta-900: 249 245 236;
+    --ramp-mulberry-50: 97 40 19; --ramp-mulberry-100: 140 57 27; --ramp-mulberry-200: 157 63 30; --ramp-mulberry-300: 176 71 34; --ramp-mulberry-400: 194 78 37; --ramp-mulberry-800: 245 229 220; --ramp-mulberry-900: 249 241 234;
+    /* gold: the fill brightens to the dark-mode gold (#CBA766, 7.17:1 on the card), the TEXT golds go
+     * light (deep #E2C98B 10.0:1, dark #ECD9AE), the wash goes dark (gold 18% over the card). */
+    --ramp-gold: 203 167 102; --ramp-gold-deep: 226 201 139; --ramp-gold-dark: 236 217 174;
+    --ramp-gold-100: 65 56 39; --ramp-gold-300: 138 107 57; --ramp-gold-500: 203 167 102; --ramp-gold-600: 212 180 122; --ramp-gold-700: 226 201 139; --ramp-gold-800: 236 217 174;
+    /* champagne = the dark --accent / --accent-deep pair above (#E0CCA0 / #C5A059) */
+    --ramp-champagne: 224 204 160; --ramp-champagne-deep: 197 160 89;
+    /* sage: the pale fill becomes a dark sage wash, the readable tone goes light (#9CC093, 8.0:1 on the card) */
+    --ramp-sage: 54 58 45; --ramp-sage-deep: 156 192 147;
   }
 
   html {
@@ -305,9 +356,17 @@
    * `.sn-dot-btn` is the one opt-out: it drops the floor, pins the box square
    * (`aspect-ratio`) and keeps the shape from being squeezed in a flex row. The
    * touch floor is not given up — an invisible `::after` halo widens the
-   * target past the drawn circle. The halo is 8px each side, not a full 44pt:
-   * these circles sit beside a label or a row's own button, and a 44pt halo
-   * would take taps meant for those.
+   * target past the drawn circle.
+   *
+   * 👆 THE HALO REACHES 46 × 46 (owner 2026-10-12: 44 px is the minimum press,
+   * everywhere; quality sweep 2026-10-19 row B11 measured InfoTip's 16-px ⓘ —
+   * "About Target", "About Waiting for their yes" — pressing at ~30 with the old
+   * fixed 8-px halo). Each side reaches `(100% − 46px) / 2` past the circle's
+   * padding box — the same 46 as `.sn-hit`, so a box that starts on a half
+   * pixel still presses at 44 — and never less than the old 8 px, so a dot
+   * button that was already larger (`h-10`) keeps exactly the press it had.
+   * The DRAWING does not change: the circle stays 16 px; only the invisible
+   * halo grows. Held by `lib/the-shared-controls-press-at-44.test.ts`.
    */
   .sn-dot-btn {
     position: relative;
@@ -318,8 +377,34 @@
   .sn-dot-btn::after {
     content: '';
     position: absolute;
-    inset: -8px;
+    inset: min(-8px, calc((100% - 46px) / 2));
     border-radius: 9999px;
+  }
+
+  /*
+   * 👆 `.sn-hit` — THE SHARED CONTROLS PRESS AT 44 WITHOUT CHANGING THEIR DRAWING (owner 2026-10-12: 44 px is the
+   * minimum; dark-mode PR 4 "shared pieces", 2026-10-13). Measured faults it closes: a pill selector's choice 38
+   * tall, a form-row pill and a dropdown button 40, a chip 40, the toast's Undo / Try again 34.
+   *
+   * A PAINTED control cannot grow its own box without its pill growing too, so its press grows instead: an
+   * invisible `::after` that reaches 46 px tall around the control's centre (`top`/`bottom` are a share of the
+   * control's own height — `(100% − 46px) / 2`, never above 0, so a control already 46 or taller is left as it
+   * is). 46, not 44: a 44 that starts on a half pixel presses at 43 (measured on the link form of ActionButton,
+   * #6499). VERTICAL ONLY — a sideways bleed would add to a fitted row's `scrollWidth` and `useFitRow` would read
+   * it as overflow. `position: relative` sits in `:where()` (zero specificity) so a caller's own
+   * `absolute`/`fixed`/`sticky` still wins and the press follows it. A control that already draws with its
+   * `::after` (a switch's knob) does not wear this. Held by `lib/the-shared-controls-press-at-44.test.ts`.
+   */
+  :where(.sn-hit) {
+    position: relative;
+  }
+  .sn-hit::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: min(0px, calc((100% - 46px) / 2));
+    bottom: min(0px, calc((100% - 46px) / 2));
   }
 
   /*
@@ -734,7 +819,12 @@ html.guests-subnav-docked [data-shell-main] {
     max-height: 40dvh;
   }
 }
-@media (min-width: 1024px) {
+/* From 701, not 1024 (owner 2026-10-19, couple dashboard tablet): the event
+   tree's dock is `tab:hidden` (BottomDock boundary="tab"), so its column stops
+   reserving the dock's height on the SAME line — the page's own thumb docks
+   then sit on the bottom edge. `[data-shell-main]` is the event tree's column
+   (and its labs'), nobody else's. */
+@media (min-width: 701px) {
   [data-shell-main],
   html.guests-subnav-docked [data-shell-main] {
     padding-bottom: 0;
@@ -859,6 +949,21 @@ html.guests-subnav-docked [data-shell-main] {
    */
   .button-primary {
     @apply inline-flex h-11 items-center justify-center rounded-md bg-mulberry px-6 text-sm font-medium text-cream transition hover:bg-mulberry-600 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mulberry focus-visible:ring-offset-2 focus-visible:ring-offset-cream disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100;
+  }
+  /*
+   * 🔠 With bigger iPhone text (the app only — `data-text-scale` is written by
+   * `appTextSizeScript`, lib/app-text-size.ts, and is "1" at the default size,
+   * so nothing here applies on the web or at the default), the primary button
+   * GROWS with its words instead of holding 44 px and letting them spill. The
+   * guest invitation's door ("Confirm your Booking" over "Upload your QR ·
+   * Sign in") spilled its second line at 1.35× in the simulator walk,
+   * 2026-10-20. Same layer, so a button's own `h-*` / `min-h-*` / `py-*`
+   * utility still wins; 44 px stays the floor.
+   */
+  html[data-text-scale]:not([data-text-scale='1']) .button-primary {
+    height: auto;
+    min-height: 2.75rem;
+    padding-block: 0.5rem;
   }
 
   /*
@@ -1082,6 +1187,14 @@ html.guests-subnav-docked [data-shell-main] {
 @layer utilities {
   .qr-slot:has(> svg[data-qr-shape='circle']) {
     border-radius: 9999px;
+  }
+  /* 🔳 THE QR PLATE STAYS WHITE IN DARK (dark-mode PR 4, 2026-10-13; the approved template kind 24: *"the code is
+     ALWAYS dark on white, in Light and in Dark (a scanner needs it)"*). A plate drawn `bg-cream` (the join-link
+     panel) would turn the page's near-black under dark modules, and a scanner reads nothing. In dark every plate
+     is white with the template's faint light edge; Light is untouched (its plates are already white). */
+  html.dark .qr-slot {
+    background-color: #fff;
+    box-shadow: 0 0 0 1px rgb(255 255 255 / 0.08), 0 10px 26px -16px rgb(0 0 0 / 0.8);
   }
 }
 
@@ -1369,6 +1482,82 @@ html.guests-subnav-docked [data-shell-main] {
   --m-sidebar-accent:      #8A6B39;  /* gold-700 — active bar/ring on the light panel */
   --m-sidebar-accent-fg:   #A9834B;  /* active icon · wordmark accent */
   --m-sidebar-accent-soft: color-mix(in srgb, var(--m-sidebar-accent) 16%, transparent);
+}
+
+/*
+ * 🌗 THE --m-* FAMILY IN DARK (dark mode PR 1, owner "approve all" 2026-10-13).
+ *
+ * WHY THIS BLOCK. The "marketing" family is everywhere now — behind `.sn-tile` (200 files), `.sn-row`,
+ * `.m-surface`, the boot splash and the charts; ≈2,500 `var(--m-…)` reads — and not one of them had a
+ * dark value, so the first screen to open to dark would have kept white cards and espresso words.
+ *
+ * INERT UNTIL A SCREEN IS ON THE READY-LIST. Nothing here is reachable until the theme switch
+ * (PR 3) sets `html.dark` — and that only happens on routes an area PR has swept. Light is
+ * untouched: every value above is exactly as it was.
+ *
+ * THE VALUES are the approved gallery's warm set (control_templates_round2_2026-10-12.html):
+ * page #17160F · paper #1E1C15 · card #232019 · ink #FBFAF7 · ink2 #D6D1C7 · mute #B3AEA3 ·
+ * lines = paper at 16 % · gold #CBA766 · gold-ink #E2C98B · CTA #E5794E. Each token keeps its JOB:
+ * a ground stays a ground, a wash stays a wash (washes go LIGHTER than the card in dark, as the
+ * gallery's pill does), a text tone keeps about the contrast it had on white (measured on the card
+ * #232019: ink 15.6 · slate 10.7 · slate-2 7.4 · slate-3 5.5 · gold 7.2 · gold-2 10.0 · CTA 5.6).
+ * `lint:contrast` judges the pairs in dark too (PR 2).
+ *
+ * ⚠ `--m-paper` is BOTH the page and the card in light (white == white). In dark it is the CARD:
+ * almost every read is a panel, tile or row fill. The page is `--color-cream` / `.sn-ambient`.
+ */
+html.dark {
+  --m-paper:      #232019;   /* the card */
+  --m-paper-2:    #2B2821;   /* a wash one step above the card */
+  --m-ivory:      #332F27;   /* a deeper wash */
+  --m-line:       rgba(251,250,247,.16);
+  --m-line-soft:  rgba(251,250,247,.10);
+
+  --m-ink:        #FBFAF7;
+  --m-slate:      #D6D1C7;
+  --m-slate-2:    #B3AEA3;
+  --m-slate-3:    #9A958C;
+  --m-slate-4:    #6A665E;   /* decorative only, as in light */
+
+  --m-orange:     #CBA766;
+  --m-orange-2:   #E2C98B;
+  --m-orange-3:   #A9834B;
+  --m-orange-4:   #413827;   /* gold at 18 % over the card */
+  --m-orange-deep: #ECD9AE;  /* text on the gold wash — 8.3:1 on #413827 */
+
+  --m-nav-active:      #CBA766;
+  --m-nav-active-soft: color-mix(in srgb, var(--m-nav-active) 14%, #232019);
+
+  --m-mulberry:    #E5794E;  /* = dark --color-mulberry */
+  --m-mulberry-2:  #EC8A5F;
+  --m-mulberry-deep: #F2A585; /* text on a mulberry wash */
+  /* -3 / -4 are the NEUTRAL "muted words on the --m-ink band + disabled fill" pair (see above). The band
+   * itself turns light in dark, so the muted words on it turn dark. */
+  --m-mulberry-3:  #4A463F;
+  --m-mulberry-4:  #34312B;
+
+  --m-blush:      #443429;
+  --m-blush-deep: #F09A7C;
+  --m-blush-deepest: #F8C9B5;
+  --m-sage:       #363A2D;
+  --m-sage-deep:  #9CC093;
+  --m-sage-deeper: #BCD7B3;
+
+  /* A warm-brown shadow is invisible on a dark page — black, deeper, as the gallery's. */
+  --m-shadow-sm: 0 1px 2px rgba(0,0,0,.35), 0 1px 1px rgba(0,0,0,.25);
+  --m-shadow-md: 0 8px 24px -10px rgba(0,0,0,.6), 0 2px 6px -2px rgba(0,0,0,.35);
+  --m-shadow-lg: 0 40px 80px -30px rgba(0,0,0,.75), 0 10px 30px -8px rgba(0,0,0,.4);
+
+  --m-sidebar-bg:        rgba(35,32,25,.55);
+  --m-sidebar-bg-2:      rgba(251,250,247,.08);
+  --m-sidebar-fg:        #FBFAF7;
+  --m-sidebar-fg-soft:   #D6D1C7;
+  --m-sidebar-fg-muted:  #B3AEA3;
+  --m-sidebar-line:      rgba(251,250,247,.14);
+  --m-sidebar-hover:     rgba(251,250,247,.08);
+  --m-sidebar-accent:      #CBA766;
+  --m-sidebar-accent-fg:   #CBA766;
+  --m-sidebar-accent-soft: color-mix(in srgb, var(--m-sidebar-accent) 18%, transparent);
 }
 
 /*
@@ -2230,6 +2419,36 @@ html {
 #sn-init-splash {
   display: none;
 }
+/* 🚧 The store shell shows no "Coming soon" (App Review reads it as an
+   unfinished app). `data-store-shell` is set before first paint by
+   `storeShellMarkScript` (lib/store-shell.ts) in the Capacitor shell only;
+   every "Coming soon" pill — or the whole card when that is its only state —
+   carries `data-coming-soon`. Held by lib/store-shell.test.ts. The web and the
+   desktop app are untouched. */
+html[data-store-shell] [data-coming-soon] {
+  display: none !important;
+}
+/* 📍 The iPhone/Android app declares no location (owner, DECISION_LOG
+   2026-10-19 (1)): every control that asks for it — "Near me", "Use my
+   location" — carries `data-asks-location` and is hidden here before first
+   paint; `lib/location-ask.ts` skips the ask itself. Held by
+   lib/the-app-never-asks-for-location.test.ts. */
+html[data-store-shell] [data-asks-location] {
+  display: none !important;
+}
+/* 🍎 One page, two readers (Apple check 2026-10-19, rows #5 · #6 · #14 ·
+   #26). `data-web-only` — the marketing header's Prices · Download ·
+   Suppliers, a help answer that points at the web to buy — is hidden in the
+   iPhone/Android app; `data-app-only` — that answer's app wording — is hidden
+   everywhere else. Same pre-paint mark as above, so neither reader sees the
+   other's words flash. Held by lib/store-shell.test.ts. */
+html[data-store-shell] [data-web-only] {
+  display: none !important;
+}
+html:not([data-store-shell]) [data-app-only] {
+  display: none !important;
+}
+
 html[data-sn-boot] #sn-init-splash {
   position: fixed;
   inset: 0;
@@ -2252,6 +2471,10 @@ html[data-sn-boot] #sn-init-splash {
 html[data-sn-boot] #sn-init-splash.sn-boot-done {
   opacity: 0;
   pointer-events: none;
+}
+/* 🌗 Dark: the splash is the PAGE, not a card — `--m-paper` is the card in dark. */
+html.dark[data-sn-boot] #sn-init-splash {
+  background: rgb(var(--color-cream));
 }
 #sn-init-splash .sd-loader {
   background: transparent;
@@ -2457,6 +2680,26 @@ html[data-sn-boot] #sn-init-splash.sn-boot-done {
 }
 
 /*
+ * ↔ ONE SLIDE ON EVERY DASHBOARD — THE ACCOUNT'S CONTENT IS NAMED ONLY WHILE IT SLIDES (owner 2026-10-24: *"The
+ * transition animation between menus found in event dashboard does not apply to the user and shop dashboard."*).
+ *
+ * The account trees (`(launcher)` and `(account)` layouts' `<main>`, Discover's `[data-fd-page]`) carry `.sn-vt-page`
+ * like the event and shop trees, so the SAME listener, keyframes and 320 ms move them. Until today they carried no name
+ * at all, so `NavSlideController` started a transition that animated nothing and the page simply swapped.
+ *
+ * 🔑 `data-sn-slide="while-sliding"` keeps their REST exactly as it was: a `view-transition-name` makes an element a
+ * stacking context AND a containing block for its `position: fixed` descendants (the trap `lib/live-studio-control.ts`
+ * and `panood/program/program-surface.tsx` record), and the account pages have never lived with either. So the name is
+ * off unless a slide is running — `NavSlideController` and `BarSetSlide` both set `html[data-sn-nav-dir]` before they
+ * start the transition and clear it after, the window the guests-glass rule above already relies on. During a SET
+ * change (`data-sn-bar-dir`, below) the same elements take `sn-acct-page` instead, as they did before.
+ * Held by `app/_components/nav/one-tab-slide-everywhere.test.ts`.
+ */
+html:not([data-sn-nav-dir]) .sn-vt-page[data-sn-slide='while-sliding'] {
+  view-transition-name: none;
+}
+
+/*
  * 🪟 A GLASS ROW INSIDE THE NAMED PAGE ONLY BLURS WHEN THE NAME IS OFF (owner 2026-10-09, the live guest list: *"the glass
  * row has a transparent background"* — the guest rows read straight through the band).
  *
@@ -2473,6 +2716,26 @@ html[data-sn-boot] #sn-init-splash.sn-boot-done {
 html:not([data-sn-nav-dir]) .sn-vt-page:has([data-guests-thumb]) {
   view-transition-name: none;
   isolation: isolate;
+}
+
+/*
+ * 🖥 AN OPEN PANEL IS DRAWN OVER THE SHELL, NOT UNDER ITS TOP BAR (couple dashboard desktop + tablet, owner 2026-10-19,
+ * prototype `couple_dashboard_desktop_tablet_2026-10-19.html` frame budget-05: the 440-px panel runs the full height
+ * with its title and × at the top, over a scrim that dims the rail and the bar).
+ *
+ * 🔑 MEASURED 2026-10-20 (lab, Chromium + WebKit, 1000–1920): `view-transition-name` (or the `isolation` above) makes
+ * this `<main>` a stacking context, so a Sheet rendered inside the page — `fixed inset-0 z-50` — could only rise to the
+ * page's own level: the sticky top bar (`.fd-topwrap`, z 20) painted OVER the panel's head, hiding its title and its
+ * close button, and the scrim left the rail and the bar undimmed. From 701 the panel starts at the top edge, so this is
+ * where it shows; while a Sheet is open the page's stacking context is lifted above the shell's chrome. Below 701 the
+ * sheet rises from the bottom (90 dvh) and nothing changes. A Sheet portalled to <body> is not inside `<main>` and is
+ * untouched. Held by `app/_components/an-open-panel-clears-the-top-bar.test.ts`.
+ */
+@media (min-width: 701px) {
+  .sn-vt-page:has([data-sheet]) {
+    position: relative;
+    z-index: 45;
+  }
 }
 
 ::view-transition-group(sn-page) {
@@ -2543,6 +2806,31 @@ html:not([data-sn-nav-dir]) .sn-vt-page:has([data-guests-thumb]) {
 [data-bottom-dock] {
   view-transition-name: sn-bottomnav;
 }
+
+/* ═══ SAFE AREAS ON ALL FOUR SIDES — THE BARS CLEAR THE SENSOR AND THE ROUNDED CORNERS (2026-10-19) ═══
+   iPhone Duo readiness points 5 · 21 · 22 · 23 (corpus IPHONE_DUO_READINESS_2026-10-08.md), audit row W2: the left
+   and right safe areas are often NOT equal — a Duo's vertical system bar, a phone in landscape, an app beside another
+   in Split View — and `viewportFit: 'cover'` (app/layout.tsx) lets the page run under the sensor housing, so a full
+   width bar's end buttons sat under it. Every bar fixed to the screen now keeps its content inside the left inset AND
+   the right inset, each on its own.
+
+   🔑 TWO NAMES, NEVER `env()` IN A BAR: `--sn-safe-l` / `--sn-safe-r` ARE the insets (Ionic's long-standing pattern
+   on iOS). A walk can set them on <html> to stand in for a sensor Playwright cannot draw (it has no way to set
+   `env(safe-area-inset-*)`); in production nobody sets them and they are exactly `env(…, 0px)`.
+
+   🧱 THE ONE RULE — bars whose box carries NO side padding of its own (their rows bring their own gutter), so the
+   inset IS `max(their padding, the inset)`. On every device whose insets are 0 (desktop, a phone held upright, an
+   iPad) this rule adds 0px — not a pixel moves. A bar that HAS its own side padding names the insets in place
+   instead: `pl-[max(1rem,var(--sn-safe-l))] pr-[max(1rem,var(--sn-safe-r))]`, never this rule (it would replace that
+   padding). Both halves, and that no bar is left out, are held by lib/every-bar-clears-the-side-insets.test.ts. */
+:root {
+  --sn-safe-l: env(safe-area-inset-left, 0px);
+  --sn-safe-r: env(safe-area-inset-right, 0px);
+}
+:is([data-bottom-dock], [data-maker-shell], [data-sheet-panel], [data-sticky-top], [data-safe-x]) {
+  padding-left: var(--sn-safe-l);
+  padding-right: var(--sn-safe-r);
+}
 .sn-vt-fab {
   view-transition-name: sn-navfab;
 }
@@ -2593,6 +2881,124 @@ html[data-sn-nav-dir='back']::view-transition-new(sn-page) {
 @keyframes sn-vt-in-left {
   from {
     transform: translateX(-100%);
+  }
+}
+
+/*
+ * ↔ THE BAR CHANGES SET — IT BUILDS OUT ONE WAY AND THE NEW SET BUILDS IN FROM THE OTHER (owner 2026-10-22, verbatim
+ * in `lib/bar-set.ts`: account → Shop, "everything moves to the left and the shop icons enter from the right"; account →
+ * an event, "the account menus move to the right and the event icons enter from the left").
+ *
+ * `BarSetSlide` (app/_components/nav/bar-set-slide.tsx) sets `html[data-sn-bar-dir]` — 'fwd' or 'back', the same words
+ * as `data-sn-nav-dir`, which it sets too — before it starts the View Transition, and clears both when it has finished.
+ * While it is set:
+ *   · the DOCK slides: its old snapshot out, the new set's in, clipped to the dock's own box. Both snapshots are the
+ *     same frosted paper, so what reads is the bar staying and its icons moving through it. Bottom-anchored, so a dock
+ *     whose height differs never draws its old icons halfway up.
+ *   · the PAGE slides with it — the event and shop trees' `.sn-vt-page` already carries `sn-page`; the account trees'
+ *     content (`.sn-vt-page[data-sn-slide='while-sliding']` — the launcher and account layouts' `<main>`, Discover's
+ *     `[data-fd-page]`) takes a name of its OWN, `sn-acct-page`, for the length of the set slide — a tab press inside
+ *     the account bar slides it as `sn-page` (2026-10-24, above), and no two selectors ever declare one name
+ *     (`the-bar-outlives-the-slide.test.ts`). The two
+ *     page groups never pair: the page leaving is old-only, the page arriving new-only, each with its own keyframes.
+ *   · the top bar stays in the frozen `root` snapshot above — it holds still.
+ * Without the attribute none of this applies, and the dock is frozen as the 2026-09-22 rules above say.
+ */
+html[data-sn-bar-dir] .sn-vt-page[data-sn-slide='while-sliding'] {
+  view-transition-name: sn-acct-page;
+}
+html[data-sn-bar-dir]::view-transition-group(sn-bottomnav) {
+  overflow: clip;
+}
+html[data-sn-bar-dir]::view-transition-old(sn-bottomnav),
+html[data-sn-bar-dir]::view-transition-new(sn-bottomnav) {
+  inset-block: auto 0;
+  animation-duration: 280ms;
+  animation-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1);
+  animation-fill-mode: both;
+}
+html[data-sn-bar-dir]::view-transition-old(sn-page),
+html[data-sn-bar-dir]::view-transition-new(sn-page),
+html[data-sn-bar-dir]::view-transition-old(sn-acct-page),
+html[data-sn-bar-dir]::view-transition-new(sn-acct-page) {
+  animation-duration: 280ms;
+  animation-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1);
+  animation-fill-mode: both;
+}
+html[data-sn-bar-dir='fwd']::view-transition-old(sn-acct-page) {
+  animation-name: sn-vt-out-left;
+}
+html[data-sn-bar-dir='fwd']::view-transition-new(sn-acct-page) {
+  animation-name: sn-vt-in-right;
+}
+html[data-sn-bar-dir='back']::view-transition-old(sn-acct-page) {
+  animation-name: sn-vt-out-right;
+}
+html[data-sn-bar-dir='back']::view-transition-new(sn-acct-page) {
+  animation-name: sn-vt-in-left;
+}
+html[data-sn-bar-dir='fwd']::view-transition-old(sn-bottomnav) {
+  animation-name: sn-vt-out-left;
+}
+html[data-sn-bar-dir='fwd']::view-transition-new(sn-bottomnav) {
+  animation-name: sn-vt-in-right;
+}
+html[data-sn-bar-dir='back']::view-transition-old(sn-bottomnav) {
+  animation-name: sn-vt-out-right;
+}
+html[data-sn-bar-dir='back']::view-transition-new(sn-bottomnav) {
+  animation-name: sn-vt-in-left;
+}
+/*
+ * ↔ ON A WIDE SCREEN THE SIDE MENU IS THE BAR, AND IT SLIDES BY THE SAME RULE (owner 23 Oct 2026, DECISION_LOG "OWNER
+ * ANSWERS ON THE BUILD TRACKER" — Q1 of `prototypes/desktop_layouts_2026-10-22.html`: *"inside an event/shop the side
+ * menu swaps with a slide (one rule with the bottom bar)"*). The swap shipped 2026-09-21 (`rail-focus.ts`); this is its
+ * motion. While `data-sn-bar-dir` is set the rail takes a name of its own, `sn-rail`, and its old rows leave and the
+ * new set's arrive exactly as the dock's do above — the same keyframes, the same 280 ms, the same easing, clipped to the
+ * rail's own box, so the cream column stays and its rows move through it. The page slides with it (the rules above,
+ * which never asked the width) and the top bar holds still in `root`.
+ *   · ONE selector, no width test: a shut rail (`display: none`, every phone) is never captured, and the phone's OPEN
+ *     drawer is excluded by its own `data-open` — so below the boundary nothing changes, by construction.
+ *   · named for the length of the slide only — a named element is a containing block for `position: fixed`
+ *     descendants, and nothing in the rail should be one for longer than 280 ms.
+ * Held by `lib/bar-set.test.ts` (direction, timing, the phone exclusion) and `the-bar-outlives-the-slide.test.ts`
+ * (one selector per name).
+ */
+html[data-sn-bar-dir] .fd-rail:not([data-open='true']):not([data-open='closing']) {
+  view-transition-name: sn-rail;
+}
+html[data-sn-bar-dir]::view-transition-group(sn-rail) {
+  overflow: clip;
+  animation: none;
+}
+html[data-sn-bar-dir]::view-transition-old(sn-rail),
+html[data-sn-bar-dir]::view-transition-new(sn-rail) {
+  inset-block: 0 auto;
+  mix-blend-mode: normal;
+  animation-duration: 280ms;
+  animation-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1);
+  animation-fill-mode: both;
+}
+html[data-sn-bar-dir='fwd']::view-transition-old(sn-rail) {
+  animation-name: sn-vt-out-left;
+}
+html[data-sn-bar-dir='fwd']::view-transition-new(sn-rail) {
+  animation-name: sn-vt-in-right;
+}
+html[data-sn-bar-dir='back']::view-transition-old(sn-rail) {
+  animation-name: sn-vt-out-right;
+}
+html[data-sn-bar-dir='back']::view-transition-new(sn-rail) {
+  animation-name: sn-vt-in-left;
+}
+/* Reduced motion: the listener never starts a slide (`barSlideFor`), and should any transition run anyway, nothing in
+   it moves — an instant swap. */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+    mix-blend-mode: normal;
   }
 }
 
@@ -2833,6 +3239,25 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
 .gl-settle-delayed {
   animation: gl-settle 0.32s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
   animation-delay: 0.05s;
+}
+
+/* ⏱ COUPLE'S LOGO — THE PENDING STILL WAITS FOR JAVASCRIPT, BUT NOT FOREVER (stability sweep 2026-10-15).
+   `CoupleLogo` (app/_components/couple-logo.tsx) keeps a playing logo's still in the server HTML and
+   hides it until the player can draw the entrance. That hiding was CSS with no end: the still waited on
+   the page's hydration + a second chunk, ~14 s on a slow phone for maria-and-jose's cover, and forever
+   with JavaScript failing. Now it is hidden for at most 2.5 s and then shown by CSS
+   alone; live hydration measured 0.4–1.3 s after the still arrives, so a normal page still draws.
+   Reduced motion: no wait at all — the still from the first paint. */
+@keyframes sn-logo-wait {
+  from,
+  to {
+    visibility: hidden;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .sn-logo-wait {
+    animation: sn-logo-wait 2.5s step-end;
+  }
 }
 
 /*
@@ -3101,8 +3526,28 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
      that gives up its hairline needs a denser fill and a shadow that SEATS it:
      a 1px contact layer plus two soft ambients, warm, never grey. */
   --sn-glass-bg-raised: rgba(255,255,255,.86);
+
+  /* 🔤 AVATAR INITIALS ON GOLD — one pair for every initials chip that sits on the gold wash (owner yes,
+     2026-10-23). The chips read gold-700 #8C6932 on the wash #F3ECDF = 4.27:1, and the labs drew white on
+     gold-500 #A9834B = 3.48:1; both under AA. The house's own "text on the gold wash" ink is gold-800
+     (#5C4726 on #F3ECDF ≈ 8:1 · dark #ECD9AE on #413827 ≈ 8.3:1). Aliases, so dark follows the pair. */
+  --sn-initials-bg:  var(--sn-gold-100);
+  --sn-initials-ink: var(--sn-gold-800);
+
+  /* 🌗 The phone's bottom dock (`bottom-nav.tsx` BottomDock / TravelPill / PressFlash).
+     These are the bar's locked literals (NAV-9) moved into tokens, byte for byte, so
+     light does not move; dark B1 (dark_mode_rollout_2026-10-22) gives them a pair.
+     The bar painted `rgba(248,246,240,.92)` inline under html.dark too, so its
+     near-white labels read 1.15:1 on every screen. */
+  --sn-dock-bg:    rgba(248, 246, 240, 0.92); /* the frosted paper @ 92 % */
+  --sn-dock-pill:  rgba(30, 34, 41, 0.15);    /* the travelling active pill — ink @ 15 % */
+  --sn-dock-press: rgba(255, 255, 255, 0.95); /* the white press-light bloom */
   --sn-sh-float: 0 1px 2px rgba(40,34,24,.07), 0 10px 24px -12px rgba(30,26,18,.30),
                  0 30px 60px -30px rgba(30,26,18,.28);
+  /* The same float, cast UP — for a layer that rises from the screen's foot (the typing band on the keyboard), whose
+     downward shadow would fall under the keyboard. Same numbers, y mirrored; owner 2026-10-24 "a soft shadow above it". */
+  --sn-sh-rise: 0 -1px 2px rgba(40,34,24,.07), 0 -10px 24px -12px rgba(30,26,18,.30),
+                0 -30px 60px -30px rgba(30,26,18,.28);
   --sn-sh-panel: -2px 0 8px -4px rgba(30,26,18,.12), -30px 0 70px -30px rgba(30,26,18,.45);
 
   /* The floating row's glass (`.sn-glass-row` — BUTTON_RULE_2026-10-07 Rule 7):
@@ -3114,15 +3559,78 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
 }
 html.dark {
   /* Dark pairs ship with the tokens so they are not a trap for whoever turns
-     dark mode on. Nothing sets `html.dark` today (light lock 2026-06-04). */
+     dark mode on. Nothing sets `html.dark` today (light lock 2026-06-04; the
+     switch, PR 3, only sets it on routes an area PR has swept).
+
+     🌗 2026-10-13 (dark mode PR 1): EVERY colour token of the block above now has
+     its pair here, in the approved gallery's warm set (page #17160F, paper
+     #1E1C15, card #232019). Left OUT on purpose, and allowlisted with reasons in
+     `lib/every-colour-token-has-a-dark-pair.test.ts`: the `--sn-ob-*` obsidian
+     surface (dark in both themes) and the `--sn-glass-dark-*` glass over photos. */
+  --sn-paper:      #1E1C15;
+  --sn-surface:    #232019;
+  --sn-hairline:   rgba(251,250,247,.10);
+  --sn-line:       rgba(251,250,247,.16);
+  --sn-ink-300:    #7E796F;
+  --sn-ink-400:    #9A958C;
+  --sn-ink-500:    #B3AEA3;
+  --sn-ink-700:    #D6D1C7;
+  --sn-ink-900:    #FBFAF7;
+  /* The ink ON a light-gold fill (`.sn-btn-on-ink`): the gold stays light in dark, so this stays dark. */
+  --sn-ink-black:  #17160F;
+
+  /* gold: the wash goes dark, the text golds go light, the fills brighten. 300 is already the
+     gold for a dark surface (= --sn-ob-gold), so it stays. */
+  --sn-gold-100:   #413827;
+  --sn-gold-300:   #CBA766;
+  --sn-gold-500:   #CBA766;
+  --sn-gold-600:   #D4B47A;
+  --sn-gold-700:   #E2C98B;
+  --sn-gold-800:   #ECD9AE;
+  --sn-terra:      #D9A566;
+
+  /* semantic — the gallery's ok / warn / bad / info, each soft = its colour at 14–16 % over the card */
+  --sn-success:    #6FCF97;  --sn-success-soft: #2E392B;
+  --sn-success-deep: #9BE0B8;
+  --sn-warning:    #F0B45A;  --sn-warning-soft: #403522;
+  --sn-warning-deep: #F6CB8A;
+  --sn-danger:     #F2817A;  --sn-danger-soft:  #443029;
+  --sn-info:       #9DB2CE;  --sn-info-soft:    #373736;
+
+  --sn-glass-bg:   rgba(35,32,25,.5);
+
+  /* shadows: black, deeper — a warm-brown shadow is invisible on the dark page */
+  --sn-sh-sm: 0 1px 2px rgba(0,0,0,.35);
+  --sn-sh-md: 0 20px 34px -22px rgba(0,0,0,.7);
+  --sn-sh-lg: 0 40px 80px -50px rgba(0,0,0,.8);
+  --sn-sh-tile: 0 1px 2px rgba(0,0,0,.3), 0 18px 40px -26px rgba(0,0,0,.7);
+  --sn-sh-hi:   0 1px 2px rgba(0,0,0,.35), 0 28px 54px -30px rgba(0,0,0,.8);
+  --sn-sh-float: 0 1px 2px rgba(0,0,0,.35), 0 10px 24px -12px rgba(0,0,0,.6),
+                 0 30px 60px -30px rgba(0,0,0,.55);
+  --sn-sh-rise: 0 -1px 2px rgba(0,0,0,.35), 0 -10px 24px -12px rgba(0,0,0,.6),
+                0 -30px 60px -30px rgba(0,0,0,.55);
+  --sn-sh-panel: -2px 0 8px -4px rgba(0,0,0,.4), -30px 0 70px -30px rgba(0,0,0,.7);
+
   --sn-canvas: #17160F;
-  --sn-glass-bg-raised: rgba(30,34,41,.86);
+  --sn-glass-bg-raised: rgba(35,32,25,.86);
+  /* The dock: the card #232019 frosted at the same 92 %, the pill = ink #FBFAF7 @ 15 %,
+     and a softer press-light (a 95 % white bloom is a flashbulb on the dark page). */
+  --sn-dock-bg:    rgba(35, 32, 25, 0.92);
+  --sn-dock-pill:  rgba(251, 250, 247, 0.15);
+  --sn-dock-press: rgba(251, 250, 247, 0.28);
   /* The row's paper is `--color-cream` and its edge `--sn-glass-line`; both
      flip under html.dark themselves, so dark keeps the same alpha and blur. */
   --sn-glass-row-alpha: 62%;
   --sn-glass-row-blur: blur(16px) saturate(1.3);
 }
 
+
+/* 🔤 The initials chip — `.sn-initials` is the one look for initials on gold outside the shell; the shell's
+   `.fd-avatar` / `.fd-ava` read the same ink (front-door.css). Held by lib/avatar-initials-read.test.ts. */
+.sn-initials {
+  background: var(--sn-initials-bg);
+  color: var(--sn-initials-ink);
+}
 
 /* ── Guest-tree editorial scope (owner exclusion, 2026-07-12) ──
  * Applied by app/[slug]/layout.tsx around the whole invitation/event tree so
@@ -3446,6 +3954,11 @@ html.dark {
   --color-gild: 201 163 106; /* brightened so the metallic still reads on black */
   --color-gild-text: 201 163 106; /* its words too — never a palette's light-page text gild on black */
 }
+/* In the app's dark (never on a guest page) candlelight's own dark plate keeps its own cream words — `html.dark`
+   hands every other plate the light ink (`--color-ink-on-plate`, the dark token block). */
+html.dark [data-art='candlelight'] {
+  --color-ink-on-plate: var(--color-ink);
+}
 [data-art='candlelight'] .pahina-grain::before {
   /* grain has to work HARDER on dark stock and must not multiply to mud */
   opacity: 0.09;
@@ -3544,8 +4057,12 @@ html.dark {
    PALETTE STYLES, PICKED ON THE TOOLBAR"; prototype `palette_styles_2026-09-29
    .html`) ─────────────────────────────────────────────────────────────────────
    How the Dress code scene draws "Our colours": A · Tags (the shipped
-   `.pahina-swatch`, the default, untouched above) · B · Fabric swatches ·
-   C · Paint chips · D · Circles · E · Ribbon. ONE markup for B–E
+   `.pahina-swatch`, the default, untouched above) · B · Fabric (redrawn
+   2026-10-15 as Silk swatches) · C · Paint chips · D · Circles · E · Ribbon ·
+   and, owner 2026-10-15 (DECISION_LOG "SIX OWNER ANSWERS" (2), prototype
+   `palette_styles_2026-10-15_fable.html` styles 2, 3, 5): F · Arch tabs ·
+   G · Watercolour dots · H · Paint strokes. The heading keeps its first name
+   as the block's anchor. ONE markup for B–H
    (`dress-code-palette-looks.tsx`): `<ul class="sn-pal sn-pal-<look>">`, one
    `<li style="--c;--k">` per colour holding `<i>` (the swatch) then its words.
    `--c` is the colour; `--k` the ink that reads on it, chosen by contrast
@@ -3554,7 +4071,10 @@ html.dark {
    ✂ NO MOTION. The approved design gave each look an entrance; the owner cut
    palette animation on 2026-09-30 (DECISION_LOG "THE MAKER RE-PLAN IS CUT TO
    ITS CORE"). Every look is drawn still, like the shipped tags.
-   `palette-looks.test.ts` holds that nothing here animates. UNLAYERED. */
+   `palette-looks.test.ts` holds that nothing here animates. UNLAYERED.
+   🔠 Every name is drawn at 12 px or more (Batch 9 walk W4, 2026-10-16: the names measured 8.3–11.5 px against the
+   12 px Guest Legibility Floor). A name wraps on its own spaces; a word too long for its swatch breaks rather than
+   overflow. Held by `scripts/lint-guest-legibility.mjs`, which now reads this file too. */
 .sn-editorial .sn-pal {
   display: flex;
   flex-wrap: wrap;
@@ -3570,32 +4090,53 @@ html.dark {
   background-color: var(--c);
 }
 
-/* B · FABRIC SWATCHES — cloth squares cut with pinking shears, a weave from two
-   repeating gradients, a stitch inside in the colour's own ink. */
+/* B · FABRIC — REDRAWN AS SILK SWATCHES (owner 2026-10-15: "redraw Fabric as
+   Silk"; prototype style 4). A tall pinked rectangle with silk folds — four
+   diagonal sheen bands in white and ink at low alpha over the colour — and the
+   name ABOVE it in small caps, in the page's ink. No card under it (frames only
+   on what you press). The same id, so a page that picked Fabric keeps its pick. */
+.sn-editorial .sn-pal-fabric {
+  gap: 12px 8px;
+  /* A one-line name and a two-line name sit over swatches that still line up along the row's foot. */
+  align-items: flex-end;
+}
 .sn-editorial .sn-pal-fabric > li {
-  width: 3.875rem;
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: center;
+  width: 76px;
 }
 .sn-editorial .sn-pal-fabric > li > i {
-  width: 3.875rem;
-  height: 3.875rem;
-  background-image:
-    repeating-linear-gradient(0deg, rgb(0 0 0 / 0.09) 0 1px, transparent 1px 3px),
-    repeating-linear-gradient(90deg, rgb(255 255 255 / 0.1) 0 1px, transparent 1px 3px);
+  width: 56px;
+  height: 72px;
+  background-image: linear-gradient(115deg, transparent 0 16%, rgb(255 255 255 / 0.3) 25%, rgb(0 0 0 / 0.08) 33%, rgb(255 255 255 / 0.14) 47%, rgb(0 0 0 / 0.14) 59%, rgb(255 255 255 / 0.24) 70%, rgb(0 0 0 / 0.07) 82%, transparent 90%);
+  box-shadow: inset 0 0 0 1px rgb(var(--color-ink) / 0.2);
   clip-path: polygon(0% 4%, 5.6% 0%, 11.1% 4%, 16.7% 0%, 22.2% 4%, 27.8% 0%, 33.3% 4%, 38.9% 0%, 44.4% 4%, 50% 0%, 55.6% 4%, 61.1% 0%, 66.7% 4%, 72.2% 0%, 77.8% 4%, 83.3% 0%, 88.9% 4%, 94.4% 0%, 100% 0%, 96% 5.6%, 100% 11.1%, 96% 16.7%, 100% 22.2%, 96% 27.8%, 100% 33.3%, 96% 38.9%, 100% 44.4%, 96% 50%, 100% 55.6%, 96% 61.1%, 100% 66.7%, 96% 72.2%, 100% 77.8%, 96% 83.3%, 100% 88.9%, 96% 94.4%, 100% 100%, 94.4% 100%, 88.9% 96%, 83.3% 100%, 77.8% 96%, 72.2% 100%, 66.7% 96%, 61.1% 100%, 55.6% 96%, 50% 100%, 44.4% 96%, 38.9% 100%, 33.3% 96%, 27.8% 100%, 22.2% 96%, 16.7% 100%, 11.1% 96%, 5.6% 100%, 0% 96%, 4% 94.4%, 0% 88.9%, 4% 83.3%, 0% 77.8%, 4% 72.2%, 0% 66.7%, 4% 61.1%, 0% 55.6%, 4% 50%, 0% 44.4%, 4% 38.9%, 0% 33.3%, 4% 27.8%, 0% 22.2%, 4% 16.7%, 0% 11.1%, 4% 5.6%);
-  transform-origin: 50% 0;
 }
-.sn-editorial .sn-pal-fabric > li > i::before {
-  content: '';
-  position: absolute;
-  inset: 7px;
-  border: 1px dashed var(--k);
-  opacity: 0.55;
+.sn-editorial .sn-pal-fabric > li > b {
+  display: block;
+  margin-bottom: 6px;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+  color: rgb(var(--color-ink) / 0.72);
 }
-.sn-editorial .sn-pal-fabric > li > i::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(135deg, rgb(255 255 255 / 0.14), transparent 45%, rgb(0 0 0 / 0.1));
+@media (min-width: 768px) {
+  .sn-editorial .sn-pal-fabric {
+    gap: 14px 12px;
+  }
+  .sn-editorial .sn-pal-fabric > li {
+    width: 84px;
+  }
+  .sn-editorial .sn-pal-fabric > li > i {
+    width: 64px;
+    height: 82px;
+  }
 }
 
 /* C · PAINT CHIPS — one strip in a card, the name big ON the colour in its own
@@ -3740,38 +4281,270 @@ html.dark {
   clip-path: polygon(0 0, 100% 0, calc(100% - 9px) 50%, 100% 100%, 0 100%, 9px 50%);
 }
 
-/* ROW SIZE — the same look beside a role's figure. No words, no entrance. */
+/* F · ARCH TABS (prototype style 2) — tall tabs rounded at the foot like an
+   inverted arch, set edge to edge, four to a row on a phone and one row of
+   eleven on a desk; a line-drawn sprig in the middle and the name at the foot
+   in spaced caps, both in the ink that reads on the colour (`--k`). NO hex at
+   the head (owner 2026-10-15: "no hex"), so the sprig rises into its place.
+   The inset ink edge draws a Cream tab's open sides. */
+.sn-editorial .sn-pal-arch {
+  gap: 0;
+  align-items: stretch;
+}
+.sn-editorial .sn-pal-arch > li {
+  /* Four to a row on a phone; never wider than a desk's tab, so a tablet-wide column does not draw domes. */
+  flex: 0 0 min(25%, 96px);
+  height: 118px;
+  color: var(--k);
+}
+.sn-editorial .sn-pal-arch > li > i {
+  position: absolute;
+  inset: 0;
+  border-radius: 0 0 999px 999px;
+  box-shadow:
+    inset 0 0 0 1px rgb(var(--color-ink) / 0.16),
+    inset 0 -12px 18px -14px rgb(0 0 0 / 0.3);
+  color: var(--k);
+}
+.sn-editorial .sn-pal-arch > li > i > svg {
+  position: absolute;
+  left: 50%;
+  top: 22px;
+  width: 20px;
+  height: 38px;
+  margin-left: -10px;
+  opacity: 0.55;
+}
+.sn-editorial .sn-pal-arch > li > b {
+  position: absolute;
+  left: 7px;
+  right: 7px;
+  bottom: 14px;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+.sn-editorial [data-dress-code='you'] .sn-pal-arch > li {
+  flex: 0 0 86px;
+}
+@media (min-width: 768px) {
+  .sn-editorial .sn-pal-arch > li {
+    /* (Was 100% / 11 — ~61 px, too narrow for a 12 px name; a desk now wraps the tabs, never shrinks the words.) */
+    flex: 0 0 min(calc(100% / 7), 96px);
+    height: 132px;
+  }
+  .sn-editorial .sn-pal-arch > li > i > svg {
+    top: 26px;
+  }
+  .sn-editorial .sn-pal-arch > li > b {
+    bottom: 18px;
+  }
+  .sn-editorial [data-dress-code='you'] .sn-pal-arch > li {
+    flex: 0 0 86px;
+  }
+}
+
+/* G · WATERCOLOUR DOTS (prototype style 3) — a pigment pool: a lighter centre,
+   the colour darkened with 22 % of the page's ink at the rim (watercolour dries
+   darker at the edge), the outline roughened by ONE SVG filter
+   (`#sn-pal-wc`, drawn beside the list). The name under each in the page's own
+   ink — no word ever sits on a colour, so no colour needs the fallback ink. */
+.sn-editorial .sn-pal-watercolour {
+  gap: 10px 8px;
+}
+.sn-editorial .sn-pal-watercolour > li {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 76px;
+}
+.sn-editorial .sn-pal-watercolour > li > i {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  filter: url(#sn-pal-wc);
+  background:
+    radial-gradient(circle at 38% 36%, rgb(255 255 255 / 0.22), transparent 48%),
+    radial-gradient(circle at 60% 66%, color-mix(in srgb, var(--c), white 10%) 0 42%, var(--c) 62%, color-mix(in srgb, var(--c), rgb(var(--color-ink)) 22%) 100%);
+  box-shadow: inset 0 0 0 1px rgb(var(--color-ink) / 0.25);
+}
+.sn-editorial .sn-pal-watercolour > li > b {
+  display: block;
+  margin-top: 7px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+  color: rgb(var(--color-ink) / 0.72);
+}
+@media (min-width: 768px) {
+  .sn-editorial .sn-pal-watercolour {
+    gap: 12px 14px;
+  }
+  .sn-editorial .sn-pal-watercolour > li {
+    width: 84px;
+  }
+  .sn-editorial .sn-pal-watercolour > li > i {
+    width: 66px;
+    height: 66px;
+  }
+}
+
+/* H · PAINT STROKES (prototype style 5) — glossy pills tilted −7°, each
+   overlapping the one above by 12 px and stepping right by its place (`--i`),
+   a cascade down the phone; wider strokes and a longer step on a desk, still a
+   column. Gloss = a top highlight band, bristle lines along the stroke, a 2 px
+   drop shadow (paint has thickness — on a cream page the shadow is what keeps
+   a Cream stroke). The name on the stroke's uncovered left end, in `--k`. The
+   step never pushes a stroke past the list's right edge. */
+.sn-editorial .sn-pal-strokes {
+  display: block;
+  padding: 12px 0 10px 4px;
+}
+.sn-editorial .sn-pal-strokes > li {
+  width: min(230px, 100%);
+  height: 40px;
+  margin-left: min(calc(var(--i) * 9px), calc(100% - 230px));
+  transform: rotate(-7deg);
+  transform-origin: 0 50%;
+}
+.sn-editorial .sn-pal-strokes > li + li {
+  margin-top: -12px;
+}
+.sn-editorial .sn-pal-strokes > li > i {
+  width: 100%;
+  height: 100%;
+  border-radius: 22px 18px 20px 24px / 50% 50% 50% 50%;
+  background-image:
+    linear-gradient(180deg, rgb(255 255 255 / 0.36), rgb(255 255 255 / 0.06) 32%, rgb(0 0 0 / 0.06) 58%, rgb(0 0 0 / 0.22)),
+    repeating-linear-gradient(0deg, rgb(255 255 255 / 0.07) 0 1px, transparent 1px 5px);
+  box-shadow:
+    0 2px 4px rgb(0 0 0 / 0.25),
+    inset 0 0 0 1px rgb(var(--color-ink) / 0.12);
+}
+.sn-editorial .sn-pal-strokes > li > b {
+  position: absolute;
+  left: 18px;
+  top: 0;
+  display: flex;
+  align-items: center;
+  height: 40px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--k);
+}
+.sn-editorial [data-dress-code='you'] .sn-pal-strokes > li {
+  width: 150px;
+  margin-left: min(calc(var(--i) * 9px), calc(100% - 150px));
+}
+@media (min-width: 768px) {
+  .sn-editorial .sn-pal-strokes {
+    padding: 16px 0 16px 4px;
+  }
+  .sn-editorial .sn-pal-strokes > li {
+    width: min(300px, 100%);
+    height: 42px;
+    margin-left: min(calc(var(--i) * 22px), calc(100% - 300px));
+  }
+  .sn-editorial .sn-pal-strokes > li > b {
+    height: 42px;
+  }
+  .sn-editorial [data-dress-code='you'] .sn-pal-strokes > li {
+    width: 150px;
+    margin-left: min(calc(var(--i) * 22px), calc(100% - 150px));
+  }
+}
+
+/* 🧍 A LONE LOOK, CENTRED (`[data-dress-code-lone]`, owner 2026-10-18: "dresscode should also adapt center like wedding
+   march"). The dress code centres a role that holds ONE look, and the reader's own look, as the march centres a lone
+   walker (`dress-code-widget.tsx`). Every look's colours follow it: the wrapping looks centre their swatches and their
+   legend; Paint strokes keep their cascade, each stroke centred and still stepped down. Two looks are untouched.
+   Held by `lib/a-lone-look-in-the-dress-code-is-centred.test.ts`. */
+.sn-editorial [data-dress-code-lone] .sn-pal,
+.sn-editorial [data-dress-code-lone] .sn-pal-legend {
+  justify-content: center;
+}
+.sn-editorial [data-dress-code-lone] .sn-pal-strokes:not(.sn-pal-row) {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* 🏷 WHAT EACH COLOUR COLOURS (`DotWords`, 2026-10-17) — one key line under a row's colours: a bullet in the colour,
+   then its word ("Coat & pants", "Long gown"). The words are 12 px (the Guest Legibility Floor). */
+.sn-dot-words > span::before {
+  content: '';
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--c);
+  box-shadow: inset 0 0 0 1px rgb(var(--color-ink) / 0.25);
+}
+
+/* ROW SIZE — the same look beside a role's figure. No entrance; the words, when given, in one key line under it (`DotWords`). */
 .sn-editorial .sn-pal-row {
   gap: 6px;
 }
+.sn-editorial .sn-pal-row.sn-pal-fabric {
+  gap: 4px;
+}
 .sn-editorial .sn-pal-row.sn-pal-fabric > li {
-  width: auto;
+  width: 18px;
 }
-.sn-editorial .sn-pal-row.sn-pal-fabric > li > i {
-  width: 22px;
-  height: 22px;
-}
-.sn-editorial .sn-pal-row.sn-pal-fabric > li > i::before {
-  inset: 4px;
-  opacity: 0.5;
+.sn-editorial .sn-pal-row.sn-pal-fabric > li > i,
+.sn-editorial [data-dress-code] .sn-pal-row.sn-pal-fabric > li > i {
+  width: 18px;
+  height: 24px;
+  box-shadow: inset 0 0 0 1px rgb(var(--color-ink) / 0.22);
 }
 .sn-editorial .sn-pal-row.sn-pal-chips {
-  flex-direction: row;
-  gap: 3px;
-  width: auto;
-  padding: 0;
-  background: none;
-  box-shadow: none;
+  /* 🎨 THE SAME PAINT-CHIP CARD, SMALLER (2026-10-17, owner: "why do they have different palette icon?"): the
+     strips stacked in one paper card with its edge and shadow, a paper line between colours — not loose blocks. */
+  flex-direction: column;
+  flex-wrap: nowrap;
+  gap: 0;
+  width: 30px;
+  padding: 2px;
+  border-radius: 3px;
+  background: rgb(var(--color-paper));
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 0.08),
+    0 4px 8px -5px rgb(0 0 0 / 0.35),
+    0 0 0 1px rgb(var(--color-ink) / 0.1);
 }
 .sn-editorial .sn-pal-row.sn-pal-chips > li {
   display: block;
   min-height: 0;
-  width: 26px;
-  height: 16px;
+  width: 100%;
+  height: 8px;
   padding: 0;
   border: 0;
-  border-radius: 2px;
-  box-shadow: inset 0 0 0 1px rgb(var(--color-ink) / 0.15);
+  border-radius: 0;
+}
+.sn-editorial .sn-pal-row.sn-pal-chips > li:first-child {
+  border-top-left-radius: 2px;
+  border-top-right-radius: 2px;
+}
+.sn-editorial .sn-pal-row.sn-pal-chips > li:last-child {
+  border-bottom-left-radius: 2px;
+  border-bottom-right-radius: 2px;
+}
+.sn-editorial .sn-pal-row.sn-pal-chips > li + li {
+  border-top: 1px solid rgb(var(--color-paper) / 0.55);
+}
+.sn-editorial .sn-pal-row.sn-pal-chips > li:first-child:nth-last-child(n + 6),
+.sn-editorial .sn-pal-row.sn-pal-chips > li:first-child:nth-last-child(n + 6) ~ li {
+  min-height: 0;
+  padding: 0;
 }
 .sn-editorial .sn-pal-row.sn-pal-circles {
   gap: 6px 0;
@@ -3785,11 +4558,21 @@ html.dark {
   height: 20px;
   box-shadow:
     0 0 0 2px rgb(var(--color-paper)),
-    inset 0 0 0 1px rgb(var(--color-ink) / 0.15);
+    0 3px 6px -4px rgb(0 0 0 / 0.55),
+    inset 0 -2px 4px -2px rgb(0 0 0 / 0.28),
+    inset 0 2px 3px -2px rgb(255 255 255 / 0.4);
 }
-.sn-editorial .sn-pal-row.sn-pal-circles > li > i::before,
+/* The button's rim and four thread holes, scaled to the row (they were hidden — the row read as plain dots). */
+.sn-editorial .sn-pal-row.sn-pal-circles > li > i::before {
+  inset: 3px;
+  border-width: 1px;
+}
 .sn-editorial .sn-pal-row.sn-pal-circles > li > i::after {
-  display: none;
+  background:
+    radial-gradient(circle at 42% 42%, var(--k) 0 0.9px, transparent 1.2px),
+    radial-gradient(circle at 58% 42%, var(--k) 0 0.9px, transparent 1.2px),
+    radial-gradient(circle at 42% 58%, var(--k) 0 0.9px, transparent 1.2px),
+    radial-gradient(circle at 58% 58%, var(--k) 0 0.9px, transparent 1.2px);
 }
 .sn-editorial .sn-pal-row.sn-pal-ribbon {
   width: 64px;
@@ -3806,6 +4589,69 @@ html.dark {
 .sn-editorial .sn-pal-row.sn-pal-ribbon > li:last-child > i {
   margin-right: 0;
   clip-path: polygon(0 0, 100% 0, calc(100% - 4px) 50%, 100% 100%, 0 100%);
+}
+
+.sn-editorial .sn-pal-row.sn-pal-arch {
+  gap: 1px;
+}
+.sn-editorial .sn-pal-row.sn-pal-arch > li,
+.sn-editorial [data-dress-code] .sn-pal-row.sn-pal-arch > li {
+  flex: 0 0 14px;
+  height: 22px;
+}
+.sn-editorial .sn-pal-row.sn-pal-watercolour {
+  gap: 4px;
+}
+.sn-editorial .sn-pal-row.sn-pal-watercolour > li {
+  width: 20px;
+}
+.sn-editorial .sn-pal-row.sn-pal-watercolour > li > i {
+  width: 20px;
+  height: 20px;
+  /* 🎨 THE SAME BLED EDGE, PRE-RENDERED (2026-10-17, owner: "why do they have different palette icon?"). The row
+     used a smooth uneven radius, which read as a different look. Its edge is now the full size's OWN filter
+     (`#sn-pal-wc`), run once per seed and saved as an alpha mask (`scripts/build-palette-row-masks.mjs`):
+     measured 60 row dots at 375 px, DPR 2 — live filter 5.9 ms raster, this mask 0.8 ms (plain dots 0.7 ms).
+     The 60 px dot fills 75 % of each mask, hence 133 %. */
+  filter: none;
+  border-radius: 0;
+  /* The pool's darker rim lands ON the masked edge (closest-side), so a white or cream dot still has an edge. */
+  background:
+    radial-gradient(circle at 38% 36%, rgb(255 255 255 / 0.22), transparent 48%),
+    radial-gradient(circle closest-side, color-mix(in srgb, var(--c), white 10%) 0 40%, var(--c) 68%, color-mix(in srgb, var(--c), rgb(var(--color-ink)) 32%) 100%);
+  -webkit-mask: url(/palette/wc-edge-1.png) center / 133% no-repeat;
+  mask: url(/palette/wc-edge-1.png) center / 133% no-repeat;
+}
+.sn-editorial .sn-pal-row.sn-pal-watercolour > li:nth-child(3n + 2) > i {
+  -webkit-mask-image: url(/palette/wc-edge-2.png);
+  mask-image: url(/palette/wc-edge-2.png);
+}
+.sn-editorial .sn-pal-row.sn-pal-watercolour > li:nth-child(3n) > i {
+  -webkit-mask-image: url(/palette/wc-edge-3.png);
+  mask-image: url(/palette/wc-edge-3.png);
+}
+.sn-editorial .sn-pal-row.sn-pal-strokes,
+.sn-editorial [data-dress-code] .sn-pal-row.sn-pal-strokes {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0;
+  padding: 4px 10px 4px 0;
+}
+.sn-editorial .sn-pal-row.sn-pal-strokes > li,
+.sn-editorial [data-dress-code] .sn-pal-row.sn-pal-strokes > li {
+  width: 26px;
+  height: 11px;
+  margin: 0;
+  transform: rotate(-14deg);
+}
+.sn-editorial .sn-pal-row.sn-pal-strokes > li + li,
+.sn-editorial [data-dress-code] .sn-pal-row.sn-pal-strokes > li + li {
+  margin-left: -8px;
+}
+.sn-editorial .sn-pal-row.sn-pal-strokes > li > i {
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 0.3),
+    inset 0 0 0 1px rgb(var(--color-ink) / 0.15);
 }
 
 .sn-editorial {
@@ -4482,6 +5328,11 @@ html.dark {
   background-color: rgb(var(--color-ink) / 0.2);
   transition: background-color var(--sn-pill-dur) var(--sn-ease);
 }
+/* Dark (PR 4, 2026-10-13): "off" is the approved template's dark line (`--line2`, the page's ink at 28 %) — at 20 % the
+   track sank into the card. `:where()` keeps it at the base rule's weight, so "on" (the accent, below) still wins. */
+:where(html.dark) .sn-switch {
+  background-color: rgb(var(--color-ink) / 0.28);
+}
 .sn-switch[data-on='true'],
 .peer:checked ~ .sn-switch {
   background-color: rgb(var(--sn-accent));
@@ -4632,19 +5483,59 @@ html.dark {
    · `body`    — Classic has no theme block to point the page's own face at `--font-body` (a painted theme's
                  block already does).
    · `eyebrow` — `.pahina-eyebrow` names its face directly, not `--font-mono`.
-   · `button`  — a button had no face of its own; it inherited the text's. */
-[data-hub-roles~='names'] [data-hub-names] {
+   · `button`  — a button had no face of its own; it inherited the text's.
+   🪆 THE NEAREST SCOPE DECIDES (2026-10-17, measured in the Maker lab): on the Maker's canvas the drafted look is a
+   SECOND scope inside the guest-tree layout's (`HostDraftLook`). A draft that hands the Names font back ("Event Hub
+   font") wears no names mark — but the layout's scope, one level up, still did, and the canvas kept showing the live
+   font until Apply. So a names mark reaches the names only when no worn scope WITHOUT it sits between them; a guest's
+   page (one scope, or two that agree) is unchanged.
+   🔤 THE JOINER (owner 2026-10-17, *"how about the &?"*): the "&" between the names (`data-hub-joiner`, every masthead
+   design and the sample) follows the Names font too — its gold stays, and its italic only where the face has one
+   (`font-synthesis-style: none`: a face with no italic is drawn upright, never slanted by the browser). */
+[data-hub-roles~='names'] [data-hub-names]:not([data-hub-roles~='names'] [data-guest-look]:not([data-hub-roles~='names']) *) {
   font-family: var(--hub-names-face);
+}
+[data-hub-roles~='names'] [data-hub-names] [data-hub-joiner]:not([data-hub-roles~='names'] [data-guest-look]:not([data-hub-roles~='names']) *) {
+  font-family: var(--hub-names-face);
+  font-synthesis-style: none;
+}
+/* 🎨 THE NAMES WEAR THE DOMINANT (owner 2026-10-14, Maker test: *"changing colors does not show on preview"* — the
+   Mood Board's Dominant is "Headings · the names", and nothing on the page wore it). `--hub-names-ink` is the
+   Dominant AA-large on the paper and the cards (`buildSitePaletteVars`); wherever the words sit on another ground
+   (a page colour of the couple's own, a blend, Candlelight, a picture, a scene's own ground, the canvas preview) it
+   is taken off, and the names fall back to the page's measured ink — exactly what they wore before. A part's own
+   colour (Stages › Names, inline) still wins. */
+[data-guest-look] [data-hub-names] {
+  color: rgb(var(--hub-names-ink, var(--color-ink)));
+}
+[data-guest-look][data-art='candlelight'] {
+  --hub-names-ink: initial !important;
 }
 [data-hub-roles~='body'] {
   --font-sans: var(--font-body);
   font-family: var(--font-body);
 }
-[data-hub-roles~='eyebrow'] .pahina-eyebrow {
+/* 🪆 …AND TEXT, LABELS & BUTTONS HANDED BACK SHOW ON THE CANVAS TOO (2026-10-18 — the Names hand-back's same cause,
+   measured on the real guest markup in the canvas's two scopes, Chromium + WebKit): a draft that handed Text or
+   Labels & buttons back ("Event Hub font") over a live pick kept the LIVE face on the canvas until Apply — the
+   buttons and (on a theme) the eyebrows matched the layout's mark one scope up, and on Classic the text inherited
+   the layout scope's face, because Classic has no theme block to set the page's own again. So, as for the names,
+   the NEAREST worn scope decides: the eyebrow and button rules hold only where no worn scope without the mark sits
+   between; and a worn Classic scope without the Text mark, inside one with it, takes back the page's own text face
+   (`--hub-page-text-face`: what `<body>`'s `font-sans` resolves to, captured where it is set). A painted theme's
+   scope sets its own face itself. A guest's page (one scope, or two that agree) is unchanged. */
+body {
+  --hub-page-text-face: var(--font-sans);
+}
+[data-hub-roles~='body'] [data-guest-look]:not([data-hub-roles~='body']):not([data-hub-theme]) {
+  --font-sans: var(--hub-page-text-face);
+  font-family: var(--hub-page-text-face), ui-sans-serif, system-ui, sans-serif;
+}
+[data-hub-roles~='eyebrow'] .pahina-eyebrow:not([data-hub-roles~='eyebrow'] [data-guest-look]:not([data-hub-roles~='eyebrow']) *) {
   font-family: var(--font-mono);
 }
-[data-hub-roles~='button'] :is(.button-primary, .button-secondary, [data-rsvp-answer]),
-[data-hub-roles~='button'] [data-arrival-action] a.bg-mulberry {
+[data-hub-roles~='button'] :is(.button-primary, .button-secondary, [data-rsvp-answer]):not([data-hub-roles~='button'] [data-guest-look]:not([data-hub-roles~='button']) *),
+[data-hub-roles~='button'] [data-arrival-action] a.bg-mulberry:not([data-hub-roles~='button'] [data-guest-look]:not([data-hub-roles~='button']) *) {
   font-family: var(--hub-role-button-font);
 }
 /* 🔘 THE TAPPED ANSWER FILLS, THE OTHER GOES PLAIN (owner 2026-10-06, DECISION_LOG
@@ -4815,6 +5706,21 @@ html.dark {
   -webkit-backdrop-filter: blur(22px) saturate(1.4);
   color: var(--sn-gold-100);
 }
+/* 🌗 DARK ISLANDS STAY DARK (dark mode PR 1, 2026-10-13). These recipes are dark in Light already, and
+ * read `--sn-gold-100` as PARCHMENT words on them. In dark that token is a dark gold WASH, which would
+ * put dark words on dark glass — so inside an island the gold tokens keep their light values. The
+ * fill of `.sn-tile-dark` is `--m-ink`, which turns light in dark; it gets the warm raised dark. */
+html.dark :is(.sn-glass-dark, .sn-tile-obsidian, .sn-tile-dark) {
+  --sn-gold-100: #F3ECDF;
+  --sn-gold-300: #CBA766;
+  --sn-gold-500: #A9834B;
+  --sn-gold-700: #8A6B39;
+  color: #F3ECDF;
+}
+html.dark .sn-tile-dark {
+  background: #2B2821;
+  border-color: rgba(251, 250, 247, 0.12);
+}
 
 /* ---------- DESIGN FOUNDATION (owner 2026-09-24) ----------------------------
  * The shared pieces' recipes. Read build-sessions/DESIGN-FOUNDATION.md first.
@@ -4921,10 +5827,9 @@ html.dark {
  * "tap to edit" pointer on every section. Set and cleared by the bridge alone; no guest's page ever carries it. */
 html[data-maker-guest] [data-maker-empty] { display: none !important; }
 html[data-maker-guest] [data-setnayan-editor-bound] { cursor: auto !important; }
-/* 🎭 …and the Reveal's TILE (`stage-tools.tsx`, "Opens once, over the cover — then every page after it opens plain"):
- * the Maker's own picture of the opening, put at the top of the page so it can be tapped. A guest's page never has
- * it (the opening plays OVER the cover), and the preview opened on it (the walk of 2026-10-11, P10). */
-html[data-maker-guest] [data-maker-reveal-part] { display: none !important; }
+/* 🎭 …and the cover's OPENING TAG (`stage-tools.tsx`, "Sheer veil ◆ opens over it" — owner-approved 2026-10-16; the
+ * Reveal's tile above the cover is gone): the Maker's own words in the cover's corner. A guest's page never has it. */
+html[data-maker-guest] [data-maker-opening-tag] { display: none !important; }
 
 /* FROM THE CENTRE (`<Slider from="centre">` — a value that rests in the middle and goes both ways, Darker ↔ Lighter):
  * the accent runs from the middle of the line out to the knob, on whichever side it is; at rest nothing is filled. */
@@ -5043,6 +5948,11 @@ html.dark div:has(> [data-apply-pro-sheet]),
 html.dark .sn-popup-dark {
   background-color: rgb(0 0 0 / 0.55);
 }
+/* The side panel's and the guest card's backdrops are the same dark in dark mode (2026-10-25). */
+html.dark .sn-inspector-peek,
+html.dark .sn-side-panel-scrim {
+  background-color: rgb(0 0 0 / 0.55);
+}
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   html.dark div:has(> [data-apply-pro-sheet]),
   html.dark .sn-popup-dark {
@@ -5155,9 +6065,12 @@ html.dark .sn-popup-dark {
   inset: 0;
   z-index: var(--sn-z-scrim);
   border: 0;
-  background: rgba(30, 26, 18, 0.32);
-  backdrop-filter: blur(3px);
-  -webkit-backdrop-filter: blur(3px);
+  background: rgb(var(--color-ink) / 0.42);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  /* The house popup dark (owner 2026-10-25): the same dark and blur as `.sn-popup-dark`; a drag on it moves nothing. */
+  touch-action: none;
+  overscroll-behavior: none;
   animation: sn-peek-in var(--sn-dur-elem) var(--sn-ease) backwards;
   transition: opacity var(--sn-dur-elem) var(--sn-ease);
 }
@@ -5166,7 +6079,9 @@ html.dark .sn-popup-dark {
   top: 0;
   right: 0;
   bottom: 0;
-  left: 3.5rem;
+  /* The peek and the panel's far edge clear a side safe area (every-bar-clears-the-side-insets.test.ts). */
+  left: max(3.5rem, var(--sn-safe-l));
+  padding-right: var(--sn-safe-r);
   z-index: var(--sn-z-panel);
   display: flex;
   flex-direction: column;
@@ -5181,8 +6096,10 @@ html.dark .sn-popup-dark {
     opacity var(--sn-dur-elem) var(--sn-ease),
     translate var(--sn-dur-elem) var(--sn-ease);
 }
-@media (min-width: 768px) {
-  .sn-side-panel { left: auto; width: min(30rem, calc(100vw - 3.5rem)); }
+/* 📐 440 FROM 701 (owner 2026-10-19, couple dashboard desktop + tablet: "the shipped SidePanel takes the 440 token
+ * + the 701 boundary"). Was 30 rem (480) from 768. */
+@media (min-width: 701px) {
+  .sn-side-panel { left: auto; width: min(27.5rem, calc(100vw - 3.5rem)); }
   .sn-side-panel[data-size='wide'] { width: min(44rem, calc(100vw - 3.5rem)); }
 }
 .sn-side-panel[data-closing='true'] { opacity: 0; translate: 34px 0; pointer-events: none; }
@@ -5201,7 +6118,7 @@ html.dark .sn-popup-dark {
  * approved 2026-09-24: "right panel on desktop, bottom sheet on phone"). The
  * top strip above it is the way back, as the left strip is on the side panel.
  * From 768px it is the ordinary right-hand panel above, unchanged. */
-@media (max-width: 767.98px) {
+@media (max-width: 700.98px) {
   .sn-side-panel[data-phone='sheet'] {
     top: 3.5rem;
     left: 0;
@@ -5390,8 +6307,8 @@ html.dark .sn-popup-dark {
   /* The opaque fill above is a light-mode value, so it needs its dark pair or
      dark mode gets white rows on a black page. */
   html.dark .sn-row {
-    background: #2A2E36;
-    border-color: rgba(255, 255, 255, 0.12);
+    background: #2B2821;   /* warm, one step above the card (was the cool #2A2E36 — 2026-10-13, call 6) */
+    border-color: rgba(251, 250, 247, 0.12);
   }
 
   /* Tile eyebrow — replaces every font-mono/ALL-CAPS hand-roll. Gold-700 on
@@ -5710,9 +6627,12 @@ html.dark .sn-popup-dark {
   inset: 0;
   z-index: 74;
   border: 0;
-  background: rgba(30, 26, 18, 0.4);
-  backdrop-filter: blur(3px);
-  -webkit-backdrop-filter: blur(3px);
+  background: rgb(var(--color-ink) / 0.42);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  /* The house popup dark (owner 2026-10-25): the same dark and blur as `.sn-popup-dark`; a drag on it moves nothing. */
+  touch-action: none;
+  overscroll-behavior: none;
   animation: sn-peek-in 0.28s var(--sn-ease) both;
 }
 .sn-inspector-sheet {
@@ -5722,7 +6642,7 @@ html.dark .sn-popup-dark {
   bottom: 0;
   /* The peek. Wide enough to read the list behind it and to be a comfortable
    * tap target; narrow enough that the card is not cramped on a 360px phone. */
-  left: 3.5rem;
+  left: max(3.5rem, var(--sn-safe-l));
   z-index: 75;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -5730,7 +6650,7 @@ html.dark .sn-popup-dark {
   border-radius: 24px 0 0 24px;
   background: var(--sn-paper, #fffdf8);
   box-shadow: -18px 0 40px -20px rgba(30, 26, 18, 0.45);
-  padding: max(1.25rem, env(safe-area-inset-top)) 1.25rem max(1.25rem, env(safe-area-inset-bottom));
+  padding: max(1.25rem, env(safe-area-inset-top)) max(1.25rem, var(--sn-safe-r)) max(1.25rem, env(safe-area-inset-bottom)) 1.25rem;
   /* `backwards`, NOT `both`. A `both` fill holds `transform: none` after the
    * animation ends, and a held transform — even the identity — makes this
    * element the containing block for every `position: fixed` descendant, which
@@ -5800,14 +6720,22 @@ html.dark .sn-popup-dark {
  * "the card inside a frame inside the popup"). From a tablet up the sheet is a
  * right-hand panel sized to the card, not the whole window minus a 56 px peek
  * with a 420 px card floating in it; the list behind stays the way back. */
-@media (min-width: 768px) {
-  .sn-inspector-sheet { left: auto; width: min(36rem, calc(100vw - 3.5rem)); }
+/* 📐 The guest card's panel is the system's 440 from 701 (owner 2026-10-19, couple dashboard desktop + tablet:
+ * "a guest's Edit … become the side panel"). Was 36 rem from 768. */
+@media (min-width: 701px) {
+  .sn-inspector-sheet { left: auto; width: min(27.5rem, calc(100vw - 3.5rem)); }
 }
 
 @media (min-width: 1280px) {
   /* The rail owns the card at ≥xl; the sheet must never double it. */
   .sn-inspector-peek,
   .sn-inspector-sheet { display: none; }
+}
+/* 🪪 The guest card opened with no list behind it (`InspectorSheetAlone` — the Wedding March, the parents): the same sheet,
+ * and at ≥ 1280 still the 440 panel — there is no rail to hand it to (owner 2026-10-24, one guest card everywhere). */
+@media (min-width: 1280px) {
+  .sn-inspector-peek.sn-inspector-peek--alone { display: block; }
+  .sn-inspector-sheet.sn-inspector-sheet--alone { display: block; left: auto; width: 27.5rem; }
 }
 @keyframes sn-peek-in { from { opacity: 0 } to { opacity: 1 } }
 @keyframes sn-sheet-in {
@@ -5865,6 +6793,10 @@ html.dark .sn-popup-dark {
 /* Same pairing, same fix — see the note above `.app-surface .button-primary`. */
 .sn-btn-primary { background: var(--sn-gold-700); color: #FFFDF8; }
 .sn-btn-primary:hover { background: var(--sn-gold-800); transform: translateY(-2px); box-shadow: 0 14px 26px -12px var(--sn-gold-500); }
+/* Dark (PR 4 "shared pieces", 2026-10-13): the three shared filled buttons' fills turn LIGHT in dark (mulberry
+   #E5794E, gold #E2C98B, their hovers lighter still), so their white words read ~2:1. Their words are the page's
+   ink-black there (`--color-cream` in dark, #17160F) — the same answer as the accent's own `--sn-on-accent`. */
+html.dark :is(.m-btn-primary, .m-btn-orange, .sn-btn-primary) { color: rgb(var(--color-cream)); }
 .sn-btn-secondary { background: transparent; color: var(--sn-ink-900); border: 1.5px solid var(--sn-ink-900); }
 .sn-btn-secondary:hover { background: var(--sn-ink-900); color: var(--sn-paper); transform: translateY(-2px); }
 .sn-btn-ghost { background: transparent; color: var(--sn-ink-700); }
@@ -6322,7 +7254,9 @@ html:active-view-transition .sn-page-enter { animation: none; }
 .sn-gal-btn-cta { background: var(--sn-ob-cta); border-color: var(--sn-ob-cta); color: var(--sn-ob-page); }
 
 /* Lightbox — obsidian scrim + raised card. */
-.sn-gal-scrim { background: rgb(23 22 15 / 0.92); }
+/* OPAQUE (owner 2026-10-24: a Love Story photo opened see-through). Nothing of the page may show behind a photo
+   that has the whole screen — `lib/a-photo-viewer-is-a-real-screen.test.ts` reads this rule. */
+.sn-gal-scrim { background: var(--sn-ob-page); }
 .sn-gal-lb-card {
   background: var(--sn-ob-card);
   border: 1px solid rgb(251 250 247 / 0.14);
@@ -6483,6 +7417,181 @@ html:active-view-transition .sn-page-enter { animation: none; }
   }
 }
 
+/* ═══ 🎭 BEHIND THE VEIL, NONE OF THE COVER'S WORDS SHOW — EVERY LINE ENTERS AFTER THE UNVEIL (owner 2026-10-16) ═══
+   Owner, verbatim: *"Yes — behind the veil, none of the cover's words show. After the unveil, every line enters with
+   the cover's entrance (lines with no Build in get the cover's default)."* Live on cale-ice the date, the venue and
+   the mark's hairlines showed through the fabric: they had no Build in, so nothing held them back.
+   · WHILE THE VEIL IS CLOSED the hold's own `<style data-veil-hold>` (`lib/hub-veil.ts`) draws every cover line
+     (`[data-cover-line]`, `pahina-masthead.tsx`) at opacity 0 — its place kept, so nothing jumps when it enters.
+   · AFTER THE UNVEIL the page keeps `<style data-veil-words>` (written beside the hold, never removed), and here every
+     line with no Build in of its own (`data-cover-line=""`) takes the cover's default entrance: the shipped default
+     Build in (Calm — `hub-in-fade`, 1.1 s, the timed ease, `COVER_DEFAULT_ENTRANCE`), one after another in reading
+     order (`--cover-at`, numbered by the release). It was paused at its first frame under the hold, so it starts on
+     the unveil. A line with its own Build in (`data-cover-line="own"`) keeps it, untouched. A line that moves but has
+     no Build in (a Drift alone) keeps its Drift and fades in on the same clock as a transition, so its own animation
+     is never replaced.
+   · No veil on the page → no marker → nothing here matches. Reduced motion → the hold never runs (those guests get no
+     opening) → the lines are simply there. Held by `app/[slug]/_components/the-veil-hides-the-cover-words.test.ts`
+     and, rendered, `tests/e2e/the-veil-hides-the-cover-words.spec.ts`. */
+@media screen and (prefers-reduced-motion: no-preference) {
+  html:has(> head > style[data-veil-words]) [data-cover-line='']:not([data-el-motion]) {
+    animation: hub-in-fade 1.1s cubic-bezier(0.22, 0.61, 0.36, 1) calc(0.12s * var(--cover-at, 0)) both;
+  }
+  html:has(> head > style[data-veil-words]) [data-cover-line=''][data-el-motion] {
+    transition: opacity 1.1s cubic-bezier(0.22, 0.61, 0.36, 1) calc(0.12s * var(--cover-at, 0));
+  }
+  /* 👻 …AND THE LOADING SCREEN BEFORE IT (coordinator, live 2026-10-16: the date and the hairlines showed on the
+     loading frame, then the veil came in). Where the page about to land opens under a veil (`loadingOpensUnderAVeil`,
+     `_lib/loading-stage.ts`), the loading screen keeps every cover line's place but does not draw it. Capped at the
+     hold's own failsafe (12 s, `VEIL_HOLD_FAILSAFE_MS`) — a stalled page still shows its words. */
+  [data-loading-veiled] [data-cover-line] {
+    animation: sn-el-waits 12s step-end;
+  }
+}
+
+/* 🔘 THE COVER'S FOOT — THE RSVP BUTTON AND THE "SWIPE UP" HINT (owner 2026-10-16, "THE COVER: WORDS IN THE UPPER PART,
+   AN RSVP BUTTON AND A 'SWIPE UP' HINT AT THE FOOT"): both enter LAST — under a veil they are the last cover lines, so
+   the veil's own entrance brings them in last (`--cover-at`); with no veil they are drawn at once, like every line with
+   no Build in (`the-veil-hides-the-cover-words.spec.ts`). The hint's chevron nods gently — still under reduced motion
+   (`motion-reduce:animate-none` on the drawing). `pahina-masthead.tsx` `foot`. */
+@keyframes cover-hint-nod {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+/* 🔘 …AND ON A DARK GROUND THE FOOT'S BUTTON KEEPS ITS LABEL (2026-10-17, walked on a `#3a4a5a` ground at 375 and
+   1280). The cream tone repaints `--color-mulberry` as the paper (`COVER_SCENE_CREAM_VARS`, so a framed button reads
+   as a light pill on the dark ground) — but `.button-primary`'s label is `text-cream`, white: the guest's "Confirm
+   attendance" and the stranger's "Confirm your Booking" were drawn as BLANK pills, white on paper. Here the label is
+   the espresso ink (#2C2A29 on the paper #FBFAF7, 13.8:1) — the paper never follows the page's own theme. */
+header[data-cover-tone='cream'] [data-cover-foot] .button-primary {
+  color: rgb(44 42 41);
+}
+
+/* ✨ THE SIX NEW EFFECTS (owner-approved 2026-10-16, DECISION_LOG "APPROVED — SIX NEW EFFECTS: WORD BY WORD · SPREAD ·
+   GLOW (TEXT), DEVELOP · CURTAIN · LIGHT LEAK (PICTURES)"; prototype `text_image_effects_2026-10-16.html`). Pure CSS on
+   transform · opacity · filter · clip-path — never `letter-spacing`, never `text-shadow` (both repaint every frame).
+   The hooks are the part's own (`hubElementFxAttrs`, `lib/element-style.ts`): `data-el-words` (word · spread),
+   `data-el-glow`, `data-el-reveal` (develop · curtain), `data-el-act` (kenburns · leak · still); the words are cut into
+   `[data-el-w]` / `[data-el-l]` / `[data-el-sl]` by `lib/part-fx.ts`; the photo's picture is `[data-el-pic]`; the timing
+   is `--el-fx-dur` · `--el-fx-delay` · `--el-fx-gap` (`hubElementFxVars`, Movement and Delay).
+   🔒 OUTSIDE THE GATE IS THE FINISHED STATE — the ambient-effects rule: under reduced motion, or on a Save-Data
+   connection (`.sn-save-data`), nothing below the gate applies, so every word is at rest, the photo is in full colour
+   and whole, Glow's halo is held at its middle strength and the flare is held faint in one corner. Never hidden, never
+   a start frame. Each one-shot fills `backwards`: it holds its first frame through its Delay and stagger and nothing
+   after (`an-identity-transform-unpins-every-fixed-child.test.ts`). Drawn before the canvas block: these are the cover's
+   parts, not a scene's (`the-canvas-fails-visible.test.ts` holds that block's own two gates). Held by
+   `lib/six-effects-finish-still-and-ask-pro.test.ts`. */
+@keyframes el-fx-word { from { opacity: 0; transform: translate3d(0, 0.45em, 0); } }
+@keyframes el-fx-letter { from { opacity: 0; transform: translate3d(var(--el-fx-x, 0), 0, 0); } }
+@keyframes el-fx-line { from { opacity: 0; transform: scaleX(0.88); } }
+@keyframes el-fx-glow { 0%, 100% { opacity: 0.22; } 50% { opacity: 0.7; } }
+@keyframes el-fx-develop { from { filter: sepia(1) saturate(0.55) contrast(0.9) brightness(0.85); } to { filter: none; } }
+@keyframes el-fx-curtain { from { clip-path: inset(0 50% 0 50%); } to { clip-path: inset(0 0 0 0); } }
+@keyframes el-fx-kenburns { from { transform: scale(1); } to { transform: scale(1.08); } }
+/* Glow's halo: a blurred copy of each word (`data-t`) under it, in the theme's accent — a pseudo-element, so it is never
+   text a reader of the part finds. At rest: its middle strength. */
+[data-el-glow] { isolation: isolate; }
+[data-el-glow] [data-el-w] { position: relative; }
+[data-el-glow] [data-el-w]::before {
+  content: attr(data-t);
+  position: absolute;
+  inset: 0;
+  white-space: nowrap;
+  color: rgb(var(--color-gild-text, var(--color-gild)));
+  -webkit-text-fill-color: currentColor;
+  filter: blur(0.22em);
+  opacity: 0.45;
+  z-index: -1;
+  pointer-events: none;
+  user-select: none;
+}
+/* Light leak: drawn on the Maker's canvas always, shown only on a photo that leaks (a pick needs no redraw). */
+[data-el='photo']:not([data-el-act='leak']) > [data-el-leak] { display: none; }
+/* Save-Data: the flare held where reduced motion holds it (the ambient sheet's own still, `AMBIENT_EFFECT_CSS`). */
+:root.sn-save-data [data-el-leak] [data-ambient-effect='leak'] i {
+  animation-name: none;
+  opacity: calc(var(--o) * .7);
+  transform: rotate(-18deg) translateX(calc(44% * var(--p) - 22%));
+}
+/* 🖼 …ON A SCENE'S PICTURES (owner 2026-10-17, "extend the effects to every text and picture part"): Reveal ▾ and Light
+   leak ◆ are the scene's own (`hub-reveal-*` · `hub-during-leak`, `hubCanvasClass`), on every picture it draws — its
+   photos, its venue picture, its photo behind the words. Develop and Curtain play as the scene nears the screen
+   (`.pahina-in`), on its own Movement (`--hub-duration`); never on the photo behind while it Slow-lifts (that layer's
+   one animation is the lift). Light leak is the shipped ambient leak's own drawing (`AMBIENT_PHOTO_LEAK_SPEC`: its
+   band, its colours, its 16 s, its still — held equal by the guard) laid over each picture that is its box's only
+   child; `contain: paint` clips it to the picture without moving the box. Outside the gate: held faint, still.
+   `button` is in the box list because a Glimpse card IS a button holding its one photo (owner 2026-10-17, a Love
+   Story moment's photos show as Glimpse) — the leak reaches every Glimpse frame, the Photos scene's and the Love
+   Story's alike. */
+@keyframes el-fx-leak {
+  0% { opacity: 0; transform: rotate(-18deg) translateX(-22%); }
+  40% { opacity: 0.50; }
+  100% { opacity: 0; transform: rotate(-18deg) translateX(22%); }
+}
+.hub-during-leak > .hub-canvas-body :where(figure, div, a, span, picture, button):has(> :is(img, video):only-child),
+.hub-has-media.hub-during-leak > .hub-canvas-media {
+  contain: paint;
+  isolation: isolate;
+}
+.hub-during-leak > .hub-canvas-body :where(figure, div, a, span, picture, button):has(> :is(img, video):only-child)::before,
+.hub-has-media.hub-during-leak > .hub-canvas-media::before {
+  content: '';
+  position: absolute;
+  left: -30%;
+  top: -40%;
+  width: 160%;
+  height: 180%;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(100deg, transparent 30%, rgba(244,179,124,0.35) 46%, rgba(255,230,196,0.55) 52%, rgba(244,179,124,0.35) 58%, transparent 72%);
+  mix-blend-mode: screen;
+  filter: blur(10px);
+  opacity: calc(0.50 * .7);
+  transform: rotate(-18deg) translateX(calc(44% * 0.366 - 22%));
+}
+@media screen and (prefers-reduced-motion: no-preference) {
+  :root:not(.sn-save-data) [data-el-words='word'] [data-el-w] {
+    display: inline-block;
+    animation: el-fx-word var(--el-fx-dur, 1.1s) cubic-bezier(0.16, 1, 0.3, 1) calc(var(--el-fx-delay, 0s) + var(--el-fx-i, 0) * var(--el-fx-gap, 0.12s)) backwards;
+  }
+  :root:not(.sn-save-data) [data-el-words='spread'] [data-el-w] { display: inline-block; white-space: nowrap; }
+  :root:not(.sn-save-data) [data-el-words='spread'] [data-el-l] {
+    display: inline-block;
+    animation: el-fx-letter var(--el-fx-dur, 1.1s) cubic-bezier(0.16, 1, 0.3, 1) var(--el-fx-delay, 0s) backwards;
+  }
+  :root:not(.sn-save-data) [data-el-words='spread'] [data-el-sl] {
+    display: inline-block;
+    transform-origin: 50% 50%;
+    animation: el-fx-line var(--el-fx-dur, 1.1s) cubic-bezier(0.16, 1, 0.3, 1) var(--el-fx-delay, 0s) backwards;
+  }
+  :root:not(.sn-save-data) [data-el-glow] [data-el-w]::before { animation: el-fx-glow 4.4s ease-in-out infinite; }
+  :root:not(.sn-save-data) [data-el-reveal='develop'] > [data-el-pic] {
+    animation: el-fx-develop var(--el-fx-dur, 1.1s) ease-out var(--el-fx-delay, 0s) backwards;
+  }
+  :root:not(.sn-save-data) [data-el-reveal='curtain'] > [data-el-pic] {
+    animation: el-fx-curtain var(--el-fx-dur, 1.1s) cubic-bezier(0.16, 1, 0.3, 1) var(--el-fx-delay, 0s) backwards;
+  }
+  :root:not(.sn-save-data) [data-el-act='kenburns'] > [data-el-pic] { animation: el-fx-kenburns 12s linear infinite alternate; }
+  :root:not(.sn-save-data) [data-el-reveal='develop'][data-el-act='kenburns'] > [data-el-pic] {
+    animation: el-fx-develop var(--el-fx-dur, 1.1s) ease-out var(--el-fx-delay, 0s) backwards, el-fx-kenburns 12s linear infinite alternate;
+  }
+  :root:not(.sn-save-data) [data-el-reveal='curtain'][data-el-act='kenburns'] > [data-el-pic] {
+    animation: el-fx-curtain var(--el-fx-dur, 1.1s) cubic-bezier(0.16, 1, 0.3, 1) var(--el-fx-delay, 0s) backwards, el-fx-kenburns 12s linear infinite alternate;
+  }
+  :root:not(.sn-save-data) .hub-reveal-develop.pahina-in > .hub-canvas-body :is(img, video),
+  :root:not(.sn-save-data) .hub-reveal-develop.pahina-in:not(.hub-during-lift) > .hub-canvas-media {
+    animation: el-fx-develop var(--hub-duration, 1.1s) ease-out backwards;
+  }
+  :root:not(.sn-save-data) .hub-reveal-curtain.pahina-in > .hub-canvas-body :is(img, video),
+  :root:not(.sn-save-data) .hub-reveal-curtain.pahina-in:not(.hub-during-lift) > .hub-canvas-media {
+    animation: el-fx-curtain var(--hub-duration, 1.1s) cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  }
+  :root:not(.sn-save-data) .hub-during-leak > .hub-canvas-body :where(figure, div, a, span, picture, button):has(> :is(img, video):only-child)::before,
+  :root:not(.sn-save-data) .hub-has-media.hub-during-leak > .hub-canvas-media::before {
+    animation: el-fx-leak 16s ease-in-out infinite;
+  }
+}
+
 /* ── THE EVENT HUB MOVES, AND EVERY MOVEMENT MEANS SOMETHING (2026-09-21) ──
    Owner: "make the whole event hub fully animated." No new tokens: every
    movement reads the site's EXISTING motion set in :root (--sn-dur-elem,
@@ -6503,6 +7612,7 @@ html:active-view-transition .sn-page-enter { animation: none; }
     box-shadow: 0 30px 70px -20px rgb(30 34 41 / 0.5);
   }
 }
+
 /* 1 · Arrival — the mark, then the names, then the date, then the one action.
    ONCE: only while ArrivalOnce has put .sn-arrive on the root, which it does
    on a browser's first visit to this invitation. No class, nothing hidden.
@@ -6514,6 +7624,14 @@ html:active-view-transition .sn-page-enter { animation: none; }
    the names for 0.18s, then faded. They now SETTLE: a small rise with no
    opacity at all, so the names and date are readable on the very first frame
    and the stagger is felt, not waited for. */
+
+/* 👻 Held undrawn — the loading screen's parts that the real cover brings in (`[data-el-waits]`, inside the motion gates). */
+@keyframes sn-el-waits {
+  from,
+  to {
+    visibility: hidden;
+  }
+}
 @keyframes sn-arrive-settle {
   from {
     transform: translateY(8px);
@@ -6612,6 +7730,27 @@ html:active-view-transition .sn-page-enter { animation: none; }
 html:has([data-sticky-top]) {
   scroll-padding-top: 4.5rem;
 }
+/* 📜 …EXCEPT HOME ON THE ONE PAGE: IT LANDS WITH THE COVER FULLY GONE (owner 2026-10-15, Q3 approved: "Home lands
+   on the welcome line, so the bar never re-hides itself"; and 2026-10-16: the bars come only once the cover is FULLY
+   gone — one pixel left is still the cover). Home's mark (`data-home-after-cover`, site-body.tsx) sits exactly at the
+   cover's foot, so a jump that stops ABOVE it (the root's 4.5rem plus the 5rem the mark used to carry: 152 px, seen
+   live 2026-10-19 at 375 and on the iPhone 13 engine) put the cover's door back on screen and both bars left with
+   the guest's own tap. The mark cancels the root's padding and lands 2 px past the cover's edge (2, not 0: an
+   observer counts an edge that only touches as on screen). Held by `the-invitation-is-one-page.test.ts` 7.
+   📏 AND WHAT FOLLOWS THE COVER STARTS CLEAR OF THE TOP BAR (controller 2026-10-19: seen live, a Home tap left the
+   countdown's heading under the bar — the gap after the cover was the page's 3rem rhythm, the bar 69 px). Under the
+   pinned top bar the mark is as tall as the bar's clearance (the root's 4.5rem) + 8 px + the landing's 2 px, less the
+   rhythm's 3rem that follows it — so where Home lands, what follows the cover starts 8 px clear of the bar. Nothing
+   else on the page moves relative to anything else; with no top bar there is nothing to clear and the mark is no
+   height at all. */
+[data-home-after-cover] {
+  height: 0;
+  scroll-margin-top: -2px;
+}
+html:has([data-sticky-top]) [data-home-after-cover] {
+  height: calc(4.5rem + 0.5rem + 2px - 3rem);
+  scroll-margin-top: calc(-4.5rem - 2px);
+}
 
 
 /* ─── The couple's HOME, redrawn to the prototype (owner 2026-10-07, PR 4e) ──
@@ -6639,23 +7778,6 @@ html:has([data-sticky-top]) {
 .home-card-title { font-size: 19px; font-weight: 600; margin: 4px 0 2px; letter-spacing: -0.01em; line-height: 1.25; }
 .home-card-body { color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); font-size: 14px; margin: 0 0 10px; line-height: 1.45; }
 .home-acts { display: flex; gap: 8px; align-items: center; flex-wrap: nowrap; overflow: hidden; min-width: 0; }
-/* Rule 3a — the doorway row is ONE state: icon + word → word → icon. */
-.home-doors { display: flex; gap: 8px; min-width: 0; }
-.home-doors > .ab { flex: 1 1 0; min-width: 0; justify-content: center; }
-.home-doors .ab.text-only svg { display: none; }
-.home-doors .ab.icon-only .lbl { display: none; }
-/* The prototype's neutral pill (`button.ic.t-neutral`): GREY FILLED — the muted tone's
- * 9% wash, 45% border, muted word — one line, never wrapped. */
-.home-doors > :is(button, a).ab.ab-neutral {
-  --home-door: color-mix(in srgb, rgb(var(--color-ink)) 62%, rgb(var(--color-cream)));
-  height: 40px;
-  overflow: hidden;
-  white-space: nowrap;
-  color: var(--home-door);
-  border-color: color-mix(in srgb, var(--home-door) 45%, transparent);
-  background: color-mix(in srgb, var(--home-door) 9%, transparent);
-}
-.home-doors > .ab.icon-only { width: auto; padding: 0; }
 .home-nums { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
 .home-tile {
   border: 1px solid color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent);
@@ -6669,6 +7791,10 @@ html:has([data-sticky-top]) {
   transition: transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 .home-tile:active { transform: scale(0.98); }
+/* 🌗 Dark: 2 % ink over the page is a card in light (white page) but almost nothing on the dark page — the
+ * home cards take the approved card instead. The "bad" wash keeps its danger tint over that card. */
+html.dark :is(.home-card, .home-tile) { background: rgb(var(--color-raised)); }
+html.dark .home-card-bad { background: color-mix(in srgb, rgb(var(--color-danger)) 9%, rgb(var(--color-raised))); }
 .home-tile-bad { border-color: color-mix(in srgb, rgb(var(--color-danger)) 45%, transparent); }
 .home-v { font-size: 26px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.1; }
 .home-v-word { font-size: 19px; }
@@ -6702,9 +7828,6 @@ html:has([data-sticky-top]) {
  * its `.svc` · `.band` · `.meter` · `.dot` rules on the app's tokens). The mood is in WORDS
  * and in the dot/meter colour — gold before the window, amber under 10%, red at zero.
  * Producers: app/_components/service-glance.tsx. */
-/* NEVER TWICE — ONLY WHILE THE CARD IS ON SCREEN (walk-b6 F1, 2026-10-14): what the Papic Next card already
- * offers stands down in the row while that card is visible; "Later" (`hidden`) brings it straight back. */
-[data-home-first-screen]:has([data-home-next="papic"]:not([hidden])) [data-while-next] { display: none; }
 .sg-row { grid-column: 1 / -1; border: 1px solid color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent); border-radius: 16px; background: color-mix(in srgb, rgb(var(--color-ink)) 2%, rgb(var(--color-cream))); padding: 12px 14px; min-width: 0; color: rgb(var(--color-ink)); }
 .sg-head { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .sg-mark { width: 34px; height: 34px; border-radius: 10px; background: var(--sn-gold-100); display: grid; place-items: center; flex: none; }
@@ -6726,6 +7849,11 @@ html:has([data-sticky-top]) {
 .sg-meter[data-mood="low"] > span { background: rgb(var(--color-warn)); }
 .sg-meter[data-mood="gone"] > span { background: rgb(var(--color-danger)); }
 .sg-acts { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
+/* 🧾 The slim line — a service not added (owner 2026-10-14 ✅): one line, its one door on the right. */
+.sg-row[data-slim] { display: flex; align-items: center; gap: 10px; padding: 10px 12px 10px 14px; }
+.sg-row[data-slim] .sg-acts { margin-top: 0; flex: none; }
+.sg-price { font-size: 13px; margin-top: 2px; color: color-mix(in srgb, rgb(var(--color-ink)) 72%, transparent); }
+.home-svc-k { grid-column: 1 / -1; margin: 8px 0 0; }
 .sg-band { border: 1px solid color-mix(in srgb, rgb(var(--color-mulberry)) 28%, color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent)); border-radius: 20px; background: color-mix(in srgb, rgb(var(--color-ink)) 2%, rgb(var(--color-cream))); padding: 16px 16px 14px; color: rgb(var(--color-ink)); }
 .sg-band .sg-row1 { display: flex; align-items: flex-start; gap: 12px; justify-content: space-between; }
 .sg-big { font-size: 34px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.05; font-variant-numeric: tabular-nums; }
@@ -6747,8 +7875,31 @@ html:has([data-sticky-top]) {
 :is(button).ab.sg-pay:disabled { opacity: 1; transform: scale(0.97); filter: brightness(0.88); }
 .sg-step { font-size: 13px; text-align: center; margin: 8px 0 0; min-height: 18px; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); }
 @media (prefers-reduced-motion: reduce) { .sg-meter > span { transition: none; } }
-/* The cover's one button wears the cover's ink (`currentColor`), like the prototype's glass pill. */
+/* The cover-ink button (`currentColor`), like the prototype's glass pill — the supplier Today's grey Chat on its dark card. */
 :is(button, a).ab.ab-neutral.home-cover-ab { color: inherit; border-color: color-mix(in srgb, currentColor 50%, transparent); background: color-mix(in srgb, currentColor 14%, transparent); }
+/* ⌨ KEYBOARD UP → BAR DOWN (owner 2026-10-24, "Yes", `prototypes/keyboard_rides_the_input_2026-10-24.html`): while the
+ * phone's keyboard is up (`html[data-keyboard="open"]`, published by `lib/keyboard-ride.ts`) the bottom bar slides
+ * under it and back when it closes — it is useless while typing. Its clearance (`--sn-bottomdock-h`) stays its own; a
+ * row that stood on it stands on the keyboard through `--sn-ride-h` (`lib/keyboard-ride.ts`). */
+[data-bottom-dock] { transition: transform 200ms ease-out, opacity 200ms ease-out, visibility 0s linear 0s; }
+/* `visibility: hidden` once it has slid (after its 200 ms): out of the Tab order and the screen reader while away. */
+html[data-keyboard='open'] [data-bottom-dock] { transform: translateY(100%); opacity: 0; pointer-events: none; visibility: hidden; transition: transform 200ms ease-out, opacity 200ms ease-out, visibility 0s linear 200ms; }
+@media (prefers-reduced-motion: reduce) { [data-bottom-dock] { transition: none; } }
+/* ⌨ A riding row that is not a ThumbRow (`useRidingRow`, typing-band.tsx) folds what is not its field while it rides:
+ * each such piece wears `data-ride-fold` (Filters on the marketplace bar, its chips). */
+[data-ride-row][data-riding] [data-ride-fold] { display: none !important; }
+/* 📏 THE PAGE MAKES ROOM FOR THE BAND (owner 2026-10-24: *"it overlaps with the content under it"*). While a riding row's
+ * band is up (`html[data-ride-reserve]`, written by `useRidingRow`), the page's foot gains the keyboard's height plus the
+ * band's (`--sn-ride-band-h`: the band, the row and the plate down to the keyboard) — so the content ENDS above the band
+ * and the last result can scroll up into view instead of living under it. On <body>, so every page gets it whatever
+ * its own column pads; gone the moment the band is. */
+html[data-ride-reserve] body { padding-bottom: calc(var(--sn-keyboard-h, 0px) + var(--sn-ride-band-h, 0px)); }
+/* (The marketplace's suggestions no longer step over a band: a search band has no words and no Done since 2026-10-24,
+ * so they stand where they always did, over the field.) */
+/* The typing band's neutrals outside the Maker (inside it, the Maker's own `STAGE_PANEL_VARS`): its cream plate, its
+ * hairline and its words — with a dark pair (`typing-band.tsx`). */
+[data-typing-band='app'] { --tb-plate: #F3F0EA; --sp-line: #E6E1D8; --sp-ink2: #5A5755; }
+html.dark [data-typing-band='app'] { --tb-plate: #232019; --sp-line: rgba(251, 250, 247, 0.16); --sp-ink2: #B3AEA3; }
 /* Rise on load, staggered — once (the prototype's `up`). */
 @keyframes home-up { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 /* `backwards`, not `both`: nothing keeps a transform after the rise (an identity transform
@@ -6759,6 +7910,147 @@ html:has([data-sticky-top]) {
 @media (prefers-reduced-motion: reduce) {
   [data-home-column] > *, .home-sec.open > .home-bar .home-bar-ico { animation: none; }
   .home-fold, .home-chev, .home-tile { transition: none; }
+}
+/* 🎛 HOME — A CONTROL CENTER (owner-approved 2026-10-24, "ok": `prototypes/home_control_center_2026-10-24_fable.html`,
+ * its `.today` · `.grid` · `.tile` · `.faces` · `.dots` · `.tiny` · `.wg` rules on the app's tokens). Producers:
+ * `home-parts.tsx` (the Today line), `home-tile.tsx` (the compact tile), `home-control-row.tsx` (the grid + the detail
+ * cards), `home-service-card.tsx` / `papic-home-card.tsx` (a service's closed face on a phone).
+ *
+ * 📱 COMPACT below 768 px (`md`): a 2-column grid of small tiles. 🖥 DETAIL from 768 px: the same widgets as cards in
+ * two columns, read COLUMN BY COLUMN (each column is its own stack, so the reading and Tab order is the order you see —
+ * `the-home-grid-reads-in-order.test.ts`). The column fills the body from `md` (moved down from `lg`, owner 2026-10-24),
+ * and "Your services" sits two to a row. */
+.hc-today { display: flex; align-items: center; gap: 10px; width: 100%; height: 44px; padding: 0 5px 0 14px; border: 1px solid color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent); border-radius: 999px; background: color-mix(in srgb, rgb(var(--color-ink)) 2%, rgb(var(--color-cream))); color: rgb(var(--color-ink)); font-size: 13.5px; text-align: left; transition: transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+.hc-today:active { transform: scale(0.98); }
+html.dark :is(.hc-today, .hc-tile) { background: rgb(var(--color-raised)); }
+.hc-today-k { flex: none; font-size: 10px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: rgb(var(--color-mulberry)); }
+.hc-today-t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+.hc-today-w { font-weight: 400; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); }
+.hc-today-arrow { flex: none; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; color: rgb(var(--color-mulberry)); background: color-mix(in srgb, rgb(var(--color-mulberry)) 9%, transparent); }
+.hc-today-arrow svg { width: 16px; height: 16px; }
+.hc-today.hc-calm :is(.hc-today-k, .hc-today-arrow) { color: rgb(var(--color-ok)); }
+.hc-today.hc-calm .hc-today-arrow { background: color-mix(in srgb, rgb(var(--color-ok)) 12%, transparent); }
+.hc-today-later { display: flex; align-items: center; gap: 6px; padding: 0 4px; font-size: 13px; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); }
+@media (min-width: 768px) {
+  .hc-today { height: 48px; padding-left: 16px; font-size: 15px; }
+  .hc-today-k { font-size: 10.5px; }
+  .hc-today-arrow { width: 34px; height: 34px; }
+}
+/* The ring the Today line leaves on the widget it names (1.8 s). */
+[data-home-spot] { outline: 2px solid rgb(var(--color-mulberry)) !important; outline-offset: 3px; }
+
+/* The compact grid and its tiles. */
+.hc-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
+.hc-tile { position: relative; min-width: 0; min-height: 104px; display: flex; flex-direction: column; gap: 5px; padding: 12px; border: 1px solid color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent); border-radius: 16px; background: color-mix(in srgb, rgb(var(--color-ink)) 2%, rgb(var(--color-cream))); color: rgb(var(--color-ink)); text-align: left; touch-action: pan-y; -webkit-user-select: none; user-select: none; transition: transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+.hc-tile:active { transform: scale(0.98); }
+.hc-span { grid-column: 1 / -1; }
+.hc-tile.hc-span { min-height: 0; }
+.hc-lab { font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* The Event Hub tile's ⓘ beside its label (owner 2026-10-24). The ⓘ sits above the tile's door (z 1) so a tap on it
+   reads the tip; the tip itself hangs from the TILE, inside its width — a 288-px popover from a label in the right
+   column ran 100 px past a 390-px phone and widened the whole page. The 16-px ⓘ never makes the tile taller. */
+.hc-lab-tip { align-self: flex-start; max-width: calc(100% - 64px); height: 13px; display: flex; align-items: center; }
+.hc-lab-tip > span { position: static; }
+.hc-lab-tip button { position: relative; z-index: 3; }
+.hc-tile .hc-lab-tip .sn-tip { top: 30px; left: 6px; right: 6px; width: auto; max-width: none; }
+.hc-chip { position: absolute; right: 10px; top: 11px; z-index: 2; padding: 0 5px; border: 1px solid color-mix(in srgb, rgb(var(--color-mulberry)) 40%, transparent); border-radius: 999px; font-size: 8.5px; font-weight: 500; line-height: 1.5; letter-spacing: 0.12em; text-transform: uppercase; color: rgb(var(--color-mulberry)); pointer-events: none; }
+.hc-chip.hc-chip-inline { position: static; padding: 1px 6px; font-size: 9.5px; }
+.hc-big { font-size: 27px; font-weight: 600; line-height: 1.1; letter-spacing: -0.015em; font-variant-numeric: tabular-nums; }
+.hc-big small { font-size: 13px; font-weight: 400; letter-spacing: 0; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); }
+.hc-sm { padding-right: 36px; font-size: 12px; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hc-span .hc-sm { padding-right: 72px; }
+.hc-tile[data-home-tile="hub"] .hc-big { font-size: 23px; }
+.hc-tile[data-home-tile="hub"] .hc-sm { padding-right: 78px; }
+.hc-row { display: flex; align-items: center; gap: 10px; }
+.hc-thin { position: relative; flex: 1; height: 4px; border-radius: 2px; overflow: hidden; background: color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent); }
+.hc-thin > i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 2px; background: rgb(var(--color-ok)); }
+.hc-bad { border-color: color-mix(in srgb, rgb(var(--color-danger)) 40%, transparent); }
+.hc-bad .hc-big { font-size: 15px; color: rgb(var(--color-danger)); }
+/* Faces — one counter at a time; the track slides 320 ms on the house ease. */
+.hc-faces { width: 100%; min-width: 0; margin-top: auto; overflow: hidden; }
+.hc-track { display: flex; transition: transform 320ms cubic-bezier(0.2, 0.8, 0.2, 1); will-change: transform; }
+.hc-face { flex: 0 0 100%; min-width: 0; display: flex; flex-direction: column; gap: 5px; padding-bottom: 2px; clip-path: inset(0); } /* each face clips its own glyph overhang (the ₱'s left bearing peeked into the face before it) */
+.hc-face-late .hc-big, .hc-face-late .hc-big small { color: rgb(var(--color-danger)); }
+.hc-dots { position: relative; z-index: 2; display: flex; align-items: center; gap: 5px; height: 14px; margin-top: 8px; }
+.hc-dot { position: relative; flex: none; width: 6px; height: 6px; min-height: 0; padding: 0; border-radius: 3px; background: color-mix(in srgb, rgb(var(--color-ink)) 16%, transparent); transition: width 240ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+/* The 6 px dot presses at 44 tall (the global button floor, without its drawing): an invisible halo. */
+.hc-dot::before { content: ""; position: absolute; inset: -19px -2.5px; }
+/* The active dot is a short bar that FILLS over the 4.5 s — "there is more here". */
+.hc-dot.on { width: 18px; }
+.hc-dot.on::after { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: calc(var(--p, 0) * 100%); border-radius: 3px; background: rgb(var(--color-mulberry)); }
+/* The door: a tap that is not a swipe opens the face's exact item. Under the dots and the actions. */
+.hc-door { position: absolute; inset: 0; z-index: 1; border-radius: 16px; touch-action: pan-y; -webkit-touch-callout: none; }
+.hc-door:focus-visible { outline: 2px solid rgb(var(--color-mulberry)); outline-offset: 2px; }
+.hc-acts, .hc-side { position: absolute; right: 10px; bottom: 10px; z-index: 2; display: flex; gap: 6px; }
+.hc-tiny { position: relative; width: 32px; height: 32px; min-height: 0; display: grid; place-items: center; border: 1px solid color-mix(in srgb, rgb(var(--color-mulberry)) 40%, transparent); border-radius: 50%; background: color-mix(in srgb, rgb(var(--color-mulberry)) 9%, transparent); color: rgb(var(--color-mulberry)); }
+.hc-tiny::before { content: ""; position: absolute; inset: -6px; } /* drawn 32, presses at 44 */
+.hc-tiny svg { width: 15px; height: 15px; }
+.hc-tiny.hc-tiny-main { background: rgb(var(--color-mulberry)); border-color: rgb(var(--color-mulberry)); color: #fff; }
+/* Dark: the filled main verb's word reads dark on the lighter accent — the same pair as `.ab-main` in dark. */
+html.dark .hc-tiny.hc-tiny-main { color: #161513; }
+.hc-tiny.hc-tiny-pill { width: auto; display: inline-flex; align-items: center; gap: 4px; padding: 0 10px; border-radius: 999px; font-size: 12.5px; font-weight: 600; }
+/* The Countdown — the presentation piece: the number alone in the display face, centred. */
+.hc-count { min-height: 0; padding: 22px 14px 18px; align-items: center; gap: 0; text-align: center; }
+.hc-cd { display: flex; flex-direction: column; align-items: center; }
+.hc-cd-n { font-family: Georgia, "Times New Roman", serif; font-size: 64px; font-weight: 400; line-height: 1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.hc-cd-n.hc-cd-word { font-size: 30px; }
+.hc-cd-w { margin-top: 4px; font-size: 14px; letter-spacing: 0.02em; }
+.hc-cd-d { margin-top: 8px; font-size: 12px; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); }
+.hc-count .hc-acts { position: relative; right: auto; bottom: auto; margin-top: 10px; }
+/* A service's closed face on a phone — the tile is the press; the card's own control rides beside it as an icon. */
+.hc-svc-wrap { position: relative; display: flex; min-width: 0; }
+.hc-svc-wrap > .hc-svc-tile { flex: 1; width: 100%; }
+.hc-tiny-slot { position: absolute; right: 10px; bottom: 10px; z-index: 2; }
+.hc-tiny-slot :is(a, button).ab { width: 32px; height: 32px; min-height: 0; padding: 0; gap: 0; justify-content: center; border-radius: 50%; }
+.hc-tiny-slot .ab .lbl { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.hc-tiny-slot .ab svg { width: 15px; height: 15px; }
+.hc-tiny-slot [data-home-live-line] { display: none; }
+@media (min-width: 768px) { .home-svc > .hc-svc-wide { grid-column: auto; } }
+/* 🖥 The detail cards — the shipped card (`.sg-row`), no grow; the whole card is its ONE page (`.hc-card-door`). */
+.hc-two { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0 16px; align-items: start; }
+.hc-col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.hc-card { position: relative; }
+.hc-card > * { position: relative; z-index: 1; pointer-events: none; }
+.hc-card :is(a, button, [role="button"]) { pointer-events: auto; }
+.hc-card > .hc-card-door { position: absolute; inset: 0; z-index: 0; border-radius: 16px; pointer-events: auto; }
+.hc-card > .hc-card-door:focus-visible { outline: 2px solid rgb(var(--color-mulberry)); outline-offset: 2px; }
+.hc-card-bad { border-color: color-mix(in srgb, rgb(var(--color-danger)) 40%, transparent); }
+.hc-card-name { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.hc-dotline { font-size: 13px; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); }
+.hc-dotline b { color: rgb(var(--color-ink)); }
+.hc-dotline[data-mood="gone"], .hc-dotline[data-mood="gone"] b { color: rgb(var(--color-danger)); }
+.hc-figs { gap: 6px; }
+.hc-fig { color: inherit; text-underline-offset: 3px; }
+.hc-fig:hover { text-decoration: underline; }
+.hc-sep { color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); }
+.hc-rail { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-top: 10px; }
+.hc-rail > span { height: 4px; border-radius: 2px; background: color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent); }
+.hc-rail > span.done { background: color-mix(in srgb, rgb(var(--color-ok)) 55%, transparent); }
+.hc-rail > span.live { background: rgb(var(--color-ok)); }
+.hc-railw { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-top: 4px; font-size: 10px; letter-spacing: 0.02em; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); }
+.hc-railw > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hc-railw > span.live { font-weight: 600; color: rgb(var(--color-ink)); }
+.hc-pays { margin-top: 8px; border-top: 1px solid color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent); }
+.hc-pay { display: flex; align-items: center; gap: 10px; min-height: 50px; padding: 9px 0; border-bottom: 1px solid color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent); }
+.hc-pay b { font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.hc-due { font-size: 13px; font-weight: 400; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); }
+.hc-pay-s { display: block; font-size: 12px; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); }
+.hc-pay.hc-late :is(b, .hc-due) { color: rgb(var(--color-danger)); }
+.hc-pay.hc-more { min-height: 40px; font-size: 13px; font-weight: 500; color: rgb(var(--color-mulberry)); }
+.hc-list { margin-top: 6px; }
+.hc-list > li:first-child .hc-li { border-top: 0; }
+.hc-li { color: inherit; display: flex; align-items: baseline; gap: 8px; padding: 6px 0; border-top: 1px solid color-mix(in srgb, rgb(var(--color-ink)) 12%, transparent); font-size: 14px; }
+/* (first row: no rule above it) */
+.hc-li-t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hc-li-due { flex: none; font-size: 12px; color: color-mix(in srgb, rgb(var(--color-ink)) 62%, transparent); font-variant-numeric: tabular-nums; }
+.hc-li-due.soon { font-weight: 500; color: rgb(var(--color-warn)); }
+/* 🔗 A checklist task opened by its address (Home's Checklist widget → /checklist#task-<id>) is ringed while targeted. */
+[data-checklist-task]:target { outline: 2px solid rgb(var(--color-mulberry)); outline-offset: 2px; }
+.hc-tick { flex: none; align-self: center; width: 14px; height: 14px; border: 1.5px solid color-mix(in srgb, rgb(var(--color-ink)) 22%, transparent); border-radius: 50%; }
+@media (prefers-reduced-motion: reduce) {
+  /* No rotation (the tile never joins the ticker), no slide; the active dot shows a full bar. */
+  .hc-track, .hc-dot, .hc-tile, .hc-today { transition: none; }
+  .hc-dot.on::after { width: 100%; }
 }
 
 /* ════════════════════════════════════════════════════════════════════════════
@@ -6800,6 +8092,14 @@ html:has([data-sticky-top]) {
    or a previous choice applied. */
 .hub-arr-full { max-width: none; margin-inline: 0; }
 .hub-arr-text { max-width: 58ch; margin-inline: auto; }
+
+/* ↔ WHERE A PART'S WIDTH BOX SITS WHEN THE PART HAS NO ALIGNMENT OF ITS OWN (Style › Width, owner 2026-10-14 —
+   `hubElementWidthDeclarations`, lib/element-style.ts): where the THEME's alignment puts it. The theme says it with
+   `text-left` / `text-center` / `text-right`; the nearest one around the part wins (a custom property inherits).
+   Without one, the box starts at the start, as a block does. Zero specificity: nothing else is touched. */
+:where(.text-left) { --hub-el-mi: 0 auto; }
+:where(.text-center) { --hub-el-mi: auto; }
+:where(.text-right) { --hub-el-mi: auto 0; }
 
 /* ── PHOTO BESIDE THE WORDS (left / right) ─────────────────────────────────
    `hubPhotoPlacement` returns `beside` for these two, and the frame then draws
@@ -7169,6 +8469,30 @@ html:has(.hub-shape-full) { overflow-x: clip; }
 @keyframes el-in-fade    { from { opacity: 0; } }
 @keyframes el-in-fade-p  { from { opacity: 0; } }
 @keyframes el-during-drift { from { translate: 0 0; } to { translate: 0 -6px; } }
+/* ✨ SHIMMER (owner 2026-10-16, "SHIMMER IS AN ANIMATE EFFECT FOR ANY TEXT") — an Action: the band of a gradient clipped
+   to the words slides across every 5 s (`HUB_SHIMMER_PERIOD_S`, run from the part's own animation list). The PAINT is
+   drawn only where the band can move — motion allowed and no Save-Data (`.sn-save-data`, `PahinaMotionRootFlag`) —
+   so under reduced motion or Save-Data the word is its plain colour, never transparent text with nothing behind it.
+   The hero's parts wear `data-el-shimmer` (hue · gold, `hubElementMotionAttr`); a scene's parts get the same
+   declarations in their own style (`hubElementSceneCss`). The joiner keeps its own gild. The values are
+   `hubShimmerPaint`'s, held equal by `lib/the-cover-scene-has-its-own-tools.test.ts`. */
+@keyframes el-during-shimmer { from { background-position: 120% 0; } to { background-position: -140% 0; } }
+@media screen and (prefers-reduced-motion: no-preference) {
+  :root:not(.sn-save-data) [data-el-shimmer] {
+    background-image: linear-gradient(100deg, currentColor 0 38%, color-mix(in srgb, currentColor 45%, #fff) 50%, currentColor 62% 100%);
+    background-size: 260% 100%;
+    background-position: 120% 0;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  :root:not(.sn-save-data) [data-el-shimmer='gold'] {
+    background-image: linear-gradient(100deg, #835C2F 0 38%, #F0D9A8 50%, #835C2F 62% 100%);
+  }
+  :root:not(.sn-save-data) [data-el-shimmer] .text-gild {
+    -webkit-text-fill-color: currentColor;
+  }
+}
 @keyframes el-out-fade   { to { opacity: 0; } }
 @keyframes el-out-lift   { to { opacity: 0; transform: translate3d(0, -22px, 0); } }
 @keyframes el-out-settle { to { opacity: 0; transform: scale(0.965); } }
@@ -7191,6 +8515,20 @@ html:has(.hub-shape-full) { overflow-x: clip; }
 [data-pick-grid] { display: grid; grid-template-columns: repeat(3, 44px); gap: 4px; width: max-content; min-width: 0 !important; }
 [data-pick-grid] > li > button { width: 44px; min-height: 44px; height: 44px; padding: 0; justify-content: center; gap: 0; font-size: 18px; }
 [data-pick-grid] > li > button > span:not([aria-hidden]) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* 👔 PICKMENU DESIGN TILES — the guests' Wear ▾ (owner 2026-10-21, "up to 5 different attires"; prototype
+   `attire_five_designs_per_style_2026-10-21.html` § 3): each STYLE a row of its own (its tick box, its name, how much of
+   it is allowed), its DESIGNS under it as small tiles side by side — the figure, its name, a ✓ when allowed. They are
+   the list's ordinary options (`design:` keys), laid out here: CSS, not code, because pick-menu.tsx sits at its
+   inline-size line. A tile is pressed, so it wears the frame; a style head is a row like every other option. */
+[role="listbox"]:has(> li > [data-pick-option^="design:"]) { display: flex; flex-wrap: wrap; gap: 4px; align-content: flex-start; }
+[role="listbox"]:has(> li > [data-pick-option^="design:"]) > li { flex: 1 0 100%; }
+[role="listbox"]:has(> li > [data-pick-option^="design:"]) > li:has(> [data-pick-option^="design:"]) { flex: 0 0 64px; }
+[role="listbox"] > li > [data-pick-option^="design:"] { position: relative; flex-direction: column; justify-content: flex-end; gap: 4px; width: 64px; min-height: 96px; padding: 4px 2px 3px; border: 1px solid rgb(var(--color-ink) / 0.14); border-radius: var(--m-r-sm); text-align: center; font-size: 10px; line-height: 1.2; }
+[role="listbox"] > li > [data-pick-option^="design:"][aria-selected="true"] { border-color: rgb(var(--sn-accent)); }
+[role="listbox"] > li > [data-pick-option^="design:"][aria-selected="false"] { opacity: 0.42; }
+[role="listbox"] > li > [data-pick-option^="design:"] > span.font-semibold { font-weight: 500; color: rgb(var(--color-ink) / 0.75); }
+[role="listbox"] > li > [data-pick-option^="design:"] > [data-pick-tick] { position: absolute; top: 3px; right: 3px; margin: 0; padding: 0; width: 15px; height: 15px; border-radius: 999px; background: rgb(var(--sn-accent)); color: rgb(var(--sn-on-accent, 255 255 255)); font-size: 9px; line-height: 15px; text-align: center; }
 
 /* ── SCROLL · SCRUB — the page's scenes (owner 2026-09-24: "hybrid perfect";
    contract in lib/hub-scenes.ts, renderer in app/[slug]/_components/hub-scenes.tsx)
@@ -7296,6 +8634,21 @@ html:has([data-sticky-top]) .hub-scenes, html:has([data-sticky-top]) .hub-cover-
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+/* 🖼 THE MAKER'S CANVAS ONLY (`renderScene` `makerSlots`): a picture slot still empty, drawn in its place as the
+   template's own box, so the couple sees where a picture goes and taps it to add one. A guest never gets this. */
+.hub-tpl-m[data-scene-slot-empty] {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px dashed rgb(var(--color-ink) / 0.28);
+  background: rgb(var(--color-ink) / 0.04);
+}
+.hub-tpl-m[data-scene-slot-empty] > span {
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: rgb(var(--color-ink) / 0.62);
 }
 .hub-tpl-w {
   display: flex;
@@ -7588,7 +8941,7 @@ html:has([data-sticky-top]) .hub-scenes, html:has([data-sticky-top]) .hub-cover-
       /* 🎚 Each end's own FEEL (owner 2026-10-09 "movement independent from each"): how far the scroll-driven arrival
          runs (`--hub-in-end`) and how much of the way out the hand-off takes (`--hub-out-range`), from
          `hubCanvasVars` — set only by a couple's own choice; absent, the ranges every scene had. */
-      animation-range: entry 0% var(--hub-in-end, entry 92%), var(--hub-out-range, exit 8% exit 100%);
+      animation-range: entry 0% var(--hub-in-end, entry min(92%, 34vh)), var(--hub-out-range, exit 8% exit 100%);
       animation-fill-mode: both, both;
       animation-timing-function: linear, linear;
       will-change: opacity, transform;
@@ -7637,18 +8990,18 @@ html:has([data-sticky-top]) .hub-scenes, html:has([data-sticky-top]) .hub-cover-
     .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > * {
       --hub-part-in: var(--hub-in-kf, none);
       --hub-part-in-tl: view();
-      --hub-part-in-range: entry 0% var(--hub-in-end, entry 92%);
+      --hub-part-in-range: entry 0% var(--hub-in-end, entry min(92%, 34vh));
       --hub-part-out: var(--hub-out-kf, none);
       --hub-part-out-tl: view();
       --hub-part-out-range: var(--hub-out-range, exit 8% exit 100%);
     }
-    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(2) { --hub-part-in-range: entry 4% var(--hub-in-end, entry 92%); }
-    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(3) { --hub-part-in-range: entry 8% var(--hub-in-end, entry 92%); }
-    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(4) { --hub-part-in-range: entry 12% var(--hub-in-end, entry 92%); }
-    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(5) { --hub-part-in-range: entry 16% var(--hub-in-end, entry 92%); }
-    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(6) { --hub-part-in-range: entry 20% var(--hub-in-end, entry 92%); }
-    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(7) { --hub-part-in-range: entry 24% var(--hub-in-end, entry 92%); }
-    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(8) { --hub-part-in-range: entry 28% var(--hub-in-end, entry 92%); }
+    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(2) { --hub-part-in-range: entry 4% var(--hub-in-end, entry min(92%, 34vh)); }
+    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(3) { --hub-part-in-range: entry 8% var(--hub-in-end, entry min(92%, 34vh)); }
+    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(4) { --hub-part-in-range: entry 12% var(--hub-in-end, entry min(92%, 34vh)); }
+    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(5) { --hub-part-in-range: entry 16% var(--hub-in-end, entry min(92%, 34vh)); }
+    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(6) { --hub-part-in-range: entry 20% var(--hub-in-end, entry min(92%, 34vh)); }
+    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(7) { --hub-part-in-range: entry 24% var(--hub-in-end, entry min(92%, 34vh)); }
+    .hub-seq-parts.hub-tl-scrub > .hub-canvas-body > * > *:nth-child(8) { --hub-part-in-range: entry 28% var(--hub-in-end, entry min(92%, 34vh)); }
 
     /* ── DURING: the PICTURE drifts, never the words ──────────────────────
        🔑 It lives on the media layer on purpose. Put on the same element as
@@ -7771,7 +9124,7 @@ html:has([data-sticky-top]) .hub-scenes, html:has([data-sticky-top]) .hub-cover-
         --hub-part-dur: 1s;
         --hub-part-ease: linear;
         --hub-part-in-tl: view();
-        --hub-part-in-range: entry 0% var(--hub-in-end, entry 92%);
+        --hub-part-in-range: entry 0% var(--hub-in-end, entry min(92%, 34vh));
         --hub-part-out: var(--hub-out-kf, none);
         --hub-part-out-tl: view();
         --hub-part-out-range: var(--hub-out-range, exit 8% exit 100%);
@@ -7797,6 +9150,12 @@ html:has([data-sticky-top]) .hub-scenes, html:has([data-sticky-top]) .hub-cover-
       animation: var(--el-anim);
       animation-timeline: var(--el-tl);
       animation-range: var(--el-range);
+    }
+    /* 👻 THE LOADING SCREEN'S PARTS THAT WILL ARRIVE (`data-el-waits`, `heroArrivingForSkeleton`): kept in place, not
+       drawn, so the real cover's own Build in is the first time they are seen — never drawn, gone, faded in again
+       (the 2026-10-15 walk, F4: live, the names blinked on every load). At most 2.5 s: a slow server still shows them. */
+    [data-el-waits] {
+      animation: sn-el-waits 2.5s step-end;
     }
 
     /* ══ THE SCENES — THE PROGRESS MARK · AUTO RUNS ═══════════════════════
@@ -8032,6 +9391,97 @@ html:has([data-sticky-top]) .hub-scenes, html:has([data-sticky-top]) .hub-cover-
     .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body > * > *:nth-child(6) { animation-delay: calc(var(--hub-stagger, 0.12s) * 5); }
     .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body > * > *:nth-child(7) { animation-delay: calc(var(--hub-stagger, 0.12s) * 6); }
     .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body > * > *:nth-child(n + 8) { animation-delay: calc(var(--hub-stagger, 0.12s) * 7); }
+    @media screen {
+      /* 🧾 …and a list's rows ONE BY ONE, as the guest page brings them in (the 2026-10-15 walk, F7: ▶ showed every row
+         at the same instant whatever Rows said): the list's own part stands still, its rows arrive a stagger apart,
+         the first a stagger after the heading. */
+      .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body > * > [data-hub-rows],
+      .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body > * > *:has([data-hub-rows]) {
+        animation: none;
+      }
+      .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body [data-hub-rows] > * {
+        animation: var(--hub-in-kf, none) var(--hub-duration, 1.1s) var(--hub-ease, ease-out) calc(var(--hub-stagger, 0.12s) * var(--sn-row, 8)) both;
+        animation-timeline: auto;
+        animation-range: normal;
+      }
+      .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body [data-hub-rows] > *:nth-child(1) { --sn-row: 1; }
+      .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body [data-hub-rows] > *:nth-child(2) { --sn-row: 2; }
+      .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body [data-hub-rows] > *:nth-child(3) { --sn-row: 3; }
+      .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body [data-hub-rows] > *:nth-child(4) { --sn-row: 4; }
+      .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body [data-hub-rows] > *:nth-child(5) { --sn-row: 5; }
+      .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body [data-hub-rows] > *:nth-child(6) { --sn-row: 6; }
+      .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body [data-hub-rows] > *:nth-child(7) { --sn-row: 7; }
+    }
+  }
+}
+
+/* ══ ON ARRIVAL WITHOUT SCROLL TIMELINES (the 2026-10-15 Animate walk, F12) ════════════════════════════════════
+   🔴 EVERY rule above sits behind `@supports (animation-timeline: view())`, so an engine without scroll timelines —
+   Safari before 26 (iOS 18 and older), Firefox — moved NOTHING, not even a Build in that plays on arrival, which
+   needs no scroll timeline at all: the page's one observer (`PahinaMotionObserver`) marks the scene `.pahina-in`
+   and the clock plays it.
+   ✅ Those engines now play every scene's ARRIVAL on the clock, once, when the observer marks it — the same
+   keyframe (`--hub-in-kf`), the same seconds (`--hub-duration`), the same one-after-another gap (`--hub-stagger`),
+   the rows of a list one by one (`--hub-row-at`). A scene that FOLLOWS THE SCROLL arrives on arrival instead (the
+   owner's brief: "scroll-linked effects may fall back to On arrival"), and nothing ever LEAVES — a Build out follows
+   the scroll, and on a clock it would hide the words. A hero part plays its own `--el-anim-t`
+   (`hubElementArrivalOnly`), never `--el-anim`.
+   🔒 Fail-visible exactly as above: reduced motion, no script (no `.pahina-in`), print → the page at rest.
+   An auto run (`.hub-auto`) is the runs' own clock (gated on scroll timelines too) and is left at rest here.
+   Guard: `lib/arrival-plays-without-scroll-timelines.test.ts`. */
+@supports not (animation-timeline: view()) {
+  @media screen and (prefers-reduced-motion: no-preference) {
+    :not(.hub-auto) > .hub-seq-whole.pahina-in > .hub-canvas-body,
+    :not(.hub-auto) > .hub-seq-parts.pahina-in > .hub-canvas-body > * > *,
+    .hub-canvas.sn-replay.sn-replay.hub-seq-whole > .hub-canvas-body,
+    .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body > * > * {
+      animation: var(--hub-in-kf, none) var(--hub-duration, 1.1s) cubic-bezier(0.22, 0.61, 0.36, 1) 0s both;
+    }
+    :not(.hub-auto) > .hub-seq-parts.pahina-in > .hub-canvas-body > * > *:nth-child(2),
+    .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body > * > *:nth-child(2) { animation-delay: calc(var(--hub-stagger, 0.12s) * 1); }
+    :not(.hub-auto) > .hub-seq-parts.pahina-in > .hub-canvas-body > * > *:nth-child(3),
+    .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body > * > *:nth-child(3) { animation-delay: calc(var(--hub-stagger, 0.12s) * 2); }
+    :not(.hub-auto) > .hub-seq-parts.pahina-in > .hub-canvas-body > * > *:nth-child(4),
+    .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body > * > *:nth-child(4) { animation-delay: calc(var(--hub-stagger, 0.12s) * 3); }
+    :not(.hub-auto) > .hub-seq-parts.pahina-in > .hub-canvas-body > * > *:nth-child(5),
+    .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body > * > *:nth-child(5) { animation-delay: calc(var(--hub-stagger, 0.12s) * 4); }
+    :not(.hub-auto) > .hub-seq-parts.pahina-in > .hub-canvas-body > * > *:nth-child(6),
+    .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body > * > *:nth-child(6) { animation-delay: calc(var(--hub-stagger, 0.12s) * 5); }
+    :not(.hub-auto) > .hub-seq-parts.pahina-in > .hub-canvas-body > * > *:nth-child(7),
+    .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body > * > *:nth-child(7) { animation-delay: calc(var(--hub-stagger, 0.12s) * 6); }
+    :not(.hub-auto) > .hub-seq-parts.pahina-in > .hub-canvas-body > * > *:nth-child(n + 8),
+    .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body > * > *:nth-child(n + 8) { animation-delay: calc(var(--hub-stagger, 0.12s) * 7); }
+    .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body [data-hub-rows] > * {
+      animation: var(--hub-in-kf, none) var(--hub-duration, 1.1s) cubic-bezier(0.22, 0.61, 0.36, 1) calc(var(--hub-stagger, 0.12s) * var(--sn-row, 8)) both;
+    }
+    .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body [data-hub-rows] > *:nth-child(1) { --sn-row: 1; }
+    .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body [data-hub-rows] > *:nth-child(2) { --sn-row: 2; }
+    .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body [data-hub-rows] > *:nth-child(3) { --sn-row: 3; }
+    .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body [data-hub-rows] > *:nth-child(4) { --sn-row: 4; }
+    .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body [data-hub-rows] > *:nth-child(5) { --sn-row: 5; }
+    .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body [data-hub-rows] > *:nth-child(6) { --sn-row: 6; }
+    .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body [data-hub-rows] > *:nth-child(7) { --sn-row: 7; }
+    /* A list's rows arrive one by one; the list's own part stands still (two opacities would multiply). */
+    :not(.hub-arun):not(.hub-auto) > .hub-seq-parts > .hub-canvas-body [data-hub-rows] > .pahina-in {
+      animation: var(--hub-in-kf, none) var(--hub-duration, 1.1s) cubic-bezier(0.22, 0.61, 0.36, 1) calc(var(--hub-stagger, 0.12s) * var(--hub-row-at, 1)) both;
+    }
+    :not(.hub-auto) > .hub-seq-parts.pahina-in > .hub-canvas-body > * > [data-hub-rows],
+    :not(.hub-auto) > .hub-seq-parts.pahina-in > .hub-canvas-body > * > *:has([data-hub-rows]),
+    .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body > * > [data-hub-rows],
+    .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body > * > *:has([data-hub-rows]),
+    .hub-in-none.hub-out-none > .hub-canvas-body,
+    .hub-in-none.hub-out-none.pahina-in > .hub-canvas-body,
+    .hub-in-none.hub-out-none > .hub-canvas-body > * > *,
+    .hub-in-none.hub-out-none > .hub-canvas-body [data-hub-rows] > * {
+      animation: none;
+    }
+    /* A hero part's own arrival (`--el-anim-t`): its Build in on the clock and its Drift — never its Build out. */
+    [data-el-motion]:not(#el-own) {
+      animation: var(--el-anim-t, none);
+    }
+    [data-el-waits] {
+      animation: sn-el-waits 2.5s step-end;
+    }
   }
 }
 
@@ -8387,6 +9837,27 @@ input.sn-switch:focus-visible {
 .ab.icon-only .lbl { display: none; }
 /* 3a's middle state — a row too narrow for icon + word shows words only. */
 .ab.word-only svg { display: none; }
+/* ── THE LINK FORM PRESSES AT 44 TOO (2026-10-13, controller sweep) ──────────
+ * A `<button class="ab">` paints 44 tall (the base layer's `button { min-height:
+ * 44px }` outranks `height: 40px`); an `<a class="ab">` — ActionButton with
+ * `href` — has no such floor, so every link-button in the app was a 40px press.
+ * Its LOOK stays the drawing's 40px pill: the missing 4px is an invisible
+ * `::after` expander, 3px above and below — 3, not the 2 the arithmetic says:
+ * MEASURED with elementFromPoint, -2 pressed at 43 (the boundary pixels round
+ * away, the same lesson as `.fd-topbar .fd-btn-quiet::after`). VERTICAL ONLY: a
+ * sideways bleed would add 2px to a fitted row's `scrollWidth` and `useFitRow`
+ * would read that as overflow and strip words it does not need to. Its width is
+ * the button form's (an icon-only button is 40 wide too).
+ * `position: relative` sits in `:where()` (zero specificity) so a caller's own
+ * `absolute`/`fixed`/`sticky` utility still wins and the expander follows it.
+ * Held by lib/action-link-presses-at-44.test.ts.
+ * ── AND THE BUTTON FORM WHERE ITS FLOOR IS TAKEN AWAY (dark-mode PR 4, 2026-10-13) — a `<button class="ab">` presses
+ * at 44 only while the base floor reaches it; a panel that resets `button { min-height: 0 }` (or a caller's
+ * `min-h-0`) left it a 40px press. So the expander is the BUTTON's too, written as the shared press (`.sn-hit`):
+ * 46px around the centre whatever the box, never above 0 — an `.ab` already 44 tall gains 1px each way, which
+ * neither a row nor `useFitRow` (vertical only) can see. */
+:where(.ab) { position: relative; }
+.ab::after { content: ''; position: absolute; left: 0; right: 0; top: min(0px, calc((100% - 46px) / 2)); bottom: min(0px, calc((100% - 46px) / 2)); }
 /* Tone rules are ELEMENT + BASE CLASS + TONE (specificity 0,2,1) — never a bare
  * tone class. Owner 2026-10-07: a specificity slip (a bare `.t-brand` losing to
  * the base rule) made every tone fall back to ink in the prototypes. The main
@@ -8574,21 +10045,24 @@ html [data-part-look="eyebrow.pill"][data-part-look] {
 html :is([data-part-look="eyebrow.serif"], [data-part-look="eyebrow.ruled"], [data-part-look="eyebrow.pill"])[data-part-look]::after { content: none; }
 html :is([data-part-look="eyebrow.serif"], [data-part-look="eyebrow.flanked"], [data-part-look="eyebrow.ruled"], [data-part-look="eyebrow.pill"]) > span { color: inherit; }
 
-/* ── E-Gifts ── */
+/* ── E-Gifts ── the four looks lay the DOOR (`[data-gift-door]`, where it still stands) and the eyebrow; on Welcome
+   the content itself wears the look through its wish list's shape (`wishListShape`) and its centred lines, while the
+   ways to give and the trust note keep the gift page's own drawing (2026-10-14: E-Gifts on Welcome, not a door). */
 html [data-part-look="gifts.centred"] { text-align: center; }
 html [data-part-look="gifts.centred"] .pahina-eyebrow { justify-content: center; }
-html [data-part-look="gifts.centred"] a { flex-direction: column; text-align: center; gap: 0.6rem; padding-block: 1.25rem; }
-html [data-part-look="gifts.centred"] a > svg:last-child { display: none; }
-html [data-part-look="gifts.side-rule"] a {
+html [data-part-look="gifts.centred"] [data-gift-door] { flex-direction: column; text-align: center; gap: 0.6rem; padding-block: 1.25rem; }
+html [data-part-look="gifts.centred"] [data-gift-door] > svg:last-child { display: none; }
+html [data-part-look="gifts.side-rule"] [data-gift-door] {
   border: 0; border-left: 2px solid rgb(var(--color-gild)); border-radius: 0; background: transparent; padding-left: 1rem;
 }
 html [data-part-look="gifts.ruled"] { text-align: center; }
 html [data-part-look="gifts.ruled"] .pahina-eyebrow { justify-content: center; }
-html [data-part-look="gifts.ruled"] a {
+html [data-part-look="gifts.ruled"] [data-gift-door] {
   justify-content: center; border: 0; border-top: 1px solid rgb(var(--color-gild) / 0.7); border-bottom: 1px solid rgb(var(--color-gild) / 0.7);
   border-radius: 0; background: transparent; padding-block: 1rem;
 }
-html [data-part-look="gifts.ruled"] a > span:nth-child(2) { flex: none; }
+html [data-part-look="gifts.ruled"] [data-gift-door] > span:nth-child(2) { flex: none; }
+html [data-part-look^="gifts."] :is([data-gift-ways], [data-gift-trust]) { text-align: left; }
 
 /* ── The guest's own parts: Your role · What to wear · Arrive by · Coming with you ── */
 html :is([data-part-look="role.centred"], [data-part-look="wear.centred"], [data-part-look="arrive.centred"], [data-part-look="guests.centred"]) { text-align: center; }
@@ -8618,36 +10092,117 @@ body:not(:has([data-maker-section])) [data-maker-sample] { display: none !import
   display: none;
 }
 
-/* 🍪 THE COOKIE NOTICE NEVER COVERS "I SENT IT" (2026-10-12, owner: "fix the problems"; flagged in #6493).
-   On a guest's FIRST visit the notice (`z-[70]`, full width on a phone) sat over the foot of the wish list's send
-   sheet (`data-wish-send`, z 60) — "I sent it" was under it until the notice was answered — and the record sheet
-   that replaces it (`data-gift-record`) ties the notice at 70. Fixed the way #6482 fixed /login's sign-in card
-   (`home-reskin.css`): while either sheet is open the notice is lifted over it (it stays answerable), and the
-   sheet's panel ends above the notice by the height the notice already publishes (`--cookie-banner-top`, set only
-   while it is the full-width bar — 0 otherwise), so its foot and its last line stay in view. Held by
-   app/[slug]/pabuya/_components/the-cookie-notice-never-covers-i-sent-it.test.ts. */
-html:has([data-wish-send], [data-gift-record]) [data-cookie-consent] {
-  z-index: 80;
+/* ═══ THE COVER SCENE TAKES THE WHOLE FIRST SCREEN — NO BAR OVER IT (owner 2026-10-15) ═══
+   `CoverSceneMenuWaits` (app/[slug]/_components/cover-scene-menu.tsx) puts ONE `<style data-cover-menu="wait">` in
+   `<head>` — never a class on <html>, which React renders and would not patch after a pre-hydration change; while a
+   Cover Scene leads the page the ONE top bar and the ONE bottom bar / rail are held off screen and the column's top
+   padding goes, so the cover is the whole screen. The first swipe or scroll sets it to "open": the bars slide in;
+   back at the cover it is "wait" again and they slide away (one-page Invitation, Q3, owner 2026-10-15). No script →
+   no marker → the bars as always. */
+html:has(> head > style[data-cover-menu]):has(header[data-cover-scene]) [data-sticky-top] {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  transition: translate 0.35s ease;
 }
-@media (max-width: 1023.98px) {
-  /* below `lg`, where the panel is the bottom sheet (`max-h-[90dvh]`); at `lg` it is the full-height side panel */
-  :is([data-wish-send], [data-gift-record]) [data-sheet-panel] {
-    margin-bottom: var(--cookie-banner-top, 0px);
-    max-height: calc(90dvh - var(--cookie-banner-top, 0px));
+html:has(> head > style[data-cover-menu]):has(header[data-cover-scene]) [data-page-column] {
+  padding-top: 0;
+  /* 🍪 The first screen ends ABOVE the first-visit cookie notice while it is up (`--cookie-banner-top`, 0 once
+     answered — the seam the door's old row used): the cover's foot — the RSVP button, or a stranger's one door
+     (owner 2026-10-17) — rests where it can be pressed, not under the notice. Answered, this is 0px as before. */
+  --cover-scene-above: var(--cookie-banner-top, 0px);
+  --cover-scene-pad: 0px;
+}
+html:has(> head > style[data-cover-menu]):has(header[data-cover-scene]) nav[aria-label='Site sections'] {
+  transition: translate 0.35s ease, opacity 0.35s ease, visibility 0.35s;
+}
+html:has(> head > style[data-cover-menu='wait']):has(header[data-cover-scene]) [data-sticky-top] {
+  translate: 0 -100%;
+}
+html:has(> head > style[data-cover-menu='wait']):has(header[data-cover-scene]) nav[aria-label='Site sections'] {
+  translate: 0 100%;
+  opacity: 0;
+  visibility: hidden;
+}
+/* 👁 THE MAKER'S ▶ WHOLE-PAGE PREVIEW IS THE GUEST'S PAGE (owner 2026-10-16, on cale-ice's preview: "full screen?" — a
+   white band above the cover, the page inset in a rounded card, and the Maker's own guest bar drawn under the cover from
+   the first frame). While previewing (`[data-stage-previewing]`, the Maker's top bar already slid away) the shown canvas
+   fills the WHOLE window, edge to edge, no card — so the Cover Scene is the whole first screen at any width, exactly as
+   the guest page draws it. And the Maker's guest bar keeps the guest page's rule ("THE TOP AND BOTTOM BARS ARRIVE ONLY
+   WHEN THE COVER IS FULLY GONE"): the shown frame mirrors its cover marker onto the shell (`data-canvas-cover`,
+   `cover-scene-menu.tsx`), and the bar stays off while it is "wait". Exit preview (z-31) stays above the page. */
+[data-maker-shell][data-stage-previewing] [data-maker-canvas-frames] {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  border-radius: 0;
+  box-shadow: none;
+}
+[data-maker-shell][data-stage-previewing] [data-maker-canvas-frames] > iframe {
+  border-radius: 0;
+}
+[data-maker-shell][data-stage-previewing] [data-stage-guest-bar] {
+  transition: translate 0.35s ease, opacity 0.35s ease, visibility 0.35s !important;
+}
+[data-maker-shell][data-stage-previewing][data-canvas-cover='wait'] [data-stage-guest-bar] {
+  translate: 0 100%;
+  opacity: 0;
+  visibility: hidden;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-maker-shell][data-stage-previewing] [data-stage-guest-bar] {
+    transition: none !important;
+  }
+}
+/* 🚪 A STRANGER'S FIRST SCREEN IS THE COVER AND "GET INSIDE" TOGETHER (live, 2026-10-15, right after Batch 8:
+   `/maria-and-jose` signed out at 375 × 812 — the eyebrow ran into the names, the monogram was drawn below the fold,
+   "Guests arrive" fell off). The cover's header took the whole first screen ON ITS OWN (`COVER_SCENE_CENTRED`), so the
+   door that follows it in the same block was pushed below the fold, and the first-screen fit (`first-screen-door.tsx`)
+   then moved the mark and the time below the door and closed up air the centring had already spent. Here the BLOCK
+   (header + door) is the first screen, ending where the fit's limit is (the bottom bar's top — or the notice's, while
+   it is up): the header grows into what the door leaves and centres its words in it, the door stands at the foot.
+   A cover that fits does so as designed, with nothing for the fit to do; one that does not has no slack left, and
+   the fit gives way exactly as it did before the Cover Scene. Held by
+   `tests/e2e/the-strangers-cover-keeps-its-order.spec.ts`. */
+[data-pahina-first-screen]:has(> header[data-cover-scene]):has(> .sn-door-row > details) {
+  --cover-door-rest: max(calc(4.75rem + env(safe-area-inset-bottom, 0px)), calc(var(--cookie-banner-top, 0px) + 8px));
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100svh - var(--cover-scene-above, 0px) - var(--cover-door-rest) - 1px);
+}
+@supports (height: 100dvh) {
+  [data-pahina-first-screen]:has(> header[data-cover-scene]):has(> .sn-door-row > details) {
+    min-height: calc(100dvh - var(--cover-scene-above, 0px) - var(--cover-door-rest) - 1px);
+  }
+}
+@media (min-width: 1280px) {
+  [data-pahina-first-screen]:has(> header[data-cover-scene]):has(> .sn-door-row > details) {
+    --cover-door-rest: max(1rem, calc(var(--cookie-banner-top, 0px) + 8px));
+  }
+}
+[data-pahina-first-screen]:has(> header[data-cover-scene]):has(> .sn-door-row > details) > header[data-cover-scene] {
+  min-height: 0;
+  flex: 1 0 auto;
+}
+/* 📱 …AND NOTHING PULLS IT ABOVE THE SCREEN (Batch 9 walk R4, 2026-10-16: 375 × 667, the first-visit notice up — the
+   block started at −24 px, the eyebrow cut off the top). With no room, the first-screen fit closes up "the first
+   screen's margin" by pulling the block up 1.5rem (`[data-first-screen-fit]`, `--fs-air` → 0). That margin is the
+   column's top padding — which the Cover Scene has already taken away (the rule above that sets `padding-top: 0`,
+   under the same marker), so the pull had nothing to close and lifted the cover off the screen instead. Under the
+   marker the pull is off; with no script (no marker) the padding is there and the fit closes it as before. Held by
+   `tests/e2e/the-strangers-cover-keeps-its-order.spec.ts` (375 × 667, "nothing is cut off the top"). */
+html:has(> head > style[data-cover-menu]) [data-first-screen-fit]:has(> header[data-cover-scene]) {
+  margin-top: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  html:has(> head > style[data-cover-menu]):has(header[data-cover-scene]) [data-sticky-top],
+  html:has(> head > style[data-cover-menu]):has(header[data-cover-scene]) nav[aria-label='Site sections'] {
+    transition: none;
   }
 }
 
-/* 🍪 THE EVENT HUB LEAVES ROOM ABOVE THE FIRST-VISIT COOKIE NOTICE (2026-10-13, hub leftovers; owner's walk found
-   "See our page" and "Sign out of this invitation" under it until answered). Same seam as the two rules above: the
-   notice publishes its height (`--cookie-banner-top`, set only while it is the full-width bar — 0 once answered).
-   The page's foot (`data-guest-foot`, and Me's own `data-me-stage`, which end in the record note and the sign-out)
-   is given that much room below it, so the last press scrolls up clear of the notice; the Save the Date film's quiet
-   "See our page" does the same inside `save-the-date-film.tsx`. Held by
-   app/[slug]/_lib/the-hub-leaves-room-above-the-cookie-notice.test.ts. */
-[data-guest-foot],
-[data-me-stage] {
-  padding-bottom: var(--cookie-banner-top, 0px);
-}
+
 
 /* ══ 🎚 SCRUB — A HELD HAND-OVER (owner 2026-10-09, approved on `review/scrub-prototype.html`: *"them must be on the same
    position to create that keynote like transistion"* · *"let it enter on the last 20% of the build out"* · *"element
@@ -8794,3 +10349,4 @@ html:has([data-wish-send], [data-gift-record]) [data-cookie-consent] {
     animation-range: normal;
   }
 }
+

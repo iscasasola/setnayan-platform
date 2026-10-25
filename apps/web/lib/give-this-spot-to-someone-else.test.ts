@@ -51,7 +51,7 @@ test('a NEW KEY FIRST, as the couple — and its failure stops everything', () =
 test('the spot is kept, the old person is cleared', () => {
   const b = body('giveSpotToSomeoneElse');
   const upd = b.slice(b.indexOf('.update({'), b.indexOf('})', b.indexOf('.update({')));
-  for (const gone of ['person_id: null', 'email: null', 'mobile: null', 'photo_url: null', 'dietary_restrictions: null', 'guest_note: null']) {
+  for (const gone of ['person_id: null', 'email: null', 'mobile: null', 'photo_url: null', 'dietary_restrictions: null', 'guest_note: null', 'host_note_for_guest: null']) {
     assert.ok(upd.includes(gone), `${gone} — the old person's ${gone.split(':')[0]} stays on the new person's spot`);
   }
   for (const kept of ['plus_one_count', 'side', 'role', 'rsvp_status', 'deleted_at', 'table', 'seat']) {

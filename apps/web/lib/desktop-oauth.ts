@@ -33,6 +33,8 @@
 
 import { createClient } from '@/lib/supabase/client';
 import { safeNext } from '@/lib/safe-next';
+import { acceptTermsNow } from '@/app/dashboard/_components/terms-reaccept-actions';
+import { TERMS_FIELD } from '@/lib/terms-agreement';
 
 export type DesktopOAuthProvider = 'google' | 'apple' | 'facebook';
 
@@ -88,6 +90,15 @@ const LOOPBACK_TIMEOUT_MS = 5 * 60_000;
 export async function signInWithProviderDesktop(
   provider: DesktopOAuthProvider,
   next: string = '/dashboard',
+  /** A typed Google address (lib/google-address.ts) — Google opens on that account. */
+  loginHint: string | null = null,
+  /**
+   * ✅ The sign-up card's ONE Terms box was ticked (owner 2026-10-22, Host 1). This loopback never passes through
+   * `app/auth/callback` — where the web and phone doors record the carried tick — so it records it itself, right
+   * after the session exists, through the SAME action the one-time re-ask posts (`acceptTermsNow`: fails closed
+   * without the tick, writes only where nothing is on record). Absent / false → nothing is recorded.
+   */
+  opts: { agreed?: boolean } = {},
 ): Promise<void> {
   const t = tauri();
   if (!t) {
@@ -141,6 +152,12 @@ export async function signInWithProviderDesktop(
           fail(error.message);
           return;
         }
+        if (opts.agreed) {
+          const fd = new FormData();
+          fd.set(TERMS_FIELD, 'on');
+          // Best-effort: a missed record leaves the one-time re-ask as the net, never a failed sign-in.
+          await acceptTermsNow(fd).catch(() => undefined);
+        }
         window.location.assign(safeNext(next)); // THE ONE RULE (lib/safe-next.ts)
       } catch (err) {
         settled = true;
@@ -159,7 +176,11 @@ export async function signInWithProviderDesktop(
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider,
-    options: { redirectTo: `http://localhost:${port}`, skipBrowserRedirect: true },
+    options: {
+      redirectTo: `http://localhost:${port}`,
+      skipBrowserRedirect: true,
+      ...(provider === 'google' && loginHint ? { queryParams: { login_hint: loginHint } } : {}),
+    },
   });
   if (error || !data?.url) {
     settled = true;

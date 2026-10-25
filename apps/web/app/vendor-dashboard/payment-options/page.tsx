@@ -1,12 +1,10 @@
 import { redirect } from 'next/navigation';
 
 /**
- * /vendor-dashboard/payment-options — folded into the My Shop hub (owner 5-page IA,
- * 2026-07-12: "overview, my shop, my customers, my performance, BEO are all
- * 1-page each with the different features integrated"). The surface lives on
- * in ./surface.tsx, rendered by the hub's ?tab=payments. This stub keeps every
- * old deep-link working and forwards its params (pattern: /vendor-dashboard/
- * services → My Shop, owner 2026-07-02).
+ * /vendor-dashboard/payment-options — forwards to Your details › How clients pay you (step 5, 2026-10-14; it was
+ * My Shop's `?tab=payments` fold from 2026-07-12). The surface lives on in ./surface.tsx, embedded in that fold. This
+ * stub keeps every old deep-link working — including the surface's own actions, which still redirect here with
+ * `?msg=` / `?error=` — and forwards those params so the flash shows on the open fold.
  */
 export default async function RedirectPaymentOptions({
   searchParams,
@@ -15,9 +13,9 @@ export default async function RedirectPaymentOptions({
 }) {
   const sp = await searchParams;
   const qs = new URLSearchParams();
-  qs.set('tab', 'payments');
   for (const [k, v] of Object.entries(sp)) {
     if (typeof v === 'string' && v.length > 0 && k !== 'tab') qs.set(k, v);
   }
-  redirect(`/vendor-dashboard/shop?${qs.toString()}`);
+  const query = qs.toString();
+  redirect(`/vendor-dashboard/profile${query ? `?${query}` : ''}#pay`);
 }

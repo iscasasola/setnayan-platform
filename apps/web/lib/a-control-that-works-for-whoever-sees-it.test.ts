@@ -7,6 +7,8 @@
  *   · The owner ribbon offered "Edit this site" to every host the capability
  *     admitted — including a `coordinator` member and every accepted delegate,
  *     all of whom the site editor redirects. They pressed it and were bounced.
+ *     (The ribbon itself went on 2026-10-15 — owner: "Remove it" — so the one
+ *     doorway left to hold is that no host control is drawn on /[slug] at all.)
  *   · The Live Studio controller said "Phone joined · A phone holds CH 3" on
  *     every channel, while `panood_camera_operators.claimer_user_id` had
  *     recorded WHO since the seat was claimed.
@@ -21,6 +23,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { crewHolderName } from './papic-crew-roster';
+import { stripComments } from './strip-comments';
 
 const ROOT = join(import.meta.dirname, '..');
 const read = (rel: string): string => readFileSync(join(ROOT, rel), 'utf8');
@@ -28,17 +31,17 @@ const read = (rel: string): string => readFileSync(join(ROOT, rel), 'utf8');
 // ── 1 · THE DEAD END ───────────────────────────────────────────────────────
 
 test('the editor still gates on member_type couple — the premise of the fix', () => {
-  // If this ever stops being true, the ribbon's split is pointless and should
+  // If this ever stops being true, `maySiteEdit`'s split is pointless and should
   // be revisited rather than left as a rule with no reason.
   const editor = read('app/dashboard/[eventId]/website/editor/page.tsx');
   assert.match(
     editor,
     /\.eq\('member_type', 'couple'\)/,
-    'the site editor stopped gating on couple membership — re-decide the ribbon doorway',
+    'the site editor stopped gating on couple membership — re-decide maySiteEdit',
   );
 });
 
-test('the ribbon asks the SAME column the editor does, not a second notion of "can edit"', () => {
+test('the host capability asks the SAME column the editor does, not a second notion of "can edit"', () => {
   const loaders = read('app/[slug]/_lib/loaders.ts');
   assert.match(loaders, /loadCoupleMembership/);
   assert.match(
@@ -54,13 +57,14 @@ test('the ribbon asks the SAME column the editor does, not a second notion of "c
   );
 });
 
-test('the ribbon component prints the model’s label, never a hardcoded one', () => {
-  const ribbon = read('app/[slug]/_components/owner-ribbon.tsx');
-  assert.match(ribbon, /\{model\.editorLabel\}/);
-  assert.ok(
-    !/>\s*Edit this site\s*</.test(ribbon),
-    'the component hardcodes "Edit this site" again, so the model’s decision is dead',
-  );
+test('the guest page shows a host no editing doorway at all — editing is from the dashboard', () => {
+  // The dead end is closed for good by having no host control on /[slug]: a doorway that refuses the person it is
+  // shown to cannot be drawn if no doorway is drawn. (Home's "Edit your Event Hub" is the way in.)
+  for (const rel of ['app/[slug]/_components/site-body.tsx', 'app/[slug]/page.tsx']) {
+    const src = read(rel);
+    assert.ok(!/>\s*Edit this site\s*</.test(src), `${rel} offers "Edit this site" again`);
+    assert.ok(!/website\/editor/.test(stripComments(src)), `${rel} links a host into the site editor again`);
+  }
 });
 
 // ── 2 · WHO HOLDS THE CAMERA ───────────────────────────────────────────────

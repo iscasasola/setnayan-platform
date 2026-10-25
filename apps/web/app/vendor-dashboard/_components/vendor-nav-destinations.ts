@@ -82,15 +82,29 @@
  * the per-section localStorage and the badge map all key off them, and three
  * of those four fail SILENTLY. A label is a string; a key is a contract.
  * `vendor-rail-context.test.ts` pins the pair.
+ *
+ * ─── RE-CUT 2026-10-21 — TODAY · CUSTOMERS · SHOP · HUB, NO MORE ─────────
+ * Owner, verbatim, to the supplier-dashboard audit
+ * (`shots-2026-10-21/supplier-dash-audit/AUDIT.md`): *"Yes to all"*. This
+ * SUPERSEDES the 2026-10-01 answer 1 (bar ends in More) and the 2026-10-08
+ * answer 1 (More = Event Hub · Settings · More tools): every row More held has
+ * a home now — Messages the envelope, How it is going a Shop segment, More
+ * tools and Settings under the profile picture — so the fourth slot is the
+ * room More was hiding, the **Event Hub**, under the word the couple's own
+ * fourth tab uses (**Hub**, #6725). `on-the-day` takes its old key back (its
+ * registry slot `vendor.sidebar.on-the-day` never left); `more` is gone.
+ * A teammate gets the Hub on an event day only (`vendorScopedRailKeys`).
+ * `vendor-bar-is-four.test.ts` holds the four, on the bar and here.
  */
 
-import { Home, ShoppingBag, Users, MoreHorizontal } from 'lucide-react';
+import { CalendarCheck, ShoppingBag, Store, Users } from 'lucide-react';
 import { navIconComponent } from '@/app/_components/nav/nav-icon-component';
 import type { NavGroup, NavItem, NavBadge } from '@/app/_components/nav/types';
 import type { NavSlotLite } from '@/lib/nav-registry-types';
 import type { VendorTeamRole } from '@/lib/vendor-team';
 import { filterVendorNavGroups } from '@/lib/vendor-role';
 import { vendorCustomersBadge } from '@/lib/nav-badges';
+import type { RailMatchRow } from '@/app/_components/frontdoor/rail-active';
 
 /**
  * The five destinations, in the owner's own order.
@@ -109,7 +123,12 @@ export const VENDOR_DESTINATIONS: readonly NavItem[] = [
     key: 'overview',
     label: 'Today',
     href: '/vendor-dashboard',
-    icon: Home,
+    // 🏪 THE SHOP'S ICON, NOT A HOUSE (owner 2026-10-24: "Shop icon not home
+    // icon on Shop's Dashboard Today"). A house is the couple's event Home; in
+    // the shop the landing wears the storefront — the same `Store` glyph the
+    // couple's menu uses for suppliers. Registry slot `vendor.sidebar.overview`
+    // says `Store` too, and the registry wins — change both or neither.
+    icon: Store,
     matchPrefix: '__overview-exact__',
   },
   {
@@ -127,17 +146,68 @@ export const VENDOR_DESTINATIONS: readonly NavItem[] = [
     matchPrefix: '/vendor-dashboard/shop',
   },
   {
-    // The rows inside More (Calendar · Earnings & payday · Messages · Insights
-    // · Event Hub · Notifications · Plan) are `lib/vendor-more-rows.ts`, the one
-    // list the phone's More sheet and the /more page both draw. The rail lights
-    // this row on every one of their rooms (`VENDOR_MORE_MATCH`).
-    key: 'more',
-    label: 'More',
-    href: '/vendor-dashboard/more',
-    icon: MoreHorizontal,
-    matchPrefix: '/vendor-dashboard/more',
+    // 🗓 THE HUB — the Event Hub ("Run the day" + the scanner), owner "Yes to
+    // all" 2026-10-21. The word is the couple's fourth tab's; the room's own
+    // heading still says Event Hub. On a day with no event the room lists the
+    // next booked events, each locked until its booking fee is paid.
+    key: 'on-the-day',
+    label: 'Hub',
+    href: '/vendor-dashboard/on-the-day',
+    icon: CalendarCheck,
+    matchPrefix: '/vendor-dashboard/on-the-day',
   },
 ] as const;
+
+/**
+ * Rooms OUTSIDE `/vendor-dashboard/shop` that are Shop SEGMENTS, so they light
+ * Shop — on the phone bar (`vendor-bottom-nav.tsx` spreads this into Shop's
+ * `activeMatch`) and on the rail (`vendorRailCandidates`). ONE list for both.
+ *
+ *   · Page = Your page, and the two screens it opens (Your details · Your
+ *     collections) — `shop-segments.tsx`. ⚠ The phone lit Shop here since
+ *     2026-10-14 and the RAIL LIT NOTHING (its Shop row matched `/shop` only);
+ *     `how-it-is-going-is-a-shop-segment.test.ts` found it on its first run.
+ *   · How it is going = `/performance` (owner "Yes to all", 2026-10-21, item 2
+ *     — DECISION_LOG 2026-10-08 answer 1 "Insights → Shop"); `/demand` is its
+ *     redirect stub. They lit More until today, so a supplier who tapped the
+ *     Shop segment landed on a page whose bar said More.
+ *
+ * ⚠ NOT the Plan hub: the rail has its own Plan row there, and two rows matching
+ * one URL at the same specificity is how a rail lights the wrong one.
+ */
+export const VENDOR_SHOP_EXTRA_MATCH: readonly string[] = [
+  '/vendor-dashboard/website',
+  '/vendor-dashboard/profile',
+  '/vendor-dashboard/collections',
+  '/vendor-dashboard/performance',
+  '/vendor-dashboard/demand',
+];
+
+/**
+ * Every (key, href) the rail's ONE `activeRailKey` resolution weighs: the rows
+ * themselves, the rooms that light a row they do not start with, and the Plan
+ * row. Pure, so a test asks the rail's own list which row a URL lights instead
+ * of rebuilding it (`how-it-is-going-is-a-shop-segment.test.ts`).
+ *
+ * An extra only joins when this person HAS that row (staff have no Shop and no
+ * More), so a scoped teammate is never shown a lit row they lack.
+ */
+export function vendorRailCandidates(
+  destinations: readonly NavItem[],
+  plan: { key: string; href: string } | null,
+): RailMatchRow[] {
+  const has = (key: string) => destinations.some((d) => d.key === key);
+  return [
+    ...destinations,
+    // ⚠ Settings · Notifications · Help light NO row (2026-10-21): they are the
+    // account's rooms, opened from the profile picture, not a fifth place.
+    // Shop's segments outside /shop (Page · How it is going) light Shop.
+    ...(has('shop') ? VENDOR_SHOP_EXTRA_MATCH.map((href) => ({ key: 'shop', href })) : []),
+    // The Plan row takes part in the SAME resolution — asking it separately
+    // with a `startsWith` would light Plan on `/…/subscriptions`.
+    ...(plan ? [plan] : []),
+  ];
+}
 
 /** The four wrapped as the single labelled group the old sidebar rendered. */
 export function vendorNavGroups(): NavGroup[] {
@@ -158,8 +228,14 @@ export function resolveVendorDestinations({
   navSlots,
   bookingsBadge = 0,
   threadsBadge = 0,
+  eventToday = false,
 }: {
   role: VendorTeamRole | null;
+  /**
+   * One of this shop's days is today. Only a scoped teammate's rows read it —
+   * they get the Hub on that day (owner 2026-10-21, item 6); an owner always has it.
+   */
+  eventToday?: boolean;
   navSlots?: Record<string, NavSlotLite>;
   /** Pending-inquiry count. Real layout data; 0 omits the badge. */
   bookingsBadge?: number;
@@ -173,7 +249,7 @@ export function resolveVendorDestinations({
     `filterVendorNavGroups` gates on the key against the scoped-keys set, which
     is the same rule the phone's bottom bar uses.
   */
-  const scoped = filterVendorNavGroups(vendorNavGroups(), role);
+  const scoped = filterVendorNavGroups(vendorNavGroups(), role, { eventToday });
   const items = scoped[0]?.items ?? [];
 
   /*

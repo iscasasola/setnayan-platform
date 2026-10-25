@@ -17,7 +17,8 @@
  * so the shortcut opens THAT event under the couple's own mark — not ours.
  *
  * The phone is read from the user-agent, the same way the Save button reads it
- * (`saveMethodFor`, lib/guest-one-path.ts): an iPhone/iPad gets Safari's
+ * (`saveMethodFor`, lib/guest-one-path.ts — both through `deviceOs`,
+ * lib/apple-device.ts): an iPhone/iPad gets Safari's
  * steps, Android gets Chrome's, anything else gets both.
  *
  * Server-only by use (the thank-you is a server component); pure, no I/O. Kept
@@ -26,17 +27,45 @@
  * prints.
  */
 
+import { deviceOs } from './apple-device';
+import { isInAppWebview } from './guest-one-path';
+
 export const HOME_SCREEN_LINE = 'Keep it handy — add this event to your home screen';
 
 export type HomeScreenSteps = { phone: string; steps: string };
 
-const IPHONE: HomeScreenSteps = { phone: 'iPhone (Safari)', steps: 'Tap Share → Add to Home Screen.' };
+const IPHONE: HomeScreenSteps = { phone: 'iPhone or iPad (Safari)', steps: 'Tap Share → Add to Home Screen.' };
 const ANDROID: HomeScreenSteps = { phone: 'Android (Chrome)', steps: 'Tap ⋮ → Add to Home screen.' };
 
 /** The steps for this phone — both when the phone cannot be told. */
 export function homeScreenStepsFor(userAgent: string | null | undefined): HomeScreenSteps[] {
   const ua = userAgent ?? '';
-  if (/iPhone|iPad|iPod/i.test(ua)) return [IPHONE];
-  if (/Android/i.test(ua)) return [ANDROID];
+  // An iPad's user-agent may say Macintosh (lib/apple-device.ts); iPad Safari's
+  // never reaches a server as anything else, so it gets both — which holds its own.
+  const os = deviceOs(ua);
+  if (os === 'iphone' || os === 'ipad') return [IPHONE];
+  if (os === 'android') return [ANDROID];
   return [IPHONE, ANDROID];
+}
+
+/**
+ * 🚪 DOES THE LINE SHOW ON THIS SCREEN? (owner 2026-10-21, DECISION_LOG "AFTER THE REPLY: SAVE YOUR PASS · ADD THIS
+ * EVENT TO YOUR HOME SCREEN": *"teach them to add a shortcut icon for this event via Safari/Chrome (if they are on
+ * safari/chrome)"*). Only after a Yes (the 2026-10-03 row), and only where "Add to Home Screen" EXISTS:
+ *
+ *   · ⛔ INSIDE THE STORE APP (the Capacitor shell, `isStoreShellSignals`) — there is no Share → Add to Home Screen
+ *     in an app's own web view, and the guest already has the app on their phone;
+ *   · ⛔ INSIDE A CHAT APP'S BROWSER (Messenger · Instagram · Facebook, `isInAppWebview`) — no such menu either.
+ *     Nothing is said there in its place: the page's own bar at the very top (`InAppBar`, the approved ticket flow's
+ *     "Open in your browser" frame, 2026-09-29) already opens this same page in Safari / Chrome, where the line is.
+ */
+export function shortcutLineShows(input: {
+  reply: 'yes' | 'no' | 'unreplied';
+  userAgent: string | null | undefined;
+  /** The request came from the App Store / Play Store app (`isStoreShellRequest`, lib/request-platform.ts). */
+  storeShell: boolean;
+}): boolean {
+  if (input.reply !== 'yes') return false;
+  if (input.storeShell) return false;
+  return !isInAppWebview(input.userAgent);
 }

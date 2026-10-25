@@ -45,6 +45,17 @@ const VARIANT_QUALITY = 72;
 /** Suffix marking a derived web variant; also the idempotency guard. */
 const VARIANT_SUFFIX = '__stdbg-w1600.webp';
 
+/**
+ * Variant keys this server instance has already seen in R2 (or written). Positive answers only — a missing copy is
+ * asked again, since another instance may have made it. Bounded so a long-lived instance cannot grow it forever.
+ */
+const VARIANT_KNOWN = new Set<string>();
+const VARIANT_KNOWN_MAX = 5000;
+function rememberVariant(key: string): void {
+  if (VARIANT_KNOWN.size >= VARIANT_KNOWN_MAX) VARIANT_KNOWN.clear();
+  VARIANT_KNOWN.add(key);
+}
+
 async function objectExists(bucket: R2BucketName, key: string): Promise<boolean> {
   try {
     await requireR2Client().send(new HeadObjectCommand({ Bucket: bucket, Key: key }));
@@ -81,6 +92,9 @@ export async function displayUrlForStdBackground(
   }
 
   const variantKey = `${ref.key}${VARIANT_SUFFIX}`;
+  // 📸 A copy once found is never re-checked: the derived key is immutable, so asking R2 again on every render
+  // (it is now also the Event Hub's Main background, 2026-10-20) would only add a round trip before each page.
+  if (VARIANT_KNOWN.has(variantKey)) return await presignDisplayUrl(ref.bucket, variantKey);
   try {
     if (!(await objectExists(ref.bucket, variantKey))) {
       const client = requireR2Client();
@@ -104,6 +118,7 @@ export async function displayUrlForStdBackground(
         }),
       );
     }
+    rememberVariant(variantKey);
     return await presignDisplayUrl(ref.bucket, variantKey);
   } catch {
     // R2 down (dev/preview), an un-decodable source, or any transient error —

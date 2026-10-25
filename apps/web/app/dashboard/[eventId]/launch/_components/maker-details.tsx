@@ -6,6 +6,7 @@ import {
   CalendarClock,
   CalendarDays,
   ClipboardList,
+  Signpost,
   Download,
   FileText,
   Gift,
@@ -26,6 +27,7 @@ import {
   Palette,
   QrCode,
   Quote,
+  Settings,
   Reply,
   ScrollText,
   Ticket,
@@ -38,7 +40,7 @@ import { PRINT_PIECES, PRINT_SET_KEYS } from '@/lib/print-pieces';
 import { HubSavesImmediately } from '../../website/_components/hub-draft-field';
 import { OpeningLineField } from './opening-line-field';
 import { SoftPost } from './soft-post';
-import { SlugField } from '../../invitation/_components/slug-field';
+import { AddressField, SlugField } from '../../invitation/_components/slug-field';
 import { siteOrigin } from '@/lib/site-origin';
 import { publicEventPath } from '@/lib/public-event-url';
 import { PaidMark } from '@/app/_components/paid-mark';
@@ -49,6 +51,8 @@ import { ThemePickProvider } from './maker-theme-picker';
 import type { ThemeTile } from '@/lib/maker-theme-tiles';
 import type { UpdateQrStyleResult } from '../qr-look-actions';
 import {
+  DIGITAL_TICKET_ITEM,
+  EVERY_PRINT_ITEM,
   LOOK_ITEM_KEYS,
   LOOK_SECTION_ITEM_KEYS,
   RSVP_PIECES,
@@ -89,6 +93,7 @@ import {
 import { LOOK_ITEM_SECTIONS, type LookPart } from '@/lib/maker-look-sections';
 /* 🧭 The new Maker's Studio tools (`studio`) — lazy, so the shipped Maker's first load carries none of them. */
 import { StudioTool } from './details-lazy';
+import { freePrints } from '@/lib/free-prints';
 import { DEFAULT_NAME_STYLE } from '@/lib/name-style';
 import type { StudioHubFacts } from './studio-tools';
 import type { HubMainGround } from '@/lib/hub-canvas';
@@ -126,15 +131,21 @@ import { parentsOffered } from '@/lib/details-your-event';
 import { hubSetupRound, type HubSetupFacts } from '@/lib/hub-setup-steps';
 import { previewCarriesPlace } from '@/lib/maker-preview-way-back';
 import {
+  DigitalTicketEditor,
   PassCardsPanel,
+  PrintEverythingStudio,
   PrintPieceBody,
   PrintPieceEditor,
   PrintSetBody,
   PrintSetDownloads,
   SeatPlan3dNote,
+  TicketStyle,
   freePrintParts,
+  studioChartInput,
   type PrintsInput,
 } from './maker-prints';
+import { PRINT_SETTINGS_HEADS, PRINT_SETTINGS_LABEL, PRINT_SETTINGS_LINE, PRINT_SETTINGS_SIZES_LINE } from '@/lib/studio-prints-settings';
+import { DEFAULT_ENTRANCE_CHART_SIZE, ENTRANCE_CHART_LAYOUTS, ENTRANCE_CHART_LAYOUT_LABELS } from '@/lib/print-entrance-chart';
 
 /**
  * DETAILS — the Event Hub Maker's one fill-in area (owner 2026-09-28,
@@ -213,6 +224,11 @@ export type MakerDetailsProps = {
     egiftMethods: ManagerMethod[] | null;
     /** What to bring (`events.what_to_bring`, drafted over live). */
     whatToBring: string | null;
+    /**
+     * ✍ The Photos scene's heading (`config_json.photos_heading` on the `our_photos` row, drafted over live; owner
+     * 2026-10-15). Undefined = the row could not be read — its field is then not drawn, never a guessed blank.
+     */
+    photosHeading?: string | null;
     /** The live address's path (`publicEventPath`) — the QR's Copy · Share · Download. */
     livePath: string | null;
     /**
@@ -238,6 +254,8 @@ export type MakerDetailsProps = {
   slug: string | null;
   /** `updateEventSlug` bound to this event (the one writer, `findSlugConflict` behind it). */
   slugAction: (formData: FormData) => Promise<void>;
+  /** 💎 The address part by part (`AddressField`) — absent: the shipped field. */
+  address?: { owns: boolean; renamed: boolean; pricePhp: number | null; drafted: string | null; storeShell: boolean };
   /** The QR's look choices (lib/qr-look.server.ts qrLookChoicesFromRow). */
   qr: { ownsPro: boolean; style: StoredQrStyle; inks: string[]; storeShell: boolean };
   /** `updateQrStyle` bound to this event. */
@@ -256,13 +274,6 @@ export type MakerDetailsProps = {
     tour: boolean;
     /** The couple has chosen a theme (saved or drafted) — the item's "done". */
     chosen: boolean;
-    /**
-     * 🎞 The Save the Date film keeps a background of its own (draft over live), and its Readability.
-     * NOT READ since 2026-10-08: the "Same as the Event Hub" line left Look (the Look restudy, plan row 1);
-     * the launch page still hands them until the film's own background retires (plan row 6 removes both).
-     */
-    filmOwnBackground?: boolean;
-    filmLegibility?: 'auto' | 'lighten' | 'darken';
     /** They wear their own page colour, button colour or typeface (`hasOwnLook`) — re-tapping the current theme hands it back. */
     ownLook?: boolean;
     /** 🎨 Every theme's colours as a palette — only while the Mood Board has none (`ThemePickProvider`). */
@@ -276,7 +287,7 @@ export type MakerDetailsProps = {
   stored: StoredPrintDetails;
   hosts: Array<{ moderatorId: string; label: string; contact: string | null }>;
   /** The parents on the invitation, each with their own guest card. */
-  parents: Array<{ guestId: string | null; name: string; card: ReactNode; side?: StudioParent['side'] }>;
+  parents: Array<{ guestId: string | null; name: string; side?: StudioParent['side'] }>;
   pabuyaMessage: string | null;
   specialMessage: string | null;
   hasPalette: boolean;
@@ -413,6 +424,7 @@ const FREE_ICON: Record<string, ReactNode> = {
   'qr-codes': <Grid3x3 aria-hidden className="h-4 w-4" strokeWidth={1.75} />,
   'seat-plan': <LayoutGrid aria-hidden className="h-4 w-4" strokeWidth={1.75} />,
   'seating-pack': <FileText aria-hidden className="h-4 w-4" strokeWidth={1.75} />,
+  'seating-chart': <Signpost aria-hidden className="h-4 w-4" strokeWidth={1.75} />,
   caterer: <CalendarDays aria-hidden className="h-4 w-4" strokeWidth={1.75} />,
   'event-qr': <QrCode aria-hidden className="h-4 w-4" strokeWidth={1.75} />,
 };
@@ -490,7 +502,7 @@ export function detailsFactEditors(input: {
 }
 
 export function MakerDetails(props: MakerDetailsProps) {
-  const { eventId, slug, slugAction, qr, qrStyleAction, theme, prints, menu, stored, hosts, parents } = props;
+  const { eventId, slug, slugAction, address: addressPart, qr, qrStyleAction, theme, prints, menu, stored, hosts, parents } = props;
   const { pabuyaMessage, specialMessage, hasPalette, hasGifts, flash, stamp, initialItem, eventContext } = props;
   const { facts, loveStory = null, schedule = null, rsvp = null } = props;
   const seatPlan = props.seatPlan ?? null;
@@ -511,8 +523,9 @@ export function MakerDetails(props: MakerDetailsProps) {
   const free = freePrintParts(eventId, slug, prints);
   /* 🧭 Studio › Prints: the same prints for the day, drawn as rows of its one list (blurb · small Saves). */
   const freeStudio = props.studio ? freePrintParts(eventId, slug, prints, true) : null;
-  /* 🧭 Studio › Prints: the print words form's Save is the ONE ActionButton (`StudioTool part="print-save"`); the shipped Maker keeps its own. */
-  const save = props.studio ? <StudioTool part="print-save" form={WORDS_FORM} /> : <SaveWords />;
+  /* 🧭 Studio › Prints has NO Save (owner 2026-10-21, *"why is there a save here? when any press changes it right away?"*): every press
+     posts the print words form itself (`SoftPost autosave`, below). The shipped Maker keeps its own Save. */
+  const save = props.studio ? null : <SaveWords />;
   /* 🧭 …and each include switch is the Form row's switch (`part="include-switch"`) — the SAME fields, the SAME form, only drawn by the template. */
   const IncludeSwitch = (p: Parameters<typeof Toggle>[0]) => (props.studio ? <StudioTool part="include-switch" {...p} /> : <Toggle {...p} />);
   /* 🗓 Your event (part 2a) — its rows, bodies and editors (`details-your-event-parts.tsx`). */
@@ -570,6 +583,11 @@ export function MakerDetails(props: MakerDetailsProps) {
     }
     if (k === 'qr') return { label: 'QR code', done: Boolean(slug), usedOn: ['every print', 'every pass'], icon: <QrCode aria-hidden className="h-4 w-4" strokeWidth={1.75} /> };
     if (k === 'download') return { label: 'Download the set', sub: 'PDF · every pass', icon: <Download aria-hidden className="h-4 w-4" strokeWidth={1.75} /> };
+    /* 🖨 Studio › Prints' head (owner 2026-10-16): the QR line and the NFC spot, once for the whole set. */
+    /* ⚙ …Print settings since 2026-10-17: every switch and field of every piece, in one sheet. */
+    if (k === EVERY_PRINT_ITEM) return { label: PRINT_SETTINGS_LABEL, sub: PRINT_SETTINGS_LINE, icon: <Settings aria-hidden className="h-4 w-4" strokeWidth={1.75} /> };
+    /* 🎫 The Digital ticket — the PNG each guest saves (2026-10-17, Studio only). */
+    if (k === DIGITAL_TICKET_ITEM) return { label: 'Digital ticket', sub: 'PNG · what each guest saves', icon: <Ticket aria-hidden className="h-4 w-4" strokeWidth={1.75} /> };
     if ((WORDS_ITEM_KEYS as readonly string[]).includes(k) || (STORY_ITEM_KEYS as readonly string[]).includes(k)) {
       const w = k as WordsItemKey | StoryItemKey;
       return {
@@ -603,7 +621,7 @@ export function MakerDetails(props: MakerDetailsProps) {
     ...(schedule ? (['schedule'] as const) : []),
     ...(rsvp ? (['rsvp'] as const) : []),
   ];
-  const present = new Set<DetailsItemKey>(['theme', ...LOOK_SECTION_ITEM_KEYS, ...(look ? LOOK_ITEM_KEYS : []), ...(ye?.keys ?? []), ...ap.keys, ...(seatPlan ? (['seating'] as const) : []), ...(props.planMyself ? (['plan-myself'] as const) : []), 'address', 'qr', 'download', ...WORDS_ITEM_KEYS, ...storyPresent, ...PRINT_SET_KEYS, ...free.map((f) => f.key)]);
+  const present = new Set<DetailsItemKey>(['theme', ...LOOK_SECTION_ITEM_KEYS, ...(look ? LOOK_ITEM_KEYS : []), ...(ye?.keys ?? []), ...ap.keys, ...(seatPlan ? (['seating'] as const) : []), ...(props.planMyself ? (['plan-myself'] as const) : []), 'address', 'qr', 'download', ...WORDS_ITEM_KEYS, ...storyPresent, ...(props.studio ? [EVERY_PRINT_ITEM, DIGITAL_TICKET_ITEM] : []), ...PRINT_SET_KEYS, ...free.map((f) => f.key)]);
   /* 👪 Where the type prints no parents (a birthday, a wake), "Hosts" has no march to
      live in — it is the last field of the Your event form instead (review 2026-10-06). */
   const hostsInForm = props.yourEvent ? !parentsOffered(props.yourEvent.kind) : !switches.parents;
@@ -774,6 +792,9 @@ export function MakerDetails(props: MakerDetailsProps) {
     </>
   );
   for (const f of free) bodies[f.key] = f.body;
+  /* 🪧 Studio: the entrance chart's picture follows the row's By table | A to Z and size (`StudioChartBody`, owner 2026-10-14). */
+  const chartPrint = props.studio ? freePrints(eventId, slug).find((x) => x.key === 'seating-chart') : undefined;
+  if (chartPrint) bodies['seating-chart'] = <StudioTool part="chart-body" chart={studioChartInput(eventId, slug, chartPrint)} />;
   if (ye) Object.assign(bodies, ye.bodies);
   Object.assign(bodies, ap.bodies);
   /* 🪑 The seat plan — the shipped editor fills the middle part ('fill'). */
@@ -812,6 +833,8 @@ export function MakerDetails(props: MakerDetailsProps) {
       <span className="text-xs font-medium text-ink/60">Always printed</span>
     </div>
   );
+  /* 🖨 In Studio the QR line is said ONCE, in "On every print" (owner 2026-10-16) — never under each piece. */
+  const qrPerPiece = props.studio ? null : qrAlways;
   /* ✍ The two print-only words — each ONE field in two doors (its Words item
      and its print's switch), posting through the print words form. */
   const openingLine = <OpeningLineField initial={stored.openingLine} form={WORDS_FORM} titled={false} />;
@@ -841,6 +864,98 @@ export function MakerDetails(props: MakerDetailsProps) {
   /* ↪ An editor decided further down (E-Gifts' is finished in the Studio block below), drawn
      in place from another item — `LateEditor` reads it when it renders, after this returns. */
   const late: Partial<Record<DetailsItemKey, ReactNode>> = {};
+  /* 🖨 WHAT A PRINT INCLUDES — each include switch ONCE, with its fields. The shipped Details draws them inside their piece's editor;
+     the new Maker's Studio gathers every one into ⚙ Print settings (owner 2026-10-17 — `editors[EVERY_PRINT_ITEM]` below). The SAME
+     switches posting the SAME print words form either way (`studio-prints-posts-the-same.test.ts`). */
+  const parentsSwitch = switches.parents ? (
+    <IncludeSwitch
+      form={WORDS_FORM}
+      name="inc_parents"
+      label="Parents on the invitation"
+      on={inc.parents}
+      tip="Guests whose role on your guest list is a parent's. Parents are optional — with none, the card leaves that part out."
+    >
+      {props.studio ? (
+        /* 🧭 Studio › Prints: list rows → the shipped guest card as a sheet; ＋ Add a parent (owner "approved" 2026-10-13). */
+        <StudioTool part="parents" eventId={eventId} parents={parents.map((p) => ({ ...p, side: p.side ?? null }))} />
+      ) : (
+        <ParentCards eventId={eventId} parents={parents} />
+      )}
+    </IncludeSwitch>
+  ) : null;
+  const openingSwitch = (
+    <IncludeSwitch form={WORDS_FORM} name="inc_opening_line" label="Opening line" on={inc.openingLine}>
+      {openingLine}
+    </IncludeSwitch>
+  );
+  const detailsSwitches = (
+    <>
+      <IncludeSwitch
+        form={WORDS_FORM}
+        name="inc_gift_details"
+        label="E-Gifts — gift details"
+        on={inc.giftDetails && hasGifts}
+        disabled={!hasGifts}
+        note={hasGifts ? null : (
+          /* ↪ E-Gifts' own editor opens HERE, never a link out (owner 2026-10-08, studio round 3). */
+          <OpenInPlace open="Set up E-Gifts" back="Prints" data="gifts">
+            <LateEditor from={late} item="gifts" />
+          </OpenInPlace>
+        )}
+        tip="Account numbers print masked (•••• 1234)."
+      />
+      <IncludeSwitch form={WORDS_FORM} name="inc_thank_you" label="E-Gifts — thank-you message" on={inc.thankYou}>
+        {/* The Words › Thank-you editor — one field, two doors. */}
+        {facts['thank-you']}
+      </IncludeSwitch>
+      <IncludeSwitch form={WORDS_FORM} name="inc_love_story" label="Love Story" on={inc.loveStory !== 'none'} tip="A short excerpt of your story on the Finer Details card." />
+      <IncludeSwitch form={WORDS_FORM} name="inc_schedule" label="Schedule — the program" on={inc.schedule} tip={props.studio ? PRINT_SCHEDULE_TIP : 'Only the moments your guests can see.'}>
+        {props.studio ? (
+          <p data-print-schedule-everyone="" className="text-[12.5px] text-ink/65">
+            Prints the moments for <b className="font-semibold text-ink">Everyone</b> only.
+          </p>
+        ) : null}
+      </IncludeSwitch>
+      <IncludeSwitch
+        form={WORDS_FORM}
+        name="inc_mood_board"
+        label="Mood Board — our colours"
+        on={inc.moodBoard && hasPalette}
+        disabled={!hasPalette}
+        note={hasPalette ? null : (
+          /* The Mood Board is an item of Details now — opened here, not linked out to. */
+          <DetailsGoTo item="mood-board">Build your Mood Board first</DetailsGoTo>
+        )}
+      />
+      <IncludeSwitch form={WORDS_FORM} name="inc_special_message" label="Special message" on={inc.specialMessage}>
+        {/* The Words › Special message editor — one field, two doors. */}
+        {facts['special-message']}
+      </IncludeSwitch>
+      <IncludeSwitch form={WORDS_FORM} name="inc_rsvp" label="Kindly reply" on={inc.rsvp} tip={props.studio ? PRINT_KINDLY_REPLY_TIP : 'A host or your coordinator, read from their account — or type it in.'}>
+        {kindlyReply}
+      </IncludeSwitch>
+    </>
+  );
+  const guestNamesSwitch = <IncludeSwitch form={WORDS_FORM} name="inc_guest_names" label="Guest list — names on passes" on={inc.guestNames} />;
+  /* ✂ The passes' corners — rounded (the card standard) or square, for a couple cutting straight with a trimmer or scissors. */
+  const cornerOptions: Array<[string, string]> = [['rounded', 'Rounded'], ['square', 'Square']];
+  const passCornersPick = props.studio ? (
+    <StudioTool part="seat-kind" form={WORDS_FORM} name="pass_corners" value={inc.passCorners} options={cornerOptions} label="Corners" dataAttr="data-pass-corners" />
+  ) : (
+    <div data-pass-corners="" className="flex items-center justify-between gap-3">
+      <span className="text-sm text-ink/80">Pass corners</span>
+      <Segmented form={WORDS_FORM} name="pass_corners" value={inc.passCorners} options={cornerOptions} />
+    </div>
+  );
+  const seatPlanSwitch = (
+    <IncludeSwitch form={WORDS_FORM} name="inc_seat_plan" label="Offer a seat plan with the set" on={inc.seatPlan !== 'none'} tip="Prints your seating chart from the Seat plan you already made.">
+      {props.studio ? (
+        <StudioTool part="seat-kind" form={WORDS_FORM} name="seat_plan_kind" value={inc.seatPlan === 'none' ? 'list' : inc.seatPlan} options={[['3d', '3D'], ['2d', '2D'], ['list', 'List']]} />
+      ) : (
+        <Segmented form={WORDS_FORM} name="seat_plan_kind" value={inc.seatPlan === 'none' ? 'list' : inc.seatPlan} options={[['3d', '3D'], ['2d', '2D'], ['list', 'List']]} />
+      )}
+    </IncludeSwitch>
+  );
   const editors: Partial<Record<DetailsItemKey, ReactNode>> = {
     /* 🎨 LOOK IS ONE PANEL — Background · Elements · Music (`lib/maker-look-sections.ts`, owner 2026-10-08). */
     theme: <LookPanel item="theme" />,
@@ -852,8 +967,15 @@ export function MakerDetails(props: MakerDetailsProps) {
        availability, old links forward. ── */
     address: (
       <section data-details-address="" className="flex flex-col gap-2">
-        <SlugField eventId={eventId} initialSlug={slug ?? ''} saveAction={slugAction} />
-        <HubSavesImmediately className="mt-1" />
+        {addressPart && slug ? (
+          /* 💎 Owner 2026-10-22: the free address is shown; "Pick your own ◆" is tried in the draft, paid at ✓ Apply. */
+          <AddressField eventId={eventId} slug={slug} saveAction={slugAction} {...addressPart} />
+        ) : (
+          <>
+            <SlugField eventId={eventId} initialSlug={slug ?? ''} saveAction={slugAction} />
+            <HubSavesImmediately className="mt-1" />
+          </>
+        )}
       </section>
     ),
     qr: (
@@ -863,97 +985,52 @@ export function MakerDetails(props: MakerDetailsProps) {
         <p className="text-xs text-ink/60">
           {qr.ownsPro
             ? 'Your logo sits in the centre of every guest QR. Its shape, pattern and colour are under the code.'
-            : 'Every guest QR carries the Setnayan mark in the centre. Try your logo, shape, pattern and colour here — they go live when you Apply with Event Hub Pro.'}
+            : qr.storeShell
+              ? /* 🍎 The iPhone app names no paid extra — and draws no QR look controls (`QrLookControls`). */
+                'Every guest QR carries the Setnayan mark in the centre.'
+              : 'Every guest QR carries the Setnayan mark in the centre. Try your logo, shape, pattern and colour here — they go live when you Apply with Event Hub Pro.'}
         </p>
         {qrAlways}
         {nfcToggle}
         {save}
       </div>
     ),
+    /* 🧭 Studio: the row is picture · size ▾ · Download — what it includes is in ⚙ Print settings (owner 2026-10-17). */
     invitation: (
       <PrintPieceEditor input={prints} piece="invitation" studio={Boolean(props.studio)}>
-        {switches.parents ? (
-          <IncludeSwitch
-            form={WORDS_FORM}
-            name="inc_parents"
-            label="Parents on the invitation"
-            on={inc.parents}
-            tip="Guests whose role on your guest list is a parent's. Parents are optional — with none, the card leaves that part out."
-          >
-            {props.studio ? (
-              /* 🧭 Studio › Prints: list rows → the shipped guest card as a sheet; ＋ Add a parent (owner "approved" 2026-10-13). */
-              <StudioTool part="parents" eventId={eventId} parents={parents.map((p) => ({ ...p, side: p.side ?? null }))} />
-            ) : (
-              <ParentCards eventId={eventId} parents={parents} />
-            )}
-          </IncludeSwitch>
-        ) : null}
-        <IncludeSwitch form={WORDS_FORM} name="inc_opening_line" label="Opening line" on={inc.openingLine}>
-          {openingLine}
-        </IncludeSwitch>
-        {qrAlways}
-        {save}
+        {props.studio ? null : (
+          <>
+            {parentsSwitch}
+            {openingSwitch}
+            {qrPerPiece}
+            {save}
+          </>
+        )}
       </PrintPieceEditor>
     ),
     details: (
       <PrintPieceEditor input={prints} piece="details" studio={Boolean(props.studio)}>
-        <IncludeSwitch
-          form={WORDS_FORM}
-          name="inc_gift_details"
-          label="E-Gifts — gift details"
-          on={inc.giftDetails && hasGifts}
-          disabled={!hasGifts}
-          note={hasGifts ? null : (
-            /* ↪ E-Gifts' own editor opens HERE, never a link out (owner 2026-10-08, studio round 3). */
-            <OpenInPlace open="Set up E-Gifts" back="Prints" data="gifts">
-              <LateEditor from={late} item="gifts" />
-            </OpenInPlace>
-          )}
-          tip="Account numbers print masked (•••• 1234)."
-        />
-        <IncludeSwitch form={WORDS_FORM} name="inc_thank_you" label="E-Gifts — thank-you message" on={inc.thankYou}>
-          {/* The Words › Thank-you editor — one field, two doors. */}
-          {facts['thank-you']}
-        </IncludeSwitch>
-        <IncludeSwitch form={WORDS_FORM} name="inc_love_story" label="Love Story" on={inc.loveStory !== 'none'} tip="A short excerpt of your story on the Finer Details card." />
-        <IncludeSwitch form={WORDS_FORM} name="inc_schedule" label="Schedule — the program" on={inc.schedule} tip={props.studio ? PRINT_SCHEDULE_TIP : 'Only the moments your guests can see.'}>
-          {props.studio ? (
-            <p data-print-schedule-everyone="" className="text-[12.5px] text-ink/65">
-              Prints the moments for <b className="font-semibold text-ink">Everyone</b> only.
-            </p>
-          ) : null}
-        </IncludeSwitch>
-        <IncludeSwitch
-          form={WORDS_FORM}
-          name="inc_mood_board"
-          label="Mood Board — our colours"
-          on={inc.moodBoard && hasPalette}
-          disabled={!hasPalette}
-          note={hasPalette ? null : (
-            /* The Mood Board is an item of Details now — opened here, not linked out to. */
-            <DetailsGoTo item="mood-board">Build your Mood Board first</DetailsGoTo>
-          )}
-        />
-        <IncludeSwitch form={WORDS_FORM} name="inc_special_message" label="Special message" on={inc.specialMessage}>
-          {/* The Words › Special message editor — one field, two doors. */}
-          {facts['special-message']}
-        </IncludeSwitch>
-        <IncludeSwitch form={WORDS_FORM} name="inc_rsvp" label="Kindly reply" on={inc.rsvp} tip={props.studio ? PRINT_KINDLY_REPLY_TIP : 'A host or your coordinator, read from their account — or type it in.'}>
-          {kindlyReply}
-        </IncludeSwitch>
-        {qrAlways}
-        {save}
+        {props.studio ? null : (
+          <>
+            {detailsSwitches}
+            {qrPerPiece}
+            {save}
+          </>
+        )}
       </PrintPieceEditor>
     ),
-    pass: (
+    pass: props.studio ? (
+      <PrintPieceEditor input={prints} piece="pass" studio />
+    ) : (
       <>
-        <PrintPieceEditor input={prints} piece="pass" studio={Boolean(props.studio)}>
-          <IncludeSwitch form={WORDS_FORM} name="inc_guest_names" label="Guest list — names on passes" on={inc.guestNames} />
-          {qrAlways}
+        <PrintPieceEditor input={prints} piece="pass">
+          {guestNamesSwitch}
+          {passCornersPick}
+          {qrPerPiece}
           {save}
         </PrintPieceEditor>
         {/* 🎫 The pass guests save — its look (one dropdown) and its two outputs. */}
-        <PassCardsPanel input={prints} studio={Boolean(props.studio)} />
+        <PassCardsPanel input={prints} />
       </>
     ),
     entourage: <PrintPieceEditor input={prints} piece="entourage" studio={Boolean(props.studio)} />,
@@ -961,7 +1038,8 @@ export function MakerDetails(props: MakerDetailsProps) {
     poster: <PrintPieceEditor input={prints} piece="poster" studio={Boolean(props.studio)} />,
     'story-poster': <PrintPieceEditor input={prints} piece="story-poster" studio={Boolean(props.studio)} />,
     card: <PrintPieceEditor input={prints} piece="card" studio={Boolean(props.studio)} />,
-    download: <PrintSetDownloads input={prints} studio={Boolean(props.studio)} />,
+    /* 🗂 Studio: Everything ◆ — one file of every piece (owner 2026-10-17); the shipped Details keeps Download the set. */
+    download: props.studio ? <PrintEverythingStudio input={prints} /> : <PrintSetDownloads input={prints} />,
     /* ── Words ── */
     'special-message': facts['special-message'],
     'thank-you': facts['thank-you'],
@@ -1014,18 +1092,18 @@ export function MakerDetails(props: MakerDetailsProps) {
   for (const f of free) {
     editors[f.key] =
       f.key === 'seat-plan' ? (
-        <div className="flex flex-col gap-3">
-          {freeEditor(f)}
-          <IncludeSwitch form={WORDS_FORM} name="inc_seat_plan" label="Offer a seat plan with the set" on={inc.seatPlan !== 'none'} tip="Prints your seating chart from the Seat plan you already made.">
-            {props.studio ? (
-              <StudioTool part="seat-kind" form={WORDS_FORM} name="seat_plan_kind" value={inc.seatPlan === 'none' ? 'list' : inc.seatPlan} options={[['3d', '3D'], ['2d', '2D'], ['list', 'List']]} />
-            ) : (
-              <Segmented form={WORDS_FORM} name="seat_plan_kind" value={inc.seatPlan === 'none' ? 'list' : inc.seatPlan} options={[['3d', '3D'], ['2d', '2D'], ['list', 'List']]} />
-            )}
-          </IncludeSwitch>
-          {inc.seatPlan === '3d' ? <SeatPlan3dNote eventId={eventId} /> : null}
-          {save}
-        </div>
+        /* 🧭 In Studio the row names itself (its head, with its picture) — the form's own heading steps aside (`data-print-studio`). */
+        props.studio ? (
+          /* 🧭 Studio: Colours ▾ + Download — "Offer a seat plan with the set" is in ⚙ Print settings (owner 2026-10-17). */
+          freeEditor(f)
+        ) : (
+          <div className="flex flex-col gap-3">
+            {freeEditor(f)}
+            {seatPlanSwitch}
+            {inc.seatPlan === '3d' ? <SeatPlan3dNote eventId={eventId} /> : null}
+            {save}
+          </div>
+        )
       ) : (
         freeEditor(f)
       );
@@ -1051,7 +1129,7 @@ export function MakerDetails(props: MakerDetailsProps) {
     const yeIn = props.yourEvent ?? null;
     /* 🎁 "Accept gifts?" answered No (drafted over live, like every answer here). */
     const giftsOff = props.answers?.gifts.offered === true && props.answers.gifts.value === false;
-    /* 📍 Date and Venue are read-only — set in Suppliers (DECISION_LOG "DATE AND VENUE LIVE IN SUPPLIERS"). */
+    /* 📍 The Date is read-only — set in Suppliers (DECISION_LOG "DATE AND VENUE LIVE IN SUPPLIERS"); the Venue's pin is not, below. */
     if (yeIn && editors.date) {
       editors.date = <StudioTool part="fact" label="Date" value={yeIn.date.dateDisplay} line={STUDIO_SUPPLIERS_LINE} data="date" />;
     }
@@ -1061,7 +1139,12 @@ export function MakerDetails(props: MakerDetailsProps) {
         .filter((v) => v.name)
         .map((v) => (two ? `${VENUE_ROLE_LABEL[v.role]} · ${v.name}` : v.name!))
         .join('\n');
-      editors.venues = <StudioTool part="fact" label={ye?.rows.venues?.label ?? 'Venue'} value={names || null} line={STUDIO_SUPPLIERS_LINE} data="venues" />;
+      /* 📍 …but a venue's PIN is set here when it is the couple's (owner 2026-10-22, DECISION_LOG "A MANUAL VENUE TAKES
+         THE COUPLE'S PIN; A SHOP'S VENUE TAKES THE SHOP'S"): a manual or unbooked venue opens the shipped
+         AddressPinField; a shop's venue stays one quiet row that follows the shop's pin (`studio-venues.tsx`). */
+      editors.venues = yeIn.venues.slots.length
+        ? <StudioTool part="venues" eventId={eventId} slots={yeIn.venues.slots} />
+        : <StudioTool part="fact" label={ye?.rows.venues?.label ?? 'Venue'} value={names || null} line={STUDIO_SUPPLIERS_LINE} data="venues" />;
     }
     /* 🏷 Event name · Maria & Jose — ONE row that opens the two people + Name style ▾ in place
        (owner 2026-10-07 "yes"). The same NamesEditor / NameStylePicker; a one-person event
@@ -1073,6 +1156,7 @@ export function MakerDetails(props: MakerDetailsProps) {
           eventId={eventId}
           people={yeIn.names.people}
           initial={yeIn.names.initial}
+          storedName={yeIn.names.storedName}
           nameStyle={yeIn.nameStyle ?? DEFAULT_NAME_STYLE}
         />
       );
@@ -1098,6 +1182,8 @@ export function MakerDetails(props: MakerDetailsProps) {
         <>
           <StudioTool part="words" eventId={eventId} fact="special_message" value={specialMessage} />
           <StudioTool part="words" eventId={eventId} fact="what_to_bring" value={st.whatToBring} />
+          {/* ✍ The Photos heading (owner 2026-10-15) — undefined: its row could not be read, so it is not drawn. */}
+          {st.photosHeading !== undefined ? <StudioTool part="photos-heading" eventId={eventId} value={st.photosHeading} /> : null}
         </>
       );
     }
@@ -1119,13 +1205,84 @@ export function MakerDetails(props: MakerDetailsProps) {
     );
     /* The form's quiet rows — Restore · Reset… · About — stay last, outside the fold. */
     editors.qr = <StudioTool part="quiet" />;
-    /* 🖨 The NFC spot is a Finer Details switch here (it still posts with every words Save). */
-    editors.details = (
-      <>
-        {editors.details}
-        {nfcToggle}
-      </>
+    /* ⚙ PRINT SETTINGS (owner 2026-10-17, DECISION_LOG "PRINTS: ONE SETTINGS SHEET, ONE DOWNLOAD PER PIECE…"; prototype
+       `prints_settings_and_downloads_2026-10-17.html`): the head of the Prints form is ONE row that opens ONE sheet — every switch and
+       field that sat inside a piece row, under the prototype's headings. The SAME switches, posting the SAME print words form by
+       `form=` — on every press since 2026-10-21 (no Save); the sheet is hidden while shut, never unmounted, so every post sends every field. */
+    const chartFree = free.find((f) => f.key === 'seating-chart');
+    editors[EVERY_PRINT_ITEM] = (
+      <div data-print-studio="" data-print-every="" className="flex flex-col">
+        <StudioTool
+          part="print-settings"
+          form={WORDS_FORM}
+          sections={[
+            {
+              key: 'every',
+              ...PRINT_SETTINGS_HEADS.every,
+              body: (
+                <>
+                  {qrAlways}
+                  {nfcToggle}
+                  <StudioTool part="fact" label="Bleed, crop marks, cut lines" value="On every print-ready file" line="" data="bleed" />
+                  <p className="py-2.5 text-[12.5px] text-ink/60">{PRINT_SETTINGS_SIZES_LINE}</p>
+                </>
+              ),
+            },
+            ...(parentsSwitch || openingSwitch ? [{ key: 'invitation', ...PRINT_SETTINGS_HEADS.invitation, body: <>{parentsSwitch}{openingSwitch}</> }] : []),
+            { key: 'details', ...PRINT_SETTINGS_HEADS.details, body: detailsSwitches },
+            {
+              key: 'passes',
+              ...PRINT_SETTINGS_HEADS.passes,
+              body: (
+                <>
+                  {guestNamesSwitch}
+                  {passCornersPick}
+                  <TicketStyle input={prints} />
+                </>
+              ),
+            },
+            ...(prints.storyEmpty
+              ? []
+              : [
+                  {
+                    key: 'story',
+                    ...PRINT_SETTINGS_HEADS.story,
+                    body: (
+                      <StudioTool
+                        part="poster-photo"
+                        eventId={eventId}
+                        saved={prints.posterPhoto ?? null}
+                        thumb={prints.posterPhoto ? `/api/hub-print/story-poster?event=${eventId}&mode=screen&theme=${prints.theme}` : null}
+                      />
+                    ),
+                  },
+                ]),
+            {
+              key: 'seating',
+              ...PRINT_SETTINGS_HEADS.seating,
+              body: (
+                <>
+                  {seatPlanSwitch}
+                  {inc.seatPlan === '3d' ? <SeatPlan3dNote eventId={eventId} /> : null}
+                  {chartFree ? (
+                    <StudioTool
+                      part="chart-layout"
+                      eventId={eventId}
+                      defaultSize={DEFAULT_ENTRANCE_CHART_SIZE}
+                      layouts={ENTRANCE_CHART_LAYOUTS.map((l) => ({ key: l, label: ENTRANCE_CHART_LAYOUT_LABELS[l] }))}
+                    />
+                  ) : null}
+                </>
+              ),
+            },
+          ]}
+        />
+        {/* 🎨 Which look the pieces are drawn in — ◆ your Event Hub's (Pro), else 🔒 the door (owner 2026-10-21, `StudioHubLookRow`). */}
+        <StudioTool part="hub-look" eventId={eventId} ownsPro={prints.ownsPro} storeShell={prints.storeShell} />
+      </div>
     );
+    /* 🎫 The Digital ticket's row — View as ▾ · Download · All guests ◆ (owner 2026-10-17). */
+    editors[DIGITAL_TICKET_ITEM] = <DigitalTicketEditor input={prints} />;
     /* 🌄 Look — ONE bar over the three sections (Background · Elements · Music, owner 2026-10-08), the same editors under it.
        What the Studio adds rides under the part it belongs to (`LookPanel` `extras`): the main background's extras — Pattern ·
        Focus · Blur · Shade — under the main background, and 🎨 the five main colours, one at a time, under Elements › Colours
@@ -1284,8 +1441,8 @@ export function MakerDetails(props: MakerDetailsProps) {
               {/* The include marker: a posted form ALWAYS carries it, so an
                   all-off form still saves "off" instead of looking like no answer. */}
               <input type="hidden" name="include_form" value="1" />
-              {/* 🧷 Saves in place — never a whole-page reload (owner 2026-09-28). */}
-              <SoftPost />
+              {/* 🧷 Saves in place — never a whole-page reload (owner 2026-09-28). In the Studio it saves on every press — there is no Save. */}
+              <SoftPost autosave={Boolean(props.studio)} />
             </form>
           </>
         }

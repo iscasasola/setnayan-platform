@@ -42,8 +42,19 @@ export function extractPaletteFromImage(img: HTMLImageElement): string[] {
     return pad6(DEFAULT_COLORS);
   }
 
+  const picks = paletteFromRgba(data);
+  return pad6(picks.length > 0 ? picks : DEFAULT_COLORS);
+}
+
+/**
+ * THE BUCKETING ITSELF — up to six real colours from RGBA pixels, most common first, NEVER padded. Shared by the
+ * Canvas path above (which pads with cream for its own callers) and the server twin `extract-palette.server.ts`
+ * (2026-10-19: every supplier photo arrives with its colours tagged — a padded cream there would be an invented
+ * colour, so the server keeps only what the pixels hold). Near-white, near-black and transparent pixels are skipped.
+ */
+export function paletteFromRgba(data: ArrayLike<number>): string[] {
   const buckets = new Map<string, { count: number; r: number; g: number; b: number }>();
-  for (let i = 0; i < data.length; i += 4) {
+  for (let i = 0; i + 3 < data.length; i += 4) {
     const r = data[i]!;
     const g = data[i + 1]!;
     const b = data[i + 2]!;
@@ -69,7 +80,7 @@ export function extractPaletteFromImage(img: HTMLImageElement): string[] {
     if (picks.length >= 6) break;
     picks.push(rgbToHex(bucket.r / bucket.count, bucket.g / bucket.count, bucket.b / bucket.count));
   }
-  return pad6(picks.length > 0 ? picks : DEFAULT_COLORS);
+  return picks;
 }
 
 export async function extractPaletteFromFile(file: File): Promise<string[]> {

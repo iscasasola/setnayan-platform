@@ -113,6 +113,16 @@
   outline: none;
   box-shadow: none;
 }
+/* The app's touch floor (globals.css, `@media (pointer: coarse)`) forces every
+   input to 16px !important so iOS does not zoom on focus — which drew the
+   Target at 16px on every phone while its neighbours stand at 24px. 24px is
+   above that floor, so the zoom it guards against cannot happen here. The
+   selector repeats the floor's own `:not()` chain so it outranks it. */
+@media (pointer: coarse) {
+  .target input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']) {
+    font-size: 24px !important;
+  }
+}
 .target input:focus,
 .target input:focus-visible {
   border-bottom-color: var(--bp-brand);
@@ -211,11 +221,10 @@
   border-top: 1px solid var(--bp-line);
   min-width: 0;
 }
+/* "₱528,000 · Seda Vertis North · Oct 5" — it carries the amount, so it wraps, never cut (as `.svc` below). */
 .nextTxt {
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: break-word;
 }
 .nextTxt b {
   font-weight: 700;
@@ -237,6 +246,10 @@
   align-items: center;
   min-height: 44px;
   margin-block: -14px;
+  /* …and 44px WIDE: "Pay ›" is 30px of words. The box grows toward the row's
+     own text (it already sits at the far end), the words stay right-aligned. */
+  min-width: 44px;
+  justify-content: flex-end;
 }
 
 /* ═══ the one list — three groups, hairline rows ═══ */
@@ -312,12 +325,13 @@ button.row {
   white-space: nowrap;
   display: block;
 }
+/* The line under a name carries MONEY ("Reception venue · ₱105,600 paid"), so it wraps — it is never cut. On one
+   line with an ellipsis it lost the amount on every phone from 320 to 414 (fits-every-phone 2026-10-21). The name
+   above it may still truncate: a long name is a name, a cut amount is a wrong number. */
 .svc {
   font-size: 13px;
   color: var(--bp-mute);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: break-word;
   display: block;
 }
 .end {
@@ -370,16 +384,44 @@ button.row {
   background: var(--bp-danger);
   flex: none;
 }
+/* "Retry" — the prototype's quiet wine word at the row's end, with a full
+   44px thumb target that does not make the row taller (as .go does). */
+.retry {
+  margin-left: auto;
+  color: var(--bp-wine);
+  font: inherit;
+  font-weight: 500;
+  background: none;
+  border: 0;
+  padding: 0 0 0 12px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  margin-block: -12px;
+}
+.retry:disabled {
+  opacity: 0.55;
+  cursor: progress;
+}
+/* The line under the summary while All ▾ is on Owing or Paid. */
+.filterline {
+  font-size: 13px;
+  color: var(--bp-mute);
+  margin-top: 10px;
+}
 
-/* ═══ the thumb row — fixed over the list, above the bottom nav ═══
-   The row has no fill of its own. B2 gives it its first control (＋ Add
-   expense, which keeps its full colour); the filter and search join it later. */
+/* ═══ the frosted thumb row — fixed over the list, above the bottom nav ═══
+   ＋ Add expense · All ▾ · search (B3). The row has no fill of its own: the
+   dropdown and the search wear `.sn-glass-row` (they blur what is behind them)
+   and Add keeps its full colour. */
 .lower {
   position: fixed;
   left: 0;
   right: 0;
-  bottom: calc(var(--sn-bottomdock-h, calc(env(safe-area-inset-bottom) + 64px)));
-  padding: 10px 16px;
+  bottom: calc(var(--sn-ride-h, var(--sn-bottomdock-h, calc(env(safe-area-inset-bottom) + 64px))));
+  /* Side gutters clear a side safe area (every-bar-clears-the-side-insets.test.ts). */
+  padding: 10px max(16px, var(--sn-safe-r)) 10px max(16px, var(--sn-safe-l));
   display: flex;
   gap: 8px;
   align-items: center;
@@ -389,10 +431,26 @@ button.row {
 .lower > * {
   pointer-events: auto;
 }
-@media (min-width: 1024px) {
+/* ⌨ RIDING THE KEYBOARD (owner 2026-10-24; `useRidingRow`, typing-band.tsx): while the search is typed into with the
+   keyboard up, the field is the whole row — ＋ and Show fold — and it wears the accent ring on the band's plate. */
+.lower[data-riding] > :not([data-glass-row='budget-search'], [data-ride-band]) { display: none; }
+.lower[data-riding] > [data-glass-row='budget-search'] {
+  background: rgb(var(--color-cream)); box-shadow: inset 0 0 0 2px rgb(var(--sn-accent)); backdrop-filter: none; -webkit-backdrop-filter: none;
+}
+.grow {
+  flex: 1;
+}
+/* A desktop has no bottom nav and a wide column: the row floats bottom-right
+   at the page's own width (the Find thumb row's placement). */
+/* From 701, not 1024 (owner 2026-10-19): the couple dashboard's dock is gone from 701 (`BottomDock boundary="tab"`), so this row takes its desktop place on the same line instead of sitting on a dock that is no longer there. */
+/* `- 128px` = the 72-px rail strip + the two 28-px edges: at 701 a 720-px row would reach under the rail. From 1024 the 720 cap is the smaller, so nothing there moves. */
+@media (min-width: 701px) {
   .lower {
-    bottom: 16px;
-    justify-content: center;
+    bottom: 28px;
+    left: auto;
+    right: 28px;
+    width: min(720px, calc(100vw - 128px));
+    padding: 0;
   }
 }
 /* Room under the last row so the fixed row never sits on top of a figure. */

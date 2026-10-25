@@ -296,7 +296,7 @@ export function resolveVendorPapicTier(
   return baseTierFromProvenance(provenance);
 }
 
-/** The readout badge string for the launcher / console (e.g. "Papic Ltd · 70 pts · photos + video"). */
+/** The readout badge string for the launcher / console (e.g. "Papic Lite · 1,000 credits · photos + video"). */
 export function tierReadout(
   tier: VendorPapicTier,
   /** The supplier's credits for this event. Omitted → the bare tier number,
@@ -312,6 +312,6 @@ export function tierReadout(
   if (cap == null) return `${spec.label} · unlimited`;
   const video = allowVideoFor(tier, creditsGranted);
   return video
-    ? `${spec.label} · ${formatCount(cap)} pts · photos + video`
+    ? `${spec.label} · ${formatCount(cap)} credits · photos + video`
     : `${spec.label} · ${formatCount(cap)} photos`;
 }

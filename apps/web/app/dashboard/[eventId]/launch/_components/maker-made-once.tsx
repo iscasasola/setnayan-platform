@@ -1,5 +1,5 @@
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
-import { cache } from 'react';
+import { cache, type ReactNode } from 'react';
 import { createClient } from '@/lib/supabase/server';
 import { readHubDraft } from '@/lib/hub-draft-store';
 import { overlayHubDraftEvent, type HubDraft } from '@/lib/hub-draft';
@@ -18,6 +18,7 @@ import { INVITE_THEMES, normalizeThemeId, type InviteThemeId } from '@/lib/invit
 import { revealMaterialsFor } from '@/lib/reveal-materials';
 import { makerLogoOpening } from '@/lib/maker-logo-opening';
 import { sanitizeRolePalette } from '@/lib/mood-board';
+import { veilColorFromPalette } from '@/lib/site-palette';
 import { mainColoursOf } from '@/lib/main-colours';
 import { themeSeedPalette } from '@/lib/theme-colours';
 import { STD_THRESHOLD_DAYS } from '@/lib/invitation-widgets';
@@ -134,12 +135,27 @@ export async function MakerHeroPanel({
   eventId,
   ownsPro,
   storeShell,
+  proShell = storeShell,
   heroCanvas = {},
   liveHeroCanvas = {},
+  coverScene = null,
 }: {
   eventId: string;
   ownsPro: boolean;
   storeShell: boolean;
+  /**
+   * 🍎 The store shell FOR PRO TRYING only (the editor's `proShell`): false where Apple sells Pro at Apply, so a Pro
+   * control is tried in the draft as on the web. Defaults to `storeShell` — the store shell's rule before In-App
+   * Purchase. Prices, pitches and tours keep `storeShell`.
+   */
+  proShell?: boolean;
+  /**
+   * 🖼 THE SECOND DOOR TO THE COVER SCENE'S BACKGROUND (owner-approved 2026-10-15, "Hero folded in"): the SAME rows
+   * the toolbar draws for the Cover Scene (`stage-panel/cover-words-background.tsx`, through the lazy
+   * `SceneBackgroundRow` door), handed in by the page. Two doors, one value — its Upload pick IS the hero photo, so
+   * the old photo picker is that adapter's Upload source and is not drawn a second time here.
+   */
+  coverScene?: ReactNode;
   /**
    * 🎴 The hero row's canvas, draft over live, and the live one — the Design
    * dropdown reads its design off it and writes the whole canvas back
@@ -173,8 +189,8 @@ export async function MakerHeroPanel({
   // ▶ The poster's logo plays as it will for guests (owner 2026-09-29).
   const markPlays = await logoPlaysFor(eventId, markSvg);
   const returnTo = `/dashboard/${eventId}/launch?tool=hero`;
-  const canUpload = ownsPro || !storeShell;
-  const photoMark = makerProMark({ owns: ownsPro, storeShell });
+  const canUpload = ownsPro || !proShell;
+  const photoMark = makerProMark({ owns: ownsPro, storeShell: proShell });
 
   return (
     <section className="flex flex-col gap-3 px-1" data-made-once="hero">
@@ -209,7 +225,13 @@ export async function MakerHeroPanel({
         </div>
       </div>
 
-      {canUpload ? (
+      {/* 🖼 Two doors, one value: the Cover Scene's own rows when the page hands them in; the hero photo's form only
+          where it does not (a surface without the Maker's draft action). Never both. */}
+      {coverScene ? (
+        <div data-same-field="cover_scene" className="flex flex-col gap-2">
+          {coverScene}
+        </div>
+      ) : canUpload ? (
         <SafeForm action={uploadHeroPhoto} className="flex flex-col gap-2 rounded-md bg-white/70 px-3 py-3">
           {photoMark ? (
             <PaidMark state={photoMark} label={paidMarkLabel(photoMark, 'Event Hub Pro')} text="Event Hub Pro" size="xs" />
@@ -264,11 +286,14 @@ export async function MakerRevealPanel({
   eventId,
   ownsPro,
   storeShell,
+  proShell = storeShell,
   part = 'all',
 }: {
   eventId: string;
   ownsPro: boolean;
   storeShell: boolean;
+  /** 🍎 The store shell FOR PRO TRYING only — see `MakerHeroPanel`. Defaults to `storeShell`. */
+  proShell?: boolean;
   /** Which part of the picker (Details: the openings in the navigator, the rest on the right). */
   part?: 'all' | 'options' | 'settings';
 }) {
@@ -313,11 +338,12 @@ export async function MakerRevealPanel({
       dressing={materials?.name ?? null}
       openings={
         /* 🔒 Store shell, not owning Pro: every opening is a Pro control, so it
-           is HIDDEN — the panel offers "No reveal" alone. */
-        storeShell && !ownsPro ? [] : openings
+           is HIDDEN — the panel offers "No reveal" alone. 🍎 Unless Apple sells Pro at Apply (`proShell` false):
+           then every opening is TRIED, ◆-marked, as on the web. */
+        proShell && !ownsPro ? [] : openings
       }
       ownsPro={ownsPro}
-      storeShell={storeShell}
+      storeShell={proShell}
       stdWindowDays={STD_THRESHOLD_DAYS}
       stages={resolveRevealStages(m.drafted.reveal_stages)}
       stagesDrafted={
@@ -333,6 +359,8 @@ export async function MakerRevealPanel({
       tuneHouse={revealTuneHouse(config)}
       /* 🎨 The veil's colour rows open the one picker on the five main colours (owner 2026-10-08). */
       mainColours={mainColoursOf(m.drafted.role_palette, theme)}
+      /* 🧵 The veil's colour while none is chosen — the guest page's own (`revealVeilColor`: the Mood Board's, else ivory). */
+      veilShown={veilColorFromPalette(sanitizeRolePalette(m.drafted.role_palette))}
       part={part}
     />
   );
@@ -365,7 +393,16 @@ export async function readMakerLogoFonts(eventId: string): Promise<string[]> {
   return makerLogoOpening(m.drafted).layers.flatMap((l) => (l.kind === 'text' && l.font ? [l.font] : []));
 }
 
-export async function MakerLogoPanel({ eventId, storeShell = false }: { eventId: string; storeShell?: boolean }) {
+export async function MakerLogoPanel({
+  eventId,
+  storeShell = false,
+  proShell = storeShell,
+}: {
+  eventId: string;
+  storeShell?: boolean;
+  /** 🍎 The store shell FOR PRO TRYING only — see `MakerHeroPanel`. Defaults to `storeShell`. */
+  proShell?: boolean;
+}) {
   const m = await loadMadeOnce(eventId);
   if (!m.ok) return <CouldNotLoad what="logo" />;
   /* 🛑 The couple's own logo and initials, never a sample (owner 2026-09-27):
@@ -385,7 +422,7 @@ export async function MakerLogoPanel({ eventId, storeShell = false }: { eventId:
     <MakerLogoDoor
       eventId={eventId}
       opening={opening}
-      motionMark={makerProMark({ owns: ownsMotion, storeShell })}
+      motionMark={makerProMark({ owns: ownsMotion, storeShell: proShell })}
       mainColours={mainColours}
     />
   );

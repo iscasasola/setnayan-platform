@@ -48,33 +48,22 @@ import './front-door.css';
 import { FrontDoorShell, type RailNavLabels } from './front-door-shell';
 import type { RailFocus } from './rail-focus';
 import type { RailMatchRow } from './rail-active';
-import {
-  railToolsSignedIn,
-  railToolsSignedOut,
-  resolveRailStudioEvent,
-  resolveRailAccount,
-} from './rail-data';
-import {
-  plannerRailItems,
-  builderRailItems,
-  togetherRailItems,
-} from '@/lib/free-tools-rail';
-import { plannerDoorwayRows, togetherDoorwayRows } from '@/lib/studio-rail';
-import { resolveCommandItems } from './command-data';
+import { resolveRailAccount } from './rail-data';
+import { discoverOpensHere } from '@/lib/request-platform';
 import { SignedInCluster } from './signed-in-cluster';
-import { HomeCommandBar } from '@/app/dashboard/(launcher)/_components/home-command-bar';
+import type { ShellBoundary } from '@/app/_components/shell-boundary';
 
 export async function AppRailShell({
   children,
   railContext,
   contextMatchRows,
-  studioEventId,
   focus,
   topBarSlot,
   searchSlot,
   createSlot,
   variant = 'app',
   bleed,
+  boundary,
 }: {
   children: React.ReactNode;
   /**
@@ -89,16 +78,6 @@ export async function AppRailShell({
   /** Collapse the rail to this section's menu + one way back. Pure
    *  pass-through — see the shell's `focus` prop note. */
   focus?: RailFocus;
-  /**
-   * WHICH EVENT THE STUDIO ROWS OPEN, when the surface knows (owner 2026-08-21:
-   * *"now it is link to that event"*). Only the event tree passes it. Without
-   * it the resolver falls back to its shipped answer — the single event you
-   * organise, or the board as the picker — so every other tree is unchanged.
-   *
-   * 🔒 IT IS VERIFIED, NOT TRUSTED. `resolveRailStudioEvent` matches it against
-   * the person's own organiser events before pointing a single row at it.
-   */
-  studioEventId?: string;
   /**
    * The surface's OWN top-bar utility cluster, handed straight through to the
    * shared bar — its live bell, its account switcher, and anything only it
@@ -148,8 +127,10 @@ export async function AppRailShell({
    * GRID should pass it; a reading page wants the measured column.
    */
   bleed?: boolean;
+  /** Where this tree stops being a phone — pure pass-through, see `shell-boundary.tsx`. */
+  boundary?: ShellBoundary;
 }) {
-  const [account, navLabels, commandItems, studioEvent] = await Promise.all([
+  const [account, navLabels, discoverOpen] = await Promise.all([
     resolveRailAccount(),
     /*
       🔑 LABELS COME FROM THE NAV REGISTRY, which is where an admin renames
@@ -165,32 +146,21 @@ export async function AppRailShell({
       console.error('[AppRailShell] nav slot read failed:', err);
       return {} as RailNavLabels;
     }),
+    // (The palette's index is no longer built here: the signed-in top bar has no search since 2026-10-22.)
     /*
-      🔑 ONE INDEX FOR THE ONE SEARCH. Built here, for every tree, from the
-      single shared builder — the launcher used to build its own inline, which
-      would have listed different things on `/dashboard` than inside a wedding
-      with nothing to notice. Its reads are all React `cache()`d at source, so
-      on the launcher (which already calls the same three) this costs nothing.
-      It degrades to `[]` rather than throwing: a palette with a short list is
-      a working bar, a shell that throws is a blank screen.
+      IS DISCOVER A DOOR HERE? In the app shell middleware bounces `/` to the
+      board while it is in `APP_EXCLUDED_MARKETING_PATHS`, so the rail's first
+      row — Discover — was a press that landed you where you stood (the
+      designer found it on the iPad app, 2026-10-21). Asked once, on the server.
     */
-    resolveCommandItems(),
-    /*
-      WHICH EVENT THE STUDIO ROWS OPEN — owner 2026-08-14: *"when logged in, it
-      will be different view."* A signed-in person pressing "Papic" wants THEIR
-      Papic, not the page that sells it. Exactly one event opens straight into
-      the tool; several send them to the board (which is the picker) rather than
-      guessing which wedding they meant; none keeps the public page, because the
-      page that explains the product is what somebody without an event needs.
-      All reads are React cache()d and shared with the resolvers above.
-    */
-    resolveRailStudioEvent(studioEventId ?? null),
+    discoverOpensHere(),
   ]);
 
   return (
     <FrontDoorShell
       variant={variant}
       bleed={bleed}
+      boundary={boundary}
       /*
         Only the public route group has full-bleed routes. The signed-in trees
         get `undefined` and pass `bleed` explicitly if they ever need it.
@@ -199,90 +169,14 @@ export async function AppRailShell({
       account={account}
       navLabels={navLabels}
       /*
-        ⚠ NO `demo` IS EVER PASSED HERE. Signed-in surfaces mount no overlay
-        host, and a row offering a demo that cannot open is a fake door. It is
-        also the wrong offer: these people own the product.
+        🧭 NO TOOL LISTS (owner 2026-10-01, built 2026-10-23): the rail hands the
+        shell no Planner · Builder · Together · Studio rows on any tree. Every
+        tool is on /features (the rail's Features row); inside an event each one
+        is a row of the event's own menu, built in the event layout.
       */
-      /*
-        🔴 WHO IS LOOKING, NOT WHICH PAGE THEY ARE ON. Owner 2026-08-15: *"same
-        as studio and its sub mene also"* — pressing a Studio row visibly
-        changed the Studio group itself. Measured live: seven descriptions and
-        three "try it" markers on `/`, ZERO of each on `/papic`, because this
-        line asked for the signed-IN rows unconditionally while the front door
-        asked for the signed-OUT ones. `railToolsSignedIn` sets `line: null` by
-        design ("signed in, silence beats selling") — the function was right,
-        the caller never asked the question.
-
-        Now BOTH mounts branch on the same thing, so the group cannot change
-        shape as you move between pages:
-          signed out → the descriptions and the "try it" markers
-          signed in  → your own tools, no selling copy
-      */
-      /*
-        🔄 INSIDE AN EVENT THE STUDIO GROUP IS NOT DRAWN (owner 2026-09-24,
-        "event menu by moment"). Its heading is dissolved and each product is a
-        row at its MOMENT in the event's own menu, marked ✦ — built from the
-        SAME `railToolsSignedIn` call in the event layout, handed over as plain
-        data. Drawing the group here as well would list every product twice.
-        Everywhere else — the board, the account spokes, the public doorways —
-        the group is unchanged. Said by the LIST, per
-        `the-rail-renders-what-it-is-handed.test.ts`.
-      */
-      tools={
-        studioEventId
-          ? []
-          : account.signedIn ? railToolsSignedIn(studioEvent) : railToolsSignedOut()
-      }
-      /*
-        Planner and Builder — gated on the SAME verified event Studio itself
-        uses (`studioEvent.eventId`, matched against the person's own
-        organiser events by `resolveRailStudioEvent`, never the raw prop).
-        Empty outside a specific event, same as Marketplace/Browse-by-category
-        below. See `lib/free-tools-rail.ts` for why the list is this short —
-        everything else a first draft would have put here already exists as a
-        real row in `EventRailContext`.
-      */
-      /*
-        🔄 PLANNER IS TWO LISTS, ONE PER STATE (2026-09-06). Inside an event it
-        is what it always was — `plannerRailItems`, the one genuine gap the
-        event's own rail does not carry. OUTSIDE one it is the five free
-        planning tools' DOORWAY rows, which moved here from Studio when the
-        owner split the rail by kind rather than price. They are `doorwayOnly`,
-        so `plannerDoorwayRows` returns nothing inside an event and the two
-        lists can never both render — see `lib/studio-rail.ts`.
-      */
-      plannerTools={
-        account.signedIn && studioEvent.eventId
-          ? plannerRailItems(studioEvent.eventId)
-          : plannerDoorwayRows(Boolean(studioEvent.eventId))
-      }
-      builderTools={
-        account.signedIn && studioEvent.eventId
-          ? builderRailItems(studioEvent.eventId)
-          : []
-      }
-      /*
-        Together is NOT event-gated (Samahan is account-level) — every
-        signed-in surface gets it, same `studioEvent.eventId` feeding its two
-        event-scoped rows (Vendor chat, Event chat) a real thread when one is
-        known, `/dashboard` otherwise.
-      */
-      togetherTools={[
-        // The public Samahan doorway — what a samahan IS, for somebody who has
-        // none yet. Account-level, so it is never event-gated.
-        ...togetherDoorwayRows(account.signedIn),
-        ...(account.signedIn ? togetherRailItems(studioEvent.eventId) : []),
-      ]}
       railContext={railContext}
       contextMatchRows={contextMatchRows}
       focus={focus}
-      /*
-        Only the event tree passes `studioEventId` — the admin console and
-        the vendor dashboard also push a `railContext`, but neither is a
-        couple's supplier marketplace. See the prop's own note in
-        `front-door-shell.tsx`.
-      */
-      insideEvent={Boolean(studioEventId)}
       /*
         🔴 A DOORWAY PAGE HANDS IN NO CLUSTER, AND THE SHELL'S FALLBACK IS
         WRITTEN FOR A STRANGER. Owner 2026-08-15, two screenshots: *"why does
@@ -328,12 +222,24 @@ export async function AppRailShell({
         `[]` either way, and this stops mounting a client component and its
         ⌘K listener on a page whose visitor it can never answer.
       */
-      search={
-        searchSlot ?? (account.signedIn ? (
-          <HomeCommandBar items={commandItems} variant="rail" />
-        ) : undefined)
-      }
+      /*
+        🔍 2026-10-22 ("One thumb row", owner "Yes to all"): signed in, the top bar carries NO search — `false`, so
+        the shell draws no box and no fallback. The search moved down into each list's thumb row
+        (components/thumb-row.tsx), pointed at the place you stand in. Signed out is unchanged (the marketplace box).
+      */
+      search={searchSlot ?? (account.signedIn ? false : undefined)}
     >
+      {/*
+        🍎 WHERE DISCOVER DOES NOT OPEN, ITS RAIL ROW IS NOT DRAWN. This marker
+        is the whole signal: `front-door.css` hides the row (and the divider
+        under it) on a shell that contains it — `display: none`, so the row
+        leaves the tab order and the accessibility tree too, not just the
+        paint. Said from HERE, a server component, so the shell's client
+        JavaScript — which the Maker's first load carries, at its ceiling on
+        2026-10-21 — gains no byte. The account bar drops its Discover tab on
+        the same answer (lib/account-bar.ts).
+      */}
+      {discoverOpen ? null : <span hidden data-discover-bounced="" />}
       {children}
     </FrontDoorShell>
   );

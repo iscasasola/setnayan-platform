@@ -73,7 +73,7 @@ export async function setEventArchived(formData: FormData): Promise<ArchiveResul
   // page archives an event the moment two tabs disagree.
   const archived = String(formData.get('archived') ?? '') === '1';
   if (!eventId) {
-    return { ok: false, code: 'not_found', message: 'Which celebration?' };
+    return { ok: false, code: 'not_found', message: 'Which event?' };
   }
 
   const supabase = await createClient();
@@ -108,7 +108,7 @@ export async function setEventArchived(formData: FormData): Promise<ArchiveResul
     return {
       ok: false,
       code: 'unauthorized',
-      message: 'Only a host of this celebration can put it away.',
+      message: 'Only a host of this event can put it away.',
     };
   }
 
@@ -169,7 +169,7 @@ export async function setEventArchived(formData: FormData): Promise<ArchiveResul
     return {
       ok: false,
       code: 'not_found',
-      message: 'We couldn’t find that celebration.',
+      message: 'We couldn’t find that event.',
     };
   }
 

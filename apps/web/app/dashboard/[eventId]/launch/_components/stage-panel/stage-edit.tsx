@@ -42,7 +42,13 @@ export function StageEdit({
   onType,
   onKeep,
   second = null,
+  last = null,
 }: {
+  /**
+   * 🖼 A part's last row of its own, in row 3 — a scene of their own's "Photos ◆" (`scene-photos.tsx`, owner
+   * 2026-10-18; it places itself). Rows 1–2 keep its words (a scene of their own has two: Heading, Words).
+   */
+  last?: ReactNode;
   /**
    * 🎞 A part's ONE simple setting, in row 2 (owner: *"same goes to simple edits"*) — a Post Event scene's "Shown to
    * guests" switch (`post-event-shown.tsx`; it places itself). Such a part shows ONE text in row 1 — the one last
@@ -58,7 +64,7 @@ export function StageEdit({
   /** Keep the words: the ONE draft write. */
   onKeep: (field: PartWordsField, text: string) => Promise<{ ok: true } | { ok: false; error: string }>;
 }) {
-  const shown = orderPartWords(fields, tapped).slice(0, second ? 1 : WORDS_ROW.length);
+  const shown = orderPartWords(fields, tapped).slice(0, second ? 1 : last ? WORDS_ROW.length - 1 : WORDS_ROW.length);
   return (
     <div className={SP_ROWS} data-stage-edit="">
       {shown.length > 0 ? (
@@ -84,6 +90,7 @@ export function StageEdit({
         </div>
       )}
       {second}
+      {last}
     </div>
   );
 }

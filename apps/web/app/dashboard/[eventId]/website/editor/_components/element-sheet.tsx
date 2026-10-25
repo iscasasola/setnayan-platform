@@ -1,13 +1,13 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useRef, useState, useTransition, type ReactNode } from 'react';
+import { useEffect, useRef, useState, useTransition, type ComponentProps, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { makerProMark, paidMarkLabel } from '@/lib/paid-mark';
 import { HUB_DRAFT_BAR_FIELD, SUPERSEDED, makerLatestWrite, makerSave } from '@/lib/maker-refresh';
-import { canvasWriteKey, draftedCanvasOr, hearDraftedCanvas, noteDraftedCanvas } from '@/lib/maker-draft-store';
+import { canvasWriteKey, draftedCanvasOr, forgetCanvasSent, hearDraftedCanvas, noteDraftedCanvas, sendCanvasBase } from '@/lib/maker-draft-store';
 import type { HubSectionCanvas } from '@/lib/hub-canvas';
 import type { HubDraftActionResult } from '@/lib/hub-draft';
 import { ToolsResizeHandle, type ToolsResize } from './tools-resize';
@@ -40,13 +40,35 @@ import { elementPreview, refusedChoiceWords, revertAfterFailedSave, type Element
 import { canvasPickUndo } from '@/lib/canvas-pick-undo';
 import { ColourSheet } from './colour-well';
 import { FontPick } from './font-pick';
-import { HUB_EL_DURING_LABEL } from '@/lib/element-style';
+import {
+  HUB_EL_DURING_LABEL,
+  HUB_EL_DURING_PRO_NAMED,
+  HUB_EL_REVEALS,
+  HUB_EL_REVEAL_LABEL,
+  HUB_EL_WORDS,
+  HUB_EL_WORDS_LABEL,
+  HUB_SHIMMER_BANDS,
+  HUB_SHIMMER_BAND_LABEL,
+  hubElementDuringDefault,
+  hubElementDuringOffered,
+  hubElementIsPicture,
+  hubElementTakesWordFx,
+  type HubHeroElementKey,
+} from '@/lib/element-style';
+
+/** ✨ Action's row-3 line for the two new Actions — the approved prototype's own words. */
+const FX_ACT_NOTE = {
+  glow: 'A soft halo in the part’s own colour, breathing every 4 s.',
+  leak: 'A warm flare drifts across now and then (every 16 s) — the background Light leak ◆, inside the photo.',
+} as const;
+import { COVER_ENTRANCES, coverEntranceFor, withoutOwnEntrance } from '@/lib/cover-entrance';
 import { motionFxOn } from '@/lib/motion-effects';
 import type { HubTransition } from '@/lib/hub-scenes';
 import { SP_DD, SP_DD_BUTTON } from '@/lib/maker-stage-room';
 import { StageText } from '../../../launch/_components/stage-panel/stage-text';
 import { FEEL_OFF, leavesOptions, SCENE_LEAVES_NAME, partFeel, partSpeedOf } from '@/lib/animate-feel';
 import { offeredTransition } from '@/lib/scrub-out-offered';
+import { LOGO_TRAVELS_ACTION, LOGO_TRAVELS_LABEL, logoTravelWrite, logoTravelsOffered, sanitizeMagicTraveller } from '@/lib/magic-move';
 import { StageAnimate } from '../../../launch/_components/stage-panel/stage-animate';
 
 /**
@@ -140,10 +162,13 @@ async function saveCanvas(
   eventId: string,
   widgetType: string,
   canvas: HubSectionCanvas,
+  server: HubSectionCanvas | null | undefined,
 ) {
   const fd = new FormData();
   fd.set('intent', 'save');
   fd.set('patch', JSON.stringify({ widgets: { [widgetType]: { canvas } } }));
+  /* 👥 …with the canvas this screen last sent (`sendCanvasBase`): another host's pick on this scene meanwhile is kept. */
+  sendCanvasBase(fd, widgetType, server, canvas);
   /* ⚡ The Apply bar's count comes back with the save — no Maker render for it. */
   fd.set(HUB_DRAFT_BAR_FIELD, '1');
   return draftAction(eventId, fd);
@@ -172,7 +197,14 @@ export function ElementSheet({
   wordsSlot = null,
   section,
   onSection,
+  travels = null,
 }: {
+  /**
+   * ✈ `events.site_magic_traveller` as drafted (Look restudy row 9): the cover's Logo offers "Travels to the bar" in
+   * its Action ▾ — the journey Magic Move was, in the place a part's motion lives. Written through the draft, the
+   * SAME column; never copied onto the canvas.
+   */
+  travels?: string | null;
   /** Text · Motion · Arrange, held by the Maker so it survives a switch to another part. */
   section?: PartTab;
   onSection?: (section: PartTab) => void;
@@ -280,11 +312,13 @@ export function ElementSheet({
      owned. In the store shell a couple without Pro is not shown them at all. */
   const proMark = makerProMark({ owns: ownsPro, storeShell: hideLocked });
   const hidePro = hideLocked && !ownsPro;
-  /* 🔤 A part's Font ▾ is FREE since 2026-10-06 (owner, "EVENT DETAILS IS REBUILT") — no mark, never hidden. */
-  const fontMark = null;
   const animateMark = proMark ? (
     <PaidMark state={proMark} text="Event Hub Pro" label={paidMarkLabel(proMark, 'Event Hub Pro')} size="xs" />
   ) : null;
+  /* 🔤 A part's Font ▾ is Event Hub Pro again (owner 2026-10-16, DECISION_LOG "ALL ANIMATE, EFFECTS, STYLES AND ACCENTS
+     ARE EVENT HUB PRO ◆" — everything in Style): it wears the sheet's ONE mark, the same node Animate wears, and the
+     store shell hides it from a couple without Pro like every Pro row. Apply already names it ("Font · …"). */
+  const fontMark = animateMark;
   const tabs = hidePro ? PART_TABS.filter((t) => t.key !== 'animate') : PART_TABS;
 
   const commit = (elements: HubSectionCanvas['elements'] | null, choice?: string, scene?: (c: HubSectionCanvas) => void) => {
@@ -316,9 +350,10 @@ export function ElementSheet({
            write: the latest canvas waits a beat, then goes; a pick made while
            it waits replaces it (`makerLatestWrite`). A fixed part's Style row
            hands its own writer (`saveCanvasWith`) — same queue, same key. */
-        const write = () => (saveCanvasWith ? saveCanvasWith(next) : saveCanvas(draftAction, eventId, target.widgetType, next));
+        const write = () => (saveCanvasWith ? saveCanvasWith(next) : saveCanvas(draftAction, eventId, target.widgetType, next, serverCanvas));
         res = await makerSave(
           () => makerLatestWrite(canvasWriteKey(target.widgetType), write),
+          // one-render: keep (batched) — a Maker draft save goes through `lib/maker-refresh.ts`, which refreshes ONCE after the last save in flight; draft intents revalidate nothing.
           () => router.refresh(),
           /* ↺ Its Undo is the refused put-back below, drawn at the press (`lib/canvas-pick-undo.ts`): every open panel —
              this sheet too (`hearDraftedCanvas` above re-seeds it, and what it last SAVED) — reads the undone canvas. */
@@ -332,6 +367,7 @@ export function ElementSheet({
       /* A later pick carried this one — its answer decides for both. */
       if (res === SUPERSEDED) return;
       if (!res.ok) {
+        forgetCanvasSent(target.widgetType);
         /* ↩ Refused: the canvas and the sheet go back to the last saved look,
            and the sheet says WHAT did not save. */
         const back = revertAfterFailedSave(next, latest.current, saved.current);
@@ -375,8 +411,44 @@ export function ElementSheet({
       field,
     );
   const motion: HubElementMotion = style.motion ?? {};
+  /** 🎬 A cover word under the Cover Scene's entrance (`lib/cover-entrance.ts`): what it lays here, and whether this word
+   *  has a Build in of its own. Null off the cover, or with no entrance chosen. */
+  /* 🕯 THE CLOSING'S LINE (`lib/closing-line.ts`): no Delay — its Build in plays as a guest reaches the page's foot —
+     and no Leaves — it is stored on the hero row, but it ends the page: there is no next scene, and the hero's own
+     hand-off is not its to set. Laid over the shipped props below (each optional here, so nothing else is overwritten). */
+  const closingAnimate: Partial<Pick<ComponentProps<typeof StageAnimate>, 'delay' | 'leaves'>> =
+    target.key === 'f:closing' ? { delay: null, leaves: null } : {};
+  const follow = (() => {
+    if (target.key !== 'f:hero' || !canvas.entrance || canvas.entrance.key === 'still') return null;
+    const laid = coverEntranceFor(canvas.entrance, target.el as HubHeroElementKey);
+    if (!laid) return null;
+    const name = COVER_ENTRANCES.find((e) => e.key === canvas.entrance?.key)?.label ?? '';
+    return { own: Boolean(motion.in), laid, name };
+  })();
   const moveTo = (part: keyof HubElementMotion, value: string | MotionFx | null) =>
     commit(withElementMotion(latest.current.elements, target.el, part, value), 'motion');
+
+  /* ✈ TRAVELS TO THE BAR (Look restudy row 9) — the cover's Logo only. One Action at a time: the journey and Drift
+     never both play, so picking it hands the part back to Still, and picking Still or Drift ends the journey. The
+     write goes through the draft (`site_magic_traveller`), unheld — the page redraws with the traveller's script. */
+  const travelOffered = logoTravelsOffered(target);
+  const [travelling, setTravelling] = useState(sanitizeMagicTraveller(travels) === 'mark');
+  useEffect(() => setTravelling(sanitizeMagicTraveller(travels) === 'mark'), [travels]);
+  const travelTo = (on: boolean) => {
+    if (on === travelling) return;
+    setTravelling(on);
+    setError(null);
+    const fd = new FormData();
+    fd.set('intent', 'save');
+    fd.set('patch', JSON.stringify({ events: { site_magic_traveller: logoTravelWrite(on ? LOGO_TRAVELS_ACTION : 'still') } }));
+    start(async () => {
+      // one-render: keep (batched) — a Maker draft save goes through `lib/maker-refresh.ts`, which refreshes ONCE after the last save in flight; draft intents revalidate nothing.
+      const res = await makerSave(() => draftAction(eventId, fd), () => router.refresh()).catch(() => null);
+      if (res?.ok) return;
+      setTravelling(!on);
+      setError(refusedChoiceWords(target.el, 'motion', res?.error || null));
+    });
+  };
 
   /* The contrast warning — measured, never blocking (a quiet accent may be meant). */
   const ground = canvas.kind === 'color' && canvas.color ? canvas.color : palette.surface;
@@ -497,13 +569,18 @@ export function ElementSheet({
           <StageAnimate
             pending={pending}
             error={error}
+            /* 🎬 A COVER WORD AND THE COVER'S ENTRANCE (owner-approved 2026-10-16): while it stores no Build in of its
+               own it shows the entrance's and says it follows it; once it has its own, one door puts it back. */
+            note={follow ? (follow.own ? 'On its own.' : `Follows the cover’s entrance — ${follow.name}.`) : null}
+            noteDoor={follow?.own ? { label: 'Reset to the cover’s entrance ›', onPress: () => commit(withoutOwnEntrance(latest.current.elements, [target.el as HubHeroElementKey]), 'motion') } : null}
             /* 🎚 Movement is each end's own FEEL (`lib/animate-feel.ts`): Build in's is the part's `speed`, Build
                out's its `outSpeed` — both shipped, both played. It writes no effect and no drive. */
             move={{
               in: {
                 value: partFeel(motion.speed),
                 onPick: (f) => moveTo('speed', partSpeedOf(f)),
-                off: motionFxOn(motion.in) ? null : FEEL_OFF.noEffect,
+                /* ✨ Words ▾ and Reveal ▾ arrive too — Movement times them (owner-approved 2026-10-16). */
+                off: motionFxOn(motion.in) || motion.words || motion.reveal ? null : FEEL_OFF.noEffect,
               },
               out: {
                 value: partFeel(motion.outSpeed),
@@ -516,16 +593,26 @@ export function ElementSheet({
               value: motion.timeline === 'scroll' ? 'scroll' : 'arrival',
               onPick: (d) => moveTo('timeline', d === 'scroll' ? 'scroll' : null),
             }}
-            inFx={motion.in ?? null}
+            inFx={motion.in ?? follow?.laid?.in ?? null}
             outFx={motion.out ?? null}
-            onIn={(fx) => moveTo('in', fx)}
+            onIn={(fx) => {
+              /* Following the cover: the first change makes it its own — with the entrance's beat and speed kept. */
+              if (follow && !follow.own && follow.laid) {
+                /* (The In first: a Delay or a speed is kept only beside one.) */
+                let els = withElementMotion(latest.current.elements ?? null, target.el, 'in', fx);
+                if (fx && follow.laid.delay) els = withElementMotion(els, target.el, 'delay', follow.laid.delay);
+                if (fx && follow.laid.speed) els = withElementMotion(els, target.el, 'speed', follow.laid.speed);
+                return commit(els, 'motion');
+              }
+              moveTo('in', fx);
+            }}
             onOut={(fx) => {
               /* A part's Build out plays as guests scroll on — choosing one makes it follow the scroll. */
               if (fx && motion.timeline !== 'scroll') moveTo('timeline', 'scroll');
               moveTo('out', fx);
             }}
             delay={
-              motionFxOn(motion.in) && motion.timeline !== 'scroll'
+              (motionFxOn(motion.in) || motion.words || motion.reveal) && motion.timeline !== 'scroll'
                 ? {
                     value: PART_DELAY_S[motion.delay ?? 'none'],
                     steps: Object.values(PART_DELAY_S),
@@ -537,11 +624,56 @@ export function ElementSheet({
                 : null
             }
             does={{
-              /* Still | Drift, in the owner's order. A stored word that is neither (an older one) presses nothing. */
-              value: motion.during ?? 'still',
-              options: (['still', 'drift'] as const).map((v) => ({ key: v, label: HUB_EL_DURING_LABEL[v] })),
-              onPick: (v) => moveTo('during', v === 'still' ? null : v),
+              /* Still | Drift, in the owner's order — and ✨ Shimmer on every part with words (owner 2026-10-16: *"text
+                 animate shimmer is on any text they want. it is an effect."*), which makes the three ONE dropdown. A
+                 stored word that is neither (an older one) presses nothing.
+                 ✨ THE SIX NEW EFFECTS (owner-approved 2026-10-16): a cover word adds Glow ◆; the cover's photo is Still ·
+                 Drift · Ken Burns · Parallax · Light leak ◆ (Parallax its own, an absence). Each new effect is marked ◆
+                 exactly as Shimmer is — tried here free, named at Apply ("ALL ANIMATE, EFFECTS … ARE EVENT HUB PRO ◆"). */
+              value: travelOffered && travelling ? LOGO_TRAVELS_ACTION : (motion.during ?? hubElementDuringDefault(target.el)),
+              options: hubElementDuringOffered(target.el).map((v) => ({ key: v as string, label: HUB_EL_DURING_PRO_NAMED.includes(v) ? `${HUB_EL_DURING_LABEL[v]} ◆` : HUB_EL_DURING_LABEL[v] })).concat(
+                /* ✈ The cover's Logo: its journey to the bar, ◆ as Magic Move always was. */
+                travelOffered ? [{ key: LOGO_TRAVELS_ACTION, label: `${LOGO_TRAVELS_LABEL} ◆` }] : [],
+              ),
+              onPick: (v) => {
+                if (travelOffered && v === LOGO_TRAVELS_ACTION) {
+                  if (motion.during) moveTo('during', null);
+                  return travelTo(true);
+                }
+                if (travelOffered && travelling) travelTo(false);
+                moveTo('during', v === hubElementDuringDefault(target.el) ? null : v);
+              },
             }}
+            /* ✨ Words ▾ (a cover word) · Reveal ▾ (the cover's photo) — Build in's row 4, beside Movement and Delay. The
+               new two of each are ◆, as Shimmer is. */
+            arrive={
+              hubElementTakesWordFx(target.el)
+                ? {
+                    small: 'Words',
+                    value: motion.words ?? 'all',
+                    options: HUB_EL_WORDS.map((w) => ({ key: w, label: w === 'all' ? HUB_EL_WORDS_LABEL[w] : `${HUB_EL_WORDS_LABEL[w]} ◆` })),
+                    onPick: (w) => moveTo('words', w === 'all' ? null : w),
+                  }
+                : hubElementIsPicture(target.el)
+                  ? {
+                      small: 'Reveal',
+                      value: motion.reveal ?? 'plain',
+                      options: HUB_EL_REVEALS.map((r) => ({ key: r, label: r === 'plain' ? HUB_EL_REVEAL_LABEL[r] : `${HUB_EL_REVEAL_LABEL[r]} ◆` })),
+                      onPick: (r) => moveTo('reveal', r === 'plain' ? null : r),
+                    }
+                  : null
+            }
+            actNote={motion.during === 'glow' ? FX_ACT_NOTE.glow : motion.during === 'leak' ? FX_ACT_NOTE.leak : null}
+            /* ✨ Band ▾ while it shimmers — its own colour, lighter (an absence) · Gold. */
+            band={
+              motion.during === 'shimmer'
+                ? {
+                    value: motion.band === 'gold' ? 'gold' : 'hue',
+                    options: HUB_SHIMMER_BANDS.map((b) => ({ key: b, label: HUB_SHIMMER_BAND_LABEL[b] })),
+                    onPick: (b) => moveTo('band', b === 'gold' ? 'gold' : null),
+                  }
+                : null
+            }
             leaves={{
               /* Leaves ◆ — the part's SCENE's hand-off to the next scene (a part has none of its own), named as the
                  scene's so it is never read as this part's own. */
@@ -555,6 +687,8 @@ export function ElementSheet({
                   if (t !== 'scroll') c.transition = t as HubTransition;
                 }),
             }}
+            /* 🕯 The closing's line: no Delay, no Leaves (`closingAnimate`, above). */
+            {...closingAnimate}
           />
         ) : (
           <StageText
@@ -620,7 +754,7 @@ export function ElementSheet({
               contrast={contrast}
               eventId={eventId}
               fontMark={fontMark}
-              hideFont={false}
+              hideFont={hidePro}
               threeControls={stagesStudio}
             />
             {range && run ? (

@@ -55,20 +55,24 @@ const pagesOf = (html: string) =>
     nodes: [...m[3]!.matchAll(/data-node="([^"]+)"/g)].map((n) => n[1]!),
   }));
 
-test('P04 — the Invitation is four pages, one on screen, each part on the page the real filing puts it on', async () => {
+test('P04 — the Invitation is four tabs — ONE page of three marks and Me — each part on the page the real filing puts it on', async () => {
   const tiles = labStageTiles(labRows(), 'rsvp');
   const pages = pagesOf(await draw({ tiles, paged: true }));
   const want = makerStagesPages('rsvp').map((p) => p.key);
   assert.deepEqual(pages.map((p) => p.key), want);
   assert.deepEqual(pages.map((p) => p.key), ['home', 'details', 'story', 'me']);
-  assert.deepEqual(pages.filter((p) => !p.hidden).map((p) => p.key), ['home'], 'more than one page is on screen');
+  /* 📜 One page (owner 2026-10-15): Home · Details · Story are on screen together; Me is its own page. */
+  assert.deepEqual(pages.filter((p) => !p.hidden).map((p) => p.key), ['home', 'details', 'story'], 'the one page is not on screen whole');
   for (const p of pages) for (const k of p.nodes) assert.equal(makerStagesPageOf('rsvp', k, want), p.key, `${k} is on ${p.key}`);
   assert.ok(pages.find((p) => p.key === 'details')!.nodes.includes('w:schedule'));
   assert.ok(pages.find((p) => p.key === 'home')!.nodes.includes('f:hero'));
   /* `?tab=me` opens that page — the address the Maker's tab reload puts back. */
   assert.deepEqual(pagesOf(await draw({ tiles, paged: true, tab: 'me' })).filter((p) => !p.hidden).map((p) => p.key), ['me']);
-  /* A stage that is one page (Save the Date), and any page not asked for as tabs, has no groups at all. */
-  assert.doesNotMatch(await draw({ tiles: labStageTiles(labRows(), 'save_the_date'), paged: true, stage: 'save_the_date' }), /data-hub-tab/);
+  /* 📜 Save the Date is one page too, with Me its own: its marks are on screen together, Me is not. */
+  const std = pagesOf(await draw({ tiles: labStageTiles(labRows(), 'save_the_date'), paged: true, stage: 'save_the_date' }));
+  assert.deepEqual(std.map((p) => p.key), makerStagesPages('save_the_date').map((p) => p.key));
+  assert.deepEqual(std.filter((p) => p.hidden).map((p) => p.key), ['me'], 'Save the Date: only Me is a page of its own');
+  /* …and any page not asked for as tabs has no groups at all. */
   assert.doesNotMatch(await draw({ tiles, paged: false }), /data-hub-tab/);
   /* Each part is right after its marker, as the bridge finds it — and a self-marked one is not marked twice. */
   const one = await draw({ tiles, paged: false });
@@ -100,7 +104,9 @@ test('P11 — "Only you see this" and the per-guest samples are the Maker’s ca
   assert.match(GUEST, /const emptyScene = \(type: 'what_to_bring' \| 'our_photos'\) =>\s*makerCanvas \? \(/);
   /* Every mount of the empty-scene stand-in on the ordinary canvas sits behind that gate. */
   const mounts = [...GUEST.matchAll(/<MakerEmptyScene type=/g)].length;
-  assert.equal(mounts, 2, 'a new empty-scene mount — is it behind `makerCanvas`?');
+  assert.equal(mounts, 3, 'a new empty-scene mount — is it behind `makerCanvas`?');
+  /* ✍ …the third: a scene of their own with nothing in it yet (`ownSceneNode`, 2026-10-17). */
+  assert.match(GUEST, /return makerCanvas \? \(\s*<div data-lab-scene=\{type\} className="border-t border-ink\/10 px-4 py-8">\s*<MakerEmptyScene type=\{type as never\} look=\{makerWordsLook\(type, config\)\} ownSlots=\{makerOwnSlots\(type, config\)\} \/>/); // 🖼 RE-AIMED 2026-10-18: the empty scene shows its template's slots
   /* The real page's rule, which this mirrors. */
   assert.match(readFileSync(join(process.cwd(), 'app', '[slug]', '_components', 'maker-empty-scene.tsx'), 'utf8'), /A guest\s+\* never receives this markup/);
 });
@@ -152,7 +158,7 @@ test('G1 — a Day part the couple hid in "What guests see" is not drawn on the 
   const after = draw(draftedRows(cookiesOf(hidden, false)[ROWS] ?? undefined));
   for (const part of ['live_hub', 'photos_of_you', 'find_your_seat', 'entourage']) assert.equal(after.tiles.includes(`f:${part}`), false, `the Maker's list still has ${part}`);
   /* The stand-ins themselves (their eyebrows) are drawn before and gone after; the parts nobody hid stay. */
-  for (const eyebrow of ['✦ Your seat', 'Watch live · Live photo wall', '✦ Photos of you']) {
+  for (const eyebrow of ['✦ Your seat', 'Watch live · Memory lane', '✦ Memories of you']) {
     assert.ok(before.html.includes(eyebrow), `the Day draws "${eyebrow}" with nothing stored`);
     assert.equal(after.html.includes(eyebrow), false, `the Day still draws "${eyebrow}" after the couple hid it`);
   }

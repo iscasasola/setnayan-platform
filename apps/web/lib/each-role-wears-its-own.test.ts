@@ -108,7 +108,11 @@ test('stored config is data, not a promise about shape', () => {
 test('the invitation shows a role-holder THEIR line instead of the whole palette', () => {
   const src = readFileSync(join(__dirname, '..', 'app', '[slug]', '_components', 'dress-code-widget.tsx'), 'utf8');
   // (The Welcome page's `part="you"` also stands the general palette down — 2026-09-30.)
-  assert.match(src, /\{(?:part !== 'you' && )?!mine && palette\.length > 0 \?/, 'the general palette stands down for a role-holder');
+  /* Re-anchored 2026-10-17: "Our colours" left the dress code (owner: "we must ommit the our colors here"); the general
+     view is every role's row, and it is what stands down for a role-holder. */
+  /* (2026-10-19, "DRESS WITH US SHOWS ONLY THE GUEST'S OWN ROLE": the rows drawn are `shownRows` — every role for the
+     host, the Guests card for a guest's page; `dress-with-us-is-the-readers-own.test.ts` holds which.) */
+  assert.match(src, /\{part !== 'you' && !mine && shownRows\.length > 0 \?/, 'everyone’s rows stand down for a role-holder');
   assert.match(src, /You are \{mine\?\.roleLabel/, 'and their role is named (the one line — a walker with no outfit reads it too)');
   assert.match(src, /STYLE_UNSET_LINE/, 'an unset style says so rather than showing nothing');
 });
@@ -121,9 +125,13 @@ test('the editor offers only the roles this wedding actually has', () => {
     join(__dirname, '..', 'app', 'dashboard', '[eventId]', 'website', 'editor', 'page.tsx'),
     'utf8',
   );
-  assert.match(page, /from\('guests'\)[\s\S]{0,400}?const dressCodeRoles = foldEventRoles\(/, 'it reads the real guest list');
+  // ⚡ 2026-10-23 (speed pass): the read is STARTED with the editor's other event-only reads and awaited where it was —
+  // both halves are held: the read is of the guest list, and its answer is what the fold is handed.
+  assert.match(page, /const roleRowsRead = startAhead\(Promise\.resolve\(\s*supabase\s*\.from\('guests'\)\s*\.select\('role'\)/, 'it reads the real guest list');
+  assert.match(page, /const \{ data: roleRows, error: roleRowsError \} = await roleRowsRead;[\s\S]{0,400}?const dressCodeRoles = foldEventRoles\(/, 'and folds what it read');
+  /* `foldEventRoles` lives in `dress-code-config.ts` since 2026-10-21 (the plain readers, out of the form's module). */
   const fields = readFileSync(
-    join(__dirname, '..', 'app', 'dashboard', '[eventId]', 'studio', 'mood-board', '_components', 'dress-code-fields.tsx'),
+    join(__dirname, '..', 'app', 'dashboard', '[eventId]', 'studio', 'mood-board', '_components', 'dress-code-config.ts'),
     'utf8',
   );
   assert.match(fields, /roleLabel\(role as GuestRole\) === null/, 'unpublished roles are not offered');
@@ -131,7 +139,10 @@ test('the editor offers only the roles this wedding actually has', () => {
     join(__dirname, '..', 'app', 'dashboard', '[eventId]', 'studio', 'mood-board', '_components', 'role-attire-field.tsx'),
     'utf8',
   );
-  assert.match(field, /value=""[\s\S]{0,40}Not set/, '"Not set" is offered and is the default');
+  /* 2026-10-17 ("ONE FACT"): the Wear is picked in Studio › Mood Board & Dress Code only — this field SAYS it (and
+     posts it back unchanged); it no longer offers a second Wear ▾ of its own. */
+  assert.doesNotMatch(field, /<select\b/, 'a second Wear ▾ is back in the older form');
+  assert.match(field, /type="hidden" name="role_style"/, 'the stored Wear rides back unchanged');
 });
 
 test('a config with ONLY roles still renders — seen on a real event, 2026-09-20', () => {
@@ -166,7 +177,8 @@ test('a config with ONLY roles still renders — seen on a real event, 2026-09-2
   */
   const rhs = src.slice(src.indexOf('=', minedAt) + 1, src.indexOf(';', minedAt)).trim();
   const RESOLVER = /resolveGuest(DressCode|AttireWithGroups)\s*\(/;
-  const viaIdentifier = /^([A-Za-z_$][\w$]*)\s*(?:\.\w+)?$/.exec(rhs);
+  /* `resolved.panel && mineDress ? {…} : resolved.panel` (the reader's own pick, 2026-10-14) still starts at the identifier the resolver bound. */
+  const viaIdentifier = /^([A-Za-z_$][\w$]*)(?:\.\w+)?(?=\s|$)/.exec(rhs);
   const sourced =
     RESOLVER.test(rhs) ||
     (viaIdentifier !== null &&
@@ -250,30 +262,27 @@ test('⏰ the time reaches the PANEL, and it reads BEFORE the outfit', () => {
     join(__dirname, '..', 'app', '[slug]', '_components', 'dress-code-widget.tsx'),
     'utf8',
   );
-  const timeAt = src.indexOf('mine.callTime');
-  const outfitAt = src.indexOf('mine.styleLabel');
+  // Anchored on the "you" panel's own two lines (2026-10-19: the Me › Arrive by part no longer spells `mine.callTime` —
+  // it also falls back to when guests arrive — so the first `mine.callTime` in the file is the panel's).
+  const timeAt = src.indexOf('{mine.callTime ? (');
+  const outfitAt = src.indexOf("{mine.styleLabel ?? 'Outfit to be confirmed'}");
   assert.ok(timeAt > 0, 'the call time is rendered at all');
   assert.ok(outfitAt > 0, 'precondition: the outfit is rendered');
   assert.ok(timeAt < outfitAt, 'the call time must come first in the panel');
 });
 
-test('⛔ the editor submits a call time for EVERY role, so the zip cannot slip', async () => {
+test('⛔ the old dress-code form posts NO call time for any role, so the zip cannot slip (owner 2026-10-18)', async () => {
   /*
-    `actions.ts` zips FOUR parallel arrays by index — role_key, role_style,
-    role_note, role_call_time. A control that vanished when blank would shift
-    every later role's time onto the wrong person: a ninang told the bearer's
-    call time, silently, with nothing red anywhere.
+    `actions.ts` zips the parallel arrays by index — role_key, role_style,
+    role_note (and role_call_time, from a poster that still sends one). A
+    call-time control posted for SOME rows and not others would shift every
+    later role's time onto the wrong person.
 
-    🪤 THIS WAS A SOURCE GREP AND THE SABOTAGE WALKED STRAIGHT PAST IT. The
-    first version took a window from `<input` FORWARD to `name="role_call_time"`
-    and asserted no ternary sat inside it. But a conditional wrapper sits
-    BEFORE the tag — `{current?.callTime ? <input …}` — so the window faced away
-    from the exact mutation it was written to catch, and the sabotage run came
-    back green. Precedent: a source-guard's window must face the sabotage.
-
-    So it RENDERS the component and counts. One role with a time, one without;
-    both must emit an input. A wrapper that hides the blank one drops the count
-    to 1 and this fails, which is the entire point.
+    Since 2026-10-18 the call time is set beside each row's outfit in Studio ›
+    Mood Board & Dress Code ("each role will have their call time"), and this
+    form posts NONE — the action keeps the stored times (`carryCallTimes`,
+    held in `each-role-has-its-call-time.test.ts`). It RENDERS and counts: a
+    time input brought back for one row lifts the count off zero.
   */
   const React = (await import('react')).default;
   (globalThis as unknown as { React: unknown }).React = React;
@@ -297,19 +306,15 @@ test('⛔ the editor submits a call time for EVERY role, so the zip cannot slip'
 
   const count = (name: string) => html.split(`name="${name}"`).length - 1;
   assert.equal(count('role_key'), 2, 'precondition: two roles rendered');
-  assert.equal(
-    count('role_call_time'),
-    2,
-    'BOTH roles submit a call time — the one with a value and the one without',
-  );
-  assert.equal(count('role_style'), 2, 'and the arrays it is zipped against are the same length');
+  assert.equal(count('role_call_time'), 0, 'NO role posts a call time from this form');
+  assert.doesNotMatch(html, /type="time"/, 'and no time field is drawn here');
+  assert.equal(count('role_style'), 2, 'the arrays it is zipped against are the same length');
   assert.equal(count('role_note'), 2);
-  assert.match(html, /value="13:00"/, 'the set time is the one that comes back');
 
   const actions = readFileSync(
     join(__dirname, '..', 'app', 'dashboard', '[eventId]', 'studio', 'mood-board', 'dress-code-actions.ts'),
     'utf8',
   );
-  assert.match(actions, /getAll\('role_call_time'\)/, 'the action reads the fourth array');
+  assert.match(actions, /getAll\('role_call_time'\)/, 'a poster that still sends times is read');
   assert.match(actions, /sanitizeCallTime\(roleCallTimes\[i\]\)/, 'by the SAME index as the style');
 });

@@ -9,19 +9,23 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import {
   classifyPaymentLink,
   initialLinkModeration,
-  isVendorProActive,
+  isShopProActive,
   type PaymentMethodType,
 } from '@/lib/vendor-payment-methods';
 import { decodeQrFromR2 } from '@/lib/vendor-payment-methods.server';
 import { parseClientRef, vendorPaymentQrPolicy } from '@/lib/r2-client-ref';
 
-const BASE = '/vendor-dashboard/payment-options';
+/**
+ * Where an answer lands: Your details › How clients pay you (step 5, 2026-10-14) — straight there, not through the
+ * `/payment-options` forwarding stub, so the supplier sees the result on the fold they pressed in.
+ */
+const LANDING = '/vendor-dashboard/profile';
 
 function flash(msg: string): never {
-  redirect(`${BASE}?msg=${encodeURIComponent(msg)}`);
+  redirect(`${LANDING}?msg=${encodeURIComponent(msg)}#pay`);
 }
 function fail(msg: string): never {
-  redirect(`${BASE}?error=${encodeURIComponent(msg)}`);
+  redirect(`${LANDING}?error=${encodeURIComponent(msg)}#pay`);
 }
 
 function str(raw: FormDataEntryValue | null, max = 200): string | null {
@@ -42,7 +46,7 @@ async function requireVendor() {
 }
 
 export async function addPaymentMethod(formData: FormData) {
-  const { supabase, userId, vendorProfileId } = await requireVendor();
+  const { supabase, vendorProfileId } = await requireVendor();
 
   const methodType = str(formData.get('method_type')) as PaymentMethodType | null;
   if (methodType !== 'bank' && methodType !== 'qr' && methodType !== 'link') {
@@ -106,8 +110,8 @@ export async function addPaymentMethod(formData: FormData) {
     // link — Pro/Enterprise only
     // The final action — where a Pro-less shop is asked, and only while the
     // switch is on (vendorPaywallApplies). Off, every shop may add a link.
-    if (vendorPaywallApplies(await isVendorProActive(supabase, userId)))
-      fail('Payment links are part of Pro and Enterprise. Pick one on the Plans page to add this link.');
+    if (vendorPaywallApplies(await isShopProActive(supabase, vendorProfileId)))
+      fail('Payment links are part of Pro and Ultra. Pick one on the Plans page to add this link.');
     const url = str(formData.get('link_url'), 512);
     if (!url) fail('Enter your payment link.');
     const cls = classifyPaymentLink(url);
@@ -144,7 +148,7 @@ export async function addPaymentMethod(formData: FormData) {
     }
   }
 
-  revalidatePath(BASE);
+  revalidatePath(LANDING);
   flash(
     approved
       ? 'Payment option saved — it’s now on your clients’ payment screen.'
@@ -162,7 +166,7 @@ export async function deletePaymentMethod(formData: FormData) {
     .eq('payment_method_id', id)
     .eq('vendor_profile_id', vendorProfileId);
   if (error) fail(error.message);
-  revalidatePath(BASE);
+  revalidatePath(LANDING);
   flash('Payment option removed.');
 }
 
@@ -183,7 +187,7 @@ export async function setPrimaryPaymentMethod(formData: FormData) {
     .eq('payment_method_id', id)
     .eq('vendor_profile_id', vendorProfileId);
   if (error) fail(error.message);
-  revalidatePath(BASE);
+  revalidatePath(LANDING);
   flash('Primary payment option updated.');
 }
 
@@ -198,6 +202,6 @@ export async function togglePaymentMethodShown(formData: FormData) {
     .eq('payment_method_id', id)
     .eq('vendor_profile_id', vendorProfileId);
   if (error) fail(error.message);
-  revalidatePath(BASE);
+  revalidatePath(LANDING);
   flash(!currentlyShown ? 'Now showing to clients.' : 'Hidden from clients.');
 }

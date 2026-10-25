@@ -104,15 +104,23 @@ export const GUESTS_SEE_WORDS = {
   ownScene: 'Your own scene',
   back: 'Back to our picks',
   alreadyOurs: 'These are our picks already.',
-  apply: 'Apply',
-  nothingToApply: 'Nothing to apply yet.',
+  /* ✋ THE SHEET'S BUTTON KEEPS, THE MAKER'S ✓ PUBLISHES (owner 2026-10-21, on this sheet: *"after I pressed apply. it
+     just greyed out?"*). The sheet's button said "Apply", the word of the Maker's own ✓ — so a couple pressed it
+     expecting guests to see the change, and a greyed button and a small grey line read as "nothing happened". It
+     says what it does: it KEEPS the ticks in the draft; the ✓ at the top puts them live (INTERACTION_RULES §8). */
+  keep: 'Keep',
+  /* The button, the moment the draft holds the ticks — the app's shipped word for it (the Mood Board's "✓ Kept"). */
+  keptButton: 'Kept',
+  /* Under the button while ticks wait: where they go next. */
+  publishLine: 'Guests see it once you publish with ✓.',
+  nothingToKeep: 'Nothing to keep yet.',
   kept: 'Kept in your draft — guests see it once you publish with ✓.',
   notKept: 'That could not be kept. Please try again — nothing was lost.',
   undo: 'Undo',
   undone: 'Undone.',
   nothingToUndo: 'Nothing to undo.',
   close: 'Close',
-  leaveTitle: 'Leave without applying?',
+  leaveTitle: 'Leave without keeping?',
   keepEditing: 'Keep editing',
   leave: 'Leave',
   legendOn: 'Guests see it',
@@ -130,7 +138,7 @@ export const GUESTS_SEE_WORDS = {
 
 const joinAnd = (a: readonly string[]) => (a.length < 2 ? a.join('') : `${a.slice(0, -1).join(', ')} and ${a[a.length - 1]}`);
 const plural = (n: number, one: string, many: string) => `${formatCount(n)} ${n === 1 ? one : many}`;
-export const guestsSeeApplyLabel = (n: number) => (n > 0 ? `${GUESTS_SEE_WORDS.apply} · ${plural(n, 'change', 'changes')}` : GUESTS_SEE_WORDS.apply);
+export const guestsSeeKeepLabel = (n: number) => (n > 0 ? `${GUESTS_SEE_WORDS.keep} · ${plural(n, 'change', 'changes')}` : GUESTS_SEE_WORDS.keep);
 export const guestsSeeLeaveLine = (n: number) => `${plural(n, 'change', 'changes')} will be lost.`;
 
 /* ── the sheet's handlers (pure) ─────────────────────────────────────────── */
@@ -151,7 +159,7 @@ export const FIXED_PART_LABEL = {
   announce: 'Announcements',
   live: 'Live',
   camera: 'Camera',
-  photosofyou: 'Photos of you',
+  photosofyou: 'Memories of you',
 } as const;
 /* (Keyed by `FixedPart`, `lib/stage-scenes.ts` — held to it where the table is built, so this file imports no rule.) */
 
@@ -208,7 +216,7 @@ export function guestsSeeBackToPicks(table: GuestsSeeTable, writes: GuestsSeeWri
   }
   const boxes = guestsSeeHandSet(table, writes);
   if (boxes === 0) return { writes, line: GUESTS_SEE_WORDS.alreadyOurs, changed: false };
-  return { writes: next, line: `${GUESTS_SEE_WORDS.back}. ${plural(boxes, 'box', 'boxes')} changed — Apply to keep it.`, changed: true };
+  return { writes: next, line: `${GUESTS_SEE_WORDS.back}. ${plural(boxes, 'box', 'boxes')} changed — Keep to put it in your draft.`, changed: true };
 }
 
 /** How many boxes are NOT what the stage shows with no choice — the boxes "Back to our picks" would change. */
@@ -243,7 +251,7 @@ export function guestsSeeRowStatus(table: GuestsSeeTable | null | undefined): st
 /** Does any row have nothing written yet? (Then the key explains the pale tick.) */
 export const guestsSeeHasEmptyRow = (table: GuestsSeeTable): boolean => rowsOf(table).some((r) => r.empty);
 
-/** How many entries Apply would write. */
+/** How many entries Keep would write. */
 export const guestsSeeChanges = (writes: GuestsSeeWrites): number => Object.keys(writes).length;
 
 /**
@@ -306,4 +314,50 @@ export function guestsSeeWithRemoved(
 ): GuestsSeeTable {
   if (removed.length === 0) return table;
   return guestsSeeKept(table, Object.fromEntries(removed.map((r) => [`${r.type}:${r.stage}`, r.stored])), false);
+}
+
+/* ── after Keep: say it on the button, then close (owner 2026-10-21) ─────── */
+
+/** How long the button reads "✓ Kept" before the sheet closes itself. */
+export const GUESTS_SEE_KEPT_MS = 1200;
+
+/**
+ * ✅ WHAT A KEEP'S ANSWER MEANS FOR THE SHEET. Kept: the line says so, the button turns to "✓ Kept" and the sheet
+ * closes itself after `GUESTS_SEE_KEPT_MS` — the Maker's ✓ then wears the count (the save answers with it,
+ * `HUB_DRAFT_BAR_FIELD`). Not kept (a refusal, or the request threw): the sheet STAYS open with the reason, and the
+ * ticks stay waiting — nothing is lost.
+ */
+export type GuestsSeeKeepOutcome = { kept: true; line: string; closeAfterMs: number } | { kept: false; line: string };
+export function guestsSeeKeepOutcome(answer: { ok: boolean; error?: string | null } | null | undefined | 'threw'): GuestsSeeKeepOutcome {
+  if (answer === 'threw' || !answer || answer.ok !== true) {
+    const why = answer && answer !== 'threw' && typeof answer.error === 'string' ? answer.error : '';
+    return { kept: false, line: why || GUESTS_SEE_WORDS.notKept };
+  }
+  return { kept: true, line: GUESTS_SEE_WORDS.kept, closeAfterMs: GUESTS_SEE_KEPT_MS };
+}
+
+/**
+ * THE SHEET'S ONE MAIN BUTTON. Kept: "✓ Kept" in the confirm tone (green), pressable — a tap closes now. Ticks
+ * waiting: "Keep · N changes" (waiting only while the save is on its way). Nothing waiting: "Keep", waiting.
+ */
+export function guestsSeeMainButton(n: number, kept: boolean, saving: boolean): { label: string; tone: 'ok' | 'brand'; waiting: boolean; kept: boolean } {
+  if (kept) return { label: GUESTS_SEE_WORDS.keptButton, tone: 'ok', waiting: false, kept: true };
+  return { label: guestsSeeKeepLabel(n), tone: 'brand', waiting: n === 0 || saving, kept: false };
+}
+
+/**
+ * ⏱ CLOSE THE SHEET ONCE IT HAS SAID "KEPT" — the sheet's effect runs this and returns what it returns, so a tap
+ * that starts new work (or the sheet closing first) cancels the close. Never scheduled while nothing was kept.
+ */
+export function guestsSeeCloseWhenKept(
+  kept: boolean,
+  close: () => void,
+  timer: { set: (fn: () => void, ms: number) => unknown; clear: (id: unknown) => void } = {
+    set: (fn, ms) => setTimeout(fn, ms),
+    clear: (id) => clearTimeout(id as ReturnType<typeof setTimeout>),
+  },
+): () => void {
+  if (!kept) return () => {};
+  const id = timer.set(close, GUESTS_SEE_KEPT_MS);
+  return () => timer.clear(id);
 }

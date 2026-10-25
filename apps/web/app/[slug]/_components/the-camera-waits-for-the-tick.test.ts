@@ -54,7 +54,9 @@ test('(2) the one place the camera is asked for is behind the rule, follows the 
   assert.ok(effect > 0, 'the camera is not asked for inside an effect');
   const body = CODE.slice(effect, CODE.indexOf('}, [', ask) + 60);
   assert.match(body, /^useEffect\(\(\) => \{\s*if \(!cameraMayStart\(agreed\)\) return;/, 'the effect asks for the camera without asking the rule first');
-  assert.match(body, /\}, \[agreed, onFail, stopStream\]\);/, 'the camera does not follow the tick');
+  // `revival` (2026-10-19, the camera comes back) re-runs the SAME effect, so a
+  // reopen still passes through the cameraMayStart(agreed) gate above.
+  assert.match(body, /\}, \[agreed, onFail, stopStream(?:, revival)?\]\);/, 'the camera does not follow the tick');
   assert.match(body, /return \(\) => \{\s*cancelled = true;\s*stopStream\(\);\s*\};/, 'unticking (or leaving) does not release the camera');
   // `agreed` is the tick itself, never pre-set.
   assert.match(CODE, /const \[agreed, setAgreed\] = useState\(false\);/, 'the box starts ticked');

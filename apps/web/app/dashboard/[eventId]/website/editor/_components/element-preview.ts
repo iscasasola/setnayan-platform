@@ -25,6 +25,7 @@
  *
  * Pure. No DOM, no React — `element-preview.test.ts` drives every rule here.
  */
+import { resolveCoverEntrance } from '@/lib/cover-entrance';
 import { hubBackgroundIsMedia, resolveHubBackground, type HubSectionCanvas } from '@/lib/hub-canvas';
 import { HUB_ELEMENT_LABEL, type HubElementKey, type HubElementStyles } from '@/lib/element-style';
 import { sceneWidgetIsBare } from '@/lib/scene-ground';
@@ -66,7 +67,9 @@ export function elementPreview(
     t: 'elStyle',
     key,
     el,
-    elements: next.elements ?? null,
+    /* 🎬 The cover's words wear the cover's entrance where they have no Build in of their own — laid as the page lays
+       it (`resolveCoverEntrance`), so a choice on one word never takes the entrance off the others. */
+    elements: key === 'f:hero' ? resolveCoverEntrance(next.entrance, next.elements) : (next.elements ?? null),
     motion,
     replay: choice && motion && Boolean(next.elements?.[el]?.motion?.in),
   };
@@ -95,6 +98,7 @@ const CHOICE_WORDS: Record<string, string> = {
   color: 'colour',
   size: 'size',
   align: 'alignment',
+  width: 'width',
   leading: 'line spacing',
   tracking: 'letter spacing',
   hidden: 'show or hide choice',

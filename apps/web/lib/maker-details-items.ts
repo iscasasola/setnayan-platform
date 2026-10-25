@@ -96,7 +96,23 @@ export const LOOK_SECTION_ITEM_KEYS: readonly LookSectionItemKey[] = ['backgroun
  * opens where those controls live now — Elements — never the first row.
  */
 const RETIRED_LOOK_ITEM: Readonly<Record<string, LookSectionItemKey>> = { colours: 'elements', font: 'elements' };
-export type DetailsItemKey = 'theme' | LookSectionItemKey | LookItemKey | EventItemKey | AnswerItemKey | SeatPlanItemKey | PlanItemKey | HubItemKey | WordsItemKey | StoryItemKey | PrintSetKey | FreePrintKey | DownloadItemKey;
+/**
+ * 🖨 "ON EVERY PRINT" (owner 2026-10-16, DECISION_LOG "STUDIO › PRINTS GETS A PIECE BAR, ONE 'ON EVERY PRINT' BLOCK AND
+ * SHORT SIZE LINES"): the head of Studio › Prints — the Event Hub QR line (Always printed), the NFC sticker spot and their
+ * one Save, drawn ONCE instead of under three pieces. The same print words form, the same field names. Present only in
+ * the new Maker's Studio (`MakerDetails`'s `studio`); the shipped list never draws it.
+ */
+export type EveryPrintItemKey = 'every-print';
+export const EVERY_PRINT_ITEM: EveryPrintItemKey = 'every-print';
+/**
+ * 🎫 THE DIGITAL TICKET (owner 2026-10-17, DECISION_LOG "PRINTS: ONE SETTINGS SHEET, ONE DOWNLOAD PER PIECE, VIEW AS ▾…"): the PNG each
+ * guest saves, a row of its own under the Event pass — View as ▾, Download (that guest's ticket, free), All guests ◆ (the zip, Event
+ * Hub Pro). It was "The ticket guests save" block under the pass; its look (Ticket style) moved into Print settings. Present only in
+ * the new Maker's Studio, like "On every print".
+ */
+export type DigitalTicketItemKey = 'digital-ticket';
+export const DIGITAL_TICKET_ITEM: DigitalTicketItemKey = 'digital-ticket';
+export type DetailsItemKey = 'theme' | LookSectionItemKey | LookItemKey | EventItemKey | AnswerItemKey | SeatPlanItemKey | PlanItemKey | HubItemKey | WordsItemKey | StoryItemKey | EveryPrintItemKey | PrintSetKey | DigitalTicketItemKey | FreePrintKey | DownloadItemKey;
 
 export const HUB_ITEM_KEYS: readonly HubItemKey[] = ['address', 'qr'];
 /** The Look after Theme, in the owner's order: Theme · Mood Board · Logo · Hero · Reveal. */
@@ -108,6 +124,8 @@ export const FREE_PRINT_KEYS: readonly FreePrintKey[] = [
   'qr-codes',
   'seat-plan',
   'seating-pack',
+  /* 🪧 The entrance seating chart — its own row since 2026-10-14 (owner, on the Studio › Prints previews). */
+  'seating-chart',
   'caterer',
   'event-qr',
 ];
@@ -162,7 +180,9 @@ export const DETAILS_ITEM_GROUPS: ReadonlyArray<{
     form: true,
   },
   { group: 'elsewhere', label: 'Elsewhere', keys: ['theme', 'parents', 'papic', 'plan-myself', 'kindly-reply', 'rsvp'], hidden: true },
-  { group: 'set', label: 'Invitation set', keys: PRINT_SET_KEYS },
+  /* 🖨 "On every print" heads the set — drawn only in Studio (it is `present` only there). */
+  /* 🎫 …and the Digital ticket sits under the Event pass — drawn only in Studio too. */
+  { group: 'set', label: 'Invitation set', keys: [EVERY_PRINT_ITEM, ...PRINT_SET_KEYS.flatMap((k) => (k === 'pass' ? [k, DIGITAL_TICKET_ITEM] : [k]))] },
   { group: 'day', label: 'For the day', keys: FREE_PRINT_KEYS },
   { group: 'download', label: 'Download the set', keys: ['download'] },
 ];

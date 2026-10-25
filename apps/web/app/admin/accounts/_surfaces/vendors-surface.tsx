@@ -5,7 +5,8 @@ import { Pencil, Trash2, BadgeCheck, Users } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
-import { displayServiceLabel } from '@/lib/vendors';
+import { displayServiceLabel, VENDOR_CATEGORIES } from '@/lib/vendors';
+import { readPersonalInvitePlanPrices } from '@/lib/personal-invite-prices.server';
 import {
   VENDOR_PUBLIC_VISIBILITY_LABEL,
   isShopLive,
@@ -262,6 +263,9 @@ export async function VendorsSurface({
   const siteUrl = (
     process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com'
   ).replace(/\/$/, '');
+  // 🎁 The personal invite's plan dropdown reads the catalogue's prices (owner 2026-10-23) — never a typed number.
+  const invitePrices = await readPersonalInvitePlanPrices();
+  const inviteCategories = VENDOR_CATEGORIES.map((key) => ({ key, label: displayServiceLabel(key) }));
 
   return (
     <div>
@@ -269,7 +273,7 @@ export async function VendorsSurface({
         title="Suppliers"
       />
 
-      <InviteVendorForm />
+      <InviteVendorForm prices={invitePrices} categories={inviteCategories} />
 
       {/* New vendor requests — couples' manual-adds awaiting a vendor claim
           (owner 2026-06-09). Each is a couple-source pending invite minted by

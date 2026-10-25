@@ -13,12 +13,17 @@
 
 import {
   defaultMotion,
-  isLayeredLogo,
+  LOGO_DELAY_MAX,
+  LOGO_DEFAULT_INK,
   LOGO_FRAME,
+  LOGO_MAX_LAYERS,
+  LOGO_SCALE_MAX,
+  LOGO_SCALE_MIN,
   type LogoDuring,
   type LogoFrameKind,
   type LogoIn,
   type LogoLayer,
+  type LogoLayerKind,
   type LogoLayerMeta,
   type LogoMotion,
   type LogoOut,
@@ -27,6 +32,11 @@ import {
   sanitizeRotate,
 } from './logo-layers';
 import { LOGO_WRITE_CELLS, penAlong, resampleWrite } from './logo-layers-player';
+
+
+/** What each kind of layer is called (L5 moved it here from the first-load `logo-layers.ts`; it equals
+ *  `logoKindName`, which a guard holds). */
+export const LOGO_LAYER_KIND_LABEL: Record<LogoLayerKind, string> = { image: 'Image', text: 'Text', frame: 'Frame', ornament: 'Ornament' };
 
 export const LOGO_IN_LABEL: Record<LogoIn, string> = { draw: 'Draw on', rise: 'Rise', fade: 'Fade', none: 'None' };
 export const LOGO_DURING_LABEL: Record<LogoDuring, string> = { still: 'Still', drift: 'Drift' };
@@ -187,6 +197,87 @@ export function snapSliderToCentre(v: number, min: number, max: number, band: nu
 
 /* ── the stack ─────────────────────────────────────────────────────────────── */
 
+/** Move one layer to a place in the stack (0 = bottom) — the layer carousel's hold-and-drag (L2). Out of range = unchanged. */
+export function moveLayerTo<T extends { id: string }>(layers: T[], id: string, to: number): T[] {
+  const i = layers.findIndex((l) => l.id === id);
+  if (i < 0 || to < 0 || to >= layers.length || to === i) return layers;
+  const next = layers.slice();
+  const [m] = next.splice(i, 1);
+  next.splice(to, 0, m as T);
+  return next;
+}
+
+/** How far a copy sits from its original, in frame units — down and right, so both stay seen. */
+export const LOGO_COPY_OFFSET = 40;
+
+/**
+ * ⧉ DUPLICATE (L2, the card's ⋯): the layer again, named "<name> copy", a little down and right (on the rails),
+ * placed straight ABOVE its original. Shown and free even when the original was hidden or locked — the copy is the one
+ * being worked on. Unchanged when the logo is full (`LOGO_MAX_LAYERS`) or the id is not there.
+ */
+export function duplicateLayer(layers: LogoLayer[], id: string, newId: string): LogoLayer[] {
+  const i = layers.findIndex((l) => l.id === id);
+  const o = layers[i];
+  if (!o || layers.length >= LOGO_MAX_LAYERS) return layers;
+  const { hidden: _h, locked: _l, ...rest } = o;
+  const at = clampToFrame(o, o.x + LOGO_COPY_OFFSET, o.y + LOGO_COPY_OFFSET);
+  const copy: LogoLayer = { ...rest, id: newId, name: `${o.name} copy`.slice(0, 40), ...at };
+  const next = layers.slice();
+  next.splice(i + 1, 0, copy);
+  return next;
+}
+
+/** One letter of a word, as the face sets it: its shapes in its own box, and its box's middle in the WORD's box. */
+export type LogoGlyphCut = { ch: string; body: string; w: number; h: number; cx: number; cy: number };
+
+/** How far each letter's start follows the one before it, in seconds (the prototype's Split: a quarter second). */
+export const LOGO_SPLIT_STEP = 0.25;
+
+/**
+ * ✂ SPLIT INTO LETTERS (L4; owner 2026-09-27 *"each letter gets its own animation"*): one text layer becomes one
+ * layer per letter (spaces dropped), each EXACTLY where and as big as it stood in the word — its middle mapped from the
+ * word's box into the frame (turned with the word), its scale such that its own box draws at the word's size — in the
+ * word's face, colour, look and motion, each starting a step after the one before (`LOGO_SPLIT_STEP`, a delay the
+ * couple now owns). Unchanged when it is not a text layer, has fewer than two letters, or would pass `LOGO_MAX_LAYERS`.
+ */
+export function splitIntoLetters(
+  layers: LogoLayer[],
+  id: string,
+  word: { w: number; h: number },
+  cuts: readonly LogoGlyphCut[],
+  newId: () => string,
+): LogoLayer[] {
+  const i = layers.findIndex((l) => l.id === id);
+  const o = layers[i];
+  const letters = cuts.filter((c) => c.ch.trim() && c.body);
+  if (!o || o.kind !== 'text' || letters.length < 2 || layers.length - 1 + letters.length > LOGO_MAX_LAYERS) return layers;
+  const k = fitFactor(word.w, word.h) * o.scale;
+  const turn = ((o.rotate ?? 0) * Math.PI) / 180;
+  const made = letters.map((c, n): LogoLayer => {
+    const dx = (c.cx - word.w / 2) * k;
+    const dy = (c.cy - word.h / 2) * k;
+    const scale = Number(Math.min(LOGO_SCALE_MAX, Math.max(LOGO_SCALE_MIN, k / fitFactor(c.w, c.h))).toFixed(4));
+    const { spacing: _s, write: _w, ...rest } = o;
+    return {
+      ...rest,
+      id: newId(),
+      name: c.ch,
+      text: c.ch,
+      body: c.body,
+      w: c.w,
+      h: c.h,
+      scale,
+      x: Math.round(o.x + dx * Math.cos(turn) - dy * Math.sin(turn)),
+      y: Math.round(o.y + dx * Math.sin(turn) + dy * Math.cos(turn)),
+      motion: { ...o.motion, delay: Number(Math.min(LOGO_DELAY_MAX, o.motion.delay + n * LOGO_SPLIT_STEP).toFixed(1)) },
+      autoDelay: false,
+    };
+  });
+  const next = layers.slice();
+  next.splice(i, 1, ...made);
+  return next;
+}
+
 /** Move one layer up (towards the top of the stack) or down. */
 export function moveLayer<T extends { id: string }>(layers: T[], id: string, dir: 'up' | 'down'): T[] {
   const i = layers.findIndex((l) => l.id === id);
@@ -297,12 +388,35 @@ export function layerTransform(layer: Pick<LogoLayer, 'w' | 'h' | 'x' | 'y' | 's
   return `translate(${R(layer.x)} ${R(layer.y)})${turn ? ` rotate(${turn})` : ''} scale(${Number(k.toFixed(5))}) translate(${R(-layer.w / 2)} ${R(-layer.h / 2)})`;
 }
 
+/* ── looks (L4: Solid · Outline · Shadow — a text layer's) ─────────────────── */
+
+export const LOGO_LOOKS = ['solid', 'outline', 'shadow'] as const;
+export type LogoLook = (typeof LOGO_LOOKS)[number];
+export const LOGO_LOOK_LABEL: Record<LogoLook, string> = { solid: 'Solid', outline: 'Outline', shadow: 'Shadow' };
+/** The shadow's ink — the prototype's soft gold (`--gold-soft`), a hard offset copy behind the letters, never a blur. */
+export const LOGO_SHADOW_INK = '#E6D8BE';
+
+const OUTLINE_ATTRS = (color: string, w: number) => ` fill="none" stroke="${color}" stroke-width="${R(w)}" stroke-linejoin="round" data-look-outline=""`;
+const OUTLINE_RE = / fill="none" stroke="#[0-9a-fA-F]{6}" stroke-width="[\d.]+" stroke-linejoin="round" data-look-outline=""/g;
+const SHADOW_RE = /^<g data-look-shadow="" transform="[^"]*">[\s\S]*?<\/g>/;
+
 /** A layer's shapes as drawn: recoloured when it has a colour, on its white
- *  card when an image keeps it. */
+ *  card when an image keeps it; a text layer in its look — OUTLINE = the letters'
+ *  edges only (a stroke, no fill), SHADOW = a soft offset copy behind them. Pure
+ *  paths and a group, so every surface (the player, print, the ink box) draws it. */
 export function layerShapes(l: LogoLayer): string {
-  const shapes = l.color ? recolourBody(l.body, l.color) : l.body;
+  const look = l.kind === 'text' ? l.look : undefined;
+  const ink = l.color ?? LOGO_DEFAULT_INK;
+  const shapes =
+    look === 'outline'
+      ? l.body.replace(/<path\b/g, `<path${OUTLINE_ATTRS(ink, Math.max(2, l.h * 0.03))}`)
+      : l.color
+        ? recolourBody(l.body, l.color)
+        : l.body;
+  const off = R(Math.max(2, l.h * 0.05));
+  const shadow = look === 'shadow' ? `<g data-look-shadow="" transform="translate(${off} ${off})">${recolourBody(l.body, LOGO_SHADOW_INK)}</g>` : '';
   const card = l.kind === 'image' && l.keepWhite ? `<rect width="${R(l.w)}" height="${R(l.h)}" fill="#FFFFFF"/>` : '';
-  return card + shapes;
+  return card + shadow + shapes;
 }
 
 /**
@@ -312,19 +426,30 @@ export function layerShapes(l: LogoLayer): string {
  */
 export function composeLogoSvg(layers: LogoLayer[]): string | null {
   const parts: string[] = [];
+  /* 🙈 HIDDEN (L3): off the logo on every surface — kept in a leading `<defs>`, which nothing draws (print-mark
+     reads defs as non-rendered; the player and the ink box read `data-logo-layer` only), so its shapes survive a
+     reload and Show brings it back exactly. */
+  const kept: string[] = [];
   for (const l of layers) {
     if (!l.body) continue;
+    if (l.hidden) {
+      kept.push(`<g data-logo-hidden-layer="${l.id}" data-kind="${l.kind}"><g data-logo-body="${R(l.w)} ${R(l.h)}">${layerShapes(l)}</g></g>`);
+      continue;
+    }
     const inKind = effectiveIn(l);
     const write = inKind === 'draw' && l.write ? ` data-write="${writePathD(l.write)}" data-write-w="${R(l.write.w)}"` : '';
     const dur = typeof l.motion.dur === 'number' ? ` data-dur="${l.motion.dur}"` : '';
     const leave = l.motion.out ? ` data-out="${l.motion.out}"` : '';
+    /* 🔒 A lock is part of the file, so locking alone is a change the save gate sees. */
+    const lock = l.locked ? ' data-locked=""' : '';
     parts.push(
-      `<g data-logo-layer="${l.id}" data-kind="${l.kind}" data-in="${inKind}" data-during="${l.motion.during}" data-delay="${l.motion.delay}"${dur}${leave}${write} transform="${layerTransform(l)}">` +
+      `<g data-logo-layer="${l.id}" data-kind="${l.kind}" data-in="${inKind}" data-during="${l.motion.during}" data-delay="${l.motion.delay}"${dur}${leave}${write}${lock} transform="${layerTransform(l)}">` +
         `<g data-logo-body="${R(l.w)} ${R(l.h)}">${layerShapes(l)}</g></g>`,
     );
   }
-  if (!parts.length) return null;
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${LOGO_FRAME} ${LOGO_FRAME}" data-logo="layers">${parts.join('')}</svg>`;
+  if (!parts.length && !kept.length) return null;
+  const hidden = kept.length ? `<defs data-logo-hidden="">${kept.join('')}</defs>` : '';
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${LOGO_FRAME} ${LOGO_FRAME}" data-logo="layers">${hidden}${parts.join('')}</svg>`;
 }
 
 /**
@@ -333,19 +458,25 @@ export function composeLogoSvg(layers: LogoLayer[]): string | null {
  */
 export function parseLogoSvg(svg: string): Map<string, { body: string; w: number; h: number }> {
   const out = new Map<string, { body: string; w: number; h: number }>();
-  if (!isLayeredLogo(svg)) return out;
+  /* Not `isLayeredLogo`: a logo whose every layer is hidden draws nothing, and still holds its layers. */
+  if (!svg.includes('data-logo="layers"')) return out;
   const starts: Array<{ id: string; at: number }> = [];
-  const re = /<g data-logo-layer="([a-z0-9]{1,16})"/g;
+  const re = /<g data-logo-(?:hidden-)?layer="([a-z0-9]{1,16})"/g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(svg))) starts.push({ id: m[1] as string, at: m.index });
+  const defsEnd = svg.indexOf('</defs>');
   starts.forEach((s, i) => {
-    const end = i + 1 < starts.length ? (starts[i + 1] as { at: number }).at : svg.lastIndexOf('</svg>');
+    const next = i + 1 < starts.length ? (starts[i + 1] as { at: number }).at : svg.lastIndexOf('</svg>');
+    // A hidden layer ends at the close of the defs that keep it.
+    const end = defsEnd > s.at && defsEnd < next ? defsEnd : next;
     const chunk = svg.slice(s.at, end);
     const bm = /<g data-logo-body="([\d.]+) ([\d.]+)">/.exec(chunk);
     if (!bm) return;
     // The chunk ends "…BODY</g></g>" — the layer's own two closing tags.
     let inner = chunk.slice(bm.index + bm[0].length).replace(/<\/g><\/g>\s*$/, '');
     inner = inner.replace(/^<rect width="[\d.]+" height="[\d.]+" fill="#FFFFFF"\/>/, '');
+    // A text layer's look comes off: the shadow's copy, the outline's stroke.
+    inner = inner.replace(SHADOW_RE, '').replace(OUTLINE_RE, '');
     out.set(s.id, { body: originalColours(inner), w: Number(bm[1]), h: Number(bm[2]) });
   });
   return out;

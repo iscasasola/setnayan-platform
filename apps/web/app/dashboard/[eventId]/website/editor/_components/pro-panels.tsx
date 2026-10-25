@@ -6,10 +6,10 @@ import { FontPick } from './font-pick';
 /* 🔤 The Studio's four font rows — a lazy door (they hold the draft door, a server action), warmed with the Maker's other pieces. */
 import { FontsLookRows } from './scene-styles-lazy';
 
-import { MAGIC_TRAVELLERS, MAGIC_TRAVELLER_LABEL } from '@/lib/magic-move';
 import Link from 'next/link';
 import { useState } from 'react';
 import { WEBSITE_PRO_ITEMS } from '@/lib/website-pro-items';
+import { formatCount } from '@/lib/format-number';
 import { INVITE_THEMES, LEGACY_THEME_ALIASES, type InviteThemeId, isInviteThemeId } from '@/lib/invite-themes';
 import {
   BACKGROUND_EFFECTS,
@@ -36,8 +36,8 @@ import { SafeForm } from '@/app/dashboard/[eventId]/_components/safe-form';
  *
  * `ProLockPanel` is the LOCKED state of any Pro row: one honest line about what
  * the row is part of, plus the single umbrella CTA. There is deliberately no
- * per-feature buy button — the nine Pro items are ONE unlock (owner 2026-07-24),
- * so nine separate purchase affordances would misrepresent it. Its price is NOT
+ * per-feature buy button — the Pro items are ONE unlock (owner 2026-07-24),
+ * so one purchase affordance per item would misrepresent it. Its price is NOT
  * written here: the server page reads it live from `platform_retail_catalog_v2`
  * and passes the formatted string down as `priceLabel` (see `unlock-label.ts`).
  *
@@ -52,11 +52,11 @@ import { SafeForm } from '@/app/dashboard/[eventId]/_components/safe-form';
  */
 
 /**
- * The nine Pro items, named the way the couple sees them.
+ * The Pro items, named the way the couple sees them.
  *
  * 🔑 THE LIST NOW LIVES IN `lib/website-pro-items.ts` AND IS RE-EXPORTED HERE
  * UNDER ITS OWN NAME — the Event Hub controller offers the same one unlock on
- * whichever channel the couple is standing on, and it needs these nine names on
+ * whichever channel the couple is standing on, and it needs these names on
  * the server. Copying them would have made two lists of one fact, each passing
  * its own suite. Nothing that imports `WEBSITE_PRO_ITEMS` from this file moves.
  */
@@ -80,7 +80,7 @@ export function ProLockPanel({
         {featureName} is part of Event Hub PRO
       </p>
       <p className="mt-1 text-[0.7rem] leading-relaxed text-ink/60">
-        One unlock covers all nine: {WEBSITE_PRO_ITEMS.join(' · ')}. It also removes the
+        One unlock covers all {formatCount(WEBSITE_PRO_ITEMS.length)}: {WEBSITE_PRO_ITEMS.join(' · ')}. It also removes the
         “Powered by Setnayan” mark from your page.
       </p>
       <Link
@@ -102,7 +102,6 @@ export function ColorsPanel({
   artDirection,
   fontKey = null,
   siteRoles = null,
-  magicTraveller = null,
   proLocked = false,
   proLock = null,
   proMark = null,
@@ -147,8 +146,6 @@ export function ColorsPanel({
   artDirection: 'daylight' | 'candlelight' | null;
   /** The couple's saved typeface, or null for the theme's own. */
   fontKey?: string | null;
-  /** Which element travels as a guest scrolls, or null for nothing. */
-  magicTraveller?: string | null;
   /** The Pro half (face, art direction, magic move) is locked — both colours
    *  stay editable, because they are free (owner 2026-09-24 background,
    *  2026-09-28 button). Its fields are then NOT rendered, and the action reads
@@ -270,22 +267,9 @@ export function ColorsPanel({
 
       {part === 'colours' || part === 'art' ? null : typeface}
 
-      {/* ══ MAGIC MOVE ═══════════════════════════════════════════════════
-          Owner, 2026-09-23: element animation is *"something I really want"*,
-          and *"the idea is like how keynote's magic move operate"*.
-
-          🔑 IT IS A DIFFERENT KIND OF MOTION FROM THE CANVAS: everything in
-          "How it moves" is a HANDOVER — one section fades out, the next fades
-          in; this is one element staying on screen and travelling between two
-          real places. Its option says so in its own name ("Your monogram
-          travels down the page") — no caption under it (owner 2026-10-05).
-
-          ⛔ "Nothing travels" is first, always available, and posts `''` — the
-          action reads that as "clear", distinct from an absent field meaning
-          "unchanged", exactly as the typeface above does. A couple must be able
-          to take this back, and this is the first motion on the guest page that
-          moves an element ACROSS the viewport. */}
-      {part === 'art' ? null : <MagicMovePick value={magicTraveller} mark={mark} />}
+      {/* ✈ MAGIC MOVE IS THE LOGO'S ACTION NOW (Look restudy row 9, owner-approved 2026-10-08): "Travels to the bar"
+          in Stages › the cover's Logo › Animate › Action (`element-sheet.tsx`, `lib/magic-move.ts`). This form posts no
+          `site_magic_traveller`, which the action reads as UNCHANGED — a mark already travelling keeps travelling. */}
       </>
       )}
       </>
@@ -493,27 +477,3 @@ function ArtDirectionPick({ value, mark, leads = false }: { value: 'daylight' | 
   );
 }
 
-/**
- * ✈ MAGIC MOVE — "Nothing travels" or the one thing that travels, as ONE
- * dropdown. "Nothing travels" is first and always there; it posts `''`, which
- * the action reads as "clear" (an absent field means "unchanged").
- */
-function MagicMovePick({ value, mark, leads = false }: { value: string | null; mark: React.ReactNode; /** First in its form — no rule over it. */ leads?: boolean }) {
-  const [magic, setMagic] = useState<string>(value && (MAGIC_TRAVELLERS as readonly string[]).includes(value) ? value : '');
-  return (
-    <div className={`flex min-h-11 items-center justify-between gap-3${leads ? '' : ' mt-3 border-t border-dashed border-ink/10 pt-3'}`} data-look-magic-move="">
-      <p className="inline-flex shrink-0 items-center gap-1.5 text-[0.72rem] font-semibold text-ink/80">Magic Move{mark}</p>
-      <input type="hidden" name="site_magic_traveller" value={magic} />
-      <PickMenu
-        label="Magic Move"
-        value={magic === '' ? 'none' : magic}
-        dataAttr="data-magic-move-pick"
-        options={[
-          { key: 'none', label: 'Nothing travels' },
-          ...MAGIC_TRAVELLERS.map((t) => ({ key: t, label: MAGIC_TRAVELLER_LABEL[t] })),
-        ]}
-        onPick={(k) => setMagic(k === 'none' ? '' : k)}
-      />
-    </div>
-  );
-}

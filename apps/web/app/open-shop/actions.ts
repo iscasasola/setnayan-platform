@@ -1,12 +1,11 @@
 'use server';
 
+import { parseInBusinessSince } from '@/lib/in-business-since';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { dependentPeopleEnabled } from '@/lib/dependent-people-flag';
-import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
-import { buildBusinessAlagaInsert, isAlreadyRecorded } from '@/lib/business-alaga';
+import { ensureBusinessAlaga } from '@/lib/business-alaga-ensure';
 import { VENDOR_CATEGORIES } from '@/lib/vendors';
 import { getVendorServableEventTypes } from '@/lib/event-types-db';
 import { canOpenAnotherShop } from '@/lib/shop-limits';
@@ -344,7 +343,7 @@ export async function becomeVendor(formData: FormData): Promise<void> {
   // the UNIQUE constraint is dropped. See lib/shop-limits.ts.
   const { data: ownedRows } = await admin
     .from('vendor_profiles')
-    .select('vendor_profile_id, services, business_slug')
+    .select('vendor_profile_id, services, business_slug, in_business_since_year')
     .eq('user_id', user.id);
   const owned = (ownedRows ?? []) as Array<{
     vendor_profile_id: string;
@@ -460,6 +459,13 @@ export async function becomeVendor(formData: FormData): Promise<void> {
   // it.
   if (chosenSlug && !existing?.business_slug) patch.business_slug = chosenSlug;
   if (contactPosition) patch.business_owner_position = contactPosition;
+  // "In business since" — asked on step 2 (owner 2026-10-22, journey_fixes Supplier 2 · A). Optional, and
+  // written ONCE: a year already on the shop is never moved from here, because changing it is what clears
+  // the DTI experience check (`updateVendorProfileField`), and that belongs to Your details, not a re-run.
+  const sinceYear = parseInBusinessSince(formData.get('in_business_since_year'), new Date().getFullYear());
+  if (sinceYear && !(existing as { in_business_since_year?: number | null } | null)?.in_business_since_year) {
+    patch.in_business_since_year = sinceYear;
+  }
   if (logoUrl) patch.logo_url = logoUrl;
   if (locationCity) patch.location_city = locationCity;
   // The address the vendor typed (owner 2026-08-10). Guarded like the rest — a
@@ -517,62 +523,25 @@ export async function becomeVendor(formData: FormData): Promise<void> {
   // that they care for nothing — and the business had no page and no timeline,
   // because it had no record to hang one on.
   //
-  // ⚠ BEST-EFFORT, ALWAYS. Nothing below can redirect, throw or change what this
-  // action returns. Opening a shop is the vendor's business; keeping a
-  // record-keeping row in step is ours, and ours failing must never cost them
-  // theirs. Same posture as the founding team seat and the account-name write
-  // above.
+  // The write itself — gated on the People pair, read-then-write against the
+  // idempotency key, a re-run renaming the record it already has — lives in
+  // `ensureBusinessAlaga`, the ONE writer every shop-owning door calls (the claim
+  // flow and My Shop's naming door too). `lib/business-alaga-ensure.test.ts`
+  // holds both its behaviour and that every such door calls it.
   //
-  // ⚠ EXACTLY ONE, EVER. The read-then-write below loses a concurrent double
-  // submit — both requests read nothing — so the guarantee lives in the database:
-  // `dependents_owner_vendor_profile_key` (partial UNIQUE on
-  // (owner_user_id, vendor_profile_id), migration 20271186070892). The loser gets
-  // 23505, which `isAlreadyRecorded` reads as the success it is.
+  // ⚠ BEST-EFFORT, ALWAYS. `ensureBusinessAlaga` never throws or redirects.
+  // Opening a shop is the vendor's business; keeping a record-keeping row in step
+  // is ours, and ours failing must never cost them theirs. Same posture as the
+  // founding team seat and the account-name write above.
   //
-  // ⚠ GATED LIKE EVERY OTHER WRITE TO THIS TABLE. `dependentPeopleEnabled()` AND
-  // the `dependent_minor_profiles` control, exactly as `addDependent` gates —
-  // both measured ON in production (P0-b, 2026-08-30). A business row carries no
-  // minor's data, but the SURFACE that renders it AND-gates the same pair, and
-  // writing a row nobody can see is worse than not writing it.
-  if (
-    dependentPeopleEnabled() &&
-    vendorProfileId &&
-    (await isDataPrivacyControlActive('dependent_minor_profiles'))
-  ) {
-    const alaga = buildBusinessAlagaInsert({
-      ownerUserId: user.id,
-      vendorProfileId,
-      shopName,
-    });
-    if (alaga) {
-      // ⚠ ADMIN CLIENT, AND THE `owner_user_id` IT WRITES IS THE AUTHENTICATED
-      // CALLER — never a form value. RLS is off for this client, so that
-      // assignment IS the ownership boundary, the same way it is in
-      // `resolveHonoreeDependentId`.
-      const { data: already, error: readErr } = await admin
-        .from('dependents')
-        .select('dependent_id')
-        .eq('owner_user_id', user.id)
-        .eq('vendor_profile_id', vendorProfileId)
-        .maybeSingle();
-      // A REFUSED READ IS NOT "NO RECORD YET". Writing on a failed read would be
-      // the duplicate this whole mechanism exists to prevent, so an unreadable
-      // table skips the write entirely and the next save picks it up.
-      if (readErr) {
-        console.error(
-          '[supabase-error] app/open-shop/actions.ts · from:dependents.select',
-          readErr,
-        );
-      }
-      if (!readErr && !already) {
-        const { error: insErr } = await admin.from('dependents').insert(alaga);
-        if (insErr && !isAlreadyRecorded(insErr)) {
-          // Not fatal, and not silent: the shop is fine, the record is not.
-          console.error('[becomeVendor] business alaga insert failed:', insErr.message);
-        }
-      }
-    }
-  }
+  // ⚠ ADMIN CLIENT, AND THE OWNER IT WRITES IS THE AUTHENTICATED CALLER — never a
+  // form value. RLS is off for this client, so that assignment IS the ownership
+  // boundary, the same way it is in `resolveHonoreeDependentId`.
+  await ensureBusinessAlaga(admin, {
+    ownerUserId: user.id,
+    vendorProfileId,
+    shopName,
+  });
 
   revalidatePath('/vendor-dashboard');
   revalidatePath('/vendor-dashboard/shop');

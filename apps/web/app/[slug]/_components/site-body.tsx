@@ -3,13 +3,13 @@ import { BLOCK_LOOKS_STYLE_ATTR, BLOCK_MARK_ATTR, blockLooksCss, blockOfCanvas, 
 import Link from 'next/link';
 import { watchLiveOccasion } from '@/lib/watch-live-occasion';
 import { daysToGo } from '@/lib/countdown-target';
-import { actionOpensReply, meLeadsWithReply, resolveArrivalAction } from '@/lib/arrival-action';
+import { actionOpensReply, resolveArrivalAction } from '@/lib/arrival-action';
 import { inviteReplyPath } from '@/lib/invite-arrival';
 import { PASS_CARD_ROUTE } from '@/lib/pass-card';
 import { manilaToday } from '@/lib/std-views';
 import { ArrivalActionRow } from './arrival-action';
 import { GuestMeParts, ReplyCardRow } from './guest-me-parts';
-import { guestMeFacts, guestMePartsShown, readerIsListed, replyCardOf } from '@/lib/guest-me-parts';
+import { guestMeFacts, guestMeNoteShown, guestMePartsShown, readerIsListed, replyCardOf } from '@/lib/guest-me-parts';
 import { readGuestsGetIn } from '@/lib/who-can-reply';
 import { MapPin } from 'lucide-react';
 import { resolveDayOfLead } from '@/lib/day-of-lead';
@@ -21,8 +21,11 @@ import type { ChapterOnThisDay } from '@/lib/chapters-on-this-day';
 // The event hub's sanctioned column widths — a page-level column outside the
 // four is a defect, and `measures.test.ts` counts them.
 import { PAGE_COLUMN, PLATE } from '../_lib/measures';
-import { greetingWhen } from '../_lib/day-words';
-import { guestRoleLabel, plusOneSeats } from '@/lib/guests';
+import { greetingDateLine, greetingAskOf, guestGreetingOf } from '@/lib/guest-greeting';
+import { MeGreeting, MeReply, ME_REPLY_ID } from './guest-greeting';
+import { DRESS_CODE_ANCHOR } from './dress-code-widget';
+import { guestFullName, plusOneSeats, type RsvpStatus } from '@/lib/guests';
+import { guestAttireOf, guestNamePartsOf } from '@/lib/attire-rows';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { loadEventNameStyle, loadEventRoleNames } from '../_lib/loaders';
 import { DEFAULT_NAME_STYLE } from '@/lib/name-style';
@@ -40,7 +43,7 @@ import { ScheduleWidget } from './schedule-widget';
 import { TeaCeremonyCard } from './tea-ceremony-card';
 import { dressRiteOf, isChineseWedding } from '@/lib/chinese-wedding';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
-import { formatBlockTimeRange, type ScheduleBlockRow } from '@/lib/schedule';
+import type { ScheduleBlockRow } from '@/lib/schedule';
 import { GuestGuidedTour } from '@/app/_components/guest-guided-tour';
 import { guidedTourView } from '@/app/_components/guided-tour';
 import { type DayOfPhase } from '@/lib/day-of-mode';
@@ -73,6 +76,7 @@ import { resolveSectionOrder, shippedSections } from './editorial/editorial-orde
 import { openUpHash } from '@/lib/post-event-scenes';
 import { siteMenuEnabled, browsableBodyRenders, SITE_MENU_ANCHORS } from '../_lib/site-menu';
 import { hubLinkWords, invitationCard, mastheadEyebrow } from '../_lib/invitation-card';
+import { guestsArriveTime } from '@/lib/guests-arrive';
 import { belongsToThisEvent } from '../_lib/belongs-to-this-event';
 import { redactStoryLayers } from '@/lib/the-guests-layer-is-theirs-until-you-publish';
 import { VendorDoorway } from './vendor-doorway';
@@ -87,6 +91,7 @@ import { POST_EVENT_STYLE_HOME } from '@/lib/post-event-styles';
 import { SaveTheDateView } from './save-the-date';
 import { type StdLockup } from './save-the-date-film';
 import { RevealOverlayServer } from './reveal/reveal-overlay-server';
+import { CoverPlayOpeningServer } from './reveal/cover-play-opening-server';
 import { INVITE_THEMES } from '@/lib/invite-themes';
 import { revealMaterialsFor } from '@/lib/reveal-materials';
 import {
@@ -98,15 +103,20 @@ import {
   revealWaxColor,
 } from '../_lib/reveal-props';
 import { resolveRevealEffects } from '@/lib/std-reveal-effects';
-import { type StdBackground } from '@/lib/std-backgrounds';
+import { stdFilmOnMain, stdFollowLegibility } from '@/lib/std-backgrounds';
+import { themeColours } from '@/lib/theme-colours';
 import { defaultInvitationLaunchIso } from '@/lib/save-the-date-content';
 import { OurStory, storyTabHasChapter } from './our-story';
 import { HubShell } from './hub/hub-shell';
 import { DayDirections } from './day-directions';
 import {
+  HUB_PAGE_ATTR,
   HUB_TAB_ATTR,
   activeHubTab,
   directionsLead,
+  hubPageModeOf,
+  hubPageOf,
+  hubPagesOf,
   hubTabFor,
   hubTabHref,
   hubTabsOn,
@@ -148,9 +158,7 @@ import {
 import { resolveSiteBodyPlan } from '@/lib/site-body-plan';
 import { revealOnlyOnTheFirstPage } from '@/lib/reveal-stages';
 import { guestListIsClosed } from '@/lib/guest-list-closed';
-import { buildOwnerRibbon } from '@/lib/owner-ribbon';
 import { buildAfterEventMemento } from '@/lib/pahina-memento';
-import { OwnerRibbon } from './owner-ribbon';
 import { viewerIsEventHost } from '../_lib/site-identity';
 import type {
   AnonymousSiteIdentity,
@@ -181,12 +189,16 @@ import { splitAroundEntourage, stageShowsEntourage } from '@/lib/stage-scenes';
 import { sceneBoundTextOf } from '@/lib/details-bound';
 import { MakerGuestScenes } from './maker-guest-scenes';
 import { GuestWelcome } from './guest-welcome';
+import type { GiftPageEvent } from '../pabuya/_lib/gift-page.server';
+import type { GiftPageContent } from '../pabuya/_lib/gift-cards';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { scenesLeftForDetails, welcomeCarriesGifts, welcomeParts } from '@/lib/invitation-welcome';
-import { mainGroundLayerFor } from '../_lib/main-ground-layer';
+import { mainGroundLayerFor, mainGroundStillFor } from '../_lib/main-ground-layer';
 import { loveStoryMediaRefs, loveStoryScenes } from '@/lib/love-story-moments';
 import { customSectionHasContent, isCustomSectionType } from '@/lib/custom-sections';
 import { sanitizeMagicTraveller } from '@/lib/magic-move';
 import { isOmbreValue } from '@/lib/ombre';
+import { parseSiteBackground } from '@/lib/ombre';
 import { siteMediaServeRef } from '@/lib/site-media-ref';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { HideableWidgetRender } from './hideable-widget-render';
@@ -217,7 +229,6 @@ import { SpotlightCard } from './spotlight-card';
 import {
   SectionEmptyPlate,
   FindModeCard,
-  PublicEventDetails,
 } from './empty-states';
 import { EditorBridge } from './editor-bridge';
 import { SampleViewerInert } from './sample-viewer-inert';
@@ -225,15 +236,24 @@ import type { SeeAs } from '@/lib/see-as';
 import { EDITOR_CANVAS_HIDES_APP_CHROME, canvasOnlyCss, type CanvasOnlyScene, type CanvasStylePreview } from '../_lib/editor-canvas';
 import { withStylePreview } from '../_lib/style-preview';
 import { PreviewWayBack } from './preview-way-back';
+import { coverSceneLayer, signCoverSceneMedia } from '../_lib/cover-scene-layer';
+import { COVER_RSVP_PART, coverRsvpOf } from '@/lib/cover-rsvp';
+import { coverEntranceIsStill, resolveCoverEntrance } from '@/lib/cover-entrance';
 import { PahinaMasthead } from './pahina-masthead';
+import { artKitView, sceneAccentsFromPreferences } from '@/lib/art-kits';
+import { KitClosing, KitSeal, KitSlot, KitStyle } from './kit-piece';
+import { ArtKitMotion } from './art-kit-motion';
 import { EntourageSection } from './entourage-section';
 import { GetInside } from './get-inside';
 import { GetTickets } from './get-tickets';
 import { askOneAtATime } from '@/lib/rsvp-one-at-a-time';
 import { hostPitchShows } from '@/lib/guest-one-path';
-import type { EntourageGroup } from '@/lib/entourage';
+import { roleWordOfGuest, type EntourageGroup } from '@/lib/entourage';
 import { marchPlaceOf } from '@/lib/march-place';
 import { LIVE_WALL_UNREADABLE_LINE } from '@/lib/live-wall-read-state';
+import type { HubPartId } from '@/lib/hub-parts';
+import { cameraDressTintOfEvent } from '@/lib/camera-dress-of-event';
+import { EventMonogram } from '@/app/_components/event-monogram';
 
 /**
  * SiteBody — the ONE body tree for the guest event website
@@ -327,6 +347,12 @@ function stdLockupFor(event: EventRow): StdLockup {
  *     nothing in it draws nothing (`empty:hidden`, as a group does).
  * Measured in a browser on the fixture page, wrapped against today's (`scripts/scrub-browser-check.mjs` 16).
  */
+/** 📜 The one page's Home mark (owner 2026-10-15): the first thing after the cover, kept out of the `space-y-*`
+ *  rhythm of the group it ends. Its height and where a jump to it stops are NOT said here: `[data-home-after-cover]`
+ *  in globals.css lands it 2 px past the cover's edge, so the bars stay, and under the pinned top bar makes it tall
+ *  enough that what follows the cover starts 8 px clear of the bar (a `scroll-mt-*` or `h-*` here would fight that rule). */
+const ONE_PAGE_HOME_MARK = '!mt-0';
+
 const GUEST_COVER_BOXES: HubCoverHoldBoxes = {
   cell: { 'data-pahina-first-screen': '' },
   cover: { 'data-pahina-chapters': '' },
@@ -395,8 +421,6 @@ type SiteBodyProps = {
   replyWindow?: ReplyWindow;
   /** PR4 P1 — render the auto-playing STD film instead of the static section. */
   stdFilm: boolean;
-  stdBackground?: StdBackground;
-  stdBackgroundUrl?: string | null;
   /** Presigned URL of the couple's NSFW-approved closing video (stdVideoServeUrls
    *  — the verdict must still bind this media, SEC-6),
    *  or null → the gallery beat shows. Resolved once at the top-level page. */
@@ -454,10 +478,17 @@ type SiteBodyProps = {
    *  each read the way the DESTINATION reads it. Absent → both doors stay shut,
    *  which is the honest default for a caller that did not resolve them. */
   doorwayFacts?: DoorwayFacts | null;
+  /** 🎁 The gift page's own reader (`loadGiftPage`), handed in by the page that holds the request (it reads the
+   *  reader's invitation and sign-in, as `/pabuya` does). Called only where Welcome draws E-Gifts. Absent → the
+   *  E-Gifts door, as before (a caller with no request — the test fixtures — draws the door). */
+  giftPageReader?: ((event: GiftPageEvent) => Promise<GiftPageContent>) | null;
   /** Paid COUPLE_WEBSITE_PRO perk — drop the "Powered by Setnayan" footer
    *  watermark when the event owns the active upgrade. Resolved once at the
    *  top-level page (eventCoupleWebsiteProActive). */
   proWatermarkHidden: boolean;
+  /** 💎 The Event Hub Pro PARTS the event holds (owner 2026-10-22, part by part) — Decorations are Style's, Scrub and
+   *  Auto-scroll are Motion's. Absent: every part while the footer is off (Full Pro), none otherwise — the old meaning. */
+  hubParts?: readonly HubPartId[];
   /** 🖼 THE MAKER'S CANVAS — TRUE only when the page resolved `?editor=1` AND
    *  server-verified host membership (page.tsx). Two jobs, both one-way:
    *  it mounts the click-to-edit bridge, and it HIDES every piece of app and
@@ -514,6 +545,16 @@ type SiteBodyProps = {
    *  visitor including the owner. The PR that mounts owner controls consumes
    *  it — and must keep the gate here on the server, never by hiding UI. */
   ownerCapability?: OwnerCapability | null;
+  /** 🪪 The one plain line when this browser holds an invitation that is not the signed-in viewer's
+   *  (`held-pass-line.tsx`, owner bug 2026-10-19). Drawn under the cover on the host's / a signed-in stranger's page;
+   *  the guest tree draws it in Me (page.tsx). Null for everyone else. */
+  heldPassSlot?: React.ReactNode;
+  /** 🪪 The HOST's own guest row (the groom, a co-host who is also a sponsor) — the only id a host's page marks
+   *  "You" in the entourage (owner ruling 2026-10-19 (a)). Null for everyone else, and never on the canvas. */
+  hostOwnGuestId?: string | null;
+  /** 🗳 The HOST's own row's reply status ('pending' · 'attending' · 'declined' …) — the host's Reply card reads it and
+   *  opens the reply page AS that row (owner bug 2026-10-24). Null: the host has no live row here — the card asks, and the reply page tells them they are not on the list. */
+  hostOwnRsvp?: RsvpStatus | null;
   /** A booked supplier's server-verified grant; drives the doorway strip. */
   /** Stories about THIS day, for the people of this day. Empty for anybody the
    *  event does not recognise — the page never decides that itself. */
@@ -553,7 +594,10 @@ type SiteBodyProps = {
    * body resolves, so the body asks once and hands the answer down rather than
    * page.tsx re-deriving the plan.
    */
-  meSection?: React.ReactNode | ((me: { replyHref: string | null }) => React.ReactNode);
+  meSection?: React.ReactNode | ((me: { replyHref: string | null; inMe?: boolean; replyOwed?: boolean }) => React.ReactNode);
+  /** 🪪 Me's FIRST offer, under the greeting — "Keep this invitation" (`MeKeepInvitation`, owner 2026-10-24), handed
+   *  in by page.tsx, which holds the account's facts. Null: nothing (the sample, the canvas, a host viewing as a guest). */
+  meSave?: React.ReactNode;
   /**
    * 👁 SEE AS ▾ (PR-10, owner 2026-10-04) — the Maker's canvas drawn as a SAMPLE
    * viewer (page.tsx `resolveSampleViewer`, verified host + `?editor=1` only):
@@ -564,8 +608,6 @@ type SiteBodyProps = {
    * drawn on the canvas (`meSection`).
    */
   sampleViewer?: SeeAs | null;
-  /** 👁 The host's capability for the RIBBON alone while the body is drawn for a See as sample (page.tsx). Null: `ownerCapability`. */
-  ribbonCapability?: OwnerCapability | null;
   /**
    * 🧭 THE NEW MAKER'S GUEST SIDE is on for this event (`guestStagesOn`,
    * page.tsx — the Maker's own switch, or an internal host's event). On: the
@@ -592,8 +634,6 @@ export async function SiteBody({
   lifecyclePhase,
   replyWindow: repliesWindow = OPEN_REPLY_WINDOW,
   stdFilm,
-  stdBackground,
-  stdBackgroundUrl,
   stdVideoUrl,
   stdVideoPosterUrl,
   stdVenues,
@@ -610,7 +650,9 @@ export async function SiteBody({
   watchLive,
   broadcastPlanned = false,
   doorwayFacts = null,
+  giftPageReader = null,
   proWatermarkHidden,
+  hubParts,
   isEditorCanvas = false,
   editorialDraft = null,
   editorBridge = false,
@@ -622,6 +664,9 @@ export async function SiteBody({
   themeTile: themeTileIn = false,
   makerWayBack = null,
   ownerCapability = null,
+  heldPassSlot = null,
+  hostOwnGuestId = null,
+  hostOwnRsvp = null,
   vendorCapability = null,
   supplierDesk = null,
   chaptersOnThisDay = [],
@@ -629,8 +674,8 @@ export async function SiteBody({
   activeTab = null,
   shotsAdded = null,
   meSection = null,
+  meSave = null,
   sampleViewer = null,
-  ribbonCapability = null,
   guestStages = false,
   comingWith = [],
 }: SiteBodyProps) {
@@ -763,23 +808,23 @@ export async function SiteBody({
   // `cache()`d, so the shell's own call further down costs nothing extra.
   const sceneTheme = (await resolveHubTheme(event)).theme;
 
-  const hasHeroMedia = Boolean(heroVideoUrl || heroPhotoUrl);
+  /*
+    🕯 THE ART KIT'S ACCENTS (owner 2026-10-16, DECISION_LOG "APPROVED — THE VINTAGE ART KIT" and "AN ACCENT BELONGS TO
+    ITS SCENE AND IS ADDED FROM THAT SCENE'S STYLE") — decided ONCE here and handed to each fixed place
+    (`lib/art-kits.ts` · `kit-piece.tsx`): each scene's Accent pick (`style_preferences.scene_accents`, draft-overlaid
+    on the host's canvas) or the look's default; the look's own seal, flourish and divider when the RESOLVED theme brings
+    a kit; and, while `ART_KIT_IS_PRO`, only with the event's Event Hub Pro as the viewer is shown it
+    (`proWatermarkHidden` — `websiteProActiveFor`, an internal host included) or on the host's own Maker canvas, where a
+    Pro look is tried free. Null → every mount draws nothing: the page byte for byte as before.
+  */
+  const holdsPart = (part: HubPartId) => (hubParts ? hubParts.includes(part) : proWatermarkHidden);
+  /* 💎 Decorations are the Style part's (gate 16); Scrub and Auto-scroll are Motion's (gate 20) — owner 2026-10-22. */
+  const ownsStyle = holdsPart('style');
+  const scrubAllowed = holdsPart('motion');
+  const artKit = artKitView({ theme: sceneTheme, accents: sceneAccentsFromPreferences((event as { style_preferences?: unknown }).style_preferences), ownsPro: ownsStyle, tryOn: isEditorCanvas });
+  const kitCover = artKit ? <KitSlot kit={artKit} slot="cover" eager /> : null;
 
-  // OWNER LAYER · surface 1 (2026-07-26). `null` for every guest and every
-  // anonymous visitor — `buildOwnerRibbon` returns a model ONLY for the
-  // server-verified capability, so `<OwnerRibbon>` renders nothing and their
-  // DOM is byte-identical to before this PR. Read-only: links only.
-  const ownerRibbon = buildOwnerRibbon({
-    // 👁 A See as sample keeps the HOST's ribbon (its Preview ▾ switches back) while the body is drawn as a guest.
-    ownerCapability: ribbonCapability ?? ownerCapability,
-    eventId: event.event_id,
-    slug: event.slug ?? null,
-    phasesEnabled,
-    // The phase the body is ACTUALLY being built from on this render — the
-    // same value `plan` is computed with, so `?phase=` overrides are reflected.
-    lifecyclePhase,
-    seeAs: sampleViewer,
-  });
+  const hasHeroMedia = Boolean(heroVideoUrl || heroPhotoUrl);
 
   /**
    * Is the viewer a verified HOST of this event?
@@ -790,18 +835,17 @@ export async function SiteBody({
    * the STRANGER'S body: "This is a Setnayan invitation page. Scan your
    * personal QR or open the link the couple sent you." That sentence is
    * addressed to the couple, about their own wedding, telling them to go and
-   * find a link they are the ones who send. The read-only ribbon sat on top of
-   * it saying "your event", so the page contradicted itself.
+   * find a link they are the ones who send. (A read-only host strip sat on top
+   * of it saying "your event", so the page contradicted itself; the strip went
+   * on 2026-10-15 — owner: "Remove it" — and the host's page now looks like a
+   * guest's, less the stranger's door.)
    *
    * ⚖ READ-ONLY STAYS READ-ONLY. This changes only what the host is TOLD. Every
    * real control (guest list, seating, budget, schedule, vendors) stays in
-   * /dashboard/[eventId] and nothing here links anywhere the ribbon does not
-   * already link. It is the same server-verified capability the ribbon uses —
-   * no new gate. The rule now lives in ONE place — `viewerIsEventHost` in
-   * _lib/site-identity.ts, shared with `buildOwnerRibbon` — rather than being
-   * restated here, which is how the ribbon and the body would drift apart.
-   * (Still NOT derived from `ownerRibbon !== null`: that is also null for a
-   * missing slug, which would silently drop the body variant.)
+   * /dashboard/[eventId] and nothing here links into it. It is the same
+   * server-verified capability every host read uses — no new gate. The rule
+   * lives in ONE place — `viewerIsEventHost` in _lib/site-identity.ts — rather
+   * than being restated here.
    */
   const viewerIsHost = viewerIsEventHost(ownerCapability, event.event_id);
 
@@ -812,12 +856,12 @@ export async function SiteBody({
   // row is draft-overlaid for the host's preview like every other canvas.
   const heroRow = widgets.find((w) => w.widget_type === 'hero');
   /* 🧍 How many pairs the page's own hold needs — at most one a scene that Leaves by Scrub (`HubPageHold`). (0 while Scrub shipped dark, to 2026-10-13.) */
-  const pageHolds = hubScrubHoldsAtMost(widgets, proWatermarkHidden);
+  const pageHolds = hubScrubHoldsAtMost(widgets, scrubAllowed);
   /* 🎬 THE COVER AS HAND-OVER ZERO (`hub-scenes.tsx` `HubCoverHold`): is the hero row STORED to leave by Scrub, with a
      Build out to play? The same question a scene is asked, through the same door — were "Scrub out" not offered
      (`lib/scrub-out-offered.ts`, on since 2026-10-13) the answer would be no, on every page. 🔢 NO PAIR IS ADDED FOR IT: the hero row is a row,
      so `pageHolds` above already counts it — one pair for the cover, never two. */
-  const coverStoredToLeave = hubCoverLeaves(widgets, proWatermarkHidden);
+  const coverStoredToLeave = hubCoverLeaves(widgets, scrubAllowed);
   const mainGroundLayer = await mainGroundLayerFor({
     theme: sceneTheme,
     heroConfig: heroRow?.config_json,
@@ -827,6 +871,27 @@ export async function SiteBody({
     // 🎞 A moving background tried in the draft shows on the host's own canvas (verified host only).
     tryOn: isEditorCanvas,
   });
+  /* 🎞 THE SAVE THE DATE FILM WEARS THE MAIN BACKGROUND (Look restudy row 6, owner-approved 2026-10-08: *"Save the
+     date should adapt to the main background as well. we stay 1 design for all."*) — the picture the page wears
+     (`mainGroundStillFor`, the same resolution as the layer above, draft-overlaid for the host), else the page
+     colour; the couple's Readability kept. Resolved only when the film is drawn. */
+  const filmGround = stdFilm
+    ? stdFilmOnMain({
+        still: await mainGroundStillFor({
+          theme: sceneTheme,
+          heroConfig: heroRow?.config_json,
+          event,
+          viewerIsHost,
+          signed: canvasMediaUrls,
+          tryOn: isEditorCanvas,
+        }),
+        pageColour: (() => {
+          const bg = parseSiteBackground(event.site_bg_color);
+          return bg ? (bg.kind === 'plain' ? bg.hex : bg.ombre.base) : themeColours(sceneTheme, event.role_palette).colours.canvas;
+        })(),
+        legibility: stdFollowLegibility(event.std_background),
+      })
+    : null;
   // 🖼 The guest's own bars (header + tab bar): everywhere but the Maker's
   // canvas, and in the canvas only when its "Guest bars" switch is on. In the
   // canvas they are drawn as a GUEST sees them — the host's "Manage" slot is
@@ -887,11 +952,17 @@ export async function SiteBody({
   // (`_lib/hero-design-of.ts`), so the skeleton loads in this same design.
   const heroCanvas = heroCanvasOf(widgets);
   const heroElements = {
-    elements: heroCanvas.elements ?? null,
+    /* 🎬 THE COVER'S ONE ENTRANCE, resolved here onto every word with no Build in of its own (owner-approved
+       2026-10-16, `lib/cover-entrance.ts`) — a word's own Build in wins; nothing stored: the elements as they are. */
+    elements: resolveCoverEntrance(heroCanvas.entrance, heroCanvas.elements),
+    still: coverEntranceIsStill(heroCanvas.entrance),
     stampElements: isMakerCanvas,
     design: heroDesignOf(heroCanvas),
     /* 🎨 The hero parts' own styles — set below, once the page's stage is known. */
     looks: null as Partial<Record<keyof typeof HERO_PART_LOOK, string>> | null,
+    /* 🖼 The Cover Scene's background (owner-approved 2026-10-15) — nothing stored: The theme's own, as before. */
+    /* 🔏 …its files signed on the Main background's own host, never the `r2.dev` one (`signCoverSceneMedia`). */
+    ground: coverSceneLayer(heroCanvas.ground, { heroPhotoUrl: heroPhotoUrl ?? null, signed: await signCoverSceneMedia(heroCanvas.ground) }),
   };
   /* ✍ Does any scene carry a run (one letter, one word in its own look)? Only
      then is the small script that lays them mounted (`HubSceneRuns`) — the
@@ -904,7 +975,7 @@ export async function SiteBody({
 
   /*
     WHO IS ASKING — resolved ONCE, here, from the same facts this page already
-    established for its lock screen and its ribbon.
+    established for its lock screen and its host body.
 
     ⚠ IT USED TO BE BUILT AT THE `<EditorialContent>` CALL, AND ONE READER GOT
     THERE FIRST. The gallery-anchor probe below asks the story loader how many
@@ -981,6 +1052,9 @@ export async function SiteBody({
     firstStartAt: scheduleBlocks[0]?.start_at ?? null,
     firstLabel: scheduleBlocks[0]?.label ?? null,
   });
+  /* ⏰ When GUESTS arrive — the card's first moment when it is an arrival of its own (`lib/guests-arrive.ts`), the dress
+     code's Guests call time (owner 2026-10-19). A plain guest's Me › Arrive by. */
+  const guestsArriveBy = guestsArriveTime(scheduleBlocks);
   // Which wedding-only parts this event TYPE may show. The words half of the
   // owner's ruling is done; this is the other half — a seven-year-old does not
   // need a neutrally-worded love story, he needs no love story.
@@ -1182,6 +1256,10 @@ export async function SiteBody({
      own "RSVP page" opens the Event Hub with it up (`…&editor=1&as=replied#your-details`,
      `lib/maker-made-once-pages.ts`) and edits the card through it — pointing that at the reply page's own canvas is
      a Maker change. A guest is never served it. */
+  /* 🪪 THE LOGO SWITCH IS REAL ON THE COVER (owner 2026-10-15 (4): "Show the logo on Cover and QR" — on = the couple's
+     logo shows on the cover; off = it does not). Cover Scene › Edit's Logo line is the same fact (owner-approved
+     2026-10-16). Unanswered (null) keeps the mark, as before. */
+  const coverLogoOff = (event as { logo_wanted?: boolean | null }).logo_wanted === false;
   const replyDoor = inviteReplyPath(event.slug ?? '');
   const replySheetDrawn = plan.rsvpShouldRender && isEditorCanvas;
   /* 📬 THE REPLY IS OPEN HERE — the stage allows it (`plan.rsvpShouldRender`) AND the couple's window is
@@ -1204,6 +1282,22 @@ export async function SiteBody({
   const doorways = doorwayFacts
     ? resolveGuestDoorways({ slug: event.slug, guestToken, ...doorwayFacts })
     : { venueWalk: null, pabuya: null, wishes: 0 };
+  /* 🎁 E-GIFTS ON WELCOME IS THE CONTENT, NOT A DOOR (owner 2026-10-14). Started HERE, beside the rest of this body's
+     reads, and ONLY when the door would have been drawn (`doorways.pabuya` — gated on what the gift page itself
+     demands) on a Welcome that carries it (`welcomeCarriesGifts`; the Maker's canvas, which can draw every stage's
+     Welcome, always), so a guest whose page has no E-Gifts there pays nothing for it. The gift page's own reader
+     (`loadGiftPage`): identifiers withheld from a reader the event does not recognise, exactly as on `/pabuya`. A
+     failed read is null — the door stands in its place (`WelcomeGiftsContent`); it is logged, never shown as nothing.
+     The reader comes from the page (`giftPageReader`), which holds the request it reads the viewer from. */
+  const giftsOnWelcome =
+    doorways.pabuya !== null &&
+    (isMakerCanvas || welcomeCarriesGifts({ stage: pageStage, bodyNormal: plan.body === 'normal', giftHref: doorways.pabuya, maker: false }));
+  const giftPage = giftsOnWelcome && giftPageReader
+    ? giftPageReader(event).catch((error: unknown) => {
+        logQueryError('site-body (welcome e-gifts)', error, { event_id: event.event_id }, 'graceful_degrade');
+        return null;
+      })
+    : null;
   // Is the real player already on this page? The player follows the broadcast,
   // not the calendar (owner-ruled 2026-09-02) — both trees mount it whenever the
   // links resolve, regardless of dayOfPhase — so one expression covers both.
@@ -1240,7 +1334,16 @@ export async function SiteBody({
       (showGuestBars || (stagesTabs && isMakerCanvas)),
     makerCanvas: isMakerCanvas || canvasOnly !== null,
     stagesCanvas: stagesTabs && isMakerCanvas && canvasOnly === null,
+    bodyFilm: plan.body === 'save_the_date',
   });
+  /* 📜 THE INVITATION AND SAVE THE DATE ARE ONE PAGE (owner 2026-10-15, DECISION_LOG "THE INVITATION AND SAVE THE
+     DATE BECOME ONE PAGE"; the approved `prototypes/event_hub_one_page_and_desktop_2026-10-15_fable.html` §1). The
+     groups below are filed exactly as before — on Home · Details · Story · Me — but on these two stages every
+     jump-mark tab is on ONE page (`hubPageOf`): Home's scenes, Details' scenes, the entourage and Story are all
+     drawn, in that order, under one scroll, and only Me is a page of its own. The Day keeps a page per tab. */
+  const onePage = tabsOn && hubPageModeOf(pageStage) === 'one-page';
+  /** What each bar is told: The Day's tabs are pages; a one-page stage's are marks (and Me a page). */
+  const barTabbed: boolean | 'one-page' = tabsOn ? (onePage ? 'one-page' : true) : false;
   /** The Day's first tab, or the Invitation's — where the masthead lives. */
   const leadTab = pageStage === 'event' ? 'live' : 'home';
   /* 🧭 THE STAGES CANVAS'S PAGES (owner 08 Oct, on the Maker's Stages view: *"i do not see the individual pages. i
@@ -1270,9 +1373,12 @@ export async function SiteBody({
     (Array.isArray(node) && node.every(nothingIn)) ||
     (isValidElement(node) && node.type === Fragment && nothingIn((node.props as { children?: React.ReactNode }).children));
   const pageTabsFor = (bar: readonly NavSlot[]) => {
-    const inPage = pageTabKeys({ tabsOn, bar, stagesPages });
+    const inPage = pageTabKeys({ tabsOn, bar, stagesPages, onePage });
     const on = inPage.length > 0;
-    const active = activeHubTab(activeTab, inPage);
+    /** 📜 The PAGE on show: The Day's tab; on a one-page stage the one page, or Me (`?tab=details` → the one page). */
+    const active = activeHubTab(activeTab, hubPagesOf(inPage, onePage));
+    /** The page a tab's group is on, and whether it is on the page on show. */
+    const pageOf = (tab: string) => hubPageOf(tab, onePage);
     /** The tabs something was filed on — the Stages canvas draws every OTHER page of its list a stand-in (`rest`). */
     const filled = new Set<string>();
     /** One tab's content. `chapters` keeps the §6 scroll reveal on its children
@@ -1290,8 +1396,8 @@ export async function SiteBody({
       return (
         <div
           id={opts.id}
-          {...{ [HUB_TAB_ATTR]: tab }}
-          hidden={tab !== active ? true : undefined}
+          {...{ [HUB_TAB_ATTR]: tab, [HUB_PAGE_ATTR]: pageOf(tab) }}
+          hidden={pageOf(tab) !== active ? true : undefined}
           {...(opts.chapters ? { 'data-pahina-first-screen': '', 'data-pahina-chapters': '' } : {})}
           className={`${opts.className ?? ''} empty:hidden`.trim()}
         >
@@ -1301,10 +1407,10 @@ export async function SiteBody({
     };
     /** The same marks, for a block that draws its own root (a component
      *  outside both trees). Empty on a page that is one scroll. */
-    const attrs = (want: string): { [HUB_TAB_ATTR]?: string; hidden?: boolean } => {
+    const attrs = (want: string): { [HUB_TAB_ATTR]?: string; [HUB_PAGE_ATTR]?: string; hidden?: boolean } => {
       if (!on) return {};
       const tab = hubTabFor(want, inPage);
-      return { [HUB_TAB_ATTR]: tab, ...(tab !== active ? { hidden: true } : {}) };
+      return { [HUB_TAB_ATTR]: tab, [HUB_PAGE_ATTR]: pageOf(tab), ...(pageOf(tab) !== active ? { hidden: true } : {}) };
     };
     /** 🧭 Stages canvas only: a page of the Maker's list nothing was filed on is STILL a page — its stand-in, in
      *  its own group (the Camera, which guests open as its own screen; a page with nothing on it yet). Called
@@ -1312,7 +1418,7 @@ export async function SiteBody({
     const rest = () =>
       on && stagesPageList
         ? stagesPagesLeft(inPage, filled).map((p) => (
-            <div key={p} {...{ [HUB_TAB_ATTR]: p }} data-stages-page={p} hidden={p !== active ? true : undefined}>
+            <div key={p} {...{ [HUB_TAB_ATTR]: p, [HUB_PAGE_ATTR]: pageOf(p) }} data-stages-page={p} hidden={pageOf(p) !== active ? true : undefined}>
               <MakerPageStandIn page={p} label={stagesPageList.find((x) => x.key === p)?.label ?? p} />
             </div>
           ))
@@ -1434,7 +1540,7 @@ export async function SiteBody({
           galleryAnchorId={recapGalleryAnchorId}
           /*
             WHO IS ASKING — resolved ONCE here, from the same three facts this
-            page already established for its lock screen and its ribbon, rather
+            page already established for its lock screen and its host body, rather
             than re-derived inside the story where it could disagree with them.
             "The people of this celebration" is exactly who the page already
             recognises: a host, a guest with a seat or a redeemed invitation, and
@@ -1526,6 +1632,8 @@ export async function SiteBody({
            Date's own still view — is the top of the page (owner 2026-10-11). With a date the page has its own
            scenes (the countdown, the photos), and nothing is added. Never in the Maker's canvas. */
         closing={!isMakerCanvas && stdFilm && !event.event_date ? stdStillView() : null}
+        /* 📜 Me is its own page on the one-page Save the Date (owner 2026-10-15): opened there, the film is lifted. */
+        liftOnLanding={onePage && pageTabs.active !== hubPageOf('home', onePage)}
       >
         {normalBody()}
       </StdFilmHandoff>
@@ -1552,12 +1660,14 @@ export async function SiteBody({
         animatedMonogram={animatedMonogram}
         studioAnim={studioAnim}
         film={stdFilm}
-        background={stdBackground}
-        backgroundImageUrl={stdBackgroundUrl}
+        background={filmGround?.background}
+        backgroundImageUrl={filmGround?.imageUrl ?? null}
         monogramText={event.monogram_text}
         monogramSvg={bespokeSvg}
         lockup={stdLockupFor(event)}
-        musicUrl={ownsStdReveal ? bgMusicUrl : null}
+        // 💎 Part by part (owner 2026-10-22): the film's own song is Music's (gate 4), its own film Reveal's (gate 3),
+        // its closing gallery Photos' (gate 6).
+        musicUrl={holdsPart('music') ? bgMusicUrl : null}
         videoUrl={ownsStdReveal ? stdVideoUrl : null}
         videoPosterUrl={ownsStdReveal ? stdVideoPosterUrl : null}
         ceremonyVenue={stdVenues?.ceremony ?? null}
@@ -1565,7 +1675,7 @@ export async function SiteBody({
         receptionCity={stdFilmPlaceLine(stdVenues?.receptionCity, event)}
         galleryUrls={
           // 👁 The gallery hidden on this stage is not the film's closing beat either.
-          ownsStdReveal && !hiddenOnStage(widgets, 'our_photos', lifecyclePhase, phasesEnabled)
+          holdsPart('photos') && !hiddenOnStage(widgets, 'our_photos', lifecyclePhase, phasesEnabled)
             ? ourPhotoUrls.length
               ? ourPhotoUrls
               : heroPhotoUrl
@@ -1690,9 +1800,12 @@ export async function SiteBody({
       // and a type with no two people has no answer.
       // 📖 …and only once there is a chapter to land on (`storyTabHasChapter`):
       // open-browse no longer draws it empty — `{}` read as a story.
+      // 📜 …and on Save the Date whenever it is on the page: `phasedBody` draws the stage's own body under the film
+      // for EVERY event (2026-08-05), so Our Love Story is there with or without open browse — the bar lets Story
+      // through as a jump mark (owner 2026-10-15, "Home · Story · Me on Save the Date").
       story:
         weddingOnly.love_story &&
-        bodyRenders &&
+        (bodyRenders || plan.body === 'save_the_date') &&
         storyTabHasChapter(event.love_story, storySceneShown) &&
         !storyOffHere,
       // "Gallery" = the live photo wall ON THE DAY (the livestream is a separate
@@ -1709,7 +1822,7 @@ export async function SiteBody({
     // 🎬 Scroll · Scrub per section — the same scenes as the guest tree, so a
     // stranger following the link sees the page the couple arranged.
     const sceneNodes = (list: typeof detailsScenes) => (
-      <HubScenes widgets={list} scrubAllowed={proWatermarkHidden} stageMarks={stageAutoplayOn}>
+      <HubScenes widgets={list} scrubAllowed={scrubAllowed} stageMarks={stageAutoplayOn}>
       {list.map((widget) => (
       /* One node per widget still (HubScenes pairs by position): the marker
          and the section travel together in one fragment. */
@@ -1720,8 +1833,11 @@ export async function SiteBody({
         stage={pageStage}
         canvasMediaUrls={canvasMediaUrls}
         hubTheme={sceneTheme}
+        artKit={artKit}
         ownClipPlays={isMakerCanvas}
         guestView={!isMakerCanvas}
+        /* 👗 A host on their own Event Hub keeps every role; a visitor sees the Guests card (owner 2026-10-19). */
+        dressCodeEveryRole={viewerIsHost && sampleViewer === null}
         makerEmpty={
           isMakerCanvas && makerDrawsEmpty(widget.widget_type) &&
           (openBrowseContent as Partial<Record<string, boolean>>)[widget.widget_type] === false
@@ -1747,25 +1863,6 @@ export async function SiteBody({
     const stagesLead = stagesPages && pageStage === 'rsvp' ? detailsSceneList.filter((w) => at(`w:${w.widget_type}`, 'details') === leadTab) : [];
     const stagesLeadCut = stagesLead.findIndex((w) => w.widget_type === 'special_message');
     const stagesAround = splitAroundEntourage(pageStage, detailsSceneList.filter((w) => !stagesLead.includes(w)));
-    /** "THE DETAILS · WHEN · WHERE" behind its Maker marker — ONE node, for the page's Details and the Stages canvas's. */
-    const eventDetailsPart = (
-      <>
-                {blockMark('details')}
-                {makerMark('f:details')}
-                <PublicEventDetails
-                  dateLabel={event.event_date ? formatEventDate(event.event_date) : null}
-                  venueName={event.venue_name}
-                  venueAddress={event.venue_address}
-                  venues={event.venues}
-                  dateIso={event.event_date ?? null}
-                  sceneStyle={sceneStyleOfRow(
-                    widgets.find((w) => w.widget_type === 'event_details'),
-                    pageStage,
-                    event.event_type,
-                  )}
-                />
-      </>
-    );
     /** A run of scenes, one group per page of the Maker's list, the couple's order kept inside each. */
     const scenesByPage = (list: typeof detailsScenes, gap: 'mt-12' | 'mt-8') =>
       (stagesPages ?? []).map((p) => {
@@ -1838,8 +1935,8 @@ export async function SiteBody({
 
           The owner opened his own wedding page while signed in and the
           bar's last tab said **"Join"** — a stranger's invitation to add
-          themselves to the guest list — while the owner ribbon two
-          hundred lines above said "YOUR LIVE SITE". Two mechanisms on one
+          themselves to the guest list — while the owner ribbon (removed
+          2026-10-15) above it said "YOUR LIVE SITE". Two mechanisms on one
           screen, at one moment, disagreeing about who the reader is. He
           asked: *"story and join seems incorrect. is that correct?"* It
           was not.
@@ -1897,7 +1994,7 @@ export async function SiteBody({
               (findSeatShown && (ownPage('f:find_your_seat', 'home') === 'home' || !(ownerCapability || isEditorCanvas)))
             : findSeatShown),
         // 📱 Each tab its own page, on the Invitation and The Day.
-        tabbed: tabsOn,
+        tabbed: barTabbed,
     });
     const tabs = pageTabsFor(anonBar);
     pageTabs = tabs;
@@ -1937,6 +2034,103 @@ export async function SiteBody({
     // `splitAroundEntourage`) — drawn right after the entourage mount below.
     const detailsAround = splitAroundEntourage(pageStage, hereScenes);
     const publicWidgetNodes = sceneNodes(detailsAround.before);
+    /* ── THE STRANGER'S ONE BUTTON (owner 2026-09-26/27) ─────────────────────
+       General details above; ONE way in — "Confirm your Booking" (owner 2026-10-17, verbatim: *"Change the button to
+       'Confirm your Booking'"*; it read "Get inside"): "Upload your QR · Sign in", or, for a signed-in account not on
+       this list, "Ask to join". A stale or other-event key keeps its one explaining line above the same button.
+       THE HOST'S OWN PAGE meets none: a stale or absent guest cookie says nothing about somebody whose host membership
+       the database just confirmed (✂ no host strip since 2026-10-15 — the host's page is a guest's). 👁 See as › Signed
+       out draws THE DOOR on the canvas — the same GetInside, with no join action bound (a sample viewer asks to join
+       nothing). */
+    const doorShown = !viewerIsHost && !(vendorCapability || (isEditorCanvas && sampleViewer !== 'signed-out'));
+    const strangerDoor = (inFoot: boolean) => (
+      <>
+        {viewerIsHost ? (
+          /* THE HOST'S OWN PAGE: no door (see above). */
+          null
+        ) : (
+        <>
+          {reason === 'invalid_invite' ? (
+            <p className="mx-auto max-w-prose rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700">
+              That invite link doesn&rsquo;t look right — it may have been replaced with a new
+              one. Ask your host for your current QR or link; every guest has their own, and
+              an old one stops working the moment it&rsquo;s replaced.
+            </p>
+          ) : reason === 'wrong_event' ? (
+            <p className="mx-auto max-w-prose rounded-md border-l-2 border-ink/30 bg-paper-deep px-4 py-3 text-sm text-ink/75">
+              You&rsquo;re signed in to a different event&rsquo;s invitation. Open your own
+              QR or invite link to switch.
+            </p>
+          ) : null}
+          {vendorCapability || (isEditorCanvas && sampleViewer !== 'signed-out') ? null : (
+            <GetInside
+              slug={event.slug}
+              eventId={event.event_id}
+              dock={!isEditorCanvas}
+              inFoot={inFoot}
+              signedInNotListed={anon.signedInNotListed}
+              theOrganizer={clientWords.theOrganizer}
+              mayAskToJoin={anyoneMayAskToJoin(event.rsvp_ask_config)}
+              joinAction={
+                sampleViewer === null && oneQrLetsYouIn(event.rsvp_ask_config)
+                  ? joinEventAction.bind(null, event.event_id, '')
+                  : undefined
+              }
+            />
+          )}
+        </>
+        )}
+      </>
+    );
+    /* 🦶 THE COVER ALWAYS HAS A WAY ON (live on cale-ice 2026-10-17 — owner: *"where is the RSVP and swipe marker?"* ·
+       *"the button shows after the cover?"*). Since the Cover Scene took the whole first screen (100svh), the door that
+       stood under the cover was drawn BELOW the fold and the cover itself had no foot — a first screen that ended in
+       nothing. So whenever a stranger's cover is drawn (the photo cover or the text one — the same test as the Maker's
+       list, `lib/maker-scene-list.ts`), the door moves INTO its foot, where a guest's RSVP button stands, with the
+       "Swipe up" hint under it, and is not drawn again below (never twice). A viewer who meets no door (the host, a
+       booked supplier, the canvas seen as someone else) gets the RSVP button to the shipped reply door in its place
+       (`coverRsvpOf`, the reply page asks a visitor without a key for the passcode first). With no cover drawn the
+       door keeps its row below, as before. Held by `the-cover-always-has-a-way-on.test.ts`. */
+    const coverHoldsDoor = plan.anonymousHeroBanner || !hasHeroMedia;
+    const footDoor = coverHoldsDoor && doorShown ? strangerDoor(true) : null;
+    /* 🧭 …AND THE HOST'S OWN PAGE HAS ITS RSVP PART (owner 2026-10-17, *"confirm attendance is not doing anything?"* —
+       on cale-ice, signed in as its host). The host holds no guest pass, so the reply page sent them straight back to
+       `/{slug}` (307) and the tap reloaded the cover. Their page is a guest's (owner 2026-10-15): the Reply card stands
+       under the cover as a guest's does, the cover's button takes them to it, and the card's button opens the Reply
+       as the host's own preview of it (`?preview=draft`, the Maker's "Preview the whole stage" door — verified host
+       membership, a sample guest, never a real reply). A booked supplier has no reply to make: no button.
+       🗳 …AND THAT PREVIEW WAS THE BUG (owner 2026-10-24, on cale-ice): the page said "Viewing as you", and its Reply
+       greeted "Gabriel dela Peña" — the sample is named after a real guest — and asked the host to answer HIS RSVP.
+       The card now opens the plain reply page, which replies as the host's OWN row (`readReplyIdentityForEvent`), and
+       reads that row's real answer ("You're coming · 1 seat · Change my reply" for a groom already attending). A host
+       with no row of their own keeps the card (the cover always has a way on — `the-cover-always-has-a-way-on`), and
+       the reply page TELLS them they are not on the list (`NoReplyHere`) — never a sample.
+       🛡 `the-reply-is-sent-as-who-the-hub-says.test.ts`. */
+    const hostReplyCard =
+      viewerIsHost && pageStage === 'rsvp' && plan.rsvpShouldRender && !isEditorCanvas
+        ? replyCardOf({
+            action: resolveArrivalAction({
+              slug: event.slug ?? '',
+              rsvpStatus: hostOwnRsvp ?? 'pending',
+              eventDate: event.event_date,
+              today: manilaToday(),
+              hasPass: false,
+              replyOpen: replyOpenHere,
+            }),
+            replyBy: null,
+            seats: 1,
+            solemn: clientWords.solemn,
+            window: repliesWindow,
+            organizer: clientWords.theOrganizer,
+          })
+        : null;
+    const strangerCoverRsvp = footDoor
+      ? null
+      : hostReplyCard
+        ? coverRsvpOf({ card: hostReplyCard, toPart: true })
+        : pageStage === 'rsvp' && plan.rsvpShouldRender && vendorCapability === null && !viewerIsHost
+          ? coverRsvpOf({ card: null, visitorHref: replyDoor })
+          : null;
 
     return (
       <>
@@ -1974,7 +2168,7 @@ export async function SiteBody({
         {group(leadTab, <>
         {/* Menu-shell anchor targets (PR6). aria-hidden zero-height markers so
             the fixed SiteMenuBar's in-page links land on the right sections. */}
-        <div id={SITE_MENU_ANCHORS.home} aria-hidden className="scroll-mt-6" />
+        {onePage ? null : <div id={SITE_MENU_ANCHORS.home} aria-hidden className="scroll-mt-6" />}
         {/* Open-browse Home spotlight (PR7). Null (byte-inert) unless
             event.website_open_browse is TRUE; identity-aware.
             ☝ ONE BUTTON (owner 2026-09-26/27): the stranger's "Find your
@@ -1989,8 +2183,8 @@ export async function SiteBody({
             (normal body only — plan.anonymousHeroBanner). Otherwise fall back
             to the centered text-only treatment inside the normal branch. */}
         {/* 🎬 THE STRANGER'S PHOTO COVER HANDS OVER (hand-over zero, as the guest tree's does — `HubCoverHold`). It is
-            the LAST thing in this group, so its rest box holds nothing: what arrives is the next block on the page —
-            the door, in the next group — found by the engine, and because the door is the page's action row the
+            the LAST thing in this group, so its rest box holds nothing: what arrives is the next block on the page
+            (its door rides in its own foot since 2026-10-17, `footDoor`) — found by the engine, and because the door is the page's action row the
             block after it arrives with it (owner 2026-10-10: *"Together."*). The cover's marker goes in WITH it, so
             the Maker still finds the cover right after its marker.
             🔒 A cover that does not leave — every page today — is not wrapped: the marker and the masthead AS GIVEN. */}
@@ -2007,11 +2201,14 @@ export async function SiteBody({
             eyebrow={mastheadEyebrow(clientWords)}
             displayName={event.display_name}
             {...heroElements}
+            kitSlot={kitCover}
             twoPeople={clientWords.twoPeople}
             eventDate={event.event_date}
             venueName={venueLine}
             badgeSlot={dayOfBadge}
-            monogramSlot={
+            door={footDoor}
+            rsvp={strangerCoverRsvp}
+            monogramSlot={coverLogoOff ? null : (
               <HeroMonogram
                 event={event}
                 monogram={monogram}
@@ -2019,7 +2216,7 @@ export async function SiteBody({
                 bespokeSvg={bespokeSvg}
                 shadow
               />
-            }
+            )}
             mediaSlot={<HeroBackgroundMedia videoUrl={heroVideoUrl} photoUrl={heroPhotoUrl} />}
             mediaCaption={venueLine}
           />
@@ -2039,7 +2236,7 @@ export async function SiteBody({
                   🔒 Not wrapped unless the cover leaves: every page today is drawn exactly as before. */}
               <HubCoverHold
                 leaves={coverStoredToLeave && !hasHeroMedia}
-                boxes={ticketUrl ? STRANGER_TEXT_COVER_BOXES : STRANGER_TEXT_COVER_BOXES_DOOR_FIRST}
+                boxes={ticketUrl || coverHoldsDoor ? STRANGER_TEXT_COVER_BOXES : STRANGER_TEXT_COVER_BOXES_DOOR_FIRST}
                 cover={<>
               {!hasHeroMedia ? makerMark('f:hero') : null}
               {!hasHeroMedia ? (
@@ -2048,6 +2245,7 @@ export async function SiteBody({
                   eyebrow={mastheadEyebrow(clientWords)}
                   displayName={event.display_name}
                   {...heroElements}
+                  kitSlot={kitCover}
                   card={inviteCard ?? undefined}
                   /* 🔗 The link down names only what this viewer's page holds (`hubLinkWords`). */
                   linkWords={hubLinkWords({ place: openBrowseContent.venue_map && detailsSceneList.some((w) => w.widget_type === 'venue_map'), story: menuSections.story || storySceneShown })}
@@ -2055,14 +2253,16 @@ export async function SiteBody({
                   eventDate={event.event_date}
                   venueName={venueLine}
                   badgeSlot={dayOfBadge}
-                  monogramSlot={
+                  door={footDoor}
+                  rsvp={strangerCoverRsvp}
+                  monogramSlot={coverLogoOff ? null : (
                     <HeroMonogram
                       event={event}
                       monogram={monogram}
                       animatedMonogram={animatedMonogram}
                       bespokeSvg={bespokeSvg}
                     />
-                  }
+                  )}
                 />
               ) : null}
                 </>}
@@ -2072,57 +2272,18 @@ export async function SiteBody({
                   own view included, so they see what their visitors get. The
                   organizer sells the tickets; this only links to their page. */}
               <GetTickets url={ticketUrl} />
-              {viewerIsHost ? (
-                /* THE HOST'S OWN PAGE. Wins over every `reason` variant below:
-                   a stale or absent guest cookie says nothing about somebody
-                   whose host membership the database just confirmed, and the
-                   invite-error wording would be actively wrong for them.
-                   ✂ No explaining paragraph (owner 2026-10-03, "too much going
-                   on"): the host ribbon above already says "Your Event Hub — as
-                   a guest sees it". The host simply meets no "Get inside". */
-                null
-              ) : (
-                /* ── THE STRANGER'S ONE BUTTON (owner 2026-09-26/27) ──────────
-                   General details above; ONE way in below — "Get inside: Scan
-                   your QR, Tap NFC or Sign in", or, for a signed-in account not
-                   on this list, "Ask to join". A stale or other-event key keeps
-                   its one explaining line above the same button.
-                   🚪 `sn-door-row` (globals.css): the row draws no box of its own, so the
-                   door is the first screen's own child and can dock above the bar. */
-                <div className="sn-door-row">
-                  {reason === 'invalid_invite' ? (
-                    <p className="mx-auto max-w-prose rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700">
-                      That invite link doesn&rsquo;t look right — it may have been replaced with a new
-                      one. Ask your host for your current QR or link; every guest has their own, and
-                      an old one stops working the moment it&rsquo;s replaced.
-                    </p>
-                  ) : reason === 'wrong_event' ? (
-                    <p className="mx-auto max-w-prose rounded-md border-l-2 border-ink/30 bg-paper-deep px-4 py-3 text-sm text-ink/75">
-                      You&rsquo;re signed in to a different event&rsquo;s invitation. Open your own
-                      QR or invite link to switch.
-                    </p>
-                  ) : null}
-                  {/* 👁 See as › Signed out draws THE DOOR on the canvas — the
-                      same GetInside, with no join action bound (a sample
-                      viewer asks to join nothing). */}
-                  {vendorCapability || (isEditorCanvas && sampleViewer !== 'signed-out') ? null : (
-                    <GetInside
-                      slug={event.slug}
-                      eventId={event.event_id}
-                      dock={!isEditorCanvas}
-                      signedInNotListed={anon.signedInNotListed}
-                      theOrganizer={clientWords.theOrganizer}
-                      mayAskToJoin={anyoneMayAskToJoin(event.rsvp_ask_config)}
-                      joinAction={
-                        sampleViewer === null && oneQrLetsYouIn(event.rsvp_ask_config)
-                          ? joinEventAction.bind(null, event.event_id, '')
-                          : undefined
-                      }
-                    />
-                  )}
-                </div>
-              )}
+              {/* 🚪 The door's own row — only where no cover holds it (`coverHoldsDoor` above): never drawn twice.
+                  🚪 `sn-door-row` (globals.css): the row draws no box of its own, so the door is the first screen's
+                  own child and can dock above the bar. */}
+              {coverHoldsDoor || viewerIsHost ? null : <div className="sn-door-row">{strangerDoor(false)}</div>}
+              {/* 🧭 The host's RSVP part — the Reply card a guest meets here (see `hostReplyCard`). */}
+              {hostReplyCard ? <ReplyCardRow card={hostReplyCard} partId={COVER_RSVP_PART} /> : null}
               </HubCoverHold>
+              {/* 🪪 "This browser also holds <name>'s invitation. Viewing as you." (`heldPassSlot`) — the host / signed-in
+                  stranger's page has no Me, so the line stands right under the cover. */}
+              {heldPassSlot && !isEditorCanvas ? <div className="mx-auto mt-6 max-w-prose px-4">{heldPassSlot}</div> : null}
+              {/* 📜 One page: Home lands after the cover and its one door (see the guest tree). */}
+              {onePage ? <div id={SITE_MENU_ANCHORS.home} aria-hidden data-home-after-cover="" className={ONE_PAGE_HOME_MARK} /> : null}
             </div>
             ), { chapters: true })}
 
@@ -2172,7 +2333,7 @@ export async function SiteBody({
             <div className="mt-8 text-center">
               <Link
                 href={`/${event.slug}/find-seat`}
-                className="inline-flex items-center gap-2 rounded-full border border-ink/15 bg-cream px-5 py-2.5 text-sm font-medium text-ink/75 shadow-sm hover:border-terracotta hover:text-terracotta-700"
+                className="inline-flex min-h-[44px] items-center gap-2 rounded-full border border-ink/15 bg-cream px-5 py-2.5 text-sm font-medium text-ink/75 shadow-sm hover:border-terracotta hover:text-terracotta-700"
               >
                 <MapPin aria-hidden className="h-4 w-4" strokeWidth={1.75} />
                 Find your seat
@@ -2327,6 +2488,7 @@ export async function SiteBody({
                 <GuestWelcome
                   partLooks={welcomeLooks}
                   parts={parts}
+                  artKit={artKit}
                   words={clientWords}
                   look={null}
                   reminders={
@@ -2335,6 +2497,7 @@ export async function SiteBody({
                         widget={remindersScene}
                         canvasMediaUrls={canvasMediaUrls}
                         hubTheme={sceneTheme}
+                        artKit={artKit}
                         ownClipPlays={isMakerCanvas}
                         guestView={!isMakerCanvas}
                         makerEmpty={
@@ -2354,6 +2517,7 @@ export async function SiteBody({
                      Maker's own marker (`guestSceneMark`): a look picked there is drawn by the rules a guest gets. */
                   mark={guestSceneMark}
                   giftWishes={doorways.wishes}
+                  giftContent={giftPage}
                   maker={isMakerCanvas}
                 />
               </div>
@@ -2368,6 +2532,7 @@ export async function SiteBody({
                 <GuestWelcome
                   partLooks={welcomeLooks}
                   parts={dayWelcome}
+                  artKit={artKit}
                   words={clientWords}
                   look={null}
                   reminders={
@@ -2376,6 +2541,7 @@ export async function SiteBody({
                         widget={dayRemindersRow}
                         canvasMediaUrls={canvasMediaUrls}
                         hubTheme={sceneTheme}
+                        artKit={artKit}
                         ownClipPlays={isMakerCanvas}
                         guestView={!isMakerCanvas}
                         event={event}
@@ -2389,6 +2555,7 @@ export async function SiteBody({
                   giftHref={doorways.pabuya}
                   mark={giftsBlockMark}
                   giftWishes={doorways.wishes}
+                  giftContent={giftPage}
                 />
               </div>
             )) : null}
@@ -2399,7 +2566,6 @@ export async function SiteBody({
               <>
                 {plan.openBrowse ? group(at('f:details', scenesTab), (
                   <section id={SITE_MENU_ANCHORS.details} className="mt-12 space-y-8 scroll-mt-6">
-                    {eventDetailsPart}
                     {detailsSceneList.length === 0 ? (
                       <SectionEmptyPlate kind="details" pastTense={archiveTense} occasion={clientWords.occasion} />
                     ) : null}
@@ -2414,7 +2580,6 @@ export async function SiteBody({
               // event-level facts (the anonymous event_details variant — §5.10),
               // the public widgets, then a teaser plate when nothing is filled.
               <section id={SITE_MENU_ANCHORS.details} className="mt-12 space-y-8 scroll-mt-6">
-                {eventDetailsPart}
                 <div className="sn-hub-cards space-y-4">{publicWidgetNodes}</div>
                 {detailsSceneList.length === 0 ? (
                   <SectionEmptyPlate kind="details" pastTense={archiveTense} occasion={clientWords.occasion} />
@@ -2441,7 +2606,7 @@ export async function SiteBody({
                 list" — it should not "see other [list]", it should extend as
                 needed). Everyone shows inline; `/[slug]/everyone` keeps
                 working for old links, it just isn't linked from here. */}
-            {group(at('f:entourage', scenesTab), <>{entourageShownOn(pageStage) ? blockMark('entourage') : null}{entourageShownOn(pageStage) ? <EntourageSection groups={entourage} id="site-entourage" sceneStyle={entourageStyle} /> : null}</>)}
+            {group(at('f:entourage', scenesTab), <>{entourageShownOn(pageStage) ? blockMark('entourage') : null}{entourageShownOn(pageStage) ? <EntourageSection groups={entourage} id="site-entourage" sceneStyle={entourageStyle} myGuestId={viewerIsHost && !isEditorCanvas && sampleViewer === null ? hostOwnGuestId : null} /> : null}</>)}
             {stagesPages ? scenesByPage(stagesAround.after, 'mt-8') : detailsAround.after.length > 0 ? group(scenesTab, <div className="sn-hub-cards mt-8 space-y-4">{sceneNodes(detailsAround.after)}</div>) : null}
 
             {makerDayStandIns('last')}
@@ -2524,11 +2689,13 @@ export async function SiteBody({
         {menuOn && showGuestBars ? (
           <SiteMenuBar
             slots={anonBar}
+            onePage={onePage && tabs.on}
           />
         ) : null}
-        {/* 📱 Each tab its own page — the hub shell's page frame shows one tab
-            at a time and keeps its address (`hub/hub-shell.tsx`). */}
-        {menuOn && showGuestBars && tabs.on ? <HubShell frame="page" slots={anonBar} /> : null}
+        {/* 📱 Each tab its own page — the hub shell's page frame shows one page
+            at a time and keeps its address (`hub/hub-shell.tsx`); 📜 on a one-page
+            stage that is the one page or Me (owner 2026-10-15). */}
+        {menuOn && showGuestBars && tabs.on ? <HubShell frame="page" slots={anonBar} onePage={onePage} /> : null}
             </>
           );
         })()}
@@ -2642,17 +2809,33 @@ export async function SiteBody({
               rolePalette: event.role_palette,
               roleNames,
               comingWith,
+              guestsArriveBy,
+              person: { ...guestNamePartsOf(guest), attire: guestAttireOf(guest) },
             }),
           })
         : [];
+    /* 💌 THE HOSTS' NOTE TO THIS GUEST (owner 2026-10-20, `guestMeNoteShown`): under Your role on Me, by the same gate
+       as the four parts — and read from THIS reader's own row (`loadGuestOwnRow`), so it is only ever theirs. Never on
+       the Maker's canvas (no real guest is reading it there). */
+    const meNote =
+      guestStages && pageStage === 'rsvp' && tabsOn && !isMakerCanvas
+        ? guestMeNoteShown({
+            on: guestStages,
+            getIn: readGuestsGetIn(event.rsvp_ask_config),
+            listed: readerIsListed({ kind: 'guest', entrySource: (guest as { entry_source?: string | null }).entry_source ?? null }),
+            note: guest.host_note_for_guest ?? null,
+            eventNames: event.display_name,
+            theOrganizer: clientWords.theOrganizer,
+          })
+        : null;
     /* ✉ THE REPLY CARD (owner 2026-10-06) — the page's one action, in its three
        reply states, said as a card: under the names on Welcome and at the top
        of Me. Only where the reply sheet it opens is on the page. */
     const replyBy = plan.guestListClosed
       ? null
       : guestReplyBy({ deadline: event.guest_list_edit_deadline ?? null, today: todayYmd() });
-    const replyCard =
-      guestStages && pageStage === 'rsvp' && plan.rsvpShouldRender && !isMakerCanvas
+    const replyCardHere =
+      pageStage === 'rsvp' && plan.rsvpShouldRender && !isMakerCanvas
         ? replyCardOf({
             action: arrivalAction,
             replyBy: replyBy ? formatEventDateWithPrecision(replyBy.date, 'day') || null : null,
@@ -2661,8 +2844,17 @@ export async function SiteBody({
             // 📬 Shut: "Replies open on …" / "Replies are closed." — no button (owner 2026-10-14).
             window: repliesWindow,
             organizer: clientWords.theOrganizer,
+            /* ✉️ Coming, with the couple's switched-on questions still unanswered: "N more answers" — here, on Me, and
+               on the cover's button (owner 2026-10-20). N is the key gate's own missing set (`moreAnswersOf`, page.tsx). */
+            moreAnswers: g.moreAnswers,
           })
         : null;
+    /* The Welcome's card and the cover's state follow the new guest side (`guestStages`), as they shipped. */
+    const replyCard = guestStages ? replyCardHere : null;
+    /* ✉ ME'S ONE REPLY (owner 2026-10-24) — for EVERY guest on the Invitation, not only the new guest side: it replaces
+       the ticket's "Reply to the invitation" and the "Change your reply" bar, which every guest had. A plus-one who has
+       not replied is not asked here (their own link asks them — as the ticket's door never did either). */
+    const meReplyCard = replyCardHere && !(guest.plus_one_of_guest_id && replyCardHere.kind === 'ask') ? replyCardHere : null;
     /* 👗 THIS GUEST'S OWN LOOK — read once, for the Welcome's "you" panel and
        for Me's parts (one home per fact: when Me draws them, the Welcome's
        look stands down — DECISION_LOG 2026-10-06 "'YOUR DETAILS' LIVES ON
@@ -2672,10 +2864,13 @@ export async function SiteBody({
       ceremonyType: dressRiteOf(event),
       genderSeparation: (event as { gender_separation?: string | null }).gender_separation ?? null,
       guestRole: guest.role ?? null,
+      guestAttire: guestAttireOf(guest),
+      guestNameParts: guestNamePartsOf(guest),
       march: marchPlaceOf(entourage, guest.guest_id),
       rolePalette: event.role_palette,
       paletteLook: paletteLookOfRow(widgetByType(widgets, 'dress_code')),
       dosLook: dosLookOfRow(widgetByType(widgets, 'dress_code')),
+      guestsArriveBy,
     };
     const welcome = welcomeParts({
       stage: pageStage,
@@ -2715,7 +2910,8 @@ export async function SiteBody({
         (makerPages ? detailsSceneList.some((w) => sceneOwnPage(w) === 'details') : detailsSceneList.length > 0),
       // A type with no two people has no love story (same gate as the public page).
       // …and only once there is a chapter to land on (`storyTabHasChapter`).
-      story: weddingOnly.love_story && guestBodyRenders && storyTabHasChapter(event.love_story, storySceneShown) && !storyOffHere,
+      // 📜 On Save the Date the body is under the film for every event, so the story is on the page (see the stranger's tree).
+      story: weddingOnly.love_story && (guestBodyRenders || plan.body === 'save_the_date') && storyTabHasChapter(event.love_story, storySceneShown) && !storyOffHere,
       // "Gallery" = the live photo wall on the day (mirrors the LiveWallBlock
       // gate below), the recap's photo run after it. A guest's own "photos of
       // you" strip is deliberately NOT a third answer: it closes with the
@@ -2745,7 +2941,9 @@ export async function SiteBody({
        A pass is read on arrival, and "next up" on a card in someone's pocket
        at 9pm would tell them to arrive at the send-off. Formatted in the
        event's own timezone, which the venue's coordinates resolve. */
-    const firstScheduleBlock = scheduleBlocks[0] ?? null;
+    // ⏰ (2026-10-19) Since the Guests row got its call time, "when the doors open" is THE guests' arrival moment —
+    // `guestsArriveBy` (`lib/guests-arrive.ts`), the one the invitation, Event Details and the Studio read. The note
+    // below is why it is read as a wall clock (the shared resolver does exactly that).
     // 🔴 THE SCHEDULE STORES THE EVENT'S OWN WALL-CLOCK, NOT AN INSTANT.
     // `start_at` for a 1:30 PM arrival is `…T13:30:00+00` — the clock the
     // couple typed, parked in UTC. The programme reads it back with
@@ -2754,9 +2952,7 @@ export async function SiteBody({
     // the pass told a real guest to "ARRIVE 9:30 PM" for a 1:30 PM arrival
     // (seen live 2026-09-21 as a test guest on /cale-ice). One formatter, the
     // programme's, so the pass and the run of show can never disagree.
-    const firstScheduleTimeLabel = firstScheduleBlock?.start_at
-      ? formatBlockTimeRange(firstScheduleBlock.start_at, null) || null
-      : null;
+    const firstScheduleTimeLabel = guestsArriveBy;
 
     /* 🎫 THE PASS IS NOT ON HOME ANY MORE — IT IS THE DIGITAL TICKET, ON ME
        (owner 2026-09-30, on `#site-pass`: "i thought this will be the digital
@@ -2767,57 +2963,20 @@ export async function SiteBody({
        two would mean two elements with one id, and a second drawing of the
        ticket. Guarded by `the-hub-shows-the-ticket.test.ts`. */
 
-    /** The day, as the greeting may say it — only as much as the hosts decided (`greetingWhen`); null with no date. */
-    const greetingAt = greetingWhen(event.event_date, event.event_date_precision);
-    const greetingBlock = plan.greetingShouldRender ? (
-      /* Pahina §7: the greeting's setting. 🎩 NO CASUAL GREETING (owner
-         2026-09-30, DECISION_LOG "NO CASUAL GREETINGS": *"no casual
-         greeting"*) — the "Hi, <first name>." salutation that led this block
-         is gone from the Welcome page; the sentence that says when, where and
-         as whom stays, and names nobody. */
-      <section className="space-y-3">
-        <p className="max-w-prose text-base leading-relaxed text-ink/70">
-          {/* 📅 NO DATE, NO "on" (a guest's walk 2026-10-11: "We'd love to celebrate with you on . You're
-              joining us as…"). An event with no date yet says the same sentence without the day — the words the
-              Maker's own drawing of this line already uses (`maker-guest-scenes.tsx`). */}
-          {greetingAt?.day ? (
-            <>
-              {clientWords.solemn
-                ? 'We hope you can be with us on'
-                : 'We’d love to celebrate with you on'}{' '}
-              <span className="font-medium text-ink">{greetingAt.day}</span>
-            </>
-          ) : (
-            <>
-              {clientWords.solemn ? 'We hope you can be with us' : 'We’d love to celebrate with you'}
-              {/* 🗓 Only a month or a year decided: "…in August 2027" / "…sometime in 2027" — never the
-                  placeholder day the column holds (`greetingWhen`). */}
-              {greetingAt?.loosely ? (
-                <>
-                  {' '}
-                  <span className="font-medium text-ink">{greetingAt.loosely}</span>
-                </>
-              ) : null}
-            </>
-          )}
-          {venueNamesLine(event, ' and ') ? (
-            <>
-              {' '}
-              — at <span className="font-medium text-ink">{venueNamesLine(event, ' and ')}</span>
-            </>
-          ) : null}
-          . You&rsquo;re joining us as{' '}
-          <span className="font-medium text-ink">{guestRoleLabel(guest.role, roleNames)}</span>
-          {sideLabel ? (
-            <>
-              {' '}·{' '}
-              <span className="text-ink/80">{sideLabel}</span>
-            </>
-          ) : null}
-          .
-        </p>
-      </section>
-    ) : null;
+    /* 🪪 WHO, AS WHAT, WHEN AND WHERE — THE TOP OF ME (owner 2026-10-24, approving the Me redraw: "we want 1 place
+       for everything"; `lib/guest-greeting.ts`, `guest-greeting.tsx`): the guest's FORMAL name, their role, the date,
+       Ceremony / Reception. It replaces the Welcome's "We'd love to celebrate with you on … You're joining us as …"
+       paragraph — our own default copy, which no field held — and with it the word "celebrate". The role's colours are
+       named in What to wear, never on this line (one place for the colour fact). */
+    const meGreeting = guestGreetingOf({
+      name: placeCardName(guest, eventNameStyle) ?? (guestFullName(guest, eventNameStyle) || null),
+      roleCode: guest.role,
+      roleWord: roleWordOfGuest(guest, roleNames),
+      sideLabel,
+      date: greetingDateLine(event.event_date, event.event_date_precision),
+      venues: event.venues ?? null,
+      venueName: event.venue_name ?? null,
+    });
 
     /* 🏠 THE DAY'S WELCOME (owner 2026-09-30, "THE DAY'S MENU HAS FIVE"):
        this guest's table (the seat block, drawn above), their look, the
@@ -2833,7 +2992,10 @@ export async function SiteBody({
     });
     /** The walking order is Welcome's on the day — so it leaves the Live tab (one place). */
     const marchOnWelcome = dayWelcome.includes('march');
-    const guestEntourage = entourageShownOn(pageStage) ? <EntourageSection groups={entourage} id="site-entourage" sceneStyle={entourageStyle} myGuestId={guest.guest_id} /> : null;
+    /* 🫵 THE GUEST SEES THEIR PLACE (owner 2026-10-17, `entourage-you.tsx`): every look marks this guest's own name.
+       Never on the Maker's canvas — See as and View as a role draw a stand-in, and no real name is marked there (the
+       same rule as "You walk 5th" below, `marchPlace`). */
+    const guestEntourage = entourageShownOn(pageStage) ? <EntourageSection groups={entourage} id="site-entourage" sceneStyle={entourageStyle} myGuestId={isMakerCanvas ? null : guest.guest_id} /> : null;
     /* Same resolver, guest viewer. The camera destination keeps the shipped
        precedence — a guest's OWN roll first, then the couple's shared camera,
        the same order GuestHubBar already uses; neither open ⇒ the resolver
@@ -2867,7 +3029,7 @@ export async function SiteBody({
         ((Boolean(seatMap) || seatPassActive) && ownPage('f:find_your_seat', 'home') === 'home') ||
         (makerPages !== null && detailsSceneList.some((w) => sceneOwnPage(w) === 'home')),
       // 📱 Each tab its own page, on the Invitation and The Day.
-      tabbed: tabsOn,
+      tabbed: barTabbed,
       // 📖 After the day: Film and Suppliers, only where the recap drew them.
       postEvent: recapBar,
       destinations: {
@@ -2885,17 +3047,51 @@ export async function SiteBody({
     });
     const tabs = pageTabsFor(guestBar);
     pageTabs = tabs;
+    /* 🔘 THE COVER'S RSVP BUTTON (owner 2026-10-16: *"Confirm Attendance is RSVP"*) — the Reply doorway drawn ON the cover,
+       reading this guest's own state (`coverRsvpOf`). On the Maker's canvas: the doorway as a guest who has not replied
+       meets it. 🧭 For a guest it TAKES them to the RSVP part (owner 2026-10-17, *"it is not going to the RSVP
+       part?"*): the Welcome's own Reply card stands under the cover again, as the page's RSVP part
+       (`COVER_RSVP_PART`), and the cover's button is an in-page link to it (`toPart`) — the cover lifts away, the page
+       moves down to the card, and the card's own button opens the shipped Reply.
+       🪪 …AND SINCE 2026-10-24 THE ONE REPLY IS ME'S (owner, approving the Me redraw: "one place for everything"): on a
+       tabbed page the button is a mark on Me (`#me-reply`, `MeReply`) — the shell opens Me there (`hub-shell.tsx`, a
+       mark on another tab), and the Welcome draws no Reply
+       card of its own. A page that is one scroll keeps the card under the cover, as before. */
+    const guestRsvp =
+      pageStage !== 'rsvp'
+        ? null
+        : isMakerCanvas
+          ? plan.rsvpShouldRender
+            ? coverRsvpOf({ card: null, visitorHref: replyDoor })
+            : null
+          : coverRsvpOf({ card: replyCard, toPart: true, partHref: tabs.on ? `#${ME_REPLY_ID}` : null });
     const { group } = tabs;
     /* ⚖ THE SCAN-TRAIL OPT-OUT — ONE SMALL LINE, WITH THE GUEST'S OWN THINGS (RA 10173: it may move, never
        vanish). Owner 2026-09-30 moved it off the page body into the "Your details" sheet; the sheet is no longer
        drawn for a guest (owner 2026-10-11, one reply form), so it now stands directly above "Sign out of this
        invitation" — on Me on a tabbed page, at the foot of a page that is one scroll. In the Maker's canvas the
        sheet still carries it (below), so there are exactly two mounts, complements of one expression. */
+    /* 🃏 `card` — on a tabbed page this note is drawn on Me (below), where it is one of the stage's scene cards
+       (guest_page_fixes_2_4, fix 2; `ScanTrailForm`); at the foot of a page that is one scroll it stays a line. */
     const scanTrail = replySheetDrawn ? null : (
-      <ScanTrailNotice eventId={event.event_id} guestId={guest.guest_id} preview={isEditorCanvas} />
+      <ScanTrailNotice eventId={event.event_id} guestId={guest.guest_id} preview={isEditorCanvas} me={tabs.on} />
     );
     // 👁 A See as sample guest has no session to sign out of — no form at all.
-    const signOut = sampleViewer !== null ? null : (
+    const signOut = sampleViewer !== null ? null : (tabs.on ? (
+      /* 🔘 ON ME (owner 2026-10-24, the Me redraw): a small icon-and-word pill beside "Stop keeping a record" — still
+         asking first (`SignOutOfInvitation`). Me's own hairline sits above the two. */
+      <SignOutOfInvitation
+        action={`/${event.slug}/sign-out`}
+        pill
+        erases={
+          guest.photo_source === 'selfie' ? (
+            <p data-sign-out-erases-selfie="" className="mb-2 text-sm text-ink/70">{SIGN_OUT_ERASES_SELFIE}</p>
+          ) : null
+        }
+      >
+        Sign out of this invitation
+      </SignOutOfInvitation>
+    ) : (
       /* 🔎 LEGIBLE, AND NEVER BY ACCIDENT (a guest's walk 2026-10-11): this was 12px
          at 3.0:1, and one press signed the guest out. Now 14px at 5.4:1 with a
          44px press, and the first press asks (`SignOutOfInvitation`). */
@@ -2913,7 +3109,7 @@ export async function SiteBody({
           Sign out of this invitation
         </SignOutOfInvitation>
       </section>
-    );
+    ));
     /* 📱 THIS GUEST'S PAGES, FILED LIKE THE MAKER'S (owner 2026-10-08 — `readerAt`, the one filing; a See as
        sample guest in the Maker's canvas is this same page, so it follows). The couple's scenes in three runs, each
        in the couple's order: the Invitation's Welcome scenes (Countdown, Message — the prototype's Welcome), the
@@ -2970,7 +3166,7 @@ export async function SiteBody({
           <Fragment key={p}>
             {group(p, (
               <div className="sn-hub-cards space-y-4">
-                <HubScenes widgets={mine} scrubAllowed={proWatermarkHidden}>
+                <HubScenes widgets={mine} scrubAllowed={scrubAllowed}>
                   {mine.map(renderScene)}
                 </HubScenes>
               </div>
@@ -2995,11 +3191,14 @@ export async function SiteBody({
     <HideableWidgetRender
       key={widget.widget_id}
       widget={widget}
-      /* 🏠 This guest's own look is on Welcome (or on Me); Details keeps everyone's. */
-      dressCodeGeneral={welcome.includes('look')}
+      /* 👗 DRESS WITH US SHOWS ONLY THE GUEST'S OWN ROLE (owner 2026-10-19): every role only for the couple / a host
+         reading their own Event Hub as themselves — never a host who pressed "Open as <name>" (their guest is not
+         their own row, `lib/pass-account-rule.ts`), never a See as sample. */
+      dressCodeEveryRole={viewerIsHost && sampleViewer === null && guest.guest_id === hostOwnGuestId}
       stage={pageStage}
       canvasMediaUrls={canvasMediaUrls}
       hubTheme={sceneTheme}
+      artKit={artKit}
       ownClipPlays={isMakerCanvas}
       guestView={!isMakerCanvas}
       event={event}
@@ -3072,7 +3271,7 @@ export async function SiteBody({
           {group(leadTab, <>
           {/* Menu-shell anchor target (PR6) — top-of-page "Home" landing. Gated
               on menuOn so the flag-off DOM is untouched. */}
-          {menuOn ? (
+          {menuOn && !onePage ? (
             <div id={SITE_MENU_ANCHORS.home} aria-hidden className="scroll-mt-6" />
           ) : null}
           {/* Open-browse Home spotlight (PR7). Null (byte-inert) unless
@@ -3128,10 +3327,12 @@ export async function SiteBody({
               eyebrow={mastheadEyebrow(clientWords)}
               displayName={event.display_name}
               {...heroElements}
+              rsvp={guestRsvp}
+              kitSlot={kitCover}
               twoPeople={clientWords.twoPeople}
               eventDate={event.event_date}
               venueName={venueLine}
-              monogramSlot={
+              monogramSlot={coverLogoOff ? null : (
                 <HeroMonogram
                   event={event}
                   monogram={monogram}
@@ -3139,7 +3340,7 @@ export async function SiteBody({
                   bespokeSvg={bespokeSvg}
                   shadow
                 />
-              }
+              )}
               mediaSlot={<HeroBackgroundMedia videoUrl={heroVideoUrl} photoUrl={heroPhotoUrl} />}
               mediaCaption={venueLine}
             />
@@ -3148,34 +3349,47 @@ export async function SiteBody({
               eyebrow={mastheadEyebrow(clientWords)}
               displayName={event.display_name}
               {...heroElements}
+              rsvp={guestRsvp}
+              kitSlot={kitCover}
               card={inviteCard ?? undefined}
               /* 🔗 The link down names only what this viewer's page holds (`hubLinkWords`). */
               linkWords={hubLinkWords({ place: openBrowseContent.venue_map && detailsSceneList.some((w) => w.widget_type === 'venue_map'), story: menuSections.story || storySceneShown })}
               twoPeople={clientWords.twoPeople}
               eventDate={event.event_date}
               venueName={venueLine}
-              monogramSlot={
+              monogramSlot={coverLogoOff ? null : (
                 <HeroMonogram
                   event={event}
                   monogram={monogram}
                   animatedMonogram={animatedMonogram}
                   bespokeSvg={bespokeSvg}
                 />
-              }
+              )}
             />
           ) : null
             }
           >
 
-          {replyCard ? (
-            <ReplyCardRow card={replyCard} landed={Boolean(rsvpFlash && rsvpFlash.tone !== 'error')} />
+          {replyCard && tabs.on ? (
+            /* 🪪 ONE REPLY, ON ME (owner 2026-10-24): on a tabbed page the Welcome draws no Reply card — the cover's
+               button opens Me at its Reply (`#me-reply`). */
+            null
+          ) : replyCard ? (
+            <ReplyCardRow card={replyCard} partId={COVER_RSVP_PART} landed={Boolean(rsvpFlash && rsvpFlash.tone !== 'error')} kit={artKit ? <KitSlot kit={artKit} slot="reply" /> : null} />
           ) : (
           <ArrivalActionRow
-            action={arrivalAction}
+            /* 🪪 ONE REPLY, ON ME (owner 2026-10-24): on a tabbed page an action that opens the reply opens Me's one
+               Reply instead (`#me-reply` — the shell opens Me there), so the Welcome holds no second door to it. */
+            action={tabs.on && meReplyCard && arrivalAction && actionOpensReply(arrivalAction) ? { ...arrivalAction, href: `#${ME_REPLY_ID}` } : arrivalAction}
             landed={Boolean(rsvpFlash && rsvpFlash.tone !== 'error')}
           />
           )}
           </HubCoverHold>
+          {/* 📜 ON THE ONE PAGE "HOME" JUMPS TO THE FIRST SECTION AFTER THE COVER (owner 2026-10-15, Q3 approved:
+              Home lands on the welcome line, so the bar never re-hides itself; the cover is reached by scrolling
+              up). Out of the group's rhythm (`!mt-0`); its height (under the top bar, enough that what follows
+              clears the bar by 8 px) and its landing are `[data-home-after-cover]` in globals.css. */}
+          {menuOn && onePage ? <div id={SITE_MENU_ANCHORS.home} aria-hidden data-home-after-cover="" className={ONE_PAGE_HOME_MARK} /> : null}
           </>, { chapters: true, className: 'space-y-12' })}
 
           {group('home', <>
@@ -3201,6 +3415,7 @@ export async function SiteBody({
             <GuestChecklist
               items={guestChecklistItems({
                 role: guest.role,
+                person: { ...guestNamePartsOf(guest), attire: guestAttireOf(guest) },
                 dressCodeConfig: event.dress_code_config ?? null,
                 rolePalette: event.role_palette,
                 arriveBy: firstScheduleTimeLabel,
@@ -3271,7 +3486,6 @@ export async function SiteBody({
               {directionsOnTop ? group('live', <DayDirections venues={dayVenues} />, { chapters: true, className: 'space-y-12' }) : null}
               {/* 📱 The Welcome's own scenes (owner 2026-10-08), in the prototype's order: countdown · greeting · message. */}
               {scenesOnTabs(leadBefore, detailsMarkOnLead ? SITE_MENU_ANCHORS.details : undefined)}
-              {group(readerAt('f:greeting', leadTab), <>{dayOfLead.greetingStepsBack ? null : greetingBlock}</>, { chapters: true, className: 'space-y-12' })}
               {scenesOnTabs(leadAfter, detailsMarkOnLead && leadBefore.length === 0 ? SITE_MENU_ANCHORS.details : undefined)}
 
               {/* Task #13 — day-of-mode promotes the schedule block to the top of
@@ -3413,6 +3627,7 @@ export async function SiteBody({
                   guestName={guest.first_name}
                   eventName={event.display_name}
                   eventId={event.event_id}
+                  uploadOwner={papicGuest.uploadOwner}
                   initialRemaining={papicGuest.initialRemaining}
                   total={papicGuest.total}
                   termsAccepted={papicGuest.termsAccepted}
@@ -3424,6 +3639,17 @@ export async function SiteBody({
                   sponsorShare={papicGuest.sponsorShare}
                   eventStyle={papicGuest.eventStyle}
                   faceMode={papicGuest.faceMode}
+                  photoMark={papicGuest.photoMark}
+                  dress={{
+                    pro: papicGuest.dressPro,
+                    tint: cameraDressTintOfEvent(papicGuest.dressPro, event),
+                    logo: papicGuest.dressPro ? (
+                      <EventMonogram
+                        event={{ ...event, display_name: event.display_name ?? null, monogram_text: event.monogram_text ?? null, monogram_color: event.monogram_color ?? null }}
+                        size="lg"
+                      />
+                    ) : null,
+                  }}
                 />
               ) : null, { chapters: true, className: 'space-y-12' })}
 
@@ -3447,7 +3673,6 @@ export async function SiteBody({
                   On the day it renders HERE, behind what the guest needs in the
                   room. Off the day it renders in its ordinary place above.
                   One block, two slots — never both. */}
-              {group(readerAt('f:greeting', leadTab), <>{dayOfLead.greetingStepsBack ? greetingBlock : null}</>, { chapters: true, className: 'space-y-12' })}
 
               {/* 🧱 Its own Animate (`lib/block-looks.ts`; owner 2026-10-10: "animate only"): the block's hidden mark
                   rides WITH the gallery, right before its one root — on The Day and after it, this same mount —
@@ -3526,7 +3751,7 @@ export async function SiteBody({
                   <h2 className="mt-2 text-2xl font-semibold tracking-tight">Loved a supplier? Keep them.</h2>
                   <p className="mt-1 text-sm text-ink/70">
                     Save any supplier here to your Setnayan account — they&rsquo;ll be waiting when you
-                    plan your own celebration.
+                    plan your own event.
                   </p>
                   {saveFlash ? (
                     <p className="mt-3 rounded-lg border border-ink/10 bg-white px-3 py-2 text-sm text-ink/80">
@@ -3708,6 +3933,7 @@ export async function SiteBody({
               <GuestWelcome
                 partLooks={welcomeLooks}
                 parts={welcomeHere}
+                artKit={artKit}
                 words={clientWords}
                 /* 🏠 One home per fact: once Me draws this guest's role and
                    outfit (`meParts`), the Welcome's look stands down. */
@@ -3720,6 +3946,7 @@ export async function SiteBody({
                       widget={remindersScene}
                       canvasMediaUrls={canvasMediaUrls}
                       hubTheme={sceneTheme}
+                      artKit={artKit}
                       ownClipPlays={isMakerCanvas}
                       guestView={!isMakerCanvas}
                       event={event}
@@ -3736,6 +3963,7 @@ export async function SiteBody({
                 giftHref={doorways.pabuya}
                 mark={giftsBlockMark}
                 giftWishes={doorways.wishes}
+                giftContent={giftPage}
               />
               ), { chapters: true, className: 'space-y-12' })}
 
@@ -3748,6 +3976,7 @@ export async function SiteBody({
                 <GuestWelcome
                   partLooks={welcomeLooks}
                   parts={dayWelcome}
+                  artKit={artKit}
                   words={clientWords}
                   lookMark={blockMark('look')}
                   look={{
@@ -3755,6 +3984,8 @@ export async function SiteBody({
                     ceremonyType: dressRiteOf(event),
                     genderSeparation: (event as { gender_separation?: string | null }).gender_separation ?? null,
                     guestRole: guest.role ?? null,
+                    guestAttire: guestAttireOf(guest),
+      guestNameParts: guestNamePartsOf(guest),
                     march: marchPlaceOf(entourage, guest.guest_id),
                     rolePalette: event.role_palette,
                   }}
@@ -3764,6 +3995,7 @@ export async function SiteBody({
                         widget={dayRemindersRow}
                         canvasMediaUrls={canvasMediaUrls}
                         hubTheme={sceneTheme}
+                        artKit={artKit}
                         ownClipPlays={isMakerCanvas}
                         guestView={!isMakerCanvas}
                         event={event}
@@ -3782,6 +4014,7 @@ export async function SiteBody({
                   giftHref={doorways.pabuya}
                   mark={giftsBlockMark}
                   giftWishes={doorways.wishes}
+                  giftContent={giftPage}
                 />
               ) : null, { chapters: true, className: 'space-y-12' })}
 
@@ -3827,7 +4060,7 @@ export async function SiteBody({
                   Pro (`proWatermarkHidden` is that read). See hub-scenes.tsx. */}
               {group(scenesTab, <>
               <div className="sn-hub-cards space-y-4">
-              <HubScenes widgets={guestAround.before} scrubAllowed={proWatermarkHidden} stageMarks={stageAutoplayOn}>
+              <HubScenes widgets={guestAround.before} scrubAllowed={scrubAllowed} stageMarks={stageAutoplayOn}>
               {guestAround.before.map(renderScene)}
               </HubScenes>
               </div>
@@ -3844,7 +4077,7 @@ export async function SiteBody({
                   marks: only the Invitation splits, and the marks are the Save the Date's. */}
               {guestAround.after.length > 0 ? (
                 <div className="sn-hub-cards space-y-4">
-                  <HubScenes widgets={guestAround.after} scrubAllowed={proWatermarkHidden}>
+                  <HubScenes widgets={guestAround.after} scrubAllowed={scrubAllowed}>
                     {guestAround.after.map(renderScene)}
                   </HubScenes>
                 </div>
@@ -3858,7 +4091,7 @@ export async function SiteBody({
               {group('home', isLimitedPlusOne ? (
                 <section className="rounded-xl border-l-2 border-ink/30 bg-paper-deep p-5 text-sm text-ink/75">
                   You&rsquo;re joining as a +1. Photos taken of you will appear in your inviter&rsquo;s
-                  gallery — ask them to share. In-app features like Shutter
+                  Memories — ask them to share. In-app features like Shutter
                   require a full Setnayan account, which {clientWords.theOrganizer} hasn&rsquo;t
                   enabled for +1s on this {clientWords.eventWord}.
                 </section>
@@ -3880,7 +4113,7 @@ export async function SiteBody({
               {storyScene ? (
                 <div className="sn-hub-cards space-y-4">
                   {/* No stage marks: a tabbed page is never the Save the Date the autoplay walks. */}
-                  <HubScenes widgets={[storyScene]} scrubAllowed={proWatermarkHidden}>
+                  <HubScenes widgets={[storyScene]} scrubAllowed={scrubAllowed}>
                     {[storyScene].map(renderScene)}
                   </HubScenes>
                 </div>
@@ -3963,39 +4196,40 @@ export async function SiteBody({
             Me drawn for a sample guest — its ticket from the guest page's own
             GuestTicket (page.tsx), never a Maker-only twin. */}
         {tabs.on || sampleViewer !== null ? group('me', (
-          <div data-me-stage="" className={`mx-auto w-full ${PLATE} space-y-12 px-4`}>
-            {/* ✉ The Reply card at the top of Me — once they have replied. Before
-                a reply, Me already leads with the one reply door (the ticket's
-                "Reply to the invitation", `meLeadsWithReply`); a second would be
-                the same door twice. */}
-            {replyCard && replyCard.kind !== 'ask' ? <ReplyCardRow card={replyCard} /> : null}
-            {/* 👤 Your role · What to wear · Arrive by · Coming with you. */}
-            {meParts.length > 0 ? (
+          <div data-me-stage="" className={`relative isolate mx-auto w-full ${PLATE} px-4 py-8 text-center [&>*+*]:mt-10 [&>*+*]:border-t [&>*+*]:border-ink/10 [&>*+*]:pt-10 before:pointer-events-none before:absolute before:inset-0 before:-z-10 before:bg-[rgb(var(--color-cream)/0.62)] before:backdrop-blur-[2px] before:content-[''] before:[mask-image:linear-gradient(to_right,transparent,#000_10%,#000_90%,transparent)]`}>
+            {/* 🪪 INVITATION › ME — THE ONE PLACE FOR EVERYTHING ABOUT THE GUEST (owner 2026-10-24: "Approve the corrected
+                Me redesign. Build it." — `Setnayan/prototypes/me_tab_redraw_2026-10-24_fable.html`). One centred axis, top
+                to bottom: the host's slim bar (when a host is viewing as this guest) · who, as what, when and where
+                (`MeGreeting`) · their details as quiet sections with hairlines between, no boxes (Your place · What to
+                wear · Arrive by · Coming with you · their table and ticket) · the ONE Reply (`MeReply`, `#me-reply`, where
+                the cover's button lands) · the record line with its ⓘ and the two small pills. Words read on paper
+                through Me's own feathered veil (the stage's `before:` layer: the page's paper behind the column, fading at its
+                edges — no box), so nothing sits straight on the couple's photo.
+                REMOVED as second doors to the same Reply (one place): the Reply card that stood at the top of Me after a
+                reply, the ticket's "Reply to the invitation" bar and the "Change your reply" bar. */}
+            {heldPassSlot && !isEditorCanvas ? <div data-me-host-bar="">{heldPassSlot}</div> : null}
+            {plan.greetingShouldRender ? <MeGreeting greeting={meGreeting} /> : null}
+            {/* 🪪 Keep this invitation — the FIRST thing Me offers an unlinked guest (owner 2026-10-24); once saved, one
+                line. Its one place: `GuestMe plain` draws no Save of its own. */}
+            {meSave ? <div data-me-save-slot="">{meSave}</div> : null}
+            {/* 👤 Your place · A note from the couple · What to wear · Arrive by · Coming with you. */}
+            {meParts.length > 0 || meNote ? (
               <GuestMeParts
+                note={meNote}
                 partLooks={meLooks}
                 parts={meParts}
                 words={clientWords}
                 look={{ ...guestLook, roleNames }}
                 comingWith={comingWith}
+                fullGuideAnchor={DRESS_CODE_ANCHOR}
                 wearMark={blockMark('look')}
               />
             ) : null}
-            {/* 📱 ME'S OWN, FILED LIKE THE MAKER'S (owner 2026-10-08; prototype: Me · What to wear · seats): this
-                guest's look where Welcome drew it before (only while Me's four parts above do not already say it),
-                then their table, then the ticket. One column with its own gap, so a look with nothing to say
-                (`empty:hidden`) leaves no hole above the ticket. */}
+            {/* 📱 ME'S OWN, FILED LIKE THE MAKER'S (owner 2026-10-08): this guest's look where Welcome drew it before
+                (only while Me's parts above do not already say it), then their table, then the ticket (after a Yes —
+                the ticket never carries a Reply of its own any more: Me's one Reply is below). */}
             {(() => {
-              const mine = typeof meSection === 'function'
-              ? meSection({
-                  replyHref: meLeadsWithReply({
-                    action: arrivalAction,
-                    replyOpen: replyOpenHere,
-                    isPlusOne: Boolean(guest.plus_one_of_guest_id),
-                  })
-                    ? replyDoor
-                    : null,
-                })
-              : meSection;
+              const mine = typeof meSection === 'function' ? meSection({ replyHref: null, inMe: true, replyOwed: meReplyCard?.kind === 'ask' }) : meSection;
               const lookOnMe = welcomeOnMe.length > 0 && meParts.length === 0;
               const tableOnMe = seatOnMe && seatBlock !== null;
               if (!lookOnMe && !tableOnMe) return mine;
@@ -4012,17 +4246,16 @@ export async function SiteBody({
             {guest.photo_source === 'selfie' ? (
               <FaceDataNotice eventId={event.event_id} guestId={guest.guest_id} />
             ) : null}
-            {replyOpenHere && (guest.rsvp_status === 'attending' || guest.rsvp_status === 'declined') && !actionOpensReply(arrivalAction) ? (
-              <a
-                href={replyDoor}
-                data-me-change-reply=""
-                className="button-secondary flex w-full"
-              >
-                {plan.guestListClosed ? 'Update your details' : 'Change your reply'}
-              </a>
+            {/* ✉ THE ONE REPLY — the shipped Reply card's question and button (`replyCardOf`), at Me's foot. */}
+            {meReplyCard ? (
+              <MeReply ask={greetingAskOf(meReplyCard)!} landed={Boolean(rsvpFlash && rsvpFlash.tone !== 'error')} kit={artKit ? <KitSlot kit={artKit} slot="reply" /> : null} />
             ) : null}
-            {scanTrail}
-            {signOut}
+            {scanTrail || signOut ? (
+              <div data-me-foot="">
+                {scanTrail}
+                {signOut}
+              </div>
+            ) : null}
           </div>
         )) : null}
         {/* ── THE REPLY SHEET (canvas board 2 · rsvp-sheet.tsx) ─────────────
@@ -4132,11 +4365,13 @@ export async function SiteBody({
         {menuOn && showGuestBars ? (
           <SiteMenuBar
             slots={guestBar}
+            onePage={onePage && tabs.on}
           />
         ) : null}
-        {/* 📱 Each tab its own page — the hub shell's page frame shows one tab
-            at a time and keeps its address (`hub/hub-shell.tsx`). */}
-        {menuOn && showGuestBars && tabs.on ? <HubShell frame="page" slots={guestBar} /> : null}
+        {/* 📱 Each tab its own page — the hub shell's page frame shows one page
+            at a time and keeps its address (`hub/hub-shell.tsx`); 📜 on a one-page
+            stage that is the one page or Me (owner 2026-10-15). */}
+        {menuOn && showGuestBars && tabs.on ? <HubShell frame="page" slots={guestBar} onePage={onePage} /> : null}
       </>
     );
   };
@@ -4174,6 +4409,26 @@ export async function SiteBody({
       /* ✕ One exit, top-left, back to Setnayan — never in a Maker preview,
          which carries its own way back (`makerWayBack`). */
       exitHref={makerWayBack || isMakerCanvas ? null : '/'}
+      /* 🕯 The Closing is a part of the Maker (owner 2026-10-17): its marker, right before the footer. */
+      closingMark={makerMark('f:closing')}
+      /* 🕯 …and its line — the couple's words for "See you soon." and their look, on the hero row's canvas
+         (`lib/closing-line.ts`, owner 2026-10-17). Draft-overlaid on the Maker's canvas like every cover word. */
+      closingLine={heroCanvas.elements?.closing ?? null}
+      /* 🕯 The art kit's closing — the couple's OWN cover photo (`heroPhotoUrl`, signed for this event) or their mark.
+         Drawn when the Closing's Accent is on (the oval), AND on a kit look whose Closing picked None (owner
+         2026-10-17: None keeps "See you soon." and the band, without the oval — `KitClosing` draws no oval then). */
+      kitClosing={
+        artKit && (artKit.look || artKit.pieces.closing?.length)
+          ? {
+              kit: artKit,
+              names: event.display_name,
+              date: formatEventDate(event.event_date) || null,
+              photoUrl: heroPhotoUrl ?? null,
+              mark: hubLook.monogram,
+              twoPeople: clientWords.twoPeople,
+            }
+          : null
+      }
     >
       {/* THE EVENT'S OWN WORDS — mounted once, wrapping every child of the
           shell, which is both identity trees and every lifecycle phase.
@@ -4190,6 +4445,9 @@ export async function SiteBody({
           It was right, so the mount moved rather than its anchor. */}
       <EventWordsProvider words={clientWords}>
       {mainGroundLayer}
+      {/* 🕯 The art kit's one stylesheet and its on-screen marker — only where a kit is drawn. */}
+      {artKit ? <KitStyle kit={artKit} /> : null}
+      {artKit ? <ArtKitMotion /> : null}
       {/* 🖼 The root layout's own floating notices (cookie consent, a stale
           tab) are client components this page cannot un-mount, so in the
           Maker's canvas they are hidden by the one attribute they carry. */}
@@ -4200,23 +4458,16 @@ export async function SiteBody({
           hides everything but that scene. See `_lib/editor-canvas.ts`. */}
       {isEditorCanvas && canvasOnly ? <style>{canvasOnlyCss(canvasOnly)}</style> : null}
       <GuestPreload eventSlug={event.slug} />
-      {/* OWNER LAYER · surface 1 — mounted HERE, as a sibling ABOVE both
-          identity trees, for three reasons: (1) it is chrome, not a chapter,
-          so it must not be a direct child of `<article data-pahina-chapters>`
-          where the §6 scroll observer would keep it hidden until scrolled to;
-          (2) one mount point serves the guest tree, the anonymous tree and
-          every lifecycle phase (including the full-bleed Save-the-Date film);
-          (3) it renders `null` for a null model, so a guest's DOM is unchanged
-          byte-for-byte. */}
-      {/* 🖼 Never in the Maker's canvas: its "Edit this site" link, tapped
-          inside the canvas, loaded the Maker into itself. */}
-      <OwnerRibbon model={isEditorCanvas ? null : ownerRibbon} />
+      {/* 🚫 NO HOST STRIP (owner 2026-10-15, on the live Event Hub: "Remove it"). A signed-in host's page looks
+          exactly like a guest's — the "Your Event Hub — as a guest sees it" ribbon, its Edit link and its Preview ▾
+          are gone. Editing is from the dashboard (Home's "Edit your Event Hub"); previews are the Maker's (hold ▶,
+          See as ▾ beside "Exit preview"). `the-host-page-has-no-host-strip.test.ts` holds it. */}
       {/* ↩ THE WAY BACK TO THE MAKER — the preview tab only (DECISION_LOG
-          2026-09-28). A sibling of both trees, like the ribbon: never inside the
+          2026-09-28). A sibling of both trees: never inside the
           chapters article, where a transform breaks `position: fixed`. */}
       {isStagePreview && makerWayBack ? <PreviewWayBack href={makerWayBack} /> : null}
-      {/* THE SUPPLIER'S RIBBON — mounted here for reason (2) above, and for one
-          of its own: in the Save-the-Date phase the film covers the viewport at
+      {/* THE SUPPLIER'S RIBBON — mounted here, a sibling ABOVE both identity trees (one mount point serves the
+          guest tree, the anonymous tree and every lifecycle phase), and for one reason of its own: in the Save-the-Date phase the film covers the viewport at
           z-50 with the veil at z-60, and the supplier's strip renders in
           ordinary flow underneath both. A booked supplier signing in to check
           the address got a wedding film and no visible way to their call sheet,
@@ -4242,6 +4493,8 @@ export async function SiteBody({
         enabled={plan.revealEnabled && !isMakerCanvas}
         monogram={revealMonogram(event.display_name)}
         markSvg={revealMarkSvg(event)}
+        /* 🔴 The art kit's wax seal on the veil, the couple's mark in its centre — its tap is the veil's own. */
+        kitSeal={artKit ? <KitSeal kit={artKit} mark={hubLook.monogram} /> : null}
         waxColor={revealWaxColor(event.role_palette)}
         sealConfig={revealSealConfig(event)}
         sealFallbackSeed={fallbackSeedFromPublicId(event.public_id)}
@@ -4395,6 +4648,15 @@ export async function SiteBody({
           who passed `?editor=1`; for every guest/anonymous visitor this renders
           nothing, so their HTML is byte-identical to before. */}
       {isEditorCanvas && editorBridge && !themeTile ? <EditorBridge /> : null}
+      {/* 🎬 ▶ on the Cover Scene plays the guests' own veil (`CoverPlayOpening`) — the same dress the overlay above wears. */}
+      {isEditorCanvas && editorBridge && !themeTile ? (
+        <CoverPlayOpeningServer
+          monogram={revealMonogram(event.display_name)}
+          kitSeal={artKit ? <KitSeal kit={artKit} mark={hubLook.monogram} /> : null}
+          veilColor={revealVeilColor(event.role_palette)}
+          eventEffects={resolveRevealEffects(event.std_reveal_effects)}
+        />
+      ) : null}
       {/* 👁 See as: the sample viewer touches nothing (sample-viewer-inert.tsx). */}
       {sampleViewer !== null ? <SampleViewerInert canvas={isEditorCanvas} /> : null}
       {sceneRunsOnPage ? <HubSceneRuns /> : null}

@@ -139,11 +139,11 @@ test('2 · the menu is a sheet INSIDE the lower third with exactly two groups �
 
 test('3 · a tool open folds the menu and the navigator into the left column — name · ‹ › · × — and the tool takes ≥ 300 px', async () => {
   let closed = 0;
-  const html = await lowerThird({ tool: { key: 'part:f:hero:names', name: 'Names', close: () => (closed += 1), step: { prev: null, next: () => {} } } });
+  const html = await lowerThird({ tool: { key: 'part:f:hero:names', name: 'Event title', close: () => (closed += 1), step: { prev: null, next: () => {} } } });
   const col = /<div\b[^>]*data-lt-column=""[^>]*>/.exec(html)![0];
   assert.match(col, /\bw-\[52px\]/, 'the column is not 52 px');
   assert.doesNotMatch(col, /aria-hidden/, 'the column is hidden while a tool is open');
-  assert.match(html, /data-lt-column-name=""[\s\S]*?>Names</, 'the column does not name the tool');
+  assert.match(html, /data-lt-column-name=""[\s\S]*?>Event title</, 'the column does not name the tool');
   assert.match(html, /data-lt-step="prev"[^>]*disabled=""/, '‹ is offered with nothing before');
   assert.doesNotMatch(/<button\b[^>]*data-lt-step="next"[^>]*>/.exec(html)![0], /\sdisabled=""/, '› is not offered');
   assert.match(html, /data-lt-close=""/, 'the column has no ×');
@@ -218,7 +218,8 @@ test('4 · every control the bottom bar, Page ▾ and the floating Event Bar hel
     ['Prints', /key: 'prints'[\s\S]*?openSection\('prints'\)/],
     ['Restore what guests see', /key: 'restore'[\s\S]*?draft\.restore\(\)/],
     ['Reset this stage…', /key: 'reset'[\s\S]*?new Event\(MAKER_OPEN_RESET_EVENT\)/],
-    ['About the Maker', /key: 'about'[\s\S]*?setTour\(true\)/],
+    // About the Maker replays the Maker's spotlight where it is mounted, else the short slides (2026-10-22).
+    ['About the Maker', /key: 'about'[\s\S]*?onPick: aboutTheMaker/],
   ];
   for (const [door, re] of DOORS) assert.match(settings, re, `${door} has no home in Settings`);
   // The address is Details › Your Event Hub (a Details item, on the Details door).
@@ -261,7 +262,7 @@ test('4 · a jump to another item (Look → the address, the Mood Board, the lov
  */
 const KNOWN_LINK_OUTS: Record<string, { count: number; why: string }> = {
   [`${L}/details-guide.tsx`]: { count: 3, why: 'the guided step "Your guests’ names" (→ guest list import), Send, a link step’s one way in' },
-  [`${L}/maker-prints.tsx`]: { count: 3, why: '#print-menu (in page) · the Pro unlock · the 3D seat plan' },
+  [`${L}/maker-prints.tsx`]: { count: 3, why: '#print-menu (in page) · the 3D seat plan · the Pro unlock: a free couple’s all-in-one files in the shipped Details (2026-10-16) — the ticket zip’s own unlock link left on 2026-10-22, the zip is free' },
   /* maker-details.tsx: its one link out (Prints › Set up E-Gifts → /pabuya) became E-Gifts' own editor IN PLACE (owner 2026-10-08). */
   [`${L}/details-date-clash.tsx`]: { count: 1, why: 'a clashing supplier’s thread' },
 };

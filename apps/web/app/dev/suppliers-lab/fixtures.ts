@@ -57,7 +57,7 @@ export const LAB_CARDS: Record<string, BenchServiceCard> = {
   'v-bituin': card({ name: 'Wedding buffet · 150–250 pax', priceText: `from ${formatPhp(950)} / head`, includesLine: 'Tasting for 4 · crew meals · 2 live stations', notIncluded: ['corkage'] }),
   'v-hiraya': card({ name: 'Plated dinner · 100–200 pax', priceText: `from ${formatPhp(1200)} / head`, includesLine: 'Tasting for 2 · table styling' }),
   'v-lola': card({ name: 'Heirloom Filipino buffet · 100–250 pax', priceText: `from ${formatPhp(1100)} / head`, includesLine: 'Tasting for 2 · lechon carving station' }),
-  'v-lumina': card({ name: 'Full day photo & video · 2 shooters', priceText: `from ${formatPhp(85000)}`, includesLine: 'Same-day edit · 10-day gallery' }),
+  'v-lumina': card({ name: 'Full day photo & video · 2 shooters', priceText: `from ${formatPhp(85000)}`, includesLine: 'Same-day edit · 10-day album' }),
   'v-santuario': card({ name: 'Church ceremony · 3 pm slot', includesLine: 'Choir · coordinator for the rite' }),
 };
 
@@ -151,6 +151,41 @@ export function labSheet(vendorProfileId: string): SupplierSheetData {
 
 // ── "Add your own" (2026-10-10) ────────────────────────────────────────────
 /** `&added=1` — the row the four-step walk leaves behind, under Catering. Sample names, nobody real. */
+/**
+ * `&dunkin=before|after` — the owner's own case (2026-10-20): a doughnut cart
+ * the couple added under Everything else, which "also covers" Guest booths
+ * (`before`, as stored on his event), and then Food Truck too (`after` — the
+ * key the card sheet now stores for a Suppliers-page row no plan group names).
+ */
+/** `moved` — after "Move Dunkin' Donuts to another category" → Food Truck (2026-10-20):
+ *  the enum stays `misc` (Food Truck has no label of its own) and `category_key` names the row. */
+export function labDunkinRow(stage: 'before' | 'after' | 'moved'): EventVendorRowInput {
+  return row({
+    vendor_id: 'v-dunkin',
+    vendor_name: "Dunkin' Donuts",
+    category: 'misc',
+    manual_vendor_id: 'm-dunkin',
+    ...(stage === 'moved' ? { category_key: 'food_truck' } : {}),
+    covers_plan_groups: stage === 'after' ? ['guest_booth', 'tile:food_truck'] : ['guest_booth'],
+  });
+}
+
+/**
+ * `&own=<category>~<category_key>~<name>` — what the walk's Add just posted
+ * (the lab's stand-in writes it into the address, 2026-10-20), stored the way
+ * `addManualSupplier` stores it: the row is kept only through the shared check
+ * (`categoryKeyForAdd`), so the lab draws what the real insert would.
+ */
+export function labOwnRow(category: string, categoryKey: string | null, name: string): EventVendorRowInput {
+  return row({
+    vendor_id: 'v-own',
+    vendor_name: name || 'Your supplier',
+    category: category as EventVendorRowInput['category'],
+    manual_vendor_id: 'm-own',
+    category_key: categoryKey,
+  });
+}
+
 export const LAB_ADDED_ROW: EventVendorRowInput = row({
   vendor_id: 'v-tita',
   vendor_name: "Tita Baby's Catering",
@@ -195,3 +230,12 @@ export function labNameMatches(query: string, category: string): MarketplaceVend
 
 /** A sample claim link — the shape `buildClaimUrl` makes; the token is not a real one. */
 export const LAB_CLAIM_URL = 'https://www.setnayan.com/vendor/claim/x7k2qp-sample';
+
+/** Verified suppliers per category for the Find list — a soft signal (0 → "Joining soon"). */
+export const LAB_FIND_COUNTS = new Map<string, number>([
+  ['catering', 3],
+  ['photo_video', 2],
+  ['cake', 1],
+  ['live_band', 1],
+  ['host_mc', 1],
+]);

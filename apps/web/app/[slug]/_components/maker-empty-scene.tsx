@@ -5,6 +5,9 @@ import { sceneStyleTypeOfWidget } from '@/lib/scene-styles';
 import { SceneSample } from './maker-scene-samples';
 import { SpecialMessageWidget } from './special-message-widget';
 import { WhatToBringWidget } from './what-to-bring-widget';
+import { renderCustomSection } from './custom-section-widget';
+import { NO_SCENE_FACTS } from './scene-template';
+import { isCustomSectionType } from '@/lib/custom-sections';
 
 /**
  * 🧩 AN EMPTY SCENE, AS THE MAKER DRAWS IT — never as a guest sees it.
@@ -34,7 +37,10 @@ export function MakerEmptyScene({
   look = null,
   setupLocks = false,
   styleId = null,
+  ownSlots = null,
 }: {
+  /** 🖼 A template scene of their own: its picture slots, empty, in the template's places (`makerOwnSlots`). */
+  ownSlots?: ReactNode;
   type: WidgetType;
   /** 🔲 The style this scene is drawn in on this stage (`sceneStyleOfRow`) — which arrangement the sample draws. */
   styleId?: string | null;
@@ -47,7 +53,16 @@ export function MakerEmptyScene({
       <p className="pahina-eyebrow justify-center" data-maker-empty-prompt="">
         <span>{makerSceneLabel(type)}</span>
       </p>
-      <SceneSample sceneType={sceneStyleTypeOfWidget(type)} styleId={styleId} className="py-2" stepsAside />
+      {/* 🖼 A scene of their own made from a template with pictures: the template's own slots, drawn where the
+          pictures go (owner 2026-10-18, *"we already have the templates, just make them work"*) — each tap opens that
+          slot's picture in Edit. Steps aside with the prompt while the words are typed (the look below has them too). */}
+      {ownSlots ? (
+        <div data-maker-empty-prompt="" data-maker-own-slots="" className="text-left">
+          {ownSlots}
+        </div>
+      ) : (
+        <SceneSample sceneType={sceneStyleTypeOfWidget(type)} styleId={styleId} className="py-2" stepsAside />
+      )}
       <p className="font-pahina text-xl font-light italic text-ink/70" data-maker-empty-prompt="">
         {makerEmptyPrompt(type, setupLocks)}
       </p>
@@ -72,8 +87,26 @@ export function MakerEmptyScene({
  * the canvas replaces with the couple's words (`previewSceneWords`). Null for a
  * scene whose content is not one text.
  */
-export function makerWordsLook(type: string): ReactNode {
+export function makerWordsLook(type: string, config?: unknown): ReactNode {
   if (type === 'special_message') return <SpecialMessageWidget text={'\u2026'} />;
   if (type === 'what_to_bring') return <WhatToBringWidget text={'\u2026'} />;
+  /* ✍ A scene of their own (owner 2026-10-17, *"i cannot edit this"*): its Heading and Words drawn by the guest's own
+     renderer — the template's, when the scene was made from one (`renderCustomSection`) — for Edit's two rows to type
+     into before the scene has any (`type-in-place-canvas.ts` `ownLookPart`). */
+  if (isCustomSectionType(type)) {
+    const canvas = config && typeof config === 'object' ? (config as { canvas?: unknown }).canvas : undefined;
+    return renderCustomSection({ config: { canvas, title: '\u2026', body: '\u2026' }, facts: NO_SCENE_FACTS, makerSlots: true });
+  }
   return null;
+}
+
+/**
+ * 🖼 An EMPTY scene of their own made from a template that takes pictures: the template drawn with no words, every
+ * picture slot an empty box in its place (`renderScene` `makerSlots`) — what the placeholder shows instead of a sample.
+ * Null for a scene with no template, or a template with no pictures.
+ */
+export function makerOwnSlots(type: string, config?: unknown): ReactNode {
+  if (!isCustomSectionType(type)) return null;
+  const canvas = config && typeof config === 'object' ? (config as { canvas?: unknown }).canvas : undefined;
+  return renderCustomSection({ config: { canvas }, facts: NO_SCENE_FACTS, makerSlots: true });
 }

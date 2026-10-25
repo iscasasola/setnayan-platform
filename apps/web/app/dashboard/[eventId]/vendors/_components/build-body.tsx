@@ -95,7 +95,7 @@ export const BuildWritesStandInCtx = createContext<BuildWrites | null>(null);
 const NO_PICK = '__none__';
 /** On a phone the bar's buttons share its width; on a computer it is a pill
  *  in the corner and each keeps its own. */
-const BAR_FLEX = 'max-lg:!flex-1';
+const BAR_FLEX = 'max-tab:!flex-1';
 
 const CARDS_CSS =
   '[data-build-cards]{scrollbar-width:none;-webkit-overflow-scrolling:touch}[data-build-cards]::-webkit-scrollbar{display:none}' +
@@ -160,7 +160,7 @@ export function BuildBody({
     setOpenId(twin.id);
   }, [twin]);
 
-  /** One write (or a short chain of them), then the page reads itself again. */
+  /** One write (or a short chain of them). Each revalidates the page, so its own answer redraws it — no refresh after. */
   const run = useCallback(
     (steps: Array<() => Promise<Done>>, after?: (ok: boolean) => void) => {
       startTransition(async () => {
@@ -176,10 +176,9 @@ export function BuildBody({
         }
         if (failed) setToast({ text: failed, tone: 'bad' });
         after?.(failed == null);
-        if (!standIn) router.refresh();
       });
     },
-    [router, standIn],
+    [],
   );
 
   const pick = (line: BuildLine, key: string) => {
@@ -293,7 +292,7 @@ export function BuildBody({
   const allFree = fit.priced > 0 && fit.free === fit.priced;
 
   return (
-    <div data-build-body="" className="space-y-9 max-lg:pb-20">
+    <div data-build-body="" className="space-y-9 max-tab:pb-20">
 
       {/* ── THIS BUILD ─────────────────────────────────────────────────── */}
       <section id="svc-build" aria-labelledby="svc-build-h">
@@ -529,9 +528,11 @@ function BuildLineRow({
   // The pick is always in its own dropdown, even while it cannot be booked.
   const options = [
     { key: NO_PICK, label: 'Pick one' },
-    ...line.candidates.map((c) => ({ key: c.vendorId, label: `${c.name} · ${formatPhp(c.pricePhp)}` })),
+    // A covered supplier ("· with Reception") is offered by name only — their
+    // one price lives on their own row (`lib/covered-row-name.ts`).
+    ...line.candidates.map((c) => ({ key: c.vendorId, label: c.includedWith ? c.shownName : `${c.name} · ${formatPhp(c.pricePhp)}` })),
     ...(line.pick && !line.candidates.some((c) => c.vendorId === line.pick!.vendorId)
-      ? [{ key: line.pick.vendorId, label: line.pick.name }]
+      ? [{ key: line.pick.vendorId, label: line.pick.shownName }]
       : []),
   ];
   const canChoose = line.candidates.length > 0 || line.pick != null;
@@ -543,13 +544,13 @@ function BuildLineRow({
           {line.booked ? ' · booked' : ''}
         </p>
         {line.booked ? (
-          <p className="mt-0.5 text-sm font-medium text-ink">{line.booked.name}</p>
+          <p className="mt-0.5 text-sm font-medium text-ink">{line.booked.shownName}</p>
         ) : canChoose ? (
           <div className="mt-1 max-w-full" aria-busy={busy || undefined}>
             <PickMenu
               label={`Pick a ${line.label} supplier`}
               value={line.pick?.vendorId ?? NO_PICK}
-              buttonText={line.pick ? line.pick.name : 'Pick one'}
+              buttonText={line.pick ? line.pick.shownName : 'Pick one'}
               options={options}
               onPick={onPick}
               dataAttr="data-build-pick"
@@ -579,7 +580,7 @@ function BuildLineRow({
           <span className="text-base text-ink/45" aria-hidden>
             —
           </span>
-        ) : who.pricePhp != null ? (
+        ) : who.includedWith ? null : who.pricePhp != null ? (
           <span className="whitespace-nowrap text-base font-semibold tabular-nums text-ink">
             <Count value={who.pricePhp} format="peso" id={`sup-build-line-${line.tile}`} />
           </span>
@@ -832,7 +833,7 @@ function BuildBar({
       data-build-bar=""
       data-on={up ? 'true' : 'false'}
       inert={!up}
-      className={`pointer-events-none fixed inset-x-0 bottom-[var(--sn-bottomdock-h,64px)] z-[25] px-4 py-2.5 transition-transform ease-out motion-reduce:transition-none lg:bottom-7 lg:left-auto lg:right-7 lg:px-0 ${
+      className={`pointer-events-none fixed inset-x-0 bottom-[var(--sn-ride-h,var(--sn-bottomdock-h,64px))] z-[25] pl-[max(1rem,var(--sn-safe-l))] pr-[max(1rem,var(--sn-safe-r))] py-2.5 transition-transform ease-out motion-reduce:transition-none tab:bottom-7 tab:left-auto tab:right-[var(--sup-col-right,max(1.75rem,var(--sn-safe-r)))] tab:px-0 ${
         up ? 'translate-y-0' : 'translate-y-[calc(100%_+_32px)]'
       }`}
       style={{ transitionDuration: `${THUMB_SLIDE_MS}ms` }}

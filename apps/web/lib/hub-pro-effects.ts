@@ -34,24 +34,45 @@ import { MAKER_TOOL_EDITOR_NAME, makerSceneLabel, type MakerFixedKey } from '@/l
 import { PUBLIC_STAGE_ORDER } from '@/lib/public-site-stage-labels';
 import { STAGE_SHOW_KEY, configWithStageShow } from '@/lib/stage-scenes';
 import { SCENE_TEMPLATES } from '@/lib/scene-templates';
+import { sceneStyleSet, sceneStyleTypeOfWidget } from '@/lib/scene-styles';
 import { sanitizeCustomSection } from '@/lib/custom-sections';
-import { HUB_ELEMENT_LABEL, type HubElementKey } from '@/lib/element-style';
+import { PALETTE_LOOKS } from '@/lib/palette-looks';
+import { makerPartWordAt, makerPartWordOfStyle } from '@/lib/hub-draft-change-lines';
+import { QR_STYLE_PREF_KEY } from '@/lib/qr-look';
+import { celebrationDraftIsPro } from '@/lib/rsvp-celebration';
+import { DOS_LOOKS } from '@/lib/dress-code-looks';
+import { HUB_ELEMENT_LABEL, HUB_EL_REVEAL_LABEL, hubElementEffectNames, type HubElementKey } from '@/lib/element-style';
 import { INVITE_THEMES, normalizeThemeId } from '@/lib/invite-themes';
-import { hubMainGround, isHubMainChoice, isHubMainFollow, isHubMainLoop, sanitizeHubCanvas, type HubMainGround, type HubSectionCanvas } from '@/lib/hub-canvas';
+import { ART_KIT_IS_PRO, ART_KIT_ORNAMENTS } from '@/lib/art-kit-pro';
+import { ACCENT_NONE, ACCENT_SCENES, ACCENT_SCENE_LABEL, SCENE_ACCENTS_PREF_KEY, accentsTurnOn, resolvedAccent, sceneAccentsFromPreferences, type SceneAccents } from '@/lib/art-kit-accents';
+import { HUB_DURING_LABEL, hubMainGround, isHubMainChoice, isHubMainFollow, isHubMainLoop, sanitizeHubCanvas, type HubMainGround, type HubSectionCanvas } from '@/lib/hub-canvas';
 import {
   canvasFacetGrows,
   canvasLookFacets,
   canvasWithoutFacet,
+  draftVenueChoices,
+  FIXED_STYLE_LABEL,
   heldStageShow,
+  blockMotionsGrowing,
+  mainEffectChange,
+  mainGroundChange,
+  mergeHubDraft,
+  withoutEffect,
+  rsvpLookGrowing,
+  stylePreferencesProParts,
+  blockLooksFreePart,
   planHubDraftApply,
+  venueBagNewDrawings,
   rsvpAskFreePart,
   rsvpAskFreePartMoves,
   type CanvasFacetGroup,
   type CanvasLookFacet,
   type HubDraftEventColumn,
   type HubDraftItem,
+  type HubDraft,
   type HubDraftPatch,
   type HubDraftState,
+  type HubDraftVenueChoices,
   type HubLiveState,
 } from '@/lib/hub-draft';
 import { sanitizeRsvpAskConfig } from '@/lib/rsvp-ask';
@@ -62,6 +83,17 @@ import { POST_EVENT_SCENE_TYPE_LABEL, postEventSceneTypeOf } from '@/lib/post-ev
 import { postEventPreset } from '@/lib/post-event-presets';
 import { STORY_PRO_EXTRA_LABEL, storyProExtrasOf } from '@/lib/story-pro-extras';
 import { hubProEffectLine, UNLOCK_AND_APPLY_PARAM, unlockAndApplyHref, unlockAndApplyOnReturn, type HubProEffectView } from '@/lib/hub-pro-effect-view';
+import {
+  HUB_EVENT_COLUMN_PART,
+  asHubOwnership,
+  canvasFacetPart,
+  ownsHubPart,
+  rsvpFieldPart,
+  stylePreferencesPartOf,
+  type HubOwnership,
+  type HubOwnershipLike,
+  type HubPartId,
+} from '@/lib/hub-parts';
 
 /** Where "Go to" takes the couple in the Maker (a `MakerSelection`, plus a part). */
 export type HubProEffectJump =
@@ -89,6 +121,8 @@ export type HubProEffectJump =
 export type HubProEffect = {
   /** Stable within one draft: what `drop` names. */
   id: string;
+  /** 💎 The ONE part it needs (owner 2026-10-22, `lib/hub-parts.ts`) — what the Apply sheet groups and prices it under. */
+  part: HubPartId;
   /** What it is — "Font", "Animation", "Photo background", "Theme". */
   what: string;
   /** Where it is — "Names on the Hero", "Schedule", "Velvet". */
@@ -126,24 +160,60 @@ const GROUP_NAME: Record<CanvasFacetGroup, { what: string; tab: 'format' | 'anim
   'part-motion': { what: 'Animation', tab: 'animate' },
   'slot-media': { what: 'Photo in the scene', tab: 'content' },
   playback: { what: 'Clip playback', tab: 'content' },
+  /* 💎 The scene's Pro look, named by the look ("Look · Two-lane timeline" is said by `where`). */
+  look: { what: 'Look', tab: 'format' },
+  /* 💎 A part's own Style (2026-10-16) — named by what moved: "Colour · Size". */
+  'part-style': { what: 'Style', tab: 'format' },
 };
+
+/** 💎 A part's Style field → the word the Maker's own control says (Style's row and the part sheet). */
+const PART_STYLE_WORD: Readonly<Record<string, string>> = {
+  font: 'Font',
+  color: 'Colour',
+  size: 'Size',
+  weight: 'Weight',
+  italic: 'Italic',
+  underline: 'Underline',
+  align: 'Alignment',
+  width: 'Width',
+  leading: 'Line spacing',
+  tracking: 'Letter spacing',
+  runs: 'Letters',
+};
+
+/** The words for a set of part-style facets, in the Maker's order, each once. */
+function partStyleWhat(facets: readonly CanvasLookFacet[]): string {
+  const fields = new Set(facets.map((f) => f.key.split(':')[2] ?? ''));
+  const words = Object.keys(PART_STYLE_WORD).filter((k) => fields.has(k)).map((k) => PART_STYLE_WORD[k]!);
+  return words.length > 0 ? words.join(' · ') : 'Style';
+}
 
 /** One `events` column → what, where and where to go. Only Pro columns reach here. */
 function eventEffect(
   column: HubDraftEventColumn,
   value: unknown,
+  accents: SceneAccents = {},
 ): { what: string; where: string; jump: HubProEffectJump | null } {
   switch (column) {
     case 'invite_theme': {
       const id = normalizeThemeId(value);
-      return { what: 'Theme', where: id ? INVITE_THEMES[id].name : 'Your theme', jump: { kind: 'look' } };
+      /* 🕯 A look that brings an art kit says so while its Decorations are on and Pro (owner 2026-10-16: "Name it
+         'Decorations' in the Apply sheet's Pro lines") — one line, the theme's, since paying for the theme is what
+         brings them: "Theme · Vintage, with its Decorations". */
+      const withKit =
+        id !== null &&
+        ART_KIT_IS_PRO &&
+        ART_KIT_ORNAMENTS.includes(INVITE_THEMES[id].ornament) &&
+        ACCENT_SCENES.some((sc) => resolvedAccent(sc, accents, id) !== ACCENT_NONE);
+      return { what: 'Theme', where: id ? `${INVITE_THEMES[id].name}${withKit ? ', with its Decorations' : ''}` : 'Your theme', jump: { kind: 'look' } };
     }
     case 'site_font_key':
       return { what: 'Typeface', where: 'Whole Event Hub', jump: { kind: 'look' } };
     case 'site_art_direction':
       return { what: 'Candlelight', where: 'Whole Event Hub', jump: { kind: 'look' } };
     case 'site_magic_traveller':
-      return { what: 'Magic move', where: 'Whole Event Hub', jump: { kind: 'look' } };
+      /* ✈ The cover Logo's Action (Look restudy row 9) — named and jumped to where it now lives. */
+      return { what: 'Travels to the bar', where: 'Logo', jump: { kind: 'tool', key: 'hero' } };
     case 'site_bg_color':
       return { what: 'Ombré background', where: 'Whole Event Hub', jump: { kind: 'look' } };
     case 'rsvp_backdrop':
@@ -178,12 +248,121 @@ function eventEffect(
   }
 }
 
+/**
+ * 🎉 A held RSVP config → ONE LINE PER PART it holds (💎 part by part, 2026-10-22): the When yes celebration and a
+ * line's / card's Build in are Motion's (gates 26, 27b), a reply line's Style is Style's (27a). Each is named by the
+ * Maker's own words and comes off alone — that part's fields put back to live, the other part's and the RSVP's words
+ * kept (`rsvpAskFreePart` with every OTHER part kept).
+ */
+function rsvpEffects(live: HubLiveState, value: unknown, own: HubOwnership): HubProEffect[] {
+  const liveConfig = live.events.rsvp_ask_config ?? null;
+  const celebrates = celebrationDraftIsPro(liveConfig, value);
+  const growing = rsvpLookGrowing(liveConfig, value);
+  const fieldsOf = (part: HubPartId) => growing.filter((k) => rsvpFieldPart(k.split('|')[1] ?? '') === part);
+  const out: HubProEffect[] = [];
+  for (const part of ['motion', 'style'] as const) {
+    if (ownsHubPart(own, part)) continue;
+    const words: string[] = [];
+    if (part === 'motion' && celebrates) words.push(`${RSVP_CELEBRATION_LABEL} · ${RSVP_CELEBRATION_NAME[readCelebrationKey(sanitizeRsvpAskConfig(value))]}`);
+    if (fieldsOf(part).length > 0) words.push(part === 'motion' ? 'Animation' : 'Style');
+    if (words.length === 0) continue;
+    const others = (q: HubPartId) => q !== part;
+    out.push({
+      id: `event:rsvp_ask_config:${part}`,
+      part,
+      what: words.join(' · '),
+      where: part === 'motion' && celebrates ? 'RSVP · When yes' : 'RSVP',
+      jump: null,
+      /* 🎉 Taking it off keeps the RSVP's drafted words, switches and the other part — or, when nothing else was
+         drafted, puts back live. */
+      remove: {
+        events: {
+          rsvp_ask_config: rsvpAskFreePartMoves(liveConfig, value, others) ? rsvpAskFreePart(liveConfig, value, others) : liveConfig,
+        },
+      },
+    });
+  }
+  return out;
+}
+
+/**
+ * 🎛 A held `style_preferences` blob → ONE LINE PER PART it holds (💎 part by part, 2026-10-22): Decorations are
+ * Style's (16), the QR is Logo & QR's (29), a fixed block's new motion is Motion's (17b) — by the
+ * same rule that held the blob (`stylePreferencesProParts`). "Remove" puts THAT part's keys back to what guests see
+ * today and keeps every other drafted key.
+ */
+function stylePreferenceEffects(live: HubLiveState, value: unknown, own: HubOwnership): HubProEffect[] {
+  const liveBlob = live.events.style_preferences ?? null;
+  const liveRec = liveBlob && typeof liveBlob === 'object' && !Array.isArray(liveBlob) ? (liveBlob as Record<string, unknown>) : {};
+  const drafted = value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+  const pieces = stylePreferencesProParts(liveBlob, value);
+  const liveAccents = sceneAccentsFromPreferences(liveBlob);
+  const turned = SCENE_ACCENTS_PREF_KEY in drafted ? accentsTurnOn(liveAccents, sceneAccentsFromPreferences(value)) : [];
+  /** The drafted blob with these keys put back to live's (absent where live has none). */
+  const without = (keys: readonly string[]): Record<string, unknown> => {
+    const next = { ...drafted };
+    for (const k of keys) {
+      if (k in liveRec) next[k] = liveRec[k];
+      else delete next[k];
+    }
+    return next;
+  };
+  const out: HubProEffect[] = [];
+  for (const part of ['style', 'logo_qr', 'motion'] as const) {
+    if (ownsHubPart(own, part)) continue;
+    const mine = pieces.filter((piece) => stylePreferencesPartOf(piece) === part);
+    if (mine.length === 0) continue;
+    if (part === 'logo_qr') {
+      out.push({ id: 'event:style_preferences:logo_qr', part, ...eventEffect('style_preferences', value), remove: { events: { style_preferences: without([QR_STYLE_PREF_KEY]) } } });
+      continue;
+    }
+    if (part === 'motion') {
+      const blocks = blockLooksFreePart(liveBlob, value);
+      const next = { ...drafted };
+      if (blocks) next.block_looks = blocks;
+      else delete next.block_looks;
+      out.push({
+        id: 'event:style_preferences:motion',
+        part,
+        what: 'Animation',
+        where: blockMotionsGrowing(liveBlob, value).map((b) => makerPartWordAt(`f:${b}`) ?? b).join(', '),
+        jump: null,
+        remove: { events: { style_preferences: next } },
+      });
+      continue;
+    }
+    out.push({
+      id: 'event:style_preferences:style',
+      part,
+      what: 'Decorations',
+      where: turned.map((sc) => ACCENT_SCENE_LABEL[sc]).join(', '),
+      jump: null,
+      remove: { events: { style_preferences: without([SCENE_ACCENTS_PREF_KEY]) } },
+    });
+  }
+  return out;
+}
+
 /** The Main background (hero row) → its name. */
 function mainWhat(main: HubMainGround | null): string {
   if (isHubMainLoop(main)) return 'Moving background';
   if (!main || isHubMainChoice(main)) return 'Background';
   if (isHubMainFollow(main)) return 'Adaptive theme';
   return main.kind === 'snippet' ? 'Video background' : 'Photo background';
+}
+
+/**
+ * ✨ The Main background's line: its name, and "Effect" when the effect on it is new or changed (owner 2026-10-16: every
+ * effect is Pro) — "Effect" alone when that is all that changed, "Photo background · Effect" when both did. The word,
+ * not the effect's own name: the names live with the engine (`lib/ambient-effects.ts`), which the Maker's first load
+ * does not carry (the Animate line says "Animation" for the same reason).
+ */
+function mainLineWhat(live: HubMainGround | null, next: HubMainGround | null): string {
+  const fx = mainEffectChange(live, next);
+  if (fx !== 'add' && fx !== 'change') return mainWhat(next);
+  const bare = (m: HubMainGround | null) => (m ? withoutEffect(m) : m);
+  const rest = mainGroundChange(bare(live), bare(next));
+  return rest === 'add' || rest === 'change' ? `${mainWhat(next)} · Effect` : 'Effect';
 }
 
 /* ── THE LIST ────────────────────────────────────────────────────────────── */
@@ -196,8 +375,9 @@ function mainWhat(main: HubMainGround | null): string {
  * the bar's `asViewed` read): an owning couple gets `[]`, because nothing is
  * refused.
  */
-export function hubDraftProEffects(draft: HubDraftState, live: HubLiveState, ownsPro: boolean): HubProEffect[] {
-  const { refused } = planHubDraftApply(draft, live, ownsPro);
+export function hubDraftProEffects(draft: HubDraftState, live: HubLiveState, ownsPro: HubOwnershipLike): HubProEffect[] {
+  const own = asHubOwnership(ownsPro);
+  const { refused } = planHubDraftApply(draft, live, own);
   const out: HubProEffect[] = [];
   const seen = new Set<string>();
   const push = (e: HubProEffect) => {
@@ -214,6 +394,7 @@ export function hubDraftProEffects(draft: HubDraftState, live: HubLiveState, own
            couple wrote; "Remove" puts back what guests read today. */
         push({
           id: `story:${f}`,
+          part: 'post_event',
           what: STORY_PRO_EXTRA_LABEL[f],
           where: 'Post Event · your story',
           jump: null,
@@ -224,32 +405,50 @@ export function hubDraftProEffects(draft: HubDraftState, live: HubLiveState, own
       for (const effect of postEventEffects(f === 'sceneLooks' ? item.item.value : null, live)) push(effect);
       continue;
     }
-    // 🎨 A fixed part's Style pick is free — never refused, so never listed.
-    if (item.kind === 'fixed-style') continue;
+    // 🎨 A fixed part's style card (💎 Pro since 2026-10-16 unless it is the theme's own) — named by the card, where the
+    // Maker names the part; "Remove" puts back the card guests see today.
+    if (item.kind === 'fixed-style') {
+      push({
+        id: `fixed-style:${item.scene}`,
+        part: 'style',
+        what: sceneStyleSet(item.scene)?.styles.find((st) => st.id === item.value)?.name ?? 'Look',
+        where: makerPartWordOfStyle(item.scene) ?? FIXED_STYLE_LABEL[item.scene],
+        jump: null,
+        remove: { fixedStyles: { [item.scene]: live.fixedStyles?.[item.scene] ?? null } },
+      });
+      continue;
+    }
     // 🚶 …and so is every Wedding March move.
     if (item.kind === 'march') continue;
+    /* 💎 A custom address tried in Details (owner 2026-10-22) — named by the address; "Remove" takes the pick off. */
+    if (item.kind === 'address') {
+      push({ id: 'address', part: 'address', what: 'Custom address', where: item.value, jump: { kind: 'tool', key: 'details' }, remove: { address: null } });
+      continue;
+    }
     if (item.kind === 'event') {
-      const named = eventEffect(item.column, item.value);
+      const liveAccents = sceneAccentsFromPreferences(live.events.style_preferences ?? null);
+      const draftAccents = { ...liveAccents, ...sceneAccentsFromPreferences(draft.events.style_preferences ?? null) };
+      if (item.column === 'style_preferences') {
+        /* 💎 Part by part (2026-10-22): the blob is named ONE LINE PER PART it holds — Decorations are
+           Style, the QR is Logo & QR, a block's new motion is Motion — each by the same rule that held it
+           (`stylePreferencesProParts`), each with its own "Remove" (that part's keys put back to what guests see). */
+        for (const effect of stylePreferenceEffects(live, item.value, own)) push(effect);
+        continue;
+      }
+      if (item.column === 'rsvp_ask_config') {
+        for (const effect of rsvpEffects(live, item.value, own)) push(effect);
+        continue;
+      }
+      const part = HUB_EVENT_COLUMN_PART[item.column] ?? 'style';
+      if (ownsHubPart(own, part)) continue;
       push({
         id: `event:${item.column}`,
-        ...named,
+        part,
+        ...eventEffect(item.column, item.value, draftAccents),
         // A Love Story's moments are words and photos in one value — putting the
         // live one back would throw the words away too, so it is never "removed"
         // from here; "Go to" opens the Love Story, where a photo comes off alone.
-        remove:
-          item.column === 'love_story'
-            ? null
-            : item.column === 'rsvp_ask_config'
-              ? /* 🎉 Taking the celebration off keeps the RSVP's drafted words and
-                   switches — or, when nothing else was drafted, puts back live. */
-                {
-                  events: {
-                    rsvp_ask_config: rsvpAskFreePartMoves(live.events.rsvp_ask_config ?? null, item.value)
-                      ? rsvpAskFreePart(live.events.rsvp_ask_config ?? null, item.value)
-                      : (live.events.rsvp_ask_config ?? null),
-                  },
-                }
-              : { events: { [item.column]: live.events[item.column] ?? null } },
+        remove: item.column === 'love_story' ? null : { events: { [item.column]: live.events[item.column] ?? null } },
       });
       continue;
     }
@@ -260,7 +459,8 @@ export function hubDraftProEffects(draft: HubDraftState, live: HubLiveState, own
       const liveMain = row ? hubMainGround(row.config_json) : null;
       push({
         id: 'main',
-        what: mainWhat(item.value as HubMainGround | null),
+        part: 'background',
+        what: mainLineWhat(liveMain, item.value as HubMainGround | null),
         where: 'Behind every scene',
         jump: { kind: 'look' },
         remove: { widgets: { [item.widgetType]: { main: liveMain } } as HubDraftPatch['widgets'] },
@@ -280,6 +480,7 @@ export function hubDraftProEffects(draft: HubDraftState, live: HubLiveState, own
       );
       push({
         id: `show:${item.widgetType}`,
+        part: 'own_scenes',
         what: preset ? 'Post Event scene' : 'Added scene',
         where: preset ? preset.name : template ? SCENE_TEMPLATES[template].name : scene,
         // A preset lives on Post Event only (`widgetsGuestsMeet`) — Go to lands there.
@@ -306,6 +507,7 @@ export function hubDraftProEffects(draft: HubDraftState, live: HubLiveState, own
       const liveWords = sanitizeCustomSection(row?.config_json);
       push({
         id: `words:${item.widgetType}`,
+        part: 'own_scenes',
         what: 'Words',
         where: scene,
         jump: { kind: 'scene', widgetId: item.widgetId, widgetType: item.widgetType, tab: 'content', stages, ...fixedOf(item.widgetType) },
@@ -317,8 +519,35 @@ export function hubDraftProEffects(draft: HubDraftState, live: HubLiveState, own
       });
       continue;
     }
+    if (item.field === 'venue') {
+      /* ⛪ "Our drawing ◆" on a venue card (owner 2026-10-16) — one effect per
+         card whose drawing the draft turns on. "Remove" takes the drawing off
+         that card only, keeping its drafted photo and source; with nothing else
+         drafted on the card it says "no photo" (`ownPhoto: null`), which reads
+         exactly as a card with no choice (`venuePhotoFor`). */
+      const liveCfg = row?.config_json;
+      const liveBag = draftVenueChoices(liveCfg && typeof liveCfg === 'object' && !Array.isArray(liveCfg) ? (liveCfg as Record<string, unknown>).venue : null);
+      const nextBag = item.value as HubDraftVenueChoices;
+      for (const slot of venueBagNewDrawings(liveBag, nextBag)) {
+        const { drawing: _drawing, ...rest } = nextBag[slot] ?? {};
+        void _drawing;
+        push({
+          id: `venue-drawing:${slot}`,
+          part: 'own_scenes',
+          what: 'Our drawing',
+          where: slot === 'ceremony' ? 'Ceremony venue' : 'Venue',
+          jump: { kind: 'tool', key: 'details' },
+          remove: {
+            widgets: {
+              [item.widgetType]: { venue: { [slot]: Object.keys(rest).length ? rest : { ownPhoto: null } } },
+            } as HubDraftPatch['widgets'],
+          },
+        });
+      }
+      continue;
+    }
     if (item.field === 'canvas') {
-      for (const effect of canvasEffects(item, row?.config_json, scene, stages)) push(effect);
+      for (const effect of canvasEffects(item, row?.config_json, scene, stages, own)) push(effect);
     }
   }
   return out;
@@ -341,6 +570,20 @@ function postEventEffects(drafted: PostEventSceneLooks | null, live: HubLiveStat
     const freeLook = sceneLooksFreePart(liveLooks, { [key]: look })[key];
     const type = postEventSceneTypeOf(key);
     const where = (type && POST_EVENT_SCENE_TYPE_LABEL[type]) || 'Post Event';
+    /* 💎 The scene's style card (2026-10-16) — named by the card. "Remove" puts back the style guests see today. */
+    if (look.style && look.style !== freeLook?.style) {
+      const liveStyle = liveLooks[key]?.style;
+      const { style: _s, ...without } = look;
+      void _s;
+      out.push({
+        id: `pe:${key}:style`,
+        part: 'post_event',
+        what: sceneStyleSet(type)?.styles.find((st) => st.id === look.style)?.name ?? 'Look',
+        where,
+        jump: { kind: 'row', key: `p:${key === 'chapters' ? 'ch-1' : key}` },
+        remove: { editorial: { sceneLooks: { ...drafted, [key]: liveStyle ? { ...without, style: liveStyle } : without } as PostEventSceneLooks } },
+      });
+    }
     for (const [part, style] of Object.entries(look.elements ?? {}) as Array<[HubElementKey, Record<string, unknown>]>) {
       const free = (freeLook?.elements?.[part] ?? {}) as Record<string, unknown>;
       for (const field of HUB_ELEMENT_PRO_FIELDS) {
@@ -350,8 +593,9 @@ function postEventEffects(drafted: PostEventSceneLooks | null, live: HubLiveStat
         else backed[field] = free[field];
         out.push({
           id: `pe:${key}:${part}:${field}`,
-          // A part's font is free since 2026-10-06 — its motion is the one Pro field.
-          what: 'Animation',
+          part: 'post_event',
+          /* 💎 Its motion, or — since 2026-10-16 — its Style, named by the Maker's own word ("Colour"). */
+          what: field === 'motion' ? 'Animation' : (PART_STYLE_WORD[field] ?? 'Style'),
           where: `${HUB_ELEMENT_LABEL[part]} on ${where}`,
           jump: { kind: 'row', key: `p:${key === 'chapters' ? 'ch-1' : key}` },
           remove: {
@@ -372,13 +616,22 @@ function canvasEffects(
   liveConfig: unknown,
   scene: string,
   stages: readonly LifecyclePhase[],
+  own: HubOwnership,
 ): HubProEffect[] {
   const live = sanitizeHubCanvas(liveConfig);
   const drafted = (item.value as HubSectionCanvas | null) ?? {};
   const groups = new Map<string, CanvasLookFacet[]>();
-  for (const facet of canvasLookFacets(live, drafted)) {
+  for (const facet of canvasLookFacets(live, drafted, item.widgetType)) {
     if (!canvasFacetGrows(facet)) continue;
-    const key = facet.element ? `${facet.group}:${facet.element}` : facet.group;
+    /* 💎 Part by part (2026-10-22): a facet whose part the event owns went live with the scene's free part
+       (`planHubDraftApply`) — it is not held, so it is not named. */
+    const part = canvasFacetPart(facet.key, facet.group);
+    if (ownsHubPart(own, part)) continue;
+    /* 💎 A scene's Style row colours and sizes EVERY word it draws (label · heading · words — `part-look.ts`), so one
+       pick is one line for the scene; a cover part (and the closing) is its own words, one line each.
+       💎 …and one line never spans two parts (a photo's Parallax is Background's, a scene's animation is Motion's). */
+    const perScene = facet.group === 'part-style' && item.widgetType !== 'hero';
+    const key = `${part === 'background' && facet.group !== 'media' ? 'background:' : ''}${facet.element && !perScene ? `${facet.group}:${facet.element}` : facet.group}`;
     groups.set(key, [...(groups.get(key) ?? []), facet]);
   }
   const out: HubProEffect[] = [];
@@ -386,16 +639,31 @@ function canvasEffects(
     const first = facets[0]!;
     const name = GROUP_NAME[first.group];
     const what =
-      first.group === 'media' && drafted.kind === 'snippet'
+      first.group === 'part-style'
+        ? partStyleWhat(facets)
+        : first.group === 'look'
+        ? /* 💎 The Pro look by its own name — "Two-lane timeline" — and the Dress code's palette / Do's & Don'ts looks by theirs. */
+          lookNames(drafted, facets, item.widgetType) || name.what
+        : first.group === 'media' && drafted.kind === 'snippet'
         ? 'Video background'
         : first.group === 'slot-media' && facets.some((f) => drafted.slots?.[f.slot ?? -1]?.kind === 'snippet')
           ? 'Clip in the scene'
-          : name.what;
-    const where = first.element ? `${HUB_ELEMENT_LABEL[first.element]} on the ${scene}` : scene;
+          : /* ✨ A part's new effects are named as themselves — Shimmer, and the six (Word by word · Spread · Glow · Develop ·
+               Curtain · Light leak), owner 2026-10-16: "all animate, effects, styles, accents are pro". */
+            first.group === 'part-motion' && first.element && hubElementEffectNames(drafted.elements?.[first.element]?.motion).length > 0
+            ? hubElementEffectNames(drafted.elements?.[first.element]?.motion).join(' · ')
+            : /* ✨ …and a scene's own on its pictures — Develop · Curtain · Light leak (owner 2026-10-17). */
+              first.group === 'motion' && sceneEffectNames(drafted, facets).length > 0
+              ? sceneEffectNames(drafted, facets).join(' · ')
+              : name.what;
+    /* 🕯 The closing's line is stored on the hero row but is no part of the cover — named, and reached, as itself. */
+    const closing = first.element === 'closing';
+    const where = closing ? HUB_ELEMENT_LABEL.closing : first.element && !(first.group === 'part-style' && item.widgetType !== 'hero') ? `${HUB_ELEMENT_LABEL[first.element]} on the ${scene}` : scene;
     let without = drafted;
     for (const f of facets) without = canvasWithoutFacet(live, without, f);
     out.push({
       id: `canvas:${item.widgetType}:${key}`,
+      part: canvasFacetPart(first.key, first.group),
       what,
       where,
       jump: {
@@ -403,13 +671,41 @@ function canvasEffects(
         widgetId: item.widgetId,
         widgetType: item.widgetType,
         tab: name.tab,
-        ...(first.element ? { element: first.element } : {}),
+        ...(first.element && !(first.group === 'part-style' && item.widgetType !== 'hero') ? { element: first.element } : {}),
         stages,
-        ...fixedOf(item.widgetType),
+        ...(closing ? { fixed: 'closing' } : fixedOf(item.widgetType)),
       },
       remove: { widgets: { [item.widgetType]: { canvas: without } } as HubDraftPatch['widgets'] },
     });
   }
+  return out;
+}
+
+/** 💎 The style cards a scene's 'look' facets name — its scene look, its palette look, its Do's & Don'ts look. */
+function lookNames(drafted: HubSectionCanvas, facets: readonly CanvasLookFacet[], widgetType: WidgetType): string {
+  const keys = new Set(facets.map((f) => f.key));
+  const out: string[] = [];
+  if (keys.has('style')) {
+    const n = sceneStyleSet(sceneStyleTypeOfWidget(widgetType))?.styles.find((st) => st.id === drafted.style)?.name;
+    if (n) out.push(n);
+  }
+  if (keys.has('palette')) {
+    const n = PALETTE_LOOKS.find((l) => l.id === drafted.palette)?.name;
+    if (n) out.push(n);
+  }
+  if (keys.has('dos')) {
+    const n = DOS_LOOKS.find((l) => l.id === drafted.dos)?.name;
+    if (n) out.push(n);
+  }
+  return out.join(' · ');
+}
+
+/** ✨ The new effects a scene's own motion facets carry, by their own names (only where that facet is what changed). */
+function sceneEffectNames(drafted: HubSectionCanvas, facets: readonly CanvasLookFacet[]): string[] {
+  const keys = new Set(facets.map((f) => f.key));
+  const out: string[] = [];
+  if (keys.has('reveal') && drafted.reveal) out.push(HUB_EL_REVEAL_LABEL[drafted.reveal]);
+  if (keys.has('during') && drafted.during === 'leak') out.push(HUB_DURING_LABEL.leak);
   return out;
 }
 
@@ -426,3 +722,27 @@ export function hubProEffectView(e: HubProEffect): HubProEffectView {
 /* The client's half (the effect's line, the view type, the Unlock-and-Apply
    return) lives in `lib/hub-pro-effect-view.ts` — see its docblock. */
 export { hubProEffectLine, UNLOCK_AND_APPLY_PARAM, unlockAndApplyHref, unlockAndApplyOnReturn, type HubProEffectView };
+
+/**
+ * ◆ "Remove Pro changes" (owner 2026-10-08, "keep, marked") — every held Pro effect off the draft, as ONE save: the
+ * same per-effect `remove` patches the Apply sheet's × writes, applied one after another to a working copy, and the
+ * result carries ONE undo step (the history of the first merge), so ↺ brings them all back together.
+ *
+ * Stops when the list of removable effects stops shrinking — a `remove` that does not take its own effect off can
+ * never spin. Null when there was nothing to remove (no save, no undo step).
+ */
+export function dropAllHubProEffects(current: HubDraft, live: HubLiveState, by?: string): HubDraft | null {
+  const removable = (d: HubDraftState) => hubDraftProEffects(d, live, false).filter((e) => e.remove);
+  let left = removable(current);
+  if (left.length === 0) return null;
+  let next = current;
+  let first: HubDraft | null = null;
+  while (left.length > 0) {
+    next = mergeHubDraft(next, left[0]!.remove!, by);
+    first ??= next;
+    const now = removable(next);
+    if (now.length >= left.length) break;
+    left = now;
+  }
+  return first ? { ...next, history: first.history } : null;
+}

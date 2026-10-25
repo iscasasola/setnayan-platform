@@ -33,6 +33,7 @@ import { PAPIC_FREE_ONE_CAMERA_COUNT } from '@/lib/papic-one';
 import { COMMISSION_PCT, supplierCommissionShort } from '@/lib/commission-promise';
 import { getLiveBookingFeeSchedule } from '@/lib/booking-fee-settings.server';
 import { resolveAiPrices } from '@/app/_components/home/pricing-data';
+import { BRAND_OG_IMAGES, BRAND_TWITTER_IMAGES } from '@/lib/brand-og';
 
 /**
  * Force dynamic rendering · skip static prerender.
@@ -93,6 +94,7 @@ export const metadata = {
     `Plan for free. Add Setnayan AI and the software you actually use at your event, at transparent PHP prices. ${COMMISSION_PCT}% commission on supplier bookings — couples pay suppliers directly. Suppliers pay Setnayan a booking fee only on couples we introduce.`,
   alternates: { canonical: '/pricing' },
   openGraph: {
+    images: BRAND_OG_IMAGES,
     title: 'Pricing · Setnayan',
     description:
       `Plan free, add the magic as you go. Transparent PHP prices. Couples pay suppliers directly — ${COMMISSION_PCT}% commission. Suppliers pay a booking fee only on couples we introduce.`,
@@ -101,6 +103,7 @@ export const metadata = {
     siteName: 'Setnayan',
   },
   twitter: {
+    images: BRAND_TWITTER_IMAGES,
     card: 'summary_large_image',
     title: 'Pricing · Setnayan',
     description: `Plan free · add software à la carte · ${COMMISSION_PCT}% commission · suppliers pay a booking fee only on couples we introduce.`,
@@ -508,7 +511,7 @@ export default async function PricingPage() {
         { n: 'Schedule', note: 'your day-of timeline' },
         { n: 'Budget tracker' },
         { n: 'Guest list' },
-        { n: 'Seat plan', note: '2D layout' },
+        { n: 'Seat plan', note: '2D layout + 3D walkthrough' },
         { n: 'Mood board' },
         { n: 'Printable plans' },
       ],
@@ -528,7 +531,7 @@ export default async function PricingPage() {
         { n: 'Browse suppliers + match preview' },
         { n: 'Single-camera livestream', note: 'to YouTube, auto-archived' },
         { n: 'Custom QR for every guest', note: 'free per-guest QR' },
-        { n: 'Memories hub' },
+        { n: 'Memories', note: 'every event’s photos in one place' },
         { n: '0% commission on supplier bookings' },
       ],
     },
@@ -748,7 +751,7 @@ export default async function PricingPage() {
               )}
               <p className="text-sm leading-relaxed text-ink/65">
                 The planner that matches, sorts and cross-references every
-                vendor for your exact wedding.
+                supplier for your exact wedding.
               </p>
               <ul className="mt-2 space-y-2 text-sm">
                 {[
@@ -927,10 +930,10 @@ export default async function PricingPage() {
               Tuesday. */}
           <p className="mt-6 max-w-2xl text-base leading-relaxed text-ink/65">
             Prices are in Philippine peso. Apply for a service, then pay by GCash
-            or bank transfer against a unique reference. No commission on vendor
-            bookings — couples pay their vendors directly and we never sit
-            between you at checkout. Vendors pay a booking fee to Setnayan on
-            clients we introduce them to; it is charged to the vendor, never
+            or bank transfer against a unique reference. No commission on supplier
+            bookings — couples pay their suppliers directly and we never sit
+            between you at checkout. Suppliers pay a booking fee to Setnayan on
+            clients we introduce them to; it is charged to the supplier, never
             added to what a couple pays.
           </p>
           <p className="mt-5 text-xs leading-relaxed text-ink/45">
@@ -986,13 +989,13 @@ export default async function PricingPage() {
         <div className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
           <div className="flex flex-col gap-3 rounded-2xl border border-ink/10 bg-cream p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
             <p className="text-base font-semibold text-ink">
-              Vendor? See the free business offering + your plans.
+              Supplier? See the free business offering + your plans.
             </p>
             <Link
               href="/for-suppliers"
               className="m-btn m-btn-ghost inline-flex shrink-0 items-center justify-center gap-2 text-sm"
             >
-              For vendors
+              For suppliers
               <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
             </Link>
           </div>

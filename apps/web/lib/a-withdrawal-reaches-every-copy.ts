@@ -122,13 +122,23 @@ function withVersion(base: string, storyVersionAt: string | null | undefined): s
   return token ? `${base}?v=${token}` : base;
 }
 
-/** The story's share card. */
+/**
+ * The story's share card.
+ *
+ * `look` — what the card DRAWS, as a short token (`shareCardLookToken` in lib/social/share-card-look.ts). The story's
+ * version alone did not move when the couple changed their logo or flipped the Logo switch, so a crawler kept the
+ * old face under an address nobody had reason to change (owner 2026-10-20, the cale-ice preview). Omitted ⇒ the
+ * address is exactly what it was.
+ */
 export function ogCardUrlFor(
   siteUrl: string,
   slug: string,
   storyVersionAt: string | null | undefined,
+  look?: string | null,
 ): string {
-  return withVersion(`${siteUrl}/api/og/realstory-slug/${slug}`, storyVersionAt);
+  const versioned = withVersion(`${siteUrl}/api/og/realstory-slug/${slug}`, storyVersionAt);
+  if (!look) return versioned;
+  return `${versioned}${versioned.includes('?') ? '&' : '?'}look=${encodeURIComponent(look)}`;
 }
 
 /**

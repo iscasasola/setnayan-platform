@@ -41,8 +41,8 @@ const DAY_MS = 86_400_000;
 const AUDIT_REMIND = 'verified_badge_reminder_sent';
 const AUDIT_LAPSE = 'verified_badge_lapsed';
 
-/** Where the note sends the supplier: the papers section on My Shop. */
-const PAPERS_URL = '/vendor-dashboard/shop#get-verified';
+/** Where the note sends the supplier: the papers — Your details › Your documents (step 5, 2026-10-14). */
+const PAPERS_URL = '/vendor-dashboard/profile#docs';
 
 /**
  * A vouch whose window closed with no approved papers gets its `expired_at`

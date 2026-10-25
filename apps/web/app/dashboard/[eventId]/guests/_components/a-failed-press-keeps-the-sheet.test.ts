@@ -50,7 +50,9 @@ import { hearAction } from './hear-action';
 import { plainRefusal } from './plain-refusal';
 
 const HERE = __dirname;
-const FILES = ['quick-add-sheet.tsx', 'capture-bar.tsx', 'add-from-people-sheet.tsx', 'guest-invite-cell.tsx', 'send-invite.tsx'] as const;
+// 2026-10-19: the name box (capture-bar) and Quick add's guest write no longer await in a transition — they queue the
+// name (`guest-add-queue.ts`), whose ONE write loop hears every answer (`await hearAction(next.run)`, checked below).
+const FILES = ['quick-add-sheet.tsx', 'add-from-people-sheet.tsx', 'guest-invite-cell.tsx', 'send-invite.tsx', 'guest-group-picker.tsx'] as const;
 
 /** Next's redirect signal, as the browser receives it from a server action. */
 const REDIRECT = Object.assign(new Error('NEXT_REDIRECT'), { digest: 'NEXT_REDIRECT;push;/dashboard/e-1/guests;307;' });
@@ -161,8 +163,12 @@ test('6 · no await inside a transition on the guest list can reject out of it',
   for (const file of FILES) {
     assert.ok(all.some((f) => f.file === file && f.heard), `the walker found no heard press in ${file} — it moved, or the walker is blind`);
   }
-  assert.ok(all.length >= 9, `anti-vacuity: ${all.length} awaits found in transitions; there were 9 presses when this was written`);
-  for (const name of ['quickAddGuest', 'addRoleToGuest', 'setGuestPrimaryRole', 'quickCreateGroup', 'addSingleGuest', 'addGuestsFromPeople', 'setGuestInvitationSent', 'saveInviteMessage']) {
+  assert.ok(all.length >= 7, `anti-vacuity: ${all.length} awaits found in transitions; there were 7 presses when the adds moved to the queue`);
+  // The two adds go through the queue; its one write loop hears every answer, so a failed request is a refused row.
+  const queue = readFileSync(join(HERE, 'guest-add-queue.ts'), 'utf8');
+  assert.match(queue, /await hearAction\(next\.run\)/, 'the add queue awaits a write bare — a failed request would reject out of it');
+  assert.equal([...queue.matchAll(/\bawait\b(?! hearAction)/g)].length, 0, 'the add queue awaits something it does not hear');
+  for (const name of ['addRoleToGuest', 'setGuestPrimaryRole', 'quickCreateGroup', 'addGuestsFromPeople', 'setGuestInvitationSent', 'saveInviteMessage']) {
     const src = FILES.map((f) => readFileSync(join(HERE, f), 'utf8')).join('\n');
     assert.match(src, new RegExp(`hearAction\\(\\(\\) =>\\s*${name}\\(`), `anti-vacuity: ${name} is no longer called through hearAction`);
   }

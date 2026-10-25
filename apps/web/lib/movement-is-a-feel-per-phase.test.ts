@@ -33,7 +33,7 @@ import React from 'react';
 
 import { stripComments } from './strip-comments';
 import { ANIMATE_FEELS, FEEL_OFF, FEEL_SECONDS, LEAVES_OPTIONS, autoFeel, autoSpeedOf, laySceneInFeel, laySceneOutFeel, partFeel, partSpeedOf, sceneInFeel, sceneOutFeel, type AnimateFeel } from './animate-feel';
-import { HUB_MOTION_PRESETS, HUB_PRESET_BODY, hubCanvasClass, hubCanvasVars, resolveHubMotion, sanitizeHubCanvas, type HubSectionCanvas } from './hub-canvas';
+import { HUB_MOTION_PRESETS, HUB_PRESET_BODY, HUB_SCROLL_IN_END, hubCanvasClass, hubCanvasVars, resolveHubMotion, sanitizeHubCanvas, type HubSectionCanvas } from './hub-canvas';
 import { hubElementMotionDeclarations, sanitizeHubElementMotion, withElementMotion, type HubElementMotion } from './element-style';
 import { HUB_CANVAS_MOTION_KEYS } from './hub-look-pro';
 import { nextTransition } from './hub-scenes';
@@ -65,7 +65,8 @@ const lay = (c: HubSectionCanvas, f: (draft: HubSectionCanvas) => void): HubSect
   f(draft);
   return sanitizeHubCanvas(draft);
 };
-const IN_END: Record<AnimateFeel, string | undefined> = { quick: 'entry 50%', calm: undefined, cinematic: 'cover 30%' };
+/* 🎚 Every feel writes its range now — Calm too (2026-10-16, F1: the old absent Calm never finished on a tall scene). */
+const IN_END: Record<AnimateFeel, string> = { ...HUB_SCROLL_IN_END };
 const OUT_RANGE: Record<AnimateFeel, string | undefined> = { quick: 'exit 0% exit 50%', calm: undefined, cinematic: 'cover 50% exit 100%' };
 
 test('(1) a scene: each end holds its own feel, and laying one changes nothing else — executed through the sanitizer and the page’s values', () => {
@@ -114,7 +115,9 @@ test('(2) old data draws what it drew — no new value is emitted for it, and th
   let seen = 0;
   for (const c of scenes()) {
     const v = hubCanvasVars(c);
-    assert.equal(v['--hub-in-end'], undefined, `an untouched scene got a new arrival range (${JSON.stringify(c)})`);
+    /* The one deliberate change (F1, 2026-10-16): a scene that follows the scroll is given Calm's range — the old
+       fallback never finished on a tall scene. A scene that plays on arrival is given none. */
+    assert.equal(v['--hub-in-end'], resolveHubMotion(c).timeline === 'scrub' ? HUB_SCROLL_IN_END[sceneInFeel(c, resolveHubMotion(c))] : undefined, `an untouched scene got the wrong arrival range (${JSON.stringify(c)})`);
     assert.equal(v['--hub-out-range'], undefined, `an untouched scene got a new way out (${JSON.stringify(c)})`);
     seen++;
   }
@@ -127,6 +130,7 @@ test('(2) old data draws what it drew — no new value is emitted for it, and th
     '--hub-in-kf': 'hub-in-movefade-left',
     '--hub-out-kf': 'hub-out-settle',
     '--hub-duration': '1.8s',
+    '--hub-in-end': HUB_SCROLL_IN_END.calm,
     '--hub-stagger': '0.25s',
     '--hub-ease': 'linear',
   });
@@ -136,13 +140,13 @@ test('(2) old data draws what it drew — no new value is emitted for it, and th
   sceneInFeel(frozen, resolveHubMotion(frozen));
   sceneOutFeel(frozen);
   /* THE STYLESHEET: every scroll range reads the feel with the OLD range as its fallback — and no bare one is left. */
-  assert.equal((CSS.match(/animation-range: entry 0% var\(--hub-in-end, entry 92%\), var\(--hub-out-range, exit 8% exit 100%\);/g) ?? []).length, 1, 'the whole scene’s scroll ranges');
+  assert.equal((CSS.match(/animation-range: entry 0% var\(--hub-in-end, entry min\(92%, 34vh\)\), var\(--hub-out-range, exit 8% exit 100%\);/g) ?? []).length, 1, 'the whole scene’s scroll ranges');
   const partIn = [...CSS.matchAll(/--hub-part-in-range: entry (\d+)% ([^;]+);/g)];
   assert.deepEqual(partIn.map((m) => m[1]), ['0', '4', '8', '12', '16', '20', '24', '28', '0'], 'the parts’ staggered arrival ranges');
-  for (const m of partIn) assert.equal(m[2], 'var(--hub-in-end, entry 92%)', 'a part’s arrival does not fall back to entry 92%');
+  for (const m of partIn) assert.equal(m[2], 'var(--hub-in-end, entry min(92%, 34vh))', 'a part’s arrival does not fall back to Calm’s range');
   const partOut = [...CSS.matchAll(/--hub-part-out-range: ([^;]+);/g)].map((m) => m[1]).filter((v) => v !== 'normal');
   assert.deepEqual(partOut, ['var(--hub-out-range, exit 8% exit 100%)', 'var(--hub-out-range, exit 8% exit 100%)'], 'a part’s way out does not fall back to exit 8% → 100%');
-  assert.doesNotMatch(CSS, /entry \d+% entry 92%;|: exit 8% exit 100%;|, exit 8% exit 100%;/, 'a scroll range no longer reads the feel');
+  assert.doesNotMatch(CSS, /entry \d+% entry 92%;|entry 92%\)|: exit 8% exit 100%;|, exit 8% exit 100%;/, 'a scroll range no longer reads the feel');
 });
 
 test('(3) the word shown is what plays — for every scene, against the page’s own values', () => {
@@ -257,13 +261,13 @@ const names = (r: string) => [...r.matchAll(/data-dd-label="">([^<]*)</g)].map((
 test('(6) the toolbar: each phase’s row 4 shows ITS feel; Action has none; a feel with nothing to time is grey; on arrival Build out says so', async () => {
   const rin = row(await draw('in'), 4);
   const rout = row(await draw('out'), 4);
-  assert.deepEqual(names(rin), ['Movement ◆', 'Plays', 'Delay']);
+  assert.deepEqual(names(rin), ['Movement ◆', 'Plays ◆', 'Delay ◆']); // 💎 RE-AIMED 2026-10-18: every Animate control wears ◆ (owner 2026-10-16)
   assert.deepEqual(names(rout), ['Movement ◆', 'Leaves ◆']);
   assert.match(rin, /data-stage-dd="in-move"[\s\S]*?aria-label="Movement: Quick"/, 'Build in does not show its own feel');
   assert.match(rout, /data-stage-dd="out-move"[\s\S]*?aria-label="Movement: Cinematic"/, 'Build out does not show its own feel');
   assert.match(rin, /aria-label="Build in plays: On scroll"/);
   assert.match(rout, /aria-label="How it leaves: As it scrolls away"/);
-  assert.deepEqual(names(row(await draw('in', { delay: null, rows: { value: 'auto', options: [{ key: 'auto', label: 'Auto' }], onPick: noop } }), 4)), ['Movement ◆', 'Plays', 'Rows']);
+  assert.deepEqual(names(row(await draw('in', { delay: null, rows: { value: 'auto', options: [{ key: 'auto', label: 'Auto' }], onPick: noop } }), 4)), ['Movement ◆', 'Plays ◆', 'Rows ◆']);
   /* ACTION: rows 1–2 only — it has no feel and no drive of its own. */
   const act = await draw('act');
   assert.equal(row(act, 4), '');
@@ -295,8 +299,8 @@ test('(7) nothing else writes — the callers’ Movement goes through the feel,
   const ss = tab.slice(from, tab.indexOf('<div data-scene-tab="animate" aria-busy={pending}>', from));
   assert.ok(ss.includes('<StageAnimate') && ss.length > 800, 'anti-vacuity: the scene’s Animate was found');
   assert.doesNotMatch(ss, /\.preset\b|c\.duration\b|c\.stagger\b|c\.outSpeed\b|HUB_MOTION_PRESETS/, 'the scene’s Animate writes a preset or a tempo outside the feel');
-  assert.match(ss, /onPick: \(f\) => save\(\(c\) => laySceneInFeel\(c, f\)\)/);
-  assert.match(ss, /onPick: \(f\) => save\(\(c\) => laySceneOutFeel\(c, f\)\)/);
+  assert.match(ss, /onPick: \(f\) => save\(\(c\) => laySceneInFeel\(c, f\), 'in'\)/);
+  assert.match(ss, /onPick: \(f\) => save\(\(c\) => laySceneOutFeel\(c, f\), 'out'\)/);
   assert.match(ss, /transition === 'auto'\s*\? \{ value: autoFeel\(shown\.autoSpeed\), onPick: \(f\) => setTransition\('auto', autoSpeedOf\(f\)\) \}/);
   assert.equal((ss.match(/c\.timeline\b/g) ?? []).length, 1, 'the drive is written by something other than Plays');
   const sheet = read(`${E}/element-sheet.tsx`);
@@ -324,7 +328,7 @@ test('(7) nothing else writes — the callers’ Movement goes through the feel,
      loads through `details-lazy.tsx` (the `maker-details` chunk) — checked on the next lines, not assumed. */
   /* …and a fifth, 2026-10-10: a fixed block's own Animate (`stage-panel/block-animate.tsx`) — reached only through
      `details-lazy.tsx`'s dynamic import, checked below. */
-  assert.deepEqual(users.sort(), [`${L}/rsvp-line-look.tsx`, `${L}/stage-panel/block-animate.tsx`, `${L}/stage-panel/stage-animate.tsx`, `${E}/element-sheet.tsx`, `${E}/scene-animate-tab.tsx`].sort(), 'the feel is imported by a file that may load first');
+  assert.deepEqual(users.sort(), [`${L}/rsvp-line-look.tsx`, `${L}/stage-panel/block-animate.tsx`, `${L}/stage-panel/stage-animate.tsx`, `${L}/stage-panel/cover-animate.tsx`, `${E}/element-sheet.tsx`, `${E}/scene-animate-tab.tsx`].sort(), 'the feel is imported by a file that may load first');
   const importers: string[] = [];
   const whoImports = (dir: string) => {
     for (const e of readdirSync(join(WEB, dir), { withFileTypes: true })) {

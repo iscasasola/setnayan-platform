@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import type { FitPlan } from '../_lib/first-screen-fit';
+import { doorLimit, type FitPlan } from '../_lib/first-screen-fit';
 import { firstScreenFitter } from '../_lib/first-screen-fit-dom';
 
 /**
@@ -40,17 +40,48 @@ import { firstScreenFitter } from '../_lib/first-screen-fit-dom';
  * taken back; when the hold is off again (reduce motion, the Reveal still up,
  * no hand-over at all) it fits exactly as before. The arming is watched.
  */
-export function FirstScreenDoor() {
+export function FirstScreenDoor({ fit: fits = true, foot: inFoot = false, rsvp: forRsvp = false }: { fit?: boolean; foot?: boolean; rsvp?: boolean } = {}) {
   const mark = useRef<HTMLSpanElement>(null);
   useEffect(() => {
-    const door = mark.current?.closest('details');
+    /* ✉️ …OR A GUEST'S RSVP BUTTON IN THE FOOT (owner 2026-10-20, *"lift the button so it's fully visible on first
+       open"*: on iPhone 13 the guest's "You're coming ✓ · Change" stood at y 644–688 in a 664-tall screen). The same
+       fit, the same limit — the button is the "door": mounted by `pahina-masthead.tsx` beside it in the foot. A link
+       never opens, so the door-open branches below simply never run for it. */
+    const door: HTMLElement | null = forRsvp
+      ? (mark.current?.closest<HTMLElement>('[data-cover-foot]')?.querySelector<HTMLElement>('a[data-cover-rsvp]') ?? null)
+      : (mark.current?.closest('details') ?? null);
     if (!door) return;
+    const isOpen = () => door instanceof HTMLDetailsElement && door.open;
     const calm = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    const card = door.closest<HTMLElement>('[data-pahina-first-screen]');
+    /* 🦶 THE DOOR IN THE COVER'S FOOT (owner 2026-10-17): the cover's own foot stands at the bottom of the first screen —
+       when the cover fits. 📱 ON A SHORT PHONE IT DOES NOT (2026-10-18, measured on maria-and-jose's shape: the TEXT
+       cover is ~830 px tall at 375 wide, so at 375 × 667 "Confirm your Booking" landed at y 644–700, below the fold, and
+       under the first-visit notice). So the foot is fitted too, by the same rule: the cover's air closes, its mark is
+       drawn smaller, and only then whole parts move — below the WHOLE FOOT (the door, the line under it and the
+       "Swipe up" hint move as one block, `footFit`), so nothing is ever drawn on them. The limit is the DOOR's: its
+       bottom edge clear of the screen's (16 px) or of the notice's top (8 px). A screen the cover already fits (375 × 812,
+       390 × 844, with no notice) is untouched — the fit writes nothing when nothing is needed. The text (card) cover
+       only — a photo cover fits both already — and not from `xl` (1280 px), where the page is the desktop's, unchanged. */
+    const foot = inFoot ? door.closest<HTMLElement>('[data-cover-foot]') : null;
+    const footFits = foot !== null && !window.matchMedia?.('(min-width: 1280px)').matches;
+    if (!fits || (inFoot && !footFits)) {
+      const onToggle = () => {
+        if (isOpen()) door.scrollIntoView({ block: 'nearest', behavior: calm() ? 'auto' : 'smooth' });
+      };
+      door.addEventListener('toggle', onToggle);
+      return () => door.removeEventListener('toggle', onToggle);
+    }
+    /* (A door in the foot stands INSIDE the cover's header: the first-screen block is the one that holds the header.) */
+    const card = (foot ? foot.closest('header')?.parentElement ?? null : door)?.closest<HTMLElement>('[data-pahina-first-screen]') ?? null;
     const cardCover = card?.querySelector<HTMLElement>('[data-cover-frameless]');
     const cardInner = cardCover?.firstElementChild;
     /* 📷 …or the PHOTO cover before the door: the last masthead above it on the page that holds a photo. */
-    const photoHead = card && cardCover ? null : Array.from((door.closest('main') ?? document.body).querySelectorAll<HTMLElement>('header[data-pahina-first-screen]')).filter((h) => h.querySelector('figure') !== null && (h.compareDocumentPosition(door) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0).pop() ?? null;
+    /* 📷 ✉️ A GUEST'S RSVP BUTTON UNDER A PHOTO COVER (2026-10-20, walked: the plate — a 4:5 portrait under the date —
+       put the button 340–380 px below the fold at every phone size). The photo is the first part to give way, the rule
+       the stranger's photo cover has had since 2026-10-13 (owner: the photo moves so the names, the date and the action
+       are on the first screen): it is drawn below the whole foot, whole. The box is the cover's own header. */
+    const footPhoto = forRsvp && foot && !(card && cardCover) ? (foot.closest<HTMLElement>('header[data-pahina-first-screen]') ?? null) : null;
+    const photoHead = footPhoto?.querySelector('figure') ? footPhoto : foot || (card && cardCover) ? null : Array.from((door.closest('main') ?? document.body).querySelectorAll<HTMLElement>('header[data-pahina-first-screen]')).filter((h) => h.querySelector('figure') !== null && (h.compareDocumentPosition(door) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0).pop() ?? null;
     const photoInner = photoHead?.querySelector('h1')?.parentElement ?? null;
     let host: HTMLElement | null = photoHead;
     while (host && !host.contains(door)) host = host.parentElement;
@@ -60,13 +91,15 @@ export function FirstScreenDoor() {
     const inner = photo ? photoInner : cardInner;
     if (!screen || !cover || !(inner instanceof HTMLElement)) {
       const onToggleOnly = () => {
-        if (door.open) door.scrollIntoView({ block: 'nearest', behavior: calm() ? 'auto' : 'smooth' });
+        if (isOpen()) door.scrollIntoView({ block: 'nearest', behavior: calm() ? 'auto' : 'smooth' });
       };
       door.addEventListener('toggle', onToggleOnly);
       return () => door.removeEventListener('toggle', onToggleOnly);
     }
     const root = document.documentElement;
-    const { blocks, clear, set, lay, make, mark: markScreen } = firstScreenFitter(screen, cover, inner, door, () => window.scrollY, photo);
+    /* 🦶 In the foot the fitted block is the whole foot, so a part that gives way goes below the hint, never onto it. */
+    const block = foot ?? door;
+    const { blocks, clear, set, lay, make, mark: markScreen } = firstScreenFitter(screen, cover, inner, block, () => window.scrollY, photo);
     markScreen(true);
 
     let plan: FitPlan | null = null;
@@ -78,7 +111,7 @@ export function FirstScreenDoor() {
       if (handedOver()) return;
       const list = blocks();
       clear(list);
-      if (door.open && plan) {
+      if (isOpen() && plan) {
         // An open door keeps the plan it opened on; only the distances follow its new height.
         set(plan.air, plan.mark);
         lay(list, plan.gives);
@@ -86,9 +119,19 @@ export function FirstScreenDoor() {
       }
       const rest = parseFloat(getComputedStyle(door).scrollMarginBottom) || 0;
       const banner = parseFloat(getComputedStyle(root).getPropertyValue('--cookie-banner-top')) || 0;
-      // The button's bottom edge may reach the bottom bar's top less a gap — or the cookie banner's, while it is up.
-      const limit = window.innerHeight - Math.max(rest, banner > 0 ? banner + 8 : 0);
-      plan = make(list, limit);
+      // The button's bottom edge may reach the bottom bar's top less a gap — or the cookie banner's, while it is up —
+      // on the Cover Scene's own first screen: from where the scene begins, not the page's top (`doorLimit`).
+      const scene = (foot ?? cover).closest('header[data-cover-scene]');
+      const sceneTop = scene ? scene.getBoundingClientRect().top + window.scrollY : 0;
+      const limit = doorLimit({ screenHeight: window.innerHeight, footClear: Math.max(rest, banner > 0 ? banner + 8 : 0), sceneTop });
+      // 🦶 The foot: the door clear of the screen's edge by 16 px; the fit measures the whole foot, so its limit is the
+      // door's plus what stands under the door in the foot (that never changes with the fit).
+      // 📱 …and above the SAFE AREA (owner 2026-10-20): the foot's own bottom padding is `max(14px, env(safe-area-inset-
+      // bottom))`, so where a home indicator takes the screen's foot (an installed app; Safari with its bar tucked away)
+      // the button stays that far plus 2 px above the edge. With no inset the padding is 14 and this is the 16 px it was.
+      const edge = foot ? Math.max(16, (parseFloat(getComputedStyle(foot).paddingBottom) || 0) + 2) : 16;
+      const footFit = foot ? foot.getBoundingClientRect().bottom - door.getBoundingClientRect().bottom - (banner > 0 ? 0 : edge) : 0;
+      plan = make(list, limit + footFit);
     };
 
     let frame = 0;
@@ -101,7 +144,7 @@ export function FirstScreenDoor() {
     };
     const onToggle = () => {
       fit();
-      if (door.open) door.scrollIntoView({ block: 'nearest', behavior: calm() ? 'auto' : 'smooth' });
+      if (isOpen()) door.scrollIntoView({ block: 'nearest', behavior: calm() ? 'auto' : 'smooth' });
     };
     fit();
     const sized = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(soon);
@@ -125,6 +168,6 @@ export function FirstScreenDoor() {
       clear(blocks());
       markScreen(false);
     };
-  }, []);
+  }, [fits, inFoot, forRsvp]);
   return <span ref={mark} hidden />;
 }

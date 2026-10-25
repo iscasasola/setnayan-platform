@@ -10,6 +10,8 @@ import {
   sortMoments,
   loveStoryScenes,
   mayAddMoment,
+  momentHasBothVoices,
+  momentReadLine,
   type LoveStoryMoment,
 } from '@/lib/love-story-moments';
 import { AddMomentLabel, MomentSheet } from './moment-sheet';
@@ -57,6 +59,11 @@ export type LoveStoryBookProps = {
   /** 💎 Pro is usable because it is being TRIED (no Event Hub Pro yet) — Apply asks. */
   tryingPro?: boolean;
   storeShell: boolean;
+  /**
+   * 🍎 The iPhone app where Apple sells Pro at Apply (`getIapGate().iap`): Pro is TRIED there as on the web, so the
+   * ◆ mark says so — never a price or a link (those keep `storeShell`). Absent = false.
+   */
+  appleIap?: boolean;
   proHref: string;
   proPrice: string | null;
   /** `?pro=` from a refused write — the line is drawn at the top. */
@@ -216,7 +223,10 @@ export function LoveStoryBook(p: LoveStoryBookProps) {
           <div role="status" data-love-story-refused={p.refused} className="mx-auto mt-6 max-w-md">
             <p className="text-[14px]">
               {p.refused === 'photos'
-                ? 'Your words are free — photos come with Event Hub Pro.'
+                ? p.storeShell
+                  ? /* 🍎 The iPhone app names no paid extra (lib/store-shell.ts). */
+                    'Your words are free. Photos are not included in the app.'
+                  : 'Your words are free — photos come with Event Hub Pro.'
                 : `Your first ${FREE_MOMENT_CAP} stories are free.`}
             </p>
             <div className="flex justify-center">{proLine}</div>
@@ -297,10 +307,12 @@ export function LoveStoryBook(p: LoveStoryBookProps) {
                           </p>
                           {m.title ? <h3 data-moment-title-shown="" className="mt-2 font-pahina text-2xl font-medium">{m.title}</h3> : null}
                           <p className="mt-2 max-w-prose whitespace-pre-line font-pahina text-2xl font-light leading-snug">
-                            {m.line}
+                            {/* 🗣 Only the voices that wrote, named; none, the line told together (owner 2026-10-17). */}
+                            {momentReadLine(m, sheetProps.partners)}
                           </p>
                           <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-[13px] text-[color:var(--ls-muted)]">
-                            {m.added_by ? <span>Added by {m.added_by}</span> : null}
+                            {/* "Added by" hides once both voices are written — the names say who wrote what. */}
+                            {m.added_by && !momentHasBothVoices(m) ? <span>Added by {m.added_by}</span> : null}
                             {(m.media ?? []).length === 0 ? <span>words only</span> : null}
                             {m.hidden ? <span>Off the Event Hub</span> : null}
                             <MomentSheet
@@ -350,7 +362,7 @@ export function LoveStoryBook(p: LoveStoryBookProps) {
 
           <div className="flex flex-wrap items-center justify-between gap-4 border-t border-[color:var(--ls-rule)] pt-6">
             <p className="text-[14px] text-[color:var(--ls-muted)]">
-              {p.tryingPro ? (
+              {p.tryingPro && (!p.storeShell || p.appleIap) ? (
                 <span className="inline-flex flex-wrap items-center gap-1.5">
                   {`Up to ${FREE_MOMENT_CAP} stories, in your words, are free. More, and photos:`}
                   <PaidMark state="try" label={paidMarkLabel('try', 'Event Hub Pro')} size="xs" />

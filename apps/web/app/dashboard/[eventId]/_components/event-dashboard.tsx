@@ -25,7 +25,8 @@ import type { MenuLifecyclePhase } from '@/lib/day-of-mode';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
-import { isStoreShellRequest } from '@/lib/request-platform';
+import { getIapGate, isStoreShellRequest } from '@/lib/request-platform';
+import { setnayanAiTierInApp } from '@/lib/iap/setnayan-ai-in-app.server';
 import { storeShellAllowsPaidFeature } from '@/lib/store-shell';
 import { resolveBudgetVisibility } from '@/lib/budget-visibility';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -119,7 +120,9 @@ import {
   type ChangeLineRow,
 } from '@/lib/agreed-total-and-its-changes';
 import { formatCount } from '@/lib/format-number';
-import { HomeWhatsNext, type HomeDecisionRow, type HomeDecisionVerb } from './home-parts';
+import { BOOKED_BY_PAYMENT_EMBED, withEmbeddedPayments } from '@/lib/booked-by-payment';
+import { startAhead } from '@/lib/start-ahead';
+import { eventMemberTypeOnce } from '@/lib/event-membership-once';
 
 /**
  * <EventDashboard> — the couple's event dashboard, extracted verbatim from the
@@ -230,7 +233,6 @@ export async function EventDashboard({
   dayOfActive = false,
   lifecyclePhase = 'plan',
   canViewPapicCounts = false,
-  only,
   daysOut,
   daysToGo = null,
   guestStats,
@@ -242,14 +244,6 @@ export async function EventDashboard({
    *  (`d:<id>`) or a Sai-on-watch (`w:<key>`) row into the inspector column. */
   inspectId?: string;
   slotAfterBento?: ReactNode;
-  /**
-   * 📋 `'whatsnext'` — draw ONLY the ranked decisions list (with "Today's one
-   * thing") and "Coming up": the body of the Home's "What's next" sheet (owner
-   * "yes", 2026-10-03). The same components and the same data, moved — nothing is
-   * redrawn — and without the inspector column (a row just opens its room).
-   * Omitted ⇒ the whole dashboard, as the day-of and after-the-day views draw it.
-   */
-  only?: 'whatsnext';
   /**
    * True inside the T-1h..T+8h day-of window (resolved by the Home page). When
    * set, the page's DayOfModeGrid renders its "happening now" obsidian focal
@@ -391,7 +385,10 @@ export async function EventDashboard({
           .select(
             // `lock_request_state` (SUP-69): an asked-and-waiting category is not
             // a "go book" decision — see `hasOutstandingAsk`.
-            `vendor_id, vendor_name, category, status, lock_request_state, total_cost_php, marketplace_vendor_id, ${CHANGE_LINES_EMBED}`,
+            // 💳 + manual_vendor_id and the payments (owner 2026-10-20, "booked if
+            // paid"): a hand-added supplier with a recorded payment reads Booked
+            // here too — lib/booked-by-payment.ts, applied once below.
+            `vendor_id, vendor_name, category, status, lock_request_state, total_cost_php, marketplace_vendor_id, manual_vendor_id, ${BOOKED_BY_PAYMENT_EMBED}, ${CHANGE_LINES_EMBED}`,
           )
           .eq('event_id', eventId)
           .is('archived_at', null)
@@ -697,12 +694,8 @@ export async function EventDashboard({
     // read. A person who has since lost access still appears — what they did
     // stays as a record (owner: "archive files that people can track").
     (async () => {
-      const { data: me, error: meError } = await supabase
-        .from('event_members')
-        .select('member_type')
-        .eq('event_id', eventId)
-        .eq('user_id', user.id)
-        .maybeSingle();
+      // The render's ONE membership read (lib/event-membership-once.ts) — the layout's gate asks it too.
+      const { data: me, error: meError } = await eventMemberTypeOnce(supabase, eventId, user.id);
       if (meError) {
         logQueryError('EventDashboard.helperActivity.member', meError, { event_id: eventId }, 'graceful_degrade');
       }
@@ -721,6 +714,109 @@ export async function EventDashboard({
 
   const base = `/dashboard/${eventId}`;
   const eventType = (event.event_type as string | null) ?? 'wedding';
+  const displayName =
+    (event as { display_name?: string | null }).display_name ??
+    (eventType === 'wedding' ? 'Your wedding' : 'Your event');
+
+  // ─── ⚡ THE SECOND RUN OF READS STARTS TOGETHER (measured 2026-10-16) ──────
+  // Below the first `Promise.all` this component used to await, one after the
+  // other: the type photo (vocab), the own hero, the profile + plan-group scope,
+  // the poster, budget visibility, the paywall flag, the Sai price, the store
+  // shell and the upcoming items — none needing the one before it. On the
+  // owner's event (production build, his rows replayed) that was four more
+  // database waves after the first, and the Home's text waited for all of them.
+  // Each is STARTED here with exactly the arguments it always had and awaited at
+  // the line that always awaited it (`lib/start-ahead.ts`), so every value, every
+  // fallback and every refusal arrives where it did. Every one is awaited on every
+  // path below — nothing here is a read some viewers skip.
+  // 🔒 app/dashboard/[eventId]/the-home-second-reads-start-together.test.ts
+  const typeHeroRead = startAhead(
+    (async () => {
+      try {
+        const vocab = await getEventTypeVocab();
+        const match = vocab.find((t) => t.key === eventType);
+        if (match) return eventTypePhotoSrc(match);
+      } catch {
+        // Graceful-degrade to the repo asset, exactly as the home board does.
+      }
+      return `/event-types/${eventType}.webp`;
+    })(),
+  );
+  const ownHeroRead = startAhead(
+    (async () => {
+      // The website hero is couple-writable: held to the public bucket before it
+      // can be signed (lib/site-media-ref.ts).
+      const stored = siteMediaServeRef(event.landing_page_hero_image_url);
+      if (!stored) return null;
+      try {
+        return renderableImageSrc(await displayUrlForStoredAsset(stored));
+      } catch {
+        return null;
+      }
+    })(),
+  );
+  const profileScopeRead = startAhead(
+    Promise.all([
+      resolveProfileByEvent(eventId),
+      // One extra read, in the same await — the tier-2 allow-lists that say which
+      // bookable categories this event type actually has.
+      fetchPlanGroupScope(supabase),
+    ]),
+  );
+  const posterRead = startAhead(
+    ownHeroRead.then((ownHero) =>
+      resolveEventPoster(
+        {
+          event_id: eventId,
+          display_name: displayName,
+          event_date: (event.event_date as string | null) ?? null,
+          venue_name: (event.venue_name as string | null) ?? null,
+          event_type: eventType,
+          monogram_text: (event as { monogram_text?: string | null }).monogram_text ?? null,
+          monogram_color: (event as { monogram_color?: string | null }).monogram_color ?? null,
+          invite_theme: (event as { invite_theme?: string | null }).invite_theme ?? null,
+          std_background: (event as { std_background?: unknown }).std_background ?? null,
+          role_palette: (event as { role_palette?: unknown }).role_palette ?? null,
+        },
+        ownHero,
+      ).catch(() => null),
+    ),
+  );
+  const budgetVisibilityRead = startAhead(resolveBudgetVisibility(supabase, eventId, user.id));
+  const aiPaywallRead = startAhead(resolveSetnayanAiPaywallEnabled());
+  const fullSaiRead = startAhead(
+    resolveSetnayanAiDisplayPricePhp(supabase, event.event_type as string | null, 'regular').catch(() => 0),
+  );
+  const storeShellRead = startAhead(isStoreShellRequest());
+  // 🍎 Apple sells Setnayan AI in this app (`getIapGate().iap`, owner 2026-10-23) — false everywhere else.
+  const appleIapRead = startAhead(getIapGate().then((g) => g.iap, () => false));
+  const remindersEnabled =
+    (viewerRes.data as { reminders_enabled?: boolean | null } | null)?.reminders_enabled ??
+    true;
+  const upcomingRead = startAhead(
+    (async () => {
+      try {
+        return await fetchUpcomingItems({
+          supabase,
+          eventId,
+          eventDate: event.event_date,
+          ceremonyType: (event as { ceremony_type?: string | null }).ceremony_type,
+          now,
+          remindersEnabled,
+          statutory: eventType === 'wedding',
+          limit: 8,
+        });
+      } catch (caught) {
+        logQueryError(
+          'EventDashboard (fetchUpcomingItems threw)',
+          caught instanceof Error ? caught : new Error(String(caught)),
+          { event_id: eventId, user_id: user.id },
+          'graceful_degrade',
+        );
+        return null;
+      }
+    })(),
+  );
 
   /*
     ─── THE FOCAL CARD CARRIES A PHOTOGRAPH ─────────────────────────────────
@@ -747,27 +843,8 @@ export async function EventDashboard({
     is host-writable straight through PostgREST). Either way the scene still
     renders — worst case the branded gradient.
   */
-  const typeHeroSrc = await (async () => {
-    try {
-      const vocab = await getEventTypeVocab();
-      const match = vocab.find((t) => t.key === eventType);
-      if (match) return eventTypePhotoSrc(match);
-    } catch {
-      // Graceful-degrade to the repo asset, exactly as the home board does.
-    }
-    return `/event-types/${eventType}.webp`;
-  })();
-  const ownHeroSrc = await (async () => {
-    // The website hero is couple-writable: held to the public bucket before it
-    // can be signed (lib/site-media-ref.ts).
-    const stored = siteMediaServeRef(event.landing_page_hero_image_url);
-    if (!stored) return null;
-    try {
-      return renderableImageSrc(await displayUrlForStoredAsset(stored));
-    } catch {
-      return null;
-    }
-  })();
+  const typeHeroSrc = await typeHeroRead;
+  const ownHeroSrc = await ownHeroRead;
   const eventWord = eventType === 'wedding' ? 'wedding' : 'event';
 
   // ── VENDOR-FREE EVENT TYPES (0053 · `marketplace_enabled`) ─────────────────
@@ -791,16 +868,8 @@ export async function EventDashboard({
   // that encodes vendor-free (SIMPLE_PROFILE sets it false), so a FUTURE
   // vendor-free type is covered without touching this file. Same house rule as
   // lib/papic-event-access.ts and the onboarding services step's AI gate.
-  const [profile, planGroupScope] = await Promise.all([
-    resolveProfileByEvent(eventId),
-    // One extra read, in the same await — the tier-2 allow-lists that say which
-    // bookable categories this event type actually has.
-    fetchPlanGroupScope(supabase),
-  ]);
+  const [profile, planGroupScope] = await profileScopeRead;
   const marketplaceEnabled = profile.marketplaceEnabled === true;
-  const displayName =
-    (event as { display_name?: string | null }).display_name ??
-    (eventType === 'wedding' ? 'Your wedding' : 'Your event');
 
   /*
     ─── THE FOCAL BAND WEARS THE EVENT HUB'S OWN COVER ──────────────────────
@@ -817,23 +886,7 @@ export async function EventDashboard({
     this change, so `ownHeroSrc` was always null here and the couple's own
     photo never reached this card at all.
   */
-  const sceneCover = sceneCoverFor(
-    await resolveEventPoster(
-      {
-        event_id: eventId,
-        display_name: displayName,
-        event_date: (event.event_date as string | null) ?? null,
-        venue_name: (event.venue_name as string | null) ?? null,
-        event_type: eventType,
-        monogram_text: (event as { monogram_text?: string | null }).monogram_text ?? null,
-        monogram_color: (event as { monogram_color?: string | null }).monogram_color ?? null,
-        invite_theme: (event as { invite_theme?: string | null }).invite_theme ?? null,
-        std_background: (event as { std_background?: unknown }).std_background ?? null,
-        role_palette: (event as { role_palette?: unknown }).role_palette ?? null,
-      },
-      ownHeroSrc,
-    ).catch(() => null),
-  );
+  const sceneCover = sceneCoverFor(await posterRead);
 
   // Precision resolution — the single source of truth for "is there a firm,
   // countdown-worthy day?" A present `event_date` with a NULL precision column
@@ -873,15 +926,19 @@ export async function EventDashboard({
   // kept (it still catches a genuine throw), but the ERROR is what actually
   // needed reading, and nothing read it.
   const vendorsMeasured = !eventVendorsRes.error;
-  const eventVendors = (eventVendorsRes.data ?? []) as Array<{
-    vendor_id: string;
-    vendor_name: string;
-    category: VendorCategory;
-    status: string | null;
-    total_cost_php: number | string | null;
-    marketplace_vendor_id: string | null;
-    change_lines?: ChangeLineRow[] | null;
-  }>;
+  const eventVendors = withEmbeddedPayments(
+    (eventVendorsRes.data ?? []) as Array<{
+      vendor_id: string;
+      vendor_name: string;
+      category: VendorCategory;
+      status: string | null;
+      total_cost_php: number | string | null;
+      marketplace_vendor_id: string | null;
+      manual_vendor_id?: string | null;
+      vendor_payments?: Array<{ payment_refused_at: string | null }> | null;
+      change_lines?: ChangeLineRow[] | null;
+    }>,
+  );
 
   // ---- "Meanwhile" — a vendor delivered something the couple hasn't opened ---
   // Names come from the eventVendors array already loaded above; the id is the
@@ -941,7 +998,7 @@ export async function EventDashboard({
   // resolver too — the couple always sees it; a delegate sees it only if the
   // couple gave them budget access. Null here means the tile falls into its
   // existing no-target branch, which prints committed spend and no target.
-  const budgetVisibility = await resolveBudgetVisibility(supabase, eventId, user.id);
+  const budgetVisibility = await budgetVisibilityRead;
   const budgetTargetCentavos =
     budgetVisibility.mayRead &&
     (event as { estimated_budget_centavos?: number | string | null })
@@ -1023,7 +1080,7 @@ export async function EventDashboard({
 
   // ---- Setnayan AI gating — the Overview's exact resolution, plus the
   // internal-only `?sai=preview` render override. -------------------------
-  const aiPaywallEnabled = await resolveSetnayanAiPaywallEnabled();
+  const aiPaywallEnabled = await aiPaywallRead;
   /*
     THIS EVENT'S OWN SETNAYAN AI PRICE — for the free-venue-shortlist upsell,
     which until 2026-09-22 hand-typed "₱499 first 28 days → ₱799 per 28 days"
@@ -1040,11 +1097,7 @@ export async function EventDashboard({
     Returns 0 for Tier E (Sai is not sold there) and 0 on an unreadable read; the
     copy treats both as "no price" and omits the clause rather than printing ₱0.
   */
-  const fullSaiPhp = await resolveSetnayanAiDisplayPricePhp(
-    supabase,
-    event.event_type as string | null,
-    'regular',
-  ).catch(() => 0);
+  const fullSaiPhp = await fullSaiRead;
   const aiEntitled = isSetnayanAiActiveForEvent(
     event as { planning_mode?: string | null; setnayan_ai_active?: boolean | null },
     { paywallEnabled: aiPaywallEnabled },
@@ -1064,56 +1117,41 @@ export async function EventDashboard({
   // 3.1.3(b); lib/store-shell.ts `storeShellAllowsPaidFeature`). Only while the
   // paywall is on — a Sai that is free for everyone is planning and stays.
   // The same flag withholds the Sai price from the free-venue offer below.
-  const storeShell = await isStoreShellRequest();
+  const storeShell = await storeShellRead;
   const aiActive =
     (aiEntitled || saiPreview) &&
     cockpitEnabled() &&
-    storeShellAllowsPaidFeature(storeShell, aiPaywallEnabled);
+    storeShellAllowsPaidFeature(
+      storeShell,
+      aiPaywallEnabled,
+      // ✦ Apple sells Setnayan AI in this app FOR THIS EVENT'S TIER (one product per web tier, owner 2026-10-23).
+      storeShell && aiPaywallEnabled && (await appleIapRead) === true &&
+        (await setnayanAiTierInApp(createAdminClient(), eventId)).status === 'sellable',
+    );
 
   // ---- Upcoming items — the Schedule card + the AI What's-next rail. ------
-  const remindersEnabled =
-    (viewerRes.data as { reminders_enabled?: boolean | null } | null)?.reminders_enabled ??
-    true;
-  const upcoming = await (async () => {
-    try {
-      return await fetchUpcomingItems({
-        supabase,
-        eventId,
-        eventDate: event.event_date,
-        ceremonyType: (event as { ceremony_type?: string | null }).ceremony_type,
-        now,
-        remindersEnabled,
-        statutory: eventType === 'wedding',
-        limit: 8,
-      });
-    } catch (caught) {
-      logQueryError(
-        'EventDashboard (fetchUpcomingItems threw)',
-        caught instanceof Error ? caught : new Error(String(caught)),
-        { event_id: eventId, user_id: user.id },
-        'graceful_degrade',
-      );
-      return {
-        items: [] as ReadonlyArray<UpcomingItem>,
-        paymentItemsNext30d: [] as ReadonlyArray<UpcomingItem>,
-        sourceCounts: {
-          meeting: 0,
-          schedule_block: 0,
-          vendor_payment: 0,
-          setnayan_sku_expiry: 0,
-          document_deadline: 0,
-          recommended_deadline: 0,
-        },
-        // A throw read nothing — every fetched source is unknown, not empty (S41b).
-        unreadableSources: [
-          'meeting',
-          'schedule_block',
-          'vendor_payment',
-          'setnayan_sku_expiry',
-        ] as ReadonlyArray<UpcomingItemSource>,
-      };
-    }
-  })();
+  const upcoming =
+    (await upcomingRead) ??
+    // A throw read nothing — logged where it was started (S41b).
+    ({
+      items: [] as ReadonlyArray<UpcomingItem>,
+      paymentItemsNext30d: [] as ReadonlyArray<UpcomingItem>,
+      sourceCounts: {
+        meeting: 0,
+        schedule_block: 0,
+        vendor_payment: 0,
+        setnayan_sku_expiry: 0,
+        document_deadline: 0,
+        recommended_deadline: 0,
+      },
+      // A throw read nothing — every fetched source is unknown, not empty (S41b).
+      unreadableSources: [
+        'meeting',
+        'schedule_block',
+        'vendor_payment',
+        'setnayan_sku_expiry',
+      ] as ReadonlyArray<UpcomingItemSource>,
+    });
 
   // ---- Cockpit model — pure derivation over data this surface already loaded
   // (same lib the Overview's dormant cockpit uses). Feeds the decisions board
@@ -1174,7 +1212,10 @@ export async function EventDashboard({
         href: d.href,
       }));
 
-  const payItems: DecisionItemView[] = pendingOrders.map((o) => {
+  // 🍎 Every couple order is a Setnayan digital SKU (lib/store-shell.ts) — the
+  // iPhone app asks nobody to settle one and lists none of them (App Review
+  // 3.1.1; `lib/the-app-names-no-paid-service.test.ts`).
+  const payItems: DecisionItemView[] = (storeShell ? [] : pendingOrders).map((o) => {
     const amount = o.requested_total_php !== null ? Number(o.requested_total_php) : 0;
     return {
       id: `pay:${o.order_id}`,
@@ -1404,8 +1445,10 @@ export async function EventDashboard({
   // `ai: null` on marketplaceEnabled=false); this surface did not, so a Simple
   // Event was quoted a venue shortlist AND a subscription price the type can
   // never buy.
+  // 🍎 The offer names Setnayan AI ("Setnayan AI · Free", "Let Sai find…") — a paid web
+  // extra the iPhone app does not offer, so the app draws no offer at all.
   const venueOfferAvailable =
-    marketplaceEnabled && !aiActive && isFirstVenueShortlistOfferAvailable(eventVendors);
+    marketplaceEnabled && !storeShell && !aiActive && isFirstVenueShortlistOfferAvailable(eventVendors);
   const venueOfferInline =
     venueOfferAvailable &&
     decisionGroups.some((g) => g.items.some((i) => isSaiAssistFreeDecisionId(i.id)));
@@ -1659,7 +1702,7 @@ export async function EventDashboard({
                       <span
                         aria-label={`Priority ${rankMarkFor(aiActive, gi)}`}
                         className="ml-auto flex h-7 w-7 flex-none items-center justify-center rounded-full font-mono text-[12px] font-extrabold"
-                        style={{ background: 'var(--sn-gold-700)', color: '#FFFFFF' }}
+                        style={{ background: 'var(--sn-gold-700)', color: 'rgb(var(--color-cream))' /* white in light; the page colour in dark, where the gold goes light */ }}
                       >
                         {rankMarkFor(aiActive, gi)}
                       </span>
@@ -2024,7 +2067,8 @@ export async function EventDashboard({
     retyped here (lib/papic-copy-guardrails.test.ts fails CI on a literal), and
     the top-up rung comes from the Papic ONE tier table, not a hand-typed 150.
   */
-  const papicMini = papicHome ? (
+  /* 🍎 Not in the iPhone app — Papic is a paid web extra whose pages the app refuses. */
+  const papicMini = papicHome && !storeShell ? (
     <Link
       key="papic"
       href={`${base}/studio/papic`}
@@ -2118,53 +2162,10 @@ export async function EventDashboard({
   const MAX_MINIS = 4;
   if (miniTiles.length > MAX_MINIS) miniTiles.length = MAX_MINIS;
 
-  /*
-    📋 HOME'S "WHAT'S NEXT" — the Home draws this board IN PLACE under its row
-    (owner 2026-10-07, HOME_AND_GUESTS H7: pop → unfold, no `?sheet=next`
-    portal), in the prototype's rows: the group's name, the item's own words,
-    and one button per decision — 📅 Book · 💳 Pay · 👤 Pick (H1). The same
-    groups, the same counts, the same hrefs as the board below; only the drawing
-    is the Home's (`HomeWhatsNext`, plain data across the client boundary).
-  */
-  if (only === 'whatsnext') {
-    const homeVerb = (id: DecisionGroupView['id']): HomeDecisionVerb =>
-      id === 'book' ? 'book' : id === 'pay' ? 'pay' : id === 'role' ? 'role' : id === 'deadline' ? 'date' : 'other';
-    const homeRows = (groups: DecisionGroupView[]): HomeDecisionRow[] =>
-      groups.flatMap((g) =>
-        g.items.map((it) => ({
-          id: it.id,
-          title: g.title,
-          sub: it.sub ? `${it.label} · ${it.sub}` : it.label,
-          href: it.href,
-          verb: homeVerb(g.id),
-          cta: it.ctaLabel,
-        })),
-      );
-    return (
-      <HomeWhatsNext
-        open={openDecisionCount}
-        rows={homeRows(decisionGroups)}
-        coming={datesGroup ? homeRows([datesGroup]) : []}
-        checklist={{
-          href: `${base}/checklist`,
-          // Absent when never seeded or unread — "0% done" would be a fact nobody measured.
-          pct: checklistProgress ? Math.round((checklistProgress.done / checklistProgress.total) * 100) : null,
-        }}
-        emptyNote="Nothing needs a decision right now — your plan keeps moving on its own."
-      >
-        {venueOfferAvailable ? (
-          <div className="mb-2">
-            <FreeVenueShortlistOffer eventId={eventId} variant="card" fullSaiPhp={fullSaiPhp} sell={!storeShell} />
-          </div>
-        ) : null}
-      </HomeWhatsNext>
-    );
-  }
-
   const inspectorMaster = (
     <div className="relative">
       <div className="space-y-10">
-        {only ? null : (
+        
         <>
         {/* ── Hero ─────────────────────────────────────────────────────── */}
         <header className="sn-reveal pt-1">
@@ -2614,7 +2615,7 @@ export async function EventDashboard({
           </div>
         </section>
         </>
-        )}
+        
 
         {/* Today's one thing — the resolver's #1 (AI state), a gold-hairlined
          *  glass tile below the top grid. */}
@@ -2675,7 +2676,7 @@ export async function EventDashboard({
          *   `slotAfterBento` slot so the Muslim / Chinese / set-date cards
          *   land in the right visual place on the event Home. Null on the
          *   standalone dashboard. */}
-        {slotAfterBento && !only ? (
+        {slotAfterBento ? (
           <div className="space-y-4 !mt-6">{slotAfterBento}</div>
         ) : null}
 
@@ -2789,7 +2790,7 @@ export async function EventDashboard({
           </section>
         ) : null}
 
-        {only ? null : (
+        
         <>
         {/* ── Meanwhile — a delivery is waiting ──────────────────────────
          *  Renders ONLY when a vendor has delivered something still
@@ -2835,7 +2836,7 @@ export async function EventDashboard({
                 />
                 <span className="min-w-0 flex-1 text-[13.5px]" style={{ color: '#6E6A62' }}>
                   {latestHandover.kind === 'gallery_link'
-                    ? `${handoverVendorName} delivered your gallery.`
+                    ? `${handoverVendorName} delivered your photos.`
                     : latestHandover.kind === 'file'
                       ? `${handoverVendorName} sent you a file${
                           latestHandover.label ? ` — ${latestHandover.label}` : ''
@@ -3065,7 +3066,9 @@ export async function EventDashboard({
               )}
             </article>
 
-            {/* Your services */}
+            {/* Your services — 🍎 not in the iPhone app: every row is a Setnayan digital SKU, and its
+                empty copy advertises the paid services (lib/the-app-names-no-paid-service.test.ts). */}
+            {storeShell ? null : (
             <ExpandCard
               cardClassName="sn-tile"
               title="Your services"
@@ -3107,6 +3110,7 @@ export async function EventDashboard({
                   ))
                 : null}
             </ExpandCard>
+            )}
 
             {/* Schedule — the couple's OWN day-of program (event_schedule_blocks),
              *  NOT the deadline/reminder stream. So the "Schedule" title now
@@ -3182,7 +3186,7 @@ export async function EventDashboard({
           </div>
         </section>
         </>
-        )}
+        
 
         {/* The "Sai on watch" section moved INTO the Big-Day focal's lower half
          *  (top grid, above) so the tall focal is filled and the watch lives in
@@ -3191,7 +3195,6 @@ export async function EventDashboard({
     </div>
   );
 
-  if (only) return inspectorMaster;
 
   return (
     <InspectorLayout

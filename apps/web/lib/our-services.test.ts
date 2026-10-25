@@ -69,7 +69,7 @@ test('the services, in the owner’s order, with the owner’s names', () => {
   );
 });
 
-test('each card opens the page its menu row opens; Papic carries the Gallery', () => {
+test('each card opens the page its menu row opens; Papic carries the Memories', () => {
   const cards = buildOurServices(input());
   const hrefs = Object.fromEntries(cards.map((c) => [c.key, c.href]));
   assert.equal(hrefs.papic, addOnHref('papic', EVENT));
@@ -82,7 +82,7 @@ test('each card opens the page its menu row opens; Papic carries the Gallery', (
     papic.parts.map((p) => [p.name, p.href]),
     [
       ['Thank-You Video', appStoreDetailHref('thank-you', EVENT)],
-      ['Gallery', `/dashboard/${EVENT}/galleries`],
+      ['Memories', `/dashboard/${EVENT}/galleries`],
     ],
   );
   assert.equal(cards.some((c) => c.key === 'gallery'), false, 'the Gallery is not a card beside Papic');
@@ -95,7 +95,7 @@ test('each card opens the page its menu row opens; Papic carries the Gallery', (
 });
 
 // SABOTAGE: restore a standalone Gallery card in buildOurServices → RED.
-test('the Gallery is NEVER a More item — not even where there is no Papic card (owner 2026-10-02)', () => {
+test('the Memories is NEVER a More item — not even where there is no Papic card (owner 2026-10-02)', () => {
   const noPapic = buildOurServices(input({ offered: (a) => a.key !== 'papic' }));
   assert.equal(noPapic.some((c) => c.key === 'gallery'), false, 'the Gallery stands as a card again');
   assert.deepEqual(noPapic.map((c) => c.key), ['setnayan-ai', 'live-studio', 'music-maker', 'patiktok']);

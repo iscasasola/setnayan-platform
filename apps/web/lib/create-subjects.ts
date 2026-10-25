@@ -2,9 +2,16 @@
  * create-subjects.ts — WHO the event is for, asked BEFORE what kind it is.
  *
  * Sixteen type tiles is a wall; the same sixteen sorted around one named person
- * is a short, obvious list. So the create flow asks "Para kanino ito?" first and
- * uses the answer to sort the grid — a pet has no debut, a six-year-old has no
- * wedding.
+ * is a short, obvious list. So the grid is sorted around WHO the event is for —
+ * a pet has no debut, a six-year-old has no wedding.
+ *
+ * 🔁 NO LONGER A STEP OF ITS OWN (owner 2026-10-22, "Yes to all" — Host 3
+ * option B, prototype journey_fixes_2026-10-22.html). "Para kanino ito?" asked
+ * first, a whole screen, before the real question. Now the grid opens FIRST,
+ * sorted for the account holder (`openingSubject`), and the who becomes a
+ * "For · You ▾" dropdown above it ONLY when there is a real choice — a loved
+ * one on file (`forMenuSubjects`). With none, nothing is drawn: "someone else"
+ * was always the grid's own "show all event types".
  *
  * ⚠ SORTED, NEVER LOCKED. Everything this module "hides" flows into the picker's
  * ALREADY-SHIPPED `hiddenTypeKeys` prop, whose "show all event types" expander
@@ -311,7 +318,7 @@ export function buildSelfSubject(
     id: SELF_SUBJECT_ID,
     kind: 'self',
     name: name || 'You',
-    subtitle: 'Your own celebration',
+    subtitle: 'Your own event',
     birthDate,
     sex,
   };
@@ -327,4 +334,34 @@ export function buildUnspecifiedSubject(): CreateSubject {
     birthDate: null,
     sex: null,
   };
+}
+
+/**
+ * The subject the type grid OPENS on (owner 2026-10-22, Host 3 option B): "You" — the grid first, sorted for the
+ * account holder. No "You" in the roster (no roster at all: samahan, a QR fast-lane, signed out) → null, and the
+ * grid is exactly the household reading it always was.
+ */
+export function openingSubject(subjects: readonly CreateSubject[] | null | undefined): CreateSubject | null {
+  return (subjects ?? []).find((s) => s.kind === 'self') ?? null;
+}
+
+/**
+ * The "For · You ▾" dropdown's rows — or null, which means DRAW NOTHING. A dropdown appears exactly when the old
+ * step had more than its two fixed rows: a loved one on file. "You" and "Someone else" alone are not a choice the
+ * grid needs ("someone else" is its "show all event types").
+ */
+export function forMenuSubjects(subjects: readonly CreateSubject[] | null | undefined): CreateSubject[] | null {
+  const all = [...(subjects ?? [])];
+  return all.some((s) => s.kind !== 'self' && s.kind !== 'unspecified') ? all : null;
+}
+
+/** A row's words in the dropdown: the account holder is "You" (the prototype's row), everyone else their name. */
+export function forMenuLabel(subject: CreateSubject): string {
+  return subject.kind === 'self' ? 'You' : subject.name;
+}
+
+/** The line under a row: "Your own event" · the shipped "Loved one · …" · "Show me everything". */
+export function forMenuHint(subject: CreateSubject): string {
+  if (subject.kind === 'unspecified') return 'Show me everything';
+  return subject.subtitle;
 }

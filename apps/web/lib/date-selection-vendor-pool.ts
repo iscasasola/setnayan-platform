@@ -37,11 +37,14 @@ export const VENDOR_POOL_SELECT = 'vendor_profile_id, services';
  */
 export const VENDOR_POOL_FILTER_COLUMNS = ['public_visibility', 'is_demo', 'services'] as const;
 
-/** `.select()` list for the calendar-block read on `public.vendor_calendar_blocks`. */
-export const VENDOR_BLOCK_SELECT = 'vendor_profile_id, blocked_at, blocked_until';
+/**
+ * `.select()` list for the calendar-block read on `public.vendor_calendar_blocks` — with the three columns a reader
+ * needs to honour "Not available" repeats and hours (2026-10-14, `lib/not-available.ts` NOT_AVAILABLE_COLUMNS).
+ */
+export const VENDOR_BLOCK_SELECT = 'vendor_profile_id, blocked_at, blocked_until, repeat_rule, repeat_until, day_part';
 
-/** Columns the calendar-block query names in FILTER predicates (`.lte` / `.gte`). */
-export const VENDOR_BLOCK_FILTER_COLUMNS = ['blocked_at', 'blocked_until'] as const;
+/** Columns the calendar-block query names in FILTER predicates (`.lte` · the `.or` window filter). */
+export const VENDOR_BLOCK_FILTER_COLUMNS = ['blocked_at', 'blocked_until', 'repeat_rule'] as const;
 
 /**
  * The join key. Both reads must carry it and it must be the SAME name on both

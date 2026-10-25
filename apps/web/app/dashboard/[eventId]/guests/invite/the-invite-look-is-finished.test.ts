@@ -133,17 +133,21 @@ test('nothing still calls them "the seven"', () => {
       `${rel} still says an old count about a list of ${WEBSITE_PRO_ITEMS.length}`,
     );
   }
-  // Nine since 2026-09-24 — the animated logo joined (owner "A then"). Ten on
-  // 2026-09-28 — the Pro QR joined ("Your logo on every QR code") — and nine
-  // again the same day: the free-vs-Pro redraw took both colours off the list
-  // and put "Photo and video backgrounds" on it.
-  assert.equal(WEBSITE_PRO_ITEMS.length, 9, 'the list and the sentences below disagree on the count');
-  assert.match(read('lib/event-hub-pro.ts'), /ctaLabel: 'Unlock all nine'/, 'the one button says the wrong number');
-  assert.match(
-    read('app/dashboard/[eventId]/website/editor/_components/pro-panels.tsx'),
-    /One unlock covers all nine:/,
-    'the editor tells the couple the wrong number',
-  );
+  /*
+    2026-10-22 — THE SENTENCES COMPUTE THE COUNT. Nine since 2026-09-24, then the
+    list became fourteen (the six gates the code already enforced joined; the free
+    "Editorial editing" left), and each sentence that spoke for it held the word
+    "nine". A typed count is the thing that rots, so the two sentences a couple
+    reads and presses now print `WEBSITE_PRO_ITEMS.length`, and no number word may
+    stand in for it.
+  */
+  const COUNT_WORD = /\b(?:Unlock|covers) all (two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|\d+)\b/i;
+  const hubPro = read('lib/event-hub-pro.ts');
+  assert.match(hubPro, /ctaLabel: `Unlock all \$\{formatCount\(WEBSITE_PRO_ITEMS\.length\)\}`/, 'the one button no longer counts the list');
+  assert.doesNotMatch(hubPro, COUNT_WORD, 'the controller types a count about the list');
+  const panels = read('app/dashboard/[eventId]/website/editor/_components/pro-panels.tsx');
+  assert.match(panels, /One unlock covers all \{formatCount\(WEBSITE_PRO_ITEMS\.length\)\}:/, 'the editor no longer counts the list');
+  assert.doesNotMatch(panels, COUNT_WORD, 'the editor types a count about the list');
 
   /*
     🪤 AND TWO MORE THE SWEEP ABOVE COULD NOT SEE. `read()` STRIPS COMMENTS, and
@@ -164,7 +168,9 @@ test('nothing still calls them "the seven"', () => {
       /(seven Pro items|for all seven|eight Pro items|for all eight|ten Pro items|for all ten)/,
       `${rel} still says an old count about a list of ${WEBSITE_PRO_ITEMS.length}`,
     );
-    assert.match(raw, /(nine Pro items|for all nine)/, `${rel} stopped naming the count at all`);
+    // 2026-10-22: these comments name no count at all — the list is the count.
+    assert.doesNotMatch(raw, /(nine Pro items|for all nine|fourteen Pro items|for all fourteen)/, `${rel} types a count about the list`);
+    assert.match(raw, /WEBSITE_PRO_ITEMS|Pro items are ONE|every Pro item/, `${rel} stopped describing the list at all`);
   }
 });
 
@@ -172,11 +178,11 @@ test('the buy page already names the invite link — and must keep naming it', (
   // says-what-it-includes.test.ts holds the harder claim (a benefit may only name
   // something a non-buyer is actually refused). This is the other direction: the
   // inclusion is now one of the eight, so the sentence may not quietly go away.
-  const benefits = /const BENEFITS = \[([\s\S]*?)\];/.exec(
-    read('app/dashboard/[eventId]/studio/website-pro/page.tsx'),
-  );
-  assert.ok(benefits, 'BENEFITS not found — the scan is blind');
-  assert.match(benefits[1]!, /invite link/i, 'the buy page stopped naming the one thing the eighth item is');
+  // 💎 RE-AIMED 2026-10-22: the buy page is the parts page — the themes are the Style part's line ("Pro themes").
+  const parts = read('lib/hub-parts.ts');
+  const style = /id: 'style',[^\n]*blurb: "([^"]*)"/.exec(parts);
+  assert.ok(style, 'the Style part line not found — the scan is blind');
+  assert.match(style[1]!, /Pro themes/i, 'the buy page stopped naming the one thing the eighth item is');
 });
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -209,7 +215,8 @@ test('the DOOR asks only for Pro — the one rule that protects an already-saved
   assert.match(look, /resolveInviteTheme\(\{ saved, ownsPro \}\)/);
   assert.doesNotMatch(look, /resolveWeddingOnlyParts|proThemeGate/, 'the resolver asks the wedding fence again');
   // …and it costs a House event nothing: the ownership read sits behind `wantsPro`.
-  assert.match(look, /wantsPro \? await websiteProActiveFor\(event\.event_id\)/);
+  // 💎 RE-AIMED 2026-10-22: a Pro theme is the Style part's (gate 13) — still behind `wantsPro`.
+  assert.match(look, /wantsPro \? await hubPartActiveFor\(event\.event_id, 'style'\)/);
 });
 
 test('the theme rule is not a second copy of the reveal’s timing', () => {

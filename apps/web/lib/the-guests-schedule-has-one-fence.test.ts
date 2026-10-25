@@ -81,6 +81,10 @@ const GUEST_FACING: Record<string, GuestRead> = {
     why: 'loadRunOfShowMoments — the moments a guest’s arranged Story pages are grouped under (lib/story-pages.ts), shared with the editor so the two agree. Service-role.',
     reads: 1,
   },
+  'lib/event-pulse.server.ts': {
+    why: 'the day-of "has anything changed?" stamp the guests’ hub, seat and find-seat pages poll (live-day polling, 2026-10-18) — only a stamp leaves it, but it must move only for lines a guest may see. Service-role.',
+    reads: 1,
+  },
   'app/_actions/run-of-show.ts': {
     why: 'fetchRunOfShowBlocks — the realtime refetch behind the guests’ "Now · Up next" header. The visitor’s own session; the anonymous policy does not ask audience, so the action does when the header says forGuests.',
     reads: 1,
@@ -120,6 +124,7 @@ const NOT_GUEST_FACING: Record<string, string> = {
   'app/vendor-dashboard/on-the-day/live/[eventId]/_components/stage-script/stage-script.tsx': 'supplier — the stage script on the day',
   'app/vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/actions.ts': 'coordinator — floor command on the day',
   'lib/supplier-night-before-email.ts': 'supplier — their own call time, the night before',
+  'lib/supplier-today.server.ts': 'supplier — their own Today on an event day: the next moment and how many checked in, for a booking the room read proved is theirs',
 };
 
 /** Every non-test source file under the three trees that queries the table. */

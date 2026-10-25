@@ -80,7 +80,7 @@ async function paintCard(over: Partial<GuestRow> = {}, opts: { withMenu?: boolea
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { AppRouterContext } = await import('next/dist/shared/lib/app-router-context.shared-runtime');
   const { GuestCardBody } = await import('./_components/guest-card-body');
-  const { GuestMoreMenu } = await import('./_components/guest-ticket-parts');
+  const { GuestDeleteControl, GuestMoreMenu } = await import('./_components/guest-ticket-parts');
   const { ToastProvider } = await import('@/app/_components/toast/toast-provider');
   const g = guest(over);
   const data = {
@@ -91,7 +91,7 @@ async function paintCard(over: Partial<GuestRow> = {}, opts: { withMenu?: boolea
     groupOptions: ['other'],
     isIncWedding: false,
     showTeaCeremony: false,
-    plusOneStateLabel: null,
+    plusOneLines: [],
     plusOneGuestId: null,
     initialInvited: [],
     seatedAt: null,
@@ -118,7 +118,7 @@ async function paintCard(over: Partial<GuestRow> = {}, opts: { withMenu?: boolea
     returnTo: '/dashboard/e1/guests',
     errorMessage: null,
     inviteFlash: null,
-    ...(opts.withMenu ? { MoreMenu: GuestMoreMenu } : {}),
+    ...(opts.withMenu ? { MoreMenu: GuestMoreMenu, DeleteControl: GuestDeleteControl } : {}),
   });
   return renderToStaticMarkup(
     React.createElement(
@@ -182,10 +182,12 @@ test('⑦ the warning names what goes with them, in page — Delete and Cancel',
   assert.match(refused, /role="alert"[^>]*>Nope\.</, 'a refused delete is not said where the host pressed Delete');
 });
 
-test('⑦ an ACCEPTED guest’s card offers Delete in its ⋯; the couple’s does not', async () => {
+/* RE-AIMED 2026-10-23: Delete left the ⋯ for the card's own last group (owner's groups) — the same flow, one place. */
+test('⑦ an ACCEPTED guest’s card offers Delete in its Delete group; the couple’s does not', async () => {
   const accepted = await paintCard({ rsvp_status: 'attending' }, { withMenu: true });
-  // Each ⋯ line leads with its icon (owner 2026-10-04), so an <svg> may sit before the words.
-  assert.match(accepted, /data-guest-delete=""[^>]*>(?:<svg[\s\S]*?<\/svg>)?Delete guest</, 'an attending guest’s card has no Delete');
+  // The button leads with its icon, so an <svg> may sit before the words (and the words in the button's label).
+  assert.match(accepted, /data-guest-delete="">\s*<button[^>]*>(?:<svg[\s\S]*?<\/svg>)?(?:<span class="lbl">)?Delete guest</, 'an attending guest’s card has no Delete');
+  assert.ok(accepted.indexOf('data-guest-delete=""') > accepted.indexOf('>Access<'), 'Delete is not the card’s last group');
   const couple = await paintCard({ role: 'bride', rsvp_status: 'attending' }, { withMenu: true });
   assert.doesNotMatch(couple, /data-guest-delete=""/, 'the couple’s card offers a Delete that can only fail');
 });
@@ -268,7 +270,12 @@ test('⑨ the guest’s mobile is in the card’s first (open) section, not a cl
   const html = await paintCard();
   const first = html.slice(html.indexOf('data-guest-card-name=""'), html.indexOf('</section>', html.indexOf('data-guest-card-name=""')));
   assert.match(first, /name="mobile"[^>]*value="0917 555 0101"|value="0917 555 0101"[^>]*name="mobile"/, 'the mobile is not in the first section');
-  assert.match(first, /type="tel"/, 'the mobile box does not bring up the phone keypad');
+  /* The card's typed row (one kit since 2026-10-24) is a closed row until it is tapped — its box (and the keypad) exists
+     only then, so the keypad is read where it is decided: the mobile is a `tel` field, and the row opens a `tel` keypad. */
+  const card = read('_components', 'guest-card-body.tsx');
+  assert.match(card, /<K\.Field id="mobile" label="Mobile" type="tel"/, 'the mobile is not a phone-number field');
+  const rows = read('_components', 'guest-card-rows.tsx');
+  assert.match(rows, /inputMode=\{type === 'tel' \? 'tel' :/, 'the mobile box does not bring up the phone keypad');
   assert.equal((html.match(/name="mobile"/g) ?? []).length, 1, 'the mobile is drawn twice');
 });
 
@@ -287,7 +294,8 @@ test('⑩ inside the sheet the panel is plain content — no rail width, border 
   for (const decl of [/width:\s*auto/, /max-width:\s*100%/, /padding:\s*0/, /border:\s*0/, /box-shadow:\s*none/]) {
     assert.match(rule, decl, `the panel inside the sheet keeps a frame: missing ${decl}`);
   }
-  assert.match(css, /@media \(min-width: 768px\) \{\s*\.sn-inspector-sheet \{ left: auto; width: min\(36rem/, 'from a tablet up the sheet is the whole window again');
+  // From the couple dashboard's tablet line (701) the card is the system's 440 panel (owner 2026-10-19).
+  assert.match(css, /@media \(min-width: 701px\) \{\s*\.sn-inspector-sheet \{ left: auto; width: min\(27\.5rem/, 'from a tablet up the sheet is the whole window again');
 });
 
 // ── ⑪ the header stays; the × is round ──────────────────────────────────────

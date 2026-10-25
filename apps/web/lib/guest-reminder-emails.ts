@@ -10,7 +10,8 @@ import { guestListIsClosed } from '@/lib/guest-list-closed';
 import { hasReplied } from '@/lib/venue-disclosure';
 import { buildInvitationUrl } from '@/lib/qr';
 import { resolveEventOwnerSlug } from '@/lib/public-event-url';
-import { fetchPublicScheduleBlocks, formatBlockTimeRange } from '@/lib/schedule';
+import { fetchPublicScheduleBlocks } from '@/lib/schedule';
+import { guestsArriveTime } from '@/lib/guests-arrive';
 import { loadVenueBookings, resolveEventVenues, firstVenue } from '@/lib/event-venues';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
 import { sanitizeTicks, daysUntil } from '@/lib/guest-checklist';
@@ -27,6 +28,7 @@ import {
   untickedItems,
   type ReminderMilestone,
 } from '@/lib/guest-reminder-emails-core';
+import { guestAttireOf, guestNamePartsOf } from '@/lib/attire-rows';
 
 /**
  * GUEST REMINDER EMAILS — 30 · 7 · 1 DAYS BEFORE THE EVENT. The sender.
@@ -131,6 +133,10 @@ type ReminderGuestRow = StdGuestRow & {
   role: GuestRole | null;
   rsvp_status: string | null;
   qr_token: string | null;
+  /** 👤 Read for their own Wear (`guestNamePartsOf` · `guestAttireOf`). */
+  name_prefix?: string | null;
+  attire?: string | null;
+  gender?: string | null;
 };
 
 const num = (v: number | string | null | undefined): number | null => {
@@ -201,7 +207,7 @@ async function remindOneEvent(
 
   const { data: guestsRaw, error: guestsErr } = await admin
     .from('guests')
-    .select('guest_id, first_name, last_name, display_name, email, role, rsvp_status, qr_token')
+    .select('guest_id, first_name, last_name, name_prefix, display_name, email, role, attire, gender, rsvp_status, qr_token')
     .eq('event_id', ev.event_id)
     .is('deleted_at', null)
     // 🕯 Never to a guest the couple marked "Passed away".
@@ -231,10 +237,8 @@ async function remindOneEvent(
   if (ticksRes.error) logQueryError('guest-reminder-emails: guest_checklist_ticks.select', ticksRes.error, { event_id: ev.event_id });
   if (seatsRes.error) logQueryError('guest-reminder-emails: event_seat_assignments.select', seatsRes.error, { event_id: ev.event_id });
 
-  // The FIRST block of the day, read with the programme's own formatter (the
-  // schedule stores the venue's wall clock parked in UTC — never re-zone it).
-  const firstBlock = blocks[0] ?? null;
-  const arriveBy = firstBlock?.start_at ? formatBlockTimeRange(firstBlock.start_at, null) || null : null;
+  // ⏰ THE guests' arrival (`guestsArriveTime`, 2026-10-19) — the one the ticket, Me and the invitation read.
+  const arriveBy = guestsArriveTime(blocks);
   const place = firstVenue({ venues: resolveEventVenues(bookings, ev) });
   const venueName = place ? place.name : ev.venue_name;
   const venueAddress = place ? place.address : ev.venue_address;
@@ -279,6 +283,8 @@ async function remindOneEvent(
       const replied = hasReplied(g.rsvp_status as 'pending' | 'attending' | 'declined' | 'maybe' | null);
       const items = guestChecklistItems({
         role: g.role,
+        // 👤 Their own Wear (gender → title → attire, `readerAttire`) and their own arrive-by (`guestArriveBy`).
+        person: { ...guestNamePartsOf(g), attire: guestAttireOf(g) },
         dressCodeConfig: ev.dress_code_config ?? null,
         rolePalette: ev.role_palette,
         arriveBy,

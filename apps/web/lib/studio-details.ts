@@ -18,9 +18,10 @@
  * Pure: the groups in, the groups out. Only while the new Maker is on
  * (`MakerDetails`'s `studio`); every couple today keeps the shipped list.
  */
-import { FREE_PRINT_KEYS, type DetailsItemKey } from '@/lib/maker-details-items';
+import { DIGITAL_TICKET_ITEM, EVERY_PRINT_ITEM, FREE_PRINT_KEYS, type DetailsItemGroup, type DetailsItemKey } from '@/lib/maker-details-items';
 import { PRINT_SET_KEYS } from '@/lib/print-pieces';
 import { STUDIO_TILE_ITEM } from '@/lib/studio-tile-defs';
+import { EVERYTHING_HEAD, EVERYTHING_LABEL, PRINT_SETTINGS_LABEL } from '@/lib/studio-prints-settings';
 
 /** The gifts items that leave Info for E-Gifts, in the prototype's order. */
 export const STUDIO_GIFT_ITEMS: readonly DetailsItemKey[] = ['gifts', 'thank-you'];
@@ -67,8 +68,12 @@ export function studioDetailsGroups<I extends { key: DetailsItemKey }>(groups: r
    opens on the first input) — "Your event" and "Your Event Hub" are gone: what must be typed is simply first, and
    the optional rows are the fold "More for guests". */
 export const STUDIO_FORM_HEADS: Partial<Record<DetailsItemKey, { title: string; line?: string }>> = {
-  invitation: { title: 'Your invitation set' },
+  /* ⚙ The head of Prints is the Print settings row (owner 2026-10-17) — it names itself; "On every print" is the first heading
+     INSIDE its sheet now (`PRINT_SETTINGS_HEADS`). */
+  invitation: { title: 'Your invitation set', line: 'one at a time is free' },
   [FREE_PRINT_KEYS[0]!]: { title: 'For the day', line: 'free for every event' },
+  /* 🗂 Everything ◆ — one file of every piece (owner 2026-10-17). */
+  download: { title: EVERYTHING_HEAD.title, line: EVERYTHING_HEAD.line },
 };
 
 /**
@@ -90,7 +95,9 @@ export const STUDIO_FORM_ITEMS: readonly DetailsItemKey[] = [
   'qr',
   ...STUDIO_GIFT_ITEMS,
   'rsvp',
+  EVERY_PRINT_ITEM,
   ...PRINT_SET_KEYS,
+  DIGITAL_TICKET_ITEM,
   ...FREE_PRINT_KEYS,
   'download',
 ];
@@ -98,12 +105,31 @@ export const STUDIO_FORM_ITEMS: readonly DetailsItemKey[] = [
    🗓 So does the Schedule (owner 2026-10-07 "1. okay"): its timeline, + Add a moment and ⋯ are all in its body. */
 export const STUDIO_PAGE_ITEMS: readonly DetailsItemKey[] = ['love-story', 'mood-board', 'schedule'];
 
+/**
+ * 🧭 THE PIECE BAR'S LIST (owner 2026-10-16, Studio › Prints on a phone — `studio-prints-bar.tsx`): every piece of the Prints
+ * form, in the form's order, under the form's own group words — "Your invitation set" · "For the day · free for every event" ·
+ * "Download the set". "On every print" is first and has no heading (it IS the head of the form). `caption` is the small word
+ * over the piece's name on the bar. Read from `STUDIO_FORM_HEADS` and the items' own labels — never a second list of names.
+ */
+export type StudioPrintsBarPiece = { key: DetailsItemKey; label: string; group?: string; caption: string; hint?: string };
+export function studioPrintsBarPieces(items: ReadonlyArray<{ key: DetailsItemKey; label: string; group: DetailsItemGroup }>): StudioPrintsBarPiece[] {
+  const set = STUDIO_FORM_HEADS.invitation!.title;
+  const day = STUDIO_FORM_HEADS[FREE_PRINT_KEYS[0]!]!;
+  return items.map((i) => {
+    const label = i.label.replace(/^the\s+/i, '');
+    if (i.key === EVERY_PRINT_ITEM) return { key: i.key, label: PRINT_SETTINGS_LABEL, caption: 'Prints', hint: 'QR · NFC · words · passes' };
+    if (i.group === 'day') return { key: i.key, label, group: `${day.title} · ${day.line}`, caption: day.title };
+    if (i.group === 'download') return { key: i.key, label: EVERYTHING_LABEL, group: EVERYTHING_HEAD.title, caption: EVERYTHING_HEAD.title };
+    return { key: i.key, label, group: set, caption: set };
+  });
+}
+
 /** The top nav (52 px) — the panel fills the rest, edge to edge (prototype `.full`). The panel's own height is
  *  `--maker-lt-h` less 8 px (`MAKER_LT_TOOL`), so this is 52 − 8. (It was 104 − 8 while a 52-px title row — "INFO ▾" —
  *  sat under the top nav; owner 2026-10-08: *"we will not have these."* The page has that height now.) */
 const UNDER_THE_ROWS = 'calc(100dvh - 44px)';
 /** The prototype's warm page (`--page` #F3F0EA), on the app's tokens — the same mix as `STUDIO_PAGE_BG`. */
-const STUDIO_PAGE = 'color-mix(in srgb,rgb(var(--color-gild)) 9%,rgb(var(--color-cream)))';
+export const STUDIO_PAGE = 'color-mix(in srgb,rgb(var(--color-gild)) 9%,rgb(var(--color-cream)))';
 
 /**
  * 🎨 THE PROTOTYPE'S ROWS ON THE SHIPPED FIELDS (owner 2026-10-07 side-by-side: *"seems like nothing
@@ -152,10 +178,10 @@ const W = '[data-maker-studio-full] [data-details-workspace]';
  */
 export const STUDIO_INFO_HAIRLINE_INSET_PX = 16;
 const INFO_FIELDS = `${W} :is([data-details-form-field]:has([data-studio-info-rows]),[data-details-form-field]:has(> [data-studio-quiet]))`;
-const STUDIO_INFO_HAIRLINE_CSS =
+export const STUDIO_INFO_HAIRLINE_CSS =
   `${INFO_FIELDS}{border-top-color:transparent;background-image:linear-gradient(rgb(var(--color-ink)/.1),rgb(var(--color-ink)/.1));background-repeat:no-repeat;background-origin:border-box;background-position:${STUDIO_INFO_HAIRLINE_INSET_PX}px 0;background-size:calc(100% - ${STUDIO_INFO_HAIRLINE_INSET_PX * 2}px) 1px}` +
   `${INFO_FIELDS}[data-details-editor="${STUDIO_TILE_ITEM.info}"]{background-image:none}`;
-const STUDIO_SKIN_CSS =
+export const STUDIO_SKIN_CSS =
   `${W} [data-details-form-field]{background:rgb(var(--color-cream));margin-left:-16px;margin-right:-16px;padding:12px 16px;border-top:1px solid rgb(var(--color-ink)/.1)}` +
   `${W} [data-details-form-group]{margin:-12px -16px 4px;padding:18px 22px 6px;background:${STUDIO_PAGE};border-bottom:1px solid rgb(var(--color-ink)/.1)}` +
   `${W} [data-details-form-heading]{font-size:14px;font-weight:600;line-height:1.3}` +

@@ -73,7 +73,8 @@ test('the vendor has somewhere to type it', () => {
   );
   assert.match(row, /name="location_city"/, 'My Shop has no city input');
   const page = readFileSync(
-    join(process.cwd(), 'app/vendor-dashboard/shop/page.tsx'),
+    // Since step 5 (2026-10-14) Your details builds the profile fields (it was My Shop's loader).
+    join(process.cwd(), 'app/vendor-dashboard/profile/details-data.ts'),
     'utf8',
   );
   assert.match(

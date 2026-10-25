@@ -233,15 +233,18 @@ test('CORRECTION 3 — the platform is not wedding-only', () => {
   );
 });
 
-test('CORRECTION 4 — hosts browse the marketplace at /explore, not /vendors', () => {
+test('CORRECTION 4 — hosts browse the supplier marketplace, not /vendors', () => {
   /*
     `/vendors` is the SUPPLIER sales page ("Built to grow your business — free")
     and `/vendors/*` → `/explore` by owner directive 2026-06-14. The retired
     flow told hosts to browse `/vendors`.
   */
+  // Since 2026-10-22 (QA F2) the page prints no route paths at all
+  // (`the-public-page-shows-no-internals.test.ts`), so the flow names the
+  // supplier marketplace in words, in both locales.
   assert.ok(
-    HOW_CODE.includes('/explore'),
-    'the flow must send a host to /explore — that is the marketplace',
+    /browses the supplier marketplace/.test(HOW_CODE) && /sa marketplace ng suppliers/.test(HOW_CODE),
+    'the flow must send a host to the supplier marketplace',
   );
   assert.ok(
     !/browses\s*\/vendors|sa \/vendors/.test(HOW_CODE),

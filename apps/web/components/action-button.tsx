@@ -27,15 +27,17 @@
  * otherwise a `<button type="button">` unless `type` says submit.
  */
 import Link from 'next/link';
+import { ChevronDown } from 'lucide-react';
+import { iconIsAComponent } from '@/lib/icon-is-a-component';
 import {
   forwardRef,
-  isValidElement,
   useCallback,
   useEffect,
   useLayoutEffect,
   type ComponentType,
   type MouseEventHandler,
   type ReactElement,
+  type ReactNode,
   type RefObject,
   type SVGProps,
 } from 'react';
@@ -90,6 +92,14 @@ type Common = {
   className?: string;
   title?: string;
   'data-testid'?: string;
+  /** 🔦 A spotlight tour's anchor token (`data-tour`, `lib/tours.ts` → `spotlight`). */
+  tour?: string;
+  /**
+   * ▾ IT OPENS A SHORT LIST OF CHOICES — a small down-arrow after the word (the guest card's "Invite ▾", owner-approved
+   * prototype `guest_card_groups_and_papic_2026-10-23.html`). Decoration only (`aria-hidden`); say the popup with
+   * `aria-haspopup`. Absent → the button is exactly as it was.
+   */
+  caret?: boolean;
 };
 
 type AsButton = Common & {
@@ -134,19 +144,23 @@ export function actionButtonClass(
 }
 
 function renderIcon(icon: Common['icon']) {
-  if (isValidElement(icon)) return icon;
+  /* 🧩 A node (an element, or the LAZY a production RSC payload makes of a server component's element) is drawn as a
+     node; only a component is drawn as a type. `isValidElement` alone let the lazy through as a type — the live
+     Maker crash of 2026-10-15 (`lib/icon-is-a-component.ts`). */
+  if (!iconIsAComponent(icon)) return icon as ReactNode;
   const Icon = icon as IconComponent;
   return <Icon aria-hidden="true" strokeWidth={1.9} />;
 }
 
 export const ActionButton = forwardRef<HTMLButtonElement | HTMLAnchorElement, ActionButtonProps>(
   function ActionButton(props, ref) {
-    const { tone, icon, label, name, main, quiet, iconOnly, filled, className, title, waiting } = props;
+    const { tone, icon, label, name, main, quiet, iconOnly, filled, className, title, waiting, caret } = props;
     const cls = actionButtonClass(tone, { main, quiet, iconOnly, filled, extra: className });
     const inner = (
       <>
         {renderIcon(icon)}
         <span className="lbl">{label}</span>
+        {caret ? <ChevronDown aria-hidden data-caret="" className="-mr-0.5 h-4 w-4 shrink-0" strokeWidth={2} /> : null}
       </>
     );
     if (props.href !== undefined) {
@@ -173,6 +187,7 @@ export const ActionButton = forwardRef<HTMLButtonElement | HTMLAnchorElement, Ac
           data-tone={tone}
           data-main={main ? '' : undefined}
           data-testid={props['data-testid']}
+          data-tour={props.tour}
         >
           {inner}
         </Link>
@@ -200,6 +215,7 @@ export const ActionButton = forwardRef<HTMLButtonElement | HTMLAnchorElement, Ac
         data-tone={tone}
         data-main={main ? '' : undefined}
         data-testid={p['data-testid']}
+        data-tour={p.tour}
       >
         {inner}
       </button>

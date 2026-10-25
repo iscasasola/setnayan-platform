@@ -38,7 +38,7 @@ async function planFor(eventId: string, csv: string) {
   const supabase = await createClient();
   const { data: existing, error } = await supabase
     .from('guests')
-    .select('guest_id,first_name,last_name,name_prefix,middle_name,name_suffix,side,group_category,role,mobile,plus_one_count')
+    .select('guest_id,first_name,last_name,name_prefix,gender,middle_name,name_suffix,side,group_category,role,mobile,plus_one_count,plus_one_of_guest_id')
     .eq('event_id', eventId)
     .is('deleted_at', null);
   // 🔒 A refused read must not look like an empty list: matching against

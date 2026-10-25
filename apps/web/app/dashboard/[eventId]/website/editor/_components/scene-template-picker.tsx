@@ -25,6 +25,8 @@ import { Thumb } from './scene-thumb';
 import { PresetTiles } from './scene-styles-lazy';
 import type { PostEventPresetsProp } from './post-event-preset-tiles';
 import { SafeForm } from '@/app/dashboard/[eventId]/_components/safe-form';
+import { useModalA11y } from '@/lib/use-modal-a11y';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 
 /** Desktop · Phone · Both — one dropdown (owner: a set of choices is one PickMenu, never a pill row). */
 const SCENE_VIEW_OPTIONS = [
@@ -147,6 +149,9 @@ export function SceneTemplatePicker({
   useEffect(() => {
     if (open) setView(initialView);
   }, [open, initialView]);
+  /* The page behind holds still and is out of reach while the picker floats over it (owner 2026-10-25). */
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useModalA11y({ open: open && !!overlay, onClose: () => setOpen(false), containerRef: dialogRef });
   const closeRef = useRef(() => setOpen(false));
   closeRef.current = () => setOpen(false);
   useEffect(() => {
@@ -169,16 +174,21 @@ export function SceneTemplatePicker({
         {triggerLabel}
       </button>
       {open && overlay ? (
-        <button
-          type="button"
-          aria-label="Close the templates"
-          onClick={() => setOpen(false)}
-          /* A tap on the page closes it; on a phone the page is not dimmed — the templates sit in the lower third. */
-          className="fixed inset-0 z-[90] cursor-default bg-ink/30 max-lg:bg-transparent"
-        />
+        <>
+          <button
+            type="button"
+            aria-label="Close the templates"
+            onClick={() => setOpen(false)}
+            /* A tap on the page closes it; on a phone the page is not dimmed — the templates sit in the lower third. */
+            className="fixed inset-0 z-[90] cursor-default lg:hidden"
+          />
+          {/* From lg up: the one backdrop (dark + blurred, fixed to the screen; a tap closes). */}
+          <OverlayBackdrop onClose={() => setOpen(false)} label="Close the templates" className="z-[90] max-lg:hidden" />
+        </>
       ) : null}
       {open ? (
         <div
+          ref={dialogRef}
           role="dialog"
           aria-label={`${heading} ${stageLabel}`}
           className={

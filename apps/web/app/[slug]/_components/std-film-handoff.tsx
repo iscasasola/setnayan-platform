@@ -98,7 +98,14 @@ export function StdFilmHandoff({
   autoplay = false,
   seenKey = null,
   closing = null,
+  liftOnLanding = false,
 }: {
+  /**
+   * 📜 THE GUEST OPENED ME (owner 2026-10-15: Save the Date is one page, Me its own — `?tab=me`). Me is not the
+   * front door, so the film starts lifted exactly as a landing part-way down does (`filmLiftedOnLanding`); the
+   * guest's own Me is what they asked for. Not counted as having seen the film.
+   */
+  liftOnLanding?: boolean;
   /**
    * 🎞 ONCE PER PHONE (owner 2026-10-11) — the event's own id. With it, a phone
    * that has already left the film (by "See our page" or by the film's end)
@@ -150,10 +157,12 @@ export function StdFilmHandoff({
     // 🎞 …and so does a phone that has already seen it (owner 2026-10-11).
     const lift = filmLiftAtLanding({
       asSlide,
-      landedDownThePage: filmLiftedOnLanding(
-        { hash: window.location.hash, scrollY: window.scrollY, viewportHeight: window.innerHeight },
-        asSlide,
-      ),
+      landedDownThePage:
+        (liftOnLanding && !asSlide) ||
+        filmLiftedOnLanding(
+          { hash: window.location.hash, scrollY: window.scrollY, viewportHeight: window.innerHeight },
+          asSlide,
+        ),
       seen: stdFilmSeen(phoneStorage(), storageKey),
     });
     if (lift) {

@@ -1,5 +1,7 @@
 'use client';
 
+import { setVendorCapturesHidden } from '@/app/dashboard/[eventId]/studio/papic/vendor-visibility-actions';
+
 import { useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -26,6 +28,8 @@ import {
 import { setDelegateArea, removeHost } from '@/app/dashboard/[eventId]/hosts/actions';
 import { setGuestAccess } from '@/app/dashboard/[eventId]/guests/[guestId]/access-actions';
 import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
+import { ClaimAccessCard } from '@/app/dashboard/[eventId]/access-requests/_components/claim-access-card';
+import type { ClaimAccessAsk } from '@/lib/claim-access-asks';
 
 /**
  * people-with-access.tsx — Event Details › PEOPLE WITH ACCESS (owner
@@ -211,11 +215,12 @@ function CoordinatorSwitch({ eventId, row, readOnly }: { eventId: string; row: P
         if (!res.ok) {
           setOn(!next);
           setError(res.error);
+          // one-render: keep (after-failure) — the refused write revalidated nothing; re-read what the earlier ones landed.
           router.refresh();
           return;
         }
       }
-      router.refresh();
+      // ⚡ Each landed write revalidated the page — its answer carried the redraw; no second render.
     });
   };
   const locked = readOnly || row.ended || busy;
@@ -256,7 +261,6 @@ function CoordinatorSwitch({ eventId, row, readOnly }: { eventId: string; row: P
 }
 
 function AccessPick({ eventId, row }: { eventId: string; row: PersonRow }) {
-  const router = useRouter();
   const [level, setLevel] = useState<GuestAccessLevel>(row.access?.level ?? 'none');
   const [error, setError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
@@ -272,9 +276,9 @@ function AccessPick({ eventId, row }: { eventId: string; row: PersonRow }) {
     setLevel(next);
     setError(null);
     startTransition(async () => {
+      // ⚡ A landed change revalidates the page, so the answer carries the redraw; a refusal puts the pick back and says why.
       const res = await setGuestAccess(eventId, guestId, next);
-      if (res.ok) router.refresh();
-      else {
+      if (!res.ok) {
         setLevel(before);
         setError(res.error);
       }
@@ -347,7 +351,6 @@ function RemoveCoordinator({ eventId, row }: { eventId: string; row: PersonRow }
 }
 
 function AddPerson({ eventId, addable }: { eventId: string; addable: { guestId: string; name: string }[] }) {
-  const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [adding, startTransition] = useTransition();
   if (addable.length === 0) return null;
@@ -357,8 +360,7 @@ function AddPerson({ eventId, addable }: { eventId: string; addable: { guestId: 
       // A new person starts as a limited helper — View on every area — and the
       // host raises what they need, area by area, on the row that appears.
       const res = await setGuestAccess(eventId, guestId, 'limited_helper');
-      if (res.ok) router.refresh();
-      else setError(res.error);
+      if (!res.ok) setError(res.error);
     });
   };
   return (
@@ -380,7 +382,18 @@ function AddPerson({ eventId, addable }: { eventId: string; addable: { guestId: 
   );
 }
 
-function PersonItem({ eventId, row, readOnly }: { eventId: string; row: PersonRow; readOnly: boolean }) {
+function PersonItem({
+  eventId,
+  row,
+  readOnly,
+  photos = null,
+}: {
+  eventId: string;
+  row: PersonRow;
+  readOnly: boolean;
+  /** A supplier who shot here: is their delivery in Memories? */
+  photos?: { hidden: boolean } | null;
+}) {
   return (
     <li className="space-y-2 py-3" data-person={row.kind}>
       <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
@@ -414,6 +427,9 @@ function PersonItem({ eventId, row, readOnly }: { eventId: string; row: PersonRo
       ) : row.areas ? (
         <AreaPicks eventId={eventId} row={{ ...row, areas: row.areas }} readOnly={readOnly || row.isViewer} />
       ) : null}
+      {row.kind === 'supplier' && row.vendorId && photos && !readOnly ? (
+        <SupplierPhotosSwitch eventId={eventId} vendorRowId={row.vendorId} hidden={photos.hidden} />
+      ) : null}
     </li>
   );
 }
@@ -425,19 +441,42 @@ export function PeopleWithAccess({
   readOnly,
   failed,
   flash,
+  claims = null,
+  supplierPhotos = null,
 }: {
   eventId: string;
   rows: PersonRow[];
+  /**
+   * 📷 The suppliers who shot here, by `event_vendors.vendor_id` — each row carries the switch for its whole delivery
+   * in Memories (owner 2026-10-23, moved here from the Papic page's "Suppliers' photos"). Null: not read / not the couple.
+   */
+  supplierPhotos?: Record<string, { hidden: boolean }> | null;
   addable: { guestId: string; name: string }[];
   /** A delegate looking at their own access: words, never dropdowns. */
   readOnly: boolean;
   /** The reads failed — say so, never "nobody else has access". */
   failed: boolean;
   flash: string | null;
+  /** 🤝 Suppliers who joined from the couple's link and wait for Approve (owner 2026-10-20). Null: not the couple. */
+  claims?: { measured: boolean; asks: ClaimAccessAsk[] } | null;
 }) {
   return (
     <div id="people-with-access" className="scroll-mt-20" data-section="access">
       <p className="pb-1 text-[12.5px] text-ink/60">Who can open this event, and what each person can change.</p>
+      {claims && !claims.measured ? (
+        <p className="py-2.5 text-sm text-terracotta-700" data-claim-asks-refused="">
+          We could not check for suppliers who joined from your link. Reload to try again.
+        </p>
+      ) : claims && claims.asks.length > 0 ? (
+        <div className="pb-3" data-access-group="waiting">
+          <h3 className="font-mono text-[11px] uppercase tracking-[0.16em] text-terracotta-700">Waiting for you</h3>
+          <ul className="divide-y divide-ink/5">
+            {claims.asks.map((a) => (
+              <ClaimAccessCard key={a.requestId} eventId={eventId} ask={a} />
+            ))}
+          </ul>
+        </div>
+      ) : null}
       {flash ? (
         <p role="status" className="mb-2 text-xs text-ink/70">
           {flash}
@@ -464,7 +503,13 @@ export function PeopleWithAccess({
                 ) : (
                   <ul className="divide-y divide-ink/5">
                     {inGroup.map((row) => (
-                      <PersonItem key={row.key} eventId={eventId} row={row} readOnly={readOnly} />
+                      <PersonItem
+                        key={row.key}
+                        eventId={eventId}
+                        row={row}
+                        readOnly={readOnly}
+                        photos={row.vendorId && supplierPhotos ? (supplierPhotos[row.vendorId] ?? null) : null}
+                      />
                     ))}
                   </ul>
                 )}
@@ -475,5 +520,27 @@ export function PeopleWithAccess({
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * A supplier's whole delivery, in or out of Memories — the shipped writer (`setVendorCapturesHidden`), returning here
+ * (`back=details`). Hidden is kept, never deleted; the supplier keeps their own copies.
+ */
+function SupplierPhotosSwitch({ eventId, vendorRowId, hidden }: { eventId: string; vendorRowId: string; hidden: boolean }) {
+  return (
+    <form action={setVendorCapturesHidden} data-supplier-photos={hidden ? 'hidden' : 'shown'}>
+      <input type="hidden" name="event_id" value={eventId} />
+      <input type="hidden" name="vendor_id" value={vendorRowId} />
+      <input type="hidden" name="hidden" value={hidden ? '0' : '1'} />
+      <input type="hidden" name="back" value="details" />
+      <button type="submit" role="switch" aria-checked={!hidden} className="flex min-h-11 w-full items-center justify-between gap-3 text-left">
+        <span className="min-w-0">
+          <span className="block text-[13.5px] text-ink">Their photos in your Memories</span>
+          <span className="block text-[12px] text-ink/55">{hidden ? 'Hidden · kept, not deleted' : 'Shown · hide them and nothing is deleted'}</span>
+        </span>
+        <SwitchTrack on={!hidden} />
+      </button>
+    </form>
   );
 }

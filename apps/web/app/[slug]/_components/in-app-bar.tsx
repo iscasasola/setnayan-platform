@@ -12,12 +12,14 @@ import { LANDING_WORDS, type InAppHandoff } from '@/lib/guest-landing';
  */
 export function InAppBar({ handoff }: { handoff: InAppHandoff }) {
   if (handoff.kind === 'none') return null;
-  const link = 'inline-flex min-h-[32px] items-center underline underline-offset-[3px]';
+  // 👆 44 px presses in the SAME thin bar: the links take the bar's 12 px of padding (`py-0` below), so the bar stays
+  // one 44 px line and each link is a full thumb tall (was 32 px — the Hub button walk, 2026-10-21).
+  const link = 'inline-flex min-h-[44px] items-center underline underline-offset-[3px]';
   return (
     <nav
       aria-label="Open this page elsewhere"
       data-in-app-bar={handoff.kind}
-      className="flex w-full flex-wrap items-center justify-center border-b border-ink/10 bg-[#F3EEE6] px-3.5 py-1.5 text-center text-xs font-medium leading-snug text-mulberry"
+      className="flex w-full flex-wrap items-center justify-center border-b border-ink/10 bg-[#F3EEE6] px-3.5 py-0 text-center text-xs font-medium leading-snug text-mulberry"
     >
       {handoff.kind === 'android' ? (
         <a href={handoff.href} className={link}>

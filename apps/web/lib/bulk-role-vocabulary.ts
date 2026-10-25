@@ -54,6 +54,8 @@ export const BULK_ROLE_SECTIONS: RoleSection[] = [
     roles: [
       'bride_parents',
       'groom_parents',
+      'bride_grandparents',
+      'groom_grandparents',
       'bride_immediate_family',
       'groom_immediate_family',
     ],
@@ -68,7 +70,7 @@ export const BULK_ROLE_SECTIONS: RoleSection[] = [
   },
   {
     label: ROLE_GROUP_LABELS.bridesmaids,
-    roles: ['maid_of_honor', 'matron_of_honor', 'bridesmaid'],
+    roles: ['maid_of_honor', 'matron_of_honor', 'man_of_honor', 'bridesmaid'],
   },
   {
     label: ROLE_GROUP_LABELS.principal_sponsors,

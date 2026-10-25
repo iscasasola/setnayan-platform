@@ -18,6 +18,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { ABSENT_IS_FINE_HEADER } from '@/lib/supabase/db-error-log';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getHostUserId } from '@/lib/host-gate';
 import { writeStylePreferenceKey } from '@/lib/style-preferences.server';
@@ -75,7 +76,10 @@ export async function clearCategoryDecision(input: {
     .from('event_category_decisions')
     .delete()
     .eq('event_id', input.eventId)
-    .eq('plan_group_id', input.planGroupId);
+    .eq('plan_group_id', input.planGroupId)
+    // Clearing a decision that is already clear is the cleared state — RLS's DELETE and SELECT doors
+    // are the same here (current_event_ids), so "matched nothing" cannot be a silent refusal.
+    .setHeader(ABSENT_IS_FINE_HEADER, '1');
   if (error) return { ok: false, error: error.message };
 
   revalidatePath(`/dashboard/${input.eventId}/vendors`);

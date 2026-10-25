@@ -21,18 +21,20 @@
  * depends on was refused (`EventMoney.reads`, B0). They then draw "—", and the
  * meter draws no bar. Never ₱0.
  *
- * ── It stays live ─────────────────────────────────────────────────────────
- * A payment or a line item landing from another device refreshes the page's
- * server render (`router.refresh()`), so the summary and everything under it
- * re-read the ONE resolver together. The old card refetched its own figures
+ * ── It is current when looked at ──────────────────────────────────────────
+ * A payment or a line item recorded from another device is on screen when the
+ * tab is looked at again: coming back refreshes the page's server render
+ * (`router.refresh()`), so the summary and everything under it re-read the ONE
+ * resolver together. (Until 2026-10-21 a Realtime channel did this — a socket
+ * held open all day for a page where nothing is live.) The old card refetched its own figures
  * through a second server action — two writers of one number.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { InfoTip } from '@/app/_components/info-tip';
 import { Count, Fill } from '@/components/count';
-import { createClient } from '@/lib/supabase/client';
+import { onTabReturn } from '@/lib/tab-return';
 import { formatPhp } from '@/lib/orders';
 import { budgetMeter, shortDate, type NextPayment } from '@/lib/budget-page-view';
 import { setEventBudget } from '../actions';
@@ -40,6 +42,8 @@ import styles from './budget-page.module.css';
 
 const SAVE_DEBOUNCE_MS = 500;
 const SAVED_FLASH_MS = 1400;
+/** Coming back to the budget re-reads it — unless it was read this recently (a quick alt-tab is not a new look). */
+const BUDGET_RETURN_GAP_MS = 30_000;
 
 /** `2250000` → `"2,250,000"` — the Target field's own text, no ₱ (it is drawn beside it). */
 function targetText(php: number | null): string {
@@ -77,9 +81,12 @@ export function BudgetSummary({
   agreedPhp,
   paidPhp,
   owedPhp,
+  owedAtLeast = false,
+  partial = false,
   next,
   payHref,
   onPay,
+  targetNote,
 }: {
   eventId: string;
   /** Setting the target is the couple's alone (locked D1); a delegate reads it. */
@@ -88,10 +95,24 @@ export function BudgetSummary({
   agreedPhp: number | null;
   paidPhp: number | null;
   owedPhp: number | null;
+  /**
+   * A source was refused, so `owedPhp` is a FLOOR — drawn "₱994,400+" (the
+   * prototype's failed frame; `bookedBudgetBlock`, the Suppliers block's own
+   * rule, decides it, so the two surfaces cannot disagree).
+   */
+  owedAtLeast?: boolean;
+  /**
+   * A source was refused: the legend says "part of this couldn't load" where
+   * "₱X left of target" would be, and the Next line says it could not check
+   * (an empty line would read "nothing due").
+   */
+  partial?: boolean;
   next: NextPayment | null;
   /** Where "Pay ›" goes when there is no `onPay`. */
   payHref: string;
   onPay?: (next: NextPayment) => void;
+  /** More words inside the Target's ⓘ — the Mahr / Chinese tradition notes, for the event types that have one. */
+  targetNote?: ReactNode;
 }) {
   const router = useRouter();
   const [targetPhp, setTargetPhp] = useState<number | null>(initialTargetPhp);
@@ -118,40 +139,19 @@ export function BudgetSummary({
     [],
   );
 
-  // Live: a payment or a line item changing anywhere re-reads the page.
-  useEffect(() => {
-    let timer: ReturnType<typeof setTimeout> | null = null;
-    let stop = () => {};
-    const refresh = () => {
-      if (timer) clearTimeout(timer);
-      timer = setTimeout(() => router.refresh(), 400);
-    };
-    try {
-      const supabase = createClient();
-      const channel = supabase
-        .channel(`budget-${eventId}`)
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'event_vendor_payments', filter: `event_id=eq.${eventId}` },
-          refresh,
-        )
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'event_vendor_line_items', filter: `event_id=eq.${eventId}` },
-          refresh,
-        )
-        .subscribe();
-      stop = () => void supabase.removeChannel(channel);
-    } catch {
-      // The live channel is an extra: every figure here was read on load and is
-      // read again on the next visit. A socket that cannot open must not take
-      // the couple's summary down with it.
-    }
-    return () => {
-      if (timer) clearTimeout(timer);
-      stop();
-    };
-  }, [eventId, router]);
+  // Current when looked at: a payment or a line item recorded somewhere else (the
+  // couple's phone, the supplier's console) is on screen the moment this tab is
+  // looked at again. 🔌 No socket (2026-10-21): this page used to hold a Realtime
+  // channel on two tables all day — nothing on it is live, and a budget left open
+  // in a background tab is not being read.
+  useEffect(
+    () =>
+      onTabReturn(() => {
+        // one-render: keep (realtime) — the tab came back into view; nothing was pressed here.
+        router.refresh();
+      }, { minGapMs: BUDGET_RETURN_GAP_MS }),
+    [router],
+  );
 
   function showFlash(kind: 'saved' | 'bad') {
     setFlash(kind);
@@ -187,12 +187,13 @@ export function BudgetSummary({
   const left = targetPhp !== null && agreedPhp !== null ? targetPhp - agreedPhp : null;
 
   return (
-    <section className={`${styles.page} ${styles.sum}`} aria-label="Budget summary" data-budget-summary="">
+    <section className={`${styles.page} ${styles.sum}`} aria-label="Budget summary" data-budget-summary="" data-tour="budget-summary">
       <div className={styles.grid}>
         <div className={styles.cell} data-budget-cell="target">
           <div className={styles.k}>
             <InfoTip label="Target" align="start">
               What you plan to spend in all.{canEdit ? ' Tap the number to change it; it saves as you type.' : ''}
+              {targetNote}
             </InfoTip>
             <span
               className={styles.saved}
@@ -247,7 +248,7 @@ export function BudgetSummary({
         </div>
         <div className={styles.cell} data-budget-cell="owed">
           <div className={styles.k}>Owed</div>
-          <Figure value={owedPhp} id="budget-owed" tone={styles.vWine} />
+          <Figure value={owedPhp} id="budget-owed" tone={styles.vWine} atLeast={owedAtLeast} />
         </div>
       </div>
 
@@ -269,7 +270,11 @@ export function BudgetSummary({
           <i className={styles.swTarget} />
           target
         </span>
-        {left === null ? null : left >= 0 ? (
+        {partial ? (
+          <span className={`${styles.left} ${styles.wine}`} data-budget-partial="">
+            part of this couldn&rsquo;t load
+          </span>
+        ) : left === null ? null : left >= 0 ? (
           <span className={`${styles.left} ${styles.num}`}>
             <Peso value={left} id="budget-left" /> left of target
           </span>
@@ -299,19 +304,32 @@ export function BudgetSummary({
             </a>
           )}
         </div>
+      ) : partial ? (
+        <div className={styles.nextdue} data-budget-next="unread">
+          <span className={styles.mute}>Next</span>
+          <span className={`${styles.nextTxt} ${styles.mute}`}>couldn&rsquo;t check</span>
+        </div>
       ) : null}
     </section>
   );
 }
 
-/** One summary figure — or "—" when nobody measured it. Never ₱0 for unknown. */
-function Figure({ value, id, tone }: { value: number | null; id: string; tone?: string }) {
+/**
+ * One summary figure — or "—" when nobody measured it. Never ₱0 for unknown.
+ * `atLeast`: a floor, drawn with a "+" ("₱994,400+ — at least this").
+ */
+function Figure({ value, id, tone, atLeast = false }: { value: number | null; id: string; tone?: string; atLeast?: boolean }) {
   if (value === null) {
     return <div className={`${styles.v} ${styles.vMuted}`}>—</div>;
   }
   return (
-    <div className={`${styles.v} ${styles.num}${tone ? ` ${tone}` : ''}`}>
+    <div
+      className={`${styles.v} ${styles.num}${tone ? ` ${tone}` : ''}`}
+      data-budget-owed={atLeast ? 'at-least' : undefined}
+      title={atLeast ? 'At least this. Part of your budget could not load, so there may be more.' : undefined}
+    >
       <Peso value={value} id={id} />
+      {atLeast ? '+' : null}
     </div>
   );
 }

@@ -45,7 +45,7 @@ import {
   printLookFor,
   spotLayersFor,
 } from './print-pieces';
-import { NFC_SPOT_R, layoutPasses, layoutPiece, opsOnLayer, watermarkOps, type PrintOp, type PrintSetData } from './print-layout';
+import { NFC_SPOT_R, layoutPasses, layoutPiece, layoutPieceDocs, opsOnLayer, watermarkOps, type PrintOp, type PrintSetData } from './print-layout';
 import { renderImposedPdf, renderPrintPdf } from './print-render-pdf';
 import {
   SAMPLE_JPEG_QUALITY,
@@ -194,6 +194,22 @@ test('the PRINT-READY PDF: bleed + trim boxes, and Foil / White ink / Die cut la
   assert.ok(!docs[0]!.ops.some((o) => o.t === 'path' && wm.has(o.d)), 'a print-ready layout must not carry the sample watermark');
 });
 
+test('🔁 with NFC on, every sheet of passes is followed by its backs — mirrored, so a duplex flip lands each back behind its front', async () => {
+  const d = data();
+  const withNfc = { ...d, details: { ...d.details, nfc: true } };
+  for (const f of Object.values(PRINT_FORMATS).filter((x) => x.for === 'pass')) {
+    const passes = Array.from({ length: 3 }, (_, i) => ({ name: `Guest ${i + 1}`, seat: null, qrRef: 'eventqr', serial: null }));
+    const docs = layoutPasses({ look: printLookFor('vintage'), data: withNfc, mode: 'print', foil: false, format: f.id }, passes);
+    assert.ok(docs.every((x) => x.back?.isBack), `${f.id}: every pass has its back`);
+    const perPage = f.sheet!.cols * f.sheet!.rows;
+    const pdf = await PDFDocument.load(await renderImposedPdf(docs, await qrImages(), { ...f.sheet!, title: 'passes' }));
+    assert.equal(pdf.getPageCount(), Math.ceil(3 / perPage) * 2, `${f.id}: a backs page after each fronts page`);
+  }
+  // NFC off: fronts only.
+  const plain = layoutPasses({ look: printLookFor('vintage'), data: d, mode: 'print', foil: false, format: 'calling-card' }, [{ name: 'A', seat: null, qrRef: 'eventqr', serial: null }]);
+  assert.ok(!plain[0]!.back);
+});
+
 test('the per-guest pass batch gangs onto A4 with cut lines, the count its format says', async () => {
   const f = PRINT_FORMATS['calling-card'];
   const passes = Array.from({ length: 11 }, (_, i) => ({ name: `Guest ${i + 1}`, seat: null, qrRef: 'eventqr', serial: null }));
@@ -289,10 +305,17 @@ test('GUARD: no free path reaches the THEMED print-ready renderer — Classic pr
   assert.ok(samplePath > refuse, 'the sample path follows the print-ready block');
   const freeGroupEnd = route.indexOf("if (PRINT_PIECES[piece].kind === 'free') return");
   assert.ok(freeGroupEnd > 0 && freeGroupEnd < themeAt, 'the free group returns before the theme gate');
+  // 🗂 Everything ◆ (2026-10-17) draws in its own function — which is CALLED only from inside the gated block, after `mayServe`.
+  const everyFrom = route.indexOf('async function everythingPdf(');
+  const everyTo = route.indexOf('\n}\n', everyFrom);
+  const everyCalls = [...route.matchAll(/return everythingPdf\(req, /g)].map((m) => m.index!);
+  assert.ok(everyFrom > 0 && everyTo > everyFrom, 'the Everything helper moved — this guard must follow it');
+  assert.deepEqual(everyCalls.map((at) => at > refuse && at < samplePath), [true], 'Everything is drawn outside the mayServe-checked block');
   // Every print-ready render call lives inside the gated block — except the FREE group's plain sheets.
   for (const call of ['renderPrintPdf(', 'renderImposedPdf(', 'renderPrintSvg(']) {
     for (const m of route.matchAll(new RegExp(call.replace('(', '\\('), 'g'))) {
       const at = m.index!;
+      if (at > everyFrom && at < everyTo) continue;
       if (at < freeGroupEnd) {
         // Only plain sheets or a page-1 thumbnail of the free group are drawn up here.
         if (call === 'renderPrintPdf(') assert.ok(route.slice(at, at + 120).includes("mode: 'plain'"), 'a free sheet is a plain PDF');
@@ -309,8 +332,11 @@ test('GUARD: no free path reaches the THEMED print-ready renderer — Classic pr
   // The sample renderer cannot make a print-ready file at all.
   const raster = read('lib/print-sample-raster.ts');
   assert.doesNotMatch(raster, /print-render-pdf|renderPrintPdf|pdf-lib/);
-  // The QR sheet asks no Pro question — it is free for every event.
-  assert.ok(route.indexOf("piece === 'qr-codes'") < route.indexOf('printOwnsPro('));
+  // The QR sheet — its picture AND its PDF — asks no Pro question (owner 2026-10-22: every guest's QR on one sheet is free again;
+  // it was an all-guests ◆ file 2026-10-17). Nothing in the free branch reads the event's Pro or refuses with a 403.
+  const qrBranch = route.slice(route.indexOf("if (piece === 'qr-codes' || piece === 'guest-registry') {"), freeGroupEnd);
+  assert.ok(qrBranch.includes('await freeSheet('), 'the free branch was not found — the probe is blind');
+  assert.doesNotMatch(qrBranch, /printOwnsPro\(|isAllInOnePrint\(|status: 403/, 'the Guest QR sheet asks for Event Hub Pro again');
 });
 
 test('entourage groups print in lib/entourage.ts order', () => {
@@ -340,8 +366,11 @@ test('the Maker workspace prints no price and hides the Pro path in the store sh
   assert.match(ws, /const themedReady = themed && \(freeTheme \|\| access\.printReady\);/, 'the one condition every themed print-ready control sits behind');
   assert.match(ws, /const freeTheme = !isProPrint\(theme\);/, 'a free theme is the registry\'s tier, never "is it Classic"');
   for (const m of themedPrint) {
-    const before = ws.slice(Math.max(0, m.index! - 420), m.index!);
-    assert.match(before, /themedReady \? \(/, 'a themed print-ready control renders only for a free theme or with Pro');
+    /* 900: each themed file is now the ◆ all-in-one part (2026-10-16) — longer lines between the condition and the address. */
+    const before = ws.slice(Math.max(0, m.index! - 900), m.index!);
+    /* `themedReady ? (` a control, or `themedReady ? q(…)` an address (one guest's pass, 2026-10-16) — either way behind the one condition. */
+    /* …or `themedReady ? { href: q(…) }` — a row's ONE Download (2026-10-17), the same condition. */
+    assert.match(before + ws.slice(m.index!, m.index! + 2), /themedReady \? (?:\(|q\(|\{ href: q\()/, 'a themed print-ready control renders only for a free theme or with Pro');
   }
   // The Classic controls render for EVERYONE — no condition, and they ask for theme=house.
   assert.match(ws, /const classic = \(piece: string\) => `\/api\/hub-print\/\$\{piece\}\?event=\$\{eventId\}&mode=print&theme=\$\{CLASSIC_PRINT_THEME\}/);
@@ -386,8 +415,13 @@ test('the NFC sticker spot is 25 mm, true to size, in every format that draws it
   const spots: Array<[string, PrintOp | undefined]> = [];
   for (const f of Object.values(PRINT_FORMATS)) {
     const piece = f.for === 'pass' ? 'pass' : f.for === 'card' ? 'card' : 'details';
-    const doc = layoutPiece(piece, { look: printLookFor('vintage'), data: withNfc, mode: 'print', foil: false, format: f.id });
-    spots.push([`${piece}/${f.id}`, doc.ops.find((o) => o.t === 'circle' && o.nfc)]);
+    // A pass carries its spot on the BACK (its second side), behind the QR; every other piece on its face.
+    const sides = layoutPieceDocs(piece, { look: printLookFor('vintage'), data: withNfc, mode: 'print', foil: false, format: f.id });
+    if (piece === 'pass') {
+      assert.equal(sides.length, 2, `pass/${f.id}: with NFC on, a pass has a back`);
+      assert.ok(!sides[0]!.ops.some((o) => o.t === 'circle' && o.nfc), `pass/${f.id}: the front no longer carries the spot`);
+    }
+    spots.push([`${piece}/${f.id}`, sides[piece === 'pass' ? 1 : 0]!.ops.find((o) => o.t === 'circle' && o.nfc)]);
   }
   spots.push(['poster', layoutPiece('poster', { look: printLookFor('vintage'), data: withNfc, mode: 'print', foil: false }).ops.find((o) => o.t === 'circle' && o.nfc)]);
   let drawn = 0;
@@ -397,10 +431,11 @@ test('the NFC sticker spot is 25 mm, true to size, in every format that draws it
     assert.ok(Math.abs((op.r * 2) / PT_PER_MM - NFC_STICKER_DIAMETER_MM) < 0.01, `${where}: the spot is ${(op.r * 2) / PT_PER_MM} mm, not 25`);
     assert.ok(op.dash, `${where}: the guide ring is dashed`);
   }
-  assert.ok(spots.find(([w]) => w === 'pass/calling-card')?.[1], 'the calling card carries the spot (in its corner)');
+  assert.ok(spots.find(([w]) => w === 'pass/calling-card')?.[1], 'the calling card carries the spot (on its back)');
   assert.ok(drawn >= 6, `only ${drawn} formats drew the spot`);
   assert.equal(NFC_SPOT_R * 2, NFC_STICKER_DIAMETER_MM * PT_PER_MM);
   // Off by default: no spot unless the couple adds one.
-  const off = layoutPiece('pass', { look: printLookFor('vintage'), data: d, mode: 'print', foil: false });
-  assert.ok(!off.ops.some((o) => o.t === 'circle' && o.nfc));
+  const off = layoutPieceDocs('pass', { look: printLookFor('vintage'), data: d, mode: 'print', foil: false });
+  assert.equal(off.length, 1, 'no NFC, no back');
+  assert.ok(!off[0]!.ops.some((o) => o.t === 'circle' && o.nfc));
 });

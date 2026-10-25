@@ -183,6 +183,11 @@ export type InlineCheckoutDrawerProps = {
    * preference must never block somebody from paying for the thing itself.
    */
   onBeforeOpen?: () => Promise<void> | void;
+  /**
+   * 💎 Several Event Hub Pro parts in one order (owner 2026-10-22) — sent as `hub_parts` ("style,motion") with the
+   * `COUPLE_HUB_PARTS` key; the server prices each from the catalogue. Every other caller omits it.
+   */
+  hubParts?: string;
 };
 
 /**
@@ -246,6 +251,7 @@ export function InlineCheckoutDrawer({
   triggerLabel,
   triggerClassName,
   onBeforeOpen,
+  hubParts,
 }: InlineCheckoutDrawerProps) {
   const [open, setOpen] = useState(false);
   const [preparing, setPreparing] = useState(false);
@@ -431,7 +437,7 @@ export function InlineCheckoutDrawer({
         role="dialog"
         aria-modal="true"
         aria-labelledby="inline-checkout-title"
-        className="fixed inset-0 z-50 flex h-[100dvh] items-end justify-center sm:items-center sm:justify-end focus:outline-none"
+        className="fixed inset-0 z-50 flex h-[100dvh] items-end justify-center tab:items-center tab:justify-end focus:outline-none"
       >
         {/* Backdrop */}
         <button
@@ -442,7 +448,7 @@ export function InlineCheckoutDrawer({
         />
 
         {/* Sheet — bottom on mobile, right drawer on desktop. */}
-        <div className="relative flex max-h-[90dvh] w-full flex-col overflow-hidden rounded-t-3xl border border-ink/10 bg-cream shadow-xl sm:h-full sm:max-h-none sm:w-[28rem] sm:rounded-l-3xl sm:rounded-tr-none">
+        <div className="relative flex max-h-[90dvh] w-full flex-col overflow-hidden rounded-t-3xl border border-ink/10 bg-cream shadow-xl tab:h-full tab:max-h-none tab:w-[min(27.5rem,calc(100vw-3.5rem))] tab:rounded-l-3xl tab:rounded-tr-none">
           <header className="flex items-start justify-between gap-3 border-b border-ink/10 px-5 py-4">
             <div className="space-y-0.5">
               <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-terracotta">
@@ -627,6 +633,7 @@ export function InlineCheckoutDrawer({
                     fd.set('event_id', eventId);
                     if (typeof cycles === 'number') fd.set('cycles', String(cycles));
                     fd.set('service_key', serviceKey);
+                    if (hubParts) fd.set('hub_parts', hubParts);
                     fd.set('display_name', displayName);
                     fd.set('original_centavos', originalPriceCentavos);
                     fd.set('channel', channel);

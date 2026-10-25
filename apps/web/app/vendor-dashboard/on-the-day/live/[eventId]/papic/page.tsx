@@ -1,3 +1,4 @@
+import { papicOwnerTag } from '@/lib/papic-upload/owner-tag.server';
 import Link from 'next/link';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { redirect } from 'next/navigation';
@@ -7,6 +8,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { openRailOptions } from '@/lib/payment-channels';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import { resolveVendorRoleForProfile, canManageVendor } from '@/lib/vendor-role';
 import { fetchVendorRoomEvents } from '@/lib/vendor-room-access';
 import { isVendorPapicCaptureEnabled } from '@/lib/vendor-dayof-flags';
 import { SponsoredShotsStrip } from '../_components/sponsored-shots-strip';
@@ -117,6 +119,8 @@ export default async function VendorPapicCapturePage({
   );
   // The rails the owner has left ON — the credit-pack buy offers only these.
   const openRails = openRailOptions(await fetchPlatformSettings(supabase));
+  // "Put on my page" is an owner/admin press (the action refuses everyone else) — never offered to a Helper.
+  const canPutOnPage = canManageVendor(await resolveVendorRoleForProfile(supabase, user.id, profile.vendor_profile_id));
 
   return (
     <section className="mx-auto w-full max-w-3xl px-4 py-5 sm:px-6">
@@ -137,6 +141,7 @@ export default async function VendorPapicCapturePage({
       {isEventDay && allowance ? (
         <PapicCaptureController
           eventId={eventId}
+          uploadOwner={papicOwnerTag('vendor', profile.vendor_profile_id, eventId)}
           coupleName={booking.eventName ?? 'this event'}
           tier={allowance.tier}
           allowVideo={allowance.allowVideo}
@@ -179,6 +184,7 @@ export default async function VendorPapicCapturePage({
         supabase={supabase}
         eventId={eventId}
         creditsLeft={portfolioCredits.left}
+        canPutOnPage={canPutOnPage}
       />
 
       {/* Shots guests took FOR this supplier's sponsored challenge — the only

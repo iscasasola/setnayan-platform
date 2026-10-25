@@ -8,12 +8,15 @@ import { InfoTip } from '@/app/_components/info-tip';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { makerProMark, makerProUsable, paidMarkLabel } from '@/lib/paid-mark';
 import { HUB_DRAFT_BAR_FIELD, makerRedrawSave, makerSave } from '@/lib/maker-refresh';
-import { noteDraftedCanvas } from '@/lib/maker-draft-store';
+import { forgetCanvasSent, noteDraftedCanvas, sendCanvasBase } from '@/lib/maker-draft-store';
 import { MAKER_MAX_CLIP_SECONDS, makeMakerVideoDurationValidator } from '@/lib/maker-media-limits';
 import { MakerMediaMeter } from '@/app/_components/maker-media-meter';
+import { coupleMediaCapBytes } from '@/lib/maker-media-limits';
+import { coupleMediaRefusalLink } from '@/lib/couple-media-allowance';
 import { SCENE_BACKGROUND_FOLDER, sceneBackgroundPathPrefix } from '@/lib/scene-media-choices';
 import { uploadStill } from '@/lib/upload-still';
 import { STD_REALISTIC_BACKGROUNDS } from '@/lib/std-backgrounds';
+import { themeLoopChoices, themeLoopOf } from '@/lib/theme-loop-refs';
 import { extractPosterFrame } from '../../../_components/std-media-picker';
 import {
   HUB_DEFAULT_FOCAL,
@@ -55,6 +58,7 @@ import { SLIDER_VALUE, Slider } from '@/app/_components/slider';
 import { sceneBgPreviewMessage, type SceneBgPreviewMessage } from './scene-bg-preview-message';
 import { useMaker } from '../../../launch/_components/maker-context';
 import { StageBackground, type StageBgSource, type StageBgTile } from '../../../launch/_components/stage-panel/stage-background';
+import { CoverSceneGroundRows } from '../../../launch/_components/stage-panel/cover-words-background';
 import { TILE_FOOT, TILE_RAMP_SPAN, tileFrostCss, tileFrostFoot, tileGlassColour, tileNameOnFlat, tileNameOnPhoto, tileNameOnRamp } from '@/lib/bg-tile-name';
 import { BACKGROUND_SOURCE_IS_PRO } from '@/lib/background-source';
 import { isStdLibrarySrc } from '@/lib/std-backgrounds';
@@ -128,7 +132,34 @@ export type SceneUpload = {
   posterUrl?: string | null;
 };
 
-export function SceneBackgroundRow({
+/**
+ * 🖼 THE ONE DOOR TO A BACKGROUND ROW. A scene's is below; the hero row's is the COVER SCENE's (owner-approved
+ * 2026-10-15) — its own four rows (`stage-panel/cover-words-background.tsx`), drawn through this same lazy door so the
+ * Maker's first load carries no second stand-in.
+ */
+export function SceneBackgroundRow(props: Parameters<typeof SceneBackgroundRows>[0] & { loopPosters?: Readonly<Record<string, string | null>> }) {
+  if (props.widgetType === 'hero') {
+    return (
+      <CoverSceneGroundRows
+        eventId={props.eventId}
+        canvas={props.canvas}
+        draftAction={props.draftAction}
+        themeColours={props.themeColours}
+        board={props.board}
+        photoChoices={props.photoChoices}
+        videoChoice={props.videoChoice}
+        sceneUploads={props.sceneUploads}
+        mediaUsedBytes={props.mediaUsedBytes}
+        mediaCapBytes={coupleMediaCapBytes(props.ownsPro)}
+        proHref={props.ownsPro || props.storeShell ? null : `/dashboard/${props.eventId}/studio/website-pro`}
+        loopPosters={props.loopPosters}
+      />
+    );
+  }
+  return <SceneBackgroundRows {...props} />;
+}
+
+function SceneBackgroundRows({
   eventId,
   widgetType,
   canvas,
@@ -138,11 +169,12 @@ export function SceneBackgroundRow({
   themeColours,
   board,
   photoChoices = [],
-  videoChoice = null,
-  sceneUploads = [],
+  videoChoice,
+  sceneUploads,
   mediaUsedBytes,
   ownsPro,
   storeShell = false,
+  loopPosters,
   onPreview,
   onSaving,
   hubTheme,
@@ -181,11 +213,16 @@ export function SceneBackgroundRow({
   /** The five main colours in slot order (Dominant … Accent 2) — the one picker's "Your Mood Board" shelf, named. Absent = `themeColours`, unnamed. */
   board?: readonly string[];
   photoChoices?: readonly { ref: string; url: string }[];
-  /** The event's one video; `poster` = its still (the hero photo) for guests. */
-  videoChoice?: { ref: string; url: string; poster?: string | null } | null;
-  /** Photos and clips the scenes already wear from their own upload folder. */
-  sceneUploads?: readonly SceneUpload[];
-  /** 💾 The event's settled `couple_media_bytes` — the 100 MB meter under the upload. Absent = no meter. */
+  /** The event's one video; `poster` = its still (the hero photo) for guests. Null: the event has none. */
+  videoChoice: { ref: string; url: string; poster?: string | null } | null;
+  /**
+   * Photos and clips the scenes — and the Cover Scene — already wear from their own upload folder (`sceneUploadRefs`).
+   * 🔒 REQUIRED, never defaulted: on 2026-10-17 both Cover Scene mounts left it out, so the couple's own cover VIDEO —
+   * the very ground the cover was wearing — was missing from its Upload row ("why is the video not showing on the list
+   * of uploaded media files?"). Held by `lib/every-cover-upload-is-listed.test.ts`.
+   */
+  sceneUploads: readonly SceneUpload[];
+  /** 💾 The event's settled `couple_media_bytes` — the plan's media meter under the upload. Absent = no meter. */
   mediaUsedBytes?: number;
   ownsPro: boolean;
   /**
@@ -194,6 +231,8 @@ export function SceneBackgroundRow({
    * only the shell hides it from a free couple (`makerProUsable`).
    */
   storeShell?: boolean;
+  /** 🎞 Each theme loop's still, by theme id — the part's Video ◆ cards (Look restudy row 7). Absent = no Video source. */
+  loopPosters?: Readonly<Record<string, string | null>>;
 }) {
   const router = useRouter();
   /* 🧭 The new Maker draws these same saves as the prototype's three rows (`stage-panel/stage-background.tsx`). */
@@ -222,6 +261,8 @@ export function SceneBackgroundRow({
   /* 📤 What was uploaded HERE, this visit — shown from the file itself (a
      local object URL) until the save's refresh brings the signed one. */
   const [justUploaded, setJustUploaded] = useState<SceneUpload[]>([]);
+  /** 📤 How many uploads became this scene's background — each closes the Upload sheet (`StageBackground`). */
+  const [uploadDone, setUploadDone] = useState(0);
   const uploads: SceneUpload[] = [
     ...justUploaded.filter((u) => !sceneUploads.some((s) => s.ref === u.ref)),
     ...sceneUploads,
@@ -280,18 +321,23 @@ export function SceneBackgroundRow({
       const fd = new FormData();
       fd.set('intent', 'save');
       fd.set('patch', JSON.stringify(patch));
+      // 👥 Each scene's canvas goes in WHOLE: each says what it was built on (two hosts never overwrite).
+      for (const [type, c] of Object.entries(touched)) sendCanvasBase(fd, type, before[type], c, before[type]);
       /* ⚡ No Maker render follows a held pick — the Apply count comes back with the save. */
       fd.set(HUB_DRAFT_BAR_FIELD, '1');
       /* 🖼 A pick that changes who draws the box (or a clip coming or going) is
          NOT drawn by the bridge: it is redrawn on the canvas in place once it
          lands (`makerRedrawSave`) — never a whole-Maker render. */
       const res = await (redrawsBox
+        // one-render: keep (batched) — a Maker draft save goes through `lib/maker-refresh.ts`, which refreshes ONCE after the last save in flight; draft intents revalidate nothing.
         ? makerRedrawSave(() => draftAction(eventId, fd), () => router.refresh())
+        // one-render: keep (batched) — a Maker draft save goes through `lib/maker-refresh.ts`, which refreshes ONCE after the last save in flight; draft intents revalidate nothing.
         : makerSave(() => draftAction(eventId, fd), () => router.refresh(), { held: true })
       ).catch(
         () => ({ ok: false as const, intent: 'save' as const, error: 'That change could not be saved. Please try again.' }),
       );
       if (!res.ok) {
+        for (const type of Object.keys(touched)) forgetCanvasSent(type);
         /* ↩ Refused: the canvas, the hold and the row go back to what was saved
            — unless a later choice on this scene is already on its way (it
            carries the whole canvas and decides). */
@@ -412,6 +458,7 @@ export function SceneBackgroundRow({
     setJustUploaded((was) => [{ ref, url: file.local, kind: file.kind, poster: file.poster, posterUrl: file.posterUrl }, ...was]);
     if (file.kind === 'snippet') put(clipBg(ref, file.poster));
     else put(photoBg(ref));
+    setUploadDone((n) => n + 1);
   };
 
   const opacityTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -531,6 +578,7 @@ export function SceneBackgroundRow({
           <div className="border-b border-ink/[0.07] py-2.5" data-inspector-row="scene-upload">
             <FileUpload
               bucket="media"
+            refusalLink={coupleMediaRefusalLink(ownsPro || storeShell ? null : `/dashboard/${eventId}/studio/website-pro`)}
               pathPrefix={sceneBackgroundPathPrefix(eventId)}
               multiple={false}
               maxSizeMB={100}
@@ -547,10 +595,15 @@ export function SceneBackgroundRow({
               label="Upload a photo or clip"
             />
             {reading ? <p className="pt-1 text-[12px] text-ink/60">Reading your clip…</p> : null}
-            {/* 💾 The event's 100 MB of uploads, beside the upload that spends it
+            {/* 💾 The event's uploads against its PLAN's allowance (Free 10 MB · Pro 500 MB), beside the upload that spends it
                 (DECISION_LOG 2026-09-25: "with a visible meter"). */}
             {typeof mediaUsedBytes === 'number' ? (
-              <MakerMediaMeter usedBytes={mediaUsedBytes} className="pt-2" />
+              <MakerMediaMeter
+                usedBytes={mediaUsedBytes}
+                capBytes={coupleMediaCapBytes(ownsPro)}
+                proHref={ownsPro || storeShell ? null : `/dashboard/${eventId}/studio/website-pro`}
+                className="pt-2"
+              />
             ) : null}
           </div>
   );
@@ -566,7 +619,21 @@ export function SceneBackgroundRow({
        No "Use this background on every scene?" (owner: *"it is meant for just this element"*). */
     const scopeNow = sceneBackgroundScope(scenes, widgetType, shown);
     const stored: StageBgSource =
-      !bg || scopeNow === 'every' ? 'hub' : bg.kind === 'photo' ? (isStdLibrarySrc(bg.media) ? 'scene' : 'own') : bg.kind === 'snippet' ? 'own' : 'colour';
+      !bg || scopeNow === 'every'
+        ? 'hub'
+        : bg.kind === 'photo'
+          ? isStdLibrarySrc(bg.media)
+            ? 'scene'
+            : 'own'
+          : bg.kind === 'snippet'
+            ? /* 🎞 One of OUR loops, stored as a clip (Look restudy row 7) — its own source, never "Upload". */
+              themeLoopOf(bg.media)
+              ? 'video'
+              : 'own'
+            : 'colour';
+    /* 🎞 VIDEO ◆ — the theme loops as cards (the 2026-10-09 lock's row 1: "Scene ◆ · Video ◆ · Upload ◆"); offered
+       where the mount handed their stills. */
+    const loops = loopPosters ? themeLoopChoices() : [];
     /* The source on SHOW: the one just picked in the dropdown until a choice of it is taken, else the stored one. */
     const source: StageBgSource = sourceView && sourceView.of === widgetType && sourceView.from === stored ? sourceView.show : stored;
     const worn = source === stored;
@@ -591,6 +658,8 @@ export function SceneBackgroundRow({
         ? COLOUR_TILES.map(colourTile)
         : source === 'scene'
           ? STD_REALISTIC_BACKGROUNDS.map((b) => ({ key: b.src, name: b.label, picture: cover(b.src), ...tileNameOnPhoto(TILE_FOOT[b.id] ?? null) }))
+          : source === 'video'
+            ? loops.map((l) => ({ key: l.loop, name: l.name, moving: true, picture: cover(loopPosters?.[l.id] ?? null), ...tileNameOnPhoto(null) }))
           : source === 'own'
             ? [
                 /* The couple's own: nothing is measured (reading a picture's pixels needs a second, cross-origin fetch), so the dark default. */
@@ -607,7 +676,9 @@ export function SceneBackgroundRow({
         sources={[
           { key: 'hub', pro: false },
           { key: 'colour', pro: false },
-          ...(offerMedia ? (['scene', 'own'] as const).map((key) => ({ key, pro: Boolean(mediaMark) && BACKGROUND_SOURCE_IS_PRO[key] })) : []),
+          ...(offerMedia
+            ? (loops.length > 0 ? (['scene', 'video', 'own'] as const) : (['scene', 'own'] as const)).map((key) => ({ key, pro: Boolean(mediaMark) && BACKGROUND_SOURCE_IS_PRO[key] }))
+            : []),
         ]}
         onSource={(next) => {
           if (next === 'hub') {
@@ -633,11 +704,17 @@ export function SceneBackgroundRow({
             return setAsking(false);
           }
           if (source === 'scene') return put(photoBg(key), false);
+          /* 🎞 One of our loops: stored as the clip it is, with its still — the shape every part's clip has. */
+          if (source === 'video') {
+            const l = loops.find((c) => c.loop === key);
+            return l ? put(clipBg(l.loop, l.poster), false) : undefined;
+          }
           const clip = key === videoChoice?.ref ? { poster: videoChoice.poster } : uploads.find((u) => u.ref === key && u.kind === 'snippet');
           put(clip ? clipBg(key, clip.poster) : photoBg(key), false);
         }}
         onUpload={source === 'own'}
         upload={uploadNode}
+        uploadDone={uploadDone}
         colour={worn && source === 'colour' && current && TINTED.includes(current) ? tint : null}
         customColour={(close) => (
           <ColourSheet

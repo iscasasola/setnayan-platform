@@ -1,15 +1,17 @@
-import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import { notFound, redirect } from 'next/navigation';
 import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { sweepGuardNotifications } from '@/lib/setnayan-ai-notify';
 import { getMenuLifecyclePhase } from '@/lib/day-of-mode';
+import { eventMenuGates } from '@/lib/event-menu-gates';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { isReferralProgramEnabled } from '@/lib/platform-settings';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { eventBoardHref } from '@/lib/event-board';
 import { fetchUserEventsOrReconnect } from '@/lib/events';
 import { isTransientReadError, rethrowIfSchemaBlip, schemaBlipError, withSchemaRetry } from '@/lib/read-retry';
+import { eventMemberTypeOnce } from '@/lib/event-membership-once';
+import { eventRowOnce, openDashboardEventRow } from '@/lib/event-row-once';
 import { getDashboardShell } from '@/lib/dashboard-shell';
 import { countUnreadMessages } from '@/lib/chat';
 import { countGuestsByEvent } from '@/lib/guests';
@@ -20,13 +22,6 @@ import { UnreadMessagesBadge } from '@/app/_components/unread-messages-badge';
 import { AppRailShell } from '@/app/_components/frontdoor/app-rail-shell';
 import { railToolsSignedIn } from '@/lib/studio-rail';
 import type { EventStudioRow } from '@/lib/customer-menu';
-import { ADD_ONS } from '@/lib/add-ons-catalog';
-import { addOnOfferedForEvent, addOnSellableNow } from '@/lib/add-on-event-scope';
-import { STORE_SHELL_HIDDEN_ADDON_KEYS, isStoreShellWebOnlyPath } from '@/lib/store-shell';
-import { eventActiveSkus } from '@/lib/entitlements';
-import { resolveSetnayanAiDisplayPricePhp } from '@/lib/setnayan-ai-server';
-import { PAPIC_INCLUSIVE_SKUS } from '@/lib/papic-seats';
-import { buildOurServices, ourServicesMenuChildren } from '@/lib/our-services';
 import { EventRailContext } from './_components/event-rail-context';
 import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
 import { logoPlaysFor } from '@/lib/logo-plays.server';
@@ -42,10 +37,19 @@ import { AccountSwitcher } from '@/app/_components/account-switcher/account-swit
 import { getSwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
 import type { SwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
 import { PromoFreeWindowBanner } from '@/app/_components/promo-free-window-banner';
-import { CohostWelcome } from './_components/cohost-welcome';
+import { CohostWelcome, cohostWelcomeNotice } from './_components/cohost-welcome';
+import { resolveRailAccount } from '@/app/_components/frontdoor/rail-data';
+import { resolveCommandItems } from '@/app/_components/frontdoor/command-data';
 import { AppPreload } from '@/app/_components/app-preload';
 import { LastSeenScope } from '@/app/_components/last-seen/last-seen-scope';
+import { HomeCoverWordsProvider } from './_components/home-loading-cover';
+import { homeCoverWords } from '@/lib/home-cover-words';
+import { withPickedDate } from '@/lib/event-anchor';
 import { appPreloadPlan } from '@/lib/app-preload-sets';
+
+/** The layout's own columns of the event row — every one is carried by `DASHBOARD_ROW_CARRIES`. */
+const LAYOUT_EVENT_COLUMNS =
+  'event_id, public_id, display_name, event_date, archived, event_type, slug, monogram_text, monogram_color, monogram_frame_key, monogram_font_key, monogram_style, monogram_custom_svg, monogram_uploaded_svg, cleared_at, timezone, event_end_date, community_id, date_candidates';
 
 type Props = {
   children: React.ReactNode;
@@ -100,15 +104,10 @@ export default async function EventLayout({ children, params }: Props) {
   // 🔁 A schema-cache BLIP is retried, and one that outlasts the window throws
   // `SchemaBlipError` (the browser shows "Reconnecting…") — it must never reach
   // the `notFound()` below as "you are not a member". lib/read-retry.ts.
+  // 👥 ONE READ PER RENDER (`lib/event-membership-once.ts`): the page's own viewer check and the
+  // entitlement client ask this same question, and are handed this same answer — retried inside.
   const { data: membership, error: membershipError, status: membershipStatus } =
-    await withSchemaRetry(() =>
-      supabase
-        .from('event_members')
-        .select('member_type')
-        .eq('event_id', eventId)
-        .eq('user_id', user.id)
-        .maybeSingle(),
-    );
+    await eventMemberTypeOnce(supabase, eventId, user.id);
   if (isTransientReadError(membershipError, membershipStatus)) {
     logQueryError('EventLayout (event_members)', membershipError, { event_id: eventId, user_id: user.id }, 'will_throw');
     throw schemaBlipError('EventLayout (event_members)', membershipError);
@@ -204,7 +203,7 @@ export default async function EventLayout({ children, params }: Props) {
     // This literal exists BECAUSE a read failed — it measured nothing, and
     // saying so is what stops the library reporting that you host no events.
     eventsMeasured: false,
-    context: { hasVendor: false, vendorName: null, isAdmin: false, canOpenShop: false },
+    context: { hasVendor: false, vendorName: null, isAdmin: false, canOpenShop: false, shops: [] },
   };
 
   // ─── EVERY READ BELOW STARTS AT ONCE ─────────────────────────────────────
@@ -224,12 +223,29 @@ export default async function EventLayout({ children, params }: Props) {
   // RUN — one stray `await` puts a full database trip back in front of every
   // event page.
   const shellRead = getDashboardShell(user.id);
+  // 🗂 THE EVENT'S ROW, ONCE, AS THIS VIEWER (lib/event-row-once.ts): one request for every column
+  // this layout and its pages read of it — the page usually opened it first, and then this is free.
+  openDashboardEventRow(supabase, eventId);
+  /*
+    ⚡ THE RAIL'S AND THE CO-HOST CARD'S READS START HERE TOO (measured 2026-10-20 in the lab,
+    150 ms a trip). `<AppRailShell>` and `<CohostWelcome>` are server components that render only
+    AFTER this layout returns — so their reads (the rail's account, its search index; the unread
+    co-host notice — the rail no longer reads a Studio event, 2026-10-23) used to leave two trips later than everything else, and the
+    whole page waited for them before its first byte. Each is cache()d per render: started here,
+    the component below finds its answer in hand. Not awaited here, and each fails soft exactly
+    as it did (the rail to its signed-out slot / `[]`, the card to nothing) — the `.catch` only
+    stops a refused prefetch from being an unhandled rejection; the component's own await sees it.
+  */
+  void resolveRailAccount().catch(() => undefined);
+  void resolveCommandItems().catch(() => undefined);
+  void cohostWelcomeNotice(eventId, user.id).catch(() => undefined);
   const eventRead = (async () => {
     try {
-      const fullSelect =
-        'event_id, public_id, display_name, event_date, archived, event_type, slug, monogram_text, monogram_color, monogram_frame_key, monogram_font_key, monogram_style, monogram_custom_svg, monogram_uploaded_svg, cleared_at, timezone, event_end_date, community_id';
+      // From the row opened above when it is in hand (lib/event-row-once.ts); else this read, as before.
       const fullRes = await withSchemaRetry(() =>
-        supabase.from('events').select(fullSelect).eq('event_id', eventId).maybeSingle(),
+        eventRowOnce(supabase, eventId, LAYOUT_EVENT_COLUMNS, () =>
+          supabase.from('events').select(LAYOUT_EVENT_COLUMNS).eq('event_id', eventId).maybeSingle(),
+        ),
       );
       if (
         fullRes.error &&
@@ -282,13 +298,10 @@ export default async function EventLayout({ children, params }: Props) {
   // fabricated). Same belt-and-braces .catch as every other chrome fetcher.
   const guestCountRead = countGuestsByEvent(supabase, eventId).catch(() => null);
 
-  // Per-event-type nav gating (iteration 0053 — Simple Event, owner 2026-06-27).
-  // A vendor-free type drops the Explore (vendor marketplace) tab when its
-  // profile sets marketplace_enabled=FALSE, and the Budget tab when 'budget' is
-  // not an enabled surface. For wedding + every existing type the profile keeps
-  // both (marketplace_enabled DEFAULTs TRUE; their surfaces include budget), so
-  // navHideKeys is [] → byte-identical. resolveProfile is React-cached + degrades
-  // to a hard-coded profile on any DB hiccup.
+  // The event type's profile — the menu's Hub and Seat-plan gates (`eventMenuGates`) and every
+  // per-type surface below. It no longer drops a TAB (owner 22 Oct 2026: every event wears the
+  // wedding's bar — a vendor-free type keeps Suppliers, whose page says suppliers are not listed).
+  // resolveProfile is React-cached + degrades to a hard-coded profile on any DB hiccup.
   // ⛓ CHAINED OFF THE EVENT READ, because it needs the row's type — and asked
   // ONLY when there is a row, exactly as before: a missing event is a 404
   // below, and it never paid for a profile read.
@@ -330,23 +343,10 @@ export default async function EventLayout({ children, params }: Props) {
   */
   const storeShellRead = isStoreShellRequest();
   /*
-    📂 MORE SERVICES' FIVE (owner 2026-09-30) — the row opens to the SAME cards
-    the More Services page draws, so the two reads that decide WHICH cards and
-    WHERE each opens are the page's own: what this event owns (a paid day-of
-    service stays open after the day) and whether Setnayan AI is sellable for
-    this kind. Both fail soft to "nothing owned" / "not sellable".
+    🚫 THE MORE ROW'S TWO READS ARE GONE WITH IT (owner 22 Oct 2026, "Yes remove more"): what the
+    event owns and whether Setnayan AI is sellable decided which services More listed. Home ›
+    Your services reads its own (page.tsx), and nothing in the menu lists services any more.
   */
-  const ownedRead = eventEntitlementClient(eventId)
-    .then((ent) => eventActiveSkus(ent, eventId))
-    .catch(() => ({
-      active: new Set<string>(),
-      pending: new Set<string>(),
-    }));
-  const aiPriceRead = eventRead.then((res) =>
-    res.data
-      ? resolveSetnayanAiDisplayPricePhp(supabase, (res.data.event_type as string | null) ?? 'wedding').catch(() => 0)
-      : 0,
-  );
 
   // ─── THE ONE WAIT ────────────────────────────────────────────────────────
   const [
@@ -360,8 +360,6 @@ export default async function EventLayout({ children, params }: Props) {
     referralEnabled,
     navSlots,
     storeShell,
-    owned,
-    aiPricePhp,
   ] = await Promise.all([
     shellRead,
     eventRead,
@@ -373,8 +371,6 @@ export default async function EventLayout({ children, params }: Props) {
     referralEnabledRead,
     navSlotsRead,
     storeShellRead,
-    ownedRead,
-    aiPriceRead,
   ]);
   // Log silent SELECT errors before falling through to notFound().
   // Swapped from .single() (which sets PGRST116 "0 rows" as an error)
@@ -453,19 +449,21 @@ export default async function EventLayout({ children, params }: Props) {
     `referHref` below. A key left here would hide nothing — the handle-with-no-
     gate trap the referral note above describes.
   */
-  const navHideKeys = [...(profile.marketplaceEnabled ? [] : ['explore'])];
+  // 🧭 EVERY EVENT WEARS THE WEDDING'S BAR (owner 22 Oct 2026, "Fix both"): no tab is dropped by the
+  // type's marketplace flag or by what the event left off at onboarding — those still leave Home, the
+  // Maker and Studio, never the bar. The rule is `lib/event-menu-gates.ts` (no hideKeys, by design), so
+  // the lab and the guard that sweeps EVERY event type in the migrations read what this layout reads.
+  const menuGates = eventMenuGates(profile);
   // Gates the Event Hub Maker row to event types whose profile enables the
   // public website. Threaded to the desktop rail + the phone's bottom bar.
-  const websiteEnabled = surfaceEnabled(profile, 'website');
+  const websiteEnabled = menuGates.websiteEnabled;
   // Gates the Studio "Monogram" child to event types whose profile enables the
   // 'monogram' surface (weddings today). Non-wedding events without it never see
   // the monogram maker in the nav. Threaded to the desktop sidebar.
   const monogramEnabled = surfaceEnabled(profile, 'monogram');
-  // 🪑 Gates the DAY-OF "Seats" tab to kinds that seat people (owner
-  // 2026-08-28). Passed as its own prop rather than through `navHideKeys`,
-  // which by its own docblock only filters the PLANNING tree — the day-of
-  // branch returns before that filter, so a hideKeys entry would hide nothing.
-  const seatingEnabled = surfaceEnabled(profile, 'seating');
+  // 🪑 Which row claims the Seat plan's page — kinds that seat people (owner 2026-08-28). A surface,
+  // not a menu key: it never hides a tab.
+  const seatingEnabled = menuGates.seatingEnabled;
 
   /*
     THE EVENT'S STUDIO PRODUCTS, AS PLAIN DATA (owner 2026-09-24 — the Studio
@@ -483,31 +481,6 @@ export default async function EventLayout({ children, params }: Props) {
   */
   const studioRows: EventStudioRow[] = railToolsSignedIn({ eventId, count: 1, profile }).map(
     (t) => ({ key: t.key, href: t.href, name: t.name }),
-  );
-
-  /*
-    📂 THE FIVE UNDER MORE SERVICES (owner 2026-09-30: *"the sidebar will
-    expand and collapse to show these"*). `buildOurServices` — the ONE
-    builder, so the rail and the phone sheet can never list different services,
-    or in another order (the full page is gone since 2026-10-02). Prices are not read here:
-    a menu row names a service, it never prices it. Plain data only (the
-    icon is a NAME) — this crosses into two client components.
-  */
-  const communityId = (event as { community_id?: string | null }).community_id ?? null;
-  const services = ourServicesMenuChildren(
-    buildOurServices({
-      eventId,
-      catalogue: ADD_ONS,
-      owned,
-      prices: new Map(),
-      offered: (a) =>
-        !(storeShell && STORE_SHELL_HIDDEN_ADDON_KEYS.has(a.key)) &&
-        addOnOfferedForEvent(a, profile, communityId),
-      sellableNow: (e) => addOnSellableNow(e, phase === 'after' ? 'after' : 'plan'),
-      aiSellable: aiPricePhp > 0,
-      papicOwnedBy: PAPIC_INCLUSIVE_SKUS,
-      refusesPath: (p) => storeShell && isStoreShellWebOnlyPath(p),
-    }),
   );
 
   const tr = makeT(locale);
@@ -621,7 +594,6 @@ export default async function EventLayout({ children, params }: Props) {
   const eventRailInputs: EventRailInputs = {
     eventId,
     navSlots,
-    hideKeys: navHideKeys,
     websiteEnabled,
     monogramEnabled,
     slug: (event.slug as string | null) ?? null,
@@ -630,7 +602,6 @@ export default async function EventLayout({ children, params }: Props) {
     seatingEnabled,
     studioRows,
     storeShell,
-    services,
   };
 
   return (
@@ -653,10 +624,11 @@ export default async function EventLayout({ children, params }: Props) {
         merely "styled back to the same place".
       */}
       <AppRailShell
-        /* The Studio group stays in the rail inside an event (owner
-           2026-08-21) and its rows open THIS wedding's tools. Verified against
-           the person's own organiser events inside the resolver. */
-        studioEventId={eventId}
+        /* 📱→🖥 THE COUPLE DASHBOARD IS A TABLET FROM 701 (owner 2026-10-19,
+           DECISION_LOG "APPROVED — COUPLE DASHBOARD DESKTOP + TABLET (AREA 2)"):
+           the rail's 72-px strip comes down to 701 and the dock below goes with
+           it — ONE boundary, given to both. `shell-boundary.tsx`. */
+        boundary="tab"
         /*
           ─── ONE LIST, TWO CONSUMERS (2026-08-23) ──────────────────────────
           `eventRailInputs` is spread into the rendered menu AND turned into the
@@ -711,7 +683,15 @@ export default async function EventLayout({ children, params }: Props) {
               precedence — an uploaded mark outranks a bespoke one — which
               `EventMonogram` cannot do alone because it reads one column.
             */
-            eventMonogram={{
+            eventMonogram={
+              /* ⚡ ONE COPY OF THE LOGO ON THE PAGE (measured 2026-10-16): the switcher in the top
+                 bar already carries this event's mark — gated by `resolveEventMonogramSvg`, WITH the
+                 couple's ink (get-switcher-data.ts) — and the rail drew its own copy, so every event
+                 page sent the same ~13 KB SVG twice. Handing the rail the switcher's own entry (the
+                 SAME object) lets the RSC payload send it once and point at it. The rail's own
+                 build stays as the fallback for a switcher that could not read the events.
+                 🔒 app/dashboard/[eventId]/the-logo-travels-once.test.ts */
+              switcherData.events.find((e) => e.event_id === eventId) ?? {
               display_name: (event.display_name as string | null) ?? null,
               monogram_text: (event.monogram_text as string | null) ?? null,
               monogram_color: (event.monogram_color as string | null) ?? null,
@@ -726,8 +706,9 @@ export default async function EventLayout({ children, params }: Props) {
                   monogram_custom_svg?: string | null;
                 },
               ),
-              plays: railMarkPlays,
-            }}
+              }
+            }
+            eventMonogramPlays={railMarkPlays}
           />
         }
         topBarSlot={topBar}
@@ -798,7 +779,18 @@ export default async function EventLayout({ children, params }: Props) {
                   INSTANTLY, THEN REFRESHES"). Context only — the store loads
                   with those pages, never with this layout. */}
               <LastSeenScope userId={user.id} eventId={eventId}>
-                {children}
+                {/* ⚡ The Home's cover words, from THIS read of the event — its loading screen
+                    draws the couple's names at the tap (home-loading-cover.tsx, 2026-10-16). */}
+                <HomeCoverWordsProvider
+                  eventId={eventId}
+                  words={homeCoverWords(
+                    withPickedDate(
+                      event as { event_type?: string | null; event_date?: string | null; date_candidates?: string[] | null; display_name?: string | null },
+                    ),
+                  )}
+                >
+                  {children}
+                </HomeCoverWordsProvider>
               </LastSeenScope>
             </div>
           </div>
@@ -813,11 +805,12 @@ export default async function EventLayout({ children, params }: Props) {
         Event Hub Maker · More Services — anchored flush to the bottom edge, and
         NOTHING docks above it: the section sub-nav / moment strip that used
         to ride on top is retired, and each pillar picks its own parts inside
-        its page. The dock is `lg:hidden`; the rail is the menu from 1024 up.
+        its page. The dock is `tab:hidden`; the rail is the menu from 701 up
+        (owner 2026-10-19 — the same `boundary="tab"` the shell above is given).
         `the-phone-has-one-bottom-bar.test.ts` fails if a second row returns.
       */}
-      <BottomDock>
-        <CustomerBottomNav eventId={eventId} phase={phase} navSlots={navSlots} hideKeys={navHideKeys} guestCount={guestCount} seatingEnabled={seatingEnabled} websiteEnabled={websiteEnabled} studioRows={studioRows} storeShell={storeShell} services={services} />
+      <BottomDock boundary="tab">
+        <CustomerBottomNav eventId={eventId} phase={phase} navSlots={navSlots} guestCount={guestCount} seatingEnabled={seatingEnabled} websiteEnabled={websiteEnabled} studioRows={studioRows} storeShell={storeShell} />
       </BottomDock>
       {/*
         📲 THE HOST'S WHOLE APP, PRELOADED (owner 2026-10-02, DECISION_LOG "A
@@ -831,7 +824,7 @@ export default async function EventLayout({ children, params }: Props) {
       <AppPreload
         {...appPreloadPlan({
           hostEventId: eventId,
-          hostMenu: { phase, hideKeys: navHideKeys, websiteEnabled, seatingEnabled, studioRows, storeShell, services },
+          hostMenu: { phase, websiteEnabled, seatingEnabled, studioRows, storeShell },
           hasShop: switcherData.context.hasVendor,
         })}
       />

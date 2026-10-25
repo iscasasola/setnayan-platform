@@ -7,13 +7,14 @@
  * `ColourWell`, `SwatchPopover`, `StudioMainColours` in favour of `ColourPickerSheet`"*; picture
  * `prototypes/background-restudy-2026-10-08/08-picker.png`).
  *
- *   A · the ONE picker is the Mood Board's `ColourPickerSheet`, its shelves in the approved order:
- *       Against the background (the AA line) · Your Mood Board (the five) · Goes with your Mood Board
- *       (the Mood Board's own harmony) · From your photos · Swatches · Custom (+ Use);
- *   B · the shelves' source, by behaviour: the five first, then what goes with them — from every one
- *       of the five, none repeating the five; each colour named (its slot's name where the caller
- *       holds the five in order, else the colour's own); with a ground, the colours that read on it
- *       come FIRST and none is hidden; the AA line says the prototype's three verdicts with the ratio;
+ *   A · the ONE picker is the Mood Board's `ColourPickerSheet`, its shelves in order: Against the
+ *       background (the AA line) · Your Mood Board (the five) · Recently used · Custom (+ Use) — and, since
+ *       owner 2026-10-17 (*"Just have the Moodboard and Recently Used 5 colors"*), no Goes with your Mood
+ *       Board, no From your photos, no Swatches (the one-screen fit is measured in the rendered page by
+ *       `tests/e2e/the-colour-sheet-fits-one-screen.spec.ts`; Recently used by `colour-picker-recent.test.ts`);
+ *   B · the shelves' source, by behaviour: the five, each once; each colour named (its slot's name where
+ *       the caller holds the five in order, else the colour's own); with a ground, the colours that read
+ *       on it come FIRST and none is hidden; the AA line says the prototype's three verdicts with the ratio;
  *   C · every Studio colour control mounts it — through `StudioColourField` or the sheet itself — and
  *       draws no `type="color"` of its own: Look › Colours (`StudioMainColours`) · Info › QR colour ·
  *       Logo › Colour · Mood Board;
@@ -48,8 +49,7 @@ import React from 'react';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { stripComments } from './strip-comments';
-import { MAIN_COLOUR_NAMES, PICKER_GOES_WITH, PICKER_SWATCHES, pickerReadsOn, pickerShelves, pickerSuggestions, readableFirst } from './mood-board-studio';
-import { candidatesFor } from './palette-recommender';
+import { MAIN_COLOUR_NAMES, pickerReadsOn, pickerShelves, readableFirst } from './mood-board-studio';
 import { contrastRatio } from './hub-legibility';
 
 (globalThis as unknown as { React: unknown }).React = React;
@@ -62,46 +62,50 @@ const FIELD = `${D}/launch/_components/studio-colour-field.tsx`;
 const WELL = `${D}/website/editor/_components/colour-well.tsx`;
 const FIVE = ['#5B4A6B', '#D9C4CF', '#A9834B', '#F7F2EC', '#7A8B6F'];
 
-test('A · the one picker draws Against the background · Your Mood Board · Goes with your Mood Board · From your photos · Swatches · Custom, in that order', () => {
+test('A · the one picker draws Against the background · Your Mood Board · Recently used · Custom, in that order — and nothing else', () => {
   const src = read(SHEET);
   const at = (needle: string) => {
     const i = src.indexOf(needle);
     assert.ok(i > 0, `the picker has no ${needle}`);
     return i;
   };
-  const order = ['data-picker-against', 'data-picker-palette', 'data-picker-goes-with', 'data-picker-from-photos', 'data-picker-swatches', 'data-picker-custom'].map(at);
+  const order = ['data-picker-against', 'data-picker-palette', 'data-picker-recent', 'data-picker-custom'].map(at);
   assert.deepEqual([...order].sort((a, b) => a - b), order, 'the picker’s shelves are not in the approved order');
-  /* Each shelf's heading, in the restudy's words, right above its shelf. */
-  const heads = ['>Against the background<', '>Your Mood Board<', '>Goes with your Mood Board<', '>From your photos<', '>Swatches<', '>Custom<'].map(at);
+  /* Each shelf's heading, right above its shelf. */
+  const heads = ['>Against the background<', '>Your Mood Board<', '>Recently used<', '>Custom<'].map(at);
   assert.deepEqual([...heads].sort((a, b) => a - b), heads, 'the shelves’ headings are not in the approved order');
+  /* Owner 2026-10-17: "Just have the Moodboard and Recently Used 5 colors" — the three shelves that made it scroll are gone. */
+  for (const [gone, why] of [
+    [/Goes with your Mood Board|data-picker-goes-with|goesWith/, 'Goes with your Mood Board is back'],
+    [/>Swatches<|data-picker-swatches|PICKER_SWATCHES/, 'the sixteen Swatches are back'],
+    [/From your photos|data-picker-from-photos|fromPhotos\.(?:slice|map)/, 'From your photos is back'],
+  ] as const) {
+    assert.doesNotMatch(src, gone, why);
+  }
+  /* Each colour row is ONE row of five dots — a list of rows is what made the sheet scroll. */
+  assert.match(src, /className="grid grid-cols-5 gap-1" data-picker-palette=""/, 'Your Mood Board is not one row of five');
+  assert.match(src, /className="grid grid-cols-5 gap-1" data-picker-recent=""/, 'Recently used is not one row of five');
+  assert.match(src, /\{suggest\.recent\.length > 0 \? \(/, 'Recently used is drawn when there is nothing in it');
   assert.doesNotMatch(src, /Your palette|Goes with your palette/, 'a shelf still wears its old name');
-  assert.match(src, /const suggest = pickerShelves\(palette, \{ names: slots \? MAIN_COLOUR_NAMES : undefined, readsOn \}\);/, 'the picker does not compute its own shelves');
+  assert.match(src, /const suggest = pickerShelves\(palette, \{ names: slots \? MAIN_COLOUR_NAMES : undefined, readsOn, recent \}\);/, 'the picker does not compute its own shelves');
   assert.match(src, /const read = pickerReadsOn\(current, readsOn\);/, 'the AA line is not measured from the colour chosen now');
   assert.match(src, /\{read \? \(/, 'the AA shelf is drawn without a ground to measure against');
   assert.match(src, /\{read\.grade === 'clear' \? 'AA' : 'AA ✗'\}/, 'the AA badge does not say AA ✗ when it fails');
   assert.match(src, /<ActionButton tone="brand" main icon=\{Check\} label="Use"/, 'Custom has no ✓ Use');
-});
-
-test('B · the suggestions: the Mood Board’s five, then what goes with them — from every one of the five', () => {
-  const s = pickerSuggestions(FIVE.map((c) => c.toLowerCase()));
-  assert.deepEqual(s.palette, FIVE, 'the five are not first, as the Mood Board holds them');
-  assert.equal(s.goesWith.length, 8);
-  for (const c of s.goesWith) assert.ok(!FIVE.includes(c), `${c} repeats one of the five`);
-  const harmony = new Set(candidatesFor(FIVE).map((x) => x.hex.toUpperCase()));
-  for (const c of s.goesWith) assert.ok(harmony.has(c), `${c} is not the Mood Board’s own harmony`);
-  assert.ok(!s.goesWith.every((c) => (PICKER_SWATCHES as readonly string[]).includes(c)), 'the “goes with” row is just the swatches');
-  /* Not all from the first colour: the row answers the whole palette. */
-  const fromFirst = new Set(candidatesFor([FIVE[0]!]).map((x) => x.hex.toUpperCase()));
-  assert.ok(s.goesWith.some((c) => !fromFirst.has(c)), 'every suggestion comes from the first colour alone');
-  assert.deepEqual(pickerSuggestions([]), { palette: [], goesWith: [] }, 'with no Mood Board there is nothing to suggest from');
+  /* Every pick in the sheet is remembered for Recently used — the sheet hands the body its remembering pick. */
+  assert.match(src, /const pick = \(hex: string\) => \{\s*rememberRecentColour\(browserStorage\(\), key, hex\);\s*onPick\(hex\);/, 'a pick is not remembered for Recently used');
+  assert.match(src, /<ColourPickerBody[\s\S]{0,300}onPick=\{pick\}/, 'the body is not handed the remembering pick');
 });
 
 test('B · the shelves: each colour named; with a ground, what reads on it comes first and nothing is hidden', () => {
   /* Named by slot where the caller holds the five in order. */
   const plain = pickerShelves(FIVE, { names: MAIN_COLOUR_NAMES });
   assert.deepEqual(plain.board, FIVE.map((hex, i) => ({ hex, name: ['Dominant', 'Supporting', 'Accent', 'Neutral', 'Accent 2'][i] })));
-  assert.equal(plain.goesWith.length, PICKER_GOES_WITH, 'the prototype draws six that go with the board');
-  for (const r of plain.goesWith) assert.ok(r.name && r.name.length > 0, `${r.hex} has no name of its own`);
+  assert.deepEqual(plain.recent, [], 'with nothing picked yet there is no Recently used');
+  /* Recently used: named by the colour's own name, never a slot's, and never one of the five. */
+  const withRecent = pickerShelves(FIVE, { names: MAIN_COLOUR_NAMES, recent: ['#112233', FIVE[2]!.toLowerCase(), '#445566'] });
+  assert.deepEqual(withRecent.recent.map((r) => r.hex), ['#112233', '#445566'], 'Recently used repeats a Mood Board colour');
+  for (const r of withRecent.recent) assert.ok(r.name && !MAIN_COLOUR_NAMES.includes(r.name), `${r.hex} has no name of its own`);
   /* A name travels with ITS colour, whatever the caller's spelling or a repeat does to the positions. */
   const messy = pickerShelves(['#5b4a6b', '#5B4A6B', 'nope', '#A9834B'], { names: ['One', 'Two', 'Three', 'Four'] });
   assert.deepEqual(messy.board, [{ hex: '#5B4A6B', name: 'One' }, { hex: '#A9834B', name: 'Four' }]);
@@ -118,9 +122,9 @@ test('B · the shelves: each colour named; with a ground, what reads on it comes
   assert.deepEqual(unranked.board.map((r) => r.hex), mixed, 'with no ground the shelf keeps the board’s own order');
   assert.deepEqual(ranked.board.map((r) => r.hex), ['#5B4A6B', '#2C2A29', '#D9C4CF', '#F7F2EC', '#A9834B']);
   assert.deepEqual([...ranked.board.map((r) => r.hex)].sort(), [...mixed].sort(), 'a colour was hidden — the shelf is reordered, never filtered');
-  assert.deepEqual([...ranked.goesWith.map((r) => r.hex)].sort(), [...unranked.goesWith.map((r) => r.hex)].sort(), 'a colour that goes with the board was hidden');
-  const firstUnreadable = ranked.goesWith.findIndex((r) => !reads(r.hex));
-  if (firstUnreadable >= 0) assert.ok(ranked.goesWith.slice(firstUnreadable).every((r) => !reads(r.hex)), 'a readable colour sits after one that is not');
+  const recentMix = ['#F3DDE3', '#2A3A5E', '#E9C9D3', '#3E3350'];
+  const rankedRecent = pickerShelves(mixed, { readsOn: ground, recent: recentMix }).recent.map((r) => r.hex);
+  assert.deepEqual(rankedRecent, recentMix, 'a ground reordered Recently used — it stays newest first (owner 2026-10-17)');
   assert.equal(ranked.board[0]?.name, 'Supporting', 'a reordered colour lost the name of the slot it was handed in');
   /* The helper itself: stable, total, and a non-colour ground changes nothing. */
   const rows = FIVE.map((hex) => ({ hex }));
@@ -275,7 +279,7 @@ const PAINTED = /style=\{\{\s*background(?:Color)?:\s*[A-Za-z_][\w.]*(?:\s*\?\?\
 const PAINTS: Record<string, [number, string]> = {
   'launch/_components/hub-stage.tsx': [4, 'the Event Hub stage card’s own fixed surfaces (OB.page …) — no colour is picked'],
   'launch/_components/maker-logo.tsx': [1, 'the SHIPPED Maker’s logo inks (no Studio) — the new Maker draws StudioColourField instead'],
-  'launch/_components/maker-reveal.tsx': [1, 'the Reveal colour row’s trigger — opens ColourSheet'],
+  'launch/_components/maker-reveal.tsx': [2, 'the Reveal colour row’s trigger, and (2026-10-17) the Sheer veil’s ONE colour circle on Cover Scene › Style — each opens ColourSheet on the same `veilColor`'],
   /* 2026-10-10 (first seen by this guard a week of commits late: the sweep reads the folder, and the file's own guard
      did not run it). 🔁 RE-AIMED the same day: it was six circles — the page's own + the event's five as slots, no
      picker — and was flagged here as built. Owner, looking at it: "i thought our plan for colour is just 1 colour
@@ -291,6 +295,9 @@ const PAINTS: Record<string, [number, string]> = {
   'website/editor/_components/background-effects.tsx': [2, 'Effects › Colour ▾’s dots (Original + the palette’s five, one PickMenu — no picker of its own) and a card’s veil — no colour is picked'],
   'website/editor/_components/buttons-look-row.tsx': [1, 'the dot beside “Accent” — it says where the buttons’ colour comes from; no colour is picked here'],
   'website/editor/_components/colour-well.tsx': [1, 'the split well’s wheel half — a trigger'],
+  /* 2026-10-14 (owner, Maker test item 4: "return the type name to show color as well"): a type row's swatch beside
+     its name — the colour the sample screen's words of that type are drawn in, READ off them. No colour is picked. */
+  'website/editor/_components/fonts-look-rows.tsx': [1, 'the swatch beside a type row’s name (Names · Headings · Text · Labels & buttons) — says the colour it wears; no colour is picked'],
   'website/editor/_components/main-background-panel.tsx': [2, 'labels (Buttons · Accents · Ornaments) and a still’s fallback — no colour is picked'],
   'website/editor/_components/sections-panel.tsx': [1, 'the older editor’s scene colour row, from the couple’s own palette (server forms)'],
 };

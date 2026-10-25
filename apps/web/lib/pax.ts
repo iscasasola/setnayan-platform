@@ -3,6 +3,7 @@ import { createAdminClient } from './supabase/admin';
 import { guestListIsClosed } from './guest-list-closed';
 import { computeAddedPaxSurcharge } from './added-pax-surcharge';
 import { PASSED_AWAY, REQUEST_ENTRY_SOURCE } from './guests';
+import { eventRowOnce } from '@/lib/event-row-once';
 
 // Which guests count toward the live pax (events.headcount_basis). 'attending'
 // = sure guests only (owner-locked default). Mirrors the same union in
@@ -69,11 +70,15 @@ export async function readFinalizeState(
   supabase: SupabaseClient,
   eventId: string,
 ): Promise<FinalizeState> {
-  const { data: ev } = await supabase
-    .from('events')
-    .select('estimated_pax, headcount_basis, guest_count_locked_at, final_pax')
-    .eq('event_id', eventId)
-    .maybeSingle();
+  // From the dashboard's one read of the row when this render opened it (lib/event-row-once.ts);
+  // in an action — outside a render — always this read, as before.
+  const { data: ev } = await eventRowOnce(supabase, eventId, 'estimated_pax, headcount_basis, guest_count_locked_at, final_pax', () =>
+    supabase
+      .from('events')
+      .select('estimated_pax, headcount_basis, guest_count_locked_at, final_pax')
+      .eq('event_id', eventId)
+      .maybeSingle(),
+  );
 
   const estimatedPax: number | null = ev?.estimated_pax ?? null;
   const basis = (ev?.headcount_basis ?? 'attending') as HeadcountBasis;

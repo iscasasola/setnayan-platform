@@ -39,6 +39,7 @@
  */
 
 import type { NameStyle } from '@/lib/name-style';
+import { isPlaceholderNameWord, withoutPlaceholderWord } from '@/lib/seat-placeholder-words';
 
 /** Who is sending: the couple/hosts ("our Event Hub"), or a guest passing a
  *  plus-one their own key ("the Event Hub"). */
@@ -59,7 +60,7 @@ export type InviteEventFacts = {
   /**
    * 🔤 The event's Name style (`events.print_details.name_style`, owner
    * 2026-09-30) — the caller composes `formalName` in it:
-   * `guestFullName(guest, facts.nameStyle)`. A Display name is still as given.
+   * `guestNameAsGiven(guest, facts.nameStyle)`. A "Shown as" is still as given.
    */
   nameStyle?: NameStyle;
 };
@@ -68,7 +69,7 @@ export type GuestInviteContext = InviteEventFacts & {
   /**
    * 📝 `{name}` — THE GUEST'S NAME EXACTLY AS THE COUPLE ENTERED IT on the Guest
    * list (owner 2026-09-30: *"we want the copy to indicate the name as given. to
-   * them"*): `guestFullName` — the couple's own Display name when they set one,
+   * them"*): `guestNameAsGiven` — the couple's own "Shown as" when they set one,
    * else the five parts composed, "Mr. Manuel Cortez Casasola Jr.". Never cut
    * to a first name. The two fields below are only the fallback for a caller
    * with no row to compose from.
@@ -248,11 +249,14 @@ function fill(template: string, values: { name: string; event: string; date: str
 
 function greetingName(ctx: Pick<GuestInviteContext, 'formalName' | 'firstName' | 'guestName'>): string {
   // The name as given — whole, never shortened (owner 2026-09-30).
-  const given = (ctx.formalName ?? '').replace(/\s+/g, ' ').trim();
+  // 🪪 An unnamed +1's stand-ins ("+1 · TBA", "TBA", "+1") are not a name: the greeting is "Hi!", never "Hi TBA!"
+  // (owner 2026-10-21, lib/seat-placeholder-words.ts).
+  const given = withoutPlaceholderWord('display', (ctx.formalName ?? '').replace(/\s+/g, ' ').trim());
   if (given) return given;
-  const first = (ctx.firstName ?? '').trim();
+  const first = withoutPlaceholderWord('first', ctx.firstName);
   if (first) return first;
-  return (ctx.guestName ?? '').trim().split(/\s+/)[0] ?? '';
+  const word = (ctx.guestName ?? '').trim().split(/\s+/)[0] ?? '';
+  return isPlaceholderNameWord('first', word) || isPlaceholderNameWord('last', word) ? '' : word;
 }
 
 /**

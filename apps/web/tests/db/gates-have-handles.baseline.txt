@@ -120,6 +120,7 @@ vendor_partnerships.admin_verified | The two-admin partnership gate was RETIRED 
 # fail on anything NEW; none has been individually researched. Clearing a line
 # here is a good small task — replace it with a real reason or a real control.
 budget_allocation_decisions.auto_reduced_for_pin | NOT INVESTIGATED (never mentioned in app code).
+budget_allocation_decisions.was_pinned | HISTORICAL SINCE BUDGET B2/B5 (2026-10-18). Its only writer was `saveAllocationSnapshot`, called only by the Budget page's allocation planner; the owner removed that planner from the page (2026-10-08, "not this one"), #6516 deleted the component, and Budget B5 (#6633) deleted the then-callerless action. The rows already written stay readable (`fetchSavedAllocationPlan`, the admin aggregate). If the planner ever returns, its save action returns with it and this line goes.
 editorial_vendor_media.hidden_by_couple | NOT INVESTIGATED (read-only).
 events.papic_vendor_challenges_enabled | NOT INVESTIGATED (never mentioned in app code).
 guest_claims.requested_role | NOT INVESTIGATED (never mentioned in app code).
@@ -161,3 +162,5 @@ events.papic_guest_spend_ceiling_on | ⏳ TEMPORARY — the control exists, in t
 # not an absence to be filled in later.
 moodboard_library_assets.is_event_linked | GENERATED ALWAYS AS (source_event_id IS NOT NULL) STORED (migration 20271204967268, MB22). The handle is `source_event_id`, not this column: it has a real writer in the event-linked import path (apps/web/app/vendor-dashboard/moodboard-library/actions.ts, MB11's upload flow), and Postgres recomputes `is_event_linked` from it automatically. Nothing should ever write this column directly — the database would refuse it.
 
+# ── RETIRED SETTINGS: the control is gone, the column is kept ──────────────────
+users.planner_mode | RETIRED 2026-10-23 (owner): the Guided · DIY setting left Account settings › Preferences. Nothing ever read the column (handles-have-gates' 2026-08-17 finding), so removing its only writer changes no behaviour; Home's checklist shows for everyone, which is what "Guided" promised. Kept, not dropped — a column drop is a migration for no gain.

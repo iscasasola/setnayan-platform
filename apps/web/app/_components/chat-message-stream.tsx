@@ -38,6 +38,7 @@ import type { CoupleLockTarget } from '@/lib/lock-door';
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import { AccordionLockButton } from '@/app/dashboard/[eventId]/vendors/_components/accordion-lock';
 import { LockAnswerForms } from './lock-answer-forms';
+import { QuoteCardLines } from './quote-card-lines';
 import type { FeeDisclosure } from '@/lib/booking-fee-disclosure';
 import { DepositReservation } from '@/app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/deposit-reservation';
 import { moneyStepLine, type MoneyStep } from '@/lib/accepted-quote-terms';
@@ -82,6 +83,7 @@ import type { PayoutReadiness } from '@/lib/deposit-pay-step';
 import { PayoutMethodNudge } from '@/app/vendor-dashboard/_components/payout-method-nudge';
 import { renderPerkUnlock } from '@/lib/perk-unlock-message';
 import { formatCount } from '@/lib/format-number';
+import { pauseWhileHidden } from '@/lib/tab-return';
 
 /** Display data for the in-thread proposal card, fetched by proposal_id. */
 type ProposalLineItem = {
@@ -760,54 +762,60 @@ export function ChatMessageStream({
       }
     };
 
-    const channel = supabase
-      .channel(`chat-${threadId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'chat_messages',
-          filter: `thread_id=eq.${threadId}`,
-        },
-        (payload) => {
-          const row = payload.new as ChatMessageRow;
-          setMessages((prev) => {
-            // Guard against the same INSERT echoing twice (e.g. on a
-            // reconnect that replays the buffered event).
-            if (prev.some((m) => m.message_id === row.message_id)) return prev;
-            return [...prev, row].sort((a, b) =>
-              a.created_at.localeCompare(b.created_at),
+    // 🔌 A thread left in a background tab lets its channel go after a while
+    // (`pauseWhileHidden`); coming back opens it again, and SUBSCRIBED re-reads
+    // the whole thread below — nothing is missed.
+    const stop = pauseWhileHidden(() => {
+      const channel = supabase
+        .channel(`chat-${threadId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'chat_messages',
+            filter: `thread_id=eq.${threadId}`,
+          },
+          (payload) => {
+            const row = payload.new as ChatMessageRow;
+            setMessages((prev) => {
+              // Guard against the same INSERT echoing twice (e.g. on a
+              // reconnect that replays the buffered event).
+              if (prev.some((m) => m.message_id === row.message_id)) return prev;
+              return [...prev, row].sort((a, b) =>
+                a.created_at.localeCompare(b.created_at),
+              );
+            });
+          },
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'chat_messages',
+            filter: `thread_id=eq.${threadId}`,
+          },
+          (payload) => {
+            const row = payload.new as ChatMessageRow;
+            setMessages((prev) =>
+              prev.map((m) => (m.message_id === row.message_id ? row : m)),
             );
-          });
-        },
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'chat_messages',
-          filter: `thread_id=eq.${threadId}`,
-        },
-        (payload) => {
-          const row = payload.new as ChatMessageRow;
-          setMessages((prev) =>
-            prev.map((m) => (m.message_id === row.message_id ? row : m)),
-          );
-        },
-      )
-      .subscribe((status) => {
-        // On (re)SUBSCRIBED — including reconnects after a network drop —
-        // pull a fresh batch so we backfill anything missed while offline.
-        if (status === 'SUBSCRIBED') {
-          void refetchAll();
-        }
-      });
+          },
+        )
+        .subscribe((status) => {
+          // On (re)SUBSCRIBED — including reconnects after a network drop —
+          // pull a fresh batch so we backfill anything missed while offline.
+          if (status === 'SUBSCRIBED') {
+            void refetchAll();
+          }
+        });
+      return () => supabase.removeChannel(channel);
+    });
 
     return () => {
       cancelled = true;
-      void supabase.removeChannel(channel);
+      stop();
     };
   }, [supabase, threadId]);
 
@@ -1168,30 +1176,8 @@ export function ChatMessageStream({
                       card.status === 'accepted' ? (
                         <PayoutMethodNudge readiness={payoutReadiness} context="lock" />
                       ) : null}
-                      {items.length > 0 ? (
-                        <ul className="mt-2 space-y-0.5 border-t border-terracotta/20 pt-2 text-xs text-ink/70">
-                          {items.slice(0, 5).map((li, i) => (
-                            <li key={i} className="flex items-baseline justify-between gap-3">
-                              <span className="min-w-0 truncate">
-                                {li.label}
-                                {li.detail ? (
-                                  <span className="text-ink/45"> · {li.detail}</span>
-                                ) : null}
-                              </span>
-                              <span className="shrink-0 tabular-nums">
-                                {typeof li.amount_centavos === 'number'
-                                  ? formatCentavos(li.amount_centavos)
-                                  : 'Complimentary'}
-                              </span>
-                            </li>
-                          ))}
-                          {items.length > 5 ? (
-                            <li className="text-ink/45">
-                              + {items.length - 5} more in the full quote
-                            </li>
-                          ) : null}
-                        </ul>
-                      ) : null}
+                      {/* The card's lines — one component with the supplier's "As they see it" preview. */}
+                      <QuoteCardLines items={items} />
                       <div className="mt-2 flex flex-wrap items-center gap-2">
                         <Link
                           href={`/proposals/${card.publicId}`}
@@ -1230,7 +1216,6 @@ export function ChatMessageStream({
                               pendingLabel={isLockHandshakeEnabled() ? 'Asking…' : 'Booking…'}
                               className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-mulberry px-4 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:opacity-60"
                               wrapperClassName="flex w-full flex-col items-start"
-                              source="chat_quote_card"
                             />
                           ) : (
                             <Link

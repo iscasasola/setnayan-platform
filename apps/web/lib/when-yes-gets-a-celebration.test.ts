@@ -94,7 +94,8 @@ test('a free couple: the drafted effect is HELD at Apply, named, and counted onc
   assert.equal(sum.changeCount, 1);
   assert.equal(sum.proCount, 1, 'the Apply ◆');
   const lines = hubDraftChangeLines(draftOf({ celebration: 'confetti' }), live(null), false);
-  assert.deepEqual(lines, [{ place: 'RSVP', what: 'When they say yes · Confetti', pro: true, held: true }]);
+  // 💎 + the part it needs (2026-10-22, part by part) — the celebration is Motion's.
+  assert.deepEqual(lines, [{ place: 'RSVP', what: 'When they say yes · Confetti', pro: true, held: true, parts: ['motion'] }]);
   const effects = hubDraftProEffects(draftOf({ celebration: 'confetti' }), live(null), false);
   assert.equal(effects.length, 1);
   assert.equal(effects[0]!.what, 'When they say yes · Confetti');

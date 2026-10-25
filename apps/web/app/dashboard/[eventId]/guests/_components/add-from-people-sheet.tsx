@@ -37,7 +37,6 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
 import { Check, Search, Users, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { GuestPopup } from './guest-popup';
@@ -121,7 +120,6 @@ export function AddFromPeopleSheet({
   const [side, setSide] = useState<GuestSide>(defaultSide);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
-  const router = useRouter();
   const { addGuestsFromPeople, listPeopleYouCanInvite } = useGuestActions();
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -247,12 +245,12 @@ export function AddFromPeopleSheet({
         // The sheet STAYS OPEN on a partial, so this one is not redundant with
         // the reset in `onOpen` — nothing re-opens it. It is what makes the
         // rows that DID land show as "already here" without closing the panel.
+        // (The guest list behind it is already redrawn: the action revalidates whenever a name landed, and its
+        // answer carries the render — no `router.refresh()`, which drew the page twice.)
         setRows(null);
-        router.refresh();
         return;
       }
       close();
-      router.refresh();
     });
   };
 
@@ -262,7 +260,7 @@ export function AddFromPeopleSheet({
     <GuestPopup
       onClose={close}
       rootClassName="fixed inset-0 z-[80]"
-      panelClassName="gl-drawer absolute inset-x-0 bottom-0 max-h-[90vh] w-full overflow-y-auto rounded-t-2xl border border-ink/10 bg-paper p-5 pb-[max(env(safe-area-inset-bottom),1.25rem)] shadow-xl sm:inset-y-0 sm:left-auto sm:right-0 sm:max-h-none sm:w-[24rem] sm:max-w-[92vw] sm:rounded-none sm:rounded-l-2xl"
+      panelClassName="gl-drawer absolute inset-x-0 bottom-0 max-h-[90vh] w-full overflow-y-auto rounded-t-2xl border border-ink/10 bg-paper p-5 pb-[max(env(safe-area-inset-bottom),1.25rem)] shadow-xl tab:inset-y-0 tab:left-auto tab:right-0 tab:max-h-none tab:w-[min(27.5rem,calc(100vw-3.5rem))] tab:rounded-none tab:rounded-l-2xl"
       labelledById="add-from-people-title"
     >
       <div className="flex items-start justify-between gap-3">

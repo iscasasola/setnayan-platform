@@ -43,7 +43,9 @@ export function InstagramConnectCard({
   flash: { kind: 'ok' | 'error'; message: string } | null;
 }) {
   return (
-    <section className="mt-10 space-y-4">
+    // Not configured → the whole section is "Coming soon" and hides in the
+    // store shell (lib/store-shell.ts `COMING_SOON_ATTR`).
+    <section className="mt-10 space-y-4" data-coming-soon={configured ? undefined : ''}>
       <div className="space-y-1">
         <h2 className="m-label-mono flex items-center gap-2" style={{ color: 'var(--m-slate)' }}>
           <Camera aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
@@ -98,7 +100,7 @@ function CardShell({ children }: { children: React.ReactNode }) {
 function ComingSoon() {
   return (
     <CardShell>
-      <div className="flex items-start gap-3">
+      <div data-coming-soon className="flex items-start gap-3">
         <span className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-ink/5 text-ink/50">
           <Camera aria-hidden className="h-4 w-4" strokeWidth={2} />
         </span>

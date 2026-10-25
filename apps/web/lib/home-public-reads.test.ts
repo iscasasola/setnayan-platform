@@ -82,7 +82,26 @@ const EVENT_B = '00000000-0000-4000-8000-00000000000b';
 const PRO_THEME = Object.entries(INVITE_THEMES).find(([, t]) => t.tier === 'pro')?.[0] as string;
 
 function world(over: Record<string, Answer | ((head: boolean, body: Record<string, unknown>) => Answer)> = {}) {
+  type Handler = Answer | ((head: boolean, body: Record<string, unknown>) => Answer);
+  const answerOf = (h: Handler | undefined, body: Record<string, unknown>): Answer =>
+    typeof h === 'function' ? h(false, body) : (h ?? { data: [] });
+  const internal: Handler = (_head, body) => ({ data: body.p_event_id === EVENT_A });
   return countingDatabase({
+    /* Every per-event ownership fact in one request (migration 20271275959355), answered from the
+       same world as the separate questions — and refused whenever the orders read is (2e). */
+    'rpc/event_entitlement_facts': (_head, body) => {
+      const orders = answerOf(over.orders, body);
+      if (orders.error) return orders;
+      return {
+        data: {
+          orders: orders.data ?? [],
+          comp_skus: [],
+          host_internal: answerOf(over['rpc/event_host_is_internal'] ?? internal, body).data === true,
+          founder_seat: false,
+          basket: [],
+        },
+      };
+    },
     events: {
       data: [
         { event_id: EVENT_A, invite_theme: PRO_THEME, landing_page_hero_image_url: 'r2://setnayan-media/events/a/hero.jpg' },
@@ -94,7 +113,7 @@ function world(over: Record<string, Answer | ((head: boolean, body: Record<strin
     orders: { data: [] },
     bundle_components: { data: [] },
     'rpc/event_comp_active_skus': { data: [] },
-    'rpc/event_host_is_internal': (_head, body) => ({ data: body.p_event_id === EVENT_A }),
+    'rpc/event_host_is_internal': internal,
     'rpc/event_host_holds_founder_seat': { data: false },
     event_type_profiles: { data: [{ event_type: 'wedding', terminology: {}, enabled_surfaces: ['website'] }] },
     event_type_vocab: { data: [{ event_type: 'wedding', label_en: 'Wedding', status: 'active', sort_order: 1 }] },
@@ -155,7 +174,7 @@ function build(db: ReturnType<typeof countingDatabase>, clock: { now: number }, 
   return { reads, view, fake };
 }
 
-test('1 · a first view sends 21 requests, 5 deep; a second view inside 60 s sends NONE', async () => {
+test('1 · a first view sends 15 requests, 5 deep; a second view inside 60 s sends NONE', async () => {
   const clock = { now: 1_700_000_000_000 };
   const db = world();
   const { view } = build(db, clock);
@@ -172,14 +191,10 @@ test('1 · a first view sends 21 requests, 5 deep; a second view inside 60 s sen
       'events', // the world's candidates
       'events', // the shelved cards' cover rows
       'invitation_widgets',
-      'orders', // event A
-      'orders', // event B
-      'rpc/event_comp_active_skus',
-      'rpc/event_comp_active_skus',
-      'rpc/event_host_holds_founder_seat', // A — leaves with the other facts since 2026-10-13
-      'rpc/event_host_holds_founder_seat', // B
-      'rpc/event_host_is_internal',
-      'rpc/event_host_is_internal',
+      // Each event's orders, comp list, internal host and founder seat — ONE request per event
+      // since 2026-10-18 (`event_entitlement_facts`, event-day load L3); was 4 per event.
+      'rpc/event_entitlement_facts', // event A
+      'rpc/event_entitlement_facts', // event B
       'users', // people to follow
       'users', // the chapters' owners
       'users', // the hosts' public names
@@ -203,8 +218,9 @@ test('1 · a first view sends 21 requests, 5 deep; a second view inside 60 s sen
   */
   assert.equal(db.serialDepth(), 5, 'the cold view got deeper — a read is waiting on one it does not need');
   // The facts are the REAL ownership: A (internal host, saved a Pro theme) owns it; B does not.
-  assert.deepEqual(first.covers.facts[EVENT_A], { websitePro: true, logoAnimation: null });
-  assert.deepEqual(first.covers.facts[EVENT_B], { websitePro: false, logoAnimation: null });
+  // 💎 2026-10-22: the remembered ownership is the two parts a cover can turn on (Style · Background).
+  assert.deepEqual(first.covers.facts[EVENT_A], { websitePro: { style: true, background: true }, logoAnimation: null });
+  assert.deepEqual(first.covers.facts[EVENT_B], { websitePro: { style: false, background: false }, logoAnimation: null });
 
   db.reset();
   clock.now += 45_000;
@@ -283,14 +299,14 @@ test('2e · a refused ownership read is "not owned" for that view and is NOT rem
   const ask = () => withRenderScopeForTest(() => reads.rememberedCoverRows([EVENT_A]).then((rows) => rows, (e: unknown) => e));
   const caught = await ask();
   assert.ok(caught instanceof ReadRefused && caught.site === 'coverFacts', 'a refused orders read was not reported as a refusal');
-  const partial = caught.partial as { covers: unknown[]; facts: Record<string, { websitePro: boolean | null }> };
-  assert.equal(partial.facts[EVENT_A]?.websitePro, false, 'a refused ownership read drew something other than "not owned"');
+  const partial = caught.partial as { covers: unknown[]; facts: Record<string, { websitePro: unknown }> };
+  assert.deepEqual(partial.facts[EVENT_A]?.websitePro, { style: false, background: false }, 'a refused ownership read drew something other than "not owned"');
   assert.equal(partial.covers.length, 2, 'the cover rows that answered were dropped');
   assert.equal(fake.entries.size, 0, '"not owned" was remembered for everybody after a read that never answered');
   refuse = false;
   const rows = await ask();
   assert.ok(!(rows instanceof ReadRefused) && !(rows instanceof Error));
-  assert.equal((rows as { facts: Record<string, { websitePro: boolean | null }> }).facts[EVENT_A]?.websitePro, true);
+  assert.deepEqual((rows as { facts: Record<string, { websitePro: unknown }> }).facts[EVENT_A]?.websitePro, { style: true, background: true });
 });
 
 test('2d · a failed chapters read is thrown, never remembered as "no stories"', async () => {

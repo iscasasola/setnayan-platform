@@ -49,6 +49,7 @@ export function SupplierToast({
   tone,
   retry = false,
   retryHref = '/vendor-dashboard',
+  line = true,
 }: {
   /** The outcome, in the shipped sentence (`lockAgreeNotice`, `DATE_ANSWER_NOTICE`, the deposit answers). */
   text: string;
@@ -58,6 +59,11 @@ export function SupplierToast({
   retry?: boolean;
   /** Where Try again goes: the page the answer was given on, without the outcome. */
   retryHref?: string;
+  /**
+   * Draw the status line here (default). Today draws its own, UNDER the Next card it answers and with the door the
+   * sentence asks for (simpler Today 2026-10-14: "Pay the booking fee"), so it passes `false` and keeps only the toast.
+   */
+  line?: boolean;
 }) {
   // The toast is a client thing: drawn once mounted (portalled to <body> — a transform on an ancestor would pin a
   // `fixed` child to it), so the server's markup holds only the status line.
@@ -66,6 +72,7 @@ export function SupplierToast({
 
   return (
     <>
+      {line ? (
       <p
         role="status"
         data-supplier-outcome={tone}
@@ -74,6 +81,7 @@ export function SupplierToast({
         {tone === 'bad' ? <TriangleAlert aria-hidden className="mt-px h-4 w-4 flex-none" strokeWidth={2.2} /> : null}
         <span>{text}</span>
       </p>
+      ) : null}
       {showing
         ? createPortal(
             <PeekToast

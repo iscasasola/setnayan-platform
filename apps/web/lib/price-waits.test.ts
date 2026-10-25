@@ -48,23 +48,19 @@ test('the maker asks the rule with the claim token and the publish gate’s own 
   assert.match(MAKER, /priceWaitsFor\(\{ fromCoupleLink: Boolean\(claimToken\), \.\.\.priceFacts \}\)/);
 });
 
-test('every door to the price sheet goes through the rule — none opens it directly', () => {
-  // The one place the price sheet may be named in a setSheet call is askSheet.
-  const direct = MAKER.match(/setSheet\('price'\)/g) ?? [];
-  assert.equal(direct.length, 0, 'a door opens the price sheet without asking whether it waits');
-  assert.match(MAKER, /onClick=\{\(\) => askSheet\('price'\)\}/, 'the card’s price region');
-  assert.match(MAKER, /onClick=\{\(\) => askSheet\(row\.key\)\}/, 'the "Make it richer" rows');
-  assert.match(MAKER, /\n\s*askSheet\(key\);\n\s*\};/, 'the coach chip and the diagnostics rows');
-  assert.match(MAKER, /key === 'price' && priceWaits \? \(priceWaits === 'photo' \? 'media' : 'custom'\) : key/);
+test('while the price waits, its box is out of reach but still MOUNTED — the recorded price still posts', () => {
+  // The simpler maker (2026-10-14) keeps every field in an in-page fold; the price waits by hiding its box, never
+  // by unmounting it (an unmounted input would post no price at all and the couple's figure would be lost).
+  assert.match(MAKER, /<div hidden=\{Boolean\(priceWaits\)\}>\s*<PricingBasisEditor/, 'the waiting box is no longer hidden-but-mounted');
+  assert.ok(!/priceWaits \? null : \(\s*<PricingBasisEditor/.test(MAKER), 'the waiting box was unmounted');
 });
 
-test('a guided first pass from a couple’s link asks for what’s included before the price', () => {
-  assert.match(MAKER, /if \(claimToken\) steps\.push\('media', 'custom', 'price', 'excl'\);/);
-  assert.match(MAKER, /else steps\.push\('media', 'price', 'custom', 'excl'\);/, 'everyone else keeps the shipped order');
+test('the Price row says what it waits for', () => {
+  assert.match(MAKER, /line=\{priceWaits \? priceWaitsLine\(priceFacts\) : 'Shown as “from”'\}/);
 });
 
 test('the price the couple recorded is still shown while the box waits', () => {
-  const region = MAKER.slice(MAKER.indexOf('data-price-waits={priceWaits}'));
-  assert.match(region.slice(0, 400), /\{snap\.priceLine\}/);
-  assert.match(region.slice(0, 600), /\{priceWaitsLine\(priceFacts\)\}/);
+  const at = MAKER.indexOf('data="price"');
+  const head = MAKER.slice(at, at + 900);
+  assert.match(head, /aside=\{snap\.hasPrice \? <span[^>]*>\{snap\.priceLine/, 'the recorded price stopped showing on the row');
 });

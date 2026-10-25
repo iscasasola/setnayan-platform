@@ -16,9 +16,16 @@ type Row = AddonDraft & { key: number };
 export function AddonsEditor({
   serviceId,
   initial,
+  bare = false,
 }: {
   serviceId: string;
   initial: AddonDraft[];
+  /**
+   * The rows only, posting with the card's ONE save (the simpler maker, 2026-10-14): no `<form>`, no "Save add-ons".
+   * `addons_present` tells `commitVendorService` this list was on screen, so an empty list clears and an absent one
+   * leaves the stored add-ons alone.
+   */
+  bare?: boolean;
 }) {
   const nextKey = useRef(initial.length);
   const [rows, setRows] = useState<Row[]>(initial.map((r, i) => ({ key: i, ...r })));
@@ -27,6 +34,54 @@ export function AddonsEditor({
     setRows((cur) => [...cur, { key: nextKey.current++, label: '', price: '' }]);
   const remove = (key: number) => setRows((cur) => cur.filter((r) => r.key !== key));
 
+  if (bare) {
+    return (
+      <div className="space-y-2" data-addons-bare="">
+        <input type="hidden" name="addons_present" value="1" />
+        {rows.map((r) => (
+          <div key={r.key} className="flex items-center gap-2">
+            <input
+              name="addon_label"
+              defaultValue={r.label}
+              maxLength={80}
+              aria-label="Add-on"
+              placeholder="e.g. Drone coverage"
+              className="input-field min-w-0 flex-[2]"
+            />
+            <input
+              name="addon_price"
+              defaultValue={r.price}
+              type="number"
+              min={0}
+              step={1}
+              aria-label="From (PHP)"
+              placeholder="from ₱"
+              className="input-field min-w-0 flex-1"
+            />
+            <button
+              type="button"
+              aria-label="Remove add-on"
+              onClick={() => remove(r.key)}
+              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border"
+              style={{ borderColor: 'var(--m-line)', color: 'var(--m-slate)' }}
+            >
+              <X className="h-4 w-4" strokeWidth={1.75} />
+            </button>
+          </div>
+        ))}
+        {rows.length < 12 ? (
+          <button
+            type="button"
+            onClick={add}
+            className="sn-press inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-sn-accent"
+          >
+            <Plus className="h-4 w-4" strokeWidth={2} />
+            Add an add-on
+          </button>
+        ) : null}
+      </div>
+    );
+  }
   return (
     <form
       action={setServiceAddons}

@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { createLoggingFetch } from './db-error-log';
 import { markServiceRoleClient } from '@/lib/request-once';
+import { withSharedEventReads } from '@/lib/event-shared-reads';
 
 /**
  * Server-only Supabase client that uses the `service_role` key and bypasses RLS.
@@ -53,7 +54,10 @@ export function createAdminClient() {
       auth: { autoRefreshToken: false, persistSession: false },
       // Surface failed PostgREST calls instead of letting them resolve to
       // `data: null` and render as an empty list. See ./db-error-log.
-      global: { fetch: createLoggingFetch('admin') },
+      // 🗂 And, ONLY inside a guest-page render that opened it, remember the
+      // reads every viewer of the event shares, filed under the event's stamp
+      // (`lib/event-shared-reads.ts`). Everywhere else this is the logging fetch.
+      global: { fetch: withSharedEventReads(createLoggingFetch('admin')) },
     }),
   );
 }

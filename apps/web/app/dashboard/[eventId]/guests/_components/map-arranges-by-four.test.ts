@@ -44,8 +44,8 @@ test('By side nests each side’s groups; the others are one level (executed)', 
 });
 
 test('the map’s thumb row draws the arrange dropdown, not the list’s Sort', () => {
-  const row = SCREEN.slice(SCREEN.indexOf('data-thumb="map"'), SCREEN.indexOf('data-thumb="map"') + 400);
-  assert.match(row, /arrangePick/);
-  assert.doesNotMatch(row, /sortPick|thumb-expand|thumb-select/, 'the map carries the list’s controls (no expand/select on the canvas)');
-  assert.match(SCREEN, /label="Arrange the map by"[\s\S]{0,120}options=\{arranges\.map/);
+  const row = SCREEN.slice(SCREEN.indexOf('<ThumbRow name="guests-map"'), SCREEN.indexOf('/>', SCREEN.indexOf('<ThumbRow name="guests-map"')));
+  assert.match(row, /right=\{\[arrangeMenu\]\}/);
+  assert.doesNotMatch(row, /sortMenu|left=/, 'the map carries the list’s controls (no expand/select on the canvas)');
+  assert.match(SCREEN, /label: 'Arrange the map by',[\s\S]{0,80}menu: arranges\.map/);
 });

@@ -42,6 +42,7 @@
 
 import { useMemo, useRef, useState } from 'react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 import { nearestColorName } from '@/lib/color-names';
 import { type RolePalette } from '@/lib/mood-board';
 import { type PartId, type ReceptionDesign } from '@/lib/reception-scene';
@@ -85,6 +86,7 @@ import {
   type ChoosePlanSku,
 } from '@/app/_components/app-store/choose-plan-sheet';
 import { formatCount } from '@/lib/format-number';
+import { IapUnlockSheet } from '@/app/_components/iap/iap-unlock-sheet';
 
 const WHOLE_LOOK_ID = 'whole_look';
 
@@ -135,6 +137,13 @@ export type MakeItRealProps = {
    * still sees everything here; the controls say who can use them instead.
    */
   mayStartRenders: boolean;
+  /**
+   * 🍎 The iPhone app where Apple sells the pack (`getIapGate().iap`, owner 2026-10-23): Buy is Apple's sheet for
+   * "Mood Board · 50 renders" (`IapUnlockSheet`), and nothing here draws a web price or the hand-check note.
+   */
+  apple?: boolean;
+  /** 🍎 …and the pack is on sale with the 50 its name promises (the server refuses otherwise) — else no Buy at all. */
+  appleOnSale?: boolean;
 };
 
 /** One row of the couple's gallery, with its viewing URL resolved. */
@@ -160,6 +169,8 @@ export function MakeItReal({
   renders,
   shareConsented,
   mayStartRenders,
+  apple = false,
+  appleOnSale = false,
 }: MakeItRealProps) {
   const inspirationPresenceSet = useMemo(
     () => new Set(inspirationPresence),
@@ -404,14 +415,29 @@ export function MakeItReal({
           <p className="max-w-[34ch] text-xs text-ink/45">
             {configUnavailable
               ? 'Make it real is temporarily unavailable.'
-              : `1 credit per part · ${formatCount(config!.creditsWholeLook)} for the whole look. Payment is verified by hand (~a day).`}
+              : `1 credit per part · ${formatCount(config!.creditsWholeLook)} for the whole look.${apple ? '' : ' Payment is verified by hand (~a day).'}`}
           </p>
           {!mayStartRenders ? (
             <p data-couple-only-renders className="max-w-[34ch] text-xs text-ink/55">
               Only the couple can start a render or choose to share one.
             </p>
           ) : null}
-          {packPlan && mayStartRenders ? (
+          {apple ? (
+            mayStartRenders && !configUnavailable && appleOnSale ? (
+              <IapUnlockSheet
+                eventId={eventId}
+                serviceKey="MOODBOARD_RENDER_PACK"
+                name="Mood Board · 50 renders"
+                line="Use them on any part, or the whole look."
+                info="Every box keeps its free colour preview. A photoreal render spends credits; buy another pack whenever you run low."
+                triggerLabel="Buy renders"
+                buyVerb="Buy"
+                onLine="Your renders are on this event."
+                plural
+                triggerTestId="iap-mood-board-pack"
+              />
+            ) : null
+          ) : packPlan && mayStartRenders ? (
             <ChoosePlanSheet
               eventId={eventId}
               triggerLabel={`Buy ${packPlan.name}`}
@@ -530,7 +556,7 @@ export function MakeItReal({
                   {consented ? ' ✓' : ''}
                 </span>
                 <span className="block text-xs text-ink/60">
-                  We may show your renders in our own galleries and marketing. You can turn this
+                  We may show your renders in Inspiration and our marketing. You can turn this
                   off any time, which un-features anything already shown — the bonus render stays
                   yours. Setnayan can always see and keep your renders for quality and to build
                   our own design library; this choice is only about showing them publicly.
@@ -564,13 +590,8 @@ export function MakeItReal({
       )}
 
       {chooserOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 backdrop-blur-sm">
-          <button
-            type="button"
-            aria-label="Close part chooser"
-            onClick={() => setChooserOpen(false)}
-            className="absolute inset-0"
-          />
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <OverlayBackdrop label="Close part chooser" onClose={() => setChooserOpen(false)} />
           <div
             ref={chooserRef}
             role="dialog"

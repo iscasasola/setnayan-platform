@@ -69,10 +69,13 @@ test('under the flag the TypeBar is the keyboard’s ONE bar: Done — no Wordin
   const src = read(`${EDITOR}/type-in-place.tsx`);
   const at = src.indexOf('if (stagesStudio && !p.inline');
   assert.ok(at > 0, 'the flag-on keyboard bar exists');
-  const end = src.indexOf('document.body,\n    );\n  }', at);
+  const end = src.indexOf('</TypingBand>', at);
+  assert.ok(end > at, 'the flag-on bar is not the one typing band');
   const bar = src.slice(at, end);
   assert.match(bar, /data-type-bar-keys/);
-  assert.match(bar, /label="Done"/);
+  // Its ONE action is the band's Done (`typing-band.tsx`), handed the session's close.
+  assert.match(bar, /onDone=\{p\.onClose\}/);
+  assert.match(read('app/_components/typing-band.tsx'), /label="Done"/);
   for (const old of ['Wording', 'Style ▾', 'Hide', 'data-type-style', 'data-type-hide']) {
     assert.ok(!bar.includes(old), `the flag-on bar carries no "${old}"`);
   }
@@ -149,7 +152,8 @@ test('picked, the Reveal shows no grip, no ＋ above and no 🗑 — its ＋ bel
   assert.deepEqual(makerRevealEdges(true), { grip: false, addAbove: false, addBelow: false, remove: false });
   assert.deepEqual(makerRevealEdges(false), { grip: true, addAbove: true, addBelow: true, remove: true });
   const src = read(`${LAUNCH}/add-part-sheet.tsx`);
-  assert.match(src, /const edgesOf = makerRevealEdges\(isReveal\);/);
+  /* …and (2026-10-16) the Cover Scene, which the opening belongs to now: the same lock, nothing above the cover. */
+  assert.match(src, /const edgesOf = makerRevealEdges\(isReveal \|\| picked === 'coverscene'\);/);
   assert.match(src, /const canRemove = edgesOf\.remove &&/, '🗑 follows the lock');
   assert.match(src, /const canMove = edgesOf\.grip &&/, 'the grip follows the lock');
   assert.match(src, /\{edgesOf\.addAbove \? \(\s*<button type="button" aria-label=\{`Add above/, '＋ above follows the lock');
@@ -179,7 +183,7 @@ test('Rows ▾ writes the scene’s `sequence` — and Action carries no Parts r
   const animate = read(`${LAUNCH}/stage-panel/stage-animate.tsx`);
   /* 🔁 RE-AIMED 2026-10-09 (Animate is four rows): the three phases are no longer three branches of one column —
      Rows ▾ is drawn in row 4 beside Movement, and only while the phase is Build in. Action still carries none. */
-  const rowsDrawn = [...animate.matchAll(/\{([^{}]*?) \? <Dd stacked small="Rows"/g)].map((m) => m[1]);
+  const rowsDrawn = [...animate.matchAll(/\{([^{}]*?) \? <Dd stacked small=\{animatePro\('Rows'\)\}/g)].map((m) => m[1]);
   assert.deepEqual(rowsDrawn, ["end === 'in' && rows"], 'Rows ▾ is Build in’s, and only its');
   assert.ok(!/Parts/.test(animate), 'Action carries a Parts row');
 });
@@ -191,7 +195,7 @@ test('in Stages a canvas tap only picks — no door to Studio, Details, the Logo
   const at = src.indexOf("data.t !== 'edit' || typeof data.key !== 'string') return;");
   const end = src.indexOf('window.addEventListener(\'message\', onMessage);', at);
   const handler = src.slice(at, end);
-  assert.match(handler, /const stagesTap = stagesStudioRef\.current && window\.innerWidth < 1024;/);
+  assert.match(handler, /const stagesTap = stagesStudioRef\.current;/);
   /* Every branch that opens something other than the part itself is closed to a Stages tap. */
   const doors = [
     /if \(([^)]*)openWordsOnTap\(/,
@@ -223,7 +227,8 @@ test('every part with a Studio bar has a door; every focused field exists in the
   for (const [part, sel] of Object.entries(MAKER_PART_FOCUS)) {
     const field = /data-same-field="([a-z_]+)"/.exec(sel!)?.[1];
     assert.ok(field, `${part}: focuses a same-field door`);
-    const hits = execSync(`grep -rl 'data-same-field="${field}"' app --include=*.tsx`, { cwd: WEB }).toString().trim();
+    /* …drawn either as the attribute itself or through a row's `pillAttrs={{ 'data-same-field': '<key>' }}` (the Photos heading). */
+    const hits = execSync(`grep -rl -e 'data-same-field="${field}"' -e "data-same-field': '${field}'" app --include=*.tsx`, { cwd: WEB }).toString().trim();
     assert.ok(hits.length > 0, `${part}: no editor draws data-same-field="${field}"`);
   }
   const shell = read(`${LAUNCH}/maker-shell.tsx`);
@@ -248,7 +253,7 @@ test('a page tab still takes the canvas to its page under Stages (only a picked 
      a scroll to its first scene (the `pageAskRef` this test used to pin is gone): it swaps the page (`hubTab`), and
      on a phone `scrollPreviewTo` skips for it as it does for a picked part. STRONGER, not weaker: the canvas is
      still taken to the page, and never away from its top. */
-  assert.match(shell, /if \(!anchor \|\| \(stagesStudioRef\.current && window\.innerWidth < 1024\)\) return;/, 'under Stages the Maker never scrolls the canvas to a scene — a page pick included');
+  assert.match(shell, /if \(!anchor \|\| stagesStudioRef\.current\) return;/, 'under Stages the Maker never scrolls the canvas to a scene — a page pick included');
   assert.doesNotMatch(shell, /pageAskRef|takePageAsk/, 'a page pick asks for a scroll to its first tile again');
   const jump = shell.slice(shell.indexOf('const jumpToPage = (page: MakerGuestPage) => {'));
   assert.match(jump.slice(0, 400), /if \(maker\?\.stagesStudio\) postToShownCanvases\(\{ source: 'setnayan-editor', t: 'hubTab', key: '', tab: key \}\);/, 'jumpToPage opens the page');
@@ -381,12 +386,14 @@ test('the frame and its ＋ stop in the gap — never on the neighbour’s words
 
 test('every piece the cover draws picks a part of its own (owner 2026-10-07: "every visible piece of the page must be a pickable part")', async () => {
   const { HUB_HERO_ELEMENT_KEYS } = await import('./element-style');
-  const { MAKER_PARTS, MAKER_STAGE_PAGES, makerPartOfTap, HERO_EL_INSIDE } = await import('./maker-parts');
+  const { MAKER_PARTS, MAKER_STAGE_PAGES, makerPartOfTap, makerPartsTappable, HERO_EL_INSIDE } = await import('./maker-parts');
   /* The one piece with no part yet — the cover photo's caption — is named here, so it stays visible as a gap. */
   const GAPS = ['caption'];
   for (const [stage, page] of [['save_the_date', 'home'], ['rsvp', 'home'], ['event', 'live']] as const) {
     for (const el of HUB_HERO_ELEMENT_KEYS) {
       if (GAPS.includes(el)) continue;
+      /* 🔘 The RSVP button is drawn only where the reply exists — the Invitation (2026-10-16). */
+      if (el === 'rsvp' && stage !== 'rsvp') continue;
       const k = makerPartOfTap(stage, page, 'f:hero', el);
       assert.ok(k, `${stage} › ${page}: a tap on the cover's ${el} picks nothing`);
       const want = HERO_EL_INSIDE[el] ?? el;
@@ -396,36 +403,39 @@ test('every piece the cover draws picks a part of its own (owner 2026-10-07: "ev
   }
   /* The two blocks that drew no marker — every tap on them was dead — now stand after one. */
   const body = read('app/[slug]/_components/site-body.tsx');
-  assert.match(body, /\{makerMark\('f:details'\)\}\s*<PublicEventDetails/, 'THE DETAILS · WHEN · WHERE is a part');
+  /* 🪪 RE-AIMED 2026-10-24: THE DETAILS · WHEN · WHERE is drawn on no page (owner, "isn't this a dupe?" —
+     `OFF_THE_PAGE`), so it has no marker and no page of the Maker lists it as a part. */
+  assert.doesNotMatch(body, /makerMark\('f:details'\)|<PublicEventDetails/, 'a retired Details block still draws');
+  /* …and so the Maker never offers its tile: only what the page drew is a tile (`makerPartsTappable`). */
+  assert.ok(!makerPartsTappable('rsvp', 'details', new Set(['w:schedule', 'w:venue_map'])).includes('details'), 'the Maker offers a tile for a block no page draws');
   assert.equal((body.match(/makerMark\('f:spotlight'\)/g) ?? []).length, 2, 'both Happening-now mounts are a part');
-  for (const [k, canvas] of [['details', 'f:details'], ['spotlight', 'f:spotlight']] as const) assert.equal(MAKER_PARTS[k].canvas, canvas);
+  for (const [k, canvas] of [['spotlight', 'f:spotlight']] as const) assert.equal(MAKER_PARTS[k].canvas, canvas);
 });
 
-test('the Reveal is FIRST on The Day › Live (and every page it leads) — before the Happening-now card, on the shown tab', async () => {
+test('the opening is the Cover Scene’s on every page it plays over — no Reveal tile leads a page (2026-10-16)', async () => {
+  /* 🎭 Owner-approved 2026-10-16 ("THE COVER SCENE'S OWN … STYLE (OPENING)"): the tile that stood FIRST on Save the Date,
+     Invitation › Welcome and The Day › Live (and before the Happening-now card) is gone; the opening is Cover Scene ›
+     Style, named in the cover's corner (`the-cover-scene-has-its-own-animate.test.ts` (3)). */
   const { MAKER_STAGE_PAGES } = await import('./maker-parts');
   for (const [stage, page] of [['save_the_date', 'home'], ['rsvp', 'home'], ['event', 'live']] as const) {
-    assert.equal((MAKER_STAGE_PAGES[stage] as Record<string, readonly string[]>)[page]![0], 'reveal', `${stage} › ${page} opens with the Reveal`);
+    const parts = (MAKER_STAGE_PAGES[stage] as Record<string, readonly string[]>)[page]!;
+    assert.ok(!parts.includes('reveal'), `${stage} › ${page} still opens with the Reveal tile`);
+    assert.ok(parts.includes('coverscene'), `${stage} › ${page} has no Cover Scene to carry the opening`);
   }
-  const live = MAKER_STAGE_PAGES.event.live!;
-  assert.ok(live.indexOf('reveal') < live.indexOf('spotlight'), 'the Reveal comes before the Happening-now card');
   const tools = read(`${LAUNCH}/stage-tools.tsx`);
-  /* 🧭 AMENDED 08 Oct (measured on the preview: on Invitation › Me the stub was drawn above the page — "the first
-     part not in a hidden group" was the greeting, which stood outside every tab). Stronger now: the first marked
-     part INSIDE the shown page's own group (`firstMarkerOnPage`, executed by `every-stages-tab-has-its-own-page`). */
-  assert.match(tools, /const first = firstMarkerOnPage\(doc, shownPage\);/, 'drawn before the first part of the SHOWN page');
-  assert.match(tools, /part\.nextElementSibling !== first\) \{\s*part\.remove\(\);/, 'a stub left lower down is moved back to the top');
+  assert.doesNotMatch(tools, /firstMarkerOnPage\(doc, shownPage\)/, 'a stub is still placed before the page’s first part');
 });
 
 test('the Reveal’s Look carries one switch per stage it can play on — the same drafted list Arrange writes', () => {
   /* Owner 2026-10-07: "reveal will have a toggle for each stage it is at. to know where they want this to activate". */
   const src = read(`${LAUNCH}/maker-reveal.tsx`);
-  assert.match(src, /data-reveal-stage-switches=""/);
-  /* Amended 2026-10-08 (owner, on the Look strip: "and none."): a switch is ON only while a reveal can play
-     (`revealSwitchOn` = the same stages list, and off under the older "No reveal" value), and still writes the one
-     list through `toggleStage` — from that older value alone it also takes an opening (`lib/reveal-none.ts`). */
-  assert.match(src, /\{REVEAL_STAGE_CHOICES\.map\(\(st\) => \([\s\S]{0,400}<PanelSwitch on=\{revealSwitchOn\(now, st\)\}[^>]*onChange=\{\(\) => \(effective === REVEAL_NONE_ID \? savePick\(revealSwitchPatch\(st, now, fallback\)\) : toggleStage\(st\)\)\}/, 'each switch reads and writes the one stages list');
-  assert.match(src, /const now = \{ effective, stages \};/, 'the switches read the picker’s own stages list');
-  assert.match(src, /stages=\{stages\} toggleStage=\{toggleStage\}/, 'the Stages part is handed the picker’s own list and toggle');
+  /* Superseded 2026-10-16 (owner-approved prototype `cover_scene_edit_animate_2026-10-16.html`: "Per-stage Shown |
+     Hidden becomes picking None on that stage's Cover Scene"): the Opening (Cover Scene › Style) draws no switches —
+     None on a stage's cover IS that stage's switch off, and it still writes the one drafted list
+     (`revealCoverPickPatch`, held in `the-reveal-hides-one-stage.test.ts`). */
+  assert.doesNotMatch(src, /data-reveal-stage-switches=""/, 'the three switches are back under the cards');
+  assert.match(src, /const now = \{ effective, stages \};/, 'the cards read the picker’s own stages list');
+  assert.match(src, /effective=\{effective\} savePick=\{savePick\} stages=\{stages\}/, 'the Stages part is handed the picker’s own list and its one draft write');
   assert.match(src, /const toggleStage = \(s: RevealStage\) => setStages\(revealStagesWith\(stages, s, !stages\.includes\(s\)\)\);/, 'one write: setStages');
 });
 
@@ -482,13 +492,14 @@ test('the Dress code part’s Style draws its layouts as look cards and its pale
      surface with the room (Do's & Don'ts' too — they wait for their Studio row). */
   const { PaletteLookStrip, PaletteLookCards, DosLookCards } = await import(`../${EDITOR}/palette-look-row`);
   const strip = renderToStaticMarkup(React.createElement(PaletteLookStrip, { value: 'fabric', colours: ['#A9834B', '#2C2A29', '#C7A27C'], onPick: () => {} }));
-  assert.equal((strip.match(/role="radio"/g) ?? []).length, 5);
+  const { PALETTE_LOOK_IDS } = await import('./palette-looks');
+  assert.equal((strip.match(/role="radio"/g) ?? []).length, PALETTE_LOOK_IDS.length);
   assert.match(strip, /aria-checked="true"[^>]*data-palette-pick="fabric"|data-palette-pick="fabric"[^>]*aria-checked="true"/);
   assert.doesNotMatch(strip, /aria-haspopup/);
   const html =
     renderToStaticMarkup(React.createElement(PaletteLookCards, { value: 'fabric', onPick: () => {} })) +
     renderToStaticMarkup(React.createElement(DosLookCards, { value: 'marks', onPick: () => {} }));
-  assert.equal(html.split('data-style-card-preview=""').length - 1, 5 + 3, 'every card holds a picture');
+  assert.equal(html.split('data-style-card-preview=""').length - 1, PALETTE_LOOK_IDS.length + 3, 'every card holds a picture');
   assert.match(html, /aria-checked="true"[^>]*data-style-card="fabric"/);
   assert.match(html, /aria-checked="true"[^>]*data-style-card="marks"/);
   assert.doesNotMatch(html, /aria-haspopup/);
@@ -542,18 +553,19 @@ test('the Dress code part carries ONE Figures ▾ (Drawn · Hidden) writing the 
       every style card is the ONE phone-shaped frame, so "as wide as its picture" (#6428's F) became "the frame".
       The walk of every picker is `every-style-card-is-phone-shaped.test.ts`; this keeps the two cards' own facts. ── */
 
-test('the Reveal and Camera look cards are the phone-shaped frame — the Camera’s screen fills it, the Reveal is drawn at its shape', () => {
+test('the Reveal’s look cards are the phone-shaped frame, drawn at its shape — and the one camera’s screen fills its page', () => {
   const reveal = read(`${LAUNCH}/maker-reveal.tsx`);
-  const card = reveal.slice(reveal.indexOf('data-maker-reveal-kind={o.id}'), reveal.indexOf('</button>', reveal.indexOf('data-maker-reveal-kind={o.id}')));
-  assert.match(card, /className=\{SP_LOOK_CARD\}>/, 'a Reveal card is not the frame-wide look card');
-  assert.match(card, /className=\{`\$\{SP_PHONE_PICTURE\} /);
-  assert.match(card, /<RevealPicture kind=\{o\.id\} colours=\{look\.colours\} fill \/>/, 'the opening is drawn at the frame’s portrait shape');
-  const camera = read(`${LAUNCH}/stage-panel/camera-look.tsx`);
-  /* (Re-aimed 2026-10-10: the approved prototype now draws The Day › Camera — its looks are the toolbar's Style cards,
-     `StyleCards`, like every other part's; `every-style-card-is-phone-shaped.test.ts` holds the card.) */
-  assert.match(camera, /<StyleCards\s/, 'a Camera card is not the toolbar’s Style card');
-  assert.match(read(`${LAUNCH}/stage-panel/camera-face.tsx`), /data-camera-look-face=\{look\} className="absolute inset-0 /, 'the camera screen no longer fills the frame');
-  assert.doesNotMatch(camera + card, /spCardWidth|SP_LAYOUT_CARD/, 'a card is sized apart from the frame again');
+  /* Re-aimed 2026-10-17 (controller on #6596, the approved prototype's `.lc .pic`): an Opening card is the toolbar's
+     Style card (`StyleCards`, like every part's) — the couple's real cover (`StylePreview` of `f:hero`) with the
+     opening drawn over it at the frame's shape. */
+  const card = reveal.slice(reveal.indexOf('<StyleCards'), reveal.indexOf('data-look-row="opening"'));
+  assert.match(card, /<StyleCards\s+data="reveal"/, 'an Opening card is not the toolbar’s Style card');
+  assert.match(card, /<StylePreview canvasKey="f:hero" sceneType="opening" styleId=\{id\} current=\{on\} focus="header\[data-pahina-first-screen\]" screen hide=\{id === REVEAL_NONE_ID \? null : '\[data-cover-line\]'\} \/>/, 'the card is not the couple’s own cover');
+  assert.match(card, /<RevealPicture kind=\{id\} colours=\{look\.colours\} fill over \/>/, 'the opening is not drawn over the cover at the frame’s shape');
+  /* 📷 The Camera has no look cards any more (owner 2026-10-24: one camera — `the-maker-offers-no-camera-style.test.ts`);
+     its one screen still fills its page. */
+  assert.match(read(`${LAUNCH}/stage-panel/camera-face.tsx`), /data-camera-face-screen="" className="absolute inset-0 /, 'the camera screen no longer fills its page');
+  assert.doesNotMatch(card, /spCardWidth|SP_LAYOUT_CARD/, 'a card is sized apart from the frame again');
 });
 
 /* ── 14 · the Reveal's NONE card — one fact with the three switches (owner, live Maker 2026-10-08: "and none.") ── */
@@ -591,19 +603,18 @@ test('None is the FIRST card of the Reveal’s Look and IS "every stage switch o
   assert.equal(REVEAL_NONE_ID, 'none');
   /* 5 · The strip: None first, always drawn, phone-shaped, the plain cover; one draft patch for both keys. */
   const src = read(`${LAUNCH}/maker-reveal.tsx`);
-  const strip = src.slice(src.indexOf('data-maker-reveal-kinds=""'), src.indexOf('data-reveal-stage-switches=""'));
-  const noneAt = strip.indexOf('data-maker-reveal-kind={REVEAL_NONE_ID}');
-  assert.ok(noneAt > 0 && noneAt < strip.indexOf('{openings.map((o) => {'), 'None is not the first card');
-  assert.doesNotMatch(src.slice(src.indexOf('data-maker-reveal-kinds=""') - 200, src.indexOf('data-maker-reveal-kinds=""')), /openings\.length > 0 \?/, 'the strip (and None with it) disappears when no opening is offered');
-  assert.match(strip, /aria-checked=\{none\}[^>]*onClick=\{\(\) => savePick\(revealPickPatch\(REVEAL_NONE_ID, now, onStage\)\)\}/);
-  assert.match(strip, /<RevealPicture kind=\{REVEAL_NONE_ID\} colours=\{look\.colours\} fill \/>/);
-  assert.match(strip, />None<\/span>/);
-  assert.match(strip, /const on = !none && effective === o\.id;/, 'an opening stays ringed beside None');
-  assert.match(strip, /onClick=\{\(\) => \(none \? savePick\(revealPickPatch\(o\.id, now, onStage\)\) : choose\(o\.id\)\)\}/);
+  /* (Re-aimed 2026-10-17: the cards are the Cover Scene's Opening — None is THIS stage's switch, `revealCoverPickPatch`.) */
+  const strip = src.slice(src.indexOf('const options = ['), src.indexOf('data-look-row="opening"'));
+  assert.match(strip, /const options = \[\s*\{ id: REVEAL_NONE_ID, name: 'None' \},\s*\.\.\.openings\.map\(/, 'None is not the first card');
+  assert.doesNotMatch(strip, /openings\.length > 0 \?/, 'the strip (and None with it) disappears when no opening is offered');
+  assert.match(strip, /value=\{picked\}/, 'the card ringed is not what plays on this stage');
+  assert.match(strip, /savePick\(revealCoverPickPatch\(id, now, onStage\)\)/);
+  assert.match(strip, /\{id !== REVEAL_NONE_ID \? <RevealPicture /, 'None draws an opening over the cover');
   assert.match(src, /fd\.set\('patch', JSON\.stringify\(\{ events: patch \}\)\);/, 'the card and the switches are not one draft write');
   const { revealPictureHtml } = await import(`../${LAUNCH}/stage-panel/reveal-picture`);
   const plain = revealPictureHtml('none', { dominant: '#111', supporting: '#222', accent: '#333', neutral: '#F7F2EC' }, 150, 96, true);
   assert.match(plain, /data-reveal-picture="none"[^>]*background:#F7F2EC"><\/span>$/, 'None draws an opening over the cover');
+  assert.equal(revealPictureHtml('none', { dominant: '#111', supporting: '#222', accent: '#333', neutral: '#F7F2EC' }, 150, 96, true, true), '', 'None over the real cover draws something');
   /* 6 · Every opening the event may use is a card: the list is the library less what the admin map switched off — no other filter. */
   const made = read(`${LAUNCH}/maker-made-once.tsx`);
   assert.match(made, /const allowed: Partial<Record<string, boolean>> = config\?\.templates \?\? \{\};\s*const openings = REVEAL_LIBRARY\.filter\(\(t\) => allowed\[t\.id\] !== false\)\.map\(/);

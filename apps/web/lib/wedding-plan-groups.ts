@@ -1132,6 +1132,13 @@ export type EventVendorRowInput = {
   host_inclusions?: string[] | null;
   covers_plan_groups?: string[] | null;
   /**
+   * `event_vendors.category_key` — the Suppliers-page ROW a supplier was moved
+   * to when the `category` enum cannot name it (Food Truck has no enum label,
+   * so its category stays `misc`). Read only through `homeTileForRow`.
+   * Optional: a caller that never SELECTs it places by `category`, as before.
+   */
+  category_key?: string | null;
+  /**
    * Resolved public URL for the linked manual vendor's photo (when
    * the host uploaded one at create-time). Source path is
    * `event_manual_vendors.photo_r2_key` → `publicUrlForStoredAsset()` in the

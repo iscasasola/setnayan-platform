@@ -64,7 +64,7 @@ const RADIO = 'a radio group (aria-checked): at this branch’s base the thumb r
 
 export const CONVERTED: readonly Converted[] = [
   /* ── area 1 · the couple's dashboard and the shared pieces ── */
-  { area: 'couple', what: 'Planner mode · Display language (Guided | DIY · English | Tagalog)', file: `${A}/profile/page.tsx`, anchor: 'data-setting-segmented={name}', via: 'track', thumb: 'slides', gone: 'rounded-md border border-ink/15 bg-cream p-1' },
+  { area: 'couple', what: 'Display language (English | Tagalog — hidden until the app is translated, owner 23 Oct)', file: `${A}/profile/page.tsx`, anchor: 'data-setting-segmented={name}', via: 'track', thumb: 'slides', gone: 'rounded-md border border-ink/15 bg-cream p-1' },
   { area: 'couple', what: 'Seat plan view (List | 2D | 3D)', file: `${D}/seating/_components/seating-frame.tsx`, anchor: 'data-seating-view-segment=""', via: 'track', thumb: 'slides', gone: 'bg-mulberry/15 text-mulberry-700 ring-1' },
   { area: 'couple', what: 'Seat-plan panel (People | Tables | Rules)', file: `${D}/seating/_components/seating-editor.tsx`, anchor: 'aria-label="Seat-plan panel"', via: 'track', thumb: 'slides', gone: "'border-terracotta text-ink' : 'border-transparent" },
   { area: 'couple', what: 'Who can sit here (guest | group | role)', file: `${D}/seating/_components/seating-editor.tsx`, anchor: 'data-seat-pick-tabs=""', via: 'track', thumb: 'slides', gone: 'inline-flex flex-1 rounded-lg border border-ink/15 bg-cream p-0.5' },
@@ -82,7 +82,9 @@ export const CONVERTED: readonly Converted[] = [
   { area: 'shared', what: 'Workspace sections (Chat · Quote · Payments · Files · Call · Details) — both sides', file: 'app/_components/relationship-tab-shell.tsx', anchor: 'aria-label="Workspace sections"', via: 'classes', thumb: 'slides', gone: 'rounded-xl border border-ink/10 bg-cream/70 p-1' },
   /* ── area 2 · the supplier's dashboard ── */
   { area: 'supplier', what: 'Momentum window (Daily | Monthly | Annual)', file: `${V}/performance/_components/momentum-window-toggle.tsx`, anchor: 'aria-label="Momentum window"', via: 'track', thumb: 'slides', gone: "background: 'var(--m-ink)', color: 'var(--m-paper)'" },
-  { area: 'supplier', what: 'Billing cycle (Monthly | Annual)', file: `${V}/subscription/_components/cycle-toggle.tsx`, anchor: 'data-cycle-toggle=""', via: 'track', thumb: 'slides', gone: 'bg-ink text-paper sn-bounce' },
+  /* "Billing cycle (Monthly | Annual)" left this list 2026-10-14: the simpler supplier dashboard (owner-APPROVED,
+     prototype SCREENS.plan "Cycle ▾") draws the plan and its cycle as ONE dropdown each, in rows. The toggle file is
+     deleted; the dropdowns are held by `app/vendor-dashboard/subscription/the-plan-is-rows.test.ts`. */
   { area: 'supplier', what: 'Your services sections (Coverage | Service cards)', file: `${V}/services/_components/manager-tabs.tsx`, anchor: 'aria-label="Your services sections"', via: 'track', thumb: 'slides', gone: 'var(--m-orange-3)' },
   /* The two "QR type (Shortlist | Locked)" tracks — on the dashboard card and on the QR Code Generator — are not
      removed to go green: the two places are ONE page since S-PR3, and the plan its owner approved draws the choice
@@ -180,7 +182,11 @@ test('(2)(3) every converted selector is drawn by the template — its track, it
   // 31 → 30 (S-PR3): the two QR-type tracks became ONE dropdown on ONE page (see the note in the list); the
   // Customers views track (People | Dates | Money) joined. Not a line removed to go green — two selectors that no
   // longer exist, one that does.
-  assert.ok(CONVERTED.length >= 30, `anti-vacuity: only ${CONVERTED.length} selectors are held`);
+  // 30 → 29 (simpler supplier dashboard step 6, 2026-10-14): the Plan page's billing-cycle track became ONE "Cycle ▾"
+  // dropdown in the plan's rows (owner-APPROVED prototype SCREENS.plan; held by
+  // app/vendor-dashboard/subscription/the-plan-is-rows.test.ts). A selector that no longer exists, not a line removed
+  // to go green.
+  assert.ok(CONVERTED.length >= 29, `anti-vacuity: only ${CONVERTED.length} selectors are held`);
   const report: string[] = [];
   for (const c of CONVERTED) {
     const faults = pillFaults(read(c.file), c);

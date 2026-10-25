@@ -283,6 +283,93 @@ export function buildBudgetList(money: EventMoney): BudgetList {
   return { suppliers, orders, expenses };
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// THE THUMB ROW'S FILTER AND SEARCH (plan row B3)
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// The prototype's frosted row: ＋ Add expense · All ▾ (All · Owing · Paid — a
+// dropdown, never pills) · search. "Filter applies to all three groups; an
+// emptied group says why ("Everything bought here is paid.")."
+//
+// 🛑 A FILTER NEVER TURNS "UNKNOWN" INTO "EMPTY". A group whose read was
+// refused is `null` before the filter and `null` after it — it keeps saying
+// "Couldn't load …", never "Nothing owed to a supplier."
+
+/** The All ▾ dropdown's three choices. */
+export type ListFilter = 'all' | 'owing' | 'paid';
+
+export const LIST_FILTERS: ReadonlyArray<{ key: ListFilter; label: string }> = [
+  { key: 'all', label: 'All' },
+  { key: 'owing', label: 'Owing' },
+  { key: 'paid', label: 'Paid' },
+];
+
+export function isListFilter(v: string): v is ListFilter {
+  return v === 'all' || v === 'owing' || v === 'paid';
+}
+
+/** Lower-case, accents folded — "Niño" is found by "nino". */
+function fold(s: string): string {
+  return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+}
+
+function keeps(status: RowStatus, filter: ListFilter): boolean {
+  return filter === 'all' || status === filter;
+}
+
+function matches(words: ReadonlyArray<string | null>, q: string): boolean {
+  if (q.length === 0) return true;
+  return words.some((w) => w !== null && fold(w).includes(q));
+}
+
+/**
+ * The list as the thumb row asks to see it. Search looks at a row's name and
+ * its grey sub-line word (a supplier's service, an expense's category).
+ * Pure; every refused group stays `null`.
+ */
+export function filterBudgetList(list: BudgetList, filter: ListFilter, query: string): BudgetList {
+  const q = fold(query.trim());
+  return {
+    suppliers:
+      list.suppliers === null
+        ? null
+        : list.suppliers.filter((r) => keeps(r.status, filter) && matches([r.name, r.service], q)),
+    orders:
+      list.orders === null ? null : list.orders.filter((r) => keeps(r.status, filter) && matches([r.name], q)),
+    expenses:
+      list.expenses === null
+        ? null
+        : list.expenses.filter((r) => keeps(r.status, filter) && matches([r.name, r.category], q)),
+  };
+}
+
+/** The line under the summary while a filter is on; `null` for All. */
+export function filterLine(filter: ListFilter): string | null {
+  if (filter === 'owing') return 'Showing what is still owed.';
+  if (filter === 'paid') return 'Showing what is paid in full.';
+  return null;
+}
+
+/**
+ * Why a group the filter or the search emptied has no rows — the prototype's
+ * words. `null` = draw nothing (an unfiltered group with no rows; "Your
+ * expenses" has its own "Nothing added yet" for that, drawn by the screen).
+ */
+export function whyEmpty(
+  group: 'suppliers' | 'orders' | 'expenses',
+  filter: ListFilter,
+  query: string,
+): string | null {
+  if (query.trim().length > 0) return 'No match.';
+  if (filter === 'paid') return 'None fully paid yet.';
+  if (filter === 'owing') {
+    if (group === 'suppliers') return 'Nothing owed to a supplier.';
+    if (group === 'orders') return 'Everything bought here is paid.';
+    return 'No expense still owing.';
+  }
+  return null;
+}
+
 /**
  * The supplier this sheet's "Record a payment" pre-fills with: their earliest
  * dated payment still owed, or — when nothing is dated — everything still owed.
@@ -295,4 +382,22 @@ export function suggestedPayment(row: Pick<SupplierRow, 'dues' | 'owedPhp'>): {
   const next = row.dues[0];
   if (next) return { amountPhp: next.amountPhp, dueDate: next.dueDate };
   return row.owedPhp > 0 ? { amountPhp: row.owedPhp, dueDate: null } : null;
+}
+
+/**
+ * 🔗 ONE PAYMENT'S ADDRESS (owner-approved 2026-10-24, `home_control_center_2026-10-24_fable.html`: *"it opens the
+ * exact payment and not just the budget page"*). Home's Budget widget links `?part=budget&pay=<line_item_id>`; the page
+ * opens the Pay sheet of the supplier that payment belongs to — the one sheet a payment is recorded in. Resolved from
+ * the page's OWN ledger lines (`resolveEventMoney`), never a second read; a line that is not this event's, not a
+ * supplier's, already settled, or whose supplier is not listed here opens nothing (the page as it always was).
+ */
+export function payTargetVendor(
+  lines: ReadonlyArray<{ source: string; sourceRef: string; vendorId: string | null; stillOwedPhp: number }>,
+  pay: string | null | undefined,
+  listed: ReadonlyArray<{ vendorId: string }> | null,
+): string | null {
+  if (!pay) return null;
+  const line = lines.find((l) => (l.source === 'vendor_line_item' || l.source === 'vendor_change_delta') && l.sourceRef === pay);
+  if (!line?.vendorId || line.stillOwedPhp <= 0) return null;
+  return (listed ?? []).some((r) => r.vendorId === line.vendorId) ? line.vendorId : null;
 }

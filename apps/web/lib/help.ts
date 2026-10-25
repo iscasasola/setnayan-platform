@@ -1,6 +1,9 @@
 import { papicPointCurrencyTerms } from '@/lib/papic-tier-copy';
 import { slugForwardingLabel } from '@/lib/slug-forwarding-window';
-import { FREE_BOOKING_LIMIT } from '@/lib/booking-fee-lock';
+import { FIRST_BOOKING_ON_US } from '@/lib/booking-fee-lock';
+import { mobileAppAnswer, mobileAppAnswerInApp } from '@/lib/where-setnayan-runs';
+import { PAPIC_FREE_CREDIT_CONDITION } from '@/lib/papic-free-credit-promise';
+import { DAY_OF_ENDS_PLAIN, DAY_OF_STARTS_PLAIN } from '@/lib/day-of-window-words';
 
 /**
  * The Papic shot currency, DERIVED — `papicPointCurrencyTerms()` interpolates
@@ -12,13 +15,66 @@ import { FREE_BOOKING_LIMIT } from '@/lib/booking-fee-lock';
  */
 const SHOT_TERMS = papicPointCurrencyTerms();
 
-export type HelpRole = 'couple' | 'vendor' | 'guest' | 'admin';
+/**
+ * WHO A PUBLIC HELP TOPIC IS FOR. ⛔ There is deliberately no team/admin value:
+ * the operations guides live in lib/help-admin.ts, which no public route may
+ * import (sweep 2026-10-19 B3 — see that file). A role filter is not a wall;
+ * a missing type member is.
+ */
+export type HelpRole = 'couple' | 'vendor' | 'guest';
+
+/** Every audience the public help may address — the guard iterates this. */
+export const PUBLIC_HELP_ROLES: ReadonlyArray<HelpRole> = ['couple', 'vendor', 'guest'];
 
 export type HelpArticle = {
   slug: string;
   title: string;
   body: string;
+  /**
+   * 🍎 WHAT THE IPHONE APP SAYS INSTEAD (Apple check 2026-10-19, rows #6 · #14
+   * — guideline 3.1.1 / 2.3.10). Present only where `body` points a reader at
+   * the web to buy ("current rate on setnayan.com/pricing", "a one-time
+   * purchase that unlocks", "Everything you buy goes into one pot"), names
+   * Android or the desktop app, or walks a couple through a part the app does
+   * not include. It says what the feature DOES, with no price, purchase or
+   * pointer — or, where the whole answer is a part the app does not include,
+   * it is `HELP_NOT_IN_THE_APP` and the app's /help index drops the question.
+   * Read through `helpBodyFor` / `helpTopicsFor`, never directly; held by
+   * lib/help-in-the-app-sells-nothing.test.ts.
+   */
+  appBody?: string;
 };
+
+/**
+ * The app's answer when the whole question is a part of Setnayan the app does
+ * not include — the /web-only page's own words, so the two never disagree.
+ * Deliberately blank about where else it lives: naming the website here is
+ * the external steering guideline 3.1.1 forbids (app/(shell)/web-only).
+ */
+export const HELP_NOT_IN_THE_APP = 'This part of Setnayan is not included in the app.';
+
+/** The answer this reader is shown: the app's own words in the store shell. */
+export function helpBodyFor(article: HelpArticle, storeShell: boolean): string {
+  return storeShell && article.appBody !== undefined ? article.appBody : article.body;
+}
+
+/**
+ * The topics as this reader sees them. Off the store shell: unchanged. In the
+ * store shell: every body is the app's answer, a question whose whole answer
+ * is `HELP_NOT_IN_THE_APP` is left out, and a topic left with no questions
+ * goes too — so the app's /help lists only what the app does.
+ */
+export function helpTopicsFor(topics: ReadonlyArray<HelpTopic>, storeShell: boolean): HelpTopic[] {
+  if (!storeShell) return [...topics];
+  return topics
+    .map((t) => ({
+      ...t,
+      articles: t.articles
+        .filter((a) => a.appBody !== HELP_NOT_IN_THE_APP)
+        .map((a) => ({ slug: a.slug, title: a.title, body: helpBodyFor(a, true) })),
+    }))
+    .filter((t) => t.articles.length > 0);
+}
 
 export type HelpTopic = {
   key: string;
@@ -35,7 +91,7 @@ export const HELP_ROLES: ReadonlyArray<{
   {
     key: 'couple',
     label: 'Couple',
-    blurb: "You're planning a wedding. Guest list, suppliers, budget, day-of.",
+    blurb: "You're planning an event. Guest list, suppliers, budget, the day itself.",
   },
   {
     key: 'vendor',
@@ -46,11 +102,6 @@ export const HELP_ROLES: ReadonlyArray<{
     key: 'guest',
     label: 'Guest',
     blurb: 'You got an invite. Time to RSVP and show up.',
-  },
-  {
-    key: 'admin',
-    label: 'Admin',
-    blurb: "You're part of the Setnayan operations team.",
   },
 ];
 
@@ -77,7 +128,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
   {
     key: 'about-setnayan',
     label: 'About Setnayan',
-    roles: ['couple', 'vendor', 'guest', 'admin'],
+    roles: ['couple', 'vendor', 'guest'],
     articles: [
       {
         slug: 'what-is-setnayan',
@@ -87,16 +138,19 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'how-much-does-setnayan-cost',
         title: 'How much does Setnayan cost?',
-        body: 'Couples start free (planning workspace: schedule, budget, guest list, seat plan, mood board, plus marketplace browse with a match preview). The paid planner is Setnayan AI, a one-time purchase that unlocks the full planner with access through your wedding day. Individual services and the Setnayan AI rate are listed on the Pricing page. Supplier side: Verified is free during launch, with Pro and Enterprise subscription tiers billed per 28-day prepaid block — what suppliers pay is set out on setnayan.com/for-suppliers. Couples pay 0% commission on supplier bookings — they pay their suppliers directly and Setnayan never sits between them at checkout. See setnayan.com/pricing for current rates.',
+        appBody: 'Planning in the Setnayan app is free: schedule, budget, guest list, seat plan, mood board, RSVP with a QR code for every guest, and marketplace browse with a match preview. Couples pay 0% commission on supplier bookings — they pay their suppliers directly and Setnayan never sits between them at checkout.',
+        body: 'Couples start free (planning workspace: schedule, budget, guest list, seat plan, mood board, plus marketplace browse with a match preview). The paid planner is Setnayan AI, a one-time purchase that unlocks the full planner with access through your wedding day. Individual services and the Setnayan AI rate are listed on the Pricing page. Supplier side: Verified is free during launch, with Solo, Pro and Ultra plans — what suppliers pay is set out on setnayan.com/for-suppliers. Couples pay 0% commission on supplier bookings — they pay their suppliers directly and Setnayan never sits between them at checkout. See setnayan.com/pricing for current rates.',
       },
       {
         slug: 'is-setnayan-free-for-couples',
         title: 'Is Setnayan free for couples?',
+        appBody: 'Yes. Planning in the app is free, with no card and no guest limit. The schedule, budget, guest list, seat plan and its 3D walkthrough, mood board, RSVP with a QR code for every guest, and the Event Hub with unlimited RSVP are all free with every account, plus marketplace browse and a preview of your supplier matches.',
         body: 'Starting is free, with no card and no guest limit. The schedule, budget, guest list, seat plan and its 3D walkthrough, mood board, RSVP with a QR code for every guest, and the Event Hub with unlimited RSVP are all free with every account, plus marketplace browse and a preview of your supplier matches. Optional paid software — Setnayan AI (a one-time purchase with access through your event date), the Live Watch multi-camera control room, Papic top-ups, Event Hub PRO and more — is priced individually. You only pay for what you choose to add. Current rates are on setnayan.com/pricing.',
       },
       {
         slug: 'does-setnayan-take-commission',
         title: 'Does Setnayan take commission on supplier bookings?',
+        appBody: 'No. Couples pay 0% commission on every booking — they pay their suppliers directly, and Setnayan never touches that money.',
         // ⚖ OWNER 2026-10-12 (#14): couple-facing pages do NOT mention the
         // supplier's fee. This topic is shown to couples, so the fee sentence
         // moved to the supplier-only "Fees & plans" topic below — word for
@@ -106,6 +160,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'what-is-todays-focus',
         title: "What is Setnayan AI?",
+        appBody: HELP_NOT_IN_THE_APP,
         body: 'Setnayan\'s assisted-planning tier — a one-time purchase that unlocks the full planner with access through your event date (current rate on setnayan.com/pricing). Matches, sorts, and cross-references suppliers against your date, budget, venue, guest count, religion, and reviews — and walks you through every decision from booking your venue through thank-you cards, with religion-adaptive guidance and hard-floor deadlines specific to Filipino weddings (Pre-Cana, marriage license validity windows, sponsor coordination, etc.).',
       },
       {
@@ -116,7 +171,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'what-languages-does-setnayan-support',
         title: 'What languages does Setnayan support?',
-        body: 'English (primary across the marketing site and dashboards). Tagalog (TL) on dashboard surfaces. Cebuano (CEB) localization on the marketing site is on the V1.1 roadmap.',
+        body: 'English is the main language. The dashboard’s menus and buttons are also available in Tagalog, and the feature pages have Tagalog versions.',
       },
       {
         slug: 'where-does-setnayan-operate',
@@ -126,7 +181,10 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'does-setnayan-have-mobile-app',
         title: 'Does Setnayan have a mobile app?',
-        body: 'Web-first responsive site that works on iOS Safari and Chrome Android. Native iOS and Android shells via Expo are on the V1.5 roadmap.',
+        appBody: mobileAppAnswerInApp(),
+        // One answer for /help, /about and /llms.txt — lib/where-setnayan-runs.ts
+        // says what is measured true and why the iPhone line waits on the App Store.
+        body: mobileAppAnswer(),
       },
       {
         slug: 'how-are-vendors-verified',
@@ -136,17 +194,20 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'what-is-pakanta',
         title: 'What is Music Maker?',
+        appBody: HELP_NOT_IN_THE_APP,
         body: 'A custom Filipino-style song written for the couple — a one-time per-event purchase (current price on setnayan.com/pricing). Setnayan\'s music team writes original lyrics around the couple\'s love story, records the track, and delivers it for the ceremony or reception.',
       },
       {
         slug: 'what-is-papic',
         title: 'What is Papic?',
-        body: "Candid photo (and short-video) capture for your event. A few friends you pick — your photo crew — shoot freely from their phones, and you can also let every guest snap photos too. Everyone opens a simple camera from a QR link (no app to install); every shot lands in your private gallery in real time and is matched to the right guests, so each person gets the photos they're in — and untagged photos still land (Papic never drops one). Clips run up to 10 seconds, and optional face-matching (only with each guest's consent) auto-sorts photos to the people in them. Your gallery stays online — keep the originals by downloading them or syncing to your own Google Drive. There's a free tier to try it; current prices are on setnayan.com/pricing.",
+        appBody: HELP_NOT_IN_THE_APP,
+        body: `Candid photo (and short-video) capture for your event. A few friends you pick — your photo crew — shoot freely from their phones, and you can also let every guest snap photos too. Everyone opens a simple camera from a QR link (no app to install); every shot lands in your private Memories in real time and is matched to the right guests, so each person gets the photos they're in — and untagged photos still land (Papic never drops one). Clips run up to 10 seconds, and optional face-matching (only with each guest's consent) auto-sorts photos to the people in them. Your Memories stay online — keep the originals by downloading them or syncing to your own Google Drive. One camera is free on every event. Free credits come ${PAPIC_FREE_CREDIT_CONDITION}, and more are priced on setnayan.com/pricing.`,
       },
       {
         slug: 'what-is-panood',
         title: 'What is Live Watch?',
-        body: 'Live streaming for your wedding, embedded directly on your Event Hub — one unlock covers the whole event, unlimited streams (current rate on setnayan.com/pricing). Guests and family who couldn\'t attend in person can watch the ceremony and reception live without leaving Setnayan.',
+        appBody: HELP_NOT_IN_THE_APP,
+        body: 'Live streaming for your event, embedded directly on your Event Hub. Streaming one camera is free. Live Watch adds all your cameras with a one-time unlock that stays with the event, with unlimited streams (current rate on setnayan.com/pricing). Guests and family who couldn\'t attend in person can watch the ceremony and reception live without leaving Setnayan.',
       },
       {
         slug: 'what-is-pakulay',
@@ -156,17 +217,20 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'how-does-setnayan-handle-privacy',
         title: 'How does Setnayan handle my privacy?',
-        body: 'RA 10173 (Data Privacy Act of the Philippines) compliant. Guest list and event details are never publicly shared without your explicit opt-in. Real-wedding stories publish 30 days post-event only with explicit couple consent. National Privacy Commission registration in progress. DPO contact at dpo@setnayan.com.',
+        body: 'RA 10173 (Data Privacy Act of the Philippines) compliant. Guest list and event details are never publicly shared without your explicit opt-in. Real-wedding stories publish 30 days post-event only with explicit couple consent. Setnayan sets essential cookies only — no analytics, advertising or tracking cookies — and lists every one at setnayan.com/cookies. National Privacy Commission registration in progress. DPO contact at dpo@setnayan.com.',
       },
       {
         slug: 'how-to-contact-support',
         title: 'How do I contact Setnayan support?',
-        body: 'Send a message via the contact form below on this page — pick your role (couple, supplier, guest, or admin) and we\'ll route it to the right team. Response within 24 hours during business days. Privacy-related requests reach the DPO directly at dpo@setnayan.com.',
+        body: 'Send a message with the contact form at the bottom of setnayan.com/help — pick what it is about (couple, supplier, guest, billing, a bug) and we\'ll route it to the right team. Response within 24 hours during business days. Privacy-related requests reach the DPO directly at dpo@setnayan.com.',
       },
       {
         slug: 'when-does-setnayan-launch',
-        title: 'When does Setnayan launch?',
-        body: 'Setnayan is rolling out in phases — a pilot with a small family + friends cohort exercising the full payment cycle on real weddings, followed by public launch alongside the founder\'s own wedding, the first event shipped through the platform end-to-end. See setnayan.com for the latest launch status.',
+        // The slug stays (it is an indexed URL); the question is the one a
+        // stranger actually has, answered with what is true today.
+        title: 'Is Setnayan open now?',
+        appBody: 'Yes. Anyone can sign up free and start planning any event type Setnayan offers, and suppliers can open a shop.',
+        body: 'Yes. Anyone can sign up free at setnayan.com and start planning any event type Setnayan offers, and suppliers can open a shop from setnayan.com/for-suppliers.',
       },
       // ─── GEO INTENT ANSWERS (2026-09-26) ─────────────────────────────────
       // One article per high-intent query an answer engine is asked. Each opens
@@ -181,6 +245,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'best-free-filipino-wedding-planner-app',
         title: 'What is the best free Filipino wedding planner app?',
+        appBody: 'Setnayan is a free, Philippines-first planner that keeps the whole wedding in one account: a guest list with no guest limit and more than 30 Filipino ceremony roles, RSVP with a QR code for every guest, a seat plan with a free 3D walkthrough of your reception, a budget in pesos, the day’s schedule, a mood board, and an Event Hub for your save-the-date and RSVP. No card and no trial clock. Couples book verified Filipino suppliers at 0% commission and pay them directly.',
         body: 'Setnayan is a free, Philippines-first planner that keeps the whole wedding in one account: a guest list with no guest limit and more than 30 Filipino ceremony roles, RSVP with a QR code for every guest, a seat plan with a free 3D walkthrough of your reception, a budget in pesos, the day’s schedule, a mood board, and an Event Hub for your save-the-date and RSVP. No card and no trial clock. Couples book verified Filipino suppliers at 0% commission and pay them directly. Optional upgrades — guest photo capture, livestream, an AI planner — are priced individually at setnayan.com/pricing.',
       },
       {
@@ -201,12 +266,14 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'share-wedding-photos-with-guests-automatically',
         title: 'How do I share wedding photos with guests automatically?',
-        body: 'With Papic, every guest’s phone becomes part of one photo-and-video crew — no app and no account, just a code and a browser. Photos gather into your galleries as they are taken, and a guest who adds a selfie once has the photos they appear in find them; anyone who skips it is never matched, and face data is deleted automatically three months after the celebration. If the venue has no signal, photos wait on the phone and send when it returns. One camera is free on every event. Free credits come on your first celebration, and you always receive every photo, kept for life.',
+        appBody: HELP_NOT_IN_THE_APP,
+        body: `With Papic, every guest’s phone becomes part of one photo-and-video crew — no app and no account, just a code and a browser. Photos gather into your Memories as they are taken, and a guest who adds a selfie once has the photos they appear in find them; anyone who skips it is never matched, and face data is deleted automatically three months after the event. If the venue has no signal, photos wait on the phone and send when it returns. One camera is free on every event. Free credits come ${PAPIC_FREE_CREDIT_CONDITION}, and you always receive every photo, kept for life.`,
       },
       {
         slug: 'free-alternative-to-wedding-website-builders',
         title: 'What is a free alternative to paid wedding website builders in the Philippines?',
-        body: 'Setnayan’s Event Hub is free with unlimited RSVP. It holds your save-the-date, your RSVP, the day’s details — when, where, dress code, directions — and your love story, laid out like a magazine feature instead of a form. Guests RSVP with one tap and you see the count in real time beside your guest list and seat plan. The same Event Hub later carries your guest gallery and your livestream. An optional PRO upgrade removes the Setnayan watermark and adds a cinematic save-the-date reveal.',
+        appBody: 'Setnayan’s Event Hub is free with unlimited RSVP. It holds your save-the-date, your RSVP, the day’s details — when, where, dress code, directions — and your love story, laid out like a magazine feature instead of a form. Guests RSVP with one tap and you see the count in real time beside your guest list and seat plan.',
+        body: 'Setnayan’s Event Hub is free with unlimited RSVP. It holds your save-the-date, your RSVP, the day’s details — when, where, dress code, directions — and your love story, laid out like a magazine feature instead of a form. Guests RSVP with one tap and you see the count in real time beside your guest list and seat plan. The same Event Hub later carries your Memories and your livestream. An optional PRO upgrade removes the Setnayan watermark and adds a cinematic save-the-date reveal.',
       },
       {
         slug: 'plan-a-debut-christening-or-other-event',
@@ -217,10 +284,12 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       // Asked of ChatGPT/Gemini, "Setnayan's weaknesses" came back as four
       // generic event-app worries: venue signal, older guests, upload load, and
       // free spreadsheets. Each answer below states only what ships, checked
-      // against code on this date: both Papic cameras queue a shot on the phone
-      // when the upload fails (enqueuePapicSeatCapture / enqueuePapicGuestCapture
-      // in lib/offline/service-handlers/papic-drain.ts) and compress before
-      // sending (compressImageForWeb / compressVideoForWeb); the door desk has a
+      // against code on this date: the guest and supplier cameras save every
+      // shot on the phone FIRST and send it in pieces when there is signal
+      // (lib/papic-upload/, 2026-10-23), the seat camera queues a shot on the
+      // phone when its upload fails (enqueuePapicSeatCapture in
+      // lib/offline/service-handlers/papic-drain.ts), and both send small copies
+      // (lib/papic-upload/prepare.ts · compressVideoForWeb); the door desk has a
       // name search (CheckinMethod 'manual_search'); a couple sets any guest's
       // RSVP from the guest card; guest import takes CSV.
       // ⚠ DELIBERATELY NOT CLAIMED: that door check-in works offline — marking
@@ -229,6 +298,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'what-if-the-venue-has-no-signal',
         title: 'What happens if the wedding venue has no signal?',
+        appBody: 'Your guest list, RSVPs and seat plan are all settled before the day, so a weak signal at the venue changes none of them.',
         body: 'Your photos are safe. Papic saves every shot on the phone that took it and sends it by itself once the signal comes back, so a dropped connection never loses a photo. Your guest list, RSVPs and seat plan are all settled before the day. Live Watch is the one part that needs a working connection, because a livestream travels over the internet as it happens — check the venue’s signal or Wi-Fi before the day.',
       },
       {
@@ -244,7 +314,8 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'setnayan-vs-free-apps-and-google-sheets',
         title: 'How is Setnayan different from free wedding apps, Google Sheets or a shared Drive?',
-        body: 'Everything the free tools do, Setnayan also does for free: a guest list with no limit (import your spreadsheet as CSV), RSVP, a seat plan, a budget in pesos and a schedule — in one account, where each part reads the same guest list, so a change in one place shows up everywhere. What a spreadsheet or a Drive link cannot do is run the day itself: your guests’ phones become one photo crew filling one gallery, and family abroad can watch the ceremony live. Those day-of tools are optional and priced individually on setnayan.com/pricing.',
+        appBody: 'Everything the free tools do, Setnayan also does for free: a guest list with no limit (import your spreadsheet as CSV), RSVP, a seat plan, a budget in pesos and a schedule — in one account, where each part reads the same guest list, so a change in one place shows up everywhere.',
+        body: 'Everything the free tools do, Setnayan also does for free: a guest list with no limit (import your spreadsheet as CSV), RSVP, a seat plan, a budget in pesos and a schedule — in one account, where each part reads the same guest list, so a change in one place shows up everywhere. What a spreadsheet or a Drive link cannot do is run the day itself: your guests’ phones become one photo crew filling one set of Memories, and family abroad can watch the ceremony live. Those day-of tools are optional and priced individually on setnayan.com/pricing.',
       },
     ],
   },
@@ -256,22 +327,80 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'sign-up-as-couple',
         title: 'Sign up as a couple',
-        body: 'On the sign-up page, pick "Couple" as your account type, enter your email, and choose a password (≥ 8 characters). You\'ll land on the dashboard immediately — V1 auto-confirms accounts so you don\'t need to wait on a confirmation email. Once Resend SMTP is wired, real email verification returns.',
+        body: 'Tap Create account on setnayan.com and sign up with Google, with Apple, or with your email and a password of at least 8 characters. A sign-up from there is a couple\'s account.',
       },
       {
         slug: 'sign-up-as-vendor',
         title: 'Sign up as a supplier',
-        body: 'Same form, pick "Supplier" instead. You\'ll land on /vendor-dashboard with a profile editor. Fill in your business name, services, and contact email. Couples find you by searching Setnayan and message you here — your email and phone are not shown on your public page.',
+        body: 'Start from the For suppliers page (setnayan.com/for-suppliers) and open your shop from there. Then fill in your business name, services, and contact email in your supplier dashboard. One account can do both: with a shop, you can still plan your own events from Events. Couples find you by searching Setnayan and message you here — your email and phone are not shown on your public page.',
       },
       {
         slug: 'create-an-event',
         title: 'Create your event',
-        body: 'From /dashboard, click "Create event". Pick the event type (Weddings only in V1), enter a display name (this is what guests + suppliers see), and the date. You can edit everything later from the Invitation tab.',
+        body: 'From your dashboard, start a new event. Pick the event type, enter a display name (this is what guests and suppliers see), and the date. You can change all of it later.',
+      },
+      {
+        // The account bar (owner 2026-10-21 "THE ACCOUNT BAR — EVENTS · DISCOVER · MEMORIES · PEOPLE"), the event
+        // bar of four, and the iPhone app's (Discover is dropped there while it bounces `/`).
+        slug: 'the-bar-at-the-bottom',
+        title: 'What are the tabs at the bottom of the screen?',
+        appBody:
+          'On your account screens the bar is Events, Memories and People — plus Shop if you own one. Events holds every event you host or are invited to, Memories keeps the photos and stories from all of them, and People is everyone you are connected to. Inside an event the bar changes to that event’s own: Home, Guests, Suppliers, Hub and Memories.',
+        body: 'On your account screens the bar is Events, Discover, Memories and People — plus Shop if you own one. Events holds every event you host or are invited to, Discover shows public events from people you follow, Memories keeps the photos and stories from all of them, and People is everyone you are connected to. Inside an event the bar changes to that event’s own: Home, Guests, Suppliers, Hub and Memories. On a laptop the same places run down the side.',
+      },
+      {
+        // Owner 2026-10-22: "In shop they do not create events, but them as a user, they can create their events".
+        slug: 'one-account-shop-and-events',
+        title: 'Can I plan my own events if I have a shop?',
+        body: 'Yes. One account can run a shop and plan events. Create an event from Events, as anyone does. A shop you open or claim is also one of your loved ones in People, so you can make an event for your shop as well as for yourself.',
+      },
+      {
+        // The avatar sheet, Direction 2 (owner 2026-10-22, #6783) — one Switch to card, a row per shop (#6802).
+        slug: 'switch-between-your-places',
+        title: 'How do I switch between my events and my shop?',
+        body: 'Tap your picture at the top. Switch to lists Your events and each shop you run — tap one to go there, or View page to see a shop’s public page. Profile & settings is at the top of the same sheet.',
+      },
+      {
+        // Search stays in the shell (#6782): a signed-in search answers on the account's own results page.
+        slug: 'what-search-finds',
+        title: 'What does search find?',
+        appBody: 'Your events, the suppliers on them — marked On your event — and our stories and guides. The results open inside your account.',
+        body: 'Your events, the suppliers on them — marked On your event — the shops on Setnayan, and our stories and guides. The results open inside your account.',
+      },
+      {
+        // The supplier bar (owner 2026-10-21 "SUPPLIER BAR — TODAY · CUSTOMERS · SHOP · HUB"; More left the bar).
+        slug: 'supplier-dashboard-tabs',
+        title: 'Suppliers: where is everything in my dashboard?',
+        body: 'The bar is Today, Customers, Shop and Hub. Today shows the one thing waiting on you. Customers holds your people, dates and money — and your messages, which also open from the envelope at the top. Shop is your page and what you sell, with How it is going. Hub runs your event days. Settings is under your profile picture.',
       },
       {
         slug: 'event-id-vs-slug',
         title: 'Event ID vs slug',
-        body: 'Every event has a Setnayan ID like S89E-AB12CD3456 (used internally) and a public slug like maria-and-juan (used in your invitation URL). The slug is editable on the Invitation tab. Old slugs auto-redirect for ' + slugForwardingLabel() + ', so links and QR codes already printed keep working.',
+        body: 'Every event has a Setnayan ID like S89E-AB12CD3456 (used internally) and a public slug like maria-and-juan (used in your invitation URL). You can change the slug later; old slugs auto-redirect for ' + slugForwardingLabel() + ', so links and QR codes already printed keep working.',
+      },
+    ],
+  },
+  {
+    // People (owner 2026-10-22 "PEOPLE WEARS TODAY'S GUEST LIST") and Memories, the account bar's two places
+    // that are not events. Loved ones include a business alaga (2026-10-22, a claimed shop too).
+    key: 'people-memories',
+    label: 'People & Memories',
+    roles: ['couple', 'vendor'],
+    articles: [
+      {
+        slug: 'people-page',
+        title: 'What is People?',
+        body: 'People is everyone you are connected to on Setnayan. The counts at the top — connected, waiting for them, asking you — each show just those people when you tap them. Type a name in the field at the bottom to find someone, or to invite them if they are not on Setnayan yet. ≡ opens Groups, Following and Followers. Nobody is connected until they say yes.',
+      },
+      {
+        slug: 'loved-ones',
+        title: 'What are loved ones?',
+        body: 'Loved ones are the people and things you plan events for — a child, a lola, a pet. Add one in People, under Loved ones. A shop you open or claim is added there too, so you can make an event for your shop. An event made for a loved one or your shop says who it is for — on its card, and under its name on Home.',
+      },
+      {
+        slug: 'memories',
+        title: 'What is Memories?',
+        body: 'Memories keeps the photos and stories from every event you hosted or went to, in one place. Open it from Memories in the bar at the bottom.',
       },
     ],
   },
@@ -286,7 +415,8 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'what-do-suppliers-pay-setnayan',
         title: 'What does Setnayan charge suppliers?',
-        body: `No commission — couples pay you directly and Setnayan never touches that money, on every tier. Separately, a supplier pays Setnayan a booking fee only on couples Setnayan introduces: the first ${FREE_BOOKING_LIMIT} are free, a supplier's own clients are always free, and the fee is never added to what a couple pays. Current rates are on setnayan.com/for-suppliers.`,
+        appBody: `No commission — couples pay you directly and Setnayan never touches that money. Separately, a supplier pays Setnayan a booking fee only on couples Setnayan introduces. ${FIRST_BOOKING_ON_US} A supplier's own clients are always free, and the fee is never added to what a couple pays.`,
+        body: `No commission — couples pay you directly and Setnayan never touches that money, on every tier. Separately, a supplier pays Setnayan a booking fee only on couples Setnayan introduces. ${FIRST_BOOKING_ON_US} A supplier's own clients are always free, and the fee is never added to what a couple pays. Current rates are on setnayan.com/for-suppliers.`,
       },
     ],
   },
@@ -332,7 +462,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
         slug: 'how-to-prepare-bank-account-proof',
         title: 'How to prepare your bank account proof',
         body:
-          'This shows you control a real payout account under your business identity. It is a trust check — Setnayan does not hold your money, and the deposit-verification step only starts once Setnayan Pay is live.\n\n' +
+          'This shows you control a real payout account under your business identity. It is a trust check — Setnayan does not hold your money.\n\n' +
           'Your proof just needs to clearly show three things:\n' +
           '1. The account holder name — this should match your DTI/SEC business name (or your own name if you are a sole proprietor).\n' +
           '2. The provider — the bank name, or GCash / Maya.\n' +
@@ -364,49 +494,58 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'add-guest-roles',
         title: 'Filipino wedding roles',
-        body: 'V1 ships 18 canonical roles: maid/matron of honor, best man, bridesmaids, groomsmen, principal sponsors, candle/veil/cord/coin sponsors, ring/bible/coin bearers, flower girl, officiant, lectors, soloists, and generic guest. Each is assignable from the Add Guest form.',
+        body: 'More than 30 Filipino ceremony roles are built in, including maid, matron or man of honor, best man or best woman, bridesmaids, groomsmen, the parents and grandparents of the bride and of the groom, principal sponsors, candle, veil, cord and coin sponsors, ring, bible and coin bearers, flower girl, officiant, readers, and Nikah roles. A guest can hold more than one: tick each in Role on their card — the first is their main role.',
       },
       {
         slug: 'plus-ones',
         title: 'How plus-ones work',
-        body: 'When you tick "Allow plus-one" on a guest, Setnayan creates a second guest row linked to the primary. The +1 has its own QR code and can RSVP independently. If the +1 is TBA, either the guest names them on their own reply card, or the +1 names themselves the first time they open their invitation.',
+        body: 'Pick how many plus-ones a guest may bring (+1, +2 and so on) and Setnayan adds a seat for each one, listed with their guest, with its own QR code. Until it is named it reads as the guest’s +1 — the guest can name them on their reply, or the +1 names themselves the first time they open their invitation. The counts at the top say how many +1s are named and how many have no name yet; tap either to see them. A seat with no name yet can be let go with Release seat. A +1 cannot bring a +1 of their own.',
       },
       {
         slug: 'import-csv',
         title: 'Import guests from CSV',
-        body: 'On the Guests page, tap + then "Import a file". Paste your spreadsheet (max 200 rows per import). Required columns: first_name, last_name. Optional: side, role, group_category, email, mobile, meal_preference, plus_one_allowed. Bad rows are flagged; valid rows insert atomically.',
+        body: 'On Guests, tap ＋, then Import a file. Upload a CSV file — up to 200 rows at a time; download the template on that page to start. First name and last name are the only columns you must fill. You see every row before anything is added, and uploading again updates the guests already there.',
       },
       {
         slug: 'share-invite-link',
         title: 'Share an invite link',
-        body: 'Each guest gets a personal URL with their QR token. From the Invitation tab, you can either print the entire QR sheet (one per guest, A4 layout) or copy individual links from the guest table. There\'s also a generic "anyone with the link" event-join URL for ad-hoc invites.',
+        body: 'Each guest has their own invitation link and QR. On Guests, tap a guest’s Invite to copy their link or a ready message, or to share the message with their ticket. For people not on your list yet, Guests › Setup has one link anyone can use to ask to join.',
       },
     ],
   },
   {
     key: 'invitations',
-    label: 'Invitation site',
+    label: 'Event Hub',
     roles: ['couple'],
     articles: [
       {
         slug: 'invitation-site',
-        title: "What's the invitation site?",
-        body: 'The public URL at setnayan.com/[your-slug] is where every invitation goes. Guests land here when they tap their personal link or scan their QR. The site shows your event details, an RSVP form, countdown, venue map, dress code, and more.',
+        title: 'What is the Event Hub?',
+        body: 'Your Event Hub is the page at setnayan.com/your-slug where every invitation leads. Guests land there when they tap their personal link or scan their QR. It shows your event details, an RSVP form, a countdown, the venue map, the dress code, and more.',
+      },
+      {
+        // Event Hub Pro part by part (owner 2026-10-22, #6775/#6780). Web only — the app shows none of it. No figure
+        // here: prices are the catalogue's (platform_retail_catalog_v2), named on the Pricing page.
+        slug: 'event-hub-pro-parts',
+        title: 'Can I get only part of Event Hub Pro?',
+        appBody: HELP_NOT_IN_THE_APP,
+        body: 'Yes. Event Hub Pro comes part by part — Style, Background, Motion, Music, Photos, Logo & QR, Prints, a custom address and more — or everything at once. Try any Pro effect in your draft: at Apply, the sheet names the parts it needs. What you pay for parts counts toward everything. Each part shows its price on the Event Hub Pro page in Studio.',
       },
       {
         slug: 'monogram',
         title: 'Customize the QR monogram',
-        body: 'From the Invitation tab → Branding section. The monogram is the text in the center of every guest\'s QR code (default: first letter of each side joined by &, e.g. "M & J"). Override the text and pick an accent color. Every guest\'s QR rebuilds instantly.',
+        appBody: 'Every guest’s QR code carries a mark in its centre and opens their own invitation. You will find it in Hub, under Event Details › QR Code.',
+        body: 'Every guest’s QR has a mark in its centre: the Setnayan mark on a free event, your own logo with Event Hub Pro. The QR’s shape, pattern and colour are in Hub, under Event Details › QR Code. Guests see a change once you press Apply.',
       },
       {
         slug: 'print-qr-sheet',
         title: 'Print the QR sheet',
-        body: 'From the Invitation admin, click "Print sheet" — opens an A4 grid with each guest\'s branded QR + name + role. Print at 100% scale, no margins. Cut along the dashed lines or fold into card inserts.',
+        body: 'Open Hub › Prints and find Guest QR codes, under For the day. Save PDF gives every guest’s own QR with their name, twelve to an A4 page — free for every event. Print it at 100% scale.',
       },
       {
         slug: 'reissue-qr',
         title: "Re-issue a guest's QR code",
-        body: 'If a guest loses their link or shares it, you can invalidate the old token. On the Invitation admin, find the guest row → "Re-issue token". Old QR stops working immediately; new QR is ready to share.',
+        body: 'If a guest loses their link or shares it, make them a new one. On Guests, open the guest’s card, tap ⋯ › New QR, then Make a new QR. Their old QR and link stop working right away, and the new one can be sent.',
       },
     ],
   },
@@ -418,17 +557,23 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'track-vendor',
         title: 'Track a supplier',
-        body: 'On the Suppliers page, click Add a supplier. Pick a category from the 28 standard options (or pick "Miscellaneous" for anything off-list). Set a total cost + payment if you have them. Suppliers move through a 6-stage flow: considering → shortlisted → contracted → first payment paid → delivered → complete.',
+        body: 'On Suppliers, open Build and find the category — the caterer, the photographer and so on. Tap Add manually to add a supplier you found yourself, with their contact, what they cover and what you agreed to pay. Once you have paid them, they show as Booked.',
+      },
+      {
+        // A manual venue's pin is set in Studio › Info; a shop's venue follows the shop's pin (owner 2026-10-22, #6787).
+        slug: 'venue-pin',
+        title: 'How do I put my venue on the map?',
+        body: 'In Studio › Info › Venues, a venue you added yourself gets a pin you can move to the door. A venue booked from a shop on Setnayan follows the shop’s own pin — if the shop has not pinned its place yet, the map says so.',
       },
       {
         slug: 'budget-line-items',
         title: 'Budget line items',
-        body: 'On the Budget page, each supplier card has two columns. Left: itemized line items (Payment, Balance, Tip, etc.) with optional due dates. Right: actual payments you\'ve logged. Stats at the top roll up total budget, paid, remaining, and what\'s due in the next 30 days.',
+        body: 'Your budget is in Suppliers › Budget. The top shows Target, Agreed, Paid and Owed. Below it: your booked suppliers, your Setnayan services, and your own expenses — ＋ Add expense for anything paid outside Setnayan. A supplier’s line items and payments are on that supplier’s own card.',
       },
       {
         slug: 'export-calendar',
         title: 'Export budget due dates to your calendar',
-        body: 'On the Budget page header, click "Export upcoming dates (.ics)". You get an RFC 5545 calendar file with one event per unpaid line-item due date. Import to Google Calendar, Apple Calendar, or Outlook — any standard ICS-aware app.',
+        body: 'In Suppliers › Budget, tap Export upcoming dates (.ics). You get a calendar file with one entry for each payment still due. Open it in Google Calendar, Apple Calendar or Outlook.',
       },
     ],
   },
@@ -440,12 +585,17 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'palette-tiers',
         title: 'Palette tiers',
-        body: 'Mood Board groups your palettes into three families: Venue (Ceremony 1-3 colors, Reception 3-5 in named slots — dominant, supporting, accent, neutral, accent 2), Couple (Bride 1-3, Groom 1-3), and Roles (Wedding Party 3-6, Sponsors 1-3 each, Plain guests 3-6). Every starter theme fills all five reception slots. Role palettes only show when you have guests in that role.',
+        body: 'Mood Board groups your palettes into three families: Venue (Ceremony 1-3 colors, Reception 3-5 in named slots — dominant, supporting, accent, neutral, accent 2), Couple (Bride 1-3, Groom 1-4), and the wedding party, family and sponsors (Wedding Party 3-6, Sponsors 1-3 each, Plain guests 3-5). Every starter theme fills all five reception slots. Role palettes only show when you have guests in that role.',
+      },
+      {
+        slug: 'dress-code-by-role',
+        title: 'How does the dress code work?',
+        body: 'Set it in Studio › Mood Board & Dress Code. Each role — the couple, the entourage, the parents, the sponsors and your guests — has its own row: pick what they wear and their colours, and a drawn figure shows it. Each role can have its own call time. For your guests you can allow more than one style, and up to five designs in each. Every guest sees only their own role’s dress code on your Event Hub, with your do’s and don’ts.',
       },
       {
         slug: 'palette-chip-dot',
-        title: 'How the palette shows up in the guest list',
-        body: "Each role chip in the Guest List grows a small colored dot when you've set a palette for that role. The dot shows the first color of the palette as a visual signal — see the full palette on the Mood Board page.",
+        title: 'How the palette shows up for your guests',
+        body: 'A guest’s card says what they wear and where it came from — their role’s dress code from the Mood Board — and the 3D seat plan dresses them in it.',
       },
     ],
   },
@@ -457,17 +607,17 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'start-thread-with-vendor',
         title: 'Start a thread with a supplier',
-        body: "Tap Message on a supplier in your Suppliers list, or Inquire on any shop's page — Setnayan opens the conversation for you, and the shop replies in your Messages. Everything you agree stays with your event. (If you already know the email on a shop's Setnayan profile, you can also type it on the Messages tab.) Re-opening a thread between the same event + supplier resumes the existing conversation — no duplicates. Only couples can open new threads — suppliers reply to threads couples started.",
+        body: 'Tap Message on a supplier in your Suppliers list, or Message on any shop’s page — Setnayan opens the conversation for you, and the shop replies in your chats. Everything you agree stays with your event. Opening a chat again with the same supplier for the same event picks up the one you had. Only hosts start a chat — suppliers reply.',
       },
       {
         slug: 'identity-masking',
         title: "Suppliers don't see your email",
-        body: "When a supplier opens a thread, they see only your event's display name and date — never your email or personal name. You control how you're identified by the display_name you set on your event. This is locked behavior in V1.",
+        body: 'Suppliers never see your email. In a chat they see your name and your event — its name, date, place, guest count and the suppliers you have booked — so they can answer properly.',
       },
       {
         slug: 'vendor-reply-only',
         title: 'Suppliers: how the reply-only inbox works',
-        body: 'Your /vendor-dashboard/messages inbox lists every thread a couple has opened with you. You can reply to any thread, attach files, and share quotes. You cannot start a thread cold — couples have to reach out first. This protects them from unsolicited DMs.',
+        body: 'Your Messages inbox lists every thread a couple has opened with you. You can reply to any thread, attach files, and share quotes. You cannot start a thread cold — couples have to reach out first. This protects them from unsolicited DMs.',
       },
     ],
   },
@@ -479,12 +629,13 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'how-to-order',
         title: 'How to order a Setnayan service',
-        body: 'Open the Orders tile from Home. Hit "New order", describe what you need, and propose a budget. The Setnayan team reviews and confirms the price; you receive a notification with the confirmed total and a reference code.',
+        appBody: HELP_NOT_IN_THE_APP,
+        body: 'Open the service you want — Setnayan AI, Papic, Live Watch and the rest — and tap Add this service. Pay by BDO or GCash, add a screenshot and the reference number, and send. Each service has one fixed price, shown on its page.',
       },
       {
         slug: 'payment-instructions',
         title: 'How payments work',
-        body: 'Once your order is quoted, the order detail page shows payment instructions. Send the amount to one of our receiving accounts, from any bank or e-wallet app (the account names and QR are on the order page). Always include the reference code in transfer notes so we can match it automatically. Then log the payment on the same order page with the bank reference + a screenshot URL.',
+        body: 'Your order page has Send your payment, which opens the payment page with our accounts and QR. Pay from any bank or e-wallet app, then send a screenshot and the last 6 digits of your reference there. Put your order’s reference code in the transfer note so we can match it.',
       },
       {
         slug: 'reference-code',
@@ -496,22 +647,27 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
   {
     key: 'account-privacy',
     label: 'Account & privacy',
-    roles: ['couple', 'vendor', 'admin'],
+    roles: ['couple', 'vendor'],
     articles: [
       {
         slug: 'theme',
-        title: 'Switch your dashboard theme',
-        body: 'On Profile, pick one of five themes — Setnayan Default (burgundy), Victorian, Classy, iOS, Forest & Champagne Gold. The whole dashboard re-skins instantly. Public invitation site stays on Setnayan Default regardless.',
+        title: 'Change your Event Hub’s theme',
+        body: 'Your Event Hub has its own theme: choose it in Hub › Look › Theme. Guests see a new theme once you press Apply. Your own screens can be light or dark: choose Appearance in Profile › Preferences.',
+      },
+      {
+        slug: 'cookies',
+        title: 'Does Setnayan use cookies?',
+        body: 'Only the essential ones — to keep you signed in and remember your choices, like light or dark. Setnayan uses no analytics, advertising or tracking cookies, so nothing asks you about cookies. Every cookie is listed, with what it does and how long it stays, at setnayan.com/cookies.',
       },
       {
         slug: 'data-export',
         title: 'Export your data',
-        body: 'On Profile → Privacy & data → "Download .json". You get a JSON file with your profile, event memberships, supplier profile (if any), and every chat message you authored. Audit log, R2 media, and payment records aren\'t in V1 (flagged in the export).',
+        body: 'On Profile, open Privacy › Your data › Download my data and tap Download .json. You get a file with your profile, your events, your supplier profile (if any), your messages, and your own orders and payments. The file lists anything it leaves out.',
       },
       {
         slug: 'delete-account',
         title: 'Delete your account',
-        body: 'On Profile → Privacy & data → expand the Delete my account block → type DELETE to confirm. We soft-delete the account and sign you out. Internal admins can restore within 30 days; after that, deletion becomes permanent. RA 10173 right-to-erasure compliant.',
+        body: 'On Profile, under Account, open Delete my account and type DELETE to confirm. That files a deletion request: our team reviews it within 24 hours — checking first for active events, bookings or an outstanding balance — and you can cancel it until it is approved. Once approved, deletion is permanent. RA 10173 right-to-erasure compliant.',
       },
     ],
   },
@@ -524,22 +680,22 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'scan-qr-code',
         title: 'How to open your Setnayan invite',
-        body: "Scan the QR code on your invitation card with your phone's camera. It opens your personal page at setnayan.com/e/[the-couple-slug]/g/[your-code]. Bookmark it — that's your one place for everything about the event (schedule, venue, RSVP, your seat).",
+        body: "Scan the QR code on your invitation card with your phone's camera. It opens your own personal invitation page. Bookmark it — that's your one place for everything about the event (schedule, venue, RSVP, your seat).",
       },
       {
         slug: 'rsvp-from-link',
         title: 'How to RSVP',
-        body: "Tap the RSVP button on your personal page. Pick Yes or No. If your invite allows a plus-one, add their name. You can change your answer up to the couple's RSVP cutoff (usually 1-2 weeks before).",
+        body: 'Open your invitation and tap Reply on the Will you join us? card. Pick your answer, name your plus-ones if you may bring any, and send. You can change your reply with Change my reply until the couple’s reply-by date.',
       },
       {
         slug: 'meal-preference',
         title: 'Meal preferences and dietary notes',
-        body: 'If the couple is asking about meals (regular, vegetarian, halal, etc.), pick yours when you RSVP. It feeds into the caterer\'s count so there\'s something for you on the day. There\'s a free-text note for allergies or "I cannot have shellfish".',
+        body: 'If the couple asks about meals, your reply has a meal choice — no preference, beef, chicken, fish, vegetarian, vegan or a kids’ meal — and a box for dietary notes like halal or allergies. The couple sees it on their guest list.',
       },
       {
         slug: 'lost-invite-link',
         title: 'I lost my invite link',
-        body: 'Reach out to the couple — they can re-issue your QR from the Invitation admin. Your old link stops working immediately and you get a fresh one. Setnayan support cannot share invite links directly; the couple controls the guest list.',
+        body: 'Message the couple. They can send your link again from their guest list, or make you a new QR — the old link then stops working.',
       },
     ],
   },
@@ -549,19 +705,25 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
     roles: ['guest'],
     articles: [
       {
+        slug: 'what-to-wear',
+        title: 'What should I wear?',
+        body: 'Open your invitation and find Dress code. It shows what you wear for your own role, in the couple’s colours, with their do’s and don’ts. If the couple allows more than one outfit, wear any one of them in any of the colours shown.',
+      },
+      {
         slug: 'find-your-table',
         title: 'Find your seat',
-        body: "From T-1 hour on the wedding day, your personal page shows a 'Your table' card with the table number, a small venue map, and (if uploaded) a seat photo. No need to ask the host — open the page and head straight there.",
+        body: 'On the day, your invitation shows Your seat with your table and a small map of the room. Before then it says Your seat shows on the day — unless the couple shows seats early.',
       },
       {
         slug: 'live-schedule',
         title: "What's happening right now",
-        body: 'The Live schedule card auto-advances as the day moves — ceremony, cocktails, dinner, dances, send-off. You always know what\'s next and roughly when. Available T-1 hour to T+8 hours.',
+        body: `On the day, your invitation shows Happening now — what is on, and what is up next — so you never have to ask. Available from ${DAY_OF_STARTS_PLAIN} until ${DAY_OF_ENDS_PLAIN}.`,
       },
       {
         slug: 'photo-wall',
         title: 'Share photos with the couple',
-        body: "If the couple has Photo Wall enabled, your phone becomes a photo uploader. Upload from your camera roll or take a new shot — it lands in the couple's gallery for everyone to enjoy. Optional and you can delete anything you uploaded.",
+        appBody: HELP_NOT_IN_THE_APP,
+        body: 'On the day, Capture the day on your invitation lets you share photos from your camera roll, or be a candid camera for the couple. Everything goes straight to their Memories.',
       },
     ],
   },
@@ -574,42 +736,50 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'what-is-papic',
         title: 'What is Papic?',
-        body: "Papic turns the phones at your wedding into candid cameras. You get one pot of credits for the whole event, and any guest can shoot from it — they scan your event QR and start, with no limit on how many phones join in. Your first celebration starts with 50 credits free, so you can try it before deciding to add any. If you want to be sure someone in particular never runs out, you can set aside some of your credits for their camera alone, where nobody else can spend them; when those run out, that camera simply carries on from the shared pot. Cameras themselves are free and you can make as many as you like. Every shot lands in your private gallery, each guest can find the photos they're in, and there's no app to install — it all runs in the browser.",
+        appBody: HELP_NOT_IN_THE_APP,
+        body: `Papic turns the phones at your wedding into candid cameras. You get one pot of credits for the whole event, and any guest can shoot from it — they scan your event QR and start, with no limit on how many phones join in. Free credits come ${PAPIC_FREE_CREDIT_CONDITION}, so you can try it before deciding to add any. Cameras themselves are free and you can make as many as you like. Every shot lands in your private Memories, each guest can find the photos they're in, and there's no app to install — it all runs in the browser.`,
       },
       {
         slug: 'turn-on-papic',
         title: 'How do I turn on Papic and hand out cameras?',
-        body: "Open your dashboard → Studio → Papic. It's already on: every wedding gets one free camera of its own, and your first celebration also starts with a free pool of credits — so there is nothing to buy before you try it. To let guests shoot, share your event QR — any phone that scans it shoots from the shared pool, and there's no limit on how many join. To give one person their own camera, hand them that camera's link (or QR) from the same page; their credits come out of that camera's own balance, not the shared pool, so they can't be used up by anyone else. You can hand a camera to someone else at any time, and top up either the shared pool or a single camera whenever you want — current prices are on setnayan.com/pricing.",
+        appBody: HELP_NOT_IN_THE_APP,
+        body: `Open your dashboard → Studio → Papic. It's already on, with no limit on cameras. Every photo uses credits from one shared pool, and free credits come ${PAPIC_FREE_CREDIT_CONDITION} — so there is nothing to buy before you try it. To let guests shoot, share your event QR — any phone that scans it shoots from the shared pool, and there's no limit on how many join. To give one person a camera of their own, hand them that camera's link (or QR) from the same page; every shot it takes draws from your shared credits. Top up the shared pool whenever you want — current prices are on setnayan.com/pricing.`,
       },
       {
         slug: 'how-papic-tagging-works',
         title: 'How do my photos get matched to the right guests?',
-        body: "Two ways, both automatic. (1) Face matching: guests who add a selfie are recognized in candid shots, and those photos appear in their 'Photos of you'. (2) QR scan: your crew can scan a guest's invitation QR or a table sign to mark who's in a shot. Either way, every photo reaches your gallery — tagged or not. Face matching is private and per-wedding: a guest's face data is never shared or reused across events, and it only works with the guest's consent.",
+        appBody: HELP_NOT_IN_THE_APP,
+        body: "Two ways, both automatic. (1) Face matching: guests who add a selfie are recognized in candid shots, and those photos appear in their 'Memories of you'. (2) QR scan: your crew can scan a guest's invitation QR or a table sign to mark who's in a shot. Either way, every photo reaches your Memories — tagged or not. Face matching is private and per-wedding: a guest's face data is never shared or reused across events, and it only works with the guest's consent.",
       },
       {
         slug: 'find-download-papic-photos',
         title: 'Where do I find and download all my Papic photos?',
-        body: "Dashboard → Studio → Papic → Gallery. Every candid from your crew and guests is there — filter by 'Photos of us', videos, or untagged. Save any photo to your phone with one tap, or use 'Download all' to pull the whole gallery as a zip. You can also connect Google Drive to auto-sync everything to your own Drive.",
+        appBody: HELP_NOT_IN_THE_APP,
+        body: "Dashboard → Studio → Papic → Memories. Every candid from your crew and guests is there — filter by 'Photos of us', videos, or untagged. Save any photo to your phone with one tap, or use 'Download all' to pull all your Memories as a zip. You can also connect Google Drive to auto-sync everything to your own Drive.",
       },
       {
         slug: 'papic-guest-camera',
         title: 'Guest: how do I take candid photos for the couple?',
-        body: "If the couple turned on guest cameras, open your invitation link and tap 'Be a candid camera'. Point and shoot — every photo lands straight in the couple's gallery in real time. No sign-in, no app. You have a set number of shots; the counter shows how many you have left. After a shot you can also tell the couple the story behind it.",
+        appBody: HELP_NOT_IN_THE_APP,
+        body: "If the couple turned on guest cameras, open your invitation link and tap 'Be a candid camera'. Point and shoot — every photo lands straight in the couple's Memories in real time. No sign-in, no app. You have a set number of shots; the counter shows how many you have left. After a shot you can also tell the couple the story behind it.",
       },
       {
         slug: 'add-your-face',
         title: 'Guest: how do I make sure I get my photos? (add your face)',
-        body: "When you RSVP, tap 'Add your photo' and take one selfie (you'll be asked to agree first — it's optional). That lets the candid photos of you find their way to you automatically, under 'Photos of you' on your page. On the wedding day you can also add it from the 'Add your face' card if you skipped it. No selfie? You'll still get any photo where the crew scans your invitation QR.",
+        appBody: HELP_NOT_IN_THE_APP,
+        body: "When you RSVP, tap 'Add your photo' and take one selfie (you'll be asked to agree first — it's optional). That lets the candid photos of you find their way to you automatically, under 'Memories of you' on your page. On the wedding day you can also add it from the 'Add your face' card if you skipped it. No selfie? You'll still get any photo where the crew scans your invitation QR.",
       },
       {
         slug: 'photos-of-you',
         title: "Guest: where do I find the photos I'm in?",
-        body: "On the wedding day (from about an hour before it starts), open your personal invitation page and look for 'Photos of you — so far'. As the crew and guests shoot, the photos you're in collect there through the day — and they're yours to keep afterward. You show up there once you've added a selfie, or once someone scans your invitation QR onto a photo.",
+        appBody: HELP_NOT_IN_THE_APP,
+        body: "On the wedding day (from about an hour before it starts), open your personal invitation page and look for 'Memories of you — so far'. As the crew and guests shoot, the photos you're in collect there through the day — and they're yours to keep afterward. You show up there once you've added a selfie, or once someone scans your invitation QR onto a photo.",
       },
       {
         slug: 'papic-crew-how-to-shoot',
         title: 'Crew: I was asked to shoot — how does it work?',
-        body: "The couple sent you a camera link. Open it on your phone and tap to claim it — your phone is now a candid camera for their wedding. Shoot photos and clips of up to 10 seconds; everything uploads to their gallery automatically. Your camera shows how many shots it has left, and the couple can top it up. To mark who's in a shot, tap 'Tag who's in it' and hold a guest's place-card QR or a table sign in frame — no typing. If you don't tag, the photo still reaches the couple.",
+        appBody: HELP_NOT_IN_THE_APP,
+        body: "The couple sent you a camera link. Open it on your phone and tap to claim it — your phone is now a candid camera for their wedding. Shoot photos and clips of up to 10 seconds; everything uploads to their Memories automatically. Your camera shows how many shots are left in the couple's shared credits. To mark who's in a shot, tap 'Tag who's in it' and hold a guest's place-card QR or a table sign in frame — no typing. If you don't tag, the photo still reaches the couple.",
       },
       {
         // ⚠ THIS ARTICLE ANSWERED A QUESTION THAT NO LONGER EXISTS. It was
@@ -621,12 +791,17 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
         // link should land on the answer, not a 404.
         slug: 'papic-giving-a-camera-its-own-shots',
         title: 'How do I make sure one person never runs out of shots?',
-        body: "Set some of your credits aside for their camera. Everything you buy goes into one pot that every guest shoots from, which is usually what you want — but a few enthusiastic guests can spend a lot of it, and you might have someone in mind who you'd rather not have run dry: the cousin who actually frames a photo, or your maid of honour. On your Papic page, find their camera and type how many shots are theirs alone. Those leave the shared pot and nobody else can touch them. If they don't use them all, you can take the unused ones back at any time — just type a smaller number. And if they DO use them all, their camera doesn't stop: it carries on from the shared pot like everyone else's. So setting shots aside is a guarantee, never a limit. Cameras are free and you can make as many as you like, so there's no cost to giving several people their own.",
+        appBody: HELP_NOT_IN_THE_APP,
+        // Rewritten again 2026-10-25: setting credits aside for one camera was
+        // retired (owner 2026-09-16 "no dedicated shots individually", built in
+        // #5905). The worry stays real, so the answer is what ships now.
+        body: "Keep your shared credits topped up. Every camera — yours, your crew's and your guests' — shoots from one pot, so nobody can hold shots back for one person. Give the people you count on, like your maid of honor or the cousin who frames every photo, a camera of their own from your Papic page, and watch the shared balance there. When it runs low, add credits to the pot from Studio › Papic; top-ups stack on what your event already holds. Cameras are free and you can make as many as you like.",
       },
       {
         slug: 'how-papic-shots-work',
         title: 'How do shots work, and how do I add more?',
-        body: `Everything Papic captures is counted in shots. ${SHOT_TERMS[0]}, and ${SHOT_TERMS[1]} — a clip costs more because it is a lot more to keep. They come out of one purse, so there's no separate photo and video allowance to juggle: shoot more clips and you'll get fewer photos out of the same balance, which is why we don't promise you an exact number of each. Every wedding gets one free camera with credits of its own, and your first celebration also starts with a free shared pool. When something runs low, top it up from your dashboard → Studio → Papic: add to the shared pool for the whole celebration, or reload one camera on its own. Top-ups stack on whatever your wedding already holds — they never replace it — and current prices are on setnayan.com/pricing. Guests can also top up the pool or their own camera themselves from the camera screen, if you'd rather not.`,
+        appBody: HELP_NOT_IN_THE_APP,
+        body: `Everything Papic captures is counted in shots. ${SHOT_TERMS[0]}, and ${SHOT_TERMS[1]} — a clip costs more because it is a lot more to keep. They come out of one purse, so there's no separate photo and video allowance to juggle: shoot more clips and you'll get fewer photos out of the same balance, which is why we don't promise you an exact number of each. Cameras are unlimited. Free credits come ${PAPIC_FREE_CREDIT_CONDITION}. When it runs low, top it up from your dashboard → Studio → Papic: add to the shared pool for the whole event. Top-ups stack on whatever your wedding already holds — they never replace it — and current prices are on setnayan.com/pricing. Guests can also top up the pool or their own camera themselves from the camera screen, if you'd rather not.`,
       },
     ],
   },
@@ -638,8 +813,9 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'is-my-youtube-ready-to-live-stream',
         title: 'Is my YouTube channel ready to live stream? (check this first)',
+        appBody: HELP_NOT_IN_THE_APP,
         body:
-          'Live Watch sends your celebration to YOUR OWN YouTube channel, so that channel has to be switched on for live streaming before the day. The first time you turn it on, YouTube takes about 24 hours to activate it. Nobody can speed that up — not us, not YouTube support — so do this now, even if your celebration is a year away. It costs nothing and it never expires.\n\n' +
+          'Live Watch sends your event to YOUR OWN YouTube channel, so that channel has to be switched on for live streaming before the day. The first time you turn it on, YouTube takes about 24 hours to activate it. Nobody can speed that up — not us, not YouTube support — so do this now, even if your event is a year away. It costs nothing and it never expires.\n\n' +
           'HOW TO CHECK, in under a minute:\n' +
           '1. Sign in to YouTube on the account whose channel you want to stream on. If you have more than one channel, make sure you are on the right one — check the profile picture in the top corner.\n' +
           '2. Go to https://www.youtube.com/features\n' +
@@ -648,13 +824,14 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
           '1. On that same page, click to enable it. YouTube will ask you to verify your channel with a phone number — you get a code by text or voice call and type it in. This is free.\n' +
           '2. After verifying, live streaming usually switches on within about 24 hours. Check the same page again the next day.\n' +
           '3. You also need to have had no live-streaming restrictions on the channel in the last 90 days, and to be at least 16 years old.\n\n' +
-          'ABOUT THE "50 SUBSCRIBERS" RULE YOU MAY HAVE READ ABOUT: it is real, but it only applies to going live from the YouTube phone app. Live Watch streams from a computer, which has no subscriber requirement at all. A brand-new channel with zero subscribers can stream your celebration.',
+          'ABOUT THE "50 SUBSCRIBERS" RULE YOU MAY HAVE READ ABOUT: it is real, but it only applies to going live from the YouTube phone app. Live Watch streams from a computer, which has no subscriber requirement at all. A brand-new channel with zero subscribers can stream your event.',
       },
       {
         slug: 'create-your-youtube-live-link',
         title: 'How do I create the YouTube link for my live stream?',
+        appBody: HELP_NOT_IN_THE_APP,
         body:
-          'You make the broadcast on YouTube, and Setnayan sends the pictures to it. Do this in the last week before your celebration — not months ahead, because a broadcast left sitting for a long time can go stale.\n\n' +
+          'You make the broadcast on YouTube, and Setnayan sends the pictures to it. Do this in the last week before your event — not months ahead, because a broadcast left sitting for a long time can go stale.\n\n' +
           '1. Go to https://studio.youtube.com and click CREATE (the camera icon, top right), then GO LIVE.\n' +
           '2. Choose STREAMING SOFTWARE — not "Built-in webcam". This is the option that gives you the connection details Setnayan needs.\n' +
           '3. Give it a title (for example, your names), and set PRIVACY to UNLISTED. Unlisted means only people with the link can watch — it never appears in YouTube search or on your channel page.\n' +
@@ -663,98 +840,28 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
           '6. You now see two things you need to keep apart:\n' +
           '   - The STREAM URL and STREAM KEY. These go into your streaming software. The stream key is a password for your channel — never share it, never paste it into Setnayan or anywhere else.\n' +
           '   - The WATCH LINK, from the Share button. It looks like youtube.com/watch?v=... This is the one you paste into Setnayan.\n' +
-          '7. Open your dashboard, go to Studio, then Live Watch, and paste the watch link into the "How guests watch" box. Your celebration page will show a Watch Live player during the day.\n\n' +
+          '7. Open your dashboard, go to Studio, then Live Watch, and paste the watch link into the "How guests watch" box. Your Event Hub will show a Watch Live player during the day.\n\n' +
           'The short version: the stream key goes to your streaming software, and the watch link goes to Setnayan. Getting those two the wrong way round is the one mistake worth being careful about.',
       },
       {
         slug: 'live-stream-dry-run',
         title: 'How do I make sure it will all work on the day?',
+        appBody: HELP_NOT_IN_THE_APP,
         body:
           'Do a dry run, well before the day. It is the only way to be certain, because it tests everything at once: that your channel is really switched on for live streaming, that your streaming software can reach YouTube, and that Setnayan can show the result.\n\n' +
           '1. Make a test broadcast on YouTube, exactly as you would for the real thing, and set it to Unlisted.\n' +
           '2. Start your streaming software and send pictures to it.\n' +
-          '3. Paste the watch link into Setnayan and open your celebration page on your phone. If you can see yourself, everything in the chain works.\n' +
+          '3. Paste the watch link into Setnayan and open your Event Hub on your phone. If you can see yourself, everything in the chain works.\n' +
           '4. When you are done, end the broadcast and delete the test video if you would rather not keep it.\n\n' +
           'A dry run also proves the 24-hour activation has finished, which is the single thing most likely to go wrong on the day. Do it once, any time — a year ahead is fine — and you never have to wonder again.',
       },
       {
         slug: 'who-owns-the-live-stream-recording',
         title: 'What happens to the recording afterwards?',
+        appBody: HELP_NOT_IN_THE_APP,
         body:
           'The broadcast is on your own YouTube channel, so the recording is yours. YouTube keeps it automatically as an unlisted video on your channel after the stream ends, and you download it from YouTube Studio whenever you like — go to your Content list, find the video, and use the download option in its menu.\n\n' +
-          'Because it lives on your channel and not ours, nobody else can take it down, and it is not affected by anything that happens to another couple. Keep the watch link saved in Setnayan and your celebration page can keep showing it afterwards.',
-      },
-    ],
-  },
-  // ─── Admin-role topics ──────────────────────────────────────────────
-  {
-    key: 'admin-console-basics',
-    label: 'Setnayan HQ basics',
-    roles: ['admin'],
-    articles: [
-      {
-        slug: 'eight-surfaces',
-        title: 'The 8 admin surfaces',
-        body: '/admin has 8 sections: Users, Suppliers, Orders, Reviews, Funnels, Force-majeure, Website editor, Verify queue. Each is gated to internal admins (`is_internal=TRUE` on your user row). The left sidebar persists across all 8.',
-      },
-      {
-        slug: 'find-a-user-or-vendor',
-        title: 'Look up a user or supplier',
-        body: 'Use the search bar on /admin/users or /admin/vendors. Search by name, email, public ID (S89U- / S89V- / S89E-), or partial slug. Click through to the full record — every action you take from there writes an audit row.',
-      },
-      {
-        slug: 'audit-log',
-        title: 'Read the audit log',
-        body: 'Every meaningful admin action writes a row to `admin_audit_log` (actor user_id, target, action, before/after JSON, timestamp). View it from any user or supplier detail page → Audit tab. Use it when investigating "who did this and when".',
-      },
-      {
-        slug: 'delete-vs-blacklist',
-        title: 'Delete vs blacklist a user',
-        body: 'Delete = soft-delete + 30-day restore window (RA 10173 right-to-erasure). Blacklist = permanent ban from re-signing-up with same email or device fingerprint, used for fraud. Pick delete by default; only blacklist after the abuse pattern is confirmed.',
-      },
-    ],
-  },
-  {
-    key: 'admin-approvals',
-    label: 'Two-admin approvals',
-    roles: ['admin'],
-    articles: [
-      {
-        slug: 'what-needs-two-admins',
-        title: 'What needs two-admin approval',
-        body: 'Per Vendor Agreement § 9.1, major decisions need two admins. That means promoting a user to any admin role, adding an internal account, adding a team member to the shared pool, a comp grant above the § 9.1 retail limit, changing the BDO or GCash receiving account, a mid-quarter price change on any in-app SKU, force-delisting a supplier without the due-process timeline, refunding a single transaction above the § 9.1 limit, and re-publishing a previously rejected supplier application. Routine ops stay single-admin — payment reconciliation, approving a supplier verification queue item, comps and refunds at or below those limits, dispute mediation, review moderation and user lookup. Both limits are stated in § 9.1 itself, and the admin console names the exact figure at the moment you go over it.',
-      },
-      {
-        slug: 'approving-an-action',
-        title: "Approve another admin's request",
-        body: 'When another admin proposes a major action, you see it in your Approvals queue at /admin (bell counter). Open the request, read the rationale + linked evidence, click Approve or Reject. Both admins\' identities are recorded permanently in the audit log.',
-      },
-      {
-        slug: 'routine-vs-major',
-        title: 'Routine vs major — the rule of thumb',
-        body: 'Routine = reversible by a single admin within 1 business day. Major = affects many users, has financial impact above the limits § 9.1 states, or touches public trust. When in doubt, route to two-admin. The cost of double-checking is small; the cost of an unreviewed major action can be very high.',
-      },
-    ],
-  },
-  {
-    key: 'admin-force-majeure',
-    label: 'Force-majeure escalations',
-    roles: ['admin'],
-    articles: [
-      {
-        slug: 'escalation-queue',
-        title: 'Work the escalation queue',
-        body: "/admin/force-majeure lists every flagged event. Each row shows: couple display name, event date, flag type (typhoon, illness, venue closure, etc.), evidence files the couple uploaded, the affected suppliers, and the 7-day auto-resolution clock.",
-      },
-      {
-        slug: 'seven-day-window',
-        title: 'The 7-day auto-resolution window',
-        body: 'When a force-majeure flag is filed, suppliers have 7 days to propose terms directly with the couple in chat. If a resolution lands within 7 days, the flag closes without admin involvement. If day 7 passes with no resolution, the flag escalates to admin and shows up in your queue with an "ESCALATED" tag.',
-      },
-      {
-        slug: 'four-resolution-paths',
-        title: 'Four canonical resolution paths',
-        body: 'Refund (supplier returns payment minus documented expenses), reschedule (services move to a mutually agreed new date), substitute (supplier provides equivalent service later), partial (some services delivered, some refunded). Pick one in the Resolve dialog; both parties get an email with the outcome.',
+          'Because it lives on your channel and not ours, nobody else can take it down, and it is not affected by anything that happens to another couple. Keep the watch link saved in Setnayan and your Event Hub can keep showing it afterwards.',
       },
     ],
   },
@@ -773,7 +880,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
 // it in the same edit when an article body materially changes.
 // ───────────────────────────────────────────────────────────────────────────
 
-export const HELP_LASTMOD = '2026-07-05';
+export const HELP_LASTMOD = '2026-10-25';
 
 export type HelpArticleWithTopic = {
   article: HelpArticle;

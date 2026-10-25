@@ -19,6 +19,7 @@ import { CustomersSegments } from '@/app/vendor-dashboard/customers/_components/
 import { KeptNotesFold, OutsideClientRows, type OutsideClient } from '@/app/vendor-dashboard/customers/_components/people-more';
 import { OutsideClientAdd } from '@/app/vendor-dashboard/customers/_components/outside-client-add';
 import { rosterView } from '@/app/vendor-dashboard/customers/roster-view';
+import { ThumbRow } from '@/components/thumb-row';
 import { SupplierThumbRow } from '@/app/vendor-dashboard/_components/supplier-thumb-row';
 import { SupplierToast } from '@/app/vendor-dashboard/_components/supplier-toast';
 import { SearchBox } from '@/app/_components/search-box';
@@ -137,7 +138,7 @@ export function PeopleLab({
   return (
     <div className="min-h-screen bg-cream" data-supplier-lab="people">
       {/* <main>: the thumb row measures it on a computer, as it measures the dashboard's own column. */}
-      <main className="mx-auto w-full max-w-3xl space-y-4 px-4 pb-6 pt-4 sm:px-6 lg:max-w-4xl lg:px-8">
+      <main className="mx-auto w-full max-w-3xl space-y-4 px-4 pb-6 pt-4 sm:px-6 lg:px-8 tab:max-w-5xl">
         <CustomersSegments seg="people" waiting={view.laneCounts.waiting} hrefOf={(s) => (s === 'people' ? base : `${base}&seg=${s}`)} />
         <div className="pb-24">
           {notice ? <SupplierToast text={notice.text} tone={notice.tone} retry={'retry' in notice} retryHref={`${base}&add=1`} /> : null}
@@ -185,23 +186,34 @@ export function PeopleLab({
           {variant !== 'empty' ? <KeptNotesFold notes={KEPT} /> : null}
         </div>
       </main>
-      <SupplierThumbRow name="people" label="Customer tools">
-        <SearchBox placeholder="Search a customer" defaultValue={q ?? ''} keep={keep(['q'])} hash="#customers" data="customers" />
-        <OutsideClientAdd
-          pools={
-            variant === 'nopools'
-              ? []
-              : [
-                  { poolId: 'p1', label: 'Main team' },
-                  { poolId: 'p2', label: 'Second team' },
-                ]
-          }
-          action={importExternalClient}
-          startOpen={add}
-          today="2026-10-02"
-          setupHref={`${base}&seg=dates`}
-        />
-      </SupplierThumbRow>
+      <SupplierThumbRow
+        name="people"
+        label="Customer tools"
+        row={
+          <ThumbRow
+            name="customers"
+            field={{ node: <SearchBox placeholder="Search customers" defaultValue={q ?? ''} keep={keep(['q'])} hash="#customers" data="customers" /> }}
+            action={{
+              node: (
+                <OutsideClientAdd
+                  pools={
+                    variant === 'nopools'
+                      ? []
+                      : [
+                          { poolId: 'p1', label: 'Main team' },
+                          { poolId: 'p2', label: 'Second team' },
+                        ]
+                  }
+                  action={importExternalClient}
+                  startOpen={add}
+                  today="2026-10-02"
+                  setupHref={`${base}&seg=dates`}
+                />
+              ),
+            }}
+          />
+        }
+      />
     </div>
   );
 }

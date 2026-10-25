@@ -261,6 +261,9 @@ export async function setShowcaseConsent(formData: FormData) {
   if (error) {
     throw new Error(`Failed to update showcase consent: ${error.message}`);
   }
+  // The published showcases are remembered for up to 300 s (`lib/showcase-db.ts`); a couple who
+  // withdraws comes off them now, not in five minutes.
+  clearHomeShelf('people');
 
   revalidatePath(`/dashboard/${eventId}/website/privacy`);
   redirect(`/dashboard/${eventId}/website/privacy?saved=1`);
@@ -302,6 +305,12 @@ export async function setShowcaseConsent(formData: FormData) {
  * authorizes it; the admin client is only how it is written.
  */
 export async function setLiveMediaAudience(formData: FormData) {
+  // 🔀 ONE ROUTE, TWO SWITCHES. Every exported server action is a Vercel route
+  // and the repo sits at its ceiling (scripts/lint-server-action-budget.mjs), so
+  // the same-date-count switch on this page rides this action with
+  // `setting=same_date_count` instead of exporting a route of its own.
+  if (formData.get('setting') === 'same_date_count') return setSameDateCountOptOut(formData);
+
   const eventIdRaw = formData.get('event_id');
   const open = formData.get('open') === '1';
 
@@ -348,5 +357,44 @@ export async function setLiveMediaAudience(formData: FormData) {
     revalidatePath(`/${event.slug}/hub`);
   }
 
+  return landAfterWrite(formData, `/dashboard/${eventId}/website/privacy?saved=1`, '?saved=1');
+}
+
+/**
+ * The couple leaves — or rejoins — the same-date count other couples see.
+ *
+ * ⚖ DPO ruling 2026-10-23 (corpus DECISION_LOG, "OWNER ANSWERS ON THE BUILD
+ * TRACKER"): *"couples may opt out of the same-date count"*. With
+ * `same_date_count_opt_out` set, this event is dropped from the holds that feed
+ * "N couples inquired for your date" on every OTHER couple's vendors page
+ * (`groupHoldsByVendor` skips it). What this couple sees is unchanged.
+ *
+ * ⚠ SERVICE-ROLE WRITE after the host check — the same shape as
+ * `setLiveMediaAudience`: `events` UPDATE RLS is row-level, so the column has a
+ * SELECT grant and no UPDATE grant (migration 20271285020592). Leaving the
+ * count only ever narrows a disclosure, so no anonymous-draft gate.
+ */
+async function setSameDateCountOptOut(formData: FormData) {
+  const eventIdRaw = formData.get('event_id');
+  const optOut = formData.get('opt_out') === '1';
+
+  if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) {
+    redirect('/dashboard');
+  }
+  const eventId = eventIdRaw as string;
+
+  await requireHostMembership(eventId);
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from('events')
+    .update({ same_date_count_opt_out: optOut })
+    .eq('event_id', eventId);
+
+  if (error) {
+    throw new Error(`Failed to update the same-date count setting: ${error.message}`);
+  }
+
+  revalidatePath(`/dashboard/${eventId}/website/privacy`);
   return landAfterWrite(formData, `/dashboard/${eventId}/website/privacy?saved=1`, '?saved=1');
 }

@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, Palette } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { PALETTE_LIMITS, PALETTE_ORDER, sanitizeRolePalette, type PaletteKey } from '@/lib/mood-board';
@@ -28,6 +28,14 @@ import { resolveEventFeeGate } from '@/lib/vendor-event-fee-access.server';
 import { EventLockedPage } from '@/app/vendor-dashboard/_components/event-locked-by-fee';
 import { vendorClientSurfaceHref } from '@/lib/vendor-client-return';
 import { isRelationshipWorkspaceEnabled } from '@/lib/relationship-workspace-flag';
+import { SupplierSuggestBoard } from '../_components/supplier-suggest-board';
+import { listShopPhotosForSuggestion, suggestInspirationPhoto, withdrawInspirationSuggestion } from './suggestion-actions';
+import { buildSupplierBoard, firstOwnPart, ownLaneWords } from '@/lib/supplier-suggest-board';
+import { suggestablePartsForShop, supplierTradeWord } from '@/lib/inspiration-suggestion-parts';
+import { supplierRoleLine, type SupplierSuggestion } from '@/lib/inspiration-suggestions';
+import { shownMainFive } from '@/lib/mood-board-studio';
+import { themeSeedPalette } from '@/lib/mood-board-palette-set';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 export const metadata = { title: 'Mood Board · Supplier' };
 
@@ -245,7 +253,53 @@ export default async function VendorMoodBoardPage({ params }: Props) {
   const colourSwatches: EditableSwatch[] =
     grantedDomains.length > 0 ? editableSwatches(grantedDomains, palette) : [];
 
-  const hasInspiration = board.inspirations.length > 0;
+  // ── 🤝🖼 THE COUPLE'S PALETTE, WITH "＋ SUGGEST A PHOTO" ON THIS SHOP'S OWN PARTS (owner 2026-10-19, option (b);
+  // prototype supplier_inspiration_suggestions_2026-10-19.html frames 1–2). Which parts are this shop's is the ONE
+  // slot→trade map (`suggestablePartsForShop`); the SQL door asks the same question again on every send.
+  //
+  // ⚠ A REFUSED READ OF ITS OWN WAITING PHOTOS IS SAID ON THE BOARD (`mine = null`) — drawn as "none sent", the
+  // supplier would send the same photo twice and never know the first was waiting.
+  const [mineRes, briefRes] = await Promise.all([
+    supabase
+      .from('event_inspiration_suggestions')
+      .select('suggestion_id, slot_key, image_url, state')
+      .eq('event_id', eventId)
+      .eq('state', 'waiting')
+      .order('created_at', { ascending: true }),
+    supabase.rpc('get_vendor_event_brief', { p_event_id: eventId }),
+  ]);
+  if (mineRes.error) logQueryError('vendorMoodBoard.suggestions', mineRes.error, { eventId }, 'graceful_degrade');
+  const mine: SupplierSuggestion[] | null = mineRes.error
+    ? null
+    : ((mineRes.data ?? []) as Array<{ suggestion_id: string; slot_key: string; image_url: string | null; state: string }>)
+        .filter((r) => r.image_url)
+        .map((r) => ({ id: r.suggestion_id, slotKey: r.slot_key, url: r.image_url!, state: 'waiting' as const }));
+  /* The event's line — "Sat, Mar 13, 2027 · Tagaytay" — from the brief the customer page already reads; none = no line. */
+  const briefEvent = (briefRes.data as { event?: { event_date?: string | null; venue_name?: string | null; region?: string | null } } | null)?.event ?? null;
+  const eventLine =
+    [
+      briefEvent?.event_date
+        ? new Date(briefEvent.event_date).toLocaleDateString('en-PH', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', timeZone: 'Asia/Manila' })
+        : null,
+      briefEvent?.venue_name ?? briefEvent?.region ?? null,
+    ]
+      .filter(Boolean)
+      .join(' · ') || null;
+  const suggestParts = suggestablePartsForShop(profile.services);
+  const photosBySlot: Record<string, string[]> = {};
+  for (const it of board.inspirations) (photosBySlot[it.slot_key] ??= [])[it.slot_position - 1] = it.image_url;
+  const suggestBoard = buildSupplierBoard({
+    palette,
+    five: shownMainFive(palette, themeSeedPalette('house').reception),
+    photosBySlot,
+    suggestable: new Set(suggestParts.map((p) => p.key)),
+  });
+  const coupleName = board.display_name?.trim() || 'This couple';
+  /* The photos the board above already draws on their parts — the older grid below keeps only the rest. */
+  const drawnSlots = new Set([suggestBoard.main.slotKey, ...suggestBoard.lanes.flatMap((l) => l.parts.map((p) => p.slotKey))]);
+  const otherInspirations = board.inspirations.filter((it) => !drawnSlots.has(it.slot_key));
+
+  const hasInspiration = otherInspirations.length > 0;
   const hasPalette = paletteRows.length > 0;
   const hasReception =
     board.reception_design && Object.keys(board.reception_design).length > 0;
@@ -261,31 +315,55 @@ export default async function VendorMoodBoardPage({ params }: Props) {
         Back to event brief
       </Link>
 
-      <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-3xl font-semibold tracking-tight sm:text-4xl">
-          <Palette className="h-7 w-7 text-terracotta" aria-hidden />
-          Mood Board
-        </h1>
-        {board.display_name ? (
-          <p className="text-base text-ink/60">{board.display_name}</p>
-        ) : null}
-        {board.theme_name ? (
-          <div className="pt-1">
-            <p className="text-xl font-semibold text-ink">{board.theme_name}</p>
-            {board.theme_description ? (
-              <p className="max-w-prose text-sm text-ink/60">{board.theme_description}</p>
-            ) : null}
-          </div>
-        ) : null}
-        {board.mood_board_updated_at ? (
-          <p className="text-xs text-ink/40">
-            Last updated by the couple{' '}
-            {new Date(board.mood_board_updated_at).toLocaleDateString('en-PH', {
-              dateStyle: 'medium',
-            })}
-          </p>
-        ) : null}
-      </header>
+      <SupplierSuggestBoard
+        eventId={eventId}
+        couple={coupleName}
+        eventLine={eventLine}
+        roleLine={supplierRoleLine(supplierTradeWord(profile.services, firstOwnPart(suggestBoard)), ownLaneWords(suggestBoard))}
+        board={suggestBoard}
+        mine={mine}
+        actions={{ suggest: suggestInspirationPhoto, withdraw: withdrawInspirationSuggestion, listShopPhotos: listShopPhotosForSuggestion }}
+      >
+        {/* MB12 — the ask sits ABOVE the design, because it is the reason the
+            supplier opened this page. Renders nothing when there is nothing
+            to answer. */}
+        <VendorPartSignoff
+          rows={signoffs}
+          agreeAction={vendorAgreeToPart}
+          declineAction={vendorDeclinePart}
+          answerReopenAction={vendorAnswerPartReopen}
+        />
+
+        {/* MB16 — the swatches this supplier may change, if the couple gave
+            them any. Above the palette it changes, because a control
+            underneath the thing it controls is one nobody finds; renders
+            nothing at all without a grant. */}
+        <ColourLaneEditor
+          swatches={colourSwatches}
+          applyAction={applyColourChange.bind(null, eventId)}
+        />
+      </SupplierSuggestBoard>
+
+      {board.theme_name || board.mood_board_updated_at ? (
+        <header className="space-y-1">
+          {board.theme_name ? (
+            <div className="pt-1">
+              <p className="text-xl font-semibold text-ink">{board.theme_name}</p>
+              {board.theme_description ? (
+                <p className="max-w-prose text-sm text-ink/60">{board.theme_description}</p>
+              ) : null}
+            </div>
+          ) : null}
+          {board.mood_board_updated_at ? (
+            <p className="text-xs text-ink/40">
+              Last updated by the couple{' '}
+              {new Date(board.mood_board_updated_at).toLocaleDateString('en-PH', {
+                dateStyle: 'medium',
+              })}
+            </p>
+          ) : null}
+        </header>
+      ) : null}
 
       {nothingYet ? (
         <div className="sn-tile px-6 py-10 text-center">
@@ -296,25 +374,6 @@ export default async function VendorMoodBoardPage({ params }: Props) {
         </div>
       ) : (
         <div className="space-y-8">
-          {/* MB12 — the ask sits ABOVE the design, because it is the reason the
-              supplier opened this page. Renders nothing when there is nothing
-              to answer. */}
-          <VendorPartSignoff
-            rows={signoffs}
-            agreeAction={vendorAgreeToPart}
-            declineAction={vendorDeclinePart}
-            answerReopenAction={vendorAnswerPartReopen}
-          />
-
-          {/* MB16 — the swatches this supplier may change, if the couple gave
-              them any. Above the read-only palette below it, because a control
-              underneath the thing it controls is one nobody finds; renders
-              nothing at all without a grant. */}
-          <ColourLaneEditor
-            swatches={colourSwatches}
-            applyAction={applyColourChange.bind(null, eventId)}
-          />
-
           {/* Palette */}
           {hasPalette ? (
             <section className="sn-tile p-5 sm:p-6">
@@ -381,13 +440,13 @@ export default async function VendorMoodBoardPage({ params }: Props) {
           {/* Inspiration photos */}
           {hasInspiration ? (
             <section className="sn-tile p-5 sm:p-6">
-              <h2 className="mb-1 text-lg font-semibold">Inspirations</h2>
+              <h2 className="mb-1 text-lg font-semibold">More inspirations</h2>
               <p className="mb-4 text-sm text-ink/55">
                 Reference images the couple uploaded — venues, backdrops, florals, styling
                 they love.
               </p>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                {board.inspirations.map((item) => (
+                {otherInspirations.map((item) => (
                   <div
                     key={`${item.slot_key}-${item.slot_position}`}
                     className="aspect-square overflow-hidden rounded-xl bg-ink/5"

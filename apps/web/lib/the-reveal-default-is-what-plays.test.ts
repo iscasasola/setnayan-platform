@@ -121,8 +121,11 @@ test('4 · the strip is the library less the Reveal Studio’s map — nothing e
   assert.match(panel, /const allowed: Partial<Record<string, boolean>> = config\?\.templates \?\? \{\};/);
   assert.match(panel, /const openings = REVEAL_LIBRARY\.filter\(\(t\) => allowed\[t\.id\] !== false\)\.map\(\(t\) => \(\{ id: t\.id, label: t\.label, blurb: t\.blurb, \}\)\);/);
   assert.equal([...panel.matchAll(/REVEAL_LIBRARY\.filter\(/g)].length, 1);
-  /* The one other gate is the store shell's (a Pro control is hidden there, not offered). */
-  assert.match(panel, /storeShell && !ownsPro \? \[\] : openings/);
+  /* The one other gate is the store shell's (a Pro control is hidden there, not offered).
+     RE-AIMED 2026-10-21: it is the store shell FOR PRO TRYING (`proShell`, which defaults to `storeShell`) — false only
+     where Apple sells Pro at Apply (lib/the-app-opens-what-apple-sells.test.ts). Same one gate. */
+  assert.match(panel, /proShell && !ownsPro \? \[\] : openings/);
+  assert.match(panel, /proShell = storeShell,/);
   /* The code's own default offers all five: which are off is a stored switch, not a rule here. */
   assert.deepEqual(DEFAULT_REVEAL_CONFIG.templates, only(...REVEAL_TEMPLATE_IDS));
 });

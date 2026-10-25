@@ -7,11 +7,11 @@
 events.anchor_date	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details neither shows nor edits
 events.anchor_kind	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details neither shows nor edits
 events.ceremony_sub_type	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details neither shows nor edits
-events.ceremony_venue_address	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details neither shows nor edits
 events.entourage_section_order	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details neither shows nor edits
 events.face_tagging_declined_by_couple	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details neither shows nor edits
 events.gender_separation	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details neither shows nor edits
 events.gift_registry_url	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details neither shows nor edits
+events.honoree_label	# first run 2026-10-02 · sign-in & onboarding · a screen saves an event answer that Event Details neither shows nor edits
 events.is_mixed_ceremony	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details neither shows nor edits
 events.is_primary	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details neither shows nor edits
 events.kwento_flash_auto_wall	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details neither shows nor edits
@@ -38,15 +38,14 @@ events.photo_delivery_folder_name	# first run 2026-10-02 · host app · a screen
 events.photo_delivery_provider	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details neither shows nor edits
 events.photo_delivery_sync_mode	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details neither shows nor edits
 events.photo_moments_config	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details neither shows nor edits
-events.pool_gallery_open	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details neither shows nor edits
 events.reception_design	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details neither shows nor edits
 events.rsvp_backdrop	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details neither shows nor edits
 events.rsvp_backdrop.intensity	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details neither shows nor edits
 events.rsvp_backdrop.theme	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details neither shows nor edits
+events.same_date_count_opt_out	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details neither shows nor edits
 events.seating_autoplace_enabled	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details neither shows nor edits
 events.seating_group_adjacency	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details neither shows nor edits
 events.share_budget_band	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details neither shows nor edits
-events.site_art_direction	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details neither shows nor edits
 events.site_magic_traveller	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details neither shows nor edits
 events.std_film_accent_hex	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details neither shows nor edits
 events.std_film_date	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details neither shows nor edits

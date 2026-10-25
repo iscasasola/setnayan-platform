@@ -54,16 +54,31 @@ test('a sheet may hide the confirm ONLY when it carries a real control of its ow
   // ARROW in `onClose={() => …}`, so every sheet with an inline handler was cut
   // short and its `confirmLabel` was never seen. Tags are closed on their own
   // line in this file; match THAT.
-  const tags = [...src.matchAll(/<CanvasSheet[\s\S]*?\n\s*>/g)].map((m) => m[0]);
-  assert.ok(tags.length >= 6, `expected the shipped sheets, found ${tags.length}`);
+  // A tag ends at the first `>` outside braces (an arrow in `onClose={() => …}` is inside them) — one-line and
+  // multi-line tags alike.
+  const tags: string[] = [];
+  for (const m of src.matchAll(/<CanvasSheet\b/g)) {
+    let depth = 0;
+    let i = m.index ?? 0;
+    for (; i < src.length; i++) {
+      const ch = src[i];
+      if (ch === '{') depth++;
+      else if (ch === '}') depth--;
+      else if (ch === '>' && depth === 0) break;
+    }
+    tags.push(src.slice(m.index ?? 0, i + 1));
+  }
+  assert.ok(tags.length >= 5, `expected the shipped sheets, found ${tags.length}`);
 
   for (const tag of tags) {
     const id = /id="([^"]+)"/.exec(tag)?.[1] ?? '(unnamed)';
     const canHideConfirm = /confirmLabel=\{null\}/.test(tag) || /confirmLabel=\{inPass/.test(tag);
     if (!canHideConfirm) continue;
+    // The simpler maker's sheets (2026-10-14) each carry their own control: the kind sheet's rows pick and close,
+    // the 🏷 ask has Yes / Not now, delete has Keep it / Delete, the audience its own submit.
     const hasOwnControl =
-      id === 'canvas-audience' || // its own real "Save who it's for" submit
-      /footer=\{/.test(tag); // the guided pass's Continue / Done / skip
+      ['canvas-audience', 'canvas-kind', 'canvas-ask', 'canvas-delete'].includes(id) ||
+      /footer=\{/.test(tag);
     assert.ok(
       hasOwnControl,
       `${id} can render with no confirm and no control of its own — the exact confusion the owner reported`,
@@ -83,7 +98,7 @@ test('a sheet may hide the confirm ONLY when it carries a real control of its ow
   const ids = unconditional.map((t) => /id="([^"]+)"/.exec(t)?.[1] ?? '(unnamed)').sort();
   assert.deepEqual(
     ids,
-    ['canvas-audience', 'canvas-intro'],
-    `only the audience sheet and the first-card explainer may hide it always; found ${ids.join(', ')}`,
+    ['canvas-ask', 'canvas-audience', 'canvas-delete', 'canvas-kind'],
+    `only the sheets with their own controls may hide the confirm; found ${ids.join(', ')}`,
   );
 });

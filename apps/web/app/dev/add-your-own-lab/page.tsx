@@ -21,6 +21,7 @@ import { notFound } from 'next/navigation';
 import { CoupleLinkDoor } from '@/app/vendor/claim/[token]/_components/claim-parts';
 import { claimDatePhrase, inviterFirstNames } from '@/lib/claim-invite-words';
 import { coupleCardToCanvasInitial } from '@/lib/couple-card-to-canvas';
+import { buildShortlistFolders, coverCatalogFromFolders } from '@/lib/shortlist-taxonomy';
 import { LabCard, LabRecord } from './lab-client';
 
 const LAB_EVENT = '00000000-0000-4000-8000-000000000000';
@@ -61,19 +62,28 @@ export default async function AddYourOwnLabPage({
   }
 
   if (s === 'record') {
+    // `&who=dunkin` — the owner's own card (2026-10-20): a doughnut cart filed
+    // under Everything else that already "also covers" Guest booths.
+    const dunkin = sp.who === 'dunkin';
     return (
       <main className="min-h-screen" data-lab-add-own="record">
         <LabRecord
           eventId={LAB_EVENT}
+          coverCatalog={coverCatalogFromFolders(
+            buildShortlistFolders({ vendorRows: [], eventType: 'wedding', faithSet: new Set(), eventId: LAB_EVENT }),
+          )}
+          categoryLabel={dunkin ? 'Everything else' : 'Catering'}
           edit={{
             vendorId: LAB_EVENT_VENDOR,
-            category: 'catering',
-            name: SUPPLIER,
+            category: dunkin ? 'misc' : 'catering',
+            name: dunkin ? "Dunkin' Donuts" : SUPPLIER,
             contactPerson: 'Maria Santos',
             contactNumber: '',
             address: '',
             pin: null,
-            covers: [],
+            covers: dunkin ? ['guest_booth', 'tile:food_truck'] : [],
+            // `&claim=1` — they claimed the couple's link and wait for Approve (#6709).
+            claimAsk: sp.claim === '1',
             inclusions: '',
             price: '',
             planRows: [],

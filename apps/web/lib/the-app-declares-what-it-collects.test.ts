@@ -32,12 +32,38 @@ const INFO_PLIST = join(MOBILE, 'ios/App/App/Info.plist');
 const PRIVACY_MANIFEST = join(MOBILE, 'ios/App/App/PrivacyInfo.xcprivacy');
 
 /**
- * What we told Apple on the App Privacy page, 2026-09-20, published and
- * screenshotted: four types, every one linked, every one app-functionality,
- * no tracking, NO location.
+ * What Apple is told on the App Privacy page — the SAME list the manifest
+ * declares. Every one app-functionality, no tracking, NO location.
+ *
+ * ⚠ CHANGED 2026-10-19 (Apple check row #22). The page published 2026-09-20
+ * listed only Email, Name and Photos/Videos (all linked). Read against the
+ * code, the app also collects a phone number, an account id, in-app messages,
+ * other user content, support requests, order records, a supplier's bank
+ * proof, religion (with consent), dietary needs/allergies and birth dates —
+ * all linked — plus crash and performance reports that are NOT linked (Sentry
+ * attaches no user). The manifest now says so, and so does this list.
+ * 🔑 THE OWNER MUST ENTER THE SAME ANSWERS IN APP STORE CONNECT → App Privacy
+ * before submitting the next build; a manifest change ships only in a NEW
+ * BUILD. Until both are done, the two disagree — which is the failure this
+ * file exists to catch.
  */
 const DECLARED_TO_APPLE = {
-  linkedTypes: ['EmailAddress', 'Name', 'PhotosorVideos'],
+  linkedTypes: [
+    'EmailAddress',
+    'Name',
+    'PhotosorVideos',
+    'PhoneNumber',
+    'UserID',
+    'EmailsOrTextMessages',
+    'OtherUserContent',
+    'CustomerSupport',
+    'PurchaseHistory',
+    'OtherFinancialInfo',
+    'SensitiveInfo',
+    'Health',
+    'OtherDataTypes',
+  ],
+  notLinkedTypes: ['CrashData', 'PerformanceData'],
   tracking: false,
   location: false,
 } as const;
@@ -65,19 +91,26 @@ test("the app's privacy manifest still says what we told Apple", () => {
   const manifest = plist(PRIVACY_MANIFEST);
   // Only the VALUE of an NSPrivacyCollectedDataType key — not every string in
   // the file, which also holds Linked/Tracking/Purposes and their values.
-  const types = [
+  // Each entry: its type and its Linked flag, read from the same <dict>.
+  const entries = [
     ...manifest.matchAll(
-      /<key>NSPrivacyCollectedDataType<\/key>\s*<string>NSPrivacyCollectedDataType([A-Za-z]+)<\/string>/g,
+      /<key>NSPrivacyCollectedDataType<\/key>\s*<string>NSPrivacyCollectedDataType([A-Za-z]+)<\/string>\s*<key>NSPrivacyCollectedDataTypeLinked<\/key>\s*<(true|false)\/>/g,
     ),
+  ].map((m) => ({ type: m[1]!, linked: m[2] === 'true' }));
+  const allTypes = [
+    ...manifest.matchAll(/<key>NSPrivacyCollectedDataType<\/key>\s*<string>NSPrivacyCollectedDataType([A-Za-z]+)<\/string>/g),
   ].map((m) => m[1]);
+  assert.equal(entries.length, allTypes.length, 'a collected type has no Linked flag right after it');
   assert.deepEqual(
-    [...new Set(types)].sort(),
+    entries.filter((e) => e.linked).map((e) => e.type).sort(),
     [...DECLARED_TO_APPLE.linkedTypes].sort(),
-    'the manifest collects a different set of data types than the App Store page lists',
+    'the manifest declares a different set of LINKED data types than Apple is told',
   );
-  // Every declared type is LINKED (App Store page says "Data Linked to You").
-  const linkedFalse = manifest.match(/NSPrivacyCollectedDataTypeLinked<\/key>\s*<false\/>/g) ?? [];
-  assert.equal(linkedFalse.length, 0, 'a type is declared NOT linked while Apple was told it is');
+  assert.deepEqual(
+    entries.filter((e) => !e.linked).map((e) => e.type).sort(),
+    [...DECLARED_TO_APPLE.notLinkedTypes].sort(),
+    'the manifest declares a different set of NOT-linked data types than Apple is told',
+  );
   // And nothing is declared for tracking.
   const trackingTrue = manifest.match(/NSPrivacyCollectedDataTypeTracking<\/key>\s*<true\/>/g) ?? [];
   assert.equal(trackingTrue.length, 0, 'tracking declared in the manifest, but Apple was told none');

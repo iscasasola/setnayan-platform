@@ -32,7 +32,8 @@ const WEB = resolve(HERE, '..');
 const read = (p: string) => stripComments(readFileSync(join(WEB, p), 'utf8'));
 const readRaw = (p: string) => readFileSync(join(WEB, p), 'utf8');
 
-const NEW_DOOR = 'app/vendor-dashboard/services/new/page.tsx';
+// Since 2026-10-14 the new-card door builds the trade list in the maker's ONE loader.
+const NEW_DOOR = 'lib/service-card-maker.server.ts';
 const RANK_LIB = 'lib/taxonomy-search-rank.ts';
 const ALIAS_LIB = 'lib/service-trade-aliases.ts';
 const ALIAS_DB = 'lib/service-trade-aliases-db.ts';
@@ -73,7 +74,7 @@ test('the new-card door reads reviewed aliases and the merge-forward map', () =>
 
 test('every trade option built for the search band carries its resolved aliases', () => {
   const src = read(NEW_DOOR);
-  const block = src.slice(src.indexOf('const tradeOptions: TradeMatch[]'));
+  const block = src.slice(src.indexOf('tradeOptions = tree.flatMap('));
   assert.match(
     block.slice(0, 1200),
     /aliases:\s*aliasesByLiveKey\.get\(l\.canonicalService\)/,

@@ -5,6 +5,7 @@ import { Camera, CameraOff, Check, Gift, Search, Undo2 } from 'lucide-react';
 import { parseGuestQrPayload, guestInitials } from '@/lib/checkin';
 import { markSouvenirReceived, undoSouvenirReceived } from '../actions';
 import { formatCount } from '@/lib/format-number';
+import { useCameraThatComesBack } from '@/lib/use-camera-that-comes-back';
 
 // Souvenir-table desk (owner 2026-06-28). Same scan-or-search → confirm flow as
 // the check-in desk, pointed at guest_souvenir_claims: staff scan a guest's
@@ -17,7 +18,8 @@ export type DeskGuest = {
   guestId: string;
   name: string;
   photoUrl: string | null;
-  plusOneName: string | null;
+  /** Who they bring, by name — every named seat (`companionNames`); `[]` when none is named. */
+  plusOneNames: readonly string[];
   qrToken: string;
   tableLabel: string | null;
 };
@@ -114,6 +116,18 @@ export function SouvenirDesk({
     }
   }, [stopScanner]);
 
+  // THE CAMERA COMES BACK (Duo + iPad audit 2026-10-19, W4): when iOS, a Duo
+  // or a dead track takes the scanner's camera, reopen it through the same
+  // start path (same rear camera) instead of leaving a frozen viewfinder.
+  useCameraThatComesBack({
+    streamRef,
+    live: scanning,
+    restart: () => {
+      stopScanner();
+      void startScanner();
+    },
+  });
+
   useEffect(() => {
     if (!scanning) return;
     const video = videoRef.current;
@@ -166,7 +180,7 @@ export function SouvenirDesk({
       .filter(
         (g) =>
           g.name.toLowerCase().includes(q) ||
-          (g.plusOneName ? g.plusOneName.toLowerCase().includes(q) : false),
+          g.plusOneNames.some((n) => n.toLowerCase().includes(q)),
       )
       .slice(0, 12);
   }, [guests, query]);
@@ -322,6 +336,8 @@ export function SouvenirDesk({
               <img
                 src={selected.photoUrl}
                 alt=""
+                width={48}
+                height={48}
                 className="h-12 w-12 shrink-0 rounded-full object-cover ring-1 ring-ink/10"
               />
             ) : (

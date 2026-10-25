@@ -14,22 +14,19 @@ import { FrontDoorAnchor } from './front-door-anchor';
 import { FrontDoorFeed } from './front-door-feed';
 import { FrontDoorResults } from './front-door-results';
 import { DiscoverEventShelves, PeopleToFollowShelf } from './front-door-discover';
-import { loadDiscover } from '@/lib/discover-events';
+import { loadDiscover, searchDiscoverEvents } from '@/lib/discover-events';
 import { MiniTour } from '@/app/_components/mini-tour';
 import { SignedInCluster } from './signed-in-cluster';
+import { FrontDoorAccountBar } from './front-door-account-bar';
 import { resolveCommandItems } from './command-data';
-import { HomeCommandBar } from '@/app/dashboard/(launcher)/_components/home-command-bar';
+import { DiscoverThumbRow } from './shell-thumb-rows';
 // The account resolver and the Studio group moved out 2026-08-13 so the
 // signed-in surfaces render the SAME rail from the SAME source. Behaviour is
 // byte-identical; see `rail-data.ts` for why one copy matters here.
-import {
-  railToolsSignedIn,
-  railToolsSignedOut,
-  resolveRailStudioEvent,
-  resolveRailAccount,
-} from './rail-data';
-import { togetherRailItems } from '@/lib/free-tools-rail';
-import { plannerDoorwayRows, togetherDoorwayRows } from '@/lib/studio-rail';
+import { resolveRailAccount } from './rail-data';
+import { isStoreShellRequest } from '@/lib/request-platform';
+import { resolveShellSearchContext, type ShellSearchContext } from './shell-search-context';
+import { getCurrentUser } from '@/lib/auth';
 
 export async function FrontDoor({ q }: { q?: string }) {
   /*
@@ -37,15 +34,9 @@ export async function FrontDoor({ q }: { q?: string }) {
     when the feed is what renders — a typed query pays nothing for them.
   */
   const searchQuery = (q ?? '').trim();
-  const [account, data, studioEvent, commandItems, discover] = await Promise.all([
+  const [account, data, commandItems, discover] = await Promise.all([
     resolveRailAccount(),
     loadFrontDoorData(),
-    /*
-      `/` is already dynamic (measured live: MISS, private, no-store), and every
-      read below is React cache()d and shared with the account resolver, so
-      asking which event a signed-in visitor holds costs nothing here.
-    */
-    resolveRailStudioEvent(),
     /*
       💸 NAMED COST, AND ONLY FOR SOMEBODY SIGNED IN. This returns `[]` on the
       first line without a session, so a stranger — which is every visitor to
@@ -76,7 +67,20 @@ export async function FrontDoor({ q }: { q?: string }) {
     the Discover read there is skipped on the same test.)
   */
 
+  /*
+    🔎 SIGNED IN, DISCOVER ANSWERS IN PLACE (owner 2026-10-24, on the old hop to `/dashboard/search`: *"it went to a
+    different page?"*). The words stay in this page's `?q=`, the results take the sections' place under the same
+    search row, and Clear brings the sections back — the shell's results form (people, your own suppliers, no door
+    out to the marketplace), read only when there are words.
+  */
+  const user = account.signedIn && searchQuery ? await getCurrentUser().catch(() => null) : null;
+  /* 🔎 …and its EVENTS (owner 2026-10-25): your people's, then anybody's public event — read beside the rest. */
+  const [shellSearch, discoverEvents]: [ShellSearchContext | null, Awaited<ReturnType<typeof searchDiscoverEvents>> | null] = user
+    ? await Promise.all([resolveShellSearchContext(searchQuery, user.id, commandItems), searchDiscoverEvents(searchQuery)])
+    : [null, null];
+
   return (
+    <>
     <FrontDoorShell
       account={account}
       /*
@@ -91,51 +95,10 @@ export async function FrontDoor({ q }: { q?: string }) {
       */
       heading={account.signedIn ? undefined : <FrontDoorAnchor />}
       /*
-        THE SAME BRANCH THE APP MOUNT MAKES — see the note there. This handed
-        every visitor the signed-OUT rows, so a signed-in person on `/` was sent
-        to the page that SELLS a product they already own, and the group then
-        changed shape the moment they opened one.
+        🧭 NO TOOL LISTS ON `/` (owner 2026-10-01, built 2026-10-23): the rail
+        is Discover · Find suppliers · Features · How it works · Sign in signed
+        out, and your own rows + Features signed in. /features lists the tools.
       */
-      tools={
-        account.signedIn ? railToolsSignedIn(studioEvent) : railToolsSignedOut()
-      }
-      /*
-        ─── PLANNER + TOGETHER ON `/` (rewritten 2026-09-06) ─────────────────
-        This note used to read *"Together only — Planner/Builder stay unset …
-        because `insideEvent` is never true on `/`"*. That was true while
-        Planner held only in-event rows, and it is now the opposite of the
-        code below it, so it is replaced rather than left to disagree.
-
-        The owner split the rail by KIND rather than price, and the five free
-        planning tools — Marketplace · Guest list · Seat plan · Budget ·
-        Schedule — moved out of Studio into Planner as DOORWAY rows. Those
-        exist precisely for the state this page is in: nobody is inside an
-        event on `/`, so `plannerDoorwayRows(false)` returns all five, pointing
-        at the pages that explain them. Inside an event it returns nothing,
-        because the event's own rail carries the real tools.
-
-        BUILDER still stays unset here, and that part of the old note stands:
-        its rows (Compare, Contracts) are in-event only and `insideEvent` is
-        never true on `/`.
-
-        TOGETHER carries EXACTLY ONE of two things, never both. Signed out it is
-        the public Samahan doorway — what a samahan is, for somebody who has
-        none. Signed in it is that person's own Samahan rows, and the doorway
-        steps aside.
-
-        🔴 THEY ARE MUTUALLY EXCLUSIVE BECAUSE BOTH ARE CALLED "Samahan groups".
-        Caught on the live front door before this shipped: rendering both put
-        the identical label in one group twice, pointing at `/samahan` and
-        `/dashboard/samahan` — the doubling the owner had just ruled out for the
-        Marketplace. Neither is event-gated (Samahan is account-level);
-        `studioEvent.eventId` is the same honestly-resolved value the Studio
-        rows above already use.
-      */
-      plannerTools={plannerDoorwayRows(false)}
-      togetherTools={[
-        ...togetherDoorwayRows(account.signedIn),
-        ...(account.signedIn ? togetherRailItems(studioEvent.eventId) : []),
-      ]}
       /*
         🔴 THE SAME FALLBACK LEAK THE DOORWAY PAGES HAD — this is the page in
         the owner's second screenshot. `/` handed in no cluster, so a signed-in
@@ -168,22 +131,53 @@ export async function FrontDoor({ q }: { q?: string }) {
         one bar means one search — is finally true across every surface rather
         than on five of them.
       */
-      search={
-        account.signedIn ? (
-          <HomeCommandBar items={commandItems} variant="rail" />
-        ) : undefined
-      }
+      search={account.signedIn ? false : undefined}
     >
+      {/* 🔍 Signed in, Discover's search is its thumb row (owner 2026-10-22, "One thumb row") — the top bar has none. */}
+      {account.signedIn ? <DiscoverThumbRow key={searchQuery} q={searchQuery} /> : null}
+      {/*
+        `data-fd-page` is the content the bar's slide moves — Discover is an
+        account tab: `.sn-vt-page` + `while-sliding` (signed in, where the bar
+        is), the same slide as every other tab (owner 2026-10-24; globals.css). Signed in, it also
+        reserves the account bar's MEASURED height below 1024, the launcher's own
+        rule, so the last row of the feed clears the dock — and the thumb row on it (+4rem, 2026-10-22).
+      */}
+      <div
+        data-fd-page=""
+        data-sn-slide="while-sliding"
+        className={
+          account.signedIn
+            ? 'sn-vt-page pb-[calc(var(--sn-bottomdock-h,calc(env(safe-area-inset-bottom)+64px))+5.5rem)] lg:pb-0'
+            : undefined
+        }
+      >
       {searchQuery ? (
-        <FrontDoorResults
-          query={searchQuery}
-          data={data}
-          commandItems={commandItems}
-        />
+        shellSearch ? (
+          // 📌 Where a search's results draw — pinned under the chrome (lib/search-pin.ts).
+          <div data-discover-results="" data-search-results="">
+            <FrontDoorResults
+              query={searchQuery}
+              data={data}
+              commandItems={commandItems}
+              place="discover"
+              people={shellSearch.people}
+              findSuppliers={shellSearch.findSuppliers}
+              addOwnEvent={shellSearch.addOwnEvent}
+              events={discoverEvents}
+            />
+          </div>
+        ) : (
+          <FrontDoorResults
+            query={searchQuery}
+            data={data}
+            commandItems={commandItems}
+          />
+        )
       ) : (
         <>
           <FrontDoorFeed
             data={data}
+            storeShell={await isStoreShellRequest()}
             beforeShops={discover ? <DiscoverEventShelves discover={discover} /> : null}
             afterShops={discover ? <PeopleToFollowShelf discover={discover} /> : null}
           />
@@ -193,6 +187,14 @@ export async function FrontDoor({ q }: { q?: string }) {
           {account.signedIn ? <MiniTour tourKey="discover_upcoming_v1" /> : null}
         </>
       )}
+      </div>
     </FrontDoorShell>
+    {/*
+      THE ACCOUNT BAR, SIGNED IN (owner 2026-10-22, "Discover needs to show the
+      bottom nav still"). Outside the shell's <main> on purpose — see the
+      component. Signed out it is not rendered: the public front door is as it was.
+    */}
+    {account.signedIn ? <FrontDoorAccountBar /> : null}
+    </>
   );
 }

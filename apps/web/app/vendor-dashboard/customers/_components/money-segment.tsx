@@ -21,6 +21,7 @@ import { monthDay } from '@/lib/format-date';
 import { moneyPicture, moneyWindowOf, moneyYear, type MoneyWindow, type MoneyYear } from '@/lib/vendor-money';
 import { paginate } from '@/lib/paginate';
 import { keepParamsFrom } from '../../_components/list-pager';
+import { ThumbRow } from '@/components/thumb-row';
 import { SupplierThumbRow } from '../../_components/supplier-thumb-row';
 import { MoneyView, type MoneyLegacyPayout } from './money-view';
 import { MoneyLog, type MoneyLogCustomer } from './money-log';
@@ -201,10 +202,8 @@ export async function CustomersMoney({ search }: { search: SP }) {
           legacy,
         }}
       />
-      {/* 📱 Frame 05's thumb row: Log a payment — the screen's one main. */}
-      <SupplierThumbRow name="money" label="Money actions">
-        <MoneyLog customers={logCustomers} />
-      </SupplierThumbRow>
+      {/* 📱 Frame 05's thumb row: Log a payment — the screen's one main, the ONE row's round at the right (2026-10-22). */}
+      <SupplierThumbRow name="money" label="Money actions" row={<ThumbRow name="money" action={{ node: <MoneyLog customers={logCustomers} /> }} />} />
     </>
   );
 }

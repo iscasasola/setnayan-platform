@@ -84,9 +84,16 @@ function blankRow(label: string): Row {
 export function PaymentScheduleEditor({
   serviceId,
   initial,
+  bare = false,
 }: {
   serviceId: string;
   initial: ScheduleItemDraft[];
+  /**
+   * The rows only, posting with the card's ONE save (the simpler maker, 2026-10-14): no `<form>`, no heading, no
+   * "Save schedule". Same field names, same row shape — `commitVendorService` parses them with the SAME parser as
+   * `setServicePaymentSchedule` (`parsePaymentScheduleForm`), the no-show terms on the first payment included.
+   */
+  bare?: boolean;
 }) {
   const [rows, setRows] = useState<Row[]>(
     initial.length > 0 ? initial.map(draftToRow) : [],
@@ -119,22 +126,29 @@ export function PaymentScheduleEditor({
     });
   }
 
+  const Shell = bare ? 'div' : 'form';
   return (
-    <form
-      action={setServicePaymentSchedule}
-      className="mt-3 space-y-2 sn-row p-3"
+    <Shell
+      {...(bare ? { 'data-schedule-bare': '' } : { action: setServicePaymentSchedule })}
+      className={bare ? 'space-y-2' : 'mt-3 space-y-2 sn-row p-3'}
     >
-      <input type="hidden" name="vendor_service_id" value={serviceId} />
-      <div className="flex items-center gap-1.5">
-        <CalendarClock aria-hidden className="h-3.5 w-3.5 text-ink/55" strokeWidth={1.75} />
-        <p className="text-sm font-medium text-ink">Payment schedule</p>
-      </div>
-      <p className="text-xs text-ink/55">
-        Optional. Lay out how a couple pays — a first payment plus follow-on
-        payments. Each one can be a % of the total or a fixed peso amount, with a
-        due date anchored to booking or the event. The couple sees this on their
-        plan.
-      </p>
+      {bare ? (
+        <input type="hidden" name="schedule_present" value="1" />
+      ) : (
+        <>
+          <input type="hidden" name="vendor_service_id" value={serviceId} />
+          <div className="flex items-center gap-1.5">
+            <CalendarClock aria-hidden className="h-3.5 w-3.5 text-ink/55" strokeWidth={1.75} />
+            <p className="text-sm font-medium text-ink">Payment schedule</p>
+          </div>
+          <p className="text-xs text-ink/55">
+            Optional. Lay out how a couple pays — a first payment plus follow-on
+            payments. Each one can be a % of the total or a fixed peso amount, with a
+            due date anchored to booking or the event. The couple sees this on their
+            plan.
+          </p>
+        </>
+      )}
 
       {rows.length === 0 ? (
         <p className="rounded-lg border border-dashed border-ink/15 px-3 py-3 text-xs text-ink/45">
@@ -381,13 +395,15 @@ export function PaymentScheduleEditor({
           <Plus className="h-3.5 w-3.5" strokeWidth={1.75} />
           {rows.length === 0 ? 'Add first payment' : 'Add payment'}
         </button>
-        <SubmitButton
-          className="inline-flex h-8 items-center justify-center rounded-md border border-ink/20 bg-white/70 px-3 text-[11px] font-medium text-ink hover:border-ink/40"
-          pendingLabel="Saving…"
-        >
-          Save schedule
-        </SubmitButton>
+        {bare ? null : (
+          <SubmitButton
+            className="inline-flex h-8 items-center justify-center rounded-md border border-ink/20 bg-white/70 px-3 text-[11px] font-medium text-ink hover:border-ink/40"
+            pendingLabel="Saving…"
+          >
+            Save schedule
+          </SubmitButton>
+        )}
       </div>
-    </form>
+    </Shell>
   );
 }

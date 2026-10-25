@@ -1,5 +1,7 @@
 import Link from 'next/link';
 import { getSampleEvent } from './_lib/sample-event';
+import { coupleNamesLine } from '@/lib/typed-names';
+import { BRAND_OG_IMAGES } from '@/lib/brand-og';
 
 /**
  * /tour — the public "walk through a real wedding" intro + stop index.
@@ -14,9 +16,10 @@ export const dynamic = 'force-dynamic';
 export const metadata = {
   title: 'Walk through a real wedding',
   description:
-    'Explore a complete sample wedding on Setnayan — the invitation, the vendors, the seating, the budget, and the gallery. No sign-up, and nothing is saved.',
+    'Explore a complete sample wedding on Setnayan — the invitation, the suppliers, the seating, the budget, and Memories. No sign-up, and nothing is saved.',
   alternates: { canonical: '/tour' },
   openGraph: {
+    images: BRAND_OG_IMAGES,
     title: 'Walk through a real wedding · Setnayan',
     description: 'Explore a complete sample wedding on Setnayan — no sign-up, nothing saved.',
     url: '/tour',
@@ -26,26 +29,26 @@ export const metadata = {
 
 const STOPS: Array<{ n: number; title: string; blurb: string; href: string; live: boolean }> = [
   { n: 1, title: 'The invitation', blurb: 'A cinematic Save-the-Date that announces the date.', href: '/maria-and-jose', live: true },
-  { n: 2, title: 'The vendors', blurb: 'How Setnayan AI shortlists the team that fits.', href: '/tour/vendors', live: true },
+  { n: 2, title: 'The suppliers', blurb: 'How Setnayan AI shortlists the team that fits.', href: '/tour/vendors', live: true },
   { n: 3, title: 'The seating', blurb: 'Every guest finds their table.', href: '/tour/seating', live: true },
   { n: 4, title: 'The budget', blurb: 'Every peso tracked, every deadline in view.', href: '/tour/budget', live: true },
-  { n: 5, title: 'The gallery', blurb: 'The day, captured by everyone.', href: '/tour/gallery', live: true },
+  { n: 5, title: 'Memories', blurb: 'The day, captured by everyone.', href: '/tour/gallery', live: true },
 ];
 
 export default async function TourIntroPage() {
   const ev = await getSampleEvent();
-  const bride = ev.bride_name ?? 'Maria';
-  const groom = ev.groom_name ?? 'Jose';
+  // 🔀 The sample couple in the order its own name keeps (`coupleNamesLine`, owner 2026-10-21).
+  const couple = coupleNamesLine({ display_name: ev.display_name, bride_name: ev.bride_name ?? 'Maria', groom_name: ev.groom_name ?? 'Jose' });
 
   return (
     <main className="mx-auto w-full max-w-5xl px-5 pb-20 pt-12 sm:pt-16">
       <header className="mx-auto max-w-2xl text-center">
         <h1 className="mt-3 font-serif text-4xl leading-tight tracking-tight text-[#1B1A17] sm:text-5xl">
-          Walk through {bride} &amp; {groom}&rsquo;s wedding
+          Walk through {couple}&rsquo;s wedding
         </h1>
         <p className="mx-auto mt-4 max-w-xl text-base text-[#5F5E5A] sm:text-lg">
-          See exactly how a couple plans on Setnayan — the invitation, their vendors, the seating, the budget, and the
-          gallery. No sign-up, and nothing you tap is ever saved.
+          See exactly how a couple plans on Setnayan — the invitation, their suppliers, the seating, the budget, and
+          Memories. No sign-up, and nothing you tap is ever saved.
         </p>
         <Link
           href="/maria-and-jose"
@@ -66,7 +69,7 @@ export default async function TourIntroPage() {
               <div className="flex items-center justify-between">
                 <span className="font-mono text-xs text-[#8C6932]">{String(s.n).padStart(2, '0')}</span>
                 {!s.live && (
-                  <span className="font-mono text-[11px] uppercase tracking-wider text-[var(--m-slate-2)]">soon</span>
+                  <span data-coming-soon className="font-mono text-[11px] uppercase tracking-wider text-[var(--m-slate-2)]">soon</span>
                 )}
               </div>
               <h2 className="mt-2 font-serif text-lg text-[#1B1A17]">{s.title}</h2>

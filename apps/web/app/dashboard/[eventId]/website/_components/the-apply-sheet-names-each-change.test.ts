@@ -102,7 +102,7 @@ test('the named list is exactly the count — with Pro and without — in one wa
     assert.equal(lines.length, summary.changeCount, `ownsPro=${ownsPro}: ${lines.length} lines for a count of ${summary.changeCount}`);
     const said = lines.map(text);
     // The facts carried by several columns are ONE line each.
-    assert.equal(said.filter((l) => l === 'Event Details · Names').length, 1, 'the names are listed twice');
+    assert.equal(said.filter((l) => l === 'Event Details · Event title').length, 1, 'the names are listed twice');
     assert.equal(said.filter((l) => l === 'Event Details · Date').length, 1, 'the date is listed twice');
     assert.ok(said.includes('Event Details · Ceremony time'), said.join(' | '));
     assert.ok(said.includes('Look · Buttons'), said.join(' | '));
@@ -124,7 +124,7 @@ const ok = (p: { place: string; what: string }, of: string) => {
 test('every draft kind maps to a plain "Place · What" label', () => {
   for (const c of HUB_DRAFT_EVENT_COLUMNS) ok(HUB_DRAFT_EVENT_PLACE[c], `events.${c}`);
   const base = { change: 'change' as const, pro: false, value: null };
-  const fields = ['mode', 'is_visible', 'display_order', 'canvas', 'main', 'stage_order', 'std_lead', 'custom', 'venue'] as const;
+  const fields = ['mode', 'is_visible', 'display_order', 'canvas', 'main', 'stage_order', 'std_lead', 'photos_heading', 'custom', 'venue'] as const;
   for (const field of fields) {
     const item = { ...base, kind: 'widget', widgetType: 'schedule', widgetId: 'w-schedule', field } as HubDraftItem;
     ok(hubDraftChangePlace(item, LIVE), `widget field ${field}`);
@@ -207,7 +207,10 @@ test('the sheet holds no write of its own — its one write is the Apply its par
 
 test('wired: the loader and the after-save read fill summary.changes from the ONE reader; the bar hands it to the sheet', () => {
   const store = stripComments(readFileSync(join(process.cwd(), 'lib/hub-draft-store.ts'), 'utf8'));
-  assert.match(store, /summary\.changes = hubDraftChangeLines\(draft, live, ownsPro && !storeShell\);/, 'the bar’s loader does not name the changes with the count’s own entitlement');
+  // 🍎 `proShell` = the store shell minus Apple In-App Purchase (owner 2026-10-18).
+  // 💎 Part by part (2026-10-22): the count's own entitlement is the parts owned (none in the store shell), `forPlan`.
+  assert.match(store, /const forPlan = proShell \? NO_HUB_PARTS : owned;\s*summary = summarizeHubDraft\(draft, live, forPlan, me\);/);
+  assert.match(store, /summary\.changes = hubDraftChangeLines\(draft, live, forPlan\);/, 'the bar’s loader does not name the changes with the count’s own entitlement');
   assert.match(store, /changes: hubDraftChangeLines\(draft, live, false\)/, 'the after-save read (free) does not name the changes');
   assert.match(store, /changes: hubDraftChangeLines\(draft, live, true\)/, 'the after-save read (owned) does not name the changes');
   const lines = stripComments(readFileSync(join(process.cwd(), 'lib/hub-draft-change-lines.ts'), 'utf8'));

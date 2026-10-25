@@ -854,7 +854,20 @@ const ENTRY_CALLERS: Record<string, { folds: string[]; readsNoPrice: string[] }>
     folds: ['app/dashboard/[eventId]/vendors/page.tsx'],
     // `/dev/suppliers-lab` draws the real Find body on FIXTURE rows — no event,
     // no database, 404 in production. No couple's agreed total is on it.
-    readsNoPrice: ['app/dashboard/[eventId]/vendors/categories/page.tsx', 'app/dev/suppliers-lab/page.tsx'],
+    // `lib/cover-catalog.server.ts` (2026-10-20) keeps only the folders' row NAMES for the card's
+    // "Also covers" dropdown — it selects no price column and returns no vendor; `/dev/add-your-own-lab`
+    // builds the same list from no rows at all (no event, no database, 404 in production).
+    // `lib/supplier-find-read.ts` (2026-10-21) is the Find page's list read, moved so the Suppliers page's
+    // bottom search draws the same list: categories, booked-or-not and a supplier COUNT — never a price.
+    // `lib/add-own-categories.server.ts` (2026-10-24) is "What they do" for the add walk opened from Discover's
+    // empty search: built from NO vendor rows, it returns category rows only — no vendor, no price.
+    readsNoPrice: [
+      'app/dev/add-your-own-lab/page.tsx',
+      'app/dev/suppliers-lab/page.tsx',
+      'lib/add-own-categories.server.ts',
+      'lib/cover-catalog.server.ts',
+      'lib/supplier-find-read.ts',
+    ],
   },
   buildPlanBudgetModel: { folds: ['app/dashboard/[eventId]/vendors/page.tsx'], readsNoPrice: [] },
   bucketVendorsByGroup: {

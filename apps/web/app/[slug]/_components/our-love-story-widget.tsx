@@ -1,7 +1,8 @@
-import { loveStoryScenes } from '@/lib/love-story-moments';
+import { loveStoryScenes, momentVoiceLines } from '@/lib/love-story-moments';
+import { WHOLE_PHOTO_CLASS } from '@/lib/whole-photo';
 import { SITE_MENU_ANCHORS } from '../_lib/site-menu';
 
-import { LoveStoryYears } from './our-love-story-styles';
+import { LoveStoryCards, LoveStoryConversation, LoveStoryTimeline, LoveStoryYears } from './our-love-story-styles';
 import { OurStory, ourStoryRenders } from './our-story';
 
 /**
@@ -34,9 +35,18 @@ export function OurLoveStoryWidget({
   config,
   mediaUrls,
   sceneStyle = null,
+  partners = [],
+  entrance = false,
 }: {
   config: unknown;
   mediaUrls?: Readonly<Record<string, string>>;
+  /**
+   * 🗣 The partners' first names in SLOT order (`loveStoryPartners` — voice a is the first). Absent = no names: a
+   * voice still shows, unnamed. Owner 2026-10-17, "LOVE STORY, TWO VOICES".
+   */
+  partners?: readonly string[];
+  /** The scene has an Animate entrance of its own (◆ Pro) — only then does a two-voices look play its choreography. */
+  entrance?: boolean;
   /**
    * 🎨 `chapters` (this, the default) · `essay` (the shipped `OurStory`
    * full variant) · `years` (`our-love-story-styles.tsx`). The essay composes
@@ -54,7 +64,13 @@ export function OurLoveStoryWidget({
       </div>
     );
   }
-  if (sceneStyle === 'years') return <LoveStoryYears scenes={scenes} mediaUrls={mediaUrls} />;
+  if (sceneStyle === 'years') return <LoveStoryYears scenes={scenes} mediaUrls={mediaUrls} partners={partners} />;
+  /* 🗣 TWO VOICES (owner 2026-10-17): Conversation (free, the default), the two-lane Timeline and the Swipe cards
+     (◆ Pro). Each is the page's Love Story, so each carries the story tab's anchor. */
+  const voiced = { scenes, partners, mediaUrls, entrance, anchorId: SITE_MENU_ANCHORS.story };
+  if (sceneStyle === 'conversation') return <LoveStoryConversation {...voiced} />;
+  if (sceneStyle === 'timeline') return <LoveStoryTimeline {...voiced} />;
+  if (sceneStyle === 'cards') return <LoveStoryCards {...voiced} />;
 
   // Pahina chapter grammar (design 2026-07-25 §7). NOTE: this widget carries an
   // unnumbered eyebrow — `OurStory` also renders a story chapter from the same
@@ -88,15 +104,29 @@ export function OurLoveStoryWidget({
             </p>
             {photos.length > 0 ? (
               <div className={`mt-3 grid gap-2 ${photos.length > 1 ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                {/* 🖼 Each photo WHOLE in its reserved 4:5 place — never cropped, the Glimpse corners and lift
+                    (owner 2026-10-17, "it looking cropped"; `WHOLE_PHOTO_CLASS`). */}
                 {photos.map((url) => (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img key={url} src={url} alt="" loading="lazy" className="aspect-[4/5] w-full object-cover" />
+                  <span key={url} data-love-photo="" className="relative block aspect-[4/5] max-h-[70svh] w-full">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={url} alt="" loading="lazy" className={WHOLE_PHOTO_CLASS} />
+                  </span>
                 ))}
               </div>
             ) : null}
             {/* 📖 The moment's title (owner 2026-10-07), when it has one. */}
             {s.title ? <h3 data-love-title="" className="mt-2 font-pahina text-2xl leading-tight text-ink">{s.title}</h3> : null}
-            <p data-love-line="" className="mt-2 whitespace-pre-line font-pahina text-xl font-light leading-snug text-ink">{s.line}</p>
+            {/* 🗣 Only the voices that wrote, one per line under its partner's name; none, the line told together. */}
+            {momentVoiceLines(s, partners).length > 0 ? (
+              momentVoiceLines(s, partners).map((v) => (
+                <p key={v.slot} className="mt-2 whitespace-pre-line font-pahina text-xl font-light leading-snug text-ink">
+                  {v.name ? <span className={v.slot === 'a' ? 'text-gild' : 'text-ink/70'}>{`${v.name}: `}</span> : null}
+                  <span {...{ [`data-love-voice-${v.slot}`]: '' }}>{v.words}</span>
+                </p>
+              ))
+            ) : (
+              <p data-love-line="" className="mt-2 whitespace-pre-line font-pahina text-xl font-light leading-snug text-ink">{s.line}</p>
+            )}
             <p data-love-place="" hidden={!s.place} className="mt-1 text-sm leading-relaxed text-ink/65">
               {s.place ?? ''}
             </p>

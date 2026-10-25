@@ -102,12 +102,14 @@ test('only these reads are started ahead — each one every path below awaits, n
     aheadCalls(PAGE).sort(),
     // + `loadLiveLayer` and `loadGuestContext` (2026-10-12): the day-of layer is started so its schedule can be handed
     //   on as a promise, and an invited guest's own reads leave beside it — under three conditions, held below.
-    ['getCurrentUser', 'isCoordinatorPrepReleaseEnabled', 'loadDoorwayFacts', 'loadEntourage', 'loadGuestContext', 'loadLiveLayer', 'loadWidgets', 'readGuestSession', 'resolveVendorCapability'].sort(),
+    ['getCurrentUser', 'isCoordinatorPrepReleaseEnabled', 'loadDoorwayFacts', 'loadEntourage', 'loadGuestContext', 'loadLiveLayer', 'loadWidgets', 'readGuestPassStanding', 'resolveVendorCapability'].sort(),
   );
   assert.deepEqual(
     aheadCalls(LOADERS).sort(),
     [
       'eventPapicGuestActive', 'eventStdOpeningsActive', 'loadVenueBookings', 'websiteProActiveFor',
+      // 💎 + what the event holds PART BY PART (2026-10-22) — a read, awaited right after the footer's, every path.
+      'hubOwnershipFor',
       'readPublicSchedule', 'readStoredBackdrop', 'readWatchLive', 'readGuestWallMirror', 'resolveAlbumDoor',
       'loadEntourageSectionOrder', 'loadEventRoleNames', 'loadEventNameStyle',
       // The invited guest's own facts — started only INSIDE `loadGuestContext`, after their row is
@@ -134,7 +136,7 @@ test('only these reads are started ahead — each one every path below awaits, n
   );
   assert.equal(count(PAGE, 'startAhead(loadGuestContext('), 1);
   assert.ok(
-    PAGE.indexOf('const session = await readGuestSession();') < PAGE.indexOf('startAhead(loadGuestContext('),
+    PAGE.indexOf('const session = passStandingNow.session;') < PAGE.indexOf('startAhead(loadGuestContext('),
     'the guest context is asked before the session cookie has been read and verified',
   );
   // …and it is awaited where it always was, with the SAME arguments (a cookie viewer's `guestSession` IS `session` —
@@ -160,8 +162,11 @@ test('a `cache()`d read started ahead is awaited by the SAME call with the SAME 
   assert.equal(count(PAGE, 'startAhead(loadEntourage(admin, event.event_id, draftedNameStyle, draftedMarch))'), 1);
   assert.match(PAGE, /entourage: await loadEntourage\(\s*admin,\s*event\.event_id,\s*draftedNameStyle,\s*draftedMarch,\s*\)/);
   assert.equal(count(PAGE, 'hostDraft?.march?.flat()'), 1, 'the drafted march is flattened twice — two arrays, two reads on the host canvas');
-  // The session and the account are asked again where they always were.
-  assert.ok(PAGE.indexOf('startAhead(readGuestSession())') < PAGE.indexOf('const session = await readGuestSession();'));
+  // The session and the account are asked again where they always were. 🪪 The pass (asked as the account since
+  // 2026-10-19, `readGuestPassStanding`) is NOT `cache()`d as a whole, so its started promise is the one awaited.
+  assert.equal(count(PAGE, 'const passStandingAhead = startAhead(readGuestPassStanding());'), 1);
+  assert.ok(PAGE.indexOf('startAhead(readGuestPassStanding())') < PAGE.indexOf('const passStandingNow = await passStandingAhead;'));
+  assert.equal(count(PAGE, 'readGuestPassStanding('), 1, 'the pass is asked twice — the started read is not the awaited one');
   assert.ok(PAGE.indexOf('startAhead(getCurrentUser())') < PAGE.indexOf('const viewerAccount = await getCurrentUser();'));
 });
 

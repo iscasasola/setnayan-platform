@@ -129,7 +129,7 @@ test('(3) the lab draws the chain as the guest page draws scenes, and the Maker 
   /* 🔁 2026-10-10: the cover IS in it now — hand-over zero (`HubCoverHold`, `scrub-is-a-held-hand-over` (10)). The
      lab's cover Leaves by Scrub from the start; the first card only speaks when a host has set it back. */
   assert.match(guest, /const coverLeaves = scrub && hubCoverLeaves\(\[rowOf\('hero'\)\] as never, true, true\);/);
-  assert.match(guest, /<HubCoverHold\s+leaves=\{coverLeaves\}\s+cover=\{\s*<>\s*\{mark\('f:hero'\)\}\s*<section className="px-4 pb-10 pt-6">/, 'the lab’s cover is not handed over as the page hands it over — its marker with it');
+  assert.match(guest, /<HubCoverHold\s+leaves=\{coverLeaves\}\s+cover=\{\s*<>\s*\{mark\('f:hero'\)\}\s*<section (?:data-page-column="" )?className="px-4 pb-10 pt-6">/, 'the lab’s cover is not handed over as the page hands it over — its marker with it');
   assert.match(guest, /hubScrubHoldsAtMost\(LAB_SCRUB_CHAIN\.map\(\(t\) => rowOf\(t\)\) as never, true, true\) \+ \(coverLeaves \? 1 : 0\)/, 'the lab’s page is not wrapped for the cover’s hand-over');
   assert.match(guest, /\{i === 0 && !coverLeaves \? <span[^>]*>The cover above does not leave by Scrub\.<\/span> : null\}/);
   assert.deepEqual(labScrubCanvases(true, {}).hero, { transition: 'scrub' });
@@ -153,7 +153,7 @@ test('(3) the lab draws the chain as the guest page draws scenes, and the Maker 
   assert.match(shell, /publicLandingUrl=\{scrub \? LAB_SCRUB_GUEST : '\/dev\/maker-lab\/guest'\}/);
   /* 🔁 2026-10-11: the lab's draft is the real draft's own reducers now (`app/dev/maker-lab/lab-draft.ts`), and its
      cookies are written from the draft's STATE — the chain's canvases still to the chain's own jar, with its own draft. */
-  assert.match(shell, /const scrub = labScrubOn\(\);\s*const \{ draft, result(?:, published)? \} = labDraftStep\(readLabDraft\(scrub\), [^;]*, scrub(?:, readLabPublished\(scrub\))?\);/);
+  assert.match(shell, /const scrub = labScrubOn\(\);\s*const \{ draft, result(?:, published)? \} = labDraftStep\(readLabDraft\(scrub\), [^;]*, scrub(?:, readLabPublished\(scrub\))?(?:, own)?\);/); // 🖼 RE-AIMED 2026-10-18: the lab's own scene (`lab_own`) rides the step
   assert.match(shell, /writeLabCookies\(draft, scrub\);/);
   assert.match(shell, /const labDraftKey = \(scrub: boolean\) => \(scrub \? 'lab_draft_scrub_v1' : 'lab_draft_v1'\);/);
   assert.match(read('app/dev/maker-lab/lab-draft.ts'), /\[labWidgetsCookie\(scrub\)\]: some\(canvases\) \? json\(canvases\) : null,/);
@@ -194,8 +194,10 @@ test('(4) while editing nothing is held: the Maker’s canvas arms only when the
   assert.match(overlay, /export const REVEAL_UP_ATTR = 'data-reveal-up';/);
   assert.match(island, /const REVEAL_UP = 'data-reveal-up';/, 'the island and the Reveal no longer name the same mark');
   /* …written where the Reveal MEASURES "a guest is looking at the opening" — the one expression every stand-down is
-     folded into — and taken off with it. */
-  assert.match(overlay, /const showing = active && mounted && !gone;\s*\(window as Window & \{ __stdRevealActive\?: boolean \}\)\.__stdRevealActive = showing;\s*document\.documentElement\.toggleAttribute\(REVEAL_UP_ATTR, showing\);[\s\S]*?return \(\) => \{\s*\(window as Window & \{ __stdRevealActive\?: boolean \}\)\.__stdRevealActive = false;\s*document\.documentElement\.removeAttribute\(REVEAL_UP_ATTR\);\s*\};/);
+     folded into — and taken off with it. 🎭 RE-ANCHORED 2026-10-17: the lifted veil now STAYS as a drape on the cover
+     (owner: "it should stay until cover is gone"), and an OPENED veil is no longer "looking at the opening" — so the
+     mark is `showing` less the drape (`drapeMode`, which begins at the unveil gesture). */
+  assert.match(overlay, /const showing = active && mounted && !gone;\s*\(window as Window & \{ __stdRevealActive\?: boolean \}\)\.__stdRevealActive = showing;\s*document\.documentElement\.toggleAttribute\(REVEAL_UP_ATTR, showing && !drapeMode\);[\s\S]*?return \(\) => \{\s*\(window as Window & \{ __stdRevealActive\?: boolean \}\)\.__stdRevealActive = false;\s*document\.documentElement\.removeAttribute\(REVEAL_UP_ATTR\);\s*\};/);
   /* Off → the engine's own `stop` (every mark taken off — `scrub-is-a-held-hand-over` (4)). */
   assert.match(island, /const disarm = \(\) => \{\s*for \(const stop of stops\.splice\(0\)\) stop\(\);\s*\};/);
   /* The bridge is who says "as a guest". */

@@ -1,4 +1,5 @@
 'use client';
+import { ProQuietLine } from './pro-quiet-line';
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, useTransition } from 'react';
@@ -94,6 +95,7 @@ export function QrLookControls({
     setShown(next);
     inflight.current += 1;
     startTransition(async () => {
+      // one-render: keep (batched) — a Maker draft save goes through `lib/maker-refresh.ts`, which refreshes ONCE after the last save in flight; draft intents revalidate nothing.
       const r = await makerSave(() => action(patch), () => router.refresh()).catch(
         () => ({ ok: false, reason: 'failed' }) as const,
       );
@@ -132,6 +134,8 @@ export function QrLookControls({
 
   return (
     <div data-qr-look-controls="" aria-busy={pending} className="flex flex-col gap-1">
+      {/* 💎 The quiet line (owner 2026-10-22) — the QR's look is the Logo & QR part's. */}
+      {ownsPro ? null : <ProQuietLine part="logo_qr" />}
       <Row label="Shape">
         <PickMenu
           label="QR shape"

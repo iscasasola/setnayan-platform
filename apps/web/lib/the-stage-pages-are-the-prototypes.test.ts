@@ -45,16 +45,29 @@ const PROTOTYPE: Record<string, ReadonlyArray<[label: string, page: string | nul
 /** What the code adds to a prototype page, and why. Anything else extra is red. */
 const ADDED: Record<string, readonly string[]> = {
   /* "every visible piece of the page must be a pickable part" (owner 2026-10-07): the cover's invite line and link. */
-  'save_the_date/home': ['heroline', 'herolink'],
-  'rsvp/home': ['heroline', 'herolink'],
+  /* 🖼 …and the Cover Scene, the group of every word on the cover (owner-approved 2026-10-15,
+     `maker_cover_group_background_2026-10-14_fable.html`), first among them on every page the cover leads. */
+  /* 🖼 + the cover's photo, a part that moves (owner-approved 2026-10-16, "SIX NEW EFFECTS"). */
+  'save_the_date/home': ['coverscene', 'heroline', 'coverphoto', 'herolink'],
+  /* 🔘 + the cover's RSVP button (owner 2026-10-16, "THE COVER: … AN RSVP BUTTON … AT THE FOOT"). */
+  'rsvp/home': ['coverscene', 'heroline', 'coverphoto', 'herolink', 'rsvpbutton'],
+  'editorial/home': ['coverscene', 'coverphoto'],
   /* …the Details page's "THE DETAILS · WHEN · WHERE" block. */
   'rsvp/details': ['details'],
   /* …the day's "Happening now" card, and the day's cover draws its Title too. */
-  'event/live': ['spotlight', 'livehub', 'ename', 'heroline', 'herolink'],
+  'event/live': ['spotlight', 'livehub', 'coverscene', 'ename', 'heroline', 'coverphoto', 'herolink'],
   /* …and the RSVP stage's two after-screens draw the couple's mark, their names and their invitation line over the
      note (`invite/enter`'s masthead) — each a part there (`lib/the-rsvp-stage-is-parts.test.ts`). */
   'rsvp_stage/thanks': ['logo', 'names', 'heroline'],
   'rsvp_stage/decline': ['logo', 'names', 'heroline'],
+};
+/** What a LATER owner ruling took off a prototype page, and why. */
+const REMOVED: Record<string, readonly string[]> = {
+  /* 🎭 The Reveal's tile (owner-approved 2026-10-16, "THE COVER SCENE'S OWN … STYLE (OPENING)"): the opening is the Cover
+     Scene's Style now, named in the cover's corner — no tile leads the page. */
+  'save_the_date/home': ['reveal'],
+  'rsvp/home': ['reveal'],
+  'event/live': ['reveal'],
 };
 /** Pages the code has that the prototype does not — each a tab the SHIPPED guest bar draws. */
 const BAR_PAGES: Record<string, readonly string[]> = {
@@ -77,8 +90,12 @@ test('every prototype page is a page of its stage, with the prototype’s parts 
       const have = code[page];
       assert.ok(have, `${stage} › ${label} (${page}) is a page`);
       /* The prototype's parts, in order, with only the named additions between them. */
-      const added = ADDED[`${stage}/${page}`] ?? [];
-      assert.deepEqual(have!.filter((k) => !added.includes(k)), [...parts], `${stage} › ${label}: the prototype's parts, in order`);
+      /* 🕯 …and the Closing (owner 2026-10-17) ends every page of a stage the shell draws — its footer, under whichever
+         page is on show (`the-closing-is-its-own-scene.test.ts`). The RSVP stage's reply screens have none. */
+      const added = [...(ADDED[`${stage}/${page}`] ?? []), ...(stage === 'rsvp_stage' ? [] : ['closing'])];
+      const removed = REMOVED[`${stage}/${page}`] ?? [];
+      assert.deepEqual(have!.filter((k) => !added.includes(k)), parts.filter((k) => !removed.includes(k)), `${stage} › ${label}: the prototype's parts, in order`);
+      for (const k of removed) assert.ok(!have!.includes(k), `${stage} › ${label}: ${k} was ruled off and is back`);
       for (const k of added) assert.ok(have!.includes(k), `${stage} › ${label}: ${k} was named as added`);
     }
     const known = new Set([...pages.map(([, p]) => p).filter(Boolean), ...(BAR_PAGES[stage] ?? [])]);

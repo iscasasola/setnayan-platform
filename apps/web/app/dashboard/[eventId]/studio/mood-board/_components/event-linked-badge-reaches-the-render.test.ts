@@ -56,7 +56,7 @@ async function paint(show: boolean): Promise<string> {
 
 test('⭐ THE GUARD · an event-linked row paints the real sentence', async () => {
   const html = await paint(true);
-  assert.match(html, /A Setnayan celebration/);
+  assert.match(html, /A Setnayan event/);
 });
 
 test('⭐ THE GUARD · a back-catalogue row paints NOTHING — no badge on every card', async () => {
@@ -67,7 +67,8 @@ test('⭐ THE GUARD · a back-catalogue row paints NOTHING — no badge on every
 
 test('⭐ THE GUARD · the picker mounts the badge from asset.isEventLinked, per row', () => {
   const src = read(PICKER);
-  const cardMap = windowOf(src, 'assets.map((asset) => {', /\n      {\/\* Rows we fetched/);
+  /* RE-AIMED 2026-10-19: the grid draws `shown` (the page, untagged photos ranked after colour matches). */
+  const cardMap = windowOf(src, 'shown.map((asset) => {', /\n      {\/\* Rows we fetched/);
 
   assert.equal(
     count(cardMap, '<EventLinkedBadge'),

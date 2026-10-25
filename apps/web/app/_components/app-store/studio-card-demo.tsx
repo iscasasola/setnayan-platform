@@ -96,11 +96,11 @@ const PAPIC_SCENES: RichFrame[] = [
     ),
   },
   {
-    caption: 'Every shot lands in your gallery, instantly.',
+    caption: 'Every shot lands in your Memories, instantly.',
     hint: 'You never lift a finger — it just fills up.',
     scene: (
       <div className="absolute inset-0 flex flex-col justify-center bg-cream text-ink">
-        <div className="px-3 pb-2 pt-3 text-[12px] font-semibold">Your gallery</div>
+        <div className="px-3 pb-2 pt-3 text-[12px] font-semibold">Your Memories</div>
         <div className="flex flex-wrap gap-1 px-3">
           <span className="rounded-full bg-terracotta-700 px-2 py-0.5 font-mono text-[8px] uppercase tracking-[0.12em] text-cream">All</span>
           <span className="rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[8px] uppercase tracking-[0.12em] text-ink/55">Photos of us</span>
@@ -126,12 +126,12 @@ const PAPIC_SCENES: RichFrame[] = [
   },
   {
     caption: 'Each guest finds the photos they’re in.',
-    hint: '“Photos of you” fills through the day — theirs to keep.',
+    hint: '“Memories of you” fills through the day — theirs to keep.',
     scene: (
       <div className="absolute inset-0 flex flex-col justify-center bg-cream text-ink">
         <div className="flex items-center justify-between px-3 pt-3">
           <span className="inline-flex items-center gap-1.5 font-mono text-[9px] uppercase tracking-[0.18em] text-terracotta">
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" /> Photos of you
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" /> Memories of you
           </span>
           <span className="text-[10px] text-ink/55">12 tagged</span>
         </div>
@@ -248,7 +248,8 @@ const ANIMATED_MONOGRAM_SCENES: RichFrame[] = [
           ))}
         </div>
         <div className="mt-auto mb-4">
-          {/* ₱500 = ANIMATED_MONOGRAM. Repriced from ₱1,000 on 2026-09-05 by the
+          {/* ₱500 = the Logo & QR part (COUPLE_HUB_PART_LOGO_QR) since 2026-10-22, when the standalone
+              ANIMATED_MONOGRAM was retired into it. Earlier history: ANIMATED_MONOGRAM was repriced from ₱1,000 on 2026-09-05 by the
               owner: the SKU lost the LED Live Background on 2026-08-11 ("that
               half of the ₱1,000 could never be delivered") and kept its number,
               so the figure was halved to match what it actually buys — the six
@@ -561,7 +562,7 @@ const PATIKTOK_SCENES: RichFrame[] = [
         <button type="button" className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-3 py-1.5 text-[10px] font-medium text-white">
           <Download aria-hidden className="h-3 w-3" strokeWidth={2} /> Download reel
         </button>
-        <span className="mt-1.5 font-mono text-[7px] uppercase tracking-[0.15em] text-ink/45">Saved to your event gallery</span>
+        <span className="mt-1.5 font-mono text-[7px] uppercase tracking-[0.15em] text-ink/45">Saved to your Memories</span>
       </div>
     ),
   },
@@ -826,7 +827,7 @@ const LANDING_PAGE_SCENES: RichFrame[] = [
     scene: (
       <div className="absolute inset-0 flex items-center justify-center px-4" style={{ background: '#e7e2d6' }}>
         <div className="w-full rounded-md border-t-2 border-ink bg-cream p-4 text-center text-ink">
-          <span className="font-mono text-[7px] uppercase tracking-[0.2em] text-terracotta">A celebration</span>
+          <span className="font-mono text-[7px] uppercase tracking-[0.2em] text-terracotta">An event</span>
           <p className="mt-1 text-base leading-tight" style={{ fontFamily: SERIF }}>Maria & Juan Are Married</p>
           <span className="mx-auto mt-1.5 block h-px w-12" style={{ background: GOLD }} />
           <div className="mt-2 h-12 w-full rounded" style={{ background: '#F0997B' }} />
@@ -895,7 +896,7 @@ const MUSIC_CREATOR_SCENES: RichFrame[] = [
   },
   {
     caption: 'Backs every wedding video you make.',
-    hint: 'Reels, save-the-date, your gallery.',
+    hint: 'Reels, save-the-date, your Memories.',
     scene: (
       <div className="absolute inset-0 flex flex-col items-center justify-center bg-cream px-4 text-ink">
         <div className="flex h-20 w-32 items-end justify-center rounded-lg p-2 text-white" style={{ background: PURPLE }}>

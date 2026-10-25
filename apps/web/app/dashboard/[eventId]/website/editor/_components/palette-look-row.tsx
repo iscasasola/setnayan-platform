@@ -20,7 +20,7 @@
  */
 
 import type { CSSProperties, ReactNode } from 'react';
-import { PALETTE_LOOKS, PALETTE_LOOK_CARD_FOCUS, PALETTE_LOOK_PREVIEW_TYPE, type PaletteLookId } from '@/lib/palette-looks';
+import { PALETTE_LOOKS, PALETTE_LOOK_CARD_FOCUS, PALETTE_LOOK_DEFAULT, PALETTE_LOOK_PREVIEW_TYPE, type PaletteLookId } from '@/lib/palette-looks';
 import { DOS_LOOKS, DOS_LOOK_CARD_FOCUS, DOS_LOOK_PREVIEW_TYPE, type DosLookId } from '@/lib/dress-code-looks';
 import { SP_DD_LABEL, SP_PALETTE_PICK, SP_PALETTE_ROW } from '@/lib/maker-stage-room';
 import { IRow } from './inspector-kit';
@@ -68,7 +68,8 @@ export function PaletteLookCards({ value, onPick, pending = false }: { value: Pa
  */
 export function PaletteLookStrip({ value, colours, onPick, pending = false }: { value: PaletteLookId; colours: readonly string[]; onPick: (id: PaletteLookId) => void; pending?: boolean }) {
   /* The couple's colours — or, before they have any, quiet stand-ins, so the five shapes still read. */
-  const shown = colours.length > 0 ? colours.slice(0, 5) : PALETTE_STAND_INS;
+  /* Three, like the dropdown's thumbnails: eight looks in one row leave each picture ~41 px (2026-10-15). */
+  const shown = colours.length > 0 ? colours.slice(0, 3) : PALETTE_STAND_INS;
   return (
     <div role="radiogroup" aria-label="Palette style" data-look-row="palette" data-palette-strip="" className={SP_PALETTE_ROW}>
       {PALETTE_LOOKS.map((o) => (
@@ -77,8 +78,8 @@ export function PaletteLookStrip({ value, colours, onPick, pending = false }: { 
           type="button"
           role="radio"
           aria-checked={o.id === value}
-          aria-label={`Palette style: ${o.name}`}
-          title={o.name}
+          aria-label={`Palette style: ${o.name}${o.id === PALETTE_LOOK_DEFAULT ? '' : ' ◆'}`}
+          title={o.id === PALETTE_LOOK_DEFAULT ? o.name : `${o.name} ◆`}
           data-palette-pick={o.id}
           onClick={() => {
             if (!pending && o.id !== value) onPick(o.id);
@@ -86,6 +87,12 @@ export function PaletteLookStrip({ value, colours, onPick, pending = false }: { 
           className={SP_PALETTE_PICK}
         >
           <PaletteLookThumb look={o.id} colours={shown} />
+          {/* 💎 ◆ on every look but Tags (the theme's own) — Event Hub Pro since 2026-10-16, named at ✓ Apply. */}
+          {o.id === PALETTE_LOOK_DEFAULT ? null : (
+            <span aria-hidden className="pointer-events-none absolute right-0.5 top-0 text-[9px] leading-none text-[var(--sp-ink,#2C2A29)]">
+              ◆
+            </span>
+          )}
         </button>
       ))}
     </div>
@@ -163,6 +170,9 @@ export function DosLookCards({ value, onPick, pending = false }: { value: DosLoo
 const PINKED =
   'polygon(0 12%,12% 0,25% 12%,38% 0,50% 12%,62% 0,75% 12%,88% 0,100% 12%,88% 25%,100% 38%,88% 50%,100% 62%,88% 75%,100% 88%,88% 100%,75% 88%,62% 100%,50% 88%,38% 100%,25% 88%,12% 100%,0 88%,12% 75%,0 62%,12% 50%,0 38%,12% 25%)';
 
+/* Silk's folds, at thumbnail size — one light band and one shade across the swatch. */
+const SILK_SHEEN = 'linear-gradient(115deg,transparent 20%,rgba(255,255,255,.3) 40%,rgba(0,0,0,.12) 62%,transparent 80%)';
+
 /** A tiny picture of the couple's colours in one look — the prototype's `.th`. */
 export function PaletteLookThumb({ look, colours }: { look: PaletteLookId; colours: readonly string[] }) {
   const bg = (hex: string, extra?: CSSProperties): CSSProperties => ({ backgroundColor: hex, ...extra });
@@ -177,10 +187,49 @@ export function PaletteLookThumb({ look, colours }: { look: PaletteLookId; colou
       </span>
     );
   } else if (look === 'fabric') {
+    /* Silk swatches (redrawn 2026-10-15): a tall pinked rectangle with one sheen band. */
     inner = (
       <span className="flex items-end gap-[2px]">
         {colours.map((hex, i) => (
-          <i key={i} className="block h-[10px] w-[10px]" style={bg(hex, { clipPath: PINKED })} />
+          <i key={i} className="block h-[12px] w-[9px]" style={bg(hex, { clipPath: PINKED, backgroundImage: SILK_SHEEN })} />
+        ))}
+      </span>
+    );
+  } else if (look === 'arch') {
+    /* Arch tabs: edge to edge, rounded at the foot. */
+    inner = (
+      <span className="flex items-end">
+        {colours.map((hex, i) => (
+          <i key={i} className="block h-[14px] w-[8px] rounded-b-full shadow-[inset_0_0_0_0.5px_rgba(0,0,0,.15)]" style={bg(hex)} />
+        ))}
+      </span>
+    );
+  } else if (look === 'watercolour') {
+    /* Watercolour dots: uneven round pools, darker at the rim. */
+    inner = (
+      <span className="flex items-center gap-[2px]">
+        {colours.map((hex, i) => (
+          <i
+            key={i}
+            className="block h-[11px] w-[11px]"
+            style={bg(hex, {
+              borderRadius: i % 2 ? '54% 46% 52% 48% / 46% 56% 44% 54%' : '48% 52% 46% 54% / 52% 44% 56% 48%',
+              boxShadow: 'inset 0 0 0 0.5px rgba(43,36,28,.25), inset 0 0 2px rgba(43,36,28,.3)',
+            })}
+          />
+        ))}
+      </span>
+    );
+  } else if (look === 'strokes') {
+    /* Paint strokes: tilted glossy slashes, overlapping. */
+    inner = (
+      <span className="flex items-center pr-[3px]">
+        {colours.map((hex, i) => (
+          <i
+            key={i}
+            className="-ml-[4px] block h-[6px] w-[14px] -rotate-[14deg] rounded-full shadow-[0_0.5px_1px_rgba(0,0,0,.3)] first:ml-0"
+            style={bg(hex, { backgroundImage: 'linear-gradient(180deg,rgba(255,255,255,.35),transparent 45%,rgba(0,0,0,.18))' })}
+          />
         ))}
       </span>
     );

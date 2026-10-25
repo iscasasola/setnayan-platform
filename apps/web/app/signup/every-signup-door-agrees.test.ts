@@ -20,8 +20,9 @@
  * ── THE ORDER (owner 2026-09-25: "When a new account is created via website
  * must be similar to the event invitation") ────────────────────────────────
  * Google / Apple first — a provider redirect under a half-filled form loses the
- * form (DECISION_LOG 2026-09-10) — through the one shared verb, so the two
- * website doors cannot drift into two wordings of the same button.
+ * form (DECISION_LOG 2026-09-10) — in the one shared wording (`OAUTH_VERB`,
+ * "Continue with", sweep C9 2026-10-19), so no door can word the same button
+ * differently.
  *
  * 🛡 Comments stripped before matching (`lib/strip-comments.ts`), so a fix's
  * own explanation is never the finding.
@@ -81,10 +82,20 @@ test('the sweep finds the doors — /signup and the wedding onboarding account s
 // SABOTAGE: delete the Terms <label> from onboarding-shell.tsx → RED.
 // SABOTAGE: add `defaultChecked` to it → RED.
 // SABOTAGE: turn it into `type="hidden"` → RED.
+// SABOTAGE: point /signup's box at another form (`form={OTHER}`) → RED (0 Terms inputs for that door).
 test('every sign-up door carries the Terms box — a checkbox, required, UNTICKED, above the button', () => {
   const offenders: string[] = [];
   for (const d of ALL) {
-    const tags = [...d.form.matchAll(/<input\b[^>]*\bname=\{TERMS_FIELD\}[^>]*>/g)].map((m) => m[0]);
+    // A box may sit OUTSIDE its form and still be the form's own field: HTML's `form=` attribute posts it with the
+    // form whose `id` it names (any door that keeps its box outside the form; /signup keeps its one box INSIDE, just above the submit, since 2026-10-22). It counts
+    // for THIS door only when the `form=` names THIS form's id; any other id, or none, is somebody else's box.
+    const formId = d.form.match(/^<form action=\{signUp\}[^>]*\bid=\{(\w+)\}/)?.[1] ?? null;
+    const outside = formId
+      ? [...d.code.slice(0, d.formAt).matchAll(/<input\b[^>]*\bname=\{TERMS_FIELD\}[^>]*>/g)]
+          .map((m) => m[0])
+          .filter((tag) => new RegExp(`\\bform=\\{${formId}\\}`).test(tag))
+      : [];
+    const tags = [...[...d.form.matchAll(/<input\b[^>]*\bname=\{TERMS_FIELD\}[^>]*>/g)].map((m) => m[0]), ...outside];
     const literal = [...d.form.matchAll(/<input\b[^>]*\bname="terms_agreed"[^>]*>/g)].map((m) => m[0]);
     if (literal.length) offenders.push(`${d.where}: posts "terms_agreed" by hand — use TERMS_FIELD`);
     if (tags.length !== 1) {
@@ -95,9 +106,10 @@ test('every sign-up door carries the Terms box — a checkbox, required, UNTICKE
     if (!/\btype="checkbox"/.test(tag)) offenders.push(`${d.where}: the Terms field is not a checkbox — ${tag}`);
     if (!/\brequired\b/.test(tag)) offenders.push(`${d.where}: the Terms box is not \`required\``);
     if (/\b(defaultChecked|checked)\b/.test(tag)) offenders.push(`${d.where}: the Terms box is pre-ticked`);
-    const box = d.form.indexOf('name={TERMS_FIELD}');
+    // Measured in the whole file: a box associated by `form=` sits before the form, so above its submit as well.
+    const box = outside.length ? d.code.indexOf(outside[0]!) : d.formAt + d.form.indexOf('name={TERMS_FIELD}');
     const submit = d.form.indexOf('<SubmitButton');
-    if (submit < 0 || box > submit) offenders.push(`${d.where}: the Terms box is not ABOVE the submit`);
+    if (submit < 0 || box > d.formAt + submit) offenders.push(`${d.where}: the Terms box is not ABOVE the submit`);
   }
   assert.deepEqual(offenders, [], offenders.join('\n'));
 });
@@ -118,7 +130,8 @@ test('every sign-up door posts "Stay signed in", ticked by default, as a checkbo
 });
 
 // SABOTAGE: move <OAuthButtonRow> below the form on either door → RED.
-// SABOTAGE: hand-type verb="Continue with" on one door → RED.
+// SABOTAGE: hand a door's row a `verb="Sign in with"` → RED (and the prop no longer type-checks).
+// The words themselves are `OAUTH_VERB` (lib/oauth-words.ts), held by lib/one-oauth-wording.test.ts.
 test('Google / Apple come FIRST, in the one shared wording, on every sign-up door', () => {
   const offenders: string[] = [];
   for (const d of ALL) {
@@ -129,8 +142,8 @@ test('Google / Apple come FIRST, in the one shared wording, on every sign-up doo
     }
     if (oauth > d.formAt) offenders.push(`${d.where}: Google / Apple sit BELOW the email form`);
     for (const m of d.code.matchAll(/<(OAuthButtonRow|DesktopOAuthButtons|NativeOAuthButtons)\b[^>]*>/g)) {
-      if (!/verb=\{SIGNUP_OAUTH_VERB\}/.test(m[0])) {
-        offenders.push(`${d.where}: ${m[1]} does not use SIGNUP_OAUTH_VERB — ${m[0]}`);
+      if (/\bverb=/.test(m[0])) {
+        offenders.push(`${d.where}: ${m[1]} is handed its own words — every door says OAUTH_VERB — ${m[0]}`);
       }
     }
   }

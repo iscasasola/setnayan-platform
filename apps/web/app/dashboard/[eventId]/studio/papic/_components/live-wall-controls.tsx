@@ -81,8 +81,8 @@ export function LiveWallControls({
       } else {
         setMirrorError(
           res.error === 'forbidden'
-            ? 'Only the couple can change where the wall shows.'
-            : 'That didn’t save — the wall is unchanged. Try again.',
+            ? 'Only the couple can change where Memory lane shows.'
+            : 'That didn’t save — Memory lane is unchanged. Try again.',
         );
       }
     });
@@ -98,12 +98,12 @@ export function LiveWallControls({
           until now. */}
       <div className="rounded-lg border border-ink/10 bg-ink/[0.02] p-3">
         <p className="text-xs font-medium uppercase tracking-wide text-ink/50">
-          Where the wall shows
+          Where Memory lane shows
         </p>
         <p className="mt-1.5 text-sm text-ink/70">
           {mirror
-            ? 'On your venue screens and on your guests’ own phones while the celebration is on.'
-            : 'On your venue screens only. Guests won’t see the wall on their phones.'}
+            ? 'On your venue screens and on your guests’ own phones while the event is on.'
+            : 'On your venue screens only. Guests won’t see Memory lane on their phones.'}
         </p>
         <button
           type="button"
@@ -134,7 +134,7 @@ export function LiveWallControls({
       {/* Wall display config (owner 2026-07-08 · D5) — how many photos + which
           layout. Fully responsive, so no resolution. */}
       <div className="rounded-lg border border-ink/10 bg-ink/[0.02] p-3">
-        <p className="text-xs font-medium uppercase tracking-wide text-ink/50">Wall display</p>
+        <p className="text-xs font-medium uppercase tracking-wide text-ink/50">Memory lane display</p>
         <div className="mt-2 flex flex-wrap items-end gap-3">
           <label className="text-sm text-ink/70">
             Photos shown
@@ -151,7 +151,7 @@ export function LiveWallControls({
           <div className="flex items-center gap-2 text-sm text-ink/70">
             <span aria-hidden>Layout</span>
             <PickMenu
-              label="Wall layout"
+              label="Memory lane layout"
               value={layout}
               dataAttr="data-wall-layout"
               options={WALL_TILE_LAYOUTS.map((l) => ({ key: l, label: l.charAt(0).toUpperCase() + l.slice(1) }))}
@@ -209,7 +209,7 @@ export function LiveWallControls({
       {tiles.length > 0 ? (
         <div>
           <p className="text-xs font-medium uppercase tracking-wide text-ink/50">
-            On the wall now — newest first
+            On Memory lane now — newest first
           </p>
           <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
             {tiles.map((tile) => (
@@ -221,7 +221,7 @@ export function LiveWallControls({
               >
                 {tile.thumbUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element -- presigned R2 thumb
-                  <img src={tile.thumbUrl} alt="Live wall photo" className="h-full w-full object-cover" />
+                  <img src={tile.thumbUrl} alt="Memory lane photo" className="h-full w-full object-cover" />
                 ) : (
                   <div className="h-full w-full bg-ink/10" />
                 )}
@@ -229,7 +229,7 @@ export function LiveWallControls({
                   {tile.hidden ? (
                     <button
                       type="button"
-                      aria-label="Show on wall again"
+                      aria-label="Show on Memory lane again"
                       disabled={pending}
                       onClick={() =>
                         run(() => unhideWallTile(eventId, tile.sourceTable, tile.sourceId))
@@ -242,8 +242,8 @@ export function LiveWallControls({
                     <>
                       <button
                         type="button"
-                        aria-label="Hide from wall (keeps it in your gallery)"
-                        title="Hide from wall (keeps it in your gallery)"
+                        aria-label="Hide from Memory lane (keeps it in your Memories)"
+                        title="Hide from Memory lane (keeps it in your Memories)"
                         disabled={pending}
                         onClick={() =>
                           run(() => hideWallTile(eventId, tile.sourceTable, tile.sourceId, false))
@@ -254,8 +254,8 @@ export function LiveWallControls({
                       </button>
                       <button
                         type="button"
-                        aria-label="Hide from wall AND gallery"
-                        title="Hide from wall AND gallery"
+                        aria-label="Hide from Memory lane AND Memories"
+                        title="Hide from Memory lane AND Memories"
                         disabled={pending}
                         onClick={() =>
                           run(() => hideWallTile(eventId, tile.sourceTable, tile.sourceId, true))
@@ -273,7 +273,7 @@ export function LiveWallControls({
         </div>
       ) : (
         <p className="text-sm text-ink/50">
-          No photos on the wall yet — they appear here the moment your paparazzi start shooting.
+          No photos on Memory lane yet — they appear here the moment your paparazzi start shooting.
         </p>
       )}
 

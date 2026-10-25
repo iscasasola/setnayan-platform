@@ -293,7 +293,8 @@ test('the scene’s Content tab is the field, and every answer is ONE draft save
   assert.match(field, /Just this scene/);
   assert.match(field, /Use \{DETAILS_FACT\[fact\]\.boxLabel\.toLowerCase\(\)\}/);
   assert.match(field, /fd\.set\('intent', 'save'\)/, 'a draft save, never a live write');
-  assert.match(field, /detailsEditPatch\(\{ choice, fact, text, widgetType, canvas: latest\.current \}\)/);
+  /* RE-AIMED 2026-10-18 round 3 (two hosts never overwrite): every step records who made it; whole canvases say what they were built on. Same property. */
+  assert.match(field, /const builtOn = latest\.current;\s*const patch = detailsEditPatch\(\{ choice, fact, text, widgetType, canvas: builtOn \}\)/);
   assert.doesNotMatch(field, /intent', 'apply'/);
 
   const page = read('app/dashboard/[eventId]/website/editor/page.tsx');

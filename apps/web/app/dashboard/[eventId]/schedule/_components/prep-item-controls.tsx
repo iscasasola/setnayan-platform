@@ -24,16 +24,15 @@
 // ============================================================================
 
 import { useRef, useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
 import { CalendarPlus, Loader2, Plus, Trash2, X } from 'lucide-react';
 import { addPreparationItem, deletePreparationItem } from '../prep-actions';
 import { PrepKindPicker, type PrepKind } from './prep-kind-picker';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 
 // ── Add ─────────────────────────────────────────────────────────────────
 
 export function AddPreparationItem({ eventId }: { eventId: string }) {
-  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [kind, setKind] = useState<PrepKind>('task');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -69,7 +68,6 @@ export function AddPreparationItem({ eventId }: { eventId: string }) {
         setOpen(false);
         setErrorMessage(null);
         setKind('task');
-        router.refresh();
       } catch (err) {
         setErrorMessage(
           err instanceof Error ? err.message : 'Could not add this item.',
@@ -104,11 +102,9 @@ export function AddPreparationItem({ eventId }: { eventId: string }) {
           role="dialog"
           aria-modal="true"
           aria-labelledby="add-prep-headline"
-          className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 p-4 backdrop-blur-sm focus:outline-none sm:items-center"
-          onClick={(e) => {
-            if (e.target === overlayRef.current) close();
-          }}
+          className="fixed inset-0 z-50 flex items-end justify-center p-4 focus:outline-none sm:items-center"
         >
+          <OverlayBackdrop onClose={close} />
           <div className="relative w-full max-w-md rounded-2xl border border-ink/10 bg-cream p-5 shadow-xl sm:p-6">
             <button
               type="button"
@@ -260,7 +256,6 @@ export function DeletePreparationItemButton({
   itemId: string;
   label: string;
 }) {
-  const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -272,7 +267,6 @@ export function DeletePreparationItemButton({
     startTransition(async () => {
       try {
         await deletePreparationItem(fd);
-        router.refresh();
       } catch (err) {
         setErrorMessage(
           err instanceof Error ? err.message : 'Could not remove this item.',

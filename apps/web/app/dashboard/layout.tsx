@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { runLoginGhostingCheck } from '@/lib/ghosting';
 import { GuidedTour } from '@/app/_components/guided-tour';
+import { Spotlight } from '@/app/_components/spotlight';
 import { completeTour } from '@/lib/tour-actions';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { SecureAccountBanner } from './_components/secure-account-banner';
@@ -57,6 +58,7 @@ export default async function DashboardLayout({
     account_type?: string | null;
     deleted_at?: string | null;
     tour_seen_keys?: string[] | null;
+    display_name?: string | null;
     terms_accepted_at?: string | null;
     created_at?: string | null;
   };
@@ -64,7 +66,7 @@ export default async function DashboardLayout({
   try {
     const fullRes = await supabase
       .from('users')
-      .select('account_type, deleted_at, tour_seen_keys, terms_accepted_at, created_at')
+      .select('account_type, deleted_at, tour_seen_keys, display_name, terms_accepted_at, created_at')
       .eq('user_id', user.id)
       .maybeSingle();
     if (
@@ -168,11 +170,17 @@ export default async function DashboardLayout({
     so the person most likely to lose their wedding was a couple mid-planning who
     accepted an invitation the product showed them.
 
-    🔑 THE RULING IS ABOUT CREATING, SO THE BLOCK BELONGS ON CREATING. It now
-    lives at the four server entry points that actually make an event
+    🔑 THE RULING IS ABOUT CREATING, SO THE GATE BELONGS ON CREATING. It lives
+    at the server entry points that actually make an event
     (`lib/vendor-event-creation.ts`), which is the door rather than the button —
     a layout redirect could never have covered the onboarding wizards anyway,
     because they commit from `/onboarding/*`, outside this tree.
+
+    ⛔ SUPERSEDED 2026-10-22 — ONE ACCOUNT IS BOTH. Owner: *"In shop they do not
+    create events, but them as a user, they can create their events."* The
+    2026-08-15 "block only creating" above is reversed: a shop account now
+    creates its own events here like any host, and the gate refuses nobody. The
+    shop side (Today · Customers · Shop · Hub) still never offers "create event".
 
     ✅ NO REDIRECT LOOP RETURNS — the 2026-08-10 "more than 20 redirections" bug
     needed BOTH sides pointing at each other. `vendor-dashboard/layout.tsx` still
@@ -223,6 +231,10 @@ export default async function DashboardLayout({
       {!termsAsk && !(profile?.tour_seen_keys ?? []).includes('couple_welcome_v1') ? (
         <GuidedTour tourKey="couple_welcome_v1" completeAction={completeTour} />
       ) : null}
+      {/* 🔦 The host's spotlight journey — create the event → Event Hub → guests → suppliers (owner
+          2026-10-02). Here in the layout so it survives a page change and the ring glides on to the
+          next page. The old welcome above stays off (`lib/tip-popups.ts`). */}
+      {!termsAsk ? <Spotlight tourKey="host_spotlight_v1" seenKeys={profile ? (profile.tour_seen_keys ?? []) : null} name={profile?.display_name ?? null} replay /> : null}
     </div>
   );
 }

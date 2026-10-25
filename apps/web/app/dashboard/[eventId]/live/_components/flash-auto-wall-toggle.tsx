@@ -16,7 +16,7 @@ export function FlashAutoWallToggle({
   return (
     <label className="flex cursor-pointer items-center gap-3 select-none">
       <span className="text-sm text-ink/75">
-        <span className="font-medium text-ink">Flash auto-wall</span>
+        <span className="font-medium text-ink">Flash to Memory lane</span>
         <span className="ml-1.5 text-ink/50">
           {enabled ? '— Flash stories post automatically after 5 s' : '— off, Flash goes to review queue'}
         </span>
@@ -27,7 +27,7 @@ export function FlashAutoWallToggle({
         aria-checked={enabled}
         // The wrapping <label> names native form controls, not a <button>, so
         // the switch needs its own accessible name.
-        aria-label="Flash auto-wall"
+        aria-label="Flash to Memory lane"
         disabled={pending}
         onClick={() =>
           startTransition(async () => {

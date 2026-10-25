@@ -33,12 +33,15 @@
  * (`file_upload` for the couple's own photo, `gallery_pick` for a supplier's,
  * with `library_asset_id` naming it) — nothing else, and nothing per board. The
  * attire boards' `slot_key`s are `bride` · `groom` · `bridesmaids` ·
- * `groomsmen` · `flower_girl` · `ring_bearer` · `entourage`.
+ * `groomsmen` · `flower_girl` · `ring_bearer` (`entourage` left Attire 2026-10-14).
  *
  * Pure, client-safe: types only from the taxonomy (it reaches the server).
  */
 import type { MoodboardSlotKey } from './moodboard-slots';
+import type { RoomDressing } from './mood-board';
 import type { WeddingTile } from './taxonomy';
+/* Pure and client-safe too (its only value import is `./mood-board`), so this file stays reachable from the client. */
+import { CAKE_LANE_PARTS, FLORIST_LANE_PARTS, ROOM_LANE_PARTS, type LanePart } from './colour-access';
 
 /** Which lane a slot's palette paints when the couple taps "Use for …". */
 export type SlotPaletteTarget =
@@ -106,8 +109,11 @@ export const STUDIO_INSPIRATION_SLOTS: readonly StudioInspirationSlot[] = [
      search from the photos uploaded by vendors"*): one board each, in his order, each uploading and
      searching its own shelf of suppliers' photos through the shipped picker. The bride's card is the
      gown; the groom's slot (stored since onboarding) is the suit; the four after them have slots of
-     their own since migration 20271266380994. `entourage` STAYS, last — the whole party's board, and
-     couples' photos already live on it.
+     their own since migration 20271266380994.
+     🗑 ENTOURAGE IS GONE FROM ATTIRE (owner 2026-10-14: *"remove entourage"*): Bridesmaids · Groomsmen · Flower
+     girl · Ring bearer carry their own boards. Its stored photos stay in their rows (nothing is deleted) and its
+     slot stays in the DB vocabulary; the `wedding_party` palette stays the silent fallback the party's colours
+     resolve through (`resolveAttirePaletteColors`).
      🧒 Flower girl · Ring bearer: no palette button. The two share ONE palette (`bearers_flower_girl`),
      so "use this board's colours" from either would overwrite the other's — shown, never applied. */
   { slotKey: 'bride', label: 'Bridal gown', from: 'gown designers and make-up artists', target: { kind: 'role', key: 'bride' }, useLabel: 'Use for the bride’s colours', attire: true },
@@ -116,12 +122,99 @@ export const STUDIO_INSPIRATION_SLOTS: readonly StudioInspirationSlot[] = [
   { slotKey: 'groomsmen', label: 'Groomsmen', from: 'suit and barong makers', target: { kind: 'role', key: 'groomsmen' }, useLabel: 'Use for the groomsmen', attire: true },
   { slotKey: 'flower_girl', label: 'Flower girl', from: 'dress and Filipiniana makers', target: { kind: 'none' }, useLabel: null, attire: true, beside: 'bearers_flower_girl' },
   { slotKey: 'ring_bearer', label: 'Ring bearer', from: 'suit and barong makers', target: { kind: 'none' }, useLabel: null, attire: true, beside: 'bearers_flower_girl' },
-  { slotKey: 'entourage', label: 'Entourage', from: 'attire makers', target: { kind: 'role', key: 'wedding_party' }, useLabel: 'Use for the entourage', attire: true },
   { slotKey: 'cake', label: 'Cake', from: 'cake and dessert makers', target: { kind: 'none' }, useLabel: null },
   /* 💐 Their slots exist since 2026-10-07 (migration 20271265788160, step 4c). */
   { slotKey: 'bridal_bouquet', label: 'Bridal bouquet', from: 'florists', target: { kind: 'florals' }, useLabel: 'Use for the florist’s colours' },
   { slotKey: 'centrepieces', label: 'Centrepieces', from: 'florists, stylists and caterers', target: { kind: 'room' }, useLabel: 'Use for the room' },
+  /* 🎨🖼 The Palette's five parts with photos of their own (owner 2026-10-19, "2. yes"; migration 20271278232574). Each
+     sits on its part's block, whose own offer ("Use for Chairs") sets that part — so none carries a slot target. */
+  { slotKey: 'chairs', label: 'Chairs', from: 'stylists and chair rentals', target: { kind: 'none' }, useLabel: null },
+  { slotKey: 'ribbons_candles', label: 'Ribbons & candles', from: 'stylists', target: { kind: 'none' }, useLabel: null },
+  { slotKey: 'lights', label: 'Lights', from: 'lights and sound, and stylists', target: { kind: 'none' }, useLabel: null },
+  { slotKey: 'entourage_bouquets', label: 'Entourage bouquets', from: 'florists', target: { kind: 'none' }, useLabel: null },
+  { slotKey: 'flower_accents', label: 'Flower accents', from: 'florists and stylists', target: { kind: 'none' }, useLabel: null },
 ];
+
+/**
+ * 🎨🖼 THE PALETTE'S PARTS HOLD THEIR OWN PHOTOS (owner 2026-10-19, DECISION_LOG "APPROVED — PALETTE + INSPIRATION AS
+ * ONE LIST", prototype `palette_inspiration_one_list_2026-10-19.html`): Studio › Mood Board's Palette and Inspiration
+ * are one list, and each part's block carries its board's photos line (`paletteBoardOf`, by the part's `field`).
+ * NOTHING MOVES IN THE DATABASE: a board keeps its `slot_key`, so every stored photo is drawn where its board now
+ * sits, and every write still names that key.
+ *
+ *   · Venue & decor (`overall`) feeds YOUR MAIN PALETTE — its photos sit under the five (`MAIN_PALETTE_BOARD`).
+ *   · Flowers (`flowers`, every flower at once) has no part of its own: the finer boards (Bridal bouquet ·
+ *     Centrepieces · Entourage bouquets · Accents) sit on their parts. Its photos, where an event holds any, keep a
+ *     block of their own in the florist's group (`LEGACY_PALETTE_BOARDS`) — never offered for a new photo.
+ *
+ * `the-palette-holds-the-boards.test.ts` holds that every non-attire board in the Studio is drawn exactly once.
+ */
+const PART_BOARD: Readonly<Partial<Record<keyof RoomDressing, MoodboardSlotKey>>> = {
+  stage: 'stage',
+  ceiling: 'ceiling',
+  /* "Wall" is the shipped `backdrop` slot (above). */
+  walls: 'backdrop',
+  tunnel: 'tunnel',
+  linens: 'table',
+  chairs: 'chairs',
+  ribbons_candles: 'ribbons_candles',
+  lighting_warmth: 'lights',
+  bridal_bouquet: 'bridal_bouquet',
+  entourage_bouquets: 'entourage_bouquets',
+  florals: 'centrepieces',
+  flower_accents: 'flower_accents',
+  cake: 'cake',
+};
+const slotOf = (k: MoodboardSlotKey) => STUDIO_INSPIRATION_SLOTS.find((s) => s.slotKey === k) ?? null;
+export function paletteBoardOf(field: keyof RoomDressing | undefined): StudioInspirationSlot | null {
+  const k = field ? PART_BOARD[field] : undefined;
+  return k ? slotOf(k) : null;
+}
+export const MAIN_PALETTE_BOARD: MoodboardSlotKey = 'overall';
+export const LEGACY_PALETTE_BOARDS: readonly MoodboardSlotKey[] = ['flowers'];
+/** The boards a couple's own photo may go to from the Palette's "Which part?" — every part's, and Venue & decor's. */
+export function paletteUploadBoards(): StudioInspirationSlot[] {
+  const keys = new Set<MoodboardSlotKey>([MAIN_PALETTE_BOARD, ...(Object.values(PART_BOARD) as MoodboardSlotKey[])]);
+  return STUDIO_INSPIRATION_SLOTS.filter((s) => !s.attire && keys.has(s.slotKey));
+}
+
+/* ══ ONE LIST OF THE PARTS THAT HOLD PHOTOS — the couple's "Which part?" AND the supplier's library ══════════════
+ *
+ * 🌱🖼 Owner 2026-10-19 (DECISION_LOG "SUPPLIERS FILL THE INSPIRATION LIBRARY WITHOUT AN EVENT"): a supplier adds
+ * photos to the SAME parts, by the SAME names, in the SAME order the couple's Palette draws them — *"keep the mapping
+ * consistent and don't let me trace it"*. So both pickers read this one function: the couple's Studio upload bar
+ * (`mood-board-studio.tsx`, the Palette's parts) and the supplier's `/vendor-dashboard/moodboard-library`
+ * (`uploadableSlotsForShop`, the Palette's parts then the Attire boards). A new Palette part with a board joins both
+ * lists at once; `every-palette-part-reaches-the-supplier-library.test.ts` fails when it has no supplying trade.
+ */
+export type PhotoPartGroup = 'main' | 'room' | 'flowers' | 'cake' | 'attire';
+export type PhotoPart = { key: MoodboardSlotKey; label: string; group: PhotoPartGroup };
+
+/** The supplier's dropdown headings (the couple's say "for your stylist"; a supplier IS the stylist). */
+export const PHOTO_PART_GROUP_LABEL: Readonly<Record<PhotoPartGroup, string>> = {
+  main: 'Main palette',
+  room: 'The room',
+  flowers: 'Flowers',
+  cake: 'Cake',
+  attire: 'Attire',
+};
+
+/** Venue & decor, then every Palette part with a board, by the part's own name (Table linens, not Tables). */
+export function palettePhotoParts(): PhotoPart[] {
+  const main = STUDIO_INSPIRATION_SLOTS.filter((s) => s.slotKey === MAIN_PALETTE_BOARD).map((s) => ({ key: s.slotKey, label: s.label, group: 'main' as const }));
+  const lane = (parts: readonly LanePart[], group: PhotoPartGroup): PhotoPart[] =>
+    parts.flatMap((p) => {
+      const b = paletteBoardOf(p.field);
+      return b ? [{ key: b.slotKey, label: p.label, group }] : [];
+    });
+  return [...main, ...lane(ROOM_LANE_PARTS, 'room'), ...lane(FLORIST_LANE_PARTS, 'flowers'), ...lane(CAKE_LANE_PARTS, 'cake')];
+}
+
+/** The Palette's parts, then the Attire boards (Bridal gown · Groom’s suit · Bridesmaids · …) — the supplier's order. */
+export function libraryPhotoParts(): PhotoPart[] {
+  const attire = STUDIO_INSPIRATION_SLOTS.filter((s) => s.attire).map((s) => ({ key: s.slotKey, label: s.label, group: 'attire' as const }));
+  return [...palettePhotoParts(), ...attire];
+}
 
 /**
  * The owner's parts that have no `slot_key` to store a photo in. Each maps to

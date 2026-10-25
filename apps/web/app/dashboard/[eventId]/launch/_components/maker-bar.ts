@@ -252,6 +252,8 @@ export function makerPageMenu(input: {
    * `no-two-bar-buttons-share-a-label.test.ts` holds it.
    */
   openPage?: string | null;
+  /** 🚪 The stages this event does not need (`needsHidesStage`, lib/event-needs.ts) — absent from the list. */
+  hiddenStages?: readonly string[];
 }): {
   value: string;
   buttonText: string;
@@ -261,6 +263,8 @@ export function makerPageMenu(input: {
 } {
   const options: PickOption[] = [];
   for (const s of MAKER_PAGE_STAGES) {
+    // 🚪 A stage this event does not need is absent (owner 2026-10-08, `needsHidesStage`).
+    if (input.hiddenStages?.includes(s)) continue;
     const group = makerStageLabel(s);
     if (s === RSVP_STAGE_KEY) {
       options.push({

@@ -538,14 +538,14 @@ export default async function AccountProfilePage({ params }: Props) {
   // empty state, where printing it would confirm "this slug exists and belongs
   // to <name>". A creator with a published chapter timeline counts as content.
   const hasPublicContent = mode !== 'empty' || hasChapters;
-  const displayName = user.display_name?.trim() || 'Celebrations';
+  const displayName = user.display_name?.trim() || 'Events';
   const heading = hasPublicContent ? displayName : 'A Setnayan profile';
 
   const subtitle =
     mode === 'gallery'
-      ? 'A collection of celebrations.'
+      ? 'A collection of events.'
       : mode === 'stories'
-        ? 'Stories from celebrations past.'
+        ? 'Stories from events past.'
         : null;
 
   return (
@@ -676,7 +676,7 @@ export default async function AccountProfilePage({ params }: Props) {
             ) : null}
             {pastEvents.length > 0 ? (
               <section className="uprof-section uprof-past">
-                <h2 className="uprof-section-head">Past celebrations</h2>
+                <h2 className="uprof-section-head">Past events</h2>
                 <ul className="uprof-grid">{pastShown.shown.map(renderCelebration('past'))}</ul>
                 {/*
                     A PLAIN <details>, SO THE REST IS ONE TAP AND NO JAVASCRIPT.
@@ -701,7 +701,7 @@ export default async function AccountProfilePage({ params }: Props) {
           <div className="uprof-empty">
             <p className="uprof-empty-title">Nothing public to show yet</p>
             <p className="uprof-empty-sub">
-              When a celebration is published, it will appear here.
+              When an event is published, it will appear here.
             </p>
           </div>
         )}
@@ -1018,7 +1018,7 @@ const UPROF_CSS = `
     padding: 0.95rem 1.1rem;
     border: 1px solid color-mix(in srgb, var(--m-ink, #1B1A17) 12%, transparent);
     /* The same radius token as .uprof-empty, its actual neighbour in this
-       column. ⚠ This comment used to point at .uprof-card, the celebration
+       column. ⚠ This comment used to point at .uprof-card, the event
        card — which the poster artwork replaced, and a poster rounds at 4px
        like a printed sheet. The token is still right; the reason given for it
        had stopped being true. */
@@ -1348,7 +1348,7 @@ const UPROF_CSS = `
 
   /* The status sash: paper-white, across the top-left corner, real text, first
      in reading order. Identical on every sheet that carries one — a memory
-     carries none, and an undated celebration carries none either. */
+     carries none, and an undated event carries none either. */
   .uprof-sash {
     position: absolute; top: 0; left: 0;
     width: 150px; height: 150px;
@@ -1364,10 +1364,10 @@ const UPROF_CSS = `
     color: var(--m-ink, #2C2A29);
   }
 
-  /* ⛔ NO font-family IN THE NAME RULES. The celebration's own Save-the-Date
+  /* ⛔ NO font-family IN THE NAME RULES. The event's own Save-the-Date
      typeface arrives as a utility class on this element (owner: "keep the
      typeface"), and a font-family here would out-specify it and flatten every
-     celebration back to one face — which is the exact defect the typeface was
+     event back to one face — which is the exact defect the typeface was
      added to fix. The date line below is deliberately house serif. */
   .uprof-names { line-height: 1; letter-spacing: -.005em; display: block; }
   .uprof-nm { display: block; }

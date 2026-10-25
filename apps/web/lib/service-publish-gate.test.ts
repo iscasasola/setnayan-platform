@@ -145,6 +145,7 @@ function publishDecidingFiles(): string[] {
     // Publish button, or the canvas maker's.
     const decides =
       /name="publish"\s+value="true"/.test(src) ||
+      /name="publish" value=\{publishValue\}/.test(src) ||
       /const is_active =/.test(src);
     if (decides) hits.push(file);
   }
@@ -164,7 +165,10 @@ test('every surface that can publish a card asks the shared gate', () => {
     // Either it asks the gate itself, or its Publish button is disabled from
     // card health, which asks the gate.
     const asks =
-      src.includes('unmetPublishRequirements') || src.includes('scoreCardHealth');
+      src.includes('unmetPublishRequirements') ||
+      src.includes('scoreCardHealth') ||
+      // the simpler maker (2026-10-14): one Create whose live/not-shown answer is `canPublishService(facts)`
+      /canPublishService\(facts\)/.test(src);
     if (!asks) offenders.push(file.slice(WEB.length));
   }
   assert.deepEqual(
@@ -231,57 +235,33 @@ test("the wizard's Publish button is shut by the gate, not by its own two fields
   );
 });
 
-test('the maker keeps Publish shut on a blocked card', () => {
+test('the maker’s one Create goes live only when the gate says so', () => {
   const src = readFileSync(
     join(WEB, 'app/vendor-dashboard/services/_components/canvas-maker.tsx'),
     'utf8',
   );
+  assert.match(src, /const gateOpen = canPublishService\(facts\);/, 'the maker stopped asking the shared gate');
   assert.match(
     src,
-    /const blocked = health\.blockers\.length > 0/,
-    'the maker stopped deriving "blocked" from card health blockers',
+    /: gateOpen \? 'true' : 'false'/,
+    'a new card can be posted live without the gate (Create must save "not shown yet" instead)',
   );
-  assert.match(
-    src,
-    /name="publish"\s+value="true"\s+disabled=\{blocked\}/,
-    'the Publish button is no longer disabled by "blocked"',
-  );
+  // An existing card that is not live cannot be switched on while the gate is unmet.
+  assert.match(src, /const liveSwitchWaits = isEdit && !editing\?\.isActive && !gateOpen && !liveOn;/);
 });
 
-test('the first pass asks for every requirement the gate holds', () => {
-  // 🔑 The pass IS the gate said out loud. A pass one question short hands a
-  // supplier a finished-looking card and a shut Publish button.
+test('every requirement the gate holds is asked in the first questions', () => {
+  // 🔑 The first questions ARE the gate (prototype 2026-10-14: "only the three things that make it visible are
+  // open"). A requirement left under More settings hands a supplier a hidden card and no idea why.
   const src = readFileSync(
     join(WEB, 'app/vendor-dashboard/services/_components/canvas-maker.tsx'),
     'utf8',
   );
-  // H2 (2026-09-11): "what's included" joined the gate, so the pass asks it
-  // (the 'custom' sheet) between the price and the optional gift.
-  assert.match(
-    src,
-    /steps\.push\('media', 'price', 'custom', 'excl'\)/,
-    'the first pass no longer asks for a price, or for what is included',
-  );
-  assert.match(
-    src,
-    /passStep === 'custom'\s*\?\s*inclusionsAreSet\(snap\.inclusionLabels\)/,
-    'the what’s-included step lets Continue through with nothing included',
-  );
-  assert.match(
-    src,
-    /footer=\{passStep === 'custom' \? passFooter : null\}/,
-    'the what’s-included step has no Continue button — the pass strands the supplier there',
-  );
-  assert.match(
-    src,
-    /passStep === 'price'\s*\?\s*snap\.hasPrice/,
-    'the price step lets Continue through without a price',
-  );
-  assert.match(
-    src,
-    /footer=\{passStep === 'price' \? passFooter : null\}/,
-    'the price step has no Continue button — the pass strands the supplier there',
-  );
+  const more = src.indexOf('data="more"');
+  for (const fold of ['photos', 'price', 'included']) {
+    const at = src.indexOf(`data="${fold}"`);
+    assert.ok(at > 0 && at < more, `the "${fold}" question is missing or sits under More settings`);
+  }
 });
 
 test('card health takes its blockers from the gate, not from its own opinion', () => {

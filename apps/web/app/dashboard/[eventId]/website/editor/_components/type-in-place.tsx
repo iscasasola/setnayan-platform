@@ -5,9 +5,9 @@ import type { UndoStep } from '@/lib/maker-drawn-undo';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { EyeOff, Eye, Check } from 'lucide-react';
-import { ActionButton } from '@/components/action-button';
 import { HUB_DRAFT_BAR_FIELD, SUPERSEDED, makerLatestWrite, makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
-import { canvasFingerprint, canvasWriteKey, draftedCanvasOr, draftedOwnWordsOr, noteDraftedCanvas, noteDraftedOwnWords } from '@/lib/maker-draft-store';
+import { canvasFingerprint, canvasWriteKey, draftedCanvasOr, draftedOwnWordsOr, forgetCanvasSent, noteDraftedCanvas, noteDraftedOwnWords, sendCanvasBase } from '@/lib/maker-draft-store';
+import { MERGE_BASE_FIELD } from '@/lib/merge-base-field';
 import { announceMakerSave } from '@/lib/maker-save-status';
 import type { HubSectionCanvas } from '@/lib/hub-canvas';
 import type { HubDraftActionResult, HubDraftPatch } from '@/lib/hub-draft';
@@ -24,7 +24,8 @@ import { typedDisplayName } from '@/lib/typed-names';
 import { nameStyleChoicesFor, type NameParts, type NameStyle } from '@/lib/name-style';
 import { nameStyleDraftPatch } from '@/lib/name-style-save';
 import { useMaker } from '../../../launch/_components/maker-context';
-import { SP_KEY_BAR, SP_KEY_DONE } from '@/lib/maker-stage-room';
+import { TypingBand } from '@/app/_components/typing-band';
+import { readKeyboard, subscribeKeyboard } from '@/lib/keyboard-ride';
 
 /**
  * ✍ THE TYPE BAR — the small floating bar over the words being typed (Maker
@@ -98,10 +99,11 @@ function withOwnFieldsFrom(now: HubSectionCanvas, from: HubSectionCanvas, el: Hu
   return next;
 }
 /** The draft save every change the bar makes goes through — the hero's canvas, or the names. */
-async function saveDraft(draftAction: ElementDraftAction, eventId: string, patch: HubDraftPatch) {
+async function saveDraft(draftAction: ElementDraftAction, eventId: string, patch: HubDraftPatch, based?: (fd: FormData) => void) {
   const fd = new FormData();
   fd.set('intent', 'save');
   fd.set('patch', JSON.stringify(patch));
+  based?.(fd);
   fd.set(HUB_DRAFT_BAR_FIELD, '1');
   return draftAction(eventId, fd);
 }
@@ -244,15 +246,23 @@ export function TypeBar(p: TypeBarProps) {
     onRefused: (reason: string) => void,
     /** ↺ How this write is drawn back at once (`lib/maker-drawn-undo.ts`) — absent: its ↺ takes the slow path. */
     undo?: UndoStep,
+    /** 👥 What a scene's own words were built on (its `custom`, the other half kept) — two hosts never overwrite. */
+    wordsBase?: HubDraftPatch,
   ) => {
     postToCanvas(shown.messages, shown.typedIn);
     const { draftAction, eventId } = props.current;
     const tap = ++newest.current;
+    /* 👥 A canvas goes in WHOLE: it says what it was built on (the hero's, or this scene's — two hosts never overwrite). */
+    const canvases = Object.entries(patch.widgets ?? {}).filter(([, v]) => v?.canvas);
+    const based = (fd: FormData) => {
+      for (const [t, v] of canvases) sendCanvasBase(fd, t, t === 'hero' ? props.current.heroCanvas : props.current.sceneCanvas, v!.canvas!);
+      if (wordsBase) fd.set(MERGE_BASE_FIELD, JSON.stringify(wordsBase));
+    };
     void (async () => {
       let res: HubDraftActionResult | typeof SUPERSEDED;
       try {
         res = await makerSave(
-          () => makerLatestWrite(key, () => saveDraft(draftAction, eventId, patch)),
+          () => makerLatestWrite(key, () => saveDraft(draftAction, eventId, patch, based)),
           // Owed only if something else in the burst asked for a render (`makerNeedsRender`).
           requestMakerRefresh,
           { held: true, ok: (r) => r !== SUPERSEDED && r.ok === true, ...(undo ? { undo } : {}) },
@@ -265,6 +275,7 @@ export function TypeBar(p: TypeBarProps) {
         onSaved();
         return;
       }
+      for (const [t] of canvases) forgetCanvasSent(t);
       if (tap !== newest.current) return;
       onRefused(res.error);
     })();
@@ -367,6 +378,8 @@ export function TypeBar(p: TypeBarProps) {
         setError(said);
         announceMakerSave({ state: 'error', text: said });
       },
+      undefined,
+      custom ? { widgets: { [sceneType]: { custom: own } } } : undefined,
     );
   };
 
@@ -532,15 +545,13 @@ export function TypeBar(p: TypeBarProps) {
   /* The Maker's own window moving (a phone's keyboard, a resize) moves the words on screen too. */
   const [tick, setTick] = useState(0);
   useEffect(() => {
+    /* The window and the keyboard (the one keyboard reading, `lib/keyboard-ride.ts`): resize, its own scroll. */
     const on = () => setTick((n) => n + 1);
-    const vv = window.visualViewport;
     window.addEventListener('resize', on);
-    vv?.addEventListener('resize', on);
-    vv?.addEventListener('scroll', on);
+    const stop = subscribeKeyboard((_k, cause) => (cause === 'resize' || cause === 'scroll' ? on() : undefined));
     return () => {
       window.removeEventListener('resize', on);
-      vv?.removeEventListener('resize', on);
-      vv?.removeEventListener('scroll', on);
+      stop();
     };
   }, []);
   const framesRef = useRef(p.frames);
@@ -551,9 +562,9 @@ export function TypeBar(p: TypeBarProps) {
     if (!f || !b) return;
     const fr = f.getBoundingClientRect();
     const box = { left: fr.left, top: fr.top, scale: session.vw > 0 ? fr.width / session.vw : 1 };
-    const vv = window.visualViewport;
-    const vTop = vv?.offsetTop ?? 0;
-    const vH = vv?.height ?? window.innerHeight;
+    const kb = readKeyboard();
+    const vTop = kb.offsetTop;
+    const vH = kb.height;
     const w = b.offsetWidth;
     const h = b.offsetHeight;
     const r = session.rect;
@@ -574,30 +585,25 @@ export function TypeBar(p: TypeBarProps) {
      stepped aside, the keyboard takes the bottom half, and ONE bar rides on it — "Typing · Names" and Done,
      which brings the panel back. No Wording / Style / Hide: those are the panel's (Style · Text · Animate). */
   if (stagesStudio && !p.inline && typeof window !== 'undefined' && window.innerWidth < 1024) {
-    const vv = window.visualViewport;
-    const bottom = Math.max(0, window.innerHeight - ((vv?.offsetTop ?? 0) + (vv?.height ?? window.innerHeight)));
-    return createPortal(
-      <div
-        ref={bar}
+    /* The one typing band (`typing-band.tsx`) on the keyboard's top — Done is its ONE action, the app's main button. */
+    return (
+      <TypingBand
+        fixed
+        barRef={bar}
+        bottom={readKeyboard().bottom}
         role="toolbar"
         aria-label={`${field ? SCENE_FIELD_LABEL[field] : HUB_ELEMENT_LABEL[el]} — words`}
         data-type-bar={el}
         data-type-bar-keys=""
-        style={{ bottom }}
-        className={`fixed inset-x-0 z-[85] ${SP_KEY_BAR}`}
+        place={field ? SCENE_FIELD_LABEL[field] : HUB_ELEMENT_LABEL[el]}
+        onDone={p.onClose}
       >
-        <span className="min-w-0 truncate">Typing · {field ? SCENE_FIELD_LABEL[field] : HUB_ELEMENT_LABEL[el]}</span>
-        {/* Done is the bar's ONE action: the app's main button (the accent — `ActionButton`), never an ink pill. */}
-        <span data-type-done="" className={SP_KEY_DONE}>
-          <ActionButton tone="brand" main icon={Check} label="Done" onClick={p.onClose} />
-        </span>
         {error ? (
           <p role="alert" className="absolute inset-x-3 -top-9 rounded-lg bg-white px-2 py-1 text-[12px] font-semibold text-terracotta-700 shadow">
             {error}
           </p>
         ) : null}
-      </div>,
-      document.body,
+      </TypingBand>
     );
   }
   /* 🧰 A PHONE: the rows, inside the part's own Text tools — never over the page. */

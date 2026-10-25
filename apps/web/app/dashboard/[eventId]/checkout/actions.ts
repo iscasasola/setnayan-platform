@@ -69,6 +69,8 @@ import { orderRowFor, paymentRowFor } from '@/lib/order-mint-identity';
 import { getRequestPlatform, isRequestPlatform } from '@/lib/request-platform';
 import { notifyAdminsOrderAwaitingReconciliation } from '@/lib/order-admin-notify';
 import { isUniqueRefusal, orderInsertRefusal, PAYMENT_NOT_LOGGED } from '@/lib/checkout-submit-refusal';
+import { HUB_PARTS_ORDER_KEY, hubPart, parseHubPartsField } from '@/lib/hub-parts';
+import { hubPartPrices } from '@/lib/couple-website-pro';
 
 /**
  * Same reference-code shape as createOrder · 'SN' prefix + 8 uppercase hex.
@@ -499,7 +501,7 @@ export async function submitOrderAction(
         return {
           ok: false,
           reason:
-            'This one only runs during your celebration, and yours has finished. Everything that turns the day into a keepsake is still open.',
+            'This one only runs during your event, and yours has finished. Everything that turns the day into a keepsake is still open.',
         };
       }
     }
@@ -558,9 +560,13 @@ export async function submitOrderAction(
   // and arithmetic on that brand yields a plain bigint that will not type-check
   // back into a total. The 36× overcharge is now unrepresentable rather than
   // guarded. See the module header.
+  /* 💎 Several Event Hub Pro parts in one press (owner 2026-10-22) — the parts are read strictly from the form and
+     priced by the authority from the catalogue; anything else on this key is refused there. */
+  const hubParts = serviceKey === HUB_PARTS_ORDER_KEY ? parseHubPartsField(formData.get('hub_parts')) : [];
   const authority = await resolveOrderChargeCentavos({
     serviceKey,
     eventId: eventIdClean,
+    hubParts,
   });
   if (!authority.ok) {
     await insertFaultLog({
@@ -839,6 +845,29 @@ export async function submitOrderAction(
   }
 
   const orderId = orderRow.order_id as string;
+
+  /* 💎 WHAT A PARTS ORDER COVERS — one line per part (`onboarding_order_items`, the shape every multi-product bill
+     uses; ownership reads it through the basket lines). Without these rows the order provisions NOTHING, which is
+     worse than no order: fail closed, and take the order back. */
+  if (serviceKey === HUB_PARTS_ORDER_KEY) {
+    const linesAdmin = createAdminClient();
+    const { parts: partPrices } = await hubPartPrices(linesAdmin);
+    const { error: linesErr } = await linesAdmin
+      .from('onboarding_order_items')
+      .insert(hubParts.map((p) => ({ order_id: orderId, service_code: hubPart(p).sku, quantity: 1, unit_price_php: partPrices.get(hubPart(p).sku) ?? 0 })));
+    if (linesErr) {
+      await insertFaultLog({
+        event_type: 'SUPABASE_SAVE_ERROR',
+        element_name: 'Event Hub Pro parts order lines (onboarding_order_items INSERT)',
+        file_path: 'app/dashboard/[eventId]/checkout/actions.ts',
+        error_message: String(linesErr.message),
+        payload_snapshot: { orderId, eventId: eventIdClean, hubParts },
+      });
+      const { error: undoErr } = await moneyWriter.from('orders').delete().eq('order_id', orderId);
+      if (undoErr) console.error('[checkout] could not remove the parts order whose lines failed:', orderId, undoErr.message);
+      return { ok: false, reason: 'We could not record which parts this covers. Nothing was charged — please try again.' };
+    }
+  }
 
   // payments row · this carries the screenshot. The drawer always includes
   // a screenshot at submit-time so we never have an orphan "no payment yet"

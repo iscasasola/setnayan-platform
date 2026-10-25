@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { LegalLayout, LegalSection } from '@/app/_components/legal/legal-chrome';
+import { DB_BACKUP_RETENTION_DAYS } from '@/lib/rule-constants';
 
 
 // GEO Phase G5 (2026-05-28) — canonical URL + enriched description.
@@ -20,11 +21,11 @@ import { LegalLayout, LegalSection } from '@/app/_components/legal/legal-chrome'
 export const metadata = {
   title: 'Terms of service',
   description:
-    'The terms couples and vendors agree to when using Setnayan. Eligibility, account responsibilities, payments and refunds, content ownership, vendor rules, liability, and governing law (Philippines).',
+    'The terms couples and suppliers agree to when using Setnayan. Eligibility, account responsibilities, payments and refunds, content ownership, supplier rules, liability, and governing law (Philippines).',
   alternates: { canonical: '/terms' },
   openGraph: {
     title: 'Terms of service · Setnayan',
-    description: 'The terms couples and vendors agree to when using Setnayan.',
+    description: 'The terms couples and suppliers agree to when using Setnayan.',
     url: '/terms',
   },
 };
@@ -33,7 +34,7 @@ export default function TermsPage() {
   return (
     <LegalLayout
       title="Setnayan terms of service"
-      meta="Effective 2026-06-30 · governed by the laws of the Republic of the Philippines"
+      meta="Effective 2026-06-30 · last updated 2026-10-25 · governed by the laws of the Republic of the Philippines"
     >
       <LegalSection title="Who we are">
         <p>
@@ -76,10 +77,11 @@ export default function TermsPage() {
           <li>One account per person. Couples share an event through event membership.</li>
           <li>Tell us promptly if you suspect unauthorized use of your account.</li>
           <li>
-            You can close your account at any time. We may suspend or close
-            accounts that violate these terms or applicable law. Soft-deleted
-            accounts are retained for 30 days before permanent removal, as
-            described in the{' '}
+            You can ask us to delete your account at any time. We may suspend
+            or close accounts that violate these terms or applicable law. A
+            deletion request is reviewed within 24 hours; once approved, your
+            personal details are blanked out, and the records the law makes us
+            keep stay, as described in the{' '}
             <Link href="/privacy" className="text-terracotta hover:underline">
               privacy policy
             </Link>
@@ -121,8 +123,8 @@ export default function TermsPage() {
             <Link href="/refunds" className="text-terracotta hover:underline">
               refund &amp; cancellation policy
             </Link>
-            : digital services are final once activated, with a full refund
-            whenever we fail to deliver.
+            : purchases are not refunded, and a paid service you cannot use
+            becomes Papic credits for your event.
           </li>
         </ul>
       </LegalSection>
@@ -137,8 +139,9 @@ export default function TermsPage() {
             You grant Setnayan a limited, worldwide, royalty-free license to
             host, display, and process your content solely to provide the
             service to you and your event&rsquo;s members. This license ends when
-            you delete the content or your account, except for backups and where
-            we must retain data by law.
+            you delete the content or your account, except for daily database
+            backups, which age out within {DB_BACKUP_RETENTION_DAYS} days, and
+            where we must retain data by law.
           </li>
           <li>
             You&rsquo;re responsible for having the rights to the content you
@@ -215,7 +218,7 @@ export default function TermsPage() {
       <LegalSection title="Your information & the content you share">
         <p>
           Setnayan is a self-service platform. The information you put in — your
-          profile, your event details, the vendors you name, your story, and the
+          profile, your event details, the suppliers you name, your story, and the
           people you add — is <strong>self-provided</strong>. We don&rsquo;t ask
           for a government ID and we don&rsquo;t independently verify that it&rsquo;s
           true. It&rsquo;s yours to enter and yours to keep accurate.
@@ -243,9 +246,9 @@ export default function TermsPage() {
         <p className="pt-2">
           Because we don&rsquo;t verify self-provided information, others should
           treat it as user-supplied rather than confirmed by Setnayan. The one
-          exception is <strong>vendor identity verification</strong>: where a
-          vendor is shown as verified, we&rsquo;ve checked that credential
-          separately, as described for vendors below and in our{' '}
+          exception is <strong>supplier identity verification</strong>: where a
+          supplier is shown as verified, we&rsquo;ve checked that credential
+          separately, as described for suppliers below and in our{' '}
           <Link href="/privacy" className="text-terracotta hover:underline">
             privacy policy
           </Link>
@@ -253,9 +256,9 @@ export default function TermsPage() {
         </p>
       </LegalSection>
 
-      <LegalSection title="Vendors">
+      <LegalSection title="Suppliers">
         <ul className="ml-5 list-disc space-y-1">
-          <li>Vendor profiles are published only when you choose to make them visible.</li>
+          <li>Supplier profiles are published only when you choose to make them visible.</li>
           <li>You must accurately represent your business, services, and prices.</li>
           <li>
             Setnayan masks couples&rsquo; identities in chat until the couple
@@ -263,10 +266,10 @@ export default function TermsPage() {
             couples haven&rsquo;t provided.
           </li>
           <li>
-            When a couple books a vendor, payment is between the couple and the
-            vendor. Setnayan does not hold those funds and charges no commission.
+            When a couple books a supplier, payment is between the couple and the
+            supplier. Setnayan does not hold those funds and charges no commission.
             Setnayan isn&rsquo;t a party to, and isn&rsquo;t responsible for, the
-            services a vendor delivers off-platform.
+            services a supplier delivers off-platform.
           </li>
         </ul>
       </LegalSection>
@@ -287,7 +290,7 @@ export default function TermsPage() {
           total liability for any claim arising from your use of the service is
           limited to the amount you paid us in the 12 months before the claim.
           We aren&rsquo;t liable for indirect or consequential losses, or for your
-          dealings with third-party vendors you engage through or outside the
+          dealings with third-party suppliers you engage through or outside the
           platform. Nothing here limits liability that cannot be limited under
           Philippine law, including your statutory consumer rights.
         </p>

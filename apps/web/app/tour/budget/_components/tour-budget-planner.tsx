@@ -6,7 +6,7 @@
 // the public Maria & Jose tour.
 //
 // Why a fork (not a reuse): the dashboard BudgetAllocationPlanner imports
-// `saveAllocationSnapshot` from ../allocation-actions (a SERVER ACTION) — which
+// `saveAllocationSnapshot` from ../allocation-actions (a SERVER ACTION, deleted 2026-10-18 with no caller left) — which
 // would trip the app/tour/** no-restricted-imports guard and persist behavioral
 // data from an anonymous visitor. This fork keeps the EXACT same client-only
 // interaction model — the PURE engine (computeBudgetAllocation +
@@ -31,6 +31,7 @@ import {
   X,
 } from 'lucide-react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import {
   computeBudgetAllocation,
@@ -308,7 +309,7 @@ function ConfidenceChip({ confidence }: { confidence: LeafAllocation['confidence
     return (
       <span
         className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700"
-        title="Backed by plenty of real vendor prices"
+        title="Backed by plenty of real supplier prices"
       >
         <CheckCircle2 aria-hidden className="h-3 w-3" strokeWidth={2} />
       </span>
@@ -385,11 +386,9 @@ function TiltEditor({
       role="dialog"
       aria-modal="true"
       aria-labelledby="tour-tilt-editor-headline"
-      className="fixed inset-0 z-50 flex items-end justify-center bg-[#1B1A17]/40 p-4 backdrop-blur-sm focus:outline-none sm:items-center"
-      onClick={(e) => {
-        if (e.target === overlayRef.current) onClose();
-      }}
+      className="fixed inset-0 z-50 flex items-end justify-center p-4 focus:outline-none sm:items-center"
     >
+      <OverlayBackdrop onClose={onClose} />
       <div className="relative w-full max-w-md rounded-2xl border border-[#1B1A17]/10 bg-[#FBF8F1] p-5 shadow-xl sm:p-6">
         <button
           ref={closeBtnRef}

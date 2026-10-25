@@ -39,6 +39,7 @@ const FOLLOW_BUTTON = read('app/u/_components/follow-button.tsx');
 const SAMAHAN = read('app/dashboard/(account)/people/_components/samahan-people-section.tsx');
 const PICKER = read('app/dashboard/(account)/people/_components/people-view-picker.tsx');
 const CELEBRANTS = read('lib/event-celebrants.server.ts');
+const WRITER = read('lib/people-connection-request.server.ts');
 
 const count = (hay: string, needle: string | RegExp) =>
   typeof needle === 'string' ? hay.split(needle).length - 1 : (hay.match(needle) ?? []).length;
@@ -76,9 +77,13 @@ test('🔴 …and the flag decides the sentence — "Nobody here yet" is never s
 test('the facet pill row is gone, "Confirm" became Accept, and alaga are not drawn here', () => {
   const c = ROSTER_VIEW.code;
   assert.ok(!c.includes('FACETS'), 'the facet pill row came back — one dropdown, never pills');
-  assert.ok(!c.includes('aria-pressed'), 'a pressed-chip row came back');
-  assert.ok(!/>\s*Confirm\s*</.test(c), '"Confirm" is back — the owner’s word is Accept');
-  assert.match(c, />\s*Accept\s*</);
+  // 2026-10-22: `aria-pressed` is back ON PURPOSE, on two things only — the counts line's doors (owner: the counts
+  // line "acts as the filter") and the select-mode faces. A pressed-chip ROW of facets is still gone (FACETS above).
+  for (const m of c.matchAll(/aria-pressed=\{([^}]+)\}/g)) {
+    assert.ok(['on', 'selectMode ? picked : undefined'].includes(m[1]!.trim()), `a new pressed control: aria-pressed={${m[1]}}`);
+  }
+  assert.ok(!/label="Confirm"|>\s*Confirm\s*</.test(c), '"Confirm" is back — the owner’s word is Accept');
+  assert.match(c, /label="Accept"/);
   assert.match(c, /roster\.people\.filter\(\(p\) => p\.kind === 'connection'\)/, 'alaga rows are drawn again');
   // "Waiting for them" is its own section, LAST.
   const sections = c.slice(c.indexOf('const SECTIONS'), c.indexOf('const EMPTY_LINE'));
@@ -161,10 +166,12 @@ test('the Samahan chip says Add — one word per concept', () => {
   assert.match(c, /pendingLabel="…"\s*>[\s{}]*Add\s*</);
 });
 
-test('a first-visit tour on the shipped MiniTour', () => {
-  assert.ok(TOUR_KEYS.includes('customer_people_v1'));
-  assert.equal(TOURS.customer_people_v1.slides.length, 3);
-  assert.match(PAGE.code, /<MiniTour tourKey="customer_people_v1" \/>/);
+// Re-aimed ON PURPOSE (2026-10-22, help-sync): the carousel has been off since 2026-10-03 and the owner's tour
+// is a SPOTLIGHT (2026-10-10). The property is the same — People has a first-visit tour, mounted on the page.
+test('a first-visit tour — the spotlight', () => {
+  assert.ok(TOUR_KEYS.includes('customer_people_v2'));
+  assert.ok((TOURS.customer_people_v2.spotlight?.steps.length ?? 0) >= 2, 'People’s spotlight has no stops');
+  assert.match(PAGE.code, /<Spotlight tourKey="customer_people_v2"/);
 });
 
 // ── 5 · the event's Add ───────────────────────────────────────────────────
@@ -176,8 +183,9 @@ test('🔴 an Add from an event re-decides everything on the server', () => {
   assert.match(body, /celebrantAccountsFor\(admin, eventId\)/, 'the target is not checked to be a celebrant');
   assert.match(body, /\.eq\('public_id', publicId\)/);
   assert.match(body, /fromEvent: \{\s*eventId,/);
-  // The stamp reaches the insert.
-  assert.match(c, /created_by_event_id: fromEvent\?\.eventId \?\? null,/);
+  // The stamp reaches the insert — in the ONE writer, which the event's Add calls.
+  assert.match(body, /return requestConnection\(/, 'the event Add no longer goes through the one writer');
+  assert.match(WRITER.code, /created_by_event_id: fromEvent\?\.eventId \?\? null,/);
 });
 
 test('🔴 a celebrant is the MAIN role only — an extra-role-only celebrant is not listed', () => {

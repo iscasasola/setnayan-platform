@@ -48,8 +48,25 @@ const config: CapacitorConfig = {
     cleartext: SERVER_URL.startsWith('http://'),
   },
   ios: {
+    // ☀ The web view's colour before the first page paints (N3, 2026-10-19).
+    // Capacitor's default is `systemBackground` — pure white, or BLACK on a
+    // phone in dark mode — so the launch went Alabaster → white/black →
+    // Alabaster. This is the same Warm Alabaster as the launch screen
+    // (ios/App/App/Base.lproj/LaunchScreen.storyboard), the splash below and
+    // the web's own theme-color. Held by apps/web/lib/the-app-runs-on-scenes.test.ts.
+    backgroundColor: '#FBFBFA',
     // Lets the WebView surface camera/mic permission prompts natively.
     limitsNavigationsToAppBoundDomains: false,
+    // 🍎 `SetnayanIAP/2` (1.0 build 6 — owner 2026-10-23 resubmits 1.0 WITH In-App
+    // Purchase after App Review's 2.1(b); first ruled for 1.1 on 2026-10-21; `/1` from 2026-10-18 is what
+    // 1.0 (build 5) announces, and the web NEVER sells to `/1` — that build was
+    // submitted as an app that sells nothing). This iOS build carries the StoreKit 2
+    // plugin (ios/App/App/SetnayanStorePlugin.swift), so the web may offer Apple
+    // In-App Purchase — only when the owner's NEXT_PUBLIC_APPLE_IAP_ENABLED is
+    // also on (apps/web/lib/iap/iap-gate.ts). iOS ONLY: the Android shell has no
+    // Play Billing, so it must never claim the token. This REPLACES the global
+    // `appendUserAgent` on iOS, so the two shared tokens are repeated here.
+    appendUserAgent: 'SetnayanApp SetnayanSignIn/1 SetnayanIAP/2',
   },
   plugins: {
     SplashScreen: {

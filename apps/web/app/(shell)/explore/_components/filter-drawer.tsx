@@ -386,7 +386,7 @@ export function FilterDrawer({
                     Verified only
                   </span>
                   <span className="mt-0.5 block text-[12px] text-ink/55">
-                    Hide vendors who haven&rsquo;t completed verification.
+                    Hide suppliers who haven&rsquo;t completed verification.
                   </span>
                 </span>
               </label>
@@ -412,7 +412,7 @@ export function FilterDrawer({
                       Match my wedding
                     </span>
                     <span className="mt-0.5 block text-[12px] text-ink/55">
-                      Only show vendors compatible with{' '}
+                      Only show suppliers compatible with{' '}
                       <span className="font-mono text-ink/70">
                         {matchableEvent.ceremony_type}
                       </span>{' '}

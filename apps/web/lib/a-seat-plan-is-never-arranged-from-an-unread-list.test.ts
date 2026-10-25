@@ -139,11 +139,17 @@ test('2 · every arranging action reads through the stop-readers, before its fir
 
 test('3 · the background re-seat reads through them too, inside its own catch', () => {
   const src = read('lib/seating-reconcile.ts');
+  // (2026-10-18, event-day L1·7: the reads moved into `reconcilePass`, which the
+  // re-seat runs — up to twice — INSIDE its try. Both halves are held.)
   const tryAt = src.indexOf('try {');
-  const catchAt = src.lastIndexOf('} catch');
+  const catchAt = src.indexOf('} catch', tryAt);
+  const passCall = src.indexOf('await deps.pass(supabase, eventId, opts)');
+  assert.ok(passCall > tryAt && passCall < catchAt, 'the reconcile does not run its pass inside its try');
+  const passAt = src.indexOf('export async function reconcilePass(');
+  assert.ok(passAt > -1, 'reconcilePass is gone — re-point this guard');
   for (const r of ['guestsOrStop', 'floorPlanOrStop', 'membershipsOrStop', 'keepApartOrStop']) {
     const at = src.indexOf(`${r}(supabase, eventId)`);
-    assert.ok(at > tryAt && at < catchAt, `the reconcile does not read through ${r} inside its try`);
+    assert.ok(at > passAt, `the reconcile does not read through ${r} inside its pass`);
   }
   assert.ok(src.search(WRITE) > src.indexOf('keepApartOrStop(supabase, eventId)'), 'the reconcile writes before it has read');
   for (const bare of ['fetchGuestsByEvent(', 'fetchGroupMembershipsByEvent(', 'fetchSeatingConstraints(', 'fetchFloorPlan(']) assert.equal(count(src, bare), 0, bare);

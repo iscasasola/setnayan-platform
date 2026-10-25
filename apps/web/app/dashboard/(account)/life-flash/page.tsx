@@ -274,7 +274,7 @@ export default async function LifeFlashPage({
         </p>
       ) : empty ? (
         <div className="sn-tile px-4 py-8 text-sm text-ink/60">
-          <p className="font-medium text-ink">Your story starts with a celebration.</p>
+          <p className="font-medium text-ink">Your story starts with an event.</p>
           <p className="mt-1">
             Host an event and let Papic gather everyone&rsquo;s photos — they&rsquo;ll settle
             here.

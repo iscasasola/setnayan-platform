@@ -3,9 +3,10 @@
  *
  * ── WHAT THIS EXISTS TO CATCH ───────────────────────────────────────────────
  * The supplier's tools moved out of the gap between the last message and the
- * text box (owner, 2026-09-08: *"still messy chatbox"*). They mount ONCE above
- * the message stream as CLOSED `<details>`, and the customer rail's right
- * column is a list of launchers that open them.
+ * text box (owner, 2026-09-08: *"still messy chatbox"*). They mount ONCE
+ * in the frame's tray as CLOSED `<details>`, and ONE list of launchers opens
+ * them — since 2026-10-14 the ＋ Tools sheet beside the message field
+ * (`thread-tools-sheet.tsx`; it was the customer rail's right column).
  *
  * That makes a whole class of change silent. A launcher naming an id the page
  * does not render scrolls to nothing; a plain `href="#build-quote"` scrolls to
@@ -20,9 +21,10 @@
  *   1. every launcher names something the page renders
  *   2. every panel is reachable from at least one launcher (no orphan tool)
  *   3. the page renders one `<details>` per panel, and a body for each
- *   4. the ids that are not panels — the payment anchor and the two call
- *      buttons — are really minted
- *   5. nothing in the rail hash-links a panel any more
+ *   4. the ids that are not panels — the payment anchor, the guest-count
+ *      band and the two call buttons — are really minted
+ *   5. nothing in the sheet hash-links a panel, and the rail launches nothing
+ *      (one door, not two)
  *   6. the opener that honours a hash on arrival is mounted
  *   7. every hash another page deep-links here is one of these ids
  */
@@ -40,6 +42,7 @@ import {
 const WEB = join(import.meta.dirname, '..');
 const THREAD_PAGE = 'app/vendor-dashboard/messages/[threadId]/page.tsx';
 const RAIL = 'app/vendor-dashboard/messages/[threadId]/_components/chat-info-rail.tsx';
+const SHEET = 'app/vendor-dashboard/messages/[threadId]/_components/thread-tools-sheet.tsx';
 const OPENER = 'app/_components/chat/reveal-thread-tool.tsx';
 const CLIENT_BRIEF = 'app/vendor-dashboard/clients/[eventId]/page.tsx';
 
@@ -47,6 +50,7 @@ const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8')
 
 const page = read(THREAD_PAGE);
 const rail = read(RAIL);
+const sheet = read(SHEET);
 const opener = read(OPENER);
 const brief = read(CLIENT_BRIEF);
 
@@ -57,6 +61,7 @@ test('the scan actually read the four files (an empty read is a green lie)', () 
   for (const [rel, src] of [
     [THREAD_PAGE, page],
     [RAIL, rail],
+    [SHEET, sheet],
     [OPENER, opener],
     [CLIENT_BRIEF, brief],
   ] as const) {
@@ -108,11 +113,16 @@ test('🔑 3 · the page renders one disclosure per panel, with a body for each'
   assert.deepEqual(missing, [], 'a panel has no body on the page — it would open empty');
 });
 
-test('🔑 4 · the two ids that are NOT panels are really minted', () => {
+test('🔑 4 · the ids that are NOT panels are really minted', () => {
   assert.equal(
     (page.match(/id="pending-payments"/g) ?? []).length,
     1,
-    'the payment scroll anchor is gone — "Log payment" would land nowhere',
+    'the payment scroll anchor is gone — "Confirm a payment they sent" would land nowhere',
+  );
+  assert.equal(
+    (page.match(/id="guest-count"/g) ?? []).length,
+    1,
+    'the guest-count band lost its id — "Guest count changed" would land nowhere',
   );
   // The call buttons' ids exist only because the thread page opts in; the
   // launcher mints none by default (it is mounted on three other screens).
@@ -130,18 +140,28 @@ test('🔑 4 · the two ids that are NOT panels are really minted', () => {
   }
 });
 
-test('🔑 5 · the rail no longer hash-links a panel (that scrolls to a closed strip)', () => {
-  const hashLinks = [...rail.matchAll(/#([a-z-]+)/g)].map((m) => m[1]!);
+test('🔑 5 · the sheet opens panels through revealThreadTool, never a hash — and the rail launches nothing', () => {
+  const hashLinks = [...sheet.matchAll(/#([a-z-]+)/g)].map((m) => m[1]!);
   const atPanels = hashLinks.filter((h) => PANEL_IDS.has(h));
   assert.deepEqual(
     atPanels,
     [],
-    'the rail links a panel by hash again — a closed <details> does not open on scroll',
+    'the sheet links a panel by hash — a closed <details> does not open on scroll',
   );
   assert.equal(
-    (rail.match(/revealThreadTool\(/g) ?? []).length,
+    (sheet.match(/revealThreadTool\(/g) ?? []).length,
     2,
-    'the rail must open its targets through revealThreadTool (once inline, once via the sheet)',
+    'the sheet must open its targets through revealThreadTool (a row, and the answer line\'s "They asked to book")',
+  );
+  assert.equal(
+    (rail.match(/revealThreadTool\(|VENDOR_THREAD_TOOLS/g) ?? []).length,
+    0,
+    'the rail launches tools again — two doors to one list is what the ＋ sheet replaced',
+  );
+  assert.equal(
+    (page.match(/<ThreadToolsSheet\b/g) ?? []).length,
+    1,
+    'the ＋ sheet is not mounted once on the thread page',
   );
 });
 

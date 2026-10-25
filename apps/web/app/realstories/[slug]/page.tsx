@@ -114,7 +114,7 @@ function SampleEditorial({ wedding }: { wedding: RealWedding }) {
 
         {/* Palette */}
         <div className="mt-10">
-          <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/45">The palette</p>
+          <p className="font-mono text-xs uppercase tracking-[0.18em] text-ink/70">The palette</p>
           <div className="mt-3 flex gap-2">
             {wedding.palette.map((hex) => (
               <span
@@ -129,7 +129,7 @@ function SampleEditorial({ wedding }: { wedding: RealWedding }) {
 
         {/* Team */}
         <div className="mt-10 rounded-2xl border border-ink/10 bg-white/50 p-6">
-          <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/45">The team</p>
+          <p className="font-mono text-xs uppercase tracking-[0.18em] text-ink/70">The team</p>
           <div className="mt-3 flex flex-wrap gap-2">
             {wedding.team.map((credit) => (
               <Link

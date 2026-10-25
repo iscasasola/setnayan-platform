@@ -5,6 +5,10 @@ import { bulkAssignableRolesFor } from '@/lib/bulk-role-vocabulary';
 import { revalidatePath } from 'next/cache';
 import { everyCopyIsNowStale } from '@/lib/a-withdrawal-reaches-every-copy.server';
 import { createClient } from '@/lib/supabase/server';
+import { makeGuestGroupOnce } from '@/lib/guest-group-made-once';
+import { clashWords, groupNameClash } from '@/lib/group-name-clash';
+import { carrySideToTheirPlusOnes, seatNumbersFollowTheRows } from '@/lib/extra-seats-sync';
+import { seatReleaseRefusal } from '@/lib/extra-seats';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 import { applyReconcileForEvent } from '@/lib/seating-reconcile';
@@ -241,6 +245,11 @@ export async function bulkApplyRoleAndGroup(
     if (error) {
       redirect(backToList(eventId, { error: encodeURIComponent(error.message) }));
     }
+    // 🤝 Their +1s take the same side (lib/extra-seats-sync.ts `carrySideToTheirPlusOnes`).
+    const carried = await carrySideToTheirPlusOnes(supabase, eventId, guestIds, side);
+    if (!carried.ok) {
+      redirect(backToList(eventId, { error: encodeURIComponent(carried.error) }));
+    }
     didSide = true;
   }
 
@@ -308,21 +317,16 @@ export async function createGuestGroup(
   }
 
   const supabase = await createClient();
-  const { data: inserted, error } = await supabase
-    .from('guest_groups')
-    .insert({ event_id: eventId, label, team_side: teamSide })
-    .select('group_id')
-    .single();
-
-  if (error || !inserted) {
+  // 👥 One name, one group (2026-10-21): a name already in this side's list IS that group — the preselected guests join
+  // it instead of a twin being made (`makeGuestGroupOnce`, the one place an own group is written).
+  const made = await makeGuestGroupOnce(supabase, eventId, label, teamSide);
+  if (!made.ok) {
     // 23505 from the case-insensitive unique index — friendlier copy
     // than the raw constraint name.
-    const friendly =
-      error && (error as { code?: string }).code === '23505'
-        ? 'A group with that name already exists for this event.'
-        : (error?.message ?? 'insert_failed');
+    const friendly = made.code === '23505' ? 'A group with that name already exists for this event.' : made.error;
     redirect(backToList(eventId, { error: encodeURIComponent(friendly) }));
   }
+  const inserted = made.group;
 
   // Auto-attach any preselected guests so a single submit covers both
   // "new group" + "add these guests to it".
@@ -367,6 +371,17 @@ export async function updateGuestGroup(
   }
 
   const supabase = await createClient();
+  // 👥 One name, one group: a rename or a side move that would twin a group in the same list is refused, as the Group
+  // dropdown's in-place rename is (`groupNameClash`). A refused read refuses the write.
+  const { data: ownRows, error: ownErr } = await supabase.from('guest_groups').select('group_id, label, team_side').eq('event_id', eventId);
+  if (ownErr) redirect(backToList(eventId, { error: encodeURIComponent('Couldn’t read your groups — nothing was changed.') }));
+  const own = ((ownRows ?? []) as { group_id: string; label: string | null; team_side: string | null }[]).map((g) => ({
+    groupId: g.group_id,
+    label: g.label ?? '',
+    teamSide: (g.team_side === 'bride' || g.team_side === 'groom' ? g.team_side : 'both') as GuestGroupTeamSide,
+  }));
+  const clash = groupNameClash(label, teamSide, [], own, groupId);
+  if (clash) redirect(backToList(eventId, { error: encodeURIComponent(clashWords(clash)) }));
   const { error } = await supabase
     .from('guest_groups')
     .update({ label, team_side: teamSide })
@@ -408,53 +423,6 @@ export async function deleteGuestGroup(
 
   revalidatePath(`/dashboard/${eventId}/guests`);
   redirect(backToList(eventId, { group_deleted: '1' }));
-}
-
-// -----------------------------------------------------------------------
-// Remove a single guest from a group · used by the "Remove from group"
-// chip on each guest row when viewing a custom-group view.
-// -----------------------------------------------------------------------
-
-export async function removeGuestFromGroup(
-  eventId: string,
-  formData: FormData,
-): Promise<void> {
-  const groupId = clean(formData.get('group_id'));
-  const guestId = clean(formData.get('guest_id'));
-
-  if (!groupId || !guestId) {
-    redirect(backToList(eventId, { error: 'invalid_input' }));
-  }
-
-  const supabase = await createClient();
-  // RLS gates the delete to this event's couples + admins; we still
-  // double-check the group's event for an explicit error path.
-  const { data: groupRow } = await supabase
-    .from('guest_groups')
-    .select('event_id')
-    .eq('group_id', groupId)
-    .maybeSingle();
-  if (!groupRow || groupRow.event_id !== eventId) {
-    redirect(backToList(eventId, { error: 'invalid_group' }));
-  }
-
-  const { error } = await supabase
-    .from('guest_group_memberships')
-    .delete()
-    .eq('group_id', groupId)
-    .eq('guest_id', guestId);
-
-  if (error) {
-    redirect(backToList(eventId, { error: encodeURIComponent(error.message) }));
-  }
-
-  revalidatePath(`/dashboard/${eventId}/guests`);
-  redirect(
-    backToList(eventId, {
-      group: groupId,
-      group_member_removed: '1',
-    }),
-  );
 }
 
 // -----------------------------------------------------------------------
@@ -502,10 +470,23 @@ export type SoftDeleteForUndoResult =
   | { ok: true; removedIds: string[]; releasedSeats: ReleasedSeat[] }
   | { ok: false; error: string };
 
+/**
+ * 🪑 `release` — RELEASE SEAT (owner 2026-10-21: *"so we can alot the seat to another person in case they said no or they
+ * will not add a +1 anymore"*). The same soft delete, the same Undo (`restoreDeletedGuests` brings back the SAME row —
+ * guest_id, ticket, chair — and gives the seat back to their guest's "+N"), in this ONE action (+0 server actions), with
+ * one gate first: every guest asked about must be a +1 with NO NAME YET (`seatReleaseRefusal`, lib/extra-seats.ts). A named
+ * +1 is a person — refused here, whatever a crafted post says; they leave only by the shipped Remove and its warning.
+ * The bringer's "+N" drops by exactly the seats released (`seatNumbersFollowTheRows`, below).
+ * 🔒 guests/_components/a-seat-with-no-name-can-be-released.test.ts
+ */
+export type SoftDeleteOptions = { release?: boolean };
+
 export async function bulkSoftDeleteGuestsForUndo(
   eventId: string,
   guestIds: string[],
+  opts: SoftDeleteOptions = {},
 ): Promise<SoftDeleteForUndoResult> {
+  const release = opts.release === true;
   const ids = Array.from(
     new Set((guestIds ?? []).map((s) => String(s).trim()).filter(Boolean)),
   );
@@ -517,13 +498,27 @@ export async function bulkSoftDeleteGuestsForUndo(
   // to the couple's own event.
   const { data: rows, error: readErr } = await supabase
     .from('guests')
-    .select('guest_id, role, rsvp_status, first_name, last_name, display_name')
+    .select('guest_id, role, rsvp_status, first_name, last_name, display_name, plus_one_of_guest_id, plus_one_name_confirmed_at')
     .eq('event_id', eventId)
     .in('guest_id', ids)
     .is('deleted_at', null);
 
   if (readErr) return { ok: false, error: readErr.message };
   if (!rows || rows.length === 0) return { ok: false, error: 'Nothing selected.' };
+
+  // 🪑 Release seat: every one asked about is a +1 with no name yet — or nothing at all is touched.
+  if (release) {
+    const refused = seatReleaseRefusal(
+      rows.map((r) => ({
+        guest_id: r.guest_id as string,
+        plus_one_of_guest_id: (r.plus_one_of_guest_id as string | null) ?? null,
+        first_name: (r.first_name as string | null) ?? null,
+        last_name: (r.last_name as string | null) ?? null,
+        plus_one_name_confirmed_at: (r.plus_one_name_confirmed_at as string | null) ?? null,
+      })),
+    );
+    if (refused) return { ok: false, error: refused };
+  }
 
   // Couple gate — bride & groom are never removable.
   if (rows.some((r) => r.role === 'bride' || r.role === 'groom')) {
@@ -573,24 +568,37 @@ export async function bulkSoftDeleteGuestsForUndo(
     locked: (s.locked as boolean | null) ?? false,
   }));
 
-  // Release seats (matches the ON DELETE CASCADE intent for a soft-delete).
-  await supabase
-    .from('event_seat_assignments')
-    .delete()
-    .eq('event_id', eventId)
-    .in('guest_id', removedIds);
-
   // Soft-delete. The RETURNING list is the guests that were REALLY deleted —
   // RLS decides that, so it is what everything below acts on.
-  const { data: deletedRows, error: updateErr } = await supabase
+  const softDelete = supabase
     .from('guests')
     .update({ deleted_at: new Date().toISOString() })
     .eq('event_id', eventId)
-    .in('guest_id', removedIds)
+    .in('guest_id', removedIds);
+  // 🪑 A release takes only a seat STILL unnamed at the write: a name given in between (the reply stamps it) keeps the row.
+  const { data: deletedRows, error: updateErr } = await (release ? softDelete.is('plus_one_name_confirmed_at', null) : softDelete)
     .select('guest_id');
 
   if (updateErr) return { ok: false, error: updateErr.message };
   const deletedIds = (deletedRows ?? []).map((r) => r.guest_id as string);
+  if (release && deletedIds.length === 0) return { ok: false, error: 'That seat was just given a name — nothing was released.' };
+
+  // Release their chairs (matches the ON DELETE CASCADE intent for a soft-delete) — only the guests really deleted,
+  // so a row that stayed keeps its chair.
+  if (deletedIds.length > 0) {
+    await supabase
+      .from('event_seat_assignments')
+      .delete()
+      .eq('event_id', eventId)
+      .in('guest_id', deletedIds);
+  }
+
+  // 🪑 A +1 removed without their guest takes the seat with them: the guest's "+N" drops by it
+  // (lib/extra-seats.ts `seatNumbersAfter`) — never a "+1" over a seat that is gone. Logged, not fatal: the rows are gone.
+  const seatNumbers = await seatNumbersFollowTheRows(supabase, eventId, deletedIds, 'removed');
+  if (!seatNumbers.ok) {
+    logQueryError('bulkSoftDeleteGuestsForUndo (seatNumbersFollowTheRows)', { message: seatNumbers.error }, { event_id: eventId }, 'graceful_degrade');
+  }
 
   // ⚖ THEIR SONG REQUEST GOES WITH THEM — the warning the host confirmed says
   // so (`deleteWarningText`), so it must be true (owner 2026-10-03, DECISION_LOG
@@ -620,6 +628,11 @@ export async function bulkSoftDeleteGuestsForUndo(
   // is built from guests who opted out AND are not deleted, so a delete can
   // lift a veto — the cached public surfaces must hear about it now.
   await everyCopyIsNowStale(eventId);
+  // A release says only what it really took (a seat named in between stayed, with its chair).
+  if (release) {
+    const took = new Set(deletedIds);
+    return { ok: true, removedIds: deletedIds, releasedSeats: releasedSeats.filter((x) => took.has(x.guest_id)) };
+  }
   return { ok: true, removedIds, releasedSeats };
 }
 
@@ -656,6 +669,12 @@ export async function restoreDeletedGuests(
     | null
     | undefined;
   const restoredIds = new Set((restored?.restored_guest_ids ?? []).map(String));
+
+  // 🪑 …and the Undo gives the seat back to their guest's "+N".
+  const seatNumbers = await seatNumbersFollowTheRows(supabase, eventId, [...restoredIds], 'restored');
+  if (!seatNumbers.ok) {
+    logQueryError('restoreDeletedGuests (seatNumbersFollowTheRows)', { message: seatNumbers.error }, { event_id: eventId }, 'graceful_degrade');
+  }
 
   // A song somebody else asked for during the Undo window keeps their request
   // (one per song per event) — said where the host pressed Undo.

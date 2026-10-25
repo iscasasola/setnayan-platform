@@ -123,7 +123,7 @@ test('the guest’s own "You are …" line and the dress-code rows say the word'
   assert.equal(mine?.roleLabel, "Bride's Crew");
   assert.equal(resolveGuestDressCode({ role: 'bridesmaid', roles: {}, palette })?.roleLabel, 'Bridesmaid');
   const stored = sanitizeRolePalette({ bridesmaids: ['#aa3355'] });
-  const everyone = dressCodeForEveryone({ stored, board: resolveDisplayPalette(stored), roles: {}, groups: {}, names: CREW });
+  const everyone = dressCodeForEveryone({ config: null, stored, board: resolveDisplayPalette(stored), names: CREW });
   assert.ok(everyone.rows.some((r) => r.label === "Bride's Crew"), JSON.stringify(everyone.rows));
   assert.equal(roleGroupLabel('bridesmaids', CREW), "Bride's Crew");
   assert.equal(roleGroupLabel('bridesmaids', {}), ROLE_GROUP_LABELS.bridesmaids);
@@ -149,6 +149,8 @@ const SHOWS_THE_USUAL_WORD_ON_PURPOSE: Array<[file: string, line: string, why: s
   ['lib/guest-search.ts', 'out.push(ROLE_LABELS[r], guestRoleLabel(r, names),', 'search matches the usual word AND theirs'],
   ['lib/guest-search.ts', 'out.push(ROLE_GROUP_LABELS[grp], roleGroupLabel(grp, names));', 'search matches the usual group heading AND theirs'],
   ['app/dashboard/[eventId]/guests/page.tsx', ': ROLE_GROUP_LABELS[grp];', 'a SORT KEY — renamed only where the heading is drawn'],
+  // 🏷 2026-10-19: "Rename this role" shows the usual word as the empty pill and placeholder — "empty = the usual word".
+  ['app/dashboard/[eventId]/guests/_components/guest-card-rows.tsx', 'usual: ROLE_LABELS[role as GuestRole]', 'the rename row’s usual word, beside the couple’s (`roleNameOne`)'],
 ];
 
 test('every screen that shows a role word is handed the couple’s words', () => {
@@ -158,7 +160,10 @@ test('every screen that shows a role word is handed the couple’s words', () =>
   })
     .split('\n')
     .filter((f) => f && !/\.test\.tsx?$/.test(f));
-  assert.ok(files.length > 20, `the sweep found only ${files.length} files — has the grep broken?`);
+  /* A floor for a BROKEN grep (zero, a handful), not a census: 21 → 20 on 2026-10-17 when the march's words moved
+     into `marchLineWords` (lib/entourage.ts, which this sweep skips) and `entourage-styles.tsx` stopped calling
+     `roleLabel` — a real file leaving, not the grep failing. */
+  assert.ok(files.length > 15, `the sweep found only ${files.length} files — has the grep broken?`);
 
   const used = new Set<string>();
   const offenders: string[] = [];

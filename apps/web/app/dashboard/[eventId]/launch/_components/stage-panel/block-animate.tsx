@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { FEEL_OFF, partFeel, partSpeedOf } from '@/lib/animate-feel';
 import { BLOCK_LOOKS_MESSAGE, BLOCK_LOOKS_PREF_KEY, blockLooksWith, readBlockLooks, type BlockLookBlock } from '@/lib/block-looks';
 import { HUB_EL_DURING_LABEL, sanitizeHubElementMotion, type HubElementMotion } from '@/lib/element-style';
+import { MERGE_BASE_FIELD } from '@/lib/merge-base-field';
 import { makerSave } from '@/lib/maker-refresh';
 import { motionFxOn, type MotionFx } from '@/lib/motion-effects';
 import { hubDraftAction } from '../../../website/hub-draft-actions';
@@ -18,7 +19,7 @@ const DELAY_S = { none: 0, short: 0.3, long: 0.8 } as const;
 const SHOWN_FRAME = 'iframe[data-maker-canvas-frame="shown"]';
 
 /**
- * THE ONE DRAFT DOOR, AS THE WORK AREA LENDS IT — the same door the Camera's look goes through (`camera-look.tsx`):
+ * THE ONE DRAFT DOOR, AS THE WORK AREA LENDS IT (`maker-part-ops.ts`, the door every other toolbar write goes through):
  * on a real event it IS `hubDraftAction`, so what a block's Animate posts is unchanged; on the Maker lab it is the
  * lab's stand-in, so it can be tried there (it could not: the server action sent the lab to the sign-in page — seen
  * 2026-10-10). No work area to ask: the action itself.
@@ -136,9 +137,20 @@ export function useBlockLooksDraft() {
         const fd = new FormData();
         fd.set('intent', 'save');
         fd.set('patch', JSON.stringify({ events: { style_preferences: { [BLOCK_LOOKS_PREF_KEY]: looks } } }));
+        /* 👥 …with the looks this tap was built on (owner 2026-10-18, two hosts never overwrite): another host's look on
+           another block, saved meanwhile, is kept — and shown here (the toolbar says so once, `makerSave`). */
+        fd.set(MERGE_BASE_FIELD, JSON.stringify({ events: { style_preferences: { [BLOCK_LOOKS_PREF_KEY]: was[BLOCK_LOOKS_PREF_KEY] ?? {} } } }));
         const door = draftDoor();
+        // one-render: keep (batched) — a Maker draft save goes through `lib/maker-refresh.ts`, which refreshes ONCE after the last save in flight; draft intents revalidate nothing.
         const r = await makerSave(() => door(eventId, fd), () => router.refresh());
         if (!r.ok) back(r.error);
+        else {
+          const merged = (r.elsewhere?.merged.events?.style_preferences as Record<string, unknown> | undefined)?.[BLOCK_LOOKS_PREF_KEY];
+          if (merged !== undefined) {
+            setPrefs({ [BLOCK_LOOKS_PREF_KEY]: merged });
+            showOnCanvas(merged);
+          }
+        }
       } catch {
         back('That change could not be saved. Please try again — nothing was lost.');
       }

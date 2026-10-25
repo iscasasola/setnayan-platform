@@ -135,7 +135,7 @@ function EditorialCard({ item }: { item: LibraryEditorial }) {
   );
 
   return (
-    <article className="group flex flex-col overflow-hidden rounded-2xl border border-ink/10 bg-white shadow-sm transition-shadow hover:shadow-md">
+    <article className="group flex flex-col overflow-hidden rounded-2xl border border-ink/10 bg-white dark:bg-raised shadow-sm transition-shadow hover:shadow-md">
       {primaryHref ? (
         <Link href={primaryHref} className="block">
           {hero}

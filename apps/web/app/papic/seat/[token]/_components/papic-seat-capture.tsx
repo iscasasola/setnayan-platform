@@ -26,6 +26,7 @@ import {
   persistSeatClipWebCopy,
 } from '@/app/papic/actions';
 import { makeQrDetector } from '@/lib/qr-scan';
+import { watchLocation } from '@/lib/location-ask';
 import {
   PAPIC_STYLES,
   cssPreviewFilter,
@@ -285,22 +286,17 @@ export function PapicSeatCapture({
   // false); the server is the authoritative gate on write.
   const geoFixRef = useRef<{ lat: number; lon: number; accuracyM: number } | null>(null);
   useEffect(() => {
-    if (!geoEnabled || typeof navigator === 'undefined' || !navigator.geolocation) return;
-    const id = navigator.geolocation.watchPosition(
-      (pos) => {
-        geoFixRef.current = {
-          lat: pos.coords.latitude,
-          lon: pos.coords.longitude,
-          accuracyM: pos.coords.accuracy,
-        };
-      },
-      () => {
-        // Denied / timeout / no signal — keep any last-known fix; currentGeo()
-        // returns { unavailable: true } only when there has never been one.
+    if (!geoEnabled) return;
+    // 📍 Inside the iPhone/Android app the watch never starts (it declares no
+    // location — DECISION_LOG 2026-10-19 (1)); currentGeo() then stamps
+    // { unavailable: true }, the same as a refused permission.
+    // Denied / timeout / no signal keeps any last-known fix.
+    return watchLocation(
+      (fix) => {
+        geoFixRef.current = fix;
       },
       { enableHighAccuracy: false, maximumAge: 60_000, timeout: 15_000 },
     );
-    return () => navigator.geolocation.clearWatch(id);
   }, [geoEnabled]);
 
   const currentGeo = useCallback((): PapicGeoInput | undefined => {
@@ -323,7 +319,11 @@ export function PapicSeatCapture({
     selectLens,
     mirrored,
     switching,
-  } = usePapicCamera({ enabled: true });
+  } = usePapicCamera({
+    enabled: true,
+    // A camera that comes back never cuts a clip mid-take (a reopen is not a shot).
+    holdRestart: () => recordingRef.current,
+  });
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -807,7 +807,7 @@ export function PapicSeatCapture({
         // number here to print even by accident.
         if (result.eventPool?.soft) {
           setPoolNotice(
-            'Running low — this celebration’s credits are nearly spent. Make the next few count.',
+            'Running low — this event’s credits are nearly spent. Make the next few count.',
           );
         } else if (result.eventPool) {
           setPoolNotice(null);
@@ -1641,8 +1641,8 @@ export function PapicSeatCapture({
             {capNotice && !saveError && (
               <p className="text-center text-xs text-cream/80">
                 {capNotice === 'photos'
-                  ? 'That’s all your free photos — every one’s in the gallery.'
-                  : 'That’s all your free snippets — every one’s in the gallery.'}
+                  ? 'That’s all your free photos — every one’s in Memories.'
+                  : 'That’s all your free snippets — every one’s in Memories.'}
               </p>
             )}
             {poolNotice && !saveError && !capNotice && (
@@ -1679,7 +1679,7 @@ export function PapicSeatCapture({
                     <PartyPopper aria-hidden className="mx-auto h-6 w-6 text-terracotta" strokeWidth={1.75} />
                     <p className="mt-2 text-sm font-medium text-cream">
                       That&rsquo;s everything you can shoot &mdash; every photo and clip
-                      is in the host&rsquo;s gallery.
+                      is in the host&rsquo;s Memories.
                     </p>
                   </>
                 ) : arrivalNote ? (
@@ -1798,7 +1798,7 @@ export function PapicSeatCapture({
                         // still said 5, on the same screen. Interpolate so the
                         // next re-price cannot leave one of the three behind.
                         `Tap for a photo · press and hold to record (up to ${CLIP_MAX_MS / 1000}s).`
-                      : 'Tap to take a photo. Every shot lands in the host’s gallery.'}
+                      : 'Tap to take a photo. Every shot lands in the host’s Memories.'}
                 </p>
               </>
             )}

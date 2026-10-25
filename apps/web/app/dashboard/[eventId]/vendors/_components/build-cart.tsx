@@ -38,7 +38,7 @@ import { tallyHasMoney, type BuildTally } from '@/lib/suppliers-shell';
 export const CART_PEEK_MS = 2500;
 /** Above the thumb row, which sits above the phone's bottom bar (its measured
  *  height); a corner on a computer — where the prototype draws it. */
-const ABOVE_THE_THUMB = 'bottom-[calc(var(--sn-bottomdock-h,64px)_+_76px)] lg:bottom-24';
+const ABOVE_THE_THUMB = 'bottom-[calc(var(--sn-ride-h,var(--sn-bottomdock-h,64px))_+_76px)] tab:bottom-24';
 
 export function BuildCart({ tally }: { tally: BuildTally }) {
   // <body> exists only after mount — and the first paint does not need the peek.
@@ -79,17 +79,18 @@ export function BuildCart({ tally }: { tally: BuildTally }) {
       role="status"
       aria-live="polite"
       inert={!peekOn}
-      className={`fixed inset-x-4 z-[27] flex items-center gap-3 rounded-2xl bg-ink px-3.5 py-3 text-sm text-cream transition-[transform,opacity] duration-300 ease-out motion-reduce:transition-none lg:inset-x-auto lg:right-7 lg:w-[380px] ${ABOVE_THE_THUMB} ${
+      className={`fixed left-[max(1rem,var(--sn-safe-l))] right-[max(1rem,var(--sn-safe-r))] z-[27] flex items-center gap-3 rounded-2xl bg-ink px-3.5 py-3 text-sm text-cream dark:bg-raised dark:text-ink dark:ring-1 dark:ring-inset dark:ring-ink/15 transition-[transform,opacity] duration-300 ease-out motion-reduce:transition-none tab:left-auto tab:right-[var(--sup-col-right,max(1.75rem,var(--sn-safe-r)))] tab:w-[380px] ${ABOVE_THE_THUMB} ${
         peekOn ? 'translate-y-0 opacity-100' : 'pointer-events-none translate-y-4 opacity-0'
       }`}
     >
       <div className="min-w-0 flex-1 leading-snug">
         <p className="truncate">
           <b className="font-semibold">{added?.name}</b>
-          {added?.category ? <span className="text-cream/65"> · {added.category}</span> : null}
+          {added?.category ? <span className="text-cream/65 dark:text-ink/65"> · {added.category}</span> : null}
         </p>
-        <p className="truncate">
-          <span className="text-cream/65">
+        {/* 💸 carries the build's peso total, so it wraps — never cut (the-page-never-scrolls-sideways.spec.ts) */}
+        <p className="break-words">
+          <span className="text-cream/65 dark:text-ink/65">
             This build · <Count value={tally.filled} id="sup-peek-filled" /> of{' '}
             <Count value={tally.total} id="sup-peek-total" />
             {withMoney ? ' · ' : ''}
@@ -102,13 +103,16 @@ export function BuildCart({ tally }: { tally: BuildTally }) {
         </p>
       </div>
       {/* A neutral button on the ink card: its word and hairline take the
-          card's own light ink, as a neutral button takes the page's. */}
+          card's own light ink, as a neutral button takes the page's. In dark
+          the card is the approved raised card (ink flips light, so an ink
+          card would be a light slab on the dark page) and the button takes
+          the page's ink again (dark-mode PR 4, 2026-10-13). */}
       <ActionButton
         tone="neutral"
         icon={Hammer}
         label="View this build"
         onClick={viewBuild}
-        className="!border-cream/40 !bg-cream/[0.14] !text-cream"
+        className="!border-cream/40 !bg-cream/[0.14] !text-cream dark:!border-ink/40 dark:!bg-ink/[0.08] dark:!text-ink"
       />
     </div>,
     host,

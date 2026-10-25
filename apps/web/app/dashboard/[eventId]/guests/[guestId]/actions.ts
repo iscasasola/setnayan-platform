@@ -3,6 +3,7 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { checkExtraSeats, syncExtraSeats } from '@/lib/extra-seats-sync';
+import { plusOneNameSave, seatNameAsTyped } from '@/lib/extra-seats';
 
 import { everyCopyIsNowStale } from '@/lib/a-withdrawal-reaches-every-copy.server';
 import { after } from 'next/server';
@@ -29,12 +30,15 @@ import {
 } from '@/lib/guests';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 import { parsePersonName } from '@/lib/person-name-parse';
+import { parseTitleKey } from '@/lib/guest-title';
 import { FORMAL_NAME_FIELDS, profileFormalName } from '@/lib/formal-name';
 import { resolveSubmittedSide } from '@/lib/guest-side-question';
 import { applyReconcileForEvent } from '@/lib/seating-reconcile';
 import { peopleConnectionsEnabled } from '@/lib/people-connections';
 import { generateEventConnections } from '@/app/dashboard/(account)/people/actions';
 import { isSafeNext } from '@/lib/safe-next';
+import { GUEST_CARD_COMPARED_COLUMNS, MERGE_BASE_FIELD, guestCardMerge, guestColumnWritten } from '@/lib/guest-card-merge';
+import { HOST_NOTE_MAX } from '@/lib/guest-host-note';
 
 // Iteration 0053 P2: the valid role set is per event type (resolveRoleSetForEvent).
 // SIDE_VALUES retired here — the shared resolver (lib/guest-side-question.ts)
@@ -88,11 +92,26 @@ function parseInvitedToBlocks(formData: FormData): InvitedToBlock[] {
  * `addGuestToGroup` keeps). Best-effort per row, like the bulk group actions:
  * the rest of the card's save has already landed.
  */
+/** 👥 The groups the card started with, from its posted base (`group_ids` in the autosave's spelling). */
+function baseGroupIds(rawBase: FormDataEntryValue | null): string[] {
+  try {
+    const base = JSON.parse(typeof rawBase === 'string' ? rawBase : '{}') as Record<string, unknown>;
+    const values = JSON.parse(typeof base.group_ids === 'string' ? base.group_ids : '[]') as unknown;
+    return Array.isArray(values)
+      ? values.flatMap((v) => (typeof v === 'string' ? v.split(',') : [])).map((v) => v.trim()).filter(Boolean)
+      : [];
+  } catch {
+    return [];
+  }
+}
+
 async function syncCardGroups(
   supabase: Awaited<ReturnType<typeof createClient>>,
   eventId: string,
   guestId: string,
   pickedIds: string[],
+  /** 👥 The groups the card started with: then only ITS change is made — a group another screen added stays. */
+  baseIds?: string[],
 ): Promise<void> {
   const { data: eventGroups, error: groupsErr } = await supabase
     .from('guest_groups')
@@ -113,6 +132,13 @@ async function syncCardGroups(
     return;
   }
   const have = new Set((rows ?? []).map((r) => r.group_id as string).filter((id) => ours.has(id)));
+  if (baseIds) {
+    const was = new Set(baseIds);
+    const picked = new Set(pickedIds);
+    want.clear();
+    for (const id of have) if (!(was.has(id) && !picked.has(id))) want.add(id);
+    for (const id of picked) if (!was.has(id) && ours.has(id)) want.add(id);
+  }
   const add = [...want].filter((id) => !have.has(id));
   const drop = [...have].filter((id) => !want.has(id));
   if (add.length > 0) {
@@ -248,15 +274,22 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
   // the host leaves in the box is stored, and CLEARING a box stores NULL —
   // this is the screen where a wrong auto-split gets corrected, so it must be
   // able to remove a title the parser added, not just add one.
-  const name_prefix = clean(formData.get('name_prefix')) || null;
+  // 🪪 The card's Title posts ONE key, "Atty.|woman" (lib/guest-title.ts, owner 2026-10-17): the title that prints and
+  // the gender that never does. A form without it (an older page) still posts a bare `name_prefix` and leaves the
+  // stored gender alone — the database keeps a Mr. / Mrs.'s gender by trigger either way.
+  const titled = formData.has('name_title') ? parseTitleKey(formData.get('name_title')) : null;
+  const name_prefix = titled ? titled.name_prefix : clean(formData.get('name_prefix')) || null;
   const middle_name = clean(formData.get('middle_name')) || null;
   const name_suffix = clean(formData.get('name_suffix')) || null;
   const display_name = clean(formData.get('display_name')) || null;
   const side = clean(formData.get('side')) as GuestSide;
-  const group_category = clean(formData.get('group_category')) as GuestGroupCategory;
-  const role = (clean(formData.get('role')) || 'guest') as GuestRole;
+  let group_category = clean(formData.get('group_category')) as GuestGroupCategory;
+  let role = (clean(formData.get('role')) || 'guest') as GuestRole;
   // What the guest wears on their 3D seat-plan avatar. Validate against the
   // closed set (DB CHECK enforces the same) rather than blindly casting.
+  // 👗 2026-10-20: the guest card no longer posts it (their attire IS their role's dress code, `guestOutfitOf`), so
+  // it is written ONLY when a form posts it — a save of the card must never reset a stored Gown / Suit to neutral.
+  const attirePosted = formData.has('attire');
   const attireRaw = clean(formData.get('attire')) || 'neutral';
   const attire: GuestAttire = attireRaw === 'gown' || attireRaw === 'suit' ? attireRaw : 'neutral';
   const email = clean(formData.get('email')) || null;
@@ -276,21 +309,21 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
   // Pending (owner directive 2026-06-03). Force it regardless of the submitted
   // value; the DB trigger (migration 20260725000000) enforces the same, this
   // keeps the action self-consistent.
-  const effectiveRsvp: RsvpStatus =
+  let effectiveRsvp: RsvpStatus =
     role === 'bride' || role === 'groom' ? 'attending' : rsvp_status;
-  const photo_consent = clean(formData.get('photo_consent')) === 'on';
+  let photo_consent = clean(formData.get('photo_consent')) === 'on';
   // FaceBlock (Salamisim P2) — "blur my face on the Live Photo Wall". The
   // wall's read path reacts to this flag instantly (un-baked tiles hide,
   // fail-closed); the re-bake sweep below restores the newest tiles blurred.
-  const faceblock_enabled = clean(formData.get('faceblock_enabled')) === 'on';
+  let faceblock_enabled = clean(formData.get('faceblock_enabled')) === 'on';
   // Minor safeguard (DPIA BV-8, 2026-07-05) — host marks a guest excluded from
   // face recognition (typically a minor). When ON, the guest is never enrolled
   // for auto-tagging and any existing enrolment is revoked below. Collects no age.
-  const face_recognition_excluded = clean(formData.get('face_recognition_excluded')) === 'on';
+  let face_recognition_excluded = clean(formData.get('face_recognition_excluded')) === 'on';
   // 🕯 "Passed away" (owner 2026-09-25) — LISTED, never counted, seated or sent
   // to. The card offers it to everyone but the couple, and the couple can never
   // carry it: they are the event, always attending (see `effectiveRsvp`).
-  const passed_away =
+  let passed_away =
     role !== 'bride' && role !== 'groom' && clean(formData.get('passed_away')) === 'on';
   // Plus-one toggle · owner directive 2026-05-23 PM. Host approves
   // permission only; the +1's name + RSVP confirmation lands on the
@@ -311,6 +344,11 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
       ? { plus_one_count: parsedCount }
       : { plus_one_allowed: clean(formData.get('plus_one_allowed')) === 'on' };
   const notes = clean(formData.get('notes')) || null;
+  /* 💌 The hosts' note TO this guest (owner 2026-10-20) — shown on their own Me page. Written ONLY when this form
+     carries the box: a form without it (an older page, a stale tab) leaves what is stored exactly as it is, never
+     nulls it. 500 characters, the column's own CHECK — cut here so a long paste never refuses the whole card. */
+  const hostNotePosted = formData.has('host_note_for_guest');
+  const host_note_for_guest = clean(formData.get('host_note_for_guest')).slice(0, HOST_NOTE_MAX) || null;
   // Custom tags RETIRED 2026-05-23 PM — owner directive: tags now
   // auto-derived from side/group/role/table at render time, host can't
   // pick free-text. Legacy column stays in schema (no migration) but
@@ -366,7 +404,14 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
      leaves the card, and what was typed, where it is, and the autosave says "Couldn’t save" once. Same codes, same sentences. */
   const refuse = (error: string) => (quiet ? { refused: error } : redirect(`${backTo}?error=${encodeURIComponent(error)}`));
 
-  if (!first_name || !last_name) {
+  /* 🪪 A +1 SEAT MAY BE SAVED WITH ITS NAME BOXES EMPTY (owner 2026-10-21: "there is no last name yet until we type on
+     it"). The card shows an unnamed seat's First and Last empty, so a save of its Mobile posts them empty — whether that is
+     "keep the seat open" or a name cleared by accident is the ROW's to say, read below (`plusOneNameSave`) — the refusal
+     decides it. The card says it drew a +1 seat (`plus_one_seat`); that only DEFERS the refusal to the row read below — a
+     post that says so for a row that is not a seat is refused there, the same words. Anyone else is refused right here,
+     first, before any read, exactly as before. */
+  const namesMissing = !first_name || !last_name;
+  if (namesMissing && clean(formData.get('plus_one_seat')) !== '1') {
     return refuse('missing_name');
   }
   // 🔑 THE FORM AND THE ACTION MUST ANSWER THIS THE SAME WAY. The Side control
@@ -412,8 +457,13 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
   // A finalized list refuses a seat change BEFORE anything on this form is
   // saved (owner 2026-09-21). Below the NAMED seats is allowed since 2026-09-29
   // — the named people are kept, never removed by a number.
+  // 🚫 …and a +1 is refused ANY seat of their own (owner 2026-10-21) — the number, or an old form's on-box, which the
+  // DB trigger turns into "at least one" (`guests_plus_one_count_sync`).
   if (typeof plusOneWrite.plus_one_count === 'number') {
     const check = await checkExtraSeats(supabase, eventId, guestId, plusOneWrite.plus_one_count);
+    if (!check.ok) return refuse(check.error);
+  } else if (plusOneWrite.plus_one_allowed) {
+    const check = await checkExtraSeats(supabase, eventId, guestId, (now) => Math.max(1, now));
     if (!check.ok) return refuse(check.error);
   }
   // Smart seat-plan Phase 5: snapshot the tier-affecting fields before the write
@@ -433,12 +483,57 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
     // card. Reading the old value is what lets us tell a real consent change from
     // a host correcting a phone number, so an ordinary edit does not throw four
     // public caches away.
+    // 👥 …and every column the card compares (`GUEST_CARD_COMPARED_COLUMNS`), for the merge below.
     .select(
-      'role, group_category, rsvp_status, rsvp_responded_at, faceblock_enabled, photo_consent, face_recognition_excluded, passed_away',
+      [
+        ...new Set([
+          'role', 'group_category', 'rsvp_status', 'rsvp_responded_at', 'faceblock_enabled', 'photo_consent',
+          'face_recognition_excluded', 'passed_away', 'name_prefix', 'plus_one_of_guest_id', 'plus_one_name_confirmed_at',
+          ...GUEST_CARD_COMPARED_COLUMNS,
+        ]),
+      ].join(', '),
     )
     .eq('event_id', eventId)
     .eq('guest_id', guestId)
-    .maybeSingle();
+    .maybeSingle<Record<string, unknown> & {
+      role: GuestRole; group_category: GuestGroupCategory; rsvp_status: RsvpStatus; rsvp_responded_at: string | null;
+      faceblock_enabled: boolean; photo_consent: boolean; face_recognition_excluded: boolean; passed_away: boolean; name_prefix: string | null;
+    }>();
+
+  /**
+   * 👥 TWO HOSTS NEVER OVERWRITE EACH OTHER (owner 2026-10-18 — `lib/guest-card-merge.ts`). The card posts the card it
+   * started from (`base`); only the columns whose fields THIS screen changed are written, every other column keeps what
+   * the row holds now — another host's edit, or the guest's own answer from their phone. A post without a base (the
+   * standalone route, an older page) is written whole, as before. Everything below that reads a value this save does
+   * NOT write — consent, the blur, the role, the answer — reads the ROW's, never the stale card's.
+   */
+  /* 🪪 What this save does to a +1 seat's name (null for everyone else — written as before). The card drew the seat's
+     stand-ins ("TBA" · "+1" · "+1 · TBA") as EMPTY boxes, so the row is compared in that same spelling: an empty box over a
+     stand-in is "nobody changed it", never "another screen moved it". 🔒 lib/an-unnamed-plus-one-has-no-name.test.ts */
+  const seatName = plusOneNameSave(
+    (prevGuest as unknown as Parameters<typeof plusOneNameSave>[0]) ?? null,
+    { first_name, last_name, display_name },
+    new Date().toISOString(),
+  );
+  if ((namesMissing && !seatName) || seatName?.kind === 'missing') return refuse('missing_name');
+  const comparedRow = prevGuest && seatName
+    ? (() => {
+        const typed = seatNameAsTyped(prevGuest as unknown as Parameters<typeof seatNameAsTyped>[0]);
+        return { ...prevGuest, first_name: typed.first_name, last_name: typed.last_name, display_name: typed.display_name };
+      })()
+    : (prevGuest ?? null);
+  const merge = guestCardMerge(formData.get(MERGE_BASE_FIELD), formData, comparedRow);
+  const writes = (column: string) =>
+    guestColumnWritten(column, merge) || (seatName?.kind === 'named' && seatName.force.includes(column));
+  if (merge.based && prevGuest) {
+    if (!writes('role')) role = prevGuest.role;
+    if (!writes('group_category')) group_category = prevGuest.group_category;
+    if (!writes('rsvp_status')) effectiveRsvp = prevGuest.rsvp_status;
+    if (!writes('photo_consent')) photo_consent = prevGuest.photo_consent;
+    if (!writes('faceblock_enabled')) faceblock_enabled = prevGuest.faceblock_enabled;
+    if (!writes('face_recognition_excluded')) face_recognition_excluded = prevGuest.face_recognition_excluded;
+    if (!writes('passed_away')) passed_away = prevGuest.passed_away === true;
+  }
 
   /**
    * 🔴 THE DATE MUST SURVIVE A SAVE THAT DID NOT TOUCH THE ANSWER.
@@ -477,14 +572,17 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
      read-only ("From their account"); this is the refusal behind that
      screen — the name keys are left OUT of the write, so what is stored stays. */
   const nameLocked = await linkedNameLocked(createAdminClient(), eventId, guestId);
-  const { data: updatedRows, error } = await supabase
-    .from('guests')
-    .update({
+  const wholeCard: Record<string, unknown> = {
       ...(nameLocked ? {} : { first_name, last_name, name_prefix, middle_name, name_suffix, display_name }),
+      // The gender rides with the title. A linked person's title is theirs, so only its woman / man is written —
+      // and only when the posted title IS the stored one (the card narrows their pick to it).
+      ...(titled && (!nameLocked || titled.name_prefix === ((prevGuest?.name_prefix as string | null) ?? null))
+        ? { gender: titled.gender }
+        : {}),
       side: resolvedSide,
       group_category,
       role,
-      attire,
+      ...(attirePosted ? { attire } : {}),
       email,
       mobile,
       meal_preference,
@@ -498,9 +596,27 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
       passed_away,
       ...plusOneWrite,
       notes,
+      ...(hostNotePosted ? { host_note_for_guest } : {}),
       invited_to_blocks,
       ...(extraRolesPosted ? { extra_roles } : {}),
       rsvp_responded_at,
+  };
+  // 🪪 A +1 seat: its name columns are what `plusOneNameSave` decided — only what was typed, never a stand-in as a typed
+  // name; an unnamed seat's stored stand-ins are left exactly as they are.
+  if (!nameLocked && seatName) {
+    delete wholeCard.first_name;
+    delete wholeCard.last_name;
+    delete wholeCard.display_name;
+    Object.assign(wholeCard, seatName.columns);
+  }
+  const { data: updatedRows, error } = await supabase
+    .from('guests')
+    .update({
+      // 👥 Only what this screen changed (every column when the post had no base).
+      ...Object.fromEntries(Object.entries(wholeCard).filter(([column]) => writes(column))),
+      // 🖐 MARKED BY YOU (owner 2026-10-21): a reply this card CHANGED is the host's — "Attending · Marked by you".
+      // An untouched answer keeps whoever gave it (a guest's own yes stays theirs); "No reply" carries no mark.
+      ...(writes('rsvp_status') && answerChanged ? { rsvp_set_by: effectiveRsvp === 'pending' ? null : 'host' } : {}),
       updated_at: new Date().toISOString(),
     })
     .eq('event_id', eventId)
@@ -703,7 +819,8 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
     await applyReconcileForEvent(supabase, eventId, { reseatGuestIds: [guestId] });
   }
   // ✓ Groups and Table, as picked on the card (see the `*_posted` note above).
-  if (groupsPosted) {
+  // 👥 With a base: only when this screen changed them, and Groups as ITS change (added / taken off) on today's list.
+  if (groupsPosted && (!merge.based || merge.changed.has('group_ids'))) {
     await syncCardGroups(
       supabase,
       eventId,
@@ -712,9 +829,10 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
         .split(',')
         .map((v) => v.trim())
         .filter(Boolean),
+      merge.based ? baseGroupIds(formData.get(MERGE_BASE_FIELD)) : undefined,
     );
   }
-  if (tablePosted && !passed_away && effectiveRsvp !== 'declined') {
+  if (tablePosted && (!merge.based || merge.changed.has('table_id')) && !passed_away && effectiveRsvp !== 'declined') {
     const seated = await syncCardTable(supabase, eventId, guestId, postedTableId);
     if (!seated.ok) return refuse(seated.error);
   }
@@ -841,6 +959,8 @@ async function giveSpotToSomeoneElse(eventId: string, guestId: string, newName: 
       name_prefix: parsed.prefix || null,
       middle_name: parsed.middleName || null,
       name_suffix: parsed.suffix || null,
+      // The old person's woman / man is not the new person's (a "Mr." / "Mrs." sets it again by trigger).
+      gender: null,
       display_name: null,
       person_id: null,
       email: null,
@@ -852,6 +972,8 @@ async function giveSpotToSomeoneElse(eventId: string, guestId: string, newName: 
       plus_one_name: null,
       dietary_restrictions: null,
       guest_note: null,
+      // 💌 The hosts' note was written to the OLD person — the new one never reads it (owner 2026-10-20).
+      host_note_for_guest: null,
       meal_preference: 'no_preference',
       rsvp_responded_at: null,
       invitation_sent_at: null,

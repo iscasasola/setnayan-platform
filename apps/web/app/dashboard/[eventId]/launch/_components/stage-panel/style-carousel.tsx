@@ -29,11 +29,16 @@ export function StyleCards({
   label = 'Layout',
   data = '',
   picture,
+  dim = [],
 }: {
   /**
-   * 🎛 A look whose picture is DRAWN HERE instead of copied off the page (`StylePreview`): the Camera's — the camera
-   * is never opened in the Maker, so its three looks are the camera's own pieces, drawn (`camera-look.tsx`). The
-   * card, its foot and the strip are the same; only what fills the picture differs.
+   * 🌫 Looks shown but NOT offered yet — drawn faint (the prototype's `.lc.soon`, 45 %); a tap still reaches `onPick`,
+   * which says why (never a dead tap). The Cover Scene's Opening: the openings the house has not switched on.
+   */
+  dim?: readonly string[];
+  /**
+   * 🎛 A look whose picture is DRAWN HERE instead of copied off the page (`StylePreview`) — for a part the canvas
+   * does not draw. The card, its foot and the strip are the same; only what fills the picture differs.
    */
   picture?: (id: string, on: boolean) => ReactNode;
   /** 🔎 One block of the scene the cards are fitted on (`StylePreview` `focus`) — the palette's "Our colours". */
@@ -42,7 +47,8 @@ export function StyleCards({
   label?: string;
   /** Which set this carousel is (`data-style-carousel`) — '' for a scene's own styles. */
   data?: string;
-  options: ReadonlyArray<{ id: string; name: string }>;
+  /** `pro` — 💎 an Event Hub Pro ◆ look: its name carries ◆ (tried free, named at ✓ Apply). */
+  options: ReadonlyArray<{ id: string; name: string; pro?: boolean }>;
   value: string | null;
   onPick: (id: string) => void;
   pending: boolean;
@@ -96,7 +102,9 @@ export function StyleCards({
             aria-checked={on}
             data-style-card={o.id}
             data-wide={wide[o.id] ? '' : undefined}
+            data-soon={dim.includes(o.id) ? '' : undefined}
             className={SP_STYLE_CARD}
+            style={dim.includes(o.id) ? { opacity: 0.45 } : undefined}
             onClick={() => {
               if (!pending && !on) onPick(o.id);
             }}
@@ -119,7 +127,7 @@ export function StyleCards({
                 />
               )}
             </span>
-            <span className={SP_STYLE_NAME}>{o.name}</span>
+            <span className={SP_STYLE_NAME}>{o.pro ? `${o.name} ◆` : o.name}</span>
           </button>
         );
       })}

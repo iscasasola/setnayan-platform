@@ -1,12 +1,13 @@
 'use server';
 
+import { writeWidgetConfig, type WidgetConfigClient } from '@/lib/widget-config-write';
 import { NEW_SCENE_TOKEN, PLACE_ORDER_FIELD, PLACE_STAGE_FIELD, readOwnScenePlace } from '@/lib/own-scene-place';
 import { stageOrderPatch } from '@/lib/maker-reorder';
 import { redirect } from 'next/navigation';
 import { landAfterWrite } from '@/lib/maker-land.server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
+import { eventHubPartActive } from '@/lib/couple-website-pro';
 import { nextTransition } from '@/lib/hub-scenes';
 import { sceneTemplateDefaults, sceneTemplateIdFromForm } from '@/lib/scene-templates';
 import {
@@ -547,18 +548,15 @@ async function moveWithinStage(
     return finishDraftSave(formData, eventId);
   }
 
-  // Live: each row's `config_json` keeps every sibling key (its canvas above all).
-  const results = await Promise.all(
+  // Live: each row's `config_json` keeps every sibling key (its canvas above all) — 👥 one write at a time per row,
+  // merged from what was read, so another screen's write to that row is kept (`lib/widget-config-write.ts`).
+  await Promise.all(
     places.map(({ row, place }) =>
-      supabase
-        .from('invitation_widgets')
-        .update({ config_json: configWithStageOrder(row.config_json, { [stage]: place }) })
-        .eq('widget_id', row.widget_id)
-        .eq('event_id', eventId),
+      writeWidgetConfig(supabase as unknown as WidgetConfigClient, { eventId, widgetId: row.widget_id }, row.config_json, configWithStageOrder(row.config_json, { [stage]: place }) as Record<string, unknown>),
     ),
-  );
-  const failed = results.find((r) => r.error);
-  if (failed?.error) throw new Error(`Failed to reorder scenes: ${failed.error.message}`);
+  ).catch((e: unknown) => {
+    throw new Error(`Failed to reorder scenes: ${e instanceof Error ? e.message : String(e)}`);
+  });
 
   await revalidateForWidgetChange(eventId);
   return landAfterWrite(formData, `/dashboard/${eventId}/website/widgets?saved=1`, '?saved=1');
@@ -636,21 +634,20 @@ export async function setWidgetMotion(formData: FormData): Promise<void> {
      💾 A DRAFT save is not gated here — trying is free; `hubDraftAction` apply
      is the gate (owner 2026-09-25, "Try then pay"). */
   if (formData.get('reset') === '1') {
-    if (!drafting) await requireLookPro(eventId, canvasHasMotion(canvas) ? 'remove' : 'none');
+    if (!drafting) await requireLookPro(eventId, canvasHasMotion(canvas) ? 'remove' : 'none', 'motion');
     for (const k of HUB_CANVAS_MOTION_KEYS) delete canvas[k];
     if (drafting) return saveCanvasToDraft(formData, eventId, row.widget_type, canvas);
-    const { error: resetErr } = await supabase
-      .from('invitation_widgets')
-      .update({ config_json: { ...existing, canvas } })
-      .eq('widget_id', widgetId)
-      .eq('event_id', eventId);
-    if (resetErr) throw new Error(`Failed to reset how this section moves: ${resetErr.message}`);
+    // 👥 One write at a time, merged from what was read (`lib/widget-config-write.ts`) — another screen's write is kept.
+    await writeWidgetConfig(supabase as unknown as WidgetConfigClient, { eventId, widgetId }, existing, { ...existing, canvas }).catch((e: unknown) => {
+      throw new Error(`Failed to reset how this section moves: ${e instanceof Error ? e.message : String(e)}`);
+    });
     await revalidateForWidgetChange(eventId);
     redirect(
       resolveReturnTo(formData, `/dashboard/${eventId}/website/widgets?saved=1`, '?saved=1'),
     );
   }
-  if (!drafting) await requireLookPro(eventId, 'change');
+  // 💎 How a scene moves is the Motion part's (owner 2026-10-22, gate 19).
+  if (!drafting) await requireLookPro(eventId, 'change', 'motion');
 
   if (isHubMotionPreset(presetRaw)) canvas.preset = presetRaw;
   if (timelineRaw === 'auto') delete canvas.timeline;
@@ -709,7 +706,8 @@ export async function setWidgetMotion(formData: FormData): Promise<void> {
   const autoSpeedRaw = formData.get('auto_speed');
   if (transitionRaw !== null || autoSpeedRaw !== null) {
     const step = nextTransition(canvas, transitionRaw, autoSpeedRaw);
-    if (!drafting && step.needsPro && !(await eventCoupleWebsiteProActive(createAdminClient(), eventId))) {
+    // 💎 Scrub and Auto-scroll are the Motion part's (owner 2026-10-22, gate 20).
+    if (!drafting && step.needsPro && !(await eventHubPartActive(createAdminClient(), eventId, 'motion'))) {
       redirect(`/dashboard/${eventId}/studio/website-pro`);
     }
     delete canvas.transition;
@@ -721,13 +719,10 @@ export async function setWidgetMotion(formData: FormData): Promise<void> {
   if (drafting) return saveCanvasToDraft(formData, eventId, row.widget_type, canvas);
   const next = { ...existing, canvas };
 
-  const { error: updateErr } = await supabase
-    .from('invitation_widgets')
-    .update({ config_json: next })
-    .eq('widget_id', widgetId)
-    .eq('event_id', eventId);
-
-  if (updateErr) throw new Error(`Failed to save how this section moves: ${updateErr.message}`);
+  // 👥 One write at a time, merged from what was read (`lib/widget-config-write.ts`).
+  await writeWidgetConfig(supabase as unknown as WidgetConfigClient, { eventId, widgetId }, existing, next).catch((e: unknown) => {
+    throw new Error(`Failed to save how this section moves: ${e instanceof Error ? e.message : String(e)}`);
+  });
 
   await revalidateForWidgetChange(eventId);
   return landAfterWrite(formData, `/dashboard/${eventId}/website/widgets?saved=1`, '?saved=1');
@@ -837,6 +832,8 @@ export async function setWidgetBackground(formData: FormData): Promise<void> {
       kind: shapeOnly ? 'none' : tinted ? (kind as 'color' | 'glass' | 'frost' | 'none') : kind === 'snippet' ? 'snippet' : 'photo',
       nextMedia: shapeOnly || tinted || wanted.length === 0 ? null : (hubMediaRef(wanted) ?? wanted),
     }),
+    // 💎 A photo or clip behind a scene is the Background part's (owner 2026-10-22, gate 8).
+    'background',
   );
 
   if (shapeOnly) {
@@ -904,13 +901,10 @@ export async function setWidgetBackground(formData: FormData): Promise<void> {
   }
 
   if (drafting) return saveCanvasToDraft(formData, eventId, row.widget_type, canvas);
-  const { error: updateErr } = await supabase
-    .from('invitation_widgets')
-    .update({ config_json: { ...existing, canvas } })
-    .eq('widget_id', widgetId)
-    .eq('event_id', eventId);
-
-  if (updateErr) throw new Error(`Failed to save this section's background: ${updateErr.message}`);
+  // 👥 One write at a time, merged from what was read (`lib/widget-config-write.ts`).
+  await writeWidgetConfig(supabase as unknown as WidgetConfigClient, { eventId, widgetId }, existing, { ...existing, canvas }).catch((e: unknown) => {
+    throw new Error(`Failed to save this section's background: ${e instanceof Error ? e.message : String(e)}`);
+  });
 
   await revalidateForWidgetChange(eventId);
   return landAfterWrite(formData, `/dashboard/${eventId}/website/widgets?saved=1`, '?saved=1');
@@ -973,8 +967,9 @@ export async function setWidgetCrop(formData: FormData): Promise<void> {
   }
 
   /* ⛔ THE CROP AND ZOOM ARE HOW THE PAGE LOOKS — PRO (owner 2026-09-24). A free
-     couple's existing crop stays as it is; moving it is a change. */
-  if (!drafting) await requireLookPro(eventId, 'change');
+     couple's existing crop stays as it is; moving it is a change.
+     💎 Crop and zoom are the Photos part's (owner 2026-10-22, gate 11). */
+  if (!drafting) await requireLookPro(eventId, 'change', 'photos');
 
   const focalRaw = Number(formData.get('focal'));
   const zoomRaw = Number(formData.get('zoom'));
@@ -983,13 +978,10 @@ export async function setWidgetCrop(formData: FormData): Promise<void> {
 
   if (drafting) return saveCanvasToDraft(formData, eventId, row.widget_type, canvas);
 
-  const { error: updateErr } = await supabase
-    .from('invitation_widgets')
-    .update({ config_json: { ...existing, canvas } })
-    .eq('widget_id', widgetId)
-    .eq('event_id', eventId);
-
-  if (updateErr) throw new Error(`Failed to save the crop: ${updateErr.message}`);
+  // 👥 One write at a time, merged from what was read (`lib/widget-config-write.ts`).
+  await writeWidgetConfig(supabase as unknown as WidgetConfigClient, { eventId, widgetId }, existing, { ...existing, canvas }).catch((e: unknown) => {
+    throw new Error(`Failed to save the crop: ${e instanceof Error ? e.message : String(e)}`);
+  });
 
   await revalidateForWidgetChange(eventId);
   return landAfterWrite(formData, `/dashboard/${eventId}/website/widgets?saved=1`, '?saved=1');
@@ -1036,7 +1028,8 @@ export async function addCustomSection(formData: FormData): Promise<void> {
      "A SCENE OF THEIR OWN, SHOWN FOR THE FIRST TIME"). A POST without the
      field is refused here exactly as before. */
   const drafting = isHubDraftWrite(formData);
-  const ownsPro = await eventCoupleWebsiteProActive(createAdminClient(), eventId);
+  // 💎 A scene of your own is the Your own scenes part's (owner 2026-10-22, gate 22).
+  const ownsPro = await eventHubPartActive(createAdminClient(), eventId, 'own_scenes');
   await refuseCustomSectionWithoutPro(eventId, {
     intent: 'add',
     ownsPro: ownsPro || drafting,
@@ -1246,7 +1239,8 @@ export async function saveCustomSection(formData: FormData): Promise<void> {
     ownsPro:
       intent === 'delete'
         ? false
-        : triedInTheDraft || (await eventCoupleWebsiteProActive(createAdminClient(), eventId)),
+        : // 💎 Filling a scene of your own is the Your own scenes part's (owner 2026-10-22, gate 22).
+          triedInTheDraft || (await eventHubPartActive(createAdminClient(), eventId, 'own_scenes')),
     hadContent: customSectionHasContent(existing),
   });
 
@@ -1310,7 +1304,8 @@ export async function saveCustomSection(formData: FormData): Promise<void> {
         id,
         // In the draft the template comes as a Pro couple gets it — its motion is
         // tried on the canvas and held at Apply without Pro.
-        drafting || (await eventCoupleWebsiteProActive(createAdminClient(), eventId)),
+        // 💎 A template's own motion is the Motion part's (owner 2026-10-22, gate 19).
+        drafting || (await eventHubPartActive(createAdminClient(), eventId, 'motion')),
       );
     } else if (intent === 'slot') {
       const field = (k: string) => {
@@ -1346,14 +1341,16 @@ export async function saveCustomSection(formData: FormData): Promise<void> {
       const w = applySceneSlot(canvas, Number(formData.get('slot')), patch, ownRefs);
       if (!w.ok) redirect(back(`?error=${w.reason}`));
       if (w.putsMediaUp) {
-        if (!drafting) await requireLookPro(eventId, 'change');
+        // 💎 A photo or clip inside a scene is the Photos part's (owner 2026-10-22, gate 10).
+        if (!drafting) await requireLookPro(eventId, 'change', 'photos');
       }
       nextCanvas = w.canvas;
     } else {
       const v = applySceneVideo(canvas, formData.get('play'), formData.get('open'));
       if (!v) redirect(back('?error=bad_video'));
       if (v.putsUp) {
-        if (!drafting) await requireLookPro(eventId, 'change');
+        // 💎 A clip's playback inside a scene is the Photos part's (owner 2026-10-22, gate 10).
+        if (!drafting) await requireLookPro(eventId, 'change', 'photos');
       }
       nextCanvas = v.canvas;
     }
@@ -1391,12 +1388,10 @@ export async function saveCustomSection(formData: FormData): Promise<void> {
     next = { ...existing, custom: input.value };
   }
 
-  const { error: updateErr } = await supabase
-    .from('invitation_widgets')
-    .update({ config_json: next })
-    .eq('widget_id', widgetId)
-    .eq('event_id', eventId);
-  if (updateErr) throw new Error(`Failed to save your section: ${updateErr.message}`);
+  // 👥 One write at a time, merged from what was read (`lib/widget-config-write.ts`).
+  await writeWidgetConfig(supabase as unknown as WidgetConfigClient, { eventId, widgetId }, existing, next).catch((e: unknown) => {
+    throw new Error(`Failed to save your section: ${e instanceof Error ? e.message : String(e)}`);
+  });
 
   await revalidateForWidgetChange(eventId);
   return landAfterWrite(formData, `/dashboard/${eventId}/website/widgets?saved=1`, '?saved=1');

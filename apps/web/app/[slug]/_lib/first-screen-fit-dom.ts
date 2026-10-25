@@ -62,6 +62,8 @@ export function firstScreenFitter(
     const add = (key: string, el: HTMLElement) => out.push({ key: out.some((b) => b.key === key) ? `${key}-${out.length}` : key, el });
     for (const el of Array.from(inner.children)) {
       if (!(el instanceof HTMLElement) || el.getBoundingClientRect().height === 0) continue;
+      // 🦶 A photo cover IS its header, so the foot (the door's own block) stands among its parts: it is the door, not one.
+      if (door && (el === door || el.contains(door))) continue;
       if (el.matches('figure')) add('plate', el);
       else if (el.matches('[data-motion="arrive-mark"]')) add('mark', el);
       else if (el.matches('h1')) {
@@ -76,6 +78,7 @@ export function firstScreenFitter(
     /* (Only inside the cover's own header: a cover that IS its header has nothing after it that is its own.) */
     for (let next = cover === cover.closest('header') ? null : cover.nextElementSibling; next; next = next.nextElementSibling) {
       if (!(next instanceof HTMLElement) || next.getBoundingClientRect().height === 0) continue;
+      if (door && (next === door || next.contains(door))) continue; // 🦶 the door's own block (the cover's foot) is the door, not a part
       if (next.matches('figure')) add('plate', next);
       else if (next.querySelector('a[href]')) add('link', next);
     }
@@ -83,9 +86,15 @@ export function firstScreenFitter(
   };
   const snapshot = (list: FitBlock[]): FitSnapshot => {
     const at = offset();
+    /* 🎬 WHERE A PART RESTS, NOT WHERE ITS ENTRANCE HAS IT THIS FRAME (2026-10-18). The cover's mark, names and date
+       arrive by sliding up 8 px (`sn-arrive-settle`, ~0.5 s), and a box read mid-slide is up to 8 px low — the fit then
+       laid a part that gave way that much too close to the next (CI, 320 × 568 with the notice: the mark and "Guests
+       arrive" 1.7 px apart). A translate never moves the layout, so it is taken off the reading. */
     const box = (key: string, el: HTMLElement) => {
       const r = el.getBoundingClientRect();
-      return { key, top: r.top + at, bottom: r.bottom + at };
+      const t = getComputedStyle(el).transform;
+      const dy = t && t !== 'none' && typeof DOMMatrixReadOnly !== 'undefined' ? new DOMMatrixReadOnly(t).m42 : 0;
+      return { key, top: r.top - dy + at, bottom: r.bottom - dy + at };
     };
     const parts = list.map((b) => box(b.key, b.el));
     /* No door: a line of no height right under the last part — what must stand above the limit is the parts kept. */

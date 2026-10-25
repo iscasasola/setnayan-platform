@@ -88,15 +88,15 @@ const SPOTLIGHTS: readonly Spotlight[] = [
     media: { kind: 'photo', src: '/demo/maria-jose/firstdance.webp', alt: 'A couple dancing under lights' },
   },
   {
-    chip: 'The live wall',
+    chip: 'Memory lane',
     t: 'The night, on the venue screen',
-    d: 'The wall has its own web address. Open it on whatever the venue has — a TV, a projector, a laptop — type the short code once, and the night plays there as it happens. Included.',
+    d: 'Memory lane has its own web address. Open it on whatever the venue has — a TV, a projector, a laptop — type the short code once, and the night plays there as it happens. Included.',
     media: { kind: 'photo', src: '/demo/maria-jose/reception.webp', alt: 'A reception laid out under strings of lights' },
   },
   {
     chip: 'Each guest’s own',
     t: 'Everybody goes home with theirs',
-    d: 'Nobody gets one big pile to scroll. Each guest gets their own gallery, and can turn it into a short video set to music.',
+    d: 'Nobody gets one big pile to scroll. Each guest gets their own Memories, and can turn them into a short video set to music.',
     media: { kind: 'photo', src: '/demo/maria-jose/wall-8.webp', alt: 'A guest, mid-laugh, at a wedding' },
   },
   {
@@ -117,18 +117,18 @@ const EVERYTHING_ELSE: readonly Extra[] = [
   { t: 'Photo challenges', d: 'Little missions for the room — a written library to choose from, or write your own.' },
   { t: 'Video greetings', d: 'Ask your guests to leave a short message on camera instead of signing a book.' },
   { t: 'Challenges your suppliers suggest', d: 'Your photographer can propose one. Nothing appears until you approve it.' },
-  { t: 'A recap page', d: 'The celebration gathered into one page you can send.' },
+  { t: 'A recap page', d: 'The event gathered into one page you can send.' },
   { t: 'A keepsake magazine', d: 'Your photographs laid out to print, with your guests’ words beside the picture each one is about. Free.' },
   { t: 'Life flash', d: 'The whole story, cut short and set to music.' },
   { t: 'A thank-you film', d: 'Made from the night and addressed to the people who came.', paid: true },
-  { t: 'A gallery that reads in chapters', d: 'Grouped by how far from the day each photo was taken, so the run-up reads as the run-up.' },
+  { t: 'Memories that read in chapters', d: 'Grouped by how far from the day each photo was taken, so the run-up reads as the run-up.' },
   { t: 'A copy in your own Google Drive', d: 'Connect it and your originals land there too.' },
   { t: 'Posters and place cards you can print', d: 'The codes come ready to put on the tables.' },
   { t: 'It works with no signal', d: 'Photos wait on the phone and send themselves when the venue’s signal comes back.' },
   { t: 'Start months early', d: 'Cameras can open well before the day, so the engagement shoot is already in there.' },
   { t: 'Five looks', d: 'Pick how the night is graded and every camera follows.' },
   { t: 'You moderate', d: 'Anything can be taken down, by you, at any time.' },
-  { t: 'Decide who sees the shared gallery', d: 'Open it to your guests or keep it to yourselves.' },
+  { t: 'Decide who sees the shared Memories', d: 'Open them to your guests or keep them to yourselves.' },
   { t: 'Your suppliers’ photos, on your terms', d: 'What they hand over reaches you, and you say what happens to it.' },
   { t: 'Add your own', d: 'Your photographs and videos go into the same library as everyone else’s.' },
 ];
@@ -246,8 +246,8 @@ export function PapicHub() {
         On your own page, not on ours
       </h2>
       <p className="mt-2 text-sm text-[var(--m-slate-2)]">
-        Papic is a part of the celebration page you already have — the same page holding your
-        details and your RSVP. There is no second website, and nothing to send anyone twice.
+        Papic is a part of the Event Hub you already have — the same page holding your
+        details and your RSVP. There is no second page, and nothing to send anyone twice.
       </p>
 
       <div className="mt-6 overflow-hidden rounded-[var(--m-r-lg)] border border-[var(--m-line)]">
@@ -269,7 +269,7 @@ export function PapicHub() {
         </div>
 
         <div className="sn-gal p-5">
-          <HubHead kick="Live from the wedding" big="1,284" small="moments and counting" />
+          <HubHead kick="Memory lane" big="1,284" small="moments and counting" />
           <div className="mt-3.5 grid grid-cols-3 gap-1.5">
             {WALL.map((w) => (
               <figure key={w.src} className="relative m-0 aspect-square overflow-hidden rounded-lg">
@@ -283,7 +283,7 @@ export function PapicHub() {
         </div>
 
         <div className="sn-gal border-t border-[rgb(251_250_247/0.12)] p-5">
-          <HubHead kick="Photos of you — so far" big="34" small="so far" />
+          <HubHead kick="Memories of you — so far" big="34" small="so far" />
           <div className="mt-3.5 grid grid-cols-3 gap-1.5">
             {MINE.map((src) => (
               <div key={src} className="relative aspect-square overflow-hidden rounded-lg">
@@ -293,7 +293,7 @@ export function PapicHub() {
           </div>
           <p className="sn-gal-soft mt-3.5 rounded-lg border border-[rgb(251_250_247/0.12)] px-3 py-3 text-sm">
             Tap <span className="sn-gal-text font-medium">Not me</span> on any photo that isn’t you,
-            and it leaves your gallery.
+            and it leaves your Memories.
           </p>
           <p className="sn-gal-text mt-3 rounded-lg border-l-2 border-[var(--sn-ob-gold)] bg-[rgb(203_167_102/0.12)] px-3 py-2 text-sm">
             These are yours to keep. Nothing here expires.

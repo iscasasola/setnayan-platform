@@ -20,19 +20,31 @@ export const VENDOR_ASSIGNABLE_ROLES: ReadonlyArray<VendorTeamRole> = [
   'viewer',
 ];
 
+/**
+ * The roles in the supplier's plain words (simpler supplier dashboard, owner-APPROVED 2026-10-14: "team seats →
+ * Helpers"; prototype SCREENS.helpers — Admin · runs the shop / Team member · own work / Helper · sees the schedule).
+ * The keys stay the database's (`admin` / `agent` / `viewer`); only the words changed.
+ */
 export const VENDOR_TEAM_ROLE_LABEL: Record<VendorTeamRole, string> = {
   owner: 'Admin', // legacy rows surface as Admin
   admin: 'Admin',
-  agent: 'Agent',
-  viewer: 'Viewer',
+  agent: 'Team member',
+  viewer: 'Helper',
 };
 
 export const VENDOR_TEAM_ROLE_BLURB: Record<VendorTeamRole, string> = {
-  owner: 'Top role — manages the whole store, including team and roles.',
-  admin: 'Top role — manages the whole store, including team and roles.',
-  agent: 'Assigned to specific services; sees only their own work.',
-  viewer: 'Read-only access to the schedule and bookings.',
+  owner: 'Runs the shop with you — team, plan and everything else.',
+  admin: 'Runs the shop with you — team, plan and everything else.',
+  agent: 'Works the services you give them; sees only their own work.',
+  viewer: 'Sees the schedule and bookings; changes nothing.',
 };
+
+/** The one dropdown's options — "Admin · runs the shop" … in the order an admin reads them. */
+export const VENDOR_TEAM_ROLE_PICK: ReadonlyArray<{ key: VendorTeamRole; label: string }> = [
+  { key: 'admin', label: 'Admin · runs the shop' },
+  { key: 'agent', label: 'Team member · own work' },
+  { key: 'viewer', label: 'Helper · sees the schedule' },
+];
 
 /** Admin and the legacy `owner` value both count as the top management role. */
 export function isVendorAdminRole(role: VendorTeamRole): boolean {
@@ -160,18 +172,34 @@ export type VendorAdminContext = {
  * Resolve the store the caller manages AS AN ADMIN. Team management, the
  * subscription buy, and the demotion-vote flow are all admin-gated, so every
  * one of those surfaces resolves through here. Returns null when the caller is
- * not an admin of any store (agents/viewers/non-vendors → blocked).
+ * not an admin of THE SHOP THEY ARE STANDING IN (agents/viewers/non-vendors →
+ * blocked).
+ *
+ * 🔀 2026-10-22: the store is the ACTIVE shop (`resolveActiveShop`,
+ * `lib/active-shop.ts`), not the caller's oldest admin seat. Before, a person who
+ * is admin of shop A and switched into shop B (where they are, say, an agent)
+ * would have opened Team and managed A's people from B's pages. A refused shop
+ * read denies (null) — this gates management, so an absence must block.
  */
 export async function fetchAdminVendorContext(
   supabase: SupabaseClient,
   userId: string,
 ): Promise<VendorAdminContext | null> {
+  let activeShopId: string | null;
+  try {
+    // Lazy, like `resolveVendorRole`: the resolver reads the request's cookies and must stay out of client bundles.
+    const { resolveActiveShopId } = await import('@/lib/active-shop');
+    activeShopId = await resolveActiveShopId(supabase, userId);
+  } catch {
+    return null;
+  }
+  if (!activeShopId) return null;
   const { data: membership } = await supabase
     .from('vendor_team_members')
     .select('vendor_profile_id, role, vendor_profiles!inner(user_id, tier_state)')
+    .eq('vendor_profile_id', activeShopId)
     .eq('user_id', userId)
     .in('role', ['admin', 'owner'])
-    .order('created_at', { ascending: true })
     .limit(1)
     .maybeSingle();
   if (!membership) return null;

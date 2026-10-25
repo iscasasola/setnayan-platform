@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { Download, MoreHorizontal, QrCode, Trash2, Unlink, X } from 'lucide-react';
+import { Armchair, Download, MoreHorizontal, QrCode, Trash2, Unlink, X } from 'lucide-react';
 import { ActionButton, actionButtonClass } from '@/components/action-button';
 import { NfcWriteButton } from '@/app/_components/nfc-write-button';
 import { SaveFileLink } from '@/app/_components/save-file-link';
@@ -10,8 +10,8 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { GuestConfirmActions, GuestPopup } from './guest-popup';
 import { menuNudge, menuRoomOf, menuWidthIn, nudgeUp, placeMenuIn } from '@/lib/menu-place';
 import { useGuestActions } from './guest-actions-context';
-import { ticketFileName, ticketUrl } from './send-invite';
-import { DeleteGuestFlow } from './guest-delete';
+import { ticketFileName, ticketUrl, useTicketVersion, type TicketVersion } from './send-invite';
+import { DeleteGuestFlow, useGuestRemoval } from './guest-delete';
 import { useInspectorContext } from '@/app/_components/inspector/inspector-column';
 import { useRouter } from 'next/navigation';
 import { useOneOpen } from '@/lib/one-open';
@@ -42,12 +42,20 @@ export function GuestTicketThumb({
   guestId,
   name,
   available,
+  version,
 }: {
   guestId: string;
   /** The guest's full name — the saved file is named after them. */
   name: string;
   /** False when they have no ticket (replied they can't come, a request, passed away). */
   available: boolean;
+  /**
+   * 🎟 The ticket's version, streamed with the card (`passCardTicketVersion`; owner 2026-10-16: "it always
+   * reloads i thought we have cache"). The picture is asked for at its versioned address, which the route
+   * caches for a year — so every later open draws it from the phone with no request. Absent → the old
+   * address (asked again on every open).
+   */
+  version?: TicketVersion;
 }) {
   const [open, setOpen] = useState(false);
   const [broken, setBroken] = useState(false);
@@ -55,7 +63,8 @@ export function GuestTicketThumb({
   const [loaded, setLoaded] = useState(false);
   const titleId = useId();
   const imgRef = useRef<HTMLImageElement>(null);
-  const src = ticketUrl(guestId);
+  const tv = useTicketVersion(version);
+  const src = ticketUrl(guestId, tv.v);
   useEffect(() => setMounted(true), []);
   // A card that switches guests starts over — only when the ADDRESS changes, so
   // an error that already fired for this ticket is never wiped.
@@ -107,7 +116,7 @@ export function GuestTicketThumb({
             box). A broken picture still falls back to "No ticket" above. */}
         <span className="relative block aspect-[3/4] w-full">
           <TicketPlaceholder name={name} waiting={!loaded} />
-          {mounted ? (
+          {mounted && tv.ready ? (
             // eslint-disable-next-line @next/next/no-img-element -- our own gated route; the same PNG Save ticket saves
             <img
               ref={imgRef}
@@ -150,6 +159,8 @@ export function GuestTicketThumb({
           <img
             src={src}
             alt={`${name}'s ticket`}
+            width={300}
+            height={400}
             className="max-h-[62dvh] w-auto rounded-xl object-contain ring-1 ring-ink/10"
           />
           <SaveFileLink
@@ -175,9 +186,13 @@ export function GuestTicketThumb({
 const MORE_MENU_WIDTH = 224;
 
 /**
- * ⋯ — Write to NFC · New QR · Unlink account · Delete guest, one list. Every
- * line carries its icon (owner 2026-10-04: "every item gets an icon, or none
- * do" — Write to NFC had one, New QR had none).
+ * ⋯ — Write to NFC · New QR · Unlink account, one list. Every line carries its
+ * icon (owner 2026-10-04: "every item gets an icon, or none do" — Write to NFC
+ * had one, New QR had none).
+ *
+ * 🗑 Delete guest LEFT this list (owner 2026-10-23, prototype
+ * `guest_card_groups_and_papic_2026-10-23.html`): it is the card's own last
+ * group now — `GuestDeleteControl` below, the same warning and the same delete.
  */
 export function GuestMoreMenu({
   eventId,
@@ -186,7 +201,6 @@ export function GuestMoreMenu({
   nfcUrl,
   linked,
   returnTo,
-  deletable = false,
 }: {
   eventId: string;
   guestId: string;
@@ -197,20 +211,10 @@ export function GuestMoreMenu({
   linked: boolean;
   /** Where New QR lands — the surface the ⋯ was opened on. */
   returnTo: string;
-  /**
-   * ⚖ Delete guest, on the CARD's ⋯ (owner 2026-10-03, DECISION_LOG "A HOST CAN
-   * DELETE A GUEST WHO ALREADY ACCEPTED"). Any reply state; never the couple.
-   * The same warning and the same delete as the swipe and the selection bar
-   * (`guest-delete.tsx`), and the card closes itself once it is done.
-   */
-  deletable?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [confirm, setConfirm] = useState<'new_qr' | 'unlink' | null>(null);
-  const [confirmDelete, setConfirmDelete] = useState(false);
   useOneOpen(open, setOpen); // one open at a time — lib/one-open.ts
-  const inspector = useInspectorContext();
-  const router = useRouter();
   const wrapRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -393,38 +397,8 @@ export function GuestMoreMenu({
             Unlink account
           </button>
         ) : null}
-        {deletable ? (
-          <button
-            type="button"
-            role="menuitem"
-            className={`${item} border-t border-ink/[0.06] text-danger-700`}
-            data-guest-delete=""
-            onClick={() => {
-              setOpen(false);
-              setConfirmDelete(true);
-            }}
-          >
-            <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-            Delete guest
-          </button>
-        ) : null}
       </div>,
       )}
-
-      {confirmDelete ? (
-        <DeleteGuestFlow
-          eventId={eventId}
-          guestId={guestId}
-          guestName={guestName}
-          onClose={() => setConfirmDelete(false)}
-          onDeleted={() => {
-            // The card is of a guest who is gone — close it (the panel over the
-            // list, or the standalone page back to the list).
-            if (inspector) inspector.close();
-            else router.push(`/dashboard/${eventId}/guests`);
-          }}
-        />
-      ) : null}
 
       {confirm !== null ? (
       <GuestPopup kind="confirm" onClose={() => setConfirm(null)} labelledById={confirmId}>
@@ -466,6 +440,60 @@ export function GuestMoreMenu({
           />
         </form>
       </GuestPopup>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * 🗑 THE CARD'S OWN DELETE — the last group of the guest card (owner 2026-10-23, prototype
+ * `guest_card_groups_and_papic_2026-10-23.html`: "Delete (out of ⋯)"). Moved, not re-made: the same warning
+ * (`DeleteGuestFlow` — never a browser `confirm()`; its button is the second tap) and the same delete as the swipe and
+ * the selection bar (`guest-delete.tsx`, owner 2026-10-03 DECISION_LOG "A HOST CAN DELETE A GUEST WHO ALREADY
+ * ACCEPTED"), and the card closes itself once it is done. Any reply state; never the couple (the body says why instead).
+ *
+ * 🪑 A +1 with no name yet (`seatWithNoName`, `plusOneHasNoName`) reads "Release seat": gone at once, with Undo, their
+ * guest's "+N" one lower (owner 2026-10-21). A named +1 keeps Delete and its warning.
+ */
+export function GuestDeleteControl({
+  eventId,
+  guestId,
+  guestName,
+  seatWithNoName = false,
+}: {
+  eventId: string;
+  guestId: string;
+  guestName: string;
+  seatWithNoName?: boolean;
+}) {
+  const { release: releaseSeat } = useGuestRemoval(eventId);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const inspector = useInspectorContext();
+  const router = useRouter();
+  // The card is of a guest (or a seat) who is gone — close it: the panel over the list, or the standalone page back to the list.
+  const closeCard = () => {
+    if (inspector) inspector.close();
+    else router.push(`/dashboard/${eventId}/guests`);
+  };
+  return (
+    <div data-guest-delete-control="">
+      {seatWithNoName ? (
+        <span data-guest-release-seat="">
+          <ActionButton tone="danger" icon={Armchair} label="Release seat" onClick={() => void releaseSeat([guestId], { onReleased: closeCard })} />
+        </span>
+      ) : (
+        <span data-guest-delete="">
+          <ActionButton tone="danger" icon={Trash2} label="Delete guest" onClick={() => setConfirmDelete(true)} />
+        </span>
+      )}
+      {confirmDelete ? (
+        <DeleteGuestFlow
+          eventId={eventId}
+          guestId={guestId}
+          guestName={guestName}
+          onClose={() => setConfirmDelete(false)}
+          onDeleted={closeCard}
+        />
       ) : null}
     </div>
   );

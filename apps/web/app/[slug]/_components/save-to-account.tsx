@@ -11,12 +11,15 @@ import {
   type SaveMethod,
 } from '@/lib/guest-one-path';
 import { INVITE_RETURN } from '@/lib/invite-arrival';
-import { COUPLE_SEAT_REFUSED, SEAT_HELD_ELSEWHERE, seatConfirmLine } from '@/lib/seat-binding';
+import { COUPLE_SEAT_REFUSED, SEAT_HELD_ELSEWHERE, hostViewingLine, seatConfirmLine } from '@/lib/seat-binding';
 import { startAccountSaveAction, linkThisSeatAction } from '../actions';
 import { CopyMyLink, OpenInBrowser } from './copy-my-link';
 import { ProviderStall } from './provider-stall';
 import { NativeSaveForm } from './native-save-form';
+import { AppleOnTouch } from './apple-on-touch';
+import { mightBeIpadSafari } from '@/lib/apple-device';
 import { TermsTick } from './terms-tick';
+import { ConnectHostsTickFor } from './connect-hosts-tick';
 import {
   NATIVE_SAVE_FIELD,
   saveSignsInNatively,
@@ -30,7 +33,7 @@ import {
  * A TIME"; reachable from the thank-you, Me, and on the day — owner 2026-09-27).
  *
  *   offer          → the device's method (`saveMethodFor`):
- *                      iPhone → Apple · Android / desktop → Google — both
+ *                      iPhone / iPad → Apple · Android / desktop → Google — both
  *                      posted to `startAccountSaveAction`, which takes the
  *                      Terms tick and returns through `/join/{eventId}/connect`
  *                      (binds this seat to the account and opens the event);
@@ -41,7 +44,9 @@ import {
  *   sign_in        → the seat is kept in an account this browser is not signed
  *                    in to → one "Sign in" link;
  *   linked         → "Saved to your account ✓";
- *   held_elsewhere → said plainly, never re-bound.
+ *   held_elsewhere → said plainly, never re-bound;
+ *   host_viewing   → a host / co-host / coordinator / helper on a guest's seat:
+ *                    "You're viewing <name>'s invitation as the host." — no press.
  *
  * 📱 INSIDE THE PHONE APP (a build carrying `SetnayanSignIn/1`, 2026-10-04) the
  * same press posts the same action, but through `NativeSaveForm`: the action
@@ -72,7 +77,10 @@ export function SaveToAccount({
   termsMissing = false,
   carries = null,
   through,
+  whyInTip = false,
 }: {
+  /** 🪪 Me's "Keep this invitation" (owner 2026-10-24): the reason is said in that block's ⓘ — not again under the button. */
+  whyInTip?: boolean;
   state: GuestAccountState;
   eventId: string;
   slug: string;
@@ -117,6 +125,15 @@ export function SaveToAccount({
       </div>
     );
   }
+  if (state.kind === 'host_viewing') {
+    // 🔒 A HOST LOOKING AT A GUEST'S INVITATION (owner 2026-10-21): one quiet line, nothing to press. The server
+    // refuses the bind as well (`seatBindRefusal` → 'manager' in lib/link-guest-account.ts).
+    return (
+      <p className="text-sm text-ink/70" data-account-state="host_viewing">
+        {hostViewingLine(state.seatName)}
+      </p>
+    );
+  }
   if (state.kind === 'sign_in') {
     return (
       <Link
@@ -139,6 +156,7 @@ export function SaveToAccount({
         <p className="text-sm text-ink/80">
           {line.whose} {line.where}
         </p>
+        <ConnectHostsTickFor eventId={eventId} />
         <SubmitButton className="button-primary min-h-[56px] w-full" pendingLabel="Saving…">
           Yes, save to my account
         </SubmitButton>
@@ -152,118 +170,130 @@ export function SaveToAccount({
     google: envFlagEnabled(process.env.NEXT_PUBLIC_OAUTH_GOOGLE_ENABLED),
   };
   const method: SaveMethod = saveMethodFor(userAgent, providers);
-  const signsIn = saveMethodSignsIn(method);
-  // 📱 The phone app's native sign-in — the one gate /login uses (oauthGate).
-  const native = signsIn && saveSignsInNatively(userAgent, providers);
-  const nativeField = native ? <input type="hidden" name={NATIVE_SAVE_FIELD} value="1" /> : null;
-  const handOver =
-    !signsIn && personalLink ? (
-      method === 'browser' ? <OpenInBrowser link={personalLink} /> : <CopyMyLink link={personalLink} />
+  /* 🍎 iPAD SAFARI READS AS A MAC HERE (its user-agent says Macintosh — measured
+     2026-10-19), so the server's pick for it is Google. The browser can tell:
+     the Apple block is drawn too, and an Apple touch device swaps to it after
+     mount (`AppleOnTouch`). The iPad APP is already Apple above — its marker
+     reaches the server (lib/apple-device.ts). */
+  if (method === 'google' && providers.apple && mightBeIpadSafari(userAgent)) {
+    return <AppleOnTouch web={offerFor(method)} apple={offerFor('apple')} />;
+  }
+  return offerFor(method);
+
+  function offerFor(method: SaveMethod) {
+    const signsIn = saveMethodSignsIn(method);
+    // 📱 The phone app's native sign-in — the one gate /login uses (oauthGate).
+    const native = signsIn && saveSignsInNatively(userAgent, providers);
+    const nativeField = native ? <input type="hidden" name={NATIVE_SAVE_FIELD} value="1" /> : null;
+    const handOver =
+      !signsIn && personalLink ? (
+        method === 'browser' ? <OpenInBrowser link={personalLink} /> : <CopyMyLink link={personalLink} />
+      ) : null;
+    const termsTick = <TermsTick />;
+    const button = (
+      <SubmitButton
+        name="then"
+        value="keep"
+        className="button-primary flex h-auto min-h-[56px] w-full flex-col items-center justify-center gap-0.5 py-2.5"
+        pendingLabel={method === 'apple' ? 'Opening Apple…' : 'Opening Google…'}
+        /* No full-screen veil: the press leaves for the provider's site, whose page
+           has no loader of ours to take the veil down — a stalled or abandoned
+           sign-in left the whole screen covered (owner's live test 2026-10-02). */
+        overlay={false}
+      >
+        <span className="text-base">Save to my account</span>
+        <span className="text-xs font-normal">
+          {saveMethodLine(method)}
+          {carries ? ` — ${carries}` : null}
+        </span>
+      </SubmitButton>
+    );
+    /* 🔒 The method the button SAYS rides with the press, so the action opens that
+       provider and no other (`saveMethodFromForm`, lib/guest-one-path.ts). */
+    const chosen = <input type="hidden" name={SAVE_METHOD_FIELD} value={method} />;
+    // The way back when the provider does not open (`ProviderStall`).
+    const stall = signsIn ? <ProviderStall provider={method === 'apple' ? 'Apple' : 'Google'} /> : null;
+    const refused = termsMissing ? (
+      <p role="alert" className="text-sm text-terracotta-700">
+        Tick the Terms first — saving makes a Setnayan account.
+      </p>
     ) : null;
-  const termsTick = <TermsTick />;
-  const button = (
-    <SubmitButton
-      name="then"
-      value="keep"
-      className="button-primary flex h-auto min-h-[56px] w-full flex-col items-center justify-center gap-0.5 py-2.5"
-      pendingLabel={method === 'apple' ? 'Opening Apple…' : 'Opening Google…'}
-      /* No full-screen veil: the press leaves for the provider's site, whose page
-         has no loader of ours to take the veil down — a stalled or abandoned
-         sign-in left the whole screen covered (owner's live test 2026-10-02). */
-      overlay={false}
-    >
-      <span className="text-base">Save to my account</span>
-      <span className="text-xs font-normal">
-        {saveMethodLine(method)}
-        {carries ? ` — ${carries}` : null}
-      </span>
-    </SubmitButton>
-  );
-  /* 🔒 The method the button SAYS rides with the press, so the action opens that
-     provider and no other (`saveMethodFromForm`, lib/guest-one-path.ts). */
-  const chosen = <input type="hidden" name={SAVE_METHOD_FIELD} value={method} />;
-  // The way back when the provider does not open (`ProviderStall`).
-  const stall = signsIn ? <ProviderStall provider={method === 'apple' ? 'Apple' : 'Google'} /> : null;
-  const refused = termsMissing ? (
-    <p role="alert" className="text-sm text-terracotta-700">
-      Tick the Terms first — saving makes a Setnayan account.
-    </p>
-  ) : null;
-  // The reason, said once and only as wide as what ships: on the day this page
-  // shows each guest the photos they are in, and the account — not the pass in
-  // this browser — is what opens the event again later (`findGuestSeatForUser`).
-  const why = (
-    <p className="text-center text-xs text-ink/70">
-      Keeps the photos of you, and opens this invitation on any phone.
-    </p>
-  );
-  if (through) {
+    // The reason, said once and only as wide as what ships: on the day this page
+    // shows each guest the photos they are in, and the account — not the pass in
+    // this browser — is what opens the event again later (`findGuestSeatForUser`).
+    const why = whyInTip ? null : (
+      <p className="text-center text-xs text-ink/70">
+        Keeps the photos of you, and opens this invitation on any phone.
+      </p>
+    );
+    if (through) {
+      return (
+        <div className="space-y-2" data-save-method={method} data-save-through>
+          {refused}
+          {native ? (
+            <NativeSaveForm action={through.action} className="space-y-4">
+              {through.fields}
+              {termsCarried ? null : termsTick}
+              {nativeField}
+              {chosen}
+              {button}
+              {stall}
+              {through.after}
+            </NativeSaveForm>
+          ) : (
+            <form action={through.action as WebFormAction} className="space-y-4">
+              {through.fields}
+              {signsIn && !termsCarried ? termsTick : null}
+              {signsIn ? (
+                <>
+                  {chosen}
+                  {button}
+                  {stall}
+                </>
+              ) : (
+                <SubmitButton name="then" value="done" className="button-primary h-14 w-full text-base" pendingLabel="Saving…">
+                  Save
+                </SubmitButton>
+              )}
+              {through.after}
+            </form>
+          )}
+          {handOver}
+          {signsIn ? why : null}
+        </div>
+      );
+    }
+    if (!signsIn) {
+      return handOver ? (
+        <div className="space-y-2" data-save-method={method}>
+          {handOver}
+        </div>
+      ) : null;
+    }
+    const returnTo = <input type="hidden" name="return_to" value={INVITE_RETURN} />;
     return (
-      <div className="space-y-2" data-save-method={method} data-save-through>
+      <div className="space-y-2" data-save-method={method}>
         {refused}
         {native ? (
-          <NativeSaveForm action={through.action} className="space-y-4">
-            {through.fields}
+          <NativeSaveForm action={startAccountSaveAction.bind(null, eventId, slug)} className="space-y-3">
+            {returnTo}
             {termsCarried ? null : termsTick}
             {nativeField}
             {chosen}
             {button}
             {stall}
-            {through.after}
           </NativeSaveForm>
         ) : (
-          <form action={through.action as WebFormAction} className="space-y-4">
-            {through.fields}
-            {signsIn && !termsCarried ? termsTick : null}
-            {signsIn ? (
-              <>
-                {chosen}
-                {button}
-                {stall}
-              </>
-            ) : (
-              <SubmitButton name="then" value="done" className="button-primary h-14 w-full text-base" pendingLabel="Saving…">
-                Save
-              </SubmitButton>
-            )}
-            {through.after}
+          <form action={startAccountSaveAction.bind(null, eventId, slug) as WebFormAction} className="space-y-3">
+            {returnTo}
+            {termsCarried ? null : termsTick}
+            {chosen}
+            {button}
+            {stall}
           </form>
         )}
-        {handOver}
-        {signsIn ? why : null}
+        {why}
       </div>
     );
   }
-  if (!signsIn) {
-    return handOver ? (
-      <div className="space-y-2" data-save-method={method}>
-        {handOver}
-      </div>
-    ) : null;
-  }
-  const returnTo = <input type="hidden" name="return_to" value={INVITE_RETURN} />;
-  return (
-    <div className="space-y-2" data-save-method={method}>
-      {refused}
-      {native ? (
-        <NativeSaveForm action={startAccountSaveAction.bind(null, eventId, slug)} className="space-y-3">
-          {returnTo}
-          {termsCarried ? null : termsTick}
-          {nativeField}
-          {chosen}
-          {button}
-          {stall}
-        </NativeSaveForm>
-      ) : (
-        <form action={startAccountSaveAction.bind(null, eventId, slug) as WebFormAction} className="space-y-3">
-          {returnTo}
-          {termsCarried ? null : termsTick}
-          {chosen}
-          {button}
-          {stall}
-        </form>
-      )}
-      {why}
-    </div>
-  );
 }

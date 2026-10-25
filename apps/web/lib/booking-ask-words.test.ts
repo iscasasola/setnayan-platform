@@ -26,6 +26,7 @@ const src = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'))
 const PANEL = src('app/vendor-dashboard/clients/[eventId]/_components/booking-ask-panel.tsx');
 const CARD = src('app/vendor-dashboard/clients/[eventId]/page.tsx');
 const THREAD_FORMS = src('app/_components/lock-answer-forms.tsx');
+const DECLINE_FIELDS = src('app/_components/decline-reason-fields.tsx');
 const BUILD_LIB = src('lib/suppliers-build.ts');
 const BUILD_BODY = src('app/dashboard/[eventId]/vendors/_components/build-body.tsx');
 const BOOK = src('app/dashboard/[eventId]/vendors/_components/book-this-build.tsx');
@@ -123,7 +124,9 @@ test('THE SUPPLIER ANSWERS ON THE CARD, AND THE ANSWER LANDS BACK ON THE CARD', 
   assert.equal(count(PANEL, /name="vendor_id" value=\{eventVendorId\}/g), 2);
   assert.equal(count(PANEL, /name="return_to" value=\{returnTo\}/g), 2);
   assert.equal(count(PANEL, /name="event_id"/g), 0, 'an answer form posts event_id — the confused-deputy rule');
-  assert.equal(count(PANEL, /name="reason"/g), 1, 'the decline lost its reason');
+  // The reason is ONE field still — now composed by `DeclineReasonFields` (Why ▾ + an optional line, step 4).
+  assert.equal(count(PANEL, /<DeclineReasonFields \/>/g), 1, 'the decline lost its reason');
+  assert.equal(count(DECLINE_FIELDS, /name="reason"/g), 1, 'the reason fields no longer post the one `reason` the action reads');
   // The card mounts it with its own path and the two shipped actions…
   assert.match(CARD, /returnTo=\{`\/vendor-dashboard\/clients\/\$\{eventId\}`\}/);
   assert.match(CARD, /agreeLock=\{vendorAgreeToLock\}/);

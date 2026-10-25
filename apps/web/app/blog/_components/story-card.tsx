@@ -72,7 +72,7 @@ export function StoryCard({ article }: { article: BlogArticle }) {
         <p className="mt-2 flex-1 text-sm leading-relaxed text-ink/65">
           {article.excerpt}
         </p>
-        <p className="mt-3 text-xs text-ink/45">{metaLine(article)}</p>
+        <p className="mt-3 text-xs text-ink/70">{metaLine(article)}</p>
       </div>
     </Link>
   );

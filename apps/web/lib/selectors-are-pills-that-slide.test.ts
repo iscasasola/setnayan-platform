@@ -69,9 +69,10 @@ test('(1) the app’s selector is a full pill in ONE colour — terracotta with 
         const cls = seg(on, tone);
         assert.ok(has(cls, 'rounded-full'), 'a choice is not a pill');
         noRect(cls, 'a choice');
-        // 38 px of pill + 3 + 3 of track = 44; the target reaches the track's edges; the words sit above the thumb.
+        // 38 px of pill + 3 + 3 of track = 44; the target (`sn-hit`, the shared 46-px press) reaches past the track's
+        // edges; the words sit above the thumb.
         assert.ok(has(cls, 'min-h-[38px]'), 'the track is no longer 44 px tall on a phone');
-        for (const c of ['relative', 'z-[1]', 'after:absolute', 'after:-inset-y-[3px]']) assert.ok(has(cls, c), `a choice lost ${c}`);
+        for (const c of ['relative', 'z-[1]', 'sn-hit']) assert.ok(has(cls, c), `a choice lost ${c}`);
         // The words cross-fade at the family's one speed — and not at all under reduce motion.
         for (const c of ['transition-colors', 'duration-sn-pill', 'ease-sn', 'motion-reduce:transition-none']) assert.ok(has(cls, c), `a choice lost ${c}`);
       }
@@ -289,7 +290,8 @@ test('(3) it lands with a bounce and pulses once on a pick — transform, size, 
   assert.ok(spring.length === 4 && spring[1]! > 1, `the thumb's landing does not overshoot (${spring.join(', ')})`);
   // ⚠ Never an arbitrary `duration-[…]`: with tailwindcss-animate loaded Tailwind emits NOTHING for it (seen in the
   //   review copy: the thumb ran at the 150 ms default while its class said 220).
-  assert.match(tw, /plugins: \[tailwindcssAnimate\]/, 'anti-vacuity: the animate plugin left — arbitrary durations may be safe again');
+  // (Any plugin may follow it — tailwind.config.ts adds the gold-icon rule after it, 2026-10-13.)
+  assert.match(tw, /plugins: \[\s*tailwindcssAnimate\b/, 'anti-vacuity: the animate plugin left — arbitrary durations may be safe again');
   for (const f of ['app/_components/pill-selector.tsx', 'app/_components/pill-thumb.tsx', `${E}/inspector-kit.tsx`]) assert.doesNotMatch(read(f), /duration-\[/, `${f}: an arbitrary duration is never emitted`);
   /* (Re-aimed 2026-10-09: the tool group is words now — the button itself carries the colour's fade; its icon face and
      its hairlines are gone, `TOOLBAR-SPEC-2026-10-09.md`.) */

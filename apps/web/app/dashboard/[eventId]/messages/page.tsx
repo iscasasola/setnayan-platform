@@ -33,6 +33,7 @@ import { coupleUnreadCount, isActiveInboxThread, readCoupleUnread } from '@/lib/
 import { startThreadByVendorEmail } from './actions';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { formatCount } from '@/lib/format-number';
+import { findDoorHref } from '@/lib/suppliers-shell';
 import { teamPicksForMessages, type TeamProfile, type TeamRow } from '@/lib/messages-team-picker';
 import { StartThreadPicker } from './_components/start-thread-picker';
 
@@ -287,7 +288,7 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
             Pick one of your suppliers below, or tap Ask for a quote on a supplier&rsquo;s page.
           </p>
           <div className="mt-4">
-            <Link href={`/dashboard/${eventId}/vendors/categories`} className="button-secondary">
+            <Link href={findDoorHref(eventId)} className="button-secondary">
               Find a supplier
             </Link>
           </div>

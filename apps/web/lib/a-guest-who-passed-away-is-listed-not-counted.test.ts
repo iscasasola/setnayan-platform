@@ -77,7 +77,13 @@ test('the guest list reads the LIVING list by default; only the roster and the d
     .sort();
   assert.deepEqual(
     optIns,
-    ['app/api/hub-print/[piece]/route.ts', 'app/dashboard/[eventId]/guests/page.tsx'],
+    [
+      'app/api/hub-print/[piece]/route.ts',
+      // 📥 The Guest list as a file (2026-10-16): it LISTS them as the list does — "In loving memory" in the
+      // RSVP column — and counts, seats and sends nothing.
+      'app/dashboard/[eventId]/guests/export/route.ts',
+      'app/dashboard/[eventId]/guests/page.tsx',
+    ],
     'a reader that COUNTS, SEATS or SENDS opted in to the guests who passed away',
   );
 });
@@ -119,16 +125,20 @@ test('no sign-in link or invitation is emailed to a guest who passed away', () =
 
 test('the guest card is where the couple sets it — never for the couple themselves', () => {
   const body = read('app/dashboard/[eventId]/guests/_components/guest-card-body.tsx');
-  const toggle = /\{isCouple \? null : \(\s*<K\.Toggle\s+name="passed_away"/;
+  /* RE-AIMED 2026-10-23: its own group, out of Details (owner's groups) — and still never for the couple.
+     RE-AIMED 2026-10-24: the approved prototype draws the switch AS the row (no fold) — still its own row, still never for the couple. */
+  const toggle = /\{isCouple \? null : \([\s\S]{0,400}?<div[^>]*data-card-passed-away=""[^>]*>\s*<K\.Toggle\s+name="passed_away"/;
   assert.match(body, toggle, 'the Passed away toggle is missing, or offered to the bride and groom');
-  assert.match(body, /label="Passed away"/);
+  assert.match(body, /label="Passed [Aa]way"/); // RE-AIMED 2026-10-24: the row is its title, in the groups' case ("Passed Away")
   const action = read('app/dashboard/[eventId]/guests/[guestId]/actions.ts');
   assert.match(
     action,
-    /const passed_away =\s*role !== 'bride' && role !== 'groom' && clean\(formData\.get\('passed_away'\)\) === 'on';/,
+    /* RE-AIMED 2026-10-18 (two hosts never overwrite): `let` — a value this save does not write is read from the row. */
+    /let passed_away =\s*role !== 'bride' && role !== 'groom' && clean\(formData\.get\('passed_away'\)\) === 'on';/,
     'updateGuest no longer reads the toggle, or lets the couple carry it',
   );
-  const update = action.slice(action.indexOf(".from('guests')\n    .update({"));
+  /* RE-AIMED 2026-10-18 (two hosts never overwrite): the card's columns are built as `wholeCard`, then written when changed. */
+  const update = action.slice(action.indexOf('const wholeCard: Record<string, unknown> = {'));
   assert.match(update.slice(0, 900), /\bpassed_away,/, 'updateGuest reads the toggle and never writes it');
   // Anchored on the passed-away branch itself — `softDeleteGuest` releases a
   // seat with the same statement, so a file-wide match would stay green.

@@ -1,3 +1,4 @@
+import type { HubPartId } from '@/lib/hub-parts';
 // Shared row/data types for the public event-website route (`app/[slug]`).
 // Extracted verbatim from `app/[slug]/page.tsx` (OPEN-BROWSE PR1 — zero-
 // behavior extraction) so the `_components/` split can share them without
@@ -12,7 +13,6 @@ import type { WallTile } from '@/lib/live-wall-logic';
 import type { MonogramConfig } from '@/lib/monogram';
 import type { MonogramMotionKey } from '@/lib/monogram-motion';
 import type { StudioAnim } from '@/app/_components/studio-reveal-player';
-import type { StdBackground } from '@/lib/std-backgrounds';
 import type { ScheduleBlockRow } from '@/lib/schedule';
 import type { EventVenue } from '@/lib/event-venues';
 import type { RsvpBackdropConfig } from '@/lib/spatial-backdrop';
@@ -21,6 +21,7 @@ import type { VendorCard } from '@/lib/vendor-cards';
 import type { PapicStyle } from '@/lib/papic-photo-styles';
 import type { PapicFaceMode } from '@/lib/papic-face-mode';
 import type { GuestHubData } from '../_components/guest-hub-card';
+import type { PapicMark } from '@/lib/papic-photo-mark';
 
 /** Panood Watch-Live data for the day-of page (shown whenever a watch URL is
  *  staged — single-cam Panood live is free for every host).
@@ -263,6 +264,8 @@ export type EventRow = {
   // 🗂 The host's "Accept gifts?" (events.gifts_on, owner 2026-10-02 — changed
   // in the Maker's Your info). false = no E-Gifts part anywhere; null = on.
   gifts_on?: boolean | null;
+  /** 🔘 The Logo switch (`logoSwitchedOff`, owner 2026-10-15): false ⇒ the cover draws no logo. */
+  logo_wanted?: boolean | null;
   // Couple-curated photo gallery (Increment A.4). JSONB array of r2:// refs
   // shipped 20260919000000; edited at /dashboard/[eventId]/website/our-photos.
   // Refs resolved to presigned display URLs (ourPhotoUrls) before render;
@@ -302,13 +305,13 @@ export type EventMedia = {
   monogram: MonogramConfig;
   animatedMonogram: MonogramMotionKey | false;
   proWatermarkHidden: boolean;
+  /** 💎 The Event Hub Pro parts this event holds, as the viewer is shown it (every part when it holds everything). */
+  hubParts: readonly HubPartId[];
   bespokeSvg: string | null;
   studioAnim: StudioAnim;
   heroPhotoUrl: string | null;
   heroVideoUrl: string | null;
   bgMusicUrl: string | null;
-  stdBackground: StdBackground;
-  stdBackgroundUrl: string | null;
   stdVideoUrl: string | null;
   stdVideoPosterUrl: string | null;
   stdVenues: StdVenues;
@@ -356,6 +359,15 @@ export type LiveLayerData = {
  * drifts, and the copy that drifts is the one nobody re-read.
  */
 export type GuestPapicCamera = {
+  /** 🏷 The small mark on this event's photo copies — the Setnayan mark, or the
+   *  couple's monogram on a Pro event (lib/papic-photo-mark-of-event.ts). */
+  photoMark: PapicMark;
+  /** 📷 Pro dress for the inline camera — the SAME entitlement as /papic/guest (Logo & QR part or Full Pro). */
+  dressPro: boolean;
+  /** The server-stamped owner tag of THIS guest at THIS event — every queued
+   *  shot carries it, so a shot can never record as another pass
+   *  (lib/papic-upload/owner-tag.server.ts). Null when the seal is missing. */
+  uploadOwner: string | null;
   initialRemaining: number;
   total: number;
   termsAccepted: boolean;
@@ -437,6 +449,10 @@ export type GuestRow = {
   name_suffix?: string | null;
   display_name: string | null;
   role: GuestRole;
+  /** 👗 What the couple marked them as wearing on the guest list (gown · suit · neutral) — `guestAttireOf`. Absent on an older read. */
+  attire?: string | null;
+  /** 👤 The "Atty. (Woman)" pick (`guests.gender`: woman · man · null) — never printed; `guestNamePartsOf`. Absent on an older read. */
+  gender?: string | null;
   side: 'bride' | 'groom' | 'both';
   group_category: string;
   plus_one_of_guest_id: string | null;
@@ -483,6 +499,10 @@ export type GuestRow = {
    *  couple's PRIVATE note about this guest and must never reach this type —
    *  it used to, and the guest's RSVP overwrote it (fixed 2026-08-06). */
   guest_note: string | null;
+  /** 💌 The HOSTS' note TO this guest (owner 2026-10-20) — drawn on their own Me, under Your role, and nowhere else.
+   *  Read only by `loadGuestOwnRow` (this reader's own row). Optional: absent before its migration, and on every
+   *  hand-built row. Not `notes` (the couple's private note, which never reaches this type). */
+  host_note_for_guest?: string | null;
   custom_tags: string[];
   qr_token: string;
   photo_url: string | null;

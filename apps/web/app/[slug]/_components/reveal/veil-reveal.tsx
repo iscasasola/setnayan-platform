@@ -10,8 +10,8 @@
  *   Reference prototype     : 0024_save_the_date/0024_Veil_Reveal_Prototype_2026-06-17.html
  *
  * A sheer tulle veil drapes over the invitation on a TRANSPARENT full-screen
- * canvas, simulated as a real Verlet cloth. The guest lifts it off — swipe up,
- * double-tap (hands-free), or grab-and-pull — and the fabric folds away in a
+ * canvas, simulated as a real Verlet cloth. The guest lifts it off — a TAP or a
+ * SWIPE UP (owner 2026-10-15: *"Tap, swipe up to unveil"*) — and the fabric folds away in a
  * sim-driven trailing fold (NOT a rigid rotation) to a valance droop at the top
  * while the card reveals beneath. Once clear, `onRevealed` fires and the overlay
  * removes itself. Rose petals shower the moment the veil lifts; lowering it
@@ -28,7 +28,8 @@
  * weight, valance, petal density, colours, feature toggles) update instantly;
  * structural knobs (folds, fullness, reaches, logo size/opacity) trigger a
  * geometry/texture rebuild. On the live couple site the props are static, so the
- * settings are effectively baked. Couple-customizable = `veilColor` + `petalsColor`.
+ * settings are effectively baked. Couple-customizable = `veilColor` + `petalsColor`, and (owner 2026-10-17) the Sheer
+ * veil's Fold · Weave · Wind presets (`lib/veil-style.ts`), which arrive as the look's `drape` · `weave` · `wind`+`gust`.
  */
 
 import { useEffect, useRef } from 'react';
@@ -36,6 +37,9 @@ import * as THREE from 'three';
 import { MARK_PATH } from './veil-shared';
 import { DEFAULT_VEIL_LOOK, type VeilLook, type RevealFeatures } from '@/lib/reveal-config-pure';
 import { usePrefersReducedMotion } from '@/lib/use-responsive';
+import { claimVeilHold } from '@/lib/hub-veil';
+import { liftedValance, weaveOf } from '@/lib/veil-style';
+import { noteScrollY, restAtTop, restingAtTop, veilMaySleep, TOP_REST_MS, addScrollDelta, buildGridConstraints, clampPass, computeIndexedNormals, relaxPass, takeScrollWind, writePositions, type ClothConstraints, type ScrollWind } from '@/lib/veil-cloth';
 
 type Props = {
   /** Veil tulle colour (hex), Mood-Board-driven. Ivory fallback handled by caller. */
@@ -49,19 +53,74 @@ type Props = {
   /** Fired once when the veil has been lifted clear of the invitation. */
   onRevealed: () => void;
   /**
+   * 👆 FIRED INSIDE THE UNVEIL GESTURE ITSELF — synchronously, from the `pointerup` of the tap or the swipe up,
+   * before the fabric has moved a pixel. This is the one moment a browser lets sound start (owner 2026-10-15:
+   * *"when they unveil, the music starts playing upon tap"*), so whatever must begin "on the unveil" begins
+   * here, never in `onRevealed` (which fires ~1 s later, from the animation loop, outside any gesture — a
+   * play() there is silently refused, on iOS Safari above all). Not fired by the preview's hands-free demo.
+   */
+  onUnveil?: () => void;
+  /**
    * Preview/demo mode (dashboard Step-1 chooser): auto-lift the veil hands-free
    * on mount and ignore all gesture input. Default false → live guest page is
    * unchanged (drag-to-lift). Captured at mount.
    */
   autoplay?: boolean;
   /**
+   * 🎬 With `autoplay`: the veil first stands CLOSED this long, then lifts by itself — the Maker's ▶ on the Cover Scene
+   * (owner-approved 2026-10-16: "the closed veil with no words → the unveil"). Absent → it lifts on mount, as before.
+   */
+  autoplayAfterMs?: number;
+  /** 🎬 …told the moment that delayed lift begins — what plays behind it starts on the same clock (the Maker's ▶). */
+  onAutoLift?: () => void;
+  /**
    * Render at a low backing resolution (DPR capped to 1) for the small
    * watermarked preview frame — keeps it un-recordable as a final asset + cheap.
    */
   lowRes?: boolean;
+  /**
+   * 🎭 ONE UNVEIL PER VISIT (owner 2026-10-17, the Event Hub's drape: *"it should stay until cover is gone. and return
+   * when cover scene returns"*). Once the guest has unveiled, the lifted drape takes no hand again: the hit-zone goes
+   * inert (no swipe down re-covers it, and the top band never swallows a scroll of the cover beneath), so the drape is
+   * scenery that rides the cover. Absent → the Save the Date's veil, whose valance a swipe down brings back (2026-06-19).
+   * Under Save-Data or reduced motion the settled drape is drawn STILL — the loop stops on its last frame.
+   */
+  keepsOpen?: boolean;
+  /** 🎭 No frames while the drape is off screen (the cover scrolled away): the loop stops, and resumes on false. */
+  paused?: boolean;
 };
 
 const TEX = 1024; // texture resolution
+/**
+ * 🎭 THE DRAPE HANGS (owner 2026-10-17 — "the veil disappears. it shouldn't"; controller, on the first walk: the kept
+ * drape showed as a sliver, then nothing). `floatUp` (locked 100) all but cancels gravity once the veil is lifted — it
+ * "keeps the fold high during reveal" — and with the overlay unmounting ~1.8 s later nobody ever saw what it does after:
+ * the fold floats up and off the screen. A drape that STAYS lets that float go, over `DRAPE_HANG_FRAMES` after the lift
+ * lands, by `DRAPE_HANG` of it — so the fold sinks back to the valance the look was tuned to (`topValance`) and hangs
+ * there. Only with `keepsOpen` (the Event Hub's drape); the Save the Date's valance is untouched.
+ */
+const DRAPE_HANG = 1;
+const DRAPE_HANG_FRAMES = 60;
+/**
+ * 🎭 …and it lets go WHILE the lift is still rising, from this much lift — not after it lands. Walk 2 (controller,
+ * WebKit 375): released on landing, the fold first floated clean off the screen for ~4 s and then sank back. Released
+ * here, it eases straight into its hanging pose and never leaves.
+ */
+const DRAPE_HANG_FROM = 0.02;
+/**
+ * 🎭 How deep the kept drape hangs — the look's `topValance` for the Event Hub's drape. Measured (walk 2 probe, WebKit
+ * 375): the locked 30 hangs the settled fold over ~30 % of the cover; the owner's live reference is ~15–20 %. It is the
+ * look's house `drape` (2026-10-17), so the couple's Fold ▾ reaches the cloth through the same tuned look.
+ */
+const DRAPE_VALANCE = DEFAULT_VEIL_LOOK.drape;
+/**
+ * 🎭 …and it comes to rest without overshooting. The locked `bounce` (83) leaves the cloth nearly undamped, so the
+ * rising fold sailed past its hanging pose to ~9 % of the cover and sank back (probe B). The kept drape is damped to
+ * this per-step velocity keep once the lift is past half-way, so it eases straight into the hang.
+ */
+const DRAPE_DRAG = 0.9;
+/** 🎭 The hung drape is SETTLED once its lowest edge has held still this many frames (`data-veil-settled`). */
+const DRAPE_CALM_FRAMES = 45;
 const DEFAULT_FEATURES: RevealFeatures = { petals: true, logo: true, music: false };
 
 type PP = {
@@ -88,7 +147,15 @@ type GrabState = {
   cy0: number;
 };
 
-export default function VeilReveal({ veilColor, petalsColor, look, features, onRevealed, autoplay = false, lowRes = false }: Props) {
+export default function VeilReveal({ veilColor, petalsColor, look, features, onRevealed, onUnveil, autoplay = false, autoplayAfterMs = 0, onAutoLift, lowRes = false, keepsOpen = false, paused = false }: Props) {
+  const onAutoLiftRef = useRef(onAutoLift);
+  onAutoLiftRef.current = onAutoLift;
+  const keepsOpenRef = useRef(keepsOpen);
+  keepsOpenRef.current = keepsOpen;
+  const pausedRef = useRef(paused);
+  pausedRef.current = paused;
+  /** Set by the mount effect: restarts the loop after a pause (a no-op while it runs, or once the drape is still). */
+  const wakeRef = useRef<() => void>(() => {});
   const mountRef = useRef<HTMLDivElement>(null);
   // Pointer hit-zone (owner 2026-06-19 "I still want the veil accessible but
   // also want to navigate the messages"): the canvas renders full-screen but
@@ -105,6 +172,8 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
   petalColorRef.current = petalsColor;
   const onRevealedRef = useRef(onRevealed);
   onRevealedRef.current = onRevealed;
+  const onUnveilRef = useRef(onUnveil);
+  onUnveilRef.current = onUnveil;
   const revealedRef = useRef(false);
 
   // Honor the OS "reduce motion" setting. Read at the React level (SSR-safe,
@@ -125,7 +194,7 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
   // Structural knobs need a geometry/texture rebuild; the main effect wires this.
   const restructureRef = useRef<() => void>(() => {});
   const firstRestructure = useRef(true);
-  const structuralKey = `${L.tilePx}|${L.logoSize}|${L.logoOpacity}|${L.folds}|${L.fullness}|${L.reaches}|${feats.logo}`;
+  const structuralKey = `${L.tilePx}|${L.logoSize}|${L.logoOpacity}|${L.folds}|${L.fullness}|${L.reaches}|${L.weave}|${feats.logo}`;
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -203,11 +272,13 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
       const S = TEX;
       const aC = cvs();
       const a = aC.getContext('2d')!;
-      a.fillStyle = '#242424';
+      // 🧵 The couple's Weave ▾ (`weave`, 50 = the locked weave EXACTLY: a #242424 ground, 12 px threads at 5.5 %).
+      const wv = weaveOf(cfgRef.current.weave);
+      a.fillStyle = wv.ground;
       a.fillRect(0, 0, S, S);
-      a.strokeStyle = 'rgba(255,255,255,0.055)';
+      a.strokeStyle = wv.thread;
       a.lineWidth = 2;
-      for (let d = -S; d < S * 2; d += 12) {
+      for (let d = -S; d < S * 2; d += wv.pitch) {
         a.beginPath();
         a.moveTo(d, 0);
         a.lineTo(d + S, S);
@@ -286,12 +357,21 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
     let topPin = 0;
     let dx = 0;
     let dy = 0;
-    let cons: number[][] = [];
+    let cons: ClothConstraints = buildGridConstraints(2, 1, [0], 0);
     let geo: THREE.PlaneGeometry = null!;
     let posAttr: THREE.BufferAttribute = null!;
 
     let lift = 0;
     let liftTarget = 0;
+    /* 🌬 The page's scroll as wind (owner 2026-10-25): fed by the passive listeners below, read once a frame. */
+    const scrollWind: ScrollWind = { v: 0 };
+    let scrollF = 0;
+    /* 🌸 Petals are born only while the page rests at its top (owner 2026-10-25, \`lib/veil-cloth.ts\` · \`restingAtTop\`). */
+    const topRest = restAtTop();
+    let atTop = true;
+    let inAir = 0;
+    let asleep = false;
+    const pGone = new Int8Array(100);
     let t = 0;
     let settling = false;
     let locked = false;
@@ -299,6 +379,8 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
     let autoT = 0;
     let featherFrames = 0;
     let shakeFrames = 0;
+    /* 🎭 0 → 1 over `DRAPE_HANG_FRAMES` once a `keepsOpen` veil has lifted: how much of the lift's float it has let go. */
+    let hang = 0;
 
     const veil = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), mat);
     veil.renderOrder = 1;
@@ -361,6 +443,13 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
     const petals = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1), pmat, NP);
     petals.renderOrder = 2;
     petals.frustumCulled = false;
+    /* 🐢 THE PETALS' COLOUR EXISTS BEFORE THE FIRST FRAME (owner 2026-10-24, "…and the petal falling"). three.js
+       creates `instanceColor` on the first `setColorAt` — which used to be the first petal, mid-lift — and an
+       instanced mesh WITH colour is a different shader program from one without, so the petals' material was
+       recompiled and re-linked on the spot: one ~300 ms frame (CPU ×4, live /cale-ice) right as the petals began to
+       fall. Made here, white (exactly what `setColorAt` would fill it with), the program the first frame compiles is
+       the one the petals keep. Every falling petal still gets its own colour from `spawnFalling`. */
+    petals.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(NP * 3).fill(1), 3);
     scene.add(petals);
     const pPos: THREE.Vector3[] = [];
     const pVel: THREE.Vector3[] = [];
@@ -533,7 +622,13 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
       const clingCap = Math.round(aN * 0.3);
       for (let i = 0; i < NP; i++) {
         const P = pPar[i]!;
-        if (i >= aN) {
+        if (pGone[i] && atTop) {
+          // Back at the top: a retired petal is born again ABOVE the frame and rains in (never mid-screen).
+          pGone[i] = 0;
+          spawnFalling(i);
+          pPos[i]!.y = vh * (1.05 + rnd() * 1.9);
+        }
+        if (i >= aN || pGone[i]) {
           pdum.scale.set(0, 0, 0);
           pdum.position.set(0, 0, -99);
           pdum.updateMatrix();
@@ -557,7 +652,7 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
             pVel[i]!.set((rnd() * 2 - 1) * 0.2, -0.05 - rnd() * 0.18, (rnd() * 2 - 1) * 0.15);
           }
         } else {
-          pVel[i]!.y += P.grav * dt;
+          pVel[i]!.y += (P.grav + scrollF * 1.5) * dt;
           pVel[i]!.x *= P.drag;
           pVel[i]!.y *= P.drag;
           pPos[i]!.x += pVel[i]!.x * dt + P.sway * Math.sin(t * P.swayF + P.swayPh) * dt;
@@ -603,8 +698,10 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
             pVel[i]!.x *= 0.8; // settle the sideways drift so it stays on the words
           }
           if (pPos[i]!.y < -vh * 1.45) {
-            // Recycle as another falling petal.
-            spawnFalling(i);
+            // Recycle as another falling petal — only while the page rests at its top; off it, the petal that has
+            // fallen out of the frame is retired (owner 2026-10-25), and comes back from above when the page does.
+            if (atTop) spawnFalling(i);
+            else pGone[i] = 1;
           }
         }
         pdum.position.copy(pPos[i]!);
@@ -651,14 +748,7 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
         const rf = iy / (rows - 1);
         rowDx[iy] = (pinW * (1 + extra * envOf(rf))) / (cols - 1);
       }
-      cons = [];
-      for (let iy3 = 0; iy3 < rows; iy3++)
-        for (let ix3 = 0; ix3 < cols; ix3++) {
-          if (ix3 < cols - 1) cons.push([idx(ix3, iy3), idx(ix3 + 1, iy3), rowDx[iy3]!]);
-          if (iy3 < rows - 1) cons.push([idx(ix3, iy3), idx(ix3, iy3 + 1), dy]);
-          if (ix3 < cols - 1 && iy3 < rows - 1)
-            cons.push([idx(ix3, iy3), idx(ix3 + 1, iy3 + 1), Math.hypot(rowDx[iy3]!, dy)]);
-        }
+      cons = buildGridConstraints(cols, rows, rowDx, dy);
       if (geo) geo.dispose();
       geo = new THREE.PlaneGeometry(pinW, clothH, cols - 1, rows - 1);
       veil.geometry = geo;
@@ -746,11 +836,17 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
       const cfg = cfgRef.current;
       const fth = featherFrames > 0;
       const le = ss(0, 0.7, lift);
-      const drag = 0.952 + (cfg.bounce / 100) * 0.03 + (fth ? 0.012 : 0);
-      const g = -(2.5 + (cfg.weight / 100) * 7) * (fth ? 0.5 : 1) * (1 - (cfg.floatUp / 100) * 0.92 * le);
+      const drag = keepsOpenRef.current && lift > 0.5 ? DRAPE_DRAG : 0.952 + (cfg.bounce / 100) * 0.03 + (fth ? 0.012 : 0);
+      // 🎭 The kept drape keeps its full weight through the hands-free lift's feather too (probe C: the feather's halved
+      // gravity held the fold up off the cover for ~3 s, then it sank back when the feather ran out).
+      const g = -(2.5 + (cfg.weight / 100) * 7) * (fth && !keepsOpenRef.current ? 0.5 : 1) * (1 - (cfg.floatUp / 100) * 0.92 * le * (1 - hang * DRAPE_HANG));
       const pz0 = pinchZ();
       const BUNCH = 0.3;
       const wind = settling ? 0 : (cfg.wind / 100) * 5;
+      // 🌬 The couple's Wind ▾ randomness (`gust`, 0 = the locked even sway EXACTLY — `tw` is then `t`, no gust term).
+      const gs = cfg.gust / 100;
+      const tw = gs > 0 ? t * (1 + 0.9 * gs) : t;
+      const burst = gs > 0 ? 1 + gs * (2.2 * Math.pow(Math.max(0, Math.sin(t * 0.83 + 1.7 * Math.sin(t * 0.29))), 2) - 0.35) : 1;
       for (let k = 0; k < N; k++) {
         if (k < cols) {
           px[k] = pinX[k]!;
@@ -765,11 +861,16 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
         const iy = (k / cols) | 0;
         const rf = iy / (rows - 1);
         const we = rf * rf * (0.35 + 0.65 * rf);
-        const aw = wind * we * (Math.sin(t * 0.6 + iy * 0.24 + ix * 0.13) + 0.35 * Math.sin(t * 1.1 + ix * 0.3));
-        const az = wind * 0.55 * we * Math.cos(t * 0.5 + ix * 0.12 + iy * 0.1);
+        const aw =
+          wind * we * burst * (Math.sin(tw * 0.6 + iy * 0.24 + ix * 0.13) + 0.35 * Math.sin(tw * 1.1 + ix * 0.3)) +
+          (gs > 0 ? wind * we * gs * 0.6 * Math.sin(tw * 2.3 + ix * 0.41 + iy * 0.17 + 3 * Math.sin(t * 0.13 + ix * 0.05)) : 0);
+        const az = wind * 0.55 * we * burst * Math.cos(tw * 0.5 + ix * 0.12 + iy * 0.1);
         const nx = px[k]! + (px[k]! - qx[k]!) * drag + aw * dt * dt;
-        const ny = py[k]! + (py[k]! - qy[k]!) * drag + g * dt * dt;
-        const nz = pz[k]! + (pz[k]! - qz[k]!) * drag + az * dt * dt;
+        // 🌬 Scroll wind: lifts the hem-ward rows (`we`, 0 at the crown) — a flick adds a travelling ripple.
+        const sy = scrollF === 0 || settling ? 0 : scrollF * 4 * we;
+        const sz = scrollF === 0 || settling ? 0 : Math.abs(scrollF) * 1.2 * we * Math.sin(t * 9 + ix * 0.5 + iy * 0.3);
+        const ny = py[k]! + (py[k]! - qy[k]!) * drag + (g + sy) * dt * dt;
+        const nz = pz[k]! + (pz[k]! - qz[k]!) * drag + (az + sz) * dt * dt;
         qx[k] = px[k]!;
         qy[k] = py[k]!;
         qz[k] = pz[k]!;
@@ -781,7 +882,7 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
       if (lift > 0.015) {
         const pull0 = (0.05 + (cfg.trail / 100) * 0.32) * ss(0.02, 0.42, lift);
         const clothHvh = clothH / vh;
-        const hemUp = Math.max(0.2, clothHvh - 4 * (cfg.topValance / 100));
+        const hemUp = Math.max(0.2, clothHvh - 4 * (liftedValance(cfg, keepsOpenRef.current, DRAPE_VALANCE) / 100));
         const hy = topPin + vh * hemUp * ss(0.02, 1, lift);
         const hz = frontZ - 0.25;
         for (let ix2 = 0; ix2 < cols; ix2++) {
@@ -812,77 +913,34 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
             pz[kk] = pz[kk]! + (pz0 - pz[kk]!) * 0.32;
           }
         }
-        for (let c = 0; c < cons.length; c++) {
-          const A = cons[c]![0]!;
-          const B = cons[c]![1]!;
-          const rest = cons[c]![2]!;
-          const ex = px[B]! - px[A]!;
-          const ey = py[B]! - py[A]!;
-          const ez = pz[B]! - pz[A]!;
-          const dd = Math.sqrt(ex * ex + ey * ey + ez * ez) || 1e-4;
-          const diff = dd - rest;
-          const strain = diff / rest;
-          const stiff = strain <= 0 ? COMP : TENB + (1 - TENB) * Math.min(1, strain / maxS);
-          const f = (diff / dd) * stiff * 0.5;
-          const ox = ex * f;
-          const oy = ey * f;
-          const oz = ez * f;
-          if (A >= cols) {
-            px[A] = px[A]! + ox;
-            py[A] = py[A]! + oy;
-            pz[A] = pz[A]! + oz;
-          }
-          if (B >= cols) {
-            px[B] = px[B]! - ox;
-            py[B] = py[B]! - oy;
-            pz[B] = pz[B]! - oz;
-          }
-        }
+        relaxPass(px, py, pz, cons, cols, maxS, COMP, TENB);
       }
       // Hard strain clamp (the "no rubber" rule) — cap every edge to rest·1.012.
       const CL = 1.012;
-      for (let sit = 0; sit < 4; sit++) {
-        for (let c2 = 0; c2 < cons.length; c2++) {
-          const A2 = cons[c2]![0]!;
-          const B2 = cons[c2]![1]!;
-          const lim = cons[c2]![2]! * CL;
-          const ex2 = px[B2]! - px[A2]!;
-          const ey2 = py[B2]! - py[A2]!;
-          const ez2 = pz[B2]! - pz[A2]!;
-          const dd2 = Math.sqrt(ex2 * ex2 + ey2 * ey2 + ez2 * ez2) || 1e-4;
-          if (dd2 > lim) {
-            const f2 = ((dd2 - lim) / dd2) * 0.5;
-            const ox2 = ex2 * f2;
-            const oy2 = ey2 * f2;
-            const oz2 = ez2 * f2;
-            if (A2 >= cols) {
-              px[A2] = px[A2]! + ox2;
-              py[A2] = py[A2]! + oy2;
-              pz[A2] = pz[A2]! + oz2;
-            }
-            if (B2 >= cols) {
-              px[B2] = px[B2]! - ox2;
-              py[B2] = py[B2]! - oy2;
-              pz[B2] = pz[B2]! - oz2;
-            }
-          }
-        }
-      }
+      for (let sit = 0; sit < 4; sit++) clampPass(px, py, pz, cons, cols, CL);
     }
 
+    /* 👆 FREED: the guest unveiled (tap or swipe up). The grab-zone drops to the top band AT ONCE, not when the cloth
+       has risen past 35 % — a tap starts the hands-free lift, which takes ~6 s, and a full-screen `touch-action:none`
+       zone for all of it ate the guest's first swipe on the page behind (Batch 8 tester R2, 2026-10-15: the page
+       was not scrollable for 6.0 s after a tap). Cleared by the swipe down that re-covers. */
+    let freed = false;
+    const freeThePage = (pointerId: number) => {
+      freed = true;
+      try { grabRef.current?.releasePointerCapture?.(pointerId); } catch { /* not captured */ }
+      // 🎭 One unveil per visit (`keepsOpen`): the drape takes no hand again — nothing to re-cover with.
+      if (keepsOpenRef.current && grabRef.current) grabRef.current.style.pointerEvents = 'none';
+      const g = grabRef.current;
+      if (g && !grabTopBandRef.current) {
+        grabTopBandRef.current = true;
+        g.style.bottom = 'auto';
+        g.style.height = '24vh';
+      }
+    };
     const startAuto = () => {
       auto = true;
       autoT = 0;
       locked = true;
-    };
-    const doRevealAuto = () => {
-      if (locked) {
-        locked = false;
-        auto = false;
-        liftTarget = 0;
-      } else {
-        startAuto();
-      }
     };
     const setLift = (v: number) => {
       auto = false;
@@ -892,7 +950,22 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
 
     let raf = 0;
     let last = performance.now();
+    /* 🎭 STILL DRAPE (Save-Data · reduced motion, `keepsOpen` only): once the lifted drape has settled, the loop draws
+       its last frame and stops for good — the drape stays, it just does not move. */
+    const saveData = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData === true;
+    let settled = false;
+    let calm = 0;
+    let sinceHung = 0;
+    let lowAvg: number | null = null;
+    let lowPrev: number | null = null;
+    let still = false;
     const loop = (now: number) => {
+      // 🎭 Off screen (the cover scrolled away): no frame is drawn and none is asked for until `wakeRef` runs.
+      if (pausedRef.current) {
+        raf = 0;
+        return;
+      }
+      asleep = false;
       const dt = Math.min(0.033, (now - last) / 1000);
       last = now;
       const autoDur = Math.max(0.4, cfgRef.current.feather);
@@ -915,7 +988,7 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
       // top valance band captures input so the film below is navigable; covering
       // (lift low) → full-screen so the guest can grab anywhere to lift again.
       // Hysteresis (0.6 / 0.35) avoids flicker as lift animates through.
-      const wantTopBand = grabTopBandRef.current ? lift > 0.35 : lift > 0.6;
+      const wantTopBand = freed || (grabTopBandRef.current ? lift > 0.35 : lift > 0.6);
       if (wantTopBand !== grabTopBandRef.current && grabRef.current) {
         grabTopBandRef.current = wantTopBand;
         const g = grabRef.current;
@@ -928,11 +1001,17 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
         }
       }
       mat.color.set(colorRef.current || '#f3ece1');
+      scrollF = takeScrollWind(scrollWind);
+      atTop = restingAtTop(topRest, now);
       step(1 / 60);
       const zc = camZ - 0.7;
-      for (let k = 0; k < N; k++) posAttr.setXYZ(k, px[k]!, py[k]!, Math.min(zc, pz[k]!));
+      // 🐢 Straight into the attribute's own array, and the normals by `computeIndexedNormals` — three.js's
+      // `setXYZ` + `computeVertexNormals`, bit for bit, without a Vector3 round-trip per vertex (`lib/veil-cloth.ts`).
+      writePositions(posAttr.array as Float32Array, px, py, pz, N, zc);
       posAttr.needsUpdate = true;
-      geo.computeVertexNormals();
+      const nrm = geo.attributes.normal as THREE.BufferAttribute;
+      computeIndexedNormals(posAttr.array as Float32Array, geo.index!.array, nrm.array as Float32Array);
+      nrm.needsUpdate = true;
       // Petals begin the moment the veil first lifts — none on the covered veil.
       // Honors the live `features.petals` toggle (parks them when turned off).
       const wantPetals = featuresRef.current.petals;
@@ -941,7 +1020,12 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
           initPetals();
           petalsSeeded = true;
         }
-        if (petalsSeeded) updatePetals(Math.min(0.033, dt), shakeFrames > 0);
+        if (petalsSeeded) {
+          updatePetals(Math.min(0.033, dt), shakeFrames > 0);
+          const aN = Math.round((NP * cfgRef.current.petalsDensity) / 100);
+          inAir = 0;
+          for (let i = 0; i < aN; i++) if (!pGone[i]) inAir++;
+        }
       } else if (petalsSeeded) {
         parkAll();
         petalsSeeded = false;
@@ -949,14 +1033,62 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
       renderer.render(scene, camera);
       if (lift > 0.985 && !revealedRef.current) {
         revealedRef.current = true;
+        if (keepsOpenRef.current && grabRef.current) grabRef.current.style.pointerEvents = 'none';
         onRevealedRef.current();
+      }
+      // 🎭 The kept drape lets the lift's float go and HANGS (see `DRAPE_HANG`).
+      if (keepsOpenRef.current && lift > DRAPE_HANG_FROM && hang < 1) hang = Math.min(1, hang + 1 / DRAPE_HANG_FRAMES);
+      /* 🎭 SETTLED: the hung fold's lowest edge (smoothed — the wind still sways it) has held still. Said on the mount for
+         whoever must wait for the hanging pose (the walk), and it is the frame Save-Data / reduced motion keep. */
+      if (keepsOpenRef.current && revealedRef.current && hang >= 1 && !settled) {
+        let low = Infinity;
+        for (let k = cols; k < N; k += 3) if (py[k]! < low) low = py[k]!;
+        lowAvg = lowAvg === null ? low : lowAvg * 0.9 + low * 0.1;
+        calm = lowPrev !== null && Math.abs(lowAvg - lowPrev) < vh * 0.0015 ? calm + 1 : 0;
+        lowPrev = lowAvg;
+        if (calm >= DRAPE_CALM_FRAMES || ++sinceHung > 300) {
+          settled = true;
+          mount.setAttribute('data-veil-settled', '');
+        }
+      }
+      if (settled && (saveData || reducedMotionRef.current)) {
+        // The drape, still: petals put away, its last (hanging) frame drawn, the loop ended.
+        parkAll();
+        renderer.render(scene, camera);
+        still = true;
+        mount.setAttribute('data-veil-still', '');
+        raf = 0;
+        return;
+      }
+      // 🌸 Off the top with no petal left in the air: draw nothing more until the page is back at its top.
+      if (veilMaySleep(revealedRef.current, atTop, featuresRef.current.petals && petalsSeeded ? inAir : 0)) {
+        asleep = true;
+        raf = 0;
+        return;
       }
       raf = requestAnimationFrame(loop);
     };
+    wakeRef.current = () => {
+      if (raf || still || pausedRef.current) return;
+      last = performance.now();
+      raf = requestAnimationFrame(loop);
+    };
 
-    // ── Gestures: grab-and-pull (local hold) · swipe up = reveal · swipe down =
-    // re-cover · double-tap = hands-free auto · tap = bat a petal away.
-    let lastTap = 0;
+    // ── Gestures (owner 2026-10-15, verbatim: *"before we had double tap to unveil. now we make it simpler.
+    // Tap, swipe up to unveil"*): a TAP unveils — the same sim-driven hands-free lift the preview plays
+    // (`startAuto`), so the fabric still folds away — and a SWIPE UP unveils. Swipe down re-covers. Grab-and-
+    // pull still holds the cloth. 🚫 Retired with the ruling: the double-tap (a tap is enough now) and the
+    // tap that batted a petal away (a tap means "unveil", and one gesture cannot mean two things).
+    //
+    // 🎵 Both unveils run `unveil()` FIRST, synchronously inside this `pointerup` — that is what lets the
+    // music start on the tap itself (see `onUnveil`).
+    const unveil = () => {
+      try { onUnveilRef.current?.(); } catch { /* never let a listener stop the lift */ }
+      // The lift IS the user gesture — ask the film (z-50) to go full screen
+      // NOW, synchronously, while this activation is live (Fullscreen API
+      // needs a gesture; the film auto-plays to full screen as the veil lifts).
+      try { window.dispatchEvent(new Event('std-go-fullscreen')); } catch { /* noop */ }
+    };
     const onDown = (e: PointerEvent) => {
       const hp = meshHit(e.clientX, e.clientY);
       grabs[e.pointerId] = {
@@ -1022,36 +1154,38 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
         const net = Math.hypot(dxC, dyC);
         delete grabs[e.pointerId];
         if (up > 40 && dur < 460 && up > Math.abs(dxC) * 1.0) {
-          // The lift IS the user gesture — ask the film (z-50) to go full screen
-          // NOW, synchronously, while this activation is live (Fullscreen API
-          // needs a gesture; the film auto-plays to full screen as the veil lifts).
-          try { window.dispatchEvent(new Event('std-go-fullscreen')); } catch { /* noop */ }
+          // SWIPE UP = unveil.
+          unveil();
           setLift(1);
+          freeThePage(e.pointerId);
           return;
         }
         if (dyC > 40 && dur < 460 && dyC > Math.abs(dxC) * 1.0) {
+          if (keepsOpenRef.current && (freed || revealedRef.current)) return;
+          freed = false;
           setLift(0);
           return;
         }
         if (dur < 300 && net < 18) {
-          if (petalsSeeded) bounceAt(e.clientX, e.clientY);
-          const n = performance.now();
-          if (n - lastTap < 340) {
-            doRevealAuto();
-            lastTap = 0;
-          } else lastTap = n;
+          // TAP = unveil — only while the veil still covers: a tap on the lifted valance (the top band the
+          // film keeps reachable) does nothing; swipe down is how it comes back down.
+          if (!locked && liftTarget < 1) {
+            unveil();
+            startAuto();
+            freeThePage(e.pointerId);
+          }
         }
       } else delete grabs[e.pointerId];
     };
     const onCancel = (e: PointerEvent) => {
       if (grabs[e.pointerId]) delete grabs[e.pointerId];
     };
-    // Gestures are ALWAYS live — on the live page (drag / double-tap to lift)
+    // Gestures are ALWAYS live — on the live page (tap / swipe up to unveil)
     // AND in the preview, where the couple ALSO gets the hands-free auto-demo
-    // (startAuto, below). A swipe or double-tap cleanly overrides the demo
-    // (setLift / doRevealAuto clear `auto`/`locked`), so the couple can drag
-    // and double-tap the veil in the preview. (owner 2026-06-18 — "on preview
-    // i cannot control the veil")
+    // (startAuto, below). A swipe cleanly overrides the demo (setLift clears
+    // `auto`/`locked`); a tap while the demo is already lifting is a no-op (the
+    // demo IS the tap's lift). (owner 2026-06-18 — "on preview i cannot control
+    // the veil")
     // pointerdown binds to the grab-zone (not the canvas) so input is scoped to
     // its region; move/up stay on window so a drag keeps tracking past the zone.
     // Coordinate math uses cv's rect (full-screen) — clientX/Y are viewport
@@ -1071,6 +1205,38 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
       if (petalsSeeded && d) bounceAt(d.x, d.y);
     };
     window.addEventListener('std-veil-poke', onPoke as EventListener);
+    // 🌬 Scroll / swipe velocity, from event data only (no layout read): wheel deltaY, and a finger's travel up the
+    // screen (scrolling down). Passive — they never hold a scroll.
+    let touchY: number | null = null;
+    const onWheel = (e: WheelEvent) => addScrollDelta(scrollWind, e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY);
+    const onTouchStart = (e: TouchEvent) => {
+      touchY = e.touches[0]?.clientY ?? null;
+    };
+    const onTouchMove = (e: TouchEvent) => {
+      const y = e.touches[0]?.clientY;
+      if (y === undefined) return;
+      if (touchY !== null) addScrollDelta(scrollWind, touchY - y);
+      touchY = y;
+    };
+    // 🌸 Where the page rests: the scroll offset, read only in its own passive scroll event (never in the frame).
+    let topWake = 0;
+    const onScroll = () => {
+      const now = performance.now();
+      noteScrollY(topRest, window.scrollY, now);
+      if (asleep && window.scrollY <= 2) {
+        if (topWake) window.clearTimeout(topWake);
+        topWake = window.setTimeout(() => {
+          topWake = 0;
+          if (!asleep || !restingAtTop(topRest, performance.now())) return;
+          asleep = false;
+          wakeRef.current();
+        }, TOP_REST_MS + 16);
+      }
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('wheel', onWheel, { passive: true });
+    window.addEventListener('touchstart', onTouchStart, { passive: true });
+    window.addEventListener('touchmove', onTouchMove, { passive: true });
 
     // ── Resize / rotate — cheap re-fit immediately (no stretch), full rebuild debounced.
     let roFrame = 0;
@@ -1131,17 +1297,29 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
     applyView();
     // Preview mode: lift the veil hands-free on mount (no drag needed in a small
     // watermarked frame). Holds final state once revealed.
-    if (autoplay) startAuto();
+    let autoAfter = 0;
+    if (autoplay && autoplayAfterMs > 0) {
+      autoAfter = window.setTimeout(() => {
+        startAuto();
+        onAutoLiftRef.current?.();
+      }, autoplayAfterMs);
+    }
+    else if (autoplay) startAuto();
 
     /* ARM THE HIT-ZONE. It renders 'none' so that any early return above (reduced
        motion, no WebGL) leaves the guest a usable page rather than a screen-wide
        invisible blocker. We are past every one of those returns here — the sim is
        built and the loop is about to run — so the veil can now take input. */
     if (grabRef.current) grabRef.current.style.pointerEvents = 'auto';
+    // 🙈 The veil is really up and can be opened — the page behind stays held until it is
+    // (`lib/hub-veil.ts`; its failsafe stands down now). A no-op where nothing holds (Studio, previews).
+    claimVeilHold();
     raf = requestAnimationFrame(loop);
 
     return () => {
       cancelAnimationFrame(raf);
+      wakeRef.current = () => {};
+      if (autoAfter) window.clearTimeout(autoAfter);
       if (roFrame) cancelAnimationFrame(roFrame);
       if (roFull) window.clearTimeout(roFull);
       ro?.disconnect();
@@ -1151,6 +1329,11 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
       window.removeEventListener('pointerup', release);
       window.removeEventListener('pointercancel', onCancel);
       window.removeEventListener('std-veil-poke', onPoke as EventListener);
+      window.removeEventListener('scroll', onScroll);
+      if (topWake) window.clearTimeout(topWake);
+      window.removeEventListener('wheel', onWheel);
+      window.removeEventListener('touchstart', onTouchStart);
+      window.removeEventListener('touchmove', onTouchMove);
       geo?.dispose();
       mat.dispose();
       mat.alphaMap?.dispose();
@@ -1165,6 +1348,11 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
     // refs + the structuralKey effect, never a remount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // 🎭 Back on screen (the cover returned): the paused drape picks up where it stopped.
+  useEffect(() => {
+    if (!paused) wakeRef.current();
+  }, [paused]);
 
   // Structural look changes (folds / fullness / reaches / logo size·opacity·on-off)
   // rebuild geometry + texture in place — used by the admin studio's live sliders.

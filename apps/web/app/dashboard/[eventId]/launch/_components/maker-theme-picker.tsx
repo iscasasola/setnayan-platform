@@ -432,8 +432,14 @@ export function MakerThemeMenu({
       <div className="flex min-h-11 items-center justify-between gap-3">
         <InfoTip label="Theme" align="start">
           Your whole Event Hub wears it — colours, lettering and motion — and so does every print.{' '}
-          {themeNames(FREE_THEMES)} are free; the others come with Event Hub Pro. Pick one anyway — Apply names it and
-          asks. It goes into your draft: Undo steps it back, Apply puts it live.
+          {/* 🍎 The iPhone app lists only the free themes (`tilesShown`) and names no paid extra. */}
+          {storeShell && !ownsPro ? null : (
+            <>
+              {themeNames(FREE_THEMES)} are free; the others come with Event Hub Pro. Pick one anyway — Apply names it and
+              asks.{' '}
+            </>
+          )}
+          It goes into your draft: Undo steps it back, Apply puts it live.
         </InfoTip>
         <PickMenu
           label="Theme"

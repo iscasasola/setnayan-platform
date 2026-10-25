@@ -1,3 +1,4 @@
+import { bytesStream } from '@/lib/stream-file';
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -14,8 +15,12 @@ import {
 } from '@/lib/seating-pdf';
 import { seatPlanPreviewSvg } from '@/lib/seat-plan-preview-svg';
 import { printFileName } from '@/lib/print-pieces';
+import { PAPER_HOW, printPaperHeader } from '@/lib/print-paper';
 
 export const dynamic = 'force-dynamic';
+/* ⏱ 300 s, the shipped big-file route's ceiling (`/api/guest/pass-card/all`): a print file is drawn whole, then streamed
+   (`lib/stream-file.ts`) — a buffered body over 4.5 MB is refused by Vercel (live fault 2026-10-17). */
+export const maxDuration = 300;
 
 export async function GET(
   req: Request,
@@ -37,7 +42,7 @@ export async function GET(
   const { data: event } = await supabase
     .from('events')
     .select(
-      'display_name, slug, event_date, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, role_palette, style_preferences',
+      'display_name, slug, event_date, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, role_palette, style_preferences, logo_wanted',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -94,7 +99,12 @@ export async function GET(
     for (const a of assignments) seated.set(a.table_id, (seated.get(a.table_id) ?? 0) + 1);
     return new NextResponse(seatPlanPreviewSvg({ tables, floorPlan, seatedByTable: seated, mode, palette: flatHexPalette }), {
       status: 200,
-      headers: { 'Content-Type': 'image/svg+xml; charset=utf-8', 'Cache-Control': 'private, max-age=60' },
+      headers: {
+        'Content-Type': 'image/svg+xml; charset=utf-8',
+        'Cache-Control': 'private, max-age=60',
+        /* 📄 One A3 page; how many tables and seats it shows (Studio › Prints' preview, owner 2026-10-14). */
+        ...printPaperHeader({ pages: 1, page: 1, how: PAPER_HOW.seatPlan(tables.length, assignments.length), empty: tables.length === 0 ? 'tables' : null }),
+      },
     });
   }
 
@@ -131,7 +141,8 @@ export async function GET(
 
   // `<event slug>-seat-plan.pdf` (owner's naming rule — event first, then the
   // print; the per-guest QR is `eventname-guestname.jpg`).
-  return new NextResponse(new Uint8Array(pdf), {
+  /* 📤 Streamed — the same bytes, no Content-Length (`lib/stream-file.ts`). */
+  return new NextResponse(bytesStream(new Uint8Array(pdf)), {
     status: 200,
     headers: {
       'Content-Type': 'application/pdf',

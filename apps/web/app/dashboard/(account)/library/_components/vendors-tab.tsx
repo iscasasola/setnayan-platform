@@ -74,7 +74,7 @@ export async function VendorsTab({ userId }: { userId: string }) {
             {attended.map((v) => (
               <li
                 key={v.vendorProfileId}
-                className="flex items-center gap-3 rounded-2xl border border-ink/10 bg-white p-3"
+                className="flex items-center gap-3 rounded-2xl border border-ink/10 bg-white dark:bg-raised p-3"
               >
                 {v.logoUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element

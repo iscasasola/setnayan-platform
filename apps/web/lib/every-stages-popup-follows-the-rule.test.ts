@@ -119,15 +119,16 @@ test('(4) the Apply sheet’s own backdrop wears the one dark from the STYLESHEE
   // Three rules, and their three html.dark twins (2026-10-12: ink turns light in dark mode, so the dark there is black).
   assert.equal(lists.length, 6, 'anti-vacuity: the dark’s three rules and their dark-mode twins were not found');
   for (const l of lists) assert.match(l, /div:has\(> \[data-apply-pro-sheet\]\),\s*(html\.dark\s*)?$/, 'a rule of the dark does not reach the Apply sheet');
-  /* It carries a type selector, so it outweighs the sheet's own `bg-ink/30` utility wherever that is emitted. */
-  assert.match(html, /bg-ink\/30/, 'anti-vacuity: the sheet no longer carries the wash this rule has to outweigh');
+  /* The stylesheet's dark is the ONLY wash (2026-10-25, one backdrop everywhere): the sheet's own `bg-ink/30` is gone. */
+  assert.doesNotMatch(open[1]!, /\bbg-|backdrop-/, 'the Apply sheet’s backdrop wears a wash of its own again');
   /* The file itself — in the Maker's first load — is as it was: its own modal contract, a tap on the dark closes, no new import. */
   const src = read(`${D}/website/_components/apply-pro-sheet.tsx`);
   assert.match(src, /useModalA11y\(\{ open: true, onClose, containerRef: dialogRef \}\);/);
   assert.match(src, /onClick=\{\(e\) => \{\s*if \(e\.target === e\.currentTarget\) onClose\(\);\s*\}\}/);
   assert.deepEqual(
     [...src.matchAll(/from '([^']+)'/g)].map((m) => m[1]).sort(),
-    ['@/app/_components/info-tip', '@/app/_components/paid-mark', '@/lib/format-number', '@/lib/hub-draft', '@/lib/hub-pro-effect-view', '@/lib/use-modal-a11y', 'lucide-react', 'next/link', 'react'],
+    // 💎 + the parts' grouping and the one peso formatter (2026-10-22, part by part) — pure, small; the bundle check holds the budget.
+    ['@/app/_components/info-tip', '@/app/_components/paid-mark', '@/lib/apply-sheet-parts', '@/lib/format-number', '@/lib/hub-draft', '@/lib/hub-pro-effect-view', '@/lib/php', '@/lib/use-modal-a11y', 'lucide-react', 'next/link', 'react'],
     'the Apply sheet imports something new — it rides the Maker’s first load',
   );
 });

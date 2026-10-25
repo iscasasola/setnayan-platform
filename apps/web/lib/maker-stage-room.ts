@@ -208,15 +208,17 @@ export function styleCardFit(
 }
 /**
  * 🎨 THE DRESS CODE'S PALETTE ROW (owner 2026-10-09: *"row 3 is palette style"* — Tags · Fabric swatches · Paint
- * chips · Circles · Ribbon, `lib/palette-looks.ts`): five equal buttons in one row, each the couple's colours drawn
+ * chips · Circles · Ribbon, and since 2026-10-15 Arch tabs · Watercolour dots · Paint strokes, `lib/palette-looks.ts`): equal buttons in one row, each the couple's colours drawn
  * in that look. 44 px; the picked one wears the accent's line and ring.
  */
-export const SP_PALETTE_ROW = 'flex h-[var(--sp-rh)] shrink-0 items-center gap-1.5';
+export const SP_PALETTE_ROW = 'flex h-[var(--sp-rh)] shrink-0 items-center gap-1';
 export const SP_PALETTE_PICK =
-  'sn-press flex h-11 min-w-0 flex-1 items-stretch justify-center overflow-hidden rounded-lg border border-[var(--sp-line)] bg-white aria-checked:border-[var(--sp-cta)] aria-checked:shadow-[0_0_0_1px_var(--sp-cta),0_0_0_3px_var(--sp-cta-wash)] ' +
+  'sn-press relative flex h-11 min-w-0 flex-1 items-stretch justify-center overflow-hidden rounded-lg border border-[var(--sp-line)] bg-white aria-checked:border-[var(--sp-cta)] aria-checked:shadow-[0_0_0_1px_var(--sp-cta),0_0_0_3px_var(--sp-cta-wash)] ' +
   /* The picture fills the button — one frame, not the dropdown thumbnail's small box inside a second one — and its
-     marks are drawn half as large again, to be read at a glance. */
-  '[&>[data-palette-thumb]]:!h-auto [&>[data-palette-thumb]]:!w-full [&>[data-palette-thumb]]:!rounded-none [&>[data-palette-thumb]]:!shadow-none [&>[data-palette-thumb]>*]:scale-150';
+     marks are drawn a little larger, to be read at a glance. 2026-10-15: eight looks (Arch tabs · Watercolour dots ·
+     Paint strokes joined) make each button ~41 px at 375, so the strip draws three colours (`PaletteLookStrip`) at
+     110 % — the widest picture (37 px) still fits whole; at five colours and 150 % every picture was cut off. */
+  '[&>[data-palette-thumb]]:!h-auto [&>[data-palette-thumb]]:!w-full [&>[data-palette-thumb]]:!rounded-none [&>[data-palette-thumb]]:!shadow-none [&>[data-palette-thumb]>*]:scale-110';
 /* ── 🖼 BACKGROUND'S FOUR ROWS (owner 2026-10-09: *"copy the background on studio look"*; `TOOLBAR-SPEC-2026-10-09.md`
    § BACKGROUND) — row 1 the source ▾, row 2 that source's choices as ONE row of small pictures (the prototype's
    `.gs` / `.gt`), row 3 the choice's one control, row 4 its shape. ── */
@@ -258,6 +260,14 @@ export const SP_BG_QUIET = 'truncate px-1 text-[14px] font-medium text-[var(--sp
 /** Style's last row: Colour (one circle) and Size (a slider) side by side — *"color and size share the same row"*. */
 export const SP_LOOK_ROW = 'flex h-full min-w-0 items-center gap-2';
 export const SP_LOOK_ROW_LABEL = 'shrink-0 text-[13px] font-medium text-[var(--sp-ink)]';
+/**
+ * ↔ Width ▾ on that row — the house two-line dropdown (`Dd stacked`: WIDTH above its value) at its SHORT size, so
+ * Colour · Size · Width fit ONE row at 375 px and the Size bar keeps ~125 px (`maker_text_width_2026-10-14_fable.html`,
+ * question 1: three written words left it ~30 px).
+ */
+export const SP_LOOK_ROW_DD = '!w-[96px] !flex-none [&_button]:!pr-1.5';
+/* 🔤 96 px (was 86) with the value's right padding 10 → 6: at 375 px "Normal" read "Nor…" — the Size bar still keeps ~115 px
+   (the prototype's 115). The small WIDTH word keeps its left edge (14 px). */
 
 /* ── the panel's body (`stage-panel/*`) — every row ONE height, 44 px (owner 2026-10-06 "keep all rows consistent in height") ── */
 
@@ -352,6 +362,10 @@ export const SP_STEP_BUTTON =
   'sn-press inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[var(--sp-line)] bg-white text-[var(--sp-ink)] disabled:opacity-35';
 /** The keyboard's bar while typing on the page (prototype `#kbd .kbar`): "Typing · Names" · Done. */
 export const SP_KEY_BAR = 'flex h-11 shrink-0 items-center justify-between border-t border-[var(--sp-line)] bg-white pl-[14px] pr-2 text-[13px] font-semibold text-[var(--sp-ink2)]';
+/** The same bar when it is FIXED to the screen above the keyboard (edge to edge): its gutters never fall under a
+ *  side safe area — `max(the bar's own, the inset)`, each side on its own (iPhone Duo points 21 · 23; held by
+ *  lib/every-bar-clears-the-side-insets.test.ts). Identical to `SP_KEY_BAR` wherever the insets are 0. */
+export const SP_KEY_BAR_FIXED = 'flex h-11 shrink-0 items-center justify-between border-t border-[var(--sp-line)] bg-white pl-[max(14px,var(--sn-safe-l))] pr-[max(0.5rem,var(--sn-safe-r))] text-[13px] font-semibold text-[var(--sp-ink2)]';
 export const SP_KEY_DONE = 'sn-press inline-flex h-11 items-center px-1';
 
 /** Every class string a tap lands on, by name — the guard walks them all. */
@@ -382,6 +396,12 @@ export const STAGE_TAP_TARGETS = {
 /** How long the toolbar takes to slide away for ▶ and typing, and back (the prototype's 240 ms). */
 export const STAGE_PANEL_MS = 240;
 
+/** An element laid out of the flow (a background layer, a badge pinned on top) — never the part above or below a
+ *  picked part (`add-part-sheet.tsx` `neighbourOf`; the Cover Scene's background is its cover's first child). */
+export function partNeighbourIsLayer(el: Element): boolean {
+  const pos = el.ownerDocument.defaultView?.getComputedStyle(el).position;
+  return pos === 'absolute' || pos === 'fixed';
+}
 /**
  * 🖼 THE PICKED PART'S FRAME, BETWEEN ITS NEIGHBOURS (owner 2026-10-07: the Logo's frame and ＋ sat ON "TOGETHER WITH
  * THEIR FAMILIES" — "the frame hugs its part's real box, the ＋ sits in the gap BETWEEN parts and never over another

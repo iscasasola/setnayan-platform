@@ -85,6 +85,9 @@ export function canvasOnlyScene(
   return only && ONLY_KEY_RE.test(only) ? (only as CanvasOnlyScene) : null;
 }
 
+/** Parts the page draws under their own id and no `data-maker-section` marker (`maker-section-find.ts` SECTION_IDS). */
+const ONLY_BY_ID: Readonly<Record<string, string>> = { 'f:entourage': 'site-entourage' };
+
 export function canvasOnlyCss(scene: CanvasOnlyScene): string {
   const [key, el] = scene in CANVAS_ONLY_SCENES ? [CANVAS_ONLY_SCENES[scene as keyof typeof CANVAS_ONLY_SCENES], null] : scene.split('.');
   const m = `[data-maker-section="${key}"]`;
@@ -100,10 +103,26 @@ export function canvasOnlyCss(scene: CanvasOnlyScene): string {
     .map((s) => `:not(${s})`)
     .join('');
   const whole = `body:has(${m}) *${keep}{display:none!important}`;
+  if (!el && key! in ONLY_BY_ID) {
+    /* 🚶 A part the page names by its own id, with no marker before it (the March, `#site-entourage`): the same
+       "hide everything else", keyed on the id, and only while no marker for it is on the page. Without it a
+       miniature of the March was the WHOLE page, fitted on a part that moved as the page above it loaded — every
+       entourage Style card drew blank (measured in the Maker lab, 2026-10-15). */
+    const id = `#${ONLY_BY_ID[key!]}`;
+    const keepId = [`:has(${id})`, id, `${id} *`, '[data-main-ground]', '[data-main-ground] *', '[data-guest-ground]', '[data-guest-ground] *']
+      .map((x) => `:not(${x})`)
+      .join('');
+    return `${whole}body:has(${id}):not(:has(${m})) *${keepId}{display:none!important}`;
+  }
   if (!el) return whole;
-  /* One part of the scene: inside it, everything that is not the part, holds it, or is in it goes too. */
+  /* One part of the scene: inside it, everything that is not the part, holds it, or is in it goes too — except the
+     ground it is drawn on. 🖼 THE COVER SCENE'S BACKGROUND STAYS (`cover-scene-ground.tsx`, `data-cover-scene-ground`):
+     its words take their tone FROM it (cream over a dark photo, `COVER_SCENE_CREAM_VARS`), so a card that hid it drew
+     cream words on the card's white — a Title card with nothing on it (owner 2026-10-16, "previews are not showing
+     properly"). Kept, the card is the part on its own ground, in its own tone, under the shipped scrim. */
   const p = `[data-el="${el}"]`;
-  return `${whole}body:has(${m} + * ${p}) ${m} + * *:not(${p}):not(:has(${p})):not(${p} *){display:none!important}`;
+  const g = '[data-cover-scene-ground]';
+  return `${whole}body:has(${m} + * ${p}) ${m} + * *:not(${p}):not(:has(${p})):not(${p} *):not(${g}):not(${g} *){display:none!important}`;
 }
 
 /**

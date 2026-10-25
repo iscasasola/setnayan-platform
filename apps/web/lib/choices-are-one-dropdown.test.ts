@@ -64,12 +64,20 @@ const SURFACES: Surface[] = [
     to: 'Or set your own (PHP)',
   },
   {
+    // Budget B3 (2026-10-18): the thumb row's All · Owing · Paid — the
+    // prototype draws it as ONE "All ▾" dropdown, "never pills".
+    name: 'Budget — All · Owing · Paid',
+    file: 'app/dashboard/[eventId]/budget/_components/budget-screen.tsx',
+    from: 'function ThumbRow(',
+    to: 'function GroupUnread(',
+  },
+  {
     name: 'Seat plan — room size',
     file: 'app/dashboard/[eventId]/seating/_components/seating-editor.tsx',
     from: 'change it if your room is different.',
     to: 'Stage + dance-floor dimensions',
   },
-  { name: 'Memories lenses', file: 'app/dashboard/(account)/library/page.tsx' },
+  { name: 'Memories lenses', file: 'app/dashboard/(account)/library/_components/memories-thumb.tsx' },
   {
     name: 'Remove frame — reason',
     file: 'app/dashboard/(launcher)/_components/event-card-menu.tsx',
@@ -130,9 +138,9 @@ const TOUR_MOUNTS: { key: TourKey; file: string; tag: 'MiniTour' | 'GuestGuidedT
   { key: 'guest_papic_camera_v1', file: 'app/papic/guest/page.tsx', tag: 'GuestGuidedTour' },
   { key: 'guest_papic_me_v1', file: 'app/papic/me/[token]/page.tsx', tag: 'GuestGuidedTour' },
   { key: 'customer_guest_list_v1', file: 'app/dashboard/[eventId]/guests/page.tsx', tag: 'MiniTour' },
-  { key: 'customer_budget_v1', file: 'app/dashboard/[eventId]/budget/page.tsx', tag: 'MiniTour' },
   { key: 'customer_galleries_v1', file: 'app/dashboard/[eventId]/galleries/page.tsx', tag: 'MiniTour' },
-  { key: 'customer_papic_v1', file: 'app/dashboard/[eventId]/studio/papic/page.tsx', tag: 'MiniTour' },
+  // Budget and Papic are SPOTLIGHTS since 2026-10-22 (customer_budget_v2 · customer_papic_v2, owner "yes to all" on
+  // journey_fixes_later Host 4) — their mounts, order and words are held by `lib/the-host-page-tours-land.test.ts`.
 ];
 
 for (const t of TOUR_MOUNTS) {

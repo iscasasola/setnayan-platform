@@ -54,6 +54,7 @@ import {
   X,
 } from 'lucide-react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 import {
   cancelBookingAsHost,
   type CancelBookingAsHostResult,
@@ -154,12 +155,8 @@ export function CancelBookingButton({
           // way so re-cancels (multi-host race) don't look broken.
           setToast({ kind: 'cancelled', vendorName });
           setDialog({ kind: 'closed' });
-          if (redirectToHomeOnSuccess) {
-            router.push(`/dashboard/${eventId}`);
-          } else {
-            // Stay on the current page — server action already revalidated.
-            router.refresh();
-          }
+          // Otherwise stay on the current page — the server action revalidated, and its answer carries the redraw.
+          if (redirectToHomeOnSuccess) router.push(`/dashboard/${eventId}`);
           return;
         case 'downpaid_use_dispute_flow':
           // Race: vendor flipped to deposit_paid between our render and
@@ -221,11 +218,9 @@ export function CancelBookingButton({
           aria-modal="true"
           aria-labelledby="cancel-booking-headline"
           aria-describedby="cancel-booking-body"
-          className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 p-4 backdrop-blur-sm focus:outline-none sm:items-center"
-          onClick={(e) => {
-            if (e.target === dialogRef.current) closeDialog();
-          }}
+          className="fixed inset-0 z-50 flex items-end justify-center p-4 focus:outline-none sm:items-center"
         >
+          <OverlayBackdrop onClose={closeDialog} />
           <div className="relative w-full max-w-md rounded-2xl border border-ink/10 bg-cream p-5 shadow-xl sm:p-6">
             <button
               type="button"

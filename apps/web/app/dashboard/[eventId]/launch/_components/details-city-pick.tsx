@@ -12,6 +12,7 @@ import {
   type WeddingCity,
 } from '@/app/onboarding/wedding/_data/wedding-cities';
 import type { PhPlace } from '@/app/onboarding/wedding/_data/ph-places';
+import { askLocationOnce } from '@/lib/location-ask';
 
 /**
  * 📍 CITY OR AREA — ONE DROPDOWN, NEVER TYPED (owner 2026-10-01, DECISION_LOG
@@ -81,9 +82,8 @@ export function CityPick({
       setMe(p);
       setLocating(false);
     };
-    if (typeof navigator === 'undefined' || !navigator.geolocation) return done(NCR_FALLBACK);
-    navigator.geolocation.getCurrentPosition(
-      (p) => done({ lat: p.coords.latitude, lon: p.coords.longitude }),
+    askLocationOnce(
+      (p) => done({ lat: p.lat, lon: p.lon }),
       () => done(NCR_FALLBACK),
       { enableHighAccuracy: false, timeout: 8000, maximumAge: 600000 },
     );
@@ -157,10 +157,13 @@ export function CityPick({
                 className="w-full bg-transparent text-[16px] text-ink outline-none"
               />
             </label>
+            {/* 📍 data-asks-location: hidden inside the iPhone/Android app before
+                first paint — it declares no location (DECISION_LOG 2026-10-19 (1)). */}
             <button
               type="button"
               onClick={nearMe}
               aria-pressed={Boolean(me)}
+              data-asks-location=""
               className="inline-flex min-h-10 items-center gap-1 rounded-full border border-ink/15 px-3 text-xs font-medium text-ink/80"
             >
               <Crosshair aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />

@@ -31,7 +31,8 @@
  * child route's shape diverges materially, add a route-local
  * loading.tsx — this file remains the event-scope default.
  */
-import { Screen, Sk } from '@/components/skeletons';
+import { Sk } from '@/components/skeletons';
+import { HomeLoadingScreen } from './_components/home-loading-cover';
 import { LastSeenFallback } from '@/app/_components/last-seen/last-seen-fallback';
 
 export default function EventSectionLoading() {
@@ -41,12 +42,18 @@ export default function EventSectionLoading() {
   // skeleton, as before.
   return (
     <LastSeenFallback page="home">
-      <Screen label="Loading your event">
-        {/* Hero — event name + date line + countdown */}
-        <div className="space-y-2">
-          <Sk className="h-10 w-64 max-w-full rounded-md" />
-          <Sk className="h-4 w-48 rounded" />
-        </div>
+      {/* ⚡ On the Home's own path the hero is the REAL cover — the couple's names and date line,
+          from the layout's read — drawn at the tap (`home-loading-cover.tsx`, 2026-10-16). Every
+          other route that inherits this file keeps the plain skeleton hero. */}
+      <HomeLoadingScreen
+        label="Loading your event"
+        hero={
+          <div className="space-y-2">
+            <Sk className="h-10 w-64 max-w-full rounded-md" />
+            <Sk className="h-4 w-48 rounded" />
+          </div>
+        }
+      >
 
         {/* Briefing strip */}
         <Sk className="h-14 rounded-2xl" />
@@ -86,7 +93,7 @@ export default function EventSectionLoading() {
             ))}
           </ul>
         </div>
-      </Screen>
+      </HomeLoadingScreen>
     </LastSeenFallback>
   );
 }

@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { generateUniqueSlug } from '@/lib/slugs';
 import { ensureFreePapicPoolGrantAdmin } from '@/lib/papic-free-grant';
-import { shopAccountMayNotCreateEvents } from '@/lib/vendor-event-creation';
+import { accountMayNotCreateEvents } from '@/lib/vendor-event-creation';
 import { getBlockingLifeEvent } from '@/app/dashboard/(account)/create-event/life-event-guard';
 import { authorizePlanNextYear } from '@/lib/plan-next-year-authz';
 import { anchorForType } from '@/lib/event-anchor';
@@ -39,8 +39,8 @@ import { hostUserId } from './_lib/host-authority';
 
 export type NextActionResult = { ok: true } | { ok: false; error: string };
 
-const NO_ACCESS = 'You don’t have access to this celebration.';
-const NOT_OFFERED = 'That isn’t one of the celebrations we can follow this one with.';
+const NO_ACCESS = 'You don’t have access to this event.';
+const NOT_OFFERED = 'That isn’t one of the events we can follow this one with.';
 
 /**
  * ANNOUNCE IT ONLY — the back cover gains a line. Nothing is created.
@@ -135,8 +135,10 @@ export async function startTheNextCelebration(
   });
   if (!authz.ok) return { ok: false, error: NO_ACCESS };
 
-  if (await shopAccountMayNotCreateEvents(supabase, user.id)) {
-    return { ok: false, error: 'This account doesn’t plan celebrations.' };
+  // The one creation gate (lib/vendor-event-creation.ts — owner 2026-10-22:
+  // one account is both, so nobody is refused today).
+  if (await accountMayNotCreateEvents(supabase, user.id)) {
+    return { ok: false, error: NO_ACCESS };
   }
 
   // Defence-in-depth only — the gate is above. `events_host`, not `events`:
@@ -159,7 +161,7 @@ export async function startTheNextCelebration(
   }
 
   const admin = createAdminClient();
-  const displayName = (source.display_name as string | null) ?? 'My Celebration';
+  const displayName = (source.display_name as string | null) ?? 'My Event';
   const slug = await generateUniqueSlug(admin, displayName);
   const anchor = anchorForType(value);
 

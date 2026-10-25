@@ -2,7 +2,9 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { setGuestSession } from '@/lib/guest-session';
 import { resolveRenamedEventSlug } from '@/lib/slug-forwarding';
-import { inviteEnterPath } from '@/lib/invite-arrival';
+import { arrivalDestinationFor, personalLinkLandingPath, type ArrivalDestination } from '@/lib/invite-destination';
+import { resolveProfile } from '@/lib/event-type-profile';
+import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
 import { recordScan } from '@/lib/scan-trail';
 import { readSeatHolder } from '@/lib/guest-one-path.server';
 import { PLUS_ONE_WELCOMED_COOKIE, plusOneWelcomeDue } from '@/lib/plus-one-welcome';
@@ -56,6 +58,41 @@ async function recordMiss(request: NextRequest, miss: Omit<PassHopMiss, 'userAge
 // The same guard closes a second, quieter hole: `.ilike('slug', slug)` treats
 // `%` and `_` as WILDCARDS, so `?slug=%` matched an arbitrary event. Rejecting
 // anything outside [a-z0-9-] removes that too.
+
+/** The face the Event Hub will wear for this guest (`arrivalDestinationFor`, the composition the page and the
+ *  landing both ask) — or `null` when it could not be read, which keeps the Save the Date landing. */
+async function personalLinkDestination(
+  admin: ReturnType<typeof createAdminClient>,
+  eventId: string,
+): Promise<ArrivalDestination | null> {
+  try {
+    const { data: face, error: faceError } = await withSchemaRetry(() =>
+      admin
+        .from('events')
+        .select(
+          'event_type, event_date, event_end_date, launch_mode, manual_phase, std_invitation_launch_date, venue_latitude, venue_longitude',
+        )
+        .eq('event_id', eventId)
+        .maybeSingle(),
+    );
+    if (faceError || !face) {
+      if (faceError) logQueryError('redeem (destination)', faceError, { event_id: eventId }, 'graceful_degrade');
+      return null;
+    }
+    return arrivalDestinationFor({
+      profile: await resolveProfile(face.event_type as string),
+      eventDate: (face.event_date as string | null) ?? null,
+      eventEndDate: (face.event_end_date as string | null) ?? null,
+      launchMode: (face.launch_mode as string | null) ?? null,
+      manualPhase: (face.manual_phase as string | null) ?? null,
+      invitationLaunchDate: (face.std_invitation_launch_date as string | null) ?? null,
+      venueTz: eventTimezoneFromCoords(face.venue_latitude as number | null, face.venue_longitude as number | null),
+    });
+  } catch (err) {
+    logQueryError('redeem (destination threw)', err, { event_id: eventId }, 'graceful_degrade');
+    return null;
+  }
+}
 
 /** What a link-preview fetcher gets here: the page in place, and nothing else —
  *  no Set-Cookie, no redirect, nothing it could follow to spend a code. */
@@ -370,7 +407,12 @@ async function redeem(request: NextRequest, retry: { href: string | null }): Pro
      address re-enters this guest once in another browser — a chat app's
      "Open in Safari" opens the address bar, which never held the token. A code
      that cannot be minted leaves the address bare (the behaviour before). */
-  const landing = new URL(inviteEnterPath(event.slug), url.origin);
+  /* 💌 …AND SINCE 2026-10-19 THAT LANDING IS THE INVITATION ITSELF (owner, 21:40, on the pre-reply welcome:
+     "why am i at rsvp. we should be at the invitation page and not here"): `/{slug}`, whose own Reply button leads
+     to the reply page — while the Event Hub is still the Save the Date (N05) the Save the Date landing stays, and
+     asks nothing. Decided by `personalLinkLandingPath` (lib/invite-destination.ts) from the SAME face the page
+     will wear (`arrivalDestinationFor`); a read that fails keeps the landing, the answer before this row. */
+  const landing = new URL(personalLinkLandingPath(event.slug, await personalLinkDestination(admin, event.event_id)), url.origin);
   const landingCode = await mintReentryCode({ eventId: guest.event_id, guestId: guest.guest_id, purpose: 'landing' });
   if (landingCode) landing.searchParams.set(REENTRY_PARAM, landingCode);
   return NextResponse.redirect(landing);

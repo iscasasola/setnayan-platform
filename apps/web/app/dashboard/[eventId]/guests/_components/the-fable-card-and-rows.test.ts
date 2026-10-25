@@ -51,10 +51,9 @@ const ACTIONS = stripComments(readFileSync(resolve(HERE, '..', '[guestId]', 'act
 
 test('card top: the ticket (tap → full view + Save ticket), ONE Invite, ⋯, the status line — no QR look', () => {
   assert.match(CARD, /<TicketThumb guestId=\{guest\.guest_id\}/, 'the ticket thumbnail is gone');
-  // The Guest list and the standalone card hand in the real ticket view and ⋯.
-  for (const page of [PAGE, stripComments(readFileSync(resolve(HERE, '..', '[guestId]', 'page.tsx'), 'utf8'))]) {
-    assert.match(page, /TicketThumb=\{GuestTicketThumb\}\s*MoreMenu=\{GuestMoreMenu\}/, 'a guest page draws the card without its ticket view or ⋯');
-  }
+  // THE card (`guest-card.tsx` — the Guest list's panel, the standalone route, the march, the parents) hands in the real
+  // ticket view and ⋯ (2026-10-24, one card everywhere).
+  assert.match(read('guest-card.tsx'), /TicketThumb=\{GuestTicketThumb\}\s*MoreMenu=\{GuestMoreMenu\}/, 'the card is drawn without its ticket view or ⋯');
   assert.equal((CARD.match(/<SendInvite\b/g) ?? []).length, 1, 'the card draws more than one Invite');
   assert.match(CARD, /more=\{more\}/, 'the ⋯ is not beside Invite');
   assert.doesNotMatch(CARD, /Customize guest QRs|launch\?tool=details&item=qr|Copy message|Download QR/, 'the old QR tools are back on the card');
@@ -75,28 +74,53 @@ test('card top: the ticket (tap → full view + Save ticket), ONE Invite, ⋯, t
 
 test('card body: every choice is ONE shipped PickMenu — never a native select, never a pill row', () => {
   assert.doesNotMatch(CARD, /<select\b|type="radio"/, 'a native select or a radio pill row is back on the card');
-  for (const name of ['name_prefix', 'side', 'group_category', 'role', 'extra_roles', 'group_ids', 'rsvp_status', 'plus_one_count', 'meal_preference', 'table_id', 'attire']) {
+  // 🪪 The Title is its own leaf since 2026-10-17 — the pick carries woman or man ("Atty. (Woman)"), posting `name_title`.
+  assert.match(CARD, /<K\.Title\s+label="Title"/, 'the Title is not a dropdown on the card');
+  /* 👗 2026-10-20 (owner: "the attire depends on the dress code of their role"): attire is no longer a pick — the card SAYS
+     what their role's dress code gives them (`K.Fact`), held in lib/the-seat-plan-wears-the-role-dress-code.test.ts. */
+  assert.doesNotMatch(CARD, /<K\.Pick\s+name="attire"/, 'the attire pick is back on the card');
+  assert.match(CARD, /<K\.Fact\s+field="attire"/, 'the card no longer says what their role dresses them in');
+  for (const name of ['side', 'rsvp_status', 'plus_one_count', 'meal_preference', 'table_id']) {
     assert.match(CARD, new RegExp(`<K\\.Pick\\s+name="${name}"`), `${name} is not a dropdown on the card`);
     // ⤷ 2026-10-09 (4B): the body names the field; the kit draws it — a FormPick in the Maker's card, a Form row on the Guests pages.
   }
-  // The two "several choices" are checkmark dropdowns.
-  assert.match(CARD, /name="extra_roles"[\s\S]{0,200}\bmulti\b/);
-  assert.match(CARD, /name="group_ids"[\s\S]{0,400}\bmulti\b/);
+  /* ⤷ 2026-10-20 (owner: "there are 2 groups." · "Roles doesn't need also serves as"): `group_category` + `group_ids` are ONE
+     checkmark dropdown (`K.Group`), `role` + `extra_roles` ONE (`K.Roles`) — held in one-group-one-role.test.ts. */
+  assert.match(CARD, /<K\.Group\b/, 'the one Group dropdown is not on the card');
+  assert.match(CARD, /<K\.Roles\b/, 'the one Role dropdown is not on the card');
   const fields = read('card-fields.tsx');
   assert.match(fields, /<PickMenu\b/, 'FormPick is not the shipped PickMenu');
 });
 
-test('card body: the name is open; the rest fold, one open at a time', () => {
-  const nameAt = CARD.indexOf('data-guest-card-name=""');
-  const firstFold = CARD.indexOf('<K.Fold summary=');
-  assert.ok(nameAt > 0 && firstFold > nameAt, 'the name is not open above the rows');
-  for (const s of ['Details', 'RSVP', 'Seat', 'Photos', 'Private note', 'Access']) {
-    assert.match(CARD, new RegExp(`<K\\.Fold summary="${s}"`), `the ${s} row is gone`);
-  }
-  assert.match(CARD, /<details name="guest-card-row"/, 'the Maker’s card is not one exclusive accordion');
-  // …and on the Guests pages the shared Fold is one-open-at-a-time too (`useOneOpen`).
-  assert.match(read('guest-card-rows.tsx'), /<Fold title=\{summary\}/, 'the templated card’s rows are not the shared Fold');
-  assert.match(CARD, /data-guest-card-tags=""/, 'Tags is gone');
+/* RE-AIMED 2026-10-23 — THE OWNER'S GROUPS (prototype `guest_card_groups_and_papic_2026-10-23.html`): the name is no longer
+   open above the rows; it is Basic Info, the first group, CLOSED with the mobile in its summary. Every group is one row
+   (label · summary · open), in his order, and the read-only Tags line is gone (its words were the eyebrow and the summaries). */
+test('card body: the owner’s groups, in his order — every one folds, one open at a time; Tags gone', () => {
+  const ORDER = ['Basic Info', 'Details', 'Additional Guests', 'RSVP Status', 'Papic', 'Seat Plan', 'Note for them · Private note', 'Access', 'Passed Away', 'Delete'];
+  // Papic is named only off the app (🍎 — it is "Photos" there and in the Maker's cards).
+  // RE-AIMED 2026-10-24 (the approved prototype): Passed Away is no fold — its switch IS its row (`data-card-passed-away`).
+  const at = ORDER.map((g) =>
+    CARD.indexOf(g === 'Papic' ? `<K.Fold summary={papicRow ? 'Papic' : 'Photos'}` : g === 'Passed Away' ? 'data-card-passed-away=""' : `<K.Fold summary="${g}"`),
+  );
+  ORDER.forEach((g, i) => assert.ok(at[i]! > 0, `the ${g} group is gone`));
+  for (let i = 1; i < ORDER.length; i++) assert.ok(at[i]! > at[i - 1]!, `${ORDER[i]} is drawn before ${ORDER[i - 1]}`);
+  // RE-AIMED 2026-10-23 (review, owner "Always show them"): while the event's Papic is off, its one line replaces only
+  // "Their camera" — INSIDE the Papic group, beside the face switches that always show — never the whole group.
+  const door = CARD.indexOf('<K.Door label="Their camera"');
+  assert.ok(door > at[4]! && door < at[5]!, 'the "Papic is off" line is not inside the Papic group');
+  // Basic Info is CLOSED by default and holds the name and the mobile; RSVP Status opens by itself for the guest's note.
+  assert.match(CARD, /<K\.Fold summary="Basic Info" value=\{basicSummary\} emptyValue="Add a mobile">/, 'Basic Info opens by itself');
+  const basic = CARD.slice(at[0]!, at[1]!);
+  assert.match(basic, /data-guest-card-name=""/, 'the name is not in Basic Info');
+  assert.match(basic, /<K\.Field id="mobile"/, 'the mobile is not in Basic Info');
+  assert.match(CARD, /const basicSummary = \[[^\n]*guest\.mobile/, 'the mobile is not Basic Info’s summary');
+  assert.match(CARD, /<K\.Fold summary="RSVP Status" value=\{rsvpSummary\} open=\{Boolean\(guest\.guest_note\?\.trim\(\)\)\}>/);
+  assert.match(CARD.slice(at[3]!, door), /data-guest-own-note=""/, 'the guest’s own note is not in RSVP Status');
+  // ONE card, ONE kit (2026-10-24): every row is the shared Fold, one-open-at-a-time (`useOneOpen`) — the hand-drawn
+  // exclusive <details> rows (the Maker's "chevron rows") are gone.
+  assert.match(read('guest-card-rows.tsx'), /<Fold title=\{summary\}/, 'the card’s rows are not the shared Fold');
+  assert.doesNotMatch(CARD, /<details name="guest-card-row"/, 'a hand-drawn row is back on the card');
+  assert.doesNotMatch(CARD, /data-guest-card-tags=""|tagWords/, 'the Tags line is back');
 });
 
 test('card: RSVP is Attending · No reply · Not coming — Maybe only for a guest who said it', () => {
@@ -125,9 +149,10 @@ test('card: Groups, Also serves as and Table are written ONLY when the card post
     assert.match(CARD, new RegExp(`name="${marker}" value="1"`), `the card no longer marks ${marker}`);
     assert.match(ACTIONS, new RegExp(`formData\\.get\\('${marker}'\\)\\) === '1'`), `updateGuest no longer reads ${marker}`);
   }
-  assert.match(ACTIONS, /if \(groupsPosted\) \{\s*await syncCardGroups\(/, 'groups are written without the marker');
+  /* RE-AIMED 2026-10-18 (two hosts never overwrite): …and, with a base, only when THIS card changed them. */
+  assert.match(ACTIONS, /if \(groupsPosted && \(!merge\.based \|\| merge\.changed\.has\('group_ids'\)\)\) \{\s*await syncCardGroups\(/, 'groups are written without the marker');
   assert.match(ACTIONS, /\.\.\.\(extraRolesPosted \? \{ extra_roles \} : \{\}\)/, 'extra roles are written without the marker');
-  assert.match(ACTIONS, /if \(tablePosted && !passed_away && effectiveRsvp !== 'declined'\)/, 'a table is set for someone who is not coming');
+  assert.match(ACTIONS, /if \(tablePosted && \(!merge\.based \|\| merge\.changed\.has\('table_id'\)\) && !passed_away && effectiveRsvp !== 'declined'\)/, 'a table is set for someone who is not coming');
   // A seat is written only when the table CHANGED (autosave must not reset the chair).
   const seat = ACTIONS.slice(ACTIONS.indexOf('async function syncCardTable('));
   assert.match(seat, /if \(now === tableId\) return \{ ok: true \};/);
@@ -207,6 +232,7 @@ test('list head: the filter row is gone — ONE Sort dropdown regroups the secti
   assert.ok(!existsSync(join(HERE, 'mobile-guest-carousel.tsx')), 'the phone-only head is back');
   assert.doesNotMatch(PAGE, /<RosterFilters\b|<RosterSort\b|<FindAddRow\b/, 'a retired head control is on the page again');
   const SCREEN = read('guests-screen.tsx');
-  assert.match(SCREEN, /data-thumb-sort=""[\s\S]*?<PickMenu\b/, 'the Sort is not one PickMenu dropdown');
-  assert.match(SCREEN, /options=\{views\.map\(/, 'the Sort no longer lists the five views');
+  // The Sort is ONE dropdown — the shared row's ≡ seat (a `ThumbMenu`, drawn as a PickMenu by components/thumb-row.tsx).
+  assert.match(SCREEN, /const sortMenu: ThumbMenu = \{\s*mark: 'data-thumb-sort',/, 'the Sort is not one dropdown');
+  assert.match(SCREEN, /menu: views\s*\.map\(/, 'the Sort no longer lists the five views');
 });

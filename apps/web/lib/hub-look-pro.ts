@@ -25,6 +25,10 @@
  *                  size · weight · B/I/U · alignment · spacing are free too
  *                  (`HUB_ELEMENT_FREE_FIELDS`). Font choice and motion were not
  *                  in his line and stay Pro until he says otherwise.
+ *   💎 2026-10-16 — owner: *"all animate, effects, styles, accents are pro"*.
+ *                  A PART's Style (colour · size · font · width · spacing …)
+ *                  and every style card are Pro again (`HUB_ELEMENT_PRO_FIELDS`);
+ *                  the page's own colours, font and buttons (Look) stay free.
  *   WORDS (free) — their story, dress-code wording, schedule, venue, the special
  *                  message, what to bring, every fact about the day.
  *   NOT HERE     — guest photos in Papic and the gallery. The ruling does not
@@ -192,6 +196,8 @@ export const HUB_CANVAS_LOOK_KEYS = [
   'inFx',
   'outFx',
   'during',
+  // ✨ Reveal ▾ on a scene's pictures (Develop · Curtain, 2026-10-17) — motion, Pro at Apply like the rest of Animate.
+  'reveal',
   'timeline',
   'sequence',
   'stagger',
@@ -210,32 +216,31 @@ export const HUB_CANVAS_LOOK_KEYS = [
   // the Text tab's other rows are free (owner 2026-09-28). `canvasLookChange`
   // compares it field by field for exactly that reason.
   'elements',
+  // 🎬 The Cover Scene's ONE entrance (owner 2026-10-16, `lib/cover-entrance.ts`) — every word's Build in, resolved
+  // at read time: motion, so Pro at Apply exactly as a part's own motion is (`HUB_ELEMENT_PRO_FIELDS`).
+  'entrance',
 ] as const;
 
 /**
- * 🔤 ONE PART'S OWN LOOK, SPLIT (owner 2026-09-28, verbatim: *"free to change
- * design, change text, size, color, background color, only when you start
- * adding themes will it be pro. adding media for background."*).
- *
- *   PRO  — the part's own FONT (the typeface) and its own MOTION (In · During ·
- *          Out · timeline). Neither was in his line, so both stay as they were
- *          (DECISION_LOG 2026-09-28, "WHAT IS FREE VS PRO … REDRAWN").
- *   FREE — everything else a part carries: colour, size, weight, bold · italic
- *          · underline, alignment, line and letter spacing (the Text tab), and
- *          its Show / its joiner word, which were always free.
- *
- * A text RUN (a word or letter styled inside a part) carries font · colour ·
- * size of its own; only the run's FONT is Pro, by the same line.
+ * 🔤 ONE PART'S OWN LOOK, SPLIT — Pro (Style + Animate) vs free (Show, words). History: the 2026-09-28 redraw freed
+ * colour · size · spacing, 2026-10-06 freed the font; the 2026-10-16 ruling below put all of Style back under Pro.
  *
  * ⚖ The two lists together must name every `HubElementStyle` field — held by
  * `lib/free-vs-pro-redrawn.test.ts`, so a new field has to be placed on one side
  * on purpose rather than drifting to whichever the comparison forgot.
  */
-/* 🔤 FONT ON A SINGLE PART IS FREE (owner 2026-10-06, DECISION_LOG "EVENT DETAILS
-   IS REBUILT": *"font on a single part is FREE too"*) — like the page's own font
-   (2026-10-05). Only a part's MOTION stays Pro. */
-export const HUB_ELEMENT_PRO_FIELDS = ['motion'] as const;
-export const HUB_ELEMENT_FREE_FIELDS = [
+/* 💎 EVERYTHING IN STYLE IS PRO, AND EVERY ANIMATE (owner 2026-10-16, DECISION_LOG "ALL ANIMATE, EFFECTS, STYLES AND
+   ACCENTS ARE EVENT HUB PRO ◆", verbatim: *"all animate, effects, styles, accents are pro"* — and the same night:
+   *everything in Style is Pro* (colour, size, font and style cards on a part; free events keep the theme's
+   defaults), and *free events keep what they already published*). So a part's own colour · size · font · weight ·
+   B/I/U · alignment · width · spacing join its motion: tried free in the Maker, named at ✓ Apply. It supersedes the
+   2026-09-28 redraw ("free to change … size, color") and 2026-10-06 ("font on a single part is FREE") for a part.
+   🏛 GRANDFATHERED by the rule above (`refChange`): what is already live compares 'none', going back to the theme's
+   own is a 'remove' — both free; only a NEW non-default value is Pro.
+   Still free: the part's Show (`hidden`), its own words (`word`) and how its date is written (`format`) — words and
+   arrangement, not Style. */
+export const HUB_ELEMENT_PRO_FIELDS = [
+  'motion',
   'font',
   'color',
   'size',
@@ -243,15 +248,19 @@ export const HUB_ELEMENT_FREE_FIELDS = [
   'italic',
   'underline',
   'align',
+  // ↔ Width (Narrow · Wide · Full, owner 2026-10-14) — Style's last row, beside Colour and Size.
+  'width',
   'leading',
   'tracking',
+] as const;
+export const HUB_ELEMENT_FREE_FIELDS = [
   'hidden',
   'word',
   // 🗓 How the date and the time are written (Format ▾, tap-to-type) — words, free.
   'format',
 ] as const;
-/** A run's own fields: none is Pro since 2026-10-06 (a run's font is free, like the part's). */
-export const HUB_RUN_PRO_FIELDS = [] as const;
+/** A run's own fields (a word or letter styled inside a part) — every one is Style, so every one is Pro (2026-10-16). */
+export const HUB_RUN_PRO_FIELDS = ['font', 'color', 'size'] as const;
 
 /** The motion subset — what "Reset how it moves" takes off. */
 export const HUB_CANVAS_MOTION_KEYS = [
@@ -265,6 +274,8 @@ export const HUB_CANVAS_MOTION_KEYS = [
   'inFx',
   'outFx',
   'during',
+  // ✨ Reveal ▾ on a scene's pictures (Develop · Curtain, 2026-10-17) — motion, Pro at Apply like the rest of Animate.
+  'reveal',
   'timeline',
   'sequence',
   'stagger',

@@ -107,6 +107,11 @@ export type WhatsNewCard =
       requestedAt: string;
       /** Materialized on the row by the guard trigger — shown AND enforced. */
       expiresAt: string | null;
+      /**
+       * 💬 The conversation with this couple, when one exists — from the threads the desk already read (no query
+       * of its own). Today's Next card draws "Chat" only with it (simpler supplier dashboard 2026-10-14).
+       */
+      threadId?: string | null;
     }
   /*
     The couple wants to REMOVE a celebration this supplier was paid for, and
@@ -122,6 +127,8 @@ export type WhatsNewCard =
       eventVendorId: string;
       eventDate: string | null;
       requestedAt: string;
+      /** WHO is asking — `events.display_name` from the same meta read (Today's row: "Cancel request · <name>"). */
+      coupleName?: string;
     }
   /*
     🗓 A COUPLE ASKS TO MOVE THEIR DATE, AND IT CLASHES WITH THIS SHOP'S
@@ -323,6 +330,15 @@ export type UpcomingEventRow = {
   threadHref: string | null;
   /** True when `href` is the customer card. False = a fallback was needed. */
   opensCard: boolean;
+  /** The couple's guest count (`final_pax`, else `estimated_pax`) — the event-day card's "150 guests". */
+  guests?: number | null;
+  /** The schedule this booking holds a day on (a pool booking), when known — Today names it ("Main team", "Hall A"). */
+  poolId?: string | null;
+  /**
+   * 🏷 A booking from OUTSIDE (the supplier's own logbook — an `external_client` calendar block), drawn among the
+   * Setnayan bookings on Today's Coming up with "from outside" (simpler supplier dashboard 2026-10-14).
+   */
+  outside?: boolean;
 };
 
 export type VendorOverviewData = {
@@ -335,6 +351,17 @@ export type VendorOverviewData = {
    * never draws the empty "all caught up" state on top of it.
    */
   deskIncomplete: boolean;
+  /**
+   * New inquiries in the last 28 days — counted off the threads this read already holds (no query of its own):
+   * Today's "How is business" line ("312 looked · 14 asked").
+   */
+  inquiries28?: number;
+  /**
+   * 🏛 For each booking ask (by `eventVendorId`), the schedules already holding a booking ON the asked day — from the
+   * room bookings this read already holds (no query of its own). A venue's Today says "Hall A is booked that day"
+   * before Agree (prototype moment "9 · hallask").
+   */
+  askDayHolds?: Record<string, string[]>;
 };
 
 /**
@@ -395,16 +422,23 @@ export async function fetchVendorOverviewData(
 ): Promise<VendorOverviewData> {
   const vendorCategory = primaryCategoryLabel(services);
 
+  /*
+    ⚡ THREE ROUNDS, NOT FIVE (2026-10-23, the speed pass). The admin-scoped
+    desk reads below (lock requests · asks · deletions · declined deposits ·
+    completions · date changes) need only the shop's id, and so do the
+    own-session reads, so both sets START together. Then the reply owed and the
+    couple's first message (both need only the threads) run side by side, and
+    the one event-meta read comes last, still covering every id — the 🔴 fix
+    below is kept: the request fetches are still in hand before the meta read.
+    Held by `lib/the-supplier-today-reads-together.test.ts`.
+  */
+  // Lock requests: the couple recorded a deposit; the vendor still needs to
+  // confirm it. event_vendors is couple-RLS → admin client, filtered to this
+  // vendor.
+  const admin = createAdminClient();
+
   // --- 1. Vendor's own-session reads (RLS-scoped, fail-soft) -----------------
-  const [
-    threads,
-    reviews,
-    contracts,
-    roomBookings,
-    disputes,
-    meetingProposals,
-    draftQuotes,
-  ] = await Promise.all([
+  const ownReads = Promise.all([
     fetchVendorThreads(supabase, vendorProfileId).catch(() => []),
     fetchReviewsForVendorWithCouple(supabase, vendorProfileId, { limit: 50 }).catch(
       () => [],
@@ -425,6 +459,32 @@ export async function fetchVendorOverviewData(
     fetchCoupleMeetingProposals(supabase, vendorProfileId),
     fetchUnsentQuotes(supabase, vendorProfileId),
   ]);
+
+  // --- 2. Admin-scoped reads (vendor's own profile only), started beside 1 ---
+  const adminReads = Promise.all([
+    fetchLockRequests(admin, vendorProfileId),
+    // Flag-gated so the extra read does not even run while the handshake is
+    // dark. This file is registered as a GATE for exactly this call.
+    isLockHandshakeEnabled()
+      ? fetchLockAgreementRequests(admin, vendorProfileId)
+      : Promise.resolve({ rows: [] as LockAgreementRequest[], complete: true }),
+    // NOT flag-gated: the deletion handshake is live, not dark.
+    fetchDeletionRequests(admin, vendorProfileId),
+    fetchDeclinedDepositIds(admin, vendorProfileId),
+    // CTRL-B2 build 1. Runs here with the others so its event ids reach
+    // `fetchEventMeta` below — the card names the celebration and its date,
+    // and this is the exact hole the comment above says the deletion card
+    // would otherwise have inherited.
+    readBookingsAwaitingCompletion(admin, vendorProfileId),
+    // 🗓 A couple's clashing date, asked of this shop (Move · Unlock). Here
+    // with the others so its event ids reach `fetchEventMeta` (who is asking).
+    readDateChangeAsks(admin, vendorProfileId),
+  ]);
+
+  const [
+    [threads, reviews, contracts, roomBookings, disputes, meetingProposals, draftQuotes],
+    [lockRead, lockAgreementRead, deletionRead, declinedRead, completionAwaiting, dateChangeRead],
+  ] = await Promise.all([ownReads, adminReads]);
 
   const pendingThreads = threads.filter((t) => t.inquiry_status === 'pending');
   /*
@@ -457,16 +517,49 @@ export async function fetchVendorOverviewData(
       )
       .map((t) => t.event_id),
   );
-  const owedReplies = await fetchOwedThreadReplies(
-    supabase,
-    acceptedThreads.map((t) => t.thread_id),
-  );
-
-  // --- 2. Admin-scoped reads (vendor's own profile only) ---------------------
-  // Lock requests: the couple recorded a deposit; the vendor still needs to
-  // confirm it. event_vendors is couple-RLS → admin client, filtered to this
-  // vendor. Also enrich booked events with place + category (events read).
-  const admin = createAdminClient();
+  /**
+   * The couple's own first message per pending thread — ONE batched read.
+   *
+   * Granted pre-accept by the 2026-07-15 anonymisation decision (*"a vendor
+   * sees … the couple's message text"*) and already shown pre-accept on the
+   * thread page. This card was withholding it, so a supplier was asked to
+   * Accept or Decline without seeing what had been asked.
+   *
+   * ⚠ `sender_role = 'couple'` is load-bearing: a vendor auto-reply bot inserts
+   * its own row into a still-pending thread (recorded 2026-07-21), so "the
+   * earliest message" alone can be the SHOP'S OWN words quoted back at it.
+   *
+   * Fails soft — a card without an excerpt is worse than no card, but a
+   * dashboard that 500s because a preview could not be read is worse than both.
+   */
+  const firstMessagesRead = (async () => {
+    const firstMessageByThread = new Map<string, string>();
+    if (pendingThreads.length > 0) {
+      const { data: msgRows, error: msgErr } = await supabase
+        .from('chat_messages')
+        .select('thread_id, body, created_at, sender_role')
+        .in('thread_id', pendingThreads.map((t) => t.thread_id))
+        .eq('sender_role', 'couple')
+        .order('created_at', { ascending: true });
+      if (msgErr) {
+        logQueryError('vendorOverview.inquiryPreview', msgErr, {}, 'graceful_degrade');
+      }
+      for (const row of (msgRows ?? []) as Array<{ thread_id: string; body: string | null }>) {
+        if (!firstMessageByThread.has(row.thread_id) && row.body) {
+          firstMessageByThread.set(row.thread_id, row.body);
+        }
+      }
+    }
+    return firstMessageByThread;
+  })();
+  // The reply owed and the first message need only the threads — one round.
+  const [owedReplies, firstMessageByThread] = await Promise.all([
+    fetchOwedThreadReplies(
+      supabase,
+      acceptedThreads.map((t) => t.thread_id),
+    ),
+    firstMessagesRead,
+  ]);
 
   // Event-region + venue + name for every event referenced by an inquiry or a
   // booking — one batched read.
@@ -484,26 +577,6 @@ export async function fetchVendorOverviewData(
     covers their events too. The deletion card would have inherited the
     identical hole — a supplier asked to release a celebration, not told which.
   */
-  const [lockRead, lockAgreementRead, deletionRead, declinedRead, completionAwaiting, dateChangeRead] =
-    await Promise.all([
-      fetchLockRequests(admin, vendorProfileId),
-      // Flag-gated so the extra read does not even run while the handshake is
-      // dark. This file is registered as a GATE for exactly this call.
-      isLockHandshakeEnabled()
-        ? fetchLockAgreementRequests(admin, vendorProfileId)
-        : Promise.resolve({ rows: [] as LockAgreementRequest[], complete: true }),
-      // NOT flag-gated: the deletion handshake is live, not dark.
-      fetchDeletionRequests(admin, vendorProfileId),
-      fetchDeclinedDepositIds(admin, vendorProfileId),
-      // CTRL-B2 build 1. Runs here with the others so its event ids reach
-      // `fetchEventMeta` below — the card names the celebration and its date,
-      // and this is the exact hole the comment above says the deletion card
-      // would otherwise have inherited.
-      readBookingsAwaitingCompletion(admin, vendorProfileId),
-      // 🗓 A couple's clashing date, asked of this shop (Move · Unlock). Here
-      // with the others so its event ids reach `fetchEventMeta` (who is asking).
-      readDateChangeAsks(admin, vendorProfileId),
-    ]);
   const lockRequests = lockRead.rows;
   const lockAgreementRequests = lockAgreementRead.rows;
   const deletionRequests = deletionRead.rows;
@@ -568,39 +641,6 @@ export async function fetchVendorOverviewData(
   // --- Assemble WHAT'S NEW ---------------------------------------------------
   const whatsNew: WhatsNewCard[] = [];
 
-  /**
-   * The couple's own first message per pending thread — ONE batched read.
-   *
-   * Granted pre-accept by the 2026-07-15 anonymisation decision (*"a vendor
-   * sees … the couple's message text"*) and already shown pre-accept on the
-   * thread page. This card was withholding it, so a supplier was asked to
-   * Accept or Decline without seeing what had been asked.
-   *
-   * ⚠ `sender_role = 'couple'` is load-bearing: a vendor auto-reply bot inserts
-   * its own row into a still-pending thread (recorded 2026-07-21), so "the
-   * earliest message" alone can be the SHOP'S OWN words quoted back at it.
-   *
-   * Fails soft — a card without an excerpt is worse than no card, but a
-   * dashboard that 500s because a preview could not be read is worse than both.
-   */
-  const firstMessageByThread = new Map<string, string>();
-  if (pendingThreads.length > 0) {
-    const { data: msgRows, error: msgErr } = await supabase
-      .from('chat_messages')
-      .select('thread_id, body, created_at, sender_role')
-      .in('thread_id', pendingThreads.map((t) => t.thread_id))
-      .eq('sender_role', 'couple')
-      .order('created_at', { ascending: true });
-    if (msgErr) {
-      logQueryError('vendorOverview.inquiryPreview', msgErr, {}, 'graceful_degrade');
-    }
-    for (const row of (msgRows ?? []) as Array<{ thread_id: string; body: string | null }>) {
-      if (!firstMessageByThread.has(row.thread_id) && row.body) {
-        firstMessageByThread.set(row.thread_id, row.body);
-      }
-    }
-  }
-
   for (const t of pendingThreads) {
     const meta = eventMeta.get(t.event_id);
     // The inquiry card names the customer. It used to accept only
@@ -641,6 +681,7 @@ export async function fetchVendorOverviewData(
       eventDate: meta?.eventDate ?? null,
       requestedAt: ar.requestedAt,
       expiresAt: ar.expiresAt,
+      threadId: threads.find((t) => t.event_id === ar.eventId)?.thread_id ?? null,
     });
   }
 
@@ -681,6 +722,7 @@ export async function fetchVendorOverviewData(
       eventVendorId: dr.eventVendorId,
       eventDate: meta?.eventDate ?? null,
       requestedAt: dr.requestedAt,
+      coupleName: meta?.displayName ?? 'A couple',
     });
   }
 
@@ -753,7 +795,7 @@ export async function fetchVendorOverviewData(
       id: `done-${b.vendor_id}`,
       eventVendorId: b.vendor_id,
       eventId: b.event_id,
-      eventName: meta?.displayName ?? 'A celebration',
+      eventName: meta?.displayName ?? 'An event',
       eventDate: meta?.eventDate ?? null,
       // The day after the event is when this started waiting — not now, or it
       // would sort to the top of an oldest-first desk forever.
@@ -958,10 +1000,29 @@ export async function fetchVendorOverviewData(
         href: door.href,
         threadHref: door.threadHref,
         opensCard: door.opensCard,
+        guests: meta?.guests ?? null,
+        poolId: b.poolId ?? null,
       };
     });
 
-  return { whatsNew, ongoing, upcoming, deskIncomplete };
+  const since28 = Date.now() - 28 * 86_400_000;
+  const inquiries28 = threads.filter((t) => {
+    const at = Date.parse(String((t as { created_at?: string | null }).created_at ?? ''));
+    return Number.isFinite(at) && at >= since28;
+  }).length;
+
+  const askDayHolds: Record<string, string[]> = {};
+  for (const ar of answerableAsks) {
+    const day = eventMeta.get(ar.eventId)?.eventDate ?? null;
+    if (!day) continue;
+    // One entry per booking (a schedule booked twice that day is listed twice) — Today weighs it against the
+    // schedule's own "how many a day".
+    askDayHolds[ar.eventVendorId] = roomBookings
+      .filter((b) => b.bookedDate === day && b.eventId !== ar.eventId && b.poolId)
+      .map((b) => b.poolId as string);
+  }
+
+  return { whatsNew, ongoing, upcoming, deskIncomplete, inquiries28, askDayHolds };
 }
 
 // ---------------------------------------------------------------------------
@@ -1132,6 +1193,8 @@ type EventMeta = {
   region: string | null;
   venue: string | null;
   eventType: string | null;
+  /** `final_pax`, else `estimated_pax` — same row, no read of its own. */
+  guests: number | null;
 };
 
 async function fetchEventMeta(
@@ -1150,7 +1213,7 @@ async function fetchEventMeta(
   const { rows: data, error } = await readInChunks<Record<string, unknown>>(eventIds, (part) =>
     admin
       .from('events')
-      .select('event_id, display_name, event_date, region, venue_name, event_type')
+      .select('event_id, display_name, event_date, region, venue_name, event_type, estimated_pax, final_pax')
       .in('event_id', part),
   );
   if (error) {
@@ -1165,6 +1228,8 @@ async function fetchEventMeta(
     region: string | null;
     venue_name: string | null;
     event_type: string | null;
+    estimated_pax?: number | null;
+    final_pax?: number | null;
   }>) {
     out.set(row.event_id, {
       displayName: row.display_name ?? 'A couple',
@@ -1172,6 +1237,7 @@ async function fetchEventMeta(
       region: row.region,
       venue: row.venue_name,
       eventType: row.event_type,
+      guests: row.final_pax ?? row.estimated_pax ?? null,
     });
   }
   return out;

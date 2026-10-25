@@ -18,7 +18,7 @@
  * Read only by the lazily-loaded rows — never by the draft library. Pure.
  * Held by `lib/the-four-fonts-reach-the-page.test.ts`.
  */
-import type { HubFontKey } from './hub-fonts';
+import { hubFontPreviewStack, type HubFontKey } from './hub-fonts';
 import { hubFontKeyForFamily } from './hub-font-shelves';
 import { INVITE_THEMES, INVITE_THEME_IDS, type InviteThemeId } from './invite-themes';
 import { sanitizeSiteRoles, type SiteRoles } from './site-roles';
@@ -62,7 +62,14 @@ export function fontChoiceWrite(choice: FontChoice): { site_font_key: HubFontKey
   return { site_font_key: choice.names, site_roles: sanitizeSiteRoles(roles) };
 }
 
-export type FontPairing = { id: InviteThemeId; name: string; faces: string; choice: FontChoice };
+export type FontPairing = {
+  id: InviteThemeId;
+  name: string;
+  faces: string;
+  choice: FontChoice;
+  /** 🔤 The pairing's own look — its Names face (the theme's heading face) as a CSS stack, so Fonts ▾ draws each pairing as it reads (owner 2026-10-14). */
+  face?: string;
+};
 
 const NOTHING: FontChoice = { names: null, heading: null, body: null, highlight: null };
 
@@ -72,15 +79,16 @@ export function fontPairings(own: InviteThemeId): FontPairing[] {
   for (const id of INVITE_THEME_IDS) {
     const t = INVITE_THEMES[id];
     const faces = `${t.fonts.heading} & ${t.fonts.body}`;
+    const heading = hubFontKeyForFamily(t.fonts.heading);
+    const face = heading ? { face: hubFontPreviewStack(heading) } : {};
     if (id === own) {
-      out.push({ id, name: t.name, faces, choice: NOTHING });
+      out.push({ id, name: t.name, faces, choice: NOTHING, ...face });
       continue;
     }
-    const heading = hubFontKeyForFamily(t.fonts.heading);
     const body = hubFontKeyForFamily(t.fonts.body);
     const labels = hubFontKeyForFamily(t.fonts.labels);
     /* Headings follow Names — a pairing's heading face is the Names', and the Headings row keeps nothing of its own. */
-    if (heading && body && labels) out.push({ id, name: t.name, faces, choice: { names: heading, heading: null, body, highlight: labels } });
+    if (heading && body && labels) out.push({ id, name: t.name, faces, choice: { names: heading, heading: null, body, highlight: labels }, ...face });
   }
   return out;
 }

@@ -25,6 +25,9 @@ import {
   readSource,
   sectionsMoved,
   readTarget,
+  releaseIs,
+  TAP_SLOP_MOUSE,
+  TAP_SLOP_TOUCH,
   type MarchMove,
   type MarchOut,
   type MarchSection,
@@ -37,6 +40,8 @@ import { ActionButton } from '@/components/action-button';
 import { PeekToast } from '@/app/_components/toast/peek-toast';
 import { plainRefusal } from '../../guests/_components/plain-refusal';
 import { MarchTray } from './details-march-tray';
+import { GuestCardSheet, SHIPPED_GUEST_CARD, type GuestCardPerson } from '../../guests/_components/guest-card-sheet';
+import type { GuestCardResult } from '../../guests/_components/guest-card';
 
 /**
  * THE WEDDING MARCH MAKER — drag the names (owner 2026-10-06, DECISION_LOG "THE
@@ -95,6 +100,24 @@ const LONG_PRESS_MS = 250;
 export const SETTLE_MS = 240;
 export const EDGE_PX = 56;
 
+/**
+ * 🪪 A TAP ON A NAME OPENS THEIR GUEST CARD (owner 2026-10-14) — read through the shipped action, loaded at the first tap
+ * (opening the march reaches for no server door). The lab hands in its own stand-in (`openCard`).
+ */
+const openCardShipped = SHIPPED_GUEST_CARD.march;
+/** 🪪 A finger's tap is a pointerup and THEN a click, at the same spot. The card opens at the pointerup, so that click
+ *  would land on the sheet's scrim and close the card the instant it opened (measured in the lab: dialog 1 → 0 in 15 ms).
+ *  The click that belongs to this tap is swallowed — once, and only for half a second. */
+function swallowTapClick(): void {
+  const eat = (ev: Event) => {
+    ev.stopPropagation();
+    ev.preventDefault();
+    window.removeEventListener('click', eat, true);
+  };
+  window.addEventListener('click', eat, true);
+  setTimeout(() => window.removeEventListener('click', eat, true), 500);
+}
+
 /** What one drop puts in the draft: its steps, after the drafted ones — or the last drafted move back off. */
 type MarchDraftPatch = Pick<HubDraftPatch, 'march' | 'marchUndo'>;
 
@@ -125,6 +148,8 @@ type Drag = {
   y: number;
   scroller: HTMLElement;
   dir: number;
+  /** 🪪 The finger left the tap's slop at some point since the press — so a release is a drop, never a tap. */
+  wandered: boolean;
 };
 
 /** What the maker shows: the walks, the printed sections' saved order (what a header drag steps through), the tray. */
@@ -160,6 +185,10 @@ type MarchMakerProps = {
   lab?: boolean;
   /** 🚶 The Event Hub draft could not be read — the drafted moves are unknown, so nothing may be dragged. */
   draftUnread?: boolean;
+  /** 🪪 How a tapped name's guest card is read (the dev lab's stand-in); absent = the shipped `openGuestCard`. */
+  openCard?: (eventId: string, guestId: string) => Promise<GuestCardResult>;
+  /** 🪪 The lab's re-read after a card saved (the Maker's one refresh otherwise). */
+  onCardSaved?: () => void;
 };
 
 /** The one line the march draws when it cannot be shown — with Retry, which draws it again from the server's copy. */
@@ -226,6 +255,8 @@ function MarchMakerBody({
   printed = NO_NAMES,
   out = NO_OUT,
   lab = false,
+  openCard = openCardShipped,
+  onCardSaved,
 }: MarchMakerProps) {
   /* The drop, drawn before the server answers; null = the server's march. */
   const [mine, setMine] = useState<Shown | null>(null);
@@ -258,6 +289,8 @@ function MarchMakerBody({
   /* ⌨ What the keyboard is holding, and what it last did (said aloud). */
   const [carried, setCarried] = useState<{ source: MarchSource; key: string; name: string } | null>(null);
   const [heard, setHeard] = useState('');
+  /* 🪪 The person whose guest card is open over the march (a tap on their name). */
+  const [card, setCard] = useState<GuestCardPerson | null>(null);
   const refocus = useRef<string | null>(null);
 
   const root = useRef<HTMLElement>(null);
@@ -535,7 +568,7 @@ function MarchMakerBody({
       document.body.appendChild(ghost);
       // A tray name scrolls the MARCH near its edges (the tray itself never scrolls).
       const scroller = p.source.kind === 'out' && root.current ? scrollerOf(root.current) : scrollerOf(p.el);
-      drag.current = { source: p.source, key: p.key, ghost, ox: x - r.left, oy: y - r.top, x, y, scroller, dir: 0 };
+      drag.current = { source: p.source, key: p.key, ghost, ox: x - r.left, oy: y - r.top, x, y, scroller, dir: 0, wandered: false };
       ghost.style.transform = `translate(${x - drag.current.ox}px,${y - drag.current.oy}px) scale(1.03)`;
       setLifted(p.key);
       try {
@@ -557,16 +590,17 @@ function MarchMakerBody({
         const moved = Math.hypot(e.clientX - p.x, e.clientY - p.y);
         if (p.touch) {
           // Moving before the long-press ends is a scroll — let it be one.
-          if (moved > 8) stopAll();
+          if (moved > TAP_SLOP_TOUCH) stopAll();
           return;
         }
-        if (moved > 4) lift(e.clientX, e.clientY);
+        if (moved > TAP_SLOP_MOUSE) lift(e.clientX, e.clientY);
         if (!drag.current) return;
       }
       e.preventDefault();
       const d = drag.current;
       d.x = e.clientX;
       d.y = e.clientY;
+      if (!d.wandered && Math.hypot(e.clientX - p.x, e.clientY - p.y) > (p.touch ? TAP_SLOP_TOUCH : TAP_SLOP_MOUSE)) d.wandered = true;
       d.ghost.style.transform = `translate(${d.x - d.ox}px,${d.y - d.oy}px) scale(1.03)`;
       hit(d);
       const [top, bottom] = edgesOf(d.scroller);
@@ -578,7 +612,30 @@ function MarchMakerBody({
   const onUp = useCallback((e?: PointerEvent) => {
     if (e && pending.current && e.pointerId !== pending.current.pid) return;
     const d = drag.current;
+    const press = pending.current;
     stopAll();
+    /* 🪪 A TAP OR A DRAG (`releaseIs`, lib/march-drag.ts — one answer): a name let go where it was pressed, never having
+       wandered, is a TAP and opens their guest card over the march — lifted by the long-press or not (a slow finger
+       still taps). A press that left the slop at any moment is a drag, and a drag never opens the card. */
+    const said =
+      e && press
+        ? releaseIs({ kind: press.source.kind, touch: press.touch, lifted: d !== null, wandered: d?.wandered ?? false, moved: Math.hypot(e.clientX - press.x, e.clientY - press.y) })
+        : d
+          ? 'drop'
+          : 'nothing';
+    if (said === 'card' && press && (press.source.kind === 'name' || press.source.kind === 'out')) {
+      if (d) {
+        // The lift is undone where it began: no ghost, no dim, no drop.
+        drag.current = null;
+        target.current = null;
+        setOver(null);
+        d.ghost.remove();
+        setLifted(null);
+      }
+      setCard({ id: press.source.id, name: press.el.dataset.marchName ?? '' });
+      swallowTapClick();
+      return;
+    }
     if (!d) return;
     drag.current = null;
     const zone = target.current;
@@ -667,6 +724,16 @@ function MarchMakerBody({
       setHeard(`${carried.name} put back — nothing moved.`);
       return;
     }
+    /* 🪪 Enter on a name (nothing held) opens their guest card; Space picks the name up to move it. */
+    if (e.key === 'Enter' && !carried) {
+      const from = el.closest<HTMLElement>('[data-march-drag]');
+      const source = readSource(from?.dataset.marchDrag);
+      if (from && source && (source.kind === 'name' || source.kind === 'out')) {
+        e.preventDefault();
+        setCard({ id: source.id, name: from.dataset.marchName ?? '' });
+        return;
+      }
+    }
     if (e.key === ' ' || e.key === 'Enter') {
       if (carried) {
         e.preventDefault();
@@ -716,6 +783,7 @@ function MarchMakerBody({
   let step = 0;
 
   return (
+    <>
     <section
       ref={root}
       data-march-maker=""
@@ -822,10 +890,11 @@ function MarchMakerBody({
                           role="button"
                           aria-pressed={carried?.key === p.id}
                           data-march-side={c === 0 ? 'left' : 'right'}
-                          aria-label={`${p.name}${p.tag ? `, ${p.tag}` : ''} — step ${step}, ${c === 0 ? 'left' : 'right'}`}
+                          aria-label={`${p.name}${p.tag ? `, ${p.tag}` : ''} — step ${step}, ${c === 0 ? 'left' : 'right'}. Enter opens their guest card; Space moves them.`}
+                          data-march-card-open={card?.id === p.id && p.id ? '' : undefined}
                           className={`${NAME_CHIP} ${
                             p.tag ? 'border-terracotta-700/60 bg-white' : 'border-terracotta-700/20 bg-terracotta-700/[0.06]'
-                          } ${lifted === p.id ? 'border-dashed opacity-30' : ''}${carried?.key === p.id ? ' ring-2 ring-ink ring-offset-1' : ''}${ring(zone)}`}
+                          } ${lifted === p.id ? 'border-dashed opacity-30' : ''}${carried?.key === p.id ? ' ring-2 ring-ink ring-offset-1' : ''}${card?.id === p.id && p.id ? ' ring-2 ring-terracotta-700 ring-offset-1' : ''}${ring(zone)}`}
                         >
                           <span className="font-serif text-[15.5px] leading-tight text-ink [overflow-wrap:anywhere]">{p.name}</span>
                           {p.tag ? (
@@ -873,6 +942,7 @@ function MarchMakerBody({
               lifted={lifted}
               over={over?.zone === 'tray' ? over.ok : null}
               carried={carried?.key ?? null}
+              carded={card !== null}
             />,
             slot,
           )
@@ -892,6 +962,14 @@ function MarchMakerBody({
         </PeekToast>
       ) : null}
     </section>
+    {/* 🪪 The tapped person's own guest card — THE guest card (`GuestCard`), in its sheet over the march
+        (`guest-card-sheet.tsx`) — OUTSIDE the march's
+        section, so a key or a press inside the card never reaches the drag's handlers (a portal's events bubble through
+        the React tree). */}
+    {card && card.id ? (
+      <GuestCardSheet eventId={eventId} person={card} open={openCard} onClose={() => setCard(null)} onSaved={onCardSaved} />
+    ) : null}
+    </>
   );
 }
 

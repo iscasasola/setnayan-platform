@@ -37,6 +37,7 @@ export async function loadYourEvent({
   drafted,
   draftedVenue,
   draftedMarch,
+  venuePro,
 }: {
   supabase: SupabaseClient;
   admin: SupabaseClient;
@@ -57,6 +58,8 @@ export async function loadYourEvent({
    * not draw the march.
    */
   draftedMarch?: MarchStep[][] | null;
+  /** ⛪ Event Hub Pro as the viewer is shown it — the venue card's "Our drawing ◆" mark. */
+  venuePro?: { owns: boolean; storeShell: boolean };
 }): Promise<YourEventInput | null> {
   const [base, confirmedVendorCount, nameStyle, liveCeremonyTime, savedSections] = await Promise.all([
     readYourEventFacts({ admin, eventId, parentCount, hostCount, drafted, draftedVenue }),
@@ -74,7 +77,7 @@ export async function loadYourEvent({
      "in event hub maker will only take effect when pressed apply"). */
   const shownNameStyle = drafted && 'print_details' in drafted ? nameStyleOfPrintDetails(drafted.print_details) : nameStyle;
   if (!base) return null;
-  const { row, words, kind, precision, bookings, groups, notWalking, venues, people, chinese, namesWritable } = base;
+  const { row, words, kind, precision, bookings, groups, notWalking, marchUnread, venues, people, chinese, namesWritable } = base;
   const [a, b] = base.names;
 
   // The shipped Find your date's own read — the couple's suppliers against the days considered.
@@ -119,7 +122,15 @@ export async function loadYourEvent({
       ...base,
       slot,
       booked: b
-        ? { name: b.name, address: b.address, photos: (b.photos ?? []).filter((r) => photoUrls[r]), pin: pinOf(b.latitude, b.longitude) }
+        ? {
+            name: b.name,
+            address: b.address,
+            photos: (b.photos ?? []).filter((r) => photoUrls[r]),
+            pin: pinOf(b.latitude, b.longitude),
+            /* 📍 Whose pin this is, and the booking a manual card's pin is saved through (owner 2026-10-22). */
+            pinFrom: b.pinFrom ?? null,
+            vendorId: b.vendorId ?? null,
+          }
         : null,
       choice,
       photoUrls,
@@ -166,7 +177,7 @@ export async function loadYourEvent({
     nameStyle: shownNameStyle,
     names:
       namesWritable && people
-        ? { people, initial: [a, b], wholeForm: null }
+        ? { people, initial: [a, b], storedName: row.display_name, wholeForm: null }
         : null,
     date: {
       confirmedVendorCount,
@@ -182,6 +193,7 @@ export async function loadYourEvent({
       resolved: venues,
       slots,
       city: mayShowStdFilm ? (row.std_film_venue_city ?? '') : null,
+      ...(venuePro ? { pro: venuePro } : {}),
     },
     /* 🚶 …shown as DRAFTED (owner 2026-10-06, "Wait for apply"): the live march
        with the couple's drafted moves laid on (`marchAsDrafted`). */
@@ -194,6 +206,7 @@ export async function loadYourEvent({
         out: notWalking ? marchTray(notWalking) : null,
       },
       draftedMarch,
+      marchUnread,
     ),
   };
 }
@@ -207,7 +220,10 @@ export async function loadYourEvent({
 function marchAsDrafted(
   live: { sections: MarchSection[]; printed: string[]; out: MarchOut[] | null },
   drafted: MarchStep[][] | null | undefined,
+  marchUnread = false,
 ): YourEventInput['march'] {
+  // An unread MARCH is the same refusal as an unread draft: a full march must never read "Nobody walks yet".
+  if (marchUnread) return { ...live, draftUnread: true, marchUnread: true };
   if (drafted === null) return { ...live, draftUnread: true };
   if (!drafted?.length) return live;
   const shown = replayMarch({ sections: live.sections, printed: live.printed, out: live.out ?? [] }, drafted.flat());

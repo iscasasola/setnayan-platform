@@ -7,8 +7,9 @@ import { useEffect } from 'react';
  * "Nothing is written — it only changes what the canvas draws").
  *
  * Mounted by `SiteBody` (and over the private door) only while the page is
- * drawn for a See as sample viewer (`sampleViewer`) — in the Maker's canvas or
- * on the host's own Event Hub (the ribbon's Preview ▾). The page it guards is
+ * drawn for a See as sample viewer (`sampleViewer`) — in the Maker's canvas, or
+ * at a host-only `?as=` address opened by hand (the host strip that advertised it
+ * went on 2026-10-15). The page it guards is
  * the guest page itself — the real reply button, the real "Save my ticket", the
  * real door — so nothing on it may act:
  *
@@ -21,8 +22,8 @@ import { useEffect } from 'react';
  *   · A LINK: in the canvas, stopped like a button (the canvas never leaves the
  *     page). Off the canvas, a link only moves the host around their own pages —
  *     navigation writes nothing — so it is let through, and so are the guest's
- *     tab bar (it switches tabs, nothing else) and the host's own ribbon with its
- *     Preview ▾ list, which are how the host looks around and switches back.
+ *     tab bar (it switches tabs, nothing else) and an open dropdown's list, which
+ *     are how the host looks around.
  *
  * The server holds the same line on its own: the sample guest's id matches no
  * row (`SIMULATED_GUEST_ID`), it has no guest session, and the reply action
@@ -30,8 +31,8 @@ import { useEffect } from 'react';
  */
 export const SAMPLE_PRESSABLE = 'a[href], button, input, select, textarea, label, summary, [role="button"], [role="link"], [role="option"]';
 
-/** The host's own controls and the guest's tab bar — they look around, they never act. */
-export const SAMPLE_FREE_OFF_CANVAS = '[data-owner-ribbon], [role="listbox"], nav[aria-label="Site sections"]';
+/** An open dropdown's list and the guest's tab bar — they look around, they never act. */
+export const SAMPLE_FREE_OFF_CANVAS = '[role="listbox"], nav[aria-label="Site sections"]';
 
 /** Every submit: stopped, before React or the browser acts on it. */
 export function stopSampleSubmit(e: Pick<Event, 'preventDefault' | 'stopImmediatePropagation'>) {

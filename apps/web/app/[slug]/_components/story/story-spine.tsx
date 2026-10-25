@@ -861,7 +861,7 @@ export function StorySpine({
             openingStamp={opening?.stamp ?? shortDate(dayDates[0] ?? '')}
             openingSuffix={opening?.stampSuffix ?? ''}
             openingLabel={opening?.title ?? 'The road to the day'}
-            withheldNote={`What was shot at this minute is filling in for the people of this celebration. It publishes here when the ${words.host} says so.`}
+            withheldNote={`What was shot at this minute is filling in for the people of this event. It publishes here when the ${words.host} says so.`}
             find={<FindInThisDay occasion={words.occasion} />}
           />
         </div>
@@ -1345,7 +1345,7 @@ function MinuteEntry({
       </div>
       {guestOpen ? null : (
         <p className="mt-3 rounded-lg border border-dashed border-ink/25 px-3.5 py-3 text-[13.5px] text-ink/70">
-          The captures of this minute belong to the people of this celebration, for now.
+          The captures of this minute belong to the people of this event, for now.
         </p>
       )}
     </article>
@@ -1379,7 +1379,7 @@ function roomSentence(state: string, blockLabel: string | null): string {
     case 'before':
       return 'The room was still being set. There is no seating to attribute a photograph to yet.';
     case 'no_venue':
-      return 'This celebration kept no seating plan.';
+      return 'This event kept no seating plan.';
     default:
       return 'Between the seated parts of the day — no table to attribute a photograph to.';
   }

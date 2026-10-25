@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { isUuid } from '@/lib/is-uuid';
 import { fetchEventViewer, isDelegateWithoutArea } from '@/lib/event-viewer.server';
-import { fetchGuestsByEventMeasured, guestDisplayName, guestFullName } from '@/lib/guests';
+import { fetchGuestsByEventMeasured, guestDisplayName, guestNameAsGiven } from '@/lib/guests';
 import { NotSharedWithYou } from '../../_components/not-shared-with-you';
 import { fetchInvitationBase } from '../_components/guest-card-data';
 import { loadInviteSetup } from '../_components/invite-message-setup';
@@ -70,7 +70,7 @@ export default async function SendInvitesPage({ params, searchParams }: Props) {
   const guests: SendInviteGuest[] = sendRunGuests(rows, picked)
     .map((g) => ({
       guestId: g.guest_id,
-      formalName: guestFullName(g, setup.facts.nameStyle),
+      formalName: guestNameAsGiven(g, setup.facts.nameStyle),
       firstName: g.first_name,
       fullName: guestDisplayName(g),
       inviteUrl: invitationBase && g.qr_token ? invitationLinkOn(invitationBase, g.qr_token) : null,

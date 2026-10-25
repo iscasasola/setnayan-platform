@@ -40,6 +40,8 @@ import { Plan3DDemoOverlay } from './plan3d-demo-overlay';
 import { AlaalaEditorialOverlay } from './alaala-editorial-overlay';
 import { SignInHerePanel } from '@/app/_components/auth/sign-in-here-panel';
 import { supplierCommissionShort } from '@/lib/commission-promise';
+import { useIsStoreShell } from '@/lib/use-store-shell';
+import { deviceOs } from '@/lib/apple-device';
 
 export type OverlayId =
   | 'prices'
@@ -173,7 +175,7 @@ function PricesOverlay({
           <span>Schedule · Budget · Guest List · Seat Plan · Mood Board</span>
         </li>
         <li>
-          Free website
+          Free Event Hub
           <span>Save-the-Date · RSVP · Event · Editorial + unlimited RSVP</span>
         </li>
         <li>Find only verified suppliers</li>
@@ -256,7 +258,7 @@ function DownloadOverlay({
           <div className="hr-s">Install from your browser</div>
         </Link>
       </div>
-      <div className="hr-dl-stores">
+      <div className="hr-dl-stores" data-coming-soon>
         {/* App-store listings are not live yet — kept as a labelled "soon" tile
             rather than a dead link. Swap for the real store URLs once published. */}
         <span className="hr-dl-store hr-soon">
@@ -308,7 +310,7 @@ function VendorsOverlay({
           {/* Supplier-facing: the second sentence is owed here. */}
           <b>{supplierCommissionShort(pricing?.bookingFee ?? null)}</b>
         </li>
-        <li>Free business public website</li>
+        <li>Free Setnayan page for your business</li>
         <li>Get verified — free</li>
         <li>
           Complete business tools
@@ -321,8 +323,8 @@ function VendorsOverlay({
         <span className="hr-gintro-h">How the tiers stack</span>
         <span className="hr-gintro-b">
           Free is the whole ops spine · Solo adds your business analytics · Pro
-          adds a team, wider reach &amp; market intel · Enterprise lifts every
-          limit.
+          adds a team, wider reach &amp; market intel · Ultra reaches the
+          farthest.
         </span>
       </div>
       <div className="hr-gline">
@@ -624,13 +626,38 @@ export function HomeOverlays({
   // Device-detect for the Download overlay (client-only).
   const [detected, setDetected] = useState('your device');
   const [match, setMatch] = useState<'mac' | 'win' | null>(null);
+  /* 🍎 One reading of the device (`deviceOs`, lib/apple-device.ts — iPad + Duo
+     audit W8, 2026-10-19). `/mac/i` called iPad Safari (Macintosh UA) AND every
+     iPhone ("like Mac OS X") "macOS" and lit up the .dmg. A phone or tablet is
+     named, and no desktop download is highlighted for it. */
   useEffect(() => {
-    const ua = navigator.userAgent || '';
-    const mac = /mac/i.test(ua);
-    const win = /win/i.test(ua);
-    setDetected(mac ? 'macOS' : win ? 'Windows' : 'your computer');
-    setMatch(mac ? 'mac' : win ? 'win' : null);
+    const os = deviceOs(navigator.userAgent || '', navigator.maxTouchPoints);
+    setDetected(
+      os === 'mac' ? 'macOS'
+      : os === 'windows' ? 'Windows'
+      : os === 'iphone' ? 'iPhone'
+      : os === 'ipad' ? 'iPad'
+      : os === 'android' ? 'Android'
+      : 'your computer',
+    );
+    setMatch(os === 'mac' ? 'mac' : os === 'windows' ? 'win' : null);
   }, [current]);
+
+  /*
+    🍎 IN THE IPHONE APP, ONLY SIGN IN OPENS HERE (Apple check 2026-10-19,
+    rows #5 · #26 — guideline 3.1.1). Prices quotes the Setnayan AI rate,
+    Vendors is the supplier tier ladder ("Want to upgrade your business?"),
+    Setnayan AI is a price sheet, Download promotes the Mac, Windows and web
+    apps, and the four demos are paid features. The header hides its buttons
+    before the first paint (`data-web-only` in site-nav.tsx); this is the
+    second wall, so a press from anywhere else — a demo bus event, a stale
+    handler — still opens nothing that sells. Off the store shell nothing
+    changes. Held by lib/store-shell.test.ts.
+  */
+  const storeShell = useIsStoreShell();
+  if (storeShell) {
+    return current === 'signin' ? <SignInHerePanel options={{}} onClose={onClose} /> : null;
+  }
 
   return (
     <>

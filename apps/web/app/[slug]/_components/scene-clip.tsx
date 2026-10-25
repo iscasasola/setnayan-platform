@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { HUB_VEIL_RELEASED_EVENT } from '@/lib/hub-veil';
 
 /**
  * A CLIP IN A SCENE — short ones loop, longer ones wait for a tap.
@@ -30,6 +31,8 @@ export function SceneClip({
   className = 'hub-tpl-media',
   poster = null,
   revealOnPlay = false,
+  firstFrame = false,
+  position = null,
 }: {
   src: string;
   /** The clip's still — its first frame before it plays, and under reduced motion. */
@@ -53,10 +56,25 @@ export function SceneClip({
    * dead link. No guest-side control is ever shown.
    */
   revealOnPlay?: boolean;
+  /**
+   * 🎞 THE CLIP'S OWN FIRST FRAME IS THE STILL — the Cover Scene's clip (owner 2026-10-19, verbatim: *"shouldn't before
+   * the reveal, it should be the first frame of the video?"*). The video is drawn from the start, with NO `poster`
+   * (a stored poster is a separately grabbed JPEG — cale-ice's is all black), asking for its first frame
+   * (`#t=0.001`, which is also what makes Safari paint it before a play) — so behind the veil the guest sees frame 0
+   * and the unveil starts the film from exactly that frame, with no jump.
+   * ▶ AND A REFUSED PLAY IS NEVER A DEAD STILL: when the browser refuses `play()` (`NotAllowedError` — iOS Low Power
+   * Mode, a "never auto-play" site setting), a ▶ shows on the frame and the guest's next tap anywhere plays it.
+   * Reduced motion and Save-Data keep the frame and show no ▶ (the guest asked for stillness).
+   */
+  firstFrame?: boolean;
+  /** 🎯 Where the film is held when it is cropped (`mainGroundPosition` — the Main background's Focus). Null = its centre. */
+  position?: string | null;
 }) {
   const ref = useRef<HTMLVideoElement>(null);
   const [started, setStarted] = useState(false);
   const [moving, setMoving] = useState(false);
+  /** The browser refused to play it (never the veil's own hold, which is an `AbortError`). */
+  const [refused, setRefused] = useState(false);
 
   // LOOP: play only while on screen and while the tab is in front; never under
   // reduced motion, never when the guest asked their phone to save data.
@@ -71,7 +89,13 @@ export function SceneClip({
     }
     let onScreen = false;
     const sync = () => {
-      if (onScreen && document.visibilityState !== 'hidden') void v.play().catch(() => undefined);
+      if (onScreen && document.visibilityState !== 'hidden')
+        void v.play().then(
+          () => setRefused(false),
+          (e: unknown) => {
+            if (firstFrame && (e as { name?: string } | null)?.name === 'NotAllowedError') setRefused(true);
+          },
+        );
       else v.pause();
     };
     const io = new IntersectionObserver(
@@ -85,11 +109,58 @@ export function SceneClip({
     );
     io.observe(v);
     document.addEventListener('visibilitychange', sync);
+    /* 👆 The unveil lets the page go INSIDE the guest's tap (`lib/hub-veil.ts`, the event is dispatched synchronously
+       from that pointerup) — asked again there, so the play carries the tap's credit. */
+    if (firstFrame) window.addEventListener(HUB_VEIL_RELEASED_EVENT, sync);
     return () => {
       io.disconnect();
       document.removeEventListener('visibilitychange', sync);
+      if (firstFrame) window.removeEventListener(HUB_VEIL_RELEASED_EVENT, sync);
     };
-  }, [play]);
+  }, [play, firstFrame]);
+
+  /* ▶ Refused: every tap anywhere asks again (a tap is a gesture every browser honours) until one plays — not `once`,
+     so a tap that was itself refused (the unveil's own, in a browser that refuses even then) leaves the ▶ working. */
+  useEffect(() => {
+    if (!refused) return;
+    const v = ref.current;
+    if (!v) return;
+    const tapToPlay = () => {
+      void v.play().then(() => setRefused(false), () => undefined);
+    };
+    document.addEventListener('pointerup', tapToPlay, { capture: true });
+    return () => document.removeEventListener('pointerup', tapToPlay, { capture: true });
+  }, [refused]);
+
+  if (play === 'loop' && firstFrame) {
+    return (
+      <>
+        <video
+          ref={ref}
+          className={className}
+          src={`${src}#t=0.001`}
+          data-first-frame=""
+          onPlaying={() => setRefused(false)}
+          {...(position && position !== 'center' ? { style: { objectPosition: position } } : {})}
+          muted
+          loop
+          playsInline
+          preload="auto"
+          aria-hidden
+          tabIndex={-1}
+        />
+        {refused ? (
+          <span
+            data-clip-refused=""
+            aria-hidden
+            className="pointer-events-none absolute bottom-[calc(env(safe-area-inset-bottom,0px)+6rem)] left-4 flex h-11 w-11 items-center justify-center rounded-full bg-black/55 text-[18px] leading-none text-white"
+          >
+            ▶
+          </span>
+        ) : null}
+      </>
+    );
+  }
 
   if (play === 'loop') {
     return (
@@ -98,8 +169,9 @@ export function SceneClip({
         className={className}
         src={src}
         {...(poster ? { poster } : {})}
-        {...(revealOnPlay
-          ? { style: { opacity: moving ? 1 : 0 }, onPlaying: () => setMoving(true) }
+        {...(revealOnPlay ? { onPlaying: () => setMoving(true) } : {})}
+        {...(revealOnPlay || (position && position !== 'center')
+          ? { style: { ...(revealOnPlay ? { opacity: moving ? 1 : 0 } : {}), ...(position && position !== 'center' ? { objectPosition: position } : {}) } }
           : {})}
         muted
         loop

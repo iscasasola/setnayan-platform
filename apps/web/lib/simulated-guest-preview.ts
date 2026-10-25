@@ -61,6 +61,7 @@ import type { GuestRow } from '../app/[slug]/_lib/types';
 import type { LifecyclePhase } from './invitation-widgets';
 import { seeAsOf, type SeeAs } from './see-as';
 import { PASS_CARD_FORMAT_ID, passCardEligibility, type PassCardEligibility } from './pass-card';
+import type { PreviewRolePick } from './preview-role';
 
 /** The query param the editor's RSVP'd tab appends. Deliberately NOT `phase` —
  *  see the module doc: `?phase=` has a closed four-value allow-list. */
@@ -85,7 +86,7 @@ export const SIMULATED_GUEST_PHASE: LifecyclePhase = 'rsvp';
  *     `?as=replied` on any URL they like and get the ordinary page;
  *   - a capability resolved for a DIFFERENT event than the one being rendered
  *     (stricter re-statement of the capability's own event binding, mirroring
- *     `buildOwnerRibbon` — a capability for event A never lights up event B);
+ *     `viewerIsEventHost` — a capability for event A never lights up event B);
  *   - any phase other than `rsvp`;
  *   - any `?as=` value other than `replied` (absent, empty, misspelt, an array
  *     from a repeated param — all false).
@@ -113,8 +114,9 @@ export function shouldSimulateRepliedGuest(input: {
  *
  * A verified host may ask for any of the four See as states (`SEE_AS`,
  * lib/see-as.ts) on any stage — a guest is a guest on every stage — from the
- * Maker's canvas (👁 Preview) or from their own Event Hub (the ribbon's
- * Preview ▾): ONE preview mechanism (coordinator 2026-10-04). The old
+ * Maker's canvas (👁 Preview, and on a phone the hold-▶ preview's See as ▾ — the
+ * host strip's Preview ▾ that also asked went 2026-10-15): ONE preview mechanism
+ * (coordinator 2026-10-04). The old
  * `?as=replied` door is one of the four, unchanged on the RSVP stage.
  *
  * THE GATE IS THE SAME ONE: no `OwnerCapability`, or one for another event,
@@ -301,6 +303,11 @@ export function previewNames(person: PreviewPerson | null | undefined): {
   };
 }
 
+/** 🎭 A role preview's name — the role's own generic words, no plus-one (`lib/preview-role.ts` `PreviewRolePick.name`). */
+function sampleRoleNames(pick: PreviewRolePick): ReturnType<typeof previewNames> {
+  return { row: { first_name: pick.name, last_name: '', display_name: pick.name, plus_one_allowed: false, plus_one_count: 0 } };
+}
+
 /** The RSVP canvas's guest for this event — `RSVP_CANVAS_GUEST` wearing the person's name and allowance. */
 export function rsvpCanvasGuestFor(person: PreviewPerson | null | undefined): GuestRow {
   return { ...RSVP_CANVAS_GUEST, ...previewNames(person).row, custom_tags: [] };
@@ -325,11 +332,18 @@ export function buildSimulatedGuestIdentity(input: {
   person?: PreviewPerson | null;
   /** 👁 See as ▾ — which reply the sample guest has given. Default: Replied Yes (`?as=replied`). */
   seeAs?: Exclude<SeeAs, 'signed-out'>;
+  /**
+   * 🎭 Role ▾ (owner 2026-10-17, "view it as a father of the bride") — the role, the man / woman half and the side
+   * the sample stands in (`lib/preview-role.ts`). It WINS over `person`: a role preview is named for its role ("A
+   * father of the bride"), never for a real guest, and the caller reads no guest row for it.
+   */
+  role?: PreviewRolePick | null;
 }): GuestSiteIdentity {
-  const who = previewNames(input.person);
+  const who = input.role ? sampleRoleNames(input.role) : previewNames(input.person);
   const rsvpStatus = SAMPLE_REPLY[input.seeAs ?? 'replied'];
+  const dressed = input.role ? { role: input.role.role, attire: input.role.attire, side: input.role.side } : {};
   return guestIdentity({
-    guest: { ...SIMULATED_GUEST_ROW, ...who.row, rsvp_status: rsvpStatus, custom_tags: [] },
+    guest: { ...SIMULATED_GUEST_ROW, ...who.row, ...dressed, rsvp_status: rsvpStatus, custom_tags: [] },
     qrSvg: SIMULATED_GUEST_QR_SVG,
     // Null / false / empty across the board: every one of these is a real
     // per-guest lookup on the live path, and the preview performs none of them.

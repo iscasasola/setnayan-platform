@@ -62,13 +62,22 @@ const youPanel = (html: string) => {
   return at < 0 ? '' : html.slice(at, html.indexOf('</div>', html.indexOf('aria-label="Your colours"', at)) + 6);
 };
 
+/* Every row's Wear picked — a person is drawn only in a Wear that was picked (owner 2026-10-17). */
+const WORN = {
+  roles: { bride: { style: 'ball_gown' }, groom: { style: 'suit' }, guest: { style: 'smart_casual' } },
+  groups: { principal_sponsors: { style: 'barong_tagalog' } },
+  women: { groups: { principal_sponsors: { style: 'long_gown' } }, roles: { guest: { style: 'cocktail_dress' } } },
+};
+
 test('👗 by default the figure is drawn — in every role row and in the reader’s own panel', async () => {
-  const general = await scene({ config: {} });
+  const general = await scene({ config: WORN });
   assert.ok(figures(general) >= 4, `every dressed role row draws its person (saw ${figures(general)})`);
-  const ninang = await scene({ config: {}, guestRole: 'principal_sponsor_ninang' });
+  const ninang = await scene({ config: WORN, guestRole: 'principal_sponsor_ninang' });
   assert.equal(figures(youPanel(ninang)), 1, 'the ninang’s own panel draws her');
   // An explicit `true` is the same as no key.
-  assert.equal(figures(await scene({ config: { show_figure: true } })), figures(general));
+  assert.equal(figures(await scene({ config: { ...WORN, show_figure: true } })), figures(general));
+  // …and nobody is drawn in a Wear that was not picked.
+  assert.equal(figures(await scene({ config: {} })), 0, 'a person drawn in an unpicked Wear');
 });
 
 test('🙈 show_figure: false hides the figure everywhere in the scene — and only the figure', async () => {
@@ -133,12 +142,14 @@ test('🛟 a form that cannot list the roles still posts every saved outfit back
     ['role_key', 'principal_sponsor_ninong'],
     ['role_style', 'barong_tagalog'],
     ['role_note', 'ecru'],
-    ['role_call_time', '14:30'],
     ['group_key', 'principal_sponsors'],
     ['group_style', 'filipiniana'],
   ]) {
     assert.match(html, new RegExp(`<input type="hidden" name="${name}" value="${value}"/>`), `${name}=${value} rides along`);
   }
+  /* ⏰ The call time does NOT ride along (owner 2026-10-18): the form posts none, and `updateDressCode` keeps the stored
+     time (`carryCallTimes`) — a hidden copy here would be a stale tab's time written over one the Studio set since. */
+  assert.doesNotMatch(html, /_call_time/, 'no call time is posted by this form');
 });
 
 test('👔 the Maker’s Dress code scene lists this guest list’s roles, so a host sets each outfit right there', async () => {

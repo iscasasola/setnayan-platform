@@ -11,6 +11,7 @@ import { DateRow } from '@/app/_components/form-row-date';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { SWITCH_TRACK } from '@/app/_components/switch-track';
 import type { CalendarDay } from '@/lib/calendar-grid';
+import { DAY_PARTS, DAY_PART_WORDS, repeatOptions, type DayPart, type RepeatRule } from '@/lib/not-available';
 import { SupplierSubmit } from '../../_components/supplier-submit';
 
 /**
@@ -35,8 +36,15 @@ function usePortal(): boolean {
   return mounted;
 }
 
-/* ── BLOCK A DATE (the thumb row) ───────────────────────────────────────── */
+/* ── NOT AVAILABLE (inside the "Not available" fold) ─────────────────── */
 
+/**
+ * The "Not available" sheet (prototype SHEETS.block, owner 2026-10-14 ✅ "APPROVE": "repeating 'Not available'
+ * blocks + hour ranges: YES"): From · To · Repeats · Hours · Which schedule · Why → "Mark not available".
+ * Posts the SHIPPED `addManualBlock` with three new fields (`repeat_rule`, `day_part`; `end_date` is a repeat's last
+ * day). Opened from the fold's grey "Mark days not available" — the thumb row's button is now "Check a date" (owner
+ * call 1, 2026-10-14).
+ */
 export function BlockDateAdd({
   pools,
   action,
@@ -58,14 +66,17 @@ export function BlockDateAdd({
   const [from, setFrom] = useState<CalendarDay | null>(null);
   const [to, setTo] = useState<CalendarDay | null>(null);
   const [scope, setScope] = useState('org');
+  const [repeat, setRepeat] = useState<RepeatRule>('once');
+  const [part, setPart] = useState<DayPart>('all_day');
+  const repeats = repeat !== 'once';
 
   const sheet = (
     <Sheet open={open} onClose={() => setOpen(false)} labelledById={headingId} rise>
       <div className="px-5 pb-4 pt-5" data-dates-block-add="">
         <h2 id={headingId} className="pr-12 text-[17px] font-semibold text-ink">
-          Block a date
+          Not available
         </h2>
-        <p className="mt-1 text-[13.5px] text-ink/60">Nothing new can be booked on it. Couples see only &ldquo;unavailable&rdquo;.</p>
+        <p className="mt-1 text-[13.5px] text-ink/60">Set once.</p>
         <form
           ref={form}
           action={action}
@@ -83,28 +94,46 @@ export function BlockDateAdd({
           <input type="hidden" name="scope" value={scope} />
           <input type="hidden" name="start_date" value={from ?? ''} />
           <input type="hidden" name="end_date" value={to ?? ''} />
+          <input type="hidden" name="repeat_rule" value={repeat} />
+          <input type="hidden" name="day_part" value={part} />
           <FormRows width="wide">
             <DateRow name="From" value={from} today={today} empty="Pick a date" onKeep={(d) => setFrom(d)} />
-            <DateRow name="To" value={to} shown={from} today={today} min={from} empty="Same day" onKeep={(d) => setTo(d)} />
+            <DateRow name="To" value={to} shown={from} today={today} min={from} empty={repeats ? 'No end' : 'Same day'} onKeep={(d) => setTo(d)} />
+            <ChosenRow
+              name="Repeats"
+              label="Repeats"
+              value={repeat}
+              options={repeatOptions(from)}
+              onPick={(k) => setRepeat(k as RepeatRule)}
+              dataAttr="data-dates-block-repeat"
+            />
+            <ChosenRow
+              name="Hours"
+              label="Hours"
+              value={part}
+              options={DAY_PARTS.map((p) => ({ key: p, label: DAY_PART_WORDS[p] }))}
+              onPick={(k) => setPart(k as DayPart)}
+              dataAttr="data-dates-block-hours"
+            />
             {pools.length > 1 ? (
               <ChosenRow
-                name="Calendars"
-                label="Which calendars it closes"
+                name="Which schedule"
+                label="Which schedule"
                 value={scope}
-                options={[{ key: 'org', label: 'Every calendar' }, ...pools.map((p) => ({ key: p.poolId, label: `Only ${p.label}` }))]}
+                options={[{ key: 'org', label: 'All schedules' }, ...pools.map((p) => ({ key: p.poolId, label: p.label }))]}
                 onPick={(k) => setScope(k)}
                 dataAttr="data-dates-block-scope"
               />
             ) : null}
-            <TypedRow name="Why" value={label} empty="Only you see this" maxLength={120} fieldName="label" onKeep={(t) => setLabel(t)} />
+            <TypedRow name="Why" value={label} empty="Optional · “Masses”" maxLength={120} fieldName="label" onKeep={(t) => setLabel(t)} />
           </FormRows>
           <div className="mt-4">
             <SupplierSubmit
               tone="brand"
               main
               icon={<CalendarX2 aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.9} />}
-              label="Block"
-              pendingLabel="Blocking…"
+              label="Mark not available"
+              pendingLabel="Marking…"
               className="w-full"
             />
           </div>
@@ -115,13 +144,13 @@ export function BlockDateAdd({
 
   return (
     <>
-      <ActionButton tone="neutral" icon={CalendarX2} label="Block a date" aria-haspopup="dialog" onClick={() => setOpen(true)} data-testid="dates-block" />
+      <ActionButton tone="neutral" icon={CalendarX2} label="Mark days not available" aria-haspopup="dialog" onClick={() => setOpen(true)} data-testid="dates-block" />
       {mounted ? createPortal(sheet, document.body) : null}
     </>
   );
 }
 
-/* ── A CALENDAR — new, or its name and services (Capacity) ──────────────── */
+/* ── A SCHEDULE — new, or its name and services (How many a day) ───────── */
 
 export type DatesService = { serviceId: string; label: string; poolId: string | null };
 
@@ -142,7 +171,7 @@ export function CalendarSheet({
   createAction: Action;
   editAction: Action;
   month: string;
-  /** What opens it — a pool row's name, or the "New calendar" button. */
+  /** What opens it — a pool row's name, or the "New schedule" button. */
   trigger?: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
@@ -157,9 +186,9 @@ export function CalendarSheet({
     <Sheet open={open} onClose={() => setOpen(false)} labelledById={headingId} rise>
       <div className="px-5 pb-4 pt-5" data-dates-calendar-sheet={editing ? 'edit' : 'new'}>
         <h2 id={headingId} className="pr-12 text-[17px] font-semibold text-ink">
-          {editing ? pool!.name : 'New calendar'}
+          {editing ? pool!.name : 'New schedule'}
         </h2>
-        <p className="mt-1 text-[13.5px] text-ink/60">A calendar holds how many events a day one team can take, for the services on it.</p>
+        <p className="mt-1 text-[13.5px] text-ink/60">A schedule holds how many events a day one team can take, for the services on it.</p>
         <form
           ref={form}
           action={editing ? editAction : createAction}
@@ -179,8 +208,8 @@ export function CalendarSheet({
             <TypedRow name="Name" value={name} required maxLength={80} fieldName="calendar_name" autoCapitalize="words" onKeep={(t) => setName(t)} />
           </FormRows>
           <div className="flex min-h-[60px] items-center gap-3 border-t border-ink/10">
-            <span className="min-w-0 flex-1 text-[15px] font-medium text-ink">Events a day</span>
-            <FormCounter name="capacity" value={pool?.capacity ?? 1} min={1} max={ceiling} label="Events a day" data="calendar-sheet" />
+            <span className="min-w-0 flex-1 text-[15px] font-medium text-ink">How many a day</span>
+            <FormCounter name="capacity" value={pool?.capacity ?? 1} min={1} max={ceiling} label="How many a day" data="calendar-sheet" />
           </div>
           {services.length > 0 ? (
             <fieldset className="border-t border-ink/10 pt-2">
@@ -189,7 +218,7 @@ export function CalendarSheet({
                 <label key={s.serviceId} className="flex min-h-[52px] items-center gap-3 border-t border-ink/10 first-of-type:border-t-0">
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[15px] text-ink">{s.label}</span>
-                    {s.poolId && s.poolId !== pool?.poolId ? <span className="block text-[12.5px] text-ink/55">On another calendar</span> : null}
+                    {s.poolId && s.poolId !== pool?.poolId ? <span className="block text-[12.5px] text-ink/55">On another schedule</span> : null}
                   </span>
                   <input type="checkbox" role="switch" name="service_ids" value={s.serviceId} defaultChecked={on.has(s.serviceId)} className="peer sr-only" />
                   <span aria-hidden className={SWITCH_TRACK} />
@@ -197,14 +226,14 @@ export function CalendarSheet({
               ))}
             </fieldset>
           ) : (
-            <p className="mt-3 text-[13.5px] text-ink/60">Add a service first — then it can go on a calendar.</p>
+            <p className="mt-3 text-[13.5px] text-ink/60">Add a service first — then it can go on a schedule.</p>
           )}
           <div className="mt-4">
             <SupplierSubmit
               tone="brand"
               main
               icon={(editing ? <Pencil aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.9} /> : <Plus aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.9} />)}
-              label={editing ? 'Save calendar' : 'Make the calendar'}
+              label={editing ? 'Save schedule' : 'Make the schedule'}
               pendingLabel="Saving…"
               className="w-full"
             />
@@ -228,7 +257,7 @@ export function CalendarSheet({
           <Pencil aria-hidden className="h-3.5 w-3.5 flex-none text-sn-accent" strokeWidth={2} />
         </button>
       ) : (
-        <ActionButton tone="neutral" icon={Plus} label="New calendar" aria-haspopup="dialog" onClick={() => setOpen(true)} data-testid="dates-new-calendar" />
+        <ActionButton tone="neutral" icon={Plus} label="New schedule" aria-haspopup="dialog" onClick={() => setOpen(true)} data-testid="dates-new-calendar" />
       )}
       {mounted ? createPortal(sheet, document.body) : null}
     </>
@@ -277,5 +306,101 @@ export function ShareTeamPick({
         className="!min-h-11"
       />
     </form>
+  );
+}
+
+/* ── A HALL — new, or its name and guests (Your halls, owner 2026-10-14 🏛) ── */
+
+/**
+ * A venue's hall (prototype section 9 "Halls setup": name · seated · standing; "Halls are free on every plan").
+ * A hall IS a schedule (`createCalendar` / `editCalendar` with `is_hall`) taking one booking a day; which cards book it
+ * is said on the card ("Uses"). Posts the shipped actions; comes back to the Your halls fold.
+ */
+export function HallSheet({
+  hall,
+  createAction,
+  editAction,
+  month,
+}: {
+  /** The hall to edit; absent = a new one. */
+  hall?: { poolId: string; name: string; capacity: number; seated: number | null; standing: number | null } | null;
+  createAction: Action;
+  editAction: Action;
+  month: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const mounted = usePortal();
+  const headingId = useId();
+  const form = useRef<HTMLFormElement>(null);
+  const editing = Boolean(hall);
+  const [name, setName] = useState(hall?.name ?? '');
+  const [seated, setSeated] = useState(hall?.seated ? String(hall.seated) : '');
+  const [standing, setStanding] = useState(hall?.standing ? String(hall.standing) : '');
+  const digits = (t: string) => t.replace(/[^\d]/g, '').slice(0, 6);
+
+  const sheet = (
+    <Sheet open={open} onClose={() => setOpen(false)} labelledById={headingId} rise>
+      <div className="px-5 pb-4 pt-5" data-dates-hall-sheet={editing ? 'edit' : 'new'}>
+        <h2 id={headingId} className="pr-12 text-[17px] font-semibold text-ink">
+          {editing ? hall!.name : 'New hall'}
+        </h2>
+        <p className="mt-1 text-[13.5px] text-ink/60">Free on every plan. Join halls on a card to sell a bigger one.</p>
+        <form
+          ref={form}
+          action={editing ? editAction : createAction}
+          className="mt-3"
+          onSubmit={(e) => {
+            if (!name.trim()) {
+              e.preventDefault();
+              nudgeFormRows(form.current ?? undefined);
+            }
+          }}
+        >
+          <input type="hidden" name="return_to" value="dates" />
+          <input type="hidden" name="return_fold" value="capacity" />
+          <input type="hidden" name="return_month" value={month} />
+          <input type="hidden" name="is_hall" value="on" />
+          <input type="hidden" name="capacity" value={String(hall?.capacity ?? 1)} />
+          <input type="hidden" name="seated_capacity" value={seated} />
+          <input type="hidden" name="standing_capacity" value={standing} />
+          {editing ? <input type="hidden" name="pool_id" value={hall!.poolId} /> : null}
+          <FormRows width="wide">
+            <TypedRow name="Name" value={name} required maxLength={80} fieldName="calendar_name" autoCapitalize="words" empty="Hall A" onKeep={(t) => setName(t)} />
+            <TypedRow name="Seated" value={seated} inputMode="numeric" maxLength={6} empty="Guests seated" clean={digits} onKeep={(t) => setSeated(digits(t))} />
+            <TypedRow name="Standing" value={standing} inputMode="numeric" maxLength={6} empty="Guests standing" clean={digits} onKeep={(t) => setStanding(digits(t))} />
+          </FormRows>
+          <div className="mt-4">
+            <SupplierSubmit
+              tone="brand"
+              main
+              icon={editing ? <Pencil aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.9} /> : <Plus aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.9} />}
+              label={editing ? 'Save hall' : 'Add the hall'}
+              pendingLabel="Saving…"
+              className="w-full"
+            />
+          </div>
+        </form>
+      </div>
+    </Sheet>
+  );
+
+  return (
+    <>
+      {editing ? (
+        <button
+          type="button"
+          aria-haspopup="dialog"
+          onClick={() => setOpen(true)}
+          className="sn-press -my-1 inline-flex min-h-11 max-w-full items-center gap-1.5 text-left text-[15px] font-medium text-ink"
+          data-dates-hall-edit=""
+        >
+          <span className="truncate">{hall!.name}</span>
+          <Pencil aria-hidden className="h-3.5 w-3.5 flex-none text-sn-accent" strokeWidth={2} />
+        </button>
+      ) : (
+        <ActionButton tone="neutral" icon={Plus} label="New hall" aria-haspopup="dialog" onClick={() => setOpen(true)} data-testid="dates-new-hall" />
+      )}
+      {mounted ? createPortal(sheet, document.body) : null}
+    </>
   );
 }

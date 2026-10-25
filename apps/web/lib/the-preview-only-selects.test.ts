@@ -77,7 +77,7 @@ test('(1) a tap never types: nothing picked, another part picked, the part itsel
   assert.match(refused, /t: 'typeStop'/, 'the tap’s caret is not taken back');
   assert.match(refused, /MAKER_STAGE_PICK_EVENT/, 'the tap is not handed to the toolbar as a pick');
   assert.match(refused, /return;/);
-  assert.match(shell.slice(read0, gate), /if \(stagesStudioRef\.current && window\.innerWidth < 1024\) \{/, 'the rule is asked outside the new Maker on a phone — the shipped Maker types as it did');
+  assert.match(shell.slice(read0, gate), /if \(stagesStudioRef\.current\) \{/, 'the rule is asked outside the new Maker (a phone, or a desktop in three columns) — the shipped Maker types as it did');
   /* …and the reply pages on the page itself. */
   const bridge = read('app/[slug]/_components/rsvp-canvas-bridge.tsx');
   assert.match(bridge, /if \(wordEl && part\.word && rsvpWordIsTyped\(part\.word\) && makerStageMayType\(picked, part\.key, part\.el\)\) \{\s*beginTyping\(/);
@@ -216,13 +216,14 @@ test('(5) the Camera has only Style: Edit, Background and Animate are grey on it
     assert.equal(makerPartToolWhy('camera', t), { edit: 'Nothing to edit on the camera.', bg: 'The camera is the whole screen.', animate: 'Nothing to animate on the camera.' }[t]);
   }
   for (const t of MAKER_PART_TOOLS) assert.equal(makerPartToolFor('camera', t), 'style');
-  /* Only the Camera: every other part keeps its Edit (its door or its name, and its place). */
-  for (const k of KEYS) if (k !== 'camera') assert.equal(makerPartToolWorks(k, 'edit'), true, `${k} lost Edit`);
+  /* Only the Camera — and the Cover Scene, the group of the cover's words, which has Background alone (owner-approved
+     2026-10-15; each word under it keeps its own Edit): every other part keeps its Edit (its door or its name, and its place). */
+  for (const k of KEYS) if (k !== 'camera' && k !== 'coverscene' && k !== 'coverphoto') assert.equal(makerPartToolWorks(k, 'edit'), true, `${k} lost Edit`);
   /* No move row: Edit's rows are never drawn for it (they are Edit's, and Edit is grey), and its frame has no place. */
   const tools = read(`${L}/stage-tools.tsx`);
   assert.match(tools, /const editOn = picked !== null && shownTool === 'edit';/);
   assert.match(tools, /picked: open && !cameraOpen \? picked : null,/);
-  assert.match(tools, /\{open && cameraOpen && !editOn \? <CameraPartTools \/> : null\}/);
+  assert.match(tools, /\{open && cameraOpen && !editOn \? <CameraPartNote pro=\{maker\?\.lookPages\?\.camera\?\.pro \?\? false\} \/> : null\}/);
 });
 
 test('(3b) a page change never ends on nothing: the held part is replaced when it is not this page’s; a tab tap never lets go first', () => {

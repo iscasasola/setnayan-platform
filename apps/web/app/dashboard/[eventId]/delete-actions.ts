@@ -174,7 +174,7 @@ export async function getEventDeletionImpact(
 ): Promise<ImpactResult> {
   const trimmed = eventId.trim();
   if (!trimmed) {
-    return { ok: false, code: 'not_found', message: 'Which celebration?' };
+    return { ok: false, code: 'not_found', message: 'Which event?' };
   }
 
   const member = await requireCoupleMember(trimmed);
@@ -182,7 +182,7 @@ export async function getEventDeletionImpact(
     return {
       ok: false,
       code: 'unauthorized',
-      message: 'Only the people organising this celebration can remove it.',
+      message: 'Only the people organising this event can remove it.',
     };
   }
 
@@ -197,7 +197,7 @@ export async function getEventDeletionImpact(
     return {
       ok: false,
       code: 'not_found',
-      message: 'We couldn’t find that celebration.',
+      message: 'We couldn’t find that event.',
     };
   }
 
@@ -493,13 +493,13 @@ export async function getEventDeletionImpact(
 
   const blockedReason =
     describedKind === 'unreadable'
-      ? 'We couldn’t check what’s been paid for on this celebration, so we haven’t removed it. Please try again in a moment, or message us and we’ll sort it out.'
+      ? 'We couldn’t check what’s been paid for on this event, so we haven’t removed it. Please try again in a moment, or message us and we’ll sort it out.'
       : describedKind === 'suppliers'
-        ? `You’ve paid ${unsettledPaidSuppliers === 1 ? 'a supplier' : `${unsettledPaidSuppliers} suppliers`} for this celebration, so it can’t be removed yet — they’d lose the booking they were paid for. Put it away instead, or message us and we’ll help sort it out with them.`
+        ? `You’ve paid ${unsettledPaidSuppliers === 1 ? 'a supplier' : `${unsettledPaidSuppliers} suppliers`} for this event, so it can’t be removed yet — they’d lose the booking they were paid for. Put it away instead, or message us and we’ll help sort it out with them.`
         : describedKind === 'awaiting_check'
-          ? 'We’re still checking a payment on this celebration, so it can’t be removed yet. Tell us why you want it removed and a person will answer you.'
+          ? 'We’re still checking a payment on this event, so it can’t be removed yet. Tell us why you want it removed and a person will answer you.'
           : describedKind === 'settled'
-            ? 'Removing this ends what you’ve paid for on it. It stops working and doesn’t move to another celebration, and we can’t put the money back automatically — so tell us why and a person will answer you.'
+            ? 'Removing this ends what you’ve paid for on it. It stops working and doesn’t move to another event, and we can’t put the money back automatically — so tell us why and a person will answer you.'
             : null;
 
   /*
@@ -531,7 +531,7 @@ export async function getEventDeletionImpact(
   return {
     ok: true,
     impact: {
-      eventName: eventRow.display_name ?? 'this celebration',
+      eventName: eventRow.display_name ?? 'this event',
       unsettledPaidSuppliers,
       guests,
       photos,
@@ -558,7 +558,7 @@ export async function deleteOwnEvent(formData: FormData): Promise<DeleteResult> 
   const eventId = String(formData.get('event_id') ?? '').trim();
   const typed = String(formData.get('confirm_name') ?? '').trim();
   if (!eventId) {
-    return { ok: false, code: 'not_found', message: 'Which celebration?' };
+    return { ok: false, code: 'not_found', message: 'Which event?' };
   }
 
   const member = await requireCoupleMember(eventId);
@@ -566,7 +566,7 @@ export async function deleteOwnEvent(formData: FormData): Promise<DeleteResult> 
     return {
       ok: false,
       code: 'unauthorized',
-      message: 'Only the people organising this celebration can remove it.',
+      message: 'Only the people organising this event can remove it.',
     };
   }
 
@@ -584,7 +584,7 @@ export async function deleteOwnEvent(formData: FormData): Promise<DeleteResult> 
       code: 'blocked',
       message:
         impact.impact.blockedReason ??
-        'This celebration can’t be removed here just now.',
+        'This event can’t be removed here just now.',
     };
   }
 
@@ -701,9 +701,9 @@ export async function deleteOwnEvent(formData: FormData): Promise<DeleteResult> 
       await emitNotification({
         userId: row.user_id,
         type: 'order_cancelled',
-        title: `Order ${row.public_id ?? ''} was cancelled with the celebration`.trim(),
+        title: `Order ${row.public_id ?? ''} was cancelled with the event`.trim(),
         body:
-          'You removed the celebration this order belonged to, so the order has been ' +
+          'You removed the event this order belonged to, so the order has been ' +
           'cancelled. Nothing has been charged. If you have already sent payment, tell ' +
           'us and we will sort it out.',
         relatedUrl: null,
@@ -731,7 +731,7 @@ export async function deleteOwnEvent(formData: FormData): Promise<DeleteResult> 
     return {
       ok: false,
       code: 'not_found',
-      message: 'We couldn’t find that celebration.',
+      message: 'We couldn’t find that event.',
     };
   }
 
@@ -780,13 +780,13 @@ export async function askSuppliersToAgree(
   formData: FormData,
 ): Promise<AskResult> {
   const eventId = String(formData.get('event_id') ?? '').trim();
-  if (!eventId) return { ok: false, message: 'Which celebration?' };
+  if (!eventId) return { ok: false, message: 'Which event?' };
 
   const member = await requireCoupleMember(eventId);
   if (!member) {
     return {
       ok: false,
-      message: 'Only the people organising this celebration can ask.',
+      message: 'Only the people organising this event can ask.',
     };
   }
 
@@ -833,7 +833,7 @@ export async function askSuppliersToAgree(
           await emitNotification({
             userId: seat.user_id as string,
             type: 'deletion_request_received',
-            title: 'A celebration you were paid for is being removed',
+            title: 'An event you were paid for is being removed',
             body: 'The couple has asked whether you agree. Nothing is removed until you answer.',
             relatedUrl: '/vendor-dashboard',
             // Which event: a supplier-side link carries none, so the email is told here.
@@ -869,13 +869,13 @@ export async function withdrawSupplierAsk(
   formData: FormData,
 ): Promise<AskResult> {
   const eventId = String(formData.get('event_id') ?? '').trim();
-  if (!eventId) return { ok: false, message: 'Which celebration?' };
+  if (!eventId) return { ok: false, message: 'Which event?' };
 
   const member = await requireCoupleMember(eventId);
   if (!member) {
     return {
       ok: false,
-      message: 'Only the people organising this celebration can withdraw it.',
+      message: 'Only the people organising this event can withdraw it.',
     };
   }
 
@@ -931,13 +931,13 @@ export async function requestEventDeletion(
   const reasonCode = String(formData.get('reason_code') ?? '').trim();
   const reasonText = String(formData.get('reason') ?? '').trim();
 
-  if (!eventId) return { ok: false, message: 'Which celebration?' };
+  if (!eventId) return { ok: false, message: 'Which event?' };
 
   const member = await requireCoupleMember(eventId);
   if (!member) {
     return {
       ok: false,
-      message: 'Only the people organising this celebration can ask.',
+      message: 'Only the people organising this event can ask.',
     };
   }
 
@@ -1025,13 +1025,13 @@ export async function cancelEventDeletionRequest(
   formData: FormData,
 ): Promise<RequestResult> {
   const eventId = String(formData.get('event_id') ?? '').trim();
-  if (!eventId) return { ok: false, message: 'Which celebration?' };
+  if (!eventId) return { ok: false, message: 'Which event?' };
 
   const member = await requireCoupleMember(eventId);
   if (!member) {
     return {
       ok: false,
-      message: 'Only the people organising this celebration can withdraw it.',
+      message: 'Only the people organising this event can withdraw it.',
     };
   }
 

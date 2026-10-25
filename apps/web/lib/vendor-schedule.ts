@@ -13,6 +13,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { readAllPages, readInChunks } from '@/lib/read-all-pages';
+import { NOT_AVAILABLE_COLUMNS, notAvailableFieldsOf, type DayPart, type RepeatRule } from '@/lib/not-available';
 
 export type SchedulePool = {
   poolId: string;
@@ -28,6 +29,14 @@ export type SchedulePool = {
   /** vendor_service_ids explicitly assigned to this calendar (Named Calendars
    *  membership). Empty for a pure category pool. */
   serviceIds: string[];
+  /** A venue's hall (owner 2026-10-14 🏛): cards may use several halls together; not limited by the plan's per-day
+   *  number. Optional so a hand-built pool (tests, the lab) stays a plain schedule. */
+  isHall?: boolean;
+  /** A hall's guest capacity, seated and standing. */
+  seatedCapacity?: number | null;
+  standingCapacity?: number | null;
+  /** The cards that USE this hall (`vendor_service_halls`) — a joined card appears on each of its halls. */
+  hallServiceIds?: string[];
 };
 
 /** A vendor service shaped for the calendar service-picker (Named Calendars). */
@@ -58,6 +67,14 @@ export type CalendarBlockEntry = {
   clientNote: string | null;
   startDate: string; // YYYY-MM-DD (PH civil day)
   endDate: string;   // YYYY-MM-DD
+  /** "Not available" repeats (2026-10-14, `lib/not-available.ts`): once · weekly · weekend · daily. */
+  repeat: RepeatRule;
+  /** A repeat's last day (inclusive); null = no end (or a one-off). */
+  repeatUntil: string | null;
+  /** Which hours: all_day · morning · afternoon · evening. Only all_day closes a date. */
+  dayPart: DayPart;
+  /** An outside booking's start time ("15:00"), or null. */
+  clientTime: string | null;
 };
 
 /**
@@ -178,9 +195,12 @@ export async function fetchVendorPools(
   // flag is flipped. So the new columns + membership table are read ONLY when the
   // flag is on — flag-off selects exactly today's columns and never touches the
   // new table, keeping the page safe on a pre-migration DB.
+  // Halls (owner 2026-10-14 🏛) ride the SAME read: the hall columns, and the cards that use each hall embedded by
+  // its one foreign key — no extra request.
+  const hallCols = 'is_hall, seated_capacity, standing_capacity, vendor_service_halls(vendor_service_id)';
   const poolCols = namedCalendars
-    ? 'pool_id, pool_label, calendar_name, is_vendor_created, daily_booking_capacity, is_active'
-    : 'pool_id, pool_label, daily_booking_capacity, is_active';
+    ? `pool_id, pool_label, calendar_name, is_vendor_created, daily_booking_capacity, is_active, ${hallCols}`
+    : `pool_id, pool_label, daily_booking_capacity, is_active, ${hallCols}`;
   const [{ data: pools }, { data: cats }, { data: members }] = await Promise.all([
     supabase
       .from('vendor_schedule_pools')
@@ -222,10 +242,15 @@ export async function fetchVendorPools(
     calendar_name: string | null;
     is_vendor_created: boolean | null;
     daily_booking_capacity: number;
+    is_hall?: boolean | null;
+    seated_capacity?: number | null;
+    standing_capacity?: number | null;
+    vendor_service_halls?: { vendor_service_id: string }[] | null;
   }[])
     .map((p) => {
       const cats2 = (byPool.get(p.pool_id) ?? []).sort();
-      const serviceIds = servicesByPool.get(p.pool_id) ?? [];
+      const hallCards = (p.vendor_service_halls ?? []).map((h) => h.vendor_service_id);
+      const serviceIds = [...new Set([...(servicesByPool.get(p.pool_id) ?? []), ...hallCards])];
       const categoryLabel =
         cats2.length > 0
           ? cats2.map(humanizeCategory).join(' · ')
@@ -243,6 +268,10 @@ export async function fetchVendorPools(
         calendarName: p.calendar_name ?? null,
         isVendorCreated: p.is_vendor_created === true,
         serviceIds,
+        isHall: p.is_hall === true,
+        hallServiceIds: hallCards,
+        seatedCapacity: p.seated_capacity ?? null,
+        standingCapacity: p.standing_capacity ?? null,
       };
     })
     // Flag off: orphaned pools (no categories — e.g. after a merge moved them
@@ -251,8 +280,8 @@ export async function fetchVendorPools(
     // services, even with no category rows.
     .filter((p) =>
       namedCalendars
-        ? p.categories.length > 0 || p.serviceIds.length > 0 || p.isVendorCreated
-        : p.categories.length > 0,
+        ? p.categories.length > 0 || p.serviceIds.length > 0 || p.isVendorCreated || p.isHall
+        : p.categories.length > 0 || p.isHall,
     );
 }
 
@@ -409,7 +438,7 @@ export async function fetchVendorBlocksDetailed(
       const { data, error, count } = await supabase
         .from('vendor_calendar_blocks')
         .select(
-          'block_id, pool_id, block_source, block_label, client_name, client_contact, client_note, blocked_at, blocked_until',
+          `block_id, pool_id, block_source, block_label, client_name, client_contact, client_note, client_time, blocked_at, blocked_until, ${NOT_AVAILABLE_COLUMNS}`,
           { count: 'exact' },
         )
         .eq('vendor_profile_id', vendorProfileId)
@@ -438,6 +467,10 @@ export async function fetchVendorBlocksDetailed(
     client_note: string | null;
     blocked_at: string;
     blocked_until: string;
+    client_time: string | null;
+    repeat_rule: string | null;
+    repeat_until: string | null;
+    day_part: string | null;
   }[]).map((b) => ({
     blockId: b.block_id,
     poolId: b.pool_id,
@@ -448,6 +481,8 @@ export async function fetchVendorBlocksDetailed(
     clientNote: b.client_note,
     startDate: manilaDate(b.blocked_at),
     endDate: manilaDate(b.blocked_until),
+    ...notAvailableFieldsOf(b),
+    clientTime: typeof b.client_time === 'string' ? b.client_time.slice(0, 5) : null,
   }));
   return { blocks, complete: read.complete };
 }

@@ -64,6 +64,18 @@ export type RoomDressing = {
   chairs?: string;
   florals?: string;
   lighting_warmth?: string;
+  /* 🎨 EVERY PALETTE PART CAN BE SET (owner 2026-10-19, DECISION_LOG "PALETTE + INSPIRATION AS ONE LIST": "yes all
+     circles"). The parts Studio › Mood Board draws that had no colour of their own — each FOLLOWS its main colour
+     until set (`resolveRoomDressing`). Same jsonb object, same one hex per part; no column, no migration. */
+  stage?: string;
+  ceiling?: string;
+  walls?: string;
+  tunnel?: string;
+  ribbons_candles?: string;
+  bridal_bouquet?: string;
+  entourage_bouquets?: string;
+  flower_accents?: string;
+  cake?: string;
 };
 
 /**
@@ -213,11 +225,13 @@ export const PALETTE_LIMITS: Record<PaletteKey, PaletteLimits> = {
     slotLabels: OUTFIT_SLOT_LABELS,
     family: 'couple',
   },
+  // 👔 FOUR, not three (owner 2026-10-16, "ATTIRE COLOUR ZONES" + "EACH ROLE HAS ITS OWN LIST OF DESIGNS"): the groom's
+  // 3-piece suit is four zones — coat & pants · tie · shirt · vest — one fixed dot each.
   groom: {
     min: 1,
-    max: 3,
+    max: 4,
     label: 'Groom',
-    hint: "The groom's attire palette — 1 to 3 colors",
+    hint: "The groom's attire palette — 1 to 4 colors",
     meaning: 'outfit',
     slotLabels: OUTFIT_SLOT_LABELS,
     family: 'couple',
@@ -238,8 +252,9 @@ export const PALETTE_LIMITS: Record<PaletteKey, PaletteLimits> = {
   maid_of_honor: {
     min: 1,
     max: 3,
-    label: 'Maid / Matron of Honor',
-    hint: 'The honor attendant — 1 to 3 colors (falls back to Wedding Party)',
+    // Covers the man of honor too (owner 2026-10-19: "maid/matron/man of honor").
+    label: 'Maid / Matron / Man of Honor',
+    hint: 'The maid, matron or man of honor — 1 to 3 colors (falls back to Wedding Party)',
     meaning: 'outfit',
     slotLabels: OUTFIT_SLOT_LABELS,
     family: 'role',
@@ -334,11 +349,13 @@ export const PALETTE_LIMITS: Record<PaletteKey, PaletteLimits> = {
     slotLabels: OUTFIT_SLOT_LABELS,
     family: 'role',
   },
+  // 👗 FIVE, not six (owner 2026-10-16: *"we most likely will have max of 5 guests palettes"*) — each option is drawn as
+  // its own guest figure, side by side. `sanitizeRolePalette` slices to this, so it is the cap on every write.
   guest: {
     min: 3,
-    max: 6,
+    max: 5,
     label: 'Plain guests',
-    hint: 'Dress-code palette guests can choose from — 3 to 6 colors',
+    hint: 'Dress-code palette guests can choose from — 3 to 5 colors',
     meaning: 'options',
     family: 'role',
   },
@@ -613,6 +630,9 @@ export function paletteKeyForRole(role: GuestRole): PaletteKey {
       return 'groom';
     case 'maid_of_honor':
     case 'matron_of_honor':
+    // 🤵‍♂️ Owner 2026-10-19: maid, matron OR man of honor — one honour attendant
+    // on the bride's side, one colour slot (as best man / best woman share one).
+    case 'man_of_honor':
       return 'maid_of_honor';
     case 'best_man':
     // ⚖ Owner 2026-09-30: best man OR best woman — one honour attendant on the
@@ -625,6 +645,8 @@ export function paletteKeyForRole(role: GuestRole): PaletteKey {
       return 'groomsmen';
     case 'bride_parents':
     case 'groom_parents':
+    case 'bride_grandparents':
+    case 'groom_grandparents':
     case 'bride_immediate_family':
     case 'groom_immediate_family':
       return 'parents_immediate_family';
@@ -743,7 +765,16 @@ const ROOM_DRESSING_FIELDS = [
   'chairs',
   'florals',
   'lighting_warmth',
-] as const;
+  'stage',
+  'ceiling',
+  'walls',
+  'tunnel',
+  'ribbons_candles',
+  'bridal_bouquet',
+  'entourage_bouquets',
+  'flower_accents',
+  'cake',
+] as const satisfies readonly (keyof RoomDressing)[];
 
 // Warm-neutral defaults, matching `resolvePalette([])` in seating-3d.ts so a
 // room with no reception palette AND no override renders byte-identically to the
@@ -753,6 +784,17 @@ const ROOM_DRESSING_DEFAULTS: Required<RoomDressing> = {
   chairs: '#E7E1D8',
   florals: '#C89B6C',
   lighting_warmth: '#FBE9D8',
+  /* The parts that follow a main colour (2026-10-19): each falls back to the default of the surface it is drawn
+     nearest to, so a board with fewer than five colours still dresses every part. */
+  stage: '#C89B6C',
+  ceiling: '#C89B6C',
+  walls: '#F3EFE9',
+  tunnel: '#F3EFE9',
+  ribbons_candles: '#E7E1D8',
+  bridal_bouquet: '#C89B6C',
+  entourage_bouquets: '#F3EFE9',
+  flower_accents: '#E7E1D8',
+  cake: '#F7F2EA',
 };
 
 /**
@@ -775,5 +817,17 @@ export function resolveRoomDressing(palette: RolePalette): Required<RoomDressing
     // Dominant (r[0]) = the warm ambient wash — matches the pre-taxonomy
     // `ambient` slot (NOT Accent2, so 4-color receptions keep today's ambient).
     lighting_warmth: o.lighting_warmth ?? r[0] ?? ROOM_DRESSING_DEFAULTS.lighting_warmth,
+    /* 🎨 The parts that follow a main colour until set (2026-10-19) — the SAME main colour each says it follows on the
+       Palette (`ROOM_LANE_PARTS` / `FLORIST_LANE_PARTS` / `CAKE_LANE_PARTS` in colour-access.ts — held equal by
+       `every-palette-part-can-be-set.test.ts`): Dominant r[0] · Supporting r[1] · Neutral r[3] · Accent 2 r[4]. */
+    stage: o.stage ?? r[0] ?? ROOM_DRESSING_DEFAULTS.stage,
+    ceiling: o.ceiling ?? r[0] ?? ROOM_DRESSING_DEFAULTS.ceiling,
+    walls: o.walls ?? r[3] ?? ROOM_DRESSING_DEFAULTS.walls,
+    tunnel: o.tunnel ?? r[1] ?? ROOM_DRESSING_DEFAULTS.tunnel,
+    ribbons_candles: o.ribbons_candles ?? r[4] ?? ROOM_DRESSING_DEFAULTS.ribbons_candles,
+    bridal_bouquet: o.bridal_bouquet ?? r[0] ?? ROOM_DRESSING_DEFAULTS.bridal_bouquet,
+    entourage_bouquets: o.entourage_bouquets ?? r[1] ?? ROOM_DRESSING_DEFAULTS.entourage_bouquets,
+    flower_accents: o.flower_accents ?? r[4] ?? ROOM_DRESSING_DEFAULTS.flower_accents,
+    cake: o.cake ?? r[3] ?? ROOM_DRESSING_DEFAULTS.cake,
   };
 }

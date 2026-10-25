@@ -39,11 +39,13 @@
  * Day › Camera (`TOOLBAR-SPEC-2026-10-09.md` "The Day › Camera": *"only have style"* — the three camera looks as
  * tall phone-shaped cards): the same `.lc` card as every other part, over all four rows. So the Camera has no card
  * of its own any more — it hands `StyleCards` its picture (the camera's own pieces) and is held below as that.
+ * 📷 2026-10-24 — …AND LEFT THEM: one camera, no look to pick (owner: "remove the other style template"). The
+ * drawn-picture handover is still held below, with a stand-in picture (the Logo's and the Reveal's use it).
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import React from 'react';
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from './strip-comments';
 import { SP_LOOK_CARD, SP_PHONE_CARD, SP_PHONE_PICTURE, SP_STYLE_CARD, SP_STYLE_CARD_WIDE, SP_STYLE_NAME, SP_STYLE_PICTURE, SP_STYLE_WIDE_ASPECT, styleCardFit, styleCardIsWide } from './maker-stage-room';
@@ -68,7 +70,8 @@ const PICKERS: ReadonlyArray<{ what: string; file: string; anchor: RegExp; cards
     cards: 1,
     frame: /className=\{SP_STYLE_CARD\}/,
   },
-  { what: 'Reveal openings (None + each opening)', file: `${LAUNCH}/maker-reveal.tsx`, anchor: /<span\s+data-style-card-preview=""[^>]*>/g, cards: 2, frame: /className=\{`\$\{SP_PHONE_PICTURE\} / },
+  /* (The Reveal's openings left this list 2026-10-17: they are Cover Scene › Style's cards now — the toolbar's Style
+     card above, `StyleCards` — so they draw no card of their own. `the-stages-panel-is-the-prototypes.test.ts`.) */
   { what: 'Digital pass ticket styles', file: `${LAUNCH}/pass-card-design-picker.tsx`, anchor: /<span\s+data-style-card-preview=""[^>]*>/g, cards: 1, frame: /className=\{`\$\{SP_PHONE_PICTURE\} / },
   /* The theme's picture is the element that holds its still / live frame / poster. */
   { what: 'Themes', file: `${LAUNCH}/maker-theme-picker.tsx`, anchor: /<span\s+className="[^"]*"\s+style=\{\{ \['--phone-card-w' as string\]: `\$\{TILE_W\}px` \}\}\s*>/g, cards: 1, frame: /className="sn-phone-card / },
@@ -104,7 +107,7 @@ test('what the couple sees: every look card of a part, of the palette and of the
     assert.ok(options.length >= 2, `${type} offers looks on ${stage}`);
     sets.push([type, renderToStaticMarkup(React.createElement(StyleCards, { options, value: options[0]!.id, onPick: () => {}, pending: false, canvasKey: `w:${type}`, sceneType: type })), options.length]);
   }
-  sets.push(['palette', renderToStaticMarkup(React.createElement(PaletteLookCards, { value: 'tags', onPick: () => {} })), 5]);
+  sets.push(['palette', renderToStaticMarkup(React.createElement(PaletteLookCards, { value: 'tags', onPick: () => {} })), (await import('./palette-looks')).PALETTE_LOOK_IDS.length]);
   sets.push(['dos', renderToStaticMarkup(React.createElement(DosLookCards, { value: 'notes', onPick: () => {} })), 3]);
   let cards = 0;
   for (const [what, html, n] of sets) {
@@ -134,14 +137,15 @@ test('what the couple sees: every look card of a part, of the palette and of the
 });
 
 test('no audited picker sizes a card as a share of the row or by its part’s shape — but for ONE long line in the toolbar’s Style', () => {
-  for (const p of PICKERS.slice(0, 3)) {
+  /* (The first TWO since 2026-10-17 — the Reveal's openings, the old third, are drawn by the toolbar's Style cards.) */
+  for (const p of PICKERS.slice(0, 2)) {
     const src = read(p.file);
     assert.doesNotMatch(src, /SP_LAYOUT_CARD|spCardWidth\(/, `${p.file}: the 62 % / follow-the-part card is back`);
     const card = p.file.endsWith('style-carousel.tsx') ? 'SP_STYLE_CARD' : 'SP_LOOK_CARD';
     assert.match(src, new RegExp(`className=\\{${card}\\}`), `${p.file}: its cards are not the frame`);
     assert.equal(src.split(`className={${card}}`).length - 1, p.cards);
   }
-  /* The Reveal and the pass keep the 2026-10-08 card: as wide as its fixed frame. */
+  /* The pass keeps the 2026-10-08 card: as wide as its fixed frame. */
   assert.ok(SP_LOOK_CARD.split(' ').includes('w-min') && SP_LOOK_CARD.split(' ').includes('shrink-0'));
   /* THE ONE EXCEPTION (owner 2026-10-09: long one-line text up to 60 % width): a look whose part is drawn at least
      four times wider than tall — the Title, the Date, the Names in a row — gets a card 60 % of the toolbar's inner
@@ -172,36 +176,33 @@ test('no audited picker sizes a card as a share of the row or by its part’s sh
   assert.match(car, /const w = styleCardIsWide\(shape\);/, 'a card is widened by something other than its part’s measured shape');
 });
 
-test('the Camera’s three looks are the toolbar’s Style cards — it draws no card of its own, only what fills the picture', async () => {
-  const camera = read(`${LAUNCH}/stage-panel/camera-look.tsx`);
-  assert.equal(camera.split('<StyleCards').length - 1, 1, 'the Camera’s looks are not ONE strip of the toolbar’s Style cards');
-  assert.match(camera, /<StyleCards\s[^>]*options=\{CAMERA_LOOK_OPTIONS\}[\s\S]*?picture=\{\(id\) => <CameraLookFace look=\{id as CameraLook\} logo=\{brand\.logo\} accent=\{brand\.accent\} \/>\}/);
-  assert.doesNotMatch(camera, /data-style-card=|data-style-card-preview=|SP_LOOK_CARD|SP_PHONE_PICTURE|SP_LAYOUT_CARD|spCardWidth/, 'the Camera draws a card of its own again');
+test('a card whose picture is drawn (not copied off the page) is still the toolbar’s Style card — the Camera has none now', async () => {
+  /* 📷 Owner 2026-10-24: ONE camera — the Camera part draws no Style cards at all (its looks were the last drawn ones
+     besides the Logo's and the Reveal's). */
+  assert.ok(!existsSync(join(WEB, LAUNCH, 'stage-panel', 'camera-look.tsx')), 'the Camera’s look picker is back');
+  assert.doesNotMatch(read(`${LAUNCH}/stage-panel/camera-face.tsx`), /<StyleCards/, 'the Camera draws Style cards again');
   /* The strip hands the picture over WITHOUT changing the card: the same frame, the same foot. */
   const car = read(`${LAUNCH}/stage-panel/style-carousel.tsx`);
   assert.match(car, /\{picture \? \(\s*picture\(o\.id, on\)\s*\) : \(\s*<StylePreview/);
-  /* RENDERED: three cards, each the frame as tall as its rows, each filled by that look's camera screen. */
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { StyleCards } = await import(`../${LAUNCH}/stage-panel/style-carousel`);
-  const { CameraLookFace } = await import(`../${LAUNCH}/stage-panel/camera-face`);
-  const { CAMERA_LOOKS, CAMERA_LOOK_LABEL } = await import('./camera-look');
   const html = renderToStaticMarkup(
     React.createElement(StyleCards, {
-      options: CAMERA_LOOKS.map((l: string) => ({ id: l, name: CAMERA_LOOK_LABEL[l as keyof typeof CAMERA_LOOK_LABEL] })),
-      value: 'classic',
+      options: ['a', 'b', 'c'].map((id) => ({ id, name: id.toUpperCase() })),
+      value: 'a',
       onPick: () => {},
       pending: false,
       canvasKey: null,
       sceneType: '',
-      picture: (id: string) => React.createElement(CameraLookFace, { look: id, logo: null, accent: null }),
+      picture: (id: string) => React.createElement('span', { 'data-drawn-picture': id, className: 'absolute inset-0 ' }),
     }),
   );
   const buttons = [...html.matchAll(/<button[^>]*role="radio"[^>]*class="([^"]*)"[^>]*>/g)].map((m) => m[1]!);
   assert.equal(buttons.length, 3);
   for (const b of buttons) assert.equal(b, SP_STYLE_CARD);
-  assert.deepEqual([...html.matchAll(/data-camera-look-face="([a-z]+)" class="absolute inset-0 /g)].map((m) => m[1]), ['classic', 'brand', 'challenges'], 'a card’s camera screen does not fill its picture');
+  assert.deepEqual([...html.matchAll(/data-drawn-picture="([a-z]+)"/g)].map((m) => m[1]), ['a', 'b', 'c']);
   assert.equal(html.split(`class="${SP_STYLE_PICTURE}"`).length - 1, 3);
-  assert.doesNotMatch(html, /iframe/, 'a Camera card loads a page — the camera is never opened in the Maker');
+  assert.doesNotMatch(html, /iframe/, 'a drawn card loads a page');
 });
 
 test('a picker that draws look cards and is not in the audit fails — it joins the list', () => {
@@ -217,7 +218,8 @@ test('a picker that draws look cards and is not in the audit fails — it joins 
   walk('app/dashboard/[eventId]');
   const unaudited = found.filter((f) => !audited.has(f));
   assert.deepEqual(unaudited, [], `a look-card picker is not in the phone-shaped audit:\n${unaudited.join('\n')}`);
-  assert.ok(found.length >= 3, `the look-card pickers were found (${found.length})`);
+  /* (2 since 2026-10-17: the Reveal's openings are drawn by the toolbar's Style cards, not a picker of their own.) */
+  assert.ok(found.length >= 2, `the look-card pickers were found (${found.length})`);
 });
 
 test('the frame is ONE rule in ONE stylesheet — 3 : 4, a fixed width — and nobody draws a second one', () => {
@@ -300,5 +302,14 @@ test('the Reveal’s card is the same drawing at the frame’s shape — never n
     assert.equal(pieces(fill), pieces(own), `${kind}: the card draws other pieces than the page`);
   }
   const reveal = read(`${LAUNCH}/maker-reveal.tsx`);
-  assert.match(reveal, /<RevealPicture kind=\{o\.id\} colours=\{look\.colours\} fill \/>/);
+  assert.match(reveal, /<RevealPicture kind=\{id\} colours=\{look\.colours\} fill over \/>/);
+  /* Over the couple's real cover (2026-10-17): a rigid opening is the very same pieces; None draws nothing; the Sheer
+     veil is its cloth and stripes, see-through, filling the frame. */
+  for (const kind of ['four-flap', 'two-flap-vertical', 'two-flap-horizontal', 'church-doors']) {
+    assert.equal(revealPictureHtml(kind, c, REVEAL_PICTURE_PX.w, REVEAL_PICTURE_PX.h, true, true), revealPictureHtml(kind, c, REVEAL_PICTURE_PX.w, REVEAL_PICTURE_PX.h, true), `${kind}: over the cover it is other artwork`);
+  }
+  assert.equal(revealPictureHtml('none', c, 150, 96, true, true), '');
+  const veil = revealPictureHtml('veil-sheer', c, 150, 96, true, true);
+  assert.match(veil, /^<span data-reveal-picture="veil-sheer" data-reveal-over="" style="position:absolute;inset:0;[^"]*rgba\(255,252,247,\.82\)/, 'the veil over the cover is not see-through');
+  assert.match(veil, /repeating-linear-gradient\(100deg,transparent 0 10px,rgba\(255,255,255,\.4\) 10px 12px\)/, 'the veil over the cover has no stripes');
 });

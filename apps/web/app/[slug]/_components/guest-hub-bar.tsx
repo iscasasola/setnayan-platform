@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import {
   AlertTriangle,
   Camera,
@@ -13,13 +12,14 @@ import {
   User,
   X,
 } from 'lucide-react';
-import { useModalA11y } from '@/lib/use-modal-a11y';
 import { rotateMyGuestQr } from '../rotate-qr-actions';
 import { GuestCodeKeepers } from './guest-code-keepers';
+import { useModalA11y } from '@/lib/use-modal-a11y';
 import { TOP_CORNER_SLOT_ID } from '../_lib/top-corner';
 import { PAGE_COLUMN } from '../_lib/measures';
 import { PASS_ANCHOR } from '@/lib/arrival-action';
 import { formatCount } from '@/lib/format-number';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 
 // Guest event-page hub bar (owner 2026-06-26). When a guest scans their
 // personal QR they land on their own InvitationSite view; this turns that page
@@ -119,7 +119,6 @@ export function GuestHubBar({
   const [qrOpen, setQrOpen] = useState(false);
   // (Whether "My QR" is offered at all — ONE QR ON THE INVITATION — is the Me
   // section's own question: `GuestMeSection`, at the foot of this file.)
-  const qrDialogRef = useRef<HTMLDivElement>(null);
   // "My QR" on a tabbed page's Me asks for this sheet by event — the section is
   // drawn by the page body there, not by this component (`meInPage`).
   useEffect(() => {
@@ -127,14 +126,8 @@ export function GuestHubBar({
     window.addEventListener(OPEN_MY_QR_EVENT, open);
     return () => window.removeEventListener(OPEN_MY_QR_EVENT, open);
   }, []);
-  useModalA11y({
-    open: qrOpen,
-    onClose: () => setQrOpen(false),
-    containerRef: qrDialogRef,
-  });
 
   // Self-rotation state (build ④ — flag-gated by selfRotateEnabled).
-  const router = useRouter();
   const [rotateConfirming, setRotateConfirming] = useState(false);
   const [rotateTyped, setRotateTyped] = useState('');
   const [rotateStatus, setRotateStatus] = useState<'idle' | 'done' | 'rate_limited' | 'error'>(
@@ -160,11 +153,11 @@ export function GuestHubBar({
           no-scroll toggle-menu hub. The hub is a separate route, so the long
           event page stays intact; this is its doorway from the day-of bar. */}
       {hubHref ? (
-        <div className="fixed left-3 top-3 z-40 [padding-top:env(safe-area-inset-top)]">
+        <div className="fixed left-[max(0.75rem,var(--sn-safe-l))] top-3 z-40 [padding-top:env(safe-area-inset-top)]">
           <Link
             href={hubHref}
             aria-label="Open the live hub"
-            className="inline-flex h-10 items-center gap-1.5 rounded-full bg-ink px-3.5 text-sm font-semibold text-cream shadow-sm transition hover:bg-ink/90"
+            className="inline-flex h-11 items-center gap-1.5 rounded-full bg-ink px-3.5 text-sm font-semibold text-cream shadow-sm transition hover:bg-ink/90"
           >
             <LayoutGrid aria-hidden className="h-4 w-4" strokeWidth={2} />
             <span>Live hub</span>
@@ -174,7 +167,7 @@ export function GuestHubBar({
 
       {/* Top-right account affordance. Fixed so it rides above the page chrome;
           safe-area inset keeps it clear of notches. */}
-      <div data-top-corner className="fixed right-3 top-3 z-40 flex items-start gap-2 [padding-top:env(safe-area-inset-top)]">
+      <div data-top-corner className="fixed right-[max(0.75rem,var(--sn-safe-r))] top-3 z-40 flex items-start gap-2 [padding-top:env(safe-area-inset-top)]">
         {/* The music button portals in HERE (background-music.tsx), left of the
             account control — one cluster, never two fixed things stacked. */}
         <div id={TOP_CORNER_SLOT_ID} className="contents" />
@@ -182,7 +175,7 @@ export function GuestHubBar({
           <Link
             href="/dashboard/profile"
             aria-label="Your account"
-            className="inline-flex h-10 items-center gap-1.5 rounded-full border border-ink/10 bg-cream/90 px-3 text-sm font-medium text-ink shadow-sm backdrop-blur transition hover:border-terracotta hover:text-terracotta-700"
+            className="inline-flex h-11 items-center gap-1.5 rounded-full border border-ink/10 bg-cream/90 px-3 text-sm font-medium text-ink shadow-sm backdrop-blur transition hover:border-terracotta hover:text-terracotta-700"
           >
             <User aria-hidden className="h-4 w-4" strokeWidth={1.75} />
             <span>Account</span>
@@ -209,6 +202,7 @@ export function GuestHubBar({
       <nav
         aria-label="Your event controls"
         className="fixed inset-x-0 bottom-0 z-40 [padding-bottom:env(safe-area-inset-bottom)]"
+        data-safe-x=""
       >
         <div className="mx-auto flex max-w-md items-end justify-between gap-3 px-5 pb-3 pt-2">
           {/* Bottom-left: open the guest's own personal QR. */}
@@ -245,7 +239,7 @@ export function GuestHubBar({
           {/* Bottom-right: the guest's photos ("Photos of you"). */}
           <Link
             href={galleryHref}
-            aria-label="Photos of you"
+            aria-label="Memories of you"
             className="relative inline-flex h-[3.25rem] w-[3.25rem] flex-col items-center justify-center gap-0.5 rounded-2xl border border-ink/10 bg-cream/95 text-ink shadow-lg backdrop-blur transition hover:border-terracotta hover:text-terracotta-700"
           >
             <Images aria-hidden className="h-5 w-5" strokeWidth={1.75} />
@@ -260,35 +254,9 @@ export function GuestHubBar({
       </nav>
       )}
 
-      {/* Personal-QR modal. */}
+      {/* Personal-QR modal — the one sheet (`GuestSheet`, below), which a plus-one's ticket opens too. */}
       {qrOpen ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-ink/60 p-4 backdrop-blur-sm"
-          onClick={() => setQrOpen(false)}
-        >
-          <div
-            ref={qrDialogRef}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="guest-qr-title"
-            tabIndex={-1}
-            onClick={(e) => e.stopPropagation()}
-            className="relative w-full max-w-xs rounded-3xl border border-ink/10 bg-cream p-6 text-center shadow-2xl"
-          >
-            <button
-              type="button"
-              onClick={() => setQrOpen(false)}
-              aria-label="Close"
-              className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-full text-ink/70 transition hover:bg-ink/5 hover:text-ink"
-            >
-              <X aria-hidden className="h-4 w-4" strokeWidth={2} />
-            </button>
-            <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
-              Your QR
-            </p>
-            <h2 id="guest-qr-title" className="mt-1 text-lg font-semibold tracking-tight text-ink">
-              Let others scan you
-            </h2>
+        <GuestSheet titleId="guest-qr-title" eyebrow="Your QR" title="Let others scan you" onClose={() => setQrOpen(false)}>
             <p className="mx-auto mt-1 max-w-prose text-xs text-ink/70">
               Show this so photographers and friends can tag you in their photos.
             </p>
@@ -377,7 +345,6 @@ export function GuestHubBar({
                               if (res.ok) {
                                 setRotateStatus('done');
                                 setRotateConfirming(false);
-                                router.refresh();
                               } else if (res.reason === 'rate_limited') {
                                 setRotateStatus('rate_limited');
                               } else {
@@ -405,10 +372,65 @@ export function GuestHubBar({
                 )}
               </div>
             ) : null}
-          </div>
-        </div>
+        </GuestSheet>
       ) : null}
     </>
+  );
+}
+
+/**
+ * 🪟 THE GUEST'S SHEET — the one pop-up the guest page opens over itself: "My
+ * QR" (above), and a plus-one's ticket on Me (`ticket-row.tsx` `show`, owner
+ * 2026-10-21: *"the ticket opens big in the shipped sheet, where 'Save …'s
+ * ticket' lives"*). One frame, so the two can never look like two products:
+ * the dimmed page, the cream card, its close, its eyebrow and its title.
+ * Mounted only while open; the repo's one modal hook gives focus, Escape and
+ * the scroll lock.
+ */
+export function GuestSheet({
+  titleId,
+  eyebrow,
+  title,
+  onClose,
+  children,
+}: {
+  titleId: string;
+  eyebrow: string;
+  title: string;
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useModalA11y({ open: true, onClose, containerRef: dialogRef });
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+    >
+      <OverlayBackdrop onClose={onClose} />
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        onClick={(e) => e.stopPropagation()}
+        className="relative w-full max-w-xs rounded-3xl border border-ink/10 bg-cream p-6 text-center shadow-2xl"
+      >
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close"
+          className="absolute right-1.5 top-1.5 inline-flex h-11 w-11 items-center justify-center rounded-full text-ink/70 transition hover:bg-ink/5 hover:text-ink"
+        >
+          <X aria-hidden className="h-4 w-4" strokeWidth={2} />
+        </button>
+        <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">{eyebrow}</p>
+        <h2 id={titleId} className="mt-1 text-lg font-semibold tracking-tight text-ink">
+          {title}
+        </h2>
+        {children}
+      </div>
+    </div>
   );
 }
 
@@ -466,9 +488,11 @@ export function GuestMeSection({
   // Nothing to offer (the ticket is on the page, and the photos are too or there
   // are none yet) → no empty row under the guest's own things.
   const anything = !passOnPage || Boolean(photosHref);
+  // The gap under Me's own cards belongs to what follows: My QR · Photos of you (`mb-8`), or, on the Me tab, the
+  // stage's next card at the Hub's card rhythm (guest_page_fixes_2_4 fix 2).
   const section = (
     <section id="site-me" className={asTab ? 'scroll-mt-6' : 'mt-12 scroll-mt-6'}>
-      {meSlot ? <div className="mb-8">{meSlot}</div> : null}
+      {meSlot ? <div className={anything ? 'mb-8' : undefined}>{meSlot}</div> : null}
       {anything ? (
         <div className="flex flex-wrap gap-3">
           {passOnPage ? null : (
@@ -487,7 +511,7 @@ export function GuestMeSection({
               className="relative inline-flex items-center gap-2 rounded-2xl border border-ink/10 bg-cream px-4 py-3 text-sm font-medium text-ink shadow-sm transition hover:border-terracotta hover:text-terracotta-700"
             >
               <Images aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-              <span>Photos of you</span>
+              <span>Memories of you</span>
               {galleryCount > 0 ? (
                 <span className="inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-terracotta-700 px-1.5 text-[0.65rem] font-semibold leading-5 text-cream">
                   {galleryCount > 99 ? '99+' : formatCount(galleryCount)}

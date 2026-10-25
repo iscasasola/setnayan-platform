@@ -30,10 +30,16 @@
 // Only the couple, in the Maker's canvas and its whole-stage preview, meets the
 // scene's placeholder — its own layout, with the line that says what fills it.
 
+import { HUB_SCENE_FX_ATTR } from '@/lib/element-style';
+import { HubSceneFx } from '../hub-scene-fx';
 import type { ReactElement, ReactNode } from 'react';
 import type { DayChapter } from './data';
 import type { PostEventStyleId } from '@/lib/post-event-styles';
 import { postEventElementScope } from '@/lib/post-event-styles';
+import { GlimpseRail } from '../glimpse-rail';
+
+/** Glimpse in the flow draws this many photos. */
+export const GLIMPSE_PREVIEW_MAX = 12;
 
 export type PeWords = Partial<Record<'label' | 'heading' | 'body', string>>;
 
@@ -55,6 +61,7 @@ export function PostEventSceneFrame({
   scene,
   style,
   css,
+  fx = null,
   id,
   className = '',
   children,
@@ -63,6 +70,8 @@ export function PostEventSceneFrame({
   style: PostEventStyleId;
   /** `hubElementSceneCss(postEventElementScope(scene), elements)` — null when none. */
   css: string | null;
+  /** ✨ `hubSceneFxAttr(elements)` — its parts' Word by word · Spread · Glow, cut by `HubSceneFx`; null when none. */
+  fx?: string | null;
   id?: string;
   className?: string;
   children: ReactNode;
@@ -77,11 +86,12 @@ export function PostEventSceneFrame({
       >
         {children}
       </section>
-      {css ? (
-        <style hidden data-hub-els={postEventElementScope(scene)}>
-          {css}
+      {css || fx ? (
+        <style hidden data-hub-els={postEventElementScope(scene)} {...(fx ? { [HUB_SCENE_FX_ATTR]: fx } : {})}>
+          {css ?? ''}
         </style>
       ) : null}
+      {fx ? <HubSceneFx scope={postEventElementScope(scene)} /> : null}
     </>
   );
 }
@@ -655,6 +665,18 @@ export function GalleryPreview({
               <Photo url={u} alt={i === 0 ? `${names} — a moment from the day` : ''} />
             </span>
           ))}
+        </span>
+      </div>
+    );
+  }
+  if (style === 'glimpse') {
+    /* Glimpse — the Save the Date's rail, the SAME component, in its preview form (nothing in it to press: the whole
+       preview is the open-up's button). Bleeds to the screen edges like the film strip so the neighbours peek. */
+    return (
+      <div>
+        {head}
+        <span className="-mx-5 mt-3.5 block sm:-mx-10">
+          <GlimpseRail preview urls={photos.slice(0, GLIMPSE_PREVIEW_MAX)} label={`${names} — Memories`} />
         </span>
       </div>
     );

@@ -104,6 +104,7 @@ export async function giftDoor(purpose: GiftPurpose, body: Record<string, unknow
       message: body.message,
       name: body.name,
       shotRef: body.shotRef,
+      ref: body.ref,
     });
   } catch (err) {
     Sentry.captureException(err, { tags: { route: 'api/guest-selfie', purpose }, extra: { event_id: eventId } });

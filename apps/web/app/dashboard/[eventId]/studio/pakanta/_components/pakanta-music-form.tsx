@@ -1,7 +1,6 @@
 'use client';
 
 import { useRef, useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
 import { Music, Loader2 } from 'lucide-react';
 import {
   savePakantaIntake,
@@ -9,12 +8,21 @@ import {
 } from '../../../pakanta-actions';
 import type { ComponentProps } from 'react';
 import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
+import { IapUnlockSheet } from '@/app/_components/iap/iap-unlock-sheet';
 
 type Props = {
   eventId: string;
   /** Existing draft responses (the couple can come back and edit). */
   initial: Partial<PakantaIntakeResponses> | null;
-  pricePhp: number;
+  /** The catalogue's price (the web). Null only in the iPhone app, where Apple's sheet carries the price. */
+  pricePhp: number | null;
+  /**
+   * 🍎 The iPhone app where Apple sells (`getIapGate().iap`, owner 2026-10-23): the pay step is Apple's sheet
+   * (`IapUnlockSheet`) — no web price on any button here, no GCash / BDO.
+   */
+  apple?: boolean;
+  /** 🍎 …and the catalogue still sells it (the server refuses otherwise): without it, one plain line, never a dead tap. */
+  appleOnSale?: boolean;
   /** Platform BDO/GCash settings the in-page checkout drawer renders. */
   settings: ComponentProps<typeof InlineCheckoutDrawer>['settings'];
   /**
@@ -36,8 +44,8 @@ type FieldKey = keyof PakantaIntakeResponses;
  * draft; [Continue to payment] saves the brief then reveals the in-page
  * InlineCheckoutDrawer (the retired /orders/new redirect is gone).
  */
-export function PakantaMusicForm({ eventId, initial, pricePhp, settings, paid = false }: Props) {
-  const router = useRouter();
+export function PakantaMusicForm({ eventId, initial, pricePhp, settings, apple = false, appleOnSale = false, paid = false }: Props) {
+  const priceSuffix = !apple && pricePhp != null ? ` · ₱${pricePhp.toLocaleString('en-PH')}` : '';
   const formRef = useRef<HTMLFormElement>(null);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -63,8 +71,8 @@ export function PakantaMusicForm({ eventId, initial, pricePhp, settings, paid = 
       }
       // Brief saved (status=purchase_pending). For a purchase, reveal the
       // in-page checkout drawer instead of the retired /orders/new redirect.
+      // (A plain save is redrawn by the action's own answer — it revalidates — so nothing refreshes here.)
       if (intent === 'purchase') setReadyToPay(true);
-      else router.refresh();
     });
   }
 
@@ -164,14 +172,29 @@ export function PakantaMusicForm({ eventId, initial, pricePhp, settings, paid = 
           >
             Save for later
           </button>
-          {readyToPay ? (
+          {readyToPay && apple && !appleOnSale ? (
+            <p role="status" className="text-sm text-ink/70">
+              Music Maker isn&rsquo;t on sale right now. Your notes are saved.
+            </p>
+          ) : readyToPay && apple ? (
+            <IapUnlockSheet
+              eventId={eventId}
+              serviceKey="PAKANTA"
+              name="Music Maker"
+              line="Your own song, written from your story."
+              info="We compose it with Setnayan AI from your love story and the music notes above. When it’s ready it appears on this page and can play on your event page."
+              triggerLabel="Pay"
+              triggerTestId="iap-music-maker-pay"
+              triggerClassName="inline-flex items-center justify-center gap-2 rounded-lg bg-mulberry px-4 py-2 text-sm font-semibold text-white hover:bg-mulberry/90"
+            />
+          ) : readyToPay && pricePhp != null ? (
             <InlineCheckoutDrawer
               eventId={eventId}
               serviceKey="PAKANTA"
               displayName="Music Maker · Your wedding song"
               originalPriceCentavos={String(Math.round(pricePhp * 100))}
               settings={settings}
-              triggerLabel={`Pay · ₱${pricePhp.toLocaleString('en-PH')}`}
+              triggerLabel={`Pay${priceSuffix}`}
               triggerClassName="inline-flex items-center justify-center gap-2 rounded-lg bg-mulberry px-4 py-2 text-sm font-semibold text-white hover:bg-mulberry/90"
             />
           ) : (
@@ -185,7 +208,7 @@ export function PakantaMusicForm({ eventId, initial, pricePhp, settings, paid = 
               ) : (
                 <Music aria-hidden className="h-4 w-4" />
               )}
-              Continue to payment · ₱{pricePhp.toLocaleString('en-PH')}
+              {apple ? 'Continue' : `Continue to payment${priceSuffix}`}
             </button>
           )}
         </div>

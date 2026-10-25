@@ -80,7 +80,7 @@ export function SetupFrame({
   const [infoOpen, setInfoOpen] = useState(false);
   return (
     <div data-setup-card={dataCard} data-skin={skin}>
-      <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/45">
+      <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/70">
         {formatCount(n)} of {formatCount(total)}
       </p>
       <div className="mt-2 flex items-start gap-2">
@@ -121,7 +121,7 @@ export function SetupFrame({
         </div>
       ) : null}
 
-      <p className="mt-6 text-xs text-ink/40">{footer}</p>
+      <p className="mt-6 text-xs text-ink/70">{footer}</p>
     </div>
   );
 }
@@ -234,7 +234,7 @@ export function SetupCard({ card, view, answers, onChange, onNext, n, total }: P
               return (
                 <div key={row} data-setup-more-row={row}>
                   <p className="text-sm font-medium text-ink/75">{r.title}</p>
-                  <p className="text-xs text-ink/45">{r.line}</p>
+                  <p className="text-xs text-ink/70">{r.line}</p>
                   <div className="mt-2 flex gap-2">
                     {r.options.map((o) => (
                       <button key={o.v} type="button" className={choice(value === o.v)} style={choiceStyle(value === o.v)} onClick={() => onChange({ [row]: o.v } as Partial<SetupAnswers>)}>

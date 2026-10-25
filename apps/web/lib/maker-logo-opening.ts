@@ -52,7 +52,9 @@ export type MakerLogoOpening = {
 };
 
 export function makerLogoOpening(row: MakerLogoRow): MakerLogoOpening {
-  const mark = resolveEventMonogramSvg(row);
+  /* The editor opens the logo the couple made even with "No, use our names" set (Batch 9 W3): opening must never
+     read as "no logo" and hand the editor the names to save over it. */
+  const mark = resolveEventMonogramSvg(row, { evenIfSwitchedOff: true });
   const names = resolveMonogram(row).text;
   if (!mark) return { source: 'names', layers: [], svg: null, names, anim: null };
   // A composition exists (the resolver drew it, not the upload) → its config is

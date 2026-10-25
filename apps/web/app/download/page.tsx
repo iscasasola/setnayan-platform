@@ -11,6 +11,9 @@ import {
   PlatformCompatBanner,
 } from './_download-motion';
 import { formatCount } from '@/lib/format-number';
+import { formatLongDate } from '@/lib/format-date';
+import { BRAND_OG_IMAGES } from '@/lib/brand-og';
+import { iosAppStoreUrl } from '@/lib/where-setnayan-runs';
 
 // GEO Phase G5 (2026-05-28) — canonical URL + openGraph block added.
 // SEO/GEO Bucket 8 (CLAUDE.md 2026-05-29 SEO/GEO Sprint row) — 1hr Vercel
@@ -23,12 +26,13 @@ export const revalidate = 3600;
 export const metadata = {
   title: 'Download Setnayan for Mac or Windows',
   description:
-    'Install Setnayan as a native desktop app for Mac or Windows. It opens straight to your account — your guest list, invitations, planner and seating in their own window. iOS and Android shells on the V1.5 roadmap.',
+    'Install Setnayan as a native desktop app for Mac or Windows. It opens straight to your account — your guest list, invitations, planner and seating in their own window.',
   alternates: { canonical: '/download' },
   openGraph: {
+    images: BRAND_OG_IMAGES,
     title: 'Download Setnayan for Mac or Windows',
     description:
-      'A native desktop app for Mac or Windows that opens straight to your Setnayan account. iOS and Android on the V1.5 roadmap.',
+      'A native desktop app for Mac or Windows that opens straight to your Setnayan account.',
     url: '/download',
   },
 };
@@ -60,9 +64,13 @@ export default async function DownloadPage() {
   const navSlots = await getNavSlotMap();
   const macDownloadLabel = navSlots['public.download.mac-api']?.label ?? 'Download for Mac';
   const winDownloadLabel = 'Download for Windows';
+  // The iPhone app is named only once it is listed — the same switch every
+  // other surface reads (lib/where-setnayan-runs.ts). Unset today, so the
+  // phone line says only what is true: the home-screen install.
+  const iosUrl = iosAppStoreUrl();
 
   return (
-    <main className="min-h-dvh bg-cream text-ink">
+    <main className="min-h-dvh overflow-x-clip bg-cream text-ink">
 
       {/* ───────────────────────── Hero ─────────────────────────
           Airy two-column editorial split. Copy leads with a hairline eyebrow + a
@@ -130,9 +138,11 @@ export default async function DownloadPage() {
 
             {mac ? (
               <div data-reveal-item className="space-y-1.5 pt-1">
-                <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/45">
-                  v{release!.version} · {macSizeLabel} · Apple Silicon · Released {release!.publishedAt}
-                  {windows ? ` · Windows build ${winSizeLabel}` : ''}
+                {/* 🗣 WORDED FOR A VISITOR (sweep B4, 2026-10-19). This line read "V0.0.1 · 2.7 MB · APPLE SILICON ·
+                    RELEASED 2026-09-14 · WINDOWS BUILD 2.9 MB" — a build number that reads as a beta, an ISO date, and
+                    sizes the buttons above already carry. What a couple needs is which Mac and how fresh. */}
+                <p data-download-facts="" className="text-xs text-ink/50">
+                  For Apple-silicon Macs{windows ? ' and Windows 10/11' : ''} · released {formatLongDate(release!.publishedAt)}
                 </p>
                 {mac.notarized ? (
                   <p className="flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.18em] text-terracotta-700">
@@ -143,17 +153,34 @@ export default async function DownloadPage() {
                   // Truthful, not alarming: an ad-hoc-signed build opens fine on
                   // first launch with one extra click (see "First launch" below),
                   // it is simply not Apple-notarized YET (S11).
-                  <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/40">
-                    Not yet notarized by Apple — see &ldquo;First launch&rdquo; below
+                  <p className="text-xs text-ink/50">
+                    Not yet notarized by Apple, so macOS asks once the first time you open it — see &ldquo;First
+                    launch&rdquo; below.
                   </p>
                 )}
                 {windows && !windows.signed ? (
-                  <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/40">
-                    Windows build is unsigned — Windows SmartScreen will warn on first run
+                  <p className="text-xs text-ink/50">
+                    On Windows, SmartScreen asks once the first time you run it — see &ldquo;First launch&rdquo; below.
                   </p>
                 ) : null}
               </div>
             ) : null}
+
+            {/* 📱 ON A PHONE (2026-10-25). This page only ever spoke to a
+                computer, so a phone visitor tapping Download learned nothing
+                they could use. One true line, no store link until one exists. */}
+            <p data-reveal-item data-download-phone="" className="max-w-md text-sm leading-relaxed text-ink/60">
+              On a phone? Open setnayan.com in your browser and add it to your home screen
+              {iosUrl ? (
+                <>
+                  , or{' '}
+                  <a href={iosUrl} className="text-terracotta underline-offset-4 hover:underline">
+                    get the iPhone app
+                  </a>
+                </>
+              ) : null}
+              .
+            </p>
           </RevealGroup>
 
           <AppWindowHero />
@@ -181,7 +208,7 @@ export default async function DownloadPage() {
               <Value
                 icon={<Zap aria-hidden className="h-5 w-5" strokeWidth={1.5} />}
                 title="Opens straight to your plan"
-                body="No landing page, no sign-in wall every time. Launch it and you're already inside your wedding."
+                body="No landing page, no sign-in wall every time. Launch it and you're already inside your events."
               />
               {/*
                 🔴 THIS CARD CLAIMED NOTARIZATION UNCONDITIONALLY — CTRL-B3

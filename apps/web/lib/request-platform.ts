@@ -19,6 +19,8 @@
 import { headers, cookies } from 'next/headers';
 import { isStoreShellSignals, STORE_SHELL_CLIENT_TYPE_COOKIE } from '@/lib/store-shell';
 import { classifyShell, oauthGate, type ClientShell, type OAuthFlags, type OAuthGate } from '@/lib/oauth-shell-gate';
+import { iapAvailable } from '@/lib/iap/iap-gate';
+import { isAppleIapEnabled } from '@/lib/apple-iap-flag';
 
 export type RequestPlatform = 'web' | 'ios' | 'android';
 
@@ -93,6 +95,27 @@ export async function getRequestPlatform(): Promise<RequestPlatform> {
 }
 
 /**
+ * Does Discover (`/`, the public feed) OPEN on this request — or does the native
+ * shell bounce it to the board?
+ *
+ * Middleware sends every native-shell request for a path in
+ * `APP_EXCLUDED_MARKETING_PATHS` to /dashboard (signed in) or /login, and `/` is
+ * in that set while Apple reviews 1.0. "Native shell" there is ANY `SetnayanApp`
+ * user agent or the capacitor cookie — the phone app and the desktop app alike —
+ * which is exactly `getRequestPlatform() !== 'web'` (the same question /login
+ * asks for its ✕). So a door to Discover — the account bar's tab, the rail's
+ * row — is drawn only where this is true, and is never a press that lands back
+ * on the page you were on (owner "yes to all", 2026-10-21).
+ *
+ * ⚠ When `/` leaves the bounce list, this must change with it:
+ * `the-account-bar-is-the-ruling.test.ts` reads the set from middleware.ts and
+ * fails the day the two disagree.
+ */
+export async function discoverOpensHere(): Promise<boolean> {
+  return (await getRequestPlatform()) === 'web';
+}
+
+/**
  * Is this request from the App Store / Play Store shell (Capacitor)?
  *
  * ⚠ NOT the same question as `getRequestPlatform() !== 'web'`: that one also
@@ -113,4 +136,23 @@ export async function isStoreShellRequest(): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+/**
+ * 🍎 The store shell, and whether it may sell through Apple on this request.
+ *
+ * `iap` is true only when ALL of: the store shell, a build carrying the StoreKit
+ * plugin (`SetnayanIAP/2` or higher — 1.1+; build 5's `/1` never), and the owner's switch — the rule is
+ * `iapAvailable` in lib/iap/iap-gate.ts. With `iap` false every reader keeps
+ * the store-shell behaviour it had before In-App Purchase existed. Safe outside
+ * a request scope → both false.
+ */
+export async function getIapGate(): Promise<{ storeShell: boolean; iap: boolean }> {
+  const signals = await readShellSignals();
+  if (!signals) return { storeShell: false, iap: false };
+  const storeShell = isStoreShellSignals(signals.ua, signals.clientType);
+  return {
+    storeShell,
+    iap: iapAvailable({ storeShell, userAgent: signals.ua, enabled: isAppleIapEnabled() }),
+  };
 }

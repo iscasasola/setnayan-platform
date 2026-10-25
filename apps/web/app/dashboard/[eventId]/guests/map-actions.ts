@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
-import { normalizeGuestName } from '@/lib/guest-name';
+import { makeGuestGroupOnce } from '@/lib/guest-group-made-once';
 import {
   GUEST_GROUP_TEAM_SIDES,
   type GuestGroupTeamSide,
@@ -40,63 +40,19 @@ export async function mapAddGroup(
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: 'Your session expired — sign in again.' };
 
-  const { data, error } = await supabase
-    .from('guest_groups')
-    .insert({ event_id: eventId, label, team_side: teamSide })
-    .select('group_id')
-    .single();
-
-  if (error || !data) {
-    // Idempotent on a duplicate name (unique index): return the existing group
-    // so the map just renders it, instead of leaking the raw 23505.
-    if ((error as { code?: string } | null)?.code === '23505') {
-      const { data: existing } = await supabase
-        .from('guest_groups')
-        .select('group_id')
-        .eq('event_id', eventId)
-        .ilike('label', label)
-        .maybeSingle();
-      if (existing) {
-        revalidatePath(`/dashboard/${eventId}/guests`);
-        return { ok: true, id: existing.group_id };
-      }
-      return { ok: false, error: 'A group with that name already exists.' };
-    }
-    return { ok: false, error: 'Couldn’t create that group.' };
-  }
+  // 👥 One name, one group: a name already in this side's list is that group (`makeGuestGroupOnce`) — the map just
+  // renders it, as the old 23505 path did.
+  const made = await makeGuestGroupOnce(supabase, eventId, label, teamSide);
+  if (!made.ok) return { ok: false, error: made.code === '23505' ? made.error : 'Couldn’t create that group.' };
   revalidatePath(`/dashboard/${eventId}/guests`);
-  return { ok: true, id: data.group_id };
+  return { ok: true, id: made.group.group_id };
 }
 
-/** "+" on a guest node → record their plus-one. */
-export async function mapAddPlusOne(
-  eventId: string,
-  guestId: string,
-  rawName: string,
-): Promise<MapActionResult> {
-  const name = normalizeGuestName(rawName).slice(0, 80);
-  if (!name) return { ok: false, error: 'Give the +1 a name.' };
-
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: 'Your session expired — sign in again.' };
-
-  // .select() so a zero-row match (RLS denied / wrong event / deleted guest)
-  // is a real failure, not a silent ok:true.
-  const { data, error } = await supabase
-    .from('guests')
-    .update({ plus_one_allowed: true, plus_one_name: name })
-    .eq('guest_id', guestId)
-    .eq('event_id', eventId)
-    .is('deleted_at', null)
-    .select('guest_id');
-
-  if (error) return { ok: false, error: error.message };
-  if (!data || data.length === 0) {
-    return { ok: false, error: 'Couldn’t update that guest — try again.' };
-  }
-  revalidatePath(`/dashboard/${eventId}/guests`);
-  return { ok: true, id: guestId };
-}
+/*
+ * 🪦 `mapAddPlusOne` LIVED HERE AND IS GONE (2026-10-20). Its only caller, the
+ * mind-map editor's "+" on a guest node, was retired with the 2026-10-07 List
+ * and Map rewrite; nothing in app/, lib/ or the tests named it. Removed to keep
+ * the server-action count under `lint-server-action-budget.mjs`'s ceiling for
+ * `moveSupplierToCategory` (preference 2 in that script: un-export what nothing
+ * imports). A plus-one is recorded through the guest sheet's own path.
+ */

@@ -157,7 +157,9 @@ const PAGE = stripComments(readFileSync(join(WEB, 'app/dashboard/[eventId]/guest
 const count = (s: string, needle: string) => s.split(needle).length - 1;
 
 test('4 · the page asks the measured form of all five, and says what they answered', () => {
-  const fan = PAGE.slice(PAGE.indexOf('await Promise.all(['), PAGE.indexOf(']);', PAGE.indexOf('await Promise.all([')));
+  // The roster's own batch (since 2026-10-20 started beside the page's other reads, awaited in the one wait).
+  const at = PAGE.indexOf('const rosterRead = Promise.all([');
+  const fan = PAGE.slice(at, PAGE.indexOf(']);', at));
   assert.ok(fan.includes('fetchGuestsByEventMeasured('), 're-anchor — this is not the page’s read fan-out');
   for (const call of [
     'fetchGuestGroupsByEventMeasured(supabase, eventId)',

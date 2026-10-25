@@ -49,13 +49,14 @@ test('the decorative pattern is gone — no hash-seeded stand-in QR remains', ()
 
 test('the thumbnail, the full view and Save ticket point at the SAME route, from ONE variable', () => {
   const src = stripComments(read(DRAWER));
-  assert.match(src, /const src = ticketUrl\(guestId\);/);
+  // (With the ticket's version since 2026-10-16 — the-ticket-is-fetched-once-per-version.test.ts.)
+  assert.match(src, /const src = ticketUrl\(guestId, tv\.v\);/);
   // The thumbnail <img>, the full-view <img> and Save ticket's href all read it.
   const uses = [...src.matchAll(/(?:src|href)=\{src\}/g)].length;
   assert.ok(uses >= 3, `the ticket route is read ${uses}× — expected the thumb, the full view and Save ticket`);
   // …and it is the route Invite shares (send-invite.tsx), so what the couple sees is what the guest gets.
   const send = stripComments(read('app/dashboard/[eventId]/guests/_components/send-invite.tsx'));
-  assert.match(send, /export function ticketUrl\(guestId: string\): string \{\s*return `\$\{TICKET_ROUTE\}\?guest=/);
+  assert.match(send, /export function ticketUrl\(guestId: string, version\?: string \| null\): string \{\s*const base = `\$\{TICKET_ROUTE\}\?guest=/);
 });
 
 test('the card never draws a ticket a guest does not have — it says so instead', () => {

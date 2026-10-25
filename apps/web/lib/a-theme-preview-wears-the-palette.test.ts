@@ -119,7 +119,8 @@ test('owner: "when mood board theme palette changes, then the theme will adjust 
   // …the couple's print preview address names the event row it is drawn from (role_palette included)…
   const set = read('lib/print-set.server.ts');
   assert.match(set, /'event_id, display_name, event_type, [^']*\brole_palette\b[^']*'/, 'the print row (and so its preview hash) no longer reads the board');
-  assert.match(set, /printPreviewVersion\(\{ event, inputs, qrLook \}\)/, 'the print preview hash no longer covers the event row');
+  /* `hub` (2026-10-21): a Pro print wears the Hub — its Main background and the entitlement join the hash, the row stays in it. */
+  assert.match(set, /printPreviewVersion\(\{ event, inputs, qrLook(?:, hub)? \}\)/, 'the print preview hash no longer covers the event row');
   // …a drafted fill is named in the preview's draft address…
   assert.match(read('lib/ceremony-time.ts'), /PRINT_DRAFTED_KEYS = \[[\s\S]*?'role_palette'[\s\S]*?\] as const/);
   // …and the scene tiles re-copy when the canvas scope's inline colours change (the chain is compared).
@@ -331,8 +332,12 @@ test('the guest page and the prints ask the same resolver', () => {
   assert.doesNotMatch(look, /buildSitePaletteVars\(/, 'guestLookFrom builds palette vars around the resolver');
 
   const set = 'lib/print-set.server.ts';
-  const call = region(read(set), 'const look = printLookFor(', ');', set);
-  assert.match(call, /themeColours\(theme,/, 'the print set hands printLookFor the resolver’s answer');
+  /* The theme look (2026-10-21: the ground a Pro print's Hub look is laid on — `printLooksFor`, lib/print-hub-look.ts; a free
+     event prints plain white) is still the resolver's answer, and the set asks for it. */
+  assert.match(read(set), /printLooksFor\(theme, sampleGallery \? opts\.samplePalette : event\.role_palette/, 'the print set stopped asking printLooksFor');
+  const looksFile = 'lib/print-hub-look.ts';
+  const call = region(read(looksFile), 'export function printLooksFor(', '\n}\n', looksFile);
+  assert.match(call, /printLookFor\(theme, themeColours\(theme,/, 'the print set hands printLookFor the resolver’s answer');
 
   const pieces = 'lib/print-pieces.ts';
   const body = region(read(pieces), 'export function printLookFor(', '\n}\n', pieces);

@@ -75,7 +75,7 @@ export const PILL_OFF_CLASS = 'text-ink/55 hover:text-ink';
  * `_tone` is ignored (see `PillTone`).
  */
 export function pillSegClass(on: boolean, _tone?: PillTone): string {
-  return `sn-press relative z-[1] inline-flex min-h-[38px] flex-1 items-center justify-center gap-1 whitespace-nowrap rounded-full px-2.5 text-[12.5px] font-semibold transition-colors duration-sn-pill ease-sn after:absolute after:inset-x-0 after:-inset-y-[3px] after:content-[''] motion-reduce:transition-none disabled:cursor-not-allowed disabled:opacity-40 ${
+  return `sn-press relative z-[1] inline-flex min-h-[38px] flex-1 items-center justify-center gap-1 whitespace-nowrap rounded-full px-2.5 text-[12.5px] font-semibold transition-colors duration-sn-pill ease-sn sn-hit motion-reduce:transition-none disabled:cursor-not-allowed disabled:opacity-40 ${
     on ? `${PILL_ON_CLASS} shadow-sm group-data-[seg-thumb]/seg:bg-transparent group-data-[seg-thumb]/seg:shadow-none` : PILL_OFF_CLASS
   }`;
 }

@@ -30,7 +30,6 @@
  */
 
 import { useEffect, useId, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { Check, MessageCircle, Plus, Trash2 } from 'lucide-react';
 import { ActionButton, actionButtonClass } from '@/components/action-button';
 import { InfoTip } from '@/app/_components/info-tip';
@@ -231,7 +230,6 @@ function RecordSheet({
   onClose: () => void;
 }) {
   const titleId = useId();
-  const router = useRouter();
   const toast = useToast();
   const suggested = suggestedPayment(supplier);
   const [amount, setAmount] = useState(suggested ? pesoText(suggested.amountPhp) : '');
@@ -269,7 +267,7 @@ function RecordSheet({
     }
     toast.success('Recorded · owed updated');
     onClose();
-    router.refresh();
+    // ⚡ No refresh: the action revalidates the budget, so its answer already carries the redrawn page.
   }
 
   return (
@@ -338,7 +336,6 @@ function ExpenseSheet({
   onClose: () => void;
 }) {
   const titleId = useId();
-  const router = useRouter();
   const toast = useToast();
   const [amount, setAmount] = useState(pesoText(expense.amountPhp));
   const [paid, setPaid] = useState(pesoText(expense.paidPhp));
@@ -383,7 +380,6 @@ function ExpenseSheet({
       return;
     }
     setSaid({ tone: 'ok', text: 'Saved.' });
-    router.refresh();
   }
 
   function onType(field: 'amount' | 'paid', value: string) {
@@ -415,7 +411,6 @@ function ExpenseSheet({
     }
     toast.success('Removed');
     onClose();
-    router.refresh();
   }
 
   return (
@@ -475,7 +470,6 @@ function AddExpenseSheet({
   onClose: () => void;
 }) {
   const titleId = useId();
-  const router = useRouter();
   const toast = useToast();
   const nameRef = useRef<HTMLInputElement>(null);
   const [name, setName] = useState('');
@@ -524,7 +518,6 @@ function AddExpenseSheet({
     }
     toast.success('Added · totals updated');
     onClose();
-    router.refresh();
   }
 
   return (

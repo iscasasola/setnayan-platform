@@ -1,15 +1,18 @@
+import { Fragment } from 'react';
 import Link from 'next/link';
-import type { EntourageGroup, EntouragePerson, EntourageRoleLayout } from '@/lib/entourage';
+import type { EntourageGroup, EntouragePerson, EntourageRoleLayout, EntourageRow } from '@/lib/entourage';
 import {
+  entourageCellWord,
+  loneRoleWord,
   roleLabel,
   peopleOf,
   roleBesideName,
   roleBlocks,
   lineNames,
-  pairsShareALine,
   DEFAULT_ENTOURAGE_ROLE_LAYOUT,
 } from '@/lib/entourage';
-import { EntourageMarch, EntourageTwoSides, entourageHasTwoSides } from './entourage-styles';
+import { EntourageMarch } from './entourage-styles';
+import { MineName, YourPlaceLine, anchorOnce, entourageMeOf, type EntourageMe } from './entourage-you';
 
 /**
  * THE ENTOURAGE — the people standing up with the couple, on the invitation.
@@ -61,19 +64,21 @@ export function EntourageSection({
   /** How a by-role group (Secondary Sponsors) is drawn. Nothing sets it yet — the Maker's Entourage preset will. */
   roleLayout?: EntourageRoleLayout;
   /**
-   * 🎨 `roll-call` (this, the default) · `two-sides` · `march`
-   * (`entourage-styles.tsx`). "Two sides" draws only when the roles put
-   * someone on each side; otherwise this, the roll call, draws.
+   * 🎨 `roll-call` — On the axis (this, the default) · `lines` — Lines (this) ·
+   * `march` (`entourage-styles.tsx`). Owner 2026-10-15. 🚫 `two-sides` is
+   * withdrawn: anything else draws On the axis.
    */
   sceneStyle?: string | null;
-  /** The signed-in guest's own id — the march marks their line. */
+  /**
+   * The signed-in guest's own id — EVERY look marks their name (owner 2026-10-17, `entourage-you.tsx`). Only the
+   * guest tree passes it; a stranger, a host and the Maker's canvas pass none and see no mark.
+   */
   myGuestId?: string | null;
 }) {
   // Nothing assigned, or a read that did not happen — either way there is no
   // heading over an empty list. See `loadEntourage` on why a failed read draws
   // nothing rather than an apology on somebody's wedding invitation.
   if (groups.length === 0) return null;
-  if (sceneStyle === 'two-sides' && entourageHasTwoSides(groups)) return <EntourageTwoSides groups={groups} id={id} />;
   if (sceneStyle === 'march') {
     return <EntourageMarch groups={groups} id={id} myGuestId={myGuestId} previewHref={previewHref} />;
   }
@@ -88,13 +93,17 @@ export function EntourageSection({
     is not. If nothing is hidden, there is no door: a link that opens the same
     list the reader is already looking at is a dead end with good manners.
   */
+  const look: Look = sceneStyle === 'lines' ? 'lines' : 'axis';
   const shown = previewHref ? groups.slice(0, previewGroups) : groups;
   const hidden = previewHref
     ? groups.slice(previewGroups).reduce((n, g) => n + peopleOf(g).length, 0)
     : 0;
+  /* 🫵 The viewer, when they are on what this draws (owner 2026-10-17); the first of their marks takes the anchor. */
+  const me = entourageMeOf(myGuestId, shown.flatMap(peopleOf), id);
+  const anchor = anchorOnce(me);
 
   return (
-    <section id={id} className="scroll-mt-6 space-y-6">
+    <section id={id} className="scroll-mt-6 space-y-6" data-scene-style={look === 'lines' ? 'lines' : 'roll-call'}>
       <header className="space-y-2">
         <p className="pahina-eyebrow">
           <span>The entourage</span>
@@ -102,43 +111,34 @@ export function EntourageSection({
         <h3 className="font-pahina text-3xl font-light leading-tight tracking-tight text-ink">
           Standing with us
         </h3>
+        <YourPlaceLine me={me} groups={groups} />
       </header>
 
-      <div className="space-y-8">
+      <div className={look === 'lines' ? 'divide-y divide-ink/12' : 'space-y-4'}>
         {shown.map((group) => {
           const blocks = roleBlocks(group);
-          if (blocks) return <ByRoleGroup key={group.key} group={group} blocks={blocks} layout={roleLayout} />;
-          if (pairsShareALine(group)) return <OneLinePairs key={group.key} group={group} />;
-          /* Does ANY line in this group hold two people? A group nobody paired
-             prints as one column — two columns of names with every right-hand
-             cell empty is a table pretending to be a pairing. */
-          const paired = group.rows.some(([l, r]) => l !== null && r !== null);
           return (
-            <div key={group.key} className="space-y-3">
-              <h4 className="pahina-eyebrow">
-                <span>{group.label}</span>
-              </h4>
-              <ul className="space-y-2">
-                {group.rows.map((row, i) => (
-                  <li
-                    key={`${group.key}-${i}`}
-                    className={
-                      paired
-                        ? 'grid grid-cols-1 items-baseline gap-x-8 gap-y-1 leading-snug sm:grid-cols-2'
-                        : 'leading-snug'
-                    }
-                  >
-                    {paired ? (
-                      <>
-                        <Cell person={row[0]} group={group} />
-                        <Cell person={row[1]} group={group} />
-                      </>
-                    ) : (
-                      <Cell person={row[0] ?? row[1]} group={group} />
-                    )}
-                  </li>
-                ))}
-              </ul>
+            <div
+              key={group.key}
+              className={look === 'lines' ? 'space-y-3 py-4 first:pt-0' : 'space-y-3 pt-2'}
+              {...(blocks ? { 'data-role-layout': roleLayout } : {})}
+            >
+              <GroupHeading label={group.label} sectionKey={group.key} usual={group.usual ?? group.label} look={look} />
+              {blocks ? (
+                <ByRoleRows group={group} blocks={blocks} layout={roleLayout} look={look} me={me} anchor={anchor} />
+              ) : (
+                <>
+                  {/* The column words head the columns only where a pair stands in them — a lone person is centred. */}
+                  {group.sideWords && group.rows.some(([l, r]) => l !== null && r !== null) ? (
+                    <ColumnWords words={group.sideWords} look={look} />
+                  ) : null}
+                  <ul className="space-y-3">
+                    {group.rows.map((row, i) => (
+                      <PairRow key={`${group.key}-${i}`} row={row} group={group} look={look} me={me} anchor={anchor} />
+                    ))}
+                  </ul>
+                </>
+              )}
             </div>
           );
         })}
@@ -160,113 +160,228 @@ export function EntourageSection({
 }
 
 /**
- * One cell of a printed line.
+ * 👫 THE TWO LOOKS (owner 2026-10-15, `prototypes/entourage_two_columns_2026-10-15_fable.html` styles 4 and 5;
+ * DECISION_LOG "ENTOURAGE STYLES 4 AND 5 APPROVED"):
  *
- * 🔑 A NULL RENDERS AN EMPTY CELL, NOT NOTHING. Owner 2026-09-14: *"if the
- * other side is left blank, then keep that line blank."* Returning `null` here
- * would collapse the grid column and slide the next name up into the gap, which
- * is precisely the re-flow the two-column layout exists to prevent.
+ *   axis  — ON THE AXIS (`roll-call`, the default). Every group is the same two-column grid at 375. The LEFT cell
+ *           is set RIGHT and the right cell left, so each pair meets at the centre of the page — where the printed
+ *           invitation puts the "&" the owner removed (2026-10-14). Anyone who walks ALONE is centred across both
+ *           columns (owner 2026-10-17 — it superseded 2026-09-14's "keep that line blank"), his words as before.
+ *           Group headings are centred between two hairlines.
+ *   lines — LINES. Pairs flush-left in two columns, a hairline between groups; anyone who walks ALONE is centred
+ *           across both columns with their role word — a centred name has no column to say it, so the word must.
+ *
+ * 🔑 THE RIGHT CELL IS ALWAYS THE LEFT CELL'S PARTNER (owner 2026-10-15: *"the counter column must have
+ * significance to the first column"*). Both looks draw `group.rows` exactly as `buildEntourage` paired them — a row
+ * is one walk, or one person alone (centred) — and never move anybody into an empty cell to fill it. Held by `lib/the-entourage-second-column-is-the-partner.test.ts`.
  */
-function Cell({ person, group }: { person: EntouragePerson | null; group: EntourageGroup }) {
-  if (!person) return <span aria-hidden className="hidden sm:block" />;
-  const beside = roleBesideName(group, person);
-  const spoken = beside ? null : roleLabel(person.role, group.names);
+type Look = 'axis' | 'lines';
+
+/*
+  The prototype sets these small caps at 9.5–10 px; the Guest Legibility Floor (`lint-guest-legibility.mjs`,
+  2026-06-20) holds small labels at 12 px (`text-xs`) — the role word is how a guest tells "Father of the Groom"
+  from "Mother of the Bride", so it is load-bearing. Muted words are `text-ink/65`, the faintest tint that reads in
+  every look (`lint-label-on-fill-contrast.mjs`).
+*/
+/** The small-caps word UNDER a name (never beside it — owner 2026-10-15). */
+const UNDER = 'mt-0.5 block font-sans text-xs uppercase tracking-[0.16em]';
+/** The small-caps words of the column row and a by-role sub-heading. */
+const SMALL_CAPS = 'font-sans text-xs uppercase tracking-[0.16em] text-ink/65';
+
+/** A group's heading: On the axis — centred between two hairlines; Lines — the page's own eyebrow. */
+/**
+ * A section's heading. 🏷 `data-section-heading` / `data-section-usual` name WHICH section it is and its usual words, so
+ * the Maker's Wedding March Edit can list each heading the page draws, as drawn (owner 2026-10-19, "Immediate Family" →
+ * "VIP"); the words themselves are `group.label`, the one resolver's (`lib/entourage.ts` `groupHeading`).
+ */
+function GroupHeading({ label, sectionKey, usual, look }: { label: string; sectionKey: string; usual: string; look: Look }) {
+  const mark = { 'data-section-heading': sectionKey, 'data-section-usual': usual };
+  if (look === 'lines') {
+    return (
+      <h4 className="pahina-eyebrow" {...mark}>
+        <span>{label}</span>
+      </h4>
+    );
+  }
   return (
-    <span>
-      <span className="text-base text-ink">{person.name}</span>
-      {beside ? <span className="ml-2 text-sm text-ink/70">{beside}</span> : null}
-      {/* Not drawn, still read: the heading says it to the eye, this says it to a screen reader. */}
-      {spoken ? <span className="sr-only">, {spoken}</span> : null}
+    <h4
+      {...mark}
+      data-entourage-divider=""
+      className="flex items-center gap-3.5 text-center text-[0.66rem] uppercase tracking-[0.28em] text-gild [&>span]:max-w-[72%]"
+      style={{ fontFamily: 'var(--font-editorial-mono), ui-monospace, monospace' }}
+    >
+      <i aria-hidden className="h-px flex-1 bg-ink/15" />
+      <span>{label}</span>
+      <i aria-hidden className="h-px flex-1 bg-ink/15" />
+    </h4>
+  );
+}
+
+/** The two columns' words, said ONCE at the head of a sided group ("Ninong | Ninang"). The ear hears each role per row. */
+function ColumnWords({ words, look }: { words: readonly [string, string]; look: Look }) {
+  return (
+    <p aria-hidden data-entourage-sides="" className={`grid grid-cols-2 ${look === 'axis' ? 'gap-x-7' : 'gap-x-6'} ${SMALL_CAPS}`}>
+      <span className={look === 'axis' ? 'text-right' : ''}>{words[0]}</span>
+      <span>{words[1]}</span>
+    </p>
+  );
+}
+
+/** What a row needs to mark the viewer: who they are, and the one-time anchor (`entourage-you.tsx`). */
+type Marking = { me: EntourageMe | null; anchor: () => string | null };
+
+/**
+ * One name and, only where the heading cannot say it, its role UNDER it in small caps. The viewer's own name is
+ * marked (`MineName`) — theirs only, never the partner's beside it.
+ */
+function Person({
+  person,
+  word,
+  muted = false,
+  me,
+  anchor,
+}: { person: EntouragePerson; word: string | null; muted?: boolean } & Marking) {
+  const name = (
+    <span className="text-base text-ink" data-person="">
+      {person.name}
     </span>
+  );
+  return (
+    <>
+      {me && person.id === me.id ? <MineName anchor={anchor()}>{name}</MineName> : name}
+      {word ? <span className={`${UNDER} ${muted ? 'text-ink/65' : 'text-gild'}`}>{word}</span> : null}
+    </>
   );
 }
 
 /**
- * A group whose data-paired couples share ONE line — Principal Sponsors and
- * the crews. ⚖ Owner 2026-09-30, option 1: "Hon. Ricardo & Mrs. Jessica
- * Villahermosa" on every screen size (`lineNames` decides the words). An
- * unpaired sponsor is a line of their own; the order is the march order the
- * rows already carry.
+ * ONE ROW — one walk, or one person alone. ⚖ Owner 2026-10-14: two columns, no "&", holding at 375 (`grid-cols-2`
+ * is `minmax(0, 1fr)` twice: a long name wraps INSIDE its own cell; `items-baseline` keeps the two first lines level).
+ * A screen reader still hears a pair: the left cell ends in a hidden " and", then the roles the heading names.
  */
-function OneLinePairs({ group }: { group: EntourageGroup }) {
+function PairRow({
+  row,
+  group,
+  look,
+  speakRoles = true,
+  me,
+  anchor,
+}: {
+  row: EntourageRow;
+  group: EntourageGroup;
+  look: Look;
+  /** False under a by-role sub-heading ("Candle"): the sub-heading already says it, to the eye and the ear alike. */
+  speakRoles?: boolean;
+} & Marking) {
+  const people = row.filter((p): p is EntouragePerson => p !== null);
+  if (people.length === 0) return null;
+  const spoken = people
+    .filter((p) => speakRoles && !roleBesideName(group, p))
+    .map((p) => roleLabel(p.role, group.names))
+    .filter(Boolean);
+  const said = spoken.length ? <span className="sr-only">, {spoken.join(' and ')}</span> : null;
+  const gap = look === 'axis' ? 'gap-x-7' : 'gap-x-6';
+  if (people.length === 1) {
+    /*
+      🧍 ALONE, CENTRED ACROSS BOTH COLUMNS — in EVERY look. ⚖ Owner 2026-10-17 (DECISION_LOG "A LONE PERSON IN THE
+      ENTOURAGE / WEDDING MARCH / STANDING WITH US IS CENTRED"): *"if they are just 1 and no partner, center it
+      instead of just 1 side."* Supersedes On the axis keeping his side with the partner cell blank (2026-09-14).
+      ONLY THE PLACE MOVES — each look keeps its own words: Lines carries the word its column would have said
+      (`entourageCellWord`, 2026-10-15); On the axis keeps the word beside the name only where the heading cannot say
+      it (`roleBesideName` — owner 2026-09-30, "the sub text Ninong can be removed"), the role still heard by a
+      screen reader. Held by `lib/a-lone-person-is-centred.test.ts`.
+    */
+    /* 🧍 Controller 2026-10-17 (live on /maria-and-jose after #6593): the column words are drawn only over a pair, so
+       a lone Maid of Honor or Bride's Crew centred under a two-role heading said nothing about which she is. On the
+       axis she now carries her column's word (`loneRoleWord`); a category heading (Principal Sponsors) still adds
+       none. Held by `lib/the-entourage-names-who-each-person-is.test.ts`. */
+    const one = people[0]!;
+    const word = look === 'lines' ? (speakRoles ? entourageCellWord(group, one) : null) : loneRoleWord(group, one);
+    return (
+      <li className="break-words text-center leading-snug" data-solo-row="centre">
+        <Person person={one} word={word} muted={look === 'lines'} me={me} anchor={anchor} />
+        {word ? null : said}
+      </li>
+    );
+  }
   return (
-    <div className="space-y-3">
-      <h4 className="pahina-eyebrow">
-        <span>{group.label}</span>
-      </h4>
-      <ul className="space-y-2">
-        {group.rows.map((row, i) => {
-          const people = row.filter((p): p is EntouragePerson => p !== null);
-          const beside = people.map((p) => roleBesideName(group, p)).filter(Boolean);
-          const spoken = people
-            .filter((p) => !roleBesideName(group, p))
-            .map((p) => roleLabel(p.role, group.names))
-            .filter(Boolean);
-          return (
-            <li key={`${group.key}-${i}`} className="leading-snug" data-pair-line={people.length > 1 ? '' : undefined}>
-              <span className="text-base text-ink">{lineNames(row)}</span>
-              {beside.length ? <span className="ml-2 text-sm text-ink/70">{beside.join(' & ')}</span> : null}
-              {spoken.length ? <span className="sr-only">, {spoken.join(' & ')}</span> : null}
-            </li>
-          );
-        })}
-      </ul>
-    </div>
+    <li className={`grid grid-cols-2 items-baseline ${gap} leading-snug`} data-pair-row="">
+      <span className={`min-w-0 break-words ${look === 'axis' ? 'text-right' : ''}`} data-pair-cell="">
+        <Person person={people[0]!} word={roleBesideName(group, people[0]!)} me={me} anchor={anchor} />
+        <span className="sr-only"> and </span>
+      </span>
+      <span className="min-w-0 break-words" data-pair-cell="">
+        <Person person={people[1]!} word={roleBesideName(group, people[1]!)} me={me} anchor={anchor} />
+        {said}
+      </span>
+    </li>
   );
 }
 
 /**
  * A group drawn BY ROLE — the Secondary Sponsors. ⚖ Owner 2026-09-30.
  *
- *   stacked (B, default)      inline (A)
- *   Candle                    Candle: Ana & Ben Cruz
- *   Ana & Ben Cruz            Veil: Carla & Dan Reyes
- *   Veil
- *   Carla & Dan Reyes
+ *   stacked (B, default)        inline (A)
+ *   CANDLE                      Candle: Ana Cruz & Ben Cruz
+ *   Ana Cruz      Ben Cruz      Veil: Carla Reyes & Dan Reyes
  *
- * A pair is ONE line ("Ana Cruz & Ben Cruz"), never split across two cells —
- * on a 375 phone the two-column grid stacks anyway, and a pair that stacks
- * reads as two strangers.
+ * Stacked, the sub-heading is small caps (centred On the axis) and each pair is a `PairRow`. Inline (A) is one line
+ * by its nature ("Candle: names") and keeps the " & " — nothing sets it yet.
  */
-function ByRoleGroup({
+function ByRoleRows({
   group,
   blocks,
   layout,
+  look,
+  me,
+  anchor,
 }: {
   group: EntourageGroup;
   blocks: NonNullable<ReturnType<typeof roleBlocks>>;
   layout: EntourageRoleLayout;
-}) {
+  look: Look;
+} & Marking) {
+  if (layout === 'inline') {
+    return (
+      <ul className="space-y-2">
+        {blocks.map((b) => (
+          <li key={b.key} className="leading-snug">
+            <span className="text-sm text-ink/70">{b.label}:</span>{' '}
+            <span className="text-base text-ink">
+              {/* The printed line as `lineNames` says it; a line holding the viewer spells its names out to mark theirs. */}
+              {b.rows.map((row, i) => (
+                <Fragment key={i}>
+                  {i > 0 ? ' · ' : ''}
+                  {me && row.some((p) => p?.id === me.id)
+                    ? row
+                        .filter((p): p is EntouragePerson => p !== null)
+                        .map((p, j) => (
+                          <Fragment key={j}>
+                            {j > 0 ? ' & ' : ''}
+                            {me && p.id === me.id ? <MineName anchor={anchor()}>{p.name}</MineName> : p.name}
+                          </Fragment>
+                        ))
+                    : lineNames(row)}
+                </Fragment>
+              ))}
+            </span>
+          </li>
+        ))}
+      </ul>
+    );
+  }
   return (
-    <div className="space-y-3" data-role-layout={layout}>
-      <h4 className="pahina-eyebrow">
-        <span>{group.label}</span>
-      </h4>
-      {layout === 'inline' ? (
-        <ul className="space-y-2">
-          {blocks.map((b) => (
-            <li key={b.key} className="leading-snug">
-              <span className="text-sm text-ink/70">{b.label}:</span>{' '}
-              <span className="text-base text-ink">{b.rows.map(lineNames).join(' · ')}</span>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <div className="space-y-4">
-          {blocks.map((b) => (
-            <div key={b.key} className="space-y-1">
-              <p className="text-sm text-ink/70">{b.label}</p>
-              <ul className="space-y-1">
-                {b.rows.map((row, i) => (
-                  <li key={`${b.key}-${i}`} className="text-base leading-snug text-ink">
-                    {lineNames(row)}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
+    <div className="space-y-4">
+      {blocks.map((b) => (
+        <div key={b.key} className="space-y-1.5">
+          <p className={`${SMALL_CAPS} ${look === 'axis' ? 'text-center' : ''}`}>{b.label}</p>
+          <ul className="space-y-3">
+            {b.rows.map((row, i) => (
+              <PairRow key={`${b.key}-${i}`} row={row} group={group} look={look} speakRoles={false} me={me} anchor={anchor} />
+            ))}
+          </ul>
         </div>
-      )}
+      ))}
     </div>
   );
 }

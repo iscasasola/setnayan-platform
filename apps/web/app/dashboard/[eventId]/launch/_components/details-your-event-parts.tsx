@@ -16,6 +16,7 @@ import {
 import type { VenueSlot } from './details-your-event';
 import type { MarchSectionData } from './details-march';
 import type { MarchOut } from '@/lib/march-drag';
+import type { GuestCardResult } from '../../guests/_components/guest-card';
 import type { HostPiece, PersonPiece } from './details-people';
 /* ⚡ Your event's editors and pictures load when Details is opened — never with the Maker (`details-lazy.tsx`). */
 import {
@@ -61,6 +62,8 @@ export type YourEventInput = {
   names: {
     people: readonly [string, string];
     initial: readonly [{ first: string; last: string }, { first: string; last: string }];
+    /** 🔀 The event's name as stored (as drafted, `display_name`) — the order every keep composes in (`nameOrderOf`). */
+    storedName?: string | null;
     /** Where the BaZi section is live, the shipped whole form instead (see the editor's docblock). */
     wholeForm: ReactNode | null;
   } | null;
@@ -80,7 +83,13 @@ export type YourEventInput = {
     /** 🕒 The Ceremony block's start, HH:MM — as drafted, else live. */
     ceremonyTime?: string | null;
   };
-  venues: { resolved: readonly EventVenue[]; slots: readonly VenueSlot[]; city: string | null };
+  venues: {
+    resolved: readonly EventVenue[];
+    slots: readonly VenueSlot[];
+    city: string | null;
+    /** ⛪ Event Hub Pro as the viewer is shown it — "Our drawing ◆" (owner 2026-10-16). Absent = not owned, web. */
+    pro?: { owns: boolean; storeShell: boolean };
+  };
   /** 🚶 The march as the maker draws it — its sections and walks, the couple's sides included (`marchSections`). */
   march: {
     sections: readonly MarchSectionData[];
@@ -96,6 +105,10 @@ export type YourEventInput = {
      * against a march that is not the one the couple drafted.
      */
     draftUnread?: boolean;
+    /** 🚶 The march itself could not be read — its row says so instead of "Nobody walks yet". */
+    marchUnread?: boolean;
+    /** 🪪 The dev Maker lab only: its stand-in for reading a tapped name's guest card (a server action that reaches no database). */
+    openCard?: (eventId: string, guestId: string) => Promise<GuestCardResult>;
   };
 };
 
@@ -119,7 +132,7 @@ export function yourEventParts({
   eventId: string;
   input: YourEventInput;
   prints: PrintsInput;
-  parents: Array<{ guestId: string | null; name: string; card: ReactNode }>;
+  parents: Array<{ guestId: string | null; name: string }>;
   hosts: Array<{ moderatorId: string; label: string; contact: string | null }>;
 }): {
   keys: EventItemKey[];
@@ -144,7 +157,11 @@ export function yourEventParts({
         ? `${parents.length} parent${parents.length === 1 ? '' : 's'}`
         : 'No parents yet'
       : `${hosts.length} host${hosts.length === 1 ? '' : 's'}`,
-    march: marchWalks ? `${marchWalks} walk${marchWalks === 1 ? '' : 's'}` : 'Nobody walks yet',
+    march: input.march.marchUnread
+      ? 'Couldn’t load the march'
+      : marchWalks
+        ? `${marchWalks} walk${marchWalks === 1 ? '' : 's'}`
+        : 'Nobody walks yet',
   };
   const rows: Partial<Record<EventItemKey, NavRow>> = {};
   for (const k of keys) {
@@ -154,8 +171,9 @@ export function yourEventParts({
   /* 👪 Parents & hosts — the people as pieces (`details-people.tsx`). */
   const offered = parentsOffered(kind);
   const people: PersonPiece[] = offered ? parents.map((p, i) => ({ key: `p:${p.guestId ?? i}`, name: p.name })) : [];
-  const cards: Record<string, ReactNode> = {};
-  if (offered) parents.forEach((p, i) => (cards[`p:${p.guestId ?? i}`] = p.card));
+  /* Each parent's guest, by piece key — their card is THE guest card, opened at the tap (`GuestCardSheet`). */
+  const guestIds: Record<string, string | null> = {};
+  if (offered) parents.forEach((p, i) => (guestIds[`p:${p.guestId ?? i}`] = p.guestId));
   /* 👪 Where the invitation prints parents, THEY are its hosts (owner, live walk
      2026-10-05): a dashboard co-host / planner account — and its email — is
      never listed here. Only a type with no parents keeps its Kindly-reply host. */
@@ -194,6 +212,7 @@ export function yourEventParts({
         out={input.march.out === undefined ? [] : input.march.out}
         lab={input.march.lab === true}
         draftUnread={input.march.draftUnread === true}
+        openCard={input.march.openCard}
       />
     ),
   };
@@ -207,7 +226,8 @@ export function yourEventParts({
         parents={people}
         hosts={hostPieces}
         parentsOffered={offered}
-        cards={cards}
+        eventId={eventId}
+        guestIds={guestIds}
         /* The SAME parents K built under The Invitation — the list and its add. */
         add={<ParentCards eventId={eventId} parents={parents} />}
       />
@@ -256,7 +276,7 @@ export function yourEventFactEditors({
     <OneNameEditor eventId={eventId} initial={input.oneName.initial} />
   ) : input.names ? (
     input.names.wholeForm ?? (
-      <NamesEditor eventId={eventId} people={input.names.people} initial={input.names.initial} />
+      <NamesEditor eventId={eventId} people={input.names.people} initial={input.names.initial} storedName={input.names.storedName} />
     )
   ) : null;
   return {
@@ -311,6 +331,6 @@ function VenuesSeen({ venues, single }: { venues: readonly EventVenue[]; single:
  */
 export function venuesEditorFor(eventId: string, input: Pick<YourEventInput, 'venues'>): ReactNode {
   return (
-    <VenuesEditor eventId={eventId} slots={input.venues.slots} city={input.venues.city} />
+    <VenuesEditor eventId={eventId} slots={input.venues.slots} city={input.venues.city} pro={input.venues.pro} />
   );
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import type { RawNdefRecord } from '@/lib/nfc-tag';
+import { isAppleTouchDevice } from '@/lib/apple-device';
 
 /**
  * nfc-runtime.ts — what the device can do with NFC, and the typed handles to
@@ -32,6 +33,8 @@ export type NativeNfc = {
   stopScanning(): Promise<void>;
   write(opts: { records: RawNdefRecord[]; allowFormat?: boolean }): Promise<void>;
   getStatus(): Promise<{ status: string }>;
+  /** Is there an NFC radio at all (on or off)? Absent from builds before plugin 8.x. */
+  isSupported?(): Promise<{ supported: boolean }>;
   addListener(event: 'nfcEvent', cb: (e: NativeNfcEvent) => void): Promise<ListenerHandle> | ListenerHandle;
   addListener(event: 'nfcSessionEnd', cb: (e: { reason?: string }) => void): Promise<ListenerHandle> | ListenerHandle;
 };
@@ -50,6 +53,34 @@ export function nativeNfc(): NativeNfc | null {
   return cap.Plugins?.CapacitorNfc ?? null;
 }
 
+/**
+ * 🍎 THE PLUGIN IS NOT THE RADIO (iPad + Duo audit W6, 2026-10-19). The iPad
+ * app ships the same binary as the iPhone app, so `CapacitorNfc` is present on
+ * an iPad — measured on the iPad Pro 11-inch simulator: `isPluginAvailable`
+ * true, `isSupported` → `{ supported: false }`, `getStatus` → `NO_NFC`. No iPad
+ * has an NFC radio, so offering "Write to NFC" there could only fail (App Store
+ * 2.1). This asks the plugin whether the HARDWARE is here, and answers the
+ * plugin only when it is: a capability check, never a device name.
+ *
+ * `isSupported` first; a build whose plugin predates it falls back to
+ * `getStatus` (`NO_NFC` = no radio; `NFC_DISABLED` is a radio switched off,
+ * which the write itself names). A plugin that cannot answer either is
+ * trusted, as before — an unknown is not a "no".
+ */
+export async function nativeNfcWithHardware(): Promise<NativeNfc | null> {
+  const nfc = nativeNfc();
+  if (!nfc) return null;
+  try {
+    if (typeof nfc.isSupported === 'function') {
+      const { supported } = await nfc.isSupported();
+      return supported ? nfc : null;
+    }
+    const { status } = await nfc.getStatus();
+    return status === 'NO_NFC' ? null : nfc;
+  } catch {
+    return nfc;
+  }
+}
 
 /** 'ios' | 'android' inside the app; null on the web. */
 export function nativePlatform(): string | null {
@@ -80,9 +111,8 @@ export function readDeviceEnv(): {
   };
 }
 
-/** True when this is an iPhone/iPad (including the app's WebView). */
+/** True when this is an iPhone/iPad (including the app's WebView) — `isAppleTouchDevice`, lib/apple-device.ts. */
 export function isIosBrowser(): boolean {
   if (typeof navigator === 'undefined') return false;
-  const ua = navigator.userAgent ?? '';
-  return /iPhone|iPad|iPod/i.test(ua) || (/Macintosh/.test(ua) && (navigator.maxTouchPoints ?? 0) > 1);
+  return isAppleTouchDevice(navigator.userAgent, navigator.maxTouchPoints);
 }

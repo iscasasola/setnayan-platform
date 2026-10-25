@@ -12,15 +12,16 @@ import {
   AI_FIELD_SELECTED,
   HUB_PRO_FIELD_SELECTED,
 } from './_components/papic-step-field-names';
-import { captureEvent } from '@/lib/analytics';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
 import { getBlockingLifeEvent } from '@/app/dashboard/(account)/create-event/life-event-guard';
-import { shopAccountMayNotCreateEvents } from '@/lib/vendor-event-creation';
+import { accountMayNotCreateEvents } from '@/lib/vendor-event-creation';
 import { resolveProfile } from '@/lib/event-type-profile';
 import { sanitizeSetupAnswers, setupLanding } from '@/lib/onboarding/setup-answers';
 import { setupViewForProfile } from '@/lib/onboarding/setup-view';
+import { resolveEventHonoree } from '@/lib/honoree-dependent-link';
 import { setupColumns } from '@/lib/onboarding/event-insert';
-import { SIMPLE_SETUP_FIELD } from './_components/simple-setup-field';
+import { SIMPLE_NEEDS_FIELD, SIMPLE_SETUP_FIELD } from './_components/simple-setup-field';
+import { defaultNeedsFor, needsColumns, sanitizeNeeds, applyNeedsToSetup } from '@/lib/event-needs';
 
 /**
  * commitSimpleEvent — the create commit for a SIMPLE EVENT (owner 2026-06-27).
@@ -46,7 +47,12 @@ export async function commitSimpleEvent(formData: FormData) {
   }
   // YYYY-MM-DD from <input type="date">. Reject anything else so a hand-crafted
   // post can't write garbage into the date column.
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(event_date)) {
+  // 🚪 With "What do you need?" posted (owner 2026-10-08, Level 1) the date is
+  // "When (optional)" — frame 3 — so an EMPTY date is an answer; anything else
+  // that is not a date is still refused.
+  const needsPosted = formData.get(SIMPLE_NEEDS_FIELD) !== null;
+  const dated = /^\d{4}-\d{2}-\d{2}$/.test(event_date);
+  if (!dated && !(needsPosted && event_date === '')) {
     return redirect('/onboarding/simple?error=missing_date');
   }
 
@@ -64,11 +70,11 @@ export async function commitSimpleEvent(formData: FormData) {
     return redirect('/login?next=/onboarding/simple');
   }
 
-  // The shop account does not plan celebrations (owner 2026-08-15). This path
-  // lives OUTSIDE /dashboard, which is exactly why the old layout redirect
-  // could never have enforced the ruling here.
-  if (await shopAccountMayNotCreateEvents(supabase, user.id)) {
-    return redirect('/onboarding/simple?error=shop_account');
+  // The one creation gate (lib/vendor-event-creation.ts). This path lives
+  // OUTSIDE /dashboard, which is why the rule sits on the doors, not a layout.
+  // Owner 2026-10-22: one account is both, so nobody is refused today.
+  if (await accountMayNotCreateEvents(supabase, user.id)) {
+    return redirect('/onboarding/simple?error=create_failed');
   }
 
   // Life-event gate (2026-07-17): simple_event is LIFESTYLE class so this
@@ -90,6 +96,19 @@ export async function commitSimpleEvent(formData: FormData) {
   const admin = createAdminClient();
   const slug = await generateUniqueSlug(admin, display_name);
 
+  // WHO IT IS FOR (owner 2026-10-22, "yes"): a SHOP picked in "For ▾" is linked
+  // on every event created for it — this one included. The same
+  // `resolveEventHonoree` the other two doors call: the posted id is a claim,
+  // re-read under `owner_user_id = you`, and kept only for the caller's own
+  // business (a person carried here is dropped, label and all).
+  const { honoreeLabel: honoree_label, honoreeDependentId: honoree_dependent_id } =
+    await resolveEventHonoree(() => admin, {
+      userId: user.id,
+      eventType: 'simple_event',
+      honoreeLabel: String(formData.get('honoree_label') ?? ''),
+      dependentId: formData.get('honoree_dependent_id'),
+    });
+
   // 🎟 The setup cards (G1) — read only once the seed has admitted this type,
   // and re-read key by key against its own view (the wire is never trusted).
   // Each answer lands in its real home, the same columns the generic commit
@@ -101,9 +120,24 @@ export async function commitSimpleEvent(formData: FormData) {
   } catch {
     setupRaw = null;
   }
-  const setupAnswers = profile.onboardingEngine
+  const sanitizedSetup = profile.onboardingEngine
     ? sanitizeSetupAnswers(setupRaw, setupViewForProfile(profile))
     : null;
+  // 🚪 What the event needs — re-read against the type (a vendor-free type can
+  // never switch Suppliers on); the answers that already have a home follow it,
+  // exactly as `commitOnboardingEvent` does.
+  const needsScope = { marketplace: profile.marketplaceEnabled === true };
+  let needsRaw: unknown = undefined;
+  try {
+    needsRaw = needsPosted ? JSON.parse(String(formData.get(SIMPLE_NEEDS_FIELD) ?? 'null')) : undefined;
+  } catch {
+    needsRaw = null;
+  }
+  const needs =
+    profile.onboardingEngine && needsPosted
+      ? sanitizeNeeds(needsRaw, defaultNeedsFor('simple_event', needsScope), needsScope)
+      : null;
+  const setupAnswers = sanitizedSetup && needs ? applyNeedsToSetup(sanitizedSetup, needs) : sanitizedSetup;
   const setup = setupAnswers ? setupColumns(setupAnswers) : null;
 
   const { data: insertedEvent, error: insertError } = await admin
@@ -111,9 +145,13 @@ export async function commitSimpleEvent(formData: FormData) {
     .insert({
       event_type: 'simple_event',
       display_name,
-      event_date,
+      honoree_label,
+      honoree_dependent_id,
       // We have an exact date → day precision (the column DEFAULTs to 'year').
-      event_date_precision: 'day',
+      // No date ("When" is optional on the needs screen) → an undated event,
+      // the generic commit's shape.
+      ...(dated ? { event_date, event_date_precision: 'day' } : {}),
+      ...(needs ? needsColumns(needs) : {}),
       venue_name: setup?.venue_name ?? null,
       venue_address: null,
       ...(setup ? { invite_theme: setup.invite_theme, style_preferences: { setup: setup.setup } } : {}),
@@ -180,21 +218,6 @@ export async function commitSimpleEvent(formData: FormData) {
       return redirect('/onboarding/simple?error=create_incomplete');
     }
     return redirect('/onboarding/simple?error=create_failed');
-  }
-
-  // Funnel event — fire-and-forget, never blocks the redirect.
-  try {
-    await captureEvent({
-      distinctId: user.id,
-      event: 'event_created',
-      properties: {
-        event_id: insertedEvent.event_id,
-        event_type: 'simple_event',
-        concierge_choice: 'diy',
-      },
-    });
-  } catch {
-    // analytics never breaks the user-facing flow.
   }
 
   // ── what they picked on the Papic step (owner 2026-08-11) ────────────────

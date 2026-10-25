@@ -23,6 +23,7 @@ import { DOOR_WORDS } from '@/lib/request-key';
 import Link from 'next/link';
 import { formatCount } from '@/lib/format-number';
 import { tableWords } from '@/lib/table-words';
+import { useCameraThatComesBack } from '@/lib/use-camera-that-comes-back';
 
 export type DeskGuest = {
   guestId: string;
@@ -31,7 +32,8 @@ export type DeskGuest = {
   role: GuestRole;
   rsvpStatus: 'pending' | 'attending' | 'declined' | 'maybe';
   photoUrl: string | null;
-  plusOneName: string | null;
+  /** Who they bring, by name — every named seat (`companionNames`); `[]` when none is named. */
+  plusOneNames: readonly string[];
   qrToken: string;
   tableLabel: string | null;
 };
@@ -149,7 +151,7 @@ export function CheckinDesk({
             role: 'guest',
             rsvpStatus: 'attending',
             photoUrl: null,
-            plusOneName: null,
+            plusOneNames: [],
             qrToken: token,
             tableLabel: null,
           }),
@@ -209,6 +211,18 @@ export function CheckinDesk({
     }
   }, [stopScanner]);
 
+  // THE CAMERA COMES BACK (Duo + iPad audit 2026-10-19, W4): when iOS, a Duo
+  // or a dead track takes the scanner's camera, reopen it through the same
+  // start path (same rear camera) instead of leaving a frozen viewfinder.
+  useCameraThatComesBack({
+    streamRef,
+    live: scanning,
+    restart: () => {
+      stopScanner();
+      void startScanner();
+    },
+  });
+
   // Once the <video> has mounted (scanning === true), bind the live stream and
   // run the decode loop. Runs after commit, so videoRef.current is populated.
   useEffect(() => {
@@ -264,7 +278,7 @@ export function CheckinDesk({
       .filter(
         (g) =>
           g.name.toLowerCase().includes(q) ||
-          (g.plusOneName ? g.plusOneName.toLowerCase().includes(q) : false),
+          g.plusOneNames.some((n) => n.toLowerCase().includes(q)),
       )
       .slice(0, 12);
   }, [guests, query]);
@@ -408,7 +422,7 @@ export function CheckinDesk({
             <button
               type="button"
               onClick={() => void nfc.start()}
-              className="flex w-full items-center justify-center gap-2 bg-white px-4 py-3 text-sm font-semibold text-ink transition-colors hover:bg-ink/[0.03]"
+              className="flex w-full items-center justify-center gap-2 bg-white dark:bg-raised px-4 py-3 text-sm font-semibold text-ink transition-colors hover:bg-ink/[0.03]"
             >
               <Nfc className="h-5 w-5" /> Read a guest&rsquo;s tag
             </button>
@@ -518,7 +532,7 @@ export function CheckinDesk({
                   setLive(null);
                   lastHitRef.current = null;
                 }}
-                className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-white px-4 text-base font-semibold text-ink shadow-sm"
+                className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-white dark:bg-raised px-4 text-base font-semibold text-ink shadow-sm"
               >
                 {DOOR_WORDS.next}
               </button>
@@ -558,9 +572,9 @@ export function CheckinDesk({
                   <Utensils className="h-3.5 w-3.5" />
                   {selected.tableLabel ? tableWords(selected.tableLabel) : 'No table assigned'}
                 </span>
-                {selected.plusOneName ? (
+                {selected.plusOneNames.length > 0 ? (
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-ink/5 px-2.5 py-1 text-ink/70">
-                    <UserRound className="h-3.5 w-3.5" /> +1 · {selected.plusOneName}
+                    <UserRound className="h-3.5 w-3.5" /> +{selected.plusOneNames.length} · {selected.plusOneNames.join(', ')}
                   </span>
                 ) : null}
                 {selected.rsvpStatus !== 'attending' ? (
@@ -652,6 +666,8 @@ function GuestAvatar({ guest, size }: { guest: DeskGuest; size: 'sm' | 'lg' }) {
       <img
         src={guest.photoUrl}
         alt=""
+        width={size === 'lg' ? 64 : 36}
+        height={size === 'lg' ? 64 : 36}
         className={`${cls} shrink-0 rounded-full object-cover`}
       />
     );

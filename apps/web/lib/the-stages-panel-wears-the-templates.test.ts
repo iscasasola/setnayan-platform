@@ -57,8 +57,9 @@ test('(1) the panel’s switch is the ONE drawing — 50 × 30 inside a 44-px ta
   /* The handler flips it. */
   const kit = read(`${L}/stage-panel/kit.tsx`);
   assert.match(kit, /role="switch" aria-checked=\{on\} aria-label=\{label\} data-stage-switch=\{data\} onClick=\{\(\) => onChange\(!on\)\} className=\{SP_SWITCH\}>\s*<SwitchTrack on=\{on\} \/>/);
-  /* The Reveal's per-stage switches are this same piece. */
-  assert.match(read(`${L}/maker-reveal.tsx`), /<PanelSwitch on=\{revealSwitchOn\(now, st\)\}/);
+  /* (The Reveal's per-stage switches were this same piece until 2026-10-16: the Opening is Cover Scene › Style now, and
+     None on a stage's cover is that stage's switch — `the-reveal-hides-one-stage.test.ts`.) */
+  assert.doesNotMatch(read(`${L}/maker-reveal.tsx`), /<PanelSwitch /, 'a switch of the panel’s is back in the Opening');
 });
 
 test('(2) the ⓘ is the explanation template — a 44-px button that opens a dialog — never the hover note; in the rows and in the ＋ sheet', async () => {
@@ -107,11 +108,14 @@ test('(4) a Reveal opening’s name reads whole — no class that can cut it —
   /* It still never widens the card: as wide as the frame, whatever it says. */
   for (const c of ['w-0', 'min-w-full']) assert.ok(name.includes(c) && SP_LOOK_MARK.split(' ').includes(c), `the caption can widen its card (no “${c}”)`);
   const reveal = read(`${L}/maker-reveal.tsx`);
-  const card = reveal.slice(reveal.indexOf('data-maker-reveal-kind={o.id}'), reveal.indexOf('</button>', reveal.indexOf('data-maker-reveal-kind={o.id}')));
+  /* Re-aimed 2026-10-17 (#6596, the approved prototype's `.lc`): an Opening card is the toolbar's Style card — its name
+     the label alone in the card's own foot, and its ◆ Pro mark in the picture's corner (`.lc .pro`), never beside the
+     name. The walk measures "Four-flap envelope" whole in that foot at 375. */
+  const card = reveal.slice(reveal.indexOf('<StyleCards'), reveal.indexOf('data-look-row="opening"'));
   assert.ok(card.length > 400, 'anti-vacuity: the opening’s card was not found');
-  /* The name: the label alone. The mark: after it, in its own line — never inside the name's box. */
-  assert.match(card, /<span data-reveal-kind-name="" className=\{`\$\{SP_LOOK_NAME_WHOLE\} [^`]*`\}>\s*\{o\.label\}\s*<\/span>\s*\{mark \? \(\s*<span data-reveal-kind-mark="" className=\{SP_LOOK_MARK\}>\s*<PaidMark /, 'the name shares its line with the mark, or is no longer the label alone');
-  assert.doesNotMatch(card, /SP_LOOK_NAME\}|!inline-flex|truncate/, 'the one-line, cut caption is back on an opening’s card');
+  assert.match(reveal, /\.\.\.openings\.map\(\(o\) => \(\{ id: o\.id, name: o\.label \}\)\)/, 'the name is no longer the label alone');
+  assert.match(card, /<span data-reveal-kind-mark="" className="absolute right-1\.5 top-1 z-\[1\]">\s*<PaidMark /, 'the ◆ mark left the picture’s corner');
+  assert.doesNotMatch(card, /data-reveal-kind-name|SP_LOOK_NAME/, 'a caption of its own is back on an opening’s card');
   /* The widest name there is today, against the frame: it NEEDS the second line (so the fix is not decoration). */
   const css = read('app/globals.css');
   const frame = Number(/\.sn-phone-card \{[^}]*inline-size: var\(--phone-card-w, (\d+)px\)/.exec(css)?.[1]);

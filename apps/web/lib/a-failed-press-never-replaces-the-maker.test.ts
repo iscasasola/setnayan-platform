@@ -105,7 +105,12 @@ const FOLDERS = [...walkDir(`${EVENT}/launch`), ...walkDir(`${EVENT}/website`)];
 const SCOPE = [...new Set([...FOLDERS, ...REACH])].sort();
 
 /** Functions in OTHER files the scan may trust never to reject — each proved below, in the file that defines it. */
-const ANSWERS: Record<string, string> = { hubDraftAnswer: 'lib/hub-draft.ts' };
+const ANSWERS: Record<string, string> = {
+  hubDraftAnswer: 'lib/hub-draft.ts',
+  /* 🪪 The guest card's presses (its Group editors, its Invite's "Mark as sent") answer an unheard request as a refusal —
+     the card reaches the Maker since 2026-10-24 (one guest card everywhere: the Wedding March and the parents open it). */
+  hearAction: `${EVENT}/guests/_components/hear-action.ts`,
+};
 const answers = new Set(Object.keys(ANSWERS));
 
 /**

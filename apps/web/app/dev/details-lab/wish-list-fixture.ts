@@ -114,10 +114,10 @@ const MORE: Array<[string, number]> = [
   ['Wall clock', 1900],
 ];
 
-export type LabGuestWishState = 'five' | 'got' | 'long' | 'noprice' | 'fail';
+export type LabGuestWishState = 'five' | 'four' | 'got' | 'long' | 'noprice' | 'fail';
 
 export function labGuestWishState(raw: string | undefined): LabGuestWishState {
-  return raw === 'got' || raw === 'long' || raw === 'noprice' || raw === 'fail' ? raw : 'five';
+  return raw === 'four' || raw === 'got' || raw === 'long' || raw === 'noprice' || raw === 'fail' ? raw : 'five';
 }
 
 /** The same seed, through the REAL guest view builder — one sum per wish, no giver's name. */
@@ -135,6 +135,11 @@ export function labGuestWishList(state: LabGuestWishState, mine = false): GuestW
     const more = MORE.map(([name, price], i) => wish(10 + i, name, price, i > 6 ? 'auto' : null));
     wishes = [...WISHES, ...more];
     gifts = [...GIFTS, ...MORE.flatMap(([, price], i) => (i > 6 ? [gift(20 + i, 10 + i, 'Ate Grace', price, 'gcash', '2026-10-03T03:20:00.000Z', '')] : []))];
+  }
+  if (state === 'four') {
+    /* Four open wishes — the Welcome page's E-Gifts (2026-10-14) shows three and "See all 4 wishes". */
+    wishes = WISHES.slice(0, 4);
+    gifts = GIFTS.filter((g) => g.wish_item_id == null || wishes.some((w) => w.wish_item_id === g.wish_item_id));
   }
   if (state === 'noprice') {
     wishes = WISHES.map((w) => ({ ...w, price_php: null, note: null, got_at: null, got_by: null }));

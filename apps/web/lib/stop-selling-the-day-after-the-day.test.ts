@@ -135,7 +135,7 @@ test('the shared checkout refuses a day-of service once the event is over', () =
 });
 
 /*
-  5 · THE FOUR PAPIC ACTIONS MINT ORDERS WITHOUT TOUCHING THAT CHECKOUT.
+  5 · THE PAPIC TOP-UP MINTS ORDERS WITHOUT TOUCHING THAT CHECKOUT (the other three now refuse).
   A gate only in the shared action would be a button-not-a-door fix.
 */
 test('every Papic purchase path refuses once the event is over', () => {
@@ -147,10 +147,16 @@ test('every Papic purchase path refuses once the event is over', () => {
     `lib/event-is-over.server.ts`. This guard caught the rename on the very run
     that made it, which is what a guard keyed on the ACT rather than a vibe does.
   */
+  /*
+    ⛔ FOUR BECAME ONE (2026-10-23). The three camera sales — purchaseCameras · activateLimited ·
+    purchaseExtras — do not sell at all any more: they refuse before any read, on every day, so the only
+    Papic mint left to close after the day is the credit top-up. `lib/papic-sells-only-credits.test.ts`
+    holds that the three never reach `orders`.
+  */
   assert.equal(
     (papic.match(/await eventIsOver\(admin, eventId\)/g) || []).length,
-    4,
-    'purchaseCameras · activateLimited · purchaseExtras · poolTopUp',
+    1,
+    'poolTopUp — the one Papic mint left',
   );
   assert.match(papic, /from '@\/lib\/event-is-over\.server'/, 'one helper, not a second copy');
   // It must not use the capture window, which FAILS OPEN when unset.

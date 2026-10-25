@@ -40,6 +40,8 @@
  * Pure. No I/O.
  */
 
+import { deviceOs } from './apple-device';
+
 /** The second path segment, under `/{slug}/…`, of a route that writes or clears the pass. */
 const SLUG_PASS_ROUTES: ReadonlySet<string> = new Set(['redeem', 'sign-out']);
 
@@ -238,7 +240,13 @@ export function uaFamily(userAgent: string | null | undefined): string {
   const ua = userAgent ?? '';
   if (!ua) return 'none';
   if (isLinkPreviewFetch(ua)) return 'link-preview';
-  const os = /iPhone|iPad|iPod/i.test(ua) ? 'ios' : /Android/i.test(ua) ? 'android' : /Macintosh|Windows|Linux|CrOS/i.test(ua) ? 'desktop' : 'other';
+  // One reading of the device (lib/apple-device.ts): the iPad app's Macintosh UA is 'ios', not 'desktop'.
+  const device = deviceOs(ua);
+  const os =
+    device === 'iphone' || device === 'ipad' ? 'ios'
+    : device === 'android' ? 'android'
+    : device === 'mac' || device === 'windows' || device === 'desktop' ? 'desktop'
+    : 'other';
   const app =
     /SetnayanApp/.test(ua) ? 'setnayan-app'
     : /Messenger|FBAN\/Messenger|MessengerForiOS|\bOrca-Android/i.test(ua) ? 'messenger'
@@ -307,4 +315,24 @@ export function passHopMissFault(miss: PassHopMiss) {
       sw: 'off-hop-by-rule',
     },
   };
+}
+
+/* ══ THE INVITATION'S OWN ADDRESS CARRIES THE CODE NOW (owner 2026-10-19) ═════
+   A personal link opens the invitation itself (`personalLinkLandingPath`,
+   lib/invite-destination.ts), so the 30-minute landing code the redeem mints
+   rides on `/{slug}?k=` instead of `/{slug}/invite/enter?k=`. The same rule the
+   landing runs: a browser with NO pass for this event (a chat app's "Open in
+   Safari" opens the bare address bar) spends the code once at the redeem, which
+   comes back to the bare `/{slug}`; a browser that holds this event's pass, or
+   an address with no code (the plain address, the passcode's door), is never
+   sent anywhere by it. */
+export function invitationReentryHref(input: {
+  slug: string;
+  code: string | null | undefined;
+  passEventId: string | null | undefined;
+  eventId: string;
+}): string | null {
+  if (!isUrlSecretShaped(input.code)) return null;
+  if (input.passEventId && input.passEventId === input.eventId) return null;
+  return reentryRedeemPath(input.slug, input.code, 'hub');
 }

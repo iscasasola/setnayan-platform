@@ -47,11 +47,12 @@ const tagsOf = (m: string, tag: string) => [...m.matchAll(new RegExp(`<${tag}\\b
 
 async function input(theme: string, ownsPro: boolean, storeShell = false) {
   const { formatFor } = await import('./print-pieces');
-  return { eventId: 'E1', slug: 'rosa-ben', theme, ownsPro, storeShell, formats: { pass: formatFor('pass', null)!, invitation: formatFor('invitation', null)!, card: formatFor('card', null)! } };
+  const passGuests = [{ id: '00000000-0000-4000-8000-000000000101', name: 'Ana Reyes', reply: 'attending' as const }];
+  return { eventId: 'E1', slug: 'rosa-ben', theme, ownsPro, storeShell, passGuests, formats: { pass: formatFor('pass', null)!, invitation: formatFor('invitation', null)!, card: formatFor('card', null)! } };
 }
 
 test('1 · every Save on Studio › Prints is the ONE ActionButton — a button of the template, never a hand-made link or the old chip/primary look', async () => {
-  const { PrintPieceEditor, PrintSetDownloads, PassCardsPanel, freePrintParts } = await import(`../${L}/maker-prints`);
+  const { PrintPieceEditor, PrintEverythingStudio, DigitalTicketEditor, freePrintParts } = await import(`../${L}/maker-prints`);
   const states: Array<[string, boolean]> = [['house', false], ['galeriya', false], ['abaca', false], ['abaca', true]];
   for (const [theme, pro] of states) {
     const i = await input(theme, pro);
@@ -60,13 +61,17 @@ test('1 · every Save on Studio › Prints is the ONE ActionButton — a button 
         React.Fragment,
         null,
         ...(['invitation', 'details', 'pass', 'entourage', 'poster', 'story-poster', 'card'] as const).map((k) => React.createElement(PrintPieceEditor as never, { key: k, input: i, piece: k, studio: true } as never)),
-        React.createElement(PrintSetDownloads as never, { key: 'set', input: i, studio: true } as never),
-        React.createElement(PassCardsPanel as never, { key: 'pass-cards', input: i, studio: true } as never),
-        ...freePrintParts('E1', 'rosa-ben', undefined, true).map((f: { key: string; editor: React.ReactNode }) => React.createElement('div', { key: f.key }, f.editor)),
+        /* ⚙ 2026-10-17: the Digital ticket's row and Everything ◆ replace "The ticket guests save" and Download the set in Studio. */
+        React.createElement(DigitalTicketEditor as never, { key: 'ticket', input: i } as never),
+        React.createElement(PrintEverythingStudio as never, { key: 'everything', input: i } as never),
+        ...freePrintParts('E1', 'rosa-ben', i, true).map((f: { key: string; editor: React.ReactNode }) => React.createElement('div', { key: f.key }, f.editor)),
       ),
     );
+    /* + the ◆ doors: since 2026-10-16 a free couple's all-in-one files are the door to Event Hub Pro (every guest's pass and the QR sheet
+       left on 2026-10-22 — they are free saves now). */
     const saves = [...drawn.matchAll(/<span data-print-save="[^"]*"[^>]*>[\s\S]*?<\/span>/g)].length;
-    assert.ok(saves >= 18, `${theme}/${pro}: only ${saves} saves drawn — the pieces were not all read`);
+    const doors = (drawn.match(/data-print-all-in-one-pro=""/g) ?? []).length;
+    assert.ok(saves + doors >= 20, `${theme}/${pro}: only ${saves} saves and ${doors} ◆ doors drawn — the pieces were not all read`);
     assert.doesNotMatch(drawn, /button-primary|button-secondary|<a\b[^>]*\bdownload=/, `${theme}/${pro}: a Studio save is the old look or a bare download link`);
     assert.doesNotMatch(drawn, /sn-press inline-flex h-9 items-center rounded-md bg-cream/, `${theme}/${pro}: the old chip is drawn`);
     /* Every save button (`<span data-print-save>` wraps ONE ActionButton) is the template's, with its tone. */
@@ -85,7 +90,9 @@ test('2 · a piece’s head is ONE Form row: its name and sizes on the left, its
   const { PrintPieceEditor } = await import(`../${L}/maker-prints`);
   const i = await input('house', false);
   const inv = await renderSettled(React.createElement(PrintPieceEditor as never, { input: i, piece: 'invitation', studio: true } as never));
-  assert.match(inv, /data-form-row-kind="chosen"[\s\S]*?Invitation[\s\S]*?5 × 7 in or A5[\s\S]*?data-print-format-picker=""/, 'the invitation’s head is not the Form row with its size ▾');
+  /* RE-AIMED 2026-10-16 (owner: "short size lines"): the line names the CHOSEN size only — "5 × 7 in or A5" listed both. */
+  assert.match(inv, /data-form-row-kind="chosen"[\s\S]*?Invitation[\s\S]*?5 × 7 in · 127 × 178 mm[\s\S]*?data-print-format-picker=""/, 'the invitation’s head is not the Form row with its chosen size and its size ▾');
+  assert.doesNotMatch(inv, /5 × 7 in or A5/, 'the invitation’s head lists every size again');
   assert.match(inv, /aria-haspopup="listbox"/, 'the size ▾ is not the house dropdown');
   /* A piece with one size has the row without a dropdown. */
   const ent = await renderSettled(React.createElement(PrintPieceEditor as never, { input: i, piece: 'entourage', studio: true } as never));
@@ -112,7 +119,18 @@ test('3 · every include switch is the Form row’s switch — a switch button o
   assert.ok(parts.length > 1500, 'the Studio Prints parts moved — re-read this guard');
   assert.doesNotMatch(parts, /<select\b|<textarea\b|type="checkbox"|type="radio"|<PickMenu\b/, 'a Studio Prints part draws a bare control');
   assert.doesNotMatch(parts, /\bbg-(?:terracotta|mulberry|gild|gold|success|emerald|green|red|amber)|\btext-(?:terracotta|mulberry)|\bborder-(?:terracotta|mulberry)|#[0-9a-fA-F]{3,8}\b|\bstyle=\{/, 'a Studio Prints part writes a colour of its own');
+  /* 1 since 2026-10-17: the seat plan's kind ("Pass for ▾" is retired — View as ▾ lives in `studio-prints-settings.tsx`). */
   assert.equal((parts.match(/<ChosenRow\b/g) ?? []).length, 1, 'the seat plan’s kind is not the one dropdown');
+  /* ⚙ The settings sheet, the rows' Download, View as ▾ and the two-file dropdowns (2026-10-17) — the same rules. */
+  const sheet = read(`${L}/studio-prints-settings.tsx`);
+  assert.doesNotMatch(sheet, /<select\b|<textarea\b|type="checkbox"|type="radio"|<PickMenu\b/, 'a Prints settings part draws a bare control');
+  assert.doesNotMatch(sheet, /\bbg-(?:terracotta|mulberry|gild|gold|success|emerald|green|red|amber)|\btext-(?:terracotta|mulberry)|\bborder-(?:terracotta|mulberry)|#[0-9a-fA-F]{3,8}\b|\bstyle=\{/, 'a Prints settings part writes a colour of its own');
+  assert.equal((sheet.match(/<ChosenRow\b/g) ?? []).length, 1, 'a two-file dropdown is not the Form row’s one dropdown');
+  /* View as ▾ is the Form row's pill (the house dropdown's own look) opening its own lazy guest sheet — with "Search guests". */
+  assert.match(sheet, /className=\{`\$\{pickButtonClass\(false\)\} \$\{FORM_PICK_CLASS\} \$\{width\}`\}/, 'View as ▾ is not the Form row’s pill');
+  const guestSheet = read(`${L}/print-guest-sheet.tsx`);
+  assert.doesNotMatch(guestSheet, /<select\b|<textarea\b|type="checkbox"|type="radio"|<PickMenu\b/, 'the guest sheet draws a bare control');
+  assert.doesNotMatch(guestSheet, /\bbg-(?:terracotta|mulberry|gild|gold|success|emerald|green|red|amber)|\btext-(?:terracotta|mulberry)|#[0-9a-fA-F]{3,8}\b|\bstyle=\{/, 'the guest sheet writes a colour of its own');
   assert.match(parts, /<SwitchRow[\s\S]{0,400}fieldName=\{name\}\s+formId=\{form\}/, 'the include switch does not post through the words form');
 });
 

@@ -83,6 +83,12 @@ export const MOODBOARD_SLOT_TRADES: Readonly<
   // 💐 The owner's two parts, on the taxonomy tiles they already map to (step 4c).
   bridal_bouquet: ['florist'],
   centrepieces: ['florist', 'stylist_decorator', 'catering'],
+  // 🎨🖼 The Palette's five parts with photos of their own (2026-10-19), on the tiles that dress them.
+  chairs: ['chairs_tents', 'stylist_decorator'],
+  ribbons_candles: ['stylist_decorator'],
+  lights: ['lights_sound', 'stylist_decorator'],
+  entourage_bouquets: ['florist'],
+  flower_accents: ['florist', 'stylist_decorator'],
   overall: ['reception', 'stylist_decorator', 'lights_sound', 'coordinator'],
   // 🔑 NOT A TRADE. A palette source is a photo the couple sampled colours
   // from — a wall, a fabric, a sunset. No shop's portfolio answers it.
@@ -307,13 +313,13 @@ export type GalleryPage = {
    *     'verified'`, so an unapproved shop's photo comes back with a null
    *     embed. An uncredited gallery photo is a stock photo, and showing it
    *     would break the only promise the gallery makes;
-   *   · the asset carries NO sampled colours, so there is nothing honest to
-   *     write into the board row's six NOT NULL `sampled_hex_*` columns. The
-   *     apply-a-template path already refuses this case for the same reason
-   *     ("no real color to write — skip, don't invent one"), and the Canvas
-   *     extractor cannot rescue it: a cross-origin image taints the canvas and
-   *     `extractPaletteFromImage` then returns CREAM DEFAULTS rather than
-   *     throwing — a fabricated palette that renders exactly like a real one.
+   *   · ~~the asset carries NO sampled colours~~ — NO LONGER A REASON (2026-10-19):
+   *     withholding it made an approved, credited supplier photo invisible, and
+   *     suppliers do not tag colours. It is shown with `swatches: []`; the
+   *     colours the board row's six NOT NULL `sampled_hex_*` need are read off
+   *     the photo's own pixels ON THE SERVER at the pick
+   *     (`extractPaletteFromBytes` — no canvas to taint, no cream padding), and
+   *     a photo whose pixels yield none is refused there, never invented.
    *
    * `total > 0` with an empty `assets` is therefore a real and different
    * answer from `total === 0`, and the picker says something different for
@@ -346,7 +352,18 @@ export type RawGalleryRow = {
  * PURE — no Supabase, so every withholding rule unit-tests in milliseconds.
  * The six hexes are the asset's own sampled colours in slot order, cycled to
  * six when it carries fewer (the same `i % length` fill the template path
- * uses); a row with none is withheld rather than padded with invented colour.
+ * uses).
+ *
+ * 🌱🖼 A ROW WITH NO COLOURS IS SHOWN, NOT WITHHELD (2026-10-19, PR #6655). It used to be withheld — and suppliers do
+ * not tag colours, so an approved, credited supplier photo was invisible to every couple: the owner's "create more
+ * inspirations faster" would have filled the library with photos nobody could find. It now arrives with `swatches: []`
+ * — still never padded with an invented colour — and the picker shows it unfiltered by "Matches my colours", after
+ * the photos that do match. Its colours are read off its own pixels when a couple saves it (`applyGalleryPick` →
+ * `extractPaletteFromBytes`), and every new supplier upload is tagged at upload, so this is the fallback, not the
+ * path. `an-untagged-supplier-photo-still-reaches-search-ideas.test.ts` holds it.
+ *
+ * 🖼 THE IMAGE URL IS SERVABLE (`galleryImageUrl`). A supplier upload stores `moodboard-library/<uid>/<id>.jpg` — a
+ * bucket path, not a URL — and handing that to `<img src>` drew a broken picture.
  */
 export function shapeGalleryPage(
   slot: string,
@@ -364,22 +381,32 @@ export function shapeGalleryPage(
     const hexes = [...row.ranges]
       .sort((a, b) => a.slot_id - b.slot_id)
       .map((r) => r.sampled_hex);
-    if (hexes.length === 0) {
-      withheld += 1;
-      continue;
-    }
     assets.push({
       assetId: row.asset_id,
-      imageUrl: row.storage_path,
+      imageUrl: galleryImageUrl(row.storage_path),
       label: row.label?.trim() ?? '',
       credit: creditLine(shopName, tradeLabelForCredit(slot, row.shop?.services ?? null)),
       vendorProfileId,
       shopSlug: row.shop?.business_slug?.trim() || null,
-      swatches: Array.from({ length: 6 }, (_, i) => hexes[i % hexes.length]!),
+      swatches: hexes.length === 0 ? [] : Array.from({ length: 6 }, (_, i) => hexes[i % hexes.length]!),
       isEventLinked: row.is_event_linked === true,
     });
   }
   return { assets, withheld };
+}
+
+/**
+ * A library row's `storage_path` as something a browser can load. Rows authored by the upload actions store the
+ * bucket path (`moodboard-library/<key>`, the shape `stylistAssetObjectKey` reads back); older rows store a full URL
+ * or a site path (`/moodboard/…`), which pass through untouched. The bucket is public (its read policy is the
+ * approved-and-not-retired one), so its public object URL is the address.
+ */
+export function galleryImageUrl(storagePath: string): string {
+  const prefix = 'moodboard-library/';
+  if (!storagePath.startsWith(prefix)) return storagePath;
+  const base = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? '').replace(/\/+$/, '');
+  // Joined, not a `/…` template: the Root map reads a slash-led template as an app door (it matched a catch-all).
+  return [base, 'storage', 'v1', 'object', 'public', storagePath].join('/');
 }
 
 /* ══════════════════════════════════════════════════════════════════════════

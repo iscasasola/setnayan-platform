@@ -5,10 +5,11 @@
  * on a light paper, wearing a DARK ombré. The page's own ink had flipped light,
  * as it should — and these had not followed it:
  *
- *   · "Reply to the invitation", "Get inside", "Upload your QR · Sign in"
+ *   · "Reply to the invitation", "Confirm your Booking" (it read "Get inside" until 2026-10-17), "Upload your QR · Sign in"
  *     (`.button-primary`)            rgb(30 34 41) on rgb(55 59 49) — 1.4 : 1
  *   · the footer's "See you soon."   rgb(42 45 37) on the dark page — 1.1 : 1
  *   · the host's ribbon label        the page's pale ink on the gold plate
+ *     (the strip went 2026-10-15; the plate ink it was read with is still measured)
  *
  * `.button-primary` is `bg-mulberry text-cream`: its LABEL is the page's paper
  * and its FILL is "the colour that paper reads on". The Mood Board (and every
@@ -365,12 +366,14 @@ test('(6) the page paints with the tokens measured above', () => {
   const shell = stripComments(read('app/[slug]/_components/invitation-shell.tsx'));
   assert.match(shell, /backdrop \? 'text-cream\/90' : 'text-terracotta-700'/);
   const door = stripComments(read('app/[slug]/_components/get-inside.tsx'));
-  assert.match(door, /<summary className="button-primary [^"]*">\s*<span className="text-base">Get inside<\/span>/);
+  assert.match(door, /<summary className="button-primary [^"]*">\s*<span className="text-base">\{STRANGER_DOOR_WORDS\}<\/span>/);
+  assert.match(door, /export const STRANGER_DOOR_WORDS = 'Confirm your Booking';/);
 
-  // The host's ribbon is the PLATE's paper, so its label takes the plate's ink.
-  const ribbon = stripComments(read('app/[slug]/_components/owner-ribbon.tsx'));
-  assert.match(ribbon, /bg-paper-deep\/95/);
-  assert.match(ribbon, /text-ink-on-plate\/70">\s*Your Event Hub — as a guest sees it/);
+  // Words on the PLATE's paper take the plate's ink — a plain block's plate (`lib/block-looks.ts` ROOT_PLAIN) paints
+  // exactly that pair. (This was measured on the host strip's label until the strip went, 2026-10-15 — owner:
+  // "Remove it"; the pair, and the measure below — taken at the label's old 70 %, a stricter bar — are unchanged.)
+  const plateWords = stripComments(read('lib/block-looks.ts'));
+  assert.match(plateWords, /--block-ink:var\(--color-ink-on-plate, var\(--color-ink\)\);color:rgb\(var\(--block-ink\)\);background:rgb\(var\(--color-paper-deep\)\)/);
   assert.match(
     read('tailwind.config.ts'),
     /'on-plate': 'rgb\(var\(--color-ink-on-plate, var\(--color-ink\)\) \/ <alpha-value>\)'/,
@@ -392,8 +395,8 @@ test('(6) the page paints with the tokens measured above', () => {
     const c = contrastOf(blendOver(p.plateInk, plate, 0.7), plate);
     if (c < AA) failures.push(`${where}: ${c.toFixed(2)} : 1 (ink ${p.plateInk} on ${plate})`);
   });
-  assert.ok(held >= LOOKS / 2, `only ${held} of ${LOOKS} looks hold a readable plate ink — the ribbon claim is nearly vacuous`);
-  assert.deepEqual(failures, [], `the ribbon label cannot be read:\n  ${failures.join('\n  ')}`);
+  assert.ok(held >= LOOKS / 2, `only ${held} of ${LOOKS} looks hold a readable plate ink — the plate claim is nearly vacuous`);
+  assert.deepEqual(failures, [], `words on the plate cannot be read:\n  ${failures.join('\n  ')}`);
 
   // The composition: the words are re-measured AFTER the ombré is spread, with its ramp, and before the plate pin.
   const loaders = stripComments(read('app/[slug]/_lib/loaders.ts'));
@@ -585,8 +588,8 @@ function cascade(themeId: InviteThemeId, event: Event): Record<string, string> {
 }
 
 test('(9) every gild word on the REAL page reads on the ground of its nearest surface — Welcome and Details, every Look', async () => {
-  // ── The pages: a listed guest (Welcome · Details · the story), and a stranger whose Details opens with the
-  //    "THE DETAILS · WHEN" plate — the gold date card measured on the preview.
+  // ── The pages: a listed guest (Welcome · Details · the story), and a stranger (whose Details USED to open with the
+  //    "THE DETAILS · WHEN" plate — the gold date card measured on the preview; retired 2026-10-24).
   const stranger = anonymousIdentity({ reason: null, publicCandidCameraActive: false, publicAlbumHref: null });
   const pages: Record<string, string> = {
     'a guest': await renderSiteBodyFixture({ event: { ...FIXTURE_EVENT, love_story: { how_we_met: 'On a jeepney in Cubao.' } } as never }),
@@ -600,9 +603,11 @@ test('(9) every gild word on the REAL page reads on the ground of its nearest su
   // Not vacuous: both tabs, the plate the fault was on, a veil row, and the page itself.
   assert.ok(list.length >= 12, `only ${list.length} gild words were found on the real page`);
   for (const tab of ['home', 'details']) assert.ok(list.some((w) => w.tab === tab), `no gild word was found on the ${tab} tab`);
-  const when = list.find((w) => w.text === 'When' && w.surface === PLATE && w.tab === 'details');
-  assert.ok(when, 'the "When" label on the details plate is not on the rendered page — the measured fault is no longer drawn here');
-  assert.ok(list.some((w) => w.tag === 'svg' && w.surface === PLATE), 'the calendar icon on the plate is not found');
+  /* 🔁 RE-AIMED 2026-10-24: the stranger's "THE DETAILS · WHEN" plate — where the fault was measured — is drawn on no
+     page any more (owner, "isn't this a dupe?" — `OFF_THE_PAGE`, `the-details-tab-repeats-nothing.test.ts`), so its
+     "When" and calendar icon are not on the rendered page to find. The plate's rule is still held below by the
+     measured arithmetic (the gold card, three ways) — it is the surface every other plate (venue, seat, reminders) wears. */
+  assert.equal(PLATE.key, 'plate', 'the plate surface the fault was measured on is no longer the first gild surface');
   assert.ok(list.some((w) => w.surface?.veil), 'no gild word on a veil row was found');
   assert.ok(list.some((w) => w.surface === null && w.tab === 'home'), 'the "and" between the names is not found');
 

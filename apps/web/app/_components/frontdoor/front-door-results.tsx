@@ -49,9 +49,38 @@ import Link from 'next/link';
 import { matchesCommandQuery } from '@/lib/command-match';
 import { searchReads } from '@/lib/site-search';
 import { searchLiveShops, type FrontDoorData, type FrontDoorShop } from './data';
-import type { HomeCommandItem } from '@/app/dashboard/(launcher)/_components/home-command-bar';
+import type { HomeCommandItem } from './command-item';
 import { shopInitials } from '@/lib/shop-initials';
 import { formatCount } from '@/lib/format-number';
+import { ON_YOUR_EVENT, YOUR_OWN_SUPPLIER } from '@/lib/own-supplier-items';
+import { ShellOnward } from './shell-search-onward';
+import { SHELL_SEARCH_PATH } from '@/lib/shell-search';
+import type { ShellPeopleResults } from '@/lib/shell-people-results';
+import { ShellPeopleSection } from './shell-people-section';
+import { DiscoverAddOwn } from './discover-add-own';
+import { readAddOwnCategories } from '@/lib/add-own-categories.server';
+import type { ShelfState } from '@/lib/discover-events';
+import type { DiscoverEventCard as DiscoverEventCardData } from '@/lib/discover-events-core';
+import { DiscoverEventCard } from './discover-event-card';
+
+/** Words Discover's results say when the events read was refused — never "nothing", never a 0. */
+export const EVENTS_UNREAD = 'We couldn’t search events just now. Nothing is lost — try again in a moment.';
+
+/** Reads "What they do" only when the add is drawn — a search with results pays nothing for it. A refused read draws
+ *  no add: the empty state above already says plainly that nothing matched. */
+async function DiscoverAddOwnSlot({
+  query,
+  event,
+  given,
+}: {
+  query: string;
+  event: { eventId: string; eventName: string };
+  given?: Awaited<ReturnType<typeof readAddOwnCategories>>;
+}) {
+  const categories = given !== undefined ? given : await readAddOwnCategories(event.eventId);
+  if (!categories) return null;
+  return <DiscoverAddOwn query={query} eventId={event.eventId} eventName={event.eventName} categories={categories} />;
+}
 
 /** Delegates to the shared shop/vendor helper (lib/shop-initials.ts). Also
  * used for `item.label` (the searcher's own event/space) below — that call
@@ -157,7 +186,21 @@ function OwnCard({ item }: { item: HomeCommandItem }) {
         <div className="fd-itxt">
           <p className="fd-ttl">{item.label}</p>
           <p className="fd-by">
-            <span className="fd-kindtag">Yours</span> {item.sublabel}
+            {/* A supplier on one of your events wears "On your event" — the
+                sublabel already starts with it, so the tag is the whole of it
+                and the sublabel's rest (which event) follows. Anything else of
+                yours is "Yours". */}
+            {/* One the couple added themselves wears "Your own supplier · on {event}" instead (owner 2026-10-24). */}
+            {item.kind === 'supplier' ? (
+              <>
+                <span className="fd-kindtag">{item.sublabel.startsWith(ON_YOUR_EVENT) ? ON_YOUR_EVENT : YOUR_OWN_SUPPLIER}</span>{' '}
+                {item.sublabel.replace(`${ON_YOUR_EVENT} · `, '').replace(`${YOUR_OWN_SUPPLIER} · `, '')}
+              </>
+            ) : (
+              <>
+                <span className="fd-kindtag">Yours</span> {item.sublabel}
+              </>
+            )}
           </p>
         </div>
       </div>
@@ -169,10 +212,58 @@ export async function FrontDoorResults({
   query,
   data,
   commandItems,
+  place = 'front-door',
+  findSuppliers = null,
+  people = null,
+  addOwnEvent = null,
+  addOwnCategories,
+  events = null,
 }: {
   /** Already trimmed and known non-empty by the caller. */
   query: string;
-  data: FrontDoorData;
+  /** Only the articles are read — for the covers of the reading hits. */
+  data: Pick<FrontDoorData, 'articles'>;
+  /**
+   * WHERE THIS LIST IS DRAWN (owner 2026-10-22, *"brought me here away from
+   * our shell"*).
+   *   `front-door` — the public `/?q=`, signed out. Unchanged: it carries the
+   *                  permanent row handing the words to the marketplace.
+   *   `shell`      — `/dashboard/search`, inside the account shell. No row
+   *                  leaves for `/explore` (a doorway page with its own top bar
+   *                  and no account bar — the page the owner was thrown onto).
+   *                  The suppliers on your events are part of your own things,
+   *                  and the empty state says where it looked.
+   */
+  place?: 'front-door' | 'shell' | 'discover';
+  /**
+   * Discover only (`discover` — signed in, `/?q=`, IN PLACE: owner 2026-10-24, *"we will show the result on the page
+   * itself. not a new screen"*). The shell form, drawn on Discover under its own search row: Clear takes the words
+   * away and Discover's sections come back. With nothing found and ONE event you host, the last row adds what was
+   * typed as your own supplier (`addOwnEvent` — the shipped add walk, opened in place).
+   */
+  addOwnEvent?: { eventId: string; eventName: string } | null;
+  /**
+   * Discover only (owner 2026-10-25): the events of your people, then anybody's public event, matching the words
+   * (`searchDiscoverEvents`). `null` = not searched here. Discover lists EVENTS · PEOPLE · SUPPLIERS and nothing
+   * else — no stories or guides (DECISION_LOG 2026-10-01, "ARTICLES LEAVE DISCOVER"; they live under Features).
+   */
+  events?: ShelfState<DiscoverEventCardData> | null;
+  /** `/dev/search-lab` only (no session there): the event's "What they do" list, in place of the read. */
+  addOwnCategories?: Awaited<ReturnType<typeof readAddOwnCategories>>;
+  /**
+   * Shell only: the in-shell door to find a NEW supplier — the Suppliers page
+   * of the one event this person hosts. `null` draws none (several events,
+   * none, or the store app, which shows no marketplace). See
+   * `app/dashboard/(account)/search/page.tsx`.
+   */
+  findSuppliers?: { href: string; eventName: string } | null;
+  /**
+   * Shell only: PEOPLE (owner 2026-10-22, "follow your recommendation") — your people whose name matches, then
+   * people on Setnayan you could ask, each opening their card on the People page. Read by the page through
+   * `searchShellPeople` (the roster + `searchPeopleByName`, no new fence). `null` = not searched here (signed
+   * out, the front door, or connections switched off).
+   */
+  people?: ShellPeopleResults | null;
   /**
    * The searcher's own events and spaces — ALREADY LOADED by the page for the
    * palette, so filtering it here costs nothing and adds no read. `[]` for a
@@ -186,8 +277,10 @@ export async function FrontDoorResults({
     `searchLiveShops` returns [] on a rejected read — so a failure here is a
     thinner answer, never a broken page.
   */
+  const onDiscover = place === 'discover';
   const [hits, shops] = await Promise.all([
-    searchReads(query, 24),
+    // Discover reads no stories or guides (2026-10-01): its results are events, people and suppliers.
+    onDiscover ? Promise.resolve([] as Awaited<ReturnType<typeof searchReads>>) : searchReads(query, 24),
     searchLiveShops(query, 12),
   ]);
 
@@ -221,7 +314,27 @@ export async function FrontDoorResults({
     return slug ? bySlug.get(slug) : undefined;
   };
 
-  const total = own.length + shops.length + hits.length;
+  /** Signed in — the shell's results and Discover's in-place results are one form. */
+  const inShell = place !== 'front-door';
+  const peopleRows = inShell && people ? people.rows.length : 0;
+  const eventCards = onDiscover && events?.status === 'ok' ? events.items : [];
+  const total = own.length + peopleRows + shops.length + hits.length + eventCards.length;
+
+  if (onDiscover) {
+    return (
+      <DiscoverResults
+        query={query}
+        own={own}
+        people={people}
+        shops={shops}
+        events={events}
+        eventCards={eventCards}
+        findSuppliers={findSuppliers}
+        addOwnEvent={addOwnEvent}
+        addOwnCategories={addOwnCategories}
+      />
+    );
+  }
 
   return (
     <>
@@ -239,7 +352,8 @@ export async function FrontDoorResults({
           that can only be left by editing the address bar is a dead end, and
           this page has no other visible control that clears the query.
         */}
-        <Link href="/" className="fd-sechead-go">
+        {/* In the shell, clearing stays in the shell — `/` is the public front door. */}
+        <Link href={place === 'shell' ? SHELL_SEARCH_PATH : '/'} className="fd-sechead-go">
           Clear
         </Link>
       </h2>
@@ -251,6 +365,9 @@ export async function FrontDoorResults({
           ))}
         </div>
       ) : null}
+
+      {/* PEOPLE — after your own things, before the shops (owner 2026-10-22). A refused read says so. */}
+      {inShell && people ? <ShellPeopleSection people={people} /> : null}
 
       {shops.length > 0 ? (
         <div className="fd-grid">
@@ -268,6 +385,12 @@ export async function FrontDoorResults({
         </div>
       ) : null}
 
+      {inShell ? (
+        <>
+          <ShellOnward query={query} total={total} findSuppliers={findSuppliers} />
+        </>
+      ) : (
+      <>
       {/*
         THE MARKETPLACE ROW IS PERMANENT, NOT AN EMPTY STATE.
 
@@ -295,6 +418,126 @@ export async function FrontDoorResults({
           </Link>
         </div>
       </div>
+      </>
+      )}
+    </>
+  );
+}
+
+/**
+ * 🔎 DISCOVER'S RESULTS — LIKE A VIDEO SEARCH (owner 2026-10-25: *"so it is like how youtube searches · find the
+ * user, and the videos related to the search"*). When the words name a person — or, with no person, a shop — that
+ * one leads, as the channel does; then the EVENTS the words match, as the main list: yours, then your people's, then
+ * anybody's public event; then the rest of the people; then the suppliers (yours, then the shops we publish).
+ * Nothing else — no stories, no guides, no spaces.
+ *
+ * PORTED, NOT REDRAWN: every row is a card this page already draws — `OwnCard`, the Discover shelves' own
+ * `DiscoverEventCard`, the people rows (`ShellPeopleSection`), `ShopHitCard`.
+ *
+ * 🔴 A REFUSED READ SAYS SO. A refused events or people read draws its own sentence, and with nothing found the
+ * heading says the search could not finish rather than "nothing here".
+ */
+function DiscoverResults({
+  query,
+  own,
+  people,
+  shops,
+  events,
+  eventCards,
+  findSuppliers,
+  addOwnEvent,
+  addOwnCategories,
+}: {
+  query: string;
+  own: HomeCommandItem[];
+  people: ShellPeopleResults | null;
+  shops: FrontDoorShop[];
+  events: ShelfState<DiscoverEventCardData> | null;
+  eventCards: DiscoverEventCardData[];
+  findSuppliers: { href: string; eventName: string } | null;
+  addOwnEvent: { eventId: string; eventName: string } | null;
+  addOwnCategories?: Awaited<ReturnType<typeof readAddOwnCategories>>;
+}) {
+  const ownEvents = own.filter((i) => i.kind === 'event');
+  const ownSuppliers = own.filter((i) => i.kind === 'supplier');
+  const personRows = people?.rows ?? [];
+  // The channel: the first person the words name; with none, the first shop.
+  const channelPerson = personRows[0] ?? null;
+  const channelShop = channelPerson ? null : (shops[0] ?? null);
+  const restPeople = channelPerson ? personRows.slice(1) : personRows;
+  const restShops = channelShop ? shops.slice(1) : shops;
+  const shown = ownEvents.length + eventCards.length + personRows.length + ownSuppliers.length + shops.length;
+  const incomplete = events?.status === 'unavailable' || people?.unavailable === true;
+
+  return (
+    <>
+      <h2 className="fd-sechead">
+        <span>Results for &ldquo;{query}&rdquo;</span>
+        <span className="fd-meta">
+          {shown === 0
+            ? incomplete
+              ? 'couldn’t finish'
+              : 'nothing here yet'
+            : `${formatCount(shown)} ${shown === 1 ? 'thing' : 'things'}`}
+        </span>
+        <Link href="/" className="fd-sechead-go">
+          Clear
+        </Link>
+      </h2>
+
+      {channelPerson ? (
+        <div data-discover-channel="">
+          <ShellPeopleSection people={{ rows: [channelPerson], unavailable: false }} />
+        </div>
+      ) : channelShop ? (
+        <div className="fd-grid" data-discover-channel="">
+          <ShopHitCard s={channelShop} />
+        </div>
+      ) : null}
+
+      {/* EVENTS — yours, then your people's, then anybody's public event. */}
+      {ownEvents.length + eventCards.length > 0 ? (
+        <div className="fd-grid fd-up" data-discover-events="">
+          {ownEvents.map((i) => (
+            <OwnCard key={i.id} item={i} />
+          ))}
+          {eventCards.map((c) => (
+            <DiscoverEventCard key={c.key} card={c} />
+          ))}
+        </div>
+      ) : null}
+      {events?.status === 'unavailable' ? (
+        <p role="status" className="mb-4 text-sm text-ink/65" data-events-unread="">
+          {EVENTS_UNREAD}
+        </p>
+      ) : null}
+
+      {/* PEOPLE — the rest of them (a refused read says so). */}
+      {people ? <ShellPeopleSection people={{ rows: restPeople, unavailable: people.unavailable }} /> : null}
+
+      {/* SUPPLIERS — yours, then the shops we publish. */}
+      {ownSuppliers.length + restShops.length > 0 ? (
+        <div className="fd-grid" data-discover-suppliers="">
+          {ownSuppliers.map((i) => (
+            <OwnCard key={i.id} item={i} />
+          ))}
+          {restShops.map((s) => (
+            <ShopHitCard key={s.href} s={s} />
+          ))}
+        </div>
+      ) : null}
+
+      <ShellOnward
+        query={query}
+        total={shown}
+        findSuppliers={findSuppliers}
+        incomplete={incomplete}
+        looked="We looked at your events, your people’s events, public events, people, and suppliers."
+      />
+      {/* Nothing found on Discover, with an event to file it under: the last row adds it (the shipped walk). */}
+      {shown === 0 && !incomplete && addOwnEvent ? (
+        <DiscoverAddOwnSlot query={query} event={addOwnEvent} given={addOwnCategories} />
+      ) : null}
     </>
   );
 }

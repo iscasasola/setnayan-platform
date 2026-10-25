@@ -7,6 +7,7 @@ import { SaveToAccount } from '../../_components/save-to-account';
 import { PASS_CARD_WORDS } from '@/lib/pass-card';
 import { composeFormalName, type FormalNameField } from '@/lib/formal-name';
 import { FormalNameInputs } from '@/app/_components/formal-name-inputs';
+import { displayPersonName } from '@/lib/person-name-case';
 
 /**
  * 👋 THE PLUS-ONE'S OWN DOOR — its body (the page, `../page.tsx`, reads the
@@ -65,7 +66,8 @@ export function PlusOneDoor({
   confirmAction: (formData: FormData) => Promise<void>;
   abandonAction: (formData: FormData) => Promise<void>;
 }) {
-  const wholeName = composeFormalName(row) ?? '';
+  // 🪪 Shown cased, never rewritten — the boxes under "Change it" keep what was typed (guest_page_fixes_2_4 fix 3).
+  const wholeName = displayPersonName(composeFormalName(row));
   const meal = (row.meal_preference ?? '') as MealPreference | '';
   const missingCount = [missing.name, missing.meal, missing.dietary].filter(Boolean).length;
   const anyFilled = filled.name || filled.meal || filled.dietary;

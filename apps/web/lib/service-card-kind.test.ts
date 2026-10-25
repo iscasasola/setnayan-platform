@@ -180,7 +180,8 @@ test('the save’s gate asks the leaves, and is still a CLOSED set', () => {
 });
 
 test('the chooser offers the shop’s own words, and keeps the legacy list below', () => {
-  const door = read('app/vendor-dashboard/services/new/page.tsx');
+  // Since 2026-10-14 the three doors into the maker build the chooser in ONE loader.
+  const door = read('lib/service-card-maker.server.ts');
   // 🪤 MATCHING THE BARE NAME `coverageKindOptions` WAS DECORATION — the
   // mutation that emptied its source (`vendorCoverages.map` → `[].map`) left the
   // identifier standing and the guard passed. Pin what it is BUILT FROM.

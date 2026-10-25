@@ -8,8 +8,8 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { sendEmail } from '@/lib/email';
-import { findSlugConflict } from '@/lib/slug-availability';
-import { clearHomeShelf } from '@/lib/home-shelf-clear';
+import { renameEventSlug } from '@/lib/event-slug-rename.server';
+import { eventHubPartActive } from '@/lib/couple-website-pro';
 
 function randomHex(bytes = 16): string {
   const buf = new Uint8Array(bytes);
@@ -150,68 +150,24 @@ export async function updateEventSlug(
 
   const admin = createAdminClient();
 
-  // ⚠ THIS FORM USED TO CHECK THE SHAPE AND THE EVENTS TABLE, AND NOTHING ELSE.
-  // No reserved-word check (a wedding could rename itself onto /creators or
-  // /open-shop — both live pages in our sitemap), no shop-address check, no
-  // person-handle check, and no check for a retired address that is still
-  // forwarding printed invitations. `findSlugConflict` is the one answer for
-  // the one shared namespace; the CREATE path and the live availability
-  // endpoint ask the same question.
-  const conflict = await findSlugConflict(admin, requested, { eventId });
-  if (conflict) {
-    redirect(`${back}?slug_error=${encodeURIComponent(conflict)}`);
+  /* 💎 RENAMING IS THE CUSTOM ADDRESS PART (owner 2026-10-22, "Event Hub Pro, part by part"): the free address is the
+     automatic one; picking your own is the ₱500 part, or everything. An event that renamed before keeps its address —
+     nothing here takes one away — but a further change asks for the part. A server action is a public POST, so the
+     gate is here, not only on the field. Saving the address already in use is no rename and passes. */
+  const { data: current } = await admin.from('events').select('slug').eq('event_id', eventId).maybeSingle();
+  if (current?.slug !== requested && !(await eventHubPartActive(admin, eventId, 'address'))) {
+    redirect(`${back}?slug_error=needs_custom_address`);
   }
 
-  // Read the old slug so we can log it.
-  const { data: existing } = await admin
-    .from('events')
-    .select('slug')
-    .eq('event_id', eventId)
-    .maybeSingle();
-
-  // Pull the user's id for the log.
+  // ⚠ THIS FORM USED TO CHECK THE SHAPE AND THE EVENTS TABLE, AND NOTHING ELSE — the conflict check, the zero-row
+  // refusal and the forwarding log now live in the ONE rename (`renameEventSlug`), which the Maker's Apply uses too.
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-
-  // ⚠ AN UPDATE THAT CHANGES NOTHING IS NOT AN ERROR. This runs on the CALLER's
-  // client, so if RLS does not admit them to this event the statement matches
-  // ZERO rows and Supabase returns no error at all. Without the `.select()` the
-  // action then wrote a 90-day forwarding row for a rename that never happened
-  // and redirected `?slug_saved=1` — the couple was told their new address was
-  // live while the old one still served the page, and a word was retired out of
-  // the pool for nothing.
-  const { data: updatedRows, error: updateErr } = await supabase
-    .from('events')
-    .update({ slug: requested, updated_at: new Date().toISOString() })
-    .eq('event_id', eventId)
-    .select('event_id');
-  // The home page remembers this for 60 s — forget it now (lib/home-shelf-clear.ts).
-  clearHomeShelf('events');
-
-  if (updateErr) {
-    redirect(
-      `${back}?slug_error=${encodeURIComponent(updateErr.message)}`,
-    );
-  }
-
-  if (!updatedRows || updatedRows.length === 0) {
-    redirect(
-      `${back}?slug_error=${encodeURIComponent(
-        'We couldn’t save that address. Please refresh and try again.',
-      )}`,
-    );
-  }
-
-  if (existing?.slug && existing.slug !== requested) {
-    await admin.from('slug_change_log').insert({
-      entity_type: 'event',
-      entity_id: eventId,
-      old_slug: existing.slug,
-      new_slug: requested,
-      changed_by: user?.id ?? null,
-    });
+  const renamed = await renameEventSlug(supabase, eventId, requested, user?.id ?? null);
+  if (!renamed.ok) {
+    redirect(`${back}?slug_error=${encodeURIComponent(renamed.reason)}`);
   }
 
   revalidatePath(back);

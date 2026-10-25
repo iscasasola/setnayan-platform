@@ -42,12 +42,11 @@ import {
   readPapicFreeGrantPoints,
   readPapicFreeOneCameraPoints,
 } from '@/lib/papic-tier-config-read';
-import { FALLBACK_POOL_SIZING, fetchEventPoolSizing } from '@/lib/papic-pool-sizing';
 import { resolveSetnayanAiDisplayPricePhp } from '@/lib/setnayan-ai-server';
 import { setnayanAiTierSkuForEventType } from '@/lib/setnayan-ai-type-pricing';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { addOnHeroCopy } from '@/lib/add-ons-catalog';
-import { COUPLE_WEBSITE_PRO_SERVICE_KEY } from '@/lib/couple-website-pro';
+import { COUPLE_WEBSITE_PRO_SERVICE_KEY, hubPartPrices } from '@/lib/couple-website-pro';
 import { buildServicesStepView, type ServicesStepView } from './services-step-data';
 
 /**
@@ -79,7 +78,6 @@ export async function readServicesStepView(
     aiPricePhp,
     aiListPricePhp,
     settingsRow,
-    poolSizing,
   ] =
     await Promise.all([
       fetchV2CustomerCatalog(),
@@ -138,11 +136,6 @@ export async function readServicesStepView(
           return null;
         }
       })(),
-      // 🎟 The admin-editable sizing the onboarding Papic card recommends a pack
-      // from (owner 2026-10-01). ADMIN CLIENT for the same reason as the settings
-      // read above: this page is reached by an ANONYMOUS visitor, and a refused
-      // read would quietly quote the code fallback instead of the owner's number.
-      fetchEventPoolSizing(createAdminClient(), eventType).catch(() => null),
     ]);
   // ⚠ Fails to the DEFAULT, never to zero: a settings read that fails must not
   // silently retract a discount the rest of the screen is advertising.
@@ -207,15 +200,6 @@ export async function readServicesStepView(
     listPricePhpByCode,
     freePoolPoints,
     freeOnePoints,
-    // ⛔ A refused read returns the CODE fallback, and a code default must never size
-    // what a couple is told to buy (RULE 0.9) — so it recommends nothing.
-    poolSizing: poolSizing && poolSizing !== FALLBACK_POOL_SIZING
-      ? {
-          pointsPerGuest: poolSizing.pointsPerGuest,
-          recommendFloorPoints: poolSizing.recommendFloorPoints,
-          ceilingPoints: poolSizing.ceilingPoints,
-        }
-      : null,
     aiPricePhp: aiOffered ? aiPricePhp : null,
     aiListPricePhp: aiOffered ? aiListPricePhp : null,
     hubPro: {
@@ -223,6 +207,13 @@ export async function readServicesStepView(
       pricePhp: pricePhpByCode.get(COUPLE_WEBSITE_PRO_SERVICE_KEY) ?? null,
       listPricePhp: listPricePhpByCode.get(COUPLE_WEBSITE_PRO_SERVICE_KEY) ?? null,
       copy: hubProCopy,
+      // 💎 "or part by part later, from ₱500" (owner 2026-10-22) — the parts are off /pricing, so read here, from the catalogue.
+      partsFromPhp: await hubPartPrices(createAdminClient())
+        .then((p) => {
+          const on = [...p.parts.entries()].filter(([code]) => p.onSale.has(code)).map(([, php]) => php);
+          return on.length > 0 ? Math.min(...on) : null;
+        })
+        .catch(() => null),
     },
   });
 }

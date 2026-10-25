@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { HUB_TAB_ATTR, activeHubTab } from '@/app/[slug]/_lib/hub-tabs';
+import { HUB_PAGE_ATTR, HUB_TAB_ATTR, activeHubTab, hubPageModeOf, hubPageOf, hubPagesOf } from '@/app/[slug]/_lib/hub-tabs';
 import { MakerPageStandIn } from '@/app/[slug]/_components/maker-fixed-parts';
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
 import { makerStageIsPaged, makerStagesPageOf, makerStagesPages } from '@/lib/maker-stage-filing';
@@ -16,7 +16,8 @@ import { makerStageIsPaged, makerStagesPageOf, makerStagesPages } from '@/lib/ma
  *     the lab's draft laid over them): a scene moved is drawn where it now stands, a scene taken off is not drawn,
  *     and a stage draws only its own parts;
  *   · on a stage the Stages canvas draws as tabs (`makerStageIsPaged`) and the Maker asked for them (`&tabs=1`):
- *     ONE group per page of the Maker's own list (`makerStagesPages`), marked `data-hub-tab`, one shown at a time —
+ *     ONE group per page of the Maker's own list (`makerStagesPages`), marked `data-hub-tab`, one PAGE shown at a time
+ *     (📜 on the Invitation and Save the Date Home · Details · Story are one page and Me its own, owner 2026-10-15) —
  *     each part on the page the ONE filing puts it on (`makerStagesPageOf`), so the bridge's `hubTab` switches
  *     pages here exactly as it does on a couple's canvas. A page nothing is filed on is its stand-in.
  *
@@ -58,7 +59,10 @@ export function LabStagePages({
   if (!tabbed) return <div className="sn-editorial pahina-in" data-lab-stage={stage}>{drawn.map(node)}</div>;
   const pages = makerStagesPages(stage);
   const keys = pages.map((p) => p.key);
-  const active = activeHubTab(tab, keys);
+  /* 📜 The Invitation and Save the Date are ONE page with Me its own (owner 2026-10-15): their marks share a page. */
+  const onePage = hubPageModeOf(stage) === 'one-page';
+  const active = activeHubTab(tab, hubPagesOf(keys, onePage));
+  const shown = (key: string) => hubPageOf(key, onePage) === active;
   const byPage = new Map<string, ReactNode[]>();
   for (const key of drawn) {
     const page = makerStagesPageOf(stage, key, keys);
@@ -68,11 +72,11 @@ export function LabStagePages({
     <div className="sn-editorial pahina-in" data-lab-stage={stage} data-lab-stage-pages="">
       {pages.map((p) =>
         byPage.has(p.key) ? (
-          <div key={p.key} {...{ [HUB_TAB_ATTR]: p.key }} hidden={p.key !== active ? true : undefined}>
+          <div key={p.key} {...{ [HUB_TAB_ATTR]: p.key, [HUB_PAGE_ATTR]: hubPageOf(p.key, onePage) }} hidden={shown(p.key) ? undefined : true}>
             {byPage.get(p.key)}
           </div>
         ) : (
-          <div key={p.key} {...{ [HUB_TAB_ATTR]: p.key }} data-stages-page={p.key} hidden={p.key !== active ? true : undefined}>
+          <div key={p.key} {...{ [HUB_TAB_ATTR]: p.key, [HUB_PAGE_ATTR]: hubPageOf(p.key, onePage) }} data-stages-page={p.key} hidden={shown(p.key) ? undefined : true}>
             <MakerPageStandIn page={p.key} label={p.label} />
           </div>
         ),

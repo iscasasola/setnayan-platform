@@ -97,21 +97,21 @@ test('2 · parents: one row each → the card as a sheet (never a name box); ＋
     React.createElement(StudioParents as never, {
       eventId: 'E1',
       parents: [
-        { guestId: 'g1', name: 'Maria Santos', side: 'bride', card: React.createElement('p', null, 'card') },
-        { guestId: null, name: 'Jose Santos', side: 'bride', card: null },
+        { guestId: 'g1', name: 'Maria Santos', side: 'bride' },
+        { guestId: null, name: 'Jose Santos', side: 'bride' },
       ],
     } as never),
   );
   assert.match(m, /data-parent-open="g1"[\s\S]*?>MS<[\s\S]*?Maria Santos[\s\S]*?Bride’s parent · on your guest list[\s\S]*?text-sn-accent/, 'a parent is not the list row with the accent arrow');
-  assert.match(m, />JS<[\s\S]*?Jose Santos/, 'a parent with no card is not still listed');
+  assert.match(m, />JS<[\s\S]*?Jose Santos/, 'a parent not on the guest list is not still listed');
   assert.doesNotMatch(m, /<input\b/, 'a name box is drawn for a parent');
   assert.match(m, /class="ab ab-brand quiet[^"]*"[\s\S]*?Add a parent/, '＋ Add a parent is not the quiet action');
   assert.equal(parentLineWords('groom'), 'Groom’s parent · on your guest list');
   const none = await html(React.createElement(StudioParents as never, { eventId: 'E1', parents: [] } as never));
   assert.match(none, /data-parent-empty=""[\s\S]*?No parents on your guest list yet[\s\S]*?Add a parent/);
   const six = read(SIX);
-  assert.match(six, /<Sheet open onClose=\{\(\) => setOpen\(null\)\} labelledById=\{headId\} rise>[\s\S]{0,400}\{openParent\.card\}/, 'the card does not open as the sheet');
-  assert.match(six, /createPortal\(\s*<Sheet/, 'the sheet is not drawn on <body>');
+  // THE guest card, in its sheet (2026-10-24, one card everywhere) — `GuestCardSheet` portals itself to <body>.
+  assert.match(six, /<GuestCardSheet\s+eventId=\{eventId\}\s+person=\{\{ id: openParent\.guestId, name: openParent\.name \}\}\s+open=\{SHIPPED_GUEST_CARD\.invitation\}/, 'the card does not open as THE guest card’s sheet');
   assert.match(six, /addSingleGuest\(eventId, draft\)/, 'adding a parent is not the Guest list’s own add');
   assert.match(six, /<PillSelector\s+label="Whose parent"/, 'the side is not the two-way pill');
 });
@@ -156,7 +156,9 @@ test('1 · changed since you printed: the amber status line with ONE quiet "Save
   assert.match(changed, /<StatusLine tone="warn" data="changed-since-printed" action=\{<PrintSaveButton href=\{again\.href\} file=\{again\.file\} variant="action" quiet label="Save again" \/>\}>/);
   assert.doesNotMatch(changed.slice(changed.indexOf('if (again) {'), changed.indexOf('return (\n    <p')), /border-l-2/, 'the Studio’s line is the bare bordered note');
   const prints = read(`${L}/maker-prints.tsx`);
-  assert.match(prints, /again=\{themedReady \? \(\{ href: q\(k, 'print'\), file: file\.themed\(k\) \}\) : \{ href: classic\(k\), file: file\.classic\(k\) \}\}/, 'Save again is not the piece’s main file');
+  /* 2026-10-17: the piece's main file IS its one Download (`one`) — Save again saves the same. */
+  assert.match(prints, /const one = themedReady \? \{ href: q\(k, 'print'\), file: file\.themed\(k\) \} : \{ href: classic\(k\), file: file\.classic\(k\) \};/);
+  assert.match(prints, /<ChangedSincePrinted eventId=\{input\.eventId\} piece=\{k\} version=\{input\.previewVersion\} again=\{one\} \/>/, 'Save again is not the piece’s main file');
 });
 
 test('5 · the pass look is the style-card strip, a pick still waits for Apply; ◆ on Free is the centred note over the SAME link', async () => {
@@ -176,13 +178,15 @@ test('5 · the pass look is the style-card strip, a pick still waits for Apply; 
   const six = read(SIX);
   const pro = six.slice(six.indexOf('export function StudioProDoor('), six.indexOf('/* ── 6 · THE POSTER'));
   assert.match(pro, /e\.preventDefault\(\);\s*setOpen\(true\);/, 'a tap jumps to the page instead of opening the note');
-  assert.match(pro, /confirmLabel="See Pro"\s*cancelLabel="Keep it"/);
+  /* The note's words since 2026-10-17 (prototype `.note-pro`): "Not now" · "◆ Event Hub Pro". */
+  assert.match(pro, /confirmLabel="Event Hub Pro"\s*cancelLabel="Not now"/);
 });
 
-test('6 · the poster photo: the two-way pill, the upload square with the measured pie, a small photo ALLOWED and warned with Change', async () => {
+test('6 · the poster photo: Background ▾ (the house dropdown, 2026-10-17), the upload square with the measured pie, a small photo ALLOWED and warned with Change', async () => {
   const { StudioPosterPhoto } = await import(`../${SIX.replace(/\.tsx$/, '')}`);
   const small = await html(React.createElement(StudioPosterPhoto as never, { eventId: 'E1', saved: { ref: 'r2://media/events/E1/poster/a.jpg', w: 1200, h: 1600 }, thumb: '/poster.svg' } as never));
-  assert.match(small, /data-pill-selector="poster-photo"[\s\S]*?Theme’s picture[\s\S]*?My photo/);
+  assert.match(small, /data-form-row-kind="chosen"[\s\S]*?Background[\s\S]*?data-poster-photo-pick=""[\s\S]*?My photo/, 'the background is not the house dropdown showing the pick');
+  assert.doesNotMatch(small, /data-pill-selector="poster-photo"/, 'the two-way pill is back');
   assert.match(small, /data-poster-photo-square="has"/);
   assert.match(small, /role="alert" data-status-line="poster-photo-small" data-status-tone="bad"[\s\S]*?1200 × 1600 pixels — small for A3, so it may print soft[\s\S]*?>Change<\/button>/);
   const theme = await html(React.createElement(StudioPosterPhoto as never, { eventId: 'E1', saved: null, thumb: null } as never));
@@ -200,5 +204,7 @@ test('7 · no bare select, no colour of its own, and nothing of the six in the M
     const src = read(`${L}/${f}`).replace(/^import type [^;]*;$/gm, '').replace(/import\(\/\*[^*]*\*\/ '[^']*'\)/g, '');
     assert.doesNotMatch(src, /from '\.\/studio-prints-six'|from '@\/app\/_components\/(?:status-line|counter)'/, `${f} imports the six or a template statically`);
   }
-  assert.match(read(`${L}/studio-tools.tsx`), /import \{ StudioKindlyReply, StudioMenuEditor, StudioParents, StudioPosterPhoto, StudioProDoor \} from '\.\/studio-prints-six';/);
+  assert.match(read(`${L}/studio-tools.tsx`), /import \{ StudioKindlyReply, StudioMenuEditor, StudioParents, StudioPosterPhoto \} from '\.\/studio-prints-six';/);
+  /* The ◆ door reaches the lazy door through the Prints settings parts (2026-10-17) — the same chunk. */
+  assert.match(read(`${L}/studio-prints-settings.tsx`), /import \{ StudioProDoor \} from '\.\/studio-prints-six';/);
 });

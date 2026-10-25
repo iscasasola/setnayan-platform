@@ -144,7 +144,9 @@ test('(3) a hold is the whole page as a guest — it lets go of nothing, and Exi
   assert.equal((exit.match(/<ActionButton\b/g) ?? []).length, 1);
   assert.match(exit, /<ActionButton tone="brand" main icon=\{X\} label="Exit preview" onClick=\{exitPreview\}/);
   assert.doesNotMatch(exit, /<button\b/);
-  assert.match(exit, /bottom: `calc\(env\(safe-area-inset-bottom\) \+ \$\{pages\.length > 1 \|\| rsvpOpen \? STAGE_EXIT_OVER_BAR_PX : STAGE_EXIT_GAP_PX\}px\)`/, 'on the RSVP stage the button sits under the row of screens — a tap on it changes the screen and never leaves the preview');
+  assert.match(exit, /rsvpOpen\s*\? \{[^}]*bottom: `calc\(env\(safe-area-inset-bottom\) \+ \$\{STAGE_EXIT_OVER_BAR_PX\}px\)` \}/, 'on the RSVP stage the button sits under the row of screens — a tap on it changes the screen and never leaves the preview');
+  /* 🔘 …and on a stage's pages it parks at the right edge, off the cover's foot (the RSVP button and the hint, 2026-10-16). */
+  assert.match(exit, /: \{ right: 12, top: STAGE_EXIT_EDGE_TOP, flexDirection: 'column', alignItems: 'flex-end' \}/, 'Exit preview sits on the cover’s foot, over the RSVP button');
   assert.match(tools, /export const STAGE_EXIT_OVER_BAR_PX = 44 \+ STAGE_EXIT_GAP_PX;/, 'the button is not clear of the guests’ 44-px bar');
   /* THE WORK AREA'S TOOL GOES WITH THE TOOLBAR (seen on the review copy: it stayed on the page and covered "Exit
      preview") — hidden whenever the toolbar's root is away, by the root's own `aria-hidden`. */
@@ -161,7 +163,8 @@ test('(3) a hold is the whole page as a guest — it lets go of nothing, and Exi
      toast is drawn on the page's body; and the Maker's top bar leaves for the preview as it does for ▶. */
   /* Re-aimed (9d): the property is "on the body", not the browser check 9c wrote before it — that check is a
      render-time branch `the-maker-first-render-is-the-servers.test.ts` forbids, and `why` (set only by a press) needs none. */
-  assert.match(tools, /\{why\s*\? createPortal\(\s*<PeekToast key=\{why\.n\} tone="note" data="tool-why"[\s\S]{0,200}<\/PeekToast>,\s*document\.body,\s*\)/, 'the toolbar’s toast is drawn inside the toolbar');
+  /* (400: the toast may carry ONE action — a cover word's "Select the Cover Scene ›", 2026-10-15.) */
+  assert.match(tools, /\{why\s*\? createPortal\(\s*<PeekToast key=\{why\.n\} tone="note" data="tool-why"[\s\S]{0,400}<\/PeekToast>,\s*document\.body,\s*\)/, 'the toolbar’s toast is drawn inside the toolbar');
   assert.equal((tools.match(/<PeekToast\b/g) ?? []).length, 1, 'a second toast of the toolbar’s, not on the body');
   assert.match(tools, /away \? 'pointer-events-none translate-y-\[110%\]' : ''/, 'anti-vacuity: the toolbar leaves by a transform');
   assert.match(tools, /shell\?\.setAttribute\('data-stage-previewing', ''\);[\s\S]{0,700}shell\?\.removeAttribute\('data-stage-previewing'\);/);

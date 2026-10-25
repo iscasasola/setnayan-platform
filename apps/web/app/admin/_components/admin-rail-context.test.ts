@@ -194,7 +194,7 @@ test('a page no row owns lights NOTHING, and never falls back to the first row',
 test('the admin account menu is reachable at every width', () => {
   assert.match(
     LAYOUT_CODE,
-    /<AccountSwitcher\s+data=\{switcherData\}\s*\/>/,
+    /<AccountSwitcher\s+data=\{switcherData\}[^>]*\/>/,
     'the AccountSwitcher is gone from the admin top bar — with the old sidebar ' +
       'plaque retired, that is the only way to sign out of HQ',
   );

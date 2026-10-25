@@ -2,7 +2,7 @@
 
 import { redirect } from 'next/navigation';
 import { lockLinkedSeatNames, planSeatNames, readSeatNames, seatNamePartColumns, type ExtraSeatRow } from '@/lib/extra-seats';
-import { plusOneSeats } from '@/lib/guests';
+import { A_PLUS_ONE_BRINGS_NO_ONE, isAPlusOne, plusOneSeats } from '@/lib/guests';
 import { SEAT_NAME_DID_NOT_SAVE, SEAT_NAME_MISSING } from '@/lib/seat-name-words';
 import { after } from 'next/server';
 import { revalidatePath } from 'next/cache';
@@ -23,9 +23,11 @@ import { inviteEnterPath, inviteReplyPath, isInviteReturn } from '@/lib/invite-a
 import { takePhotoOffTheWall, putPhotoBackOnTheWall } from '@/lib/guest-wall-unpost';
 import { applyReconcileForEvent } from '@/lib/seating-reconcile';
 import { emitNotification } from '@/lib/notification-emit';
-import { readGuestSessionForEvent } from '@/lib/guest-one-path.server';
+import { readGuestSessionForEvent, readReplyIdentityForEvent } from '@/lib/guest-one-path.server';
 import { findGuestSeatForUser } from '@/lib/guest-membership-session';
 import { linkGuestSessionToUser } from '@/lib/link-guest-account';
+import { connectHostsTicked } from '@/lib/guest-connects-hosts';
+import { askEventHostsToConnect } from '@/lib/guest-connects-hosts.server';
 import {
   RSVP_TERMS_COOKIE,
   RSVP_TERMS_COOKIE_MAX_AGE,
@@ -197,7 +199,7 @@ export async function startAccountSaveAction(
  * nothing. A couple seat this account may not hold comes back `couple_seat`
  * and the page says so in plain words (`?keep=couple_seat`).
  */
-export async function linkThisSeatAction(eventId: string) {
+export async function linkThisSeatAction(eventId: string, formData?: FormData) {
   const home = await eventHome(eventId);
   const supabase = await createClient();
   const {
@@ -206,6 +208,11 @@ export async function linkThisSeatAction(eventId: string) {
   const session = await readGuestSession();
   if (!user || !session || session.event_id !== eventId) return redirect(home);
   const result = await linkGuestSessionToUser(user.id, { eventId });
+  // 🤝 "Also connect with <the hosts>" — only after the seat is truly theirs, only when the tick was drawn and left
+  // on (lib/guest-connects-hosts.ts). Never throws, so it cannot cost them the link above.
+  if (result.linked && connectHostsTicked(formData)) {
+    await askEventHostsToConnect({ supabase, eventId, guestUserId: user.id });
+  }
   revalidatePath(home);
   if (result.reason === 'couple_seat') return redirect(`${home}?keep=couple_seat`);
   return redirect(home);
@@ -238,6 +245,10 @@ export async function adoptSeatSessionAction(eventId: string): Promise<void> {
   await setGuestSession({ guest_id: seat.guestId, event_id: eventId, qr_token: seat.qrToken });
 }
 
+/** What a reply save reads of the guest before it writes — and again, if another save landed in between. */
+const REPLY_BEFORE_COLUMNS =
+  'rsvp_status, rsvp_responded_at, meal_preference, dietary_restrictions, guest_note, email, mobile, display_name, role, extra_roles, updated_at';
+
 export async function submitRsvp(
   eventId: string,
   guestId: string,
@@ -250,7 +261,9 @@ export async function submitRsvp(
   // The browser's pass for this event, or — for a signed-in guest on a new phone
   // — the seat their account holds (lib/guest-one-path.server.ts). Either way it
   // must be THIS guest on THIS event, exactly as before.
-  const session = await readGuestSessionForEvent(eventId);
+  // 🗳 The reply's ONE identity (owner bug 2026-10-24) — the same answer the reply page drew its form from.
+  const replyAs = await readReplyIdentityForEvent(eventId);
+  const session = replyAs.kind === 'none' ? null : replyAs.session;
   if (!session || session.event_id !== eventId || session.guest_id !== guestId) {
     // Session got out of sync — kick them back to the slug landing (or, from
     // the arrival, back to its first door, where they can find themselves again).
@@ -449,7 +462,7 @@ export async function submitRsvp(
   // draft of this very note turned the guard red.
   const { data: before } = await admin
     .from('guests')
-    .select('rsvp_status, rsvp_responded_at, meal_preference, dietary_restrictions, guest_note, email, mobile, display_name, role, extra_roles')
+    .select(REPLY_BEFORE_COLUMNS)
     .eq('guest_id', guestId)
     .eq('event_id', eventId)
     .maybeSingle();
@@ -524,43 +537,75 @@ export async function submitRsvp(
   const guestNoteToWrite = ask.note ? guestNote : before ? ((before.guest_note as string | null) ?? null) : undefined;
   const mobileToWrite = ask.mobile ? contactMobile : before ? ((before.mobile as string | null) ?? null) : undefined;
 
-  const { error } = await admin
-    .from('guests')
-    .update({
-      // The count is frozen: the stored answer is left exactly as it is.
-      ...(replyLocked
-        ? {}
-        : {
-            rsvp_status: status,
-            // 🔴 ONLY A CHANGED ANSWER MOVES THE DATE. Every field on this card
-            // is `defaultValue=`, so a guest correcting their phone number
-            // reposts the answer they already gave — and this used to restamp
-            // it as though they had just replied. The host's twin of this bug
-            // was fixed the same day; this is the guest-side one.
-            // An unchanged answer keeps its own date, INCLUDING null: stamping
-            // an untouched answer invents one.
-            // ⚖ A failed `before` read stamps, deliberately — a stale date is
-            // wrong, a deleted date is gone.
-            rsvp_responded_at:
-              status === 'attending' || status === 'declined'
-                ? before?.rsvp_status === status
-                  ? ((before?.rsvp_responded_at as string | null) ?? null)
-                  : new Date().toISOString()
-                : null,
-          }),
-      meal_preference: mealToWrite,
-      dietary_restrictions: dietaryToWrite,
-      guest_note: guestNoteToWrite,
-      // ⚠ OUTSIDE the frozen branch on purpose. Only the ANSWER freezes: a
-      // phone number corrected the week of the event is worth more then than
-      // at any other time.
-      // 📵 No `email` here — the reply does not collect one (see above).
-      mobile: mobileToWrite,
-      display_name: contactName,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('guest_id', guestId)
-    .eq('event_id', eventId);
+  /*
+    🔁 TWO SAVES AT ONCE TELL THE COUPLE ONCE (event-day L1·6). Two submits of
+    this reply (a double tap, a retry after a lost answer, two tabs) each read
+    `before` while it still held the OLD answer, so each decided "it changed"
+    and the couple got two "replied" notices. The write therefore asks whether
+    the row is STILL the one that was read — `updated_at` as read — and when it
+    is not (somebody saved in between), the row is read again and THAT is what
+    this save is compared against, then written as before. The guest's answer
+    always lands; only the report of what moved is decided by the write.
+    A failed `before` read has no stamp to ask with: written unconditionally,
+    as it always was.
+  */
+  const beforeStamp = ((before as { updated_at?: string | null } | null)?.updated_at ?? null) || null;
+  const writeReply = (ifStillAt: string | null) => {
+    const row = admin
+      .from('guests')
+      .update({
+        // The count is frozen: the stored answer is left exactly as it is.
+        ...(replyLocked
+          ? {}
+          : {
+              rsvp_status: status,
+              // 🖐 The guest's own answer — it always replaces a host's "Marked by you" (owner 2026-10-21).
+              rsvp_set_by: 'guest',
+              // 🔴 ONLY A CHANGED ANSWER MOVES THE DATE. Every field on this card
+              // is `defaultValue=`, so a guest correcting their phone number
+              // reposts the answer they already gave — and this used to restamp
+              // it as though they had just replied. The host's twin of this bug
+              // was fixed the same day; this is the guest-side one.
+              // An unchanged answer keeps its own date, INCLUDING null: stamping
+              // an untouched answer invents one.
+              // ⚖ A failed `before` read stamps, deliberately — a stale date is
+              // wrong, a deleted date is gone.
+              rsvp_responded_at:
+                status === 'attending' || status === 'declined'
+                  ? before?.rsvp_status === status
+                    ? ((before?.rsvp_responded_at as string | null) ?? null)
+                    : new Date().toISOString()
+                  : null,
+            }),
+        meal_preference: mealToWrite,
+        dietary_restrictions: dietaryToWrite,
+        guest_note: guestNoteToWrite,
+        // ⚠ OUTSIDE the frozen branch on purpose. Only the ANSWER freezes: a
+        // phone number corrected the week of the event is worth more then than
+        // at any other time.
+        // 📵 No `email` here — the reply does not collect one (see above).
+        mobile: mobileToWrite,
+        display_name: contactName,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('guest_id', guestId)
+      .eq('event_id', eventId);
+    return (ifStillAt ? row.eq('updated_at', ifStillAt) : row).select('guest_id');
+  };
+  let { data: wrote, error } = await writeReply(beforeStamp);
+  if (!error && beforeStamp && before && (wrote ?? []).length === 0) {
+    // Somebody saved this row between the read and the write — most often this
+    // same reply, sent twice. Compare against what is there NOW, then write.
+    const { data: now_, error: againErr } = await admin
+      .from('guests')
+      .select(REPLY_BEFORE_COLUMNS)
+      .eq('guest_id', guestId)
+      .eq('event_id', eventId)
+      .maybeSingle();
+    if (againErr) console.error('[supabase-error] app/[slug]/actions.ts · from:guests.select(reply re-read)', againErr);
+    if (now_) Object.assign(before, now_);
+    ({ data: wrote, error } = await writeReply(null));
+  }
 
   if (error) {
     await insertFaultLog({
@@ -892,12 +937,15 @@ async function nameTheSeats(
   if (seatNames.length > 0) {
     const { data: primary, error: primaryErr } = await admin
       .from('guests')
-      .select('plus_one_allowed, plus_one_count, plus_one_mode, side, group_category')
+      .select('plus_one_allowed, plus_one_count, plus_one_mode, side, group_category, plus_one_of_guest_id')
       .eq('guest_id', guestId)
       .eq('event_id', eventId)
       .maybeSingle();
     // Unread is not "not allowed": said, never shown as a saved name.
     if (primaryErr) return { ok: false, error: 'Their name did not save — try again.' };
+    // 🚫 A +1 CANNOT HAVE THEIR OWN +1 (owner 2026-10-21) — their door never offers it, and a crafted post is refused
+    // here, before any seat is read or minted (`isAPlusOne`; the mint itself answers `bringer_is_plus_one`).
+    if (primary && isAPlusOne(primary)) return { ok: false, error: A_PLUS_ONE_BRINGS_NO_ONE };
 
     // ⚙ ASK TOGGLE (owner 2026-09-25): `ask.plus_ones` off refuses the write
     // regardless of what a crafted POST carries — a MASTER switch beside the
@@ -992,25 +1040,40 @@ async function nameTheSeats(
         } else {
           // Same shape the host's own "add a guest" form inserts, so the seat
           // gets a real row — and with it the qr_token the column mints by DEFAULT.
-          const { error } = await admin.from('guests').insert({
-            ...seatAnswers,
-            event_id: eventId,
-            first_name: first,
-            last_name: last,
-            ...seatNamePartColumns(op),
-            side: primary.side,
-            group_category: primary.group_category,
-            role: 'guest',
-            rsvp_status: 'pending',
-            photo_consent: true,
-            plus_one_of_guest_id: guestId,
-            plus_one_mode: primary.plus_one_mode,
-            plus_one_name_confirmed_at: stamp,
+          //
+          // 🔒 ONE SEAT PER NAME, NEVER PAST THE COUPLE'S COUNT — EVEN TWICE AT
+          // ONCE (event-day L1·1, migration 20271272305444). The plan above was
+          // made from a read; two submits of this reply (a double tap, a retry
+          // after a lost answer, two tabs) each planned this same create. So the
+          // mint is ONE database call under a lock on THIS bringer: the allowance
+          // is re-read there, a live seat already carrying this name is returned
+          // instead of a second one, and a bringer at their count gets `full` —
+          // the name is then not saved, exactly as `planSeatNames` drops a name
+          // past the count. The row's side, group and +1 mode are the bringer's,
+          // read inside the same lock.
+          const { data: minted, error } = await admin.rpc('guest_plus_one_seat_mint', {
+            p_event_id: eventId,
+            p_bringer_guest_id: guestId,
+            p_seat: {
+              ...seatAnswers,
+              first_name: first,
+              last_name: last,
+              ...seatNamePartColumns(op),
+              plus_one_name_confirmed_at: stamp,
+            },
           });
-          if (error) {
-            logQueryError('submitRsvp.mintSeat', error, { event_id: eventId, bringer_guest_id: guestId }, 'graceful_degrade');
+          const mintStatus = (minted as { status?: string } | null)?.status;
+          // 🚫 The bringer turned out to be a +1 (asked inside the lock): refused, said — never logged as a fault.
+          if (!error && mintStatus === 'bringer_is_plus_one') return { ok: false, error: A_PLUS_ONE_BRINGS_NO_ONE };
+          if (error || (mintStatus !== 'ok' && mintStatus !== 'full')) {
+            logQueryError(
+              'submitRsvp.mintSeat',
+              error ?? { message: `guest_plus_one_seat_mint answered ${mintStatus ?? 'nothing'}` },
+              { event_id: eventId, bringer_guest_id: guestId },
+              'graceful_degrade',
+            );
             failed = true;
-          } else namedCount += 1;
+          } else if (mintStatus === 'ok') namedCount += 1;
         }
       }
 
@@ -1627,8 +1690,8 @@ async function wallPull(
       res.reason === 'not_yours'
         ? 'You can take down photos you took or are tagged in — this one is somebody else’s.'
         : res.reason === 'not_your_pull'
-          ? 'The hosts took this one off the wall, so it’s theirs to put back.'
-          : 'We couldn’t reach the wall just now. Please try again.';
+          ? 'The hosts took this one off Memory lane, so it’s theirs to put back.'
+          : 'We couldn’t reach Memory lane just now. Please try again.';
     return { ok: false, message };
   }
 

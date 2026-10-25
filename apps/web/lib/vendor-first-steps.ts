@@ -1,6 +1,16 @@
 /**
- * The vendor's order of operations — the five things a new shop does, in order,
- * from "I just opened" to "I'm live and can run this myself".
+ * The vendor's order of operations — the six things a new shop does, in order,
+ * from "I just opened" to "I'm live and can run this myself" — and the approval
+ * that happens TO them after.
+ *
+ * 🧰 SIX STEPS (simpler supplier dashboard, owner APPROVE 2026-10-14; prototype
+ * `supplier_easy_dashboard_2026-10-14_fable.html`, moment "First-time setup"):
+ * Your details · Add what you offer · Send your documents · Mark the days you are
+ * not available · Add the bookings you already have · Show your QR to the next
+ * couple. Two were new (days off, bookings from outside); the rest kept their
+ * meaning and took the plain words. "Setnayan approves you" stays as the last,
+ * never-actionable row (`go_live`) — it is not one of the six, and Today counts
+ * "N of 6" over `actionable` only.
  *
  * WHY THIS EXISTS (owner 2026-08-09): a brand-new shop lands on the Overview and
  * sees an empty decision feed, zeroed tiles and the line "new leads land here the
@@ -30,11 +40,16 @@
 
 import { SERVICE_MAKER_HREF } from './service-picker-anchor';
 import { formatCount } from '@/lib/format-number';
+import { INSPIRATION_LIBRARY_HREF, INSPIRATION_LIBRARY_ROW } from './inspiration-library-entry';
 
 export type FirstStepKey =
   | 'shop_details'
+  | 'logo'
   | 'service_card'
+  | 'inspiration'
   | 'documents'
+  | 'not_available'
+  | 'outside_bookings'
   | 'own_customers'
   | 'go_live';
 
@@ -78,14 +93,22 @@ export type FirstStep = {
 export type FirstStepsInput = {
   /** `vendor_profiles.verification_state === 'verified'`. */
   verified: boolean;
-  /** Business-profile checklist counts (`businessProfileChecklist`). */
+  /**
+   * Business-profile checklist counts (`businessProfileChecklist`) — WITHOUT the logo, which is its own
+   * step since 2026-10-22 (owner "Yes to all", journey_fixes Supplier 2 · A).
+   */
   profileDone: number;
   profileTotal: number;
+  /**
+   * The logo is in. Absent → read off the counts: a complete profile has one (the checklist requires it),
+   * an incomplete one is treated as not yet — a rail nags rather than congratulates (see the server half).
+   */
+  hasLogo?: boolean;
   /** How many service cards the shop has authored (any state). */
   serviceCount: number;
   /** Latest verification application status; 'none' when never started. */
   docsStatus: VerificationAppStatus;
-  /** Document slots filled, and how many exist. */
+  /** The REQUIRED papers in, and how many are required (four) — the one count shown (owner 2026-10-22). */
   docsIn: number;
   docsTotal: number;
   /**
@@ -95,8 +118,19 @@ export type FirstStepsInput = {
   submitMissing: readonly string[];
   /** Customers on their list — booked events + accepted conversations. */
   customerCount: number;
+  /** Days marked not available (manual blocks) — any at all. Absent = not measured = not done. */
+  notAvailableCount?: number;
+  /** Bookings from outside already added (external-client blocks). Absent = not measured = not done. */
+  outsideCount?: number;
   /** Admin's decision reason when the application came back rejected. */
   rejectionReason?: string | null;
+  /**
+   * 🌱🖼 "Add to the inspiration library" as a COUNTED step (prototype `supplier_personal_invite_2026-10-23` frame
+   * B6, owner-approved) — present only when the shop's trades supply a part (`moodboardLibraryAccessForProfile`,
+   * the same rule as Today's row), on every shop, never by plan. `count` = the shop's live photos in the library;
+   * absent = not measured = not done. Absent object = the step is not drawn (the six steps, as before).
+   */
+  inspiration?: { count?: number } | null;
 };
 
 export type FirstStepsRail = {
@@ -104,6 +138,8 @@ export type FirstStepsRail = {
   /** Steps whose condition is met (go-live counts once verified). */
   doneCount: number;
   total: number;
+  /** The steps a supplier can DO — every step but the approval (six; seven with the inspiration step). Today's "N of 6". */
+  actionable: number;
   /** The single recommended step, or null when everything is done. */
   current: FirstStep | null;
   /** True once the shop is verified — the rail has served its purpose. */
@@ -126,10 +162,15 @@ export function buildFirstStepsRail(input: FirstStepsInput): FirstStepsRail {
     docsTotal,
     submitMissing,
     customerCount,
+    notAvailableCount = 0,
+    outsideCount = 0,
     rejectionReason,
   } = input;
 
-  const profileComplete = profileTotal > 0 && profileDone >= profileTotal;
+  const detailsComplete = profileTotal > 0 && profileDone >= profileTotal;
+  const logoIn = input.hasLogo ?? detailsComplete;
+  // What the submit gate calls "business profile": the details AND the logo (approval asks nothing less).
+  const profileComplete = detailsComplete && logoIn;
   const underReview = isUnderReview(docsStatus);
   // `approved` is the application's own terminal state; `verified` is the shop's.
   // An admin can verify a shop directly without an application ever being filed
@@ -143,27 +184,42 @@ export function buildFirstStepsRail(input: FirstStepsInput): FirstStepsRail {
     {
       key: 'shop_details',
       n: 1,
-      title: 'Finish your shop details',
-      body: 'Your logo, address pin, contact numbers and the services you cover. Couples see all of it, and Setnayan needs it complete before you can send your documents.',
+      title: 'Your details',
+      body: 'Name · what you do · where · how couples reach you. Setnayan needs them before your documents.',
       href: '/vendor-dashboard/shop',
-      cta: 'Fill in my details',
+      cta: 'Fill them in',
       meter: profileTotal > 0 ? `${formatCount(profileDone)} of ${formatCount(profileTotal)} in` : null,
       blockedBy: null,
-      done: profileComplete,
+      done: detailsComplete,
+      waiting: false,
+    },
+    {
+      // 🖼 ITS OWN STEP (owner "Yes to all", 2026-10-22 — journey_fixes Supplier 2 · A). Optional on open-shop
+      // step 1 (FREE very easy), so it used to hide inside "N fields left" on Your details; approval still
+      // needs it, so it is asked here, by name.
+      key: 'logo',
+      n: 2,
+      title: 'Add your logo',
+      body: 'Needed to go live — couples see it on every card.',
+      href: '/vendor-dashboard/profile#name',
+      cta: 'Add your logo',
+      meter: null,
+      blockedBy: null,
+      done: logoIn,
       waiting: false,
     },
     {
       key: 'service_card',
-      n: 2,
-      title: 'Put up your first service',
-      body: 'A service card is what a couple actually books — a photo, what it covers, and your starting price. You can build it now; it stays private until you go live.',
+      n: 3,
+      title: 'Add what you offer',
+      body: 'Your first service — a photo, what it covers and a starting price. Couples do not see it until you are live.',
       // 🔴 THE WORST INSTANCE OF THE DEAD CREATE LINK, because of WHO sees it:
       // this step renders only while `serviceCount === 0`, and a vendor with
       // zero cards is exactly who the services screen lands on the Coverage tab
       // — with the card picker in a hidden panel behind a shut drawer. Step two
       // of a new supplier's own checklist opened a page that did nothing.
       href: SERVICE_MAKER_HREF,
-      cta: 'Create a service',
+      cta: 'Add a service',
       meter:
         serviceCount > 0
           ? `${formatCount(serviceCount)} service${serviceCount === 1 ? '' : 's'} up`
@@ -172,31 +228,74 @@ export function buildFirstStepsRail(input: FirstStepsInput): FirstStepsRail {
       done: serviceCount > 0,
       waiting: false,
     },
+    ...(input.inspiration
+      ? [
+          {
+            key: 'inspiration' as const,
+            n: 0,
+            title: INSPIRATION_LIBRARY_ROW.label,
+            body: `${INSPIRATION_LIBRARY_ROW.line}.`,
+            href: INSPIRATION_LIBRARY_HREF,
+            cta: 'Add photos',
+            meter:
+              (input.inspiration.count ?? 0) > 0
+                ? `${formatCount(input.inspiration.count ?? 0)} in the library`
+                : null,
+            blockedBy: null,
+            done: (input.inspiration.count ?? 0) > 0,
+            waiting: false,
+          },
+        ]
+      : []),
     {
       key: 'documents',
-      n: 3,
-      title: 'Send in your documents',
+      n: 4,
+      title: 'Send your documents',
       body:
         docsStatus === 'rejected'
           ? `Setnayan sent your papers back${rejectionReason ? `: ${rejectionReason}` : '.'} Fix what's noted and send them again.`
           : underReview
             ? 'Sent. Setnayan checks these within 5 working days and will contact you to confirm.'
-            : 'Your DTI or SEC, BIR 2303, business permit and bank proof. You can start uploading these any time — gathering them is the slow part.',
-      href: '/vendor-dashboard/shop#get-verified',
-      cta: docsStatus === 'rejected' ? 'Send them again' : 'Upload documents',
-      meter: docsTotal > 0 ? `${formatCount(docsIn)} of ${formatCount(docsTotal)} uploaded` : null,
+            : 'DTI/SEC · BIR · permit · bank proof · Setnayan checks them, then you are live.',
+      href: '/vendor-dashboard/profile#docs',
+      cta: docsStatus === 'rejected' ? 'Send them again' : 'Send documents',
+      meter: docsTotal > 0 ? `${formatCount(docsIn)} of ${formatCount(docsTotal)} required` : null,
       // The one real hard gate in the flow, quoted from the server-side check.
       blockedBy: profileComplete ? null : (submitMissing[0] ?? null),
       done: docsDone,
       waiting: underReview,
     },
     {
+      key: 'not_available',
+      n: 5,
+      title: 'Mark the days you are not available',
+      body: 'Sundays, holidays, rest days — set once.',
+      href: '/vendor-dashboard/customers?seg=dates&open=block',
+      cta: 'Mark days',
+      meter: notAvailableCount > 0 ? `${formatCount(notAvailableCount)} marked` : null,
+      blockedBy: null,
+      done: notAvailableCount > 0,
+      waiting: false,
+    },
+    {
+      key: 'outside_bookings',
+      n: 6,
+      title: 'Add the bookings you already have',
+      body: 'From your logbook or phone — so nothing double-books.',
+      href: '/vendor-dashboard/customers?add=outside',
+      cta: 'Add a booking',
+      meter: outsideCount > 0 ? `${formatCount(outsideCount)} added` : null,
+      blockedBy: null,
+      done: outsideCount > 0,
+      waiting: false,
+    },
+    {
       key: 'own_customers',
-      n: 4,
-      title: 'Bring in the customers you already have',
-      body: "Two QR codes, for two different people. Someone who already booked and paid you a first payment: set their package, total, first payment and payment dates first, then they scan the Locked QR once and they're booked on the spot. Someone you're only talking to: the Shortlist QR just puts you on their list — no inquiry, nothing to answer. Both are free for you and for them, and both work before you're approved.",
-      href: '/vendor-dashboard/customers',
-      cta: 'Get my QR codes',
+      n: 7,
+      title: 'Show your QR to the next couple',
+      body: 'They scan, and they are on your list with their date. Free, and it works before you are approved.',
+      href: '/vendor-dashboard/invite',
+      cta: 'Open QR',
       meter:
         customerCount > 0
           ? `${formatCount(customerCount)} customer${customerCount === 1 ? '' : 's'} in`
@@ -207,7 +306,7 @@ export function buildFirstStepsRail(input: FirstStepsInput): FirstStepsRail {
     },
     {
       key: 'go_live',
-      n: 5,
+      n: 8,
       title: 'Setnayan approves you — you go live',
       body: 'The day your shop is approved, your page goes live at your own web address, your services become searchable to couples, and the subscription plans unlock. Nothing before this is visible to a stranger.',
       // Nothing to press — this one happens TO the vendor, not BY them.
@@ -227,6 +326,10 @@ export function buildFirstStepsRail(input: FirstStepsInput): FirstStepsRail {
   //
   // `go_live` is excluded from ever being `now` — a vendor cannot approve
   // themselves, so presenting it as an action would be a button-shaped lie.
+  // Numbered by position — the optional inspiration step moves the ones after it down by one.
+  draft.forEach((s, i) => {
+    s.n = i + 1;
+  });
   let assigned = false;
   const steps: FirstStep[] = draft.map((s) => {
     if (s.done) return toStep(s, 'done');
@@ -244,6 +347,7 @@ export function buildFirstStepsRail(input: FirstStepsInput): FirstStepsRail {
     steps,
     doneCount,
     total: steps.length,
+    actionable: steps.filter((s) => s.key !== 'go_live').length,
     current: steps.find((s) => s.state === 'now') ?? null,
     complete: verified,
   };
@@ -255,4 +359,22 @@ function toStep(
 ): FirstStep {
   const { done: _done, waiting: _waiting, ...rest } = s;
   return { ...rest, state };
+}
+
+/**
+ * "THEN" — the short road under Today's Next card (owner 2026-10-21, prototype
+ * `first_run_you_and_next_steps_2026-10-21.html` S4/S5: "the supplier sees the whole short road, not one card at
+ * a time"). The next two steps still to do after the current one, then the approval — "3 · Send your documents ·
+ * 4 · Mark the days you are not available · 7 · Setnayan approves you — you go live". The ORDER is the rail's
+ * own (details → what you offer → documents); nothing here reorders it. Empty when there is no current step.
+ */
+export type FirstStepThen = { n: number; key: FirstStepKey; title: string; href: string | null };
+
+export function firstStepsThen(rail: FirstStepsRail | null): FirstStepThen[] {
+  const current = rail?.current;
+  if (!rail || !current) return [];
+  const after = rail.steps.filter((s) => s.n > current.n && s.state !== 'done');
+  const todo = after.filter((s) => s.key !== 'go_live').slice(0, 2);
+  const live = after.find((s) => s.key === 'go_live');
+  return [...todo, ...(live ? [live] : [])].map((s) => ({ n: s.n, key: s.key, title: s.title, href: s.href }));
 }

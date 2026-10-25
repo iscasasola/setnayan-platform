@@ -7,7 +7,9 @@
  * digital image. which can also be added on the prints"* — and, the same
  * thread: *"only accepted accounts get their images"* · *"no pass for those
  * who cannot come"* · *"can we also create a zip file to download all? (PRO
- * feature)"* · *"downloading them individually is free"*.
+ * feature)"* · *"downloading them individually is free"*. The zip is FREE since
+ * 2026-10-22 (owner "yes", DECISION_LOG "THE DIGITAL TICKET ZIP IS FREE": it is
+ * how couples hand out tickets — readiness, not personalization).
  *
  * So "Save" hands over a CARD, not a bare QR: 1080 × 1440 px (3 wide × 4 tall),
  * the couple's mark and names, the event and date, the guest's name big, their
@@ -27,7 +29,7 @@
 
 /** Where a guest's (or a host's) card is fetched — `?guest=<id>` for a plus-one. */
 export const PASS_CARD_ROUTE = '/api/guest/pass-card';
-/** The couple's zip of every card (Event Hub Pro) — `?event=<id>`. */
+/** The couple's zip of every card (free since 2026-10-22) — `?event=<id>`. */
 export const PASS_CARDS_ZIP_ROUTE = '/api/guest/pass-card/all';
 
 /**
@@ -57,7 +59,7 @@ export const PASS_CARD_WORDS = {
   saveOf: (first: string) => `Save ${first}’s ticket`,
   /** The couple's per-guest download (free). */
   downloadOne: 'Download ticket (PNG)',
-  /** The couple's zip of every card (Event Hub Pro). */
+  /** The couple's zip of every card (free since 2026-10-22). */
   downloadAll: 'Download all tickets (.zip)',
   /** The Prints panel's block and its two outputs (owner: "print outs are PDF. digital versions are png"). */
   section: 'The ticket guests save',
@@ -351,5 +353,5 @@ export function uniqueFileNames(names: readonly string[]): string[] {
 /** The most cards one zip request draws. Past this the route says so — it never truncates. */
 export const PASS_CARD_ZIP_MAX = 600;
 
-/** What a couple without Event Hub Pro is told when they ask for the zip. One card stays free. */
-export const PASS_CARD_ZIP_PRO_MESSAGE = `${PASS_CARD_WORDS.downloadAll} comes with Event Hub Pro. Each guest’s ${PASS_CARD_WORDS.noun} downloads free from their guest card.`;
+/* 🎟 `PASS_CARD_ZIP_PRO_MESSAGE` (the zip route's 403 to a free couple) was retired on 2026-10-22 — the zip is free for every event
+   (owner "yes", DECISION_LOG "THE DIGITAL TICKET ZIP IS FREE"). */

@@ -186,7 +186,7 @@ function stubClient(results: Result[]) {
       const r = results[Math.min(calls, results.length - 1)]!;
       calls += 1;
       const b: Record<string, unknown> = {};
-      for (const m of ['select', 'eq', 'is']) b[m] = () => b;
+      for (const m of ['select', 'eq', 'in', 'is']) b[m] = () => b;
       b.then = (resolve: (v: unknown) => unknown, reject?: (e: unknown) => unknown) =>
         Promise.resolve(r).then(resolve, reject);
       return b;
@@ -280,15 +280,27 @@ function throwsBefore(file: string, read: RegExp, callSite: string, gate: string
 
 test('EventLayout: membership, co-host and event reads throw a blip before notFound()', () => {
   const f = 'app/dashboard/[eventId]/layout.tsx';
-  throwsBefore(f, /withSchemaRetry\(\(\) =>\s*supabase\s*\.from\('event_members'\)/, 'EventLayout (event_members)', 'notFound()');
+  // The gate's membership read is the render's ONE (2026-10-20, lib/event-membership-once.ts) — the
+  // retry runs INSIDE it, so the gate still sees a blip as a blip, and every other asker gets it retried.
+  throwsBefore(f, /await eventMemberTypeOnce\(supabase, eventId, user\.id\)/, 'EventLayout (event_members)', 'notFound()');
+  assert.match(
+    src('lib/event-membership-once.ts'),
+    /askedOnce\(client, 'event_members\.member_type', \[eventId, userId\], \(\) =>\s*withSchemaRetry\(\(\) =>\s*client\s*\.from\('event_members'\)/,
+    'the one membership read no longer retries a blip inside — the gate would 404 on one',
+  );
   throwsBefore(f, /withSchemaRetry\(\(\) =>\s*supabase\s*\.from\('event_moderators'\)/, 'EventLayout (event_moderators)', 'notFound()');
-  throwsBefore(f, /withSchemaRetry\(\(\) =>\s*supabase\.from\('events'\)\.select\(fullSelect\)/, 'EventLayout (events)', 'if (!event) notFound()');
+  throwsBefore(
+    f,
+    /withSchemaRetry\(\(\) =>\s*eventRowOnce\(supabase, eventId, LAYOUT_EVENT_COLUMNS, \(\) =>\s*supabase\.from\('events'\)\.select\(LAYOUT_EVENT_COLUMNS\)/,
+    'EventLayout (events)',
+    'if (!event) notFound()',
+  );
   assert.match(src(f), /fetchUserEventsOrReconnect\(supabase, user\.id, 'guest'\)\.catch\(\(err: unknown\) => \{\s*rethrowIfSchemaBlip\(err\);/);
 });
 
 test('EventLayout: an event read that THREW is handed on as "no answer" (status 0), never as "no row"', () => {
   const s = src('app/dashboard/[eventId]/layout.tsx');
-  const read = s.indexOf(".from('events').select(fullSelect)");
+  const read = s.indexOf(".from('events').select(LAYOUT_EVENT_COLUMNS)");
   const caught = s.indexOf('} catch (caught) {', read);
   const gate = s.indexOf('if (!event) notFound()', read);
   assert.ok(read > -1 && caught > read && gate > caught, 're-anchor — the event read moved');

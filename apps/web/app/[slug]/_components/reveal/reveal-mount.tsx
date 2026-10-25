@@ -3,6 +3,7 @@ import type { RevealStudioConfig } from '@/lib/reveal-config-pure';
 import { revealAllowedFor, REVEAL_NONE } from '@/lib/reveal-access';
 import { RevealOverlay } from './reveal-overlay';
 import { StdTouchGlow } from './std-touch-glow';
+import { VEIL_HOLD_SCRIPT } from '@/lib/hub-veil';
 
 /**
  * The SYNCHRONOUS half of RevealOverlayServer — everything after its two reads
@@ -54,6 +55,16 @@ export function RevealMount({
           2026-08-29 that is the Save-the-Date window AND the invitation. */}
       {props.enabled && glow.enabled ? (
         <StdTouchGlow color={glow.color} intensity={glow.intensity} size={glow.size} />
+      ) : null}
+      {/* 🙈 NOTHING BEHIND IT PLAYS UNTIL IT IS OPENED (owner 2026-10-15). Written ONLY where an opening is
+          mounted, and as an inline script so it runs while the page is still parsing — before the hero's
+          `<video autoPlay>` below it can start. The overlay releases it (the tap / swipe up, or standing
+          down); it lets go by itself if nothing claims it. `lib/hub-veil.ts`. */}
+      {mountOverlay ? (
+        <script
+          // biome-ignore lint/security/noDangerouslySetInnerHtml: pre-paint hold; a fixed string from lib/hub-veil.ts
+          dangerouslySetInnerHTML={{ __html: VEIL_HOLD_SCRIPT }}
+        />
       ) : null}
       {mountOverlay ? (
         <RevealOverlay

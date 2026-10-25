@@ -1,14 +1,12 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Camera, CloudOff, Loader2, RefreshCw, ShieldCheck, Video } from 'lucide-react';
+import { Camera, Loader2, RefreshCw, ShieldCheck, Video } from 'lucide-react';
 import { usePapicCamera } from '@/lib/use-papic-camera';
-import {
-  countPapicVendorQueued,
-  enqueuePapicVendorCapture,
-  isPapicVendorTerminalError,
-} from '@/lib/offline/service-handlers/papic-vendor-drain';
-import { triggerSyncNow } from '@/lib/offline/sync-daemon';
+import { newClientCaptureId } from '@/lib/papic-client-capture-id';
+import { papicUploader, saveShot } from '@/lib/papic-upload/browser';
+import { markShutter, markShutterReady } from '@/lib/papic-upload/shutter-timing';
+import { PapicUploadChip } from '@/app/papic/_components/upload-chip';
 import { VENDOR_PAPIC_POINTS, type VendorPapicTier,
   VENDOR_PAPIC_VIDEO_MIN_POINTS,
 } from '@/lib/vendor-papic-tier';
@@ -22,14 +20,14 @@ import { formatCount } from '@/lib/format-number';
 // face tag, no roll) — the vendor is working, so the shutter stays responsive
 // by firing uploads without blocking, and the server budget is the hard gate.
 //
-// DURABLE offline queue (recon vendor-papic#offline): weak-signal venues are
-// the norm, so an upload that fails on INFRASTRUCTURE (network / 5xx) hands the
-// capture to the shared `papic` IndexedDB queue (mode:'vendor' — see
-// papic-vendor-drain.ts) instead of losing it with the tab. The foreground
-// drain below re-POSTs queued items on mount + connectivity regain; a queued
-// item is deleted only after the capture route confirms the land. A TERMINAL
-// server rejection (out_of_points / video_not_allowed / …) is never queued —
-// retrying it can't succeed — so those keep the live rollback + toast.
+// SAVE FIRST, SEND LATER (owner 2026-10-23): every shot is written to this
+// phone (the shared `papic` IndexedDB store) at the shutter and sent in pieces,
+// straight to storage, by the page's one uploader (lib/papic-upload/) — so a
+// dead venue link, or the tab closing, never loses a shot, and the supplier
+// never waits on the network to take the next one. The route takes no file
+// bytes (Vercel refuses bodies over 4.5 MB; a supplier clip was allowed 25 MB).
+// A refusal that waiting can never fix (video not allowed, consent, the day is
+// over) rolls back the optimistic spend and says so.
 
 const HOLD_MS = 260; // press longer than this → start recording
 const CLIP_MAX_MS = 10000; // 10-SECOND CLIP CAP — owner 2026-07-22 · §0
@@ -49,6 +47,9 @@ function pickClipMime(): string {
 
 type Props = {
   eventId: string;
+  /** This supplier's owner tag at this event (lib/papic-upload/owner-tag.server.ts):
+   *  a shot queued here never records as another supplier signed in later. */
+  uploadOwner: string | null;
   coupleName: string;
   tier: VendorPapicTier;
   allowVideo: boolean;
@@ -65,6 +66,7 @@ const TIER_LABEL: Record<VendorPapicTier, string> = {
 
 export function PapicCaptureController({
   eventId,
+  uploadOwner,
   coupleName,
   tier,
   allowVideo,
@@ -73,12 +75,14 @@ export function PapicCaptureController({
 }: Props) {
   const [accepted, setAccepted] = useState(false);
   const [spent, setSpent] = useState(initialSpent);
-  const [inFlight, setInFlight] = useState(0);
-  const [queuedCount, setQueuedCount] = useState(0);
   const [toast, setToast] = useState<string | null>(null);
   const [recording, setRecording] = useState(false);
 
-  const cam = usePapicCamera({ enabled: accepted });
+  const cam = usePapicCamera({
+    enabled: accepted,
+    // A camera that comes back never cuts a clip mid-take (a reopen is not a shot).
+    holdRestart: recording,
+  });
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clipTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -98,33 +102,37 @@ export function PapicCaptureController({
     setTimeout(() => setToast((t) => (t === msg ? null : t)), 1800);
   }, []);
 
-  const refreshQueued = useCallback(async () => {
-    setQueuedCount(await countPapicVendorQueued(eventId));
-  }, [eventId]);
-
-  // Drain any captures persisted to the offline queue (a venue signal drop, or
-  // a prior session that closed before reconnecting). Runs in the FOREGROUND —
-  // independent of the global offline-daemon flag + Background Sync (which iOS
-  // Safari/PWA lacks) — so queued shots upload the moment connectivity returns
-  // while the vendor keeps shooting. `triggerSyncNow()` is best-effort +
-  // idempotent (IDB transactions serialize, so at-most-once delivery per item)
-  // and no-ops when every queue is empty. Mirrors the couple seat surface.
+  // What the uploader hears back, for THIS event's supplier shots. A shot that
+  // can never land gives its credits back on the meter and says why.
+  // A kept shot is asked again later; its credits come back on the meter ONCE.
+  const uncounted = useRef(new Set<string>());
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    let cancelled = false;
-    const drain = () => {
-      void (async () => {
-        await triggerSyncNow();
-        if (!cancelled) await refreshQueued();
-      })();
-    };
-    drain();
-    window.addEventListener('online', drain);
-    return () => {
-      cancelled = true;
-      window.removeEventListener('online', drain);
-    };
-  }, [refreshQueued]);
+    return papicUploader().on((e) => {
+      if (e.shot.lane !== 'vendor' || e.shot.eventId !== eventId) return;
+      const cost = e.shot.media === 'clip' ? VENDOR_PAPIC_POINTS.clip : VENDOR_PAPIC_POINTS.photo;
+      if (e.type === 'recorded' && uncounted.current.delete(e.shot.id)) {
+        // A kept shot landed after all: it counts again.
+        setSpent((s) => s + cost);
+        return;
+      }
+      if (e.type === 'credits') {
+        if (pointsCap != null) setSpent(pointsCap);
+        flash('You’re out of credits for this event — the shot waits on this phone.');
+      } else if (e.type === 'kept') {
+        // Kept on this phone, never erased (review 2026-10-23); it is not counted.
+        if (uncounted.current.has(e.shot.id)) return;
+        uncounted.current.add(e.shot.id);
+        setSpent((s) => Math.max(0, s - cost));
+        if (e.code === 'video_not_allowed') flash('This tier is photos only — the clip stays on this phone.');
+        else if (e.code === 'event_over') flash('Not sent — this event is over. The shot stays on this phone.');
+        else flash('Not sent yet — the shot stays on this phone.');
+      } else if (e.type === 'refused') {
+        if (!uncounted.current.has(e.shot.id)) setSpent((s) => Math.max(0, s - cost));
+        uncounted.current.add(e.shot.id);
+        flash('Couldn’t save that one.');
+      }
+    });
+  }, [eventId, flash, pointsCap]);
 
   const grabFrame = useCallback(async (): Promise<Blob | null> => {
     const video = cam.videoRef.current;
@@ -143,111 +151,43 @@ export function PapicCaptureController({
     );
   }, [cam.videoRef]);
 
-  const upload = useCallback(
-    async (
-      kind: 'photo' | 'clip',
-      blob: Blob,
-      poster?: Blob | null,
-      durationMs?: number,
-    ) => {
-      setInFlight((n) => n + 1);
-      // Optimistic point spend so the meter + gating stay ahead of the network;
-      // the server is the hard gate and reconciles on its response. Sourced from
-      // VENDOR_PAPIC_POINTS (1 photo = 1 pt · 1×10s clip = 7 pts · §0) so it can
-      // never drift from the constant the server ledger enforces.
+  // The shutter's hand-off: write to this phone, move the meter, free the
+  // shutter. Nothing here waits on the network.
+  const save = useCallback(
+    async (kind: 'photo' | 'clip', blob: Blob, poster?: Blob | null, durationMs?: number) => {
       const cost = kind === 'clip' ? VENDOR_PAPIC_POINTS.clip : VENDOR_PAPIC_POINTS.photo;
-      setSpent((s) => s + cost);
-      // Hand a capture that failed on INFRASTRUCTURE to the durable offline
-      // queue (IndexedDB — survives a tab death). On success OWNERSHIP
-      // TRANSFERS to the queue: keep the optimistic spend (the shot WILL land
-      // when the drain replays it) — mirrors the couple seat surface. Returns
-      // false when persistence isn't available (private mode) or the per-event
-      // backlog cap is hit, so the caller keeps the live rollback + toast.
-      const queueForLater = async (reason: string): Promise<boolean> => {
-        const queuedId = await enqueuePapicVendorCapture({
-          eventId,
-          mediaType: kind,
-          contentType: blob.type || (kind === 'clip' ? 'video/mp4' : 'image/jpeg'),
-          filename: kind === 'clip' ? 'clip.mp4' : 'photo.jpg',
-          blob,
-          posterBlob: kind === 'clip' ? poster ?? null : null,
-          posterFilename: 'poster.jpg',
-          durationMs:
-            kind === 'clip' ? Math.min(durationMs ?? 0, CLIP_MAX_MS) : undefined,
-          deviceModel:
-            typeof navigator !== 'undefined'
-              ? navigator.userAgent.slice(0, 120)
-              : undefined,
-          reason,
-        });
-        if (!queuedId) return false;
-        void refreshQueued();
-        flash(
-          kind === 'clip'
-            ? 'Clip saved — uploads when signal returns.'
-            : 'Photo saved — uploads when signal returns.',
-        );
-        return true;
-      };
       try {
-        const fd = new FormData();
-        fd.set('event_id', eventId);
-        fd.set('media_type', kind);
-        fd.set('consent', '1');
-        fd.set('file', blob, kind === 'clip' ? 'clip.mp4' : 'photo.jpg');
-        if (kind === 'clip') {
-          fd.set('duration_ms', String(Math.min(durationMs ?? 0, CLIP_MAX_MS)));
-          if (poster) fd.set('poster', poster, 'poster.jpg');
-        }
-        if (typeof navigator !== 'undefined') {
-          fd.set('device_model', navigator.userAgent.slice(0, 120));
-        }
-        const res = await fetch('/api/vendor/papic-capture', {
-          method: 'POST',
-          body: fd,
+        await saveShot({
+          id: newClientCaptureId(),
+          lane: 'vendor',
+          eventId,
+          media: kind,
+          capturedAtMs: kind === 'clip' && durationMs ? Date.now() - durationMs : Date.now(),
+          durationMs: kind === 'clip' ? Math.min(durationMs ?? 0, CLIP_MAX_MS) : undefined,
+          // The consent gate above was passed for this camera (RA 10173).
+          consent: true,
+          deviceModel: typeof navigator !== 'undefined' ? navigator.userAgent.slice(0, 120) : undefined,
+          primary: blob,
+          poster: kind === 'clip' ? poster ?? null : null,
+          ownerTag: uploadOwner,
         });
-        const json = (await res.json().catch(() => ({}))) as {
-          status?: string;
-          error?: string;
-          pointsSpent?: number;
-        };
-        if (res.ok && json.status === 'ok') {
-          flash(kind === 'clip' ? 'Clip saved' : 'Photo saved');
-        } else if (isPapicVendorTerminalError(json.error)) {
-          // TERMINAL server rejection — retrying can never succeed, so it is
-          // never queued. Roll back the optimistic spend; reflect server truth.
-          setSpent((s) => Math.max(0, s - cost));
-          if (json.error === 'out_of_points') {
-            if (typeof json.pointsSpent === 'number' && pointsCap != null) {
-              setSpent(pointsCap);
-            }
-            flash('You’re out of credits for this event.');
-          } else if (json.error === 'video_not_allowed') {
-            flash('This tier is photos only.');
-          } else if (json.error === 'consent_required') {
-            flash('Consent is required before capturing.');
-          } else {
-            flash('Couldn’t save that one — try again.');
-          }
-        } else {
-          // Transient infrastructure failure (5xx / uploads unavailable /
-          // signed-out) — durable-queue it so a tab death can't lose it.
-          if (!(await queueForLater(json.error ?? `http_${res.status}`))) {
-            setSpent((s) => Math.max(0, s - cost));
-            flash('Couldn’t save that one — try again.');
-          }
-        }
       } catch {
-        // Network failure — the classic weak-signal-venue case.
-        if (!(await queueForLater('network'))) {
-          setSpent((s) => Math.max(0, s - cost));
-          flash('Upload failed — check your signal.');
-        }
-      } finally {
-        setInFlight((n) => Math.max(0, n - 1));
+        flash('Couldn’t save that one on this phone — free up some space.');
+        return;
       }
+      // Optimistic point spend so the meter + gating stay ahead of the network;
+      // the server is the hard gate. Sourced from VENDOR_PAPIC_POINTS so it can
+      // never drift from the constant the server ledger enforces.
+      setSpent((s) => s + cost);
+      flash(kind === 'clip' ? 'Clip saved' : 'Photo saved');
     },
-    [eventId, flash, pointsCap, refreshQueued],
+    [eventId, flash, uploadOwner],
+  );
+
+  // This camera is open: this supplier's shots for this event may send from here.
+  useEffect(
+    () => papicUploader().register({ lane: 'vendor', eventId, ownerTag: uploadOwner }),
+    [eventId, uploadOwner],
   );
 
   const takePhoto = useCallback(async () => {
@@ -255,9 +195,11 @@ export function PapicCaptureController({
       flash(outOfPoints ? 'You’re out of credits for this event.' : 'No credits left.');
       return;
     }
+    markShutter();
     const blob = await grabFrame();
-    if (blob) void upload('photo', blob);
-  }, [canPhoto, outOfPoints, grabFrame, upload, flash]);
+    if (blob) await save('photo', blob);
+    markShutterReady();
+  }, [canPhoto, outOfPoints, grabFrame, save, flash]);
 
   const stopClip = useCallback(() => {
     if (clipTimer.current) {
@@ -288,14 +230,14 @@ export function PapicCaptureController({
       const blob = new Blob(chunksRef.current, { type: mime });
       const poster = await grabFrame();
       setRecording(false);
-      if (blob.size > 0) void upload('clip', blob, poster, durationMs);
+      if (blob.size > 0) void save('clip', blob, poster, durationMs);
     };
     recorderRef.current = recorder;
     recorder.start();
     clipStartRef.current = Date.now();
     setRecording(true);
     clipTimer.current = setTimeout(() => stopClip(), CLIP_MAX_MS);
-  }, [cam.streamRef, canClip, grabFrame, upload, stopClip]);
+  }, [cam.streamRef, canClip, grabFrame, save, stopClip]);
 
   // Gesture shutter: press-and-hold past HOLD_MS → clip (if allowed); a short
   // tap → photo. Mirrors the seat surface's pointer model.
@@ -343,7 +285,7 @@ export function PapicCaptureController({
             <li>You have the couple’s go-ahead to shoot at this event.</li>
             <li>Only candid event moments — no nudity, harassment, or anything a guest hasn’t agreed to.</li>
             <li>Guests can ask you to delete a shot; the always-on filter also removes explicit content.</li>
-            <li>Your captures stay in your supplier gallery for this event; location is never stored.</li>
+            <li>Your captures stay in your shop’s event photos; location is never stored.</li>
           </ul>
         </div>
         <button
@@ -396,20 +338,10 @@ export function PapicCaptureController({
             <span className="h-2 w-2 animate-pulse rounded-full bg-white" /> REC
           </div>
         ) : null}
-        {inFlight > 0 || queuedCount > 0 ? (
-          <div className="absolute right-3 top-3 flex flex-col items-end gap-1">
-            {inFlight > 0 ? (
-              <div className="flex items-center gap-1.5 rounded-full bg-black/55 px-2.5 py-1 text-[11px] font-medium text-white">
-                <Loader2 aria-hidden className="h-3 w-3 animate-spin" strokeWidth={2} /> Saving {inFlight}
-              </div>
-            ) : null}
-            {queuedCount > 0 ? (
-              <div className="flex items-center gap-1.5 rounded-full bg-black/55 px-2.5 py-1 text-[11px] font-medium text-white">
-                <CloudOff aria-hidden className="h-3 w-3" strokeWidth={2} /> {formatCount(queuedCount)} waiting for signal
-              </div>
-            ) : null}
-          </div>
-        ) : null}
+        {/* 📡 Save first, send later — the uploader's one line (details in ⓘ). */}
+        <div className="absolute right-3 top-3">
+          <PapicUploadChip surface="bg-black/55 text-white" />
+        </div>
         {toast ? (
           <div className="absolute inset-x-0 bottom-3 mx-auto w-fit rounded-full bg-black/65 px-3 py-1.5 text-xs font-medium text-white">
             {toast}

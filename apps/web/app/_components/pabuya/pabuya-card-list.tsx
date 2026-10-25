@@ -1,6 +1,8 @@
 import { Gift, Globe, Landmark, ShieldCheck, Smartphone } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { egiftKindMeta, type EgiftMethodKind } from '@/lib/egift-kinds';
 import { PabuyaMethodActions } from './pabuya-method-actions';
+import { PabuyaQrThumb } from './pabuya-qr-viewer';
 
 /**
  * Shared, PRESENTATIONAL Pabuya guest-facing card list.
@@ -49,7 +51,14 @@ export function PabuyaCardList({
   methods,
   emptyHint,
   idScope = 'egift-handle',
+  kit = null,
 }: {
+  /**
+   * 🕯 THE LOOK'S ART KIT ON THE GIFT CARD (owner 2026-10-16, `lib/art-kits.ts`) — the corner spray and the lace
+   * abaniko, a ready `<KitSlot slot="gifts-card">`, drawn as the first child of ONE card: the first bank card, else the
+   * first card. Inert (it is plain markup). Absent → every card byte for byte as before.
+   */
+  kit?: ReactNode;
   methods: PabuyaMethodCard[];
   /** Shown when there are no methods — omit to render nothing. */
   emptyHint?: string;
@@ -68,6 +77,8 @@ export function PabuyaCardList({
     ) : null;
   }
 
+  /* The card the kit dresses — the proof's bank transfer card, or the first way to give when there is none. */
+  const kitAt = kit ? Math.max(0, methods.findIndex((m) => m.kind === 'bank')) : -1;
   return (
     <ul className="space-y-3">
       {methods.map((m, i) => {
@@ -78,26 +89,22 @@ export function PabuyaCardList({
            where the icon tile stood, sized to scan; bank and PayPal keep
            their details, and a method with no QR keeps its mark. */
         const qrFirst = meta.qrPrimary && Boolean(m.qrUrl);
+        /* ✋ A TAP OPENS IT IN PLACE (owner 2026-10-24, "no way to go back") — the client leaf
+           `PabuyaQrThumb` holds the viewer, so this card stays inert. Never a link to the raw route. */
         const qrLink = m.qrUrl ? (
-          <a
-            href={m.qrUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            data-egift-qr={qrFirst ? 'primary' : 'side'}
-            aria-label={`Open the ${m.label || meta.defaultLabel} QR code full size`}
-            className={`inline-flex ${qrFirst ? 'h-32 w-32' : 'h-28 w-28'} shrink-0 overflow-hidden rounded-xl border border-ink/10 bg-white transition hover:border-terracotta focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta sm:h-36 sm:w-36`}
-          >
-            {/* Raw <img>: the QR is an app route, not a build-time asset, and
-                next/image would add an optimiser hop in front of a gated route. */}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={m.qrUrl} alt={`${m.label || meta.defaultLabel} QR code`} className="h-full w-full object-contain" />
-          </a>
+          <PabuyaQrThumb
+            qrUrl={m.qrUrl}
+            label={m.label || meta.defaultLabel}
+            accountName={m.accountName}
+            primary={qrFirst}
+          />
         ) : null;
         return (
           <li
             key={`${m.kind}-${i}`}
             className="overflow-hidden rounded-2xl border border-ink/10 bg-cream shadow-sm"
           >
+            {i === kitAt ? kit : null}
             <div className="flex items-start gap-3 p-4">
               {qrFirst ? (
                 qrLink
@@ -160,16 +167,15 @@ export function PabuyaCardList({
                   being visible.
 
                   🔑 A GUEST SCANS THIS FROM A SECOND PHONE, so the two things
-                  that matter are SIZE and a way to get it FULL-SCREEN. It is
-                  now an `<a>` to the image itself — tap to fill the screen,
-                  long-press to save to the gallery, which is also how you feed
-                  it to GCash's scanner ("scan from gallery").
+                  that matter are SIZE and a way to get it FULL-SCREEN. A tap
+                  opens it full screen IN PLACE on a white plate, with Save QR
+                  (`PabuyaQrThumb`). It was an `<a target="_blank">` to the image
+                  itself until 2026-10-24 — which, in the app and the PWA, left
+                  the guest on a bare picture with no way back.
 
-                  ⚠ A plain `<a>`, deliberately — no `onClick`, no client
-                  bundle. This component is shared by the SERVER-rendered guest
-                  page and the couple's CLIENT dashboard preview, and its
-                  docblock keeps it presentational so those two cannot drift. A
-                  link needs no JavaScript and works identically in both.
+                  ⚠ Still no `onClick` HERE — the press lives in its own client
+                  leaf, so this shared card stays presentational and the guest
+                  page and the couple's preview cannot drift.
                 */
                 qrLink
               ) : null}

@@ -284,12 +284,17 @@ export function isSectionVisible(
 }
 
 /**
- * Curated accent presets (PRO control). NOT a free hex picker — each preset is a
- * hand-tuned 3-stop ramp (base · hover · deepest) that mirrors the default
- * champagne ramp's lightness relationships, so retinting stays legible on the
- * cream microsite. The stored value is the KEY; the ramp lives in code so it can
- * be tuned later without a migration. `null` / unknown = the default champagne
- * accent (no override).
+ * Curated accent presets (Solo control) — each a hand-tuned 3-stop ramp (base · hover · deepest) that mirrors the
+ * default champagne ramp's lightness relationships, so retinting stays legible on the microsite. A preset is stored
+ * as its KEY; the ramp lives in code so it can be tuned later without a migration. `null` / unknown = the default
+ * champagne accent (no override).
+ *
+ * 🎨 A SHOP'S OWN COLOUR, TOO (owner 2026-10-23, on Your page › Look: *"press the color circle will show color picker
+ * we have designed"*). The circle opens the ONE colour picker (`ColourPickerSheet`), whose Custom row takes any
+ * colour — so `microsite_accent` also holds an upper-case `#RRGGBB` (a text column, no CHECK; the action validates
+ * with `isValidAccentKey`). Its ramp is derived the presets' way (`accentRampFromHex`: hover and deepest at the
+ * champagne ramp's own ratios). A pick that IS a preset's swatch is stored as that preset's key
+ * (`accentFromPickedHex`), so the Look dropdown and the circle never disagree about the same colour.
  *
  * `ramp` values are space-separated RGB triplets (the format Tailwind's
  * `rgb(var(--color-terracotta) / <alpha>)` consumes). `swatch` is a display hex
@@ -315,13 +320,60 @@ export const MICROSITE_ACCENTS: readonly MicrositeAccent[] = [
 /** The default accent when a vendor hasn't chosen one (matches globals.css). */
 export const MICROSITE_DEFAULT_ACCENT_KEY = 'champagne';
 
+/** A shop's own colour as upper-case `#RRGGBB` ("c9a86a", "#C9A86A"), or null for anything that is not one. */
+export function customAccentHex(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const v = raw.trim().replace(/^#?/, '#').toUpperCase();
+  return /^#[0-9A-F]{6}$/.test(v) ? v : null;
+}
+
+/** A preset's key, or a shop's own `#RRGGBB`. */
 export function isValidAccentKey(key: string | null | undefined): boolean {
-  return !!key && MICROSITE_ACCENTS.some((a) => a.key === key);
+  return !!key && (MICROSITE_ACCENTS.some((a) => a.key === key) || customAccentHex(key) === key);
+}
+
+/** The champagne ramp's own steps — hover ≈ 85 % and deepest ≈ 71 % of the base, channel by channel. */
+const RAMP_HOVER = 168 / 197;
+const RAMP_DEEP = 140 / 197;
+
+/** A shop's own colour as the presets' 3-stop ramp ("R G B" triplets). Not a colour → null. */
+export function accentRampFromHex(hex: string): [string, string, string] | null {
+  const c = customAccentHex(hex);
+  if (!c) return null;
+  const rgb = [1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16));
+  const step = (k: number) => rgb.map((v) => Math.round(v * k)).join(' ');
+  return [step(1), step(RAMP_HOVER), step(RAMP_DEEP)];
+}
+
+/**
+ * What a stored accent IS, for the editor: a preset (its label and swatch), or the shop's own colour ("Your own
+ * colour", its code as the swatch). Empty / unknown → the default champagne.
+ */
+export function resolveMicrositeAccent(stored: string | null | undefined): MicrositeAccent & { custom: boolean } {
+  const own = customAccentHex(stored);
+  if (own && own === stored) {
+    return { key: own, label: 'Your own colour', ramp: accentRampFromHex(own)!, swatch: own, custom: true };
+  }
+  const preset =
+    MICROSITE_ACCENTS.find((a) => a.key === stored) ?? MICROSITE_ACCENTS.find((a) => a.key === MICROSITE_DEFAULT_ACCENT_KEY)!;
+  return { ...preset, custom: false };
+}
+
+/**
+ * The value a colour picked in the picker is stored as: a preset's swatch → that preset's key (the default
+ * champagne → '' — no override, exactly as the dropdown stores it); any other colour → its `#RRGGBB`.
+ */
+export function accentFromPickedHex(hex: string): string {
+  const c = customAccentHex(hex);
+  if (!c) return '';
+  const preset = MICROSITE_ACCENTS.find((a) => a.swatch.toUpperCase() === c);
+  if (preset) return preset.key === MICROSITE_DEFAULT_ACCENT_KEY ? '' : preset.key;
+  return c;
 }
 
 /**
  * Inline CSS-variable overrides that retint the microsite's accent ramp for a
- * chosen preset. Returns `undefined` for the default / unset / unknown accent so
+ * chosen preset or the shop's own `#RRGGBB`. Returns `undefined` for the default / unset / unknown accent so
  * the page keeps its baseline champagne (no override emitted). Spread onto the
  * microsite root's `style` (cast to CSSProperties — custom props are valid CSS).
  */
@@ -329,9 +381,11 @@ export function micrositeAccentVars(
   accentKey: string | null | undefined,
 ): Record<string, string> | undefined {
   if (!accentKey || accentKey === MICROSITE_DEFAULT_ACCENT_KEY) return undefined;
-  const preset = MICROSITE_ACCENTS.find((a) => a.key === accentKey);
-  if (!preset) return undefined;
-  const [base, hover, deep] = preset.ramp;
+  const ramp =
+    MICROSITE_ACCENTS.find((a) => a.key === accentKey)?.ramp ??
+    (customAccentHex(accentKey) === accentKey ? accentRampFromHex(accentKey) : null);
+  if (!ramp) return undefined;
+  const [base, hover, deep] = ramp;
   return {
     '--color-terracotta': base,
     '--color-terracotta-600': hover,
@@ -382,6 +436,34 @@ function coerceStringArray(raw: unknown): string[] {
     : [];
 }
 
+/** Every microsite column, for a caller that reads them in its OWN select beside other columns of the row. */
+export const MICROSITE_COLUMNS =
+  'microsite_about,microsite_sections,microsite_featured_service_ids,microsite_hero_photo_key,microsite_accent,microsite_pinned_review_id,microsite_featured_editorial_ids,microsite_video_ids';
+
+/**
+ * A row that already holds `MICROSITE_COLUMNS` → the microsite, by the same rules `fetchVendorMicrosite` applies.
+ * Your page (step 5, 2026-10-14) reads the microsite, the plan and the verification state in ONE select instead of
+ * three; this is the parser that lets it, so the two readers can never coerce a value differently.
+ */
+export function micrositeFromRow(row: Record<string, unknown> | null | undefined): VendorMicrosite {
+  if (!row) return DEFAULT_MICROSITE;
+  const r = row as MicrositeRow;
+  const about = r.microsite_about?.trim();
+  return {
+    about: about ? about : null,
+    sections: coerceSections(r.microsite_sections),
+    featuredServiceIds: coerceStringArray(r.microsite_featured_service_ids),
+    heroPhotoKey: r.microsite_hero_photo_key ?? null,
+    accent: r.microsite_accent ?? null,
+    pinnedReviewId: r.microsite_pinned_review_id ?? null,
+    featuredEditorialIds: coerceStringArray(r.microsite_featured_editorial_ids),
+    videos: coerceStringArray(r.microsite_video_ids)
+      .map((v) => deserializeVideoRef(v))
+      .filter((v): v is VideoRef => Boolean(v))
+      .slice(0, MICROSITE_VIDEOS_MAX),
+  };
+}
+
 /**
  * Read a vendor's microsite customization. Soft/defensive: a missing column
  * (schema not yet applied) or any query error degrades to DEFAULT_MICROSITE so
@@ -391,57 +473,21 @@ export async function fetchVendorMicrosite(
   client: SupabaseClient,
   vendorProfileId: string,
 ): Promise<VendorMicrosite> {
-  let base: VendorMicrosite = DEFAULT_MICROSITE;
+  // ONE read since 2026-10-14 (step 5). The videos column used to be fetched in a second, separate select so a
+  // not-yet-applied migration (20270505905788) could only empty the video rack; that migration has long been
+  // applied, and the second trip cost every public shop page a request. Same parser as every other reader.
   try {
     const { data, error } = await client
       .from('vendor_profiles')
-      .select(
-        'microsite_about,microsite_sections,microsite_featured_service_ids,microsite_hero_photo_key,microsite_accent,microsite_pinned_review_id,microsite_featured_editorial_ids',
-      )
+      .select(MICROSITE_COLUMNS)
       .eq('vendor_profile_id', vendorProfileId)
       .maybeSingle();
     if (error || !data) {
       if (error) console.error('[supabase-error] lib/vendor-microsite.ts · from:vendor_profiles.select', error);
       return DEFAULT_MICROSITE;
     }
-    const row = data as MicrositeRow;
-    const about = row.microsite_about?.trim();
-    base = {
-      about: about ? about : null,
-      sections: coerceSections(row.microsite_sections),
-      featuredServiceIds: coerceStringArray(row.microsite_featured_service_ids),
-      heroPhotoKey: row.microsite_hero_photo_key ?? null,
-      accent: row.microsite_accent ?? null,
-      pinnedReviewId: row.microsite_pinned_review_id ?? null,
-      featuredEditorialIds: coerceStringArray(row.microsite_featured_editorial_ids),
-      videos: [],
-    };
+    return micrositeFromRow(data as Record<string, unknown>);
   } catch {
     return DEFAULT_MICROSITE;
   }
-
-  // Videos live in a column added earlier (migration 20270505905788). Fetch it
-  // SEPARATELY + defensively so a not-yet-applied migration only empties the
-  // video rack — it can never blank the rest of the microsite above. Stored
-  // values are provider-prefixed strings (`vimeo:{id}[:{hash}]`) or bare
-  // 11-char YouTube ids (legacy rows) — deserializeVideoRef handles both.
-  try {
-    const { data, error } = await client
-      .from('vendor_profiles')
-      .select('microsite_video_ids')
-      .eq('vendor_profile_id', vendorProfileId)
-      .maybeSingle();
-    if (error) {
-      console.error('[supabase-error] lib/vendor-microsite.ts · from:vendor_profiles.select (videos)', error);
-    }
-    const videos = coerceStringArray((data as MicrositeRow | null)?.microsite_video_ids)
-      .map((v) => deserializeVideoRef(v))
-      .filter((v): v is VideoRef => Boolean(v))
-      .slice(0, MICROSITE_VIDEOS_MAX);
-    base = { ...base, videos };
-  } catch {
-    // Column not applied yet → no videos; the rest of the microsite is intact.
-  }
-
-  return base;
 }

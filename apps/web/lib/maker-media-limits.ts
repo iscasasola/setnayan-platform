@@ -12,11 +12,13 @@ import { formatCount } from '@/lib/format-number';
  *     video less than 15 seconds" — the SAME-DAY "add a trimmer" row was
  *     explicitly superseded by this one; do not resurrect the trimmer.
  *
- *   • MAKER_EVENT_MEDIA_BYTES_CAP (100 MB) — the couple's OWN uploads
- *     (photos, short clips, a Pro background song) share one allowance per
- *     event, counted AFTER compression, kept ≥10 years: "that means they can
- *     only upload a total of 100MB compressed files." Guest/Papic media is
- *     separate (credits) and never counts here.
+ *   • THE COUPLE'S MEDIA ALLOWANCE — the couple's OWN uploads (photos, short
+ *     clips, a Pro background song) share one allowance per event, counted
+ *     AFTER compression, kept ≥10 years. It follows the PLAN (owner FINAL
+ *     2026-10-15: "Free 10MB" · "Pro is 500MB"; it was one 100 MB cap for
+ *     every couple, DECISION_LOG 2026-09-25): `coupleMediaCapBytes(isPro)` is
+ *     the ONE function that names it. Guest/Papic media is separate (credits)
+ *     and never counts here.
  *
  * Pure, framework-free — no DOM/React import, so this is loadable from a
  * server action, a route handler, or a client component alike. The one piece
@@ -36,8 +38,32 @@ export const MAKER_MAX_CLIP_SECONDS = 15;
  */
 export const MAKER_CLIP_TOO_LONG_MESSAGE = 'Please pick a video under 15 seconds.';
 
-/** The couple's own upload allowance per event, counted AFTER compression. */
-export const MAKER_EVENT_MEDIA_BYTES_CAP = 100 * 1024 * 1024; // 100 MB
+/**
+ * The couple's own upload allowance per event, counted AFTER compression — the
+ * SAME constant that held the single 100 MB cap (DECISION_LOG 2026-09-25), now
+ * plan-aware (owner FINAL 2026-10-15: Free 10 MB · Event Hub Pro 500 MB). There
+ * is no second quota constant; every caller reads it through
+ * `coupleMediaCapBytes(isPro)` below.
+ */
+export const MAKER_EVENT_MEDIA_BYTES_CAP = {
+  free: 10 * 1024 * 1024, // 10 MB
+  pro: 500 * 1024 * 1024, // 500 MB
+} as const;
+
+/**
+ * THE ONE CAP FUNCTION — the couple's own upload allowance per event, counted
+ * AFTER compression: Free 10 MB · Event Hub Pro 500 MB (owner FINAL 2026-10-15).
+ * `isPro` is the event's Event Hub Pro entitlement as `lib/entitlements.ts`
+ * already decides it (`eventCoupleWebsiteProActive`; internal-hosted events are
+ * Pro by that same rule). The reservation, the meter and the "full" sentence
+ * all ask HERE — a second constant set would let them disagree.
+ *
+ * Existing files are never deleted: a couple over the new cap simply cannot
+ * add (the cap only gates NEW reservations).
+ */
+export function coupleMediaCapBytes(isPro: boolean): number {
+  return isPro ? MAKER_EVENT_MEDIA_BYTES_CAP.pro : MAKER_EVENT_MEDIA_BYTES_CAP.free;
+}
 
 /**
  * Container-rounding tolerance — a real 15.0s clip's metadata can round up by
@@ -113,7 +139,7 @@ export function makeMakerVideoDurationValidator(
 }
 
 /**
- * Pure meter state for the 100 MB allowance — no rendering, so it is testable
+ * Pure meter state for the plan's allowance — no rendering, so it is testable
  * without a DOM and reusable by any surface that wants to show the number
  * (the Maker inspector today; a dashboard summary tomorrow).
  */
@@ -129,12 +155,10 @@ export type MakerMediaMeterState = {
   isNear: boolean;
 };
 
-export function makerMediaMeterState(
-  usedBytes: number,
-  capBytes: number = MAKER_EVENT_MEDIA_BYTES_CAP,
-): MakerMediaMeterState {
+export function makerMediaMeterState(usedBytes: number, capBytes: number): MakerMediaMeterState {
   const used = Number.isFinite(usedBytes) && usedBytes > 0 ? usedBytes : 0;
-  const cap = Number.isFinite(capBytes) && capBytes > 0 ? capBytes : MAKER_EVENT_MEDIA_BYTES_CAP;
+  // An unreadable cap falls back to the SMALLER plan number — never promises room that may not exist.
+  const cap = Number.isFinite(capBytes) && capBytes > 0 ? capBytes : coupleMediaCapBytes(false);
   const rawPct = (used / cap) * 100;
   const pct = Math.max(0, Math.min(100, rawPct));
   return {
@@ -147,9 +171,9 @@ export function makerMediaMeterState(
   };
 }
 
-/** `"12.4 MB of 100 MB used"` — the one label every meter surface shows. */
+/** `"Your media · 12.4 MB of 500 MB"` — the one label every meter surface shows (owner 2026-10-15). */
 export function formatMakerMediaMeterLabel(state: MakerMediaMeterState): string {
-  return `${formatMakerMediaMB(state.usedBytes)} of ${formatMakerMediaMB(state.capBytes)} used`;
+  return `Your media · ${formatMakerMediaMB(state.usedBytes)} of ${formatMakerMediaMB(state.capBytes)}`;
 }
 
 /**

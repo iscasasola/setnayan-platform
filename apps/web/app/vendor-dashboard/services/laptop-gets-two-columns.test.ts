@@ -1,28 +1,17 @@
 /**
- * laptop-gets-two-columns.test.ts — S4: the card pinned left at full size,
- * the question beside it, during the guided pass, at lg+ only.
+ * laptop-gets-two-columns.test.ts — the maker on a laptop: the card in its own column beside the rows, and a phone
+ * untouched.
  *
- * 🔴 THE COMPLAINT. `cad86bc02`'s own commit message named the gap outright:
- * "the desktop card is not pinned left at full size" — the guided question
- * had already become a column beside the card (`9bb335319`), but the card
- * itself still shrank inside the page's `mx-auto max-w-2xl` wrapper, so a
- * 1400px window still drew one small centred card with the question floating
- * over it, not beside it at full size.
+ * HISTORY. S4 / SUP-10 (2026-09) pinned the card beside the guided pass's question with two CSS classes
+ * (`.sn-canvas-pass-pin` / `.sn-canvas-pass-hide`). The simpler maker (supplier-easy step 3, 2026-10-14) retired the
+ * guided pass and moved every field from portalled sheets into in-page folds, so there is no "question open" state to
+ * pin around any more. The RULE survives in a plainer shape, and this file now holds it:
  *
- * ⚖ WHAT IS PINNED HERE, AND WHY EACH ONE IS SEPARATE:
- *   1. the two rules exist ONLY inside `@media (min-width: 1024px)` — a
- *      phone must render byte-identically to before this change, and the
- *      only honest way to prove that from source is that the rules cannot
- *      even be reached below that width;
- *   2. the card pins whenever a QUESTION IS OPEN — the guided pass, and
- *      (SUP-10, 2026-09-18) any edit after it. This used to be the pass only,
- *      on the premise that "nothing is being built behind" a later edit; the
- *      maker applies every edit to the card LIVE, so that premise was false
- *      and the veil hid the one thing being changed. It is still lg+ only;
- *   3. the trailing content (recap, publish, "make it richer") is hidden,
- *      not removed, at lg+ while the card is pinned — it still posts;
- *   4. the pin reads the shared shell's own rail/bar tokens, never a
- *      hand-typed offset that can drift from the real chrome.
+ *   1 · at lg+ the maker is two columns — the card left, the rows right — and the card STAYS in view (sticky);
+ *   2 · below lg the card scrolls with the page (the prototype's phone: a sticky card would cover a third of a 667 px
+ *       screen while the rows are filled — measured in the lab walk);
+ *   3 · every sheet that is left (kind · who it's for · the 🏷 ask · preview · delete) docks right on a laptop, as
+ *       before, and keeps its phone veil.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -35,170 +24,45 @@ import { stripComments } from '@/lib/strip-comments';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = resolve(HERE, '..', '..', '..');
 const read = (p: string) => stripComments(readFileSync(join(WEB, p), 'utf8'));
-const readRaw = (p: string) => readFileSync(join(WEB, p), 'utf8');
 
 const MAKER = 'app/vendor-dashboard/services/_components/canvas-maker.tsx';
-const CSS = 'app/globals.css';
 
-test('the files under test actually read back', () => {
+test('the maker reads back', () => {
   assert.ok(read(MAKER).length > 5000, 'the maker read back empty');
-  assert.ok(readRaw(CSS).length > 5000, 'globals.css read back empty');
 });
 
-// ---------------------------------------------------------------------------
-// 1 · THE PHONE IS UNTOUCHED — both rules live ONLY inside the 1024px query
-// ---------------------------------------------------------------------------
+test('at lg+ the maker is two columns: the card, then the rows', () => {
+  const src = read(MAKER);
+  assert.match(src, /className="lg:grid lg:grid-cols-\[minmax\(0,340px\)_minmax\(0,1fr\)\] lg:items-start lg:gap-8"/);
+  const grid = src.indexOf('lg:grid lg:grid-cols-');
+  const card = src.indexOf('data-maker-card=""', grid);
+  const form = src.indexOf('data-card-form=""', grid);
+  assert.ok(grid > 0 && card > grid && form > card, 'the card must come before the rows inside the two-column grid');
+});
 
-test('the pin and the hide rule exist only inside @media (min-width: 1024px)', () => {
-  // CSS comments are real /* */ blocks and stripComments() only strips JS/TS
-  // comment syntax — read the file raw here rather than mis-stripping CSS.
-  const css = readRaw(CSS);
-
-  // This file already carries other `@media (min-width: 1024px)` blocks
-  // elsewhere (the shared rail, unrelated to this pin) — anchor on the pin
-  // class itself and walk BACKWARD to the nearest enclosing media query,
-  // never the first one in the file.
-  const pinRule = css.indexOf('.sn-canvas-pass-pin {');
-  assert.notEqual(pinRule, -1, 'the pin rule is gone');
-  const mediaOpen = css.lastIndexOf('@media (min-width: 1024px)', pinRule);
-  assert.notEqual(mediaOpen, -1, 'the 1024px guard for the guided pass pin is gone');
-
-  // Walk brace depth from the media query's own `{` to find where IT closes,
-  // not the first `}` inside it (both rule bodies nest their own braces).
-  const braceStart = css.indexOf('{', mediaOpen);
-  let depth = 0;
-  let i = braceStart;
-  for (; i < css.length; i++) {
-    if (css[i] === '{') depth++;
-    else if (css[i] === '}') {
-      depth--;
-      if (depth === 0) break;
-    }
+test('the card stays in view on a laptop and scrolls on a phone — sticky at lg only', () => {
+  const src = read(MAKER);
+  const at = src.indexOf('data-maker-card=""');
+  const tag = src.slice(src.lastIndexOf('<div', at), at);
+  assert.match(tag, /lg:sticky/, 'the card no longer stays in view on a laptop');
+  for (const cls of (tag.match(/className="([^"]*)"/)?.[1] ?? '').split(/\s+/).filter(Boolean)) {
+    assert.ok(cls.startsWith('lg:'), `"${cls}" applies on a phone — the card must scroll with the page there`);
   }
-  assert.ok(i < css.length, 'the 1024px media query never closes — brace-matching ran off the file');
-  const mediaBody = css.slice(braceStart, i);
-
-  assert.match(mediaBody, /\.sn-canvas-pass-pin\s*\{/, 'the pin rule is missing from inside the 1024px query');
-  assert.match(mediaBody, /\.sn-canvas-pass-hide\s*\{\s*display:\s*none;?\s*\}/, 'the hide rule is missing from inside the 1024px query');
-
-  // Neither class may be DECLARED anywhere outside that one media block —
-  // that is the whole guarantee that a phone (< 1024px) sees no new rule.
-  // (The doc comment ABOVE the media query names both classes in prose,
-  // which is fine — only an actual rule opener, `.name {`, would matter.)
-  const outside = css.slice(0, mediaOpen) + css.slice(i + 1);
-  assert.ok(!/\.sn-canvas-pass-pin\s*\{/.test(outside), 'the pin class leaked a definition outside the 1024px query');
-  assert.ok(!/\.sn-canvas-pass-hide\s*\{/.test(outside), 'the hide class leaked a definition outside the 1024px query');
 });
 
-test('the pin reads the shared rail and bar tokens, not a hand-typed offset', () => {
-  const css = readRaw(CSS);
-  const rule = css.slice(css.indexOf('.sn-canvas-pass-pin {'), css.indexOf('.sn-canvas-pass-hide {'));
-  assert.match(rule, /position:\s*fixed;/, 'the pin stopped escaping the page flow');
-  assert.match(rule, /left:\s*var\(--fd-rail,\s*240px\);/, 'left stopped reading the shared rail width');
-  assert.match(rule, /top:\s*calc\(var\(--fd-bar,\s*61px\)\s*\+\s*24px\);/, 'top stopped clearing the shared app bar');
-});
-
-// ---------------------------------------------------------------------------
-// 2 · WHENEVER A QUESTION IS OPEN — the pass, or any edit after it (SUP-10)
-// ---------------------------------------------------------------------------
-
-test('the card pins when a question is open, and only once — via its OWN wrapper', () => {
-  const src = read(MAKER);
-  // ONE flag drives the pin, the hide and the meter, so they cannot disagree
-  // about whether the card is beside the question.
-  assert.match(
-    src,
-    /const cardBeside = inPass \|\| sheet !== null;/,
-    'the pin stopped being driven by "a question is open"',
-  );
-  assert.match(
-    src,
-    /cardBeside \? 'sn-canvas-pass-pin' : undefined/,
-    'the pin wrapper stopped conditioning the pin class on cardBeside',
-  );
-  const count = (src.match(/sn-canvas-pass-pin/g) ?? []).length;
-  assert.equal(count, 1, `sn-canvas-pass-pin is referenced ${count} times in the maker, expected exactly 1`);
-  // The pulse wrapper's own key+className guard (a separate, older test) must
-  // still hold byte-for-byte — the pin lives on a SEPARATE outer wrapper so
-  // that keying the pulse div is never disturbed by this change.
-  assert.match(
-    src,
-    /key=\{blocked \? 'card-blocked' : 'card-ready'\} className=\{blocked \? undefined : 'sn-paint-live/,
-    'the pin wrapper merged into the pulse div instead of staying separate',
-  );
-});
-
-test('the trailing content hides exactly when the card pins, and only once', () => {
-  const src = read(MAKER);
-  assert.match(
-    src,
-    /cardBeside \? 'sn-canvas-pass-hide space-y-4' : 'space-y-4'/,
-    'the trailing-content wrapper stopped conditioning the hide class on cardBeside',
-  );
-  const count = (src.match(/sn-canvas-pass-hide/g) ?? []).length;
-  assert.equal(count, 1, `sn-canvas-pass-hide is referenced ${count} times in the maker, expected exactly 1`);
-});
-
-// ---------------------------------------------------------------------------
-// 3 · STILL MOUNTED, NOT REMOVED — the hidden content still posts
-// ---------------------------------------------------------------------------
-
-test('the trailing wrapper hides with CSS, never with a conditional unmount', () => {
-  const src = read(MAKER);
-  const wrapOpen = src.indexOf("cardBeside ? 'sn-canvas-pass-hide space-y-4' : 'space-y-4'");
-  assert.notEqual(wrapOpen, -1, 'the trailing wrapper is gone');
-  // The publish buttons and the recap dl must still be inside that wrapper —
-  // an unmount would silently stop them posting during the pass on a laptop.
-  const afterWrap = src.slice(wrapOpen, wrapOpen + 6000);
-  assert.match(afterWrap, /name="publish"/, 'Publish stopped being reachable from inside the hidden wrapper');
-  assert.match(afterWrap, /Make it richer/, '"Make it richer" stopped being reachable from inside the hidden wrapper');
-});
-
-// ---------------------------------------------------------------------------
-// 4 · NO SECOND LAYOUT — this is CSS and one wrapper, not a desktop maker
-// ---------------------------------------------------------------------------
-
-test('no second CanvasMaker-shaped component was introduced for desktop', () => {
-  const src = read(MAKER);
-  assert.equal(
-    (src.match(/export function CanvasMaker/g) ?? []).length,
-    1,
-    'a second maker component appeared — the task asked for one wrapper, not a desktop version',
-  );
-});
-
-// ---------------------------------------------------------------------------
-// 5 · SUP-10 — EVERY SHEET IS A COLUMN ON A LAPTOP, AND STILL A SHEET ON A PHONE
-// ---------------------------------------------------------------------------
-
-test('the sheet becomes a column beside the card for EVERY sheet, at lg+ only', () => {
+test('every sheet docks right on a laptop, and keeps its veil on a phone', () => {
   const src = read(MAKER);
   const at = src.indexOf('function CanvasSheet(');
   assert.notEqual(at, -1, 'CanvasSheet is gone');
   const sheetSrc = src.slice(at, src.indexOf('createPortal(', at) + 3000);
-
-  // The laptop column is no longer inside the `guided ?` branch.
-  const column = "'lg:inset-y-0 lg:left-auto lg:right-0 lg:mx-0 lg:my-auto lg:h-fit lg:max-h-[86dvh] lg:max-w-[400px] lg:rounded-3xl lg:mr-6'";
+  const column = "'lg:inset-y-0 lg:left-auto lg:right-0 lg:mx-0 lg:my-auto lg:h-fit lg:max-h-[86dvh] lg:max-w-[420px] lg:rounded-3xl lg:mr-6'";
   assert.ok(sheetSrc.includes(column), 'the laptop column classes are gone');
-  assert.ok(
-    !/guided\s*\?\s*'max-h-\[58dvh\] lg:/.test(sheetSrc),
-    'the laptop column went back inside the guided-only branch',
-  );
-  // THE PHONE IS UNTOUCHED: the column is ALL lg: utilities, the phone heights
-  // are unchanged, and the non-guided veil still exists below lg.
   for (const cls of column.slice(1, -1).split(' ')) {
     assert.ok(cls.startsWith('lg:'), `"${cls}" in the laptop column applies on a phone`);
   }
-  assert.match(sheetSrc, /guided \? 'max-h-\[58dvh\]' : 'max-h-\[78dvh\]'/);
   assert.match(
     sheetSrc,
-    /'absolute inset-0 bg-ink\/40 backdrop-blur-sm lg:cursor-default lg:bg-transparent lg:backdrop-blur-none'/,
+    /["']absolute inset-0 bg-ink\/40 backdrop-blur-sm lg:cursor-default lg:bg-transparent lg:backdrop-blur-none["']/,
     'the phone veil changed, or the laptop still veils the card it is editing',
   );
-});
-
-test('the meter steps aside on a laptop while the card is pinned over it — lg only', () => {
-  const src = read(MAKER);
-  assert.match(src, /asideAtLg=\{cardBeside\}/);
-  assert.match(src, /asideAtLg \? ' lg:hidden' : ''/);
 });

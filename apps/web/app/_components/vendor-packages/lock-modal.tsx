@@ -42,6 +42,7 @@ import {
   type StartServiceInquiryResult,
 } from '@/app/v/[slug]/inquiry-actions';
 import { lockPackage, type LockPackageResult } from '../../dashboard/[eventId]/vendors/packages/actions';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 
 /**
  * Customize-and-lock modal for a vendor package (owner directive
@@ -381,8 +382,8 @@ export function LockPackageModal({
         result.status === 'lock_requested'
       ) {
         setOpen(false);
+        // ⚡ The action revalidated (the router cache is cleared with it), so the push reads a fresh page — no refresh.
         router.push(`/dashboard/${eventId}/vendors/packages/${result.bookingId}`);
-        router.refresh();
         return;
       }
       if (result.status === 'not_signed_in') {
@@ -499,12 +500,12 @@ export function LockPackageModal({
 
       {open ? (
         <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 backdrop-blur-sm sm:items-center sm:justify-end"
-          onClick={close}
+          className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:justify-end"
         >
+          <OverlayBackdrop onClose={close} />
           <div
             ref={dialogRef}
-            className="flex max-h-[95vh] w-full flex-col overflow-hidden rounded-t-2xl bg-cream shadow-2xl focus:outline-none sm:m-4 sm:h-full sm:max-h-full sm:w-[480px] sm:rounded-2xl"
+            className="relative flex max-h-[95vh] w-full flex-col overflow-hidden rounded-t-2xl bg-cream shadow-2xl focus:outline-none sm:m-4 sm:h-full sm:max-h-full sm:w-[480px] sm:rounded-2xl"
             onClick={(e) => e.stopPropagation()}
             role="dialog"
             aria-labelledby="lock-package-title"
@@ -904,6 +905,7 @@ export function LockPackageModal({
                         const href = askState.threadHref;
                         setOpen(false);
                         router.push(href);
+                        // one-render: keep (navigation) — a plain push to the thread, no write: within `staleTimes.dynamic` (60 s) the router could serve a stale copy.
                         router.refresh();
                       }}
                       className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg border border-ink/15 px-4 py-2 text-sm font-semibold text-ink transition-colors hover:bg-ink/5"

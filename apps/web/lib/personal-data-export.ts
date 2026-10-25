@@ -308,6 +308,7 @@ export async function buildPersonalDataExport(
     ownColourChangesRes,
     ledgerRes,
     ledgerSuppliersRes,
+    ownSuggestionsRes,
   ] = await Promise.all([
     supabase.from('users').select('*').eq('user_id', user.id).maybeSingle(),
     supabase
@@ -654,7 +655,7 @@ export async function buildPersonalDataExport(
     // lane: answering someone else's request is an action ON their record.
     supabase
       .from('event_access_requests')
-      .select('request_id, event_id, requested_areas, note, status, decisions, created_at')
+      .select('request_id, event_id, kind, requested_areas, note, status, decisions, created_at')
       .eq('requester_user_id', user.id)
       .order('created_at', { ascending: true }),
     /*
@@ -816,6 +817,15 @@ export async function buildPersonalDataExport(
       if (owned.ids.length === 0) return { data: [] as unknown[], error: null };
       return supabase.from('event_vendors').select(LEDGER_SUPPLIER_PROJECTION).in('event_id', owned.ids);
     })(),
+    // RA 10173 (2026-10-19) — PHOTOS THE SUBJECT SUGGESTED to a couple's board as a booked supplier (migration
+    // 20271279311294). AUTHOR-scoped on suggested_by_user_id: the row records an act THIS person made; the couple who
+    // kept or declined it is not its data subject (their decision is the outcome on the row, not their data). Read
+    // under the subject's own session — a supplier no longer booked reads nothing, which is said in the file.
+    supabase
+      .from('event_inspiration_suggestions')
+      .select('suggestion_id, event_id, slot_key, shop_label, state, image_url, created_at, decided_at')
+      .eq('suggested_by_user_id', user.id)
+      .order('created_at', { ascending: true }),
   ]);
 
   // ── Unwrap every read through the integrity helper ──────────────────────────
@@ -850,6 +860,7 @@ export async function buildPersonalDataExport(
   const userUnfollows = listOutcome('user_unfollows', userUnfollowsRes);
   const inviteMutes = listOutcome('invite_mutes', inviteMutesRes);
   const vendorReuseRequests = listOutcome('vendor_reuse_requests', vendorReuseRequestsRes);
+  const ownSuggestions = listOutcome('event_inspiration_suggestions', ownSuggestionsRes);
   const workingNotes = listOutcome(
     'vendor_working_notes_authored',
     workingNotesRes,
@@ -1059,6 +1070,8 @@ export async function buildPersonalDataExport(
     user_unfollows: userUnfollows.rows,
     invite_mutes: inviteMutes.rows,
     vendor_reuse_requests: vendorReuseRequests.rows,
+    // 🤝🖼 Photos the subject suggested to couples' boards as a booked supplier (author-scoped).
+    inspiration_suggestions_sent: ownSuggestions.rows,
     // RA 10173 (2026-07-21) — coordinator-workspace prose the subject AUTHORED.
     // Author-scoped, never event-scoped (see the WHY blocks at each select).
     // Read privileged so a coordinator whose grant was later revoked still

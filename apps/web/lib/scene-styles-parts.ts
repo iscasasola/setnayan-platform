@@ -51,7 +51,7 @@ const MY_STYLES = [
 export const PART_SCENE_STYLE_SETS: readonly SceneStyleSet[] = [
   {
     type: 'hero_names',
-    label: 'Names',
+    label: 'Event title',
     styles: [
       { id: 'stacked', name: 'Stacked', line: 'One name a line, the joiner between.', stages: HERO },
       { id: 'one-line', name: 'One line', line: 'Both names on one line.', stages: HERO },
@@ -92,7 +92,7 @@ export const PART_SCENE_STYLE_SETS: readonly SceneStyleSet[] = [
   },
   {
     type: 'hero_eyebrow',
-    label: 'Title',
+    label: 'Top line',
     styles: [
       { id: 'small-caps', name: 'Small caps', line: 'Small, spaced capitals.', stages: HERO },
       { id: 'serif', name: 'Serif', line: 'In the heading face, larger.', stages: HERO },
@@ -105,10 +105,12 @@ export const PART_SCENE_STYLE_SETS: readonly SceneStyleSet[] = [
     type: 'gifts',
     label: 'E-Gifts',
     styles: [
-      { id: 'door', name: 'The door', line: 'The gift door, as shipped.', stages: INV },
-      { id: 'centred', name: 'Centred', line: 'Centred, the door stacked.', stages: INV },
-      { id: 'side-rule', name: 'Side rule', line: 'A gold rule down the left.', stages: INV },
-      { id: 'ruled', name: 'Between rules', line: 'Between two rules.', stages: INV },
+      /* 🏠 Since 2026-10-14 E-Gifts on Welcome is the content, not a door: each look lays its wish list
+         (`wishListShape`) and its lines; the ids stay — they are stored. */
+      { id: 'door', name: 'Rows', line: 'The wish list in rows, as shipped.', stages: INV },
+      { id: 'centred', name: 'Centred', line: 'Centred, the wish list in tiles.', stages: INV },
+      { id: 'side-rule', name: 'Side rule', line: 'A gold rule beside each wish.', stages: INV },
+      { id: 'ruled', name: 'Between rules', line: 'Centred, the wish list between two rules.', stages: INV },
     ],
   },
   { type: 'my_role', label: 'Your role', styles: MY_STYLES },

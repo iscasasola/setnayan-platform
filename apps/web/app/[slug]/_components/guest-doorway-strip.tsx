@@ -121,8 +121,12 @@ export function GuestDoorwayStrip({
   );
 }
 
-/** The E-Gifts door — one card, drawn here at the foot or on the Invitation's Welcome page, never both. */
-function GiftDoorCard({ href, words, wishes = 0 }: { href: string; words: EventWords; wishes?: number }) {
+/**
+ * The E-Gifts door — one card, drawn here at the foot of a page that does not carry E-Gifts itself. On the Welcome
+ * page E-Gifts is the content, not this door (owner 2026-10-14) — the door stands there only when that content could
+ * not be read, so a guest is never shown nothing where a gift page is.
+ */
+export function GiftDoorCard({ href, words, wishes = 0 }: { href: string; words: EventWords; wishes?: number }) {
   return (
     <DoorCard
       href={href}
@@ -132,37 +136,50 @@ function GiftDoorCard({ href, words, wishes = 0 }: { href: string; words: EventW
       extra={words.solemn ? null : wishDoorLine(wishes)}
       icon={words.solemn ? <Heart aria-hidden className="h-4 w-4" strokeWidth={1.75} /> : <Gift aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
       title="E-Gifts"
-      detail={
-        // 💃 The money dance is a WEDDING tradition (2026-09-30) — a debut's or
-        // a graduation's guest read it on this card. giftIsMoneyDance decides;
-        // every other celebratory type gets the plain line; the wake keeps its own.
-        words.solemn
-          ? `A gift of sympathy — straight to ${words.theOrganizer}.`
-          : giftIsMoneyDance(words)
-            ? `The digital money dance — straight to ${words.theOrganizer}.`
-            : `Send E-Gifts straight to ${words.theOrganizer}.`
-      }
+      detail={giftDoorLine(words)}
     />
   );
 }
 
+/** E-Gifts' one sentence — the door's, and the line under E-Gifts on the Welcome page. */
+export function giftDoorLine(words: EventWords): string {
+  // 💃 The money dance is a WEDDING tradition (2026-09-30) — a debut's or
+  // a graduation's guest read it on this card. giftIsMoneyDance decides;
+  // every other celebratory type gets the plain line; the wake keeps its own.
+  return words.solemn
+    ? `A gift of sympathy — straight to ${words.theOrganizer}.`
+    : giftIsMoneyDance(words)
+      ? `The digital money dance — straight to ${words.theOrganizer}.`
+      : `Send E-Gifts straight to ${words.theOrganizer}.`;
+}
+
 /**
  * 🏠 E-GIFTS ON THE WELCOME PAGE (owner 2026-09-30: *"also E-Gifts should
- * already show"*). The same door the strip draws, under its own eyebrow, for the
- * Invitation's Welcome page (`lib/invitation-welcome.ts`). `href` is
- * `resolveGuestDoorways(...).pabuya` — null means no card, never an empty one.
+ * already show"*; 2026-10-14: *"the e-gifts is only a button that opens the rest
+ * of egift. can't we just have it there instead of a button?"*). Under its own
+ * eyebrow, the E-Gifts CONTENT itself — `children`, the gift page's own body
+ * (`WelcomeGiftsContent` → `GiftPageBody`, from the one reader `loadGiftPage`).
+ *
+ * `href` is `resolveGuestDoorways(...).pabuya` — the caller draws this block only
+ * when it is non-null (the page behind it would let this viewer in), so null
+ * means no block, never an empty one. With no `children` (the content could not
+ * be read) the door stands in its place: a guest is never shown nothing where a
+ * gift page is.
  */
 export function WelcomeGifts({
   href,
   words,
   look = null,
   wishes = 0,
+  children = null,
 }: {
   href: string;
   words: EventWords;
   look?: string | null;
-  /** 🎁 Open wishes on the couple's wish list — the door's one extra line. */
+  /** 🎁 Open wishes on the couple's wish list — the door's one extra line, when the door is what stands. */
   wishes?: number;
+  /** The E-Gifts content (`WelcomeGiftsContent`) — absent: the door. */
+  children?: React.ReactNode;
 }) {
   return (
     /* 🎨 Its own style when the couple picked one (`lib/scene-styles-parts.ts`) — absent, as shipped. */
@@ -170,7 +187,7 @@ export function WelcomeGifts({
       <p className="pahina-eyebrow">
         <span>E-Gifts</span>
       </p>
-      <GiftDoorCard href={href} words={words} wishes={wishes} />
+      {children ?? <GiftDoorCard href={href} words={words} wishes={wishes} />}
     </section>
   );
 }
@@ -194,6 +211,7 @@ function DoorCard({
     <Link
       href={href}
       className="group flex items-center gap-3 rounded-2xl border border-ink/10 bg-cream px-4 py-3.5 transition-colors hover:border-terracotta"
+      data-gift-door=""
     >
       <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-terracotta/10 text-terracotta">
         {icon}

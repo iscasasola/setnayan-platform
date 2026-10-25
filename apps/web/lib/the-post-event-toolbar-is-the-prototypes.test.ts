@@ -109,7 +109,8 @@ test('(1) Edit on a Post Event scene: ONE words row in row 1, “Shown to guests
   /* No step of Edit's own: a Post Event scene moves and leaves as every scene does — held on the page, or by its tag's menu. */
   assert.doesNotMatch(html, /data-stage-edit-row="place"|aria-label="(?:Earlier|Later|Remove)"/);
   const edit = read(`${L}/stage-panel/stage-edit.tsx`);
-  assert.match(edit, /const shown = orderPartWords\(fields, tapped\)\.slice\(0, second \? 1 : WORDS_ROW\.length\);/);
+  /* 🖼 RE-AIMED 2026-10-18: a part's own LAST row (a scene of their own's Photos) leaves rows 1–2 to its words. */
+  assert.match(edit, /const shown = orderPartWords\(fields, tapped\)\.slice\(0, second \? 1 : last \? WORDS_ROW\.length - 1 : WORDS_ROW\.length\);/);
 
   /* THE SWITCH — the app's one switch, its name the same on and off, in row 2. */
   const shownSrc = read(`${L}/stage-panel/post-event-shown.tsx`);
@@ -123,7 +124,9 @@ test('(1) Edit on a Post Event scene: ONE words row in row 1, “Shown to guests
   /* The toolbar draws it for a Post Event SCENE only (a part with a `p:` scene on that stage). */
   const tools = read(`${L}/stage-tools.tsx`);
   assert.match(tools, /const canvasOfScene = picked && !rsvpOpen && makerPostEventSceneOf\(stageKey, picked\) \? makerPartCanvasOn\(stageKey, picked\) : null;/);
-  assert.match(tools, /second=\{canvasOfScene \? <PostEventShown canvasKey=\{canvasOfScene\} stamp=\{maker\?\.renderStamp\} onRefused=\{[^}]*\}\)\)\} \/> : null\} \/>/);
+  /* …and otherwise only the Venue scene's own Picture ▾ rows (2026-10-17 — `a-venue-cards-picture-is-the-couples-choice.test.ts`). */
+  assert.match(tools, /second=\{canvasOfScene \? <PostEventShown canvasKey=\{canvasOfScene\} stamp=\{maker\?\.renderStamp\} onRefused=\{[^}]*\}\)\)\} \/> : \(venuePictureRows \?\? sectionNameRows\)\} \/>/);
+  assert.match(tools, /const venuePictureRows =\s*picked === 'venue' && !rsvpOpen && /);
   assert.equal(makerPostEventSceneOf('editorial', 'wishes'), 'wishes');
   assert.equal(makerPostEventSceneOf('editorial', 'names'), null, 'a line of the cover is given a switch');
   assert.equal(makerPostEventSceneOf('rsvp', 'wishes'), null);
@@ -287,7 +290,7 @@ test('(4) Style on a phone is the scene’s look cards in the toolbar’s rows a
   assert.ok(cards.length >= 3 && cards.filter((c) => c.endsWith('*')).length === 1, `the scene’s looks, one picked (${cards.join(' ')})`);
   /* …and NOTHING of the old panel under them: no "This scene", no "Filled from", no switch, no Order, no "Its parts". */
   assert.doesNotMatch(phone, /data-form-row|role="switch"|post-event-move-|post-event-part-|This scene|Filled from|Its parts/);
-  assert.equal(seen(phone).replace(/Drawing…/g, '').replace(/\s+/g, ' ').trim(), postEventStyleOptions('wishes', 'wedding').map((o) => o.name).join(' '), 'something besides the looks’ names is printed under Style');
+  assert.equal(seen(phone).replace(/Drawing…/g, '').replace(/\s+/g, ' ').trim(), postEventStyleOptions('wishes', 'wedding').map((o) => (o.isDefault ? o.name : `${o.name} ◆`)).join(' '), 'something besides the looks’ names (and a non-default look’s ◆ — Event Hub Pro since 2026-10-16) is printed under Style');
   /* A read that FAILED is still said, on the panel, in red. */
   assert.match(withToolbar({ arrangement: null }), /<p role="alert" data-post-event-unread="" class="[^"]*text-danger-700">Your story’s scenes could not be read just now — open the Maker again in a moment\.<\/p>/);
   /* THE DESKTOP (no toolbar): every row, as before — the same component, the same saves. */
@@ -297,7 +300,7 @@ test('(4) Style on a phone is the scene’s look cards in the toolbar’s rows a
   /* One switch decides, and it is the Maker's own "the new toolbar is on" (a phone, behind the flag). */
   const panel = read(`${E}/post-event-scene-panel.tsx`);
   assert.match(panel, /const toolbar = useMaker\(\)\?\.stagesStudio === true;/);
-  assert.match(read(`${L}/maker-shell.tsx`), /const ss = stagesStudio && phone;[\s\S]*?stagesStudio: ss,/);
+  assert.match(read(`${L}/maker-shell.tsx`), /const ss = stagesStudio && \(phone \|\| desktopColumns\);[\s\S]*?stagesStudio: ss,/);
   /* The picking is the panel's ONE `pickStyle` in both shapes — a pick posts what it always posted. */
   assert.equal(panel.split('onPick={pickStyle}').length - 1, 1);
   assert.equal(panel.split('<SceneStyleRow').length - 1, 1);
@@ -324,7 +327,7 @@ test('(5) a scene with no look to pick has a grey Style that says so — exactly
   }
   /* (…and Were you there?, a part of its own since 2026-10-10 — (7).) */
   assert.deepEqual(none.sort(), ['beforeafter', 'next', 'song', 'wall', 'you']);
-  assert.deepEqual([...MAKER_PARTS_NO_LOOK].sort(), ['beforeafter', 'next', 'song', 'spotlight', 'wall', 'you']);
+  assert.deepEqual([...MAKER_PARTS_NO_LOOK].sort(), ['beforeafter', 'coverphoto', 'next', 'song', 'spotlight', 'wall', 'you']);
 });
 
 /* ── (6) the ⓘ ────────────────────────────────────────────────────────── */
@@ -387,7 +390,7 @@ const FULL_DAY: PostEventSources = {
 const TEN: ReadonlyArray<readonly [MakerPartKey, string, string]> = [
   ['cover', 'cover', 'Front Page'],
   ['chapters', 'ch-1', 'Schedule'],
-  ['pegallery', 'gallery', 'Gallery'],
+  ['pegallery', 'gallery', 'Memories'],
   ['videos', 'videos', 'Videos'],
   ['letters', 'letters', 'Messages'],
   ['seating', 'seating', 'Where Everyone Sat'],
@@ -471,7 +474,7 @@ test('(7) every scene the story can draw is a part: the ten are picked by their 
   /* …and THE DAY IS UNCHANGED: Photos of you keeps its three looks, its marker and its word, on every stage. */
   assert.equal(makerPartToolWorks('myphotos', 'style'), true);
   assert.equal(MAKER_PARTS.myphotos.canvas, 'f:photos_of_you');
-  assert.equal(makerPartLabelOn('event', 'myphotos'), 'Photos of you');
+  assert.equal(makerPartLabelOn('event', 'myphotos'), 'Memories of you');
   assert.equal(makerPostEventSceneOf('editorial', 'myphotos'), null);
 
   /* THE ENTRIES ARE AS SMALL AS THEY CAN BE (the map rides close to the Maker's first-load ceiling): nine are their

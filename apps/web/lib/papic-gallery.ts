@@ -5,8 +5,9 @@ import {
   PAPIC_PRESERVATION_UNITS_PER_SNIPPET,
 } from '@/lib/papic-cameras';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
-import { resolvePlayRef } from '@/lib/papic-display-ref';
+import { memoriesRefs, resolvePlayRef, type PapicDisplayRow } from '@/lib/papic-display-ref';
 import { resolveCapturerNames } from '@/lib/capture-credit';
+import { PAPIC_UPLOADS_CAMERA_INDEX } from '@/lib/papic-cameras';
 
 // The couple's real Papic gallery — both crew (paparazzi) captures and guest
 // captures, with presigned thumbnails. Reads under the COUPLE's RLS session
@@ -95,6 +96,27 @@ export type GalleryPhoto = {
    * a multi-megabyte original behind every tap.
    */
   viewUrl?: string | null;
+  /**
+   * 🗜 MEMORIES ONLY (`compressedOnly`): the tile copy (long-edge 640) for a grid drawn one-across, where the 320
+   * thumbnail falls apart. Never the original.
+   */
+  largeUrl?: string | null;
+  /**
+   * 🗜 MEMORIES ONLY: a CLIP's explicit Download — the kept original, or its web copy once the original is gone.
+   * (A photo downloads through `saveUrl`.) The viewer never plays this.
+   */
+  downloadUrl?: string | null;
+  /**
+   * 🗂 MEMORIES, THE HOST'S VIEW ONLY (`includeHeld`): what the host may act on from the photo's own sheet.
+   *   held      'screened' (the content screen withheld it — only the host sees it, blurred) · 'hidden' (the host
+   *             took it out) · null (shown)
+   *   uploads   the host's own upload (the uploads camera) — the "Your uploads" album
+   *   guestId   the guest who shot it (Stop this guest shooting) · vendorProfileId the supplier who did
+   */
+  held?: 'screened' | 'hidden' | null;
+  uploads?: boolean;
+  guestId?: string | null;
+  vendorProfileId?: string | null;
 };
 
 const GALLERY_LIMIT = 120;
@@ -116,14 +138,42 @@ function mapTagSource(source: string | undefined): GalleryTagSource {
 export async function fetchPapicGallery(
   supabase: SupabaseClient,
   eventId: string,
+  /**
+   * 🗜 `compressedOnly` — the event's Memories (owner 2026-10-23: *"on the memories, always use the compressed
+   * version"*): every drawn ref comes from `memoriesRefs` (thumb · tile · display · clip web copy), never the
+   * original; the original is only a clip's explicit Download. Off (the Papic page) → unchanged.
+   */
+  opts: {
+    compressedOnly?: boolean;
+    /**
+     * 🗂 The host's Memories: keep the photos the host can act on — hidden ones (to show again) and ones the content
+     * screen withheld (to approve) — marked `held`, never shown to anyone else. Only with `compressedOnly`.
+     */
+    includeHeld?: boolean;
+    /**
+     * Filled in with WHICH reads were refused — a refusal is an empty list here, so without this a caller cannot tell
+     * "nothing yet" from "couldn't load" (review of #6851).
+     */
+    status?: { refused: Array<'seat' | 'guest' | 'vendor' | 'hiddenSuppliers'> };
+    /**
+     * false = the viewer is not the couple. Then a refused "which suppliers did the couple hide?" read fails CLOSED —
+     * no supplier's shots at all — because showing a hidden supplier's photos to someone else is the exposure.
+     * (The couple fails open: they see their own choice's subject and can retry.)
+     */
+    viewerIsCouple?: boolean;
+  } = {},
 ): Promise<GalleryPhoto[]> {
   const now = Date.now();
+  const compressedOnly = opts.compressedOnly === true;
+  const includeHeld = compressedOnly && opts.includeHeld === true;
 
   const [seatRes, guestRes, vendorRes] = await Promise.all([
     supabase
       .from('papic_photos')
       .select(
-        'photo_id, paparazzi_seat_id, captured_by_person_id, r2_object_key, clip_web_r2_key, full_res_dropped_at, poster_r2_key, display_r2_key, thumb_r2_key, photo_type, captured_at, moderation_state, hidden_at, expires_at, consent_to_public, couple_approved_for_showcase, preserved_at',
+        // ⚠ ONE LITERAL select (a conditional one defeats the client's row types). `tile_r2_key` is the 640 copy
+        // Memories draws one-across — granted, and read by every caller; only `compressedOnly` uses it.
+        'photo_id, paparazzi_seat_id, captured_by_person_id, r2_object_key, clip_web_r2_key, full_res_dropped_at, poster_r2_key, display_r2_key, thumb_r2_key, tile_r2_key, photo_type, captured_at, moderation_state, hidden_at, expires_at, consent_to_public, couple_approved_for_showcase, preserved_at',
       )
       .eq('event_id', eventId)
       .order('captured_at', { ascending: false })
@@ -131,7 +181,7 @@ export async function fetchPapicGallery(
     supabase
       .from('papic_guest_captures')
       .select(
-        'capture_id, guest_id, captured_by_person_id, r2_object_key, clip_web_r2_key, full_res_dropped_at, poster_r2_key, display_r2_key, thumb_r2_key, media_type, captured_at, hidden_at, moderation_state, consent_to_public, couple_approved_for_showcase, preserved_at',
+        'capture_id, guest_id, captured_by_person_id, r2_object_key, clip_web_r2_key, full_res_dropped_at, poster_r2_key, display_r2_key, thumb_r2_key, tile_r2_key, media_type, captured_at, hidden_at, moderation_state, consent_to_public, couple_approved_for_showcase, preserved_at',
       )
       .eq('event_id', eventId)
       .order('captured_at', { ascending: false })
@@ -144,7 +194,9 @@ export async function fetchPapicGallery(
     // non-hidden rows of their own event.
     supabase
       .from('vendor_papic_captures')
-      .select('capture_id, vendor_profile_id, r2_object_key, poster_r2_key, media_type, captured_at, hidden_at, nsfw_checked, consent_basis')
+      .select(
+        'capture_id, vendor_profile_id, r2_object_key, poster_r2_key, media_type, captured_at, hidden_at, nsfw_checked, consent_basis, display_r2_key, tile_r2_key, thumb_r2_key, full_res_dropped_at',
+      )
       .eq('event_id', eventId)
       .order('captured_at', { ascending: false })
       .limit(GALLERY_LIMIT),
@@ -158,7 +210,7 @@ export async function fetchPapicGallery(
   // query stumbled. This flag only ever REMOVES, so failing to apply it shows
   // too much rather than too little, and the couple can see that and retry.
   // A privacy flag that could EXPOSE something would need the other direction.
-  const { data: hiddenVendorRows } = await supabase
+  const { data: hiddenVendorRows, error: hiddenVendorError } = await supabase
     .from('event_vendors')
     .select('linked_vendor_profile_id')
     .eq('event_id', eventId)
@@ -171,19 +223,33 @@ export async function fetchPapicGallery(
   );
 
   // Graceful-degrade: a missing table/column (pre-migration) → empty, never crash.
+  if (opts.status) {
+    const refused: Array<'seat' | 'guest' | 'vendor' | 'hiddenSuppliers'> = [];
+    if (seatRes.error) refused.push('seat');
+    if (guestRes.error) refused.push('guest');
+    if (vendorRes.error) refused.push('vendor');
+    if (hiddenVendorError) refused.push('hiddenSuppliers');
+    opts.status.refused = refused;
+  }
+  const hiddenSuppliersFailClosed = Boolean(hiddenVendorError) && opts.viewerIsCouple === false;
   const seatRows = seatRes.error ? [] : (seatRes.data ?? []);
   const guestRows = guestRes.error ? [] : (guestRes.data ?? []);
-  const vendorRows = vendorRes.error ? [] : (vendorRes.data ?? []);
+  const vendorRows = vendorRes.error || hiddenSuppliersFailClosed ? [] : (vendorRes.data ?? []);
 
   const visibleSeat = seatRows.filter(
     (r) =>
-      r.moderation_state !== 'nsfw_blocked' &&
-      !r.hidden_at &&
+      (includeHeld || (r.moderation_state === 'clean' && !r.hidden_at)) &&
       (!r.expires_at || new Date(r.expires_at as string).getTime() > now),
   );
   const visibleGuest = guestRows.filter(
-    (r) => r.moderation_state !== 'nsfw_blocked' && !r.hidden_at,
+    // 🧼 'clean' only — the screen PASSED (relay 2026-10-23, "clean and safe");
+    // 'unscreened' is a row the screen has not seen yet, not a safe one. The host's
+    // includeHeld view still sees every frame, each marked by heldOf below.
+    (r) => includeHeld || (r.moderation_state === 'clean' && !r.hidden_at),
   );
+  /** The host's mark on a kept-back frame — the screen's verdict first, then the host's own hide. */
+  const heldOf = (r: { moderation_state?: unknown; hidden_at?: unknown }): 'screened' | 'hidden' | null =>
+    !includeHeld ? null : r.moderation_state === 'nsfw_blocked' ? 'screened' : r.hidden_at ? 'hidden' : null;
   // Defense-in-depth over the RLS policy: NSFW-checked, non-hidden vendor captures
   // only. (consent_basis <> pending is a backstop — the capture route stamps
   // 'event_consent', so nothing is pending on the live path; the real gate is the
@@ -195,7 +261,7 @@ export async function fetchPapicGallery(
       !hiddenVendorIds.has((r as { vendor_profile_id?: string }).vendor_profile_id ?? '') &&
       r.nsfw_checked === true &&
       r.consent_basis !== 'pending_dpo_ruling' &&
-      !r.hidden_at &&
+      (includeHeld || !r.hidden_at) &&
       // A clip needs its poster to tile — never surface a posterless clip (which
       // would render a blank tile). Photos have no poster requirement.
       (r.media_type !== 'clip' || r.poster_r2_key),
@@ -222,10 +288,18 @@ export async function fetchPapicGallery(
     /* untagged fallback */
   }
 
-  type Pre = Omit<GalleryPhoto, 'url' | 'playUrl' | 'saveUrl' | 'viewUrl'> & {
+  type Pre = Omit<GalleryPhoto, 'url' | 'playUrl' | 'saveUrl' | 'viewUrl' | 'largeUrl' | 'downloadUrl'> & {
     ref: string | null;
     videoRef: string | null;
     viewRef: string | null;
+    largeRef?: string | null;
+    downloadRef?: string | null;
+  };
+  /** Memories' refs replace the Papic page's chain on a row — never the original on screen (`memoriesRefs`). */
+  const squeeze = (row: Record<string, unknown>, pre: Pre): Pre => {
+    if (!compressedOnly) return pre;
+    const m = memoriesRefs(row as PapicDisplayRow);
+    return { ...pre, ref: m.grid, viewRef: m.view, videoRef: m.play, largeRef: m.large, downloadRef: m.download };
   };
 
   // ── WHO TOOK EACH FRAME ─────────────────────────────────────────────────
@@ -241,14 +315,14 @@ export async function fetchPapicGallery(
   const { data: seatRowsForCredit } = seatIds.length
     ? await supabase
         .from('paparazzi_seats')
-        .select('seat_id, claimer_user_id, guest_id')
+        .select('seat_id, claimer_user_id, seat_index, guest_id')
         .eq('event_id', eventId)
         .in('seat_id', seatIds)
-    : { data: [] as { seat_id: string; claimer_user_id: string | null; guest_id: string | null }[] };
+    : { data: [] as { seat_id: string; claimer_user_id: string | null; guest_id: string | null; seat_index: number | null }[] };
   const seatById = new Map(
     (seatRowsForCredit ?? []).map((r) => [
       r.seat_id as string,
-      r as { seat_id: string; claimer_user_id: string | null; guest_id: string | null },
+      r as { seat_id: string; claimer_user_id: string | null; guest_id: string | null; seat_index: number | null },
     ]),
   );
 
@@ -297,7 +371,7 @@ export async function fetchPapicGallery(
   const seatPhotos: Pre[] = visibleSeat.map((r) => {
     const isClip = r.photo_type === 'clip';
     const tagSrc = tagSourceByKey.get(`papic_photos:${r.photo_id as string}`);
-    return {
+    return squeeze(r as Record<string, unknown>, {
       id: r.photo_id as string,
       // Prefer the cheap thumb derivative for the tile, then display, then the
       // existing poster (clips) / original (photos). Pre-migration rows have
@@ -340,7 +414,17 @@ export async function fetchPapicGallery(
       showcaseApproved: isClip ? Boolean(r.couple_approved_for_showcase) : undefined,
       showcaseConsent: isClip ? Boolean(r.consent_to_public) : undefined,
       capturedBy: seatCredit(r),
-    };
+      ...(includeHeld
+        ? (() => {
+            const seat = typeof r.paparazzi_seat_id === 'string' ? seatById.get(r.paparazzi_seat_id) : undefined;
+            return {
+              held: heldOf(r),
+              uploads: seat?.seat_index === PAPIC_UPLOADS_CAMERA_INDEX,
+              guestId: seat?.guest_id ?? null,
+            };
+          })()
+        : {}),
+    });
   });
 
   const guestPhotos: Pre[] = visibleGuest.map((r) => {
@@ -350,7 +434,7 @@ export async function fetchPapicGallery(
     // clips just like seat clips — the GUEST sets consent at capture time.
     const isClip = (r.media_type as string | undefined) === 'clip';
     const tagSrc = tagSourceByKey.get(`papic_guest_captures:${r.capture_id as string}`);
-    return {
+    return squeeze(r as Record<string, unknown>, {
       id: r.capture_id as string,
       // Prefer the cheap thumb derivative for the tile, then display, then the
       // existing poster (clips) / original (photos). Pre-migration rows fall
@@ -387,7 +471,8 @@ export async function fetchPapicGallery(
           ? (credits.byPerson.get(r.captured_by_person_id) ?? null)
           : null) ??
         (typeof r.guest_id === 'string' ? (credits.byGuest.get(r.guest_id) ?? null) : null),
-    };
+      ...(includeHeld ? { held: heldOf(r), uploads: false, guestId: (r.guest_id as string | null) ?? null } : {}),
+    });
   });
 
   // Vendor documentation (photos + clips). No web derivatives, but the original
@@ -397,7 +482,7 @@ export async function fetchPapicGallery(
   // guest/couple content; the grid's ShowcaseToggle already excludes source=vendor.)
   const vendorPhotos: Pre[] = visibleVendor.map((r) => {
     const isClip = (r.media_type as string | undefined) === 'clip';
-    return {
+    return squeeze(r as Record<string, unknown>, {
       id: r.capture_id as string,
       ref: isClip
         ? (r.poster_r2_key as string | null)
@@ -417,7 +502,14 @@ export async function fetchPapicGallery(
       showcaseConsent: undefined,
       capturedBy:
         vendorNameById.get((r as { vendor_profile_id?: string }).vendor_profile_id ?? '') ?? null,
-    };
+      ...(includeHeld
+        ? {
+            held: r.hidden_at ? ('hidden' as const) : null,
+            uploads: false,
+            vendorProfileId: (r as { vendor_profile_id?: string }).vendor_profile_id ?? null,
+          }
+        : {}),
+    });
   });
 
   const merged = [...seatPhotos, ...guestPhotos, ...vendorPhotos].sort(
@@ -425,8 +517,14 @@ export async function fetchPapicGallery(
   );
 
   return Promise.all(
-    merged.map(async ({ ref, videoRef, viewRef, ...rest }) => ({
+    merged.map(async ({ ref, videoRef, viewRef, largeRef, downloadRef, ...rest }) => ({
       ...rest,
+      ...(compressedOnly
+        ? {
+            largeUrl: largeRef ? await displayUrlForStoredAsset(largeRef) : null,
+            downloadUrl: downloadRef ? await displayUrlForStoredAsset(downloadRef) : null,
+          }
+        : {}),
       url: ref ? await displayUrlForStoredAsset(ref) : null,
       playUrl: videoRef ? await displayUrlForStoredAsset(videoRef) : null,
       // Same object as the tile when there is no bigger derivative — never null
@@ -497,7 +595,7 @@ export async function fetchTeaserFrames(
       .eq('event_id', eventId)
       .eq('photo_type', 'photo')
       .is('hidden_at', null)
-      .not('moderation_state', 'in', '("nsfw_blocked","consent_withheld","faceblock_withheld")')
+      .eq('moderation_state', 'clean')
       .order('captured_at', { ascending: false })
       .limit(limit),
     supabase
@@ -505,6 +603,8 @@ export async function fetchTeaserFrames(
       .select('capture_id, display_r2_key, thumb_r2_key, captured_at')
       .eq('event_id', eventId)
       .eq('media_type', 'photo')
+      // 🧼 A teaser is a PUBLIC clip: the screen must have passed it.
+      .eq('moderation_state', 'clean')
       // Double consent gate — mirrors the recap's guest-capture public read.
       .eq('consent_to_public', true)
       .eq('couple_approved_for_showcase', true)
@@ -654,4 +754,31 @@ export async function fetchPreservationTotals(
     keptCredits:
       keptPhotos * PAPIC_POINTS_PER_PHOTO + keptClips * PAPIC_PRESERVATION_UNITS_PER_SNIPPET,
   };
+}
+
+
+/**
+ * 🔢 THE MEMORIES COUNT, WITH THE GRID'S OWN FILTERS (review of #6851): crew + guest frames that are not hidden, not
+ * held back by the content screen, and (crew) not expired — so "N photos" and "N kept" never count a frame the grid
+ * will not draw, and an event whose only shots are hidden is not read as a refused read. null = refused.
+ */
+export async function countGalleryFrames(supabase: SupabaseClient, eventId: string): Promise<number | null> {
+  const nowIso = new Date().toISOString();
+  const [seat, guest] = await Promise.all([
+    supabase
+      .from('papic_photos')
+      .select('photo_id', { count: 'exact', head: true })
+      .eq('event_id', eventId)
+      .is('hidden_at', null)
+      .neq('moderation_state', 'nsfw_blocked') // NOT NULL (default 'unscreened')
+      .or(`expires_at.is.null,expires_at.gt.${nowIso}`),
+    supabase
+      .from('papic_guest_captures')
+      .select('capture_id', { count: 'exact', head: true })
+      .eq('event_id', eventId)
+      .is('hidden_at', null)
+      .neq('moderation_state', 'nsfw_blocked'), // NOT NULL (default 'unscreened')
+  ]);
+  if (seat.error || guest.error) return null;
+  return (seat.count ?? 0) + (guest.count ?? 0);
 }

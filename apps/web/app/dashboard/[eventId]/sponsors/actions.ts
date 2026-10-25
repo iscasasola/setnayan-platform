@@ -327,6 +327,7 @@ export async function markResponse(formData: FormData): Promise<void> {
           role: sponsorGuestRole(sponsor.sponsor_tier),
           email: sponsor.email,
           rsvp_status: 'attending', // they've accepted the sponsor invitation
+          rsvp_set_by: 'guest', // 🖐 their own acceptance, never a host's mark (owner 2026-10-21)
           photo_consent: true,
           invited_to_blocks: ['ceremony', 'reception'],
         })

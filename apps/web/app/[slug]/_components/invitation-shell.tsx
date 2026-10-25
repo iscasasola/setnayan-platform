@@ -1,4 +1,8 @@
+import type { ComponentProps, ReactNode } from 'react';
 import { X } from 'lucide-react';
+import { KitClosing } from './kit-piece';
+import { ClosingLine } from './closing-line';
+import type { HubElementStyle } from '@/lib/element-style';
 import { Logo } from '@/app/_components/logo';
 import type { InviteThemeId } from '@/lib/invite-themes';
 import { pageGround } from '@/lib/page-ground';
@@ -9,7 +13,9 @@ import {
   ArrivalOnce,
 } from './pahina-motion';
 import { MagicMove } from './magic-move';
+import { CoverSceneMenuWaits } from './cover-scene-menu';
 import type { MagicTraveller } from '@/lib/magic-move';
+import { COVER_SCENE_ABOVE_CANVAS, COVER_SCENE_ABOVE_PAGE } from '@/lib/cover-scene-screen';
 
 /**
  * Page chrome shared by every landing state. When `backdrop` is provided (the
@@ -34,7 +40,29 @@ export function InvitationShell({
   magicTraveller = null,
   ownGround = false,
   exitHref = null,
+  kitClosing = null,
+  closingMark = null,
+  closingLine = null,
 }: {
+  /**
+   * 🕯 THE CLOSING'S LINE (owner 2026-10-17, `lib/closing-line.ts`): the hero row's `elements.closing` — the couple's
+   * words for "See you soon." and its look, drawn by BOTH sign-offs below (`ClosingLine`). Null → the line byte for
+   * byte as before. Stamped with its part key on the Maker's canvas only (`closingMark` is that canvas's tell).
+   */
+  closingLine?: HubElementStyle | null;
+  /**
+   * 🕯 THE CLOSING'S MAKER MARKER (owner 2026-10-17, DECISION_LOG "THE CLOSING ('SEE YOU SOON') IS ITS OWN SCENE IN THE
+   * MAKER"): `site-body.tsx`'s `makerMark('f:closing')` — a hidden span set right BEFORE the footer, so the canvas's
+   * tap binder (`canvas-section-binder.ts` · `sectionAfter`) listens to the footer as the Closing part. Null for every
+   * guest (only the Maker's canvas draws a marker), so a guest's footer is byte for byte as before.
+   */
+  closingMark?: ReactNode;
+  /**
+   * 🕯 THE LOOK'S ART KIT AT THE SIGN-OFF (owner 2026-10-16, `lib/art-kits.ts` · `KitClosing`): the couple's photo in
+   * the kit's oval, "See you soon.", then a band with their names, the date and — unless `hideWatermark` — the
+   * Powered-by line. The sign-off restyled, never a second one. Null → the footer byte for byte as before.
+   */
+  kitClosing?: Omit<ComponentProps<typeof KitClosing>, 'hideWatermark'> | null;
   /**
    * ✕ THE EVENT HUB'S ONE EXIT (owner 2026-10-01, DECISION_LOG "THE EVENT HUB IS
    * FULL SCREEN WITH ONE EXIT…"): inside every stage a guest sees only the
@@ -130,6 +158,7 @@ export function InvitationShell({
         */
         className={`min-h-dvh text-ink ${themed ? 'relative' : 'bg-cream'}`}
       >
+        <CoverSceneMenuWaits />
         {children}
       </main>
     );
@@ -146,6 +175,7 @@ export function InvitationShell({
           in either one leaves the page fully visible. */}
       <PahinaMotionRootFlag />
       <ArrivalOnce />
+      <CoverSceneMenuWaits />
       {backdrop}
       {/* `sn-top-label` steps aside for the fixed top-right controls (the
           music button, a guest's Account) — see `.sn-top-label` in
@@ -243,18 +273,14 @@ export function InvitationShell({
           desktop switch, not two. And the rail's own arithmetic was already
           computed against a 64rem widest column, so this cannot push it into
           the page — `rail-fits.test.ts` asserts that sum. */}
+      {/* text-shadow INHERITS: every text node in the column gets a soft cream halo — invisible on the widgets' own cream cards, but it rims the LOOSE dark text (intro copy, eyebrows, greetings) so it stays readable directly on the world art. This carries the legibility duty the retired vellum/wash used to (v3, owner screenshot feedback: even the /35 wash read as a white veil). */}
       <div
-        className={
+        data-page-column=""
+        className={`${editorCanvas ? COVER_SCENE_ABOVE_CANVAS : COVER_SCENE_ABOVE_PAGE} ${
           backdrop
-            ? // text-shadow INHERITS: every text node in the column gets a soft
-              // cream halo — invisible on the widgets' own cream cards, but it
-              // rims the LOOSE dark text (intro copy, eyebrows, greetings) so
-              // it stays readable directly on the world art. This carries the
-              // legibility duty the retired vellum/wash used to (v3, owner
-              // screenshot feedback: even the /35 wash read as a white veil).
-              'relative z-10 mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 sm:py-14 xl:max-w-5xl 2xl:max-w-[76rem] xl:px-8 xl:py-20 [text-shadow:0_1px_14px_rgba(251,251,250,0.9),0_0_4px_rgba(251,251,250,0.75),0_1px_1px_rgba(30,34,41,0.18)]'
+            ? 'relative z-10 mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 sm:py-14 xl:max-w-5xl 2xl:max-w-[76rem] xl:px-8 xl:py-20 [text-shadow:0_1px_14px_rgba(251,251,250,0.9),0_0_4px_rgba(251,251,250,0.75),0_1px_1px_rgba(30,34,41,0.18)]'
             : 'mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 sm:py-14 xl:max-w-5xl 2xl:max-w-[76rem] xl:px-8 xl:py-20'
-        }
+        }`}
       >
         {children}
       </div>
@@ -282,6 +308,12 @@ export function InvitationShell({
           gives the page an editorial sign-off without competing with the
           functional widgets above. Couple palette tokens (terracotta · ink)
           untouched. */}
+      {closingMark}
+      {kitClosing ? (
+        <footer className="relative z-10 text-center">
+          <KitClosing {...kitClosing} hideWatermark={hideWatermark} line={closingLine} stamp={closingMark != null} />
+        </footer>
+      ) : (
       <footer
         className={`relative z-10 px-4 py-8 text-center ${
           backdrop ? 'border-t border-cream/15' : 'border-t border-ink/10'
@@ -291,20 +323,14 @@ export function InvitationShell({
             the light gold vanished on a light page over the theme's moving
             ground. `terracotta-700` is every theme's own deepest accent — white
             on Cyber Neon, a deep gold on a Mood-Board page. */}
-        <p
-          data-shell-sign-off=""
-          className={`font-pahina text-lg italic ${
-            backdrop ? 'text-cream/90' : 'text-terracotta-700'
-          }`}
-        >
-          See you soon.
-        </p>
+        <ClosingLine line={closingLine} stamp={closingMark != null} className={`font-pahina text-lg italic ${backdrop ? 'text-cream/90' : 'text-terracotta-700'}`} />
         {hideWatermark ? null : (
           <p className={`mt-3 text-xs ${backdrop ? 'text-cream/55' : 'text-ink/70'}`}>
             Powered by Setnayan · setnayan.com
           </p>
         )}
       </footer>
+      )}
     </main>
   );
 }

@@ -163,7 +163,7 @@ test('4 · SOURCE: one value draws the bar and feeds the navigator; the navigato
   assert.match(BODY, /<span hidden data-maker-bar=\{JSON\.stringify\(makerBarItems\(anonBar\)\)\} \/>/);
   assert.match(BODY, /\{menuOn && showGuestBars \? \(\s*<SiteMenuBar\s+slots=\{anonBar\}/, 'the guest bar in the canvas is drawn from the same value');
   // 📱 …and the tabbed page's shell reads the SAME value for its tabs.
-  assert.match(BODY, /<HubShell frame="page" slots=\{anonBar\} \/>/);
+  assert.match(BODY, /<HubShell frame="page" slots=\{anonBar\} onePage=\{onePage\} \/>/);
   const BRIDGE = read('../app/[slug]/_components/editor-bridge.tsx');
   assert.match(BRIDGE, /bar: readMakerBar\(document\)/);
   const SHELL = read('../app/dashboard/[eventId]/website/editor/_components/editor-shell.tsx');

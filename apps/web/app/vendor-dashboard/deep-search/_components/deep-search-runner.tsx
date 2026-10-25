@@ -1,7 +1,6 @@
 'use client';
 
 import { useActionState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
 import { Search, ShieldCheck, Gift } from 'lucide-react';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { useToast } from '@/app/_components/toast/toast-provider';
@@ -55,7 +54,6 @@ export function DeepSearchRunner(props: DeepSearchRunnerProps) {
   const { eligible, planAsks, isFreeNow, hasFreeAllowance, pricePhp, openRails } = props;
 
   const toast = useToast();
-  const router = useRouter();
   const [state, formAction] = useActionState(runVendorDeepSearch, IDLE);
   const handled = useRef<VendorDeepSearchActionState | null>(null);
 
@@ -64,10 +62,10 @@ export function DeepSearchRunner(props: DeepSearchRunnerProps) {
     handled.current = state;
     if (state.status === 'error') toast.error(state.message);
     if (state.status === 'ran') {
+      // ⚡ The action revalidates: its own answer redrew the page — no second render.
       toast.success(state.message);
-      router.refresh();
     }
-  }, [state, toast, router]);
+  }, [state, toast]);
 
   if (!eligible) {
     return (

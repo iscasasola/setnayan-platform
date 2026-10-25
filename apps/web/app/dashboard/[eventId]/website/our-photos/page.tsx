@@ -6,7 +6,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { FileUpload } from '@/app/_components/file-upload';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { siteMediaServeRef } from '@/lib/site-media-ref';
-import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
+import { eventHubPartActive } from '@/lib/couple-website-pro';
 import { updateOurPhotos } from './actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { PaidMark } from '@/app/_components/paid-mark';
@@ -14,6 +14,7 @@ import { paidMarkLabel } from '@/lib/paid-mark';
 import { HUB_DRAFT_FIELD } from '@/lib/hub-draft';
 import { readHubDraft } from '@/lib/hub-draft-store';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { isStoreShellRequest } from '@/lib/request-platform';
 import { formatCount } from '@/lib/format-number';
 import { SafeForm } from '@/app/dashboard/[eventId]/_components/safe-form';
 
@@ -71,7 +72,7 @@ export default async function OurPhotosEditorPage({
      asks for Pro ("Unlock Pro and Apply"), screening each new photo again.
      A couple with Pro saves live, as before. The entitlement read failing
      treats the couple as free — the safe side is the draft, never a live write. */
-  const proActive = await eventCoupleWebsiteProActive(await eventEntitlementClient(eventId), eventId).catch(() => false);
+  const proActive = await eventHubPartActive(await eventEntitlementClient(eventId), eventId, 'photos').catch(() => false);
   let draftedRefs: string[] | null = null;
   if (!proActive) {
     try {
@@ -103,6 +104,9 @@ export default async function OurPhotosEditorPage({
   const saved = search.saved === '1';
   const drafted = search.drafted === '1';
   const error = search.error;
+  // 🍎 The gallery is part of Event Hub Pro, a paid web extra the iPhone app does not
+  // name, price or unlock — the app draws no Pro mark and no "Apply with Event Hub Pro".
+  const storeShell = await isStoreShellRequest();
 
   return (
     <section className="space-y-6">
@@ -116,16 +120,21 @@ export default async function OurPhotosEditorPage({
             className="inline-flex items-center gap-2 rounded-md border border-success-300/60 bg-success-50 px-3 py-2 text-sm text-success-800"
           >
             <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-            Saved — your guests will see this gallery on your Event Hub.
+            Saved — your guests will see these photos on your Event Hub.
           </div>
         ) : null}
-        {!proActive ? (
+        {!proActive && storeShell && (heldForPro || drafted) ? (
+          <p role={drafted ? 'status' : undefined} className="text-sm text-ink/70">
+            Saved in your Event Hub draft.
+          </p>
+        ) : null}
+        {!proActive && !storeShell ? (
           <p role={drafted ? 'status' : undefined} className="flex items-start gap-2 text-sm text-ink/70">
             <PaidMark state="try" label={paidMarkLabel('try', 'Event Hub Pro')} text="Pro" size="xs" />
             <span>
               {heldForPro || drafted
-                ? 'Saved in your Event Hub draft. Guests see this gallery after you Apply with Event Hub Pro in your Event Hub Maker.'
-                : 'Add your photos and see them here. Guests see the gallery after you Apply with Event Hub Pro in your Event Hub Maker.'}
+                ? 'Saved in your Event Hub draft. Guests see these photos after you Apply with Event Hub Pro in your Event Hub Maker.'
+                : 'Add your photos and see them here. Guests see them after you Apply with Event Hub Pro in your Event Hub Maker.'}
             </span>
           </p>
         ) : null}
@@ -151,7 +160,7 @@ export default async function OurPhotosEditorPage({
           bucket="media"
           pathPrefix={`events/${eventId}/our-photos`}
           name="photos"
-          unsavedHint="press Save gallery below"
+          unsavedHint="press Save photos below"
           multiple
           maxFiles={MAX_PHOTOS}
           maxSizeMB={10}
@@ -162,7 +171,7 @@ export default async function OurPhotosEditorPage({
           label="Photos you add"
           help={`JPG, PNG, or WebP. Up to 10 MB each · up to ${formatCount(MAX_PHOTOS)} photos. Drag to add more; remove any you don't want before saving.`}
         />
-        <SubmitButton pendingLabel="Saving…" className="button-primary">Save gallery</SubmitButton>
+        <SubmitButton pendingLabel="Saving…" className="button-primary">Save photos</SubmitButton>
       </SafeForm>
     </section>
   );

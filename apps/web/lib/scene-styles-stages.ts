@@ -80,7 +80,17 @@ export const STAGE_SCENE_STYLE_SETS: readonly SceneStyleSet[] = [
       { id: 'chapters', name: 'Chapters', line: 'One part per moment, in story order.', stages: STD_INV },
       { id: 'essay', name: 'The essay', line: 'A drop cap, a pull quote, the milestones as a list.', stages: STD_INV },
       { id: 'years', name: 'The years', line: 'A rail of years — tap one and its line opens. One screen.', stages: STD_INV },
+      /* 🗣 TWO VOICES (owner 2026-10-17, DECISION_LOG "APPROVED — LOVE STORY, TWO VOICES"; prototype
+         `love_story_two_voices_2026-10-17.html`), verbatim: *"Conversation as the default look, Timeline and Swipe
+         cards as Pro looks in Style."* Conversation is FREE and the scene's default (below — the owner's ruling
+         overrides "the default is always the shipped look" for this scene); the two-lane timeline and the swipe
+         cards are ◆ Pro (`lib/scene-style-pro.ts`, asked at ✓ Apply). Each draws only the voices that were written,
+         and the line told together for a moment with none. */
+      { id: 'conversation', name: 'Conversation', line: 'A thread: the first partner on the left, the second on the right.', stages: STD_INV },
+      { id: 'timeline', name: 'Two-lane timeline', line: 'A line down the centre; one partner’s words left, the other’s right.', stages: STD_INV },
+      { id: 'cards', name: 'Swipe cards', line: 'One moment per card, swiped sideways, with dots.', stages: STD_INV },
     ],
+    defaults: { save_the_date: 'conversation', rsvp: 'conversation' },
   },
   {
     type: 'event_details',
@@ -158,6 +168,9 @@ export const STAGE_SCENE_STYLE_SETS: readonly SceneStyleSet[] = [
       { id: 'mosaic', name: 'Mosaic', line: 'A cover photo, then two across, offset.', stages: STD },
       { id: 'grid', name: 'Grid', line: 'Three across, every photo the same size.', stages: STD },
       { id: 'film-strip', name: 'Film strip', line: 'Strips that slide sideways.', stages: STD },
+      /* 🎞 Owner 2026-10-15 (DECISION_LOG "GLIMPSE PHOTO STYLE APPROVED"). Post Event's gallery lists the SAME id
+         (`lib/scene-styles-post-event.ts`) — one pick, drawn on both stages by the one `GlimpseRail`. */
+      { id: 'glimpse', name: 'Glimpse', line: 'One photo at a time, centred; the next peeks in.', stages: STD },
     ],
     // Post Event's Grid is listed first; the shipped Save the Date look stays the default.
     defaults: { save_the_date: 'mosaic' },
@@ -167,9 +180,18 @@ export const STAGE_SCENE_STYLE_SETS: readonly SceneStyleSet[] = [
     type: 'entourage',
     label: 'Entourage',
     styles: [
-      { id: 'roll-call', name: 'Roll call', line: 'Each group under its heading, pairs side by side.', stages: INV_DAY },
-      // Sides are read from roles only a wedding's entourage carries.
-      { id: 'two-sides', name: 'Two sides', line: 'The two sides as two columns; the pairs under a rule.', stages: INV_DAY, eventTypes: ['wedding'] },
+      /* 👫 OWNER 2026-10-15 (DECISION_LOG "ENTOURAGE STYLES 4 AND 5 APPROVED"; prototype
+         `entourage_two_columns_2026-10-15_fable.html` styles 4 and 5): *"and 4 and 5 looks good. apply these
+         styles to the maker"*. On the axis REPLACES the old Roll call under the SAME id, so every couple who picked
+         Roll call — and the default — gets the cleaned layout with no data change; Post Event keeps its own "Roll
+         call" under that id (`stageNames`, `lib/scene-styles.ts`). Lines is new.
+         🚫 Two sides (`two-sides`) is WITHDRAWN (same day: *"two sides feels messy. the counter column must have
+         significance to the first column."*) — it put a Ninong beside an unrelated name. A saved `two-sides`
+         is no longer drawn anywhere, so the resolver reads it as the default. In every two-column style the
+         right cell is the left cell's PARTNER, from the existing pairing (`buildEntourage`); anyone alone is centred
+         across both columns (owner 2026-10-17, DECISION_LOG "A LONE PERSON … IS CENTRED"). */
+      { id: 'roll-call', name: 'On the axis', line: 'Each pair meets at the centre; anyone alone is centred.', stages: INV_DAY },
+      { id: 'lines', name: 'Lines', line: 'Pairs in two columns; anyone alone centred with their role.', stages: INV_DAY },
       { id: 'march', name: 'The march', line: 'Numbered, in walking order, each role under its names.', stages: INV_DAY },
     ],
   },
@@ -204,9 +226,9 @@ export const STAGE_SCENE_STYLE_SETS: readonly SceneStyleSet[] = [
     type: 'live_hub',
     label: 'Live hub',
     styles: [
-      { id: 'player-and-wall', name: 'Player and wall', line: 'The live player, then the photo wall.', stages: DAY },
-      { id: 'theatre', name: 'Theatre', line: 'Dark, the player first and large, the wall under it.', stages: DAY },
-      { id: 'wall-first', name: 'Wall first', line: 'The photo wall leads; the player follows.', stages: DAY },
+      { id: 'player-and-wall', name: 'Player and Memory lane', line: 'The live player, then Memory lane.', stages: DAY },
+      { id: 'theatre', name: 'Theatre', line: 'Dark, the player first and large, Memory lane under it.', stages: DAY },
+      { id: 'wall-first', name: 'Memory lane first', line: 'Memory lane leads; the player follows.', stages: DAY },
     ],
   },
 ];
@@ -221,7 +243,7 @@ export const STAGE_SCENE_STYLE_SETS: readonly SceneStyleSet[] = [
  */
 const RECOMMENDED: Readonly<Record<string, (stage: HubStage, eventType: string | null) => string | null>> = {
   countdown: (stage) => (stage === 'save_the_date' ? 'big-number' : 'four-tiles'),
-  our_love_story: (stage) => (stage === 'save_the_date' ? 'years' : 'chapters'),
+  /* our_love_story: none — its default IS the owner's pick since 2026-10-17 (Conversation), so the default carries the hint. */
   event_details: (_s, t) => (t === 'wedding' || t === 'debut' ? 'card' : 'plate'),
   schedule: (stage) => (stage === 'event' ? 'one-per-screen' : stage === 'rsvp' ? 'programme-rail' : null),
   photo_moments: (stage) => (stage === 'event' ? 'down-the-day' : null),

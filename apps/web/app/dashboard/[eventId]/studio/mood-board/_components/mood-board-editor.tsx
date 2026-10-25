@@ -3,6 +3,8 @@ import { studioHubHref } from '@/lib/studio-hub';
 import { notFound } from 'next/navigation';
 import { cache } from 'react';
 import { MoodPart, MoodPartNote } from './mood-board-parts';
+import { Spotlight } from '@/app/_components/spotlight';
+import { HOST_PAGE_TOURS, HOST_PAGE_TOURS_AFTER, MAKER_INNER_TOURS_AFTER } from '@/lib/host-page-tours';
 import { createClient } from '@/lib/supabase/server';
 import { fetchGuestsByEvent } from '@/lib/guests';
 import {
@@ -53,7 +55,7 @@ import {
   ThemeStudio,
   MoodBoardStudio,
 } from './mood-board-lazy';
-import type { StudioAttireRow, StudioChange } from './mood-board-studio';
+import type { StudioChange } from './mood-board-studio';
 import {
   cancelPartFinalization,
   cancelPartReopen,
@@ -70,10 +72,14 @@ import {
 import type { FinalizationPanelPart } from './part-finalization-panel';
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 import type { BoardSection, BoardCard } from './moodboard-board';
+import type { CoupleSuggestion } from '@/lib/inspiration-suggestions';
 import type { InspirationItem } from './inspiration-board';
 import { InfoTip } from '@/app/_components/info-tip';
 import { PageMasthead } from '@/app/_components/page-masthead';
-import { isStoreShellRequest } from '@/lib/request-platform';
+import { getIapGate, isStoreShellRequest } from '@/lib/request-platform';
+import { STORE_SHELL_NO_PAY_SETTINGS } from '@/lib/store-shell';
+import { resolveServiceSellability } from '@/lib/v2-catalog';
+import { iapProductForServiceKey, moodBoardRendersMatch } from '@/lib/iap/products';
 import {
   RENDER_PARTS,
   renderPartById,
@@ -93,7 +99,7 @@ import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { formatPhp } from '@/lib/orders';
 import { draftedEventColumn } from '@/lib/hub-draft-store';
-import { normalizeDressCodeConfig } from './dress-code-fields';
+import { normalizeDressCodeConfig } from './dress-code-config';
 import type { DressCodeConfig } from '../dress-code-actions';
 import type { GuestRole } from '@/lib/guests';
 import { readHubDraft } from '@/lib/hub-draft-store';
@@ -105,11 +111,13 @@ import { themeSeedPalette } from '@/lib/theme-colours';
 import { allRegions, resolveRegion } from '@/lib/region-source';
 import { describeColourChange, type ColourChangeRow } from '@/lib/colour-access';
 import { frozenNow } from '@/lib/moodboard-finalization-rows';
-import { ATTIRE_STYLES, ATTIRE_STYLE_LABEL, formatCallTime } from '@/lib/role-dress-code';
-import { roleGroupLabel, roleGroupOf, type RoleGroup } from '@/lib/role-groups';
+import { ATTIRE_STYLES, ATTIRE_STYLE_LABEL } from '@/lib/role-dress-code';
 import { DressCodeListsForm } from './dress-code-lists-form';
+import { studioAttireRows } from '@/lib/studio-attire-rows';
+import { readRoleNames } from '@/lib/role-names.server';
 import { incDressCodeStarter } from './inc-dress-code-starter';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { fetchScheduleBlocks } from '@/lib/schedule';
 
 /** The suppliers a part may be ASKED — the booked marketplace shop, named by its key (see the read). */
 export const BOOKED_SUPPLIER_SELECT = 'vendor_id, vendor_name, shop:vendor_profiles!event_vendors_marketplace_vendor_id_fkey ( services )';
@@ -296,7 +304,7 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
     supabase
       .from('event_inspiration_assets')
       .select(
-        `slot_key, slot_position, image_url, library_asset_id,
+        `slot_key, slot_position, image_url, library_asset_id, from_suggestion_id,
          sampled_hex_1, sampled_hex_2, sampled_hex_3, sampled_hex_4, sampled_hex_5, sampled_hex_6,
          asset:moodboard_library_assets (
            asset_subtype,
@@ -386,14 +394,14 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
     const drafted = inMaker ? await draftedEventColumn(eventId, 'dress_code_config') : { drafted: false as const };
     /* 👗 An INC event's EMPTY dress code starts from the modest guidance
        (owner 2026-10-04) — form defaults only; nothing is written until Save. */
-    const { config: cfg, started } = incDressCodeStarter(
-      event,
-      normalizeDressCodeConfig(
-        drafted.drafted ? drafted.value : (event as { dress_code_config?: unknown }).dress_code_config,
-      ),
-    );
+    const stored = drafted.drafted ? drafted.value : (event as { dress_code_config?: unknown }).dress_code_config;
+    const { config: cfg, started } = incDressCodeStarter(event, normalizeDressCodeConfig(stored));
     dressLists = { dos: cfg.dos, donts: cfg.donts, incStarter: started };
-    dressConfig = cfg;
+    /* 🪞 NOTHING STORED IS DROPPED ON THE WAY IN (2026-10-17, owner: "why did the attire not have the information we
+       already edited?"). The Studio saves the WHOLE dress code back (`dressCodeDraftFields`), so whatever its reader
+       drops, its next save deletes: the parser dropped the women's picks and the couple's own Wear, and a save after a
+       reload wrote the config back without them. Every stored key rides through; the parsed parts lay on top. */
+    dressConfig = { ...(stored && typeof stored === 'object' && !Array.isArray(stored) ? (stored as Record<string, unknown>) : {}), ...cfg } as DressCodeConfig;
   } catch (err) {
     console.error(`[moodBoard] dress-code draft unreadable for event_id=${eventId}:`, err);
   }
@@ -409,6 +417,7 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
     slot_position: number;
     image_url: string;
     library_asset_id: string | null;
+    from_suggestion_id?: string | null;
     sampled_hex_1: string | null;
     sampled_hex_2: string | null;
     sampled_hex_3: string | null;
@@ -438,6 +447,7 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
       swatches: [r.sampled_hex_1, r.sampled_hex_2, r.sampled_hex_3, r.sampled_hex_4, r.sampled_hex_5, r.sampled_hex_6].filter(
         (h): h is string => typeof h === 'string' && /^#[0-9a-f]{6}$/i.test(h),
       ),
+      fromSuggestionId: r.from_suggestion_id ?? null,
       credit:
         r.library_asset_id && shopName
           ? creditLine(
@@ -903,6 +913,16 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
    * exists for and stays whole. Desktop and the web are unaffected.
    */
   const storeShell = await isStoreShellRequest();
+  /* 🍎 …EXCEPT WHERE APPLE SELLS THE PACK (`getIapGate().iap`; owner 2026-10-23, "five more Apple products"): there
+     Make it real mounts, and its Buy is Apple's sheet for "Mood Board · 50 renders" — no web price, no GCash / BDO.
+     With `iap` false the store shell is exactly as above. */
+  const appleIap = storeShell && (await getIapGate()).iap;
+  /** 🍎 Apple's pack door shows only while the catalogue sells the pack AND the config still grants its 50 (no dead tap). */
+  const applePack = iapProductForServiceKey(MOODBOARD_RENDER_PACK_SKU);
+  const appleOnSale =
+    appleIap && applePack !== null &&
+    moodBoardRendersMatch(applePack, moodboardRenderConfig) &&
+    (await resolveServiceSellability(MOODBOARD_RENDER_PACK_SKU)) === 'sellable';
   const jumpLinks: ReadonlyArray<{ href: string; label: string }> = [
     { href: '#theme', label: 'Theme' },
     { href: '#inspiration', label: 'Inspiration' },
@@ -910,7 +930,7 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
     { href: '#dos-and-donts', label: 'Do’s & don’ts' },
     { href: '#reception', label: 'Reception' },
     { href: '#colors', label: 'In your colors' },
-    ...(storeShell ? [] : [{ href: '#make-it-real', label: 'Make it real' }]),
+    ...(storeShell && !appleIap ? [] : [{ href: '#make-it-real', label: 'Make it real' }]),
     { href: '#share', label: 'Share & export' },
   ];
 
@@ -1061,8 +1081,9 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
       <MoodboardBoard sections={sections} compact />
     </section>
   );
-  const makeItReal = storeShell ? null : (
+  const makeItReal = storeShell && !appleIap ? null : (
     <MakeItReal
+      apple={appleIap}
       eventId={eventId}
       eligibleParts={eligibleRenderParts}
       palette={palette}
@@ -1072,8 +1093,9 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
       venueLabel={venueLabel}
       config={moodboardRenderConfig}
       balance={moodboardRenderBalance}
-      packPlan={moodboardRenderPackPlan}
-      checkoutSettings={platformSettings}
+      appleOnSale={appleOnSale}
+      packPlan={appleIap ? null : moodboardRenderPackPlan}
+      checkoutSettings={appleIap ? STORE_SHELL_NO_PAY_SETTINGS : platformSettings}
       renders={moodboardRenders}
       shareConsented={shareConsented}
       mayStartRenders={mayStartRenders}
@@ -1183,7 +1205,7 @@ export async function MoodBoardEditor({ eventId }: { eventId: string }) {
         <PaletteBoardProvider {...provider}>
           {parts.theme}
           {parts.inspiration}
-          <div className="space-y-4">
+          <div className="space-y-4" data-tour="mood-board-palette">
             {parts.paletteSection}
             {parts.peopleAgreed}
           </div>
@@ -1191,7 +1213,7 @@ export async function MoodBoardEditor({ eventId }: { eventId: string }) {
 
         <div className="border-t border-ink/10 pt-6">{parts.dressLists}</div>
 
-        <div className="space-y-4 border-t border-ink/10 pt-6">
+        <div className="space-y-4 border-t border-ink/10 pt-6" data-tour="mood-board-reception">
           {parts.reception}
           {parts.roomAgreed}
         </div>
@@ -1200,16 +1222,18 @@ export async function MoodBoardEditor({ eventId }: { eventId: string }) {
 
         {parts.makeItReal}
 
-        <section id="share" className="scroll-mt-24 space-y-4 border-t border-ink/10 pt-6">
+        <section id="share" className="scroll-mt-24 space-y-4 border-t border-ink/10 pt-6" data-tour="mood-board-share">
           {parts.shareWords}
           {parts.shareButton}
         </section>
       </div>
 
       {/* Persistent action bar — both PDF exports stay reachable at any scroll. */}
-      <div data-glass-row="mood-board-pdfs" className="sn-glass-row fixed inset-x-0 bottom-0 z-20 px-4 py-3 sm:px-6">
+      <div data-glass-row="mood-board-pdfs" className="sn-glass-row fixed inset-x-0 bottom-0 z-20 pl-[max(1rem,var(--sn-safe-l))] pr-[max(1rem,var(--sn-safe-r))] pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:pl-[max(1.5rem,var(--sn-safe-l))] sm:pr-[max(1.5rem,var(--sn-safe-r))]">
         <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-2 sm:gap-3">{parts.pdfs}</div>
       </div>
+      {/* 🔦 First visit only — the spotlight (owner 2026-10-22, journey_fixes_later Host 4), after the journey. */}
+      <Spotlight tourKey={HOST_PAGE_TOURS.moodBoard} after={HOST_PAGE_TOURS_AFTER} replay="page" />
     </div>
   );
 }
@@ -1233,14 +1257,16 @@ export async function MoodBoardMakerBody({ eventId }: { eventId: string }) {
       <PaletteBoardProvider {...provider}>
         <MoodPart part="theme">{parts.theme}</MoodPart>
         <MoodPart part="inspiration">{parts.inspiration}</MoodPart>
-        <MoodPart part="palette">{parts.paletteSection}</MoodPart>
+        <MoodPart part="palette"><div data-tour="mood-board-palette">{parts.paletteSection}</div></MoodPart>
       </PaletteBoardProvider>
       {/* ✅ Under the colours each role wears — where a couple dresses people. */}
       <MoodPart part="palette">{parts.dressLists}</MoodPart>
-      <MoodPart part="reception">{parts.reception}</MoodPart>
+      <MoodPart part="reception"><div data-tour="mood-board-reception">{parts.reception}</div></MoodPart>
       <MoodPart part="colours">{parts.colours}</MoodPart>
       {parts.makeItReal ? <MoodPart part="make-it-real">{parts.makeItReal}</MoodPart> : null}
       <MoodPart part="share">{parts.shareWords}</MoodPart>
+      {/* 🔦 Inside the Maker: after the Maker's own tour, and the engine does not pause for it. */}
+      <Spotlight tourKey={HOST_PAGE_TOURS.moodBoard} after={MAKER_INNER_TOURS_AFTER} inMaker />
     </div>
   );
 }
@@ -1261,7 +1287,7 @@ export async function MoodBoardMakerControls({ eventId }: { eventId: string }) {
       <div className="contents group-data-[details-mode=guided]/ws:hidden" data-mood-board-note-wrap="">
         <MoodPartNote />
       </div>
-      <div className="flex flex-col gap-2 border-t border-ink/10 pt-3 group-data-[details-mode=guided]/ws:hidden" data-mood-board-exports="">
+      <div className="flex flex-col gap-2 border-t border-ink/10 pt-3 group-data-[details-mode=guided]/ws:hidden" data-mood-board-exports="" data-tour="mood-board-share">
         <p className="text-xs font-semibold text-ink/60">Download your board</p>
         <div className="flex flex-wrap items-center gap-2">{parts.pdfs}</div>
         {parts.lastSaved}
@@ -1281,40 +1307,7 @@ function guestRoleTally(guests: ReadonlyArray<{ role: GuestRole; extra_roles?: G
   return [...m].map(([role, count]) => ({ role, count }));
 }
 
-/**
- * The Attire tab's people, in the Mood Board order (owner 2026-10-06: couple →
- * parents → sponsors → entourage → bearers → guests). The couple and the guests
- * are a ROLE's own line in the shipped dress code (`roles`); everyone else is
- * their GROUP's line (`groups`) — the coarse tier the shipped editor offers.
- * Only the people this guest list has; the guests always.
- */
-const STUDIO_ATTIRE_GROUPS: ReadonlyArray<{ group: RoleGroup; paletteKey: PaletteKey | null }> = [
-  { group: 'vip_family', paletteKey: 'parents_immediate_family' },
-  { group: 'principal_sponsors', paletteKey: 'principal_sponsors' },
-  { group: 'secondary_sponsors', paletteKey: 'secondary_sponsors' },
-  { group: 'muslim_principals', paletteKey: 'muslim_principals' },
-  { group: 'bridesmaids', paletteKey: 'bridesmaids' },
-  { group: 'groomsmen', paletteKey: 'groomsmen' },
-  { group: 'bearers_flower_girl', paletteKey: 'bearers_flower_girl' },
-  { group: 'officiants', paletteKey: 'officiants' },
-];
-
-function studioAttireRows(tally: ReadonlyArray<{ role: GuestRole }>, config: DressCodeConfig | null): StudioAttireRow[] {
-  const roles = new Set(tally.map((t) => t.role));
-  const groups = new Set(tally.map((t) => roleGroupOf(t.role)));
-  const callOf = (tier: 'roles' | 'groups', key: string) =>
-    formatCallTime(((config?.[tier] ?? {}) as Record<string, { callTime?: string }>)[key]?.callTime ?? null);
-  const out: StudioAttireRow[] = [];
-  if (roles.has('celebrant')) out.push({ tier: 'roles', key: 'celebrant', label: 'The celebrant', paletteKey: null, arrives: callOf('roles', 'celebrant') });
-  out.push({ tier: 'roles', key: 'bride', label: 'The bride', paletteKey: 'bride', arrives: callOf('roles', 'bride') });
-  out.push({ tier: 'roles', key: 'groom', label: 'The groom', paletteKey: 'groom', arrives: callOf('roles', 'groom') });
-  for (const { group, paletteKey } of STUDIO_ATTIRE_GROUPS) {
-    if (!groups.has(group)) continue;
-    out.push({ tier: 'groups', key: group, label: roleGroupLabel(group), paletteKey, arrives: callOf('groups', group) });
-  }
-  out.push({ tier: 'roles', key: 'guest', label: 'Guests', paletteKey: 'guest', arrives: null });
-  return out;
-}
+/* The Attire tab's rows — `studioAttireRows` (lib/studio-attire-rows.ts), the same function the dev lab draws. */
 
 /** 🧭 The new Maker's Studio › Mood Board & Dress Code — drawn by the launch page in place of `MoodBoardMakerBody` while it is on. */
 export async function MoodBoardStudioBody({ eventId }: { eventId: string }) {
@@ -1322,8 +1315,8 @@ export async function MoodBoardStudioBody({ eventId }: { eventId: string }) {
   if (!board.ok) return <CouldNotLoad />;
   const { studio } = board;
   const supabase = await createClient();
-  const [eventRes, draft, changesRes, lookRes] = await Promise.all([
-    supabase.from('events').select('invite_theme, role_palette, region').eq('event_id', eventId).maybeSingle(),
+  const [eventRes, draft, changesRes, lookRes, suggestionsRes, scheduleRead] = await Promise.all([
+    supabase.from('events').select('invite_theme, role_palette, region, role_names, event_date').eq('event_id', eventId).maybeSingle(),
     readHubDraft(supabase, eventId).catch(() => null),
     supabase
       .from('event_colour_changes')
@@ -1341,15 +1334,47 @@ export async function MoodBoardStudioBody({ eventId }: { eventId: string }) {
       .eq('event_id', eventId)
       .eq('widget_type', 'dress_code')
       .maybeSingle(),
+    /* 🤝🖼 Suppliers' photos — the ones WAITING for Keep / No thanks, and the KEPT ones (their shop is the photo's credit). */
+    supabase
+      .from('event_inspiration_suggestions')
+      .select('suggestion_id, slot_key, shop_label, state, image_url, sampled_hex_1, sampled_hex_2, sampled_hex_3, sampled_hex_4, sampled_hex_5, sampled_hex_6, created_at')
+      .eq('event_id', eventId)
+      .in('state', ['waiting', 'kept'])
+      .order('created_at', { ascending: true })
+      .limit(200),
+    /* ⏰ The programme — the Guests row's CALL TIME is its arrival moment (`lib/guests-arrive.ts`, owner 2026-10-19). A refused
+       read is said on the row (`arrival: null`), never drawn as "not set". */
+    fetchScheduleBlocks(supabase, eventId).then(
+      (blocks) => ({ ok: true as const, blocks }),
+      (err: unknown) => {
+        logQueryError('moodBoardStudio.schedule', { message: err instanceof Error ? err.message : String(err) }, { eventId }, 'graceful_degrade');
+        return { ok: false as const };
+      },
+    ),
   ]);
   if (eventRes.error) logQueryError('moodBoardStudio.event', eventRes.error, { eventId });
   /* A refused change log is said nowhere as "no changes" — logged; the board still draws. */
   if (changesRes.error) logQueryError('moodBoardStudio.colourChanges', changesRes.error, { eventId }, 'graceful_degrade');
   if (lookRes.error) logQueryError('moodBoardStudio.dressCodeScene', lookRes.error, { eventId }, 'graceful_degrade');
+  /* 🤝🖼 A refused suggestions read is SAID on the Palette (`suggestionsUnread`) — never drawn as "nothing waiting". */
+  if (suggestionsRes.error) logQueryError('moodBoardStudio.suggestions', suggestionsRes.error, { eventId }, 'graceful_degrade');
+  type SuggestionRow = { suggestion_id: string; slot_key: string; shop_label: string; state: string; image_url: string | null } & Record<`sampled_hex_${1 | 2 | 3 | 4 | 5 | 6}`, string | null>;
+  const suggestionRows = (suggestionsRes.data ?? []) as SuggestionRow[];
+  const keptShop = new Map(suggestionRows.filter((r) => r.state === 'kept').map((r) => [r.suggestion_id, r.shop_label]));
+  const suggestions: CoupleSuggestion[] = suggestionRows
+    .filter((r) => r.state === 'waiting' && r.image_url)
+    .map((r) => ({
+      id: r.suggestion_id,
+      slotKey: r.slot_key,
+      shop: r.shop_label,
+      url: r.image_url!,
+      swatches: [r.sampled_hex_1, r.sampled_hex_2, r.sampled_hex_3, r.sampled_hex_4, r.sampled_hex_5, r.sampled_hex_6].filter((h): h is string => typeof h === 'string' && /^#[0-9a-f]{6}$/i.test(h)),
+    }));
+  const inspirations = studio.inspirations.map((it) => (it.fromSuggestionId ? { ...it, fromShop: keptShop.get(it.fromSuggestionId) ?? null } : it));
   /* The scene as the couple is editing it (the draft laid over live, as the toolbar's own row read it); none = no look to pick. */
   const lookRow = lookRes.data ? (lookRes.data as unknown as InvitationWidgetRow) : null;
   const dosLookCanvas = lookRow ? sanitizeHubCanvas(overlayHubDraftWidgets([lookRow], draft)[0]?.config_json) : null;
-  const live = (eventRes.data ?? { invite_theme: null, role_palette: null, region: null }) as { invite_theme: string | null; role_palette: unknown; region: string | null };
+  const live = (eventRes.data ?? { invite_theme: null, role_palette: null, region: null, role_names: null, event_date: null }) as { invite_theme: string | null; role_palette: unknown; region: string | null; role_names?: unknown; event_date?: string | null };
   const shown = overlayHubDraftEvent(live, draft);
   /* 🎨 The five the board shows while it is not the couple's: a theme's drafted fill, else the worn theme's own. */
   const themeId = normalizeThemeId(typeof shown.invite_theme === 'string' ? shown.invite_theme : null) ?? 'house';
@@ -1367,6 +1392,7 @@ export async function MoodBoardStudioBody({ eventId }: { eventId: string }) {
     .map((r) => ({ key: r.psgc_code!, label: r.display_label }));
 
   return (
+    <>
     <MoodBoardStudio
       eventId={eventId}
       /* 🎨 The board as the couple is editing it — the draft over live (step 4c: the palette waits for Apply). */
@@ -1374,14 +1400,37 @@ export async function MoodBoardStudioBody({ eventId }: { eventId: string }) {
       fallbackFive={fallbackFive}
       frozenDressing={[...frozenNow(studio.finalizations).dressingFields]}
       changes={changes}
-      attire={studioAttireRows(studio.roleTally, studio.dressConfig)}
+      /* 👯 Named in the couple's own words (owner 2026-09-30) — the honour rows and the crews they renamed. */
+      attire={studioAttireRows(studio.roleTally, studio.dressConfig, readRoleNames(live.role_names))}
       dressConfig={studio.dressConfig as unknown as Record<string, unknown> | null}
       attireStyles={ATTIRE_STYLES.map((k) => ({ key: k, label: ATTIRE_STYLE_LABEL[k] }))}
-      inspirations={studio.inspirations}
+      inspirations={inspirations}
+      suggestions={suggestionsRes.error ? null : suggestions}
       autoThemes={HUB_THEMES.filter((t) => t.ready).map((t) => ({ name: t.name, five: themeSeedPalette(t.id).reception }))}
       regions={regions}
       dosLists={studio.dressLists ? { dos: studio.dressLists.dos, donts: studio.dressLists.donts, incStarter: studio.dressLists.incStarter } : null}
       dosLookCanvas={dosLookCanvas}
+      arrival={
+        scheduleRead.ok
+          ? {
+              blocks: scheduleRead.blocks.map((b) => ({
+                block_id: b.block_id,
+                label: b.label,
+                block_type: b.block_type,
+                start_at: b.start_at,
+                end_at: b.end_at,
+                is_public: b.is_public,
+                sort_order: b.sort_order,
+                parent_block_id: b.parent_block_id,
+                audience: b.audience ?? null,
+              })),
+              eventDate: (() => { const d = (shown as { event_date?: unknown }).event_date; return typeof d === 'string' ? d : (live.event_date ?? null); })(),
+            }
+          : null
+      }
     />
+    {/* 🔦 Inside the Maker: after the Maker's own tour, and the engine does not pause for it. */}
+    <Spotlight tourKey={HOST_PAGE_TOURS.moodBoard} after={MAKER_INNER_TOURS_AFTER} inMaker />
+    </>
   );
 }

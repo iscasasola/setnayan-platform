@@ -756,7 +756,7 @@ export function replayMarch(m: MarchShown, steps: readonly MarchStep[]): MarchSh
  * keeps its own columns.
  */
 const LEFT_ROLES = new Set(['principal_sponsor_ninong', 'principal_sponsor', 'best_man', 'best_woman', 'groomsman']);
-const RIGHT_ROLES = new Set(['principal_sponsor_ninang', 'maid_of_honor', 'matron_of_honor', 'bridesmaid']);
+const RIGHT_ROLES = new Set(['principal_sponsor_ninang', 'maid_of_honor', 'matron_of_honor', 'man_of_honor', 'bridesmaid']);
 
 export function walkSideOf(p: Pick<MarchPerson, 'role' | 'side'>): 0 | 1 {
   if (LEFT_ROLES.has(p.role)) return 0;
@@ -772,4 +772,35 @@ export function acrossTheAisle(row: MarchRow): MarchRow {
   if (!y) return cx === 0 ? [x, null] : [null, x];
   // Different sides: each on their own. The same side: the first keeps it, the partner takes the other.
   return cx === 0 ? [x, y] : [y, x];
+}
+
+/**
+ * 🪪 A TAP OR A DRAG — what letting go of a press means (owner 2026-10-14: a tapped name opens their guest card; the
+ * 2026-10-06 march maker: a dragged name moves). ONE answer, read by the march at every release (`details-march.tsx`):
+ *
+ *   · a name (walking, or in the "Not walking" tray) let go where it was pressed — never having left the slop — is a TAP,
+ *     whether or not the long-press lifted it (a slow finger still taps): 'card';
+ *   · anything that left the slop at any moment, or was let go away from where it was pressed, is a DRAG: 'drop' when it
+ *     was lifted (the drop decides what moves), else 'nothing' (a press that wandered unlifted was a scroll);
+ *   · a walk's number or a section's header never opens a card — they are only ever moved.
+ *
+ * The slop is the drag's own: a mouse lifts past 4 px, a finger's press past 8 px is a scroll — so a press is EITHER a
+ * tap or a drag, never both.
+ */
+export const TAP_SLOP_MOUSE = 4;
+export const TAP_SLOP_TOUCH = 8;
+export type MarchRelease = 'card' | 'drop' | 'nothing';
+export function releaseIs(p: {
+  kind: MarchSource['kind'];
+  touch: boolean;
+  /** The name was lifted (the long-press for a finger, 4 px for a mouse). */
+  lifted: boolean;
+  /** It left the slop at some moment since the press. */
+  wandered: boolean;
+  /** How far from the press it was let go, in px. */
+  moved: number;
+}): MarchRelease {
+  const still = !p.wandered && p.moved <= (p.touch ? TAP_SLOP_TOUCH : TAP_SLOP_MOUSE);
+  if (still && (p.kind === 'name' || p.kind === 'out')) return 'card';
+  return p.lifted ? 'drop' : 'nothing';
 }

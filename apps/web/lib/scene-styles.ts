@@ -46,7 +46,10 @@
  *     a name with a section (Schedule, Gallery), whose one value lives on that
  *     section's `canvas.style` (`POST_EVENT_STYLE_HOME` in `post-event-styles.ts`).
  * Both are drafted and written by Apply like every other key, and NEITHER is a
- * Pro look key (`HUB_CANVAS_LOOK_KEYS` does not list `style`). An ABSENT style
+ * Pro look key (`HUB_CANVAS_LOOK_KEYS` does not list `style`) — 💎 except the
+ * few looks `lib/scene-style-pro.ts` names per scene type (the Love Story's
+ * two-lane timeline and swipe cards, owner 2026-10-17), which the Apply gate
+ * asks for by its own `style` facet (`canvasLookFacets`). An ABSENT style
  * is the stage's default — "Auto is an absence" (`lib/hub-canvas.ts`).
  *
  * Pure. No I/O. Client-safe.
@@ -58,6 +61,7 @@ import { POST_EVENT_SCENE_STYLE_SETS } from '@/lib/scene-styles-post-event';
 import { STAGE_SCENE_STYLE_SETS } from '@/lib/scene-styles-stages';
 import { PART_SCENE_STYLE_SETS } from '@/lib/scene-styles-parts';
 import { SCENE_STYLE_ID_RE, sanitizeSceneStyleId } from '@/lib/scene-style-id';
+import { sceneStyleIsPro } from '@/lib/scene-style-pro';
 
 export type SceneStyle = {
   /** Permanent, semantic, shared by every stage that draws it: `[a-z][a-z0-9-]{0,31}`. */
@@ -72,6 +76,18 @@ export type SceneStyle = {
   stages?: readonly HubStage[];
   /** The event types it suits (`events.event_type`). Absent = every type. */
   eventTypes?: readonly string[];
+  /**
+   * 🏷 ONE ID, A STAGE'S OWN WORDS — set by the merge, never written in a list. When two files register the SAME
+   * id under DIFFERENT names (the entourage's `roll-call`: Post Event's "Roll call", the Invitation's and the Day's
+   * "On the axis", owner 2026-10-15), the id stays one style — so a pick still carries across stages — and each
+   * stage the later file draws it on shows that file's name and line (`sceneStylesOn`).
+   */
+  stageNames?: Partial<Record<HubStage, { name: string; line: string }>>;
+  /**
+   * 💎 Event Hub Pro ◆ — set by `sceneStylesOn` from `lib/scene-style-pro.ts` (the ONE list the Apply gate asks),
+   * never written in a set. Absent = free.
+   */
+  pro?: boolean;
 };
 
 export type SceneStyleSet = {
@@ -106,10 +122,16 @@ export function mergeSceneStyleSets(...lists: ReadonlyArray<readonly SceneStyleS
         if (i < 0) into.styles.push({ ...st });
         else {
           const was = into.styles[i]!;
+          /* The same id under another name: that file's words on that file's stages (see `stageNames`). */
+          const renamed =
+            st.stages && (st.name !== was.name || st.line !== was.line)
+              ? Object.fromEntries(st.stages.map((stage) => [stage, { name: st.name, line: st.line }]))
+              : null;
           into.styles[i] = {
             ...was,
             stages: union(was.stages, st.stages),
             eventTypes: union(was.eventTypes, st.eventTypes),
+            ...(renamed ? { stageNames: { ...was.stageNames, ...renamed } } : {}),
           };
         }
       }
@@ -137,11 +159,17 @@ export function sceneStyleSet(type: string | null | undefined): SceneStyleSet | 
 export function sceneStylesOn(type: string | null | undefined, stage: HubStage, eventType?: string | null): SceneStyle[] {
   const set = sceneStyleSet(type);
   if (!set) return [];
-  return set.styles.filter(
-    (st) =>
-      (!st.stages || st.stages.includes(stage)) &&
-      (!st.eventTypes || !eventType || st.eventTypes.includes(eventType)),
-  );
+  return set.styles
+    .filter(
+      (st) =>
+        (!st.stages || st.stages.includes(stage)) &&
+        (!st.eventTypes || !eventType || st.eventTypes.includes(eventType)),
+    )
+    .map((st) => {
+      const own = st.stageNames?.[stage];
+      const named = own ? { ...st, ...own } : st;
+      return sceneStyleIsPro(type, st.id) ? { ...named, pro: true } : named;
+    });
 }
 
 /** The style a scene wears on this stage when nothing was picked. Null = the type has no styles here. */

@@ -93,7 +93,7 @@ export default async function ClearancePage({ params }: Props) {
 
   const steps = [
     { label: 'Stop the livestream', href: `${base}/launch`, Icon: Sparkles, note: 'End any live broadcast that is still running.' },
-    { label: 'Freeze the photo wall', href: `${base}/live`, Icon: MonitorPlay, note: 'Lock the wall so it becomes the recap.' },
+    { label: 'Freeze Memory lane', href: `${base}/live`, Icon: MonitorPlay, note: 'Lock Memory lane so it becomes the recap.' },
     { label: 'Close check-in', href: `${base}/guests/checkin`, Icon: QrCode, note: 'Last arrivals are in — close the desk.' },
   ];
 
@@ -135,7 +135,7 @@ export default async function ClearancePage({ params }: Props) {
           Close out the day
         </SubmitButton>
         <p className="mt-2 text-xs text-ink/50">
-          You can do this once the celebration is over. It can&rsquo;t be undone from here, so wrap
+          You can do this once the event is over. It can&rsquo;t be undone from here, so wrap
           up the live services first.
         </p>
       </form>

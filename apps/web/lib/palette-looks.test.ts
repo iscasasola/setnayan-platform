@@ -1,5 +1,5 @@
 /**
- * THE FIVE PALETTE LOOKS — the stored key, the one resolver, the entrance's
+ * THE PALETTE LOOKS — the stored key, the one resolver, the entrance's
  * rules, and where the Maker's picker is allowed to load.
  *
  * Owner 2026-09-29, DECISION_LOG "APPROVED — FIVE PALETTE STYLES, PICKED ON THE
@@ -9,12 +9,14 @@
  *     that no pick, a malformed pick and an unknown id all mean today's look;
  *   · a palette pick is FREE and frames nothing (no Pro look key, no motion
  *     frame around the scene);
- *   · the ink on a colour is chosen by CONTRAST (Gold #B8934A takes the dark);
+ *   · the ink on a colour is chosen by CONTRAST (Gold #B8934A takes the dark),
+ *     with a third step to #111 / #fff when neither fixed ink reaches 4.5 : 1
+ *     (Taupe #8B7E74 — owner 2026-10-15, "SIX OWNER ANSWERS" (2));
  *   · NOTHING MOVES: the owner cut palette animation on 2026-09-30 ("THE MAKER
  *     RE-PLAN IS CUT TO ITS CORE"), so the looks' CSS holds no animation, no
  *     transition and no keyframes, and the page's scroll observer is not told
  *     about palettes;
- *   · the Maker's Palette picker is ONE PickMenu with the five looks, and it is
+ *   · the Maker's Palette picker is ONE PickMenu with the looks, and it is
  *     reachable only through the lazy `maker-details` chunk.
  */
 import test from 'node:test';
@@ -32,7 +34,8 @@ import {
 import { hasHubCanvas, sanitizeHubCanvas } from './hub-canvas';
 import { HUB_CANVAS_LOOK_KEYS } from './hub-look-pro';
 import { paletteLookOfRow } from './scene-style-of-row';
-import { PALETTE_INK_DARK, PALETTE_INK_LIGHT, paletteInkOn } from './palette-ink';
+import { PALETTE_INK_DARK, PALETTE_INK_FALLBACK_DARK, PALETTE_INK_FALLBACK_LIGHT, PALETTE_INK_LIGHT, paletteInkOn, paletteInkStep } from './palette-ink';
+import { contrastRatio } from './hub-legibility';
 import { stripComments } from './strip-comments';
 
 (globalThis as unknown as { React: unknown }).React = React;
@@ -52,8 +55,12 @@ test('absent, malformed and unknown picks are all Tags — the default is today\
   assert.equal(paletteLookOfRow({ config_json: { canvas: { palette: 'ribbon' } } }), 'ribbon');
 });
 
-test('five looks, in the design\'s order, each with a name and a line', () => {
-  assert.deepEqual(PALETTE_LOOKS.map((l) => l.id), ['tags', 'fabric', 'chips', 'circles', 'ribbon']);
+test('eight looks, in the designs\' order, each with a name and a line', () => {
+  /* 2026-09-29's five, then owner 2026-10-15 ("SIX OWNER ANSWERS" (2)): Arch tabs · Watercolour dots · Paint
+     strokes. Script circles is NOT built, and Silk is a redraw of `fabric` — never a sixth id. */
+  assert.deepEqual(PALETTE_LOOKS.map((l) => l.id), ['tags', 'fabric', 'chips', 'circles', 'ribbon', 'arch', 'watercolour', 'strokes']);
+  assert.ok(!PALETTE_LOOKS.some((l) => /script|silk/i.test(l.id)), 'no Script circles look, and Silk is `fabric`');
+  assert.equal(PALETTE_LOOKS.find((l) => l.id === 'fabric')?.name, 'Silk swatches');
   assert.deepEqual([...PALETTE_LOOK_IDS], PALETTE_LOOKS.map((l) => l.id));
   for (const l of PALETTE_LOOKS) assert.ok(l.name && l.line, `${l.id} is described`);
 });
@@ -80,6 +87,58 @@ test('the ink on a colour is the one with the higher contrast — Gold reads dar
   assert.equal(paletteInkOn('#646B38'), PALETTE_INK_LIGHT);
   assert.equal(paletteInkOn('#EFE3B8'), PALETTE_INK_DARK);
   assert.equal(paletteInkOn('#4D5A72'), PALETTE_INK_LIGHT);
+});
+
+test('the third ink step: when neither fixed ink reaches 4.5 : 1 the ink falls to #111 / #fff — Taupe #8B7E74', () => {
+  /* The prototype's Legibility table: Taupe gets 3.89 : 1 from the dark ink and less from the light; #111111 gets 4.80. */
+  assert.ok(contrastRatio('#8B7E74', PALETTE_INK_DARK) < 4.5 && contrastRatio('#8B7E74', PALETTE_INK_LIGHT) < 4.5, 'Taupe really is the case');
+  assert.deepEqual(paletteInkStep('#8B7E74'), { ink: PALETTE_INK_FALLBACK_DARK, fallback: true });
+  assert.equal(paletteInkOn('#8B7E74'), '#111111');
+  assert.ok(contrastRatio('#8B7E74', '#111111') >= 4.5, 'the fallback reaches the line');
+  // A dark mid-tone where neither fixed ink reaches 4.5 falls to white.
+  assert.ok(contrastRatio('#6F6F6F', PALETTE_INK_LIGHT) < 4.5 && contrastRatio('#6F6F6F', PALETTE_INK_DARK) < 4.5);
+  assert.equal(paletteInkOn('#6F6F6F'), PALETTE_INK_FALLBACK_LIGHT);
+  // Every other real colour of the table keeps its fixed ink (the step is a fallback, never a re-pick).
+  for (const [hex, ink] of [
+    ['#5C0700', PALETTE_INK_LIGHT], ['#669C35', PALETTE_INK_DARK], ['#B51A00', PALETTE_INK_LIGHT], ['#F7F2EC', PALETTE_INK_DARK],
+    ['#CFAFAF', PALETTE_INK_DARK], ['#351115', PALETTE_INK_LIGHT], ['#646B38', PALETTE_INK_LIGHT], ['#F3E5B9', PALETTE_INK_DARK],
+    ['#E6C0B3', PALETTE_INK_DARK], ['#803236', PALETTE_INK_LIGHT], ['#6B4226', PALETTE_INK_LIGHT], ['#6C6C6C', PALETTE_INK_LIGHT],
+  ] as const) {
+    assert.deepEqual(paletteInkStep(hex), { ink, fallback: false }, hex);
+    assert.ok(contrastRatio(hex, ink) >= 4.5, `${hex} reads at 4.5 : 1`);
+  }
+});
+
+test('a word on a fallback-ink colour is marked `data-ink="fallback"` — and only there', async () => {
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { PaletteLookList } = await import('../app/[slug]/_components/dress-code-palette-looks');
+  for (const look of ['arch', 'strokes', 'chips'] as const) {
+    const out = renderToStaticMarkup(
+      React.createElement(PaletteLookList, { look, items: [{ hex: '#8B7E74', name: 'Taupe' }, { hex: '#6C6C6C', name: 'Dim Gray' }] }),
+    );
+    assert.equal((out.match(/data-ink="fallback"/g) ?? []).length, 1, `${look}: Taupe alone is marked`);
+    assert.match(out, /--c:#8B7E74;--k:#111111/, `${look}: Taupe's words are #111`);
+  }
+});
+
+test('Arch tabs show NO hex — the sprig only (owner 2026-10-15 "no hex")', async () => {
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { PaletteLookList } = await import('../app/[slug]/_components/dress-code-palette-looks');
+  const items = [{ hex: '#5C0700', name: 'Rosewood' }, { hex: '#F7F2EC', name: 'Cream' }];
+  const arch = renderToStaticMarkup(React.createElement(PaletteLookList, { look: 'arch', items }));
+  assert.equal((arch.match(/<svg/g) ?? []).length, 2, 'a sprig on every tab');
+  assert.doesNotMatch(arch, /#5C0700<|#F7F2EC<|<small/, 'no hex is printed');
+  for (const look of ['watercolour', 'strokes', 'fabric'] as const) {
+    const out = renderToStaticMarkup(React.createElement(PaletteLookList, { look, items }));
+    assert.doesNotMatch(out, /#5C0700<|#F7F2EC<|<small/, `${look}: the name, never the hex`);
+    assert.match(out, />Rosewood</);
+  }
+  // The watercolour edge is one filter, drawn beside the full list only.
+  const wc = renderToStaticMarkup(React.createElement(PaletteLookList, { look: 'watercolour', items }));
+  assert.equal((wc.match(/<filter id="sn-pal-wc"/g) ?? []).length, 1);
+  const wcRow = renderToStaticMarkup(React.createElement(PaletteLookList, { look: 'watercolour', items, size: 'row' }));
+  assert.doesNotMatch(wcRow, /<filter/);
+  assert.match(stripComments(paletteCss()), /filter: url\(#sn-pal-wc\)/, 'the CSS points the dots at that filter');
 });
 
 /* ── NOTHING MOVES ─────────────────────────────────────────────────────── */
@@ -115,7 +174,7 @@ test('the page\'s scroll observer is not told about palettes', () => {
 
 /* ── THE MAKER ─────────────────────────────────────────────────────────── */
 
-test('the Palette picker is ONE dropdown of the five looks, each with a thumbnail of the couple\'s colours', async () => {
+test('the Palette picker is ONE dropdown of the looks, each with a thumbnail of the couple\'s colours', async () => {
   const { PaletteLookRow } = await import('../app/dashboard/[eventId]/website/editor/_components/palette-look-row');
   const picks: string[] = [];
   const row = PaletteLookRow({ value: 'tags', colours: ['#351115', '#646B38', '#EFE3B8', '#C9A1A0'], onPick: (id) => picks.push(id) });
@@ -126,7 +185,7 @@ test('the Palette picker is ONE dropdown of the five looks, each with a thumbnai
   const menu = kids[0] as React.ReactElement<{ options: Array<{ key: string; preview?: React.ReactElement<{ look: string; colours: string[] }> }>; value: string; onPick: (k: string) => void }>;
   const { PickMenu } = await import('../app/dashboard/[eventId]/website/editor/_components/pick-menu');
   assert.equal(menu.type, PickMenu, 'the shared PickMenu');
-  assert.deepEqual(menu.props.options.map((o) => o.key), ['tags', 'fabric', 'chips', 'circles', 'ribbon']);
+  assert.deepEqual(menu.props.options.map((o) => o.key), ['tags', 'fabric', 'chips', 'circles', 'ribbon', 'arch', 'watercolour', 'strokes']);
   for (const o of menu.props.options) {
     assert.equal(o.preview?.props.look, o.key, `${o.key} has its own thumbnail`);
     assert.deepEqual(o.preview?.props.colours, ['#351115', '#646B38', '#EFE3B8'], 'drawn in THIS couple\'s first three colours');

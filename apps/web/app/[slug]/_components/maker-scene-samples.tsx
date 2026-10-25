@@ -7,7 +7,7 @@
  * grey lines where words go. The day's parts and Photo moments were first (`maker-fixed-parts.tsx`
  * `MakerDayPartStandIn`, `photo-moments-widget.tsx`); this is every other scene that is empty on a new event:
  * Special message · Schedule · Venue map · Reminders · Love Story · Photos · Countdown · Dress code (its three
- * layouts and its five palette looks) · Do's & Don'ts · E-Gifts.
+ * layouts and its palette looks) · Do's & Don'ts · E-Gifts.
  *
  * ── THE SHARED PLACE ───────────────────────────────────────────────────────────────────────────────
  * A look card is the guest page itself, asked for one scene in one style (`stage-panel/style-preview.tsx`), so
@@ -42,12 +42,33 @@ const Head = ({ w = 'w-1/2', className = '' }: { w?: string; className?: string 
 /** A hairline. */
 const Rule = ({ className = '' }: { className?: string }) => <span aria-hidden className={`block h-px w-full bg-ink/15 ${className}`} />;
 
+/**
+ * 🎞 A Love Story moment's photo slot (owner 2026-10-17, "Use the Glimpse swipe for a moment's photos"): the Photos
+ * scene's Glimpse shape at the moment's own size — one 3:4 card centred, the neighbours peeking, three dots — because
+ * a moment's photos are drawn as that same rail (`MomentGlimpse`, our-love-story-styles.tsx). `w` is the centre
+ * card's width as a full class literal (so the stylesheet has it).
+ */
+const MomentPhotosSample = ({ w, className = '' }: { w: string; className?: string }) => (
+  <span className={`block space-y-2 ${className}`}>
+    <span className="flex items-center justify-center gap-2 overflow-hidden">
+      <Box className={`aspect-[3/4] ${w} shrink-0 scale-[.92] rounded-lg opacity-70`} />
+      <Box className={`aspect-[3/4] ${w} shrink-0 rounded-lg`} />
+      <Box className={`aspect-[3/4] ${w} shrink-0 scale-[.92] rounded-lg opacity-70`} />
+    </span>
+    <span className="flex justify-center gap-1.5">
+      {[0, 1, 2].map((i) => (
+        <span key={i} aria-hidden data-sample-box="" className={`block h-1.5 w-1.5 rounded-full ${i === 0 ? 'bg-ink/40' : 'bg-ink/15'}`} />
+      ))}
+    </span>
+  </span>
+);
+
 /** Four greys, light to dark — a sample palette is never a colour a couple could take for theirs. */
 const GREYS = ['bg-ink/10', 'bg-ink/20', 'bg-ink/30', 'bg-ink/15'] as const;
 
 /**
- * 🎨 "OUR COLOURS", AS EACH PALETTE LOOK ARRANGES THEM — Tags · Fabric swatches · Paint chips · Circles · Ribbon
- * (`lib/palette-looks.ts`), in greys. The Dress code scene draws this where its colours will go while the
+ * 🎨 "OUR COLOURS", AS EACH PALETTE LOOK ARRANGES THEM — Tags · Silk swatches · Paint chips · Circles · Ribbon ·
+ * Arch tabs · Watercolour dots · Paint strokes (`lib/palette-looks.ts`), in greys. The Dress code scene draws this where its colours will go while the
  * couple has picked none.
  */
 export const PALETTE_SAMPLE: Record<PaletteLookId, () => ReactNode> = {
@@ -65,10 +86,8 @@ export const PALETTE_SAMPLE: Record<PaletteLookId, () => ReactNode> = {
     <span className="flex justify-center gap-3">
       {GREYS.map((g, i) => (
         <span key={i} className="block w-14 space-y-1.5">
-          <span aria-hidden data-sample-box="" className={`block h-14 w-14 rounded-none p-1 ${g}`}>
-            <span className="block h-full w-full border border-dashed border-ink/30" />
-          </span>
           <Line w="w-3/4" className="mx-auto" />
+          <span aria-hidden data-sample-box="" className={`block h-[4.5rem] w-14 rounded-none ${g} [clip-path:polygon(0_4%,12.5%_0,25%_4%,37.5%_0,50%_4%,62.5%_0,75%_4%,87.5%_0,100%_4%,100%_96%,87.5%_100%,75%_96%,62.5%_100%,50%_96%,37.5%_100%,25%_96%,12.5%_100%,0_96%)]`} />
         </span>
       ))}
     </span>
@@ -90,6 +109,38 @@ export const PALETTE_SAMPLE: Record<PaletteLookId, () => ReactNode> = {
         ))}
       </span>
       <Line w="w-1/2" className="mx-auto" />
+    </span>
+  ),
+  arch: () => (
+    <span className="flex justify-center">
+      {GREYS.map((g, i) => (
+        <span key={i} aria-hidden data-sample-box="" className={`flex h-[7.375rem] w-1/4 max-w-[5.5rem] items-end justify-center rounded-b-full rounded-t-none pb-4 ${g}`}>
+          <span className="block h-1.5 w-1/2 rounded-full bg-ink/25" />
+        </span>
+      ))}
+    </span>
+  ),
+  watercolour: () => (
+    <span className="flex justify-center gap-2">
+      {GREYS.map((g, i) => (
+        <span key={i} className="block w-16 space-y-2">
+          <span aria-hidden data-sample-box="" className={`mx-auto block h-[3.75rem] w-[3.75rem] rounded-full ${g}`} />
+          <Line w="w-3/4" className="mx-auto" />
+        </span>
+      ))}
+    </span>
+  ),
+  strokes: () => (
+    <span className="block py-3 pl-1">
+      {GREYS.map((g, i) => (
+        <span
+          key={i}
+          aria-hidden
+          data-sample-box=""
+          className={`block h-10 w-[14.375rem] max-w-full origin-left -rotate-[7deg] rounded-full ${i > 0 ? '-mt-3' : ''} ${g}`}
+          style={{ marginLeft: `${i * 9}px` }}
+        />
+      ))}
     </span>
   ),
   ribbon: () => (
@@ -343,6 +394,21 @@ export const SCENE_SAMPLE: Record<string, (opts: { paletteLook?: string | null }
       ))}
     </span>
   ),
+  /* 🎞 Glimpse — one 3:4 card centred, the previous and next peeking in, a row of dots under them. */
+  'gallery:glimpse': () => (
+    <span className="block space-y-3">
+      <span className="flex items-center justify-center gap-3 overflow-hidden">
+        <Box className="aspect-[3/4] w-[46%] shrink-0 scale-[.92] rounded-lg opacity-70" />
+        <Box className="aspect-[3/4] w-[46%] shrink-0 rounded-lg" />
+        <Box className="aspect-[3/4] w-[46%] shrink-0 scale-[.92] rounded-lg opacity-70" />
+      </span>
+      <span className="flex justify-center gap-1.5">
+        {[0, 1, 2, 3].map((i) => (
+          <span key={i} aria-hidden data-sample-box="" className={`block h-1.5 w-1.5 rounded-full ${i === 1 ? 'bg-ink/40' : 'bg-ink/15'}`} />
+        ))}
+      </span>
+    </span>
+  ),
   /* ── Love Story ── */
   'our_love_story:chapters': () => (
     <span className="block space-y-5 text-left">
@@ -387,6 +453,57 @@ export const SCENE_SAMPLE: Record<string, (opts: { paletteLook?: string | null }
       <Line w="w-4/5" className="mx-auto" />
     </span>
   ),
+  /* 🗣 The two-voices looks (owner 2026-10-17) — bubbles left and right · two lanes on a centre line · a card with dots. */
+  'our_love_story:conversation': () => (
+    <span className="block space-y-3">
+      <Line w="w-1/3" className="mx-auto bg-ink/25" />
+      <Head w="w-1/2" className="mx-auto" />
+      <MomentPhotosSample w="w-[72%]" />
+      <span aria-hidden data-sample-box="" className="block w-4/5 rounded-2xl rounded-bl-sm bg-ink/15 px-3 py-2.5">
+        <Line w="w-11/12" className="bg-ink/25" />
+      </span>
+      <span aria-hidden data-sample-box="" className="ml-auto block w-3/4 rounded-2xl rounded-br-sm bg-ink/10 px-3 py-2.5">
+        <Line w="w-5/6" className="ml-auto bg-ink/20" />
+      </span>
+    </span>
+  ),
+  'our_love_story:timeline': () => (
+    <span className="relative block space-y-3">
+      <span aria-hidden className="absolute bottom-0 left-1/2 top-0 block w-px -translate-x-1/2 bg-ink/15" />
+      <Line w="w-1/3" className="relative mx-auto bg-ink/25" />
+      <MomentPhotosSample w="w-[46%]" className="relative" />
+      <span className="relative grid grid-cols-2 gap-x-4">
+        <span className="block space-y-2 border-r-2 border-ink/25 pr-2">
+          <Line w="w-full" />
+          <Line w="w-3/4" className="ml-auto" />
+        </span>
+        <span className="block space-y-2 border-l-2 border-ink/15 pl-2">
+          <Line w="w-full" />
+          <Line w="w-2/3" />
+        </span>
+      </span>
+    </span>
+  ),
+  'our_love_story:cards': () => (
+    <span className="block space-y-3 text-left">
+      <span className="flex gap-2 overflow-hidden">
+        <span className="block w-5/6 shrink-0 space-y-2">
+          <MomentPhotosSample w="w-[56%]" />
+          <Line w="w-1/3" className="bg-ink/25" />
+          <Head w="w-1/2" />
+          <span className="block border-l-2 border-ink/25 pl-2">
+            <Line w="w-11/12" />
+          </span>
+        </span>
+        <Box className="aspect-[4/3] w-1/4 shrink-0" />
+      </span>
+      <span className="flex items-center justify-center gap-1.5">
+        {[0, 1, 2].map((i) => (
+          <span key={i} aria-hidden data-sample-box="" className={`block h-1.5 rounded-full ${i === 0 ? 'w-4 bg-ink/30' : 'w-1.5 bg-ink/15'}`} />
+        ))}
+      </span>
+    </span>
+  ),
   /* ── Countdown (it needs the date) ── */
   'countdown:four-tiles': () => (
     <span className="flex justify-center gap-2">
@@ -429,7 +546,8 @@ export const SCENE_SAMPLE: Record<string, (opts: { paletteLook?: string | null }
   /* ── Dress code — its three layouts; "Colours and roles" wears the palette look ── */
   'dress_code:colours-and-roles': ({ paletteLook }) => (
     <span className="block space-y-4 text-left">
-      <span data-dress-code="ours" data-sample-palette={PALETTE_SAMPLE[paletteLook as PaletteLookId] ? paletteLook : PALETTE_LOOK_DEFAULT} className="block space-y-2">
+      {/* The roles, each in its colours in the palette look picked (no "Our colours" in this scene — owner 2026-10-17). */}
+      <span data-dress-code="roles" data-sample-palette={PALETTE_SAMPLE[paletteLook as PaletteLookId] ? paletteLook : PALETTE_LOOK_DEFAULT} className="block space-y-2">
         <Line w="w-20" className="bg-ink/25" />
         {paletteSample(paletteLook)}
       </span>
@@ -469,14 +587,25 @@ export const SCENE_SAMPLE: Record<string, (opts: { paletteLook?: string | null }
       </span>
     </span>
   ),
-  /* ── E-Gifts — the four door looks are laid by `data-part-look` (globals.css); the door's own shape is one ── */
+  /* ── E-Gifts — what a guest sees on Welcome since 2026-10-14: the content itself, not a door — its one line, then
+     two ways to give (each a card: the rail's mark, its name, its number), then a short wish list. ── */
   'gifts:door': () => (
-    <span className="flex items-center justify-between gap-3">
-      <span className="block flex-1 space-y-2">
-        <Line w="w-3/4" />
-        <Line w="w-1/2" />
+    <span className="block space-y-2.5">
+      <Line w="w-2/3" />
+      {['w-1/3', 'w-2/5'].map((w) => (
+        <span key={w} className="flex items-center gap-3 rounded-2xl bg-ink/5 px-3 py-3">
+          <span aria-hidden data-sample-box="" className="block h-10 w-10 shrink-0 rounded-full bg-ink/15" />
+          <span className="block flex-1 space-y-2">
+            <Line w={w} />
+            <Line w="w-1/2" className="!h-1.5" />
+          </span>
+        </span>
+      ))}
+      <span className="flex gap-2">
+        {GREYS.slice(0, 3).map((g) => (
+          <span key={g} aria-hidden data-sample-box="" className={`block h-12 flex-1 rounded-xl ${g}`} />
+        ))}
       </span>
-      <span aria-hidden data-sample-box="" className="block h-10 w-24 shrink-0 rounded-full bg-ink/15" />
     </span>
   ),
 };

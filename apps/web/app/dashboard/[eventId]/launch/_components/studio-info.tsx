@@ -5,6 +5,7 @@ import { ChosenRow, FormRows, TypedRow } from '@/app/_components/form-row';
 import { HUB_DRAFT_BAR_FIELD, SUPERSEDED, makerLatestWrite, makerRedrawSave, requestMakerRefresh } from '@/lib/maker-refresh';
 import { OPENING_LINE_TEMPLATES } from '@/lib/opening-lines';
 import { hubDraftAction } from '../../website/hub-draft-actions';
+import { PHOTOS_EYEBROW, PHOTOS_HEADING_MAX } from '@/lib/photos-heading';
 
 /**
  * 🧾 STUDIO › INFO ON THE FORM ROW (owner 2026-10-08: *"so first, Info. redesign it based on our rules similar to
@@ -61,6 +62,33 @@ export async function studioDraftKeep(eventId: string, key: string, events: Reco
           const fd = new FormData();
           fd.set('intent', 'save');
           fd.set('patch', JSON.stringify({ events }));
+          fd.set(HUB_DRAFT_BAR_FIELD, '1');
+          return door(eventId, fd);
+        }),
+      requestMakerRefresh,
+      (r) => r !== SUPERSEDED && r.ok === true,
+    );
+  } catch {
+    return { ok: false, error: 'Please try again.' };
+  }
+  /* A later keep of the same fact took its place: that one answers for both. */
+  if (res === SUPERSEDED) return { ok: true };
+  if (!res.ok) return { ok: false, error: res.error || 'Please try again.' };
+  return { ok: true };
+}
+
+/** …the same ONE request for an answer kept on a scene's own row (`{ widgets: { <type>: … } }`) — the Photos heading. */
+export async function studioPhotosHeadingKeep(eventId: string, key: string, patch: Record<string, unknown>): Promise<{ ok: true } | { ok: false; error: string }> {
+  let res: Awaited<ReturnType<typeof hubDraftAction>> | typeof SUPERSEDED;
+  try {
+    /* `makerRedrawSave`: a HELD save (no render of the Maker is owed for it) whose change the bridge cannot draw —
+       so once the last one in flight has landed, the pages the Maker shows redraw themselves, in place, once. */
+    res = await makerRedrawSave(
+      () =>
+        makerLatestWrite(key, () => {
+          const fd = new FormData();
+          fd.set('intent', 'save');
+          fd.set('patch', JSON.stringify(patch));
           fd.set(HUB_DRAFT_BAR_FIELD, '1');
           return door(eventId, fd);
         }),
@@ -246,6 +274,41 @@ export function StudioWords({ eventId, fact, value }: { eventId: string; fact: S
           tellOtherDoors(fact, kept, w.doors);
           showOnCards(fact, kept);
           return studioDraftKeep(eventId, `events:${fact}`, { [fact]: w.value(kept) });
+        }}
+      />
+    </FormRows>
+  );
+}
+
+/* ── the Photos heading ────────────────────────────────────────────────── */
+
+/**
+ * ✍ THE PHOTOS HEADING (owner 2026-10-15, DECISION_LOG "…THE PHOTOS SCENE GETS A TYPED HEADING": *"Add a heading
+ * field"*) — the heading every Photos style draws above the couple's photos, e.g. "Glimpse of Us"; empty = the scene
+ * as it is today, its small "Our photos" line alone. Kept on the scene's own row (`config_json.photos_heading`,
+ * `lib/photos-heading.ts`) through the ONE draft door; guests see it at ✓ Apply. A tap on the Photos scene's
+ * "Open in Studio › Info" lands here (`MAKER_PART_FOCUS.gallery`).
+ */
+export function StudioPhotosHeading({ eventId, value }: { eventId: string; value: string | null }) {
+  const [text, setText] = useState(value ?? '');
+  useEffect(() => setText(value ?? ''), [value]);
+  useOtherDoor('photos_heading', setText);
+  return (
+    <FormRows data="photos-heading" attrs={STUDIO_INFO_ROWS}>
+      <TypedRow
+        data="photos-heading"
+        name="Photos heading"
+        about={{ words: `A heading over your photos, in every style — e.g. "Glimpse of Us". Leave it empty and your photos keep their small "${PHOTOS_EYEBROW}" line alone.` }}
+        value={text}
+        empty="Add a heading"
+        placeholder="e.g. Glimpse of Us"
+        maxLength={PHOTOS_HEADING_MAX}
+        pillAttrs={{ 'data-same-field': 'photos_heading' }}
+        onKeep={async (next) => {
+          const kept = next.replace(/\s+/g, ' ').trim().slice(0, PHOTOS_HEADING_MAX);
+          setText(kept);
+          tellOtherDoors('photos_heading', kept, 'typed');
+          return studioPhotosHeadingKeep(eventId, 'widgets:our_photos.photos_heading', { widgets: { our_photos: { photos_heading: kept || null } } });
         }}
       />
     </FormRows>

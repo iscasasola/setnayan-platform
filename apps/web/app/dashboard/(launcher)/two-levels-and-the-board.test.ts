@@ -556,7 +556,7 @@ test('the empty Finished shelf explains the shelf and claims no zero', () => {
   );
   assert.match(
     src,
-    /Celebrations move here on their own/,
+    /Events move here on their own/,
     'The empty finished shelf lost the line that says what it is FOR.',
   );
   // 🔑 fetchUserEvents graceful-degrades to [] on EVERY error including an RLS
@@ -842,7 +842,7 @@ test('every rail destination stays inside the event you opened', () => {
   }
 });
 
-test('the event rail is the one tree — five rows (Stage D)', () => {
+test('the event rail is the one tree — five rows (Stage D; More left 22 Oct 2026; Memories joined 23 Oct)', () => {
   /*
     🔄 2026-09-29 — Stage D (owner: *"so basically. this is what an event
     needs. Guestlist · Your Team · Event Hub Maker · Our Services"*). The
@@ -858,7 +858,9 @@ test('the event rail is the one tree — five rows (Stage D)', () => {
   );
   assert.deepEqual(groups.map((g) => g.key), ['event', 'pillars']);
   assert.deepEqual(keysByGroup.event, ['personalization']);
-  assert.deepEqual(keysByGroup.pillars, ['home', 'guests', 'explore', 'launch', 'studio']);
+  // More Services left the rail with the bar's More (owner 22 Oct 2026, "Yes remove more"); Memories joined after
+  // Hub (owner 23 Oct 2026, prototypes/event_bar_memories_tab_2026-10-23.html).
+  assert.deepEqual(keysByGroup.pillars, ['home', 'guests', 'explore', 'launch', 'memories']);
   /*
     🚨 PERSONALIZATION AND HOSTS WERE ADDED 2026-08-18 BECAUSE THEY HAD NO DOOR.
     🔑 A LINK IN A COMPONENT NOBODY MOUNTS IS NOT A LINK. Personalization —
@@ -1001,7 +1003,7 @@ test('a folded event type is always one tap from being shown', () => {
   const src = read(PICKER);
   assert.match(
     src,
-    /show all event types/,
+    /[Ss]how all event types/,
     'The "show all event types" doorway is gone from the create grid. Hiding debut ' +
       'and christening then becomes a WALL — and a self-planning debutante or an ' +
       'aunt planning her niece\'s day has no record for us to match.',

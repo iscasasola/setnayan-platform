@@ -24,7 +24,7 @@ import { revealStageChosen } from './reveal-stages';
 import { PUBLIC_WIDGET_ALLOWLIST } from './public-widget-allowlist';
 import { inStageOrder, storedStdLead, stdShows } from './stage-scenes';
 import { anonymousPublicCapability } from './public-capability';
-import { stageListRows } from './what-guests-see';
+import { OFF_THE_PAGE, stageListRows } from './what-guests-see';
 import {
   visibleHideableWidgets,
   widgetByType,
@@ -45,6 +45,7 @@ import {
  * always seen the public landing); what distinguishes a host is the
  * orchestrator-side `?phase=` preview permission, not a body variant.
  */
+
 export type SiteIdentityKind = 'anonymous' | 'guest';
 
 /** Which of the three bodies renders. Editorial wins over Save-the-Date by
@@ -484,6 +485,17 @@ export function resolveSiteBodyPlan(input: {
     hideableInOrder = stageOf(hideableInOrder, 'guest');
     publicSafeWidgets = stageOf(publicSafeWidgets, 'anonymous');
   }
+
+  /* 🪪 NO "EVENT DETAILS" CARD ON ANY PAGE (owner 2026-10-24, on cale-ice › Details as a guest: "why do we have
+     this details. it doesn't look as beautiful as the rest of the event hub. and isn't this a dupe?"). The card
+     repeated what already has ONE home each: the guest's role and side are Me's (the greeting at its top), the
+     date and the venues are the Venues scene's and Me's greeting. It is dropped here, from the one list every
+     reader's page is drawn from — guest, a host seeing as a guest, the Maker's canvas, every look the couple
+     picked for it — so no stage and no style can bring it back. With stages on, the stage list already refused it
+     (`OFF_THE_PAGE`, `lib/what-guests-see.ts`); this holds the page with no stages too. Held by
+     `the-details-tab-repeats-nothing.test.ts`. */
+  hideableInOrder = hideableInOrder.filter((w) => !OFF_THE_PAGE.has(w.widget_type));
+  publicSafeWidgets = publicSafeWidgets.filter((w) => !OFF_THE_PAGE.has(w.widget_type));
 
   return {
     body,

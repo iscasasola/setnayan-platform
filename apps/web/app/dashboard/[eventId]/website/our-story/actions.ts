@@ -28,7 +28,7 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
-import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
+import { eventHubPartActive } from '@/lib/couple-website-pro';
 import { revalidateGuestSite } from '@/lib/revalidate-site';
 import { requireHostMembership } from '@/lib/host-gate';
 import { draftEventsAndReturn, draftedEventColumn, isHubDraftWrite } from '@/lib/hub-draft-store';
@@ -142,7 +142,11 @@ type MomentIntent = (typeof MOMENT_INTENTS)[number];
 
 /* add · edit · delete · arrange are applied by `applyMomentIntent`
    (`lib/love-story-moment-intent.ts`) — the SAME function the Maker's instant
-   scrapbook applies at the tap, so the two can never disagree. */
+   scrapbook applies at the tap, so the two can never disagree.
+   🗣 TWO VOICES (owner 2026-10-17): the form's `voice_a` / `voice_b` are read
+   there too (`momentFromForm`) — a moment needs a year and at least one of the
+   line, voice a or voice b; a form without the line keeps the moment's own, so
+   writing a voice never blanks the line told together. */
 
 export async function loveStoryMomentAction(eventId: string, formData: FormData): Promise<void> {
   const user = await getCurrentUser();
@@ -221,7 +225,8 @@ export async function loveStoryMomentAction(eventId: string, formData: FormData)
      names it. The hundred-moment ceiling still refuses either way; a live
      write is capped exactly as before. */
   const ownsPro =
-    drafting || (await eventCoupleWebsiteProActive(await eventEntitlementClient(eventId), eventId));
+    // 💎 Love Story photos and more than five moments are the Photos part's (owner 2026-10-22, gate 25).
+    drafting || (await eventHubPartActive(await eventEntitlementClient(eventId), eventId, 'photos'));
   const refusal = momentCapRefusal({ before, after, ownsPro });
   if (refusal === 'max') return fail('Your story holds 100 moments — the most one Event Hub can show.');
   if (refusal) redirect(`${back}?pro=${refusal === 'photos_pro' ? 'photos' : 'stories'}`);

@@ -224,14 +224,16 @@ test('3 · the sheet names a part by the Maker’s own word for it — one name 
   const linesOf = (...patches: unknown[]) => read(patches.reduce<HubDraft>((d, p) => save(d, p), emptyHubDraft())).lines;
   const place = (line: string) => line.slice(0, line.lastIndexOf(' · '));
 
-  // The Title: its words, its motion and its Style are all "Title".
+  // The Top line: its words, its motion and its Style are all "Top line".
   const title = linesOf(
     { widgets: { hero: { canvas: { elements: { eyebrow: { word: 'With joy in our hearts', inFx: { fade: true } } } } } } },
     { fixedStyles: { hero_eyebrow: 'serif' } },
   );
-  assert.deepEqual(title.map(place), [MAKER_PARTS.ename.label, MAKER_PARTS.ename.label], `the Title is named ${title.join(' | ')}`);
-  assert.equal(MAKER_PARTS.ename.label, 'Title');
-  assert.ok(!title.some((l) => /Names & date|The title/.test(l)), `an old name is back: ${title.join(' | ')}`);
+  assert.deepEqual(title.map(place), [MAKER_PARTS.ename.label, MAKER_PARTS.ename.label], `the Top line is named ${title.join(' | ')}`);
+  /* 🏷 owner 2026-10-16: the couple's names are the "Event title"; the small line above them is the "Top line". */
+  assert.equal(MAKER_PARTS.ename.label, 'Top line');
+  assert.equal(MAKER_PARTS.names.label, 'Event title');
+  assert.ok(!title.some((l) => /Names & date|The title|^Title\b/.test(l)), `an old name is back: ${title.join(' | ')}`);
   // The Message: "Message", never the catalogue's "Special message".
   assert.deepEqual(linesOf({ widgets: { special_message: { canvas: { kind: 'color', color: '#A9834B' } } } }).map(place), [MAKER_PARTS.message.label]);
   assert.deepEqual(linesOf({ widgets: { special_message: { stage_show: { rsvp: false } } } }).map(place), [MAKER_PARTS.message.label]);
@@ -262,7 +264,7 @@ test('3 · the sheet names a part by the Maker’s own word for it — one name 
     coverParts += 1;
   }
   assert.ok(coverParts >= 4, `anti-vacuity: only ${coverParts} parts of the cover were read`);
-  assert.deepEqual(linesOf({ widgets: { hero: { canvas: { elements: { eyebrow: { color: '#a9834b' }, names: { color: '#a9834b' } } } } } }).map(place), ['Title, Names']);
+  assert.deepEqual(linesOf({ widgets: { hero: { canvas: { elements: { eyebrow: { color: '#a9834b' }, names: { color: '#a9834b' } } } } } }).map(place), ['Top line, Event title']);
   assert.deepEqual(linesOf({ widgets: { hero: { canvas: { kind: 'color', color: '#A9834B' } } } }).map(place), ['Names & date'], 'a change to the cover as a whole was given one part’s name');
 
   // EVERY part's Style: the part's word (the names the sheet used are listed below for the owner where they differ).

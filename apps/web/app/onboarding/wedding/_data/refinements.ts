@@ -93,7 +93,7 @@ export const REFINEMENTS_DATA: RefineLeaf[] = [
   // ── PROJECTABLE ──
   // Reception is rendered EARLY (its own screen feeding `find`), not in the refine
   // queue — stored straight to prefs.reception by the screen, never projected here.
-  { key: 'reception', label: 'Reception venue', description: 'Where your celebration happens — the dinner, the program, and the dancing.', mainPhoto: PREFS('setting_ballroom'), options: RECEPTION },
+  { key: 'reception', label: 'Reception venue', description: 'Where your event happens — the dinner, the program, and the dancing.', mainPhoto: PREFS('setting_ballroom'), options: RECEPTION },
   { key: 'ceremony', label: 'Ceremony venue', description: 'Where you’ll say your vows.', mainPhoto: MAIN('ceremony'), dynamic: 'ceremony', options: [] },
   { key: 'catering', label: 'Catering', description: 'The feast your guests will remember.', mainPhoto: MAIN('catering'), options: CUISINE },
   { key: 'photo_video', label: 'Photo & Video', description: 'How your day is captured to keep.', mainPhoto: MAIN('photo_video'), options: PV },
@@ -103,7 +103,7 @@ export const REFINEMENTS_DATA: RefineLeaf[] = [
   { key: 'cake', label: 'Cake', description: 'The centerpiece sweet of your reception.', mainPhoto: MAIN('cake'), options: opts('cake', [['🎂', 'Classic tiered'], ['🌿', 'Naked / semi-naked'], ['🌸', 'Floral'], ['◻️', 'Modern minimalist'], ['✨', 'Themed']]) },
   { key: 'florist', label: 'Florist', description: 'The blooms that set your mood.', mainPhoto: MAIN('florist'), options: opts('florist', [['🌿', 'Lush & garden'], ['◻️', 'Minimalist'], ['🌴', 'Tropical'], ['🌾', 'Dried / pampas'], ['🤍', 'All-white']]) },
   { key: 'hmua', label: 'Hair & Makeup', description: 'How you’ll look and feel up close.', mainPhoto: MAIN('hmua'), options: opts('hmua', [['🌸', 'Soft glam'], ['🤍', 'Natural / no-makeup'], ['📰', 'Bold & editorial'], ['🏛️', 'Traditional'], ['💨', 'Airbrush']]) },
-  { key: 'live_band', label: 'Live Band', description: 'The live sound of your celebration.', mainPhoto: MAIN('live_band'), options: opts('live_band', [['🎸', 'Acoustic'], ['🎷', 'Jazz / lounge'], ['🎤', 'Pop / Top 40'], ['🇵🇭', 'OPM'], ['🎻', 'Classical']]) },
+  { key: 'live_band', label: 'Live Band', description: 'The live sound of your event.', mainPhoto: MAIN('live_band'), options: opts('live_band', [['🎸', 'Acoustic'], ['🎷', 'Jazz / lounge'], ['🎤', 'Pop / Top 40'], ['🇵🇭', 'OPM'], ['🎻', 'Classical']]) },
   { key: 'bride_attire', label: "Bride's Attire", description: 'The gown you’ll walk in.', mainPhoto: MAIN('bride_attire'), options: opts('bride_attire', [['👰', 'Ball gown'], ['✨', 'A-line'], ['🌊', 'Mermaid'], ['🤍', 'Sheath'], ['🌺', 'Filipiniana']]) },
   { key: 'stylist', label: 'Stylist / Decorator', description: 'The look of your whole reception.', mainPhoto: MAIN('stylist'), options: opts('stylist', [['◻️', 'Modern minimalist'], ['🏛️', 'Traditional classic'], ['🪵', 'Rustic / industrial'], ['🌾', 'Bohemian'], ['💎', 'Luxe glamour'], ['🌿', 'Garden / organic'], ['🎭', 'Themed']]) },
   { key: 'stations', label: 'Food Stations', description: 'Live stations guests gather around.', mainPhoto: MAIN('stations'), options: opts('stations', [['🥘', 'Paella'], ['🍣', 'Sushi'], ['🍜', 'Ramen'], ['🔥', 'Grill / BBQ'], ['🍝', 'Pasta'], ['🍖', 'Carving'], ['🌮', 'Taco bar']]) },

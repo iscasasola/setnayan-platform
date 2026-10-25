@@ -7,6 +7,7 @@ import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import { manilaToday } from '@/lib/std-views';
 import { dependentPeopleEnabled } from '@/lib/dependent-people-flag';
+import { removalWriteResult } from '@/lib/people-remove';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import { sendEmail } from '@/lib/email';
 import { renderBrandedEmail } from '@/lib/email-template';
@@ -118,7 +119,17 @@ export async function deleteDependent(formData: FormData): Promise<void> {
   if (!user) redirect('/login');
 
   // RLS restricts the delete to the owner's own rows; the eq is defense-in-depth.
-  await supabase.from('dependents').delete().eq('dependent_id', dependentId).eq('owner_user_id', user.id);
+  // 🔒 COUNTED (owner 2026-10-23, "why can't i delete anyone"): a refused or
+  // zero-row delete used to land on `removed=1` all the same. A loved one shared
+  // by a spouse, or one already gone, changes nothing — and now says so.
+  const { data, error } = await supabase
+    .from('dependents')
+    .delete()
+    .eq('dependent_id', dependentId)
+    .eq('owner_user_id', user.id)
+    .select('dependent_id');
+  const removed = removalWriteResult(data, error);
+  if (!removed.ok) redirect(`/dashboard/people?view=alaga&error=${encodeURIComponent(removed.error)}`);
   revalidatePath('/dashboard/people');
   redirect('/dashboard/people?view=alaga&removed=1');
 }
@@ -221,7 +232,14 @@ export async function deleteGodparent(formData: FormData): Promise<void> {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  await supabase.from('godparents').delete().eq('godparent_id', godparentId).eq('owner_user_id', user.id);
+  const { data, error } = await supabase
+    .from('godparents')
+    .delete()
+    .eq('godparent_id', godparentId)
+    .eq('owner_user_id', user.id)
+    .select('godparent_id');
+  const removed = removalWriteResult(data, error);
+  if (!removed.ok) redirect(`/dashboard/people?view=alaga&error=${encodeURIComponent(removed.error)}`);
   revalidatePath('/dashboard/people');
   redirect('/dashboard/people?view=alaga&removed=1');
 }
@@ -354,7 +372,7 @@ export async function emailHandoverLink(formData: FormData): Promise<void> {
         ]
       : [
           `A guardian on Setnayan wants to hand ${row.name}'s profile over to you.`,
-          `Accepting moves it into your account — their dates and celebrations become yours to keep.`,
+          `Accepting moves it into your account — their dates and events become yours to keep.`,
         ],
     ctaLabel: isClaim ? 'Claim my profile' : `Take over ${row.name}'s care`,
     ctaHref: claimUrl,

@@ -89,7 +89,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       <div
         role="status"
         aria-live="polite"
-        className="pointer-events-none fixed inset-x-0 bottom-4 z-[100] flex flex-col items-center gap-2 px-4"
+        className="pointer-events-none fixed inset-x-0 bottom-4 z-[100] flex flex-col items-center gap-2 pl-[max(1rem,var(--sn-safe-l))] pr-[max(1rem,var(--sn-safe-r))]"
       >
         {toasts.map(({ id, variant, message }) => {
           const { Icon, color } = VARIANT[variant];

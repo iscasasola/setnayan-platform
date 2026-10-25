@@ -12,31 +12,17 @@ import { logoDraftFields, LOGO_NOT_SAVED } from '@/lib/studio-logo-saves';
 import { useMaker } from './maker-context';
 import { LOGO_PANEL_PHONE } from '@/lib/logo-maker-layout';
 import { makerSave } from '@/lib/maker-refresh';
+import { STAGE_PANEL_VARS } from '@/lib/maker-stage-room';
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
-import {
-  ChevronDown,
-  ChevronUp,
-  CircleDashed,
-  ImagePlus,
-  Layers,
-  PenLine,
-  Play,
-  RotateCcw,
-  Crosshair,
-  Palette,
-  SlidersHorizontal,
-  Trash2,
-  Type,
-  X,
-} from 'lucide-react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { Copy, Crosshair, Eye, EyeOff, Lock, LockOpen, Palette, PenLine, Play, RotateCcw, Scissors, Square, Trash2, X } from 'lucide-react';
 import { createLogoSaveGate } from '@/lib/maker-logo-save-gate';
 import { announceMakerSave } from '@/lib/maker-save-status';
 import type { MakerLogoOpening } from '@/lib/maker-logo-opening';
 import type { HubFontKey } from '@/lib/hub-fonts';
 import { FontPick } from '../../website/editor/_components/font-pick';
 import type { PickOption } from '../../website/editor/_components/pick-menu';
-import { logoFontOutlineUrl, outlineWords, pinLogoFaceWeight, type OtFace } from '@/lib/logo-fonts';
+import { letterRun, logoFontOutlineUrl, outlineWords, pinLogoFaceWeight, type OtFace } from '@/lib/logo-fonts';
 import { fileToMarkSvg } from '@/lib/monogram-studio/upload';
 import { paidMarkLabel, type PaidMarkState } from '@/lib/paid-mark';
 import {
@@ -50,12 +36,13 @@ import {
   LOGO_FRAME,
   LOGO_FRAME_KINDS,
   LOGO_IN,
-  LOGO_LAYER_KIND_LABEL,
   LOGO_MAX_LAYERS,
   LOGO_OUT,
   LOGO_ROTATE_MAX,
   LOGO_SCALE_MAX,
   LOGO_SCALE_MIN,
+  LOGO_SPACING_MAX,
+  LOGO_SPACING_MIN,
   LOGO_WRITE_MAX_PTS,
   defaultMotion,
   evenlyThinned,
@@ -66,11 +53,15 @@ import {
 import {
   LOGO_DURING_LABEL,
   LOGO_FRAME_LABEL,
+  LOGO_LAYER_KIND_LABEL,
   LOGO_IN_LABEL,
+  LOGO_LOOKS,
+  LOGO_LOOK_LABEL,
   LOGO_OUT_LABEL,
   clampToFrame,
   composeLogoSvg,
   defaultWriteWidth,
+  duplicateLayer,
   effectiveIn,
   frameBody,
   frameToLayer,
@@ -81,42 +72,56 @@ import {
   layerToFrame,
   layersFromSaved,
   metaOf,
-  moveLayer,
+  moveLayerTo,
   newLayerId,
   retimeLayers,
   reversedWrite,
   snapInFrame,
   snapSliderToCentre,
+  splitIntoLetters,
   tintParts,
   LOGO_PART_TINTS,
   svgAsLayerBody,
   writePathD,
   writePartPassages,
+  type LogoGlyphCut,
+  type LogoLook,
 } from '@/lib/logo-layers-edit';
+import { LOGO_ORNAMENT_KINDS, LOGO_ORNAMENT_LABEL, ornamentBody, ornamentOf, swapOrnament, type LogoOrnamentKind } from '@/lib/logo-ornaments';
 import { logoParts, partCovers } from '@/lib/logo-parts-dom';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { LayeredLogoPlayer } from '@/app/_components/layered-logo-player';
 import { useLogoActions } from './logo-actions-context';
+import { LogoAddLayer, LogoLayerCards, cardName, type LayerCardAction, type LogoAddKind } from './logo-layer-cards';
+import { StyleCards } from './stage-panel/style-carousel';
 
 /**
  * 🅻 THE LOGO PAGE — A FULL-SCREEN LAYERED EDITOR, LIKE THE MAKER ITSELF (owner
- * 2026-09-27, DECISION_LOG "THE LOGO MAKER IS A FULL-SCREEN LAYERED EDITOR").
- * Owner, verbatim: *"remove these maximize the whole screen make the toolbar run
- * like the editor toolbar. on the left navigator is where they can add a letter,
- * word, text or image"* · *"on left they can add a text or upload an image, or
- * frame"* · *"i want to be able to upload my 2 layer image so each letter gets
- * its own animation. to make our exact logo"*.
+ * 2026-09-27, DECISION_LOG "THE LOGO MAKER IS A FULL-SCREEN LAYERED EDITOR"),
+ * REPLOTTED AS STAGES ARE (owner 2026-10-08, `LOGO_MAKER_REPLOT_2026-10-08_fable.md`,
+ * approved *"approve add ornament"*): *"Workspace. Layers and tools. that is it.
+ * Tools allow character (if text) and animation … the layers above it replace the
+ * eventbar and add a carousel for adding layers"*.
  *
  *   · NO HEADER — the page is the body under the Maker's own toolbar; the draft
  *     status ("Saving…", "Saved to your draft", or the error in words) is in the
  *     toolbar's Apply area (`lib/maker-save-status.ts`).
- *   · LEFT: the layers, top of the stack first, and "+ Add": Text · Image ·
- *     Frame. Select, move up/down (the stack IS the drawing order), remove.
- *   · CENTRE: the logo's square frame. Drag a layer to move it — RAILS ON: it
- *     stays inside the frame and snaps to the centre and the edges.
- *   · RIGHT: the selected layer's own tools — its words and face, its image
- *     options, its frame, its colour, size and place, and its motion.
- *   · PHONE: the layers and the tools are sheets from the bottom, like the Maker.
+ *   · WORKSPACE: the logo's square frame. The picked layer wears a dashed frame
+ *     and nothing else (owner 08 Oct: the four chips are "not needed anymore";
+ *     the Play on the logo went too — "there is a play button under"). ONE
+ *     finger drags it (RAILS ON: it stays inside the frame and snaps to the
+ *     centre and the edges); TWO fingers pinch it bigger or smaller and twist
+ *     it round (owner 08 Oct: *"when we pinch and twist, the sliders auto adjust
+ *     with it too"*) — the same values the sliders hold, so each moves the other.
+ *   · LAYERS CAROUSEL (L2, `logo-layer-cards.tsx`): one card per layer, top of
+ *     the stack first, where the event bar was; hold and drag to reorder; the
+ *     picked card's ⋯ = Hide · Lock · Duplicate · Delete; the last card adds.
+ *     A desk draws the same cards as the left column.
+ *   · TOOLS (L3): `[Character | Style | Animate] · ▶ · ⓘ` over the open tool.
+ *     Character (a text layer only): Words · Font · Size · Spacing · Colour ·
+ *     Split into letters. Style: Looks · the kind's own control · Colour ·
+ *     Size · Across · Up / down · Rotate · Hide · Lock · Duplicate · Delete.
+ *     Animate: Build in · Action · Build out over the shipped motion.
  *
  * ✍ "SHOW HOW IT'S WRITTEN" (owner 2026-09-27, of his C: *"it loops to the left
  * goes up makes the c and ends with a curl"*): on an image or text layer the
@@ -132,11 +137,17 @@ import { useLogoActions } from './logo-actions-context';
  * land exactly on top of each other with no positioning.
  *
  * 🛑 NEVER SAVES ON OPEN (#6023): the save gate takes the logo as it stood at the
- * couple's first own touch and saves only a logo that differs from it.
+ * couple's first own touch and saves only a logo that differs from it. A drag or
+ * a pinch is ONE change: nothing is sent while a finger is down, so ↺ Undo takes
+ * the whole gesture back in one step.
  */
 type SaveState = { kind: 'idle' } | { kind: 'saving' } | { kind: 'saved' } | { kind: 'error'; text: string };
+type LogoTool = 'character' | 'style' | 'animate';
+type LogoPhase = 'in' | 'action' | 'out';
 
 const PAUSE_MS = 1500;
+/** A twist within this many degrees of upright lands upright (the sliders' centre snap, for the fingers). */
+const TWIST_SNAP_DEG = 4;
 
 /* ── text → shapes (the stages' own faces, as outlines — lib/logo-fonts.ts) ── */
 
@@ -163,16 +174,39 @@ function loadFace(url: string): Promise<Face> {
   }
   return p;
 }
-async function textShapes(text: string, key: HubFontKey, italic: boolean): Promise<{ body: string; w: number; h: number } | null> {
+async function textShapes(text: string, key: HubFontKey, italic: boolean, spacing = 0): Promise<{ body: string; w: number; h: number } | null> {
   const words = text.trim();
   if (!words) return null;
   const face = await loadFace(logoFontOutlineUrl(key, italic));
   pinLogoFaceWeight(face, key);
   const S = 200;
-  const bb = outlineWords(face, words, 0, 0, S).getBoundingBox();
+  const bb = outlineWords(face, words, 0, 0, S, spacing).getBoundingBox();
   if (!(bb.x2 > bb.x1) || !(bb.y2 > bb.y1)) return null;
-  const d = outlineWords(face, words, -bb.x1, -bb.y1, S).toPathData(2);
+  const d = outlineWords(face, words, -bb.x1, -bb.y1, S, spacing).toPathData(2);
   return { body: `<path d="${d}"/>`, w: bb.x2 - bb.x1, h: bb.y2 - bb.y1 };
+}
+
+/**
+ * ✂ The word cut into its letters, as the face sets it (L4): each letter's own outline in its own box, and where that
+ * box's middle sits in the WORD's box — the same box `textShapes` draws the word in.
+ */
+async function letterCuts(l: LogoLayer): Promise<{ word: { w: number; h: number }; cuts: LogoGlyphCut[] } | null> {
+  const words = (l.text ?? '').trim();
+  const key = l.font ?? 'cardo';
+  const face = await loadFace(logoFontOutlineUrl(key, l.italic === true));
+  pinLogoFaceWeight(face, key);
+  const S = 200;
+  const bb = outlineWords(face, words, 0, 0, S, l.spacing ?? 0).getBoundingBox();
+  if (!(bb.x2 > bb.x1) || !(bb.y2 > bb.y1)) return null;
+  const cuts: LogoGlyphCut[] = [];
+  for (const g of letterRun(face, words, 0, 0, S, l.spacing ?? 0)) {
+    const b = g.path.getBoundingBox();
+    if (!g.ch.trim() || !(b.x2 > b.x1) || !(b.y2 > b.y1)) continue;
+    const own = await textShapes(g.ch, key, l.italic === true);
+    if (!own) continue;
+    cuts.push({ ch: g.ch, ...own, cx: (b.x1 + b.x2) / 2 - bb.x1, cy: (b.y1 + b.y2) / 2 - bb.y1 });
+  }
+  return { word: { w: bb.x2 - bb.x1, h: bb.y2 - bb.y1 }, cuts };
 }
 
 /* ── the opening, as layers ─────────────────────────────────────────────── */
@@ -228,6 +262,18 @@ function openingPick(layers: readonly LogoLayer[]): string | null {
   return layers[layers.length - 1]?.id ?? null;
 }
 
+/** The tool a layer opens on: its words for a text layer (Character), its look for every other (Style). */
+function toolFor(layer: Pick<LogoLayer, 'kind'> | null | undefined): LogoTool {
+  return layer?.kind === 'text' ? 'character' : 'style';
+}
+
+/** ⓘ One plain card per tool (the prototype's words). */
+const TOOL_HELP: Record<LogoTool, string> = {
+  character: 'Words, font, size and spacing of this text. Split it to animate each letter on its own.',
+  style: 'How the layer looks and where it sits. Hide keeps it in the list but off the logo; Lock stops accidental moves.',
+  animate: 'Build in = how it arrives · Action = what it does while shown · Build out = how it leaves. ▶ plays the picked layer.',
+};
+
 export function MakerLogoDoor({
   eventId,
   opening,
@@ -243,23 +289,27 @@ export function MakerLogoDoor({
 }) {
   const router = useRouter();
   const { hubDraftAction } = useLogoActions();
-  /* 🧭 THE NEW MAKER'S THREE ADDITIONS ONLY (owner 2026-10-06, DECISION_LOG "THE LOGO MAKER IS THE
-     SHIPPED LAYERED EDITOR"): Colour offers the five main colours · Rotate in Size and place · Out in
-     Motion. Everything else is the shipped editor as it is — and with the new Maker off, all of it is. */
+  /* 🧭 THE NEW MAKER'S ADDITIONS (owner 2026-10-06, DECISION_LOG "THE LOGO MAKER IS THE SHIPPED LAYERED EDITOR"):
+     Colour offers the five main colours · Rotate (slider and twist) · Build out. With the new Maker off, the shipped
+     editor's set. */
   const studioAdds = useMaker()?.stagesStudio === true ? { five: mainColours ?? [] } : null;
   const [layers, setLayers] = useState<LogoLayer[]>(() => openingLayers(opening));
   /* ✏ DIRECT EDIT (owner 2026-10-08, LOGO_MAKER_REPLOT L1): the editor opens with the TOP layer
      already picked — never "Pick a layer", never a disabled Edit. */
   const [selectedId, setSelectedId] = useState<string | null>(() => openingPick(layers));
-  /* 🧰 UNFOLDED (L1): the two panels are this page's own, under the logo, ONE always open — they are
-     never a Maker tool (`useMakerTool`) and never tiles in the lower third's navigator (`ltNav`),
-     which folds away whenever a tool is open: that fold was the one-layer trap. */
-  const [sheet, setSheet] = useState<'layers' | 'tools'>('tools');
+  /* 🧰 UNFOLDED (L1): the panel is this page's own, under the carousel — never a Maker tool (`useMakerTool`) and
+     never tiles in the lower third's navigator (`ltNav`), which folds away whenever a tool is open: that fold was the
+     one-layer trap. It shows the picked layer's tools, or the Add list (L2). */
+  const [sheet, setSheet] = useState<'tools' | 'add'>('tools');
+  const [tool, setTool] = useState<LogoTool>(() => toolFor(layers[layers.length - 1]));
+  const [phase, setPhase] = useState<LogoPhase>('in');
   const [playKey, setPlayKey] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const [save, setSave] = useState<SaveState>({ kind: 'idle' });
+  /* 🧾 The layer the card's ⋯ asked to delete — asked once in the centred box. */
+  const [askDelete, setAskDelete] = useState<string | null>(null);
   /* ✍ The layer being traced, and the stroke so far (frame units). */
   const [writing, setWriting] = useState<string | null>(null);
   const [stroke, setStroke] = useState<Array<{ x: number; y: number }>>([]);
@@ -269,6 +319,15 @@ export function MakerLogoDoor({
 
   const selected = layers.find((l) => l.id === selectedId) ?? null;
   const composed = useMemo(() => composeLogoSvg(layers.filter((l) => l.body)), [layers]);
+  /* ▶ THE PICKED LAYER PLAYS (the prototype's `play()`): its Build in (after its own Starts after) → Action → Build out,
+     every other layer held still where it is. */
+  const playSvg = useMemo(
+    () =>
+      playing
+        ? composeLogoSvg(layers.filter((l) => l.body).map((l) => (l.id === selectedId ? l : { ...l, motion: { in: 'none', during: 'still', delay: 0 } })))
+        : null,
+    [playing, layers, selectedId],
+  );
   /* Text layers wait for their face; until every layer has its shapes the logo
      is not "as it stands", so no touch can take a baseline from it. */
   const ready = layers.every((l) => Boolean(l.body));
@@ -284,6 +343,8 @@ export function MakerLogoDoor({
   const inFlight = useRef(false);
   const timer = useRef<number | null>(null);
   const hostRef = useRef<HTMLElement>(null);
+  /* ✋ A finger (or the mouse) is down on the logo — a drag, a pinch, a twist. Nothing is sent until it lifts. */
+  const holding = useRef(false);
 
   const flush = useCallback(
     async (opts: { refresh?: boolean } = {}) => {
@@ -304,6 +365,7 @@ export function MakerLogoDoor({
            the toolbar's count reads the draft. The action used to re-render the
            whole Maker in its own response on EVERY autosave (`revalidatePath`),
            whether `refresh` was asked for or not; this is that render, once. */
+        // one-render: keep (batched) — a Maker draft save goes through `lib/maker-refresh.ts`, which refreshes ONCE after the last save in flight; draft intents revalidate nothing.
         const r = await makerSave(() => hubDraftAction(eventId, fd), () => router.refresh());
         if (r.ok) {
           gate.current.saved(svg);
@@ -343,12 +405,21 @@ export function MakerLogoDoor({
     };
   }, []);
 
-  /* A real change saves after a short pause. */
-  useEffect(() => {
-    if (!composed || !ready || !gate.current.shouldSave(composed)) return;
+  /* A real change saves after a short pause — never while a finger is still on the logo. */
+  const later = useCallback(() => {
     if (timer.current) window.clearTimeout(timer.current);
-    timer.current = window.setTimeout(() => void flush(), PAUSE_MS);
-  }, [composed, ready, flush]);
+    const tick = () => {
+      // A finger went down on the logo since: wait for it to lift — the gesture is sent whole.
+      if (holding.current) timer.current = window.setTimeout(tick, PAUSE_MS);
+      else void flush();
+    };
+    timer.current = window.setTimeout(tick, PAUSE_MS);
+  }, [flush]);
+  useEffect(() => {
+    if (holding.current) return;
+    if (!composed || !ready || !gate.current.shouldSave(composed)) return;
+    later();
+  }, [composed, ready, later]);
 
   /* Leaving — the tab hidden, the page closed, another bar item picked —
      saves first. */
@@ -366,22 +437,22 @@ export function MakerLogoDoor({
     };
   }, [flush]);
 
-  /* ── text layers: shapes from their words + face ── */
+  /* ── text layers: shapes from their words + face (+ spacing) ── */
   const textKey = layers
     .filter((l) => l.kind === 'text')
-    .map((l) => `${l.id}:${l.font}:${l.italic ? 'i' : ''}:${l.text}`)
+    .map((l) => `${l.id}:${l.font}:${l.italic ? 'i' : ''}:${l.spacing ?? 0}:${l.text}`)
     .join('|');
   useEffect(() => {
     let alive = true;
     for (const l of layersRef.current) {
       if (l.kind !== 'text') continue;
-      const want = `${l.font}:${l.italic ? 'i' : ''}:${l.text}`;
-      void textShapes(l.text ?? '', l.font ?? 'cardo', l.italic === true)
+      const want = `${l.font}:${l.italic ? 'i' : ''}:${l.spacing ?? 0}:${l.text}`;
+      void textShapes(l.text ?? '', l.font ?? 'cardo', l.italic === true, l.spacing ?? 0)
         .then((shape) => {
           if (!alive) return;
           setLayers((cur) =>
             cur.map((c) =>
-              c.id === l.id && `${c.font}:${c.italic ? 'i' : ''}:${c.text}` === want
+              c.id === l.id && `${c.font}:${c.italic ? 'i' : ''}:${c.spacing ?? 0}:${c.text}` === want
                 ? shape
                   ? { ...c, ...shape }
                   : { ...c, body: '<path d=""/>', w: 1, h: 1 }
@@ -410,10 +481,19 @@ export function MakerLogoDoor({
       }),
     );
 
+  /** Pick a layer: its tools open (Character only for a text layer — never a tool the layer does not have). */
+  const pick = (id: string) => {
+    setSelectedId(id);
+    setSheet('tools');
+    const l = layersRef.current.find((x) => x.id === id);
+    if (tool === 'character' && l?.kind !== 'text') setTool('style');
+  };
+
   const addLayer = (layer: LogoLayer) => {
     setLayers((cur) => (cur.length >= LOGO_MAX_LAYERS ? cur : retimeLayers([...cur, layer])));
     setSelectedId(layer.id);
     setSheet('tools');
+    setTool(toolFor(layer));
   };
 
   const addText = () => {
@@ -455,6 +535,25 @@ export function MakerLogoDoor({
     });
   };
 
+  /* ❦ L5 (owner 2026-10-08 "approve add ornament"): the prototype's new ornament — the flourish, in the frame's gold,
+     small and above the centre, Drawing on after the layer below it. Its colour, size, place, turn and motion are any
+     layer's; which ornament it is lives in its shapes (`ornamentOf`). */
+  const addOrnament = () => {
+    const i = layers.length;
+    addLayer({
+      id: newLayerId(),
+      kind: 'ornament',
+      name: LOGO_ORNAMENT_LABEL.flourish,
+      x: LOGO_FRAME / 2,
+      y: LOGO_FRAME * 0.2,
+      scale: 0.4,
+      color: '#C5A059',
+      motion: defaultMotion(i),
+      autoDelay: true,
+      ...ornamentBody('flourish'),
+    });
+  };
+
   const fileRef = useRef<HTMLInputElement>(null);
   const addImage = async (file: File | undefined) => {
     if (!file) return;
@@ -486,23 +585,89 @@ export function MakerLogoDoor({
     });
   };
 
+  const onAdd = (kind: LogoAddKind) => {
+    if (kind === 'text') addText();
+    else if (kind === 'frame') addFrame();
+    else if (kind === 'ornament') addOrnament();
+    else fileRef.current?.click();
+  };
+
   const remove = (id: string) => {
     const rest = layers.filter((l) => l.id !== id);
     setLayers((cur) => retimeLayers(cur.filter((l) => l.id !== id)));
     // The next layer down is picked — a page with layers always has one picked.
     setSelectedId(openingPick(rest));
-    if (rest.length === 0) setSheet('layers');
+    if (rest.length === 0) setSheet('add');
+    else if (tool === 'character' && rest[rest.length - 1]?.kind !== 'text') setTool('style');
   };
 
-  /* ── dragging on the canvas (rails + snapping) ── */
+  /** 🙈 🔒 ⧉ — the picked layer's own actions (the card's ⋯ and Style's row are the same four). */
+  const act = (id: string, action: LayerCardAction) => {
+    const l = layersRef.current.find((x) => x.id === id);
+    if (!l) return;
+    if (action === 'hide') update(id, { hidden: l.hidden ? undefined : true });
+    else if (action === 'lock') update(id, { locked: l.locked ? undefined : true });
+    else if (action === 'delete') setAskDelete(id);
+    else {
+      const copyId = newLayerId();
+      const next = duplicateLayer(layersRef.current, id, copyId);
+      if (next === layersRef.current) return;
+      setLayers(retimeLayers(next));
+      setSelectedId(copyId);
+    }
+  };
+
+  /** ✂ Split into letters (L4) — the word's face cuts it; each letter lands where it stood. */
+  const split = async (id: string) => {
+    const l = layersRef.current.find((x) => x.id === id);
+    if (!l || l.kind !== 'text') return;
+    const count = Array.from((l.text ?? '').trim()).filter((c) => c.trim()).length;
+    if (count < 2) return;
+    if (layersRef.current.length - 1 + count > LOGO_MAX_LAYERS) {
+      setProblem(`A logo holds ${LOGO_MAX_LAYERS} layers — splitting these words would make ${layersRef.current.length - 1 + count}.`);
+      return;
+    }
+    setProblem(null);
+    setBusy('Splitting into letters…');
+    try {
+      const cut = await letterCuts(l);
+      const now = layersRef.current;
+      const at = now.findIndex((x) => x.id === id);
+      const next = cut ? splitIntoLetters(now, id, cut.word, cut.cuts, () => newLayerId()) : now;
+      if (next === now || at < 0) {
+        setProblem('Those words could not be split just now — please try again.');
+        return;
+      }
+      setLayers(next);
+      setSelectedId(next[at]?.id ?? openingPick(next));
+    } catch {
+      setProblem('That typeface could not be loaded just now — please try again.');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  /* ── on the logo: one finger moves the picked layer, two pinch and twist it (rails + snapping) ── */
   const svgRef = useRef<SVGSVGElement>(null);
   const drag = useRef<{ id: string; dx: number; dy: number } | null>(null);
+  const fingers = useRef(new Map<number, { x: number; y: number }>());
+  const pinch = useRef<{ id: string; d0: number; a0: number; s0: number; r0: number } | null>(null);
   const toFrame = (e: React.PointerEvent) => {
     const svg = svgRef.current;
     const m = svg?.getScreenCTM();
     if (!svg || !m) return null;
     const pt = new DOMPoint(e.clientX, e.clientY).matrixTransform(m.inverse());
     return { x: pt.x, y: pt.y };
+  };
+  const span = () => {
+    const [a, b] = [...fingers.current.values()];
+    return a && b ? { d: Math.hypot(b.x - a.x, b.y - a.y), a: (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI } : null;
+  };
+  const letGo = () => {
+    if (!holding.current) return;
+    holding.current = false;
+    // The gesture is over: it is one change, sent once after the pause.
+    if (composedRef.current && readyRef.current && gate.current.shouldSave(composedRef.current)) later();
   };
   const onDown = (e: React.PointerEvent<SVGSVGElement>) => {
     if (writing) {
@@ -513,15 +678,30 @@ export function MakerLogoDoor({
       e.currentTarget.setPointerCapture(e.pointerId);
       return;
     }
+    fingers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    /* ✌ The second finger: pinch and twist the PICKED layer (wherever the fingers are) — unless it is locked. */
+    if (fingers.current.size === 2) {
+      const l = layersRef.current.find((x) => x.id === selectedId);
+      const s = span();
+      drag.current = null;
+      if (l && !l.locked && s && s.d > 0) {
+        pinch.current = { id: l.id, d0: s.d, a0: s.a, s0: l.scale, r0: l.rotate ?? 0 };
+        holding.current = true;
+        e.currentTarget.setPointerCapture(e.pointerId);
+      }
+      return;
+    }
     const hit = (e.target as Element).closest('[data-logo-edit-layer]');
     const id = hit?.getAttribute('data-logo-edit-layer') ?? null;
     // A tap on the empty frame keeps the pick (L1: a layer stays picked; nothing to re-find).
     if (!id) return;
-    setSelectedId(id);
+    pick(id);
     const p = toFrame(e);
     const l = layers.find((x) => x.id === id);
-    if (!p || !l) return;
+    // 🔒 A locked layer is picked, never moved.
+    if (!p || !l || l.locked) return;
     drag.current = { id, dx: l.x - p.x, dy: l.y - p.y };
+    holding.current = true;
     e.currentTarget.setPointerCapture(e.pointerId);
   };
   const onMove = (e: React.PointerEvent<SVGSVGElement>) => {
@@ -538,6 +718,19 @@ export function MakerLogoDoor({
       }
       return;
     }
+    if (fingers.current.has(e.pointerId)) fingers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    const g = pinch.current;
+    if (g) {
+      const s = span();
+      if (!s) return;
+      const scale = Math.min(LOGO_SCALE_MAX, Math.max(LOGO_SCALE_MIN, Number(((g.s0 * s.d) / g.d0).toFixed(3))));
+      /* ↻ The twist — only where Rotate is offered (the new Maker); upright within a few degrees. */
+      let turn = g.r0 + (s.a - g.a0);
+      turn = ((((turn + 180) % 360) + 360) % 360) - 180;
+      const rotate = Math.abs(turn) < TWIST_SNAP_DEG ? 0 : Math.round(turn);
+      update(g.id, studioAdds ? { scale, rotate: rotate || undefined } : { scale });
+      return;
+    }
     const d = drag.current;
     if (!d) return;
     const p = toFrame(e);
@@ -546,8 +739,15 @@ export function MakerLogoDoor({
       cur.map((l) => (l.id === d.id ? { ...l, ...snapInFrame(l, p.x + d.dx, p.y + d.dy) } : l)),
     );
   };
-  const onUp = () => {
+  const onUp = (e?: React.PointerEvent<SVGSVGElement>) => {
+    if (e) fingers.current.delete(e.pointerId);
+    else fingers.current.clear();
+    if (pinch.current && fingers.current.size < 2) {
+      pinch.current = null;
+      fingers.current.clear();
+    }
     drag.current = null;
+    if (fingers.current.size === 0) letGo();
     if (!writing) return;
     const l = layersRef.current.find((x) => x.id === writing);
     const traced = strokeRef.current;
@@ -576,7 +776,6 @@ export function MakerLogoDoor({
   };
 
   /* ── render ── */
-  const topFirst = layers.slice().reverse();
   const sel = selected ? halfExtent(selected) : null;
 
   /* 🔢 THE PARTS AND THE PEN (owner 2026-09-28: *"the flow should have started
@@ -612,6 +811,10 @@ export function MakerLogoDoor({
         }
       : null;
 
+  const isText = selected?.kind === 'text';
+  const shownTool: LogoTool = tool === 'character' && !isText ? 'style' : tool;
+  const askDeleteLayer = askDelete ? (layers.find((l) => l.id === askDelete) ?? null) : null;
+
   return (
     <section
       ref={hostRef}
@@ -620,83 +823,28 @@ export function MakerLogoDoor({
       data-maker-logo-page=""
       data-logo-save={save.kind}
     >
-      {/* ══ LEFT · THE LAYERS ══ */}
+      {/* ══ THE LAYERS CAROUSEL — a phone's strip under the logo (where the event bar was), a desk's left column ══ */}
       <aside
         aria-label="Logo layers"
         data-logo-navigator=""
-        data-phone-chrome="panel"
-        className={`${sheet === 'layers' ? 'flex' : 'hidden'} sn-glass-bare flex-col ${LOGO_PANEL_PHONE} lg:static lg:z-auto lg:flex lg:max-h-none lg:w-64 lg:shrink-0 lg:rounded-none lg:border-r lg:border-ink/10`}
+        data-logo-cards-strip=""
+        className="mt-2 flex h-[74px] w-full shrink-0 flex-col max-lg:order-1 max-lg:group-data-[details-mode=guided]/ws:hidden lg:mt-0 lg:h-auto lg:w-64 lg:border-r lg:border-ink/10"
       >
         <SheetHead title="Layers" />
-        <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overscroll-contain px-2 pb-3">
-          {topFirst.length === 0 ? <p className="px-2 py-3 text-[13px] text-ink/60">Add text, an image or a frame.</p> : null}
-          <ol className="flex flex-col gap-1" aria-label="Top of the stack first">
-            {topFirst.map((l, idx) => {
-              const on = l.id === selectedId;
-              return (
-                <li key={l.id} className={`flex items-center gap-1 rounded-md ${on ? 'bg-sn-accent text-sn-on-accent' : 'hover:bg-ink/5'}`}>
-                  <button
-                    type="button"
-                    aria-pressed={on}
-                    data-logo-layer-row={l.id}
-                    onClick={() => {
-                      setSelectedId(l.id);
-                      setSheet('tools');
-                    }}
-                    className="sn-press flex min-h-11 min-w-0 flex-1 items-center gap-2 px-2 text-left text-[13px] font-semibold"
-                  >
-                    <KindIcon kind={l.kind} />
-                    <span className="min-w-0 truncate">{l.kind === 'text' && l.name === LOGO_LAYER_KIND_LABEL.text ? l.text || 'Text' : l.name}</span>
-                  </button>
-                  {/* The arrows are the Reorder kind's keyboard-and-thumb way (the house drag has no shared source yet). */}
-                  <ActionButton tone="neutral" quiet iconOnly icon={ChevronUp} label={`Move ${l.name} up`} disabled={idx === 0} onClick={() => setLayers((c) => retimeLayers(moveLayer(c, l.id, 'up')))} />
-                  <ActionButton
-                    tone="neutral"
-                    quiet
-                    iconOnly
-                    icon={ChevronDown}
-                    label={`Move ${l.name} down`}
-                    disabled={idx === topFirst.length - 1}
-                    onClick={() => setLayers((c) => retimeLayers(moveLayer(c, l.id, 'down')))}
-                  />
-                </li>
-              );
-            })}
-          </ol>
-          <p className="mt-2 px-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-ink/55">Add</p>
-          <div className="grid grid-cols-3 gap-1 px-1 [&_.ab]:w-full [&>span]:min-w-0" data-logo-add="">
-            <span data-logo-add-kind="text">
-              <ActionButton tone="neutral" icon={Type} label="Text" onClick={addText} disabled={layers.length >= LOGO_MAX_LAYERS} />
-            </span>
-            <span data-logo-add-kind="image">
-              <ActionButton tone="neutral" icon={ImagePlus} label="Image" onClick={() => fileRef.current?.click()} disabled={layers.length >= LOGO_MAX_LAYERS || Boolean(busy)} />
-            </span>
-            <span data-logo-add-kind="frame">
-              <ActionButton tone="neutral" icon={CircleDashed} label="Frame" onClick={addFrame} disabled={layers.length >= LOGO_MAX_LAYERS} />
-            </span>
-          </div>
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/png,image/jpeg,image/webp,image/svg+xml,.svg"
-            className="sr-only"
-            aria-label="Upload an image layer"
-            onChange={(e) => {
-              void addImage(e.target.files?.[0]);
-              e.target.value = '';
-            }}
-          />
-          {busy ? <p className="px-2 text-[12px] text-ink/60">{busy}</p> : null}
-          {problem ? (
-            <p role="alert" className="px-2 text-[12px] font-semibold text-danger-700">
-              {problem}
-            </p>
-          ) : null}
-        </div>
+        <LogoLayerCards
+          layers={layers}
+          selectedId={selectedId}
+          onPick={pick}
+          onMoveTo={(id, to) => setLayers((c) => retimeLayers(moveLayerTo(c, id, to)))}
+          onAction={act}
+          onAdd={() => setSheet((s) => (s === 'add' && layers.length > 0 ? 'tools' : 'add'))}
+          addOn={sheet === 'add'}
+          addDisabled={layers.length >= LOGO_MAX_LAYERS}
+        />
       </aside>
 
-      {/* ══ CENTRE · THE LOGO'S FRAME ══ */}
-      {/* 📱 On a phone the frame sits at the TOP, so the half-height sheets
+      {/* ══ THE WORKSPACE · THE LOGO'S FRAME ══ */}
+      {/* 📱 On a phone the frame sits at the TOP, so the carousel and the tools
           under it never cover the logo being edited. */}
       <div className="relative flex min-h-0 flex-1 flex-col items-center justify-start p-3 max-lg:[container-type:size] lg:justify-center lg:p-6">
         {/* The frame is SQUARE: as wide as the space allows, never taller than
@@ -704,19 +852,19 @@ export function MakerLogoDoor({
         {/* 📱 In the guided flow the logo is the step's picture above its half sheet:
             the frame fits the half above it, so the whole logo is seen as it changes. */}
         <div
-          className="relative aspect-square w-full max-w-[min(100%,calc(100dvh-13rem))] max-lg:max-w-[min(100%,calc(100cqh-4.25rem))] max-lg:group-data-[details-mode=guided]/ws:max-w-[min(100%,calc(55dvh-8rem))]"
+          className="relative aspect-square w-full max-w-[min(100%,calc(100dvh-13rem))] max-lg:max-w-[min(100%,calc(100cqh-1.5rem))] max-lg:group-data-[details-mode=guided]/ws:max-w-[min(100%,calc(55dvh-8rem))]"
           data-logo-frame=""
         >
           {playing ? (
             <div className="absolute inset-0 rounded-md bg-white shadow-sm" data-logo-playing="">
-              {composed ? <LayeredLogoPlayer key={playKey} svg={composed} /> : null}
+              {playSvg ? <LayeredLogoPlayer key={playKey} svg={playSvg} /> : null}
             </div>
           ) : (
             <svg
               ref={svgRef}
               viewBox={`0 0 ${LOGO_FRAME} ${LOGO_FRAME}`}
               role="img"
-              aria-label="Your logo — drag a layer to move it"
+              aria-label="Your logo — drag a layer to move it; pinch and twist the picked layer"
               data-logo-canvas=""
               /* `overflow-hidden`: nothing is drawn past the frame — the logo guests
                  get is cut at the same edge, so the studio never shows more. */
@@ -742,8 +890,9 @@ export function MakerLogoDoor({
                     key={l.id}
                     data-logo-edit-layer={l.id}
                     transform={layerTransform(l)}
-                    className={writing ? '' : 'cursor-grab'}
-                    opacity={writing && writing !== l.id ? 0.18 : 1}
+                    className={writing || l.locked ? '' : 'cursor-grab'}
+                    /* 🙈 A hidden layer stays pickable here, faint — guests never see it. */
+                    opacity={writing && writing !== l.id ? 0.18 : l.hidden ? 0.18 : 1}
                     dangerouslySetInnerHTML={{ __html: l.id === partsLayerId ? tintParts(layerShapes(l)) : layerShapes(l) }}
                   />
                 ) : null,
@@ -796,12 +945,14 @@ export function MakerLogoDoor({
                   pointerEvents="none"
                 />
               ) : null}
+              {/* The picked layer's dashed frame — and nothing else on it (owner 08 Oct: the chips are "not needed anymore"). */}
               {selected && sel && !writing ? (
                 <rect
                   x={selected.x - sel.hx}
                   y={selected.y - sel.hy}
                   width={sel.hx * 2}
                   height={sel.hy * 2}
+                  transform={selected.rotate ? `rotate(${selected.rotate} ${selected.x} ${selected.y})` : undefined}
                   fill="none"
                   stroke="#C5A059"
                   strokeWidth={3}
@@ -822,140 +973,348 @@ export function MakerLogoDoor({
               <ActionButton tone="neutral" icon={X} label="Cancel" onClick={() => setWriting(null)} />
             </p>
           ) : null}
-          <span className="absolute right-2 top-2" data-logo-play="">
-            <ActionButton tone="neutral" icon={playing ? X : Play} label={playing ? 'Edit' : 'Play'} onClick={() => (playing ? setPlaying(false) : play())} />
-          </span>
-        </div>
-        {/* 📱 Phone: Layers | the picked layer — ONE row under the logo, both always reachable; the
-            panel opens under it, in the page's flow (never fixed over the lower third, never folded). */}
-        <div data-logo-panels="" className="mt-2 flex h-[52px] w-full max-w-sm shrink-0 items-center lg:hidden max-lg:group-data-[details-mode=guided]/ws:hidden">
-          <PillSelector
-            label="Logo panels"
-            data="logo-panels"
-            value={sheet}
-            onPick={(k) => setSheet(k)}
-            options={[
-              { key: 'layers', label: <span className="inline-flex items-center gap-1.5"><Layers aria-hidden className="h-4 w-4" />Layers</span> },
-              {
-                key: 'tools',
-                label: (
-                  <span className="inline-flex min-w-0 items-center gap-1.5">
-                    <SlidersHorizontal aria-hidden className="h-4 w-4 flex-none" />
-                    <span className="truncate">{selected ? (selected.kind === 'text' ? selected.text?.trim() || 'Text' : selected.name) : 'Layer'}</span>
-                  </span>
-                ),
-                disabled: !selected,
-              },
-            ]}
-          />
         </div>
       </div>
 
-      {/* ══ RIGHT · THE SELECTED LAYER'S TOOLS ══ */}
+      {/* ══ THE TOOLS — [Character | Style | Animate] · ▶ · ⓘ over the open tool (or the Add list) ══ */}
       <aside
         aria-label="Layer tools"
         data-logo-tools=""
         data-phone-chrome="panel"
-        className={`${sheet === 'tools' ? 'flex' : 'hidden'} sn-glass-bare flex-col ${LOGO_PANEL_PHONE} lg:static lg:z-auto lg:flex lg:max-h-none lg:w-80 lg:shrink-0 lg:rounded-none lg:border-l lg:border-ink/10`}
+        className={`flex sn-glass-bare flex-col ${LOGO_PANEL_PHONE} lg:static lg:z-auto lg:flex lg:max-h-none lg:w-80 lg:shrink-0 lg:rounded-none lg:border-l lg:border-ink/10`}
       >
-        <SheetHead title={selected ? (selected.kind === 'text' ? 'Text' : selected.name) : 'Layer'} />
+        <SheetHead title={sheet === 'add' || !selected ? 'Add a layer' : cardName(selected)} />
+        {sheet === 'tools' && selected ? (
+          <div data-logo-tools-row="" className="flex h-[52px] shrink-0 items-center gap-1.5 px-3">
+            <span className="min-w-0 flex-1">
+              <PillSelector<LogoTool>
+                label="Logo tools"
+                data="logo-tools"
+                value={shownTool}
+                onPick={(k) => setTool(k)}
+                options={[
+                  ...(isText ? [{ key: 'character' as const, label: 'Character' }] : []),
+                  { key: 'style' as const, label: 'Style' },
+                  { key: 'animate' as const, label: 'Animate' },
+                ]}
+              />
+            </span>
+            <span className="shrink-0" data-logo-play="">
+              <ActionButton
+                tone="neutral"
+                iconOnly
+                icon={playing ? Square : Play}
+                label={playing ? 'Stop' : 'Play'}
+                onClick={() => (playing ? setPlaying(false) : play())}
+              />
+            </span>
+            <Explain title={shownTool === 'character' ? 'Character' : shownTool === 'style' ? 'Style' : 'Animate'} data="logo-tool">
+              {TOOL_HELP[shownTool]}
+            </Explain>
+          </div>
+        ) : null}
         <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain px-3 pb-6 pt-1">
-          {!selected ? (
-            <p className="text-[13px] text-ink/60">Pick a layer on the left, or tap one on the logo.</p>
+          {sheet === 'add' || !selected ? (
+            <LogoAddLayer disabled={layers.length >= LOGO_MAX_LAYERS || Boolean(busy)} onAdd={onAdd}>
+              {busy ? <p className="px-2 text-[12px] text-ink/60">{busy}</p> : null}
+              {problem ? (
+                <p role="alert" className="px-2 text-[12px] font-semibold text-danger-700">
+                  {problem}
+                </p>
+              ) : null}
+            </LogoAddLayer>
           ) : (
-            <LayerTools
-              eventId={eventId}
-              layer={selected}
-              motionMark={motionMark}
-              studio={studioAdds}
-              onWrite={() => startWriting(selected.id)}
-              onChange={(patch) => update(selected.id, patch)}
-              onRemove={() => remove(selected.id)}
-            />
+            <>
+              {busy ? <p className="text-[12px] text-ink/60">{busy}</p> : null}
+              {problem ? (
+                <p role="alert" className="text-[12px] font-semibold text-danger-700">
+                  {problem}
+                </p>
+              ) : null}
+              <LayerTools
+                eventId={eventId}
+                layer={selected}
+                tool={shownTool}
+                phase={phase}
+                onPhase={setPhase}
+                motionMark={motionMark}
+                studio={studioAdds}
+                onWrite={() => startWriting(selected.id)}
+                onChange={(patch) => update(selected.id, patch)}
+                onRemove={() => remove(selected.id)}
+                onAct={(a) => act(selected.id, a)}
+                onSplit={() => void split(selected.id)}
+                splitting={Boolean(busy)}
+              />
+            </>
           )}
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/png,image/jpeg,image/webp,image/svg+xml,.svg"
+            className="sr-only"
+            aria-label="Upload an image layer"
+            onChange={(e) => {
+              void addImage(e.target.files?.[0]);
+              e.target.value = '';
+            }}
+          />
         </div>
       </aside>
+      {askDeleteLayer ? (
+        <RemoveLayerConfirm
+          name={askDeleteLayer.name}
+          onKeep={() => setAskDelete(null)}
+          onRemove={() => {
+            setAskDelete(null);
+            remove(askDeleteLayer.id);
+          }}
+        />
+      ) : null}
     </section>
   );
 }
 
 /* ── the tools for one layer ─────────────────────────────────────────────── */
 
+/** The Stages panel's own neutrals, so the shipped Style cards (`StyleCards`) draw here as they do on a stage. */
+const STAGE_VARS_STYLE = Object.fromEntries(
+  STAGE_PANEL_VARS.split(';')
+    .filter(Boolean)
+    .map((d) => [d.slice(0, d.indexOf(':')), d.slice(d.indexOf(':') + 1)]),
+) as CSSProperties;
+
 export function LayerTools({
   eventId,
   layer,
+  tool,
+  phase = 'in',
+  onPhase = () => {},
   motionMark,
   studio = null,
   onWrite,
   onChange,
   onRemove,
+  onAct = () => {},
+  onSplit = () => {},
+  splitting = false,
 }: {
   eventId: string;
   layer: LogoLayer;
+  /** The open tool. Character is a text layer's only. */
+  tool: LogoTool;
+  phase?: LogoPhase;
+  onPhase?: (p: LogoPhase) => void;
   motionMark: PaidMarkState | null;
-  /** 🧭 The new Maker: the five main colours, Rotate and Out. Null = the shipped editor, exactly. */
+  /** 🧭 The new Maker: the five main colours, Rotate and Build out. Null = the shipped editor's set. */
   studio?: { five: readonly string[] } | null;
   onWrite: () => void;
   onChange: (patch: Partial<LogoLayer>) => void;
   onRemove: () => void;
+  onAct?: (action: Exclude<LayerCardAction, 'delete'>) => void;
+  onSplit?: () => void;
+  splitting?: boolean;
 }) {
   const [askRemove, setAskRemove] = useState(false);
+  const colour = <LayerColour layer={layer} studio={studio} onChange={onChange} />;
+  const size = <LogoSlider label="Size" min={LOGO_SCALE_MIN} max={LOGO_SCALE_MAX} step={0.01} value={layer.scale} onChange={(v) => onChange({ scale: v })} />;
+
+  if (tool === 'character' && layer.kind === 'text') {
+    const letters = Array.from((layer.text ?? '').trim()).filter((c) => c.trim()).length;
+    return (
+      <>
+        {/* 🧩 The typed answers are Form rows (tap the pill, type, tap out or Enter keeps it; ✕ leaves it as it was). */}
+        <FormRows data="logo-layer">
+          <TypedRow
+            key={`words:${layer.id}`}
+            name="Words"
+            value={layer.text ?? ''}
+            empty="Add your text"
+            placeholder="Add your text"
+            maxLength={40}
+            pillAttrs={{ 'data-logo-text-input': '' }}
+            onKeep={(t) => {
+              onChange({ text: t });
+              return { ok: true };
+            }}
+          />
+          {/* 🅻 EVERY STAGE FONT, IN THE STAGES' OWN DROPDOWN (owner 2026-09-28:
+              "on the logo. we need to show all fonts as well like in stages").
+              ONE dropdown — `FontPick`, what a part's Font row is (owner
+              2026-09-29: "the font across all event hub editor. can be one
+              style") — each name drawn in its own face; `lib/logo-fonts.ts`
+              says where each face's outlines are. A pick sets the upright
+              face. No lead option: a text layer always has a face. */}
+          <FormRow name="Font">
+            <FontPick
+              eventId={eventId}
+              label="Font"
+              dataAttr="data-logo-font"
+              value={layer.font ?? 'cardo'}
+              onPick={(key) => key && onChange({ font: key, italic: false })}
+              className={`${FORM_PICK_CLASS} w-[200px]`}
+            />
+          </FormRow>
+        </FormRows>
+        <Field label="Size and spacing">
+          {size}
+          <span data-logo-spacing="">
+            <LogoSlider
+              label={`Spacing ${layer.spacing ?? 0}`}
+              min={LOGO_SPACING_MIN}
+              max={LOGO_SPACING_MAX}
+              step={1}
+              value={layer.spacing ?? 0}
+              onChange={(v) => onChange({ spacing: Math.round(v) || undefined })}
+            />
+          </span>
+        </Field>
+        {colour}
+        {/* ✂ Each letter its own layer — and its own animation (owner 2026-09-27). */}
+        <span className="self-start" data-logo-split="">
+          <ActionButton
+            tone="neutral"
+            icon={Scissors}
+            label="Split into letters — each letter gets its own animation"
+            disabled={letters < 2 || splitting}
+            onClick={onSplit}
+          />
+        </span>
+      </>
+    );
+  }
+
+  if (tool === 'animate') {
+    const outs = studio !== null;
+    return (
+      <>
+        <div className="flex items-center gap-2">
+          <span className="min-w-0 flex-1">
+            <PillSelector<LogoPhase>
+              label="Animate"
+              data="logo-phase"
+              value={phase === 'out' && !outs ? 'in' : phase}
+              onPick={(k) => onPhase(k)}
+              options={[
+                { key: 'in', label: 'Build in' },
+                { key: 'action', label: 'Action' },
+                ...(outs ? [{ key: 'out' as const, label: 'Build out' }] : []),
+              ]}
+            />
+          </span>
+          {motionMark ? <PaidMark state={motionMark} label={paidMarkLabel(motionMark, 'the Animated Monogram')} size="xs" /> : null}
+        </div>
+        {/* ▾ How · Does are dropdowns, never chip rows (owner 2026-10-07 final fixes; "any set of choices is a
+            dropdown"). Same saves as Motion's In · During · Out had. */}
+        {phase === 'action' ? (
+          <FormRows data="logo-motion">
+            <ChosenRow
+              name="Does"
+              value={layer.motion.during}
+              options={LOGO_DURING.map((k): PickOption => ({ key: k, label: LOGO_DURING_LABEL[k] }))}
+              onPick={(k) => onChange({ motion: { ...layer.motion, during: k as (typeof LOGO_DURING)[number] } })}
+              attrs={{ 'data-logo-motion': 'during' }}
+            />
+          </FormRows>
+        ) : phase === 'out' && outs ? (
+          <FormRows data="logo-motion">
+            <ChosenRow
+              name="How"
+              value={layer.motion.out ?? 'none'}
+              options={LOGO_OUT.map((k): PickOption => ({ key: k, label: LOGO_OUT_LABEL[k] }))}
+              onPick={(k) => {
+                const { out: _was, ...rest } = layer.motion;
+                onChange({ motion: k === 'none' ? rest : { ...rest, out: k as Exclude<(typeof LOGO_OUT)[number], 'none'> } });
+              }}
+              attrs={{ 'data-logo-motion': 'out', 'data-logo-out': '' }}
+            />
+          </FormRows>
+        ) : (
+          <>
+            <FormRows data="logo-motion">
+              <ChosenRow
+                name="How"
+                value={effectiveIn(layer)}
+                options={LOGO_IN.map((k): PickOption => ({ key: k, label: LOGO_IN_LABEL[k] }))}
+                onPick={(k) => onChange({ motion: { ...layer.motion, in: k as (typeof LOGO_IN)[number] } })}
+                attrs={{ 'data-logo-motion': 'in' }}
+              />
+            </FormRows>
+            {layer.kind !== 'frame' ? (
+              <Field label="How it's written" explain={layer.write ? 'Each part has its own colour. The numbers show the order they draw in, from Start to End.' : null}>
+                <span className="self-start" data-logo-write="">
+                  <ActionButton tone="neutral" icon={PenLine} label={layer.write ? 'Trace it again' : "Show how it's written"} onClick={onWrite} />
+                </span>
+                {/* No Brush slider: the reveal follows the nearest pen position
+                    (`writeRevealCells`), so there is no brush width to tune. Clear
+                    it and Draw on traces the letter's outline instead. */}
+                {layer.write ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {/* A trace drawn from the wrong end flips round — no need to trace again. */}
+                    <span data-logo-write-reverse="">
+                      <ActionButton tone="neutral" icon={RotateCcw} label="Reverse it" onClick={() => onChange({ write: reversedWrite(layer.write!) })} />
+                    </span>
+                    <ActionButton tone="neutral" icon={X} label="Clear it" onClick={() => onChange({ write: undefined })} />
+                  </div>
+                ) : null}
+              </Field>
+            ) : null}
+            <LogoSlider
+              label={`Starts after ${layer.motion.delay.toFixed(1)}s`}
+              min={0}
+              max={LOGO_DELAY_MAX}
+              step={LOGO_DELAY_STEP}
+              value={layer.motion.delay}
+              onChange={(v) => onChange({ motion: { ...layer.motion, delay: Number(v.toFixed(1)) }, autoDelay: false })}
+            />
+            {layer.motion.in !== 'none' ? (
+              <LogoSlider
+                label={`Takes ${logoInSeconds(layer.motion).toFixed(1)}s`}
+                min={LOGO_DUR_MIN}
+                max={LOGO_DUR_MAX}
+                step={LOGO_DUR_STEP}
+                value={logoInSeconds(layer.motion)}
+                onChange={(v) => onChange({ motion: { ...layer.motion, dur: Number(v.toFixed(1)) } })}
+              />
+            ) : null}
+          </>
+        )}
+      </>
+    );
+  }
+
+  /* STYLE — any layer. */
+  const look: LogoLook = layer.kind === 'text' ? (layer.look ?? 'solid') : 'solid';
   return (
     <>
-      {/* ✎ A layer's own name (owner 2026-09-28: *"we should be able to rename
-          these layers so we can identify them easier"* — two uploads arrived as
-          "monogram.005" and "monogram.006"). The navigator shows it.
-          🧩 On the templates (2026-10-09): the typed answers are Form rows (tap the pill, type, tap out or Enter keeps it; ✕ leaves
-          it as it was), kept ONCE — so the name and the words reach the layer, and the draft, when the row is left. */}
-      <FormRows data="logo-layer">
-        <TypedRow
-          key={`name:${layer.id}`}
-          name="Name"
-          value={layer.name}
-          maxLength={40}
-          placeholder={LOGO_LAYER_KIND_LABEL[layer.kind]}
-          clean={(t) => t.replace(/[<>"'`]/g, '')}
-          pillAttrs={{ 'data-logo-layer-name': '' }}
-          onKeep={(t) => {
-            /* A name left empty goes back to the kind's own word, as it did when the box was left. */
-            onChange({ name: t.trim() ? t : LOGO_LAYER_KIND_LABEL[layer.kind] });
-            return { ok: true };
-          }}
-        />
-        {layer.kind === 'text' ? (
-          <>
-            <TypedRow
-              key={`words:${layer.id}`}
-              name="Words"
-              value={layer.text ?? ''}
-              empty="Add your text"
-              placeholder="Add your text"
-              maxLength={40}
-              pillAttrs={{ 'data-logo-text-input': '' }}
-              onKeep={(t) => {
-                onChange({ text: t });
-                return { ok: true };
-              }}
-            />
-            {/* 🅻 EVERY STAGE FONT, IN THE STAGES' OWN DROPDOWN (owner 2026-09-28:
-                "on the logo. we need to show all fonts as well like in stages").
-                ONE dropdown — `FontPick`, what a part's Font row is (owner
-                2026-09-29: "the font across all event hub editor. can be one
-                style") — each name drawn in its own face; `lib/logo-fonts.ts`
-                says where each face's outlines are. A pick sets the upright
-                face. No lead option: a text layer always has a face. */}
-            <FormRow name="Typeface">
-              <FontPick
-                eventId={eventId}
-                label="Typeface"
-                dataAttr="data-logo-font"
-                value={layer.font ?? 'cardo'}
-                onPick={(key) => key && onChange({ font: key, italic: false })}
-                className={`${FORM_PICK_CLASS} w-[200px]`}
-              />
-            </FormRow>
-          </>
-        ) : null}
+      {layer.kind === 'text' ? (
+        /* 🎠 Looks as picture cards — the Stages' own Style cards, each the layer drawn in that look. */
+        <div data-logo-looks="" className="flex h-[132px] shrink-0 flex-col [--sp-rg:4px]" style={STAGE_VARS_STYLE}>
+          <StyleCards
+            label="Look"
+            data="logo-look"
+            options={LOGO_LOOKS.map((k) => ({ id: k, name: LOGO_LOOK_LABEL[k] }))}
+            value={look}
+            onPick={(id) => onChange({ look: id === 'solid' ? undefined : (id as Exclude<LogoLook, 'solid'>) })}
+            pending={false}
+            canvasKey={null}
+            sceneType="logo"
+            picture={(id) =>
+              layer.body ? (
+                <svg
+                  viewBox={`0 0 ${Math.max(1, layer.w)} ${Math.max(1, layer.h)}`}
+                  className="absolute inset-0 h-full w-full overflow-visible p-2"
+                  aria-hidden
+                  dangerouslySetInnerHTML={{ __html: layerShapes({ ...layer, look: id === 'solid' ? undefined : (id as Exclude<LogoLook, 'solid'>) }) }}
+                />
+              ) : null
+            }
+          />
+        </div>
+      ) : null}
+      {/* The kind's own control first, as the prototype's Style opens (Frame ▾ · White). */}
+      {layer.kind !== 'text' ? (
+        <FormRows data="logo-kind">
         {layer.kind === 'image' ? (
           <SwitchRow
             name="Remove white background"
@@ -973,51 +1332,22 @@ export function LayerTools({
             dataAttr="data-logo-frame-pick"
           />
         ) : null}
-      </FormRows>
+        {layer.kind === 'ornament' ? (
+          <ChosenRow
+            name="Ornament"
+            value={ornamentOf(layer.body)}
+            options={LOGO_ORNAMENT_KINDS.map((k) => ({ key: k, label: LOGO_ORNAMENT_LABEL[k] }))}
+            onPick={(k) => onChange(swapOrnament(layer, k as LogoOrnamentKind))}
+            dataAttr="data-logo-ornament-pick"
+          />
+        ) : null}
+        </FormRows>
+      ) : null}
 
-      <Field label="Colour">
-        {studio ? (
-          /* 🎨 The new Maker: the Mood Board's ONE colour sheet (owner 2026-10-08) — the five first,
-             then what goes with them, the photos, the swatches, Custom. "Its own" stays for a picture. */
-          <div className="flex flex-col" data-logo-colour="studio">
-            <StudioColourField
-              data="logo"
-              name="Colour"
-              job={layer.kind === 'image' && layer.color === null ? 'Its own colours' : 'This part of your logo'}
-              value={layer.color ?? LOGO_DEFAULT_INK}
-              palette={studio.five}
-              slots
-              onPick={(c) => onChange({ color: c })}
-              reset={layer.kind === 'image' && layer.color !== null ? { label: 'Its own colours', onReset: () => onChange({ color: null }) } : undefined}
-            />
-          </div>
-        ) : (
-        <div className="flex flex-wrap items-center gap-2">
-          {layer.kind === 'image' ? (
-            <ActionButton tone="neutral" icon={Palette} label="Its own" aria-pressed={layer.color === null} onClick={() => onChange({ color: null })} />
-          ) : null}
-          {/* The shipped editor (no Studio): the logo inks, as before — colour circles (kind 21), the couple's own colours. */}
-          {logoColourChoices(null, layer.color).map((c) => {
-            const on = layer.color?.toUpperCase() === c.toUpperCase();
-            return (
-            <button
-              key={c}
-              type="button"
-              aria-label={`Colour ${c}`}
-              aria-pressed={on}
-              data-logo-ink={c}
-              onClick={() => onChange({ color: c })}
-              className={`h-9 max-h-9 min-h-9 w-9 min-w-9 max-w-9 shrink-0 rounded-full border border-ink/20 ${on ? 'ring-2 ring-sn-accent ring-offset-2 ring-offset-cream' : ''}`}
-              style={{ background: c }}
-            />
-            );
-          })}
-        </div>
-        )}
-      </Field>
+      {colour}
 
       <Field label="Size and place">
-        <LogoSlider label="Size" min={LOGO_SCALE_MIN} max={LOGO_SCALE_MAX} step={0.01} value={layer.scale} onChange={(v) => onChange({ scale: v })} />
+        {size}
         <LogoSlider label="Across" min={0} max={LOGO_FRAME} step={1} value={layer.x} snapCentre onChange={(v) => onChange({ x: v })} />
         <LogoSlider label="Up and down" min={0} max={LOGO_FRAME} step={1} value={layer.y} snapCentre onChange={(v) => onChange({ y: v })} />
         {studio ? (
@@ -1036,105 +1366,102 @@ export function LayerTools({
         </span>
       </Field>
 
-      {layer.kind !== 'frame' ? (
-        <Field label="How it's written" explain={layer.write ? 'Each part has its own colour. The numbers show the order they draw in, from Start to End.' : null}>
-          <span className="self-start" data-logo-write="">
-            <ActionButton tone="neutral" icon={PenLine} label={layer.write ? 'Trace it again' : "Show how it's written"} onClick={onWrite} />
-          </span>
-          {/* No Brush slider: the reveal follows the nearest pen position
-              (`writeRevealCells`), so there is no brush width to tune. Clear
-              it and Draw on traces the letter's outline instead. */}
-          {layer.write ? (
-            <div className="flex flex-wrap gap-1.5">
-              {/* A trace drawn from the wrong end flips round — no need to trace again. */}
-              <span data-logo-write-reverse="">
-                <ActionButton tone="neutral" icon={RotateCcw} label="Reverse it" onClick={() => onChange({ write: reversedWrite(layer.write!) })} />
-              </span>
-              <ActionButton tone="neutral" icon={X} label="Clear it" onClick={() => onChange({ write: undefined })} />
-            </div>
-          ) : null}
-        </Field>
-      ) : null}
-
-      <Field
-        label="Motion"
-        mark={motionMark ? <PaidMark state={motionMark} label={paidMarkLabel(motionMark, 'the Animated Monogram')} size="xs" /> : null}
-      >
-        {/* ▾ In · During · Out are dropdowns, never chip rows (owner 2026-10-07 final
-            fixes; "any set of choices is a dropdown"). Same saves as the chips had. */}
-        <FormRows data="logo-motion">
-          <ChosenRow
-            name="In"
-            value={effectiveIn(layer)}
-            options={LOGO_IN.map((k): PickOption => ({ key: k, label: LOGO_IN_LABEL[k] }))}
-            onPick={(k) => onChange({ motion: { ...layer.motion, in: k as (typeof LOGO_IN)[number] } })}
-            attrs={{ 'data-logo-motion': 'in' }}
-          />
-          <ChosenRow
-            name="During"
-            value={layer.motion.during}
-            options={LOGO_DURING.map((k): PickOption => ({ key: k, label: LOGO_DURING_LABEL[k] }))}
-            onPick={(k) => onChange({ motion: { ...layer.motion, during: k as (typeof LOGO_DURING)[number] } })}
-            attrs={{ 'data-logo-motion': 'during' }}
-          />
-          {studio ? (
-            <ChosenRow
-              name="Out"
-              value={layer.motion.out ?? 'none'}
-              options={LOGO_OUT.map((k): PickOption => ({ key: k, label: LOGO_OUT_LABEL[k] }))}
-              onPick={(k) => {
-                const { out: _was, ...rest } = layer.motion;
-                onChange({ motion: k === 'none' ? rest : { ...rest, out: k as Exclude<(typeof LOGO_OUT)[number], 'none'> } });
-              }}
-              attrs={{ 'data-logo-motion': 'out', 'data-logo-out': '' }}
-            />
-          ) : null}
-        </FormRows>
-        {layer.motion.in !== 'none' ? (
-          <LogoSlider
-            label={`Speed — takes ${logoInSeconds(layer.motion).toFixed(1)}s`}
-            min={LOGO_DUR_MIN}
-            max={LOGO_DUR_MAX}
-            step={LOGO_DUR_STEP}
-            value={logoInSeconds(layer.motion)}
-            onChange={(v) => onChange({ motion: { ...layer.motion, dur: Number(v.toFixed(1)) } })}
-          />
-        ) : null}
-        <LogoSlider
-          label={`Starts after ${layer.motion.delay.toFixed(1)}s`}
-          min={0}
-          max={LOGO_DELAY_MAX}
-          step={LOGO_DELAY_STEP}
-          value={layer.motion.delay}
-          onChange={(v) => onChange({ motion: { ...layer.motion, delay: Number(v.toFixed(1)) }, autoDelay: false })}
+      {/* ✎ A layer's own name (owner 2026-09-28: *"we should be able to rename
+          these layers so we can identify them easier"* — two uploads arrived as
+          "monogram.005" and "monogram.006"). The carousel's card shows it.
+          🧩 On the templates (2026-10-09): the typed answer is a Form row, kept ONCE. */}
+      <FormRows data="logo-layer">
+        <TypedRow
+          key={`name:${layer.id}`}
+          name="Name"
+          value={layer.name}
+          maxLength={40}
+          placeholder={LOGO_LAYER_KIND_LABEL[layer.kind]}
+          clean={(t) => t.replace(/[<>"'`]/g, '')}
+          pillAttrs={{ 'data-logo-layer-name': '' }}
+          onKeep={(t) => {
+            /* A name left empty goes back to the kind's own word, as it did when the box was left. */
+            onChange({ name: t.trim() ? t : LOGO_LAYER_KIND_LABEL[layer.kind] });
+            return { ok: true };
+          }}
         />
-      </Field>
+      </FormRows>
 
-      {/* Taking a layer off asks once (the centred confirm box): nothing brings a removed layer back but adding it again. */}
-      <span className="self-start" data-logo-remove="">
-        <ActionButton tone="danger" icon={Trash2} label="Remove this layer" onClick={() => setAskRemove(true)} />
-      </span>
+      {/* 🙈 🔒 ⧉ ✕ — the same four as the picked card's ⋯. Taking a layer off asks once (the centred confirm box). */}
+      <div className="flex flex-wrap gap-1.5" data-logo-layer-acts="">
+        <span data-logo-act="hide">
+          <ActionButton tone="neutral" icon={layer.hidden ? Eye : EyeOff} label={layer.hidden ? 'Show' : 'Hide'} aria-pressed={layer.hidden === true} onClick={() => onAct('hide')} />
+        </span>
+        <span data-logo-act="lock">
+          <ActionButton tone="neutral" icon={layer.locked ? Lock : LockOpen} label={layer.locked ? 'Locked' : 'Lock'} aria-pressed={layer.locked === true} onClick={() => onAct('lock')} />
+        </span>
+        <span data-logo-act="duplicate">
+          <ActionButton tone="neutral" icon={Copy} label="Duplicate" onClick={() => onAct('duplicate')} />
+        </span>
+        <span data-logo-remove="">
+          <ActionButton tone="danger" icon={Trash2} label="Delete" onClick={() => setAskRemove(true)} />
+        </span>
+      </div>
       {askRemove ? <RemoveLayerConfirm name={layer.name} onKeep={() => setAskRemove(false)} onRemove={() => { setAskRemove(false); onRemove(); }} /> : null}
     </>
   );
 }
 
+/** 🎨 A layer's colour — in the new Maker the Mood Board's ONE colour sheet, else the shipped inks. */
+function LayerColour({ layer, studio, onChange }: { layer: LogoLayer; studio: { five: readonly string[] } | null; onChange: (patch: Partial<LogoLayer>) => void }) {
+  return (
+    <Field label="Colour">
+      {studio ? (
+        /* 🎨 The new Maker: the Mood Board's ONE colour sheet (owner 2026-10-08) — the five first,
+           then what goes with them, the photos, the swatches, Custom. "Its own" stays for a picture. */
+        <div className="flex flex-col" data-logo-colour="studio">
+          <StudioColourField
+            data="logo"
+            name="Colour"
+            job={layer.kind === 'image' && layer.color === null ? 'Its own colours' : 'This part of your logo'}
+            value={layer.color ?? LOGO_DEFAULT_INK}
+            palette={studio.five}
+            slots
+            onPick={(c) => onChange({ color: c })}
+            reset={layer.kind === 'image' && layer.color !== null ? { label: 'Its own colours', onReset: () => onChange({ color: null }) } : undefined}
+          />
+        </div>
+      ) : (
+        <div className="flex flex-wrap items-center gap-2">
+          {layer.kind === 'image' ? (
+            <ActionButton tone="neutral" icon={Palette} label="Its own" aria-pressed={layer.color === null} onClick={() => onChange({ color: null })} />
+          ) : null}
+          {/* The shipped editor (no Studio): the logo inks, as before — colour circles (kind 21), the couple's own colours. */}
+          {logoColourChoices(null, layer.color).map((c) => {
+            const on = layer.color?.toUpperCase() === c.toUpperCase();
+            return (
+              <button
+                key={c}
+                type="button"
+                aria-label={`Colour ${c}`}
+                aria-pressed={on}
+                data-logo-ink={c}
+                onClick={() => onChange({ color: c })}
+                className={`h-9 max-h-9 min-h-9 w-9 min-w-9 max-w-9 shrink-0 rounded-full border border-ink/20 ${on ? 'ring-2 ring-sn-accent ring-offset-2 ring-offset-cream' : ''}`}
+                style={{ background: c }}
+              />
+            );
+          })}
+        </div>
+      )}
+    </Field>
+  );
+}
+
 /* ── small parts ─────────────────────────────────────────────────────────── */
 
-/** A panel's title — the desktop's; on a phone the lower third's column names the panel and closes it. */
+/** A column's title — the desktop's; on a phone the carousel and the tools row say where you are. */
 function SheetHead({ title }: { title: string }) {
   return (
     <div className="hidden items-center gap-2 px-4 pb-2 pt-3 lg:flex">
       <p className="min-w-0 flex-1 truncate font-serif text-lg text-ink">{title}</p>
     </div>
   );
-}
-
-function KindIcon({ kind }: { kind: LogoLayer['kind'] }) {
-  const cls = 'h-4 w-4 shrink-0';
-  if (kind === 'text') return <Type aria-label={LOGO_LAYER_KIND_LABEL.text} className={cls} />;
-  if (kind === 'frame') return <CircleDashed aria-label={LOGO_LAYER_KIND_LABEL.frame} className={cls} />;
-  return <ImagePlus aria-label={LOGO_LAYER_KIND_LABEL.image} className={cls} />;
 }
 
 function Field({ label, mark = null, explain = null, children }: { label: string; mark?: ReactNode; explain?: string | null; children: ReactNode }) {

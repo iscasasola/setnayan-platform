@@ -78,7 +78,10 @@ test('more than four, or fewer than none, is refused', async () => {
 test('a seat row of exactly the shape syncExtraSeats inserts is accepted, and linked', async () => {
   // ⚖ "+ will have seats beside the person invited". If a constraint refused
   // this shape, every +N would fail at the seat step in production.
-  const host = await add({ plus_one_count: 2 });
+  // The host is given NO number here: since 2026-10-21 the database mints a +N's rows itself
+  // (`a_plus_ones_count_is_their_rows` — tests/db/a-plus-ones-count-is-their-rows.db.test.ts), and
+  // this test is about the SHAPE being accepted, so it inserts both rows by hand.
+  const host = await add({ plus_one_count: 0 });
   for (const n of [1, 2]) {
     await db.query(
       `INSERT INTO public.guests (event_id, first_name, last_name, display_name, side, group_category, role, rsvp_status, photo_consent, plus_one_of_guest_id, plus_one_mode)

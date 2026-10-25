@@ -1,5 +1,8 @@
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
-import { resolveStdBackground, stdFollowsTheme } from '@/lib/std-backgrounds';
+import { startAhead } from '@/lib/start-ahead';
+import { MAKER_LATE_UNREAD, type MakerLate } from '@/lib/maker-late';
+import { needsHidesStage, needsHidesStudioTile } from '@/lib/event-needs';
+import { readEventNeedsFor } from '@/lib/event-needs-read.server';
 import Link from 'next/link';
 import { studioHubHref } from '@/lib/studio-hub';
 import { guestsMaySeeSeatsFor } from '@/lib/guests-may-see-seats';
@@ -15,13 +18,16 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import { Suspense, type ReactNode } from 'react';
 import { createClient } from '@/lib/supabase/server';
+import { readMakerDeskTitle } from '@/lib/maker-desk-title.server';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { isTransientReadError, schemaBlipError, withSchemaRetry } from '@/lib/read-retry';
 import { getCurrentUser } from '@/lib/auth';
 import { eventPapicActive } from '@/lib/papic-seats';
-import { GENERIC_PROFILE, profileSetup, resolveProfile, resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
+import { GENERIC_PROFILE, profileSetup, resolveProfile, resolveProfileByEvent, resolveRoleSetForEvent, surfaceEnabled } from '@/lib/event-type-profile';
+import { loadRoleNames } from '@/lib/role-names.server';
+import { previewRoleOptions } from '@/lib/preview-role';
 import { publicUrlForStoredAsset } from '@/lib/uploads';
 import { pickableInviteThemes, resolveInviteTheme, themeMatchingFeel } from '@/lib/invite-themes';
 import { resolveHero } from '@/lib/event-hero';
@@ -50,6 +56,7 @@ import { HubStage } from './_components/hub-stage';
 import { MakerShell } from './_components/maker-shell';
 import { HubDraftDock } from '../website/_components/hub-draft-dock';
 import { readHubDraft } from '@/lib/hub-draft-store';
+import { storedPhotosHeading } from '@/lib/photos-heading';
 import { overlayHubDraftEvent } from '@/lib/hub-draft';
 import { hubMainGround, sanitizeHubMainGround } from '@/lib/hub-canvas';
 import { mainColoursOf, sanitizeMainColourDraft } from '@/lib/main-colours';
@@ -72,7 +79,9 @@ import type { LoveStoryBlob } from '../website/our-story/_components/story-field
 import { resolveMoments } from '@/lib/love-story-moments';
 /* Constants and pure helpers from `maker-bar.ts`, never from a `'use client'`
    file — a server page gets a client REFERENCE for those, not the value. */
-import { MAKER_TOUR_KEY, isStagePhase } from './_components/maker-bar';
+import { MAKER_PAGE_STAGES, MAKER_TOUR_KEY, isStagePhase } from './_components/maker-bar';
+import { Spotlight } from '@/app/_components/spotlight';
+import { HOST_PAGE_TOURS, HOST_PAGE_TOURS_AFTER } from '@/lib/host-page-tours';
 import { makerTourSlideViews } from './_components/maker-tour-slides';
 import { MiniTour } from '@/app/_components/mini-tour';
 import { completeTour } from '@/lib/tour-actions';
@@ -82,6 +91,7 @@ import { HubProOffer } from './_components/hub-pro-offer';
 import { MakerDetails, detailsFactEditors } from './_components/maker-details';
 import { loadYourEvent } from './_components/details-your-event-load';
 import { venuesEditorFor } from './_components/details-your-event-parts';
+import type { MakerProLine, MakerVenuePictures } from './_components/maker-context';
 import { eventWordsFromProfile } from '@/app/[slug]/_lib/event-words';
 import { hasOwnLook } from '@/lib/theme-own-look';
 import { detailsItemApplies, detailsItemFor, makerHasWork, makerToolFor, schedulePieces, type DetailsItemKey } from '@/lib/maker-details-items';
@@ -92,12 +102,10 @@ import { hubSetupApplies, hubSetupGuestsHref, type HubSetupFacts } from '@/lib/h
 import { formatBlockTime } from '@/lib/schedule';
 import { isCoordinatorP3Enabled } from '@/lib/coordinator-broadcasts-server';
 import { findSampleEventId } from '@/app/tour/_lib/sample-event';
-import { GuestCardBody } from '../guests/_components/guest-card-body';
-import { fetchInvitationBase, loadGuestCard } from '../guests/_components/guest-card-data';
 import { qrLookChoicesFromRow } from '@/lib/qr-look.server';
 import { updateQrStyle } from './qr-look-actions';
 import { boardIsTheCouples, sampleBoardQuery, themeSeedPalettes } from '@/lib/theme-colours';
-import { parentGuestsForEvent, printInputsVersion, printOwnsPro, printThemeFor, readMenuSources, readPrintEvent, readRsvpHosts } from '@/lib/print-set.server';
+import { loadPassGuestNames, parentGuestsForEvent, printInputsVersion, printOwnsPro, printThemeFor, readMenuSources, readPrintEvent, readRsvpHosts } from '@/lib/print-set.server';
 import { printPreviewVersion } from '@/lib/print-preview-cache';
 import { printDraftOf } from '@/lib/ceremony-time';
 import { updateSpecialMessage } from '../website/special-message/actions';
@@ -129,14 +137,19 @@ import { readChapterOverrides } from '@/app/[slug]/_components/editorial/data';
 import { resolveHubProOffer } from '@/lib/event-hub-pro';
 import {
   eventCoupleWebsiteProActive,
+  eventHubOwnership,
   eventOwnsCoupleWebsitePro,
+  hubPartPrices,
 } from '@/lib/couple-website-pro';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { formatPhp } from '@/lib/orders';
 import { hubNamedGuestPreviewEnabled } from '@/lib/hub-named-guest-flag';
-import { asViewed, viewAsFreeSwitch } from '@/lib/view-as-free.server';
+import { asViewed, asViewedOwnership, viewAsFreeSwitch } from '@/lib/view-as-free.server';
+import { HUB_PARTS, type HubPartId } from '@/lib/hub-parts';
+import { eventHasRenamed } from '@/lib/event-slug-rename.server';
 import { planMyselfOn } from '@/lib/plan-myself';
 import { makerChoiceIsUnread, makerStagesStudioEnabled } from '@/lib/maker-stages-studio-flag';
+import { makerDesktopColumnsEnabled } from '@/lib/maker-desktop-columns-flag';
 import { TimelineRowsLoading } from '@/app/_components/timeline-states';
 import { manualLaunchPhase } from '@/lib/invitation-widgets';
 import { publicEventPath } from '@/lib/public-event-url';
@@ -302,6 +315,20 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
   }
 
   /*
+    ⚡ THE EVENT-ONLY READS START HERE, TOGETHER (2026-10-23, the speed pass). Past the host gate above, these need
+    nothing but the event's id and the viewer — yet each was awaited on its own line further down, so the Maker
+    waited for them one after another: whether the address was renamed before, the internal reading behind "View as
+    a free couple", the event type's profile, and the tour keys. They are STARTED here and awaited at the lines that
+    always awaited them (`lib/start-ahead.ts`); `viewAsFreeSwitch` and `resolveProfileByEvent` are per-request
+    caches, so their later calls are handed these same answers. Every one is awaited on every path below.
+    Held by `the-maker-reads-start-together.test.ts`.
+  */
+  void startAhead(viewAsFreeSwitch());
+  void startAhead(resolveProfileByEvent(eventId));
+  const renamedRead = startAhead(eventHasRenamed(eventId).catch(() => false));
+  const seenRead = startAhead(Promise.resolve(supabase.from('users').select('tour_seen_keys').eq('user_id', user.id).maybeSingle()));
+
+  /*
     🔒 MAY THIS VIEWER SEE THE REPLIES AT ALL?
 
     A delegate the host never shared the guest list with reads ZERO guest rows —
@@ -330,6 +357,9 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
     : Promise.resolve({ rows: [], measured: false });
 
   const base = `/dashboard/${eventId}`;
+  // 🚪 What THIS event needs (owner 2026-10-08, Level 1) — its own small read, started now; a refused
+  // read draws every stage and tile (yesterday's Maker), never fewer.
+  const needsRead = readEventNeedsFor(supabase, eventId, 'LaunchPage');
   // Every paid-feature read below asks "does THIS EVENT hold it?" (owner
   // 2026-10-02) — the one host-facing resolver, never the visitor's own session.
   const ent = await eventEntitlementClient(eventId);
@@ -534,7 +564,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
 
   /*
     ══ THE ONE UNLOCK, RESOLVED FOR THE CHANNEL THE COUPLE IS STANDING ON ══
-    § 5.3: the nine Pro items are ONE purchase, so the controller does not grow
+    § 5.3: the Pro items are ONE purchase, so the controller does not grow
     nine upgrade slots — it grows one, and moves it to whichever of the four
     public pages is live. `resolveHubProOffer` returns null far more often than
     not: when the couple owns it, when the read did not happen, on the day, and
@@ -564,6 +594,35 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
   // shell; only the PRO upsell — which prints a peso price for a digital SKU —
   // is withheld (App Review 3.1.1). See lib/store-shell.ts.
   const storeShell = await isStoreShellRequest();
+  /* 💎 PART BY PART (owner 2026-10-22): what the event holds of Event Hub Pro (as the viewer is shown it) and each
+     part's catalogue price — the quiet line's facts and the Studio cards' Pro lines. Never typed; none in the store
+     shell (no web price there). */
+  const [proOwn, proPrices] = await Promise.all([
+    // What the event holds — read in the store shell too: an owner keeps their rows there (`makerProUsable`).
+    asViewedOwnership(eventHubOwnership(ent, eventId)).catch(() => null),
+    // The prices — never in the store shell (no web price there).
+    storeShell ? Promise.resolve(null) : hubPartPrices(createAdminClient()).catch(() => null),
+  ]);
+  /** 💎 Does the event hold this part (or everything), as the viewer is shown it — each Maker row's own ◆ state. */
+  const ownsPart = (p: HubPartId): boolean => Boolean(proOwn && (proOwn.full || proOwn.parts.has(p)));
+  const partPricePhp: Partial<Record<HubPartId, number>> = {};
+  for (const p of HUB_PARTS) {
+    const php = proPrices?.onSale.has(p.sku) ? proPrices.parts.get(p.sku) : undefined;
+    if (php !== undefined && php > 0) partPricePhp[p.id] = php;
+  }
+  const studioPro = proOwn && !storeShell ? { owned: [...proOwn.parts], full: proOwn.full, pricePhp: partPricePhp } : null;
+  /* 💎 Renamed before parts shipped → that address is kept free (its `slug_change_log` row is the proof). */
+  const addressRenamed = await renamedRead;
+  const proLine: MakerProLine | null =
+    !proOwn || proOwn.full || !proPrices?.full || Object.keys(partPricePhp).length === 0
+      ? null
+      : {
+          fromPhp: Math.min(...Object.values(partPricePhp)),
+          fullPhp: proPrices.full,
+          paidPhp: proOwn.paidPhp,
+          owned: [...proOwn.parts],
+          href: `/dashboard/${eventId}/studio/website-pro?from=maker`,
+        };
 
   /* 👁 VIEW AS A FREE COUPLE — offered to an internal (§10a) viewer only, and
      read through the same per-request cache every Pro read above passed
@@ -635,12 +694,13 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
     Icon: LucideIcon;
   };
 
-  const services: Service[] = [
+  // 🍎 None of the three in the iPhone app — paid web extras it does not offer, price or unlock.
+  const services: Service[] = storeShell ? [] : [
     {
       key: 'panood',
       name: 'Live Watch — livestream',
       blurb: eventHasHappened
-        ? 'This one runs during the celebration.'
+        ? 'This one runs during the event.'
         : 'Bring everyone who could not make it into the room.',
       owned: panoodState.state === 'launch',
       launchLabel: 'Go live',
@@ -656,12 +716,12 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
     },
     {
       key: 'livewall',
-      name: 'Live Photo Wall',
+      name: 'Memory lane',
       blurb: eventHasHappened
         ? 'This one runs at the venue, on the day.'
         : 'Project guest photos at the venue in real time.',
       owned: ownsLiveWall,
-      launchLabel: 'Open the wall',
+      launchLabel: 'Open Memory lane',
       launchHref: `${base}/live`,
       addHref: studioHubHref(eventId),
       Icon: MonitorPlay,
@@ -677,7 +737,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       // derives what this event actually holds.
       blurb: eventHasHappened
         ? hasPapic
-          ? 'Your cameras have stood down — the photos are in your galleries.'
+          ? 'Your cameras have stood down — the photos are in your Memories.'
           : 'Cameras are handed out on the day.'
         : hasPapic
           ? 'Your cameras are ready — hand them out and the day gets caught from every angle.'
@@ -811,11 +871,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
      the first touch records it). The same read `MiniTour` makes.
      ⚠ A refused read shows nothing: an unread row must not replay the line on
      every visit, and ⋯ › About the Maker still opens the short tour. */
-  const { data: seenRow, error: seenError } = await supabase
-    .from('users')
-    .select('tour_seen_keys')
-    .eq('user_id', user.id)
-    .maybeSingle();
+  const { data: seenRow, error: seenError } = await seenRead;
   if (seenError) {
     logQueryError('LaunchPage.tourSeen', seenError, { event_id: eventId }, 'graceful_degrade');
   }
@@ -825,9 +881,22 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
     !(((seenRow as { tour_seen_keys?: string[] | null } | null)?.tour_seen_keys ?? []) as string[]).includes(
       MAKER_TOUR_KEY,
     );
+  /* 🔦 THE MAKER'S OWN SPOTLIGHT (owner 2026-10-22, journey_fixes_later Host 4 · Option A): three stops — the quiet
+     line, the lower third, Apply — on the first open after the journey, mounted HERE (the journey waits under the
+     Maker; this one is `inMaker`). An unread row draws nothing, as above. While it is due the quiet line shows, since
+     it is the tour's first stop. */
+  const seenKeys: ReadonlyArray<string> | null = seenError
+    ? null
+    : (((seenRow as { tour_seen_keys?: string[] | null } | null)?.tour_seen_keys ?? []) as string[]);
+  const makerSpotlightDue =
+    hasWork && seenKeys !== null && seenKeys.includes(HOST_PAGE_TOURS_AFTER) && !seenKeys.includes(HOST_PAGE_TOURS.maker);
 
   const liveStage = activeChannel && isStagePhase(activeChannel.phaseParam) ? activeChannel.phaseParam : null;
-  const makerStage = initialStage ?? liveStage ?? 'rsvp';
+  // 🚪 The stages this event does not need are absent — and the Maker never OPENS on one of them.
+  const eventNeeds = await needsRead;
+  const hiddenStages = MAKER_PAGE_STAGES.filter((st) => needsHidesStage(st, eventNeeds));
+  const wantedStage = initialStage ?? liveStage ?? 'rsvp';
+  const makerStage = (hiddenStages as readonly string[]).includes(wantedStage) ? 'event' : wantedStage;
 
   const controller = (
     /* THE STAGE MEASURE (`app/[slug]/_lib/measures.ts` STAGE = max-w-5xl): the
@@ -919,78 +988,83 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       )}
 
       {/* ══ S4b · THE PARTS — then the three services that run on the day ══ */}
-      <section className="mt-10">
-        <header className="space-y-1">
-          <p className="sn-eye">
-            <Radio aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> The Day
-          </p>
-          <h2 className="text-lg font-semibold tracking-tight sm:text-xl">
-            {standing.phase === 'dayof' ? 'Running now' : 'What runs on the day'}
-          </h2>
-          <p className="max-w-prose text-sm text-ink/60">
-            {standing.phase === 'dayof'
-              ? 'One press each — no confirmations, and nothing here is for sale today.'
-              : eventHasHappened
-                ? 'These ran during the celebration. What they caught is in your galleries.'
-                : 'They stay quiet until the day, then they are one press each from here.'}
-          </p>
-        </header>
+      {/* 🍎 All three (Live Watch · Live Photo Wall · Papic) are paid web extras the iPhone app does not
+          offer, price or unlock (lib/store-shell.ts) — the app draws none of them, owned or not, and no
+          "Add". Held by `lib/the-app-names-no-paid-service.test.ts`. */}
+      {storeShell ? null : (
+        <section className="mt-10">
+          <header className="space-y-1">
+            <p className="sn-eye">
+              <Radio aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> The Day
+            </p>
+            <h2 className="text-lg font-semibold tracking-tight sm:text-xl">
+              {standing.phase === 'dayof' ? 'Running now' : 'What runs on the day'}
+            </h2>
+            <p className="max-w-prose text-sm text-ink/60">
+              {standing.phase === 'dayof'
+                ? 'One press each — no confirmations, and nothing here is for sale today.'
+                : eventHasHappened
+                  ? 'These ran during the event. What they caught is in your Memories.'
+                  : 'They stay quiet until the day, then they are one press each from here.'}
+            </p>
+          </header>
 
-        <div className="mt-4 space-y-3">
-          {services.map((s) => {
-            const Icon = s.Icon;
-            return (
-              <article
-                key={s.key}
-                className={`sn-row flex items-center justify-between gap-4 p-4 sm:p-5 ${
-                  s.owned ? '' : 'border-dashed'
-                }`}
-              >
-                <div className="flex min-w-0 items-start gap-3">
-                  <span
-                    className={`mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
-                      s.owned ? 'bg-terracotta/10 text-terracotta' : 'bg-ink/5 text-ink/40'
-                    }`}
-                  >
-                    <Icon aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-                  </span>
-                  <div className="min-w-0">
-                    <h3 className={`text-sm font-semibold ${s.owned ? 'text-ink' : 'text-ink/70'}`}>{s.name}</h3>
-                    <p className="text-xs text-ink/55">{s.blurb}</p>
+          <div className="mt-4 space-y-3">
+            {services.map((s) => {
+              const Icon = s.Icon;
+              return (
+                <article
+                  key={s.key}
+                  className={`sn-row flex items-center justify-between gap-4 p-4 sm:p-5 ${
+                    s.owned ? '' : 'border-dashed'
+                  }`}
+                >
+                  <div className="flex min-w-0 items-start gap-3">
+                    <span
+                      className={`mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
+                        s.owned ? 'bg-terracotta/10 text-terracotta' : 'bg-ink/5 text-ink/40'
+                      }`}
+                    >
+                      <Icon aria-hidden className="h-5 w-5" strokeWidth={1.75} />
+                    </span>
+                    <div className="min-w-0">
+                      <h3 className={`text-sm font-semibold ${s.owned ? 'text-ink' : 'text-ink/70'}`}>{s.name}</h3>
+                      <p className="text-xs text-ink/55">{s.blurb}</p>
+                    </div>
                   </div>
-                </div>
-                {s.owned ? (
-                  /* ⛔ NO CONFIRMATION DIALOG. One press, at a ceremony. */
-                  <Link
-                    href={s.launchHref}
-                    className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-terracotta-700 px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-terracotta-800"
-                  >
-                    {s.launchLabel}
-                    <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={2} />
-                  </Link>
-                ) : eventHasHappened ? (
-                  /* ⚠ CLOSED, NOT HIDDEN — the same shape the Suite uses. The row
-                     still says what the service was; it just stops offering to
-                     sell it for a night that has finished. */
-                  <span
-                    aria-disabled="true"
-                    className="inline-flex shrink-0 items-center rounded-full border border-ink/10 bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/45"
-                  >
-                    Event over
-                  </span>
-                ) : offersAllowed ? (
-                  <Link
-                    href={s.addHref}
-                    className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-ink/15 px-3 py-1.5 text-xs font-medium text-ink/60 transition-colors hover:bg-ink/5 hover:text-ink"
-                  >
-                    <Plus aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Add
-                  </Link>
-                ) : null /* ⛔ THE DAY. The upsell branch collapses to nothing. */}
-              </article>
-            );
-          })}
-        </div>
-      </section>
+                  {s.owned ? (
+                    /* ⛔ NO CONFIRMATION DIALOG. One press, at a ceremony. */
+                    <Link
+                      href={s.launchHref}
+                      className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-terracotta-700 px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-terracotta-800"
+                    >
+                      {s.launchLabel}
+                      <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={2} />
+                    </Link>
+                  ) : eventHasHappened ? (
+                    /* ⚠ CLOSED, NOT HIDDEN — the same shape the Suite uses. The row
+                       still says what the service was; it just stops offering to
+                       sell it for a night that has finished. */
+                    <span
+                      aria-disabled="true"
+                      className="inline-flex shrink-0 items-center rounded-full border border-ink/10 bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/45"
+                    >
+                      Event over
+                    </span>
+                  ) : offersAllowed ? (
+                    <Link
+                      href={s.addHref}
+                      className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-ink/15 px-3 py-1.5 text-xs font-medium text-ink/60 transition-colors hover:bg-ink/5 hover:text-ink"
+                    >
+                      <Plus aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Add
+                    </Link>
+                  ) : null /* ⛔ THE DAY. The upsell branch collapses to nothing. */}
+                </article>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {/* ══ S5 · SET ONCE — doors, never editors ══ */}
       <section className="mt-10">
@@ -1034,6 +1108,40 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
     </div>
   );
 
+  const guideAddress = parseGuideParam(one(search.guide));
+  const rawTool = one(search.tool);
+  const itemNamed = Boolean(one(search.item));
+  /* The address names no place — no tool, scene, stage or pin (the guided flow's door, below). */
+  const addressNamesNoPlace =
+    !rawTool && !one(search.scene) && !one(search.open) && !one(search.stage) && !one(search.pin) && !one(search.chain);
+  /* 🧭 THE NEW MAKER — "Stages | Studio" (owner 2026-10-06; plan
+     `EVENT_HUB_MAKER_STAGES_STUDIO_BUILD_PLAN_2026-10-06.md` PR 1): ON for the
+     flag, or for an internal viewer (the reading View-as-free already made), and
+     only where there is work. The ONE place it is decided — `MakerShell` is handed
+     the boolean, and Studio's tiles are built only while it is on. */
+  /* 🧯 …and when the read behind that reading FAILED, neither Maker is drawn: a
+     refused read must never pick a product (`makerChoiceIsUnread`, incident 2026-10-08). */
+  if (hasWork && makerChoiceIsUnread({ internalRead: freeSwitch.measured })) throw schemaBlipError('LaunchPage.makerChoice');
+  const stagesStudio = hasWork && makerStagesStudioEnabled({ internal: freeSwitch.offered });
+  /* 🖥 …and on a desktop too, in three columns (`MAKER_DESKTOP_ADAPTATION_2026-10-07_fable.md`) — dark for couples while it is built. */
+  const desktopColumns = stagesStudio && makerDesktopColumnsEnabled({ internal: freeSwitch.offered });
+  /* 🖥 …whose top bar names the event — its own small read, only while the columns are on (`lib/maker-desk-title.server.ts`). */
+  const deskTitle = desktopColumns ? await readMakerDeskTitle(supabase, eventId) : null;
+  /* ⚡ Started inside the block below (every `hasWork` path reads it in the toolbar's See-as roles). */
+  let roleNamesRead: ReturnType<typeof loadRoleNames> | null = null;
+  /* ⚡ THE TOOLS ARRIVE BEHIND THE MAKER, NEVER IN FRONT OF IT (measured on production 2026-10-23, new Maker
+     on a phone: the page took 5.4–6.3 s and the canvas showed at 7.5–11.6 s — the editor that draws it was
+     only started once THIS block was done, and the block is the Studio's and Details' every panel, ~800 KB).
+     The block now runs as ONE promise, started here and never awaited by the page: the shell and the canvas
+     go out at once, and the panels follow in the same response a moment later — before anyone has tapped,
+     so a tool still opens with its data in hand (DECISION_LOG 2026-09-28 "THE MAKER LOADS EVERYTHING UP
+     FRONT"; 2026-09-29 "THE MAKER MUST NEVER FEEL SLOW"). Nothing is fetched on a tap. The shell picks the
+     promise up (`late`, `maker-late.tsx`) and says "loading" — never "could not be loaded" — while it is
+     on its way. Held by `lib/the-maker-reads-start-together.test.ts` (test 5). */
+  const late: Promise<MakerLate> | null = hasWork
+    ? startAhead(
+        /* Named: the read harness tells this lane's reads from the canvas's by it (`maker-page-reads.harness.ts`). */
+        (async function makerLateWork(): Promise<MakerLate> {
   /* ══ PRINTS & TICKETS (Phase 9) ══ The couple's workspace only. One event
      read (the theme and the card words) and the Pro question — the pieces
      themselves are drawn by /api/hub-print, which asks the Pro question again
@@ -1047,37 +1155,36 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
      unfinished event's Maker opens on What's left unless the address names a
      place; the stages are never blocked. */
   let detailsUnfinished = false;
-  const guideAddress = parseGuideParam(one(search.guide));
-  const rawTool = one(search.tool);
-  const itemNamed = Boolean(one(search.item));
   /* ✍ The Details items' own editors — ONE set, drawn by Details and by the
      stage's inspector when a fact is tapped there (`detailsFactEditors`). */
   let factEditors: Partial<Record<DetailsItemKey, ReactNode>> = {};
-  /* 🧭 THE NEW MAKER — "Stages | Studio" (owner 2026-10-06; plan
-     `EVENT_HUB_MAKER_STAGES_STUDIO_BUILD_PLAN_2026-10-06.md` PR 1): ON for the
-     flag, or for an internal viewer (the reading View-as-free already made), and
-     only where there is work. The ONE place it is decided — `MakerShell` is handed
-     the boolean, and Studio's tiles are built only while it is on. */
-  /* 🧯 …and when the read behind that reading FAILED, neither Maker is drawn: a
-     refused read must never pick a product (`makerChoiceIsUnread`, incident 2026-10-08). */
-  if (hasWork && makerChoiceIsUnread({ internalRead: freeSwitch.measured })) throw schemaBlipError('LaunchPage.makerChoice');
-  const stagesStudio = hasWork && makerStagesStudioEnabled({ internal: freeSwitch.offered });
+  /** 📱 The venue cards' Picture ▾ for the new Maker's Venue scene › Edit — the same slots Details › Venues draws. */
+  let venuePictures: MakerVenuePictures | null = null;
   let studio: { tiles: StudioTileModel[] } | null = null;
-  if (hasWork) {
+  {
     const printAdmin = createAdminClient();
+    /* ⚡ STARTED WITH THE BLOCK (2026-10-23, the speed pass): the See-as roles and their names need only the event's
+       id, yet were awaited last, in the toolbar's props. Awaited there still — on every `hasWork` path. */
+    void startAhead(resolveRoleSetForEvent(eventId));
+    roleNamesRead = startAhead(loadRoleNames(supabase, eventId, 'LaunchPage.roleNames'));
     /* 🎁 Started beside the reads below, awaited where the E-Gifts field is built. */
     const egiftAllP = readEgiftMethods(supabase, eventId);
     /* 🎁 The wish list (owner 2026-10-08) — read through the couple's own client (hosts-only under
        RLS), and only while the new Maker's Studio is on: nothing else draws it. */
     const wishListP = stagesStudio ? readStudioWishList(supabase, eventId) : null;
-    const egiftVisibilityP = supabase.from('events').select('landing_page_visibility').eq('event_id', eventId).maybeSingle();
+    /* ⚡ A query builder only leaves when it is awaited, so this one is started here (it used to leave at its await). */
+    const egiftVisibilityP = startAhead(Promise.resolve(supabase.from('events').select('landing_page_visibility').eq('event_id', eventId).maybeSingle()));
     /* 🧭 Studio › Info's Your Event Hub rows and What to bring — read only while the new Maker is on. */
     const studioHubP = stagesStudio
-      ? supabase
-          .from('events')
-          .select('slug, landing_page_visibility, launch_mode, manual_phase, website_open_browse, std_launched_at, scheduled_launch_at, what_to_bring')
-          .eq('event_id', eventId)
-          .maybeSingle()
+      ? startAhead(
+          Promise.resolve(
+            supabase
+              .from('events')
+              .select('slug, landing_page_visibility, launch_mode, manual_phase, website_open_browse, std_launched_at, scheduled_launch_at, what_to_bring')
+              .eq('event_id', eventId)
+              .maybeSingle(),
+          ),
+        )
       : null;
     /* 🧱 THE MISSING FIELDS (owner 2026-10-07) — the registry link and the QR switch,
        and the live main background (the hero row's `main`). Read on their own so a
@@ -1085,11 +1192,16 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
     const studioMissingP = stagesStudio
       ? Promise.all([
           supabase.from('events').select('gift_registry_url, qr_shown').eq('event_id', eventId).maybeSingle(),
-          printAdmin.from('invitation_widgets').select('config_json').eq('event_id', eventId).eq('widget_type', 'hero').maybeSingle(),
+          /* ✍ …and the Photos scene's row, in the SAME read (owner 2026-10-15: its heading is typed in Info). */
+          printAdmin.from('invitation_widgets').select('widget_type, config_json').eq('event_id', eventId).in('widget_type', ['hero', 'our_photos']),
         ])
       : null;
+    /* 🎟 Studio › Prints' Event pass (owner 2026-10-16): who has a pass, by name — "Pass for ▾" and the count over every guest's
+       file. The printed passes' own read and rule (`loadPassGuestNames`); null when it could not be read. Studio only. */
+    const printEventP = readPrintEvent(printAdmin, eventId);
+    const passGuestsP = stagesStudio ? loadPassGuestNames(eventId, printEventP.then((e) => e?.print_details ?? null)).catch(() => null) : null;
     const [printEvent, printPro, rsvpHosts, printParents, egifts, printInputs, sampleVersion, feelRes, storyLiveRes, scheduleRes, announceOn] = await Promise.all([
-      readPrintEvent(printAdmin, eventId),
+      printEventP,
       printOwnsPro(eventId),
       readRsvpHosts(eventId),
       parentGuestsForEvent(eventId),
@@ -1102,7 +1214,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         .then((id) => (id ? printInputsVersion(id) : null))
         .catch(() => null),
       // 💡 The onboarding feel — the gallery's "Suggested for you" label only; + the own-look columns (a re-tap of the current theme hands them back).
-      printAdmin.from('events').select('mood_feel_key, site_bg_color, site_button_color, site_font_key, std_background').eq('event_id', eventId).maybeSingle(),
+      printAdmin.from('events').select('mood_feel_key, site_bg_color, site_button_color, site_font_key').eq('event_id', eventId).maybeSingle(),
       // 💌 The live Love Story (the draft, read below, wins) — Details › Love Story.
       supabase.from('events').select('love_story').eq('event_id', eventId).maybeSingle(),
       // 🗓 The schedule's moments — Details › Schedule's ✓ and its pieces (a refused read says so, never "0").
@@ -1131,6 +1243,33 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         );
     if (feelRes.error) logQueryError('LaunchPage.moodFeel', feelRes.error, { event_id: eventId }, 'graceful_degrade');
     if (printEvent) {
+      /* ⚡ Started as soon as the event's print row is in (2026-10-23, the speed pass) — each needs only it and the
+         event id, yet each was awaited after the reads above it. Each is awaited where it always was, on every path
+         below: where the reveal plays, the guests' count for the setup (only where the setup
+         applies and the viewer may read the guest list, as before), the draft (it waited for the Menu's sources),
+         the RSVP deadline and the requests count (they waited for Your event). */
+      const revealStagesRead = startAhead(readMakerRevealStages(eventId));
+      const setupGuestsRead =
+        hubSetupApplies(printEvent.event_type) && mayReadGuestList ? startAhead(countSetupGuests(printAdmin, eventId)) : null;
+      const draftRead = startAhead(readHubDraft(supabase, eventId));
+      const deadlineRead = startAhead(
+        Promise.resolve(printAdmin.from('events').select('guest_list_edit_deadline, adaptive_pricing_mode').eq('event_id', eventId).maybeSingle()),
+      );
+      /* A COUNT, never names: this page reads no guest by name
+         (`the-controller-wires-what-it-measured.test.ts`), and only a viewer
+         who may read the guest list asks at all (`mayReadGuestList`). Awaited with the RSVP deadline below. */
+      const requestsCountEarly = mayReadGuestList
+        ? startAhead(
+            Promise.resolve(
+              printAdmin
+                .from('guests')
+                .select('guest_id', { count: 'exact', head: true })
+                .eq('event_id', eventId)
+                .eq('entry_source', 'self_added_unlisted')
+                .is('deleted_at', null),
+            ),
+          )
+        : null;
       const stored = parsePrintDetails(printEvent.print_details);
       // The Menu card's other sources (a booked caterer's lines, the schedule's food moments).
       const menuSources = await readMenuSources(eventId, stored.menu);
@@ -1158,16 +1297,22 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       let draftedVenue: unknown = null;
       // 🖼 The drafted Look › Background (the hero row's `main`) — the guided Look step's "done" reads it.
       let draftedMain: unknown = undefined;
+      // ✍ The drafted Photos heading (the Photos row's `photos_heading`) — Studio › Info's row shows it.
+      let draftedPhotosHeading: string | null | undefined = undefined;
       // 🔳 The QR look being edited — drafted over live (owner 2026-09-29, "yes to all 3").
       let qrPrefs: unknown = printEvent.style_preferences;
       // 🚶 The Wedding March's drafted moves (owner 2026-10-06, "Wait for apply"); null = the draft could not be read.
       let draftedMarch: MarchStep[][] | null = null;
+      // 💎 The custom address tried in the draft (owner 2026-10-22) — the Address field opens on it.
+      let draftedAddress: string | null = null;
       try {
-        const d = await readHubDraft(supabase, eventId);
+        const d = await draftRead;
         draftedMarch = d?.march ?? [];
+        draftedAddress = d?.address ?? null;
         if (d) draftedEvents = d.events as Record<string, unknown>;
         if (d) draftedVenue = d.widgets.venue_map?.venue ?? null;
         if (d && d.widgets.hero && 'main' in d.widgets.hero) draftedMain = d.widgets.hero.main ?? null;
+        if (d && d.widgets.our_photos && 'photos_heading' in d.widgets.our_photos) draftedPhotosHeading = d.widgets.our_photos.photos_heading ?? null;
         if (d && 'invite_theme' in d.events) themeSaved = d.events.invite_theme;
         if (d && 'love_story' in d.events) storyRaw = d.events.love_story;
         if (d && 'style_preferences' in d.events) qrPrefs = d.events.style_preferences;
@@ -1185,20 +1330,15 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       }
       /* ⏳ The opening line as drafted (owner 2026-10-08, "draft 1-3") — every Maker door reads `stored`. */
       if (draftedOpeningLine !== undefined) stored.openingLine = draftedOpeningLine;
+      /* ⚡ Whether a background was chosen needs only the drafted main ground just read — started now, awaited where
+         the guided facts are built (2026-10-23, the speed pass). */
+      const backgroundChosenRead = startAhead(readBackgroundChosen(printAdmin, eventId, draftedMain));
       /* 🔢 ONE COUNT, STARTED NOW (owner 2026-10-05: "10 of 18" here, "9 of 18"
          on Event Details; review 2026-10-05: it ran serially, re-reading what
          this page had just read, on every refresh). The plan Home and Event
          Details count from (\`readGuidedPlan\`) — handed this page's own reads so
          it repeats none of them, and left running beside the rest of the page;
          awaited only where the guide is drawn. */
-      /* 🎞 The film's background as the couple is editing it — the draft's, else
-         live (`undefined` = unreadable: no "Same as theme" line is offered). */
-      const filmBackgroundRead: unknown =
-        'std_background' in draftedEvents
-          ? draftedEvents.std_background
-          : feelRes.error
-            ? undefined
-            : ((feelRes.data as { std_background?: unknown } | null)?.std_background ?? null);
       const sharedPlanP = readGuidedPlan({
         supabase,
         admin: printAdmin,
@@ -1222,7 +1362,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       // 💎 On the web a drafted Pro theme is the one being edited even without
       // Pro — it is tried here and held at Apply (owner 2026-09-28, #6091). The
       // shell keeps the ownership half of the gate.
-      const themeCurrent = resolveInviteTheme({ saved: themeSaved, ownsPro: printPro || !storeShell });
+      const themeCurrent = resolveInviteTheme({ saved: themeSaved, ownsPro: ownsPart('style') || !storeShell });
       /* 🎂 The celebration's type decides Details' items and switches (DECISION_LOG
          "THE PLAN ADAPTS TO EVERY EVENT TYPE — BUILT IN, NOT BOLTED ON"). An
          unreadable profile is the generic one — never a wedding. */
@@ -1306,37 +1446,17 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         /* 🖼 The Our Story poster's own photo (owner 2026-09-29). */
         posterPhoto: stored.posterPhoto ?? null,
         passCardsZip: passCardsZipFileNameOf(printEvent),
+        passGuests: passGuestsP ? await passGuestsP : undefined,
         formats: {
           pass: formatFor('pass', one(search.pass_format))!,
           invitation: formatFor('invitation', one(search.invitation_format))!,
           card: formatFor('card', one(search.card_format))!,
         },
       };
-      /* 👪 Each parent's OWN guest card (Details → The Invitation, option (a)):
-         the one loader the Guest list uses, so the card posts every column. */
-      const invitationBase = await fetchInvitationBase(eventId, printEvent.slug).catch(() => null);
-      const parentCards = await Promise.all(
-        printParents.map(async (p) => {
-          const data = p.guestId ? await loadGuestCard(supabase, eventId, p.guestId).catch(() => null) : null;
-          return {
-            guestId: data ? p.guestId : null,
-            side: p.side,
-            name: p.name,
-            card: data ? (
-              <GuestCardBody
-                eventId={eventId}
-                data={data}
-                invitationBase={invitationBase}
-                photoDisplayUrl={null}
-                variant="panel"
-                returnTo={`/dashboard/${eventId}/launch?tool=details&item=invitation`}
-                errorMessage={null}
-                inviteFlash={null}
-              />
-            ) : null,
-          };
-        }),
-      );
+      /* 👪 Each parent on the invitation — tapping one opens THEIR OWN guest card, THE guest card (`GuestCard`, owner
+         2026-10-24), read at the tap by the one action every in-place card uses (`openGuestCard`). Nothing of the card
+         is read or drawn with the Maker: it is not in the Maker's first load. */
+      const parentCards = printParents.map((p) => ({ guestId: p.guestId ?? null, side: p.side, name: p.name }));
       /* 🗓 Details part 2a — "Your event": names, date, venues, parents &
          hosts, the march — each read from the column its own screen reads. */
       const yourEvent = await loadYourEvent({
@@ -1351,6 +1471,8 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         drafted: draftedEvents,
         draftedVenue,
         draftedMarch,
+        // ⛪ The venue card's "Our drawing ◆" — Pro as the celebration's mark reads it.
+        venuePro: { owns: ownsPart('own_scenes'), storeShell },
       }).catch((e: unknown) => {
         console.error('[details] your event could not be read:', e instanceof Error ? e.message : e);
         return null;
@@ -1365,18 +1487,8 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       /* A COUNT, never names: this page reads no guest by name
          (`the-controller-wires-what-it-measured.test.ts`), and only a viewer
          who may read the guest list asks at all (`mayReadGuestList`). */
-      const requestsCountRead = mayReadGuestList
-        ? printAdmin
-            .from('guests')
-            .select('guest_id', { count: 'exact', head: true })
-            .eq('event_id', eventId)
-            .eq('entry_source', 'self_added_unlisted')
-            .is('deleted_at', null)
-        : null;
-      const [deadlineRes, requestsRes] = await Promise.all([
-        printAdmin.from('events').select('guest_list_edit_deadline, adaptive_pricing_mode').eq('event_id', eventId).maybeSingle(),
-        requestsCountRead,
-      ]);
+      const requestsCountRead = requestsCountEarly;
+      const [deadlineRes, requestsRes] = await Promise.all([deadlineRead, requestsCountRead]);
       if (deadlineRes.error) logQueryError('LaunchPage.rsvpDeadline', deadlineRes.error, { event_id: eventId }, 'graceful_degrade');
       /* ⏳ Reply by as the couple is editing it — the draft's, else live (owner 2026-10-08, "draft 1-3"). */
       const deadlineNow: string | null =
@@ -1401,7 +1513,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
             eventId={eventId}
             /* 🧭 Studio › RSVP — the prototype's tool, over the same saves (new Maker only). */
             {...(stagesStudio
-              ? { studio: true, celebration: { ownsPro: printPro, storeShell, colours: celebrationColours(boardSwatches(printEvent.role_palette)) } }
+              ? { studio: true, celebration: { ownsPro: ownsPart('motion'), storeShell, colours: celebrationColours(boardSwatches(printEvent.role_palette)) } }
               : {})}
             current={rsvpAsk}
             drafted={rsvpAskDrafted}
@@ -1472,7 +1584,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
             replyByFallback={resolveReplyBy({ deadline: null, eventDate: printEvent.event_date })?.date ?? null}
             /* 🎉 When yes's Celebration ▾ — its ◆ marks ask the SAME measured
                Pro the QR look asks (`printPro`); its previews wear the board. */
-            celebration={{ ownsPro: printPro, colours: celebrationColours(boardSwatches(printEvent.role_palette)) }}
+            celebration={{ ownsPro: ownsPart('motion'), colours: celebrationColours(boardSwatches(printEvent.role_palette)) }}
           />
         );
       }
@@ -1526,7 +1638,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         // 🪑 The Seat plan row's own done (its door) — read above, never re-read.
         // 🪑 Done = ARRANGED (a guest seated), never "guests can see it".
         seatPlanArranged: seatPlan ? (seatPlan.seated === null ? null : seatPlan.seated > 0) : undefined,
-        backgroundChosen: await readBackgroundChosen(printAdmin, eventId, draftedMain),
+        backgroundChosen: await backgroundChosenRead,
       });
       const sharedPlan = await sharedPlanP;
       /* 🖼 The cover photo itself — what the guided cover step shows behind its
@@ -1556,7 +1668,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
           loveStoryMoments: detailsItemApplies('love-story', eventContext) ? (guided.story ? resolveMoments(guided.story).length : null) : 0,
           dressCode: 'dress_code_config' in draftedEvents ? draftedEvents.dress_code_config : printEvent.dress_code_config,
           replyBy: deadlineRes.error ? undefined : (deadlineNow),
-          guests: mayReadGuestList ? await countSetupGuests(printAdmin, eventId) : null,
+          guests: setupGuestsRead ? await setupGuestsRead : null,
         });
       }
       /* 🗂 STUDIO'S TILES — their ✓ / Missing from the SAME facts the rows above read
@@ -1565,13 +1677,14 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         const gifts = await egiftAllP;
         studio = {
           tiles: studioTiles({
+            pro: studioPro,
             facts: guided,
             setup: setupFacts,
             giftMethods: gifts.read ? gifts.methods.filter((m) => m.is_enabled).length : null,
             seat: seatPlan ? { tables: seatPlan.tables, seated: seatPlan.seated } : null,
             offered: (item) => (item === 'seating' ? seatPlan !== null : item === 'rsvp' ? rsvpItem !== null : detailsItemApplies(item, eventContext)),
             marchLabel: yourEvent ? yourEventLabel('march', yourEvent.kind) : undefined,
-          }),
+          }).filter((t) => !needsHidesStudioTile(t.key, eventNeeds)),
         };
       }
       const guidedPresentHere = guidedPresent({
@@ -1606,10 +1719,11 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         specialMessageAction: updateSpecialMessage.bind(null, eventId),
         pabuyaMessage,
         // A sixth moment's gate — the Story row's own (`proActive`, as the viewer is shown it).
-        loveStory: withStory ? { story: story!, ownsPro: proActive } : null,
+        loveStory: withStory ? { story: story!, ownsPro: ownsPart('photos') } : null,
       });
       // 🏛 A venue card tapped on a stage opens the SAME Venues editor Details draws.
       if (yourEvent) factEditors = { ...factEditors, venues: venuesEditorFor(eventId, yourEvent) };
+      if (yourEvent && stagesStudio) venuePictures = { slots: yourEvent.venues.slots, pro: yourEvent.venues.pro ?? { owns: false, storeShell } };
       /* 🗓 THE SCHEDULE, moved whole — the shipped page, streamed so the Maker
          never waits on it, with its own query when Details › Schedule is the item. */
       const schedulePage = (
@@ -1652,7 +1766,11 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
             if (heroRes?.error) logQueryError('LaunchPage.studioMainGround', heroRes.error, { event_id: eventId }, 'graceful_degrade');
             const fields = fieldsRes && !fieldsRes.error ? (fieldsRes.data as { gift_registry_url?: string | null; qr_shown?: boolean | null } | null) : null;
             /* The main background as the Maker shows it: the drafted one over live. */
-            const liveMain = heroRes && !heroRes.error ? hubMainGround((heroRes.data as { config_json?: unknown } | null)?.config_json) : undefined;
+            const sceneRows = heroRes && !heroRes.error ? ((heroRes.data ?? []) as Array<{ widget_type: string; config_json?: unknown }>) : null;
+            const liveMain = sceneRows ? hubMainGround(sceneRows.find((r) => r.widget_type === 'hero')?.config_json) : undefined;
+            /* ✍ The Photos heading as the Maker shows it: the drafted one over live; undefined when the row could not be read. */
+            const photosHeading =
+              draftedPhotosHeading !== undefined ? draftedPhotosHeading : sceneRows ? storedPhotosHeading(sceneRows) : undefined;
             const studioMain = draftedMain !== undefined ? sanitizeHubMainGround(draftedMain) : liveMain;
             /* The five main colours as the page wears them — the Mood Board drafted over live. */
             const dressedRow = overlayHubDraftEvent(
@@ -1687,6 +1805,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
                     qrDisplayUrl: m.qrDisplayUrl,
                   }))
                 : null,
+              photosHeading,
               whatToBring:
                 'what_to_bring' in draftedEvents
                   ? ((draftedEvents.what_to_bring as string | null) ?? null)
@@ -1730,14 +1849,22 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
             eventId={eventId}
             slug={printEvent.slug}
             slugAction={updateEventSlug.bind(null, eventId, 'launch')}
+            /* 💎 THE ADDRESS, PART BY PART (owner 2026-10-22): free = the address it has; renaming = the Custom address part. */
+            address={{
+              owns: Boolean(proOwn && (proOwn.full || proOwn.parts.has('address'))),
+              renamed: addressRenamed,
+              pricePhp: partPricePhp.address ?? null,
+              drafted: draftedAddress,
+              storeShell,
+            }}
             // The QR's look (lib/qr-look.server.ts): Pro as `printOwnsPro` measured
             // it, the saved choices, and the contrast-passing Mood Board colours.
-            qr={{ ...qrLookChoicesFromRow({ ...printEvent, style_preferences: qrPrefs }, printPro), storeShell }}
+            qr={{ ...qrLookChoicesFromRow({ ...printEvent, style_preferences: qrPrefs }, ownsPart('logo_qr')), storeShell }}
             qrStyleAction={updateQrStyle.bind(null, eventId)}
             theme={{
               themes: themes.map((t) => ({ id: t.id, name: t.name, tier: t.tier })),
               current: themeCurrent,
-              ownsPro: printPro,
+              ownsPro: ownsPart('style'),
               storeShell,
               suggested: themeMatchingFeel(feelRes.data?.mood_feel_key),
               sampleVersion,
@@ -1746,11 +1873,6 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
               // Never on the Maker's very first visit — its own welcome is showing.
               tour: !firstVisit,
               chosen: guided.themeChosen,
-              /* 🎞 The film keeps a background of its own (draft over live) — Theme
-                 then offers "Same as theme" (owner, live walk 2026-10-05). Only
-                 where the type has the film at all. */
-              filmOwnBackground: mayShowStdFilm && filmBackgroundRead !== undefined && !stdFollowsTheme(filmBackgroundRead),
-              filmLegibility: resolveStdBackground(filmBackgroundRead).legibility ?? 'auto',
               // The look they set themselves (draft over live) — a re-tap of the current theme hands it back.
               ownLook: hasOwnLook(feelRes.data as Record<string, unknown> | null, draftedEvents),
               /* 🎨 THE MOOD BOARD PALETTE IS THE PRIORITY (owner 2026-10-05): an
@@ -1840,7 +1962,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
               heroDone: guided.hero,
               // The hero panel's own claim: made once, shown on these three and the poster.
               heroOn: [PUBLIC_STAGE_LABELS.save_the_date, PUBLIC_STAGE_LABELS.rsvp, PUBLIC_STAGE_LABELS.event, 'The poster'],
-              revealOn: (await readMakerRevealStages(eventId)).map((s) => PUBLIC_STAGE_LABELS[s]),
+              revealOn: (await revealStagesRead).map((s) => PUBLIC_STAGE_LABELS[s]),
             }}
           />
         ),
@@ -1848,21 +1970,31 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       };
     }
   }
+  return {
+    details,
+    rsvpStage,
+    factEditors,
+    venuePictures,
+    studio,
+    /* 🪜 The guided flow's door, decided where its facts are (below: only where the address names no place). */
+    opensOnGuide: addressNamesNoPlace && detailsUnfinished && guideAddress === null,
+  };
+        })().catch((error: unknown): MakerLate => {
+          /* A panel that could not be built is SAID by the shell ("could not be loaded"), never a blank Maker. */
+          logQueryError('LaunchPage.makerLate', error, { event_id: eventId }, 'graceful_degrade');
+          return MAKER_LATE_UNREAD;
+        }),
+      )
+    : null;
 
   /* 🪜 A new couple's Maker opens on What's left (DECISION_LOG 2026-09-29 "THE
      GUIDED FLOW IS APPROVED…"): an unfinished event, and the address names no
-     place — no tool, scene, stage or pin. */
-  const opensOnGuide =
-    hasWork &&
-    detailsUnfinished &&
-    !rawTool &&
-    !one(search.scene) &&
-    !one(search.open) &&
-    !one(search.stage) &&
-    !one(search.pin) &&
-    !one(search.chain);
+     place — no tool, scene, stage or pin. Whether it is unfinished arrives with
+     the tools (`late.opensOnGuide`); the shell opens What's left then, unless the
+     couple has already tapped somewhere (`maker-late.tsx`). */
 
   return (
+    <>
     <MakerShell
       eventId={eventId}
       slug={eventSlug}
@@ -1877,18 +2009,18 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         if (hasWork && (tool === 'hero' || tool === 'reveal' || tool === 'logo' || tool === 'details')) {
           return { kind: 'tool', key: tool } as const;
         }
-        // 🪜 `?guide=`, or an unfinished event with no place named: Details, on What's left.
-        return hasWork && (guideAddress !== null || opensOnGuide) ? ({ kind: 'tool', key: 'details' } as const) : null;
+        // 🪜 `?guide=`: Details, on What's left. (An unfinished event with no place named opens it when `late` lands.)
+        return hasWork && guideAddress !== null ? ({ kind: 'tool', key: 'details' } as const) : null;
       })()}
-      opensOnGuide={opensOnGuide && guideAddress === null}
-      details={details}
-      rsvpStage={rsvpStage}
-      factEditors={factEditors}
+      /* ⚡ Details · RSVP · the fact editors · the venue pictures · Studio's tiles — on their way (above). */
+      late={late}
       storeShell={storeShell}
+      proLine={proLine}
       /* ⋯ › About the Maker. The short tour sells nothing (2026-10-02); the
          store-shell and price rules still apply should a slide ever carry one. */
       tourSlides={makerTourSlideViews({ storeShell, priceLabel: storeShell ? null : proPriceLabel })}
       firstVisit={firstVisit}
+      tourHint={makerSpotlightDue}
       completeTourAction={completeTour}
       renderStamp={String(Date.now())}
       hasWork={hasWork}
@@ -1903,7 +2035,20 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       applySlot={hasWork ? <HubDraftDock eventId={eventId} saveError={one(search.draft_error)} /> : null}
       viewAsFree={freeSwitch.offered ? { on: freeSwitch.on } : null}
       stagesStudio={stagesStudio}
-      studio={studio}
+      desktopColumns={desktopColumns}
+      /* 🖥 The desktop's top bar names the event (the adaptation doc's "the event's name in the middle") — only with its columns on. */
+      deskTitle={deskTitle}
+      /* 🎭 See as · Role ▾ (owner 2026-10-17, "view it as a father of the bride") — this event's guest-list roles, in
+         the couple's words. Only where there is a page to see as (a coordinator's controller has no See as). */
+      hiddenStages={hiddenStages}
+      seeAsRoles={
+        hasWork
+          ? previewRoleOptions(
+              (await resolveRoleSetForEvent(eventId)).offeredRoles,
+              await (roleNamesRead ?? loadRoleNames(supabase, eventId, 'LaunchPage.roleNames')),
+            )
+          : []
+      }
       /* Who Details is for, in the event type's own words (a coordinator is told
          why it is shut) — `EventWords`, never a typed "couple". */
       theHost={eventWordsFromProfile(await resolveProfileByEvent(eventId)).theHost}
@@ -1931,5 +2076,9 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         <div className="h-full overflow-y-auto px-4 py-6 sm:px-6">{controller}</div>
       )}
     </MakerShell>
+    {hasWork ? (
+      <Spotlight tourKey={HOST_PAGE_TOURS.maker} seenKeys={seenKeys} after={HOST_PAGE_TOURS_AFTER} replay="page" inMaker />
+    ) : null}
+    </>
   );
 }

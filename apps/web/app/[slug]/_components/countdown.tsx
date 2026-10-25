@@ -1,8 +1,9 @@
 'use client';
 
+import { useVeilHeld } from '@/lib/use-veil-held';
 import { useEventWords, WORDS_AS_SHIPPED } from './event-words-provider';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 
 import { countdownReading, countdownTargetMs, type CountdownReading } from '@/lib/countdown-target';
 import { sceneCardClass, sceneCardTileClass } from '@/lib/scene-card-look';
@@ -57,6 +58,14 @@ type Props = {
    * can draw a countdown the tiles would not.
    */
   sceneStyle?: string | null;
+  /**
+   * 🕯 THE LOOK'S ART KIT AT THE COUNTDOWN (`<KitSlot slot="countdown">`, owner 2026-10-16) — the narra posts at the
+   * card's edges, drawn as the card's first child (the kit's stylesheet widens the card's sides so the numbers stand
+   * clear). EVERY style draws it, on its own card or on the scene's own background (owner 17 Oct, cale-ice: Boxes +
+   * Narra columns on a frosted ground, *"why narra columns are not showing?"* — it was the four tiles on their own card
+   * only, so a background or another style dropped a pick the Accent ▾ had saved). Absent → the card as before.
+   */
+  kit?: ReactNode;
 };
 
 type Remaining = CountdownReading;
@@ -66,7 +75,7 @@ function compute(target: number): Remaining {
   return countdownReading(target, Date.now());
 }
 
-export function CountdownWidget({ targetIso, timeZone, bare = false, sceneStyle = null }: Props) {
+export function CountdownWidget({ targetIso, timeZone, bare = false, sceneStyle = null, kit = null }: Props) {
   // 🔴 THIS LABEL IS A WEDDING VOW. It read "Until we say 'I do'" on a
   // seven-year-old's birthday and on a graduation — seen on the real pages, not
   // caught by any scan, because it contains none of the words a wedding-word
@@ -98,12 +107,17 @@ export function CountdownWidget({ targetIso, timeZone, bare = false, sceneStyle 
    */
   const [remaining, setRemaining] = useState<Remaining | null>(null);
 
+  // 🙈 Under a veil that has not been opened the clock is READ but does not TICK (owner 2026-10-15: "nothing
+  // behind it should be playing until we open the reveal" · `lib/hub-veil.ts`); it starts on the unveil.
+  // No veil → `veiled` is always false → exactly the clock it always was.
+  const veiled = useVeilHeld();
   useEffect(() => {
     if (target === null) return;
     setRemaining(compute(target));
+    if (veiled) return;
     const id = window.setInterval(() => setRemaining(compute(target)), 1000);
     return () => window.clearInterval(id);
-  }, [target]);
+  }, [target, veiled]);
 
   // A date we cannot anchor draws NO clock. A missing countdown is a gap; a
   // countdown running to the wrong instant is a lie a guest would act on.
@@ -122,19 +136,19 @@ export function CountdownWidget({ targetIso, timeZone, bare = false, sceneStyle 
   const label =
     w.eventWord === 'wedding' ? <>Until we say &lsquo;I do&rsquo;</> : <>Until the day</>;
   if (sceneStyle === 'big-number') {
-    return <CountdownBigNumber label={label} remaining={remaining} targetIso={targetIso} bare={bare} />;
+    return <CountdownBigNumber label={label} remaining={remaining} targetIso={targetIso} bare={bare} kit={kit} />;
   }
   if (sceneStyle === 'offset') {
-    return <CountdownOffset label={label} remaining={remaining} bare={bare} />;
+    return <CountdownOffset label={label} remaining={remaining} bare={bare} kit={kit} />;
   }
   if (sceneStyle === 'line') {
-    return <CountdownLine label={label} remaining={remaining} bare={bare} />;
+    return <CountdownLine label={label} remaining={remaining} bare={bare} kit={kit} />;
   }
   if (sceneStyle === 'circle') {
-    return <CountdownCircle label={label} remaining={remaining} bare={bare} />;
+    return <CountdownCircle label={label} remaining={remaining} bare={bare} kit={kit} />;
   }
   if (sceneStyle === 'calendar') {
-    return <CountdownCalendar label={label} remaining={remaining} targetIso={targetIso} bare={bare} />;
+    return <CountdownCalendar label={label} remaining={remaining} targetIso={targetIso} bare={bare} kit={kit} />;
   }
 
   const boxes: { label: string; value: number | null }[] = [
@@ -149,6 +163,7 @@ export function CountdownWidget({ targetIso, timeZone, bare = false, sceneStyle 
       data-scene-card={bare ? 'bare' : 'own'}
       className={sceneCardClass('countdown', bare)}
     >
+      {kit}
       <p className="font-sans text-xs uppercase tracking-[0.2em] text-terracotta">{label}</p>
       <div className="mt-5 grid grid-cols-4 gap-2 sm:gap-3">
         {boxes.map((b) => (

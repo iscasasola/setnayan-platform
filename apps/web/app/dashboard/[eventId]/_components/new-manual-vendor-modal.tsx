@@ -38,7 +38,7 @@ import { AddressPinField } from './address-pin-field';
 import { SupplierConnectPanel } from './supplier-connect-panel';
 import { ServicesCoveredPicker } from './services-covered-picker';
 import { PaymentPlanRows } from './payment-plan-rows';
-import { PLAN_GROUPS, planGroupForCategory } from '@/lib/wedding-plan-groups';
+import type { CoverCatalogFolder } from '@/lib/shortlist-taxonomy';
 import { OWN_RECORD_PILL } from '@/lib/add-your-own';
 
 /** A Form row's keep: the sheet's own Save sends the form, so keeping has nothing to write. */
@@ -88,6 +88,13 @@ const KEEP = () => ({ ok: true as const });
 type Props = {
   eventId: string;
   category: string;
+  /**
+   * The Suppliers-page row the add was opened from. Posted as `category_key`,
+   * so a row the enum cannot name (Food Truck stores `misc`) files the card
+   * under itself, not under Everything else (owner 2026-10-20). Omitted (no
+   * row — the plan accordion) → today's behaviour.
+   */
+  tile?: string | null;
   categoryLabel: string;
   onClose: () => void;
   onCreated: () => void;
@@ -100,6 +107,12 @@ type Props = {
    * there is one form to add a supplier and the same one to complete them.
    */
   edit?: SelfAddedSupplierPrefill;
+  /**
+   * The "Also covers" list when the caller already holds the Suppliers page's
+   * rows (the bench: `coverCatalogFromFolders(folders)`). Omitted → the picker
+   * reads the same list for this event (`loadCoverCatalog`).
+   */
+  coverCatalog?: readonly CoverCatalogFolder[];
 };
 
 // State machine for the modal's primary action.
@@ -115,8 +128,10 @@ type ModalMode =
 export function NewManualVendorModal({
   eventId,
   category,
+  tile,
   categoryLabel,
   edit,
+  coverCatalog,
   onClose,
   onCreated,
 }: Props) {
@@ -135,10 +150,6 @@ export function NewManualVendorModal({
     const n = Number(priceInput.replace(/,/g, ''));
     return Number.isFinite(n) && n > 0 ? n : null;
   })();
-  /* Every plan group, with the booking's own one passed separately so the
-     picker can render it locked. Same set the workspace editor offers. */
-  const ownGroupId = planGroupForCategory(category as VendorCategory);
-  const coverOptions = PLAN_GROUPS.map((g) => ({ id: g.id as string, label: g.label }));
   const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const formRef = useRef<HTMLFormElement | null>(null);
@@ -154,10 +165,13 @@ export function NewManualVendorModal({
   // Once the vendor exists, EVERY close affordance (X, backdrop, ESC) must
   // route through onCreated so the parent refreshes the page — the row is
   // real even if the host skips the quick options.
+  // A supplier MOVED to another category from this sheet (owner 2026-10-20)
+  // is drawn under a different row now — every close refreshes, the same way.
+  const [moved, setMoved] = useState(false);
   const dismissRef = useRef(onClose);
   useEffect(() => {
-    dismissRef.current = created ? onCreated : onClose;
-  }, [created, onClose, onCreated]);
+    dismissRef.current = created || moved ? onCreated : onClose;
+  }, [created, moved, onClose, onCreated]);
   const dismiss = () => dismissRef.current();
 
   // Focus trap, scroll lock and Esc are the house Sheet's own (it routes its
@@ -284,6 +298,7 @@ export function NewManualVendorModal({
         linkFd.set('event_id', eventId);
         linkFd.set('marketplace_vendor_id', mode.vendor.vendor_profile_id);
         linkFd.set('category', category);
+        if (tile && !edit) linkFd.set('category_key', tile);
         const result = await attachMarketplaceVendorToCategory(linkFd);
         if (result.status === 'not_signed_in') {
           const next = encodeURIComponent(
@@ -442,6 +457,8 @@ export function NewManualVendorModal({
               address rule server-side. The modal is always opened FROM a
               category card, so this is never a guess. */}
           <input type="hidden" name="category" value={category} />
+          {/* The row the add came from — `addManualSupplier` keeps it only when it refines `category`. */}
+          {tile && !edit ? <input type="hidden" name="category_key" value={tile} /> : null}
           {edit ? <input type="hidden" name="vendor_id" value={edit.vendorId} /> : null}
 
           {mode.kind === 'linked' ? (
@@ -580,12 +597,21 @@ export function NewManualVendorModal({
                 <p className="block text-xs font-medium uppercase tracking-[0.08em] text-ink/65">
                   What services does this cover
                 </p>
+                {/* The Suppliers page's own rows (owner 2026-10-20) — handed
+                    in by a caller that already holds them, else read for
+                    this event. The booking's own row is locked, never offered. */}
                 <ServicesCoveredPicker
-                  options={coverOptions}
-                  ownGroupId={ownGroupId}
-                  ownGroupLabel={categoryLabel}
+                  eventId={eventId}
+                  category={category}
+                  homeTile={edit?.homeTile}
+                  ownLabel={categoryLabel}
+                  catalog={coverCatalog}
                   initialSelected={edit?.covers ?? []}
                   disabled={pending}
+                  // Only a supplier already on the event can be moved — an add
+                  // files them under the row the sheet was opened from.
+                  move={edit ? { vendorId: edit.vendorId, name: edit.name.trim() || 'This supplier', claimAsk: edit.claimAsk } : undefined}
+                  onMoved={() => setMoved(true)}
                 />
               </div>
 
@@ -667,7 +693,7 @@ export function NewManualVendorModal({
           {/* PINNED FOOTER — the primary action never scrolls away on a long
               sheet (the sheet scrolls inside itself; this sticks to its foot). */}
           <div className="sticky bottom-0 z-10 -mx-5 flex items-center justify-end gap-2 border-t border-ink/10 bg-cream px-5 py-3">
-            <ActionButton tone="neutral" icon={X} label="Cancel" onClick={onClose} disabled={pending} />
+            <ActionButton tone="neutral" icon={X} label="Cancel" onClick={moved ? onCreated : onClose} disabled={pending} />
             <ActionButton
               tone="brand"
               main

@@ -12,6 +12,8 @@ import { deleteDisplacedPabuyaQr } from '@/lib/pabuya-qr-object.server';
 import { storeRedrawnPabuyaQr } from '@/lib/pabuya-qr-store.server';
 import { cleanPabuyaMessage } from '@/lib/pabuya-message';
 import { isHubDraftWrite, saveHubDraftPatch } from '@/lib/hub-draft-store';
+import { MERGE_BASE_FIELD } from '@/lib/merge-base-field';
+import { egiftFieldsThisScreenChanged, type EgiftEditField } from '@/lib/egift-method-merge';
 import { wishListWrite, type WishWriteResult } from './wish-items.server';
 import { GIFT_READ_OP } from './gift-records.server';
 
@@ -174,6 +176,14 @@ export async function saveEgiftMethod(
   if (!user) redirect('/login');
 
   const editingId = str(formData, 'egift_method_id');
+  /* 👥 TWO HOSTS NEVER OVERWRITE EACH OTHER (owner 2026-10-18, round 3): an edit that says what it started from
+     (`MERGE_BASE_FIELD`) writes only the fields it changed — a form opened before the other host fixed the number never
+     puts the old number back (`lib/egift-method-merge.ts`). `null` = no base: every field, as before. */
+  const onlyChanged =
+    editingId.length > 0
+      ? egiftFieldsThisScreenChanged(formData.get(MERGE_BASE_FIELD), { method_kind: methodKind, label, account_name: accountName, handle, qr_r2_key: qrRaw, note })
+      : null;
+  const writesQr = onlyChanged === null || onlyChanged.has('qr_r2_key');
 
   // Grandfather clause: the edit form echoes the method's CURRENT qr ref back,
   // so a row written before this policy existed must still be re-savable.
@@ -247,7 +257,7 @@ export async function saveEgiftMethod(
      retired once the row points at the redrawn copy instead. */
   let rawUploadRef: string | null = null;
 
-  if (qrR2Key) {
+  if (qrR2Key && writesQr) {
     if (qrR2Key !== previousRef) {
       const inspection = await checkPabuyaQrImage({
         kind: methodKind,
@@ -290,21 +300,23 @@ export async function saveEgiftMethod(
        another tab deleted — so `!error` alone renders "saved" over a write that
        changed nothing. `.select()` makes the affected rows come back and the
        count is the proof. Same shape as savePabuyaMessage below. */
-    const { data: updated, error } = await supabase
-      .from('event_egift_methods')
-      .update({
-        method_kind: methodKind,
-        label,
-        account_name: accountName,
-        handle,
-        qr_r2_key: qrR2Key,
-        note,
-      })
-      .eq('egift_method_id', editingId)
-      .eq('event_id', eventId)
-      .select('egift_method_id');
+    const all = { method_kind: methodKind, label, account_name: accountName, handle, qr_r2_key: qrR2Key, note };
+    const fields = onlyChanged === null ? all : Object.fromEntries(Object.entries(all).filter(([k]) => onlyChanged.has(k as EgiftEditField)));
+    // 👥 Nothing changed here: nothing is written — the row is only proved to be there (a stale id still says so).
+    let updated: unknown[] | null;
+    let error: unknown;
+    if (Object.keys(fields).length > 0) {
+      ({ data: updated, error } = await supabase.from('event_egift_methods').update(fields).eq('egift_method_id', editingId).eq('event_id', eventId).select('egift_method_id'));
+    } else {
+      ({ data: updated, error } = await supabase.from('event_egift_methods').select('egift_method_id').eq('egift_method_id', editingId).eq('event_id', eventId));
+    }
     if (error) return { ok: false, error: GENERIC_WRITE_ERROR };
     if (!updated || updated.length === 0) return { ok: false, error: STALE_ROW_ERROR };
+    if (!writesQr) {
+      // The QR was not this screen's change: the row's image is not this save's to retire.
+      await revalidateSurfaces(eventId);
+      return { ok: true };
+    }
     /* The row now points somewhere else — retire the image it left behind.
        AFTER the write, and only once a row is confirmed to have moved: deleting
        first would destroy a live QR whenever the write then matched nothing.

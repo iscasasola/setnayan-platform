@@ -57,7 +57,9 @@ test('hubDraftAction: save · reset · undo · restore revalidate nothing; Apply
     assert.match(body, /return (?:done\(\)|answerWithBar\([^;]*\)|\{ \.\.\.done\(\)[^;]*\});/, `${intent}: the branch was not found whole`);
   }
   const withBar = src.slice(src.indexOf('const answerWithBar = '), src.indexOf("if (intent === 'save')"));
-  assert.match(withBar, /writeHubDraft\(supabase, eventId, next\)/, 'anti-vacuity: the one answer Undo and Reset share was not found');
+  /* RE-AIMED 2026-10-18 (two hosts never overwrite): every draft write goes through `updateHubDraft` — the compare-and-set that builds again on the draft as it is when the write lands. Same property, new shape. */
+  /* RE-AIMED 2026-10-18 round 3 (owner rulings A + B): every step now carries who made it (`by`, handed to the builder by `updateHubDraft`) and ↺ takes back only the host's own step. Same property, new shape. */
+  assert.match(withBar, /updateHubDraft\(supabase, eventId, \(cur, by\) => \{/, 'anti-vacuity: the one answer Undo and Reset share was not found');
   assert.doesNotMatch(withBar, REVALIDATES, 'undo · reset: a draft-only write re-rendered the whole Maker in its response');
   const apply = src.slice(src.indexOf('const live = await readHubLiveState('));
   assert.match(apply, /revalidateGuestSite\(/, 'Apply changes the live page — its guest page must be revalidated');
@@ -125,7 +127,10 @@ test('every hubDraftAction caller in the Maker refreshes ONCE, through makerSave
     assert.match(src, /makerSave\(/, `${f}: a draft save outside makerSave`);
     assert.doesNotMatch(src, /await hubDraftAction\(|await draftAction\(/, `${f}: a draft save called bare`);
     // The only router.refresh() left is the one makerSave calls, once per burst.
-    const bare = src.replace(/makerSave\([\s\S]*?\(\) => router\.refresh\(\)/g, '');
+    /* (2026-10-15, rd/maker-fast-edits) `use-scene-canvas.ts` names the save's refresh once (`const refresh = …`) and
+       hands it ONLY to the save doors — that is still the save's one refresh, never one of its own. */
+    const named = f.endsWith('use-scene-canvas.ts') && /const refresh = \(\) => router\.refresh\(\);/.test(src) && !/\brefresh\(\)/.test(src.replace(/const refresh = \(\) => router\.refresh\(\);/, '').replace(/router\.refresh\(\)/g, ''));
+    const bare = src.replace(/makerSave\([\s\S]*?\(\) => router\.refresh\(\)/g, '').replace(named ? /const refresh = \(\) => router\.refresh\(\);/ : /$^/, '');
     assert.equal((bare.match(/router\.refresh\(\);/g) ?? []).length, OTHER_REFRESH[f] ?? 0, `${f}: a second refresh of its own`);
   }
 });

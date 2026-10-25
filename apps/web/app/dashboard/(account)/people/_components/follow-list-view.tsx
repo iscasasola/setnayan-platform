@@ -4,7 +4,8 @@ import { useState, useTransition } from 'react';
 import type { FollowList, FollowRow } from '@/lib/people-follows';
 import { formatCount } from '@/lib/format-number';
 import { setFollowByPublicId } from '../actions';
-import { FindOrInvite } from './find-or-invite';
+import { PeopleThumb } from './people-thumb';
+import type { PeoplePickerProps } from './people-roster-view';
 import { PersonAvatar } from './person-avatar';
 import { PEOPLE_SECTION_HEADING } from './people-roster-view';
 
@@ -62,8 +63,11 @@ export function FollowListView({
   which,
   list,
   total,
+  picker,
 }: {
   which: 'following' | 'followers';
+  /** The ≡ list in the thumb row (owner 2026-10-22) — how you get back to your people. */
+  picker: PeoplePickerProps;
   list: FollowList;
   /** The real count (the picker's number); the list may show fewer. */
   total: number | null;
@@ -72,7 +76,7 @@ export function FollowListView({
   const more = typeof total === 'number' ? total - list.rows.length : 0;
   return (
     <div className="space-y-5" data-people-view={which}>
-      <FindOrInvite />
+      <PeopleThumb picker={picker} />
       {which === 'followers' ? (
         <p className="text-xs font-medium text-ink/70" data-followers-private>
           Only you can see this list. Anyone else sees the count on your public page.
@@ -145,7 +149,7 @@ function FollowRowItem({ row, which }: { row: FollowRow; which: 'following' | 'f
       <span className="flex min-w-0 flex-1 flex-col">
         <span className="truncate text-sm font-medium text-ink">{row.name}</span>
         <span className="truncate text-[11.5px] text-ink/55">{why}</span>
-        {error ? <span className="text-[11.5px] text-red-700">{error}</span> : null}
+        {error ? <span className="text-[11.5px] text-red-700 dark:text-red-300">{error}</span> : null}
       </span>
       <span className="flex shrink-0 items-center gap-2">
         {which === 'following' ? (

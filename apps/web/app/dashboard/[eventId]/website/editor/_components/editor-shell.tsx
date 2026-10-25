@@ -1,5 +1,6 @@
 'use client';
 
+import { MERGE_BASE_FIELD } from '@/lib/merge-base-field';
 import { MakerHalfSheet } from '../../../launch/_components/maker-sheet';
 import { makerSectionInView } from '@/app/[slug]/_components/maker-section-find';
 import Link from 'next/link';
@@ -9,7 +10,6 @@ import { Fragment, useCallback, useEffect, useMemo, useReducer, useRef, useState
 import { ELEMENT_SHEET_CLOSED, elementSheetStep, type ElementSheetEvent, type ElementSheetState } from '@/lib/element-sheet-state';
 import { Eye, EyeOff, Lock, Palette, PanelsTopLeft, PencilLine, QrCode } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
-import { QrActions } from '@/app/_components/qr-actions';
 import { PUBLIC_STAGE_LABELS, PUBLIC_STAGE_ORDER } from '@/lib/public-site-stage-labels';
 import type { LifecyclePhase, WidgetType } from '@/lib/invitation-widgets';
 import type { RowStatus } from './rail-rows';
@@ -36,12 +36,13 @@ import type { MakerNavigatorData, SceneMini } from './maker-navigator-data';
 import { ScenePreview } from './scene-preview';
 import type { ElementDraftAction, ElementPalette, ElementTarget } from './element-sheet';
 import { detailsItemForSection, detailsItemForTap } from '@/lib/maker-details-selection';
+import { makerStyleLook, makerWorkAreaTab } from '@/lib/maker-edit-owns-content';
 import type { DetailsItemKey } from '@/lib/maker-details-items';
 import { LOOK_ROW_OF, isLookRow } from '@/lib/maker-look-sections';
 import { DetailsFactSceneContext } from '../../../launch/_components/details-tap';
 import { askScheduleFocus } from '../../../schedule/_components/schedule-focus';
 import { detailsFactOfScene, sceneBoundText, type DetailsFact } from '@/lib/details-bound';
-import { isWordsScene, tapOpensWords } from '@/lib/maker-scene-words';
+import { isOwnSceneType, isWordsScene, tapOpensWords } from '@/lib/maker-scene-words';
 import { CanvasWordsContext, type CanvasWords } from './canvas-words';
 import {
   NO_CANVAS_HOLD,
@@ -54,7 +55,7 @@ import {
   sceneDrawEffect,
   type CanvasHold,
 } from './element-preview';
-import { CANVAS_REFRESH_MESSAGE, HUB_DRAFT_BAR_FIELD, MAKER_CANVAS_REDRAW_EVENT, makerNeedsRender, makerSave, makerUnheldSavesInFlight, requestMakerRefresh, MAKER_UNHELD_WRITE_EVENT } from '@/lib/maker-refresh';
+import { CANVAS_REFRESH_MESSAGE, HUB_DRAFT_BAR_FIELD, MAKER_CANVAS_KEEP_EVENT, MAKER_CANVAS_REDRAW_EVENT, makerNeedsRender, makerSave, makerUnheldSavesInFlight, requestMakerRefresh, MAKER_UNHELD_WRITE_EVENT } from '@/lib/maker-refresh';
 import { noteUndoStep, undrawScene, type SceneUndoData } from '@/lib/maker-drawn-undo';
 import { draftedCanvasOr, noteDraftedCanvas } from '@/lib/maker-draft-store';
 import { stageEyeValue } from '@/lib/stage-eye';
@@ -75,7 +76,7 @@ import { canvasDocument, readTileHead, snapshotSection } from './scene-snapshot'
 import type { TileHead, TileSnapshot } from '@/lib/maker-tile-preview';
 import { navigatorRows, navigatorTabs, parseNavigatorBar, tabOfTile, type NavigatorBarItem } from '@/lib/maker-navigator-tabs';
 import { makerGuestPages, ME_NOT_ON_CANVAS, type MakerGuestPage } from '@/lib/maker-guest-pages';
-import { SEE_AS, SEE_AS_EDITING, SEE_AS_PARAM, seeAsDrawsMe, seeAsLabel, seeAsOf } from '@/lib/see-as';
+import { SEE_AS, SEE_AS_ANY_ROLE, SEE_AS_EDITING, SEE_AS_PARAM, seeAsDrawsMe, seeAsLabel, seeAsOf, seeAsRoleQuery } from '@/lib/see-as';
 import { PickMenu } from './pick-menu';
 import {
   canvasKeyOfSelection,
@@ -102,21 +103,23 @@ import { PaidMark } from '@/app/_components/paid-mark';
 import { paidMarkLabel } from '@/lib/paid-mark';
 import { InspectorTabs } from './inspector-kit';
 import { SCENE_TABS, SceneArrangeTab, SceneLayoutRow, SceneParts, type SceneTab } from './scene-inspector';
-import { FixedSceneStyleRow, PaletteLookCanvasRow, PostEventScenePanel, PostEventWordsField, SceneAlignRow, SceneStyleCanvasRow } from './scene-styles-lazy';
+import { AccentRow, FixedSceneStyleRow, PaletteLookCanvasRow, PostEventScenePanel, PostEventWordsField, SceneAlignRow, SceneStyleCanvasRow } from './scene-styles-lazy';
 import type { DressCodeConfig } from '../../../studio/mood-board/dress-code-actions';
 import { postEventStatusWord, postEventTileLabel, postEventTileNote, type PostEventTile } from './post-event-tile-words';
 import { isFixedStyleScene, type FixedSceneStyles } from '@/lib/fixed-scene-styles';
-import type { CameraLook } from '@/lib/camera-look';
 import { postEventSetElements } from '@/lib/post-event-draft';
 import { postEventElementScope, postEventSceneOfScope, postEventWordParts } from '@/lib/post-event-styles';
 import type { SceneUpload } from './scene-background-row';
 /* ⚡ A scene's background row loads when a scene is edited — never with the Maker (`details-lazy.tsx`). */
-import { DetailsBoundField, ElementSheet, PassCardDesignPicker, SceneAnimateTab, SceneBackgroundRow, StagePanelPart, TypeBar } from '../../../launch/_components/details-lazy';
+import { DetailsBoundField, ElementSheet, PassCardDesignPicker, ScanQrStrip, SceneAnimateTab, SceneBackgroundRow, StagePanelPart, TypeBar } from '../../../launch/_components/details-lazy';
 import { IntoLowerThird } from '../../../launch/_components/maker-lower-third';
 import { readTypeStart, type SceneTypeWords, type TypeStart } from '@/lib/hub-part-words';
 import type { NameParts, NameStyle } from '@/lib/name-style';
 import { MAKER_STRIP_PHONE } from '@/lib/maker-phone-room';
 import { floatOpenTips } from '@/lib/float-open-tips';
+import type { InviteThemeId } from '@/lib/invite-themes';
+import { ART_KIT_IS_PRO } from '@/lib/art-kit-pro';
+import { isAccentScene, type SceneAccents } from '@/lib/art-kit-accents';
 
 /**
  * THE MAKER'S WORK AREA — navigator · canvas · inspector (Event Hub Maker,
@@ -294,9 +297,10 @@ export function MakerWork({
     colorChoices: readonly string[];
     photoChoices: readonly { ref: string; url: string }[];
     videoChoice: { ref: string; url: string; poster?: string | null } | null;
-    /** The scenes' own in-place uploads (their `scene-background` folder), signed. */
-    sceneUploads?: readonly SceneUpload[];
-    /** 💾 `events.couple_media_bytes`, settled — the 100 MB meter beside Upload media. */
+    /** The scenes' (and the Cover Scene's) own in-place uploads (their `scene-background` folder), signed. Required:
+     *  the Cover Scene's Upload row lists its clips from it (`every-cover-upload-is-listed.test.ts`). */
+    sceneUploads: readonly SceneUpload[];
+    /** 💾 `events.couple_media_bytes`, settled — the plan's media meter beside Upload media. */
     mediaUsedBytes?: number;
     mediaHref: string;
     hubTheme: string;
@@ -316,14 +320,18 @@ export function MakerWork({
     heroPhoto?: boolean;
     /** 🎨 The five fixed parts' style picks, live with the draft laid on (`lib/fixed-scene-styles.ts`). */
     fixedStyles?: FixedSceneStyles;
-    /** 🎛 The Camera's look, drafted over live (`lib/camera-look.ts`). */
-    cameraLook?: CameraLook;
+    /** 🕯 Each scene's Accent pick, drafted over live (`style_preferences.scene_accents`, `lib/art-kits.ts`). */
+    sceneAccents?: SceneAccents;
+    /** 📷 The one camera's Pro dress — the event holds Logo & QR or Full Pro (`lib/camera-dress.ts`). */
+    cameraPro?: boolean;
     /** 🧱 The fixed blocks' looks — the RAW `style_preferences.block_looks`, drafted over live (`lib/block-looks.ts`). */
     blockLooks?: Record<string, unknown>;
     /** ✍ The hero names' Wording ▾ — the event's Name style and one of the couple's own names to show it in. */
     names?: { style: NameStyle; person: NameParts | null };
     /** 🎫 The guest's Ticket style — the drafted one when the draft holds it, else live (`print_details.pass_design`). */
     ticketStyle?: PassCardDesign;
+    /** 🖼 Each ready-made loop's first frame (each theme loop's poster, resolved on the server) — the Cover Scene's Scene ◆ tiles. */
+    loopPosters?: Record<string, string | null>;
   } | null;
   /**
    * 🔗 DETAILS IS THE SOURCE (owner 2026-09-25) — Details' values (drafted over
@@ -361,6 +369,8 @@ export function MakerWork({
      */
     typeHere?: readonly SceneTypeWords[];
     ownWords?: Readonly<Record<string, { title: string; body: string }>>;
+    /** ✈ `events.site_magic_traveller` as drafted — the cover Logo's "Travels to the bar" (Look restudy row 9). */
+    magicTraveller?: string | null;
   } | null;
   /** Where the couple has the reveal play (drafted over live, `lib/reveal-stages.ts`)
    *  — the Reveal page previews the first of them. */
@@ -561,7 +571,7 @@ export function MakerWork({
       /* 🧭 THE NEW MAKER: a FIRST tap on a part's words picks the part (the panel opens on it); only a
          tap on the words of the part already picked types — and the date and the place never do
          (`makerStageMayType`, DECISION_LOG 2026-10-07 rule 1). The caret the tap put there is taken back. */
-      if (stagesStudioRef.current && window.innerWidth < 1024) {
+      if (stagesStudioRef.current) {
         const picked = document.querySelector('[data-maker-shell]')?.getAttribute('data-stage-picked') ?? null;
         if (!makerStageMayType(picked, start.key, start.el)) {
           (start.source as Window | null)?.postMessage({ source: 'setnayan-editor', t: 'typeStop' }, window.location.origin);
@@ -583,7 +593,7 @@ export function MakerWork({
         return;
       }
       setElementTarget(null);
-      if (window.innerWidth >= 1024) {
+      if (window.innerWidth >= 1024 && !stagesStudioRef.current) {
         const picked = selectionForCanvasKey(start.key, scenes);
         if (picked) select?.(picked);
       }
@@ -603,7 +613,7 @@ export function MakerWork({
   endTypingRef.current = endTyping;
   useEffect(() => {
     const t = typeRef.current;
-    if (!t || window.innerWidth >= 1024) return;
+    if (!t || (window.innerWidth >= 1024 && !stagesStudioRef.current)) return;
     if (!elementTarget || elementTarget.key !== t.key || elementTarget.el !== t.el) endTypingRef.current();
   }, [elementTarget]);
   /* The Text tools' slot the phone's type rows are drawn into (`TypeBar` `inline`). */
@@ -768,6 +778,16 @@ export function MakerWork({
     return () => window.removeEventListener(MAKER_CANVAS_REDRAW_EVENT, redraw);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reads refs only
   }, []);
+  /* ✓ A write that changes nothing the canvas draws (Apply) — the render it asks for keeps the page on screen, when
+     that render draws the same canvases and the same scenes (`canvasKeepsItsPage`); anything else still reloads. */
+  useEffect(() => {
+    const keep = () => {
+      if (makerUnheldSavesInFlight() === 0) canvasHold.current = holdChange(canvasHold.current, { canvases: drawnCanvases(), order: canvasOrderRef.current }, {}, Date.now());
+    };
+    window.addEventListener(MAKER_CANVAS_KEEP_EVENT, keep);
+    return () => window.removeEventListener(MAKER_CANVAS_KEEP_EVENT, keep);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reads refs only
+  }, []);
   /* The sheet closed: its last save's refresh may still land (a few seconds),
      then the hold ends — a later write elsewhere must reload the canvas. */
   useEffect(() => {
@@ -909,7 +929,7 @@ export function MakerWork({
   const hasDressCode = scenes.some((sc) => sc.type === 'dress_code');
   const revealStagesKey = revealStages.join();
   const twoPeopleOff = sceneFormat?.twoPeople === false;
-  const cameraLookNow = sceneFormat?.cameraLook ?? null;
+  const cameraPro = sceneFormat?.cameraPro === true;
   const blockLooksKey = JSON.stringify(sceneFormat?.blockLooks ?? {});
   useEffect(() => {
     if (!setLookPages) return;
@@ -931,7 +951,7 @@ export function MakerWork({
         : null,
       revealStages: revealStagesKey ? (revealStagesKey.split(',') as LifecyclePhase[]) : [],
       publicLandingUrl,
-      camera: cameraLookNow ? { look: cameraLookNow } : null,
+      camera: { pro: cameraPro },
       blocks: JSON.parse(blockLooksKey) as Record<string, unknown>,
       fontsInUse: elementEditing?.fontsInUse ?? [],
       look: {
@@ -958,7 +978,7 @@ export function MakerWork({
     });
     // `sceneFormat` and `eventId` come with the same render as `elementEditing`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setLookPages, madeOnce, backgroundNode, fontNode, coloursNode, buttonsNode, musicNode, pageNode, videoNode, hasDressCode, revealStagesKey, publicLandingUrl, elementEditing, twoPeopleOff, ownsPro, cameraLookNow, blockLooksKey]);
+  }, [setLookPages, madeOnce, backgroundNode, fontNode, coloursNode, buttonsNode, musicNode, pageNode, videoNode, hasDressCode, revealStagesKey, publicLandingUrl, elementEditing, twoPeopleOff, ownsPro, cameraPro, blockLooksKey]);
   useEffect(() => () => setLookPages?.(null), [setLookPages]);
   useEffect(() => {
     try {
@@ -991,11 +1011,13 @@ export function MakerWork({
      `?as=<state>` (lib/see-as.ts `SEE_AS_PARAM`). The draft, the
      bridge and the stage are unchanged; only who the page is drawn for. */
   const seeAs = maker?.seeAs ?? null;
+  /* 🎭 …and Role ▾ — which wedding role that sample guest stands in (`?asrole=`, only while See as is a guest). */
+  const roleQuery = seeAsRoleQuery(seeAs, maker?.seeAsRole);
   /* 🧭 Stages: each tab its own page, as guests get it (owner 2026-10-07 "yes pages"; `hubTabsOn`'s canvas exception).
      The tab on screen is switched IN the loaded page (the bridge's `hubTab`), never by a reload. */
   const stagesTabs = maker?.stagesStudio ? '&tabs=1' : '';
   const previewSrc = publicLandingUrl
-    ? `${publicLandingUrl}?phase=${stage}&editor=1${guestBars ? '&bars=1' : ''}${seeAs ? `&${SEE_AS_PARAM}=${seeAs}` : ''}${stagesTabs}`
+    ? `${publicLandingUrl}?phase=${stage}&editor=1${guestBars ? '&bars=1' : ''}${seeAs ? `&${SEE_AS_PARAM}=${seeAs}` : ''}${roleQuery}${stagesTabs}`
     : null;
   const canvasSrc = previewSrc;
   /* 🔥 A STAGE THE COUPLE HAS OPENED STAYS LOADED (owner 2026-09-28: *"is it
@@ -1051,7 +1073,7 @@ export function MakerWork({
      scrolled to its first scene (measured 08 Oct: a tab tap ended 959 px down the Details page). */
   const scrollPreviewTo = useCallback(
     (anchor?: string) => {
-      if (!anchor || (stagesStudioRef.current && window.innerWidth < 1024)) return;
+      if (!anchor || stagesStudioRef.current) return;
       postToShownCanvases({ source: 'setnayan-editor', t: 'scrollTo', key: anchor });
     },
     [postToShownCanvases],
@@ -1069,7 +1091,7 @@ export function MakerWork({
     if (!key.startsWith('w:')) return false;
     const type = key.slice(2);
     const { canvases, ownWords } = wordsInfo.current;
-    return tapOpensWords({ wordsScene: isWordsScene(type, canvases[type], ownWords), el, empty });
+    return tapOpensWords({ wordsScene: isWordsScene(type, canvases[type], ownWords), el, empty, ownScene: isOwnSceneType(type) });
   };
   const postWords = (key: string, text: string) => broadcastToCanvas({ source: 'setnayan-editor', t: 'words', key, text });
 
@@ -1176,7 +1198,7 @@ export function MakerWork({
       /* 🧰 THE PART'S TOOLS ON A PHONE ARE THE LOWER THIRD'S (owner 2026-10-05,
          "approve"): a tap on the canvas that hits no part CLOSES them — the
          navigator comes back — and the tap goes on to select what it hit. */
-      const phoneSheet = window.innerWidth < 1024 && elementRef.current !== null;
+      const phoneSheet = (window.innerWidth < 1024 || stagesStudioRef.current) && elementRef.current !== null;
       if (data?.source === 'setnayan-site' && phoneSheet && (data.t === 'tapOutside' || (data.t === 'edit' && !isHubElementKey(data.el)))) {
         const was = elementRef.current!;
         sheetDo({ t: 'close' });
@@ -1194,7 +1216,7 @@ export function MakerWork({
          and not the preview panel"; prototype: "Tapping a part never leaves the stage"). None of the doors below —
          the words' Content, the Logo maker, a schedule moment's Details, a fact's editor — opens from a tap; the
          part's Style bar ("Edit the … ›") is the one door. */
-      const stagesTap = stagesStudioRef.current && window.innerWidth < 1024;
+      const stagesTap = stagesStudioRef.current;
       /* ✍ THE MAKER IS THE EDITOR (owner 2026-09-27: "this is the editor, so we
          can edit here"): a tap on a words scene's words — or anywhere on it
          while it is empty — opens its Content with the box focused
@@ -1483,7 +1505,7 @@ export function MakerWork({
       // 🧭 The stage's Event Bar, as this canvas drew it — the navigator's tabs.
       setCanvasBar(parseNavigatorBar(data.bar));
       const key = selectedKeyRef.current;
-      if (key && !(stagesStudioRef.current && window.innerWidth < 1024)) {
+      if (key && !stagesStudioRef.current) {
         frameRef.current?.contentWindow?.postMessage(
           { source: 'setnayan-editor', t: 'scrollTo', key },
           window.location.origin,
@@ -2116,7 +2138,13 @@ export function MakerWork({
   /* ＋ ↕ 🗑 THE NEW MAKER'S PART EDITS (`add-part-sheet.tsx`, lazy) ask THIS work area for its
      own writes — the eye, the one-save move, Remove for good, "+ Add a scene" (`maker-part-ops.ts`). */
   const partOps = useRef<MakerPartRaw | null>(null);
-  partOps.current = { eventId, stage, list, fullOrder, afterLastShown, scenes, move, eyeWrite, addHere, undoDrawn, hereOff, sceneRemovers, navigator, elementEditing, addScene, postEventPresets, sceneFacts, onPickTemplate };
+  partOps.current = {
+    eventId, stage, list, fullOrder, afterLastShown, scenes, move, eyeWrite, addHere, undoDrawn, hereOff, sceneRemovers, navigator, elementEditing, addScene, postEventPresets, sceneFacts, onPickTemplate,
+    /* 🖼 A scene of their own's picture slots offer the Background › Upload row's own pictures (`maker-part-ops.ts`). */
+    sceneMedia: sceneFormat
+      ? { photoChoices: sceneFormat.photoChoices, videoChoice: sceneFormat.videoChoice, sceneUploads: sceneFormat.sceneUploads, ownsPro, storeShell: sceneFormat.hideLocked }
+      : null,
+  };
   useEffect(() => {
     const ask = (e: Event) => (e as CustomEvent<(raw: MakerPartRaw) => void>).detail?.(partOps.current!);
     window.addEventListener(MAKER_PART_OPS_EVENT, ask);
@@ -2164,6 +2192,19 @@ export function MakerWork({
     broadcastToCanvas(message);
     scheduleSnapshots(600);
   };
+  /** 🕯 THE SCENE'S ACCENT ◆ ▾ (owner 2026-10-16, `accent-row.tsx`) — only a scene that has accents gets the row. */
+  const accentRowFor = (type: string) =>
+    elementEditing && isAccentScene(type) ? (
+      <AccentRow
+        key={`accent:${type}`}
+        eventId={eventId}
+        scene={type}
+        picks={sceneFormat?.sceneAccents ?? {}}
+        theme={(sceneFormat?.hubTheme as InviteThemeId | undefined) ?? null}
+        tryPro={ART_KIT_IS_PRO && !ownsPro}
+        draftAction={elementEditing.draftAction}
+      />
+    ) : null;
   const sceneTabs = (() => {
     if (!selectedScene) return null;
     const id = selectedScene.id;
@@ -2194,12 +2235,15 @@ export function MakerWork({
       ) : null;
     const layoutRow =
       elementEditing && ownScene ? <SceneLayoutRow eventId={eventId} widgetType={type} canvas={canvas} draftAction={elementEditing.draftAction} /> : null;
+    /* 🕯 A scene that takes an accent (owner 2026-10-16) — its Accent ◆ ▾, row 3 under the Style cards. */
+    const accentRow = elementEditing && sceneFormat ? accentRowFor(type) : null;
     const lookRow =
-      styleRow || paletteRow || layoutRow ? (
+      styleRow || paletteRow || layoutRow || accentRow ? (
         <>
           {styleRow}
           {paletteRow}
           {layoutRow}
+          {accentRow}
         </>
       ) : null;
     const backgroundRow =
@@ -2219,6 +2263,7 @@ export function MakerWork({
               videoChoice={sceneFormat.videoChoice}
               sceneUploads={sceneFormat.sceneUploads}
               mediaUsedBytes={sceneFormat.mediaUsedBytes}
+              loopPosters={sceneFormat.loopPosters}
               ownsPro={ownsPro}
               storeShell={sceneFormat.hideLocked}
               hubTheme={sceneFormat.hubTheme as never}
@@ -2255,6 +2300,7 @@ export function MakerWork({
                 Background, and (a scene of their own) its Layout. */}
             {styleRow}
             {paletteRow}
+            {accentRow}
             {backgroundRow}
             {layoutRow}
           </>
@@ -2947,6 +2993,21 @@ export function MakerWork({
               onPick={(key) => maker.setSeeAs?.(seeAsOf(key))}
               compact
             />
+            {/* 🎭 ROLE ▾ (owner 2026-10-17, "view it as a father of the bride") — while See as is a guest, which
+                guest: a role from this event's own list, the man / woman half where the role needs it. */}
+            {seeAsDrawsMe(seeAs) && maker.setSeeAsRole && (maker.seeAsRoles?.length ?? 0) > 1 ? (
+              <PickMenu
+                label="Role"
+                dataAttr="data-maker-see-as-role"
+                value={maker.seeAsRole ?? SEE_AS_ANY_ROLE}
+                buttonText={`Role · ${maker.seeAsRoles?.find((r) => r.key === (maker.seeAsRole ?? SEE_AS_ANY_ROLE))?.label ?? 'Any guest'}`}
+                options={(maker.seeAsRoles ?? []).map((r) => (r.group ? { key: r.key, label: r.label, group: r.group } : { key: r.key, label: r.label }))}
+                onPick={(key) => maker.setSeeAsRole?.(key === SEE_AS_ANY_ROLE ? null : key)}
+                stickyGroups
+                compact
+                className="ml-2"
+              />
+            ) : null}
           </div>
         ) : null}
         {canvasSrc && seeAs ? (
@@ -2955,6 +3016,7 @@ export function MakerWork({
             className="mb-1.5 self-start rounded-full px-2.5 py-0.5 text-[10.5px] font-bold uppercase tracking-[0.12em] text-terracotta-700 ring-1 ring-terracotta/40 lg:hidden"
           >
             See as · {seeAsLabel(seeAs)}
+            {roleQuery ? ` · ${maker?.seeAsRoles?.find((r) => r.key === maker?.seeAsRole)?.label ?? ''}` : null}
           </p>
         ) : null}
         {canvasSrc ? (
@@ -2995,6 +3057,8 @@ export function MakerWork({
             anchorKey={() => selectedKeyRef.current}
             onShown={setShownFrameKey}
             onSwapped={onCanvasSwapped}
+            /* 👂 a canvas that never answers is loaded again once, then said in the toolbar (`canvas-bridge-watch.ts`) */
+            watchBridge
             style={bothFit ? scaledFrame(bothFit.desktop) : undefined}
             className={
               both
@@ -3192,8 +3256,10 @@ export function MakerWork({
           ownsPro={ownsPro}
           hideLocked={maker.storeShell}
           draftAction={elementEditing.draftAction}
+          travels={elementEditing.magicTraveller ?? null}
           resize={toolsResize}
-          parts={elementTarget.widgetType === 'hero' ? heroParts : HUB_SCENE_ELEMENT_KEYS}
+          /* 🕯 The closing's line is ONE part of its own (stored on the hero row, drawn in the footer). */
+          parts={elementTarget.key === 'f:closing' ? ['closing'] : elementTarget.widgetType === 'hero' ? heroParts : HUB_SCENE_ELEMENT_KEYS}
           /* 🎞 A Post Event scene's part: saved into the story's looks, and its
              own words edited right here (no "Edit in … ↗"). */
           {...(() => {
@@ -3212,6 +3278,8 @@ export function MakerWork({
                 const fd = new FormData();
                 fd.set('intent', 'save');
                 fd.set('patch', JSON.stringify({ editorial: patch ?? {} }));
+                // 👥 The scenes' looks it was built on (the render's) — another host's other scenes are kept.
+                fd.set(MERGE_BASE_FIELD, JSON.stringify({ editorial: { sceneLooks: pe.arrangement.sceneLooks } }));
                 return elementEditing.draftAction(eventId, fd);
               },
               wordsSlot:
@@ -3401,19 +3469,47 @@ export function MakerWork({
               />
             );
           })()}
+          coverSceneBackground={
+            selection.kind === 'row' && fixedOfKey(selection.key) === 'hero' && elementEditing && sceneFormat ? (
+              <SceneBackgroundRow
+                key="hero"
+                eventId={eventId}
+                widgetType="hero"
+                canvas={draftedCanvasOr('hero', elementEditing.canvases.hero ?? {})}
+                stageScenes={[]}
+                stageLabel=""
+                draftAction={elementEditing.draftAction}
+                themeColours={sceneFormat.colorChoices}
+                board={elementEditing.palette.board}
+                photoChoices={sceneFormat.photoChoices}
+                videoChoice={sceneFormat.videoChoice}
+                sceneUploads={sceneFormat.sceneUploads}
+                mediaUsedBytes={sceneFormat.mediaUsedBytes}
+                loopPosters={sceneFormat.loopPosters}
+                ownsPro={ownsPro}
+              />
+            ) : null
+          }
           fixedStylePanel={(() => {
             if (selection.kind !== 'row' || !elementEditing) return null;
             const fixed = fixedOfKey(selection.key);
             /* 🗳 The RSVP form is a row of its own: its three styles are its `canvas.style`. */
             if (fixed === 'rsvp') {
               return (
-                <SceneStyleCanvasRow key={`rsvp:${stage}`} eventId={eventId} widgetType="rsvp" canvas={canvasOf('rsvp')} stage={stage} eventType={sceneFormat?.eventType ?? null} draftAction={elementEditing.draftAction} />
+                <>
+                  <SceneStyleCanvasRow key={`rsvp:${stage}`} eventId={eventId} widgetType="rsvp" canvas={canvasOf('rsvp')} stage={stage} eventType={sceneFormat?.eventType ?? null} draftAction={elementEditing.draftAction} />
+                  {accentRowFor('rsvp')}
+                </>
               );
             }
+            /* 🕯 THE CLOSING (owner 2026-10-17, "Make the closing (See you soon) its own scene in the Maker, with Style ›
+               Accent ◆ ▾: None · Oval frame"): its Style is that ONE dropdown — the sign-off's accents, the same row
+               and the same `scene_accents` map as the cover's, the countdown's, E-Gifts' and the reply card's. */
+            if (fixed === 'closing') return accentRowFor('sign-off');
             /* 🎨 The hero, E-Gifts and the guest's look: the picked part's own styles (owner 2026-10-07) — the new Maker's. */
             if (maker?.stagesStudio && (fixed === 'hero' || fixed === 'gifts' || fixed === 'look')) {
               return (
-                <FixedSceneStyleRow key={`${fixed}:${stage}`} eventId={eventId} scene={fixed} stage={stage} eventType={sceneFormat?.eventType ?? null} styles={sceneFormat?.fixedStyles ?? null} draftAction={elementEditing.draftAction} />
+                <FixedSceneStyleRow key={`${fixed}:${stage}`} eventId={eventId} scene={fixed} stage={stage} eventType={sceneFormat?.eventType ?? null} styles={sceneFormat?.fixedStyles ?? null} draftAction={elementEditing.draftAction} accent={fixed === 'hero' || fixed === 'gifts' ? accentRowFor(fixed) : null} />
               );
             }
             if (!fixed || !isFixedStyleScene(fixed)) return null;
@@ -3670,7 +3766,7 @@ function RowBlock({ row }: { row: MakerRowPanel }) {
  * Scan-to-view and the one Pro CTA — the rail's topbar and foot, ported into
  * the Maker's ⋯ sheet. The QR is the master event QR `/api/website/qr` already
  * serves, with the one control strip every link-QR carries. The CTA is the
- * umbrella unlock — one CTA for all nine Pro items (`WEBSITE_PRO_ITEMS`) — shown
+ * umbrella unlock — one CTA for every Pro item (`WEBSITE_PRO_ITEMS`) — shown
  * only while they do not own it, and never in the store shell.
  */
 function MoreExtras({
@@ -3684,10 +3780,6 @@ function MoreExtras({
   proPriceLabel: string | null;
   showProCta: boolean;
 }) {
-  const [liveUrl, setLiveUrl] = useState<string | null>(null);
-  useEffect(() => {
-    setLiveUrl(liveHref ? new URL(liveHref, window.location.origin).toString() : null);
-  }, [liveHref]);
   return (
     <>
       {liveHref ? (
@@ -3704,13 +3796,8 @@ function MoreExtras({
             height={168}
             className="mt-2 h-auto w-40 rounded-md"
           />
-          {liveUrl ? (
-            <QrActions
-              url={liveUrl}
-              download={{ href: `/api/website/qr${liveHref}`, filename: 'setnayan-event-qr.png' }}
-              className="mt-2 flex flex-wrap gap-1.5"
-            />
-          ) : null}
+          {/* ⚡ The strip (Download · Write to NFC · Copy link) loads with the sheet, not the Maker (`scan-qr-strip.tsx`). */}
+          <ScanQrStrip liveHref={liveHref} />
         </section>
       ) : null}
       {showProCta ? (
@@ -3769,6 +3856,7 @@ function Inspector({
   postEventTile = null,
   postEventPanel = null,
   fixedStylePanel = null,
+  coverSceneBackground = null,
   scene,
   scenePanel,
   rows,
@@ -3816,6 +3904,8 @@ function Inspector({
   postEventPanel?: ReactNode;
   /** 🎨 A fixed part's Style row (the entourage and the day's own parts) — its Format, Style only. */
   fixedStylePanel?: ReactNode;
+  /** 🖼 The Cover Scene's Background rows (the hero row's `canvas.ground`) — the hero's fixed panel draws them. */
+  coverSceneBackground?: ReactNode;
   scene: MakerScene | null;
   scenePanel: ReactNode;
   rows: Record<string, MakerRowPanel>;
@@ -3831,7 +3921,9 @@ function Inspector({
   const ss = useMaker()?.stagesStudio === true;
   /* The old Transition tab (a saved address, a navigator chip) now opens Animate — answer 4, "fold it". */
   const asked: MakerSceneTab = selection.kind === 'scene' ? (selection.tab ?? 'format') : 'format';
-  const tab: SceneTab = asked === 'transition' ? 'animate' : asked;
+  /* ✏️ Under the new Maker's toolbar this body is Style · Background · Animate — Content is Edit's own rows (the
+     words in place, or the part's one door), so it never opens here (`lib/maker-edit-owns-content.ts`). */
+  const tab: SceneTab = makerWorkAreaTab(asked, ss);
 
   /* A new tab starts at its top. */
   useEffect(() => {
@@ -3930,14 +4022,27 @@ function Inspector({
       <section className="contents" data-maker-fixed-panel={fixed}>
         <StagePanelPart
           part="style"
+          /* ✏️ Style is ONLY the look: the fact's editor (the Love Story's moments) is content — Edit's door,
+             "Open in Studio › Love Story" — and never drawn here (owner 2026-10-19: "why is it on style and not on
+             edit"; `makerStyleLook`). */
           look={
             <>
-              {fixedStylePanel}
-              {fixed === MAKER_FIXED_TICKET && ticketPanel ? ticketPanel : null}
-              {fixedFact ?? toolHere}
+              {makerStyleLook(
+                {
+                  style: fixedStylePanel ?? null,
+                  ticket: fixed === MAKER_FIXED_TICKET && ticketPanel ? ticketPanel : null,
+                  fact: fixedFact ?? null,
+                  tool: toolHere ?? null,
+                },
+                true,
+              ).map((n, i) => (
+                <Fragment key={i}>{n}</Fragment>
+              ))}
             </>
           }
-          background={null}
+          /* 🖼 THE COVER IS THE COVER SCENE (owner-approved 2026-10-15): its Background is the group's — ONE
+             background for the whole first screen (`stage-panel/cover-words-background.tsx`, through the same lazy door). */
+          background={fixed === 'hero' ? coverSceneBackground : null}
           arrange={null}
         />
       </section>
@@ -4063,6 +4168,7 @@ function StdLeadSwitch({
     const fd = new FormData();
     fd.set('intent', 'save');
     fd.set('patch', JSON.stringify({ widgets: { our_photos: { std_lead: next } } }));
+    // one-render: keep (batched) — a Maker draft save goes through `lib/maker-refresh.ts`, which refreshes ONCE after the last save in flight; draft intents revalidate nothing.
     const res = await makerSave(() => draftAction(eventId, fd), () => router.refresh()).catch(() => null);
     if (!res?.ok) {
       setPicked((p) => (p === next ? null : p));

@@ -2,29 +2,9 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import {
-  ArrowRight,
-  CalendarClock,
-  CalendarDays,
-  FileText,
-  Handshake,
-  ListChecks,
-  Phone,
-  Plus,
-  ReceiptText,
-  User,
-  Video,
-  Wallet,
-  Wrench,
-} from 'lucide-react';
+import { ArrowRight, User } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
 import type { CustomerEventSummary } from '@/lib/customer-event-summary';
-import {
-  VENDOR_THREAD_TOOLS,
-  type VendorThreadLinkTool,
-  type VendorThreadToolIcon,
-} from '@/lib/vendor-thread-tools';
-import { revealThreadTool } from '@/app/_components/chat/reveal-thread-tool';
 
 /**
  * Customer info rail beside the vendor⇆couple conversation (PR-3 of the
@@ -73,29 +53,6 @@ export type ChatInfoRailProps = {
   service: string | null;
   threadId: string;
   eventId: string;
-  /**
-   * Whether the tools this rail launches are actually ON THE PAGE. They mount
-   * in the accepted branch only, so on a pending inquiry every launcher would
-   * open nothing — a button that does nothing is worse than no button. The
-   * rail shows the customer and the way out instead.
-   */
-  toolsMounted: boolean;
-  /**
-   * How many saved proposal templates the shop has. At zero the proposal
-   * composer refuses to send and says "Pick a template" — with no way from
-   * there to make one. The rail says so and links to the maker.
-   */
-  templateCount: number;
-  /**
-   * TRUE once this couple has actually agreed — booked, or already completed.
-   * Resolved by the page from `THREAD_STAGE_HAS_AGREEMENT`, never from the
-   * stage PILL beside it: that pill is display text, and a control read off a
-   * display string is how this repo once drew "C" for "Camera off".
-   *
-   * A tool carrying `shutUntilAgreement` renders greyed and unpressable while
-   * this is false, with its reason underneath.
-   */
-  hasAgreement: boolean;
 };
 
 const HEADING_ID = 'chat-info-rail-heading';
@@ -118,11 +75,12 @@ export function ChatInfoRailColumn(props: ChatInfoRailProps) {
  * its own open-state.
  *
  * 🔑 A VISIBLE LABEL, NOT A LONE GLYPH. This used to be an unlabelled 36px
- * circle with only an <Info> icon — the sole way into the mobile tools (Build
- * a quote, Log payment, Propose schedule, the calls, …), and a supplier on a
- * live thread could not find it (owner, 2026-09-11: "i cannot access tools
- * when on mobile mode?"). The icon-only affordance read as decoration, not a
- * button. It is now a labelled pill matching the house's small secondary
+ * circle with only an <Info> icon — then the sole way into the mobile tools,
+ * and a supplier on a live thread could not find it (owner, 2026-09-11: "i
+ * cannot access tools when on mobile mode?"). The icon-only affordance read as
+ * decoration, not a button. Since 2026-10-14 the tools have their own door —
+ * the grey ＋ beside the message field (`thread-tools-sheet.tsx`) — so this pill
+ * says only what it still opens: "Customer". It is now a labelled pill matching the house's small secondary
  * pill-button pattern (see `SubmitButton` usage in
  * `app/vendor-dashboard/repertoire/page.tsx`) — text plus an icon, never the
  * icon alone. `globals.css` already floors every `button` at 44px min-height;
@@ -135,28 +93,14 @@ export function ChatInfoRailTrigger(props: ChatInfoRailProps) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        aria-label="Customer details and tools"
+        aria-label="Customer details"
         className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-ink/15 px-3 py-1.5 text-xs font-semibold text-ink/70 hover:border-terracotta/40 hover:text-terracotta-700"
       >
-        <Wrench aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-        Tools
+        <User aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+        Customer
       </button>
-      <Sheet
-        open={open}
-        onClose={() => setOpen(false)}
-        labelledById={HEADING_ID}
-        title="Customer & tools"
-      >
-        {/* A tool opens BEHIND this sheet, so launching one closes it. Without
-            that the supplier taps "Build a quote" and watches nothing happen,
-            because the thing that opened is under the sheet they are looking
-            at. */}
-        <RailBody
-          {...props}
-          headingId={HEADING_ID}
-          inSheet
-          onLaunch={() => setOpen(false)}
-        />
+      <Sheet open={open} onClose={() => setOpen(false)} labelledById={HEADING_ID} title="Customer">
+        <RailBody {...props} headingId={HEADING_ID} inSheet />
       </Sheet>
     </div>
   );
@@ -168,19 +112,12 @@ function RailBody({
   summary,
   stage,
   service,
-  threadId,
   eventId,
-  toolsMounted,
-  templateCount,
-  hasAgreement,
   headingId,
   inSheet = false,
-  onLaunch,
 }: ChatInfoRailProps & {
   headingId: string;
   inSheet?: boolean;
-  /** Called before a tool is revealed — the sheet uses it to close itself. */
-  onLaunch?: () => void;
 }) {
   return (
     <div className="flex flex-col">
@@ -257,73 +194,6 @@ function RailBody({
             </div>
           ) : null}
 
-          {/* TOOLS — the right column's job (owner, 2026-09-08: "the right most
-              can be the tools"). Every one of these used to be a panel wedged
-              between the last message and the text box. They are still the same
-              components, mounted once above the stream and closed; these are
-              the launchers that open them.
-
-              🔑 LABELLED BUTTONS, NOT AN ICON ROW. A supplier picking "Log
-              payment" is choosing money, and an unlabelled glyph makes that a
-              guess. The icons ride along with the words; they never replace
-              them. */}
-          {toolsMounted ? (
-            <>
-              <div className="px-4 pt-4">
-                <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
-                  Tools
-                </p>
-              </div>
-              <div className="flex flex-col gap-1.5 px-3 py-2">
-                {VENDOR_THREAD_TOOLS.map((tool) =>
-                  tool.link ? (
-                    <LinkTool
-                      key={tool.key}
-                      tool={tool}
-                      eventId={eventId}
-                      hasAgreement={hasAgreement}
-                    />
-                  ) : (
-                    <RailAction
-                      key={tool.key}
-                      icon={TOOL_ICON[tool.icon]}
-                      primary={tool.primary}
-                      onClick={() => {
-                        // On a phone this rail IS a sheet covering the page it
-                        // is about to scroll. Close it first, then reveal on
-                        // the next tick so the scroll lands on a visible page.
-                        onLaunch?.();
-                        if (inSheet) {
-                          window.setTimeout(() => revealThreadTool(tool.reveal), 0);
-                        } else {
-                          revealThreadTool(tool.reveal);
-                        }
-                      }}
-                    >
-                      {tool.label}
-                    </RailAction>
-                  ),
-                )}
-              </div>
-
-              {/* A shop with no template cannot send a proposal at all — the
-                  composer says "Pick a template to send a proposal" and offers
-                  no way to make one. Said here, where the button is. */}
-              {templateCount === 0 ? (
-                <p className="px-4 pb-1 text-xs leading-relaxed text-ink/55">
-                  No quote template yet —{' '}
-                  <Link
-                    href="/vendor-dashboard/proposals"
-                    className="font-semibold text-mulberry underline underline-offset-2"
-                  >
-                    create one
-                  </Link>{' '}
-                  and quotes become one click.
-                </p>
-              ) : null}
-            </>
-          ) : null}
-
           {/* Full customer profile.
               ⚠ `?tab=details`, never the bare client route: a bare landing on
               the client page is a CHAT landing and redirects straight back to
@@ -382,169 +252,5 @@ function SnapRow({
         ) : null}
       </dd>
     </div>
-  );
-}
-
-/**
- * The one tool that still leaves this screen.
- *
- * ⚠ THE URL IS SPELLED OUT HERE, IN THE ROUTE'S OWN FILE, ON PURPOSE.
- * `lint-port-no-lost-controls` reads a route's files for the destinations it
- * offers and only sees a literal after `href=` — a URL composed in the shared
- * tool list makes this route read as having LOST that destination, and the
- * tempting fix (regenerating the baseline) would record a removal that never
- * happened.
- *
- * The `switch` is exhaustive by type, so a new link target with no URL fails
- * the typecheck rather than falling through to a launcher with nothing to open.
- */
-function LinkTool({
-  tool,
-  eventId,
-  hasAgreement,
-}: {
-  tool: VendorThreadLinkTool;
-  eventId: string;
-  hasAgreement: boolean;
-}) {
-  const icon = TOOL_ICON[tool.icon];
-
-  /*
-    SHUT, AND SAYING SO — owner question B2, recommendation (a), the same shape
-    as the Lock ruling: hide nothing, say why.
-
-    The destination already refused honestly: the client's Schedule tab draws
-    "Unlocks when they book you" before a booking. But a supplier only met that
-    sentence AFTER leaving the conversation to go and find it, and this launcher
-    sat in the list looking exactly as live as the eight that open. The reason
-    now rides on the button.
-
-    ⚠ STILL RENDERED, NEVER HIDDEN. A tool that vanishes teaches a supplier the
-    product is missing a feature; a tool that is visibly shut teaches them what
-    earns it. `aria-disabled` plus the sentence carries that to a screen reader
-    too — the sentence is the button's own description, not decoration beside it.
-  */
-  const shut = tool.shutUntilAgreement && !hasAgreement ? tool.shutUntilAgreement : null;
-
-  switch (tool.link) {
-    case 'client-schedule':
-      return shut ? (
-        <ShutTool icon={icon} label={tool.label} reason={shut.reason} toolKey={tool.key} />
-      ) : (
-        <RailAction
-          href={`/vendor-dashboard/clients/${eventId}?tab=schedule`}
-          icon={icon}
-          primary={tool.primary}
-        >
-          {tool.label}
-        </RailAction>
-      );
-    default: {
-      const unhandled: never = tool.link;
-      return unhandled;
-    }
-  }
-}
-
-/**
- * One icon per tool, resolved from the shared list's `icon` key rather than
- * chosen at each call site — so the rail cannot grow a tool the page does not
- * render, or render one under two different glyphs.
- */
-const TOOL_ICON: Record<VendorThreadToolIcon, typeof CalendarDays> = {
-  quote: ReceiptText,
-  proposal: FileText,
-  payment: Wallet,
-  schedule: CalendarClock,
-  offer: Plus,
-  voice: Phone,
-  video: Video,
-  deal: Handshake,
-  outcome: ListChecks,
-};
-
-/**
- * A tool that is visibly present and visibly not open yet, with the reason
- * underneath it.
- *
- * 🔑 A `<button disabled>` WOULD BE WRONG HERE. A disabled button is removed
- * from the tab order, so a supplier navigating by keyboard never reaches it and
- * never hears the reason — the control would be, to them, simply missing, which
- * is the outcome the ruling refuses. `aria-disabled` keeps it focusable and
- * announced; `aria-describedby` ties the sentence to it so the reason is read
- * WITH the name rather than stranded after it. There is no `onClick` and no
- * `href`, so there is nothing to press either way.
- */
-function ShutTool({
-  icon: Icon,
-  label,
-  reason,
-  toolKey,
-}: {
-  icon: typeof CalendarDays;
-  label: string;
-  reason: string;
-  toolKey: string;
-}) {
-  const reasonId = `tool-shut-${toolKey}`;
-  return (
-    <div className="flex flex-col gap-1 rounded-lg border border-ink/10 bg-ink/[0.03] px-3 py-2.5">
-      <span
-        role="button"
-        aria-disabled="true"
-        aria-describedby={reasonId}
-        tabIndex={0}
-        className="flex w-full items-center gap-2.5 text-left text-sm font-semibold text-ink/40"
-      >
-        <Icon aria-hidden className="h-4 w-4 shrink-0 text-ink/30" strokeWidth={1.75} />
-        {label}
-      </span>
-      <span id={reasonId} className="pl-[26px] text-xs font-normal text-ink/55">
-        {reason}
-      </span>
-    </div>
-  );
-}
-
-function RailAction({
-  href,
-  onClick,
-  icon: Icon,
-  primary = false,
-  children,
-}: {
-  /** Leaves the page. Mutually exclusive with `onClick` by construction. */
-  href?: string;
-  onClick?: () => void;
-  icon: typeof CalendarDays;
-  primary?: boolean;
-  children: React.ReactNode;
-}) {
-  const className = `flex w-full items-center gap-2.5 rounded-lg border px-3 py-2.5 text-left text-sm font-semibold ${
-    primary
-      ? 'border-mulberry/40 bg-mulberry/[0.06] text-ink hover:border-mulberry'
-      : 'border-ink/10 bg-white text-ink hover:border-terracotta/40'
-  }`;
-  const inner = (
-    <>
-      <Icon
-        aria-hidden
-        className={`h-4 w-4 shrink-0 ${primary ? 'text-mulberry' : 'text-ink/55'}`}
-        strokeWidth={1.75}
-      />
-      {children}
-    </>
-  );
-  if (href) {
-    return (
-      <Link href={href} className={className}>
-        {inner}
-      </Link>
-    );
-  }
-  return (
-    <button type="button" onClick={onClick} className={className}>
-      {inner}
-    </button>
   );
 }

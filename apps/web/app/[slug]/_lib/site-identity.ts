@@ -157,6 +157,12 @@ export type GuestSiteIdentity = {
    */
   didntReply: boolean;
   /**
+   * ✉️ "You're coming ✓ · N more answers" (owner 2026-10-20) — N, the answers this ATTENDING guest still owes: the key
+   * gate's own missing set (`moreAnswersOf(rsvpGate(…))`, the reply page's rule). 0: complete, or nothing to count.
+   * null: the answers could not be read — the page says the plain "Change", never a number.
+   */
+  moreAnswers: number | null;
+  /**
    * "Your checklist" — the last 30 days (owner 2026-09-26). NULL outside the
    * window (nothing drawn); otherwise THIS guest's own ticks, read with the
    * service role from `guest_checklist_ticks` (private to the guest).
@@ -360,10 +366,10 @@ export async function resolveVendorCapability(input: {
  * IS THIS VIEWER A VERIFIED HOST OF *THIS* EVENT?
  *
  * The ONE derivation of that question, because it was being answered in two
- * places from the same two facts: `buildOwnerRibbon` (lib/owner-ribbon.ts) and
+ * places from the same two facts: the owner ribbon (removed 2026-10-15) and
  * the host body copy in `_components/site-body.tsx`. Two implementations of one
- * rule is how a later edit tightens the ribbon and leaves the body speaking to
- * a host it no longer recognises — or worse, the reverse.
+ * rule is how a later edit tightens one and leaves the other speaking to a host
+ * it no longer recognises — or worse, the reverse. Every host read asks this.
  *
  * 🔒 THE EVENT CHECK IS NOT OPTIONAL AND IS NOT A FORMALITY. A capability is
  * resolved against ONE event; honouring it on another would let somebody who
@@ -371,9 +377,8 @@ export async function resolveVendorCapability(input: {
  * already refuses to mint one without a database-confirmed membership, so this
  * is the second half of the same guarantee: minted for A, spendable only on A.
  *
- * ⚠ NOT derived from `buildOwnerRibbon(...) !== null` — that also returns null
- * for the unrelated reason of a missing slug, so a host of a slugless event
- * would silently lose the body variant along with the ribbon.
+ * ⚠ NOT derived from anything that needs a URL — a missing slug must never
+ * silently drop the body variant for a host of a slugless event.
  */
 export function viewerIsEventHost(
   ownerCapability: OwnerCapability | null,
@@ -483,12 +488,12 @@ export function anonymousIdentity(input: {
 export function guestIdentity(
   input: Omit<
     GuestSiteIdentity,
-    'kind' | 'profileDetails' | 'account' | 'didntReply' | 'checklist' | 'passCard' | 'guestOwnShots' | 'poolGalleryOpen' | 'earlyOwnShots'
+    'kind' | 'profileDetails' | 'account' | 'didntReply' | 'moreAnswers' | 'checklist' | 'passCard' | 'guestOwnShots' | 'poolGalleryOpen' | 'earlyOwnShots'
   > &
     Partial<
       Pick<
         GuestSiteIdentity,
-        'profileDetails' | 'account' | 'didntReply' | 'checklist' | 'passCard' | 'guestOwnShots' | 'poolGalleryOpen' | 'earlyOwnShots'
+        'profileDetails' | 'account' | 'didntReply' | 'moreAnswers' | 'checklist' | 'passCard' | 'guestOwnShots' | 'poolGalleryOpen' | 'earlyOwnShots'
       >
     >,
 ): GuestSiteIdentity {
@@ -515,6 +520,8 @@ export function guestIdentity(
     faceTaggingAskable: input.faceTaggingAskable,
     profileDetails: input.profileDetails ?? null,
     didntReply: input.didntReply === true,
+    // Absent (a preview's sample guest): 0 — the button as shipped. A number or null passes through as given.
+    moreAnswers: input.moreAnswers === undefined ? 0 : input.moreAnswers,
     checklist: input.checklist ?? null,
   };
 }

@@ -39,6 +39,7 @@
 
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
+import { MERGE_BASE_FIELD } from '@/lib/merge-base-field';
 import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
 import { OrbitControls, Grid } from '@react-three/drei';
 import * as THREE from 'three';
@@ -92,7 +93,7 @@ import { VENUE_SETTING_LABEL, isVenueSetting } from '@/lib/venue-settings';
 import { ReceptionDesignEditor } from './reception-design-editor';
 import { coldSparkFrame, coldSparkObstacles } from '@/app/_components/plan3d/kit/entrance-tunnel';
 import { SERPENTINE_TOP_GEO } from '@/app/_components/plan3d/kit/serpentine-top';
-import { useSeatingLock } from '@/app/dashboard/[eventId]/seating/_components/use-seating-lock';
+import { lockSaysViewOnly, useSeatingLock } from '@/app/dashboard/[eventId]/seating/_components/use-seating-lock';
 import { useSeatingLiveRefresh } from '@/app/dashboard/[eventId]/seating/_components/use-seating-live-refresh';
 import { usePlan3dRoom, PLAN3D_SHARED_ROOM_ENABLED, type LocalPlayer } from '@/app/_components/plan3d/use-plan3d-room';
 import { RemotePlayers, CameraMoveBroadcaster } from '@/app/_components/plan3d/plan3d-remote-players';
@@ -393,7 +394,9 @@ function outfitHash(id: string): number {
  * class by id hash, so roughly a third of suits arrive as barong and a third
  * of gowns as filipiniana — stable per guest, varied across a crowd.
  */
-function outfitVariantFor(attire: Lab3DGuest['attire'], id: string): FigureSpec['outfit'] {
+function outfitVariantFor(attire: Lab3DGuest['attire'], id: string, said?: Lab3DGuest['outfit']): FigureSpec['outfit'] {
+  /* 👗 A Wear their role's dress code names is worn as named (owner 2026-10-20, `seatPlanOutfitOf`) — no variety. */
+  if (said) return said;
   if (attire === 'suit') return outfitHash(id) % 3 === 0 ? 'barong' : 'suit';
   if (attire === 'gown') return outfitHash(id) % 3 === 0 ? 'filipiniana' : 'gown';
   return 'neutral';
@@ -410,7 +413,7 @@ function outfitVariantFor(attire: Lab3DGuest['attire'], id: string): FigureSpec[
 function figureSpecFor(g: Lab3DGuest, statusColor: string): FigureSpec {
   return {
     id: g.id,
-    outfit: outfitVariantFor(g.attire, g.id),
+    outfit: outfitVariantFor(g.attire, g.id, g.outfit),
     outfitColor: g.attireColor,
     photoUrl: g.photoUrl ?? null,
     statusColor,
@@ -500,6 +503,8 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
   // lost edit). The counter holds the resync until every in-flight save settles.
   const [floor, setFloor] = useState(floorProp);
   const floorInFlight = useRef(0);
+  // 👥 The floor this lab STARTED FROM (or last sent) — each save's base.
+  const floorBase = useRef(labFloorFields(floorProp, floorExtras));
   // Reception design (Wave 2b decor treatments) is LOCAL state too — the
   // relocated editor (ReceptionDesignEditor) writes here optimistically so
   // VenueDecor re-renders the 3D room immediately, same pattern as `floor`
@@ -509,6 +514,8 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
   useEffect(() => {
     if (floorInFlight.current > 0) return;
     setFloor(floorProp);
+    floorBase.current = labFloorFields(floorProp, floorExtras);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the extras ride the same loader run as the floor
   }, [floorProp]);
   // ONE reduced-motion flag threaded to every JS-driven motion (camera ease,
   // walk/swap glide+bob, table slide-lag + pop, orbit momentum). SSR-safe +
@@ -589,7 +596,8 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
   const sharedRoom = usePlan3dRoom(eventId, roomSelf);
   // View-only surface follows the editor live (2D or another 3D viewer) — the
   // EDITING surface never auto-refreshes (it can't clobber its own drag).
-  useSeatingLiveRefresh(eventId, !canEdit);
+  // 🔂 Only once the lock has SAID view-only — not in the moment before it answers (`lockSaysViewOnly`).
+  useSeatingLiveRefresh(eventId, lockSaysViewOnly(lock.status));
   const acquireLock = lock.acquire;
   const notifyLost = lock.notifyLost;
   useEffect(() => {
@@ -736,6 +744,7 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
         } else {
           setNotice('Couldn’t save that change — please try again.');
         }
+        // one-render: keep (after-failure) — the save threw and revalidated nothing; re-read the plan it really holds.
         router.refresh();
       }
     },
@@ -1348,38 +1357,10 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
       const fd = new FormData();
       fd.set('event_id', eventId);
       fd.set('lock_id', lock.lockId ?? '');
-      fd.set('stage_x', String(f.stage.xPct));
-      fd.set('stage_y', String(f.stage.yPct));
-      fd.set('stage_w', String(f.stage.wPct));
-      fd.set('stage_h', String(f.stage.hPct));
-      fd.set('entrance_enabled', f.entrance.enabled ? 'true' : 'false');
-      fd.set('entrance_x', String(f.entrance.xPct));
-      fd.set('entrance_y', String(f.entrance.yPct));
-      // CRITICAL — saveFloorPlan upserts the WHOLE row, so a 3D-lab save that
-      // omitted the entrance kind/depth would reset any Walk-through the 2D
-      // editor set back to 'door' (whole-row data loss). Round-trip them like
-      // the service-door / cocktail fields below.
-      fd.set('entrance_kind', f.entrance.kind);
-      fd.set('entrance_depth_m', String(f.entrance.depthM));
-      fd.set('dance_enabled', f.dance.enabled ? 'true' : 'false');
-      fd.set('dance_x', String(f.dance.xPct));
-      fd.set('dance_y', String(f.dance.yPct));
-      fd.set('dance_w', String(f.dance.wPct));
-      fd.set('dance_h', String(f.dance.hPct));
-      if (f.venueWidthM != null) fd.set('venue_width_m', String(f.venueWidthM));
-      if (f.venueLengthM != null) fd.set('venue_length_m', String(f.venueLengthM));
-      // Preserve (else the whole-row upsert wipes them):
-      fd.set('service_entrance_enabled', floorExtras.serviceEntranceEnabled ? 'true' : 'false');
-      fd.set('service_entrance_x', String(floorExtras.serviceEntranceX));
-      fd.set('service_entrance_y', String(floorExtras.serviceEntranceY));
-      fd.set('cocktail_enabled', floorExtras.cocktailEnabled ? 'true' : 'false');
-      fd.set('cocktail_x', String(floorExtras.cocktailX));
-      fd.set('cocktail_y', String(floorExtras.cocktailY));
-      fd.set('cocktail_w', String(floorExtras.cocktailW));
-      fd.set('cocktail_h', String(floorExtras.cocktailH));
-      if (floorExtras.cocktailLabel) fd.set('cocktail_label', floorExtras.cocktailLabel);
-      fd.set('cocktail_vendor_edit', floorExtras.cocktailVendorEdit ? 'true' : 'false');
-      fd.set('cocktail_linked', floorExtras.cocktailLinked ? 'true' : 'false');
+      const fields = labFloorFields(f, floorExtras);
+      for (const [k, v] of Object.entries(fields)) fd.set(k, v);
+      fd.set(MERGE_BASE_FIELD, JSON.stringify(floorBase.current));
+      floorBase.current = fields;
       floorInFlight.current += 1;
       void persist(async () => {
         try {
@@ -1787,9 +1768,8 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
     }
     void persist(async () => {
       await createTable(fd);
-      router.refresh();
     });
-  }, [canEdit, eventId, lock.lockId, tables.length, spawnRoundPct, persist, router]);
+  }, [canEdit, eventId, lock.lockId, tables.length, spawnRoundPct, persist]);
 
   const rotateSelected = useCallback(
     (delta: number) => {
@@ -1828,8 +1808,8 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
   }, [selectedId, canEdit, eventId, lock.lockId, persist]);
 
   // 2D-parity: change the selected table's type (server recomputes capacity +
-  // drops surplus assignments). Refresh so the merge effect re-renders the new
-  // shape/seats, exactly like add-a-table.
+  // drops surplus assignments). The action revalidates, so its own answer brings
+  // the new shape/seats and the merge effect re-renders them, like add-a-table.
   const changeTableType = useCallback(
     (newType: string) => {
       if (!selectedId || !canEdit) return;
@@ -1840,10 +1820,9 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
       fd.set('table_type', newType);
       void persist(async () => {
         await updateTableType(fd);
-        router.refresh();
       });
     },
-    [selectedId, canEdit, eventId, lock.lockId, persist, router],
+    [selectedId, canEdit, eventId, lock.lockId, persist],
   );
 
   // Publish the plan. TWO things happen and the couple is told BOTH: the table
@@ -1897,6 +1876,7 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
     void persist(async () => {
       await autoSeatGuests(fd);
       seatResyncRef.current = true;
+      // one-render: keep (unsure) — the action revalidates, but `seatResyncRef` must be armed before the render lands; the order was not proven 2026-10-20.
       router.refresh();
       setNotice('Auto-seated your guests — tap “Walk everyone in” to watch them arrive.');
     });
@@ -1942,6 +1922,7 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
       void persist(async () => {
         const res = await seatRoleAtTable(fd);
         seatResyncRef.current = true;
+        // one-render: keep (unsure) — the action revalidates, but `seatResyncRef` must be armed before the render lands; the order was not proven 2026-10-20.
         router.refresh();
         if (res && res.overflow > 0) {
           setNotice(`Seated ${res.seated} — ${res.overflow} more ${ROLE_TIER_LABELS[tier]} need another table.`);
@@ -1981,6 +1962,7 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
     void persist(async () => {
       const res = await buildSeatingDraft(fd);
       seatResyncRef.current = true;
+      // one-render: keep (unsure) — the action revalidates, but `seatResyncRef` must be armed before the render lands; the order was not proven 2026-10-20.
       router.refresh();
       setNotice(
         res.tables === 0
@@ -2000,6 +1982,7 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
     void persist(async () => {
       await lockAndFill(fd);
       seatResyncRef.current = true;
+      // one-render: keep (unsure) — the action revalidates, but `seatResyncRef` must be armed before the render lands; the order was not proven 2026-10-20.
       router.refresh();
       setNotice('Filled the open seats around your locked ones.');
     });
@@ -2052,6 +2035,7 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
     void persist(async () => {
       const res = await autoArrange(fd);
       seatResyncRef.current = true;
+      // one-render: keep (unsure) — the action revalidates, but `seatResyncRef` must be armed before the render lands; the order was not proven 2026-10-20.
       router.refresh();
       // The server's counts, not a fixed line: it may have ADDED tables (owner
       // 2026-09-30) and must never claim everyone is seated when someone isn't.
@@ -2150,6 +2134,7 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
       void persist(async () => {
         const res = await assignGroup(fd);
         seatResyncRef.current = true;
+        // one-render: keep (unsure) — the action revalidates, but `seatResyncRef` must be armed before the render lands; the order was not proven 2026-10-20.
         router.refresh();
         if (res && res.overflow > 0) {
           setNotice(`Seated ${res.seated} — ${res.overflow} group member${res.overflow === 1 ? '' : 's'} need another table.`);
@@ -2183,11 +2168,10 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
       fd.set('table_id_b', bId);
       void persist(async () => {
         await linkTables(fd);
-        router.refresh();
       });
       setNotice(`Linked — “${a.label}” and “${b.label}” move together with one printed QR.`);
     },
-    [canEdit, tablesById, tables, eventId, lock.lockId, persist, router],
+    [canEdit, tablesById, tables, eventId, lock.lockId, persist],
   );
 
   // Manual arm-link (tap A then tap B) — 2D-parity "pull-to-join": the mover (B)
@@ -2263,11 +2247,10 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
         fl.set('table_id_a', anchorId);
         fl.set('table_id_b', moverId);
         await linkTables(fl);
-        router.refresh();
       });
       setNotice(`Linked — “${a.label}” and “${b.label}” move together with one printed QR.`);
     },
-    [canEdit, tablesById, venueScaled, oraclePose, oracleZones, room, tables, eventId, lock.lockId, persist, router, doLink],
+    [canEdit, tablesById, venueScaled, oraclePose, oracleZones, room, tables, eventId, lock.lockId, persist, doLink],
   );
   // 2D-parity: remove/restore an individual chair (tap a chair on the selected
   // table). Server rejects removing an OCCUPIED seat, so guard it client-side.
@@ -2312,10 +2295,9 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
     fd.set('table_id', selectedId);
     void persist(async () => {
       await unlinkTable(fd);
-      router.refresh();
     });
     setNotice('Broken apart — each table is independent again, with its own name + QR.');
-  }, [canEdit, selectedId, tablesById, eventId, lock.lockId, persist, router]);
+  }, [canEdit, selectedId, tablesById, eventId, lock.lockId, persist]);
 
   // Pick a guest → walk to their seat (seating them in the first free chair if
   // they have none), steering around the other tables.
@@ -3532,7 +3514,8 @@ function RoomShell({
       {/* Stage */}
       <mesh position={[stage.x, 0.15, stage.z]} castShadow receiveShadow>
         <boxGeometry args={[stageW, 0.3, stageD]} />
-        <meshStandardMaterial color={palette.accent} roughness={0.5} metalness={0.1} />
+        {/* 🎨 The couple's Stage colour (Palette › Stage, 2026-10-19), else the accent it always wore. */}
+        <meshStandardMaterial color={palette.stage ?? palette.accent} roughness={0.5} metalness={0.1} />
       </mesh>
 
       {/* Dance floor — the mood-board MURAL (Fable §3.7) replaces the old flat
@@ -6025,4 +6008,46 @@ function Hud({
       ) : null}
     </>
   );
+}
+
+/**
+ * 👥 The fields a lab floor save posts — one builder, so the save and its BASE (owner 2026-10-18: two hosts never
+ * overwrite each other — `lib/floor-plan-row.ts`) are spelled the same: only the columns the lab changed are written,
+ * and the service door / cocktail room it carries forward unseen never put back the 2D editor's newer ones.
+ */
+function labFloorFields(f: Lab3DFloor, floorExtras: Lab3DFloorExtras): Record<string, string> {
+  const out = new Map<string, string>();
+  out.set('stage_x', String(f.stage.xPct));
+  out.set('stage_y', String(f.stage.yPct));
+  out.set('stage_w', String(f.stage.wPct));
+  out.set('stage_h', String(f.stage.hPct));
+  out.set('entrance_enabled', f.entrance.enabled ? 'true' : 'false');
+  out.set('entrance_x', String(f.entrance.xPct));
+  out.set('entrance_y', String(f.entrance.yPct));
+  // CRITICAL — saveFloorPlan upserts the WHOLE row, so a 3D-lab save that
+  // omitted the entrance kind/depth would reset any Walk-through the 2D
+  // editor set back to 'door' (whole-row data loss). Round-trip them like
+  // the service-door / cocktail fields below.
+  out.set('entrance_kind', f.entrance.kind);
+  out.set('entrance_depth_m', String(f.entrance.depthM));
+  out.set('dance_enabled', f.dance.enabled ? 'true' : 'false');
+  out.set('dance_x', String(f.dance.xPct));
+  out.set('dance_y', String(f.dance.yPct));
+  out.set('dance_w', String(f.dance.wPct));
+  out.set('dance_h', String(f.dance.hPct));
+  if (f.venueWidthM != null) out.set('venue_width_m', String(f.venueWidthM));
+  if (f.venueLengthM != null) out.set('venue_length_m', String(f.venueLengthM));
+  // Preserve (else the whole-row upsert wipes them):
+  out.set('service_entrance_enabled', floorExtras.serviceEntranceEnabled ? 'true' : 'false');
+  out.set('service_entrance_x', String(floorExtras.serviceEntranceX));
+  out.set('service_entrance_y', String(floorExtras.serviceEntranceY));
+  out.set('cocktail_enabled', floorExtras.cocktailEnabled ? 'true' : 'false');
+  out.set('cocktail_x', String(floorExtras.cocktailX));
+  out.set('cocktail_y', String(floorExtras.cocktailY));
+  out.set('cocktail_w', String(floorExtras.cocktailW));
+  out.set('cocktail_h', String(floorExtras.cocktailH));
+  if (floorExtras.cocktailLabel) out.set('cocktail_label', floorExtras.cocktailLabel);
+  out.set('cocktail_vendor_edit', floorExtras.cocktailVendorEdit ? 'true' : 'false');
+  out.set('cocktail_linked', floorExtras.cocktailLinked ? 'true' : 'false');
+  return Object.fromEntries(out);
 }

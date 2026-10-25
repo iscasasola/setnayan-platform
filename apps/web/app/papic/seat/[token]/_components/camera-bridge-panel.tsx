@@ -317,7 +317,7 @@ export function CameraBridgePanel({ token, seatIndex, eventId }: Props) {
 
       {delivered.length > 0 ? (
         <p className="mt-2 text-xs text-cream/60">
-          {galleryCount !== null ? `${formatCount(galleryCount)} in the gallery · ` : ''}
+          {galleryCount !== null ? `${formatCount(galleryCount)} in Memories · ` : ''}
           last:{' '}
           {delivered
             .slice(0, 3)

@@ -2,7 +2,7 @@
 // Regenerate with: pnpm --filter @setnayan/web admin:jobs
 //
 // Every job the admin can perform and what it asks for, read out of the action
-// that performs it. 320 jobs, 204 of them form-driven, as of 981ed8a46.
+// that performs it. 322 jobs, 205 of them form-driven, as of 84909e9246.
 // admin-jobs-are-generated.test.ts fails if this drifts from the code.
 
 import type { AdminJob } from './scan-admin-jobs';
@@ -625,7 +625,10 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "fields": [
       "email",
       "business_name",
-      "service_category"
+      "service_category",
+      "offer_tier",
+      "offer_until",
+      "offer_photos"
     ],
     "refusedWhenEmpty": [],
     "destructive": false
@@ -1226,6 +1229,15 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "refusedWhenEmpty": [
       "reason"
     ],
+    "destructive": false
+  },
+  {
+    "name": "makeSmallCopiesOfOldPhotosAction",
+    "phrase": "make small copies of old photos",
+    "ownerPath": "/admin/papic-storage",
+    "resolvedPath": "/admin/papic-storage",
+    "fields": [],
+    "refusedWhenEmpty": [],
     "destructive": false
   },
   {
@@ -2476,9 +2488,12 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
       "launch_offer_papic_credits",
       "launch_offer_cycle_days",
       "booking_fee_free_from",
-      "booking_fee_free_until"
+      "booking_fee_free_until",
+      "booking_fee_free_reason"
     ],
-    "refusedWhenEmpty": [],
+    "refusedWhenEmpty": [
+      "booking_fee_free_reason"
+    ],
     "destructive": false
   },
   {
@@ -2491,6 +2506,18 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
       "loader_veil_opacity",
       "loader_step_interval_ms",
       "loader_pop_enabled"
+    ],
+    "refusedWhenEmpty": [],
+    "destructive": false
+  },
+  {
+    "name": "saveLoadTarget",
+    "phrase": "save load target",
+    "ownerPath": "/admin/app-performance",
+    "resolvedPath": "/admin/app-performance",
+    "fields": [
+      "route",
+      "target_s"
     ],
     "refusedWhenEmpty": [],
     "destructive": false

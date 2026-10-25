@@ -41,7 +41,7 @@
  *
  * Pure. Held by `lib/a-background-pick-shows-at-once.test.ts`.
  */
-import { isHubMainFollow, isHubMainLoop, isHubMainOwn, mainGroundPosition, type HubMainGround, type HubMainFocus } from './hub-canvas';
+import { isHubMainFollow, isHubMainLoop, isHubMainOwn, mainGroundPosition, type HubMainGround, type HubMainFocus, type MainGroundPosition } from './hub-canvas';
 import { createDraftedCanvases } from './maker-draft-store';
 import { MAIN_GROUND_PATTERN_CSS } from './main-ground-patterns';
 import { ombreCss, parseSiteBackground } from './ombre';
@@ -188,7 +188,7 @@ export function backgroundCardTap(looks: { on: boolean }, load: { loading: boole
 export type MainGroundLay = {
   still: string | null;
   clip: string | null;
-  position: 'center' | 'center top' | 'center bottom';
+  position: MainGroundPosition;
   color: string | null;
   image: string | null;
   size: string | null;
@@ -289,7 +289,8 @@ export function backgroundLayOf(
     still ? { still, clip, position: mainGroundPosition(focus ?? null), color: null, image: null, size: null, scrim: worn.scrim, blur, vars: worn.vars } : null;
   if (isHubMainOwn(m)) {
     const focus = (m as { focus?: HubMainFocus }).focus ?? null;
-    return m.kind === 'photo' ? picture(pictures.media(m.media), null, focus) : picture(m.poster ? pictures.media(m.poster) : null, pictures.media(m.media));
+    /* 🎯 A clip is held where Focus holds it too — its still AND its film (owner 2026-10-14). */
+    return m.kind === 'photo' ? picture(pictures.media(m.media), null, focus) : picture(m.poster ? pictures.media(m.poster) : null, pictures.media(m.media), focus);
   }
   if (isHubMainFollow(m)) return picture(pictures.cover, null, (m as { focus?: HubMainFocus }).focus ?? null);
   if (isHubMainLoop(m) || (m && 'ground' in m && m.ground === 'theme')) {

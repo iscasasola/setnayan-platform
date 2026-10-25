@@ -8,7 +8,7 @@ import {
   sessionEndReason,
   type NfcFailureReason,
 } from '@/lib/nfc-tag';
-import { nativeNfc, nativePlatform, webNdefReader, type ListenerHandle } from '@/app/_components/nfc-runtime';
+import { nativeNfc, nativeNfcWithHardware, nativePlatform, webNdefReader, type ListenerHandle } from '@/app/_components/nfc-runtime';
 
 /**
  * useNfcTagReader — read the links on NFC tags, for a desk.
@@ -37,8 +37,17 @@ export function useNfcTagReader(onUrls: (urls: string[]) => void) {
   onUrlsRef.current = onUrls;
 
   useEffect(() => {
-    if (nativeNfc()) setRuntime('app');
-    else if (webNdefReader()) setRuntime('web');
+    let live = true;
+    // 🍎 The plugin is in every app build, the radio is not (no iPad has one):
+    // the desk offers the tap only where the plugin says the hardware is here.
+    if (nativeNfc()) {
+      void nativeNfcWithHardware().then((nfc) => {
+        if (live && nfc) setRuntime('app');
+      });
+    } else if (webNdefReader()) setRuntime('web');
+    return () => {
+      live = false;
+    };
   }, []);
 
   const stop = useCallback(() => {

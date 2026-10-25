@@ -25,6 +25,7 @@ import { DEMO_MODE_COOKIE_NAME, isAdminProfile } from '@/lib/demo-mode';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { SaveVendorButton } from '../_components/save-vendor-button';
 import { formatCount } from '@/lib/format-number';
+import { BRAND_OG_IMAGES } from '@/lib/brand-og';
 
 /**
  * 🪤 `logo_url` DOES NOT ALWAYS HOLD A URL. Anything uploaded through the shop
@@ -61,6 +62,7 @@ export const metadata = {
     'Side-by-side comparison of up to 2 saved Filipino wedding suppliers.',
   alternates: { canonical: '/explore/compare' },
   openGraph: {
+    images: BRAND_OG_IMAGES,
     title: 'Compare Filipino wedding suppliers — Setnayan',
     description:
       'Side-by-side comparison of up to 2 saved Filipino wedding suppliers.',
@@ -431,7 +433,7 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
               </p>
               <p className="mt-0.5 text-xs text-warn-900/80">
                 Pricing + Package Inclusions rows below show synthetic test
-                data. Real vendor pricing stays gated per the 2026-05-16
+                data. Real supplier pricing stays gated per the 2026-05-16
                 hide-prices lock. Demo data cleanup deadline: Dec 1, 2026.
               </p>
             </div>
@@ -594,7 +596,7 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
                           )
                         ) : (
                           <span className="text-xs text-ink/45">
-                            Real vendor · pricing on inquiry
+                            Real supplier · pricing on inquiry
                           </span>
                         )}
                       </td>
@@ -651,7 +653,7 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
                           )
                         ) : (
                           <span className="text-xs text-ink/45">
-                            Real vendor · ask for inclusions
+                            Real supplier · ask for inclusions
                           </span>
                         )}
                       </td>
@@ -727,7 +729,7 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
                           ✓ Verified
                         </span>
                       ) : (
-                        <span className="inline-flex items-center rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+                        <span data-coming-soon className="inline-flex items-center rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
                           Coming soon
                         </span>
                       )}

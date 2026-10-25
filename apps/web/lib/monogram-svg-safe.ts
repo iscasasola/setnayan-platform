@@ -249,11 +249,29 @@ export function safeMonogramSvg(raw: unknown): string | null {
  * an uploaded mark AND its ink policy, silently, on a screen that still looks
  * correct. `apps/web/lib/the-mark-is-resolved-everywhere.test.ts` holds the line.
  */
+/**
+ * 🔘 THE LOGO SWITCH — `events.logo_wanted` ("Do you want a logo?" · "Yes, make one" / "No, use our names"). Owner
+ * 2026-10-15 (DECISION_LOG "SIX OWNER ANSWERS", answer 4): *"make the Logo switch work"* — OFF ⇒ the couple's drawn
+ * logo is on no surface; ON ⇒ it is where it always was.
+ *
+ * Only an explicit `false` is OFF. NULL is "not asked yet" (lib/event-answers.ts) and keeps the logo every existing
+ * event already shows; a caller whose select did not name the column reads the same as NULL — which is why every
+ * reader that guests or the public see names it (`lib/logo-switch-is-real.test.ts` lists them all).
+ *
+ * Asked HERE, in the one resolver every mark goes through (Batch 9 walk W3, 2026-10-16: the print sheet, the wax
+ * seal, the recap / story / wall mastheads and the live screens each drew the logo with the switch off, because the
+ * check lived in two callers instead of the chokepoint).
+ */
+export function logoSwitchedOff(row: { logo_wanted?: boolean | null } | null | undefined): boolean {
+  return row?.logo_wanted === false;
+}
+
 export function resolveEventMonogramSvg(
   event:
     | {
         monogram_uploaded_svg?: string | null;
         monogram_custom_svg?: string | null;
+        logo_wanted?: boolean | null;
       }
     | null
     | undefined,
@@ -262,9 +280,15 @@ export function resolveEventMonogramSvg(
      *  `data-ink="palette"` is repainted in it. WITHOUT it the mark keeps its
      *  own colours — never a fallback colour, never black. */
     ink?: string | null;
+    /** The couple's OWN logo editor (the Maker's Logo step) reads the logo they made whatever the switch says —
+     *  opening it must never read as "no logo" and save the names over it. Every surface guests or the public see
+     *  leaves this unset. */
+    evenIfSwitchedOff?: boolean;
   },
 ): string | null {
   if (!event) return null;
+  /* 🔘 "No, use our names" — the caller draws the couple's lettered mark instead. */
+  if (logoSwitchedOff(event) && !opts?.evenIfSwitchedOff) return null;
   /* ── THE COMPOSITION IS THE MARK (owner 2026-09-20) ──────────────────────
    * `custom ?? uploaded`, which is the REVERSE of the rule this function held
    * this morning. It flipped because the product flipped: an uploaded logo is

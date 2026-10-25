@@ -17,7 +17,9 @@ import type { LifecyclePhase } from '@/lib/invitation-widgets';
  * On the Invitation and On the Day it plays on the HERO SCENE — the first page a
  * guest lands on — and once opened it is gone for the visit. A guest who lands
  * part-way down (a `#section` link, a restored scroll) is not stopped by it:
- * `revealOnlyOnTheFirstPage` below, read by the overlay.
+ * `revealOnlyOnTheFirstPage` below, read by the overlay. (⚠ 2026-10-17: the
+ * LIFTED veil is no longer gone — it stays as the drape on the cover and
+ * returns with it; see `drapeShows`. The opening still never closes again.)
  *
  * 💾 Stored in `events.reveal_stages` (text[], NULL = never chosen) and written
  * only through the Maker's draft → Apply (`lib/hub-draft.ts`). Pro gating is
@@ -70,8 +72,10 @@ export function revealStagesWith(stages: readonly RevealStage[], stage: RevealSt
 }
 
 /**
- * Off the Save the Date the opening belongs to the hero scene only: once opened
- * it is gone, and scrolling past the first page retires it. The Save the Date's
+ * Off the Save the Date the opening belongs to the hero scene only: scrolling
+ * past the first page before it is opened retires it, and once opened its
+ * lifted drape lives and leaves with the cover (`drapeShows`, 2026-10-17 —
+ * it used to be gone ~2 s after the lift). The Save the Date's
  * own opening leads its film and keeps its valance while the film plays.
  *
  * (Who is met at all is `landedOnTheFirstPage`, on EVERY stage: a guest who
@@ -80,6 +84,39 @@ export function revealStagesWith(stages: readonly RevealStage[], stage: RevealSt
  */
 export function revealOnlyOnTheFirstPage(stage: LifecyclePhase): boolean {
   return stage !== 'save_the_date';
+}
+
+/**
+ * 🎭 THE LIFTED VEIL STAYS WITH THE COVER (owner 2026-10-17, verbatim, looking at live `/cale-ice` after an unveil:
+ * *"the veil disappears. it shouldn't. it should stay until cover is gone. and return when cover scene returns"*).
+ * This SUPERSEDES, for the drape only, the 2026-09-25 "once opened it is gone for the visit" above: off the Save the
+ * Date, once the guest has unveiled, the lifted veil — the drape at the top — stays on the Cover Scene for as long as
+ * any of the cover is on screen, leaves WITH it as the guest scrolls into the event, and comes back with it when they
+ * scroll up again. It never closes again: one unveil per visit (`keepsOpen`, `veil-reveal.tsx`).
+ *
+ * "The cover is gone" is the SAME edge the bars use (`cover-scene-menu.tsx`, owner 2026-10-16: the bars arrive only
+ * once the cover is fully gone) — so the drape and the bars are never on screen together.
+ *
+ * The cover is `header[data-cover-scene]` (`COVER_SCENE_ATTR`, `lib/cover-scene.ts` — kept as text here so the guest
+ * overlay does not import the cover's theme tables; `the-veil-stays-with-the-cover.test.ts` holds the two equal). A
+ * page with no Cover Scene keeps the first screen as its cover; a cover that is not drawn (another tab) is gone.
+ */
+export const COVER_SCENE_SELECTOR = 'header[data-cover-scene]';
+
+/** Is any of the cover on screen? Its box against the screen — the bars' own edge (bottom past the top = gone). */
+export function coverOnScreen(cover: { top: number; bottom: number } | null, viewportHeight: number): boolean {
+  if (!cover) return false;
+  return cover.bottom > 0 && cover.top < Math.max(1, viewportHeight);
+}
+
+/** The drape rides the cover's top edge as it scrolls away (never pushed DOWN by a cover that starts lower). */
+export function drapeShift(coverTop: number): number {
+  return Number.isFinite(coverTop) ? Math.min(0, coverTop) : 0;
+}
+
+/** Is the drape drawn? Only after the unveil, and exactly while the cover is on screen. */
+export function drapeShows(input: { unveiled: boolean; coverInView: boolean }): boolean {
+  return input.unveiled && input.coverInView;
 }
 
 /** Is this landing the first page? No `#section` in the address, and the page

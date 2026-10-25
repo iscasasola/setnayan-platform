@@ -10,7 +10,6 @@
 // ============================================================================
 
 import { useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { ImagePlus, Film, Trash2, Loader2 } from 'lucide-react';
 import {
   bakeBoomerang,
@@ -112,7 +111,6 @@ export function EditorialMediaStudio({
   // the server refuses anything outside it, so a drift here is a broken upload,
   // not a silent one.
   const uploadPrefix = `editorial-vendor/${vendorProfileId}/${eventId}`;
-  const router = useRouter();
   const [staged, setStaged] = useState<Staged[]>([]);
   const [busy, setBusy] = useState<null | string>(null);
   const [error, setError] = useState<string | null>(null);
@@ -223,7 +221,6 @@ export function EditorialMediaStudio({
       if (!r.ok) throw new Error(r.error);
       staged.forEach((s) => URL.revokeObjectURL(s.previewUrl));
       setStaged([]);
-      router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not save.');
     }
@@ -234,7 +231,6 @@ export function EditorialMediaStudio({
     setBusy('Removing…');
     await deleteVendorEditorialMedia(eventId, mediaId);
     setBusy(null);
-    router.refresh();
   };
 
   return (

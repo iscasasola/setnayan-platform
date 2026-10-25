@@ -2,23 +2,23 @@ import 'server-only';
 
 import type { ReactNode } from 'react';
 import { INVITE_THEMES, type InviteThemeId } from '@/lib/invite-themes';
-import { hubMainEffect, hubMainGround, hubMainLook, isHubMainLoop, mainGroundIsNone, type HubMainLook, type ResolvedMainGround } from '@/lib/hub-canvas';
-import { AMBIENT_EFFECT_IS_PRO } from '@/lib/ambient-effects';
+import { hubMainEffect, hubMainGround, mainGroundIsNone, type HubMainLook, type ResolvedMainGround } from '@/lib/hub-canvas';
+import { AMBIENT_EFFECT_DRAWN_ONLY_WITH_PRO } from '@/lib/ambient-effects';
 import { lookEffectOn, lookSampleEffect, type LookSampleRow } from '@/lib/look-sample';
 import { mainGroundShade, shadeWordVars } from '@/lib/main-ground-shade';
 import { heroGroundNeedsOwnership } from '@/lib/page-ground';
-import { guestMainGround } from '@/lib/guest-main-ground';
-import { mainGroundClipRefForGuests } from '@/lib/guest-hero-video';
-import { websiteProActiveFor } from './hub-look';
-import type { HeroEventInput } from '@/lib/event-hero';
+import { hubPartActiveFor } from './hub-look';
 import { adaptiveThemeVars, pagePaperAndInk, resolveAdaptiveTheme } from '@/lib/adaptive-theme';
 import { dressedTheme, paletteColourVars } from '@/lib/theme-colours';
 import { buildCustomSiteColorVars } from '@/lib/site-palette';
 import { compositeOver } from '@/lib/hub-legibility';
 import { pageWordBase, shadeWordInks } from './pro-site-vars';
 import { siteMediaServeRef } from '@/lib/site-media-ref';
-import { displayUrlForStoredAsset, publicUrlForStoredAsset } from '@/lib/uploads';
+import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { MainGround, MainGroundNone, PatternGround } from '../_components/main-ground';
+/* The plain half — what the picture IS, and the film's and the prints' readers (`main-ground-picture.ts`, 2026-10-22). */
+import { pictureOf, screenSizedStill, type MainGroundInput } from './main-ground-picture';
+export { mainGroundPictureFor, mainGroundStillFor } from './main-ground-picture';
 import { AmbientEffectLayer } from '../_components/ambient-effect';
 
 /**
@@ -60,33 +60,6 @@ import { AmbientEffectLayer } from '../_components/ambient-effect';
  * their own gates: the Event Hub body, and the RSVP page, which a guest reaches
  * only holding this event's key (or the host, on the Maker's canvas).
  */
-type MainGroundInput = {
-  /** The theme `resolveHubTheme` answered — Pro ownership already decided. */
-  theme: InviteThemeId;
-  /** The hero row's `config_json` (draft-overlaid for the host's canvas). */
-  heroConfig: unknown;
-  event: HeroEventInput & {
-    event_id: string;
-    site_button_color?: unknown;
-    role_palette?: unknown;
-    /** ✨ The look columns an effect's ground and colours are measured from (`lookEffectOn`) — the row the caller already read. */
-    site_bg_color?: unknown;
-    site_button_style?: unknown;
-    site_font_key?: unknown;
-    site_art_direction?: unknown;
-    site_roles?: unknown;
-  };
-  viewerIsHost: boolean;
-  /** Refs the caller already signed, so a ref is never signed twice. */
-  signed?: Record<string, string>;
-  /**
-   * 🎞 The HOST's own canvas, wearing their draft (`hostDraft` non-null — a
-   * verified host on `?editor=1`, never a guest): a moving background they have
-   * not paid for yet is shown to them as it WOULD look (tried free, asked at
-   * Apply). Guests never pass it.
-   */
-  tryOn?: boolean;
-};
 
 /**
  * ✨ THE EFFECT ON TOP (owner 2026-10-08, DECISION_LOG "LOOK EFFECTS ROUND 4"): the background — whatever it is: a
@@ -98,14 +71,8 @@ export async function mainGroundLayerFor(input: MainGroundInput): Promise<ReactN
 }
 
 /** The background alone — exactly as it was resolved before effects existed. */
-async function mainGroundOf({
-  theme,
-  heroConfig,
-  event,
-  viewerIsHost,
-  signed = {},
-  tryOn = false,
-}: MainGroundInput): Promise<ReactNode> {
+async function mainGroundOf(input: MainGroundInput): Promise<ReactNode> {
+  const { theme, heroConfig, event, viewerIsHost } = input;
   const main = hubMainGround(heroConfig);
   /* 🖼 "NONE — JUST THE COLOUR" (owner 2026-09-29, *"the background animated
      video cannot be unpicked"*): the theme's loop is switched off and nothing
@@ -122,8 +89,9 @@ async function mainGroundOf({
   }
   // The ownership read only where it can change the answer (a free theme with
   // a loop); cached per request, shared with the theme gate and the watermark.
+  // 💎 Background part (gates 9, 21) — Full Pro and the cap included.
   const ownsPro = heroGroundNeedsOwnership(theme)
-    ? await websiteProActiveFor(event.event_id).catch(() => false)
+    ? await hubPartActiveFor(event.event_id, 'background').catch(() => false)
     : false;
   /* 🎞 A MOVING BACKGROUND OF OURS (owner 2026-10-05, DECISION_LOG "THEMES ARE
      REPLACED BY THREE DIRECT GLOBAL SETTINGS"): one of the shipped loops, picked
@@ -132,18 +100,12 @@ async function mainGroundOf({
      host's own canvas as it WOULD look (`tryOn`); without it the page falls
      through to what it drew before (the theme's own ground). On ANY theme —
      Classic included: the shell drops its opaque paper whenever a layer is
-     drawn here (`site-body.tsx` `ownGround`). Setnayan's own public art, so its
-     URLs are the public ones, never signed. The veil is measured over the
+     drawn here (`site-body.tsx` `ownGround`). Setnayan's own public art, signed on the
+     bucket host like every other guest file (never `r2.dev`, 2026-10-20). The veil is measured over the
      loop's own lightest and darkest clusters (`media.samples`) with the page's
      inks — the same legibility rule an uploaded clip gets (`tint.match` off:
      a loop never recolours the page). */
-  const loop = isHubMainLoop(main) ? movingBackground(main.loop) : null;
-  // 🌄 A moving background carries its Shade · Blur (owner 2026-10-06/07).
-  if (loop && isHubMainLoop(main)) loop.ground.look = loopLook(hubMainLook(main));
-  const loopShows = loop ? tryOn || (await websiteProActiveFor(event.event_id).catch(() => false)) : false;
-  const urls = loop && loopShows ? { ...signed, ...loop.urls } : signed;
-  // The ONE answer to "what is behind the event", shared with Discover's card.
-  const mainGround = loop && loopShows ? loop.ground : guestMainGround(theme, ownsPro, heroConfig, event);
+  const { mainGround, urls } = await pictureOf(main, input, ownsPro);
   if (mainGround) {
     // 🎨 Measured on the theme as the Mood Board dresses it (`dressedTheme`, 2026-10-05).
     const adaptive = resolveAdaptiveTheme(dressedTheme(theme, event.role_palette), mainGround.tint);
@@ -151,7 +113,7 @@ async function mainGroundOf({
     const sign = async (ref: string | null) =>
       ref ? (urls[ref] ?? (await displayUrlForStoredAsset(siteMediaServeRef(ref)))) : null;
     const [still, clip] = await Promise.all([
-      sign(mainGround.stillRef),
+      screenSizedStill(mainGround.stillRef).then((u) => u ?? sign(mainGround.stillRef)),
       sign(viewerIsHost ? mainGround.clipRef : mainGround.guestClipRef),
     ]);
     return (
@@ -175,12 +137,7 @@ async function mainGroundOf({
   return null;
 }
 
-/**
- * 🎞 One of our loops as a Main background — the same shape the couple's own
- * clip resolves to (`ResolvedMainGround`), so the ONE mount above draws it. Its
- * refs map to their PUBLIC URLs (our own art on the public bucket). Null when
- * the theme has no loop or no public host is configured.
- */
+
 /**
  * 🌗 SHADE ▾ (owner 2026-10-06/07): Darker · Dark · Light · Lighter lay the
  * shipped veil (`mainGroundShade`) — never less than readability already needs,
@@ -223,40 +180,6 @@ function shadeFollowers(
   );
 }
 
-/** A loop takes Shade and Blur, never Focus (it is not a photo). */
-function loopLook(look: HubMainLook): HubMainLook | undefined {
-  const out: HubMainLook = { ...(look.shade ? { shade: look.shade } : {}), ...(look.blur ? { blur: look.blur } : {}) };
-  return Object.keys(out).length > 0 ? out : undefined;
-}
-
-function movingBackground(id: InviteThemeId): { ground: ResolvedMainGround; urls: Record<string, string> } | null {
-  const media = INVITE_THEMES[id]?.media ?? null;
-  if (!media) return null;
-  const at = (ref: string): string | null => {
-    try {
-      return publicUrlForStoredAsset(ref);
-    } catch {
-      return null;
-    }
-  };
-  const poster = at(media.poster);
-  const clip = at(media.loop);
-  if (!poster && !clip) return null;
-  const urls: Record<string, string> = {};
-  if (poster) urls[media.poster] = poster;
-  if (clip) urls[media.loop] = clip;
-  return {
-    ground: {
-      source: 'own',
-      stillRef: poster ? media.poster : null,
-      clipRef: clip ? media.loop : null,
-      // The SAME guest switch every Main-background clip meets (`mainGroundClipRefForGuests`) — closed, a guest gets the still.
-      guestClipRef: clip ? mainGroundClipRefForGuests(media.loop) : null,
-      tint: { match: false, frame: [media.samples.light, media.samples.dark] },
-    },
-    urls,
-  };
-}
 
 /**
  * ✨ The effect stored on the main background, laid over what was resolved above — by the ONE layer
@@ -268,8 +191,10 @@ function movingBackground(id: InviteThemeId): { ground: ResolvedMainGround; urls
  * one where a layer was resolved for it, else null — the page's own ground (nothing drawn for a follow with no photo,
  * or for media this viewer is not shown).
  *
- * ◆ A Pro effect is drawn for a guest only while the event OWNS Event Hub Pro (the request's cached read — asked only
- * when a Pro effect is stored), and on the host's own canvas as it WOULD look (`tryOn`). A free one asks nothing.
+ * ◆ One of the six ALWAYS-Pro effects (`AMBIENT_EFFECT_DRAWN_ONLY_WITH_PRO`) is drawn for a guest only while the event
+ * OWNS Event Hub Pro (the request's cached read — asked only when one is stored), and on the host's own canvas as it
+ * WOULD look (`tryOn`). Soft haze and Bokeh lights became Pro on 2026-10-16 and are gated at ✓ Apply instead, so one a
+ * free event published before that keeps drawing (*"free events keep what they already published"*) and asks nothing.
  * It wears the COUPLE's colours only. Returning a layer also tells the page to drop its opaque paper (`ownGround`),
  * which is what lets the effect show on a plain colour.
  */
@@ -277,7 +202,7 @@ async function effectOver(ground: ReactNode, { theme, heroConfig, event, tryOn =
   const main = hubMainGround(heroConfig);
   const effect = hubMainEffect(main);
   if (!effect) return ground;
-  if (AMBIENT_EFFECT_IS_PRO[effect.kind] && !tryOn && !(await websiteProActiveFor(event.event_id).catch(() => false))) return ground;
+  if (AMBIENT_EFFECT_DRAWN_ONLY_WITH_PRO[effect.kind] && !tryOn && !(await hubPartActiveFor(event.event_id, 'background').catch(() => false))) return ground;
   const shown = ground === null ? null : main;
   const spec = lookSampleEffect(effect, lookEffectOn(shown, lookRowOf(event), theme, true));
   if (!spec) return ground;

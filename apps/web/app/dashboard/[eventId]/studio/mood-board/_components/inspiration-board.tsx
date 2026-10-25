@@ -6,7 +6,7 @@
  * enhance the photo output to be more accurate").
  *
  * Surfaces the same per-event inspiration intake that onboarding's Card 15
- * uses — 24 named slots × 3 photos, stored in event_inspiration_assets, with
+ * uses — 29 named slots × 3 photos, stored in event_inspiration_assets, with
  * a 6-color palette auto-extracted from each upload. Widened through
  * 2026-09-02/03: backdrop · flowers · cocktail, then reception_venue (the
  * ceremony/reception asymmetry), then cake — and 2 photos per slot became 3,
@@ -45,6 +45,10 @@ export type InspirationItem = {
   credit?: string | null;
   /** The photo's own sampled colours (`sampled_hex_1…6`) — Studio reads each part's palette from them. */
   swatches?: string[];
+  /** 🤝🖼 The supplier suggestion this photo was KEPT from (`from_suggestion_id`, 2026-10-19), else null. */
+  fromSuggestionId?: string | null;
+  /** …and that supplier's shop name — the credit on the photo ("3 photos · 1 from Bloom & Co."). */
+  fromShop?: string | null;
 };
 
 type Props = {
@@ -106,6 +110,12 @@ const GROUPS: ReadonlyArray<{ title: string; slots: { k: string; label: string }
       { k: 'cake', label: 'Cake' },
       { k: 'bridal_bouquet', label: 'Bridal bouquet' },
       { k: 'centrepieces', label: 'Centrepieces' },
+      /* 🎨🖼 The Palette's five parts with photos of their own (2026-10-19). */
+      { k: 'chairs', label: 'Chairs' },
+      { k: 'ribbons_candles', label: 'Ribbons & candles' },
+      { k: 'lights', label: 'Lights' },
+      { k: 'entourage_bouquets', label: 'Entourage bouquets' },
+      { k: 'flower_accents', label: 'Flower accents' },
     ],
   },
   { title: 'Palette', slots: [{ k: 'palette', label: 'Palette source' }] },

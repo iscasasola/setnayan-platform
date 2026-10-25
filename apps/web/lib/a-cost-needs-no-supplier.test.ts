@@ -282,7 +282,7 @@ test('BA7 · the recorded list comes from the resolver, not a second read', () =
   const group = code(SCREEN).slice(code(SCREEN).indexOf('function ExpenseGroup('));
   assert.match(
     group,
-    /rows === null \? \(\s*<GroupUnread what="your expenses" \/>\s*\) : rows\.length === 0 \?/,
+    /rows === null \? \(\s*<GroupUnread what="your expenses"[^>]*\/>\s*\) : rows\.length === 0 \?/,
     'a refused expenses read must be answered BEFORE the empty state is considered',
   );
 });

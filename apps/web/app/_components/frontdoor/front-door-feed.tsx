@@ -44,8 +44,10 @@ import { type FrontDoorData } from './data';
 import { shopInitials } from '@/lib/shop-initials';
 import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
 import { bookingFeeScheduleSummary } from '@/lib/booking-fee';
-import { FREE_BOOKING_LIMIT } from '@/lib/booking-fee-lock';
 import { formatCount } from '@/lib/format-number';
+import { hidesEmptyShelfInApp } from '@/lib/empty-marketplace';
+import { InfoTip } from '@/app/_components/info-tip';
+import { EmptyShelf } from './empty-shelf';
 
 /**
  * The card's terminal blurb when a story has no excerpt of its own.
@@ -314,7 +316,12 @@ export function FrontDoorFeed({
   data,
   beforeShops,
   afterShops,
-}: { data: FrontDoorData } & DiscoverSlots) {
+  storeShell = false,
+}: {
+  data: FrontDoorData;
+  /** Inside the App Store / Play Store shell — `isStoreShellRequest()`. */
+  storeShell?: boolean;
+} & DiscoverSlots) {
   const {
     articles,
     articleTotal,
@@ -362,6 +369,10 @@ export function FrontDoorFeed({
         ? 'The first shops'
         : 'Shops';
   const realWeddingsEarnedGrid = shape.stories === 'grid';
+  // 📱 The app hides the whole Shops shelf while no shop is live (owner,
+  // DECISION_LOG 2026-10-19 (2)); one live shop brings it back. The web keeps
+  // the plain "none yet" line below.
+  const hideShopsShelf = hidesEmptyShelfInApp(storeShell, liveShopCount);
 
   // Chapters ranked by real views — see the module docblock. Not filtered by
   // the composer above: a chapter reaching `stories` at all already passed
@@ -373,75 +384,77 @@ export function FrontDoorFeed({
       {/* ═ DISCOVER · your people's upcoming public events, then the world ═ */}
       {beforeShops}
 
-      {/* ═ SHOPS — the claim's proof, one scroll-line below the anchor ═ */}
-      <h2 className="fd-sechead">
-        <span>{shopsHeading}</span>
-        {shape.shopsHeading === 'first-shops' ? (
-          <span className="fd-rule">
-            not &ldquo;trending&rdquo; — one shop cannot trend
-          </span>
-        ) : null}
-      </h2>
-      {/*
-        🧪 THE EMPTY SHELF (2026-09-30). The two trial shops became `is_demo`
-        (owner, DECISION_LOG 2026-09-29 "LANE 2 §2C" (1): "Discover's Shops
-        shelf … show[s] nothing until a real supplier joins"), so an empty
-        shelf is now the normal state. It says so in one plain line — and a
-        failed read says THAT instead, never "none" (`liveShopCount` is null
-        only when the count read failed). The invite card below is the door.
-      */}
-      {shops.length === 0 ? (
-        <p className="fd-notice" role="status">
-          {liveShopCount === 0
-            ? 'No supplier has opened a shop yet.'
-            : 'Shops couldn’t load just now — try again in a moment.'}
-        </p>
-      ) : null}
-      <div className="fd-grid">
-        {shops.map((s) => (
-          <ShopCard key={s.href} s={s} />
-        ))}
-        <div className="fd-invite fd-invite-wide">
-          <h3>Open your shop — free while we&rsquo;re new.</h3>
+      {hideShopsShelf ? null : (
+        <>
+          {/* ═ SHOPS — the claim's proof, one scroll-line below the anchor ═ */}
+          <h2 className="fd-sechead">
+            <span>{shopsHeading}</span>
+            {/* 🧹 "not trending — one shop cannot trend" is gone (owner 2026-10-01, NO SMALL
+                EXPLAINER LABELS): the heading already says "The first shops". */}
+          </h2>
           {/*
-            🔴 THIS CARD PROMISED "No commission on your bookings, ever." — to a
-            SUPPLIER, beside a real 5% booking fee. Measured 2026-09-22.
-
-            The owner's 2026-08-06 ruling is that "no commission" is CORRECT and
-            stays: the couple pays the supplier directly and Setnayan never
-            touches that money. The booking fee is a separate bill to the
-            supplier for the introduction — not a cut of the couple↔supplier
-            deal. **Both sentences are true at once, but only if the second one
-            is actually said.** `/pricing` says both. This card said only the
-            first, and added "ever", which no flag can keep true.
-
-            🔑 THE NUMBERS ARE DERIVED, NEVER TYPED. `bookingFeeScheduleSummary()`
-            and `FREE_BOOKING_LIMIT` are the same sources the bill uses, and the
-            launch line is gated on `isBookingFeeEnabled()` — the very flag that
-            decides whether anyone is billed — so the promise and the charge
-            cannot disagree. A hand-edited sentence is exactly what went stale
-            here before (see VendorGrowFairPay, which was false on 2026-09-20).
+            🧪 THE EMPTY SHELF (2026-09-30). The two trial shops became `is_demo`
+            (owner, DECISION_LOG 2026-09-29 "LANE 2 §2C" (1): "Discover's Shops
+            shelf … show[s] nothing until a real supplier joins"), so an empty
+            shelf is now the normal state. It says so in one plain line — and a
+            failed read says THAT instead, never "none" (`liveShopCount` is null
+            only when the count read failed). The invite card below is the door.
           */}
-          <p>
-            Couples pay you directly — we never take a cut of it.{' '}
-            {isBookingFeeEnabled() ? (
+          {/*
+            🧪 THE EMPTY SHELF (2026-09-30) — and since 23 Oct ONE line + ONE action (owner:
+            title + one short line, every detail inside the ⓘ; a frame only on what you press).
+            An empty shelf is the normal state while no real supplier has joined; a failed read
+            says THAT instead, never "none" (`liveShopCount` is null only when the count read
+            failed). The booking-fee terms moved, word for word, into the ⓘ.
+          */}
+          {shops.length > 0 ? (
+            <div className="fd-grid">
+              {shops.map((s) => (
+                <ShopCard key={s.href} s={s} />
+              ))}
+            </div>
+          ) : null}
+          <EmptyShelf
+            line={
+              shops.length > 0
+                ? 'Are you a supplier?'
+                : liveShopCount === 0
+                  ? 'No supplier has opened a shop yet.'
+                  : 'Shops couldn’t load just now — try again in a moment.'
+            }
+            tip={
+              /*
+                🔴 THIS CARD ONCE PROMISED "No commission on your bookings, ever." — to a
+                SUPPLIER, beside a real 5% booking fee (measured 2026-09-22). "No commission"
+                is CORRECT (owner 2026-08-06: the couple pays the supplier directly) but true
+                only when the booking-fee sentence travels with it, so both stay here.
+
+                🔑 THE NUMBERS ARE DERIVED, NEVER TYPED. `bookingFeeScheduleSummary()` and
+                `FIRST_BOOKING_ON_US` speak for the same rule the bill uses, and the launch
+                line is gated on `isBookingFeeEnabled()` — the flag that decides whether
+                anyone is billed.
+              */
               <>
-                Your first {formatCount(FREE_BOOKING_LIMIT)} bookings we introduce are free;
-                after that a booking fee
-                {data.bookingFee ? <> of {bookingFeeScheduleSummary(data.bookingFee)}</> : null}, only
-                on couples we bring you. Your own clients stay free.{' '}
+                Couples pay you directly — we never take a cut of it.{' '}
+                {isBookingFeeEnabled() ? (
+                  <>
+                    Your first booking from Setnayan is on us;
+                    after that a booking fee
+                    {data.bookingFee ? <> of {bookingFeeScheduleSummary(data.bookingFee)}</> : null}, only
+                    on couples we bring you. Your own clients stay free.{' '}
+                  </>
+                ) : (
+                  <>No booking fee while we&rsquo;re new.{' '}</>
+                )}
+                Your own web address, a calendar couples can see, and enquiries that
+                arrive as real messages.
               </>
-            ) : (
-              <>No booking fee while we&rsquo;re new.{' '}</>
-            )}
-            Your own web address, a calendar couples can see, and enquiries that
-            arrive as real messages.
-          </p>
-          <Link href="/open-shop" className="fd-go">
-            Open your shop &rarr;
-          </Link>
-        </div>
-      </div>
+            }
+            href="/open-shop"
+            go="Open your shop"
+          />
+        </>
+      )}
 
       {/* ═ DISCOVER · People to follow — public profiles, after the shops ═ */}
       {afterShops}
@@ -470,8 +483,7 @@ export function FrontDoorFeed({
         </Link>
         <span className="fd-meta">
           <CountText value={articleTotal} /> ours ·{' '}
-          <CountText value={storyCount} /> theirs — some with video, some
-          without
+          <CountText value={storyCount} /> theirs
         </span>
       </h2>
 
@@ -479,22 +491,12 @@ export function FrontDoorFeed({
           Below the threshold this is ONE WRITTEN INVITATION, not an empty
           shelf — "the shelf is not empty; it is simply all reading". */}
       {realWeddingsEarnedGrid ? null : (
-        <div className="fd-grid">
-          <div className="fd-invite fd-invite-full">
-            <h3>
-              The first real weddings will land right here, beside the reading.
-            </h3>
-            <p>
-              When a couple decides to share their day it joins this same shelf
-              — their photos, their suppliers, their timeline, in their own
-              words. Nothing is staged, and nothing appears without them saying
-              yes.
-            </p>
-            <Link href="/realstories" className="fd-go">
-              See how sharing works &rarr;
-            </Link>
-          </div>
-        </div>
+        <EmptyShelf
+          line="The first real weddings will land right here."
+          tip="When a couple decides to share their day it joins this shelf — their photos, their suppliers, their timeline, in their own words. Nothing appears without them saying yes."
+          href="/realstories"
+          go="See how sharing works"
+        />
       )}
 
       {trailingArticles.length > 0 ? (
@@ -519,24 +521,19 @@ export function FrontDoorFeed({
 
       {/* ═ TRENDING — chapters ranked by real views, honestly empty today ═ */}
       <h2 className="fd-sechead">
-        <span>Trending</span>
-        <span className="fd-rule">earned, never sold</span>
+        {/* "earned, never sold" moved into the ⓘ (owner 2026-10-01, NO SMALL EXPLAINER LABELS). */}
+        <InfoTip label="Trending" align="start" className="fd-sechead-tip">
+          Stories ranked by real views from real readers — never seeded, padded, or sold.
+        </InfoTip>
       </h2>
 
       {trending.length === 0 ? (
-        <div className="fd-grid">
-          <div className="fd-invite fd-invite-full">
-            <h3>No story has earned a spot yet.</h3>
-            <p>
-              Trending ranks stories by real views from real readers — it is
-              never seeded, padded, or sold. The first story to earn its place
-              will appear here on its own; until then, this room stays honest.
-            </p>
-            <Link href="/realstories" className="fd-go">
-              Browse all stories &rarr;
-            </Link>
-          </div>
-        </div>
+        <EmptyShelf
+          line="No story has earned a spot yet."
+          tip="The first story to earn its place appears here on its own."
+          href="/realstories"
+          go="Browse all stories"
+        />
       ) : (
         <div className="fd-grid">
           {trending.map((s) => (

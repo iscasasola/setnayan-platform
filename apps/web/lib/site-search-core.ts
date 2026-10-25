@@ -1,6 +1,6 @@
 import { publishedBlogArticles, blogCategoryLabel } from '@/lib/blog';
 import { searchTokens, STOP_WORDS } from '@/lib/search-stop-words';
-import { ALL_HELP_ARTICLES } from '@/lib/help';
+import { ALL_HELP_ARTICLES, HELP_NOT_IN_THE_APP, helpBodyFor } from '@/lib/help';
 import type { PublicSearchNoun } from '@/lib/public-search-nouns';
 
 // ============================================================================
@@ -64,7 +64,8 @@ export const MARKETPLACE_NOUN: PublicSearchNoun = 'suppliers';
 /** A corpus that can be searched without leaving the process. */
 type InCodeSource = {
   noun: Exclude<PublicSearchNoun, 'suppliers'>;
-  find: (tokens: string[], phrase: string) => ReadHit[];
+  /** `storeShell` — the reader is in the iPhone app (lib/store-shell.ts); a source with app wording answers in it. */
+  find: (tokens: string[], phrase: string, storeShell?: boolean) => ReadHit[];
 };
 
 /**
@@ -170,12 +171,17 @@ function guideHits(tokens: string[], phrase: string): ReadHit[] {
 }
 
 /** Help pages — also "guides" to a reader; a different shelf only to us. */
-function helpHits(tokens: string[], phrase: string): ReadHit[] {
+function helpHits(tokens: string[], phrase: string, storeShell = false): ReadHit[] {
   const out: ReadHit[] = [];
   for (const { article, topic } of ALL_HELP_ARTICLES) {
+    // 🍎 In the iPhone app a help hit is the app's own answer, and a question
+    // about a part the app does not include is not offered (lib/help.ts —
+    // Apple check 2026-10-19, row #6).
+    const body = helpBodyFor(article, storeShell);
+    if (storeShell && body === HELP_NOT_IN_THE_APP) continue;
     const score = scoreDocument(
       article.title,
-      `${article.body} ${topic.label}`,
+      `${body} ${topic.label}`,
       tokens,
       phrase,
     );
@@ -185,7 +191,7 @@ function helpHits(tokens: string[], phrase: string): ReadHit[] {
         tag: `Help · ${topic.label}`,
         href: `/help/${article.slug}`,
         title: article.title,
-        blurb: firstSentence(article.body),
+        blurb: firstSentence(body),
         score,
       });
     }
@@ -215,11 +221,11 @@ export const IN_CODE_READ_NOUNS: ReadonlyArray<Exclude<PublicSearchNoun, 'suppli
  * decision across callers is how one of them ends up passing stripped tokens
  * as the phrase and quietly losing every phrase hit.
  */
-export function searchInCodeReads(query: string): ReadHit[] {
+export function searchInCodeReads(query: string, storeShell = false): ReadHit[] {
   const tokens = searchTokens(query);
   if (tokens.length === 0) return [];
   const phrase = normalizedPhrase(query);
-  return IN_CODE_SOURCES.flatMap((s) => s.find(tokens, phrase));
+  return IN_CODE_SOURCES.flatMap((s) => s.find(tokens, phrase, storeShell));
 }
 
 /**

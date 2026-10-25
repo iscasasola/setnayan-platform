@@ -4,7 +4,7 @@ import { useContext, useEffect, useId, useLayoutEffect, useRef, useState, type K
 import { createPortal } from 'react-dom';
 import { ChevronDown } from 'lucide-react';
 import { useOneOpen } from '@/lib/one-open';
-import { PickSheetContext, fontRowClass, groupHeadClass, pickArrowClass, pickButtonClass, pickInHub, pickOpensAsSheet, pickOptionClass, pickRuns, pickTickClass, pickTrailClass, placePickList, type PickListPlacement } from './pick-menu-place';
+import { PickSheetContext, fontRowClass, groupHeadClass, pickArrowClass, pickButtonClass, pickInHub, pickOpensAsSheet, pickOptionClass, pickRuns, pickTickClass, pickTrailClass, pickViewport, placePickList, type PickListPlacement } from './pick-menu-place';
 import type { PickMenuProps, PickOption } from './pick-menu-types';
 
 export type { PickOption, PickMenuProps } from './pick-menu-types';
@@ -21,6 +21,8 @@ export function PickMenu({
   compact = false,
   stickyGroups = false,
   grid,
+  doneNote,
+  head,
 }: PickMenuProps) {
   const [open, setOpen] = useState(false);
   useOneOpen(open, setOpen);
@@ -34,12 +36,12 @@ export function PickMenu({
   const asSheet = pickOpensAsSheet(Boolean(sheet), typeof window === 'undefined' ? 1e4 : window.innerWidth);
 
   const place = () => {
-    const r = btnRef.current?.getBoundingClientRect();
-    if (!r) return;
+    const b = btnRef.current;
+    if (!b) return;
     const next = placePickList({
-      button: r,
+      button: b.getBoundingClientRect(),
       listHeight: listRef.current?.scrollHeight ?? 0,
-      viewport: { width: window.innerWidth, height: window.innerHeight },
+      viewport: pickViewport(b, listRef.current),
     });
     setAt((prev) =>
       prev &&
@@ -108,6 +110,7 @@ export function PickMenu({
   };
   const rows = (
     <>
+      {head}
       {pickRuns(options).map((run, ri) =>
         run.group === null ? (
           run.options.map(renderOption)
@@ -137,7 +140,7 @@ export function PickMenu({
             }}
             className="flex min-h-11 w-full items-center justify-between rounded-xl px-3 text-left text-[13px] text-ink/60 hover:bg-ink/5"
           >
-            <span>Tick as many as apply.</span>
+            <span>{doneNote ?? 'Tick as many as apply.'}</span>
             <span className="font-semibold text-ink">Done ✓</span>
           </button>
         </li>
@@ -200,6 +203,7 @@ export function PickMenu({
   function renderOption(o: PickOption) {
     const plain = pickInHub(btnRef.current);
     const chosen = !picked && o.key === value;
+    const face = o.fontFamily ? { fontFamily: o.fontFamily } : undefined;
     return (
       <li key={o.key} role="none" className={fontRowClass(o.fontFamily)}>
         <button
@@ -223,13 +227,13 @@ export function PickMenu({
           {o.preview ? <span aria-hidden className="shrink-0">{o.preview}</span> : null}
           {o.hint ? (
             <span className="min-w-0">
-              <span className="block font-semibold" style={o.fontFamily ? { fontFamily: o.fontFamily } : undefined}>
+              <span className="block font-semibold" style={face}>
                 {o.label}
               </span>
-              <span className="block text-[12px] font-medium leading-snug opacity-75">{o.hint}</span>
+              <span className="block text-[12px] font-medium leading-snug opacity-75" style={face}>{o.hint}</span>
             </span>
           ) : (
-            <span className="font-semibold" style={o.fontFamily ? { fontFamily: o.fontFamily } : undefined}>
+            <span className="font-semibold" style={face}>
               {o.label}
             </span>
           )}

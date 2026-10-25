@@ -55,7 +55,9 @@ function studioPages(): { name: string; src: string }[] {
 
 /** Pages that RENDER a checkout control — not pages that merely say "checkout". */
 function sellingPages() {
-  return studioPages().filter((p) => /<(InlineCheckoutDrawer|BuyButton)\b/.test(code(p.src)));
+  // `PapicBuySheet` — the Papic page sells its credits through the card's one Add more (2026-10-23: Keep full-res, its
+  // last checkout drawer, moved to Memories with the files), so the band is that page's selling control.
+  return studioPages().filter((p) => /<(InlineCheckoutDrawer|BuyButton|PapicBuySheet)\b/.test(code(p.src)));
 }
 
 test('the selling pages are found by what they RENDER, not by a word in a comment', () => {

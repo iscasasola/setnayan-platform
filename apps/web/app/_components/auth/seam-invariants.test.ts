@@ -125,8 +125,27 @@ test('sign out is a POST form, never a link', () => {
 });
 
 /* ══════════════════════════════════════════════════════════════════════════
-   2 · THE WORDMARK IS THE WAY OUT OF THE APP, STILL SIGNED IN
+   2 · THE APP'S MARK GOES TO EVENTS (2026-10-21) — THE FRONT DOOR'S TO `/`
    ══════════════════════════════════════════════════════════════════════════ */
+
+/*
+  🔁 CHANGED ON PURPOSE, 2026-10-21 — OWNER, "yes to all" to the controller's
+  four recommendations on `account_bottom_bar_2026-10-21.html` (DECISION_LOG
+  2026-10-21 "THE ACCOUNT BAR — EVENTS · DISCOVER · MEMORIES · PEOPLE"), ruling
+  3: *tapping the Setnayan mark, signed in, goes to Events.* That is the
+  2026-07-16 "Wordmark-as-Home" this block said to restore "IF the owner asks
+  for it back" — he did. It SUPERSEDES the 2026-08-13 lock below for the APP
+  variant only. The way out to the public site is now Discover: its own tab on
+  the account bar and the rail's first row.
+
+  WHAT DID NOT MOVE, and is still pinned here: the front-door / doorway
+  wordmark — the signed-out world — goes to `/`, so a stranger is never sent
+  to /dashboard (it 307s to /login). The app variant is mounted only by
+  layouts that redirect a stranger first.
+
+  The note below is the history this ruling superseded, kept so nobody
+  re-derives either answer from a comment.
+*/
 
 /*
   🔒 OWNER, VERBATIM — `DECISION_LOG.md` 2026-08-13, SESSION 6 (the seam):
@@ -178,22 +197,32 @@ function wordmarkTargets(src: string): { className: string; href: string }[] {
   return out;
 }
 
-test("the wordmark is the way out of the app — '/' on every variant, never /dashboard", () => {
+test("the app's mark goes to Events (/dashboard?hub=1); the front door's to '/'", () => {
   const targets = wordmarkTargets(SHELL_CODE);
   const app = targets.filter((t) => t.className.includes('fd-wordmark-app'));
   const frontDoor = targets.filter((t) => t.className === 'fd-wordmark');
   // Floors: an empty scan must never read as a pass.
   assert.equal(app.length, 1, `expected exactly one app-variant wordmark, found ${app.length}`);
   assert.equal(frontDoor.length, 1, `expected exactly one front-door wordmark, found ${frontDoor.length}`);
-  for (const t of targets) {
-    assert.ok(
-      !t.href.includes('/dashboard'),
-      `a wordmark (${t.className}) points at ${t.href}. Owner 2026-08-13: "The WORDMARK is ` +
-        'the way out of the app, still signed in." /dashboard also 307s a stranger to /login.',
-    );
-  }
-  assert.equal(app[0]!.href, '/', `the app-variant wordmark goes to ${app[0]!.href}, not the front door`);
-  assert.equal(frontDoor[0]!.href, '/', `the front-door wordmark goes to ${frontDoor[0]!.href}, not /`);
+  assert.equal(
+    app[0]!.href,
+    '/dashboard?hub=1',
+    `the app-variant mark goes to ${app[0]!.href}. Owner 2026-10-21: the mark, signed in, goes to ` +
+      'Events — and `?hub=1`, or the board auto-jumps a one-event couple back into their wedding.',
+  );
+  assert.equal(
+    frontDoor[0]!.href,
+    '/',
+    `the front-door / doorway wordmark goes to ${frontDoor[0]!.href}, not / — a stranger sent to ` +
+      '/dashboard is bounced to /login.',
+  );
+  // The app branch is the ONLY one that may name /dashboard: it must stay behind `inApp`.
+  const appAt = SHELL_CODE.indexOf('className="fd-wordmark fd-wordmark-app"');
+  assert.match(
+    SHELL_CODE.slice(Math.max(0, appAt - 120), appAt),
+    /\{inApp \? \(\s*<Link href="\/dashboard\?hub=1"\s*$/,
+    'the Events-bound mark is no longer behind `inApp` — a signed-out page could send a stranger to /dashboard',
+  );
 });
 
 test('the wordmark leaving did not lose the one-press way home', () => {
@@ -643,7 +672,8 @@ test('the terracotta sign-in card clears AA on its own greige', () => {
   const start = css.indexOf('.home-reskin-ov .hr-ov-card.sn-signin-terra');
   assert.ok(start > -1, 'the terracotta block must exist');
   // Stop before the next top-level block that is not part of this card.
-  const block = css.slice(start).split('\n.home-reskin-ov .hr-si-')[0] ?? '';
+  // …and before the card's DARK rules (2026-10-21): they are measured against the dark card, below.
+  const block = css.slice(start).split('\n.home-reskin-ov .hr-si-')[0]?.split('\nhtml.dark ')[0] ?? '';
   assert.ok(block.length > 0, 'the terracotta block must not be empty');
 
   const lin = (c: number) => {
@@ -666,7 +696,7 @@ test('the terracotta sign-in card clears AA on its own greige', () => {
   };
 
   /* Pull each declaration by the PROPERTY that decides which bar it takes.
-     `color:` is text (4.5). `border-top`/`accent-color` are non-text UI (3.0).
+     `color:` is text (4.5). `accent-color` is non-text UI (3.0).
      The button is white ON its own fill, so it is checked against that fill,
      not against the card. */
   const textColours = [...block.matchAll(/\n\s*color:\s*(#[0-9a-f]{6})/gi)]
@@ -695,14 +725,21 @@ test('the terracotta sign-in card clears AA on its own greige', () => {
     `the button's white label on ${fill} is ${onFill.toFixed(2)}:1, below 4.5:1`,
   );
 
-  const edge = block.match(/border-top:\s*3px solid\s*(#[0-9a-f]{6})/i)?.[1];
-  if (!edge) throw new Error('the top edge must be readable');
-  const onEdge = ratio(edge, bg);
-  assert.ok(
-    onEdge >= 3,
-    `the 3px top edge ${edge} is ${onEdge.toFixed(2)}:1 on ${bg}, below the ` +
-      '3:1 bar for non-text',
-  );
+  /* The 3px top edge this checked against the 3:1 non-text bar is gone (owner 2026-10-22, "do both": the card wears
+     the house shape, no stripe) — `app/signup/the-sign-in-cards-wear-the-house-shape.test.ts` holds its absence. */
+  /* 🌗 The same card in dark (first-run prototype 2026-10-21 §1b): every text colour the dark rules set clears AA
+     on the DARK card's own --hr-bg, and the inputs' words on the dark input. */
+  const darkStart = css.indexOf('html.dark .home-reskin-ov:has(.sn-signin-terra)');
+  assert.ok(darkStart > -1, 'the sign-in card has no dark rules');
+  const dark = css.slice(darkStart).split('\n/*')[0] ?? '';
+  const darkBg = dark.match(/--hr-bg:\s*(#[0-9a-f]{6})/i)?.[1];
+  if (!darkBg) throw new Error('the dark card colour must be readable');
+  const darkText = [...dark.matchAll(/\n\s*color:\s*(#[0-9a-f]{6})/gi)].map((m) => m[1]!).filter(Boolean);
+  assert.ok(darkText.length >= 4, `expected the dark ink, quiet words, links and error colours, found ${darkText.length}`);
+  for (const c of darkText) {
+    const r = ratio(c, darkBg);
+    assert.ok(r >= 4.5, `dark: ${c} on the card's ${darkBg} is ${r.toFixed(2)}:1 — below the 4.5:1 AA floor`);
+  }
 });
 
 test('/login wears the same card as the rest of the public site', () => {

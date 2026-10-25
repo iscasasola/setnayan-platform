@@ -90,6 +90,20 @@ import { normalizeFacebookWatchUrl } from '@/lib/facebook-watch';
 // chrome'd URL. One source of truth: lib/live-studio-control.ts.
 const SETUP_PATH = (eventId: string) => liveStudioControlPath(eventId);
 
+/**
+ * 🏠 A SWITCH FLIPPED ON HOME LANDS BACK ON HOME (owner 2026-10-23, the service widgets: the Live stream card grows in
+ * place with the controller's own switches). The fixed word `home` from the form — never a path the form chooses —
+ * sends the save back to the event's Home; anything else lands on the controller as always. A refusal still lands on
+ * the controller, where its message is drawn.
+ */
+function landing(eventId: string, formData: FormData, query: string): string {
+  if (formData.get('return_to') === 'home') {
+    revalidatePath(`/dashboard/${eventId}`);
+    return `/dashboard/${eventId}`;
+  }
+  return `${SETUP_PATH(eventId)}?${query}`;
+}
+
 // The Live Studio detail/buy surface — where a locked (free) host is bounced if
 // they somehow POST a multi-camera action without owning LIVE_STUDIO.
 const DETAIL_PATH = (eventId: string) =>
@@ -402,7 +416,7 @@ export async function cutToMainStage(formData: FormData): Promise<void> {
     .eq('id', zoneId);
 
   revalidatePath(SETUP_PATH(eventId));
-  redirect(`${SETUP_PATH(eventId)}?main_stage_cut=1`);
+  redirect(landing(eventId, formData, 'main_stage_cut=1'));
 }
 
 /** Deactivate the Main Stage — clears any current cut (no camera on air). */
@@ -507,7 +521,7 @@ export async function setMonogramOverlay(formData: FormData): Promise<void> {
   if (!ok) redirect(`${SETUP_PATH(eventId)}?overlay_error=save`);
 
   revalidatePath(SETUP_PATH(eventId));
-  redirect(`${SETUP_PATH(eventId)}?overlay_saved=monogram`);
+  redirect(landing(eventId, formData, 'overlay_saved=monogram'));
 }
 
 /**
@@ -549,7 +563,7 @@ export async function setLowerThird(formData: FormData): Promise<void> {
   if (!ok) redirect(`${SETUP_PATH(eventId)}?overlay_error=save`);
 
   revalidatePath(SETUP_PATH(eventId));
-  redirect(`${SETUP_PATH(eventId)}?overlay_saved=lower_third`);
+  redirect(landing(eventId, formData, 'overlay_saved=lower_third'));
 }
 
 /**
@@ -580,7 +594,7 @@ export async function setEventQrOverlay(formData: FormData): Promise<void> {
   if (!ok) redirect(`${SETUP_PATH(eventId)}?overlay_error=save`);
 
   revalidatePath(SETUP_PATH(eventId));
-  redirect(`${SETUP_PATH(eventId)}?overlay_saved=event_qr`);
+  redirect(landing(eventId, formData, 'overlay_saved=event_qr'));
 }
 
 /**
@@ -616,7 +630,7 @@ export async function setGuestPick(formData: FormData): Promise<void> {
   revalidatePath(SETUP_PATH(eventId));
   // The public event page reads this column — re-render it so the change is live.
   revalidatePath('/[slug]', 'page');
-  redirect(`${SETUP_PATH(eventId)}?guest_pick=${enabledRaw === 'true' ? 'on' : 'off'}`);
+  redirect(landing(eventId, formData, `guest_pick=${enabledRaw === 'true' ? 'on' : 'off'}`));
 }
 
 /**
@@ -965,5 +979,6 @@ export async function endManualOnAir(eventId: string): Promise<{ ok: true } | { 
     .eq('event_id', eventId);
 
   revalidatePath(SETUP_PATH(eventId));
+  revalidatePath(`/dashboard/${eventId}`); // 🏠 Home's Live stream card says on/off air — one render, from the answer
   return { ok: true };
 }

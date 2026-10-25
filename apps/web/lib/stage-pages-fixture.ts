@@ -140,6 +140,8 @@ export function stageProps(c: StageCase, rows?: InvitationWidgetRow[], more: Par
     ourPhotoUrls: [STAGE_WORDS.photo, 'https://fixture.invalid/our-photos/two.jpg'],
     stdFilm: film,
     ownsStdReveal: film,
+    /* 💎 The film's own song, film and closing gallery are Music's, Reveal's and Photos' (owner 2026-10-22). */
+    ...(film ? { hubParts: ['reveal', 'photos', 'music'] as const } : {}),
     ...(c.reader === 'anonymous'
       ? { identity: { kind: 'anonymous', reason: null, publicCandidCameraActive: false, publicAlbumHref: null, signedInNotListed: false } as SiteBodyFixtureProps['identity'] }
       : {}),
@@ -161,11 +163,12 @@ export function withALook(c: StageCase): Partial<SiteBodyFixtureProps> {
   return {
     event: {
       ...props.event!,
-      /* `roles` (the per-role outfits the dress code editor stores, `lib/role-dress-code.ts`) is read off the stored
-         JSON by the widget and is not part of the row's declared type — hence the cast, here and nowhere in the app. */
+      /* `groups` (the rows' outfits the Studio stores, `lib/role-group-dress-code.ts`) is read off the stored JSON by
+         the widget and is not part of the row's declared type — hence the cast, here and nowhere in the app. */
       dress_code_config: {
         ...(props.event!.dress_code_config as Record<string, unknown>),
-        roles: { bridesmaid: { style: 'long_gown', note: LOOK_NOTE } },
+        /* Her row's Wear and note — the Studio dresses a bridesmaid by the Bridesmaids row (2026-10-17). */
+        groups: { bridesmaids: { style: 'long_gown', note: LOOK_NOTE } },
       } as NonNullable<SiteBodyFixtureProps['event']>['dress_code_config'],
     },
     identity: { ...identity, guest: { ...identity.guest, role: 'bridesmaid' } },

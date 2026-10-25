@@ -11,7 +11,7 @@ import { emitNotification } from '@/lib/notification-emit';
 import { narrowEventDateAfterAgreement } from '@/lib/date-narrowing.server';
 import { formatCandidateDate } from '@/lib/candidate-dates';
 import { formatPhp } from '@/lib/php';
-import { LOCK_AGREE_FEE_HELD, lockAnswerReturnTo } from '@/lib/lock-answer-notice';
+import { LOCK_AGREE_FEE_HELD, lockAgreeHallsParam, lockAnswerReturnTo } from '@/lib/lock-answer-notice';
 import { tellCoupleLockRequestExpired } from '@/lib/lock-request-notices.server';
 import {
   changeOrderAnsweredNotice,
@@ -118,7 +118,7 @@ export async function vendorMarkServiceComplete(formData: FormData) {
         userId: m.user_id,
         type: 'review_request',
         title: `${ev.vendor_name ?? 'Your supplier'} marked their service complete`,
-        body: 'Confirm you received everything to unlock your review and galleries.',
+        body: 'Confirm you received everything to unlock your review and photos.',
         relatedUrl: `/dashboard/${eventId}/vendors/${ev.vendor_id}/review`,
       });
     }
@@ -1046,6 +1046,18 @@ export async function vendorAgreeToLock(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
+  // 🏛 A JOINED HALL IS CHECKED BEFORE THE YES (owner 2026-10-14, "A + B asked, A taken"): the yes never took a pool
+  // seat, so a card using Hall A + B over a taken Hall A would book a wedding the venue cannot hold. Refused with the
+  // names — which hall is taken, which are free to offer. A card with no halls answers `no_halls` and goes on as before.
+  {
+    const { data: hallsOn } = await supabase.rpc('vendor_card_halls_on', { p_event_vendor_id: eventVendorId });
+    const h = (hallsOn ?? {}) as { status?: string; taken?: string[]; free?: string[] };
+    if (h.status === 'hall_taken') {
+      const backTo = lockAnswerReturnTo(formData.get('return_to'));
+      redirect(`${backTo}?lock_agree=hall_taken${lockAgreeHallsParam({ taken: h.taken ?? [], free: h.free ?? [] })}`);
+    }
+  }
+
   const { data, error } = await supabase.rpc('vendor_agree_to_lock', {
     p_event_vendor_id: eventVendorId,
   });
@@ -1409,7 +1421,7 @@ async function answerDeletionRequest(formData: FormData, agree: boolean) {
             ? `${name} agreed to the removal`
             : `${name} would rather keep it for now`,
           body: agree
-            ? 'You can remove this celebration now.'
+            ? 'You can remove this event now.'
             : reason ?? 'They did not give a reason.',
           relatedUrl: '/dashboard',
           // Which event: the link is account-level, so the email is told here.

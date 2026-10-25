@@ -46,7 +46,11 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const PAPIC = dirname(dirname(fileURLToPath(import.meta.url)));
-const PAGE = readFileSync(join(PAPIC, 'page.tsx'), 'utf8');
+/* 🗂 THE SWITCH MOVED WITH THE FILES (owner 2026-10-23, PR-B): the Papic page is the camera only, and + Add photos —
+   the uploader this switch governs — is on the event's Memories tab, where the sheet offers the switch while it is
+   off. `PAGE` is where the uploader branches now; `PAPIC_PAGE` still reads the save's outcome (the action lands there). */
+const PAGE = readFileSync(join(PAPIC, '..', '..', 'memories', 'page.tsx'), 'utf8');
+const PAPIC_PAGE = readFileSync(join(PAPIC, 'page.tsx'), 'utf8');
 const CHOICE = readFileSync(join(PAPIC, '_components/uploads-open-choice.tsx'), 'utf8');
 const ACTIONS = readFileSync(join(PAPIC, 'actions.ts'), 'utf8');
 
@@ -60,10 +64,12 @@ test('the switch exists on all three layers — column, action, control', () => 
 test('🚨 the switch actually GOVERNS the picker', () => {
   // The failure being guarded is a switch that saves a value nobody reads.
   assert.match(PAGE, /const uploadsOpen =/, 'the page no longer reads the column');
+  // Since 2026-10-23 the uploader's one door is Memories' + Add photos: OFF, its sheet offers the switch; ON, the
+  // shipped uploader (or the turn-on for the uploads camera). The branch is on the switch's own value.
   assert.match(
     PAGE,
-    /\{!uploadsOpen \?/,
-    'the picker no longer branches on the switch — turning it off would save a value and change nothing a person can see',
+    /addPhotos = !uploadsOpen \? \(\s*<UploadsOpenChoice[\s\S]{0,200}?\) : token \? \(\s*<AddToLibrary/,
+    'the + Add photos door no longer branches on the switch — turning it off would save a value and change nothing a person can see',
   );
 });
 
@@ -105,7 +111,7 @@ test('the copy says what it costs, and what OFF actually means', () => {
 test('🚨 saving it is confirmed, never silent', () => {
   // Nine settings on this page once saved into the void.
   assert.match(ACTIONS, /uploads_open_set=/, 'the action no longer reports its outcome');
-  assert.match(PAGE, /uploadsOpenSet \?/, 'the outcome is emitted and read by nothing — the exact defect the banners guard was written after');
+  assert.match(PAPIC_PAGE, /uploadsOpenSet \?/, 'the outcome is emitted and read by nothing — the exact defect the banners guard was written after');
 });
 
 /**

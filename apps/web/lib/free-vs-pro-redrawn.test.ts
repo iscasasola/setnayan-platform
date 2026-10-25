@@ -12,12 +12,16 @@
  *   PRO  — themes and MEDIA backgrounds. Font choice and motion were not in his
  *          line, so they stay Pro until he says otherwise.
  *
+ * 💎 REDRAWN AGAIN 2026-10-16 (owner: *"all animate, effects, styles, accents are
+ * pro"*): a PART's Style is Pro again; the page's own colours stay free (4).
+ *
  * 🔑 THE WORST OUTCOME IS A PADLOCK REMOVED IN THE UI WHILE THE SERVER STILL
  * HOLDS THE WRITE. So every free field is driven through the real Apply plan
  * (`planHubDraftApply`) as a couple WITHOUT Pro, and the render and the copy
  * are read too — the UI, the server gate and the sales copy must say one thing.
  */
 import test from 'node:test';
+import { HUB_PARTS } from './hub-parts';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -63,92 +67,96 @@ const grows = (c: string) => c === 'add' || c === 'change';
 
 /* ── 1 · the two lists name every field, once ─────────────────────────────── */
 
+/* 💎 RE-AIMED 2026-10-18 (owner 2026-10-16, DECISION_LOG "ALL ANIMATE, EFFECTS, STYLES AND ACCENTS ARE EVENT HUB PRO ◆":
+   *"all animate, effects, styles, accents are pro"* — everything in Style is Pro: colour, size, font …). A PART's
+   colour · size · font · weight · B/I/U · alignment · width · spacing went back under Pro beside its motion; only its
+   Show, its own words and its date's format stay free. The page's own colours (background, button) are NOT a part's
+   Style — section 4 still holds them free. The worst outcome is unchanged: the UI and the gate must say one thing. */
 test('every HubElementStyle field is placed on exactly one side — Pro or free', () => {
   const src = code('lib/element-style.ts');
   const block = /export type HubElementStyle = \{([\s\S]*?)\n\};/.exec(src);
   assert.ok(block, 'HubElementStyle not found — the scan is blind');
   const fields = [...block[1]!.matchAll(/^\s+(\w+)\?:/gm)].map((m) => m[1]!);
   assert.ok(fields.length >= 12, `HubElementStyle scanned short (${fields.length})`);
-  // `runs` is compared by its fonts only and `of` is the runs' text hash — both structure.
-  // `was` is the text `of` fingerprints (so runs ADAPT when the words change) — structure
-  // too: it draws nothing, and it cannot change without `of`, which `runFonts` compares.
+  // `runs` is compared by its own facet (`el:<part>:runs`) and `of` is the runs' text hash — both structure.
+  // `was` is the text `of` fingerprints (so runs ADAPT when the words change) — structure too.
   const placed = new Set<string>([...HUB_ELEMENT_PRO_FIELDS, ...HUB_ELEMENT_FREE_FIELDS, 'runs', 'of', 'was']);
   const unplaced = fields.filter((f) => !placed.has(f));
   assert.deepEqual(unplaced, [], 'a part field is on neither side — decide it on purpose');
   for (const f of HUB_ELEMENT_PRO_FIELDS) {
     assert.ok(!(HUB_ELEMENT_FREE_FIELDS as readonly string[]).includes(f), `${f} is both Pro and free`);
   }
-  // 🔤 2026-10-06 (owner, "EVENT DETAILS IS REBUILT"): font on a single part is FREE — only motion stays Pro.
-  assert.deepEqual([...HUB_ELEMENT_PRO_FIELDS], ['motion'], 'only motion stays Pro');
-  assert.ok((HUB_ELEMENT_FREE_FIELDS as readonly string[]).includes('font'), 'a part’s font is not free');
+  assert.deepEqual([...HUB_ELEMENT_FREE_FIELDS].sort(), ['format', 'hidden', 'word'], 'only Show, words and the date format stay free');
+  for (const f of ['motion', 'font', 'color', 'size', 'width']) assert.ok((HUB_ELEMENT_PRO_FIELDS as readonly string[]).includes(f), `a part’s ${f} is not Pro`);
 });
 
-/* ── 2 · the server: every free field applies for a couple without Pro ──── */
+/* ── 2 · the server: Style is held for a couple without Pro, written with it ── */
 
-const FREE_SAMPLES: Array<[string, HubElementStyle]> = [
+const STYLE_SAMPLES: Array<[string, HubElementStyle]> = [
   ['heading', { color: '#8a1c2b' }],
   ['heading', { size: 120 } as HubElementStyle],
+  ['heading', { font: 'script' } as HubElementStyle],
   ['heading', { weight: 600 } as HubElementStyle],
   ['heading', { italic: true }],
   ['heading', { underline: true }],
   ['heading', { align: 'left' }],
+  ['heading', { width: 'wide' }],
+  ['body', { width: 'full' }],
   ['heading', { leading: 1.2 } as HubElementStyle],
   ['heading', { tracking: -2 } as HubElementStyle],
-  ['body', { hidden: true }],
 ];
 
-test('💎 every free part field is WRITTEN at Apply for a couple without Pro', () => {
-  for (const [el, style] of FREE_SAMPLES) {
+test('💎 every Style field is HELD at Apply for a couple without Pro, and WRITTEN for one with it', () => {
+  for (const [el, style] of STYLE_SAMPLES) {
     const d = mergeHubDraft(emptyHubDraft(), { widgets: { schedule: { canvas: { elements: { [el]: style } } } } });
     const drafted = d.widgets.schedule?.canvas?.elements?.[el as 'heading'];
     assert.ok(drafted && Object.keys(drafted).length > 0, `${JSON.stringify(style)} did not survive the draft — the probe is empty`);
-    const plan = planHubDraftApply(d, LIVE, false);
-    assert.equal(plan.refused.length, 0, `${JSON.stringify(style)} was HELD for a free couple`);
-    assert.equal(plan.apply.length, 1, `${JSON.stringify(style)} was not written`);
+    assert.equal(planHubDraftApply(d, LIVE, false).refused.length, 1, `${JSON.stringify(style)} went live for a free couple`);
+    assert.equal(planHubDraftApply(d, LIVE, true).refused.length, 0, `${JSON.stringify(style)} was held from a Pro couple`);
   }
 });
 
-test('💎 motion is still HELD for a couple without Pro, and written for one with it — a part’s font goes through free', () => {
-  const motion = mergeHubDraft(emptyHubDraft(), { widgets: { schedule: { canvas: { elements: { heading: { motion: { in: 'rise' } } as HubElementStyle } } } } });
-  assert.equal(planHubDraftApply(motion, LIVE, false).refused.length, 1, 'motion leaked through for free');
-  assert.equal(planHubDraftApply(motion, LIVE, true).refused.length, 0, 'motion held from a Pro couple');
-  const font = mergeHubDraft(emptyHubDraft(), { widgets: { schedule: { canvas: { elements: { heading: { font: 'script' } as HubElementStyle } } } } });
-  assert.equal(planHubDraftApply(font, LIVE, false).refused.length, 0, 'a part’s font was held as Pro (it is free since 2026-10-06)');
+test('💎 a part’s Show stays free — hiding it is written for a couple without Pro', () => {
+  const d = mergeHubDraft(emptyHubDraft(), { widgets: { schedule: { canvas: { elements: { body: { hidden: true } } } } } });
+  const plan = planHubDraftApply(d, LIVE, false);
+  assert.equal(plan.refused.length, 0, 'hiding a part was held as Pro');
+  assert.equal(plan.apply.length, 1, 'hiding a part was not written');
 });
 
-test('💎 inside a run of letters, colour, size and font are all free (font since 2026-10-06)', () => {
+test('💎 inside a run of letters, colour, size and font are Pro too', () => {
   const of = hubTextHash('Maria & Jose');
   const colourRun = mergeHubDraft(emptyHubDraft(), {
     widgets: { hero: { canvas: { elements: { names: { runs: [{ start: 0, end: 1, color: '#8a1c2b', size: 120 }], of } as HubElementStyle } } } },
   });
-  assert.equal(planHubDraftApply(colourRun, LIVE, false).refused.length, 0, 'a coloured letter was held as Pro');
+  assert.equal(planHubDraftApply(colourRun, LIVE, false).refused.length, 1, 'a coloured letter went live for a free couple');
+  assert.equal(planHubDraftApply(colourRun, LIVE, true).refused.length, 0);
   const fontRun = mergeHubDraft(emptyHubDraft(), {
     widgets: { hero: { canvas: { elements: { names: { runs: [{ start: 0, end: 1, font: 'script' }], of } as HubElementStyle } } } },
   });
-  assert.equal(planHubDraftApply(fontRun, LIVE, false).refused.length, 0, 'a letter in its own font was held as Pro');
+  assert.equal(planHubDraftApply(fontRun, LIVE, false).refused.length, 1, 'a letter in its own font went live for a free couple');
 });
 
 /* ── 3 · a held scene still gets its free edits ──────────────────────────── */
 
-test('💎 colour + motion on one part: the colour goes live, the motion stays in the draft', () => {
+test('💎 Show + colour on one scene: the Show goes live, the colour stays in the draft', () => {
   const d = mergeHubDraft(emptyHubDraft(), {
-    widgets: { schedule: { canvas: { elements: { heading: { color: '#8a1c2b', motion: { in: 'rise' } } as HubElementStyle } } } },
+    widgets: { schedule: { canvas: { elements: { body: { hidden: true }, heading: { color: '#8a1c2b' } } as Record<string, HubElementStyle> } } },
   });
   const plan = planHubDraftApply(d, LIVE, false);
-  assert.equal(plan.refused.length, 1, 'the motion must be held');
+  assert.equal(plan.refused.length, 1, 'the colour must be held');
   const written = plan.apply.find((i): i is Extract<typeof i, { kind: 'widget' }> => i.kind === 'widget' && i.field === 'canvas');
-  assert.ok(written, 'the free colour was held along with the Pro motion — "colour is free" was a lie here');
+  assert.ok(written, 'the free Show was held along with the Pro colour');
   const canvas = written.value as HubSectionCanvas;
-  assert.equal(canvas.elements?.heading?.color, '#8a1c2b', 'the colour did not reach the write');
-  assert.equal(canvas.elements?.heading?.motion, undefined, 'the Pro motion leaked into the free write');
+  assert.equal(canvas.elements?.body?.hidden, true, 'the Show did not reach the write');
+  assert.equal(canvas.elements?.heading?.color, undefined, 'the Pro colour leaked into the free write');
   const kept = plan.remaining.widgets.schedule?.canvas as HubSectionCanvas;
-  assert.ok(kept.elements?.heading?.motion?.in, 'the motion was dropped from the draft instead of held');
+  assert.equal(kept.elements?.heading?.color, '#8a1c2b', 'the colour was dropped from the draft instead of held');
   // One scene, one change on the Apply bar — not two.
   const draft = { ...d, v: 1 as const, history: [] };
   assert.equal(summarizeHubDraft(draft as never, LIVE, false).changeCount, 1);
 });
 
-test('🔒 the free part NEVER adds or changes a look — across media, slots, motion and runs', () => {
+test('🔒 the free part NEVER adds or changes a look — across media, slots, motion, Style and runs', () => {
   const PHOTO = 'r2://setnayan-media/events/e1/a.jpg';
   const OTHER = 'r2://setnayan-media/events/e1/b.jpg';
   const cases: Array<[HubSectionCanvas, HubSectionCanvas]> = [
@@ -160,6 +168,7 @@ test('🔒 the free part NEVER adds or changes a look — across media, slots, m
       { elements: { names: { runs: [{ start: 0, end: 1, font: 'script' }], of: 'abcdef01' } } } as HubSectionCanvas,
       { elements: { names: { runs: [{ start: 0, end: 1, font: 'script' }, { start: 2, end: 3, font: 'script', color: '#112233' }], of: 'abcdef01' } } } as HubSectionCanvas,
     ],
+    [{ elements: { heading: { color: '#112233' } } } as HubSectionCanvas, { elements: { heading: { color: '#445566', size: 120, hidden: true } } } as HubSectionCanvas],
     [{}, { template: 3, slots: [{ media: PHOTO }, { head: 'Us', text: 'Hi' }], video: { play: 'tap' } } as unknown as HubSectionCanvas],
   ];
   for (const [live, next] of cases) {
@@ -167,9 +176,14 @@ test('🔒 the free part NEVER adds or changes a look — across media, slots, m
     assert.ok(!grows(canvasLookChange(live, free)), `a Pro look leaked: ${JSON.stringify(next)} → ${JSON.stringify(free)}`);
   }
   // …and what is free survives it.
-  const kept = canvasFreePart({}, { media: PHOTO, elements: { heading: { color: '#112233', font: 'script' } } } as HubSectionCanvas);
-  assert.equal(kept.elements?.heading?.color, '#112233');
+  const kept = canvasFreePart({}, { media: PHOTO, elements: { heading: { color: '#112233', hidden: true } } } as HubSectionCanvas);
+  assert.equal(kept.elements?.heading?.hidden, true);
+  assert.equal(kept.elements?.heading?.color, undefined);
   assert.equal(kept.media, undefined);
+  // 🏛 …and a colour already live rides through a free edit unchanged.
+  const live = { elements: { heading: { color: '#112233' } } } as HubSectionCanvas;
+  const grand = canvasFreePart(live, { elements: { heading: { color: '#112233', hidden: true } } } as HubSectionCanvas);
+  assert.equal(grand.elements?.heading?.color, '#112233', 'a published colour was stripped by a free edit');
   const words = canvasFreePart({}, { template: 3, slots: [{ media: PHOTO }, { head: 'Us', text: 'Hi' }] } as unknown as HubSectionCanvas);
   assert.equal((words.slots?.[1] as { head?: string } | undefined)?.head, 'Us', 'a slot’s words were lost with its photo');
 });
@@ -183,7 +197,8 @@ test('💎 the button colour is free on every side: gate, Apply, guest render, p
   assert.equal(planHubDraftApply(d, LIVE, false).refused.length, 0, 'Apply held a free couple’s button colour');
   // The live writer no longer feeds the button into the Pro decision.
   const action = code('app/dashboard/[eventId]/website/colors/actions.ts');
-  const call = action.slice(action.indexOf('siteLookChange('), action.indexOf('ombreChange,', action.indexOf('siteLookChange(')));
+  // RE-AIMED 2026-10-22 (part by part): Candlelight/ombré (Style) and the travelling logo (Logo & QR) are asked apart — every call.
+  const call = action.slice(action.indexOf('siteLookChange('), action.indexOf("'logo_qr');", action.indexOf('siteLookChange(')));
   assert.ok(call.length > 20, 'the siteLookChange call was not found — the scan is blind');
   assert.doesNotMatch(call, /button/, 'the live writer still asks Pro for the button colour');
   // The guest page paints it outside the Pro branch.
@@ -206,18 +221,25 @@ test('💎 the button colour is free on every side: gate, Apply, guest render, p
 
 /* ── 5 · the Maker's marks sit only on the Pro rows ───────────────────────── */
 
-test('💎 the part sheet marks Animate only — Font ▾ is free (2026-10-06), and never the whole part', () => {
+/* 💎 RE-AIMED 2026-10-18 (owner 2026-10-16, DECISION_LOG "ALL ANIMATE, EFFECTS, STYLES AND ACCENTS ARE EVENT HUB PRO ◆":
+   *"all animate, effects, styles, accents are pro"*). This test pinned Font ▾ as FREE (no mark, never hidden — the
+   2026-10-06 rule). Font is Style, so it is Pro again and held at Apply — and the older part sheet's Font ▾ now WEARS
+   the sheet's one mark (the node Animate wears) and is hidden in the store shell like every Pro row. Still never the
+   whole part. */
+test('💎 the part sheet marks Font ▾ and Animate — the same one mark — and never the whole part', () => {
   const sheet = code('app/dashboard/[eventId]/website/editor/_components/element-sheet.tsx');
   const title = sheet.slice(sheet.indexOf('id={titleId}'), sheet.indexOf('</p>', sheet.indexOf('id={titleId}')));
   assert.ok(title.length > 20, 'the sheet title was not found — the scan is blind');
   assert.doesNotMatch(title, /PaidMark|Pro/, 'the whole part sheet still wears one Pro mark');
-  // The sheet draws exactly ONE mark — Animate — and hands it down; Font ▾ carries none.
-  assert.equal((sheet.match(/<PaidMark/g) ?? []).length, 1, 'the sheet draws a mark on something that is free');
-  assert.match(sheet, /const fontMark = null;/, 'Font ▾ wears a Pro mark again');
-  assert.match(sheet, /hideFont=\{false\}/, 'Font ▾ is hidden from a couple without Pro again');
+  // The sheet draws exactly ONE mark node and hands it to both Pro rows: Font ▾ and Animate.
+  assert.equal((sheet.match(/<PaidMark/g) ?? []).length, 1, 'the sheet draws a second, different mark');
+  assert.match(sheet, /const fontMark = animateMark;/, 'Font ▾ lost its Pro mark (it is Style — Pro since 2026-10-16)');
+  assert.doesNotMatch(sheet, /const fontMark = null;/, 'Font ▾ is drawn free again');
+  assert.match(sheet, /hideFont=\{hidePro\}/, 'Font ▾ is shown in the store shell to a couple without Pro');
+  assert.match(sheet, /fontMark=\{fontMark\}/, 'the mark is not handed to the Text rows');
   assert.match(sheet, /<PartAnimateTab\s+proMark=\{animateMark\}/);
   const rows = code('app/dashboard/[eventId]/website/editor/_components/part-inspector.tsx');
-  assert.match(rows, /fontMark \? \(/, 'the inspector can no longer carry a mark on Font ▾ (none is handed today)');
+  assert.match(rows, /fontMark \? \(/, 'the inspector can no longer carry the mark on Font ▾');
   assert.match(rows, /data-part-animate-pro/, 'Animate lost its mark');
   assert.doesNotMatch(rows, /<PaidMark/, 'a Text row draws its own padlock');
   const parts = code('app/dashboard/[eventId]/website/editor/_components/scene-inspector.tsx');
@@ -232,12 +254,13 @@ test('💎 no sales copy sells a colour; the Pro list names media backgrounds in
   assert.ok(items.length >= 8, 'the Pro list scanned short');
   assert.ok(!items.some((i) => /colou?r/i.test(i)), 'the Pro list still sells a colour');
   assert.ok(items.includes('Photo and video backgrounds'), 'the Pro list does not name media backgrounds');
-  const buy = code('app/dashboard/[eventId]/studio/website-pro/page.tsx');
-  const benefits = /const BENEFITS = \[([\s\S]*?)\];/.exec(buy);
-  assert.ok(benefits, 'BENEFITS not found — the scan is blind');
-  // Plural on purpose: "a Pro theme … in your colour" describes the THEME (Pro),
-  // while "your own colours for the page and its buttons" sold the colours.
-  assert.doesNotMatch(benefits[1]!, /colou?rs\b/i, 'the buy page still sells colours');
+  /* RE-AIMED 2026-10-22 (part by part): the buy page is the parts page — its lines are the parts' own (`HUB_PARTS`
+     blurbs) and the gate table, never a hand-written list. Plural on purpose, as before: "a part's font, colour and
+     size" describes a PART's Style (Pro since 2026-10-16), "your own colours for the page" would sell the free ones. */
+  const body = code('app/dashboard/[eventId]/studio/website-pro/_components/pro-parts-body.tsx');
+  assert.match(body, /HUB_PARTS/, 'the parts page no longer draws its lines from the parts table');
+  assert.doesNotMatch(body, /const BENEFITS = \[/, 'a hand-written benefits list came back');
+  for (const p of HUB_PARTS) assert.doesNotMatch(p.blurb, /colou?rs\b/i, `${p.name} still sells colours`);
   const catalog = code('lib/add-ons-catalog.ts');
   const blurb = /key: 'website-pro',[\s\S]*?blurb: '([^']*)'/.exec(catalog);
   assert.ok(blurb, 'the website-pro blurb was not found — the scan is blind');

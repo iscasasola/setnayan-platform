@@ -3,7 +3,7 @@ import 'server-only';
 import { recordFault } from '@/lib/telemetry/fault-log';
 import { QUERY_ERROR_SINK, type QueryErrorSink } from '@/lib/supabase/error-detect';
 import { DB_FAULT_SINK, type DbFaultSink } from '@/lib/supabase/db-error-log';
-import { type PostgrestVerdict } from '@/lib/telemetry/fault-normalize';
+import { describeUnreachable, type PostgrestVerdict } from '@/lib/telemetry/fault-normalize';
 import { shapeRequestError, type ContextLike, type RequestLike } from '@/lib/telemetry/request-error-shape';
 
 /**
@@ -133,7 +133,7 @@ export function recordDbUnreachable(target: string, err: unknown): void {
     recordFault({
       kind: 'DB_UNREACHABLE',
       action: target,
-      message: err instanceof Error ? `${err.name}: ${err.message}` : String(err),
+      message: describeUnreachable(err),
       trace: { db_target: target },
     }),
   );

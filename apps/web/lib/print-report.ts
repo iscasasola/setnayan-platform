@@ -15,7 +15,7 @@
  *
  * PURE. No I/O beyond the fonts the Node test runner can read.
  */
-import { diePathFor, drawText, wrap, type PrintDoc, type PrintOp } from '@/lib/print-layout';
+import { brandUtilityPage, diePathFor, drawText, wrap, type PrintDoc, type PrintOp } from '@/lib/print-layout';
 import { PRINT_PIECES, PT_PER_MM, type PrintPieceKey } from '@/lib/print-pieces';
 import { formatCount } from '@/lib/format-number';
 
@@ -207,16 +207,17 @@ export function layoutReport(input: ReportInput): PrintDoc[] {
     }
   }
 
-  // "page n of N" on every page, now that N is known.
+  // "Page n of N" on every page, now that N is known. Setnayan is carried ONCE per page, by the brand line
+  // (`brandUtilityPage`, owner 2026-10-21) — this foot no longer names it a second time.
   pages.forEach((p, i) => {
-    drawText(p.ops, `Printed from Setnayan · page ${formatCount(i + 1)} of ${formatCount(pages.length)}`, W - MARGIN, H - MARGIN + 4, {
+    drawText(p.ops, `Page ${formatCount(i + 1)} of ${formatCount(pages.length)}`, W - MARGIN, H - MARGIN + 4, {
       font: 'poppins',
       size: 6.8,
       color: REPORT_MUTED,
       align: 'right',
     });
   });
-  return pages;
+  return pages.map(brandUtilityPage);
 }
 
 /** A page's ops, for a caller that adds its own drawing (the seating pack's signs and cards). */

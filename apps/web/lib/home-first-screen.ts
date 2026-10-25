@@ -3,7 +3,7 @@
  *
  * Owner-APPROVED 2026-10-01 (DECISION_LOG "THE SIMPLE PHONE APP — APPROVED";
  * `Setnayan/prototypes/phone_app_simple_2026-10-01_fable.html`, frame 1 "Home"):
- * ONE "Next" card → an always-there **Edit your Event Hub** button → three
+ * ONE "Next" card → an always-there **Event Hub** door → three
  * numbers (days to go · coming · no reply) + one Paid / Still owing line.
  * Nothing else above the fold on a 390 × 844 phone.
  *
@@ -32,9 +32,11 @@
  * `lib/guests-read-is-honest.test.ts`): a couple with 180 names must never be
  * told "0 coming" because a query was refused.
  */
+import { recordFieldHref } from '@/lib/event-details-record';
 import { formatCount } from '@/lib/format-number';
 import { formatPhp } from '@/lib/php';
-import { SERVICE_NAMES } from '@/lib/service-names';
+import { SERVICE_NAMES, type ServiceNameKey } from '@/lib/service-names';
+import { liveStudioControlPath } from '@/lib/live-studio-control';
 import { isToInvite, type InviteFacts } from '@/lib/guest-roster-view';
 import type { PapicMoment } from '@/lib/papic-glance';
 import type { GlanceLine, ServiceGlance } from '@/lib/service-glance';
@@ -123,6 +125,13 @@ export type HomeNextInput = {
   papic?: { moment: PapicMoment; left: number; total: number } | null;
   /** An AI offer exists AND may be shown here (never in the store shell). */
   aiOffer: boolean;
+  /**
+   * 🚪 What THIS event needs (owner 2026-10-08, Level 1 — `lib/event-needs.ts`). Absent = every need
+   * on (yesterday's Home). No guest list → never "Add your guests" / "Send N invitations", and an
+   * unread guest list is not this Home's to report. Cover + photos only → never "Finish your Event
+   * Hub" (its steps — venues, attire, what to ask — are the details this event said it does not need).
+   */
+  needs?: { guestList: boolean; hubDetails: boolean } | null;
 };
 
 /**
@@ -134,7 +143,10 @@ export type HomeNextInput = {
  * the guided flow's `?tool=details&guide=1` first read as "lost".
  */
 export function pickHomeNext(input: HomeNextInput): HomeNext {
-  const { guide, hasDate, guests, noun, papicReady, papic = null, aiOffer } = input;
+  const { hasDate, noun, papicReady, papic = null, aiOffer, needs = null } = input;
+  const guide = needs && !needs.hubDetails ? null : input.guide;
+  const noList = needs?.guestList === false;
+  const guests = input.guests;
   if (guide) {
     /* "Finish your Event Hub — n of m · Pick a stage": the whole in place, then
        the first stage still to do with its own count. */
@@ -164,7 +176,7 @@ export function pickHomeNext(input: HomeNextInput): HomeNext {
      H3). It used to fall through to papic → ai → plan, so a couple whose list could
      not be read was told "You are on track — Nothing is waiting on you". The card
      says what happened and offers the read again; it never guesses past it. */
-  if (guests === null) {
+  if (guests === null && !noList) {
     return {
       kind: 'unread',
       title: 'We couldn’t read your guest list',
@@ -204,7 +216,7 @@ export function pickHomeNext(input: HomeNextInput): HomeNext {
       action: `Open ${SERVICE_NAMES.papic.brand}`,
     };
   }
-  if (guests.total === 0) {
+  if (!noList && guests && guests.total === 0) {
     return {
       kind: 'guests',
       title: 'Add your guests',
@@ -212,7 +224,7 @@ export function pickHomeNext(input: HomeNextInput): HomeNext {
       action: 'Add guests',
     };
   }
-  if (guests.unsent > 0) {
+  if (!noList && guests && guests.unsent > 0) {
     const n = formatCount(guests.unsent);
     return {
       kind: 'invite',
@@ -274,7 +286,180 @@ export function glanceMoney(php: number | null): string {
   A read that failed prints "—".
 */
 
-export type HomeServiceKey = 'papic' | 'ai' | 'nikah';
+export type HomeServiceKey = 'papic' | 'ai' | 'live' | 'music' | 'booth' | 'hub' | 'nikah';
+
+/*
+  ─── EVERY PAID SERVICE + EVENT HUB PRO (owner 2026-10-14 🧾 + ✅) ────────────
+
+  DECISION_LOG 2026-10-14 "HOME › YOUR SERVICES = THE PAID SERVICES + EVENT HUB
+  PRO; FREE TOOLS STAY OUT" and, the same day, "APPROVE ALL: THE SERVICES
+  PROTOTYPE" (`prototypes/services_home_rows_and_bands_2026-10-14_fable.html`):
+  Guest photos · Planner · Live stream · Music · Video booth · Event Hub Pro.
+  Owned = the full row (its state, its main door); not added = ONE slim line,
+  the price under the name and **Add** on the right. Owner, live on cale-ice
+  2026-10-20: *"i thought we will have our other paid services here in home?"* —
+  the row had only ever been built for the first two (2026-10-01).
+
+  🔑 NOTHING HERE DECIDES OWNERSHIP, OFFER OR PRICE. Each service's facts arrive
+  from the page: whether this event is offered it and where its door is
+  (`buildOurServices` — the More menu's ONE builder), whether it is on
+  (`eventSkuActive`, the feature gate — so an internal or founder-seat host reads
+  "On", exactly as the feature behaves), and its price (`platform_retail_catalog_v2`,
+  never a figure in code). This file only maps those facts onto ONE row state.
+
+  🔒 ONE STATE PER SERVICE — `homePaidState`, held by
+  `app/dashboard/[eventId]/home-shows-every-paid-service.test.ts`: owned · pending · add · open ·
+  unread · absent. "absent" is only ever the event's own fact (its type is not
+  offered the service, the day has passed for a day-of one, the store shell) —
+  never a forgotten row. What the event LEFT OFF at onboarding (`lib/event-needs.ts`:
+  guest list · suppliers · Event Hub details) never hides a paid service: Papic
+  is always on, and the rest are not needs.
+*/
+
+/**
+ * The six rows, in order. Papic is first and is its own glance; the Event Hub comes right after it (owner 2026-10-23,
+ * the service widgets: *"order Papic → Event Hub → rest"*), its Pro folded into its card.
+ */
+export const HOME_PAID_KEYS = ['papic', 'hub', 'ai', 'live', 'music', 'booth'] as const;
+export type HomePaidKey = (typeof HOME_PAID_KEYS)[number];
+/** The five that are a single catalogue SKU (Papic is credits, sold by the ladder). */
+export type HomeSkuKey = Exclude<HomePaidKey, 'papic'>;
+
+/** Each row's catalogue code — the row the price is read from and the gate asks about. */
+export const HOME_PAID_SKU: Readonly<Record<HomeSkuKey, string>> = {
+  ai: 'SETNAYAN_AI',
+  live: 'LIVE_STUDIO',
+  music: 'PAKANTA',
+  booth: 'PATIKTOK_COMPILER',
+  hub: 'COUPLE_WEBSITE_PRO',
+};
+
+/** The More menu's card each row stands for (`lib/our-services.ts`). Event Hub Pro has no card there. */
+export const HOME_PAID_CARD: Readonly<Record<Exclude<HomeSkuKey, 'hub'>, string>> = {
+  ai: 'setnayan-ai',
+  live: 'live-studio',
+  music: 'music-maker',
+  booth: 'patiktok',
+};
+
+/** Event Hub Pro's two lines (2026-10-14 🧾): its name, and what it unlocks under it. */
+export const HUB_PRO_NAME = 'Event Hub Pro';
+export const HUB_PRO_UNLOCKS = '◆ Themes · photo and video backgrounds';
+/** The Event Hub card's name (owner 2026-10-23: Event Hub Pro is folded into the Event Hub — one card, its ◆ line). */
+export const EVENT_HUB_NAME = 'Event Hub';
+
+/**
+ * 💎 THE EVENT HUB CARD'S ◆ LINE — Pro is a state of the Hub, not a service of its own (ownership is per part,
+ * `HubOwnership.parts`; its only door was the Maker, the same door). From the Pro row's one state, and the parts the
+ * event holds when Full Pro is not on. Never a price: the Maker's Apply is where Pro is asked for.
+ */
+export function hubProLine(
+  row: PaidRow | null,
+  parts: { full: boolean; count: number } | null = null,
+  /** The per-part ownership read was REFUSED — never "Free" over a read that did not happen (review 2026-10-24). */
+  partsUnread = false,
+): string {
+  if (row?.state === 'unread') return '◆ —';
+  if (row?.state === 'owned' || parts?.full) return '◆ Pro on · themes, photo and video backgrounds';
+  if (row?.state === 'pending') return '◆ Pro · payment sent · switches on once approved';
+  if (partsUnread) return '◆ —';
+  if (parts && parts.count > 0) return `◆ Pro · ${formatCount(parts.count)} ${parts.count === 1 ? 'part' : 'parts'} on`;
+  return '◆ Free';
+}
+
+/** The row states. Exactly one per service — `homePaidState`. */
+export type HomePaidState = 'owned' | 'pending' | 'add' | 'open' | 'unread' | 'absent';
+
+/**
+ * What the page knows about one service — the More menu card's state
+ * (`OurServiceState`) and door, or `null` when there is no card for this event.
+ */
+export type HomePaidFact = {
+  card: { state: string; stateText: string; href: string | null } | null;
+  /** The ownership read failed — the row says "—" and sells nothing over a refusal. */
+  unread?: boolean;
+  /** The catalogue's price label ("₱2,500", "₱1,500 / day") — null when unread or not on sale. */
+  price?: string | null;
+  /** Setnayan AI's comeback window is open — its one surviving line (hours only, never a price). */
+  comebackHoursLeft?: number | null;
+};
+
+/** ONE state per service, from its facts. Pure, total. */
+export function homePaidState(fact: HomePaidFact | null | undefined): HomePaidState {
+  if (!fact) return 'absent';
+  if (fact.unread) return 'unread';
+  const card = fact.card;
+  if (!card) return 'absent';
+  switch (card.state) {
+    case 'added':
+      return 'owned';
+    case 'pending':
+      return 'pending';
+    case 'price':
+    case 'unpriced':
+      return card.href ? 'add' : 'absent';
+    case 'free':
+    case 'trial':
+      return card.href ? 'open' : 'absent';
+    default:
+      // 'closed' (a day-of service after the day) · 'soon' — no door, so no row.
+      return 'absent';
+  }
+}
+
+/** A paid row as Home draws it (state 'absent' is never drawn). */
+export type PaidRow = {
+  state: Exclude<HomePaidState, 'absent'>;
+  /** The row is a door to the service's own page. */
+  href: string;
+  /** The status line — owned / pending / open / unread. */
+  line: GlanceLine;
+  /** The slim line's words — 'add' only. Its price is the catalogue's, or "See the price". */
+  price?: string;
+  /** The owned row's main door (the prototype's words), when it is a different page from the row's own. */
+  door?: { label: string; href: string };
+};
+
+/** The words of a slim "not added" line. `price` null = an unread catalogue → never ₱0, never "Free". */
+export function paidSlimWords(key: HomeSkuKey, price: string | null, comebackHoursLeft: number | null = null): string {
+  if (key === 'ai' && comebackHoursLeft !== null && comebackHoursLeft > 0) {
+    return `Comeback price · ${formatCount(comebackHoursLeft)}h left`;
+  }
+  // ✨ Setnayan AI not added reads "Try it" — no price on Home (owner-approved 2026-10-24, the control center: "the
+  // not-added AI line says 'Try it' with no price"); the price lives on its own page, where it is bought.
+  if (key === 'ai') return 'Try it';
+  if (!price) return 'See the price';
+  if (key === 'live') return `1 camera free · ${price} for more`;
+  if (key === 'booth') return `Free to record · ${price} to save & share`;
+  return price;
+}
+
+/** One paid row from its facts — null when the service has no row on this Home. */
+export function paidRow(key: HomeSkuKey, fact: HomePaidFact | null | undefined, eventId: string): PaidRow | null {
+  const state = homePaidState(fact);
+  if (state === 'absent' || !fact) return null;
+  const href = fact.card?.href ?? `/dashboard/${eventId}`;
+  if (state === 'unread') return { state, href, line: { strong: '—' } };
+  if (state === 'pending') return { state, href, line: { lead: 'Payment sent · switches on once approved' } };
+  if (state === 'open') return { state, href, line: { lead: fact.card?.stateText ?? '' } };
+  if (state === 'add') {
+    return { state, href, line: {}, price: paidSlimWords(key, fact.price ?? null, fact.comebackHoursLeft ?? null) };
+  }
+  // owned — the prototype's main door, where it is another page than the row's own.
+  if (key === 'hub') {
+    return {
+      state,
+      href,
+      line: { strong: 'Pro on', tail: ' · themes, photo and video backgrounds' },
+      door: { label: 'Open the Maker', href: `/dashboard/${eventId}/launch` },
+    };
+  }
+  if (key === 'live') {
+    /* The controller is chrome-less, outside /dashboard (`liveStudioControlPath`) — its own door. */
+    return { state, href, line: { strong: 'On' }, door: { label: 'Open controller', href: liveStudioControlPath(eventId) } };
+  }
+  return { state, href, line: { strong: 'On' } };
+}
 /**
  * `name` is the plain name (first), `brand` the Setnayan name (small under) — `lib/service-names.ts`.
  * Nikah essentials is not a Setnayan service, so it carries no brand line.
@@ -290,6 +475,10 @@ export type HomeService = {
    * "See N photos" (the gallery, opened directly). Absent = the plain row.
    */
   papic?: PapicRowDoors;
+  /** 🧾 A paid row (Planner · Live stream · Music · Video booth) — its one state. */
+  paid?: PaidRow;
+  /** 💎 The Event Hub card — its Pro row (null: not held, nothing waiting), drawn as the card's ◆ line. */
+  hub?: { pro: PaidRow | null };
 };
 
 /** What the Papic row draws beyond its name — from `papicGlance` (lib/papic-glance.ts). */
@@ -356,28 +545,53 @@ export function nikahStatus(done: number | null): string {
   return `${formatCount(done)} of ${formatCount(NIKAH_TRACKED_TOTAL)} in place`;
 }
 
+/** Each paid row's names — `lib/service-names.ts` (one list); Event Hub Pro is not a service card. */
+function paidNames(key: HomeSkuKey): { name: string; brand: string } {
+  if (key === 'hub') return { name: EVENT_HUB_NAME, brand: '' };
+  const n = SERVICE_NAMES[HOME_PAID_CARD[key] as ServiceNameKey];
+  return { name: n.plain, brand: n.brand };
+}
+
 export function homeServices(input: {
   next: HomeNextKind;
   storeShell: boolean;
   papic: string;
   /** 📍 Papic's doors (Buy more · See N photos), when the glance offers them. */
   papicDoors?: PapicRowDoors | null;
+  /** Setnayan AI's plain status — the row as it was before `paid` (kept for a caller that has no facts). */
   ai: string;
+  /**
+   * 🧾 EVERY PAID SERVICE + EVENT HUB PRO (owner 2026-10-14). When given, the Planner ·
+   * Live stream · Music · Video booth · Event Hub Pro rows come from these facts — one
+   * state each (`homePaidState`) — and `ai` above is not used. Absent = yesterday's two rows.
+   */
+  paid?: Partial<Record<HomeSkuKey, HomePaidFact | null>> | null;
+  eventId?: string;
   /** 🕌 Set ONLY for a Muslim wedding — the Nikah essentials' status line. Free, so it is also in the store shell. */
   nikah?: string | null;
 }): HomeService[] {
-  const paid: HomeService[] = input.storeShell
-    ? []
-    : [
-        {
-          key: 'papic',
-          name: SERVICE_NAMES.papic.plain,
-          brand: SERVICE_NAMES.papic.brand,
-          status: input.papic,
-          ...(input.papicDoors ? { papic: input.papicDoors } : {}),
-        },
-        { key: 'ai', name: SERVICE_NAMES['setnayan-ai'].plain, brand: SERVICE_NAMES['setnayan-ai'].brand, status: input.ai },
-      ];
+  const papicRow: HomeService = {
+    key: 'papic',
+    name: SERVICE_NAMES.papic.plain,
+    brand: SERVICE_NAMES.papic.brand,
+    status: input.papic,
+    ...(input.papicDoors ? { papic: input.papicDoors } : {}),
+  };
+  const rest: HomeService[] = input.paid
+    ? (HOME_PAID_KEYS.filter((k): k is HomeSkuKey => k !== 'papic')).flatMap((key): HomeService[] => {
+        const row = paidRow(key, input.paid?.[key], input.eventId ?? '');
+        if (key === 'hub') {
+          // 💎 The Event Hub is always a card where the event has one; its Pro row is the card's ◆ line, never a slim "Add".
+          if (!row) return [];
+          const { name } = paidNames(key);
+          return [{ key, name, status: hubProLine(row.state === 'add' ? null : row), hub: { pro: row.state === 'add' ? null : row } }];
+        }
+        return row ? [{ key, ...paidNames(key), status: row.price ?? glanceLineText(row.line), paid: row }] : [];
+      })
+    : [{ key: 'ai', name: SERVICE_NAMES['setnayan-ai'].plain, brand: SERVICE_NAMES['setnayan-ai'].brand, status: input.ai }];
+  /* 🔒 NOT IN THE STORE SHELL — every paid row's page is web-only there (STORE_SHELL_HIDDEN_ADDON_KEYS), and the
+     iPhone app sells only through Apple (the `apple` rows HomeFirstScreen draws on their own). */
+  const paid: HomeService[] = input.storeShell ? [] : [papicRow, ...rest];
   const all: HomeService[] = [
     /* ⛔ NEVER TWICE — for Papic the row STAYS and drops the button the Next
        card offers, while it is on screen (owner 2026-10-14, `papicRowDoubled`); a service with no
@@ -385,5 +599,87 @@ export function homeServices(input: {
     ...paid.filter((s) => s.key !== input.next || (s.key === 'papic' && s.papic)),
     ...(input.nikah != null ? [{ key: 'nikah' as const, name: NIKAH_NAME, status: input.nikah }] : []),
   ];
-  return all;
+  /* Owned first, then the slim "not added" lines — the approved prototype's order (owned · Not added). */
+  return [...all.filter((s) => s.paid?.state !== 'add'), ...all.filter((s) => s.paid?.state === 'add')];
+}
+
+/** A status line as plain words (the row's `status`, for guards and the plain tile). */
+export function glanceLineText(line: GlanceLine): string {
+  return `${line.lead ?? ''}${line.strong ?? ''}${line.tail ?? ''}`;
+}
+
+/**
+ * 📷 PAPIC ON THE EVENT DAY (owner 22 Oct 2026, on a just-created event's Home on its day: *"Fix
+ * both"* — the event-day console had no Papic at all, because Home's first screen, which holds Your
+ * services, is not mounted on the day). The console now draws Home › Your services' OWN Papic row —
+ * the same `HomeService` entry `homeServices` built, rendered by the same row — right beside the Live
+ * photo wall card. This picks which face it shows; it reads nothing.
+ *
+ *   hidden  · no Papic entry in Your services — the store shell (the iPhone app shows no paid row,
+ *             App Review 3.1.1), exactly as Your services hides it there.
+ *   off     · the host answered "Photos from your guests? — No" (`papic_on = false`): it says so,
+ *             with the door to that answer (Event Details) to switch it back on.
+ *   none    · no pool, no camera, no photo yet (`tile === null`): "not on yet", door = the Papic page,
+ *             which arms the free pool on its first view.
+ *   failed  · the credits read threw: "Couldn't read your credits" — NEVER 0, never a meter.
+ *   row     · the glance row itself: credits left · meter · Buy more · See N photos.
+ *   plain   · a viewer the figures are not shared with: the plain door, as Your services draws it.
+ */
+export type DayPapicFace = 'hidden' | 'off' | 'none' | 'failed' | 'row' | 'plain';
+
+export function dayPapicFace(input: {
+  /** Home › Your services' Papic entry (`homeServices(...)`), or undefined when it built none. */
+  svc: HomeService | undefined;
+  /** `events.papic_on` read with `papicIsOn` — null when the column was not read. */
+  papicOn: boolean | null;
+  /** May this viewer see Papic's figures (couple · coordinator) — the page's `canViewPapicCounts`. */
+  permitted: boolean;
+  /** `resolvePapicHomeTile`'s answer as the page holds it: an object, null (no Papic yet) or 'failed'. */
+  tile: object | null | 'failed';
+}): DayPapicFace {
+  if (!input.svc) return 'hidden';
+  if (input.papicOn === false) return 'off';
+  if (!input.permitted || !input.svc.papic) return 'plain';
+  if (input.tile === 'failed') return 'failed';
+  if (input.tile === null) return 'none';
+  return 'row';
+}
+
+/** The day card's words for the faces that are not the glance row (one place, so a guard can read them). */
+export const DAY_PAPIC_WORDS = {
+  off: 'Off for this event',
+  none: 'Not on for this event yet',
+  failed: 'Couldn’t read your credits',
+  switchOn: 'Switch on',
+} as const;
+
+/**
+ * What the day card draws for a face — the whole decision, pure, so a guard can hold it without
+ * rendering the row (its Buy more sheet imports server actions). `DayPapicRow` only paints this.
+ *   row    · Your services' glance row itself, its own Buy more kept (no Next card is on screen on the day);
+ *   say    · one plain line (no meter — a failed read is not "0 credits left") + its door, if any;
+ *   plain  · the plain door Your services draws for a viewer the figures are not shared with.
+ */
+export type DayPapicView =
+  | { kind: 'hidden' }
+  | { kind: 'row'; doors: PapicRowDoors }
+  | { kind: 'say'; face: 'off' | 'none' | 'failed'; words: string; href: string; door: { label: string; href: string } | null; meter: false }
+  | { kind: 'plain'; href: string; status: string };
+
+export function dayPapicView(face: DayPapicFace, svc: HomeService | undefined, eventId: string): DayPapicView {
+  if (face === 'hidden' || !svc) return { kind: 'hidden' };
+  const papicHref = `/dashboard/${eventId}/studio/papic`;
+  if (face === 'row' && svc.papic) return { kind: 'row', doors: { ...svc.papic, whileNext: undefined } };
+  if (face === 'off' || face === 'none' || face === 'failed') {
+    const href = face === 'off' ? recordFieldHref(eventId, 'papic-answer') : papicHref;
+    return {
+      kind: 'say',
+      face,
+      words: DAY_PAPIC_WORDS[face],
+      href,
+      door: face === 'failed' ? null : { label: DAY_PAPIC_WORDS.switchOn, href },
+      meter: false,
+    };
+  }
+  return { kind: 'plain', href: papicHref, status: svc.status };
 }

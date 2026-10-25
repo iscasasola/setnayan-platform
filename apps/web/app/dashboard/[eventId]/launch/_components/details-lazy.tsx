@@ -95,6 +95,12 @@ export const OneNameEditor = dynamic(() => import(/* webpackChunkName: "maker-de
 export const DateEditor = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-your-event').then((m) => m.DateEditor), { loading: SlotRows });
 export const DateBody = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-your-event').then((m) => m.DateBody), { loading: SlotFill });
 export const VenuesEditor = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-your-event').then((m) => m.VenuesEditor), { loading: SlotRows });
+// 📱 The venue cards' Picture ▾ in the new Maker's Venue scene › Edit (2026-10-17) — the same file, the same chunk.
+export const VenuePictureRows = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-your-event').then((m) => m.VenuePictureRows), { loading: SlotNone });
+// 🖼 A scene of their own's pictures in the new Maker's Edit (2026-10-18) — Upload and the couple's media, per slot.
+export const ScenePhotoRow = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stage-panel/scene-photos').then((m) => m.ScenePhotoRow), { loading: SlotNone });
+// 🏷 The Wedding March's Edit names its sections (2026-10-19) — Section ▾ and the heading's words, rows 2–3.
+export const SectionNames = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stage-panel/section-names').then((m) => m.SectionNames), { loading: SlotNone });
 export const MarchMaker = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-march').then((m) => m.MarchMaker), { loading: SlotFill });
 export const PeoplePieces = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-people').then((m) => m.PeoplePieces), { loading: SlotNone });
 export const PeopleBody = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-people').then((m) => m.PeopleBody), { loading: SlotFill });
@@ -200,10 +206,26 @@ export const PhotoMomentsEditor = dynamic(
 );
 /* ▶ The Stages ▶'s status line — first pressed, then loaded (`stage-panel/play-status.tsx`). */
 export const StagePlayStatus = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stage-panel/play-status').then((m) => m.StagePlayStatus));
-/* 🎛 The Camera's own looks in Stages — loaded the first time the Camera is picked (`stage-panel/camera-look.tsx`). */
-export const CameraPartTools = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stage-panel/camera-look').then((m) => m.CameraPartTools), { loading: SlotRows });
 /** 🧱 A fixed block's own Animate (`lib/block-looks.ts`) — with the toolbar, never in the first load. */
 export const BlockAnimateRows = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stage-panel/block-animate').then((m) => m.BlockAnimateRows), { loading: SlotRows });
 
 /* ✕ The Maker's way out — Back to this event · All events (`maker-exit-sheet.tsx`), drawn when ✕ is pressed. */
 export const MakerExitSheet = dynamic(() => import(/* webpackChunkName: "maker-details" */ './maker-exit-sheet').then((m) => m.MakerExitSheet), { loading: SlotNone });
+
+/* ── 🗂 The Maker rows' own panels (`website/editor/page.tsx` → `rows[…].node`, `setLookPages`) — each is drawn only
+   when its row or look page is opened, so none rides the Maker's first load (headroom, 2026-10-18: the first load sat
+   AT its 507KB ceiling; these were ~6.8KB gz of it). Each is a WHOLE panel with its own form, so a panel that has not
+   arrived is a slot, never half a form. The ⋯ sheet's "Go live" control goes the same way. ── */
+export const HeroPhotoPanel = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/media-panels').then((m) => m.HeroPhotoPanel), { loading: SlotRows });
+export const GalleryPanel = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/media-panels').then((m) => m.GalleryPanel), { loading: SlotRows });
+export const SiteChromePanel = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/media-panels').then((m) => m.SiteChromePanel), { loading: SlotRows });
+export const VisibilityPanel = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/media-panels').then((m) => m.VisibilityPanel), { loading: SlotRows });
+export const OpenBrowsePanel = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/media-panels').then((m) => m.OpenBrowsePanel), { loading: SlotRows });
+export const LaunchPhasePanel = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/media-panels').then((m) => m.LaunchPhasePanel), { loading: SlotRows });
+export const RsvpBackdropPanel = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/media-panels').then((m) => m.RsvpBackdropPanel), { loading: SlotRows });
+/* 👗 The Dress code row's panel — the whole form, fields and Save (`dress-code-panel.tsx`, 2026-10-21): its attire
+   fields were ~8.6KB gz of the first load, which sat over its 507KB ceiling again. */
+export const DressCodePanel = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/dress-code-panel').then((m) => m.DressCodePanel), { loading: SlotRows });
+export const LaunchStdButton = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../studio/save-the-date/_components/launch-std-button').then((m) => m.LaunchStdButton), { loading: SlotButton });
+/* ⋯ Scan to view's strip (Download · Write to NFC · Copy link — the NFC writer is the weight) under the ⋯ sheet's rows. */
+export const ScanQrStrip = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/scan-qr-strip').then((m) => m.ScanQrStrip), { loading: SlotNone });

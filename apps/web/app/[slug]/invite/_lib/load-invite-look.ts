@@ -28,7 +28,8 @@ import { inviteSkin } from '../_components/themes/invite-skin';
 export const INVITE_LOOK_COLUMNS = HUB_LOOK_COLUMNS;
 
 /**
- * THE COUPLE'S LOGO — the three columns the crest needs, selected by every door
+ * THE COUPLE'S LOGO — the columns the crest needs (the mark, its ink, and the
+ * Logo switch `logo_wanted` — owner 2026-10-15: OFF ⇒ initials), selected by every door
  * beside `INVITE_LOOK_COLUMNS` (owner 2026-09-28: *the logo did not adapt*).
  *
  * ⚠ A SEPARATE LIST, NOT PART OF `HUB_LOOK_COLUMNS`. That list is read by every
@@ -36,12 +37,13 @@ export const INVITE_LOOK_COLUMNS = HUB_LOOK_COLUMNS;
  * draws. A door that forgets these gets its crest in initials, silently —
  * `the-door-wears-the-hub.test.ts` holds that every door selects them.
  */
-export const INVITE_MARK_COLUMNS = 'monogram_custom_svg, monogram_uploaded_svg, role_palette' as const;
+export const INVITE_MARK_COLUMNS = 'monogram_custom_svg, monogram_uploaded_svg, role_palette, logo_wanted' as const;
 
 export type InviteLookEvent = HubLookEvent & {
   monogram_custom_svg?: string | null;
   monogram_uploaded_svg?: string | null;
   role_palette?: unknown;
+  logo_wanted?: boolean | null;
 };
 
 /**

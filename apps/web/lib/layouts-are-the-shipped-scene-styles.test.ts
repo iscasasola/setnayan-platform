@@ -25,7 +25,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
-import { MAKER_CAMERA_LAYOUTS, MAKER_PARTS, MAKER_PART_KEYS } from './maker-parts';
+import { MAKER_PARTS, MAKER_PART_KEYS } from './maker-parts';
 import { sceneStyleSet } from './scene-styles';
 
 const WEB = join(__dirname, '..');
@@ -77,10 +77,10 @@ test("no invented 'Statement' / 'Offset' family anywhere under apps/web", () => 
   assert.deepEqual(hits, [], `an invented layout family was written: ${hits.join(', ')}`);
 });
 
-test('only the Camera keeps its own three layouts', () => {
-  const own = MAKER_PART_KEYS.filter((k) => MAKER_PARTS[k].layouts.kind === 'own');
-  assert.deepEqual(own, ['camera']);
-  assert.deepEqual([...MAKER_CAMERA_LAYOUTS], ['Classic', 'Your brand', 'Challenges']);
+test('no part keeps layouts of its own — the Camera has none (owner 2026-10-24: one camera)', () => {
+  const kinds = new Set(MAKER_PART_KEYS.map((k) => MAKER_PARTS[k].layouts.kind));
+  for (const k of kinds) assert.ok(k === 'scene' || k === 'none', `a part has layouts of kind ${k}`);
+  assert.equal(MAKER_PARTS.camera.layouts.kind, 'none');
 });
 
 test('the Dress code’s palette and Do’s & Don’ts cards are their registries’ lists — the Maker has none of its own', () => {
@@ -102,7 +102,7 @@ test('🔒 no stored look id is renamed or dropped — every shipped id still dr
   /* The ids live pages may hold today (frozen here on 2026-10-08, the morning invitations went out). */
   const SHIPPED: ReadonlyArray<readonly [string, 'save_the_date' | 'rsvp' | 'event', readonly string[]]> = [
     ['dress_code', 'rsvp', ['colours-and-roles', 'palette', 'line']],
-    ['gallery', 'save_the_date', ['mosaic', 'grid', 'film-strip']],
+    ['gallery', 'save_the_date', ['mosaic', 'grid', 'film-strip', 'glimpse']],
     ['photos_of_you', 'event', ['grid', 'lead', 'polaroids']],
     ['special_message', 'rsvp', ['note', 'letter', 'quote']],
     ['schedule', 'rsvp', ['programme-rail', 'one-per-screen', 'clock-face']],
@@ -110,14 +110,25 @@ test('🔒 no stored look id is renamed or dropped — every shipped id still dr
     ['what_to_bring', 'rsvp', ['note', 'list', 'gift-line']],
     ['our_love_story', 'rsvp', ['chapters', 'essay', 'years']],
     ['countdown', 'rsvp', ['four-tiles', 'big-number', 'offset', 'line', 'circle']],
+    /* 👫 `roll-call` keeps its id (now drawn as On the axis) and `lines` joins (owner 2026-10-15). */
+    ['entourage', 'rsvp', ['roll-call', 'lines', 'march']],
+    ['entourage', 'event', ['roll-call', 'lines', 'march']],
   ];
   for (const [type, stage, ids] of SHIPPED) {
     for (const id of ids) assert.equal(resolveSceneStyle(type, stage, id, 'wedding'), id, `${type}: a page that stored "${id}" no longer draws it`);
     /* …and a value nobody draws falls back to the stage's first shipped look — never to nothing. */
     assert.equal(resolveSceneStyle(type, stage, 'no-such-style', 'wedding'), resolveSceneStyle(type, stage, null, 'wedding'));
-    assert.ok(ids.includes(resolveSceneStyle(type, stage, null, 'wedding')!), `${type}: the default is not a shipped look`);
+    /* 🗣 …except where the OWNER moved the default: the Love Story's Conversation (2026-10-17, "Conversation as the
+       default look") — a new look, which no stored id is renamed to. */
+    const ownerDefault: Readonly<Record<string, string>> = { our_love_story: 'conversation' };
+    const def = resolveSceneStyle(type, stage, null, 'wedding')!;
+    assert.ok(ids.includes(def) || ownerDefault[type] === def, `${type}: the default is not a shipped look`);
   }
-  assert.deepEqual([...PALETTE_LOOK_IDS], ['tags', 'fabric', 'chips', 'circles', 'ribbon']);
+  /* 🚫 THE ONE OWNER-RULED WITHDRAWAL: `two-sides` (2026-10-15, *"two sides feels messy"*) reads as the default — never as nothing. */
+  for (const stage of ['rsvp', 'event'] as const) {
+    assert.equal(resolveSceneStyle('entourage', stage, 'two-sides', 'wedding'), 'roll-call', `entourage on ${stage}: a stored two-sides`);
+  }
+  assert.deepEqual([...PALETTE_LOOK_IDS], ['tags', 'fabric', 'chips', 'circles', 'ribbon', 'arch', 'watercolour', 'strokes']);
   for (const id of PALETTE_LOOK_IDS) assert.equal(resolvePaletteLook(id), id);
   assert.equal(resolvePaletteLook(undefined), PALETTE_LOOK_DEFAULT);
   assert.equal(PALETTE_LOOK_DEFAULT, 'tags', 'an absent palette pick no longer draws today’s tags');

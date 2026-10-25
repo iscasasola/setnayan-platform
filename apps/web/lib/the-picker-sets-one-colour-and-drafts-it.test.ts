@@ -67,9 +67,11 @@ test('🎨 the draft holds a painted palette — so the picker, Auto and the par
   assert.match(src, /withMainColour\(palette, five, index, hex\)/, 'the picker must set exactly one slot');
   /* RE-AIMED 2026-10-09 (Studio › Mood Board moved onto the templates): the fields are built once in `lib/studio-mood-board-saves.ts`
      (`paletteDraftFields`) — held byte for byte by `studio-mood-board-posts-the-same.test.ts` — and the page posts exactly them. */
-  assert.match(src, /for \(const \[k, v\] of Object\.entries\(paletteDraftFields\(wrote\)\)\) fd\.set\(k, v\);/, 'the palette must be written into the draft');
+  /* RE-AIMED 2026-10-18 (two hosts never overwrite): …with the board it was built on, so the other host's colours stay. */
+  assert.match(src, /for \(const \[k, v\] of Object\.entries\(paletteDraftFields\(wrote, sentPalette\.current\)\)\) fd\.set\(k, v\);/, 'the palette must be written into the draft');
   assert.match(stripComments(readFileSync(join(__dirname, 'studio-mood-board-saves.ts'), 'utf8')), /patch: JSON\.stringify\(\{ events: \{ role_palette: palette \} \}\)/, 'the builder no longer writes `role_palette` into the draft');
-  assert.match(src, /makerSave\(\(\) => hubDraftAction\(eventId, fd\)/);
+  /* (2026-10-15, rd/maker-fast-edits) held — redrawn in place, its ↺ handed — never a whole-Maker render (7.1 s, measured). */
+  assert.match(src, /makerRedrawSave\(\(\) => hubDraftAction\(eventId, fd\), \(\) => router\.refresh\(\), \{ undo: boardUndo\(/);
   assert.doesNotMatch(src, /saveRolePalette/, 'the Studio still writes the palette live');
   /* RE-AIMED 2026-10-09: the result is the top toast (one short line) — the picker's own sheet still says the job. */
   assert.match(src, /`\$\{MAIN_COLOUR_SLOTS\[index\]\} changed\.`/, 'the picker must say what it changed');

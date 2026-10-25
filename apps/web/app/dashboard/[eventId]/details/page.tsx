@@ -1,4 +1,7 @@
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
+import { OneCodeUnderGetIn } from '@/app/dashboard/[eventId]/studio/papic/_components/one-code';
+import { readSupplierShots } from '@/lib/event-memories.server';
+import { coupleNamesLine } from '@/lib/typed-names';
 import { PlanMyselfSwitch } from '../launch/_components/plan-myself';
 import { planMyselfOn } from '@/lib/plan-myself';
 import type { ReactNode } from 'react';
@@ -32,9 +35,10 @@ import { CEREMONY_LABEL, VENUE_LABEL, titleCase } from '@/lib/personalized-menu'
 import { CEREMONY_VENUE_SETTING_SHORT_LABEL } from '@/lib/venue-settings';
 import { fetchScheduleBlocks } from '@/lib/schedule';
 import { blockTime, ceremonyBlock, firstBlockOf } from '@/lib/print-pieces';
+import { guestsArriveFrom, guestsArriveSource } from '@/lib/guests-arrive';
 import { formatWallClock } from '@/lib/schedule-datetime-local';
 import { fetchUpcomingItems, type UpcomingItem } from '@/lib/upcoming-items';
-import { computeGuestStats, fetchGuestsByEventMeasured, type GuestRole } from '@/lib/guests';
+import { computeGuestStats, fetchGuestsByEventMeasured, seatsNotYetOnTheList } from '@/lib/guests';
 import { isBudgetTruthEnabled } from '@/lib/budget-truth-flag';
 import { resolveEventMoney } from '@/lib/budget-truth';
 import { buildBudgetLiveSummary, fetchBudgetSnapshot } from '@/lib/budget';
@@ -45,17 +49,14 @@ import { getEffectiveVatRatePct } from '@/lib/platform-settings';
 import { formatPhp, formatPhpRounded } from '@/lib/php';
 import { LastSeenCapture } from '@/app/_components/last-seen/last-seen-capture';
 import { formatCount } from '@/lib/format-number';
-import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
+import { eventHubOwnership } from '@/lib/couple-website-pro';
 import { readEventPoolStatus } from '@/lib/papic-event-pool';
 import { INVITE_THEMES, resolveInviteTheme } from '@/lib/invite-themes';
 import { HUB_FONT_BY_KEY, sanitizeHubFontKey } from '@/lib/hub-fonts';
 import { HUB_BUTTON_FILL_LABEL, HUB_BUTTON_SHAPE_LABEL, parseHubButtonStyle } from '@/lib/hub-buttons';
 import { sanitizeRolePalette } from '@/lib/mood-board';
 import { resolveDisplayPalette } from '@/lib/room-palette';
-import { sanitizeRoleAttire } from '@/lib/role-dress-code';
-import { sanitizeGroupAttire } from '@/lib/role-group-dress-code';
 import { dressCodeForEveryone } from '@/lib/dress-code-for-everyone';
-import { roleLabel } from '@/lib/entourage';
 import { resolveMoments } from '@/lib/love-story-moments';
 import { readGuestsReply, resolveReplyBy } from '@/lib/rsvp-ask';
 import { studioHubHref } from '@/lib/studio-hub';
@@ -90,6 +91,7 @@ import { PeopleWithAccess } from './_components/people-with-access';
 import { RecordFold } from './_components/record-fold';
 import { RecordRowLink } from './_components/record-row-link';
 import { loadPeopleWithAccess } from '@/lib/people-with-access.server';
+import { readClaimAccessAsks } from '@/lib/claim-access-asks.server';
 import { accessFoldSummary, areaCells, type PersonRow } from '@/lib/people-with-access';
 
 export const dynamic = 'force-dynamic';
@@ -225,6 +227,11 @@ export default async function EventDetailsPage({
         return { measured: false as const };
       })
     : null;
+  // 🤝 Suppliers who joined from the couple's link, waiting for Approve (owner
+  // 2026-10-20) — the approval card at the top of Event access.
+  const claimsRead = viewer.isCouple ? readClaimAccessAsks(supabase, eventId) : null;
+  // 📷 The suppliers who shot here — their rows carry the whole-delivery switch for Memories (owner 2026-10-23).
+  const supplierShotsRead = viewer.isCouple ? readSupplierShots(supabase, eventId).catch(() => null) : null;
 
   const [vendorsRead, scheduleRead, upcomingRead, guestsRead, ordersRead, vatRead, privateRead, moneyRead, snapshotRead, proRead, poolRead, draftRead, guideRead, storeShell] =
     await Promise.all([
@@ -275,7 +282,7 @@ export default async function EventDetailsPage({
           ),
       moneyHidden || !budgetTruth ? Promise.resolve(null) : settle(resolveEventMoney(supabase, eventId)),
       moneyHidden || budgetTruth ? Promise.resolve(null) : settle(fetchBudgetSnapshot(supabase, eventId)),
-      settle(eventCoupleWebsiteProActive(await eventEntitlementClient(eventId), eventId)),
+      settle(eventHubOwnership(await eventEntitlementClient(eventId), eventId)),
       readEventPoolStatus(admin, eventId),
       /* 💾 The Event Hub draft — what the couple changed and has not applied.
          A draft that cannot be read shows the live values (no "waiting" marks). */
@@ -308,8 +315,10 @@ export default async function EventDetailsPage({
   const venuesWon = vendorsRead.ok ? pickVenueBookingRows(vendorsRead.v) : { ceremony: null, reception: null };
 
   // ── The look (as drafted) ─────────────────────────────────────────────────
-  const ownsPro = proRead.ok && proRead.v === true;
-  const theme = INVITE_THEMES[resolveInviteTheme({ saved: shown.invite_theme, ownsPro: ownsPro || (canEditHub && !storeShell) })];
+  // 💎 Part by part (owner 2026-10-22): "Event Hub Pro · Active" is everything; a Pro theme is the Style part's (13).
+  const ownsPro = proRead.ok && proRead.v.full;
+  const ownsStyle = proRead.ok && (proRead.v.full || proRead.v.parts.has('style'));
+  const theme = INVITE_THEMES[resolveInviteTheme({ saved: shown.invite_theme, ownsPro: ownsStyle || (canEditHub && !storeShell) })];
   const headingFontKey = sanitizeHubFontKey(shown.site_font_key);
   const headingFont = headingFontKey ? HUB_FONT_BY_KEY[headingFontKey].family : theme.fonts.heading;
   const storedPalette = sanitizeRolePalette(e.role_palette);
@@ -325,10 +334,9 @@ export default async function EventDetailsPage({
     .filter(Boolean)
     .join(' · ');
   const dress = dressCodeForEveryone({
+    config: e.dress_code_config,
     stored: storedPalette,
     board,
-    roles: sanitizeRoleAttire((e.dress_code_config as { roles?: unknown } | null)?.roles, (v) => roleLabel(v as GuestRole) !== null),
-    groups: sanitizeGroupAttire((e.dress_code_config as { groups?: unknown } | null)?.groups),
     ceremonyType: str('ceremony_type'),
   });
   const moments = resolveMoments(shown.love_story).filter((m) => !m.hidden);
@@ -338,9 +346,10 @@ export default async function EventDetailsPage({
   const replyBy = resolveReplyBy({ deadline: str('guest_list_edit_deadline'), eventDate: shownStr('event_date') });
 
   // ── Names (as drafted) ────────────────────────────────────────────────────
-  const personA = shownStr('bride_name');
-  const personB = shownStr('groom_name');
-  const names = personA && personB ? `${personA} & ${personB}` : (personA ?? personB ?? shownStr('display_name'));
+  // 🔀 Both people in full, in the ORDER the event's name keeps (`coupleNamesLine`, owner 2026-10-21) — never re-set here.
+  const names =
+    coupleNamesLine({ display_name: shownStr('display_name'), bride_name: shownStr('bride_name'), groom_name: shownStr('groom_name') }) ||
+    shownStr('display_name');
   const kind =
     eventWord === 'wedding'
       ? (() => {
@@ -360,8 +369,9 @@ export default async function EventDetailsPage({
   const blocks = scheduleRead.ok ? scheduleRead.v : [];
   const ceremony = ceremonyBlock(blocks);
   const reception = firstBlockOf(blocks, 'reception');
-  const firstPublic = blocks.find((b) => b.is_public && !b.parent_block_id && b.start_at) ?? null;
-  const arrive = firstPublic && firstPublic !== ceremony && firstPublic !== reception ? firstPublic : null;
+  /* ⏰ "Guests arrive" — THE one guests' time (`lib/guests-arrive.ts`): the invitation's first moment, which the dress
+     code's Guests row reads as its CALL TIME (owner 2026-10-19) — said "· from Ceremony" when it is borrowed. */
+  const arrive = guestsArriveSource(blocks);
   /* 🕒 The ceremony time as drafted under the Date (`ceremony_time`, HH:MM on
      the venue's wall clock) — else the Ceremony block's own. */
   const draftedCeremonyTime = typeof draftEvents.ceremony_time === 'string' ? draftEvents.ceremony_time : null;
@@ -407,6 +417,8 @@ export default async function EventDetailsPage({
 
   // ── Guests ────────────────────────────────────────────────────────────────
   const stats = guestsRead && guestsRead.ok && guestsRead.v.measured ? computeGuestStats(guestsRead.v.rows) : null;
+  // 🪑 The +1 rows are already on the list (`total`) — only seats with no row yet are added (`seatsNotYetOnTheList`).
+  const seatsWithoutARow = stats && guestsRead && guestsRead.ok ? seatsNotYetOnTheList(guestsRead.v.rows) : 0;
   const estimate = num('estimated_pax');
 
   // ── Venues: LOCKED first (the Event Hub reads the same), else the typed name as drafted ──
@@ -458,6 +470,11 @@ export default async function EventDetailsPage({
   const record = recordHref(eventId);
 
   const people = accessRead ? await accessRead : null;
+  const claims = claimsRead ? await claimsRead : null;
+  const supplierShots = supplierShotsRead ? await supplierShotsRead : null;
+  // The closed fold says when someone is waiting for Approve (owner 2026-10-20).
+  const claimsWaitingNote =
+    claims?.measured && claims.asks.length > 0 ? ` · ${formatCount(claims.asks.length)} waiting for you` : '';
   const ownAccess: PersonRow | null =
     !viewer.isCouple && viewer.delegatePermissions
       ? {
@@ -514,7 +531,7 @@ export default async function EventDetailsPage({
       lockedSuppliers.length > 0 ? `${formatCount(lockedSuppliers.length)} booked` : null,
     ]),
     // Counted from the rows the fold draws; a failed read says so — never "0".
-    access: people ? accessFoldSummary(people.measured ? people.rows : null) : 'Your access',
+    access: people ? accessFoldSummary(people.measured ? people.rows : null) + claimsWaitingNote : 'Your access',
   };
   const groupTitle = (k: RecordGroupKey) => RECORD_GROUPS.find((g) => g.key === k)!.title;
 
@@ -634,6 +651,19 @@ export default async function EventDetailsPage({
               record={record}
               waiting={waiting('rsvp_ask_config')}
             />
+            {/* 📷 …AND AS A CAMERA (owner 2026-10-23: "the how guests get in will be on event settings"): the one code
+                for everyone and every guest's own QR, under this ONE row — moved here from the Papic page. */}
+            {setupOfType.cameraDefault !== 'off' ? (
+              viewer.isCouple ? (
+                <OneCodeUnderGetIn eventId={eventId} />
+              ) : (
+                /* 🔒 The one code is a door into the couple's Papic credits — the couple's to hand out. A delegate is
+                   told so plainly, never shown an empty space that reads as "there is no code" (review 2026-10-24). */
+                <p className="pb-3 text-[13px] text-ink/60" data-one-code="not-yours">
+                  The couple holds the one code for guests&rsquo; cameras.
+                </p>
+              )
+            ) : null}
             {guestsReply ? (
               <>
                 <Row
@@ -733,7 +763,7 @@ export default async function EventDetailsPage({
             {scheduleRead.ok ? (
               <>
                 <Row row="ceremony-time" label="Ceremony" value={ceremonyTime} open={opens('ceremony-time')} record={record} waiting={draftedCeremonyTime !== null} />
-                <Row row="arrive" fact="arrive" label="Guests arrive" value={arrive ? blockTime(arrive) : null} tool={`${base}/schedule`} />
+                <Row row="arrive" fact="arrive" label="Guests arrive" value={arrive ? `${blockTime(arrive.moment) ?? ''}${arrive.own ? '' : ` · from ${guestsArriveFrom(blocks)}`}` : null} tool={`${base}/schedule`} />
                 <Row row="reception-time" label="Reception" value={reception ? blockTime(reception) : null} tool={`${base}/schedule`} />
               </>
             ) : (
@@ -822,7 +852,7 @@ export default async function EventDetailsPage({
                   tool={`${base}/studio/mood-board`}
                   value={
                     r.lines.length > 0
-                      ? r.lines.map((l) => `${l.styleLabel}${l.note ? ` — ${l.note}` : ''}`).join(' · ')
+                      ? r.lines.map((l) => (l.label !== r.label ? `${l.label}: ${l.styleLabel}` : l.styleLabel)).join(' · ')
                       : `${r.hexes.length} colour${r.hexes.length === 1 ? '' : 's'}`
                   }
                 />
@@ -854,7 +884,7 @@ export default async function EventDetailsPage({
                     ? `${formatCount(stats.total)} on your list`
                     : COULD_NOT_LOAD
               }
-              hint={stats && stats.plus_ones > 0 ? `${formatCount(stats.total + stats.plus_ones)} expected with their plus-ones` : null}
+              hint={stats && seatsWithoutARow > 0 ? `${formatCount(stats.total + seatsWithoutARow)} expected with their plus-ones` : null}
             />
             <Row row="list-closes" label="Guest list closes" value={sheetDate(str('guest_list_edit_deadline'))} open={opens('list-closes')} record={record} />
             <Row
@@ -904,27 +934,41 @@ export default async function EventDetailsPage({
             )}
           </Section>
 
-          {/* ── Services ── */}
-          <Section k="services" open={{ href: studioHubHref(eventId), label: 'Open Services' }}>
-            <Row fact="services" label="Event Hub Pro" value={proRead.ok ? (ownsPro ? 'Active' : 'Not added') : COULD_NOT_LOAD} />
-            <Row label="Setnayan AI" value={e.setnayan_ai_active === true ? 'Active' : 'Not added'} />
+          {/* ── Services ──
+              🍎 THE APP NAMES NO PAID SERVICE (App Review 3.1.1 / 3.1.3(b); the
+              review notes say the digital extras are "not offered, priced, or
+              advertised in the app", and a web extra unlocks nothing there).
+              In the store shell this section keeps only Plan it myself — no
+              Event Hub Pro / Setnayan AI / Papic row, owned or not (an "Active"
+              row would claim an unlock the app does not honour), and no "Open
+              Services" link (the More menu it opens is not in the app). Held by
+              `app/the-app-names-no-paid-service.test.ts`. */}
+          <Section k="services" open={storeShell ? null : { href: studioHubHref(eventId), label: 'Open Services' }}>
+            {storeShell ? null : (
+              <>
+                <Row fact="services" label="Event Hub Pro" value={proRead.ok ? (ownsPro ? 'Active' : 'Not added') : COULD_NOT_LOAD} />
+                <Row label="Setnayan AI" value={e.setnayan_ai_active === true ? 'Active' : 'Not added'} />
+              </>
+            )}
             {/* 🙋 PLAN IT MYSELF lives here, in the event's settings (owner 2026-10-06,
                 DECISION_LOG "EVENT DETAILS IS REBUILT": it left the Maker). The SAME
                 switch and the same one store (`events.planning_mode`, `setPlanningMode`). */}
             <div className="py-2" data-details-plan-myself="">
               <PlanMyselfSwitch eventId={eventId} on={planMyselfOn(typeof e.planning_mode === 'string' ? e.planning_mode : null)} />
             </div>
-            <Row
-              money
-              label="Papic"
-              value={
-                !poolRead.ok
-                  ? COULD_NOT_LOAD
-                  : pool.applies
-                    ? `${formatCount(pool.remainingPoints)} of ${formatCount(pool.totalPoints)} credits left`
-                    : 'Not added'
-              }
-            />
+            {storeShell ? null : (
+              <Row
+                money
+                label="Papic"
+                value={
+                  !poolRead.ok
+                    ? COULD_NOT_LOAD
+                    : pool.applies
+                      ? `${formatCount(pool.remainingPoints)} of ${formatCount(pool.totalPoints)} credits left`
+                      : 'Not added'
+                }
+              />
+            )}
           </Section>
 
           {/* ── Purchases — the shipped orders, with their status ── */}
@@ -965,6 +1009,8 @@ export default async function EventDetailsPage({
               readOnly={!people}
               failed={Boolean(people && !people.measured)}
               flash={accessFlash}
+              claims={claims}
+              supplierPhotos={supplierShots}
             />
           </RecordFold>
         ) : null}

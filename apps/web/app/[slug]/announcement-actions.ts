@@ -3,6 +3,8 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { readGuestSession } from '@/lib/guest-session';
 import { BROADCASTS_UNREADABLE, fetchLatestBroadcasts } from '@/lib/coordinator-broadcasts-server';
+import { notRemembered, rememberedLiveRead } from '@/lib/live-day-cache';
+import type { CoordinatorBroadcastItem } from '@/lib/coordinator-broadcasts';
 
 /**
  * The guest's authorized read of the latest day-of announcement.
@@ -37,8 +39,16 @@ export async function latestAnnouncementForGuest(
   // the same way for both, so the answer leaks no membership either.
   if (!session || session.event_id !== eventId) return null;
 
-  const admin = createAdminClient();
-  const items = await fetchLatestBroadcasts(admin, eventId, 1);
+  // 🧯 ONE READ PER EVENT, NOT PER PHONE (2026-10-18, live-day polling). Every guest's phone asks this every 45 s,
+  // and ALL of them ask the instant the coordinator's ping arrives. The latest announcement is the same for every
+  // guest of the event, so it is remembered per event for a few seconds (lib/live-day-cache.ts); the guest's own
+  // cookie check above stays per request. The writer (day-of-broadcast.ts) clears the event's tag BEFORE it pings,
+  // so the asks a ping sets off read the new words, never the remembered old ones.
+  const items = await rememberedLiveRead<CoordinatorBroadcastItem[] | typeof BROADCASTS_UNREADABLE>(`announcement-v1:${eventId}`, eventId, async () => {
+    const latest = await fetchLatestBroadcasts(createAdminClient(), eventId, 1);
+    // A refused read is answered to this phone only — never handed to the others as the event's answer.
+    return latest === BROADCASTS_UNREADABLE ? notRemembered(latest) : latest;
+  });
   // A refused read is a dropped hint, not a "nothing was said" — the caller's
   // own poll timer asks again next cycle (see the docstring above), so there
   // is nothing more to do here than decline to report a false absence.

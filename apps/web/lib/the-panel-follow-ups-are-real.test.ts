@@ -170,22 +170,21 @@ test('C · the shade is kept beside a picture or a colour that is its own ground
   assert.match(CSS, /var\(--hub-scrim-top, rgb\(255 255 255 \/ 0\.72\)\)/, 'As is stays the shipped scrim');
 });
 
-/* ── D · the camera's look rides the draft beside the QR ─────────────────── */
+/* ── D · there is no camera look to draft any more (owner 2026-10-24: ONE camera, `lib/camera-dress.ts`) ── */
 
-test('D · a camera pick never resets a drafted QR, and the QR never resets the camera', () => {
+test('D · a `camera_look` a save carries never reaches the draft, and never touches a drafted QR', () => {
   let d = mergeHubDraft(emptyHubDraft(), { events: { style_preferences: { qr: { pattern: 'dots' } } } });
   d = mergeHubDraft(d, { events: { style_preferences: { camera_look: 'brand' } } });
-  assert.deepEqual(d.events.style_preferences, { qr: { pattern: 'dots' }, camera_look: 'brand' });
-  d = mergeHubDraft(d, { events: { style_preferences: { camera_look: 'nonsense' } } });
-  assert.deepEqual(d.events.style_preferences, { qr: { pattern: 'dots' }, camera_look: 'brand' }, 'an unknown look is dropped');
+  assert.deepEqual(d.events.style_preferences, { qr: { pattern: 'dots' } }, 'a camera look was drafted');
+  const only = mergeHubDraft(emptyHubDraft(), { events: { style_preferences: { camera_look: 'brand' } } });
+  assert.equal(only.events.style_preferences, undefined, 'a camera-look-only save left a draft behind');
 });
 
-test('D · the camera look is free; only a moving QR is Pro — and a held QR still lets the camera through', () => {
+test('D · a stored camera look is no change and no Pro — it is simply never read', () => {
   assert.equal(eventItemIsPro('style_preferences', { camera_look: 'challenges' }, 'change', {}), false);
-  const live: HubLiveState = { events: { style_preferences: {} }, widgets: [] };
-  const draft = mergeHubDraft(emptyHubDraft(), { events: { style_preferences: { qr: { pattern: 'dots' }, camera_look: 'brand' } } });
+  const live: HubLiveState = { events: { style_preferences: { camera_look: 'brand' } }, widgets: [] };
+  const draft = mergeHubDraft(emptyHubDraft(), { events: { style_preferences: { qr: { pattern: 'dots' } } } });
   const plan = planHubDraftApply(draft, live, false);
-  const free = plan.apply.find((i) => i.kind === 'event' && i.column === 'style_preferences');
-  assert.ok(free, 'the camera look is written though the QR waits for Pro');
-  assert.deepEqual((free as { value: unknown }).value, { camera_look: 'brand' }, 'only the camera look — never the held QR');
+  assert.equal(plan.refused.length, 1, 'the moving QR still waits for Pro');
+  assert.equal(plan.apply.filter((i) => i.kind === 'event' && i.column === 'style_preferences').length, 0, 'something was written beside the held QR');
 });

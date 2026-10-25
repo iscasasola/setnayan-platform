@@ -86,9 +86,9 @@ export function PapicReadyNudge({ eventId }: Props) {
         </p>
         <p className="text-base font-semibold text-ink">Your free camera is ready</p>
         <p className="text-sm text-ink/65">
-          Every celebration comes with one free camera of its own, and a shared pool of its
+          Every event comes with one free camera of its own, and a shared pool of its
           own — nothing to buy. Hand it to someone you trust and the candids start
-          landing in your gallery.
+          landing in your Memories.
         </p>
         <a
           href={`/dashboard/${eventId}/studio/papic`}

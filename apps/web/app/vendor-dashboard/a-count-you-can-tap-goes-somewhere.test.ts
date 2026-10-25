@@ -46,13 +46,15 @@ test('every headline count on Today has a destination', () => {
   const block = numbersBlock();
   // Every number sits in its own <Link>; a <span>/<div> number would be a count
   // that goes nowhere.
+  // 🌑 The simpler Today (2026-10-14): on an event day the last two numbers become the day's own (next moment ·
+  // checked in), each a door to the Event Hub — so the block holds 3 + 2 links, and every one is a door.
   const links = block.match(/<Link\b[^>]*>/g) ?? [];
-  assert.equal(links.length, 3, `${links.length} of the three numbers are links`);
+  assert.equal(links.length, 5, `${links.length} of the five numbers (three, or three on an event day) are links`);
   // A literal door, or one of the Customers hub's named landings (the anchors module).
   for (const l of links) assert.match(l, /href=(?:"\/vendor-dashboard[^"]*"|\{customerLandingHref\('\w+'\)\})/, `a number links nowhere real: ${l}`);
   // The redesign's words (2026-10-08, prototype frame 01): waiting on you ·
   // events this week · to come in.
-  for (const word of ['waiting on you', 'events this week', 'to come in']) {
+  for (const word of ['waiting on you', 'this week', 'to come in', 'next moment', 'checked in']) {
     assert.ok(block.includes(word), `the "${word}" number is gone`);
   }
   // A number that could not be read is STILL inside its link — "couldn't load"
@@ -64,7 +66,7 @@ test('the destinations exist as routes', () => {
   const hrefs = [...numbersBlock().matchAll(/href=(?:"([^"]+)"|\{customerLandingHref\('(\w+)'\)\})/g)].map((m) =>
     m[1] ?? customerLandingHref(m[2] as Parameters<typeof customerLandingHref>[0]),
   );
-  assert.equal(hrefs.length, 3, `found ${hrefs.length} number hrefs`);
+  assert.equal(hrefs.length, 5, `found ${hrefs.length} number hrefs`);
   for (const h of hrefs) {
     const rel = h.replace(/^\//, '').split(/[?#]/)[0]!;
     const page = join(WEB, 'app', rel, 'page.tsx');
@@ -86,5 +88,10 @@ test('each Coming-up row opens its customer — the list under the numbers links
   // The row is the shared hairline row now (`TodayRow`, one <Link>).
   assert.match(coming, /<TodayRow key=\{row\.id\} href=\{row\.href\}/, 'a Coming-up row is drawn but goes nowhere');
   const rowFn = s.slice(s.indexOf('export function TodayRow('));
-  assert.match(rowFn, /<Link href=\{href\} className="home-row[^"]*"/, 'the shared row is not a link');
+  assert.match(rowFn, /<Link href=\{href\} className=\{`home-row[^`]*`\}/, 'the shared row is not a link');
+  // …and every Coming-up row the assembly builds carries its door: a Setnayan booking its customer card, a booking
+  // from outside its day (simpler Today 2026-10-14).
+  const view = stripComments(readFileSync(join(WEB, 'lib/supplier-today-view.ts'), 'utf8'));
+  assert.match(view, /href: r\.href,/, 'a Setnayan booking row lost its customer card');
+  assert.match(view, /href: daySheetHref\(o\.date\),/, 'a booking from outside goes nowhere');
 });

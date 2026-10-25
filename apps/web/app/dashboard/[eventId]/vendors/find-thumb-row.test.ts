@@ -51,18 +51,19 @@ const MODE = code('suppliers-mode.tsx');
 
 test('T1 · the row owns nothing and writes nothing', () => {
   const imports = [...ROW.matchAll(/from '([^']+)'/g)].map((m) => m[1]);
-  // `@/lib/suppliers-shell` lends only the 44-px reach class (a string) — still nothing that writes.
-  assert.deepEqual(imports, ['react', 'react-dom', 'lucide-react', '@/components/action-button', '@/lib/suppliers-shell', './suppliers-mode']);
+  // `@/lib/suppliers-shell` lends only the `?find=1` door's name (a string); the controls are the ONE shared row
+  // (`components/thumb-row.tsx`, owner 2026-10-22) — still nothing that writes.
+  assert.deepEqual(imports, ['react', 'react-dom', 'lucide-react', '@/components/thumb-row', '@/lib/suppliers-shell', './suppliers-mode']);
   assert.doesNotMatch(ROW, /'use server'|-actions'|_actions\/|\.from\(|fetch\(|router\./);
   // The bench hands it its own three controls — once.
   assert.equal((BENCH.match(/<FindThumbRow\b/g) ?? []).length, 1);
   assert.match(
     BENCH,
-    /<FindThumbRow\s+allOpen=\{openAll\}\s+onToggleAll=\{toggleOpenAll\}\s+scope=\{scopeRow \? scopeRow\.t\.label : 'all suppliers'\}\s+onSearch=\{setQuery\}\s+onAdd=\{addYourOwn\}\s+\/>/,
+    /<FindThumbRow\s+allOpen=\{openAll\}\s+onToggleAll=\{toggleOpenAll\}\s+scope=\{scopeRow \? scopeRow\.t\.label : 'all suppliers'\}\s+onSearch=\{setQuery\}\s+onAdd=\{addYourOwn\}\s+emptyPanel=\{findPanel\}\s+\/>/,
   );
-  // Every control is the shipped button; nothing hand-made, no › in a control.
-  assert.equal((ROW.match(/<ActionButton\b/g) ?? []).length, 2);
-  assert.doesNotMatch(ROW, /<button\b|›/);
+  // Every control is the shared row's; nothing hand-made, no › in a control.
+  assert.equal((ROW.match(/<ThumbRow\b/g) ?? []).length, 1);
+  assert.doesNotMatch(ROW, /<button\b|<ActionButton\b|›/);
 });
 
 /* ── T2 · rule 4 ─────────────────────────────────────────────────────────── */
@@ -71,16 +72,14 @@ test('T2 · the search runs 250 ms after the last keystroke, and typing never re
   assert.match(ROW, /export const THUMB_SEARCH_DEBOUNCE_MS = 250;/);
   // The box's text is the row's own state — the list is told later.
   assert.match(ROW, /const \[text, setText\] = useState\(''\);/);
-  assert.match(ROW, /value=\{text\}\s+onChange=\{\(e\) => onText\(e\.target\.value\)\}/);
-  assert.match(ROW, /text=\{text\}\s+onText=\{setText\}/);
+  assert.match(ROW, /value: text,\s+onChange: \(e\) => setText\(e\.target\.value\),/);
   assert.match(
     ROW,
     /const t = window\.setTimeout\(\(\) => \{\s*said\.current = text;\s*onSearch\(text\);\s*\}, THUMB_SEARCH_DEBOUNCE_MS\);\s*return \(\) => window\.clearTimeout\(t\);/,
   );
   assert.doesNotMatch(ROW, /onChange=\{[^}]*onSearch\(/, 'the list is searched on every keystroke');
-  // The words say what the box searches.
-  assert.match(ROW, /const words = `Search \$\{scope\} or add your own`;/);
-  assert.match(ROW, /placeholder=\{words\}\s+aria-label=\{words\}/);
+  // The words name the place, short (owner 2026-10-22) — the full scope is the accessible name.
+  assert.match(ROW, /placeholder: findPlaceholder\(scope\),\s+label: `Search \$\{scope\}`,/);
 });
 
 test('T2 · the bench’s in-list search box is gone with the new shape — one box, at the thumb', () => {
@@ -121,44 +120,24 @@ test('T3 · the body swaps only AFTER the row has slid down — and only when a 
 
 /* ── T4 · rules 3 and 7 ──────────────────────────────────────────────────── */
 
-test('T4 · one fit state for the row; the field keeps its share', () => {
-  // The LABEL is the field the fit pass measures (it holds the icon and the input)…
-  assert.match(ROW, /<label\s+data-glass-row="suppliers-find"\s+data-fit-field=""/);
-  // …and its 60 % is held in CSS too, so it is true before any script runs.
-  const field = /<label\s+data-glass-row="suppliers-find"\s+data-fit-field=""\s+className="([^"]*)"/.exec(ROW)?.[1] ?? '';
-  assert.match(field, /(^| )min-w-\[60%\]( |$)/, 'the field can be squeezed below 60 % of the row');
-  assert.match(field, /(^| )flex-1( |$)/);
-  assert.match(ROW, /<div ref=\{rowRef\} className="[^"]*\bmin-w-0\b[^"]*">/);
-});
-
-test('T4 · the fit pass MOUNTS WITH THE ROW — the row is a portal and does not exist on the first render', () => {
-  // Measured on the preview at 375 (2026-10-08): the placeholder showed only
-  // "S". `useFitRow` ran once in the component that returns null until <body>
-  // is known, found no row, and never ran again. It must be called by the
-  // component that RENDERS the row.
-  const outer = ROW.slice(ROW.indexOf('export function FindThumbRow('), ROW.indexOf('function ThumbControls('));
-  const inner = ROW.slice(ROW.indexOf('function ThumbControls('));
-  assert.ok(outer.length > 0 && inner.length > 0, 'the row moved — re-anchor');
-  assert.match(outer, /if \(!host\) return null;/);
-  assert.doesNotMatch(outer, /useFitRow\(/, 'the fit pass is called where the row does not exist yet');
-  assert.match(inner, /const rowRef = useRef<HTMLDivElement>\(null\);\s*useFitRow\(rowRef\);\s*return \(\s*<div ref=\{rowRef\}/);
-  assert.equal((ROW.match(/useFitRow\(rowRef\)/g) ?? []).length, 1);
-  assert.match(outer, /<ThumbControls\b/);
+test('T4 · the controls are the ONE shared row — icon rounds, the field the widest seat (2026-10-22)', () => {
+  // The 2026-10-07 fit pass (icon + word → word → icon) retires here: every round is icon-only at 44 px, so there is
+  // no word to fit; the field takes the rest (`components/thumb-row.module.css` `.field { flex: 1 1 auto }`).
+  const call = ROW.slice(ROW.indexOf('<ThumbRow'), ROW.indexOf('/>', ROW.indexOf('action={{')));
+  assert.match(call, /name="suppliers-find"/);
+  assert.match(call, /left=\{\[/);
+  assert.match(call, /field=\{\{/);
+  assert.match(call, /action=\{\{\s*icon: Plus,/);
+  assert.doesNotMatch(ROW, /useFitRow|ThumbControls/, 'a second drawing of the row is back');
 });
 
 test('T4 · glass: the row has no background; the field is frosted; Add keeps its full colour', () => {
   const outer = /<div\s+data-find-thumb=""[\s\S]*?className=\{`([^`]*)`\}/.exec(ROW)?.[1] ?? '';
   assert.ok(outer, 'the row lost its anchor');
   assert.doesNotMatch(outer, /(^| )(bg-|shadow|backdrop-blur|sn-glass-row)/, 'the row has a fill, a shadow or a blur of its own');
-  assert.match(ROW, /<label\s+data-glass-row="suppliers-find"\s+data-fit-field=""\s+className="sn-glass-row /);
-  // Add: terracotta, filled, at every width — and NOT the fit pass's "main",
-  // so on a phone it drops its word with the rest of the row (the ＋ circle).
-  // Filled through the ONE source's `filled` option (2026-10-12) — never a `!bg-…` override on the page.
-  // With a name typed in the box the word is simply "Add" (the 2026-10-10 prototype: the typed name rides
-  // into the walk); still brand, still filled — and its press area reaches 44 px (b3fix, on main).
-  assert.match(ROW, /<ActionButton tone="brand" filled icon=\{Plus\} label=\{text\.trim\(\) \? 'Add' : 'Add your own'\} onClick=\{onAdd\} className=\{SUP_REACH_X\} \/>/);
+  // The glass and the terracotta are the shared row's (`every-thumb-row-is-the-one-row.test.ts` renders them).
+  assert.match(ROW, /label: text\.trim\(\) \? 'Add' : 'Add your own',/);
   assert.doesNotMatch(ROW, /!bg-/);
-  assert.doesNotMatch(ROW, /\bmain\b(?!\s*verb)/, 'a `main` button never drops its word — the row would not fit a phone');
 });
 
 /* ── T5 · expand all ─────────────────────────────────────────────────────── */
@@ -172,7 +151,7 @@ test('T5 · Expand all opens every category; a header tap then folds just that o
   assert.match(toggle, /setFolded\(new Set\(\)\);/, 'a stale fold would survive the next Expand all');
   assert.match(toggle, /setOpenAll\(\(on\) => \{\s*if \(on\) \{\s*setOpenFolder\(null\);\s*setOpenTile\(null\);\s*\}\s*return !on;\s*\}\);/);
   // The control says what it will do, and whether everything is open.
-  assert.match(ROW, /label=\{allOpen \? 'Collapse all' : 'Expand all'\}\s+aria-expanded=\{allOpen\}/);
+  assert.match(ROW, /label: allOpen \? 'Collapse all' : 'Expand all',\s+expanded: allOpen,/);
 });
 
 /* ── T6 · add your own ───────────────────────────────────────────────────── */
@@ -184,7 +163,8 @@ test('T6 · Add opens the form for the ONE open category — otherwise it asks w
   // …carrying the name typed in the box (2026-10-10).
   assert.match(
     add,
-    /if \(scopeRow\) setManual\(\{ category: scopeRow\.t\.category, label: scopeRow\.t\.label, name: typedForAdd\.current \}\);\s*else setAddAsk\(true\);/,
+    // …and the ROW itself, so the card is filed under it (owner 2026-10-20).
+    /if \(scopeRow\) setManual\(\{ category: scopeRow\.t\.category, label: scopeRow\.t\.label, name: typedForAdd\.current, tile: scopeRow\.t\.tile \}\);\s*else setAddAsk\(true\);/,
   );
   // ONE add on Find (owner 2026-10-13): the thumb row's ＋ — no category draws its own "Add your own".
   assert.doesNotMatch(BENCH, /\{replan && rowBooked \? \(\s*<div className="morefoot">/, 'a booked category grew its own Add again');
@@ -208,7 +188,7 @@ test('T6 · the question is ONE dropdown of only the categories on the event', (
   assert.match(ask, /options=\{benchRows\.map\(\(\{ t, group \}\) => \(\{ key: t\.tile, label: t\.label, group \}\)\)\}/);
   assert.match(
     ask,
-    /setAddAsk\(false\);\s*if \(row\) setManual\(\{ category: row\.t\.category, label: row\.t\.label, name: typedForAdd\.current \}\);/,
+    /setAddAsk\(false\);\s*if \(row\) setManual\(\{ category: row\.t\.category, label: row\.t\.label, name: typedForAdd\.current, tile: row\.t\.tile \}\);/,
   );
   // A sheet must escape the page's transform.
   assert.match(ask, /createPortal\(\s*<Sheet open onClose=\{\(\) => setAddAsk\(false\)\}[\s\S]*document\.body,\s*\)/);

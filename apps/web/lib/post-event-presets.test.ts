@@ -147,7 +147,10 @@ test('4 · Pro at Apply: a free couple tries a preset in the draft — Apply hol
   // a couple WITHOUT Pro there is shown no tile, diamond or note — a Pro hint in
   // the store app is a purchase hint. A couple who owns Pro keeps them.
   const page = read('app/dashboard/[eventId]/website/editor/page.tsx');
-  assert.match(page, /postEventPresets=\{\s*!makerProUsable\(\{ owns: ownsPro, storeShell \}\)\s*\?\s*null/, 'the presets reach a store-shell couple without Pro');
+  // 🍎 `proShell` = the store shell MINUS Apple In-App Purchase (owner 2026-10-18):
+  // where Apple can sell Pro, a couple tries a preset exactly as on the web.
+  assert.match(page, /postEventPresets=\{\s*!makerProUsable\(\{ owns: ownsPro, storeShell: proShell \}\)\s*\?\s*null/, 'the presets reach a store-shell couple without Pro');
+  assert.match(page, /const proShell = storeShell && !iapGate\.iap;/, 'proShell is not the store shell minus Apple');
   assert.equal(makerProUsable({ owns: false, storeShell: true }), false);
   assert.equal(makerProUsable({ owns: true, storeShell: true }), true, 'a couple who owns Pro keeps them in the shell');
   const picker = read('app/dashboard/[eventId]/website/editor/_components/post-event-preset-tiles.tsx');

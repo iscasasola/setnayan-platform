@@ -85,9 +85,11 @@ test('Welcome · no account card, and the reply sheet has ONE door per state', (
     /\{!replyOpenHere \|\| actionOpensReply\(arrivalAction\) \|\|\s*\(tabs\.on && \(guest\.rsvp_status === 'attending' \|\| guest\.rsvp_status === 'declined'\)\) \? null : \(\s*<a\s+href=\{replyDoor\}/,
   );
   // 🔁 RE-AIMED 2026-10-11 (owner, "ONE REPLY FORM"): every reply door opens the reply PAGE (`inviteReplyPath`); the sheet is drawn only in the Maker's canvas.
-  // …and Me's "Change your reply" stands down while the Welcome's action is that door.
+  // 🔁 RE-AIMED 2026-10-24 (owner, the Me redraw — "one place"): Me's "Change your reply" bar is gone; Me has ONE
+  // Reply (`MeReply`) and no second door — the page holds exactly one (`me-is-the-one-place.test.ts`).
   const me = body.slice(body.indexOf("group('me'"));
-  assert.match(me.slice(0, me.indexOf('data-me-change-reply')), /&& !actionOpensReply\(arrivalAction\) \? \(\s*<a\s+href=\{replyDoor\}\s*$/);
+  assert.ok(!me.includes('data-me-change-reply'), 'a second reply door is back on Me');
+  assert.equal((me.match(/<MeReply\b/g) ?? []).length, 1, 'Me does not hold exactly one Reply');
   // The face-data controls sit with Me's Face tagging row on a tabbed page.
   assert.match(body, /\{tabs\.on \? null : group\('home', guest\.photo_source === 'selfie' \? \(\s*<FaceDataNotice/);
   assert.match(me, /\{guest\.photo_source === 'selfie' \? \(\s*<FaceDataNotice/);
@@ -107,7 +109,6 @@ test('Me · the name once, no second sign-out, ONE Save to my account, ONE main 
       askPlusOnes: true,
       eventName: 'Indalecio & Claire',
       guests: [{ guestId: 'p1', name: 'Lola Nena', inviteUrl: 'https://x/ana?invite=t1' }],
-      passes: {},
       account: { kind: 'offer' },
       personalLink: 'https://x/ana?invite=t0',
       userAgent: 'Mozilla/5.0 (Linux; Android 14) Chrome/128 Mobile Safari/537.36',
@@ -129,12 +130,12 @@ test('Me · the section adds no heading over the guest’s name, no explainer, a
     React.createElement(GuestMeSection, { meSlot: React.createElement('p', null, 'me'), photosHref: null, galleryCount: 0, asTab: true }),
   );
   assert.equal(controls(quiet).length, 0, `Me's section draws ${controls(quiet).length} controls of its own with the ticket on the page`);
-  assert.doesNotMatch(quiet, /Your invitation|shows up under Photos of you/, 'the heading or the explainer is back');
+  assert.doesNotMatch(quiet, /Your invitation|shows up under (?:Photos|Memories) of you/, 'the heading or the explainer is back');
   // Once the page itself stops drawing the photos, ONE link to them.
   const after = renderToStaticMarkup(
     React.createElement(GuestMeSection, { meSlot: null, photosHref: '/papic/me/tok', galleryCount: 3, asTab: true }),
   );
-  assert.equal((after.match(/Photos of you/g) ?? []).length, 1);
+  assert.equal((after.match(/Memories of you/g) ?? []).length, 1);
   // page.tsx decides that once, from the phase — never "always".
   const page = read('page.tsx');
   assert.match(page, /const photosLeftThePage = eventIsPast && dayOfPhase !== 'live' && dayOfPhase !== 'post';/);
@@ -184,12 +185,9 @@ test('Post Event · no phase ribbon repeating the footer, and no link to its own
   assert.equal((ed.match(/href=\{`\/\$\{slug\}\/hub`\}/g) ?? []).length, 1, 'the Day’s link is drawn more than once');
 });
 
-test('The host’s own hub · "Preview ▾" is ONE dropdown, not a pill row', () => {
-  const ribbon = read('_components/owner-ribbon.tsx');
-  // 👁 PR-10: the ONE dropdown also holds See as (one preview mechanism with the Maker).
-  assert.match(ribbon, /<OwnerPhaseMenu links=\{model\.phaseLinks\} seeAs=\{model\.seeAsLinks\} \/>/);
-  assert.doesNotMatch(ribbon, /phaseLinks\.map\(/, 'the phase pills are back');
-  assert.match(read('_components/owner-phase-menu.tsx'), /<PickMenu\b/, 'the preview is not the shared dropdown');
+test('The host’s own hub · no host strip, so no Preview ▾ over the page (owner 2026-10-15: "Remove it")', () => {
+  // The strip's ONE dropdown ("Preview ▾") went with it: the stages and See as are the Maker's (hold ▶ · See as ▾).
   const body = read('_components/site-body.tsx');
-  assert.ok(!body.includes('This is your event page'), 'the host’s explaining paragraph is back under the ribbon');
+  assert.doesNotMatch(body, /<OwnerRibbon\b|<OwnerPhaseMenu\b|data-owner-phase-menu/, 'the host’s Preview ▾ is back over the page');
+  assert.ok(!body.includes('This is your event page'), 'the host’s explaining paragraph is back');
 });

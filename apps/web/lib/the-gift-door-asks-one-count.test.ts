@@ -188,7 +188,10 @@ test('5 · the loader: one count, and none at all when no way to give is on', ()
   /* The door no longer stands on the gift page's whole read, and takes no reader. */
   assert.doesNotMatch(loaders, /readGuestWishList|GIFT_SUM_FIELDS|event_gift_records/, 'a guest page view reads the gift records for the door');
   assert.match(fn, /async \( admin: AdminClient, eventId: string, eventType: string \| null, \): Promise</, 'the doorway loader was handed a reader');
-  /* The gift PAGE itself still reads its list — there it is the content, and it is read once. */
-  const page = flat('app/[slug]/pabuya/page.tsx');
+  /* The gift PAGE itself still reads its list — there it is the content, and it is read once: by its one reader,
+     which the Welcome page's E-Gifts also calls (2026-10-14) — only where E-Gifts is drawn there, never for the door
+     (`site-body.tsx` starts it only when `doorways.pabuya` is set; `an-account-number-is-not-public.test.ts`). */
+  const page = flat('app/[slug]/pabuya/_lib/gift-page.server.ts');
   assert.equal([...page.matchAll(/readGuestWishList\(/g)].length, 1);
+  assert.equal([...flat('app/[slug]/pabuya/page.tsx').matchAll(/readGuestWishList\(|loadGiftPage\(/g)].length, 1, 'the gift page reads its list some second way');
 });

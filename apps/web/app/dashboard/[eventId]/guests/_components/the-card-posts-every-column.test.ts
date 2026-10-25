@@ -66,6 +66,25 @@ const EXEMPT: Record<string, string> = {
   // Autosave plumbing, not a column.
   quiet: 'tells the action not to redirect',
   return_to: 'tells the action where an error lands',
+  // 👗 Owner 2026-10-20 ("the attire depends on the dress code of their role"): the card SAYS what their role's dress
+  // code gives them and posts no attire. Safe only because updateGuest writes `attire` only when a form posts it —
+  // held by the test below, so this line cannot quietly become an eraser.
+  attire: 'written only when posted (attirePosted); the card shows the role dress code instead',
+};
+
+/**
+ * 👥 Columns posted by a LEAF the body names rather than by a literal input (owner 2026-10-20: one Group dropdown, one Role
+ * dropdown — each posts the two columns its two old rows posted; `card-fields.tsx` › `useSplitPick`). That they really are
+ * posted, in every state, is `the-card-posts-the-same-form.test.ts`'s golden; this only reads that the leaf is there.
+ */
+const LEAF_POSTS: Record<string, RegExp> = {
+  group_category: /<K\.Group\b/,
+  group_ids: /<K\.Group\b/,
+  role: /<K\.Roles\b/,
+  extra_roles: /<K\.Roles\b/,
+  // 🪪 The Title posts ONE hidden `name_title` from its leaf (`CardTitle`) — the hand-drawn kit that wrote it out in this
+  // file is gone (2026-10-24, one guest card everywhere).
+  name_title: /<K\.Title\b/,
 };
 
 test('every column updateGuest writes is represented on the card', () => {
@@ -73,7 +92,7 @@ test('every column updateGuest writes is represented on the card', () => {
   for (const key of columnsUpdateGuestWrites()) {
     if (key in EXEMPT) continue;
     const present =
-      CARD.includes(`id="${key}"`) || CARD.includes(`name="${key}"`);
+      CARD.includes(`id="${key}"`) || CARD.includes(`name="${key}"`) || Boolean(LEAF_POSTS[key]?.test(CARD));
     if (!present) missing.push(key);
   }
   assert.deepEqual(
@@ -83,6 +102,15 @@ test('every column updateGuest writes is represented on the card', () => {
       `every autosave nulls them: ${missing.join(', ')}. Add the control back, ` +
       `or carry the value in a hidden input and say why.`,
   );
+});
+
+test('attire is exempt only because updateGuest writes it ONLY when a form posts it', () => {
+  const at = ACTIONS.indexOf('export async function updateGuest(');
+  const end = ACTIONS.indexOf('export async function ', at + 10);
+  const body = ACTIONS.slice(at, end === -1 ? undefined : end);
+  assert.match(body, /const attirePosted = formData\.has\('attire'\)/, 'updateGuest no longer asks whether attire was posted');
+  assert.match(body, /\.\.\.\(attirePosted \? \{ attire \} : \{\}\)/, 'attire is written whether or not it was posted — every card save resets it to neutral');
+  assert.doesNotMatch(body, /^\s*attire,\s*$/m, 'attire is written unconditionally again');
 });
 
 test('the carriers are hidden inputs, not forgotten controls', () => {

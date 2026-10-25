@@ -210,13 +210,22 @@ async function nameGuestAt(eventId: string, guestId: string, points: number) {
 }
 
 /**
- * ONE capture, the way `app/api/papic/guest-capture/route.ts` takes one: the
- * split reserve FIRST (her own balance, then the pot), the record SECOND.
+ * ONE capture, the way `app/api/papic/guest-capture/route.ts` takes one:
+ * `papic_record_guest_capture_and_spend` (20271276810836), which books the
+ * split (her own balance, then the pot) FIRST and records SECOND, inside one
+ * transaction.
  *
- * ⚠ THE ORDER IS THE POINT, not incidental setup. The reserve is what moves
+ * ⚠ THE ORDER IS THE POINT, not incidental setup. The split is what moves
  * `papic_seat_point_usage`, and the gate reads that ledger — a test that
- * recorded without reserving would be exercising a code path no shipped caller
- * takes, and would report the guest's own credits as never spent.
+ * recorded without booking would be exercising a code path no shipped caller
+ * takes, and would report the guest's own credits as never spent. Driving the
+ * shipped function (rather than the two calls it replaced) is what makes every
+ * test in this file a proof that the one-transaction version meters her
+ * exactly as the two-call route did.
+ *
+ * `seatId` is kept as an argument so each call site still names the camera it
+ * means; the function finds that same camera itself (this event, this guest,
+ * not revoked) and is never told which one.
  */
 async function shootOwnCamera(
   eventId: string,
@@ -225,9 +234,10 @@ async function shootOwnCamera(
   kind: 'photo' | 'clip' = 'photo',
   cost = 1,
 ) {
-  await db.query(`SELECT public.papic_reserve_capture_split($1, $2, $3)`, [seatId, eventId, cost]);
+  void eventId;
+  void seatId;
   return one<Reply>(
-    `SELECT public.papic_record_guest_capture($1, $2, false, $3, $4, NULL, $5)`,
+    `SELECT public.papic_record_guest_capture_and_spend($1, $2, false, $3, $4, NULL, $5)`,
     [guestId, `r2://own/${Math.random()}`, kind, kind === 'clip' ? 10000 : null, cost],
   );
 }
@@ -290,7 +300,7 @@ test('⛔ the funding source is NOT an argument — this function is anon-callab
   assert.equal(
     await one<boolean>(
       `SELECT has_function_privilege('anon',
-         'public.papic_record_guest_capture(uuid,text,boolean,text,integer,text,integer,timestamptz)'::regprocedure,
+         'public.papic_record_guest_capture(uuid,text,boolean,text,integer,text,integer,timestamptz,uuid)'::regprocedure,
          'EXECUTE')`,
     ),
     true,

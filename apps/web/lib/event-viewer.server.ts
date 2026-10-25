@@ -3,6 +3,8 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { eventMemberTypeOnce } from '@/lib/event-membership-once';
+import { eventRowOnce } from '@/lib/event-row-once';
 import type { EventViewer } from './event-viewer';
 import type { ModeratorPermissions } from './delegate-areas';
 import { permissionsWithinWindow } from './delegate-access-window';
@@ -38,12 +40,8 @@ export async function fetchEventViewer(
   userId: string,
 ): Promise<EventViewer> {
   const [memberRes, delegateRes, eventRes] = await Promise.all([
-    supabase
-      .from('event_members')
-      .select('member_type')
-      .eq('event_id', eventId)
-      .eq('user_id', userId)
-      .maybeSingle(),
+    // The render's one membership read (lib/event-membership-once.ts) — the event layout's gate asks it too.
+    eventMemberTypeOnce(supabase, eventId, userId),
     supabase
       .from('event_moderators')
       .select('permissions_json')
@@ -56,11 +54,14 @@ export async function fetchEventViewer(
     // after the event; the couple's never does). Read alongside the other two
     // rather than after them — it is the same round trip, and a delegate whose
     // window has closed must not be resolved as a delegate at all.
-    supabase
-      .from('events')
-      .select('event_date, event_end_date, event_date_precision')
-      .eq('event_id', eventId)
-      .maybeSingle(),
+    // From the dashboard's one read of the row, when this render opened it (lib/event-row-once.ts).
+    eventRowOnce(supabase, eventId, 'event_date, event_end_date, event_date_precision', () =>
+      supabase
+        .from('events')
+        .select('event_date, event_end_date, event_date_precision')
+        .eq('event_id', eventId)
+        .maybeSingle(),
+    ),
   ]);
 
   if (memberRes.error) {

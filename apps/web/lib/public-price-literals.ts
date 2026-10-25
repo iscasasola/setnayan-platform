@@ -81,8 +81,9 @@ export const PUBLIC_PRICE_LITERALS: readonly PriceLiteral[] = [
   {
     file: 'app/_components/app-store/studio-card-demo.tsx',
     literal: '₱500',
-    sku: 'ANIMATED_MONOGRAM',
-    reason: 'Monogram demo frame sells the single-price idea; the figure must be the real one.',
+    // 💎 2026-10-22: the animation is Event Hub Pro's Logo & QR part (the standalone ANIMATED_MONOGRAM is retired).
+    sku: 'COUPLE_HUB_PART_LOGO_QR',
+    reason: 'Monogram demo frame sells the single-price idea; the figure must be the real one (the Logo & QR part).',
   },
   {
     file: 'app/_components/app-store/studio-card-demo.tsx',
@@ -94,7 +95,7 @@ export const PUBLIC_PRICE_LITERALS: readonly PriceLiteral[] = [
     file: 'app/_components/app-store/studio-card-demo.tsx',
     literal: '₱85,000',
     sku: null,
-    reason: 'Illustrative vendor quote inside a mock gallery tile — not a Setnayan SKU.',
+    reason: 'Illustrative vendor quote inside a mock photo tile — not a Setnayan SKU.',
   },
 
   // ── vendor marketing · real SKU prices in tier copy ────────────────────────
@@ -155,14 +156,6 @@ export const PUBLIC_PRICE_LITERALS: readonly PriceLiteral[] = [
     reason:
       'Grey placeholder text in an empty price input ("From ₱2,500") for a supplier ' +
       'pricing their OWN booth — never stored or shown as a value.',
-  },
-  {
-    file: 'app/vendor-dashboard/services/_components/canvas-maker.tsx',
-    literal: '₱25,000',
-    sku: null,
-    reason:
-      'Preview card illustrating the maker (a made-up supplier, "from ₱25,000 per ' +
-      'event") — that supplier\'s own price, not a Setnayan SKU.',
   },
   {
     file: 'app/vendor-dashboard/shop/_components/voice-match-card.tsx',

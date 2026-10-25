@@ -13,6 +13,16 @@ const labId = () => `lab-${++seq}`;
 
 export const LAB_GUEST_ACTIONS: Partial<GuestActions> = {
   bulkApplyRoleAndGroup: async () => undefined as never,
+  /* ✋ Select → Set reply — local: says every id changed (the screen draws the new reply itself, and its Undo clears it). */
+  setGuestRsvp: async (_eventId, ids) => ({
+    ok: true,
+    changed: (typeof ids === 'string' ? [ids] : [...ids]).map((guest_id) => ({ guest_id, rsvp_status: 'pending' as const, rsvp_responded_at: null, rsvp_set_by: null, freedSeat: null })),
+    skipped: 0,
+    seats: { removedIds: [], releasedSeats: [] },
+  }),
+  restoreGuestRsvpAndSeat: async () => ({ ok: true }),
+  /* 📸 Their camera / Set… › Papic — local: says every guest was set. */
+  setGuestAllotment: async (fd: FormData) => ({ ok: true as const, set: fd.getAll('guest_id').length }),
   createGuestGroup: async () => undefined as never,
   addSingleGuest: async (_eventId, draft) => ({
     ok: true,
@@ -35,6 +45,13 @@ export const LAB_GUEST_ACTIONS: Partial<GuestActions> = {
     },
   }),
   quickCreateGroup: async (_eventId, label) => ({ ok: true, group: { group_id: labId(), label }, created: true }),
+  /* 👥 The one Group dropdown's ✎ / 🗑 — local; the count is the lab's fixture size (12, as the prototype's A5). */
+  editGuestGroupInPlace: async (_eventId, groupId, edit) =>
+    edit.op === 'count'
+      ? { ok: true, n: 12 }
+      : edit.op === 'create'
+        ? { ok: true, group: { group_id: labId(), label: edit.label.trim() } }
+        : { ok: true, group: { group_id: groupId, label: edit.op === 'rename' ? edit.label.trim() : '' } },
   addRoleToGuest: async (_eventId, guestId, role) => ({ ok: true, guest: { guest_id: guestId, role: role as GuestRole, extra_roles: [role as GuestRole] } }),
   setGuestPrimaryRole: async (_eventId, guestId, role) => ({ ok: true, guest: { guest_id: guestId, role: role as GuestRole, extra_roles: [] } }),
   listPeopleYouCanInvite: async () => ({
@@ -45,7 +62,7 @@ export const LAB_GUEST_ACTIONS: Partial<GuestActions> = {
     ],
     partial: false,
   }),
-  addGuestsFromPeople: async (_eventId, picks) => ({ ok: true, added: picks.length, failed: 0, firstError: null }),
+  addGuestsFromPeople: async (_eventId, picks) => ({ ok: true, added: picks.length, failed: 0, firstError: null, guestIds: picks.map(() => labId()) }),
   /* "Invite N" opens the lab's own one-by-one run (the REAL run on fixtures), not a real route. */
   sendRunHref: (_eventId, ids) => `/dev/guests-lab?part=run&ids=${ids.join(',')}`,
   /* Setup's "Send to N" and "Pick who" stay in the lab: its own run, its own list. */
@@ -77,3 +94,43 @@ export const LAB_SETUP_REFUSALS: Partial<GuestActions> = {
   updatePaxSettings: async () => ({ ok: false, code: 'db_error', message: 'invalid input syntax for type date: "2027-02-30"' }),
   setGuestListFinalized: async () => ({ ok: false, error: 'column events.final_pax does not exist' }),
 };
+
+/**
+ * `?addMs=N` — the two adds (the name box's `addSingleGuest`, Quick add's `quickAddGuest`) answer after N ms, the way a
+ * real add waits on the server; a name with "Refuse" in it is refused in plain words. Every add that starts is written, in
+ * order, to `window.__labWrites` — so a walk can prove ten Enters made ten writes, in the order they were typed, with no
+ * duplicate. Nothing leaves the machine.
+ */
+export function labTimedAdds(ms: number): Partial<GuestActions> {
+  const wait = () => new Promise<void>((r) => setTimeout(r, Math.max(0, ms)));
+  const log = (name: string, phase: 'start' | 'end') => {
+    if (typeof window === 'undefined') return;
+    const w = window as unknown as { __labWrites?: { name: string; phase: string; t: number }[] };
+    (w.__labWrites ??= []).push({ name, phase, t: performance.now() });
+  };
+  return {
+    addSingleGuest: async (eventId, draft, opts) => {
+      const name = `${draft.firstName} ${draft.lastName}`.trim();
+      log(name, 'start');
+      await wait();
+      log(name, 'end');
+      if (/refuse/i.test(name)) return { ok: false, error: 'Couldn’t add that guest. Try again.' };
+      return LAB_GUEST_ACTIONS.addSingleGuest!(eventId, draft, opts);
+    },
+    addGuestsFromPeople: async (eventId, picks, side, withPicks) => {
+      const name = `People ${picks.map((p) => p.key).join(',')}`;
+      log(name, 'start');
+      await wait();
+      log(name, 'end');
+      return LAB_GUEST_ACTIONS.addGuestsFromPeople!(eventId, picks, side, withPicks);
+    },
+    quickAddGuest: async (eventId, input, opts) => {
+      const name = `${input.first_name} ${input.last_name}`.trim();
+      log(name, 'start');
+      await wait();
+      log(name, 'end');
+      if (/refuse/i.test(name)) return { ok: false, error: 'Couldn’t add that guest. Try again.' };
+      return LAB_GUEST_ACTIONS.quickAddGuest!(eventId, input, opts);
+    },
+  };
+}

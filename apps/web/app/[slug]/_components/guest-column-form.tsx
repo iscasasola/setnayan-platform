@@ -82,6 +82,7 @@ export function GuestColumnForm({
         }
         setEditing(false);
         setConsent(false);
+        // one-render: keep (fetch) — it follows a `fetch()` to /api/guest-columns; no server action answered with a render.
         router.refresh();
       } catch {
         setError('Something hiccuped — please try again.');
@@ -101,6 +102,7 @@ export function GuestColumnForm({
         setEditing(false);
         setTitle('');
         setBody('');
+        // one-render: keep (fetch) — it follows a `fetch()` to /api/guest-columns; no server action answered with a render.
         router.refresh();
       } catch {
         setError('Something hiccuped — please try again.');

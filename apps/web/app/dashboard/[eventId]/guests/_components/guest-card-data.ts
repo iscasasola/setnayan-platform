@@ -1,4 +1,6 @@
 import 'server-only';
+import { getCurrentUser } from '@/lib/auth';
+import { eventRowOnce } from '@/lib/event-row-once';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { ceremonyMatches, isChineseWedding } from '@/lib/chinese-wedding';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -25,6 +27,12 @@ import { readSeatAccount } from '@/lib/seat-unlink';
 import { accountNamesByGuest } from '@/lib/linked-profile-names';
 import { withProfileName } from '@/lib/formal-name';
 import { offersThisIsMe } from '@/lib/creator-couple-row';
+import { guestOutfitOf, guestOutfitWords } from '@/lib/guest-outfit';
+import { sanitizeRolePalette } from '@/lib/mood-board';
+import { resolveDisplayPalette } from '@/lib/room-palette';
+import { plusOneOfWords, type PlusOneOf } from '@/lib/plus-one-of';
+import { plusOneSeatLines, plusOneSeatPeople } from '@/lib/extra-seats';
+import type { RsvpStatus } from '@/lib/guests';
 
 /**
  * The base every guest's own invitation link (and NFC tag) is built from —
@@ -60,6 +68,8 @@ export async function fetchInvitationBase(
  */
 
 export type GroupChip = { label: string; teamSide: 'bride' | 'groom' | 'both' };
+/** `guest_groups.team_side` is NOT NULL, CHECK bride · groom · both (default both) — anything else reads as both. */
+const asTeamSide = (v: string | null | undefined): GroupChip['teamSide'] => (v === 'bride' || v === 'groom' ? v : 'both');
 
 export type GuestCardData = {
   guest: GuestRow;
@@ -76,8 +86,20 @@ export type GuestCardData = {
   isIncWedding: boolean;
   /** Chinese primary rite OR a tea ceremony over another rite. */
   showTeaCeremony: boolean;
-  /** The +1 row's current state, or null when no +1 exists yet. */
-  plusOneStateLabel: string | null;
+  /**
+   * 🪑 One line per live +1 seat row, oldest first (`plusOneSeatLines`) — EVERY seat, so a guest who brings two shows
+   * two. `[]` = no seat row yet. NULL = THE READ WAS REFUSED: the card says it could not read them, never "no +1 added
+   * yet" (a failure is not an emptiness — 2026-10-22, two-seat guests were told they had none).
+   */
+  plusOneLines: readonly string[] | null;
+  /**
+   * 🪑 The same seats as people — one tappable card each in Additional Guests (owner-approved prototype
+   * `guest_card_groups_and_papic_2026-10-23.html`: avatar · name · "+1 of Rosario · Attending" · ›). `name` is null while the
+   * seat waits for its name (`plusOneHasNoName`). Same order as `plusOneLines`; NULL when the read was refused. Optional: a
+   * card drawn from elsewhere (the Maker) without it keeps the one-line list.
+   */
+  plusOnePeople?: readonly { guestId: string; name: string | null; status: RsvpStatus }[] | null;
+  /** The oldest seat's row, or null when there is none (or the read was refused). */
   plusOneGuestId: string | null;
   /** The guest's saved invited-to blocks, filtered to values we still know. */
   initialInvited: InvitedToBlock[];
@@ -101,6 +123,11 @@ export type GuestCardData = {
   /** 🔒 A plus-one who linked their OWN account — their name is shown read-only,
    *  "Linked to their account" (owner 2026-09-29, OWNER ANSWERS (10)). */
   nameLinked: boolean;
+  /**
+   * 🤝 Whose +1 this row is — the card's title and eyebrow name them (2026-10-20: the card on Rose Marie Buanhug's
+   * seat read "+1 · TBA" under "GUEST · BRIDE'S SIDE"). Null for everyone who is not a +1, or when the read failed.
+   */
+  plusOneOf?: PlusOneOf | null;
   /**
    * The account this row is bound to (`event_members.guest_id`), shown to the
    * couple with an Unlink (lib/seat-unlink.ts). Null when nobody holds it, or
@@ -129,7 +156,13 @@ export type GuestCardData = {
    * checkmark dropdown. Null when either read was refused: the card then shows
    * the groups read-only and posts nothing, so a refusal can never unTick them.
    */
-  groupChoices: { options: { groupId: string; label: string }[]; memberIds: string[] } | null;
+  groupChoices: { options: { groupId: string; label: string; teamSide: GroupChip['teamSide'] }[]; memberIds: string[] } | null;
+  /**
+   * 👗 What they wear in the 3D seat plan, in words — their ROLE'S dress code (owner 2026-10-20: *"the attire depends on
+   * the dress code of their role"*), read by the ONE reading Me › What to wear makes (`guestOutfitOf`). Null when the
+   * event's dress code could not be read: the card then says nothing, never a "Not set yet" it did not measure.
+   */
+  outfit: { wear: string; from: string } | null;
 };
 
 export async function loadGuestCard(
@@ -155,39 +188,41 @@ export async function loadGuestCard(
     singletonHolders,
     roleSet,
     { data: ceremonyRow, error: ceremonyRowError },
-    { data: plusOneRow, error: plusOneRowError },
+    { data: plusOneRows, error: plusOneRowError },
     { data: seatRow, error: seatRowError },
     { data: groupRows, error: groupRowsError },
     { data: tableRows, error: tableRowsError },
     { data: eventGroupRows, error: eventGroupRowsError },
     roleNames,
+    { data: dressRow, error: dressRowError },
   ] = await Promise.all([
     fetchGuestById(supabase, eventId, guestId),
     // 👤 Linked to an account with a formal name → the card wears the profile's
     // name, exactly as the list does (lib/linked-profile-names.ts).
     accountNamesByGuest(supabase, eventId),
-    supabase.auth.getUser().then((r) => r.data.user?.id ?? null),
+    // The request's ONE verified user (`getCurrentUser`, cache()d) — never a second auth-server trip.
+    getCurrentUser().then((u) => u?.id ?? null),
     // Hide bride/groom from the role dropdown if someone else already has
     // them — DB partial unique indexes enforce this regardless, but the UI
     // shouldn't offer an option that will fail on save.
     fetchSingletonRoleHolders(supabase, eventId, guestId),
     resolveRoleSetForEvent(eventId),
-    supabase
-      .from('events')
-      // `secondary_ceremony_type` too: the common Tsinoy case is a CHURCH wedding
-      // with a tea ceremony as the OVERLAY rite, and `isChineseWedding` matches
-      // primary OR secondary. Reading only the primary would hide the tea-ceremony
-      // field from exactly the couples who need it.
-      .select('ceremony_type, secondary_ceremony_type')
-      .eq('event_id', eventId)
-      .maybeSingle(),
+    // `secondary_ceremony_type` too: the common Tsinoy case is a CHURCH wedding
+    // with a tea ceremony as the OVERLAY rite, and `isChineseWedding` matches
+    // primary OR secondary. Reading only the primary would hide the tea-ceremony
+    // field from exactly the couples who need it.
+    // 🗂 From the dashboard's one read of the row when this render opened it (lib/event-row-once.ts).
+    eventRowOnce(supabase, eventId, 'ceremony_type, secondary_ceremony_type', () =>
+      supabase.from('events').select('ceremony_type, secondary_ceremony_type').eq('event_id', eventId).maybeSingle(),
+    ),
     supabase
       .from('guests')
-      .select('guest_id, first_name, last_name, plus_one_name_confirmed_at')
+      // 🪑 EVERY seat row — never `.maybeSingle()`: two seats were an error that drew "no +1 added yet" (2026-10-22).
+      .select('guest_id, first_name, last_name, plus_one_name_confirmed_at, created_at, rsvp_status')
       .eq('event_id', eventId)
       .eq('plus_one_of_guest_id', guestId)
       .is('deleted_at', null)
-      .maybeSingle(),
+      .order('created_at', { ascending: true }),
     supabase
       .from('event_seat_assignments')
       // 🔴 `table_label`, NOT `label`. There is no `label` column on
@@ -202,9 +237,15 @@ export async function loadGuestCard(
       .eq('guest_id', guestId),
     // The Table and Groups dropdowns' choices — this event's tables and groups.
     supabase.from('event_tables').select('table_id, table_label').eq('event_id', eventId),
-    supabase.from('guest_groups').select('group_id, label').eq('event_id', eventId),
+    supabase.from('guest_groups').select('group_id, label, team_side').eq('event_id', eventId),
     // The couple's words for roles — its own read, graceful (usual words on a refusal).
     loadRoleNames(supabase, eventId, 'loadGuestCard.roleNames'),
+    // 👗 The dress code the Seat fold's "Attire · 3D seat plan" line reads — its OWN read, so a refusal drops only that
+    // line and never the ceremony context above.
+    // (And from the one row too — if THAT read is refused, this one is sent on its own, as before.)
+    eventRowOnce(supabase, eventId, 'dress_code_config, role_palette', () =>
+      supabase.from('events').select('dress_code_config, role_palette').eq('event_id', eventId).maybeSingle(),
+    ),
   ]);
   if (!stored) return null;
   const guest = withProfileName(stored, profileNames);
@@ -224,20 +265,23 @@ export async function loadGuestCard(
   // Both rite columns — a mixed wedding with an INC side reads as INC here too.
   const isIncWedding = ceremonyMatches(ceremonyRow, 'inc');
 
-  // ⚠ 🚨 A FALSE STATEMENT ABOUT A GUEST. Refused, this renders "Allowed but no +1
-  // ⚠ has been added to the list yet" — telling the couple their guest has not named
-  // ⚠ a plus-one when they may well have. Not an empty list: a claim about a person.
+  // ⚠ 🚨 A FALSE STATEMENT ABOUT A GUEST. Refused, this once rendered "Allowed, but no +1
+  // ⚠ added yet" — telling the couple their guest has no plus-one when they may well have.
+  // ⚠ Not an empty list: a claim about a person. So a refusal is `plusOneLines: null`, which
+  // ⚠ the card draws as "couldn't read", never as the empty state.
   if (plusOneRowError) {
     logQueryError('loadGuestCard.plusOneRow', plusOneRowError, { eventId, guestId }, 'graceful_degrade');
   }
-  const plusOneStateLabel = plusOneRow
-    ? plusOneRow.plus_one_name_confirmed_at
-      ? `Bringing ${[plusOneRow.first_name, plusOneRow.last_name]
-          .filter(Boolean)
-          .join(' ')
-          .trim()}`
-      : 'Awaiting +1 to confirm their name'
-    : null;
+  const plusOneRowList = (plusOneRows ?? []) as Array<{
+    guest_id: string;
+    first_name: string | null;
+    last_name: string | null;
+    plus_one_name_confirmed_at: string | null;
+    created_at: string | null;
+    rsvp_status: RsvpStatus | null;
+  }>;
+  const plusOneLines = plusOneRowError ? null : plusOneSeatLines(guestId, plusOneRowList);
+  const plusOnePeople = plusOneRowError ? null : plusOneSeatPeople(guestId, plusOneRowList);
 
   // Filter to known valid InvitedToBlock values — schema column is
   // string[] so legacy data could contain stale block names.
@@ -297,8 +341,8 @@ export async function loadGuestCard(
     eventGroupRowsError || groupRowsError
       ? null
       : {
-          options: ((eventGroupRows ?? []) as { group_id: string; label: string | null }[])
-            .map((g) => ({ groupId: g.group_id, label: g.label?.trim() || 'Group' }))
+          options: ((eventGroupRows ?? []) as { group_id: string; label: string | null; team_side?: string | null }[])
+            .map((g) => ({ groupId: g.group_id, label: g.label?.trim() || 'Group', teamSide: asTeamSide(g.team_side) }))
             .sort((a, b) => a.label.localeCompare(b.label)),
           memberIds: ((groupRows ?? []) as { group_id?: string }[])
             .map((r) => r.group_id)
@@ -307,7 +351,7 @@ export async function loadGuestCard(
 
   // Access (co-host / limited helper) and whether the viewer may change it —
   // plus, beside them, whether a +1 holds their own account (needs the row).
-  const [accessMap, viewerMembership, nameLinked] = await Promise.all([
+  const [accessMap, viewerMembership, nameLinked, plusOneOf] = await Promise.all([
     loadGuestAccessMap(eventId, [{ guest_id: guest.guest_id, role: guest.role }]),
     (async () => {
       if (!viewerId) return null;
@@ -339,6 +383,37 @@ export async function loadGuestCard(
           return Boolean(data);
         })()
       : Promise.resolve(false),
+    // 🤝 The guest who brings them, and that guest's seats in order — the card names the seat as the List does.
+    guest.plus_one_of_guest_id
+      ? (() => {
+          // Both reads leave together, beside the access pair (no extra wait: `.then`, never a queued `await`).
+          const hostId = guest.plus_one_of_guest_id as string;
+          return Promise.all([
+            supabase
+              .from('guests')
+              .select('guest_id, first_name, last_name, display_name, side')
+              .eq('event_id', eventId)
+              .eq('guest_id', hostId)
+              .is('deleted_at', null)
+              .maybeSingle(),
+            supabase
+              .from('guests')
+              .select('guest_id')
+              .eq('event_id', eventId)
+              .eq('plus_one_of_guest_id', hostId)
+              .is('deleted_at', null)
+              .order('created_at', { ascending: true }),
+          ]).then(([{ data: host, error: hostErr }, { data: seatIds, error: seatErr }]) => {
+            if (hostErr || seatErr) {
+              logQueryError('loadGuestCard.plusOneOf', hostErr ?? seatErr, { eventId, guestId }, 'graceful_degrade');
+              return null;
+            }
+            if (!host) return null;
+            const seatIndex = ((seatIds ?? []) as { guest_id: string }[]).findIndex((r) => r.guest_id === guest.guest_id);
+            return plusOneOfWords(guest, host as never, Math.max(0, seatIndex));
+          });
+        })()
+      : Promise.resolve(null),
   ]);
 
   const canManageAccess = viewerMembership !== null;
@@ -370,7 +445,26 @@ export async function loadGuestCard(
       rowOwnedByAnotherAccount: rowFacts.ownedByAnother,
     });
 
+  // ⚠ The dress code the card's "Attire · 3D seat plan" line reads. Refused → no line (never a "Not set yet" it did not measure).
+  if (dressRowError) {
+    logQueryError('loadGuestCard.dressRow', dressRowError, { eventId, guestId }, 'graceful_degrade');
+  }
+  const dress = (dressRow ?? null) as { dress_code_config?: unknown; role_palette?: unknown } | null;
+  /* No row at all (the event hidden from this reader) is not "nothing picked" either — no line. */
+  const outfit = dressRowError || !dress
+    ? null
+    : guestOutfitWords(
+        guestOutfitOf({
+          role: guest.role,
+          dressCodeConfig: dress?.dress_code_config ?? null,
+          palette: resolveDisplayPalette(sanitizeRolePalette(dress?.role_palette)),
+          roleNames,
+          person: { name_prefix: guest.name_prefix ?? null, display_name: guest.display_name ?? null, gender: guest.gender ?? null, attire: guest.attire },
+        }),
+      );
+
   return {
+    outfit: outfit ? { wear: outfit.wear, from: outfit.from } : null,
     roleNames,
     tables,
     seatTableId: (seatRow?.table_id as string | null | undefined) ?? null,
@@ -385,8 +479,9 @@ export async function loadGuestCard(
     ],
     isIncWedding,
     showTeaCeremony,
-    plusOneStateLabel,
-    plusOneGuestId: plusOneRow?.guest_id ?? null,
+    plusOneLines,
+    plusOnePeople,
+    plusOneGuestId: plusOneRowError ? null : (plusOneRowList[0]?.guest_id ?? null),
     initialInvited,
     seatedAt,
     customGroups,
@@ -395,6 +490,7 @@ export async function loadGuestCard(
     canManageAccess,
     offersThisIsMe: thisIsMe,
     nameLinked,
+    plusOneOf,
     linkedAccount,
     profileName: linkedProfile ? { isYou: linkedProfile.userId === viewerId } : null,
   };

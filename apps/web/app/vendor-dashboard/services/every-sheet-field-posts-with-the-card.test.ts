@@ -18,12 +18,18 @@
  *   1. the joining itself WORKS — every control under a portaled root gets
  *      `form=`, including ones mounted later (an upload that lands, a row added),
  *      and a sibling form's controls are left to their own form;
- *   2. every sheet INSIDE the card form in the React tree passes `formId` —
- *      one sheet without it is one block of fields that silently posts nothing;
- *   3. every field the maker renders sits in the card form or in a sheet that
- *      joins it (or in the audience sheet's own form) — no field outside a form;
- *   4. what reads the form across the portal (the live card, the local keep,
- *      FileUpload's in-flight refusal) finds it by ownership, not by DOM nesting.
+ *   2. RE-POINTED 2026-10-15 (supplier-easy step 3 — the card maker without
+ *      sheets): the rebuilt maker ends the fault BY CONSTRUCTION — every card
+ *      field lives in an in-page fold, a DOM descendant of the card form, and
+ *      NO sheet sits inside the card form. So what is pinned now is that shape:
+ *      no <CanvasSheet> inside the card form; a sheet carries only choices or a
+ *      sibling <form> of its own — never a loose card field;
+ *   3. every field the maker renders sits in the card form or in a sibling
+ *      form — no field outside a form;
+ *   4. the card form is `noValidate` (a field in a SHUT, inert fold cannot be
+ *      shown, so a native refusal is a silent dead press), and FileUpload's
+ *      in-flight refusal finds its form by ownership (`ownerFormOf`).
+ *   Part 1 still pins the joining helper — any future portaled field must join.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -234,7 +240,7 @@ test('Enter in a joined sheet field never submits the card; Enter elsewhere is u
   assert.equal(enterWouldSubmit('a', { tagName: 'INPUT', type: 'text' }), false, 'typing was blocked');
 });
 
-// ── 2 + 3 · the maker wires it, for every sheet and every field ─────────────
+// ── 2 + 3 · the maker's shape: fields in the form, never in a sheet ───────
 
 /** End of a JSX opening tag starting at `start` (`<Tag`), skipping `{…}` props. */
 function tagEnd(src: string, start: number): number {
@@ -255,6 +261,10 @@ function indicesOf(src: string, needle: RegExp): number[] {
   return out;
 }
 
+/** `name=` on a layout component is not a field (SupplierThumbRow's `name` keys its slot). */
+const NOT_A_FIELD = /<(SupplierThumbRow)\b[^<]*$/;
+const fieldsIn = (body: string) => indicesOf(body, FIELD).filter((i) => !NOT_A_FIELD.test(body.slice(0, i)));
+
 const src = read(MAKER);
 const makerStart = src.indexOf('export function CanvasMaker(');
 const makerEnd = src.indexOf('\nfunction ', makerStart);
@@ -266,65 +276,55 @@ const cardOpen = indicesOf(maker, /<form\b/).find((i) =>
 );
 const cardClose = cardOpen === undefined ? -1 : maker.indexOf('</form>', cardOpen);
 
+// A field is any element with a name=, or a shipped editor that renders named fields.
+const FIELD = new RegExp(
+  String.raw`\sname=[{"]|<(FileUpload|ShowcaseMediaFields|PricingBasisEditor|PriceBracketsEditor|DiscountsEditor|IncludedFlags|InclusionsEditor|CustomizationStep|AddonsEditor|PaymentScheduleEditor)\b`,
+);
+
 test('the guard reads a real maker', () => {
   assert.ok(src.length > 50_000, `${MAKER} is ${src.length} chars — a guard on an empty file passes everything`);
   assert.ok(makerStart > -1 && makerEnd > makerStart, 'CanvasMaker is gone or renamed');
 });
 
-test('the card form has the id the sheets join, and does not refuse in silence over a closed sheet', () => {
+test('the card form has the id the thumb row names, and does not refuse in silence over a shut fold', () => {
   assert.ok(cardOpen !== undefined, 'the card <form> no longer carries id={CARD_FORM_ID}');
   const open = maker.slice(cardOpen, tagEnd(maker, cardOpen));
   assert.match(open, /action=\{commitVendorService\}/, 'the id moved off the form that saves the card');
   assert.match(src, /export const CARD_FORM_ID = '[a-z-]+';/, 'CARD_FORM_ID is not a plain constant');
-  // Most fields live in CLOSED sheets: a native refusal there focuses nothing
-  // and says nothing. The server re-validates and says why.
   assert.match(open, /\bnoValidate\b/, 'the card form lost noValidate');
 });
 
-test('every sheet inside the card form joins it', () => {
+test('no sheet sits inside the card form — a sheet portals to <body>, so its fields would post nothing', () => {
   const sheets = indicesOf(maker, /<CanvasSheet\b/);
   const inForm = sheets.filter((i) => i > cardOpen! && i < cardClose);
   console.log(`  sheets inside the card form: ${inForm.length} · outside: ${sheets.length - inForm.length}`);
-  assert.ok(inForm.length >= 6, `only ${inForm.length} sheets found inside the card form — the region is mis-read`);
-  for (const i of inForm) {
-    const open = maker.slice(i, tagEnd(maker, i));
-    const id = /\bid="([^"]+)"/.exec(open)?.[1] ?? '?';
-    assert.match(
-      open,
-      /\bformId=\{CARD_FORM_ID\}/,
-      `sheet ${id} sits in the card form but does not join it — every field in it posts NOTHING`,
-    );
-  }
-  for (const i of sheets.filter((j) => j > cardClose)) {
+  assert.ok(sheets.length >= 3, `only ${sheets.length} sheets found — the scan is mis-reading the maker`);
+  assert.deepEqual(
+    inForm.map((i) => /\bid="([^"]+)"/.exec(maker.slice(i, tagEnd(maker, i)))?.[1] ?? '?'),
+    [],
+    'a sheet sits inside the card form — every field in it posts NOTHING (live 2026-09-07 → 10-14)',
+  );
+  for (const i of sheets) {
     const close = maker.indexOf('</CanvasSheet>', i);
     const body = maker.slice(i, close);
     const id = /\bid="([^"]+)"/.exec(body)?.[1] ?? '?';
-    assert.match(body, /<form\b/, `sheet ${id} sits outside the card form and carries no form of its own`);
-    assert.doesNotMatch(
-      maker.slice(i, tagEnd(maker, i)),
-      /formId=/,
-      `sheet ${id} has its own form — joining the card would post its fields twice`,
+    const forms = indicesOf(body, /<form\b/).map((a) => [a, body.indexOf('</form>', a)] as const);
+    const loose = fieldsIn(body).filter((f) => !forms.some(([a, b]) => f > a && f < b));
+    assert.deepEqual(
+      loose.map((f) => body.slice(f, f + 60).replace(/\s+/g, ' ')),
+      [],
+      `sheet ${id} carries a field outside any form of its own — it would post nothing`,
     );
   }
 });
 
 test('every field the maker renders sits in a form that saves it', () => {
-  // A field is any element with a name=, or a shipped editor that renders named fields.
-  const FIELD_COMPONENTS =
-    /<(FileUpload|ShowcaseMediaFields|PricingBasisEditor|PriceBracketsEditor|DiscountsEditor|IncludedFlags|InclusionsEditor|CustomizationStep)\b/;
-  const fields = [
-    ...indicesOf(maker, /\sname=[{"]/),
-    ...indicesOf(maker, new RegExp(FIELD_COMPONENTS.source)),
-  ].sort((a, b) => a - b);
-  // Sibling forms (the audience sheet's): their fields are theirs.
-  const siblingForms = indicesOf(maker, /<form\b/)
-    .filter((i) => i !== cardOpen)
-    .map((i) => [i, maker.indexOf('</form>', i)] as const);
-  const homeless = fields.filter(
-    (i) => !(i > cardOpen! && i < cardClose) && !siblingForms.some(([a, b]) => i > a && i < b),
-  );
-  console.log(`  fields in the maker: ${fields.length} · outside any form: ${homeless.length}`);
-  assert.ok(fields.length >= 15, `only ${fields.length} fields found — the scan is mis-reading the maker`);
+  const fields = fieldsIn(maker).sort((a, b) => a - b);
+  const forms = indicesOf(maker, /<form\b/).map((i) => [i, maker.indexOf('</form>', i)] as const);
+  const homeless = fields.filter((i) => !forms.some(([a, b]) => i > a && i < b));
+  const inCard = fields.filter((i) => i > cardOpen! && i < cardClose);
+  console.log(`  fields in the maker: ${fields.length} · in the card form: ${inCard.length} · outside any form: ${homeless.length}`);
+  assert.ok(inCard.length >= 15, `only ${inCard.length} fields found in the card form — the scan is mis-reading the maker`);
   assert.deepEqual(
     homeless.map((i) => maker.slice(i, i + 60).replace(/\s+/g, ' ')),
     [],
@@ -332,45 +332,7 @@ test('every field the maker renders sits in a form that saves it', () => {
   );
 });
 
-test('the sheet joins its fields by construction, on the portaled root', () => {
-  const at = src.indexOf('function CanvasSheet(');
-  assert.ok(at > -1, 'CanvasSheet is gone');
-  const body = src.slice(at);
-  assert.match(body, /formId\?: string/, 'CanvasSheet no longer takes the form id');
-  assert.match(
-    body,
-    /joinPortaledFieldsToForm\(root, formId\)/,
-    'CanvasSheet no longer joins its fields to the form',
-  );
-  assert.match(
-    body,
-    /createPortal\(\s*<div\s+ref=\{rootRef\}/,
-    'the joining watches something other than the portaled root',
-  );
-  // Joined fields would let Enter in the price box submit the card through its
-  // default button — Publish. The joined sheet swallows that one key.
-  assert.match(
-    body,
-    /onKeyDown=\{\s*formId\s*\?\s*\(e\) => \{\s*if \(enterWouldSubmit\(e\.key, e\.target as HTMLInputElement\)\) e\.preventDefault\(\);/,
-    'a joined sheet lets Enter submit (and publish) the card',
-  );
-});
-
-test('what reads the card form across the portal finds it by ownership', () => {
-  // The live card and the local keep listen on the document and keep to this
-  // card's fields; a listener on the <form> element never hears a sheet.
-  assert.doesNotMatch(
-    maker,
-    /form\.addEventListener\('(input|change|click)'/,
-    'a field listener went back onto the <form> element — typing in a sheet never reaches it',
-  );
-  assert.equal(
-    indicesOf(maker, /ownerFormOf\(e\.target as Element \| null\) === form/).length,
-    2,
-    'the live card read and the local keep must each filter by ownerFormOf',
-  );
-  // FileUpload refuses a save while a photo is still uploading — on the form
-  // it belongs to, which closest('form') cannot find from inside a sheet.
+test("FileUpload's in-flight refusal finds its form by ownership", () => {
   const fu = read(FILE_UPLOAD);
   assert.match(fu, /const form = ownerFormOf\(rootRef\.current\);/, 'FileUpload finds its form by DOM nesting again');
 });

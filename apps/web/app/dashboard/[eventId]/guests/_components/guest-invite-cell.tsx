@@ -159,7 +159,12 @@ export function GuestInviteCell({
     the two, and Share waits for it rather than sending without it.
   */
   const fileName = ticketFileName(guest.fullName);
-  const file = useTicketFile(guest.guestId, fileName, open && touch && Boolean(guest.inviteUrl) && guest.hasTicket !== false);
+  const file = useTicketFile(
+    guest.guestId,
+    fileName,
+    open && touch && Boolean(guest.inviteUrl) && guest.hasTicket !== false,
+    guest.ticketVersion,
+  );
 
   const sentDay = sentAt
     ? new Date(sentAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })
@@ -339,6 +344,8 @@ export function GuestInviteCell({
             onClick={invite}
             disabled={pending}
             aria-haspopup="dialog"
+            /* ▾ on the card — Invite opens its send choices (owner-approved prototype `guest_card_groups_and_papic_2026-10-23.html`). */
+            caret={layout === 'card'}
             className="relative z-20"
           />
         </span>
@@ -408,7 +415,7 @@ export function GuestInviteCell({
                 <>
                   <p className="text-xs text-ink/75">The copy was blocked — select it and copy it.</p>
                   <textarea
-                    className="w-full rounded-lg border border-ink/15 bg-white p-2 text-xs leading-relaxed text-ink"
+                    className="w-full rounded-lg border border-ink/15 bg-white dark:bg-raised p-2 text-xs leading-relaxed text-ink"
                     readOnly
                     value={said.text}
                     rows={5}

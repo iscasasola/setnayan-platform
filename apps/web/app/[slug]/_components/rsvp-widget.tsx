@@ -3,7 +3,7 @@ import { GuestToHostCta } from '@/app/_components/guest-to-host-cta';
 import type { PapicFaceMode } from '@/lib/papic-face-mode';
 import { submitRsvp } from '../actions';
 import type { GuestRow } from '../_lib/types';
-import { plusOneSeats } from '@/lib/guests';
+import { isAPlusOne, plusOneSeats } from '@/lib/guests';
 import { RsvpPlusOnes } from './rsvp-plus-ones';
 import { rsvpAsks, type RsvpAskConfig, type RsvpAskField, type RsvpWords } from '@/lib/rsvp-ask';
 import { rsvpFormWord, type RsvpFormWordKey } from '@/lib/rsvp-form-words';
@@ -250,7 +250,8 @@ export function RsvpWidget({
   const askMealOrDietary = askMeal || askDietary;
   // With the plus-ones' own "Meal preference" just above, the guest's own box
   // says whose it is (prototype rsvp_plus_ones_2026-09-29.html, frame A).
-  const bringsPlusOnes = askPlusOnes && guest.plus_one_allowed && !replyLocked;
+  // 🚫 A +1's own reply never offers a +1 of their own (owner 2026-10-21) — `isAPlusOne`.
+  const bringsPlusOnes = askPlusOnes && !isAPlusOne(guest) && guest.plus_one_allowed && !replyLocked;
   // The key gate found no number on record and the couple asks for one — the
   // page cannot be left without it (owner 2026-09-26: "filled first until they
   // are all answered").
@@ -519,7 +520,7 @@ export function RsvpWidget({
         <fieldset data-rsvp-step className="space-y-2" aria-labelledby={led ? undefined : `${FORM_LINE_ID.eyebrow} ${FORM_LINE_ID.question}`}>
           {(() => {
             /* 2a · THE FABLE WORDS (owner 2026-09-30, "APPROVED — THE FABLE DESIGNS…"):
-               "Your reply" over "Will you celebrate with us?". */
+               "Your reply" over "Will you join us?". */
             /* 🧩 Each line carries its NAME (`data-rsvp-line`, `rsvp-canvas-parts.ts`): on the Maker's RSVP stage
                every line is its own part. For a guest it is only a name — it draws nothing. */
             /* 📝 …and its WORDS: the couple's own (`answerWords`), else the card's — the same two lines as before
@@ -612,7 +613,7 @@ export function RsvpWidget({
           per-guest `plus_one_allowed` above — turning it off hides the name
           box for every guest the couple already allowed one, without
           touching who is allowed (a host action, done on the Guest list). */}
-      {askPlusOnes && guest.plus_one_allowed && !replyLocked ? (
+      {bringsPlusOnes ? (
         <div id="plus-ones" data-rsvp-step {...canvasAsk('plus_ones')} className={`${revealAll ? '' : 'attending-reveal '}scroll-mt-6 space-y-1.5`}>
           {/* One short set per seat + one "Filling in for ▾" switcher
               (owner 2026-09-29) — its own file, so this card only mounts it. */}

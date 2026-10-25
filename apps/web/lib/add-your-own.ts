@@ -81,3 +81,27 @@ export function claimLinkWords(vendorName: string): { heading: string; how: stri
       `${(vendorName || 'supplier').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'supplier'}-setnayan-link`,
   };
 }
+
+/**
+ * STEP 2's DROPDOWN — ONE ENTRY PER SUPPLIERS-PAGE ROW (owner 2026-10-20: *"We
+ * want them to be designated to their category"*).
+ *
+ * Until 2026-10-20 the bench collapsed rows that share a stored category ("the
+ * first one names it"), so Food Truck and Mocktail — both stored as `misc` —
+ * were ONE entry, and a supplier added under either was filed by whichever
+ * came first. Each row now keeps its own entry, keyed on the row (`tile`), and
+ * the add posts that row as `category_key`. Pure, so the bench and the guard
+ * (`an-added-supplier-is-filed-under-its-row.test.ts`) build the same list.
+ */
+export function addOwnCategoriesFromRows(
+  rows: ReadonlyArray<{ t: { tile: string; category: string; label: string }; group?: string }>,
+): Array<{ category: string; tile: string; label: string; group?: string }> {
+  const seen = new Set<string>();
+  const out: Array<{ category: string; tile: string; label: string; group?: string }> = [];
+  for (const { t, group } of rows) {
+    if (seen.has(t.tile)) continue;
+    seen.add(t.tile);
+    out.push({ category: t.category, tile: t.tile, label: t.label, ...(group !== undefined ? { group } : {}) });
+  }
+  return out;
+}

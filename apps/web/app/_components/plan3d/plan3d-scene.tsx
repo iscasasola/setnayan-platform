@@ -323,6 +323,8 @@ const SUIT_CLASS_OUTFITS: readonly FigureSpec['outfit'][] = ['suit', 'barong'];
  *  bits (skin tone = h % 6 — sharing parity would give every gown-wearer the
  *  same skin-tone subset). */
 function outfitForGuest(g: Plan3DGuest): FigureSpec['outfit'] {
+  /* 👗 A Wear the sample's dress code names for their role is worn as named (owner 2026-10-20) — no variety. */
+  if (g.outfit) return g.outfit;
   const h = hashGuestId(g.id) >>> 16;
   if (g.attire === 'gown') return GOWN_CLASS_OUTFITS[h % GOWN_CLASS_OUTFITS.length]!;
   if (g.attire === 'suit') return SUIT_CLASS_OUTFITS[h % SUIT_CLASS_OUTFITS.length]!;
@@ -1493,7 +1495,8 @@ export function Plan3DScene({
         <boxGeometry
           args={[Math.max(1.5, (floor.stage.wPct / 100) * room.w), 0.28, Math.max(1, (floor.stage.hPct / 100) * room.d)]}
         />
-        <meshStandardMaterial color={palette.accent} roughness={0.5} metalness={0.1} />
+        {/* 🎨 The couple's Stage colour (Palette › Stage, 2026-10-19), else the accent it always wore. */}
+        <meshStandardMaterial color={palette.stage ?? palette.accent} roughness={0.5} metalness={0.1} />
       </mesh>
 
       {/* Dance floor — the mood-board mural (Fable §3.7). This room previously

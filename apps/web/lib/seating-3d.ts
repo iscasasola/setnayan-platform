@@ -146,8 +146,13 @@ export type Lab3DGuest = {
   /** Resolved selfie/avatar URL (consent-gated upstream) — worn by the 3D
    * avatar's head as a camera-facing photo disc. null → coloured token. */
   photoUrl: string | null;
-  /** Resolved attire for the avatar's body silhouette. */
+  /** Resolved attire for the avatar's body silhouette — from their role's dress code (`seatPlanOutfitOf`). */
   attire: 'gown' | 'suit' | 'neutral';
+  /**
+   * 👗 The kit garment their role's Wear names (owner 2026-10-20, `seatPlanOutfitOf`): a "Barong Tagalog" is a barong,
+   * a "Filipiniana" the Filipiniana. Null / absent — no Wear said: the class's own variety (a third barong / Filipiniana).
+   */
+  outfit?: 'gown' | 'suit' | 'barong' | 'filipiniana' | null;
   /** Motif colour for a gown/suit body (mood-board attire palette); null for
    * neutral, which keeps the RSVP-coloured token body. */
   attireColor: string | null;
@@ -198,6 +203,19 @@ export type Lab3DPalette = {
    */
   chairs?: string;
   florals?: string;
+  /**
+   * 🎨 THE PALETTE'S OTHER PARTS (owner 2026-10-19, "yes all circles" — and these colours feed the 3D Plan). The
+   * couple's EXPLICIT `room_dressing` override for the part, and ONLY that, for the reason chairs/florals give above:
+   * absent = they set none, and every surface draws exactly what it drew before. Read where the room draws the part —
+   * the stage slab (`stage`), the walls and drapes (`walls`), the ceiling's hanging lights (`ceiling`), the entrance
+   * tunnel (`tunnel`), the table candles (`candles`) and the cake (`cake`). The bouquets have no 3D object.
+   */
+  stage?: string;
+  walls?: string;
+  ceiling?: string;
+  tunnel?: string;
+  candles?: string;
+  cake?: string;
   /**
    * THE FIFTH MAJOR COLOUR — `role_palette.reception[4]`, the slot
    * `PALETTE_LIMITS.reception.slotLabels` calls **"Accent 2"**.

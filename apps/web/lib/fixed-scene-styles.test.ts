@@ -82,13 +82,17 @@ test('2 · no pick is style A — and a pick is drawn only on a stage that draws
   }
   assert.equal(fixedSceneStyleOf(PREFS, 'entourage', 'event', 'wedding'), 'march');
   assert.equal(fixedSceneStyleOf({ scene_styles: { find_your_seat: 'place-card' } }, 'find_your_seat', 'rsvp'), null, 'no seat styles before the day');
-  assert.equal(fixedSceneStyleOf({ scene_styles: { entourage: 'two-sides' } }, 'entourage', 'event', 'birthday'), 'roll-call', 'two sides is a wedding style');
+  /* 🚫 Two sides withdrawn (owner 2026-10-15): a saved pick reads as the default everywhere — a wedding too. */
+  for (const t of ['wedding', 'birthday']) {
+    assert.equal(fixedSceneStyleOf({ scene_styles: { entourage: 'two-sides' } }, 'entourage', 'event', t), 'roll-call', `two sides is withdrawn (${t})`);
+  }
+  assert.equal(fixedSceneStyleOf({ scene_styles: { entourage: 'lines' } }, 'entourage', 'rsvp', 'wedding'), 'lines', 'Lines is drawn');
   assert.equal(fixedSceneStyleOf(PREFS, 'entourage', null), null, 'no stage → the component’s own look');
 });
 
 const LIVE: HubLiveState = { events: {}, widgets: [], fixedStyles: { entourage: 'march' } };
 
-test('3 · drafted, undone, worn by the host’s canvas, classified free at Apply, written to events', () => {
+test('3 · drafted, undone, worn by the host’s canvas, Pro at Apply unless the default (2026-10-16), written to events', () => {
   const d1 = mergeHubDraft(emptyHubDraft(), { fixedStyles: { find_your_seat: 'place-card' } });
   const d2 = mergeHubDraft(d1, { fixedStyles: { live_hub: 'theatre' } });
   assert.deepEqual(d2.fixedStyles, { find_your_seat: 'place-card', live_hub: 'theatre' }, 'one pick never forgets another');
@@ -100,10 +104,15 @@ test('3 · drafted, undone, worn by the host’s canvas, classified free at Appl
   const row = overlayHubDraftEvent({ event_id: 'e', style_preferences: PREFS } as Record<string, unknown>, d2);
   assert.deepEqual(fixedSceneStylesFromPreferences(row.style_preferences), { entourage: 'march', find_your_seat: 'place-card', live_hub: 'theatre' });
 
-  // A free couple: a style pick is never Pro, never held.
+  /* 💎 RE-AIMED 2026-10-18 (owner 2026-10-16: *everything in Style is Pro … style cards on a part*): a card that is
+     not the theme's own is HELD for a couple without Pro and named at ✓ Apply; the event's unlock writes it. A pick
+     equal to live (`entourage: 'march'`, already published) is no change at all — grandfathered. */
   const d3 = mergeHubDraft(d2, { fixedStyles: { entourage: 'march' } });
-  const plan = planHubDraftApply(d3, LIVE, false);
-  assert.equal(plan.refused.length, 0, 'a style pick is free');
+  const held = planHubDraftApply(d3, LIVE, false);
+  assert.deepEqual(held.refused.map((i) => (i.kind === 'fixed-style' ? i.scene : 'x')), ['find_your_seat', 'live_hub'], 'a non-default card went live for a free couple');
+  assert.deepEqual(held.remaining.fixedStyles, { find_your_seat: 'place-card', live_hub: 'theatre' }, 'a held card left the draft');
+  const plan = planHubDraftApply(d3, LIVE, true);
+  assert.equal(plan.refused.length, 0, 'a Pro couple’s card was held');
   const picks = plan.apply.filter((i) => i.kind === 'fixed-style');
   assert.deepEqual(
     picks.map((i) => (i.kind === 'fixed-style' ? [i.scene, i.value] : null)),

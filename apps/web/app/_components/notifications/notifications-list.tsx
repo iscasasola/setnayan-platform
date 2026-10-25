@@ -122,7 +122,7 @@ function NotificationItem({
         {n.related_url ? (
           <Link
             href={n.related_url}
-            className="rounded-md bg-mulberry px-3 py-1 text-xs font-medium text-cream hover:bg-mulberry-600"
+            className="inline-flex min-h-11 items-center rounded-md bg-mulberry px-3 py-1 text-xs font-medium text-cream hover:bg-mulberry-600"
           >
             Open
           </Link>

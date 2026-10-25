@@ -218,7 +218,7 @@ const GALLERY_LINE = 'Every photo from your day';
 function galleryPart(input: OurServicesInput): OurServicePart | null {
   const href = `/dashboard/${input.eventId}/galleries`;
   if (input.refusesPath(href)) return null;
-  return { key: 'gallery', name: 'Gallery', href, line: GALLERY_LINE };
+  return { key: 'gallery', name: 'Memories', href, line: GALLERY_LINE };
 }
 
 function catalogueCard(svc: CatalogueService, input: OurServicesInput): OurService | null {

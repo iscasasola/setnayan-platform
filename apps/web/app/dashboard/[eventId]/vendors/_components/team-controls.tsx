@@ -66,7 +66,6 @@ export function TeamRemoveCandidate({
   vendorId: string;
   vendorName: string;
 }) {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
   return (
     <button
@@ -80,7 +79,6 @@ export function TeamRemoveCandidate({
           // Vendor-scoped by design — a multi-pick category keeps its other
           // candidates (the guard lives in removeBuildPickRow).
           await removeBuildPick({ eventId, planGroupId: groupId, vendorId });
-          router.refresh();
         });
       }}
       className="shrink-0 rounded-full p-1.5 text-ink/35 transition hover:bg-ink/5 hover:text-danger-600 disabled:opacity-40"
@@ -92,7 +90,6 @@ export function TeamRemoveCandidate({
 
 /** "Clear candidates" — empties the BUILD only. Confirm-first: it's a bulk discard. */
 export function TeamClearCandidates({ eventId }: { eventId: string }) {
-  const router = useRouter();
   // `dialog` is the portal node the hook renders — it MUST be mounted or the
   // confirm promise never resolves (the same contract build-compare uses).
   const { confirm, dialog } = useConfirm();
@@ -119,7 +116,6 @@ export function TeamClearCandidates({ eventId }: { eventId: string }) {
           if (!ok) return;
           startTransition(async () => {
             await clearBuildPicks({ eventId });
-            router.refresh();
           });
         }}
         className="inline-flex items-center gap-1 text-xs text-ink/45 underline-offset-2 transition hover:text-danger-600 hover:underline disabled:opacity-50"
@@ -155,7 +151,6 @@ export function TeamSavePlan({
   currentPlan: PlanBuildSnapshot;
   savedBuilds: SavedPlanBuild[];
 }) {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [name, setName] = useState('');
   // '' = create a new named plan; a build_id = overwrite that one.
@@ -216,7 +211,6 @@ export function TeamSavePlan({
         else setNamedNotice(null);
         setName('');
         setOverwriteId('');
-        router.refresh();
       }
     });
   }

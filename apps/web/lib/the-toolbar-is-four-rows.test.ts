@@ -146,8 +146,16 @@ test('(2) four tools — Edit | Style | Background | Animate — words only, eac
   assert.ok(keys.length >= 40);
   let bg = 0;
   for (const k of keys) {
+    /* 🖼 (The Cover Scene — the group of the cover's words — has Edit (its lines) and Background: owner-approved
+       2026-10-15 and 2026-10-16; its Style (the Opening) and Animate (one entrance) follow.) */
+    if (k === 'coverscene') {
+      assert.deepEqual(MAKER_PART_TOOLS.filter((t) => makerPartToolWorks(k, t)), [...MAKER_PART_TOOLS], 'the Cover Scene has all four tools');
+      bg += 1;
+      continue;
+    }
     /* (The Camera is a full-screen design with ONLY Style live — owner 2026-10-09.) */
-    assert.equal(makerPartToolWorks(k, 'edit'), k !== 'camera', `${k}: Edit`);
+    /* (🖼 …and the cover's photo, which has no words — its Edit says where the picture is changed, 2026-10-16.) */
+    assert.equal(makerPartToolWorks(k, 'edit'), k !== 'camera' && k !== 'coverphoto', `${k}: Edit`);
     /* (…and Style on all but a part with no look to pick at all — `MAKER_PARTS_NO_LOOK`, The Day's "Happening now".) */
     assert.equal(makerPartToolWorks(k, 'style'), !MAKER_PARTS_NO_LOOK.includes(k), `${k}: Style`);
     const scene = (MAKER_PARTS[k].canvas ?? '').startsWith('w:');
@@ -155,10 +163,11 @@ test('(2) four tools — Edit | Style | Background | Animate — words only, eac
     if (scene) bg += 1;
   }
   assert.ok(bg >= 8, `anti-vacuity: only ${bg} parts have a background`);
-  /* A single line of the cover sits on the cover's — grey, and it says so in the prototype's own words. */
+  /* A single line of the cover sits on the Cover Scene — grey, and it says so in the prototype's own words (its door
+     to the group: `lib/the-cover-scene-is-one-group.test.ts`). */
   for (const k of ['logo', 'ename', 'names', 'heroline', 'date', 'place', 'herolink'] as const) {
     assert.equal(makerPartToolWorks(k, 'bg'), false, `${k}: a line of the cover has a background of its own`);
-    assert.equal(makerPartToolWhy(k, 'bg'), 'This sits on the cover’s background.');
+    assert.equal(makerPartToolWhy(k, 'bg'), 'This sits on the Cover Scene.');
   }
 });
 
@@ -229,7 +238,7 @@ test('(3) the rows start from the top and nothing scrolls up and down; Edit: the
   assert.match(sheet, /const go = step === 'up' \? now\.earlier : step === 'down' \? now\.later : now\.remove;\s*if \(go\) go\(\);\s*else drag\.say\(step === 'up' \? now\.why\.earlier : step === 'down' \? now\.why\.later : now\.why\.remove\);/, 'a grey step does not say why');
   assert.match(sheet, /can=\{\{ up: now\.earlier !== null, down: now\.later !== null, remove: now\.remove !== null \}\}/);
   /* The line, by what the part can do: it does not move at all · it moves but is at an end · it cannot be taken off. */
-  assert.deepEqual(partStepWhy('Names', false, false), { earlier: 'Names keeps its place on this page.', later: 'Names keeps its place on this page.', remove: 'Names stays on this page.' });
+  assert.deepEqual(partStepWhy('Event title', false, false), { earlier: 'Event title keeps its place on this page.', later: 'Event title keeps its place on this page.', remove: 'Event title stays on this page.' });
   assert.deepEqual(partStepWhy('Schedule', true, true), { earlier: 'It is already first on this page.', later: 'It is already last on this page.', remove: '' });
   for (const line of Object.values(partStepWhy('Supplier Stories', false, false))) assert.ok(line.length >= 20 && line.length <= 60 && /\.$/.test(line), `“${line}” is not one short line`);
   setStagePanelNow({ picked: null, quiet: null, about: null });
@@ -322,11 +331,11 @@ test('(5) what left the toolbar: the stage ▾, "Tap a part of the page", the pa
 });
 
 test('(6) the shipped Maker never sees any of it: mounted only by the new Maker on a phone; every rule names the toolbar', () => {
-  /* Mounted in one place, behind `ss` (the flag AND a phone), on the Stages side. */
+  /* Mounted in one place, behind `ss` (the flag AND a phone — or a desktop with its three columns on), on the Stages side. */
   const shell = read(`${L}/maker-shell.tsx`);
   assert.equal((shell.match(/<StageTools\b/g) ?? []).length, 1);
   assert.match(shell, /grab=\{ss \? side === 'stages' \? <StageTools /);
-  assert.match(shell, /const ss = stagesStudio && phone;|ss = stagesStudio && phone/, 'the new Maker is no longer the flag AND a phone');
+  assert.match(shell, /const ss = stagesStudio && \(phone \|\| desktopColumns\);/, 'the new Maker is no longer the flag AND (a phone, or a desktop with its three columns)');
 
   /* Every rule the toolbar writes is conditional on the toolbar being drawn. */
   const tools = read(`${L}/stage-tools.tsx`);
@@ -349,14 +358,14 @@ test('(7) the editing line is shortened from the FRONT — the part’s name is 
   const { stageEditingLine, STAGE_BAR_LINE_LEAD, STAGE_BAR_LINE_ABOUT } = await import('./maker-stage-room');
   const { MAKER_STAGE_PAGES } = await import('./maker-parts');
   /* The worked example: 375 px cut this to "… › WELCOME › N…". */
-  const pieces = ['Invitation', 'Welcome', 'Names'];
-  assert.deepEqual(stageEditingLine(pieces, 0), { lead: true, words: 'Invitation › Welcome › Names' });
-  assert.deepEqual(stageEditingLine(pieces, 1), { lead: false, words: 'Invitation › Welcome › Names' }, '"You’re editing ·" is not the first thing dropped');
-  assert.deepEqual(stageEditingLine(pieces, 2), { lead: false, words: 'Welcome › Names' }, 'the stage is not dropped before the page');
-  assert.deepEqual(stageEditingLine(pieces, 3), { lead: false, words: 'Names' });
+  const pieces = ['Invitation', 'Welcome', 'Event title'];
+  assert.deepEqual(stageEditingLine(pieces, 0), { lead: true, words: 'Invitation › Welcome › Event title' });
+  assert.deepEqual(stageEditingLine(pieces, 1), { lead: false, words: 'Invitation › Welcome › Event title' }, '"You’re editing ·" is not the first thing dropped');
+  assert.deepEqual(stageEditingLine(pieces, 2), { lead: false, words: 'Welcome › Event title' }, 'the stage is not dropped before the page');
+  assert.deepEqual(stageEditingLine(pieces, 3), { lead: false, words: 'Event title' });
   /* Past the last level nothing more is dropped — the last piece is never lost. */
-  assert.deepEqual(stageEditingLine(pieces, 9), { lead: false, words: 'Names' });
-  assert.deepEqual(stageEditingLine(['Save the Date', 'Names'], 2), { lead: false, words: 'Names' });
+  assert.deepEqual(stageEditingLine(pieces, 9), { lead: false, words: 'Event title' });
+  assert.deepEqual(stageEditingLine(['Save the Date', 'Event title'], 2), { lead: false, words: 'Event title' });
   assert.deepEqual(stageEditingLine(['Post Event'], 1), { lead: false, words: 'Post Event' });
   assert.equal(STAGE_BAR_LINE_LEAD, 'You’re editing');
 

@@ -10,7 +10,7 @@
  *   1. THE WORDS — each style prints the owner's own example; a suffix is kept;
  *      a missing part is skipped cleanly (never "Mr. , Manuel").
  *   2. THE PRINTED LISTS — the entourage and the name list are built in the
- *      style, and a Display name is printed as given in every style.
+ *      style; a "Shown as" never replaces the full name (owner 2026-10-20).
  *   3. THE SETTING SURVIVES EVERY OTHER SAVE — `print_details` is one jsonb
  *      with several writers; each must carry what it does not own.
  *   4. THE STYLE REACHES THE CALL — every formal surface's name call is handed
@@ -22,9 +22,10 @@ import assert from 'node:assert/strict';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import ts from 'typescript';
+import { parseTitleKey, titleChoices } from './guest-title';
 import { middleInitials, nameStyleOfPrintDetails, styledName, ticketName, type NameStyle } from '@/lib/name-style';
 import { guestFullName } from '@/lib/guests';
-import { placeCardName } from '@/lib/formal-name';
+import { NAME_PREFIX_CHOICES, placeCardName } from '@/lib/formal-name';
 import { buildEntourage, lineNames, plainGuestNames, type EntourageGuestRow } from '@/lib/entourage';
 import { parsePrintDetails, serializePrintDetails } from '@/lib/print-pieces';
 
@@ -145,11 +146,11 @@ test('a walking pair’s line follows the style — both full names, never a sha
   );
 });
 
-test('the name list is built in the style, and a Display name is printed as given', () => {
-  assert.deepEqual(plainGuestNames(ROWS, 'surname-first').sort(), ['Ms. Cruz, Ana B.', 'Tito Boy']);
-  for (const style of ['full', 'middle-initial', 'surname-first'] as const) {
-    assert.equal(guestFullName({ ...MANUEL, display_name: 'Tito Manny' }, style), 'Tito Manny');
-  }
+test('the name list is built in the style, and a "Shown as" never replaces the full name (owner 2026-10-20)', () => {
+  assert.deepEqual(plainGuestNames(ROWS, 'surname-first').sort(), ['Ms. Cruz, Ana B.', 'Reyes, Jose']);
+  assert.equal(guestFullName({ ...MANUEL, display_name: 'Tito Manny' }, 'full'), 'Mr. Manuel Cortez Casasola');
+  assert.equal(guestFullName({ ...MANUEL, display_name: 'Tito Manny' }, 'middle-initial'), 'Mr. Manuel C. Casasola');
+  assert.equal(guestFullName({ ...MANUEL, display_name: 'Tito Manny' }, 'surname-first'), 'Mr. Casasola, Manuel C.');
 });
 
 // ── 3 · THE SETTING SURVIVES EVERY OTHER SAVE ──────────────────────────────
@@ -198,18 +199,22 @@ test('every writer of print_details carries what it does not own — the Name st
   /* 🔑 A PROPERTY, NOT A KEY LIST. The `words` save once named the keys it
      carried (menu, message, pass look) and so dropped the poster's photo; a
      key list would drop `name_style` the same way. Every write must start from
-     the stored value: `{ ...stored, … }`, or a variable built that way. */
-  const calls = callsOf(new Set(['serializePrintDetails']));
+     the stored value.
+     👥 Since 2026-10-18 (two hosts never overwrite, round 2) every write is `updatePrintDetails(admin, eventId, change)`
+     (lib/print-details-write.ts), whose change gets the value AS IT IS when the write lands — so the property is now:
+     every change starts from what it is handed, `(now) => ({ ...now, … })`, and nothing else serializes the blob. */
+  const direct = callsOf(new Set(['serializePrintDetails'])).filter((c) => c.file !== 'lib/print-pieces.ts' && c.file !== 'lib/print-details-write.ts');
+  assert.deepEqual(direct.map((c) => `${c.file}:${c.line}`), [], 'print_details is written outside updatePrintDetails — without the compare, from a copy read earlier');
+  const calls = callsOf(new Set(['updatePrintDetails']));
   const bad: string[] = [];
   for (const c of calls) {
-    if (c.file === 'lib/print-pieces.ts') continue;
-    const arg = c.args[0];
-    let text = arg ? arg.getText(c.sf) : '';
-    if (arg && ts.isIdentifier(arg)) {
-      const decl = new RegExp(`const ${arg.text}\\s*=\\s*([^;]+);`).exec(c.sf.getFullText());
-      text = decl?.[1] ?? '';
-    }
-    if (!/^\{\s*\.\.\.stored\b/.test(text.trim())) bad.push(`${c.file}:${c.line}  ${text.slice(0, 90)}`);
+    const change = c.args[2];
+    const ok =
+      change !== undefined &&
+      ts.isArrowFunction(change) &&
+      change.parameters.length === 1 &&
+      new RegExp(`^\\(\\{\\s*\\.\\.\\.${change.parameters[0]!.name.getText(c.sf)}\\b`).test(change.body.getText(c.sf).trim());
+    if (!ok) bad.push(`${c.file}:${c.line}  ${(change?.getText(c.sf) ?? '').slice(0, 90)}`);
   }
   assert.ok(calls.length >= 5, `found only ${calls.length} writes — the scan is not looking`);
   assert.deepEqual(bad, [], 'a print_details write that does not start from what is stored erases the other writers’ keys');
@@ -228,6 +233,7 @@ const STYLE_AT: Record<string, number> = {
   passCardGuestName: 1,
   ticketName: 1,
   guestFullName: 1,
+  guestNameAsGiven: 1,
   placeCardName: 1,
 };
 
@@ -236,7 +242,7 @@ const STYLE_AT: Record<string, number> = {
  * without a style is a formal surface printing Full forever.
  */
 const NOT_FORMAL: ReadonlyArray<{ file: RegExp; callee: string; why: string }> = [
-  { file: /guests-screen\.tsx$/, callee: 'guestFullName', why: 'Guests › List (Maker PR 4f) — the same working rows and the delete warning’s names, the couple’s editing list, not a printed one' },
+  { file: /guests-screen\.tsx$/, callee: 'guestNameAsGiven', why: 'Guests › List (Maker PR 4f) — the same working rows and the delete warning’s names, the couple’s editing list, not a printed one' },
   { file: /editorial\/data\.ts$/, callee: 'guestFullName', why: 'a byline under a guest’s own words on the story page — not one of the owner’s formal surfaces' },
 ];
 
@@ -271,7 +277,7 @@ test('the Guest list and the profile type a Prefix in the guest side’s dropdow
     'app/dashboard/[eventId]/guests/_components/guest-card-body.tsx',
     'app/dashboard/[eventId]/guests/_components/guest-name-fields.tsx',
     'app/dashboard/(account)/profile/page.tsx',
-    'app/signup/you/page.tsx',
+    'app/signup/you/_components/you-card.tsx',
   ];
   for (const rel of screens) {
     const src = readFileSync(join(APP, rel), 'utf8');
@@ -282,6 +288,9 @@ test('the Guest list and the profile type a Prefix in the guest side’s dropdow
       if (ts.isJsxSelfClosingElement(n) || ts.isJsxOpeningElement(n)) {
         const tag = n.tagName.getText(sf);
         if (tag === 'PrefixSelect') selects += 1;
+        /* ⤷ 2026-10-17: the host's Title carries woman or man ("Atty. (Woman)", lib/guest-title.ts) — `K.Title` on the
+           card, `TitlePicker` in /guests/new — the same titles as NAME_PREFIX_CHOICES, each with its gender (held below). */
+        if (tag === 'K.Title' || tag === 'TitlePicker') selects += 1;
         /* The Fable guest card (#6192) draws every choice as ONE shipped
            PickMenu (`FormPick`, owner 2026-09-28 "any set of choices is a
            dropdown") — the same list as PrefixSelect when it is built from
@@ -307,4 +316,7 @@ test('the Guest list and the profile type a Prefix in the guest side’s dropdow
     assert.ok(selects >= 1, `${rel} draws no Prefix dropdown`);
     assert.deepEqual(typed, [], `${rel} still has a free-text Prefix box`);
   }
+  // The Title list offers every title the guest side's Prefix list does (with its woman / man).
+  const titles = new Set(titleChoices().map((c) => parseTitleKey(c.key).name_prefix));
+  for (const p of NAME_PREFIX_CHOICES) assert.ok(titles.has(p), `the host's Title list lacks "${p}"`);
 });

@@ -1,4 +1,7 @@
 import { normalizeNamePart } from '@/lib/formal-name';
+import { PLACEHOLDER_FIRST_NAME, PLACEHOLDER_LAST_NAME, isPlaceholderNameWord, realNameParts, withoutPlaceholderWord } from '@/lib/seat-placeholder-words';
+
+export { PLACEHOLDER_FIRST_NAME, PLACEHOLDER_LAST_NAME } from '@/lib/seat-placeholder-words';
 
 /**
  * extra-seats.ts — how many seat rows a guest's "+N" should have.
@@ -35,11 +38,155 @@ export type ExtraSeatRow = {
   created_at?: string | null;
 };
 
-export const PLACEHOLDER_FIRST_NAME = 'TBA';
-
 /** An unnamed seat nobody has claimed — the only kind that may be removed. */
 export function isPlaceholderSeat(row: ExtraSeatRow): boolean {
   return !row.confirmed_at && (row.first_name ?? '').trim().toUpperCase() === PLACEHOLDER_FIRST_NAME;
+}
+
+/**
+ * 🪑 A +1 WITH NO NAME YET — a guest row that is one of somebody's seats (`plus_one_of_guest_id`) and is still the
+ * seat engine's own placeholder (`isPlaceholderSeat`: "TBA", no name ever given). The ONE answer the Guest List's
+ * "+1s: N named · M no name yet", its "+1 ▾" filter, "Release seat" and the server's release gate all read — so the
+ * number said is the rows shown is the seats a host may release (owner 2026-10-21: *"how do I know which +1 has
+ * names and has no names? so we can alot the seat to another person"*). It is exactly the kind of row lowering a
+ * guest's "+N" already removes (`planExtraSeats`), so a release never takes more than the number would.
+ * 🔒 guests/_components/a-seat-with-no-name-can-be-released.test.ts
+ */
+export function plusOneHasNoName(g: {
+  guest_id?: string;
+  plus_one_of_guest_id?: string | null;
+  first_name: string | null;
+  last_name?: string | null;
+  plus_one_name_confirmed_at?: string | null;
+}): boolean {
+  if (!g.plus_one_of_guest_id || g.plus_one_of_guest_id === g.guest_id) return false;
+  // Both rules at once: the seat engine's (never named — no stamp) AND the name boxes' (`seatNameAsTyped`, #6727 —
+  // every name part a stand-in). A row either says has a name is a person, never released.
+  return (
+    isPlaceholderSeat({ guest_id: g.guest_id ?? '', first_name: g.first_name, confirmed_at: g.plus_one_name_confirmed_at ?? null }) &&
+    seatNameAsTyped({ plus_one_of_guest_id: g.plus_one_of_guest_id, first_name: g.first_name, last_name: g.last_name ?? null }).unnamed
+  );
+}
+
+/**
+ * 🪑 RELEASE SEAT'S GATE (the server's, `bulkSoftDeleteGuestsForUndo(…, { release: true })`): null when every row asked
+ * about is a +1 with no name yet; otherwise the words the host is told, and NOTHING is released. A named +1 is a person
+ * — they leave only by the shipped Remove and its warning (owner 2026-10-21).
+ */
+export function seatReleaseRefusal(
+  rows: readonly { guest_id: string; plus_one_of_guest_id: string | null; first_name: string | null; last_name?: string | null; plus_one_name_confirmed_at: string | null }[],
+): string | null {
+  if (rows.length === 0) return 'Nothing selected.';
+  const named = rows.filter((r) => !plusOneHasNoName(r)).length;
+  if (named === 0) return null;
+  return rows.length === 1
+    ? 'This +1 has a name — only a seat with no name yet can be released. Remove them instead.'
+    : 'Only seats with no name yet can be released — a +1 with a name is removed instead.';
+}
+
+/**
+ * 🪑 THE GUEST CARD'S "+1" LINES — ONE PER SEAT ROW, EVERY SEAT (2026-10-22, live cale-ice: Antonio Loo and Darryl Jan
+ * Patrick Lim each bring two +1s, and their cards said "Allowed, but no +1 added yet."). The card read its guest's +1
+ * with `.maybeSingle()`: two rows are an error to PostgREST, the error was logged and the card drew the EMPTY state —
+ * a guest with two seats was told they had none. Now every live seat row is a line, oldest first ("+2" is the second
+ * seat everywhere — the reply, the List, `bringerSeatsFrom`): a seat with a name says who ("Bringing Ana Cruz"), a seat
+ * with no name yet (`plusOneHasNoName`, the List's own test) is waiting for one. Pure; the card's loader reads the rows.
+ * 🔒 guests/_components/every-seat-is-on-the-card.test.ts
+ */
+export function plusOneSeatLines(
+  bringerGuestId: string,
+  rows: readonly {
+    guest_id: string;
+    first_name: string | null;
+    last_name: string | null;
+    plus_one_name_confirmed_at: string | null;
+    created_at?: string | null;
+  }[],
+): string[] {
+  return [...rows]
+    .sort((a, b) => (a.created_at ?? '').localeCompare(b.created_at ?? '') || a.guest_id.localeCompare(b.guest_id))
+    .map((r) => {
+      if (plusOneHasNoName({ ...r, plus_one_of_guest_id: bringerGuestId })) return 'Awaiting +1 to confirm their name';
+      const n = realNameParts(r.first_name, r.last_name);
+      return `Bringing ${[n.first, n.last].filter(Boolean).join(' ')}`;
+    });
+}
+
+/**
+ * 🪑 THE SAME SEATS AS PEOPLE — the guest card's Additional Guests draws one card per seat (owner-approved prototype
+ * `guest_card_groups_and_papic_2026-10-23.html`: avatar · name · "+1 of Rosario · Attending"). Same order and same naming
+ * rule as `plusOneSeatLines` (a seat waiting for its name has `name: null`, never "TBA +1"); the reply is the seat's own,
+ * an unread one is "pending". Pure.
+ */
+export function plusOneSeatPeople<S extends string>(
+  bringerGuestId: string,
+  rows: readonly {
+    guest_id: string;
+    first_name: string | null;
+    last_name: string | null;
+    plus_one_name_confirmed_at: string | null;
+    created_at?: string | null;
+    rsvp_status?: S | null;
+  }[],
+): { guestId: string; name: string | null; status: S | 'pending' }[] {
+  return [...rows]
+    .sort((a, b) => (a.created_at ?? '').localeCompare(b.created_at ?? '') || a.guest_id.localeCompare(b.guest_id))
+    .map((r) => {
+      const named = !plusOneHasNoName({ ...r, plus_one_of_guest_id: bringerGuestId });
+      const n = realNameParts(r.first_name, r.last_name);
+      return {
+        guestId: r.guest_id,
+        name: named ? [n.first, n.last].filter(Boolean).join(' ') || null : null,
+        status: r.rsvp_status ?? 'pending',
+      };
+    });
+}
+
+/** One +1 seat row as the companion readers select it. */
+export type CompanionSeatRow = {
+  guest_id: string;
+  plus_one_of_guest_id: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  plus_one_name_confirmed_at: string | null;
+  rsvp_status?: string | null;
+  created_at?: string | null;
+};
+
+/**
+ * 🪑 WHO A GUEST BRINGS, BY NAME — FROM THEIR SEAT ROWS, EVERY ONE (2026-10-22). The check-in desk, the souvenir desk
+ * and the find-your-seat pass each printed the bringer's old one-name mirror (`guests.plus_one_name`): ONE name for a
+ * guest who brings two, a stale name after the seat was renamed, nothing for a seat named on its own row, and a name
+ * for a guest whose +1 was set to None. The seat rows are the +1s (owner 2026-09-21: "+3" is three rows), so:
+ *   · a guest WITH seat rows → the names of their named seats (`plusOneHasNoName` is the List's own test), oldest
+ *     first, a seat whose own reply says they can't come left out — zero rows named is `[]`, never the mirror;
+ *   · a guest with NO seat rows at all → the mirror, only while they are allowed a +1 (the pass card's own rule,
+ *     `readPartyCounts`: "the mirror only speaks for a bringer with no rows at all").
+ * Pure. 🔒 lib/every-seat-is-counted.test.ts
+ */
+export function companionNames(
+  bringer: { guest_id: string; plus_one_allowed?: boolean | null; plus_one_name?: string | null },
+  seats: readonly CompanionSeatRow[],
+): string[] {
+  const mine = seats
+    .filter((r) => r.plus_one_of_guest_id === bringer.guest_id && r.guest_id !== bringer.guest_id)
+    .sort((a, b) => (a.created_at ?? '').localeCompare(b.created_at ?? '') || a.guest_id.localeCompare(b.guest_id));
+  if (mine.length === 0) {
+    const mirror = (bringer.plus_one_name ?? '').trim();
+    return bringer.plus_one_allowed && mirror && !isPlaceholderNameWord('first', mirror) ? [mirror] : [];
+  }
+  return mine
+    .filter((r) => !plusOneHasNoName(r) && r.rsvp_status !== 'declined')
+    .map((r) => {
+      const n = realNameParts(r.first_name, r.last_name);
+      return [n.first, n.last].filter(Boolean).join(' ');
+    })
+    .filter(Boolean);
+}
+
+/** A +1 who HAS a name — every seat row that is not `plusOneHasNoName`. */
+export function plusOneIsNamed(g: Parameters<typeof plusOneHasNoName>[0]): boolean {
+  return Boolean(g.plus_one_of_guest_id) && g.plus_one_of_guest_id !== g.guest_id && !plusOneHasNoName(g);
 }
 
 /**
@@ -70,6 +217,90 @@ export function planExtraSeats(want: number, rows: readonly ExtraSeatRow[]): Ext
  */
 export function seatPlaceholderLabel(index: number): string {
   return `+${index + 1} · TBA`;
+}
+
+/**
+ * 🪪 AN UNNAMED +1 HAS NO NAME YET (owner 2026-10-21: *"Why is the +1 listed as the +1's last name? when there is no
+ * last name yet until we type on it or it is filled up by the guest via RSVP"*). The name parts a NAME BOX shows for a
+ * row: on a +1 seat (`plus_one_of_guest_id`) every stand-in word — first "TBA", last "+1", a "+1 · TBA" Shown as — reads
+ * EMPTY, so the card draws "Add" and nothing the host did not type. Anyone else's parts are exactly as stored.
+ * 🔒 lib/an-unnamed-plus-one-has-no-name.test.ts
+ */
+export function seatNameAsTyped(g: {
+  plus_one_of_guest_id?: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  display_name?: string | null;
+}): { first_name: string; last_name: string; display_name: string; unnamed: boolean } {
+  const first = g.first_name ?? '';
+  const last = g.last_name ?? '';
+  const display = g.display_name ?? '';
+  if (!g.plus_one_of_guest_id) return { first_name: first, last_name: last, display_name: display, unnamed: false };
+  const f = withoutPlaceholderWord('first', first);
+  const l = withoutPlaceholderWord('last', last);
+  return { first_name: f, last_name: l, display_name: withoutPlaceholderWord('display', display), unnamed: !f && !l };
+}
+
+/**
+ * 🔒 A SAVE NEVER WRITES A STAND-IN AS A TYPED NAME. What the guest card's save (`updateGuest`) writes to a +1 seat's
+ * name columns, from the boxes it posted (`posted`, already trimmed) and the row as it is (`row`). Null = not a +1
+ * seat: the caller behaves exactly as before.
+ *
+ *   · a posted stand-in word ("TBA", "+1", "+1 · TBA" — an older page, or a host who typed one) is read as empty;
+ *   · both boxes empty on a seat nobody named → `unnamed`: the name columns are NOT written (the stored stand-ins stay,
+ *     so the seat engine still knows it is open) — a host changing the Mobile saves the Mobile and nothing else;
+ *   · both boxes empty on a seat that HAS a name → `missing` (the card's own "Please enter both" — a name is never
+ *     cleared by accident);
+ *   · a name typed → `named`: what was typed is written; a box left empty keeps the NOT-NULL stand-in (the RSVP's own
+ *     `op.first || 'TBA'`, `op.last || '+1'`), which every name box and print reads as empty; a stand-in Shown as is
+ *     cleared (`force`, so the typed name shows, as the RSVP clears it); and the seat is stamped named
+ *     (`plus_one_name_confirmed_at`) the first time, so it can never be taken for an open placeholder again.
+ */
+export type PlusOneNameSave =
+  | { kind: 'unnamed'; columns: { display_name?: string } }
+  | { kind: 'missing' }
+  | {
+      kind: 'named';
+      columns: { first_name: string; last_name: string; display_name: string | null; plus_one_name_confirmed_at?: string };
+      /** Columns written even when this screen did not change their box (the merge would otherwise keep the stand-in). */
+      force: string[];
+    };
+
+export function plusOneNameSave(
+  row: {
+    plus_one_of_guest_id?: string | null;
+    first_name?: string | null;
+    last_name?: string | null;
+    display_name?: string | null;
+    plus_one_name_confirmed_at?: string | null;
+  } | null,
+  posted: { first_name: string; last_name: string; display_name: string | null },
+  stamp: string,
+): PlusOneNameSave | null {
+  if (!row?.plus_one_of_guest_id) return null;
+  const first = withoutPlaceholderWord('first', posted.first_name);
+  const last = withoutPlaceholderWord('last', posted.last_name);
+  const display = withoutPlaceholderWord('display', posted.display_name);
+  if (!first && !last) {
+    const stored = seatNameAsTyped({
+      plus_one_of_guest_id: row.plus_one_of_guest_id,
+      first_name: row.first_name ?? '',
+      last_name: row.last_name ?? '',
+    });
+    if (!stored.unnamed) return { kind: 'missing' };
+    return { kind: 'unnamed', columns: display ? { display_name: display } : {} };
+  }
+  const storedDisplayIsStandIn = isPlaceholderNameWord('display', row.display_name);
+  return {
+    kind: 'named',
+    columns: {
+      first_name: first || PLACEHOLDER_FIRST_NAME,
+      last_name: last || PLACEHOLDER_LAST_NAME,
+      display_name: display || null,
+      ...(row.plus_one_name_confirmed_at ? {} : { plus_one_name_confirmed_at: stamp }),
+    },
+    force: storedDisplayIsStandIn ? ['display_name'] : [],
+  };
 }
 
 /** One of a guest's extra seats, as the host's Guest List draws it. */
@@ -107,6 +338,39 @@ export function bringerSeatsFrom(
     const named = !isPlaceholderSeat({ guest_id: g.guest_id, first_name: g.first_name, confirmed_at: null });
     const whole = g.display_name?.trim() || `${g.first_name ?? ''} ${g.last_name ?? ''}`.trim();
     list.push({ guest_id: g.guest_id, named, label: named ? whole : seatPlaceholderLabel(list.length) });
+  }
+  return out;
+}
+
+/**
+ * 🪑 REMOVING A +1 FROM THE LIST TAKES THEIR SEAT WITH THEM (2026-10-20, live cale-ice). A +1 row is one of their
+ * guest's seats; the host's Remove soft-deleted the row and left the guest's "+1" standing — so the List drew a "+1"
+ * pill over a seat that no longer existed, and the guest's reply could still name somebody into it. Measured: two
+ * guests' seats removed on 2026-10-14, their `plus_one_count` still 1.
+ *
+ * The rule, pure: for every removed (or restored) seat whose guest is NOT removed with it, that guest's number moves by
+ * the seats that went (or came back), clamped 0…4 — `plus_one_allowed` follows it. A guest removed together with their
+ * +1s is untouched (the whole party goes, and comes back, as it was). Applied by `bulkSoftDeleteGuestsForUndo` and its
+ * Undo, `restoreDeletedGuests`. 🔒 guests/_components/a-plus-one-sits-with-their-guest.test.ts
+ */
+export function seatNumbersAfter(
+  changed: readonly { guest_id: string; plus_one_of_guest_id: string | null }[],
+  bringers: readonly { guest_id: string; plus_one_count: number | null; plus_one_allowed: boolean | null }[],
+  dir: 'removed' | 'restored',
+): { guest_id: string; plus_one_count: number; plus_one_allowed: boolean }[] {
+  const ids = new Set(changed.map((g) => g.guest_id));
+  const n = new Map<string, number>();
+  for (const g of changed) {
+    const host = g.plus_one_of_guest_id;
+    if (host && !ids.has(host)) n.set(host, (n.get(host) ?? 0) + 1);
+  }
+  const out: { guest_id: string; plus_one_count: number; plus_one_allowed: boolean }[] = [];
+  for (const b of bringers) {
+    const k = n.get(b.guest_id);
+    if (!k) continue;
+    const now = typeof b.plus_one_count === 'number' ? b.plus_one_count : b.plus_one_allowed ? 1 : 0;
+    const next = Math.max(0, Math.min(4, now + (dir === 'removed' ? -k : k)));
+    if (next !== now) out.push({ guest_id: b.guest_id, plus_one_count: next, plus_one_allowed: next > 0 });
   }
   return out;
 }

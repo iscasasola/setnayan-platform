@@ -1,7 +1,6 @@
 'use client';
 
 import { useActionState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
 import { Bot, Check, Clock } from 'lucide-react';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -81,7 +80,6 @@ export function AiAddonCard(props: AiAddonCardProps) {
   } = props;
 
   const toast = useToast();
-  const router = useRouter();
   const [state, formAction] = useActionState(activateVendorAiAddon, IDLE);
   const handled = useRef<VendorAiAddonActionState | null>(null);
 
@@ -90,10 +88,10 @@ export function AiAddonCard(props: AiAddonCardProps) {
     handled.current = state;
     if (state.status === 'error') toast.error(state.message);
     if (state.status === 'activated') {
+      // ⚡ The action revalidates: its own answer redrew the page — no second render.
       toast.success(state.message);
-      router.refresh();
     }
-  }, [state, toast, router]);
+  }, [state, toast]);
 
   return (
     <section className="sn-tile mt-8 p-6">
@@ -157,7 +155,7 @@ export function AiAddonCard(props: AiAddonCardProps) {
           {paidButUnverified ? (
             <span>Get your shop verified to unlock Vendor AI — it&rsquo;s a verified-only add-on.</span>
           ) : (
-            <span>Vendor AI is available on the paid plans (Solo, Pro, Enterprise). Upgrade above to add it.</span>
+            <span>Vendor AI is available on the paid plans (Solo, Pro, Ultra). Upgrade above to add it.</span>
           )}
         </div>
       ) : (

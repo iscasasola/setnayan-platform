@@ -2,12 +2,14 @@
 
 import { revalidatePath } from 'next/cache';
 import { parsePersonName } from '@/lib/person-name-parse';
+import { takeGenderMark, type TitleGender } from '@/lib/guest-title';
 import { createClient } from '@/lib/supabase/server';
 import { guestEditsLocked } from '@/lib/pax';
 import { applyReconcileForEvent } from '@/lib/seating-reconcile';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import {
   defaultInvitedToForRole,
+  GROUP_CATEGORY_LABELS,
   SINGLETON_GUEST_ROLES,
   singletonRoleConflictMessage,
   singletonRoleDuplicateMessage,
@@ -17,7 +19,8 @@ import {
 } from '@/lib/guests';
 import { normalizeGuestName } from '@/lib/guest-name';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
-import { pickReuseGroup } from '@/lib/guest-group-reuse';
+import { pgArrayLiteral, updateJsonColumn, type JsonColumnClient } from '@/lib/update-json-column';
+import { makeGuestGroupOnce } from '@/lib/guest-group-made-once';
 
 // Iteration 0053 P2: the valid role set is per event type — each action below
 // resolves it via resolveRoleSetForEvent(eventId) (wedding → the 24-role set;
@@ -44,6 +47,8 @@ export type QuickAddInput = {
   side: string;
   role: string;
   group_id?: string | null;
+  /** The standard group (Family · Friends · Work · School · Officiant · Other). Absent or unknown = 'other', as before. */
+  group_category?: string | null;
   /**
    * Optional, and it does more than store an address: `set_guest_person` is a
    * BEFORE INSERT OR UPDATE OF email trigger, so writing it here resolves
@@ -58,6 +63,18 @@ export type QuickAddInput = {
    * a guest row on another of their events. It is deliberately never carried
    * for a samahan co-member or a connection; see `people-you-can-invite.ts`.
    */
+  email?: string | null;
+};
+
+/**
+ * How an add asks the page to redraw. Absent (every caller before 2026-10-19) = as before: the Guests page is redrawn in the
+ * same answer. `refresh: false` = the caller already draws the new row and re-reads the list itself, once, when its queue of
+ * adds is empty (`_components/guest-add-queue.ts`) — so ten names typed in a row cost one redraw, not ten.
+ */
+export type AddWriteOptions = {
+  refresh?: boolean;
+  /** "Add from your People" through the search box: the address People holds for them (server-side only — see
+   *  `addGuestsFromPeople`), so the guest resolves to the SAME person node. */
   email?: string | null;
 };
 
@@ -91,6 +108,7 @@ export type QuickAddResult =
 export async function quickAddGuest(
   eventId: string,
   input: QuickAddInput,
+  opts: AddWriteOptions = {},
 ): Promise<QuickAddResult> {
   // BACKSTOP. Callers that already split a name (capture bar, the detailed
   // form, the import) pass the parts explicitly and are trusted verbatim.
@@ -101,6 +119,18 @@ export async function quickAddGuest(
   // The `undefined` check is load-bearing: an explicit null means "this guest
   // HAS no prefix" and must not be overwritten by a parse, while an absent key
   // means "this caller knows nothing about name parts".
+  // 🪪 A typed "(Woman)" / "(Man)" — "Atty. (Woman) Eufemia Cruz" — is the host's mark for the title's gender
+  // (owner 2026-10-17), read and taken out: it never lands in a name part.
+  const marks = [input.first_name, input.last_name, input.name_prefix].map((v) => (typeof v === 'string' ? takeGenderMark(v) : null));
+  const gender: TitleGender | null = marks.find((m) => m?.gender)?.gender ?? null;
+  if (gender) {
+    input = {
+      ...input,
+      first_name: marks[0]?.text ?? input.first_name,
+      last_name: marks[1]?.text ?? input.last_name,
+      ...(input.name_prefix !== undefined ? { name_prefix: marks[2]?.text ?? input.name_prefix } : {}),
+    };
+  }
   const callerSuppliedParts =
     input.name_prefix !== undefined ||
     input.middle_name !== undefined ||
@@ -153,10 +183,11 @@ export async function quickAddGuest(
       // Omitted when null so a caller that knows nothing about name parts
       // inserts exactly the row it inserted before this field existed.
       ...(name_prefix ? { name_prefix } : {}),
+      ...(gender ? { gender } : {}),
       ...(middle_name ? { middle_name } : {}),
       ...(name_suffix ? { name_suffix } : {}),
       side,
-      group_category: 'other',
+      group_category: input.group_category && Object.hasOwn(GROUP_CATEGORY_LABELS, input.group_category) ? input.group_category : 'other',
       role,
       rsvp_status: 'pending',
       photo_consent: true,
@@ -214,7 +245,9 @@ export async function quickAddGuest(
   // when one was picked). Best-effort — never blocks the add.
   await applyReconcileForEvent(supabase, eventId);
 
-  revalidatePath(`/dashboard/${eventId}/guests`);
+  // ⚡ A queued add (the name box, Quick add) asks for NO page redraw: its own row is already on the screen, and the list
+  // re-reads ONCE when the queue is empty (`guest-add-queue.ts`). A redraw here made every add wait on the whole Guests page.
+  if (opts.refresh !== false) revalidatePath(`/dashboard/${eventId}/guests`);
   return {
     ok: true,
     guest: { guest_id: inserted.guest_id, first_name, last_name, side, role },
@@ -258,55 +291,20 @@ export async function quickCreateGroup(
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: 'Your session expired — sign in again.' };
 
-  // This fast path always creates on the 'both' team side (the host refines it
-  // later in the Groups sidebar). Held in one const so the insert and the 23505
-  // reuse-lookup below resolve the SAME (event_id, lower(label), team_side)
-  // unique-index key.
+  // The guest's side when one is passed, else 'both' (the host refines it later in the Groups sidebar).
   const teamSide = rawSide === 'bride' || rawSide === 'groom' ? rawSide : 'both';
 
-  const { data: inserted, error } = await supabase
-    .from('guest_groups')
-    .insert({ event_id: eventId, label, team_side: teamSide })
-    .select('group_id, label')
-    .single();
-
-  if (error || !inserted) {
-    // 23505 from the case-insensitive unique index → reuse the existing
-    // group of that name rather than erroring.
-    if (error && (error as { code?: string }).code === '23505') {
-      // The conflict is on (event_id, lower(label), team_side), so the row to
-      // reuse shares our exact (label, teamSide) key. Fetch the same-label rows
-      // and pick the team_side match in JS — a label-only `.maybeSingle()` also
-      // caught cross-side namesakes (a bride-side + groom-side "Friends"), and
-      // >1 row made maybeSingle throw, failing a legitimate reuse. The JS exact
-      // compare also sidesteps `ilike` treating %/_ in a label as wildcards.
-      const { data: candidates } = await supabase
-        .from('guest_groups')
-        .select('group_id, label, team_side')
-        .eq('event_id', eventId)
-        .ilike('label', label);
-      const existing = pickReuseGroup(candidates ?? [], label, teamSide);
-      if (existing) {
-        // Reuse of a pre-existing group → created:false, so the caller never
-        // deletes it during on-failed-add compensation.
-        return {
-          ok: true,
-          group: { group_id: existing.group_id, label: existing.label },
-          created: false,
-        };
-      }
-      return { ok: false, error: 'A group with that name already exists.' };
-    }
-    return { ok: false, error: error?.message ?? 'Couldn’t create that group.' };
-  }
-
-  revalidatePath(`/dashboard/${eventId}/guests`);
-  // Fresh insert → created:true. Only these ids are eligible for the caller's
-  // on-failed-add cleanup.
+  // 👥 One name, one group (2026-10-21): a name that already shows in this side's list IS that group — reused, never
+  // twinned (`makeGuestGroupOnce`, the one place an own group is written).
+  const made = await makeGuestGroupOnce(supabase, eventId, label, teamSide);
+  if (!made.ok) return { ok: false, error: made.error };
+  // Fresh insert → created:true; only these ids are eligible for the caller's on-failed-add cleanup. A reuse is
+  // created:false, so the caller never deletes a group the couple already had.
+  if (made.created) revalidatePath(`/dashboard/${eventId}/guests`);
   return {
     ok: true,
-    group: { group_id: inserted.group_id, label: inserted.label },
-    created: true,
+    group: { group_id: made.group.group_id, label: made.group.label },
+    created: made.created,
   };
 }
 
@@ -369,12 +367,24 @@ export async function addRoleToGuest(
   if (g.role === role || current.includes(role)) {
     return { ok: true, guest: { guest_id: g.guest_id, role: g.role, extra_roles: current } };
   }
-  const next = [...current, role];
-
-  const { error: updErr } = await supabase
-    .from('guests')
-    .update({ extra_roles: next })
-    .eq('guest_id', guestId);
+  /* 👥 TWO HOSTS NEVER OVERWRITE EACH OTHER (owner 2026-10-18, round 2): the role is added to the extra roles AS THEY
+     ARE when the write lands (`updateJsonColumn`, a compare-and-set on the list) — never to the copy read above, so a
+     role the other host added meanwhile stays. */
+  let next: GuestRole[] = [...current, role];
+  let updErr: { message: string; code?: string } | null = null;
+  try {
+    await updateJsonColumn<GuestRole[]>(
+      supabase as unknown as JsonColumnClient,
+      { table: 'guests', row: { guest_id: guestId, event_id: eventId }, column: 'extra_roles', what: 'That role', spell: pgArrayLiteral },
+      (cur) => {
+        const now = (cur ?? []) as GuestRole[];
+        next = now.includes(role) ? now : [...now, role];
+        return now.includes(role) ? null : { next };
+      },
+    );
+  } catch (e) {
+    updErr = { message: e instanceof Error ? e.message : String(e), code: (e as { code?: string }).code };
+  }
   if (updErr) {
     await insertFaultLog({
       event_type: 'SUPABASE_SAVE_ERROR',
@@ -421,12 +431,22 @@ export async function setGuestPrimaryRole(
     return { ok: false, error: 'Couldn’t find that guest.' };
   }
 
-  const nextExtras = ((g.extra_roles ?? []) as GuestRole[]).filter((r) => r !== role);
-
-  const { error: updErr } = await supabase
-    .from('guests')
-    .update({ role, extra_roles: nextExtras })
-    .eq('guest_id', guestId);
+  /* 👥 The extra roles AS THEY ARE when the write lands (round 2, `updateJsonColumn`) — a role the other host added
+     meanwhile stays; only the new primary leaves the list. */
+  let nextExtras = ((g.extra_roles ?? []) as GuestRole[]).filter((r) => r !== role);
+  let updErr: { message: string; code?: string } | null = null;
+  try {
+    await updateJsonColumn<GuestRole[]>(
+      supabase as unknown as JsonColumnClient,
+      { table: 'guests', row: { guest_id: guestId, event_id: eventId }, column: 'extra_roles', what: 'That role', spell: pgArrayLiteral },
+      (cur) => {
+        nextExtras = ((cur ?? []) as GuestRole[]).filter((r) => r !== role);
+        return { next: nextExtras, also: { role } };
+      },
+    );
+  } catch (e) {
+    updErr = { message: e instanceof Error ? e.message : String(e), code: (e as { code?: string }).code };
+  }
   if (updErr) {
     const dupRole =
       (updErr as { code?: string }).code === '23505'

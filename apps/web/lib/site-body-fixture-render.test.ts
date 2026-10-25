@@ -136,8 +136,10 @@ test('(1) the fixture page is the real guest tree: what the fixture put in is on
 
   /* The guest tree's own article, once, and the cover in its first group — the shape the cover's hand-over will meet. */
   assert.equal(count(html, '<article data-pahina-chapters="true" class="space-y-12">'), 1, 'the guest tree’s article');
-  assert.match(html, /<article data-pahina-chapters="true" class="space-y-12"><div data-hub-tab="home" data-pahina-first-screen="" data-pahina-chapters="" class="space-y-12 empty:hidden">/);
-  assert.match(html, /<header data-pahina-first-screen="" class="text-center">/, 'the cover (`PahinaMasthead`) is drawn');
+  /* 📜 The Invitation is one page (owner 2026-10-15): each group also names its PAGE — the one page, `home`. */
+  assert.match(html, /<article data-pahina-chapters="true" class="space-y-12"><div data-hub-tab="home" data-hub-page="home" data-pahina-first-screen="" data-pahina-chapters="" class="space-y-12 empty:hidden">/);
+  /* 🖼 …as the Cover Scene: the whole first screen (owner 2026-10-15, `lib/cover-scene.ts`). */
+  assert.match(html, /<header data-pahina-first-screen="" data-cover-scene="" class="min-h-\[calc\(100svh_-_var\(--cover-scene-above,0px\)\)\] supports-\[height:100dvh\]:min-h-\[calc\(100dvh_-_var\(--cover-scene-above,0px\)\)\] flex flex-col justify-start pt-\[clamp\(36px,7svh,58px\)\] text-center">/, 'the cover (`PahinaMasthead`) is drawn — its words in the upper part (owner 2026-10-16)');
   /* The cover: the two names, the mark, the date. */
   const [first, second] = FIXTURE_WORDS.names.split(' & ');
   assert.match(html, new RegExp(`<h1[^>]*data-hub-names=""[^>]*><span class="block">${first}</span><span[^>]*>and</span><span class="block">${second}</span></h1>`));
@@ -152,7 +154,8 @@ test('(1) the fixture page is the real guest tree: what the fixture put in is on
   /* A GUEST's page, not a stranger's: their own line, their door to the reply, their name on the place card.
      🔁 RE-AIMED 2026-10-11 (owner, "ONE REPLY FORM"): a guest's page no longer draws the reply SHEET; every reply
      door on it opens the reply PAGE. */
-  assert.ok(html.includes('You’re joining us as'), 'the guest’s own line');
+  // (2026-10-24, the Me redraw: the guest's own line is the top of Me — their name, role, date and venues.)
+  assert.ok(html.includes('data-greeting-name=""') && html.includes('Your invitation'), 'the guest’s own line');
   assert.ok(!html.includes('id="rsvp-sheet-heading"'), 'the reply sheet is drawn for a guest again — two reply forms');
   assert.ok(html.includes('href="/maria-and-jose/invite/reply"'), 'the guest has no door to the reply page');
   assert.ok(!html.includes('#your-details'), 'a door on the guest page still points at the sheet');
@@ -164,6 +167,8 @@ test('(1) the fixture page is the real guest tree: what the fixture put in is on
   const asked = [...new Set(page.reads.map((r) => `${r.client} ${r.kind} ${r.name}`))].sort();
   assert.deepEqual(asked, [
     'admin rpc event_basket_orders_granting',
+    // 💎 + the comps that may hold a part (2026-10-22, part by part — `eventHubOwnership` → `eventActiveSkus`).
+    'admin rpc event_comp_active_skus',
     'admin rpc event_has_comp_for_sku',
     'admin rpc event_host_holds_founder_seat',
     'admin rpc event_host_is_internal',
@@ -310,17 +315,23 @@ test('(7) the STRANGER’s tree is drawn too — the real one, byte for byte, wi
      the marked first-screen wrapper with the ONE door under it, the general details — and nothing of a guest's. */
   assert.equal(count(html, '<article data-pahina-chapters="true">'), 1, 'the stranger’s article');
   assert.equal(count(html, '<article data-pahina-chapters="true" class="space-y-12">'), 0, 'this is the guest’s tree');
-  assert.match(html, /<div data-pahina-first-screen="" class="space-y-6 text-center"><header data-pahina-first-screen="" class="text-center">/, 'the text-only masthead, in its marked wrapper');
-  /* (2026-10-11 on main: the door's row draws no box of its own now — `sn-door-row`, `display: contents`.) */
-  assert.match(html, /<\/header><div class="sn-door-row">[\s\S]{0,400}data-get-inside="/, 'the one door, right under the masthead');
+  assert.match(html, /<div data-pahina-first-screen="" class="space-y-6 text-center"><header data-pahina-first-screen="" data-cover-scene="" class="min-h-\[calc\(100svh_-_var\(--cover-scene-above,0px\)\)\] supports-\[height:100dvh\]:min-h-\[calc\(100dvh_-_var\(--cover-scene-above,0px\)\)\] flex flex-col justify-start pt-\[clamp\(36px,7svh,58px\)\] text-center">/, 'the text-only masthead, in its marked wrapper');
+  /* 🦶 THE ONE DOOR IS IN THE COVER'S FOOT (owner 2026-10-17, *"the button shows after the cover?"*): where a guest's
+     RSVP button stands, the "Swipe up" hint under it — and drawn once, never again under the cover. */
+  assert.match(html, /<div data-cover-foot=""[^>]*><div data-cover-line="" data-cover-door=""[^>]*>[\s\S]{0,600}data-get-inside="door"[\s\S]*?data-cover-hint=""[\s\S]*?<\/div><\/header>/, 'the one door is not in the cover’s foot, above the hint');
+  assert.equal(count(html, 'data-get-inside='), 1, 'the door is drawn twice');
+  assert.ok(!html.includes('class="sn-door-row"') && !html.includes('data-cover-rsvp='), 'a second way in beside the door');
   const [first, second] = FIXTURE_WORDS.names.split(' & ');
   assert.match(html, new RegExp(`<h1[^>]*data-hub-names=""[^>]*><span class="block">${first}</span><span[^>]*>and</span><span class="block">${second}</span></h1>`));
   assert.ok(html.includes('Until we say ‘I do’') && html.includes(FIXTURE_WORDS.venue), 'the general details');
   assert.ok(!html.includes('You’re joining us as') && !html.includes('data-arrival-action=') && !html.includes(FIXTURE_WORDS.guestFirst), 'a guest’s own line, row or name is on a stranger’s page');
-  /* …and with a photo the stranger's OTHER masthead: the cover alone in the page's first group, the door in the next. */
+  /* …and with a photo the stranger's OTHER masthead: the cover alone in the page's first group — its door in its own
+     foot now, so the next group's wrapper holds no second one. */
   const photo = await renderSiteBodyFixtureFull({ identity: fixtureStranger(), ...PHOTO });
   assert.deepEqual(photo.complaints, []);
-  assert.match(photo.html, /<div id="site-home" aria-hidden="true" class="scroll-mt-6"><\/div><header data-pahina-first-screen="" class="text-center">[\s\S]*?<\/header><\/div><div data-hub-tab="home" data-pahina-first-screen="" data-pahina-chapters="" class="empty:hidden"><div data-pahina-first-screen="" class="space-y-6 text-center"><div class="sn-door-row">/, 'the photo cover is not the last thing in the first group, with the door in the next');
+  /* 📜 On the one page (owner 2026-10-15) Home's mark is no longer at the top: it lands AFTER the cover and its door. */
+  assert.match(photo.html, /<article data-pahina-chapters="true"><div data-hub-tab="home" data-hub-page="home" data-pahina-first-screen="" data-pahina-chapters="" class="empty:hidden"><header data-pahina-first-screen="" data-cover-scene="" class="min-h-\[calc\(100svh_-_var\(--cover-scene-above,0px\)\)\] supports-\[height:100dvh\]:min-h-\[calc\(100dvh_-_var\(--cover-scene-above,0px\)\)\] flex flex-col justify-start pt-\[clamp\(36px,7svh,58px\)\] text-center">(?:(?!<\/header>)[\s\S])*data-cover-door=""(?:(?!<\/header>)[\s\S])*data-get-inside="door"[\s\S]*?<\/header><\/div><div data-hub-tab="home" data-hub-page="home" data-pahina-first-screen="" data-pahina-chapters="" class="empty:hidden"><div data-pahina-first-screen="" class="space-y-6 text-center">/, 'the photo cover is not the last thing in the first group, with its door in its foot');
+  assert.equal(count(photo.html, 'data-get-inside='), 1, 'the photo cover’s door is drawn twice');
   assert.ok(photo.html.includes('fixture-hero.jpg'));
 
   /* BYTE FOR BYTE: twice the same, and the committed page (`UPDATE_GOLDEN=1` to accept an intended change). */
@@ -362,28 +373,23 @@ test('(8) the STRANGER’s cover stored to leave by Scrub: while Scrub ships dar
       assert.equal(count(stored.html, 'data-hub-fx'), 1);
       let unwrapped = stored.html.replace('<div class="hub-page-cell"><div class="hub-page-stage"><article', '<article').replace('</article></div></div>', '</article>');
       if ('heroPhotoUrl' in cover) {
-        /* THE PHOTO COVER — the last thing in the page's first group: its rest box holds nothing (and draws nothing),
-           and the door is in the NEXT group, where the engine finds it. */
+        /* THE PHOTO COVER — the last thing in the page's first group: its rest box holds nothing (and draws nothing);
+           the door is in the cover's own foot (owner 2026-10-17), so the next group holds no door. */
         const CELL = '<div data-pahina-first-screen="" class="hub-cover-cell"><div data-pahina-chapters="" class="hub-cover" data-hub-fx="">';
         const REST = '</header></div><div data-pahina-chapters="" class="hub-cover-after empty:hidden"></div></div>';
-        assert.ok(stored.html.includes(`<div id="site-home" aria-hidden="true" class="scroll-mt-6"></div>${CELL}<header data-pahina-first-screen=""`), 'the photo masthead is not in the cover’s box, in the first group');
-        assert.ok(stored.html.includes(`${REST}</div><div data-hub-tab="home" data-pahina-first-screen="" data-pahina-chapters="" class="empty:hidden"><div data-pahina-first-screen="" class="space-y-6 text-center"><div class="sn-door-row">`), 'the rest box is not empty, or the door is not the next group’s');
+        assert.ok(stored.html.includes(`<div data-hub-tab="home" data-hub-page="home" data-pahina-first-screen="" data-pahina-chapters="" class="empty:hidden">${CELL}<header data-pahina-first-screen=""`), 'the photo masthead is not in the cover’s box, in the first group');
+        assert.ok(stored.html.includes(`${REST}</div><div data-hub-tab="home" data-hub-page="home" data-pahina-first-screen="" data-pahina-chapters="" class="empty:hidden"><div data-pahina-first-screen="" class="space-y-6 text-center">`), 'the rest box is not empty, or the next group is not the cover’s wrapper');
+        assert.ok(stored.html.slice(stored.html.indexOf(CELL), stored.html.indexOf(REST)).includes('data-get-inside="door"'), 'the door is not in the leaving cover’s foot');
         unwrapped = unwrapped.replace(CELL, '').replace(REST, '</header>');
       } else {
-        /* THE TEXT-ONLY COVER — inside its marked first-screen wrapper, the door in the rest box with the wrapper's
-           own 1.5rem said on it. */
+        /* THE TEXT-ONLY COVER — inside its marked first-screen wrapper; its door is in its own foot (owner 2026-10-17),
+           so the rest box holds nothing here (no "Get tickets") and draws nothing. */
         const CELL = '<div class="hub-cover-cell"><div class="hub-cover" data-hub-fx="">';
-        /* (The door is the first thing after the cover here — no "Get tickets" — so the rest box says the door's own
-           top margin, the one the first-screen fit closes up: `STRANGER_TEXT_COVER_BOXES_DOOR_FIRST`.) */
-        const REST = '</header></div><div class="hub-cover-after mt-[calc(0.75rem+0.75rem*var(--fs-air,1))] space-y-6 empty:hidden">';
+        const REST = '</header></div><div class="hub-cover-after mt-6 space-y-6 empty:hidden"></div></div>';
         assert.ok(stored.html.includes(`<div data-pahina-first-screen="" class="space-y-6 text-center">${CELL}<header data-pahina-first-screen=""`), 'the text-only masthead is not in the cover’s box, in its wrapper');
-        assert.ok(stored.html.includes(`${REST}<div class="sn-door-row">`) && stored.html.slice(stored.html.indexOf(REST), stored.html.indexOf(REST) + 700).includes('data-get-inside="'), 'the door is not what follows the cover in its box');
+        assert.ok(stored.html.includes(REST), 'the rest box is not empty — the door was drawn under the cover again');
+        assert.ok(stored.html.slice(stored.html.indexOf(CELL), stored.html.indexOf(REST)).includes('data-get-inside="door"'), 'the door is not in the leaving cover’s foot');
         unwrapped = unwrapped.replace(CELL, '').replace(REST, '</header>');
-        /* (The rest box and the cell close right after the door, before the wrapper and the group do: two closing
-           tags out of a run of them, just before the next group.) */
-        const next = unwrapped.indexOf('<div data-hub-tab=', unwrapped.indexOf('data-get-inside='));
-        assert.ok(unwrapped.slice(next - 12, next) === '</div></div>', 'the page after the door is not shaped as expected');
-        unwrapped = unwrapped.slice(0, next - 12) + unwrapped.slice(next);
       }
       assert.ok(unwrapped === today, `with its boxes taken off the stranger’s page is not today’s page (${which}) — ${firstDifference(unwrapped, today)}`);
       continue;
@@ -465,9 +471,31 @@ test('(5) it is tooling: no file of the app imports the fixture, the helper or t
     'app/[slug]/_components/one-reply-form.test.ts',
     /* …and the guest's foot (the record note, the sign-out) read off it for the page's gutter. A test. */
     'app/[slug]/_components/me-has-the-pages-gutter.test.ts',
+    /* …and (2026-10-14, Width) a stored width read off the real page — the cover's names inline, a scene's words scoped. A test. */
+    'lib/element-width.test.ts',
+    /* …and (2026-10-15) the same page drawn for a signed-in HOST, to read that no host strip rides it. A test. */
+    'app/[slug]/_lib/the-host-page-has-no-host-strip.test.ts',
     /* …and (2026-10-10, the cover's hand-over) the script that writes the fixture page out for a real browser —
        `scripts/scrub-browser-check.mjs` (16). Run by hand, bundled into nothing; the claim is unchanged. */
     'scripts/scrub-fixture-page.tsx',
+    /* …and (2026-10-15) the Cover Scene's guard, which draws the real page with a stored ground. A test. */
+    'lib/the-cover-scene-is-one-group.test.ts',
+    /* …and (2026-10-15) the one-page Invitation's guard: the three marks, the bar's hrefs and Me read off the real page. A test. */
+    'app/[slug]/_lib/the-invitation-is-one-page.test.ts',
+    /* …and (2026-10-16, Batch 9 walk W2) the map-waits guard: what the real landing asks a browser to fetch. A test. */
+    'lib/the-map-waits-until-it-is-near.test.ts',
+    /* …and (2026-10-17, cale-ice) the cover-foot guard: every viewer's first screen ends in its foot. A test. */
+    'app/[slug]/_components/the-cover-always-has-a-way-on.test.ts',
+    /* …and (2026-10-17, cale-ice) the cover's RSVP button reaches its action: the RSVP part, for a guest and the host. A test. */
+    'app/[slug]/_components/the-cover-rsvp-reaches-its-action.test.ts',
+    /* …and (2026-10-19) the desk's Reply side panel: every reply door read off the real page is one the panel takes. A test. */
+    'lib/the-reply-panel-is-the-reply-page.test.ts',
+    /* …and (2026-10-24, the Me redraw) Me is the one place: Me's order, the one Reply, read off the real page. A test. */
+    'lib/me-is-the-one-place.test.ts',
+    /* …and (2026-10-24) Me offers "Keep this invitation" first: its slot under the greeting, read off the real page. A test. */
+    'lib/me-offers-save-first.test.ts',
+    /* …and (2026-10-24, cale-ice › Details) no Event Details card on any page: every stage, reader and style. A test. */
+    'lib/the-details-tab-repeats-nothing.test.ts',
   ]);
   const walk = (dir: string): string[] =>
     readdirSync(join(WEB, dir)).flatMap((name) => {

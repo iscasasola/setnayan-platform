@@ -113,8 +113,8 @@ const TWO_PHOTOS = {
 /** The two moments a guest's page draws "Photos of you": The Day's own page, and after it under the Post Event story. */
 const MOMENTS = {
   /* `kicker`: the gallery's own first line as React writes it — "so far" (and the live dot before it) only on the day. */
-  'The Day': { lifecyclePhase: 'event', dayOfPhase: 'live', kicker: '</span>Photos of you<!-- --> — so far</p>' },
-  'Post Event': { lifecyclePhase: 'editorial', dayOfPhase: 'post', kicker: 'tracking-[0.2em]">Photos of you</p>' },
+  'The Day': { lifecyclePhase: 'event', dayOfPhase: 'live', kicker: '</span>Memories of you<!-- --> — so far</p>' },
+  'Post Event': { lifecyclePhase: 'editorial', dayOfPhase: 'post', kicker: 'tracking-[0.2em]">Memories of you</p>' },
 } as const;
 
 /** The fixture guest's page at one of those moments, with their gallery as the loader answered (null = the read failed). */
@@ -131,7 +131,7 @@ async function pictured(moment: keyof typeof MOMENTS, gallery: unknown, looks: u
 
 for (const moment of Object.keys(MOMENTS) as Array<keyof typeof MOMENTS>) {
   test(`Photos of you, ${moment}: nothing kept is the same page; a motion kept adds the mark before the gallery’s own root and the one style — nothing else; a background is never kept`, async () => {
-    const ROOT = '<section aria-label="Photos of you" class="sn-gal p-5 sm:p-6">';
+    const ROOT = '<section aria-label="Memories of you" class="sn-gal p-5 sm:p-6">';
     const mark = `<span hidden="" ${BLOCK_MARK_ATTR}="photos_of_you"></span>`;
     for (const [state, gallery] of [['two photos', TWO_PHOTOS], ['none yet', { photos: [], total: 0 }], ['the read failed', null]] as const) {
       const plain = await pictured(moment, gallery, undefined);
@@ -288,13 +288,15 @@ test('What to wear in Me: the mark rides with the `wear` part alone, right befor
   const { GuestMeParts } = await import('../app/[slug]/_components/guest-me-parts');
   const span = `<span hidden="" ${BLOCK_MARK_ATTR}="look"></span>`;
   const markEl = React.createElement('span', { hidden: true, [BLOCK_MARK_ATTR]: 'look' });
-  const look = (roles: unknown) => ({ config: { roles } as never, ceremonyType: null, genderSeparation: null, guestRole: 'principal_sponsor_ninang' as never, march: null, rolePalette: null });
-  const draw = (roles: unknown, wearMark: unknown, partLooks: unknown = null) =>
+  /* Her outfit is her row's women's Wear — the Studio dresses a ninang by the Principal Sponsors row (2026-10-17);
+     `{}` = nothing picked for her. */
+  const look = (women: Record<string, unknown>) => ({ config: (Object.keys(women).length ? { women: { groups: { principal_sponsors: women } } } : {}) as never, ceremonyType: null, genderSeparation: null, guestRole: 'principal_sponsor_ninang' as never, /* (2026-10-24, the Me redraw: Me's role part is "Your place" — drawn for a guest who walks.) */ march: { position: 5, total: 9, partner: null, after: 'Carlos Reyes and Nena Reyes' }, rolePalette: null });
+  const draw = (roles: Record<string, unknown>, wearMark: unknown, partLooks: unknown = null) =>
     renderToStaticMarkup(React.createElement(GuestMeParts as unknown as React.FC<Record<string, unknown>>, { parts: ['role', 'wear'], words: eventWordsFromProfile(WEDDING_PROFILE), look: look(roles), comingWith: [], wearMark, partLooks }));
   for (const partLooks of [null, { wear: 'card' }]) {
-    const plain = draw({ principal_sponsor_ninang: { style: 'filipiniana' } }, null, partLooks);
+    const plain = draw({ style: 'filipiniana' }, null, partLooks);
     assert.ok(plain.includes('data-me-part="role"') && plain.includes('data-me-part="wear"'), 'anti-vacuity: both parts drawn');
-    const withMark = draw({ principal_sponsor_ninang: { style: 'filipiniana' } }, markEl, partLooks);
+    const withMark = draw({ style: 'filipiniana' }, markEl, partLooks);
     assert.equal(withMark, plain.replace('<section class="space-y-3" data-me-part="wear">', `${span}<section class="space-y-3" data-me-part="wear">`), `${JSON.stringify(partLooks)}: not exactly the mark before the wear part`);
   }
   /* Nothing to wear (the role is named, no outfit): the role part draws, the wear part does not — and no mark. */
@@ -321,16 +323,16 @@ async function liveDay(looks: unknown, liveHubStyle: string | null = null): Prom
 }
 
 for (const [arrangement, roots] of [
-  ['Player and wall', ['<section aria-label="Watch the event live"', '<section aria-label="Live photo wall"']],
+  ['Player and Memory lane', ['<section aria-label="Watch the event live"', '<section aria-label="Memory lane"']],
   ['Theatre', ['<section data-scene-style="theatre"']],
-  ['Wall first', ['<section data-scene-style="wall-first"']],
+  ['Memory lane first', ['<section data-scene-style="wall-first"']],
 ] as const) {
   test(`Live hub, ${arrangement}: nothing kept (or a background, which it refuses) is the same page; a motion kept marks each root it is drawn from — nothing else`, async () => {
-    const style = arrangement === 'Theatre' ? 'theatre' : arrangement === 'Wall first' ? 'wall-first' : null;
+    const style = arrangement === 'Theatre' ? 'theatre' : arrangement === 'Memory lane first' ? 'wall-first' : null;
     const mark = `<span hidden="" ${BLOCK_MARK_ATTR}="live_hub"></span>`;
     const plain = await liveDay(undefined, style);
     for (const root of roots) assert.equal(plain.split(root).length, 2, `${root}: not drawn once — this proves nothing`);
-    assert.ok(plain.includes('aria-label="Live photo wall"') && plain.includes('youtube-nocookie.com/embed/abcdefghijk'), 'anti-vacuity: the stream and the wall are both on the page');
+    assert.ok(plain.includes('aria-label="Memory lane"') && plain.includes('youtube-nocookie.com/embed/abcdefghijk'), 'anti-vacuity: the stream and the wall are both on the page');
     assert.doesNotMatch(plain, new RegExp(`${BLOCK_MARK_ATTR}|${BLOCK_LOOKS_STYLE_ATTR}`));
     for (const nothing of [{}, { live_hub: {} }, { live_hub: { g: 'frost' } }, { live_hub: { g: 'none' } }, { live_hub: { motion: {} } }]) {
       assert.equal(await liveDay(nothing, style), plain, `a page with ${JSON.stringify(nothing)} kept differs from one with nothing kept`);

@@ -33,7 +33,7 @@ import {
   type GuestRow,
   type RsvpStatus,
 } from '@/lib/guests';
-import { guestMatchesSearch, normalizeSearchText, type GuestSearchFacts } from '@/lib/guest-search';
+import { guestMatchesSearch, isSearchVocabulary, normalizeSearchText, replyStatusOf, type GuestSearchFacts } from '@/lib/guest-search';
 import {
   importanceGroupOf,
   isHonoreeRole,
@@ -42,8 +42,10 @@ import {
   type RoleGroup,
 } from '@/lib/role-groups';
 import type { RoleNames } from '@/lib/role-names';
+import { plusOneOfWords } from '@/lib/plus-one-of';
+import { plusOneHasNoName, plusOneIsNamed } from '@/lib/extra-seats';
 
-/** The 250 ms wait after the last key — the shipped `GuestsTopSearch` debounce (rule 4). */
+/** The 250 ms wait after the last key — the Guests thumb row's debounce (rule 4; the retired top-bar guest search used the same). */
 export const SEARCH_WAIT_MS = 250;
 
 /* ─── THE SORT (list) and THE ARRANGE (map) ─────────────────────────────── */
@@ -88,6 +90,11 @@ export type RosterFacts = {
   tableOf: (guestId: string) => string | null;
   /** Their song requests ("Title Artist") — the shipped search reads them. */
   songsOf?: (guestId: string) => readonly string[];
+  /**
+   * Any guest on the WHOLE list by id — so a +1 whose guest a search left out still sections with
+   * that guest (`plusOneAnchor`). Absent → the guests handed to the call are the whole list.
+   */
+  guestById?: (guestId: string) => GuestRow | undefined;
 };
 
 /** What the invite rule reads off a guest — every field optional, so any guest read can ask it. */
@@ -220,10 +227,72 @@ export function rosterStats(guests: readonly GuestRow[]): {
   const counted = guests.filter((g) => countsTowardEvent(g));
   return {
     total: counted.length,
-    yes: counted.filter((g) => g.rsvp_status === 'attending').length,
-    no: counted.filter((g) => g.rsvp_status === 'declined').length,
-    none: counted.filter((g) => hasNotAnswered(g)).length,
+    // The three reply counts ARE their filters' rows (`replyFilterMatches`) — a tap shows exactly what was said.
+    yes: guests.filter((g) => replyFilterMatches(g, 'attending')).length,
+    no: guests.filter((g) => replyFilterMatches(g, 'declined')).length,
+    none: guests.filter((g) => replyFilterMatches(g, 'none')).length,
     toInvite: counted.filter((g) => isToInvite(g)).length,
+  };
+}
+
+/**
+ * 👆 THE COUNTS ARE DOORS (owner 2026-10-21, verbatim: *"How do we double check those who did not answer yet. so we can
+ * manually accept them in case they just forgot to say yes?"* → *"tappable counts that filter"*). "N attending · N not
+ * coming · N no reply" each filter the list to exactly the guests they count — and the search words for the same
+ * replies ("attending", "not coming", "no reply"…) read this SAME predicate (`rosterSearchMatches`), so the tap, the
+ * typed word and the number can never disagree. A guest who is not counted (a request, the passed-away) is in none.
+ * 🔒 guests/_components/the-counts-filter-what-they-count.test.ts
+ */
+export type ReplyFilter = 'attending' | 'declined' | 'none';
+
+export function replyFilterMatches(
+  g: Pick<GuestRow, 'role' | 'rsvp_status' | 'entry_source' | 'passed_away'>,
+  f: ReplyFilter | null,
+): boolean {
+  if (f === null) return true;
+  if (!countsTowardEvent(g)) return false;
+  return f === 'none' ? hasNotAnswered(g) : g.rsvp_status === f;
+}
+
+/**
+ * ✋ MAY A HOST SET THIS GUEST'S REPLY? Everyone but the couple and the honoree — they are always attending (the DB
+ * trigger, owner 2026-06-03). The ONE answer Select → Set reply ▾ (the screen's optimistic draw) and the server's write
+ * (`setGuestRsvp`, guests/inline-actions.ts) both read, so the list never draws a reply the server will not write.
+ */
+export function hostMaySetReply(g: Pick<GuestRow, 'role'>): boolean {
+  return g.role !== 'bride' && g.role !== 'groom' && !isHonoreeRole(g.role);
+}
+
+/* ─── THE +1s: WHO HAS A NAME, WHO HAS NONE YET ─────────────────────────── */
+
+/**
+ * 🪑 FINALIZING THE LIST: WHICH +1 HAS A NAME (owner 2026-10-21, verbatim: *"when we finalize the guest list. how do I
+ * know which +1 has names and has no names? so we can alot the seat to another person in case they said no or they
+ * will not add a +1 anymore"* → *"Yes, build it: count at the top, +1 ▾ Named / No name yet filter, Release seat with
+ * Undo and bulk Select"*). The counts line's "+1s: N named · M no name yet", the Sort dropdown's "+1 ▾" and the rows
+ * it leaves all read `plusOneFilterMatches` — the number said IS the rows shown (`plusOneTally` counts the filter).
+ * 🔒 guests/_components/a-seat-with-no-name-can-be-released.test.ts
+ */
+export type PlusOneFilter = 'named' | 'unnamed';
+
+export const PLUS_ONE_FILTERS: readonly { key: PlusOneFilter; label: string }[] = [
+  { key: 'named', label: 'Named' },
+  { key: 'unnamed', label: 'No name yet' },
+];
+
+type PlusFilterFields = Pick<GuestRow, 'guest_id' | 'plus_one_of_guest_id' | 'first_name' | 'last_name' | 'plus_one_name_confirmed_at'>;
+
+/** Is this row one of the +1s the filter shows? `null` → every row (no +1 filter). */
+export function plusOneFilterMatches(g: PlusFilterFields, f: PlusOneFilter | null): boolean {
+  if (f === null) return true;
+  return f === 'unnamed' ? plusOneHasNoName(g) : plusOneIsNamed(g);
+}
+
+/** The counts line's "+1s: N named · M no name yet" — the filter's own rows, counted. */
+export function plusOneTally(roster: readonly PlusFilterFields[]): { named: number; unnamed: number } {
+  return {
+    named: roster.filter((g) => plusOneFilterMatches(g, 'named')).length,
+    unnamed: roster.filter((g) => plusOneFilterMatches(g, 'unnamed')).length,
   };
 }
 
@@ -331,9 +400,14 @@ export function rosterSections(
   view: RosterView,
   facts: RosterFacts,
 ): RosterSection<GuestRow>[] {
+  // 🤝 A +1 IS SECTIONED AS THEIR GUEST IS (owner 2026-10-19: "the plus 1 did not connect properly to the guest"):
+  // every bucket below reads `at(g)` — the guest who brings them — never the +1's own role, side, name or group.
+  const at = plusOneAnchorOf(guests, facts);
   const celebrants: GuestRow[] = [];
   const rest: GuestRow[] = [];
-  for (const g of guests) (isHonoreeRole(g.role) ? celebrants : rest).push(g);
+  for (const g of guests) (isHonoreeRole(at(g).role) ? celebrants : rest).push(g);
+  const rank = new Map(guests.map((g, i) => [g.guest_id, i] as const));
+  const beside = (list: GuestRow[]) => besideTheirGuest(list, rank);
 
   const out: RosterSection<GuestRow>[] = [];
   if (celebrants.length) {
@@ -341,23 +415,23 @@ export function rosterSections(
       key: 'celebrants',
       label: celebrantLabel(celebrants[0]!, facts.roleNames),
       mark: { kind: 'icon', icon: 'celebrant' },
-      guests: celebrants,
+      guests: beside(celebrants),
       celebrants: true,
     });
   }
 
   const push = (key: string, label: string, mark: SectionMark, list: GuestRow[]) => {
-    if (list.length) out.push({ key: `${view}:${key}`, label, mark, guests: list });
+    if (list.length) out.push({ key: `${view}:${key}`, label, mark, guests: beside(list) });
   };
 
   if (view === 'role') {
     for (const grp of ROLE_ORDER) {
-      push(grp, roleLabel(grp, facts.roleNames), { kind: 'icon', icon: ROLE_ICON[grp] ?? 'party' }, rest.filter((g) => roleBucket(g) === grp));
+      push(grp, roleLabel(grp, facts.roleNames), { kind: 'icon', icon: ROLE_ICON[grp] ?? 'party' }, rest.filter((g) => roleBucket(at(g)) === grp));
     }
   } else if (view === 'last_name') {
     const by = new Map<string, GuestRow[]>();
     for (const g of rest) {
-      const k = lastInitial(g);
+      const k = lastInitial(at(g));
       by.set(k, [...(by.get(k) ?? []), g]);
     }
     for (const k of [...by.keys()].sort((a, b) => (a === '#' ? 1 : b === '#' ? -1 : a.localeCompare(b)))) {
@@ -365,23 +439,24 @@ export function rosterSections(
         .get(k)!
         .slice()
         .sort((a, b) =>
-          `${a.last_name ?? ''} ${a.first_name ?? ''}`.localeCompare(`${b.last_name ?? ''} ${b.first_name ?? ''}`),
+          `${at(a).last_name ?? ''} ${at(a).first_name ?? ''}`.localeCompare(`${at(b).last_name ?? ''} ${at(b).first_name ?? ''}`),
         );
       push(k, k, { kind: 'letter', letter: k }, list);
     }
   } else if (view === 'side') {
     for (const side of SIDE_ORDER) {
-      push(side, SIDE_LABELS[side], { kind: 'icon', icon: 'side' }, rest.filter((g) => g.side === side));
+      push(side, SIDE_LABELS[side], { kind: 'icon', icon: 'side' }, rest.filter((g) => at(g).side === side));
     }
   } else if (view === 'group') {
-    const names = [...new Set(rest.flatMap((g) => facts.groupsOf(g.guest_id).slice(0, 1)))].sort((a, b) =>
-      a.localeCompare(b),
-    );
+    const groupOf = (g: GuestRow) => facts.groupsOf(at(g).guest_id);
+    const names = [...new Set(rest.flatMap((g) => groupOf(g).slice(0, 1)))].sort((a, b) => a.localeCompare(b));
     for (const n of names) {
-      push(n, n, { kind: 'letter', letter: (n.charAt(0) || '·').toUpperCase() }, rest.filter((g) => facts.groupsOf(g.guest_id)[0] === n));
+      push(n, n, { kind: 'letter', letter: (n.charAt(0) || '·').toUpperCase() }, rest.filter((g) => groupOf(g)[0] === n));
     }
-    push('none', 'No group', { kind: 'icon', icon: 'none' }, rest.filter((g) => facts.groupsOf(g.guest_id).length === 0));
+    push('none', 'No group', { kind: 'icon', icon: 'none' }, rest.filter((g) => groupOf(g).length === 0));
   } else {
+    // ⚖ The ONE view that reads the +1's OWN answer: a heading here is a reply, and a +1 who has not answered is
+    // not "Attending" because their guest is. Beside their guest when they share the heading; named with them always.
     for (const s of RSVP_SECTIONS) {
       push(s.status, s.label, { kind: 'icon', icon: s.icon }, rest.filter((g) => rsvpBucketOf(g) === s.status));
     }
@@ -394,13 +469,16 @@ export type MapBranch = { key: string; label: string; mark: SectionMark; kids: M
 
 export function mapTree(guests: readonly GuestRow[], arrange: MapArrange, facts: RosterFacts): MapBranch[] {
   if (arrange === 'side' && facts.hasSides) {
+    const at = plusOneAnchorOf(guests, facts);
+    const rank = new Map(guests.map((g, i) => [g.guest_id, i] as const));
     return SIDE_ORDER.map((side) => {
-      const mine = guests.filter((g) => g.side === side);
+      const mine = guests.filter((g) => at(g).side === side);
       const kidsBy = new Map<string, GuestRow[]>();
       for (const g of mine) {
-        const k = isHonoreeRole(g.role)
-          ? celebrantLabel(g, facts.roleNames)
-          : (facts.groupsOf(g.guest_id)[0] ?? roleLabel(roleBucket(g), facts.roleNames));
+        const a = at(g);
+        const k = isHonoreeRole(a.role)
+          ? celebrantLabel(a, facts.roleNames)
+          : (facts.groupsOf(a.guest_id)[0] ?? roleLabel(roleBucket(a), facts.roleNames));
         kidsBy.set(k, [...(kidsBy.get(k) ?? []), g]);
       }
       return {
@@ -413,7 +491,7 @@ export function mapTree(guests: readonly GuestRow[], arrange: MapArrange, facts:
           label,
           mark: { kind: 'letter', letter: label.charAt(0).toUpperCase() } as SectionMark,
           kids: [],
-          guests: list,
+          guests: besideTheirGuest(list, rank),
         })),
       };
     }).filter((b) => b.kids.length > 0);
@@ -437,6 +515,144 @@ export function mapRootLabel(guests: readonly Pick<GuestRow, 'role' | 'first_nam
   const names = guests.filter((g) => isHonoreeRole(g.role)).map((g) => (g.first_name ?? '').trim()).filter(Boolean);
   if (names.length) return names.join(' & ');
   return eventWord.charAt(0).toUpperCase() + eventWord.slice(1);
+}
+
+/* ─── A +1 SITS WITH THEIR GUEST ─────────────────────────────────────────── */
+
+/**
+ * 🤝 OWNER 2026-10-19, on a run of identical "+1 · TBA" rows under GUESTS: *"the plus 1 did not connect
+ * properly to the guest"*. The rows WERE linked (`guests.plus_one_of_guest_id`) — the list just never read
+ * the link. Now, in every view:
+ *   · a +1 is SECTIONED as their guest is — the guest's role, side, last name, group (`plusOneAnchorOf`);
+ *     the RSVP view alone reads the +1's own answer, because its headings ARE answers;
+ *   · a +1 is DRAWN right after their guest (`besideTheirGuest`), their seats in seat order;
+ *   · a +1 is NAMED with their guest (`plusOneWords`) — "Juanita Sacdalan’s +1 · TBA" while the seat is
+ *     unnamed (the seat's own label, `seatPlaceholderLabel`), "· +1 of Juanita Sacdalan" once it is;
+ *   · searching the guest's NAME brings their +1s with them (`withTheirPlusOnes`).
+ * Counts are untouched: every +1 is still one guest row, counted wherever it is drawn.
+ * 🔒 guests/_components/a-plus-one-sits-with-their-guest.test.ts
+ */
+type PlusLinked = Pick<GuestRow, 'guest_id' | 'plus_one_of_guest_id'>;
+
+/** The guest a row is sectioned as: the guest who brings them (followed to the root), else the row itself. */
+export function plusOneAnchorOf(
+  guests: readonly GuestRow[],
+  facts: Pick<RosterFacts, 'guestById'> = {},
+): (g: GuestRow) => GuestRow {
+  const own = new Map(guests.map((g) => [g.guest_id, g] as const));
+  const find = (id: string) => facts.guestById?.(id) ?? own.get(id);
+  return (g) => {
+    let cur = g;
+    // A +1 of a +1 is not a shape the app writes, but a chain never loops and never runs away.
+    for (let hop = 0; hop < 4 && cur.plus_one_of_guest_id && cur.plus_one_of_guest_id !== cur.guest_id; hop++) {
+      const host = find(cur.plus_one_of_guest_id);
+      if (!host) break;
+      cur = host;
+    }
+    return cur;
+  };
+}
+
+/**
+ * One section's rows with every +1 moved to right after their guest — when that guest is in the same list.
+ * Everyone else keeps the caller's order; a +1 whose guest is elsewhere keeps its place (still named with
+ * them). A guest's +1s follow in `rank` order (the whole list's order — the order their seats are numbered in).
+ */
+export function besideTheirGuest<G extends PlusLinked>(list: readonly G[], rank?: ReadonlyMap<string, number>): G[] {
+  const here = new Set(list.map((g) => g.guest_id));
+  const kids = new Map<string, G[]>();
+  const attached = (g: G) =>
+    Boolean(g.plus_one_of_guest_id) && g.plus_one_of_guest_id !== g.guest_id && here.has(g.plus_one_of_guest_id!);
+  for (const g of list) if (attached(g)) kids.set(g.plus_one_of_guest_id!, [...(kids.get(g.plus_one_of_guest_id!) ?? []), g]);
+  if (kids.size === 0) return [...list];
+  if (rank) for (const k of kids.values()) k.sort((a, b) => (rank.get(a.guest_id) ?? 0) - (rank.get(b.guest_id) ?? 0));
+  const out: G[] = [];
+  const seen = new Set<string>();
+  const emit = (g: G) => {
+    if (seen.has(g.guest_id)) return;
+    seen.add(g.guest_id);
+    out.push(g);
+    for (const k of kids.get(g.guest_id) ?? []) emit(k);
+  };
+  for (const g of list) if (!attached(g)) emit(g);
+  for (const g of list) emit(g); // a loop of +1s (never written) still draws every row once
+  return out;
+}
+
+/** What a +1 row says about whose +1 it is. `name` replaces the row's name (an unnamed seat); `of` follows a name. */
+export type PlusOneWords = {
+  hostId: string;
+  /** "Juanita Sacdalan’s +1 · TBA" — an unnamed seat is named by its guest. */
+  name: string | null;
+  /** "+1 of Juanita Sacdalan" — after a named +1's own name. */
+  of: string | null;
+  /** The side the row shows: their guest's (a +1's side follows their guest). */
+  side: GuestRow['side'];
+};
+
+type SeatFields = Pick<GuestRow, 'guest_id' | 'plus_one_of_guest_id' | 'first_name'>;
+
+/**
+ * Every +1 row's words, from the WHOLE list (a search for "TBA" must still know whose seat each is). Seats are
+ * numbered per guest in list order, the way their seats are everywhere ("+2 · TBA" is the second seat,
+ * `seatPlaceholderLabel`); the stored display name ("+1 · TBA", or an older "+ TBA · brought by …") is
+ * never read for it.
+ */
+export function plusOneWordsFrom<G extends SeatFields & Pick<GuestRow, 'display_name' | 'last_name' | 'side'>>(
+  roster: readonly G[],
+): Map<string, PlusOneWords> {
+  const byId = new Map(roster.map((g) => [g.guest_id, g] as const));
+  const seatNo = new Map<string, number>();
+  const out = new Map<string, PlusOneWords>();
+  for (const g of roster) {
+    const hostId = g.plus_one_of_guest_id;
+    if (!hostId || hostId === g.guest_id) continue;
+    const host = byId.get(hostId);
+    if (!host) continue;
+    const i = seatNo.get(hostId) ?? 0;
+    seatNo.set(hostId, i + 1);
+    // The one wording (lib/plus-one-of.ts) — the card's title and eyebrow say the same.
+    const w = plusOneOfWords(g, host, i);
+    out.set(g.guest_id, { hostId, name: w.name, of: w.name ? null : w.of, side: w.side });
+  }
+  return out;
+}
+
+/**
+ * 🪑 How many of each guest's seats are ROWS on the list — so a "+1" whose seat row is gone (removed before
+ * 2026-10-20, when Remove left the number standing; or a number never given its seats) is SAID on the guest's row
+ * ("+1 not added yet", the card's own words) instead of drawn as a +1 nobody can find.
+ */
+export function seatRowsByGuest(roster: readonly PlusLinked[]): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const g of roster) {
+    const h = g.plus_one_of_guest_id;
+    if (h && h !== g.guest_id) out.set(h, (out.get(h) ?? 0) + 1);
+  }
+  return out;
+}
+
+/** Every word of `q` lands in the guest's name. */
+function nameHas(q: string, g: Pick<GuestRow, 'name_prefix' | 'first_name' | 'middle_name' | 'last_name' | 'name_suffix' | 'display_name'>): boolean {
+  const hay = normalizeSearchText([g.name_prefix, g.first_name, g.middle_name, g.last_name, g.name_suffix, g.display_name].filter(Boolean).join(' '));
+  return q.split(' ').every((t) => t && hay.includes(t));
+}
+
+/**
+ * The search's hits, plus the +1s of every hit found BY NAME — searching "Juanita" shows Juanita and her +1.
+ * Only a name brings them: a reply, a role or "to invite" matches each +1 on its own answer, so "Pick who"
+ * never ticks a +1 who is already invited. Kept in the whole list's order.
+ */
+export function withTheirPlusOnes<G extends GuestRow>(query: string, hits: readonly G[], roster: readonly G[]): G[] {
+  const q = normalizeSearchText(query ?? '');
+  if (!q) return [...hits];
+  const byName = new Set(hits.filter((g) => nameHas(q, g)).map((g) => g.guest_id));
+  if (byName.size === 0) return [...hits];
+  const got = new Set(hits.map((g) => g.guest_id));
+  const added = roster.filter((g) => !got.has(g.guest_id) && g.plus_one_of_guest_id && byName.has(g.plus_one_of_guest_id));
+  if (added.length === 0) return [...hits];
+  for (const g of added) got.add(g.guest_id);
+  return roster.filter((g) => got.has(g.guest_id));
 }
 
 /* ─── THE SEARCH UNDERSTANDS WORDS ──────────────────────────────────────── */
@@ -470,7 +686,10 @@ export function rosterSearchMatches(query: string, g: GuestRow, facts: RosterFac
   if (!q) return true;
   if (TO_INVITE_WORDS.includes(q)) return isToInvite(g);
   if (INVITED_WORDS.includes(q)) return Boolean(g.invitation_sent_at);
-  if (NO_REPLY_WORDS.includes(q)) return hasNotAnswered(g);
+  if (NO_REPLY_WORDS.includes(q)) return replyFilterMatches(g, 'none');
+  // "attending" / "not coming" (and every other word for them) — the counts' own filter (`replyFilterMatches`).
+  const reply = replyStatusOf(q);
+  if (reply === 'attending' || reply === 'declined') return replyFilterMatches(g, reply);
   if (facts.hasSides && SIDE_WORDS[q]) {
     const side = SIDE_WORDS[q]!;
     return g.side === side || g.side === 'both' || g.role === side;
@@ -485,9 +704,27 @@ export function rosterSearchMatches(query: string, g: GuestRow, facts: RosterFac
   return guestMatchesSearch(q, g, searchFacts);
 }
 
+/**
+ * A LINE TYPED INTO "SEARCH OR ADD" THAT IS A FILTER, NOT A NAME (2026-10-19). Every word `rosterSearchMatches` reads as a
+ * filter — to invite · invited · no reply · a side · a reply · a role · VIP (`isSearchVocabulary`) — and this event's own
+ * group and table labels. When such a line matches nobody, Enter must NOT add it as a guest; the box says nobody matches.
+ * 🔒 guests/_components/one-enter-adds-one-guest-at-once.test.ts
+ */
+export function typedLineIsAFilter(query: string, facts: Pick<RosterFacts, 'roleNames' | 'hasSides'>, labels: readonly string[] = []): boolean {
+  const q = normalizeSearchText(query ?? '');
+  if (!q) return false;
+  if (TO_INVITE_WORDS.includes(q) || INVITED_WORDS.includes(q) || NO_REPLY_WORDS.includes(q)) return true;
+  if (SIDE_WORDS[q]) return true;
+  if (isSearchVocabulary(q, facts.roleNames)) return true;
+  return labels.some((l) => {
+    const n = normalizeSearchText(l);
+    return n === q || n.replace(/\s+/g, '') === q.replace(/\s+/g, '');
+  });
+}
+
 /* ─── A ROW'S VERBS ─────────────────────────────────────────────────────── */
 
-export type RowVerb = 'message' | 'edit' | 'remove';
+export type RowVerb = 'message' | 'edit' | 'remove' | 'release';
 
 /**
  * The verbs a guest row carries, in order. `💬 Message` only when the guest's
@@ -496,13 +733,16 @@ export type RowVerb = 'message' | 'edit' | 'remove';
  * There is NO invite and NO nudge here — inviting is the one run (G28, G34).
  */
 export function rowVerbsFor(
-  g: Pick<GuestRow, 'role'>,
+  g: Pick<GuestRow, 'role'> & Partial<PlusFilterFields>,
   opts: { linked: boolean | null; chatHref: string | null },
 ): RowVerb[] {
   const verbs: RowVerb[] = [];
   if (opts.linked === true && opts.chatHref) verbs.push('message');
   verbs.push('edit');
-  if (g.role !== 'bride' && g.role !== 'groom') verbs.push('remove');
+  // 🪑 A +1 with no name yet is a SEAT, not a person: "Release seat" (gone at once, with Undo; their guest's "+N" one
+  // lower) in place of Remove. A named +1 is a person — the shipped Remove, with its warning (owner 2026-10-21).
+  if (plusOneHasNoName({ ...g, first_name: g.first_name ?? null })) verbs.push('release');
+  else if (g.role !== 'bride' && g.role !== 'groom') verbs.push('remove');
   return verbs;
 }
 

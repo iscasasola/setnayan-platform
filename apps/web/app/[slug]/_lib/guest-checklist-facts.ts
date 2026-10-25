@@ -1,8 +1,10 @@
+import { isDressableRole } from '@/lib/attire-rows';
 import { buildChecklist, type ChecklistItem } from '@/lib/guest-checklist';
 import { googleMapsNavUrl, googleMapsSearchByQuery } from '@/lib/geo';
-import { resolveGuestAttireWithGroups, sanitizeGroupAttire } from '@/lib/role-group-dress-code';
-import { sanitizeRoleAttire } from '@/lib/role-dress-code';
-import { roleLabel } from '@/lib/entourage';
+import { guestArriveBy, resolveGuestAttireWithGroups, sanitizeGroupAttire } from '@/lib/role-group-dress-code';
+import { ATTIRE_STYLE_LABEL, sanitizeRoleAttire } from '@/lib/role-dress-code';
+import { guestAttireOf, readerAttire, type ReaderPerson } from '@/lib/attire-rows';
+import { singleWearerOf } from '@/lib/role-figure';
 import { sanitizeRolePalette } from '@/lib/mood-board';
 import { paletteSwatches } from '@/lib/site-palette';
 import type { GuestRole } from '@/lib/guests';
@@ -16,8 +18,9 @@ import type { GuestRole } from '@/lib/guests';
  *                      dress-code title;
  *   · motif colours  — the Mood Board palette's swatches (swatches only for
  *                      now; the illustrated person comes after Apple);
- *   · arrive by      — the run of show's first block, formatted by the
- *                      programme's own formatter (passed in);
+ *   · arrive by      — their role's own call time, else the run of show's
+ *                      first block, formatted by the programme's own
+ *                      formatter (passed in) — `guestArriveBy`;
  *   · venue + Maps   — the venue name, and directions ONLY where the page is
  *                      already allowed to open the venue (`withheldVenue` nulls
  *                      the address and coordinates for a guest who has not
@@ -27,6 +30,9 @@ import type { GuestRole } from '@/lib/guests';
  */
 export function guestChecklistItems(input: {
   role: GuestRole | null | undefined;
+  /** 👤 The reader's own row — their "Atty. (Woman)" pick, title and attire (`readerAttire`): a woman parent is told
+   *  the women's Wear only. Absent: unknown, both picks (an older caller). */
+  person?: (NonNullable<ReaderPerson> & { attire?: unknown }) | null;
   dressCodeConfig: unknown;
   rolePalette: unknown;
   arriveBy: string | null;
@@ -49,12 +55,29 @@ export function guestChecklistItems(input: {
     palette?: unknown;
   } | null;
   const palette = sanitizeRolePalette(input.rolePalette);
-  const mine = resolveGuestAttireWithGroups({
+  const resolved = resolveGuestAttireWithGroups({
     role: input.role,
-    roles: sanitizeRoleAttire(config?.roles, (v) => roleLabel(v as GuestRole) !== null),
+    roles: sanitizeRoleAttire(config?.roles, isDressableRole),
     groups: sanitizeGroupAttire(config?.groups),
     palette,
-  }).panel;
+    config,
+  });
+  /* 👫 The reader's OWN pick (owner 2026-10-16) — the same `readerAttire` the Dress code's "You are …" panel reads, so a
+     ninong's checklist never says the women's "Long gown" a group saved for everybody before the split. */
+  const own = resolved.panel
+    ? readerAttire({
+        role: input.role,
+        attire: guestAttireOf(input.person),
+        person: input.person ?? null,
+        source: resolved.source,
+        config: config as Record<string, unknown> | null,
+        style: resolved.panel.style,
+        hexes: resolved.panel.hexes,
+        label: (st) => ATTIRE_STYLE_LABEL[st],
+        single: singleWearerOf,
+      })
+    : null;
+  const mine = resolved.panel && own ? { ...resolved.panel, styleLabel: own.styleLabel } : resolved.panel;
   const generalTitle = typeof config?.title === 'string' && config.title.trim() ? config.title.trim() : null;
   const dressPalette = Array.isArray(config?.palette)
     ? (config!.palette as unknown[])
@@ -72,7 +95,8 @@ export function guestChecklistItems(input: {
     wear: mine?.styleLabel ?? generalTitle,
     wearNote: mine?.note ?? null,
     motif: motif.length > 0 ? motif : dressPalette,
-    arriveBy: input.arriveBy,
+    /* ⏰ Their own call time first, else the doors' time (`guestArriveBy` — the ticket's and Me's one reading). */
+    arriveBy: guestArriveBy({ role: input.role, config, general: input.arriveBy }),
     venueName: input.venueName,
     mapsHref,
     tableLabel: input.tableLabel,

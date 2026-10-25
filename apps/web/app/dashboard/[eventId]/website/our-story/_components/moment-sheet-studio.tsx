@@ -7,6 +7,7 @@ import { FileUpload } from '@/app/_components/file-upload';
 import { InfoTip } from '@/app/_components/info-tip';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 import {
   LOVE_STORY_CHAPTER_LABEL,
   MOMENT_MEDIA_MAX,
@@ -25,6 +26,7 @@ import { LoveStoryProLine } from './love-story-pro-line';
 import { HubDraftField } from '../../_components/hub-draft-field';
 import { useMaker } from '../../../launch/_components/maker-context';
 import { InMakerReturnTo } from './in-maker-return-to';
+import { MomentVoicesFields, addedByShows } from './moment-voices-fields';
 import { Sheet } from '@/app/_components/sheet';
 import { PickMenu } from '../../editor/_components/pick-menu';
 import { SafeForm } from '@/app/dashboard/[eventId]/_components/safe-form';
@@ -52,7 +54,8 @@ import { SafeForm } from '@/app/dashboard/[eventId]/_components/safe-form';
  * ADD A MOMENT — the sheet (phone) / side panel (laptop) from the prototype
  * (`our_love_story_scrapbook_2026-09-25.html` → "Add to our love story").
  *
- * Every field but the year and the line is optional — "gentle prompts, never
+ * Every field but the year and some words (the line, or a voice — owner
+ * 2026-10-17, `moment-voices-fields.tsx`) is optional — "gentle prompts, never
  * required fields" (DECISION_LOG 2026-09-25). "Will sit in" answers live, from
  * the SAME `chapterOf` the server and the guest page use, so the chapter a
  * couple is shown is the chapter the moment lands in.
@@ -417,19 +420,8 @@ export function MomentSheetStudio({
                 />
               </label>
 
-              {/* The line */}
-              <label className="block">
-                <span className={eye}>A line or two</span>
-                <textarea
-                  name="line"
-                  required
-                  rows={3}
-                  maxLength={600}
-                  defaultValue={moment?.line ?? ''}
-                  placeholder="What happened, in your words…"
-                  className={`${field} ${serif} ${studio ? '' : 'text-lg'} leading-snug`}
-                />
-              </label>
+              {/* 🗣 The two voices (owner 2026-10-17) — "A line or two" became a field per partner. */}
+              <MomentVoicesFields moment={moment} partners={partners} field={field} eye={eye} quiet={quiet} serif={serif} studio={studio} />
 
               {/* Where */}
               <label className="block">
@@ -443,8 +435,10 @@ export function MomentSheetStudio({
                 />
               </label>
 
-              {/* Added by */}
-              {partners.length > 0 && studio ? (
+              {/* Added by — hidden once both voices are written (the names say who wrote what); the value is kept. */}
+              {partners.length > 0 && !addedByShows(moment) ? (
+                moment?.added_by ? <input type="hidden" name="added_by" value={moment.added_by} /> : null
+              ) : partners.length > 0 && studio ? (
                 <div data-moment-added-by="">
                   <p className={eye}>Added by</p>
                   <input type="hidden" name="added_by" value={addedBy} />
@@ -648,14 +642,15 @@ export function MomentSheetStudio({
            (measured in the harness, 2026-09-25). */
         <div
           style={vars as React.CSSProperties}
-          className="fixed inset-0 z-[80] flex items-end justify-center bg-black/45 lg:items-stretch lg:justify-end"
+          className="fixed inset-0 z-[80] flex items-end justify-center lg:items-stretch lg:justify-end"
         >
+          <OverlayBackdrop onClose={() => setOpen(false)} />
           <div
             ref={ref}
             role="dialog"
             aria-modal="true"
             aria-labelledby="moment-sheet-title"
-            className="max-h-[92dvh] w-full overflow-y-auto rounded-t-3xl bg-[color:var(--ls-canvas)] px-5 pb-8 pt-5 text-[color:var(--ls-ink)] shadow-2xl lg:max-h-none lg:w-[440px] lg:rounded-none lg:px-7"
+            className="relative max-h-[92dvh] w-full overflow-y-auto rounded-t-3xl bg-[color:var(--ls-canvas)] px-5 pb-8 pt-5 text-[color:var(--ls-ink)] shadow-2xl lg:max-h-none lg:w-[440px] lg:rounded-none lg:px-7"
           >
             {body}
           </div>

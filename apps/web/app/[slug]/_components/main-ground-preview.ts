@@ -33,7 +33,7 @@
  * 🔒 NOTHING FROM THE MESSAGE BECOMES CSS UNCHECKED: an address must be this
  * origin's own path or an https URL with no quote, bracket or space; a colour a
  * 6-digit hex; a blend or pattern a gradient spelled in a closed alphabet (no
- * `url(`, no quote, no semicolon); a position one of three words. The bridge
+ * `url(`, no quote, no semicolon); a position one of five words. The bridge
  * also checks the message's origin. Tiny and dependency-free: it ships in the
  * guest page's bundle, behind the bridge.
  */
@@ -54,7 +54,9 @@ export type MainGroundLay = {
 };
 export type MainGroundPreview = { seq: number; lay: MainGroundLay | null } | { seq: number; landed: true };
 
-const POSITIONS = ['center', 'center top', 'center bottom'];
+/* The words `mainGroundPosition` gives (`MAIN_GROUND_POSITIONS`, held equal by `lib/focus-moves-the-picture.test.ts`) —
+   spelled out here because this file ships in the guest page's bundle and imports nothing. */
+const POSITIONS = ['center', 'center top', 'center bottom', 'left center', 'right center'];
 const BLURS = ['soft', 'strong'];
 const HEX = /^#[0-9a-f]{6}$/i;
 const TRIPLET = /^\d{1,3} \d{1,3} \d{1,3}$/;
@@ -145,7 +147,9 @@ export function createMainGroundPreviewer(
   const wear = (l: MainGroundLay) => {
     const tint = Object.entries(l.vars).map(([k, v]) => `${k}:${v} !important;`).join('');
     if (!rule) rule = doc.createElement('style');
-    rule.textContent = SHELL + UNDER + (tint ? `[data-guest-look]{${tint}}` : '');
+    /* A picture laid here: the names keep the measured ink, as the page's own picture ground makes them (`main-ground.tsx`). */
+    const names = l.still ? '--hub-names-ink:initial !important;' : '';
+    rule.textContent = SHELL + UNDER + (tint || names ? `[data-guest-look]{${tint}${names}}` : '');
     if (!rule.parentNode) doc.head.append(rule);
     /* The tint of the ground being replaced is the server's own stylesheet — lifted while the preview is worn. */
     if (lifted.length === 0) {

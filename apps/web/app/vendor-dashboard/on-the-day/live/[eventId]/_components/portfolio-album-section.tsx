@@ -4,6 +4,7 @@ import { r2SignedGet, R2_BUCKETS } from '@/lib/r2';
 import { parseR2Ref } from '@/lib/nsfw-screen';
 import { visiblePortfolioPhotos, portfolioAlbumSummary } from '@/lib/vendor-papic-portfolio-album';
 import { PortfolioImportForm } from './portfolio-import-form';
+import { PutOnMyPageButton } from '@/app/vendor-dashboard/collections/_components/put-on-my-page-button';
 
 /**
  * "Your private portfolio" — a supplier's OWN imported work for THIS booked
@@ -24,11 +25,14 @@ export async function PortfolioAlbumSection({
   supabase,
   eventId,
   creditsLeft,
+  canPutOnPage = false,
 }: {
   supabase: SupabaseClient;
   eventId: string;
   /** null = unlimited (Unli tier); a number is what's left to spend. */
   creditsLeft: number | null;
+  /** Owners and admins only — the page is an owner room, and `putAlbumPhotoOnMyPage` refuses everyone else. */
+  canPutOnPage?: boolean;
 }) {
   const { data, error } = await supabase
     .from('vendor_papic_portfolio_photos')
@@ -42,7 +46,7 @@ export async function PortfolioAlbumSection({
   // as own-captures-strip.tsx.
   if (error) {
     return (
-      <section className="mt-8 border-t pt-6" style={{ borderColor: 'var(--m-line)' }}>
+      <section id="portfolio" className="mt-8 scroll-mt-24 border-t pt-6" style={{ borderColor: 'var(--m-line)' }}>
         <p className="text-sm" style={{ color: 'var(--m-slate-2)' }}>
           Couldn&rsquo;t load your portfolio just now. Your photos are safe — this is only
           the view.
@@ -69,7 +73,7 @@ export async function PortfolioAlbumSection({
   const canImport = creditsLeft == null || creditsLeft >= 1;
 
   return (
-    <section className="mt-8 border-t pt-6" style={{ borderColor: 'var(--m-line)' }}>
+    <section id="portfolio" className="mt-8 scroll-mt-24 border-t pt-6" style={{ borderColor: 'var(--m-line)' }}>
       <div className="flex items-baseline justify-between gap-3">
         <h2 className="font-mono text-[11px] uppercase tracking-[0.2em]" style={{ color: 'var(--m-slate-3)' }}>
           Your private portfolio
@@ -82,23 +86,25 @@ export async function PortfolioAlbumSection({
         <Lock aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
         <span>
           Only you can see this — never the couple, never their guests. Each photo you import
-          spends one Papic credit.
+          spends one Papic credit. Put one on your page and couples see that one.
         </span>
       </p>
 
       <PortfolioImportForm eventId={eventId} canImport={canImport} />
 
       {tiles.length > 0 ? (
-        <ul className="mt-3 grid grid-cols-3 gap-1.5 sm:grid-cols-4">
+        <ul className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
           {tiles.map(({ photo, url }) => (
-            <li
-              key={photo.photoId}
-              className="relative aspect-square overflow-hidden rounded-lg bg-ink/10"
-            >
-              {url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={url} alt="" loading="lazy" className="h-full w-full object-cover" />
-              ) : null}
+            <li key={photo.photoId} className="flex flex-col gap-1">
+              <div className="relative aspect-square overflow-hidden rounded-lg bg-ink/10">
+                {url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={url} alt="" loading="lazy" className="h-full w-full object-cover" />
+                ) : null}
+              </div>
+              {/* One tap puts THIS photo on your page (owner 2026-10-15, "SIX OWNER ANSWERS" (3)) — a copy in your
+                  page's gallery; the album keeps its private one. */}
+              {canPutOnPage ? <PutOnMyPageButton photoId={photo.photoId} /> : null}
             </li>
           ))}
         </ul>

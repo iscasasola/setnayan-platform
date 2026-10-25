@@ -1,3 +1,4 @@
+import { papicOwnerTag } from '@/lib/papic-upload/owner-tag.server';
 import Link from 'next/link';
 import { Sparkles } from 'lucide-react';
 import { DoorShell } from '@/app/_components/door/door-shell';
@@ -67,7 +68,7 @@ export default async function PapicDecoratePage() {
         sub={
           access === 'unknown'
             ? 'Something on our side didn’t answer, so we can’t open the decorator yet. Give it a moment and try again — nothing is wrong with your invitation.'
-            : 'Guest cameras aren’t on for this event yet, so there’s nothing to decorate. Enjoy the celebration!'
+            : 'Guest cameras aren’t on for this event yet, so there’s nothing to decorate. Enjoy the event!'
         }
       >
         <Link href={myPhotosHref} className="button-secondary">
@@ -98,6 +99,8 @@ export default async function PapicDecoratePage() {
 
   return (
     <KwentoDecorator
+      eventId={session.event_id}
+      uploadOwner={papicOwnerTag('guest', session.guest_id, session.event_id)}
       eventName={eventName}
       canKwento={canKwento}
       themeColors={themeColors}

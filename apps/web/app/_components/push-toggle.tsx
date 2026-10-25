@@ -118,6 +118,7 @@ export function PushToggle({ audience = 'couple' }: { audience?: PushAudience } 
           unblockSteps({
             userAgent: navigator.userAgent,
             standalone: isStandalone(),
+            maxTouchPoints: navigator.maxTouchPoints,
           }),
         );
         return;
@@ -128,6 +129,7 @@ export function PushToggle({ audience = 'couple' }: { audience?: PushAudience } 
           unblockSteps({
             userAgent: navigator.userAgent,
             standalone: isStandalone(),
+            maxTouchPoints: navigator.maxTouchPoints,
           }),
         );
         return;

@@ -37,7 +37,7 @@ import {
   bookingFeeScheduleSummary,
   type BookingFeeSchedule,
 } from '@/lib/booking-fee';
-import { FREE_BOOKING_LIMIT, isFreeBooking } from '@/lib/booking-fee-lock';
+import { FIRST_BOOKING_ON_US_CLAUSE, FREE_BOOKING_LIMIT, isFreeBooking } from '@/lib/booking-fee-lock';
 import { monthDay } from '@/lib/format-date';
 import { feeEnforcementSentence } from '@/lib/event-access-stage';
 import { freeWindowEndsLabel } from './booking-fee-free-window';
@@ -126,15 +126,24 @@ export function freeBookingsLeftAfter(ordinal: number): number {
 }
 
 /**
- * " — 4 more free bookings after this one", or " — and this is the last of
- * them". ONE clause, used by the forecast (before the booking) and by the
- * waived receipt (after it), so the count the supplier is promised on the
- * Agree button is the count their receipt confirms.
+ * WHERE A FREE BOOKING SITS, as one sentence — used by the forecast (before the
+ * booking: `'is'` / `'would'`) and by the waived receipt (after it: `'was'`), so
+ * what the Agree button promises is what the receipt confirms.
+ *
+ * ⚖ ONE FREE BOOKING (owner 2026-10-23: *"Your first booking is on us. Not
+ * 5."*). An ordinal at or below the limit is THE first booking. An ordinal
+ * above it can still be free — a FROZEN booking 2…5 waived under the earlier
+ * five-booking rule keeps its waiver (`booking_fee_ledger.is_free_booking`,
+ * never re-derived), and it says so rather than counting a rule that is gone.
  */
-export function freeBookingsLeftClause(ordinal: number): string {
-  const left = freeBookingsLeftAfter(ordinal);
-  if (left <= 0) return ' — and this is the last of them';
-  return ` — ${left} more free ${left === 1 ? 'booking' : 'bookings'} after this one`;
+export function freeBookingSentence(ordinal: number, when: 'is' | 'would' | 'was'): string {
+  if (Number.isFinite(ordinal) && ordinal >= 1 && ordinal <= FREE_BOOKING_LIMIT) {
+    if (when === 'was') return 'This was your first booking from Setnayan, which is on us.';
+    return when === 'is'
+      ? 'This is your first booking from Setnayan, which is on us.'
+      : 'This would be your first booking from Setnayan, which is on us.';
+  }
+  return 'This booking was made while your first Setnayan bookings were free, so it stays free.';
 }
 
 const PESO = new Intl.NumberFormat('en-PH', {
@@ -181,16 +190,13 @@ function effectiveRateText(feePhp: number, totalPhp: number): string | null {
  * projection being presented as a fact.
  */
 function feePositionSentence(ordinal: number, frozen: boolean, free: boolean): string {
-  const where = frozen
-    ? `This is booking ${ordinal} of your first ${FREE_BOOKING_LIMIT} on Setnayan`
-    : `This would be booking ${ordinal} of your first ${FREE_BOOKING_LIMIT} on Setnayan`;
-  // ⚠ ONE CLAUSE, SHARED WITH THE RECEIPT. `freeBookingsLeftClause` is what
-  // `waivedFeeCopy` also reads, so the count promised before the booking is the
-  // count confirmed after it — this used to be typed out twice.
-  if (free) return `${where}, which are free${freeBookingsLeftClause(ordinal)}.`;
+  // ⚠ ONE SENTENCE, SHARED WITH THE RECEIPT. `freeBookingSentence` is what
+  // `waivedFeeCopy` also reads, so what is promised before the booking is what
+  // is confirmed after it — this used to be typed out twice.
+  if (free) return freeBookingSentence(ordinal, frozen ? 'is' : 'would');
   return frozen
-    ? `Your first ${FREE_BOOKING_LIMIT} Setnayan bookings were free; this is number ${ordinal}.`
-    : `Your first ${FREE_BOOKING_LIMIT} Setnayan bookings were free; this would be number ${ordinal}.`;
+    ? `Your first booking from Setnayan was on us; this is number ${ordinal}.`
+    : `Your first booking from Setnayan was on us; this would be number ${ordinal}.`;
 }
 
 /**
@@ -257,7 +263,13 @@ export function bookingFeeForecast(
       const promo = standing.kind === 'promo_window';
       const free = standing.kind === 'free' || promo;
       const summary = bookingFeeScheduleSummary(standing.schedule);
-      const position = feePositionSentence(standing.ordinal, standing.ordinalIsFrozen, free);
+      // A promotion never decides a shop's FREE booking (it sits below it in the
+      // RPC), so its position is the billed-era one, not the free sentence.
+      const position = feePositionSentence(
+        standing.ordinal,
+        standing.ordinalIsFrozen,
+        standing.kind === 'free',
+      );
       const total = Number(totalPhp);
       // ⚠ NO AMOUNT ⇒ SAY SO, NEVER A BARE "Free". The position and the schedule
       // are still true and still worth reading; only the figure is missing.
@@ -281,8 +293,7 @@ export function bookingFeeForecast(
           headline: `Booking fee ${feePesos(fee)} — free right now.`,
           detail:
             `Setnayan is not charging booking fees${ends ? ` until ${ends}` : ' at the moment'}, ` +
-            `so this one costs you nothing. ${position} ` +
-            `It does not use up one of your five free bookings — those are still yours.`,
+            `so this one costs you nothing. ${position}`,
         };
       }
       return {
@@ -309,7 +320,7 @@ export function bookingFeeForecast(
       const which = standing.isFrozen
         ? `This booking is one of Setnayan's first ${cap} bookings${standing.number ? ` (number ${new Intl.NumberFormat('en-PH').format(standing.number)})` : ''}, which are free — the launch offer.`
         : `Setnayan's first ${cap} bookings are free — the launch offer — and it is still open, so if this booking is agreed now it costs you nothing.`;
-      const tail = ` It does not use up any of your ${FREE_BOOKING_LIMIT} free bookings.${credits}`;
+      const tail = ` It does not use up your free first booking.${credits}`;
       if (!Number.isFinite(total) || total <= 0) {
         return {
           tone: 'good',
@@ -437,8 +448,8 @@ export function waivedFeeCopy(charge: WaivedFeeCharge): FeeDisclosure {
       : charge.reason === 'promo'
       ? 'A Setnayan free-fee promotion was running when this booking was made, so its fee is waived. It did not use up any of your free bookings.'
       : typeof charge.ordinal === 'number' && Number.isFinite(charge.ordinal)
-        ? `This was booking ${charge.ordinal} of your first ${FREE_BOOKING_LIMIT} on Setnayan, which are free${freeBookingsLeftClause(charge.ordinal)}.`
-        : `It fell inside your first ${FREE_BOOKING_LIMIT} Setnayan bookings, which are free.`;
+        ? freeBookingSentence(charge.ordinal, 'was')
+        : 'It was one of your free bookings from Setnayan.';
   // ⚠ NO NUMBER ⇒ NO NUMBER. An unreadable computed amount must not degrade to
   // "₱0" — that would state the fee was nothing rather than that it was waived.
   const amount =
@@ -507,8 +518,8 @@ export function bookingFeeJoinDisclosure(
     tone: 'info',
     headline: 'Opening your shop is free, and running it stays free.',
     detail: schedule
-      ? `You only pay Setnayan when a couple books you THROUGH Setnayan — and your first ${FREE_BOOKING_LIMIT} of those are free. After that the booking fee is ${bookingFeeScheduleSummary(schedule)} of the agreed total. Clients you bring yourself are always free.`
-      : `You only pay Setnayan when a couple books you THROUGH Setnayan — and your first ${FREE_BOOKING_LIMIT} of those are free. We could not load today's booking-fee rate on this page; it is shown in full before you agree to any booking. Clients you bring yourself are always free.`,
+      ? `You only pay Setnayan when a couple books you THROUGH Setnayan — and ${FIRST_BOOKING_ON_US_CLAUSE}. After that the booking fee is ${bookingFeeScheduleSummary(schedule)} of the agreed total. Clients you bring yourself are always free.`
+      : `You only pay Setnayan when a couple books you THROUGH Setnayan — and ${FIRST_BOOKING_ON_US_CLAUSE}. We could not load today's booking-fee rate on this page; it is shown in full before you agree to any booking. Clients you bring yourself are always free.`,
   };
 }
 

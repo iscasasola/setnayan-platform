@@ -21,6 +21,8 @@
 
 import { Fragment, type CSSProperties, type ReactElement, type ReactNode } from 'react';
 import { Printer } from 'lucide-react';
+import { startAhead } from '@/lib/start-ahead';
+import { ServerTimer } from '@/lib/server-timing';
 import {
   loadEditorialData,
   resolveSectionOrder,
@@ -70,7 +72,7 @@ import { OpenUpScene, OpenUpTabs } from './open-up-layer';
 import type { PostEventDraft } from '@/lib/post-event-draft';
 import { postEventElementScope, postEventLookKey, postEventStyleHome } from '@/lib/post-event-styles';
 import { resolvePostEventStyle } from '@/lib/post-event-style-resolve';
-import { hubElementSceneCss } from '@/lib/element-style';
+import { hubElementSceneCss, hubSceneFxAttr } from '@/lib/element-style';
 import { filmTimecode, mastheadEdition } from '@/lib/story-spine';
 import { guestLayerAdmits } from '@/lib/the-guests-layer-is-theirs-until-you-publish';
 import { loadEntourage } from '../../_lib/loaders';
@@ -199,20 +201,30 @@ export async function EditorialContent({
   // Title-Case headings and three screen-reader labels a sighted reader never
   // sees. Resolved from the event id because this component receives only that;
   // `resolveProfileByEvent` is request-cached, so it costs nothing.
-  const w = await eventWordsForEvent(eventId);
+  /* ⏱ The story reads OUTSIDE the page's own timer (`slug/invitation-body` never saw it) — so it says its own time,
+     one line per render to the log drain (`lib/server-timing.ts`; never throws, changes nothing). Measured the gap:
+     production 2026-10-23, the page's timer 0.13–0.36 s of a 2.3–3.8 s Post Event page. */
+  const timer = new ServerTimer(`slug/editorial-content${hostPreview ? ':host' : ''}`);
+  /* ⚡ The words, the role names and the story leave TOGETHER (2026-10-23) — none needs another, and each is
+     awaited where it always was. See the reads past the gate, below. */
+  const wordsRead = startAhead(eventWordsForEvent(eventId));
   // The couple's words for roles (owner 2026-09-30) — the column badges say
   // them. Graceful: unreadable → the usual words. 🔴 A curated SAMPLE has no
   // event row (see `isSample` below) and is prerendered with no service key —
   // it is never looked up; it wears the usual words.
-  const roleNames: RoleNames = isSampleEditorialId(eventId)
-    ? {}
-    : await loadRoleNames(createAdminClient(), eventId, 'EditorialContent.roleNames');
+  const roleNamesRead = isSampleEditorialId(eventId)
+    ? null
+    : startAhead(loadRoleNames(createAdminClient(), eventId, 'EditorialContent.roleNames'));
+  const dataRead = startAhead(loadEditorialData(eventId));
+  const w = await wordsRead;
+  const roleNames: RoleNames = roleNamesRead === null ? {} : await roleNamesRead;
   let data: EditorialData | null = null;
   try {
-    data = await loadEditorialData(eventId);
+    data = await dataRead;
   } catch {
     data = null;
   }
+  timer.mark('story');
 
   if (!data) {
     return <GracefulFallback words={w} />;
@@ -381,78 +393,53 @@ export async function EditorialContent({
     fixture table so a seventh sample cannot teach only half the code.
   */
   const isSample = isSampleEditorialId(eventId);
-  let mono: HeroMonogramData | null = null;
-  if (!isSample) {
-    try {
-      const admin = createAdminClient();
-      const { data: monoRow } = await admin
-        .from('events')
-        .select(HERO_MONOGRAM_COLUMNS)
-        .eq('event_id', eventId)
-        .maybeSingle();
-      mono = await resolveEventMonogram(admin, eventId, monoRow);
-    } catch {
-      mono = null;
+  /*
+    ⚡ PAST THE GATE, THE STORY'S OPTIONAL READS LEAVE TOGETHER (2026-10-23). The monogram, the Pro watermark, the
+    back cover, the previous edition, the spine's facts, the hand-laid pages, the entourage and the reader's own day
+    each need only this event, the viewer and the (already redacted) story — yet each waited for the one above it,
+    eight in single file after the story itself (production: the guest page on Post Event took 2.3 s for a guest
+    and 3.8 s for the couple; the page's own timer, 0.13–0.36 s of it). Each is STARTED here — after the one gate
+    above, so a story this viewer may not read starts none of them — with exactly the arguments it always had, and
+    awaited at the line that always awaited it, with the same fallback. Every comment below still describes its
+    read. Held by `the-story-reads-start-together.test.ts`.
+  */
+  // Both reads stay behind the SAMPLE CHECK at the call itself (a sample id is not a uuid — `silent-query-refusals.test.ts`).
+  const monoRead: Promise<HeroMonogramData | null> = (async () => {
+    if (!isSample) {
+      try {
+        const admin = createAdminClient();
+        const { data: monoRow } = await admin
+          .from('events')
+          .select(`${HERO_MONOGRAM_COLUMNS}, logo_wanted`)
+          .eq('event_id', eventId)
+          .maybeSingle();
+        return await resolveEventMonogram(admin, eventId, monoRow);
+      } catch {
+        return null;
+      }
     }
-  }
-
-  // Paid COUPLE_WEBSITE_PRO perk (retired/unbundled) — when ACTIVE (admin-approved), the
-  // editorial sheds the freemium "Powered by Setnayan" colophon watermark
-  // (the masthead sign-off below), matching the wedding site + recap. The
-  // "Powered by Setnayan" SERVICE-CREDITS strip (SetnayanExperience chip row)
-  // is CONTENT, not a watermark, and is intentionally NOT gated. Best-effort +
-  // wrapped to keep this component's "never throws" contract → false (keep the
-  // watermark) on any error. eventCoupleWebsiteProActive already
-  // graceful-degrades on orders-table drift; the catch guards the rest.
-  //
-  // 🔴 SKIPPED FOR A CURATED SAMPLE, same reason as the monogram above: this
-  // probes `orders` by event id, and a sample's id is a sentinel string, not a
-  // UUID. `false` (keep the watermark) is both the pre-existing behaviour for a
-  // sample and the right one — a fixture has bought nothing.
-  let hideWatermark = false;
-  if (!isSample) {
-    try {
-      hideWatermark = await eventCoupleWebsiteProActive(createAdminClient(), eventId);
-    } catch {
-      hideWatermark = false;
+    return null;
+  })();
+  const hideWatermarkRead: Promise<boolean> = (async () => {
+    if (!isSample) {
+      try {
+        return await eventCoupleWebsiteProActive(createAdminClient(), eventId);
+      } catch {
+        return false;
+      }
     }
-  }
-
-  /*
-    THE SPINE'S OWN FACTS — the road's dated entries, the broadcast sessions,
-    the venue's blocks and the dial's bar heights. A supplement to the loader
-    above, never a second opinion about anything it already answered.
-
-    🔴 A CURATED SAMPLE IS RESOLVED WITHOUT TOUCHING THE DATABASE, for the same
-    reason the monogram and the perk probe above are: its id is a sentinel
-    string, not a UUID, and Postgres rejects every query carrying one with
-    22P02 — an ABSENCE, not an error anybody sees.
-  */
-  /*
-    THE BACK COVER (01 §3.9). Loaded here with the other optional reads and, like
-    them, FAIL-QUIET: `loadBackCover` swallows its own errors and answers null,
-    and null is not an error state — it is the ordinary, correct-by-default
-    answer for a story whose host announced nothing. A sample has no real row and
-    is skipped for the same reason the monogram above is.
-  */
-  const backCover: BackCover | null = isSample
+    return false;
+  })();
+  const backCoverRead: Promise<BackCover | null> = isSample
+    ? Promise.resolve(null)
+    : startAhead(loadBackCover({ eventId, eventDateISO: data.eventDate ?? null, viewer }));
+  const previousEditionRead: Promise<PreviousEdition | null> = isSample
+    ? Promise.resolve(null)
+    : startAhead(loadPreviousEdition(eventId));
+  const spineFactsRead: Promise<StorySpineFacts> | null = isSample
     ? null
-    : await loadBackCover({ eventId, eventDateISO: data.eventDate ?? null, viewer });
-
-  /*
-    "PREVIOUSLY · No. 1" — 08 step 4.3. This edition OPENS with it when the host
-    started it from the last one's back cover. Same fail-quiet contract as the
-    back cover above, and skipped on a sample for the same reason.
-  */
-  const previousEdition: PreviousEdition | null = isSample
-    ? null
-    : await loadPreviousEdition(eventId);
-
-  let spineFacts: StorySpineFacts;
-  try {
-    spineFacts = isSample
-      ? sampleSpineFacts(data.eventDate, data.eventEndDate)
-      : await loadStorySpineFacts({
+    : startAhead(
+        loadStorySpineFacts({
           eventId,
           eventDate: data.eventDate,
           eventEndDate: data.eventEndDate,
@@ -471,7 +458,62 @@ export async function EditorialContent({
           writtenMinutesMs: data.dayChapters
             .map((c) => (c.atIso ? Date.parse(c.atIso) : Number.NaN))
             .filter((n) => Number.isFinite(n)),
-        });
+        }),
+      );
+  const sheetsRead: Promise<DrawnSheet[]> = isSample
+    ? Promise.resolve([])
+    : loadStoryPages(createAdminClient(), eventId, viewer, (key) => displayUrlForStoredAsset(key)).catch(() => []);
+  const entourageRead: Promise<EntourageGroup[]> = isSample
+    ? Promise.resolve([])
+    : loadEntourage(createAdminClient(), eventId).catch(() => []);
+  const ownRead = loadYourOwnDay(eventId).catch(() => null);
+
+  const mono: HeroMonogramData | null = await monoRead;
+
+  // Paid COUPLE_WEBSITE_PRO perk (retired/unbundled) — when ACTIVE (admin-approved), the
+  // editorial sheds the freemium "Powered by Setnayan" colophon watermark
+  // (the masthead sign-off below), matching the wedding site + recap. The
+  // "Powered by Setnayan" SERVICE-CREDITS strip (SetnayanExperience chip row)
+  // is CONTENT, not a watermark, and is intentionally NOT gated. Best-effort +
+  // wrapped to keep this component's "never throws" contract → false (keep the
+  // watermark) on any error. eventCoupleWebsiteProActive already
+  // graceful-degrades on orders-table drift; the catch guards the rest.
+  //
+  // 🔴 SKIPPED FOR A CURATED SAMPLE, same reason as the monogram above: this
+  // probes `orders` by event id, and a sample's id is a sentinel string, not a
+  // UUID. `false` (keep the watermark) is both the pre-existing behaviour for a
+  // sample and the right one — a fixture has bought nothing.
+  const hideWatermark = await hideWatermarkRead;
+
+  /*
+    THE SPINE'S OWN FACTS — the road's dated entries, the broadcast sessions,
+    the venue's blocks and the dial's bar heights. A supplement to the loader
+    above, never a second opinion about anything it already answered.
+
+    🔴 A CURATED SAMPLE IS RESOLVED WITHOUT TOUCHING THE DATABASE, for the same
+    reason the monogram and the perk probe above are: its id is a sentinel
+    string, not a UUID, and Postgres rejects every query carrying one with
+    22P02 — an ABSENCE, not an error anybody sees.
+  */
+  /*
+    THE BACK COVER (01 §3.9). Loaded here with the other optional reads and, like
+    them, FAIL-QUIET: `loadBackCover` swallows its own errors and answers null,
+    and null is not an error state — it is the ordinary, correct-by-default
+    answer for a story whose host announced nothing. A sample has no real row and
+    is skipped for the same reason the monogram above is.
+  */
+  const backCover: BackCover | null = await backCoverRead;
+
+  /*
+    "PREVIOUSLY · No. 1" — 08 step 4.3. This edition OPENS with it when the host
+    started it from the last one's back cover. Same fail-quiet contract as the
+    back cover above, and skipped on a sample for the same reason.
+  */
+  const previousEdition: PreviousEdition | null = await previousEditionRead;
+
+  let spineFacts: StorySpineFacts;
+  try {
+    spineFacts = spineFactsRead === null ? sampleSpineFacts(data.eventDate, data.eventEndDate) : await spineFactsRead;
   } catch {
     // Same contract as the rest of this component: it never throws. With no
     // facts the cover and the day's minutes still render; the road, the dial
@@ -523,18 +565,16 @@ export async function EditorialContent({
     consent veto (S14). Nothing here reads the arrangement any other way. A sample has no
     celebration behind it and is skipped, like every other lookup above.
   */
-  const sheets: DrawnSheet[] = isSample
-    ? []
-    : await loadStoryPages(createAdminClient(), eventId, viewer, (key) =>
-        displayUrlForStoredAsset(key),
-      ).catch(() => []);
+  const sheets: DrawnSheet[] = await sheetsRead;
 
   /* 👥 The entourage — the SAME loader the invitation lists it with (public
      invitation content, owner 2026-09-15). A sample has no guest list. */
-  const entourage: EntourageGroup[] = isSample ? [] : await loadEntourage(createAdminClient(), eventId).catch(() => []);
+  const entourage: EntourageGroup[] = await entourageRead;
 
-  let own = await loadYourOwnDay(eventId).catch(() => null);
+  let own = await ownRead;
   own ??= { signedIn: false, appearsIn: [], shot: [], said: [], tableLabel: null };
+  timer.mark('past-the-gate');
+  timer.flush();
   /** 🪑 The reader's own table, from their signed session — null for everyone else. */
   const ownTable = own.tableLabel;
 
@@ -570,7 +610,7 @@ export async function EditorialContent({
         ) : (
           <p className="max-w-prose text-base text-ink/70">
             {own.signedIn
-              ? 'Nothing of yours from the day is in the gallery yet — the photos you are in and the ones you took will show here.'
+              ? 'Nothing of yours from the day is in Memories yet — the photos you are in and the ones you took will show here.'
               : 'Open the story from your own Papic link and the photos you are in, and the ones you took, show here.'}
           </p>
         )
@@ -593,6 +633,8 @@ export async function EditorialContent({
     return resolvePostEventStyle(scene, home ? sharedStyles?.[home] : lookOf(scene).style, data?.eventType ?? null);
   };
   const cssOf = (scene: string) => hubElementSceneCss(postEventElementScope(scene), lookOf(scene).elements ?? null);
+  /* ✨ …and its parts' Word by word · Spread · Glow (`hubSceneFxAttr`, cut by `HubSceneFx`). */
+  const fxOf = (scene: string) => hubSceneFxAttr(lookOf(scene).elements ?? null);
   const wordsOf = (scene: string) => lookOf(scene).words ?? {};
   /* 🕰 Has the day happened? Compared by Manila calendar date — the scenes that
      wait for the day say so to the couple only (`hostPreview`). */
@@ -608,7 +650,7 @@ export async function EditorialContent({
     const line = placeholderOf(scene);
     if (!shown || !style || !line) return null;
     return (
-      <PostEventSceneFrame key={key} scene={scene} style={style} css={cssOf(scene)}>
+      <PostEventSceneFrame key={key} scene={scene} style={style} css={cssOf(scene)} fx={fxOf(scene)}>
         <div className="py-8">
           <p className="pahina-eyebrow m-0 font-mono text-xs font-semibold uppercase tracking-[0.22em] text-terracotta-700">
             {wordsOf(scene).label ?? label}
@@ -646,7 +688,7 @@ export async function EditorialContent({
     roadStyle && (roadEntries.length > 0 || placeholderOf('before')) ? (
       <>
         {marker('before')}
-        <PostEventSceneFrame scene="before" style={roadStyle} css={cssOf('before')}>
+        <PostEventSceneFrame scene="before" style={roadStyle} css={cssOf('before')} fx={fxOf('before')}>
           <RoadScene style={roadStyle} entries={roadEntries} dayMs={dayMs} words={wordsOf('before')} placeholder={placeholderOf('before')} />
         </PostEventSceneFrame>
       </>
@@ -656,7 +698,7 @@ export async function EditorialContent({
   const coverScene = coverStyle ? (
     <>
       {marker('cover')}
-      <PostEventSceneFrame scene="cover" style={coverStyle} css={cssOf('cover')} className="mt-4">
+      <PostEventSceneFrame scene="cover" style={coverStyle} css={cssOf('cover')} fx={fxOf('cover')} className="mt-4">
         <FrontPageScene
           style={coverStyle}
           words={wordsOf('cover')}
@@ -903,7 +945,7 @@ export async function EditorialContent({
             Drawn when there is a count to show; the couple alone sees it wait. */}
         {isOn('byTheNumbers') && (data.metrics.guests > 0 || (data.metrics.photos ?? 0) > 0 || placeholderOf('numbers')) ? marker('numbers') : null}
         {isOn('byTheNumbers') && (data.metrics.guests > 0 || (data.metrics.photos ?? 0) > 0 || placeholderOf('numbers')) && styleOf('numbers') ? (
-          <PostEventSceneFrame scene="numbers" style={styleOf('numbers')!} css={cssOf('numbers')}>
+          <PostEventSceneFrame scene="numbers" style={styleOf('numbers')!} css={cssOf('numbers')} fx={fxOf('numbers')}>
             <StatisticsScene
               style={styleOf('numbers')!}
               words={wordsOf('numbers')}
@@ -947,13 +989,13 @@ export async function EditorialContent({
                   key="chapters"
                   scene="chapters"
                   style={styleOf('chapters')!}
-                  css={cssOf('chapters')}
+                  css={cssOf('chapters')} fx={fxOf('chapters')}
                   id={anchorProps('chapters').id}
                 >
                   <ScheduleScene style={styleOf('chapters')!} chapters={data.dayChapters} words={wordsOf('chapters')} placeholder={null} />
                 </PostEventSceneFrame>
               ) : photo.chapters === null && placeholderOf('chapters') && isOn('gallery') && styleOf('chapters') ? (
-                <PostEventSceneFrame key="chapters" scene="chapters" style={styleOf('chapters')!} css={cssOf('chapters')}>
+                <PostEventSceneFrame key="chapters" scene="chapters" style={styleOf('chapters')!} css={cssOf('chapters')} fx={fxOf('chapters')}>
                   <ScheduleScene style={styleOf('chapters')!} chapters={[]} words={wordsOf('chapters')} placeholder={placeholderOf('chapters')} />
                 </PostEventSceneFrame>
               ) : photo.chapters === 'essay' ? (
@@ -966,7 +1008,7 @@ export async function EditorialContent({
             // style; the whole wall still opens full screen.
             kwento:
               isOn('kwento') && data.kwentoQuotes.length && styleOf('wishes') ? (
-                <PostEventSceneFrame key="kwento" scene="wishes" style={styleOf('wishes')!} css={cssOf('wishes')}>
+                <PostEventSceneFrame key="kwento" scene="wishes" style={styleOf('wishes')!} css={cssOf('wishes')} fx={fxOf('wishes')}>
                   <OpenUpScene
                     kind="wishes"
                     title={PHOTO_NOTES_LABEL}
@@ -993,7 +1035,7 @@ export async function EditorialContent({
             // here it has been agreed to. [] hides the scene entirely.
             challengeAnswers:
               isOn('challengeAnswers') && data.challengeAnswers.length && styleOf('asked') ? (
-                <PostEventSceneFrame key="challengeAnswers" scene="asked" style={styleOf('asked')!} css={cssOf('asked')}>
+                <PostEventSceneFrame key="challengeAnswers" scene="asked" style={styleOf('asked')!} css={cssOf('asked')} fx={fxOf('asked')}>
                   <ChallengeScene style={styleOf('asked')!} answers={data.challengeAnswers} words={wordsOf('asked')} />
                 </PostEventSceneFrame>
               ) : (
@@ -1003,7 +1045,7 @@ export async function EditorialContent({
             // data.guestColumns is absent/[] when off), approved by the organiser.
             guestColumns:
               isOn('guestColumns') && (data.guestColumns?.length ?? 0) > 0 && styleOf('letters') ? (
-                <PostEventSceneFrame key="guestColumns" scene="letters" style={styleOf('letters')!} css={cssOf('letters')}>
+                <PostEventSceneFrame key="guestColumns" scene="letters" style={styleOf('letters')!} css={cssOf('letters')} fx={fxOf('letters')}>
                   <MessagesScene style={styleOf('letters')!} letters={data.guestColumns ?? []} words={wordsOf('letters')} names={roleNames} />
                 </PostEventSceneFrame>
               ) : (
@@ -1012,7 +1054,7 @@ export async function EditorialContent({
             // Shared photos from the day ("From the Day").
             // 🖼 GALLERY — the preview in its style; the whole gallery opens up.
             gallery: photo.gallery && styleOf('gallery') ? (
-              <PostEventSceneFrame key="gallery" scene="gallery" style={styleOf('gallery')!} css={cssOf('gallery')} id={anchorProps('gallery').id}>
+              <PostEventSceneFrame key="gallery" scene="gallery" style={styleOf('gallery')!} css={cssOf('gallery')} fx={fxOf('gallery')} id={anchorProps('gallery').id}>
                 {/* 🔓 OPEN-UP (Maker Phase 8): a collage of five or six in the
                     flow (template 21); the gallery opens full screen, and its
                     tabs follow the reader — Yours / Everyone's for a guest,
@@ -1021,8 +1063,8 @@ export async function EditorialContent({
                 <OpenUpScene
                   kind="gallery"
                   title={wordsOf('gallery').heading ?? 'From the Day'}
-                  eyebrow={`${data.firstNames} · the gallery`}
-                  openLabel={`Open the gallery · ${fmt(data.galleryPhotos.length)} ${data.galleryPhotos.length === 1 ? 'photo' : 'photos'}`}
+                  eyebrow={`${data.firstNames} · Memories`}
+                  openLabel={`Open Memories · ${fmt(data.galleryPhotos.length)} ${data.galleryPhotos.length === 1 ? 'photo' : 'photos'}`}
                   preview={
                     <GalleryPreview
                       style={styleOf('gallery')!}
@@ -1047,7 +1089,7 @@ export async function EditorialContent({
                 key="fromVendors"
                 scene="vendors"
                 style={styleOf('vendors')!}
-                css={cssOf('vendors')}
+                css={cssOf('vendors')} fx={fxOf('vendors')}
                 id={suppliersId('fromVendors').id}
               >
                 <SupplierStoriesScene
@@ -1064,7 +1106,7 @@ export async function EditorialContent({
             // Live Photo Wall (LIVE_WALL SKU).
             liveWall: photo.liveWall ? (
               <div key="liveWall" {...anchorProps('liveWall')}>
-                <SectionRule title="Live Photo Wall" />
+                <SectionRule title="Memory lane" />
                 <LivePhotoWall photos={data.photoWallPhotos} photoCount={data.metrics.photos} />
               </div>
             ) : null,
@@ -1081,7 +1123,7 @@ export async function EditorialContent({
                   {watchFilmShown && data.watchFilmEmbedUrl && styleOf('film') ? (
                     <>
                       {marker('film')}
-                      <PostEventSceneFrame scene="film" style={styleOf('film')!} css={cssOf('film')}>
+                      <PostEventSceneFrame scene="film" style={styleOf('film')!} css={cssOf('film')} fx={fxOf('film')}>
                         <OpenUpScene
                           kind="film"
                           id={WATCH_FILM_ANCHOR_ID}
@@ -1108,7 +1150,7 @@ export async function EditorialContent({
                   {data.films?.length && styleOf('videos') ? (
                     <>
                       {marker('videos')}
-                      <PostEventSceneFrame scene="videos" style={styleOf('videos')!} css={cssOf('videos')}>
+                      <PostEventSceneFrame scene="videos" style={styleOf('videos')!} css={cssOf('videos')} fx={fxOf('videos')}>
                         {watchFilmShown ? (
                           <VideosScene style={styleOf('videos')!} films={data.films} words={wordsOf('videos')} />
                         ) : (
@@ -1164,7 +1206,7 @@ export async function EditorialContent({
             // 🪑 WHERE EVERYONE SAT — the seat plan; the reader's own table in gold.
             seating:
               isOn('seating') && spineFacts.room.tables.length > 0 && styleOf('seating') ? (
-                <PostEventSceneFrame key="seating" scene="seating" style={styleOf('seating')!} css={cssOf('seating')}>
+                <PostEventSceneFrame key="seating" scene="seating" style={styleOf('seating')!} css={cssOf('seating')} fx={fxOf('seating')}>
                   <SeatingScene style={styleOf('seating')!} room={spineFacts.room} ownTable={ownTable} words={wordsOf('seating')} />
                 </PostEventSceneFrame>
               ) : (
@@ -1173,8 +1215,8 @@ export async function EditorialContent({
             // 👥 ENTOURAGE — the roles the couple gave.
             entourage:
               isOn('entourage') && entourage.length > 0 && styleOf('entourage') ? (
-                <PostEventSceneFrame key="entourage" scene="entourage" style={styleOf('entourage')!} css={cssOf('entourage')}>
-                  <EntourageScene style={styleOf('entourage')!} groups={entourage} names={data.firstNames} words={wordsOf('entourage')} />
+                <PostEventSceneFrame key="entourage" scene="entourage" style={styleOf('entourage')!} css={cssOf('entourage')} fx={fxOf('entourage')}>
+                  <EntourageScene style={styleOf('entourage')!} groups={entourage} names={data.firstNames} words={wordsOf('entourage')} myGuestId={own.guestId ?? null} />
                 </PostEventSceneFrame>
               ) : (
                 waitingScene('entourage', 'The entourage', isOn('entourage'))
@@ -1183,7 +1225,7 @@ export async function EditorialContent({
             // only when the couple chose a new cover (one style).
             beforeAfter:
               isOn('beforeAfter') && data.coverChosen && data.eventHeroUrl && data.heroPhotoUrl ? (
-                <PostEventSceneFrame key="beforeAfter" scene="beforeAfter" style="two-up" css={cssOf('beforeAfter')}>
+                <PostEventSceneFrame key="beforeAfter" scene="beforeAfter" style="two-up" css={cssOf('beforeAfter')} fx={fxOf('beforeAfter')}>
                   <BeforeAfterScene before={data.eventHeroUrl} after={data.heroPhotoUrl} names={data.firstNames} words={wordsOf('beforeAfter')} />
                 </PostEventSceneFrame>
               ) : null,
@@ -1240,7 +1282,7 @@ export async function EditorialContent({
         {isOn('fromTheCouple') && (data.specialMessage || wordsOf('couple').body || placeholderOf('couple')) && styleOf('couple') ? (
           <>
             {marker('couple')}
-            <PostEventSceneFrame scene="couple" style={styleOf('couple')!} css={cssOf('couple')}>
+            <PostEventSceneFrame scene="couple" style={styleOf('couple')!} css={cssOf('couple')} fx={fxOf('couple')}>
               <ThankYouScene
                 style={styleOf('couple')!}
                 words={wordsOf('couple')}

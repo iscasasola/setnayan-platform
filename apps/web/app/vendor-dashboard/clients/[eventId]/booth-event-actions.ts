@@ -97,7 +97,7 @@ export async function buyBoothBrandingForEvent(
   });
   const stage = (brief as { stage?: string } | null)?.stage ?? null;
   if (briefErr || stage !== 'booked') {
-    return err('You can brand a booth once the couple has booked you for this celebration.');
+    return err('You can brand a booth once the couple has booked you for this event.');
   }
 
   // 4 · the floor — paid plan AND verified
@@ -112,7 +112,7 @@ export async function buyBoothBrandingForEvent(
     booth_addon_expires_at?: string | null;
   } | null;
   if (!isTierAtLeast(gate?.tier_state ?? null, BOOTH_BRANDING_MIN_TIER)) {
-    return err('3D Booth branding comes with a paid plan — Solo, Pro, Enterprise or Custom. Move up to add it.');
+    return err('3D Booth branding comes with a paid plan — Solo, Pro, Ultra or Custom. Move up to add it.');
   }
   if (gate?.verification_state !== 'verified') {
     return err('Get your shop verified first — 3D Booth branding unlocks once you’re verified.');
@@ -128,12 +128,12 @@ export async function buyBoothBrandingForEvent(
   //     earlier order (a different user_id) is still seen
   const admin = createAdminClient();
   if (isVendor3dBoothActive(gate?.booth_addon_expires_at ?? null)) {
-    return err('Your 3D Booth cycle already covers this celebration — nothing more to buy here.');
+    return err('Your 3D Booth cycle already covers this event — nothing more to buy here.');
   }
   const existing = await fetchVendorBoothEventOrderState(admin, vendorProfileId, eventId);
-  if (existing === 'active') return err('Your booth is already branded at this celebration.');
+  if (existing === 'active') return err('Your booth is already branded at this event.');
   if (existing === 'pending') {
-    return err('Your payment for this celebration is still being checked — no need to pay again.');
+    return err('Your payment for this event is still being checked — no need to pay again.');
   }
 
   // ── apply-then-pay: the order is the grant once the admin confirms it ──────

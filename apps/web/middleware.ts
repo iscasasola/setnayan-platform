@@ -1,4 +1,4 @@
-import { NextResponse, type NextRequest } from 'next/server';
+import { NextResponse, after, type NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { updateSession } from '@/lib/supabase/middleware';
 import {
@@ -17,12 +17,15 @@ import {
 import { userNestingRewritePath } from '@/lib/u-nesting';
 import { mayRefreshGuestPass } from '@/lib/guest-pass-hop';
 import { legacyRedirectTarget } from '@/lib/legacy-redirects';
+import { recordSiteVisit } from '@/lib/visits/record-visit';
 import {
   isStoreShellSignals,
   isStoreShellWebOnlyPath,
   STORE_SHELL_CLIENT_TYPE_COOKIE,
   STORE_SHELL_WEB_ONLY_PATH,
 } from '@/lib/store-shell';
+import { iapAvailable } from '@/lib/iap/iap-gate';
+import { isAppleIapEnabled } from '@/lib/apple-iap-flag';
 import {
   GUEST_PASS_BOOK_COOKIE_NAME,
   GUEST_SESSION_COOKIE_MAX_AGE_SECONDS,
@@ -235,6 +238,11 @@ export async function middleware(request: NextRequest) {
     });
   }
   await refreshGuestSessionCookie(request, response);
+  // VISITS (owner 2026-10-22: traffic in our own admin, no cookies) — one page
+  // view counted AFTER the response is on its way; never on the critical path.
+  // Everything that is not a view (store shell, bots, /admin, prefetches,
+  // redirects) is decided inside — lib/visits/visit-capture.ts.
+  if (request.method === 'GET') after(() => recordSiteVisit(request, response));
   return response;
 }
 
@@ -363,6 +371,17 @@ async function middlewareCore(request: NextRequest) {
       new URL(`/explore${rest}${search}`, request.url),
       308,
     );
+  }
+
+  // /explore/compare with no `ids` is not a comparison, and the page itself
+  // `redirect()`s to /explore. But the page STREAMS (its `loading.tsx` commits
+  // the 200 and the shell first), so that redirect arrived in-stream: the shell's
+  // links had already started prefetching, then the page navigated away and
+  // Safari logged every aborted prefetch ("Failed to fetch RSC payload … Load
+  // failed" × 8 on the 2026-10-13 quality sweep, item 10). Answered here as a
+  // real 307 before anything streams. With `ids`, the page decides as before.
+  if (pathname === '/explore/compare' && !request.nextUrl.searchParams.get('ids')) {
+    return NextResponse.redirect(new URL('/explore', request.url), 307);
   }
 
   // Legacy /services → /add-ons. 308 (permanent + method-preserving) since
@@ -522,14 +541,19 @@ async function middlewareCore(request: NextRequest) {
   // its own grid; this catches deep links, notifications and dashboard tiles.
   // 307, same reasoning as the marketing bounce above. Held by
   // lib/store-shell.test.ts.
-  if (
-    isStoreShellWebOnlyPath(pathname) &&
-    isStoreShellSignals(
-      request.headers.get('user-agent'),
-      request.cookies.get(STORE_SHELL_CLIENT_TYPE_COOKIE)?.value,
-    )
-  ) {
-    return NextResponse.redirect(new URL(STORE_SHELL_WEB_ONLY_PATH, request.url), 307);
+  // 🍎 Version 1.1: where Apple sells in this app (`iapAvailable` — the store
+  // shell, a StoreKit build announcing `SetnayanIAP/2`+ (1.1 — never build 5's `/1`), the owner's switch),
+  // the Papic and Live Watch control pages open (`IAP_OPENED_ROUTE` in
+  // lib/store-shell.ts). Any one of the three missing → refused exactly as before.
+  if (isStoreShellWebOnlyPath(pathname)) {
+    const ua = request.headers.get('user-agent');
+    const storeShell = isStoreShellSignals(ua, request.cookies.get(STORE_SHELL_CLIENT_TYPE_COOKIE)?.value);
+    if (
+      storeShell &&
+      isStoreShellWebOnlyPath(pathname, iapAvailable({ storeShell, userAgent: ua, enabled: isAppleIapEnabled() }))
+    ) {
+      return NextResponse.redirect(new URL(STORE_SHELL_WEB_ONLY_PATH, request.url), 307);
+    }
   }
 
   /*

@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
+import { RotateCcw } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import { Chips } from '@/app/_components/chips';
 import { PeekToast } from '@/app/_components/toast/peek-toast';
 import { PillSelector } from '@/app/_components/pill-selector';
@@ -11,7 +13,7 @@ import { SP_ANIMATE_CHIPS, SP_ANIMATE_HALF, SP_ANIMATE_LINE } from '@/lib/maker-
 import { SP_ROWS, SP_ROWS_ROW } from '@/lib/maker-stage-room';
 import type { PickOption } from '../../../website/editor/_components/pick-menu-types';
 import { Dd, PanelSwitch, Phases } from './kit';
-import { useAnimatePhase, type AnimatePhase } from './store';
+import { useAnimatePhase, useDeskAnimateStack, type AnimatePhase } from './store';
 
 /**
  * ✨ ANIMATE — FOUR ROWS, nothing scrolling (`TOOLBAR-SPEC-2026-10-09.md` § ANIMATE; it was one column of eleven rows,
@@ -23,6 +25,7 @@ import { useAnimatePhase, type AnimatePhase } from './store';
  *           makes it follow the scroll. It never looks live and does nothing.)
  *   row 3   only what the ON ones need: From / To ▾ (Move) · Grow | Shrink (Size), a half each
  *   row 4   Build in  — Movement ◆ · Plays (On arrival | On scroll) · Delay (a part) or Rows (a scene of rows)
+ *                       · ✨ Words ▾ (a cover word) or Reveal ▾ (the cover's photo) — owner-approved 2026-10-16
  *           Action    — nothing (it has no feel and no drive of its own)
  *           Build out — Movement ◆ · Leaves ◆ (As it scrolls away | Scrub out | Auto scroll)
  *
@@ -52,12 +55,18 @@ const SIZES = [
 ] as const;
 /** Move switched on with no way chosen: the prototype's default (Build in ↑ from the bottom · Build out ↑ to the top). */
 const FIRST_DIR: Record<'in' | 'out', MotionDir> = { in: 'below', out: 'above' };
-/** Row 2's four, in the prototype's order. */
+/**
+ * 💎 EVERY ANIMATE CONTROL WEARS THE SHIPPED " ◆" (owner 2026-10-16, DECISION_LOG "ALL ANIMATE, EFFECTS, STYLES AND
+ * ACCENTS ARE EVENT HUB PRO ◆": *"all animate, effects, styles, accents are pro"*). Movement ◆ and Leaves ◆ wore it
+ * first; every other named control here does now — tried free in the draft, named at ✓ Apply (`hubDraftProEffects`).
+ */
+export const animatePro = (name: string): string => (name.endsWith('◆') ? name : `${name} ◆`);
+/** Row 2's four, in the prototype's order — each an effect, each ◆. */
 const EFFECTS = [
-  { key: 'fade', label: 'Fade' },
-  { key: 'blur', label: 'Blur' },
-  { key: 'move', label: 'Move' },
-  { key: 'size', label: 'Size' },
+  { key: 'fade', label: animatePro('Fade') },
+  { key: 'blur', label: animatePro('Blur') },
+  { key: 'move', label: animatePro('Move') },
+  { key: 'size', label: animatePro('Size') },
 ] as const;
 type Effect = (typeof EFFECTS)[number]['key'];
 
@@ -69,6 +78,8 @@ export function toggleMotionFx(fx: MotionFx | null, end: 'in' | 'out', effect: E
 }
 
 const seconds = (n: number) => `${n.toFixed(1)} s`;
+/** 🖥 One phase of a desktop's stack: its rows one under the other, each a row tall (a row it has no use for is not drawn). */
+const SP_ANIMATE_STACKED = 'flex flex-col gap-[var(--sp-rg)] [&>*]:min-h-[var(--sp-rh)]';
 
 /** Movement ◆ for one phase: the feel that plays, and — when there is nothing for it to time — why (a tap says it). */
 export type AnimateMove = { value: AnimateFeel; onPick: (feel: AnimateFeel) => void; off?: string | null } | null;
@@ -81,7 +92,21 @@ const PLAYS_OPTIONS = [
   { key: 'scroll', label: 'On scroll' },
 ] as const;
 
-export function StageAnimate({
+export type StageAnimateProps = Parameters<typeof AnimateRows>[0];
+
+/**
+ * The phone's four rows (`AnimateRows`) — or, on a desktop while its columns are on, the three phases STACKED under
+ * their bar (`stage-panel/desk.tsx`, lazy; handed in through `useDeskAnimateStack`, null on a phone and in either
+ * first render). A one-phase page (`only`) keeps its four rows everywhere: it has one phase to show.
+ */
+export function StageAnimate(p: StageAnimateProps) {
+  const Stack = useDeskAnimateStack();
+  return Stack && !p.only && !p.bare ? <Stack {...p} /> : <AnimateRows {...p} />;
+}
+
+export function AnimateRows({
+  phase: forced = null,
+  bare = false,
   move,
   plays = null,
   inFx,
@@ -92,12 +117,20 @@ export function StageAnimate({
   delay = null,
   does,
   leaves = null,
+  band = null,
+  arrive = null,
+  actNote = null,
+  noteDoor = null,
   pending = false,
   error = null,
   only,
   onlyWhy,
   note = null,
 }: {
+  /** 🖥 This phase, whatever Animate's own segment is on (a desktop's stack draws each of the three). */
+  phase?: AnimatePhase | null;
+  /** 🖥 Rows 2–4 only — the stack's own bar stands over all three phases. */
+  bare?: boolean;
   /**
    * One quiet line about WHERE this Build in plays, in row 3 while that row is free (no refusal to say, and neither
    * Move nor Size is on — they need the row for their side and their way). The reply form's card says the Event
@@ -131,12 +164,24 @@ export function StageAnimate({
   does: AnimateDd;
   /** Build out's Leaves ◆ — the scene's hand-off to the next one (null on the stage's last scene). */
   leaves?: AnimateDd;
+  /** ✨ Action's Band ▾ — while the part shimmers (its own colour, lighter · Gold), in row 3. */
+  band?: AnimateDd;
+  /**
+   * ✨ HOW IT ARRIVES (owner-approved 2026-10-16, "SIX NEW EFFECTS"): Words ▾ on a cover word (All at once · Word by word ·
+   * Spread) or Reveal ▾ on the photo (Plain · Develop · Curtain) — ONE stacked dropdown in Build in's row 4, the slot
+   * Rows ▾ has on a scene; it plays together with the chips. `small` is its name ("Words" · "Reveal").
+   */
+  arrive?: AnimateDd;
+  /** ✨ Action's row-3 line for what the picked Action does (Glow, Light leak — the prototype's words). */
+  actNote?: string | null;
+  /** 🎬 A door beside the note (a cover word on its own: "Reset to the cover's entrance ›"). */
+  noteDoor?: { label: string; onPress: () => void } | null;
   pending?: boolean;
   error?: string | null;
 }) {
   const [phase, setPhase] = useAnimatePhase();
   const [why, setWhy] = useState<{ words: string; n: number } | null>(null);
-  const at: AnimatePhase = only ?? phase;
+  const at: AnimatePhase = only ?? forced ?? phase;
   const end = at === 'act' ? null : at;
   const fx = end === 'in' ? inFx : end === 'out' ? outFx : null;
   const keep = end === 'in' ? onIn : onOut;
@@ -146,9 +191,9 @@ export function StageAnimate({
   const noOut = end === 'out' && plays?.value === 'arrival';
   const feel = end ? move[end] : null;
   return (
-    <div className={`${SP_ROWS} shrink-0 px-[10px]`} data-stage-animate={at} data-stage-animate-rows="" aria-busy={pending}>
+    <div className={bare ? SP_ANIMATE_STACKED : `${SP_ROWS} shrink-0 px-[10px]`} data-stage-animate={at} data-stage-animate-rows="" aria-busy={pending}>
       {/* ══ ROW 1 — when (on a one-screen page: Build in, and the two it has none of, grey) ══ */}
-      <div className={`${SP_ROWS_ROW} row-start-1`}>
+      {bare ? null : <div className={`${SP_ROWS_ROW} row-start-1`}>
         <Phases<AnimatePhase>
           label="Animate"
           value={at}
@@ -161,7 +206,7 @@ export function StageAnimate({
           off={only ? (k) => (k === only ? null : () => setWhy((w) => ({ words: onlyWhy ?? '', n: (w?.n ?? 0) + 1 }))) : undefined}
           data="animate"
         />
-      </div>
+      </div>}
       {/* ══ ROW 2 — what it does ══ */}
       {noOut && plays ? (
         <div className={`${SP_ROWS_ROW} row-start-2`} data-stage-no-out="">
@@ -176,8 +221,14 @@ export function StageAnimate({
         </div>
       ) : does ? (
         <div className={`${SP_ROWS_ROW} row-start-2`} data-stage-does="">
-          {/* A two-way choice → the pill selector, its thumb sliding. A stored word that is neither presses nothing. */}
-          <PillSelector label="While on screen" data="does" value={does.options.some((o) => o.key === does.value) ? does.value : null} options={does.options.map((o) => ({ key: o.key, label: o.label }))} onPick={(k) => k !== does.value && does.onPick(k)} />
+          {/* A two-way choice → the pill selector, its thumb sliding. A stored word that is neither presses nothing.
+              ✨ Three or more (a text part: Still · Drift · Shimmer — owner 2026-10-16) → ONE dropdown, the house rule
+              ("any set of choices is a dropdown"). */}
+          {does.options.length >= 3 ? (
+            <Dd small={animatePro('While on screen')} label="While on screen" data="does" value={does.value} options={does.options} onPick={does.onPick} />
+          ) : (
+            <PillSelector label="While on screen" data="does" value={does.options.some((o) => o.key === does.value) ? does.value : null} options={does.options.map((o) => ({ key: o.key, label: o.label }))} onPick={(k) => k !== does.value && does.onPick(k)} />
+          )}
         </div>
       ) : null}
       {/* ══ ROW 3 — only what the ON ones need, a half each ══ */}
@@ -191,7 +242,7 @@ export function StageAnimate({
             <span className={SP_ANIMATE_HALF} data-stage-need="move">
               <Dd
                 stacked
-                small={end === 'in' ? 'From' : 'To'}
+                small={animatePro(end === 'in' ? 'From' : 'To')}
                 label={end === 'in' ? 'Comes in from' : 'Goes out to'}
                 data={`${end}-move-dir`}
                 value={fx.move}
@@ -208,10 +259,29 @@ export function StageAnimate({
             </span>
           ) : null}
         </div>
-      ) : note ? (
-        <p className={`${SP_ROWS_ROW} row-start-3 px-1 text-[12.5px] leading-snug text-[var(--sp-ink)]/70`} data-stage-animate-note="">
-          {note}
+      ) : at === 'act' && band ? (
+        <div className={`${SP_ROWS_ROW} row-start-3`} data-stage-band="">
+          <Dd small={animatePro('Band')} label="The shimmer's band" data="band" value={band.value} options={band.options} onPick={band.onPick} />
+        </div>
+      ) : at === 'act' && actNote ? (
+        <p className={`${SP_ROWS_ROW} row-start-3 px-1 text-[12.5px] leading-snug text-[var(--sp-ink)]/70`} data-stage-act-note="">
+          {actNote}
         </p>
+      ) : note ? (
+        noteDoor ? (
+          <div className={`${SP_ROWS_ROW} row-start-3`}>
+            <p className="min-w-0 flex-1 px-1 text-[12.5px] leading-snug text-[var(--sp-ink)]/70" data-stage-animate-note="">
+              {note}
+            </p>
+            <span data-stage-note-door="" className="shrink-0">
+              <ActionButton tone="neutral" icon={RotateCcw} label={noteDoor.label} onClick={noteDoor.onPress} />
+            </span>
+          </div>
+        ) : (
+          <p className={`${SP_ROWS_ROW} row-start-3 px-1 text-[12.5px] leading-snug text-[var(--sp-ink)]/70`} data-stage-animate-note="">
+            {note}
+          </p>
+        )
       ) : null}
       {/* ══ ROW 4 — this phase's own feel, and what drives it (Action has neither) ══ */}
       {end ? (
@@ -228,12 +298,17 @@ export function StageAnimate({
               off={feel.off ? () => setWhy((w) => ({ words: feel.off as string, n: (w?.n ?? 0) + 1 })) : undefined}
             />
           ) : null}
-          {end === 'in' && plays ? <Dd stacked small="Plays" label="Build in plays" data="plays" value={plays.value} options={PLAYS_OPTIONS} onPick={(d) => plays.onPick(d as 'arrival' | 'scroll')} /> : null}
-          {end === 'in' && rows ? <Dd stacked small="Rows" label="How its rows arrive" data="rows" value={rows.value} options={rows.options} onPick={rows.onPick} /> : null}
+          {/* ✨ Beside Words ▾ / Reveal ▾ the row holds the prototype's three — Movement · Words · Delay — so Plays stands
+              here only while it is the way BACK from the scroll (On arrival is the default; Build out's own "Follow the
+              scroll" switch is the way in). */}
+          {end === 'in' && plays && (!arrive || plays.value === 'scroll') ? <Dd stacked small={animatePro('Plays')} label="Build in plays" data="plays" value={plays.value} options={PLAYS_OPTIONS} onPick={(d) => plays.onPick(d as 'arrival' | 'scroll')} /> : null}
+          {end === 'in' && rows ? <Dd stacked small={animatePro('Rows')} label="How its rows arrive" data="rows" value={rows.value} options={rows.options} onPick={rows.onPick} /> : null}
+          {/* ✨ Words ▾ / Reveal ▾ — the slot Rows ▾ has on a scene (a part has no rows). */}
+          {end === 'in' && arrive ? <Dd stacked small={animatePro(arrive.small ?? 'Words')} label={`How it arrives — ${arrive.small ?? 'Words'}`} data="arrive" value={arrive.value} options={arrive.options} onPick={arrive.onPick} /> : null}
           {end === 'in' && delay ? (
             <Dd
               stacked
-              small="Delay"
+              small={animatePro('Delay')}
               label="Delay"
               data="delay"
               value={String(delay.value)}
@@ -245,7 +320,7 @@ export function StageAnimate({
             />
           ) : null}
           {/* On a PART the hand-off is its SCENE's (a part has none of its own — Scrub and Auto scroll are scene to scene), and the name says so. */}
-          {end === 'out' && leaves ? <Dd stacked small={leaves.small ?? 'Leaves ◆'} label={leaves.small ? 'How its scene leaves' : 'How it leaves'} data="leaves" value={leaves.value} options={leaves.options} onPick={leaves.onPick} buttonText={leaves.buttonText} /> : null}
+          {end === 'out' && leaves ? <Dd stacked small={animatePro(leaves.small ?? 'Leaves')} label={leaves.small ? 'How its scene leaves' : 'How it leaves'} data="leaves" value={leaves.value} options={leaves.options} onPick={leaves.onPick} buttonText={leaves.buttonText} /> : null}
         </div>
       ) : null}
       {/* The reason a grey Movement gives. Drawn on the page's body, not in the four rows: the tool sits in a box

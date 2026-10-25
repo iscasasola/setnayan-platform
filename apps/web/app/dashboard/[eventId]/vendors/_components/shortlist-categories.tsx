@@ -71,6 +71,7 @@ import {
   X,
 } from 'lucide-react';
 import { Explain } from '@/app/_components/explain';
+import { FORM_ROW_RULE, FORM_ROW_SUBLINE } from '@/lib/form-row';
 import { DATE_FIT_WORDS } from '@/lib/calendar-truth';
 import { formatPhp } from '@/lib/orders';
 import {
@@ -106,12 +107,9 @@ import {
 } from '@/lib/setnayan-ai-free-assist';
 import { NewManualVendorModal } from '@/app/dashboard/[eventId]/_components/new-manual-vendor-modal';
 import { AddYourOwnWalk } from '@/app/dashboard/[eventId]/_components/add-your-own-walk';
+import { addOwnCategoriesFromRows } from '@/lib/add-your-own';
 import { INVITE_STATUS_UNREAD_LINE, joinedLine, ownRecordLine, type InviteStatusByVendorId } from '@/lib/supplier-invite-status';
 import { InspectorTrigger } from '@/app/_components/inspector/inspector-column';
-import {
-  searchMarketplaceForBench,
-  type BenchMarketResult,
-} from '../_actions/bench-marketplace-search';
 import {
   clearCategoryDecision,
   excludeTileFromPlan,
@@ -125,6 +123,7 @@ import { FindThumbRow } from './find-thumb-row';
 import { SUP_REACH_Y, categoryRowState, isCategoryOpen, ringCoveredCount, thumbScopeTile } from '@/lib/suppliers-shell';
 import { Count } from '@/components/count';
 import { ActionButton } from '@/components/action-button';
+import { SearchAddRow } from '@/components/search-add-row';
 import { cardVerbWords } from '@/lib/supplier-card-verbs';
 import { Sheet } from '@/app/_components/sheet';
 import { cardDates, dateOutcome, type CardDates, type DateOutcome } from '@/lib/card-dates';
@@ -180,6 +179,7 @@ import {
   moreToCompareEmpty,
   moreToCompareHeading,
 } from '@/lib/explore-info-copy';
+import { lockedNamesOf } from '@/lib/covered-row-name';
 import {
   canUndoInlineSave,
   classifyInlineMoreRow,
@@ -231,7 +231,7 @@ import { useSuppliersMode } from './suppliers-mode';
 import { PeekToast } from '@/app/_components/toast/peek-toast';
 import { contactShortlistVendor } from '../_actions/contact-shortlist-vendor';
 import type { ShortlistFolder, ShortlistVendor } from '@/lib/shortlist-taxonomy';
-import { categoryForTile } from '@/lib/shortlist-taxonomy';
+import { categoryForTile, coverCatalogFromFolders } from '@/lib/shortlist-taxonomy';
 import { planGroupForCategory } from '@/lib/wedding-plan-groups';
 import {
   railEndIsAddAnother,
@@ -265,7 +265,7 @@ import {
   loadCategoryRequirements,
   saveCategoryRequirements,
 } from '../requirements-actions';
-import { formatCount } from '@/lib/format-number';
+import { countNoun, formatCount } from '@/lib/format-number';
 
 const SLCAT_CSS = `
 .slcat{--paper:var(--m-paper,#FBFBFA);--ink:var(--m-ink,#1B1A17);--ink-soft:#4F535B;
@@ -321,13 +321,22 @@ const SLCAT_CSS = `
    list: a hairline between rows, the icon in a 36px disc, the name, "· N yours",
    one state word, the chevron. 'overflow:visible' so a row head can pin. ── */
 .slcat .fold.flat{margin:0;background:none;border:0;border-radius:0;overflow:visible;box-shadow:none}
+/* …and an OPEN one too. In the one-screen shape every folder is open, and '.slcat .fold.open' (the boxed shape's open
+   lift, further down at the same weight) won the cascade — so each folder of plain rows drew a soft drop shadow under
+   it (owner 2026-10-21, on the Find list: "why do i see shadows? the rows do not follow our design template"). One
+   more class wins at any position. Guard: 'supplier-rows-are-flat.test.ts'. */
+.slcat .fold.flat.open{box-shadow:none;border-color:transparent}
 .slcat .fold.flat .fold-body{padding:0}
 .slcat .fold.flat .fold-body::before{display:none}
-.slcat .fold.flat .cat,.slcat .fold.flat .fold-body .cat:first-child{margin:0;border-top:1px solid var(--line-soft)}
+.slcat .fold.flat .cat,.slcat .fold.flat .fold-body .cat:first-child{margin:0;border-top:0}
 .slcat .fold.flat .cat-head{min-height:56px;padding:10px 0;gap:12px}
+/* A CLOSED row is its head (and its supplier line) and nothing else. The body's own padding outlived the 0fr track
+   that hides it, so 14 px of empty band hung under every closed row and each one read as a box with a lip — the
+   template's row is its line, centred (owner 2026-10-21). It comes back the moment the row opens. */
+.slcat .fold.flat .cat:not(.open)>.cat-collapse>.cat-body{padding-top:0;padding-bottom:0}
 .slcat .fold.flat .cat-l{gap:12px}
 .slcat .fold.flat .cat-ic{width:36px;height:36px;align-items:center;justify-content:center;border-radius:var(--m-r-full);background:rgba(169,131,75,.13)}
-.slcat .fold.flat .cat-nm{font-weight:500;font-size:16px;line-height:1.25;white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
+.slcat .fold.flat .cat-nm{font-weight:500;font-size:15px;line-height:1.25;white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
 .slcat .cat-yours{font-weight:400;font-size:15px;color:var(--ink-soft);white-space:nowrap}
 .slcat .cat-st{font-size:13px;color:var(--ink-soft);white-space:nowrap}
 .slcat .cat-st.ok{color:rgb(var(--color-ok))}
@@ -550,7 +559,7 @@ html.dark .slcat .vc .rpill.soft{color:#FBFBFA;background:rgba(30,26,18,.7)}
    sort is a comparator the couple asked for. */
 .slcat .sortsep{width:1px;height:16px;background:var(--line);flex:0 0 auto}
 html.dark .slcat .sortseg{background:rgba(251,251,250,.05)}
-html.dark .slcat .sortseg button.on{color:#1B1A17;background:#C99DB0}
+html.dark .slcat .sortseg button.on{color:#17160F;background:#E5794E}
 /* bench search — client-side filter over categories + considered suppliers */
 .slcat .bench-search{display:flex;align-items:center;gap:9px;margin:0 0 12px;padding:0 13px;height:42px;background:var(--card);border:1px solid var(--line);border-radius:var(--m-r-md);transition:border-color .18s var(--ease),box-shadow .18s var(--ease)}
 .slcat .bench-search:focus-within{border-color:rgba(30,26,18,.28);box-shadow:0 0 0 3px rgba(30,26,18,.06)}
@@ -560,29 +569,7 @@ html.dark .slcat .sortseg button.on{color:#1B1A17;background:#C99DB0}
 .slcat .bench-search .bs-x{flex:0 0 auto;border:0;background:none;color:var(--ink-faint);cursor:pointer;font-size:18px;line-height:1;padding:2px;display:inline-flex}
 .slcat .bench-search .bs-x:hover{color:var(--mulberry)}
 .slcat .bench-empty{padding:26px 16px;text-align:center;color:var(--ink-faint);font-size:13px}
-/* search the WHOLE marketplace — a one-tap jump to /explore?q= (beyond the shortlist) */
-.slcat .bench-mkt{display:flex;align-items:center;gap:10px;margin:0 0 12px;padding:11px 14px;background:var(--card);border:1px solid var(--line);border-radius:var(--m-r-md);text-decoration:none;color:var(--ink);font-size:13px;transition:border-color .18s var(--ease),background .18s var(--ease)}
-.slcat .bench-mkt:hover{border-color:rgba(30,26,18,.28);background:rgba(30,26,18,.02)}
-.slcat .bench-mkt>svg{color:var(--mulberry);flex:0 0 auto}
-.slcat .bench-mkt>span{flex:1;min-width:0}
-.slcat .bench-mkt b{font-weight:600;color:var(--mulberry)}
-.slcat .bench-mkt .bench-mkt-arr{color:var(--ink-faint);flex:0 0 auto;transition:transform .18s var(--ease)}
-.slcat .bench-mkt:hover .bench-mkt-arr{transform:translateX(2px);color:var(--mulberry)}
-html.dark .slcat .bench-mkt{background:#2A2E36}
-/* inline whole-marketplace results — top matches below the shortlist filter */
-.slcat .bench-mkt-results{margin:0 0 10px;background:var(--card);border:1px solid var(--line);border-radius:var(--m-r-md);overflow:hidden}
-.slcat .bmr-head{font-family:var(--mono);font-size:9px;letter-spacing:.11em;text-transform:uppercase;color:var(--ink-faint);padding:10px 14px 6px}
-.slcat .bmr-loading{padding:6px 14px 14px;font-size:12.5px;color:var(--ink-soft)}
-.slcat .bmr-row{display:flex;align-items:center;gap:11px;padding:9px 14px;border-top:1px solid var(--line-soft);text-decoration:none;color:inherit;transition:background .15s var(--ease)}
-.slcat .bmr-row:hover{background:rgba(30,26,18,.03)}
-.slcat .bmr-av{width:32px;height:32px;border-radius:var(--m-r-sm);flex:0 0 auto;display:grid;place-items:center;font-family:var(--serif);font-style:italic;font-size:13px;color:#fff;background:linear-gradient(135deg,#3a3f47,#565b63)}
-.slcat .bmr-m{flex:1;min-width:0}
-.slcat .bmr-m b{font-size:13.5px;font-weight:600;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.slcat .bmr-m span{font-size:11px;color:var(--ink-soft)}
-.slcat .bmr-arr{color:var(--ink-faint);flex:0 0 auto;transition:transform .15s var(--ease)}
-.slcat .bmr-row:hover .bmr-arr{transform:translateX(2px);color:var(--mulberry)}
-html.dark .slcat .bench-mkt-results{background:#2A2E36}
-html.dark .slcat .bench-search{background:#2A2E36}
+html.dark .slcat .bench-search{background:#232019}
 .slcat .vc .meta{padding:11px 13px 13px;flex:1 1 auto;display:flex;flex-direction:column;gap:5px}
 .slcat .vc .vn{font-family:var(--sans);font-weight:700;font-size:13.5px;color:var(--ink);line-height:1.2}
 /* The unread counter (owner 2026-09-22). Inline beside the name it belongs to,
@@ -710,7 +697,7 @@ html.dark .slcat .vc .fit.warn{color:#e2b968;background:rgba(169,131,75,.2)}
 .slcat .fsum .s.td{background:rgba(30,26,18,.07);color:var(--ink-soft)}
 .slcat .fsum .s.ad{border:1px dashed var(--line);color:var(--ink-soft)}
 .slcat .fsum .s.dn{background:rgba(46,125,79,.12);color:#2e7d4f}
-html.dark .slcat .ctile .mini.bd{background:#2A2E36}
+html.dark .slcat .ctile .mini.bd{background:#232019}
 html.dark .slcat .fsum .s.td{background:rgba(251,251,250,.08)}
 
 /* ── Adaptive category set + per-category ⓘ (Explore Replan PR-C · gated) ──
@@ -785,10 +772,12 @@ html.dark .slcat .fsum .s.td{background:rgba(251,251,250,.08)}
 .slcat .vact-pair>.vact.on{flex:1 1 auto;min-width:0}
 .slcat .vact-err{font-family:var(--sans);font-size:10.5px;line-height:1.3;color:#9a3325;margin:4px 0 0}
 html.dark .slcat .vact-err{color:#e9a99d}
-html.dark .slcat .vact.primary{background:#C99DB0;color:#1B1A17;border-color:#C99DB0}
+html.dark .slcat .vact.primary{background:#E5794E;color:#17160F;border-color:#E5794E}
 /* Locked names on a COLLAPSED category row (decision #8) — the row answers
-   "who did we choose here?" without opening the rail. */
-.slcat .cat-locked{display:flex;align-items:center;gap:6px;margin:-2px 4px 8px;padding:0 0 0 2px;font-family:var(--mono);font-size:9.5px;letter-spacing:.03em;color:var(--gold-deep);min-width:0}
+   "who did we choose here?" without opening the rail. Its LOOK is the app's row
+   template's second line ('FORM_ROW_SUBLINE', on the element), under the name
+   (36 px disc + 12 px gap); only its place is set here (owner 2026-10-21). */
+.slcat .cat-locked{display:flex;align-items:center;gap:6px;margin:-6px 0 10px 48px;padding:0;min-width:0}
 .slcat .cat-locked span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 .slcat .cat-locked svg{flex:0 0 auto}
 
@@ -852,24 +841,24 @@ html.dark .slcat .vact.note.unavailable .vact-note-txt b{color:#EC8A5F}
 .slcat .vact.note.withheld .vact-note-txt b{color:var(--ink)}
 html.dark .slcat .vact-note-txt b{color:#e2b968}
 
-html.dark .slcat .cat-free{color:#C99DB0;background:rgba(201,157,176,.14)}
+html.dark .slcat .cat-free{color:#E5794E;background:rgba(229,121,78,.14)}
 /* Dark: the card IS lighter than the page here (#2A2E36 on ink-black), so the
    surface separates on its own and a black drop shadow buys nothing — both
    lifts are neutralised via the vars below, which keeps '.fold.open' free to
    change border-colour as its open cue. */
 html.dark .slcat .plan-strip{background:var(--card)}
-html.dark .slcat .plan-chip{background:#2A2E36}
+html.dark .slcat .plan-chip{background:#232019}
 /* --gold-deep (#8A6B39) is too dark to read on the dark card; the bench already
    uses #e2b968 as its dark gold everywhere else (.fit.warn, .vact.note.clash),
    so the row icons follow it rather than inventing a shade. */
 /* The open cue in dark mode. '.fold.open' sets a DARK border (fine on white,
-   invisible on #2A2E36) and its shadow is neutralised above, so without this
+   invisible on the dark card) and its shadow is neutralised above, so without this
    an open folder in dark mode had no edge change at all. */
 html.dark .slcat .fold.open{border-color:rgba(251,251,250,.3)}
 html.dark .slcat .fold-ic{background:rgba(226,185,104,.14);color:#e2b968}
 html.dark .slcat .fold.open .fold-ic{background:rgba(226,185,104,.24)}
 html.dark .slcat .cat.open .cat-ic{color:#e2b968}
-html.dark .slcat{--paper:#1B1A17;--ink:#FBFBFA;--ink-soft:#B6B9BE;--line:rgba(251,251,250,.16);--line-soft:rgba(251,251,250,.1);--card:#2A2E36;--edge:rgba(251,251,250,.16);--edge-lift:none;--edge-lift-open:none}
+html.dark .slcat{--paper:#1E1C15;--ink:#FBFBFA;--ink-soft:#B3AEA3;--line:rgba(251,251,250,.16);--line-soft:rgba(251,251,250,.1);--card:#232019;--edge:rgba(251,251,250,.16);--edge-lift:none;--edge-lift-open:none}
 /* THE DARK BLOCK RE-POINTED EVERY NEUTRAL AND FORGOT THE GOLDS (2026-09-09).
    --paper, --ink, --ink-soft, --line, --card and --edge all get a dark value
    here; --gold and --gold-deep did not, so every gold thing on the bench kept a
@@ -889,7 +878,7 @@ html.dark .slcat .vc .bdg.verified{color:#7BD3A0}
    down already sets it to #C99DB0 and, being later, wins — measured 5.95:1 on
    its own tint over the dark card, which passes. A rule added here would be
    DEAD and would read to the next person as if it were doing the work. */
-html.dark .slcat .fold.open .fold-nm,html.dark .slcat .cat.open .cat-nm,html.dark .slcat .act.find>*,html.dark .slcat .fr.find .fr-i,html.dark .slcat .fr.find .fr-t,html.dark .slcat .vc .bdg.setnayan{color:#C99DB0}
+html.dark .slcat .fold.open .fold-nm,html.dark .slcat .cat.open .cat-nm,html.dark .slcat .act.find>*,html.dark .slcat .fr.find .fr-i,html.dark .slcat .fr.find .fr-t,html.dark .slcat .vc .bdg.setnayan{color:#E5794E}
 
 /* ── ROW 2 · the inline "More in {category}" rail (owner 2026-09-06) ─────────
    Deliberately QUIETER than row 1: a tinted well with a hairline top rule, so
@@ -1018,12 +1007,8 @@ html.dark .slcat .fold.open .fold-nm,html.dark .slcat .cat.open .cat-nm,html.dar
 .slcat .mrsk-l{display:block;height:11px;border-radius:var(--m-r-full);width:80%}
 .slcat .mrsk-l.short{width:45%}
 .slcat .mrfirst{display:block;margin-top:8px}
-/* Lists are hairline rows with a terracotta arrow, not framed boxes (owner 2026-10-12, look call 8); a single
-   standalone door ("See all results…") keeps its frame. */
-.slcat .bench-mkt-results{border:0;border-radius:0;background:none}
-.slcat .bmr-row{border-top:1px solid var(--line);padding-left:0;padding-right:0}
-.slcat .bmr-arr,.slcat .bench-mkt-arr{color:rgb(var(--sn-accent))}
-html.dark .slcat .bench-mkt-results{background:none}
+/* SEARCH OR ADD (owner 2026-10-24): the last row while searching is the one button that adds what was typed. */
+.slcat .bench-add{margin:4px 0 14px}
 /* A note is read, not pressed: no dashed box, it sits on the page (owner 2026-10-11). */
 .slcat .vact.note{border:0;padding-left:0;padding-right:0;background:none;min-height:0}
 `;
@@ -1723,7 +1708,6 @@ function VendorCard({
           onClose={() => setDetails(null)}
           onCreated={() => {
             setDetails(null);
-            router.refresh();
           }}
         />
       ) : null}
@@ -2561,6 +2545,7 @@ export function ShortlistCategories({
   teamCalendar = [],
   benchArrangement,
   standings = {},
+  findPanel = null,
 }: {
   /**
    * Unread messages per chat thread for this event, and whether we know them.
@@ -2681,6 +2666,14 @@ export function ShortlistCategories({
    * browser's localStorage and is deliberately private.
    */
   benchArrangement?: Record<string, BenchPin[]>;
+  /**
+   * The bottom search's EMPTY STATE (owner 2026-10-21: the big "Find a supplier"
+   * button is gone; the search shows the categories when nothing is typed) —
+   * the Find page's own list, `FindCategoryList` drawn on the server from
+   * `readFindList`, handed to the thumb row as it is. Null → the box opens on
+   * nothing, as before.
+   */
+  findPanel?: ReactNode;
 }) {
   const router = useRouter();
 
@@ -2733,9 +2726,11 @@ export function ShortlistCategories({
   // if they left the page instead, when the bench is next mounted.
   const { mode: suppliersMode } = useSuppliersMode();
   useEffect(() => {
+    // one-render: keep (no-revalidate) — the bench presses answered in place (`ANSWER_IN_PLACE_FIELD`) and revalidated nothing; this pays them back once.
     if (suppliersMode !== 'find' && payBenchDebt(eventId)) router.refresh();
   }, [suppliersMode, eventId, router]);
   useEffect(() => {
+    // one-render: keep (no-revalidate) — the last visit’s in-place presses revalidated nothing; this pays them back once, on return.
     if (payBenchDebt(eventId)) router.refresh();
     // On mount only: a return visit pays what the last one owed.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2773,7 +2768,10 @@ export function ShortlistCategories({
   const [addAsk, setAddAsk] = useState(false);
   const benchRef = useRef<HTMLDivElement>(null);
   // `name` = what was typed in the thumb row's box when ＋ was pressed.
-  const [manual, setManual] = useState<{ category: string; label: string; name?: string } | null>(null);
+  // `tile` = the Suppliers-page row the add was opened from — what the card is
+  // filed under (owner 2026-10-20: "designated to their category"). Two rows can
+  // share the stored `category` (Food Truck and Mocktail both store `misc`).
+  const [manual, setManual] = useState<{ category: string; tile: string; label: string; name?: string } | null>(null);
   const typedForAdd = useRef('');
   // ── In-place category search (2026-07-29) ─────────────────────────────────
   // Owner: "clicking find more doesn't search specifically for that category.
@@ -2795,16 +2793,12 @@ export function ShortlistCategories({
     tile: string;
     label: string;
   } | null>(null);
-  const [searchAdded, setSearchAdded] = useState(false);
   const openSearch = (tile: string, label: string) => {
-    setSearchAdded(false);
     setSearch({ ...benchSearchScopeForTile(tile), label });
   };
-  const closeSearch = () => {
-    setSearch(null);
-    if (searchAdded) router.refresh();
-    setSearchAdded(false);
-  };
+  /* ⚡ No refresh on close: each add from the search (`saveVendorToPicks`) revalidates, so the page behind was redrawn
+     by the add's own answer — a refresh here drew it a second time. */
+  const closeSearch = () => setSearch(null);
   // Reason-labeled sort lens for every category rail (2026-07-09). Default 'fit'
   // — the bench leads with what best matches the couple's date/venue/budget.
   const [sort, setSort] = useState<BenchSort>('fit');
@@ -2830,11 +2824,6 @@ export function ShortlistCategories({
   // categories (and their considered vendors). Empty = the normal single-open
   // accordion; a query filters to matching tiles and auto-expands them.
   const [query, setQuery] = useState('');
-  // Inline whole-marketplace results (2026-07-10) — debounced server search that
-  // shows top matching vendors from the WHOLE marketplace below the shortlist
-  // filter, so a couple can discover a vendor they haven't shortlisted.
-  const [mktResults, setMktResults] = useState<BenchMarketResult[]>([]);
-  const [mktLoading, setMktLoading] = useState(false);
 
   // ── Inline "More in {category}" row · ROW 2 (owner 2026-09-06) ─────────────
   // Owner: "when they also click the find reception button, it must show a
@@ -2932,7 +2921,6 @@ export function ShortlistCategories({
         return;
       }
       setOpenTile((cur) => (cur === tile ? null : cur));
-      router.refresh();
     });
   }
 
@@ -2945,7 +2933,6 @@ export function ShortlistCategories({
         return;
       }
       openPlan(folder, tile, slug);
-      router.refresh();
     });
   }
   const reqDialogRef = useRef<HTMLDivElement>(null);
@@ -3022,9 +3009,8 @@ export function ShortlistCategories({
       });
       if (res.status === 'ok') {
         setReqPhase('sent');
-        // Refresh so the icon reflects the new state (added/kept/cleared), then
-        // close shortly after the "Saved" confirmation.
-        router.refresh();
+        // The icon reflects the new state (added/kept/cleared) on the action's own answer — it revalidates —
+        // then the sheet closes shortly after the "Saved" confirmation.
         window.setTimeout(closeReqModal, 700);
         return;
       }
@@ -3416,7 +3402,7 @@ export function ShortlistCategories({
     // The name typed in the box rides into the walk's first step (the
     // prototype: "type a name in the box first, then ＋").
     typedForAdd.current = typed.trim();
-    if (scopeRow) setManual({ category: scopeRow.t.category, label: scopeRow.t.label, name: typedForAdd.current });
+    if (scopeRow) setManual({ category: scopeRow.t.category, label: scopeRow.t.label, name: typedForAdd.current, tile: scopeRow.t.tile });
     else setAddAsk(true);
   }
 
@@ -3500,36 +3486,6 @@ export function ShortlistCategories({
         .filter((f) => f.tiles.length > 0)
     : folders;
 
-  // Debounced whole-marketplace search — fires ~280ms after typing settles; a
-  // cancel flag drops stale responses so results can't arrive out of order.
-  useEffect(() => {
-    if (q.length < 2) {
-      setMktResults([]);
-      setMktLoading(false);
-      return;
-    }
-    let cancelled = false;
-    setMktLoading(true);
-    const handle = window.setTimeout(() => {
-      searchMarketplaceForBench(q)
-        .then((res) => {
-          if (!cancelled) {
-            setMktResults(res);
-            setMktLoading(false);
-          }
-        })
-        .catch(() => {
-          if (!cancelled) {
-            setMktResults([]);
-            setMktLoading(false);
-          }
-        });
-    }, 280);
-    return () => {
-      cancelled = true;
-      window.clearTimeout(handle);
-    };
-  }, [q]);
 
   // Rebuilt from pairs on this side of the boundary — see the `unread` prop.
   // `measured: false` when the prop is absent, so a page that has not plumbed
@@ -3669,8 +3625,8 @@ export function ShortlistCategories({
           type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search your shortlist or the whole marketplace…"
-          aria-label="Search your shortlist or the marketplace"
+          placeholder="Search suppliers"
+          aria-label="Search your shortlist or add your own"
         />
         {query ? (
           <button type="button" className="bs-x" aria-label="Clear search" onClick={() => setQuery('')}>
@@ -3679,57 +3635,14 @@ export function ShortlistCategories({
         ) : null}
       </div>
       )}
-      {searching && (mktLoading || mktResults.length > 0) ? (
-        <div className="bench-mkt-results">
-          <div className="bmr-head">From the whole marketplace</div>
-          {mktLoading && mktResults.length === 0 ? (
-            <div className="bmr-loading">Searching the marketplace…</div>
-          ) : (
-            mktResults.map((r) => (
-              <Link
-                key={r.vendorProfileId}
-                href={r.slug ? `/v/${r.slug}` : '#'}
-                prefetch={false}
-                className="bmr-row"
-              >
-                <span className="bmr-av">{initials(r.name)}</span>
-                <span className="bmr-m">
-                  <b>{r.name}</b>
-                  <span>
-                    {[
-                      r.city,
-                      r.rating != null
-                        ? `★ ${r.rating.toFixed(1)}`
-                        : typeof r.reviewCount === 'number'
-                          ? NEW_TO_SETNAYAN_LABEL
-                          : null,
-                    ]
-                      .filter(Boolean)
-                      .join(' · ')}
-                  </span>
-                </span>
-                <ArrowRight className="bmr-arr" size={15} strokeWidth={2} aria-hidden />
-              </Link>
-            ))
-          )}
-        </div>
-      ) : null}
-      {searching ? (
-        <Link
-          href={`/explore?q=${encodeURIComponent(query.trim())}`}
-          prefetch={false}
-          className="bench-mkt"
-        >
-          <Search size={15} strokeWidth={1.9} aria-hidden />
-          <span>
-            See all results in the marketplace for <b>“{query.trim()}”</b>
-          </span>
-          <ArrowRight className="bench-mkt-arr" size={16} strokeWidth={2} aria-hidden />
-        </Link>
-      ) : null}
+      {/* SEARCH OR ADD (owner 2026-10-24: *"we will show the result on the page itself. not a new screen. So it
+          searches what we already have on the shortlist, what service card has that, or add my own new supplier's
+          service card manually that i can give the supplier itself."*). The results stay HERE: a hit opens under its
+          own category row below, and nothing in this block leaves the page — the whole-marketplace rows to `/v/…`
+          and the "See all results" door to `/explore` are gone. The last row adds what was typed (`bench-add`). */}
       {searching && visibleFolders.length === 0 ? (
-        <div className="bench-empty">
-          Nothing in your shortlist matches “{query.trim()}” — try the whole marketplace above.
+        <div className="bench-empty" data-bench-empty="">
+          Nothing in your shortlist matches “{query.trim()}”. Add them as your own below.
         </div>
       ) : null}
       {visibleFolders.map((folder) => {
@@ -3761,6 +3674,8 @@ export function ShortlistCategories({
             key={folder.folder}
             id={benchFolderAnchorId(folder.slug)}
             className={`fold${folderOpen ? ' open' : ''}${replan ? ' flat' : ''}`}
+            // 📌 While searching, a folder that is still drawn holds a hit — the first is pinned (lib/search-pin.ts).
+            data-search-result={searching ? '' : undefined}
           >
             {replan ? null : (
             <>
@@ -3811,7 +3726,7 @@ export function ShortlistCategories({
                   <span className={`fold-meta${folder.pickCount > 0 ? ' has' : ''}`}>
                     {folder.pickCount > 0
                       ? `${formatCount(folder.pickCount)} considering`
-                      : `${folder.tiles.length} categories`}
+                      : countNoun(folder.tiles.length, 'category', 'categories')}
                     <UnreadRollupBadge vendors={folder.tiles.flatMap((x) => x.vendors)} />
                   </span>
                 )}
@@ -3843,7 +3758,9 @@ export function ShortlistCategories({
                   // PR-C — the ⓘ copy (null → no button, never invented copy)
                   // and whether this category may be removed from the plan.
                   const hint = replan ? categoryHintForTile(t.tile) : null;
-                  const lockedNames = t.vendors.filter((v) => v.status === 'locked').map((v) => v.name);
+                  // A covered copy names the row it was booked under —
+                  // "Seda Vertis North · with Reception" (owner 2026-10-21).
+                  const lockedNames = lockedNamesOf(t.vendors);
                   const removable =
                     replan && canRemoveTileFromPlan({ lockedCount: lockedNames.length });
                   const rowError = planError?.tile === t.tile ? planError.message : null;
@@ -3948,7 +3865,7 @@ export function ShortlistCategories({
                       {/* The category head is a tap target to expand. The
                           "saved request" icon sits beside it as its OWN button
                           (not nested in the head button — buttons can't nest). */}
-                      <div className="cat-head-row" style={{ display: 'flex', alignItems: 'center' }}>
+                      <div className={replan ? `cat-head-row ${FORM_ROW_RULE}` : 'cat-head-row'} style={{ display: 'flex', alignItems: 'center' }}>
                         <button
                           type="button"
                           className="cat-head"
@@ -3989,10 +3906,20 @@ export function ShortlistCategories({
                                 empty (the offer's "first" gate). */}
                             {isSaiAssistFreeForCategory(t.category) &&
                             t.vendors.length === 0 ? (
-                              <span className="cat-free">{FREE_VENUE_ASSIST_CHIP}</span>
+                              /* 🍎 `data-web-only`: the chip advertises Setnayan AI's free first
+                                 shortlist — a paid web extra the iPhone app does not offer. */
+                              <span className="cat-free" data-web-only="">{FREE_VENUE_ASSIST_CHIP}</span>
                             ) : null}
+                            {/* "In your plan" says what the row IS, like Booked ✓ — so in the
+                                one-screen shape it is the row's state word ('.cat-st'), never a
+                                pill: a pill is a button (owner 2026-10-19 "pill is button if
+                                with action"; 2026-10-21 "the rows do not follow our design template"). */}
                             {t.planned && t.vendors.length === 0 ? (
-                              <span className="cat-plan">In your plan</span>
+                              replan ? (
+                                <span className="cat-st" data-row-state="planned">In your plan</span>
+                              ) : (
+                                <span className="cat-plan">In your plan</span>
+                              )
                             ) : null}
                             {!replan && coveredGroup ? (
                               <span className="cat-plan" style={{ color: '#41603b' }}>
@@ -4052,7 +3979,7 @@ export function ShortlistCategories({
                           the cards themselves say it better ("★ Chosen"). */}
                       {replan && !tileOpen && lockedNames.length > 0 ? (
                         <p
-                          className="cat-locked"
+                          className={`cat-locked ${FORM_ROW_SUBLINE}`}
                           aria-label={lockedNamesLabel(lockedNames, t.label)}
                         >
                           <Lock size={10} strokeWidth={2.2} aria-hidden />
@@ -4088,7 +4015,6 @@ export function ShortlistCategories({
                                       eventId,
                                       planGroupId: coveredGroup,
                                     });
-                                    router.refresh();
                                   })
                                 }
                               />
@@ -4204,7 +4130,7 @@ export function ShortlistCategories({
                               <span className="act manual">
                                 <button
                                   type="button"
-                                  onClick={() => setManual({ category: t.category, label: t.label })}
+                                  onClick={() => setManual({ category: t.category, label: t.label, tile: t.tile })}
                                 >
                                   <Pencil size={18} strokeWidth={1.75} aria-hidden />
                                   <span className="at">Add manually</span>
@@ -4299,7 +4225,7 @@ export function ShortlistCategories({
                               <button
                                 type="button"
                                 className="fr manual"
-                                onClick={() => setManual({ category: t.category, label: t.label })}
+                                onClick={() => setManual({ category: t.category, label: t.label, tile: t.tile })}
                               >
                                 <span className="fr-i">
                                   <Pencil size={16} strokeWidth={1.75} aria-hidden />
@@ -4381,6 +4307,12 @@ export function ShortlistCategories({
           </section>
         );
       })}
+      {/* THE LAST ROW WHILE SEARCHING, ALWAYS: "＋ Add “…” as your own supplier". It is the thumb row's own ＋ door
+          (`addYourOwn`) — one category open files it there, none asks which first — and the walk it opens checks the
+          marketplace by name at step 1 ("Is this them?") and hands over the link and QR at step 4. No new mechanism. */}
+      {searching ? (
+        <SearchAddRow className="bench-add" query={query} as="your own supplier" onAdd={addYourOwn} />
+      ) : null}
       {/* "Need something else? ＋ Add to your event" — every category NOT on the
           event, as ONE dropdown under the list (owner rule: a set of choices is
           one dropdown; these were a chip pool at the foot of each folder).
@@ -4426,6 +4358,7 @@ export function ShortlistCategories({
           scope={scopeRow ? scopeRow.t.label : 'all suppliers'}
           onSearch={setQuery}
           onAdd={addYourOwn}
+          emptyPanel={findPanel}
         />
       ) : null}
       {/* "＋ Add your own" with no category open: which category, first — ONE
@@ -4450,7 +4383,7 @@ export function ShortlistCategories({
                   onPick={(tile) => {
                     const row = benchRows.find((r) => r.t.tile === tile);
                     setAddAsk(false);
-                    if (row) setManual({ category: row.t.category, label: row.t.label, name: typedForAdd.current });
+                    if (row) setManual({ category: row.t.category, label: row.t.label, name: typedForAdd.current, tile: row.t.tile });
                   }}
                   className="w-full border border-ink/15"
                 />
@@ -4467,13 +4400,14 @@ export function ShortlistCategories({
         <AddYourOwnWalk
           eventId={eventId}
           category={manual.category}
+          tile={manual.tile}
           categoryLabel={manual.label}
           initialName={manual.name ?? ''}
-          // ONE dropdown of only the categories on the event. Two rows can
-          // share a stored category; the first one names it.
-          categories={benchRows
-            .filter((r, i, all) => all.findIndex((o) => o.t.category === r.t.category) === i)
-            .map(({ t, group }) => ({ category: t.category, label: t.label, group }))}
+          // ONE dropdown of only the categories on the event — ONE ENTRY PER
+          // ROW. Two rows can share a stored category (Food Truck and Mocktail
+          // both store `misc`); each keeps its own entry and files the card
+          // under itself (`category_key`), never under the other.
+          categories={addOwnCategoriesFromRows(benchRows)}
           // The leak line's facts: shops on this event that quoted, from the
           // cards already on the page (no read).
           quotedShops={folders.flatMap((f) =>
@@ -4490,16 +4424,20 @@ export function ShortlistCategories({
           onClose={() => setManual(null)}
           // ONE refresh, the moment the record exists — behind the link step,
           // so the card is under its category by the time they press Done.
+          // one-render: keep (no-revalidate) — the add-your-own walk files the card in place (`ANSWER_IN_PLACE_FIELD`): `addManualSupplier` revalidates nothing.
           onRecorded={() => router.refresh()}
           onDone={(outcome) => {
             setManual(null);
             // Land on the category the supplier went under, then say what happened.
-            const row = benchRows.find((r) => r.t.category === outcome.category);
+            const row = outcome.tile
+              ? benchRows.find((r) => r.t.tile === outcome.tile)
+              : benchRows.find((r) => r.t.category === outcome.category);
             if (row) setOpenTile(row.t.tile);
             // The page's one toast, from the top (§ 9 kind 12). A part that did
             // not happen (they were added, the ask did not send) reads red.
             setToast({ tone: outcome.whole ? 'ok' : 'bad', text: outcome.said, key: Date.now() });
             // An add already refreshed behind the link; an ask has not.
+            // one-render: keep (unsure) — the ask’s write path was not traced on 2026-10-20; kept as it was.
             if (outcome.kind === 'asked') router.refresh();
           }}
         />
@@ -4507,11 +4445,12 @@ export function ShortlistCategories({
         <NewManualVendorModal
           eventId={eventId}
           category={manual.category}
+          tile={manual.tile}
           categoryLabel={manual.label}
+          coverCatalog={coverCatalogFromFolders(folders)}
           onClose={() => setManual(null)}
           onCreated={() => {
             setManual(null);
-            router.refresh();
           }}
         />
       ) : null}
@@ -4530,7 +4469,6 @@ export function ShortlistCategories({
           tile={search.tile}
           label={search.label}
           onClose={closeSearch}
-          onAdded={() => setSearchAdded(true)}
         />
       ) : null}
 
@@ -4539,7 +4477,7 @@ export function ShortlistCategories({
         reqLoading ? (
           // Lightweight loading shell while fields + saved template resolve.
           <div
-            className="fixed inset-0 z-50 flex items-end justify-center sm:items-center"
+            className="fixed inset-0 z-50 flex items-end justify-center tab:items-center"
             // Transient busy indicator, not a focus-trapping modal: a live
             // region announces the load; it hands off to RequirementsModal
             // (which owns the real dialog a11y) once fields resolve.
@@ -4552,7 +4490,7 @@ export function ShortlistCategories({
               onClick={closeReqModal}
               className="absolute inset-0 bg-ink/40 backdrop-blur-sm"
             />
-            <div className="relative z-10 flex w-full items-center justify-center rounded-t-3xl border border-ink/10 bg-cream px-5 py-10 sm:w-full sm:max-w-lg sm:rounded-2xl">
+            <div className="relative z-10 flex w-full items-center justify-center rounded-t-3xl border border-ink/10 bg-cream px-5 py-10 tab:w-full tab:max-w-lg tab:rounded-2xl">
               <span
                 className="h-6 w-6 animate-spin rounded-full border-2 border-mulberry border-t-transparent"
                 aria-hidden

@@ -39,7 +39,7 @@ export const SETTINGS_GROUP_META: Record<SettingsGroup, { label: string; hint: s
   security: { label: 'Sign-in & security', hint: 'Email, password, other devices' },
   preferences: {
     label: 'Preferences',
-    hint: 'Planner mode, reminders, language, notifications',
+    hint: 'Appearance, reminders, notifications',
   },
   account: { label: 'Account', hint: 'Account ID, help, delete account' },
 };

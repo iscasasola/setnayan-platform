@@ -109,7 +109,10 @@ test('the sheets are not in the first load — they arrive on the first tap', ()
     'a static value import of ./budget-sheets defeats the dynamic one',
   );
   assert.match(src, /\{sheetsWanted \? \(\s*<BudgetSheets/, 'the sheets mount before anything has been opened');
-  assert.match(src, /const \[sheet, setSheet\] = useState<BudgetSheetState>\(null\)/, 'the page must open with every sheet shut');
+  // Every sheet shut — unless the address itself names one payment (`?pay=<line_item_id>`, Home's Budget widget,
+  // owner-approved 2026-10-24: "it opens the exact payment"); then that supplier's Pay sheet, and only it.
+  assert.match(src, /const \[sheet, setSheet\] = useState<BudgetSheetState>\(initialPayVendorId \? \{ kind: 'pay', vendorId: initialPayVendorId \} : null\)/, 'the page must open with every sheet shut');
+  assert.match(src, /initialPayVendorId = null,/, 'with no payment named, the page does not open shut');
 });
 
 // ── 3 · the row opens THAT supplier's sheet ────────────────────────────────
@@ -123,7 +126,7 @@ test('a supplier row is a button that opens its own sheet', () => {
   );
   assert.match(
     screen(),
-    /<SupplierGroup rows=\{list\.suppliers\} onOpen=\{\(vendorId\) => open\(\{ kind: 'pay', vendorId \}\)\} \/>/,
+    /<SupplierGroup\s+rows=\{list\.suppliers\}\s+shown=\{shown\.suppliers\}[^>]*?onOpen=\{\(vendorId\) => open\(\{ kind: 'pay', vendorId \}\)\}/,
     'opening a supplier row must open the PAYMENTS sheet for that supplier',
   );
 });

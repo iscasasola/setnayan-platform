@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { pauseWhileHidden } from '@/lib/tab-return';
 
 /**
  * Live seat-plan sync (2026-07-10) — makes a VIEW-ONLY surface follow the
@@ -35,22 +36,33 @@ export function useSeatingLiveRefresh(eventId: string, enabled: boolean): void {
       if (timer.current) clearTimeout(timer.current);
       // Coalesce the row-writes of one save (a link touches 2+ tables; an
       // auto-seat touches many assignments) into a single refresh.
+      // one-render: keep (realtime) — a seat-plan row changed (realtime); coalesced into one re-read.
       timer.current = setTimeout(() => router.refresh(), 350);
     };
 
-    const channel = supabase.channel(`seating-plan:${eventId}`);
-    for (const table of ['event_tables', 'event_seat_assignments', 'event_floor_plan'] as const) {
-      channel.on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table, filter: `event_id=eq.${eventId}` },
-        bump,
-      );
-    }
-    channel.subscribe();
+    // 🔌 A plan left in a background tab lets the channel go after a while (`pauseWhileHidden`). Coming back opens
+    // it again — and a re-SUBSCRIBED re-reads once, because the editor may have moved tables meanwhile.
+    let subscribedOnce = false;
+    const stop = pauseWhileHidden(() => {
+      const channel = supabase.channel(`seating-plan:${eventId}`);
+      for (const table of ['event_tables', 'event_seat_assignments', 'event_floor_plan'] as const) {
+        channel.on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table, filter: `event_id=eq.${eventId}` },
+          bump,
+        );
+      }
+      channel.subscribe((status) => {
+        if (status !== 'SUBSCRIBED') return;
+        if (subscribedOnce) bump();
+        subscribedOnce = true;
+      });
+      return () => supabase.removeChannel(channel);
+    });
 
     return () => {
       if (timer.current) clearTimeout(timer.current);
-      void supabase.removeChannel(channel);
+      stop();
     };
   }, [enabled, eventId, router]);
 }

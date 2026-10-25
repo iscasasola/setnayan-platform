@@ -158,18 +158,19 @@ export function OurStoryManifesto({ clips = [] }: { clips?: string[] }) {
             </div>
           </Reveal>
 
-          {/* The three eras */}
-          <div className="mt-10 grid gap-4 sm:gap-5 lg:grid-cols-3">
+          {/* The three eras — 🖼 a frame only on what you press (owner rule; sweep
+              2026-10-19, C6). They were three boxed cards that pressed nothing; they
+              are a timeline, so a divider rule above each era separates them and
+              the present is lit by its gold rule and its brighter type alone. */}
+          <div className="mt-10 grid gap-x-8 gap-y-7 lg:grid-cols-3">
             {ERAS.map((e, i) => (
               <Reveal key={e.name} delay={i * 110}>
                 <div
+                  data-era=""
                   className="h-full"
                   style={{
-                    background: e.now ? 'rgba(197,160,89,.08)' : 'rgba(255,255,255,.03)',
-                    border: e.now ? '1px solid rgba(197,160,89,.45)' : '1px solid rgba(255,255,255,.08)',
-                    borderRadius: 'var(--m-r-md)',
-                    padding: '22px 22px 24px',
-                    boxShadow: e.now ? '0 0 60px rgba(197,160,89,.16)' : 'none',
+                    borderTop: e.now ? '1px solid rgba(197,160,89,.6)' : '1px solid rgba(255,255,255,.12)',
+                    padding: '18px 2px 0',
                   }}
                 >
                   <div
@@ -265,14 +266,18 @@ export function OurStoryManifesto({ clips = [] }: { clips?: string[] }) {
             </div>
           </Reveal>
 
-          <div className="mt-12 grid gap-4 sm:gap-5 lg:grid-cols-2">
+          {/* 🖼 No card around each of the four (C6, 2026-10-19): a card is a frame
+              and these press nothing. Each keeps its picture — the soft paper panel
+              the mock is drawn on, a fill and not a border — with its words under it,
+              and the grid's gaps keep the four apart. */}
+          <div className="mt-12 grid gap-x-8 gap-y-12 lg:grid-cols-2">
             {KEPT.map((k, i) => (
               <Reveal key={k.via} delay={i * 70}>
-                <div className="m-card h-full overflow-hidden" style={{ display: 'flex', flexDirection: 'column' }}>
-                  <div style={{ background: 'var(--m-paper-2)', borderBottom: '1px solid var(--m-line)', padding: '18px 20px' }}>
+                <div data-kept="" className="h-full" style={{ display: 'flex', flexDirection: 'column' }}>
+                  <div style={{ background: 'var(--m-paper-2)', borderRadius: 'var(--m-r-md)', padding: '18px 20px' }}>
                     <FeatureMock kind={k.mock} />
                   </div>
-                  <div className="flex flex-1 flex-col p-6">
+                  <div className="flex flex-1 flex-col px-1 pt-5">
                     <div
                       className="m-mono"
                       style={{ fontSize: 10, letterSpacing: '.18em', textTransform: 'uppercase', color: 'var(--m-orange-2)' }}

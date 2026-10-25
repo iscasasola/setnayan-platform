@@ -1,14 +1,15 @@
 'use client';
+import type { HubPartId } from '@/lib/hub-parts';
 
-import type { CameraLook } from '@/lib/camera-look';
 import { createContext, useContext, useEffect, useRef, type ComponentType, type ReactNode } from 'react';
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
 import type { DetailsItemKey } from '@/lib/maker-details-items';
 import type { HubElementKey } from '@/lib/element-style';
 import type { HubSectionCanvas } from '@/lib/hub-canvas';
 import type { HubFontKey } from '@/lib/hub-fonts';
-import type { SeeAs } from '@/lib/see-as';
+import type { SeeAs, SeeAsRoleRow } from '@/lib/see-as';
 import type { ElementDraftAction, ElementPalette } from '../../website/editor/_components/element-sheet';
+import type { VenueSlot } from './details-your-event';
 
 /**
  * THE MAKER'S SHARED STATE — what the toolbar says, the navigator, canvas and
@@ -47,6 +48,9 @@ export type MakerSelection =
 /** 'transition' is the folded tab (answer 4, "fold it") — an old address opens Animate. */
 export type MakerSceneTab = 'format' | 'animate' | 'arrange' | 'content' | 'transition';
 
+/** The venue cards the new Maker's Venue scene › Edit offers a Picture ▾ for — see `MakerState.venuePictures`. */
+export type MakerVenuePictures = { slots: readonly VenueSlot[]; pro: { owns: boolean; storeShell: boolean } };
+
 export type MakerState = {
   eventId: string;
   stage: LifecyclePhase;
@@ -72,6 +76,15 @@ export type MakerState = {
   seeAs: SeeAs | null;
   /** Pick a See as state — the Preview menu's rows and the desktop's dropdown above the preview. */
   setSeeAs?: (next: SeeAs | null) => void;
+  /**
+   * 🎭 SEE AS · ROLE ▾ (owner 2026-10-17, "view it as a father of the bride"): which wedding role the sample guest
+   * stands in — a key from `seeAsRoles`, or null for any guest. Drawn only while See as is a guest (`seeAsDrawsMe`):
+   * the canvas address gains `?asrole=` beside `?as=`. Draw-time only, like See as — never the draft, never a row.
+   */
+  seeAsRole?: string | null;
+  setSeeAsRole?: (next: string | null) => void;
+  /** Role ▾'s rows — this event's guest-list roles, built on the server (`lib/preview-role.ts`). Empty: no Role ▾. */
+  seeAsRoles?: readonly SeeAsRoleRow[];
   /** ＋ Add a scene, as the work area registered it — see `MakerAddScene` below. */
   addScene: MakerAddScene | null;
   setAddScene: (next: MakerAddScene | null) => void;
@@ -132,6 +145,12 @@ export type MakerState = {
    */
   factEditors?: Partial<Record<DetailsItemKey, ReactNode>>;
   /**
+   * 📱 THE VENUE CARDS' PICTURES for the new Maker's Venue scene › Edit (`VenuePictureRows`): the
+   * SAME slots Details › Venues draws (`loadYourEvent`) and Event Hub Pro as the viewer is shown it.
+   * Null/absent: the Venue scene keeps only its door.
+   */
+  venuePictures?: MakerVenuePictures | null;
+  /**
    * ⚡ The instant scrapbook (`love-story-live.tsx`, its own lazy chunk — see
    * `maker-shell.tsx`). Handed down HERE rather than imported by the Love Story
    * page or Details, so the only route that can load it is the Maker's (a route
@@ -184,9 +203,31 @@ export type MakerState = {
    * resolved once by the launch page). A part's tools read it: Text is Font ·
    * Colour · Size, Animate's steps are Build in · Action · Build out, and the
    * panel's Style | Text | Animate picks the section (`stage-tools.tsx`).
-   * Absent/false: the shipped Maker, exactly.
+   * Absent/false: the shipped Maker, exactly. True on a desktop too when its three columns are on (`MakerDesk`).
    */
   stagesStudio?: boolean;
+  /** 🖥 The event's name for the desktop's top bar (only when its columns are on — `MakerDesk` draws it). */
+  deskTitle?: string | null;
+  /**
+   * 💎 "₱X more unlocks everything" — what the quiet line over any sheet with ◆ rows says (owner 2026-10-22, part by
+   * part; `pro-quiet-line.tsx`). Catalogue figures the launch page read; null in the store shell (no web price there),
+   * when unread, and once the event holds everything (there is nothing left to say).
+   */
+  proLine?: MakerProLine | null;
+};
+
+/** The quiet line's facts — every figure a catalogue read; the line itself is the press to the parts page. */
+export type MakerProLine = {
+  /** The cheapest part on sale — "Pro parts from ₱500". */
+  fromPhp: number;
+  /** Full Pro — "everything ₱5,000". */
+  fullPhp: number;
+  /** What this event has paid toward everything (the cap's sum). */
+  paidPhp: number;
+  /** The parts it holds one by one. */
+  owned: readonly HubPartId[];
+  /** The parts page. */
+  href: string;
 };
 
 /**
@@ -319,8 +360,8 @@ export type MakerLookPages = {
   fontsInUse?: readonly HubFontKey[];
   /** The guest page's address (`/<slug>`), or null before there is one. */
   publicLandingUrl: string | null;
-  /** 🎛 The Camera part's look, drafted over live (`events.style_preferences.camera_look`) — Stages' Camera › Style. */
-  camera?: { look: CameraLook } | null;
+  /** 📷 The one camera's dress (owner 2026-10-24): `pro` = the event holds Logo & QR or Full Pro, as the viewer is shown it. */
+  camera?: { pro: boolean } | null;
   /** 🧱 The fixed blocks' looks — the RAW `events.style_preferences.block_looks`, drafted over live (`lib/block-looks.ts`). */
   blocks?: Record<string, unknown> | null;
 };
@@ -368,3 +409,9 @@ export const MAKER_OPEN_PART_EVENT = 'maker:open-part';
  * picks it. A second tap on the picked part's words types (`makerStageMayType`).
  */
 export const MAKER_STAGE_PICK_EVENT = 'maker:stage-pick';
+
+/**
+ * 💬 A body under the Stages toolbar says one short line in the toolbar's own note (the `PeekToast` that says why a
+ * tool is grey) — `detail` = the words. The Cover Scene's Opening uses it for a card that is not offered yet.
+ */
+export const MAKER_STAGE_SAY_EVENT = 'maker:stage-say';

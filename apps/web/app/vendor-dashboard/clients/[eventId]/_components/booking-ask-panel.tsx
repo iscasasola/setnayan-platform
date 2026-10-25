@@ -34,6 +34,7 @@ import { formatLongTimestamp } from '@/lib/format-date';
 import type { LockAnswerNotice } from '@/lib/lock-answer-notice';
 import { lockRequestFuseLabel } from '@/lib/lock-request-state';
 import { AskSubmit } from '@/app/_components/ask-submit';
+import { DeclineReasonFields } from '@/app/_components/decline-reason-fields';
 
 type FormAction = (formData: FormData) => void | Promise<void>;
 
@@ -114,14 +115,9 @@ export function LockRequestAnswer({
         <form action={declineLock} className="mt-1 flex flex-wrap items-center gap-2">
           <input type="hidden" name="vendor_id" value={eventVendorId} />
           <input type="hidden" name="return_to" value={returnTo} />
-          <input
-            type="text"
-            name="reason"
-            maxLength={240}
-            placeholder="Why? (optional — the couple sees this)"
-            className="h-11 min-w-0 flex-1 rounded-full border bg-transparent px-4 text-sm text-ink"
-            style={{ borderColor: 'var(--sn-line)' }}
-          />
+          {/* Why ▾ + an optional line, joined into the one \`reason\` field the action reads (no Undo — the couple
+              is told at once). */}
+          <DeclineReasonFields />
           <AskSubmit tone="neutral" icon={<X {...ico} />} label="Turn it down" pendingLabel="Sending…" />
         </form>
       </details>

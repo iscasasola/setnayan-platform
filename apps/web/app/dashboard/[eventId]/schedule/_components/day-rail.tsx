@@ -77,9 +77,11 @@ import type {
   DaySupplier,
   DayTemplate,
 } from './day-types';
+import { supplierOnItem } from './day-types';
 import { DayActionsContext, PHASE_TINT, Eyebrow, PickMenu, Tip, ToolButton, toFormData } from './day-ui';
 import { MomentInspector } from './moment-inspector';
 import { AddMomentSheet, RequestsSheet, ShiftSheet } from './day-sheets';
+import type { RetimePatch } from '@/lib/schedule-ros';
 import { StudioDay } from './studio-day';
 import { useMaker } from '../../launch/_components/maker-context';
 
@@ -291,6 +293,16 @@ export function ScheduleDay({
     }
     overridesRef.current = next;
     setOverrides(next);
+  }
+
+  /** A shift that LANDED is on the rail at once: in the Maker the write is quiet, so no render brings the new times
+   *  (the sheet closed over the old ones). On the standalone page the render that follows supersedes these. */
+  function landShift(patches: readonly RetimePatch[]) {
+    for (const p of patches) {
+      const patch = { start_at: p.start_at, end_at: p.end_at };
+      override(p.block_id, patch);
+      confirm(p.block_id, patch);
+    }
   }
 
   /** Run a write; on a refusal, undo the guess and say so. */
@@ -631,6 +643,7 @@ export function ScheduleDay({
           eventId={eventId}
           moments={merged}
           fromId={sheet?.kind === 'shift' ? sheet.fromId : null}
+        onShifted={landShift}
         />
         <RequestsSheet
           open={sheet?.kind === 'requests'}
@@ -663,7 +676,7 @@ export function ScheduleDay({
                 ...(rosEnabled
                   ? taggedSuppliers.map((s) => {
                       const n = topLevel.filter((m) => m.responsible_vendor_ids.includes(s.vendor_id)).length;
-                      return { key: `vendor:${s.vendor_id}`, label: `${s.vendor_name} · ${n} moment${n === 1 ? '' : 's'}` };
+                      return { key: `vendor:${s.vendor_id}`, label: `${supplierOnItem(s)} · ${n} moment${n === 1 ? '' : 's'}` };
                     })
                   : []),
               ]}
@@ -999,6 +1012,19 @@ export function ScheduleDay({
                             <span className="hidden truncate font-sans text-ink/55 lg:inline">{m.location}</span>
                           ) : null}
                         </p>
+                        {/* 🗓 The suppliers this item is given to — shop name ·
+                            Booked / Shortlisted (owner 2026-10-20). One line, on
+                            the phone too: it is who answers for the moment. */}
+                        {!short && m.responsible_vendor_ids.length > 0
+                          ? (() => {
+                              const onIt = suppliers.filter((s) => m.responsible_vendor_ids.includes(s.vendor_id));
+                              return onIt.length > 0 ? (
+                                <p className="truncate text-[11px] text-ink/60" data-rail-supplier="">
+                                  {onIt.map((s) => supplierOnItem(s)).join(', ')}
+                                </p>
+                              ) : null;
+                            })()
+                          : null}
                         {!short && parts.length > 0 && height > 84 ? (
                           <div className="mt-1.5 hidden flex-wrap gap-1 sm:flex">
                             {parts.map((p) => (
@@ -1067,6 +1093,7 @@ export function ScheduleDay({
       {!isDesktop && selected && !inspectorSlot ? (
         <div
           role="dialog"
+          data-safe-x=""
           aria-label={`Moment: ${selected.label}`}
           className="fixed inset-x-0 bottom-0 z-[60] max-h-[62dvh] overflow-y-auto rounded-t-3xl bg-cream pb-[max(env(safe-area-inset-bottom),16px)] shadow-[0_-20px_50px_-30px_rgba(30,26,18,0.6)] ring-1 ring-ink/10"
         >
@@ -1101,6 +1128,7 @@ export function ScheduleDay({
         eventId={eventId}
         moments={merged}
         fromId={sheet?.kind === 'shift' ? sheet.fromId : null}
+        onShifted={landShift}
       />
       <RequestsSheet
         open={sheet?.kind === 'requests'}

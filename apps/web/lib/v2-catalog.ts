@@ -72,6 +72,19 @@ const BUILD_STATUS: Record<string, BuildStatus> = {
   EVENT_WEBSITE:       'partial',  // during-event website ₱1,999
   PRO_RSVP:            'partial',  // the actually-seeded RSVP SKU (migration 20260915000000) · was missing → silently defaulted to not_built
   COUPLE_WEBSITE_PRO:  'live',     // Event Hub PRO unlock — price is the catalog row, never this comment (migration 20270103020000 · repriced 20270511151471) · collapses PRO_RSVP/EVENT_WEBSITE/PRO_WEBSITE · the UMBRELLA across STD·RSVP·on-the-day·Editorial · perk: removes "Powered by Setnayan" watermark from site+recap+editorial when active (lib/couple-website-pro.ts) · 2026-06-22
+  // 💎 Event Hub Pro, part by part (owner 2026-10-22 · migration 20271282742262) — each part's gates read it live
+  // (`eventHubPartActive`, lib/couple-website-pro.ts). Sold in the Maker, never at sign-up.
+  COUPLE_HUB_PART_REVEAL: 'live',
+  COUPLE_HUB_PART_BACKGROUND: 'live',
+  COUPLE_HUB_PART_PHOTOS: 'live',
+  COUPLE_HUB_PART_STYLE: 'live',
+  COUPLE_HUB_PART_MOTION: 'live',
+  COUPLE_HUB_PART_LOGO_QR: 'live',
+  COUPLE_HUB_PART_MUSIC: 'live',
+  COUPLE_HUB_PART_PRINTS: 'live',
+  COUPLE_HUB_PART_POST_EVENT: 'live',
+  COUPLE_HUB_PART_OWN_SCENES: 'live',
+  COUPLE_HUB_PART_ADDRESS: 'live',
   EDITORIAL_PRO:       'live',     // ₱3,499 à-la-carte editorial-authoring SKU (migration 20270511151471 · owner 2026-07-04) · marked live 2026-07-10 (owner "all features active")
   SETNAYAN_AI:         'live',     // the planner / first paywall · catalog SETNAYAN_AI ₱499/28d subscription · gate lib/setnayan-ai.ts
   CUSTOM_QR_GUEST:     'live',     // branded per-guest QR (monogram + palette + print) · PR #727 · 2026-06-01
@@ -82,7 +95,16 @@ const BUILD_STATUS: Record<string, BuildStatus> = {
   PANOOD_SYSTEM:       'live',     // = Live Studio — the ONE SKU, ₱2,500/day, unlocks everything (owner 2026-07-21) · marked live 2026-07-10 (owner "all features active") · YouTube verified-app is an external gate tracked separately
   PANOOD_SYSTEM_MOBILE: 'live',    // RETIRED 2026-07-21 — never purchasable (no buy surface, zero orders); catalog row deactivated. Kept here so any historical holder still resolves. (owner-locked 2026-07-08 · migration 20270526326110) · marked live 2026-07-10
   LIVE_STUDIO_ROAM:    'partial',  // = Live Studio Roam ₱3,500/day (owner 2026-07-23). RETIRED into LIVE_STUDIO 2026-07-25 (is_active=false, migration 20271001110000). Kept for historical order rows.
-  LIVE_STUDIO:         'partial',  // = UNIFIED Live Studio, once per event (owner 2026-07-25; repriced to a one-time unlock by LS6 2026-09-02, migration 20271194920190 — never quote a figure here, read the catalog) — merges Cast (PANOOD_SYSTEM) + Roam (LIVE_STUDIO_ROAM) into one switching controller. Built on the Roam substrate; controller (Main Stage cut) + unified viewer shipped flag-dark behind NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED. Excluded from /pricing by name until launch. YouTube broadcast orchestration still pending G1. Bump to 'live' at launch. · migration 20271001110000
+  // 2026-10-19 — 'partial' → 'live' (sweep row B7). It is LAUNCHED: the launch switch
+  // NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED is ON in production (the name-exclusion in
+  // fetchV2CustomerCatalog below would otherwise keep it off /pricing, and live /pricing
+  // lists it), the catalog row is is_active, /features/live-watch sells "Try it" at the
+  // catalog price, and prod had 2 verified pool channels and 2 aired streams (read
+  // 2026-10-19). /pricing still chipped it "In build" — the LIVE_WALL mistake above,
+  // again: telling a couple the thing they can buy today is unfinished.
+  // 🔑 IF THE LAUNCH SWITCH IS EVER TURNED OFF, the row leaves /pricing with it — the
+  // chip cannot outlive the sale, so nothing here needs to move back.
+  LIVE_STUDIO:         'live',     // = Live Watch (renamed from "Live Studio", owner d2 2026-10-02) · UNIFIED, once per event (owner 2026-07-25; one-time unlock since LS6 2026-09-02, migration 20271194920190 — never quote a figure here, read the catalog) — merges Cast (PANOOD_SYSTEM) + Roam (LIVE_STUDIO_ROAM) into one switching controller. · migration 20271001110000
   LIVE_STUDIO_HOSTED_CHANNEL: 'partial', // = optional "Setnayan supplies the channel" upsell (owner ruling 2026-09-02). STACKS on LIVE_STUDIO — grants no entitlement of its own. DEACTIVATED by LS6 (2026-09-02, migration 20271194920190) when its price pairing with LIVE_STUDIO broke and no replacement figure was given. Sold on the same flag-gated buy page when reactivated; excluded from /pricing by name until launch, same idiom as LIVE_STUDIO. Bump to 'live' at launch. · migration 20271192528988
   PATIKTOK_COMPILER:   'live',     // ₱1,499/day booth · marked live 2026-07-10 (owner "all features active") · TikTok app review tracked separately
   PAPIC_GUEST:         'live',     // guest camera end-to-end: cookie identity + server quota (150) + capture · 2026-06-02
@@ -92,6 +114,11 @@ const BUILD_STATUS: Record<string, BuildStatus> = {
   HIGH_RES_ARCHIVE:    'partial',  // 0009 photo delivery partial
   LIVE_BACKGROUND:     'not_built', // REMOVED 2026-08-11 (owner: "remove wall backdrop"). Was marked 'live' on 2026-07-10 under "all features active" — it never was: the maker saved a draft and nothing rendered the 8K file or posted the USB it promised. Route, save endpoint, templates and both tables deleted (migration 20271132121622). Kept listed so the retirement is legible and any historical order row still resolves a status.
   PABATI:              'not_built', // RETIRED 2026-08-21 (owner: "we do not need pabati. retire it because it is part of papic"). Was a ₱1,299 5-second video guestbook; 0 greetings ever recorded, 0 orders ever. Its own challenge-library row now asks for an ordinary Papic clip, so the capability survives the product. Surface, API, table and RPCs deleted. Kept listed — same convention as LIVE_BACKGROUND above — so the retirement is legible and any historical order row still resolves a status.
+  // 2026-10-19 — was MISSING, so it silently defaulted to 'not_built' ("Coming soon")
+  // while /features/mood-board sells it as the paid half of a free-plus feature. Wired
+  // end to end: lib/sku-activation.ts grants it, lib/moodboard-render-credits.ts spends it,
+  // the mood-board editor buys it. Held by app/features/a-sold-feature-is-not-in-build.test.ts.
+  MOODBOARD_RENDER_PACK: 'live',
   KWENTO:              'live',     // words-on-a-photo · FREE for every event (owner 2026-08-21 "kwento is free"; row deactivated by 20271156242842, feature kept on via FREE_FOR_ALL_SKUS) · was paid-to-unlock ₱299 from 2026-06-26 · ⚠ the old comment here said ₱500, which the catalog never charged
 
   PAKANTA:               'live',       // custom-song delivery end-to-end: intake + admin upload → auto-plays on the couple's site (PR #2038) · 2026-06-22
@@ -153,6 +180,23 @@ const BUILD_STATUS: Record<string, BuildStatus> = {
 };
 
 /**
+ * The build status /pricing chips for a customer SKU — the same lookup the
+ * reader below applies, exported so a guard can hold it against the other
+ * public surfaces (`app/features/a-sold-feature-is-not-in-build.test.ts`).
+ */
+export function customerSkuBuildStatus(serviceCode: string): BuildStatus {
+  const own = BUILD_STATUS[serviceCode];
+  if (own) return own;
+  // The Papic credit ladder's rungs (PAPIC_GUEST_100 … PAPIC_GUEST_100K) are one
+  // product sold in sizes — the same pot, the same buy sheet — so each rung is
+  // as built as PAPIC_GUEST itself. Unlisted, every rung fell through to
+  // 'not_built', and /pricing's structured data told search engines all of them
+  // were a schema.org PreOrder while /features/papic sold them (2026-10-19).
+  if (/^PAPIC_GUEST_\d+K?$/.test(serviceCode)) return BUILD_STATUS.PAPIC_GUEST ?? 'not_built';
+  return 'not_built';
+}
+
+/**
  * Server-side fetch of all customer SKUs from the V2 catalog.
  * Sorted by display priority · token-worthy items first.
  */
@@ -210,6 +254,10 @@ export async function fetchV2CustomerCatalog(
         // same switch — never its own, separate launch.
         .neq('service_code', 'LIVE_STUDIO_HOSTED_CHANNEL');
     }
+    // 💎 The eleven Event Hub Pro parts (owner 2026-10-22) are bought where they are used — the Maker's ✓ Apply and the
+    // Event Hub Pro page — never as eleven more lines on /pricing, which keeps the one "Event Hub Pro" line. Its parts
+    // are read by `lib/hub-parts.ts` callers straight from the catalogue.
+    query = query.not('service_code', 'like', 'COUPLE_HUB_PART_%');
   }
 
   const { data, error } = await query.order('service_code', { ascending: true });
@@ -227,7 +275,7 @@ export async function fetchV2CustomerCatalog(
     saas_overhead_cost_php: Number(row.saas_overhead_cost_php),
     is_token_able: Boolean(row.is_token_able),
     description: (row.description as string | null) ?? null,
-    build_status: BUILD_STATUS[row.service_code as string] ?? 'not_built',
+    build_status: customerSkuBuildStatus(row.service_code as string),
     // Coerce to the known union; a stale env without the column → 'one_time'
     // (the column default), so the suffix never renders unexpectedly.
     billing_period: (row.billing_period as BillingPeriod) ?? 'one_time',

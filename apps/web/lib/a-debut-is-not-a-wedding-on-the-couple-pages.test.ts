@@ -87,7 +87,13 @@ for (const c of CASES) {
 
 test('the guests page derives eventWord from the event type, not a constant', () => {
   const src = read(`${D}/guests/page.tsx`);
-  assert.match(src, /const eventWord = eventNoun\(\(await resolveProfileByEvent\(eventId\)\)\.eventType\)/);
+  // 2026-10-20: the profile is read beside every other read (one wait) — the word is still its event type.
+  assert.match(src, /const profileRead = resolveProfileByEvent\(eventId\);/);
+  assert.match(src, /const eventWord = eventNoun\(eventProfile\.eventType\);/);
+  const wait = [...src.matchAll(/const \[([\s\S]*?)\] = await Promise\.all\(\[([\s\S]*?)\]\);/g)].find((m) => /\beventProfile\b/.test(m[1] ?? ''));
+  assert.ok(wait, 'eventProfile is no longer taken from a single wait');
+  const items = (list: string) => list.replace(/\[[^\]]*\]/g, '[…]').split(',').map((x) => x.trim()).filter(Boolean);
+  assert.equal(items(wait[2] ?? '')[items(wait[1] ?? '').indexOf('eventProfile')], 'profileRead', 'eventProfile is not the event-type profile’s answer');
 });
 
 test('the invite share text is built from the event type', () => {

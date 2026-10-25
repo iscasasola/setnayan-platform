@@ -11,6 +11,12 @@
  *   · a button that opens a page instead of saving a file;
  *   · a file name that breaks the owner's `<event slug>-<print>` rule;
  *   · the crew-pairing QR (the event's master token) printed as the guest QR.
+ *
+ * 🗂 EXCEPT THE ALL-GUESTS FILES (owner 2026-10-17, DECISION_LOG "PRINTS: ONE SETTINGS SHEET, ONE DOWNLOAD PER PIECE, VIEW AS ▾ ON
+ * GUEST PRINTS, ALL GUESTS ◆, EVERYTHING ◆": *"the Guest QR sheet and the place-card pack become Pro as all-guest files, while a
+ * single guest stays free"*). Every guest's QR in one PDF and the whole place-card pack ask the event's Event Hub Pro — on the page
+ * (the zip's ◆ pattern, `allInOneFile`) and at their routes, AFTER their free answers (the pictures, the chart, one guest's card).
+ * Everything else here stays exactly as it was: free, reachable, shown in the store shell.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -38,7 +44,8 @@ function routeFileFor(href: string): string {
 
 test('the free group names every print the owner and the controller listed', () => {
   const keys = freePrints(EVENT, 'cale-ice').map((p) => p.key);
-  assert.deepEqual(keys, ['guest-registry', 'qr-codes', 'seat-plan', 'seating-pack', 'caterer', 'event-qr']);
+  /* 🪧 The entrance seating chart is its own row since 2026-10-14 (owner, on the Studio › Prints previews). */
+  assert.deepEqual(keys, ['guest-registry', 'qr-codes', 'seat-plan', 'seating-pack', 'seating-chart', 'caterer', 'event-qr']);
   // The event QR needs an address; without one it is left out rather than broken.
   assert.ok(!freePrints(EVENT, null).some((p) => p.key === 'event-qr'));
 });
@@ -54,7 +61,13 @@ test('every free print is REACHABLE from Details (Prints & Tickets folded in), o
   assert.match(group, /freePrints\(eventId, slug, stamps\)\.map\(/, 'the section renders the whole list — no entry is picked out');
   assert.match(group, /fp\.saves\.map\(/, 'every save of every entry gets a button');
   assert.match(group, /src=\{fp\.preview\}/, 'every entry shows its real preview');
-  assert.doesNotMatch(group, /access\.|ownsPro|storeShell|offerPro|printReady/, 'nothing in the free group asks about Pro or the store shell');
+  assert.doesNotMatch(group, /access\.|offerPro|printReady/, 'nothing in the free group asks about the theme’s Pro');
+  /* The only Pro question is the all-guests files' (2026-10-17) — each through `allInOneFile`, never a condition around a row. */
+  for (const line of group.split('\n').filter((l) => /ownsPro|storeShell/.test(l) && !/^\s*input\?: Pick</.test(l))) {
+    assert.match(line, /allInOneFile\(/, `the free group asks about Pro outside the all-guests files: ${line.trim()}`);
+  }
+  /* 2026-10-22: the Guest QR sheet left (it downloads free); the place-card pack is the one all-guests ◆ file in the group. */
+  assert.match(ws, /const ALL_GUESTS_NOTE: Partial<Record<FreePrint\['key'\], \{ title: string; body: string \}>> = \{\s*'seating-pack': PLACE_CARDS_PRO_NOTE,\s*\};/, 'another free print became an all-guests file');
   // …and the section itself is not wrapped in one: nothing between the return and the section tests access.
   const before = ws.slice(ws.indexOf('return ('), start);
   assert.doesNotMatch(before, /\{\s*(access\.|ownsPro|storeShell|!storeShell)[^}]*&&\s*\(/, 'the free group is not rendered conditionally');
@@ -77,6 +90,13 @@ test('no free print’s route asks the Pro question', () => {
         const piece = href.split('/api/hub-print/')[1]!.split('?')[0]!;
         assert.ok(src.indexOf(`piece === '${piece}'`) > 0, `hub-print has no free branch for ${piece}`);
         assert.ok(src.indexOf(`piece === '${piece}'`) < src.indexOf('printOwnsPro('), `${piece} is answered before the Pro question`);
+      } else if (file.endsWith('seating/print/route.ts')) {
+        /* 🗂 The place-card pack is an all-guests file (2026-10-17): asked ONLY for the whole pack's PDF — its picture, the entrance
+           chart (answered before, above it) and one guest's card stay free. */
+        const gate = src.indexOf('printOwnsPro(');
+        assert.ok(gate > src.indexOf('if (chart) {'), 'the entrance chart asks the Pro question');
+        assert.match(src, /if \(format === 'pdf' && oneGuest === null\) \{\s*const \[ownsPro, storeShell\] = await Promise\.all\(\[printOwnsPro\(eventId\), isStoreShellRequest\(\)\]\);/, 'the pack asks Pro for more than its whole PDF');
+        assert.equal((src.match(/printOwnsPro\(/g) ?? []).length, 1, 'the seating print route asks the Pro question twice');
       } else {
         assert.doesNotMatch(src, /printOwnsPro|eventCoupleWebsiteProActive|isStoreShellRequest|printAccess/, `${file} must not gate a free print`);
       }
@@ -98,12 +118,13 @@ test('file names follow the owner’s rule: <event slug>-<print>', () => {
   assert.deepEqual(byKey['guest-registry'], ['cale-ice-guest-registry.pdf']);
   assert.deepEqual(byKey['seat-plan'], ['cale-ice-seat-plan.pdf', 'cale-ice-seat-plan-blueprint.pdf']);
   assert.deepEqual(byKey['qr-codes'], ['cale-ice-qr-codes.pdf']);
-  /* 🪧 The entrance chart rides beside the pack (owner 2026-10-13, #6503) — the route's own names (`chartFileStem`). */
-  assert.deepEqual(byKey['seating-pack'], ['cale-ice-seating-pack.pdf', 'cale-ice-seating-chart-by-table.pdf', 'cale-ice-seating-chart-a-to-z.pdf']);
+  /* 🪧 The entrance chart (owner 2026-10-13, #6503) is its own row since 2026-10-14 — the SAME route, the route's own names (`chartFileStem`). */
+  assert.deepEqual(byKey['seating-pack'], ['cale-ice-seating-pack.pdf']);
+  assert.deepEqual(byKey['seating-chart'], ['cale-ice-seating-chart-by-table.pdf', 'cale-ice-seating-chart-a-to-z.pdf']);
   assert.deepEqual(byKey['event-qr'], ['cale-ice-event-qr.png']);
   // …and the routes name the file the same way when saved without the button.
   assert.match(read('app/dashboard/[eventId]/seating/export/route.ts'), /printFileName\(event\.slug, mode === 'blueprint' \? 'seat-plan-blueprint' : 'seat-plan'\)/);
-  assert.match(read('app/dashboard/[eventId]/seating/print/route.ts'), /printFileName\(event\.slug, 'seating-pack'\)/);
+  assert.match(read('app/dashboard/[eventId]/seating/print/route.ts'), /printFileName\(event\.slug, oneGuest === null \? 'seating-pack' : `place-card-\$\{placeCardWord\(packUnits\)\}`\)/);
   assert.match(read('app/dashboard/[eventId]/seating/caterer/route.ts'), /printFileName\(event\.slug, 'caterer-meal-counts'\)/);
 });
 
@@ -129,4 +150,19 @@ test('the event QR is the GUEST code, never the crew-pairing code', () => {
     assert.doesNotMatch(href, /event-qr/, 'the /event-qr page carries the master pairing token — not for guests');
     assert.match(href, /^\/api\/website\/qr\//);
   }
+});
+
+test('🪧 the entrance chart row draws the chart\'s own default sheet — its shape and name are the chart\'s, written once here and held equal', async () => {
+  const { DEFAULT_ENTRANCE_CHART_SIZE, chartSizeSpec, chartFileStem } = await import('./print-entrance-chart');
+  const chart = freePrints(EVENT, 'cale-ice').find((p) => p.key === 'seating-chart')!;
+  const spec = chartSizeSpec(DEFAULT_ENTRANCE_CHART_SIZE);
+  assert.equal(chart.aspect, spec.wMm / spec.hMm, 'the chart row draws a different sheet from the chart’s default');
+  assert.equal(chart.paper, spec.label);
+  /* The same route draws its picture and saves its files — never a second renderer. */
+  assert.match(chart.preview, /\/seating\/print\?chart=table&format=preview$/);
+  for (const s of chart.saves) assert.match(s.href, /\/seating\/print\?chart=(?:table|az)&format=pdf$/);
+  assert.deepEqual(chart.saves.map((s) => s.file), [`cale-ice-${chartFileStem('table')}.pdf`, `cale-ice-${chartFileStem('az')}.pdf`]);
+  /* …and the pack no longer carries it. */
+  const pack = freePrints(EVENT, 'cale-ice').find((p) => p.key === 'seating-pack')!;
+  assert.ok(!pack.saves.some((s) => /chart=/.test(s.href)), 'the pack still saves the chart — two rows for one file');
 });

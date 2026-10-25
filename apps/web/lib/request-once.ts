@@ -150,3 +150,11 @@ export async function withRenderScopeForTest<T>(fn: () => Promise<T>): Promise<T
     testSlots = before;
   }
 }
+
+/**
+ * The question "which of this event's members are linked to a guest row, and as
+ * which account?" — `event_members(guest_id, user_id)` where both are set. The
+ * Guests tab asks it twice per render (the linked person's formal name, and
+ * their shared photo); both name this key so `askedOnce` sends it once.
+ */
+export const LINKED_GUEST_MEMBERS = 'event_members.linked_guests';

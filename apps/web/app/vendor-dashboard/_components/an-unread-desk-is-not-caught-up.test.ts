@@ -90,7 +90,7 @@ test('a desk with cards whose reads did not finish still says so above the cards
   (rows.length === 0) return null` turns test 1 RED (an unread desk draws
   nothing — byte-identical to a desk with nothing waiting).
 */
-test('a desk that read in full and is empty draws nothing — the Next card says "all caught up" (the control)', async () => {
+test('a desk that read in full and is empty draws nothing — the Next card says "Nothing waiting" (the control)', async () => {
   const html = await renderFeed(false);
   assert.equal(html, '', 'an empty, fully-read list is furniture — it should not be drawn');
   const { pickSupplierNext } = await import('@/lib/supplier-today');
@@ -106,9 +106,11 @@ test('a desk that read in full and is empty draws nothing — the Next card says
   };
   const clear = pickSupplierNext({ ...base, deskIncomplete: false });
   assert.equal(clear.kind, 'clear');
-  assert.match(clear.title, /all caught up/i);
+  // The simpler Today (owner APPROVE 2026-10-14) says it in the prototype's words: "Nothing waiting".
+  assert.match(clear.title, /^Nothing waiting$/);
   const unread = pickSupplierNext({ ...base, deskIncomplete: true });
   assert.equal(unread.kind, 'unread');
   assert.doesNotMatch(`${unread.title} ${unread.body}`, CAUGHT_UP);
+  assert.doesNotMatch(`${unread.title} ${unread.body}`, /nothing waiting/i, 'an unread desk says "nothing waiting"');
   assert.match(unread.title, /couldn’t load/);
 });

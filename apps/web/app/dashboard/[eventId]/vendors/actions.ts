@@ -22,6 +22,11 @@ import { revalidatePath } from 'next/cache';
 import { ANSWER_IN_PLACE_FIELD, answersInPlace } from '@/lib/answer-in-place';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { readCoverCatalog, type CoverCatalogRead } from '@/lib/cover-catalog.server';
+import { categoryKeyForAdd, homeTileForRow } from '@/lib/shortlist-taxonomy';
+import { getTaxonomy } from '@/lib/taxonomy-db';
+import { hasClaimAsk } from '@/lib/move-supplier-category.server';
+import { ABSENT_IS_FINE_HEADER } from '@/lib/supabase/db-error-log';
 import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
 import { coupleMoneyNotYet } from '@/lib/couple-booked-and-settled.server';
 import { autoInviteCoordinator } from '@/lib/coordinator-grant';
@@ -1721,6 +1726,11 @@ export async function finalizeVendor(
             currentLimit: 0,
             existingHoldCount: 0,
           };
+        case 'blocked':
+          // 2026-10-14: the chosen time meets the supplier's "Not available"
+          // hours that day (e.g. every Sunday morning) — the same couple-facing
+          // words as a closed date (never who / why), so they pick another time.
+        // falls through
         case 'locked':
           // PHASE 5 gapfix: the vendor has a hard hold on this date — same
           // couple-facing outcome as a closure (never who / why / which state).
@@ -3047,7 +3057,9 @@ export async function revertVendorToConsidering(
         .delete()
         .eq('event_id', eventId)
         .eq('plan_group_id', revertGroup)
-        .eq('decision', 'complete');
+        .eq('decision', 'complete')
+        // Absent is the goal: RLS's DELETE and SELECT doors are the same here (current_event_ids).
+        .setHeader(ABSENT_IS_FINE_HEADER, '1');
     }
   }
 
@@ -3489,6 +3501,22 @@ async function deleteManualVendor(
 }
 
 /**
+ * THE ROW AN ADD CAME FROM (owner 2026-10-20: *"We want them to be designated
+ * to their category"*). An add opened from a Suppliers-page row posts that row
+ * as `category_key`; this keeps it only when it is a row the page draws AND it
+ * refines the posted enum `category` (`categoryKeyForAdd`). Food Truck stores
+ * `misc`; without the key its card would be drawn under Everything else.
+ * Anything else — no row, the top-level Everything else row, an unknown or
+ * contradicting key — answers null, and the add writes what it always wrote.
+ */
+async function categoryKeyFromAdd(formData: FormData, category: string): Promise<string | null> {
+  const raw = formData.get('category_key');
+  if (typeof raw !== 'string' || raw.trim().length === 0) return null;
+  const known = (await getTaxonomy()).tileLabel as Record<string, string>;
+  return categoryKeyForAdd(category, raw, (t) => typeof known[t] === 'string');
+}
+
+/**
  * Attaches a manual vendor to a planning category by creating a fresh
  * event_vendors row linked via manual_vendor_id. The new row gets the
  * vendor's business_name as vendor_name (for backwards-compat with
@@ -3555,11 +3583,14 @@ async function attachManualVendorToCategory(
     return { status: 'error', message: 'Manual supplier belongs to a different event' };
   }
 
+  // The row it was added from, when the enum cannot name it (Food Truck).
+  const categoryKey = await categoryKeyFromAdd(formData, categoryRaw);
   const { data: inserted, error: insertErr } = await supabase
     .from('event_vendors')
     .insert({
       event_id: eventIdRaw,
       category: categoryRaw,
+      ...(categoryKey ? { category_key: categoryKey } : {}),
       vendor_name: manualVendor.business_name,
       manual_vendor_id: manualVendorIdRaw,
       status: 'considering',
@@ -4022,6 +4053,9 @@ export async function attachMarketplaceVendorToCategory(
     marketplace_vendor_id: marketplaceVendorIdRaw,
     source: 'host_marketplace_search',
   };
+  // Asked from a row the enum cannot name (Food Truck) — the card is drawn there.
+  const categoryKey = await categoryKeyFromAdd(formData, categoryRaw);
+  if (categoryKey) insertPayload.category_key = categoryKey;
   if (serviceId) {
     insertPayload.service_id = serviceId;
   }
@@ -5327,6 +5361,9 @@ export async function addManualSupplier(
   attachFd.set('event_id', eventId);
   attachFd.set('manual_vendor_id', created.manualVendorId);
   attachFd.set('category', category);
+  // The Suppliers-page row the add was opened from (validated in the attach).
+  const rowKey = formData.get('category_key');
+  if (typeof rowKey === 'string' && rowKey.length > 0) attachFd.set('category_key', rowKey);
   if (answersInPlace(formData)) attachFd.set(ANSWER_IN_PLACE_FIELD, '1');
   const attached = await attachManualVendorToCategory(attachFd);
   if (attached.status !== 'ok') return attached;
@@ -5494,6 +5531,17 @@ export async function locateAddressPin(query: string): Promise<AddressPinResult>
 //   · readSupplierInvite     — READ-ONLY lookup of an existing claim link.
 // ============================================================================
 
+/**
+ * The card sheet's "Also covers" list — the Suppliers page's own rows for this
+ * event (`readCoverCatalog`: the same `buildShortlistFolders` call the page
+ * draws them with). READ-ONLY; owner 2026-10-20, "we do not have the
+ * categories synced properly". `{ ok: false }` is said in the sheet, never
+ * shown as an empty list.
+ */
+export async function loadCoverCatalog(eventId: string): Promise<CoverCatalogRead> {
+  return readCoverCatalog(eventId);
+}
+
 export type SelfAddedSupplierPrefill = {
   vendorId: string;
   category: string;
@@ -5503,6 +5551,10 @@ export type SelfAddedSupplierPrefill = {
   address: string;
   pin: { lat: number; lng: number } | null;
   covers: string[];
+  /** The row the card is drawn under (`homeTileForRow`) — finer than `category` for a moved supplier. */
+  homeTile?: string | null;
+  /** They claimed the couple's link and wait for Approve (#6709). */
+  claimAsk?: boolean;
   inclusions: string;
   /** The HEADLINE price the couple edits — see the note where it is read. */
   price: string;
@@ -5531,7 +5583,7 @@ export async function loadSelfAddedSupplier(
   const { data: ev, error: evErr } = await supabase
     .from('event_vendors')
     .select(
-      'vendor_id, category, vendor_name, total_cost_php, host_inclusions, covers_plan_groups, manual_vendor_id, marketplace_vendor_id',
+      'vendor_id, category, vendor_name, total_cost_php, host_inclusions, covers_plan_groups, category_key, manual_vendor_id, marketplace_vendor_id',
     )
     .eq('event_id', eventId)
     .eq('vendor_id', vendorId)
@@ -5545,6 +5597,7 @@ export async function loadSelfAddedSupplier(
     total_cost_php: number | string | null;
     host_inclusions: string[] | null;
     covers_plan_groups: string[] | null;
+    category_key: string | null;
     manual_vendor_id: string | null;
     marketplace_vendor_id: string | null;
   };
@@ -5554,7 +5607,7 @@ export async function loadSelfAddedSupplier(
     return { status: 'error', message: 'This supplier is on Setnayan now — open their page instead.' };
   }
 
-  const [manualRes, planRes] = await Promise.all([
+  const [manualRes, planRes, claimAsk] = await Promise.all([
     row.manual_vendor_id
       ? supabase
           .from('event_manual_vendors')
@@ -5569,6 +5622,7 @@ export async function loadSelfAddedSupplier(
       .eq('event_id', eventId)
       .eq('event_vendor_id', vendorId)
       .maybeSingle(),
+    hasClaimAsk(supabase, eventId, vendorId),
   ]);
   // A refused read is not an empty supplier: pre-filling blanks over a real
   // contact card would invite the couple to "save" their data away.
@@ -5608,6 +5662,8 @@ export async function loadSelfAddedSupplier(
       address: m?.address ?? '',
       pin: Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : null,
       covers: Array.isArray(row.covers_plan_groups) ? row.covers_plan_groups : [],
+      homeTile: homeTileForRow({ category: row.category ?? '', category_key: row.category_key }),
+      claimAsk,
       inclusions: Array.isArray(row.host_inclusions) ? row.host_inclusions.join('\n') : '',
       price,
       planRows: planInstancesToRows((planRes.data as { instances_json?: unknown } | null)?.instances_json),

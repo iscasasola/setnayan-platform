@@ -26,7 +26,11 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { AppPreload } from '@/app/_components/app-preload';
 import { appPreloadPlan, hostedEventOf } from '@/lib/app-preload-sets';
 import { VendorBottomNav } from './_components/vendor-bottom-nav';
-import { resolveVendorRole } from '@/lib/vendor-role';
+import { BottomDock } from '@/app/_components/nav/bottom-nav';
+import { resolveVendorRole, canManageVendor } from '@/lib/vendor-role';
+import { fetchVendorRoomEvents } from '@/lib/vendor-room-access';
+import { hasDayToday, phTodayIso } from '@/lib/vendor-day-picker';
+import { scopedMemberAvatarRows, supplierAvatarRows } from './_components/supplier-avatar-rows';
 import { getNavSlotMap } from '@/lib/nav-registry';
 import { PushNotificationRegistrar } from './_components/push-notification-registrar';
 import { AccountSwitcher } from '@/app/_components/account-switcher/account-switcher';
@@ -36,6 +40,8 @@ import { ServerTimer } from '@/lib/server-timing';
 import { PromoFreeWindowBannerVendor } from '@/app/_components/promo-free-window-banner-vendor';
 import type { VendorDealFacts } from '@/lib/promo-free-windows';
 import { GuidedTour } from '@/app/_components/guided-tour';
+import { Spotlight } from '@/app/_components/spotlight';
+import { SupplierPageSpotlight } from './_components/supplier-page-spotlight';
 import { completeTour } from '@/lib/tour-actions';
 import { SERVICE_MAKER_HREF } from '@/lib/service-picker-anchor';
 
@@ -46,8 +52,9 @@ import { SERVICE_MAKER_HREF } from '@/lib/service-picker-anchor';
  * person had on their own account pages, with the shop's own five menus
  * PUSHED IN below their rows through `railContext`. It also owns the sticky
  * top bar, into which this layout hands its own cluster through `topBarSlot`.
- * Below 1024 the shell paints nothing at all and `<VendorBottomNav>` is the
- * whole navigation, exactly as before.
+ * Below 701 the shell paints nothing at all and `<VendorBottomNav>` is the
+ * whole navigation, exactly as before; from 701 the rail's 72-px strip is the
+ * menu (the couple's line, `boundary="tab"`, 2026-10-23).
  *
  * ── WHAT WENT, AND WHERE ITS JOB WENT ─────────────────────────────────────
  * `<SidebarShell>` is no longer mounted here, and from 2026-08-15 it does not
@@ -91,7 +98,7 @@ export default async function VendorDashboardLayout({
     // This literal exists BECAUSE a read failed — it measured nothing, and
     // saying so is what stops the library reporting that you host no events.
     eventsMeasured: false,
-    context: { hasVendor: true, vendorName: null, isAdmin: false, canOpenShop: false },
+    context: { hasVendor: true, vendorName: null, isAdmin: false, canOpenShop: false, shops: [] },
   };
 
   // Server-render timing (2026-07-01) — one structured stdout line per layout
@@ -234,6 +241,25 @@ export default async function VendorDashboardLayout({
       bookingsPendingPromise,
     ]));
   const profile = profileRes.data;
+
+  /*
+    🧑‍🔧 A HELPER'S HUB TAB (owner "Yes to all", 2026-10-21, item 6). A scoped
+    teammate (agent / viewer) gets the Hub — the scanner — on a day this shop
+    has an event, beside Today and Customers. Asked ONLY for a teammate (an
+    owner always has the Hub, so they pay nothing), with the Hub's own reader
+    and its own rule, so the tab appears exactly when the Hub shows the live
+    console. It reads one boolean for the bar: no row reaches the client.
+
+    FAILS CLOSED: an unreadable day hides the tab, and Today's "Run the day"
+    card — the door a helper had before — is still there. Failing open would put
+    the Hub's set-up list (owner rooms) one tap from a helper on a normal day.
+  */
+  const eventToday =
+    vendorProfile?.vendor_profile_id && !canManageVendor(vendorRole)
+      ? await fetchVendorRoomEvents(supabase, vendorProfile.vendor_profile_id)
+          .then((days) => hasDayToday(days, phTodayIso()))
+          .catch(() => false)
+      : false;
   /*
     ⚠ `showRepertoire` (isMusicVendor) WAS COMPUTED HERE AND IS GONE
     (One Shell slice 2, 2026-08-14). It gated a NESTED 'repertoire' child row,
@@ -375,6 +401,17 @@ export default async function VendorDashboardLayout({
     redirect('/dashboard');
   }
 
+  // The supplier's own rows in the account sheet (prototype SHEETS.avatar). Step 5's
+  // rows (Your details · Your page · Your collections) + step 6's sheet (Helpers ·
+  // Plan · Settings for an owner or admin, Settings alone for a scoped team member;
+  // Plan never in the store shell — the route is refused there). No read — the role
+  // is already here.
+  const switcherShopRows =
+    // FAILS CLOSED (supplier batch walk R6): a role that could not be read is NOT an owner — `resolveVendorRole`
+    // already answers 'admin' for a founding owner with no membership row, so null means "not proven", and an
+    // unproven person gets the least-privileged sheet (the pages stay gated on their own either way).
+    canManageVendor(vendorRole) ? supplierAvatarRows({ storeShell }) : scopedMemberAvatarRows();
+
   // Top bar — right-aligned utilities cluster. AccountSwitcher pill is
   // mobile-only (lg:hidden); desktop users open the same panel from the
   // SwitcherPlaqueTrigger business plaque in the sidebar header
@@ -450,7 +487,12 @@ export default async function VendorDashboardLayout({
         way to sign out and no error to notice. Matches what the account
         spokes already render at all widths.
       */}
-      <AccountSwitcher data={switcherData} />
+      <AccountSwitcher
+        data={switcherData}
+        shopRows={switcherShopRows}
+        here="shop"
+        activeShopId={vendorProfile?.vendor_profile_id ?? null}
+      />
     </div>
   );
 
@@ -466,11 +508,16 @@ export default async function VendorDashboardLayout({
         moving between their shop and their own account no longer watches the
         furniture change. Owner 2026-08-13; `ONE_SHELL_PLAN_2026-08-13.md`.
 
-        ⚠ AT WIDTHS BELOW 1024 THIS WRAPPER PAINTS NOTHING AT ALL — the app
+        ⚠ AT WIDTHS BELOW 701 THIS WRAPPER PAINTS NOTHING AT ALL — the app
         variant is inert there by design, and the phone keeps its locked
         bottom-bar grammar. Nothing about this change reaches a phone.
       */}
       <AppRailShell
+        /* 🖥 THE SUPPLIER DASHBOARD IS THE DESKTOP SYSTEM FROM 701 (owner 2026-10-22/23, area 3 of "DESKTOP COVERS THE
+           WHOLE APP" — prototype `desktop_layouts_2026-10-22.html` family 2: "the same shell as the couple's"). The
+           couple's line, handed to the shell AND the dock below: the 72-px strip replaces the phone's bar from 701,
+           every Sheet is the 440 right panel from 701. Below 701 nothing moves. */
+        boundary="tab"
         /* FOCUS (owner 2026-09-21): inside the shop the rail is its own menu
            plus one row back to My Home. */
         focus={{ href: '/dashboard', label: 'My Home', caption: 'Home' }}
@@ -493,6 +540,7 @@ export default async function VendorDashboardLayout({
             threadsBadge={threadsUnread}
             planHref={storeShell ? null : '/vendor-dashboard/subscription'}
             tier={vendorTier}
+            eventToday={eventToday}
           />
         }
         topBarSlot={topBar}
@@ -563,7 +611,7 @@ export default async function VendorDashboardLayout({
           {/* Pad the bottom on mobile so BottomNav doesn't cover the last
               row of content. The desktop offset is the rail's grid now, so
               there is no padding math left here. */}
-          <div className="pb-[calc(env(safe-area-inset-bottom)+92px)] lg:pb-0">
+          <div className="pb-[calc(env(safe-area-inset-bottom)+92px)] tab:pb-0">
             {/* Live vendor deal announcement (self-gates to null when
                 PROMO_FREE_WINDOWS_ENABLED is off or nothing is granting THIS
                 vendor right now). */}
@@ -573,16 +621,19 @@ export default async function VendorDashboardLayout({
         </main>
       </div>
       </AppRailShell>
-      {/* Mobile BottomNav — auto-hides at lg via lg:hidden inside the
-          BottomNav primitive. Sits outside the rail's content column so it
-          doesn't inherit it. */}
-      <VendorBottomNav
-        role={vendorRole}
-        navSlots={navSlots}
-        bookingsBadge={bookingsPending}
-        threadsBadge={threadsUnread}
-        storeShell={storeShell}
-      />
+      {/* Mobile BottomNav — sits outside the rail's content column so it
+          doesn't inherit it. The dock carries the shell's line (`boundary="tab"`,
+          hidden from 701) — the bar used to dock ITSELF at the default 1024,
+          which would draw the phone bar under the strip in the tablet band. */}
+      <BottomDock boundary="tab">
+        <VendorBottomNav
+          role={vendorRole}
+          navSlots={navSlots}
+          bookingsBadge={bookingsPending}
+          threadsBadge={threadsUnread}
+          eventToday={eventToday}
+        />
+      </BottomDock>
       {/* 📲 What the account has, preloaded once the page is idle — the supplier
           app, plus the host app when they also host an event (owner 2026-10-02,
           "THE PRELOAD FOLLOWS WHAT THE ACCOUNT HAS"). From the switcher data
@@ -618,6 +669,12 @@ export default async function VendorDashboardLayout({
       {!(profile?.tour_seen_keys ?? []).includes('vendor_welcome_v1') ? (
         <GuidedTour tourKey="vendor_welcome_v1" completeAction={completeTour} />
       ) : null}
+      {/* 🔦 The supplier's spotlight journey — Today → Shop → services → Customers → payday (owner
+          2026-10-02). In the layout so it carries across pages. The old welcome above stays off. */}
+      <Spotlight tourKey="supplier_spotlight_v1" seenKeys={profile ? (profile.tour_seen_keys ?? []) : null} replay />
+      {/* 🔦 Shop · Dates · Money · Hub — each page's own first-visit spotlight, after the journey above
+          (owner "Yes to all", 2026-10-22). One mount here, so the Shop tour survives its walk into Page. */}
+      <SupplierPageSpotlight seenKeys={profile ? (profile.tour_seen_keys ?? []) : null} />
     </div>
   );
 }

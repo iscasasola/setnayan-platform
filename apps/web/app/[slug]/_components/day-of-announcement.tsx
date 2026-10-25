@@ -3,7 +3,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { Megaphone } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { pauseWhileHidden } from '@/lib/tab-return';
 import { latestAnnouncementForGuest } from '../announcement-actions';
+import { herdDelay } from '@/lib/live-day-timing';
 import { AnnouncementLine, AnnouncementNotice } from './announcement-styles';
 
 /**
@@ -56,6 +58,9 @@ import { AnnouncementLine, AnnouncementNotice } from './announcement-styles';
  * The server-rendered `body` seeds it, so the first paint is unchanged and a
  * guest who lands mid-announcement still sees it with no round-trip.
  */
+/** After the coordinator's ping, each phone asks somewhere inside this window — never all at once. */
+const PING_SPREAD_MS = 3_000;
+
 export function DayOfAnnouncement({
   body,
   eventId,
@@ -86,6 +91,9 @@ export function DayOfAnnouncement({
     let alive = true;
 
     const pull = async () => {
+      // A pocketed phone asks nothing (2026-10-18, live-day polling) — the visibility handler below catches it up the
+      // moment it is looked at. It used to keep asking every 45 s from a pocket all reception long.
+      if (document.visibilityState !== 'visible') return;
       try {
         const latest = await latestAnnouncementForGuest(eventId);
         // Only ever REPLACE with something real. A failed read must not blank a
@@ -98,13 +106,21 @@ export function DayOfAnnouncement({
       }
     };
 
+    const pingTimers: number[] = [];
     const supabase = createClient();
-    const channel = supabase
-      .channel(`announce:${eventId}`)
-      .on('broadcast', { event: 'announcement' }, () => {
-        void pull();
-      })
-      .subscribe();
+    // 🔌 A pocketed phone lets the channel go after a while (`pauseWhileHidden`); the visibility handler below pulls
+    // the moment it is looked at, so a ping missed in the pocket is a message read on the way out of it.
+    const stopChannel = pauseWhileHidden(() => {
+      const channel = supabase
+        .channel(`announce:${eventId}`)
+        .on('broadcast', { event: 'announcement' }, () => {
+          // The ping reaches EVERY guest's phone in the same instant. Each waits a random moment (< 3 s) before asking,
+          // so the venue's phones reach the server spread out instead of all at once (lib/live-day-timing.ts).
+          pingTimers.push(window.setTimeout(() => void pull(), herdDelay(PING_SPREAD_MS)));
+        })
+        .subscribe();
+      return () => supabase.removeChannel(channel);
+    });
 
     // 45s: slow enough to be invisible on a phone battery through a reception,
     // fast enough that a dropped channel is a delay and not a silence.
@@ -117,8 +133,9 @@ export function DayOfAnnouncement({
     return () => {
       alive = false;
       window.clearInterval(timer);
+      pingTimers.forEach((t) => window.clearTimeout(t));
       document.removeEventListener('visibilitychange', onVisible);
-      void supabase.removeChannel(channel);
+      stopChannel();
     };
   }, [eventId]);
 

@@ -280,6 +280,12 @@ test('only saves the bridge drew are marked held; the shell announces every form
       assert.equal((io.match(/held: true/g) ?? []).length, 1, 'the drawn ↺ is the bar’s one held save');
       assert.match(src.slice(src.indexOf('const drawnUndo = ')), /runner\.runDrawnUndo\(drawnIo\(\)\)/, '…sent only through the runner, which draws first');
       src = src.replace(io, '');
+      /* ✓ (2026-10-15, rd/maker-fast-edits) Apply is held too: it changes nothing the canvas draws (the draft it shows is
+         now live) — so the canvas keeps its page, and the Maker's own render is still asked for, behind it. */
+      const apply = src.slice(src.indexOf('const applyHeld = '), src.indexOf('const slow = '));
+      assert.match(apply, /held: true, undo: 'noted'/, 'Apply is held');
+      assert.match(apply, /if \(r\.ok\) \{\s*undoJournal\.clear\(\);\s*keepCanvasForRender\(\);\s*requestMakerRefresh\(\);/, 'an Apply that landed still brings the Maker its render — with the canvas kept');
+      src = src.replace(apply, '');
     }
     assert.match(src, /makerSave\(/, `${f}: every Maker draft save goes through makerSave`);
     assert.doesNotMatch(src, /held: true/, `${f}: nothing here is drawn by the bridge — it must release the hold`);

@@ -3,17 +3,23 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getHostUserId } from '@/lib/host-gate';
 import { isStoreShellRequest } from '@/lib/request-platform';
-import { loadGuestPasses, loadPrintSet, printInputsVersion, printOwnsPro, printThemeFor, readPrintEvent } from '@/lib/print-set.server';
+import { loadGuestPasses, loadPrintSet, printInputsVersion, printOwnsPro, printThemeFor, readPrintEvent, type LoadedPrintSet } from '@/lib/print-set.server';
+import { PDFDocument } from 'pdf-lib';
+import { GET as seatingPrintGET } from '@/app/dashboard/[eventId]/seating/print/route';
+import { GET as seatingExportGET } from '@/app/dashboard/[eventId]/seating/export/route';
+import { GET as catererGET } from '@/app/dashboard/[eventId]/seating/caterer/route';
 import { PRINT_VERSION_HEADER } from '@/lib/printed-stamp';
+import { PICKED_GUESTS_PARAM, PICKED_GUEST_REFUSAL, parsePickedGuests } from '@/lib/print-picked-guests';
+import { bytesStream } from '@/lib/stream-file';
 import { qrLookForHostDraft, resolveEventQrLook } from '@/lib/qr-look.server';
 import { layoutPasses, layoutPieceDocs, layoutPieceView, layoutQrCodes, type PrintDoc, type PrintImages, type PrintSetData } from '@/lib/print-layout';
 import { PASS_CARD_DESIGNS, passCardDesignFrom } from '@/lib/pass-card';
 import { layoutGuestRegistry, registryDate, registryRows } from '@/lib/print-guest-registry';
 import { fetchGuestsByEventMeasured } from '@/lib/guests';
 import { fetchAssignments, fetchTables } from '@/lib/seating';
-import { FREE_THEMES, INVITE_THEMES, themeNames, type InviteThemeId } from '@/lib/invite-themes';
+import { INVITE_THEMES, type InviteThemeId } from '@/lib/invite-themes';
 import { renderPrintSvg } from '@/lib/print-render-svg';
-import { renderImposedPdf, renderPrintPdf } from '@/lib/print-render-pdf';
+import { renderImposedPdf, renderPrintBook, renderPrintPdf } from '@/lib/print-render-pdf';
 import { renderSampleJpeg, renderSampleSheetJpeg } from '@/lib/print-sample-raster';
 import {
   PRINT_PIECES,
@@ -24,6 +30,7 @@ import {
   isPrintSetKey,
   isProPrint,
   isThemedPrint,
+  isAllInOnePrint,
   mayServe,
   menuHasDishes,
   parseMenu,
@@ -31,7 +38,6 @@ import {
   printAccess,
   storyHasMoments,
   printFileName,
-  serializePrintDetails,
   posterPhotoRefAllowed,
   posterPhotoTooSmall,
   spotLayersFor,
@@ -44,11 +50,14 @@ import { NAME_STYLES, nameStyleFrom } from '@/lib/name-style';
 import { resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { formatCount } from '@/lib/format-number';
 import { previewCacheControl } from '@/lib/print-preview-cache';
+import { updatePrintDetails } from '@/lib/print-details-write';
 import { sampleView } from '@/lib/print-sample-door.server';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { readHubDraft, saveHubDraftPatch } from '@/lib/hub-draft-store';
 import type { HubDraftEvents } from '@/lib/hub-draft';
 import { printDraftOf } from '@/lib/ceremony-time';
+import { allInOneRefusal } from '@/lib/studio-prints-six';
+import { PAPER_HOW, previewPage, printPaperHeader, type PrintPaperFacts } from '@/lib/print-paper';
 
 /**
  * /api/hub-print/[piece] — PRINTS & TICKETS (Event Hub Maker Phase 9, the
@@ -91,7 +100,10 @@ import { printDraftOf } from '@/lib/ceremony-time';
  */
 
 export const dynamic = 'force-dynamic';
-export const maxDuration = 60;
+/* ⏱ 300 s, the shipped big-file route's ceiling (`/api/guest/pass-card/all`): a print file is drawn whole, then streamed
+   (`lib/stream-file.ts`) — a buffered body over 4.5 MB is refused by Vercel (live fault 2026-10-17). Everything ◆ (the set, every
+   guest's pass and the day's sheets in one request) runs under the same ceiling. */
+export const maxDuration = 300;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -145,8 +157,9 @@ function withPassDesign(data: PrintSetData, url: URL): PrintSetData {
   return { ...data, details: { ...data.details, passDesign: passCardDesignFrom(asked) } };
 }
 
+/** 📤 Every print PDF leaves as a STREAM — the same bytes, no Content-Length (`lib/stream-file.ts`: a buffered body stops at 4.5 MB on Vercel). */
 function pdfResponse(bytes: Uint8Array, name: string, inline: boolean, version: string | null = null): NextResponse {
-  return new NextResponse(Buffer.from(bytes), {
+  return new NextResponse(bytesStream(bytes), {
     status: 200,
     headers: {
       'content-type': 'application/pdf',
@@ -161,6 +174,175 @@ function pdfResponse(bytes: Uint8Array, name: string, inline: boolean, version: 
   });
 }
 
+type FreeSheet =
+  | { ok: true; docs: PrintDoc[]; images: PrintImages; subject: string; paper: (pages: number, page: number) => PrintPaperFacts }
+  | { ok: false; res: NextResponse };
+
+/**
+ * The Guest QR codes sheet or the guest list registry, laid out — ONE reader for the free sheet's own file and for Everything ◆
+ * (the same pages in both). `thumb`: the on-screen picture (one page of QRs, the drafted QR look when its address names one).
+ */
+async function freeSheet(
+  piece: 'qr-codes' | 'guest-registry',
+  admin: ReturnType<typeof createAdminClient>,
+  eventId: string,
+  event: NonNullable<Awaited<ReturnType<typeof readPrintEvent>>>,
+  { thumb, url, picked = null }: { thumb: boolean; url: URL; picked?: ReadonlySet<string> | null },
+): Promise<FreeSheet> {
+  let docs: PrintDoc[];
+  let images: PrintImages = {};
+  let subject: string;
+  /* 📄 The preview's page (`?page=N`, Studio › Prints' preview sheet) and what the sheet says about its paper (`x-print-paper`). */
+  let paper: (pages: number, page: number) => PrintPaperFacts;
+  if (piece === 'qr-codes') {
+    /* 💾 THE MAKER'S THUMBNAIL WEARS THE DRAFTED QR LOOK (owner 2026-10-06: "i
+       changed the QR Code style, why did the QR codes not change?"). Only the
+       on-screen picture whose address names the draft (`draft=<hash>`,
+       `lib/free-prints.ts`), read through the host's own session after the
+       host gate above. The saved PDF is always drawn from what is live. */
+    const sheetDraft: HubDraftEvents | null =
+      thumb && url.searchParams.get('draft')
+        ? await readHubDraft(await createClient(), eventId)
+            .then((d) => printDraftOf(d?.events as Record<string, unknown> | undefined))
+            .catch((err) => {
+              // The thumbnail then shows the live look — said in the logs, not silently.
+              logQueryError('hub-print.qr-codes.draft', err, { eventId }, 'graceful_degrade');
+              return null;
+            })
+        : null;
+    const set = {
+      event,
+      appUrl: process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app',
+      ownerSlug: await resolveEventOwnerSlug(admin, eventId).catch(() => null),
+      // The free QR sheet wears the event's look too — the Setnayan mark, or
+      // the couple's own on Event Hub Pro (lib/qr-look.ts).
+      qrLook: qrLookForHostDraft(event, sheetDraft) ?? (await resolveEventQrLook(admin, eventId, event)),
+    };
+    /* 📄 The thumbnail draws ONE page's twelve codes (page 1 unless `?page=N`), the sheet still laid out whole. */
+    const askedPage = Math.max(1, Number.parseInt(url.searchParams.get('page') ?? '1', 10) || 1);
+    const loaded = await loadGuestPasses(set, { width: thumb ? 160 : 420, ...(thumb ? { drawOnly: { from: (askedPage - 1) * 12, count: 12 } } : {}), onlyGuests: picked });
+    if (!loaded.measured) return { ok: false, res: new NextResponse('We could not read your guest list just now. Please try again.', { status: 503 }) };
+    // 🎟 A picked guest who is not on this event's list refuses the sheet — never dropped, never included (`pickGuestRows`).
+    if (loaded.refused) return { ok: false, res: new NextResponse(PICKED_GUEST_REFUSAL, { status: 403 }) };
+    images = loaded.images;
+    docs = layoutQrCodes(
+      event.display_name ?? 'Guest QR codes',
+      loaded.passes.map((p) => ({ name: p.name, sub: p.seat, qrRef: p.qrRef! })),
+      set.qrLook.shape,
+    );
+    subject = `${formatCount(loaded.passes.length)} guests`;
+    const codes = loaded.passes.length;
+    paper = (pages, page) => ({ pages, page, how: PAPER_HOW.qrCodes(codes, pages), empty: codes === 0 ? 'guests' : null });
+  } else {
+    // THE GUEST LIST REGISTRY — the reception-desk list (lib/print-guest-registry.ts).
+    // The measured read: a refused guest list is "we could not read it", never
+    // a registry that says the wedding has no guests.
+    const [guests, tables, seats] = await Promise.all([
+      // 🕯 The desk LISTS a guest who passed away ("In loving memory") and
+      // counts them nowhere — `registryRows` / `listedNotCounted`.
+      fetchGuestsByEventMeasured(admin, eventId, { includePassedAway: true }),
+      fetchTables(admin, eventId),
+      fetchAssignments(admin, eventId),
+    ]);
+    if (!guests.measured) return { ok: false, res: new NextResponse('We could not read your guest list just now. Please try again.', { status: 503 }) };
+    const label = new Map(tables.map((t) => {
+      const l = t.link_group_label ?? t.table_label;
+      return [t.table_id, /^\d+$/.test(l) ? `Table ${l}` : l] as const;
+    }));
+    const tableOf = new Map<string, string>();
+    for (const s of seats) {
+      const l = label.get(s.table_id);
+      if (l) tableOf.set(s.guest_id, l);
+    }
+    const rows = registryRows(guests.rows, tableOf);
+    docs = layoutGuestRegistry({ title: event.display_name ?? 'Guest list', dateLabel: registryDate(event.event_date), rows });
+    subject = `${rows.filter((r) => r.counted).length} guests`;
+    const listed = rows.length;
+    paper = (pages, page) => ({ pages, page, how: PAPER_HOW.registry(listed, pages), empty: listed === 0 ? 'guests' : null });
+  }
+  return { ok: true, docs, images, subject, paper };
+}
+
+/**
+ * 🗂 EVERYTHING ◆ (owner 2026-10-17, DECISION_LOG "PRINTS: ONE SETTINGS SHEET, ONE DOWNLOAD PER PIECE, VIEW AS ▾ ON GUEST PRINTS, ALL
+ * GUESTS ◆, EVERYTHING ◆": *"Everything ◆ = the set + the day's sheets + the pass batch"*). ONE PDF, Event Hub Pro (checked by the
+ * caller, `isAllInOnePrint('everything')`), in this order:
+ *
+ *   1 · the invitation set (the whole set's own pages, print-ready, its layers), then the guest list registry and every guest's QR
+ *       — drawn into the SAME document (`renderPrintPdf` draws a free sheet plain, page by page);
+ *   2 · every guest's pass, ganged on A4 with cut lines, in the size picked (`passes`' own drawing);
+ *   3 · the day's sheets that live under /dashboard/<id>/seating — the table signs & place cards, the entrance seating chart (by
+ *       table, its default size), the caterer's meal counts and the 2D seat plan — each asked of ITS OWN route handler, in this
+ *       request (the same session, the same reads, the same refusals), and its pages copied in.
+ *
+ * A part with nothing to print (no guest coming yet, no tables, a chart too full for its sheet) is left out — that is the part's
+ * own answer (a 4xx with its words), never an empty page. A part that FAILED (5xx, a refused read) fails the whole file, in the
+ * part's words — never a file that is quietly missing a section. The event QR is a picture, not a sheet: it is not in the PDF.
+ */
+type DayPart = { name: string; call: () => Promise<Response> };
+async function everythingPdf(
+  req: Request,
+  { eventId, set, docs, input, passFormat }: { eventId: string; set: LoadedPrintSet; docs: PrintDoc[]; input: Parameters<typeof layoutPasses>[0]; passFormat: string | null },
+): Promise<Response> {
+  const admin = createAdminClient();
+  const url = new URL(req.url);
+  /* 📦 ONE QR PICTURE PER GUEST (2026-10-17, measured: three per guest made 240 guests a 21.9 MB file): every guest's invitation QR is
+     drawn ONCE (`all`, the QR sheet's list) and the passes reuse it — the ticket list (`tickets`) is read WITHOUT drawing a QR (its
+     refs are the same `qr-<guest id>` keys), and the set, the registry, the QR sheet and the passes are ONE document, each picture
+     embedded once (`renderPrintBook`). */
+  const [registry, all, tickets] = await Promise.all([
+    freeSheet('guest-registry', admin, eventId, set.event, { thumb: false, url }),
+    loadGuestPasses(set, { width: EVERYTHING_QR_PX }),
+    loadGuestPasses(set, { width: EVERYTHING_QR_PX, ticketsOnly: true, drawOnly: { from: 0, count: 0 } }),
+  ]);
+  if (!registry.ok) return registry.res;
+  if (!all.measured || !tickets.measured) return new NextResponse('We could not read your guest list just now. Please try again.', { status: 503 });
+  const title = `${set.event.display_name ?? 'Event'} — everything`;
+  const qrSheet = layoutQrCodes(set.event.display_name ?? 'Guest QR codes', all.passes.map((p) => ({ name: p.name, sub: p.seat, qrRef: p.qrRef! })), set.qrLook.shape);
+  /* 2 · every guest's pass (nobody coming yet: no pages — the set says the rest), ganged on A4, in the same book. */
+  const passDocs = layoutPasses({ ...input, format: passFormat }, tickets.passes.filter((p) => p.qrRef && all.images[p.qrRef]));
+  const fmt = formatFor('passes', passFormat)!;
+  const head = await renderPrintBook(
+    [
+      { kind: 'pages', docs: [...docs, ...registry.docs, ...qrSheet] },
+      ...(passDocs.length ? [{ kind: 'imposed' as const, docs: passDocs, ...fmt.sheet! }] : []),
+    ],
+    { ...set.images, ...all.images },
+    { title, subject: 'The set, every guest’s pass and place card, the day’s sheets' },
+  );
+  const out = await PDFDocument.load(head);
+  const append = async (bytes: Uint8Array) => {
+    const src = await PDFDocument.load(bytes);
+    for (const page of await out.copyPages(src, src.getPageIndices())) out.addPage(page);
+  };
+  /* 3 · the day's sheets, each from its own route handler. */
+  const at = (path: string) => new Request(new URL(`/dashboard/${encodeURIComponent(eventId)}/seating/${path}`, url.origin), { headers: req.headers });
+  const params = Promise.resolve({ eventId });
+  const parts: DayPart[] = [
+    { name: 'Table signs & place cards', call: () => seatingPrintGET(at('print?format=pdf'), { params }) },
+    { name: 'Entrance seating chart', call: () => seatingPrintGET(at('print?chart=table&format=pdf'), { params }) },
+    { name: 'Caterer meal counts', call: () => catererGET(at('caterer?format=pdf'), { params }) },
+    { name: '2D seat plan', call: () => seatingExportGET(at('export?mode=moodboard'), { params }) },
+  ];
+  for (const part of parts) {
+    const res = await part.call();
+    if (res.status >= 500) {
+      const why = (await res.text().catch(() => '')).trim();
+      return new NextResponse(`${part.name} could not be drawn just now${why ? ` — ${why}` : ''}. Please try again.`, { status: 503 });
+    }
+    if (!res.ok || !(res.headers.get('content-type') ?? '').includes('application/pdf')) continue;
+    await append(new Uint8Array(await res.arrayBuffer()));
+  }
+  const bytes = await out.save();
+  /* 📤 STREAMED like every print PDF (`pdfResponse` → `bytesStream`, lib/stream-file.ts): a buffered Vercel body stops at 4.5 MB. The
+     file's size and time at 240 and 400 guests are measured in the PR that made it (#6597), never written here. */
+  return pdfResponse(bytes, fileName(set.event.slug, 'everything', set.theme), false, await printInputsVersion(eventId).catch(() => null));
+}
+
+/** The PDF size at which Everything's QR is drawn — the passes' own (600 px), shared by the QR sheet. */
+const EVERYTHING_QR_PX = 600;
+
+
 export async function GET(req: Request, ctx: { params: Promise<{ piece: string }> }) {
   const { piece: rawPiece } = await ctx.params;
   const url = new URL(req.url);
@@ -169,11 +351,22 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
   if (!g.ok) return g.res;
   const eventId = g.eventId;
 
-  const wantsSet = rawPiece === 'set';
+  /* 🗂 EVERYTHING ◆ (owner 2026-10-17): the whole set's PDF with every guest's pass and the day's sheets after it — always the
+     print-ready file (`everythingPdf`), never a sample sheet. */
+  const wantsEverything = rawPiece === 'everything';
+  const wantsSet = rawPiece === 'set' || wantsEverything;
   if (!wantsSet && !isPrintPieceKey(rawPiece)) return new NextResponse('No such piece.', { status: 404 });
   const piece = (wantsSet ? 'invitation' : rawPiece) as PrintPieceKey;
+  /* 🎟 PICK GUESTS (owner 2026-10-25): `guests=<id>,<id>,…` narrows the two all-guests files — every guest's pass (`passes`) and the
+     Guest QR sheet (`qr-codes`) — to the guests picked. Read AFTER the host gate above; each id is then checked against THIS event's
+     own list by the loader (`pickGuestRows`) and one unknown id refuses the file. Absent: every guest, exactly as before. The
+     Free/Pro gates below are untouched — picking guests changes WHO is drawn, never whether the file may be drawn. */
+  const pickedParam = piece === 'passes' || piece === 'qr-codes' ? parsePickedGuests(url.searchParams.get(PICKED_GUESTS_PARAM)) : { ok: true as const, ids: null };
+  if (!pickedParam.ok) return new NextResponse(pickedParam.why, { status: 400 });
+  const picked = pickedParam.ids;
   const rawMode = url.searchParams.get('mode');
-  const mode: PrintMode = rawMode === 'print' ? 'print' : rawMode === 'screen' ? 'screen' : 'sample';
+  const mode: PrintMode = wantsEverything || rawMode === 'print' ? 'print' : rawMode === 'screen' ? 'screen' : 'sample';
+  const allName = wantsEverything ? 'everything' : wantsSet ? 'set' : piece;
   // The couple's chosen sizes (`PRINT_FORMATS`), one per family —
   // `pass_format` · `invitation_format` · `card_format` (or one `format`). A
   // piece that cannot wear the asked size gets its default.
@@ -182,79 +375,26 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
     return (family && url.searchParams.get(`${family}_format`)) || url.searchParams.get('format');
   };
 
-  // ── THE FREE GROUP — no Pro question at all (`kind: 'free'`). `mode=screen`
-  // is page 1 as an SVG, the thumbnail Prints & Tickets shows; anything else is
-  // the whole PDF, saved as `<event slug>-<print>.pdf`.
+  // ── THE FREE GROUP (`kind: 'free'`). `mode=screen` is page 1 as an SVG, the
+  // thumbnail Prints & Tickets shows; anything else is the whole PDF, saved as
+  // `<event slug>-<print>.pdf`. Free — the Guest QR sheet too (an all-guests ◆
+  // file 2026-10-17 → free again 2026-10-22, below).
   if (piece === 'qr-codes' || piece === 'guest-registry') {
     const admin = createAdminClient();
     const event = await readPrintEvent(admin, eventId);
     if (!event) return new NextResponse('Event not found.', { status: 404 });
     const thumb = mode === 'screen';
-    let docs: PrintDoc[];
-    let images: PrintImages = {};
-    let subject: string;
-    if (piece === 'qr-codes') {
-      /* 💾 THE MAKER'S THUMBNAIL WEARS THE DRAFTED QR LOOK (owner 2026-10-06: "i
-         changed the QR Code style, why did the QR codes not change?"). Only the
-         on-screen picture whose address names the draft (`draft=<hash>`,
-         `lib/free-prints.ts`), read through the host's own session after the
-         host gate above. The saved PDF is always drawn from what is live. */
-      const sheetDraft: HubDraftEvents | null =
-        thumb && url.searchParams.get('draft')
-          ? await readHubDraft(await createClient(), eventId)
-              .then((d) => printDraftOf(d?.events as Record<string, unknown> | undefined))
-              .catch((err) => {
-                // The thumbnail then shows the live look — said in the logs, not silently.
-                logQueryError('hub-print.qr-codes.draft', err, { eventId }, 'graceful_degrade');
-                return null;
-              })
-          : null;
-      const set = {
-        event,
-        appUrl: process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app',
-        ownerSlug: await resolveEventOwnerSlug(admin, eventId).catch(() => null),
-        // The free QR sheet wears the event's look too — the Setnayan mark, or
-        // the couple's own on Event Hub Pro (lib/qr-look.ts).
-        qrLook: qrLookForHostDraft(event, sheetDraft) ?? (await resolveEventQrLook(admin, eventId, event)),
-      };
-      const loaded = await loadGuestPasses(set, { width: thumb ? 160 : 420, limit: thumb ? 12 : undefined });
-      if (!loaded.measured) return new NextResponse('We could not read your guest list just now. Please try again.', { status: 503 });
-      images = loaded.images;
-      docs = layoutQrCodes(
-        event.display_name ?? 'Guest QR codes',
-        loaded.passes.map((p) => ({ name: p.name, sub: p.seat, qrRef: p.qrRef! })),
-        set.qrLook.shape,
-      );
-      subject = `${formatCount(loaded.passes.length)} guests`;
-    } else {
-      // THE GUEST LIST REGISTRY — the reception-desk list (lib/print-guest-registry.ts).
-      // The measured read: a refused guest list is "we could not read it", never
-      // a registry that says the wedding has no guests.
-      const [guests, tables, seats] = await Promise.all([
-        // 🕯 The desk LISTS a guest who passed away ("In loving memory") and
-        // counts them nowhere — `registryRows` / `listedNotCounted`.
-        fetchGuestsByEventMeasured(admin, eventId, { includePassedAway: true }),
-        fetchTables(admin, eventId),
-        fetchAssignments(admin, eventId),
-      ]);
-      if (!guests.measured) return new NextResponse('We could not read your guest list just now. Please try again.', { status: 503 });
-      const label = new Map(tables.map((t) => {
-        const l = t.link_group_label ?? t.table_label;
-        return [t.table_id, /^\d+$/.test(l) ? `Table ${l}` : l] as const;
-      }));
-      const tableOf = new Map<string, string>();
-      for (const s of seats) {
-        const l = label.get(s.table_id);
-        if (l) tableOf.set(s.guest_id, l);
-      }
-      const rows = registryRows(guests.rows, tableOf);
-      docs = layoutGuestRegistry({ title: event.display_name ?? 'Guest list', dateLabel: registryDate(event.event_date), rows });
-      subject = `${rows.filter((r) => r.counted).length} guests`;
-    }
+    /* 🎟 EVERY GUEST'S QR ON ONE SHEET IS FREE (owner 2026-10-22, DECISION_LOG "FREE IS READY, PRO IS PERSONAL — ALL TICKETS AND THE
+       QR SHEET ARE FREE": *"the goal of the free is to keep everything minimum ready but no personalization."*). It was an all-guests
+       ◆ file from 2026-10-17; it is a plain utility sheet a free event needs to run its day, so no Pro question is asked here. */
+    const sheet = await freeSheet(piece, admin, eventId, event, { thumb, url, picked: piece === 'qr-codes' ? picked : null });
+    if (!sheet.ok) return sheet.res;
+    const { docs, images, subject, paper } = sheet;
     if (thumb) {
-      return new NextResponse(renderPrintSvg(docs[0]!, images), {
+      const page = previewPage(url.searchParams, docs.length);
+      return new NextResponse(renderPrintSvg(docs[page - 1]!, images), {
         status: 200,
-        headers: { 'content-type': 'image/svg+xml; charset=utf-8', 'cache-control': 'private, max-age=60' },
+        headers: { 'content-type': 'image/svg+xml; charset=utf-8', 'cache-control': 'private, max-age=60', ...printPaperHeader(paper(docs.length, page)) },
       });
     }
     const bytes = await renderPrintPdf(docs, images, { mode: 'plain', title: `${event.display_name ?? 'Guest'} — ${PRINT_PIECES[piece].label}`, subject });
@@ -271,6 +411,16 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
   ]);
   if (!printEvent) return new NextResponse('Event not found.', { status: 404 });
   const access = printAccess({ ownsPro, storeShell });
+  /* 🗂 THE DESIGNED SET IN ONE FILE IS EVENT HUB PRO (owner 2026-10-16, DECISION_LOG "PRINTS: ONE AT A TIME IS FREE — EVERY
+     'DOWNLOAD ALL' IS EVENT HUB PRO"; narrowed 2026-10-22, "FREE IS READY, PRO IS PERSONAL — ALL TICKETS AND THE QR SHEET ARE
+     FREE"): the whole set in one PDF and Everything — in EVERY theme, Classic too — need the event's Event Hub Pro, the SAME read
+     the ticket zip's route makes (`printOwnsPro` → `eventSkuActive`, an internal host included: an unlock belongs to the event).
+     Refused here, before anything is drawn, whatever the page did or did not show. Every guest's pass in one file (`passes`) is
+     FREE since 2026-10-22 — drawn plain white for a free event like every free print (`printLookForEvent`) — as are each
+     piece's own file and ONE guest's pass (`pass_guest=<id>`, below). */
+  if (isAllInOnePrint(allName, mode) && !ownsPro) {
+    return new NextResponse(storeShell ? 'Not available here.' : allInOneRefusal(allName), { status: 403 });
+  }
   /* ✍ THE MAKER'S PREVIEW DRAWS THE DRAFT (owner 2026-10-04: "the preview
      above shows the new time at once"): an on-screen picture whose address
      names the draft (`draft=<hash of it>`, `maker-prints.tsx`) is drawn with
@@ -301,7 +451,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
       return new NextResponse(
         storeShell
           ? 'Not available here.'
-          : `The print-ready file in ${INVITE_THEMES[theme].name} comes with Event Hub Pro. ${themeNames(FREE_THEMES)} prints are free.`,
+          : `The print-ready file in ${INVITE_THEMES[theme].name} comes with Event Hub Pro. Free prints are plain white; your Event Hub look on paper is Event Hub Pro.`,
         { status: 403 },
       );
     }
@@ -315,8 +465,10 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
 
     if (piece === 'passes') {
       // 🎟 Printed tickets only for who is coming (owner 2026-09-29, OWNER ANSWERS (9)).
-      const { passes, images, measured } = await loadGuestPasses(set, { width: 600, ticketsOnly: true });
+      const { passes, images, measured, refused } = await loadGuestPasses(set, { width: 600, ticketsOnly: true, onlyGuests: picked });
       if (!measured) return new NextResponse('We could not read your guest list just now. Please try again.', { status: 503 });
+      // 🎟 A picked guest who is not on this event's list (or has no pass) refuses the file — never dropped, never included.
+      if (refused) return new NextResponse(PICKED_GUEST_REFUSAL, { status: 403 });
       const docs = layoutPasses({ ...input, format: formatParam('passes') }, passes);
       if (!docs.length) return new NextResponse('No guest has a ticket yet — a ticket appears once a guest is on your list and coming.', { status: 409 });
       // Ganged on A4 with cut lines (owner: print at home or at a shop).
@@ -328,18 +480,43 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
       });
       return pdfResponse(bytes, fileName(set.event.slug, 'passes', set.theme), false, await printInputsVersion(eventId).catch(() => null));
     }
+    /* 🎟 ONE GUEST'S PASS, FREE (owner 2026-10-16: *"each guest's own pass one at a time, stay free"*): `pass_guest=<guest id>`
+       prints that one guest's pass — their name, their own QR, the size picked — when they have one (the ticket rule:
+       `ticketsOnly`, the same as every guest's file). Anyone else is refused in words, never a stand-in. */
+    const passGuest = url.searchParams.get('pass_guest');
+    if (piece === 'pass' && mode === 'print' && passGuest && UUID.test(passGuest)) {
+      const one = await loadGuestPasses(set, { width: 600, ticketsOnly: true, onlyGuest: passGuest });
+      if (!one.measured) return new NextResponse('We could not read your guest list just now. Please try again.', { status: 503 });
+      const pass = one.passes[0];
+      if (!pass) return new NextResponse('That guest has no pass — a pass is printed for a guest who is on your list and coming.', { status: 404 });
+      const docs = layoutPieceDocs('pass', { ...input, format: formatParam('pass'), pass });
+      const bytes = await renderPrintPdf(docs, { ...set.images, ...one.images }, {
+        mode: 'print',
+        title: `${set.event.display_name ?? 'Event'} — ${pass.name}`,
+        subject: 'Print-ready · 3 mm bleed · crop marks · layers: Foil, White ink, Die cut',
+      });
+      const who = pass.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'guest';
+      return pdfResponse(bytes, fileName(set.event.slug, `pass-${who}`, set.theme), false, await printInputsVersion(eventId).catch(() => null));
+    }
     if (mode === 'screen') {
       /* 🎫 THE REAL TICKET (owner 2026-10-05, "isn't this the digital pass?"):
          `pass_guest=first` draws the first guest who is coming — their name and
          their own QR — instead of the stand-in, for the Maker's Guest's ticket
          scene. One guest is read (`limit: 1`); none yet → the stand-in. */
+      /* 👤 …and `pass_guest=<guest id>` draws THAT guest's pass (owner 2026-10-17, "View as ▾": pick a guest once and every guest
+         print redraws for them). A guest without a pass draws the stand-in, as `first` does with nobody. */
+      const asked = url.searchParams.get('pass_guest');
       const guestPass =
-        piece === 'pass' && url.searchParams.get('pass_guest') === 'first'
+        piece === 'pass' && asked === 'first'
           ? await loadGuestPasses(set, { width: 360, limit: 1, ticketsOnly: true }).catch(() => null)
-          : null;
+          : piece === 'pass' && asked && UUID.test(asked)
+            ? await loadGuestPasses(set, { width: 360, ticketsOnly: true, onlyGuest: asked }).catch(() => null)
+            : null;
       const firstPass = guestPass?.passes[0];
       const view = layoutPieceView(piece as PrintSetKey, { ...input, format: formatParam(piece), ...(firstPass ? { pass: firstPass } : {}) });
       const svg = renderPrintSvg(view, firstPass ? { ...set.images, ...guestPass!.images } : set.images, { compact: true });
+      /* 📄 The picture shows every side at once (Front · Back side by side); the file's pages are the sides it prints. */
+      const sides = layoutPieceDocs(piece as PrintSetKey, { ...input, format: formatParam(piece) }).length;
       return new NextResponse(svg, {
         status: 200,
         // ⚡ A VERSIONED ADDRESS IS IMMUTABLE (owner 2026-09-28: the
@@ -348,7 +525,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
         // address can only ever mean the same picture — a year, `immutable`.
         // Without a `v`, the old 60 s + `stale-while-revalidate` (a couple
         // flipping between theme chips paints the last render instantly).
-        headers: { 'content-type': 'image/svg+xml; charset=utf-8', 'cache-control': previewCacheControl(url.searchParams.get('v')), ...fieldsHeader(view) },
+        headers: { 'content-type': 'image/svg+xml; charset=utf-8', 'cache-control': previewCacheControl(url.searchParams.get('v')), ...fieldsHeader(view), ...printPaperHeader({ pages: 1, page: 1, sides: Math.max(1, sides) }) },
       });
     }
     // THE MENU IS NEVER PRINTED BLANK: with no dishes it is refused on its own
@@ -368,6 +545,9 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
       : [piece as PrintSetKey];
     // EVERY SIDE prints — a piece with a back (a large Entourage) is two pages.
     const docs: PrintDoc[] = keys.flatMap((k) => layoutPieceDocs(k, { ...input, format: formatParam(k) }));
+    if (wantsEverything) {
+      return everythingPdf(req, { eventId, set, docs, input, passFormat: formatParam('passes') });
+    }
     const label = wantsSet ? 'The print set' : PRINT_PIECES[piece].label;
     const bytes = await renderPrintPdf(docs, set.images, {
       mode: 'print',
@@ -417,6 +597,14 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
  * never touches the words. So both first READ the stored value — and if it
  * cannot be read, nothing is written (a blind write would wipe the other half).
  */
+/**
+ * 👥 TWO HOSTS NEVER OVERWRITE EACH OTHER (owner 2026-10-18, round 2): every write below is a CHANGE applied to
+ * `print_details` as it is when the write lands (`updatePrintDetails`, lib/print-details-write.ts) — never the value
+ * read at the top of the request, which another save (the other host's, or this host's menu autosave beside the poster
+ * photo) may already have passed. `said` turns its answer into the `{ message }` the logs take, or null.
+ */
+const said = (r: Awaited<ReturnType<typeof updatePrintDetails>>): { message: string } | null => (r.ok ? null : { message: r.error });
+
 export async function POST(req: Request, ctx: { params: Promise<{ piece: string }> }) {
   const { piece } = await ctx.params;
   if (piece !== 'words' && piece !== 'menu' && piece !== 'poster-photo' && piece !== 'name-style') return new NextResponse('Not found.', { status: 404 });
@@ -442,7 +630,6 @@ export async function POST(req: Request, ctx: { params: Promise<{ piece: string 
     back.searchParams.set(piece === 'menu' ? 'menu_error' : 'print_error', '1');
     return NextResponse.redirect(back, 303);
   }
-  const stored = parsePrintDetails(current.print_details);
 
   // 🎫 THE PASS CARD'S LOOK IS NOT WRITTEN HERE ANY MORE (owner 2026-10-02 Q7,
   // "the pass look waits for Apply"; built 2026-10-05): the Ticket style ▾ saves
@@ -458,10 +645,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ piece: string 
   if (piece === 'name-style') {
     const asked = String(form.get('style') ?? '');
     if (!(NAME_STYLES as readonly string[]).includes(asked)) return NextResponse.json({ ok: false }, { status: 400 });
-    const { error } = await admin
-      .from('events')
-      .update({ print_details: serializePrintDetails({ ...stored, nameStyle: nameStyleFrom(asked) }) })
-      .eq('event_id', eventId);
+    const error = said(await updatePrintDetails(admin, eventId, (now) => ({ ...now, nameStyle: nameStyleFrom(asked) })));
     if (error) logQueryError('hub-print.name-style', error, { event_id: eventId }, 'graceful_degrade');
     return NextResponse.json({ ok: !error }, { status: error ? 500 : 200 });
   }
@@ -473,7 +657,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ piece: string 
   if (piece === 'poster-photo') {
     const ref = String(form.get('ref') ?? '').trim();
     if (!ref) {
-      const { error } = await admin.from('events').update({ print_details: serializePrintDetails({ ...stored, posterPhoto: null }) }).eq('event_id', eventId);
+      const error = said(await updatePrintDetails(admin, eventId, (now) => ({ ...now, posterPhoto: null })));
       if (error) logQueryError('hub-print.poster-photo', error, { event_id: eventId }, 'graceful_degrade');
       return NextResponse.json({ ok: !error, photo: null }, { status: error ? 500 : 200 });
     }
@@ -495,7 +679,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ piece: string 
     }
     if (!w || !h) return NextResponse.json({ ok: false, error: 'That photo could not be read — try another.' }, { status: 422 });
     const photo = { ref, w, h };
-    const { error } = await admin.from('events').update({ print_details: serializePrintDetails({ ...stored, posterPhoto: photo }) }).eq('event_id', eventId);
+    // 👥 Applied to print_details as it is NOW — the measuring above held the first read for seconds.
+    const error = said(await updatePrintDetails(admin, eventId, (now) => ({ ...now, posterPhoto: photo })));
     if (error) logQueryError('hub-print.poster-photo', error, { event_id: eventId }, 'graceful_degrade');
     return NextResponse.json({ ok: !error, photo, tooSmall: posterPhotoTooSmall(photo) }, { status: error ? 500 : 200 });
   }
@@ -517,10 +702,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ piece: string 
       back.searchParams.set('menu_error', '1');
       return NextResponse.redirect(back, 303);
     }
-    const { error } = await admin
-      .from('events')
-      .update({ print_details: serializePrintDetails({ ...stored, menu: parseMenu(raw) }) })
-      .eq('event_id', eventId);
+    const menu = parseMenu(raw);
+    const error = said(await updatePrintDetails(admin, eventId, (now) => ({ ...now, menu })));
     if (error) logQueryError('hub-print.menu', error, { event_id: eventId }, 'graceful_degrade');
     if (quiet) return NextResponse.json({ ok: !error }, { status: error ? 500 : 200 });
     if (error) back.searchParams.set('menu_error', '1');
@@ -546,6 +729,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ piece: string 
   const include = form.get('include_form')
     ? {
         guestNames: on('inc_guest_names'),
+        passCorners: form.get('pass_corners'),
         parents: on('inc_parents'),
         seatPlan: on('inc_seat_plan') ? String(form.get('seat_plan_kind') ?? 'list') : 'none',
         giftDetails: on('inc_gift_details'),
@@ -586,12 +770,9 @@ export async function POST(req: Request, ctx: { params: Promise<{ piece: string 
       return NextResponse.redirect(back, 303);
     }
   }
-  const details = { ...stored, openingLine: draftLine ? stored.openingLine : words.openingLine, rsvp: words.rsvp, include: words.include };
-
-  const { error } = await admin
-    .from('events')
-    .update({ print_details: serializePrintDetails(details) })
-    .eq('event_id', eventId);
+  const error = said(
+    await updatePrintDetails(admin, eventId, (now) => ({ ...now, openingLine: draftLine ? now.openingLine : words.openingLine, rsvp: words.rsvp, include: { ...words.include, passCorners: form.has('pass_corners') ? words.include.passCorners : now.include.passCorners } })),
+  );
   if (error) logQueryError('hub-print.words', error, { event_id: eventId }, 'graceful_degrade');
   /* 🧷 The Maker saves this form IN PLACE (`launch/_components/soft-post.tsx`,
      owner 2026-09-28: *"it reloads the whole page. which shouldn't"*): asked

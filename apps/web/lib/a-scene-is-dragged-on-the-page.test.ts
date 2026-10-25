@@ -639,8 +639,10 @@ test('(7) the Reveal, held, says its own line — it is read before any marked p
   const hands = src(`${L}/scene-canvas-drag.ts`);
   const lift = hands.slice(hands.indexOf('const lift = (x: number, y: number) => {'), hands.indexOf('const unlook = '));
   assert.ok(lift.indexOf("if (!subject.movable) return refuse(subject, 'fixed');") > 0 && lift.indexOf("if (!subject.movable) return refuse(subject, 'fixed');") < lift.indexOf('measure(subject)'), 'a fixed part is measured for a lift');
-  /* anti-vacuity: the part the Maker draws for the Reveal still carries the mark `subject` reads. */
-  assert.match(raw(`${L}/stage-tools.tsx`), /part\.setAttribute\('data-maker-reveal-part', ''\);/);
+  /* 🎭 SINCE 2026-10-16 the Maker draws NO Reveal tile on the canvas (owner-approved: the opening is the Cover Scene's
+     Style, named in the cover's corner — `the-cover-scene-has-its-own-animate.test.ts` (3)). The branch above stays
+     as the drag's answer for any page that still carries the mark; nothing of the toolbar writes it now. */
+  assert.doesNotMatch(raw(`${L}/stage-tools.tsx`), /setAttribute\('data-maker-reveal-part'/);
 });
 
 test('(7) the lower third slides away while a scene is held and back on release — both motions seen; a fade under Reduce Motion', () => {
@@ -730,10 +732,11 @@ test('(8) the desktop Maker that ships today is untouched: the drag is the phone
      and take off a scene in the navigator (drag a tile · right-click → Move up · Move down · Hide · the tile's eye),
      and this change touches none of it. Held as a property, so it stays true of whatever is changed next. */
   const shell = src(`${L}/maker-shell.tsx`);
-  /* (a) The panel that holds the drag is drawn under `ss` only — and `ss` is never true at desktop width. */
+  /* (a) The panel that holds the drag is drawn under `ss` only — and `ss` is never true at desktop width unless the
+     desktop's three columns are on (`desktopColumns`, dark for couples: `lib/maker-desktop-columns-flag.ts`). */
   assert.match(shell, /const wide = useIsDesktop\('lg'\);/);
   assert.match(shell, /const phone = !wide;/);
-  assert.match(shell, /const ss = stagesStudio && phone;/);
+  assert.match(shell, /const ss = stagesStudio && \(phone \|\| desktopColumns\);/);
   assert.equal((shell.match(/<StageTools\b/g) ?? []).length, 1, 'the Stages panel is drawn in more than one place');
   assert.match(shell, /grab=\{ss \? side === 'stages' \? <StageTools /);
   /* (b) Every Maker file this change wrote or rewrote is reached only through that panel. (The drag's own files and

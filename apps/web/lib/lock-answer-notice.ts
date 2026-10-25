@@ -46,7 +46,26 @@ export type LockAnswerContext = {
    * back; it rides the redirect as `&fee=held`, read by `lockAgreeFeeHeld`). Batch-5 needs audit F9, 2026-10-14.
    */
   feeHeld?: boolean;
+  /**
+   * `hall_taken` (owner 2026-10-14 🏛, prototype "A + B asked, A taken") — which of the card's halls are already taken
+   * that day, and which of the shop's halls are free to offer instead (`vendor_card_halls_on`, read before the yes).
+   */
+  halls?: { taken: string[]; free: string[] } | null;
 };
+
+/** The redirect's hall names (`&taken=` · `&free=`), one spelling written by `vendorAgreeToLock` and read here. */
+export function lockAgreeHallsParam(halls: { taken: string[]; free: string[] }): string {
+  const enc = (a: string[]) => encodeURIComponent(a.join('|'));
+  return `&taken=${enc(halls.taken)}&free=${enc(halls.free)}`;
+}
+/** Read `?taken=` / `?free=` back — null when the answer was not about halls. */
+export function lockAgreeHalls(taken: unknown, free: unknown): { taken: string[]; free: string[] } | null {
+  const list = (v: unknown) => (typeof v === 'string' && v ? v.split('|').map((x) => x.trim()).filter(Boolean).slice(0, 12) : []);
+  const t = list(taken);
+  return t.length > 0 ? { taken: t, free: list(free) } : null;
+}
+const andList = (a: string[]) => (a.length <= 1 ? (a[0] ?? '') : `${a.slice(0, -1).join(', ')} and ${a[a.length - 1]}`);
+const orList = (a: string[]) => (a.length <= 1 ? (a[0] ?? '') : `${a.slice(0, -1).join(', ')} or ${a[a.length - 1]}`);
 
 /** The redirect's `fee` value when the couple's news waits on the fee — the one spelling, written and read here. */
 export const LOCK_AGREE_FEE_HELD = 'held';
@@ -114,6 +133,17 @@ const AGREE: Record<string, (ctx: LockAnswerContext) => LockAnswerNotice> = {
     tone: 'refused',
     text: 'Setnayan has not approved your shop yet, so a couple cannot book you. Finish your shop verification and this booking can go through.',
   }),
+  hall_taken: (ctx) => {
+    const taken = ctx.halls?.taken ?? [];
+    const free = ctx.halls?.free ?? [];
+    const what = taken.length > 0 ? `${andList(taken)} ${taken.length === 1 ? 'is' : 'are'} booked that day` : 'A hall this card uses is booked that day';
+    return {
+      tone: 'refused',
+      text:
+        `${what}, so this booking cannot be held. ` +
+        (free.length > 0 ? `Offer ${orList(free)} instead — ${free.length === 1 ? 'it is' : 'they are'} free that day — or turn this one down.` : 'Every hall is taken that day — turn this one down so the couple can look elsewhere.'),
+    };
+  },
   fully_booked: () => ({
     // Mirrors the database's own HINT on `free_tier_booking_cap`, read out of
     // production: a free shop holds a fixed number of live bookings at once.

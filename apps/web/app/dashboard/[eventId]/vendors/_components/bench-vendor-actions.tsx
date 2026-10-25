@@ -38,7 +38,6 @@
  */
 
 import { useContext, useRef, useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
 import {
   Ban,
   BellRing,
@@ -176,7 +175,6 @@ export function BenchVendorActions({
     actions.inquiry?.kind === 'check' ? `/dashboard/${eventId}/messages/${actions.inquiry.threadId}` : null;
   const threadId = actions.inquiry?.kind === 'check' ? actions.inquiry.threadId : null;
   // Buttons keep their words (owner 2026-10-12, look call 2): no fit pass — the row wraps.
-  const router = useRouter();
   const { confirm, dialog: confirmDialog } = useConfirm();
   const writes = useContext(BenchWritesStandInCtx);
   const removeWrite = writes?.remove ?? deleteVendor;
@@ -215,7 +213,6 @@ export function BenchVendorActions({
         fd.set('vendor_id', vendorId);
         if (putBack) fd.set(ANSWER_IN_PLACE_FIELD, '1');
         await removeWrite(fd);
-        if (!putBack) router.refresh();
       } catch (e) {
         if (isRedirect(e)) throw e;
         // The server refuses a booked supplier, or one with a payment on record.
@@ -250,7 +247,6 @@ export function BenchVendorActions({
       if (ok) {
         // The cart peeks (the page's shell listens) — only for a pick that saved.
         announceBuildAdded({ name: vendorName, category: groupLabel });
-        if (!local) router.refresh();
         return;
       }
       local?.setBuilt(vendorId, planGroupId, wasIn, true);
@@ -274,7 +270,6 @@ export function BenchVendorActions({
         ok = false;
       }
       if (ok) {
-        if (!local) router.refresh();
         return;
       }
       local?.setBuilt(vendorId, planGroupId, true, true);

@@ -102,6 +102,43 @@ c7ebfc9f7455de94e1423c20fc6c33f4b9ffb33f:docs/FEATURE-BRIEF.md:generic-api-key:8
 # credential. Pinned by its introducing commit (the PR range is scanned per commit).
 8935baea76f2933ebb2661814747df173f1acbf9:apps/web/lib/one-press-one-order.test.ts:generic-api-key:40
 8935baea76f2933ebb2661814747df173f1acbf9:apps/web/lib/one-press-one-order.test.ts:generic-api-key:148
+#
+# rd/no-double-records (event-day L1·3): two fixed UUIDs in a db test, the random
+# form keys a join request is deduped by — test data, not credentials. Named
+# KEY_A/KEY_B in their introducing commit (renamed FORM_A/FORM_B after this flag);
+# pinned by that commit because the PR range is scanned per commit.
+de99ea7f40957b6e4286011bb0bd22c81561f27b:apps/web/tests/db/a-join-request-is-written-once.db.test.ts:generic-api-key:86
+de99ea7f40957b6e4286011bb0bd22c81561f27b:apps/web/tests/db/a-join-request-is-written-once.db.test.ts:generic-api-key:87
+# studio-egifts-posts-the-same.test.ts test 3b — the stored QR field is read off the test's own fixture object (its value
+# is null; no literal at all); gitleaks' generic-api-key matched the field's name. The second line pins the first wording
+# of THIS comment, which quoted the field and was flagged itself. Pinned by commit: the PR range is scanned per commit
+# (#6632, two hosts never overwrite — round 3).
+37de04dc48b3e05334509e62d36f6bb7a51338ee:apps/web/lib/studio-egifts-posts-the-same.test.ts:generic-api-key:76
+85b5faaf2fbd92a113cdd931e54ebc790b39183f:.gitleaksignore:generic-api-key:112
+#
+# rd/in-app-purchase (Apple IAP db test): a public catalogue product code asserted
+# against an order column — not a credential.
+# Pinned by its introducing commit (the PR range is scanned per commit).
+2255b14a1c8bdfba7c4c9c29dd3fd69e18d9299b:apps/web/tests/db/an-app-store-purchase-is-one-order.db.test.ts:generic-api-key:115
+# 2026-10-18 rd/features-pages-refresh: the Papic credit-ladder price CODES
+# (PAPIC_GUEST_100 … _100K, catalogue keys, not credentials) were listed one
+# per line in commit fe4801ab; the file now builds them from rung sizes.
+fe4801abcee5ec5bbf2b3701f844d00c0d58c7b7:apps/web/lib/feature-pages/day-memories.ts:generic-api-key:77
+fe4801abcee5ec5bbf2b3701f844d00c0d58c7b7:apps/web/lib/feature-pages/day-memories.ts:generic-api-key:78
+fe4801abcee5ec5bbf2b3701f844d00c0d58c7b7:apps/web/lib/feature-pages/day-memories.ts:generic-api-key:79
+#
+# Same rule flags two TEST FIXTURES in the Visits guards (rd/admin-sees-visits,
+# 2026-10-22): a made-up uuid passed as a raw visitor key to prove it is NEVER
+# stored, and a made-up opaque path token to prove templating drops it. Neither
+# is a credential. Renamed at HEAD so no later commit matches; the introducing
+# commits are pinned because gitleaks-action scans every commit in the PR range.
+d929a17031996793a37f6a1a9332b3835a30b0a7:apps/web/lib/visits/visits-are-private.test.ts:generic-api-key:208
+f1ac6e24695d137e4736aae2d1a94d85496530f6:apps/web/tests/db/site-visits.db.test.ts:generic-api-key:124
+# Same rule flags the Papic upload sweep's list of capture key COLUMN NAMES
+# ('safe_display_r2_key' …) — the columns its Guard A reference check reads
+# before deleting an attempt's final copy. Column names, not a credential.
+9c8357ad8027df27bce143a64a3ce6605c486ed2:apps/web/lib/papic-upload-sweep.ts:generic-api-key:50
+#
 # The Apple Wallet pass test's fixture qr_token — 32 hex digits made up for the
 # test ('0123456789abcdef' twice), the shape the door desk's parser requires.
 # Not a credential. Pinned by its introducing commit.

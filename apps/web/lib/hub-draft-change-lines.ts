@@ -17,7 +17,7 @@
  * pure, no I/O. The client receives the finished strings in
  * `HubDraftSummary.changes`, so none of this reaches the Maker's first-load JS.
  */
-import { CAMERA_LOOK_LABEL } from '@/lib/camera-look';
+import { ACCENT_SCENES, ACCENT_SCENE_LABEL, SCENE_ACCENTS_PREF_KEY, sceneAccentsFromPreferences } from '@/lib/art-kit-accents';
 import { WIDGET_CATALOG_BY_TYPE, WIDGET_PHASES, type LifecyclePhase, type WidgetType } from '@/lib/invitation-widgets';
 import { makerSceneLabel } from '@/lib/maker-scene-list';
 import { MAKER_PARTS } from '@/lib/maker-parts';
@@ -28,9 +28,9 @@ import { LOOK_PART_LABEL, LOOK_SECTION_LABEL } from '@/lib/maker-look-sections';
 import { sanitizeHubCanvas, type HubSectionCanvas } from '@/lib/hub-canvas';
 import {
   FIXED_STYLE_LABEL,
-  cameraLookOfDraft,
   canvasLookFacets,
   hubDraftCountedChanges,
+  hubDraftItemParts,
   planHubDraftApply,
   printDetailsKeysChanged,
   rsvpAskFreePartMoves,
@@ -48,6 +48,7 @@ import { sanitizeRsvpAskConfig } from '@/lib/rsvp-ask';
 import { RSVP_CELEBRATION_LABEL, RSVP_CELEBRATION_NAME, readCelebrationKey } from '@/lib/rsvp-celebration';
 import { PASS_CARD_WORDS } from '@/lib/pass-card';
 import { MARCH_DRAFT_PLACE, marchChangesWord } from '@/lib/march-draft';
+import { HUB_EVENT_COLUMN_PART, type HubOwnershipLike } from '@/lib/hub-parts';
 
 const LOOK = 'Look';
 /** The toolbar's Event Details (`MAKER_DETAILS_LABEL`, launch/_components/maker-bar.ts). */
@@ -70,7 +71,8 @@ export const HUB_DRAFT_EVENT_PLACE: Record<HubDraftEventColumn, { place: string;
   site_button_style: { place: LOOK, what: LOOK_PART_LABEL.buttons },
   // 🔤 The Headings · Text · Labels & buttons fonts — Look › Elements (owner 2026-10-08).
   site_roles: { place: LOOK, what: LOOK_PART_LABEL.font },
-  site_magic_traveller: { place: LOOK, what: 'Magic move' },
+  // ✈ The cover Logo's Action since the Look restudy row 9 (it was Look's Magic Move).
+  site_magic_traveller: { place: 'Names & date', what: 'Logo · Travels to the bar' },
   site_bg_music_r2_key: { place: 'Music', what: 'Background music' },
   site_bg_music_enabled: { place: 'Music', what: 'On or off' },
   landing_page_hero_image_url: { place: 'Names & date', what: 'Photo' },
@@ -93,12 +95,14 @@ export const HUB_DRAFT_EVENT_PLACE: Record<HubDraftEventColumn, { place: string;
   dress_code_config: { place: 'Dress code', what: 'Colours & rules' },
   photo_moments_config: { place: 'Photo moments', what: 'Camera cues' },
   // The typed facts — each ONE change however many columns carry it.
-  display_name: { place: DETAILS, what: 'Names' },
-  bride_name: { place: DETAILS, what: 'Names' },
-  groom_name: { place: DETAILS, what: 'Names' },
+  display_name: { place: DETAILS, what: 'Event title' },
+  bride_name: { place: DETAILS, what: 'Event title' },
+  groom_name: { place: DETAILS, what: 'Event title' },
   event_date: { place: DETAILS, what: 'Date' },
   event_date_precision: { place: DETAILS, what: 'Date' },
   print_details: { place: DETAILS, what: 'Name style' },
+  // 🏷 The entourage's section headings, named in the Wedding March's Edit (owner 2026-10-19).
+  role_names: { place: 'Wedding March', what: 'Section headings' },
   pabuya_message: { place: 'E-Gifts', what: 'Thank-you message' },
   guest_list_edit_deadline: { place: 'RSVP', what: 'Reply by' },
   std_film_ceremony_name: { place: DETAILS, what: 'Venues' },
@@ -132,6 +136,8 @@ const FACET_WORD: Record<CanvasFacetGroup, string> = {
   'part-motion': 'Animation',
   'slot-media': 'Photos',
   playback: 'Clip playback',
+  look: 'Look',
+  'part-style': 'Style',
 };
 
 /** Where a scene lives: "Invitation · When & where" when it is on one stage, else just its name. */
@@ -145,8 +151,8 @@ const FACET_WORD: Record<CanvasFacetGroup, string> = {
    label in `MAKER_PARTS`, and it is the one the sheet now uses, wherever the changed thing IS a part:
 
      · a scene's row            → the part drawn at `w:<type>`           ("Message", "Venue", "Gallery");
-     · a part's Style           → the part whose layouts are that scene  ("Title" for `hero_eyebrow`);
-     · the cover's canvas       → the part(s) of the cover that changed  ("Title"; "Title, Names") — only when
+     · a part's Style           → the part whose layouts are that scene  ("Top line" for `hero_eyebrow`);
+     · the cover's canvas       → the part(s) of the cover that changed  ("Top line"; "Top line, Event title") — only when
                                    nothing ELSE of the cover changed; the cover as a whole keeps its row's name.
 
    No name is invented here: where the Maker has no part for a thing (a scene of their own, the cover as a whole),
@@ -157,7 +163,7 @@ export function makerPartWordAt(canvas: string, el: string | null = null): strin
   for (const part of Object.values(MAKER_PARTS)) if (part.canvas === canvas && (part.el ?? null) === el) return part.label;
   return null;
 }
-/** The Maker's word for the part whose Style a styled scene is (`hero_eyebrow` → "Title"). */
+/** The Maker's word for the part whose Style a styled scene is (`hero_eyebrow` → "Top line"). */
 export function makerPartWordOfStyle(scene: string): string | null {
   for (const part of Object.values(MAKER_PARTS)) if (part.layouts.kind === 'scene' && part.layouts.type === scene) return part.label;
   return null;
@@ -188,11 +194,11 @@ function scenePlace(t: WidgetType): string {
 }
 
 /** What changed in a scene's look: its facets' words ("Font, Animation"), else "Look". */
-function canvasWhat(liveConfig: unknown, next: unknown): string {
+function canvasWhat(liveConfig: unknown, next: unknown, sceneType?: string | null): string {
   const live = sanitizeHubCanvas(liveConfig);
   const drafted = (next as HubSectionCanvas | null) ?? {};
   const words: string[] = [];
-  for (const f of canvasLookFacets(live, drafted)) {
+  for (const f of canvasLookFacets(live, drafted, sceneType)) {
     if (f.change === 'none') continue;
     const w = FACET_WORD[f.group];
     if (!words.includes(w)) words.push(w);
@@ -254,13 +260,18 @@ export function hubDraftChangePlace(item: HubDraftItem, live: HubLiveState, stag
           return { place: DETAILS, what: keys.map((k) => words[k]).join(', ') };
         }
       }
-      /* 🎛 The camera's look (owner 2026-10-07) — "Camera · Look · Your brand", not the QR. */
       if (item.column === 'style_preferences') {
-        const cam = cameraLookOfDraft(item.value);
         const qrMoved = isPlainObjectValue(item.value) && 'qr' in item.value;
-        if (cam && cam !== cameraLookOfDraft(live.events.style_preferences ?? null) && !qrMoved) return { place: 'Camera', what: `Look · ${CAMERA_LOOK_LABEL[cam]}` };
         /* 🧱 A fixed block's look (`lib/block-looks.ts`) — "Event Hub · How a block looks", not the QR. */
         if (!qrMoved && isPlainObjectValue(item.value) && 'block_looks' in item.value) return { place: 'Event Hub', what: 'How a block looks' };
+        /* 🕯 Each scene's Accent (owner 2026-10-16) — "Countdown, Cover · Decorations", the word the Pro sheet uses, not
+           the QR (17 Oct: the Apply sheet read "Guest's ticket · QR look" for an accent pick). */
+        if (!qrMoved && isPlainObjectValue(item.value) && SCENE_ACCENTS_PREF_KEY in item.value) {
+          const liveAccents = sceneAccentsFromPreferences(live.events.style_preferences ?? null);
+          const drafted = sceneAccentsFromPreferences(item.value);
+          const moved = ACCENT_SCENES.filter((sc) => drafted[sc] !== undefined && drafted[sc] !== liveAccents[sc]);
+          return { place: moved.length > 0 ? moved.map((sc) => ACCENT_SCENE_LABEL[sc]).join(', ') : 'Event Hub', what: 'Decorations' };
+        }
       }
       /* 🎉 The When yes celebration is NAMED at Apply (owner 2026-10-06):
          "RSVP · When they say yes · Confetti" — with the RSVP's other edits beside it
@@ -287,6 +298,9 @@ export function hubDraftChangePlace(item: HubDraftItem, live: HubLiveState, stag
        apply"): "Wedding March · 3 changes" — one per drop the couple made. */
     case 'march':
       return { place: MARCH_DRAFT_PLACE, what: marchChangesWord(item.value.length) };
+    /* 💎 A custom address (owner 2026-10-22): "Event Details · Address" — the Address is one fact. */
+    case 'address':
+      return { place: 'Event Details', what: 'Address' };
     case 'widget': {
       const place = scenePlace(item.widgetType);
       switch (item.field) {
@@ -296,6 +310,8 @@ export function hubDraftChangePlace(item: HubDraftItem, live: HubLiveState, stag
           return { place: 'Music', what: 'Music button' };
         case 'std_lead':
           return { place: 'Save the Date', what: 'Film or photos' };
+        case 'photos_heading':
+          return { place, what: 'Heading' };
         case 'mode':
         case 'is_visible':
           return { place, what: 'Shown or hidden' };
@@ -324,7 +340,7 @@ export function hubDraftChangePlace(item: HubDraftItem, live: HubLiveState, stag
           const row = live.widgets.find((r) => r.widget_id === item.widgetId);
           /* 🏷 The cover: named for the part of it that changed (the Title, the Names…) — see "ONE NAME PER THING". */
           const parts = item.widgetType === 'hero' ? coverPartsChanged(row?.config_json, item.value) : null;
-          return { place: parts ? parts.join(', ') : place, what: canvasWhat(row?.config_json, item.value) };
+          return { place: parts ? parts.join(', ') : place, what: canvasWhat(row?.config_json, item.value, item.widgetType) };
         }
       }
     }
@@ -335,13 +351,15 @@ export function hubDraftChangePlace(item: HubDraftItem, live: HubLiveState, stag
  * Every change Apply would publish (or hold), named — exactly
  * `summarizeHubDraft(...).changeCount` lines, in the same order.
  */
-export function hubDraftChangeLines(draft: HubDraftState | null, live: HubLiveState, ownsPro: boolean): HubDraftChangeLine[] {
+export function hubDraftChangeLines(draft: HubDraftState | null, live: HubLiveState, ownsPro: HubOwnershipLike): HubDraftChangeLine[] {
   if (!draft) return [];
-  return hubDraftCountedChanges(planHubDraftApply(draft, live, ownsPro)).map(({ item, held, stage }) => ({
-    ...hubDraftChangePlace(item, live, stage),
-    pro: item.pro,
-    held,
-  }));
+  return hubDraftCountedChanges(planHubDraftApply(draft, live, ownsPro)).map(({ item, held, stage }) => {
+    /* 💎 The parts it needs (2026-10-22) — present only on a line that needs one. A held line that is not Pro itself is
+       the theme's board, held WITH a held Pro theme (`planHubDraftApply`, "A THEME'S COLOURS SHARE THE THEME'S FATE")
+       — it needs what the theme needs. */
+    const parts = item.pro ? hubDraftItemParts(item, live) : held ? [HUB_EVENT_COLUMN_PART.invite_theme!] : [];
+    return { ...hubDraftChangePlace(item, live, stage), pro: item.pro, held, ...(parts.length > 0 ? { parts } : {}) };
+  });
 }
 
 function isPlainObjectValue(v: unknown): v is Record<string, unknown> {

@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { ArrowLeft, HeartHandshake, Sparkles, Users } from 'lucide-react';
+import { HeartHandshake, Users } from 'lucide-react';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
 import { getBudgetBands } from '@/lib/budget-bands';
 import { safeNext } from '@/lib/auth';
@@ -22,19 +22,14 @@ import {
 import { getInPlanningWedding } from './wedding-guard';
 import { readPlanTogether } from '@/lib/plan-together.server';
 import { EventTypePicker } from './_components/event-type-picker';
+import { NewEventHead } from './_components/new-event-head';
 /* Retired 2026-05-28 V2 cutover — CONCIERGE_ENABLED import removed.
    V2 has no Concierge choice card on create-event; every new event
    lands in DIY by default. */
 
 export const metadata = { title: 'Create event' };
 
-import { SHOP_ACCOUNT_CANNOT_CREATE_COPY } from '@/lib/vendor-event-creation';
-
 const ERROR_COPY: Record<string, string> = {
-  // Owner ruling 2026-08-15 — the shop account is the business, and the business
-  // does not plan celebrations. Says the way forward, because the old behaviour
-  // was a SILENT flick back to the shop with no message at all.
-  shop_account: SHOP_ACCOUNT_CANNOT_CREATE_COPY,
   // The two outcomes of a failed write, kept apart on purpose. `create_failed`
   // means nothing survived — retrying is safe and is the right advice.
   // `create_incomplete` means a half-made event could NOT be rolled back, so
@@ -64,7 +59,7 @@ const ERROR_COPY: Record<string, string> = {
   // same block ON that screen. Naming a field by its old label sent people
   // looking for something that is not there.
   life_event_exists:
-    'That celebration is already in planning. Open the existing event — or start again and name a different celebrant when we ask who it’s for.',
+    'That event is already in planning. Open the existing event — or start again and name a different celebrant when we ask who it’s for.',
 };
 
 type SearchParams = Promise<{
@@ -124,6 +119,18 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
     data: { user },
   } = await supabase.auth.getUser();
   const inPlanningWedding = user ? await getInPlanningWedding(supabase, user.id) : null;
+  // 🚪 A brand-new account's FIRST screen after the You card (owner 2026-10-21, prototype
+  // first_run_you_and_next_steps P2): there is no board behind it yet, so no "Back to events". A count, not the
+  // rows; an unread count (error) keeps the way back — the unknown never reads as "nothing behind you".
+  let nothingBehind = false;
+  if (user && !params.samahan) {
+    const { count, error } = await supabase
+      .from('event_members')
+      .select('event_id', { count: 'exact', head: true })
+      .eq('user_id', user.id);
+    if (error) logQueryError('CreateEventPage.eventCount', error, { user_id: user.id }, 'graceful_degrade');
+    nothingBehind = !error && (count ?? 0) === 0;
+  }
 
   // Samahan context (plan §7): `?samahan=<communityId>` turns this into
   // COMMUNITY event creation — organizer-gated. A non-organizer, a plain
@@ -277,7 +284,7 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
           <span>
             Planning for <span className="font-medium text-ink">{samahan.name}</span>
           </span>
-          <span className="ml-auto shrink-0 rounded-full border border-ink/10 bg-white/60 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
+          <span className="ml-auto shrink-0 rounded-full border border-ink/10 bg-white/60 dark:bg-raised px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
             Group
           </span>
         </p>
@@ -293,11 +300,11 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
           <p className="font-sans text-xl text-ink">Tuloy pa rin ang planning na ito</p>
           <p className="mt-2 text-sm leading-relaxed text-ink/70">
             <span className="font-medium text-ink">{blockedLifeEvent.displayName}</span> is already in
-            planning — one celebration of this kind per celebrant at a time.
+            planning — one event of this kind per celebrant at a time.
           </p>
           <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
             <Link
-              className="inline-flex items-center justify-center rounded-lg bg-mulberry px-4 py-2 text-xs font-medium text-white transition-colors hover:bg-mulberry/90"
+              className="inline-flex items-center justify-center rounded-lg bg-mulberry px-4 py-2 text-xs font-medium text-white dark:text-cream transition-colors hover:bg-mulberry/90"
               href={`/dashboard/${blockedLifeEvent.eventId}`}
             >
               Buksan ang {blockedLifeEvent.displayName}
@@ -321,29 +328,7 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
-      <div className="mb-2 space-y-2">
-{/*
-          🔴 `?hub=1`, NOT A BARE `/dashboard`. The board AUTO-JUMPS a couple who
-          holds exactly one upcoming event straight back into that event
-          (`(launcher)/page.tsx:348`) — an owner ruling that stays. So the
-          routine way OUT of this page would have dumped them INSIDE their
-          wedding instead of on their events board, and `?hub=1` is the only
-          escape hatch that exists. This matters now because the rail's
-          "+ Create event" points here (2026-08-15); before that, almost nobody
-          arrived from the board.
-        */}
-        <Link
-          href={samahan ? `/dashboard/samahan/${samahan.communityId}?tab=events` : '/dashboard?hub=1'}
-          className="sn-chip sn-press w-fit"
-        >
-          <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-          {samahan ? `Back to ${samahan.name}` : 'Back to events'}
-        </Link>
-        <p className="sn-eye">
-          <Sparkles aria-hidden strokeWidth={1.75} />
-          New event
-        </p>
-      </div>
+      <NewEventHead nothingBehind={nothingBehind} samahan={samahan} />
 
       <EventTypePicker
         types={typesForContext}

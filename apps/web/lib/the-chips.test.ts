@@ -67,8 +67,9 @@ test('(1) one look, two states: chosen is the pill selector’s own "on"; not ch
   const { PILL_ON_CLASS } = await import(`../${PILL}`);
   for (const cls of PILL_ON_CLASS.split(' ')) assert.ok(CHIP_ON_CLASS.split(' ').includes(cls), `a chosen chip does not wear the "on" look (${cls})`);
   assert.ok(CHIP_ON_CLASS.split(' ').includes('border-sn-accent'));
-  // + `dark:bg-cream` (2026-10-12): white stayed white in dark mode; light is unchanged.
-  assert.deepEqual(CHIP_OFF_CLASS.split(' ').sort(), ['bg-white', 'border-ink/15', 'dark:bg-cream', 'text-ink/55']);
+  // + a dark partner (2026-10-12 `dark:bg-cream`; 2026-10-13 the approved card `dark:bg-raised`): white stayed white in
+  // dark mode, and the page's own ground read as a hole in a card; light is unchanged.
+  assert.deepEqual(CHIP_OFF_CLASS.split(' ').sort(), ['bg-white', 'border-ink/15', 'dark:bg-raised', 'text-ink/55']);
   // No third colour anywhere in the file.
   assert.doesNotMatch(read(CHIPS), /(?:bg|text|border|ring)-(?:success|danger|warn|terracotta|gild|emerald|green|red|amber)\b/, 'a chip wears a colour that is neither "on" nor grey');
 });
@@ -84,8 +85,9 @@ test('(2) a chip never changes size: chosen or not, the same shape — 40 px, at
   for (const cls of [...CHIP_ON_CLASS.split(' '), ...CHIP_OFF_CLASS.split(' ')]) assert.doesNotMatch(cls, SIZES, `a state changes the chip's size (${cls})`);
   assert.equal(chipClass(true), `${CHIP_CLASS} ${CHIP_ON_CLASS}`);
   assert.equal(chipClass(false), `${CHIP_CLASS} ${CHIP_OFF_CLASS}`);
-  // The finger's target is 44 px: the 40-px chip plus 2 px above and below.
-  assert.ok(shape.includes('after:-inset-y-0.5') && shape.includes('relative'));
+  // The finger's target is 44 px: the 40-px chip wears the shared press (`sn-hit`, 46 px around its centre;
+  // lib/the-shared-controls-press-at-44.test.ts). The old 2-px expander pressed at 42 (measured, 2026-10-13).
+  assert.ok(shape.includes('sn-hit') && shape.includes('relative'));
   // Nothing comes and goes inside a chip: its only child is its label.
   const { Chips } = await import(`../${CHIPS}`);
   const html = await paint(h(Chips, { label: 'Groups', options: OPTIONS, value: ['family'], onToggle: () => {} } as Record<string, unknown>));

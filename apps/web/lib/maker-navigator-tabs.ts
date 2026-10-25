@@ -27,6 +27,15 @@
  * A tab that LEAVES the page (Camera, Join, Watch) lists no scenes: it opens a
  * page of its own, and the navigator says so instead of pretending.
  *
+ * 📜 THE SAME SPLIT AS THE GUEST'S (owner 2026-10-15, "THE INVITATION AND SAVE
+ * THE DATE BECOME ONE PAGE … ME STAYS ITS OWN PAGE · THE DAY KEEPS ITS TABS").
+ * On the Invitation and Save the Date the bar is `#site-home` · `#site-details`
+ * · `#site-story` jump marks on ONE page and Me a `?tab=me` page; on The Day
+ * every tab is `?tab=<key>`. Both kinds are in-page here (neither leaves), so a
+ * scene is listed under the same tab either way; the canvas shows the PAGE a tab
+ * is on (`app/[slug]/_components/hub-tab-dom.ts` — a jump mark scrolls to its
+ * place, a page opens from its top).
+ *
  * Pure: no DOM, no React.
  */
 

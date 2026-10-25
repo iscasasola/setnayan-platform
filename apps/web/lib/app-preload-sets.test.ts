@@ -34,7 +34,7 @@ test('an event with no Maker preloads no Maker', () => {
   assert.ok(!plan.routes.includes(makerRouteOf(E)));
 });
 
-test('a shop gets the supplier app — Today · Customers · Shop · More, then More’s rows', () => {
+test('a shop gets the supplier app — Today · Customers · Shop · Hub, then Settings', () => {
   const plan = appPreloadPlan({ hostEventId: null, hasShop: true });
   assert.deepEqual(plan.routes.slice(0, 4), [...SUPPLIER_BAR_ROUTES]);
   assert.deepEqual(plan.routes, supplierAppRoutes());

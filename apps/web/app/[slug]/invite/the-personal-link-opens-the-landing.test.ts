@@ -64,12 +64,16 @@ test('A · the personal link lands on the landing page; the reply returns to it'
   // (Since 2026-10-04 the landing address also carries a short-lived re-entry
   // code — lib/guest-reentry.test.ts — so its URL is built one line earlier.)
   assert.match(tail, /^return NextResponse\.redirect\(landing\);/, 'the personal link no longer ends on the landing page');
-  assert.match(REDEEM, /const landing = new URL\(inviteEnterPath\(event\.slug\), url\.origin\);/, 'the landing is not built from the database slug');
+  // 💌 Since 2026-10-19 the landing is the INVITATION itself (`/{slug}`) whenever a reply is asked, and this
+  // page only while the Event Hub is the Save the Date (N05) — `personalLinkLandingPath`, held by
+  // app/[slug]/redeem/a-personal-link-opens-the-invitation.test.ts. Still from the DATABASE slug.
+  assert.match(REDEEM, /const landing = new URL\(personalLinkLandingPath\(event\.slug, /, 'the landing is not built from the database slug');
   // The reply's save sends the guest back to the same page.
   assert.match(ACTIONS, /redirect\(`\$\{inviteEnterPath\(ev\.slug\)\}\?rsvp=\$\{outcome\}`\)/, 'the reply no longer returns to the landing page');
-  // "Open the invitation" before a reply passes the reply gate — on the exact mark only.
+  // "Open the invitation" before a reply opens it — and since 2026-10-19 the Event Hub never sends a key to the
+  // reply page at all (the cover's own Reply button does), so the mark needs no exemption of its own.
   assert.equal(openBeforeReplyHref('ana-miguel'), '/ana-miguel?from=landing');
-  assert.match(PAGE, /const openedFromLanding = search\[LANDING_OPEN_PARAM\] === LANDING_OPEN_VALUE;/);
+  assert.doesNotMatch(PAGE, /redirect\(inviteReplyPath\(/, 'the Event Hub bounces a key to the reply page again');
   assert.match(ENTER, /href=\{openBeforeReplyHref\(home\)\}/, 'the unreplied guest’s "Open the invitation" is gated back to the form');
 });
 
@@ -234,7 +238,7 @@ test('H · the couple’s message: their words, the name exactly as given, no li
   });
   assert.equal(theirs, 'Mabuhay Mr. Manuel Cortez Casasola! Join us for Ana & Miguel’s wedding.', 'the couple’s own words were not used, or the ask stayed after a reply');
   assert.doesNotMatch(theirs, /\{link\}|https?:/, 'the landing message carries a link');
-  assert.match(ENTER, /formalName: guestFullName\(\{\s*display_name: guest\.display_name/, 'the name is not the name as given');
+  assert.match(ENTER, /formalName: guestNameAsGiven\(\{\s*display_name: guest\.display_name/, 'the name is not the name as given');
 });
 
 // ═══ I · the approved Fable look ════════════════════════════════════════════

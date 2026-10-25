@@ -6,7 +6,7 @@ import { ExternalLink } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
-import { fetchGuestsByEvent, guestDisplayName, guestFullName, guestRoleLabel, RSVP_LABELS } from '@/lib/guests';
+import { fetchGuestsByEvent, guestDisplayName, guestNameAsGiven, guestRoleLabel, RSVP_LABELS } from '@/lib/guests';
 import { loadRoleNames } from '@/lib/role-names.server';
 import { buildInvitationUrl, renderInvitationQrSvg } from '@/lib/qr';
 import { QR_LOOK_COLUMNS, resolveEventQrLook } from '@/lib/qr-look.server';
@@ -429,7 +429,7 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
                  they have no link yet — the modal then offers no Copy button. */
               const inviteMessage = buildGuestInviteMessage({
             ...inviteSetup.facts,
-            formalName: guestFullName(guest, inviteSetup.facts.nameStyle),
+            formalName: guestNameAsGiven(guest, inviteSetup.facts.nameStyle),
             firstName: guest.first_name,
             guestName: guestDisplayName(guest),
             inviteUrl: qr?.url ?? '',
@@ -509,7 +509,7 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
              they have no link yet — the modal then offers no Copy button. */
           const inviteMessage = buildGuestInviteMessage({
             ...inviteSetup.facts,
-            formalName: guestFullName(guest, inviteSetup.facts.nameStyle),
+            formalName: guestNameAsGiven(guest, inviteSetup.facts.nameStyle),
             firstName: guest.first_name,
             guestName: guestDisplayName(guest),
             inviteUrl: qr?.url ?? '',

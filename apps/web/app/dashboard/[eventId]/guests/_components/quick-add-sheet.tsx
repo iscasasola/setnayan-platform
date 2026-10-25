@@ -20,14 +20,19 @@ import {
   guestRoleLabel,
   guestRolePickLabel,
   SIDE_LABELS,
+  type GuestGroupTeamSide,
   type GuestRole,
   type GuestSide,
 } from '@/lib/guests';
+import { groupLabelWithSide, sidesForNamesakes } from '@/lib/groups-for-side';
 import { resolveRoleSet } from '@/lib/role-sets';
 import { SIDELESS_SIDE, eventHasSides } from '@/lib/guest-side-question';
 import { useGuestActions } from './guest-actions-context';
 import { hearAction } from './hear-action';
 import { parsePersonName } from '@/lib/person-name-parse';
+import { normalizeGuestName } from '@/lib/guest-name';
+import { draftName, guestAdds, NEEDS_BOTH_NAMES, useGuestAdds } from './guest-add-queue';
+import { JustAdded } from './just-added';
 import { findDuplicates, norm, TAG } from '@/lib/guest-dedupe';
 import { SIDE_CONTROL_BORDER } from '@/lib/side-colors';
 
@@ -97,7 +102,8 @@ const SIDE_SHORT: Record<GuestSide, string> = {
   both: 'Both',
 };
 
-type GroupOpt = { group_id: string; label: string };
+/** `team_side` when known — two groups of one name then say their sides in the Group list. */
+type GroupOpt = { group_id: string; label: string; team_side?: GuestGroupTeamSide };
 
 export function QuickAddSheet({
   eventId,
@@ -123,6 +129,7 @@ export function QuickAddSheet({
      (lib/guest-side-question.ts); one helper, so the two cannot drift. */
   const hasSides = eventHasSides(roleSet);
   const [open, setOpen] = useState(false);
+  const [openedAt, setOpenedAt] = useState(0);
   // The couple's own words for roles (owner 2026-09-30).
   const roleNames = useRoleNames();
   const [side, setSide] = useState<GuestSide>(hasSides ? 'bride' : SIDELESS_SIDE);
@@ -142,7 +149,7 @@ export function QuickAddSheet({
   // against names that aren't in the server snapshot yet.
   const [addedLocal, setAddedLocal] = useState<ExistingGuest[]>([]);
   // role changes applied this session (add-role / change-role), keyed by
-  // guest_id, so the resolver reflects them before router.refresh() lands
+  // guest_id, so the resolver reflects them before the redrawn list lands
   const [roleOverrides, setRoleOverrides] = useState<
     Record<string, { role: GuestRole; extra_roles: GuestRole[] }>
   >({});
@@ -154,7 +161,7 @@ export function QuickAddSheet({
   const groupRef = useRef<HTMLInputElement>(null);
 
   // existing groups + ones created this session (deduped by id), so a
-  // just-created group shows in the picker before router.refresh() lands
+  // just-created group shows in the picker before the redrawn list lands
   const allGroups = useMemo(() => {
     const seen = new Set<string>();
     const merged: GroupOpt[] = [];
@@ -165,22 +172,35 @@ export function QuickAddSheet({
     }
     return merged;
   }, [groups, localGroups]);
+  /* 👥 Same name, say the side (owner 2026-10-21): two groups of one name each carry their side's word. */
+  const namesakes = useMemo(
+    () => sidesForNamesakes(allGroups.flatMap((g) => (g.team_side ? [{ groupId: g.group_id, label: g.label, teamSide: g.team_side }] : []))),
+    [allGroups],
+  );
 
   // Merge the server snapshot with this session's just-added guests
   // (router.refresh() is async, so addedLocal covers the gap), deduped
   // by normalized name so the same guest never shows twice in a warning.
+  // A name typed this session stands in under its queue key until the write answers; then it carries the real id, so
+  // "Add … too" / "Change … to" reach the saved guest.
+  const adds = useGuestAdds();
+  // one-render: keep (batched) — the queued writes go `{ refresh: false }`; this is their one re-read.
+  useEffect(() => guestAdds.setRefresher(() => router.refresh()), [router]);
   const pool = useMemo(() => {
+    const realId = new Map(adds.filter((a) => a.guestId).map((a) => [a.key, a.guestId!] as const));
     const seen = new Set<string>();
     const merged: ExistingGuest[] = [];
-    for (const g of [...existingGuests, ...addedLocal]) {
+    for (const g0 of [...existingGuests, ...addedLocal]) {
+      const g = realId.has(g0.guest_id) ? { ...g0, guest_id: realId.get(g0.guest_id)! } : g0;
       const key = `${norm(g.first_name)}|${norm(g.last_name)}`;
       if (seen.has(key)) continue;
       seen.add(key);
       const ov = roleOverrides[g.guest_id];
-      merged.push(ov ? { ...g, ...ov } : g);
+      const row = { ...g, extra_roles: g.extra_roles ?? [] };
+      merged.push(ov ? { ...row, ...ov } : row);
     }
     return merged;
-  }, [existingGuests, addedLocal, roleOverrides]);
+  }, [existingGuests, addedLocal, roleOverrides, adds]);
   const dups = useMemo(
     () => (dupDismissed ? [] : findDuplicates(fn, ln, pool)),
     [fn, ln, pool, dupDismissed],
@@ -189,7 +209,10 @@ export function QuickAddSheet({
 
   /* open via the desktop button + body scroll lock */
   useEffect(() => {
-    const onOpen = () => setOpen(true);
+    const onOpen = () => {
+      setOpenedAt(Date.now());
+      setOpen(true);
+    };
     window.addEventListener(OPEN_EVENT, onOpen);
     return () => window.removeEventListener(OPEN_EVENT, onOpen);
   }, []);
@@ -216,6 +239,11 @@ export function QuickAddSheet({
     fnRef.current?.focus();
   }, [clearNames, toast]);
 
+  /* ⚡ ONE ENTER = ONE GUEST, AT ONCE (owner 2026-10-19). The name is queued (`guest-add-queue.ts`): drawn now under the
+     names ("Adding…" → "Added", or why not with Retry), written in the order typed, the list re-read ONCE when the queue
+     is empty. The boxes clear and First name takes the focus straight away — the next name never waits on the server, and
+     an answer can no longer clear a name the host is already typing. Side · Role · Group stay as picked (#782).
+     🔒 guests/_components/one-enter-adds-one-guest-at-once.test.ts */
   const doSave = useCallback(
     (keepOpen: boolean) => {
       const f = fn.trim(),
@@ -225,44 +253,42 @@ export function QuickAddSheet({
         else setOpen(false);
         return;
       }
+      // The host may type a whole name ("Atty. Bob Casasola Jr.") into the
+      // First box — that is how the reported bug was produced. Re-parse the
+      // two boxes as one line so a title never lands in first_name, while a
+      // plain "Bob" + "Casasola" is returned unchanged by the parser.
+      const parts = parsePersonName(`${f} ${l}`.trim());
+      const first_name = parts.firstName || f;
+      const last_name = parts.lastName || l;
+      if (!normalizeGuestName(first_name) || !normalizeGuestName(last_name)) {
+        // Said at once, the names kept — never sent only to be refused.
+        setError(NEEDS_BOTH_NAMES);
+        (first_name ? lnRef : fnRef).current?.focus();
+        return;
+      }
       setError(null);
-      startTransition(async () => {
-        // The host may type a whole name ("Atty. Bob Casasola Jr.") into the
-        // First box — that is how the reported bug was produced. Re-parse the
-        // two boxes as one line so a title never lands in first_name, while a
-        // plain "Bob" + "Casasola" is returned unchanged by the parser.
-        const parts = parsePersonName(`${f} ${l}`.trim());
-        // 🔌 `hearAction`: a request that FAILED (offline, 5xx, a throw) answers like a refusal, so the sheet and the
-        // typed name stay and the line below is said — it used to replace the whole roster with the error screen.
-        const res = await hearAction(() =>
-          quickAddGuest(eventId, {
-            first_name: parts.firstName || f,
-            last_name: parts.lastName || l,
-            name_prefix: parts.prefix || null,
-            middle_name: parts.middleName || null,
-            name_suffix: parts.suffix || null,
-            side,
-            role,
-            group_id: groupId || null,
-          }),
-        );
-        if (!res.ok) {
-          setError(plainRefusal(res.error, 'Couldn’t save that. Try again.'));
-          return;
-        }
-        // dedupe back-to-back rapid adds against the just-saved name
-        setAddedLocal((prev) => [...prev, { ...res.guest, extra_roles: [] }]);
-        clearNames();
-        router.refresh();
-        if (keepOpen) {
-          showToast(`${res.guest.first_name} added`);
-          setTimeout(() => fnRef.current?.focus(), 0);
-        } else {
-          setOpen(false);
-        }
+      const input = {
+        first_name,
+        last_name,
+        name_prefix: parts.prefix || null,
+        middle_name: parts.middleName || null,
+        name_suffix: parts.suffix || null,
+        side,
+        role,
+        group_id: groupId || null,
+      };
+      const key = guestAdds.enqueue({
+        eventId,
+        name: draftName({ prefix: input.name_prefix ?? '', firstName: first_name, middleName: input.middle_name ?? '', lastName: last_name, suffix: input.name_suffix ?? '' }),
+        run: () => quickAddGuest(eventId, input, { refresh: false }),
       });
+      // dedupe back-to-back rapid adds against the just-typed name (the queue's key stands in for its id)
+      setAddedLocal((prev) => [...prev, { guest_id: key, first_name, last_name, side, role, extra_roles: [] }]);
+      clearNames();
+      if (keepOpen) fnRef.current?.focus();
+      else setOpen(false);
     },
-    [fn, ln, side, role, groupId, eventId, clearNames, router, showToast, quickAddGuest],
+    [fn, ln, side, role, groupId, eventId, clearNames, quickAddGuest],
   );
 
   const forceAdd = useCallback(
@@ -311,12 +337,11 @@ export function QuickAddSheet({
           [g.guest_id]: { role: res.guest.role, extra_roles: res.guest.extra_roles },
         }));
         clearNames();
-        router.refresh();
         showToast(`${g.first_name} is now also ${guestRoleLabel(role, roleNames)}`);
         setTimeout(() => fnRef.current?.focus(), 0);
       });
     },
-    [eventId, role, roleNames, clearNames, router, showToast, addRoleToGuest],
+    [eventId, role, roleNames, clearNames, showToast, addRoleToGuest],
   );
   const applyChangeRole = useCallback(
     (g: ExistingGuest) => {
@@ -332,12 +357,11 @@ export function QuickAddSheet({
           [g.guest_id]: { role: res.guest.role, extra_roles: res.guest.extra_roles },
         }));
         clearNames();
-        router.refresh();
         showToast(`${g.first_name} → ${guestRoleLabel(role, roleNames)}`);
         setTimeout(() => fnRef.current?.focus(), 0);
       });
     },
-    [eventId, role, roleNames, clearNames, router, showToast, setGuestPrimaryRole],
+    [eventId, role, roleNames, clearNames, showToast, setGuestPrimaryRole],
   );
 
   /* resolver state for the TOP name match (dups are sorted best-first) */
@@ -379,11 +403,10 @@ export function QuickAddSheet({
       setGroupId(res.group.group_id); // lock the new group for the next adds
       setNewGroupMode(false);
       setNewGroupName('');
-      router.refresh();
       // back to the names so the rapid loop keeps going
       setTimeout(() => fnRef.current?.focus(), 0);
     });
-  }, [newGroupName, eventId, cancelNewGroup, router, quickCreateGroup]);
+  }, [newGroupName, eventId, cancelNewGroup, quickCreateGroup]);
 
   return (
     <>
@@ -395,7 +418,7 @@ export function QuickAddSheet({
         <GuestPopup
           onClose={() => setOpen(false)}
           rootClassName="fixed inset-0 z-40"
-          panelClassName="absolute inset-x-0 bottom-0 flex max-h-[92vh] flex-col rounded-t-2xl bg-cream shadow-2xl sm:inset-auto sm:left-1/2 sm:top-1/2 sm:max-h-[86vh] sm:w-[440px] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl"
+          panelClassName="absolute inset-x-0 bottom-0 flex max-h-[92vh] flex-col rounded-t-2xl bg-cream shadow-2xl tab:inset-y-0 tab:left-auto tab:right-0 tab:max-h-none tab:w-[min(27.5rem,calc(100vw-3.5rem))] tab:rounded-none tab:rounded-l-2xl"
           label="Quick add"
         >
             {/* header */}
@@ -452,7 +475,7 @@ export function QuickAddSheet({
                     value={newGroupMode ? '__new__' : groupId}
                     options={[
                       { key: '', label: 'No group' },
-                      ...allGroups.map((g) => ({ key: g.group_id, label: g.label })),
+                      ...allGroups.map((g) => ({ key: g.group_id, label: groupLabelWithSide(g.label, namesakes.get(g.group_id)) })),
                       { key: '__new__', label: '＋ New group…' },
                     ]}
                     onPick={(v) => {
@@ -531,10 +554,13 @@ export function QuickAddSheet({
                       setError(null);
                     }}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        lnRef.current?.focus();
-                      }
+                      if (e.key !== 'Enter' || e.nativeEvent.isComposing) return;
+                      e.preventDefault();
+                      // ONE Enter adds when the line already holds a whole name ("Ana Cruz" typed in First) or Last is
+                      // filled; only a lone first name moves on to Last.
+                      const parts = parsePersonName(`${fn.trim()} ${ln.trim()}`.trim());
+                      if (parts.firstName && parts.lastName) primary(true);
+                      else lnRef.current?.focus();
                     }}
                     placeholder="First name"
                     autoComplete="off"
@@ -550,10 +576,9 @@ export function QuickAddSheet({
                       setError(null);
                     }}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        primary(true);
-                      }
+                      if (e.key !== 'Enter' || e.nativeEvent.isComposing) return;
+                      e.preventDefault();
+                      primary(true);
                     }}
                     placeholder="Last name"
                     autoComplete="off"
@@ -670,6 +695,9 @@ export function QuickAddSheet({
                     {error}
                   </p>
                 ) : null}
+
+                {/* ⚡ Every name added here, drawn the moment Enter is pressed (guest-add-queue.ts). */}
+                <JustAdded eventId={eventId} variant="sheet" since={openedAt} />
               </div>
             </div>
 
@@ -679,9 +707,8 @@ export function QuickAddSheet({
                 tone="brand"
                 main
                 icon={Check}
-                label={isPending ? 'Adding…' : 'Done'}
+                label="Done"
                 onClick={done}
-                disabled={isPending}
                 className="w-full"
               />
             </div>

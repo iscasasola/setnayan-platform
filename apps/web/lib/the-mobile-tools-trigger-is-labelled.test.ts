@@ -13,7 +13,14 @@
  *
  * ── WHAT THIS PINS ──────────────────────────────────────────────────────────
  * The trigger must carry a visible text label, not just an icon and an
- * aria-label a sighted mouse/touch user never reads. This scans the STRIPPED
+ * aria-label a sighted mouse/touch user never reads.
+ *
+ * ── 2026-10-14 · THE TOOLS GOT THEIR OWN DOOR ──────────────────────────────
+ * Simpler supplier dashboard step 4: the tools left the rail for ONE grey ＋
+ * beside the message field (`thread-tools-sheet.tsx`, prototype `SHEETS.tools`).
+ * This pill now opens the customer only and says so ("Customer"); the ＋ is the
+ * tools' door, and it is held here to the same rule — named, never a bare
+ * glyph to a screen reader, and a full 44px target. This scans the STRIPPED
  * source so a comment describing the old bug (this docblock, or the
  * component's own) can never be mistaken for the label itself.
  */
@@ -27,6 +34,8 @@ const WEB = join(import.meta.dirname, '..');
 const RAIL = 'app/vendor-dashboard/messages/[threadId]/_components/chat-info-rail.tsx';
 
 const src = stripComments(readFileSync(join(WEB, RAIL), 'utf8'));
+const SHEET = 'app/vendor-dashboard/messages/[threadId]/_components/thread-tools-sheet.tsx';
+const sheetSrc = stripComments(readFileSync(join(WEB, SHEET), 'utf8'));
 
 test('the scan actually read the file (an empty read is a green lie)', () => {
   assert.ok(src.length > 500, `${RAIL} read as ${src.length} chars — the scan is not reading it`);
@@ -86,13 +95,25 @@ test('🔑 the trigger button carries visible text, not just an icon', () => {
   );
 });
 
-test('🔑 the aria-label still names both halves of what the sheet opens', () => {
+test('🔑 the aria-label names what the sheet opens — the customer, and no longer the tools', () => {
   const button = triggerButton(triggerBody(src));
   const m = button.match(/aria-label="([^"]+)"/);
   assert.ok(m, 'the trigger button lost its aria-label');
   const label = m![1]!.toLowerCase();
   assert.ok(label.includes('customer'), `aria-label should still name the customer info: ${m![1]}`);
-  assert.ok(label.includes('tool'), `aria-label should also name the tools: ${m![1]}`);
+  assert.ok(!label.includes('tool'), `the rail opens no tools any more — its label must not promise them: ${m![1]}`);
+});
+
+test('🔑 the ＋ that opens the tools is named and a full 44px target', () => {
+  const at = sheetSrc.indexOf('data-thread-tools-open');
+  assert.ok(at > 0, 'the ＋ trigger is gone from the tools sheet');
+  const open = sheetSrc.lastIndexOf('<button', at);
+  const close = sheetSrc.indexOf('</button>', at);
+  const plus = sheetSrc.slice(open, close);
+  assert.match(plus, /aria-label="Tools"/, 'the ＋ lost its accessible name');
+  assert.match(plus, /aria-haspopup="dialog"/, 'the ＋ no longer says it opens a sheet');
+  assert.match(plus, /\bh-11\b/, 'the ＋ is shorter than 44px');
+  assert.match(plus, /\bw-11\b/, 'the ＋ is narrower than 44px');
 });
 
 test('🔑 the button is not sized back down to an icon-only tap target', () => {

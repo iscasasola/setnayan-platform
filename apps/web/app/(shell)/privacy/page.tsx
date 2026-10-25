@@ -4,7 +4,9 @@ import Link from 'next/link';
 // renders the same constant the sweep deletes by. Two hand-typed numbers
 // agreeing today is how `llms.txt` drifted for three weeks with green CI.
 import { CONNECTION_REQUEST_RETENTION_DAYS } from '@/lib/connection-request-expiry-core';
-import { ERROR_LOG_RETENTION_DAYS } from '@/lib/rule-constants';
+import { DB_BACKUP_RETENTION_DAYS, ERROR_LOG_RETENTION_DAYS } from '@/lib/rule-constants';
+// The sign-in button's own words, so this page quotes the button exactly (lib/one-oauth-wording.test.ts).
+import { OAUTH_VERB } from '@/lib/oauth-words';
 
 // GEO Phase G5 (2026-05-28) — canonical URL + enriched description. AI
 // engines extract privacy-policy content for "is X RA 10173 compliant"
@@ -27,7 +29,7 @@ import { ERROR_LOG_RETENTION_DAYS } from '@/lib/rule-constants';
 export const metadata = {
   title: 'Privacy policy',
   description:
-    'How Setnayan handles personal data under the Philippine Data Privacy Act (RA 10173). Guest data, couple consent, vendor data, receipts, and DPO contact.',
+    'How Setnayan handles personal data under the Philippine Data Privacy Act (RA 10173). Guest data, couple consent, supplier data, receipts, and DPO contact.',
   alternates: { canonical: '/privacy' },
   openGraph: {
     title: 'Privacy policy · Setnayan',
@@ -57,7 +59,7 @@ export default function PrivacyPage() {
             How we handle your data
           </h1>
           <p className="text-xs text-ink/55">
-            Effective 2026-05-13 · last updated 2026-09-15 · subject to RA 10173 (Philippines Data Privacy Act)
+            Effective 2026-05-13 · last updated 2026-10-25 · subject to RA 10173 (Philippines Data Privacy Act)
           </p>
         </header>
 
@@ -95,7 +97,7 @@ export default function PrivacyPage() {
             which is also where any biometric face vector is stored), the APAC
             region (Cloudflare R2, our media storage, which holds photos,
             videos, and the selfie image you upload if you enrol a face),
-            United States (Anthropic — Setnayan AI, vendor Deep Search, and reading
+            United States (Anthropic — Setnayan AI, supplier Deep Search, and reading
             an uploaded payment receipt), and United States
             (Google LLC, when you connect the optional Google Drive or YouTube
             integrations, and the Gemini image model when a mood board is
@@ -118,7 +120,7 @@ export default function PrivacyPage() {
           <p>
             Setnayan is a self-service platform, and most of what we hold about
             an account is <strong>self-declared</strong> — you provide your
-            profile, your event details, the vendors you name, and your story
+            profile, your event details, the suppliers you name, and your story
             yourself. We do <strong>not</strong> require a government ID and do
             not independently verify that this information is accurate; you
             control it and are responsible for keeping it correct. You can view,
@@ -127,8 +129,8 @@ export default function PrivacyPage() {
           </p>
           <p className="pt-2">
             We verify identity <strong>only where this notice says so</strong>.
-            The main case is <strong>vendor identity verification</strong>: a
-            vendor shown as verified has had that credential checked separately.
+            The main case is <strong>supplier identity verification</strong>: a
+            supplier shown as verified has had that credential checked separately.
             (Third-party identity-verification providers are not yet active — see
             &ldquo;Regulatory posture&rdquo; above.)
           </p>
@@ -147,7 +149,7 @@ export default function PrivacyPage() {
         <Section title="What we collect">
           <ul className="ml-5 list-disc space-y-1">
             <li>Account info — email, password (hashed), display name, optional phone + profile photo URL</li>
-            <li>Event data you create — guest lists, vendor records, budget items, schedule, mood-board palettes</li>
+            <li>Event data you create — guest lists, supplier records, budget items, schedule, mood-board palettes</li>
             <li>Messages you send via the in-app chat</li>
             <li>
               Payment metadata — order amounts, reference codes, channel, your
@@ -155,12 +157,24 @@ export default function PrivacyPage() {
               the reference you typed — see below)
             </li>
             <li>
-              Product analytics — page views, button clicks, funnel events (via
-              PostHog), <strong>only if you allow analytics</strong> in the
-              cookie banner. These events are keyed to your account id, so they
-              are linked to you and are <strong>not anonymous</strong>. Decline
-              analytics and nothing is captured, from your browser or from our
-              servers.
+              If you buy something in the iPhone app through Apple (when
+              available in the app) — what you bought, the price, and
+              Apple&rsquo;s purchase number. Apple takes the payment; we never
+              see your card or your Apple password.
+            </li>
+            <li>
+              <strong>No product analytics.</strong> We do not run an analytics
+              service or set analytics cookies — Setnayan uses essential cookies
+              only (see our{' '}
+              <Link href="/cookies" className="text-terracotta hover:underline">
+                cookie policy
+              </Link>
+              , which lists each one). We do keep one daily count of visits,
+              with no cookie — see{' '}
+              <a href="#visits" className="text-terracotta hover:underline">
+                Counting visits
+              </a>{' '}
+              below.
             </li>
             <li>Error reports — uncaught exceptions + their stack traces sent to Sentry so we can fix bugs; no message bodies, payment details, or guest data are included</li>
             <li>
@@ -170,6 +184,237 @@ export default function PrivacyPage() {
                 Guests can switch the QR-scan record off for themselves
               </strong>{' '}
               from their own invitation page, at any time.
+            </li>
+            <li>
+              If you sign in with Google — your name, email address and profile
+              photo from your Google account (see{' '}
+              <a href="#google-user-data" className="text-terracotta hover:underline">
+                Google user data
+              </a>{' '}
+              below)
+            </li>
+            <li>
+              If you sign in with Apple — your name (Apple sends it only the
+              first time), your email address (which can be a private relay
+              address Apple makes for you), and the account identifier Apple
+              uses for you. We also keep a sealed Apple sign-in key, used only
+              to cancel the Apple link when you delete your account.
+            </li>
+          </ul>
+          <p className="pt-2">
+            <strong>Why we collect it.</strong> To create your account and sign
+            you in; to plan and run your events — the guest list and RSVPs,
+            seating, budget, schedule, the suppliers you book, and the Event Hub
+            your guests open; to deliver and keep your event&rsquo;s photos and
+            videos; to record payments and issue receipts; to keep the
+            marketplace safe from fake accounts; and to find and fix bugs. We do
+            not sell personal data, and we do not use it for advertising.
+          </p>
+        </Section>
+
+        {/* ── Google user data ─────────────────────────────────────────────
+            Added 2026-10-22: Google's OAuth brand verification refused
+            /privacy for not detailing the Google user data we receive. Every
+            sentence is read off the code — keep it that way:
+              • SIGN-IN SCOPES. Neither signInWithOAuth call
+                (app/auth/oauth-actions.ts, lib/native-oauth.ts) passes
+                `scopes`, so Google is asked only for the provider defaults —
+                `email` and `profile`. If a scope is ever added there, this
+                section must change with it (guarded by
+                app/google-can-verify-the-home-page.test.ts).
+              • USES. full_name → account name + the RSVP/join prefill
+                (join-flow.tsx, rail-data.ts); avatar_url/picture → the guest's
+                photo on the event they join (join/[eventId]/actions.ts,
+                photo_source 'oauth_google'); email → the account + the
+                exact-email match to a host-seeded guest row.
+              • DELETION. Point at the rights section; do NOT add a new,
+                stronger promise here — see the erasure guardrail's KNOWN_GAPS
+                before claiming more. */}
+        <Section id="google-user-data" title="Google user data">
+          <p>
+            This section is about the data Setnayan receives from Google, and it
+            covers all three ways Setnayan connects to a Google account. All
+            three are your choice: you can use Setnayan with an email address
+            and never connect Google at all.
+          </p>
+
+          <p className="pt-2">
+            <strong>1. Signing in with Google.</strong> When you choose
+            &ldquo;{OAUTH_VERB} Google&rdquo;, Setnayan asks Google only for the
+            basic sign-in permissions, <code className="font-mono text-[12px]">email</code>{' '}
+            and <code className="font-mono text-[12px]">profile</code>. From
+            them we receive:
+          </p>
+          <ul className="ml-5 list-disc space-y-1 pt-1">
+            <li>your name,</li>
+            <li>your email address (and whether Google has verified it),</li>
+            <li>your profile photo, and</li>
+            <li>
+              the account identifier Google uses for you, so the same Google
+              account signs in to the same Setnayan account each time.
+            </li>
+          </ul>
+          <p className="pt-1">
+            We never receive your Google password, and signing in gives us no
+            access to your Gmail, contacts, calendar, Drive or YouTube.
+          </p>
+          <p className="pt-2">
+            <strong>How we use it.</strong>
+          </p>
+          <ul className="ml-5 list-disc space-y-1 pt-1">
+            <li>
+              <strong>To create your Setnayan account and sign you in.</strong>{' '}
+              Your email address is the address of your account; we also use it
+              to send you messages about your account and your events.
+            </li>
+            <li>
+              <strong>To show who you are.</strong> Your name becomes your
+              account name and is filled in for you when you reply to an
+              invitation or join an event, so the hosts know who replied. When
+              you join an event as a guest, your Google profile photo is used as
+              your picture on that event&rsquo;s guest list, unless you or the
+              host have added another photo.
+            </li>
+            <li>
+              <strong>To connect you to your invitation.</strong> If the hosts
+              put your email address on their guest list, signing in with that
+              same address links you to your own invitation.
+            </li>
+          </ul>
+
+          <p className="pt-3">
+            <strong>2. YouTube, for Live Watch</strong> — optional, asked for
+            only when a host connects their own channel to broadcast an event
+            live. Permission requested:{' '}
+            <code className="break-all font-mono text-[12px]">
+              https://www.googleapis.com/auth/youtube
+            </code>
+            . Used only to create, run and end that event&rsquo;s live
+            broadcast and to link its replay. Full detail:{' '}
+            <a href="#google-youtube" className="text-terracotta hover:underline">
+              Google / YouTube data (Live Watch)
+            </a>
+            .
+          </p>
+          <p className="pt-2">
+            <strong>3. Google Drive, for photo delivery and Papic</strong> —
+            optional, asked for only when you connect a Drive to receive your
+            event&rsquo;s photos. Permission requested:{' '}
+            <code className="break-all font-mono text-[12px]">
+              https://www.googleapis.com/auth/drive.file
+            </code>
+            , which limits Setnayan to the files and folders Setnayan itself
+            creates in your Drive. Full detail:{' '}
+            <a href="#google-drive" className="text-terracotta hover:underline">
+              Google Drive integration
+            </a>
+            . A one-page summary of both connections is at{' '}
+            <Link href="/privacy/google-access" className="text-terracotta hover:underline">
+              What connecting Google does
+            </Link>
+            .
+          </p>
+
+          <p className="pt-3">
+            <strong>What we never do with Google user data.</strong> We do not
+            sell it. We do not use it for advertising, and we do not use it to
+            train AI or machine-learning models. We do not share it with
+            suppliers, other users or any third party, except as described in
+            this section and below.
+          </p>
+          <p className="pt-2">
+            <strong>Who it is shared with.</strong> Only the service providers
+            that run Setnayan for us, and only to provide the service:{' '}
+            <strong>Supabase</strong>, our sign-in and database provider
+            (Singapore region), stores your account and the details Google sends
+            us; <strong>Vercel</strong> hosts the app that handles the sign-in;
+            and <strong>Resend</strong> delivers the emails we send to your
+            address. The full list is under{' '}
+            <a href="#subprocessors" className="text-terracotta hover:underline">
+              Subprocessors
+            </a>
+            . Inside Setnayan, your name and photo are seen by the people on the
+            events you join, as described above. We would disclose data
+            otherwise only where the law requires it.
+          </p>
+          <p className="pt-2">
+            <strong>Limited Use.</strong> Setnayan&rsquo;s use and transfer of
+            information received from Google APIs to any other app adheres to
+            the{' '}
+            <a
+              href="https://developers.google.com/terms/api-services-user-data-policy"
+              className="text-terracotta hover:underline"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Google API Services User Data Policy
+            </a>
+            , including the Limited Use requirements.
+          </p>
+          <p className="pt-2">
+            <strong>How long we keep it, and how to delete it.</strong> Your
+            sign-in details are kept for as long as your Setnayan account is
+            open. To delete your account and the personal data in it, sign in
+            and open{' '}
+            <Link href="/dashboard/profile" className="text-terracotta hover:underline">
+              your profile
+            </Link>{' '}
+            → <em>Delete my account</em>; or write to{' '}
+            <a href="mailto:dpo@setnayan.com" className="text-terracotta hover:underline">
+              dpo@setnayan.com
+            </a>{' '}
+            from the address on your account. What happens next, and the few
+            records the law requires us to keep, are set out under{' '}
+            <a href="#your-rights" className="text-terracotta hover:underline">
+              Your rights
+            </a>{' '}
+            and{' '}
+            <a href="#retention" className="text-terracotta hover:underline">
+              How long we keep things
+            </a>
+            . You can also stop Setnayan&rsquo;s access at any time from your{' '}
+            <a
+              href="https://myaccount.google.com/permissions"
+              className="text-terracotta hover:underline"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Google Account permissions
+            </a>{' '}
+            page.
+          </p>
+        </Section>
+
+        {/* ── Counting visits ───────────────────────────────────────────────
+            Added 2026-10-23 from the DPO pack (ROPA DPS-21). Read off the code:
+            visitorKey() in lib/visits/visit-capture.ts hashes IP + browser in
+            the middleware; record_site_visit() (migration
+            20271282829207_site_visits_daily.sql) re-hashes it with a salt minted
+            per Manila day, and deletes older salts and seen-hashes on the first
+            visit of a new day. Only site_visit_days totals are kept; admin-only
+            RLS. Guarded by lib/legal-retention-promises-have-a-mechanism.test.ts. */}
+        <Section id="visits" title="Counting visits (no cookie)">
+          <p>
+            We count how many people open Setnayan each day, so we can see
+            which pages are used. This uses <strong>no cookie</strong> and no
+            outside analytics service.
+          </p>
+          <ul className="ml-5 mt-2 list-disc space-y-1">
+            <li>
+              To count you once a day, we turn your IP address and browser into
+              a one-way code, mixed with a random value that changes every day.
+              We never store your IP address.
+            </li>
+            <li>
+              That day&rsquo;s code and that day&rsquo;s random value are
+              deleted the next day, so yesterday&rsquo;s visit cannot be linked
+              to today&rsquo;s.
+            </li>
+            <li>
+              What we keep is only the daily totals: the kind of page (for
+              example &ldquo;an Event Hub page&rdquo;, never its address), the
+              site that sent you, phone, tablet or computer, the country, and
+              whether you were signed in. Only the Setnayan team can see them.
             </li>
           </ul>
         </Section>
@@ -196,9 +441,15 @@ export default function PrivacyPage() {
             </li>
             <li>
               Legal basis: our legitimate interest in preventing fraud and
-              protecting our vendors (RA 10173 &sect; 12). The hash is
-              pseudonymous, included in your data export, and deleted when you
-              delete your account.
+              protecting our suppliers (RA 10173 &sect; 12). The hash is
+              pseudonymous.
+            </li>
+            <li>
+              It is <strong>not</strong> deleted when you delete your account:
+              it stays, tied only to the blanked-out account, so a removed
+              account cannot simply sign up again. Nothing deletes it on a
+              timer yet; how long we keep it is under review by our Data
+              Protection Officer.
             </li>
           </ul>
         </Section>
@@ -216,8 +467,8 @@ export default function PrivacyPage() {
           </p>
           <ul className="ml-5 mt-2 list-disc space-y-1">
             <li>
-              with your explicit, opt-in consent, recorded with a timestamp when
-              you enroll;
+              with your explicit, opt-in consent — a separate tick, never
+              ticked for you — recorded with a timestamp when you enroll;
             </li>
             <li>
               for adults 18 and older only (enrollment is not offered to
@@ -229,6 +480,12 @@ export default function PrivacyPage() {
             </li>
           </ul>
           <p className="pt-2">
+            <strong>It does not outlast the event.</strong> Your selfie and your
+            face vector are erased 12 hours after the event ends, or sooner when
+            you sign out. Photo tags already made stay, so your photos still
+            reach you.
+          </p>
+          <p className="pt-2">
             You may withdraw consent at any time, which permanently deletes your
             face vector and enrolled selfie. If you never enroll a selfie, we
             collect no biometric data about you.
@@ -239,6 +496,11 @@ export default function PrivacyPage() {
             Data Protection Officer&rsquo;s review. Until it is enabled and
             separately disclosed here, all face matching stays scoped to the one
             event you consented to.
+          </p>
+          <p className="pt-2">
+            <strong>Face tagging is off unless the hosts turn it on.</strong> It
+            is off for every event by default. If the hosts turn it on, each
+            guest still chooses for themselves.
           </p>
         </Section>
 
@@ -272,8 +534,8 @@ export default function PrivacyPage() {
               (&ldquo;Para kanino?&rdquo;), a child&rsquo;s birth date and
               gender, or an expected due date — are stored as part of your
               event. The celebrant&rsquo;s first name is used only to keep
-              their celebrations organized; it is never shown on public pages
-              or to vendors.
+              their events organized; it is never shown on public pages
+              or to suppliers.
             </li>
             <li>
               <strong>Guest RSVP details</strong> — when your guests reply we
@@ -289,9 +551,9 @@ export default function PrivacyPage() {
           </p>
         </Section>
 
-        <Section title="Your connection tree (limited pilot)">
+        <Section title="Your connection tree">
           <p>
-            Setnayan is piloting a <strong>connection tree</strong> — a record of
+            Setnayan offers a <strong>connection tree</strong> — a record of
             how the people around an event are related. It has three layers:{' '}
             <strong>family</strong>, <strong>ritual</strong> (ninong and ninang),
             and <strong>friends</strong>. It is entirely optional, and you never
@@ -300,7 +562,7 @@ export default function PrivacyPage() {
           <ul className="ml-5 mt-2 list-disc space-y-1">
             <li>
               <strong>Nothing is recorded about someone without an account.</strong>{' '}
-              During the pilot a connection can only be stored when{' '}
+              For now, a connection can only be stored when{' '}
               <em>both</em> people have a Setnayan account. That way both of you
               can see it, answer it, and delete it. You cannot add someone who
               has not signed up.
@@ -339,10 +601,10 @@ export default function PrivacyPage() {
             every connection.
           </p>
           <p className="pt-2">
-            This feature is a <strong>limited pilot</strong> while our filing
-            with the National Privacy Commission is being completed. We have kept
-            it deliberately narrow for that reason — both-parties-only, consent
-            before anything counts, and short retention.
+            We have kept this feature <strong>deliberately narrow</strong> while
+            our filing with the National Privacy Commission is being completed —
+            both-parties-only, consent before anything counts, and short
+            retention.
           </p>
         </Section>
 
@@ -354,13 +616,19 @@ export default function PrivacyPage() {
             information, shown to your guests at your choice.
           </p>
           <p className="pt-2">
-            <strong>
-              Setnayan never holds, moves, or records the transfer of any money.
-            </strong>{' '}
-            We store only the receiving details you enter so we can display them
-            — there is no wallet, balance, or transaction ledger. You can edit or
-            remove these details at any time, and they are deleted with your
-            event.
+            <strong>Setnayan never holds or moves any money.</strong> The gift
+            goes straight from your guest to you, and there is no wallet or
+            balance. You can edit or remove your receiving details at any time,
+            and they are deleted with your event.
+          </p>
+          <p className="pt-2">
+            <strong>Gift records.</strong> When a guest sends a gift, they can
+            leave a record of it for you: their name, the amount, a short note,
+            and a screenshot of the transfer. Only the hosts of the event can
+            see these. If you remove a record it is hidden from you; every
+            record and screenshot is deleted with the event. If a guest deletes
+            their own account, their screenshot is deleted, and their name,
+            amount and note stay with you.
           </p>
         </Section>
 
@@ -402,18 +670,18 @@ export default function PrivacyPage() {
             couple, and not to the public or to anyone outside the event. Only the
             compressed web copies are shared, only after they pass the automatic
             screening that runs on every capture, and the sharing never crosses
-            events: a pool is scoped to the one celebration. Guests can also link
+            events: a pool is scoped to the one event. Guests can also link
             themselves to a photo they appear in. If you would rather your shots
             went only to the couple, ask the host to leave the shared pool off for
             their event, or capture without it.
           </p>
           <p className="pt-2">
             <strong>FaceBlock.</strong> A guest who does not want to appear on an
-            event&rsquo;s live photo wall can turn on FaceBlock. We then generate
+            event&rsquo;s Memory lane can turn on FaceBlock. We then generate
             a server-side copy with detected faces blurred into the pixels and
             only that blurred copy may be projected — the wall fails closed, so
             if the safe copy is not ready the photo is withheld. You can opt out
-            of the live wall this way at any time.
+            of Memory lane this way at any time.
           </p>
         </Section>
 
@@ -422,7 +690,7 @@ export default function PrivacyPage() {
             A few Setnayan features connect two devices{' '}
             <strong>directly to each other</strong>, so that live audio and video
             travel between them rather than through us. That is how a voice or
-            video <strong>call</strong> inside a vendor conversation works; how a
+            video <strong>call</strong> inside a supplier conversation works; how a
             camera operator&rsquo;s phone sends its feed to the couple&rsquo;s Live
             Studio control room; how a guest who taps a side camera on an event
             page receives that angle (the operator&rsquo;s phone sends it straight
@@ -490,7 +758,7 @@ export default function PrivacyPage() {
           <p>
             Setnayan may feature finished work from real events — such as a
             published event recap, or a consented artifact like an animated
-            monogram, save-the-date, event website, or personal reel — on
+            monogram, save-the-date, Event Hub, or personal reel — on
             Setnayan&rsquo;s own social channels (for example our
             Facebook, Instagram, or TikTok) to showcase what the platform makes.
             This is optional and governed by consent:
@@ -555,21 +823,21 @@ export default function PrivacyPage() {
           </ul>
         </Section>
 
-        <Section title="Vendor identity masking">
+        <Section title="Supplier identity masking">
           <p>
-            When you chat with a Setnayan vendor, the vendor sees only your event display
+            When you chat with a Setnayan supplier, the supplier sees only your event display
             name and date — never your email or personal name unless you choose to share.
             This is a load-bearing product rule.
           </p>
         </Section>
 
-        <Section title="Vendor interest counts (what other couples can see)">
+        <Section title="Supplier interest counts (what other couples can see)">
           <p>
-            When you save a vendor to your plan, or send that vendor an inquiry, for an
+            When you save a supplier to your plan, or send that supplier an inquiry, for an
             event on a specific date, that action is counted toward an{' '}
             <strong>aggregate, de-identified</strong> number — how many other couples are
-            interested in that vendor on that same date. Other couples planning that date
-            can see that number next to the vendor.
+            interested in that supplier on that same date. Other couples planning that date
+            can see that number next to the supplier.
           </p>
           <p className="pt-2">
             <strong>What is shared is the count, and only the count.</strong> Never your
@@ -577,12 +845,12 @@ export default function PrivacyPage() {
             any contact detail; never <em>which</em> couples they are; and never anything
             that would let another couple work out who you are. The count is computed on
             our servers from data no couple can read directly, and only the final number
-            reaches the page. Vendors are not shown this count either.
+            reaches the page. Suppliers are not shown this count either.
           </p>
           <p className="pt-2">
             <strong>Small numbers are suppressed.</strong> In the Marketplace&rsquo;s
             &ldquo;In demand right now&rdquo; ranking, the number is only sourced from
-            couples who actually <em>inquired</em> with the vendor (not from couples who
+            couples who actually <em>inquired</em> with the supplier (not from couples who
             merely saved them), and it is not shown at all unless at least{' '}
             <strong>three</strong> other couples have inquired for your date — so one
             couple&rsquo;s planning is never exposed on its own. The count is also
@@ -590,7 +858,7 @@ export default function PrivacyPage() {
             count is computed and none is shown.
           </p>
           <p className="pt-2">
-            We never present this number as scarcity. Setnayan does not tell you a vendor
+            We never present this number as scarcity. Setnayan does not tell you a supplier
             is &ldquo;almost gone&rdquo; or that there are &ldquo;only N slots left&rdquo;
             — we do not hold a live capacity count, so any such claim would be invented.
           </p>
@@ -601,13 +869,10 @@ export default function PrivacyPage() {
               honest notice. RoPA DPS-17 records the same point as the open
               question for the DPO. */}
           <p className="pt-2">
-            <strong>You cannot switch this one off.</strong> There is no setting
-            that removes your own inquiry from the counts other couples see. We
-            are telling you plainly rather than leaving it unsaid: what leaves our
-            servers is a number, at three or above, with nothing attached to it
-            that points back to you — that is the protection, and it is the
-            reason we consider the trade a fair one. If you would rather not be
-            counted at all, not sending the inquiry is the only way.
+            <strong>You can switch this off.</strong> In your event&rsquo;s
+            privacy settings, turn off <em>Count us for other couples</em> and
+            your inquiries are left out of the counts other couples see. It does
+            not change what you see, and it never reaches a supplier.
           </p>
         </Section>
 
@@ -617,22 +882,22 @@ export default function PrivacyPage() {
             coordinator is someone on your side — a planner, a family member, a friend —
             not a Setnayan employee. Before they get any access, they accept a consent
             screen that names exactly what they will be able to see and do: your{' '}
-            <strong>guest list, seating, schedule, and your chats with vendors</strong>.
+            <strong>guest list, seating, schedule, and your chats with suppliers</strong>.
           </p>
           <p className="pt-2">
             Two abilities are <strong>off by default</strong> and only turn on if you
-            explicitly grant them: <strong>&ldquo;Can finalize vendors&rdquo;</strong>{' '}
-            (lock in a vendor choice for you) and{' '}
+            explicitly grant them: <strong>&ldquo;Can book suppliers&rdquo;</strong>{' '}
+            (book a supplier for you) and{' '}
             <strong>&ldquo;Can handle payments&rdquo;</strong> (complete an apply-then-pay
             checkout on your behalf). Even with the payments scope,{' '}
             <strong>Setnayan never holds, moves, or records the transfer of any money</strong>
             {' '}— the coordinator only prepares the same off-platform payment you would,
-            and settlement happens directly between you and the vendor.
+            and settlement happens directly between you and the supplier.
           </p>
           <p className="pt-2">
             A coordinator can also <strong>draft schedule items privately and release them
             to you</strong> when ready; drafts stay hidden from you, your guests, and your
-            vendors until the coordinator releases them.
+            suppliers until the coordinator releases them.
           </p>
           {/* Added 2026-08-02 by the per-clause audit follow-up. The section
               described a coordinator's READ access thoroughly but not the two
@@ -643,14 +908,14 @@ export default function PrivacyPage() {
             see.</strong>{' '}
             A day-of announcement (&ldquo;dinner is moving up fifteen minutes&rdquo;)
             is a short message, capped at 500 characters, that goes to{' '}
-            <em>everyone on that event</em> — you, your guests, and your vendors —
+            <em>everyone on that event</em> — you, your guests, and your suppliers —
             and it cannot be edited or unsent once posted. Only you and a
             coordinator you invited can write one, and every message records who
             sent it. Announcements never leave the event they belong to.
           </p>
           <p className="pt-2">
             <strong>They also run a day-of requests desk.</strong> Requests raised
-            during the event — a vendor asking for something, a change of plan on
+            during the event — a supplier asking for something, a change of plan on
             the floor — collect in one list the coordinator works through. It holds
             what a person wrote into the request and who raised it, stays scoped to
             that one event, and is deleted with it.
@@ -673,14 +938,14 @@ export default function PrivacyPage() {
           </p>
         </Section>
 
-        <Section title="Vendor AI assistant (automated replies)">
+        <Section title="Supplier AI assistant (automated replies)">
           <p>
-            A vendor may turn on a paid <strong>Vendor AI assistant</strong> for
+            A supplier may turn on a paid <strong>Supplier AI assistant</strong> for
             their own shop. When they do, it can read the messages in
-            <em> your chat with that vendor</em> and your event brief (event
+            <em> your chat with that supplier</em> and your event brief (event
             date, guest count, budget per head, and venue) to answer common
-            questions — and, if the vendor allows it, accept a booking request —
-            automatically, on that vendor&rsquo;s behalf.
+            questions — and, if the supplier allows it, accept a booking request —
+            automatically, on that supplier&rsquo;s behalf.
           </p>
           <p className="pt-2">
             You always see an automated message labelled{' '}
@@ -688,16 +953,16 @@ export default function PrivacyPage() {
             person didn&rsquo;t type it. The assistant is{' '}
             <strong>deterministic</strong> — it follows fixed rules and never
             invents answers or commitments — and it is <strong>single-tenant</strong>:
-            it only ever acts for the one vendor whose chat it is in, and never
-            reads across vendors or across your events.
+            it only ever acts for the one supplier whose chat it is in, and never
+            reads across suppliers or across your events.
           </p>
           <p className="pt-2">
             <strong>Lawful basis &amp; your rights.</strong> We process these
-            messages on the basis of your own act of messaging that vendor
-            (consent) and the couple&ndash;vendor relationship (contract). Because
+            messages on the basis of your own act of messaging that supplier
+            (consent) and the couple&ndash;supplier relationship (contract). Because
             a machine, not a person, is replying, RA 10173 &sect; 34 (automated
             processing) and &sect; 16(c) (right to object) apply: you can always
-            reach a human — every message you send still goes to the vendor, and
+            reach a human — every message you send still goes to the supplier, and
             nothing is hidden from them — and you may object through our{' '}
             <Link href="/help" className="text-terracotta hover:underline">
               Help Center
@@ -712,15 +977,15 @@ export default function PrivacyPage() {
           </p>
         </Section>
 
-        <Section title="Vendor Deep Search (vendor business research)">
+        <Section title="Supplier Deep Search (supplier business research)">
           <p>
-            Vendors can run <strong>Deep Search</strong>, a paid tool that uses AI
+            Suppliers can run <strong>Deep Search</strong>, a paid tool that uses AI
             to research <em>their own business</em> across public web sources —
             their own website, directory listings, and review sites — and builds a
-            short summary the vendor reviews to fill in their Setnayan profile.
+            short summary the supplier reviews to fill in their Setnayan profile.
           </p>
           <p className="pt-2">
-            This is about the vendor&rsquo;s business information. The research
+            This is about the supplier&rsquo;s business information. The research
             runs through <strong>Anthropic&rsquo;s AI web search</strong> (United
             States; see Subprocessors below). We <strong>never</strong> send your
             guest list, your messages, or your personal data into it. Public pages
@@ -730,7 +995,7 @@ export default function PrivacyPage() {
             {' '}basis.
           </p>
           <p className="pt-2">
-            <strong>Lawful basis.</strong> The vendor initiates it about their own
+            <strong>Lawful basis.</strong> The supplier initiates it about their own
             business (consent + contract); for any incidental, already-public
             third-party content we rely on legitimate interest (RA 10173 &sect;
             12(f)), minimised to a business summary and short retention.
@@ -738,7 +1003,7 @@ export default function PrivacyPage() {
           <p className="pt-2">
             <strong>Free coverage suggestion at sign-up.</strong> Separately,
             Setnayan may also run this same read — once, for free, on{' '}
-            <strong>our own initiative</strong> rather than the vendor&rsquo;s —
+            <strong>our own initiative</strong> rather than the supplier&rsquo;s —
             the first time a shop adds its own website, to <strong>suggest</strong>{' '}
             additional service categories the shop can confirm belong on their
             profile. This never changes a shop&rsquo;s coverage by itself: the
@@ -802,7 +1067,7 @@ export default function PrivacyPage() {
             To keep our marketplace signals honest — reviews, ratings, badges,
             and &ldquo;most-booked&rdquo; counts — we run automated checks that
             detect and prevent manipulation, such as fake or duplicate accounts
-            created to inflate a vendor&rsquo;s reputation. To spot rings of
+            created to inflate a supplier&rsquo;s reputation. To spot rings of
             accounts controlled by one person or household, we analyze signals we
             already hold (device and browser signals, the address on your
             account, and the payment-sender identity on your transactions) so
@@ -811,17 +1076,17 @@ export default function PrivacyPage() {
           <p className="pt-2">
             <strong>Lawful basis.</strong> We rely on legitimate interest (RA
             10173 § 12(f)) — preventing fraud and protecting the integrity of the
-            marketplace for couples and honest vendors. We use only data we have
+            marketplace for couples and honest suppliers. We use only data we have
             already collected for other purposes; there is no new collection for
             this.
           </p>
           <p className="pt-2">
             <strong>Automated decisions &amp; your right to object.</strong> At a
-            high fraud-risk score a vendor&rsquo;s listing may be automatically
+            high fraud-risk score a supplier&rsquo;s listing may be automatically
             and <em>reversibly</em> hidden while we review — no data is deleted,
             and one review by our team reverses it. Permanent action (removing a
-            vendor&rsquo;s reviews or banning an account) is never automatic; it
-            requires two separate team members to confirm. If you are a vendor
+            supplier&rsquo;s reviews or banning an account) is never automatic; it
+            requires two separate team members to confirm. If you are a supplier
             affected by an automated suspension or enforcement action, you may
             object and request a review through our{' '}
             <Link href="/help" className="text-terracotta hover:underline">
@@ -838,8 +1103,8 @@ export default function PrivacyPage() {
             <li>We do not capture or use your IP address for this.</li>
             <li>
               These groupings, signals, and scores are strictly internal — no
-              couple or vendor can view them, and they are never sold, shared,
-              used for advertising, or used to rank or promote vendors.
+              couple or supplier can view them, and they are never sold, shared,
+              used for advertising, or used to rank or promote suppliers.
             </li>
             <li>
               The evidence we store is non-identifying — counts and ratios, not
@@ -850,20 +1115,20 @@ export default function PrivacyPage() {
 
         <Section title="Storyteller chapters — inquiry referrals and source labels">
           <p>
-            When you contact a vendor after tapping &ldquo;Book through this
+            When you contact a supplier after tapping &ldquo;Book through this
             chapter&rdquo; on a storyteller&rsquo;s public chapter, we record
-            which chapter referred your inquiry so the vendor can honor the promo
+            which chapter referred your inquiry so the supplier can honor the promo
             that chapter advertised and the storyteller&rsquo;s public profile
             can show an aggregate count of inquiries their chapters have driven.
-            We also label each inquiry with how it reached the vendor (for
+            We also label each inquiry with how it reached the supplier (for
             example: their website, a Setnayan recommendation, a storyteller
             chapter, an editorial feature, or a returning customer). These labels
-            and the referral are visible only to you and the vendor on your
+            and the referral are visible only to you and the supplier on your
             conversation — they are never public. The only public figure derived
             from them is the storyteller&rsquo;s aggregate
             &ldquo;inquiries driven&rdquo; number, which never identifies you,
             your event, or your conversation. Any discount is offered and settled
-            by the vendor directly; Setnayan never handles the money.
+            by the supplier directly; Setnayan never handles the money.
           </p>
         </Section>
 
@@ -897,7 +1162,7 @@ export default function PrivacyPage() {
             </li>
             <li>
               One-click opt-out from{' '}
-              <code className="font-mono text-[12px]">/dashboard/{'{eventId}'}/privacy</code>{' '}
+              <code className="font-mono text-[12px]">/dashboard/{'{eventId}'}/website/privacy</code>{' '}
               removes the page from the index immediately.
             </li>
             <li>
@@ -905,17 +1170,14 @@ export default function PrivacyPage() {
             </li>
             <li>
               Private-always field allowlist — guest list, RSVP data, budget
-              figures, vendor chat history, day-of broadcast video, and raw
+              figures, supplier chat history, day-of broadcast video, and raw
               photo feed never reach the public Summary.
             </li>
             <li>
-              Right to redact any field, photo, vendor credit, or whole page at
+              Right to redact any field, photo, supplier credit, or whole page at
               any time.
             </li>
           </ol>
-          <p className="pt-2 text-xs text-ink/55">
-            Per CLAUDE.md decision-log 2026-05-19 row 426.
-          </p>
         </Section>
 
         <Section title="Guest-written columns on an event page">
@@ -1003,7 +1265,7 @@ export default function PrivacyPage() {
             is out of step with the code is false whichever way it points. It is
             corrected in the SAME change as the sweep, because a correction at
             one site is not a correction. */}
-        <Section title="How long we keep things">
+        <Section id="retention" title="How long we keep things">
           <p>
             Different kinds of data have different lifespans, and two of them are
             set by law rather than by us. This is the whole schedule.
@@ -1015,23 +1277,25 @@ export default function PrivacyPage() {
               <strong>6 months</strong> from the event&rsquo;s first photo (never
               less than <strong>3 months</strong> after the event ends), and are
               then replaced by a compressed copy. That{' '}
-              <strong>compressed gallery stays online, free, for life</strong> —
-              we do not delete your photos, and there is no end date on that
-              gallery. If you connect Google Drive, every original is also saved to a
+              <strong>compressed copy of your Memories stays online, free, for life</strong> —
+              we do not delete your photos, and there is no end date on those
+              Memories. If you connect Google Drive, every original is also saved to a
               folder you own, and that copy is yours to keep for as long as you want
               it.
             </li>
             <li>
-              <strong>Face-recognition data</strong> — for the one event only,
-              and deleted <strong>3 months after the event ends</strong>. That
-              covers the face vector, the enrolment record and the selfie you
-              uploaded for it. You can end it sooner at any time: withdrawing
-              your consent or asking us to remove it deletes it immediately.
+              <strong>Face-recognition data</strong> — for the one event only.
+              The selfie you uploaded, your face vector and the enrolment record
+              are erased <strong>12 hours after the event ends</strong> (sooner
+              if you sign out), and a weekly check deletes anything left{' '}
+              <strong>3 months after the event ends</strong>. You can end it
+              sooner at any time: withdrawing your consent or asking us to
+              remove it deletes it immediately.
               Deleting it takes away <em>no photo and no tag</em> — the pictures
               already delivered to you stay yours.
             </li>
             <li>
-              <strong>Messages between a couple and a vendor</strong> —{' '}
+              <strong>Messages between a couple and a supplier</strong> —{' '}
               <strong>5 years</strong> after the event date.
             </li>
             <li>
@@ -1046,32 +1310,72 @@ export default function PrivacyPage() {
             </li>
             <li>
               <strong>Your account and profile</strong> — for as long as the
-              account is open. When you close it, a short 30–90 day tail, then
-              permanent deletion.
+              account is open. When you ask us to delete it, our team reviews
+              the request within <strong>24 hours</strong>. Once approved, your
+              name, email, phone and photo are blanked out straight away; the
+              records the law makes us keep, listed above, stay. There is no
+              waiting period after that.
             </li>
             <li>
-              <strong>Support tickets</strong> — <strong>2 years</strong> after
-              the ticket closes.
+              <strong>Support messages</strong> — kept while your account is
+              open. When your account is deleted, your name, email and the words
+              of your messages are blanked out.
             </li>
             <li>
-              <strong>Error and usage logs</strong> — <strong>{ERROR_LOG_RETENTION_DAYS} days</strong> or
-              less, and they carry no personal data by design.
+              <strong>Error reports</strong> — kept by Sentry, our
+              error-reporting service, which deletes them after its own time
+              limit (<strong>{ERROR_LOG_RETENTION_DAYS} days</strong> or less on
+              our plan). We run no deletion of our own for them.
             </li>
             <li>
-              <strong>The fraud-prevention device identifier</strong> — for the
-              life of the account, and device records unused for more than 24
-              months are pruned.
+              <strong>The fraud-prevention device identifier</strong> — kept,
+              and not deleted when you delete your account (see{' '}
+              <em>Device identifier</em> above). Nothing deletes it on a timer
+              yet.
+            </li>
+            <li>
+              <strong>Gift records (Pabuya)</strong> — until the event is
+              deleted.
+            </li>
+            <li>
+              <strong>Daily visit codes</strong> — deleted the next day; only
+              the daily totals are kept.
+            </li>
+            <li>
+              <strong>Database backups</strong> — our database provider keeps a
+              daily backup for <strong>{DB_BACKUP_RETENTION_DAYS} days</strong>. Something deleted from
+              Setnayan can stay in a backup until that backup ages out.
+              Photos and files are not in these backups.
             </li>
           </ul>
           <p className="pt-2">
             Where you can end something sooner, you can: withdrawing face
             recognition deletes that data immediately, withdrawing a column takes
-            it off the page, and closing your account starts the tail above. The
+            it off the page, and you can ask us to delete your account. The
             two 10-year items are the exception — those we are required to keep.
           </p>
         </Section>
 
-        <Section title="Your rights (RA 10173)">
+        {/* ── Breach notices ── DPO ruling 2026-10-23 (corpus DECISION_LOG,
+            "OWNER ANSWERS ON THE BUILD TRACKER"): breach notices to affected
+            guests may go by email — only for a breach the law requires us to
+            report. Mirrors NPC_Compliance/04 Breach Policy § 6.2. */}
+        <Section id="breach" title="If there is a data breach">
+          <p>
+            If a breach of personal data happens that the law requires us to
+            report, we tell the National Privacy Commission and the people
+            affected within 72 hours of finding out, as RA 10173 and the
+            NPC&rsquo;s breach rules require. We tell you what happened, what
+            data was involved, what we are doing about it, and what you can do.
+          </p>
+          <p className="pt-2">
+            We may send that notice by email, including to guests. Guests
+            otherwise get no email from Setnayan; a breach the law makes us
+            report is the one exception.
+          </p>
+        </Section>
+
+        <Section id="your-rights" title="Your rights (RA 10173)">
           <ul className="ml-5 list-disc space-y-1">
             <li>
               <strong>Right to access:</strong> download a JSON archive of your data anytime
@@ -1087,14 +1391,15 @@ export default function PrivacyPage() {
             </li>
             <li>
               <strong>Right to erasure:</strong> the same profile page has an
-              account-deletion action (type DELETE to confirm). When you request
-              account deletion, our team reviews and permanently erases your
-              personal data within one business day of the request — except
-              records we are legally required to keep, such as tax and receipt
-              records under BIR rules, which we retain for the required period
-              and then delete. Because
-              deletion is permanent and immediate upon processing, it cannot be
-              undone once completed — please contact{' '}
+              account-deletion action (type DELETE to confirm). That sends a
+              request; our team reviews it within 24 hours. Once approved, your
+              personal details are blanked out straight away — except records
+              we are legally required to keep, such as tax and receipt records
+              under BIR rules, which we keep for the required period. One thing
+              is not yet automatic: the copy of your Google or Apple sign-in
+              details held by our sign-in provider; ask our Data Protection
+              Officer to remove it. Because deletion takes effect as soon as it
+              is approved, it cannot be undone — please contact{' '}
               <a
                 href="mailto:dpo@setnayan.com"
                 className="text-terracotta hover:underline"
@@ -1116,7 +1421,7 @@ export default function PrivacyPage() {
               if a supplier working an event photographs you, you can ask for that
               photograph to be removed, and we remove it from the supplier&rsquo;s
               own copy too &mdash; including their portfolio album &mdash; not only
-              from the couple&rsquo;s gallery.
+              from the couple&rsquo;s Memories.
             </li>
           </ul>
         </Section>
@@ -1127,12 +1432,11 @@ export default function PrivacyPage() {
                 figures predated the locked catalog (Patiktok is a flat-price
                 SKU; current price on /pricing). Privacy copy describes data
                 flows, not prices. */}
-            Couples on the Patiktok Personal tier connect their own
+            Couples who use Patiktok can connect their own
             TikTok account to Setnayan so Patiktok booth compilations can
             auto-post to the couple&rsquo;s handle. Setnayan uses TikTok&rsquo;s
-            Login Kit and Content Posting API. The Setnayan tier
-            does not require a couple-side TikTok connection — those
-            compilations post to <strong>@SetnayanWeddings</strong>, our
+            Login Kit and Content Posting API. Without a couple-side
+            TikTok connection, compilations post to <strong>@SetnayanWeddings</strong>, our
             company-owned handle, using credentials Setnayan manages directly.
           </p>
           <ul className="ml-5 list-disc space-y-1 pt-2">
@@ -1162,12 +1466,12 @@ export default function PrivacyPage() {
               stored in <code className="font-mono text-[12px]">patiktok_oauth_grants</code> in our
               Supabase database (Singapore region · encrypted at rest), scoped
               to one specific Setnayan event. These credentials are never
-              shared with vendors, other couples, or third parties. (That
+              shared with suppliers, other couples, or third parties. (That
               statement is about your TikTok credentials specifically — it is
               not a blanket claim that nothing you do on Setnayan is ever
               visible to another couple. For the one place where your planning
               activity feeds an anonymous count that other couples can see, see{' '}
-              <em>Vendor interest counts</em> above.)
+              <em>Supplier interest counts</em> above.)
             </li>
             <li>
               <strong>Retention.</strong> Grants are kept until you revoke them
@@ -1230,7 +1534,7 @@ export default function PrivacyPage() {
               5. THE SCOPE LIST MUST BYTE-MATCH YOUTUBE_OAUTH_SCOPES *AND* THE
                  OAUTH CONSENT SCREEN. A policy that discloses a scope we do
                  not request is as wrong as one that hides a scope we do. */}
-        <Section title="Google / YouTube data (Live Watch)">
+        <Section id="google-youtube" title="Google / YouTube data (Live Watch)">
           <p>
             Live Watch is Setnayan&rsquo;s live-broadcast feature. It is
             optional and off by default. When a host turns it on for an event,{' '}
@@ -1477,15 +1781,15 @@ export default function PrivacyPage() {
             to advertising networks or data brokers, do not use it for
             advertising or personalisation, and do not use it to train AI or
             machine-learning models. Your connection credential and your channel
-            details are not shared with vendors, other couples, or any other
+            details are not shared with suppliers, other couples, or any other
             Setnayan user. The one thing that is published is the broadcast
             itself &mdash; its link is embedded on your event page, which is
             public, so anyone with that page or the link can watch. That is what
             the feature is for, and you control it by choosing whether to go
             live. (This paragraph is about your YouTube connection, not about
-            everything you do on Setnayan &mdash; your vendor shortlisting also
+            everything you do on Setnayan &mdash; your supplier shortlisting also
             feeds an anonymous count other couples can see, described under{' '}
-            <em>Vendor interest counts</em> above.)
+            <em>Supplier interest counts</em> above.)
           </p>
 
           <p className="pt-3">
@@ -1511,10 +1815,10 @@ export default function PrivacyPage() {
         </Section>
 
 
-        <Section title="Google Drive integration (Photo Delivery + Papic)">
+        <Section id="google-drive" title="Google Drive integration (Photo Delivery + Papic)">
           <p>
-            Couples who use Photo Delivery (vendor-released final wedding
-            photos) or Papic (the V1.5+ camera mesh) connect a Google Drive
+            Couples who use Photo Delivery (supplier-released final event
+            photos) or Papic (our in-app camera) connect a Google Drive
             account so Setnayan can write photos and videos into that Drive
             on the couple&rsquo;s behalf. The connection uses Google&rsquo;s
             standard OAuth sign-in. You can revoke it at any time from your{' '}
@@ -1551,12 +1855,12 @@ export default function PrivacyPage() {
               your existing Drive contents.
             </li>
             <li>
-              <strong>How we use it.</strong> For Photo Delivery (0009), we
-              create one folder per event named after the wedding (for
+              <strong>How we use it.</strong> For Photo Delivery, we
+              create one folder per event named after the event (for
               example, <em>&ldquo;Setnayan · Maria &amp; Juan Wedding ·
-              2026-10-24&rdquo;</em>) and the vendor&rsquo;s release action
-              writes the finalized photo set into that folder. For Papic
-              (V1.5+), the camera-mesh capture pipeline writes event-day
+              2026-10-24&rdquo;</em>) and the supplier&rsquo;s release action
+              writes the finalized photo set into that folder. For Papic,
+              the capture pipeline writes event-day
               photos into a bootstrapped folder structure inside the same
               Drive. We never browse, modify, or delete any file we did not
               create.
@@ -1567,11 +1871,11 @@ export default function PrivacyPage() {
               <code className="font-mono text-[12px]">oauth_grants</code>{' '}
               in our Supabase database (Singapore region · encrypted at
               rest), scoped to one specific Setnayan event. These credentials
-              are never shared with vendors, other couples, or third parties.
+              are never shared with suppliers, other couples, or third parties.
               (That statement is about your Google Drive credentials
               specifically — it is not a blanket claim that nothing you do on
               Setnayan is ever visible to another couple. See{' '}
-              <em>Vendor interest counts</em> above for the one place where your
+              <em>Supplier interest counts</em> above for the one place where your
               planning activity feeds an anonymous count.)
             </li>
             <li>
@@ -1645,7 +1949,7 @@ export default function PrivacyPage() {
           </ul>
         </Section>
 
-        <Section title="Subprocessors">
+        <Section id="subprocessors" title="Subprocessors">
           <ul className="ml-5 list-disc space-y-1">
             <li>Supabase (database + auth · Singapore region)</li>
             <li>Vercel (web hosting)</li>
@@ -1655,8 +1959,7 @@ export default function PrivacyPage() {
               connection is not possible — transit only, nothing stored)
             </li>
             <li>Resend (transactional email)</li>
-            <li>Sentry (server-side error monitoring · stack traces only)</li>
-            <li>PostHog Cloud (product analytics)</li>
+            <li>Sentry (error monitoring · stack traces, and a masked screen replay when something breaks · sets no cookies)</li>
             <li>
               OpenAI (content moderation · United States · never trained on your
               data) — when an event editorial or a guest-written column is
@@ -1664,11 +1967,6 @@ export default function PrivacyPage() {
               API before the couple sees it, to catch vulgarity, hate speech,
               harassment, sexual content and violence. No photos, no guest list,
               no payment details, and no message bodies are sent.
-            </li>
-            <li>
-              LanguageTool (spelling and grammar · public API) — the same
-              editorial text, checked for spelling and grammar. The suggestions
-              are advisory; a person decides.
             </li>
             <li>
               OpenStreetMap / Nominatim (turning an address into a map pin) — a
@@ -1685,7 +1983,7 @@ export default function PrivacyPage() {
             </li>
             <li>
               Anthropic (AI features · United States · never trained on your
-              data) — AI web research for the vendor Deep Search tool, and
+              data) — AI web research for the supplier Deep Search tool, and
               reading the payment receipt you upload so we can check the
               reference number you typed. A receipt is a bank document: see
               &ldquo;Reading your payment receipt&rdquo; above for exactly what
@@ -1705,8 +2003,12 @@ export default function PrivacyPage() {
               &ldquo;Make it real&rdquo;)
             </li>
             <li>
-              TikTok (Personal-tier Patiktok only · for couples who explicitly
+              TikTok (Patiktok only · for couples who explicitly
               connect their TikTok account via OAuth)
+            </li>
+            <li>
+              Apple (signing in with Apple, for people who choose it; and purchases
+              made in the iPhone app through Apple, when available in the app)
             </li>
           </ul>
         </Section>
@@ -1725,9 +2027,18 @@ export default function PrivacyPage() {
 
 
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({
+  id,
+  title,
+  children,
+}: {
+  /** An in-page anchor (`/privacy#google-user-data`) — linked from this page and handed to reviewers. */
+  id?: string;
+  title: string;
+  children: React.ReactNode;
+}) {
   return (
-    <section className="space-y-2">
+    <section id={id} className="scroll-mt-24 space-y-2">
       <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
       <div className="text-sm text-ink/75">{children}</div>
     </section>

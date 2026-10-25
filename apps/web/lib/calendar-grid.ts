@@ -162,15 +162,22 @@ export const CALENDAR_MONTH_SLIDE_PX = 18;
  * The screen says what each day holds (`CalendarDayState`); this file only says how that is drawn and named.
  */
 
-/** What a dot under a day means — green Booked · amber Holding · the accent for the viewer's own event. */
-export type CalendarDot = 'booked' | 'holding' | 'event';
+/**
+ * What a dot under a day means — green Booked here · grey Outside (a booking from outside, its own dot — owner
+ * 2026-10-14 ✅ "APPROVE", plain words) · amber Asking · the accent for the viewer's own event.
+ */
+export type CalendarDot = 'booked' | 'outside' | 'asking' | 'event';
 
-/** The legend's words, and a day's name for a screen reader. */
+/** The legend's words, and a day's name for a screen reader (the plain words adopted 2026-10-14). */
 export const CALENDAR_DOT_WORD: Readonly<Record<CalendarDot, string>> = {
-  booked: 'Booked',
-  holding: 'Holding',
+  booked: 'Booked here',
+  outside: 'Outside',
+  asking: 'Asking',
   event: 'Your event',
 };
+
+/** The legend's word for a blocked day (plain words, 2026-10-14: block days → "Not available"). */
+export const CALENDAR_BLOCKED_WORD = 'Not available';
 
 /** One day's state (kind 31). Left out, a day is drawn exactly as kind 8 draws it. */
 export type CalendarDayState = {
@@ -178,6 +185,8 @@ export type CalendarDayState = {
   dots?: readonly CalendarDot[];
   /** Nothing new can be booked on it — the hatched grey square. */
   blocked?: boolean;
+  /** Some HOURS are not available (a morning / afternoon / evening block) — the top half hatched; the day stays open. */
+  part?: boolean;
   /** Its limit is reached — the number is bold. */
   full?: boolean;
 };
@@ -188,6 +197,14 @@ export type CalendarDayState = {
  */
 export const CALENDAR_HATCH = 'repeating-linear-gradient(135deg, transparent 0 3px, rgb(var(--color-ink) / 0.16) 3px 4px)';
 
+/** A part-day block's mark: the same hatch on the TOP HALF only (prototype `.xm`) — some hours, never the day. */
+export const CALENDAR_PART_STYLE = {
+  backgroundImage: CALENDAR_HATCH,
+  backgroundSize: '100% 50%',
+  backgroundRepeat: 'no-repeat',
+  backgroundPosition: 'top',
+} as const;
+
 /** The most dots under one day (a 44-px day has room for three 5-px dots). */
 export const CALENDAR_MAX_DOTS = 3;
 
@@ -195,14 +212,18 @@ export const CALENDAR_MAX_DOTS = 3;
 export function dayDots(state: CalendarDayState | null | undefined): CalendarDot[] {
   if (!state || state.blocked) return [];
   const seen = new Set(state.dots ?? []);
-  return (['booked', 'holding', 'event'] as const).filter((d) => seen.has(d)).slice(0, CALENDAR_MAX_DOTS);
+  return (['booked', 'outside', 'asking', 'event'] as const).filter((d) => seen.has(d)).slice(0, CALENDAR_MAX_DOTS);
 }
 
-/** What a screen reader hears after the day's date: "blocked" · "Booked and Holding, full" · '' for a quiet day. */
+/**
+ * What a screen reader hears after the day's date: "not available" · "Booked here and Asking, full" · "some hours not
+ * available" · '' for a quiet day.
+ */
 export function dayStateWords(state: CalendarDayState | null | undefined): string {
   if (!state) return '';
-  if (state.blocked) return 'blocked';
+  if (state.blocked) return CALENDAR_BLOCKED_WORD.toLowerCase();
   const words = dayDots(state).map((d) => CALENDAR_DOT_WORD[d]);
+  if (state.part) words.push('some hours not available');
   const said = words.length <= 1 ? (words[0] ?? '') : `${words.slice(0, -1).join(', ')} and ${words[words.length - 1]}`;
   return state.full ? (said ? `${said}, full` : 'full') : said;
 }

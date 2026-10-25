@@ -27,6 +27,7 @@ export function useViewAsFreeToggle(): (on: boolean) => void {
   return useCallback(
     (on: boolean) => {
       document.cookie = viewAsFreeCookieString(on, window.location.protocol === 'https:');
+      // one-render: keep (client-write) — the switch wrote a cookie in this browser (no server action); the server must read the page with it.
       router.refresh();
     },
     [router],

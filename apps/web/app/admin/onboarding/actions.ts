@@ -19,7 +19,8 @@
  */
 
 import { ONBOARDING_MUSIC_MAX_TRACKS } from '@/lib/onboarding-music-limits';
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
+import { GLOBAL_SETTINGS_TAGS } from '@/lib/global-settings-tags';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -79,6 +80,7 @@ export async function updateOnboardingMusic(formData: FormData) {
       updated_at: new Date().toISOString(),
     })
     .eq('id', 1);
+  revalidateTag(GLOBAL_SETTINGS_TAGS.platformSettings);
   if (error) {
     return redirect(`/admin/ugat?tab=onboarding&error=${encodeURIComponent(error.message)}`);
   }

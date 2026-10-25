@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { blockRelevance } from '@/lib/vendor-timeline';
 import { DEFAULT_EVENT_TZ } from '@/lib/schedule';
+import { icsDocument, icsEscape } from '@/lib/ics-text';
 
 /**
  * Per-vendor .ics feed of the shared day-of timeline — feature-access
@@ -15,10 +16,6 @@ import { DEFAULT_EVENT_TZ } from '@/lib/schedule';
  * event_vendors directly); a lens over already-authorized rows, never a
  * second data path.
  */
-
-function icsEscape(s: string): string {
-  return s.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n');
-}
 
 /** A real instant → an ICS UTC stamp (`…Z`). Only for values that genuinely
  *  ARE instants, like DTSTAMP. */
@@ -68,12 +65,19 @@ export async function GET(req: Request, { params }: Params) {
   } = await supabase.auth.getUser();
   if (!user) return new NextResponse('Unauthorized', { status: 401 });
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('event_schedule_blocks')
     .select('block_id, label, block_type, start_at, end_at, location')
     .eq('event_id', eventId)
     .not('start_at', 'is', null)
     .order('start_at', { ascending: true });
+  // A refused or failed read is not "this event has no timeline" — say it, never the 404 an empty one gets.
+  if (error) {
+    return new NextResponse('The timeline could not be read just now, so no file was made. Please try again.', {
+      status: 503,
+      headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' },
+    });
+  }
 
   let blocks = (data ?? []) as {
     block_id: string;
@@ -124,7 +128,7 @@ export async function GET(req: Request, { params }: Params) {
   }
   lines.push('END:VCALENDAR');
 
-  return new NextResponse(lines.join('\r\n') + '\r\n', {
+  return new NextResponse(icsDocument(lines), {
     headers: {
       'Content-Type': 'text/calendar; charset=utf-8',
       'Content-Disposition': 'attachment; filename="setnayan-event-timeline.ics"',

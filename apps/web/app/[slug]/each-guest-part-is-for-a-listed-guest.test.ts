@@ -36,7 +36,8 @@ import React from 'react';
 const WORDS = { eventWord: 'wedding', solemn: false, twoPeople: true } as never;
 const BOARD = { principal_sponsors: ['#C9A24B', '#F4E9DC'], touched_roles: ['principal_sponsors'] };
 /** A ninang the couple dressed and gave a call time. */
-const DRESSED = { roles: { principal_sponsor_ninang: { style: 'long_gown', callTime: '14:00' } } };
+/* The sponsors' row as the Studio stores it — her Wear is the women's, her call time the row's (2026-10-17). */
+const DRESSED = { groups: { principal_sponsors: { style: 'barong_tagalog', callTime: '14:00' } }, women: { groups: { principal_sponsors: { style: 'long_gown' } } } };
 
 type Reader = { label: string; getIn: 'list' | 'requests' | 'personal' | 'one_qr' | 'one_qr_approve'; reader: { kind: 'guest'; entrySource?: string | null } | { kind: 'visitor' }; on?: boolean };
 const LISTED: Reader = { label: 'a listed guest', getIn: 'list', reader: { kind: 'guest', entrySource: 'host_seeded' } };
@@ -72,7 +73,9 @@ async function draw(who: Reader, row: Row): Promise<string> {
         ceremonyType: null,
         genderSeparation: null,
         guestRole: row.role as never,
-        march: null,
+        /* (2026-10-24, the Me redraw: Me's first part is "Your place" — where they walk; the role is said once, at the
+           top of Me. A ninang in the march walks 5th.) */
+        march: row.role === 'guest' ? null : { position: 5, total: 9, partner: null, after: 'Carlos Reyes and Nena Reyes' },
         rolePalette: BOARD,
       },
       comingWith: row.comingWith,
@@ -97,8 +100,10 @@ async function holds(key: 'role' | 'wear' | 'arrive' | 'guests', heading: string
   assert.equal(partOf(await draw(LISTED, without), key), '', `${heading}: drawn for a listed guest whose row does not carry it`);
 }
 
-test('Your role — a listed guest with a role; never a plain "guest"', async () => {
-  await holds('role', 'Your role', /Ninang|Principal Sponsor/, { ...WITH_FACTS, role: 'guest' });
+test('Your place — a listed guest with a role in the march; never a plain "guest"', async () => {
+  // 🔁 RE-AIMED 2026-10-24 (owner, the Me redraw): the part says WHERE they walk ("Your place"); their role itself is
+  // Me's top line (`MeGreeting`), said once.
+  await holds('role', 'Your place', /You walk 5th/, { ...WITH_FACTS, role: 'guest' });
 });
 
 test('What to wear — the outfit the couple set for that role; never a default style', async () => {
@@ -109,7 +114,7 @@ test('What to wear — the outfit the couple set for that role; never a default 
 });
 
 test('Arrive by — the call time the couple set for that role', async () => {
-  await holds('arrive', 'Arrive by', /2:00 PM/, { ...WITH_FACTS, dress: { roles: { principal_sponsor_ninang: { style: 'long_gown' } } } });
+  await holds('arrive', 'Arrive by', /2:00 PM/, { ...WITH_FACTS, dress: { groups: { principal_sponsors: { style: 'barong_tagalog' } }, women: { groups: { principal_sponsors: { style: 'long_gown' } } } } });
 });
 
 test('Coming with you — the named companions on their seats', async () => {

@@ -34,12 +34,13 @@
  */
 
 import type { GuestRole } from '@/lib/guests';
-import { roleLabel } from '@/lib/entourage';
+import { kinWordOfReader, roleLabel } from '@/lib/entourage';
 import type { RoleNames } from '@/lib/role-names';
 import { resolveAttirePaletteColors, type RolePalette } from '@/lib/mood-board';
 
-/** The styles a couple may ask a role to wear. Owner's three, plus the ones a Filipino wedding actually uses. */
-export const ATTIRE_STYLES = [
+/** The shipped seven — owner's three, plus the ones a Filipino wedding actually uses. A row with no designs of its own
+ *  (the celebrant, Nikah principals, officiants & readers) still offers these (`STYLE_ORDER`, lib/attire-figures.ts). */
+export const GENERAL_ATTIRE_STYLES = [
   'long_gown',
   'cocktail_dress',
   'filipiniana',
@@ -48,8 +49,26 @@ export const ATTIRE_STYLES = [
   'formal',
   'smart_casual',
 ] as const;
+
+/**
+ * EVERY WORD A WEAR MAY BE STORED AS — the seven, plus the eight designs the roles' own lists added (owner 2026-10-16,
+ * DECISION_LOG "EACH ROLE HAS ITS OWN LIST OF DESIGNS"; the table is `ROLE_DESIGNS`, lib/attire-designs.ts). One
+ * vocabulary, so every sanitizer, the dress-code save and the readers accept a design without a second shape.
+ */
+export const ATTIRE_STYLES = [
+  ...GENERAL_ATTIRE_STYLES,
+  'three_piece_suit',
+  'tuxedo',
+  'vest_and_tie',
+  'vest_and_bow_tie',
+  'ball_gown',
+  'mermaid',
+  'a_line',
+  'tulle_dress',
+] as const;
 export type AttireStyle = (typeof ATTIRE_STYLES)[number];
 
+/** The shared word for each — a role names its own designs its own way (`designLabel`, lib/attire-designs.ts). */
 export const ATTIRE_STYLE_LABEL: Record<AttireStyle, string> = {
   long_gown: 'Long gown',
   cocktail_dress: 'Cocktail dress',
@@ -58,6 +77,14 @@ export const ATTIRE_STYLE_LABEL: Record<AttireStyle, string> = {
   suit: 'Suit',
   formal: 'Formal',
   smart_casual: 'Smart casual',
+  three_piece_suit: '3-piece suit',
+  tuxedo: 'Tuxedo',
+  vest_and_tie: 'Vest and tie',
+  vest_and_bow_tie: 'Vest and bow tie',
+  ball_gown: 'Ball gown',
+  mermaid: 'Mermaid',
+  a_line: 'A-line',
+  tulle_dress: 'Tulle dress',
 };
 
 export function isAttireStyle(v: unknown): v is AttireStyle {
@@ -116,6 +143,36 @@ export function formatCallTime(hhmm: string | null | undefined): string | null {
   const suffix = h < 12 ? 'AM' : 'PM';
   const h12 = h % 12 === 0 ? 12 : h % 12;
   return `${h12}:${v.slice(3)} ${suffix}`;
+}
+
+/**
+ * ⏰ THE CALL TIMES A SAVE DID NOT SEND, KEPT (owner 2026-10-18: *"each role will have their call time"*, set beside each
+ * row's outfit in Studio › Mood Board & Dress Code). The older dress-code form no longer posts a time, and it rebuilds
+ * `roles` / `groups` whole — so for a tier that posted NO times (`posted[tier]` false) each line takes its time from the
+ * config the save replaces (`base`): never wiped by a Save made there, and never a stale tab's time written over one the
+ * Studio set since. A tier that did post times is left as posted. A line the save removed carries nothing — a time with
+ * no outfit line is read by nobody.
+ */
+export function carryCallTimes<C extends { roles: object; groups: object }>(
+  next: C,
+  base: unknown,
+  posted: { roles: boolean; groups: boolean },
+): C {
+  const was = base && typeof base === 'object' && !Array.isArray(base) ? (base as Record<string, unknown>) : {};
+  const carry = (tier: 'roles' | 'groups'): object => {
+    const map = next[tier] as Record<string, RoleAttireRule | undefined>;
+    if (posted[tier]) return map;
+    const stored = (was[tier] && typeof was[tier] === 'object' ? was[tier] : {}) as Record<string, { callTime?: unknown } | undefined>;
+    const out: Record<string, RoleAttireRule | undefined> = {};
+    for (const [key, rule] of Object.entries(map)) {
+      if (!rule) continue;
+      const { callTime: _sent, ...rest } = rule;
+      const time = sanitizeCallTime(stored[key]?.callTime);
+      out[key] = time ? { ...rest, callTime: time } : rest;
+    }
+    return out;
+  };
+  return { ...next, roles: carry('roles'), groups: carry('groups') };
 }
 
 /** `dress_code_config.roles` — role key → what that role wears. */
@@ -181,11 +238,16 @@ export function resolveGuestDressCode(input: {
   sideColor?: string | null;
   /** The couple's words for roles (owner 2026-09-30) — "You are in the Bride's Crew". */
   names?: RoleNames | null;
+  /**
+   * 👪 WHO THIS READER IS, from their own row (title · attire) — a parent or grandparent is named per person, by the
+   * entourage's own resolver (`kinWordOfReader`): "You are Father of the Bride". Absent: the role's word, as before.
+   */
+  person?: { name_prefix?: string | null; display_name?: string | null; attire?: string | null; gender: string | null | undefined } | null;
 }): GuestDressCode | null {
   const role = input.role;
   if (!role || role === 'guest') return null;
 
-  const label = roleLabel(role, input.names);
+  const label = (input.person ? kinWordOfReader(role, input.person, input.names) : null) ?? roleLabel(role, input.names);
   const rule = input.roles[role] ?? null;
   const hexes = input.palette
     ? resolveAttirePaletteColors(role, input.palette, input.sideColor ?? null)

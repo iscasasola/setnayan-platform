@@ -47,7 +47,7 @@ export type ColorSearchMatch = NamedColor & { source: 'wedding' | 'css' | 'alias
 export type ColorSearchResult = {
   query: string;
   /** Ranked matches — curated before CSS, exact-fold before prefix before
-   *  substring, deduped by hex. Empty when nothing matched. */
+   *  substring, deduped by hex AND by name (`listedOnce`). Empty when nothing matched. */
   matches: ColorSearchMatch[];
   /** Populated ONLY when `matches` is empty — the closest names by spelling,
    *  so a miss can say "no colour named that; here are the closest" instead
@@ -161,6 +161,26 @@ function levenshtein(a: string, b: string): number {
 
 const SOURCE_RANK: Record<Entry['source'], number> = { wedding: 0, alias: 1, css: 2 };
 
+/**
+ * 🔁 A COLOUR IS LISTED ONCE — by its swatch AND by its name (2026-10-18, the Mood Board's colour search showed
+ * "Coral" twice, "Gold" twice, "Navy" twice: the curated table and the 140 CSS names both carry the word, each with its
+ * own hex, so a hex-only check let both through — two chips with one name that look like the same swatch listed
+ * twice). The first one ranked wins, so the curated colour keeps its place (it ranks before CSS) and the order is
+ * otherwise unchanged. Measured over every prefix of every name: 45 queries listed a name twice before this.
+ */
+function listedOnce(): (e: { name: string; hex: string }) => boolean {
+  const hexes = new Set<string>();
+  const names = new Set<string>();
+  return (e) => {
+    const hex = e.hex.toUpperCase();
+    const name = foldColorName(e.name);
+    if (hexes.has(hex) || names.has(name)) return false;
+    hexes.add(hex);
+    names.add(name);
+    return true;
+  };
+}
+
 export function searchColorNames(rawQuery: string, limit = 8): ColorSearchResult {
   const query = rawQuery.trim();
   const folded = foldColorName(query);
@@ -179,12 +199,10 @@ export function searchColorNames(rawQuery: string, limit = 8): ColorSearchResult
     SOURCE_RANK[a.source] - SOURCE_RANK[b.source] || a.name.localeCompare(b.name);
   const ranked = [...exact.sort(bySourceThenName), ...prefix.sort(bySourceThenName), ...substring.sort(bySourceThenName)];
 
-  const seen = new Set<string>();
+  const once = listedOnce();
   const matches: ColorSearchMatch[] = [];
   for (const e of ranked) {
-    const key = e.hex.toUpperCase();
-    if (seen.has(key)) continue;
-    seen.add(key);
+    if (!once(e)) continue;
     matches.push({ name: e.name, hex: e.hex, source: e.source });
     if (matches.length >= limit) break;
   }
@@ -198,12 +216,10 @@ export function searchColorNames(rawQuery: string, limit = 8): ColorSearchResult
     .map((e) => ({ e, d: levenshtein(folded, e.folded) }))
     .filter(({ d }) => d <= MAX_SUGGEST_DISTANCE)
     .sort((a, b) => a.d - b.d || SOURCE_RANK[a.e.source] - SOURCE_RANK[b.e.source] || a.e.name.localeCompare(b.e.name));
-  const suggestSeen = new Set<string>();
+  const suggestOnce = listedOnce();
   const suggestions: ColorSearchMatch[] = [];
   for (const { e } of scored) {
-    const key = e.hex.toUpperCase();
-    if (suggestSeen.has(key)) continue;
-    suggestSeen.add(key);
+    if (!suggestOnce(e)) continue;
     suggestions.push({ name: e.name, hex: e.hex, source: e.source });
     if (suggestions.length >= limit) break;
   }

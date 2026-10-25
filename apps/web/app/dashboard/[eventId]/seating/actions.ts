@@ -11,6 +11,10 @@ import { sanitizeReceptionDesign, type ReceptionDesign } from '@/lib/reception-s
 import { sanitizeDismissedSuggestions } from '@/lib/reception-suggestion-chips';
 import { MOODBOARD_STYLE_FAMILIES, type MoodboardStyleFamily } from '@/lib/moodboard-templates';
 import { PILOT_DECOR_ZONES, type DecorLayerCatalog } from '@/lib/reception-decor-layers';
+import { updateJsonColumn, type JsonColumnClient } from '@/lib/update-json-column';
+import { changedFields, mergeFromBase, MERGE_BASE_FIELD, TWO_SCREENS_NOTE } from '@/lib/merge-from-base';
+import { floorPlanRowFrom } from '@/lib/floor-plan-row';
+import { floorItemsThisScreenChanged } from '@/lib/floor-items-merge';
 import { SeatingLockError } from './seating-lock-error';
 import { floorPlanOrStop, guestsOrStop, keepApartOrStop, membershipsOrStop } from '@/lib/seating-inputs';
 import { parseRoleSeating, type RoleSeating } from '@/lib/role-seating';
@@ -677,74 +681,20 @@ export async function saveFloorPlan(formData: FormData) {
   if (typeof eventId !== 'string' || eventId.length === 0) {
     throw new Error('Invalid input');
   }
-  const stageX = clampPct(formData.get('stage_x'));
-  const stageY = clampPct(formData.get('stage_y'));
-  const entranceX = clampPct(formData.get('entrance_x'));
-  const entranceY = clampPct(formData.get('entrance_y'));
-  const entranceEnabled = formData.get('entrance_enabled') === 'true';
-  // Main-entrance geometry (migration 20270717284319): door vs walk-through.
-  // The schema value stays 'tunnel'; the UI labels it "Walk-through". Depth is
-  // METRES (not a percent — never route it through clampPct), clamped 1.5–8.
-  const entranceKind = formData.get('entrance_kind') === 'tunnel' ? 'tunnel' : 'door';
-  const entranceDepth = ((): number => {
-    const raw = formData.get('entrance_depth_m');
-    if (typeof raw !== 'string' || raw.length === 0) return 3;
-    const n = Number(raw);
-    if (!Number.isFinite(n)) return 3;
-    return Math.max(1.5, Math.min(8, n));
-  })();
-  // Floor-plan kit: stage size + dance-floor zone + optional service door.
-  // Sizes clamp to 2–100% so a degenerate drag can't zero an element out.
-  const clampSize = (v: unknown): number | null => {
-    if (typeof v !== 'string' || v.length === 0) return null;
-    const n = Number(v);
-    if (!Number.isFinite(n)) return null;
-    return Math.max(2, Math.min(100, n));
-  };
-  const stageW = clampSize(formData.get('stage_w'));
-  const stageH = clampSize(formData.get('stage_h'));
-  const danceEnabled = formData.get('dance_enabled') === 'true';
-  const danceX = clampPct(formData.get('dance_x'));
-  const danceY = clampPct(formData.get('dance_y'));
-  const danceW = clampSize(formData.get('dance_w'));
-  const danceH = clampSize(formData.get('dance_h'));
-  const serviceEnabled = formData.get('service_entrance_enabled') === 'true';
-  const serviceX = clampPct(formData.get('service_entrance_x'));
-  const serviceY = clampPct(formData.get('service_entrance_y'));
-
-  // Cocktail / waiting-area room — a second room on the same canvas. Its centre
-  // clamps to a WIDER band than 0–100 so the room can dock just OUTSIDE a
-  // reception wall (at the entrance door) without being snapped back on-canvas.
-  const clampCocktailCoord = (v: unknown): number | null => {
-    if (typeof v !== 'string' || v.length === 0) return null;
-    const n = Number(v);
-    if (!Number.isFinite(n)) return null;
-    return Math.max(-80, Math.min(180, n));
-  };
-  const cocktailEnabled = formData.get('cocktail_enabled') === 'true';
-  const cocktailX = clampCocktailCoord(formData.get('cocktail_x'));
-  const cocktailY = clampCocktailCoord(formData.get('cocktail_y'));
-  const cocktailW = clampSize(formData.get('cocktail_w'));
-  const cocktailH = clampSize(formData.get('cocktail_h'));
-  const cocktailLabelRaw = formData.get('cocktail_label');
-  const cocktailLabel =
-    typeof cocktailLabelRaw === 'string' && cocktailLabelRaw.trim().length > 0
-      ? cocktailLabelRaw.trim().slice(0, 80)
-      : 'Cocktail Area';
-  // Couple revoke switch — absent or anything but 'false' keeps vendor edit on.
-  const cocktailVendorEdit = formData.get('cocktail_vendor_edit') !== 'false';
-  // Dock mode — absent or anything but 'false' keeps it linked (DB default TRUE).
-  const cocktailLinked = formData.get('cocktail_linked') !== 'false';
-
-  // Venue dimensions (metres) — null when the couple hasn't set a room size.
-  const parseDim = (v: FormDataEntryValue | null): number | null => {
-    if (typeof v !== 'string' || v.length === 0) return null;
-    const n = Number(v);
-    if (!Number.isFinite(n) || n <= 0) return null;
-    return Math.min(500, n);
-  };
-  const venueWidth = parseDim(formData.get('venue_width_m'));
-  const venueLength = parseDim(formData.get('venue_length_m'));
+  const row = floorPlanRowFrom((k) => formData.get(k));
+  /* 👥 TWO HOSTS NEVER OVERWRITE EACH OTHER (owner 2026-10-18, round 3): a save that says what it started from writes
+     only the columns IT changed — an editor opened before the other host (or the 3D lab) moved the stage never puts the
+     stage back (`lib/floor-plan-row.ts`). No base: the whole row, as before. */
+  const baseRaw = formData.get(MERGE_BASE_FIELD);
+  let changed: Set<string> | null = null;
+  if (typeof baseRaw === 'string' && baseRaw) {
+    try {
+      const base = JSON.parse(baseRaw) as Record<string, unknown>;
+      changed = changedFields(floorPlanRowFrom((k) => (typeof base[k] === 'string' ? base[k] : null)), row);
+    } catch {
+      changed = null;
+    }
+  }
 
   const supabase = await createClient();
   const {
@@ -754,41 +704,56 @@ export async function saveFloorPlan(formData: FormData) {
 
   await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
 
-  const { error } = await supabase.from('event_floor_plan').upsert(
-    {
-      event_id: eventId,
-      stage_x: stageX ?? 50,
-      stage_y: stageY ?? 6,
-      stage_w: stageW ?? 24,
-      stage_h: stageH ?? 7,
-      entrance_enabled: entranceEnabled,
-      entrance_x: entranceX ?? 50,
-      entrance_y: entranceY ?? 94,
-      entrance_kind: entranceKind,
-      entrance_depth_m: entranceDepth,
-      dance_enabled: danceEnabled,
-      dance_x: danceX ?? 50,
-      dance_y: danceY ?? 55,
-      dance_w: danceW ?? 22,
-      dance_h: danceH ?? 18,
-      service_entrance_enabled: serviceEnabled,
-      service_entrance_x: serviceX ?? 97,
-      service_entrance_y: serviceY ?? 50,
-      cocktail_enabled: cocktailEnabled,
-      cocktail_x: cocktailX ?? 50,
-      cocktail_y: cocktailY ?? 40,
-      cocktail_w: cocktailW ?? 30,
-      cocktail_h: cocktailH ?? 22,
-      cocktail_label: cocktailLabel,
-      cocktail_vendor_edit: cocktailVendorEdit,
-      cocktail_linked: cocktailLinked,
-      venue_width_m: venueWidth,
-      venue_length_m: venueLength,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: 'event_id' },
-  );
-  if (error) throw new Error(error.message);
+  const updatedAt = new Date().toISOString();
+  let written = false;
+  if (changed !== null) {
+    const fields = Object.fromEntries(Object.entries(row).filter(([k]) => changed!.has(k)));
+    if (Object.keys(fields).length === 0) written = true; // nothing of this screen's changed
+    else {
+      const { data, error } = await supabase.from('event_floor_plan').update({ ...fields, updated_at: updatedAt }).eq('event_id', eventId).select('event_id');
+      if (error) throw new Error(error.message);
+      written = Array.isArray(data) && data.length > 0;
+    }
+  }
+  // The first save of all (no row yet), or an older page: the whole row.
+  if (!written) {
+    // Every column, spelled — the write that has always flipped the room's switches (`gates-have-handles`).
+    const { error } = await supabase.from('event_floor_plan').upsert(
+      {
+        event_id: eventId,
+        stage_x: row.stage_x,
+        stage_y: row.stage_y,
+        stage_w: row.stage_w,
+        stage_h: row.stage_h,
+        entrance_enabled: row.entrance_enabled,
+        entrance_x: row.entrance_x,
+        entrance_y: row.entrance_y,
+        entrance_kind: row.entrance_kind,
+        entrance_depth_m: row.entrance_depth_m,
+        dance_enabled: row.dance_enabled,
+        dance_x: row.dance_x,
+        dance_y: row.dance_y,
+        dance_w: row.dance_w,
+        dance_h: row.dance_h,
+        service_entrance_enabled: row.service_entrance_enabled,
+        service_entrance_x: row.service_entrance_x,
+        service_entrance_y: row.service_entrance_y,
+        cocktail_enabled: row.cocktail_enabled,
+        cocktail_x: row.cocktail_x,
+        cocktail_y: row.cocktail_y,
+        cocktail_w: row.cocktail_w,
+        cocktail_h: row.cocktail_h,
+        cocktail_label: row.cocktail_label,
+        cocktail_vendor_edit: row.cocktail_vendor_edit,
+        cocktail_linked: row.cocktail_linked,
+        venue_width_m: row.venue_width_m,
+        venue_length_m: row.venue_length_m,
+        updated_at: updatedAt,
+      },
+      { onConflict: 'event_id' },
+    );
+    if (error) throw new Error(error.message);
+  }
 
   await refreshSeatingLock(supabase, lockIdFrom(formData));
   revalidatePath(`/dashboard/${eventId}/seating`);
@@ -1859,11 +1824,31 @@ async function persistBooths(
   supabase: Awaited<ReturnType<typeof createClient>>,
   eventId: string,
   booths: BoothPayload[],
+  base?: BoothPayload[] | null,
 ) {
   // SECURITY (defense-by-construction): sanitize cross-event vendor links here,
   // in the single choke point EVERY caller (saveBooths, autoArrange, and any
   // future one) passes through — so the guard can never be forgotten again.
   await nullOutForeignBoothVendors(supabase, eventId, booths);
+  /* 👥 TWO HOSTS NEVER OVERWRITE EACH OTHER (owner 2026-10-18, round 3): given the list this screen STARTED FROM, only
+     what it removed, added or changed is written — a booth it never saw is never deleted (`lib/floor-items-merge.ts`). */
+  if (base) {
+    const w = floorItemsThisScreenChanged('booth_id', base, booths);
+    if (w.remove.length > 0) {
+      const { error } = await supabase.from('event_floor_booths').delete().eq('event_id', eventId).in('booth_id', w.remove);
+      if (error) throw new Error(error.message);
+    }
+    for (const u of w.updates) {
+      const { error } = await supabase.from('event_floor_booths').update(u.fields).eq('booth_id', u.id).eq('event_id', eventId);
+      if (error) throw new Error(error.message);
+    }
+    for (const b of w.inserts) {
+      const { booth_id: _id, ...row } = b;
+      const { error } = await supabase.from('event_floor_booths').insert({ event_id: eventId, ...row });
+      if (error) throw new Error(error.message);
+    }
+    return;
+  }
   const keepIds = booths.map((b) => b.booth_id).filter((id): id is string => id !== null);
   const del = supabase.from('event_floor_booths').delete().eq('event_id', eventId);
   const { error: delError } = await (keepIds.length > 0
@@ -1931,7 +1916,14 @@ export async function saveBooths(formData: FormData) {
   if (!user) redirect('/login');
 
   await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
-  await persistBooths(supabase, eventId, booths); // guards cross-event vendor links internally
+  // 👥 The list this screen started from (`MERGE_BASE_FIELD`) — unreadable or absent: replace-all, as before.
+  let base: BoothPayload[] | null = null;
+  try {
+    base = formData.get(MERGE_BASE_FIELD) ? parseBoothsPayload(formData.get(MERGE_BASE_FIELD)) : null;
+  } catch {
+    base = null;
+  }
+  await persistBooths(supabase, eventId, booths, base); // guards cross-event vendor links internally
   await refreshSeatingLock(supabase, lockIdFrom(formData));
   revalidatePath(`/dashboard/${eventId}/seating`);
 }
@@ -1979,7 +1971,26 @@ async function persistSigns(
   supabase: Awaited<ReturnType<typeof createClient>>,
   eventId: string,
   signs: SignPayload[],
+  base?: SignPayload[] | null,
 ) {
+  // 👥 Given the list this screen started from: only what it removed, added or changed (`lib/floor-items-merge.ts`).
+  if (base) {
+    const w = floorItemsThisScreenChanged('sign_id', base, signs);
+    if (w.remove.length > 0) {
+      const { error } = await supabase.from('event_floor_signs').delete().eq('event_id', eventId).in('sign_id', w.remove);
+      if (error) throw new Error(error.message);
+    }
+    for (const u of w.updates) {
+      const { error } = await supabase.from('event_floor_signs').update(u.fields).eq('sign_id', u.id).eq('event_id', eventId);
+      if (error) throw new Error(error.message);
+    }
+    for (const n of w.inserts) {
+      const { sign_id: _id, ...row } = n;
+      const { error } = await supabase.from('event_floor_signs').insert({ event_id: eventId, ...row });
+      if (error) throw new Error(error.message);
+    }
+    return;
+  }
   const keepIds = signs.map((s) => s.sign_id).filter((id): id is string => id !== null);
   const del = supabase.from('event_floor_signs').delete().eq('event_id', eventId);
   const { error: delError } = await (keepIds.length > 0
@@ -2014,7 +2025,13 @@ export async function saveSigns(formData: FormData) {
   if (!user) redirect('/login');
 
   await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
-  await persistSigns(supabase, eventId, signs);
+  let base: SignPayload[] | null = null;
+  try {
+    base = formData.get(MERGE_BASE_FIELD) ? parseSignsPayload(formData.get(MERGE_BASE_FIELD)) : null;
+  } catch {
+    base = null;
+  }
+  await persistSigns(supabase, eventId, signs, base);
   await refreshSeatingLock(supabase, lockIdFrom(formData));
   revalidatePath(`/dashboard/${eventId}/seating`);
 }
@@ -2490,7 +2507,14 @@ export async function buildSeatingDraft(
 export async function saveReceptionDesign(
   eventId: string,
   design: ReceptionDesign,
-): Promise<void> {
+  /**
+   * 👥 The design this screen's change was BASED ON (owner 2026-10-18, two hosts never overwrite — round 2;
+   * `lib/merge-from-base.ts`). The editor sends the WHOLE design, so a screen holding a copy from before the other
+   * host's pick wiped that pick. With it, what this screen did not change keeps the stored value; absent (an older
+   * page) the design is written whole, as before.
+   */
+  base?: ReceptionDesign,
+): Promise<{ elsewhere?: { design: ReceptionDesign; note: string } }> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -2508,19 +2532,24 @@ export async function saveReceptionDesign(
   }
 
   // RLS enforces host-only writes on their own events via event_members.
-  const { error } = await supabase
-    .from('events')
-    .update({
-      reception_design: clean,
-      mood_board_updated_at: new Date().toISOString(),
-    })
-    .eq('event_id', eventId);
-  if (error) throw new Error(error.message);
+  // 👥 Merged three ways onto the design as it is NOW, written only if it is still that (`updateJsonColumn`).
+  const baseClean = base === undefined ? undefined : sanitizeReceptionDesign(base, []);
+  const wrote = await updateJsonColumn<ReceptionDesign, boolean>(
+    supabase as unknown as JsonColumnClient,
+    { table: 'events', row: { event_id: eventId }, column: 'reception_design', what: 'Your room design' },
+    (stored) => {
+      const m = mergeFromBase(baseClean, clean, stored ?? {});
+      return { next: m.value, also: { mood_board_updated_at: new Date().toISOString() }, said: m.moved };
+    },
+  );
+  if (!wrote.written) throw new Error('Your room design could not be saved.');
 
   // Both surfaces read reception_design: the lab renders it live in 3D, and
   // the Mood Board shows the compact read-only summary — revalidate both.
   revalidatePath(`/dashboard/${eventId}/seating/lab`);
   revalidatePath(`/dashboard/${eventId}/studio/mood-board`);
+  // 👥 Another screen's pick is in what was stored: the editor shows it, with one calm line.
+  return wrote.said && wrote.value ? { elsewhere: { design: wrote.value, note: TWO_SCREENS_NOTE } } : {};
 }
 
 /**

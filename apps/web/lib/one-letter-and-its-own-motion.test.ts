@@ -33,6 +33,7 @@ import {
   hubElementMotionDeclarations,
   hubTextHash,
   sanitizeHubElementMotion,
+  sanitizeHubElementStyle,
   sanitizeHubElements,
   withElementChoice,
   withElementMotion,
@@ -151,7 +152,7 @@ test('M1 · In and During play TOGETHER — two comma-separated animations, and 
   assert.deepEqual(els?.names?.motion, { in: { fade: true, move: 'below' }, during: 'drift' }, 'choosing During cleared In');
   const decl = Object.fromEntries(hubElementMotionDeclarations(els?.names?.motion));
   // (the name is written LAST in each slot — see `MotionSlot`)
-  assert.match(decl.animation ?? '', / none el-in-rise, 7s ease-in-out 0s infinite alternate el-during-drift, /);
+  assert.match(decl.animation ?? '', / backwards el-in-rise, 7s ease-in-out 0s infinite alternate el-during-drift, /);
   // Drift moves `translate`, In moves `transform` — they compose.
   const CSS = read('app/globals.css');
   assert.match(CSS, /@keyframes el-during-drift \{[^}]*translate: 0 0;[^}]*\}/);
@@ -186,8 +187,9 @@ test('M2 · under "Plays once" there is no Out; under "Follows the scroll" Out r
 
 test('M3 · a hostile motion value is dropped — only closed-set keys ever reach CSS', () => {
   assert.equal(sanitizeHubElementMotion({ in: 'bounce', during: 'spin', timeline: 'sideways', out: 'explode' }), null);
-  // Ken Burns / Parallax are for a photo; no element here is one.
-  assert.equal(sanitizeHubElementMotion({ during: 'kenburns' }), null);
+  // Ken Burns is for a photo (since 2026-10-16 the cover's `photo` part, "SIX NEW EFFECTS"): a part with words drops it.
+  assert.equal(sanitizeHubElementStyle({ motion: { during: 'kenburns' } }, 'heading'), null);
+  assert.deepEqual(sanitizeHubElementStyle({ motion: { during: 'kenburns' } }, 'photo')?.motion, { during: 'kenburns' });
   const els = sanitizeHubElements({ heading: { motion: { in: 'rise; } body { display:none' } } });
   assert.equal(els, null);
 });
@@ -209,7 +211,7 @@ test('✍ the canvas measures offsets in the SAME text the guest page cuts — a
   assert.match(BRIDGE, /if \(!HUB_ELEMENT_RUN_KEYS\.includes\(el\)\) return null;/);
 });
 
-test('Pro · a motion is Pro at Apply (a run’s font is free since 2026-10-06); taking one off is free', () => {
+test('Pro · a motion and a run’s font are Pro at Apply (2026-10-16); taking one off is free', () => {
   const widget = (config: unknown): InvitationWidgetRow => ({
     widget_id: 'w-hero', event_id: 'e1', widget_type: 'hero', display_order: 1, is_visible: true,
     is_always_on: true, tier: 'basic', config_json: config, created_at: '', updated_at: '', mode: 'auto',
@@ -218,7 +220,9 @@ test('Pro · a motion is Pro at Apply (a run’s font is free since 2026-10-06);
   const withRun = mergeHubDraft(emptyHubDraft(), {
     widgets: { hero: { canvas: { elements: { names: { runs: [{ start: 0, end: 1, font: 'script' }], of: hubTextHash(NAMES_TEXT) } } } } },
   });
-  assert.equal(planHubDraftApply(withRun, live, false).refused.length, 0, 'a run’s font was held as Pro (free since 2026-10-06)');
+  /* 💎 RE-AIMED 2026-10-18 (owner 2026-10-16, "everything in Style is Pro"): a letter's own font is Style — held. */
+  assert.equal(planHubDraftApply(withRun, live, false).refused.length, 1, 'a run’s font went live for a free couple (Pro since 2026-10-16)');
+  assert.equal(planHubDraftApply(withRun, live, true).refused.length, 0, 'a Pro couple’s run font was held');
   const withMotion = mergeHubDraft(emptyHubDraft(), { widgets: { hero: { canvas: { elements: { names: { motion: { in: { fade: true, move: 'below' } } } } } } } });
   assert.equal(planHubDraftApply(withMotion, live, false).refused.length, 1, 'a free couple applied a motion');
   const liveRun: HubLiveState = { events: {}, widgets: [widget({ canvas: { elements: { names: { motion: { in: 'rise' } } } } })] };

@@ -8,7 +8,7 @@ import { sceneBackgroundPathPrefix } from '@/lib/scene-media-choices';
 import { keepRsvpPictureUrl } from './rsvp-picture-urls';
 import { ActionButton, useFitRow } from '@/components/action-button';
 import { TypedRow } from '@/app/_components/form-row';
-import { SP_KEY_BAR, SP_KEY_DONE, SP_ROWS, SP_ROWS_ROW, STAGE_BAR_HANDLE, STAGE_BAR_LINE, STAGE_SHEET_ROW } from '@/lib/maker-stage-room';
+import { SP_ROWS, SP_ROWS_ROW, STAGE_BAR_HANDLE, STAGE_BAR_LINE, STAGE_SHEET_ROW } from '@/lib/maker-stage-room';
 import {
   RSVP_ADD_KINDS,
   RSVP_LIST_EDIT_EVENT,
@@ -27,6 +27,7 @@ import { RSVP_ADDED_NAME } from '@/app/[slug]/_components/rsvp-lines';
 import { RSVP_LINE_NAME } from '@/app/[slug]/_components/rsvp-canvas-parts';
 import { MakerSheet } from './stages-studio-parts';
 import { STAGE_EDIT_ROW_FIT } from './stage-panel/stage-edit';
+import { TypingBand } from '@/app/_components/typing-band';
 
 /**
  * ＋ ↕ THE RSVP STAGE'S LIST CONTROLS — what the approved prototype added to the stage
@@ -375,30 +376,17 @@ const PANEL_KEYS_RULE =
  * Done is a press outside the field, which KEEPS (the typed row's own rule): it saves nothing of its own.
  */
 export function RsvpPanelTypingBar({ name }: { name: string }) {
-  const [here, setHere] = useState(false);
-  const [bottom, setBottom] = useState(0);
-  useEffect(() => {
-    setHere(true);
-    const vv = window.visualViewport;
-    const read = () => setBottom(Math.max(0, window.innerHeight - ((vv?.offsetTop ?? 0) + (vv?.height ?? window.innerHeight))));
-    read();
-    vv?.addEventListener('resize', read);
-    vv?.addEventListener('scroll', read);
-    return () => {
-      vv?.removeEventListener('resize', read);
-      vv?.removeEventListener('scroll', read);
-    };
-  }, []);
-  if (!here) return null;
-  return createPortal(
-    <div role="toolbar" aria-label={`${name} — words`} data-type-bar="rsvp-panel" data-rsvp-panel-keys="" style={{ bottom }} className={`fixed inset-x-0 z-[85] ${SP_KEY_BAR}`}>
-      <style>{PANEL_KEYS_RULE}</style>
-      <span className="min-w-0 truncate">Typing · {name}</span>
-      <span data-type-done="" className={SP_KEY_DONE}>
-        <ActionButton tone="brand" main icon={Check} label="Done" onClick={() => (document.activeElement as HTMLElement | null)?.blur?.()} />
-      </span>
-    </div>,
-    document.body,
+  /* The one typing band (`typing-band.tsx`), on the keyboard's top edge (the one keyboard reading). */
+  return (
+    <TypingBand
+      fixed
+      role="toolbar"
+      aria-label={`${name} — words`}
+      data-type-bar="rsvp-panel"
+      data-rsvp-panel-keys=""
+      before={<style>{PANEL_KEYS_RULE}</style>}
+      place={name}
+    />
   );
 }
 

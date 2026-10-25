@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { updateJsonColumn, type JsonColumnClient } from '@/lib/update-json-column';
 import { redirect } from 'next/navigation';
 import { isRedirectError } from 'next/dist/client/components/redirect-error';
 import { createClient } from '@/lib/supabase/server';
@@ -305,25 +306,26 @@ export async function setDelegateArea(
   if (seatIsFullCohost(seat.role_subtype)) return { ok: false, error: COHOST_NEEDS_NO_GRANT };
   if (seat.user_id === user.id) return { ok: false, error: 'You cannot change your own access.' };
 
-  const perms = (seat.permissions_json ?? {
-    edit_all: false,
-    checkout: false,
-    invite_hosts: false,
-    remove_hosts: false,
-  }) as ModeratorPermissions;
-  const permissions = withArea(perms, a, levelOfChoice(picked));
-
-  const { data: touched, error } = await supabase
-    .from('event_moderators')
-    .update({ permissions_json: permissions, updated_at: new Date().toISOString() })
-    .eq('moderator_id', moderatorId)
-    .eq('event_id', eventId)
-    .select('moderator_id');
-  if (error) {
+  /* 👥 TWO HOSTS NEVER OVERWRITE EACH OTHER (owner 2026-10-18, round 2): the one area is changed on the helper's
+     access AS IT IS when the write lands (`updateJsonColumn`, a compare-and-set on the value) — the other co-host's
+     change to another area, landed meanwhile, stays. Its write proves its row. */
+  let written = false;
+  try {
+    written = (
+      await updateJsonColumn<ModeratorPermissions | null>(
+        supabase as unknown as JsonColumnClient,
+        { table: 'event_moderators', row: { moderator_id: moderatorId, event_id: eventId }, column: 'permissions_json', what: 'Their access' },
+        (now) => {
+          const perms = (now ?? { edit_all: false, checkout: false, invite_hosts: false, remove_hosts: false }) as ModeratorPermissions;
+          return { next: withArea(perms, a, levelOfChoice(picked)), also: { updated_at: new Date().toISOString() } };
+        },
+      )
+    ).written;
+  } catch (error) {
     console.error('[setDelegateArea]', error);
     return { ok: false, error: 'Could not change their access. Nothing has changed — try again.' };
   }
-  if (!touched || touched.length === 0) {
+  if (!written) {
     return {
       ok: false,
       error: 'We could not change that. Nothing has changed — they still have what they had. Try again.',

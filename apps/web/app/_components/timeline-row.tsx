@@ -188,7 +188,7 @@ function NameField({
             end(false);
           }
         }}
-        className="min-h-11 min-w-0 flex-1 rounded-full bg-white px-4 text-[15px] text-ink outline-none ring-1 ring-inset ring-ink/25 placeholder:text-ink/40 focus:ring-2 focus:ring-ink/40"
+        className="min-h-11 min-w-0 flex-1 rounded-full bg-white px-4 text-[15px] text-ink outline-none dark:bg-raised ring-1 ring-inset ring-ink/25 placeholder:text-ink/40 focus:ring-2 focus:ring-ink/40"
       />
       <button
         type="button"

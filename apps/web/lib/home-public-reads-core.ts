@@ -1,7 +1,8 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { eventAnimatedMonogramActive } from '@/lib/animated-monogram';
 import { coupleLogoPlays } from '@/lib/couple-logo-plays';
-import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
+import { eventHubOwnership } from '@/lib/couple-website-pro';
+import { COVER_NOT_OWNED, coverOwnershipFrom, type CoverOwnership } from '@/lib/hub-parts';
 import { ownershipCanChangeTheCover } from '@/lib/hub-look-given';
 import { markAnimationSwitchedOff } from '@/lib/monogram-studio-shared';
 import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
@@ -169,7 +170,7 @@ async function readHostRows(eventIds: string[]): Promise<HostRows> {
  * (`resolveEventMonogramSvg` — custom, then uploaded; both read, always).
  */
 const COVER_COLUMNS =
-  'event_id, display_name, event_date, venue_name, event_type, monogram_text, monogram_color, invite_theme, std_background, landing_page_hero_image_url, landing_page_hero_video_r2_key, monogram_custom_svg, monogram_uploaded_svg, role_palette, site_bg_color, site_button_color, site_font_key, site_art_direction';
+  'event_id, display_name, event_date, venue_name, event_type, monogram_text, monogram_color, invite_theme, std_background, landing_page_hero_image_url, landing_page_hero_video_r2_key, monogram_custom_svg, monogram_uploaded_svg, role_palette, site_bg_color, site_button_color, site_font_key, site_art_direction, logo_wanted';
 
 /**
  * The cover's columns, for the one other reader of them (`readEventCover`, the
@@ -194,6 +195,8 @@ export type CoverRow = {
   landing_page_hero_image_url: string | null;
   monogram_custom_svg: string | null;
   monogram_uploaded_svg: string | null;
+  /** The Logo switch: "No, use our names" draws the lettered mark on the card (Batch 9 W3). */
+  logo_wanted?: boolean | null;
   landing_page_hero_video_r2_key: string | null;
   role_palette: unknown;
   site_bg_color: string | null;
@@ -209,12 +212,12 @@ export type HeroConfigRow = { event_id: string; config_json: unknown };
  * everybody. `null` = it cannot change this event's cover, so it was not asked
  * (and if a reader asks anyway, it asks the live way).
  *
- * ⚠ `websitePro` IS THE REAL ANSWER — `eventCoupleWebsiteProActive`, the gate
+ * ⚠ `websitePro` IS THE REAL ANSWER — `eventHubOwnership(…, 'active')` as Style / Background, the gate
  * every write uses — never the one a viewer is shown. The owner's "view as a
  * free couple" switch is honoured by the caller, which does not use these facts
  * at all for a viewer who has it on.
  */
-export type CoverFacts = { websitePro: boolean | null; logoAnimation: boolean | null };
+export type CoverFacts = { websitePro: CoverOwnership | null; logoAnimation: boolean | null };
 export type CoverRows = { covers: CoverRow[]; heroes: HeroConfigRow[]; facts: Record<string, CoverFacts> };
 
 /**
@@ -257,14 +260,18 @@ async function readCoverRows(eventIds: string[]): Promise<CoverRows> {
     .map((r) => r.event_id);
 
   let refused: unknown = null;
-  const yesOrRefused = (ask: Promise<boolean>): Promise<boolean> =>
+  const yesOrRefused = <T,>(ask: Promise<T>, no: T): Promise<T> =>
     ask.catch((caught: unknown) => {
       refused ??= caught ?? new Error('ownership read refused');
-      return false;
+      return no;
     });
   const [pro, animation, studio] = await Promise.all([
-    Promise.all(proIds.map((id) => yesOrRefused(eventCoupleWebsiteProActive(admin, id)))),
-    Promise.all(movingIds.map((id) => yesOrRefused(eventAnimatedMonogramActive(admin, id)))),
+    // 💎 The theme is the Style part's, the cover's ground the Background part's (owner 2026-10-22, gates 13 · 9) —
+    //    one ownership read per event answers both; Full Pro and the cap included.
+    Promise.all(
+      proIds.map((id) => yesOrRefused(eventHubOwnership(admin, id, 'active').then(coverOwnershipFrom), COVER_NOT_OWNED)),
+    ),
+    Promise.all(movingIds.map((id) => yesOrRefused(eventAnimatedMonogramActive(admin, id), false))),
     movingIds.length > 0
       ? admin.from('events').select('event_id, monogram_studio_config').in('event_id', movingIds)
       : null,
@@ -280,7 +287,7 @@ async function readCoverRows(eventIds: string[]): Promise<CoverRows> {
   const facts: Record<string, CoverFacts> = {};
   for (const r of covers) facts[r.event_id] = { websitePro: null, logoAnimation: null };
   proIds.forEach((id, i) => {
-    (facts[id] as CoverFacts).websitePro = pro[i] === true;
+    (facts[id] as CoverFacts).websitePro = pro[i] ?? COVER_NOT_OWNED;
   });
   movingIds.forEach((id, i) => {
     // The hero's own gate, word for word (`lib/logo-plays.server.ts`): owned,

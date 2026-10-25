@@ -7,6 +7,7 @@ import { startThreadCall } from '@/app/_actions/thread-call-actions';
 import { ThreadCallRoom } from './thread-call-room';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { paidMarkLabel } from '@/lib/paid-mark';
+import { useIsStoreShell } from '@/lib/use-store-shell';
 
 /**
  * In-thread CALL entry (Relationship_Workspace_and_Appointments · "Call"; PR 10).
@@ -73,9 +74,14 @@ export function ThreadCallLauncher({
   const [incoming, setIncoming] = useState<Incoming | null>(null);
   const [starting, setStarting] = useState<CallKind | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const storeShell = useIsStoreShell();
 
   // Initial incoming-call fetch (RLS-scoped) + live subscription.
+  // 🔌 Only where a call can happen (2026-10-21): with calling locked the
+  // launcher draws no incoming banner at all (the early return below), so a
+  // channel listening for one was a socket held open for nothing.
   useEffect(() => {
+    if (!callsEnabled) return;
     let cancelled = false;
 
     (async () => {
@@ -141,7 +147,7 @@ export function ThreadCallLauncher({
       cancelled = true;
       void supabase.removeChannel(channel);
     };
-  }, [supabase, threadId, currentUserId]);
+  }, [supabase, threadId, currentUserId, callsEnabled]);
 
   const start = useCallback(
     async (kind: CallKind) => {
@@ -189,8 +195,13 @@ export function ThreadCallLauncher({
   // thread's vendor, the couple sees no call UI at all; the vendor sees a
   // locked pill pointing at the upgrade. The server action is the real gate —
   // this is just the matching UX so a live button can never mislead.
+  //
+  // 🔒 In the store shell the supplier sees nothing either (sweep 2026-10-19
+  // row C14): a paid plan is a digital subscription the app cannot sell
+  // (guideline 3.1.1), and StoreShellLinkGuard had already hidden the link,
+  // leaving "Upgrade your plan to call clients" as an upsell with no door.
   if (!callsEnabled) {
-    if (viewerRole !== 'vendor') return null;
+    if (viewerRole !== 'vendor' || storeShell) return null;
     const nudge = (
       <span className="inline-flex items-center gap-1.5 rounded-full border border-ink/15 bg-ink/[0.03] px-3 py-1.5 text-xs font-medium text-ink/55">
         <PaidMark state="locked" label={paidMarkLabel('locked', 'a paid plan')} tone="current" />

@@ -16,7 +16,11 @@
  *   1. the thank-you shows THEIR Digital ticket — the route's own PNG, only when
  *      `passCardEligibility` says they have one (accepted and coming);
  *   2. each NAMED plus-one keeps Send and their own Save — on Me; a blank seat
- *      keeps "Add name"; "Save all tickets" saves every card;
+ *      keeps "Add name"; "Save all tickets" saves every card. 🎫 MOVED ON PURPOSE
+ *      (owner 2026-10-21, "Yes to all" on guest_page_fixes_2_4, fix 4): the
+ *      plus-one is the shipped TicketRow — their ticket, their name, ONE Send —
+ *      and their own Save lives INSIDE the opened ticket (the sheet), not in
+ *      the row. Still theirs, still free; one place;
  *   3. "Copy my link" still hands over their OWN link, in the frame-A words
  *      (the component that remains for the in-app hand-off and requests);
  *   4. the thank-you has no "Not now", and no Save except to finish a Terms
@@ -75,7 +79,13 @@ test('2 · each NAMED plus-one keeps Send and their own Save (on Me); a blank se
     }),
   );
   assert.match(html, /Ben Reyes[\s\S]*>Send their invite</, 'Ben has no Send');
-  assert.match(html, /Save Ben’s/, 'Ben’s own ticket has no Save');
+  // 🎫 Ben's row is his ticket (TicketRow), which opens big — and his own Save is in there, not in the row.
+  assert.match(html, /data-ticket-row=""/, 'Ben is not drawn as his ticket');
+  assert.match(html, /aria-label="Ben’s ticket — Show this at the door" aria-haspopup="dialog" data-ticket-show=""/, 'Ben’s ticket does not open');
+  assert.doesNotMatch(html, /Save Ben’s/, 'Ben’s Save is back in the row — it lives in his opened ticket (one place)');
+  const SHOW = read('[slug]/_components/ticket-show.tsx');
+  assert.match(SHOW, /<GuestSheet\b[\s\S]*<SavePassCardButton hrefs=\{\[href\]\} label=\{saveLabel\} \/>[\s\S]*<\/GuestSheet>/, 'the opened ticket lost its Save');
+  assert.match(read('[slug]/_components/your-guests.tsx'), /saveLabel: PASS_CARD_WORDS\.saveOf\(first\)/, 'the Save inside is not "Save <name>’s ticket"');
   assert.match(html, /\+2 · TBA/);
   assert.match(html, />Add their name</, 'a blank seat lost "Add name"');
   assert.match(html, /data-save-pass-card="2"/, 'Save all does not save both tickets');

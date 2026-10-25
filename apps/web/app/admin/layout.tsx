@@ -18,6 +18,7 @@ import { maybeRunFaceRescan } from '@/lib/face-rescan';
 import { maybeRunVendorIdentityRetention } from '@/lib/vendor-identity-retention';
 import { maybeRunPapicFullResDrop } from '@/lib/papic-fullres-drop';
 import { maybeRunPapicNsfwRescreen } from '@/lib/papic-nsfw-rescreen-sweep';
+import { maybeRunPapicUploadSweep } from '@/lib/papic-upload-sweep';
 import { maybeRunDriveCopyRetry } from '@/lib/papic-drive-copy-retry';
 import { maybeRunAnonDraftSweep } from '@/lib/anon-draft-sweep';
 import { maybeRunPhotoDeliveryDrain } from '@/lib/photo-delivery-drain';
@@ -117,7 +118,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     // This literal exists BECAUSE a read failed — it measured nothing, and
     // saying so is what stops the library reporting that you host no events.
     eventsMeasured: false,
-    context: { hasVendor: false, vendorName: null, isAdmin: true, canOpenShop: false },
+    context: { hasVendor: false, vendorName: null, isAdmin: true, canOpenShop: false, shops: [] },
   };
 
   const [{ data: profile }, unreadCount, switcherData] = await Promise.all([
@@ -242,6 +243,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // couple visit. Bounded (≤25 events/sweep) + 15-min grace so an in-flight
   // screen is never re-run; never throws.
   after(() => maybeRunPapicNsfwRescreen().catch(() => {}));
+  // Papic save-first (2026-10-23): pieces a phone PUT straight to R2 and never
+  // recorded are removed — staging keys only, after the phone's own TTL + a day.
+  after(() => maybeRunPapicUploadSweep().catch(() => {}));
   // Autonomous Drive-copy retry (Papic storage PR-4) — CRON-FREE: admin traffic +
   // a DAILY DB claim. Re-drives failed Google-Drive copies with exponential
   // back-off up to a ceiling and surfaces what's stranded past it, so a transient
@@ -392,7 +396,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         console otherwise looking perfectly fine.
         `admin-rail-context.test.ts` fails if the class comes back.
       */}
-      <AccountSwitcher data={switcherData} />
+      <AccountSwitcher data={switcherData} here="admin" />
     </div>
   );
 

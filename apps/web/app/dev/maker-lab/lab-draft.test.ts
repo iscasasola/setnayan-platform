@@ -260,6 +260,7 @@ test('the lab’s pages are handed EVERY key of a scene’s draft — the list o
     /* "What guests see", pass 2 — the fixed parts' choices (kept on the hero row by the real sanitiser). */
     part_show: { gifts: { event: false } },
     std_lead: 'photos',
+    photos_heading: 'A few of our favourites',
     custom: { title: 'Ours', body: 'Words.' },
     venue: { ceremony: { source: 'own' } },
     removed: true,
@@ -272,8 +273,8 @@ test('the lab’s pages are handed EVERY key of a scene’s draft — the list o
   /* …and no hand-kept list is back in its place. */
   assert.doesNotMatch(read('lab-draft.ts'), /w\.stage_order !== undefined \? \{ stage_order/);
   /* What the real overlay lays for the keys the sample's rows take, it lays here: place, eye, mode, per-stage choice,
-     and the Save the Date's Film · Photos pick on the gallery's row. */
-  const real: HubDraft = { ...emptyHubDraft(), widgets: { countdown: { mode: 'hidden', is_visible: false, display_order: 9, stage_order: { rsvp: 3 }, stage_show: { rsvp: false, event: true } }, our_photos: { std_lead: 'photos' } } };
+     and the Save the Date's Film · Photos pick and the Photos heading on the gallery's row. */
+  const real: HubDraft = { ...emptyHubDraft(), widgets: { countdown: { mode: 'hidden', is_visible: false, display_order: 9, stage_order: { rsvp: 3 }, stage_show: { rsvp: false, event: true } }, our_photos: { std_lead: 'photos', photos_heading: 'A few of our favourites' } } };
   assert.deepEqual(labDraftedRows(labDraftCookies(real, false)[LAB_ROWS_COOKIE] ?? undefined), overlayHubDraftWidgets(labRows(), real));
 });
 
@@ -305,11 +306,13 @@ test('R01 — the bar a render brings lists exactly as many changes as it counts
   assert.deepEqual(rendered(d).changes, [], 'nothing waiting, and something is still listed');
   /* …and the shell hands the bar THIS, not the cookie's count alone. */
   const shell = read('maker-lab-shell.tsx');
-  assert.match(shell, /setBar\(standIn \? summary : labRenderedSummary\(readLabDraft\(scrub\), scrub, readLabPublished\(scrub\)\)\);/);
+  // RE-AIMED 2026-10-18 round 3: …for this tab's host (`?as=`, ruling B — ↺ greys when none of the steps are theirs).
+  assert.match(shell, /setBar\(standIn \? summary : labRenderedSummary\(readLabDraft\(scrub\), scrub, readLabPublished\(scrub\), new URLSearchParams\(window\.location\.search\)\.get\('as'\)\)\);/);
   assert.match(shell, /<HubDraftToolbar eventId=\{eventId\} summary=\{bar\}/);
   /* The REAL Maker's render has always named them (this is the lab's fault alone): one reader, right after the count. */
   const store = readFileSync(join(process.cwd(), 'lib', 'hub-draft-store.ts'), 'utf8');
-  assert.match(store, /summary = summarizeHubDraft\(draft, live, ownsPro && !storeShell\);[\s\S]{0,260}summary\.changes = hubDraftChangeLines\(draft, live, ownsPro && !storeShell\);/);
+  /* RE-AIMED 2026-10-22 (part by part): the plan is asked with the event's parts (`forPlan`) — the same reader, right after the count. */
+  assert.match(store, /summary = summarizeHubDraft\(draft, live, forPlan, me\);[\s\S]{0,400}summary\.changes = hubDraftChangeLines\(draft, live, forPlan\);/);
 });
 
 test('leaving and coming back keeps the draft — its count, its history and what the page draws', () => {

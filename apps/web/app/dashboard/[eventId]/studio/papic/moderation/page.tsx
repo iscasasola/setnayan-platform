@@ -285,11 +285,11 @@ export default async function PapicModerationPage({
 
   const notice =
     (search.reported && 'Report sent to the Setnayan team.') ||
-    (search.hidden && 'Photo hidden from your gallery.') ||
-    (search.unhidden && 'Photo restored to your gallery.') ||
+    (search.hidden && 'Photo hidden from your Memories.') ||
+    (search.unhidden && 'Photo restored to your Memories.') ||
     (search.blocked && 'That guest can no longer add photos to this wedding.') ||
     (search.unblocked && 'Block lifted — that guest can add photos again.') ||
-    (search.approved && 'Photo approved — it will show in your gallery again.') ||
+    (search.approved && 'Photo approved — it will show in your Memories again.') ||
     (search.deleted && 'Photo deleted. Every copy of it is gone.') ||
     null;
   /*
@@ -350,7 +350,7 @@ export default async function PapicModerationPage({
               There is ONE product, Papic. Setting shots aside for a particular
               camera is a feature of it, not a second thing to name. */}
           Photos from your guests will appear here once Papic is on for this
-          celebration.
+          event.
         </p>
       ) : captureRows.length === 0 ? (
         <p className="sn-row px-4 py-3 text-sm text-ink/65">
@@ -420,7 +420,7 @@ export default async function PapicModerationPage({
                       </>
                     ) : (
                       <>
-                        <EyeOff aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Hide from gallery
+                        <EyeOff aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Hide from Memories
                       </>
                     )}
                   </SubmitButton>
@@ -435,7 +435,7 @@ export default async function PapicModerationPage({
                   action={deletePhotoForever.bind(null, eventId)}
                   title="Delete this photo forever?"
                   confirmLabel="Delete forever"
-                  message="This removes the photo and every copy of it — your gallery, the story, the prints and the share card. It cannot be undone. To take it out of the gallery but keep it, use Hide instead."
+                  message="This removes the photo and every copy of it — your Memories, the story, the prints and the share card. It cannot be undone. To take it out of your Memories but keep it, use Hide instead."
                 >
                   <input type="hidden" name="table" value="papic_guest_captures" />
                   <input type="hidden" name="id" value={captureId} />
@@ -513,7 +513,7 @@ export default async function PapicModerationPage({
           </h2>
           <p className="text-xs text-ink/60">
             Everything shot on a camera seat — your paparazzi, and any supplier or
-            coordinator shooting for you. Hiding takes a photo out of the gallery
+            coordinator shooting for you. Hiding takes a photo out of your Memories
             and every shared link. You can put it back.
           </p>
           <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -583,7 +583,7 @@ export default async function PapicModerationPage({
                         </>
                       ) : (
                         <>
-                          <EyeOff aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Hide from gallery
+                          <EyeOff aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Hide from Memories
                         </>
                       )}
                     </SubmitButton>
@@ -593,7 +593,7 @@ export default async function PapicModerationPage({
                     action={deletePhotoForever.bind(null, eventId)}
                     title="Delete this photo forever?"
                     confirmLabel="Delete forever"
-                    message="This removes the photo and every copy of it — your gallery, the story, the prints and the share card. It cannot be undone. To take it out of the gallery but keep it, use Hide instead."
+                    message="This removes the photo and every copy of it — your Memories, the story, the prints and the share card. It cannot be undone. To take it out of your Memories but keep it, use Hide instead."
                   >
                     <input type="hidden" name="table" value="papic_photos" />
                     <input type="hidden" name="id" value={photoId} />
@@ -741,7 +741,7 @@ export default async function PapicModerationPage({
           </div>
           <p className="max-w-prose text-sm text-ink/70">
             Your guests can anchor a short message, story, or chismis to any photo
-            or clip — you approve each one before it shows in the gallery and on
+            or clip — you approve each one before it shows in your Memories and on
             your editorial page. It comes with Papic, free.
           </p>
           <p className="text-sm text-ink/70">

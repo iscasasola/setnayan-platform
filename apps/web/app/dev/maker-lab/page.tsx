@@ -1,23 +1,32 @@
+import { sanitizeSceneAccents, type SceneAccents } from '@/lib/art-kit-accents';
+import { NEED_PRESETS, needsColumns, needsForPreset, needsHidesStage, needsHidesStudioTile, readEventNeeds, type NeedPreset } from '@/lib/event-needs';
+import { MAKER_PAGE_STAGES } from '@/app/dashboard/[eventId]/launch/_components/maker-bar';
 import { sanitizeFixedSceneStyles, type FixedSceneStyles } from '@/lib/fixed-scene-styles';
-import { isCameraLook, type CameraLook } from '@/lib/camera-look';
 import { notFound } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { sanitizeHubCanvas, type HubSectionCanvas } from '@/lib/hub-canvas';
+import { isCustomSectionType, sanitizeCustomSection } from '@/lib/custom-sections';
+import { sceneTypeWords } from '@/lib/scene-type-words';
 import { buildMakerNavigatorData } from '@/app/dashboard/[eventId]/website/editor/_components/maker-navigator-data';
 import { makerSceneLabel } from '@/lib/maker-scene-list';
 import { themeBackgroundName } from '@/lib/invite-themes';
 import { hubMovingBackgroundIds, sanitizeHubMainGround } from '@/lib/hub-canvas';
 import { resolveThemeGround } from '@/app/[slug]/_lib/theme-ground';
-import { detailsLabNode } from '../details-lab/details-lab-node';
+import { detailsLabFacts, detailsLabNode, labChurchVenues } from '../details-lab/details-lab-node';
+import { LAB_SAMPLE } from './guest/lab-sample';
 import { MakerLabShell } from './maker-lab-shell';
 import { LAB_EDITORIAL_COOKIE, labEditorialDraft, labPostEventRead } from './lab-post-event';
 import { labScrubCanvases, labWidgetsCookie } from './lab-scrub';
 import { STUDIO_TILE_KEYS, STUDIO_TILES } from '@/lib/studio-tiles';
-import { LAB_BAR_COOKIE, LAB_OWN_COOKIE, LAB_PASS_COOKIE, LAB_ROWS_COOKIE, labBarFromCookie, labDraftedRows } from './lab-draft';
+import { LAB_BAR_COOKIE, LAB_OWN_COOKIE, LAB_PASS_COOKIE, LAB_ROWS_COOKIE, labBarFromCookie, labDraftedRows, labOwnKind } from './lab-draft';
 import { labNavigatorInput } from './lab-navigator';
 import { REVEAL_NONE, revealAllowedFor } from '@/lib/reveal-access';
 import { INVITE_THEMES } from '@/lib/invite-themes';
 import { REVEAL_TEMPLATE_IDS, type RevealTemplateId } from '@/lib/reveal-config-pure';
+import { LastSeenScope } from '@/app/_components/last-seen/last-seen-scope';
+import { LabPageSpotlight } from '../_components/lab-page-spotlight';
+import { TOURS } from '@/lib/tours';
+import { HOST_PAGE_TOURS } from '@/lib/host-page-tours';
 
 /**
  * /dev/maker-lab — THE WHOLE MAKER on maria-and-jose's REAL SHAPE, with no
@@ -61,12 +70,16 @@ const LAB_CLIPS = ['jack-jill-vclip', 'jack-rose-vclip', 'maria-juan-vclip', 'jo
 export default async function MakerLabPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const sp = await searchParams;
+  const labNeeds =
+    typeof sp.needs === 'string' && (NEED_PRESETS as readonly string[]).includes(sp.needs)
+      ? readEventNeeds(needsColumns(needsForPreset(sp.needs as NeedPreset, { marketplace: true })))
+      : null;
   /* ⏱ `?slow=1`: a whole-Maker render takes as long as production's (3–6 s). */
   if (sp.slow === '1') await new Promise((r) => setTimeout(r, 4000));
   /* 🧾 The sample's rows WITH THE LAB'S DRAFT LAID OVER THEM — a scene's place on a stage, its eye, its Auto · Hidden
      (`./lab-draft.ts`, the real `overlayHubDraftWidgets`). They were a constant: Earlier · Later · Remove saved a
      real patch and the Maker and its canvas were drawn from rows that never moved (the walk of 2026-10-11, P02). */
-  const rows = labDraftedRows((await cookies()).get(LAB_ROWS_COOKIE)?.value, (await cookies()).get(LAB_OWN_COOKIE)?.value === '1');
+  const rows = labDraftedRows((await cookies()).get(LAB_ROWS_COOKIE)?.value, labOwnKind((await cookies()).get(LAB_OWN_COOKIE)?.value));
   /* 🎞 The lab's Post Event story — the day's facts compiled by the real compiler, the lab's drafted story keys
      (`lab_editorial`) laid over (`./lab-post-event.ts`). It was `null`: the Post Event panel could not be opened. */
   const labPostEvent = labPostEventRead(labEditorialDraft((await cookies()).get(LAB_EDITORIAL_COOKIE)?.value));
@@ -86,7 +99,7 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
     drafted = {};
   }
   drafted = labScrubCanvases(scrub, drafted);
-  /* 🎨 🎛 The lab's drafted part styles and camera look (set by the lab's save stand-in). */
+  /* 🎨 The lab's drafted part styles (set by the lab's save stand-in). */
   let fixedStyles: FixedSceneStyles = {};
   try {
     fixedStyles = sanitizeFixedSceneStyles(JSON.parse(decodeURIComponent((await cookies()).get('lab_styles')?.value ?? '{}')));
@@ -107,8 +120,6 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
       }
     }
   }
-  const camRaw = (await cookies()).get('lab_camera')?.value;
-  const cameraLook: CameraLook = isCameraLook(camRaw) ? camRaw : 'classic';
   /* 🧱 The lab's drafted block looks (`lab_blocks`, the stand-in for `style_preferences.block_looks`). */
   let blockLooks: Record<string, unknown> = {};
   try {
@@ -117,9 +128,23 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
   } catch {
     blockLooks = {};
   }
+  /* 🕯 The lab's drafted Accent picks (`lab_accents`, the stand-in for `style_preferences.scene_accents`), and the look
+     the lab's page wears for them — `lab_kit=vintage` puts the Vintage look on, so each scene starts at its accent. */
+  let sceneAccents: SceneAccents = {};
+  try {
+    sceneAccents = sanitizeSceneAccents(JSON.parse(decodeURIComponent((await cookies()).get('lab_accents')?.value ?? '{}')));
+  } catch {
+    sceneAccents = {};
+  }
+  const labKitTheme = (await cookies()).get('lab_kit')?.value === 'vintage' ? ('vintage' as const) : null;
   const canvases: Record<string, HubSectionCanvas> = Object.fromEntries(
-    rows.map((r) => [r.widget_type, sanitizeHubCanvas({ canvas: drafted[r.widget_type] ?? {} })]),
+    /* (A row that holds a canvas of its own — the owner's template scene, `lab_own=tpl20` — wears it until the draft has one.) */
+    rows.map((r) => [r.widget_type, sanitizeHubCanvas({ canvas: drafted[r.widget_type] ?? (r.config_json as { canvas?: unknown } | null)?.canvas ?? {} })]),
   );
+  /* ✍ Each scene of their own's words, drafted over the sample — what Edit's Heading and Words read (`ownWords`), and the
+     words the canvas is told to find (`typeHere`), as the real Maker hands both (`website/editor/page.tsx`). */
+  const ownWords = Object.fromEntries(rows.filter((r) => isCustomSectionType(r.widget_type)).map((r) => [r.widget_type, sanitizeCustomSection(r.config_json)]));
+  const typeHere = sceneTypeWords({ types: rows.map((r) => r.widget_type), canvases, message: null, reminders: null, own: ownWords });
   const scenes = rows.map((r) => ({
     id: r.widget_id,
     type: r.widget_type,
@@ -155,13 +180,20 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
       openings: on,
     };
   })();
+  /* 🕘 A signed-in viewer on this event, as the event layout hands down (`LastSeenScope`) — so the colour picker's
+     "Recently used" (per person, per event, this browser) works in the lab as in the app. A lab id, never a real one. */
   return (
+    <LastSeenScope userId="lab-viewer" eventId={EVENT}>
     <MakerLabShell
       eventId={EVENT}
+      tourHint={sp.spot === '1'}
       revealLab={revealLab}
       scenes={scenes}
       navigator={navigator}
       details={detailsLabNode({ ...sp, shape: 'mj', ...(sp.studio === '1' || sp.ss === '1' ? { look: '1' } : {}), labPass: (await cookies()).get(LAB_PASS_COOKIE)?.value })}
+      /* ✍ `&facts=1` — the fact editors the launch page hands the real Maker (`factEditors`): a tap that opens one in the
+         work area is seen as it is on a couple's Maker (the Love Story's moments, 2026-10-19). Off by default. */
+      factEditors={sp.facts === '1' ? detailsLabFacts(sp, { specialMessage: LAB_SAMPLE.message, pabuyaMessage: 'Thank you for joining us — every gift is received with thanks.' }) : undefined}
       /* 🎞 Look › Background's moving backgrounds, built as the editor page builds them. */
       loops={hubMovingBackgroundIds().map((id, i) => ({
         id,
@@ -186,10 +218,14 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
       }
       openDetails={sp.tool === 'details' || typeof sp.guide === 'string'}
       canvases={canvases}
+      ownWords={ownWords}
+      typeHere={typeHere}
       scrub={scrub}
+      ownsPro={sp.pro === '1'}
       fixedStyles={fixedStyles}
-      cameraLook={cameraLook}
       blockLooks={blockLooks}
+      sceneAccents={sceneAccents}
+      kitTheme={labKitTheme}
       /* ✓ The draft's summary as this render read it (`lab_bar`, written from the draft by the lab's door) — it was 0
          on every render, so the ✓ count fell to nothing by itself (P05). `?changes=3` still stands in for a draft. */
       summary={
@@ -201,6 +237,17 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
       renderStamp={String(Date.now())}
       /* 🧭 `?studio=1` (or `?ss=1`) — the new Maker on the lab's fixtures (its cards' states are the lab's stand-in, `LAB_STUDIO_DONE`). */
       stagesStudio={sp.studio === '1' || sp.ss === '1'}
+      /* 🖥 `&desk=1` — …and on a desktop in three columns (`MAKER_DESKTOP_ADAPTATION_2026-10-07_fable.md`). */
+      desktopColumns={(sp.studio === '1' || sp.ss === '1') && sp.desk === '1'}
+      /* 🚪 `?needs=simple|open|list|full` (owner 2026-10-08, Level 1): the stages this event does not need are absent. */
+      hiddenStages={labNeeds ? MAKER_PAGE_STAGES.filter((st) => needsHidesStage(st, labNeeds)) : []}
+      /* 📱 `?studio=1&venue=church` — the Venue scene › Edit's Picture ▾ rows, on the SAME fixture Details › Venues draws
+         (`&vpic=photo|drawing|none`, `&pro=1`). */
+      venuePictures={
+        (sp.studio === '1' || sp.ss === '1') && sp.venue === 'church'
+          ? ((v) => ({ slots: v.slots, pro: v.pro ?? { owns: false, storeShell: false } }))(labChurchVenues(typeof sp.vpic === 'string' ? sp.vpic : undefined, sp.pro === '1'))
+          : null
+      }
       studio={
         sp.studio === '1' || sp.ss === '1'
           ? {
@@ -217,10 +264,17 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
                    so Ready, Missing and "no claim" can each be seen on a card — and the head's count beside them. */
                 done: LAB_STUDIO_DONE[key],
                 status: STUDIO_TILES[key].sub,
-              })),
+              }))
+                /* 🚪 `&needs=simple|open|list|full` — what the event needs drops tiles, as the real Maker does. */
+                .filter((t) => !(labNeeds && needsHidesStudioTile(t.key, labNeeds))),
             }
           : null
       }
     />
+    {/* 🔦 `&spot=1` — the Maker's own spotlight (owner 2026-10-22), inside the Maker, first run. */}
+    {sp.spot === '1' && TOURS[HOST_PAGE_TOURS.maker].spotlight ? (
+      <LabPageSpotlight tourKey={HOST_PAGE_TOURS.maker} script={TOURS[HOST_PAGE_TOURS.maker].spotlight!} inMaker />
+    ) : null}
+    </LastSeenScope>
   );
 }

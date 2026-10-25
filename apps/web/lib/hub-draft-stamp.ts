@@ -45,7 +45,8 @@ function fnv1a(s: string, seed: number): string {
 /** The stamp of a draft's STATE (its Undo history left out) — equal for equal states, however they were spelled. */
 export function hubDraftStamp(draft: HubDraft): string {
   const read = sanitizeHubDraft(JSON.parse(JSON.stringify(draft)) as unknown);
-  const { history: _history, v: _v, ...state } = read;
+  // 👥 …and without WHO made it (`by`): two equal states are one state, whoever left them.
+  const { history: _history, v: _v, by: _by, ...state } = read;
   const s = canonicalJson(state);
   return `${fnv1a(s, 0x811c9dc5)}${fnv1a(s, 0x01000193 ^ 0x9e3779b9)}-${s.length.toString(36)}`;
 }

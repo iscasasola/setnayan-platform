@@ -188,11 +188,17 @@ export type NavInput = {
   /**
    * 📱 EACH TAB ITS OWN PAGE (owner 2026-09-30, `hub-tabs.ts`): the page shows
    * one tab at a time, so each in-page tab goes to its own address
-   * (`?tab=<key>`) instead of a `#jump-mark` on one long page. Absent/false →
-   * the anchors, for the pages that are still one scroll (the Save the Date, the
-   * story after the day, the Maker's canvas).
+   * (`?tab=<key>`) instead of a `#jump-mark` on one long page — The Day.
+   *
+   * 📜 `'one-page'` — THE INVITATION AND SAVE THE DATE (owner 2026-10-15, "ONE
+   * PAGE … THE BOTTOM BAR JUMPS TO SECTIONS · ME STAYS ITS OWN PAGE"): the
+   * sections keep their `#jump-mark`, and only Me goes to its own address
+   * (`?tab=me`, `hubTabHref(key, true)`).
+   *
+   * Absent/false → the anchors, for the pages that are one scroll with no
+   * pages at all (the story after the day, the Maker's canvas).
    */
-  tabbed?: boolean;
+  tabbed?: boolean | 'one-page';
   /**
    * 📖 AFTER THE DAY — does the recap DRAW a film scene, and a team scene?
    * Resolved by the caller through the SAME predicates the recap renders with
@@ -382,13 +388,13 @@ export function resolveSiteNav(input: NavInput): NavSlot[] {
   //     to show anyone.
   if (!isVendor && (phase === 'after' || (phase === 'day' && !isStranger))) {
     if (isCouple || anyChapterPublic) {
-      slots.push({ key: 'gallery', label: 'Gallery', state: 'live', href: ANCHOR.gallery });
+      slots.push({ key: 'gallery', label: 'Memories', state: 'live', href: ANCHOR.gallery });
     }
   } else if (phase === 'before' && viewer.kind === 'guest' && input.earlyOwnShots === true) {
     // 🖼 BEFORE THE DAY, ONLY WITH EARLY SHOOTING ON, ONLY AN INVITED GUEST —
     // and it holds their OWN shots, which are theirs to see. Announcing it hides
     // nothing of anybody else's: the rule 3 asymmetry still stands for the rest.
-    slots.push({ key: 'gallery', label: 'Gallery', state: 'live', href: ANCHOR.gallery });
+    slots.push({ key: 'gallery', label: 'Memories', state: 'live', href: ANCHOR.gallery });
   }
 
   // 5 — ME. Always last, always present; its name follows who they are.
@@ -432,8 +438,10 @@ export function resolveSiteNav(input: NavInput): NavSlot[] {
   // else, and no other moment, exceeds five.
   const five = allowed.slice(0, earlyGuest ? 6 : 5);
   // 📱 Each tab its own page: an in-page tab goes to its address, not a mark.
+  // 📜 One page (the Invitation, Save the Date): the sections keep their marks — only Me goes to its own page.
+  const onePage = input.tabbed === 'one-page';
   return input.tabbed
-    ? five.map((sl) => (sl.state === 'live' && IN_PAGE_ANCHORS.includes(sl.href) ? { ...sl, href: hubTabHref(sl.key) } : sl))
+    ? five.map((sl) => (sl.state === 'live' && IN_PAGE_ANCHORS.includes(sl.href) ? { ...sl, href: hubTabHref(sl.key, onePage) } : sl))
     : five;
 }
 

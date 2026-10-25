@@ -45,15 +45,23 @@ export const PUBLIC_SEARCH_NOUNS: ReadonlyArray<PublicSearchNoun> = [
 /**
  * The placeholder, built from the promise.
  *
- * Renders "Search suppliers, stories and guides" for the current list — the
- * exact string that shipped, so this change moves no pixels. Drop a noun from
- * the list and the words drop with it, in the same commit, with no second
- * place to remember.
+ * Renders "Suppliers, stories, guides" for the current list. Drop a noun from
+ * the list and the words drop with it, in the same commit, with no second place
+ * to remember.
+ *
+ * 📏 IT MUST FIT THE NARROWEST PHONE (live check 2026-10-23). It read "Search
+ * suppliers, stories and guides" and was cut to "…and guid" at 375 px: on a
+ * touch screen the box's input is 16 px (below that iOS zooms in on focus), and
+ * at 16 px that sentence needs ~262 px while the box holds 255 at 375 and 200 at
+ * 320. "Suppliers, stories, guides" needs ~182. The verb is carried by the
+ * magnifier button and the box's own `aria-label` ("Search Setnayan"), so the
+ * words are only the promise — what comes back. Held by
+ * `lib/the-search-placeholder-fits-a-phone.test.ts` (it carries the
+ * re-measure steps).
  */
 export function publicSearchPlaceholder(): string {
   const nouns = [...PUBLIC_SEARCH_NOUNS];
   if (nouns.length === 0) return 'Search Setnayan';
-  if (nouns.length === 1) return `Search ${nouns[0]}`;
-  const last = nouns.pop() as PublicSearchNoun;
-  return `Search ${nouns.join(', ')} and ${last}`;
+  const words = nouns.join(', ');
+  return words.charAt(0).toUpperCase() + words.slice(1);
 }

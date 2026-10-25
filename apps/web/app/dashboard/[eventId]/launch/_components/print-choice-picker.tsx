@@ -44,7 +44,8 @@ export function PrintChoicePicker({
   };
   if (row) {
     return (
-      <FormRows data="print-size" attrs={{ 'data-studio-print-rows': '' }}>
+      /* The SHORT pill (owner 2026-10-16, "short size lines"): the size ▾ names one size, so the piece's name and its line keep the room. */
+      <FormRows data="print-size" width="short" attrs={{ 'data-studio-print-rows': '' }}>
         <ChosenRow
           name={row.name}
           line={row.line}

@@ -13,7 +13,7 @@
  */
 import Link from 'next/link';
 import { bookingFeeScheduleSummary, type BookingFeeSchedule } from '@/lib/booking-fee';
-import { FREE_BOOKING_LIMIT } from '@/lib/booking-fee-lock';
+import { FIRST_BOOKING_ON_US_CLAUSE } from '@/lib/booking-fee-lock';
 import { COMMISSION_PCT, supplierCommissionShort } from '@/lib/commission-promise';
 import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
 
@@ -164,10 +164,10 @@ export function VendorGrowThesis({ fee }: FeeProp) {
     // applied to the file.
     { b: `${COMMISSION_PCT}%`, s: 'commission — couples pay you directly and we never sit between you at checkout' },
     {
-      b: 'First 5 free',
+      b: 'First booking free',
       s: fee
-        ? `the bookings we bring you are on us — after that ${bookingFeeScheduleSummary(fee)}, only on couples we source`
-        : 'the bookings we bring you are on us — after that a booking fee, only on couples we source',
+        ? `${FIRST_BOOKING_ON_US_CLAUSE} — after that ${bookingFeeScheduleSummary(fee)}, only on couples we source`
+        : `${FIRST_BOOKING_ON_US_CLAUSE} — after that a booking fee, only on couples we source`,
     },
   ];
   return (
@@ -410,7 +410,7 @@ export function VendorGrowFairPay({ fee }: FeeProp) {
               While we launch, commission is <b style={{ color: 'var(--m-ink)' }}>{COMMISSION_PCT}%</b>.{' '}
             </>
           )}
-          Your first {FREE_BOOKING_LIMIT} Setnayan-sourced bookings are on us —{' '}
+          Your first booking from Setnayan is on us —{' '}
           {fee ? (
             <>
               {feeLive ? 'after that the booking fee is ' : 'after that, '}
@@ -433,15 +433,15 @@ export function VendorGrowWebsite() {
     <section style={{ ...SECTION, paddingTop: 0 }}>
       <div className="m-split" style={SPLIT}>
         <ul className="m-split-flip" style={{ listStyle: 'none', padding: 0, margin: '24px 0 0', display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <FeatureLI icon="🌐" title="A free, search-ready website" body="We build it for you — live the moment you set an address." />
+          <FeatureLI icon="🌐" title="A free, search-ready Setnayan page" body="We build it for you — live the moment you set an address." />
           <FeatureLI icon="📈" title="SEO + GEO marketing analytics" body="Ranks on Google, discoverable near your couples, tracked." />
-          <FeatureLI icon="🔎" title="Discovered without spending" body="Our site is already search-optimized — that reach is yours." />
+          <FeatureLI icon="🔎" title="Discovered without spending" body="Setnayan is already search-optimized — that reach is yours." />
         </ul>
         <div style={{ maxWidth: '60ch' }}>
           <Eyebrow>Get discovered</Eyebrow>
-          <H2>A website that ranks — no spend, all reach.</H2>
+          <H2>A page that ranks — no spend, all reach.</H2>
           <Lede>
-            You shouldn&rsquo;t pay to be found. We give you a search-optimized website with SEO and GEO analytics built in, so the market discovers you on Google and inside Setnayan from day one — free.
+            You shouldn&rsquo;t pay to be found. We give you a search-optimized Setnayan page with SEO and GEO analytics built in, so the market discovers you on Google and inside Setnayan from day one — free.
           </Lede>
         </div>
       </div>

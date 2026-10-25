@@ -50,7 +50,6 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { parseStoredAsset } from '@/lib/uploads';
 import { r2GetBytes } from '@/lib/r2';
-import { safeFetchImageBytes } from '@/lib/safe-image-fetch';
 import { hashAndScanVendorImages } from '@/lib/vendor-image-repost-watch';
 import {
   getEditorialEligibility,
@@ -66,7 +65,7 @@ import {
 import {
   backCatalogueQuotaVerdict,
   slotUploadVerdict,
-  GALLERY_SLOT_LABEL,
+  libraryPartLabel,
   RIGHTS_WARRANTY_VERSION,
   type GalleryUploadMode,
 } from '@/lib/moodboard-gallery-upload';
@@ -74,6 +73,8 @@ import { SUPPLIER_GALLERY_ASSET_TYPE } from '@/lib/moodboard-gallery';
 import type { VendorProfileRow } from '@/lib/vendor-profile';
 import type { ColorRangeMap } from '@/app/admin/moodboard-library/_components/color-range-manipulator';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { fetchShopLogoBytes, readShopOwnPhotoBytes } from '@/lib/shop-own-photos.server';
+import { autoColourRanges } from '@/lib/extract-palette.server';
 
 const BUCKET = 'moodboard-library';
 
@@ -184,7 +185,7 @@ async function storeScreenedAsset(args: {
     source: string;
     source_event_id: string | null;
   };
-}): Promise<{ assetId: string; textScreen: 'ran' | 'unavailable' }> {
+}): Promise<{ assetId: string; textScreen: 'ran' | 'unavailable'; colorRanges: ColorRangeMap }> {
   // ⚠ THE SHOP IS STAMPED ON GALLERY ROWS ONLY, AND THAT IS NOT AN OVERSIGHT.
   // MB10's shape CHECK REQUIRES `vendor_profile_id` on a 'supplier_gallery'
   // row — it is the credit the couple reads. The three Setnayan-template types
@@ -275,6 +276,30 @@ async function storeScreenedAsset(args: {
     throw new Error(`db insert failed: ${insErr.message}`);
   }
 
+  // 2b · 🌱🖼 THE PHOTO'S OWN COLOURS, TAGGED FOR IT (2026-10-19). The couple's gallery needs sampled colours to
+  //     save a photo onto a board, and suppliers do not tag them — an approved photo with none was invisible. Read
+  //     from the ORIGINAL pixels (the mark is not the photo's colour) by the shipped extractor's own bucketing,
+  //     labelled "Auto" so a person adjusting them in the tagger can tell. Best-effort: a failed read or write leaves
+  //     the photo untagged, which the gallery still shows (`shapeGalleryPage`) and the pick reads at save time.
+  let colorRanges: ColorRangeMap = {};
+  if (isGalleryRow) {
+    colorRanges = await autoColourRanges(args.bytes);
+    const rangeRows = Object.values(colorRanges).map((r) => ({
+      asset_id: row.asset_id as string,
+      slot_id: r.slotId,
+      sampled_hex: r.sampledHex,
+      tolerance_de: r.toleranceDe,
+      region_label: r.regionLabel ?? null,
+    }));
+    if (rangeRows.length > 0) {
+      const { error: rangeErr } = await admin.from('moodboard_asset_color_ranges').insert(rangeRows);
+      if (rangeErr) {
+        logQueryError('moodboardLibrary.autoColourRanges', rangeErr, { assetId: row.asset_id }, 'graceful_degrade');
+        colorRanges = {};
+      }
+    }
+  }
+
   // 3 · THE THEFT SCAN, on the bytes we actually stored. Best-effort by
   //     contract (it swallows its own failures) — an un-hashed image is
   //     re-attempted by the admin "Rescan all" backfill, and a hashing hiccup
@@ -286,39 +311,50 @@ async function storeScreenedAsset(args: {
     bytesByRef: { [storagePath]: marked.bytes },
   });
 
-  return { assetId: row.asset_id as string, textScreen: screen.textScreen };
+  return { assetId: row.asset_id as string, textScreen: screen.textScreen, colorRanges };
 }
 
-/** The shop's own logo bytes, or null when it has no logo on file. */
+/** The shop's own logo bytes, or null when it has no logo on file (`fetchShopLogoBytes`, shared with event suggestions). */
 async function fetchLogoBytes(logoUrl: string | null): Promise<Uint8Array | null> {
-  const parsed = parseStoredAsset(logoUrl);
-  if (!parsed) return null;
-  try {
-    if (parsed.kind === 'r2') {
-      const { bytes } = await r2GetBytes({ bucket: parsed.bucket, key: parsed.key });
-      return bytes;
-    }
-    return await safeFetchImageBytes(parsed.url);
-  } catch {
-    // No logo we can read → the own-logo check is SKIPPED, never guessed at.
-    return null;
-  }
+  return fetchShopLogoBytes(logoUrl);
+}
+
+/**
+ * The bytes of one of the shop's OWN photos (its page gallery or a service card), for the library's "From your
+ * shop's photos". 🛑 The ref must be in the list `shopOwnPhotoRefs` reads NOW, under the supplier's own session — a
+ * ref the browser made up (another shop's key, any URL) is refused before anything is fetched. A list that could not
+ * be read refuses too: we cannot prove the photo is theirs.
+ */
+async function readShopOwnPhoto(
+  profile: VendorProfileRow,
+  ref: string,
+): Promise<{ bytes: Uint8Array; contentType: string | null }> {
+  return readShopOwnPhotoBytes(await createClient(), profile, ref);
 }
 
 export async function uploadStylistAsset(
   formData: FormData,
-): Promise<{ assetId: string; textScreen: 'ran' | 'unavailable' }> {
+): Promise<{ assetId: string; textScreen: 'ran' | 'unavailable'; colorRanges: ColorRangeMap }> {
   const { userId, profile } = await requireLibraryAccess();
   const admin = createAdminClient();
 
-  const file = formData.get('file') as File | null;
+  const picked = formData.get('file');
+  const file = picked instanceof File && picked.size > 0 ? picked : null;
+  // 🌱🖼 OR ONE OF THE SHOP'S OWN PHOTOS (owner 2026-10-19, "add from the shop's own gallery photos as well as
+  // upload"): the same form, the same gates below, only the bytes come from the shop's page / service cards instead
+  // of the supplier's machine. The ref is checked against the shop's OWN list, read here — never trusted as sent.
+  const shopPhotoRef = String(formData.get('shopPhotoRef') ?? '').trim() || null;
   const label = String(formData.get('label') ?? '').trim();
   const assetType = String(formData.get('assetType') ?? '');
   const assetSubtype = String(formData.get('assetSubtype') ?? '').trim() || null;
   const rightsWarranted = String(formData.get('rightsWarranted') ?? '') === '1';
 
-  if (!file) throw new Error('file required');
+  if (!file && !shopPhotoRef) throw new Error('Pick a photo — a file, or one from your shop.');
+  if (file && shopPhotoRef) throw new Error('Pick one photo at a time.');
   if (!label) throw new Error('label required');
+  if (shopPhotoRef && assetType !== SUPPLIER_GALLERY_ASSET_TYPE) {
+    throw new Error('Photos from your shop go to the couples’ inspiration library.');
+  }
 
   const isGallery = assetType === SUPPLIER_GALLERY_ASSET_TYPE;
   if (!isGallery && !(LEGACY_ASSET_TYPES as readonly string[]).includes(assetType)) {
@@ -349,32 +385,35 @@ export async function uploadStylistAsset(
       // allow it. Passing 0 here would have read as "none used" and lifted the
       // cap entirely.
       throw new Error(
-        "We couldn't check your gallery allowance just now — please try that upload again in a moment.",
+        "We couldn't check your Inspiration allowance just now — please try that upload again in a moment.",
       );
     }
     const quota = backCatalogueQuotaVerdict({
       mode,
       cap: tierCaps(tier).galleryBackCatalogPhotosPerCategory,
       backCatalogueUsed: used,
-      categoryLabel: GALLERY_SLOT_LABEL[slot.slotKey] ?? 'that category',
+      categoryLabel: libraryPartLabel(slot.slotKey) ?? 'that category',
     });
     if (!quota.allowed) throw new Error(quota.message);
   }
 
-  const arrayBuffer = await file.arrayBuffer();
+  const photo = file
+    ? { bytes: new Uint8Array(await file.arrayBuffer()), contentType: file.type || null }
+    : await readShopOwnPhoto(profile, shopPhotoRef!);
   const result = await storeScreenedAsset({
     admin,
     userId,
     profile,
-    bytes: new Uint8Array(arrayBuffer),
-    contentType: file.type || null,
+    bytes: photo.bytes,
+    contentType: photo.contentType,
     row: {
       asset_type: assetType,
       asset_subtype: assetSubtype,
       label,
       source: 'stylist_upload',
-      // A file picked off the shop's own machine is BACK-CATALOGUE by
-      // definition — there is no celebration attached to it. The event-linked
+      // A file picked off the shop's own machine — or a photo off its own page
+      // or service cards — is BACK-CATALOGUE by definition: there is no
+      // celebration attached to it. The event-linked
       // route is `importEditorialMediaToGallery` below, which can prove the
       // link instead of taking the vendor's word for it.
       source_event_id: null,
@@ -496,7 +535,7 @@ export async function importEditorialMediaToGallery(input: {
   mediaId: string;
   slotKey: string;
   rightsWarranted: boolean;
-}): Promise<{ assetId: string; textScreen: 'ran' | 'unavailable' }> {
+}): Promise<{ assetId: string; textScreen: 'ran' | 'unavailable'; colorRanges: ColorRangeMap }> {
   const { userId, profile } = await requireLibraryAccess();
   const admin = createAdminClient();
 
@@ -524,7 +563,7 @@ export async function importEditorialMediaToGallery(input: {
   if (row.vendor_profile_id !== profile.vendor_profile_id) {
     throw new Error('That photo belongs to another shop.');
   }
-  if (row.media_type !== 'photo') throw new Error('Only photos can join the gallery.');
+  if (row.media_type !== 'photo') throw new Error('Only photos can join Inspiration.');
   if (row.moderation_state !== 'clean') {
     throw new Error('That photo has not cleared review yet.');
   }
@@ -538,7 +577,7 @@ export async function importEditorialMediaToGallery(input: {
   const eligibility = await getEditorialEligibility(admin, row.event_id, profile.vendor_profile_id);
   if (!eligibility.eligible) {
     throw new Error(
-      'You’re no longer the couple’s recommended supplier on that celebration, so its photos can’t be added.',
+      'You’re no longer the couple’s recommended supplier on that event, so its photos can’t be added.',
     );
   }
 

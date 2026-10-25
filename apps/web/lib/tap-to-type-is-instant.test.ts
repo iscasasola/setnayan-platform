@@ -187,7 +187,8 @@ test('5a · the bar never renders the Maker: every save is held, in the element 
   const bar = read('app/dashboard/[eventId]/website/editor/_components/type-in-place.tsx');
   const saves = bar.match(/makerSave\(/g) ?? [];
   assert.equal(saves.length, 1, 'ONE write path for every change the bar makes');
-  assert.match(bar, /makerSave\(\s*\(\) => makerLatestWrite\(key, \(\) => saveDraft\(draftAction, eventId, patch\)\)/, 'one queue, the latest write per key');
+  /* RE-AIMED 2026-10-18 round 3 (two hosts never overwrite): every step records who made it; whole canvases say what they were built on. Same property. */
+  assert.match(bar, /makerSave\(\s*\(\) => makerLatestWrite\(key, \(\) => saveDraft\(draftAction, eventId, patch, based\)\)/, 'one queue, the latest write per key');
   assert.match(bar, /write\(\s*canvasWriteKey\('hero'\),\s*\{ widgets: \{ hero: \{ canvas: next \} \} \},\s*\{ messages: layMessages\(before, next\), typedIn \}/, 'the hero’s canvas: the element sheet’s queue and key, drawn first');
   assert.match(bar, /\) => \{\s*postToCanvas\(shown\.messages, shown\.typedIn\);[\s\S]*?makerSave\(/, 'the one write path draws on the canvas before it saves');
   assert.match(bar, /requestMakerRefresh,\s*\{ held: true, ok:/, 'held — no Maker render behind it');
@@ -272,7 +273,9 @@ test('6b · typing the names writes the DRAFT’s events.display_name — the on
   const action = read('app/dashboard/[eventId]/website/hub-draft-actions.ts');
   const save = action.slice(action.indexOf("if (intent === 'save') {"), action.indexOf("if (intent === 'reset') {"));
   assert.ok(save.length > 0);
-  assert.match(save, /writeHubDraft\(supabase, eventId, mergeHubDraft\(current, patch\)\)/);
+  /* RE-AIMED 2026-10-18 (two hosts never overwrite): every draft write goes through `updateHubDraft` — the compare-and-set that builds again on the draft as it is when the write lands. Same property, new shape. */
+  /* RE-AIMED 2026-10-18 round 3 (owner rulings A + B): every step now carries who made it (`by`, handed to the builder by `updateHubDraft`) and ↺ takes back only the host's own step. Same property, new shape. */
+  assert.match(save, /updateHubDraft<HubDraftRebased>\(supabase, eventId, async \(cur, by\) => \{[\s\S]{0,300}?const next = mergeHubDraft\(c, rebased\.patch, by\);/);
   // A save may READ (the live date, to ask the supplier clash) — it never writes a table but the draft.
   assert.doesNotMatch(save, /\.update\(|\.insert\(|\.upsert\(|\.delete\(/, 'a save wrote a table other than through the draft store');
 });
@@ -301,7 +304,7 @@ test('6d · a name or date typed in Details › Your event is DRAFTED — the Ma
   const editors = read(`${L}details-your-event.tsx`);
   assert.doesNotMatch(editors, /updateEventDate|updateEventMatchCriteria/, 'a Maker editor still writes the names or the date live');
   assert.match(editors, /fd\.set\('patch', JSON\.stringify\(\{ events \}\)\);\s*const r = await makerSave\(\(\) => hubDraftAction\(eventId, fd\), requestMakerRefresh\);/);
-  assert.match(editors, /const events = coupleNameColumns\(a, b\);/, 'the Personalization writer’s own composition');
+  assert.match(editors, /const events = coupleNameColumns\(a, b, order\);/, 'the Personalization writer’s own composition, in the event’s order');
   assert.match(editors, /draftFacts\(eventId, \{ display_name: typed \}\)/, 'one person’s name');
   assert.match(editors, /draftDate\(\{ event_date: `\$\{m\}-01`, event_date_precision: 'month' \}\)/, 'a month');
   assert.match(editors, /draftDate\(\{ event_date: value, event_date_precision: 'day' \}\)/, 'a day');
@@ -313,7 +316,7 @@ test('6d · a name or date typed in Details › Your event is DRAFTED — the Ma
     assert.doesNotMatch(read(`${L}${f}`), /\bupdateEventDate\(|\bupdateEventMatchCriteria\(/, `${f} writes the date or the names live`);
   }
   // The Personalization page's writer and the Maker's draft compose the names ONE way.
-  assert.match(read('app/dashboard/[eventId]/actions.ts'), /const cols = coupleNameColumns\(/);
+  assert.match(read('app/dashboard/[eventId]/actions.ts'), /const cols = coupleNameColumns\(postedPeople\[0\], postedPeople\[1\], storedOrder\);/);
   assert.deepEqual(coupleNameColumns({ first: 'Ana', last: 'Reyes' }, { first: 'Miguel', last: 'Santos' }), {
     bride_name: 'Ana Reyes',
     groom_name: 'Miguel Santos',
@@ -405,8 +408,9 @@ test('7b · Apply merges the one key into the prints’ blob — through the adm
   const action = read('app/dashboard/[eventId]/website/hub-draft-actions.ts');
   assert.match(action, /delete eventsPatch\.print_details;/, 'the blob leaves the session UPDATE (no UPDATE grant on it)');
   // 🎫 Since 2026-10-05 the drafted Ticket style rides the same merge — each key only when the draft holds it.
-  assert.match(action, /const stored = parsePrintDetails\(pdRow\.print_details\);[\s\S]*?serializePrintDetails\(\{\s*\.\.\.stored,\s*\.\.\.\(nameStyleWrite !== undefined \? \{ nameStyle: nameStyleWrite \} : \{\}\),/, 'every other key of the blob is carried untouched');
-  assert.match(action, /if \(pdWriteErr \|\| !Array\.isArray\(pdRows\) \|\| pdRows\.length === 0\)/, 'a zero-row write is not success');
+  // 👥 Since 2026-10-18: a change applied to the blob as it is NOW (`updatePrintDetails`, whose write proves its row).
+  assert.match(action, /updatePrintDetails\(createAdminClient\(\), eventId, \(now\) => \(\{\s*\.\.\.now,\s*\.\.\.\(nameStyleWrite !== undefined \? \{ nameStyle: nameStyleWrite \} : \{\}\),/, 'every other key of the blob is carried untouched');
+  assert.match(action, /if \(!pd\.ok\) \{/, 'a zero-row write is not success');
   assert.ok(
     action.indexOf('requireHostMembershipOrThrow(eventId, FORBIDDEN)') < action.indexOf('const nameStyleWrite'),
     'the host check runs first',
@@ -480,7 +484,7 @@ test('8c · the check is the SHIPPED availability read — no second one — ask
   // The save asks BEFORE the draft is written — and answers with the reason and who.
   const action = read('app/dashboard/[eventId]/website/hub-draft-actions.ts');
   const save = action.slice(action.indexOf("if (intent === 'save') {"), action.indexOf("if (intent === 'reset') {"));
-  assert.ok(save.indexOf('datePickClash(') > 0 && save.indexOf('datePickClash(') < save.indexOf('writeHubDraft('), 'the clash is asked before the draft is written');
+  assert.ok(save.indexOf('datePickClash(') > 0 && save.indexOf('datePickClash(') < save.indexOf('updateHubDraft<'), 'the clash is asked before the draft is written');
   assert.match(save, /if \(asked\) return \{ ok: false, intent, error: asked\.reason, clash: asked\.clash \};/);
   // "Help me choose" lists only fitting days; a clashing pick says who and offers the one action.
   assert.match(read(`${L}details-date-finder.tsx`), /const fit = fittingDates\(rankWithPin\(m\.dates, pinned\)\);/);

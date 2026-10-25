@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { Check, Lock, Pencil, AlertTriangle, X } from 'lucide-react';
 import {
   setEventCeremonyType,
@@ -141,7 +140,7 @@ type Props = {
    * ✍ THE MAKER'S DATE IS A DRAFT (owner 2026-10-01, "wait for apply"): where
    * given, the date row saves through this — after the SAME booked-supplier
    * preview — instead of `updateEventDate`, and the caller draws the screen
-   * again (no `router.refresh()` here). Resolves null when saved, else the
+   * again. Resolves null when saved, else the
    * reason. Omitted = the Personalization page's live save, unchanged.
    */
   saveDate?: (value: string) => Promise<string | null>;
@@ -207,7 +206,6 @@ export function GovernedFields({
   saveDate,
   activeCeremonies = null,
 }: Props) {
-  const router = useRouter();
   // The launch gate (lib/ceremony-choices.ts): coming-soon rites are not offered.
   const offeredCeremonies = new Set<string>(
     ceremonyChoicesFor(
@@ -270,7 +268,7 @@ export function GovernedFields({
         return;
       }
       setOverlaySaved(true);
-      router.refresh();
+      // ⚡ Every write on this row revalidates the event, so the action's answer already carries the redrawn page.
     });
   }
 
@@ -369,7 +367,6 @@ export function GovernedFields({
       }
       setSavedField(field);
       close();
-      if (!saveDate) router.refresh();
     });
   }
 
@@ -400,7 +397,6 @@ export function GovernedFields({
         }
         setSavedField(field);
         close();
-        if (!saveDate) router.refresh();
       });
       return;
     }
@@ -433,7 +429,6 @@ export function GovernedFields({
         }
         setSavedField(field);
         close();
-        if (!saveDate) router.refresh();
         return;
       }
       setConflicts(res.conflicts);
@@ -479,7 +474,7 @@ export function GovernedFields({
       } catch {
         setError(NOT_CHECKED);
       }
-      router.refresh();
+      // (The page behind is already redrawn: `deleteVendor` revalidates, and its answer carries the render.)
     });
   }
 

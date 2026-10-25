@@ -19,7 +19,6 @@ import {
   useReducedMotion,
 } from '@/app/[slug]/_components/editorial/living-moments';
 import { placeholderBackground } from './placeholder';
-import { captureLifeFlash } from './life-flash-analytics';
 import { formatCount } from '@/lib/format-number';
 import { PillButton, PillTrack } from '@/app/_components/pill-track';
 
@@ -78,10 +77,7 @@ export function ScrollReel({ moments }: { moments: ReelMoment[] }) {
           <PillButton
             on={order === 'time'}
             aria-pressed={order === 'time'}
-            onClick={() => {
-              setOrder('time');
-              void captureLifeFlash('life_flash_reel_reordered', { order: 'time' });
-            }}
+            onClick={() => setOrder('time')}
             className="px-3"
           >
             By time
@@ -93,7 +89,7 @@ export function ScrollReel({ moments }: { moments: ReelMoment[] }) {
         {ordered.map((m) => (
           <article
             key={m.id}
-            className="relative flex flex-col overflow-hidden rounded-2xl border border-ink/10 bg-white shadow-sm"
+            className="relative flex flex-col overflow-hidden rounded-2xl border border-ink/10 bg-white dark:bg-raised shadow-sm"
           >
             <div className="relative aspect-[4/3] overflow-hidden bg-ink/5">
               {m.url && m.type === 'clip' ? (

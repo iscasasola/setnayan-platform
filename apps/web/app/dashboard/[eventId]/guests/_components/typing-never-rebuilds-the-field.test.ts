@@ -26,14 +26,20 @@ const HOOK = stripComments(readFileSync(join(HERE, 'use-row-state.ts'), 'utf8'))
 const CSS = stripComments(readFileSync(join(HERE, 'guests-screen.module.css'), 'utf8'));
 
 test('the box is uncontrolled — one node, its value never written by a render', () => {
-  const box = SCREEN.slice(SCREEN.indexOf('const field = ('), SCREEN.indexOf('/>', SCREEN.indexOf('const field = (')));
-  assert.match(box, /<input\b/);
-  assert.doesNotMatch(box, /\svalue=\{/, 'the box is controlled — every key re-renders it');
-  assert.match(box, /defaultValue=/);
-  assert.match(box, /ref=\{fieldRef\}/);
-  assert.match(box, /onInput=\{\(e\) => onType\(e\.currentTarget\.value\)\}/);
+  // Since 2026-10-22 the field is the ONE thumb row's seat: the screen hands its input props to the shared row.
+  const box = SCREEN.slice(SCREEN.indexOf('const field: ThumbField = {'), SCREEN.indexOf('onKeyDown:', SCREEN.indexOf('const field: ThumbField = {')));
+  assert.ok(box.length > 50, 'the field seat moved — re-aim this guard');
+  assert.doesNotMatch(box, /\svalue:/, 'the box is controlled — every key re-renders it');
+  assert.match(box, /defaultValue: q,/);
+  assert.match(box, /inputRef: fieldRef,/);
+  assert.match(box, /onInput: \(e\) => onType\(e\.currentTarget\.value\),/);
+  // …and the shared row writes no value of its own onto the input.
+  const ROW = stripComments(readFileSync(join(HERE, '..', '..', '..', '..', '..', 'components', 'thumb-row.tsx'), 'utf8'));
+  const input = ROW.slice(ROW.indexOf('<input'), ROW.indexOf('/>', ROW.indexOf('<input')));
+  assert.match(input, /\{\.\.\.field\.input\}/);
+  assert.doesNotMatch(input, /\svalue=/, 'the shared row controls the box');
   // The box is ONE element placed in both rows that have it — never a new component per render.
-  assert.equal((SCREEN.match(/data-guests-search=""/g) ?? []).length, 1);
+  assert.equal((SCREEN.match(/'data-guests-search': ''/g) ?? []).length, 1);
   assert.doesNotMatch(SCREEN, /key=\{q\}|key=\{`\$\{q/, 'a key tied to the query remounts the box');
 });
 

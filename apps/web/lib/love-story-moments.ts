@@ -41,11 +41,13 @@
  */
 import { hubMediaRef, sanitizeHubCanvas, type HubSectionCanvas } from '@/lib/hub-canvas';
 import type { PrintStoryChapter } from '@/lib/print-pieces';
+import { splitCoupleNames } from '@/lib/split-names';
+import { FREE_MOMENT_CAP } from '@/lib/love-story-cap';
 
 /* ── LIMITS ─────────────────────────────────────────────────────────────── */
 
-/** Free couples: at most this many stories. The sixth needs Event Hub Pro. */
-export const FREE_MOMENT_CAP = 5;
+/** Free couples: at most this many stories. The sixth needs Event Hub Pro. Declared in `lib/love-story-cap.ts` (a client list reads it). */
+export { FREE_MOMENT_CAP };
 /** Hard ceiling for everyone — same bound `milestones[]` has, so one couple
  *  cannot balloon the blob every guest page render parses. */
 export const MOMENT_MAX = 100;
@@ -78,13 +80,28 @@ export function isMomentAnchor(v: unknown): v is MomentAnchor {
   return typeof v === 'string' && (MOMENT_ANCHORS as readonly string[]).includes(v);
 }
 
+/**
+ * 🗣 TWO VOICES (owner 2026-10-17, DECISION_LOG "APPROVED — LOVE STORY, TWO VOICES"; prototype
+ * `love_story_two_voices_2026-10-17.html`): *"has both a his and her side. it is like he said she said style"*.
+ * SLOT-KEYED, never name-keyed — `a` is the event's first partner, `b` the second, in the order
+ * `loveStoryPartners` (= `splitCoupleNames`) gives the Maker's "Added by" — so renaming a partner never orphans a
+ * voice. Each at most `MOMENT_LINE_MAX`. Absent = nobody wrote in their own voice; the moment's `line` (the words
+ * "told together") is then what guests read.
+ */
+export type MomentVoices = { a?: string; b?: string };
+export const MOMENT_VOICE_SLOTS = ['a', 'b'] as const;
+export type MomentVoiceSlot = (typeof MOMENT_VOICE_SLOTS)[number];
+
 export type LoveStoryMoment = {
   id: string;
   /** Absent only on a moment seeded from words that never had a date. */
   date?: MomentDate;
   /** 📖 Its title — "The first date" (owner 2026-10-07). Absent = untitled, as every moment was before. */
   title?: string;
+  /** The words told together — the fallback a guest reads when no voice was written. `''` on a voices-only moment. */
   line: string;
+  /** 🗣 The partners' own words (owner 2026-10-17). Absent = none written. */
+  voices?: MomentVoices;
   place?: string;
   /** Public-bucket `r2://` refs (Pro). Nothing is copied — a ref points at the original. */
   media?: string[];
@@ -158,6 +175,22 @@ export function readMomentMedia(raw: unknown): string[] {
   return out;
 }
 
+/** 🗣 The voices a moment holds — only the slots with words, each trimmed and capped; null when none. */
+export function readMomentVoices(raw: unknown): MomentVoices | null {
+  if (!isObj(raw)) return null;
+  const out: MomentVoices = {};
+  for (const slot of MOMENT_VOICE_SLOTS) {
+    const words = text(raw[slot], MOMENT_LINE_MAX);
+    if (words) out[slot] = words;
+  }
+  return out.a || out.b ? out : null;
+}
+
+/** Has this moment both voices written? ("Added by" then hides — the two names already say who wrote what.) */
+export function momentHasBothVoices(m: { voices?: MomentVoices | null }): boolean {
+  return Boolean(m.voices?.a && m.voices?.b);
+}
+
 /** One stored moment, or null when it carries nothing a guest could read. */
 export function readMoment(raw: unknown): LoveStoryMoment | null {
   if (!isObj(raw)) return null;
@@ -167,7 +200,9 @@ export function readMoment(raw: unknown): LoveStoryMoment | null {
   const date = readMomentDate(raw.date);
   const place = text(raw.place, MOMENT_PLACE_MAX);
   const media = readMomentMedia(raw.media);
-  if (!line && !place && media.length === 0) return null;
+  /* 🗣 A voice alone is enough — a moment only one partner wrote for has no line at all. */
+  const voices = readMomentVoices(raw.voices);
+  if (!line && !voices && !place && media.length === 0) return null;
   const addedBy = text(raw.added_by, MOMENT_BY_MAX);
   const anchor = isMomentAnchor(raw.anchor) ? raw.anchor : undefined;
   const title = text(raw.title, MOMENT_TITLE_MAX).replace(/\s+/g, ' ');
@@ -177,6 +212,7 @@ export function readMoment(raw: unknown): LoveStoryMoment | null {
     ...(date ? { date } : {}),
     ...(title ? { title } : {}),
     line,
+    ...(voices ? { voices } : {}),
     ...(place ? { place } : {}),
     ...(media.length ? { media } : {}),
     ...(addedBy ? { added_by: addedBy } : {}),
@@ -404,6 +440,8 @@ export type LoveStoryScene = {
   /** 📖 Its title, or null (owner 2026-10-07). */
   title: string | null;
   line: string;
+  /** 🗣 The partners' own words (slot-keyed), or null — then `line` is what a guest reads. */
+  voices: MomentVoices | null;
   place: string | null;
   media: string[];
   addedBy: string | null;
@@ -425,6 +463,47 @@ export function suggestedMomentTemplate(m: LoveStoryMoment): number {
   return hasMedia ? 6 : 8;
 }
 
+/* ── THE TWO VOICES, NAMED ─────────────────────────────────────────────── */
+
+/**
+ * 🗣 THE PARTNERS, IN SLOT ORDER — `[first, second]` as `splitCoupleNames` splits the event's name, the SAME
+ * reading the Maker's "Added by" uses (`our-story/page.tsx`), so voice `a` is always the name shown first.
+ * One name (a debut, a solo-named event) = one partner; an empty name = none.
+ */
+export function loveStoryPartners(displayName: string | null | undefined, eventType: string | null | undefined): string[] {
+  const { first, second } = splitCoupleNames(displayName ?? '', eventType === 'wedding');
+  return [first, second].filter((n): n is string => Boolean(n && n.trim())).map((n) => n.trim());
+}
+
+export type MomentVoiceLine = { slot: MomentVoiceSlot; name: string; words: string };
+
+/**
+ * 🗣 ONLY THE VOICES THAT WROTE, in slot order (a first), each with its partner's name ('' when the event has no
+ * name for that slot). Empty = no voice was written — the reader then shows `line`.
+ */
+export function momentVoiceLines(m: { voices?: MomentVoices | null }, partners: readonly string[]): MomentVoiceLine[] {
+  const out: MomentVoiceLine[] = [];
+  MOMENT_VOICE_SLOTS.forEach((slot, i) => {
+    const words = m.voices?.[slot]?.trim();
+    if (words) out.push({ slot, name: partners[i] ?? '', words });
+  });
+  return out;
+}
+
+/**
+ * 🗣 A moment as ONE run of words, for the readers that print one (the Our Story poster, the shipped Chapters and
+ * Years looks): each voice that wrote as "Name: words", joined by `sep`; no voice → the line told together.
+ */
+export function momentReadLine(
+  m: { voices?: MomentVoices | null; line: string },
+  partners: readonly string[],
+  sep = '\n',
+): string {
+  const voices = momentVoiceLines(m, partners);
+  if (voices.length === 0) return m.line;
+  return voices.map((v) => (v.name ? `${v.name}: ${v.words}` : v.words)).join(sep);
+}
+
 /**
  * THE GUEST PLAN: one scene per VISIBLE moment, in story order. Hidden moments
  * are skipped, never rendered empty. This is the list the Event Hub draws —
@@ -440,6 +519,7 @@ export function loveStoryScenes(loveStory: unknown): LoveStoryScene[] {
       when: formatMomentDate(m.date),
       title: m.title ?? null,
       line: m.line,
+      voices: m.voices ?? null,
       place: m.place ?? null,
       media: m.media ?? [],
       addedBy: m.added_by ?? null,
@@ -456,10 +536,11 @@ export function loveStoryScenes(loveStory: unknown): LoveStoryScene[] {
  * order). Consecutive moments of a chapter are grouped under its name. Nothing
  * is invented: a moment with no date prints no date, one with no place no place.
  */
-export function printStoryChapters(loveStory: unknown): PrintStoryChapter[] {
+export function printStoryChapters(loveStory: unknown, partners: readonly string[] = []): PrintStoryChapter[] {
   const out: PrintStoryChapter[] = [];
   for (const s of loveStoryScenes(loveStory)) {
-    const words = s.line.replace(/\s+/g, ' ').trim();
+    /* 🗣 Two voices print one line each, named — "Maria: … · Jose: …" (owner 2026-10-17); none, the line. */
+    const words = momentReadLine(s, partners, ' · ').replace(/\s+/g, ' ').trim();
     // 📖 A titled moment prints its title first — "The first date — We met at…".
     const line = s.title && words ? `${s.title} — ${words}` : s.title || words;
     const place = s.place?.replace(/\s+/g, ' ').trim() || null;

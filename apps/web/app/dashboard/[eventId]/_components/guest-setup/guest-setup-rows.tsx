@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useRef, useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
 import { Check, Copy, Mail, RotateCcw, Share2, SquareCheck, X } from 'lucide-react';
 import { ActionButton, useFitRow } from '@/components/action-button';
 import { Count } from '@/components/count';
@@ -326,7 +325,6 @@ function OneLinkRow({ link }: { link: OneLink }) {
  * under the row.
  */
 function FinalizeRow({ eventId, view }: { eventId: string; view: HeadcountView }) {
-  const router = useRouter();
   const { setGuestListFinalized } = useGuestActions();
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
@@ -341,7 +339,6 @@ function FinalizeRow({ eventId, view }: { eventId: string; view: HeadcountView }
         return;
       }
       setOpen(false);
-      router.refresh();
     });
   /* ↻ The hosts' way back (owner 2026-10-07). This panel renders for the couple only
      (`invite-panel.tsx`), and `reopenGuestList` refuses anyone else on the server. */
@@ -353,7 +350,7 @@ function FinalizeRow({ eventId, view }: { eventId: string; view: HeadcountView }
         setError(plainRefusal(res.error, 'Couldn’t reopen the list. Try again.'));
         return;
       }
-      router.refresh();
+      // ⚡ Finalize and Reopen revalidate the guest list (`setGuestListFinalized`): the answer carries the redraw.
     });
 
   return (

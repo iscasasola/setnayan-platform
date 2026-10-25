@@ -116,6 +116,12 @@ test('4a · the route serves Modern and Cyber Neon print-ready to a free couple;
   assert.match(route, /const freeTheme = !isProPrint\(theme\);/, 'the route no longer asks the tier');
   assert.match(route, /\(mode === 'screen' && \(access\.printReady \|\| freeTheme\)\)/, 'the screen view is not unmarked for a free theme');
   assert.doesNotMatch(route, /Classic prints are free/, 'the refusal types the free list by hand');
+  /* 🤍 2026-10-21: a free print is plain white — no refusal sells a list of themes as "free prints" any more. */
+  for (const rel of ['app/api/hub-print/[piece]/route.ts', 'app/dashboard/[eventId]/launch/_components/maker-prints.tsx']) {
+    const src = read(rel);
+    assert.doesNotMatch(src, /themeNames\(FREE_THEMES\)\}? prints are free/, `${rel}: the free theme list is still called "prints are free"`);
+    assert.match(src, /Free prints are plain white/, `${rel}: does not say free prints are plain white`);
+  }
 });
 
 /* ⚡ The print pieces load lazily (`launch/_components/details-lazy.tsx`).
@@ -152,12 +158,17 @@ test('4b · Details\' prints hand a free couple the Modern and Cyber Neon files 
     const html = await paintPrints(id, false);
     const name = INVITE_THEMES[id].name;
     assert.match(html, /data-prints-access="free-theme"/, `${id}: the access line`);
-    assert.match(html, /data-prints-print-ready=""/, `${id}: no print-ready set`);
-    assert.match(html, /data-prints-passes=""/, `${id}: no print-ready passes`);
+    /* RE-AIMED 2026-10-16 (owner: "EVERY 'DOWNLOAD ALL' IS EVENT HUB PRO"): the theme's whole set and every guest's ticket are still
+       OFFERED in the free theme — as the ◆ door to Event Hub Pro, in every theme; each piece's own file stays free (below). */
+    assert.ok(html.includes(`Whole set · ${name} (PDF)`), `${id}: the theme's whole set is not offered`);
+    assert.ok(html.includes(`Every guest’s ticket · ${name}`), `${id}: the theme's passes are not offered`);
+    assert.match(html, /data-print-all-in-one-pro=""/, `${id}: the all-in-one files are not the ◆ door for a free couple`);
     assert.ok(html.includes(`Save · ${name} (PDF)`), `${id}: a piece has no print-ready save`);
     assert.ok(!html.includes(`Sample · ${name} (JPG)`), `${id}: still offered as a watermarked sample`);
     assert.doesNotMatch(html, /data-prints-go-pro/, `${id}: still pitched Pro`);
-    assert.match(html, /Classic, Modern and Cyber Neon prints are free and print-ready/);
+    /* 🤍 Owner 2026-10-21: *"Free version is the plain white. Themes that follows the event hub is pro"* — the line says so. */
+    assert.match(html, /Free prints are plain white and print-ready/);
+    assert.doesNotMatch(html, /Modern and Cyber Neon prints are free/, `${id}: the free theme list is still sold as what prints free`);
   }
   // Rustic without Pro: still the sample, still the pitch.
   const rustic = await paintPrints('abaca', false);
@@ -205,19 +216,25 @@ test('5a · on Modern / Cyber Neon: Pro owner → own photo; free couple → the
 
 test('5b · the page, the door and the print each measure ownership through the entitlement resolver, as viewed', () => {
   // Page ground (Event Hub body + RSVP page): `websiteProActiveFor` = asViewed(eventCoupleWebsiteProActive).
-  const layer = read('app/[slug]/_lib/main-ground-layer.tsx');
-  assert.match(layer, /const ownsPro = heroGroundNeedsOwnership\(theme\)\s*\?\s*await websiteProActiveFor\(event\.event_id\)/);
+  const layer = /* the main background's two files — the layer draws, `main-ground-picture.ts` answers (2026-10-22) */ (read('app/[slug]/_lib/main-ground-layer.tsx') + '\n' + read('app/[slug]/_lib/main-ground-picture.ts'));
+  /* RE-AIMED 2026-10-22 (part by part): the page ground, its loop and its effects are the Background part's (gates 9, 21) — the same as-viewed read, of its part. */
+  assert.match(layer, /const ownsPro = heroGroundNeedsOwnership\(theme\)\s*\?\s*await hubPartActiveFor\(event\.event_id, 'background'\)/);
   assert.match(layer, /guestMainGround\(theme, ownsPro, heroConfig, event\)/);
   assert.match(read('lib/guest-main-ground.ts'), /heroMayBePageGround\(theme, ownsPro\)/);
   // Door photo.
   const look = read('app/[slug]/_lib/hub-look.ts');
-  assert.match(look, /const ownsPro = heroGroundNeedsOwnership\(look\.theme\)\s*\?\s*await websiteProActiveFor\(event\.event_id\)/);
+  assert.match(look, /const ownsPro = heroGroundNeedsOwnership\(look\.theme\)\s*\?\s*await hubPartActiveFor\(event\.event_id, 'background'\)/);
+  assert.match(look, /hubOwnershipFor = cache\([\s\S]{0,300}asViewedOwnership\(eventHubOwnership\(/, 'the part reader stopped honouring "view as free"');
   assert.match(look, /if \(!heroMayBePageGround\(look\.theme, ownsPro\)\)/);
   assert.match(look, /websiteProActiveFor = cache\([\s\S]{0,400}asViewed\(eventCoupleWebsiteProActive\(/, 'the page reader stopped honouring "view as free"');
   // Print still: `printOwnsPro` = asViewed(eventCoupleWebsiteProActive).
   const print = read('lib/print-set.server.ts');
-  assert.match(print, /heroMayBePageGround\(theme, heroGroundNeedsOwnership\(theme\) \? await printOwnsPro\(eventId\) : false\)\s*\?\s*heroStill\(/);
-  assert.match(print, /printOwnsPro[\s\S]{0,200}asViewed\(eventCoupleWebsiteProActive\(/, 'the print reader stopped honouring "view as free"');
+  /* The entitlement is read ONCE per set (`const ownsPro = await printOwnsPro(eventId)`, 2026-10-21 — it also opens the Hub-look
+     door, `printLookForEvent`) and the still asks that same read. */
+  assert.match(print, /const ownsPro = await printOwnsPro\(eventId\);/, 'the print stopped measuring ownership through printOwnsPro');
+  assert.match(print, /heroMayBePageGround\(theme, heroGroundNeedsOwnership\(theme\) \? ownsPro : false\)\s*\?\s*heroStill\(/);
+  // RE-AIMED 2026-10-22: prints are the Prints part's (gates 33, 34, 36a), as viewed.
+  assert.match(print, /printOwnsPro[\s\S]{0,400}asViewed\(eventHubPartActive\(createAdminClient\(\), eventId, 'prints'\)/, 'the print reader stopped honouring "view as free"');
 });
 
 /* ══ 6 · NO TYPED COUNT, NO TYPED LIST ══════════════════════════════════════ */

@@ -31,6 +31,7 @@ import { guestInitials } from '@/lib/checkin';
 import { parsePapicTagScan } from '@/lib/papic-tag';
 import { makeQrDetector } from '@/lib/qr-scan';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { useCameraThatComesBack } from '@/lib/use-camera-that-comes-back';
 
 export type BoothGuest = {
   guestId: string;
@@ -168,6 +169,18 @@ export function TagSheet({
       setCameraError('Camera unavailable — check permissions, or search by name below.');
     }
   }, [onScanActiveChange]);
+
+  // THE CAMERA COMES BACK (Duo + iPad audit 2026-10-19, W4): when iOS, a Duo
+  // or a dead track takes the scanner's camera, reopen it through the same
+  // start path (same rear camera) instead of leaving a frozen viewfinder.
+  useCameraThatComesBack({
+    streamRef,
+    live: scanning,
+    restart: () => {
+      stopScanner();
+      void startScanner();
+    },
+  });
 
   // Bind the stream + run the decode loop once the <video> mounts.
   useEffect(() => {

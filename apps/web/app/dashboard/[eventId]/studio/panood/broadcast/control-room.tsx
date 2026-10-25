@@ -34,6 +34,7 @@ import { getPanoodIceServers } from '@/app/panood/actions';
 import { panoodStreamingEnabled } from '@/lib/panood-camera-seats-pure';
 import { SetnayanOverlay } from './_components/setnayan-overlay';
 import { consoleFitHeight } from '@/lib/panood-console-fit';
+import { BREAKPOINTS } from '@/lib/use-responsive';
 import {
   resolveConsoleLayout,
   deviceLayout,
@@ -99,7 +100,7 @@ type PanoodScreenRow = {
  */
 
 const WALL_SOURCES = [
-  { key: 'photos', label: 'Photo wall', Icon: Images },
+  { key: 'photos', label: 'Memory lane', Icon: Images },
   { key: 'live_bg', label: 'Live background', Icon: Sparkles },
 ] as const;
 
@@ -231,9 +232,10 @@ export function PanoodControlRoom({
         consoleFitHeight({
           consoleTop: el.getBoundingClientRect().top,
           viewportHeight: window.innerHeight,
-          // The bottom nav is `lg:hidden` — VIEWPORT-driven, not layout-driven. The two can
+          // The bottom nav is `tab:hidden` in the event tree (701, owner 2026-10-19 —
+          // `BottomDock boundary="tab"`) — VIEWPORT-driven, not layout-driven. The two can
           // disagree (a laptop in Compact still has no bottom nav).
-          bottomNavVisible: !window.matchMedia('(min-width: 1024px)').matches,
+          bottomNavVisible: !window.matchMedia(`(min-width: ${BREAKPOINTS.tab}px)`).matches,
           safeAreaBottom: Number.parseFloat(safeRaw) || 0,
         }),
       );

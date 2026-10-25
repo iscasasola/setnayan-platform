@@ -664,9 +664,11 @@ const MUST_GATE: Array<{ file: string; why: string; gates: RegExp[] }> = [
     gates: [/\{!unlistedMeasured \? \(/, /\) : !candidatesMeasured \? \(/],
   },
   {
-    file: '[eventId]/vendors/categories/page.tsx',
+    // The Find list's read + rows moved out of the Find page (2026-10-21) so the Suppliers page's bottom
+    // search draws the same list: the read gates `booked`, the shared list says the refusal.
+    file: '[eventId]/vendors/_components/find-category-list.tsx',
     why: '"Booked ✓" on nothing, or a refused read reading as "nothing booked"',
-    gates: [/const booked: Set<string> \| null = bookedMeasured \?/, /\{!bookedMeasured \? \(/],
+    gates: [/\{!bookedMeasured \? \(/],
   },
   {
     file: '[eventId]/website/widgets/page.tsx',
@@ -767,12 +769,12 @@ test('a refused read never renders as a count of zero or an emptied money docume
   // THE MISSED HALF. `vendorRows` above it was already handled, and the comment
   // there refuses to claim "no supplier has taken photos" — the claim arrived
   // one read later anyway, through `captureRows`.
-  const media = stripComments(
-    readFileSync(join(HERE, '[eventId]/studio/papic/_components/vendor-media-controls.tsx'), 'utf8'),
-  );
+  // (2026-10-23: the switch moved onto each supplier's row in Settings › Event access and the photo sheet — their
+  //  one read is `readSupplierShots`; the old `VendorMediaControls` is gone.)
+  const media = stripComments(readFileSync(join(HERE, '..', '..', 'lib', 'event-memories.server.ts'), 'utf8'));
   assert.match(
     media,
-    /if \(capturesError\) \{[\s\S]*?return null;/,
+    /if \(vendors\.error \|\| shots\.error\) \{[\s\S]*?return null;/,
     'A refused captures read must not be filtered down into "no supplier has ' +
       'taken photos" — the read above it already refuses to make that claim.',
   );
@@ -788,6 +790,41 @@ test('a refused read never renders as a count of zero or an emptied money docume
     'The booth must know whether it counted today’s renders at all — a cap that ' +
       'fails open is not a cap.',
   );
+  // …and the MEASUREMENT REACHES THE RENDER: the strip is handed the flag, and
+  // the figure, the "N left" and the green pill are drawn only on the counted
+  // path — a refused count says so, never "0 / 40 · 40 left before soft cap".
+  assert.match(
+    booth,
+    /<CapacityStrip\s+measured=\{submissionsMeasured\}/,
+    'The soft-cap strip is not handed whether the count was read — a refused ' +
+      'read draws as a quiet booth.',
+  );
+  assert.doesNotMatch(
+    booth,
+    /submissionsCount \?\? 0/,
+    'An unread count is turned into 0 — the strip then claims the whole cap is left.',
+  );
+  const strip = booth.slice(
+    booth.indexOf('function CapacityStrip('),
+    booth.indexOf('\nfunction ', booth.indexOf('function CapacityStrip(') + 1),
+  );
+  assert.ok(strip.length > 200, 'function CapacityStrip was not found — the guard is reading nothing');
+  assert.match(strip, /const counted = measured && submissions !== null && remaining !== null;/);
+  const countedAt = strip.indexOf('{counted ? (');
+  // The unread branch is the one that says so; its `) : (` is the last one before those words.
+  const unreadAt = strip.lastIndexOf(') : (', strip.indexOf('Couldn&rsquo;t read today'));
+  assert.ok(countedAt > 0 && unreadAt > countedAt, 'the strip has no counted / unread branch');
+  const countedPath = strip.slice(countedAt, unreadAt);
+  const outside = strip.slice(0, countedAt) + strip.slice(unreadAt);
+  for (const [what, re] of [
+    ['the figure', /\{(?:formatCount\()?submissions\)?\}/],
+    ['"N left before soft cap"', /left before soft cap/],
+    ['the green pill', /bg-success/],
+  ] as const) {
+    assert.match(countedPath, re, `${what} is no longer drawn when the count was read`);
+    assert.doesNotMatch(outside, re, `${what} is drawn outside the counted path — a refused count shows it`);
+  }
+  assert.match(strip.slice(unreadAt), /Couldn&rsquo;t read today&rsquo;s count/, 'a refused count does not say so');
   assert.match(
     booth,
     /const faceEnabled = !faceEnrollCountError &&/,
@@ -811,7 +848,7 @@ test('a refused read never renders as a count of zero or an emptied money docume
   );
 
   const cats = stripComments(
-    readFileSync(join(HERE, '[eventId]/vendors/categories/page.tsx'), 'utf8'),
+    readFileSync(join(HERE, '..', '..', 'lib', 'supplier-find-read.ts'), 'utf8'),
   );
   assert.match(
     cats,

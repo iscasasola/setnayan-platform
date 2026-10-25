@@ -272,7 +272,7 @@ export default async function VenuePage({
             Your link is fine — something on our end is having trouble. Give it a
             moment and try again.
           </p>
-          <Link href={`/${slug}/venue`} className="mt-5 inline-block rounded-xl bg-white/10 px-4 py-2 text-sm text-white hover:bg-white/20">
+          <Link href={`/${slug}/venue`} className="mt-5 inline-flex min-h-[44px] items-center rounded-xl bg-white/10 px-4 py-2 text-sm text-white hover:bg-white/20">
             Try again
           </Link>
         </div>

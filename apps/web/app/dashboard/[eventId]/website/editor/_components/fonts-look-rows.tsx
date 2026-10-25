@@ -18,7 +18,7 @@
  * Loaded lazily with the Look panel (`pro-panels.tsx` draws it for the Studio's Font part) — never in the Maker's
  * first load.
  */
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import {
   FONT_PAIRING_MIXED,
   FONT_ROWS,
@@ -34,7 +34,7 @@ import {
 } from '@/lib/font-pairings';
 import { sanitizeHubFontKey } from '@/lib/hub-fonts';
 import type { InviteThemeId } from '@/lib/invite-themes';
-import { tellLookSample } from '@/lib/look-sample-store';
+import { readLookSampleInks, readLookSampleWorn, subscribeLookSampleInks, subscribeLookSampleWorn, tellLookSample, type LookSampleInks } from '@/lib/look-sample-store';
 import { HUB_DRAFT_BAR_FIELD, makerRedrawSave, requestMakerRefresh } from '@/lib/maker-refresh';
 import { STUDIO_ROW_PICK } from '@/lib/studio-skin';
 import { hubDraftAction } from '../../hub-draft-actions';
@@ -43,6 +43,19 @@ import { FontPick } from './font-pick';
 import { PickMenu } from './pick-menu';
 
 const MIXED = 'mixed';
+
+/**
+ * 🔤 THE LINE EACH FACE IS SHOWN WITH IN ITS DROPDOWN (owner 2026-10-14, Maker test item 4: *"font needs to show
+ * their look on their dropdown preview texts before showing on the preview screen"*): the words that row sets —
+ * the couple's own names for Names (as the sample screen has them), a heading, a line of details, a label.
+ */
+export const FONT_ROW_SAMPLE: Readonly<Record<Exclude<FontRow, 'names'>, string>> = {
+  heading: 'Our day',
+  body: 'The ceremony begins at four',
+  highlight: 'Reply · Directions',
+};
+const NAMES_SAMPLE = 'Your names';
+
 
 export function FontsLookRows({
   eventId,
@@ -112,6 +125,11 @@ export function FontsLookRows({
 
   const pairings = fontPairings(themeId);
   const pairing = fontPairingOf(themeId, choice);
+  /* The couple's names as the sample screen draws them (`look-sample.tsx` says them once it is up) — never sample words. */
+  const names = useSyncExternalStore(subscribeLookSampleWorn, () => readLookSampleWorn(eventId)?.names ?? null, () => null);
+  const sampleOf = (row: FontRow) => (row === 'names' ? (names?.trim() || NAMES_SAMPLE) : FONT_ROW_SAMPLE[row]);
+  /* 🎨 The colour each type is drawn in, as the sample screen draws it — beside its name (owner 2026-10-14). */
+  const inks = useSyncExternalStore(subscribeLookSampleInks, () => readLookSampleInks(eventId), () => null);
   return (
     <div data-fonts-look="" className="flex flex-col">
       {/* THE FAST PATH — a shipped pairing fills all four rows; "Your own mix" once a row was changed alone. */}
@@ -123,7 +141,8 @@ export function FontsLookRows({
           value={pairing ?? MIXED}
           options={[
             ...(pairing ? [] : [{ key: MIXED, label: FONT_PAIRING_MIXED, disabledNote: 'what you have now' }]),
-            ...pairings.map((p) => ({ key: p.id, label: p.name, hint: p.faces })),
+            /* 🔤 Each pairing drawn in its own Names face (`FontPairing.face`) — its look before it is picked. */
+            ...pairings.map((p) => ({ key: p.id, label: p.name, hint: p.faces, ...(p.face ? { fontFamily: p.face } : {}) })),
           ]}
           onPick={(k) => {
             const picked = pairings.find((p) => p.id === k);
@@ -132,13 +151,14 @@ export function FontsLookRows({
         />
       </BgRow>
       {FONT_ROWS.map((row: FontRow) => (
-        <BgRow key={row} label={FONT_ROW_LABEL[row]} data={`font-${row}`}>
+        <BgRow key={row} label={FONT_ROW_LABEL[row]} data={`font-${row}`} mark={<TypeColour row={row} inks={inks} />}>
           <FontPick
             eventId={eventId}
             label={`${FONT_ROW_LABEL[row]} font`}
             dataAttr={`data-font-row-${row}`}
             value={choice[row]}
             lead={FONT_ROW_LEAD[row]}
+            sample={sampleOf(row)}
             className={STUDIO_ROW_PICK}
             onPick={(key) => commit({ ...choice, [row]: key })}
           />
@@ -150,5 +170,26 @@ export function FontsLookRows({
         </p>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * 🎨 THE TYPE'S COLOUR, BESIDE ITS NAME (owner 2026-10-14, Maker test item 4: *"return the type name to show color as
+ * well"* — the approved role rows drew each type's swatch beside its name, `look-restudy-built-2026-10-08/09-el`). The
+ * colour is the one the sample screen's words of that type are drawn in (`LookSampleInks`), so it moves with every
+ * pick of the five, a picture's tint and a dark shade. Nothing is drawn until the sample has said it — never a guess.
+ */
+export function TypeColour({ row, inks }: { row: FontRow; inks: LookSampleInks | null }) {
+  const hex = inks?.[row] ?? null;
+  if (!hex) return null;
+  return (
+    <span
+      data-font-row-colour={row}
+      data-colour={hex}
+      role="img"
+      aria-label={`${FONT_ROW_LABEL[row]} colour ${hex}`}
+      className="h-4 w-4 shrink-0 rounded-full shadow-[inset_0_0_0_1px_rgba(0,0,0,0.12)]"
+      style={{ backgroundColor: hex }}
+    />
   );
 }

@@ -17,11 +17,39 @@ export function studioMenuSaveWords(ok: boolean): string {
   return ok ? 'Menu saved — the Menu card shows it' : 'Your menu did not save';
 }
 
-/** The ◆ note a free couple meets on "Download all tickets" (kind 20: shown, tappable, never a page jump). */
-export const PASS_ZIP_PRO_NOTE = {
-  title: 'Every ticket in one file is Event Hub Pro',
-  body: 'With Event Hub Pro you save all your guests’ tickets at once. Each guest can still save their own ticket, free.',
+/* 🎟 "Every ticket in one file is Event Hub Pro" (`PASS_ZIP_PRO_NOTE`, the ◆ note on "Download all tickets") was retired on
+   2026-10-22 — the digital ticket zip is free for every event (owner "yes", DECISION_LOG "THE DIGITAL TICKET ZIP IS FREE"). */
+
+/**
+ * 🗂 THE ◆ NOTES ON THE OTHER ALL-IN-ONE FILES (owner 2026-10-16, DECISION_LOG "PRINTS: ONE AT A TIME IS FREE — EVERY 'DOWNLOAD
+ * ALL' IS EVENT HUB PRO") — the (retired) zip note's pattern, said of each file. No price: the unlock page owns it. The route says the same words
+ * when it refuses (`allInOneRefusal`).
+ */
+/* 🎟 "Every guest's pass in one file is Event Hub Pro" (`PASSES_PRO_NOTE`) and "Every guest's QR in one file is Event Hub Pro"
+   (`QR_SHEET_PRO_NOTE`) were retired on 2026-10-22 — both files download free again (owner: *"the goal of the free is to keep
+   everything minimum ready but no personalization."*; `isAllInOnePrint`, lib/print-pieces.ts). */
+export const WHOLE_SET_PRO_NOTE = {
+  title: 'The whole set in one file is Event Hub Pro',
+  body: 'With Event Hub Pro you save every piece at once. Each piece’s own PDF still saves free.',
 } as const;
+/**
+ * 🗂 THE ALL-GUESTS FILES AND EVERYTHING (owner 2026-10-17, DECISION_LOG "PRINTS: ONE SETTINGS SHEET, ONE DOWNLOAD PER PIECE, VIEW AS ▾ ON
+ * GUEST PRINTS, ALL GUESTS ◆, EVERYTHING ◆": *"Per the 2026-10-16 'download all is Pro' rule, the Guest QR sheet and the place-card pack
+ * become Pro as all-guest files, while a single guest stays free"*). The prototype's words (`PRO_NOTE`), byte for byte.
+ */
+export const PLACE_CARDS_PRO_NOTE = {
+  title: 'Every place card in one file is Event Hub Pro',
+  body: 'With Event Hub Pro you save the table directory, every sign and every place card at once. One guest’s place card still saves free.',
+} as const;
+export const EVERYTHING_PRO_NOTE = {
+  title: 'Everything in one file is Event Hub Pro',
+  body: 'With Event Hub Pro you save every piece at once — the set, every guest’s pass and place card, the day’s sheets. Each piece’s own PDF still saves free.',
+} as const;
+/** What a route says when it refuses an all-in-one file to an event without Event Hub Pro. */
+export function allInOneRefusal(piece: string): string {
+  const n = piece === 'seating-pack' ? PLACE_CARDS_PRO_NOTE : piece === 'everything' ? EVERYTHING_PRO_NOTE : WHOLE_SET_PRO_NOTE;
+  return `${n.title}. ${n.body}`;
+}
 
 /** Prints › Schedule — the printed programme lists only the moments for Everyone (controller 2026-10-13, 01:00 PHT). */
 export const PRINT_SCHEDULE_TIP = 'Only the moments marked for Everyone print here. A moment for the entourage or a smaller circle stays off the paper.';

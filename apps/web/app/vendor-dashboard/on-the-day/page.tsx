@@ -54,21 +54,24 @@ import { ShotList } from './_components/shot-list';
 import { IssuesLog } from './_components/issues-log';
 import { VendorStatusUpdates } from './_components/vendor-status-updates';
 import { ModuleConfigurator, type ConfiguratorModule } from './_components/module-configurator';
-import { EventPicker } from './_components/event-picker';
-import { collapseToPickerDays, pickConfigureDay } from '@/lib/vendor-day-picker';
+import { EventPicker, type PickerLock } from './_components/event-picker';
+import { collapseToPickerDays, HUB_OPEN_WINDOW_PLAIN, phTodayIso, pickConfigureDay } from '@/lib/vendor-day-picker';
 import { AccessGrants, type GrantableMember } from './_components/access-grants';
 import { ShopEmpty } from '../_components/kit';
-import { resolveEventFeeGate } from '@/lib/vendor-event-fee-access.server';
+import { resolveEventFeeGate, resolveEventFeeGates, type EventFeeGate } from '@/lib/vendor-event-fee-access.server';
+import { feeLockCopy } from '@/lib/event-access-stage';
+import { VENDOR_BOOKING_FEES_PATH, vendorBookingFeePayPath } from '@/lib/vendor-booking-fees';
 import { EventLockedPage } from '@/app/vendor-dashboard/_components/event-locked-by-fee';
 import { formatCount } from '@/lib/format-number';
+import { isStoreShellRequest } from '@/lib/request-platform';
 
 export const metadata = { title: 'Event Hub · Supplier' };
 
 /**
  * Vendor "On the Day" console — reskinned to the finalized 6-menu vendor
  * prototype (editorial `--m-*` palette). A free, CATEGORY-CONDITIONAL day-of
- * hub that surfaces only on an event day (a booking dated today, T-1h → T+8h in
- * production). The full console is now GATED to that window: when no event is in
+ * hub that surfaces only on an event day (a booking dated today in Philippine
+ * time — midnight to midnight; see `HUB_OPEN_WINDOW_PLAIN`). The full console is now GATED to that window: when no event is in
  * window it renders a compact honest state (the "No event today" explainer, the
  * day-of tool pills, and the event-brief door) instead of a full console full of
  * degraded zero-cards — so the visibility banner tells the truth. `?preview=1`
@@ -142,10 +145,9 @@ type Brief = {
 };
 
 /** PH wall-clock today (UTC+8, no DST) as 'YYYY-MM-DD' — booked_date is stored in
- *  the same PH civil-day convention, so string comparison is exact. */
-function phToday(): string {
-  return new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
-}
+ *  the same PH civil-day convention, so string comparison is exact. The one
+ *  definition lives beside `HUB_OPEN_WINDOW_PLAIN`, which says it in words. */
+const phToday = (): string => phTodayIso();
 
 function fmtDate(iso: string | null): string {
   if (!iso) return 'Date not set';
@@ -199,20 +201,29 @@ export default async function VendorOnTheDayPage({
   const dayOfFreeUntilIso = vendorDayOfFreeUntilIso();
   const dayOfStillFree = isVendorDayOfStillFree(dayOfFreeUntilIso, Date.now());
   if (!dayOfStillFree) {
+    // 🔒 Store shell (sweep 2026-10-19 row C14): a supplier plan is a digital
+    // subscription sold on the web only, so the app states the fact and offers
+    // no upgrade — the "See plans" link was already hidden by
+    // StoreShellLinkGuard, which left "Upgrade to keep using…" with no door.
+    const storeShell = await isStoreShellRequest();
     return (
       <section className="mx-auto w-full max-w-3xl space-y-4 px-4 py-10 sm:px-6 lg:px-8">
         <ShopEmpty>
           <Lock aria-hidden className="mx-auto mb-2 h-6 w-6" style={{ color: 'var(--m-slate-3)' }} />
           <p className="font-medium text-ink">{vendorDayOfFreeUntilEndedLabel(dayOfFreeUntilIso)}</p>
           <p className="mt-1">
-            Your booking and shop listing are unaffected. Upgrade to keep using the day-of tools.
+            {storeShell
+              ? 'Your booking and shop listing are unaffected.'
+              : 'Your booking and shop listing are unaffected. Upgrade to keep using the day-of tools.'}
           </p>
-          <Link
-            href="/vendor-dashboard/subscription"
-            className="mt-3 inline-flex items-center gap-1 text-sm font-semibold underline"
-          >
-            See plans <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-          </Link>
+          {storeShell ? null : (
+            <Link
+              href="/vendor-dashboard/subscription"
+              className="mt-3 inline-flex items-center gap-1 text-sm font-semibold underline"
+            >
+              See plans <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+            </Link>
+          )}
         </ShopEmpty>
       </section>
     );
@@ -261,8 +272,8 @@ export default async function VendorOnTheDayPage({
   }
 
   // The event-day gate that makes the banner TRUE: the full console renders only
-  // when there is a booking dated today (the real in-window state, T-1h → T+8h
-  // on the day) OR the owner explicitly asked to preview it. Otherwise a compact
+  // when there is a booking dated today (the real in-window state: the whole
+  // Philippine calendar day, midnight to midnight) OR the owner explicitly asked to preview it. Otherwise a compact
   // honest state renders instead of a full console full of degraded zero-cards.
   const showFullConsole = todaysBooking != null || isPreview;
 
@@ -412,11 +423,35 @@ export default async function VendorOnTheDayPage({
   const modules = resolveModules(profile.services, eventTiles, null);
   const enabledModules = modules.filter((m) => m.enabled);
 
+  // ── THE EMPTY DAY LISTS THE NEXT EVENTS, EACH WITH ITS FEE GATE ──────────
+  // Owner "Yes to all", 2026-10-21, item 5: on a day with no event the Hub is
+  // the list of the next booked events — not just "No event today" — each one
+  // locked until its booking fee is paid. ONE read for the whole list, through
+  // the SHIPPED gate (`resolveEventFeeGates`, "one query for the whole Event
+  // Hub"), and the SHIPPED words (`feeLockCopy`): the amount is the bill's own,
+  // never a price in code. A refused read falls to "unlocked", exactly as the
+  // gate itself does for an unreadable charge (it is logged inside).
+  let dayLocks: Record<string, PickerLock> = {};
+  if (!showFullConsole) {
+    const ahead = [...new Set(pickerBookings.filter((b) => b.when !== 'past').map((b) => b.eventId))];
+    const gates: Map<string, EventFeeGate> = ahead.length
+      ? await resolveEventFeeGates(profile.vendor_profile_id, ahead).catch(() => new Map<string, EventFeeGate>())
+      : new Map<string, EventFeeGate>();
+    dayLocks = Object.fromEntries(
+      [...gates].flatMap(([eventId, gate]) => {
+        if (gate.stage === 'unlocked') return [];
+        const copy = feeLockCopy({ stage: gate.stage, owed: gate.access.owed, withheld: [], reason: gate.access.reason });
+        const payHref = gate.access.owed?.orderId ? vendorBookingFeePayPath(gate.access.owed.orderId) : VENDOR_BOOKING_FEES_PATH;
+        return [[eventId, { headline: copy.headline, cta: copy.cta, payHref }]];
+      }),
+    );
+  }
+
   const DELIVERY_PCT = [0, 60, 100][deliveryStage];
   const DELIVERY_LABEL = ['Not started yet', 'In progress', 'Delivered'][deliveryStage];
 
   return (
-    <section className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">
+    <section className="mx-auto w-full max-w-6xl tab:max-w-3xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">
       {/* 1 · Honest status banner — the console's behaviour now MATCHES the copy:
           the full console renders only on an event day (a booking dated today) or
           in explicit ?preview=1 mode; otherwise the compact state below shows. */}
@@ -431,7 +466,7 @@ export default async function VendorOnTheDayPage({
         >
           <CalendarClock aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
           <p className="text-sm leading-relaxed">
-            Your event is today — this console is live now (T-1h → T+8h on the day).
+            Your event is today — this console is live now, {HUB_OPEN_WINDOW_PLAIN}.
           </p>
         </div>
       ) : isPreview ? (
@@ -446,8 +481,8 @@ export default async function VendorOnTheDayPage({
           <span className="flex items-start gap-3">
             <Lock aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
             <span className="text-sm leading-relaxed">
-              Preview — this is how your day-of console looks. It appears here automatically on an
-              event day (T-1h → T+8h); until then it stays hidden.
+              Preview — this is how your day-of console looks. It opens here on its own on the day
+              of each event ({HUB_OPEN_WINDOW_PLAIN}); until then it stays hidden.
             </span>
           </span>
           <Link
@@ -575,7 +610,7 @@ export default async function VendorOnTheDayPage({
               </div>
               <p className="mt-3 text-xs" style={{ color: 'var(--m-slate-3)' }}>
                 {todaysBooking
-                  ? 'They see these updates live. Post your gallery link + mark complete from the brief.'
+                  ? 'They see these updates live. Post your album link + mark complete from the brief.'
                   : 'This tracks live once you have an event today.'}
               </p>
             </div>
@@ -711,7 +746,7 @@ export default async function VendorOnTheDayPage({
                   — display or print it at the event so guests can scan and review you.
                 </p>
                 <Link
-                  href="/vendor-dashboard/shop#get-verified"
+                  href="/vendor-dashboard/profile#docs"
                   className="mt-3 inline-flex items-center gap-1 text-sm font-semibold hover:underline"
                   style={{ color: 'var(--m-orange-2)' }}
                 >
@@ -724,7 +759,7 @@ export default async function VendorOnTheDayPage({
       </div>
         </>
       ) : (
-        <CompactDayOf family={family} modules={enabledModules} bookings={pickerBookings} />
+        <CompactDayOf family={family} modules={enabledModules} bookings={pickerBookings} locks={dayLocks} />
       )}
     </section>
   );
@@ -959,6 +994,7 @@ function CompactDayOf({
   family,
   modules,
   bookings,
+  locks,
 }: {
   family: DayOfFamily;
   modules: ResolvedModule[];
@@ -968,47 +1004,64 @@ function CompactDayOf({
     bookedDate: string;
     when: 'today' | 'upcoming' | 'past';
   }[];
+  /** Each locked event's fee-gate answer (owner 2026-10-21, item 5). */
+  locks: Readonly<Record<string, PickerLock>>;
 }) {
+  // 🗓 THE NEXT EVENTS COME FIRST (owner "Yes to all", 2026-10-21, item 5): the
+  // empty day is a list of what is coming, each locked until its fee is paid —
+  // not a box that only says "No event today". Past days keep their row,
+  // below, for reference (they used to share the one list).
+  const next = bookings.filter((b) => b.when !== 'past');
+  const past = bookings.filter((b) => b.when === 'past');
   return (
     <div className="space-y-6">
-      {/* Step 1 — pick a booked event to set up ahead of time. */}
-      {bookings.length > 0 ? <EventPicker bookings={bookings} activeEventId={null} /> : null}
-
-      {/* Promoted "No event today" explainer. */}
-      <ShopEmpty>
-        <CalendarClock
-          aria-hidden
-          className="mx-auto h-8 w-8"
-          style={{ color: 'var(--m-slate-3)' }}
-          strokeWidth={1.5}
-        />
-        <p className="mt-3 text-base font-medium" style={{ color: 'var(--m-ink)' }}>
-          No event today
-        </p>
-        <p className="mx-auto mt-1 max-w-md text-sm" style={{ color: 'var(--m-slate-2)' }}>
-          Your day-of console opens automatically on an event day (T-1h → T+8h) — the moment a
-          couple’s booked date is today. Until then, there’s nothing live to run here.
-        </p>
-        <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-          <Link
-            href="/vendor-dashboard/customers"
-            className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold text-white transition"
-            style={{ background: 'var(--m-ink)' }}
-          >
-            See your customers <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-          </Link>
-          <Link
-            href="/vendor-dashboard/on-the-day?preview=1"
-            className="inline-flex items-center gap-1.5 rounded-lg border px-4 py-2 text-sm font-semibold transition"
-            style={{ borderColor: 'var(--sn-line)', color: 'var(--m-slate)' }}
-          >
-            Preview the console
-          </Link>
+      {/* Step 1 — the next booked events: set one up ahead of time, or pay to unlock it. */}
+      {next.length > 0 ? (
+        <div data-tour="hub-next-days">
+          <EventPicker bookings={next} activeEventId={null} heading="Your next events" locks={locks} />
         </div>
-      </ShopEmpty>
+      ) : null}
+
+      {/* Promoted "No event today" explainer. 🔦 The Hub tour's first stop (lib/tours.ts vendor_hub_v1). */}
+      <div data-tour="hub-empty">
+        <ShopEmpty>
+          <CalendarClock
+            aria-hidden
+            className="mx-auto h-8 w-8"
+            style={{ color: 'var(--m-slate-3)' }}
+            strokeWidth={1.5}
+          />
+          <p className="mt-3 text-base font-medium" style={{ color: 'var(--m-ink)' }}>
+            No event today
+          </p>
+          <p className="mx-auto mt-1 max-w-md text-sm" style={{ color: 'var(--m-slate-2)' }}>
+            {next.length > 0
+              ? `Opens here on the day of each event — ${HUB_OPEN_WINDOW_PLAIN}. Your next events are above.`
+              : `Opens here on its own on a couple’s booked date — ${HUB_OPEN_WINDOW_PLAIN}. Until then, there’s nothing live to run here.`}
+          </p>
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+            <Link
+              href="/vendor-dashboard/customers"
+              className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold text-white transition"
+              style={{ background: 'var(--m-ink)' }}
+            >
+              See your customers <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+            </Link>
+            <Link
+              href="/vendor-dashboard/on-the-day?preview=1"
+              className="inline-flex items-center gap-1.5 rounded-lg border px-4 py-2 text-sm font-semibold transition"
+              style={{ borderColor: 'var(--sn-line)', color: 'var(--m-slate)' }}
+            >
+              Preview the console
+            </Link>
+          </div>
+        </ShopEmpty>
+      </div>
 
       {/* Day-of tools adapt — taxonomy-driven family + module readout. */}
-      <ModuleReadout family={family} modules={modules} />
+      <div data-tour="hub-setup">
+        <ModuleReadout family={family} modules={modules} />
+      </div>
 
       {/* Event-brief door — where day-of prep actually happens before the day. */}
       <Link
@@ -1034,6 +1087,9 @@ function CompactDayOf({
         </span>
         <ArrowRight aria-hidden className="h-5 w-5 shrink-0" style={{ color: 'var(--m-slate-3)' }} strokeWidth={1.75} />
       </Link>
+
+      {/* Past days — for reference, as before (they shared the one list until 2026-10-21). */}
+      {past.length > 0 ? <EventPicker bookings={past} activeEventId={null} heading="Earlier" /> : null}
     </div>
   );
 }

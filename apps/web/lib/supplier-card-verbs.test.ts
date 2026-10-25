@@ -172,7 +172,9 @@ test('T4 · Remove asks first, and a refusal is said — never a silent no-op', 
   // On the bench the card leaves at once and the write answers in place (owner
   // 2026-10-12); only a card outside the bench still refreshes the page.
   assert.match(remove, /const putBack = local\?\.removeInPlace\(vendorId\) \?\? null;/);
-  assert.match(remove, /await removeWrite\(fd\);\s*if \(!putBack\) router\.refresh\(\);/);
+  // No refresh after the write (2026-10-20): outside the bench it posts without the in-place field, so `deleteVendor`
+  // revalidates and its own answer redraws the page (`lib/a-save-renders-once.test.ts`).
+  assert.match(remove, /await removeWrite\(fd\);\s*\} catch/);
   assert.match(remove, /if \(isRedirect\(e\)\) throw e;/, 'a signed-out redirect is swallowed as a failure');
   assert.match(remove, /const refused = `\$\{vendorName\} could not be removed\. Nothing changed\.`;/);
   assert.match(remove, /if \(putBack\) \{\s*putBack\(refused\);\s*local\?\.say\('bad', refused\);\s*\} else setSaid\(\{ tone: 'error', text: refused \}\);/);

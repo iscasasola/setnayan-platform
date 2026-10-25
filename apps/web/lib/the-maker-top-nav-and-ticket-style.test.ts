@@ -144,7 +144,7 @@ test('2b · the bar names the screen you are on — "Invitation · Home" (the gu
 test('2c · [ ↺ Undo | 👁 Preview ] share ONE pill; ✓ Apply is its own GREEN pill', async () => {
   const bar = read('app/dashboard/[eventId]/website/_components/hub-draft-bar.tsx');
   assert.match(bar, /<IconPill label="Undo and preview">\s*<DraftButton\s+label="Undo"[\s\S]*?\{maker\?\.previewMenu \?\? null\}\s*<\/IconPill>/, 'Undo and Preview are not one shared pill');
-  assert.match(bar, /<IconPill tone="apply">\s*<span className="relative inline-flex" data-maker-apply="">/, 'Apply is not its own pill');
+  assert.match(bar, /<IconPill tone="apply">\s*<span className="relative inline-flex" data-maker-apply=""[^>]*>/, 'Apply is not its own pill');
   assert.match(MAKER_BAR_APPLY, /\bmax-lg:bg-success-600\b/, 'Apply is not green on a phone');
   assert.match(MAKER_BAR_APPLY, /(?:^|\s)bg-mulberry(?:\s|$)/, 'the desktop’s Apply is no longer the wine circle');
   // With no draft bar (a viewer with nothing to draft) Preview still sits in a pill.
@@ -217,7 +217,7 @@ test('7 · the Guest’s ticket: the real ticket on the page + ONE Ticket style 
   assert.equal(MAKER_FIXED_TICKET, 'pass');
   assert.match(makerTicketSrc('e1', 'ticket'), /\/api\/hub-print\/pass\?event=e1&mode=screen&pass_format=phone-card&pass_design=ticket&pass_guest=first$/);
   const route = read('app/api/hub-print/[piece]/route.ts');
-  assert.match(route, /url\.searchParams\.get\('pass_guest'\) === 'first'\s*\? await loadGuestPasses\(set, \{ width: 360, limit: 1, ticketsOnly: true \}\)/, 'the preview no longer draws a real guest');
+  assert.match(route, /const asked = url\.searchParams\.get\('pass_guest'\);[\s\S]{0,120}asked === 'first'\s*\? await loadGuestPasses\(set, \{ width: 360, limit: 1, ticketsOnly: true \}\)/, 'the preview no longer draws a real guest');
   const src = read(`${E}/editor-shell.tsx`);
   // The sheet: the picker, and the line and the "Open your guest list →" both stand aside for it.
   assert.match(src, /\{fixed === MAKER_FIXED_TICKET && ticketPanel \? ticketPanel : null\}/);

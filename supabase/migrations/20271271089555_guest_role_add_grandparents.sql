@@ -1,0 +1,33 @@
+-- guest_role_add_grandparents
+-- Created via `pnpm migration:new`. Prefix auto-allocated to sort AFTER every
+-- existing migration.
+--
+-- WHY. Owner, verbatim 2026-10-17: "the 2 grandparents should not be named
+-- immediate family on the wedding march list." Asked whether grandparents
+-- should be two roles "the same way Parents works (own heading, own march
+-- place, each reads 'Grandmother of the Groom' etc.)" or a Relationship
+-- dropdown, he answered "Okay" to the roles.
+--
+-- Until today a couple could only record a grandparent as
+-- `bride_immediate_family` / `groom_immediate_family` (the comment in
+-- 20260607040000 even names grandparents as immediate family), so the march
+-- and the invitation printed them under "Immediate Family".
+--
+-- `bride_grandparents` / `groom_grandparents` stand beside the parents
+-- everywhere: same VIP · Immediate Family group on the guest list, same
+-- seating tier, same inner-circle invite blocks, same published (entourage)
+-- visibility class. Display order and labels live in apps/web — never in the
+-- enum (enum sort order = creation order, so these sort last).
+--
+-- ⚠ NO BEGIN/COMMIT, AND NOTHING ELSE IN THIS FILE. A newly-added enum value
+-- cannot be referenced in the transaction that adds it — the same pattern as
+-- 20271253806528_guest_role_add_best_woman.sql. Additive and idempotent.
+--
+-- ⛔ NO BACKFILL, ON PURPOSE. Nothing on a row says "grandparent" (cale-ice's
+-- two are `groom_immediate_family`, titled "Ms.", `relation` NULL), so any
+-- rule that moved rows would be a guess. The couple re-picks the role on the
+-- guest card (Details › Role in wedding). RLS is untouched: the `guests`
+-- policies are row-level and never read the role.
+
+ALTER TYPE public.guest_role ADD VALUE IF NOT EXISTS 'bride_grandparents';
+ALTER TYPE public.guest_role ADD VALUE IF NOT EXISTS 'groom_grandparents';

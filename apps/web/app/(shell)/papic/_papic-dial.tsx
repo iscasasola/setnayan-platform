@@ -118,7 +118,7 @@ export function PapicDial({
             <span className="text-sm font-normal text-[var(--m-slate-2)] sm:text-base">credits</span>
           </span>
           <span className="mt-1 block text-xs text-[var(--m-slate-2)]">
-            {bought === 0 ? PAPIC_FREE_CREDIT_CONDITION : 'in your celebration'}
+            {bought === 0 ? PAPIC_FREE_CREDIT_CONDITION : 'in your event'}
           </span>
         </div>
 
@@ -164,7 +164,7 @@ export function PapicDial({
             </span>
           </p>
           <p className="mt-1 text-xs text-[var(--m-slate-2)]">
-            while you are setting your celebration up
+            while you are setting your event up
           </p>
         </>
       ) : (
@@ -258,7 +258,7 @@ export function PapicDial({
               is what shipped a ~2.9× overstatement past a green suite once. */}
           <Row k="Or Snippets" v={count(papicVideosAffordable(total, clipCost))} />
           <Row k="Cameras" v="unlimited" />
-          <Row k="The live wall" v="included" />
+          <Row k="Memory lane" v="included" />
         </ul>
 
         <div className="mt-3.5 border-t border-[var(--m-line)] pt-3 text-sm text-[var(--m-slate-2)]">

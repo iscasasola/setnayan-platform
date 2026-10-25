@@ -125,7 +125,8 @@ test('the card is MOUNTED by a page, not merely imported', () => {
   // "reachable" and the guard green — with no doorway on the screen. That is
   // the same shape as the two earlier versions of this guard, which both
   // passed while the button was gone.
-  const page = readFileSync(join(APP, 'vendor-dashboard/shop/page.tsx'), 'utf8');
+  // Since step 5 (2026-10-14) the card is Your details › Something wrong? (it was My Shop's Profile tile).
+  const page = readFileSync(join(APP, 'vendor-dashboard/profile/_components/details-screen.tsx'), 'utf8');
   assert.match(
     page,
     /<RequestCorrectionCard\b/,

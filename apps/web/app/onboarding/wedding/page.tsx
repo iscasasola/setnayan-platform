@@ -238,7 +238,7 @@ function AlreadyPlanningWedding({
 }) {
   return (
     <div className="mx-auto flex min-h-[70vh] w-full max-w-lg flex-col justify-center px-4 py-16 sm:px-6">
-      <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-ink/45">
+      <p className="font-mono text-xs font-semibold uppercase tracking-[0.18em] text-ink/70">
         Plan your wedding
       </p>
       <h1 className="mt-3 font-serif text-3xl italic text-ink sm:text-4xl">
@@ -273,7 +273,7 @@ function AlreadyPlanningWedding({
         className="mt-10 flex cursor-not-allowed items-center justify-between rounded-xl border border-dashed border-ink/15 bg-ink/[0.02] px-5 py-4 opacity-60"
       >
         <span className="text-sm font-medium text-ink/60">Start planning a wedding</span>
-        <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-ink/45">
+        <span className="font-mono text-xs font-semibold uppercase tracking-[0.16em] text-ink/70">
           Not available
         </span>
       </div>

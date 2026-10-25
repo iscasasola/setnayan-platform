@@ -449,7 +449,7 @@ export function OpenBrowsePanel({
 
 
 /** The four faces, in the order the site lives through them. Same words the
- *  owner ribbon on the live page uses for its preview links. */
+ *  owner ribbon on the live page used for its preview links (removed 2026-10-15). */
 
 
 

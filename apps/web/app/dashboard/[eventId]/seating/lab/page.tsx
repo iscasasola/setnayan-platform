@@ -12,7 +12,6 @@ import { getCurrentUser } from '@/lib/auth';
 import {
   fetchGuestsByEvent,
   guestDisplayName,
-  resolveGuestAttire,
   fetchGuestGroupsByEvent,
   fetchGroupMembershipsByEvent,
 } from '@/lib/guests';
@@ -54,6 +53,7 @@ import {
   sideAttireColor,
 } from '@/lib/mood-board';
 import { resolveDisplayPalette } from '@/lib/room-palette';
+import { guestOutfitOf, seatPlanOutfitOf } from '@/lib/guest-outfit';
 import {
   finalizedPartsNow,
   type PartFinalizationRecord,
@@ -113,7 +113,7 @@ export default async function SeatingLabPage({ params, searchParams }: Props) {
     supabase
       .from('events')
       .select(
-        'display_name, monogram_text, monogram_color, monogram_font_key, monogram_style, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, role_palette, reception_design, venue_setting, moodboard_style_family, moodboard_theme_name, dismissed_room_suggestions',
+        'display_name, monogram_text, monogram_color, monogram_font_key, monogram_style, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, role_palette, dress_code_config, reception_design, venue_setting, moodboard_style_family, moodboard_theme_name, dismissed_room_suggestions',
       )
       .eq('event_id', eventId)
       .maybeSingle(),
@@ -198,6 +198,8 @@ export default async function SeatingLabPage({ params, searchParams }: Props) {
   // 02 renders those roles from the derived board; the room now reads the same
   // resolver, so the two surfaces cannot disagree. See lib/room-palette.ts.
   const displayPalette = resolveDisplayPalette(rolePalette);
+  // 👗 The dress code the guests' figures wear (`guestOutfitOf`) — a refused read dresses nobody in a guessed Wear.
+  const dressCodeConfig = (eventRow.data as Record<string, unknown> | null)?.dress_code_config ?? null;
   // Wave 2b: the couple's saved reception treatments + room archetype reach the
   // 3D lab (sanitized against the RECEPTION_PARTS vocabulary; default banquet_hall).
   const receptionDesign = sanitizeReceptionDesign((eventRow.data as Record<string, unknown> | null)?.reception_design);
@@ -315,7 +317,16 @@ export default async function SeatingLabPage({ params, searchParams }: Props) {
     )
       ? (g.rsvp_status as 'attending' | 'pending' | 'maybe' | 'declined')
       : 'pending';
-    const attire = resolveGuestAttire(g.role, g.attire);
+    /* 👗 WHAT THEY WEAR IS THEIR ROLE'S DRESS CODE (owner 2026-10-20: "the attire depends on the dress code of their
+       role") — the ONE reading Me › What to wear makes (`guestOutfitOf`), their own column by the "Atty. (Woman)" pick;
+       `guests.attire` only as `womanOrManOf`'s last-resort woman-or-man. `outfit` is the kit garment its Wear names. */
+    const person = { name_prefix: g.name_prefix ?? null, display_name: g.display_name ?? null, gender: g.gender ?? null, attire: g.attire };
+    const seatOutfit = seatPlanOutfitOf(
+      guestOutfitOf({ role: g.role, dressCodeConfig, palette: displayPalette, person }),
+      g.role,
+      person,
+    );
+    const attire = seatOutfit.attire;
     return {
       id: g.guest_id,
       name: guestDisplayName(g),
@@ -330,6 +341,7 @@ export default async function SeatingLabPage({ params, searchParams }: Props) {
       plusOneOfGuestId: g.plus_one_of_guest_id ?? null,
       photoUrl: g.photo_url ? photoDisplayUrls[g.photo_url] ?? null : null,
       attire,
+      outfit: seatOutfit.said,
       // Neutral silhouettes keep the RSVP-coloured token body (no motif); gown /
       // suit silhouettes resolve their motif through the taxonomy-v2 attire chain.
       attireColor:

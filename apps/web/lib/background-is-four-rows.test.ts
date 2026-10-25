@@ -38,6 +38,7 @@ import { HUB_BACKGROUND_KINDS, resolveHubBackground, sanitizeHubCanvas } from '.
 import { SP_BG_ROW, SP_BG_STRIP, SP_BG_TILE, SP_BG_TILE_ADD, SP_BG_TILE_FACE, SP_BG_TILE_FADE, SP_BG_TILE_NAME, SP_BG_TILE_RING_PX, SP_BG_TILE_SLASH, SP_BG_TILE_TONE, SP_ROWS, STAGE_PANEL_VARS, stageBarRow } from './maker-stage-room';
 import { TILE_FADE, TILE_FLAT_FLOOR, TILE_FOOT, TILE_FOOT_BAND, TILE_INK, TILE_RAMP_SPAN, tileFlatContrast, tileFrostCss, tileFrostFoot, tileGlassColour, tileNameOnFlat, tileNameOnPhoto, tileNameOnRamp, tilePhotoContrast, tileRampUnder } from './bg-tile-name';
 import { ombreRamp } from './ombre';
+import { themeLoopChoices } from './theme-loop-refs';
 import { STD_REALISTIC_BACKGROUNDS } from './std-backgrounds';
 import { phoneHeightPx } from './maker-phone-room';
 import { SCENE_SHADE_MAX, SCENE_SHADE_MIN, SCENE_SHADE_STOPS, sceneShadeAt, sceneShadeOf, sceneShadeSettled, sceneShadeWords } from './scene-shade-bar';
@@ -124,6 +125,11 @@ test('(1) four rows, rendered: the source, its choices in one row, the choice’
   assert.deepEqual([...photo.matchAll(/data-seg="([a-z]+)"/g)].map((m) => m[1]), ['framed', 'full', 'still', 'parallax']);
   /* A clip has no Still | Parallax. */
   assert.deepEqual([...draw({ source: 'own', tiles: [], shade: { at: 0, onMove: () => {}, onKeep: () => {} }, shape: 'framed', motion: null }).matchAll(/data-seg="([a-z]+)"/g)].map((m) => m[1]), ['framed', 'full']);
+  /* 🖼 THE COVER SCENE has no Width (always full screen — owner 2026-10-16, "just for the cover scene"): `shape: null`
+     drops Framed | Full width ONLY, and its photo keeps Still | Parallax in row 4. A scene's Width (above) is unchanged. */
+  const cover = draw({ source: 'own', tiles: [], shade: { at: 0, onMove: () => {}, onKeep: () => {} }, shape: null, motion: 'still' });
+  assert.deepEqual([...cover.matchAll(/data-seg="([a-z]+)"/g)].map((m) => m[1]), ['still', 'parallax'], 'the cover lost its photo’s movement, or kept a Width');
+  assert.deepEqual(ROW(draw({ source: 'own', tiles: [], shape: null, motion: null })), ['1:source', '2:choices'], 'a part with no shape and no movement drew an empty row 4');
   /* UPLOAD: its first tile is "＋ Upload" (it opens the in-place upload), then the couple's own. */
   const own = draw({ source: 'own', onUpload: true, tiles: [{ key: 'r2://x', name: 'Your photo', picture: {} }] });
   assert.deepEqual([...own.matchAll(/data-stage-bg-tile="([^"]+)"/g)].map((m) => m[1]), ['upload', 'r2://x']);
@@ -160,16 +166,24 @@ test('(2) what a scene can store is what is offered — every tile round-trips; 
   const two = sanitizeHubCanvas({ canvas: { kind: 'diagonal', color: '#c7a27c', color2: '#112233', own: true } }) as Record<string, unknown>;
   assert.equal(two.color2, undefined, 'a scene now keeps a second colour — offer it');
   assert.equal(resolveHubBackground(sanitizeHubCanvas({ canvas: { kind: 'snippet', media: '/loops/petals.mp4', own: true } })), null, 'a scene now keeps a ready-made loop — offer Video');
-  assert.doesNotMatch(row.slice(row.indexOf('if (ss) {'), row.indexOf('<section data-scene-background-row')), /Dawn|color2|'video'/);
+  assert.doesNotMatch(row.slice(row.indexOf('if (ss) {'), row.indexOf('<section data-scene-background-row')), /Dawn|color2/);
+  /* 🎞 RE-AIMED 2026-10-18 (Look restudy row 7): a ready-made loop of OURS is now storable — by its public ref, as the
+     clip a scene already keeps (`lib/theme-loop-refs.ts`, a closed list) — so Video ◆ is offered, as this line asked. */
+  const ourLoop = themeLoopChoices()[0]!;
+  assert.equal(resolveHubBackground(sanitizeHubCanvas({ canvas: { kind: 'snippet', media: ourLoop.loop, poster: ourLoop.poster, own: true } }))?.kind, 'snippet', 'our loop is not storable — do not offer Video');
   /* THE SOURCES: the Event Hub's own and Colour for everyone; Scene and Upload where media is offered — named and
      marked ◆ by the Look's own table, never a second list. */
   const branch = row.slice(row.indexOf('if (ss) {'), row.indexOf('<section data-scene-background-row'));
-  assert.match(branch, /\{ key: 'hub', pro: false \},\s*\{ key: 'colour', pro: false \},\s*\.\.\.\(offerMedia \? \(\['scene', 'own'\] as const\)\.map\(\(key\) => \(\{ key, pro: Boolean\(mediaMark\) && BACKGROUND_SOURCE_IS_PRO\[key\] \}\)\) : \[\]\),/);
+  assert.match(branch, /\{ key: 'hub', pro: false \},\s*\{ key: 'colour', pro: false \},\s*\.\.\.\(offerMedia\s*\? \(loops\.length > 0 \? \(\['scene', 'video', 'own'\] as const\) : \(\['scene', 'own'\] as const\)\)\.map\(\(key\) => \(\{ key, pro: Boolean\(mediaMark\) && BACKGROUND_SOURCE_IS_PRO\[key\] \}\)\)\s*: \[\]\),/);
   assert.equal(BACKGROUND_SOURCE_IS_PRO.scene && BACKGROUND_SOURCE_IS_PRO.own && !BACKGROUND_SOURCE_IS_PRO.colour, true);
   assert.deepEqual([BACKGROUND_SOURCE_LABEL.colour, BACKGROUND_SOURCE_LABEL.scene, BACKGROUND_SOURCE_LABEL.own], ['Colour', 'Scene', 'Upload']);
-  assert.match(read(`${L}/stage-panel/stage-background.tsx`), /label: `\$\{s\.key === 'hub' \? 'The Event Hub’s' : BACKGROUND_SOURCE_LABEL\[s\.key\]\}\$\{s\.pro \? ' ◆' : ''\}`/);
+  /* (The first source's name is a prop since 2026-10-15 — the Cover Scene's reads "The theme's own"; a scene's is
+     still "The Event Hub's", its default.) */
+  const sb = read(`${L}/stage-panel/stage-background.tsx`);
+  assert.match(sb, /hubLabel = 'The Event Hub’s',/);
+  assert.match(sb, /label: `\$\{s\.key === 'hub' \? hubLabel : BACKGROUND_SOURCE_LABEL\[s\.key\]\}\$\{s\.pro \? ' ◆' : ''\}`/);
   /* THE SOURCE WORN is read off the stored background: a ready-made picture is Scene, the couple's own is Upload. */
-  assert.match(branch, /!bg \|\| scopeNow === 'every' \? 'hub' : bg\.kind === 'photo' \? \(isStdLibrarySrc\(bg\.media\) \? 'scene' : 'own'\) : bg\.kind === 'snippet' \? 'own' : 'colour';/);
+  assert.match(branch, /bg\.kind === 'photo'\s*\? isStdLibrarySrc\(bg\.media\)\s*\? 'scene'\s*: 'own'\s*: bg\.kind === 'snippet'[\s\S]{0,160}themeLoopOf\(bg\.media\)\s*\? 'video'\s*: 'own'\s*: 'colour';/);
 });
 
 test('(3) a source picked only shows its choices; a choice writes once through the scene’s own save; nothing asks "every scene?"', () => {
@@ -503,7 +517,8 @@ test('(7) picture tiles: the name is ON the tile and always readable; one ring t
   const colour = made.slice(0, made.indexOf('const tiles: StageBgTile[] ='));
   assert.doesNotMatch(colour, /tileNameOnPhoto/, 'a colour tile is given a photo’s fade');
   assert.match(colour, /return \{ key: c, name, picture: preview\(c, tint\), \.\.\.tileNameOnRamp\(ombreRamp\(\{ shape: c, base \}\), TILE_RAMP_SPAN\[c\]\) \};/);
-  assert.equal((made.match(/\.\.\.tileNameOnPhoto\(/g) ?? []).length, 5, 'a scene’s picture or an upload is not the same tile');
+  /* (6 since 2026-10-18: our loops — Video ◆, Look restudy row 7 — wear the same tile.) */
+  assert.equal((made.match(/\.\.\.tileNameOnPhoto\(/g) ?? []).length, 6, 'a scene’s picture or an upload is not the same tile');
   assert.match(made, /STD_REALISTIC_BACKGROUNDS\.map\(\(b\) => \(\{ key: b\.src, name: b\.label, picture: cover\(b\.src\), \.\.\.tileNameOnPhoto\(TILE_FOOT\[b\.id\] \?\? null\) \}\)\)/);
   /* 📦 Lazy only. */
   for (const f of [`${L}/maker-shell.tsx`, `${L}/details-workspace.tsx`, 'lib/hub-draft.ts', 'lib/hub-canvas.ts']) assert.doesNotMatch(readFileSync(join(WEB, f), 'utf8'), /bg-tile-name/);

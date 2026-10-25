@@ -239,11 +239,11 @@ export default async function CoupleRecapPage({
           <li>
             • The <strong>{formatCount(summary.publicPhotos)}</strong>{' '}
             {summary.publicPhotos === 1 ? 'photo' : 'photos'} that are safe to share — the ones you
-            curated, plus any privacy-screened, face-blurred wall photos.
+            curated, plus any privacy-screened, face-blurred Memory lane photos.
           </li>
           <li>
             • The <strong>{formatCount(summary.publicVoices)}</strong> guest{' '}
-            {summary.publicVoices === 1 ? 'message' : 'messages'} you approved to the Live Wall.
+            {summary.publicVoices === 1 ? 'message' : 'messages'} you approved to Memory lane.
           </li>
           <li>• Your love story and the milestones you wrote.</li>
         </ul>

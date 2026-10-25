@@ -13,6 +13,12 @@
  * Pro theme as a free couple · as a Pro couple · and the last two in the store shell). This test renders them again — the shipped Details way AND the Studio
  * way (the ActionButton) — and compares every word in order, the hooks, the href and the absence of a price.
  *
+ * 🎟 2026-10-22: the golden was re-recorded once (owner: *"the goal of the free is to keep everything minimum ready but no personalization."*) —
+ * every guest's ticket in one file lost its ◆ door (Classic, a free theme's, the Phone-card batch) and shows in the store shell; nothing
+ * else moved. Re-recorded a second time the same day (owner "yes", DECISION_LOG "THE DIGITAL TICKET ZIP IS FREE"): the digital ticket
+ * zip's door became a plain free save on every state, store shell included — the ◆ PRO word left it and nothing else moved. The Prints
+ * panels now carry NO door toward paying; the other Studio doors (Everything, the place-card pack) are held in § 2.
+ *
  * SABOTAGE (each seen RED, then restored): the zip door pointing elsewhere · the go-Pro line reworded · the zip's word changed on the Studio button · a price
  * written into the access line · the Studio showing the Pro door in the store shell.
  */
@@ -61,7 +67,7 @@ function facts(markup: string): Facts {
   };
 }
 
-async function panels(theme: string, ownsPro: boolean, storeShell: boolean, studio: boolean): Promise<Record<'set' | 'pass', Facts>> {
+async function panels(theme: string, ownsPro: boolean, storeShell: boolean): Promise<Record<'set' | 'pass', Facts>> {
   const { PrintSetDownloads, PassCardsPanel } = await import(`${L}/maker-prints`);
   const { formatFor } = await import('./print-pieces');
   const input = {
@@ -74,7 +80,7 @@ async function panels(theme: string, ownsPro: boolean, storeShell: boolean, stud
     passDesign: undefined,
     passCardsZip: 'passes.zip',
   };
-  const extra = studio ? { studio: true } : {};
+  const extra = {};
   const set = await renderSettled(React.createElement(PrintSetDownloads as never, { input, ...extra } as never));
   const pass = await renderSettled(React.createElement(PassCardsPanel as never, { input, ...extra } as never));
   return { set: facts(set), pass: facts(pass) };
@@ -83,46 +89,84 @@ async function panels(theme: string, ownsPro: boolean, storeShell: boolean, stud
 test('1 · the Prints panels say and link what they said before — the shipped Details way, to the byte', async () => {
   assert.equal(Object.keys(golden).filter((k) => k !== '_about').length, STATES.length, 'the golden’s states changed');
   for (const [label, theme, ownsPro, storeShell] of STATES) {
-    assert.deepEqual(await panels(theme, ownsPro, storeShell, false), golden[label], `${label}: the shipped Details’ Prints panels changed`);
+    assert.deepEqual(await panels(theme, ownsPro, storeShell), golden[label], `${label}: the shipped Details’ Prints panels changed`);
   }
 });
 
 /**
- * 2026-10-13 (owner "approved", MAKER_PRINTS_SEAT_COUNTER § 5): on Studio › Prints the ticket's LOOK is the style-card strip (kind 5) — its
- * words before the outputs are now "Ticket style · What each guest saves · waits for Apply · Classic · Ticket · Photo poster" instead of the
- * dropdown's "Ticket style Classic Drawing your ticket…". That part names no price, no door and no money; it is held to its new words here.
- * EVERYTHING FROM "Digital ticket" ON — the zip's word, its ◆ mark, its door's href and hook, the printed ticket — is still the golden's,
- * byte for byte, and the set panel is the golden's whole. A free couple's ◆ door is still the LINK; a tap opens the centred note first
- * (kind 20), whose "See Pro" follows that same link.
+ * ⚙ 2026-10-17 (owner *"ok on prints"*, DECISION_LOG "PRINTS: ONE SETTINGS SHEET, ONE DOWNLOAD PER PIECE, VIEW AS ▾ ON GUEST PRINTS, ALL
+ * GUESTS ◆, EVERYTHING ◆"): Studio › Prints no longer draws these two panels — its all-in-one files are each guest print's "All guests ◆"
+ * and the one "Download everything ◆". What touches money there is held here instead: every ◆ is the SAME door — a LINK to the one
+ * Event Hub Pro unlock page (a tap opens the centred note first, whose "Event Hub Pro" follows that link) — for a free couple on the
+ * web; the file itself for a Pro couple; nothing in the store shell. No price, no order, no confirm step.
  */
-const MONEY_FROM = 'Digital ticket';
-const STUDIO_STYLE_WORDS = 'The ticket guests save Ticket style What each guest saves · waits for Apply Classic Ticket Photo poster ';
-test('2 · …and the Studio way (the ActionButton) says and links exactly the same about money: every word from the outputs on, the Pro door, the hooks', async () => {
+async function studioMoney(theme: string, ownsPro: boolean, storeShell: boolean): Promise<{ text: string; doors: number; proDoorHrefs: number; marks: string[]; peso: boolean }> {
+  const { PrintPieceEditor, PrintEverythingStudio, DigitalTicketEditor, freePrintParts } = await import(`${L}/maker-prints`);
+  const { formatFor } = await import('./print-pieces');
+  const input = {
+    eventId: 'E1', slug: 'rosa-ben', theme, ownsPro, storeShell, passCardsZip: 'passes.zip',
+    formats: { pass: formatFor('pass', null)!, invitation: formatFor('invitation', null)!, card: formatFor('card', null)! },
+    passGuests: [{ id: '00000000-0000-4000-8000-000000000101', name: 'Ana Reyes', reply: 'attending' as const }],
+  };
+  const html = await renderSettled(
+    React.createElement(
+      React.Fragment,
+      null,
+      React.createElement(PrintPieceEditor as never, { key: 'pass', input, piece: 'pass', studio: true } as never),
+      React.createElement(DigitalTicketEditor as never, { key: 'ticket', input } as never),
+      React.createElement(PrintEverythingStudio as never, { key: 'all', input } as never),
+      ...(freePrintParts as (...a: unknown[]) => Array<{ key: string; editor: React.ReactNode }>)('E1', 'rosa-ben', input, true)
+        .filter((f) => f.key === 'qr-codes' || f.key === 'seating-pack')
+        .map((f) => React.createElement(React.Fragment, { key: f.key }, f.editor)),
+    ),
+  );
+  return {
+    text: facts(html).text,
+    doors: (html.match(/data-print-all-in-one-pro=""/g) ?? []).length,
+    proDoorHrefs: (html.match(/href="\/dashboard\/E1\/studio\/website-pro"/g) ?? []).length,
+    marks: [...new Set([...html.matchAll(/data-paid-mark="([^"]+)"/g)].map((m) => m[1]!))].sort(),
+    peso: /₱|PHP|\bUSD\b/.test(html),
+  };
+}
+
+test('2 · …and Studio’s ◆ files are each the ONE door for a free couple, the file for a Pro couple, nothing in the store shell', async () => {
   for (const [label, theme, ownsPro, storeShell] of STATES) {
-    const now = await panels(theme, ownsPro, storeShell, true);
-    const was = golden[label]!;
-    assert.deepEqual(now.set, was.set, `${label}: Studio › Prints' set panel says or links something else than before`);
-    const { text: nowText, ...nowHooks } = now.pass;
-    const { text: wasText, ...wasHooks } = was.pass;
-    assert.deepEqual(nowHooks, wasHooks, `${label}: the pass panel's door, hooks or price changed`);
-    assert.equal(nowText.slice(nowText.indexOf(MONEY_FROM)), wasText.slice(wasText.indexOf(MONEY_FROM)), `${label}: the words about the zip and the printed ticket changed`);
-    assert.equal(nowText.slice(0, nowText.indexOf(MONEY_FROM)), STUDIO_STYLE_WORDS, `${label}: the ticket's look is not the approved style-card strip`);
+    const m = await studioMoney(theme, ownsPro, storeShell);
+    assert.equal(m.peso, false, `${label}: a price on Studio › Prints`);
+    assert.doesNotMatch(m.text, /\b(?:Buy|Checkout|Pay now|Confirm|Order)\b/, `${label}: an order or confirm step on Studio › Prints`);
+    if (storeShell && !ownsPro) {
+      assert.equal(m.doors + m.proDoorHrefs, 0, `${label}: the store shell shows the unlock door`);
+      assert.deepEqual(m.marks, [], `${label}: a Pro mark in the store shell`);
+    } else if (ownsPro) {
+      assert.equal(m.doors + m.proDoorHrefs, 0, `${label}: a Pro couple is sent to the unlock page`);
+      assert.deepEqual(m.marks, ['unlocked'], `${label}: a Pro couple’s files are not ◆ unlocked`);
+    } else {
+      /* Everything · every place card: two doors, one page. Every guest's pass, every guest's QR and the digital ticket zip are
+         free since 2026-10-22 (owner: "the goal of the free is to keep everything minimum ready but no personalization."). */
+      assert.equal(m.doors, 2, `${label}: an all-in-one file is not the ◆ door (or a free one — the zip? — still is)`);
+      assert.equal(m.proDoorHrefs, 2, `${label}: a ◆ door leads somewhere other than the one unlock page`);
+      assert.deepEqual(m.marks, ['try'], `${label}: a free couple is shown a padlock, or no ◆`);
+    }
   }
 });
 
-test('3 · no price, no order, no confirm step on these panels — and the free couple’s zip is a LINK to the one unlock page', async () => {
+test('3 · no price, no order, no confirm step on these panels — and the free couple’s zip is a free save, not a door', async () => {
   for (const [label, theme, ownsPro, storeShell] of STATES) {
-    for (const studio of [false, true]) {
-      const p = await panels(theme, ownsPro, storeShell, studio);
+    {
+      const p = await panels(theme, ownsPro, storeShell);
       assert.equal(p.set.peso || p.pass.peso, false, `${label}: a price is on the Prints panel`);
       assert.doesNotMatch(p.set.text + p.pass.text, /\b(?:Buy|Checkout|Pay now|Confirm|Order)\b/, `${label}: an order or confirm step is on the Prints panel`);
     }
   }
-  const free = await panels('abaca', false, false, true);
-  assert.equal(free.pass.proDoorHrefs, 1, 'a free couple’s zip is not the door to the Event Hub Pro unlock');
-  assert.equal(free.pass.zipDoor, true);
-  const shell = await panels('abaca', false, true, true);
+  const free = await panels('abaca', false, false);
+  /* 2 from 2026-10-16 (owner: "EVERY 'DOWNLOAD ALL' IS EVENT HUB PRO"): the zip AND the Printed ticket batch; back to 1 on 2026-10-22 —
+     every guest's ticket in one file is free again (owner: "the goal of the free is to keep everything minimum ready") — and to 0 the
+     same day: the digital ticket zip is free too (owner "yes", DECISION_LOG "THE DIGITAL TICKET ZIP IS FREE"). */
+  assert.equal(free.pass.proDoorHrefs, 0, 'a free couple’s zip (or the ticket batch) is still a door to the Event Hub Pro unlock');
+  assert.equal(free.pass.zipDoor, false, 'a free couple’s zip is still the ◆ door');
+  assert.match(free.pass.text, /Download all tickets \(\.zip\)/, 'the zip is gone from the free couple’s panel');
+  const shell = await panels('abaca', false, true);
   assert.equal(shell.pass.proDoorHrefs, 0, 'the store shell shows the unlock door');
-  const pro = await panels('abaca', true, false, true);
+  const pro = await panels('abaca', true, false);
   assert.equal(pro.pass.proDoorHrefs, 0, 'a Pro couple is sent to the unlock page');
 });

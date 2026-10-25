@@ -2,7 +2,9 @@ import type { EventWords } from '../_lib/event-words';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
 import { formatEventDate } from '@/lib/events';
 import { isGuestNowTriggerEnabled } from '@/lib/guest-now-trigger';
-import { guestRoleLabel } from '@/lib/guests';
+import { guestAttireOf, guestNamePartsOf } from '@/lib/attire-rows';
+import { roleWordOfGuest } from '@/lib/entourage';
+import { SIMULATED_GUEST_ID } from '@/lib/simulated-guest-preview';
 import type { RoleNames } from '@/lib/role-names';
 import type { InvitationWidgetRow } from '@/lib/invitation-widgets';
 import { renderCustomSection } from './custom-section-widget';
@@ -21,6 +23,7 @@ import { DressCodeWidget } from './dress-code-widget';
 import { dressRiteOf } from '@/lib/chinese-wedding';
 import { OurLoveStoryWidget } from './our-love-story-widget';
 import { OurPhotosWidget } from './our-photos-widget';
+import { photosHeadingOf } from '@/lib/photos-heading';
 import { PhotoMomentsWidget } from './photo-moments-widget';
 import { ScheduleWidget } from './schedule-widget';
 import { SpecialMessageWidget } from './special-message-widget';
@@ -32,7 +35,10 @@ import { YourPhotosWidget } from './your-photos-widget';
 import { sceneCardClass } from '@/lib/scene-card-look';
 import type { MarchPlace } from '@/lib/march-place';
 import type { HubStage } from '@/lib/hub-canvas';
-import { sceneStyleOfRow, paletteLookOfRow, dosLookOfRow, venueMapOfRow } from '@/lib/scene-style-of-row';
+import { sceneStyleOfRow, paletteLookOfRow, dosLookOfRow, venueMapOfRow, sceneHasEntranceOfRow } from '@/lib/scene-style-of-row';
+import { loveStoryPartners } from '@/lib/love-story-moments';
+import type { ArtKitView } from '@/lib/art-kits';
+import { KitSlot } from './kit-piece';
 import { DetailsBigDate, DetailsCard } from './event-details-styles';
 
 /**
@@ -73,6 +79,11 @@ type HideableWidgetProps = {
   /** The live theme, so a scene's text follows its own background (free). */
   hubTheme?: InviteThemeId;
   /**
+   * 🕯 THE LOOK'S ART KIT, already decided (`artKitShows`, `lib/art-kits.ts`) — the countdown card's narra posts.
+   * Null/absent → nothing drawn, the card byte for byte as before.
+   */
+  artKit?: ArtKitView | null;
+  /**
    * 🎞 The couple's own Maker canvas (`isMakerCanvas`, a VERIFIED host): their
    * scene clip plays (`sceneGround`'s `ownClipPlays`). Never set for a guest —
    * absent = the SEC-6 gate, and a guest sees the clip's still.
@@ -84,11 +95,12 @@ type HideableWidgetProps = {
   /** 🚶 Where this keyed guest walks in the march (`lib/march-place.ts`), or null. */
   marchPlace?: MarchPlace | null;
   /**
-   * 🏠 The dress code as EVERYONE's (owner 2026-09-30): this guest's own look is
-   * on the Invitation's Welcome page (`lib/invitation-welcome.ts`), so Details
-   * draws the general view — our colours and every role — for them too.
+   * 👗 THE DRESS CODE AS EVERY ROLE — only for the couple / their hosts reading their own Event Hub (they set the
+   * roles). Owner 2026-10-19 (DECISION_LOG "DRESS WITH US SHOWS ONLY THE GUEST'S OWN ROLE"): every other reader —
+   * a listed guest, a plain guest — sees only their own card and the Do's & Don'ts, Details included. (Amends
+   * 2026-09-30, when Details drew every role once the Welcome carried the guest's own look.)
    */
-  dressCodeGeneral?: boolean;
+  dressCodeEveryRole?: boolean;
   /** 🎨 The stage this page draws — the scene's style (`canvas.style`) is
    *  resolved for it. Absent → every widget keeps its shipped look. */
   stage?: HubStage | null;
@@ -116,8 +128,9 @@ function HideableWidgetBody({
   guestView = false,
   marchPlace = null,
   roleNames = {},
-  dressCodeGeneral = false,
+  dressCodeEveryRole = false,
   stage = null,
+  artKit = null,
 }: HideableWidgetProps) {
   // The is_always_on widgets render in fixed positions in the parent
   // function. This dispatcher only renders hideable widgets; receiving
@@ -131,6 +144,11 @@ function HideableWidgetBody({
      null draws the shipped look. */
   const sceneStyle = sceneStyleOfRow(widget, stage, event.event_type);
 
+  /* 👪 "Your role" in Event details names a parent per person too — the one resolver the Me page and the entourage read
+     (`roleWordOfGuest` → `kinWordOfReader`: gender → title → attire), so the groom's "Atty. (Woman)" mother reads "Mother of the Groom"
+     here as on Me (owner 2026-10-19), never "Parents of the Groom". */
+  const yourRole = roleWordOfGuest(guest, roleNames);
+
   switch (widget.widget_type) {
     case 'event_details':
       if (sceneStyle === 'big-date' || sceneStyle === 'card') {
@@ -142,9 +160,8 @@ function HideableWidgetBody({
             ? [{ role: 'both' as const, name: event.venue_name ?? null, address: event.venue_address ?? null, latitude: null, longitude: null }]
             : [];
         // The list's own two labels, "Your role" and "Side", kept word for word.
-        const roleLabel = guestRoleLabel(guest.role, roleNames);
         const footnote = [
-          roleLabel ? `Your role: ${roleLabel}` : null,
+          yourRole ? `Your role: ${yourRole}` : null,
           sideLabel ? `Side: ${sideLabel}` : null,
         ].filter(Boolean).join(' · ');
         const Styled = sceneStyle === 'card' ? DetailsCard : DetailsBigDate;
@@ -183,7 +200,7 @@ function HideableWidgetBody({
                 ) : null}
               </>
             )}
-            <Detail label="Your role" value={guestRoleLabel(guest.role, roleNames)} />
+            <Detail label="Your role" value={yourRole} />
             {sideLabel ? <Detail label="Side" value={sideLabel} /> : null}
           </dl>
         </section>
@@ -201,6 +218,7 @@ function HideableWidgetBody({
           timeZone={eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude)}
           bare={bare}
           sceneStyle={sceneStyle}
+          kit={artKit ? <KitSlot kit={artKit} slot="countdown" /> : null}
         />
       ) : null;
 
@@ -252,8 +270,10 @@ function HideableWidgetBody({
          (`site-body.tsx` passes `!isMakerCanvas`), where `guest` is the HOST
          editing the hub — answering for the groom's own row showed the couple
          "You are in the entourage · #FAF7F2" instead of the dress code their
-         guests will read. So the role is withheld on the canvas, not passed. */
-      return <DressCodeWidget words={words} config={event.dress_code_config ?? null} ceremonyType={dressRiteOf(event)} genderSeparation={(event as { gender_separation?: string | null }).gender_separation ?? null} guestRole={guestView && !dressCodeGeneral ? (guest?.role ?? null) : null} march={guestView && !dressCodeGeneral ? marchPlace : null} rolePalette={event.role_palette} roleNames={roleNames} hideWhenEmpty={guestView} sceneStyle={sceneStyle} paletteLook={paletteLookOfRow(widget)} dosLook={dosLookOfRow(widget)} makerSample={!guestView} />;
+         guests will read. So the role is withheld on the canvas, not passed.
+         👗 Owner 2026-10-19: a guest's page shows ONLY their own card (`readerOnly`); the couple and their hosts on
+         their own Event Hub (`dressCodeEveryRole`) and the canvas still see every role. */
+      return <DressCodeWidget words={words} config={event.dress_code_config ?? null} ceremonyType={dressRiteOf(event)} genderSeparation={(event as { gender_separation?: string | null }).gender_separation ?? null} guestRole={guestView && !dressCodeEveryRole ? (guest?.role ?? null) : null} guestAttire={guestView && !dressCodeEveryRole && guest ? guestAttireOf(guest) : null} guestNameParts={guestView && !dressCodeEveryRole && guest ? guestNamePartsOf(guest) : null} march={guestView && !dressCodeEveryRole ? marchPlace : null} readerOnly={guestView && !dressCodeEveryRole} rolePalette={event.role_palette} roleNames={roleNames} hideWhenEmpty={guestView} sceneStyle={sceneStyle} paletteLook={paletteLookOfRow(widget)} dosLook={dosLookOfRow(widget)} makerSample={!guestView} />;
 
     case 'photo_moments':
       return <PhotoMomentsWidget words={words} config={event.photo_moments_config} hideWhenEmpty={guestView} bare={bare} sceneStyle={sceneStyle} />;
@@ -278,7 +298,7 @@ function HideableWidgetBody({
       return <WhatToBringWidget text={event.what_to_bring ?? null} sceneStyle={sceneStyle} />;
 
     case 'our_photos':
-      return <OurPhotosWidget urls={ourPhotoUrls} sceneStyle={sceneStyle} />;
+      return <OurPhotosWidget urls={ourPhotoUrls} sceneStyle={sceneStyle} heading={photosHeadingOf(widget.config_json)} />;
 
     // The couple's own sections. One case for all six: the words live in the
     // row's own `config_json`, so the slot number is only which SEAT it takes
@@ -296,10 +316,22 @@ function HideableWidgetBody({
         facts: sceneFactsFor(event, { solemn: words.solemn }),
         ownClipPlays,
         clipStillRef: siteMediaServeRef(event.landing_page_hero_image_url),
+        /* 🖼 `ownClipPlays` IS the Maker's canvas (`site-body.tsx` passes `isMakerCanvas`): its picture slots are drawn
+           in place there, tappable (owner 2026-10-18). A guest never gets them. */
+        makerSlots: ownClipPlays,
       });
 
     case 'our_love_story':
-      return <OurLoveStoryWidget config={event.love_story} mediaUrls={canvasMediaUrls} sceneStyle={sceneStyle} />;
+      /* 🗣 The partners' names, in the order the Maker's "Added by" gives them — voice a is the first (owner 2026-10-17). */
+      return (
+        <OurLoveStoryWidget
+          config={event.love_story}
+          mediaUrls={canvasMediaUrls}
+          sceneStyle={sceneStyle}
+          partners={loveStoryPartners(event.display_name, event.event_type)}
+          entrance={sceneHasEntranceOfRow(widget)}
+        />
+      );
 
     case 'tier_comparison':
       return (
@@ -349,5 +381,10 @@ function Detail({
  * here — lives in `hub-canvas-frame.tsx`.
  */
 export function HideableWidgetRender(props: HideableWidgetProps) {
-  return <HubCanvasFrame widget={props.widget} mediaUrls={props.canvasMediaUrls} hubTheme={props.hubTheme} ownClipPlays={props.ownClipPlays}>{HideableWidgetBody(props)}</HubCanvasFrame>;
+  /* 🎭 THE DRESS CODE READS THE SAMPLE GUEST AS A GUEST (See as ▾ · Role ▾, owner 2026-10-17): on the Maker canvas
+     `guestView` is false because `guest` is the HOST editing the hub — but when the canvas is drawn for the fabricated
+     seat-holder (id `SIMULATED_GUEST_ID`, which matches no row), `guest` is no host, and the scene is read exactly as
+     that role's guest reads it. */
+  const sampleReads = props.widget.widget_type === 'dress_code' && props.guest?.guest_id === SIMULATED_GUEST_ID;
+  return <HubCanvasFrame widget={props.widget} mediaUrls={props.canvasMediaUrls} hubTheme={props.hubTheme} ownClipPlays={props.ownClipPlays}>{HideableWidgetBody(sampleReads ? { ...props, guestView: true } : props)}</HubCanvasFrame>;
 }

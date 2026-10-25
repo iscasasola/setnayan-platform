@@ -19,10 +19,11 @@
  *   · the name             `text-ink`     on the plate  (alpha 1)
  *   · the address          `text-ink/80`  on the plate  (was /65: 4.13–4.44 : 1
  *                                                         on house · galeriya · regency)
- *   · "Get directions"     `text-ink/80`  on the plate
- *   · the directions chips `text-ink/75`  on `bg-cream`, which the card re-grounds
- *                                          to the plate paper (it was the PAGE ground:
- *                                          1.0 : 1 wherever page and plate differ)
+ *   · "Directions ▾" and its Google Maps · Waze · Apple Maps rows `text-ink` on `bg-cream`
+ *                                          (`DirectionsMenu`, one dropdown since 2026-10-21 —
+ *                                          three `text-ink/75` chips before), which the card
+ *                                          re-grounds to the plate paper (it was the PAGE
+ *                                          ground: 1.0 : 1 wherever page and plate differ)
  *   · the withheld line    `text-ink/80`  on the page ground
  *
  * for EVERY theme the Event Hub ships × every colour source a couple can set
@@ -50,7 +51,7 @@ const WEB = join(__dirname, '..');
 const CSS = readFileSync(join(WEB, 'app/globals.css'), 'utf8');
 const LOADERS = readFileSync(join(WEB, 'app/[slug]/_lib/loaders.ts'), 'utf8');
 const WIDGET = readFileSync(join(WEB, 'app/[slug]/_components/venue-widget.tsx'), 'utf8');
-const NAV = readFileSync(join(WEB, 'app/_components/nav-links.tsx'), 'utf8');
+const DIRECTIONS = readFileSync(join(WEB, 'app/_components/nav-links.tsx'), 'utf8');
 
 /** Every block for `selector` (top level or inside `@layer`), merged in source order (later wins). */
 function cssVars(selector: string): Record<string, string> {
@@ -122,8 +123,8 @@ test('every venue word reads (≥ 4.5 : 1) on every theme × every colour source
           ['"Ceremony" / "Reception" label', plateInk, plate, 0.8],
           ['name', plateInk, plate, 1],
           ['address', plateInk, plate, 0.8],
-          ['"Get directions"', plateInk, plate, 0.8],
-          ['directions button', plateInk, chip, 0.75],
+          ['"Directions ▾"', plateInk, chip, 1],
+          ['a map app in the Directions menu', plateInk, chip, 1],
           ['the "opens when you reply" line (page ground)', pageInk, cream, 0.8],
         ];
         for (const [word, ink, ground, alpha] of words) {
@@ -179,13 +180,15 @@ test('the venue card and its buttons paint with the tokens measured above', () =
   assert.match(WIDGET, /text-ink\/80">\{venue\.address\}/);
   assert.match(WIDGET, /tracking-\[0\.28em\] text-ink\/80">\s*\{VENUE_ROLE_LABEL\[venue\.role\]\}/);
   assert.match(WIDGET, /text-ink\/80">\{VENUE_WITHHELD_LINE\}/);
-  assert.match(WIDGET, /label="Get directions"/);
-  assert.doesNotMatch(NAV, /tracking-\[0\.2em\] text-ink\/55/, 'the "Get directions" label is back to 55% ink');
-  assert.match(NAV, /tracking-\[0\.2em\] text-ink\/80/);
+  // The directions are ONE dropdown on the plate (`DirectionsMenu`, app/_components/nav-links.tsx), never the three-chip row.
+  assert.match(WIDGET, /<DirectionsMenu venue=\{venue\} \/>/);
+  assert.doesNotMatch(WIDGET, /<NavLinksRow(?![A-Za-z0-9_])/, 'the plain card is back to three map chips');
   // The chips' ground is the plate, not the page.
   assert.match(WIDGET, /VENUE_CHIP_GROUND[^;]*'--color-cream': 'var\(--color-paper-deep\)'/);
   assert.match(WIDGET, /className="pahina-plate[^"]*" style=\{VENUE_CHIP_GROUND\}/);
   assert.match(WIDGET, /font-pahina text-2xl[^"]*text-ink">\s*\{venue\.name\}/);
-  // The directions chips: `bg-cream` + `text-ink/75` (compact).
-  assert.match(NAV, /compact\s*\n?\s*\? 'inline-flex[^']*bg-cream[^']*text-ink\/75/);
+  // The dropdown's summary and its rows: `bg-cream` + `text-ink` (alpha 1, measured above).
+  const menu = DIRECTIONS.slice(DIRECTIONS.indexOf('export function DirectionsMenu('));
+  assert.match(menu.slice(0, menu.indexOf('\n}\n')), /<summary className="[^"]*bg-cream[^"]*text-ink [^"]*"/);
+  assert.match(menu.slice(0, menu.indexOf('\n}\n')), /<ul className="[^"]*bg-cream"[\s\S]*?className="[^"]*text-ink"/);
 });

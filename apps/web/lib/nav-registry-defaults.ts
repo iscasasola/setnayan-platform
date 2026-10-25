@@ -435,6 +435,32 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     customRef: null,
     sortOrder: 1,
   },
+  // MEMORIES — this event's photos and clips, the fifth tab after Hub (owner 2026-10-23,
+  // prototypes/event_bar_memories_tab_2026-10-23.html). The account bar's own glyph.
+  {
+    key: "customer.bottom-nav.memories",
+    scope: "customer",
+    area: "customer-bottom-nav",
+    route: "/dashboard/[eventId]/memories",
+    label: "Memories",
+    labelKind: "literal",
+    iconKind: "lucide",
+    lucideName: "Sparkles",
+    customRef: null,
+    sortOrder: 5,
+  },
+  {
+    key: "customer.sidebar.memories",
+    scope: "customer",
+    area: "customer-sidebar",
+    route: "/dashboard/[eventId]/memories",
+    label: "Memories",
+    labelKind: "literal",
+    iconKind: "lucide",
+    lucideName: "Sparkles",
+    customRef: null,
+    sortOrder: 5,
+  },
   {
     key: "customer.sidebar.explore",
     scope: "customer",
@@ -653,7 +679,7 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     scope: "customer",
     area: "customer-sidebar",
     route: "/dashboard/[eventId]/live",
-    label: "Live Wall",
+    label: "Memory lane",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "MonitorPlay",
@@ -1171,7 +1197,7 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     label: "Today",
     labelKind: "literal",
     iconKind: "lucide",
-    lucideName: "Home",
+    lucideName: "Store", // the shop's icon, not a house — owner 2026-10-24
     customRef: null,
     sortOrder: 0,
   },
@@ -1202,22 +1228,6 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     sortOrder: 1,
   },
   {
-    // 📱 The rail's fourth row (2026-10-01, DECISION_LOG "THE SUPPLIER PHONE APP
-    // — APPROVED, WITH THE THREE RECOMMENDED ANSWERS"): the rail reads Today ·
-    // Customers · Shop · More, the phone bar's four words. "My Customers" and
-    // "My Shop" became "Customers" and "Shop" the same day, for the same rule.
-    key: "vendor.sidebar.more",
-    scope: "vendor",
-    area: "vendor-sidebar",
-    route: "/vendor-dashboard/more",
-    label: "More",
-    labelKind: "literal",
-    iconKind: "lucide",
-    lucideName: "MoreHorizontal",
-    customRef: null,
-    sortOrder: 3,
-  },
-  {
     // Overview tab (key 'home' — the flat item key stays 'profile', mapped to
     // this 'home' slot in vendor-bottom-nav for localStorage continuity).
     key: "vendor.bottom-nav.home",
@@ -1227,7 +1237,7 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     label: "Today",
     labelKind: "literal",
     iconKind: "lucide",
-    lucideName: "Home",
+    lucideName: "Store", // the shop's icon, not a house — owner 2026-10-24
     customRef: null,
     sortOrder: 0,
   },
@@ -1382,8 +1392,9 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     // /vendor-dashboard/verify is RETIRED (2026-09-11) — its 12-document
     // checklist page now only redirects to the current papers flow on My
     // Shop. Point the sidebar entry straight at that destination rather than
-    // bouncing through the redirect.
-    route: "/vendor-dashboard/shop#get-verified",
+    // bouncing through the redirect. Since 2026-10-14 (step 5) the papers are
+    // Your details › Your documents.
+    route: "/vendor-dashboard/profile#docs",
     label: "Verify",
     labelKind: "literal",
     iconKind: "lucide",
@@ -1528,16 +1539,21 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     sortOrder: 25,
   },
   {
+    // 🗓 The rail's fourth row again (owner "Yes to all", 2026-10-21): Today ·
+    // Customers · Shop · Hub. "Hub" is the couple's fourth word (#6725); the
+    // room's own heading still says Event Hub. ⚠ THE REGISTRY LABEL WINS over
+    // the one in the code — rename in both. (`vendor.sidebar.more`, the row
+    // this replaced, is gone with More.)
     key: "vendor.sidebar.on-the-day",
     scope: "vendor",
     area: "vendor-sidebar",
     route: "/vendor-dashboard/on-the-day",
-    label: "Event Hub",
+    label: "Hub",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "CalendarCheck",
     customRef: null,
-    sortOrder: 26,
+    sortOrder: 3,
   },
   {
     // My Performance — the flat 6-menu destination. Keys match the sidebar item
@@ -1618,8 +1634,12 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     area: "vendor-bottom-nav",
     route: "/vendor-dashboard/performance",
     // 'Performance' (11 chars) truncated in the bottom bar's 10px label row —
-    // shortened to match the hardcoded fallback in vendor-bottom-nav.tsx.
-    label: "Insights",
+    // shortened to "Insights" then. It LEFT the bar on 2026-10-01 and named a
+    // row in More; the plain words were adopted 2026-10-14. ⚠ SINCE 2026-10-21
+    // IT NAMES NOTHING: the row left More for Shop › How it is going, whose
+    // word lives in `shop-segments.tsx` (owner "Yes to all", item 2). Kept so
+    // an override row in the database still has a slot to belong to.
+    label: "How is my business doing",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "BarChart2",
@@ -1639,32 +1659,19 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     sortOrder: 4,
   },
   {
+    // 🗓 The bar's fourth tab (owner "Yes to all", 2026-10-21): Today ·
+    // Customers · Shop · Hub — the couple's word in the couple's slot. It named
+    // More's Event Hub row from 2026-10-01; `vendor.bottom-nav.more` is gone.
     key: "vendor.bottom-nav.onday",
     scope: "vendor",
     area: "vendor-bottom-nav",
     route: "/vendor-dashboard/on-the-day",
-    label: "Event Hub",
+    label: "Hub",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "CalendarCheck",
     customRef: null,
-    sortOrder: 5,
-  },
-  {
-    // 📱 The bar's fourth tab (2026-10-01, the supplier phone app): Today ·
-    // Customers · Shop · More. It opens the More sheet; Insights (the
-    // `performance` slot above) and Event Hub (`onday`) left the bar for it,
-    // and those two slots now name their rows INSIDE More.
-    key: "vendor.bottom-nav.more",
-    scope: "vendor",
-    area: "vendor-bottom-nav",
-    route: "/vendor-dashboard/more",
-    label: "More",
-    labelKind: "literal",
-    iconKind: "lucide",
-    lucideName: "MoreHorizontal",
-    customRef: null,
-    sortOrder: 6,
+    sortOrder: 3,
   },
   {
     key: "vendor.topbar.notifications",

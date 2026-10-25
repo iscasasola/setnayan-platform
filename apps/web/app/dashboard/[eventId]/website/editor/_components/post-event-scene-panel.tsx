@@ -44,6 +44,7 @@ import { ArrowDown, ArrowUp, PencilLine, RotateCcw } from 'lucide-react';
 import { FactRow, FormRow, FormRows, SwitchRow, TypedRow } from '@/app/_components/form-row';
 import { ActionButton } from '@/components/action-button';
 import { makerSave } from '@/lib/maker-refresh';
+import { MERGE_BASE_FIELD } from '@/lib/merge-base-field';
 import type { HubSectionCanvas } from '@/lib/hub-canvas';
 import { HUB_ELEMENT_LABEL, type HubElementKey } from '@/lib/element-style';
 import {
@@ -78,7 +79,19 @@ const NOT_SAVED = 'That change could not be saved. Please try again — nothing 
 type PostEventDrawn = { style?: string; hidden?: boolean; moved?: 'earlier' | 'later' };
 
 /** Save story keys (or a section's canvas) to the Event Hub draft — the one door. */
-function useDraftSave(eventId: string, draftAction: DraftAction, fresh?: unknown) {
+/**
+ * 👥 What a story save was built on (owner 2026-10-18: two hosts never overwrite each other): each key it sends, as the
+ * render's arrangement holds it, and each section canvas as the render drew it — merged three ways by the draft door.
+ */
+function baseOf(patch: SavePatch, arr: PostEventArrangement | null | undefined, canvases?: Readonly<Record<string, HubSectionCanvas>>) {
+  return {
+    ...(patch.editorial && arr ? { editorial: Object.fromEntries(Object.keys(patch.editorial).map((k) => [k, arr[k as keyof PostEventArrangement]])) } : {}),
+    ...(patch.widgets ? { widgets: Object.fromEntries(Object.keys(patch.widgets).map((t) => [t, { canvas: canvases?.[t] ?? {} }])) } : {}),
+  };
+}
+type SavePatch = { editorial?: PostEventDraft; widgets?: Record<string, { canvas: HubSectionCanvas }> };
+
+function useDraftSave(eventId: string, draftAction: DraftAction, fresh?: unknown, built?: (patch: SavePatch) => object) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -99,6 +112,8 @@ function useDraftSave(eventId: string, draftAction: DraftAction, fresh?: unknown
           const fd = new FormData();
           fd.set('intent', 'save');
           fd.set('patch', JSON.stringify(patch));
+          if (built) fd.set(MERGE_BASE_FIELD, JSON.stringify(built(patch)));
+          // one-render: keep (batched) — a Maker draft save goes through `lib/maker-refresh.ts`, which refreshes ONCE after the last save in flight; draft intents revalidate nothing.
           const r = await makerSave(() => draftAction(eventId, fd), () => router.refresh());
           if (!r.ok) {
             setDrawn(null);
@@ -143,7 +158,7 @@ export function PostEventScenePanel({
   onPart: ((el: HubElementKey) => void) | null;
 }) {
   // `tile` is new each time the Maker refreshes — the moment the draft is read back.
-  const { pending, error, save, drawn } = useDraftSave(eventId, draftAction, tile);
+  const { pending, error, save, drawn } = useDraftSave(eventId, draftAction, tile, (p) => baseOf(p, arrangement, sectionCanvases));
   /** 🧭 The new Maker's toolbar is on (a phone, `makerStagesStudioEnabled` — `maker-shell.tsx` `ss`). */
   const toolbar = useMaker()?.stagesStudio === true;
   const scene = tile.scene;
@@ -186,7 +201,9 @@ export function PostEventScenePanel({
   /* 🎨 Style — the shared row (a strip of miniatures in the new Maker), free. */
   const styleRow = (
     <SceneStyleRow
-      options={options.map((o) => ({ id: o.id, name: o.name, line: o.line, isDefault: o.isDefault }))}
+      /* 💎 ◆ on a card that is not the theme's own (2026-10-16) — a scene's own card is stored only when it is not the
+         recommended one; a shared one (Schedule, Gallery) is Pro as the registry says (`sceneStyleIsPro`). */
+      options={options.map((o) => ({ id: o.id, name: o.name, line: o.line, isDefault: o.isDefault, pro: home ? Boolean(o.pro) : !o.isDefault }))}
       value={drawn?.style ?? style}
       pending={pending}
       onPick={pickStyle}
@@ -313,7 +330,7 @@ export const POST_EVENT_ABOUT = {
   waiting: 'This scene fills itself from your day. Until then your guests never meet an empty box — you see it here, waiting, in the style you pick.',
   written: 'Written from what happened. Tap any part of the scene to edit it here.',
   sharedStyle: 'This style is shared with the same scene on your other stages — pick once.',
-  galleryShare: 'The day’s chapters and the gallery share one switch — hiding one hides both.',
+  galleryShare: 'The day’s chapters and Memories share one switch — hiding one hides both.',
   chaptersMove: 'The day’s chapters move together, in the order they happened.',
 } as const;
 
@@ -336,7 +353,7 @@ export function PostEventWordsField({
   arrangement: PostEventArrangement;
   draftAction: DraftAction;
 }) {
-  const { pending, save } = useDraftSave(eventId, draftAction);
+  const { pending, save } = useDraftSave(eventId, draftAction, undefined, (p) => baseOf(p, arrangement));
   const saved = postEventLookOf(arrangement, scene).words?.[part] ?? '';
   const max = POST_EVENT_WORDS_MAX[part];
   const name = HUB_ELEMENT_LABEL[part];

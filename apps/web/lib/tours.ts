@@ -3,13 +3,18 @@
 // future content changes can bump the version without disturbing users who
 // already dismissed the V1.
 //
-// Tour mechanics: a centered modal slide carousel (NOT Driver.js spotlight).
-// The iteration 0030 spec leans toward Driver.js, but the team picked the
-// simpler centered-modal pattern in the MVP — it works well for orientation
-// (telling someone the lay of the land) and avoids brittle DOM-coupling.
-// Mini-tours follow the same pattern.
+// Tour mechanics — TWO SKINS, ONE SYSTEM (one key space, one "seen" store:
+// `users.tour_seen_keys`, written by the shipped `completeTour`):
+//   · `slides` — the centred carousel (`GuidedTour` / `MiniTour`). SWITCHED OFF
+//     (`lib/tip-popups.ts`, owner 2026-10-03); its words stay as the script.
+//   · `spotlight` — 🔦 THE SPOTLIGHT TOUR (owner-approved 2026-10-02, corpus
+//     `prototypes/spotlight_tour_sample_2026-10-02.html`): the screen dims and a
+//     white ring glides to the REAL button, found by its `data-tour` token.
+//     Drawn by `app/_components/spotlight-tour.tsx`, mounted by
+//     `spotlight-mount.tsx`. Its steps reuse the slides' words where they fit.
 
 import { FREE_THEMES, themeNames } from '@/lib/invite-themes';
+import { FIRST_BOOKING_ON_US } from '@/lib/booking-fee-lock';
 
 import {
   Apple,
@@ -85,6 +90,38 @@ export type TourSlide = {
   sells?: boolean;
 };
 
+/**
+ * 🔦 ONE STEP OF A SPOTLIGHT TOUR. Both words are PLAIN TEXT (rendered as `{…}`,
+ * never as HTML — unlike a slide body), so type the real character: ’ — …
+ */
+export type SpotlightStep = {
+  /** The token on the real element: `data-tour="…"` (matched as `[data-tour~="…"]`). Never a line number, never a label. */
+  anchor: string;
+  title: string;
+  body: string;
+  /** A doorway (a tab, a link to the next page): Next walks through it too, as the sample's Next did. */
+  go?: boolean;
+  /** The line under the words, when this stop asks for something else than "Tap it yourself — or press Next" — a
+      stop with nothing to tap says "Press Next" (the host page tours' prototype, 2026-10-22). Plain text. */
+  hint?: string;
+  /**
+   * 👋 THE ONCE-ONLY WELCOME (owner 2026-10-21, prototype `first_run_you_and_next_steps_2026-10-21.html` P4 —
+   * controller decision, owner may veto). Drawn with the SETNAYAN wordmark, larger, and "Welcome" in place of
+   * "Step N of M"; not counted in the steps; `{name}` in the title is the person's display name ("Welcome,
+   * Isabel"; no name → "Welcome"). Shown on the FIRST run only — a replay ("Show me around") skips it
+   * (`spotlightSteps`).
+   */
+  welcome?: boolean;
+};
+
+/* The steps a run walks (the welcome on the first run only) — `lib/spotlight-steps.ts`, a file of its own so the
+   client mount can take it without carrying every tour's words (`lib/tours-stay-on-the-server.test.ts`). */
+
+/** The "You're set" card at the end, with the sample's confetti. */
+export type SpotlightFinale = { title: string; body: string; button: string };
+
+export type SpotlightScript = { steps: ReadonlyArray<SpotlightStep>; finale: SpotlightFinale };
+
 export type TourKey =
   // Role welcomes — fire once per user on first signed-in session for that role.
   | 'couple_welcome_v1'
@@ -119,6 +156,11 @@ export type TourKey =
   | 'customer_add_scene_v1'
   | 'customer_hero_designs_v1'
   | 'customer_people_v1'
+  // 🔦 The account screens' spotlights (owner 2026-10-22, "have you updated our Help, all (i) and spotlight
+  // tutorials?"): the account bar on the Events board, and People as it now looks. NEW keys — People was
+  // redrawn on 2026-10-22, and the old carousel's words described the dropdown it removed.
+  | 'customer_account_bar_v1'
+  | 'customer_people_v2'
   | 'customer_guest_invite_v1'
   | 'customer_apply_pro_v1'
   | 'customer_event_menu_v1'
@@ -134,7 +176,30 @@ export type TourKey =
   // § 4 NEW 1): one slide each for Shop and the Event Hub. Registered in S-PR0;
   // each MOUNTS with the page it describes (S-PR6 · S-PR11), never before.
   | 'vendor_shop_v1'
-  | 'vendor_hub_v1';
+  | 'vendor_hub_v1'
+  // 🔦 Customers › Dates and Customers › Money — first-visit spotlights (owner
+  // "Yes to all" 2026-10-22, journey_fixes Supplier 3), beside Shop and Hub.
+  | 'vendor_dates_v1'
+  | 'vendor_money_v1'
+  // 🔦 The spotlight journeys (DECISION_LOG 2026-10-02 "NOBODY SHOULD LEAVE
+  // BECAUSE THEY DON'T UNDERSTAND THE APP"): the host from creating the event
+  // to Post Event, the supplier from shop set-up to payday. NEW keys, so a
+  // person who skipped the old carousel still meets the spotlight once.
+  | 'host_spotlight_v1'
+  | 'host_day_spotlight_v1'
+  | 'supplier_spotlight_v1'
+  // 🔦 The host's page tours (owner "yes to all" 2026-10-22, prototype
+  // `journey_fixes_later_2026-10-22.html` § Host 4): the Maker, Budget, Papic,
+  // Seat plan and Mood Board, each a first-visit spotlight AFTER the journey
+  // (`lib/host-page-tours.ts`), none repeating its stops. NEW keys, so a host
+  // who once dismissed the old carousel still meets the spotlight once.
+  | 'customer_event_hub_maker_v2'
+  | 'customer_budget_v2'
+  | 'customer_papic_v2'
+  | 'customer_seat_plan_v2'
+  | 'customer_mood_board_v1'
+  | 'customer_memories_v1'
+  | 'customer_home_widgets_v1';
 
 export const TOUR_KEYS: ReadonlyArray<TourKey> = [
   'couple_welcome_v1',
@@ -163,6 +228,8 @@ export const TOUR_KEYS: ReadonlyArray<TourKey> = [
   'customer_add_scene_v1',
   'customer_hero_designs_v1',
   'customer_people_v1',
+  'customer_account_bar_v1',
+  'customer_people_v2',
   'customer_guest_invite_v1',
   'customer_apply_pro_v1',
   'customer_event_menu_v1',
@@ -174,6 +241,18 @@ export const TOUR_KEYS: ReadonlyArray<TourKey> = [
   'vendor_customers_v1',
   'vendor_shop_v1',
   'vendor_hub_v1',
+  'vendor_dates_v1',
+  'vendor_money_v1',
+  'host_spotlight_v1',
+  'host_day_spotlight_v1',
+  'supplier_spotlight_v1',
+  'customer_event_hub_maker_v2',
+  'customer_budget_v2',
+  'customer_papic_v2',
+  'customer_seat_plan_v2',
+  'customer_mood_board_v1',
+  'customer_memories_v1',
+  'customer_home_widgets_v1',
 ];
 
 export type TourDefinition = {
@@ -181,6 +260,8 @@ export type TourDefinition = {
   label: string;
   blurb: string;
   slides: ReadonlyArray<TourSlide>;
+  /** 🔦 Present → this tour is drawn as the SPOTLIGHT (`spotlight-mount.tsx`). */
+  spotlight?: SpotlightScript;
 };
 
 export const TOURS: Record<TourKey, TourDefinition> = {
@@ -197,12 +278,12 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       {
         Icon: Users,
         title: 'Build your guest list',
-        body: 'Add guests one at a time or import a CSV. Setnayan ships 18 Filipino wedding roles — maid of honor, principal sponsors, candle/veil/cord/coin, bearers, flower girl — plus plus-ones as first-class rows.',
+        body: 'Add guests one at a time or import a CSV. More than 30 Filipino wedding roles are built in — maid, matron or man of honor, principal sponsors, candle/veil/cord/coin, bearers, flower girl — and each plus-one gets a seat of their own.',
       },
       {
         Icon: Send,
         title: 'Send branded invitations',
-        body: 'Each guest gets a personal QR with your monogram in the center. Print the A4 sheet or share individual links — guests land on a personalized invitation site with RSVP, dress code, countdown.',
+        body: 'Each guest gets a personal QR with your monogram in the center. Print the A4 sheet or share individual links — guests land on their own invitation on your Event Hub, with RSVP, dress code and a countdown.',
       },
       {
         Icon: Briefcase,
@@ -221,7 +302,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       {
         Icon: PartyPopper,
         title: 'The Day',
-        body: 'From T-1 hour, the Day-of card shows you the timeline, lets you reach your coordinator, and surfaces the photo wall. Your guests get the same view, scoped to their seat + role.',
+        body: 'From noon the day before, the Day-of card shows you the timeline, lets you reach your coordinator, and surfaces Memory lane. Your guests get the same view, scoped to their seat + role.',
       },
     ],
   },
@@ -275,7 +356,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       {
         Icon: PartyPopper,
         title: 'On the day, come back here',
-        body: 'From one hour before the event, this same page shows you the live schedule, your table number, and (if enabled) the photo wall where everyone shares snaps.',
+        body: 'From one hour before the event, this same page shows you the live schedule, your table number, and (if enabled) Memory lane where everyone shares snaps.',
       },
     ],
   },
@@ -388,7 +469,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       {
         Icon: Camera,
         title: 'Your phone is a camera now',
-        body: 'Everything you shoot here goes straight to the host&rsquo;s gallery. No app to install, nothing to sign up for.',
+        body: 'Everything you shoot here goes straight to the host&rsquo;s Memories. No app to install, nothing to sign up for.',
       },
       {
         Icon: MousePointerClick,
@@ -415,11 +496,11 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       {
         Icon: Camera,
         title: 'Your own camera',
-        body: 'Tap <b>Open my camera</b> and your phone shoots straight into the host&rsquo;s gallery.',
+        body: 'Tap <b>Open my camera</b> and your phone shoots straight into the host&rsquo;s Memories.',
       },
       {
         Icon: Images,
-        title: 'Photos of you',
+        title: 'Memories of you',
         body: 'When someone takes a photo you are in, it shows up here, in the order the day happened.',
       },
       {
@@ -459,44 +540,49 @@ export const TOURS: Record<TourKey, TourDefinition> = {
   customer_budget_v1: {
     key: 'customer_budget_v1',
     label: 'Budget',
-    blurb: 'Setting a total, adjusting each service, and seeing what is agreed and paid.',
+    // Rewritten 2026-10-18 (Budget B5) to the page that ships: the estimates
+    // split these slides described ("Start with one number" · "Adjust any
+    // service" — Save · Standard · Splurge) left the page in B2 (owner: "not
+    // this one"). Words verbatim from the approved prototype's first-visit tour
+    // (`prototypes/budget_page_2026-10-08_fable.html`, `TOUR`).
+    blurb: 'One list of what you booked, bought and added — the totals are its sum.',
     slides: [
       {
-        Icon: Wallet,
-        title: 'Start with one number',
-        body: 'Set your total budget and we split it across the services you need, from typical costs.',
+        Icon: ClipboardList,
+        title: 'One list, one truth',
+        body: 'Booked suppliers, what you bought here, and your own expenses. The numbers up top are the sum of this list.',
       },
       {
-        Icon: Settings,
-        title: 'Adjust any service',
-        body: 'Tap a service to choose Save, Standard or Splurge, or type your own amount. Your own number always wins.',
+        Icon: Briefcase,
+        title: 'Tap a supplier',
+        body: 'See every payment and record one. Owed moves the moment you do.',
       },
       {
         Icon: Receipt,
-        title: 'See what is agreed and paid',
-        body: 'As you book suppliers, what you have agreed, paid and still owe shows up here on its own.',
+        title: 'Add anything else',
+        body: '＋ Add expense for what you pay outside Setnayan. No Save button — it keeps as you type.',
       },
     ],
   },
   customer_galleries_v1: {
     key: 'customer_galleries_v1',
-    label: 'Galleries',
+    label: 'Memories',
     blurb: 'Where every collected photo and recording from the event is found.',
     slides: [
       {
         Icon: Images,
         title: 'Every photo in one place',
-        body: 'Papic photos, your live stream recording and the photos you add each have their own gallery here.',
+        body: 'Papic photos, your live stream recording and the photos you add each have their own place here.',
       },
       {
         Icon: Calendar,
         title: 'Collecting, then Ready',
-        body: 'A gallery says <b>Collecting</b> until photos arrive, then <b>Ready</b>. Photos can keep arriving for a few days after the event.',
+        body: 'Each one says <b>Collecting</b> until photos arrive, then <b>Ready</b>. Photos can keep arriving for a few days after the event.',
       },
       {
         Icon: CheckCircle2,
         title: 'Open one to keep it',
-        body: 'Open a gallery to look through it and download everything.',
+        body: 'Open one to look through it and download everything.',
       },
     ],
   },
@@ -618,7 +704,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       {
         Icon: BookOpen,
         title: 'Post Event is its own scenes',
-        body: 'The story after your day is not one block: the front page, the road to the day, the numbers, each chapter, the gallery, the notes, your thank-you &mdash; each is its own scene here. After the day they are written for you from what happened; there is nothing to type.',
+        body: 'The story after your day is not one block: the front page, the road to the day, the numbers, each chapter, Memories, the notes, your thank-you &mdash; each is its own scene here. After the day they are written for you from what happened; there is nothing to type.',
       },
       {
         Icon: EyeOff,
@@ -628,7 +714,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       {
         Icon: Maximize2,
         title: 'Tap to open it full screen',
-        body: 'The gallery, the film, Were you there? and the wishes open full screen on your page, and Back returns everyone to the same place. A guest&rsquo;s gallery shows <b>Yours</b> and <b>Everyone&rsquo;s</b>; a stranger sees only what is shared.',
+        body: 'Memories, the film, Were you there? and the wishes open full screen on your page, and Back returns everyone to the same place. A guest&rsquo;s Memories show <b>Yours</b> and <b>Everyone&rsquo;s</b>; a stranger sees only what is shared.',
       },
       {
         Icon: Sparkles,
@@ -638,7 +724,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       {
         Icon: Users,
         title: 'Your guests’ bar after the day',
-        body: 'After the day your guests move through the story with <b>Recap · Film · Suppliers · Gallery · Me</b>. A slot with nothing behind it is simply not there, and the camera is put away &mdash; yours stays.',
+        body: 'After the day your guests move through the story with <b>Recap · Film · Suppliers · Memories · Me</b>. A slot with nothing behind it is simply not there, and the camera is put away &mdash; yours stays.',
       },
       {
         Icon: Wand2,
@@ -977,7 +1063,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       {
         Icon: Users,
         title: 'One place for your people',
-        body: 'The picker at the top switches between Connected, Following, Followers, Loved ones and Groups. When somebody asks to add you, Requests shows up first &mdash; with a dot.',
+        body: 'The counts at the top show who is connected, who you are waiting for and who is asking you &mdash; tap one to see just them. Groups, Following and Followers are under &equiv; at the bottom.',
       },
       {
         Icon: CheckCircle2,
@@ -990,6 +1076,86 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         body: 'Follow anyone with a public profile. Say yes to an event and you follow its hosts on your own. Only you can see who follows you, and you can unfollow any time &mdash; even someone you’re connected with.',
       },
     ],
+  },
+  /* 🔦 THE ACCOUNT BAR (owner "yes to all" 2026-10-21, DECISION_LOG "THE ACCOUNT BAR — EVENTS · DISCOVER ·
+     MEMORIES · PEOPLE"). A first-visit SPOTLIGHT on the Events board, after the host's journey
+     (`host_spotlight_v1`), mounted by the board's own page. It lights the bar's own tabs (`tab-<last path
+     segment>`, stamped by `<BottomNav>`) and walks nowhere, so nothing else can stack on it. Discover is not a
+     stop: the iPhone app drops it, and its address `/` has no segment to stamp. Memories is lit on the BAR, not
+     inside its page — the page is being redrawn (#6778) and a stop on it would point at something about to go.
+     The bar is phone only (the laptop keeps the rail, which stamps no tab tokens), so the last stop is the avatar —
+     drawn at every width — and a laptop's tour skips straight to it. Sells nothing. */
+  customer_account_bar_v1: {
+    key: 'customer_account_bar_v1',
+    label: 'Your account bar',
+    blurb: 'Events, Memories and People — the bar on your account screens — and Switch to.',
+    slides: [],
+    spotlight: {
+      steps: [
+        {
+          anchor: 'tab-dashboard',
+          title: 'Your events',
+          body: 'Every event you host or are invited to. Tap one to open it — inside an event, the bar changes to that event’s own.',
+        },
+        {
+          anchor: 'tab-library',
+          title: 'Memories',
+          body: 'The photos and stories from all your events, kept in one place.',
+        },
+        {
+          anchor: 'tab-people',
+          title: 'People',
+          body: 'Everyone you’re connected to, your loved ones and your groups.',
+        },
+        {
+          // The avatar sheet's Switch to (#6783, #6802). The LAST stop on purpose: the top bar draws it at every
+          // width, so on a laptop — where the bar's tabs are the rail's and stamp nothing — the tour comes here.
+          anchor: 'account-avatar',
+          title: 'Switch to',
+          body: 'Your picture opens Switch to: your events and each shop you run, one tap apart. Profile & settings are there too.',
+        },
+      ],
+      finale: {
+        title: 'You’re set 🎉',
+        body: 'These stay at the bottom of your account screens.',
+        button: 'Done',
+      },
+    },
+  },
+  /* 🔦 PEOPLE, AS IT LOOKS SINCE 2026-10-22 ("People wears the Guest list" — the counts line is the top, the thumb
+     row's field finds or invites, ≡ holds Groups · Following · Followers). A first-visit SPOTLIGHT, mounted by the
+     People page, after the host's journey. Loved ones is the middle stop on purpose: it is a section only some
+     accounts have, and a missing stop is skipped only when a LATER one is on screen (`spotlight-tour.tsx`) — the
+     thumb row's field always is. The field's own word is not quoted (it is being renamed, #6790). Sells nothing. */
+  customer_people_v2: {
+    key: 'customer_people_v2',
+    label: 'People — first visit',
+    blurb: 'The counts, your loved ones, and finding or inviting someone.',
+    slides: [],
+    spotlight: {
+      steps: [
+        {
+          anchor: 'people-counts',
+          title: 'Your people, counted',
+          body: 'Connected, waiting for them, asking you. Tap a number to see just those people; tap it again for everyone.',
+        },
+        {
+          anchor: 'people-loved-ones',
+          title: 'Loved ones',
+          body: 'The people you plan events for — a child, a lola, a pet. A shop you own is here too, so you can make an event for it.',
+        },
+        {
+          anchor: 'people-find',
+          title: 'Find someone, or invite them',
+          body: 'Type a name here to find someone — or to invite them, if they’re not on Setnayan yet. ≡ beside it opens Groups, Following and Followers.',
+        },
+      ],
+      finale: {
+        title: 'You’re set 🎉',
+        body: 'Nobody is connected until they say yes.',
+        button: 'Done',
+      },
+    },
   },
   /* 🧭 THE EVENT MENU — FIVE PLACES (Stage D, owner 2026-09-29: "Home · Guest
      list · Your Team · Event Hub Maker · Our Services"; "on mobile mode … we
@@ -1021,12 +1187,12 @@ export const TOURS: Record<TourKey, TourDefinition> = {
   customer_event_menu_v1: {
     key: 'customer_event_menu_v1',
     label: 'Your event menu',
-    blurb: 'The five places that hold everything for an event — the same on phone and laptop.',
+    blurb: 'The four places that hold everything for an event — the same on phone and laptop.',
     slides: [
       {
         Icon: Sparkles,
-        title: 'Five places for your whole event',
-        body: 'Home, Guests, Suppliers, Hub and More. The same five sit at the bottom of your phone and down the side of your laptop.',
+        title: 'Four places for your whole event',
+        body: 'Home, Guests, Suppliers and Hub. The same four sit at the bottom of your phone and down the side of your laptop.',
       },
       {
         Icon: Users,
@@ -1045,8 +1211,11 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       },
       {
         Icon: Camera,
-        title: 'More Services',
-        body: 'Setnayan AI, Papic, Live Watch, Music Maker and Patiktok &mdash; tap More to see all five, and add the ones you want for your day.',
+        title: 'Your services',
+        body: 'Setnayan AI, Papic, Live Watch, Music Maker and Patiktok live on Home, under Your services &mdash; add the ones you want for your day.',
+        // 🍎 Five paid web extras (More left the bar 22 Oct 2026 — they live on Home › Your services); the
+        // iPhone app shows none of them (#6725), so this slide is dropped there.
+        sells: true,
       },
     ],
   },
@@ -1146,8 +1315,9 @@ export const TOURS: Record<TourKey, TourDefinition> = {
   // 📱 THE SUPPLIER PHONE APP — the first visit to the new Today and Customers
   // (owner-APPROVED 2026-10-01). Claims checked against what the pages do: one
   // Next card (the oldest answer owed, or "Run the day" on an event day), the
-  // bar of four with Messages · Insights · Event Hub in More, and the round +
-  // that opens the shipped "Import an outside client".
+  // bar of four — Today · Customers · Shop · Hub since 2026-10-21 (More left the
+  // bar; Messages = the envelope, Insights = Shop › How it is going, Settings =
+  // the profile picture) — and the round + that opens "Import an outside client".
   vendor_today_v1: {
     key: 'vendor_today_v1',
     label: 'Supplier — Today mini-tour',
@@ -1165,8 +1335,8 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       },
       {
         Icon: Settings,
-        title: 'Everything else is in More',
-        body: 'The bar is Today, Customers, Shop and More. Messages, Insights and the Event Hub live in More — one tap away.',
+        title: 'Four places, nothing hidden',
+        body: 'The bar is Today, Customers, Shop and Hub. Messages open from the envelope at the top, How it is going is in Shop, and Settings is under your profile picture.',
       },
     ],
   },
@@ -1210,6 +1380,36 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         body: 'What you sell, how your page looks, how it is doing.',
       },
     ],
+    // 🔦 SWITCHED ON 2026-10-22 (owner "Yes to all", journey_fixes Supplier 3):
+    // the slide above stays as the switched-off carousel's script; this is what
+    // runs — three stops, none the Today tour already makes (it lands on Your
+    // details and + Create service card). Mounted by the supplier layout through
+    // `lib/supplier-page-tours.ts`, after `supplier_spotlight_v1`.
+    spotlight: {
+      steps: [
+        {
+          anchor: 'shop-segments',
+          title: 'Services · Page · How it is going',
+          body: 'What you sell, how your page looks to couples, and how it is doing. Tap Page.',
+          go: true,
+        },
+        {
+          anchor: 'shop-page-list',
+          title: 'Tap a part to change it',
+          body: 'Your cover, your About, which services show first. “View my page” shows it exactly as a couple sees it.',
+        },
+        {
+          anchor: 'shop-details-row',
+          title: 'Your documents live in Your details',
+          body: 'DTI or SEC, BIR 2303, Mayor’s permit, bank proof. Setnayan checks them in 5 working days, then your shop goes live.',
+        },
+      ],
+      finale: {
+        title: 'You’re set 🎉',
+        body: 'Today’s Next card always shows the one thing waiting on you. To see this again, open your account menu and tap Show me around.',
+        button: 'Done',
+      },
+    },
   },
   vendor_hub_v1: {
     key: 'vendor_hub_v1',
@@ -1222,6 +1422,502 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         body: 'Scan, schedule, shot list, headcount — for this event only.',
       },
     ],
+    // 🔦 SWITCHED ON 2026-10-22 (journey_fixes Supplier 3) — drawn on a day with
+    // no event; on an event day its anchors are not there and it waits.
+    spotlight: {
+      steps: [
+        {
+          anchor: 'hub-empty',
+          title: 'Your day-of console',
+          body: 'On an event day this is where you run it — scan, schedule, shot list, headcount. Today it is a preview.',
+        },
+        {
+          anchor: 'hub-next-days',
+          title: 'Your next days',
+          body: 'Each booked day unlocks here once its booking fee is paid. Tap one to see it.',
+        },
+        {
+          anchor: 'hub-setup',
+          title: 'Set it up before the day',
+          body: 'Pick what you want on the day, and which of your helpers can open it.',
+        },
+      ],
+      finale: {
+        title: 'You’re set 🎉',
+        body: 'On the day, Today’s Next card says “Run the day” and brings you here.',
+        button: 'Done',
+      },
+    },
+  },
+  vendor_dates_v1: {
+    key: 'vendor_dates_v1',
+    label: 'Supplier — Dates spotlight',
+    blurb: 'The month, checking a date, adding the bookings you already have.',
+    slides: [],
+    spotlight: {
+      steps: [
+        {
+          anchor: 'dates-calendar',
+          title: 'Your month at a glance',
+          body: 'Green is booked here, grey is booked elsewhere, gold is a couple asking. Striped days are off.',
+        },
+        {
+          anchor: 'dates-check',
+          title: 'Check a date',
+          body: 'Tap a day to see what is on it — or block it off so nobody asks for it.',
+        },
+        {
+          anchor: 'dates-add',
+          title: 'Add what you already have',
+          body: 'Bookings from outside Setnayan go here too, so a couple never asks for a day you have given away.',
+        },
+      ],
+      finale: {
+        title: 'You’re set 🎉',
+        body: 'Every day you block or book shows here and on Today.',
+        button: 'Done',
+      },
+    },
+  },
+  vendor_money_v1: {
+    key: 'vendor_money_v1',
+    label: 'Supplier — Money spotlight',
+    blurb: 'What is still to come in, each payment, logging one, Setnayan’s fee.',
+    slides: [],
+    spotlight: {
+      steps: [
+        {
+          anchor: 'money-summary',
+          title: 'What is still to come in',
+          body: 'Received, against everything booked. Anything overdue shows first.',
+        },
+        {
+          anchor: 'money-next',
+          title: 'One row per payment',
+          body: 'Who, how much and when it is due. Tap a row to remind them or to log what they paid.',
+        },
+        {
+          anchor: 'money-log',
+          title: 'Log a payment',
+          body: 'When a couple pays you directly — GCash, bank, cash — log it here so their balance stays right.',
+        },
+        {
+          anchor: 'money-fees',
+          title: 'Setnayan’s fee',
+          // The sentence is the lock's own — the rule the fee engine actually waives (owner 2026-10-23), never typed here.
+          body: `One booking fee per booking, due after the day. ${FIRST_BOOKING_ON_US} Your own clients are always free.`,
+        },
+      ],
+      finale: {
+        title: 'You’re set 🎉',
+        body: '“To come in” on Today is this page in one number.',
+        button: 'Done',
+      },
+    },
+  },
+  // ─────────────────────────────────────────────────────────────────────────
+  // 🔦 THE SPOTLIGHT JOURNEYS. Each step's `anchor` is a `data-tour` token on
+  // the real element (`lib/spotlight-anchors-exist.test.ts` fails if one is not
+  // in the tree). Words come from the slides above where they fit — the
+  // sample's own where they do not. Plain English · "event", never
+  // "celebration" · "Event Hub", never "website".
+  host_spotlight_v1: {
+    key: 'host_spotlight_v1',
+    label: 'Host — spotlight tour',
+    blurb: 'Create the event, make the Event Hub, add guests, find suppliers.',
+    slides: [],
+    spotlight: {
+      steps: [
+        {
+          anchor: 'create-event',
+          title: 'Start with your event',
+          body: 'Tap here and pick what kind of event it is. It takes a minute.',
+          go: true,
+        },
+        {
+          // 👋 The once-only welcome — rings the same control row the step after it explains (P4 → P5). The Next card
+          // it rang is gone (owner-approved 2026-10-24); the Today line is the Home page tour's own first stop, so the
+          // journey rings the widgets (a page tour never repeats a journey stop — `the-host-page-tours-land.test.ts`).
+          anchor: 'home-tiles',
+          title: 'Welcome, {name}',
+          body: 'Your first event is made. Every part of it has a tile here.',
+          welcome: true,
+        },
+        {
+          anchor: 'home-tiles',
+          title: 'Start here, every time',
+          body: 'Each tile opens its page at the exact thing to do. Today, on top, names the one to start with.',
+        },
+        {
+          // The Event Hub door left Home with the three pills (owner 2026-10-23); the bar's Event Hub tab is the way in.
+          anchor: 'tab-launch',
+          title: 'Your Event Hub',
+          body: 'Tap words on the page to type over them. Your guests see nothing until you press Apply.',
+        },
+        {
+          anchor: 'tab-guests',
+          title: 'Your guests',
+          body: 'Your guests, your hosts and, on the day, check-in.',
+          go: true,
+        },
+        {
+          anchor: 'guests-add',
+          title: 'Search or add',
+          body: 'Type a name to find a guest — or, if they are not on your list yet, to add them. Each guest gets their own invitation and QR.',
+        },
+        {
+          anchor: 'guests-setup',
+          title: 'Send invitations, see replies',
+          body: 'Send each invitation from here and watch the replies come in, guest by guest.',
+        },
+        {
+          anchor: 'tab-vendors',
+          title: 'Suppliers',
+          body: 'The suppliers you book and your budget, in one place.',
+          go: true,
+        },
+        {
+          anchor: 'suppliers-find',
+          title: 'Find a supplier',
+          body: 'Type what you need. Chat with them here — every message, quote and booking stays with your event.',
+        },
+      ],
+      finale: {
+        title: 'You’re set 🎉',
+        body: 'Whenever you’re unsure, the Next card on Home shows the one thing to do. To see this again, open your account menu and tap Show me around.',
+        button: 'Done',
+      },
+    },
+  },
+  host_day_spotlight_v1: {
+    key: 'host_day_spotlight_v1',
+    label: 'Host — event day and Post Event spotlight',
+    blurb: 'Home on the day, then the story after it.',
+    slides: [],
+    spotlight: {
+      steps: [
+        {
+          anchor: 'day-live',
+          title: 'Your event day',
+          body: 'Announcements, Memory lane and what is happening now — all from here.',
+        },
+        {
+          anchor: 'day-planning',
+          title: 'Planning is still here',
+          body: 'Your lists and tools stay one tap away if you need them today.',
+        },
+        {
+          anchor: 'post-story',
+          title: 'Post Event',
+          body: 'The story after your day is written for you from what happened. Open it to see it and make it yours.',
+        },
+        {
+          anchor: 'post-photos',
+          title: 'The photos',
+          body: 'Every photo from your day, in one place.',
+        },
+      ],
+      finale: {
+        title: 'That’s the whole journey 🎉',
+        body: 'From creating your event to the story after it. The Next card on Home still shows the one thing to do.',
+        button: 'Done',
+      },
+    },
+  },
+  supplier_spotlight_v1: {
+    key: 'supplier_spotlight_v1',
+    label: 'Supplier — spotlight tour',
+    blurb: 'Set up the shop, add services, answer customers, get paid.',
+    slides: [],
+    spotlight: {
+      steps: [
+        {
+          anchor: 'today-next',
+          title: 'One thing at a time',
+          body: 'The Next card is the most urgent thing waiting on you. Answer it and the next one takes its place.',
+        },
+        {
+          anchor: 'tab-shop',
+          title: 'Shop is your storefront',
+          body: 'Your details, your page and what you sell.',
+          go: true,
+        },
+        {
+          anchor: 'shop-details',
+          title: 'Set up your shop',
+          body: 'Your name, photos and where you work. Your shop goes live to couples once Setnayan approves it.',
+        },
+        {
+          anchor: 'shop-add-service',
+          title: 'Add what you sell',
+          body: 'Build service cards with photos, prices and what’s included.',
+        },
+        {
+          anchor: 'tab-customers',
+          title: 'Customers',
+          body: 'Requests and bookings land here, and replying costs nothing on any plan.',
+          go: true,
+        },
+        {
+          anchor: 'customers-list',
+          title: 'Who is waiting comes first',
+          body: 'Every customer is one row with their next step on it. The ones waiting on your answer are always at the top.',
+        },
+        {
+          anchor: 'tab-vendor-dashboard',
+          title: 'Back to Today',
+          body: 'Every day starts here.',
+          go: true,
+        },
+        {
+          anchor: 'today-money',
+          title: 'Get paid',
+          body: 'What is still to come in from your bookings. Tap it to see every payment and when it is due.',
+        },
+      ],
+      finale: {
+        title: 'You’re set 🎉',
+        body: 'The Next card on Today always shows the one thing waiting on you. To see this again, open your account menu and tap Show me around.',
+        button: 'Done',
+      },
+    },
+  },
+  // ─────────────────────────────────────────────────────────────────────────
+  // 🔦 THE HOST'S PAGE TOURS (owner "yes to all" 2026-10-22, prototype
+  // `journey_fixes_later_2026-10-22.html` § Host 4 — the words are the
+  // prototype's, stop for stop). Each runs on the first visit to its page,
+  // only once `host_spotlight_v1` is seen (`lib/host-page-tours.ts`), and none
+  // lights an anchor the journey already lit. The old carousels' words for
+  // Budget, Papic and the Seat plan moved in here; their MiniTour mounts are gone.
+  customer_event_hub_maker_v2: {
+    key: 'customer_event_hub_maker_v2',
+    label: 'Event Hub Maker — first open',
+    blurb: 'The quiet line, the tools in the lower third, and Apply.',
+    slides: [],
+    // Option A: three stops, no Pro pitch (the 2 Oct cut stands). Mounted by the
+    // Maker's own page, inside the Maker — the one place the journey pauses.
+    spotlight: {
+      steps: [
+        {
+          anchor: 'maker-hint',
+          hint: 'Tap the page — or press Next',
+          title: 'Tap anything to change it',
+          body: 'Tap words on the page to type over them, or tap a scene for its settings. Your guests see nothing until you press Apply.',
+        },
+        {
+          anchor: 'maker-tools',
+          title: 'Page, Look and Event Details',
+          body: 'Page ▾ picks what you are looking at. Look dresses the whole Event Hub. Event Details holds the facts — names, date, places — shown on every page.',
+        },
+        {
+          anchor: 'maker-apply',
+          title: 'Apply when you like it',
+          body: 'Until then it is your draft — try anything. If a look is Pro, Apply says so there, and you can apply without it.',
+        },
+      ],
+      finale: {
+        title: 'You’re set 🎉',
+        body: 'Exit any time; your draft keeps. To see this again, open ⋯ › About the Maker.',
+        button: 'Done',
+      },
+    },
+  },
+  customer_budget_v2: {
+    key: 'customer_budget_v2',
+    label: 'Budget — first visit',
+    blurb: 'The totals, the one list, and adding an expense.',
+    slides: [],
+    spotlight: {
+      steps: [
+        {
+          anchor: 'budget-summary',
+          hint: 'Press Next',
+          title: 'Target · Agreed · Paid · Owed',
+          body: 'The numbers up top are the sum of the list below — nothing is typed here.',
+        },
+        {
+          anchor: 'budget-list',
+          hint: 'Tap a row — or press Next',
+          title: 'One list, one truth',
+          body: 'Booked suppliers, what you bought here, and your own expenses. Tap a supplier to see every payment and record one — Owed moves the moment you do.',
+        },
+        {
+          anchor: 'budget-thumb',
+          title: 'Add anything else',
+          body: '＋ Add expense for what you pay outside Setnayan. No Save button — it keeps as you type.',
+        },
+      ],
+      finale: {
+        title: 'You’re set 🎉',
+        body: 'When a payment is due, the Next card on Home says so.',
+        button: 'Done',
+      },
+    },
+  },
+  customer_papic_v2: {
+    key: 'customer_papic_v2',
+    label: 'Papic — first visit',
+    blurb: 'The band, the days and the camera’s settings — no price in any step.',
+    slides: [],
+    spotlight: {
+      steps: [
+        {
+          anchor: 'papic-band',
+          hint: 'Press Next',
+          title: 'Your guests become the photographers',
+          body: 'Every guest’s phone can be a camera — no app to install. This band says when the cameras are on and how many shots are left.',
+        },
+        {
+          anchor: 'papic-coverage',
+          title: 'Pick the days first',
+          body: 'Choose when the cameras can shoot. They can start before the day itself, so they catch the preparations too.',
+        },
+        {
+          // (The one shared code moved to Home › Settings › How guests get in, and the library to Memories —
+          //  owner 2026-10-23, Papic is the camera. This page's last stop is the camera's own settings.)
+          anchor: 'papic-settings',
+          title: 'Your camera, your rules',
+          body: 'Pick the filter, set challenges and choose face tagging. The photos land in Memories, and each guest’s camera is on their guest card.',
+        },
+      ],
+      finale: {
+        title: 'You’re set 🎉',
+        body: 'Your first event’s free credits are already on. When they run out, Buy more is the one button.',
+        button: 'Done',
+      },
+    },
+  },
+  /* 🖼 AN EVENT'S MEMORIES — the event bar's fifth tab (owner 2026-10-23). A new feature gets its first-visit tour. */
+  // 🎛 HOME — A CONTROL CENTER (owner-approved 2026-10-24, `home_control_center_2026-10-24_fable.html`: "one spotlight
+  // tour on the Today strip", drawn as step 1 of 3 → the tiles → Your services). The same key PR-C opened for Home's
+  // service cards (not yet merged when this replaced its steps — nobody has seen the old three). No price.
+  customer_home_widgets_v1: {
+    key: 'customer_home_widgets_v1',
+    label: 'Home — first visit',
+    blurb: 'Today, the parts of your event, and your services — on one screen.',
+    slides: [],
+    spotlight: {
+      steps: [
+        {
+          anchor: 'home-today',
+          hint: 'Press Next',
+          title: 'Today',
+          body: 'The one thing to do now. Tap it and Home jumps to that tile.',
+        },
+        {
+          anchor: 'home-faces',
+          title: 'More on every tile',
+          body: 'Swipe a tile to see its other counts — they turn by themselves too. Tap one to open that exact item.',
+        },
+        {
+          anchor: 'home-services',
+          title: 'Your services',
+          body: 'Tap one to open its controls right here — Home moves down. Tap its head to fold it.',
+        },
+      ],
+      finale: {
+        title: 'You’re set 🎉',
+        body: 'Home always starts with Today.',
+        button: 'Done',
+      },
+    },
+  },
+  customer_memories_v1: {
+    key: 'customer_memories_v1',
+    label: 'Memories — first visit',
+    blurb: 'This event’s photos edge to edge, the albums, and the search.',
+    slides: [],
+    spotlight: {
+      steps: [
+        {
+          anchor: 'memories-grid',
+          hint: 'Press Next',
+          title: 'This event’s Memories',
+          body: 'The photos and clips of this event that are yours to see. Pinch to see more at once — or one large.',
+        },
+        {
+          anchor: 'memories-albums',
+          title: 'Albums',
+          body: 'Papic, the challenges, your Event Hub’s own pictures, your suppliers’ and your own uploads — one at a time, or All.',
+        },
+        {
+          anchor: 'memories-search',
+          title: 'Find a photo',
+          body: 'Type who took it, a challenge, or a place on your Event Hub.',
+        },
+      ],
+      finale: {
+        title: 'You’re set 🎉',
+        body: 'Tap any photo to see it full screen.',
+        button: 'Done',
+      },
+    },
+  },
+  customer_seat_plan_v2: {
+    key: 'customer_seat_plan_v2',
+    label: 'Seat plan — first visit',
+    // Rewritten for the phone plan (`seat-plan-phone.tsx`): no drag — a guest is tapped, then moved.
+    blurb: 'Auto arrange, who still needs a seat, and the three views.',
+    slides: [],
+    spotlight: {
+      steps: [
+        {
+          anchor: 'seat-plan-auto',
+          title: 'Auto arrange',
+          body: 'One tap seats everyone by group and side. Don’t like it? Undo, or move anyone yourself.',
+        },
+        {
+          anchor: 'seat-plan-unseated',
+          title: 'Who still needs a seat',
+          body: 'Tap a name, then Move to a table. Rules ▾ keeps a group together or apart.',
+        },
+        {
+          anchor: 'seat-plan-view',
+          title: 'One plan, three views',
+          body: '2D here, the same room in 3D, or a list by table. ⋯ adds a table and shares or prints the plan.',
+        },
+      ],
+      finale: {
+        title: 'You’re set 🎉',
+        body: 'On the day, each guest’s own page shows their table.',
+        button: 'Done',
+      },
+    },
+  },
+  customer_mood_board_v1: {
+    key: 'customer_mood_board_v1',
+    label: 'Mood Board — first visit',
+    blurb: 'Your colours, your reception design, sharing the board.',
+    slides: [],
+    // Stop 1's claim was re-read on 2026-10-22 before it shipped: the Event Hub's
+    // look IS the board's five main colours (`lib/main-colours.ts` — "one
+    // palette, not a copy"; the Studio's own tip says "One palette with Look ›
+    // Colours"), so "Your Event Hub's look … read from here" is true.
+    spotlight: {
+      steps: [
+        {
+          anchor: 'mood-board-palette',
+          hint: 'Tap a colour — or press Next',
+          title: 'Your colours',
+          body: 'Up to five. Your Event Hub’s look, your prints and your dress code read from here — change one and they follow.',
+        },
+        {
+          anchor: 'mood-board-reception',
+          title: 'Your reception design',
+          body: 'Attire, flowers and cake, drawn in your colours. A booked supplier can agree a part with you here, so everyone works from one board.',
+        },
+        {
+          anchor: 'mood-board-share',
+          title: 'Share with your suppliers',
+          body: 'One link or a file of the whole board — the same one your booked suppliers see.',
+        },
+      ],
+      finale: {
+        title: 'You’re set 🎉',
+        body: 'The dress code your guests see is this board, in their invitation.',
+        button: 'Done',
+      },
+    },
   },
 };
 

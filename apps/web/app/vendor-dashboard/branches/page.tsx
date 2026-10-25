@@ -9,7 +9,8 @@ import { redirect } from 'next/navigation';
  * its header + EnterpriseGate said "Enterprise" twice for non-Enterprise
  * vendors. It now redirects to My Shop (mirroring /profile → /shop, 2026-07-05),
  * where the Branch tile is the single branch surface. Old bookmarks / deep-links
- * land there; incoming query params are preserved.
+ * land there; incoming query params are preserved. Since 2026-10-14 (step 5) the
+ * branch panel is Your details › Where you work, so this lands on that fold.
  */
 export default async function VendorBranchesRedirect({
   searchParams,
@@ -23,5 +24,5 @@ export default async function VendorBranchesRedirect({
     else if (Array.isArray(value) && value[0]) qs.set(key, value[0]);
   }
   const query = qs.toString();
-  redirect(`/vendor-dashboard/shop${query ? `?${query}` : ''}`);
+  redirect(`/vendor-dashboard/profile${query ? `?${query}` : ''}#where`);
 }

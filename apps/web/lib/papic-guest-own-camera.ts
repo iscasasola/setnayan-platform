@@ -1,7 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { generateSeatClaimToken } from '@/lib/papic-seats';
 import { fetchEventPapicWindow } from '@/lib/papic-limited';
-import { resolvePointsGate, type PointsGateVerdict } from '@/lib/papic-cameras';
 import { papicGuestStanding, type DedicatedShotsStanding } from '@/lib/papic-guest-buy';
 
 /**
@@ -207,80 +206,8 @@ export async function ensureGuestOwnCameraAdmin(
   }
 }
 
-export type GuestCaptureReserve = {
-  outcome: PointsGateVerdict;
-  /**
-   * Credits taken from the camera's OWN balance, and from the SHARED pot.
-   *
-   * ⚠ TWO FIGURES, NOT TWO BOOLEANS. A capture can be paid from both at once
-   * (owner 2026-08-11: "spend 2 and take 6"), so an abort must put each half
-   * back where it came from. Booleans could only say "release the whole cost
-   * to this side", which would move credits between the guest's paid balance
-   * and the host's pot.
-   */
-  dedicatedSpent: number;
-  poolSpent: number;
-};
-
-/**
- * Reserve one capture for a guest who has a camera of their own.
- *
- * ⚠ THIS USED TO ORCHESTRATE TWO RPCs AND UNWIND THEM BY HAND — eighty lines of
- * "book the camera, book the pool, and if the second refuses release the first".
- * All of that is now one call, because the pair had a defect no amount of
- * careful sequencing could fix (owner 2026-08-11).
- *
- * The pool stood down for any camera that had EVER held bought credits rather
- * than one that had any LEFT, so a guest who spent what they paid for stopped
- * dead even with the host's pot full behind them. And the split could not be
- * decided in sequence: the first call MUTATES, so by the time the second ran, a
- * camera that had just spent its last credit was indistinguishable from one that
- * never had any.
- *
- * `papic_reserve_capture_split` does both under one row lock in one transaction:
- * the camera's own credits first, the pot for the remainder, all-or-nothing.
- * The hand-written unwind is gone with the state it existed to clean up.
- *
- * Safe to call for a camera with NO dedicated balance — it simply spends the
- * pot, which is what that guest was doing anyway. (The old version had to be
- * gated on `dedicated > 0` because its first call would otherwise fall through
- * to a per-day tier cap this surface never had.)
- *
- * Fail-CLOSED on any RPC error except function-not-found: metering is money
- * logic, so an outage must block rather than un-meter.
- */
-export async function reserveGuestOwnCameraCapture(
-  admin: SupabaseClient,
-  eventId: string,
-  seatId: string,
-  cost: number,
-): Promise<GuestCaptureReserve> {
-  try {
-    const { data, error } = await admin.rpc('papic_reserve_capture_split', {
-      p_seat_id: seatId,
-      p_event_id: eventId,
-      p_cost: cost,
-    });
-    // A set-returning function arrives as an array of one row.
-    const row = (Array.isArray(data) ? data[0] : data) as
-      | { ok?: unknown; dedicated_spent?: unknown; pool_spent?: unknown }
-      | null
-      | undefined;
-    const outcome = resolvePointsGate(
-      error ? (error.code ?? 'unknown') : null,
-      // An indeterminate shape is fail-CLOSED, never "allowed".
-      row == null ? null : row.ok === true ? true : row.ok === false ? false : null,
-    );
-    if (outcome !== 'allow' || row?.ok !== true) {
-      return { outcome, dedicatedSpent: 0, poolSpent: 0 };
-    }
-    return {
-      outcome,
-      dedicatedSpent: Number(row.dedicated_spent) || 0,
-      poolSpent: Number(row.pool_spent) || 0,
-    };
-  } catch {
-    // thrown ≠ identifiable fn-not-found → fail-CLOSED
-    return { outcome: 'blocked', dedicatedSpent: 0, poolSpent: 0 };
-  }
-}
+// ⛔ `reserveGuestOwnCameraCapture` LIVED HERE until 2026-10-18. The guest
+// camera's booking now happens inside `papic_record_guest_capture_and_spend`
+// (20271276810836), in the same transaction as the row — a booking made from
+// here in its own round trip is exactly the gap that left points spent on a
+// photograph that did not exist. Do not bring back a second door.

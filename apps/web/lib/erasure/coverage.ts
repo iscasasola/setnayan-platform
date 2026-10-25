@@ -824,6 +824,16 @@ export const AUTHOR_UUID_NULLS: ReadonlyArray<{
     why: 'Which partner rejected a colour change (MB16). An actor stamp on the same couple-owned row. ⚠ Its CHECK is deliberately ONE-DIRECTIONAL (`reverted_by_user_id IS NULL OR reverted_at IS NOT NULL`) rather than a biconditional, precisely so this null lands: a biconditional would make ON DELETE SET NULL behave as RESTRICT and refuse the account deletion outright. A date with no author is the honest record an erased account leaves.',
   },
   {
+    table: 'event_inspiration_suggestions',
+    column: 'suggested_by_user_id',
+    why: 'Which supplier-side account sent a photo suggestion to a couple\u2019s board (2026-10-19, migration 20271279311294). 🔑 THE ROW IS THE COUPLE\u2019S RECORD as much as the shop\u2019s: a kept photo on their board points at it (event_inspiration_assets.from_suggestion_id, ON DELETE CASCADE), so deleting it because the sender left would take a photo off the couple\u2019s board. The credit is `shop_label`, denormalised as it read, never this uuid; no screen and no RLS policy reads it (the gates are current_couple_event_ids / current_vendor_event_vendor_ids). Nullable with ON DELETE SET NULL from the day it shipped.',
+  },
+  {
+    table: 'event_inspiration_suggestions',
+    column: 'decided_by_user_id',
+    why: 'Which partner pressed Keep / No thanks on a supplier\u2019s photo (or which supplier account withdrew it). An actor stamp on the same row; the decision (state, decided_at) stays and the stamp goes. No CHECK pairs it with anything, so the SET NULL lands. Nullable with ON DELETE SET NULL from the day it shipped.',
+  },
+  {
     table: 'event_date_change_requests',
     column: 'asked_by_user_id',
     why: 'Which partner pressed "Ask them to move or unlock?" (the clashing-date flow, 2026-10-01). The REQUEST belongs to the EVENT and is answered by its booked suppliers: a still-open one is what their Move / Unlock card and the couple\u2019s Home card stand on, so deleting it because one partner left would silently withdraw an ask other people are mid-way through answering. The uuid is a stamp read by no screen and no RLS policy (the gate is current_couple_event_ids()). Nullable with ON DELETE SET NULL from the day it shipped.',
@@ -1299,6 +1309,13 @@ export const OWN_ROW_DELETES: ReadonlyArray<{
     table: 'api_keys',
     column: 'user_id',
     why: 'Bearer credential material issued to the subject. A credential must not outlive the account (same rule as the photo-delivery OAuth token).',
+  },
+  {
+    table: 'apple_sign_in_tokens',
+    column: 'user_id',
+    why:
+      'The subject’s sealed Sign in with Apple refresh token, held only so erasure can revoke the grant at Apple (App Store 5.1.1(v)). ' +
+      'Read by the revoke step (purge.ts step 2b) BEFORE this loop deletes it; a credential must not outlive the account, revoked or not.',
   },
   {
     table: 'chat_thread_reads',

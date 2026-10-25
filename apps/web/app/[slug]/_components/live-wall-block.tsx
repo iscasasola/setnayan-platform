@@ -4,9 +4,11 @@ import { useEventWords, WORDS_AS_SHIPPED } from './event-words-provider';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { mergeTiles, type WallTile } from '@/lib/live-wall-logic';
+import { jittered } from '@/lib/live-day-timing';
 import { SavePhotoButton } from '@/app/_components/save-photo-button';
 import { GalleryCredit } from '@/app/_components/gallery/gallery-credit';
 import { GalleryLightbox } from '@/app/_components/gallery/gallery-lightbox';
+import { LightboxSaveButton } from '@/app/_components/gallery/lightbox-save-button';
 
 /**
  * LiveWallBlock — the Salamisim Live Photo Wall, mirrored onto the guest's
@@ -21,7 +23,7 @@ import { GalleryLightbox } from '@/app/_components/gallery/gallery-lightbox';
  *
  * LIVENESS without sockets: the venue projector owns the realtime channel;
  * a phone block only needs "feels live" — so it polls /[slug]/live-wall every
- * 25s WHILE THE TAB IS VISIBLE (document.visibilitychange gates the timer; a
+ * 25s (± 20 %, so phones drift apart) WHILE THE TAB IS VISIBLE (document.visibilitychange gates the timer; a
  * pocketed phone polls zero). Merge is feedId-deduped via the wall's own pure
  * mergeTiles, so tiles never re-animate on refresh. Request-driven only — no
  * cron (house rule).
@@ -112,7 +114,9 @@ export function LiveWallBlock({
   const [openedId, setOpenedId] = useState<string | null>(null);
 
   useEffect(() => {
-    let timer: ReturnType<typeof setInterval> | null = null;
+    // A chain of timeouts, not one interval: each wait is POLL_MS ± 20 % drawn fresh (`jittered`), so the phones at
+    // one venue drift apart rather than asking in step (lib/live-day-timing.ts).
+    let timer: ReturnType<typeof setTimeout> | null = null;
     let inFlight = false;
     // Consecutive failures. TWO, not one: a single miss on venue wifi is
     // ordinary and must not accuse the network. Two in a row is a pattern, and
@@ -124,9 +128,9 @@ export function LiveWallBlock({
       if (inFlight || document.visibilityState !== 'visible') return;
       inFlight = true;
       try {
-        const res = await fetch(`/${encodeURIComponent(slug)}/live-wall`, {
-          cache: 'no-store',
-        });
+        // No request cache directive — the feed's own headers keep the browser from reusing a copy, and a
+        // `no-store` ask would skip the shared answer (lib/live-day-cache.ts `liveEdgeHeaders`).
+        const res = await fetch(`/${encodeURIComponent(slug)}/live-wall`);
         // 404 IS A REFUSAL, NOT AN OUTAGE — and the two must not be treated
         // alike. The feed answers 404 only when the wall is not on offer to
         // guests: the couple switched the phone mirror off, or the wall was
@@ -191,12 +195,24 @@ export function LiveWallBlock({
       }
     };
 
+    let running = false;
+    const schedule = () => {
+      timer = setTimeout(() => {
+        timer = null;
+        void poll().finally(() => {
+          if (running) schedule();
+        });
+      }, jittered(POLL_MS));
+    };
     const start = () => {
-      if (!timer) timer = setInterval(() => void poll(), POLL_MS);
+      if (running) return;
+      running = true;
+      schedule();
     };
     const stop = () => {
+      running = false;
       if (timer) {
-        clearInterval(timer);
+        clearTimeout(timer);
         timer = null;
       }
     };
@@ -226,7 +242,7 @@ export function LiveWallBlock({
   if (display.length === 0) {
     return (
       <section
-        aria-label="Live photo wall"
+        aria-label="Memory lane"
         className="sn-gal p-6 text-center"
       >
         <LiveWallHeader count={0} occasion={w.occasion} />
@@ -235,10 +251,10 @@ export function LiveWallBlock({
             ? // Said plainly, and without blame. The wall did not break and the
               // guest did nothing wrong — the couple chose to keep it to the
               // room. A card that simply emptied itself would read as a fault.
-              `The photo wall is playing on the screens at the venue. ${w.TheOrganizer} has kept it off phones for this ${w.occasion}.`
+              `Memory lane is playing on the screens at the venue. ${w.TheOrganizer} has kept it off phones for this ${w.occasion}.`
             : stalled
-              ? 'We can’t reach the wall right now — this venue’s signal may be busy. It keeps trying, and photos appear the moment it reconnects.'
-              : 'The wall is warming up — photos appear here the moment they’re taken.'}
+              ? 'We can’t reach Memory lane right now — this venue’s signal may be busy. It keeps trying, and photos appear the moment it reconnects.'
+              : 'Memory lane is warming up — photos appear here the moment they’re taken.'}
         </p>
         {closed ? null : <ChallengeBanner challenge={challenge} measured={challengeMeasured} />}
       </section>
@@ -247,7 +263,7 @@ export function LiveWallBlock({
 
   return (
     <section
-      aria-label="Live photo wall"
+      aria-label="Memory lane"
       className="sn-gal p-5 sm:p-6"
     >
       <LiveWallHeader count={count} occasion={w.occasion} />
@@ -292,6 +308,7 @@ export function LiveWallBlock({
               capturedAt={tile.capturedAt}
               timeZone={timeZone}
               raised
+              stacked
             />
           </figure>
         ))}
@@ -316,14 +333,9 @@ export function LiveWallBlock({
             // NOT SavePhotoButton — that control is `absolute inset-x-0 bottom-0`
             // by design, correct pinned to a tile and wrong inside a dialog,
             // where it would leave the card and sit over its own credit.
-            <a
-              href={opened.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="sn-gal-btn inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium"
-            >
-              Open full size to save
-            </a>
+            // And never "Open full size" in a new tab: in the app that left a
+            // bare picture with no way back (owner 2026-10-24).
+            <LightboxSaveButton url={opened.url} filename={`setnayan-photo-${opened.feedId}.jpg`} />
           }
         />
       ) : null}
@@ -338,12 +350,12 @@ export function LiveWallBlock({
   );
 }
 
-function LiveWallHeader({ count, occasion }: { count: number; occasion: string }) {
+function LiveWallHeader({ count }: { count: number; occasion: string }) {
   return (
     <div className="flex items-center justify-between gap-3">
       <p className="sn-gal-kick inline-flex items-center gap-2 font-mono text-xs font-bold uppercase tracking-[0.2em]">
         <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--sn-ob-gold)]" />
-        Live from the {occasion}
+        Memory lane
       </p>
       {count > 0 ? (
         <p className="sn-gal-soft flex items-baseline gap-1">

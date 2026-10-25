@@ -154,8 +154,13 @@ test('the supplier is told the outcome of a booking ask', () => {
   // shared TOP toast since 2026-10-12 — and in full as the page's status line:
   // the page hands the notice's own words to `outcome`, draws `outcome` first on
   // the page, and the status line prints exactly the text it is given.
-  assert.match(page, /\? \{ text: lockAnswer\.text, tone: lockAnswer\.tone === 'ok' \? 'ok' : lockAnswer\.tone === 'noop' \? 'note' : 'bad' \}/, 'the notice is computed but never handed to what the page draws');
+  assert.match(page, /\? \{\s*text: lockAnswer\.text,\s*tone: lockAnswer\.tone === 'ok' \? 'ok' : lockAnswer\.tone === 'noop' \? 'note' : 'bad',\s*door: lockAnswer\.door \?\? null,\s*\}/, 'the notice is computed but never handed to what the page draws');
   assert.match(page, /\{outcome \? <SupplierToast text=\{outcome\.text\} tone=\{outcome\.tone\} /, 'the notice is computed but never rendered');
   const toast = read(join(APP, 'vendor-dashboard', '_components', 'supplier-toast.tsx'));
   assert.match(toast, /<p\s+role="status"\s+data-supplier-outcome=\{tone\}[\s\S]*?<span>\{text\}<\/span>\s*<\/p>/, 'the status line does not print the words it is given');
+  // 🧾 Today's status line is drawn UNDER its Next card (simpler Today 2026-10-14), with the door the sentence asks
+  // for — it prints exactly the text it is given.
+  const first = read(join(APP, 'vendor-dashboard', '_components', 'supplier-today-first-screen.tsx'));
+  assert.match(first, /role="status"\s+data-supplier-outcome=\{outcome\.tone\}[\s\S]*?<span className="min-w-0 flex-1">\{outcome\.text\}<\/span>/, 'Today’s status line does not print the words it is given');
+  assert.match(page, /line=\{false\}/, 'Today says the outcome twice (the toast’s own line and its own)');
 });

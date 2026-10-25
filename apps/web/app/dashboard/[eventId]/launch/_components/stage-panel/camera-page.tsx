@@ -3,13 +3,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
-import { CameraLookFace, useCameraLookShown, useCanvasBrand } from './camera-face';
+import { useMaker } from '../maker-context';
+import { CameraFace, useCanvasBrand } from './camera-face';
 
 /**
  * 🎛 THE DAY › CAMERA — THE PAGE IS THE CAMERA (owner 2026-10-09, verbatim: *"Camera is a full screen design"* ·
  * *"edit is greyed out too. only have style"*; `TOOLBAR-SPEC-2026-10-09.md` "The Day › Camera"; the approved
- * prototype's `.smp.camfull`): on the Camera page the sample IS the camera, edge to edge, ONE part — the look
- * picked, drawn at the screen's size, changing the moment another look is tapped.
+ * prototype's `.smp.camfull`): on the Camera page the sample IS the camera, edge to edge, ONE part — the one camera
+ * (owner 2026-10-24, `papic_camera_complete_2026-10-24_fable.html`), in its Pro dress where the event has it.
  *
  * It was a small grey shape and a caption (`MakerPageStandIn`), with no marker — so nothing on the page could be
  * tapped, nothing was picked on arriving, and the Camera's three looks could not be reached at all (seen on the
@@ -19,7 +20,7 @@ import { CameraLookFace, useCameraLookShown, useCanvasBrand } from './camera-fac
  * the toolbar — the canvas is the couple's own page, a same-origin frame — over the canvas's own Camera page
  * (`[data-stages-page="camera"]`, `site-body.tsx` `rest()`), and a tap on it picks it. Nothing of this is in the
  * guest's page, and the live camera is never opened in the Maker (`the-maker-canvas-draws-no-camera.test.ts`): the
- * screen is the camera's own PIECES (`camera-face.tsx` `CameraLookFace`), a drawing.
+ * screen is the camera's own PIECES (`camera-face.tsx` `CameraFace`), a drawing.
  *
  *   · EDGE TO EDGE: it fills the page shown above the guests' bar and the toolbar — measured, and measured again
  *     when either moves (▶ plays, the whole-page preview, the phone turned); the page under it does not scroll.
@@ -53,7 +54,8 @@ function seenHeight(): number | null {
   const fr = frame.getBoundingClientRect();
   const lt = document.querySelector('[data-maker-lower-third]')?.getBoundingClientRect();
   const bar = document.querySelector('[data-stage-guest-bar]')?.getBoundingClientRect();
-  const bottom = Math.min(fr.bottom, lt ? lt.top : window.innerHeight, bar && bar.height > 0 ? bar.top : window.innerHeight);
+  /* 🖥 The lower third ends the page only where it lies under it (a desktop's is the column beside it). */
+  const bottom = Math.min(fr.bottom, lt && lt.left < fr.right && lt.right > fr.left ? lt.top : window.innerHeight, bar && bar.height > 0 ? bar.top : window.innerHeight);
   const k = frame.clientWidth > 0 ? fr.width / frame.clientWidth : 1;
   const h = (bottom - fr.top) / (k || 1);
   return h > 40 ? Math.round(h) : null;
@@ -104,7 +106,8 @@ export function CameraPage({
   held: boolean;
   onPick: () => void;
 }) {
-  const look = useCameraLookShown();
+  /* 💎 The event's Logo & QR part (or Full Pro), as the viewer is shown it — the camera's Pro dress. */
+  const pro = useMaker()?.lookPages?.camera?.pro ?? false;
   const [hosts, setHosts] = useState<readonly HTMLElement[]>([]);
   /** Bumped whenever a canvas says it is ready — a page under the camera is a new document. */
   const [canvas, setCanvas] = useState(0);
@@ -225,7 +228,7 @@ export function CameraPage({
       {hosts.map((host, i) =>
         createPortal(
           <>
-            <CameraLookFace look={look} logo={brand.logo} accent={brand.accent} screen />
+            <CameraFace pro={pro} logo={brand.logo} accent={brand.accent} />
             {picked ? (
               <>
                 {/* The frame, INSIDE the edge (prototype `.camfull .pt.on::after`), and the part's name on it. */}

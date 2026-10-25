@@ -26,10 +26,12 @@ import { resolveAlbumDoor } from './album-door.server';
 import { HOST_MEMBER_TYPES } from './host-scope';
 import { after } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { noteEventStamp, rememberedEventRead } from '@/lib/event-shared-reads';
 import { startAhead } from '@/lib/start-ahead';
 import { EVENT_ROW_ONCE_EXTRA_COLUMNS, eventRowOnce, holdEventRow, withoutOnceExtras } from '@/lib/event-row-once';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { loadRoleNames } from '@/lib/role-names.server';
+import { withHeldDraftedRoleNames } from '@/lib/drafted-role-names';
 import type { RoleNames } from '@/lib/role-names';
 import { loadNameStyle } from '@/lib/name-style.server';
 import type { NameStyle } from '@/lib/name-style';
@@ -37,6 +39,7 @@ import {
   buildEntourage,
   ENTOURAGE_COLUMNS,
   ENTOURAGE_COUPLE_FIELDS,
+  ENTOURAGE_PARENT_FIELDS,
   ENTOURAGE_ROLES,
   MARCH_ROLES,
   type EntourageGroup,
@@ -47,7 +50,7 @@ import { replayMarch, type MarchStep } from '@/lib/march-drag';
 import { printedRowsAsDrafted } from '@/lib/march-draft-print';
 import { resolveMonogram } from '@/lib/monogram';
 import { eventAnimatedMonogramActive } from '@/lib/animated-monogram';
-import { dressedTheme, paletteColourVars, themeColours } from '@/lib/theme-colours';
+import { dressedTheme, paletteColourVars } from '@/lib/theme-colours';
 import { RESERVED_SLUGS } from '@/lib/reserved-slugs';
 import { withPickedDate } from '@/lib/event-anchor';
 import type { InviteTheme, InviteThemeId } from '@/lib/invite-themes';
@@ -56,9 +59,10 @@ import { compositeOver } from '@/lib/hub-legibility';
 import { hubButtonPage, resolveHubButtons, type HubButtonsLook } from '@/lib/hub-buttons';
 import { siteFontLook } from '@/lib/site-role-look';
 import { pageWordBase, pinPlateInk, pinWordInks, proSiteVarsFor } from './pro-site-vars';
-import { resolveHubTheme, websiteProActiveFor } from './hub-look';
+import { hubOwnershipFor, hubPartActiveFor, resolveHubTheme, websiteProActiveFor } from './hub-look';
+import { HUB_PART_IDS, type HubPartId } from '@/lib/hub-parts';
 import { eventPapicGuestActive, fetchGuestQuota } from '@/lib/papic-guest';
-import { isDataPrivacyControlActive, readDataPrivacyControlsTogether } from '@/lib/data-privacy-controls';
+import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import { asPapicStyle, type PapicStyle } from '@/lib/papic-photo-styles';
 import type { AnnouncementStage } from '@/lib/coordinator-broadcasts';
 import { resolveFaceMode, type PapicFaceMode } from '@/lib/papic-face-mode';
@@ -82,9 +86,7 @@ import { fetchPublicScheduleBlocks } from '@/lib/schedule';
 import { isCoordinatorPrepReleaseEnabled } from '@/lib/coordinator-prep-release';
 import { isGuestNowTriggerEnabled } from '@/lib/guest-now-trigger';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
-import { displayUrlForStdBackground } from '@/lib/std-bg-image';
 import { siteMediaServeRef, siteMediaServeRefs } from '@/lib/site-media-ref';
-import { resolveStdBackground, realisticBgSrc, stdFilmBackground, stdFollowsTheme } from '@/lib/std-backgrounds';
 import { resolveHero } from '@/lib/event-hero';
 import { resolveStdMedia, stdVideoNeedsGrandfatherHeal } from '@/lib/std-media';
 import { loadStdNsfwVerdict, stdVideoServeUrls } from '@/lib/std-video-gate';
@@ -130,6 +132,8 @@ import type {
   LiveWallData,
   WatchLiveData,
 } from './types';
+import { papicOwnerTag } from '@/lib/papic-upload/owner-tag.server';
+import { photoMarkOfEvent } from '@/lib/papic-photo-mark-of-event';
 
 /** The service-role Supabase client the orchestrator creates once per request
  *  and threads into every loader — a stable per-request reference, so it is a
@@ -181,23 +185,89 @@ type AdminClient = ReturnType<typeof createAdminClient>;
 function theOneEventRead(admin: AdminClient, slug: string) {
   const read = <S extends string>(columns: S) => admin.from('events').select(columns).ilike('slug', slug).maybeSingle();
   return {
+    /** The row as the database gave it — the extras included when `held` — and nothing held yet. */
     async select<S extends string>(columns: S) {
       const whole = await read(`${columns}, ${EVENT_ROW_ONCE_EXTRA_COLUMNS.join(', ')}` as S);
-      if (whole.error) return whole.error.code === '42703' ? await read(columns) : whole;
-      if (!whole.data) return whole;
-      const row = whole.data as unknown as Record<string, unknown>;
-      if (typeof row.event_id === 'string') holdEventRow(row.event_id, row, slug);
-      return { ...whole, data: withoutOnceExtras(row) as unknown as NonNullable<typeof whole.data> };
+      if (whole.error) return whole.error.code === '42703' ? { ...(await read(columns)), held: false } : { ...whole, held: false };
+      return { ...whole, held: whole.data !== null };
     },
   };
 }
 
+/**
+ * 🗂 THE SHELL, REMEMBERED UNDER THE EVENT'S STAMP (2026-10-18 · `lib/event-shared-reads.ts`).
+ *
+ * One small read first — `event_public_stamp(slug)`: which event this address
+ * names, and the value its public rows are at — then the shell row from the
+ * data cache filed under `[event, rev, slug]`. A write to the event moves the
+ * rev, so the next view reads the row again; nothing is "fresh enough".
+ *
+ * 🔑 KEPT ONLY WHEN IT IS PROVABLY THE STAMPED EVENT'S ROW: a clean read, with
+ * the extras, whose `event_id` is the one the stamp named. Anything else — a
+ * refusal, no row, the 42703 shell-alone path, a slug that moved between the
+ * two reads — is handed back exactly as read and never filed. No stamp (the
+ * function missing, a refusal, no row, two events matching) → the read the
+ * page always made, alone.
+ *
+ * Every caller of `loadEventShell` gets this (the layout, the metadata, the
+ * guest tree's other pages, the Maker's canvas): the row is the same for every
+ * viewer and the rev is read in the same request. Only the guest page itself
+ * opens the rest of its reads to the cache (`openSharedEventReads`).
+ */
+async function eventStampBySlug(admin: AdminClient, slug: string): Promise<{ eventId: string; rev: number } | null> {
+  try {
+    const { data, error } = await admin.rpc('event_public_stamp', { p_slug: slug });
+    if (error) {
+      // Not a failure of the page: it reads the row directly, as it always did — but on the record.
+      logQueryError('loadEventShell stamp', error, { slug }, 'graceful_degrade');
+      return null;
+    }
+    if (!Array.isArray(data) || data.length !== 1) return null;
+    const row = data[0] as { event_id?: unknown; rev?: unknown };
+    const rev = typeof row.rev === 'string' ? Number(row.rev) : row.rev;
+    if (typeof row.event_id !== 'string' || typeof rev !== 'number' || !Number.isSafeInteger(rev)) return null;
+    return { eventId: row.event_id, rev };
+  } catch {
+    return null;
+  }
+}
+
+async function readEventShellRow<R extends { data: unknown; error: { message: string } | null; held: boolean }>(
+  admin: AdminClient,
+  slug: string,
+  direct: () => Promise<R>,
+): Promise<Omit<R, 'held'>> {
+  const stamp = await eventStampBySlug(admin, slug);
+  let read: R;
+  if (!stamp) read = await direct();
+  else {
+    noteEventStamp(stamp.eventId, stamp.rev);
+    read = await rememberedEventRead<R>(
+      // The deployment is part of the key (`rememberedEventRead`), so a changed column list is a new key.
+      { eventId: stamp.eventId, rev: stamp.rev, key: `shell-v1:${slug}` },
+      direct,
+      (r) => !r.error && r.held && (r.data as { event_id?: unknown } | null)?.event_id === stamp.eventId,
+      (r) => r.data,
+      (row) => ({ data: row, error: null, count: null, status: 200, statusText: 'OK', held: true }) as unknown as R,
+    );
+  }
+  // The one read leaves the whole row in hand for the rest of the render (`holdEventRow`) — a
+  // remembered row exactly like one just read — and gives the page back the shell's own columns only.
+  const { held, ...rest } = read;
+  if (rest.data && held) {
+    const row = rest.data as Record<string, unknown>;
+    if (typeof row.event_id === 'string') holdEventRow(row.event_id, row, slug);
+    return { ...rest, data: withoutOnceExtras(row) as R['data'] };
+  }
+  return rest;
+}
+
 export const loadEventShell = cache(async (slug: string) => {
-  // Every guest-tree render begins here: the data-privacy controls it asks about are read in one request.
-  readDataPrivacyControlsTogether();
   const admin = createAdminClient();
-  const { data, error } = await theOneEventRead(admin, slug).select(
-      'event_id, public_id, display_name, event_date, event_end_date, cleared_at, event_date_precision, venue_name, venue_address, venue_latitude, venue_longitude, event_type, ceremony_type, secondary_ceremony_type, gender_separation, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, monogram_uploaded_svg, monogram_studio_config, photo_moments_config, landing_page_visibility, scheduled_launch_at, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key, role_palette, site_art_direction, invite_theme, site_bg_color, site_button_color, site_button_style, site_roles, site_font_key, site_magic_traveller, love_story, wax_seal_config, std_reveal_template, std_reveal_effects, reveal_stages, std_invitation_launch_date, std_theme, std_background, std_media, std_film_venue_name, std_film_venue_city, std_film_ceremony_name, ceremony_venue_address, ceremony_venue_latitude, ceremony_venue_longitude, std_film_accent_hex, is_sample, live_media_public, website_open_browse, launch_mode, manual_phase, guest_list_edit_deadline, guest_count_locked_at, rsvp_ask_config, style_preferences, ticket_url, gifts_on, date_candidates',
+  const { data, error } = await readEventShellRow(admin, slug, () =>
+    theOneEventRead(admin, slug).select(
+      'event_id, public_id, display_name, event_date, event_end_date, cleared_at, event_date_precision, venue_name, venue_address, venue_latitude, venue_longitude, event_type, ceremony_type, secondary_ceremony_type, gender_separation, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, monogram_uploaded_svg, monogram_studio_config, photo_moments_config, landing_page_visibility, scheduled_launch_at, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key, role_palette, site_art_direction, invite_theme, site_bg_color, site_button_color, site_button_style, site_roles, site_font_key, site_magic_traveller, love_story, wax_seal_config, std_reveal_template, std_reveal_effects, reveal_stages, std_invitation_launch_date, std_theme, std_background, std_media, std_film_venue_name, std_film_venue_city, std_film_ceremony_name, ceremony_venue_address, ceremony_venue_latitude, ceremony_venue_longitude, std_film_accent_hex, is_sample, live_media_public, website_open_browse, launch_mode, manual_phase, guest_list_edit_deadline, guest_count_locked_at, rsvp_ask_config, style_preferences, ticket_url, logo_wanted, gifts_on, date_candidates',
+    ),
   );
   // A FAILED READ IS NOT A MISSING EVENT (2026-08-05).
   //
@@ -347,6 +417,14 @@ export function guestLookFrom(
     vars = { ...(vars ?? {}), ...look.vars };
     const { color, opacity } = look.legibility.scrim;
     ramp = ombreRamp(background.ombre).map((stop) => compositeOver(color, opacity, stop));
+  }
+
+  /* 🎨 THE NAMES' DOMINANT IS MEASURED ON THE BOARD'S PAPER (`buildSitePaletteVars`) — over a page colour of the
+     couple's own, a blend or Candlelight that paper is gone, so the names keep the page's measured ink. */
+  if (vars && '--hub-names-ink' in vars && (background || event.site_art_direction === 'candlelight')) {
+    const { '--hub-names-ink': _overAnotherPaper, ...rest } = vars;
+    void _overAnotherPaper;
+    vars = rest;
   }
 
   /* 🔤 THE WORDS FOLLOW THE PAPER (2026-10-08, live: a dark ombré over a light
@@ -633,6 +711,9 @@ export const loadMedia = cache(
        None of these needs another's answer; in single file each waited for the
        one above it. Same reads, same count, the same lines receive them. */
     const proWatermarkHiddenAhead = startAhead(websiteProActiveFor(event.event_id));
+    /* 💎 …and what the event holds PART BY PART (owner 2026-10-22) — the page's per-part gates (Decorations → Style,
+       Scrub → Motion) read this; the footer above stays everything. One cached read shared with the theme gate. */
+    const hubPartsAhead = startAhead(hubOwnershipFor(event.event_id).then((o): HubPartId[] => (o.full ? [...HUB_PART_IDS] : [...o.parts])));
     /* 1️⃣ The Venue scene's stored choices come from the scene rows this view reads
        anyway (`loadWidgets` — `cache()`d, the page awaits this same read) instead
        of a second, one-row read of the same table. The rows as STORED: the host's
@@ -682,6 +763,7 @@ export const loadMedia = cache(
     // does the theme gate. Three readers, one order lookup. `admin` is unused
     // for it now — the cached reader builds its own so its key is the id alone.
     const proWatermarkHidden = await proWatermarkHiddenAhead;
+    const hubParts = await hubPartsAhead.catch((): HubPartId[] => []);
     /* ⛔ THE COUPLE'S PRO COLOURS AND FACE ARE NO LONGER RESOLVED HERE. They used
        to ride out of this loader as `siteColorVars` and be painted by the ONE
        page that went through InvitationShell — so `/find-seat`, `/seat`, `/hub`,
@@ -756,31 +838,8 @@ export const loadMedia = cache(
         ? await displayUrlForStoredAsset(siteMediaServeRef(event.site_bg_music_r2_key))
         : null;
 
-    // Step-1 Save-the-Date background (events.std_background). Realistic → the
-    // public scene src; upload → a presigned R2 url; plain/paper → no image.
-    // 🎨 Unpicked → the THEME's paper (owner 2026-10-05, `stdFilmBackground`) —
-    // as the Mood Board palette dresses it (the same day's "THE MOOD BOARD
-    // PALETTE IS THE PRIORITY", `themeColours`); picked → the couple's own.
-    const stdBackground =
-      // …keeping the couple's Readability while it follows (`stdFollowTheme`).
-      stdFollowsTheme(event.std_background)
-        ? stdFilmBackground(
-            event.std_background,
-            themeColours((await resolveHubTheme(event).catch(() => null))?.theme ?? 'house', event.role_palette).colours.canvas,
-          )
-        : resolveStdBackground(event.std_background);
-    const stdBackgroundUrl =
-      stdBackground.kind === 'realistic'
-        ? realisticBgSrc(stdBackground.value)
-        : stdBackground.kind === 'upload'
-          ? // Serve a screen-sized WebP variant (cached in R2), not the couple's
-            // full-resolution original — the full-bleed CSS background otherwise
-            // streams multiple MB and loads slowly on phones. Falls back to the
-            // original on any error. See lib/std-bg-image.
-            // (and it READS the original to make that variant — so the ref is
-            // held to the public bucket before anything is fetched).
-            await displayUrlForStdBackground(siteMediaServeRef(stdBackground.value))
-          : null;
+    // 🎞 The Save the Date film no longer keeps a background of its own (Look restudy row 6, owner 2026-10-08):
+    // it wears the MAIN background, resolved where the page's own is (`site-body.tsx`, `mainGroundStillFor`).
 
     // Step-3 Save-the-Date media (events.std_media). The couple's closing beat is
     // either their photo gallery (default) or an uploaded video.
@@ -929,13 +988,12 @@ export const loadMedia = cache(
       monogram,
       animatedMonogram,
       proWatermarkHidden,
+      hubParts,
       bespokeSvg,
       studioAnim,
       heroPhotoUrl,
       heroVideoUrl,
       bgMusicUrl,
-      stdBackground,
-      stdBackgroundUrl,
       stdVideoUrl,
       stdVideoPosterUrl,
       stdVenues,
@@ -1410,6 +1468,13 @@ async function readFirstScan(admin: AdminClient, guestId: string) {
  * request each — and now ride in the same read (`loadGuestOwnRow`).
  */
 const GUEST_OWN_ANSWER_COLUMNS = ['face_tagging_wanted', 'ugc_terms_accepted_at'] as const;
+/**
+ * 💌 …and the hosts' note TO this guest (`host_note_for_guest`, owner 2026-10-20 — `lib/guest-host-note.ts`), which
+ * stays ON the row (Me draws it under Your role). It rides in the same tolerant half: a database that does not know it
+ * yet (42703) reads the row without it, and Me simply has no note — never "we couldn't find your invitation". This is
+ * the ONLY guest-page read of that column, and it is the reader's own row: no other guest's view can carry it.
+ */
+const GUEST_OWN_TOLERANT_COLUMNS = [...GUEST_OWN_ANSWER_COLUMNS, 'host_note_for_guest'] as const;
 
 /**
  * 1️⃣ THE GUEST'S OWN ROW — its own `cache()`d loader (2026-10-12), read by
@@ -1434,7 +1499,7 @@ export const loadGuestOwnRow = cache(async (admin: AdminClient, guestId: string)
   const read = <S extends string>(columns: S) =>
     admin.from('guests').select(columns).eq('guest_id', guestId).is('deleted_at', null).maybeSingle();
   const select = async <S extends string>(columns: S) => {
-    const whole = await read(`${columns}, ${GUEST_OWN_ANSWER_COLUMNS.join(', ')}` as S);
+    const whole = await read(`${columns}, ${GUEST_OWN_TOLERANT_COLUMNS.join(', ')}` as S);
     if (whole.error) {
       return whole.error.code === '42703' ? { ...(await read(columns)), answers: null } : { ...whole, answers: null };
     }
@@ -1450,7 +1515,7 @@ export const loadGuestOwnRow = cache(async (admin: AdminClient, guestId: string)
     };
   };
   return select(
-    'guest_id, first_name, last_name, name_prefix, middle_name, name_suffix, display_name, role, side, group_category, plus_one_of_guest_id, plus_one_mode, plus_one_name_confirmed_at, plus_one_allowed, plus_one_count, plus_one_name, rsvp_status, meal_preference, dietary_restrictions, guest_note, custom_tags, qr_token, photo_url, photo_source, email, mobile',
+    'guest_id, first_name, last_name, name_prefix, middle_name, name_suffix, display_name, role, attire, gender, side, group_category, plus_one_of_guest_id, plus_one_mode, plus_one_name_confirmed_at, plus_one_allowed, plus_one_count, plus_one_name, rsvp_status, meal_preference, dietary_restrictions, guest_note, custom_tags, qr_token, photo_url, photo_source, email, mobile',
   );
 });
 
@@ -1832,6 +1897,14 @@ export const loadGuestContext = cache(
         ]);
       if (!blockRow) {
         papicGuest = {
+          // 🏷 One rule for both camera mounts (owner 2026-10-24): Pro = the Logo & QR part or Full Pro.
+          ...(await (async () => {
+            // 📷 One camera, one entitlement (owner 2026-10-24): the Logo & QR part or Full Pro
+            // dresses the inline camera and picks the mark on its photos, as on /papic/guest.
+            const dressPro = await hubPartActiveFor(event.event_id, 'logo_qr').catch(() => false);
+            return { dressPro, photoMark: photoMarkOfEvent(event, dressPro) };
+          })()),
+          uploadOwner: papicOwnerTag('guest', guest.guest_id, event.event_id),
           initialRemaining: quota.remaining,
           total: quota.total,
           termsAccepted: Boolean(
@@ -2183,7 +2256,8 @@ export const loadEntourageSectionOrder = cache(
  */
 export const loadEventRoleNames = cache(
   async (admin: AdminClient, eventId: string): Promise<RoleNames> =>
-    loadRoleNames(admin, eventId, 'loadEventRoleNames'),
+    // 🏷 On the host's canvas, with the section headings drafted in the Wedding March's Edit laid on (`lib/drafted-role-names.ts`).
+    withHeldDraftedRoleNames(eventId, await loadRoleNames(admin, eventId, 'loadEventRoleNames')),
 );
 
 /**
@@ -2233,7 +2307,7 @@ export const loadEntourage = cache(
         correct while dropping "Atty." from a ninong's name.
       */
       // + who is a real COUPLE (owner 2026-09-30): walking together alone prints both full names.
-      .select(`${ENTOURAGE_COLUMNS}, ${ENTOURAGE_COUPLE_FIELDS}`)
+      .select(`${ENTOURAGE_COLUMNS}, ${ENTOURAGE_COUPLE_FIELDS}, ${ENTOURAGE_PARENT_FIELDS}`)
       .eq('event_id', eventId)
       /*
         🔴 A GUEST THE COUPLE REMOVED IS NOT ON THE INVITATION.
@@ -2301,12 +2375,13 @@ export const loadMarch = cache(
   async (
     admin: AdminClient,
     eventId: string,
-  ): Promise<{ walking: EntourageGroup[]; out: EntourageGroup[] | null }> => {
+  ): Promise<{ walking: EntourageGroup[]; out: EntourageGroup[] | null; unread?: true }> => {
     const roles = MARCH_ROLES;
     const [guestRes, trayRes] = await Promise.all([
       admin
         .from('guests')
-        .select(`${ENTOURAGE_COLUMNS}, side`)
+        // + the parent fields (gender, attire): a parent told by them reads "Mother of the Groom" on the march too, as on every print.
+        .select(`${ENTOURAGE_COLUMNS}, side, ${ENTOURAGE_PARENT_FIELDS}`)
         .eq('event_id', eventId)
         .is('deleted_at', null)
         .or(`role.in.(${roles.join(',')}),extra_roles.ov.{${roles.join(',')}}`),
@@ -2314,7 +2389,8 @@ export const loadMarch = cache(
     ]);
     if (guestRes.error) {
       logQueryError('loadMarch', guestRes.error, { event_id: eventId }, 'graceful_degrade');
-      return { walking: [], out: null };
+      // `unread`: the march itself was not read — said in the Maker, never drawn as "Nobody walks yet" (2026-10-23).
+      return { walking: [], out: null, unread: true };
     }
     if (trayRes.error) logQueryError('loadMarch tray', trayRes.error, { event_id: eventId }, 'graceful_degrade');
     const outIds = trayRes.error ? null : new Set(((trayRes.data ?? []) as Array<{ guest_id: string }>).map((r) => r.guest_id));

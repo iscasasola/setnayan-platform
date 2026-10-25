@@ -91,16 +91,17 @@ test('the couple still receives BOTH — their own note and the guest\'s message
  */
 
 test("the guest's message is not hidden inside a collapsed disclosure", () => {
+  /* Re-pointed 2026-10-24 (one guest card everywhere): the card's rows are the shared Fold now — no `<details>` is left.
+     The property is the same: the row that holds the guest's own message OPENS BY ITSELF whenever there is one, so a
+     host never has to guess to expand a row to read it. */
   const page = read('app/dashboard/[eventId]/guests/_components/guest-card-body.tsx');
-  const d0 = page.indexOf('<details');
-  const d1 = page.indexOf('</details>');
-  assert.ok(d0 > -1 && d1 > d0, 'the disclosure is gone — re-point this guard at whatever replaced it');
-  const g = page.indexOf('guest.guest_note?.trim()');
+  const g = page.indexOf('guest.guest_note?.trim() ? (');
   assert.ok(g > -1, "the guest's message is not rendered at all");
-  assert.ok(
-    g < d0 || g > d1,
-    "the guest's message renders inside <details> — a host must not have to guess to expand a drawer to read it",
-  );
+  const fold = page.lastIndexOf('<K.Fold ', g);
+  assert.ok(fold > -1, 'the message is not inside a row any more — re-point this guard at whatever replaced it');
+  const head = page.slice(fold, page.indexOf('>', fold) + 1);
+  assert.match(head, /open=\{Boolean\(guest\.guest_note\?\.trim\(\)\)\}/, "the row holding the guest's message does not open by itself when there is one");
+  assert.ok(page.indexOf('</K.Fold>', fold) > g, "the guest's message is not inside the row that opens for it");
 });
 
 test('each drawer row names what is actually behind it', () => {

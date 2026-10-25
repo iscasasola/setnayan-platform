@@ -2,8 +2,8 @@
 # radius (rounded-lg|xl|2xl|3xl|card|tile). GENERATED — never hand-edit:
 #   node apps/web/scripts/lint-no-card.mjs --update-baseline
 # A RATCHET: a count may fall, never rise; a file not listed may hold none.
-# 683 files · 1888 lines
-4 apps/web/app/_components/account-switcher/account-switcher.tsx
+# 662 files · 1816 lines
+2 apps/web/app/_components/account-switcher/account-switcher.tsx
 3 apps/web/app/_components/alaala/lens-body.tsx
 1 apps/web/app/_components/amendment-builder.tsx
 1 apps/web/app/_components/anon-gate/save-to-continue.tsx
@@ -22,7 +22,6 @@
 1 apps/web/app/_components/chat/thread-list-card.tsx
 1 apps/web/app/_components/chosen-proof-field.tsx
 2 apps/web/app/_components/contracts/contract-card.tsx
-1 apps/web/app/_components/cookie-consent-banner.tsx
 1 apps/web/app/_components/door/door-shell.tsx
 3 apps/web/app/_components/drive-connect-card.tsx
 3 apps/web/app/_components/encoder-key-panel.tsx
@@ -78,7 +77,6 @@
 1 apps/web/app/(shell)/pa3d/_pa3d-parts.tsx
 4 apps/web/app/(shell)/pa3d/_pa3d-room.tsx
 3 apps/web/app/(shell)/pa3d/page.tsx
-1 apps/web/app/(shell)/panood/_panood-film.tsx
 2 apps/web/app/(shell)/papic/_papic-dial.tsx
 3 apps/web/app/(shell)/papic/_papic-scan.tsx
 1 apps/web/app/(shell)/papic/_papic-sections.tsx
@@ -116,11 +114,10 @@
 3 apps/web/app/[slug]/_components/your-photos-widget.tsx
 1 apps/web/app/[slug]/avatar/_components/avatar-maker-loader.tsx
 2 apps/web/app/[slug]/avatar/_components/avatar-maker.tsx
-2 apps/web/app/[slug]/everyone/page.tsx
 2 apps/web/app/[slug]/find-my-table/page.tsx
 11 apps/web/app/[slug]/hub/page.tsx
 1 apps/web/app/[slug]/invite/_components/invite-qr-panel.tsx
-2 apps/web/app/[slug]/pabuya/page.tsx
+2 apps/web/app/[slug]/pabuya/_components/gift-page-body.tsx
 3 apps/web/app/[slug]/recap/page.tsx
 1 apps/web/app/[slug]/seat/_components/guest-push-prompt.tsx
 5 apps/web/app/[slug]/seat/page.tsx
@@ -139,7 +136,6 @@
 4 apps/web/app/admin/accounts/_surfaces/vendors-surface.tsx
 1 apps/web/app/admin/accounts/_surfaces/venues-surface.tsx
 2 apps/web/app/admin/app-performance/_components/won-lost-admin-card.tsx
-1 apps/web/app/admin/app-performance/_surfaces/funnels-surface.tsx
 1 apps/web/app/admin/app-performance/_surfaces/interconnections-surface.tsx
 2 apps/web/app/admin/app-performance/_surfaces/operations-surface.tsx
 1 apps/web/app/admin/app-performance/_surfaces/seo-rerun-button.tsx
@@ -255,21 +251,18 @@
 1 apps/web/app/dashboard/(account)/clusters/_components/create-cluster-form.tsx
 1 apps/web/app/dashboard/(account)/clusters/[clusterId]/_components/cluster-tools.tsx
 1 apps/web/app/dashboard/(account)/create-event/_components/create-location-picker.tsx
-8 apps/web/app/dashboard/(account)/create-event/_components/event-type-picker.tsx
+7 apps/web/app/dashboard/(account)/create-event/_components/event-type-picker.tsx
 1 apps/web/app/dashboard/(account)/create-event/page.tsx
 3 apps/web/app/dashboard/(account)/creator/_components/teaser-generator.tsx
 1 apps/web/app/dashboard/(account)/creator/page.tsx
-1 apps/web/app/dashboard/(account)/library/_components/album-shelf.tsx
 2 apps/web/app/dashboard/(account)/library/_components/editorials-tab.tsx
 5 apps/web/app/dashboard/(account)/library/_components/photos-tab.tsx
 1 apps/web/app/dashboard/(account)/library/_components/saved-vendor-card.tsx
 3 apps/web/app/dashboard/(account)/library/_components/vendors-tab.tsx
-2 apps/web/app/dashboard/(account)/library/page.tsx
 1 apps/web/app/dashboard/(account)/life-flash/_components/scroll-reel.tsx
 2 apps/web/app/dashboard/(account)/life-flash/_components/story-people.tsx
 1 apps/web/app/dashboard/(account)/notifications/loading.tsx
 1 apps/web/app/dashboard/(account)/people/_components/dependents-section.tsx
-1 apps/web/app/dashboard/(account)/people/_components/people-roster-view.tsx
 1 apps/web/app/dashboard/(account)/people/_components/samahan-people-section.tsx
 1 apps/web/app/dashboard/(account)/people/[dependentId]/page.tsx
 1 apps/web/app/dashboard/(account)/profile/_components/haptics-toggle.tsx
@@ -280,8 +273,6 @@
 11 apps/web/app/dashboard/(account)/samahan/[communityId]/page.tsx
 1 apps/web/app/dashboard/(account)/samahan/page.tsx
 4 apps/web/app/dashboard/(launcher)/_components/event-card-menu.tsx
-1 apps/web/app/dashboard/(launcher)/_components/home-command-bar.tsx
-1 apps/web/app/dashboard/(launcher)/_components/home-pill-nav.tsx
 1 apps/web/app/dashboard/(launcher)/_components/year-moments-list.tsx
 5 apps/web/app/dashboard/(launcher)/page.tsx
 1 apps/web/app/dashboard/[eventId]/_components/after/finished-event-summary.tsx
@@ -312,7 +303,6 @@
 1 apps/web/app/dashboard/[eventId]/alaala/assignments/page.tsx
 5 apps/web/app/dashboard/[eventId]/alaala/page.tsx
 1 apps/web/app/dashboard/[eventId]/budget/_components/share-budget-band-toggle.tsx
-2 apps/web/app/dashboard/[eventId]/budget/page.tsx
 1 apps/web/app/dashboard/[eventId]/clearance/page.tsx
 4 apps/web/app/dashboard/[eventId]/date-selection/_components/candidate-date-picker.tsx
 1 apps/web/app/dashboard/[eventId]/date-selection/_components/chinese-specialist-nudge.tsx
@@ -395,7 +385,7 @@
 9 apps/web/app/dashboard/[eventId]/studio/live-studio-control/page.tsx
 1 apps/web/app/dashboard/[eventId]/studio/mood-board/_components/dress-code-fields.tsx
 2 apps/web/app/dashboard/[eventId]/studio/mood-board/_components/gallery-picker.tsx
-2 apps/web/app/dashboard/[eventId]/studio/mood-board/_components/group-attire-field.tsx
+1 apps/web/app/dashboard/[eventId]/studio/mood-board/_components/group-attire-field.tsx
 4 apps/web/app/dashboard/[eventId]/studio/mood-board/_components/inspiration-board.tsx
 5 apps/web/app/dashboard/[eventId]/studio/mood-board/_components/make-it-real.tsx
 3 apps/web/app/dashboard/[eventId]/studio/mood-board/_components/mood-board-editor.tsx
@@ -404,7 +394,7 @@
 2 apps/web/app/dashboard/[eventId]/studio/mood-board/_components/part-finalization-panel.tsx
 2 apps/web/app/dashboard/[eventId]/studio/mood-board/_components/recolor-studio.tsx
 2 apps/web/app/dashboard/[eventId]/studio/mood-board/_components/render-pool-picker.tsx
-2 apps/web/app/dashboard/[eventId]/studio/mood-board/_components/role-attire-field.tsx
+1 apps/web/app/dashboard/[eventId]/studio/mood-board/_components/role-attire-field.tsx
 1 apps/web/app/dashboard/[eventId]/studio/mood-board/_components/swatch-popover.tsx
 3 apps/web/app/dashboard/[eventId]/studio/mood-board/_components/template-gallery.tsx
 1 apps/web/app/dashboard/[eventId]/studio/mood-board/_components/theme-card.tsx
@@ -428,13 +418,10 @@
 2 apps/web/app/dashboard/[eventId]/studio/papic/_components/pool-gallery-card.tsx
 1 apps/web/app/dashboard/[eventId]/studio/papic/_components/recap-card.tsx
 8 apps/web/app/dashboard/[eventId]/studio/papic/couple-challenges-manager.tsx
-6 apps/web/app/dashboard/[eventId]/studio/papic/crew/page.tsx
-1 apps/web/app/dashboard/[eventId]/studio/papic/extra-cameras-picker.tsx
-1 apps/web/app/dashboard/[eventId]/studio/papic/guest-camera-tier-picker.tsx
 1 apps/web/app/dashboard/[eventId]/studio/papic/moderation/_components/kwento-queue-controls.tsx
 1 apps/web/app/dashboard/[eventId]/studio/papic/moderation/_components/kwento-queue.tsx
 4 apps/web/app/dashboard/[eventId]/studio/papic/moderation/page.tsx
-18 apps/web/app/dashboard/[eventId]/studio/papic/page.tsx
+5 apps/web/app/dashboard/[eventId]/studio/papic/page.tsx
 1 apps/web/app/dashboard/[eventId]/studio/papic/papic-window-picker.tsx
 1 apps/web/app/dashboard/[eventId]/studio/papic/recap/_components/recap-drive-nudge.tsx
 5 apps/web/app/dashboard/[eventId]/studio/papic/recap/page.tsx
@@ -461,7 +448,6 @@
 1 apps/web/app/dashboard/[eventId]/studio/setnayan-ai/_components/setnayan-ai-value.tsx
 1 apps/web/app/dashboard/[eventId]/studio/setnayan-ai/page.tsx
 3 apps/web/app/dashboard/[eventId]/studio/thank-you/_components/thank-you-maker.tsx
-2 apps/web/app/dashboard/[eventId]/studio/website-pro/page.tsx
 1 apps/web/app/dashboard/[eventId]/vendors/_components/accordion-build.tsx
 3 apps/web/app/dashboard/[eventId]/vendors/_components/accordion-lock.tsx
 5 apps/web/app/dashboard/[eventId]/vendors/_components/cancel-booking-button.tsx
@@ -602,7 +588,6 @@
 3 apps/web/app/vendor-dashboard/disputes/page.tsx
 10 apps/web/app/vendor-dashboard/invite/_components/locked-qr-generator.tsx
 1 apps/web/app/vendor-dashboard/messages/_components/inquiry-outcomes-rollup.tsx
-2 apps/web/app/vendor-dashboard/messages/[threadId]/_components/chat-info-rail.tsx
 1 apps/web/app/vendor-dashboard/messages/[threadId]/_components/inquiry-outcome-capture.tsx
 4 apps/web/app/vendor-dashboard/messages/[threadId]/_components/send-proposal-card.tsx
 1 apps/web/app/vendor-dashboard/messages/[threadId]/_components/vendor-offer-service.tsx
@@ -642,7 +627,7 @@
 2 apps/web/app/vendor-dashboard/recommendations/_panel.tsx
 2 apps/web/app/vendor-dashboard/reviews/page.tsx
 1 apps/web/app/vendor-dashboard/services/_components/addons-editor.tsx
-12 apps/web/app/vendor-dashboard/services/_components/canvas-maker.tsx
+2 apps/web/app/vendor-dashboard/services/_components/canvas-maker.tsx
 3 apps/web/app/vendor-dashboard/services/_components/coverage-panel.tsx
 3 apps/web/app/vendor-dashboard/services/_components/customization-step.tsx
 3 apps/web/app/vendor-dashboard/services/_components/payment-schedule-editor.tsx
@@ -651,17 +636,14 @@
 1 apps/web/app/vendor-dashboard/services/_components/service-card-face.tsx
 4 apps/web/app/vendor-dashboard/services/_components/service-list-editors.tsx
 4 apps/web/app/vendor-dashboard/services/_components/service-wizard.tsx
-16 apps/web/app/vendor-dashboard/services/_components/services-manager.tsx
+12 apps/web/app/vendor-dashboard/services/_components/services-manager.tsx
 1 apps/web/app/vendor-dashboard/services/_components/showcase-media-fields.tsx
 1 apps/web/app/vendor-dashboard/services/new/[category]/page.tsx
-2 apps/web/app/vendor-dashboard/shop/_components/autoreply-card.tsx
 2 apps/web/app/vendor-dashboard/shop/_components/docs-body.tsx
 8 apps/web/app/vendor-dashboard/shop/_components/editable-row.tsx
-1 apps/web/app/vendor-dashboard/shop/_components/manage-tiles.tsx
 1 apps/web/app/vendor-dashboard/shop/_components/public-line-card.tsx
 1 apps/web/app/vendor-dashboard/shop/_components/reach-map.tsx
 2 apps/web/app/vendor-dashboard/shop/_components/service-radius-fields.tsx
-1 apps/web/app/vendor-dashboard/shop/_components/shop-rail.tsx
 1 apps/web/app/vendor-dashboard/shop/_components/suggested-coverage-card.tsx
 1 apps/web/app/vendor-dashboard/shop/_components/venue-match-card.tsx
 1 apps/web/app/vendor-dashboard/shop/_components/venue-type-card.tsx
@@ -669,15 +651,12 @@
 6 apps/web/app/vendor-dashboard/shop/_components/verify-section.tsx
 1 apps/web/app/vendor-dashboard/shop/_components/visibility-card.tsx
 2 apps/web/app/vendor-dashboard/shop/_components/voice-match-card.tsx
-2 apps/web/app/vendor-dashboard/shop/_components/website-editor.tsx
-2 apps/web/app/vendor-dashboard/shop/page.tsx
+1 apps/web/app/vendor-dashboard/shop/page.tsx
 3 apps/web/app/vendor-dashboard/subscription/_components/ai-addon-card.tsx
 3 apps/web/app/vendor-dashboard/subscription/_components/booth-addon-card.tsx
 2 apps/web/app/vendor-dashboard/subscription/_components/papic-challenge-card.tsx
-1 apps/web/app/vendor-dashboard/subscription/_components/subscription-cards.tsx
 2 apps/web/app/vendor-dashboard/subscription/custom/_components/custom-configurator.tsx
 1 apps/web/app/vendor-dashboard/subscription/page.tsx
-7 apps/web/app/vendor-dashboard/team/page.tsx
 1 apps/web/app/vendor-dashboard/theft-watch/page.tsx
 1 apps/web/app/vendor-dashboard/track-record/page.tsx
 1 apps/web/app/vendor-invite/[slug]/loading.tsx

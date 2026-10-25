@@ -4,24 +4,28 @@ import archiver from 'archiver';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { getHostUserId } from '@/lib/host-gate';
-import { printOwnsPro } from '@/lib/print-set.server';
-import { PASS_CARD_WORDS, PASS_CARD_ZIP_MAX, PASS_CARD_ZIP_PRO_MESSAGE, passCardsZipFileName, uniqueFileNames } from '@/lib/pass-card';
+import { PASS_CARD_WORDS, PASS_CARD_ZIP_MAX, passCardsZipFileName, uniqueFileNames } from '@/lib/pass-card';
 import { eligiblePassCardGuests, loadPassCardKit, passCardDesignFor, passCardFileNameFor, renderPassCardFor } from '@/lib/pass-card.server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { formatCount } from '@/lib/format-number';
 
 /**
  * GET /api/guest/pass-card/all?event=<uuid> — EVERY guest's pass card in one
- * .zip, for the couple (owner 2026-09-29: *"can we also create a zip file to
- * download all? (PRO feature)"* · *"downloading them individually is free"*).
+ * .zip, for the couple — how they hand tickets out by phone.
  *
- * 🔒 THREE GATES, ALL HERE ON THE SERVER — a hidden button is never the lock:
+ * 🎟 FREE FOR EVERY EVENT (owner 2026-10-22, "yes", DECISION_LOG "THE DIGITAL
+ * TICKET ZIP IS FREE"; his rule, verbatim: *"the goal of the free is to keep
+ * everything minimum ready but no personalization."*). It was Event Hub Pro
+ * from 2026-09-29 (*"can we also create a zip file to download all? (PRO
+ * feature)"*); handing out tickets is readiness, so the route asks NO Pro
+ * question. What stays personal is the LOOK: the cards are drawn from
+ * `loadPassCardKit` → `loadPrintSet`, whose one door (`printLookForEvent`)
+ * draws a free event PLAIN WHITE and a Pro event in its Hub look (#6744).
+ *
+ * 🔒 TWO GATES, BOTH HERE ON THE SERVER — a hidden button is never the lock:
  *   1. signed in, and a HOST of this event (`getHostUserId`: an accepted
  *      moderator who is not a view-only helper, or the legacy couple row);
- *   2. the event holds EVENT HUB PRO (`printOwnsPro` — the same measured
- *      entitlement Prints & Tickets asks). A free couple gets 403 with words;
- *      one guest's card stays free at /api/guest/pass-card;
- *   3. only guests who HAVE a card (`eligiblePassCardGuests` → the pure
+ *   2. only guests who HAVE a card (`eligiblePassCardGuests` → the pure
  *      `passCardEligibility`): accepted, not "can't come", named — pending
  *      requests, declines and TBA seats are not in it.
  *
@@ -59,7 +63,6 @@ export async function GET(req: Request) {
   if (!(await getHostUserId(eventId))) {
     return new NextResponse('Only the hosts of this event can download its passes.', { status: 403 });
   }
-  if (!(await printOwnsPro(eventId))) return new NextResponse(PASS_CARD_ZIP_PRO_MESSAGE, { status: 403 });
 
   const admin = createAdminClient();
   const { guests, measured } = await eligiblePassCardGuests(admin, eventId);

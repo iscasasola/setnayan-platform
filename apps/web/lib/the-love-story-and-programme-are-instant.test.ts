@@ -83,7 +83,7 @@ test('A · the moments: add · edit · delete · arrange, and what must still go
   const added = applyMomentIntent(before, 'add', form([['intent', 'add'], ['date_y', '2023'], ['line', 'The yes'], ['anchor', 'yes']]), () => 0.5);
   assert.ok(added.ok && added.after.length === 3 && added.touched?.anchor === 'yes');
   const noYear = applyMomentIntent(before, 'add', form([['intent', 'add'], ['line', 'x']]));
-  assert.deepEqual(noYear, { ok: false, error: 'A moment needs a year and a line — nothing else is required.' });
+  assert.deepEqual(noYear, { ok: false, error: 'A moment needs a year and a few words — nothing else is required.' });
   const moved = applyMomentIntent(before, 'edit', form([['id', 'm-b'], ['date_y', '2021'], ['line', 'Moved in together'], ['anchor', 'met']]));
   assert.ok(moved.ok);
   assert.equal(moved.after.find((m) => m.id === 'm-a')?.anchor, undefined, 'one "How we met" — the tag moves');
@@ -275,12 +275,10 @@ const STILL_REFRESHES = new Set([
   'app/dashboard/[eventId]/launch/_components/soft-post.tsx',
   'app/dashboard/[eventId]/launch/_components/view-as-free.tsx',
   'app/dashboard/[eventId]/schedule/_components/announce-button.tsx',
-  'app/dashboard/[eventId]/schedule/_components/prep-item-controls.tsx',
   'app/dashboard/[eventId]/website/_components/hub-draft-bar.tsx',
   'app/dashboard/[eventId]/website/editor/_components/details-bound-field.tsx',
   'app/dashboard/[eventId]/website/editor/_components/editor-shell.tsx',
   'app/dashboard/[eventId]/website/editor/_components/element-sheet.tsx',
-  'app/dashboard/[eventId]/website/editor/_components/fixed-scene-style-row.tsx',
   'app/dashboard/[eventId]/website/editor/_components/main-background-panel.tsx',
   'app/dashboard/[eventId]/website/editor/_components/post-event-scene-panel.tsx',
   'app/dashboard/[eventId]/website/editor/_components/scene-background-row.tsx',

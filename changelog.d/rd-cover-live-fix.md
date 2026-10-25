@@ -1,0 +1,6 @@
+## 2026-10-15 · fix(cover): live faults after Batch 8 — the stranger's cover keeps its order; the veil's hint goes at the tap
+
+- **The stranger's first screen** (`/maria-and-jose` signed out, 375 × 812, live after Batch 8): the eyebrow ran into the names, the monogram was drawn below the fold and "Guests arrive" fell off. The Cover Scene made the cover's header the whole first screen on its own, pushing "Get inside" below the fold, and the first-screen fit then moved the mark and the time below the door. Now the first-screen BLOCK (header + door) is the first screen, ending at the fit's limit (the bottom bar's top, or the cookie notice's); the header grows into what the door leaves. `globals.css`. Guard: `tests/e2e/the-strangers-cover-keeps-its-order.spec.ts` renders the real stranger page under the compiled CSS, runs the real `FirstScreenDoor`, and measures order, overlap and the first screen at 375 × 812 and 390 × 844 × {no ground, Full, Framed} × {notice, none}. On main's CSS it fails 6 of 12; with the fix 12 of 12 pass.
+- **The veil's hint** (`/cale-ice`, live): "Tap or swipe up to unveil" stayed ~10 s through the hands-free lift. It now goes the moment the tap or swipe lands (`lifting`, set right after `unveilInGesture()` in the overlay's `onUnveil`). Pinned in `the-veil-opens-on-a-tap.test.ts` (sabotaged: fails).
+
+SPEC IMPACT: None

@@ -1,5 +1,6 @@
 import { Heart, Briefcase, Mailbox, Shield, Globe, QrCode, type LucideIcon } from 'lucide-react';
 import type { MarketingLocale } from '@/lib/marketing-i18n';
+import { DAY_OF_STARTS_PLAIN } from '@/lib/day-of-window-words';
 
 // How it works — the six kinds of people on Setnayan and how the flow connects.
 // Folded in from the standalone /how-it-works page (retired 2026-09-01; that URL
@@ -53,22 +54,16 @@ import type { MarketingLocale } from '@/lib/marketing-i18n';
 
 const ROLE_ICONS: LucideIcon[] = [Heart, Briefcase, Mailbox, Shield, Globe, QrCode];
 
-/**
- * Entry paths are language-neutral and live here ONCE, beside the icons.
- *
- * 🔑 A PATH IS NOT PROSE. Putting these in the per-locale dictionaries is how
- * `/e/[event-slug]` survived in two languages — the English page was corrected
- * once before without the Taglish twin being touched, because a reader fixing
- * copy has no reason to open the other file. One array, both locales.
- */
-const ROLE_PATHS: string[] = [
-  '/dashboard',
-  '/vendor-dashboard',
-  '/[slug]',
-  '/admin',
-  '/',
-  '/[slug]',
-];
+// ─── NO ROUTE PATHS, NO CODE NAMES (QA 2026-10-22, F2) ──────────────────────
+// Each role card used to print an entry path under its name in a <code> span —
+// `/dashboard`, `/vendor-dashboard`, `/[slug]`, `/admin` — and the team's card
+// said it was "Gated behind is_internal". That is our routing table and a
+// database column, published to strangers in two languages (the same class
+// the 2026-10-19 sweep removed from /help, row B3). A visitor cannot type
+// `/[slug]`, and `/admin` is a door they will never be let through. The paths
+// are gone; every card says who the person is in plain words.
+// Held by `the-public-page-shows-no-internals.test.ts`, which RENDERS this
+// page in both locales and reads the text a visitor sees.
 
 const COPY: Record<
   MarketingLocale,
@@ -89,18 +84,18 @@ const COPY: Record<
     roles: [
       {
         label: 'Host',
-        who: 'You’re planning a celebration — a wedding, a debut, a christening, a reunion, a concert — and more. An event can have several hosts.',
+        who: 'You’re planning an event — a wedding, a debut, a christening, a reunion, a concert — and more. An event can have several hosts.',
         where: [
-          'Guest list, invitation site, suppliers, budget, seating, mood board',
-          'Day-of mode from T-1h to T+8h with table + schedule + photo wall',
-          'Add-ons (photo delivery, Live Watch, Papic, supplies marketplace, more)',
+          'Home · Guests · Suppliers · Hub · More — the guest list, seat plan, budget, schedule and mood board live here',
+          'The Event Hub Maker: five stages, drafted until you press Apply',
+          'Add-ons (Papic, Live Watch, Setnayan AI, Event Hub Pro, more)',
         ],
       },
       {
-        label: 'Vendor',
+        label: 'Supplier',
         who: 'You sell to hosts. Free profile, optional paid tier for more reach.',
         where: [
-          'Services, bookings inbox, team roles, earnings rollup',
+          'Today · Customers · Shop · Hub — the next thing to answer, your people and dates, your services and page, your event days',
           'Reply-only chat — hosts reach out, you reply with quotes + files',
           'Verification badge, reviews from completed events',
         ],
@@ -109,36 +104,36 @@ const COPY: Record<
         label: 'Guest',
         who: 'You got invited. No sign-up needed — just open your link.',
         where: [
-          'Save-the-Date → Invitation → Logistics → Post-event (4 phases)',
-          'RSVP, meal preference, plus-one naming',
+          'Save the Date → RSVP → Invitation → The Day → Post Event (5 stages)',
+          'Reply, meal preference, plus-one naming',
           'Day-of: find your table, see the live schedule, upload photos',
         ],
       },
       {
-        label: 'Admin',
-        who: 'Setnayan operations team. Gated behind is_internal.',
+        label: 'Setnayan’s team',
+        who: 'Setnayan’s own team. You never need an account like this — it’s us, behind the scenes.',
         where: [
-          'Users, suppliers, orders, reviews — the day-to-day moderation',
-          'Funnels, force-majeure escalations, verification queue',
-          'Website editor for marketing-site widgets',
+          'Checks suppliers before they get the verified badge, and keeps reviews honest',
+          'Confirms payments, so an order goes through',
+          'Steps in when an event cannot go ahead',
         ],
       },
       {
         label: 'Public landing',
-        who: 'The marketing site at setnayan.com. Where you’re standing now.',
+        who: 'The public pages at setnayan.com. Where you’re standing now.',
         where: [
-          'Host-side sign-up + vendor-side registration',
+          'Host sign-up + supplier sign-up',
           'Browse the marketplace, read features, see pricing, get help',
           'No login needed — bookmark and share',
         ],
       },
       {
-        label: 'Event landing',
+        label: 'Event Hub',
         who: 'The event’s own public page. The link you share with everyone.',
         where: [
-          'Auto-shifts through 4 phases as the date approaches',
-          'Each guest gets their own slug for personalised RSVP',
-          'Activates day-of mode from T-1h on the day itself',
+          'Moves through 5 stages as the date approaches',
+          'Each guest gets their own link for a personalised RSVP',
+          `Switches to day-of mode from ${DAY_OF_STARTS_PLAIN}`,
         ],
       },
     ],
@@ -146,11 +141,11 @@ const COPY: Record<
     flow: [
       {
         from: 'Host',
-        to: 'Vendors',
-        what: 'Host browses the marketplace at /explore and opens a chat thread with one (suppliers cannot DM cold).',
+        to: 'Suppliers',
+        what: 'Host browses the supplier marketplace and opens a chat thread with one (suppliers cannot message a host first).',
       },
       {
-        from: 'Vendor',
+        from: 'Supplier',
         to: 'Host',
         what: 'Supplier replies with a quote + files. Both sides see the same thread.',
       },
@@ -167,12 +162,12 @@ const COPY: Record<
       {
         from: 'Day-of',
         to: 'Everyone',
-        what: 'T-1h flips the event into live mode — tables, schedule, photo wall, broadcast.',
+        what: `From ${DAY_OF_STARTS_PLAIN}, the event switches to live mode — tables, schedule, Memory lane, broadcast.`,
       },
       {
         from: 'Post-event',
         to: 'Host ↔ Supplier',
-        what: 'Reviews land 24h after the event; force-majeure flags route to admin if filed.',
+        what: 'Reviews land 24h after the event; if an event cannot go ahead, Setnayan’s team steps in.',
       },
     ],
   },
@@ -184,18 +179,18 @@ const COPY: Record<
     roles: [
       {
         label: 'Host',
-        who: 'Nagpaplano ka ng pagdiriwang — kasal, debut, binyag, reunion, concert, at iba pa. Pwedeng maraming host ang isang event.',
+        who: 'Nagpaplano ka ng event — kasal, debut, binyag, reunion, concert, at iba pa. Pwedeng maraming host ang isang event.',
         where: [
-          'Guest list, invitation site, suppliers, budget, seating, mood board',
-          'Day-of mode from T-1h to T+8h — table + schedule + photo wall',
-          'Add-ons (photo delivery, Live Watch, Papic, supplies marketplace, at iba pa)',
+          'Home · Guests · Suppliers · Hub · More — nandito ang guest list, seat plan, budget, schedule at mood board',
+          'Ang Event Hub Maker: limang stage, draft hangga’t hindi mo pinipindot ang Apply',
+          'Add-ons (Papic, Live Watch, Setnayan AI, Event Hub Pro, at iba pa)',
         ],
       },
       {
-        label: 'Vendor',
+        label: 'Supplier',
         who: 'Nagbebenta ka sa mga host. Free profile, optional na bayad na tier para sa mas maraming reach.',
         where: [
-          'Services, bookings inbox, team roles, earnings rollup',
+          'Today · Customers · Shop · Hub — ang susunod na sasagutin, ang mga tao at petsa mo, ang services at page mo, ang mga event day mo',
           'Reply-only chat — ang host ang lalapit, ikaw ang sasagot with quotes + files',
           'Verification badge, reviews from completed events',
         ],
@@ -204,36 +199,36 @@ const COPY: Record<
         label: 'Guest',
         who: 'Na-invite ka. No sign-up needed — buksan mo lang ang link mo.',
         where: [
-          'Save-the-Date → Invitation → Logistics → Post-event (4 phases)',
-          'RSVP, meal preference, plus-one naming',
+          'Save the Date → RSVP → Invitation → The Day → Post Event (5 stages)',
+          'Sagot, meal preference, plus-one naming',
           'Day-of: hanapin ang table mo, tingnan ang live schedule, mag-upload ng photos',
         ],
       },
       {
-        label: 'Admin',
-        who: 'Setnayan operations team. Naka-gate sa likod ng is_internal.',
+        label: 'Team ng Setnayan',
+        who: 'Ang sariling team ng Setnayan. Hindi mo kailangan ng ganitong account — kami ito, sa likod ng lahat.',
         where: [
-          'Users, suppliers, orders, reviews — ang araw-araw na moderation',
-          'Funnels, force-majeure escalations, verification queue',
-          'Website editor para sa marketing-site widgets',
+          'Sinusuri ang suppliers bago sila magka-verified badge, at pinapanatiling tapat ang reviews',
+          'Kinukumpirma ang mga bayad, para tuloy ang order',
+          'Tumutulong kapag hindi matuloy ang event',
         ],
       },
       {
         label: 'Public landing',
-        who: 'Ang marketing site sa setnayan.com. Kung nasaan ka ngayon.',
+        who: 'Ang public pages sa setnayan.com. Kung nasaan ka ngayon.',
         where: [
-          'Host-side sign-up + vendor-side registration',
+          'Host sign-up + supplier sign-up',
           'I-browse ang marketplace, basahin ang features, tingnan ang pricing, humingi ng help',
           'No login needed — i-bookmark at i-share',
         ],
       },
       {
-        label: 'Event landing',
+        label: 'Event Hub',
         who: 'Ang sariling public page ng event. Ang link na i-share mo sa lahat.',
         where: [
-          'Auto-shift sa 4 phases habang papalapit ang date',
-          'May sariling slug ang bawat guest para sa personalised RSVP',
-          'Nag-a-activate ng day-of mode from T-1h sa mismong araw',
+          'Dumadaan sa 5 stages habang papalapit ang date',
+          'May sariling link ang bawat guest para sa personalised RSVP',
+          'Nag-a-activate ng day-of mode mula tanghali ng araw bago ang event',
         ],
       },
     ],
@@ -241,11 +236,11 @@ const COPY: Record<
     flow: [
       {
         from: 'Host',
-        to: 'Vendors',
-        what: 'Nagba-browse ang host sa marketplace sa /explore at nagbubukas ng chat thread sa isa (hindi pwedeng mag-cold-DM ang suppliers).',
+        to: 'Suppliers',
+        what: 'Nagba-browse ang host sa marketplace ng suppliers at nagbubukas ng chat thread sa isa (hindi pwedeng mauna ang supplier na mag-message).',
       },
       {
-        from: 'Vendor',
+        from: 'Supplier',
         to: 'Host',
         what: 'Sumasagot ang supplier with a quote + files. Iisang thread ang nakikita ng dalawa.',
       },
@@ -262,16 +257,25 @@ const COPY: Record<
       {
         from: 'Day-of',
         to: 'Everyone',
-        what: 'Sa T-1h nagiging live mode ang event — tables, schedule, photo wall, broadcast.',
+        what: 'Mula tanghali ng araw bago nito, nagiging live mode ang event — tables, schedule, Memory lane, broadcast.',
       },
       {
         from: 'Post-event',
         to: 'Host ↔ Supplier',
-        what: 'Lalabas ang reviews 24h after the event; ang force-majeure flags ay pupunta sa admin kung may na-file.',
+        what: 'Lalabas ang reviews 24h after the event; kapag hindi matuloy ang event, tutulong ang team ng Setnayan.',
       },
     ],
   },
 };
+
+/**
+ * 🧭 THE BAR LINES SAY THE SHIPPED BARS (QA walk 2026-10-22). The Host and Supplier rows' first line names each
+ * phone bar's tabs. When the supplier bar became Today · Customers · Shop · Hub (#6748) this page kept saying
+ * "· More" for two locales, and the host line said "Event Hub" where the bar says "Hub" (the bare "Event Hub" is the
+ * GUEST page — `lib/customer-menu.ts`). Exported so `the-features-bars-are-the-shipped-bars.test.ts` can hold each
+ * line against the bars' own label sources instead of a second hand-typed copy.
+ */
+export const HOW_IT_WORKS_COPY = COPY;
 
 export function HowItWorks({ locale }: { locale: MarketingLocale }) {
   const c = COPY[locale];
@@ -311,7 +315,6 @@ export function HowItWorks({ locale }: { locale: MarketingLocale }) {
                     <h3 className="text-base font-semibold tracking-tight text-ink">
                       {role.label}
                     </h3>
-                    <code className="text-xs text-ink/45">{ROLE_PATHS[i]}</code>
                   </div>
                 </div>
                 <p className="mt-3 text-sm text-ink/65">{role.who}</p>

@@ -120,7 +120,7 @@ export async function loadLiveScreen(): Promise<LoadedScreen> {
   const [{ data: eventRaw, error: eventError }, urls] = await Promise.all([
     admin
       .from('events')
-      .select(`event_id, event_date, ${HERO_MONOGRAM_COLUMNS}`)
+      .select(`event_id, event_date, ${HERO_MONOGRAM_COLUMNS}, logo_wanted`)
       .eq('event_id', row.event_id)
       .maybeSingle(),
     readEventWatchUrls(admin, row.event_id),
@@ -149,7 +149,7 @@ export async function loadLiveScreen(): Promise<LoadedScreen> {
     screenName: row.name,
     picture: decideScreenPicture({ mode: row.current_source, embedUrl: links?.embedUrl ?? null }),
     brand: {
-      displayName: event.display_name?.trim() || 'Our celebration',
+      displayName: event.display_name?.trim() || 'Our event',
       initials: event.monogram_text?.trim() || deriveMonogram(event.display_name),
       markDataUri: markSvg ? bespokeSvgToDataUri(markSvg) : null,
       markSvg: markPlays ? markSvg : null,

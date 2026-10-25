@@ -1,12 +1,15 @@
 /**
- * apps/web/lib/couple-media-allowance.ts — THE 100 MB ALLOWANCE IS A CAP, NOT
- * ONLY A METER.
+ * apps/web/lib/couple-media-allowance.ts — THE ALLOWANCE IS A CAP, NOT ONLY A
+ * METER, AND THE CAP FOLLOWS THE PLAN.
  *
  * DECISION_LOG 2026-09-25 ("COUPLE UPLOADS: 100 MB PER EVENT, COMPRESSED"):
  * *"that means they can only upload a total of 100MB compressed files"* — the
  * couple's OWN Event Hub uploads (photos, short clips, a Pro background song)
  * share one allowance per event, measured after browser compression, with a
  * visible meter. Guest/Papic media is separate (credits) and never counts.
+ * 2026-10-15 (owner FINAL, "Free 10MB" · "Pro is 500MB"): the number is no longer
+ * one for everybody — Free 10 MB, Event Hub Pro 500 MB, named by the one function
+ * `coupleMediaCapBytes(isPro)` in `lib/maker-media-limits.ts`.
  *
  * Until this file the allowance was only COUNTED: `/api/upload` incremented
  * `events.couple_media_bytes` after the presign and never refused, and a removed
@@ -26,7 +29,7 @@
  * Pure. No I/O — the reads and the listing live in
  * `couple-media-allowance.server.ts`.
  */
-import { MAKER_EVENT_MEDIA_BYTES_CAP, formatMakerMediaMB as mb } from './maker-media-limits';
+import { coupleMediaCapBytes, formatMakerMediaMB as mb } from './maker-media-limits';
 
 /**
  * Which `events/<eventId>/…` sub-paths count toward the couple's allowance — the
@@ -78,20 +81,38 @@ export const COUPLE_MEDIA_FULL_CODE = 'event_media_full';
 export const COUPLE_MEDIA_IN_FLIGHT_GRACE_MS = 15 * 60 * 1000;
 
 /**
- * The plain reason the couple reads (INTERACTION_RULES: failure = the plain
- * reason; the uploader stays open, so picking again IS the "Try again").
+ * The Pro mention a FREE couple reads at the cap — one line, a ◆ (Pro marks
+ * itself and never blocks; no padlock), with the plan's own number. The meter
+ * pairs it with an "Unlock Pro" link on the existing upgrade path
+ * (`/dashboard/<id>/studio/website-pro`); a refusal sentence cannot carry a link.
  */
-export function coupleMediaFullMessage(
-  usedBytes: number,
-  incomingBytes: number,
-  capBytes: number = MAKER_EVENT_MEDIA_BYTES_CAP,
-): string {
+export function coupleMediaProMention(): string {
+  return `◆ Event Hub Pro gives you ${mb(coupleMediaCapBytes(true))} of uploads.`;
+}
+
+/**
+ * The Unlock Pro link a refusal carries (batch 7 R3): `FileUpload`'s `refusalLink` puts it inside the refusal line
+ * whenever the server's sentence holds the Pro mention — so a Free couple refused BELOW the meter's "full" (9.5 MB
+ * + a 2 MB file) still reads Unlock Pro right there. `null` for Pro / no buy path: the mention is never sent to Pro.
+ */
+export function coupleMediaRefusalLink(proHref: string | null | undefined): { when: string; href: string; label: string } | null {
+  return proHref ? { when: coupleMediaProMention(), href: proHref, label: 'Unlock Pro' } : null;
+}
+
+/**
+ * The plain reason the couple reads (INTERACTION_RULES: failure = the plain
+ * reason; the uploader stays open, so picking again IS the "Try again"). It
+ * names THIS plan's number; a Free couple gets the one-line Pro mention after it.
+ */
+export function coupleMediaFullMessage(usedBytes: number, incomingBytes: number, isPro: boolean): string {
+  const capBytes = coupleMediaCapBytes(isPro);
   const remaining = Math.max(0, capBytes - Math.max(0, usedBytes));
   // Under 0.1 MB left reads as "0 MB left" — say it is full instead.
-  if (remaining < 0.1 * 1024 * 1024) {
-    return `This event has used its ${mb(capBytes)} of uploads. Remove a photo or video to add more.`;
-  }
-  return `This file is ${mb(incomingBytes)}, and this event has ${mb(remaining)} of its ${mb(capBytes)} of uploads left. Remove a photo or video to make room, or pick a smaller file.`;
+  const reason =
+    remaining < 0.1 * 1024 * 1024
+      ? `This event has used its ${mb(capBytes)} of uploads. Remove a photo or video to add more.`
+      : `This file is ${mb(incomingBytes)}, and this event has ${mb(remaining)} of its ${mb(capBytes)} of uploads left. Remove a photo or video to make room, or pick a smaller file.`;
+  return isPro ? reason : `${reason} ${coupleMediaProMention()}`;
 }
 
 /** One object as R2's listing reports it. */

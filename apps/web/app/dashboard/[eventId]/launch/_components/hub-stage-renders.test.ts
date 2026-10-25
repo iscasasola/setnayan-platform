@@ -269,7 +269,9 @@ test('⭐ THE MINIATURE · the stage paints the page, at the SAME address as its
 
 test('⭐ THE MINIATURE · the ribbon is NAMED, and the eyebrow never claims a guest\u2019s eye', async () => {
   const html = await paint({ eventDate: '2026-12-18', nowMs: NOW });
-  assert.match(html, /That strip across the top is yours alone/, 'the ribbon is explained where it is seen');
+  // Re-aimed ON PURPOSE (help-sync, 2026-10-23): the owner ribbon was removed on 2026-10-15
+  // (`the-host-page-has-no-host-strip.test.ts`), so the stage's ⓘ no longer explains a strip nobody sees.
+  assert.doesNotMatch(html, /strip across the top/, 'the stage still explains a ribbon that was removed');
   assert.doesNotMatch(
     html,
     /As your guests see it/,

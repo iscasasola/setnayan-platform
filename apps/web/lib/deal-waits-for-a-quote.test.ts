@@ -124,11 +124,18 @@ test('the menu, the composer icon and the stream on both pages all receive it', 
   for (const rel of [COUPLE, VENDOR]) {
     const s = read(rel);
     assert.match(tag(s, /<NegotiationComposerMenu\b/), /\bentry=\{dealEntry\}/, `${rel}: the menu is not told`);
-    assert.match(
-      tag(s, /<RevealToolButton affordance="deal"/),
-      /\bentry=\{dealEntry\}/,
-      `${rel}: the composer 🧾 is not told`,
-    );
+    // The couple's composer 🧾 is told. The supplier's row has no 🧾 since 2026-10-14 (simpler supplier dashboard step
+    // 4): the grey ＋ opens ONE sheet whose first, primary row is "Send a quote" — the same panel the 🧾 opened before a
+    // quote existed — and "Propose a date or meeting" opens the deal menu, which is told below.
+    if (rel === COUPLE) {
+      assert.match(
+        tag(s, /<RevealToolButton affordance="deal"/),
+        /\bentry=\{dealEntry\}/,
+        `${rel}: the composer 🧾 is not told`,
+      );
+    } else {
+      assert.doesNotMatch(s, /<RevealToolButton\b/, `${rel}: a composer icon is back beside the ＋`);
+    }
     assert.match(tag(s, /<ChatMessageStream\b/), /\bdealEntry=\{dealEntry\}/, `${rel}: the stream is not told`);
   }
 });

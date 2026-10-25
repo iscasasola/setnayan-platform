@@ -84,6 +84,7 @@ import {
   type ChatAttachmentRow,
 } from '@/lib/erasure/chat-attachment-provenance';
 import { clearHomeShelf } from '@/lib/home-shelf-clear';
+import type { AppleRevokeOutcome } from '@/lib/apple-sign-in';
 
 export type ErasureAdminClient = ReturnType<typeof createAdminClient>;
 
@@ -125,9 +126,66 @@ export type ErasureIo = {
   revokeAllSessions(
     userId: string,
   ): Promise<{ ok: true; sessionsRevoked: number } | { ok: false; error: string }>;
+  /**
+   * Revoke the person's Sign in with Apple grant at Apple (App Store 5.1.1(v)),
+   * using the token held at sign-in (`apple_sign_in_tokens`). MUST NOT THROW and
+   * MUST NOT delete the row — the OWN_ROW_DELETES loop does that afterwards.
+   * Required, not optional: an adapter that forgets it fails to compile instead
+   * of quietly skipping the revoke. Production: lib/apple-sign-in-store.ts.
+   */
+  revokeAppleSignIn(userId: string): Promise<AppleRevokeOutcome>;
   /** Injectable clock — lets the tests assert exact tombstone values. */
   now?: () => Date;
 };
+
+/**
+ * Write what the Apple revoke came to. EVERY outcome but "this account never
+ * used Apple" leaves a row, because 5.1.1(v) is an obligation and the audit is
+ * the only place anyone will look for whether it was met:
+ *   • revoked         → `apple_sign_in_revoked` (the obligation is met)
+ *   • no_token_held   → `erasure_step_failed` — an Apple-linked account we had
+ *                        no token for (signed in before tokens were held, or the
+ *                        hold failed). Nothing could be revoked; say so.
+ *   • not_configured  → `erasure_step_failed`, naming the missing env (never a value)
+ *   • failed          → `erasure_step_failed`, with Apple's error code / HTTP status
+ * A failure never stops the erasure — the next step runs regardless.
+ */
+export async function recordAppleRevoke(
+  admin: ErasureAdminClient,
+  targetUserId: string,
+  actorUserId: string,
+  outcome: AppleRevokeOutcome,
+): Promise<void> {
+  if (outcome.status === 'not_apple_linked') return;
+  if (outcome.status === 'revoked') {
+    const { error } = await admin.from('admin_audit_log').insert({
+      action: 'apple_sign_in_revoked',
+      target_id: targetUserId,
+      actor_user_id: actorUserId,
+      metadata: { stage: 'apple-sign-in-revoke', outcome: outcome.status, client: outcome.client },
+    });
+    if (error) console.error('[eraseUserAccount] apple revoke audit write failed', error.message);
+    return;
+  }
+  const auditFail = makeAuditFail(
+    admin,
+    targetUserId,
+    actorUserId,
+    'eraseUserAccount',
+    'erasure_step_failed',
+  );
+  const message =
+    outcome.status === 'no_token_held'
+      ? 'Apple-linked account, but no Apple token was held — the Sign in with Apple grant could not be revoked'
+      : outcome.status === 'not_configured'
+        ? `Apple revoke not configured — missing ${outcome.missing.join(', ')}`
+        : `Apple revoke failed — ${outcome.reason}`;
+  await auditFail('apple-sign-in-revoke', message, {
+    outcome: outcome.status,
+    ...('client' in outcome && outcome.client ? { client: outcome.client } : {}),
+    ...(outcome.status === 'failed' && outcome.httpStatus ? { http_status: outcome.httpStatus } : {}),
+  });
+}
 
 /**
  * Build the per-purge recorder for data erasure DELIBERATELY LEFT BEHIND.
@@ -1514,6 +1572,18 @@ export async function eraseUserAccount(
   // 2. Kill live sessions so the lockout is immediate on every device.
   const revoked = await io.revokeAllSessions(targetUserId);
   if (!revoked.ok) await auditFail('session-revoke', revoked.error);
+
+  // 2b. Revoke the Sign in with Apple grant at Apple (App Store 5.1.1(v)) —
+  //     BEFORE step 4, whose OWN_ROW_DELETES loop deletes the held token row.
+  //     Best-effort and recorded either way (recordAppleRevoke); a throw from
+  //     the adapter is an outcome too, never a stopped erasure.
+  let apple: AppleRevokeOutcome;
+  try {
+    apple = await io.revokeAppleSignIn(targetUserId);
+  } catch {
+    apple = { status: 'failed', reason: 'adapter_threw' };
+  }
+  await recordAppleRevoke(admin, targetUserId, actorUserId, apple);
 
   // 3. Scrub the auth.users email (frees the original + removes email PII) AND
   //    the GoTrue user_metadata. The metadata is a SECOND COPY of the subject's

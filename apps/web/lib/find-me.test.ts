@@ -166,7 +166,10 @@ test('🔒 3 · the tries are spent BEFORE the digits are compared — per conne
   const tries = fn(srv, 'spendDigitsTry');
   assert.match(tries, /'guest_find_me_digits_row', `\$\{eventId\}:\$\{guestId\}`/, 'the per-guest budget is gone — a botnet gets unlimited tries on one guest');
   assert.match(tries, /'guest_find_me_digits_ip'/);
-  assert.match(tries, /return byIp && byRow;/);
+  // 📶 Per phone AND per connection AND per guest (event-day L1·5) — every one must allow the try.
+  assert.match(tries, /'guest_find_me_digits_device'/);
+  assert.match(tries, /return byDevice && byIp && byRow;/);
+  assert.match(fn(srv, 'spendNameLookup'), /return byDevice && byIp;/);
   assert.match(fn(srv, 'spend'), /catch[\s\S]{0,120}return false;/, 'the limiter fails OPEN on a throw');
   const lib = read('lib/find-me.ts');
   assert.match(lib, /export const FIND_ME_ROW_LIMIT = 5;/);

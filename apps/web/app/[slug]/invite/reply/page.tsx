@@ -14,13 +14,16 @@ import { eventWordsFor } from '../../_lib/event-words';
 import type { GuestRow } from '../../_lib/types';
 import { RsvpWidget } from '../../_components/rsvp-widget';
 import { NotYouSwitch } from '../../_components/not-you-switch';
+import { HeldPassLine } from '../../_components/held-pass-line';
+import { heldPassFirstNameFor } from '../../_lib/held-pass-name';
+import { readGuestPassStanding } from '@/lib/guest-session';
 import { submitInviteReply } from '../actions';
 import { rsvpGate } from '@/lib/guest-one-path';
 import { OPEN_REPLY_WINDOW, replyFaceOf, replyRefusedWords, replyWindow, replyWindowWords, type ReplyWindowEvent } from '@/lib/reply-window';
 import { resolveProfile } from '@/lib/event-type-profile';
 import { ReplyWindowNote } from '../../_components/reply-window-note';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
-import { readGuestSessionForEvent } from '@/lib/guest-one-path.server';
+import { readReplyIdentityForEvent } from '@/lib/guest-one-path.server';
 import { headers } from 'next/headers';
 import { isLinkPreviewFetch, passHopMissFault, replyEntry } from '@/lib/guest-pass-hop';
 import { guestPassEvidence } from '@/lib/guest-one-path.server';
@@ -146,7 +149,15 @@ async function inviteReplyPage({ params, searchParams }: Props) {
   // whose pass went missing between the landing and this press is re-keyed at
   // the redeem and comes straight back to these questions — no sign-in, no
   // account (2026-10-12, `replyEntry`, lib/guest-pass-hop.ts).
-  const session = canvas ? null : await readGuestSessionForEvent(event.event_id as string);
+  /* 🗳 WHO THIS REPLY IS SENT AS (owner bug 2026-10-24, `readReplyIdentityForEvent`): EXACTLY whom the Event Hub says
+     it is viewing as — the pass it honours, the guest's seat, or a signed-in host's OWN row ("Viewing as you" = you).
+     The save asks the same function, so the form and the write are one person. Signed in with no row of their own
+     here (or more than one), the page SAYS so — it never draws a sample, and never somebody else. */
+  const replyAs = canvas ? null : await readReplyIdentityForEvent(event.event_id as string);
+  const session = replyAs && replyAs.kind !== 'none' ? replyAs.session : null;
+  if (!canvas && !session && !search.k && replyAs?.kind === 'none' && (replyAs.why === 'not_on_list' || replyAs.why === 'several_rows')) {
+    return <NoReplyHere slug={home} event={event} why={replyAs.why} />;
+  }
   if (!canvas) {
     const entry = replyEntry({ slug: home, hasPass: Boolean(session), code: search.k });
     if (entry.kind !== 'ask') {
@@ -154,6 +165,16 @@ async function inviteReplyPage({ params, searchParams }: Props) {
       redirect(entry.href);
     }
   }
+  /* 🪪 THE ACCOUNT OUTRANKS THE PASS (owner bug 2026-10-19, lib/pass-account-rule.ts): the reply above is the
+     ACCOUNT's (its own seat, or a held pass that is theirs). A pass this browser also holds for somebody else is said
+     in one line beside "Not you? Switch" — never answered for. A host who opened it on purpose is told the way back. */
+  const passHere = canvas ? null : await readGuestPassStanding({ eventId: event.event_id as string });
+  const heldAside = passHere?.setAside && passHere.setAside.pass.event_id === event.event_id ? passHere.setAside : null;
+  const hostOpened = passHere?.standing === 'host_preview' ? passHere.session : null;
+  const heldPassName =
+    heldAside || hostOpened
+      ? await heldPassFirstNameFor(admin, event.event_id as string, (heldAside?.pass ?? hostOpened)!.guest_id)
+      : null;
   /* 🖼 The reply card's picture lines, signed once (a file that is gone is not drawn — `signRsvpPictures`). */
   const rsvpPictures = await signRsvpPictures(event.rsvp_ask_config);
 
@@ -396,8 +417,19 @@ async function inviteReplyPage({ params, searchParams }: Props) {
             <p className="font-serif text-lg text-ink" data-reply-for="">
               {guestName}
             </p>
-            {canvas ? null : <NotYouSwitch slug={home} erasesSelfie={guest.photo_source === 'selfie'} />}
+            {/* A host replying as their own row holds no pass to switch out of (`own_row`). */}
+            {canvas || replyAs?.kind === 'own_row' ? null : <NotYouSwitch slug={home} erasesSelfie={guest.photo_source === 'selfie'} />}
           </div>
+          {heldAside ? (
+            <HeldPassLine
+              slug={home}
+              firstName={heldPassName}
+              mode={heldAside.standing === 'set_aside_host' ? 'set_aside_host' : 'set_aside'}
+              className="mt-2"
+            />
+          ) : hostOpened ? (
+            <HeldPassLine slug={home} firstName={heldPassName} mode="host_preview" className="mt-2" />
+          ) : null}
         </FirstScreenOnly>
 
         {canvas ? <span hidden data-maker-section="f:rsvp" /> : null}
@@ -433,7 +465,9 @@ async function inviteReplyPage({ params, searchParams }: Props) {
             ...(guest as unknown as GuestRow),
             // One set of boxes per seat (+1…+4): name, meal, dietary. Never the
             // seat's key — that is for the thank-you's "Send their invite".
-            plus_one_seats: seats.map((s) => ({
+            // 🪑 A REFUSED read (null) is NOT "no seats": `undefined` gives the reply the loader's own fallback (one box,
+            // the stored name) — `[]` drew empty boxes over a guest's named +1s (2026-10-22, `plusOneSeatsFor`).
+            plus_one_seats: seats === null ? undefined : seats.map((s) => ({
               guest_id: s.guest_id,
               name: s.name,
               first: s.first,
@@ -521,6 +555,48 @@ async function inviteReplyPage({ params, searchParams }: Props) {
     >
       <InviteReplyBody />
     </Suspense>
+  );
+}
+
+/**
+ * 🗳 NOBODY TO REPLY AS (owner bug 2026-10-24). A signed-in account with no guest row of its own on this event — a
+ * host who is not on their own list, a coordinator — or one bound to more than one row is TOLD so, here, with the way
+ * back. Before, a host's Reply opened the Maker's sample guest under a real guest's name ("Gabriel dela Peña") as if
+ * it were theirs to answer. Nothing is read or written for anybody.
+ */
+function NoReplyHere({
+  slug,
+  event,
+  why,
+}: {
+  slug: string;
+  event: { display_name?: unknown; event_date?: unknown; event_date_precision?: unknown; venue_name?: unknown };
+  why: 'not_on_list' | 'several_rows';
+}) {
+  return (
+    <DoorShell
+      brand="foot"
+      eyebrow="Your reply"
+      title={(event.display_name as string | null) || 'This event'}
+      titleIsNames={Boolean(event.display_name)}
+      meta={joinDoorMeta({
+        event_date: (event.event_date as string | null) ?? null,
+        event_date_precision: (event.event_date_precision as string | null) ?? null,
+        venue_name: (event.venue_name as string | null) ?? null,
+      })}
+      width="lg"
+    >
+      <div data-reply-nobody={why}>
+        <DoorNotice kind="note">
+          {why === 'not_on_list'
+            ? 'You’re not on this event’s guest list, so there is no reply to send as you.'
+            : 'Your account is on this guest list more than once, so we can’t tell which reply is yours. Ask the hosts to keep one.'}
+        </DoorNotice>
+        <Link className="mt-4 inline-flex min-h-[44px] items-center font-medium text-link underline-offset-2 hover:underline" href={`/${slug}`}>
+          Back to the Event Hub
+        </Link>
+      </div>
+    </DoorShell>
   );
 }
 

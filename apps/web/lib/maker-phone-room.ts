@@ -116,7 +116,7 @@ export function makerLtHeightPx(viewportH: number): number {
  * ↕ THE LOWER THIRD CAN BE RESIZED (owner, live iPhone 2026-10-06: *"Also the
  * lower third screen can be resized up to lower half of the screen. Drag the
  * edge to resize"* — DECISION_LOG "THE LOWER THIRD CAN BE RESIZED"). The new
- * Maker only (`makerStagesStudioEnabled`): a grab handle on its top edge drags
+ * Maker only (`stagesStudio`, the one Maker since 2026-10-25): a grab handle on its top edge drags
  * it between its default (`MAKER_LT_HEIGHT`) and the LOWER HALF of the screen
  * (`MAKER_LT_HALF`), never more; a tap on the handle toggles default ↔ half.
  * The size is remembered per device as a SHARE of the screen (a convenience in

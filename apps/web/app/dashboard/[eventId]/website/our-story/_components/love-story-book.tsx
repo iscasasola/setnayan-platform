@@ -84,7 +84,7 @@ export type LoveStoryBookProps = {
    */
   inMaker?: boolean;
   /**
-   * 🧭 The new Maker's Studio (`makerStagesStudioEnabled`): the moments as cards
+   * 🧭 The new Maker's Studio (`stagesStudio`, the one Maker since 2026-10-25): the moments as cards
    * on top — photo · year · title · first line · grip — dragged into the
    * couple's own order (`MomentOrderCards`, owner 2026-10-06/07).
    */
@@ -136,7 +136,7 @@ export function LoveStoryBook(p: LoveStoryBookProps) {
   );
   let chapterNo = 0;
 
-  /* ✋ STUDIO (the new Maker, `makerStagesStudioEnabled`) — the prototype's screen IS the cards:
+  /* ✋ STUDIO (the new Maker, `stagesStudio`, the one Maker since 2026-10-25) — the prototype's screen IS the cards:
      one band per moment, opened in place, dragged into the couple's own order, + Add a moment. */
   return (
     <>

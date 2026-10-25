@@ -199,7 +199,7 @@ export type MakerState = {
   /** 🏷 The part on screen, in the layer's own words ("RSVP form", "Names") — the lower third's "where you are" and the top line. */
   setLtWhere?: (words: string | null) => void;
   /**
-   * 🧭 THE NEW MAKER — "Stages | Studio" on a phone (`makerStagesStudioEnabled`,
+   * 🧭 THE NEW MAKER — "Stages | Studio" on a phone (`stagesStudio`, the one Maker since 2026-10-25,
    * resolved once by the launch page). A part's tools read it: Text is Font ·
    * Colour · Size, Animate's steps are Build in · Action · Build out, and the
    * panel's Style | Text | Animate picks the section (`stage-tools.tsx`).

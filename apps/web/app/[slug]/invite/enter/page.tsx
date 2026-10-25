@@ -901,8 +901,15 @@ async function inviteEnterPage({ params, searchParams }: Props) {
                 variant="primary"
               />
             )}
-            <AppleWalletButton link={appleWallet} className="mt-2" />
             </div>
+            {/* 🍎 APPLE WALLET SLOT — directly under Save, the two together under the ticket (controller layout call,
+                2026-10-25); the +1 list (#6911) sits below them. The guest's OWN pass only. `!mt-2` pulls it up
+                against Save inside the section's `space-y-4` rhythm. */}
+            {appleWallet ? (
+              <div data-landing-wallet-slot="" className="!mt-2">
+                <AppleWalletButton link={appleWallet} />
+              </div>
+            ) : null}
             {justIn ? <p className="text-xs text-ink/70">{REQUEST_WORDS.saveUpdatedWhy}</p> : null}
           </section>
         ) : ticket === 'faded' ? (

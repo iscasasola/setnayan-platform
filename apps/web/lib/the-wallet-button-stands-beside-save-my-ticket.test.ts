@@ -190,7 +190,9 @@ test('1a · exactly three places draw the button — one mount each, and each is
   const popup = code(POPUP);
   assert.match(popup, /<SavePassCardButton hrefs=\{\[src\]\} label=\{LANDING_WORDS\.saveTicket\} variant="primary" \/>\s*<AppleWalletButton link=\{appleWallet\}/, 'the pop-up’s Wallet button no longer sits under its Save my ticket');
   const page = code(THANK_YOU);
-  assert.match(page, /label=\{justIn \? REQUEST_WORDS\.saveUpdated : LANDING_WORDS\.saveTicket\}\s*variant="primary"\s*\/>\s*\)\}\s*<AppleWalletButton link=\{appleWallet\}/, 'the thank-you’s Wallet button no longer sits under its Save my ticket');
+  // The thank-you: the save line closes, and the very next thing is the Wallet slot (#6911 reserved it there; the
+  // +1 list comes after) — Save and the badge together, directly under the ticket.
+  assert.match(page, /label=\{justIn \? REQUEST_WORDS\.saveUpdated : LANDING_WORDS\.saveTicket\}\s*variant="primary"\s*\/>\s*\)\}\s*<\/div>\s*(?:\{\s*\}\s*)?\{appleWallet \? \(\s*<div data-landing-wallet-slot="" className="!mt-2">\s*<AppleWalletButton link=\{appleWallet\} \/>/, 'the thank-you’s Wallet slot no longer sits directly under its Save my ticket');
   assert.match(page, /const appleWallet =\s*canvas \|\| safariSave \|\| passCard !== 'pass'\s*\?\s*null/, 'the thank-you hands a Wallet link beside the Safari hand-off, on the canvas, or without a real ticket');
   assert.match(page, /safariHref=\{safariSave\}\s*appleWallet=\{appleWallet\}/, 'the pop-up is not handed the same Wallet link as the page');
   // Me: the link exists only for a real ticket and goes only to GuestTicket.

@@ -4868,6 +4868,11 @@ html.dark [data-art='candlelight'] {
   --color-mulberry-600: var(--color-gild);
   --color-mulberry-700: var(--color-gild);
   --m-ink: rgb(var(--color-ink));
+  /* The quiet second action (`.button-secondary`, `text-link`) and inline links: House's slate indigo #3B4E67 reads
+     2.2:1 on this stock, so they take the dark token block's measured #9DB2CE (8.3:1 here) — measured 2026-10-25,
+     when "Save to my account" drew its second provider as the house secondary (owner, "Show both"). */
+  --color-link: 157 178 206;
+  --color-link-600: 175 194 218;
   /* Text on a surface that stays light (`text-ink-on-light`, e.g. the money
      gift's green trust note): House's own espresso, since this stock has no
      light plate of its own to take an ink from. */

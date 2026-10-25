@@ -20,6 +20,7 @@
  *   · save-to-account.tsx: drop `{emailInstead}`                            → 1 RED
  *   · save-to-account.tsx: `<CopyMyLink …/>` → `null`                       → 3 RED
  *   · welcome/actions.ts: drop the provider-press → "keep" fallback          → 4 RED
+ *   · globals.css + CANDLELIGHT_WORD_TOKENS: drop Candlelight's `--color-link` → 6 RED
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -162,4 +163,11 @@ test('5 · the pressed button is read from the pending submission (its own label
   assert.equal(pressedSaveMethod(fd('facebook')), null);
   assert.equal(pressedSaveMethod(fd()), null);
   assert.equal(pressedSaveMethod(null), null);
+});
+
+test('6 · the second (house secondary) button reads on a dark look — Candlelight gives `text-link` a measured ink', async () => {
+  const { CANDLELIGHT_WORD_TOKENS, contrastOf, pageWordBase } = await import('@/app/[slug]/_lib/pro-site-vars');
+  const paper = CANDLELIGHT_WORD_TOKENS['--color-cream']!;
+  const link = pageWordBase('house', null, 'candlelight')['--color-link']!;
+  assert.ok(contrastOf(link, paper) >= 4.5, `the secondary's label reads ${contrastOf(link, paper).toFixed(2)}:1 on Candlelight`);
 });

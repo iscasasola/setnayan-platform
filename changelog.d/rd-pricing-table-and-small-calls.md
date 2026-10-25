@@ -50,6 +50,11 @@ account" offer (`app/[slug]/_components/save-to-account.tsx`).
   both → the system browser (Custom Tabs), as `/login`'s oauthGate does. Guideline 4.8 holds: Apple is offered
   wherever Google is.
 - **iPad Safari:** `AppleOnTouch` now decides only the ORDER — both blocks hold both buttons.
+- **Dark look:** on Candlelight the house secondary's label (`text-link`, slate indigo #3B4E67) read 2.2:1 — the
+  second button and the Terms links were near-invisible. Candlelight now carries the dark token block's measured
+  link ink (#9DB2CE, 8.3:1): `app/globals.css` candlelight block + `CANDLELIGHT_WORD_TOKENS`
+  (`app/[slug]/_lib/pro-site-vars.ts`). This touches every `text-link` word on a Candlelight guest page.
+- Same size: the secondary's 1 px border comes out of its padding, so both buttons are 62 px at 390 px.
 - Guards: new `app/[slug]/_components/the-save-offer-shows-both-providers.test.ts` (both draw · device's first ·
   primary/secondary · same size · one/none · pressed accepted only if on · email link stays — each seen red under
   sabotage); updated `the-save-button-opens-what-it-says.test.ts`, `the-app-save-signs-in-natively.test.ts`,

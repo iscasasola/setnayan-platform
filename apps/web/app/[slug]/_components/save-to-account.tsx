@@ -211,7 +211,8 @@ export function SaveToAccount({
           <ProviderButton
             key={m}
             method={m}
-            className={`${i === 0 ? 'button-primary' : 'button-secondary'} flex h-auto min-h-[56px] w-full flex-col items-center justify-center gap-0.5 py-2.5`}
+            /* Same size: the secondary's 1 px border is taken out of its padding (9 px, not 10), so both are 62 px. */
+            className={`${i === 0 ? 'button-primary py-2.5' : 'button-secondary py-[9px]'} flex h-auto min-h-[56px] w-full flex-col items-center justify-center gap-0.5`}
             pendingLabel={m === 'apple' ? 'Opening Apple…' : 'Opening Google…'}
             /* No full-screen veil: the press leaves for the provider's site, whose page
                has no loader of ours to take the veil down — a stalled or abandoned

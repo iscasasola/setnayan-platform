@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { formatPhp } from '@/lib/orders';
 import { notFound } from 'next/navigation';
 import { RECEIPT_CTA, ReceiptPage, ReceiptSlip } from '@/app/receipts/_components/receipt-slip';
 import { SaveAsPdfButton, ShareReceiptButton } from '@/app/receipts/_components/receipt-actions';
@@ -24,7 +25,7 @@ export default async function ReceiptLabPage({
         actions={
           <>
             <Link href="#" className={RECEIPT_CTA} data-receipt-action="pay">
-              Pay ₱2,500
+              Pay {formatPhp(2500)}
             </Link>
             <ShareReceiptButton title="Setnayan order" />
           </>
@@ -35,10 +36,10 @@ export default async function ReceiptLabPage({
           number="S89O-7K2M9QX4TB"
           stamp="awaiting"
           payBy={state === 'awaiting-dated' ? '30 Oct 2026' : null}
-          amount="₱2,500"
+          amount={formatPhp(2500)}
           when="Ordered 23 Oct 2026 · 09:31"
-          lines={[{ what: 'Live Studio', qty: 1, amount: '2,500.00', detail: 'For Cale & Ice — Wedding' }]}
-          total="₱2,500.00"
+          lines={[{ what: 'Live Watch', qty: 1, amount: '2,500.00', detail: 'For Cale & Ice — Wedding' }]}
+          total={`${formatPhp(2500)}.00`}
           vatIncluded={false}
           rows={[
             { label: 'Pay to', value: 'GCash 0917 ··· 4821' },
@@ -66,7 +67,7 @@ export default async function ReceiptLabPage({
         kind="Transaction receipt"
         number="2026-000037"
         stamp="paid"
-        amount="₱2,499"
+        amount={formatPhp(2499)}
         when="29 Aug 2026 · 16:40 · GCash"
         lines={
           vat
@@ -76,7 +77,7 @@ export default async function ReceiptLabPage({
               ]
             : [{ what: 'Setnayan AI', qty: 1, amount: '2,499.00', detail: 'For Cale & Ice — Wedding' }]
         }
-        total="₱2,499.00"
+        total={`${formatPhp(2499)}.00`}
         vatIncluded={vat}
         rows={[
           { label: 'Paid by', value: 'Ice Casasola' },

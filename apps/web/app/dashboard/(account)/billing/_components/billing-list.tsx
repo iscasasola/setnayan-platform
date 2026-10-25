@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { ChevronRight, Receipt } from 'lucide-react';
 import { ORDER_STATUS_LABEL, formatPhp } from '@/lib/orders';
+import { formatCount } from '@/lib/format-number';
 import { purchaseHref, shapePurchases, type Purchase, type PurchasesRead } from '@/lib/billing';
 
 /**
@@ -51,7 +52,7 @@ export function BillingList({ read, storeShell }: { read: PurchasesRead; storeSh
     <div data-billing-state="rows">
       <p className="text-sm text-ink/70" data-billing-summary="">
         {summary}
-        {paidCount > 0 ? <span className="text-ink/50"> · {paidCount === 1 ? '1 receipt' : `${paidCount} receipts`}</span> : null}
+        {paidCount > 0 ? <span className="text-ink/50"> · {paidCount === 1 ? '1 receipt' : `${formatCount(paidCount)} receipts`}</span> : null}
       </p>
       {read.receiptsMeasured ? null : (
         <p role="status" className="mt-1 text-sm text-ink/60">

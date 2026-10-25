@@ -118,26 +118,21 @@ test('the public catalog read actually ASKS for the sign-up price', () => {
 });
 
 test('/pricing renders BOTH figures, and gets them from the shared resolver', () => {
+  // ⚠ CHANGED 2026-10-25 (prototype `pricing_ours_only_2026-10-25`, revision 5): Setnayan AI is ONE row, "from" the
+  // cheapest band, and its ⓘ quotes the wedding band's regular price AND its sign-up price. Every band's two figures
+  // come from ITS row through the shared resolver (`_pricing-reads.ts` → `twoPrices`).
+  const reads = read('app/(shell)/pricing/_pricing-reads.ts');
+  assert.match(reads, /resolveAiPrices\s*\(/, '/pricing stopped using the shared resolver — it will drift from the nav overlay');
+  assert.match(
+    reads,
+    /signup: p\.hasSignupPrice \? p\.introPhp : null/,
+    'the sign-up figure no longer reaches the Setnayan AI row',
+  );
   const src = read('app/(shell)/pricing/page.tsx');
   assert.match(
     src,
-    /resolveAiPrices\s*\(/,
-    '/pricing stopped using the shared resolver — it will drift from the nav overlay',
-  );
-  // ⚠ CHANGED 2026-10-25 (approved prototype `pricing_free_plus_addons_2026-10-25`, revision 4): Setnayan AI is
-  // now an item priced by event type — the regular figure, then "₱… while you set up your event — ₱… after." Each
-  // band's two figures come from ITS row through the same shared resolver, and the picker renders both.
-  assert.match(
-    src,
-    /signup: prices\.hasSignupPrice \? `₱\$\{formatPeso\(prices\.introPhp\)\}` : null/,
-    'the sign-up figure no longer reaches the Setnayan AI item',
-  );
-  const pickers = read('app/(shell)/pricing/_pricing-pickers.tsx');
-  assert.match(
-    pickers,
-    /\{picked\.signup\} while you set up your event<\/b> — \{picked\.regular\} after\./,
-    'the regular price is no longer shown beside the sign-up one — a visitor ' +
-      'would discover it only after paying',
+    /a wedding \$\{peso\(aiWedding\.regular\)\}\$\{aiWedding\.signup != null \? `, or \$\{peso\(aiWedding\.signup\)\} while you set up` : ''\}/,
+    'the regular price is no longer shown beside the sign-up one — a visitor would discover it only after paying',
   );
 });
 
@@ -198,7 +193,7 @@ test('no peso literal was reintroduced as a Setnayan AI fallback', () => {
   // checked it, because it was declared a non-price. Comments are stripped: a
   // docblock explaining the removal is not a reintroduction.
   const code = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
-  for (const f of ['app/(shell)/pricing/page.tsx', 'app/_components/home/pricing-data.ts']) {
+  for (const f of ['app/(shell)/pricing/page.tsx', 'app/(shell)/pricing/_pricing-reads.ts', 'app/_components/home/pricing-data.ts']) {
     const near = code(read(f)).match(/(?:aiRegular|aiIntro|aiSignup|resolveAiPrices)[\s\S]{0,400}?₱[\d,]+/);
     assert.equal(near, null, `${f} reintroduced a hardcoded Setnayan AI peso figure: ${near?.[0]}`);
   }

@@ -130,6 +130,10 @@ export type RosterPerson = {
    * then opens the list, never a guess).
    */
   publicId?: string | null;
+  /** Their ACCOUNT's `users.slug` — the address of their page (`/u/<slug>`), read on the same embed as
+   *  `publicId`. NULL/absent = no slug (most accounts) or no account; `lib/person-page-link.ts` then links a
+   *  claimed person by `publicId` (S89U-…) and leaves an unclaimed one (S89P-…) as plain text. */
+  slug?: string | null;
 };
 
 export type PeopleRoster = {
@@ -214,6 +218,7 @@ export async function getPeopleRoster(userId: string): Promise<PeopleRoster> {
   const userIdByPerson = new Map<string, string>();
   // The card's handle (see `RosterPerson.publicId`) — public ids only, read beside the accounts.
   const publicIdByPerson = new Map<string, string>();
+  const slugByPerson = new Map<string, string>();
   const sharedEventByPerson = new Map<string, boolean | null>();
 
   const connectionsRead = (async () => {
@@ -302,14 +307,14 @@ export async function getPeopleRoster(userId: string): Promise<PeopleRoster> {
           .from('people')
           // The account's own public id rides along as an EMBED on the same request (no extra trip — the
           // roster's depth is held by the-people-roster-reads-together.test.ts).
-          .select('person_id, claimed_by_user_id, public_id, account:users!claimed_by_user_id(public_id)')
+          .select('person_id, claimed_by_user_id, public_id, account:users!claimed_by_user_id(public_id, slug)')
           .in('person_id', [...new Set(personIdsToResolve)]);
         if (error) logQueryError('getPeopleRoster.accounts', error, {}, 'graceful_degrade');
         for (const r of (data ?? []) as unknown as Array<{
           person_id: string;
           claimed_by_user_id: string | null;
           public_id: string | null;
-          account: { public_id: string | null } | Array<{ public_id: string | null }> | null;
+          account: { public_id: string | null; slug?: string | null } | Array<{ public_id: string | null; slug?: string | null }> | null;
         }>) {
           const account = Array.isArray(r.account) ? r.account[0] : r.account;
           if (r.claimed_by_user_id) {
@@ -317,6 +322,7 @@ export async function getPeopleRoster(userId: string): Promise<PeopleRoster> {
             // A claimed person is opened by their ACCOUNT's id; unread, no handle at all — two handles for
             // one person would let one link open and the other miss.
             if (account?.public_id) publicIdByPerson.set(r.person_id, account.public_id);
+            if (account?.slug) slugByPerson.set(r.person_id, account.slug);
           } else if (r.public_id) {
             publicIdByPerson.set(r.person_id, r.public_id);
           }
@@ -508,6 +514,7 @@ export async function getPeopleRoster(userId: string): Promise<PeopleRoster> {
       samahan: (otherUser && samahanByUser.get(otherUser)) || [],
       canLabel: iDeclared,
       publicId: publicIdByPerson.get(otherId) ?? null,
+      slug: slugByPerson.get(otherId) ?? null,
     });
   }
   people.push(...alagaPeople);

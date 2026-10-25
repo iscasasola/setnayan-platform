@@ -4,8 +4,9 @@
  *
  * The topic pill ("ABOUT REMOVING A CELEBRATION") was a `shrink-0` flex
  * sibling of the message, so on a 375 px phone it took most of the row and the
- * message wrapped one word per line. The topic now sits on its own line, the
- * message below it at full width, and the time and buttons under that.
+ * message wrapped one word per line. Since 2026-10-25 (the bell's pop-over) the
+ * pill is gone altogether — the type is the row icon's accessible name — and the
+ * message takes everything the 38px icon and the narrow time column leave.
  *
  * Also held here, from the same screenshot: the notice says "event", never
  * "celebration" (owner: "use event everywhere" — this notice's words only),
@@ -24,17 +25,24 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const SRC = stripComments(readFileSync(join(HERE, 'notifications-list.tsx'), 'utf8'));
 const ITEM = SRC.slice(SRC.indexOf('function NotificationItem('));
 
-test('the topic and the message are not side by side in one flex row', () => {
+test('nothing wide sits beside the message — only the 38px icon and the narrow time column', () => {
   assert.ok(ITEM.length > 0, 'NotificationItem is gone');
-  const li = ITEM.slice(ITEM.indexOf('<li'), ITEM.indexOf('>', ITEM.indexOf('className={`', ITEM.indexOf('<li'))));
-  assert.doesNotMatch(li, /\bflex\b/, 'the notice is a flex row again — the topic will squeeze the message');
-  const topic = ITEM.indexOf('data-notice-topic');
+  /*
+    2026-10-25 (the bell's pop-over, owner "Build it"): the topic PILL left the pixels — the type is now the icon's
+    accessible name. The row is icon · message · time, and the 2026-10-04 rule still holds: the message takes every
+    pixel the two fixed ends leave it. A topic word drawn beside it again would squeeze it back to one word a line.
+  */
+  assert.doesNotMatch(ITEM, /data-notice-topic/, 'a topic pill is drawn again — the type lives in the icon\'s aria-label');
+  const icon = ITEM.indexOf('data-notice-icon');
   const message = ITEM.indexOf('data-notice-message');
-  assert.ok(topic > -1 && message > topic, 'the topic no longer sits ABOVE the message');
-  // The message block is the item's own child, not wrapped together with the topic.
-  const between = ITEM.slice(topic, message);
-  assert.match(between, /<\/span>\s*<div className="mt-2 min-w-0"/, 'something now sits between the topic line and the message');
-  assert.doesNotMatch(ITEM.slice(ITEM.indexOf('<span'), topic), /shrink-0/, 'the topic is shrink-0 again');
+  assert.ok(icon > -1 && message > icon, 'the row is no longer icon, then message');
+  const iconTag = ITEM.slice(ITEM.lastIndexOf('<span', icon), icon);
+  assert.match(iconTag, /h-\[38px\] w-\[38px\] flex-none/, 'the icon is no longer a fixed 38px circle');
+  const msgTag = ITEM.slice(ITEM.lastIndexOf('<span', message), message);
+  assert.match(msgTag, /min-w-0 flex-1/, 'the message no longer takes the rest of the row');
+  // The title and the message stack: the message is its own block line under the title.
+  const messageBlock = ITEM.slice(message, ITEM.indexOf('relativeTimeShort', message));
+  assert.match(messageBlock, /\{n\.title\}[\s\S]*?className=\{`mt-0\.5 block truncate/, 'the message no longer sits on its own line under the title');
 });
 
 test('the team\'s typed words are shown with our names spelled our way — never a name', () => {

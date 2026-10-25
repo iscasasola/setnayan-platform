@@ -233,8 +233,10 @@ async function leaveForTheHub(
  * much going on"). "Your guests · Send their invite", "Copy my link" and "Save
  * to my account" each also lived on the Event Hub's Me — two places for one
  * thing. They are Me's now; this page keeps the ticket and its ONE main action,
- * "Save my ticket". (The Save comes back here only to finish a press that
- * returned for the Terms tick — `?keep=terms`.)
+ * "Save my ticket". (Since 2026-10-25 the save widget is back under the ticket
+ * after a Yes — owner: "create a proper widget to link this event to your
+ * account", option A of prototypes/save_to_account_2026-10-25 — and it still
+ * finishes a press that returned for the Terms tick, `?keep=terms`.)
  *
  * What it grew from —
  *
@@ -552,6 +554,30 @@ async function inviteEnterPage({ params, searchParams }: Props) {
   const ownMessage = theirWords.message;
   const headline = theirWords.heading;
   const nothingToSave = account.kind === 'linked' || account.kind === 'held_elsewhere';
+  /* 🪪 The save widget's place on this page: after a Yes (the ticket is theirs to keep) in every state a guest can act
+     on or needs told — the offer, a seat to confirm, a sign-in, saved, kept elsewhere — or to finish a press that came
+     back for the Terms. Never for a host, never on the Maker's canvas. */
+  const saveShows =
+    !canvas && account.kind !== 'host_viewing' && (nothingToSave || search.keep === 'terms' || status === 'attending');
+  /* 🪪 KEEP YOUR TICKET ON EVERY PHONE — the ONE save widget on this page (owner 2026-10-25: option A of
+     prototypes/save_to_account_2026-10-25; "create a proper widget to link this event to your account"; "but we are
+     supposed to have that with the save to wallet, correct?"). Drawn with the ticket's keep actions — directly under
+     Save my ticket · Add to Apple Wallet, before the +1 list — whenever the full ticket is drawn; otherwise after the
+     ticket's place. Once saved: the one quiet line. ⚠ This brings the offer back to the thank-you after a Yes, which the
+     2026-10-03 "one place each" call had moved to Me alone — flagged in the PR. */
+  const saveNode = saveShows ? (
+    <SaveToAccount
+      state={account}
+      eventId={event.event_id as string}
+      slug={home}
+      personalLink={invitationUrl}
+      userAgent={userAgent}
+      termsCarried={rsvpTermsCarried(cookieStore.get(RSVP_TERMS_COOKIE)?.value)}
+      termsMissing={search.keep === 'terms'}
+      ticketNames={(event.display_name as string | null) ?? null}
+      carries={search.keep === 'terms' ? 'your name, mobile, meal and your guests come along' : null}
+    />
+  ) : null;
 
   /* 🔓 "YOU'RE IN!" (frame D) — a requester whose request the couple accepted
      arrives here from the redeem hop (`?in=1`) with the SAME key they were given
@@ -919,9 +945,11 @@ async function inviteEnterPage({ params, searchParams }: Props) {
               </div>
             ) : null}
             {justIn ? <p className="text-xs text-ink/70">{REQUEST_WORDS.saveUpdatedWhy}</p> : null}
-            {/* 🪑 THE +1 LIST COMES AFTER SAVE AND WALLET (owner-approved layout, 2026-10-25): the ticket, then Save
-                and Add to Apple Wallet together directly under it, then the seats the guest brings. Pinned by
-                `the-reply-says-the-seats-first.test.ts` § 6. */}
+            {/* 🪑 THE +1 LIST COMES AFTER SAVE, WALLET AND THE KEEP OFFER (owner-approved layout, 2026-10-25): the
+                ticket, then Save and Add to Apple Wallet together directly under it, then "Keep your ticket on every
+                phone" (`saveNode` above — owner: "we are supposed to have that with the save to wallet"), then the
+                seats the guest brings. Pinned by `the-reply-says-the-seats-first.test.ts` § 6. */}
+            {saveNode ? <div data-landing-keep-slot="" className="!mt-7 text-left">{saveNode}</div> : null}
             <PlusOneSeatList seats={seats} ticketed={plusOneTicketIds} />
           </section>
         ) : ticket === 'faded' ? (
@@ -945,6 +973,9 @@ async function inviteEnterPage({ params, searchParams }: Props) {
             />
           </div>
         )}
+
+        {/* 🪪 The save widget when no full ticket holds it (a Terms return after a No, or a seat kept elsewhere). */}
+        {ticket === 'full' ? null : saveNode}
 
         {/* 5 · HOW TO USE IT — on the day, the seat. */}
         {ticket === 'full' || ticket === 'faded' ? (
@@ -1008,31 +1039,6 @@ async function inviteEnterPage({ params, searchParams }: Props) {
             inside Messenger / Instagram — the bar at the top of this page opens it in Safari / Chrome, where it is. */}
         {shortcutShows ? <ShortcutLine userAgent={userAgent} /> : null}
 
-        {nothingToSave ? (
-          <SaveToAccount
-            state={account}
-            eventId={event.event_id as string}
-            slug={home}
-            personalLink={invitationUrl}
-            userAgent={userAgent}
-            termsCarried={rsvpTermsCarried(cookieStore.get(RSVP_TERMS_COOKIE)?.value)}
-          />
-        ) : search.keep === 'terms' ? (
-          /* 🔒 "Save to my account" is Me's (owner 2026-10-03, one place each);
-             it comes back here only to finish a press that returned for the
-             Terms tick (`startAccountSaveAction` → `?keep=terms`), with the
-             tick and the reason. Saved already, the line above says so. */
-          <SaveToAccount
-            state={account}
-            eventId={event.event_id as string}
-            slug={home}
-            personalLink={invitationUrl}
-            userAgent={userAgent}
-            termsCarried={rsvpTermsCarried(cookieStore.get(RSVP_TERMS_COOKIE)?.value)}
-            termsMissing
-            carries="your name, mobile, meal and your guests come along"
-          />
-        ) : null}
       </DoorShell>
     </GuestLookScope>
   );

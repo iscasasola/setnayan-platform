@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState, useTransition, type RefObject } from 'react';
-import { Check, Clock, Plus, Search, X } from 'lucide-react';
+import { Check, Clock, Search, X } from 'lucide-react';
+import { InfoTip } from '@/app/_components/info-tip';
 import { GuestPopup } from '@/app/dashboard/[eventId]/guests/_components/guest-popup';
 import { ThumbField } from '../../_components/account-thumb-row';
 import { ActionButton } from '@/components/action-button';
@@ -44,6 +45,16 @@ import { PersonAvatar } from './person-avatar';
  * parser, the same Follow · Add pair, the same invite. What is new is the
  * Add card's own email box ("Not the one? Invite … by email") — the one-line
  * "name email" still works, it simply fills that box.
+ *
+ * ── 2026-10-25: NO ＋ INVITE — THE TYPED LINE IS THE INVITE ────────────────
+ * Owner, verbatim: *"Yes, remove the + on the guest list. Typing in the search
+ * adds; put From People, Import and Scan in the search results and the menu. Do
+ * the same on People."* So the row is ≡ · "Find or invite" — no round ＋. While
+ * a name is typed, the FIRST result is the invite card (`InviteCard`): "Invite
+ * “Ana” by email", its email box in place when the line holds none, the same
+ * `addPersonConnection`. The sheet the ＋ opened (`InviteSheet`, the same two
+ * fields) is now opened from ≡ → "Invite someone", for an empty field.
+ * 🔒 people/people-wears-the-guest-list.test.ts
  */
 export type FindOrInviteState = ReturnType<typeof useFindOrInvite>;
 
@@ -209,17 +220,15 @@ export function FindField({ f, inputRef }: { f: FindOrInviteState; inputRef?: Re
 }
 
 /**
- * ＋ INVITE — the row's one main verb (the one-thumb-row prototype: "the field's own invite line, as a sheet").
- * The same invite the field does on Enter (`addPersonConnection`), with the typed name carried in.
+ * The invite sheet — the same invite the field does on Enter (`addPersonConnection`), with the typed name carried
+ * in. It was the row's ＋ Invite; since 2026-10-25 (no ＋ on the row) ≡ → "Invite someone" opens it, so an empty
+ * field still has a door. Mounted only while open.
  */
-export function InviteAction({ f }: { f: FindOrInviteState }) {
-  const [open, setOpen] = useState(false);
+export function InviteSheet({ f, open, onClose }: { f: FindOrInviteState; open: boolean; onClose: () => void }) {
+  if (!open) return null;
   return (
-    <>
-      <ActionButton tone="brand" filled icon={Plus} label="Invite" onClick={() => setOpen(true)} data-testid="people-invite-open" tour="people-invite" />
-      {open ? (
         <GuestPopup
-          onClose={() => setOpen(false)}
+          onClose={onClose}
           rootClassName="fixed inset-0 z-[80]"
           panelClassName="gl-drawer absolute inset-x-0 bottom-0 max-h-[90vh] w-full overflow-y-auto rounded-t-3xl bg-paper px-4 pb-[max(env(safe-area-inset-bottom),1.5rem)] pt-4 shadow-xl tab:inset-y-0 tab:left-auto tab:right-0 tab:max-h-none tab:w-[min(27.5rem,calc(100vw-3.5rem))] tab:rounded-none tab:rounded-l-2xl"
           label="Invite someone"
@@ -262,21 +271,70 @@ export function InviteAction({ f }: { f: FindOrInviteState }) {
             <ActionButton tone="brand" main icon={Check} label={f.pending ? 'Inviting…' : 'Invite'} onClick={f.submitAdd} disabled={f.pending || !f.canAdd} />
           </div>
         </GuestPopup>
-      ) : null}
-    </>
+  );
+}
+
+/** ≡'s "Invite someone" — one option for the People menus (the roster's ≡ and the other views' `PeopleViewPicker`). */
+export const INVITE_SOMEONE_KEY = 'add:invite';
+
+/**
+ * INVITE “…” — the FIRST result while a name is typed (owner 2026-10-25, "do the same on People"). Title + one short
+ * line; the rest is in the ⓘ. The email box sits in place when the line holds no address ("Ana ana@x.com" fills it).
+ */
+export function InviteCard({ f }: { f: FindOrInviteState }) {
+  const typedAnAddress = Boolean(f.draft.email);
+  if (!(f.nameQuery.length >= 2 || typedAnAddress)) return null;
+  const name = f.inviteName || f.line.trim();
+  return (
+    <div className="mb-2.5 mt-1" data-invite-card="" data-search-result="">
+      <InfoTip label={`Invite “${name}” by email`} labelClassName="text-[15px] font-semibold text-ink" align="start">
+        If they aren’t on Setnayan yet it invites them to join — add them again once they’re in. You set what they are
+        to you after they’re on your list.
+      </InfoTip>
+      <p className="mt-0.5 text-[12.5px] leading-snug text-ink/60">They get an email either way.</p>
+      <div className="mt-2 flex items-center gap-2.5">
+        {typedAnAddress ? (
+          <span className="min-w-0 flex-1 truncate text-[14px] text-ink/70">{f.draft.email}</span>
+        ) : (
+          <input
+            type="email"
+            inputMode="email"
+            value={f.email}
+            onChange={(e) => f.setEmail(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                f.submitAdd();
+              }
+            }}
+            placeholder="their@email.com"
+            aria-label="Their email"
+            className="block h-11 min-w-0 flex-1 rounded-xl border border-ink/15 bg-cream px-3 text-[15px] text-ink outline-none placeholder:text-ink/40 focus-visible:ring-2 focus-visible:ring-terracotta" // no-card-ok: the email field, not a container
+          />
+        )}
+        <ActionButton
+          tone="brand"
+          main
+          icon={Check}
+          label={f.pending ? 'Adding…' : 'Invite'}
+          onClick={f.submitAdd}
+          disabled={f.pending || !f.canAdd}
+          data-testid="people-invite"
+        />
+      </div>
+    </div>
   );
 }
 
 /**
- * What the line found — "On Setnayan" (Follow · Add, the shipped pair) and the
- * invite card. Drawn in the list, under the rows the same line filtered.
+ * What the line found — the invite card FIRST (2026-10-25), then "On Setnayan" (Follow · Add, the shipped pair).
+ * Drawn in the list; the roster draws the card itself above its own "On your list" matches and passes `card={false}`.
  */
-export function FindResults({ f }: { f: FindOrInviteState }) {
+export function FindResults({ f, card = true }: { f: FindOrInviteState; card?: boolean }) {
   const { nameQuery, hits, looking, followed, asked, pending, followPicked, addPicked } = f;
-  const typedAnAddress = Boolean(f.draft.email);
-  const showCard = nameQuery.length >= 2 || typedAnAddress;
   return (
     <div data-find-or-invite="">
+      {card ? <InviteCard f={f} /> : null}
       {nameQuery.length >= 2 ? (
         <section className={gs.sec} data-find-hits="">
           <div className={gs.barWrap}>
@@ -293,7 +351,7 @@ export function FindResults({ f }: { f: FindOrInviteState }) {
               {/* An opted-out person, a name nobody has, and a name only
                   half-finished accounts carry all land HERE — the empty result
                   must never say which of the three happened. */}
-              Nobody by that name. Add their email instead and we’ll invite them.
+              Nobody by that name. Invite them by email above.
             </p>
           ) : (
             <ul className="flex list-none flex-col">
@@ -339,53 +397,19 @@ export function FindResults({ f }: { f: FindOrInviteState }) {
           )}
         </section>
       ) : null}
+    </div>
+  );
+}
 
-      {showCard ? (
-        <div className="mt-2.5 rounded-2xl bg-ink/[0.04] px-3.5 py-3" data-invite-card="">
-          <p className="text-[15px] font-semibold text-ink">
-            {hits.length > 0 ? 'Not the one? ' : ''}
-            <span className="font-normal text-ink/60">
-              Invite “{f.inviteName || f.line.trim()}” by email
-            </span>
-          </p>
-          {typedAnAddress ? null : (
-            <input
-              type="email"
-              inputMode="email"
-              value={f.email}
-              onChange={(e) => f.setEmail(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  f.submitAdd();
-                }
-              }}
-              placeholder="their@email.com"
-              aria-label="Their email"
-              className="mt-2.5 block h-11 w-full rounded-xl border border-ink/15 bg-cream px-3 text-[15px] text-ink outline-none placeholder:text-ink/40 focus-visible:ring-2 focus-visible:ring-terracotta" // no-card-ok: the email field, not a container
-            />
-          )}
-          <div className="mt-2.5 flex items-center gap-2.5">
-            <p className="flex-1 text-[12.5px] leading-snug text-ink/60">
-              {/* Said the same way whether or not that address has an account — the
-                  alternative is a box that answers "is this address registered?". */}
-              They get an email either way. If they aren’t on Setnayan yet it invites them to join — add
-              them again once they’re in. You set what they are to you{' '}
-              <em className="not-italic font-medium text-ink/80">after</em> they’re on your list.
-            </p>
-            <ActionButton
-              tone="brand"
-              main
-              icon={Check}
-              label={pending ? 'Adding…' : 'Invite'}
-              onClick={f.submitAdd}
-              disabled={pending || !f.canAdd}
-              data-testid="people-invite"
-            />
-          </div>
-        </div>
-      ) : null}
-
+/**
+ * What the last find-or-invite press said — an error, or "Invited Ana…". Drawn by the HOST above its list, outside the
+ * typed results: a successful invite clears the line, and with it the results, so a note inside them would vanish the
+ * moment it was earned (the ＋ sheet used to be where it showed).
+ */
+export function FindNotes({ f }: { f: FindOrInviteState }) {
+  if (!f.error && !f.notice) return null;
+  return (
+    <div data-find-notes="">
       {f.error ? (
         <p role="alert" className="mt-2 text-sm text-red-700 dark:text-red-300">
           {f.error}

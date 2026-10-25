@@ -1,5 +1,5 @@
 /**
- * EVERY PLUS-ONE IS NAMED — one short set per seat, one switcher, one row each.
+ * EVERY PLUS-ONE IS NAMED — one short set per seat, one screen each, one row each.
  *
  * Owner, verbatim, 2026-09-29: *"plus guests are only minimum questions. they
  * don't need to recommend songs and notes to the couple. They also get their
@@ -9,8 +9,10 @@
  *
  * What this file holds (rsvp-plus-ones.tsx · lib/extra-seats.ts · submitRsvp):
  *   1. the reply draws exactly one set of boxes per seat the couple gave, 1–4;
- *   2. switching seats never unmounts one — every seat's boxes are in the form
- *      at every active seat, so nothing typed is lost and every seat POSTs;
+ *   2. every seat's boxes are in the form at once (each on its own screen —
+ *      2026-10-25, owner "one at a time"; the "Filling in for" switcher is
+ *      retired), so nothing typed is lost and every seat POSTs. The screens,
+ *      the tick and its rules: `plus-ones-are-one-at-a-time.test.ts`;
  *   3. a plus-one is asked first name, last name, meal, dietary — never a song,
  *      a note to the couple or a selfie;
  *   4. Send is idempotent: a re-send names the SAME rows, a rename updates the
@@ -21,7 +23,7 @@
  * 🪤 Harness as `ask-your-guests.test.ts`: `globalThis.React` before the dynamic
  * import (`"jsx": "preserve"`), `server-only`/`client-only` stubbed.
  */
-import { extraSeatList, seatCountWords } from '@/lib/rsvp-seats-words';
+import { seatCountWords } from '@/lib/rsvp-seats-words';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import React from 'react';
@@ -129,50 +131,23 @@ test('the couple’s meal / dietary switches reach the plus-ones too', async () 
   assert.match(block, /plus_one_first_name_2/);
 });
 
-// ── 2 · the switcher never loses what was typed ────────────────────────────
+// ── 2 · every seat is in the form at once ──────────────────────────────────
+// 2026-10-25 (owner: "Each plus shouldn't come from a drop down", then "one at a time"): the switcher that hid all but
+// one seat is retired — each seat is its own reply screen, so every seat's boxes are always drawn and always POST.
 
-test('every seat’s boxes are in the form at EVERY active seat — only the active one shows', async () => {
-  const { renderToStaticMarkup } = await import('react-dom/server');
-  const { PlusOneSeatPanels, plusOneSlots } = await import('./rsvp-plus-ones');
-  const slots = plusOneSlots(
-    4,
-    [
+test('every seat’s boxes are in the form at once — none hidden behind a switcher', async () => {
+  const block = plusOneBlock(
+    await renderWidget(4, [
       { guest_id: 'a', name: 'Maria Santos', first: 'Maria', last: 'Santos', meal: 'beef', dietary: null },
       { guest_id: 'b', name: null },
-    ],
-    null,
+    ]),
   );
-  for (let active = 0; active < 4; active++) {
-    const html = renderToStaticMarkup(
-      React.createElement(PlusOneSeatPanels, { slots, active, arranged: true, askMeal: true, askDietary: true }),
-    );
-    for (let n = 1; n <= 4; n++) {
-      assert.match(html, new RegExp(`name="plus_one_first_name_${n}"`), `switching to ${active + 1} unmounted seat ${n}`);
-      assert.match(html, new RegExp(`name="plus_one_meal_${n}"`));
-    }
-    assert.match(html, /name="plus_one_first_name_1"[^>]*value="Maria"/, 'a switch reset a typed name');
-    const shown = [...html.matchAll(/data-plus-one-seat="(\d)" class="([^"]*)"/g)]
-      .filter(([, , cls]) => !/\bhidden\b/.test(cls ?? ''))
-      .map(([, n]) => Number(n));
-    assert.deepEqual(shown, [active + 1], `active ${active + 1}: shown ${shown.join(',')}`);
+  for (let n = 1; n <= 4; n++) {
+    assert.match(block, new RegExp(`name="plus_one_first_name_${n}"`), `seat ${n} is not in the form`);
+    assert.match(block, new RegExp(`name="plus_one_meal_${n}"`));
   }
-});
-
-test('the switcher is the shared PickMenu — "You" first, then +1 · name ✓ / +2 · not named yet', async () => {
-  const { seatOptions } = await import('./rsvp-plus-ones');
-  assert.deepEqual(seatOptions(['Ben Reyes', '', ' Carmen ', ''], 'Maria Santos'), [
-    { key: 'you', label: 'You — Maria Santos' },
-    { key: '0', label: '+1 · Ben Reyes ✓' },
-    { key: '1', label: '+2 · not named yet' },
-    { key: '2', label: '+3 · Carmen ✓' },
-    { key: '3', label: '+4 · not named yet' },
-  ]);
-  // One question per screen: no "You" row (their answers are the next steps).
-  assert.equal(seatOptions(['', ''], null)[0]!.key, '0');
-  const src = stripComments(readFileSync(join(__dirname, 'rsvp-plus-ones.tsx'), 'utf8'));
-  assert.match(src, /<PickMenu\b/, 'the switcher is not the shared PickMenu');
-  assert.match(src, /Filling in for:/);
-  assert.doesNotMatch(src, /role="tablist"|role="tab"/, 'a pill/tab row came back');
+  assert.match(block, /name="plus_one_first_name_1"[^>]*value="Maria"/, 'a stored name is not shown');
+  assert.doesNotMatch(block, /class="hidden"|data-plus-one-switcher|Filling in for/, 'a seat is hidden behind a switcher again');
 });
 
 // ── 3 · minimum questions ──────────────────────────────────────────────────
@@ -185,7 +160,7 @@ test('a plus-one is asked ONLY their name (five parts), meal and dietary', async
   const names = [...block.matchAll(/name="([^"]+)"/g)].map((m) => m[1]!);
   assert.ok(names.length > 0);
   for (const n of names) {
-    assert.match(n, /^plus_one_(name_prefix|first_name|middle_name|last_name|name_suffix|meal|dietary|seat_id)_[1-4]$/, `a plus-one is asked "${n}"`);
+    assert.match(n, /^plus_one_(name_prefix|first_name|middle_name|last_name|name_suffix|meal|dietary|seat_id|coming)_[1-4]$/, `a plus-one is asked "${n}"`);
   }
   assert.doesNotMatch(block, /song|guest_note|selfie|note to/i);
 });
@@ -352,7 +327,8 @@ test('a host count lowered below the named seats never drops a named person from
   );
   assert.deepEqual(ops.map((o) => o.kind), ['name', 'details']);
   const src = stripComments(readFileSync(join(__dirname, '..', 'actions.ts'), 'utf8'));
-  const at = src.indexOf('const seatNames = readSeatNames(formData);');
+  const at = src.indexOf('splitUnconfirmedSeats(readSeatNames(formData))');
+  assert.ok(at > -1, 'the seat read moved — re-point this guard');
   const write = src.slice(at, src.indexOf('firstNamed', at));
   assert.doesNotMatch(write, /\.delete\(|deleted_at:/, 'the guest-side write can remove a seat');
 });
@@ -361,20 +337,16 @@ test('a host count lowered below the named seats never drops a named person from
 // seats but you named it guest 3 and guest 4") ────────────────────────────
 
 test('the labels run +1…+N for N = plus_one_count — never "Guest 3"', async () => {
-  const { seatOptions } = await import('./rsvp-plus-ones');
   for (const n of [1, 2, 3, 4]) {
-    // Before hydration every seat is drawn under its own heading.
     const whole = await renderWidget(n);
     const block = plusOneBlock(whole);
-    const heads = [...block.matchAll(/<p class="font-serif text-base text-ink">([^<]*)<\/p>/g)].map((m) => m[1]);
+    // 2026-10-25 (owner "one at a time"): each seat is its own screen, and its line names it — "+2 · Not sure yet? …".
+    const lines = [...block.matchAll(/(\+\d) · Not sure yet\?/g)].map((m) => m[1]);
     const want = Array.from({ length: n }, (_, i) => `+${i + 1}`);
-    assert.deepEqual(heads, n > 1 ? want : [], `+${n}: headings ${heads.join(',')}`);
+    assert.deepEqual(lines, want, `+${n}: screen lines ${lines.join(',')}`);
     assert.doesNotMatch(block, /Guest \d|Seat \d/, `+${n}: a seat numbered by headcount`);
     // 🪑 2026-10-25 (RSVP seats-first, owner "all as recommended"): the COUNT is said once, on the Seats step before
-    // this one — "We reserved N seats for you", N = the guest + n — and this step names WHICH seats ("+1 and +2").
+    // the +1 screens — "We reserved N seats for you", N = the guest + n.
     assert.ok(whole.includes(`We reserved ${seatCountWords(1 + n)} for you`), `+${n}: the Seats step does not say ${1 + n}`);
-    if (n > 1) assert.ok(block.includes(`${extraSeatList(n)} · name them`), `+${n}: the +1 step does not name its seats`);
-    const labels = seatOptions(Array(n).fill('')).map((o) => o.label);
-    assert.deepEqual(labels, want.map((w) => `${w} · not named yet`));
   }
 });

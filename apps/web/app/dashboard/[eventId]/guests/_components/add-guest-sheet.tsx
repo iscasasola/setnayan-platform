@@ -1,7 +1,13 @@
 'use client';
 
 /**
- * add-guest-sheet.tsx — ONE way to add a guest, at every width: the round +.
+ * add-guest-sheet.tsx — the add sheet: a name box, then the other ways in.
+ *
+ * ⚖ 2026-10-25 — THE ROUND + IS GONE (owner, verbatim: *"Yes, remove the + on the guest list. Typing in the search
+ * adds; put From People, Import and Scan in the search results and the menu."*). The search field is the add (Enter,
+ * or the "Add “…” as a guest" row); the other ways are rows in the typed results and items in ≡ (`ADD_WAYS`). This
+ * sheet stays as the place a one-name line lands (it needs a last name) and as the empty list's "Add a guest".
+ * What follows is the sheet's history.
  *
  * ⚖ Owner 2026-10-01 (via the controller): the phone's Add is a round + (frame
  * 2 of the approved simple phone app) → *"this also should be visible on desktop
@@ -39,16 +45,34 @@ export function openAddGuest(name = ''): void {
 }
 
 /**
- * The four other ways in, as ONE dropdown "Add another way" (G2, owner
- * 2026-10-07: any set of choices is one dropdown) — the same four doors
- * `AddDoors` draws, the same openers and links.
+ * The four other ways in — ONE list (G2, owner 2026-10-07: any set of choices is one dropdown), read by THREE places
+ * that must never disagree: this sheet's "Add another way" dropdown, the thumb row's ≡ menu and the rows a typed
+ * search draws at the top of its results (owner 2026-10-25, verbatim: *"Yes, remove the + on the guest list. Typing
+ * in the search adds; put From People, Import and Scan in the search results and the menu."*). The words are
+ * `AddDoors`' words (capture-bar.tsx), the same openers and links.
+ *
+ * ⚠ "Scan" is in the owner's sentence but NO scan-a-list way ships (re-measured 2026-10-25: nothing under
+ * guests/ opens a camera to read a paper list; the check-in desk's scan is arrivals, not adding). It is not invented
+ * here — an open owner question, recorded in DECISION_LOG 2026-10-25.
  */
-const OTHER_WAYS = [
+export const ADD_WAYS = [
   { key: 'people', label: 'From your people' },
-  { key: 'details', label: 'With details' },
+  { key: 'details', label: 'Add with details' },
   { key: 'import', label: 'Import a file' },
   { key: 'paste', label: 'Paste many names' },
 ] as const;
+export type AddWayKey = (typeof ADD_WAYS)[number]['key'];
+
+/**
+ * Open one of the ways — the IMPORTED openers, never an event name re-dispatched by hand (capture-bar.tsx says why:
+ * a button that typed the string itself keeps compiling and quietly stops opening anything).
+ */
+export function openAddWay(key: AddWayKey, eventId: string, push: (href: string) => void): void {
+  if (key === 'people') openAddFromPeople();
+  else if (key === 'details') openQuickAdd();
+  else if (key === 'import') push(`/dashboard/${eventId}/guests/import`);
+  else push(`/dashboard/${eventId}/guests/quick`);
+}
 
 /**
  * The round + — in the Guests page HEADER, beside ⋯, at every width (owner
@@ -175,14 +199,11 @@ export function AddGuestSheet({
             label="Add another way"
             value={null}
             buttonText="From your people"
-            options={OTHER_WAYS.map((o) => ({ key: o.key, label: o.label }))}
+            options={ADD_WAYS.map((o) => ({ key: o.key, label: o.label }))}
             dataAttr="data-add-another-way"
             onPick={(key) => {
               setOpen(false);
-              if (key === 'people') openAddFromPeople();
-              else if (key === 'details') openQuickAdd();
-              else if (key === 'import') router.push(`/dashboard/${eventId}/guests/import`);
-              else router.push(`/dashboard/${eventId}/guests/quick`);
+              openAddWay(key as AddWayKey, eventId, (href) => router.push(href));
             }}
           />
         </div>

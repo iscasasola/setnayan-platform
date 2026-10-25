@@ -26,19 +26,21 @@ function block(marker: string): string {
   return SCREEN.slice(at, SCREEN.indexOf('\n      </div>\n    );', at));
 }
 
-test('List: ⇕ · Search guests · ≡ Sort (☑ Select inside it) · ＋ Add — the ONE thumb row (owner 2026-10-22)', () => {
+test('List: ⇕ · Search guests · ≡ (Sort, ☑ Select and the ways to add inside it) — the ONE thumb row, no ＋', () => {
   // Owner 2026-10-22 ("Yes to all", question 1): the fifth round (☑) folds into ≡ so "Search guests" reads whole at
-  // 320; ＋ Add is always there (Enter still adds at once). The ORDER is the shared component's
-  // (`components/every-thumb-row-is-the-one-row.test.ts` renders it); here, the screen hands each seat its control.
+  // 320. Owner 2026-10-25: "Yes, remove the + on the guest list. Typing in the search adds" — the row has no main verb.
+  // The ORDER is the shared component's (`components/every-thumb-row-is-the-one-row.test.ts` renders it); here, the
+  // screen hands each seat its control.
   const at = SCREEN.indexOf('<ThumbRow\n        name="guests"');
   assert.notEqual(at, -1, 'the List row moved — re-aim this guard');
-  const row = SCREEN.slice(at, SCREEN.indexOf('/>', SCREEN.indexOf('action=', at)));
-  const order = ['left={[', "testId: 'thumb-expand'", 'field={field}', 'right={[sortMenu]}', 'action={copy ? null : addRound}'].map((m) => row.indexOf(m));
+  const row = SCREEN.slice(at, SCREEN.indexOf('/>', SCREEN.indexOf('right={[sortMenu]}', at)) + 2);
+  const order = ['left={[', "testId: 'thumb-expand'", 'field={field}', 'right={[sortMenu]}'].map((m) => row.indexOf(m));
   assert.ok(order.every((i) => i > -1), `a control is missing from the thumb row: ${order.join(',')}`);
   assert.deepEqual([...order].sort((a, b) => a - b), order, 'the thumb row is out of order');
+  assert.ok(!row.includes('action='), 'the List row has a main verb (the ＋) again');
+  assert.match(SCREEN, /<ThumbRow name="guests-map" field=\{field\} right=\{\[arrangeMenu\]\} \/>/, 'the Map row has a main verb (the ＋) again');
   assert.match(SCREEN, /copy \? \[\] : \[\{ key: 'select', label: 'Select…', group: 'List'/, '☑ Select is not in the ≡ menu');
   assert.match(SCREEN, /if \(k === 'select'\) return setSelectMode\(true\);/);
-  assert.match(SCREEN, /const addRound: ThumbRound = \{ icon: Plus, label: 'Add', onClick: \(\) => openAddGuest\(q\)/);
 });
 
 test('Select mode: ✉ Invite N is the row’s field (≥ 60 %), then Set… · Remove N · Done', () => {

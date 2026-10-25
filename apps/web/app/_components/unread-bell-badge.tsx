@@ -19,7 +19,7 @@
 // exactly like the account menu's `renderPanel()` (account-switcher.tsx), over `OverlayBackdrop` (a tap on the dark
 // closes it) with `useModalA11y`. Inside: "Notifications" + a quiet "Mark all read", the latest 8 rows (the SAME
 // `NotificationsList` the page draws), and "View all" to `href` — the one prop that differs between the couple,
-// supplier and admin bells. The rows are read when it OPENS (`readBellNotifications`), never on page load.
+// supplier and admin bells. The rows are read when it OPENS (`fetchOwnNotifications`, limit 8), never on page load.
 //
 // 🔒 A FAILED READ CHANGES NOTHING. `readUnreadNotificationCount` answers `null`
 // when it could not read, and the poll never hands `null` on — so a refused or
@@ -32,10 +32,22 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import type { NotificationRow, NotificationType } from '@/lib/notifications';
-import { readBellNotifications } from '@/lib/notification-actions';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
-import { NotificationsHead, NotificationsList } from '@/app/_components/notifications/notifications-list';
+import dynamic from 'next/dynamic';
+
+/*
+  The pop-over's rows ride in a chunk of their own, fetched when the bell is first pressed — the bell is in the first
+  load of every signed-in page, and nothing in the list is needed to draw it (the same posture as the count poll).
+*/
+const NotificationsHead = dynamic(
+  () => import('@/app/_components/notifications/notifications-list').then((m) => m.NotificationsHead),
+  { ssr: false },
+);
+const NotificationsList = dynamic(
+  () => import('@/app/_components/notifications/notifications-list').then((m) => m.NotificationsList),
+  { ssr: false },
+);
 
 /**
  * 🔑 BEING MADE A HOST CHANGES WHAT AN OPEN PAGE SHOULD SHOW (owner 2026-09-28:
@@ -137,17 +149,24 @@ export function UnreadBellBadge({
       setRows(labRows);
       return;
     }
-    void readBellNotifications()
-      .then((r) => {
+    /*
+      The latest eight, read in the browser through the page's own `fetchOwnNotifications` (RLS: your own rows) — the
+      same client the count poll reads with, and no server action. It throws on a refused read; that is `null` here,
+      so a failure is said, never drawn as "You're all caught up".
+    */
+    void (async () => {
+      try {
+        const { fetchOwnNotifications } = await import('@/lib/notifications');
+        const r = await fetchOwnNotifications(createClient(), userId, 8);
         if (live) setRows(r);
-      })
-      .catch(() => {
+      } catch {
         if (live) setRows(null);
-      });
+      }
+    })();
     return () => {
       live = false;
     };
-  }, [open, labRows]);
+  }, [open, labRows, userId]);
 
   function markedRead(id: string) {
     const at = new Date().toISOString();

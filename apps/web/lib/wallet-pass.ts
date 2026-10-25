@@ -224,7 +224,7 @@ function partyWords(n: number): string | null {
 
 /** Every line a pass carries, platform-neutral. */
 export function walletPassContent(f: WalletPassFacts): WalletPassContent {
-  const word = (f.eventWord ?? '').trim().toLowerCase() || 'celebration';
+  const word = (f.eventWord ?? '').trim().toLowerCase() || 'event';
   const couple = f.couple.trim() || 'the couple';
   const date = walletDateLabel(f.eventDate);
   const venue = walletVenueName(f.venue, f.venueAddress);
@@ -242,7 +242,7 @@ export function walletPassContent(f: WalletPassFacts): WalletPassContent {
     relevantDate: walletRelevantDate(f.eventDate, f.arriveAt, f.arriveLabel),
     colors: walletColors(f.look),
     header: field('date', 'DATE', date),
-    primary: field('couple', f.eyebrow.trim() || 'The celebration of', couple),
+    primary: field('couple', f.eyebrow.trim() || `The ${word} of`, couple),
     secondary: [...field('guest', 'GUEST', f.guestName), ...field('with', 'WITH', party)],
     auxiliary: [
       ...field('arrive', 'ARRIVE', f.arriveLabel),

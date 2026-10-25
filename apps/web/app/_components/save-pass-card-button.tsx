@@ -70,7 +70,11 @@ export function SavePassCardFace({
   const base = baseClass(variant);
   if (state.k === 'signedOut') {
     return (
-      <span className={wrap} data-guest-reentry-wrap="" role="status">
+      <span
+        className={variant === 'primary' ? wrap : 'inline-flex flex-col items-center'}
+        data-guest-reentry-wrap=""
+        role="status"
+      >
         <a href={state.href} data-guest-reentry="" className={`${base} ${className ?? ''}`}>
           <LogIn aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           <span>{PASS_REENTRY_WORDS.button}</span>

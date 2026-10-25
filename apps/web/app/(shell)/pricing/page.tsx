@@ -670,7 +670,7 @@ export default async function PricingPage() {
     return Number.isFinite(php) && php > 0 ? { part, php } : null;
   }).filter((x): x is { part: (typeof HUB_PARTS)[number]; php: number } => x !== null);
   const hubPartFromLabel = hubParts.length ? `₱${formatPeso(Math.min(...hubParts.map((x) => x.php)))}` : null;
-  const aiOptions: AiTypeOption[] = AI_TYPE_WORDS.map(({ band, label }) => {
+  const aiOptions: AiTypeOption[] = AI_TYPE_WORDS.map(({ band, label }): AiTypeOption | null => {
     const code = AI_TIER_SKU[band];
     const row = code === 'SETNAYAN_AI' ? setnayanAi : code ? extraByCode.get(code) : undefined;
     const prices = resolveAiPrices(row ? { retail_price_php: Number(row.retail_price_php), onboarding_price_php: row.onboarding_price_php } : null);

@@ -42,14 +42,6 @@ export function nextSavePassState(r: PassCardSave, loc: { pathname: string }): S
 
 type Variant = 'button' | 'link' | 'primary';
 
-function baseClass(variant: Variant): string {
-  return variant === 'primary'
-    ? 'button-primary w-full justify-center gap-1.5'
-    : variant === 'link'
-    ? 'inline-flex min-h-[44px] items-center gap-1.5 text-sm font-medium text-ink underline underline-offset-4'
-    : 'inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-ink/15 bg-cream px-4 text-sm font-medium text-ink transition hover:border-terracotta hover:text-terracotta-700';
-}
-
 /** The control as a state draws it — stateless, so a test can render every state. */
 export function SavePassCardFace({
   state,
@@ -67,7 +59,14 @@ export function SavePassCardFace({
   onClick?: () => void;
 }) {
   const wrap = variant === 'primary' ? 'flex w-full flex-col items-stretch' : 'inline-flex flex-col items-start';
-  const base = baseClass(variant);
+  // A `const` of literal classes, written here on purpose: every-hub-press-is-44px.test.ts
+  // reads `const` literals to size each press — a helper call would hide all three variants from it.
+  const base =
+    variant === 'primary'
+      ? 'button-primary w-full justify-center gap-1.5'
+      : variant === 'link'
+      ? 'inline-flex min-h-[44px] items-center gap-1.5 text-sm font-medium text-ink underline underline-offset-4'
+      : 'inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-ink/15 bg-cream px-4 text-sm font-medium text-ink transition hover:border-terracotta hover:text-terracotta-700';
   if (state.k === 'signedOut') {
     return (
       <span

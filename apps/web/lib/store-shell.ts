@@ -173,6 +173,8 @@ const WEB_ONLY_PURCHASE_ROUTE =
  */
 export const STORE_SHELL_WEB_ONLY_DOORWAYS: ReadonlySet<string> = new Set([
   '/pricing',
+  // The pricing questionnaire (2026-10-25) — its result quotes our prices from the catalogue, like /pricing.
+  '/pricing/plan',
   '/alaala',
   '/papic',
   '/papic/try',

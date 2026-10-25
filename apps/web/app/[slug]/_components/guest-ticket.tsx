@@ -47,6 +47,7 @@ export function GuestTicket({
   replyHref = null,
   mark = null,
   appleWallet = null,
+  keep = null,
 }: {
   state: PassCardEligibility;
   name: string;
@@ -77,6 +78,12 @@ export function GuestTicket({
    * the declined line. Null for every guest the page did not offer it to.
    */
   appleWallet?: AppleWalletLink | null;
+  /**
+   * 🪪 KEEP IT ON EVERY PHONE — the save offer (`MeKeepInvitation`), drawn DIRECTLY UNDER Save · Wallet, as one group
+   * with the ticket's other keep actions (owner 2026-10-25, verbatim: "but we are supposed to have that with the
+   * save to wallet, correct?"). Only under a REAL ticket (`pass`); the page draws it elsewhere when there is none.
+   */
+  keep?: ReactNode;
 }) {
   if (state === 'none') return null;
   if (state === 'pass' && replyHref) {
@@ -85,6 +92,7 @@ export function GuestTicket({
         <a href={replyHref} data-me-reply="" className="button-primary flex w-full">
           {LANDING_WORDS.reply}
         </a>
+        {keep ? <div data-ticket-keep="" className="mt-8 text-left">{keep}</div> : null}
       </section>
     );
   }
@@ -137,6 +145,7 @@ export function GuestTicket({
       <GuestCodeKeepers invitationUrl={invitationUrl} className="mt-3" passCardHref={src} />
       {/* 🍎 Under Save · Copy link, sized to its words and centred — a second control, never wider than the row above. */}
       {state === 'pass' ? <AppleWalletButton link={appleWallet} className="mx-auto mt-2 w-fit" /> : null}
+      {state === 'pass' && keep ? <div data-ticket-keep="" className="mt-8 text-left">{keep}</div> : null}
     </section>
     </>
   );

@@ -136,12 +136,17 @@ export function RsvpOneAtATime({ hint = null }: { /** The couple's own hint unde
       const steps = visibleSteps(form);
       const current = steps[index];
       if (delta > 0 && current) {
-        for (const input of Array.from(current.querySelectorAll<HTMLInputElement>('input,select,textarea'))) {
-          if (!input.checkValidity()) {
-            show(form, index);
-            input.reportValidity();
-            return;
-          }
+        /* 🛑 NEXT NEVER PASSES A REQUIRED ITEM (owner 2026-10-25: *"do not allow to go to next page if there is
+           required that is not yet filled up"*). Every box on the screen is asked; each one that fails fires its
+           `invalid`, which the form's listener turns into the calm line at that field (`markNeeded`) — never the
+           browser's bubble, never a greyed Next that cannot say why. Focus goes to the first. */
+        const boxes = Array.from(current.querySelectorAll<HTMLInputElement>('input,select,textarea'));
+        const failing = boxes.filter((input) => !input.checkValidity());
+        if (failing.length > 0) {
+          show(form, index);
+          failing[0]!.focus({ preventScroll: true });
+          failing[0]!.scrollIntoView({ block: 'center', behavior: 'smooth' });
+          return;
         }
       }
       show(form, index + delta);
@@ -171,11 +176,33 @@ export function RsvpOneAtATime({ hint = null }: { /** The couple's own hint unde
         go(1);
       }
     };
+    // 🛑 A refused box says so AT the box (Next's check and Send's both fire `invalid`), and the line goes the
+    // moment it is answered — read after React has re-drawn what the answer changes (a cleared name un-requires
+    // its tick).
+    // Cancelling `invalid` also cancels the browser's own focus move on Send, so the first refused box of a press
+    // takes focus here (Next focuses its own first one in `go`).
+    let focusing = false;
+    const onInvalid = (e: Event) => {
+      e.preventDefault();
+      markNeeded(e.target as HTMLInputElement);
+      if (focusing) return;
+      focusing = true;
+      (e.target as HTMLElement).focus({ preventScroll: true });
+      (e.target as HTMLElement).scrollIntoView({ block: 'center', behavior: 'smooth' });
+      window.setTimeout(() => (focusing = false), 0);
+    };
+    const onEdit = () => window.requestAnimationFrame(() => clearAnswered(form));
     form.addEventListener('change', onChange);
     form.addEventListener('keydown', onKey);
+    form.addEventListener('invalid', onInvalid, true);
+    form.addEventListener('input', onEdit);
+    form.addEventListener('change', onEdit);
     return () => {
       form.removeEventListener('change', onChange);
       form.removeEventListener('keydown', onKey);
+      form.removeEventListener('invalid', onInvalid, true);
+      form.removeEventListener('input', onEdit);
+      form.removeEventListener('change', onEdit);
     };
   }, [form, go, index, total]);
 
@@ -194,12 +221,47 @@ export function RsvpOneAtATime({ hint = null }: { /** The couple's own hint unde
     <>
       <style>{ONE_AT_A_TIME_CSS}</style>
       <span ref={anchorRef} aria-hidden className="block scroll-mt-6" />
+      <span data-rsvp-needed-say="" role="status" aria-live="polite" className="sr-only" />
       {lead ? (progress ? createPortal(progress, lead) : null) : progress}
       {slot && !last && total > 1
         ? createPortal(<RsvpStepNext awaitingTap={awaitingTap} onNext={() => go(1)} hint={hint} />, slot)
         : null}
     </>
   );
+}
+
+/** The calm line a required box shows when Next (or Send) is pressed without it. */
+export const RSVP_NEEDED_WORDS = 'Needed to continue';
+
+/**
+ * Where a refused box's line goes: the nearest `[data-needed-at]` (a field that names its own place — the +1 row's
+ * tick, its name boxes), else the radio group's fieldset, else the box's own field. Its words: the box's
+ * `data-needed-words`, else the place's, else "Needed to continue".
+ */
+export function markNeeded(box: HTMLElement): void {
+  const host =
+    box.closest<HTMLElement>('[data-needed-at]') ??
+    box.closest<HTMLElement>('fieldset') ??
+    box.closest('label')?.parentElement ??
+    box.parentElement;
+  if (!host) return;
+  const words = box.dataset.neededWords ?? host.dataset.neededWords ?? RSVP_NEEDED_WORDS;
+  host.setAttribute('data-rsvp-needed', words);
+  box.setAttribute('aria-invalid', 'true');
+  // Said once for a screen reader, too — a pseudo-element's words are not reliably read.
+  const say = host.closest('form')?.querySelector<HTMLElement>('[data-rsvp-needed-say]');
+  if (say) say.textContent = words;
+}
+
+/** Every line whose boxes are all answered now goes away. */
+export function clearAnswered(form: HTMLFormElement): void {
+  for (const host of Array.from(form.querySelectorAll<HTMLElement>('[data-rsvp-needed]'))) {
+    const boxes = Array.from(host.querySelectorAll<HTMLInputElement>('input,select,textarea'));
+    if (boxes.every((b) => b.validity.valid)) {
+      host.removeAttribute('data-rsvp-needed');
+      for (const b of boxes) b.removeAttribute('aria-invalid');
+    }
+  }
 }
 
 /**
@@ -226,6 +288,8 @@ export const ONE_AT_A_TIME_CSS = [
      its side) there is no room for a foot that floats over the answers, so it stays where the card puts it — after
      the answers, one scroll away. 375 × 667 and taller: unchanged, Next keeps its sticky foot. */
   '@media (max-height:599.98px){[data-rsvp-next-slot]{position:static}}',
+  /* 🛑 THE CALM LINE AT A REFUSED BOX (owner 2026-10-25) — the field's own ink, a little softer; no red, no shake. */
+  '[data-rsvp-needed]::after{content:attr(data-rsvp-needed);display:block;margin-top:.375rem;font-size:.875rem;line-height:1.25rem;font-weight:500;color:rgb(var(--color-ink) / .8)}',
 ].join('');
 
 /**

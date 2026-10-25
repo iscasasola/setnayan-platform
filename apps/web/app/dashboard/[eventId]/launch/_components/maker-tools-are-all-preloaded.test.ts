@@ -43,6 +43,8 @@ const LAYOUTS = ['app/layout.tsx', 'app/dashboard/layout.tsx', 'app/dashboard/[e
  * would accept; a panel the couple taps belongs in MAKER_TOOLS instead.
  */
 const NOT_A_TOOL: Record<string, string> = {
+  'app/_components/notifications/notifications-list.tsx': "the bell's notifications pop-over (2026-10-25, owner: \"a pop up to see the notifications and an option to view all\") — not a Maker panel: the top bar's bell import()s the list when it is PRESSED, on every page, and draws a loading row until it answers; nothing in the Maker opens it, and preloading it would put it in the Maker's first load",
+  'lib/notifications.ts': "the bell pop-over's labels and time words (2026-10-25) — loaded with the pop-over's list when the bell is pressed, never by a Maker tool; not a panel",
   '@sentry/nextjs': 'error reporting — loaded at idle by its own path (deferred-observability), not a panel',
   'lib/telemetry/fault-observer.ts': 'the Problems observer — installed at idle by deferred-observability on every page, nothing a person taps opens it; not a panel',
   'lib/telemetry/sentry-replay.ts': "Sentry's Session Replay recorder (2026-10-23, owner: replay on signed-in screens only) — not a panel: deferred-observability fetches it at idle, after error reporting is up, only on a signed-in work area (`lib/telemetry/replay-scope.ts`); nothing a person taps opens it, and preloading it would put the recorder back in the Maker's first load",

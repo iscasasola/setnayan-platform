@@ -228,12 +228,16 @@ test('6 · the film reserves the room the scaled lockup paints, so the label is 
 /* ⚠ CHANGED 2026-10-25 ("Show both"): the two-line terracotta Save button this pinned (h-auto + py-2.5, so its
    sub-label did not touch the edge) is gone — the providers are the login's own one-line buttons, and the two lines
    moved into a heading above them. What stays true: neither line is squeezed into a fixed-height box. */
-test('6 · the Save-to-account words sit in a heading over the login’s provider buttons, never in a fixed-height box', () => {
+test('6 · the Save-to-account words sit in a heading over the official provider buttons, never in a fixed-height box', () => {
+  /* 🎟 RE-AIMED 2026-10-25 (option A): the heading is the benefit — `SAVE_OFFER_TITLE` · `SAVE_OFFER_LINE` in
+     `SaveOfferHead` — over each brand's official button (`oauthOfficialClass`). Still: no fixed-height box. */
   const src = code('app/[slug]/_components/save-to-account.tsx');
   const at = src.indexOf('data-save-heading');
-  assert.ok(at > -1, 'the "Save to my account" heading is gone');
-  const block = src.slice(at, src.indexOf('</div>', at));
-  assert.match(block, />Save to my account</);
-  assert.match(block, /Nothing to type/);
-  assert.match(src, /className=\{OAUTH_BUTTON_CLASS\}/, 'the provider buttons are not the login’s');
+  assert.ok(at > -1, 'the save offer’s heading is gone');
+  const block = src.slice(at, src.indexOf('</div>\n    </div>', at));
+  assert.match(block, /\{title\}|label=\{title\}/);
+  assert.match(block, /\{line\}/);
+  assert.doesNotMatch(block, /\bh-(1[0-9]|[2-9])\b/, 'the heading sits in a fixed-height box');
+  assert.match(src, /export const SAVE_OFFER_TITLE = 'Keep your ticket on every phone';/);
+  assert.match(src, /className=\{oauthOfficialClass\(m, m === method\)\}/, 'the provider buttons are not the official pair');
 });

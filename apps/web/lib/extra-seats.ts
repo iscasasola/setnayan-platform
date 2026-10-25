@@ -404,6 +404,12 @@ export type SeatNameInput = {
   suffix?: string | null;
   meal?: string;
   dietary?: string | null;
+  /**
+   * The seat's "They're coming" tick (owner 2026-10-25: *"Tick only shows when there is name written. and that is
+   * required"*) — true only when the reply POSTED it ticked (`plus_one_coming_<n>` = "1"). A named seat without it
+   * is refused (`splitUnconfirmedSeats`); a ticked one is written as attending.
+   */
+  coming?: boolean;
 };
 
 /**
@@ -428,7 +434,9 @@ export function readSeatNames(form: { get(name: string): FormDataEntryValue | nu
     if (form.get(`plus_one_name_prefix_${i}`) !== null) parts.prefix = normalizeNamePart(form.get(`plus_one_name_prefix_${i}`));
     if (form.get(`plus_one_middle_name_${i}`) !== null) parts.middle = normalizeNamePart(form.get(`plus_one_middle_name_${i}`));
     if (form.get(`plus_one_name_suffix_${i}`) !== null) parts.suffix = normalizeNamePart(form.get(`plus_one_name_suffix_${i}`));
-    if (first || last) out.push({ seatId, first, last, ...parts, ...details });
+    const coming = String(form.get(`plus_one_coming_${i}`) ?? '') === '1';
+    // The tick rides only when posted ticked — absent is "not confirmed", never a guessed yes.
+    if (first || last) out.push({ seatId, first, last, ...parts, ...details, ...(coming ? { coming: true } : {}) });
     // ⚖ A blank name on a seat that already EXISTS still saves its meal and
     // dietary (the caterer cooks for "+2 TBA" too) — and never touches its
     // name: clearing a name is not a removal (removing a guest is the host's).
@@ -440,6 +448,24 @@ export function readSeatNames(form: { get(name: string): FormDataEntryValue | nu
     if (first || last) out.push({ seatId: null, first, last });
   }
   return out;
+}
+
+/**
+ * 🔒 A NAME WITHOUT ITS TICK IS NEVER SAVED (owner 2026-10-25, the reply's +1 screens: *"Tick only shows when there
+ * is name written. and that is required. If you are not yet sure, delete name"*). The reply will not send one — the
+ * tick is required once a name is written — but the form is postable by anyone with the link, and a reply drawn
+ * before the tick existed posts none. So the server asks again: a typed name whose seat was not ticked is dropped
+ * (`refused`, counted so the caller can say so), never written, never minted. A details-only seat (no name: meal or
+ * dietary for "+2 TBA") needs no tick — nobody was named.
+ */
+export function splitUnconfirmedSeats(names: readonly SeatNameInput[]): { kept: SeatNameInput[]; refused: number } {
+  const kept: SeatNameInput[] = [];
+  let refused = 0;
+  for (const n of names) {
+    if ((n.first || n.last) && n.coming !== true) refused += 1;
+    else kept.push(n);
+  }
+  return { kept, refused };
 }
 
 type SeatDetails = Pick<SeatNameInput, 'meal' | 'dietary'>;

@@ -53,14 +53,15 @@
  * honest; a block we cannot justify is worse than no block.
  */
 
-import {
-  canonicalServicesForSlot,
-  slotHasSupplierTrade,
-  GALLERY_SLOT_KEYS,
-} from './moodboard-gallery';
-import type { MoodboardSlotKey } from './moodboard-slots';
+import { canonicalServicesForSlot, slotHasSupplierTrade } from './moodboard-gallery';
 import { HIT_LABEL, type ContentHit } from './moodboard-screen-findings';
 import { libraryPhotoParts, type PhotoPartGroup } from './inspiration-slots';
+import {
+  fallbackInspirationParts,
+  inspirationPart,
+  partCategories,
+  type InspirationPartsSnapshot,
+} from './inspiration-parts';
 
 /* ══════════════════════════════════════════════════════════════════════════
    1 · THE RIGHTS WARRANTY
@@ -81,77 +82,33 @@ export {
    2 · WHICH SLOT, AND MAY THIS SHOP FILL IT
    ══════════════════════════════════════════════════════════════════════════ */
 
-/**
- * The vendor-facing name of each gallery slot. A `Record` over the FULL slot
- * union (not the derived gallery keys), so a slot added to
- * lib/moodboard-slots.ts is a compile error here until somebody names it or
- * says it has no supplier shelf — the same mechanism MB10 uses for the trade
- * map itself.
- *
- * ⚠ The couple sees its own wording in `inspiration-board.tsx`'s GROUPS. These
- * are the supplier's side of the same shelf and are deliberately phrased for
- * somebody uploading their work ("Bridal gown", not "Bride").
+/*
+ * 🧩 THE NAMES COME FROM THE PARTS SNAPSHOT (step ② of PLAN `admin_inspiration_groups_2026-10-25`). The
+ * per-slot shelf-name map that lived here (`GALLERY_SLOT_LABEL`) is gone: a part's one name is
+ * `inspiration_parts.label_en`, read by `getInspirationParts()`, and its fallback names
+ * (`INSPIRATION_PART_FALLBACK`) are the ones this file used to print. Every function below takes the
+ * snapshot as its last argument; omitted, it is the consts the table was seeded from.
  */
-export const GALLERY_SLOT_LABEL: Readonly<
-  Record<MoodboardSlotKey, string | null>
-> = {
-  venue: 'Ceremony venue',
-  reception_venue: 'Reception venue',
-  backdrop: 'Wall design / backdrop',
-  tunnel: 'Entrance tunnel',
-  stage: 'Stage',
-  table: 'Table styling',
-  ceiling: 'Ceiling',
-  flowers: 'Flowers',
-  cocktail: 'Cocktail hour',
-  cake: 'Cake',
-  bridal_bouquet: 'Bridal bouquet',
-  centrepieces: 'Centrepieces',
-  chairs: 'Chairs',
-  ribbons_candles: 'Ribbons & candles',
-  lights: 'Lights',
-  entourage_bouquets: 'Entourage bouquets',
-  flower_accents: 'Flower accents',
-  overall: 'Overall styling',
-  bride: 'Bridal gown / hair & make-up',
-  groom: 'Groom’s attire',
-  principal_sponsor: 'Principal sponsors’ attire',
-  entourage: 'Entourage attire',
-  // 👗 The four attire boards' shelves (owner 2026-10-08) — a tailor files a
-  // photo under the people it dresses, and the couple's board of that name
-  // searches exactly that shelf.
-  bridesmaids: 'Bridesmaids’ attire',
-  groomsmen: 'Groomsmen’s attire',
-  flower_girl: 'Flower girl’s attire',
-  ring_bearer: 'Ring bearer’s attire',
-  parents: 'Parents’ attire',
-  guests: 'Guest attire',
-  // 🔑 NULL IS THE ANSWER, NOT A GAP. `palette` has no supplying trade at all
-  // (MB10: a colour reference is nobody's portfolio), so there is no supplier
-  // shelf to name. Typed `string | null` over the FULL slot union rather than
-  // over the derived gallery keys, so a slot added to lib/moodboard-slots.ts
-  // is a COMPILE ERROR here until somebody says whether suppliers fill it.
-  palette: null,
-};
 
 export type SlotUploadVerdict =
-  | { allowed: true; slotKey: MoodboardSlotKey }
+  | { allowed: true; slotKey: string }
   | { allowed: false; reason: 'unknown_slot' | 'no_supplier_trade' | 'wrong_trade'; message: string };
 
 /**
  * MAY THIS SHOP UPLOAD INTO THIS INSPIRATION SLOT?
  *
  * The shop's own `vendor_profiles.services[]` (canonical service keys) must
- * intersect the slot's supplying trades. `palette` has no supplying trade at
+ * intersect the part's supplying categories (home + also). `palette` has no supplying trade at
  * all — a colour reference is nobody's portfolio — and is refused for every
  * shop rather than quietly accepted into a shelf couples never browse.
  */
 export function slotUploadVerdict(
   slotKey: string,
   vendorServices: readonly string[] | null | undefined,
+  parts: InspirationPartsSnapshot = fallbackInspirationParts(),
 ): SlotUploadVerdict {
-  if (!(GALLERY_SLOT_KEYS as readonly string[]).includes(slotKey)) {
-    if (!slotHasSupplierTrade(slotKey)) {
+  if (partCategories(inspirationPart(parts, slotKey)).length === 0) {
+    if (!slotHasSupplierTrade(slotKey, parts)) {
       return {
         allowed: false,
         reason: 'no_supplier_trade',
@@ -166,57 +123,56 @@ export function slotUploadVerdict(
     };
   }
 
-  const wanted = new Set(canonicalServicesForSlot(slotKey));
+  const wanted = new Set(canonicalServicesForSlot(slotKey, parts));
   const owned = (vendorServices ?? []).filter((s) => wanted.has(s));
   if (owned.length === 0) {
-    const label = libraryPartLabel(slotKey) ?? 'that shelf';
+    const label = libraryPartLabel(slotKey, parts) ?? 'that shelf';
     return {
       allowed: false,
       reason: 'wrong_trade',
       message: `Your shop’s services don’t cover ${label}. Add that service under Coverage first, then upload here.`,
     };
   }
-  return { allowed: true, slotKey: slotKey as MoodboardSlotKey };
+  return { allowed: true, slotKey };
 }
 
-/** The supplier's dropdown group for a slot no couple's Studio part holds (the older boards still search it). */
-export type LibrarySlotGroup = PhotoPartGroup | 'more';
-
 /**
- * 🌱🖼 THE NAME A SUPPLIER READS FOR A SLOT — the couple's part name where the couple's Studio draws that part
- * (`libraryPhotoParts`: "Walls", "Table linens", "Venue & decor", "Bridal gown"), else this file's shelf name. One
- * name per slot everywhere the supplier meets it: the dropdown, the "your services don't cover …" refusal and the
+ * 🌱🖼 THE NAME A SUPPLIER READS FOR A SLOT — the part's one name in the snapshot. One name per slot
+ * everywhere the supplier meets it: the dropdown, the "your services don't cover …" refusal and the
  * per-category allowance line.
  */
-export function libraryPartLabel(slotKey: string): string | null {
-  const part = libraryPhotoParts().find((p) => p.key === slotKey);
-  return part?.label ?? GALLERY_SLOT_LABEL[slotKey as MoodboardSlotKey] ?? null;
+export function libraryPartLabel(
+  slotKey: string,
+  parts: InspirationPartsSnapshot = fallbackInspirationParts(),
+): string | null {
+  return inspirationPart(parts, slotKey)?.label ?? null;
 }
 
 /**
  * Every slot this shop may upload into — drives the picker.
  *
- * 🌱🖼 IN THE COUPLE'S ORDER, BY THE COUPLE'S NAMES (owner 2026-10-19, "SUPPLIERS FILL THE INSPIRATION LIBRARY
+ * 🌱🖼 IN THE COUPLE'S ORDER, BY THE PARTS' NAMES (owner 2026-10-19, "SUPPLIERS FILL THE INSPIRATION LIBRARY
  * WITHOUT AN EVENT"): Venue & decor → the room's parts → the flowers → Cake → the Attire boards, exactly as
- * `libraryPhotoParts` lists them (the same list the couple's Studio upload bar reads), then any other shelf the older
- * boards still search ("More boards"). Which of them THIS shop is offered is still the slot's trades
- * (`slotUploadVerdict`) — the list decides the order and the words, never the access.
+ * `libraryPhotoParts` lists them (the same list the couple's Studio upload bar reads), then every other part
+ * of the snapshot in its order ("More boards" — until step ④ heads every run by its home category). Which of
+ * them THIS shop is offered is the part's categories (`slotUploadVerdict`) — the list decides the order and
+ * the words, never the access. A part HIDDEN from couples stays a supplier shelf.
  */
 export function uploadableSlotsForShop(
   vendorServices: readonly string[] | null | undefined,
-): Array<{ key: MoodboardSlotKey; label: string; group: LibrarySlotGroup }> {
-  const out: Array<{ key: MoodboardSlotKey; label: string; group: LibrarySlotGroup }> = [];
+  parts: InspirationPartsSnapshot = fallbackInspirationParts(),
+): Array<{ key: string; label: string; group: PhotoPartGroup }> {
+  const out: Array<{ key: string; label: string; group: PhotoPartGroup }> = [];
   const seen = new Set<string>();
-  for (const part of libraryPhotoParts()) {
+  for (const part of libraryPhotoParts(parts)) {
     if (seen.has(part.key)) continue;
     seen.add(part.key);
-    if (slotUploadVerdict(part.key, vendorServices).allowed) out.push({ key: part.key, label: part.label, group: part.group });
+    if (slotUploadVerdict(part.key, vendorServices, parts).allowed) out.push({ key: part.key, label: part.label, group: part.group });
   }
-  for (const k of GALLERY_SLOT_KEYS) {
-    if (seen.has(k)) continue;
-    const label = GALLERY_SLOT_LABEL[k];
-    if (!label) continue;
-    if (slotUploadVerdict(k, vendorServices).allowed) out.push({ key: k, label, group: 'more' });
+  for (const part of parts.parts) {
+    if (seen.has(part.slotKey)) continue;
+    seen.add(part.slotKey);
+    if (slotUploadVerdict(part.slotKey, vendorServices, parts).allowed) out.push({ key: part.slotKey, label: part.label, group: 'more' });
   }
   return out;
 }

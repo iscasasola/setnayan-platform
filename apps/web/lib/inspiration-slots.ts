@@ -6,8 +6,8 @@
  * CENTREPIECES").
  *
  * 🔑 NOTHING HERE IS A NEW SLOT. Every card the couple can upload into is an
- * EXISTING `event_inspiration_assets.slot_key` (`MOODBOARD_SLOT_KEYS`, held by
- * the DB CHECK `event_inspiration_assets_slot_key_check`), named the way the
+ * EXISTING `event_inspiration_assets.slot_key` (since step ② of PLAN
+ * `admin_inspiration_groups_2026-10-25`: a row of `inspiration_parts`, held by an FK), named the way the
  * prototype names it — "Wall" is the shipped `backdrop` slot (its board label is
  * already "Wall design"), "Venue & decor" is `overall`. A card's suppliers are
  * the slot's OWN trades (`MOODBOARD_SLOT_TRADES`, the 2026-09-03 "inspiration by
@@ -21,8 +21,8 @@
  * 👗 SO DO THE FOUR ATTIRE BOARDS (2026-10-08, owner: *"go"*): Bridesmaids ·
  * Groomsmen · Flower girl · Ring bearer, migration 20271266380994. They are the
  * one place this file's first sentence stops being true — four slots made for
- * four boards the owner asked for by name. `AWAITING_A_SLOT` stays as the place
- * a future part with no slot is recorded (empty today). `every-slot-maps-to-a-
+ * four boards the owner asked for by name. (`AWAITING_A_SLOT`, the empty list a future part without a slot
+ * waited in, is gone with step ②: a new part is now one `inspiration_parts` row.) `every-slot-maps-to-a-
  * taxonomy-category.test.ts`, `bouquet-and-centrepieces-have-a-slot.test.ts`
  * and `four-more-attire-boards.test.ts` hold it.
  *
@@ -42,6 +42,8 @@ import type { RoomDressing } from './mood-board';
 import type { WeddingTile } from './taxonomy';
 /* Pure and client-safe too (its only value import is `./mood-board`), so this file stays reachable from the client. */
 import { CAKE_LANE_PARTS, FLORIST_LANE_PARTS, ROOM_LANE_PARTS, type LanePart } from './colour-access';
+/* Pure and client-safe as well (values only from `./moodboard-slots`). */
+import { fallbackInspirationParts, inspirationPart, type InspirationPartsSnapshot } from './inspiration-parts';
 
 /** Which lane a slot's palette paints when the couple taps "Use for …". */
 export type SlotPaletteTarget =
@@ -187,7 +189,13 @@ export function paletteUploadBoards(): StudioInspirationSlot[] {
  * (`uploadableSlotsForShop`, the Palette's parts then the Attire boards). A new Palette part with a board joins both
  * lists at once; `every-palette-part-reaches-the-supplier-library.test.ts` fails when it has no supplying trade.
  */
-export type PhotoPartGroup = 'main' | 'room' | 'flowers' | 'cake' | 'attire';
+/**
+ * The heading a part is drawn under. `more` = a part no couple's Studio card draws (the older shelves —
+ * Ceremony venue, Cocktail hour, the sponsors' attire …), which only the supplier's `Part ▾` lists.
+ * ⚠ The headings are still these words until step ④, which heads each run by the part's HOME CATEGORY
+ * (PLAN § 7: "the parts' grouping words change from 'The room' to the category's name (④)").
+ */
+export type PhotoPartGroup = 'main' | 'room' | 'flowers' | 'cake' | 'attire' | 'more';
 export type PhotoPart = { key: MoodboardSlotKey; label: string; group: PhotoPartGroup };
 
 /** The supplier's dropdown headings (the couple's say "for your stylist"; a supplier IS the stylist). */
@@ -197,34 +205,54 @@ export const PHOTO_PART_GROUP_LABEL: Readonly<Record<PhotoPartGroup, string>> = 
   flowers: 'Flowers',
   cake: 'Cake',
   attire: 'Attire',
+  more: 'More boards',
 };
 
-/** Venue & decor, then every Palette part with a board, by the part's own name (Table linens, not Tables). */
-export function palettePhotoParts(): PhotoPart[] {
-  const main = STUDIO_INSPIRATION_SLOTS.filter((s) => s.slotKey === MAIN_PALETTE_BOARD).map((s) => ({ key: s.slotKey, label: s.label, group: 'main' as const }));
-  const lane = (parts: readonly LanePart[], group: PhotoPartGroup): PhotoPart[] =>
-    parts.flatMap((p) => {
+/**
+ * 🧩 WHICH board sits in which heading is the Studio's own structure (the main palette, the colour lanes,
+ * the attire rows); WHAT each part is called, WHETHER it is offered and in WHAT order inside its heading
+ * are the parts snapshot's (`getInspirationParts()`, step ②). A part the snapshot does not hold is not
+ * drawn; a HIDDEN part is not offered to the couple (`includeHidden: false`) but stays on the supplier's
+ * shelves (`includeHidden: true` — "hidden from couples" is the switch's whole meaning).
+ */
+function studioPhotoParts(parts: InspirationPartsSnapshot, includeHidden: boolean, attire: boolean): PhotoPart[] {
+  const place: Array<{ key: MoodboardSlotKey; group: PhotoPartGroup }> = [];
+  const add = (key: MoodboardSlotKey, group: PhotoPartGroup) => {
+    if (!place.some((p) => p.key === key)) place.push({ key, group });
+  };
+  add(MAIN_PALETTE_BOARD, 'main');
+  const lane = (lp: readonly LanePart[], group: PhotoPartGroup) => {
+    for (const p of lp) {
       const b = paletteBoardOf(p.field);
-      return b ? [{ key: b.slotKey, label: p.label, group }] : [];
-    });
-  return [...main, ...lane(ROOM_LANE_PARTS, 'room'), ...lane(FLORIST_LANE_PARTS, 'flowers'), ...lane(CAKE_LANE_PARTS, 'cake')];
+      if (b) add(b.slotKey, group);
+    }
+  };
+  lane(ROOM_LANE_PARTS, 'room');
+  lane(FLORIST_LANE_PARTS, 'flowers');
+  lane(CAKE_LANE_PARTS, 'cake');
+  if (attire) for (const s of STUDIO_INSPIRATION_SLOTS) if (s.attire) add(s.slotKey, 'attire');
+
+  const out: Array<PhotoPart & { order: number }> = [];
+  for (const { key, group } of place) {
+    const part = inspirationPart(parts, key);
+    if (!part || (part.hidden && !includeHidden)) continue;
+    out.push({ key, label: part.label, group, order: part.sortOrder });
+  }
+  const groupAt = (g: PhotoPartGroup) => place.findIndex((p) => p.group === g);
+  return out
+    .sort((a, b) => groupAt(a.group) - groupAt(b.group) || a.order - b.order)
+    .map(({ key, label, group }) => ({ key, label, group }));
+}
+
+/** The couple's "Which part?": Venue & decor, then every Palette part with a board — named, ordered and offered by the snapshot. */
+export function palettePhotoParts(parts: InspirationPartsSnapshot = fallbackInspirationParts()): PhotoPart[] {
+  return studioPhotoParts(parts, false, false);
 }
 
 /** The Palette's parts, then the Attire boards (Bridal gown · Groom’s suit · Bridesmaids · …) — the supplier's order. */
-export function libraryPhotoParts(): PhotoPart[] {
-  const attire = STUDIO_INSPIRATION_SLOTS.filter((s) => s.attire).map((s) => ({ key: s.slotKey, label: s.label, group: 'attire' as const }));
-  return [...palettePhotoParts(), ...attire];
+export function libraryPhotoParts(parts: InspirationPartsSnapshot = fallbackInspirationParts()): PhotoPart[] {
+  return studioPhotoParts(parts, true, true);
 }
-
-/**
- * The owner's parts that have no `slot_key` to store a photo in. Each maps to
- * EXISTING taxonomy tiles (the 2026-09-03 rule — nothing invented); what is
- * missing is storage, i.e. a migration widening the slot CHECK.
- */
-export const AWAITING_A_SLOT: ReadonlyArray<{ label: string; trades: readonly WeddingTile[] }> = [
-  /* Empty since 2026-10-08: the owner's four attire boards (Groomsmen · Bridesmaids · Flower girl ·
-     Ring bearer) waited here until he said "go" on the migration that gave each a slot. */
-];
 
 /* ══ SEARCH IDEAS › — the shipped gallery picker's filters ══════════════════ */
 

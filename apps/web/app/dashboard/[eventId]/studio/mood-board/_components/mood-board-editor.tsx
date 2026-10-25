@@ -36,10 +36,11 @@ import {
   applyRenderPick,
 } from '../actions';
 import {
-  GALLERY_SLOT_KEYS,
   creditLine,
+  gallerySlotKeys,
   tradeLabelForCredit,
 } from '@/lib/moodboard-gallery';
+import { getInspirationParts } from '@/lib/inspiration-parts-db';
 /* ⚡ The studio's client pieces load when the board is opened — never with the
    Maker that draws it (`mood-board-lazy.tsx`). Types still come from their files. */
 import {
@@ -215,6 +216,9 @@ function toRegions(raw: RangeRow[] | RangeRow | null | undefined): ColorRangeSlo
  */
 const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
   const supabase = await createClient();
+  /* 🧩 The parts snapshot (step ② of PLAN `admin_inspiration_groups_2026-10-25`) — the credits' trades and the
+     gallery's slots are read off it; `cache()`d, so the Studio below asks the same read for free. */
+  const parts = await getInspirationParts();
 
   // ⚠ NO `moodboard_theme_templates` READ HERE — ON PURPOSE (2026-09-03).
   // This list used to carry an unfiltered, unlimited select of that table,
@@ -452,7 +456,7 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
         r.library_asset_id && shopName
           ? creditLine(
               shopName,
-              tradeLabelForCredit(slotForTrade, r.asset?.shop?.services ?? null),
+              tradeLabelForCredit(slotForTrade, r.asset?.shop?.services ?? null, parts),
             )
           : null,
     };
@@ -977,7 +981,7 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
       <InspirationBoard
         eventId={eventId}
         initial={inspirations}
-        gallerySlots={GALLERY_SLOT_KEYS}
+        gallerySlots={gallerySlotKeys(parts)}
         fetchGalleryAction={fetchGalleryAssets}
         applyGalleryAction={applyGalleryPick}
         fetchRenderPoolAction={fetchRenderPool}
@@ -1395,6 +1399,7 @@ export async function MoodBoardStudioBody({ eventId }: { eventId: string }) {
     <>
     <MoodBoardStudio
       eventId={eventId}
+      inspirationParts={await getInspirationParts()}
       /* 🎨 The board as the couple is editing it — the draft over live (step 4c: the palette waits for Apply). */
       palette={draft && ('role_palette' in draft.events || 'main_colours' in draft.events) ? drafted : studio.palette}
       fallbackFive={fallbackFive}

@@ -19,7 +19,8 @@ import assert from 'node:assert/strict';
 import { MOODBOARD_SLOT_KEYS } from './moodboard-slots';
 import { MOODBOARD_SLOT_TRADES } from './moodboard-gallery';
 import { WEDDING_TILE_LABEL } from './taxonomy';
-import { AWAITING_A_SLOT, STUDIO_INSPIRATION_SLOTS } from './inspiration-slots';
+import { STUDIO_INSPIRATION_SLOTS } from './inspiration-slots';
+import { fallbackInspirationParts, partCategories } from './inspiration-parts';
 
 /* The owner's twelve parts (2026-10-06/07), with the bride's card named "Bridal gown" and his attire
    boards added (2026-10-08: Groom's suit drawn on the stored `groom` slot; Groomsmen · Bridesmaids ·
@@ -40,20 +41,26 @@ test('every drawn part is a stored slot with a supplying trade', () => {
   assert.equal(new Set(STUDIO_INSPIRATION_SLOTS.map((s) => s.slotKey)).size, STUDIO_INSPIRATION_SLOTS.length, 'two cards share one slot');
 });
 
-test('a part with no slot yet still maps to existing taxonomy tiles — and is not drawn', () => {
-  for (const a of AWAITING_A_SLOT) {
-    assert.ok(a.trades.length > 0);
-    for (const t of a.trades) assert.ok(t in WEDDING_TILE_LABEL, `${a.label} → ${t} is not a taxonomy tile`);
-    assert.ok(!STUDIO_INSPIRATION_SLOTS.some((s) => s.label === a.label), `${a.label} is drawn with nowhere to store its photos`);
+/* 🧩 Step ② (PLAN admin_inspiration_groups_2026-10-25): there is no "waiting for a slot" list any more
+   (`AWAITING_A_SLOT` is gone) — a new part is one `inspiration_parts` row with a tier-2 home. What survives is the
+   2026-09-03 rule itself: every part maps to REAL taxonomy tiles. */
+test('every inspiration part maps to existing taxonomy tiles — the palette alone has none', () => {
+  for (const part of fallbackInspirationParts().parts) {
+    const tiles = partCategories(part);
+    if (part.kind === 'system') {
+      assert.deepEqual(tiles, [], `${part.slotKey} is a system part but names a supplier`);
+      continue;
+    }
+    assert.ok(tiles.length > 0, `${part.slotKey} has no home category`);
+    for (const t of tiles) assert.ok(t in WEDDING_TILE_LABEL, `${part.slotKey} → ${t} is not a taxonomy tile`);
   }
 });
 
 test('the owner’s twelve are every one accounted for', () => {
-  const named = [...STUDIO_INSPIRATION_SLOTS.map((s) => s.label), ...AWAITING_A_SLOT.map((a) => a.label)];
+  const named = STUDIO_INSPIRATION_SLOTS.map((s) => s.label);
   assert.deepEqual([...named].sort(), [...OWNERS_TWELVE].sort());
   /* 👗 The four attire boards are accounted for by being DRAWN (a stored slot each), not by waiting. */
   for (const label of ['Groomsmen', 'Bridesmaids', 'Flower girl', 'Ring bearer']) {
     assert.ok(STUDIO_INSPIRATION_SLOTS.some((s) => s.label === label), `${label} is not drawn`);
-    assert.ok(!AWAITING_A_SLOT.some((a) => a.label === label), `${label} still waits for a slot`);
   }
 });

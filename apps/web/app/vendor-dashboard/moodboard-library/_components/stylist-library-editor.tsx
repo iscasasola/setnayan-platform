@@ -113,13 +113,10 @@ const DEFAULT_PREVIEW_PALETTE: PalettePreview = {
 /** One of the shop's own photos (its page gallery or a service card) — `lib/shop-own-photos.server.ts`. */
 export type ShopPhotoChoice = { ref: string; url: string; from: 'page' | 'card' };
 
-/** The dropdown's headings, in the couple's order (`uploadableSlotsForShop`); "More boards" holds the older shelves. */
-const SLOT_GROUP_LABEL: Record<PhotoPartGroup | 'more', string> = { ...PHOTO_PART_GROUP_LABEL, more: 'More boards' };
-
 export type StylistLibraryEditorProps = {
   initialAssets: StylistAsset[];
   /** Slots this shop may upload into — derived server-side from its trades, in the couple's order and words. */
-  gallerySlots: Array<{ key: string; label: string; group?: PhotoPartGroup | 'more' }>;
+  gallerySlots: Array<{ key: string; label: string; group?: PhotoPartGroup }>;
   /** 🌱🖼 The shop's own photos, offered beside Upload (owner 2026-10-19). Empty = it has none (or none readable). */
   shopPhotos?: ShopPhotoChoice[];
   /** TRUE when the shop's photos could not be read — said, never drawn as "you have none". */
@@ -806,7 +803,8 @@ function slotOptions(slots: StylistLibraryEditorProps['gallerySlots']): PickOpti
   return slots.map((slot) => ({
     key: slot.key,
     label: slot.label,
-    ...(grouped ? { group: SLOT_GROUP_LABEL[slot.group ?? 'more'] } : {}),
+    /* The heading words are the parts list's (`PHOTO_PART_GROUP_LABEL`, "More boards" included) — this file keeps no copy. */
+    ...(grouped ? { group: PHOTO_PART_GROUP_LABEL[slot.group ?? 'more'] } : {}),
   }));
 }
 

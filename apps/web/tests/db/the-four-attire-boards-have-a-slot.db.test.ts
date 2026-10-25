@@ -158,12 +158,18 @@ test('⭐ each of the four shelves accepts a supplier’s photo — and a pick o
   assert.equal(r.rows[0]!.n, FOUR.length);
 });
 
+/* 🧩 RE-AIMED for step ② (PLAN admin_inspiration_groups_2026-10-25, migration `…_inspiration_parts_are_the_photo_keys`):
+   the two gates are no longer IN-lists — the board's slot_key is an FK into inspiration_parts and a supplier gallery
+   row's asset_subtype is held by the trigger moodboard_library_assets_subtype_is_a_part. Same refusals, new names. */
+const BOARD_GATE = /event_inspiration_assets_slot_key_is_a_part/;
+const GALLERY_GATE = /which does not exist/;
+
 test('⭐ a key that is not a board is STILL refused, by both gates', async () => {
   const { userId, eventId } = await newCouple();
   const shop = await newShop();
   for (const stranger of ['usherettes', 'flowergirl', 'bridesmaid', 'ring-bearer', '']) {
-    assert.match(await refused(() => upload(eventId, userId, stranger)), /slot_key_check_v3/, `the board accepted '${stranger}'`);
-    assert.match(await refused(() => galleryPhoto(shop, stranger)), /supplier_gallery_shape/, `the gallery accepted '${stranger}'`);
+    assert.match(await refused(() => upload(eventId, userId, stranger)), BOARD_GATE, `the board accepted '${stranger}'`);
+    assert.match(await refused(() => galleryPhoto(shop, stranger)), GALLERY_GATE, `the gallery accepted '${stranger}'`);
   }
 });
 
@@ -176,15 +182,14 @@ test('every slot the app knows is accepted by both gates — nothing was dropped
   }
 });
 
-test('the two gates list exactly the app’s vocabulary, under the names the map and the tests know', async () => {
-  const listed = async (name: string) => {
-    const r = await db.query<{ def: string }>(`SELECT pg_get_constraintdef(oid) AS def FROM pg_constraint WHERE conname = $1`, [name]);
-    assert.equal(r.rows.length, 1, `${name} is not there exactly once`);
-    return [...r.rows[0]!.def.matchAll(/'([a-z_]+)'::text/g)].map((m) => m[1]!).filter((v) => v !== 'supplier_gallery');
-  };
+test('the two gates admit exactly the app’s vocabulary — the inspiration parts, seeded from it', async () => {
+  const parts = await db.query<{ slot_key: string }>(`SELECT slot_key FROM public.inspiration_parts ORDER BY slot_key`);
   const app = [...MOODBOARD_SLOT_KEYS].sort();
-  assert.deepEqual((await listed('event_inspiration_assets_slot_key_check_v3')).sort(), app, 'the board’s gate and the app disagree');
-  assert.deepEqual((await listed('moodboard_library_assets_supplier_gallery_shape')).sort(), app, 'the gallery’s gate and the app disagree');
+  assert.deepEqual(parts.rows.map((r) => r.slot_key), app, 'the parts the gates admit and the app disagree');
+  const fk = await db.query<{ n: number }>(
+    `SELECT count(*)::int AS n FROM pg_constraint WHERE conname = 'event_inspiration_assets_slot_key_is_a_part' AND contype = 'f'`,
+  );
+  assert.equal(fk.rows[0]!.n, 1, 'the board’s gate is not the FK into inspiration_parts');
   for (const k of FOUR) assert.ok(app.includes(k), `${k} is not in MOODBOARD_SLOT_KEYS`);
 });
 
@@ -206,9 +211,9 @@ test('applied a second time, over stored photos on every board, it changes no ro
   const before = await rows();
   assert.ok(before.includes('"entourage"') && before.includes('"ring_bearer"'), 'the fixture rows are not there to be compared');
 
-  /* RE-AIMED 2026-10-19: re-apply the LATEST re-listing of both gates (the Palette's five parts with photos,
-     20271278232574) — re-applying this file's own, now older, list would narrow the gates and refuse the five's rows. */
-  const file = readdirSync(MIGRATIONS_DIR).find((f) => f.endsWith('_palette_parts_five_more_slots.sql'));
+  /* RE-AIMED 2026-10-26 (step ②): re-apply the LATEST word on both gates — the FK + trigger into inspiration_parts
+     (`…_inspiration_parts_are_the_photo_keys.sql`); re-applying an older IN-list would put a CHECK back beside it. */
+  const file = readdirSync(MIGRATIONS_DIR).find((f) => f.endsWith('_inspiration_parts_are_the_photo_keys.sql'));
   assert.ok(file, 'the migration file is not there');
   await db.exec(readFileSync(join(MIGRATIONS_DIR, file!), 'utf8'));
 
@@ -216,6 +221,6 @@ test('applied a second time, over stored photos on every board, it changes no ro
   /* …and the gates still hold after the second application. */
   const again = await newCouple();
   await upload(again.eventId, again.userId, 'flower_girl');
-  assert.match(await refused(() => upload(again.eventId, again.userId, 'usherettes')), /slot_key_check_v3/);
-  assert.match(await refused(() => galleryPhoto(shop, 'usherettes')), /supplier_gallery_shape/);
+  assert.match(await refused(() => upload(again.eventId, again.userId, 'usherettes')), BOARD_GATE);
+  assert.match(await refused(() => galleryPhoto(shop, 'usherettes')), GALLERY_GATE);
 });

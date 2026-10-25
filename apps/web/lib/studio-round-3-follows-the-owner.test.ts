@@ -310,7 +310,7 @@ test('6 · Look › Music has no Save: an upload or the switch drafts at once; "
 });
 
 test('7 · Mood Board: Palette · Attire · Do’s & Don’ts (Inspiration is IN Palette); the attire boards live in Attire beside their role', async () => {
-  const { STUDIO_INSPIRATION_SLOTS, AWAITING_A_SLOT } = await import('./inspiration-slots');
+  const { STUDIO_INSPIRATION_SLOTS } = await import('./inspiration-slots');
   const src = read(`${D}/studio/mood-board/_components/mood-board-studio.tsx`);
   /* RE-AIMED 2026-10-19 (owner: "the inspirations here and the palette can be integrated together properly" → "make it look
      like attire"): Inspiration's boards sit on their parts in Palette, so its section is gone. */
@@ -323,7 +323,8 @@ test('7 · Mood Board: Palette · Attire · Do’s & Don’ts (Inspiration is IN
     [['bride', 'Bridal gown'], ['groom', 'Groom’s suit'], ['bridesmaids', 'Bridesmaids'], ['groomsmen', 'Groomsmen'], ['flower_girl', 'Flower girl'], ['ring_bearer', 'Ring bearer']],
     'the attire boards are not Bridal gown · Groom’s suit · Bridesmaids · Groomsmen · Flower girl · Ring bearer',
   );
-  assert.deepEqual(AWAITING_A_SLOT.map((a) => a.label), [], 'a board that has its slot is still recorded as waiting');
+  /* (`AWAITING_A_SLOT` — the list a board without a slot waited in — is gone with step ② of PLAN
+     admin_inspiration_groups_2026-10-25: a new board is one inspiration_parts row.) */
   assert.match(src, /\{ROOM_LANE_PARTS\.map\(partBlock\)\}/, 'the room’s boards are not on their parts');
   /* RE-AIMED 2026-10-14: in Attire a board is the role's compact photo row (`ideasRow`, the prototype's `ideasHTML`), inside the role's block. */
   assert.match(src, /\{attireBoardsUnder\(row\.key\)\.map\(\(slot\) => \(\s*<div key=\{slot\.slotKey\} data-mood-board-attire-board=\{slot\.slotKey\}>\s*\{ideasRow\(slot,/, 'an attire board is not beside its role');

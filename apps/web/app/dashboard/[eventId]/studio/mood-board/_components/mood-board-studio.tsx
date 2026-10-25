@@ -71,6 +71,7 @@ import { GalleryPicker } from './gallery-picker';
 import { StudioDos } from './studio-dos';
 import { KeepFullSheet, SuggestionsNotice } from './suggestion-parts';
 import type { InspirationItem } from './inspiration-board';
+import type { InspirationPartsSnapshot } from '@/lib/inspiration-parts';
 
 /**
  * 🎨👗 STUDIO › MOOD BOARD & DRESS CODE — the new Maker's tool (owner
@@ -115,6 +116,12 @@ export type StudioAttireRow = StudioAttireRowData;
 
 export type MoodBoardStudioProps = {
   eventId: string;
+  /**
+   * 🧩 The inspiration parts (`getInspirationParts()`, step ② of PLAN `admin_inspiration_groups_2026-10-25`) — the
+   * "Which part?" names, order and the parts offered. Omitted (the dev lab, which never reads the database) = the
+   * consts the table was seeded from.
+   */
+  inspirationParts?: InspirationPartsSnapshot;
   palette: RolePalette;
   /** The five the board shows while it is not the couple's — the worn theme's own. */
   fallbackFive: string[];
@@ -378,7 +385,7 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
 
   /* 🖼 "Which part?" — Venue & decor, then every part with a board, by the part's own name (Table linens, not Tables).
      The ONE list the supplier's library reads too (`palettePhotoParts`, owner 2026-10-19), so the two never drift. */
-  const uploadOptions = palettePhotoParts().map(({ key, label }) => ({ key, label }));
+  const uploadOptions = palettePhotoParts(props.inspirationParts).map(({ key, label }) => ({ key, label }));
 
   /* ═══ COLOURS ═══ */
   const pickMain = (index: number, hex: string) => commit(withMainColour(palette, five, index, hex), `${MAIN_COLOUR_SLOTS[index]} changed.`);
@@ -660,7 +667,7 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
   const [waiting, setWaiting] = useState<CoupleSuggestion[]>(() => props.suggestions ?? []);
   const waitingIn = (slot: string) => waiting.filter((w) => w.slotKey === slot);
   const partLabelOf = (slot: string) =>
-    libraryPhotoParts().find((p) => p.key === slot)?.label ?? STUDIO_INSPIRATION_SLOTS.find((x) => x.slotKey === slot)?.label ?? 'this part';
+    libraryPhotoParts(props.inspirationParts).find((p) => p.key === slot)?.label ?? STUDIO_INSPIRATION_SLOTS.find((x) => x.slotKey === slot)?.label ?? 'this part';
   const keep = async (sg: CoupleSuggestion, replace: number | null) => {
     /* 🔑 A full part ASKS which photo it replaces — nothing is sent until one is named (`keepPlan`). */
     if (keepPlan(freeIn(sg.slotKey), replace).kind === 'ask') {

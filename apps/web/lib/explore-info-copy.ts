@@ -80,6 +80,14 @@ export const EXPLORE_INFO_HANDSHAKE =
   'Booking this vendor tells them straight away. You then pay them directly and send the receipt — once they accept it, your date is reserved on their calendar.';
 
 /**
+ * 📅 What the settled-date banner used to say under the header (owner 2026-10-26, *"Yes — build the new Suppliers
+ * header as shown."*): the date is already on the date · place line above, so a settled date draws no banner, and
+ * this line — "free that day" — lives in the ⓘ instead. A date CONFLICT still draws its banner.
+ */
+export const EXPLORE_INFO_DATE =
+  'Once your date is set, every card shows whether that supplier is free that day.';
+
+/**
  * §11.1 — the state-glyph legend, in journey order. Glyphs come from
  * `COVERAGE_GLYPH` (the map the strip itself renders from) so the documented
  * legend and the live tiles cannot drift. 'skipped' has no strip tile — it is a

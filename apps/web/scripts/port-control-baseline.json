@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "6eb95e3aa3",
+  "generatedFromRef": "2cc98764d3",
   "routeCount": 473,
   "destinations": 1013,
   "actions": 661,
-  "blocks": 7098,
+  "blocks": 7097,
   "routes": {
     "/": {
       "files": [
@@ -14365,7 +14365,6 @@
         "Image",
         "Link",
         "PalettePreview",
-        "PhotoPartGroup",
         "PickMenu",
         "RejectionNotice",
         "ShopNotice",

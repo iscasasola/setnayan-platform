@@ -14,7 +14,8 @@
  *   4 · the YES order is Seats → You → +1s → tagging → the rest, and a No keeps its contact step after the note,
  *       read back from its own boxes;
  *   5 · a seat list that failed to read claims no count on the +1 step and offers one box (scenario E);
- *   6 · after Send, Save hands over their own card and each +1 ticket, and the Wallet slot is marked.
+ *   6 · after Send, Save hands over their own card and each +1 ticket, and the Wallet slot is marked — in the
+ *       owner-approved order (2026-10-25): the ticket, then Save and the Wallet slot together, then the +1 list.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -165,4 +166,32 @@ test('6 · after Send: Save hands over their card and each +1 ticket, and the Wa
   assert.match(enter, /label=\{plusOneCardHrefs\.length > 0 \? PASS_CARD_WORDS\.saveAll : /);
   assert.match(enter, /<div hidden data-landing-wallet-slot="" \/>/, 'the Apple Wallet slot (PR #6548) is not marked');
   assert.match(read('../lib/guest-landing.ts'), /replied: 'You’re on the list\.',/, 'the after-Send default is not "You’re on the list."');
+});
+
+/** Where each piece of the full ticket section starts, in source order — -1 when missing. */
+function ticketOrder(src: string, sectionStart: RegExp, ticket: RegExp) {
+  const from = src.search(sectionStart);
+  assert.ok(from >= 0, 'the full ticket section is gone');
+  const section = src.slice(from, src.indexOf('</section>', from));
+  const at = (re: RegExp) => section.search(re);
+  return {
+    ticket: at(ticket),
+    save: at(/<SavePassCardButton\b/),
+    wallet: at(/data-landing-wallet-slot=""/),
+    plusOnes: at(/<PlusOneSeatList\b/),
+  };
+}
+
+test('6b · the order is ticket → Save → Wallet slot → +1 list, on the page and in its lab (owner-approved, 2026-10-25)', () => {
+  const pages = {
+    'invite/enter': ticketOrder(read('[slug]/invite/enter/page.tsx'), /data-landing-ticket="full"/, /<TicketPicture src=\{PASS_CARD_ROUTE\}/),
+    'maker-lab thank-you': ticketOrder(read('dev/maker-lab/guest/page.tsx'), /data-lab-guest-pass=""/, /<TicketPicture src=\{labPass\}/),
+  };
+  console.log('[ticket-order]', JSON.stringify(pages));
+  for (const [where, o] of Object.entries(pages)) {
+    for (const [k, v] of Object.entries(o)) assert.ok(v >= 0, `${where}: the ${k} is missing from the ticket section`);
+    assert.ok(o.ticket < o.save, `${where}: Save no longer comes after the ticket`);
+    assert.ok(o.save < o.wallet, `${where}: the Wallet slot no longer comes directly after Save`);
+    assert.ok(o.wallet < o.plusOnes, `${where}: the +1 list is above Save and Wallet — the owner put it below them`);
+  }
 });

@@ -885,7 +885,6 @@ async function inviteEnterPage({ params, searchParams }: Props) {
                 box around it, not on the button: on the Maker's canvas a button is inert, so a tap on it lands on
                 what it sits in — which must be this line, not the whole pass. A plain block: it draws nothing, takes
                 the section's rhythm where the button did, and HAS a box (the frame is drawn on it). */}
-            <PlusOneSeatList seats={seats} ticketed={plusOneTicketIds} />
             <div data-rsvp-line="save">
             {safariSave ? (
               <a href={safariSave} className="button-primary w-full" data-landing-save="safari">
@@ -904,6 +903,10 @@ async function inviteEnterPage({ params, searchParams }: Props) {
                 Wallet pass comes from their own link (owner 2026-10-25, decision 6). Not imported before it merges. */}
             <div hidden data-landing-wallet-slot="" />
             {justIn ? <p className="text-xs text-ink/70">{REQUEST_WORDS.saveUpdatedWhy}</p> : null}
+            {/* 🪑 THE +1 LIST COMES AFTER SAVE AND WALLET (owner-approved layout, 2026-10-25): the ticket, then Save
+                and Add to Apple Wallet together directly under it, then the seats the guest brings. Pinned by
+                `the-reply-says-the-seats-first.test.ts` § 6. */}
+            <PlusOneSeatList seats={seats} ticketed={plusOneTicketIds} />
           </section>
         ) : ticket === 'faded' ? (
           <section aria-labelledby="your-ticket" className="relative text-center" data-landing="ticket" data-landing-ticket="faded">

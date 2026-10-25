@@ -1135,8 +1135,6 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
               <div className="mx-auto w-[min(260px,100%)] overflow-hidden rounded-2xl shadow-[0_24px_48px_-26px_rgba(30,34,41,0.45)]">
                 <TicketPicture src={labPass} alt="Ana Reyes’s Digital ticket" fallback={null} />
               </div>
-              {/* 🪑 `&plus=<n>` — the guest brings n (+1 named, the rest TBA), as `invite/enter` draws it (2026-10-25). */}
-              <PlusOneSeatList seats={labSeats} ticketed={labTicketed} />
               <SavePassCardButton
                 hrefs={[labPass, ...labSeats.filter((s) => labTicketed.has(s.guest_id)).map(() => '/dev/me-lab/ticket?who=plus&couple=mj')]}
                 label={labTicketed.size > 0 ? PASS_CARD_WORDS.saveAll : LANDING_WORDS.saveTicket}
@@ -1144,6 +1142,9 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
               />
               {/* 🍎 The Apple Wallet slot (PR #6548), as on `invite/enter`. */}
               <div hidden data-landing-wallet-slot="" />
+              {/* 🪑 `&plus=<n>` — the guest brings n (+1 named, the rest TBA), under Save and Wallet, as `invite/enter`
+                  draws it (owner-approved layout, 2026-10-25). */}
+              <PlusOneSeatList seats={labSeats} ticketed={labTicketed} />
             </section>
             {shortcut ? <ShortcutLine userAgent={userAgent} /> : null}
           </div>

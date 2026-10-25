@@ -181,7 +181,8 @@ export function UnreadBellBadge({
   }
 
   const label = unread > 0 ? `${ariaBaseLabel} · ${unread} ${ariaUnreadSuffix}` : ariaBaseLabel;
-  const rowsUnread = rows ? rows.filter((r) => !r.read_at).length : 0;
+  // The badge's count covers notices older than the eight drawn, so either one keeps "Mark all read" on show.
+  const rowsUnread = rows ? Math.max(unread, rows.filter((r) => !r.read_at).length) : 0;
 
   function renderPanel() {
     return (

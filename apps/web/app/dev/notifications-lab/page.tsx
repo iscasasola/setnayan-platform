@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import type { NotificationRow } from '@/lib/notifications';
+import { formatPhp } from '@/lib/php';
 import { LabShell } from '@/app/dev/_components/lab-shell';
 import { NotificationsHead, NotificationsList } from '@/app/_components/notifications/notifications-list';
 
@@ -23,6 +24,9 @@ const ME = '00000000-0000-4000-8000-0000000000aa';
 function ago(hours: number, now: number): string {
   return new Date(now - hours * 3_600_000).toISOString();
 }
+
+/** The prototype's sample order amount — formatted, never typed (`public-price-literals.test.ts`). */
+const SAMPLE_ORDER = formatPhp(2500);
 
 function notices(now: number): NotificationRow[] {
   const n = (
@@ -47,8 +51,8 @@ function notices(now: number): NotificationRow[] {
     n('n1', 'rsvp_received', 18, true, "Maria Santos RSVP'd: Attending", 'Meal preference: Fish. They left you a note.', '/dev/notifications-lab?view=all'),
     n('n2', 'chat_message', 2, true, 'New message from Lumina Photo Co.', 'Yes to the 3pm slot — sending the contract tonight.', '/dev/notifications-lab?view=all'),
     n('n3', 'guest_claim_pending', 5, true, 'Someone asked to join your guest list', 'Ana Reyes asked to join. They are not inside yet — Keep, Link or Remove them in Requests.', null),
-    n('n4', 'order_quoted', 9, true, 'Order S89O-3F7K2M9QXT quoted at ₱2,500', 'Open the order to view payment instructions.', null),
-    n('n5', 'payment_matched', 48, false, 'Payment of ₱2,500 matched · order S89O-3F7K2M9QXT', 'The Setnayan team confirmed your payment.', null),
+    n('n4', 'order_quoted', 9, true, `Order S89O-3F7K2M9QXT quoted at ${SAMPLE_ORDER}`, 'Open the order to view payment instructions.', null),
+    n('n5', 'payment_matched', 48, false, `Payment of ${SAMPLE_ORDER} matched · order S89O-3F7K2M9QXT`, 'The Setnayan team confirmed your payment.', null),
     n('n6', 'event_auto_surfaced', 72, false, 'You were added to Cale & Ice', 'A couple added you to their event on Setnayan. You can leave any time from your events.', null),
     n('n7', 'rsvp_received', 96, false, 'Jose Dela Cruz updated their details', 'They added their mobile number.', null),
     n('n8', 'chat_message', 144, false, 'New message from Bloom & Vine', 'Thank you! See you on the day.', null),

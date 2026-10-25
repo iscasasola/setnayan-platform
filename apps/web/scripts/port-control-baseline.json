@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "d7fea5d91e",
-  "routeCount": 470,
-  "destinations": 1008,
+  "generatedFromRef": "d84c6e3318",
+  "routeCount": 466,
+  "destinations": 1009,
   "actions": 665,
-  "blocks": 7041,
+  "blocks": 7029,
   "routes": {
     "/": {
       "files": [
@@ -284,7 +284,9 @@
       "destinations": [],
       "actions": [],
       "blocks": [
-        "FeaturesPageBody"
+        "FeaturesPageBody",
+        "HowSearchField",
+        "HowSearchResults"
       ]
     },
     "/(shell)/features/[slug]": {
@@ -318,14 +320,16 @@
         "(shell)/help/page.tsx"
       ],
       "destinations": [
-        "/help"
+        "/help",
+        "/help/[seg]"
       ],
       "actions": [
         "submitHelpMessage"
       ],
       "blocks": [
         "Field",
-        "HelpSearch",
+        "HowSearchField",
+        "HowSearchResults",
         "Icon",
         "Link",
         "SubmitButton"
@@ -4926,20 +4930,6 @@
         "SubmitButton"
       ]
     },
-    "/dashboard/(account)/billing": {
-      "files": [
-        "dashboard/(account)/billing/_components/billing-list.tsx",
-        "dashboard/(account)/billing/page.tsx"
-      ],
-      "destinations": [],
-      "actions": [],
-      "blocks": [
-        "BillingList",
-        "Link",
-        "PageMasthead",
-        "Row"
-      ]
-    },
     "/dashboard/(account)/clusters": {
       "files": [
         "dashboard/(account)/clusters/_components/create-cluster-form.tsx",
@@ -5283,6 +5273,7 @@
     },
     "/dashboard/(account)/profile": {
       "files": [
+        "dashboard/(account)/profile/_components/appearance-choice.tsx",
         "dashboard/(account)/profile/_components/haptics-toggle.tsx",
         "dashboard/(account)/profile/_components/settings-shell.tsx",
         "dashboard/(account)/profile/actions.ts",
@@ -5320,6 +5311,8 @@
         "updateUserSlug"
       ],
       "blocks": [
+        "Appearance",
+        "AppearanceChoice",
         "ConfirmForm",
         "Field",
         "FileUpload",
@@ -5330,6 +5323,7 @@
         "Icon",
         "Link",
         "PageMasthead",
+        "PickMenu",
         "PillButton",
         "PillTrack",
         "PrefixSelect",
@@ -10893,17 +10887,6 @@
         "VendorRailContext"
       ]
     },
-    "/dev/billing-lab": {
-      "files": [
-        "dev/billing-lab/page.tsx"
-      ],
-      "destinations": [],
-      "actions": [],
-      "blocks": [
-        "BillingList",
-        "PageMasthead"
-      ]
-    },
     "/dev/booking-ask-lab": {
       "files": [
         "dev/booking-ask-lab/page.tsx"
@@ -11388,20 +11371,6 @@
         "MakerContext.Provider",
         "ProPartsBody",
         "ProQuietLine"
-      ]
-    },
-    "/dev/receipt-lab": {
-      "files": [
-        "dev/receipt-lab/page.tsx"
-      ],
-      "destinations": [],
-      "actions": [],
-      "blocks": [
-        "Link",
-        "ReceiptPage",
-        "ReceiptSlip",
-        "SaveAsPdfButton",
-        "ShareReceiptButton"
       ]
     },
     "/dev/schedule-lab": {
@@ -12741,23 +12710,7 @@
       "destinations": [],
       "actions": [],
       "blocks": [
-        "ReceiptPage",
-        "ReceiptSlip",
-        "SaveAsPdfButton",
-        "ShareReceiptButton"
-      ]
-    },
-    "/receipts/order/[orderId]": {
-      "files": [
-        "receipts/order/[orderId]/page.tsx"
-      ],
-      "destinations": [],
-      "actions": [],
-      "blocks": [
-        "Link",
-        "ReceiptPage",
-        "ReceiptSlip",
-        "ShareReceiptButton"
+        "Line"
       ]
     },
     "/reset-password": {

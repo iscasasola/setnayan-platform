@@ -130,3 +130,14 @@ test('the honest condition is the one the corrected copy uses', () => {
     );
   }
 });
+
+test('the Home "Papic is ready" band promises no free camera and no free pool (owner 25 Oct)', () => {
+  // Owner: "unlimited camera but papic credits is used" · "free 50 credits is only on their first event".
+  // The band said "Your free camera is ready · every event comes with one free camera of its own, and a shared
+  // pool of its own — nothing to buy". It cannot know whether THIS event got the account's free credits.
+  const band = stripComments(readFileSync(join(WEB, 'app/dashboard/[eventId]/_components/papic-ready-nudge.tsx'), 'utf8'));
+  assert.match(band, /Papic is ready/, 'precondition: the band was found');
+  assert.doesNotMatch(band, /free\s+camera|camera of its own|nothing to buy|pool of its own/i);
+  const row = stripComments(readFileSync(join(WEB, 'lib/home-first-screen.ts'), 'utf8'));
+  assert.doesNotMatch(row, /Free camera ready/, 'the Home Papic row promises a free camera again');
+});

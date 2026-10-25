@@ -680,9 +680,10 @@ export function GuestsScreen(props: GuestsScreenProps) {
   );
 
   /* ═══ the thumb row ═══ */
-  const addRound: ThumbRound = { icon: Plus, label: 'Add', onClick: () => openAddGuest(q), testId: 'thumb-add' };
+  const addRound: ThumbRound = { icon: Plus, label: 'Add', onClick: () => openAddGuest(q), testId: 'thumb-add', tour: 'guests-plus' };
   const sortMenu: ThumbMenu = {
     mark: 'data-thumb-sort',
+    tour: 'guests-sort',
     label: 'Sort — groups the list by',
     value: plusFilter ? `plus:${plusFilter}` : view,
     buttonText: plusFilter ? `+1 · ${PLUS_ONE_FILTERS.find((f) => f.key === plusFilter)?.label ?? ''}` : undefined,
@@ -1164,7 +1165,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
         <div ref={stickRef} className={styles.stick} data-guests-stick="">
           {/* 🎚 THE ONE PILL SELECTOR (owner 2026-10-08: "adjust all pill selectors to this") — the app's template
               draws the track, the three views and the terracotta thumb that slides between them. Still links. */}
-          <nav className={`${PILL_TRACK_CLASS} ${PILL_TRACK_GROUND}`} aria-label="Guest list views" data-guests-segmented="">
+          <nav className={`${PILL_TRACK_CLASS} ${PILL_TRACK_GROUND}`} aria-label="Guest list views" data-guests-segmented="" data-tour="guests-views">
             <PillThumb />
             {seg('list', 'List', stats.total)}
             {seg('map', 'Map')}
@@ -1175,7 +1176,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
           <GuestListStatus copy={copy} fresh={props.measured} />
           {measured ? (
             <>
-              <div className={`${styles.counts} ${styles.rise}`} data-roster-counts="">
+              <div className={`${styles.counts} ${styles.rise}`} data-roster-counts="" data-tour="guests-counts">
                 {/* 👆 Each count is a door to exactly the guests it counts (`replyFilterMatches`, owner 2026-10-21). */}
                 <span>{countDoor('attending', stats.yes, 'gs-yes', RSVP_ROW_WORDS.attending.toLowerCase())}</span>
                 <span>· {countDoor('declined', stats.no, 'gs-no', RSVP_ROW_WORDS.declined.toLowerCase())}</span>
@@ -1431,6 +1432,8 @@ function GuestRowLine({
     <div
       className={`${styles.g} ${picked ? styles.picked : ''} ${g.plus_one_of_guest_id ? styles.plus : ''} ${joined ? styles.joined : ''}`}
       data-guest-row=""
+      // 🔦 The Guests tour rings the first row drawn (the engine takes the first visible match).
+      data-tour="guests-row"
       data-guest-id={g.guest_id}
       data-plus-one-of={plusWords?.hostId}
       // 📌 A result: a search pins the first one under the chrome (lib/search-pin.ts).

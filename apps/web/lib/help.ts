@@ -4,6 +4,7 @@ import { FIRST_BOOKING_ON_US } from '@/lib/booking-fee-lock';
 import { mobileAppAnswer, mobileAppAnswerInApp } from '@/lib/where-setnayan-runs';
 import { PAPIC_FREE_CREDIT_CONDITION } from '@/lib/papic-free-credit-promise';
 import { DAY_OF_ENDS_PLAIN, DAY_OF_STARTS_PLAIN } from '@/lib/day-of-window-words';
+import { REFUND_REPORT_WINDOW_DAYS } from '@/lib/rule-constants';
 
 /**
  * The Papic shot currency, DERIVED — `papicPointCurrencyTerms()` interpolates
@@ -133,13 +134,13 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'what-is-setnayan',
         title: 'What is Setnayan?',
-        body: "Setnayan (SET-na-yan, from Tagalog \"Set na 'yan.\" — \"that's all set.\") is the Philippines-first life-events platform — one free account to plan each occasion, run the day, and keep it for life. Weddings are the deepest surface, and the same tools run debuts, christenings, birthdays, graduations, anniversaries, reunions, corporate events, wakes and more. Planning is free with no guest limit; couples book verified Filipino suppliers at 0% commission and pay them directly; and everything a couple creates gathers into one living memory (Memories) they keep.",
+        body: "Setnayan (SET-na-yan, from Tagalog \"Set na 'yan\" — \"that's all set\") is a Philippines-first platform for life's events: one free account to plan each one, run the day and keep it for life. It runs weddings, debuts, christenings, birthdays, graduations, anniversaries, reunions, corporate events, wakes and more. Planning is free with no guest limit, you book verified Filipino suppliers at 0% commission and pay them directly, and everything you make gathers into your Memories.",
       },
       {
         slug: 'how-much-does-setnayan-cost',
         title: 'How much does Setnayan cost?',
         appBody: 'Planning in the Setnayan app is free: schedule, budget, guest list, seat plan, mood board, RSVP with a QR code for every guest, and marketplace browse with a match preview. Couples pay 0% commission on supplier bookings — they pay their suppliers directly and Setnayan never sits between them at checkout.',
-        body: 'Couples start free (planning workspace: schedule, budget, guest list, seat plan, mood board, plus marketplace browse with a match preview). The paid planner is Setnayan AI, a one-time purchase that unlocks the full planner with access through your wedding day. Individual services and the Setnayan AI rate are listed on the Pricing page. Supplier side: Verified is free during launch, with Solo, Pro and Ultra plans — what suppliers pay is set out on setnayan.com/for-suppliers. Couples pay 0% commission on supplier bookings — they pay their suppliers directly and Setnayan never sits between them at checkout. See setnayan.com/pricing for current rates.',
+        body: 'Planning is free: schedule, budget, guest list, seat plan, mood board, and marketplace browse with a match preview. Setnayan AI (a one-time purchase, with access through your event date) and each optional service are priced on setnayan.com/pricing. Couples pay 0% commission on supplier bookings — they pay suppliers directly. Suppliers: Verified is free during launch, with Solo, Pro and Ultra plans — see setnayan.com/for-suppliers.',
       },
       {
         slug: 'is-setnayan-free-for-couples',
@@ -161,7 +162,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
         slug: 'what-is-todays-focus',
         title: "What is Setnayan AI?",
         appBody: HELP_NOT_IN_THE_APP,
-        body: 'Setnayan\'s assisted-planning tier — a one-time purchase that unlocks the full planner with access through your event date (current rate on setnayan.com/pricing). Matches, sorts, and cross-references suppliers against your date, budget, venue, guest count, religion, and reviews — and walks you through every decision from booking your venue through thank-you cards, with religion-adaptive guidance and hard-floor deadlines specific to Filipino weddings (Pre-Cana, marriage license validity windows, sponsor coordination, etc.).',
+        body: 'Setnayan\'s assisted planner — a one-time purchase that unlocks the full planner through your event date (current rate on setnayan.com/pricing). It matches suppliers to your date, budget, venue, guest count, religion and reviews, and walks you through each decision, from the venue to thank-you cards, with faith-specific steps and deadlines (for a Filipino wedding: Pre-Cana, marriage licence windows, sponsors).',
       },
       {
         slug: 'does-setnayan-support-filipino-customs',
@@ -176,7 +177,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'where-does-setnayan-operate',
         title: 'Where does Setnayan operate?',
-        body: 'Philippines — Metro Manila (Quezon City, Makati, Pasig, Taguig, Manila), Cebu, Davao, Tagaytay, Iloilo, Baguio, Pampanga, Cavite, Batangas, Laguna, Bulacan, and any city where Filipino wedding suppliers serve.',
+        body: 'Philippines — Metro Manila (Quezon City, Makati, Pasig, Taguig, Manila), Cebu, Davao, Tagaytay, Iloilo, Baguio, Pampanga, Cavite, Batangas, Laguna, Bulacan, and any city Filipino suppliers serve.',
       },
       {
         slug: 'does-setnayan-have-mobile-app',
@@ -201,7 +202,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
         slug: 'what-is-papic',
         title: 'What is Papic?',
         appBody: HELP_NOT_IN_THE_APP,
-        body: `Candid photo (and short-video) capture for your event. A few friends you pick — your photo crew — shoot freely from their phones, and you can also let every guest snap photos too. Everyone opens a simple camera from a QR link (no app to install); every shot lands in your private Memories in real time and is matched to the right guests, so each person gets the photos they're in — and untagged photos still land (Papic never drops one). Clips run up to 10 seconds, and optional face-matching (only with each guest's consent) auto-sorts photos to the people in them. Your Memories stay online — keep the originals by downloading them or syncing to your own Google Drive. One camera is free on every event. Free credits come ${PAPIC_FREE_CREDIT_CONDITION}, and more are priced on setnayan.com/pricing.`,
+        body: `Candid photo (and short-video) capture for your event. A few friends you pick — your photo crew — shoot freely from their phones, and you can also let every guest snap photos too. Everyone opens a simple camera from a QR link (no app to install); every shot lands in your private Memories in real time and is matched to the right guests, so each person gets the photos they're in — and untagged photos still land (Papic never drops one). Clips run up to 10 seconds, and optional face-matching (only with each guest's consent) auto-sorts photos to the people in them. Your Memories stay online — keep the originals by downloading them or syncing to your own Google Drive. Cameras are free and unlimited; every photo uses credits. Free credits come ${PAPIC_FREE_CREDIT_CONDITION}, and more are priced on setnayan.com/pricing.`,
       },
       {
         slug: 'what-is-panood',
@@ -212,12 +213,12 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'what-is-pakulay',
         title: 'What is Pakulay?',
-        body: 'The visual mood board for your wedding — included free with every couple account. Three pillars: palette (colors), location feel (venue look + atmosphere), and dress codes (attire direction by role tier). Pakulay finalizes once and downstream services (catering, florals, attire, stationery) pull from the same locked vision.',
+        body: 'Pakulay is the Mood Board: your event’s colours and what each role wears, free with every account. Set it in Studio › Mood Board & Dress Code. Each guest sees their own role’s dress code on your Event Hub, and the 3D seat plan dresses them in it.',
       },
       {
         slug: 'how-does-setnayan-handle-privacy',
         title: 'How does Setnayan handle my privacy?',
-        body: 'RA 10173 (Data Privacy Act of the Philippines) compliant. Guest list and event details are never publicly shared without your explicit opt-in. Real-wedding stories publish 30 days post-event only with explicit couple consent. Setnayan sets essential cookies only — no analytics, advertising or tracking cookies — and lists every one at setnayan.com/cookies. National Privacy Commission registration in progress. DPO contact at dpo@setnayan.com.',
+        body: 'RA 10173 (Data Privacy Act of the Philippines) compliant. Guest list and event details are never publicly shared without your explicit opt-in. Real stories publish 30 days after the event only with explicit couple consent. Setnayan sets essential cookies only — no analytics, advertising or tracking cookies — and lists every one at setnayan.com/cookies. National Privacy Commission registration in progress. DPO contact at dpo@setnayan.com.',
       },
       {
         slug: 'how-to-contact-support',
@@ -267,7 +268,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
         slug: 'share-wedding-photos-with-guests-automatically',
         title: 'How do I share wedding photos with guests automatically?',
         appBody: HELP_NOT_IN_THE_APP,
-        body: `With Papic, every guest’s phone becomes part of one photo-and-video crew — no app and no account, just a code and a browser. Photos gather into your Memories as they are taken, and a guest who adds a selfie once has the photos they appear in find them; anyone who skips it is never matched, and face data is deleted automatically three months after the event. If the venue has no signal, photos wait on the phone and send when it returns. One camera is free on every event. Free credits come ${PAPIC_FREE_CREDIT_CONDITION}, and you always receive every photo, kept for life.`,
+        body: `With Papic, every guest’s phone becomes part of one photo-and-video crew — no app and no account, just a code and a browser. Photos gather into your Memories as they are taken, and a guest who adds a selfie once has the photos they appear in find them; anyone who skips it is never matched, and face data is deleted automatically three months after the event. If the venue has no signal, photos wait on the phone and send when it returns. Cameras are free and unlimited; every photo uses credits. Free credits come ${PAPIC_FREE_CREDIT_CONDITION}, and you always receive every photo, kept for life.`,
       },
       {
         slug: 'free-alternative-to-wedding-website-builders',
@@ -297,7 +298,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       // here until that ships. Nor that Live Studio survives a dropout.
       {
         slug: 'what-if-the-venue-has-no-signal',
-        title: 'What happens if the wedding venue has no signal?',
+        title: 'What happens if the venue has no signal?',
         appBody: 'Your guest list, RSVPs and seat plan are all settled before the day, so a weak signal at the venue changes none of them.',
         body: 'Your photos are safe. Papic saves every shot on the phone that took it and sends it by itself once the signal comes back, so a dropped connection never loses a photo. Your guest list, RSVPs and seat plan are all settled before the day. Live Watch is the one part that needs a working connection, because a livestream travels over the internet as it happens — check the venue’s signal or Wi-Fi before the day.',
       },
@@ -313,7 +314,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       },
       {
         slug: 'setnayan-vs-free-apps-and-google-sheets',
-        title: 'How is Setnayan different from free wedding apps, Google Sheets or a shared Drive?',
+        title: 'How is Setnayan different from free planner apps, Google Sheets or a shared Drive?',
         appBody: 'Everything the free tools do, Setnayan also does for free: a guest list with no limit (import your spreadsheet as CSV), RSVP, a seat plan, a budget in pesos and a schedule — in one account, where each part reads the same guest list, so a change in one place shows up everywhere.',
         body: 'Everything the free tools do, Setnayan also does for free: a guest list with no limit (import your spreadsheet as CSV), RSVP, a seat plan, a budget in pesos and a schedule — in one account, where each part reads the same guest list, so a change in one place shows up everywhere. What a spreadsheet or a Drive link cannot do is run the day itself: your guests’ phones become one photo crew filling one set of Memories, and family abroad can watch the ceremony live. Those day-of tools are optional and priced individually on setnayan.com/pricing.',
       },
@@ -617,7 +618,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'vendor-reply-only',
         title: 'Suppliers: how the reply-only inbox works',
-        body: 'Your Messages inbox lists every thread a couple has opened with you. You can reply to any thread, attach files, and share quotes. You cannot start a thread cold — couples have to reach out first. This protects them from unsolicited DMs.',
+        body: 'Your messages — in Customers, or from the envelope at the top — list every chat a couple has opened with you. Reply, attach files and share quotes. You cannot start a chat: a couple writes first, which keeps them free of messages they did not ask for.',
       },
     ],
   },
@@ -640,7 +641,16 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'reference-code',
         title: 'Reference codes',
-        body: "Every order has a short reference code (looks like SNAB12CD34). It's how Setnayan matches your bank transfer to your order. Paste it into the transfer notes — bank statements ingest it automatically and admin reconciles within one business day.",
+        body: "Every order has a short reference code (like SNAB12CD34). Put it in your transfer note — it's how we match your payment to your order.",
+      },
+      {
+        // Worded only from the live policy, app/(shell)/refunds/page.tsx (owner 2026-10-08 "NO REFUNDS — A SERVICE
+        // THEY CANNOT USE BECOMES VIRTUAL CREDITS, CONVERTED TO PAPIC", reaffirmed 2026-10-22). Change both together.
+        slug: 'refunds',
+        title: 'Can I get a refund?',
+        appBody:
+          'A payment made to Apple in the iPhone app is Apple’s: a refund request for it goes to Apple, under Apple’s own terms. A supplier’s deposits, refunds and cancellations are settled between you and the supplier.',
+        body: `No — what you buy from Setnayan is not refunded. If a service you paid for can't be used (we couldn't deliver it, it doesn't work and we can't fix it, or your event was called off first), send us the order reference with the contact form, within ${REFUND_REPORT_WINDOW_DAYS} days of payment where possible. If you haven't used it, it can wait for your next event; otherwise we add Papic credits to your event worth what you paid. A charge made twice or by mistake goes back to the GCash or bank account it came from. Purchases made through Apple in the iPhone app go to Apple. Supplier deposits and refunds are between you and the supplier. Full policy: setnayan.com/refunds.`,
       },
     ],
   },
@@ -734,22 +744,24 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
     roles: ['couple', 'guest'],
     articles: [
       {
-        slug: 'what-is-papic',
-        title: 'What is Papic?',
+        // Was a second `what-is-papic` (2026-10-25): /help/what-is-papic always opened the About answer, so this one
+        // had no page of its own. Its slug now says what it answers; nothing linked to it under the old one.
+        slug: 'how-papic-works',
+        title: 'How does Papic work at my event?',
         appBody: HELP_NOT_IN_THE_APP,
-        body: `Papic turns the phones at your wedding into candid cameras. You get one pot of credits for the whole event, and any guest can shoot from it — they scan your event QR and start, with no limit on how many phones join in. Free credits come ${PAPIC_FREE_CREDIT_CONDITION}, so you can try it before deciding to add any. Cameras themselves are free and you can make as many as you like. Every shot lands in your private Memories, each guest can find the photos they're in, and there's no app to install — it all runs in the browser.`,
+        body: `Papic turns the phones at your event into candid cameras. One pot of credits covers the whole event: any guest scans your event QR and shoots from it, with no limit on how many phones join. Cameras are free and unlimited; every photo uses credits. Free credits come ${PAPIC_FREE_CREDIT_CONDITION}, so you can try it first. Every shot lands in your private Memories, each guest can find the photos they're in, and there is nothing to install — it runs in the browser.`,
       },
       {
         slug: 'turn-on-papic',
         title: 'How do I turn on Papic and hand out cameras?',
         appBody: HELP_NOT_IN_THE_APP,
-        body: `Open your dashboard → Studio → Papic. It's already on, with no limit on cameras. Every photo uses credits from one shared pool, and free credits come ${PAPIC_FREE_CREDIT_CONDITION} — so there is nothing to buy before you try it. To let guests shoot, share your event QR — any phone that scans it shoots from the shared pool, and there's no limit on how many join. To give one person a camera of their own, hand them that camera's link (or QR) from the same page; every shot it takes draws from your shared credits. Top up the shared pool whenever you want — current prices are on setnayan.com/pricing.`,
+        body: `Open your dashboard → Studio → Papic — it is already on.\n1. For guests: share your event QR. Any phone that scans it shoots from your shared credits.\n2. For one person: hand them a camera's own link or QR from the same page. It shoots from the same credits.\nCameras are free and unlimited; every photo uses credits. Free credits come ${PAPIC_FREE_CREDIT_CONDITION}, so there is nothing to buy before you try it. Top up any time — prices are on setnayan.com/pricing.`,
       },
       {
         slug: 'how-papic-tagging-works',
         title: 'How do my photos get matched to the right guests?',
         appBody: HELP_NOT_IN_THE_APP,
-        body: "Two ways, both automatic. (1) Face matching: guests who add a selfie are recognized in candid shots, and those photos appear in their 'Memories of you'. (2) QR scan: your crew can scan a guest's invitation QR or a table sign to mark who's in a shot. Either way, every photo reaches your Memories — tagged or not. Face matching is private and per-wedding: a guest's face data is never shared or reused across events, and it only works with the guest's consent.",
+        body: "Two ways, both automatic. (1) Face matching: guests who add a selfie are recognized in candid shots, and those photos appear in their 'Memories of you'. (2) QR scan: your crew can scan a guest's invitation QR or a table sign to mark who's in a shot. Either way, every photo reaches your Memories — tagged or not. Face matching is private and per event: a guest's face data is never shared or reused across events, and it only works with the guest's consent.",
       },
       {
         slug: 'find-download-papic-photos',
@@ -761,25 +773,25 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
         slug: 'papic-guest-camera',
         title: 'Guest: how do I take candid photos for the couple?',
         appBody: HELP_NOT_IN_THE_APP,
-        body: "If the couple turned on guest cameras, open your invitation link and tap 'Be a candid camera'. Point and shoot — every photo lands straight in the couple's Memories in real time. No sign-in, no app. You have a set number of shots; the counter shows how many you have left. After a shot you can also tell the couple the story behind it.",
+        body: "If the couple turned on guest cameras, open your invitation link and tap 'Be a candid camera'. Point and shoot — every photo lands in the couple's Memories as you take it. No sign-in, no app. You have a set number of shots; the counter shows how many you have left. After a shot you can also tell the couple the story behind it.",
       },
       {
         slug: 'add-your-face',
         title: 'Guest: how do I make sure I get my photos? (add your face)',
         appBody: HELP_NOT_IN_THE_APP,
-        body: "When you RSVP, tap 'Add your photo' and take one selfie (you'll be asked to agree first — it's optional). That lets the candid photos of you find their way to you automatically, under 'Memories of you' on your page. On the wedding day you can also add it from the 'Add your face' card if you skipped it. No selfie? You'll still get any photo where the crew scans your invitation QR.",
+        body: "When you RSVP, tap 'Add your photo' and take one selfie (you'll be asked to agree first — it's optional). That lets the candid photos of you find their way to you automatically, under 'Memories of you' on your page. On the day you can also add it from the 'Add your face' card if you skipped it. No selfie? You'll still get any photo where the crew scans your invitation QR.",
       },
       {
         slug: 'photos-of-you',
         title: "Guest: where do I find the photos I'm in?",
         appBody: HELP_NOT_IN_THE_APP,
-        body: "On the wedding day (from about an hour before it starts), open your personal invitation page and look for 'Memories of you — so far'. As the crew and guests shoot, the photos you're in collect there through the day — and they're yours to keep afterward. You show up there once you've added a selfie, or once someone scans your invitation QR onto a photo.",
+        body: "On the day (from about an hour before it starts), open your personal invitation page and look for 'Memories of you — so far'. As the crew and guests shoot, the photos you're in collect there through the day — and they're yours to keep afterward. You show up there once you've added a selfie, or once someone scans your invitation QR onto a photo.",
       },
       {
         slug: 'papic-crew-how-to-shoot',
         title: 'Crew: I was asked to shoot — how does it work?',
         appBody: HELP_NOT_IN_THE_APP,
-        body: "The couple sent you a camera link. Open it on your phone and tap to claim it — your phone is now a candid camera for their wedding. Shoot photos and clips of up to 10 seconds; everything uploads to their Memories automatically. Your camera shows how many shots are left in the couple's shared credits. To mark who's in a shot, tap 'Tag who's in it' and hold a guest's place-card QR or a table sign in frame — no typing. If you don't tag, the photo still reaches the couple.",
+        body: "The couple sent you a camera link. Open it on your phone and tap to claim it — your phone is now a candid camera for their event. Shoot photos and clips of up to 10 seconds; everything uploads to their Memories automatically. Your camera shows how many shots are left in the couple's shared credits. To mark who's in a shot, tap 'Tag who's in it' and hold a guest's place-card QR or a table sign in frame — no typing. If you don't tag, the photo still reaches the couple.",
       },
       {
         // ⚠ THIS ARTICLE ANSWERED A QUESTION THAT NO LONGER EXISTS. It was
@@ -801,7 +813,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
         slug: 'how-papic-shots-work',
         title: 'How do shots work, and how do I add more?',
         appBody: HELP_NOT_IN_THE_APP,
-        body: `Everything Papic captures is counted in shots. ${SHOT_TERMS[0]}, and ${SHOT_TERMS[1]} — a clip costs more because it is a lot more to keep. They come out of one purse, so there's no separate photo and video allowance to juggle: shoot more clips and you'll get fewer photos out of the same balance, which is why we don't promise you an exact number of each. Cameras are unlimited. Free credits come ${PAPIC_FREE_CREDIT_CONDITION}. When it runs low, top it up from your dashboard → Studio → Papic: add to the shared pool for the whole event. Top-ups stack on whatever your wedding already holds — they never replace it — and current prices are on setnayan.com/pricing. Guests can also top up the pool or their own camera themselves from the camera screen, if you'd rather not.`,
+        body: `Everything Papic captures is counted in shots. ${SHOT_TERMS[0]}, and ${SHOT_TERMS[1]} — a clip costs more because it is a lot more to keep. They come out of one purse, so there's no separate photo and video allowance to juggle: shoot more clips and you'll get fewer photos out of the same balance, which is why we don't promise you an exact number of each. Cameras are unlimited. Free credits come ${PAPIC_FREE_CREDIT_CONDITION}. When it runs low, top it up from your dashboard → Studio → Papic: add to the shared pool for the whole event. Top-ups stack on whatever your event already holds — they never replace it — and current prices are on setnayan.com/pricing. Guests can also top up the pool or their own camera themselves from the camera screen, if you'd rather not.`,
       },
     ],
   },

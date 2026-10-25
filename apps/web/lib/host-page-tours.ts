@@ -21,8 +21,12 @@ export const HOST_PAGE_TOURS = {
   papic: 'customer_papic_v2',
   seatPlan: 'customer_seat_plan_v2',
   moodBoard: 'customer_mood_board_v1',
-  memories: 'customer_memories_v1',
+  memories: 'customer_memories_v2',
   home: 'customer_home_widgets_v1',
+  // Owner 2026-10-25, "the spotlight tour is missing so many parts for each page": the Guests and Suppliers pages
+  // get their own, lighting none of the journey's stops.
+  guests: 'customer_guest_list_v2',
+  suppliers: 'customer_suppliers_v1',
 } as const satisfies Record<string, TourKey>;
 
 /** The journey goes first; a page tour waits until it is seen. */

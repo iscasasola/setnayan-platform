@@ -3,8 +3,8 @@ import { ChevronRight } from 'lucide-react';
 import { ADD_ONS, appStoreDetailHref } from '@/lib/add-ons-catalog';
 import { addOnOfferedForEvent } from '@/lib/add-on-event-scope';
 import { resolveProfileByEvent } from '@/lib/event-type-profile';
-import { isStoreShellRequest } from '@/lib/request-platform';
-import { STORE_SHELL_HIDDEN_ADDON_KEYS, isStoreShellWebOnlyPath } from '@/lib/store-shell';
+import { getIapGate } from '@/lib/request-platform';
+import { isStoreShellHiddenAddon, isStoreShellWebOnlyPath } from '@/lib/store-shell';
 import { OUR_SERVICE_PARTS } from '@/lib/our-services';
 
 /**
@@ -26,10 +26,11 @@ export async function ServiceParts({ eventId, service }: { eventId: string; serv
   if (!part) return null;
   const entry = ADD_ONS.find((a) => a.key === part.key);
   if (!entry || entry.status === 'coming_soon') return null;
-  const [profile, storeShell] = await Promise.all([resolveProfileByEvent(eventId), isStoreShellRequest()]);
+  const [profile, { storeShell, iap }] = await Promise.all([resolveProfileByEvent(eventId), getIapGate()]);
   if (!addOnOfferedForEvent(entry, profile)) return null;
   const href = appStoreDetailHref(entry.key, eventId);
-  if (storeShell && (STORE_SHELL_HIDDEN_ADDON_KEYS.has(entry.key) || isStoreShellWebOnlyPath(href.split('?')[0]!))) return null;
+  // 🍎 Where Apple sells the part in this app (`iap`), its door stays — its page's one pay step is Apple's sheet.
+  if (storeShell && (isStoreShellHiddenAddon(entry.key, iap) || isStoreShellWebOnlyPath(href.split('?')[0]!, iap))) return null;
   return (
     <Link
       href={href}

@@ -234,8 +234,12 @@ export function searchInCodeReads(query: string, storeShell = false): ReadHit[] 
  * Stable by title after score so the same query returns the same order on
  * every render — an ISR page whose result list reshuffles for no reason reads
  * as broken.
+ *
+ * Generic over anything with a score and a title, so the /help · /features
+ * search (`lib/how-search-core.ts`) ranks its help answers and feature pages
+ * by THIS order rather than a second ranker of its own.
  */
-export function rankReads(hits: ReadHit[], limit: number): ReadHit[] {
+export function rankReads<T extends Pick<ReadHit, 'score' | 'title'>>(hits: T[], limit: number): T[] {
   return [...hits]
     .sort((a, b) => b.score - a.score || a.title.localeCompare(b.title))
     .slice(0, limit);

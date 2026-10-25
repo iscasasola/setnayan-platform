@@ -18,20 +18,25 @@
  */
 import { customersSegmentOf } from '@/app/vendor-dashboard/customers/segments';
 
-export const SUPPLIER_PAGE_TOURS = ['vendor_shop_v1', 'vendor_dates_v1', 'vendor_money_v1', 'vendor_hub_v1'] as const;
+export const SUPPLIER_PAGE_TOURS = [
+  'vendor_shop_v1',
+  'vendor_dates_v1',
+  'vendor_money_v1',
+  'vendor_hub_v1',
+  // Owner 2026-10-25, "the spotlight tour is missing so many parts for each page": Today's other parts, Customers ›
+  // People, and Your collections.
+  'vendor_today_v2',
+  'vendor_people_v1',
+  'vendor_collections_v1',
+] as const;
 export type SupplierPageTourKey = (typeof SUPPLIER_PAGE_TOURS)[number];
 
 /** The Today tour goes first; a page tour waits until it is seen, so the two never stack. */
 export const SUPPLIER_PAGE_TOURS_AFTER = 'supplier_spotlight_v1' as const;
 
-/** Shop's three segments and the two screens Page opens (`shop-segments.tsx` lights Page on them too). */
-const SHOP_PATHS = [
-  '/vendor-dashboard/shop',
-  '/vendor-dashboard/website',
-  '/vendor-dashboard/profile',
-  '/vendor-dashboard/collections',
-  '/vendor-dashboard/performance',
-] as const;
+/** Shop's three segments and the screen Page opens (`shop-segments.tsx` lights Page on them too). Your collections
+ *  has its own tour since 2026-10-25. */
+const SHOP_PATHS = ['/vendor-dashboard/shop', '/vendor-dashboard/website', '/vendor-dashboard/profile', '/vendor-dashboard/performance'] as const;
 
 const under = (path: string, root: string) => path === root || path.startsWith(`${root}/`);
 
@@ -40,12 +45,14 @@ export function supplierPageTourOn(
   search: Record<string, string | string[] | undefined>,
 ): SupplierPageTourKey | null {
   const path = pathname.replace(/\/+$/, '') || '/';
+  if (path === '/vendor-dashboard') return 'vendor_today_v2';
+  if (path === '/vendor-dashboard/collections') return 'vendor_collections_v1';
   if (SHOP_PATHS.some((p) => under(path, p))) return 'vendor_shop_v1';
   if (path === '/vendor-dashboard/customers') {
     const seg = customersSegmentOf(search);
     if (seg === 'dates') return 'vendor_dates_v1';
     if (seg === 'money') return 'vendor_money_v1';
-    return null;
+    return 'vendor_people_v1';
   }
   if (path === '/vendor-dashboard/on-the-day') return 'vendor_hub_v1';
   return null;

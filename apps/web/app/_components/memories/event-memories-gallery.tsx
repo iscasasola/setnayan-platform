@@ -321,7 +321,7 @@ export function EventMemoriesGallery({
           </span>
         ) : null}
         {host ? (
-          <ActionButton tone="neutral" iconOnly icon={Settings} label="Memories settings" onClick={() => setGearOpen(true)} data-memories-gear="" />
+          <ActionButton tone="neutral" iconOnly icon={Settings} label="Memories settings" onClick={() => setGearOpen(true)} data-memories-gear="" tour="memories-settings" />
         ) : null}
       </div>
       {needsLook ? (
@@ -763,7 +763,7 @@ function MemoriesThumbRow({
               tour: 'memories-search',
               input: { value: q, onChange: (e) => onSearch(e.target.value), 'data-memories-search': '' },
             }}
-            action={addPhotos ? { icon: Plus, label: 'Add photos', onClick: () => setAdding(true), testId: 'memories-add-photos' } : null}
+            action={addPhotos ? { icon: Plus, label: 'Add photos', onClick: () => setAdding(true), testId: 'memories-add-photos', tour: 'memories-add' } : null}
           />
         </div>,
         host,

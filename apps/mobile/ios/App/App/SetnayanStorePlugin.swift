@@ -10,9 +10,13 @@ import StoreKit
  *
  * The web (apps/web/lib/iap/native-store.ts) calls:
  *
- *   getProducts({ productIds })  → { products: [{ id, displayName, displayPrice }] }
+ *   getProducts({ productIds })  → { products: [{ id, displayName, displayPrice, currencyCode, storefront }] }
  *       Apple's own name and price STRING for each product (`displayPrice`,
  *       already in the person's currency). The web never shows any other price.
+ *       `currencyCode` (the price's ISO 4217 code) and `storefront` (StoreKit's
+ *       current storefront, ISO 3166-1 alpha-3) let the web withhold a price
+ *       whose currency is not the one that storefront charges (build 6,
+ *       2026-10-25: the sheet said "$1.99" where Apple charged "₱ 95.00").
  *
  *   purchase({ productId, appAccountToken })
  *       → { result: "purchased", jws, transactionId }   Apple charged; the web
@@ -105,13 +109,16 @@ public class SetnayanStorePlugin: CAPPlugin, CAPBridgedPlugin {
         Task { @MainActor in
             do {
                 let found = try await Product.products(for: ids)
+                let storefront = await Storefront.current?.countryCode ?? ""
                 var out: [[String: Any]] = []
                 for product in found {
                     self.products[product.id] = product
                     out.append([
                         "id": product.id,
                         "displayName": product.displayName,
-                        "displayPrice": product.displayPrice
+                        "displayPrice": product.displayPrice,
+                        "currencyCode": product.priceFormatStyle.currencyCode,
+                        "storefront": storefront
                     ])
                 }
                 call.resolve(["products": out])

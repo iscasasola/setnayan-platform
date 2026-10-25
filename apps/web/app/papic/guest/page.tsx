@@ -20,8 +20,8 @@ import { PapicGuestBuyPanel } from '@/app/papic/_components/papic-guest-buy-pane
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { resolveGuestOwnCamera } from '@/lib/papic-guest-own-camera';
 import { papicGuestBuyEnabled } from '@/lib/papic-guest-buy-flag';
-import { GuestGuidedTour } from '@/app/_components/guest-guided-tour';
-import { guidedTourView } from '@/app/_components/guided-tour';
+import { GuestSpotlight } from '@/app/_components/guest-spotlight';
+import { TOURS } from '@/lib/tours';
 import { GuestColumnCard } from '@/app/[slug]/_components/guest-column-card';
 import { guestColumnsActive } from '@/lib/guest-columns-gate';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
@@ -444,8 +444,8 @@ export default async function PapicGuestPage({
     />
     {/* First visit only — the shipped tour registry (owner 2026-09-25: every
         feature gets a first-visit tour). A guest here has no account, so the
-        "seen" mark lives on their phone (GuestGuidedTour), not in `users`. */}
-    <GuestGuidedTour tourKey="guest_papic_camera_v1" tour={guidedTourView('guest_papic_camera_v1')} />
+        "seen" mark lives on their phone (GuestSpotlight — the SPOTLIGHT since 2026-10-25), not in `users`. */}
+    <GuestSpotlight tourKey="guest_papic_camera_v2" script={TOURS.guest_papic_camera_v2.spotlight!} />
     {/* Guest "Add credits" doorway (owner-locked 2026-07-29), flag-dark behind
         NEXT_PUBLIC_PAPIC_GUEST_BUY — self-gates to null when off, so this page
         is byte-identical today. No seat token: this surface's identity is the

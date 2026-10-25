@@ -24,7 +24,7 @@ export function CustomersSegments({
   hrefOf?: (s: CustomersSegment) => string;
 }) {
   return (
-    <PillTrack as="nav" grow aria-label="Customers views" data-customers-segmented="" className="w-full">
+    <PillTrack as="nav" grow aria-label="Customers views" data-customers-segmented="" data-tour="customers-segments" className="w-full">
       {CUSTOMER_SEGMENTS.map((s) => (
         <PillLink
           key={s}

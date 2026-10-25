@@ -216,7 +216,7 @@ export function InviteAction({ f }: { f: FindOrInviteState }) {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <ActionButton tone="brand" filled icon={Plus} label="Invite" onClick={() => setOpen(true)} data-testid="people-invite-open" />
+      <ActionButton tone="brand" filled icon={Plus} label="Invite" onClick={() => setOpen(true)} data-testid="people-invite-open" tour="people-invite" />
       {open ? (
         <GuestPopup
           onClose={() => setOpen(false)}

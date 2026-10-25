@@ -455,6 +455,7 @@ export default async function VendorDashboardLayout({
         userId={user.id}
         initialUnread={threadsUnread}
         href={customerLandingHref('messages')}
+        tour="supplier-messages"
       />
       <UnreadBellBadge
         userId={user.id}

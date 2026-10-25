@@ -528,6 +528,7 @@ export default async function VendorOnTheDayPage({
             </div>
             <Link
               href={`/vendor-dashboard/on-the-day/live/${todaysBooking.eventId}`}
+              data-tour="hub-day-launch"
               className="inline-flex shrink-0 items-center gap-1 rounded-lg px-3.5 py-1.5 text-sm font-semibold transition"
               style={{ background: 'var(--m-paper)', color: 'var(--m-ink)' }}
             >
@@ -562,7 +563,8 @@ export default async function VendorOnTheDayPage({
 
       {/* 3 · Controller family + module readout (taxonomy-driven) + console. */}
       <div>
-        <div className="flex items-start justify-between gap-3">
+        {/* 🔦 The Hub tour's "Set it up" stop on an event day — the same token as the quiet day's readout. */}
+        <div className="flex items-start justify-between gap-3" data-tour="hub-setup">
           <ModuleReadout family={family} modules={enabledModules} />
           {todaysBooking ? (
             <Link

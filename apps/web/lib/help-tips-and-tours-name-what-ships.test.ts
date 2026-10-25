@@ -229,14 +229,16 @@ test('no Help, tour or ⓘ string sends anyone to a More the bar does not have',
 test('the account screens’ tours are spotlights, and their optional stop is never the last', () => {
   // Owner 2026-10-10: our tour is a SPOTLIGHT. A stop the screen may not draw (Loved ones is gated) is skipped
   // only when a LATER stop is on screen (`spotlight-tour.tsx`), so it may never be the last one.
-  for (const k of ['customer_account_bar_v1', 'customer_people_v2'] as const) {
+  for (const k of ['customer_account_bar_v2', 'customer_people_v3'] as const) {
     const sp = TOURS[k].spotlight;
     assert.ok(sp && sp.steps.length >= 2, `${k} has no spotlight`);
     assert.equal(TOURS[k].slides.length, 0, `${k} carries carousel slides — the carousel is off`);
   }
   // The account bar's tabs are phone-only; its last stop is the avatar, drawn at every width.
-  assert.equal(TOURS.customer_account_bar_v1.spotlight!.steps.at(-1)!.anchor, 'account-avatar', 'the account-bar tour’s last stop is not the avatar — on a laptop it would stall');
-  const people = TOURS.customer_people_v2.spotlight!.steps.map((s) => s.anchor);
+  assert.equal(TOURS.customer_account_bar_v2.spotlight!.steps.at(-1)!.anchor, 'account-avatar', 'the account-bar tour’s last stop is not the avatar — on a laptop it would stall');
+  const people = TOURS.customer_people_v3.spotlight!.steps.map((s) => s.anchor);
   assert.notEqual(people.at(-1), 'people-loved-ones', 'Loved ones is People’s last stop — on an account without it the tour would stall');
-  assert.equal(people.at(-1), 'people-find', 'People’s last stop is the thumb row’s field, which every view draws');
+  // The thumb row, left to right, closes the tour (v3, 2026-10-25): the field, then ＋ Invite — both drawn by the list view
+  // the first visit opens on. (A stop missing from the page on screen is dropped since 2026-10-22, lib/spotlight-drops.ts.)
+  assert.deepEqual(people.slice(-2), ['people-find', 'people-invite'], 'People’s tour no longer ends on the thumb row’s field and ＋ Invite');
 });

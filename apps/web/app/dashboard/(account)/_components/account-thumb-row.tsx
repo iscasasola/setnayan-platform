@@ -59,18 +59,18 @@ export function AccountThumbRow({
 }
 
 /** One round tool, 44 × 44 — the shared row's round seat is its glass. */
-export function ThumbTool({ children }: { children: ReactNode }) {
+export function ThumbTool({ children, tour }: { children: ReactNode; /** 🔦 A spotlight tour's anchor token. */ tour?: string }) {
   return (
-    <span className={tr.tool} data-thumb-tool="">
+    <span className={tr.tool} data-thumb-tool="" data-tour={tour}>
       {children}
     </span>
   );
 }
 
 /** The field's inside — the shared row's field seat is its glass; the placeholder is two or three words. */
-export function ThumbField({ children, words }: { children: ReactNode; words: string }) {
+export function ThumbField({ children, words, tour }: { children: ReactNode; words: string; /** 🔦 A spotlight tour's anchor token. */ tour?: string }) {
   return (
-    <label data-thumb-field={words} className="flex h-full min-w-0 flex-1 items-center gap-2 pl-3 pr-2.5 text-ink">
+    <label data-thumb-field={words} data-tour={tour} className="flex h-full min-w-0 flex-1 items-center gap-2 pl-3 pr-2.5 text-ink">
       <Search className="h-4 w-4 shrink-0 text-ink/55" strokeWidth={1.9} aria-hidden />
       {children}
     </label>

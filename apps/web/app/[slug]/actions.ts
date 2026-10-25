@@ -2,9 +2,9 @@
 
 import { NAME_CORRECTION_FIELD, adoptDeclinedContactArm, readNameCorrection, withNameCorrection } from '@/lib/rsvp-you-step';
 import { redirect } from 'next/navigation';
-import { lockLinkedSeatNames, planSeatNames, readSeatNames, seatNamePartColumns, type ExtraSeatRow } from '@/lib/extra-seats';
+import { lockLinkedSeatNames, planSeatNames, readSeatNames, seatNamePartColumns, splitUnconfirmedSeats, type ExtraSeatRow } from '@/lib/extra-seats';
 import { A_PLUS_ONE_BRINGS_NO_ONE, isAPlusOne, plusOneSeats } from '@/lib/guests';
-import { SEAT_NAME_DID_NOT_SAVE, SEAT_NAME_MISSING } from '@/lib/seat-name-words';
+import { SEAT_NAME_DID_NOT_SAVE, SEAT_NAME_MISSING, SEAT_NAME_NOT_TICKED } from '@/lib/seat-name-words';
 import { after } from 'next/server';
 import { revalidatePath } from 'next/cache';
 
@@ -945,7 +945,12 @@ async function nameTheSeats(
   // its own camera — at an event whose host allowed them none.
   //
   // ⚖ A BLANK BOX IS NOT A REMOVAL, the same rule the contact boxes follow.
-  const seatNames = readSeatNames(formData);
+  // 🔒 A typed name without its "They're coming" tick is dropped here, before anything is planned (owner 2026-10-25,
+  // `splitUnconfirmedSeats`) — and said: the result names it, so "Add name" shows the reason.
+  const { kept: seatNames, refused: unticked } = splitUnconfirmedSeats(readSeatNames(formData));
+  if (unticked > 0) {
+    logQueryError('submitRsvp.seatNotTicked', { message: `${unticked} named seat(s) posted without the coming tick` }, { event_id: eventId, guest_id: guestId }, 'graceful_degrade');
+  }
   if (seatNames.length > 0) {
     const { data: primary, error: primaryErr } = await admin
       .from('guests')
@@ -1025,6 +1030,10 @@ async function nameTheSeats(
         }
         const first = op.first || 'TBA';
         const last = op.last || '+1';
+        // ✅ "THEY'RE COMING" (owner 2026-10-25): every name that reaches here was ticked — an unticked one was dropped
+        // by `splitUnconfirmedSeats` above — so the seat's OWN reply is written as coming. A linked seat's person
+        // answers for themself: `lockLinkedSeatNames` already turned theirs into a details-only op.
+        const coming = { rsvp_status: 'attending' as const, rsvp_set_by: 'guest' as const, rsvp_responded_at: stamp };
         if (op.kind === 'name') {
           const { error } = await admin
             .from('guests')
@@ -1040,6 +1049,7 @@ async function nameTheSeats(
               // the placeholder on the seating chart and in the emcee script.
               display_name: null,
               plus_one_name_confirmed_at: stamp,
+              ...coming,
               updated_at: stamp,
             })
             .eq('guest_id', op.seatId)
@@ -1085,7 +1095,23 @@ async function nameTheSeats(
               'graceful_degrade',
             );
             failed = true;
-          } else if (mintStatus === 'ok') namedCount += 1;
+          } else if (mintStatus === 'ok') {
+            // The mint makes the row 'pending' (its own shape, shared with the host's seats); the tick is this
+            // reply's, so it is written on the row the mint answered with — this bringer's own seat only.
+            const mintedId = (minted as { guest_id?: string } | null)?.guest_id;
+            const { error: comingErr } = mintedId
+              ? await admin
+                  .from('guests')
+                  .update({ ...coming, updated_at: stamp })
+                  .eq('guest_id', mintedId)
+                  .eq('event_id', eventId)
+                  .eq('plus_one_of_guest_id', guestId)
+              : { error: { message: 'guest_plus_one_seat_mint answered ok without a guest_id' } };
+            if (comingErr) {
+              logQueryError('submitRsvp.seatComing', comingErr, { event_id: eventId, bringer_guest_id: guestId }, 'graceful_degrade');
+              failed = true;
+            } else namedCount += 1;
+          }
         }
       }
 
@@ -1104,11 +1130,12 @@ async function nameTheSeats(
           failed = true;
         }
       }
-      return failed ? { ok: false, error: 'Their name did not save — try again.' } : { ok: true, named: namedCount };
+      if (failed) return { ok: false, error: 'Their name did not save — try again.' };
+      return unticked > 0 ? { ok: false, error: SEAT_NAME_NOT_TICKED } : { ok: true, named: namedCount };
     }
     return { ok: false, error: 'The couple is not taking names for your guests right now.' };
   }
-  return { ok: true, named: 0 };
+  return unticked > 0 ? { ok: false, error: SEAT_NAME_NOT_TICKED } : { ok: true, named: 0 };
 
 }
 

@@ -48,8 +48,9 @@ const WRITE = (() => {
   assert.ok(at > -1, 'the plus-one write is gone');
   // +4600: the block grew each seat's meal/dietary + a details-only branch, and
   // the linked-account name lock (2026-09-29); the end must still reach the
-  // primary's `plus_one_name` mirror.
-  const block = ACTIONS.slice(Math.max(0, at - 1800), at + 4600);
+  // primary's `plus_one_name` mirror. +6400 since 2026-10-25: a ticked seat is written as attending, a minted one too
+  // (the "They're coming" tick).
+  const block = ACTIONS.slice(Math.max(0, at - 1800), at + 6400);
   assert.ok(block.includes('firstNamed'), 'the window no longer reaches the end of the plus-one write');
   return block;
 })();
@@ -105,7 +106,7 @@ test('a blank box is not a removal', () => {
   // (unit-tested in lib/extra-seats.test.ts), and the write runs only for names.
   assert.match(
     WRITE,
-    /const seatNames = readSeatNames\(formData\);\s*if \(seatNames\.length > 0\)/,
+    /const \{ kept: seatNames, refused: unticked \} = splitUnconfirmedSeats\(readSeatNames\(formData\)\);[\s\S]{0,600}?if \(seatNames\.length > 0\)/,
     'the write runs on an empty submit — a blank box must change nothing',
   );
   assert.ok(!/\.delete\(\)/.test(WRITE), 'the guest-side write can delete a guest row');

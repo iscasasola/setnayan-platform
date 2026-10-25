@@ -686,9 +686,11 @@ export function RsvpWidget({
           box for every guest the couple already allowed one, without
           touching who is allowed (a host action, done on the Guest list). */}
       {bringsPlusOnes ? (
-        <div id="plus-ones" data-rsvp-step {...canvasAsk('plus_ones')} className={`${revealAll ? '' : 'attending-reveal '}scroll-mt-6 space-y-1.5`}>
-          {/* One short set per seat + one "Filling in for ▾" switcher
-              (owner 2026-09-29) — its own file, so this card only mounts it. */}
+        /* 🪑 ONE SCREEN PER +1 (owner 2026-10-25, "one at a time"): this wrapper is no longer a step — each seat
+           inside it is (`RsvpPlusOnes`), so the dots count every +1 and Back walks them in turn. */
+        <div id="plus-ones" {...canvasAsk('plus_ones')} className={`${revealAll ? '' : 'attending-reveal '}scroll-mt-6 space-y-1.5`}>
+          {/* One screen per seat — name, "They're coming", meal, dietary (owner 2026-10-25) — its own file, so this
+              card only mounts it. */}
           <RsvpPlusOnes
             count={plusOneSeats(guest)}
             seats={guest.plus_one_seats}
@@ -698,7 +700,6 @@ export function RsvpWidget({
             askDietary={askDietary}
             question={oneAtATime}
             fallback={seatListUnread}
-            youName={oneAtATime ? null : guest.display_name || `${guest.first_name} ${guest.last_name}`.trim()}
           />
         </div>
       ) : null}

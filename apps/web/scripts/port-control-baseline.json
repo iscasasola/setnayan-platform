@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "702fc16bf1",
-  "routeCount": 472,
-  "destinations": 1012,
+  "generatedFromRef": "29f26a0ffd",
+  "routeCount": 471,
+  "destinations": 1009,
   "actions": 665,
-  "blocks": 7081,
+  "blocks": 7074,
   "routes": {
     "/": {
       "files": [
@@ -539,55 +539,33 @@
     },
     "/(shell)/pricing": {
       "files": [
+        "(shell)/pricing/_papic-estimator.tsx",
+        "(shell)/pricing/_pricing-motion.tsx",
         "(shell)/pricing/_pricing-pickers.tsx",
-        "(shell)/pricing/_pricing-reads.ts",
         "(shell)/pricing/loading.tsx",
         "(shell)/pricing/page.tsx"
       ],
       "destinations": [
-        "/features",
+        "/creators",
         "/for-suppliers",
-        "/pricing/plan",
-        "/start"
+        "/signup"
       ],
       "actions": [],
       "blocks": [
-        "Figure",
-        "GuestSpotlight",
+        "AddItem",
+        "AiTypeItem",
+        "BuildStatusChip",
+        "ElsewhereLine",
+        "HTMLDivElement",
+        "HTMLHeadingElement",
+        "HTMLParagraphElement",
         "HubProWays",
-        "Image",
-        "IncludedGroup",
         "InfoTip",
+        "LineRevealHeading",
         "Link",
-        "LockTile",
-        "Moment",
+        "PapicEstimator",
         "PickMenu",
-        "PriceRowShell",
-        "Shot",
-        "TogetherRow",
-        "WhyPoint",
-        "WhyShot"
-      ]
-    },
-    "/(shell)/pricing/plan": {
-      "files": [
-        "(shell)/pricing/plan/_plan-quiz.tsx",
-        "(shell)/pricing/plan/_plan-steps.ts",
-        "(shell)/pricing/plan/page.tsx"
-      ],
-      "destinations": [
-        "/pricing",
-        "/start"
-      ],
-      "actions": [],
-      "blocks": [
-        "InfoTip",
-        "Link",
-        "PickMenu",
-        "PlanQuiz",
-        "PlanState",
-        "Question",
-        "Result"
+        "RevealBand"
       ]
     },
     "/(shell)/privacy": {
@@ -1067,6 +1045,7 @@
         "[slug]/_components/supplier-ribbon.tsx",
         "[slug]/_components/tea-ceremony-card.tsx",
         "[slug]/_components/terms-tick.tsx",
+        "[slug]/_components/tick-box.tsx",
         "[slug]/_components/ticket-picture.tsx",
         "[slug]/_components/ticket-popup.tsx",
         "[slug]/_components/ticket-row.tsx",
@@ -1487,9 +1466,9 @@
         "PhotosOfYouGallery",
         "PhotosOfYouLead",
         "PhotosOfYouPolaroids",
-        "PickMenu",
         "PinnedMap",
         "PlusOneSeatPanels",
+        "PlusOneSeatRow",
         "Portrait",
         "PostEventSceneFrame",
         "PreviewPerson",
@@ -1654,6 +1633,7 @@
         "TermsTick",
         "ThankYouScene",
         "TheirSong",
+        "TickBox",
         "TicketPicture",
         "TicketRow",
         "TicketShow",

@@ -85,29 +85,17 @@ const FLAGS: FlagSpec[] = [
     locals: ['appleIap'],
   },
   {
-    // 🧭 The new Event Hub Maker, "Stages | Studio" (owner 2026-10-06; plan
-    // EVENT_HUB_MAKER_STAGES_STUDIO_BUILD_PLAN_2026-10-06.md PR 1). Registered
-    // the day it shipped dark. Also on for an internal viewer — handed in.
+    // 🧭 THE MAKER'S GUEST SIDE (plan EVENT_HUB_MAKER_STAGES_STUDIO_BUILD_PLAN_2026-10-06.md PR 6) — the Reply
+    // card, Invitation › Me, the camera's looks — on for the variable or for an internal HOST. The Maker itself
+    // is no longer a flag (owner 2026-10-25, "delete that old event hub maker"): there is one Maker, and
+    // `lib/there-is-one-maker.test.ts` fails if a flag or a role ever chooses another. The variable keeps its
+    // name so production's value keeps meaning what it meant for guests.
     env: 'NEXT_PUBLIC_MAKER_STAGES_STUDIO_ENABLED',
-    helper: 'lib/maker-stages-studio-flag.ts',
-    fn: 'makerStagesStudioEnabled',
-    // The ONE place it is decided; the shell is handed the boolean.
-    // …and the guest side (plan PR 6): the one helper the guest page and the
-    // camera page ask, for the event's host instead of the viewer.
-    gates: ['app/dashboard/[eventId]/launch/page.tsx', 'lib/guest-stages-on.ts'],
-    // Take the decision as a prop / input, never ask it themselves.
-    pureCores: ['app/dashboard/[eventId]/launch/_components/maker-shell.tsx', 'lib/studio-tiles.ts'],
-    locals: ['stagesStudio'],
-  },
-  {
-    // 🖥 The new Maker on a desktop, three columns (owner 2026-10-07 all "A"; 2026-10-15 desktop first).
-    // Dark for couples while its PRs land; on for an internal viewer — handed in.
-    env: 'NEXT_PUBLIC_MAKER_DESKTOP_COLUMNS_ENABLED',
-    helper: 'lib/maker-desktop-columns-flag.ts',
-    fn: 'makerDesktopColumnsEnabled',
-    gates: ['app/dashboard/[eventId]/launch/page.tsx'],
-    pureCores: ['app/dashboard/[eventId]/launch/_components/maker-shell.tsx'],
-    locals: ['desktopColumns'],
+    helper: 'lib/guest-stages-on.ts',
+    fn: 'guestStagesFlagOn',
+    gates: ['lib/guest-stages-on.ts'],
+    pureCores: [],
+    locals: ['guestStages'],
   },
   {
     // 🖥 The guest's Event Hub on a desktop — the approved system sheet (DL 2026-10-15). Dark for guests while it is

@@ -2,7 +2,6 @@ import Link from 'next/link';
 import { studioHubHref } from '@/lib/studio-hub';
 import { notFound } from 'next/navigation';
 import { cache } from 'react';
-import { MoodPart, MoodPartNote } from './mood-board-parts';
 import { Spotlight } from '@/app/_components/spotlight';
 import { HOST_PAGE_TOURS, HOST_PAGE_TOURS_AFTER, MAKER_INNER_TOURS_AFTER } from '@/lib/host-page-tours';
 import { createClient } from '@/lib/supabase/server';
@@ -210,8 +209,7 @@ function toRegions(raw: RangeRow[] | RangeRow | null | undefined): ColorRangeSlo
 /**
  * Every read the board makes, and every part of it as a node — ONE build per
  * request (`cache`), drawn either as the page (`MoodBoardEditor`) or as the
- * Maker's three parts (`MoodBoardMakerBody` in the middle, `MoodBoardMakerControls`
- * on the right, `mood-board-parts.tsx` in the navigator).
+ * Maker's Studio › Mood Board & Dress Code (`MoodBoardStudioBody`).
  */
 const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
   const supabase = await createClient();
@@ -1238,64 +1236,6 @@ export async function MoodBoardEditor({ eventId }: { eventId: string }) {
   );
 }
 
-/**
- * 🧩 THE MOOD BOARD IN THE MAKER'S THREE PARTS (owner 2026-09-29, DECISION_LOG
- * "A TOOL MOVED INTO THE MAKER IS REBUILT INTO THE THREE PARTS"): the NAVIGATOR
- * lists its parts (`mood-board-parts.tsx`), the MIDDLE draws the picked one —
- * the theme, the inspirations, the palette, the reception, the board in your
- * colours, Make it real, sharing — and the RIGHT holds that part's controls:
- * the supplier sign-offs beside the palette and the reception, Share with
- * vendors, the two PDFs. Every part stays mounted inside ONE palette provider,
- * so the theme's main colours still derive the palette live (MB5).
- */
-export async function MoodBoardMakerBody({ eventId }: { eventId: string }) {
-  const board = await buildMoodBoard(eventId, true);
-  if (!board.ok) return <CouldNotLoad />;
-  const { provider, parts } = board;
-  return (
-    <div data-mood-board="maker" className="pb-6">
-      <PaletteBoardProvider {...provider}>
-        <MoodPart part="theme">{parts.theme}</MoodPart>
-        <MoodPart part="inspiration">{parts.inspiration}</MoodPart>
-        <MoodPart part="palette"><div data-tour="mood-board-palette">{parts.paletteSection}</div></MoodPart>
-      </PaletteBoardProvider>
-      {/* ✅ Under the colours each role wears — where a couple dresses people. */}
-      <MoodPart part="palette">{parts.dressLists}</MoodPart>
-      <MoodPart part="reception"><div data-tour="mood-board-reception">{parts.reception}</div></MoodPart>
-      <MoodPart part="colours">{parts.colours}</MoodPart>
-      {parts.makeItReal ? <MoodPart part="make-it-real">{parts.makeItReal}</MoodPart> : null}
-      <MoodPart part="share">{parts.shareWords}</MoodPart>
-      {/* 🔦 Inside the Maker: after the Maker's own tour, and the engine does not pause for it. */}
-      <Spotlight tourKey={HOST_PAGE_TOURS.moodBoard} after={MAKER_INNER_TOURS_AFTER} inMaker />
-    </div>
-  );
-}
-
-/** The RIGHT column: the picked part's controls, and the exports every part keeps at hand. */
-export async function MoodBoardMakerControls({ eventId }: { eventId: string }) {
-  const board = await buildMoodBoard(eventId, true);
-  if (!board.ok) return <CouldNotLoad />;
-  const { parts } = board;
-  return (
-    <div data-mood-board-controls="" className="flex flex-col gap-3">
-      <MoodPart part="palette">{parts.peopleAgreed}</MoodPart>
-      <MoodPart part="reception">{parts.roomAgreed}</MoodPart>
-      <MoodPart part="share">{parts.shareButton}</MoodPart>
-      {/* 🪜 In the Maker's guided flow (a step is a setup control, nothing else):
-          no note under the part, no downloads — the board itself is the step's
-          picture (owner 2026-10-05). */}
-      <div className="contents group-data-[details-mode=guided]/ws:hidden" data-mood-board-note-wrap="">
-        <MoodPartNote />
-      </div>
-      <div className="flex flex-col gap-2 border-t border-ink/10 pt-3 group-data-[details-mode=guided]/ws:hidden" data-mood-board-exports="" data-tour="mood-board-share">
-        <p className="text-xs font-semibold text-ink/60">Download your board</p>
-        <div className="flex flex-wrap items-center gap-2">{parts.pdfs}</div>
-        {parts.lastSaved}
-      </div>
-    </div>
-  );
-}
-
 /* ═══════════════════════════════════════════════════════════════════════════
    🧭 STUDIO › MOOD BOARD & DRESS CODE (the new Maker; plan PR 5)
    ═══════════════════════════════════════════════════════════════════════════ */
@@ -1309,7 +1249,7 @@ function guestRoleTally(guests: ReadonlyArray<{ role: GuestRole; extra_roles?: G
 
 /* The Attire tab's rows — `studioAttireRows` (lib/studio-attire-rows.ts), the same function the dev lab draws. */
 
-/** 🧭 The new Maker's Studio › Mood Board & Dress Code — drawn by the launch page in place of `MoodBoardMakerBody` while it is on. */
+/** 🧭 The Maker's Studio › Mood Board & Dress Code — drawn by the launch page (the old Maker's three-part body went with it, 2026-10-25). */
 export async function MoodBoardStudioBody({ eventId }: { eventId: string }) {
   const board = await buildMoodBoard(eventId, true);
   if (!board.ok) return <CouldNotLoad />;

@@ -381,12 +381,21 @@ export function walletBackPath(referer: string | null | undefined, requestUrl: s
 const escHtml = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 /**
+ * The house ⓘ — `<InfoTip>`'s drawn circle (16 px, an ink/25 hairline, a 10-px semibold ink/55 "i"), spelled as inline
+ * styles because this page is a bare HTML string with no stylesheet. It was the `ⓘ` glyph, whose size and weight are
+ * whatever the phone's font draws (owner 2026-10-25: *"the (i) is not consistent across the app"*). Ink is the page's
+ * own `#1E2229`. Held by `app/_components/there-is-one-info-dot.test.ts`.
+ */
+const WALLET_INFO_DOT =
+  '<span aria-hidden="true" style="display:inline-flex;width:16px;height:16px;box-sizing:border-box;align-items:center;justify-content:center;border:1px solid rgba(30,34,41,.25);border-radius:9999px;font-size:10px;font-weight:600;line-height:1;color:rgba(30,34,41,.55)">i</span>';
+
+/**
  * 🗣 A SMALL PAGE, NEVER A FILE OR A BARE LINE. The Wallet button is a plain link, so whatever the route answers is
  * what the guest SEES. One line, an optional ⓘ with the detail (no script — a `<details>`), and ONE button.
  */
 export function walletNoticeHtml(n: { line: string; button: string; href: string; why?: string | null }): string {
   const why = n.why
-    ? `<details style="max-width:22rem;margin:0 auto 20px;font-size:14px;color:#4A4F57"><summary aria-label="More" style="cursor:pointer;list-style:none">ⓘ</summary><p style="margin:8px 0 0">${escHtml(n.why)}</p></details>`
+    ? `<details style="max-width:22rem;margin:0 auto 20px;font-size:14px;color:#4A4F57"><summary aria-label="More" style="cursor:pointer;list-style:none;display:inline-flex;min-width:44px;min-height:44px;align-items:center;justify-content:center">${WALLET_INFO_DOT}</summary><p style="margin:8px 0 0">${escHtml(n.why)}</p></details>`
     : '';
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>${escHtml(PASS_CARD_WORDS.appleWallet)}</title></head><body style="font-family:-apple-system,system-ui,sans-serif;background:#FBFBFA;color:#1E2229;margin:0;padding:48px 20px;text-align:center"><p role="alert" style="font-size:17px;line-height:1.45;max-width:22rem;margin:0 auto 12px">${escHtml(n.line)}</p>${why}<a href="${escHtml(n.href)}" data-wallet-notice-button="" style="display:inline-block;min-height:44px;line-height:44px;padding:0 22px;border-radius:999px;background:#1E2229;color:#fff;text-decoration:none;font-weight:600">${escHtml(n.button)}</a></body></html>`;
 }

@@ -3,7 +3,7 @@
 import { useEventWords, WORDS_AS_SHIPPED } from './event-words-provider';
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { Info, Loader2, X } from 'lucide-react';
+import { Loader2, X } from 'lucide-react';
 import type { FaceGateReason, FaceGateResult } from '@/lib/face-gate';
 import type { PapicFaceMode } from '@/lib/papic-face-mode';
 import {
@@ -310,9 +310,18 @@ export function SelfieCapture({
               type="button"
               onClick={() => setDetails(true)}
               aria-label="Details"
-              className="-m-1 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink/70"
+              className="sn-press group/info -m-1 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full"
             >
-              <Info aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+              {/* The house ⓘ, class for class (`<InfoTip>`'s drawn circle — owner 2026-10-25: "the (i) is not
+                  consistent across the app"), inside this 44-px button, which opens the details sheet. Its hover
+                  colour is `terracotta`, not the app's `sn-accent`: a guest page wears the couple's colours
+                  (`the-accent-is-one-token.test.ts` (4)), and every hub look moves terracotta with it. */}
+              <span
+                aria-hidden="true"
+                className="sn-press-ring inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-ink/25 text-[10px] font-semibold leading-none text-ink/55 transition-all duration-sn-control ease-sn group-hover/info:border-terracotta group-hover/info:text-terracotta"
+              >
+                i
+              </span>
             </button>
           </div>
           {/* Both inputs the enrolment reads, posted only with the tick. */}

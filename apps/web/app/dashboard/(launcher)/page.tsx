@@ -1633,7 +1633,7 @@ function ShelfInfo({ children }: { children: string }) {
   return (
     <details className="group relative shrink-0">
       <summary
-        className="relative flex h-5 w-5 cursor-pointer list-none items-center justify-center rounded-full border border-ink/20 text-[10px] font-bold italic leading-none text-[color:var(--sn-ink-500)] transition before:absolute before:-inset-2.5 before:content-[''] hover:border-ink/40 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--sn-mulberry-600)] [&::-webkit-details-marker]:hidden"
+        className="relative flex h-4 w-4 cursor-pointer list-none items-center justify-center rounded-full border border-ink/25 text-[10px] font-semibold leading-none text-ink/55 transition-all duration-sn-control ease-sn before:absolute before:-inset-[15px] before:content-[''] hover:border-sn-accent hover:text-sn-accent group-open:border-sn-accent group-open:text-sn-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--sn-mulberry-600)] [&::-webkit-details-marker]:hidden"
         aria-label="What is this row?"
       >
         i
@@ -1642,7 +1642,10 @@ function ShelfInfo({ children }: { children: string }) {
           left-0 opened mostly off-screen. Below `sm` it is `fixed` with auto top
           (its static position, just under the ⓘ) and spans the screen with a
           16 px gutter; `sm` and up keep the anchored bubble. The summary's
-          `before:` layer widens the tap area to 40 px without changing the look. */}
+          `before:` layer widens the tap area to 46 px without changing the look.
+          🎯 The circle is the house ⓘ, class for class (`<InfoTip>`'s trigger — owner 2026-10-25, *"the (i) is not
+          consistent across the app"*); `group-open:` stands in for InfoTip's `aria-expanded:`. A <details>, not
+          InfoTip, so it still opens with JavaScript off. `there-is-one-info-dot.test.ts`. */}
       <p className="absolute left-0 top-7 z-20 w-[min(17rem,72vw)] max-sm:fixed max-sm:left-[max(1rem,var(--sn-safe-l))] max-sm:right-[max(1rem,var(--sn-safe-r))] max-sm:top-auto max-sm:mt-2 max-sm:w-auto whitespace-normal rounded-xl border border-ink/12 bg-white p-3 text-[12.5px] font-normal leading-relaxed text-ink/75 shadow-lg">
         {children}
       </p>

@@ -20,4 +20,7 @@ before open), `guests/_components/invite-apps-are-one-choice.test.ts` (one sheet
 speller, never stamps). `lib/no-door-out-of-the-app.test.ts` gains one owner-scoped
 GUEST_CONTACT_BILL line for the two recipient-less links.
 
+Also: the one-by-one run's guest card was hard-coded `bg-white` and drew white-on-white text in dark
+mode; it now takes `dark:bg-raised` (found while screenshotting this change).
+
 SPEC IMPACT: DECISION_LOG.md — one row, "INVITE THROUGH WHATSAPP · VIBER · MESSENGER" (2026-10-26).

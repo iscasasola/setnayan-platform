@@ -344,7 +344,7 @@ export function SendInviteActions({
           hint: inviteAppHint(app, appDevice),
         }))}
         onPick={viaApp}
-        className={size === 'run' ? 'min-h-12 w-full justify-center text-sm' : 'min-h-11'}
+        className={`border border-ink/15 ${size === 'run' ? 'min-h-12 w-full justify-center text-sm' : 'min-h-11'}`}
       />
     </span>
   );

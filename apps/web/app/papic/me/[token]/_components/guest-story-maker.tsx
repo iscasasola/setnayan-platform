@@ -276,6 +276,7 @@ export function GuestStoryMaker({ token }: { token: string }) {
     <section
       id="story"
       aria-label="Make my Story"
+      data-tour="me-story"
       className="mt-6 rounded-2xl border border-mulberry/25 bg-mulberry/5 p-5"
     >
       <h2 className="inline-flex items-center gap-2 text-lg font-semibold tracking-tight text-ink">

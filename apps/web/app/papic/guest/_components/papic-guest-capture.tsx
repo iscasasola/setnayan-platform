@@ -1587,13 +1587,13 @@ export function PapicGuestCapture({
             status chip counts what waits — a personal count beside it would read as
             shots still to take (owner prototype 2026-10-24 hides it). */}
         {capApplies && !poolEmpty ? (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-cream/10 px-3 py-1 text-xs font-medium text-cream">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-cream/10 px-3 py-1 text-xs font-medium text-cream" data-tour="camera-credits">
             <ImageIcon aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
             {low ? `Running low — ${formatCount(remaining)} ${remaining === 1 ? 'credit' : 'credits'} left` : `${formatCount(remaining)} ${remaining === 1 ? 'credit' : 'credits'} left`}
             {sponsorShare ? <span className="text-cream/60">· a sponsor’s share</span> : null}
           </span>
         ) : poolEmpty ? null /* run out: the camera says so itself — "running low" would be false */ : poolLow ? (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-cream/10 px-3 py-1 text-xs font-medium text-cream">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-cream/10 px-3 py-1 text-xs font-medium text-cream" data-tour="camera-credits">
             <ImageIcon aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
             Running low for everyone
           </span>
@@ -1752,8 +1752,8 @@ export function PapicGuestCapture({
             choose Snippet on purpose. Hold-to-record still works in Photo. */}
         <div className="flex items-center justify-between gap-2">
           {/* 🏆 "Challenge · … ▾" — the event's running challenges as one dropdown (owner prototype 2026-10-24). */}
-          {!exhausted ? <ChallengePill c={challenges} /> : null}
-          <div role="group" aria-label="Photo or snippet" className="ml-auto flex shrink-0 gap-0.5 rounded-full bg-cream/10 p-[3px]">
+          {!exhausted ? <span className="inline-flex" data-tour="camera-challenge"><ChallengePill c={challenges} /></span> : null}
+          <div role="group" aria-label="Photo or snippet" data-tour="camera-mode" className="ml-auto flex shrink-0 gap-0.5 rounded-full bg-cream/10 p-[3px]">
             {(['photo', 'snippet'] as const).map((m) => (
               <button
                 key={m}
@@ -1784,6 +1784,7 @@ export function PapicGuestCapture({
               type="button"
               data-camera-thumb=""
               onClick={() => setShotsOpen(true)}
+              data-tour="camera-shots"
               aria-label="My shots"
               aria-haspopup="dialog"
               aria-expanded={shotsOpen}
@@ -1838,6 +1839,7 @@ export function PapicGuestCapture({
                       : 'Tap to take a photo, or press and hold to record a snippet'
                 }
                 data-shutter={shutterLogo ? 'pro' : 'free'}
+                data-tour="camera-shutter"
                 className={
                   shutterLogo
                     ? 'flex h-full w-full items-center justify-center rounded-full border-4 border-white p-1 transition active:scale-95 disabled:opacity-40'

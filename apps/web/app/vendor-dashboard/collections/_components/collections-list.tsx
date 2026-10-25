@@ -70,6 +70,7 @@ export function CollectionsList({
 
   return (
     <>
+      <div data-tour="collections-filter">
       <PickMenu
         label="Show which collections"
         value={filter}
@@ -78,6 +79,7 @@ export function CollectionsList({
         dataAttr="data-collections-filter"
         className="min-h-11 w-full"
       />
+      </div>
       <p className="text-[15px] text-ink" data-collections-line="">
         {(() => {
           const l = collectionsLine(rows);
@@ -101,7 +103,7 @@ export function CollectionsList({
         </Link>
       ) : null}
 
-      <div className="divide-y divide-ink/10" data-collections-list="">
+      <div className="divide-y divide-ink/10" data-collections-list="" data-tour="collections-list">
         {list.length === 0 ? (
           <p className="py-4 text-sm text-ink/60">Nothing here for this filter.</p>
         ) : (

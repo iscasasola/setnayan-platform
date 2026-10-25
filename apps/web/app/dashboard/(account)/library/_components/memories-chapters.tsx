@@ -262,7 +262,8 @@ export async function MemoriesChapters({
       {events.map((album) => {
         const mine = shown.filter((f) => f.eventId === album.event.event_id);
         return (
-          <section key={album.event.event_id} data-memories-chapter-event={album.event.event_id} data-memories-filter-name={album.event.display_name}>
+          // 🔦 The account Memories tour rings the first event drawn (the engine takes the first visible match).
+          <section key={album.event.event_id} data-memories-chapter-event={album.event.event_id} data-memories-filter-name={album.event.display_name} data-tour="library-event">
             <Heading
               label={album.event.display_name}
               count={mine.length > 0 ? (lens === 'with_me' ? mine.length : Math.max(album.count, mine.length)) : wall.unreadable ? undefined : null}

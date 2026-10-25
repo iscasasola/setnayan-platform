@@ -1,6 +1,7 @@
 'use client';
 
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import type { SpotlightScript, TourKey } from '@/lib/tours';
 import { spotlightSteps } from '@/lib/spotlight-steps';
 
@@ -18,6 +19,16 @@ const SpotlightTour = lazy(() => import('./spotlight-tour').then((m) => ({ defau
 export const SPOTLIGHT_REPLAY_EVENT = 'sn:spotlight';
 /** On <html> while a page's own tour can replay: its key. */
 const PAGE_ATTR = 'data-spotlight-page';
+
+/**
+ * 🧱 TWO NEVER STACK, EVEN BACK TO BACK. A page tour waits for another (`after`) — but the journey can END on a page
+ * that has its own tour (the host's ends on Suppliers, the supplier's on Today). Finishing it records it, the layout
+ * re-reads `tour_seen_keys`, and the page tour would start the instant the "You're set" card closed. So the tour
+ * that just finished is remembered with the page it finished on, and a tour waiting for it starts on the NEXT visit
+ * to that page instead. Any move to another page forgets it (`usePathname`, below).
+ */
+let finishedHere: { key: string; path: string } | null = null;
+const here = () => (typeof window === 'undefined' ? '' : window.location.pathname);
 
 /**
  * 🔦 MOUNTS ONE SPOTLIGHT TOUR (the engine is `spotlight-tour.tsx`).
@@ -38,6 +49,7 @@ export function SpotlightMount({
   name = null,
   completeAction,
   inMaker = false,
+  after,
 }: {
   tourKey: TourKey;
   script: SpotlightScript;
@@ -50,11 +62,28 @@ export function SpotlightMount({
   /** The person's display name, for a welcome step's "Welcome, {name}". */
   name?: string | null;
   completeAction: (tourKey: TourKey) => Promise<void>;
+  /** The tour this one waits for — if it finished on THIS page a moment ago, this one waits for the next visit. */
+  after?: TourKey;
 }) {
   const [run, setRun] = useState<{ record: boolean; restart: boolean; n: number } | null>(null);
+  const pathname = usePathname();
+  const complete = useCallback(
+    (k: TourKey) => {
+      finishedHere = { key: k, path: here() };
+      return completeAction(k);
+    },
+    [completeAction],
+  );
 
   useEffect(() => {
-    if (!seen) setRun({ record: true, restart: false, n: 0 });
+    if (finishedHere && finishedHere.path !== here()) finishedHere = null;
+  }, [pathname]);
+
+  useEffect(() => {
+    const justFinished = after != null && finishedHere?.key === after && finishedHere.path === here();
+    if (justFinished) {
+      // The tour this one waits for closed on this page a moment ago — this one waits for the next visit.
+    } else if (!seen) setRun({ record: true, restart: false, n: 0 });
     if (!replay) return;
     const html = document.documentElement;
     const page = replay === 'page';
@@ -73,7 +102,7 @@ export function SpotlightMount({
       if (setShow) html.removeAttribute('data-spotlight');
       if (page && html.getAttribute(PAGE_ATTR) === tourKey) html.removeAttribute(PAGE_ATTR);
     };
-  }, [seen, replay, tourKey]);
+  }, [seen, replay, tourKey, after]);
 
   if (!run || script.steps.length === 0) return null;
   return (
@@ -86,7 +115,7 @@ export function SpotlightMount({
         finale={script.finale}
         record={run.record}
         restart={run.restart}
-        completeAction={completeAction}
+        completeAction={complete}
         inMaker={inMaker}
         onClose={() => setRun(null)}
       />

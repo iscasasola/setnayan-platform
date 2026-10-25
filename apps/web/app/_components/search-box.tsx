@@ -29,6 +29,7 @@ export function SearchBox({
   hash = '',
   wait = 320,
   data,
+  tour,
 }: {
   /** What is searched, in words — also its name for a screen reader. */
   placeholder: string;
@@ -44,6 +45,8 @@ export function SearchBox({
   wait?: number;
   /** `data-search-box="<data>"`. */
   data?: string;
+  /** 🔦 A spotlight tour's anchor token (`data-tour`). */
+  tour?: string;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -77,6 +80,7 @@ export function SearchBox({
       action={`${pathname}${hash}`}
       data-fit-field=""
       data-search-box={data ?? ''}
+      data-tour={tour}
       data-pending={pending ? '' : undefined}
       onSubmit={(e) => {
         e.preventDefault();

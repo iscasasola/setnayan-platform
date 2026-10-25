@@ -22,6 +22,7 @@
 
 import { startAppStorePurchase, confirmAppStorePurchase, restoreAppStorePurchases } from './iap-actions';
 import { screenFor, type IapConfirmResult, type IapScreen, type IapSheetResult, type IapRestoreResult } from './iap-outcome';
+import { priceMatchesStorefront } from './storefront-price';
 
 export const NATIVE_STORE_PLUGIN = 'SetnayanStore';
 
@@ -52,19 +53,31 @@ function call<T>(method: string, options: Record<string, unknown> = {}): Promise
   return cap.nativePromise(NATIVE_STORE_PLUGIN, method, options) as Promise<T>;
 }
 
-export type AppStoreProduct = { id: string; displayName: string; displayPrice: string };
+export type AppStoreProduct = {
+  id: string;
+  displayName: string;
+  /** StoreKit's own localized price string (`Product.displayPrice`) — the ONLY price the app shows. */
+  displayPrice: string;
+  /** The price's ISO 4217 code (`priceFormatStyle.currencyCode`) — builds after 1.0 (6) send it. */
+  currencyCode?: string;
+  /** StoreKit's current storefront, ISO 3166-1 alpha-3 (`Storefront.current.countryCode`) — the same builds. */
+  storefront?: string;
+};
 
 /**
  * Apple's name and price for each product id — the ONLY price the app shows.
  * Null when StoreKit did not answer: the caller says so, it never falls back
- * to a figure of ours.
+ * to a figure of ours. A product whose price is not in its storefront's money
+ * (`priceMatchesStorefront`) is left out: its button shows no price and waits.
  */
 export async function loadAppStoreProducts(ids: readonly string[]): Promise<Map<string, AppStoreProduct> | null> {
   try {
     const r = await call<{ products?: AppStoreProduct[] }>('getProducts', { productIds: [...ids] });
     const map = new Map<string, AppStoreProduct>();
     for (const p of r?.products ?? []) {
-      if (p && typeof p.id === 'string' && typeof p.displayPrice === 'string' && p.displayPrice.length > 0) map.set(p.id, p);
+      if (p && typeof p.id === 'string' && typeof p.displayPrice === 'string' && p.displayPrice.length > 0 && priceMatchesStorefront(p)) {
+        map.set(p.id, p);
+      }
     }
     return map;
   } catch {

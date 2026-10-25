@@ -232,6 +232,8 @@ test('3 · one mechanism: the riding row pins on every input, ThumbRow hands it 
     ['app/_components/frontdoor/front-door.tsx', /data-discover-results="" data-search-results=""/],
     ['app/dashboard/[eventId]/budget/_components/budget-screen.tsx', /data-budget-list=""[^>]*data-search-results=""/],
     ['app/(shell)/explore/page.tsx', /grid gap-4 sm:grid-cols-2 lg:grid-cols-3" data-search-results=""/],
+    ['app/_components/how-search/how-search.tsx', /data-how-results="" data-search-results=""/],
+    ['app/_components/how-search/how-search.tsx', /data-how-results="" data-search-none=""/],
   ];
   for (const [f, re] of MARKS) assert.match(read(f), re, `${f}: its search results are not marked for the pin`);
 });

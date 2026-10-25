@@ -20,12 +20,15 @@ import {
   Clapperboard,
   Gift,
   Info,
+  Receipt,
 } from 'lucide-react';
 import type { SwitcherData } from './get-switcher-data';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { newLabel, readSheetUnreadUrls, splitSheetUnread, type SheetUnread } from '@/lib/avatar-sheet-counts';
 import { signOutAllAction } from '@/lib/account-jars';
 import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
+import { appearanceSwitchShown } from '@/lib/appearance';
+import { AppearanceChoice } from './appearance-choice';
 
 type Props = {
   data: SwitcherData;
@@ -186,6 +189,10 @@ const SHOP_ROW_ICON: Record<string, typeof Store> = {
  *        team only) · Create your shop (canOpenShop). ✓ on the row you are standing in, › on the rest, "• N new"
  *        from the bell's own read split by place (lib/avatar-sheet-counts.ts — a failed read draws nothing).
  *   3. YOUR SHOP — the supplier's own rows, vendor layout only, same row anatomy.
+ *   3b. YOUR ACCOUNT — "Billing & receipts" (→ /dashboard/billing, every purchase this login made) and
+ *      "Appearance" (Light · Dark · Automatic — moved here from Profile & settings › Preferences). Owner 2026-10-25,
+ *      on a competitor's avatar menu: "on the upper right, i think the billings&receipts looks nice as well".
+ *      Signed-in accounts only (an anon draft has bought nothing and is always Light).
  *   4. QUICK TILES — Your Story · Refer a couple (programme on) · Show me around (a tour is mounted) · Sign out.
  *   5. "Sign out of all accounts" — the one quiet line. Until other logins can live on this phone it signs out the
  *      only one there is, so today it is the same form as Sign out.
@@ -451,6 +458,27 @@ export function SwitcherPanelBody({
             })}
           </nav>
         </>
+      ) : null}
+
+      {/* ── 3b · Your account — Billing & receipts · Appearance (owner 2026-10-25). One card, no heading: the
+          cover above already says whose account this is. Appearance is drawn only once dark has a ready screen
+          (`appearanceSwitchShown`, owner 2026-10-16). ── */}
+      {!data.isAnonymous ? (
+        <div className="sn-sheet-card mx-3 mt-2.5 overflow-hidden rounded-tile bg-[var(--m-paper)]" data-sheet-account-rows="">
+          <Link href="/dashboard/billing" onClick={close} data-sheet-row="billing" className={ROW_SM}>
+            <span aria-hidden className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--m-ivory)] text-ink">
+              <Receipt className="h-[18px] w-[18px]" strokeWidth={1.75} />
+            </span>
+            <span className="min-w-0 flex-1 truncate text-[15px] font-medium text-ink">Billing &amp; receipts</span>
+            <ChevronRight aria-hidden className="h-[17px] w-[17px] shrink-0 text-[var(--m-slate-3)]" strokeWidth={2} />
+          </Link>
+          {appearanceSwitchShown() ? (
+            <AppearanceChoice
+              saved={data.themePreference}
+              className="sn-row-sm flex min-h-[52px] w-full items-center gap-3 py-1.5 pl-3 pr-3.5"
+            />
+          ) : null}
+        </div>
       ) : null}
 
       {/* ── 4 · Quick tiles ── */}

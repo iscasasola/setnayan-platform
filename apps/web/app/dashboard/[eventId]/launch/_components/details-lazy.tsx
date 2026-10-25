@@ -209,8 +209,6 @@ export const StagePlayStatus = dynamic(() => import(/* webpackChunkName: "maker-
 /** 🧱 A fixed block's own Animate (`lib/block-looks.ts`) — with the toolbar, never in the first load. */
 export const BlockAnimateRows = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stage-panel/block-animate').then((m) => m.BlockAnimateRows), { loading: SlotRows });
 
-/* ✕ The Maker's way out — Back to this event · All events (`maker-exit-sheet.tsx`), drawn when ✕ is pressed. */
-export const MakerExitSheet = dynamic(() => import(/* webpackChunkName: "maker-details" */ './maker-exit-sheet').then((m) => m.MakerExitSheet), { loading: SlotNone });
 
 /* ── 🗂 The Maker rows' own panels (`website/editor/page.tsx` → `rows[…].node`, `setLookPages`) — each is drawn only
    when its row or look page is opened, so none rides the Maker's first load (headroom, 2026-10-18: the first load sat

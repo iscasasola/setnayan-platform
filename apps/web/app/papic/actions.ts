@@ -37,6 +37,7 @@ import {
   isPaidCameraTier,
   papicCameraOrderPaid,
   papicCaptureCost,
+  papicSeatCaptureSource,
   eventUnliFreeViaUnlock,
   eventLtdFreeViaUnlock,
 } from '@/lib/papic-cameras';
@@ -608,7 +609,12 @@ export async function recordSeatCapture(
       //
       // An event holding the Papic Unlock pass shoots unmetered — cost stays 0.
       if (!unlocked) {
-        meterCost = papicCaptureCost(kind === 'clip' ? 'clip' : 'photo', durationMs);
+        // 📤 Added by hand (the Uploads camera's seat) → 2 for a photo; a camera photo → 1 (owner 2026-10-26).
+        meterCost = papicCaptureCost(
+          kind === 'clip' ? 'clip' : 'photo',
+          durationMs,
+          papicSeatCaptureSource(typeof seat.seat_index === 'number' ? seat.seat_index : null),
+        );
       }
     }
   }

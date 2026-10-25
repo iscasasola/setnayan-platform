@@ -8,9 +8,9 @@ import { countGalleryFrames } from '@/lib/papic-gallery';
 import { viewerSeesCoupleScopedPapic } from '@/lib/papic-gallery-scope';
 import { resolveStoredWindow } from '@/lib/papic-window';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
-import { formatCount } from '@/lib/format-number';
+import { countNoun, formatCount } from '@/lib/format-number';
 import { getIapGate } from '@/lib/request-platform';
-import { PAPIC_UPLOADS_CAMERA_INDEX } from '@/lib/papic-cameras';
+import { PAPIC_UPLOADS_CAMERA_INDEX, papicCaptureCost } from '@/lib/papic-cameras';
 import { EventMemoriesGallery } from '@/app/_components/memories/event-memories-gallery';
 import { Spotlight } from '@/app/_components/spotlight';
 import { HOST_PAGE_TOURS, HOST_PAGE_TOURS_AFTER } from '@/lib/host-page-tours';
@@ -142,6 +142,8 @@ export default async function EventMemoriesPage({ params, searchParams }: Props)
         pot = typeof left === 'number' ? Math.max(0, left) : null;
       }
     }
+    // 📤 An added photo costs 2, a camera photo 1 (owner 2026-10-26) — said from the one function, never typed.
+    const addedPhotoWords = `Each photo you add uses ${countNoun(papicCaptureCost('photo', null, 'upload'), 'credit', 'credits')}.`;
     // The ONE Add more — Apple's sheet in the app (it sells there), the web's sheet on the web; the app without Apple's
     // shop offers no web checkout (the rule `appleIap` above records), so no door there.
     const buy = iap.iap ? (
@@ -159,7 +161,7 @@ export default async function EventMemoriesPage({ params, searchParams }: Props)
         <input type="hidden" name="back" value="memories" />
         <p className="max-w-prose text-sm text-ink/65">
           Add photos and clips from your phone or laptop — older memories too. They land in your Memories with everything
-          your guests take, and cost the same: one credit a photo.
+          your guests take. {addedPhotoWords}
         </p>
         <SubmitButton className="sn-btn-primary">Turn this on</SubmitButton>
       </form>

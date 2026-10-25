@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { generateSeatClaimToken } from '@/lib/papic-seats';
 import { eventSkuActive } from '@/lib/entitlements';
-import { PAPIC_FREE_CAMERA_COUNT, papicCaptureCost } from '@/lib/papic-cameras-pure';
+import { PAPIC_FREE_CAMERA_COUNT, papicCaptureCost, type PapicCaptureSource } from '@/lib/papic-cameras-pure';
 import { formatCount } from '@/lib/format-number';
 
 /**
@@ -183,6 +183,15 @@ export const PAPIC_FREE_ONE_CAMERA_INDEX = 110;
  * adding a fifth.
  */
 export const PAPIC_UPLOADS_CAMERA_INDEX = 150;
+
+/**
+ * Was this capture added by hand? The Uploads camera's seat is the one door for a file picked from a phone or laptop
+ * (owner 2026-10-26: an added photo costs 2, a camera photo 1 — `papicCaptureCost`). Read off the SEAT the server
+ * resolved from the token, never from anything the client says.
+ */
+export function papicSeatCaptureSource(seatIndex: number | null | undefined): PapicCaptureSource {
+  return seatIndex === PAPIC_UPLOADS_CAMERA_INDEX ? 'upload' : 'camera';
+}
 
 /**
  * Last-resort fallbacks if the catalog row is missing. Live prices come from the

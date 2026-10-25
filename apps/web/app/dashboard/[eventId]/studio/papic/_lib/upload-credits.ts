@@ -1,6 +1,6 @@
 /**
  * + ADD PHOTOS — WHAT A PICK COSTS, AND WHETHER THE POT COVERS IT (owner 2026-10-25: *"adding photos will use up papic
- * credits"*).
+ * credits"*; 2026-10-26: an added photo costs 2, a camera photo 1 — `PAPIC_POINTS_PER_UPLOADED_PHOTO`).
  *
  * 🔑 ONE LADDER. Every number here comes from `papicCaptureCost` / `PAPIC_CLIP_COST_BANDS`
  * (`lib/papic-cameras-pure.ts`) — the SAME function `recordSeatCapture` bills with (`app/papic/actions.ts`) and the
@@ -18,7 +18,11 @@ export type PickedCost = { kind: 'photo' | 'clip'; durationMs?: number | null };
 
 /** What these files spend together — each one priced by the server's own function. */
 export function selectionCost(picked: readonly PickedCost[]): number {
-  return picked.reduce((sum, p) => sum + papicCaptureCost(p.kind, p.kind === 'clip' ? (p.durationMs ?? null) : null), 0);
+  // 'upload': every file this sheet sends lands on the Uploads camera — the source both seams charge by.
+  return picked.reduce(
+    (sum, p) => sum + papicCaptureCost(p.kind, p.kind === 'clip' ? (p.durationMs ?? null) : null, 'upload'),
+    0,
+  );
 }
 
 /**
@@ -58,8 +62,12 @@ export function clipLadderWords(): string {
   }).join(', ');
 }
 
-/** The ⓘ's sentence on cost — the photo price and the clip ladder, both read from the one function. */
+/**
+ * The ⓘ's sentence on cost — an added photo, a camera photo and the clip ladder, all read from the one function
+ * (owner 2026-10-26: *"unlike photos taken on our app which takes 1 credit per photos, uploads take 2 credits."*).
+ */
 export function costInfoLine(): string {
-  const photo = papicCaptureCost('photo');
-  return `Each photo uses ${creditsCount(photo)}. A snippet uses more the longer it runs (${clipLadderWords()}). The same as a camera shot.`;
+  const added = papicCaptureCost('photo', null, 'upload');
+  const camera = papicCaptureCost('photo', null, 'camera');
+  return `Each photo you add uses ${creditsCount(added)} — a photo taken with the camera uses ${creditsCount(camera)}. A snippet uses more the longer it runs (${clipLadderWords()}).`;
 }

@@ -42,6 +42,23 @@ export const PAPIC_POINTS_PER_PHOTO = 1;
 export const PAPIC_POINTS_PER_SNIPPET = 8;
 
 /**
+ * 📤 A PHOTO ADDED BY HAND COSTS 2 (owner 2026-10-26, verbatim: *"unlike photos taken on our app which takes 1 credit
+ * per photos, uploads take 2 credits."* · *"regardless of event or supplier"*). Superseded: the 2026-08-26 rule that an
+ * uploaded photo costs the same as a captured one.
+ *
+ * "Added by hand" is the capture's SOURCE — the Uploads camera seat (`PAPIC_UPLOADS_CAMERA_INDEX`, resolved by
+ * `papicSeatCaptureSource` in `lib/papic-cameras.ts`), never what the file looks like. Both seams pass that source
+ * to `papicCaptureCost`; the + Add photos sheet prices a pick with the same call.
+ *
+ * ⏸ CLIPS ADDED BY HAND ARE NOT RULED YET — they keep the length ladder below, exactly as a camera clip. When the owner
+ * rules, the change is the `clip` arm of `papicCaptureCost` for `source === 'upload'`, nowhere else.
+ */
+export const PAPIC_POINTS_PER_UPLOADED_PHOTO = 2;
+
+/** Where a capture came from: a camera in the app, or a file added by hand (the Uploads camera). */
+export type PapicCaptureSource = 'camera' | 'upload';
+
+/**
  * A VIDEO NOW COSTS WHAT ITS LENGTH COSTS (owner-locked 2026-08-11).
  *
  * Owner's table, verbatim — seconds → credits:
@@ -128,8 +145,11 @@ export function papicSnippetCost(durationMs: number | null | undefined): number 
 export function papicCaptureCost(
   kind: 'photo' | 'clip',
   durationMs?: number | null,
+  /** 'upload' = added by hand (the Uploads camera). Absent = a camera shot, so every existing caller is unchanged. */
+  source: PapicCaptureSource = 'camera',
 ): number {
-  return kind === 'clip' ? papicSnippetCost(durationMs) : PAPIC_POINTS_PER_PHOTO;
+  if (kind === 'clip') return papicSnippetCost(durationMs); // ⏸ an added clip: not ruled yet — the camera ladder
+  return source === 'upload' ? PAPIC_POINTS_PER_UPLOADED_PHOTO : PAPIC_POINTS_PER_PHOTO;
 }
 
 /**

@@ -54,7 +54,6 @@ const ALLOW: readonly WordAllow[] = [
   { prefix: 'lib/prove-the-flow-watch-format.ts', why: 'staff flow-watch report' },
   { prefix: 'lib/blog', why: 'public blog articles — a separate SEO pass' },
   { prefix: 'lib/data-privacy-controls.ts', why: 'the DPO register quotes the consent control by name and is mirrored by migration 20270902120000 — renamed through a data migration, not a code edit' },
-  { prefix: 'app/(shell)/privacy/', why: 'legal text — the privacy policy' },
   // ── 2 · not a supplier booking ──────────────────────────────────────────────
   { prefix: 'app/dashboard/[eventId]/seating/', why: 'a SEAT lock ("Lock this seat", "Fill around locked seats")' },
   { prefix: 'app/dashboard/[eventId]/guests/', why: 'a guest’s seat lock, or the finalized guest count' },

@@ -17,11 +17,11 @@ import { LegalLayout, LegalSection } from '@/app/_components/legal/legal-chrome'
 export const metadata = {
   title: 'Acceptable use policy',
   description:
-    'The rules for content and conduct on Setnayan — for couples, vendors, and event guests. Prohibited content, the always-on NSFW filter, reporting and takedown, and enforcement.',
+    'The rules for content and conduct on Setnayan — for couples, suppliers, and event guests. Prohibited content, the always-on NSFW filter, reporting and takedown, and enforcement.',
   alternates: { canonical: '/acceptable-use' },
   openGraph: {
     title: 'Acceptable use policy · Setnayan',
-    description: 'Content and conduct rules for couples, vendors, and guests.',
+    description: 'Content and conduct rules for couples, suppliers, and guests.',
     url: '/acceptable-use',
   },
 };
@@ -30,12 +30,12 @@ export default function AcceptableUsePage() {
   return (
     <LegalLayout
       title="Acceptable use & community guidelines"
-      meta="Effective 2026-06-30 · part of the Setnayan terms of service"
+      meta="Effective 2026-06-30 · last updated 2026-10-25 · part of the Setnayan terms of service"
     >
       <LegalSection title="Who this covers">
         <p>
           These rules apply to everyone who uses Setnayan — couples and event
-          hosts, vendors, and the guests who upload photos and clips at an
+          hosts, suppliers, and the guests who upload photos and clips at an
           event (for example through Papic). By posting or sharing anything on
           Setnayan, you agree to follow them. They sit alongside our{' '}
           <Link href="/terms" className="text-terracotta hover:underline">
@@ -89,7 +89,7 @@ export default function AcceptableUsePage() {
 
       <LegalSection title="Guest captures & consent">
         <p>
-          Event capture features are for the celebration they belong to. Respect
+          Event capture features are for the event they belong to. Respect
           the people around you: don&rsquo;t photograph or share images of
           someone who has asked not to be, and honor opt-outs. Guests retain
           rights over their own likeness, and couples control their event
@@ -120,7 +120,7 @@ export default function AcceptableUsePage() {
         </ul>
       </LegalSection>
 
-      <LegalSection title="Vendor conduct">
+      <LegalSection title="Supplier conduct">
         <ul className="ml-5 list-disc space-y-1">
           <li>Represent your business, services, and prices accurately.</li>
           <li>
@@ -130,7 +130,7 @@ export default function AcceptableUsePage() {
           </li>
           <li>
             Don&rsquo;t use the platform to spam, mislead, or harass couples or
-            other vendors.
+            other suppliers.
           </li>
         </ul>
       </LegalSection>

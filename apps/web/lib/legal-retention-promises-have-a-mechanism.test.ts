@@ -208,7 +208,7 @@ const PROMISES: readonly Promise_[] = [
   { page: 'privacy', quote: 'the same rolling 180-day deletion described above', m: { kind: 'job', job: 'vendor-dossier-retention', where: { file: 'lib/vendor-dossier-retention.ts', has: /DOSSIER_RETENTION_DAYS/ } } },
   // ── /privacy · anti-fraud, public summary ──
   { page: 'privacy', quote: 'no data is deleted, and one review by our team reverses it', m: { kind: 'kept', why: 'An auto-hide is reversible and deletes nothing.' } },
-  { page: 'privacy', quote: 'Permanent action (removing a vendor’s reviews', m: { kind: 'human', where: { file: 'app/admin/fraud/actions.ts', has: /pending a second admin/ } } },
+  { page: 'privacy', quote: 'Permanent action (removing a supplier’s reviews', m: { kind: 'human', where: { file: 'app/admin/fraud/actions.ts', has: /pending a second admin/ } } },
   { page: 'privacy', quote: 'or keep it private', m: { kind: 'kept', why: 'Quoted reminder-email copy, not a retention promise.' } },
   { page: 'privacy', quote: 'removes the page from the index immediately', m: { kind: 'code', where: { file: 'app/dashboard/[eventId]/website/privacy/actions.ts', has: /export async function updateLandingPageVisibility\b/ } } },
   // ── /privacy · THE RETENTION SCHEDULE (every line is a promise) ──
@@ -218,7 +218,7 @@ const PROMISES: readonly Promise_[] = [
   { page: 'privacy', quote: 'Face-recognition data — for the one event only', m: { kind: 'kept', why: 'Heading of the face line; its clocks are the next rows.' } },
   { page: 'privacy', quote: 'You can end it sooner at any time', m: { kind: 'code', where: { file: 'app/[slug]/actions.ts', has: /eraseGuestFaceData/ } } },
   { page: 'privacy', quote: 'Deleting it takes away no photo and no tag', m: { kind: 'kept', why: 'face-selfie-keeps-tags.test.ts holds it.' } },
-  { page: 'privacy', quote: 'Messages between a couple and a vendor — 5 years after the event date', m: { kind: 'job', job: 'retention-sweep', where: { file: 'lib/retention-sweep.ts', has: /RETENTION_YEARS\s*=\s*5\b/ } } },
+  { page: 'privacy', quote: 'Messages between a couple and a supplier — 5 years after the event date', m: { kind: 'job', job: 'retention-sweep', where: { file: 'lib/retention-sweep.ts', has: /RETENTION_YEARS\s*=\s*5\b/ } } },
   { page: 'privacy', quote: 'Payments, receipts and official receipts — 10 years', m: { kind: 'kept', why: 'BIR floor: kept, never deleted early; nothing deletes them at 10 years either, and the page no longer says it does.' } },
   { page: 'privacy', quote: 'This one is a legal floor under BIR rules', m: { kind: 'kept', why: 'See the row above.' } },
   { page: 'privacy', quote: 'Contracts and e-signatures — 10 years', m: { kind: 'kept', why: 'Civil Code prescription; kept, no deletion promised.' } },

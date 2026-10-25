@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isVatInclusiveServiceKey, orderGrossOwed, type OrderStatus } from '@/lib/orders';
 import { formatReceiptNumber } from '@/lib/receipts';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 /**
  * BILLING & RECEIPTS — every purchase this login made, newest first (owner 2026-10-25, the account menu's
@@ -111,7 +112,10 @@ export async function fetchMyPurchasesMeasured(
   const nameOf = new Map<string, string>();
   if (eventIds.length > 0) {
     const { data: evs, error: evErr } = await supabase.from('events').select('event_id,display_name').in('event_id', eventIds);
-    if (!evErr && Array.isArray(evs)) {
+    if (evErr || !Array.isArray(evs)) {
+      // The rows still draw — their heading reads "An event" — but the refusal is recorded, never swallowed.
+      logQueryError('lib/billing.ts: event names', evErr, { count: eventIds.length });
+    } else {
       for (const e of evs as Array<{ event_id: string; display_name: string | null }>) {
         if (e.display_name?.trim()) nameOf.set(e.event_id, e.display_name.trim());
       }

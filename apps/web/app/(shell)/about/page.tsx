@@ -35,7 +35,7 @@ const PAGE_TITLE = 'About Setnayan — the Philippines-first wedding & life-even
 // (Description carries no free-claims — clean under the 2026-06-13 reprice
 // scrub of Pricing.md § 00.D, which retired "free RSVP / free website" copy.)
 const PAGE_DESCRIPTION =
-  "Setnayan is the Philippines' own all-in-one wedding & life-events platform — the first built here to plan the event, run a 0%-commission marketplace of verified local suppliers, and capture the day so every guest goes home with a personal highlight reel.";
+  "Setnayan is the Philippines' own all-in-one wedding & life-events platform — the first built here to plan the event, run a 0%-commission marketplace of verified local suppliers, and capture the day so every guest can find the photos they're in.";
 
 /*
   ⚠ `dynamic` IS DECLARED ONCE, ON `app/(shell)/layout.tsx`, NOT HERE.
@@ -100,7 +100,7 @@ const FACTS: Array<{ icon: typeof Heart; label: string; value: string }> = [
     icon: Heart,
     label: 'Free to start',
     value:
-      'Guest list, seating, budget, schedule, the mood board, supplier browse, and in-app chat are free with every account. You only pay for premium tools you choose to add.',
+      'Guest list, seating, budget, schedule, the mood board, your Event Hub, supplier browse, and in-app chat are free with every account. You only pay for premium tools you choose to add.',
   },
   {
     icon: ShieldCheck,
@@ -231,18 +231,17 @@ export default async function AboutPage() {
               verified Filipino wedding suppliers you message directly, and
               in-app services — free single-camera livestreaming to YouTube
               (Live Watch), candid photo capture (Papic), a custom wedding
-              song (Music Maker), and bespoke monograms. Every service is free to
-              use; some have clearly priced upgrades, like Live Watch&rsquo;s
-              multicam control room. Couples and suppliers
+              song (Music Maker), and bespoke monograms. Some start free, like
+              one Papic camera on every event and a single-camera stream; the
+              rest are priced on the Pricing page. Couples and suppliers
               agree on bookings between themselves; Setnayan never holds the
               money.
             </p>
             <p className="text-base leading-relaxed text-ink/75">
-              The first surface is weddings — the deepest, most complete one —
-              but Setnayan is built to grow into a life-events collection: as
-              birthdays, debuts, christenings, and anniversaries unlock, the same
-              tools carry across them, and everything you create is gathered into
-              one living memory you keep. Your wedding is where it starts.
+              Weddings are the deepest, most complete surface, and the same
+              tools already run debuts, christenings, birthdays, anniversaries,
+              reunions and more. Everything you create is gathered into
+              Memories, one place you keep.
             </p>
             <div className="flex flex-wrap gap-3 pt-2">
               {/* 2026-09-01 — /how-it-works folded into /features. Deep-linked

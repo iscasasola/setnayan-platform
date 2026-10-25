@@ -81,7 +81,7 @@ export function AboutHero() {
         life-events platform — and the first built here to do the whole
         event in one place: plan it, hire from a 0%-commission
         marketplace of verified local suppliers, and capture the day so every
-        guest goes home with their own highlight reel.
+        guest can find the photos they&rsquo;re in.
       </p>
       <p
         data-reveal-item

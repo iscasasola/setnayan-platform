@@ -36,7 +36,7 @@ import {
   deleteYoutubeStream,
 } from '@/lib/panood-youtube';
 import type { YoutubeStream } from '@/lib/panood-youtube';
-import { refuseLimitedHelper } from '@/lib/host-gate';
+import { refuseLimitedHelper, requireHostMembership } from '@/lib/host-gate';
 
 /**
  * Server actions for the Panood setup page's watch-URL field — the FIRST real
@@ -60,34 +60,7 @@ import { refuseLimitedHelper } from '@/lib/host-gate';
  * UPDATE is the backstop.
  */
 
-async function requireHostMembership(eventId: string): Promise<void> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
-
-  const { data: moderator } = await supabase
-    .from('event_moderators')
-    .select('moderator_id')
-    .eq('event_id', eventId)
-    .eq('user_id', user.id)
-    .not('accepted_at', 'is', null)
-    .neq('role_subtype', 'viewer') // a limited helper views, never edits (owner 2026-09-28)
-    .is('removed_at', null)
-    .maybeSingle();
-  if (moderator) return;
-
-  const { data: legacy } = await supabase
-    .from('event_members')
-    .select('member_type')
-    .eq('event_id', eventId)
-    .eq('user_id', user.id)
-    .maybeSingle();
-  if (legacy?.member_type === 'couple') return;
-
-  redirect('/dashboard');
-}
+// Host gate: the shared `requireHostMembership` (lib/host-gate.ts) — this file carried a byte-equal copy.
 
 export async function savePanoodWatchUrl(formData: FormData): Promise<void> {
   await refuseLimitedHelper(formData.get('event_id'), null);

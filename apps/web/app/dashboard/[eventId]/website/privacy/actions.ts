@@ -31,7 +31,7 @@ import { refuseLimitedHelper } from '@/lib/host-gate';
 
 const ALLOWED_VISIBILITY = new Set<string>(EVENT_VISIBILITIES);
 
-async function requireHostMembership(
+async function requireVisibilityHost(
   eventId: string,
   opts?: { secured?: boolean },
 ): Promise<string> {
@@ -99,7 +99,7 @@ export async function updateLandingPageVisibility(formData: FormData) {
 
   // Anon can set 'private' (harmless), but going public/unlisted requires a
   // secured account.
-  await requireHostMembership(eventId, { secured: visibility !== 'private' });
+  await requireVisibilityHost(eventId, { secured: visibility !== 'private' });
 
   // 🎟 THE TICKETS LINK rides this same form — the Maker's visibility panel
   // draws "Where to get tickets" right under Public (owner 2026-09-29: a public
@@ -222,7 +222,7 @@ export async function setShowcaseConsent(formData: FormData) {
   const eventId = eventIdRaw as string;
 
   // Gate: caller must be a host (couple / accepted moderator) of this event.
-  const userId = await requireHostMembership(eventId);
+  const userId = await requireVisibilityHost(eventId);
 
   const admin = createAdminClient();
 
@@ -326,7 +326,7 @@ export async function setLiveMediaAudience(formData: FormData) {
   // Opening the broadcast to people with no invitation is a public-audience
   // act, exactly like going public/unlisted — so an anonymous draft account
   // must secure itself first. Closing it again is always allowed.
-  await requireHostMembership(eventId, { secured: open });
+  await requireVisibilityHost(eventId, { secured: open });
 
   const supabase = await createClient();
   const { data: event, error: fetchErr } = await supabase
@@ -387,7 +387,7 @@ async function setSameDateCountOptOut(formData: FormData) {
   }
   const eventId = eventIdRaw as string;
 
-  await requireHostMembership(eventId);
+  await requireVisibilityHost(eventId);
 
   const admin = createAdminClient();
   const { error } = await admin

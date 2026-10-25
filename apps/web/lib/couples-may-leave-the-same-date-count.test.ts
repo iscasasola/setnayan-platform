@@ -80,7 +80,7 @@ test('3 · the couple has the switch, in the existing control, behind the host c
   const start = actions.indexOf('async function setSameDateCountOptOut');
   assert.ok(start > 0, 'the opt-out writer exists');
   const body = actions.slice(start);
-  const check = body.indexOf('await requireHostMembership(eventId)');
+  const check = body.indexOf('await requireVisibilityHost(eventId)');
   const write = body.indexOf('.update({ same_date_count_opt_out: optOut })');
   assert.ok(check > 0 && write > check, 'the write must come after the host check');
 });

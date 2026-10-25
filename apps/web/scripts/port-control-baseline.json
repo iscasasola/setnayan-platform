@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "6eb95e3aa3",
+  "generatedFromRef": "96c67efce2",
   "routeCount": 473,
   "destinations": 1013,
   "actions": 661,
-  "blocks": 7098,
+  "blocks": 7093,
   "routes": {
     "/": {
       "files": [
@@ -5698,7 +5698,6 @@
         "dashboard/[eventId]/_components/nikah-imam.ts",
         "dashboard/[eventId]/_components/not-shared-with-you.tsx",
         "dashboard/[eventId]/_components/overview-inspector-body.tsx",
-        "dashboard/[eventId]/_components/papic-card-strip.tsx",
         "dashboard/[eventId]/_components/papic-home-card.tsx",
         "dashboard/[eventId]/_components/papic-ready-nudge.tsx",
         "dashboard/[eventId]/_components/payment-plan-rows.tsx",
@@ -5976,8 +5975,6 @@
         "PaidServiceRow",
         "PapicBuySheet",
         "PapicCameraSettings",
-        "PapicCardStrip",
-        "PapicCardStripView",
         "PapicHomeCard",
         "PapicReadyNudge",
         "PapicSeePhotos",
@@ -9284,7 +9281,6 @@
         "PapicBuyForm",
         "PapicBuySheet",
         "PapicCameraSettings",
-        "PapicCardStrip",
         "PapicHomeCard",
         "PapicLightbox",
         "PapicSeePhotos",
@@ -9314,7 +9310,6 @@
         "StylePicker",
         "SubmitButton",
         "SupplierWayInRow",
-        "Suspense",
         "SwitchTrack",
         "VendorChallengesApproval",
         "WallTileLayout"
@@ -11189,7 +11184,6 @@
         "LabSpotlight",
         "PapicBuySheet",
         "PapicCameraSettings",
-        "PapicCardStripView",
         "PapicSwitch",
         "PapicTopBand",
         "ProLockPanel",

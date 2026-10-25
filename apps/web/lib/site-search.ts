@@ -1,7 +1,7 @@
 import 'server-only';
 
-import { loadPublishedShowcases } from '@/lib/showcase-db';
-import { loadFeaturedChapters } from '@/lib/storytellers';
+import { loadPublishedShowcasesResult } from '@/lib/showcase-db';
+import { loadFeaturedChaptersResult } from '@/lib/storytellers';
 import type { PublicSearchNoun } from '@/lib/public-search-nouns';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import {
@@ -64,15 +64,17 @@ export const READ_SOURCE_NOUNS: ReadonlyArray<Exclude<PublicSearchNoun, 'supplie
  * quietly passing a sample off as somebody's real wedding is the one way this
  * section could mislead a reader.
  */
-async function storyHits(tokens: string[], phrase: string): Promise<ReadHit[]> {
+async function storyHits(tokens: string[], phrase: string): Promise<{ hits: ReadHit[]; failed: boolean }> {
+  // The `…Result` loaders say whether they ANSWERED: both swallow a refusal into [] (fail-soft), which is right for a
+  // shelf and wrong for a search that would then print "nothing matched" over a read that broke.
   const [showcases, chapters] = await Promise.allSettled([
-    loadPublishedShowcases(24),
-    loadFeaturedChapters(24),
+    loadPublishedShowcasesResult(24),
+    loadFeaturedChaptersResult(24),
   ]);
   const out: ReadHit[] = [];
 
   if (showcases.status === 'fulfilled') {
-    for (const s of showcases.value) {
+    for (const s of showcases.value.items) {
       const where = [s.city, s.dateLabel].filter(Boolean).join(' · ');
       const score = scoreDocument(s.coupleNames, where, tokens, phrase);
       if (score > 0) {
@@ -89,7 +91,7 @@ async function storyHits(tokens: string[], phrase: string): Promise<ReadHit[]> {
   }
 
   if (chapters.status === 'fulfilled') {
-    for (const c of chapters.value) {
+    for (const c of chapters.value.items) {
       const score = scoreDocument(c.title, `${c.ownerName} ${c.kindLabel}`, tokens, phrase);
       if (score > 0) {
         out.push({
@@ -104,7 +106,12 @@ async function storyHits(tokens: string[], phrase: string): Promise<ReadHit[]> {
     }
   }
 
-  return out;
+  const failed =
+    showcases.status === 'rejected' ||
+    !showcases.value.ok ||
+    chapters.status === 'rejected' ||
+    !chapters.value.ok;
+  return { hits: out, failed };
 }
 
 /**
@@ -120,16 +127,33 @@ async function storyHits(tokens: string[], phrase: string): Promise<ReadHit[]> {
  * the reason for building this.
  */
 export async function searchReads(query: string, limit = 8): Promise<ReadHit[]> {
+  return (await searchReadsWithStatus(query, limit)).hits;
+}
+
+/**
+ * The same answer, plus whether the story read FAILED — so a page can say
+ * "stories didn't load" instead of "nothing matched" when the only thing that
+ * could have matched was the part that broke (the /help · /features search,
+ * `lib/how-search.ts`). `searchReads` keeps its shape for every other caller.
+ */
+export async function searchReadsWithStatus(
+  query: string,
+  limit = 8,
+): Promise<{ hits: ReadHit[]; storiesFailed: boolean }> {
   const tokens = searchTokens(query);
-  if (tokens.length === 0) return [];
+  if (tokens.length === 0) return { hits: [], storiesFailed: false };
 
   const inCode = searchInCodeReads(query, await isStoreShellRequest());
   let stories: ReadHit[] = [];
+  let storiesFailed = false;
   try {
-    stories = await storyHits(tokens, normalizedPhrase(query));
+    const read = await storyHits(tokens, normalizedPhrase(query));
+    stories = read.hits;
+    storiesFailed = read.failed;
   } catch {
     stories = [];
+    storiesFailed = true;
   }
 
-  return rankReads([...stories, ...inCode], limit);
+  return { hits: rankReads([...stories, ...inCode], limit), storiesFailed };
 }

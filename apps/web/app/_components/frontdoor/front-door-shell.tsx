@@ -549,6 +549,11 @@ type Props = {
    * compare page full-bleed against its own design. See `shell-bleed.ts`.
    */
   bleedPaths?: readonly string[];
+  /**
+   * Whole paths whose page draws its OWN search as the bottom row (`shell-page-search.ts`) — the top bar draws no
+   * search box there, exactly as if `search={false}` had been handed in. Read like `bleedPaths`, during render.
+   */
+  pageSearchPaths?: readonly string[];
 };
 
 /** A count that failed to load says so. It NEVER says 0, and it never invents
@@ -618,9 +623,10 @@ export function FrontDoorShell({
   navLabels,
   topBarSlot,
   createSlot,
-  search,
+  search: searchProp,
   bleed,
   bleedPaths,
+  pageSearchPaths,
   boundary = 'lg',
 }: Props) {
   const [railOpen, setRailOpen] = useState(false);
@@ -799,6 +805,9 @@ export function FrontDoorShell({
     An explicit `bleed` prop still wins, for the signed-in trees.
   */
   const isBleed = bleed || (bleedPaths?.includes(pathname ?? '') ?? false);
+  /* 🔎 A page that searches in its own bottom row (/help, /features): no second box up here — `false`, the same
+     switch a signed-in host hands in. Exact path, so /features/<slug> keeps the box. */
+  const search = pageSearchPaths?.includes(pathname ?? '') ? false : searchProp;
 
   /*
     HIDE ON SCROLL — the app's universal top-nav rule (owner 2026-06-15), and

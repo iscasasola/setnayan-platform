@@ -404,8 +404,8 @@ export function MakerSheet({
   children: ReactNode;
   /** A whole table, not a short list ("What guests see"): the sheet takes nearly the full height. */
   tall?: boolean;
-  /** Shown on a desktop too — the Maker's ✕ sheet, which every width needs (`maker-exit-sheet.tsx`). Every other
-   *  sheet stays a phone's: a desktop keeps each list where it opens. */
+  /** Shown on a desktop too — for a sheet every width needs ("What guests see"). Every other sheet stays a
+   *  phone's: a desktop keeps each list where it opens. */
   everyWidth?: boolean;
 }) {
   const root = useRef<HTMLDivElement>(null);

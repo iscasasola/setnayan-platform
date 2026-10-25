@@ -434,7 +434,7 @@ export function HubDraftToolbar({
   actRef.current = act;
   const setDraftDoor = maker?.setDraft;
   const canRestore = !pending && summary.hasChanges;
-  /** The ✓ count — also told to the shell, whose ✕ sheet says the changes are kept (`maker-exit-sheet.tsx`). */
+  /** The ✓ count — also told to the shell (`MakerDraftDoor.count`). */
   const applyCount = summary.hasChanges ? summary.changeCount : 0;
   useEffect(() => {
     if (!setDraftDoor) return;

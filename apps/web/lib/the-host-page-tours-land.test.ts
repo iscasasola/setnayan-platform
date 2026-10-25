@@ -35,7 +35,9 @@ test('each host page tour is a short spotlight that repeats no journey stop and 
   for (const [, key] of KEYS) {
     const sp = TOURS[key].spotlight;
     assert.ok(sp, `${key} has no spotlight script`);
-    assert.ok(sp.steps.length >= 3 && sp.steps.length <= 4, `${key} has ${sp.steps.length} stops — a page tour is 3 or 4`);
+    // 3–6 since 2026-10-25 (owner: "the spotlight tour is missing so many parts for each page") — every main part
+    // gets its stop; still short, one line each, the detail in the ⓘ.
+    assert.ok(sp.steps.length >= 3 && sp.steps.length <= 6, `${key} has ${sp.steps.length} stops — a page tour is 3 to 6`);
     const anchors = sp.steps.map((s) => s.anchor);
     assert.equal(new Set(anchors).size, anchors.length, `${key} lights one anchor twice`);
     for (const a of anchors) assert.ok(!journey.has(a), `${key} repeats the journey's stop "${a}"`);
@@ -50,6 +52,8 @@ type Mount = { file: string; key: keyof typeof HOST_PAGE_TOURS; after: 'journey'
 const MOUNTS: Mount[] = [
   { file: 'app/dashboard/[eventId]/launch/page.tsx', key: 'maker', after: 'journey', inMaker: true },
   { file: 'app/dashboard/[eventId]/budget/page.tsx', key: 'budget', after: 'journey', inMaker: false },
+  { file: 'app/dashboard/[eventId]/guests/page.tsx', key: 'guests', after: 'journey', inMaker: false },
+  { file: 'app/dashboard/[eventId]/vendors/page.tsx', key: 'suppliers', after: 'journey', inMaker: false },
   { file: 'app/dashboard/[eventId]/memories/page.tsx', key: 'memories', after: 'journey', inMaker: false },
   { file: 'app/dashboard/[eventId]/page.tsx', key: 'home', after: 'journey', inMaker: false },
   { file: 'app/dashboard/[eventId]/studio/papic/page.tsx', key: 'papic', after: 'journey', inMaker: false },

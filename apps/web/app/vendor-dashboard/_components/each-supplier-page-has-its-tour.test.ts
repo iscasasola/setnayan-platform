@@ -38,11 +38,16 @@ const DRAWN: Record<(typeof SUPPLIER_PAGE_TOURS)[number], string[]> = {
   vendor_shop_v1: ['shop-segments', 'shop-page-list', 'shop-details-row'],
   vendor_dates_v1: ['dates-calendar', 'dates-check', 'dates-add'],
   vendor_money_v1: ['money-summary', 'money-next', 'money-log', 'money-fees'],
-  vendor_hub_v1: ['hub-empty', 'hub-next-days', 'hub-setup'],
+  // Reading order since 2026-10-25 (the next events sit above the quiet day's panel), + the event day's own stop.
+  vendor_hub_v1: ['hub-next-days', 'hub-empty', 'hub-day-launch', 'hub-setup'],
+  // + Owner 2026-10-25, "the spotlight tour is missing so many parts for each page".
+  vendor_today_v2: ['supplier-messages', 'today-numbers', 'today-coming-up', 'today-shop'],
+  vendor_people_v1: ['customers-segments', 'customers-filter', 'customers-search', 'customers-add'],
+  vendor_collections_v1: ['collections-filter', 'collections-list', 'collections-add'],
 };
 
 test('1 · each page tour is a spotlight with the drawn stops, in order', () => {
-  assert.deepEqual([...SUPPLIER_PAGE_TOURS].sort(), Object.keys(DRAWN).sort(), 'the four page tours changed');
+  assert.deepEqual([...SUPPLIER_PAGE_TOURS].sort(), Object.keys(DRAWN).sort(), 'the page tours changed');
   for (const key of SUPPLIER_PAGE_TOURS) {
     assert.ok(TOUR_KEYS.includes(key), `${key} is not in TOUR_KEYS — completeTour would refuse to record it`);
     const s = TOURS[key].spotlight;
@@ -65,15 +70,20 @@ test('2 · no page tour repeats a stop the Today journey makes', () => {
 
 test('3 · the address decides which tour is on screen', () => {
   const on = (p: string, q: Record<string, string> = {}) => supplierPageTourOn(p, q);
-  for (const p of ['/vendor-dashboard/shop', '/vendor-dashboard/website', '/vendor-dashboard/profile', '/vendor-dashboard/collections/albums', '/vendor-dashboard/performance']) {
+  for (const p of ['/vendor-dashboard/shop', '/vendor-dashboard/website', '/vendor-dashboard/profile', '/vendor-dashboard/performance']) {
     assert.equal(on(p), 'vendor_shop_v1', `${p} is a Shop segment`);
   }
+  // Since 2026-10-25 Today, Customers › People and Your collections have their own (the albums sub-page none).
+  assert.equal(on('/vendor-dashboard'), 'vendor_today_v2');
+  assert.equal(on('/vendor-dashboard/customers'), 'vendor_people_v1');
+  assert.equal(on('/vendor-dashboard/customers', { seg: 'people' }), 'vendor_people_v1');
+  assert.equal(on('/vendor-dashboard/collections'), 'vendor_collections_v1');
   assert.equal(on('/vendor-dashboard/customers', { seg: 'dates' }), 'vendor_dates_v1');
   assert.equal(on('/vendor-dashboard/customers', { open: 'calendar' }), 'vendor_dates_v1', 'an old Dates landing');
   assert.equal(on('/vendor-dashboard/customers', { seg: 'money' }), 'vendor_money_v1');
   assert.equal(on('/vendor-dashboard/customers', { open: 'payday' }), 'vendor_money_v1', 'an old Money landing');
   assert.equal(on('/vendor-dashboard/on-the-day'), 'vendor_hub_v1');
-  for (const p of ['/vendor-dashboard', '/vendor-dashboard/customers', '/vendor-dashboard/shopping', '/dashboard', '/vendor-dashboard/on-the-day/live']) {
+  for (const p of ['/vendor-dashboard/collections/albums', '/vendor-dashboard/shopping', '/dashboard', '/vendor-dashboard/on-the-day/live']) {
     assert.equal(on(p), null, `${p} draws a page tour that is not its own`);
   }
 });

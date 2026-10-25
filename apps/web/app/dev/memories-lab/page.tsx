@@ -13,6 +13,8 @@
  *   ?empty=1       M3 — nothing kept yet
  *   ?fail=1        a refused wall read — "could not be loaded", never "nothing yet"
  */
+import { LabPageSpotlight } from '@/app/dev/_components/lab-page-spotlight';
+import { TOURS } from '@/lib/tours';
 import { notFound } from 'next/navigation';
 import { AccountBottomNav } from '@/app/dashboard/(launcher)/_components/account-bottom-nav';
 import { MemoriesChapters } from '@/app/dashboard/(account)/library/_components/memories-chapters';
@@ -115,6 +117,8 @@ export default async function MemoriesLabPage({
         </div>
       </main>
       <AccountBottomNav tabs={['events', 'discover', 'memories', 'people']} />
+      {/* &spot=1 — this tab's first-visit spotlight (customer_library_v1), first run, nothing recorded. */}
+      {sp.spot === '1' ? <LabPageSpotlight tourKey="customer_library_v1" script={TOURS.customer_library_v1.spotlight!} /> : null}
     </div>
   );
 }

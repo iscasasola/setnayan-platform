@@ -169,9 +169,9 @@ test('the Samahan chip says Add — one word per concept', () => {
 // Re-aimed ON PURPOSE (2026-10-22, help-sync): the carousel has been off since 2026-10-03 and the owner's tour
 // is a SPOTLIGHT (2026-10-10). The property is the same — People has a first-visit tour, mounted on the page.
 test('a first-visit tour — the spotlight', () => {
-  assert.ok(TOUR_KEYS.includes('customer_people_v2'));
-  assert.ok((TOURS.customer_people_v2.spotlight?.steps.length ?? 0) >= 2, 'People’s spotlight has no stops');
-  assert.match(PAGE.code, /<Spotlight tourKey="customer_people_v2"/);
+  assert.ok(TOUR_KEYS.includes('customer_people_v3'));
+  assert.ok((TOURS.customer_people_v3.spotlight?.steps.length ?? 0) >= 2, 'People’s spotlight has no stops');
+  assert.match(PAGE.code, /<Spotlight tourKey="customer_people_v3"/);
 });
 
 // ── 5 · the event's Add ───────────────────────────────────────────────────

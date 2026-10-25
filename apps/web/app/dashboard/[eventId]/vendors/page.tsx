@@ -14,6 +14,8 @@
  * The old page is preserved at page.flat-list.bak.tsx.txt (not compiled).
  */
 
+import { Spotlight } from '@/app/_components/spotlight';
+import { HOST_PAGE_TOURS, HOST_PAGE_TOURS_AFTER } from '@/lib/host-page-tours';
 import { redirect } from 'next/navigation';
 import { after } from 'next/server';
 import { fetchEventViewer, isDelegateWithoutArea } from '@/lib/event-viewer.server';
@@ -2914,6 +2916,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
          was MEASURED to get here. The Budget part (`?part=budget`, returned
          earlier) is never kept, the takeover's Budget and Plans sections carry
          `data-money`, and every peso figure is masked (lib/last-seen). */
+      <>
       <LastSeenCapture page="suppliers">
         <ServicesTakeover
           eventId={eventId}
@@ -2992,6 +2995,9 @@ export default async function VendorsPage({ params, searchParams }: Props) {
           }
         />
       </LastSeenCapture>
+      {/* 🔦 First visit only — the page's own spotlight, after the host journey (owner 2026-10-25). */}
+      <Spotlight tourKey={HOST_PAGE_TOURS.suppliers} after={HOST_PAGE_TOURS_AFTER} replay="page" />
+      </>
     );
   }
 

@@ -89,3 +89,36 @@ primary + house secondary pair is gone.
   one chrome for all four doors · the label reads on its white under Candlelight — each seen red under sabotage.
 
 SPEC IMPACT: DECISION_LOG.md row 2026-10-25 "SAVE TO MY ACCOUNT USES THE LOGIN'S OWN APPLE / GOOGLE BUTTONS".
+
+## 2026-10-25 · feat(pricing): "Free here. Paid elsewhere. / Pay only for the upgrades you need."
+
+Owner 2026-10-25, verbatim: *"make sure they see that while Other websites pay for these services, we give it for
+free. And only pay what you need to upgrade."* Built to the approved prototype
+`prototypes/pricing_free_plus_addons_2026-10-25/index.html` (corpus 20b2a55c, revision 4). Replaces this PR's earlier
+Free-vs-Pro table.
+
+- **Hero** — "Free here. Paid elsewhere. Pay only for the upgrades you need." · Start free · What you can add ↓.
+- **Free** ("What you'd pay for elsewhere.") — five lines, each with what other event sites charge (guest caps 30–50 ·
+  about ₱2,500 for a full event site · seating charts paid past 15 guests, 3D enterprise-only · check-in only on a paid
+  plan · about ₱2,700–₱3,000 a livestream), the printables, "One place, instead of several tools" (at least ₱5,489
+  elsewhere · ₱0 here — the two per-event prices summed; seating and check-in marked "extra", not summed), and the
+  compact rest of the planner. **No competitor is named.** Every other-site figure lives in `lib/pricing-elsewhere.ts`
+  with its source URL and read date (2026-10-25); the "about" and "at least" figures are arithmetic on those.
+- **What you can add** ("Pay only for the upgrades you need.") — Event Hub Pro (COUPLE_WEBSITE_PRO, both prices, the
+  launch line) with ONE dropdown: "Everything · ₱…" (the ten things it gives) or "Just the parts you need · from ₱…"
+  (the eleven `COUPLE_HUB_PART_*` rows, names and blurbs from `lib/hub-parts.ts`, what you pay counts toward the full
+  price). Then Papic credits (from the lowest rung; the ⓘ quotes the 100 · 1,000 · 10,000 rungs), Live Watch
+  (LIVE_STUDIO, drawn only while its row is on sale), Patiktok (per day, from the row's billing period), Music Maker
+  (PAKANTA), Setnayan AI by event type (one dropdown over SETNAYAN_AI · _B · _C · _D, both prices each).
+  **Every peso of ours is a `platform_retail_catalog_v2` read** — a missing row draws no figure. The parts and AI bands
+  come from one extra read (`readPricingExtras`), since the customer catalogue deliberately leaves them out.
+- Below, unchanged: the grouped add-ons catalogue, the Papic estimator, "Everything you get for free", apply-then-pay.
+- ⓘ sit beside each item's name (the house `InfoTip`: an (i) always sits beside a visible label), where the prototype
+  drew some at the end of a paragraph. The pickers are the house `PickMenu` with a hairline (the page is white).
+- Guards: `app/(shell)/pricing/pricing-free-plus-addons.test.ts` (replaces `pricing-free-vs-pro-table.test.ts`) and
+  `lib/pricing-elsewhere.test.ts` — each seen red under sabotage. Updated: `setnayan-ai-two-prices.test.ts`,
+  `patiktok-paid-verification-free-copy.test.ts`, `public-copy-says-the-house-words.test.ts` (two phrase-exact
+  allowances for "other event sites" / "Event website, unlimited guests" — they name other companies' sites),
+  `the-couple-books-never-locks.test.ts` (the old "no lock-in" line is gone, so its allowance row went too).
+
+SPEC IMPACT: DECISION_LOG.md row 2026-10-25 "/PRICING BUILT TO THE FREE-HERE-PAID-ELSEWHERE PROTOTYPE".

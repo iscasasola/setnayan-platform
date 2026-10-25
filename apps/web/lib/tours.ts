@@ -1902,7 +1902,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
   customer_memories_v2: {
     key: 'customer_memories_v2',
     label: 'Memories — first visit',
-    blurb: 'Albums, the gallery settings, the photos, search and Add photos.',
+    blurb: 'Albums, Memories settings, the photos, search and Add photos.',
     slides: [],
     spotlight: {
       steps: [
@@ -1914,7 +1914,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         },
         {
           anchor: 'memories-settings',
-          title: 'Gallery settings',
+          title: 'Memories settings',
           body: '⚙ holds the photo wall, who sees what, and saving to Google Drive.',
         },
         {

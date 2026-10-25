@@ -16,8 +16,10 @@ they confirm their name and their nickname and contact number then their plus se
 - **Tagging** moves after the seat steps. **Decline path unchanged**: a No still meets answer → note → contact →
   Send; its contact boxes post as `declined_contact_*` and `submitRsvp` reads them back (`adoptDeclinedContactArm`).
 - **After Send**: the default heading is **"You're on the list."** (a couple's own "After they submit" words still
-  win); a guest with +1 tickets sees each +1 listed under their ticket and **Save all tickets**; an Apple Wallet slot
-  is marked for PR #6548's `AppleWalletButton` (`data-landing-wallet-slot`), not imported until it merges.
+  win); the ticket, then **Save all tickets** and the Apple Wallet slot together directly under it (marked for PR
+  #6548's `AppleWalletButton`, `data-landing-wallet-slot`, not imported until it merges), then each +1 listed BELOW
+  them — the owner-approved order (2026-10-25), pinned on the page and its lab by test § 6b (seen red with the +1
+  list moved back above Save).
 - Lab: `/dev/maker-lab/guest?rsvp=form&door=1` now passes `plus_one_seats` like the real loaders (`&seats=fail` walks
   the failed read); `?rsvp=thanks&guest=1&plus=<n>` draws the +1 list.
 - No migration, +0 exported server actions (inside `submitRsvp`), no new client deps.

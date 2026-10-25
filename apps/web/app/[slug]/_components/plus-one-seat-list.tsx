@@ -2,7 +2,8 @@
  * 🎟 THE +1 SEATS UNDER THE GUEST'S TICKET, AFTER SEND (owner 2026-10-25, RSVP seats-first: the after-Send pass step
  * of the approved prototype's scenarios B · C). Each seat the guest brings, in seat order: a named one with its own
  * ticket ("Ben Reyes · +1 — their own ticket"), a TBA one as "+2 · TBA — name them later". Words only — the tickets
- * themselves are saved by the one Save under it ("Save all tickets"), and a +1's Wallet pass comes from their own
+ * themselves are saved by the one Save ABOVE it ("Save all tickets" — ticket → Save · Wallet → this list, the
+ * owner-approved order, 2026-10-25), and a +1's Wallet pass comes from their own
  * link (decision 6). "+1 / +2" naming (decision 4). Drawn by `invite/enter` and by the lab's thank-you.
  */
 export function PlusOneSeatList({

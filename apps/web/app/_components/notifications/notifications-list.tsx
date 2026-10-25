@@ -393,13 +393,17 @@ export function NotificationsHead({
   level: 'page' | 'popover';
   onMarkAll?: () => void;
 }) {
-  const Heading = level === 'page' ? 'h1' : 'h2';
   return (
     <div
       className={`flex items-center justify-between ${level === 'page' ? 'px-4 pb-2 pt-1' : 'px-4 pb-1.5 pt-3.5'}`}
       data-notifications-head=""
     >
-      <Heading className={`font-semibold text-ink ${level === 'page' ? 'text-[22px]' : 'text-[17px]'}`}>Notifications</Heading>
+      {/* Literal tags, not a dynamic `<Heading>`: the-skeleton-promises-only-what-the-page-draws reads `<h1` to know the page draws its title. */}
+      {level === 'page' ? (
+        <h1 className="text-[22px] font-semibold text-ink">Notifications</h1>
+      ) : (
+        <h2 className="text-[17px] font-semibold text-ink">Notifications</h2>
+      )}
       {unreadCount > 0 ? (
         <form action={markAllNotificationsRead} onSubmit={onMarkAll}>
           <input type="hidden" name="return_to" value={returnTo} />

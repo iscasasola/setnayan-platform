@@ -20,6 +20,9 @@ their first event" · "DO NOT INVENT … we want to tell the truth").
 - "How it works" → `/features` (was the `/our-story` manifesto) — on the hero AND the signed-out rail row, so both doors match; `the-rail-lists-no-tools.test.ts` now counts the one Features row by its name and pins the rail row.
 - New top-level segment `start`: `public/sw.js` RESERVED, `lib/reserved-slugs.ts` (generator), telemetry
   `TOP_LEVEL_SEGMENTS`; prod measured 0 event/shop slugs named "start".
+- **Migration** `20271287472370_start_is_our_page_not_a_shops.sql`: re-states `public.business_slug_is_reserved`
+  (body of 20271256815247 word for word) plus `'start'`, so the shop-address mint can never hand out the word
+  (`vendor-business-slug-mint.db.test.ts`). Idempotent `CREATE OR REPLACE`, no data change; applied only by the pipeline.
 - Guard: `app/_components/frontdoor/the-front-door-tells-the-truth.test.ts` (seen failing against origin/main, 5/5).
 - `lib/ugat/screens.generated.json` regenerated (new /start screen; the button's door moved off /onboarding/wedding).
 

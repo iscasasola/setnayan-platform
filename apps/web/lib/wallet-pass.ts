@@ -26,6 +26,7 @@ import { APPLE_WALLET_ROUTE, PASS_CARD_REFUSED, PASS_CARD_WORDS, decidePassCardA
 import { printLookFor, CLASSIC_PRINT_THEME } from './print-pieces';
 import { publicEventUrl } from './public-event-url';
 import { buildInvitationUrl } from './qr';
+import { isAppleTouchDevice } from './apple-device';
 
 // ─── Who may add one ────────────────────────────────────────────────────────
 
@@ -324,7 +325,9 @@ export function pemFromEnvValue(raw: string | null | undefined): string | null {
  * WebKit and hands a `.pkpass` to Wallet's Add sheet.
  */
 export function appleWalletDevice(userAgent: string | null | undefined): boolean {
-  return /iPhone|iPad|iPod/i.test(userAgent ?? '');
+  // Through the one device reader (`lib/apple-device.ts`, held by `apple-device.test.ts` § 5) — never a bare
+  // /iPhone|iPad/, which reads an iPad that says "Macintosh" (the Setnayan iPad app) as a Mac.
+  return isAppleTouchDevice(userAgent);
 }
 
 /**

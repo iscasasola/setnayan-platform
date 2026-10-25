@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "e8fcca33cf",
-  "routeCount": 470,
+  "generatedFromRef": "01c58ee4df",
+  "routeCount": 471,
   "destinations": 1009,
   "actions": 665,
-  "blocks": 7069,
+  "blocks": 7073,
   "routes": {
     "/": {
       "files": [
@@ -692,6 +692,19 @@
       "blocks": [
         "DoorwayPage",
         "SpotlightSection"
+      ]
+    },
+    "/(shell)/start": {
+      "files": [
+        "(shell)/start/_components/start-type-grid.tsx",
+        "(shell)/start/loading.tsx",
+        "(shell)/start/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "EventTypePhotoPicker",
+        "StartTypeGrid"
       ]
     },
     "/(shell)/suppliers/(index)": {
@@ -2292,6 +2305,7 @@
         "Screen",
         "Sk",
         "Suspense",
+        "TermsReacceptSheet",
         "Tile",
         "UnreadBellBadge",
         "WhatYouChange"
@@ -13373,6 +13387,7 @@
         "Suspense",
         "SyncResult",
         "TapMark",
+        "TermsReacceptSheet",
         "ThumbFit",
         "TodayEyebrow",
         "TodayFigure",

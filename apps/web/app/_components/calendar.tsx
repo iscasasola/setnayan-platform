@@ -27,6 +27,7 @@ import {
   type CalendarMonth,
   type CalendarRange,
 } from '@/lib/calendar-grid';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 import { inertBehind } from '@/lib/popup-behind';
 import { placeTickerPop } from '@/lib/timeline';
 import { useModalA11y } from '@/lib/use-modal-a11y';
@@ -346,9 +347,8 @@ function CalendarSheet({ title, onClose, children }: { title: string; onClose: (
   }, []);
   return (
     <div ref={root} data-calendar-sheet="" className="fixed inset-0 z-[96]">
-      {/* A tap on the dark closes it. */}
-      <button type="button" aria-label="Close" data-calendar-scrim="" onClick={onClose} className="absolute inset-0 h-full w-full cursor-default touch-none" />
-      <span aria-hidden className="sn-popup-dark pointer-events-none absolute inset-0" />
+      {/* A tap on the dark closes it — the dark IS the close button (one layer, so the page lock keeps it live). */}
+      <OverlayBackdrop onClose={onClose} />
       <div
         ref={panel}
         role="dialog"

@@ -16,8 +16,9 @@
  *
  * 2 · `isolateOverlay(container)` — nothing behind it is tappable or read out: every element BESIDE the pop-up's path to
  *     `<body>` gets `inert` + `aria-hidden` (`inertBehind`, the Maker sheet's walk since 2026-10-08, reused). It never touches an element it did not change
- *     (one already inert stays the business of whoever made it so), and it leaves a full-screen fixed sibling alone —
- *     that is a backdrop, and tapping the darkened space must still close the pop-up. Opened after it, a nested
+ *     (one already inert stays the business of whoever made it so), and it leaves the pop-up's backdrop alone — a
+ *     full-screen fixed sibling, a full-screen button, or anything marked `data-overlay-backdrop` (`keepsBesidePopup`)
+ *     — because tapping the darkened space must still close the pop-up. Opened after it, a nested
  *     pop-up (a list inside a sheet) is not affected; a second pop-up isolates the first, so only the top one is live.
  *
  * 🔒 Held by `lib/one-backdrop-everywhere.test.ts`.
@@ -67,12 +68,44 @@ export function unlockPageScroll(): void {
   saved = null;
 }
 
-/** A full-screen fixed layer beside the pop-up — its backdrop. Left live so a tap on it still closes the pop-up. */
+/**
+ * 🩹 WHICH LAYER BESIDE A POP-UP STAYS LIVE — its own backdrop, so a tap on the dark still closes it. Owner on his iPhone,
+ * 2026-10-25, the People › Invite sheet: *"I cannot tap out the screen"*. This walk had kept only a full-screen FIXED
+ * layer (or one marked `data-overlay-backdrop`); a pop-up whose close button is an `absolute inset-0` button inside its
+ * own fixed root — `GuestPopup`, the Maker sheet and ~15 hand-made sheets — had that button made `inert`, so the tap
+ * landed on nothing, on every browser (measured in Playwright WebKit/iPhone + Chromium/Pixel). So a full-screen
+ * BUTTON beside the pop-up is its close layer too, whatever its position: page content is never a button the size of
+ * the screen. A full-screen absolute DIV is not kept — it may be page (a canvas, a stage); mark a real backdrop instead.
+ * Pure, so `lib/one-backdrop-everywhere.test.ts` holds it without a browser.
+ */
+export function keepsBesidePopup(l: {
+  marked: boolean;
+  tag: string;
+  position: string;
+  width: number;
+  height: number;
+  viewportWidth: number;
+  viewportHeight: number;
+}): boolean {
+  if (l.marked) return true;
+  if (l.width < l.viewportWidth - 1 || l.height < l.viewportHeight - 1) return false;
+  if (l.position === 'fixed') return true;
+  return l.position === 'absolute' && l.tag.toUpperCase() === 'BUTTON';
+}
+
+/** A layer beside the pop-up that is its backdrop (`keepsBesidePopup`) — left live so a tap on it closes the pop-up. */
 function isBackdrop(el: Element): boolean {
   if (el.hasAttribute('data-overlay-backdrop')) return true;
-  if (getComputedStyle(el).position !== 'fixed') return false;
   const r = el.getBoundingClientRect();
-  return r.width >= window.innerWidth - 1 && r.height >= window.innerHeight - 1;
+  return keepsBesidePopup({
+    marked: false,
+    tag: el.tagName,
+    position: getComputedStyle(el).position,
+    width: r.width,
+    height: r.height,
+    viewportWidth: window.innerWidth,
+    viewportHeight: window.innerHeight,
+  });
 }
 
 export function isolateOverlay(container: HTMLElement): () => void {

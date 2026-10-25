@@ -303,7 +303,7 @@ export function CustomersRoster({
   return (
     <div id="customers" className="scroll-mt-24" data-customers-people="">
       {/* "WAITING FIRST · Everyone ▾" — the order is said, and the one dropdown narrows it (frame 03). */}
-      <div className="flex min-h-11 items-center gap-3" data-customers-eyebrow="">
+      <div className="flex min-h-11 items-center gap-3" data-customers-eyebrow="" data-tour="customers-filter">
         <span className="home-k2">Waiting first</span>
         {filter}
       </div>

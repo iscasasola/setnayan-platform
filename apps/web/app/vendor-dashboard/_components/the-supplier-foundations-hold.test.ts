@@ -147,7 +147,8 @@ test('5 · the two new tour keys are registered — and each mounts only with it
   // `each-supplier-page-has-its-tour.test.ts`.
   assert.equal(supplierPageTourOn('/vendor-dashboard/shop', {}), 'vendor_shop_v1');
   assert.equal(supplierPageTourOn('/vendor-dashboard/on-the-day', {}), 'vendor_hub_v1');
-  assert.equal(supplierPageTourOn('/vendor-dashboard', {}), null, 'a page tour plays on Today');
+  // Today has its own page tour since 2026-10-25 (owner: "missing so many parts") — never the Shop or Hub one.
+  assert.equal(supplierPageTourOn('/vendor-dashboard', {}), 'vendor_today_v2', 'Today plays another page’s tour');
   const files = walk(join(WEB, 'app'));
   for (const key of ['vendor_shop_v1', 'vendor_hub_v1']) {
     const mounts = files

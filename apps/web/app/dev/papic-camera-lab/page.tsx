@@ -14,6 +14,8 @@
  *   ?lane=vendor    the supplier camera
  *   ?pro=1          the guest camera on a PRO event (owner 2026-10-24 ruling)
  */
+import { LabPageSpotlight } from '@/app/dev/_components/lab-page-spotlight';
+import { TOURS } from '@/lib/tours';
 import { notFound } from 'next/navigation';
 import { LabCamera } from './lab-camera';
 
@@ -26,5 +28,11 @@ export default async function PapicCameraLabPage({
   const sp = await searchParams;
   const lane = sp.lane === 'vendor' ? 'vendor' : 'guest';
   // ?pro=1 — a Pro event's camera: the logo on the shutter, the theme colour, the monogram on the copies.
-  return <LabCamera lane={lane} pro={sp.pro === '1'} />;
+  // &spot=1 — the camera's first-visit spotlight (guest_papic_camera_v2), first run, nothing recorded.
+  return (
+    <>
+      <LabCamera lane={lane} pro={sp.pro === '1'} />
+      {sp.spot === '1' && lane === 'guest' ? <LabPageSpotlight tourKey="guest_papic_camera_v2" script={TOURS.guest_papic_camera_v2.spotlight!} /> : null}
+    </>
+  );
 }

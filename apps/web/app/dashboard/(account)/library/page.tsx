@@ -11,6 +11,7 @@ import { VendorsTab } from './_components/vendors-tab';
 import { EditorialsTab } from './_components/editorials-tab';
 import { ChallengesTab } from './_components/challenges-tab';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { Spotlight } from '@/app/_components/spotlight';
 import { fetchScheduleBlocks } from '@/lib/schedule';
 import { formatCount } from '@/lib/format-number';
 import { MemoriesChapters } from './_components/memories-chapters';
@@ -150,6 +151,8 @@ export default async function AlaalaPage({
   return (
     <div className="mx-auto w-full max-w-7xl px-4 pb-24 pt-2 sm:px-6 lg:px-8">
       <PageMasthead title="Memories" />
+      {/* 🔦 First visit only — this tab's own spotlight, after the host journey (owner 2026-10-25). */}
+      <Spotlight tourKey="customer_library_v1" after="host_spotlight_v1" />
 
       {/* key remount on view change → the body cross-fades in (§ 2d) */}
       <div key={`${active}:${keep ?? ''}`} className="sn-lens-swap mx-auto w-full max-w-3xl">

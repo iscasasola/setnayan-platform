@@ -634,6 +634,7 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
                   keep={keepParamsFrom(sp, ['q', 'page', 'copage', 'notice', 'add'])}
                   hash="#customers"
                   data="customers"
+                  tour="customers-search"
                 />
               ),
             }}
@@ -645,6 +646,7 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
                   startOpen={search.add === 'outside'}
                   today={todayIso}
                   setupHref="/vendor-dashboard/customers?seg=dates&open=capacity"
+                  tour="customers-add"
                 />
               ),
             }}

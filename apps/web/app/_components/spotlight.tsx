@@ -51,6 +51,7 @@ export async function Spotlight({
       replay={replay}
       name={name}
       inMaker={inMaker}
+      after={after}
       completeAction={completeTour}
     />
   );

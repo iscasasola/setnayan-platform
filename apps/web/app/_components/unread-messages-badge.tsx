@@ -31,9 +31,11 @@ type Props = {
   userId: string;
   initialUnread: number;
   href: string;
+  /** 🔦 A spotlight tour's anchor token (`data-tour`) — the supplier's Today tour lights the envelope. */
+  tour?: string;
 };
 
-export function UnreadMessagesBadge({ userId, initialUnread, href }: Props) {
+export function UnreadMessagesBadge({ userId, initialUnread, href, tour }: Props) {
   const [unread, setUnread] = useState(initialUnread);
 
   // A fresh server render (a revalidated layout, a router.refresh) wins.
@@ -59,6 +61,7 @@ export function UnreadMessagesBadge({ userId, initialUnread, href }: Props) {
   return (
     /* `fd-round`: the shared bar draws it as a 44px circle below 768 (front-door.css). */
     <Link
+      data-tour={tour}
       href={href}
       aria-label={label}
       className="fd-round relative inline-flex h-9 w-9 items-center justify-center rounded-full border border-ink/15 bg-cream text-ink/70 hover:border-terracotta/40 hover:text-terracotta-700"

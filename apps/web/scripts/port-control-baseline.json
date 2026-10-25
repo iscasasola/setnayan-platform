@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "338281fe1e",
-  "routeCount": 470,
+  "generatedFromRef": "b39b06a70c",
+  "routeCount": 466,
   "destinations": 1009,
   "actions": 665,
-  "blocks": 7043,
+  "blocks": 7032,
   "routes": {
     "/": {
       "files": [
@@ -284,9 +284,7 @@
       "destinations": [],
       "actions": [],
       "blocks": [
-        "FeaturesPageBody",
-        "HowSearchField",
-        "HowSearchResults"
+        "FeaturesPageBody"
       ]
     },
     "/(shell)/features/[slug]": {
@@ -320,16 +318,14 @@
         "(shell)/help/page.tsx"
       ],
       "destinations": [
-        "/help",
-        "/help/[seg]"
+        "/help"
       ],
       "actions": [
         "submitHelpMessage"
       ],
       "blocks": [
         "Field",
-        "HowSearchField",
-        "HowSearchResults",
+        "HelpSearch",
         "Icon",
         "Link",
         "SubmitButton"
@@ -4930,20 +4926,6 @@
         "SubmitButton"
       ]
     },
-    "/dashboard/(account)/billing": {
-      "files": [
-        "dashboard/(account)/billing/_components/billing-list.tsx",
-        "dashboard/(account)/billing/page.tsx"
-      ],
-      "destinations": [],
-      "actions": [],
-      "blocks": [
-        "BillingList",
-        "Link",
-        "PageMasthead",
-        "Row"
-      ]
-    },
     "/dashboard/(account)/clusters": {
       "files": [
         "dashboard/(account)/clusters/_components/create-cluster-form.tsx",
@@ -5109,6 +5091,7 @@
         "PickMenu",
         "SavedVendorCardItem",
         "Section",
+        "Spotlight",
         "StatusChip",
         "ThumbField",
         "ThumbTool",
@@ -5287,6 +5270,7 @@
     },
     "/dashboard/(account)/profile": {
       "files": [
+        "dashboard/(account)/profile/_components/appearance-choice.tsx",
         "dashboard/(account)/profile/_components/haptics-toggle.tsx",
         "dashboard/(account)/profile/_components/settings-shell.tsx",
         "dashboard/(account)/profile/actions.ts",
@@ -5324,6 +5308,8 @@
         "updateUserSlug"
       ],
       "blocks": [
+        "Appearance",
+        "AppearanceChoice",
         "ConfirmForm",
         "Field",
         "FileUpload",
@@ -5334,6 +5320,7 @@
         "Icon",
         "Link",
         "PageMasthead",
+        "PickMenu",
         "PillButton",
         "PillTrack",
         "PrefixSelect",
@@ -6750,6 +6737,7 @@
         "SetRsvpResult",
         "Sheet",
         "SoftDeleteForUndoResult",
+        "Spotlight",
         "StatusLine",
         "SubmitButton",
         "SwitchRow",
@@ -7109,6 +7097,7 @@
         "dashboard/[eventId]/launch/_components/maker-context.tsx",
         "dashboard/[eventId]/launch/_components/maker-desk.tsx",
         "dashboard/[eventId]/launch/_components/maker-details.tsx",
+        "dashboard/[eventId]/launch/_components/maker-exit-sheet.tsx",
         "dashboard/[eventId]/launch/_components/maker-hero-design.tsx",
         "dashboard/[eventId]/launch/_components/maker-late.tsx",
         "dashboard/[eventId]/launch/_components/maker-logo.tsx",
@@ -7217,6 +7206,7 @@
         "/[seg]",
         "/api/website/qr/[seg]",
         "/api/website/qr/guest/[seg]",
+        "/dashboard",
         "/dashboard/[seg]",
         "/dashboard/[seg]/guests",
         "/dashboard/[seg]/launch?tool=hero",
@@ -7435,6 +7425,7 @@
         "MakerDevice",
         "MakerDraftDoor",
         "MakerEventBar",
+        "MakerExitSheet",
         "MakerGuestPagesReport",
         "MakerHalfSheet",
         "MakerHeroDesignPicker",
@@ -9950,6 +9941,7 @@
         "ShopPinNote",
         "ShortlistCategories",
         "SlotPickerModal",
+        "Spotlight",
         "StartServiceInquiryResult",
         "SubmitButton",
         "SuccessToast",
@@ -10894,17 +10886,6 @@
         "VendorRailContext"
       ]
     },
-    "/dev/billing-lab": {
-      "files": [
-        "dev/billing-lab/page.tsx"
-      ],
-      "destinations": [],
-      "actions": [],
-      "blocks": [
-        "BillingList",
-        "PageMasthead"
-      ]
-    },
     "/dev/booking-ask-lab": {
       "files": [
         "dev/booking-ask-lab/page.tsx"
@@ -11069,6 +11050,7 @@
         "GuestSetupRows",
         "GuestsScreen",
         "LabGuestActions",
+        "LabPageSpotlight",
         "LabShell",
         "MakerRsvpSettings",
         "NotificationsList",
@@ -11310,6 +11292,7 @@
       "actions": [],
       "blocks": [
         "AccountBottomNav",
+        "LabPageSpotlight",
         "MemoriesChapters",
         "MemoriesThumb"
       ]
@@ -11335,6 +11318,7 @@
       "blocks": [
         "Blob",
         "LabCamera",
+        "LabPageSpotlight",
         "PapicCaptureController",
         "PapicGuestCapture",
         "UploaderSnapshot"
@@ -11389,20 +11373,6 @@
         "MakerContext.Provider",
         "ProPartsBody",
         "ProQuietLine"
-      ]
-    },
-    "/dev/receipt-lab": {
-      "files": [
-        "dev/receipt-lab/page.tsx"
-      ],
-      "destinations": [],
-      "actions": [],
-      "blocks": [
-        "Link",
-        "ReceiptPage",
-        "ReceiptSlip",
-        "SaveAsPdfButton",
-        "ShareReceiptButton"
       ]
     },
     "/dev/schedule-lab": {
@@ -12524,7 +12494,7 @@
         "GuestColumnCard",
         "GuestFocusSquare",
         "GuestGridLines",
-        "GuestGuidedTour",
+        "GuestSpotlight",
         "HTMLButtonElement",
         "HTMLCanvasElement",
         "HTMLDivElement",
@@ -12599,7 +12569,7 @@
         "File",
         "FormPageSkeleton",
         "GuestGallery",
-        "GuestGuidedTour",
+        "GuestSpotlight",
         "GuestStoryMaker",
         "GuestStoryPlan",
         "Link",
@@ -12743,23 +12713,7 @@
       "destinations": [],
       "actions": [],
       "blocks": [
-        "ReceiptPage",
-        "ReceiptSlip",
-        "SaveAsPdfButton",
-        "ShareReceiptButton"
-      ]
-    },
-    "/receipts/order/[orderId]": {
-      "files": [
-        "receipts/order/[orderId]/page.tsx"
-      ],
-      "destinations": [],
-      "actions": [],
-      "blocks": [
-        "Link",
-        "ReceiptPage",
-        "ReceiptSlip",
-        "ShareReceiptButton"
+        "Line"
       ]
     },
     "/reset-password": {

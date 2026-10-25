@@ -399,7 +399,7 @@ export function ServicesTakeover({
         className="sn-ambient sticky top-[var(--sup-top,0px)] z-[15] -mx-4 px-4 pb-2 pt-2.5 data-[stuck]:shadow-[0_1px_0_rgb(var(--color-ink)/0.1)] sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0"
       >
         {factsSlot}
-        <div className="mt-2.5 flex">
+        <div className="mt-2.5 flex" data-tour="suppliers-segments">
           <ISegmented label="Find, Build or Booked">
             {SUPPLIERS_MODES.map((m) => (
               <ISeg

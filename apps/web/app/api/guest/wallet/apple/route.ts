@@ -4,7 +4,7 @@ import { readGuestSession } from '@/lib/guest-session';
 import { PASS_CARD_REFUSED, PASS_CARD_WORDS } from '@/lib/pass-card';
 import { asPassCardRow, loadPassCardKit, readPassCardGuest } from '@/lib/pass-card.server';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { applePassJson, decideWalletPassAccess, walletPassContent } from '@/lib/wallet-pass';
+import { applePassJson, decideWalletPassAccess, walletBackPath, walletNoticeHtml, walletPassContent } from '@/lib/wallet-pass';
 import { buildPkpass, WalletSigningError } from '@/lib/wallet-pass-pkpass';
 import { readAppleWalletConfig } from '@/lib/wallet-pass-config.server';
 import { walletPassFactsFor, walletPassFileNameFor, walletPassImages } from '@/lib/wallet-pass.server';
@@ -44,7 +44,15 @@ export async function GET(request: Request) {
   }
 
   const session = await readGuestSession();
-  if (!session?.guest_id) return new NextResponse('Open your invitation link first.', { status: 401 });
+  if (!session?.guest_id) {
+    // 🔑 SIGNED OUT ON THIS PHONE (owner 2026-10-25) — the same words and the same ONE way back in as "Save my ticket"
+    // (#6910): back to the Event Hub path they pressed from, which then shows its own sign-in door. Never bare text.
+    return walletNotice(request, 401, {
+      line: PASS_CARD_WORDS.walletSignedOut,
+      why: PASS_CARD_WORDS.walletGetBackInWhy,
+      button: PASS_CARD_WORDS.walletGetBackIn,
+    });
+  }
 
   const admin = createAdminClient();
   const { target, bringer, failed } = await readPassCardGuest(admin, session.guest_id);
@@ -80,25 +88,16 @@ export async function GET(request: Request) {
   }
 }
 
-/**
- * 🗣 THE HONEST FAILURE — a page, not a file. The button is a plain link, so whatever this answers is what the guest
- * SEES: a `.pkpass` Wallet cannot open would be a broken download, and a bare text body a dead end. This says it in
- * words and hands them back to the page they came from (same site only), where "Save my ticket" is.
- */
+/** 🗣 THE HONEST FAILURE — a page, not a file: says it in words, and hands them back to "Save my ticket". */
 function couldNotMakeIt(request: Request): NextResponse {
-  let back = '/';
-  try {
-    const ref = request.headers.get('referer');
-    const here = new URL(request.url);
-    const from = ref ? new URL(ref) : null;
-    if (from && from.origin === here.origin) back = `${from.pathname}${from.search}`;
-  } catch {
-    /* no usable referer — the home page */
-  }
-  const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>${esc(PASS_CARD_WORDS.appleWallet)}</title></head><body style="font-family:-apple-system,system-ui,sans-serif;background:#FBFBFA;color:#1E2229;margin:0;padding:48px 20px;text-align:center"><p role="alert" style="font-size:17px;line-height:1.45;max-width:22rem;margin:0 auto 24px">${esc(PASS_CARD_WORDS.walletFailed)}</p><a href="${esc(back)}" style="display:inline-block;min-height:44px;line-height:44px;padding:0 22px;border-radius:999px;background:#1E2229;color:#fff;text-decoration:none;font-weight:600">${esc(PASS_CARD_WORDS.saveOwn)}</a></body></html>`;
-  return new NextResponse(html, {
-    status: 503,
+  return walletNotice(request, 503, { line: PASS_CARD_WORDS.walletFailed, button: PASS_CARD_WORDS.saveOwn });
+}
+
+/** The route's small page (`walletNoticeHtml`), its one button to the page the guest came from (`walletBackPath`). */
+function walletNotice(request: Request, status: number, n: { line: string; button: string; why?: string }): NextResponse {
+  const href = walletBackPath(request.headers.get('referer'), request.url);
+  return new NextResponse(walletNoticeHtml({ ...n, href }), {
+    status,
     headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'private, no-store' },
   });
 }

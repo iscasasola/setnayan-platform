@@ -78,6 +78,13 @@ export const PASS_CARD_WORDS = {
   appleWalletInAppSheet: 'Open my ticket to add to Apple Wallet',
   /** The route could not sign a pass (owner 2026-10-25: never a broken download) — said on its own page. */
   walletFailed: 'Couldn’t make your Wallet pass — Save my ticket instead.',
+  /**
+   * The guest's sign-in on this phone ended before "Add to Apple Wallet" (the route's no-session case) — the SAME words
+   * "Save my ticket" says in that case (owner 2026-10-25, #6910 `PASS_REENTRY_WORDS`): one way back in, nothing bare.
+   */
+  walletSignedOut: 'Your sign-in on this phone ended.',
+  walletGetBackIn: 'Get back in',
+  walletGetBackInWhy: 'Nothing you sent is lost. Open your invitation again with your QR or by signing in, then save your ticket.',
   /** Me, from 00:00 Manila on the date (Phase A has no pushes). */
   walletTableToday: 'Your table is on your ticket now — tap Add to Apple Wallet again to put it on your pass.',
   /** The back of the pass. */

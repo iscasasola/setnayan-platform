@@ -27,7 +27,7 @@ import { generateKeyPairSync } from 'node:crypto';
 import forge from 'node-forge';
 import { stripComments } from './strip-comments';
 import { APPLE_WALLET_ROUTE, PASS_CARD_WORDS } from './pass-card';
-import { appleWalletLink, type AppleWalletLink } from './wallet-pass';
+import { appleWalletLink, walletBackPath, walletNoticeHtml, type AppleWalletLink } from './wallet-pass';
 import { probeSigner } from './wallet-pass-pkpass';
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -225,4 +225,37 @@ test('1b · GuestTicket, RENDERED: the button only under a real ticket’s "Save
   ] as const) {
     assert.doesNotMatch(html(props as Record<string, unknown>), wallet, `the Wallet button shows for ${why}`);
   }
+});
+
+// ─── 4 · SIGNED OUT → ONE WAY BACK IN, NEVER A BARE LINE ────────────────────
+
+test('4 · a guest whose sign-in ended gets the Save’s own words and ONE "Get back in" to the Event Hub path — never bare text', () => {
+  // The button's target: the page they pressed from, PATH ONLY, this site only.
+  const route = 'https://setnayan.com/api/guest/wallet/apple';
+  assert.equal(walletBackPath('https://setnayan.com/cale-ice', route), '/cale-ice');
+  assert.equal(walletBackPath('https://setnayan.com/cale-ice/invite/enter?in=1&k=secret', route), '/cale-ice/invite/enter');
+  assert.equal(walletBackPath('https://evil.example/cale-ice', route), '/');
+  assert.equal(walletBackPath(null, route), '/');
+  assert.equal(walletBackPath('not a url', route), '/');
+
+  const html = walletNoticeHtml({
+    line: PASS_CARD_WORDS.walletSignedOut,
+    why: PASS_CARD_WORDS.walletGetBackInWhy,
+    button: PASS_CARD_WORDS.walletGetBackIn,
+    href: '/cale-ice',
+  });
+  assert.match(html, /^<!doctype html>/, 'not a page');
+  assert.ok(html.includes('Your sign-in on this phone ended.'), 'the line is not the Save’s own line');
+  assert.ok(html.includes('Nothing you sent is lost. Open your invitation again with your QR or by signing in, then save your ticket.'), 'the ⓘ detail is not the Save’s own');
+  assert.equal((html.match(/<a /g) ?? []).length, 1, 'more than one way out');
+  assert.match(html, /<a href="\/cale-ice" data-wallet-notice-button="" [^>]*>Get back in<\/a>/, 'the one button is not "Get back in" to the Event Hub path');
+
+  // The route: the no-session branch answers THAT page (401), with those three words — no bare body left anywhere.
+  const src = code('app/api/guest/wallet/apple/route.ts');
+  const branch = src.slice(src.indexOf('if (!session?.guest_id)'), src.indexOf('const admin = createAdminClient()'));
+  assert.ok(branch.length > 20, 'the no-session branch moved');
+  assert.match(branch, /return walletNotice\(request, 401, \{\s*line: PASS_CARD_WORDS\.walletSignedOut,\s*why: PASS_CARD_WORDS\.walletGetBackInWhy,\s*button: PASS_CARD_WORDS\.walletGetBackIn,\s*\}\);/, 'a signed-out guest no longer gets the "Get back in" page');
+  assert.doesNotMatch(branch, /new NextResponse\(/, 'a signed-out guest gets a bare response');
+  assert.match(src, /function walletNotice\([\s\S]{0,200}walletBackPath\(request\.headers\.get\('referer'\), request\.url\)[\s\S]{0,120}walletNoticeHtml\(/, 'the page’s button is not the Event Hub path');
+  assert.match(src, /'Content-Type': 'text\/html; charset=utf-8'/, 'the small page is not served as a page');
 });

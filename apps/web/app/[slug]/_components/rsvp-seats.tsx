@@ -67,7 +67,7 @@ function SeatTile({ tag, sub, you = false }: { tag: string; sub: string; you?: b
         stroke="currentColor"
         strokeWidth="1.6"
         strokeDasharray={you ? undefined : '3 2'}
-        className={`mx-auto mb-1.5 block h-[30px] w-[34px] ${you ? 'text-mulberry' : 'text-ink/45'}`}
+        className={`mx-auto mb-1.5 block h-[30px] w-[34px] ${you ? 'text-mulberry' : 'text-ink/65'}`}
       >
         <path d="M7 4h20v12H7z" />
         <path d="M5 16h24v6H5z" />

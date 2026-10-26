@@ -35,8 +35,10 @@ import { dirname, join } from 'node:path';
 
 const appDir = join(dirname(fileURLToPath(import.meta.url)), '..', 'app');
 
+/* `orders/actions.ts` › `logPayment` was deleted 2026-10-26 (no caller — reload audit §3c); its successor, the one
+   payment page every purchase logs on, takes its place: `pay/[reference]/actions.ts` › `submitPaymentProof`. */
 const PAYMENT_ACTIONS = [
-  'dashboard/[eventId]/orders/actions.ts',
+  'pay/[reference]/actions.ts',
   'dashboard/[eventId]/checkout/actions.ts',
 ] as const;
 

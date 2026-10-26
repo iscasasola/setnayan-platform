@@ -135,16 +135,16 @@ test('the admin door carries the rule in BOTH the guard and the WHERE clause', (
 });
 
 // SABOTAGE: delete the canLogPaymentAgainstOrder call → RED.
+/* The customer door is the one payment page (`pay/[reference]/actions.ts` › `submitPaymentProof`) — the old
+   `orders/actions.ts` › `logPayment` had no caller and was deleted 2026-10-26 (reload audit §3c). */
 test('the customer door refuses a payment against a closed order', () => {
-  const src = read('app/dashboard/[eventId]/orders/actions.ts');
-  assert.equal(
-    count(src, /canLogPaymentAgainstOrder\(/),
-    1,
+  const src = read('app/pay/[reference]/actions.ts');
+  const fn = src.slice(src.indexOf('export async function submitPaymentProof('));
+  const refuse = fn.search(/if \(payable\.status !== 'awaiting_payment'\) \{\s*back\(reference, 'error'/);
+  const write = fn.search(/\.from\('order_payments'\)|\.insert\(/);
+  assert.ok(
+    refuse > -1,
     'money arrives at the customer door FIRST — a precondition on the admin door alone is not a precondition',
   );
-  assert.match(
-    src,
-    /\.select\('order_id, event_id, status'\)/,
-    'the ownership read must fetch `status` too',
-  );
+  assert.ok(write === -1 || refuse < write, 'the closed-order refusal must come before the payment is written');
 });

@@ -112,7 +112,7 @@ test('the legacy orders module mints no orders at all', () => {
   const src = read(ORDERS_ACTIONS);
   assert.ok(
     !/\.from\(\s*['"]orders['"]\s*\)[\s\S]{0,80}?\.insert\b/.test(src),
-    `${ORDERS_ACTIONS} inserts into orders again. Its remaining job is cancel + log-payment; ` +
+    `${ORDERS_ACTIONS} inserts into orders again. Its remaining job is cancel; ` +
       'order creation belongs to submitOrderAction, which re-resolves the price server-side.',
   );
 });
@@ -125,7 +125,8 @@ test('the module exports exactly the two reviewed server actions', () => {
     .sort();
   assert.deepEqual(
     exported,
-    ['cancelOrder', 'logPayment'],
+    /* `logPayment` was deleted 2026-10-26 (no caller; payments are logged on `/pay/<reference>`). */
+    ['cancelOrder'],
     'a new export in this module is a new POST-able endpoint. Every export of a ' +
       "'use server' file is callable by action id — review it, then update this list.",
   );

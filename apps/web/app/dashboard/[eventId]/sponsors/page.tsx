@@ -30,6 +30,7 @@ import { AddSponsorModal } from './_components/add-sponsor-modal';
 import { EditSponsorModal } from './_components/edit-sponsor-modal';
 import { InvitationTemplateModal } from './_components/invitation-template-modal';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { StayForm } from '@/app/_components/stay-form';
 import { PairTargetPicker } from './_components/pair-target-picker';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import {
@@ -598,7 +599,7 @@ function SponsorCard({
             phone={sponsor.phone}
             formAction={updateSponsor}
           />
-          <form action={removeSponsor}>
+          <StayForm door="sponsors.removeSponsor" action={removeSponsor}>
             <input type="hidden" name="event_id" value={eventId} />
             <input type="hidden" name="sponsor_id" value={sponsor.id} />
             <SubmitButton
@@ -608,7 +609,7 @@ function SponsorCard({
             >
               <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
             </SubmitButton>
-          </form>
+          </StayForm>
         </div>
       </div>
 
@@ -640,7 +641,7 @@ function SponsorCard({
 
         {sponsor.invitation_status === 'invited' ? (
           <>
-            <form action={markResponse}>
+            <StayForm door="sponsors.markResponse" action={markResponse}>
               <input type="hidden" name="event_id" value={eventId} />
               <input type="hidden" name="sponsor_id" value={sponsor.id} />
               <input type="hidden" name="status" value="accepted" />
@@ -651,8 +652,8 @@ function SponsorCard({
                 <CheckCircle2 aria-hidden className="h-3 w-3" strokeWidth={1.75} />
                 Marked yes
               </SubmitButton>
-            </form>
-            <form action={markResponse}>
+            </StayForm>
+            <StayForm door="sponsors.markResponse" action={markResponse}>
               <input type="hidden" name="event_id" value={eventId} />
               <input type="hidden" name="sponsor_id" value={sponsor.id} />
               <input type="hidden" name="status" value="declined" />
@@ -663,7 +664,7 @@ function SponsorCard({
                 <XCircle aria-hidden className="h-3 w-3" strokeWidth={1.75} />
                 Declined
               </SubmitButton>
-            </form>
+            </StayForm>
           </>
         ) : null}
 

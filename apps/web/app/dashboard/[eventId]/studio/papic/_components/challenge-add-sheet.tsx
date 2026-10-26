@@ -1,6 +1,6 @@
 'use client';
 
-import { PapicStayForm } from './papic-stay-form';
+import { StayForm } from '@/app/_components/stay-form';
 /**
  * challenge-add-sheet.tsx — "+ ADD A CHALLENGE", A POP-UP IN THE PAPIC CARD (owner ruling 2026-10-24: "opens a POP-UP:
  * the shared bottom sheet, not a new page and not inline. A search box over title and prompt, a category PickMenu
@@ -138,7 +138,7 @@ export function ChallengeAddSheet({
               <ul className="divide-y divide-ink/10" data-papic-challenge-library="">
                 {read.rows.map((r) => (
                   <li key={r.library_id}>
-                    <PapicStayForm door="addLibraryChallengeAction" action={addLibraryChallengeAction} className="flex items-center gap-3 py-2.5">
+                    <StayForm door="papic.addLibraryChallengeAction" action={addLibraryChallengeAction} className="flex items-center gap-3 py-2.5">
                       <input type="hidden" name="event_id" value={eventId} />
                       <input type="hidden" name="library_id" value={String(r.library_id)} />
                       {ret}
@@ -154,14 +154,14 @@ export function ChallengeAddSheet({
                       <SubmitButton className="inline-flex h-10 shrink-0 items-center rounded-full border border-ink/15 px-4 text-[13px] font-medium text-ink hover:bg-ink/5 disabled:opacity-45" disabled={full}>
                         Add
                       </SubmitButton>
-                    </PapicStayForm>
+                    </StayForm>
                   </li>
                 ))}
               </ul>
             )}
           </>
         )}
-        <PapicStayForm door="createCoupleChallengeAction" action={createCoupleChallengeAction} className="flex flex-col gap-1.5 border-t border-ink/10 pt-3" data-papic-challenge-own="">
+        <StayForm door="papic.createCoupleChallengeAction" action={createCoupleChallengeAction} className="flex flex-col gap-1.5 border-t border-ink/10 pt-3" data-papic-challenge-own="">
           <input type="hidden" name="event_id" value={eventId} />
           {ret}
           <label htmlFor={`own-challenge-${eventId}`} className="text-[14px] font-medium text-ink">
@@ -179,7 +179,7 @@ export function ChallengeAddSheet({
             <SubmitButton className="inline-flex h-10 shrink-0 items-center rounded-full border border-ink/15 px-4 text-[13px] font-medium text-ink hover:bg-ink/5 disabled:opacity-45">Add</SubmitButton>
           </span>
           <span className="text-[12px] text-ink/55">Up to 280 characters · it turns on if you have room</span>
-        </PapicStayForm>
+        </StayForm>
       </div>
     </Sheet>
   ) : null;

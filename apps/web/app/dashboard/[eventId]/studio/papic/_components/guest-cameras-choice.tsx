@@ -1,4 +1,4 @@
-import { PapicStayForm } from './papic-stay-form';
+import { StayForm } from '@/app/_components/stay-form';
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import { Users } from 'lucide-react';
 
@@ -155,7 +155,7 @@ export async function GuestCamerasChoice({
   );
 
   const control = (
-    <PapicStayForm door="setPapicGuestCaptureEarly" action={setPapicGuestCaptureEarly}>
+    <StayForm door="papic.setPapicGuestCaptureEarly" action={setPapicGuestCaptureEarly}>
       <input type="hidden" name="event_id" value={eventId} />
       <input type="hidden" name="early" value={early ? '0' : '1'} />
       {returnTo ? <input type="hidden" name="return_to" value={returnTo} /> : null}
@@ -165,7 +165,7 @@ export async function GuestCamerasChoice({
       >
         {early ? 'Only on my event day' : 'Let guests shoot now'}
       </SubmitButton>
-    </PapicStayForm>
+    </StayForm>
   );
 
   if (variant === 'row') {

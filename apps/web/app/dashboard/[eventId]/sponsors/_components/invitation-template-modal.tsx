@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { Copy, Mail, Send, X } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { StayForm } from '@/app/_components/stay-form';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 
@@ -156,7 +157,7 @@ export function InvitationTemplateModal({
               >
                 Cancel
               </button>
-              <form action={formAction}>
+              <StayForm door="sponsors.sendInvitation" action={formAction} onSaved={() => setOpen(false)}>
                 <input type="hidden" name="event_id" value={eventId} />
                 <input type="hidden" name="sponsor_id" value={sponsorId} />
                 <SubmitButton
@@ -166,7 +167,7 @@ export function InvitationTemplateModal({
                   <Send aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
                   Mark invitation sent
                 </SubmitButton>
-              </form>
+              </StayForm>
             </footer>
           </div>
         </div>

@@ -25,6 +25,7 @@ import {
   deletePhotoForever,} from './actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { ConfirmForm } from '@/app/_components/confirm-form';
+import { StayForm } from '@/app/_components/stay-form';
 import { PageMasthead } from '@/app/_components/page-masthead';
 
 export const metadata = { title: 'Photo moderation · Papic' };
@@ -407,7 +408,8 @@ export default async function PapicModerationPage({
                 </div>
 
                 {/* Hide / unhide */}
-                <form action={setCaptureHidden.bind(null, eventId)}>
+                <StayForm door="memories.setCaptureHidden" action={setCaptureHidden.bind(null, eventId)}>
+                  <input type="hidden" name="event_id" value={eventId} />
                   <input type="hidden" name="capture_id" value={captureId} />
                   <input type="hidden" name="hide" value={hidden ? '0' : '1'} />
                   <SubmitButton
@@ -424,7 +426,7 @@ export default async function PapicModerationPage({
                       </>
                     )}
                   </SubmitButton>
-                </form>
+                </StayForm>
                 {/*
                   Delete forever — the owner's 2026-08-10 ruling. Deliberately
                   BELOW Hide and in the destructive tint: hiding is the
@@ -432,11 +434,13 @@ export default async function PapicModerationPage({
                   undone. The dialog says so in words, not by colour alone.
                 */}
                 <ConfirmForm
+                  door="memories.deletePhotoForever"
                   action={deletePhotoForever.bind(null, eventId)}
                   title="Delete this photo forever?"
                   confirmLabel="Delete forever"
                   message="This removes the photo and every copy of it — your Memories, the story, the prints and the share card. It cannot be undone. To take it out of your Memories but keep it, use Hide instead."
                 >
+                  <input type="hidden" name="event_id" value={eventId} />
                   <input type="hidden" name="table" value="papic_guest_captures" />
                   <input type="hidden" name="id" value={captureId} />
                   <SubmitButton
@@ -449,7 +453,8 @@ export default async function PapicModerationPage({
 
 
                 {/* Report */}
-                <form action={reportCapture.bind(null, eventId)} className="space-y-1.5">
+                <StayForm door="memories.reportCapture" action={reportCapture.bind(null, eventId)} className="space-y-1.5">
+                  <input type="hidden" name="event_id" value={eventId} />
                   <input type="hidden" name="capture_id" value={captureId} />
                   <div className="flex items-center gap-1.5">
                     <select
@@ -471,11 +476,12 @@ export default async function PapicModerationPage({
                       <Flag aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Report
                     </SubmitButton>
                   </div>
-                </form>
+                </StayForm>
 
                 {/* Block / unblock uploader (event-scoped) */}
                 {isBlocked ? (
-                  <form action={unblockUploader.bind(null, eventId)}>
+                  <StayForm door="memories.unblockUploader" action={unblockUploader.bind(null, eventId)}>
+                    <input type="hidden" name="event_id" value={eventId} />
                     <input type="hidden" name="guest_id" value={guestId} />
                     <SubmitButton
                       pendingLabel="Unblocking…"
@@ -483,9 +489,10 @@ export default async function PapicModerationPage({
                     >
                       Unblock {name}&rsquo;s camera
                     </SubmitButton>
-                  </form>
+                  </StayForm>
                 ) : (
-                  <form action={blockUploader.bind(null, eventId)}>
+                  <StayForm door="memories.blockUploader" action={blockUploader.bind(null, eventId)}>
+                    <input type="hidden" name="event_id" value={eventId} />
                     <input type="hidden" name="guest_id" value={guestId} />
                     <SubmitButton
                       pendingLabel="Blocking…"
@@ -493,7 +500,7 @@ export default async function PapicModerationPage({
                     >
                       <UserX aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Block {name}&rsquo;s camera
                     </SubmitButton>
-                  </form>
+                  </StayForm>
                 )}
               </li>
             );
@@ -570,7 +577,8 @@ export default async function PapicModerationPage({
                     )}
                   </div>
 
-                  <form action={setSeatPhotoHidden.bind(null, eventId)}>
+                  <StayForm door="memories.setSeatPhotoHidden" action={setSeatPhotoHidden.bind(null, eventId)}>
+                    <input type="hidden" name="event_id" value={eventId} />
                     <input type="hidden" name="photo_id" value={photoId} />
                     <input type="hidden" name="hide" value={hidden ? '0' : '1'} />
                     <SubmitButton
@@ -587,14 +595,16 @@ export default async function PapicModerationPage({
                         </>
                       )}
                     </SubmitButton>
-                  </form>
+                  </StayForm>
                   {/* Delete forever — same ruling, same posture, seat side. */}
                   <ConfirmForm
+                    door="memories.deletePhotoForever"
                     action={deletePhotoForever.bind(null, eventId)}
                     title="Delete this photo forever?"
                     confirmLabel="Delete forever"
                     message="This removes the photo and every copy of it — your Memories, the story, the prints and the share card. It cannot be undone. To take it out of your Memories but keep it, use Hide instead."
                   >
+                    <input type="hidden" name="event_id" value={eventId} />
                     <input type="hidden" name="table" value="papic_photos" />
                     <input type="hidden" name="id" value={photoId} />
                     <SubmitButton
@@ -638,7 +648,8 @@ export default async function PapicModerationPage({
                   className="flex items-center justify-between rounded-md border border-ink/10 bg-surface px-3 py-2 text-sm"
                 >
                   <span className="text-ink/80">{guestName.get(gid) ?? 'Guest'}</span>
-                  <form action={unblockUploader.bind(null, eventId)}>
+                  <StayForm door="memories.unblockUploader" action={unblockUploader.bind(null, eventId)}>
+                    <input type="hidden" name="event_id" value={eventId} />
                     <input type="hidden" name="guest_id" value={gid} />
                     <SubmitButton
                       pendingLabel="Unblocking…"
@@ -646,7 +657,7 @@ export default async function PapicModerationPage({
                     >
                       Unblock
                     </SubmitButton>
-                  </form>
+                  </StayForm>
                 </li>
               );
             })}
@@ -696,7 +707,8 @@ export default async function PapicModerationPage({
                     </span>
                   </div>
                   <span className="truncate text-xs font-medium text-ink/70">{name}</span>
-                  <form action={approveScreenedCapture.bind(null, eventId)}>
+                  <StayForm door="memories.approveScreenedCapture" action={approveScreenedCapture.bind(null, eventId)}>
+                    <input type="hidden" name="event_id" value={eventId} />
                     <input type="hidden" name="table" value={s.table} />
                     <input type="hidden" name="id" value={s.id} />
                     <SubmitButton
@@ -705,7 +717,7 @@ export default async function PapicModerationPage({
                     >
                       <Eye aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Approve — show this photo
                     </SubmitButton>
-                  </form>
+                  </StayForm>
                 </li>
               );
             })}

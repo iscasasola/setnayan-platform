@@ -34,10 +34,13 @@ import { stripComments } from '@/lib/strip-comments';
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
+/* 2026-10-26: the payment log this guard first held (`orders/actions.ts` › `logPayment`) had no caller and was deleted
+   (reload audit §3c). Every purchase logs its payment on the one payment page — the door that must tell somebody. */
+const PAY = 'app/pay/[reference]/actions.ts';
 
 test('logging a payment tells the people who can confirm it', () => {
-  const src = read('app/dashboard/[eventId]/orders/actions.ts');
-  const fn = src.slice(src.indexOf('export async function logPayment'));
+  const src = read(PAY);
+  const fn = src.slice(src.indexOf('export async function submitPaymentProof'));
   const body = fn.slice(0, fn.indexOf('\n}') + 2);
   assert.match(
     body,
@@ -60,8 +63,8 @@ test('the duplicate-submit retry deliberately does NOT re-alert', () => {
   // 23505 + an idempotency key means the customer pressed submit twice and the
   // FIRST one already notified. Alerting again would train the reader to ignore
   // the alert, which is worse than not sending it.
-  const src = read('app/dashboard/[eventId]/orders/actions.ts');
-  const fn = src.slice(src.indexOf('export async function logPayment'));
+  const src = read(PAY);
+  const fn = src.slice(src.indexOf('export async function submitPaymentProof'));
   const body = fn.slice(0, fn.indexOf('\n}') + 2);
   const retryAt = body.indexOf("code === '23505'");
   const notifyAt = body.indexOf('notifyAdminsPaymentProofSubmitted');

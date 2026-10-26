@@ -1,4 +1,4 @@
-import { PapicStayForm } from './papic-stay-form';
+import { StayForm } from '@/app/_components/stay-form';
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import { ScanFace } from 'lucide-react';
 
@@ -125,7 +125,7 @@ export async function FaceTaggingChoice({
   );
 
   const control = (
-    <PapicStayForm door="setCoupleFaceTaggingDeclined" action={setCoupleFaceTaggingDeclined}>
+    <StayForm door="papic.setCoupleFaceTaggingDeclined" action={setCoupleFaceTaggingDeclined}>
       <input type="hidden" name="event_id" value={eventId} />
       <input type="hidden" name="declined" value={declined ? '0' : '1'} />
       {returnTo ? <input type="hidden" name="return_to" value={returnTo} /> : null}
@@ -135,7 +135,7 @@ export async function FaceTaggingChoice({
       >
         {variant === 'row' ? (declined ? 'Turn on' : 'Turn off') : declined ? 'Turn it on for my event' : 'Turn it off for my event'}
       </SubmitButton>
-    </PapicStayForm>
+    </StayForm>
   );
 
   if (subLine) {
@@ -149,14 +149,14 @@ export async function FaceTaggingChoice({
             {declined ? 'Off' : 'On'} · {subLine}
           </span>
         </span>
-        <PapicStayForm door="setCoupleFaceTaggingDeclined" action={setCoupleFaceTaggingDeclined} className="shrink-0">
+        <StayForm door="papic.setCoupleFaceTaggingDeclined" action={setCoupleFaceTaggingDeclined} className="shrink-0">
           <input type="hidden" name="event_id" value={eventId} />
           <input type="hidden" name="declined" value={declined ? '0' : '1'} />
           {returnTo ? <input type="hidden" name="return_to" value={returnTo} /> : null}
           <button type="submit" role="switch" aria-checked={!declined} aria-label="Face tagging" className={SWITCH_BUTTON}>
             <SwitchTrack on={!declined} />
           </button>
-        </PapicStayForm>
+        </StayForm>
       </div>
     );
   }

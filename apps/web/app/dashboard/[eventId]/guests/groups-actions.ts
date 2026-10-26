@@ -352,83 +352,9 @@ export async function createGuestGroup(
   );
 }
 
-// -----------------------------------------------------------------------
-// Edit / delete group · admin actions reachable from the sidebar kebab.
-// -----------------------------------------------------------------------
-
-export async function updateGuestGroup(
-  eventId: string,
-  groupId: string,
-  formData: FormData,
-): Promise<void> {
-  await refuseLimitedHelper(eventId, 'guest_list');
-  const label = clean(formData.get('label'));
-  const teamSideRaw = clean(formData.get('team_side')) || 'both';
-  const teamSide = (
-    GUEST_GROUP_TEAM_SIDES.includes(teamSideRaw as GuestGroupTeamSide)
-      ? teamSideRaw
-      : 'both'
-  ) as GuestGroupTeamSide;
-
-  if (!label || label.length > 64) {
-    redirect(backToList(eventId, { error: 'invalid_group_label' }));
-  }
-
-  const supabase = await createClient();
-  // 👥 One name, one group: a rename or a side move that would twin a group in the same list is refused, as the Group
-  // dropdown's in-place rename is (`groupNameClash`). A refused read refuses the write.
-  const { data: ownRows, error: ownErr } = await supabase.from('guest_groups').select('group_id, label, team_side').eq('event_id', eventId);
-  if (ownErr) redirect(backToList(eventId, { error: encodeURIComponent('Couldn’t read your groups — nothing was changed.') }));
-  const own = ((ownRows ?? []) as { group_id: string; label: string | null; team_side: string | null }[]).map((g) => ({
-    groupId: g.group_id,
-    label: g.label ?? '',
-    teamSide: (g.team_side === 'bride' || g.team_side === 'groom' ? g.team_side : 'both') as GuestGroupTeamSide,
-  }));
-  const clash = groupNameClash(label, teamSide, [], own, groupId);
-  if (clash) redirect(backToList(eventId, { error: encodeURIComponent(clashWords(clash)) }));
-  const { error } = await supabase
-    .from('guest_groups')
-    .update({ label, team_side: teamSide })
-    .eq('event_id', eventId)
-    .eq('group_id', groupId);
-
-  if (error) {
-    const friendly =
-      (error as { code?: string }).code === '23505'
-        ? 'A group with that name already exists for this event.'
-        : error.message;
-    redirect(backToList(eventId, { error: encodeURIComponent(friendly) }));
-  }
-
-  revalidatePath(`/dashboard/${eventId}/guests`);
-  redirect(
-    backToList(eventId, {
-      group: groupId,
-      group_saved: '1',
-    }),
-  );
-}
-
-export async function deleteGuestGroup(
-  eventId: string,
-  groupId: string,
-  _formData: FormData,
-): Promise<void> {
-  await refuseLimitedHelper(eventId, 'guest_list');
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from('guest_groups')
-    .delete()
-    .eq('event_id', eventId)
-    .eq('group_id', groupId);
-
-  if (error) {
-    redirect(backToList(eventId, { error: encodeURIComponent(error.message) }));
-  }
-
-  revalidatePath(`/dashboard/${eventId}/guests`);
-  redirect(backToList(eventId, { group_deleted: '1' }));
-}
+// ⛔ `updateGuestGroup` / `deleteGuestGroup` (the redirecting rename / delete) — DELETED 2026-10-26 (reload audit
+// §3c: no caller). Renaming and deleting a group answer in place through `editGuestGroupInPlace`
+// (`group-edit-actions.ts`); a `'use server'` export stays POST-able by its id with no UI, so the dead pair went.
 
 // -----------------------------------------------------------------------
 // Living Roster P1 · optimistic delete + undo. THE ONLY WAY THIS PAGE REMOVES

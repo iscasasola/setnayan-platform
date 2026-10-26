@@ -27,6 +27,7 @@ import { createPortal } from 'react-dom';
 import { EyeOff, Eye, Flag, Ban, Trash2, Check, Minus, Play, Plus, Settings, Download, X } from 'lucide-react';
 import { ThumbRow } from '@/components/thumb-row';
 import { ActionButton } from '@/components/action-button';
+import { StayForm } from '@/app/_components/stay-form';
 import { Sheet } from '@/app/_components/sheet';
 import { InfoTip } from '@/app/_components/info-tip';
 import { SwitchTrack } from '@/app/_components/switch-track';
@@ -184,6 +185,10 @@ export function EventMemoriesGallery({
     setMomentsState(on);
     writeLocal(MOMENTS_KEY, on ? '1' : '0');
   };
+
+  /* 📍 The open sheet follows the FRESH list (a press now saves in place — `StayForm` — and the page re-renders under
+     it): "Hide" turns into "Show again" on the same sheet, and a photo deleted forever closes its own sheet. */
+  const openedNow = opened ? items.find((it) => it.table === opened.table && it.id === opened.id) ?? null : null;
 
   const challengeById = useMemo(() => new Map(challenges.map((c) => [c.id, c])), [challenges]);
   const challengeOf = (it: MemoriesItem) => (it.challengeId ? challengeById.get(it.challengeId) ?? null : null);
@@ -354,15 +359,15 @@ export function EventMemoriesGallery({
       {/* The row steps aside while a sheet is up — the sheet owns the thumb zone then. */}
       <MemoriesThumbRow q={q} onSearch={setQ} addPhotos={host ? addPhotos : null} away={Boolean(opened || gearOpen)} />
 
-      {opened ? (
+      {openedNow ? (
         <PhotoSheet
           eventId={eventId}
-          item={opened}
-          challenge={challengeOf(opened)}
-          blocked={opened.guestId ? blockedGuests.includes(opened.guestId) : false}
-          supplier={opened.vendorProfileId ? suppliers.find((s) => s.vendorProfileId === opened.vendorProfileId) ?? null : null}
+          item={openedNow}
+          challenge={challengeOf(openedNow)}
+          blocked={openedNow.guestId ? blockedGuests.includes(openedNow.guestId) : false}
+          supplier={openedNow.vendorProfileId ? suppliers.find((s) => s.vendorProfileId === openedNow.vendorProfileId) ?? null : null}
           onView={() => {
-            setViewing(opened);
+            setViewing(openedNow);
             setOpened(null);
           }}
           onClose={() => setOpened(null)}
@@ -558,7 +563,14 @@ function PhotoSheet({
   const heading = useId();
   const [reason, setReason] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const back = <input type="hidden" name="back" value="memories" />;
+  /* `back=memories` brings a no-JavaScript press home here; `event_id` lets the in-place door name the event the plain
+     form binds (`.bind(null, eventId)`). */
+  const back = (
+    <>
+      <input type="hidden" name="back" value="memories" />
+      <input type="hidden" name="event_id" value={eventId} />
+    </>
+  );
   const screened = item.look === 'screened';
   const hidden = item.look === 'hidden';
   const who = item.memSource === 'hub' ? item.hubUse : item.capturedBy;
@@ -621,7 +633,7 @@ function PhotoSheet({
           ) : null}
 
           {item.memSource === 'suppliers' && supplier ? (
-            <form action={setVendorCapturesHidden}>
+            <StayForm door="memories.setVendorCapturesHidden" action={setVendorCapturesHidden}>
               <input type="hidden" name="event_id" value={eventId} />
               <input type="hidden" name="vendor_id" value={supplier.vendorRowId} />
               <input type="hidden" name="hidden" value={supplier.hidden ? '0' : '1'} />
@@ -631,22 +643,25 @@ function PhotoSheet({
                 {supplier.hidden ? `Show ${supplier.name}’s photos again` : `Hide ${supplier.name}’s photos`}
                 <span className="ml-auto text-[12px] text-ink/55">{supplier.hidden ? '' : 'kept, not deleted'}</span>
               </button>
-            </form>
+            </StayForm>
           ) : null}
 
           {canModerate({ source: item.memSource }) && item.table !== 'hub' && item.table !== 'vendor_papic_captures' ? (
             <>
               {screened ? (
-                <form action={approveScreenedCapture.bind(null, eventId)}>
+                <StayForm door="memories.approveScreenedCapture" action={approveScreenedCapture.bind(null, eventId)}>
                   {back}
                   <input type="hidden" name="table" value={item.table} />
                   <input type="hidden" name="id" value={item.id} />
                   <button type="submit" className={OPT}>
                     <Check aria-hidden className="h-4 w-4" strokeWidth={1.9} /> Approve — show this photo
                   </button>
-                </form>
+                </StayForm>
               ) : (
-                <form action={(item.table === 'papic_photos' ? setSeatPhotoHidden : setCaptureHidden).bind(null, eventId)}>
+                <StayForm
+                  door={item.table === 'papic_photos' ? 'memories.setSeatPhotoHidden' : 'memories.setCaptureHidden'}
+                  action={(item.table === 'papic_photos' ? setSeatPhotoHidden : setCaptureHidden).bind(null, eventId)}
+                >
                   {back}
                   <input type="hidden" name={item.table === 'papic_photos' ? 'photo_id' : 'capture_id'} value={item.id} />
                   <input type="hidden" name="hide" value={hidden ? '0' : '1'} />
@@ -655,12 +670,12 @@ function PhotoSheet({
                     {hidden ? 'Show in Memories again' : 'Hide from Memories'}
                     <span className="ml-auto text-[12px] text-ink/55">{hidden ? '' : 'kept, not deleted'}</span>
                   </button>
-                </form>
+                </StayForm>
               )}
 
               {/* REPORT — a guest's capture (the report names a guest capture; a camera seat's photo is hidden instead). */}
               {item.table === 'papic_guest_captures' && item.look !== 'reported' ? (
-                <form action={reportCapture.bind(null, eventId)} className="flex min-h-[48px] items-center gap-2.5 px-3">
+                <StayForm door="memories.reportCapture" action={reportCapture.bind(null, eventId)} className="flex min-h-[48px] items-center gap-2.5 px-3">
                   {back}
                   <input type="hidden" name="capture_id" value={item.id} />
                   <input type="hidden" name="reason" value={reason ?? ''} />
@@ -670,11 +685,14 @@ function PhotoSheet({
                     <PickMenu label="Why" value={reason} options={REPORT_REASONS} onPick={setReason} buttonText={reason ? undefined : 'Why'} compact />
                   </span>
                   {reason ? <ActionButton tone="danger" type="submit" icon={Flag} label="Send" /> : null}
-                </form>
+                </StayForm>
               ) : null}
 
               {item.guestId && item.memSource === 'papic' ? (
-                <form action={(blocked ? unblockUploader : blockUploader).bind(null, eventId)}>
+                <StayForm
+                  door={blocked ? 'memories.unblockUploader' : 'memories.blockUploader'}
+                  action={(blocked ? unblockUploader : blockUploader).bind(null, eventId)}
+                >
                   {back}
                   <input type="hidden" name="guest_id" value={item.guestId} />
                   <button type="submit" className={`${OPT} ${blocked ? '' : 'text-terracotta'}`}>
@@ -682,11 +700,16 @@ function PhotoSheet({
                     {blocked ? `Let ${who ?? 'this guest'} shoot again` : `Stop ${who ?? 'this guest'} shooting`}
                     <span className="ml-auto text-[12px] text-ink/55">{blocked ? '' : 'this event only'}</span>
                   </button>
-                </form>
+                </StayForm>
               ) : null}
 
               {confirmDelete ? (
-                <form action={deletePhotoForever.bind(null, eventId)} className="rounded-xl bg-terracotta/[0.06] p-3" data-memories-delete-confirm="">
+                <StayForm
+                  door="memories.deletePhotoForever"
+                  action={deletePhotoForever.bind(null, eventId)}
+                  className="rounded-xl bg-terracotta/[0.06] p-3"
+                  data-memories-delete-confirm=""
+                >
                   {back}
                   <input type="hidden" name="table" value={item.table} />
                   <input type="hidden" name="id" value={item.id} />
@@ -695,7 +718,7 @@ function PhotoSheet({
                     <ActionButton tone="danger" main type="submit" icon={Trash2} label="Delete forever" />
                     <ActionButton tone="neutral" icon={X} label="Keep it" onClick={() => setConfirmDelete(false)} />
                   </div>
-                </form>
+                </StayForm>
               ) : (
                 <button type="button" className={`${OPT} text-terracotta`} onClick={() => setConfirmDelete(true)}>
                   <Trash2 aria-hidden className="h-4 w-4" strokeWidth={1.9} /> Delete forever

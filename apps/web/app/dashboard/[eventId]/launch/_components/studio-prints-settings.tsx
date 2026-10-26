@@ -3,61 +3,36 @@ import { ProQuietLine } from './pro-quiet-line';
 
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import dynamic from 'next/dynamic';
-import { ChevronDown, ChevronRight, Download, ListChecks, Palette, Settings } from 'lucide-react';
-import { pickArrowClass, pickButtonClass } from '../../website/editor/_components/pick-menu-place';
-import { ActionButton } from '@/components/action-button';
-import { ChosenRow, FORM_PICK_CLASS, FormRow, FormRows, usePillWidth } from '@/app/_components/form-row';
+import { Palette } from 'lucide-react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { onMakerSave } from '@/lib/maker-save-status';
 import { PeekToast } from '@/app/_components/toast/peek-toast';
-import {
-  GUEST_TOKEN,
-  GUEST_WORD_TOKEN,
-  PRINT_SETTINGS_LABEL,
-  PRINT_SETTINGS_LINE,
-  PRINT_SETTINGS_SAVED,
-  guestFileWord,
-  type PrintGuest,
-} from '@/lib/studio-prints-settings';
-import { PrintSaveButton } from './print-save-button';
+import { PRINT_SETTINGS_LABEL, PRINT_SETTINGS_SAVED, type PrintGuest } from '@/lib/studio-prints-settings';
 import type { PickNoun } from '@/lib/print-picked-guests';
 import { StudioProDoor } from './studio-prints-six';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { makerProMark, paidMarkLabel } from '@/lib/paid-mark';
 import { HUB_LOOK_PRO_NOTE, HUB_LOOK_ROW } from '@/lib/studio-hub-look-row';
-import { PrintPaperHead, type PrintSheetParts, type StudioPaper } from './print-paper';
-import { PrintChoicePicker } from './print-choice-picker';
-import { useDownloads, usePrintGuest, useRegisterDownload, type AllInOneF } from './prints-view-store';
+import type { StudioPaper } from './print-paper';
+import { setPrintSettingsOpen, usePrintSettingsOpen, useRegisterSlide, type AllInOneF } from './prints-view-store';
 export type { AllInOneF } from './prints-view-store';
 
 /**
- * 🖨 STUDIO › PRINTS: ONE SETTINGS SHEET, ONE DOWNLOAD PER PIECE, VIEW AS ▾ ON GUEST PRINTS, ALL GUESTS ◆, EVERYTHING ◆
- * (owner 2026-10-17, *"ok on prints"*; DECISION_LOG row of that date; prototype `prints_settings_and_downloads_2026-10-17.html`).
+ * 🖨 STUDIO › PRINTS: ONE SETTINGS SHEET, ONE DOWNLOAD PER PIECE, VIEW AS ▾ ON GUEST PRINTS, ALL GUESTS, EVERYTHING ◆
+ * (owner 2026-10-17, *"ok on prints"*; DECISION_LOG row of that date; prototype `prints_settings_and_downloads_2026-10-17.html`) —
+ * drawn as ONE PRINT PER SLIDE since 2026-10-26 (owner: *"So we can make like a swipe carousel type where they can see the preview
+ * larger then under is the toolbar to pick style? and download options?"*; DECISION_LOG "APPROVED — PRINTS IS A SWIPE CAROUSEL";
+ * prototype `prints_carousel_2026-10-26`).
  *
- *   · `StudioPrintSettings` — the ⚙ row at the head of Prints and the ONE sheet it opens. The sheet holds every switch and field that
- *     sat inside a piece row, under the prototype's headings — NO Save since 2026-10-21: every press posts (`StudioPrintSettings`).
+ *   · `StudioPrintSettings` — the ONE sheet ⚙ opens, from every slide (`setPrintSettingsOpen`). Its first row is "Your Event Hub
+ *     look ◆" (`lead`) — a setting of every print, not a print. NO Save since 2026-10-21: every press posts.
  *     🔒 THE FIELDS NEVER UNMOUNT: the sheet is hidden while shut, never removed — every switch joins the print words form by `form=`,
  *     and a field that is not in the page is a field a post does not send (`studio-prints-posts-the-same.test.ts`).
- *   · `StudioPieceDownload` — a piece's ONE Download (free), the file it always saved.
- *   · `StudioGuestPiece` — a guest print's row: its picture for the guest picked, View as ▾ (ONE pick shared by every guest print —
- *     `usePrintGuest`), Download for that guest (free) and All guests ◆ (the all-in-one file: Event Hub Pro).
- *   · `StudioPrintsDownloadSheet` — the piece bar's ⬇: "This piece" and "Everything ◆", the same files the rows save (`useDownloads`).
+ *   · `StudioPieceDownload` · `StudioFileChoice` · `StudioGuestPiece` · `StudioEverything` — each REGISTERS its print's slide
+ *     (`useRegisterSlide`); `studio-prints-carousel.tsx` draws it. They draw nothing themselves.
  *
  * Loaded through the one lazy door (`StudioTool`), never in the Maker's first load.
  */
-
-/* ── the ◆ file: owned, the file; a free couple, the door that opens the centred note; the store shell, nothing ───────────── */
-
-export function AllInOneButton({ f, label, main = false }: { f: AllInOneF; label?: string; main?: boolean }) {
-  if (f === null) return null;
-  if (f.kind === 'save') return <PrintSaveButton href={f.href} file={f.file} variant="action" main={main} icon={f.icon} label={label ?? f.label} />;
-  return (
-    <span data-print-all-in-one-pro="" className="inline-flex">
-      <StudioProDoor href={f.href} label={label ?? f.label} icon={f.icon} note={f.note} />
-    </span>
-  );
-}
 
 /* ── ⚙ PRINT SETTINGS ───────────────────────────────────────────────────────────────────────────────────────────────────────── */
 
@@ -81,8 +56,10 @@ function SettingsHead({ title, line }: { title: string; line?: string }) {
  * "Saved." on the form's answer, its plain refusal with Try again (the form posted again) otherwise. The ticket style keeps its own
  * honest line ("waits for Apply" — it is drafted, owner 2026-10-02 Q7); the special message and the thank-you keep their drafted saves.
  */
-export function StudioPrintSettings({ sections, form }: { sections: readonly PrintSettingsSection[]; form: string }) {
-  const [open, setOpen] = useState(false);
+export function StudioPrintSettings({ sections, form, lead = null }: { sections: readonly PrintSettingsSection[]; form: string; lead?: ReactNode }) {
+  /* ⚙ Opened from every slide's toolbar (`setPrintSettingsOpen`) — the row that opened it is gone with the list. */
+  const open = usePrintSettingsOpen();
+  const setOpen = setPrintSettingsOpen;
   const [said, setSaid] = useState<{ n: number; tone: 'ok' | 'bad'; text: string } | null>(null);
   /* The form's answer, while the sheet is open — "Saving…" says nothing (the press already shows), an answer peeks. */
   useEffect(() => {
@@ -120,6 +97,8 @@ export function StudioPrintSettings({ sections, form }: { sections: readonly Pri
           </button>
         </div>
         <div data-print-settings-body="" className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+          {/* 🎨 Your Event Hub look ◆ — the sheet's first row (prototype `prints_carousel_2026-10-26`): it is a setting of every print. */}
+          {lead ? <div data-print-settings-lead="" className="border-b border-ink/10 bg-cream px-4 [&_[data-print-hub-look]]:border-t-0">{lead}</div> : null}
           {sections.map((s) => (
             <section key={s.key} data-print-settings-section={s.key} aria-label={s.title}>
               <SettingsHead title={s.title} line={s.line} />
@@ -143,24 +122,6 @@ export function StudioPrintSettings({ sections, form }: { sections: readonly Pri
   );
   return (
     <>
-      <button
-        type="button"
-        data-print-settings-open=""
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        onClick={() => setOpen(true)}
-        className="sn-press flex w-full items-center gap-3 py-3 text-left"
-      >
-        <span aria-hidden className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-ink/[0.06] text-ink">
-          <Settings className="h-5 w-5" strokeWidth={1.75} />
-        </span>
-        <span className="min-w-0 flex-1">
-          <b className="block text-[15px] font-semibold text-ink">{PRINT_SETTINGS_LABEL}</b>
-          <span className="block text-[12.5px] leading-snug text-ink/60">{PRINT_SETTINGS_LINE}</span>
-        </span>
-        <ChevronRight aria-hidden className="h-5 w-5 shrink-0 text-ink/50" strokeWidth={1.75} />
-      </button>
-      {/* 🔒 Drawn on <body> (a transformed panel would capture `fixed`) — and ALWAYS drawn, shut or open: every post sends its fields. */}
       {body ? createPortal(panel, body) : panel}
     </>
   );
@@ -215,50 +176,36 @@ export function StudioHubLookRow({ eventId, ownsPro, storeShell }: { eventId: st
 
 /* ── A PIECE'S ONE DOWNLOAD ─────────────────────────────────────────────────────────────────────────────────────────────────── */
 
+/**
+ * A plain print's ONE Download (free) — the file it always saved — registered as its slide's Download (`useRegisterSlide`). No file
+ * (no menu yet): the slide's Download is withheld and its empty line opens `edit`. `edit` — content a print needs that is not a
+ * setting (the Menu's dishes): its shipped editor, opened from the ⓘ and from the slide's empty line (prototype: "Edit menu" did not
+ * fit the two rows as a pill).
+ */
 export function StudioPieceDownload({
   item,
   name,
-  href,
-  file,
+  href = null,
+  file = null,
   label = 'Download',
-  extra = null,
+  edit = null,
 }: {
   item: string;
-  /** The piece's name — the ⬇ sheet's "This piece" line. */
   name: string;
-  href: string;
-  file: string;
+  href?: string | null;
+  file?: string | null;
   label?: string;
-  /** A second press on the row that is not a file (the Menu's "Edit menu"). */
-  extra?: ReactNode;
+  edit?: { label: string; body: ReactNode } | null;
 }) {
-  useRegisterDownload(item, { name, one: { href, file, label: 'Download' } });
-  return (
-    <div className="flex flex-wrap gap-1.5 pb-2" data-print-piece-saves={item} data-print-download={item}>
-      <PrintSaveButton href={href} file={file} variant="action" main label={label} icon={<Download aria-hidden strokeWidth={1.9} />} />
-      {extra}
-    </div>
-  );
-}
-
-/** The Menu's "Edit menu": the shipped editor, opened in place under the row (it saves as you go). */
-export function StudioEditInPlace({ label, children }: { label: string; children: ReactNode }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <>
-      <ActionButton tone="neutral" label={label} icon={ChevronRight} onClick={() => setOpen((o) => !o)} />
-      <div hidden={!open} data-print-edit-in-place="" className={open ? 'basis-full pt-1' : 'hidden'}>
-        {children}
-      </div>
-    </>
-  );
+  useRegisterSlide(item, 'download', { name, download: href && file ? { href, file, label } : null, edit });
+  return null;
 }
 
 /* ── A PRINT WITH TWO FILES: ONE DROPDOWN + ONE DOWNLOAD ──────────────────────────────────────────────────────────────────── */
 
 /**
- * The 2D seat plan's "Colours ▾" (In your colours · Blueprint) and the caterer's "File ▾" (PDF · Spreadsheet): two files that were two
- * Saves become the house dropdown in the row's head and ONE Download for the file picked (owner 2026-10-17, prototype `PICKS`).
+ * The 2D seat plan's "Colours ▾" (In your colours · Blueprint) and the caterer's "File ▾" (PDF · Spreadsheet): two files, the house
+ * dropdown in the slide's toolbar and ONE Download for the file picked (owner 2026-10-17, prototype `PICKS`).
  */
 export function StudioFileChoice({
   item,
@@ -267,6 +214,7 @@ export function StudioFileChoice({
   paper,
   label,
   choices,
+  tip,
 }: {
   item: string;
   name: string;
@@ -274,27 +222,20 @@ export function StudioFileChoice({
   paper: StudioPaper;
   label: string;
   choices: ReadonlyArray<{ key: string; label: string; href: string; file: string }>;
+  tip?: string;
 }) {
-  const [pick, setPick] = useState(choices[0]!.key);
-  const chosen = choices.find((c) => c.key === pick) ?? choices[0]!;
-  const row = (
-    <FormRows data="print-head" width="short" attrs={{ 'data-studio-print-rows': '' }}>
-      <ChosenRow name={name} line={line} label={label} value={chosen.key} options={choices.map((c) => ({ key: c.key, label: c.label }))} onPick={setPick} dataAttr="data-print-file-choice" data={`file-choice-${item}`} />
-    </FormRows>
-  );
-  const download = <PrintSaveButton href={chosen.href} file={chosen.file} variant="action" main label="Download" icon={<Download aria-hidden strokeWidth={1.9} />} />;
-  return (
-    <div data-print-file-choice-row={item} data-print-studio="" className="flex flex-col gap-1">
-      <PrintPaperHead paper={paper} row={row} sheet={{ actions: download }} />
-      <StudioPieceDownload item={item} name={name} href={chosen.href} file={chosen.file} />
-    </div>
-  );
+  useRegisterSlide(item, 'file-choice', { name, line, paper, choice: { label, options: choices }, tip });
+  return null;
 }
 
 /* ── A GUEST PRINT ──────────────────────────────────────────────────────────────────────────────────────────────────────────── */
 
-const swap = (s: string, g: PrintGuest) => s.split(GUEST_TOKEN).join(encodeURIComponent(g.id)).split(GUEST_WORD_TOKEN).join(guestFileWord(g.name));
-
+/**
+ * A guest print's slide: its picture for the guest picked (View as ▾ — ONE pick shared by every guest print, `usePrintGuest`), and
+ * Download ▾ → This one (free) · All guests · Pick guests… (the shared sheet, `GuestManySheet`) — the same files and routes the row
+ * always saved. 🎟 PICK GUESTS (owner 2026-10-25; every guest print 2026-10-26, *"this should apply to all guest related prints"*):
+ * given by every guest print whose all-guests file the route narrows (`guests=`), offered only where All guests itself saves.
+ */
 export function StudioGuestPiece({
   eventId,
   item,
@@ -310,161 +251,48 @@ export function StudioGuestPiece({
   none,
   changed = null,
   pickNoun = null,
+  printed,
+  tip,
 }: {
   eventId: string;
   item: string;
   name: string;
   line: string;
   picker?: { label: string; value: string; dataAttr?: string; options: Array<{ key: string; label: string; href: string }> } | null;
-  /** The row's picture — its `src` may carry `GUEST_TOKEN` when `guestPicture` (the picture is the guest's own). */
+  /** The slide's picture — its `src` may carry `GUEST_TOKEN` when `guestPicture` (the picture is the guest's own). */
   paper: StudioPaper;
   guestPicture?: boolean;
-  /** Who has a pass, in the printed passes' order (`loadPassGuestNames`); null: could not be read. */
+  /** Who this file holds, in its own order; null: could not be read. */
   guests: readonly PrintGuest[] | null;
   /** The one guest's file — `GUEST_TOKEN` / `GUEST_WORD_TOKEN` stand where the guest goes. */
   one: { href: string; file: string };
-  /** Every guest's file — ◆ Event Hub Pro (`allInOneFile`). */
+  /** Every guest's file — free, or the ◆ door (`allInOneFile`). */
   all: AllInOneF;
-  /** What the all-guests file holds, said under both (already worded — its numbers through `formatCount`). */
+  /** What the all-guests file holds (already worded — its numbers through `formatCount`). */
   holds: string;
-  /** Said in place when nobody has a pass yet. */
+  /** Said in place when nobody is on this file yet. */
   none: string;
   changed?: ReactNode;
-  /**
-   * 🎟 PICK GUESTS (owner 2026-10-25; every guest print 2026-10-26, *"this should apply to all guest related prints"*): "Pick guests"
-   * beside "All guests" — some guests' file in one. Given by every row whose all-guests file the route narrows (`guests=`): the Event
-   * pass, the Digital ticket's .zip, the Guest QR codes and the place cards. Offered only where All guests itself saves (a ◆ door is
-   * not a file), so a pick never reaches past the all-guests file's own gate.
-   */
   pickNoun?: PickNoun | null;
+  printed?: { eventId: string; piece: string; version: string | null };
+  tip?: string;
 }) {
-  const list = guests ?? [];
-  const [picking, setPicking] = useState(false);
-  const canPick = pickNoun !== null && all !== null && all.kind === 'save' && list.length > 0;
-  const [picked, setPicked] = usePrintGuest(eventId, list[0]?.id ?? null);
-  const guest = list.find((g) => g.id === picked) ?? list[0] ?? null;
-  const oneFile = guest ? { href: swap(one.href, guest), file: swap(one.file, guest), label: 'Download' } : null;
-  useRegisterDownload(item, { name, line: guest?.name, one: oneFile, all });
-  const shown: StudioPaper = guest && guestPicture ? { ...paper, src: swap(paper.src, guest) } : { ...paper, src: paper.src.split(`&pass_guest=${GUEST_TOKEN}`).join('').split(GUEST_TOKEN).join('') };
-  const actions = (
-    <>
-      {oneFile ? <PrintSaveButton href={oneFile.href} file={oneFile.file} variant="action" main label="Download" icon={<Download aria-hidden strokeWidth={1.9} />} /> : null}
-      <AllInOneButton f={all} label="All guests" />
-      {canPick ? <ActionButton tone="neutral" label="Pick guests" icon={ListChecks} caret onClick={() => setPicking(true)} /> : null}
-    </>
-  );
-  const sheet: PrintSheetParts = { actions, changed };
-  const row = picker ? (
-    <PrintChoicePicker {...picker} row={{ name, line }} />
-  ) : (
-    <FormRows data="print-head" attrs={{ 'data-studio-print-rows': '' }}>
-      <FormRow name={name} line={line} />
-    </FormRows>
-  );
-  return (
-    <div data-print-guest-piece={item} data-print-studio="" className="flex flex-col gap-1">
-      <PrintPaperHead paper={shown} row={row} sheet={{ ...sheet, size: picker ? <PrintChoicePicker {...picker} row={{ name: 'Paper size' }} /> : null }} />
-      <FormRows data="view-as" attrs={{ 'data-studio-print-rows': '' }}>
-        {guests === null ? (
-          <FormRow name="View as" data="view-as" below={<p className="pb-3 text-[12.5px] text-ink/60">Your guest list could not be read just now — reopen Prints in a moment.</p>} />
-        ) : guest ? (
-          <ViewAsRow item={item} guests={list} guest={guest} onPick={setPicked} />
-        ) : (
-          <FormRow name="View as" data="view-as" below={<p data-print-view-as-none="" className="pb-3 text-[12.5px] text-ink/60">{none}</p>} />
-        )}
-      </FormRows>
-      <div className="flex flex-wrap gap-1.5 pt-0.5" data-print-piece-saves={item} data-print-download={item}>
-        {actions}
-      </div>
-      <p data-print-guest-count={item} className="px-1 pb-2.5 text-[12px] text-ink/60">
-        {holds}
-      </p>
-      {changed}
-      {picking && canPick && all?.kind === 'save' ? <GuestManySheet guests={list} href={all.href} file={all.file} noun={pickNoun!} onClose={() => setPicking(false)} /> : null}
-    </div>
-  );
-}
-
-/**
- * 👤 View as ▾ — the Form row's pill (the house dropdown's look), opening the guest sheet: "Search guests" over the groups
- * (`print-guest-sheet.tsx`, loaded the first time it is pressed — its own lazy piece; `PickMenu` never grows).
- */
-const GuestPickSheet = dynamic(() => import(/* webpackChunkName: "prints-guest-sheet" */ './print-guest-sheet').then((m) => m.GuestPickSheet), { ssr: false });
-const GuestManySheet = dynamic(() => import(/* webpackChunkName: "prints-guest-sheet" */ './print-guest-sheet').then((m) => m.GuestManySheet), { ssr: false });
-function ViewAsRow({ item, guests, guest, onPick }: { item: string; guests: readonly PrintGuest[]; guest: PrintGuest; onPick: (id: string) => void }) {
-  const [open, setOpen] = useState(false);
-  const width = usePillWidth();
-  return (
-    <FormRow name="View as" data="view-as" attrs={{ 'data-print-view-as-row': item, 'data-form-row-kind': 'chosen' }}>
-      <button
-        type="button"
-        aria-label={`View as — which guest: ${guest.name}`}
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        data-print-view-as=""
-        onClick={() => setOpen(true)}
-        className={`${pickButtonClass(false)} ${FORM_PICK_CLASS} ${width}`}
-      >
-        <span className="min-w-0 truncate">{guest.name}</span>
-        <ChevronDown aria-hidden className={pickArrowClass(open)} strokeWidth={2} />
-      </button>
-      {open ? <GuestPickSheet guests={guests} value={guest.id} onPick={onPick} onClose={() => setOpen(false)} /> : null}
-    </FormRow>
-  );
+  useRegisterSlide(item, 'guest-piece', {
+    printed,
+    name,
+    line,
+    paper,
+    size: picker,
+    changed,
+    tip,
+    guest: { eventId, guests, guestPicture, one, all, holds, none, pickNoun },
+  });
+  return null;
 }
 
 /* ── EVERYTHING ◆ ───────────────────────────────────────────────────────────────────────────────────────────────────────────── */
 
 export function StudioEverything({ line, holds, all }: { line: string; holds?: string | null; all: AllInOneF }) {
-  useRegisterDownload('download', { name: 'Everything', line: holds ?? undefined, one: null, all });
-  return (
-    <div data-print-everything="" data-print-studio="" className="flex flex-col gap-2 py-2">
-      <p className="text-[14px] leading-snug text-ink/70">{line}</p>
-      <div className="flex flex-wrap gap-1.5" data-print-piece-saves="download">
-        <AllInOneButton f={all} main />
-      </div>
-      {holds ? <p className="text-[12px] text-ink/60">{holds}</p> : null}
-    </div>
-  );
-}
-
-/* ── THE PIECE BAR'S ⬇ SHEET ────────────────────────────────────────────────────────────────────────────────────────────────── */
-
-export function StudioPrintsDownloadSheet({ item, onClose }: { item: string | null; onClose: () => void }) {
-  const all = useDownloads();
-  const here = item && item !== 'download' ? (all.get(item) ?? null) : null;
-  const every = all.get('download') ?? null;
-  const box = useRef<HTMLDivElement>(null);
-  const headId = useId();
-  useModalA11y({ open: true, onClose, containerRef: box });
-  const node = (
-    <div data-prints-download-layer="" className="fixed inset-0 z-[86]">
-      <button type="button" aria-label="Close" tabIndex={-1} onClick={onClose} className="absolute inset-0 bg-ink/35" />
-      <div ref={box} role="dialog" aria-modal="true" aria-labelledby={headId} data-prints-download-sheet="" className="absolute inset-x-0 bottom-0 rounded-t-3xl bg-cream px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-[0_-18px_40px_-18px_rgba(30,26,18,.45)] lg:inset-x-auto lg:left-1/2 lg:w-[26rem] lg:-translate-x-1/2">
-        <div aria-hidden className="flex justify-center pt-2.5">
-          <i className="h-1 w-10 rounded-full bg-ink/20" />
-        </div>
-        <h2 id={headId} className="px-1.5 pb-2 pt-3 text-[10.5px] font-semibold uppercase tracking-[0.2em] text-ink/55">
-          Download
-        </h2>
-        <FormRows data="download-sheet">
-          {here ? (
-            <FormRow name="This piece" line={[here.name, here.line].filter(Boolean).join(' · ')} data="download-this">
-              {here.one ? (
-                <PrintSaveButton href={here.one.href} file={here.one.file} variant="action" main label="Download" icon={<Download aria-hidden strokeWidth={1.9} />} />
-              ) : here.all ? (
-                <AllInOneButton f={here.all} label="Download" main />
-              ) : null}
-            </FormRow>
-          ) : null}
-          {every?.all ? (
-            <FormRow name="Everything" line={every.line} data="download-everything">
-              <AllInOneButton f={every.all} label="Download" main={!here} />
-            </FormRow>
-          ) : null}
-        </FormRows>
-      </div>
-    </div>
-  );
-  return typeof document === 'undefined' ? null : createPortal(node, document.body);
+  useRegisterSlide('download', 'everything', { name: 'Everything', everything: { line, holds: holds ?? null, all } });
+  return null;
 }

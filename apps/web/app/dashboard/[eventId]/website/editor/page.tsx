@@ -1,4 +1,5 @@
 import { startAhead } from '@/lib/start-ahead';
+import { mainBackgroundRowOffered } from '@/lib/main-background-offered';
 import { SCENE_ACCENTS_PREF_KEY, sceneAccentsFromPreferences } from '@/lib/art-kit-accents';
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import { redirect } from 'next/navigation';
@@ -916,7 +917,8 @@ export default async function WebsiteEditorPage({
             />
           ),
         },
-        ...(storeShell
+        /* 🌄 Built in the app too for a Pro event (owner 2026-10-26: "i cannot see the different background options") — `lib/main-background-offered.ts`. */
+        ...(!mainBackgroundRowOffered({ storeShell, ownsPro })
           ? []
           : [
               {

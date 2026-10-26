@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "c5ecaad821",
+  "generatedFromRef": "e7c4722659",
   "routeCount": 473,
   "destinations": 1013,
   "actions": 662,
-  "blocks": 7112,
+  "blocks": 7110,
   "routes": {
     "/": {
       "files": [
@@ -7320,8 +7320,6 @@
         "AutoDraft",
         "Bar",
         "BeforeWeStartScreen",
-        "BgCard",
-        "BgCards",
         "BlockAnimateRows",
         "BlockGround",
         "BlockGroundRows",
@@ -7774,7 +7772,7 @@
         "ThemePick",
         "ThemePickProvider",
         "ThemePreviewOverlay",
-        "TicketStyle",
+        "TicketStylePick",
         "TimelineRowsLoading",
         "Toast",
         "Toggle",

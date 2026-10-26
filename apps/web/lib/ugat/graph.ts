@@ -3423,6 +3423,45 @@ export const UGAT_JOINTS: UgatJoint[] = [
     guardedBy: 'RLS at CREATE TABLE — authenticated SELECT only (anon no grant; no write policy) · triggers inspiration_part_services_keep_categories + inspiration_parts_rehome_keeps_categories double-write inspiration_part_categories · tests/db/part-eligibility-is-unchanged-by-the-move.db.test.ts (old = new, the derivation, the double write, RLS, FKs) · tests/db/a-supplier-suggests-only-to-its-own-parts.db.test.ts (the suggestion door reads these rows)',
     traps: 'Re-homing a part moves its HEADING, not its door: who may add a photo is these rows alone. A service added to the taxonomy reaches NO part until an admin links it. The derived categories are “every service linked” first, then a linked service’s own tile — NOT the plan’s literal “home ∪ tile_id of the services”, which would have renamed the trades of all 11 attire parts on ship day (the Filipiniana & Barongs cross-view has no tile of its own). The cross-view’s ten keys still live in inspiration_category_service_pairs() until ③0-a writes them as secondary_tiles rows.',
   },
+  {
+    /**
+     * 🃏 SERVICE CARD CHECKS — FIX BEFORE CREATE (owner 2026-10-26, DECISION_LOG "SERVICE CARD CHECKS — FIX BEFORE
+     * CREATE" + "ONE PHOTO, ONE SERVICE CARD" + "NO PRICE CHECK ON SERVICE CARDS AT ALL"; migration
+     * …_service_card_checks_v2). The maker checks a card before Create and the save re-checks and REFUSES — nothing
+     * is held or queued. Three checks: claim words (`card_claim_words`, admin data), the card matches its service
+     * (reviewed search words — taxonomy, no new data), and one photo = one service card: a cover/showcase hash now
+     * names the CARD it is on (`vendor_image_hashes.vendor_service_id`), so a photo already on another card — any
+     * shop, the same shop included — is refused. "It's mine — report it" is a note on the repost-watch row.
+     */
+    id: 'J57',
+    claims: [
+      { kind: 'table', table: 'card_claim_words' },
+      { kind: 'column', table: 'card_claim_words', column: 'phrase' },
+      { kind: 'fk', table: 'vendor_image_hashes', column: 'vendor_service_id', references: 'vendor_services' },
+      { kind: 'fk', table: 'vendor_image_hashes', column: 'vendor_profile_id', references: 'vendor_profiles' },
+      { kind: 'check', table: 'vendor_image_hashes', name: 'vendor_image_hashes_surface_check', mentions: 'service_showcase' },
+      { kind: 'column', table: 'vendor_image_flags', column: 'supplier_reported_at' },
+      { kind: 'column', table: 'vendor_image_flags', column: 'supplier_report_note' },
+      { kind: 'unique', table: 'vendor_image_flags', columns: ['flagged_r2_ref', 'source_r2_ref'] },
+      { kind: 'no_column', table: 'vendor_services', column: 'held' },
+      { kind: 'no_column', table: 'platform_settings', column: 'card_price_band_tolerance' },
+    ],
+    chain: 2,
+    pair: ['TYPE-VENDORS', 'TYPE-SERVICES'],
+    title: 'Service card → the checks before Create (claim words · its service · one photo, one card)',
+    joint: 'vendor_image_hashes.vendor_service_id',
+    cardinality:
+      'A photo (by pHash within the admin-set Hamming threshold) is on at most one service card across every shop; each cover/showcase hash names its card (nullable — portfolio and moodboard hashes name none) · one report per photo pair (UNIQUE flagged_r2_ref, source_r2_ref)',
+    implementedBy:
+      'card_claim_words (phrase PK, lower-case, admin-only RLS, seeded with six) · vendor_image_hashes.vendor_service_id → vendor_services ON DELETE SET NULL (a deleted card frees its photos) · vendor_image_flags.supplier_reported_at + supplier_report_note (the report) · surface service_showcase',
+    writtenBy:
+      'the seed (the owner\u2019s six words) · the admin words list on /admin/settings · the card save (writes each photo hash\u2019s vendor_service_id) · the maker\u2019s upload-time photo check · "It\u2019s mine — report it" (stamps the repost-watch row)',
+    guardedBy:
+      'RLS: card_claim_words admin-only (the maker\u2019s page and the save read it with the service role); vendor_image_hashes / vendor_image_flags admin-only as before · tests/db/a-claim-word-list-is-admin-only.db.test.ts · tests/db/one-photo-one-card-schema.db.test.ts',
+    traps:
+      'No price anything — the owner removed it (no column, no setting). Existing duplicates are left alone: the rule binds new uploads and saves only, so two old cards may still share a photo. A hash with vendor_service_id NULL (made before the rule) still blocks a new card from another shop through the cross-vendor match, but cannot name a card.',
+  },
+
 ];
 
 const UGAT_JOINT_PAIR_INDEX: Record<string, UgatJoint[]> = {};

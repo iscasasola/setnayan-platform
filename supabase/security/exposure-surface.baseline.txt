@@ -9,13 +9,13 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6717
+# facts: 6726
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     571
-#   col       4926
-#   policy    953
+#   tpriv     572
+#   col       4933
+#   policy    954
 #   view      9
 #   func      254
 #
@@ -60,6 +60,7 @@ tpriv	public.canonical_service_schemas|anon	SIUD
 tpriv	public.canonical_service_schemas|authenticated	SIUD
 tpriv	public.canonical_service_taxonomy|anon	SIUD
 tpriv	public.canonical_service_taxonomy|authenticated	SIUD
+tpriv	public.card_claim_words|authenticated	SIUD
 tpriv	public.chat_message_flags|authenticated	SIUD
 tpriv	public.chat_messages|anon	SD
 tpriv	public.chat_messages|authenticated	SD
@@ -835,6 +836,10 @@ col	public.canonical_service_taxonomy.secondary_tiles	anon=SIU authenticated=SIU
 col	public.canonical_service_taxonomy.sort_order	anon=SIU authenticated=SIU
 col	public.canonical_service_taxonomy.tile_id	anon=SIU authenticated=SIU
 col	public.canonical_service_taxonomy.updated_at	anon=SIU authenticated=SIU
+col	public.card_claim_words.created_at	anon=- authenticated=SIU
+col	public.card_claim_words.created_by	anon=- authenticated=SIU
+col	public.card_claim_words.note	anon=- authenticated=SIU
+col	public.card_claim_words.phrase	anon=- authenticated=SIU
 col	public.chat_message_flags.action_taken	anon=- authenticated=SIU
 col	public.chat_message_flags.categories	anon=- authenticated=SIU
 col	public.chat_message_flags.created_at	anon=- authenticated=SIU
@@ -4595,6 +4600,8 @@ col	public.vendor_image_flags.source_r2_ref	anon=- authenticated=SIU
 col	public.vendor_image_flags.source_surface	anon=- authenticated=SIU
 col	public.vendor_image_flags.source_vendor_id	anon=- authenticated=SIU
 col	public.vendor_image_flags.status	anon=- authenticated=SIU
+col	public.vendor_image_flags.supplier_report_note	anon=- authenticated=SIU
+col	public.vendor_image_flags.supplier_reported_at	anon=- authenticated=SIU
 col	public.vendor_image_hashes.hashed_at	anon=- authenticated=SIU
 col	public.vendor_image_hashes.id	anon=- authenticated=SIU
 col	public.vendor_image_hashes.is_demo	anon=- authenticated=SIU
@@ -4602,6 +4609,7 @@ col	public.vendor_image_hashes.phash	anon=- authenticated=SIU
 col	public.vendor_image_hashes.r2_ref	anon=- authenticated=SIU
 col	public.vendor_image_hashes.surface	anon=- authenticated=SIU
 col	public.vendor_image_hashes.vendor_profile_id	anon=- authenticated=SIU
+col	public.vendor_image_hashes.vendor_service_id	anon=- authenticated=SIU
 col	public.vendor_invites.business_name	anon=SIU authenticated=SIU
 col	public.vendor_invites.claim_token	anon=SIU authenticated=SIU
 col	public.vendor_invites.claimed_at	anon=SIU authenticated=SIU
@@ -5572,6 +5580,7 @@ policy	public.canonical_service_schemas|canonical_service_schemas_admin_write	mo
 policy	public.canonical_service_schemas|canonical_service_schemas_read_all	mode=PERMISSIVE cmd=SELECT roles=anon,authenticated using=true check=NULL
 policy	public.canonical_service_taxonomy|canonical_service_taxonomy_admin_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
 policy	public.canonical_service_taxonomy|canonical_service_taxonomy_read_all	mode=PERMISSIVE cmd=SELECT roles=anon,authenticated using=true check=NULL
+policy	public.card_claim_words|card_claim_words_admin_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
 policy	public.chat_message_flags|chat_message_flags_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=( SELECT is_admin() AS is_admin) check=NULL
 policy	public.chat_message_flags|chat_message_flags_admin_update	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
 policy	public.chat_messages|chat_messages_block_guard	mode=RESTRICTIVE cmd=INSERT roles=authenticated using=NULL check=(NOT (EXISTS ( SELECT 1 FROM blocked_users b WHERE (((( SELECT auth.uid() AS uid) = b.blocker_user_id) OR (( SELECT auth.uid() AS uid) = b.blocked_user_id)) AND ( CASE WHEN (b.blocker_user_id = ( SELECT auth.uid() AS uid)) THEN b.blocked_user_id ELSE b.blocker_user_id END IN ( SELECT em.user_id FROM event_members em WHERE ((em.event_id = chat_messages.event_id) AND (em.member_type = 'couple'::member_type)) UNION SELECT vp.user_id FROM vendor_profiles vp WHERE (vp.vendor_profile_id = chat_messages.vendor_profile_id)))))))

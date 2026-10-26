@@ -118,6 +118,15 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
       'that device. Disclose that it is held; do not hand over the keys.',
   },
   {
+    table: 'card_claim_words',
+    decision: 'excluded',
+    why:
+      'An admin-authored moderation word list — the claim words that hold a service card for a quick check ' +
+      '(owner 2026-10-26, migration 20271290013489). `created_by` is the staff account that added a word, an ' +
+      'actor stamp on platform configuration; the row is a phrase and a note about nobody, and the stamp is ' +
+      'SET NULL when that account is deleted.',
+  },
+  {
     table: 'hub_music_tracks',
     decision: 'excluded',
     why:

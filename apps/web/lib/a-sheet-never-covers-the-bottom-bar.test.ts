@@ -94,7 +94,7 @@ test('🧱 every page the shell draws over the work area is in MAKER_SHELL_PAGES
   assert.ok(tools.includes('rsvp-stage') && tools.includes('details') && tools.length >= 6, `the tool keys were not read (${tools.join(', ')})`);
   const covering = new Set<string>();
   for (const key of tools) {
-    const html = await shell('invitation', { kind: 'tool', key });
+    const html = await shell('rsvp', { kind: 'tool', key });
     const raw = /data-probe-selection="([^"]*)"/.exec(html)?.[1];
     assert.ok(raw !== undefined, 'the work area was not drawn — re-read this guard');
     // What the work area is handed (the shell moves Logo · Hero · … into Event Details).
@@ -132,7 +132,8 @@ for (const s of STAGES) {
     const html = await shell(s.stage, s.selection);
     const lt = lowerThirdOf(html);
     assert.ok(!hiddenOnPhone(lt.classes), `${s.name}: the lower third is hidden on a phone`);
-    assert.match(html, /data-lt-menu-button=""/, `${s.name}: the menu ▾ is not in the lower third`);
+    /* 🧭 The lower third is the Stages panel for every viewer (one Maker, 2026-10-25) — its stage ▾ is the panel's own. */
+    assert.match(html, /data-stage-tools=""/, `${s.name}: the Stages panel is not in the lower third`);
     const open = phoneChromeIn(html).filter((c) => c.kind === 'panel' && !hiddenOnPhone(c.classes));
     assert.equal(open.length, 0, `${s.name}: a tool is open with none opened — ${open.map((c) => c.label).join(' · ')}`);
     assert.doesNotMatch(html, /data-sheet-scrim=""/, `${s.name}: the page is dimmed`);

@@ -1,14 +1,13 @@
 'use client';
 
 import { PickMenu } from '../../website/editor/_components/pick-menu';
-import { GUEST_PAGE_ICON } from '../../website/editor/_components/page-pick';
 import Link from 'next/link';
 import { createPortal } from 'react-dom';
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from 'react';
 import type { MakerLate } from '@/lib/maker-late';
 import { MakerLateBridge } from './maker-late';
 import { TimelineRowsLoading } from '@/app/_components/timeline-states';
-import { Check, ChevronLeft, Eye, List, X } from 'lucide-react';
+import { Check, ChevronLeft, Eye, X } from 'lucide-react';
 import type { TourKey } from '@/lib/tours';
 import { SPOTLIGHT_REPLAY_EVENT } from '@/app/_components/spotlight-mount';
 import { HOST_PAGE_TOURS } from '@/lib/host-page-tours';
@@ -27,12 +26,10 @@ import {
   isStagePhase,
   makerOpenTool,
   makerPageAction,
-  makerPageActions,
   makerPageMenu,
   makerPagePick,
   makerPressDoor,
   makerShownDevice,
-  makerViewOptions,
   makerViewToggle,
   type MakerDoor,
 } from './maker-bar';
@@ -114,11 +111,10 @@ import { keyboardIsOpen, readKeyboard, subscribeKeyboard } from '@/lib/keyboard-
  * scrollable navigation, and editing tools each"* · *"we can opt to not have
  * the sidebar and top nav. we can have a button to exit editor"*):
  *
- *   1 · the toolbar — THE MAKER IN 4 (2026-10-02, `maker-bar.ts` `MAKER_TOOLBAR`;
- *       design `prototypes/maker_in_four_2026-09-30_fable.html`):
- *         ‹ Exit · Page ▾ · Look · Event Details · ↶ Undo · 👁 Preview · ✓ Apply
- *       (rearranged 2026-10-04 — icons, no ⋯). How the page is SEEN is a row
- *       of 👁 Preview; everything else is a part of Page ▾.
+ *   1 · the toolbar — ✕ Exit · [ Stages ▾ | Studio ▾ ] · ↶ Undo · ✓ Apply
+ *       (`maker-bar.ts` `MAKER_TOOLBAR_STAGES_STUDIO`; a desktop adds 👁 Preview).
+ *       ONE Maker for every viewer on every width (owner 2026-10-25) — the old
+ *       bar (Page ▾ · Look · Event Details) and its chrome are deleted.
  *   2 · the navigator  ┐
  *   3 · the canvas     ├ the work area — `children`, built by the editor page
  *   4 · the inspector  ┘ with every panel and its own bound action
@@ -130,16 +126,13 @@ import { keyboardIsOpen, readKeyboard, subscribeKeyboard } from '@/lib/keyboard-
  * is open. The menu key `launch` and its route are unchanged (owner 2026-09-25:
  * "label change only").
  *
- * ⛔ NO DEAD BUTTONS. Every bar item does something: Page ▾ moves the canvas,
- * Look and Details open the one Details page on their part, Undo and Apply act
- * on the draft — and a control with no build is not drawn at all (never a
- * "coming in the next build" line; App Review rejects "coming soon", 2026-09-28).
+ * ⛔ NO DEAD BUTTONS. Every bar item does something — and a control with no
+ * build is not drawn at all (never a "coming in the next build" line; App
+ * Review rejects "coming soon", 2026-09-28).
  *
  * 📱 PHONE FIRST, ONE STRUCTURE (owner 2026-09-25: *"99% of the viewers will use
- * the phone"*). The bar is ONE flex row on every width — on a phone (under `md`)
- * ‹ Exit · the stage · ↶ · 👁 · ✓N fit 375 px, every button a 44 px icon with
- * its name; Page ▾ · Look · Event Details are the bottom bar's
- * (`MAKER_BAR_PHONE`, lib/maker-phone-room.ts).
+ * the phone"*). The bar is ONE flex row on every width; a desktop lays the
+ * same tree out in three columns (`maker-desk.tsx`).
  *
  * 🧩 THE DRAFT BAR MOUNTS HERE, ONCE (`applySlot`,
  * `website/_components/hub-draft-bar.tsx`): it draws Undo and Apply, and the
@@ -150,7 +143,7 @@ import { keyboardIsOpen, readKeyboard, subscribeKeyboard } from '@/lib/keyboard-
 /** One stable empty set, so the context keeps its identity when none is handed in. */
 const NO_FACT_EDITORS: Partial<Record<DetailsItemKey, ReactNode>> = {};
 
-/** ▁ The new Maker's one bottom sheet, handed to every `PickMenu` inside it (`PickSheetContext`). */
+/** ▁ The Maker's one bottom sheet, handed to every `PickMenu` inside it (`PickSheetContext`). */
 const makerPickSheet: PickSheet = ({ label, onClose, children }) =>
   typeof document === 'undefined'
     ? null
@@ -161,16 +154,7 @@ const makerPickSheet: PickSheet = ({ label, onClose, children }) =>
         document.body,
       );
 
-/** The sheet handed down only when the new Maker is on — a plain call, never a component, so the shipped tree is unchanged. */
 const NO_ROLE_ROWS: readonly SeeAsRoleRow[] = [];
-
-function withPickSheet(on: boolean, children: ReactNode): ReactNode {
-  return on ? <PickSheetContext.Provider value={makerPickSheet}>{children}</PickSheetContext.Provider> : children;
-}
-
-/** Look and Details — words a first-timer reads, on every width (design frames A and G). */
-const MAKER_DOOR_BUTTON =
-  'sn-press inline-flex min-h-10 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 text-[13.5px] font-semibold transition-colors duration-sn-control ease-sn';
 
 export function MakerShell({
   eventId,
@@ -196,8 +180,6 @@ export function MakerShell({
   viewAsFree = null,
   theHost = 'the host',
   postEventTour = null,
-  stagesStudio = false,
-  desktopColumns = false,
   deskTitle = null,
   proLine = null,
   studio: studioGiven = null,
@@ -213,24 +195,7 @@ export function MakerShell({
    * no guest list = no Save the Date and no RSVP stage. Empty = every stage (yesterday's Maker).
    */
   hiddenStages?: readonly string[];
-  /**
-   * 🧭 THE NEW MAKER — "Stages | Studio" (`makerStagesStudioEnabled`, resolved
-   * ONCE by the launch page; nothing here reads the env). On a phone: ✕ ·
-   * Stages | Studio · ↺ · ✓ (`MAKER_TOOLBAR_STAGES_STUDIO`), the lower third's
-   * one item ▾ and its grab handle, the one bottom sheet for every pop-up, and
-   * Studio's home of tiles. False — every couple today — draws the shipped
-   * Maker exactly; a desktop is unchanged either way this round.
-   */
-  stagesStudio?: boolean;
-  /**
-   * 🖥 …ON A DESKTOP TOO, in three columns (`makerDesktopColumnsEnabled`, resolved once by the launch page;
-   * `MAKER_DESKTOP_ADAPTATION_2026-10-07_fable.md`, all "A"). From `lg` the new Maker is drawn instead of the old
-   * one: the lazy `MakerDesk` marks the shell `data-maker-desk` and lays it out (`maker-desk.tsx`, mounted by the lazy
-   * Stages | Studio switch — no byte of it in the Maker's first load). A phone is
-   * the same either way. False: a desktop draws the shipped Maker exactly.
-   */
-  desktopColumns?: boolean;
-  /** 🖥 The event's name, for the desktop's top bar — handed in only with the columns on (`MakerDesk` draws it). */
+  /** 🖥 The event's name, for the desktop's top bar (`MakerDesk` draws it). */
   deskTitle?: string | null;
   /** 💎 The quiet "₱X more unlocks everything" line's facts (`MakerProLine`) — null in the store shell. */
   proLine?: MakerProLine | null;
@@ -341,17 +306,16 @@ export function MakerShell({
   const [eventBar, setEventBar] = useState<MakerEventBar | null>(null);
   const [settingsOn, setSettingsOn] = useState(false);
   const phone = !wide;
-  /* ══ 🧭 THE NEW MAKER (`stagesStudio`) — a phone's only ══
-     Which side the top nav's Stages | Studio shows, and what Studio has open:
+  /* ══ 🧭 THE MAKER — "Stages | Studio", on every width, for every viewer ══
+     (owner 2026-10-25: *"delete that old event hub maker"* — no flag, no role and no failed read picks another;
+     `lib/there-is-one-maker.test.ts`). Which side the top nav's Stages | Studio shows, and what Studio has open:
      its home of tiles, Look (in the lower third — it must show the page), or a
      tool drawn full screen under its slim Tool ▾ row. */
   const [side, setSide] = useState<MakerSide>('stages');
   const [studioAt, setStudioAt] = useState<StudioTileKey | 'home'>('home');
   /* ↕ The lower third's height, dragged (px) — null: its default. */
   const [ltPx, setLtPx] = useState<number | null>(null);
-  /* 🖥 …and on a desktop's width when its three columns are on (`MakerDesk`, lazy: it marks the shell itself). */
-  const ss = stagesStudio && (phone || desktopColumns);
-  const studioOn = ss && side === 'studio';
+  const studioOn = side === 'studio';
   const studioHomeOn = studioOn && studioAt === 'home';
   const studioTile = studioOn && studioAt !== 'home' ? (studio?.tiles.find((t) => t.key === studioAt) ?? null) : null;
   /** A Studio tool full screen — every one but Look (owner: "No lower-third toolbar in Studio except Look"). */
@@ -434,7 +398,7 @@ export function MakerShell({
     }
     if (saved && isStagePhase(saved.stage)) setStage(saved.stage);
     if (isMakerDevice(saved?.device)) setDevice(saved.device);
-    else if (desktopColumns || window.matchMedia('(max-width: 767px)').matches) setDevice('phone');
+    else setDevice('phone');
     if (typeof saved?.navOpen === 'boolean') setNavOpen(saved.navOpen);
     rememberedPlace.current = Boolean(saved && 'selection' in saved);
     // An address that names what to open (a save's `?scene=`) wins over memory.
@@ -451,7 +415,7 @@ export function MakerShell({
     /* 🔁 THIS PAGE RELOADED ITSELF (a new version arriving under an open Maker — `lib/maker-resume.ts`): it opens
        where it was, not on a cold door's landing. The note is one-shot and only this tab's; from anywhere else
        it is thrown away. Kept a moment for the rule below, which decides where a Details selection lands. */
-    const back = stagesStudio ? takeMakerResume(window.sessionStorage, makerResumeKey(memoryKey), makerCameBackToItself(makerLoadNow())) : null;
+    const back = takeMakerResume(window.sessionStorage, makerResumeKey(memoryKey), makerCameBackToItself(makerLoadNow()));
     if (back) {
       cameBack.current = { ...back, until: Date.now() + 3000 };
       if (isDetailsItemKey(back.item)) setDetailsItem(back.item);
@@ -459,7 +423,7 @@ export function MakerShell({
       if (back.side === 'studio' && back.at === 'home') setSide('studio');
     }
     restored.current = true;
-  }, [memoryKey, stagesStudio, desktopColumns]);
+  }, [memoryKey]);
   useEffect(() => {
     if (!restored.current) return;
     try {
@@ -599,8 +563,8 @@ export function MakerShell({
       {(close) => previewRows(close)}
     </ToolMenu>
   );
-  /* 🧭 The new Maker's phone top nav has no 👁 (`MAKER_TOOLBAR_STAGES_STUDIO`) — a desktop keeps it. */
-  const previewMenu = stagesStudio ? <span className="contents max-lg:hidden">{previewTool}</span> : previewTool;
+  /* 🧭 A phone's top nav has no 👁 (`MAKER_TOOLBAR_STAGES_STUDIO`) — a desktop keeps it. */
+  const previewMenu = <span className="contents max-lg:hidden">{previewTool}</span>;
 
   const openDoor = selection?.kind === 'tool' ? makerOpenTool(selection.key, detailsItem) : null;
   /* 🧰 THE LOWER THIRD'S PICK (phone) — one of the menu's two groups: a stage,
@@ -681,18 +645,19 @@ export function MakerShell({
       setTool,
       /* 🧭 A Studio tool full screen is not a lower-third tool: its editor opens at once, beside nothing. */
       /* 🖥 A desktop's tools column IS the lower third: its tools say they are open, as on a phone. */
-      lowerThird: (phone || ss) && !studioCovers,
+      lowerThird: !studioCovers,
       ltNav: studioCovers ? null : ltNav,
       eventBar,
       setEventBar,
       setLtWhere,
-      stagesStudio: ss,
+      /* 🧭 Inside the Maker — and there is one Maker (`lib/there-is-one-maker.test.ts`). Outside it there is no context. */
+      stagesStudio: true,
       deskTitle,
       proLine,
     }),
     // `previewMenu` is a fresh node each render — its rows are read when it opens.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [eventId, stage, shownDevice, navOpen, selection, select, moreOpen, renderStamp, storeShell, seeAs, seeAsRole, seeAsRoles, addScene, detailsItem, detailsDoor, lookVisit, itemVisit, guideTitle, lookPages, factEditors, venuePictures, guestPages, pageJump, clearPageJump, draft, tool, phone, ltNav, eventBar, studioCovers, ss, deskTitle, proLine],
+    [eventId, stage, shownDevice, navOpen, selection, select, moreOpen, renderStamp, storeShell, seeAs, seeAsRole, seeAsRoles, addScene, detailsItem, detailsDoor, lookVisit, itemVisit, guideTitle, lookPages, factEditors, venuePictures, guestPages, pageJump, clearPageJump, draft, tool, ltNav, eventBar, studioCovers, deskTitle, proLine],
   );
 
   /* 🚪 LOOK · DETAILS · PAGE ▾ › PRINTS — three doors into the one Details page
@@ -727,24 +692,10 @@ export function MakerShell({
     openPage: openDoor === 'look' ? MAKER_LOOK_LABEL : openDoor === 'details' ? MAKER_DETAILS_LABEL : openDoor === 'prints' ? MAKER_PRINTS_LABEL : null,
     hiddenStages,
   });
-  /* 📱 Frame G's top line names the stage — or the Maker page that covers it. */
-  /* 🏷 In the guided flow: ONE title per stage (owner 2026-10-05) — the stage being walked, never Look/Event Details by turns. */
-  const openStageWord = (openDoor === 'look' || openDoor === 'details') && guideTitle ? guideTitle : openDoor === 'look' ? MAKER_LOOK_LABEL : openDoor === 'details' ? MAKER_DETAILS_LABEL : openDoor === 'prints' ? MAKER_PRINTS_LABEL : openDoor === 'rsvp-stage' ? 'RSVP' : null;
   /* ＋ Add a scene is a STAGE tool — never on a page (owner 2026-09-28: *"cannot
      see the scenes. and it should only show on stages."*). */
   const stageAdd = makerAddShowsOn(selection) ? addScene : null;
 
-  /* Each page wears the guest bar's own icon (`page-pick.tsx`), as it did in the navigator. */
-  const pageOptions = makerPageActions(page.options.map((o) => {
-    const pick = makerPagePick(o.key);
-    const Icon = pick?.kind === 'page' ? GUEST_PAGE_ICON[pick.page as keyof typeof GUEST_PAGE_ICON] : undefined;
-    return Icon ? { ...o, icon: <Icon className="h-4 w-4" strokeWidth={1.75} /> } : o;
-  }), {
-    stage,
-    addScene: stageAdd?.kind === 'ready' ? { kind: 'ready', tried: stageAdd.tried === true } : stageAdd?.kind === 'refused' ? { kind: 'refused', note: stageAdd.note } : null,
-    hasWork: hasWork && applySlot !== null,
-    canRestore: draft ? draft.canRestore : null,
-  });
   const pickPage = (key: string) => {
     /* 📄 A row that moved here from ⋯ (`makerPageActions`) runs its act. */
     const act = makerPageAction(key);
@@ -819,7 +770,7 @@ export function MakerShell({
       setStage(key);
     }
   };
-  /* ══ 🧭 THE NEW MAKER — Stages | Studio (`stagesStudio`, phone) ══ */
+  /* ══ 🧭 Stages | Studio ══ */
   /** A Studio tile opens its tool: Look in the lower third, every other the shipped Event Details item, full screen. */
   const openStudio = (key: StudioTileKey, from?: { label: string; focus: string | null }) => {
     const tile = studio?.tiles.find((t) => t.key === key);
@@ -843,7 +794,7 @@ export function MakerShell({
      want ready?" — and every door into Event Details (`?tool=details`, `?guide=`, Home's next-step card, the
      tab's remembered tool) — never covers the Stages side. Such a door lands on Studio's home instead. */
   useEffect(() => {
-    if (!ss || side !== 'stages' || selection?.kind !== 'tool' || selection.key !== 'details') return;
+    if (side !== 'stages' || selection?.kind !== 'tool' || selection.key !== 'details') return;
     /* 🔁 …EXCEPT THE PAGE'S OWN RELOAD (owner 08 Oct, live: *"clicking on music reset the maker and reloaded"* — a
        new version had arrived; the reload was treated as a door and dropped him on Studio's tiles). A page that
        came back to itself is put back where it was: on the stage, or in the Studio tool it had open. One-shot. */
@@ -855,12 +806,12 @@ export function MakerShell({
     // A tool put back opens as its tile opens it (`openStudio`): Look on its controls, any other with its editor up.
     if (!land.keep) select(null);
     else if (land.at !== 'look') setDetailsDoor((n) => n + 1);
-  }, [ss, side, selection, select, studio]);
+  }, [side, selection, select, studio]);
   /* 🔁 …and the note that makes it possible: where the Maker is, kept as it changes (this tab only). */
   useEffect(() => {
-    if (!restored.current || !stagesStudio) return;
+    if (!restored.current) return;
     noteMakerResume(window.sessionStorage, makerResumeKey(memoryKey), { side, at: studioAt, item: detailsItem });
-  }, [memoryKey, stagesStudio, side, studioAt, detailsItem]);
+  }, [memoryKey, side, studioAt, detailsItem]);
   /* 🎯 THE STYLE BAR'S JUMP (owner 2026-10-07: *"opens to the exact place where to edit it"* · *"if we did a jump,
      we need a way to apply and return to where we were editing"*): the field is brought into view and focused
      once the editor has drawn it; "✓ Done · back to <part>" returns to the same stage and part (the edit stays
@@ -881,7 +832,7 @@ export function MakerShell({
     setSide(next);
   };
   /** The lower third's ONE item ▾ (owner 2026-10-06): the five stages — or, in Studio › Look, the eleven tools. */
-  const ltItemMenu = !ss ? null : studioOn ? (
+  const ltItemMenu = studioOn ? (
     <StudioToolMenu tiles={studio?.tiles ?? []} value="look" onOpen={openStudio} dataAttr="data-lt-item-menu" />
   ) : (
     <PickMenu
@@ -953,20 +904,6 @@ export function MakerShell({
         : [];
   /* "Where you are": the part on screen — the page of a stage, or what the layer says. */
   const ltWhereWords = isStagePhase(ltPick) ? page.pageText : ltPick === 'settings' ? 'Your Event Hub' : (ltWhere ?? ltPickLabel);
-  /* 🏷 THE TOP LINE — the screen you are on (owner 2026-10-05: "RSVP · RSVP
-     form"): the pick and its part — the tool open, else the part on screen —
-     or, in the guided flow, its one title (the stage being walked). */
-  const screenLabel = (() => {
-    const head = guideTitle && (openDoor === 'look' || openDoor === 'details') ? (openStageWord ?? ltPickLabel) : ltPickLabel;
-    const part = tool?.name ?? ltWhereWords;
-    /* ✂ THE LABEL FITS (controller sweep 2026-10-06: "Wedding Ma…", "Finish your Event
-       Hub · …"): inside Event Details the bar names the ITEM alone — the menu below
-       already says which part of the list it is; a stage keeps "Stage · page". */
-    // The guided flow names its stage alone (owner 2026-10-05, "ONE title per stage").
-    if (doorShown) return guideTitle ? head : part || head;
-    return part && part !== head ? `${head} · ${part}` : head;
-  })();
-
   /* ▶ The stage as guests meet it — page-only, with the host's DRAFT
      (`?preview=draft`, host-verified on the page; `app/[slug]/_lib/editor-canvas.ts`). */
   const playHref = slug ? `/${slug}?phase=${stage}&preview=draft` : null;
@@ -976,39 +913,6 @@ export function MakerShell({
     selection?.kind === 'scene' ||
     (selection?.kind === 'tool' && ['hero', 'reveal', 'post-event'].includes(selection.key)) ||
     (selection?.kind === 'tool' && selection.key === 'details' && (detailsItem === 'hero' || detailsItem === 'reveal'));
-  const bothView = makerViewOptions(wide).find((o) => o.key === 'both') ?? null;
-
-  /* 🎨 LOOK · 🗂 EVENT DETAILS — the desktop's top bar (on a phone: the lower
-     third's Theme and Details, owner 2026-10-05). */
-  /* 🗂 ONE button, "Event Details" (owner 2026-10-06) — the Look chip is gone; its items head the list. */
-  const doors = (['details'] as const).map((door) => {
-    const label = MAKER_DETAILS_LABEL;
-    const icon = <List aria-hidden className="h-4 w-4" strokeWidth={1.75} />;
-    if (!hasWork) {
-      return (
-        <span key={door} className="hidden lg:inline-flex">
-          <ShutDoor label={label} note={`Only ${theHost} can open this part of the Event Hub Maker.`} tool={door}>
-            {icon}
-            {label}
-          </ShutDoor>
-        </span>
-      );
-    }
-    const on = openDoor === door;
-    return (
-      <button
-        key={door}
-        type="button"
-        data-maker-tool={door}
-        aria-pressed={on}
-        onClick={() => pressDoor(door)}
-        className={`${MAKER_DOOR_BUTTON} hidden lg:inline-flex ${on ? 'bg-ink text-cream' : 'bg-white/70 text-ink hover:bg-white'}`}
-      >
-        {icon}
-        {label}
-      </button>
-    );
-  });
 
   /* 👁 PREVIEW'S ROWS — how the page is SEEN (owner 2026-10-04): See as ·
      Phone / Desktop · Both · Scenes · Play this scene · Preview the stage. What
@@ -1049,18 +953,6 @@ export function MakerShell({
           <MenuItem on={shownDevice === 'phone'} onClick={() => { setDevice(makerViewToggle(shownDevice)); seeTheStage(); close(); }}>
             <span data-maker-tool-row="view">{shownDevice === 'phone' ? 'Phone — tap for the desktop' : 'Show it on a phone'}</span>
           </MenuItem>
-          {/* 🖥📱 Both — the phone and the desktop side by side, from 1024 px. */}
-          {bothView ? (
-            <MenuItem on={device === 'both'} onClick={() => { setDevice(device === 'both' ? 'desktop' : 'both'); seeTheStage(); close(); }}>
-              Phone and desktop
-            </MenuItem>
-          ) : null}
-          {/* ▤ The scenes column (a desktop column; on a phone it is the strip under the page). */}
-          {hasWork ? (
-            <MenuItem className="hidden lg:flex" on={navOpen} onClick={() => { setNavOpen((o) => !o); close(); }}>
-              <span data-maker-tool-row="scenes">Scenes</span>
-            </MenuItem>
-          ) : null}
           {/* ▶ PLAY (owner 2026-09-25: *"play scene will play on the scene
               editor only. play stage will open a new page"*). */}
           {playHref ? (
@@ -1089,11 +981,8 @@ export function MakerShell({
 
   return (
     <MakerContext.Provider value={value}>
-      {/* ▁ The new Maker's one bottom sheet for every PickMenu inside it — only when it is on, so the
-          shipped Maker's tree (and every id React derives from it) is exactly as it was. */}
-      {withPickSheet(
-        stagesStudio,
-        <>
+      {/* ▁ The Maker's one bottom sheet for every PickMenu inside it. */}
+      <PickSheetContext.Provider value={makerPickSheet}>
       {/* An inline <style>, not a CSS import: unit tests load these modules.
           ① The scroll lock. ② 🪤 MEASURED IN THE BROWSER: the layout's
           `.sn-vt-page` carries `view-transition-name`, which makes it a
@@ -1107,7 +996,7 @@ export function MakerShell({
         {'html.sn-maker-open,html.sn-maker-open body,html:has([data-maker-shell]),html:has([data-maker-shell]) body{overflow:hidden}' +
           'html.sn-maker-open .sn-vt-page,.sn-vt-page:has([data-maker-shell]){view-transition-name:none}' +
           /* 🧭 A Studio tool full screen: its editor takes the whole width — no lower-third column beside it. */
-          (stagesStudio ? '@media (max-width:1023.98px){[data-maker-studio-full] [data-phone-chrome="panel"]{left:4px}}' : '')}
+          '@media (max-width:1023.98px){[data-maker-studio-full] [data-phone-chrome="panel"]{left:4px}}'}
       </style>
       <div
         ref={shellRef}
@@ -1120,26 +1009,22 @@ export function MakerShell({
         data-maker-studio-full={studioFull ? '' : undefined}
         /* 🧰 The lower third's height — every phone tool is sized from it (`MAKER_LT_TOOL`).
            🧭 The new Maker: as dragged (↕), and half the screen for a Studio tool's editor. */
-        style={{ ['--maker-lt-h' as string]: studioFull ? MAKER_LT_HALF : ss && ltPx !== null ? `${ltPx}px` : MAKER_LT_HEIGHT }}
+        style={{ ['--maker-lt-h' as string]: studioFull ? MAKER_LT_HALF : ltPx !== null ? `${ltPx}px` : MAKER_LT_HEIGHT }}
         aria-label="Event Hub Maker"
         role="region"
       >
-        {/* ══ 1 · THE TOOLBAR ══ (`MAKER_TOOLBAR`, maker-bar.ts; rearranged 2026-10-04)
-              ‹ Exit · Page ▾ · Look · Event Details · ↶ Undo · 👁 Preview · ✓ Apply
+        {/* ══ 1 · THE TOOLBAR ══ (`MAKER_TOOLBAR_STAGES_STUDIO`, maker-bar.ts)
+              ✕ Exit · [ Stages ▾ | Studio ▾ ] · ↶ Undo · 👁 Preview (a desktop's) · ✓ Apply
             ONE flex row on every width (owner 2026-10-02: on a phone the bar
             wrapped and Apply dropped to a second row) — on a phone each item
-            declares its width (`MAKER_BAR_PHONE`). ⛔ Nothing else sits here:
-            the stages, Add a scene, Reset, Prints, Restore, the address, who
-            can view and About are Page ▾'s; See as · Phone / Desktop ·
-            Both · Scenes · Play are 👁 Preview's. Format · Animate · Arrange live only as the
-            inspector's own tabs (owner: *"repeated. just place it on the
-            sidebar instead of the top bar?"*). */}
+            declares its width (`MAKER_BAR_PHONE`). ⛔ Nothing else sits here: the
+            old bar's Page ▾ · Look · Event Details went with the old Maker
+            (owner 2026-10-25); their acts are the lower third's and Studio's. */}
         <header
           data-maker-toolbar=""
-          /* 📱 On a phone: ‹ Exit · the stage you are on · ↶ · 👁 · ✓N — one row
-             of 44 px icons (`MAKER_BAR_PHONE`, lib/maker-phone-room.ts); Page ▾ ·
-             Look · Event Details are the bottom bar's. A status says itself OVER
-             the canvas there. */
+          /* 📱 On a phone: ✕ Exit · Stages | Studio · ↶ · ✓N — one row of 44 px
+             icons (`MAKER_BAR_PHONE`, lib/maker-phone-room.ts). A status says
+             itself OVER the canvas there. */
           data-phone-chrome="bar"
           data-phone-chrome-name="the toolbar"
           className="sn-glass-bare relative z-20 flex shrink-0 flex-nowrap items-center gap-x-1 px-2 py-1 max-lg:h-[52px] lg:gap-1.5 lg:px-2.5"
@@ -1165,47 +1050,15 @@ export function MakerShell({
             </Link>
           </IconPill>
 
-          {/* 📱 THE SCREEN YOU ARE ON (owner 2026-10-05: "RSVP · When yes") — the
-              stage and its page ("Invitation · Welcome"), or the Maker page that
-              covers it; one line that truncates. */}
-          {stagesStudio ? (
-            /* 🧭 THE NEW MAKER: ONE segmented control where the screen's name was — and it says where you are (owner
-               2026-10-08): the half you are on reads the stage or the Studio page, the other the plain word; both are
-               dropdowns (a tap opens that side's list, a pick goes there), always the same width. It fills its place
-               edge to edge — the room the names are measured in (`StudioSideSwitch`). */
-            <div data-maker-tool="side" data-bar-item="Stages or Studio" data-bar-fill="" className={`flex min-w-0 flex-1 lg:hidden ${MAKER_BAR_PHONE.side}`}>
-              <StudioSideSwitch side={side} onPick={pickSide} stage={ltPick} options={page.options} onStage={pickPage} page={studioTile} tiles={studio?.tiles} onOpen={openStudio} />
-            </div>
-          ) : (
-          <p
-            data-bar-item="Stage"
-            data-bar-fill=""
-            data-maker-screen-label=""
-            className={`min-w-0 flex-1 truncate px-1 text-[13.5px] font-semibold text-ink lg:hidden ${MAKER_BAR_PHONE.stage}`}
-          >
-            {screenLabel}
-          </p>
-          )}
-
-          {/* 📄 PAGE ▾ — ONE dropdown: the stages, each with its guest pages. A
-              desktop's; on a phone the lower third's menu and navigator are. */}
-          <div className={`flex min-w-0 flex-1 lg:max-w-[20rem] lg:flex-none ${MAKER_BAR_PHONE.pageTop}`} data-maker-tool="page">
-            <PickMenu
-              label="Page"
-              dataAttr="data-maker-page-menu"
-              value={page.value}
-              buttonText={page.buttonText}
-              options={pageOptions}
-              onPick={pickPage}
-              className="w-full lg:w-auto"
-            />
+          {/* 🧭 ONE segmented control where the screen's name was — and it says where you are (owner 2026-10-08): the
+              half you are on reads the stage or the Studio page, the other the plain word; both are dropdowns (a tap
+              opens that side's list, a pick goes there), always the same width. It fills its place edge to edge —
+              the room the names are measured in (`StudioSideSwitch`). A desktop shows it too (`maker-desk.tsx`). */}
+          <div data-maker-tool="side" data-bar-item="Stages or Studio" data-bar-fill="" className={`flex min-w-0 flex-1 ${MAKER_BAR_PHONE.side}`}>
+            <StudioSideSwitch side={side} onPick={pickSide} stage={ltPick} options={page.options} onStage={pickPage} page={studioTile} tiles={studio?.tiles} onOpen={openStudio} />
           </div>
 
-          {/* 🎨 LOOK · 🗂 DETAILS — the two doors a first-timer needs, in words.
-              On a desktop here; on a phone they are the lower third's Theme and Details. */}
-          {doors}
-
-          {/* The desktop's gap between the doors and the draft (a phone has no room for one). */}
+          {/* The desktop's gap between the side switch and the draft (a phone has no room for one). */}
           <i aria-hidden className="hidden flex-1 lg:block" />
 
           {/* 💾 ↶ UNDO · 👁 PREVIEW · ✓ APPLY — the draft bar (`applySlot`), mounted
@@ -1286,8 +1139,7 @@ export function MakerShell({
                 ))}
             </div>
           ) : null}
-          {/* 🧭 THE NEW MAKER'S STUDIO, over the work area (appended last, so the shipped Maker's tree is
-              unchanged): its HOME of cards (`studio-home.tsx`, loaded when first opened). A Studio PAGE draws
+          {/* 🧭 STUDIO, over the work area: its HOME of cards (`studio-home.tsx`, loaded when first opened). A Studio PAGE draws
               nothing here: where you are is said in the top bar's pill (`StudioSideSwitch`, above) — no row is added. */}
           {studioHomeOn ? (
             <StudioCover tiles={studio?.tiles ?? null} pending={latePending} onOpen={openStudio} />
@@ -1310,7 +1162,7 @@ export function MakerShell({
         <MakerLowerThird
           itemMenu={ltItemMenu}
           /* 🎬 Stages: the stage ▾ · Style | Text | Animate · ▶ panel takes the lower third (`stage-tools.tsx`). */
-          grab={ss ? side === 'stages' ? <StageTools stage={stage} rsvpOpen={ltPick === RSVP_STAGE_KEY} options={page.options} value={page.value} onPickPage={pickPage} onOpenStudio={openStudio} suppliersHref={`/dashboard/${eventId}/vendors`} onPx={setLtPx} /> : <LowerThirdGrab px={ltPx} onPx={setLtPx} /> : null}
+          grab={side === 'stages' ? <StageTools stage={stage} rsvpOpen={ltPick === RSVP_STAGE_KEY} options={page.options} value={page.value} onPickPage={pickPage} onOpenStudio={openStudio} suppliersHref={`/dashboard/${eventId}/vendors`} onPx={setLtPx} /> : <LowerThirdGrab px={ltPx} onPx={setLtPx} />}
           pick={ltPick}
           pickLabel={ltPickLabel}
           where={ltWhereWords}
@@ -1360,8 +1212,7 @@ export function MakerShell({
           <MakerLateBridge late={late} onLate={setLateValue} />
         </Suspense>
       ) : null}
-        </>,
-      )}
+      </PickSheetContext.Provider>
     </MakerContext.Provider>
   );
 }
@@ -1369,79 +1220,6 @@ export function MakerShell({
 /** The lower third's menu row for each part of Event Details' list, and back. */
 const LT_PICK_OF_SECTION: Record<DetailsLtSection, string> = { look: 'theme', story: 'story', event: 'details', prints: 'prints' };
 const SECTION_OF_LT_PICK: Record<string, DetailsLtSection | undefined> = { theme: 'look', story: 'story', details: 'event', prints: 'prints' };
-
-/**
- * A door that is shut to this viewer (a coordinator: Look and Details are the
- * couple's) — pressing it says why, in one line, in the same glass bubble the
- * house `(i)` uses (`.sn-tip`). Never a dead button.
- */
-export function ShutDoor({
-  label,
-  note,
-  tool,
-  children,
-}: {
-  label: string;
-  note: string;
-  /** The toolbar item this door is (`data-maker-tool`, `MAKER_TOOLBAR`). */
-  tool: string;
-  children: ReactNode;
-}) {
-  const [open, setOpen] = useState(false);
-  const [at, setAt] = useState<{ top: number; left: number; width: number } | null>(null);
-  useOneOpen(open, setOpen); // one open at a time — lib/one-open.ts
-  const ref = useRef<HTMLSpanElement>(null);
-  const btnRef = useRef<HTMLButtonElement>(null);
-  /* Placed against the VIEWPORT, not the button's box: a bar that wraps or
-     scrolls would clip anything that hangs below it — a dead button again. */
-  const place = () => {
-    const r = btnRef.current?.getBoundingClientRect();
-    if (!r) return;
-    const width = Math.min(288, window.innerWidth - 32);
-    setAt({ top: r.bottom + 8, left: Math.max(16, Math.min(r.left, window.innerWidth - width - 16)), width });
-  };
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: PointerEvent) => {
-      if (!ref.current?.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
-    };
-    window.addEventListener('pointerdown', onDown);
-    window.addEventListener('keydown', onKey);
-    return () => {
-      window.removeEventListener('pointerdown', onDown);
-      window.removeEventListener('keydown', onKey);
-    };
-  }, [open]);
-  return (
-    <span ref={ref} className="relative inline-flex shrink-0">
-      <button
-        ref={btnRef}
-        type="button"
-        aria-expanded={open}
-        aria-label={label}
-        data-maker-tool={tool}
-        onClick={() => {
-          place();
-          setOpen((o) => !o);
-        }}
-        className={`${MAKER_DOOR_BUTTON} bg-white/50 text-ink/60 hover:bg-white/70`}
-      >
-        {children}
-      </button>
-      <span
-        role="status"
-        hidden={!open || !at}
-        style={at ? { position: 'fixed', top: at.top, left: at.left, width: at.width } : undefined}
-        className="z-50"
-      >
-        <span className="sn-tip-body sn-glass-bare block">{note}</span>
-      </span>
-    </span>
-  );
-}
 
 /**
  * ▾ THE BAR'S ONE MENU — 👁 Preview (2026-10-04; it was ⋯). A 44 px icon named by its label; the list opens under it, stays

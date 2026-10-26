@@ -300,7 +300,8 @@ test('(4) Style on a phone is the scene’s look cards in the toolbar’s rows a
   /* One switch decides, and it is the Maker's own "the new toolbar is on" (a phone, behind the flag). */
   const panel = read(`${E}/post-event-scene-panel.tsx`);
   assert.match(panel, /const toolbar = useMaker\(\)\?\.stagesStudio === true;/);
-  assert.match(read(`${L}/maker-shell.tsx`), /const ss = stagesStudio && \(phone \|\| desktopColumns\);[\s\S]*?stagesStudio: ss,/);
+  /* …which is always on inside the Maker — there is one Maker (2026-10-25, `lib/there-is-one-maker.test.ts`). */
+  assert.match(read(`${L}/maker-shell.tsx`), /\bstagesStudio: true,/);
   /* The picking is the panel's ONE `pickStyle` in both shapes — a pick posts what it always posted. */
   assert.equal(panel.split('onPick={pickStyle}').length - 1, 1);
   assert.equal(panel.split('<SceneStyleRow').length - 1, 1);

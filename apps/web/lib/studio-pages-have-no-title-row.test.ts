@@ -163,7 +163,7 @@ test('(2) in a Studio page, painted for all eleven: "Stages ▾" plain, the page
   assert.match(src, /'min-w-0 !gap-0\.5 !px-\[3px\] group-has-\[\[data-studio-half-tight\]\]\/seg:!px-0\.5 group-has-\[\[data-studio-half-tight\]\]\/seg:!text-\[12px\]'/);
   assert.match(src, /data-studio-half-tight=\{now\.tight \? '' : undefined\}/);
   // The pill fills its place in the bar, edge to edge — the room the names are measured in.
-  assert.match(read(SHELL), /<div data-maker-tool="side" data-bar-item="Stages or Studio" data-bar-fill="" className=\{`flex min-w-0 flex-1 lg:hidden \$\{MAKER_BAR_PHONE\.side\}`\}>/);
+  assert.match(read(SHELL), /<div data-maker-tool="side" data-bar-item="Stages or Studio" data-bar-fill="" className=\{`flex min-w-0 flex-1 \$\{MAKER_BAR_PHONE\.side\}`\}>/);
 });
 
 test('(3) in a stage, painted for all five: the stage’s name ▾ picked, "Studio ▾" plain — and the list of stages is the Stages panel’s own', async () => {
@@ -232,7 +232,7 @@ test('(4) a ▾ opens its list and never changes side — only a pick does; the 
   assert.equal(count(top, /aria-label="Exit"/g), 1);
   assert.doesNotMatch(top, /StudioBack|Back to Studio|\{studio(?:Tile|On|Full|HomeOn) \? \(/, 'inside a Studio page something else stands in ✕’s place');
   assert.equal(count(top, /<StudioSideSwitch\b/g), 1);
-  assert.match(top, /\{stagesStudio \? \(/);
+  assert.doesNotMatch(top, /data-maker-screen-label|\{stagesStudio \? \(/, 'the old Maker’s screen label is back beside the switch');
 });
 
 test('(5) ↺ and ✓ stay: the bar’s own draft controls are drawn on every screen, the same', () => {

@@ -1,14 +1,7 @@
 import Link from 'next/link';
 import { siteOrigin } from '@/lib/site-origin';
 import { notFound } from 'next/navigation';
-import {
-  ArrowLeft,
-  ArrowUpRight,
-  CalendarDays,
-  MessageCircle,
-  Plus,
-  RefreshCw,
-} from 'lucide-react';
+import { ArrowLeft, Plus, RefreshCw } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
@@ -25,46 +18,58 @@ import {
   type CommunityRosterEntry,
   type SamahanMessage,
 } from '@/lib/communities';
-import { eventBoardHref, stanceClosedReason } from '@/lib/event-board';
 import { after } from 'next/server';
 import {
   fetchSamahanStories,
   maybeRunSamahanStorySweep,
   type SamahanStory,
 } from '@/lib/samahan-stories';
-import { SamahanStories } from './_components/samahan-stories';
-import type { EventWithRole } from '@/lib/events';
-
-type EventMemberType = EventWithRole['member_type'];
 import {
-  demoteMember,
-  leaveCommunity,
-  promoteMember,
   deleteSamahanMessage,
+  leaveCommunity,
   postSamahanMessage,
-  removeMember,
   rotateInviteToken,
 } from '../actions';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { SamahanIdentityHeader } from './_components/samahan-identity-header';
+import { MemberActionsMenu } from './_components/member-actions-menu';
+import {
+  GroupEventRow,
+  GroupHome,
+  GroupSectionHead,
+  QUIET_ACTION,
+  type EventMemberType,
+} from './_components/group-home';
 import { formatCount } from '@/lib/format-number';
-import { eventTypeBadge } from '@/lib/event-vocabulary';
 
 export const metadata = {
   title: 'Group',
 };
 
-// Samahan space page (plan §4b) — Overview · Members · Events as
-// `?tab=` searchParams on ONE server page (real <Link> hrefs, back-button
-// friendly, zero client state). Membership gate: fetchCommunity returns null
-// (RLS hides the row) → notFound().
+// The group page (owner 2026-10-26: "a place for chat, events and stories. that's it") — ONE page, no tab bar:
+// the group's face, its members (with "Bring people in"), Events, Stories, Chat (`GroupHome`, drawn from
+// prototypes/group_samahan_2026-10-25). The three lists that do not fit a phone's first screen are ONE TAP IN, at
+// the `?tab=` addresses the old tabs used — every redirect in ../actions.ts, the Usapan notice
+// (lib/samahan-notice-rules.ts) and the create-event back link already write them, so none of them lands on a dead
+// page:
+//   ?tab=usapan  → the chat            ?tab=members → the full list + Bring people in (#bring-in)
+//   ?tab=events  → every event         ?tab=overview (or anything else) → the group page
+// Membership gate: fetchCommunity returns null (RLS hides the row) → notFound().
 //
-// RA 10173 (plan §9): the Members tab renders display_name + role + join date
-// ONLY — never email, never photo, never an auth UUID in the DOM; organizer
-// action forms target the bigserial member_row_id.
+// RA 10173 (plan §9): the members list renders display_name + role + join date ONLY — never email, never photo,
+// never an auth UUID in the DOM; organizer action forms target the bigserial member_row_id.
 
-const TABS = ['overview', 'usapan', 'members', 'events'] as const;
-type Tab = (typeof TABS)[number];
+const VIEWS = ['usapan', 'members', 'events'] as const;
+type View = (typeof VIEWS)[number] | 'home';
+
+const VIEW_TITLE: Record<Exclude<View, 'home'>, string> = {
+  usapan: 'Chatroom',
+  members: 'Members',
+  events: 'Events',
+};
+
+const BACK =
+  'mb-3 inline-flex min-h-11 max-w-full items-center gap-1.5 rounded-md px-1 text-sm font-medium text-ink/70 hover:text-ink';
 
 const ERROR_COPY: Record<string, string> = {
   last_organizer:
@@ -93,9 +98,9 @@ export default async function SamahanSpacePage({
 }) {
   const { communityId } = await params;
   const sp = await searchParams;
-  const tab: Tab = (TABS as readonly string[]).includes(sp.tab ?? '')
-    ? (sp.tab as Tab)
-    : 'overview';
+  const view: View = (VIEWS as readonly string[]).includes(sp.tab ?? '')
+    ? (sp.tab as View)
+    : 'home';
 
   const user = await getCurrentUser();
   if (!user) return null; // parent layout redirects; type narrowing only
@@ -108,23 +113,26 @@ export default async function SamahanSpacePage({
   const isOrganizer = community.role === 'organizer';
   const base = `/dashboard/samahan/${community.community_id}`;
 
-  // Per-tab data — fetched only for the active tab (plus the header's event
-  // count, which reuses the events fetch when the Events tab is active).
+  // Per-view data — the group page reads what its four parts draw (the roster for the members row, the events, the
+  // stories, the newest message); each one-tap view reads only its own list.
+  const home = view === 'home';
   const [roster, events, viewerMemberships, inviteToken, stories, messages] = await Promise.all([
-    tab === 'members'
+    home || view === 'members'
       ? fetchCommunityRoster(supabase, createAdminClient(), communityId, user.id)
       : Promise.resolve([] as CommunityRosterEntry[]),
-    fetchCommunityEvents(supabase, communityId),
-    tab === 'events'
+    home || view === 'events'
+      ? fetchCommunityEvents(supabase, communityId)
+      : Promise.resolve([] as CommunityEventRow[]),
+    home || view === 'events'
       ? fetchViewerEventMemberships(supabase, user.id)
       : Promise.resolve(new Map<string, EventMemberType>()),
-    isOrganizer && tab === 'overview'
+    isOrganizer && view === 'members'
       ? fetchInviteToken(supabase, communityId)
       : Promise.resolve(null),
-    tab === 'overview'
+    home
       ? fetchSamahanStories(supabase, createAdminClient(), communityId, user.id)
       : Promise.resolve([] as SamahanStory[] | null),
-    tab === 'usapan'
+    home || view === 'usapan'
       ? fetchSamahanMessages(supabase, createAdminClient(), communityId, user.id)
       : Promise.resolve([] as SamahanMessage[]),
   ]);
@@ -133,10 +141,6 @@ export default async function SamahanSpacePage({
   // stories expire by RLS the moment the clock passes; this reclaims bytes.
   after(() => maybeRunSamahanStorySweep());
 
-  const initial = community.name.trim().charAt(0).toUpperCase() || 'S';
-  // Group photo (owner 2026-08-24): r2:// ref presigned server-side; a
-  // legacy/absent value falls back to the initial chip unchanged.
-  const photoDisplayUrl = await displayUrlForStoredAsset(community.photo_url);
   const rawError = sp.error ? decodeURIComponent(sp.error) : null;
   const errorMessage = rawError ? (ERROR_COPY[rawError] ?? rawError) : null;
   const successMessage =
@@ -154,230 +158,101 @@ export default async function SamahanSpacePage({
                 ? 'Set na ’yan — your group’s new look is saved.'
                 : null;
 
-  return (
-    <div className="mx-auto w-full max-w-2xl px-4 py-10 sm:px-6 lg:px-8">
-      <Link
-        href="/dashboard/samahan"
-        className="mb-4 inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
-      >
-        <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-        Back to Groups
-      </Link>
+  // The reader is BY DEFINITION a member of this group, so "0 members" is a number they can personally disprove.
+  // When the count was refused, say nothing rather than a figure.
+  const memberCount = community.member_count_measured === false ? null : community.member_count;
 
-      {/* Header band — the samahan's face, edited WHERE IT IS (owner
-          2026-08-24: "click on this image to upload photo? … taps the text to
-          rename as well?"). Client component: the chip is the photo button,
-          the title is the rename button. */}
-      <SamahanIdentityHeader
-        communityId={community.community_id}
-        name={community.name}
-        publicId={community.public_id}
-        photoUrl={community.photo_url}
-        photoDisplayUrl={photoDisplayUrl}
-        initial={initial}
-        metaLine={
-          <p className="mt-3 font-mono text-xs text-ink/55">
-            {/* The reader is BY DEFINITION a member of this Samahan, so "0
-                members" is a number they can personally disprove. When the
-                count was refused, say nothing rather than a figure. */}
-            {community.member_count_measured === false
-              ? 'Members not loaded'
-              : `${formatCount(community.member_count)} ${community.member_count === 1 ? 'member' : 'members'}`}{' '}
-            · {events.length}{' '}
-            {events.length === 1 ? 'event' : 'events'}
-          </p>
+  let body: React.ReactNode;
+  if (home) {
+    const initial = community.name.trim().charAt(0).toUpperCase() || 'S';
+    // Group photo (owner 2026-08-24): r2:// ref presigned server-side; a
+    // legacy/absent value falls back to the initial chip unchanged.
+    const photoDisplayUrl = await displayUrlForStoredAsset(community.photo_url);
+    body = (
+      <GroupHome
+        header={
+          // The samahan's face, edited WHERE IT IS (owner 2026-08-24: "click on this image to upload photo? … taps
+          // the text to rename as well?"). The one line under the name is the group's description.
+          <SamahanIdentityHeader
+            communityId={community.community_id}
+            name={community.name}
+            photoUrl={community.photo_url}
+            photoDisplayUrl={photoDisplayUrl}
+            initial={initial}
+            metaLine={
+              community.description ? (
+                <p className="mt-0.5 text-sm leading-snug text-ink/65">{community.description}</p>
+              ) : null
+            }
+          />
         }
+        base={base}
+        communityId={community.community_id}
+        isOrganizer={isOrganizer}
+        memberCount={memberCount}
+        roster={roster}
+        events={events}
+        viewerMemberships={viewerMemberships}
+        stories={stories ?? []}
+        storiesUnreadable={stories === null}
+        latestMessage={messages.length > 0 ? messages[messages.length - 1]! : null}
       />
+    );
+  } else if (view === 'usapan') {
+    body = <UsapanTab communityId={community.community_id} messages={messages} />;
+  } else if (view === 'members') {
+    body = (
+      <MembersTab
+        communityId={community.community_id}
+        publicId={community.public_id}
+        isOrganizer={isOrganizer}
+        memberCount={memberCount}
+        roster={roster}
+        inviteToken={inviteToken}
+      />
+    );
+  } else {
+    body = (
+      <EventsTab
+        communityId={community.community_id}
+        events={events}
+        isOrganizer={isOrganizer}
+        viewerMemberships={viewerMemberships}
+      />
+    );
+  }
+
+  return (
+    <div className="mx-auto w-full max-w-2xl px-4 pb-10 pt-4 sm:px-6 lg:px-8">
+      {/* Back — from the group page to every group; from a one-tap view to its group. */}
+      {home ? (
+        <Link href="/dashboard/samahan" className={BACK}>
+          <ArrowLeft aria-hidden className="h-4 w-4 shrink-0" strokeWidth={2} />
+          <span className="truncate">Back to Groups</span>
+        </Link>
+      ) : (
+        <Link href={base} className={BACK}>
+          <ArrowLeft aria-hidden className="h-4 w-4 shrink-0" strokeWidth={2} />
+          <span className="truncate">{community.name}</span>
+        </Link>
+      )}
+
+      {!home ? (
+        <h1 className="mb-1 text-2xl font-semibold tracking-tight text-ink">{VIEW_TITLE[view]}</h1>
+      ) : null}
 
       {successMessage ? (
-        <p
-          role="status"
-          className="mb-4 rounded-md border border-ink/10 bg-cream px-4 py-3 text-sm text-ink/75"
-        >
+        <p role="status" className="mb-3 text-sm text-ink/75">
           {successMessage}
         </p>
       ) : null}
       {errorMessage ? (
-        <p
-          role="alert"
-          className="mb-4 rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
-        >
+        <p role="alert" className="mb-3 text-sm text-terracotta-700">
           {errorMessage}
         </p>
       ) : null}
 
-      {/* Tab bar — three text tabs; active = ink underline + gold accent dot. */}
-      <nav aria-label="Group sections" className="mb-6 flex gap-6 border-b border-ink/10">
-        {TABS.map((t) => {
-          const active = t === tab;
-          return (
-            <Link
-              key={t}
-              aria-current={active ? 'page' : undefined}
-              href={t === 'overview' ? base : `${base}?tab=${t}`}
-              className={`relative -mb-px inline-flex items-center gap-1.5 border-b-2 pb-2.5 text-sm capitalize transition-colors ${
-                active
-                  ? 'border-ink font-semibold text-ink'
-                  : 'border-transparent text-ink/50 hover:text-ink/80'
-              }`}
-            >
-              {active ? (
-                <span
-                  aria-hidden
-                  className="h-1.5 w-1.5 rounded-full bg-terracotta-500"
-                />
-              ) : null}
-              {t}
-            </Link>
-          );
-        })}
-      </nav>
-
-      {tab === 'overview' ? (
-        <OverviewTab
-          base={base}
-          communityId={community.community_id}
-          description={community.description}
-          eventCount={events.length}
-          inviteToken={inviteToken}
-          isOrganizer={isOrganizer}
-          memberCount={community.member_count}
-          stories={stories ?? []}
-          storiesUnreadable={stories === null}
-        />
-      ) : tab === 'usapan' ? (
-        <UsapanTab communityId={community.community_id} messages={messages} />
-      ) : tab === 'members' ? (
-        <MembersTab
-          communityId={community.community_id}
-          isOrganizer={isOrganizer}
-          roster={roster}
-        />
-      ) : (
-        <EventsTab
-          communityId={community.community_id}
-          events={events}
-          isOrganizer={isOrganizer}
-          viewerMemberships={viewerMemberships}
-        />
-      )}
-    </div>
-  );
-}
-
-function OverviewTab({
-  base,
-  communityId,
-  description,
-  eventCount,
-  inviteToken,
-  isOrganizer,
-  memberCount,
-  stories,
-  storiesUnreadable,
-}: {
-  base: string;
-  communityId: string;
-  description: string | null;
-  eventCount: number;
-  inviteToken: string | null;
-  isOrganizer: boolean;
-  memberCount: number;
-  stories: SamahanStory[];
-  /** The stories read was REFUSED — the strip must not say "Nothing yet" (S41b). */
-  storiesUnreadable: boolean;
-}) {
-  // One resolver (lib/site-origin.ts). This chain omitted NEXT_PUBLIC_APP_URL,
-  // so a preview deploy handed testers a PRODUCTION invite link.
-  const siteUrl = siteOrigin();
-  const inviteUrl = inviteToken ? `${siteUrl}/samahan/join/${inviteToken}` : null;
-
-  return (
-    <div className="space-y-4">
-      <div className="rounded-2xl border border-ink/15 bg-white/60 dark:bg-raised p-5 shadow-[0_18px_40px_-26px_rgba(30,26,18,0.35)]">
-        <SamahanStories communityId={communityId} stories={stories} unreadable={storiesUnreadable} />
-      </div>
-      <div className="rounded-2xl border border-ink/15 bg-white/60 dark:bg-raised p-5 shadow-[0_18px_40px_-26px_rgba(30,26,18,0.35)]">
-        {description ? (
-          <p className="text-sm leading-relaxed text-ink/75">{description}</p>
-        ) : (
-          <p className="text-sm text-ink/45">
-            No description yet — organizers can add one.
-          </p>
-        )}
-        <div className="mt-4 grid grid-cols-2 gap-3">
-          <div className="rounded-xl border border-ink/10 bg-cream p-3">
-            <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/45">
-              Members
-            </p>
-            <p className="mt-1 font-mono text-2xl text-ink">{formatCount(memberCount)}</p>
-          </div>
-          <div className="rounded-xl border border-ink/10 bg-cream p-3">
-            <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/45">
-              Events
-            </p>
-            <p className="mt-1 font-mono text-2xl text-ink">{formatCount(eventCount)}</p>
-          </div>
-        </div>
-        {/* Shipped 2026-08-24 — the note this replaced said "coming soon"
-            since 2026-07-15. */}
-        <Link
-          href={`${base}?tab=usapan`}
-          className="mt-4 inline-flex items-center gap-2 text-xs font-medium text-link"
-        >
-          <MessageCircle aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-          Usapan — the group chat
-        </Link>
-      </div>
-
-      {isOrganizer ? (
-        <div className="rounded-2xl border border-ink/15 bg-white/60 dark:bg-raised p-5 shadow-[0_18px_40px_-26px_rgba(30,26,18,0.35)]">
-          <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-ink/45">
-            Organizer panel
-          </p>
-
-          <div className="mt-3 space-y-2">
-            <p className="text-sm font-medium text-ink">Invite link</p>
-            {inviteUrl ? (
-              <div className="flex flex-wrap items-center gap-2">
-                <code className="min-w-0 flex-1 truncate rounded-md border border-ink/10 bg-cream px-3 py-2 font-mono text-xs text-ink/70">
-                  {inviteUrl}
-                </code>
-                <CopyButton value={inviteUrl} label="Copy" />
-              </div>
-            ) : (
-              <p className="text-sm text-ink/55">
-                No active link — rotate to mint a fresh one.
-              </p>
-            )}
-            <p className="text-xs text-ink/50">
-              Anyone with this link can join. Rotate it to kill a leaked link —
-              the old one stops working immediately.
-            </p>
-            <form action={rotateInviteToken}>
-              <input name="community_id" type="hidden" value={communityId} />
-              <SubmitButton
-                overlay={false}
-                pendingLabel="Rotating…"
-                className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink/75 hover:bg-ink/5"
-              >
-                <RefreshCw aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-                Rotate link
-              </SubmitButton>
-            </form>
-          </div>
-
-          <div aria-hidden className="my-4 h-px bg-ink/10" />
-
-          {/* Owner 2026-08-24: closing is not a button. The samahan ends when
-              the last person leaves, so a sentence sits where the control was
-              — silence here would read as an unfinished feature. */}
-          <p className="text-xs leading-relaxed text-ink/55">
-            A group lives for as long as one person is still in it. It closes
-            on its own when the last member leaves.
-          </p>
-        </div>
-      ) : null}
+      {body}
     </div>
   );
 }
@@ -390,109 +265,108 @@ function UsapanTab({
   messages: SamahanMessage[];
 }) {
   return (
-    <div className="space-y-4">
-      <div className="rounded-2xl border border-ink/15 bg-white/60 dark:bg-raised p-5 shadow-[0_18px_40px_-26px_rgba(30,26,18,0.35)]">
-        {messages.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-ink/15 p-4 text-xs text-ink/55">
-            No one has said anything yet. Start it off.
-          </p>
-        ) : (
-          <ul className="space-y-3" role="list">
-            {messages.map((m) => (
-              <li
-                key={m.message_id}
-                className={m.is_self ? 'flex flex-col items-end' : 'flex flex-col items-start'}
+    <div>
+      <p className="mb-3 text-[13px] text-ink/60">Usapan — the group chat.</p>
+      {messages.length === 0 ? (
+        <p className="py-2 text-xs text-ink/55">No one has said anything yet. Start it off.</p>
+      ) : (
+        <ul className="space-y-3" role="list">
+          {messages.map((m) => (
+            <li
+              key={m.message_id}
+              className={m.is_self ? 'flex flex-col items-end' : 'flex flex-col items-start'}
+            >
+              <div
+                className={`max-w-[85%] rounded-2xl px-3.5 py-2 text-sm ${
+                  m.is_self ? 'bg-mulberry text-white dark:text-cream' : 'bg-ink/5 text-ink'
+                }`}
               >
-                <div
-                  className={`max-w-[85%] rounded-2xl px-3.5 py-2 text-sm ${
-                    m.is_self ? 'bg-mulberry text-white dark:text-cream' : 'bg-ink/5 text-ink'
-                  }`}
-                >
-                  {!m.is_self ? (
-                    <p className="mb-0.5 text-[11px] font-semibold text-ink/60">{m.author_name}</p>
-                  ) : null}
-                  {/* Plain text — React escapes it, so a message can never
-                      become markup. */}
-                  <p className="whitespace-pre-wrap break-words">{m.body}</p>
-                </div>
-                {m.is_self ? (
-                  <form action={deleteSamahanMessage} className="mt-1">
-                    <input type="hidden" name="community_id" value={communityId} />
-                    <input type="hidden" name="message_id" value={m.message_id} />
-                    <SubmitButton
-                      className="text-[10px] text-ink/45"
-                      pendingLabel="Removing…"
-                    >
-                      Take it down
-                    </SubmitButton>
-                  </form>
+                {!m.is_self ? (
+                  <p className="mb-0.5 text-[11px] font-semibold text-ink/60">{m.author_name}</p>
                 ) : null}
-              </li>
-            ))}
-          </ul>
-        )}
+                {/* Plain text — React escapes it, so a message can never
+                    become markup. */}
+                <p className="whitespace-pre-wrap break-words">{m.body}</p>
+              </div>
+              {m.is_self ? (
+                <form action={deleteSamahanMessage} className="mt-1">
+                  <input type="hidden" name="community_id" value={communityId} />
+                  <input type="hidden" name="message_id" value={m.message_id} />
+                  <SubmitButton className="min-h-8 text-[10px] text-ink/45" pendingLabel="Removing…">
+                    Take it down
+                  </SubmitButton>
+                </form>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      )}
 
-        <form action={postSamahanMessage} className="mt-4 flex items-end gap-2">
-          <input type="hidden" name="community_id" value={communityId} />
-          <label className="sr-only" htmlFor="usapan-body">
-            Your message
-          </label>
-          <textarea
-            id="usapan-body"
-            name="body"
-            rows={2}
-            maxLength={2000}
-            placeholder="Say something to the group…"
-            className="min-w-0 flex-1 rounded-xl border border-ink/15 bg-white dark:bg-raised px-3 py-2 text-sm text-ink"
-          />
-          <SubmitButton
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-mulberry px-3.5 py-2 text-xs font-semibold text-white dark:text-cream"
-            pendingLabel="Sending…"
-          >
-            Send
-          </SubmitButton>
-        </form>
-      </div>
+      <form action={postSamahanMessage} className="mt-4 flex items-end gap-2 border-t border-ink/10 pt-3">
+        <input type="hidden" name="community_id" value={communityId} />
+        <label className="sr-only" htmlFor="usapan-body">
+          Your message
+        </label>
+        <textarea
+          id="usapan-body"
+          name="body"
+          rows={2}
+          maxLength={2000}
+          placeholder="Say something to the group…"
+          className="min-w-0 flex-1 rounded-xl border border-ink/15 bg-white dark:bg-raised px-3 py-2 text-sm text-ink"
+        />
+        <SubmitButton
+          className="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-sm font-semibold text-white dark:text-cream"
+          pendingLabel="Sending…"
+        >
+          Send
+        </SubmitButton>
+      </form>
     </div>
   );
 }
 
 function MembersTab({
   communityId,
+  publicId,
   isOrganizer,
+  memberCount,
   roster,
+  inviteToken,
 }: {
   communityId: string;
+  publicId: string;
   isOrganizer: boolean;
+  memberCount: number | null;
   roster: CommunityRosterEntry[];
+  inviteToken: string | null;
 }) {
+  // One resolver (lib/site-origin.ts). This chain omitted NEXT_PUBLIC_APP_URL,
+  // so a preview deploy handed testers a PRODUCTION invite link.
+  const inviteUrl = inviteToken ? `${siteOrigin()}/samahan/join/${inviteToken}` : null;
+
   return (
-    <div className="rounded-2xl border border-ink/15 bg-white/60 dark:bg-raised p-5 shadow-[0_18px_40px_-26px_rgba(30,26,18,0.35)]">
-      <div className="divide-y divide-ink/5">
+    <div>
+      <p className="mb-2 text-[13px] text-ink/60">
+        {memberCount === null
+          ? 'Anyone in the group can rename it or change its photo.'
+          : `${formatCount(memberCount)} ${memberCount === 1 ? 'member' : 'members'} · anyone can rename the group or change its photo.`}
+      </p>
+      <div className="divide-y divide-ink/10">
         {roster.map((m) => (
-          <div key={m.member_row_id} className="flex items-center gap-3 py-3">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-mulberry/10 text-sm font-semibold text-mulberry">
+          <div key={m.member_row_id} className="flex min-h-[60px] items-center gap-3 py-2">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-ink/[0.07] text-sm font-semibold text-ink">
               {m.display_name.trim().charAt(0).toUpperCase() || 'M'}
             </span>
             <div className="min-w-0 flex-1">
-              <p className="flex items-center gap-2">
-                <span className="truncate text-sm font-medium text-ink">
-                  {m.display_name}
-                  {m.is_self ? (
-                    <span className="ml-1 text-xs text-ink/45">(you)</span>
-                  ) : null}
-                </span>
-                <span
-                  className={`shrink-0 rounded-full border px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.18em] ${
-                    m.role === 'organizer'
-                      ? 'border-terracotta-500/40 text-terracotta-600'
-                      : 'border-ink/10 text-ink/50'
-                  }`}
-                >
-                  {m.role}
-                </span>
+              <p className="truncate text-[15px] font-medium text-ink">
+                {m.display_name}
+                {m.is_self ? <span className="ml-1 text-xs font-normal text-ink/45">(you)</span> : null}
               </p>
-              <p className="mt-0.5 text-xs text-ink/45">
+              <p className="mt-0.5 text-xs text-ink/50">
+                {m.role === 'organizer' ? (
+                  <span className="font-semibold text-gold-deep">Organizer · </span>
+                ) : null}
                 Joined{' '}
                 {new Date(m.joined_at).toLocaleDateString('en-PH', {
                   month: 'short',
@@ -507,67 +381,64 @@ function MembersTab({
                   <SubmitButton
                     overlay={false}
                     pendingLabel="Leaving…"
-                    className="rounded-md px-2 py-1 text-xs font-medium text-ink/55 hover:text-terracotta-700"
+                    className="min-h-11 rounded-md px-2 text-[13px] font-medium text-ink/55 hover:text-terracotta-700"
                   >
                     Leave group
                   </SubmitButton>
                 </form>
               ) : isOrganizer ? (
-                <>
-                  {m.role === 'member' ? (
-                    <form action={promoteMember}>
-                      <input name="community_id" type="hidden" value={communityId} />
-                      <input name="member_row_id" type="hidden" value={m.member_row_id} />
-                      <SubmitButton
-                        overlay={false}
-                        pendingLabel="…"
-                        className="rounded-md px-2 py-1 text-xs font-medium text-ink/55 hover:text-ink"
-                      >
-                        Promote
-                      </SubmitButton>
-                    </form>
-                  ) : (
-                    <form action={demoteMember}>
-                      <input name="community_id" type="hidden" value={communityId} />
-                      <input name="member_row_id" type="hidden" value={m.member_row_id} />
-                      <SubmitButton
-                        overlay={false}
-                        pendingLabel="…"
-                        className="rounded-md px-2 py-1 text-xs font-medium text-ink/55 hover:text-ink"
-                      >
-                        Demote
-                      </SubmitButton>
-                    </form>
-                  )}
-                  <form action={removeMember}>
-                    <input name="community_id" type="hidden" value={communityId} />
-                    <input name="member_row_id" type="hidden" value={m.member_row_id} />
-                    <SubmitButton
-                      overlay={false}
-                      pendingLabel="…"
-                      className="rounded-md px-2 py-1 text-xs font-medium text-ink/55 hover:text-terracotta-700"
-                    >
-                      Remove
-                    </SubmitButton>
-                  </form>
-                </>
+                <MemberActionsMenu
+                  communityId={communityId}
+                  memberRowId={m.member_row_id}
+                  name={m.display_name}
+                  role={m.role}
+                />
               ) : null}
             </div>
           </div>
         ))}
       </div>
-    </div>
-  );
-}
 
-/** Short "Mon D" date (launcher idiom; tz-safe, date-only). */
-function shortDate(iso: string | null): string | null {
-  if (!iso) return null;
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
-  if (!m) return null;
-  return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])).toLocaleDateString(
-    'en-US',
-    { month: 'short', day: 'numeric', year: 'numeric' },
+      {isOrganizer ? (
+        // BRING PEOPLE IN — both doors (the group page's "Bring people in" lands here). The invite link moved from
+        // the old Organizer panel: it is about people. The second door is "Ask into a group" on a person's card on
+        // People, which emails them this same link.
+        <section id="bring-in" className="mt-5 scroll-mt-24 border-t border-ink/10 pt-2">
+          <GroupSectionHead
+            title="Bring people in"
+            tip="Rotate it to kill a leaked link — the old one stops working immediately. Or open someone on People and pick “Ask into a group”: Setnayan emails them this link, and nothing happens until they open it."
+            line="Anyone with this link can join."
+            action={
+              <form action={rotateInviteToken}>
+                <input name="community_id" type="hidden" value={communityId} />
+                <SubmitButton overlay={false} pendingLabel="Rotating…" className={QUIET_ACTION}>
+                  <RefreshCw aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+                  Rotate link
+                </SubmitButton>
+              </form>
+            }
+          />
+          {inviteUrl ? (
+            <div className="flex items-center gap-2">
+              <code className="min-w-0 flex-1 truncate py-2.5 font-mono text-xs text-ink/70">{inviteUrl}</code>
+              <CopyButton value={inviteUrl} label="Copy" />
+            </div>
+          ) : (
+            <p className="text-sm text-ink/55">No active link — rotate to mint a fresh one.</p>
+          )}
+          <Link href="/dashboard/people" className={QUIET_ACTION}>
+            Ask someone from People
+          </Link>
+        </section>
+      ) : null}
+
+      {/* Owner 2026-08-24: closing is not a button. The samahan ends when the last person leaves, so a sentence sits
+          where the control was — silence here would read as an unfinished feature. */}
+      <p className="mt-5 border-t border-ink/10 pt-3 text-xs leading-relaxed text-ink/55">
+        A group lives for as long as one person is still in it. It closes on its own when the last member leaves.
+        <span className="mt-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-ink/45">{publicId}</span>
+      </p>
+    </div>
   );
 }
 
@@ -586,104 +457,37 @@ function EventsTab({
   // create-event page and the server action both re-verify.
   const planHref = `/dashboard/create-event?samahan=${communityId}`;
 
-  if (events.length === 0) {
-    return (
-      <div className="rounded-2xl border border-ink/15 bg-white/60 dark:bg-raised p-8 text-center shadow-[0_18px_40px_-26px_rgba(30,26,18,0.35)]">
-        <CalendarDays
-          aria-hidden
-          className="mx-auto h-8 w-8 text-ink/35"
-          strokeWidth={1.75}
-        />
-        <p className="mt-4 text-sm font-semibold text-ink">Walang event pa.</p>
-        <p className="mx-auto mt-2 max-w-sm text-sm text-ink/60">
-          When an organizer plans a reunion or outing, it shows up here.
-        </p>
-        {isOrganizer ? (
-          <Link
-            href={planHref}
-            className="mt-6 inline-flex items-center justify-center gap-2 rounded-md bg-mulberry px-5 py-2.5 text-sm font-medium text-cream transition hover:bg-mulberry-600"
-          >
-            <Plus aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-            Plan an event
-          </Link>
-        ) : null}
-      </div>
-    );
-  }
-
   return (
-    <div className="rounded-2xl border border-ink/15 bg-white/60 dark:bg-raised p-5 shadow-[0_18px_40px_-26px_rgba(30,26,18,0.35)]">
-      {isOrganizer ? (
-        <div className="mb-2 flex justify-end">
-          <Link
-            href={planHref}
-            className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink/75 hover:bg-ink/5"
-          >
-            <Plus aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-            Plan an event
-          </Link>
+    <div>
+      <p className="mb-2 text-[13px] text-ink/60">What this group is going to.</p>
+      {events.length === 0 ? (
+        <div className="py-2">
+          <p className="text-sm font-semibold text-ink">Walang event pa.</p>
+          <p className="text-[13px] text-ink/60">When an organizer plans a reunion or outing, it shows up here.</p>
         </div>
+      ) : (
+        <ul className="space-y-1.5" role="list">
+          {events.map((e) => (
+            <GroupEventRow key={e.event_id} event={e} memberType={viewerMemberships.get(e.event_id) ?? null} />
+          ))}
+        </ul>
+      )}
+      {isOrganizer ? (
+        <Link
+          href={planHref}
+          className="mt-1.5 flex min-h-[52px] items-center gap-3 rounded-xl border border-dashed border-ink/20 px-3 py-1.5 text-ink/70 hover:bg-ink/[0.03]" // no-card-ok: the whole row is the press into Plan an event
+        >
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-dashed border-ink/25">
+            <Plus aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[15px] font-medium">Plan an event</span>
+            <span className="block truncate text-xs text-ink/55">
+              A reunion, an outing, a tournament or a party — every member finds it here.
+            </span>
+          </span>
+        </Link>
       ) : null}
-      <div className="divide-y divide-ink/5">
-        {events.map((e) => {
-          // "Am I on this event?" was never the question — "where may I go?"
-          // is. This row used to link EVERY membership into
-          // `/dashboard/[eventId]`, a shell that admits member_type='couple'
-          // only, so an invited person got a hover arrow promising a door and a
-          // 404 behind it — while the row for an event they are NOT on told the
-          // truth. eventBoardHref is the one place that answers this.
-          const memberType = viewerMemberships.get(e.event_id) ?? null;
-          const href = memberType
-            ? eventBoardHref({
-                event_id: e.event_id,
-                slug: e.slug,
-                member_type: memberType,
-              })
-            : null;
-          // An invited person with no page yet must NOT read "ask an organizer
-          // to add you" — they were added. Different state, different sentence.
-          const closedReason = memberType
-            ? stanceClosedReason(memberType)
-            : 'Ask an organizer to add you to this event.';
-          const inner = (
-            <>
-              <span className="min-w-0 flex-1">
-                <span className="flex items-center gap-2">
-                  <span className="shrink-0 rounded-full border border-ink/10 bg-cream px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
-                    {eventTypeBadge(e.event_type)}
-                  </span>
-                  <span className="truncate text-sm font-medium text-ink">
-                    {e.display_name}
-                  </span>
-                </span>
-                <span className="mt-0.5 block text-xs text-ink/45">
-                  {shortDate(e.event_date) ?? 'Date to be set'}
-                  {!href ? ` · ${closedReason}` : ''}
-                </span>
-              </span>
-              {href ? (
-                <ArrowUpRight
-                  aria-hidden
-                  className="h-4 w-4 shrink-0 text-ink/30 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
-                />
-              ) : null}
-            </>
-          );
-          return href ? (
-            <Link
-              key={e.event_id}
-              href={href}
-              className="group -mx-2 flex items-center gap-3 rounded-xl px-2 py-3 transition-colors hover:bg-white/70 dark:hover:bg-raised"
-            >
-              {inner}
-            </Link>
-          ) : (
-            <div key={e.event_id} className="-mx-2 flex items-center gap-3 px-2 py-3">
-              {inner}
-            </div>
-          );
-        })}
-      </div>
     </div>
   );
 }

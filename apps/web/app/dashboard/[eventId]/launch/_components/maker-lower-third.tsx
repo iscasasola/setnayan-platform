@@ -105,7 +105,7 @@ export function MakerLowerThird({
    */
   bare?: boolean;
   /**
-   * 🧭 THE NEW MAKER (`makerStagesStudioEnabled`): the menu is ONE item ▾ — a
+   * 🧭 THE NEW MAKER (`stagesStudio`, the one Maker since 2026-10-25): the menu is ONE item ▾ — a
    * `PickMenu` of the side's items (Stages: the five stages; Studio › Look: the
    * eleven tools), its pill the short name, opening as the one bottom sheet.
    * It takes the menu button's place; the two-group sheet is not drawn. Null:

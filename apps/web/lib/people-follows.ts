@@ -37,6 +37,9 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 export type FollowRow = {
   /** `users.public_id` — the handle Follow back / Unfollow act on. */
   publicId: string;
+  /** `users.slug` — their page's address (`/u/<slug>`); NULL when the account has none (most do not), and
+   *  the row then links by `publicId` instead — `lib/person-page-link.ts`. */
+  slug: string | null;
   name: string;
   photoUrl: string | null;
   /** Their profile is public — the only case `followUser` accepts a follow. */
@@ -144,7 +147,7 @@ async function followList(userId: string, which: 'following' | 'followers'): Pro
     }>).map((n) => [n.user_id, n]),
   );
 
-  const connected = await connectedUserIds(userId);
+  const [connected, slugs] = await Promise.all([connectedUserIds(userId), slugsFor(ids)]);
 
   const rows: FollowRow[] = [];
   for (const e of main) {
@@ -153,6 +156,7 @@ async function followList(userId: string, which: 'following' | 'followers'): Pro
     if (!n?.public_id) continue;
     rows.push({
       publicId: n.public_id,
+      slug: slugs.get(e.other) ?? null,
       name: (n.display_name ?? '').trim() || 'Someone on Setnayan',
       photoUrl: n.photo_url,
       publicProfile: n.public_profile === true,
@@ -162,6 +166,29 @@ async function followList(userId: string, which: 'following' | 'followers'): Pro
     });
   }
   return { rows, unavailable: false };
+}
+
+/**
+ * Each account's page address (`users.slug`) — a PUBLIC handle, read for exactly the ids this list already
+ * names (an edge to or from me). On the admin client because `users` is owner-only by RLS; only the slug
+ * leaves. A failure costs nothing visible: the row then links by `public_id`, which reaches the same page.
+ */
+async function slugsFor(userIds: string[]): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  if (userIds.length === 0) return out;
+  try {
+    const { data, error } = await createAdminClient().from('users').select('user_id, slug').in('user_id', userIds);
+    if (error) {
+      logQueryError('followList.slugs', error, {}, 'graceful_degrade');
+      return out;
+    }
+    for (const r of (data ?? []) as Array<{ user_id: string; slug: string | null }>) {
+      if (r.slug) out.set(r.user_id, r.slug);
+    }
+  } catch {
+    // An admin client that cannot be built must not empty the list.
+  }
+  return out;
 }
 
 /**

@@ -18,7 +18,6 @@ app/(shell)/alaala/page.tsx "Logo Maker" → /palogo	# first run 2026-10-02 · p
 app/(shell)/explore/compare/page.tsx "Ask about your date —" → /v/[slug]	# first run 2026-10-02 · public site · a "Messages" row that opens the roster
 app/(shell)/explore/compare/page.tsx "View full profile →" → /v/[slug]	# first run 2026-10-02 · public site · a "Messages" row that opens the roster
 app/(shell)/papic/page.tsx "See every amount →" → /pricing	# first run 2026-10-02 · public site · a "Messages" row that opens the roster
-app/(shell)/pricing/page.tsx "Unlock Setnayan AI" → /onboarding/wedding	# first run 2026-10-02 · sign-in & onboarding · a "Messages" row that opens the roster
 app/[slug]/_lib/room-links.ts "Happening now" → /[slug]/hub	# first run 2026-10-02 · guest app · a "Messages" row that opens the roster
 app/[slug]/_lib/room-links.ts "The album" → /[slug]/recap	# first run 2026-10-02 · guest app · a "Messages" row that opens the roster
 app/[slug]/_lib/room-links.ts "Walk the room" → /[slug]/venue	# first run 2026-10-02 · guest app · a "Messages" row that opens the roster

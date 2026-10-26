@@ -13,9 +13,12 @@ import { useModalA11y } from './use-modal-a11y';
  * pop up. the background will not be scrollable"*.
  *
  * The Maker's own sheet (`MakerSheet`) carries the whole rule. A pop-up that cannot be that sheet — a centred panel
- * on a computer, a picker that already draws its own box — calls this and draws two things itself:
- *   · the dark: `<span aria-hidden className={POPUP_DARK} />` (the ONE look, `.sn-popup-dark`, taking no tap), and
- *   · one button under it, the whole screen, that closes.
+ * on a computer, a picker that already draws its own box — calls this and draws ONE thing itself:
+ *   · `<OverlayBackdrop onClose={onClose} />` (`app/_components/overlay-backdrop.tsx`) — the dark IS the close button:
+ *     the ONE look (`.sn-popup-dark`), fixed to the screen, marked `data-overlay-backdrop` so the page lock keeps it live.
+ *     (Until 2026-10-25 this was a transparent `absolute` button under a separate dark span — `POPUP_SCRIM` +
+ *     `POPUP_DARK`; the page lock made that button `inert` and no tap on the dark closed anything. Owner, on his
+ *     iPhone: "I cannot tap out the screen".)
  * This hook does the rest, with the app's own two pieces and nothing new:
  *   · NOTHING BEHIND WORKS — every branch of the page but `root` is `inert` (`inertBehind`), put back on close;
  *   · the page behind does not scroll, Escape closes, Tab stays inside `panel` (`useModalA11y`).
@@ -38,8 +41,3 @@ export function usePopupBehind({
   }, [root]);
   useModalA11y({ open: true, onClose, containerRef: panel });
 }
-
-/** The dark behind a pop-up that draws its own panel: the one look, over its positioned root, taking no tap. */
-export const POPUP_DARK = 'sn-popup-dark pointer-events-none absolute inset-0';
-/** The one button under the dark — the whole screen — whose tap closes the pop-up. */
-export const POPUP_SCRIM = 'absolute inset-0 h-full w-full cursor-default touch-none';

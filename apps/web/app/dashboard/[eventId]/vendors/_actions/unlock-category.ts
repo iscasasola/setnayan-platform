@@ -54,6 +54,7 @@ import {
   resolveIsReturning,
   stampThreadProvenance,
 } from '@/lib/inquiry-attribution';
+import { refuseLimitedHelper } from '@/lib/host-gate';
 
 export type UnlockCategoryResult =
   | { status: 'ok'; inquired: boolean; vendorName: string | null }
@@ -97,6 +98,7 @@ export async function unlockCategoryWithInquiry(input: {
    */
   inquirySource?: 'first_pick' | 'auto_build';
 }): Promise<UnlockCategoryResult> {
+  await refuseLimitedHelper(input.eventId, null);
   const eventId = String(input.eventId ?? '').trim();
   const groupId = String(input.groupId ?? '').trim();
   const want = Math.max(1, Math.min(5, Math.round(input.count ?? 1)));

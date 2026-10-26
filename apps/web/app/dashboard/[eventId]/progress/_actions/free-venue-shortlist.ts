@@ -37,6 +37,7 @@ import {
 } from '@/lib/setnayan-ai-free-assist';
 import { searchCategoryVendors } from '@/app/dashboard/[eventId]/vendors/_actions/category-search';
 import { attachMarketplaceVendorToCategory } from '@/app/dashboard/[eventId]/vendors/actions';
+import { refuseLimitedHelper } from '@/lib/host-gate';
 
 export type FirstVenueShortlistResult =
   | { status: 'ok'; added: number }
@@ -53,6 +54,7 @@ const FRIENDLY_ERROR =
 export async function buildFirstVenueShortlist(
   eventIdRaw: string,
 ): Promise<FirstVenueShortlistResult> {
+  await refuseLimitedHelper(eventIdRaw, 'vendors');
   const eventId = String(eventIdRaw ?? '').trim();
   if (!eventId) return { status: 'error', message: FRIENDLY_ERROR };
 

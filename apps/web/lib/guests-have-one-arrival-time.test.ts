@@ -261,7 +261,7 @@ test('6 · the pages read the one resolver — Event Details, the guest page, th
     }
     return '';
   };
-  assert.match(objectAt('facts: guestMeFacts({'), /\bguestsArriveBy,/, 'Me’s parts are not told when guests arrive');
+  assert.match(objectAt('const meFactsHere = guestMeFacts({'), /\bguestsArriveBy,/, 'Me’s parts are not told when guests arrive');
   assert.match(objectAt('const guestLook = {'), /\bguestsArriveBy,/, 'Me › Arrive by is not handed when guests arrive');
   assert.match(site, /firstStartAt: scheduleBlocks\[0\]\?\.start_at \?\? null,/, 'the invitation card is unchanged: the first moment');
 

@@ -15,7 +15,7 @@
  *   ② THE CARD ROUND-TRIPS IT. A changed box is written, an untouched one is not, and a form that does not carry the box
  *     leaves the stored note alone (never nulled). The posted form itself is `the-card-posts-the-same-form.golden.json`.
  *   ③ ME DRAWS IT ONLY FOR ITS OWN GUEST, IN ITS PLACE. Under Your role, above What to wear, with its heading — and for
- *     a visitor, a request, an open-QR guest, the switch off or an empty note: nothing, not even the heading.
+ *     a visitor, a request, an open-QR guest or an empty note: nothing, not even the heading.
  *
  * 🪤 `globalThis.React` before the dynamic imports, `server-only` stubbed — as `each-guest-part-is-for-a-listed-guest`.
  */
@@ -157,7 +157,7 @@ const WORDS = { eventWord: 'wedding', solemn: false, twoPeople: true, theOrganiz
 const BOARD = { principal_sponsors: ['#C9A24B', '#F4E9DC'], touched_roles: ['principal_sponsors'] };
 const DRESSED = { groups: { principal_sponsors: { style: 'barong_tagalog', callTime: '14:00' } }, women: { groups: { principal_sponsors: { style: 'long_gown' } } } };
 type GetIn = 'list' | 'requests' | 'personal' | 'one_qr' | 'one_qr_approve';
-type Who = { label: string; getIn: GetIn; reader: { kind: 'guest'; entrySource?: string | null } | { kind: 'visitor' }; on?: boolean };
+type Who = { label: string; getIn: GetIn; reader: { kind: 'guest'; entrySource?: string | null } | { kind: 'visitor' } };
 const LISTED: Who = { label: 'a listed guest', getIn: 'list', reader: { kind: 'guest', entrySource: 'host_seeded' } };
 const NOT_FOR_THEM: Who[] = [
   { label: 'a visitor on the plain address', getIn: 'list', reader: { kind: 'visitor' } },
@@ -165,7 +165,6 @@ const NOT_FOR_THEM: Who[] = [
   { label: 'an approved request', getIn: 'requests', reader: { kind: 'guest', entrySource: 'host_seeded' } },
   { label: 'an open-QR guest', getIn: 'one_qr', reader: { kind: 'guest', entrySource: 'host_seeded' } },
   { label: 'a guest with their own QR, no reply', getIn: 'personal', reader: { kind: 'guest', entrySource: 'host_seeded' } },
-  { ...LISTED, label: 'the switch off', on: false },
 ];
 const NOTE = 'Tita, please bring the Santo Niño for the blessing.\nSee you at the door!';
 
@@ -174,7 +173,7 @@ async function drawMe(who: Who, opts: { role?: string; note?: string | null } = 
   const { guestMeFacts, guestMeNoteShown, guestMePartsShown, readerIsListed } = await import('@/lib/guest-me-parts');
   const { GuestMeParts } = await import('./_components/guest-me-parts');
   const role = opts.role ?? 'principal_sponsor_ninang';
-  const gate = { on: who.on ?? true, getIn: who.getIn, listed: readerIsListed(who.reader) };
+  const gate = { getIn: who.getIn, listed: readerIsListed(who.reader) };
   const parts = guestMePartsShown({ ...gate, facts: guestMeFacts({ role: role as never, dressCodeConfig: DRESSED, rolePalette: BOARD }) });
   const note = guestMeNoteShown({ ...gate, note: opts.note === undefined ? NOTE : opts.note, eventNames: 'Jodalicca & Claire', theOrganizer: 'the couple' });
   return renderToStaticMarkup(

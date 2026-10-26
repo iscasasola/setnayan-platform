@@ -33,6 +33,7 @@ import { eventRailMatchRows } from '@/app/dashboard/[eventId]/_components/event-
 import type { EventMenuChild } from '@/lib/customer-menu';
 import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
 import { UnreadMessagesBadge } from '@/app/_components/unread-messages-badge';
+import type { NotificationRow } from '@/lib/notifications';
 
 /** A fixture account id — the lab has no sign-in, so every read the badges make is refused. */
 const LAB_USER = '00000000-0000-4000-8000-0000000000aa';
@@ -51,7 +52,13 @@ export function LabShell({
   gutter = true,
   eventBar,
   homeAt,
+  notices,
+  bellUnread = 3,
 }: {
+  /** The bell pop-over's rows (`/dev/notifications-lab`); absent → it reads, which a lab cannot, and says so. */
+  notices?: NotificationRow[];
+  /** The bell's seeded unread count. */
+  bellUnread?: number;
   /** The lab address that stands for the event's Home — lit as Home on the real bar. */
   homeAt?: string;
   eventId: string;
@@ -74,8 +81,9 @@ export function LabShell({
             <UnreadMessagesBadge userId={LAB_USER} initialUnread={2} href="#messages" />
             <UnreadBellBadge
               userId={LAB_USER}
-              initialUnread={3}
-              href="#notifications"
+              initialUnread={bellUnread}
+              href="/dev/notifications-lab?view=all"
+              labRows={notices}
               ariaBaseLabel="Notifications"
               ariaUnreadSuffix="unread"
             />

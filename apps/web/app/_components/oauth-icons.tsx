@@ -12,6 +12,45 @@
  * nominative-use sign-in affordances, not app-icon copies.
  */
 
+/**
+ * THE ONE GOOGLE / APPLE BUTTON CHROME — the white button with the brand mark, as /login, /signup, the desktop app's
+ * and the phone app's rows draw it, and (owner 2026-10-25, "Show both") the guest's "Save to my account". One string,
+ * so every door's provider buttons are the same buttons: equal size, equal prominence (Apple's HIG: Sign in with
+ * Apple at least as prominent as the others), the black Apple glyph on white being Apple's sanctioned style.
+ *
+ * 🌙 `ink-on-light`, not `ink`: the button's fill is a literal white that never darkens, so its words and edge take
+ * the ink for a surface that STAYS light (`--color-ink-on-light`, falling back to `--color-ink`). On every light page
+ * that fallback is the same ink as before — byte-identical; on a dark look (Candlelight, a dark theme) the label
+ * stays dark on its white instead of following the page's cream ink onto white (measured 2026-10-25: cream on white).
+ * The obsidian dark-rail variant was removed with the obsidian login, so this white button is the one variant, on any
+ * ground (white with the black glyph is one of Apple's sanctioned styles on a dark background).
+ */
+export const OAUTH_BUTTON_CLASS =
+  'flex min-h-[44px] w-full items-center justify-center gap-3 rounded-md border border-ink-on-light/20 bg-white px-4 py-2.5 text-sm font-medium text-ink-on-light/90 transition-colors hover:border-ink-on-light/40 hover:bg-ink-on-light/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta/40';
+
+/**
+ * 🍏🤖 THE OFFICIAL FILLED / WHITE PAIR — beside `OAUTH_BUTTON_CLASS`, for the guest's "Save to my account" offer
+ * (owner 2026-10-25, option A of `prototypes/save_to_account_2026-10-25`: "the device's own provider is the filled
+ * one"). Same marks, same words (`OAUTH_VERB`) as the login row; the chrome is each brand's OWN sanctioned style:
+ *
+ *   Apple (HIG)      filled = BLACK (white glyph + title) · plain = WHITE-OUTLINE (black glyph + title, black edge)
+ *   Google (brand)   filled = the DARK theme (#131314)    · plain = the LIGHT theme (white, #747775 edge)
+ *   on a dark look   Apple = WHITE, Google = DARK, in either role (Apple's black is not for dark grounds)
+ *
+ * The colours live in globals.css (`.sn-oauth-*`) because the dark-ground swap keys on the page's look — an
+ * ancestor attribute — which a class string cannot see. ONE BOX for both (`OAUTH_OFFICIAL_BASE_CLASS`): equal height
+ * and width, so Apple is never smaller or quieter than Google. The Apple glyph is drawn `currentColor`, so it is
+ * always the title's colour (white on black, black on white). `/login` and the app rows keep `OAUTH_BUTTON_CLASS`.
+ */
+export const OAUTH_OFFICIAL_BASE_CLASS =
+  'sn-oauth flex min-h-[48px] w-full items-center justify-center gap-2.5 rounded-md px-4 text-[15px] font-medium transition-[filter] hover:brightness-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta/40';
+
+export type OAuthProviderId = 'apple' | 'google';
+
+export function oauthOfficialClass(provider: OAuthProviderId, filled: boolean): string {
+  return `${OAUTH_OFFICIAL_BASE_CLASS} sn-oauth-${provider} ${filled ? 'sn-oauth-filled' : 'sn-oauth-plain'}`;
+}
+
 export function GoogleGIcon() {
   return (
     <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" aria-hidden role="img" focusable={false}>

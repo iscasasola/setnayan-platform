@@ -238,9 +238,11 @@ test('the guest list knows the event happened, and nothing is taken away', () =>
   // (no phase gate on it), and its Add opens the same sheet, which holds the
   // capture bar.
   const screen = src('app/dashboard/[eventId]/guests/_components/guests-screen.tsx');
-  // ⤷ 2026-10-22 ("One thumb row"): the field reads "Search guests" and ＋ Add is always in the row (no phase gate).
+  // ⤷ 2026-10-22 ("One thumb row"): the field reads "Search guests". ⤷ 2026-10-25 (no ＋): the field IS the add —
+  // Enter, or the typed results' "Add “…” as a guest" — and ≡ holds the other ways (no phase gate on any of them).
   assert.match(screen, /placeholder: 'Search guests',/, 'the add path must still be reachable');
-  assert.match(screen, /const addRound: ThumbRound = \{ icon: Plus, label: 'Add', onClick: \(\) => openAddGuest\(q\)/, 'the add path must still be reachable');
+  assert.match(screen, /<SearchAddRow query=\{q\} as="a guest" onAdd=\{addTypedOrSheet\} \/>/, 'the add path must still be reachable');
+  assert.match(screen, /const addWays: PickOption\[\] = writesOff\s*\? \[\]\s*: ADD_WAYS\.map/, 'the other ways must still be reachable');
   assert.doesNotMatch(screen, /finished|phase/, 'the thumb row is gated on the event being over');
   assert.match(src('app/dashboard/[eventId]/guests/_components/add-guest-sheet.tsx'), /<CaptureBar/, 'the capture bar must still be mounted');
   // The empty list's door is the SAME add sheet the header + opens (first-timer

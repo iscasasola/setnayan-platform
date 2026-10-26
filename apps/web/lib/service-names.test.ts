@@ -22,13 +22,13 @@ test('the owner’s five pairs, plain first', () => {
     Object.fromEntries(Object.entries(SERVICE_NAMES).map(([k, v]) => [k, `${v.plain} · ${v.brand}`])),
     {
       'setnayan-ai': 'Planner · Setnayan AI',
-      papic: 'Guest photos · Papic',
+      papic: 'Papic · Guest photos',
       'live-studio': 'Live stream · Live Watch',
       'music-maker': 'Music · Music Maker',
       patiktok: 'Video booth · Patiktok',
     },
   );
-  assert.equal(serviceNameLine('papic'), 'Guest photos · Papic');
+  assert.equal(serviceNameLine('papic'), 'Papic · Guest photos');
 });
 
 test('the service cards and the Home read the one list — no second table of names', () => {

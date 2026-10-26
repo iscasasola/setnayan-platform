@@ -76,9 +76,11 @@ import {
   EXPLORE_INFO_WHAT,
   EXPLORE_STATE_LEGEND,
   COVERAGE_STRIP_HEADING,
+  EXPLORE_INFO_DATE,
 } from '@/lib/explore-info-copy';
 import { BuildCart } from './build-cart';
 import { BENCH_BUILT_EVENT, benchLocalStore, builtNowIn } from './bench-local';
+import { CoverBar, CoverCount, CoverRingProvider } from './cover-ring';
 import { SuppliersModeContext, THUMB_SLIDE_MS } from './suppliers-mode';
 import { followColumn } from '../../guests/_components/dock-follows-column';
 
@@ -434,8 +436,10 @@ export function ServicesTakeover({
       <div className="min-w-0 pt-4">
         {drawn('find') ? (
           <div data-suppliers-body="find" hidden={mode !== 'find'}>
-            {/* Room for Find's thumb row, so the last row is never under it. */}
-            <div className="max-tab:pb-16">
+            {/* Room for Find's thumb row is the row's OWN, at every width: it publishes `--sn-thumb-room` and the
+                column pads by it (lib/thumb-room.ts). This div's old `max-tab:pb-16` was phone-only — from #6858 the
+                computer's row spans the column and the last line hid under it (owner 2026-10-25). */}
+            <div>
               {/* NO SECOND DOOR TO FIND (owner 2026-10-21 — "Why do i have this
                   find supplier button? When we have the search bar at the
                   bottom?"). The bottom search is the one door: tapped empty it
@@ -529,7 +533,7 @@ function ServiceSection({
   // behind the flag: there the heading is the ring's own ("Cover your event",
   // plain, with the ⓘ beside it). Every other section keeps its shipped look.
   const showInfo = tab === 'shortlist' && isExploreReplanEnabled();
-  return (
+  const section = (
     // Lands below the pinned block when scrolled to (`LANDING_CSS`).
     <section
       id={sectionId(tab)}
@@ -553,13 +557,17 @@ function ServiceSection({
               the Coverage Strip means. Every string comes from
               lib/explore-info-copy.ts; none is authored here. */}
           {showInfo ? <ExploreInfoToggle /> : null}
+          {/* 🧭 "6 of 14 covered", quiet, on the title's right (owner 2026-10-26 — cover-ring.tsx). */}
+          {showInfo ? <CoverCount /> : null}
         </h2>
-        {/* The ring says its own line under the heading ("Covered N of M"). */}
-        {showInfo ? null : <p className="mt-0.5 text-sm text-ink/55">{blurb}</p>}
+        {/* …and the same count as a thin bar under the title; the bench's "Covered N of M" line is gone. */}
+        {showInfo ? <CoverBar /> : <p className="mt-0.5 text-sm text-ink/55">{blurb}</p>}
       </header>
       <div id={`${sectionId(tab)}-body`}>{children}</div>
     </section>
   );
+  // 🧭 The bench below publishes its count here (cover-ring.tsx); the title row draws it.
+  return showInfo ? <CoverRingProvider>{section}</CoverRingProvider> : section;
 }
 
 /**
@@ -575,6 +583,8 @@ function ExploreInfoToggle() {
       <span className="block text-[13px]">{EXPLORE_INFO_WHAT}</span>
       <span className="block text-[13px]">{EXPLORE_INFO_STRIP}</span>
       <span className="block text-[13px]">{EXPLORE_INFO_HANDSHAKE}</span>
+      {/* 📅 What the settled-date banner said, now that it is gone (owner 2026-10-26 — "free that day" in the ⓘ). */}
+      <span className="block text-[13px]">{EXPLORE_INFO_DATE}</span>
       <span className="mt-1 grid gap-1 border-t border-ink/15 pt-3 text-left">
         {EXPLORE_STATE_LEGEND.map((row) => (
           <span key={row.state} className="flex items-baseline gap-2 text-[12.5px]">

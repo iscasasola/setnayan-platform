@@ -79,7 +79,7 @@ import { BACKGROUND_MAIN_INFO } from '@/lib/background-source';
  * plan `EVENT_HUB_MAKER_STAGES_STUDIO_BUILD_PLAN_2026-10-06.md` §3 PR 4;
  * prototype `maker_two_dropdowns_owner_wireframe_2026-10-06_fable.html`
  * `infoForm` and the E-Gifts renderer). Drawn only while the new Maker is on
- * (`makerStagesStudioEnabled`, handed to `MakerDetails` as `studio`), and loaded
+ * (`stagesStudio`, the one Maker since 2026-10-25, handed to `MakerDetails` as `studio`), and loaded
  * through `details-lazy.tsx` (the `maker-details` chunk) — never in the
  * Maker's first load.
  *

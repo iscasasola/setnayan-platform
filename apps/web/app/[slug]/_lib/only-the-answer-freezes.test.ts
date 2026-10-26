@@ -403,7 +403,9 @@ test("⚠ a REMOVED note is not announced as a note", () => {
   const at = src.indexOf("changed.includes('note')");
   assert.ok(at > -1, 'the note branch is gone');
   const branch = src.slice(at, at + 220);
-  assert.match(branch, /guestNote \?/, 'the note branch does not ask whether there IS a note');
+  // ✍ 2026-10-25: asked of the note as WRITTEN (`guestNoteWritten` — the note plus any "Name correction: …" line from
+  // the You step's "Wrong name? Tell the couple", which can fill the note while the note question is off).
+  assert.match(branch, /guestNoteWritten \?/, 'the note branch does not ask whether there IS a note');
   assert.match(branch, /removed their note/, 'there is no sentence for a note that was deleted');
 });
 

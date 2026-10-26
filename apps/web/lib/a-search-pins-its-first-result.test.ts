@@ -224,7 +224,10 @@ test('3 · one mechanism: the riding row pins on every input, ThumbRow hands it 
   // Every bottom search surface marks where its results draw — or its add when nothing matches.
   const MARKS: Array<[string, RegExp]> = [
     ['app/dashboard/[eventId]/guests/_components/guests-screen.tsx', /data-plus-one-of=\{plusWords\?\.hostId\}\s+data-search-result=""/],
-    ['app/dashboard/[eventId]/guests/_components/guests-screen.tsx', /data-fit-acts="" data-search-none=""/],
+    // 2026-10-25 (search is the add): the typed results' first box — the Add and the other ways — is the first result;
+    // with no hit, the box holding the Add AND the other ways is what pins above the band.
+    ['app/dashboard/[eventId]/guests/_components/guests-screen.tsx', /data-typed-add="" data-search-result=""/],
+    ['app/dashboard/[eventId]/guests/_components/guests-screen.tsx', /<div data-search-none="">\s*<span className=\{styles\.acts\} data-fit-acts="">/],
     ['app/dashboard/[eventId]/vendors/_components/shortlist-categories.tsx', /data-search-result=\{searching \? '' : undefined\}/],
     ['components/search-add-row.tsx', /data-search-add=""/],
     ['app/_components/memories/event-memories-gallery.tsx', /data-memories-grid=""[\s\S]{0,400}?data-search-results=""/],

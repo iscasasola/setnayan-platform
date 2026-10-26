@@ -455,8 +455,11 @@ export function MakerSheet({
   );
   return (
     <div ref={root} data-maker-sheet="" className={`fixed inset-0 z-[95]${everyWidth ? '' : ' lg:hidden'}`}>
-      {/* A tap anywhere outside the sheet closes it — the dark, and the clear preview too. */}
-      <button type="button" aria-label="Close" data-maker-sheet-scrim="" onClick={onClose} className="absolute inset-0 h-full w-full cursor-default touch-none" />
+      {/* A tap anywhere outside the sheet closes it — the dark, and the clear preview too. The dark stays its own layer
+          here (it carries the hole cut round the preview; the button must not), so the button wears
+          `data-overlay-backdrop` — the mark the page lock (`isolateOverlay`) keeps live. Without it the button went
+          `inert` and a tap outside closed nothing (owner, 2026-10-25: "I cannot tap out the screen"). */}
+      <button type="button" aria-label="Close" data-overlay-backdrop="" data-maker-sheet-scrim="" onClick={onClose} className="absolute inset-0 h-full w-full cursor-default touch-none" />
       <span
         aria-hidden
         data-maker-sheet-dark={hole ? 'around-preview' : 'whole'}

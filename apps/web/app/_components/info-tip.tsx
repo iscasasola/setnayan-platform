@@ -24,6 +24,11 @@
  * "glass layers drop their hairline". The trigger keeps its round hairline: it
  * is a control, and controls keep their radius (owner, 2026-09-24).
  *
+ * 🎯 THIS IS THE ONE ⓘ LOOK (owner 2026-10-25, *"the (i) is not consistent across the app"*): grey ink at rest — an
+ * ink/25 hairline, a 10-px semibold ink/55 "i" — and `terracotta` only while hovered or open (on a guest page that is
+ * the couple's own colour: every hub look moves it). `<Explain>` and every hand-drawn ⓘ copy these classes;
+ * `there-is-one-info-dot.test.ts` reads them from HERE, so change the look in this file and every ⓘ is held to it.
+ *
  * 👆 THE CIRCLE IS DRAWN 16 PX AND PRESSES AT 46 × 46: `.sn-dot-btn`'s invisible
  * `::after` halo (`globals.css`) reaches the 44-px floor around it, so the drawing
  * never grows (sweep 2026-10-19 B11; `lib/the-shared-controls-press-at-44.test.ts`).

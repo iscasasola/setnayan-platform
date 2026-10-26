@@ -67,16 +67,18 @@ const STRIP: ReadonlyArray<readonly [string, keyof typeof HOME, readonly string[
   // icon"): ⋯'s rows moved to 👁 Preview (how the page is seen) and Page ▾ (the
   // rest, `makerPageActions`) — re-pointed again, still not dropped.
   ['✕ Exit (now ‹, a 44 px icon)', 'topBar', ['data-maker-tool="exit"', 'aria-label="Exit"']],
-  ['▤ Show / hide the scenes (👁 Preview › Scenes)', 'topBar', ['data-maker-tool-row="scenes"', '>Scenes<', 'setNavOpen((o) => !o)']],
+  // ▤ Show / hide the scenes (👁 Preview › Scenes) — the OLD desktop's scenes column; deleted with the old Maker
+  //   (owner 2026-10-25). The desktop's parts column lists the page's parts (`maker-desk.tsx`, `DeskParts`).
   ['▶ Play this scene · Preview the whole stage (👁 Preview)', 'topBar', ['Play this scene', 'MAKER_PLAY_SCENE_EVENT', '<PreviewStageLink']],
   ['…the Preview link itself', 'play', ['Preview the whole']],
   // 2026-09-28 — the ＋ WORKS (DECISION_LOG 2026-09-27 "+ ADD A SCENE"): drawn from
   // the work area's registration ON A STAGE only (owner: *"it should only show on stages."*).
   ['＋ Add a scene (Page ▾, end of the stage)', 'topBar', ["stageAdd?.kind === 'ready'", 'stageAdd.open()', 'makerAddShowsOn(selection) ? addScene : null']],
   ['…its row', 'pageMenu', ["label: '＋ Add a scene'"]],
-  ['Stage row + "● Invitation ▾" → Page ▾ (the stages and their pages, one picker)', 'topBar', ['label="Page"', 'makerPageMenu({', 'onPick={pickPage}']],
+  ['Stage row + "● Invitation ▾" → Page ▾ → Stages ▾ (the stages and their pages, one picker — 2026-10-25)', 'topBar', ['<StudioSideSwitch', 'makerPageMenu({', 'onStage={pickPage}']],
   // View ▾ (Desktop · Phone · Both) → 👁 Preview's Phone / Desktop row + its Both row (1024 px and wider).
-  ['Desktop · Phone · Both', 'topBar', ['data-maker-tool-row="view"', 'makerViewToggle(shownDevice)', "o.key === 'both'"]],
+  // "Both" (phone and desktop side by side) went with the old desktop Maker (owner 2026-10-25; desk answer 1 had dropped it).
+  ['Desktop · Phone', 'topBar', ['data-maker-tool-row="view"', 'makerViewToggle(shownDevice)']],
   // ⊞ "Snap grid" was a switched-off row carrying only a note (`MAKER_SNAP_NOTE`) —
   // no control. It went with the bar's other explainers (2026-10-02, "no explainer captions").
   ['ⓘ About the Maker (Page ▾ › Your Event Hub)', 'topBar', ["act === 'about'", 'setTour(true)']],
@@ -96,7 +98,7 @@ const STRIP: ReadonlyArray<readonly [string, keyof typeof HOME, readonly string[
   ['↺ Restore (the act, registered)', 'draftBar', ["intent: 'restore'", 'setDraftDoor({\n      canRestore,']],
   ['Details (now "Event Details") and Prints (Page ▾) — doors into the one Details page', 'topBar', ['MAKER_DETAILS_LABEL', "pressDoor('prints')"]],
   ['…Prints\' row', 'pageMenu', ['label: MAKER_PRINTS_LABEL']],
-  ['Look — the Look part of Details', 'topBar', ['MAKER_LOOK_LABEL', 'pressDoor(door)']],
+  ['Look — the Look part of Details (Studio › Look; the old bar door went 2026-10-25)', 'topBar', ['MAKER_LOOK_LABEL', "pressDoor('look')"]],
   // ── Scene inspector ──
   ['Background: No background · Full colour · Opaque glass · Frosted glass · Photo · Snippet', 'background', ["'No background'", "'Plain'", "'Opaque'", "'Frosted'", "'Upload media'", "kind: 'snippet'"]],
   ['Colour picked in a row below the chips', 'background', ['<ColourWell']],

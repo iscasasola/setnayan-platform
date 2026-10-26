@@ -566,7 +566,7 @@ ${featurePagesSection()}
 - [Vendor Marketplace](${url('/explore')}) — Browse verified Filipino event vendors. Filterable by category and city; compare shortlisted vendors at [/explore/compare](${url('/explore/compare')}).
 - [Vendor Public Profiles](${url('/v/')}) — Each vendor has a profile at /v/[slug] (canonical bare-root /[slug] once claimed) with services, packages, coverage cities, and tier badge.
 - [Pricing](${url('/pricing')}) — Planning tiers, customer software SKUs, and vendor subscriptions.
-- [List Your Business](${url('/for-suppliers')}) — Vendor acquisition. Free verified profiles during launch — no listing fee, no per-lead fee, no booking commission. ${supplierFee}
+- [List Your Business](${url('/for-suppliers')}) — Vendor acquisition. Free verified profiles, for good — no listing fee, no per-lead fee, no booking commission. ${supplierFee}
 - [Setnayan AI](${url('/setnayan-ai')}) — Vendor matchmaking, guided planning, and the guard engine that watches for budget/timeline/missing-vendor risk.
 - [Features](${url('/features')}) — What the platform does, who each surface is for, and why it exists: the planning toolkit, the day-of apparatus, the six roles, and the case for one app instead of three. (Absorbed /why-setnayan and /how-it-works, 2026-09-01.)
 - [Our Story](${url('/our-story')}) — Brand narrative and the day-of media layer.
@@ -620,14 +620,14 @@ The visual mood board — palette, location feel, dress codes — is included fr
 
 | Tier | Cost | Public profile | Verified badge | Commission |
 |---|---|---|---|---|
-| Verified | free during launch | Listed in marketplace · real business name shown from day 1 · ${TIER_CAPS.verified.serviceRadiusKm} km reach · 1 category | Yes | 0% |
+| Verified | free, for good | Listed in marketplace · real business name shown from day 1 · ${TIER_CAPS.verified.serviceRadiusKm} km reach · 1 category | Yes | 0% |
 | Solo | ${V('solo_vendor_annual')} / year OR ${V('solo_vendor_monthly')} / 28-day prepaid block | 1 category · solo operator (no agent seats) · custom website + slug · ${TIER_CAPS.solo.serviceRadiusKm} km reach + booking analytics | Yes | 0% |
 | Pro | ${V('pro_vendor_annual')} / year OR ${V('pro_vendor_monthly')} / 28-day prepaid block | 3 categories + 3 agent seats · premium tools · Market Intel + featured placement + wider reach | Yes | 0% |
 | ${TIER_LABEL.enterprise} | ${V('enterprise_vendor_annual')} / year OR ${V('enterprise_vendor_monthly')} / 28-day prepaid block | All categories + unlimited team + extended radius (100 km) · priority placement + read API | Yes | 0% |
 
 Commission is 0% on every tier: couples pay suppliers directly and Setnayan never sits between them at checkout. ${supplierFee}
 
-Verified vendors complete a business-legitimacy check plus a short video call with a Setnayan admin. Verification is free during launch — no listing fee, no badge fee. Every verified vendor's real business name is shown to couples from day 1 on every tier, including the free Verified tier. A vendor's name and inbox are never gated: couples can always see who's there and message them for free. Paid tiers buy prominence and reach among already-qualified results — never the name or the listing itself.
+Verified vendors complete a business-legitimacy check plus a short video call with a Setnayan admin. Verification is free, for good — no listing fee, no badge fee. Every verified vendor's real business name is shown to couples from day 1 on every tier, including the free Verified tier. A vendor's name and inbox are never gated: couples can always see who's there and message them for free. Paid tiers buy prominence and reach among already-qualified results — never the name or the listing itself.
 
 Every tier, the free one included, can sell the same way: answer every couple with no weekly limit, take as many bookings a day as the supplier sets, put up at least ${MIN_SERVICES_PER_LEAF} service cards per category, hold up to ${WHITELIST_PER_DATE_ALL_PLANS} couples for one date, and show ${PORTFOLIO_FREE_BASE} portfolio photos free. A plan's price buys reach — service area, categories, team seats, search visibility and its own web address — never the ability to take bookings.
 
@@ -645,7 +645,7 @@ Vendor-side: public profile editor · inquiry inbox · calendar with intra-day b
 
 ## Common questions Setnayan answers
 
-- **How much does Setnayan cost?** Couples start free — marketplace browse, match preview, and the planning workspace. Setnayan AI is the one paid planning tier, priced by event type: ${aiLadderLine}. Everything else is à la carte, no bundles. Vendor side: Verified free during launch, Solo ${V('solo_vendor_annual')}/year (or ${V('solo_vendor_monthly')}/28-day block), Pro ${V('pro_vendor_annual')}/year (or ${V('pro_vendor_monthly')}), ${TIER_LABEL.enterprise} ${V('enterprise_vendor_annual')}/year (or ${V('enterprise_vendor_monthly')}). 0% commission. Suppliers pay a booking fee only on couples Setnayan introduces (see the vendor tier section).
+- **How much does Setnayan cost?** Couples start free — marketplace browse, match preview, and the planning workspace. Setnayan AI is the one paid planning tier, priced by event type: ${aiLadderLine}. Everything else is à la carte, no bundles. Vendor side: Verified free for good, Solo ${V('solo_vendor_annual')}/year (or ${V('solo_vendor_monthly')}/28-day block), Pro ${V('pro_vendor_annual')}/year (or ${V('pro_vendor_monthly')}), ${TIER_LABEL.enterprise} ${V('enterprise_vendor_annual')}/year (or ${V('enterprise_vendor_monthly')}). 0% commission. Suppliers pay a booking fee only on couples Setnayan introduces (see the vendor tier section).
 - **Is Setnayan free?** Starting is free and the planning workspace stays free. The 4-in-1 Event Hub with unlimited RSVP is free; premium touches come with Event Hub PRO ${R('COUPLE_WEBSITE_PRO')}. A single-camera livestream is free.
 - **What is Setnayan AI?** The assisted-planning tier. One-time, access until the event date, priced by how much planning load the event type carries — a wedding at ${aiA} down to ${peso(ladder[3]!.php)} for a casual outing.
 - **What is Papic?** Guests' phones become a coordinated capture crew. You buy credits once — 50 free ${PAPIC_FREE_CREDIT_CONDITION}, then ${papicLadderCompact(R)} — and every guest shoots from that shared pot. Cameras are free and unlimited. Photos are matched to the guests in them (face matching only with each guest's consent), so each guest can find the photos they're in.
@@ -655,7 +655,7 @@ Vendor-side: public profile editor · inquiry inbox · calendar with intra-day b
 - **Does Setnayan work for Filipino celebrations specifically?** Yes — built and operated in the Philippines. Seven ceremony types (Catholic, Civil, INC, Christian, Muslim, Cultural, Mixed) and seven venue settings. More than 30 Filipino ceremony roles, including Nikah roles. Multi-faith vendor compatibility tagging.
 - **Where does Setnayan operate?** Philippines.
 - **Does Setnayan have a mobile app?** ${mobileAppAnswer()}
-- **How are vendors verified?** Business-legitimacy check plus a short video call with a Setnayan admin. Free during launch.
+- **How are vendors verified?** Business-legitimacy check plus a short video call with a Setnayan admin. Free, for good.
 - **Does Setnayan take a commission?** No. 0% on every booking, every tier. Revenue comes from couple software purchases and vendor subscriptions.
 - **What about my privacy?** RA 10173 compliant. Guest list and event details are never publicly shared without explicit opt-in. If a real event story is ever published it publishes 30 days post-event, with explicit consent; every showcase on the site today is a labelled sample. NPC registration in progress. DPO contact: dpo@setnayan.com.
 - **How do I contact support?** The contact form at /help.

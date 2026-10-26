@@ -48,11 +48,13 @@ import {
   ChevronsDownUp,
   ChevronsUpDown,
   CircleHelp,
+  ClipboardList,
   Download,
   Ellipsis,
   Heart,
   House,
   ListFilter,
+  ListPlus,
   Mail,
   MessageCircle,
   Minus,
@@ -62,12 +64,13 @@ import {
   SquareCheck,
   Star,
   Tag,
+  Upload,
   User,
   Users,
   X,
 } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
-import { ThumbRow, type ThumbField, type ThumbMenu, type ThumbRound } from '@/components/thumb-row';
+import { ThumbRow, type ThumbField, type ThumbMenu } from '@/components/thumb-row';
 import { Count, Fill } from '@/components/count';
 import { formatCount } from '@/lib/format-number';
 import { PickMenu, type PickOption } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
@@ -127,7 +130,8 @@ import { GuestPapicBulkSheet, PAPIC_SET_OPTIONS } from './guest-papic-bulk';
 import type { GuestCamera } from '@/lib/papic-guest-camera';
 import { groupLabelWithSide, sidesForNamesakes } from '@/lib/groups-for-side';
 import { GuestListHasSidesContext } from './guest-list-has-sides-context';
-import { openAddGuest } from './add-guest-sheet';
+import { ADD_WAYS, openAddGuest, openAddWay, type AddWayKey } from './add-guest-sheet';
+import { AddDoors } from './capture-bar';
 import { SearchAddRow, searchAddLabel } from '@/components/search-add-row';
 import { guestAdds, NEEDS_BOTH_NAMES, queueTypedGuest, useGuestAdds } from './guest-add-queue';
 import { JustAdded } from './just-added';
@@ -216,6 +220,13 @@ export type GuestsScreenProps = {
    * 2026-10-23, "Papic · set N each"). Anything else — off, a check that did not answer, not the couple — offers none.
    */
   papic?: 'on' | 'off' | 'unknown' | null;
+  /**
+   * 👁 The viewer may SEE this list but not change it — a limited helper, or any delegate whose guest-list
+   * area is not 'edit' (`viewerAreaLevel`). The same rule as the phone's last copy: nothing that writes is
+   * offered — no Select, no Remove, no Add. The server refuses them anyway (`refuseLimitedHelper`); this is
+   * so the page never draws a control that can only fail.
+   */
+  viewOnly?: boolean;
 };
 
 /** ⚡ The most rows the first draw holds; the rest arrive at the first idle moment. */
@@ -235,6 +246,22 @@ const SECTION_ICON: Record<SectionIcon, typeof Star> = {
   side: User,
   none: Minus,
 };
+
+/**
+ * The other ways in, under a typed search (owner 2026-10-25: *"put From People, Import and Scan in the search
+ * results"*) — the shipped `AddDoors` rows (the same openers and links the add sheet and ≡ use), two to a line so the
+ * hits stay in sight over a phone keyboard. Unframed rows, each a 44 px target.
+ */
+function TypedWays({ eventId }: { eventId: string }) {
+  return (
+    <div className={styles.ways} data-typed-ways="">
+      <p className={styles.waysLabel}>Add another way</p>
+      <div className={styles.waysGrid}>
+        <AddDoors eventId={eventId} rows />
+      </div>
+    </div>
+  );
+}
 
 function Mark({ mark }: { mark: SectionMark }) {
   if (mark.kind === 'letter') return <>{mark.letter}</>;
@@ -288,7 +315,10 @@ export function GuestsScreen(props: GuestsScreenProps) {
     empty,
     copy = null,
     roleSetKey = null,
+    viewOnly = false,
   } = live;
+  // 🔒 Nothing that writes is offered while this is the phone's old copy OR the viewer may only look.
+  const writesOff = copy !== null || viewOnly;
   // The list's rows carry only GUEST_LIST_ROW_FIELDS; every helper below reads within them —
   // 🔒 guests/the-list-sends-only-what-it-draws.test.ts runs this screen and those helpers over rows that
   // record each field read.
@@ -680,11 +710,27 @@ export function GuestsScreen(props: GuestsScreenProps) {
   );
 
   /* ═══ the thumb row ═══ */
-  const addRound: ThumbRound = { icon: Plus, label: 'Add', onClick: () => openAddGuest(q), testId: 'thumb-add', tour: 'guests-plus' };
+  /* ➕ NO ROUND ＋ (owner 2026-10-25, verbatim: *"Yes, remove the + on the guest list. Typing in the search adds; put
+     From People, Import and Scan in the search results and the menu."*). The field adds (Enter, or the typed results'
+     "Add “…” as a guest"); the other ways are ≡ items here — reachable with an empty field — and rows in the typed
+     results. ONE list, `ADD_WAYS`, the same openers the add sheet uses. 🔒 search-or-add.test.ts */
+  const addWayIcon: Record<AddWayKey, typeof Users> = { people: Users, details: ClipboardList, import: Upload, paste: ListPlus };
+  const addWays: PickOption[] = writesOff
+    ? []
+    : ADD_WAYS.map((w) => {
+        const Icon = addWayIcon[w.key];
+        return { key: `add:${w.key}`, label: w.label, group: 'Add', icon: <Icon className="h-[18px] w-[18px]" strokeWidth={1.9} /> };
+      });
+  /** A ≡ pick that is one of the ways in → open it; answers whether it was. */
+  const pickedAddWay = (k: string): boolean => {
+    if (!k.startsWith('add:')) return false;
+    openAddWay(k.slice(4) as AddWayKey, eventId, (href) => router.push(href));
+    return true;
+  };
   const sortMenu: ThumbMenu = {
     mark: 'data-thumb-sort',
     tour: 'guests-sort',
-    label: 'Sort — groups the list by',
+    label: 'Sort, select or add',
     value: plusFilter ? `plus:${plusFilter}` : view,
     buttonText: plusFilter ? `+1 · ${PLUS_ONE_FILTERS.find((f) => f.key === plusFilter)?.label ?? ''}` : undefined,
     menu: views
@@ -695,9 +741,11 @@ export function GuestsScreen(props: GuestsScreenProps) {
           ? PLUS_ONE_FILTERS.map((f) => ({ key: `plus:${f.key}`, label: f.label, group: '+1', icon: <Armchair className="h-[18px] w-[18px]" strokeWidth={1.9} /> }))
           : [],
         // ☑ Select lives in this menu (owner 2026-10-22, question 1) — it was the row's fifth round.
-        copy ? [] : [{ key: 'select', label: 'Select…', group: 'List', icon: <SquareCheck className="h-[18px] w-[18px]" strokeWidth={1.9} /> }],
+        writesOff ? [] : [{ key: 'select', label: 'Select…', group: 'List', icon: <SquareCheck className="h-[18px] w-[18px]" strokeWidth={1.9} /> }],
+        addWays,
       ),
     onPick: (k) => {
+      if (pickedAddWay(k)) return;
       if (k === 'select') return setSelectMode(true);
       if (k.startsWith('plus:')) {
         setPlusFilter(k.slice(5) as PlusOneFilter);
@@ -713,10 +761,15 @@ export function GuestsScreen(props: GuestsScreenProps) {
   };
   const arrangeMenu: ThumbMenu = {
     mark: 'data-thumb-arrange',
-    label: 'Arrange the map by',
+    label: 'Arrange the map, or add',
     value: arrange,
-    menu: arranges.map((v) => ({ key: v.key, label: v.label, icon: <ListFilter className="h-[18px] w-[18px]" strokeWidth={1.9} /> })),
-    onPick: (k) => setArrange(k as MapArrange),
+    menu: arranges
+      .map((v): PickOption => ({ key: v.key, label: v.label, group: 'Arrange by', icon: <ListFilter className="h-[18px] w-[18px]" strokeWidth={1.9} /> }))
+      .concat(addWays),
+    onPick: (k) => {
+      if (pickedAddWay(k)) return;
+      setArrange(k as MapArrange);
+    },
   };
   /* ⚡ SEARCH OR ADD, ONE ENTER (owner 2026-10-19: "i type a name and it is not found there. when i press enter that should
      add that person there already"). Enter on a line that matches ONE guest opens them; several stay filtered; NOBODY →
@@ -737,7 +790,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
   const [takenPeople, setTakenPeople] = useState<ReadonlySet<string>>(() => new Set());
   const peopleAsked = useRef(false);
   const loadPeople = () => {
-    if (peopleAsked.current || copy) return;
+    if (peopleAsked.current || writesOff) return;
     peopleAsked.current = true;
     void hearAction(() => listPeopleYouCanInvite(eventId).then((r) => ({ ok: true as const, r })))
       .then((res) => {
@@ -811,6 +864,10 @@ export function GuestsScreen(props: GuestsScreenProps) {
     );
     return '';
   };
+  /** One press adds the typed line, the same as Enter; a line the box cannot add alone (one name) opens the sheet. */
+  const addTypedOrSheet = (v: string) => {
+    if (addTyped(v) === NEEDS_BOTH_NAMES) openAddGuest(v);
+  };
   /* 🔎 ONE THUMB ROW (owner 2026-10-22): the field is the shared row's seat — "Search guests", glass, 44 px. Its
      behaviour is unchanged: the same input, the same one-Enter grammar. */
   const field: ThumbField = {
@@ -842,6 +899,8 @@ export function GuestsScreen(props: GuestsScreenProps) {
           return;
         }
         if (hits.length > 0) return;
+        // 👁 A view-only viewer's Enter finds, never adds.
+        if (writesOff) return;
         // In your People but not on this list → Enter adds the first one, with what People knows and the four picks.
         const known = peopleFor(v);
         if (known.length > 0) {
@@ -868,7 +927,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
       ? (['bride', 'groom', 'both'] as GuestSide[]).map((s) => ({ key: `side:${s}`, label: SIDE_LABELS[s], group: 'Side' }))
       : []),
     // 📸 Their camera, for everyone selected — only while the event's Papic is on (owner 2026-10-23).
-    ...(live.papic === 'on' && !copy ? PAPIC_SET_OPTIONS : []),
+    ...(live.papic === 'on' && !writesOff ? PAPIC_SET_OPTIONS : []),
   ];
   const selectedIds = [...selected];
   const invitable = selectedIds
@@ -954,8 +1013,8 @@ export function GuestsScreen(props: GuestsScreenProps) {
       </div>
     );
   } else if (gview === 'list') {
-    /* ⇕ · Search guests · ≡ · ＋ (owner 2026-10-22, question 1 "fold ☑ Select into ≡"): four seats, so "Search guests"
-       reads whole at 320; ＋ Add is always there (Enter still adds at once). */
+    /* ⇕ · Search guests · ≡ (owner 2026-10-22, question 1 "fold ☑ Select into ≡"; 2026-10-25 "remove the +"): the
+       field is the add — Enter adds at once — and ≡ holds Sort, Select and the other ways in. */
     thumb = (
       <ThumbRow
         name="guests"
@@ -970,11 +1029,10 @@ export function GuestsScreen(props: GuestsScreenProps) {
         ]}
         field={field}
         right={[sortMenu]}
-        action={copy ? null : addRound}
       />
     );
   } else if (gview === 'map') {
-    thumb = <ThumbRow name="guests-map" field={field} right={[arrangeMenu]} action={copy ? null : addRound} />;
+    thumb = <ThumbRow name="guests-map" field={field} right={[arrangeMenu]} />;
   }
 
   /* ═══ the list ═══ */
@@ -993,12 +1051,22 @@ export function GuestsScreen(props: GuestsScreenProps) {
           </span>
         </div>
       ) : null}
-      {titlesWaiting.length > 0 && !copy ? (
+      {titlesWaiting.length > 0 && !writesOff ? (
         <TitlesWaiting eventId={eventId} people={titlesWaiting} classes={{ row: `${styles.row} ${styles.rise}`, t: styles.t ?? '', s: styles.s ?? '', acts: styles.acts ?? '' }} />
       ) : null}
       {/* ⚡ The names just typed — here the moment Enter is pressed, until the re-read list draws their real rows. */}
-      {copy ? null : <JustAdded eventId={eventId} variant="list" classes={{ row: styles.row ?? '', t: styles.t ?? '', s: styles.s ?? '', acts: styles.acts ?? '' }} />}
+      {writesOff ? null : <JustAdded eventId={eventId} variant="list" classes={{ row: styles.row ?? '', t: styles.t ?? '', s: styles.s ?? '', acts: styles.acts ?? '' }} />}
       {empty && !q ? <Handed>{empty}</Handed> : null}
+      {/* ➕ SEARCH IS THE ADD (owner 2026-10-25): while the box holds words and the list has hits, the FIRST result adds
+          what was typed — the same `addTyped` as Enter, for anyone who does not know Enter — and under it the other ways
+          in. Marked as the first result, so the search pin (lib/search-pin.ts) shows it with the hits under it. With no
+          hit, the block below is the add and carries the same ways. 🔒 search-or-add.test.ts */}
+      {q && !noMatch && !writesOff ? (
+        <div className={styles.typedAdd} data-typed-add="" data-search-result="">
+          <SearchAddRow query={q} as="a guest" onAdd={addTypedOrSheet} />
+          <TypedWays eventId={eventId} />
+        </div>
+      ) : null}
       {(empty && !q ? [] : sections).map((sec) => {
         const opened = isOpen(sec.key);
         const allSel = sec.guests.length > 0 && sec.guests.every((g) => selected.has(g.guest_id));
@@ -1065,7 +1133,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
                       face={faceByGuest[g.guest_id]}
                       table={tableByGuest[g.guest_id] ?? null}
                       verbs={
-                        copy
+                        writesOff
                           ? []
                           : rowVerbsFor(g, {
                               linked: linked ? linked.has(g.guest_id) : null,
@@ -1088,20 +1156,16 @@ export function GuestsScreen(props: GuestsScreenProps) {
           </section>
         );
       })}
-      {/* SEARCH OR ADD (owner 2026-10-24: *"it is search or add for both guests and suppliers"*): while the box holds
-          words and the list has hits, the last row adds what was typed — the thumb row's own ＋ door (`openAddGuest`,
-          the sheet, name filled in). With no hit the block below is the add, its button in the same words. */}
-      {q && !noMatch && !copy ? <SearchAddRow className={styles.searchAdd} query={q} as="a guest" onAdd={openAddGuest} /> : null}
       {noMatch ? (
         <div className={styles.nomatch} data-no-match="">
-          {copy ? null : <PeopleHits hits={peopleHits} onAdd={addPerson} />}
+          {writesOff ? null : <PeopleHits hits={peopleHits} onAdd={addPerson} />}
           <div className={styles.title}>
-            {peopleHits.length > 0 && !copy ? `Not them? Add “${q}” as new` : copy ? `Nobody matches “${q}”` : `Nobody matches “${q}”. Add them below.`}
+            {peopleHits.length > 0 && !writesOff ? `Not them? Add “${q}” as new` : writesOff ? `Nobody matches “${q}”` : `Nobody matches “${q}”. Add them below.`}
           </div>
           <p className={styles.body}>
             If that’s a name, add them — one tap, the rest later. Words like “attending”, “no reply”, “VIP” or a group name also work here.
           </p>
-          {copy ? null : (
+          {writesOff ? null : (
             <AddCardPicks
               eventId={eventId}
               hasSides={hasSides}
@@ -1118,19 +1182,18 @@ export function GuestsScreen(props: GuestsScreenProps) {
               {needs}
             </p>
           ) : null}
-          {/* 📌 With no result this row is what a search shows: pinned just above the band (lib/search-pin.ts). */}
-          <span className={styles.acts} data-fit-acts="" data-search-none="">
-            {copy ? null : (
+          {/* 📌 With no result this box is what a search shows: pinned just above the band (lib/search-pin.ts) — the Add,
+              then the other ways in (owner 2026-10-25), so both stay in sight over the keyboard. */}
+          <div data-search-none="">
+          <span className={styles.acts} data-fit-acts="">
+            {writesOff ? null : (
               <ActionButton
                 tone="brand"
                 main
                 icon={Plus}
                 label={searchAddLabel(q, 'a guest')}
                 name={`Add “${q}” as a guest`}
-                onClick={() => {
-                  // One tap adds them, the same as Enter; a line the box cannot add alone (one name) opens the sheet.
-                  if (addTyped(q) === NEEDS_BOTH_NAMES) openAddGuest(q);
-                }}
+                onClick={() => addTypedOrSheet(q)}
               />
             )}
             <ActionButton
@@ -1143,6 +1206,8 @@ export function GuestsScreen(props: GuestsScreenProps) {
               }}
             />
           </span>
+          {writesOff ? null : <TypedWays eventId={eventId} />}
+          </div>
         </div>
       ) : null}
       {/* Half a screen after the list, so the last guest reaches the middle (owner 2026-09-21). */}

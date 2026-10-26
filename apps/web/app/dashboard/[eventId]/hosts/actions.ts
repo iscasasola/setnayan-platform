@@ -27,6 +27,7 @@ import { isCoordinatorConsentGateEnabled } from '@/lib/coordinator-consent-gate'
 import { stampCoordinatorConsentRevoked } from '@/lib/coordinator-consent-revoke';
 import { seatIsFullCohost } from '@/lib/guest-access';
 import { seatReturnPath, seatReturnScreen } from '@/lib/seat-return-path';
+import { refuseLimitedHelper, limitedHelperRefusal } from '@/lib/host-gate';
 
 /**
  * 🔑 A GRANT IS A COORDINATOR'S, NEVER A CO-HOST'S. A full co-host seat is a
@@ -86,6 +87,7 @@ function parseRole(raw: FormDataEntryValue | null): RoleSubtype {
  * accepts from their link after the RA 10173 consent step.
  */
 export async function inviteHost(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), null);
   const rawEventId = formData.get('event_id');
   if (typeof rawEventId !== 'string' || rawEventId.length === 0) {
     redirect('/dashboard');
@@ -273,6 +275,8 @@ export async function setDelegateArea(
   area: string,
   choice: string,
 ): Promise<SetDelegateAreaResult> {
+  const helperRefusal = await limitedHelperRefusal(eventId, null);
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   if (!(DELEGATE_AREAS as readonly string[]).includes(area)) return { ok: false, error: 'Unknown area.' };
   const a = area as DelegateArea;
   const allowed = areaChoices(a);
@@ -345,6 +349,7 @@ export async function setDelegateArea(
  * leaves their picker. Couple-only.
  */
 export async function removeHost(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), null);
   const rawEventId = formData.get('event_id');
   const rawModeratorId = formData.get('moderator_id');
   if (typeof rawEventId !== 'string' || typeof rawModeratorId !== 'string') {
@@ -430,6 +435,7 @@ export async function removeHost(formData: FormData) {
  * row is a no-op.
  */
 export async function revokeHostInvite(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), null);
   const rawEventId = formData.get('event_id');
   const rawModeratorId = formData.get('moderator_id');
   if (typeof rawEventId !== 'string' || typeof rawModeratorId !== 'string') {

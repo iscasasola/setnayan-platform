@@ -47,5 +47,6 @@ test('the map’s thumb row draws the arrange dropdown, not the list’s Sort', 
   const row = SCREEN.slice(SCREEN.indexOf('<ThumbRow name="guests-map"'), SCREEN.indexOf('/>', SCREEN.indexOf('<ThumbRow name="guests-map"')));
   assert.match(row, /right=\{\[arrangeMenu\]\}/);
   assert.doesNotMatch(row, /sortMenu|left=/, 'the map carries the list’s controls (no expand/select on the canvas)');
-  assert.match(SCREEN, /label: 'Arrange the map by',[\s\S]{0,80}menu: arranges\.map/);
+  // 2026-10-25: the map's ≡ also holds the ways to add (no ＋ on the row) — its name says so; the arranges come first.
+  assert.match(SCREEN, /label: 'Arrange the map, or add',[\s\S]{0,80}menu: arranges\s*\.map/);
 });

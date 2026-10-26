@@ -5,11 +5,9 @@ import { safeFetchImageBytes } from '@/lib/safe-image-fetch';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import {
-  isMoodboardSlotKey,
-  isMoodboardSlotPosition,
-  type MoodboardSlotPosition,
-} from '@/lib/moodboard-slots';
+import { isMoodboardSlotPosition, type MoodboardSlotPosition } from '@/lib/moodboard-slots';
+import { isInspirationPartKey } from '@/lib/inspiration-parts';
+import { getInspirationParts } from '@/lib/inspiration-parts-db';
 import {
   SUPPLIER_GALLERY_ASSET_TYPE,
   normalizeGalleryQuery,
@@ -56,7 +54,9 @@ import { r2Upload, R2_BUCKETS, isR2Configured } from '@/lib/r2';
 import { readPooledGalleryBytes, signPooledGalleryImage } from '@/lib/moodboard-render-serve';
 
 import { readCoupleBookingStandings } from '@/lib/couple-booked-and-settled.server';
+import { refuseLimitedHelper } from '@/lib/host-gate';
 export async function saveRolePalette(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'mood_board');
   const eventId = formData.get('event_id');
   const paletteJson = formData.get('palette_json');
   if (typeof eventId !== 'string' || typeof paletteJson !== 'string') {
@@ -117,6 +117,7 @@ export async function reorderMoodboardSlot(
   from: MoodboardSlotRef,
   to: MoodboardSlotRef,
 ): Promise<void> {
+  await refuseLimitedHelper(eventId, 'mood_board');
   if (from.slotKey === to.slotKey && from.slotPosition === to.slotPosition) return;
 
   const supabase = await createClient();
@@ -187,6 +188,7 @@ export async function saveMoodboardTheme(
   eventId: string,
   theme: { name: string; description: string },
 ): Promise<void> {
+  await refuseLimitedHelper(eventId, 'mood_board');
   const name = theme.name.trim().slice(0, THEME_NAME_MAX);
   const description = theme.description.trim().slice(0, THEME_DESCRIPTION_MAX);
 
@@ -276,6 +278,7 @@ export async function applyThemeIntent(
   eventId: string,
   selection: unknown,
 ): Promise<ThemeIntentApplySummary> {
+  await refuseLimitedHelper(eventId, 'mood_board');
   const kept = validateThemeSelection(selection);
 
   const supabase = await createClient();
@@ -500,6 +503,7 @@ export async function applyMoodboardTemplate(
   templateId: string,
   mode: ApplyMode = 'fill_empty',
 ): Promise<ApplyTemplateSummary & { nothingToFill: boolean }> {
+  await refuseLimitedHelper(eventId, 'mood_board');
   const supabase = await createClient();
   const {
     data: { user },
@@ -739,6 +743,7 @@ export async function applyMoodboardTemplate(
 export async function shareMoodBoardWithVendors(
   eventId: string,
 ): Promise<{ sharedCount: number }> {
+  await refuseLimitedHelper(eventId, 'mood_board');
   const supabase = await createClient();
   const {
     data: { user },
@@ -852,7 +857,8 @@ export async function fetchGalleryAssets(input: {
   from?: string;
   near?: string;
 }): Promise<GalleryPage> {
-  const query = normalizeGalleryQuery(input);
+  const parts = await getInspirationParts();
+  const query = normalizeGalleryQuery(input, parts);
   if (!query) throw new Error('No supplier Inspiration for that slot');
 
   const supabase = await createClient();
@@ -903,7 +909,7 @@ export async function fetchGalleryAssets(input: {
   if (error) throw new Error(error.message);
 
   const rows = (data ?? []) as unknown as RawGalleryRow[];
-  const { assets, withheld } = shapeGalleryPage(query.slotKey, rows);
+  const { assets, withheld } = shapeGalleryPage(query.slotKey, rows, parts);
   const total = count ?? 0;
 
   return {
@@ -937,7 +943,9 @@ export async function applyGalleryPick(input: {
   slotPosition: number;
   assetId: string;
 }): Promise<{ status: 'ok' | 'error'; imageUrl?: string; message?: string }> {
-  if (!isMoodboardSlotKey(input.slotKey) || !slotHasSupplierTrade(input.slotKey)) {
+  await refuseLimitedHelper(input.eventId, 'mood_board');
+  const parts = await getInspirationParts();
+  if (!isInspirationPartKey(parts, input.slotKey) || !slotHasSupplierTrade(input.slotKey, parts)) {
     return { status: 'error', message: 'That slot has no supplier Inspiration.' };
   }
   if (!isMoodboardSlotPosition(input.slotPosition)) {
@@ -975,7 +983,7 @@ export async function applyGalleryPick(input: {
 
   const { assets } = shapeGalleryPage(input.slotKey, [
     assetRow as unknown as RawGalleryRow,
-  ]);
+  ], parts);
   const shaped = assets[0];
   if (!shaped) {
     return { status: 'error', message: 'That photo is not ready to save yet.' };
@@ -1069,6 +1077,7 @@ export async function fetchRenderPool(input: {
   limit?: number;
   offset?: number;
 }): Promise<RenderPoolPage> {
+  await refuseLimitedHelper(input.eventId, 'mood_board');
   const query = normalizeRenderPoolQuery(input);
   if (!query) throw new Error('Not an inspiration slot');
 
@@ -1136,7 +1145,8 @@ export async function applyRenderPick(input: {
   slotPosition: number;
   renderId: string;
 }): Promise<{ status: 'ok' | 'error'; imageUrl?: string; message?: string }> {
-  if (!isMoodboardSlotKey(input.slotKey)) {
+  await refuseLimitedHelper(input.eventId, 'mood_board');
+  if (!isInspirationPartKey(await getInspirationParts(), input.slotKey)) {
     return { status: 'error', message: 'That slot does not exist.' };
   }
   if (!isMoodboardSlotPosition(input.slotPosition)) {

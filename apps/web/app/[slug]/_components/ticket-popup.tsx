@@ -6,6 +6,8 @@ import { SavePassCardButton } from '@/app/_components/save-pass-card-button';
 import { LANDING_WORDS, ticketPopupDue, ticketSeenKey } from '@/lib/guest-landing';
 import { PASS_CARD_WORDS } from '@/lib/pass-card';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import type { AppleWalletLink } from '@/lib/wallet-pass';
+import { AppleWalletButton } from './apple-wallet-button';
 import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 
 /**
@@ -31,6 +33,7 @@ export function TicketPopup({
   src,
   name,
   safariHref,
+  appleWallet = null,
 }: {
   guestId: string;
   fingerprint: string;
@@ -40,6 +43,8 @@ export function TicketPopup({
   name: string;
   /** iPhone inside Messenger: Save reads "Open in Safari to save" and goes there. */
   safariHref?: string | null;
+  /** 🍎 "Add to Apple Wallet" under the pop-up's own "Save my ticket" (`appleWalletLink`); never beside the Safari hand-off. */
+  appleWallet?: AppleWalletLink | null;
 }) {
   const [open, setOpen] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -96,7 +101,10 @@ export function TicketPopup({
               {LANDING_WORDS.saveInSafari}
             </a>
           ) : (
-            <SavePassCardButton hrefs={[src]} label={LANDING_WORDS.saveTicket} variant="primary" />
+            <>
+              <SavePassCardButton hrefs={[src]} label={LANDING_WORDS.saveTicket} variant="primary" />
+              <AppleWalletButton link={appleWallet} className="mt-2" />
+            </>
           )}
         </div>
       </div>

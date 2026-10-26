@@ -1,6 +1,8 @@
 'use client';
 
+import Link from 'next/link';
 import { useState, useTransition } from 'react';
+import { personPageHref } from '@/lib/person-page-link';
 import type { FollowList, FollowRow } from '@/lib/people-follows';
 import { formatCount } from '@/lib/format-number';
 import { setFollowByPublicId } from '../actions';
@@ -143,12 +145,36 @@ function FollowRowItem({ row, which }: { row: FollowRow; which: 'following' | 'f
         : `Since ${sinceLabel(row.since)}`
       : `Follows you since ${sinceLabel(row.since)}`;
 
-  return (
-    <li className="flex items-center gap-3 py-3" data-follow-row>
+  /* 👤 THE LEFT HALF OPENS THEIR PAGE (owner 2026-10-25: "so why don't i see their user account page?").
+     Face · name · how it stands are ONE press, at least 44 px tall; the chip and Unfollow / Follow back stay
+     their own controls to the right. No account handle → no link, the row reads as before.
+     🔒 people/every-person-row-opens-their-page.test.ts */
+  const href = personPageHref(row);
+  const who = (
+    <>
       <PersonAvatar name={row.name} photoUrl={row.photoUrl} />
       <span className="flex min-w-0 flex-1 flex-col">
         <span className="truncate text-sm font-medium text-ink">{row.name}</span>
         <span className="truncate text-[11.5px] text-ink/55">{why}</span>
+      </span>
+    </>
+  );
+
+  return (
+    <li className="flex items-center gap-3 py-3" data-follow-row>
+      <span className="flex min-w-0 flex-1 flex-col">
+        {href ? (
+          <Link
+            href={href}
+            className="flex min-h-11 min-w-0 items-center gap-3"
+            aria-label={`Open ${row.name}’s page`}
+            data-person-page-link=""
+          >
+            {who}
+          </Link>
+        ) : (
+          <span className="flex min-h-11 min-w-0 items-center gap-3">{who}</span>
+        )}
         {error ? <span className="text-[11.5px] text-red-700 dark:text-red-300">{error}</span> : null}
       </span>
       <span className="flex shrink-0 items-center gap-2">

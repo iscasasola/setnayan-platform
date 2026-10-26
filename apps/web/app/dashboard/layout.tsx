@@ -13,7 +13,7 @@ import { AnonGateProvider } from '@/app/_components/anon-gate/anon-gate-context'
 import { dispatchPendingInquiries } from '@/lib/pending-inquiries';
 import { fetchUserRoleSummary } from '@/lib/roles';
 import { needsTermsAgreement } from '@/lib/terms-agreement';
-import { TermsReaccept } from './_components/terms-reaccept';
+import { TermsReacceptSheet } from '@/app/_components/terms-reaccept/terms-reaccept-sheet';
 
 /**
  * Root dashboard layout — shared by BOTH the account route group `(account)`
@@ -59,14 +59,13 @@ export default async function DashboardLayout({
     deleted_at?: string | null;
     tour_seen_keys?: string[] | null;
     display_name?: string | null;
-    terms_accepted_at?: string | null;
-    created_at?: string | null;
+    terms_version?: string | null;
   };
   let profile: ProfileShape | null = null;
   try {
     const fullRes = await supabase
       .from('users')
-      .select('account_type, deleted_at, tour_seen_keys, display_name, terms_accepted_at, created_at')
+      .select('account_type, deleted_at, tour_seen_keys, display_name, terms_version')
       .eq('user_id', user.id)
       .maybeSingle();
     if (
@@ -221,13 +220,10 @@ export default async function DashboardLayout({
       {/* Seed the anon-state once so deep gated actions (unlock a category,
           checkout) can show the pre-emptive "save your plan" prompt without
           re-fetching the user. Reads `false` for every secured user. */}
-      {/* 🔁 One-time Terms re-ask for an account with no agreement on record
-          (lib/terms-agreement.ts `needsTermsAgreement`) — in place, never a redirect. */}
-      {termsAsk ? (
-        <TermsReaccept />
-      ) : (
-        <AnonGateProvider isAnonymous={!!user.is_anonymous}>{children}</AnonGateProvider>
-      )}
+      <AnonGateProvider isAnonymous={!!user.is_anonymous}>{children}</AnonGateProvider>
+      {/* 🔁 One-time Terms re-ask for an account whose agreement is not to the Terms in force
+          (lib/terms-agreement.ts `needsTermsAgreement`) — a sheet over the page, never a redirect. */}
+      {termsAsk ? <TermsReacceptSheet /> : null}
       {!termsAsk && !(profile?.tour_seen_keys ?? []).includes('couple_welcome_v1') ? (
         <GuidedTour tourKey="couple_welcome_v1" completeAction={completeTour} />
       ) : null}

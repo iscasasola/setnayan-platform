@@ -44,6 +44,9 @@ export type PlusOneSeat = {
   dietary: string | null;
   /** 🔒 The seat's person linked their own account — the name is read-only. */
   linked: boolean;
+  /** The seat's own reply — `attending` once its bringer ticked "They're coming" (owner 2026-10-25), so the reply's
+   *  tick reopens ticked; anything else opens it unticked. */
+  rsvpStatus?: string | null;
 };
 
 /**
@@ -103,7 +106,7 @@ export async function plusOneSeatsFor(
 ): Promise<PlusOneSeat[] | null> {
   const { data, error } = await admin
     .from('guests')
-    .select(`${ENTOURAGE_COLUMNS}, plus_one_name_confirmed_at, created_at, qr_token, meal_preference, dietary_restrictions`)
+    .select(`${ENTOURAGE_COLUMNS}, plus_one_name_confirmed_at, created_at, qr_token, meal_preference, dietary_restrictions, rsvp_status`)
     .eq('event_id', eventId)
     .eq('plus_one_of_guest_id', bringerGuestId)
     .is('deleted_at', null)
@@ -132,6 +135,7 @@ export async function plusOneSeatsFor(
       meal: (r.meal_preference as string | null) ?? null,
       dietary: (r.dietary_restrictions as string | null) ?? null,
       linked: linked.has(r.guest_id as string),
+      rsvpStatus: (r.rsvp_status as string | null) ?? null,
     };
   });
 }

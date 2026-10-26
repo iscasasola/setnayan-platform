@@ -227,8 +227,9 @@ type EventFacts = {
   wall: boolean;
   /** Event Hub open browse — draws "THE DETAILS" and the spotlight card. */
   openBrowse: boolean;
-  /** The new Maker's guest side is on (Me's four for-each-guest parts stand in for the Welcome's look). */
-  guestStages: boolean;
+  /** Me draws this guest's own for-each-guest parts (their row carries the facts), standing in for the Welcome's look.
+      Every guest gets the new guest side since 2026-10-26 — whether Me has parts is now the row's facts, not a switch. */
+  meParts: boolean;
 };
 
 const FULL: EventFacts = {
@@ -247,7 +248,7 @@ const FULL: EventFacts = {
   broadcast: true,
   wall: true,
   openBrowse: true,
-  guestStages: false,
+  meParts: false,
 };
 /** A couple who has only begun: a countdown and a message, nothing else — the event that loses its Details tab. */
 const LEAN: EventFacts = {
@@ -263,10 +264,10 @@ const LEAN: EventFacts = {
   broadcast: false,
   wall: false,
   openBrowse: false,
-  guestStages: false,
+  meParts: false,
 };
-/** The full event with the new Maker's guest side on: Me's own parts say the look, so the Welcome's stands down. */
-const STAGED: EventFacts = { ...FULL, id: 'staged', guestStages: true };
+/** The full event for a guest whose row carries Me's facts: Me's own parts say the look, so the Welcome's stands down. */
+const STAGED: EventFacts = { ...FULL, id: 'staged', meParts: true };
 const EVENTS: readonly EventFacts[] = [FULL, LEAN, STAGED];
 
 /** The scene types a reader without a key may be shown (`PUBLIC_WIDGET_ALLOWLIST` — the personal ones are a guest's). */
@@ -312,8 +313,8 @@ function sectionsFor(reader: Reader, stage: Stage, ev: EventFacts): Section[] {
       giftHref: ev.gifts ? '/ana/pabuya' : null,
       maker: false,
     });
-    /* Me's four parts say the look where the new Maker's guest side is on (`meParts`): the Welcome's stands down. */
-    if (welcome.includes('look') && !ev.guestStages) add('look', WELCOME_PART_CANVAS.look, 'home');
+    /* Me's four parts say the look where Me draws them (`meParts`): the Welcome's stands down. */
+    if (welcome.includes('look') && !ev.meParts) add('look', WELCOME_PART_CANVAS.look, 'home');
     if (welcome.includes('gifts')) add('e-gifts', WELCOME_PART_CANVAS.gifts, 'home');
     const dayWelcome = dayWelcomeOf(reader, stage, ev);
     if (dayWelcome.length > 0) add('day-welcome', null, 'home');

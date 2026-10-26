@@ -1,6 +1,5 @@
 'use client';
 
-import type { ReactNode } from 'react';
 import { DetailsPieceButton, useDetailsPiece } from '@/app/dashboard/[eventId]/launch/_components/details-go';
 
 /**
@@ -45,27 +44,4 @@ export function MoodBoardPieces({ makeItReal }: { makeItReal: boolean }) {
       ))}
     </>
   );
-}
-
-/** One part, shown while it is the picked one — hidden (never unmounted) otherwise. */
-export function MoodPart({ part, children }: { part: MoodBoardPart; children: ReactNode }) {
-  const [on] = usePart();
-  return (
-    <div data-mood-part={part} hidden={on !== part} className={on === part ? 'block' : 'hidden'}>
-      {children}
-    </div>
-  );
-}
-
-/** The right column for a part whose controls are the part itself (the theme, the inspirations…). */
-export function MoodPartNote() {
-  const [on] = usePart();
-  if (on === 'palette' || on === 'reception' || on === 'share') return null;
-  const note: Record<string, string> = {
-    theme: 'Describe your look or pick a starting theme — your main colours set the whole palette.',
-    inspiration: 'Your photos feed your palette and your renders. Drag one onto another slot to reorder.',
-    colours: 'A quick look at your palette on real things. Change a colour under Palette and this follows.',
-    'make-it-real': 'Photo-real renders of your look, from your palette, reception and inspirations.',
-  };
-  return <p className="text-[13px] text-ink/70" data-mood-part-note={on}>{note[on]}</p>;
 }

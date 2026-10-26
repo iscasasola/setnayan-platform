@@ -47,7 +47,8 @@ const WEB = join(HERE, '..');
  */
 const PAPIC_COPY_FILES = [
   'app/(shell)/pricing/page.tsx',
-  'app/(shell)/pricing/_papic-estimator.tsx',
+  // (_papic-estimator.tsx deleted 2026-10-25 — /pricing became ours-only, prototype pricing_ours_only revision 5.)
+  'app/(shell)/pricing/_pricing-reads.ts',
   'app/_components/home/pricing-data.ts',
   // (guest-camera-tier-picker.tsx deleted 2026-10-23 — the per-guest camera tiers retired)
   // The onboarding services step (2026-07-29) — the FIRST place most couples

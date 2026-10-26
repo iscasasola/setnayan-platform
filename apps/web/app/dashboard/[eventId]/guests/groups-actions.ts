@@ -23,6 +23,7 @@ import {
   type GuestSide,
 } from '@/lib/guests';
 import type { ReleasedSeat } from '@/lib/guest-optimistic';
+import { refuseLimitedHelper, limitedHelperRefusal } from '@/lib/host-gate';
 
 // Side enum values — owner directive 2026-05-23 added bulk Side
 // assignment to the SelectionBar. Mirrors the existing per-guest side
@@ -157,6 +158,7 @@ export async function bulkApplyRoleAndGroup(
   eventId: string,
   formData: FormData,
 ): Promise<void> {
+  await refuseLimitedHelper(eventId, 'guest_list');
   const rawRole = clean(formData.get('role'));
   const rawGroupId = clean(formData.get('group_id'));
   const rawSide = clean(formData.get('side'));
@@ -303,6 +305,7 @@ export async function createGuestGroup(
   eventId: string,
   formData: FormData,
 ): Promise<void> {
+  await refuseLimitedHelper(eventId, 'guest_list');
   const label = clean(formData.get('label'));
   const teamSideRaw = clean(formData.get('team_side')) || 'both';
   const teamSide = (
@@ -358,6 +361,7 @@ export async function updateGuestGroup(
   groupId: string,
   formData: FormData,
 ): Promise<void> {
+  await refuseLimitedHelper(eventId, 'guest_list');
   const label = clean(formData.get('label'));
   const teamSideRaw = clean(formData.get('team_side')) || 'both';
   const teamSide = (
@@ -410,6 +414,7 @@ export async function deleteGuestGroup(
   groupId: string,
   _formData: FormData,
 ): Promise<void> {
+  await refuseLimitedHelper(eventId, 'guest_list');
   const supabase = await createClient();
   const { error } = await supabase
     .from('guest_groups')
@@ -486,6 +491,8 @@ export async function bulkSoftDeleteGuestsForUndo(
   guestIds: string[],
   opts: SoftDeleteOptions = {},
 ): Promise<SoftDeleteForUndoResult> {
+  const helperRefusal = await limitedHelperRefusal(eventId, 'guest_list');
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   const release = opts.release === true;
   const ids = Array.from(
     new Set((guestIds ?? []).map((s) => String(s).trim()).filter(Boolean)),
@@ -644,6 +651,8 @@ export async function restoreDeletedGuests(
   guestIds: string[],
   seats: ReleasedSeat[],
 ): Promise<RestoreResult> {
+  const helperRefusal = await limitedHelperRefusal(eventId, 'guest_list');
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   const ids = Array.from(
     new Set((guestIds ?? []).map((s) => String(s).trim()).filter(Boolean)),
   );

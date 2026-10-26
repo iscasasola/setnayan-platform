@@ -74,7 +74,7 @@ test('2 · "Change my reply" is ON Me — Me’s one Reply, gated like the reply
   assert.ok(!BODY.includes('data-me-change-reply'), 'the separate "Change your reply" bar is back — a second door');
   const at = BODY.indexOf('<MeReply ask={greetingAskOf(meReplyCard)!}');
   assert.ok(at > BODY.indexOf("group('me'"), 'Me has no Reply of its own');
-  const card = BODY.slice(BODY.indexOf('const replyCardHere ='), BODY.indexOf('const meReplyCard ='));
+  const card = BODY.slice(BODY.indexOf('const replyCard ='), BODY.indexOf('const meReplyCard ='));
   assert.match(card, /plan\.rsvpShouldRender/, 'Me’s Reply is not gated on the reply’s own gate — it could point at nothing');
   assert.match(card, /replyCardOf\(\{\s*action: arrivalAction,/, 'Me’s Reply is not the page’s own action (the reply page)');
 });
@@ -225,10 +225,19 @@ test('6 · the film reserves the room the scaled lockup paints, so the label is 
   assert.ok(film.indexOf('<HeroMonogram', at) > at && film.indexOf('<HeroMonogram', at) < film.indexOf('</div>\n    );', at), 'the lockup is not inside its slot');
 });
 
-test('6 · the Save-to-account button grows with its two-line sub-label and pads it', () => {
+/* ⚠ CHANGED 2026-10-25 ("Show both"): the two-line terracotta Save button this pinned (h-auto + py-2.5, so its
+   sub-label did not touch the edge) is gone — the providers are the login's own one-line buttons, and the two lines
+   moved into a heading above them. What stays true: neither line is squeezed into a fixed-height box. */
+test('6 · the Save-to-account words sit in a heading over the official provider buttons, never in a fixed-height box', () => {
+  /* 🎟 RE-AIMED 2026-10-25 (option A): the heading is the benefit — `SAVE_OFFER_TITLE` · `SAVE_OFFER_LINE` in
+     `SaveOfferHead` — over each brand's official button (`oauthOfficialClass`). Still: no fixed-height box. */
   const src = code('app/[slug]/_components/save-to-account.tsx');
-  const at = src.indexOf('Save to my account');
-  const open = src.slice(src.lastIndexOf('<SubmitButton', at), at);
-  assert.match(open, /\bh-auto\b/, '.button-primary’s fixed h-11 still pins the box');
-  assert.match(open, /\bpy-2\.5\b/, 'the sub-label touches the bottom edge');
+  const at = src.indexOf('data-save-heading');
+  assert.ok(at > -1, 'the save offer’s heading is gone');
+  const block = src.slice(at, src.indexOf('</div>\n    </div>', at));
+  assert.match(block, /\{title\}|label=\{title\}/);
+  assert.match(block, /\{line\}/);
+  assert.doesNotMatch(block, /\bh-(1[0-9]|[2-9])\b/, 'the heading sits in a fixed-height box');
+  assert.match(src, /export const SAVE_OFFER_TITLE = 'Keep your ticket on every phone';/);
+  assert.match(src, /className=\{oauthOfficialClass\(m, m === method\)\}/, 'the provider buttons are not the official pair');
 });

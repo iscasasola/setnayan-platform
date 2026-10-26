@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { POPUP_DARK, POPUP_SCRIM, usePopupBehind } from '@/lib/use-popup-behind';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
+import { usePopupBehind } from '@/lib/use-popup-behind';
 
 /**
  * GuestPopup — THE POP-UP RULE FOR THE GUEST LIST'S OWN SHEETS (owner 2026-10-08, `INTERACTION_RULES.md` § 9, "Anything
@@ -12,12 +13,19 @@ import { POPUP_DARK, POPUP_SCRIM, usePopupBehind } from '@/lib/use-popup-behind'
  * The add-a-guest sheet, quick add, the ticket view and "Add from your people" each drew their own wash (`bg-ink/[0.32]`
  * + a 1-px blur · `bg-ink/40` · `bg-ink/50` + `backdrop-blur-sm` · the Drawer's `bg-ink/30`). They keep their panels and
  * their contents; the LAYER BEHIND and the a11y wiring are this, once:
- *   · the dark is `.sn-popup-dark` (`POPUP_DARK`) — dark and blurred, taking no tap;
- *   · one button under it, the whole screen (`POPUP_SCRIM`), closes — a tap on the dark removes the pop-up;
+ *   · the dark IS the close button — `<OverlayBackdrop>`, the app's one backdrop (`.sn-popup-dark`, fixed to the screen,
+ *     marked `data-overlay-backdrop`), so a tap on the dark removes the pop-up;
  *   · `usePopupBehind` — everything else on the page is `inert`, the page does not scroll, Escape closes, Tab stays in the
  *     panel, focus comes in and goes back to where it was.
  * Mount it while the pop-up is open (mount = open). It draws on <body>: the dashboard page is a transformed box, inside
  * which `position: fixed` is not the screen, and no z-index in it rises above the bottom bar.
+ *
+ * 🩹 WHY THE DARK AND THE BUTTON ARE ONE LAYER (owner on his iPhone, 2026-10-25: *"I cannot tap out the screen"*). Until
+ * then the close button was a transparent `absolute` layer UNDER a separate dark span. The page lock that landed that
+ * morning (`isolateOverlay`, `lib/overlay-lock.ts`) makes every sibling of the panel `inert` unless it is a full-screen
+ * FIXED layer or wears `data-overlay-backdrop` — the `absolute` button was neither, so it went inert and a tap on the
+ * dark reached nothing, on every browser (measured in Playwright WebKit/iPhone and Chromium/Pixel: `inert` on the
+ * button, the tap landed on the root, onClose never ran). The blur above it was never the problem.
  *
  * Held by `the-guest-popups-follow-the-rule.test.ts`.
  */
@@ -59,7 +67,7 @@ export function GuestPopup({
   kind?: 'sheet' | 'confirm';
   /** The positioned root over the whole screen (`fixed inset-0 z-… flex …`). */
   rootClassName?: string;
-  /** The panel — it must be POSITIONED (`relative` or `absolute`), so it lies over the dark and the scrim. */
+  /** The panel — it must be POSITIONED (`relative` or `absolute`), so it lies over the dark. */
   panelClassName?: string;
   /** Data marks the panel carries (`data-add-guest-sheet`). */
   panelData?: Record<`data-${string}`, string>;
@@ -82,8 +90,7 @@ export function GuestPopup({
   if (typeof document === 'undefined') return null;
   return createPortal(
     <div ref={root} className={kind === 'confirm' ? CONFIRM_ROOT : rootClassName} {...rootData}>
-      <button type="button" aria-label="Close" onClick={onClose} className={POPUP_SCRIM} />
-      <span aria-hidden className={POPUP_DARK} />
+      <OverlayBackdrop onClose={onClose} />
       <div
         ref={panel}
         role="dialog"

@@ -94,7 +94,7 @@ export function MomentInspector({
     updateScheduleBlock,
   } = useDayActions();
   const [save, setSave] = useState<SaveState>('idle');
-  /* 🧭 For ▾ is drawn only in the new Maker's Studio (`makerStagesStudioEnabled`). */
+  /* 🧭 For ▾ is drawn only in the new Maker's Studio (`stagesStudio`, the one Maker since 2026-10-25). */
   const studio = useMaker()?.stagesStudio === true;
   const audience = readScheduleAudience(m.audience ?? null);
   const [, startTransition] = useTransition();
@@ -312,7 +312,7 @@ export function MomentInspector({
       </div>
 
       {/* 👥 FOR ▾ — who this moment is for (owner 2026-10-06/07, the new Maker's
-          Studio › Schedule only — `makerStagesStudioEnabled`). A role's moment is
+          Studio › Schedule only — `stagesStudio`, the one Maker since 2026-10-25). A role's moment is
           its Arrive by; the guests' schedule shows only the Everyone moments. */}
       {studio ? (
         <div className="mt-4" data-moment-for="">

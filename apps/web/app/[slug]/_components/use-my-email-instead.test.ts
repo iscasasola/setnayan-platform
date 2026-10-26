@@ -1,0 +1,104 @@
+/**
+ * "USE MY EMAIL INSTEAD" — under the guest's Save button(s) (owner 2026-10-25,
+ * "If you have recommendation that follow our design go for it").
+ *
+ * Rendered, not grepped: the offer is drawn for an iPhone (Apple) and an Android
+ * (Google), and the quiet link must be there on both, open the SHIPPED email
+ * sign-in (/login), and return to the SAME door the button does —
+ * `/join/{eventId}/connect`. It is a text link, never a second button.
+ *
+ * 💬 INSIDE MESSENGER (2026-10-25, a real bug): an in-app browser (`saveMethodFor` → 'browser') drew ONLY "Open in
+ * your browser" — no sign-in at all, so a guest whose seat had been unlinked was stuck. The email sign-in works in a
+ * webview, so that branch now draws "Sign in with email" (worded "Sign in" so it is found) to the same door, keeps
+ * "Open in your browser" for Apple / Google, and its reason no longer claims Messenger cannot sign anyone in.
+ *
+ * SABOTAGES (each run red, then restored — see the PR):
+ *   · save-to-account.tsx: drop the browser branch's "Sign in with email" link   → M RED
+ *   · copy-my-link.tsx: OPEN_IN_BROWSER_WHY back to "Messenger can’t sign you in here" → M RED
+ *   · save-to-account.tsx: drop the `link` branch's "Sign in with email"          → N RED
+ */
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import React from 'react';
+
+(globalThis as unknown as { React: unknown }).React = React;
+{
+  const Mod = require('node:module');
+  const load = Mod._load;
+  Mod._load = function (request: string, ...rest: unknown[]) {
+    if (request === 'server-only' || request === 'client-only') return {};
+    return load.call(this, request, ...rest);
+  };
+}
+
+const IPHONE = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1';
+const ANDROID = 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 Chrome/128.0 Mobile Safari/537.36';
+
+async function render(userAgent: string, providers = { apple: true, google: true }, personalLink: string | null = 'https://www.setnayan.com/ic?invite=0123456789abcdef0123456789abcdef') {
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { SaveToAccount } = await import('./save-to-account');
+  if (providers.apple) process.env.NEXT_PUBLIC_OAUTH_APPLE_ENABLED = 'true';
+  if (providers.google) process.env.NEXT_PUBLIC_OAUTH_GOOGLE_ENABLED = 'true';
+  try {
+    return renderToStaticMarkup(
+      React.createElement(SaveToAccount as never, {
+        state: { kind: 'offer' },
+        eventId: 'e-1',
+        slug: 'ic',
+        personalLink,
+        userAgent,
+        termsCarried: true,
+      } as never),
+    );
+  } finally {
+    delete process.env.NEXT_PUBLIC_OAUTH_APPLE_ENABLED;
+    delete process.env.NEXT_PUBLIC_OAUTH_GOOGLE_ENABLED;
+  }
+}
+
+for (const [device, ua] of [['iPhone', IPHONE], ['Android', ANDROID]] as const) {
+  test(`${device}: a quiet "Use my email instead" opens the email sign-in with the button's return`, async () => {
+    const html = await render(ua);
+    const link = /<a[^>]*data-save-email-instead=""[^>]*>Use my email instead<\/a>|<a[^>]*href="([^"]+)"[^>]*data-save-email-instead=""[^>]*>Use my email instead<\/a>/.exec(html);
+    assert.ok(link, `${device}: the "Use my email instead" link is not drawn under the Save button`);
+    const href = /href="([^"]+)"/.exec(link[0])?.[1]?.replace(/&amp;/g, '&');
+    assert.equal(href, `/login?next=${encodeURIComponent('/join/e-1/connect')}`, 'it must return to the same seat-binding door');
+    assert.doesNotMatch(link[0], /button-primary|button-secondary|border/, 'it must stay a quiet text link, not a second button');
+  });
+}
+
+const MESSENGER_IOS =
+  'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/22A3354 [FBAN/FBIOS;FBAV/480.0.0.0;FBBV/1;FBDV/iPhone15,2;FBMD/iPhone;FBSN/iOS;FBSV/18.0;FBSS/3;FBID/phone;FBLC/en_US;FBOP/5]';
+const INSTAGRAM_ANDROID =
+  'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0 Mobile Safari/537.36 Instagram 350.0.0.0 Android';
+
+const signInLink = (html: string) => /<a[^>]*data-save-email-signin=""[^>]*>Sign in with email<\/a>|<a[^>]*href="[^"]+"[^>]*data-save-email-signin=""[^>]*>Sign in with email<\/a>/.exec(html)?.[0] ?? null;
+
+for (const [app, ua] of [['Messenger (iPhone)', MESSENGER_IOS], ['Instagram (Android)', INSTAGRAM_ANDROID]] as const) {
+  test(`M · ${app}: the in-app browser draws a real "Sign in with email" — not only "Open in your browser"`, async () => {
+    for (const link of ['https://www.setnayan.com/ic?invite=0123456789abcdef0123456789abcdef', null]) {
+      const html = await render(ua, { apple: true, google: true }, link);
+      assert.match(html, /data-save-method="browser"/, `${app}: not read as an in-app browser`);
+      const a = signInLink(html);
+      assert.ok(a, `${app}${link ? '' : ' (no personal link)'}: no "Sign in with email" — a stuck guest has no way to sign in here`);
+      const href = /href="([^"]+)"/.exec(a!)?.[1]?.replace(/&amp;/g, '&');
+      assert.equal(href, `/login?next=${encodeURIComponent('/join/e-1/connect')}`, 'it must return to the seat-binding door');
+      if (link) assert.match(html, /data-save-open-in-browser=""/, `${app}: "Open in your browser" (for Apple / Google) is gone`);
+      // The reason is the true one: Apple and Google need the browser — never "Messenger can't sign you in".
+      assert.doesNotMatch(html, /can(’|')t sign you in/, `${app}: the button still claims nobody can sign in here`);
+      if (link) assert.match(html, /Apple and Google need your browser/);
+      // No provider button inside the webview (they refuse there).
+      assert.doesNotMatch(html, /data-save-provider="/, `${app}: a provider button inside an in-app browser`);
+    }
+  });
+}
+
+test('N · no provider switched on: the copy-my-link offer also draws "Sign in with email" (never nothing)', async () => {
+  for (const ua of [IPHONE, ANDROID]) {
+    const html = await render(ua, { apple: false, google: false });
+    assert.match(html, /data-save-method="link"/);
+    assert.ok(signInLink(html), 'with no provider on, an unlinked guest has no way to link the event');
+    const none = await render(ua, { apple: false, google: false }, null);
+    assert.ok(signInLink(none), 'with no provider and no personal link, the offer draws nothing');
+  }
+});

@@ -23,11 +23,25 @@ import { createStallWatchdog, type WatchdogTimers } from './stall-watchdog';
 
 export type UploadJob = {
   file: File;
-  /** The bucket key `/api/upload` takes ("media", "thread-files", …). */
-  bucket: string;
-  pathPrefix: string;
   contentType: string;
-};
+} & (
+  | {
+      /** The bucket key `/api/upload` takes ("media", "thread-files", …). */
+      bucket: string;
+      pathPrefix: string;
+      papicSeatToken?: undefined;
+    }
+  | {
+      /**
+       * 📷 A PAPIC CAMERA'S FILE (the couple's + Add photos on Memories, 2026-10-25). The SAME route signs it, but from
+       * the seat: the server derives where it lands, whether the camera may shoot and whether the pot can pay — so no
+       * bucket and no prefix are sent. Its refusals carry a `code` (`camera_points_exhausted`, `uploads_closed`, …).
+       */
+      papicSeatToken: string;
+      bucket?: undefined;
+      pathPrefix?: undefined;
+    }
+);
 
 /**
  * Why a file did not land.
@@ -49,6 +63,8 @@ export type UploadOutcome =
       says: string | null;
       /** The HTTP status, when a server answered. */
       status: number | null;
+      /** The signer's machine `code`, when it gave one (a seat refusal: `camera_points_exhausted`, …). */
+      code?: string | null;
       /** What was thrown, for the Problems list — never shown to a person. */
       error?: unknown;
     };
@@ -86,7 +102,11 @@ export type UploadSend = (job: UploadJob, hooks: UploadHooks, env?: UploadEnv) =
 export const sendToStorage: UploadSend = (job, hooks, env = {}) => {
   const doFetch = env.fetch ?? globalThis.fetch;
   const Xhr = env.XMLHttpRequest ?? globalThis.XMLHttpRequest;
-  const { file, bucket, pathPrefix, contentType } = job;
+  const { file, contentType } = job;
+  const presignBody =
+    job.papicSeatToken !== undefined
+      ? { papicSeatToken: job.papicSeatToken, filename: file.name, contentType, sizeBytes: file.size }
+      : { bucket: job.bucket, pathPrefix: job.pathPrefix, filename: file.name, contentType, sizeBytes: file.size };
 
   let settled = false;
   let settle!: (out: UploadOutcome) => void;
@@ -137,18 +157,19 @@ export const sendToStorage: UploadSend = (job, hooks, env = {}) => {
       const res = await doFetch('/api/upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bucket, pathPrefix, filename: file.name, contentType, sizeBytes: file.size }),
+        body: JSON.stringify(presignBody),
         signal: abort?.signal,
       });
       if (settled) return;
       // A refusal may carry no JSON at all (a proxy's HTML page): it is still a refusal, with its status.
       const data = (await res.json().catch(() => null)) as
-        | { uploadUrl?: unknown; r2Ref?: unknown; displayUrl?: unknown; error?: unknown }
+        | { uploadUrl?: unknown; r2Ref?: unknown; displayUrl?: unknown; error?: unknown; code?: unknown }
         | null;
       if (settled) return;
       const said = data && typeof data.error === 'string' ? data.error : null;
+      const code = data && typeof data.code === 'string' ? data.code : null;
       if (!res.ok || said !== null || !data || typeof data.uploadUrl !== 'string' || typeof data.r2Ref !== 'string') {
-        return finish({ ok: false, kind: 'refused', step: 'presign', says: said, status: res.status });
+        return finish({ ok: false, kind: 'refused', step: 'presign', says: said, status: res.status, code });
       }
       presign = { uploadUrl: data.uploadUrl, r2Ref: data.r2Ref, displayUrl: typeof data.displayUrl === 'string' ? data.displayUrl : '' };
     } catch (error) {

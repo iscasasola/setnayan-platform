@@ -18,7 +18,6 @@ import {
   Unlink2,
   BatteryWarning,
 } from 'lucide-react';
-import { Suspense } from 'react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { startRead } from '@/lib/start-read';
@@ -48,9 +47,9 @@ import { MagazineCard } from './_components/magazine-card';
 import { RecapCard } from './_components/recap-card';
 import { PapicBuySheet } from './_components/papic-buy-sheet';
 import { IapPapicSheet } from '@/app/_components/iap/iap-papic-sheet';
+import { SERVICE_NAMES } from '@/lib/service-names';
 import { PapicHomeCard } from '@/app/dashboard/[eventId]/_components/papic-home-card';
-import { PapicCardStrip } from '@/app/dashboard/[eventId]/_components/papic-card-strip';
-import { papicCardPhase, papicCoverageWords } from '@/lib/papic-home-card';
+import { papicCardPhase } from '@/lib/papic-home-card';
 import { getIapGate } from '@/lib/request-platform';
 import { papicGlance, glanceTileFromStandings } from '@/lib/papic-glance';
 import { StudioBuyHero } from '@/app/dashboard/[eventId]/studio/_components/studio-buy-hero';
@@ -530,9 +529,9 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
 
 
   const papicStartIso = papicWindow.startDate ? `${papicWindow.startDate}T00:00:00+08:00` : null;
-  // The one Add more — Apple's sheet in the app, the web's sheet everywhere else. Only the card's OPEN one opens on
-  // arrival (a purchase error to read, "?buy=1"); the folded quick view's twin never does.
-  const papicBuy = (opensOnArrival: boolean, poolError: string | null = null) =>
+  // The one Add more, inside the open card's settings — Apple's sheet in the app, the web's sheet everywhere else. It
+  // opens on arrival when there is a purchase error to read, or "?buy=1".
+  const papicBuy = (poolError: string | null = null) =>
     appleIap ? (
       <IapPapicSheet eventId={eventId} left={papicBand.count} main label="Add more" />
     ) : (
@@ -542,8 +541,8 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
         tone="brand"
         main
         label="Add more"
-        defaultOpen={opensOnArrival && (Boolean(poolError) || search.buy === '1')}
-        error={opensOnArrival ? poolError : null}
+        defaultOpen={Boolean(poolError) || search.buy === '1'}
+        error={poolError}
       />
     );
 
@@ -611,30 +610,15 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
       />
 
       {/* 📷 THE ONE PAPIC CARD, OPEN (owner ruling 2026-10-24: "ONE Home Papic card component" — the Papic page shows
-          the same card Home does, opened): its quick view folds away and the controller — the switch and the dates, the
+          the same card Home does, opened): the head with the Papic switch, and under it the controller — the dates, the
           framed counter, the meter, the window's line, Add more, what guests chipped in, then the settings — is the
           page. `papic-home-card.tsx` + `papic-camera-settings.tsx`, the very components Home draws. */}
       <PapicHomeCard
-        name="Guest photos"
-        brand="Papic"
+        name={SERVICE_NAMES.papic.plain}
+        brand={SERVICE_NAMES.papic.brand}
         icon={<Camera aria-hidden strokeWidth={1.9} />}
-        mood={papicBand.mood}
-        pct={papicBand.pct}
-        line={papicBand.line}
-        meterLabel="Credits left"
-        coverage={papicCoverageWords({ startIso: papicStartIso, endIso: papicWindow.endIso, now: Date.now() })}
         phase={papicCardPhase(papicStartIso, papicWindow.endIso, Date.now())}
-        strip={
-          <Suspense fallback={null}>
-            <PapicCardStrip
-              eventId={eventId}
-              total={typeof papicBand.result === 'number' ? papicBand.result : null}
-              phase={papicCardPhase(papicStartIso, papicWindow.endIso, Date.now())}
-            />
-          </Suspense>
-        }
-        actions={papicBuy(false)}
-        settings={<PapicCameraSettings eventId={eventId} credits={{ total: papicBand.total, left: papicBand.count }} buy={papicBuy(true, papicPoolError ?? null)} />}
+        settings={<PapicCameraSettings eventId={eventId} credits={{ total: papicBand.total, left: papicBand.count }} buy={papicBuy(papicPoolError ?? null)} />}
         marker={{ 'data-papic-page-card': '' }}
         headControl={<PapicSwitch eventId={eventId} saved={papicIsOn((ev as { papic_on?: unknown }).papic_on)} />}
         defaultOpen

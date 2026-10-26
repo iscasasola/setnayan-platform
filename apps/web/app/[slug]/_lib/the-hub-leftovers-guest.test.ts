@@ -44,7 +44,10 @@ test('1 · on the one-at-a-time reply every step’s question wears it — no 20
         guest: { ...GUEST, rsvp_status: status, plus_one_allowed: true, plus_one_count: 1 },
       });
       const heads = serifHeadings(html);
-      for (const h of ['Want to be tagged', 'Who are you bringing?', 'A note to', 'How the couple can reach you', 'Your meal preference', 'Your dietary notes', 'A song to get you dancing']) {
+      // 🪑 2026-10-25 (RSVP seats-first): the YES path opens with the Seats step and the You step; the No's own contact
+      // step ("How the couple can reach you") is drawn for a guest, never on the Maker's sample (which walks the YES path).
+      const asked = ['We reserved', 'You’re ', 'Want to be tagged', 'Who are you bringing?', 'A note to', 'Your meal preference', 'Your dietary notes', 'A song to get you dancing'];
+      for (const h of canvas ? asked : [...asked, 'How the couple can reach you']) {
         const hit = heads.find((x) => x.text.startsWith(h));
         assert.ok(hit, `${status}/${canvas ? 'sample' : 'guest'}: no heading "${h}" was drawn — this guard tests nothing`);
         assert.equal(hit.cls, RSVP_STEP_QUESTION_CLASS, `${status}/${canvas ? 'sample' : 'guest'}: "${h}" does not wear step 1's question line ("${hit.cls}")`);

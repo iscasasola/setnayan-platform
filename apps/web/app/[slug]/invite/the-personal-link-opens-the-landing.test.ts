@@ -245,7 +245,9 @@ test('H · the couple’s message: their words, the name exactly as given, no li
 
 test('I · the Fable frames: the couple as the brand line, the ✓ pill, "We’ll miss you.", the bar above the page, the day’s words', async () => {
   // Frames 3 · 4 — the headings when the couple wrote none of their own.
-  assert.equal(landingHeadline('attending'), 'You replied — see you there');
+  // 🪑 2026-10-25 (RSVP seats-first, owner decision 5): "You're on the list." is the after-Send default — was Fable
+  // frame 3's "You replied — see you there". A couple's own "After they submit" heading still replaces it.
+  assert.equal(landingHeadline('attending'), 'You’re on the list.');
   assert.equal(landingHeadline('declined'), 'We’ll miss you.');
   assert.match(ENTER, /const ownHeadline = landingHeadline\(status, words\.solemn\);/);
   /* 🔁 RE-AIMED 2026-10-10: the note after a reply is drawn from a list of its lines now (the Maker's RSVP stage

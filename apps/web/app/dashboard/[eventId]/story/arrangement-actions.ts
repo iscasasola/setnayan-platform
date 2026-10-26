@@ -6,6 +6,7 @@ import {
   type SaveArrangementResult,
 } from '@/lib/story-arrangement-store';
 import { hostUserId } from './_lib/host-authority';
+import { refuseLimitedHelper } from '@/lib/host-gate';
 
 /**
  * "MAKE IT YOURS" — THE ARRANGEMENT'S ONE WRITE (`10_WHAT_IS_LEFT_SESSIONS_2026-09-10.md` step 3).
@@ -32,6 +33,7 @@ export async function saveArrangement(
   arrangement: unknown,
   expectedVersion: number,
 ): Promise<SaveArrangementResult> {
+  await refuseLimitedHelper(eventId, null);
   const userId = await hostUserId(eventId);
   if (!userId) {
     return { ok: false, reason: 'failed', message: 'You don’t have access to this event.' };

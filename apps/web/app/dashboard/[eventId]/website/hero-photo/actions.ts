@@ -4,7 +4,7 @@ import { landAfterWrite } from '@/lib/maker-land.server';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
-import { requireHostMembership } from '@/lib/host-gate';
+import { requireHostMembership, refuseLimitedHelper } from '@/lib/host-gate';
 import { resolveReturnTo } from '@/lib/editor-return';
 import { refChange } from '@/lib/hub-look-pro';
 import { requireLookPro } from '@/lib/hub-look-gate';
@@ -53,6 +53,7 @@ async function draftHero(eventId: string, ref: string | null, formData: FormData
 }
 
 export async function uploadHeroPhoto(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'invitations');
   const eventIdRaw = formData.get('event_id');
   const heroImageUrlRaw = formData.get('hero_image_url');
 
@@ -123,6 +124,7 @@ export async function uploadHeroPhoto(formData: FormData) {
 }
 
 export async function removeHeroPhoto(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'invitations');
   const eventIdRaw = formData.get('event_id');
   if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) {
     redirect('/dashboard');

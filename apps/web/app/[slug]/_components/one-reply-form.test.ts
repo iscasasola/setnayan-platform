@@ -81,7 +81,7 @@ test('(3) Me’s doors are handed the reply page — tabbed, and on a page that 
   // "Change your reply" bar are gone; Me's ONE Reply is `MeReply`, from the page's own action (`replyCardOf` over
   // `resolveArrivalAction`, whose door is the reply page). The page holds exactly one door — `me-is-the-one-place.test.ts`.
   assert.match(me, /<MeReply ask=\{greetingAskOf\(meReplyCard\)!\}/, 'Me does not draw its one Reply');
-  assert.match(body, /const replyCardHere =[\s\S]{0,200}?replyCardOf\(\{\s*action: arrivalAction,/, 'Me’s Reply is not the page’s own action');
+  assert.match(body, /const replyCard =[\s\S]{0,200}?replyCardOf\(\{\s*action: arrivalAction,/, 'Me’s Reply is not the page’s own action');
   assert.doesNotMatch(me, /data-me-change-reply|meLeadsWithReply/, 'a second door to the reply is back on Me');
   assert.doesNotMatch(body, /REPLY_SHEET_ANCHOR|href="#your-details"/, 'a door in the guest tree names the sheet');
   const page = code('app/[slug]/page.tsx');

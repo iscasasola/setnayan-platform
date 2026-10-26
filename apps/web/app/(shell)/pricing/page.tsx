@@ -1,103 +1,50 @@
+import Image from 'next/image';
 import Link from 'next/link';
-import { ArrowRight, Check, Sparkles, Brush, Clock3 } from 'lucide-react';
-import { createAdminClient } from '@/lib/supabase/admin';
-import {
-  fetchV2CustomerCatalog,
-  fetchV2VendorCatalog,
-  formatPeso,
-  formatSkuPriceLabel,
-  formatBillingPeriodSuffix,
-  type V2CustomerSku,
-  type BuildStatus,
-} from '@/lib/v2-catalog';
-// Client motion island — the page stays an async Server Component (data fetch +
-// JSON-LD @graph below are untouched); these thin wrappers only attach the
-// premium reveal/panel refs to server-passed children. See _pricing-motion.tsx.
-import { RevealBand, LineRevealHeading } from './_pricing-motion';
-// Display-only Papic estimator (client). NEVER calls checkout — pure client
-// arithmetic over catalog rates passed as props. See _papic-estimator.tsx.
-import { PapicEstimator, type EstimatorRates } from './_papic-estimator';
-// Papic capacity / free-camera / cap COPY is derived from papic_tier_config —
-// this page must never spell a photo count, a clip count or a cap peso figure
-// as a literal (owner 2026-07-20 · guarded by lib/papic-copy-guardrails.test.ts).
-import {
-  papicBucketPhrase,
-  papicOneRungPhrase,
-} from '@/lib/papic-tier-copy';
-import {
-  readPapicOneTiers,
-  readPapicTierConfig,
-  readPapicFreeOneCameraPoints,
-} from '@/lib/papic-tier-config-read';
-import { PAPIC_FREE_ONE_CAMERA_COUNT } from '@/lib/papic-one';
+import type { ReactNode } from 'react';
+import { InfoTip } from '@/app/_components/info-tip';
+import { GuestSpotlight } from '@/app/_components/guest-spotlight';
+import { PAPIC_FREE_CREDIT_CONDITION } from '@/lib/papic-free-credit-promise';
+import { fetchV2VendorCatalog, formatPeso, type BuildStatus } from '@/lib/v2-catalog';
 import { COMMISSION_PCT, supplierCommissionShort } from '@/lib/commission-promise';
 import { getLiveBookingFeeSchedule } from '@/lib/booking-fee-settings.server';
-import { resolveAiPrices } from '@/app/_components/home/pricing-data';
 import { BRAND_OG_IMAGES, BRAND_TWITTER_IMAGES } from '@/lib/brand-og';
+import { PASS_CARD_DESIGNS } from '@/lib/pass-card';
+import { PRO_THEMES } from '@/lib/invite-themes';
+import { TOURS } from '@/lib/tours';
+import { readOurPrices, papicRungWords } from './_pricing-reads';
+// The client pieces — Event Hub Pro's one dropdown, and the included group's "See all included ↓". Figures arrive formatted.
+import { HubProWays, IncludedGroup, PriceRowShell, type IncludedRow } from './_pricing-pickers';
 
 /**
- * Force dynamic rendering · skip static prerender.
+ * /pricing — OURS ONLY, QUALITY-LED (owner 2026-10-25, verbatim: "Yes, build this pricing page and the questionnaire
+ * into the app." Earlier the same day: "I was told never to compare so i do not look cheap" · "Just focus on our free
+ * and prices and do not compare" · "no saying free. let us promote premium quality … why it is the best place to build
+ * your events" · "the paid parts look like event hub does not have a free version").
  *
- * WHY: this page calls fetchV2CustomerCatalog / fetchV2VendorCatalog from
- * lib/v2-catalog.ts. Those helpers call createAdminClient (lib/supabase/admin.ts)
- * which throws "Missing SUPABASE env vars for admin client" when
- * SUPABASE_SERVICE_ROLE_KEY is unset — the case in GitHub Actions `production
- * build`. Static prerender invokes the page at build time, hits the throw, fails
- * the build. Per-request rendering is also semantically correct: catalog rows
- * live in setnayan-prod and shift without a redeploy.
+ * THE CONTRACT: corpus `prototypes/pricing_ours_only_2026-10-25/index.html` (revision 5). Five parts, nothing else:
+ *   1 · hero · 2 · Why Setnayan (four pictures) · 3 · Better together (three rows) · 4 · Prices (Included with every
+ *   event, then the paid ones by moment) · 5 · Close.
+ * No other company, no "elsewhere", no saving, no giveaway pitch — the included things say "Included".
  *
- * Locked CLAUDE.md 2026-05-28 row "fix endless loop error on vercel". Pairs with
- * the try/catch around createAdminClient in lib/v2-catalog.ts fetchers.
+ * 🔑 EVERY PESO IS READ from `platform_retail_catalog_v2` (`./_pricing-reads.ts`). A missing row draws no figure, and an
+ * item with no figure is not drawn. Guarded by `pricing-ours-only.test.ts`.
+ *
+ * ⚠ `dynamic` IS DECLARED ONCE, ON `app/(shell)/layout.tsx`, NOT HERE (a layout's `dynamic` covers its children).
+ *
+ * ⚖ THE AUDIENCE RULE (owner 2026-09-22, R7; audit 2026-10-12 E4). The share lines are read by couples AND suppliers:
+ * "0% commission" is a couple's unqualified truth; a supplier also pays a booking fee on couples we introduce, so every
+ * share line names it.
  */
-
-/**
- * /pricing — V2 customer-side pricing surface.
- *
- * REDESIGNED 2026-07-04 (marketing-only): free-forward layout —
- *   hero → Free · Explore vs Setnayan AI → add-ons GROUPED (Papic & its add-ons ·
- *   Go live & interactive · Your website · Personal touches) → a client-side,
- *   DISPLAY-ONLY Papic estimator → the complete "Free, always" list → the
- *   apply-then-pay / 0%-commission line.
- *
- * Every price still reads LIVE from the V2 catalog (platform_retail_catalog_v2 ·
- * vendor_billing_catalog). Build-status chips (Live · In build · Coming soon)
- * are preserved. When a grouped SKU is inactive/absent it is simply omitted —
- * never hardcoded. NO checkout / payment / entitlement / migration touched.
- */
-
-// Pricing copy realigned to the owner-locked 4-tier model (Pricing.md § 00):
-// start free on the planning workspace, pay for Setnayan AI + the software you
-// add. No "free website / free RSVP" claims — those SKUs are paid.
-/*
-  ⚠ `dynamic` IS DECLARED ONCE, ON `app/(shell)/layout.tsx`, NOT HERE.
-  The shared shell reads the session, so every route in this group must be
-  dynamic — and a layout's `dynamic` DOES cover its children (measured: with
-  the pages declaring nothing, `force-dynamic` on the group layout alone moved
-  them from `○ Static` to `ƒ Dynamic` in the build table). This file used to
-  carry its own copy, along with a docblock asserting a layout could not do
-  this. That assertion was false. Twenty copies of one rule is twenty places
-  for it to disagree with itself — do not re-add it here.
-*/
-
-/*
-  ⚖ THE AUDIENCE RULE (owner 2026-09-22, R7; audit 2026-10-12 E4). This page
-  sells couple software AND supplier plans, so its share lines are read by
-  both. "0% commission" is a couple's unqualified truth and needs nothing beside
-  it; "Suppliers keep 100%" / "Setnayan takes 0%" were SUPPLIER claims with no
-  fee sentence — a supplier keeps 100% of the couple's payment and still pays
-  a booking fee on couples we introduce. Those lines now carry the fee sentence;
-  the couple's zero is left alone.
-*/
 export const metadata = {
   title: 'Pricing',
   description:
-    `Plan for free. Add Setnayan AI and the software you actually use at your event, at transparent PHP prices. ${COMMISSION_PCT}% commission on supplier bookings — couples pay suppliers directly. Suppliers pay Setnayan a booking fee only on couples we introduce.`,
+    `The best place to build your event — beautifully made, for you and the people you know. Paid once, for the event and everyone on it, in Philippine peso. ${COMMISSION_PCT}% commission on supplier bookings — couples pay suppliers directly. Suppliers pay Setnayan a booking fee only on couples we introduce.`,
   alternates: { canonical: '/pricing' },
   openGraph: {
     images: BRAND_OG_IMAGES,
     title: 'Pricing · Setnayan',
     description:
-      `Plan free, add the magic as you go. Transparent PHP prices. Couples pay suppliers directly — ${COMMISSION_PCT}% commission. Suppliers pay a booking fee only on couples we introduce.`,
+      `Crafted for every event — everything to plan is included, and what you add is paid once for the event. Couples pay suppliers directly — ${COMMISSION_PCT}% commission. Suppliers pay a booking fee only on couples we introduce.`,
     url: '/pricing',
     type: 'website',
     siteName: 'Setnayan',
@@ -106,449 +53,194 @@ export const metadata = {
     images: BRAND_TWITTER_IMAGES,
     card: 'summary_large_image',
     title: 'Pricing · Setnayan',
-    description: `Plan free · add software à la carte · ${COMMISSION_PCT}% commission · suppliers pay a booking fee only on couples we introduce.`,
+    description: `The best place to build your event · paid once per event · ${COMMISSION_PCT}% commission · suppliers pay a booking fee only on couples we introduce.`,
   },
 };
 
-// Build-status chip — honest about what's wired vs catalog-only.
-function BuildStatusChip({ status }: { status: BuildStatus }) {
-  if (status === 'live') {
-    return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-terracotta-700 px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.18em] text-cream">
-        <Sparkles aria-hidden className="h-3 w-3" strokeWidth={2} />
-        Live
-      </span>
-    );
-  }
-  if (status === 'partial') {
-    return (
-      <span className="inline-flex items-center gap-1.5 rounded-full border border-terracotta/40 bg-terracotta/5 px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.18em] text-terracotta">
-        <Clock3 aria-hidden className="h-3 w-3" strokeWidth={2} />
-        In build
-      </span>
-    );
-  }
+/** The prototype's `.wrap` inside the shell's column: 16 px from the edge on a phone (the shell's own inset), the
+ *  prototype's 56 + 16 px from the rail on a wide screen, 720 px at most. */
+const WRAP = 'max-w-[784px] lg:px-12';
+const KICK = 'm-eyebrow';
+const H2 = 'm-0 mt-3 font-pahina text-[30px] font-normal leading-[1.1] tracking-[-0.015em] lg:mt-4';
+const LINE = 'm-0 mt-2.5 max-w-[34ch] text-[16.5px] leading-normal text-ink/65 lg:mt-3';
+
+/**
+ * A product picture, cropped the way the prototype crops it (its `still_*.jpg` were cut from these same captures): the
+ * 460 × 972 phone capture fills the frame's width, `y` picks the band, `zoom` trims the sides.
+ */
+function Shot({ src, y, zoom, sizes }: { src: string; y: string; zoom: number; sizes: string }) {
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-ink/15 bg-ink/[0.03] px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
-      <Brush aria-hidden className="h-3 w-3" strokeWidth={1.75} />
-      Coming soon
-    </span>
+    <Image
+      src={src}
+      alt=""
+      fill
+      sizes={sizes}
+      className="object-cover saturate-[.9]"
+      style={{ objectPosition: `50% ${y}`, transform: `scale(${zoom})` }}
+    />
   );
 }
 
-// ── Add-on grouping — data-driven from the catalog by service_code ──
-// The prototype groups the à-la-carte SKUs into four named sections; each row's
-// price comes from the live catalog. A `withPapic` flag renders the "with Papic"
-// tag. `gate` (optional) hides a row unless the SKU is present AND active — used
-// for WEBSITE_UPGRADE, which only shows if the catalog carries it.
-type GroupItem = { code: string; withPapic?: boolean; gate?: boolean };
-type CatalogGroup = { title: string; items: GroupItem[] };
+function WhyShot(props: { src: string; y: string; zoom: number }) {
+  return (
+    <div className="relative aspect-[3/2] w-full overflow-hidden rounded-xl lg:aspect-[4/3]">
+      <Shot {...props} sizes="(min-width: 1024px) 180px, 45vw" />
+    </div>
+  );
+}
 
-const ADDON_GROUPS: CatalogGroup[] = [
-  {
-    title: 'Papic & its add-ons',
-    items: [
-      // The two-type model (owner-locked 2026-07-29) — both rows are SYNTHETIC,
-      // collapsing their live rungs into one "from ₱X" line each (see below).
-      { code: 'PAPIC_POOL' }, // Papic Pool — the shared shot pool, additive top-ups
-      { code: 'PAPIC_CAMERAS' }, // Papic One — a dedicated camera, its own QR + shots
-      { code: 'CAMERA_BRIDGE', withPapic: true },
-      // PABATI was RETIRED on 2026-08-21 (owner: "we do not need pabati. retire
-      // it because it is part of papic"), superseding the free ruling made
-      // hours earlier the same day. It is GONE, not merely off sale — the
-      // surface, the API, the table and the RPCs are deleted — so unlike KWENTO
-      // below its code is NOT kept listed here: this list drives what a couple
-      // can be shown, and a row for a product that no longer exists is a fake
-      // door. The lineage lives in lib/v2-catalog.ts, the same place the LED
-      // wall backdrop's does.
-      // KWENTO is FREE for every event since 2026-08-21 (owner: "kwento is
-      // free") — is_active=false, so it drops out of resolvedGroups
-      // automatically and no longer appears among the paid rows, which is
-      // correct: this page lists what you PAY for. The feature is still on for
-      // everyone (entitlements FREE_FOR_ALL_SKUS) and llms.txt describes it as
-      // free. Code kept listed — same convention as LIVE_WALL below — so the
-      // change is legible here rather than looking like an accidental deletion.
-      { code: 'KWENTO', withPapic: true }, // FREE 2026-08-21 — no longer a paid row
-      // Pakanta moved to "Personal touches" on origin/main (owner 2026-07-10
-      // "pakanta is not part of papic"); Stories + Thank You are the genuine
-      // Papic add-ons activated 2026-07-10.
-      { code: 'PAPIC_ADDON_STORIES', withPapic: true }, // Stories — 30s guest story maker
-      { code: 'PAPIC_ADDON_THANK_YOU', withPapic: true }, // Thank You Video
-    ],
-  },
-  {
-    title: 'Go live & interactive',
-    items: [
-      // ⭐ THE UNIFIED LIVE STUDIO SKU — ₱3,000 PER EVENT (owner-locked 2026-07-25 ·
-      // Live_Studio_Unified_Spec § 3: Cast + Roam merged into one switching product).
-      //
-      // 🚨 IT MUST BE LISTED HERE OR IT CAN NEVER APPEAR. `resolvedGroups` maps over
-      // ADDON_GROUPS' items and omits anything the catalog doesn't return — so a SKU in
-      // no group is invisible on /pricing no matter what the catalog says. That is the
-      // trap COUPLE_WEBSITE_PRO's comment below records ("must be LISTED here or the
-      // reactivated umbrella never appears"), and Live Studio was walking into it: at
-      // the flag flip its Studio tile and buy drawer would light up while /pricing
-      // showed NO paid live-broadcast row at all — because the only Live Studio code
-      // listed here was PANOOD_SYSTEM, which is now permanently retired (below).
-      //
-      // Safe to list while dark: `fetchV2CustomerCatalog` name-excludes LIVE_STUDIO
-      // while NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED is off, so this row is omitted today
-      // and appears the moment the owner flips the flag — one launch switch, no second
-      // code change. (Free single-camera livestream is unaffected and stays free.)
-      { code: 'LIVE_STUDIO' }, // Live Studio — once per event, unlimited streams (LS6, 2026-09-02) — the unified switching SKU
-      // ~~PANOOD_SYSTEM~~ (Cast, ₱2,500/day) is **RETIRED** — is_active=false via
-      // migration 20271005180040 (PR #3716), because Wave 6's ownership alias
-      // LIVE_STUDIO ← PANOOD_SYSTEM let a ₱2,500 Cast order collect the ₱3,000 unified
-      // controller (a ₱500 arbitrage on a live buy button). PANOOD_SYSTEM_MOBILE was
-      // retired 2026-07-21 and was never purchasable anyway (no buy surface ever posted
-      // it, zero orders). Both drop out of resolvedGroups automatically; the code stays
-      // listed — same convention as LIVE_BACKGROUND below — so the retirement is legible
-      // here rather than looking like an accidental deletion.
-      { code: 'PANOOD_SYSTEM' }, // retired 2026-07-26 — folded into LIVE_STUDIO above
-      // LIVE_WALL is FREE for every event since 2026-08-11 (owner: "live photo
-      // wall FREE") — is_active=false, so it drops out of resolvedGroups
-      // automatically and no longer appears among the paid à-la-carte rows,
-      // which is correct: this page lists what you PAY for. The feature is still
-      // on for everyone (entitlements FREE_FOR_ALL_SKUS) and llms.txt describes
-      // it as free. Code kept listed — same convention as PANOOD_SYSTEM above
-      // and LIVE_BACKGROUND below — so the change is legible here rather than
-      // looking like an accidental deletion.
-      { code: 'LIVE_WALL' }, // FREE 2026-08-11 — no longer a paid row
-      { code: 'PATIKTOK_COMPILER' },
-      // LIVE_BACKGROUND (the LED wall backdrop) was REMOVED from the product
-      // 2026-08-11 — it is is_active=false and drops out of resolvedGroups
-      // automatically, and there is no longer a maker behind it to sell.
-      { code: 'SEATING_3D' }, // FREE 2026-09-05 — no longer a paid row (was activated 2026-07-10)
-    ],
-  },
-  {
-    title: 'Your Event Hub',
-    items: [
-      // Website PRO REACTIVATED (owner 2026-07-22): the umbrella
-      // and the ONLY way to get Editorial PRO + the Cinematic Reveal, both now
-      // bundle-only (is_active=false → their standalone rows auto-drop from
-      // resolvedGroups). COUPLE_WEBSITE_PRO must be LISTED here or the reactivated
-      // umbrella never appears (resolvedGroups only renders codes in a group).
-      { code: 'COUPLE_WEBSITE_PRO' }, // Website PRO — price read from the catalogue; includes Reveal + Editorial PRO
-      { code: 'EVENT_SUBDOMAIN' }, // Custom subdomain yourname.setnayan.com ₱999/year (owner 2026-07-10)
-      { code: 'WEBSITE_UPGRADE', gate: true }, // only if active in the catalog
-    ],
-  },
-  {
-    title: 'Personal touches',
-    // Pakanta = a custom wedding song (iteration 0036), NOT a Papic add-on —
-    // it lives here alongside the monogram (owner 2026-07-10 "pakanta is not
-    // part of papic").
-    items: [{ code: 'ANIMATED_MONOGRAM' }, { code: 'PAKANTA' }],
-  },
-];
+/** The fourth "Why" point has no product shot; it wears a drawn lock tile (prototype revision 4, reported). */
+function LockTile() {
+  return (
+    <div className="grid aspect-[3/2] w-full place-items-center rounded-xl border border-terracotta-700/20 bg-cream lg:aspect-[4/3]">
+      <svg viewBox="0 0 24 24" aria-hidden className="h-[38px] w-[38px] fill-none stroke-terracotta-700" strokeWidth={1.2} strokeLinecap="round" strokeLinejoin="round">
+        <rect x="5" y="10" width="14" height="10" rx="2" />
+        <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+      </svg>
+    </div>
+  );
+}
+
+/** `align`: the right-hand picture of a phone's two columns hangs its ⓘ from the right, or the popover runs off the page. */
+function WhyPoint({ shot, title, line, tip, align = 'start' }: { shot: ReactNode; title: string; line: string; tip: string; align?: 'start' | 'end' }) {
+  return (
+    <li>
+      {shot}
+      <p className="m-0 mt-3 font-pahina text-[18.5px] leading-[1.15] tracking-[-0.01em]">{title}</p>
+      <div className="mt-1 text-[13.5px] leading-snug text-ink/65">
+        <InfoTip label={line} align={align}>
+          {tip}
+        </InfoTip>
+      </div>
+    </li>
+  );
+}
+
+function TogetherRow({ icon, title, line, tip }: { icon: ReactNode; title: string; line: string; tip: string }) {
+  return (
+    <li className="flex items-start gap-3.5 border-t border-ink/10 py-3 first:border-t-0 first:pt-1 lg:py-4">
+      <svg viewBox="0 0 24 24" aria-hidden className="mt-0.5 h-6 w-6 shrink-0 fill-none stroke-terracotta-700" strokeWidth={1.3} strokeLinecap="round" strokeLinejoin="round">
+        {icon}
+      </svg>
+      <div>
+        <p className="m-0 font-pahina text-xl leading-[1.15] tracking-[-0.01em]">{title}</p>
+        <div className="mt-[3px] text-sm leading-snug text-ink/65">
+          <InfoTip label={line} align="start">
+            {tip}
+          </InfoTip>
+        </div>
+      </div>
+    </li>
+  );
+}
+
+/** A small moment label in the price list ("On the day"). */
+function Moment({ children }: { children: ReactNode }) {
+  return (
+    <p className="m-0 pb-1 pt-5 font-mono text-[10.5px] uppercase leading-none tracking-[0.16em] text-terracotta-700">
+      {children}
+    </p>
+  );
+}
+
+/** "from ₱70" · "₱1,500 a day" — the figure, with its small words. */
+function Figure({ php, from = false, suffix }: { php: number; from?: boolean; suffix?: string }) {
+  return (
+    <>
+      {from ? <small className="mr-1 font-sans text-xs text-ink/65">from</small> : null}₱{formatPeso(php)}
+      {suffix ? <small className="ml-1 font-sans text-xs text-ink/65">{suffix}</small> : null}
+    </>
+  );
+}
 
 export default async function PricingPage() {
-  // Reads in parallel · helpers return [] on error, so the page still renders a
-  // polite empty state rather than 500'ing. The Essentials/Complete bundle tiers
-  // were removed 2026-06-29 (both deactivated).
-  const [customerSkus, vendorSkus, papicTierConfig, papicOneTiers, papicFreeOnePoints, feeSchedule] =
-    await Promise.all([
-      fetchV2CustomerCatalog(),
-      fetchV2VendorCatalog(),
-      // Papic capacity + caps are DERIVED from the admin-editable tier config —
-      // never spelled as literals here (owner 2026-07-20). See lib/papic-tier-copy.ts.
-      readPapicTierConfig(),
-      // …except the Papic ONE shot counts, which live in `papic_one_tiers`. See
-      // the ladder block below for why reading them from the tier config was a lie.
-      readPapicOneTiers(),
-      // …and the free ONE camera's bucket, which lives in a third place again:
-      // papic_event_pool_config.free_one_camera_points. See the free-camera
-      // block below for why the tier config's seat count was the wrong number.
-      readPapicFreeOneCameraPoints(),
-      // The LIVE supplier booking-fee schedule, for the supplier-plan
-      // structured data (never the code default — audit 2026-10-12, item 5).
-      getLiveBookingFeeSchedule(),
-    ]);
+  // Reads in parallel · each degrades to no rows, so the page renders with no figure rather than 500'ing.
+  const [{ prices, customerSkus }, vendorSkus, feeSchedule] = await Promise.all([
+    readOurPrices(),
+    // The supplier plans and the LIVE booking-fee schedule, for the structured data only (never the code default —
+    // audit 2026-10-12, item 5).
+    fetchV2VendorCatalog(),
+    getLiveBookingFeeSchedule(),
+  ]);
 
-  // Setnayan AI is a ONE-TIME, wedding-anchored purchase (owner 2026-07-10): one
-  // charge, access until the event date. The prior ₱499→₱799/28-day subscription
-  // (and its SETNAYAN_AI_RENEW row) is retired — no renewal price.
-  //
-  // 🔑 IT HAS TWO PRICES (owner 2026-08-12) AND THIS PAGE SHOWED ONE. A sign-up
-  // price if you take it while creating your event, the regular price after.
-  // Both live in the catalog row and the sign-up one was already being CHARGED;
-  // it simply never reached a public surface. Read both, and let the card decide
-  // how to say it.
-  //
-  // ⚠ THE '₱499' FALLBACK IS GONE, AND IT WAS NOT HARMLESS. By the time it was
-  // found the live price was ₱2,499 — the "last-resort" number was FIVE TIMES
-  // off, on the page where somebody decides to pay, and nothing checked it
-  // because `public-price-literals.ts` declared it `sku: null` (a non-price),
-  // which is exactly the class of entry that is never drift-tested. An
-  // unreadable catalog now renders NO figure. A missing price is recoverable;
-  // a confidently wrong one is not.
-  //
-  // The period suffix comes from the row's billing_period (now `one_time` → '').
-  // ⚠ ONE RESOLVER, TWO SURFACES. `resolveAiPrices` is shared with the nav
-  // pricing overlay (`_components/home/pricing-data.ts`) so this page and that
-  // popup can never disagree about whether a sign-up price exists. Its docblock
-  // carries the four rules; do not re-implement them here.
-  const setnayanAi = customerSkus.find((s) => s.service_code === 'SETNAYAN_AI');
-  const ai = resolveAiPrices(setnayanAi);
-  const aiRegularLabel = ai.regularPhp > 0 ? `₱${formatPeso(ai.regularPhp)}` : null;
-  const aiSignupLabel = ai.hasSignupPrice ? `₱${formatPeso(ai.introPhp)}` : null;
-  const aiPeriod = setnayanAi ? formatBillingPeriodSuffix(setnayanAi.billing_period) : '';
+  const peso = (n: number) => `₱${formatPeso(n)}`;
+  const papicFrom = prices.papicRungs[0] ?? null;
+  const papicCheaperAtSetup = prices.papicRungs.some((r) => r.signup != null);
+  const aiBands = Object.values(prices.ai);
+  const aiFrom = aiBands.length ? Math.min(...aiBands.map((b) => b.regular)) : null;
+  const aiWedding = prices.ai.A ?? null;
+  const aiDate = prices.ai.D ?? null;
+  const partsFrom = prices.hubParts.length ? Math.min(...prices.hubParts.map((p) => p.php)) : null;
+  // Counts said as words, as the prototype says them — derived, never typed (`lib/free-themes-are-free.test.ts`).
+  const word = (n: number) => ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'][n] ?? String(n);
+  const passStyles = word(PASS_CARD_DESIGNS.length);
+  const proThemes = word(PRO_THEMES.length).replace(/^./, (c) => c.toUpperCase());
 
-  // ── The Papic ONE ladder — DERIVED, never spelled ─────────────────────────
-  // Rungs come from `papic_one_tiers` (admin-editable: service_code → the
-  // LIFETIME shot count that rung grants a single dedicated camera), priced from
-  // the live catalog. A rung whose SKU is missing/unreadable DROPS OUT rather
-  // than rendering an invented price — the same "never hardcode a missing SKU"
-  // doctrine the grouped add-on renderer below follows.
-  //
-  // ⚠ THIS USED TO READ `papic_tier_config.points_per_day` VIA publicPapicLadder,
-  // AND THAT WAS A LIVE FALSEHOOD. The two-type lock (owner 2026-07-29) moved
-  // Papic One off a per-day meter onto a lifetime bucket, and set the 'mini'
-  // row's points_per_day to NULL on prod. NULL means "unlimited" to every copy
-  // helper — so this page told couples a ₱50 camera shoots "unlimited shots per
-  // day" when it actually holds 50. The number and the price have to come from
-  // the same lock, or the cheaper we make Papic the bigger the lie gets.
-  //
-  // Capacity is still expressed in the points currency the code enforces
-  // (1 photo = 1 pt · one 10-second clip = the constant in lib/papic-cameras-pure.ts),
-  // so the copy stays true if an admin retunes a rung.
-  const papicOneLadder = papicOneTiers
-    .map((tier) => {
-      const sku = customerSkus.find((s) => s.service_code === tier.serviceCode);
-      const pricePhp = sku ? Number(sku.retail_price_php) : NaN;
-      return Number.isFinite(pricePhp) ? { tier, pricePhp } : null;
-    })
-    .filter((r): r is { tier: (typeof papicOneTiers)[number]; pricePhp: number } => r !== null)
-    .sort((a, b) => a.pricePhp - b.pricePhp);
-  // 🚨 THE FREE CAMERA ON *THIS* PRODUCT IS ONE, NOT THREE (fixed 2026-07-29).
-  //
-  // Both surfaces below used to read `papicFreeCameraCount(papicTierConfig)` —
-  // i.e. `papic_tier_config.free.seats_per_event`, which is 3. That number is a
-  // Papic POOL fact: three free SHARED seats (seat_index 100..102) that spend the
-  // event's shared point pool. Papic ONE is the DEDICATED product, and it gets
-  // exactly ONE free camera — `papic_ensure_free_one_camera` pins it to a single
-  // fixed seat_index and two unique constraints make a second impossible.
-  //
-  // So the One tab quoted the POOL's free-seat count on a product that gives one
-  // dedicated camera, and the estimator billed for that many fewer cameras than
-  // a couple would actually buy. Under the 2026-07-29 two-type lock the free tier is
-  // "unlimited POOL cameras sharing one purse, plus ONE free dedicated camera" —
-  // the three shared seats aren't a One allowance at all, and quoting them here
-  // was the last place the retired per-seat model still spoke.
-  //
-  // The free camera's own bucket is smaller than any paid rung, so the copy says
-  // so rather than implying a free camera equals a bought one.
-  const papicFreeOneCameras = papicFreeOnePoints > 0 ? PAPIC_FREE_ONE_CAMERA_COUNT : 0;
-  const papicOneLadderPhrase = papicOneLadder
-    .map(({ tier, pricePhp }) => papicOneRungPhrase(tier.points, pricePhp))
-    .join(' · ');
-  const papicOneTitle = papicTierConfig.mini.displayTitle;
-  const papicFromPhp = papicOneLadder.length
-    ? Math.min(...papicOneLadder.map((r) => r.pricePhp))
-    : null;
-
-  // Collapse the per-camera rate SKU(s) into ONE synthetic "from ₱X/camera"
-  // catalog row for the grouped list; JSON-LD keeps the raw rows. Flat model
-  // (2026-07-22 rename): Papic One is a flat price PER CAMERA — no per-day
-  // multiplier, no wedding cap. The days/cap framing was removed here.
-  const papicCamerasSynthetic: V2CustomerSku | null =
-    papicFromPhp != null
-      ? {
-          service_code: 'PAPIC_CAMERAS',
-          title: papicOneTitle,
-          retail_price_php: papicFromPhp,
-          // Synthetic rows are composed from real rungs and are never bought
-          // directly, so they carry no sign-up price.
-          onboarding_price_php: null,
-          saas_overhead_cost_php: 0,
-          is_token_able: false,
-          description:
-            `A camera of its own for someone you trust — its own QR, and credits ` +
-            `nobody else can spend. ` +
-            (papicFreeOneCameras > 0
-              ? `Your ${papicFreeOneCameras === 1 ? 'first camera is' : `first ${papicFreeOneCameras} cameras are`} ` +
-                `free to try — ${papicBucketPhrase(papicFreeOnePoints)}. Then ` +
-                papicOneLadderPhrase
-              : papicOneLadderPhrase) +
-            `. Reload any camera any time.`,
-          build_status: 'live',
-          billing_period: 'one_time',
-          is_pax_priced: true, // drives the "from ₱X" label
-          pax_floor: null,
-          pax_floor_price_php: null,
-          pax_increment_size: null,
-          pax_increment_price_php: null,
-        }
-      : null;
-
-  // Papic — the shot buckets, flat-priced from the live catalog.
-  //
-  // 🚨 THIS USED TO BE A HARDCODED LIST OF THREE SERVICE CODES and it had
-  // already gone wrong. The list named the 3,000 / 6,000 / 10,000 rungs, so it
-  // could never show the two the owner added on 2026-08-11 (100 shots ₱50 and
-  // 20,000 ₱5,000) and still named the 6,000 rung he retired the same day — the
-  // public pricing page advertised a ladder that no longer existed, silently,
-  // with nothing to notice it. A page that lists SKUs by hand goes stale the
-  // moment the catalog moves, and the catalog is the thing customers buy from.
-  //
-  // Derived now: every ACTIVE Papic shot rung the catalog offers, whatever it
-  // offers. Adding or retiring a rung is a migration and nothing else.
-  // `is_topup` rows are excluded upstream in customerSkus; a retired code drops
-  // out on its own because it is no longer active.
-  const papicPoolBuckets = customerSkus
-    .filter((s) => /^PAPIC_GUEST(_|$)/.test(s.service_code)) // gitleaks:allow — catalog service_codes, not secrets
-    .map((s) => ({
-      key: s.service_code,
-      // Short bucket label from the catalog title ("Papic — add 3,000 credits" →
-      // "add 3,000 credits"); never a hardcoded shot count.
-      //
-      // ⚠ The old strip was /^Papic Pool\s*[—-]\s*/ and the titles were renamed
-      // to "Papic — add N shots" when the two products became one. It stopped
-      // matching, so the page rendered "₱1,000 to Papic — add 3,000 credits".
-      // Matching the product word alone survives that rename and the last one.
-      label: s.title
-        .replace(/^Papic(\s+Pool)?\s*[—-]\s*/i, '')
-        .replace(/\s*\(per event\)\s*$/i, ''),
-      pricePhp: Number(s.retail_price_php),
-    }))
-    .sort((a, b) => a.pricePhp - b.pricePhp);
-
-  // Collapse the Pool buckets into ONE synthetic "from ₱X" row, the same way
-  // PAPIC_CAMERAS collapses the One rungs.
-  //
-  // 🚨 WITHOUT THIS, PAPIC POOL IS INVISIBLE ON THIS PAGE. `resolvedGroups` only
-  // renders codes that appear in ADDON_GROUPS, so a SKU in no group cannot show
-  // no matter what the catalog says — the exact trap recorded on LIVE_STUDIO
-  // above. The Pool rows were reactivated on 2026-07-29 and belong to no group,
-  // so the estimator quoted a product the price list did not carry. Listing the
-  // three buckets separately would read as three products; one "from ₱X" row
-  // with the ladder in its description reads as what it is — one shared pool
-  // you top up.
-  const papicPoolSynthetic: V2CustomerSku | null =
-    papicPoolBuckets.length > 0
-      ? {
-          service_code: 'PAPIC_POOL',
-          title: 'Papic',
-          retail_price_php: papicPoolBuckets[0]!.pricePhp,
-          // Synthetic row — composed from real rungs, never bought directly.
-          onboarding_price_php: null,
-          saas_overhead_cost_php: 0,
-          is_token_able: false,
-          description:
-            `One shared pool of credits that every guest's phone can spend from — ` +
-            `no per-camera math, no seat limit. ` +
-            papicPoolBuckets
-              .map(({ label, pricePhp }) => `₱${formatPeso(pricePhp)} to ${label}`)
-              .join(' · ') +
-            `. Every top-up stacks on what your event already holds.`,
-          build_status: 'live',
-          billing_period: 'one_time',
-          is_pax_priced: true, // drives the "from ₱X" label — the ladder starts here
-          pax_floor: null,
-          pax_floor_price_php: null,
-          pax_increment_size: null,
-          pax_increment_price_php: null,
-        }
-      : null;
-
-  // Look up table for the grouped add-on renderer — includes the synthetic rows.
-  const skuByCode = new Map<string, V2CustomerSku>(
-    customerSkus.map((s) => [s.service_code, s]),
-  );
-  if (papicCamerasSynthetic) skuByCode.set('PAPIC_CAMERAS', papicCamerasSynthetic);
-  if (papicPoolSynthetic) skuByCode.set('PAPIC_POOL', papicPoolSynthetic);
-
-  // Resolve each add-on group's rows from the catalog, dropping any SKU that is
-  // absent (and gated rows unless present + active). NEVER hardcodes a price.
-  const resolvedGroups = ADDON_GROUPS.map((g) => ({
-    title: g.title,
-    rows: g.items
-      .map((it) => {
-        const sku = skuByCode.get(it.code);
-        if (!sku) return null; // omit — never hardcode a missing SKU
-        return { sku, withPapic: Boolean(it.withPapic) };
-      })
-      .filter((r): r is { sku: V2CustomerSku; withPapic: boolean } => r !== null),
-  })).filter((g) => g.rows.length > 0);
-
-  // Estimator inputs — the SAME derived ladder the description above renders
-  // (rungs + rates + per-rung capacity + per-rung WEDDING cap). Nothing about
-  // Papic capacity or caps is spelled here. Add-on prices come from the catalog.
-  const rateOf = (code: string, fb: number) =>
-    Number(customerSkus.find((s) => s.service_code === code)?.retail_price_php ?? fb);
-  const estimatorAddonDefs: Array<{ key: string; code: string; label: string; fb: number }> = [
-    { key: 'cb', code: 'CAMERA_BRIDGE', label: 'Camera Bridge · DSLR', fb: 500 }, // owner 2026-07-11 (was 499)
-    // Kwento owner-locked FREE 2026-07-08 → deactivating the catalog row drops
-    // it from the estimator (filter below); fb 0 guards a lingering
-    // null-priced row from showing a stale paid figure. Pabati sat beside it
-    // until 2026-08-21, when it was retired out of the product entirely.
-    { key: 'kwento', code: 'KWENTO', label: 'Photo Notes', fb: 0 },
-    // Pakanta (custom wedding song, 0036) is NOT a Papic add-on — deliberately
-    // excluded from the per-camera Papic estimator (owner 2026-07-10).
-  ];
-  // ⚠ THE ESTIMATOR NO LONGER PRICES A SECOND PRODUCT. It used to carry a
-  // dedicated-camera rung (`one`) plus its free-camera allowance, and drew a
-  // two-way switch between that and the shared pot. Owner 2026-08-26: *"we do
-  // not have papic one or papic pool. no 2 ways of papic service. just 1."*
-  // Setting shots aside for one camera is a FEATURE of the single pot, done
-  // inside the event — not a thing to choose between here.
-  const estimatorRates: EstimatorRates = {
-    pool: papicPoolBuckets,
-    addons: estimatorAddonDefs
-      // Only offer an add-on the catalog actually carries (else drop it).
-      .filter((a) => customerSkus.some((s) => s.service_code === a.code))
-      .map((a) => ({ key: a.key, label: a.label, price: rateOf(a.code, a.fb) })),
-  };
-
-  // The complete "Free, always" list — planning tools, the 4-in-1 website,
-  // unlimited RSVP, single-camera livestream, Custom QR. Deliberately EXCLUDES
-  // Guest Stories (paid / inactive). Grouped for scanability.
-  const FREE_COLUMNS: Array<{ title: string; items: Array<{ n: string; note?: string }> }> = [
+  // INCLUDED WITH EVERY EVENT — the verified set of `pricing_free_plus_addons_2026-10-25` revision 4 (each tied to a
+  // ruling and a gate). First six shown; the rest open in place.
+  const included: IncludedRow[] = [
     {
-      title: 'Plan your day',
-      items: [
-        { n: 'Schedule', note: 'your day-of timeline' },
-        { n: 'Budget tracker' },
-        { n: 'Guest list' },
-        { n: 'Seat plan', note: '2D layout + 3D walkthrough' },
-        { n: 'Mood board' },
-        { n: 'Printable plans' },
-      ],
+      name: 'The Event Hub',
+      tip: 'A complete design written from your details, all five stages — Save-the-Date, RSVP, the day, Memories, Post Event. Yours with every event; Pro changes only how it looks.',
+      what: 'A complete design, your details in it, all five stages.',
+    },
+    { name: 'Guest list & RSVPs', tip: 'No limit on guests; each replies by link, without an account.', what: 'No limit; guests reply by link.' },
+    {
+      name: 'Seat plan with 3D',
+      tip: 'Lay the tables out in 2D and walk the room in 3D; guests find their seat on their pass.',
+      what: 'Lay it out, then walk the room.',
     },
     {
-      title: 'Your free Event Hub',
-      items: [
-        { n: 'Save-the-Date page' },
-        { n: 'RSVP page', note: 'unlimited RSVP collection' },
-        { n: 'Event / on-the-day page' },
-        { n: 'Story page' },
-      ],
+      name: 'Budget & schedule',
+      tip: 'Your budget with every payment tracked, and the day’s timeline from preparation to the last dance.',
+      what: 'Every payment and the day’s timeline.',
     },
     {
-      title: 'Capture & share',
-      items: [
-        { n: 'Browse suppliers + match preview' },
-        { n: 'Single-camera livestream', note: 'to YouTube, auto-archived' },
-        { n: 'Custom QR for every guest', note: 'free per-guest QR' },
-        { n: 'Memories', note: 'every event’s photos in one place' },
-        { n: '0% commission on supplier bookings' },
-      ],
+      name: 'Suppliers',
+      tip: `Find, compare and book verified suppliers; you pay them directly and Setnayan takes ${COMMISSION_PCT}% commission.`,
+      what: `Find, compare, book — ${COMMISSION_PCT}% commission.`,
+    },
+    {
+      name: 'Door check-in by QR',
+      tip: 'Your door crew scans each guest’s own QR on a phone; arrivals, plus-ones and tables, live.',
+      what: 'Scan each guest’s pass at the door, live.',
+    },
+    {
+      name: 'Guest tickets',
+      tip: `Each guest keeps a pass with their name and QR, in one of ${passStyles} styles.`,
+      what: `Each guest’s own pass, ${passStyles} styles.`,
+    },
+    {
+      name: 'Printables',
+      tip: 'Guest registry, QR codes, seat plan, table signs and place cards, meal counts — print-ready files. Prints in your Event Hub look are part of Pro.',
+      what: 'Registry, QR codes, seat plan, signs, meal counts.',
+    },
+    {
+      name: 'Livestream, one camera',
+      tip: 'One camera streams to everyone who can’t be there. Every camera at once is Live Watch, below.',
+      what: 'One camera, live to everyone who can’t be there.',
+    },
+    { name: 'Memories', tip: 'Every photo from the event in one place, for you and your guests.', what: 'Every photo, in one place.' },
+    {
+      name: 'Papic credits, first event',
+      tip: 'Your first event comes with credits for every guest’s camera; top-ups are below.',
+      what: `Credits for every guest’s camera, ${PAPIC_FREE_CREDIT_CONDITION}.`,
     },
   ];
 
-  // ── JSON-LD @graph (unchanged shape) — reads the RAW catalog rows so the real
-  // per-camera Papic rates + every vendor sub stay in structured data. ──
-  const SITE_URL = (
-    process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com'
-  ).replace(/\/$/, '');
+  const onTheDay = Boolean(papicFrom || prices.liveWatch || prices.patiktok);
+  const after = Boolean(prices.thankYou || prices.musicMaker);
+
+  /*
+    THE STRUCTURED DATA (unchanged): every active customer SKU as a Product, every supplier plan as a Service with its
+    fee sentence. Search engines read it; a person never sees it.
+  */
+  const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(/\/$/, '');
   const ORGANIZATION_REF = { '@id': `${SITE_URL}/#organization` };
   const buildAvailability = (status: BuildStatus): string =>
     status === 'not_built' ? 'https://schema.org/PreOrder' : 'https://schema.org/InStock';
-
   const vendorSubs = vendorSkus.filter((s) => s.offering_type === 'subscription_monthly');
   const vendorAnnualSubs = vendorSkus.filter((s) => s.offering_type === 'subscription_annual');
-
   const pricingJsonLd: Record<string, unknown> = {
     '@context': 'https://schema.org',
     '@graph': [
@@ -588,8 +280,7 @@ export default async function PricingPage() {
           '@type': 'Service',
           '@id': `${SITE_URL}/pricing#vendor-${s.sku_code}`,
           name: s.title,
-          // A supplier plan, read by suppliers: the zero owes its second
-          // sentence, at the LIVE rate (audit 2026-10-12, items 5 + 6).
+          // A supplier plan, read by suppliers: the zero owes its second sentence, at the LIVE rate (audit 2026-10-12, items 5 + 6).
           description: `${s.title} · Setnayan supplier subscription ${cadence.shortLabel}. ${supplierCommissionShort(feeSchedule)}.`,
           provider: ORGANIZATION_REF,
           category: 'Wedding supplier subscription',
@@ -610,397 +301,289 @@ export default async function PricingPage() {
           },
         };
       }),
-      // Token-pack Products were emitted here until 2026-08-07. The vendor
-      // token currency is retired, so publishing them as `InStock` structured
-      // data would advertise a purchasable product that does not exist — to
-      // search engines, which cache it.
     ],
   };
 
   return (
     /*
-      The shared shell. ⚠ THIS PAGE OWNS NO <main> — measured live, main=0 — so
-      the wrapper below becomes one: the doorway variant yields the landmark to
-      the host, and a page with none would end up with zero.
+      The shared shell (front-door-shell). ⚠ THIS PAGE OWNS NO <main> of the shell's — the doorway variant yields the
+      landmark to the host, so the wrapper below becomes one.
     */
     <main className="min-h-screen bg-cream text-ink">
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(pricingJsonLd) }}
-      />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(pricingJsonLd) }} />
 
-      {/* Hero */}
-      <section className="border-b border-ink/5">
-        <div /* The tall top padding existed to clear the FIXED glass nav. That nav no
-             longer renders here (this page left NAV_ROUTES with the shell
-             conversion), so keeping it would leave ~128px of dead cream above
-             the first heading. */
-          className="mx-auto w-full max-w-5xl px-4 pt-8 pb-12 sm:px-6 sm:pt-10 sm:pb-16 lg:px-8 lg:pb-20">
-          <p className="m-eyebrow">Set na &apos;yan · Pricing</p>
-          <LineRevealHeading
-            as="h1"
-            trigger="mount"
-            className="mt-5 text-balance font-display text-5xl font-medium leading-[1.02] tracking-tight sm:text-7xl lg:text-[88px]"
-          >
-            Plan for free.{' '}
-            <span className="text-ink/55">Add the magic as you go.</span>
-          </LineRevealHeading>
-          <p className="mt-8 max-w-2xl text-xl leading-relaxed text-ink/65">
-            Start planning at no cost. Let Setnayan AI do the matching when
-            you&rsquo;re ready, then add only the services you actually want. No
-            bundles, no lock-in.
-          </p>
-          <div className="mt-8 flex flex-wrap items-center gap-3">
-            <Link href="#plans" className="m-btn m-btn-primary">
-              See plans
-            </Link>
-            <Link href="#free" className="m-btn m-btn-ghost">
-              What&rsquo;s free ↓
+      {/* 1 · HERO */}
+      <section className="border-b border-ink/5 pb-[30px] pt-7" data-pricing-hero="">
+        <div className={WRAP}>
+          <p className={KICK}>Set na &apos;yan · Pricing</p>
+          <h1 className="m-0 mt-3 font-pahina text-[40px] font-normal leading-[1.04] tracking-[-0.015em] lg:mt-4">
+            The best place to build your event.
+          </h1>
+          <p className={LINE}>Beautifully made, for you and the people you know — everything to plan is included.</p>
+          <div className="mt-6 flex flex-wrap items-center gap-[18px]">
+            <Link href="/start" className="m-btn m-btn-primary">
+              Start your event
             </Link>
           </div>
         </div>
       </section>
 
-      {/* Free · Explore vs Setnayan AI */}
-      <section id="plans" className="border-b border-ink/5 bg-ink/[0.02]">
-        <div className="mx-auto w-full max-w-5xl px-4 py-20 sm:px-6 sm:py-24 lg:px-8">
-          <div className="mb-12 max-w-2xl space-y-3">
-            <p className="m-eyebrow">Two ways to plan</p>
-            <LineRevealHeading className="text-balance text-4xl font-semibold tracking-tight sm:text-5xl">
-              Free to start. Paid only when it helps.
-            </LineRevealHeading>
-            <p className="text-base leading-relaxed text-ink/65">
-              Plan free for as long as you like. Add Setnayan AI when you want
-              the matching done for you — then pick exactly the software you
-              want below.
-            </p>
-          </div>
-          <RevealBand className="grid grid-cols-1 gap-4 sm:grid-cols-2" stagger={0.07}>
-            <article
-              data-reveal-item
-              className="flex flex-col gap-3 rounded-2xl border border-ink/15 bg-cream p-6 sm:p-8"
-            >
-              <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
-                Free · Explore
-              </p>
-              <p className="flex items-baseline gap-2">
-                <span className="font-sans text-4xl font-semibold tracking-tight text-ink">₱0</span>
-                <span className="text-sm text-ink/55">/ forever</span>
-              </p>
-              <p className="text-sm leading-relaxed text-ink/65">
-                A whole planning workspace, your Event Hub, and the tools
-                to share your day.
-              </p>
-              <ul className="mt-2 space-y-2 text-sm">
-                {[
-                  'All five planning tools',
-                  'Your free 4-in-1 Event Hub',
-                  'Unlimited RSVP collection',
-                  'Browse suppliers + a match preview',
-                  'Single-camera livestream & free Custom QR',
-                ].map((f) => (
-                  <li key={f} className="flex items-start gap-2">
-                    <Check aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-terracotta" strokeWidth={2} />
-                    <span className="text-ink">{f}</span>
-                  </li>
-                ))}
-              </ul>
-              <Link href="#free" className="mt-3 inline-flex items-center gap-1.5 self-start text-sm font-medium text-ink/70 hover:text-ink">
-                See everything free ↓
-              </Link>
-            </article>
-            <article
-              data-reveal-item
-              className="flex flex-col gap-3 rounded-2xl border-2 border-terracotta/40 bg-cream p-6 sm:p-8 shadow-[0_30px_80px_-40px_rgba(197,160,89,0.35)]"
-            >
-              <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
-                Setnayan AI
-              </p>
-              {/* THE PRICE, AND THE SECOND ONE THAT WAS NEVER SHOWN.
-                  When the catalog carries a sign-up price, THAT is the headline
-                  figure — it is what this reader pays if they start now, and
-                  quoting the higher number first was quietly overcharging the
-                  page's own visitor. The regular price stays visible beside it
-                  so nobody discovers it later. When the row carries no sign-up
-                  price the block is a single figure, exactly as before; when the
-                  catalog is unreadable it renders nothing rather than a guess. */}
-              {aiRegularLabel ? (
+      {/* 2 · WHY SETNAYAN — four pictures */}
+      <section id="why" className="-mx-4 bg-terracotta/[0.07] px-4 pb-[30px] pt-[34px] lg:mx-0 lg:px-0">
+        <div className={WRAP}>
+          <p className={KICK}>Why Setnayan</p>
+          <h2 className={H2}>Crafted for every event.</h2>
+          <p className={LINE}>The same care for a wedding, a debut, a reunion or a fun run.</p>
+          <ul className="m-0 mt-5 grid list-none grid-cols-2 gap-x-3.5 gap-y-4 p-0 lg:mt-[26px] lg:grid-cols-4 lg:gap-6" data-tour="pricing-why">
+            <WhyPoint
+              shot={<WhyShot src="/feature-shots/event-hub-0.jpg" y="28%" zoom={1.1} />}
+              title="An Event Hub that looks like yours"
+              line="One page your guests open — your look, your reveal."
+              tip="A complete design is included with every event. Your own photos, music, themes and the cinematic reveal are Event Hub Pro, or just the parts you need."
+            />
+            <WhyPoint
+              shot={<WhyShot src="/feature-shots/3d-plan-0.jpg" y="21%" zoom={1.25} />}
+              align="end"
+              title="A seat plan you can walk in 3D"
+              line="Lay the tables out, then walk the room."
+              tip="Every chair named; tap a guest to see the room from their seat. Included with every event."
+            />
+            <WhyPoint
+              shot={<WhyShot src="/feature-shots/papic-0.jpg" y="11%" zoom={1.15} />}
+              title="Every guest’s phone, a camera"
+              line="Papic: point at a code and shoot — nothing to install."
+              tip={`Every shot lands in your Memories as it is taken. Your first event’s credits are included${papicFrom ? `; top-ups from ${peso(papicFrom.php)}` : ''}.`}
+            />
+            <WhyPoint
+              shot={<LockTile />}
+              align="end"
+              title="Private by default. You choose who can view."
+              line="Only me, invited only, or public."
+              tip="A new event is private until you say otherwise — open it to the people you invite, or list it in Discover for anyone to find. A fourth choice, Unlisted, lets anyone with the link open it."
+            />
+          </ul>
+          <Link href="/features" className="mt-6 inline-flex min-h-[44px] items-center text-[15px] font-semibold text-terracotta-700">
+            See everything Setnayan does →
+          </Link>
+        </div>
+      </section>
+
+      {/* 3 · BETTER TOGETHER — three rows */}
+      <section id="together" className="border-b border-ink/5 pb-[30px] pt-[34px]">
+        <div className={WRAP}>
+          <p className={KICK}>Better together</p>
+          <h2 className={H2}>Where your people come together.</h2>
+          <p className={LINE}>One account for hosts and guests, and your people in one place.</p>
+          <ul className="m-0 mt-[22px] list-none p-0">
+            <TogetherRow
+              icon={
                 <>
-                  <p className="flex items-baseline gap-2">
-                    <span className="font-sans text-4xl font-semibold tracking-tight text-ink">
-                      {aiSignupLabel ?? aiRegularLabel}
-                    </span>
-                    {aiSignupLabel ? (
-                      <span className="text-sm text-ink/55">
-                        <span className="line-through decoration-ink/30">{aiRegularLabel}</span>{' '}
-                        later
-                      </span>
-                    ) : null}
-                    <span className="text-sm text-ink/55">{aiPeriod}</span>
-                  </p>
-                  <p className="text-sm font-medium text-ink/70">
-                    {aiSignupLabel
-                      ? 'One-time · this price while you’re setting up your wedding · access until the day.'
-                      : 'One-time · access until your wedding.'}
-                  </p>
+                  <circle cx="8" cy="9" r="3" />
+                  <circle cx="16" cy="9" r="3" />
+                  <path d="M2.5 20c.6-3.2 2.7-5 5.5-5s4.9 1.8 5.5 5M12 20c.4-2.4 1.9-4 4-4s3.6 1.6 4 4" />
                 </>
-              ) : (
-                <p className="text-sm font-medium text-ink/70">
-                  One-time · access until your wedding. See the price when you start.
-                </p>
-              )}
-              <p className="text-sm leading-relaxed text-ink/65">
-                The planner that matches, sorts and cross-references every
-                supplier for your exact wedding.
-              </p>
-              <ul className="mt-2 space-y-2 text-sm">
-                {[
-                  'Everything in Free',
-                  'Full matching — date, budget, venue, pax, faith & reviews',
-                  'Your sorted, ready-to-book shortlist',
-                  'A planning assistant that keeps you on track',
-                  'Runs until your wedding day, then stops',
-                ].map((f) => (
-                  <li key={f} className="flex items-start gap-2">
-                    <Check aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-terracotta" strokeWidth={2} />
-                    <span className="text-ink">{f}</span>
+              }
+              title="Plan together"
+              line="Co-hosts on your event; every unlock covers everyone on it."
+              tip="Invite a co-host and they plan beside you. Anything you add, from Event Hub Pro to Live Watch, is unlocked for the event — nobody pays twice."
+            />
+            <TogetherRow
+              icon={
+                <>
+                  <circle cx="12" cy="7" r="3" />
+                  <circle cx="5" cy="10" r="2.2" />
+                  <circle cx="19" cy="10" r="2.2" />
+                  <path d="M6.5 20a5.5 5.5 0 0 1 11 0M1.5 17.5a3.5 3.5 0 0 1 5-3M22.5 17.5a3.5 3.5 0 0 0-5-3" />
+                </>
+              }
+              title="Groups"
+              line="A group for your barkada, family or org — plan events for it."
+              tip="Inside, for members only: Usapan, the group’s chat, and stories that last a day. An organizer plans the reunion or the outing and every member sees it."
+            />
+            <TogetherRow
+              icon={
+                <>
+                  <path d="M5 4.5h11a2 2 0 0 1 2 2V20H7a2 2 0 0 1-2-2z" />
+                  <path d="M18 8h1.5v12H8" />
+                  <path d="M8.5 9h6M8.5 12.5h6" />
+                </>
+              }
+              title="Your story"
+              line="Every event you publish becomes a chapter, kept by year."
+              tip="Your Story is a chronicle: each year has its name, each event a Chapter in it. Publish yours as a storyteller and share the page."
+            />
+          </ul>
+        </div>
+      </section>
+
+      {/* 4 · PRICES — Included with every event, then the paid ones by moment (platform_retail_catalog_v2). */}
+      <section id="prices" className="border-b border-ink/5 pb-[30px] pt-[34px]">
+        <div className={WRAP}>
+          <div className="flex items-end justify-between gap-4">
+            <div>
+              <p className={KICK}>When you want more</p>
+              <h2 className={H2}>Make it even more yours.</h2>
+              <p className={LINE}>Each one is its own purchase, for this event and everyone on it.</p>
+            </div>
+            <div className="relative h-[78px] w-[104px] shrink-0 overflow-hidden rounded-xl">
+              <Shot src="/feature-shots/event-hub-0.jpg" y="28%" zoom={1.1} sizes="104px" />
+            </div>
+          </div>
+
+          <div className="mt-2.5" data-tour="pricing-prices">
+            <IncludedGroup rows={included} />
+
+            {prices.pro ? (
+              <>
+                <Moment>Make it yours</Moment>
+                <ul className="m-0 list-none p-0">
+                  <li className="grid grid-cols-[1fr_auto] items-baseline gap-x-4 gap-y-0.5 py-[13px]" data-pricing-item="COUPLE_WEBSITE_PRO">
+                    <span className="flex items-baseline">
+                      <i aria-hidden className="mr-1.5 align-[2px] text-[11px] not-italic text-terracotta-700">
+                        ◆
+                      </i>
+                      <InfoTip label="Event Hub Pro" labelClassName="text-[16.5px] font-semibold tracking-[-0.005em]" align="start">
+                        {`${proThemes} Pro themes, your own photos, video and music, the cinematic reveal, your logo animated and on every QR, 500 MB of media, prints in your look. One unlock covers everyone on the event.`}
+                      </InfoTip>
+                    </span>
+                    <span className="whitespace-nowrap font-pahina text-xl text-terracotta-700">{peso(prices.pro.regular)}</span>
+                    <p className="col-start-1 m-0 text-[13.5px] leading-snug text-ink/65">
+                      Your own look on the Event Hub — the included design stays yours either way.
+                    </p>
+                    {prices.pro.signup != null ? (
+                      <p className="col-span-2 m-0 mt-1 text-[13px] text-ink/65" data-pro-setup="">
+                        <b className="font-medium text-ink">{peso(prices.pro.signup)} while you set up your event</b> ·{' '}
+                        {peso(prices.pro.regular)} after
+                      </p>
+                    ) : null}
+                    <HubProWays
+                      everythingLabel={`Everything · ${peso(prices.pro.regular)}`}
+                      partsLabel={partsFrom != null ? `Just the parts you need · from ${peso(partsFrom)}` : null}
+                      parts={
+                        <ul className="m-0 mt-2 list-none p-0 text-sm" data-hub-parts="">
+                          {prices.hubParts.map((p) => (
+                            <li key={p.id} className="flex items-baseline justify-between gap-2.5 border-t border-ink/5 py-[7px] first:border-t-0">
+                              <span>{p.name}</span>
+                              <span className="whitespace-nowrap font-pahina text-base text-terracotta-700">{peso(p.php)}</span>
+                            </li>
+                          ))}
+                          <li className="border-t border-ink/5 py-[7px] text-[13px] text-ink/65">
+                            What you pay for parts counts toward {peso(prices.pro.regular)}.
+                          </li>
+                        </ul>
+                      }
+                    />
                   </li>
-                ))}
-              </ul>
-              <Link
-                href="/onboarding/wedding?from=pricing"
-                className="m-btn m-btn-primary mt-3 self-start"
-              >
-                Unlock Setnayan AI
-              </Link>
-            </article>
-          </RevealBand>
-        </div>
-      </section>
-
-      {/* Add-ons — grouped, data-driven from the catalog */}
-      <section id="addons" className="border-b border-ink/5">
-        <div className="mx-auto w-full max-w-5xl px-4 py-20 sm:px-6 sm:py-24 lg:px-8">
-          <div className="mb-12 max-w-2xl space-y-3">
-            <p className="m-eyebrow">Add-ons</p>
-            <LineRevealHeading className="text-balance text-4xl font-semibold tracking-tight sm:text-5xl">
-              Pay only for what you want.
-            </LineRevealHeading>
-            <p className="text-base leading-relaxed text-ink/65">
-              A one-time charge for your event. A few scale with your cameras and
-              event days — estimate those below. Each SKU is marked{' '}
-              <span className="text-ink">Live</span>,{' '}
-              <span className="text-ink">In build</span>, or{' '}
-              <span className="text-ink">Coming soon</span> so you know what
-              works today.
-            </p>
-          </div>
-
-          {resolvedGroups.length === 0 ? (
-            <p className="rounded-2xl border border-ink/10 bg-ink/[0.02] p-6 text-sm text-ink/65">
-              Catalog is loading. Refresh the page. If this card persists,
-              we&apos;re briefly between updates and will be back shortly.
-            </p>
-          ) : (
-            <div className="space-y-12">
-              {resolvedGroups.map((group) => (
-                <div key={group.title}>
-                  <h2 className="mb-5 font-display text-2xl font-medium tracking-tight text-ink">
-                    {group.title}
-                  </h2>
-                  <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    {group.rows.map(({ sku, withPapic }) => (
-                      <li
-                        key={sku.service_code}
-                        className={`flex flex-col gap-3 rounded-2xl border p-6 ${
-                          sku.build_status === 'live'
-                            ? 'border-terracotta/40 bg-cream'
-                            : sku.build_status === 'partial'
-                              ? 'border-ink/15 bg-cream'
-                              : 'border-ink/10 bg-ink/[0.02]'
-                        }`}
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-terracotta">
-                            {sku.title}
-                          </p>
-                          <BuildStatusChip status={sku.build_status} />
-                        </div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span
-                            className={`font-sans text-3xl font-semibold tracking-tight ${
-                              sku.build_status === 'not_built' ? 'text-ink/40' : 'text-ink'
-                            }`}
-                          >
-                            {formatSkuPriceLabel(sku)}
-                          </span>
-                          {withPapic ? (
-                            <span className="inline-flex items-center rounded-full bg-terracotta/10 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.16em] text-terracotta">
-                              with Papic
-                            </span>
-                          ) : null}
-                          {/* The "Token Worthy" badge was removed here
-                              2026-08-07 with the token retirement. It rendered
-                              on `is_token_able`, which is false for every row
-                              in prod — so it was dark, but one catalog flag
-                              away from telling a couple on the PUBLIC pricing
-                              page that a vendor could buy this with tokens. */}
-                        </div>
-                        {sku.description ? (
-                          <p className="text-sm leading-relaxed text-ink/65">{sku.description}</p>
-                        ) : null}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Papic estimator — display only, no checkout */}
-          <div className="mt-12">
-            <PapicEstimator rates={estimatorRates} />
-          </div>
-        </div>
-      </section>
-
-      {/* Complete "Free, always" list */}
-      <section id="free" className="border-b border-ink/5 bg-ink/[0.02]">
-        <div className="mx-auto w-full max-w-5xl px-4 py-20 sm:px-6 sm:py-24 lg:px-8">
-          <div className="mb-10 max-w-2xl space-y-3">
-            <p className="m-eyebrow">Included · Free · Explore</p>
-            <LineRevealHeading className="text-balance text-4xl font-semibold tracking-tight sm:text-5xl">
-              Everything you get for free.
-            </LineRevealHeading>
-            <p className="text-base leading-relaxed text-ink/65">
-              The complete free plan — a full planning workspace, your Event
-              Hub, and the tools to capture and share the day. No card, no
-              trial clock.
-            </p>
-          </div>
-          <RevealBand className="grid grid-cols-1 gap-6 sm:grid-cols-3" stagger={0.07}>
-            {FREE_COLUMNS.map((col) => (
-              <div
-                data-reveal-item
-                key={col.title}
-                className="rounded-2xl border border-ink/12 bg-cream p-6"
-              >
-                <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
-                  {col.title}
-                </p>
-                <ul className="mt-4 space-y-3">
-                  {col.items.map((it) => (
-                    <li key={it.n} className="flex items-start gap-2">
-                      <Check aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-terracotta" strokeWidth={2} />
-                      <span className="text-sm text-ink">
-                        {it.n}
-                        {it.note ? (
-                          <span className="block text-xs text-ink/55">{it.note}</span>
-                        ) : null}
-                      </span>
-                    </li>
-                  ))}
                 </ul>
-              </div>
-            ))}
-          </RevealBand>
-        </div>
-      </section>
+              </>
+            ) : null}
 
-      {/* Apply-then-pay line */}
-      <section className="border-b border-ink/5">
-        <div className="mx-auto w-full max-w-5xl px-4 py-16 sm:px-6 sm:py-20 lg:px-8">
-          <LineRevealHeading
-            as="p"
-            className="max-w-3xl text-balance text-3xl font-semibold leading-tight tracking-tight sm:text-4xl"
-          >
-            You apply, then pay. The money goes straight to the service.
-          </LineRevealHeading>
-          {/* ⚠ "No commission on vendor bookings" is CORRECT and stays (owner
-              2026-08-06): the couple pays the vendor directly and Setnayan never
-              touches that money. But this page ALSO sells vendor plans, and
-              "no hidden fees" beside it read to a vendor as "Setnayan charges me
-              nothing" — which stops being true the moment the syncing fee is
-              switched on. The fee is charged to the VENDOR for the introduction
-              and the in-app sync; it is not a cut of the couple↔vendor deal, so
-              both sentences are true at once — but only if the second one is
-              actually said. Owner ruled a disclosure is owed; this is it.
-              It is written now, BEFORE the fee is on (zero charges exist), so a
-              vendor never reads "no hidden fees" on Monday and gets a fee on
-              Tuesday. */}
-          <p className="mt-6 max-w-2xl text-base leading-relaxed text-ink/65">
-            Prices are in Philippine peso. Apply for a service, then pay by GCash
-            or bank transfer against a unique reference. No commission on supplier
-            bookings — couples pay their suppliers directly and we never sit
-            between you at checkout. Suppliers pay a booking fee to Setnayan on
-            clients we introduce them to; it is charged to the supplier, never
-            added to what a couple pays.
-          </p>
-          <p className="mt-5 text-xs leading-relaxed text-ink/45">
-            Prices render live from the Setnayan catalog and are admin-managed.
-            The free single-camera livestream and the full planner always stay
-            free. Provisional pending the holistic pricing review.
-          </p>
-        </div>
-      </section>
-
-      {/* Storytellers — Free callout. Storytellers publish real events as
-          public Chapters on /u/[slug] at no cost, forever — there is no SKU
-          here (deliberately outside the catalog-driven tables above), so this
-          row is static copy + a pointer to /creators. */}
-      <section className="border-b border-ink/5">
-        <div className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
-          <div className="rounded-2xl border border-terracotta/30 bg-terracotta/[0.04] p-5 sm:p-6">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-              <div className="max-w-2xl">
-                <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
-                  Storytellers — Free
-                </p>
-                <p className="mt-2 text-base font-semibold text-ink">
-                  Publish your events as bookable Chapters. ₱0, forever.
-                </p>
-                <ul className="mt-3 space-y-2 text-sm">
-                  {[
-                    'Publish free — every Chapter, every event, no fees ever',
-                    'Keep your own monetization — your edit stays embedded from your channel',
-                    'Suppliers court you with exclusive rates in exchange for a Chapter that credits them',
-                  ].map((f) => (
-                    <li key={f} className="flex items-start gap-2">
-                      <Check aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-terracotta" strokeWidth={2} />
-                      <span className="text-ink/80">{f}</span>
-                    </li>
-                  ))}
+            {onTheDay ? (
+              <>
+                <Moment>The day</Moment>
+                <ul className="m-0 list-none p-0">
+                  {papicFrom ? (
+                    <PriceRowShell
+                      name="Papic credits"
+                      tip={`One pot every guest’s camera spends from: ${papicRungWords(prices.papicRungs, formatPeso)}.${papicCheaperAtSetup ? ' Cheaper while you set up your event.' : ''}`}
+                      what="Top up the pot every guest’s camera spends from."
+                      figure={<Figure php={papicFrom.php} from />}
+                    />
+                  ) : null}
+                  {prices.liveWatch ? (
+                    <PriceRowShell
+                      name="Live Watch"
+                      tip="A directed Main Stage plus switchable guest cameras, phones joining by the event QR. One unlock, no day limit; the one-camera stream is included."
+                      what="Every camera live, for everyone who can’t be there."
+                      figure={<Figure php={prices.liveWatch} />}
+                    />
+                  ) : null}
+                  {prices.patiktok ? (
+                    <PriceRowShell
+                      name="Patiktok"
+                      tip={`Pick the moments, the length and a song; the reel renders in your browser.${prices.patiktok.perDay ? ' Paid per day of your event.' : ''}`}
+                      what="Your guests’ moments, cut into short vertical reels."
+                      figure={<Figure php={prices.patiktok.php} suffix={prices.patiktok.perDay ? 'a day' : undefined} />}
+                    />
+                  ) : null}
                 </ul>
-              </div>
-              <Link
-                href="/creators"
-                className="m-btn m-btn-ghost inline-flex shrink-0 items-center justify-center gap-2 self-start text-sm"
-              >
-                For storytellers
-                <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-              </Link>
-            </div>
+              </>
+            ) : null}
+
+            {after ? (
+              <>
+                <Moment>After</Moment>
+                <ul className="m-0 list-none p-0">
+                  {prices.thankYou ? (
+                    <PriceRowShell
+                      name="Thank-you film"
+                      tip="A Papic add-on: a film made from your guests’ photos, to send with your thanks."
+                      what="A film from your guests’ photos, to send with your thanks."
+                      figure={<Figure php={prices.thankYou} />}
+                    />
+                  ) : null}
+                  {prices.musicMaker ? (
+                    <PriceRowShell
+                      name="Music Maker"
+                      tip="An original song written from your story, yours to keep and play on the day."
+                      what="Your own song, made for the event."
+                      figure={<Figure php={prices.musicMaker} />}
+                    />
+                  ) : null}
+                </ul>
+              </>
+            ) : null}
+
+            {aiFrom != null ? (
+              <>
+                <Moment>Help planning</Moment>
+                <ul className="m-0 list-none p-0">
+                  <PriceRowShell
+                    name="Setnayan AI"
+                    tip={`Suggests verified suppliers by fit, then watches your deadlines, budget and dates. Priced by event type${
+                      aiWedding
+                        ? ` — a wedding ${peso(aiWedding.regular)}${aiWedding.signup != null ? `, or ${peso(aiWedding.signup)} while you set up` : ''}`
+                        : ''
+                    }${aiDate ? `; a date or hangout ${peso(aiDate.regular)}` : ''}.`}
+                    what="Suggests your suppliers, then watches your plan."
+                    figure={<Figure php={aiFrom} from />}
+                  />
+                </ul>
+              </>
+            ) : null}
           </div>
         </div>
       </section>
 
-      {/* Vendor pointer */}
-      <section className="border-b border-ink/5">
-        <div className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
-          <div className="flex flex-col gap-3 rounded-2xl border border-ink/10 bg-cream p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
-            <p className="text-base font-semibold text-ink">
-              Supplier? See the free business offering + your plans.
-            </p>
-            <Link
-              href="/for-suppliers"
-              className="m-btn m-btn-ghost inline-flex shrink-0 items-center justify-center gap-2 text-sm"
-            >
-              For suppliers
-              <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+      {/* 5 · CLOSE */}
+      <section id="close" className="-mx-4 bg-ink/[0.025] px-4 pb-[30px] pt-[34px] lg:mx-0 lg:px-0">
+        <div className={WRAP}>
+          <p className="m-0 max-w-[26ch] font-pahina text-[22px] leading-[1.35]">Paid once, for this event and everyone on it.</p>
+          <div className="mt-6 flex flex-wrap items-center gap-[18px]">
+            <Link href="/start" className="m-btn m-btn-primary">
+              Start your event
+            </Link>
+            <Link href="/pricing/plan" className="inline-flex min-h-[44px] items-center text-[15px] font-medium text-ink/65" data-tour="pricing-quiz">
+              See what Setnayan does for you →
             </Link>
           </div>
+          <p className="m-0 mt-[18px] text-[13px] text-ink/65">
+            Prices in Philippine peso, read live from the Setnayan catalogue. No subscription.
+          </p>
+          {/* The door to the supplier plans (owner 2026-09-22 — the two pricing pages point at each other;
+              `lib/the-two-pricing-pages-point-at-each-other.test.ts`). Not drawn in the prototype; one quiet line. */}
+          <p className="m-0 mt-1 text-[13px] text-ink/65">
+            A supplier?{' '}
+            <Link href="/for-suppliers" className="font-semibold text-terracotta-700">
+              For suppliers →
+            </Link>
+          </p>
         </div>
       </section>
+
+      {/* 🔦 The first-visit spotlight — Why Setnayan → Prices → the quiz link (`lib/tours.ts` · pricing_page_v1). A visitor
+          is usually signed out, so the seen mark lives on their device (`GuestSpotlight`, the same engine). */}
+      <GuestSpotlight tourKey="pricing_page_v1" script={TOURS.pricing_page_v1.spotlight!} />
     </main>
   );
 }

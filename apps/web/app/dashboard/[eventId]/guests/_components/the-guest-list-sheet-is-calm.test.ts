@@ -48,8 +48,10 @@ test('2 · the dark behind a guest sheet is the app\'s ONE pop-up dark — no wa
   // ⤷ 2026-10-09 (owner rule, INTERACTION_RULES § 9): dark AND blurred (`.sn-popup-dark`), a tap on it closes, nothing behind
   // works. This was a 1-px blur so the round + could be read through it; the rule replaced that.
   const popup = read('guest-popup.tsx');
-  assert.match(popup, /<span aria-hidden className=\{POPUP_DARK\} \/>/, 'the sheet has no pop-up dark');
-  assert.match(popup, /className=\{POPUP_SCRIM\}/, 'a tap on the dark does not close the sheet');
+  // ⤷ 2026-10-25: the dark IS the close button (`<OverlayBackdrop>`, `.sn-popup-dark` on the button itself) — a separate
+  // close layer under the dark was made inert by the page lock, and a tap outside closed nothing.
+  assert.match(popup, /<OverlayBackdrop onClose=\{onClose\} \/>/, 'the sheet has no pop-up dark, or a tap on it does not close the sheet');
+  assert.doesNotMatch(popup, /pointer-events-none/, 'a dark that takes no tap is back over a separate close layer');
   for (const [name, src] of [['add-guest-sheet.tsx', ADD], ['guest-popup.tsx', popup]] as const) {
     assert.doesNotMatch(src, /backdrop-blur-|\bbg-ink\/\d/, `${name} writes a wash or blur of its own`);
   }

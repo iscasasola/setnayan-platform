@@ -1,43 +1,46 @@
 'use client';
 
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { RSVP_STEP_QUESTION_CLASS } from './rsvp-question-class';
-import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { LINKED_NAME_WORDS, plusOneNameSlots } from '@/lib/extra-seats';
 import { MEAL_LABELS, type MealPreference } from '@/lib/guests';
-import { formatCount } from '@/lib/format-number';
+import { plusOneScreenLine, plusOnesStepLine } from '@/lib/rsvp-seats-words';
+import { InfoTip } from '@/app/_components/info-tip';
 import { FormalNameInputs } from '@/app/_components/formal-name-inputs';
+import { TickBox } from './tick-box';
 
 /**
- * WHO ARE YOU BRINGING — one short set per plus-one seat, and one switcher.
+ * WHO ARE YOU BRINGING — one screen per plus-one seat, no switcher.
  *
  * Owner, verbatim, 2026-09-29: *"plus guests are only minimum questions. they
  * don't need to recommend songs and notes to the couple. They also get their
  * own QR Code. they can also link it to their account. Second, they can have
- * 1-4 pluses. so there needs to be a way to write their names in a simpler way.
- * like a toggle on which guest they are editing."*
+ * 1-4 pluses."* — and, 2026-10-25, on the reply's +1 step: *"Each plus
+ * shouldn't come from a drop down and also allow them to checkbox Accept that
+ * they are coming (required) if name is written down?"*, then *"one at a time"*,
+ * then *"Tick only shows when there is name written. and that is required. If
+ * you are not yet sure, delete name"*.
  *
- *   · EACH SEAT IS ASKED FOUR THINGS — its name, meal, dietary. The name is
- *     the FIVE parts every other name box uses (owner 2026-09-30: *"The name
- *     will be same: Prefix · First · Middle · Last · Suffix, to stay
- *     consistent"*) — the shared `FormalNameInputs`, never a pair of its own.
- *     No song, no note to the couple, no selfie: those are the plus-one's own to
- *     answer on their own key, if the couple asks. Meal and dietary obey the
+ *   · EACH SEAT IS ITS OWN SCREEN — "+1", Next, "+2" … — each a `data-rsvp-step`
+ *     of its own, so the progress dots count every +1 and Back returns to the one
+ *     before with what was typed still there. The "Filling in for ▾" PickMenu is
+ *     RETIRED (it chose which seat was on screen; the walker now does).
+ *   · EACH SEAT IS ASKED ITS NAME, MEAL, DIETARY. The name is the FIVE parts
+ *     every other name box uses (owner 2026-09-30) — the shared
+ *     `FormalNameInputs`. No song, no note, no selfie. Meal and dietary obey the
  *     couple's same "ask" switches as the bringer's own.
- *   · ONE SWITCHER picks whose details are on screen — "Filling in for: Maria
- *     Santos ▾" — the shared `PickMenu` (owner rule: a set of choices is ONE
- *     dropdown, never a pill row). A named seat shows ✓; an unnamed one reads
- *     "Guest 2".
- *   · 🔒 SWITCHING NEVER UNMOUNTS A SEAT. Every seat's boxes stay in the form —
- *     the others are only hidden — so what was typed survives a switch and every
- *     seat POSTs on Send. `PlusOneSeatPanels` is split out so a test can render
- *     it at any active seat and see all of them there.
- *   · A BLANK NAME IS "+N TBA", allowed. Naming a seat makes (or renames) its
- *     own guest row with its own QR — `submitRsvp` → `planSeatNames`, which
- *     never deletes: clearing a name keeps the row; removing is the host's.
+ *   · "THEY'RE COMING" — the house tick (`tick-box.tsx`), drawn only once a name
+ *     is written and then REQUIRED: Next (and Send) stop on that seat with "Tick
+ *     to confirm they're coming". Never pre-ticked; it opens ticked only for a
+ *     seat already on record as `attending` (the guest's own earlier tick).
+ *     `submitRsvp` writes a ticked seat as attending and refuses a named seat
+ *     posted without its tick (`readSeatNames` → `comingRefused`).
+ *   · A BLANK NAME IS "+N TBA", allowed — Next just moves on. Naming a seat makes
+ *     (or renames) its own guest row with its own QR — `submitRsvp` →
+ *     `planSeatNames`, which never deletes.
  *
  * Progressive: before hydration (or without script) every seat is drawn, one
- * under the other, each with its own heading — the form still works.
+ * under the other — the form still works.
  */
 
 export type PlusOneSeatInput = {
@@ -52,6 +55,8 @@ export type PlusOneSeatInput = {
   meal?: string | null;
   dietary?: string | null;
   linked?: boolean;
+  /** This seat's own reply — `attending` once its bringer ticked "They're coming" (owner 2026-10-25). */
+  rsvp_status?: string | null;
 };
 
 export type PlusOneSlot = {
@@ -65,6 +70,8 @@ export type PlusOneSlot = {
   dietary: string;
   /** 🔒 Their own account holds this seat — the name is theirs (owner 2026-09-29). */
   linked?: boolean;
+  /** On record as coming (`rsvp_status = 'attending'`) — the guest's own earlier tick, read back; never a default. */
+  coming?: boolean;
 };
 
 /** The meal order the bringer's own picker uses. */
@@ -92,6 +99,7 @@ export function plusOneSlots(
       meal: seat?.meal && (MEAL_ORDER as string[]).includes(seat.meal) ? seat.meal : 'no_preference',
       dietary: seat?.dietary ?? '',
       linked: Boolean(seat?.linked && slot.name),
+      coming: Boolean(slot.name && seat?.rsvp_status === 'attending'),
     };
   });
 }
@@ -105,143 +113,92 @@ export function seatNumber(index: number): string {
   return `+${index + 1}`;
 }
 
-/** The at-a-glance word for a seat: its name, else "+2". */
-export function seatLabel(name: string, index: number): string {
-  return name.trim() || seatNumber(index);
-}
-
-/** Option key for "You — <name>", ahead of the seats (prototype frame B). */
-export const YOU_KEY = 'you';
-
-/**
- * The switcher's options: "You — Maria Santos" (when given), then one per
- * seat — "+1 · Ben Reyes ✓" once named, "+2 · not named yet" until then.
- */
-export function seatOptions(names: readonly string[], youName?: string | null): { key: string; label: string }[] {
-  const seats = names.map((n, i) => ({
-    key: String(i),
-    label: n.trim() ? `${seatNumber(i)} · ${n.trim()} ✓` : `${seatNumber(i)} · not named yet`,
-  }));
-  return youName?.trim() ? [{ key: YOU_KEY, label: `You — ${youName.trim()}` }, ...seats] : seats;
-}
-
 export function RsvpPlusOnes({
   count,
   seats,
   legacyName,
-  theOrganizer,
   askMeal,
   askDietary,
-  youName = null,
   question = false,
+  fallback = false,
 }: {
+  /**
+   * 🧯 The seat list did not read (owner 2026-10-25, scenario E · decision 7): one box, and the line says so —
+   * no count claimed, no "add more". The Seats step just before still says the true number (it reads the guest's
+   * own row, which did not fail).
+   */
+  fallback?: boolean;
   /**
    * One question per screen (\`oneAtATime\`): the step's heading is drawn as
    * the screen's question — the same type every other step wears there.
    */
   question?: boolean;
-  /**
-   * The bringer's own name — the switcher's first row, "You — Maria Santos"
-   * (prototype frame B), which takes them to their OWN answers on this card.
-   * Null = no such row (one-question-per-screen: their answers are the next
-   * steps, reached with Next).
-   */
-  youName?: string | null;
   /** Seats the couple gave this guest, 1–4 (`plusOneSeats`). */
   count: number;
   seats: readonly PlusOneSeatInput[] | undefined;
   legacyName: string | null | undefined;
-  /** "the couple" / "the family" — the event's own words. */
+  /** "the couple" / "the family" — the event's own words. (The count line that named them moved to the Seats step.) */
   theOrganizer: string;
   askMeal: boolean;
   askDietary: boolean;
 }) {
   const slots = plusOneSlots(count, seats, legacyName);
-  const [names, setNames] = useState<string[]>(() => slots.map((s) => `${s.first} ${s.last}`.trim()));
-  // Opens on the first seat still without a name — where the work is left
-  // (the thank-you's "Add their name" lands here) — else the first.
-  const [active, setActive] = useState(() => Math.max(0, names.findIndex((n) => !n)));
-  const [arranged, setArranged] = useState(false);
-  useEffect(() => setArranged(true), []);
-  const rootRef = useRef<HTMLDivElement>(null);
+  /* 🪑 THE COUNT WAS ALREADY SAID (owner 2026-10-25, RSVP seats-first): the Seats step before this one says "We
+     reserved N seats for you", so this line names WHICH seats these are — "+1 · name them, or leave it for later" —
+     and the rest is inside its ⓘ. "+1 / +2" everywhere (decision 4). */
+  const said = plusOnesStepLine({ extra: slots.length, fallback });
 
-  /** "You — …": to the guest's own first answer on this card (meal, else contact). */
-  const goToYou = () => {
-    const form = rootRef.current?.closest('form');
-    const own = ['meal_preference', 'dietary_restrictions', 'contact_email']
-      .map((id) => form?.querySelector<HTMLElement>(`#${id}`))
-      .find((el) => el && el.getClientRects().length > 0);
-    own?.scrollIntoView({ block: 'center', behavior: 'smooth' });
-    own?.focus({ preventScroll: true });
-  };
-
-  const many = slots.length > 1;
-  const Organizer = theOrganizer.charAt(0).toUpperCase() + theOrganizer.slice(1);
-
+  /* 🪑 ONE SCREEN PER +1 (owner 2026-10-25, on the stacked-rows look: *"one at a time"*). Each seat is its own
+     `data-rsvp-step` — "+1", Next, "+2" … — so the progress dots count every +1 and Back returns to the one before
+     with what was typed still there (a step is only hidden, never unmounted). Without script every seat is drawn,
+     one under the other. An empty +1 is passed with plain Next — no second button. */
   return (
-    <div ref={rootRef} className="space-y-3" data-rsvp-plus-ones>
-      <span className={question ? RSVP_STEP_QUESTION_CLASS : 'block text-sm font-medium text-ink'}>
-        Who are you bringing?
-      </span>
-      <p className="text-xs text-ink/70">
-        {/* ⚖ The number is the couple's (owner 2026-09-21: up to +4). */}
-        {Organizer} saved you {many ? `${formatCount(slots.length)} seats` : 'a seat for one more'}.{' '}
-        {many ? 'Name them and each one gets' : 'Name them and they get'} their own invitation, QR and photos — or
-        add {many ? 'names' : 'a name'} later.
-      </p>
-
-      {many && arranged ? (
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1" data-plus-one-switcher>
-          <span className="text-sm text-ink/80">Filling in for:</span>
-          <PickMenu
-            label="Filling in for"
-            value={String(active)}
-            options={seatOptions(names, youName)}
-            onPick={(k) => (k === YOU_KEY ? goToYou() : setActive(Number(k)))}
-            dataAttr="data-plus-one-pick"
-            className="border border-ink/15 text-sm"
-          />
-        </div>
-      ) : null}
-
-      {many && arranged ? (
-        /* Every seat at a glance — "Ben Reyes ✓ · Guest 3 · Guest 4" (frame C). */
-        <p className="text-xs text-ink/70" aria-live="polite" data-plus-one-summary>
-          {names.map((n, i) => (n.trim() ? `${n.trim()} ✓` : seatLabel('', i))).join(' · ')}
-        </p>
-      ) : null}
-
-      <PlusOneSeatPanels
-        slots={slots}
-        active={active}
-        arranged={arranged && many}
-        askMeal={askMeal}
-        askDietary={askDietary}
-        onName={(i, full) => setNames((prev) => prev.map((n, j) => (j === i ? full : n)))}
-      />
+    <div className="space-y-6" data-rsvp-plus-ones data-plus-one-screens={slots.length}>
+      {slots.map((slot, i) => {
+        const line = fallback ? said : plusOneScreenLine(i);
+        return (
+          <div key={i} data-rsvp-step data-plus-one-screen={i + 1} className="space-y-3">
+            <span className={question ? RSVP_STEP_QUESTION_CLASS : 'block text-sm font-medium text-ink'}>
+              Who are you bringing?
+            </span>
+            <InfoTip label={line.line} labelAs="p" labelClassName="text-sm text-ink/70" align="start" ariaLabel="About naming your seats">
+              {line.tip}
+            </InfoTip>
+            <PlusOneSeatRow slot={slot} index={i} tagged={false} askMeal={askMeal} askDietary={askDietary} idPrefix="" />
+          </div>
+        );
+      })}
     </div>
   );
 }
 
+
+/** The tick's words (owner 2026-10-25: *"checkbox Accept that they are coming (required) if name is written down"*). */
+export const PLUS_ONE_COMING_WORDS = 'They’re coming';
+/** The row's line when a name is written and the tick is not. */
+export const PLUS_ONE_TICK_NEEDED = 'Tick to confirm they’re coming';
+
 /**
- * Every seat's boxes, ALWAYS all of them — `arranged` only hides the ones that
- * are not `active`. Keyed by seat position, never by the active seat, so a
- * switch re-renders the same inputs and nothing typed is lost.
+ * The seats' boxes, one row each, stacked — Me's in-place "Add name" (frame E) draws its one seat with this. The
+ * reply itself gives each seat its own screen (`RsvpPlusOnes`); both draw the same row (`PlusOneSeatRow`), so the
+ * tick rules below are one rule:
+ *   · 🔒 THE TICK IS AFFIRMATIVE — never ticked for a fresh answer (the house's consent style). It opens ticked only
+ *     when THIS seat is already on record as coming (`attending`), which is the guest's own earlier tick read back.
+ *   · NO TICK WITHOUT A NAME — not drawn until a name is written; clearing the name takes it away, unticked.
+ *   · A NAME WITHOUT THE TICK DOES NOT CONTINUE — once drawn the tick is `required`, so Next and Send stop there.
+ *   · A seat linked to its own account shows its locked name and no tick — that person answers for themself.
  */
 export function PlusOneSeatPanels({
   slots,
-  active,
-  arranged,
   askMeal,
   askDietary,
   onName,
   idPrefix = '',
 }: {
   slots: readonly PlusOneSlot[];
-  active: number;
-  arranged: boolean;
   askMeal: boolean;
   askDietary: boolean;
+  /** Fires as a seat's First / Last change — Me's in-place "Add name" reads it. */
   onName?: (index: number, fullName: string) => void;
   /**
    * Prefixes the element ids ONLY — never the field names, which the one seat
@@ -251,37 +208,77 @@ export function PlusOneSeatPanels({
    */
   idPrefix?: string;
 }) {
-  const many = slots.length > 1;
   return (
-    <>
-      {slots.map((slot, i) => {
-        const n = i + 1;
-        const away = arranged && i !== active;
-        const readName = (input: HTMLElement) => {
-          const panel = input.closest('[data-plus-one-seat]');
-          const f = panel?.querySelector<HTMLInputElement>(`[name="plus_one_first_name_${n}"]`)?.value ?? '';
-          const l = panel?.querySelector<HTMLInputElement>(`[name="plus_one_last_name_${n}"]`)?.value ?? '';
-          onName?.(i, `${f} ${l}`.replace(/\s+/g, ' ').trim());
-        };
-        return (
-          <div key={i} data-plus-one-seat={n} className={away ? 'hidden' : 'space-y-4'}>
-            {many && !arranged ? (
-              <p className="font-serif text-base text-ink">
-                {seatNumber(i)}
-                {`${slot.first} ${slot.last}`.trim() ? ` · ${`${slot.first} ${slot.last}`.trim()}` : ''}
-              </p>
-            ) : null}
-            {slot.seatId ? <input type="hidden" name={`plus_one_seat_id_${n}`} value={slot.seatId} /> : null}
-            {/* 🔒 LOCKED ONCE THEY LINK THEIR OWN ACCOUNT (owner 2026-09-29,
-                OWNER ANSWERS (10)): the name is shown, never posted — so the
-                reply writes only this seat's meal and dietary. `submitRsvp`
-                refuses a posted name for a linked seat as well. */}
-            {slot.linked ? (
-              <p className="text-sm text-ink" data-plus-one-linked="">
-                <span className="font-medium">{`${slot.first} ${slot.last}`.trim()}</span>
-                <span className="text-ink/70"> · {LINKED_NAME_WORDS}</span>
-              </p>
-            ) : (
+    <div className="divide-y divide-ink/10" data-plus-one-rows={slots.length}>
+      {slots.map((slot, i) => (
+        <PlusOneSeatRow
+          key={i}
+          slot={slot}
+          index={i}
+          tagged={slots.length > 1}
+          askMeal={askMeal}
+          askDietary={askDietary}
+          idPrefix={idPrefix}
+          onName={onName}
+        />
+      ))}
+    </div>
+  );
+}
+
+function PlusOneSeatRow({
+  slot,
+  index,
+  tagged,
+  askMeal,
+  askDietary,
+  idPrefix,
+  onName,
+}: {
+  slot: PlusOneSlot;
+  index: number;
+  /** "+1", "+2" over each row when there is more than one (one seat: the step's own line already says "+1"). */
+  tagged: boolean;
+  askMeal: boolean;
+  askDietary: boolean;
+  idPrefix: string;
+  onName?: (index: number, fullName: string) => void;
+}) {
+  const n = index + 1;
+  const opened = `${slot.first} ${slot.last}`.trim();
+  const [named, setNamed] = useState(Boolean(opened));
+  const [coming, setComing] = useState(Boolean(slot.coming && opened));
+  const readName = (input: HTMLElement) => {
+    const row = input.closest('[data-plus-one-seat]');
+    const f = row?.querySelector<HTMLInputElement>(`[name="plus_one_first_name_${n}"]`)?.value ?? '';
+    const l = row?.querySelector<HTMLInputElement>(`[name="plus_one_last_name_${n}"]`)?.value ?? '';
+    const full = `${f} ${l}`.replace(/\s+/g, ' ').trim();
+    setNamed(Boolean(full));
+    // A cleared name drops its tick — typing it again asks afresh (never pre-ticked).
+    if (!full) setComing(false);
+    onName?.(index, full);
+  };
+  const tickId = `${idPrefix}plus_one_coming_${n}`;
+  return (
+    <div data-plus-one-seat={n} className="space-y-4 py-5 first:pt-2">
+      {tagged ? (
+        <p className="font-serif text-base text-ink" data-plus-one-tag="">
+          {seatNumber(index)}
+        </p>
+      ) : null}
+      {slot.seatId ? <input type="hidden" name={`plus_one_seat_id_${n}`} value={slot.seatId} /> : null}
+      {/* 🔒 LOCKED ONCE THEY LINK THEIR OWN ACCOUNT (owner 2026-09-29,
+          OWNER ANSWERS (10)): the name is shown, never posted — so the
+          reply writes only this seat's meal and dietary. `submitRsvp`
+          refuses a posted name for a linked seat as well. */}
+      {slot.linked ? (
+        <p className="text-sm text-ink" data-plus-one-linked="">
+          <span className="font-medium">{opened}</span>
+          <span className="text-ink/70"> · {LINKED_NAME_WORDS}</span>
+        </p>
+      ) : (
+        <>
+          <div>
             <FormalNameInputs
               defaults={{
                 name_prefix: slot.prefix,
@@ -295,39 +292,60 @@ export function PlusOneSeatPanels({
               idPrefix={idPrefix}
               onInput={(e) => readName(e.currentTarget)}
             />
-            )}
-            {askMeal ? (
-              <div className="space-y-1.5">
-                <label htmlFor={`${idPrefix}plus_one_meal_${n}`} className="block text-sm font-medium text-ink">
-                  Meal preference
-                </label>
-                <select
-                  id={`${idPrefix}plus_one_meal_${n}`}
-                  name={`plus_one_meal_${n}`}
-                  defaultValue={slot.meal}
-                  className="input-field appearance-none bg-cream pr-8"
-                >
-                  {MEAL_ORDER.map((m) => (
-                    <option key={m} value={m}>
-                      {MEAL_LABELS[m]}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ) : null}
-            {askDietary ? (
-              <SeatField
-                id={`${idPrefix}plus_one_dietary_${n}`}
-                name={`plus_one_dietary_${n}`}
-                label="Dietary notes"
-                defaultValue={slot.dietary}
-                placeholder="halal · nut allergy · …"
-              />
-            ) : null}
           </div>
-        );
-      })}
-    </>
+          {/* 🫥 THE TICK SHOWS ONLY ONCE A NAME IS WRITTEN (owner 2026-10-25: *"Tick only shows when there is name
+              written. and that is required. If you are not yet sure, delete name"*). Unmounted while the name is
+              empty, so it can never post — and clearing the name takes the tick and its line with it. */}
+          {named ? (
+          <div data-needed-at="" data-plus-one-coming-row="">
+            {/* The house tick (`tick-box.tsx`) — the Terms tick's own piece: a 44 px press, a 20 px box. */}
+            <label htmlFor={tickId} className="flex min-h-[44px] cursor-pointer items-center gap-3 text-sm text-ink">
+              <TickBox
+                press="-mx-3 -my-3"
+                id={tickId}
+                name={`plus_one_coming_${n}`}
+                value="1"
+                checked={coming}
+                onChange={(e) => setComing(e.currentTarget.checked)}
+                required
+                data-needed-words={PLUS_ONE_TICK_NEEDED}
+                data-plus-one-coming=""
+              />
+              {PLUS_ONE_COMING_WORDS}
+            </label>
+          </div>
+          ) : null}
+        </>
+      )}
+      {askMeal ? (
+        <div className="space-y-1.5">
+          <label htmlFor={`${idPrefix}plus_one_meal_${n}`} className="block text-sm font-medium text-ink">
+            Meal preference
+          </label>
+          <select
+            id={`${idPrefix}plus_one_meal_${n}`}
+            name={`plus_one_meal_${n}`}
+            defaultValue={slot.meal}
+            className="input-field appearance-none bg-cream pr-8"
+          >
+            {MEAL_ORDER.map((m) => (
+              <option key={m} value={m}>
+                {MEAL_LABELS[m]}
+              </option>
+            ))}
+          </select>
+        </div>
+      ) : null}
+      {askDietary ? (
+        <SeatField
+          id={`${idPrefix}plus_one_dietary_${n}`}
+          name={`plus_one_dietary_${n}`}
+          label="Dietary notes"
+          defaultValue={slot.dietary}
+          placeholder="halal · nut allergy · …"
+        />
+      ) : null}
+    </div>
   );
 }
 

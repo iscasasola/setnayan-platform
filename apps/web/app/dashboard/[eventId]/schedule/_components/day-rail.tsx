@@ -164,7 +164,7 @@ export function ScheduleDay({
      the rail at once, laid on the stage canvases, and a removed moment leaves
      the rail as soon as its delete lands. The standalone page is unchanged. */
   const live = inspectorSlot !== null;
-  /* 🗓 The new Maker's Studio (`makerStagesStudioEnabled`): the day as the prototype's
+  /* 🗓 The new Maker's Studio (`stagesStudio`, the one Maker since 2026-10-25): the day as the prototype's
      timeline (`studio-day.tsx`) in place of the rail — the same state, writes and sheets. */
   const studio = useMaker()?.stagesStudio === true && live;
   const [gone, setGone] = useState<ReadonlySet<string>>(() => new Set());

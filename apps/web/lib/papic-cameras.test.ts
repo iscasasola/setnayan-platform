@@ -276,7 +276,7 @@ test('days do NOT multiply the charge — Papic is FLAT per camera (window is du
 });
 
 test('Papic One (mini) flat quote equals the /pricing estimator — count × rate, any window', () => {
-  // /pricing _papic-estimator.tsx computes productTotal = paidCameras ×
+  // /pricing's former _papic-estimator.tsx (deleted 2026-10-25) computed productTotal = paidCameras ×
   // one.pricePhp (the mini rate), with NO days. The Studio buy path
   // (purchasePapicCameras / purchasePapicExtras → computeCameraQuote) MUST equal
   // that for the same PAID-camera count, at the real ₱100 Papic One rate, for

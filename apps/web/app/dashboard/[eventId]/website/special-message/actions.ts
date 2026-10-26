@@ -14,7 +14,7 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
-import { requireHostMembership } from '@/lib/host-gate';
+import { requireHostMembership, refuseLimitedHelper } from '@/lib/host-gate';
 import { draftEventsAndReturn, isHubDraftWrite } from '@/lib/hub-draft-store';
 
 const MESSAGE_MAX = 600;
@@ -23,6 +23,7 @@ export async function updateSpecialMessage(
   eventId: string,
   formData: FormData,
 ): Promise<void> {
+  await refuseLimitedHelper(eventId, 'invitations');
   const user = await getCurrentUser();
   if (!user) redirect('/login');
 

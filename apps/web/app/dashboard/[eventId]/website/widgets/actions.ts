@@ -66,7 +66,7 @@ const isHubOut = (v: unknown): v is HubOut =>
   typeof v === 'string' && (HUB_OUT as readonly string[]).includes(v);
 const isHubDirection = (v: unknown): v is HubDirection =>
   typeof v === 'string' && (HUB_DIRECTIONS as readonly string[]).includes(v);
-import { requireHostMembershipOrThrow } from '@/lib/host-gate';
+import { requireHostMembershipOrThrow, refuseLimitedHelper } from '@/lib/host-gate';
 import { HUB_CANVAS_MOTION_KEYS, canvasHasMotion, sectionBackgroundChange } from '@/lib/hub-look-pro';
 import { requireLookPro } from '@/lib/hub-look-gate';
 import type { HubDraftPatch, HubDraftWidget } from '@/lib/hub-draft';
@@ -145,6 +145,7 @@ async function revalidateForWidgetChange(eventId: string): Promise<void> {
  *   - next_visible — '1' to show, '0' to hide (mirrors the checkbox state).
  */
 export async function toggleWidgetVisibility(formData: FormData): Promise<void> {
+  await refuseLimitedHelper(formData.get('event_id'), 'invitations');
   const eventIdRaw = formData.get('event_id');
   const widgetIdRaw = formData.get('widget_id');
   const widgetTypeRaw = formData.get('widget_type');
@@ -252,6 +253,7 @@ function isSectionMode(value: unknown): value is SectionMode {
  *   - next_mode — one of auto | shown | hidden.
  */
 export async function setSectionMode(formData: FormData): Promise<void> {
+  await refuseLimitedHelper(formData.get('event_id'), 'invitations');
   const eventIdRaw = formData.get('event_id');
   const widgetIdRaw = formData.get('widget_id');
   const nextModeRaw = formData.get('next_mode');
@@ -372,10 +374,12 @@ export async function setSectionMode(formData: FormData): Promise<void> {
  * Mirror of moveWidgetDown below; both share the same swap pattern.
  */
 export async function moveWidgetUp(formData: FormData): Promise<void> {
+  await refuseLimitedHelper(formData.get('event_id'), 'invitations');
   return moveWidget(formData, 'up');
 }
 
 export async function moveWidgetDown(formData: FormData): Promise<void> {
+  await refuseLimitedHelper(formData.get('event_id'), 'invitations');
   return moveWidget(formData, 'down');
 }
 
@@ -596,6 +600,7 @@ async function moveWithinStage(
  *   - auto_speed           — slow | normal | fast  (optional; kept only beside auto)
  */
 export async function setWidgetMotion(formData: FormData): Promise<void> {
+  await refuseLimitedHelper(formData.get('event_id'), 'invitations');
   const eventIdRaw = formData.get('event_id');
   const widgetIdRaw = formData.get('widget_id');
   const presetRaw = formData.get('preset');
@@ -749,6 +754,7 @@ export async function setWidgetMotion(formData: FormData): Promise<void> {
  * Form fields: event_id · widget_id · media (an `r2://` ref, or empty to clear)
  */
 export async function setWidgetBackground(formData: FormData): Promise<void> {
+  await refuseLimitedHelper(formData.get('event_id'), 'invitations');
   const eventIdRaw = formData.get('event_id');
   const widgetIdRaw = formData.get('widget_id');
   const mediaRaw = formData.get('media');
@@ -927,6 +933,7 @@ export async function setWidgetBackground(formData: FormData): Promise<void> {
  * Form fields: event_id · widget_id · focal (1–9) · zoom (100 | 120 | 150)
  */
 export async function setWidgetCrop(formData: FormData): Promise<void> {
+  await refuseLimitedHelper(formData.get('event_id'), 'invitations');
   const eventIdRaw = formData.get('event_id');
   const widgetIdRaw = formData.get('widget_id');
 
@@ -1003,6 +1010,7 @@ export async function setWidgetCrop(formData: FormData): Promise<void> {
  * use — so a row exists only once somebody asks for one.
  */
 export async function addCustomSection(formData: FormData): Promise<void> {
+  await refuseLimitedHelper(formData.get('event_id'), 'invitations');
   const eventIdRaw = formData.get('event_id');
   if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) redirect('/dashboard');
   const eventId = eventIdRaw as string;
@@ -1191,6 +1199,7 @@ async function refuseCustomSectionWithoutPro(
  * start filling an empty one.
  */
 export async function saveCustomSection(formData: FormData): Promise<void> {
+  await refuseLimitedHelper(formData.get('event_id'), 'invitations');
   const eventIdRaw = formData.get('event_id');
   const widgetIdRaw = formData.get('widget_id');
   if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) redirect('/dashboard');

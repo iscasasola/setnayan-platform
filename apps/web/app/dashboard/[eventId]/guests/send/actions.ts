@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { getHostUserId } from '@/lib/host-gate';
+import { getHostUserId, refuseLimitedHelper } from '@/lib/host-gate';
 import { updatePrintDetails } from '@/lib/print-details-write';
 import { defaultInviteTemplate, sanitizeInviteTemplate } from '@/lib/guest-invite-message';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -38,6 +38,7 @@ export async function saveInviteMessage(
   eventId: string,
   text: string,
 ): Promise<{ ok: true; template: string | null } | { ok: false }> {
+  await refuseLimitedHelper(eventId, 'guest_list');
   if (!UUID.test(eventId)) return { ok: false };
   const hostId = await getHostUserId(eventId);
   if (!hostId) return { ok: false };

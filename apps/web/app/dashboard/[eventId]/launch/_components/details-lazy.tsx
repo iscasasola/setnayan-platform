@@ -171,7 +171,7 @@ export const BeforeWeStartScreen = dynamic(() => import(/* webpackChunkName: "ma
 export const MakerLogoDoor = dynamic(() => import(/* webpackChunkName: "maker-details" */ './maker-logo').then((m) => m.MakerLogoDoor), { loading: SlotFill });
 export const MakerRevealPicker = dynamic(() => import(/* webpackChunkName: "maker-details" */ './maker-reveal').then((m) => m.MakerRevealPicker), { loading: SlotRows });
 
-/* ── 🧭 The new Maker's own chrome (owner 2026-10-06, `makerStagesStudioEnabled`) — Stages | Studio, Studio's
+/* ── 🧭 The new Maker's own chrome (owner 2026-10-06, `stagesStudio`, the one Maker since 2026-10-25) — Stages | Studio, Studio's
    home, the grab handle, the one bottom sheet. Drawn only while the new Maker is on, so none
    of it is in the Maker's first load (`scripts/check-maker-js-budget.mjs`); warmed at idle with the rest. ── */
 export const StudioSideSwitch = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stages-studio-parts').then((m) => m.StudioSideSwitch), {

@@ -129,6 +129,7 @@ import {
   type EditablePlanRow,
 } from '@/lib/self-added-payment-plan';
 import { geocodeAddressWithCity } from '@/lib/geo';
+import { refuseLimitedHelper, limitedHelperRefusal } from '@/lib/host-gate';
 
 function isValidCategory(value: unknown): value is VendorCategory {
   return typeof value === 'string' && (VENDOR_CATEGORIES as readonly string[]).includes(value);
@@ -177,6 +178,7 @@ function nullIfBlank(raw: FormDataEntryValue | null): string | null {
 // ============================================================================
 
 export async function updateVendorCosts(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'vendors');
   const eventId = formData.get('event_id');
   const vendorId = formData.get('vendor_id');
   if (typeof eventId !== 'string' || typeof vendorId !== 'string') {
@@ -487,6 +489,7 @@ async function updateVendorStatus(formData: FormData) {
 }
 
 export async function deleteVendor(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'vendors');
   const eventId = formData.get('event_id');
   const vendorId = formData.get('vendor_id');
   if (typeof eventId !== 'string' || typeof vendorId !== 'string') {
@@ -995,6 +998,7 @@ async function resolveLockImpact(args: {
 export async function finalizeVendor(
   formData: FormData,
 ): Promise<FinalizeVendorResult> {
+  await refuseLimitedHelper(formData.get('event_id'), 'vendors');
   const eventId = formData.get('event_id');
   const vendorId = formData.get('vendor_id');
   const overrideExistingRaw = formData.get('override_existing');
@@ -3006,6 +3010,7 @@ export async function withdrawVendorLockRequest(
 export async function revertVendorToConsidering(
   formData: FormData,
 ): Promise<RevertVendorResult> {
+  await refuseLimitedHelper(formData.get('event_id'), 'vendors');
   const eventId = formData.get('event_id');
   const vendorId = formData.get('vendor_id');
   if (typeof eventId !== 'string' || eventId.length === 0) {
@@ -3634,6 +3639,8 @@ export async function createManualVendorInvite(input: {
   eventId: string;
   vendorId: string;
 }): Promise<ManualVendorInviteResult> {
+  const helperRefusal = await limitedHelperRefusal(input.eventId, 'vendors');
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   if (
     !input ||
     typeof input.eventId !== 'string' ||
@@ -3961,6 +3968,7 @@ export type AttachMarketplaceVendorResult =
 export async function attachMarketplaceVendorToCategory(
   formData: FormData,
 ): Promise<AttachMarketplaceVendorResult> {
+  await refuseLimitedHelper(formData.get('event_id'), 'vendors');
   const eventIdRaw = formData.get('event_id');
   const marketplaceVendorIdRaw = formData.get('marketplace_vendor_id');
   const categoryRaw = formData.get('category');
@@ -4238,6 +4246,7 @@ const DOWNPAID_STATUSES = new Set<VendorStatus>([
 export async function cancelBookingAsHost(
   formData: FormData,
 ): Promise<CancelBookingAsHostResult> {
+  await refuseLimitedHelper(formData.get('event_id'), 'vendors');
   const eventIdRaw = formData.get('event_id');
   const vendorIdRaw = formData.get('vendor_id');
 
@@ -4525,6 +4534,7 @@ export async function cancelBookingAsHost(
 export async function recordDeposit(
   formData: FormData,
 ): Promise<{ status: 'ok' | 'error' | 'not_signed_in'; message?: string }> {
+  await refuseLimitedHelper(formData.get('event_id'), 'vendors');
   const eventId = formData.get('event_id');
   const vendorId = formData.get('vendor_id');
   if (typeof eventId !== 'string' || typeof vendorId !== 'string') {
@@ -4941,6 +4951,7 @@ function buildMethodLabel(m: CoupleFacingMethod): string {
 export async function acknowledgeHandover(
   formData: FormData,
 ): Promise<{ status: 'ok' | 'already' | 'not_ackable' | 'error' | 'not_signed_in'; message?: string }> {
+  await refuseLimitedHelper(formData.get('event_id'), 'vendors');
   const handoverId = formData.get('handover_id');
   const eventId = formData.get('event_id');
   const vendorId = formData.get('vendor_id');
@@ -5030,6 +5041,7 @@ export async function acknowledgeHandover(
 export async function raiseChangeOrder(
   formData: FormData,
 ): Promise<{ status: 'ok' | 'error' | 'not_signed_in'; message?: string }> {
+  await refuseLimitedHelper(formData.get('event_id'), 'vendors');
   const eventId = formData.get('event_id');
   const vendorId = formData.get('vendor_id');
   if (typeof eventId !== 'string' || typeof vendorId !== 'string') {
@@ -5143,6 +5155,7 @@ export async function raiseChangeOrder(
 export async function respondChangeOrder(
   formData: FormData,
 ): Promise<{ status: 'ok' | 'already' | 'error' | 'not_signed_in'; message?: string }> {
+  await refuseLimitedHelper(formData.get('event_id'), 'vendors');
   const eventId = formData.get('event_id');
   const vendorId = formData.get('vendor_id');
   const changeOrderId = formData.get('change_order_id');
@@ -5218,6 +5231,7 @@ export async function respondChangeOrder(
 export async function withdrawChangeOrder(
   formData: FormData,
 ): Promise<{ status: 'ok' | 'already' | 'error' | 'not_signed_in'; message?: string }> {
+  await refuseLimitedHelper(formData.get('event_id'), 'vendors');
   const eventId = formData.get('event_id');
   const vendorId = formData.get('vendor_id');
   const changeOrderId = formData.get('change_order_id');
@@ -5255,6 +5269,7 @@ export async function withdrawChangeOrder(
 export async function dismissVendorLockProposal(
   formData: FormData,
 ): Promise<{ ok: boolean }> {
+  await refuseLimitedHelper(formData.get('event_id'), 'vendors');
   const eventId = formData.get('event_id');
   const proposalIdRaw = formData.get('proposal_id');
   if (typeof eventId !== 'string' || typeof proposalIdRaw !== 'string') {
@@ -5342,6 +5357,7 @@ export type AddManualSupplierResult =
 export async function addManualSupplier(
   formData: FormData,
 ): Promise<AddManualSupplierResult> {
+  await refuseLimitedHelper(formData.get('event_id'), 'vendors');
   const eventId = formData.get('event_id');
   const category = formData.get('category');
   if (typeof eventId !== 'string' || eventId.length === 0) {
@@ -5692,6 +5708,7 @@ export type UpdateSelfAddedSupplierResult =
 export async function updateSelfAddedSupplier(
   formData: FormData,
 ): Promise<UpdateSelfAddedSupplierResult> {
+  await refuseLimitedHelper(formData.get('event_id'), 'vendors');
   const eventId = formData.get('event_id');
   const vendorId = formData.get('vendor_id');
   if (typeof eventId !== 'string' || !eventId || typeof vendorId !== 'string' || !vendorId) {

@@ -28,6 +28,9 @@ import { RSVP_ANSWER_CLASS, RSVP_ANSWERS_ROW_CLASS, RsvpQuestionHeader, RsvpStyl
 import { RSVP_FORM_LINE_ID as FORM_LINE_ID, RSVP_FORM_QUESTION_CLASS, RSVP_STEP_QUESTION_CLASS, RsvpLines } from './rsvp-lines';
 import { RSVP_SCREEN_LINES, RSVP_WEARS_ATTR, rsvpLayoutIsGroup, type RsvpLayoutItem } from '@/lib/rsvp-look';
 import { formatCount } from '@/lib/format-number';
+import { RsvpNameCorrection } from './rsvp-name-correction';
+import { RsvpSeats, rsvpYouName } from './rsvp-seats';
+import { plusOneNameSlots } from '@/lib/extra-seats';
 
 /**
  * MAKES THE MOBILE BOX REQUIRED WHILE "ATTENDING" IS PICKED. Inline and
@@ -268,6 +271,24 @@ export function RsvpWidget({
   // Not on the Maker's canvas (nobody answers there), not on a closed list.
   const mobileRequiredOnYes = askMobile && !replyLocked && !previewEveryQuestion;
   const requireMobile = askMobile && Boolean(gate?.missing.includes('mobile'));
+  /* 🪑 THE SEATS STEP'S NUMBER — N = 1 + the extra seats (owner 2026-10-25: "We reserved two seats for you").
+     The extra seats are the +1 step's own boxes when the seat list read (a named seat is never dropped, even past
+     the couple's number — `plusOneNameSlots`), else the couple's number from the guest's OWN row, which a failed
+     seat read does not touch (scenario E: the Seats step stays true). */
+  const seatsGiven = guest.plus_one_allowed ? plusOneSeats(guest) : 0;
+  const seatSlots = seatsGiven > 0 && guest.plus_one_seats ? plusOneNameSlots(seatsGiven, guest.plus_one_seats, guest.plus_one_name) : null;
+  const seatsHeld = 1 + (seatSlots ? seatSlots.length : seatsGiven);
+  /* 🧯 THE SEAT LIST DID NOT READ (scenario E, decision 7): the +1 step says so, claims no count and offers its one
+     box — never "a seat for one more" to a guest who has more. Not on the Maker's sample, which reads no seats. */
+  const seatListUnread = bringsPlusOnes && !previewEveryQuestion && guest.plus_one_seats === undefined && seatsGiven > 1;
+  /* The Seats and You steps open the YES path. A closed list has no radio to reveal them by, so there they are drawn
+     outright for a guest on record as coming, and not at all otherwise. */
+  const yesSteps = !replyLocked || guest.rsvp_status === 'attending';
+  const yesReveal = replyLocked || revealAll ? '' : 'attending-reveal ';
+  /* The decline arm of the contact boxes — never on the Maker's sample (it shows the YES path), and on a closed list
+     only for a guest not on record as coming. */
+  const declineArm = !revealAll && (!replyLocked || guest.rsvp_status !== 'attending');
+  const declineReveal = replyLocked ? '' : 'declined-reveal ';
 
   const mobileField = (
     <>
@@ -287,24 +308,56 @@ export function RsvpWidget({
       ) : null}
     </>
   );
-  // The contact boxes, declared ONCE so the folded and unfolded arms can never
-  // drift apart. Both arms render them, so both POST them.
+  const knownNickname = guest.display_name ?? profileDetails?.displayName ?? '';
+  // The contact boxes, declared ONCE per arm so the folded and unfolded decline arms can never drift apart. Both
+  // render them, so both POST them.
   //
   // 📵 NO EMAIL BOX (owner 2026-09-29, DECISION_LOG "NO EMAIL TO GUESTS — THE QR
   // AND THE LINK DO EVERYTHING": *"No email. Either use the qr and link only"*).
   // Nothing emails a guest any more, so the reply does not collect an address
   // it would never use — and `submitRsvp` no longer reads one. Mobile stays, and
   // only when the couple switched it on.
-  const contactFields = (
+  //
+  // 🪑 TWO HOMES FOR THE SAME TWO ANSWERS (owner 2026-10-25, RSVP seats-first, "all as recommended"). On a YES they
+  // are the You step, right after the Seats step: the name shown read-only, then "What should we call you?", then
+  // Mobile — in the prototype's order (`youFields`). On a NO they stay exactly where they were, after the note
+  // (decision 3, "Decline path unchanged" — `contactFields`). Both arms are drawn and the card's CSS shows the one
+  // the answer picked; the decline arm posts `declined_contact_*` so the two can never collide, and `submitRsvp`
+  // reads the arm the answer names. Same columns, same writes.
+  const youFields = (
     <>
+      <Field
+        id="contact_display_name"
+        label="What should we call you? (optional)"
+        defaultValue={knownNickname}
+        placeholder={guest.first_name}
+      />
       {askMobile ? (
         // 🗳 Wrapped only on the Maker's canvas (to show / hide on its switch).
         previewEveryQuestion ? <div {...canvasAsk('mobile')}>{mobileField}</div> : mobileField
       ) : null}
+    </>
+  );
+  /* The decline arm's names: `declined_contact_*` while the You step is in the form too (`DECLINED_CONTACT_FIELDS`,
+     read back by `adoptDeclinedContactArm`); the plain names when it is the ONLY contact step — a closed list for a
+     guest not on record as coming, which draws no You step and posts no answer to pick an arm by. */
+  const declinedPrefix = yesSteps ? 'declined_' : '';
+  const contactFields = (
+    <>
+      {askMobile ? (
+        <Field
+          id={`${declinedPrefix}contact_mobile`}
+          label="Mobile"
+          type="tel"
+          autoComplete="tel"
+          defaultValue={guest.mobile ?? profileDetails?.phone ?? ''}
+          placeholder="+63 …"
+        />
+      ) : null}
       <Field
-        id="contact_display_name"
+        id={`${declinedPrefix}contact_display_name`}
         label="What should we call you? (optional)"
-        defaultValue={guest.display_name ?? profileDetails?.displayName ?? ''}
+        defaultValue={knownNickname}
         placeholder={guest.first_name}
       />
     </>
@@ -424,7 +477,7 @@ export function RsvpWidget({
           rule is dead weight AND its selector text is the only `rsvp_status`
           left in the markup, which reads to any scan like a live control. */}
       {replyLocked ? null : (
-        <style>{`.rsvp-form .selfie-reveal,.rsvp-form .attending-reveal{display:none}.rsvp-form:has(input[name="rsvp_status"][value="attending"]:checked) .selfie-reveal,.rsvp-form:has(input[name="rsvp_status"][value="attending"]:checked) .attending-reveal{display:block}.rsvp-form .attend-mark{display:none}.rsvp-form:has(input[name="rsvp_status"][value="attending"]:checked) .attend-mark{display:inline}`}</style>
+        <style>{`.rsvp-form .selfie-reveal,.rsvp-form .attending-reveal{display:none}.rsvp-form:has(input[name="rsvp_status"][value="attending"]:checked) .selfie-reveal,.rsvp-form:has(input[name="rsvp_status"][value="attending"]:checked) .attending-reveal{display:block}.rsvp-form .attend-mark{display:none}.rsvp-form:has(input[name="rsvp_status"][value="attending"]:checked) .attend-mark{display:inline}.rsvp-form .declined-reveal{display:none}.rsvp-form:has(input[name="rsvp_status"][value="declined"]:checked) .declined-reveal{display:block}`}</style>
       )}
 
       {/* On the invite arrival's Reply door the door IS the card — its eyebrow,
@@ -581,18 +634,37 @@ export function RsvpWidget({
         )
       )}
 
-      {/* ⚠ THE QUESTION IS REVEALED BY `:has(rsvp_status=attending:checked)`.
-          With the answer locked there IS no radio, so that selector can never
-          match — locked + attending renders it outright. ⚖ ONE QUESTION, NO
-          CAMERA (owner 2026-09-30): "Yes, tag me" is stored, and the selfie is
-          asked on the day, only while the event's Papic is open. */}
-      {!askTagging ? null : replyLocked ? (
-        guest.rsvp_status === 'attending' ? (
-          <div className="space-y-6">{tagQuestion}</div>
-        ) : null
-      ) : (
-        <div className="selfie-reveal space-y-6">{tagQuestion}</div>
-      )}
+      {/* ── 🪑 SEATS, THEN YOU (owner 2026-10-25, verbatim: *"We reserved one seat for you · We reserved two seats for
+          you · Then a screen where they confirm their name and their nickname and contact number then their plus
+          seat"*; approved prototype `rsvp_seats_2026-10-25`, "all as recommended"). After "Joyfully accepts" the
+          guest is told how many seats are theirs, then sees who they are on the list — the name READ-ONLY, with
+          "Wrong name? Tell the couple" (decision 1: it always works, and writes only `guests.guest_note`) — then
+          their nickname and mobile, then (below) the +1 names, then the tagging question (decision 2) and the rest.
+          🔒 THE NAME STAYS HOST-ONLY (2026-08-01, `seedBindAllowed`): the link may be printed on a poster, and a
+          stranger who can rename a seat-holder is the harm that rule closed. Shown, never posted. */}
+      {yesSteps ? (
+        <div data-rsvp-step data-rsvp-seats={seatsHeld} className={`${yesReveal}space-y-4`}>
+          <RsvpSeats
+            seats={seatsHeld}
+            youLabel={(guest.display_name ?? '').trim() || guest.first_name}
+            extraNames={seatSlots ? seatSlots.map((slot) => slot.name) : []}
+            namesNext={bringsPlusOnes}
+            organizer={words.theOrganizer}
+            question={oneAtATime}
+          />
+        </div>
+      ) : null}
+      {yesSteps ? (
+        <div data-rsvp-step data-rsvp-you className={`${yesReveal}space-y-4`}>
+          <div className="space-y-1">
+            <p className={questionClass(oneAtATime)} data-rsvp-you-name="">
+              You’re {rsvpYouName(guest)}
+            </p>
+            <RsvpNameCorrection theOrganizer={words.theOrganizer} />
+          </div>
+          {youFields}
+        </div>
+      ) : null}
 
       {/* ── WHO ARE YOU BRINGING ────────────────────────────────────────────
           The card could not ask this before, and the reason was not a missing
@@ -614,9 +686,11 @@ export function RsvpWidget({
           box for every guest the couple already allowed one, without
           touching who is allowed (a host action, done on the Guest list). */}
       {bringsPlusOnes ? (
-        <div id="plus-ones" data-rsvp-step {...canvasAsk('plus_ones')} className={`${revealAll ? '' : 'attending-reveal '}scroll-mt-6 space-y-1.5`}>
-          {/* One short set per seat + one "Filling in for ▾" switcher
-              (owner 2026-09-29) — its own file, so this card only mounts it. */}
+        /* 🪑 ONE SCREEN PER +1 (owner 2026-10-25, "one at a time"): this wrapper is no longer a step — each seat
+           inside it is (`RsvpPlusOnes`), so the dots count every +1 and Back walks them in turn. */
+        <div id="plus-ones" {...canvasAsk('plus_ones')} className={`${revealAll ? '' : 'attending-reveal '}scroll-mt-6 space-y-1.5`}>
+          {/* One screen per seat — name, "They're coming", meal, dietary (owner 2026-10-25) — its own file, so this
+              card only mounts it. */}
           <RsvpPlusOnes
             count={plusOneSeats(guest)}
             seats={guest.plus_one_seats}
@@ -625,10 +699,24 @@ export function RsvpWidget({
             askMeal={askMeal}
             askDietary={askDietary}
             question={oneAtATime}
-            youName={oneAtATime ? null : guest.display_name || `${guest.first_name} ${guest.last_name}`.trim()}
+            fallback={seatListUnread}
           />
         </div>
       ) : null}
+
+      {/* 🏷 AFTER THE SEAT STEPS (owner 2026-10-25, decision 2 — it was second, before the seats). */}
+      {/* ⚠ THE QUESTION IS REVEALED BY `:has(rsvp_status=attending:checked)`.
+          With the answer locked there IS no radio, so that selector can never
+          match — locked + attending renders it outright. ⚖ ONE QUESTION, NO
+          CAMERA (owner 2026-09-30): "Yes, tag me" is stored, and the selfie is
+          asked on the day, only while the event's Papic is open. */}
+      {!askTagging ? null : replyLocked ? (
+        guest.rsvp_status === 'attending' ? (
+          <div className="space-y-6">{tagQuestion}</div>
+        ) : null
+      ) : (
+        <div className="selfie-reveal space-y-6">{tagQuestion}</div>
+      )}
 
       {/* ── MEAL + DIETARY: ONLY FOR SOMEBODY WHO IS COMING ──────────────────
           Owner, 2026-09-11, walking the Reply door: a decline must not go on to
@@ -766,8 +854,10 @@ export function RsvpWidget({
           else, and the host never saw it. Everything folded away is listed on
           the line, and the inputs still POST: <details> hides, it does not
           disable. */}
-      {detailsAlreadyKnown ? (
-        <details data-rsvp-step>
+      {/* 🪑 THE DECLINE ARM (owner 2026-10-25, decision 3 — "Decline path unchanged"): a guest who says No meets
+          these boxes here, after the note, exactly as before. On a Yes the same answers are the You step above. */}
+      {!declineArm ? null : detailsAlreadyKnown ? (
+        <details data-rsvp-step className={declineReveal || undefined}>
           <summary className="flex min-h-11 cursor-pointer items-center justify-between gap-3 text-sm text-ink/80 hover:text-ink">
             <span className="min-w-0">
               <span className="block font-medium text-ink">Your details are filled in</span>
@@ -778,7 +868,7 @@ export function RsvpWidget({
           <div className="space-y-4 pt-2">{contactFields}</div>
         </details>
       ) : (
-        <div data-rsvp-step className="space-y-1.5">
+        <div data-rsvp-step className={`${declineReveal}space-y-1.5`}>
           <span className={questionClass(oneAtATime)}>
             How {words.theOrganizer} can reach you
           </span>

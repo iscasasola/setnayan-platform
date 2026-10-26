@@ -120,7 +120,7 @@ export function SendRun({
       </div>
 
       {current ? (
-        <section className="space-y-4 rounded-2xl bg-white p-4 shadow-[0_10px_30px_-14px_rgba(30,34,41,0.35)]" aria-live="polite">
+        <section className="space-y-4 rounded-2xl bg-white dark:bg-raised p-4 shadow-[0_10px_30px_-14px_rgba(30,34,41,0.35)]" aria-live="polite">
           <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/50" data-send-run-position="">
             {formatCount(position)} of {formatCount(total)}
           </p>
@@ -173,7 +173,7 @@ export function SendRun({
           ) : null}
         </section>
       ) : (
-        <section className="space-y-3 rounded-2xl bg-white p-5 text-center shadow-[0_10px_30px_-14px_rgba(30,34,41,0.35)]" data-send-run-done="">
+        <section className="space-y-3 rounded-2xl bg-white dark:bg-raised p-5 text-center shadow-[0_10px_30px_-14px_rgba(30,34,41,0.35)]" data-send-run-done="">
           <Check aria-hidden className="mx-auto h-8 w-8 text-success-600" strokeWidth={2} />
           <p className="text-lg font-semibold text-ink">
             {total === 0

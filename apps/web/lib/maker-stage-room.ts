@@ -1,6 +1,6 @@
 /**
  * lib/maker-stage-room.ts — 📏 THE STAGES PANEL'S ROOM ON A PHONE (the new Maker,
- * `makerStagesStudioEnabled`; `launch/_components/stage-tools.tsx`).
+ * `stagesStudio`, the one Maker since 2026-10-25; `launch/_components/stage-tools.tsx`).
  *
  * Owner, 2026-10-09 (`TOOLBAR-SPEC-2026-10-09.md`, the approved prototype `studio-head-prototype.html`): the
  * toolbar is ONE FIXED HEIGHT — "330 px it is" on a tall phone — a handle, "You're editing · Stage › Page ›

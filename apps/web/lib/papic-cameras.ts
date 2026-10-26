@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { generateSeatClaimToken } from '@/lib/papic-seats';
 import { eventSkuActive } from '@/lib/entitlements';
-import { PAPIC_FREE_CAMERA_COUNT, papicCaptureCost } from '@/lib/papic-cameras-pure';
+import { PAPIC_FREE_CAMERA_COUNT, papicCaptureCost, type PapicCaptureSource } from '@/lib/papic-cameras-pure';
 import { formatCount } from '@/lib/format-number';
 
 /**
@@ -183,6 +183,15 @@ export const PAPIC_FREE_ONE_CAMERA_INDEX = 110;
  * adding a fifth.
  */
 export const PAPIC_UPLOADS_CAMERA_INDEX = 150;
+
+/**
+ * Was this capture added by hand? The Uploads camera's seat is the one door for a file picked from a phone or laptop
+ * (owner 2026-10-26: anything added costs the camera price × PAPIC_UPLOAD_MULTIPLIER — `papicCaptureCost`). Read off the SEAT the server
+ * resolved from the token, never from anything the client says.
+ */
+export function papicSeatCaptureSource(seatIndex: number | null | undefined): PapicCaptureSource {
+  return seatIndex === PAPIC_UPLOADS_CAMERA_INDEX ? 'upload' : 'camera';
+}
 
 /**
  * Last-resort fallbacks if the catalog row is missing. Live prices come from the
@@ -395,7 +404,7 @@ export type CameraQuoteLine = {
   /**
    * count × rate, BEFORE the cap. FLAT per camera — the capture-window day
    * count is NOT a price multiplier (2026-07-22 flat naming lock · migration
-   * 20270830568357; matches /pricing _papic-estimator.tsx).
+   * 20270830568357; matched /pricing's former _papic-estimator.tsx, deleted 2026-10-25).
    */
   subtotalPhp: number;
   /** What is actually billed: 0 when freed by an unlock, else min(subtotal, cap). */
@@ -485,7 +494,7 @@ export type CameraQuoteOpts = {
  * `days` argument is the capture-WINDOW length: it still sets seat validity
  * (valid_from/valid_until, resolved by the caller) and rides the order
  * description, but it is NEVER a price multiplier. /pricing promises "flat per
- * camera — no per-day or per-hour math" (_papic-estimator.tsx: paidCameras ×
+ * camera — no per-day or per-hour math" (the former /pricing _papic-estimator.tsx: paidCameras ×
  * rate), and this charge path must equal that. The old `× days` engine was
  * retired with the flat rename.
  *

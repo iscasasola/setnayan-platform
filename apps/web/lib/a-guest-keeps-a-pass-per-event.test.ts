@@ -229,8 +229,12 @@ test('(7) the wiring: swap before the body, persisted only on a plain read; read
   const fn = mw.slice(mw.indexOf('async function activatePassForEvent('), mw.indexOf('async function refreshGuestSessionCookie('));
   assert.match(fn, /request\.cookies\.set\(GUEST_SESSION_COOKIE_NAME, swap\.value\)/, 'the swap no longer reaches the render');
   assert.match(fn, /userNestingRewritePath\(pathname\)/, 'the nested /u/ address lost its event');
-  // The refresh slides the book entry with the pass.
-  assert.match(mw.slice(mw.indexOf('async function refreshGuestSessionCookie(')), /refreshedPassBook\(/);
+  // The refresh slides the book entry with the pass — through the pure `guestPassRefreshFor` (which also re-seals a
+  // legacy pass, 2026-10-25), and that function still slides the book.
+  assert.match(mw.slice(mw.indexOf('async function refreshGuestSessionCookie(')), /guestPassRefreshFor\(/);
+  const gsRefresh = code('lib/guest-session.ts');
+  const refreshFn = gsRefresh.slice(gsRefresh.indexOf('export async function guestPassRefreshFor('));
+  assert.match(refreshFn.slice(0, refreshFn.indexOf('\n}\n')), /refreshedPassBook\(/, 'the sliding refresh no longer slides the book');
 
   const reader = code('lib/guest-one-path.server.ts');
   assert.match(reader, /readGuestSession\(\{ eventId \}\)/, 'the event reader ignores the pass book');

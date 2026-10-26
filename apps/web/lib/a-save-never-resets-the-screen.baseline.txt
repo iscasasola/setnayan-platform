@@ -3,13 +3,8 @@
 # convert a control to a `StayForm` door (lib/stay-doors.ts + app/_actions/save-in-place.ts), then regenerate with
 #   pnpm tsx lib/stay-ratchet.ts --write
 # Never add a line by hand — a NEW redirecting action is either a door or navigation (stay-ratchet.navigation.ts).
-app/[slug]/actions.ts › linkThisSeatAction
-app/[slug]/actions.ts › saveAttendedVendorAction
-app/[slug]/actions.ts › setGuestFaceBlock
-app/[slug]/actions.ts › setGuestScanTracking
 app/[slug]/actions.ts › startAccountSaveAction
 app/[slug]/actions.ts › submitRsvp
-app/[slug]/actions.ts › withdrawFaceConsent
 app/[slug]/invite/actions.ts › submitInviteReply
 app/[slug]/welcome/actions.ts › confirmPlusOneName
 app/_components/appointments-actions.ts › cancelAppointment
@@ -244,22 +239,11 @@ app/dashboard/(account)/samahan/actions.ts › updateCommunityIdentity
 app/dashboard/(launcher)/incoming-request-actions.ts › answerIncomingRequest
 app/dashboard/(launcher)/incoming-request-actions.ts › muteInviter
 app/dashboard/[eventId]/disputes/actions.ts › fileForceMajeureFlag
-app/dashboard/[eventId]/hosts/actions.ts › inviteHost
-app/dashboard/[eventId]/hosts/actions.ts › removeHost
-app/dashboard/[eventId]/hosts/actions.ts › revokeHostInvite
-app/dashboard/[eventId]/invitation/actions.ts › markGuestInvitationSent
-app/dashboard/[eventId]/invitation/actions.ts › reissueGuestToken
 app/dashboard/[eventId]/invitation/actions.ts › updateEventSlug
-app/dashboard/[eventId]/invitation/actions.ts › updateMonogram
-app/dashboard/[eventId]/live/actions.ts › setWallMode
-app/dashboard/[eventId]/live/actions.ts › toggleFlashAutoWall
 app/dashboard/[eventId]/manpower/host-actions.ts › cancelGigFromHost
 app/dashboard/[eventId]/monogram/studio-actions.ts › clearStudioAction
 app/dashboard/[eventId]/monogram/studio-actions.ts › saveStudioAction
 app/dashboard/[eventId]/monogram/upload-actions.ts › clearUploadedMarkAction
-app/dashboard/[eventId]/schedule/actions.ts › resolveScheduleSuggestion
-app/dashboard/[eventId]/schedule/question-answers-actions.ts › saveHostAnswers
-app/dashboard/[eventId]/schedule/stage-note-actions.ts › sendStageNoteFromEvent
 app/dashboard/[eventId]/studio/mood-board/dress-code-actions.ts › updateDressCode
 app/dashboard/[eventId]/studio/mood-board/dress-code-actions.ts › updateDressCodeLists
 app/dashboard/[eventId]/studio/panood/setup/actions.ts › clearPanoodFacebookUrl
@@ -286,11 +270,6 @@ app/dashboard/[eventId]/studio/save-the-date/actions.ts › launchSaveTheDate
 app/dashboard/[eventId]/studio/save-the-date/actions.ts › saveAllStdContent
 app/dashboard/[eventId]/studio/save-the-date/actions.ts › scheduleSaveTheDateLaunch
 app/dashboard/[eventId]/studio/save-the-date/wax-actions.ts › saveWaxSeal
-app/dashboard/[eventId]/vendors/[vendorId]/review/actions.ts › coupleConfirmReceived
-app/dashboard/[eventId]/vendors/[vendorId]/review/actions.ts › coupleReportNonDelivery
-app/dashboard/[eventId]/vendors/[vendorId]/review/actions.ts › recommendVendor
-app/dashboard/[eventId]/vendors/[vendorId]/review/actions.ts › submitReviewAppeal
-app/dashboard/[eventId]/vendors/[vendorId]/review/actions.ts › withdrawRecommendation
 app/dashboard/[eventId]/website/colors/actions.ts › updateSiteColors
 app/dashboard/[eventId]/website/editor/actions.ts › setLaunchPhase
 app/dashboard/[eventId]/website/hero-photo/actions.ts › uploadHeroPhoto

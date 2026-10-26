@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import { readStayNews } from '@/lib/stay-news.server';
+import { StayForm } from '@/app/_components/stay-form';
 import { notFound, redirect } from 'next/navigation';
 import { ArrowLeft, ShieldCheck, ShieldOff } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
@@ -58,7 +60,8 @@ type EventVendorLookup = {
 
 export default async function CoupleReviewVendorPage({ params, searchParams }: Props) {
   const { eventId, vendorId } = await params;
-  const search = await searchParams;
+  /* 📍 Saved in place: the recommend / appeal notices come from the door's kept news (`lib/stay-news.server.ts`). */
+  const search = { ...(await searchParams), ...(await readStayNews(`/dashboard/${eventId}/vendors/${vendorId}/review`)) };
   const supabase = await createClient();
   const {
     data: { user },
@@ -417,20 +420,20 @@ function ConfirmReceiptState({
         something is missing, let us know.
       </p>
       <div className="flex flex-wrap gap-2 pt-1">
-        <form action={coupleConfirmReceived}>
+        <StayForm door="review.coupleConfirmReceived" action={coupleConfirmReceived}>
           <input type="hidden" name="event_id" value={eventId} />
           <input type="hidden" name="vendor_id" value={vendorId} />
           <SubmitButton className="button-primary" pendingLabel="Confirming…">
             Yes, I got everything
           </SubmitButton>
-        </form>
-        <form action={coupleReportNonDelivery}>
+        </StayForm>
+        <StayForm door="review.coupleReportNonDelivery" action={coupleReportNonDelivery}>
           <input type="hidden" name="event_id" value={eventId} />
           <input type="hidden" name="vendor_id" value={vendorId} />
           <SubmitButton className="button-secondary" pendingLabel="Reporting…">
             Something&rsquo;s missing
           </SubmitButton>
-        </form>
+        </StayForm>
       </div>
       <p className="text-xs text-ink/50">
         If you don&rsquo;t respond, this auto-confirms after 7 days so your review can still go up.
@@ -572,8 +575,8 @@ function AppealForm({
   signal: SelfReviewSignal;
 }) {
   return (
-    <form
-      action={submitReviewAppeal}
+    <StayForm
+      door="review.submitReviewAppeal" action={submitReviewAppeal}
       className="space-y-4 rounded-xl border border-warn-200 bg-warn-50 p-5"
     >
       <input type="hidden" name="event_id" value={eventId} />
@@ -648,7 +651,7 @@ function AppealForm({
           File appeal
         </SubmitButton>
       </div>
-    </form>
+    </StayForm>
   );
 }
 

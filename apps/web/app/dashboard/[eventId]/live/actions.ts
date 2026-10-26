@@ -23,7 +23,10 @@ type ActionResult = { ok: true } | { ok: false; error: string };
 
 const OVERRIDABLE: ReadonlyArray<WallMode> = ['pre_event', 'live', 'recap'];
 
-async function requireCoupleOrCoordinator(eventId: string): Promise<string> {
+/** The couple's or coordinator's user id — or `null` (not theirs to run), RETURNED to the console, never a redirect that
+ *  throws the wall's controls away (DECISION_LOG 2026-10-26 "A SAVE NEVER RESETS THE SCREEN — APP-WIDE"). */
+const NOT_YOURS = 'Only the couple or the coordinator can run the wall.';
+async function requireCoupleOrCoordinator(eventId: string): Promise<string | null> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -35,9 +38,7 @@ async function requireCoupleOrCoordinator(eventId: string): Promise<string> {
     .eq('event_id', eventId)
     .eq('user_id', user.id)
     .maybeSingle();
-  if (!membership || !['couple', 'coordinator'].includes(membership.member_type as string)) {
-    redirect(`/dashboard/${eventId}`);
-  }
+  if (!membership || !['couple', 'coordinator'].includes(membership.member_type as string)) return null;
   return user.id;
 }
 
@@ -58,7 +59,7 @@ export async function setWallMode(
   if (mode !== null && !OVERRIDABLE.includes(mode)) {
     return { ok: false, error: 'unsupported_mode' };
   }
-  await requireCoupleOrCoordinator(clean);
+  if (!(await requireCoupleOrCoordinator(clean))) return { ok: false, error: NOT_YOURS };
 
   const admin = createAdminClient();
   const { error } = await admin
@@ -84,7 +85,7 @@ export async function toggleFlashAutoWall(
   if (helperRefusal) return { ok: false, error: helperRefusal };
   const clean = eventId?.trim();
   if (!clean) return { ok: false, error: 'missing_event' };
-  await requireCoupleOrCoordinator(clean);
+  if (!(await requireCoupleOrCoordinator(clean))) return { ok: false, error: NOT_YOURS };
 
   const admin = createAdminClient();
   const { error } = await admin

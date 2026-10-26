@@ -164,7 +164,9 @@ test('(5) the record note can be read and its button pressed', () => {
   };
   assert.ok(contrast(60) < 4.5 && contrast(60) > 3.8, `the measure moved: ink/60 is ${contrast(60).toFixed(2)}`);
   const notice = read('scan-trail-notice.tsx');
-  const form = notice.match(/<form\s+action=\{toggle\}[\s\S]*?className="([^"]*)"/)?.[1]?.split(/\s+/) ?? [];
+  /* (2026-10-26) the note's form is `TrailForm` — the same form, saved in place through the door when the page knows
+     what `toggle` is bound to. */
+  const form = notice.match(/<TrailForm\s+ids=\{ids\}\s+toggle=\{toggle\}[\s\S]*?className="([^"]*)"/)?.[1]?.split(/\s+/) ?? [];
   const tint = form.map((c) => c.match(/^text-ink\/(\d+)$/)).find(Boolean);
   assert.ok(tint, `the note sets no ink of its own (${form.join(' ')})`);
   assert.ok(contrast(Number(tint![1])) >= 4.5, `the note is ${contrast(Number(tint![1])).toFixed(2)}:1 (text-ink/${tint![1]})`);

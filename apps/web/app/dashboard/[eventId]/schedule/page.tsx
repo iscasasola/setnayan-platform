@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+import { StayForm } from '@/app/_components/stay-form';
 import { fetchEventViewer, isDelegateWithoutArea } from '@/lib/event-viewer.server';
 import { NotSharedWithYou } from '../_components/not-shared-with-you';
 import { eventNoun } from '@/lib/event-noun';
@@ -1005,18 +1006,18 @@ function VendorSuggestionsQueue({
                 <p className="text-xs text-ink/55">Location: {s.proposed_location}</p>
               ) : null}
               <div className="flex items-center gap-2 pt-0.5">
-                <form action={resolveScheduleSuggestion}>
+                <StayForm door="schedule.resolveScheduleSuggestion" action={resolveScheduleSuggestion}>
                   <input type="hidden" name="event_id" value={eventId} />
                   <input type="hidden" name="suggestion_id" value={s.suggestion_id} />
                   <input type="hidden" name="decision" value="accept" />
                   <SubmitButton pendingLabel="Accepting…" className="rounded-md bg-ink px-3 py-1 text-xs font-semibold text-cream hover:bg-ink/85">Accept</SubmitButton>
-                </form>
-                <form action={resolveScheduleSuggestion}>
+                </StayForm>
+                <StayForm door="schedule.resolveScheduleSuggestion" action={resolveScheduleSuggestion}>
                   <input type="hidden" name="event_id" value={eventId} />
                   <input type="hidden" name="suggestion_id" value={s.suggestion_id} />
                   <input type="hidden" name="decision" value="decline" />
                   <SubmitButton pendingLabel="Declining…" className="rounded-md border border-ink/20 px-3 py-1 text-xs font-medium text-ink/70 hover:bg-ink/5">Decline</SubmitButton>
-                </form>
+                </StayForm>
               </div>
             </li>
           );

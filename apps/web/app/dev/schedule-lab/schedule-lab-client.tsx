@@ -12,6 +12,7 @@
 
 import { scheduleSuppliersFrom } from '@/lib/schedule-suppliers';
 import { useMemo, useState } from 'react';
+import { StayDoorProvider, type StayDoorFn } from '@/app/_components/stay-form';
 import { ScheduleDay } from '@/app/dashboard/[eventId]/schedule/_components/day-rail';
 import { PickMenu, Switch } from '@/app/dashboard/[eventId]/schedule/_components/day-ui';
 import type {
@@ -339,7 +340,16 @@ export default function ScheduleLabClient() {
       actual_start_at: null,
     }));
 
+  /* 📍 The in-place door (`StayForm`), STUBBED — a lab press runs the lab's own stand-in and is answered saved or
+     (Refuse every write) refused, never the real door. */
+  const door: StayDoorFn = async (_door, fd, action) => {
+    if (refuse) return { ok: false, error: 'The lab refuses this on purpose — nothing changed. Please try again.' };
+    if (action) await action(fd);
+    return { ok: true };
+  };
+
   return (
+    <StayDoorProvider value={door}>
     <main className="sn-col space-y-5 pb-24">
       <header className="flex flex-wrap items-center gap-2 pt-4">
         <p className="mr-auto text-sm text-ink/60">
@@ -403,5 +413,6 @@ export default function ScheduleLabClient() {
         </ol>
       ) : null}
     </main>
+    </StayDoorProvider>
   );
 }

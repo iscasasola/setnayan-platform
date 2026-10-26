@@ -323,7 +323,7 @@ function RemoveCoordinator({ eventId, row }: { eventId: string; row: PersonRow }
         Remove…
       </button>
       {asking ? (
-        <form action={removeHost} className="flex basis-full flex-wrap items-center gap-2" data-person-remove="">
+        <StayForm door="hosts.removeHost" action={removeHost} className="flex basis-full flex-wrap items-center gap-2" data-person-remove="">
           <input type="hidden" name="event_id" value={eventId} />
           <input type="hidden" name="moderator_id" value={row.moderatorId} />
           <input type="hidden" name="return_to" value="details" />
@@ -345,7 +345,7 @@ function RemoveCoordinator({ eventId, row }: { eventId: string; row: PersonRow }
           >
             Remove {row.name}
           </SubmitButton>
-        </form>
+        </StayForm>
       ) : null}
     </>
   );

@@ -1,4 +1,5 @@
 import { AlertTriangle, Check, Megaphone } from 'lucide-react';
+import { StayForm } from '@/app/_components/stay-form';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -114,7 +115,7 @@ export async function TellTheHost({
 
       {sent.map(({ host, notes }) => (
         <div key={host.vendorProfileId} className="space-y-2">
-          <form action={sendStageNoteFromEvent} className="space-y-2">
+          <StayForm door="schedule.sendStageNoteFromEvent" action={sendStageNoteFromEvent} className="space-y-2">
             <input type="hidden" name="event_id" value={eventId} />
             <input
               type="hidden"
@@ -142,7 +143,7 @@ export async function TellTheHost({
                 Send
               </SubmitButton>
             </div>
-          </form>
+          </StayForm>
 
           {notes.length > 0 ? <SentList notes={notes} /> : null}
         </div>

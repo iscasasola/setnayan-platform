@@ -1,4 +1,5 @@
 import { Lock, MessageCircleQuestion } from 'lucide-react';
+import { StayForm } from '@/app/_components/stay-form';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { findBookedHost } from '@/lib/booked-host';
@@ -107,7 +108,7 @@ export async function HostQuestions({
         </p>
       ) : null}
 
-      <form action={saveHostAnswers} className="space-y-3">
+      <StayForm door="schedule.saveHostAnswers" action={saveHostAnswers} className="space-y-3">
         <input type="hidden" name="event_id" value={eventId} />
         {questionnaire.rows.map(({ question, answer }) => (
           <label key={question.question_id} className="block space-y-1">
@@ -132,7 +133,7 @@ export async function HostQuestions({
         >
           Save answers
         </button>
-      </form>
+      </StayForm>
     </section>
   );
 }

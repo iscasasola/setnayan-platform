@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { StayForm } from '@/app/_components/stay-form';
 import type { ReactNode } from 'react';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { InfoTip } from '@/app/_components/info-tip';
@@ -175,7 +176,8 @@ export function SaveToAccount({
     // 🔒 ASKED, NOT ASSUMED (2026-09-30): whose invitation, and which account.
     const line = seatConfirmLine({ seatName: state.seatName, accountEmail: state.accountEmail });
     return (
-      <form action={linkThisSeatAction.bind(null, eventId)} className="space-y-2" data-seat-confirm="">
+      <StayForm door="guest.linkThisSeatAction" action={linkThisSeatAction.bind(null, eventId)} className="space-y-2" data-seat-confirm="">
+        <input type="hidden" name="event_id" value={eventId} />
         <p className="text-sm text-ink/80">
           {line.whose} {line.where}
         </p>
@@ -183,7 +185,7 @@ export function SaveToAccount({
         <SubmitButton className="button-primary min-h-[56px] w-full" pendingLabel="Saving…">
           Yes, save to my account
         </SubmitButton>
-      </form>
+      </StayForm>
     );
   }
 

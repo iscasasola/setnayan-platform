@@ -34,6 +34,8 @@
 // Vendors-tab cards): #conversation · #documents · #payments.
 // ============================================================================
 
+import { readStayNews } from '@/lib/stay-news.server';
+import { StayForm } from '@/app/_components/stay-form';
 import { resolveProfileByEvent } from '@/lib/event-type-profile';
 import { eventNoun } from '@/lib/event-noun';
 import { bookingMoneyMoved } from '@/lib/booking-money-moved';
@@ -324,7 +326,9 @@ function safeHttpUrl(url: string | null | undefined): string | null {
 
 export default async function VendorWorkspacePage({ params, searchParams }: Props) {
   const { eventId, vendorId } = await params;
-  const search = await searchParams;
+  /* 📍 A press here saves IN PLACE: the step it leads to (the invitation link a sent invite made) is drawn from the
+     news the door kept for this screen (`lib/stay-news.server.ts`) — or, without JavaScript, the address. */
+  const search = { ...(await searchParams), ...(await readStayNews(`/dashboard/${eventId}/vendors/${vendorId}/workspace`)) };
   const supabase = await createClient();
   const {
     data: { user },
@@ -2848,7 +2852,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
           unlock your review and photos — or let us know if something is missing.
         </p>
         <div className="mt-4 flex flex-wrap gap-2">
-          <form action={coupleConfirmReceived}>
+          <StayForm door="review.coupleConfirmReceived" action={coupleConfirmReceived}>
             <input type="hidden" name="event_id" value={eventId} />
             <input type="hidden" name="vendor_id" value={ev.vendor_id} />
             <SubmitButton
@@ -2857,8 +2861,8 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             >
               Yes, I got everything
             </SubmitButton>
-          </form>
-          <form action={coupleReportNonDelivery}>
+          </StayForm>
+          <StayForm door="review.coupleReportNonDelivery" action={coupleReportNonDelivery}>
             <input type="hidden" name="event_id" value={eventId} />
             <input type="hidden" name="vendor_id" value={ev.vendor_id} />
             <SubmitButton
@@ -2867,7 +2871,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             >
               Something&rsquo;s missing
             </SubmitButton>
-          </form>
+          </StayForm>
         </div>
         <p className="mt-3 text-[11px] text-ink/55">
           If you don&rsquo;t respond, this auto-confirms after 7 days so your review can still

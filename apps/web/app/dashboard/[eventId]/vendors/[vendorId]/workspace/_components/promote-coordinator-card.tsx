@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { StayForm } from '@/app/_components/stay-form';
 import { CheckCircle2, Mail, Trash2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -331,7 +332,7 @@ export async function PromoteCoordinatorCard({
                     /host/accept/{s.invitation_token.slice(0, 12)}…
                   </code>
                 ) : null}
-                <form action={revokeHostInvite}>
+                <StayForm door="hosts.revokeHostInvite" action={revokeHostInvite}>
                   <input type="hidden" name="event_id" value={eventId} />
                   <input type="hidden" name="moderator_id" value={s.moderator_id} />
                   <input type="hidden" name="vendor_id" value={vendor.vendor_id} />
@@ -342,7 +343,7 @@ export async function PromoteCoordinatorCard({
                     <Trash2 aria-hidden className="h-3 w-3" strokeWidth={1.75} />
                     Revoke
                   </SubmitButton>
-                </form>
+                </StayForm>
               </div>
             </li>
           ))}

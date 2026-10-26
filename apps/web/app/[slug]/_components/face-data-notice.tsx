@@ -1,4 +1,5 @@
 import { eventWordsForEvent } from '../_lib/event-words';
+import { StayForm } from '@/app/_components/stay-form';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { eventRowOnce } from '@/lib/event-row-once';
@@ -136,7 +137,10 @@ export async function FaceDataNotice({
 
         {/* The gentle option first — it is the one most people want, and putting
             the irreversible one first invites using it by mistake. */}
-        <form action={toggleBlur} className="mt-2 flex flex-wrap items-center justify-between gap-2">
+        <StayForm door="guest.setGuestFaceBlock" action={toggleBlur} className="mt-2 flex flex-wrap items-center justify-between gap-2">
+          <input type="hidden" name="event_id" value={eventId} />
+          <input type="hidden" name="guest_id" value={guestId} />
+          <input type="hidden" name="enabled" value={faceBlockTarget(faceblockEnabled) ? '1' : '0'} />
           <span className="min-w-0">
             {faceblockEnabled === null
               ? 'We couldn’t check whether your face is blurred on the screens just now.'
@@ -150,7 +154,7 @@ export async function FaceDataNotice({
           >
             {faceblockEnabled ? 'Show my face again' : 'Blur my face on the screens'}
           </SubmitButton>
-        </form>
+        </StayForm>
       </div>
 
       {/* The same four facts she was shown when she enrolled, kept reachable —
@@ -165,10 +169,12 @@ export async function FaceDataNotice({
         eventEndDate={clock.eventEndDate}
       />
 
-      <form
-        action={withdraw}
+      <StayForm
+        door="guest.withdrawFaceConsent" action={withdraw}
         className="flex flex-wrap items-center justify-between gap-2 text-xs text-ink/70"
       >
+        <input type="hidden" name="event_id" value={eventId} />
+        <input type="hidden" name="guest_id" value={guestId} />
         <span className="min-w-0">
           Or remove your photo and face data from this {w.eventWord} altogether.
           {' '}You will stop being found in candid shots.
@@ -179,7 +185,7 @@ export async function FaceDataNotice({
         >
           Remove my photo &amp; face data
         </SubmitButton>
-      </form>
+      </StayForm>
     </div>
   );
 }

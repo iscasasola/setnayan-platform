@@ -1,4 +1,6 @@
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
+import { readStayNews } from '@/lib/stay-news.server';
+import { StayForm } from '@/app/_components/stay-form';
 import Link from 'next/link';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { redirect } from 'next/navigation';
@@ -61,7 +63,8 @@ const MONO_ERROR_COPY: Record<string, string> = {
 
 export default async function InvitationAdminPage({ params, searchParams }: Props) {
   const { eventId } = await params;
-  const search = await searchParams;
+  /* 📍 Saved in place: "QR replaced" and the monogram's line come from the door's kept news (`lib/stay-news.server.ts`). */
+  const search = { ...(await searchParams), ...(await readStayNews(`/dashboard/${eventId}/invitation`)) };
 
   const user = await getCurrentUser();
   if (!user) redirect('/login');
@@ -269,7 +272,8 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
           ) : null}
         </header>
 
-        <form action={monoAction} className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto_auto]">
+        <StayForm door="invitation.updateMonogram" action={monoAction} className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto_auto]">
+          <input type="hidden" name="event_id" value={eventId} />
           <div className="space-y-1.5">
             <label htmlFor="monogram_text" className="block text-sm font-medium text-ink">
               Monogram text
@@ -304,7 +308,7 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
               Save monogram
             </SubmitButton>
           </div>
-        </form>
+        </StayForm>
 
         {monoError ? (
           <p role="alert" className="mt-3 text-xs text-terracotta-700">
@@ -483,9 +487,11 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
                         message={inviteMessage}
                         sentAt={guest.invitation_sent_at}
                         markSent={markSentAction}
+                        ids={{ eventId, guestId: guest.guest_id }}
                       />
                       <ReissueQrButton
                         action={reissueAction}
+                        ids={{ eventId, guestId: guest.guest_id }}
                         guestName={guestDisplayName(guest)}
                         hasEmail={Boolean(guest.email)}
                         dayOfLive={dayOfLive}
@@ -547,9 +553,11 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
                   message={inviteMessage}
                   sentAt={guest.invitation_sent_at}
                   markSent={markSentAction}
+                        ids={{ eventId, guestId: guest.guest_id }}
                 />
                 <ReissueQrButton
                   action={reissueAction}
+                        ids={{ eventId, guestId: guest.guest_id }}
                   guestName={guestDisplayName(guest)}
                   hasEmail={Boolean(guest.email)}
                   dayOfLive={dayOfLive}

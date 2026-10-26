@@ -1,4 +1,5 @@
 import { Fragment, isValidElement } from 'react';
+import { StayForm } from '@/app/_components/stay-form';
 import { BLOCK_LOOKS_STYLE_ATTR, BLOCK_MARK_ATTR, blockLooksCss, blockOfCanvas, readBlockLooks, type BlockLookBlock } from '@/lib/block-looks';
 import Link from 'next/link';
 import { watchLiveOccasion } from '@/lib/watch-live-occasion';
@@ -3791,8 +3792,8 @@ export async function SiteBody({
                         {showClaimAccountCta ? (
                           <span className="shrink-0 text-xs text-ink/70">Account needed</span>
                         ) : (
-                          <form
-                            action={saveAttendedVendorAction.bind(
+                          <StayForm
+                            door="guest.saveAttendedVendorAction" action={saveAttendedVendorAction.bind(
                               null,
                               event.event_id,
                               event.slug ?? '',
@@ -3800,10 +3801,13 @@ export async function SiteBody({
                             )}
                             className="shrink-0"
                           >
+                            <input type="hidden" name="event_id" value={event.event_id} />
+                            <input type="hidden" name="slug" value={event.slug ?? ''} />
+                            <input type="hidden" name="vendor_profile_id" value={v.vendorProfileId} />
                             <SubmitButton className="button-secondary text-sm" pendingLabel="Saving…">
                               Save
                             </SubmitButton>
-                          </form>
+                          </StayForm>
                         )}
                       </li>
                     ))}

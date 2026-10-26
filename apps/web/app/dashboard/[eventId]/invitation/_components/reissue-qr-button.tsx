@@ -1,5 +1,6 @@
 'use client';
 
+import { useStayDoor } from '@/app/_components/stay-form';
 import { useRef, useState, useTransition } from 'react';
 import { AlertTriangle, RefreshCw, X } from 'lucide-react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
@@ -24,6 +25,7 @@ import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
  */
 export function ReissueQrButton({
   action,
+  ids,
   guestName,
   hasEmail,
   dayOfLive,
@@ -31,6 +33,8 @@ export function ReissueQrButton({
 }: {
   /** Server action bound to (eventId, guestId) by the page. */
   action: (formData: FormData) => Promise<void>;
+  /** The event and guest the action is bound to — the in-place door reads them from the post. */
+  ids: { eventId: string; guestId: string };
   guestName: string;
   hasEmail: boolean;
   /** Event is inside the live day-of window (T-1h..T+8h). */
@@ -42,6 +46,9 @@ export function ReissueQrButton({
   const [acked, setAcked] = useState(false);
   const [typed, setTyped] = useState('');
   const [pending, startTransition] = useTransition();
+  /* 📍 In place (owner 2026-10-26): the door runs the same action; "QR replaced" is drawn from its kept news. */
+  const stay = useStayDoor();
+  const [error, setError] = useState<string | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   useModalA11y({ open, onClose: () => setOpen(false), containerRef: dialogRef });
 
@@ -167,7 +174,12 @@ export function ReissueQrButton({
                 disabled={!armed || pending}
                 onClick={() =>
                   startTransition(async () => {
-                    await action(new FormData());
+                    const fd = new FormData();
+                    fd.set('event_id', ids.eventId);
+                    fd.set('guest_id', ids.guestId);
+                    setError(null);
+                    const r = await stay('invitation.reissueGuestToken', fd, action);
+                    if (!r.ok) return setError(r.error);
                     setOpen(false);
                   })
                 }
@@ -177,6 +189,11 @@ export function ReissueQrButton({
                 {pending ? 'Replacing…' : 'Replace QR'}
               </button>
             </div>
+            {error ? (
+              <p role="alert" className="mt-2 text-[12.5px] text-terracotta-700">
+                {error}
+              </p>
+            ) : null}
           </div>
         </div>
       ) : null}

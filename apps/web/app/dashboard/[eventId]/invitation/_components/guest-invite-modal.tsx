@@ -1,5 +1,6 @@
 'use client';
 
+import { StayForm } from '@/app/_components/stay-form';
 import { useEffect, useId, useRef, useState } from 'react';
 import { Copy, Send, Check, X, Undo2 } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -13,6 +14,8 @@ type Props = {
   /** ISO timestamp, or null when the couple has not marked this one yet. */
   sentAt: string | null;
   markSent: (formData: FormData) => Promise<void>;
+  /** The event and guest `markSent` is bound to — the in-place door reads them from the post. */
+  ids: { eventId: string; guestId: string };
 };
 
 /**
@@ -51,7 +54,7 @@ type Props = {
  * 🔑 MARK SENT IS A TOGGLE. It records a claim about the physical world, and
  * people mis-tap; a mark that cannot be undone teaches couples not to use it.
  */
-export function GuestInviteModal({ guestName, message, sentAt, markSent }: Props) {
+export function GuestInviteModal({ guestName, message, sentAt, markSent, ids }: Props) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [text, setText] = useState(message ?? '');
@@ -169,9 +172,11 @@ export function GuestInviteModal({ guestName, message, sentAt, markSent }: Props
                 </button>
               )}
               {/* The guest is bound into `markSent` on the server
-                  (markGuestInvitationSent.bind(null, eventId, guestId)), so no
-                  guest id is posted — the bound one is the only one. */}
-              <form action={markSent}>
+                  (markGuestInvitationSent.bind(null, eventId, guestId)) for the plain post; the in-place door
+                  (`StayForm`, 2026-10-26) reads the same two ids from the form — the action re-checks both. */}
+              <StayForm door="invitation.markGuestInvitationSent" action={markSent}>
+                <input type="hidden" name="event_id" value={ids.eventId} />
+                <input type="hidden" name="guest_id" value={ids.guestId} />
                 {/* The form posts the state it wants to END UP at, so the
                     button's label and the outcome cannot drift apart. */}
                 <input type="hidden" name="sent" value={sentAt ? '0' : '1'} />
@@ -195,7 +200,7 @@ export function GuestInviteModal({ guestName, message, sentAt, markSent }: Props
                     </>
                   )}
                 </SubmitButton>
-              </form>
+              </StayForm>
             </footer>
           </div>
         </div>

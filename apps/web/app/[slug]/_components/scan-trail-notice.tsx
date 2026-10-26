@@ -1,4 +1,6 @@
 import { InfoTip } from '@/app/_components/info-tip';
+import type { ReactNode } from 'react';
+import { StayForm } from '@/app/_components/stay-form';
 import { scanTrailLines } from '@/lib/scan-trail-words';
 import { CircleSlash, RotateCcw } from 'lucide-react';
 import { ME_PILL } from './me-pill';
@@ -96,7 +98,17 @@ export async function ScanTrailNotice({
   const lines = scanTrailLines(optedOut);
   const sentence = lines.more ? `${lines.main} ${lines.more}` : lines.main;
 
-  return <ScanTrailForm sentence={sentence} optedOut={optedOut === true} toggle={toggle} card={card} me={me} lines={lines} />;
+  return (
+    <ScanTrailForm
+      sentence={sentence}
+      optedOut={optedOut === true}
+      toggle={toggle}
+      ids={{ eventId, guestId, optOut: scanOptOutTarget(optedOut) }}
+      card={card}
+      me={me}
+      lines={lines}
+    />
+  );
 }
 
 /**
@@ -109,6 +121,7 @@ export function ScanTrailForm({
   sentence,
   optedOut,
   toggle,
+  ids = null,
   card = false,
   me = false,
   lines = null,
@@ -116,6 +129,8 @@ export function ScanTrailForm({
   sentence: string;
   optedOut: boolean;
   toggle: (formData: FormData) => void | Promise<void>;
+  /** What `toggle` is bound to — the in-place door reads it from the post (`StayForm`). Absent (a lab) = a plain form. */
+  ids?: { eventId: string; guestId: string; optOut: boolean } | null;
   card?: boolean;
   me?: boolean;
   lines?: { main: string; more: string | null } | null;
@@ -134,12 +149,12 @@ export function ScanTrailForm({
         ) : (
           <p className="text-sm text-ink/70">{said.main}</p>
         )}
-        <form action={toggle} data-scan-trail="" className="m-1 mt-3 inline-block align-middle text-sm text-ink/70">
+        <TrailForm ids={ids} toggle={toggle} data-scan-trail="" className="m-1 mt-3 inline-block align-middle text-sm text-ink/70">
           <SubmitButton className={ME_PILL} pendingLabel={optedOut ? 'Turning on…' : 'Turning off…'}>
             {optedOut ? <RotateCcw aria-hidden className="h-4 w-4 shrink-0" /> : <CircleSlash aria-hidden className="h-4 w-4 shrink-0" />}
             <span>{optedOut ? 'Keep a record again' : 'Stop keeping a record'}</span>
           </SubmitButton>
-        </form>
+        </TrailForm>
       </>
     );
   }
@@ -148,8 +163,9 @@ export function ScanTrailForm({
        and the button says its own 44px. NO "are you sure?": the press only flips this guest's one setting
        (`setGuestScanTracking` — nothing is deleted), and the same button, now reading "Keep a record again",
        puts it back at once. The gutter is the page's, given by whoever draws this (`site-body.tsx`). */
-    <form
-      action={toggle}
+    <TrailForm
+      ids={ids}
+      toggle={toggle}
       data-scan-trail=""
       className="flex flex-wrap items-center justify-between gap-2 text-xs text-ink/70"
     >
@@ -160,7 +176,7 @@ export function ScanTrailForm({
       >
         {optedOut ? 'Keep a record again' : 'Stop keeping a record'}
       </SubmitButton>
-    </form>
+    </TrailForm>
   );
   /* `!mt-4`: 16 px under the card above it on Me's stage — the Hub's own card rhythm (`sn-hub-cards space-y-4`),
      not the stage's wider gap between topics. Drawn only when there is a note, so there is never an empty card. */
@@ -170,5 +186,37 @@ export function ScanTrailForm({
     </div>
   ) : (
     form
+  );
+}
+
+/** 📍 The record switch's form: saved IN PLACE through the door when the page knows what `toggle` is bound to (owner
+ *  2026-10-26, "A SAVE NEVER RESETS THE SCREEN" — the plain post landed on the event's front page, off the Me tab); a
+ *  plain form otherwise (the lab, and every phone without JavaScript, posts `toggle` itself). */
+function TrailForm({
+  ids,
+  toggle,
+  children,
+  ...rest
+}: {
+  ids: { eventId: string; guestId: string; optOut: boolean } | null;
+  toggle: (formData: FormData) => void | Promise<void>;
+  children: ReactNode;
+  className?: string;
+  'data-scan-trail'?: string;
+}) {
+  if (!ids) {
+    return (
+      <form action={toggle as (fd: FormData) => void} {...rest}>
+        {children}
+      </form>
+    );
+  }
+  return (
+    <StayForm door="guest.setGuestScanTracking" action={toggle} {...rest}>
+      <input type="hidden" name="event_id" value={ids.eventId} />
+      <input type="hidden" name="guest_id" value={ids.guestId} />
+      <input type="hidden" name="opt_out" value={ids.optOut ? '1' : '0'} />
+      {children}
+    </StayForm>
   );
 }

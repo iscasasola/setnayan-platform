@@ -1,5 +1,6 @@
 'use client';
 
+import { StayForm } from '@/app/_components/stay-form';
 import { Plus, X } from 'lucide-react';
 
 /**
@@ -602,7 +603,7 @@ export function RequestsSheet({
                   {r.proposed_location ? <p className="mt-2 text-[12.5px] text-ink/60">{r.proposed_location}</p> : null}
                   <p className="mt-3 text-[13.5px] italic text-ink/65">“{r.note}”</p>
                   <div className="mt-3.5 flex justify-end gap-2">
-                    <form action={resolveScheduleSuggestion}>
+                    <StayForm door="schedule.resolveScheduleSuggestion" action={resolveScheduleSuggestion}>
                       <input type="hidden" name="event_id" value={eventId} />
                       <input type="hidden" name="suggestion_id" value={r.suggestion_id} />
                       <input type="hidden" name="decision" value="decline" />
@@ -612,8 +613,8 @@ export function RequestsSheet({
                       >
                         Decline
                       </SubmitButton>
-                    </form>
-                    <form action={resolveScheduleSuggestion}>
+                    </StayForm>
+                    <StayForm door="schedule.resolveScheduleSuggestion" action={resolveScheduleSuggestion}>
                       <input type="hidden" name="event_id" value={eventId} />
                       <input type="hidden" name="suggestion_id" value={r.suggestion_id} />
                       <input type="hidden" name="decision" value="accept" />
@@ -623,7 +624,7 @@ export function RequestsSheet({
                       >
                         Approve
                       </SubmitButton>
-                    </form>
+                    </StayForm>
                   </div>
                   <p className="mt-2 text-right text-[11.5px] text-ink/50">
                     {r.kind === 'new'

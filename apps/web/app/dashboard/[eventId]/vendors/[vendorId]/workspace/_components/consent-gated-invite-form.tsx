@@ -5,6 +5,7 @@ import { ShieldCheck, UserCheck, X } from 'lucide-react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 import { inviteHost } from '@/app/dashboard/[eventId]/hosts/actions';
+import { useStaySubmit } from '@/app/_components/stay-form';
 
 const PLANNER_ROLE = 'wedding_planner_external';
 
@@ -41,6 +42,9 @@ export function ConsentGatedInviteForm({
   const scopeCheckoutRef = useRef<HTMLInputElement>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [label, setLabel] = useState<string | null>(coordinatorLabel);
+  /* 📍 Every press that goes through saves IN PLACE (owner 2026-10-26, "A SAVE NEVER RESETS THE SCREEN"): the door
+     runs `inviteHost` and keeps its news, so the link it made is drawn on this same screen. */
+  const stay = useStaySubmit('hosts.inviteHost', undefined, inviteHost);
 
   function isCoordinatorSubmission(form: HTMLFormElement): boolean {
     if (forceCoordinator) return true;
@@ -55,11 +59,11 @@ export function ConsentGatedInviteForm({
     // Second pass (after the couple agreed) — let the server action run.
     if (bypassRef.current) {
       bypassRef.current = false;
-      return;
+      return stay.onSubmit(e);
     }
-    if (!enabled) return; // flag OFF → current behavior
+    if (!enabled) return stay.onSubmit(e); // flag OFF → current behavior, saved in place
     const form = e.currentTarget;
-    if (!isCoordinatorSubmission(form)) return; // non-coordinator host → no gate
+    if (!isCoordinatorSubmission(form)) return stay.onSubmit(e); // non-coordinator host → no gate
     e.preventDefault();
     if (!forceCoordinator) {
       const fd = new FormData(form);
@@ -91,11 +95,14 @@ export function ConsentGatedInviteForm({
   }
 
   return (
+    <>
     <form
       ref={formRef}
       action={inviteHost}
       onSubmit={handleSubmit}
       className={className}
+      data-stay="hosts.inviteHost"
+      aria-busy={stay.pending || undefined}
     >
       {children}
       <input ref={consentRef} type="hidden" name="coordinator_consent" defaultValue="" />
@@ -119,6 +126,8 @@ export function ConsentGatedInviteForm({
         />
       ) : null}
     </form>
+    {stay.refusal}
+    </>
   );
 }
 

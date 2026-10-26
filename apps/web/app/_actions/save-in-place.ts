@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { isRedirectError } from 'next/dist/client/components/redirect-error';
 import { getURLFromRedirectError } from 'next/dist/client/components/redirect';
-import { COULD_NOT_SAVE, inPlaceAnswer, redirectNews, redirectPath, type StayResult, type StayWords } from '@/lib/save-in-place';
+import { COULD_NOT_SAVE, NOTHING_CHANGED, inPlaceAnswer, redirectNews, redirectPath, type StayResult, type StayWords } from '@/lib/save-in-place';
 import { keepStayNews } from '@/lib/stay-news.server';
 import { isStayDoor, type StayDoor } from '@/lib/stay-doors';
 import { limitedHelperRefusal } from '@/lib/host-gate';
@@ -56,6 +56,25 @@ import { guestListErrorCopy } from '@/app/dashboard/[eventId]/guests/_components
 import { guestCardErrorCopy } from '@/app/dashboard/[eventId]/guests/_components/guest-card-error-copy';
 import { pickFlash } from '@/app/dashboard/[eventId]/guests/_components/guest-list-flash';
 import { guestCardFlash } from '@/app/dashboard/[eventId]/guests/_components/guest-card-flash';
+import { inviteHost, removeHost, revokeHostInvite } from '@/app/dashboard/[eventId]/hosts/actions';
+import {
+  coupleConfirmReceived,
+  coupleReportNonDelivery,
+  recommendVendor,
+  submitReviewAppeal,
+  withdrawRecommendation,
+} from '@/app/dashboard/[eventId]/vendors/[vendorId]/review/actions';
+import { resolveScheduleSuggestion } from '@/app/dashboard/[eventId]/schedule/actions';
+import { saveHostAnswers } from '@/app/dashboard/[eventId]/schedule/question-answers-actions';
+import { sendStageNoteFromEvent } from '@/app/dashboard/[eventId]/schedule/stage-note-actions';
+import { markGuestInvitationSent, reissueGuestToken, updateMonogram } from '@/app/dashboard/[eventId]/invitation/actions';
+import {
+  linkThisSeatAction,
+  saveAttendedVendorAction,
+  setGuestFaceBlock,
+  setGuestScanTracking,
+  withdrawFaceConsent,
+} from '@/app/[slug]/actions';
 
 /**
  * 📍 THE ONE DOOR EVERY `StayForm` SAVES THROUGH (owner, 2026-10-26, DECISION_LOG "A SAVE NEVER RESETS THE SCREEN —
@@ -91,7 +110,27 @@ const MEMORIES: StayWords = {
     return n && n.tone === 'bad' ? n.text : null;
   },
 };
-const SCHEDULE: StayWords = { within: [EVENT_SCREEN('schedule')] };
+const SCHEDULE: StayWords = {
+  within: [EVENT_SCREEN('schedule')],
+  /* the host's answers and the stage note say a failure as a flag value, not an `…error` key */
+  refuse: (q) => (q.get('host_answers') === 'error' || q.get('note') === 'error' ? NOTHING_CHANGED : null),
+};
+/* People with access (Event Details) · a supplier's workspace › Promote · the guest card's seat: `?invite_error=`
+   carries the action's own sentence; the workspace draws the link a sent invitation made from the news. */
+const HOSTS: StayWords = {
+  within: [EVENT_SCREEN('details'), /^\/dashboard\/[^/]+\/vendors\/[^/]+\/workspace$/, /^\/dashboard\/[^/]+\/guests(\/[^/]+)?$/],
+  refuse: (q) => q.get('invite_error'),
+  saved: (q) => (q.get('host_removed') === '1' ? 'Removed — their access ended immediately.' : null),
+  keepNews: true,
+};
+/* A supplier's review page — its notices (`recommend=…`, `appeal_filed`) are drawn from the news. */
+const REVIEW: StayWords = { within: [/^\/dashboard\/[^/]+\/vendors\/[^/]+\/review$/], keepNews: true };
+/* The invitation page — "QR replaced" and the monogram's saved line are drawn from the news. */
+const INVITATION: StayWords = {
+  within: [EVENT_SCREEN('invitation')],
+  refuse: (q) => (q.get('invite') === 'failed' ? NOTHING_CHANGED : null),
+  keepNews: true,
+};
 /* Sponsors' `?error=` already carries the page's own sentence (`sponsors/page.tsx` shows it as given). */
 const SPONSORS: StayWords = { within: [EVENT_SCREEN('sponsors')], refuse: (q) => q.get('error') };
 
@@ -124,11 +163,30 @@ const GUEST_CARD: StayWords = {
    the news is kept for the in-place re-render (`lib/stay-news.server.ts`). */
 const REQUESTS: StayWords = { within: [EVENT_SCREEN('guests/claims')], refuse: (q) => q.get('error'), keepNews: true };
 
-type Door = { run: (fd: FormData) => Promise<unknown>; words: StayWords; area: DelegateArea | null };
+/* The guest's event page (`/<slug>`) — a guest's own switches and saves. Its "save a supplier" words are the page's. */
+const GUEST_PAGE: StayWords = {
+  within: [/^\/[^/]+$/],
+  refuse: (q) =>
+    q.get('save') === 'needs_account'
+      ? 'Make a free account (the box above) to save suppliers for your future plans.'
+      : q.get('save') === 'error'
+        ? 'Couldn’t save that just now — please try again.'
+        : null,
+  saved: (q) => (q.get('save') === 'ok' ? 'Saved to your account — find it in your Library for your own plans.' : null),
+};
+
+type Door = { run: (fd: FormData) => Promise<unknown>; words: StayWords; area: DelegateArea | null | 'guest' };
 const papic = (run: (fd: FormData) => Promise<unknown>): Door => ({ run, words: PAPIC_WORDS, area: 'photos' });
 const memories = (run: (fd: FormData) => Promise<unknown>): Door => ({ run, words: MEMORIES, area: 'photos' });
 const schedule = (run: (fd: FormData) => Promise<unknown>): Door => ({ run, words: SCHEDULE, area: 'schedule' });
 const sponsors = (run: (fd: FormData) => Promise<unknown>): Door => ({ run, words: SPONSORS, area: null });
+const hosts = (run: (fd: FormData) => Promise<unknown>): Door => ({ run, words: HOSTS, area: null });
+const review = (run: (fd: FormData) => Promise<unknown>): Door => ({ run, words: REVIEW, area: null });
+const invitation = (run: (fd: FormData) => Promise<unknown>): Door => ({ run, words: INVITATION, area: 'invitations' });
+/* A GUEST's own press on their event page — not a host's write, so the limited-helper gate does not apply (a helper
+   who is also a guest still answers their own invitation). Each action checks the guest's session itself. */
+const guest = (run: (fd: FormData) => Promise<unknown>): Door => ({ run, words: GUEST_PAGE, area: 'guest' });
+const yes = (fd: FormData, name: string) => fd.get(name) === '1';
 const guests = (run: (fd: FormData) => Promise<unknown>, words: StayWords): Door => ({ run, words, area: 'guest_list' });
 
 const DOORS: Readonly<Record<StayDoor, Door>> = {
@@ -175,6 +233,27 @@ const DOORS: Readonly<Record<StayDoor, Door>> = {
   'guests.linkGuestAction': guests(onEvent(linkGuestAction), REQUESTS),
   'guests.undoAcceptAction': guests(onEvent(undoAcceptAction), REQUESTS),
   'guests.undoDeclineAction': guests(onEvent(undoDeclineAction), REQUESTS),
+  'hosts.inviteHost': hosts(inviteHost),
+  'hosts.removeHost': hosts(removeHost),
+  'hosts.revokeHostInvite': hosts(revokeHostInvite),
+  'review.coupleConfirmReceived': review(coupleConfirmReceived),
+  'review.coupleReportNonDelivery': review(coupleReportNonDelivery),
+  'review.recommendVendor': review(recommendVendor),
+  'review.withdrawRecommendation': review(withdrawRecommendation),
+  'review.submitReviewAppeal': review(submitReviewAppeal),
+  'schedule.saveHostAnswers': schedule(saveHostAnswers),
+  'schedule.sendStageNoteFromEvent': schedule(sendStageNoteFromEvent),
+  'schedule.resolveScheduleSuggestion': schedule(resolveScheduleSuggestion),
+  'invitation.markGuestInvitationSent': invitation(onGuest(markGuestInvitationSent)),
+  'invitation.reissueGuestToken': invitation(onGuest(reissueGuestToken)),
+  'invitation.updateMonogram': invitation(onEvent(updateMonogram)),
+  'guest.setGuestFaceBlock': guest((fd) => setGuestFaceBlock(String(fd.get('event_id') ?? ''), String(fd.get('guest_id') ?? ''), yes(fd, 'enabled'))),
+  'guest.setGuestScanTracking': guest((fd) => setGuestScanTracking(String(fd.get('event_id') ?? ''), String(fd.get('guest_id') ?? ''), yes(fd, 'opt_out'))),
+  'guest.withdrawFaceConsent': guest(onGuest(withdrawFaceConsent)),
+  'guest.linkThisSeatAction': guest(onEvent(linkThisSeatAction)),
+  'guest.saveAttendedVendorAction': guest((fd) =>
+    saveAttendedVendorAction(String(fd.get('event_id') ?? ''), String(fd.get('slug') ?? ''), String(fd.get('vendor_profile_id') ?? '')),
+  ),
 };
 
 export async function saveInPlace(door: StayDoor, formData: FormData): Promise<StayResult> {
@@ -183,9 +262,11 @@ export async function saveInPlace(door: StayDoor, formData: FormData): Promise<S
   const { run, words, area } = DOORS[door];
   /* 🔒 The limited-helper gate, before anything runs (owner 2026-10-26: a limited helper changes only the areas the
      host set to Edit). Every form a door serves carries `event_id`. */
-  const eventId = formData.get('event_id');
-  const helperRefusal = await limitedHelperRefusal(typeof eventId === 'string' ? eventId : '', area);
-  if (helperRefusal) return { ok: false, error: helperRefusal };
+  if (area !== 'guest') {
+    const eventId = formData.get('event_id');
+    const helperRefusal = await limitedHelperRefusal(typeof eventId === 'string' ? eventId : '', area);
+    if (helperRefusal) return { ok: false, error: helperRefusal };
+  }
   try {
     await run(formData);
     revalidateHere(formData);

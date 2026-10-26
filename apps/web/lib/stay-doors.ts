@@ -58,6 +58,30 @@ export const STAY_DOORS = [
   'guests.linkGuestAction',
   'guests.undoAcceptAction',
   'guests.undoDeclineAction',
+  /* People with access — invite (a supplier's workspace › Promote), remove (Event Details), revoke. */
+  'hosts.inviteHost',
+  'hosts.removeHost',
+  'hosts.revokeHostInvite',
+  /* A supplier's review page (and the workspace's Confirm received / Report a problem). */
+  'review.coupleConfirmReceived',
+  'review.coupleReportNonDelivery',
+  'review.recommendVendor',
+  'review.withdrawRecommendation',
+  'review.submitReviewAppeal',
+  /* Schedule — the host's questions, Tell the host, a supplier's suggestion. */
+  'schedule.saveHostAnswers',
+  'schedule.sendStageNoteFromEvent',
+  'schedule.resolveScheduleSuggestion',
+  /* The invitation page — Mark sent, Re-issue QR, the monogram. */
+  'invitation.markGuestInvitationSent',
+  'invitation.reissueGuestToken',
+  'invitation.updateMonogram',
+  /* A guest's own event page — face blur, scan trail, remove my face data, this seat is mine, save a supplier. */
+  'guest.setGuestFaceBlock',
+  'guest.setGuestScanTracking',
+  'guest.withdrawFaceConsent',
+  'guest.linkThisSeatAction',
+  'guest.saveAttendedVendorAction',
 ] as const;
 
 export type StayDoor = (typeof STAY_DOORS)[number];

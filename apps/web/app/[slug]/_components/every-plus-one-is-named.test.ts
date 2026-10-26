@@ -252,8 +252,10 @@ test('submitRsvp: a details-only seat never touches the name; meal is checked an
   // The new row carries the seat's answers, beside the fields that make it a seat —
   // minted by the one locked writer (migration 20271272305444), never a bare insert.
   assert.match(src, /rpc\('guest_plus_one_seat_mint', \{[\s\S]{0,120}?p_seat: \{\s*\.\.\.seatAnswers,/);
-  // The host-list mirror takes the first NAMED seat, never a details-only one.
-  assert.match(src, /ops\.find\(\(o\) => o\.kind !== 'details'\)/);
+  // The host-list mirror takes the first name that LANDED on a seat row (2026-10-26) — a details-only seat
+  // never adds to it, and a planned name whose write failed or was refused never reaches it.
+  assert.match(src, /const firstNamed = landed\.find\(Boolean\)/, 'the mirror no longer reads only the landed names');
+  assert.doesNotMatch(branch, /landed\.push/, 'a details-only seat fed the host-list mirror');
 });
 
 // ── The number is the HOST's (owner 2026-09-29: "adding +1-4 should be a host

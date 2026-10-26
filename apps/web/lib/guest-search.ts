@@ -62,7 +62,6 @@ export type GuestSearchRow = Pick<
       | 'extra_roles'
       | 'meal_preference'
       | 'dietary_restrictions'
-      | 'plus_one_name'
       | 'guest_note'
       | 'notes'
       | 'relation'
@@ -83,6 +82,13 @@ export type GuestSearchFacts = {
   songRequests?: readonly string[];
   /** Any further answers (custom RSVP questions, when they exist). */
   answers?: readonly string[];
+  /**
+   * The names on their LIVE +1 rows (`companionNamesByBringer`, lib/extra-seats.ts) — so "Ben" finds the guest who
+   * brings Ben. 🧹 Never the one-name mirror `guests.plus_one_name` (owner 2026-10-26, cale-ice: "I deleted that guest
+   * and added a new plus 1. It is still there?" — searching a removed +1's name still found the guest who had brought
+   * them, off a mirror nothing wrote back). 🔒 lib/a-removed-plus-one-leaves-no-name.test.ts
+   */
+  companionNames?: readonly string[];
 };
 
 // ── THE REPLY, IN EVERY WORD PEOPLE USE FOR IT ─────────────────────────────
@@ -215,7 +221,8 @@ export function guestSearchText(g: GuestSearchRow, facts: GuestSearchFacts = {})
     // Every RSVP answer.
     g.meal_preference ? MEAL_LABELS[g.meal_preference] : null,
     g.dietary_restrictions,
-    g.plus_one_name,
+    // Who they bring — the live +1 rows' names, never the mirror.
+    ...(facts.companionNames ?? []),
     g.guest_note,
     ...(facts.songRequests ?? []),
     ...(facts.answers ?? []),

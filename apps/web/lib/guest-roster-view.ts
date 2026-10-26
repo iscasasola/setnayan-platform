@@ -90,6 +90,8 @@ export type RosterFacts = {
   tableOf: (guestId: string) => string | null;
   /** Their song requests ("Title Artist") — the shipped search reads them. */
   songsOf?: (guestId: string) => readonly string[];
+  /** The names on their live +1 rows (`companionNamesByBringer`) — the search finds a guest by who they bring. */
+  companionsOf?: (guestId: string) => readonly string[];
   /**
    * Any guest on the WHOLE list by id — so a +1 whose guest a search left out still sections with
    * that guest (`plusOneAnchor`). Absent → the guests handed to the call are the whole list.
@@ -700,6 +702,7 @@ export function rosterSearchMatches(query: string, g: GuestRow, facts: RosterFac
     groupLabels: facts.groupsOf(g.guest_id),
     tableLabel: facts.tableOf(g.guest_id),
     songRequests: facts.songsOf?.(g.guest_id),
+    companionNames: facts.companionsOf?.(g.guest_id),
   };
   return guestMatchesSearch(q, g, searchFacts);
 }

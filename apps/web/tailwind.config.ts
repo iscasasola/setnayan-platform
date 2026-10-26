@@ -543,6 +543,12 @@ const config: Config = {
         // Use `font-display` (or its `font-serif` alias) for h1/h2 hero +
         //   section titles (Cormorant Garamond — editorial serif).
         // Use `font-mono` for brand eyebrows + accent labels (DM Mono).
+        // ── THE TWO FONT ROLES (brand refresh step 2, owner 2026-10-26 · app/theme.css) ──
+        // `font-ui` — every app screen's face; `font-mono` — data (IDs, prices, codes). Changing a
+        // face for the whole app = one line in app/theme.css (`--font-ui` / `--font-ui-mono`).
+        // The named faces below (sans · display · serif · pahina · playfair …) are legacy on app
+        // screens — counted by scripts/lint-font-family.mjs; the guest Hub keeps them.
+        ui: ['var(--font-ui)', ...defaultTheme.fontFamily.sans],
         sans: ['var(--font-sans)', ...defaultTheme.fontFamily.sans],
         display: ['var(--font-display)', ...defaultTheme.fontFamily.serif],
         // Pahina display face (guest-site design 2026-07-25 §3) — Fraunces,

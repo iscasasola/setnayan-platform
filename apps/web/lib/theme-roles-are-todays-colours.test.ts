@@ -34,7 +34,7 @@ function declsOf(css: string, sel: string): Decls {
   const out: Decls = new Map();
   const re = /([^{}]+)\{([^{}]*)\}/g;
   for (const m of css.matchAll(re)) {
-    const s = (m[1] ?? '').trim().replace(/\s+/g, ' ');
+    const s = (m[1] ?? '').split(';').pop()!.trim().replace(/\s+/g, ' ');
     if (s !== sel) continue;
     for (const d of (m[2] ?? '').matchAll(/--([a-z0-9-]+)\s*:\s*([^;]+);/gi)) out.set(d[1]!, d[2]!.trim());
   }
@@ -42,8 +42,10 @@ function declsOf(css: string, sel: string): Decls {
 }
 
 const THEME = cssNoComments(raw('app/theme.css'));
-const LIGHT = declsOf(THEME, ':root');
-const DARK = declsOf(THEME, 'html.dark');
+/** Colour roles only — theme.css also holds the font roles (`--font-ui`, step 2), pinned elsewhere. */
+const onlyRoles = (m: Decls): Decls => new Map([...m].filter(([k]) => k.startsWith('role-')));
+const LIGHT = onlyRoles(declsOf(THEME, ':root'));
+const DARK = onlyRoles(declsOf(THEME, 'html.dark'));
 const ALIASES = declsOf(THEME, 'html:root, html.dark:root');
 
 /** globals.css's own theme blocks live inside `@layer base { … }`; flatten one level. */

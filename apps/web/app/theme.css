@@ -118,3 +118,28 @@ html.dark:root {
   --surface-soft: rgb(var(--role-surface-2));
   --accent-soft: rgb(var(--role-selected-soft));
 }
+
+/* ── 3 · FONTS — one UI face, one mono face (brand refresh step 2, plan §1b) ─────────────── */
+/* TODAY'S faces (Hanken Grotesk · Space Mono), loaded once in app/layout.tsx exactly as before.
+ * `--font-ui` / `--font-ui-mono` are the ROLES; Tailwind exposes them as `font-ui` and `font-mono`.
+ * Named `--font-ui-mono`, not `--font-mono`: `--font-mono` is the per-scope consumer the guest Hub
+ * (`.sn-editorial`) and every `[data-hub-theme]` re-point to their own faces, and a role must not be
+ * overridable from inside a page. */
+:root {
+  --font-ui: var(--font-hanken);
+  --font-ui-mono: var(--font-space-mono);
+}
+/* The family names components still use follow the roles (same specificity trick as the colours:
+ * html:root out-specifies globals.css's `:root`). Inside `.sn-editorial` and a hub theme these are
+ * re-pointed on THAT element, so the guest tree keeps its own faces. `lib/theme-fonts-are-one-token.test.ts`
+ * pins it; scripts/lint-font-family.mjs ratchets every named face left in app code and CSS. */
+html:root {
+  --font-sans: var(--font-ui);
+  --font-display: var(--font-ui);
+  --font-app: var(--font-ui);
+  --font-condensed: var(--font-ui);
+  --font-sans-marketing: var(--font-ui);
+  --font-serif-marketing: var(--font-ui);
+  --font-mono: var(--font-ui-mono);
+  --font-mono-marketing: var(--font-ui-mono);
+}

@@ -1601,7 +1601,7 @@ html.dark {
   .app-surface {
     --font-sans: var(--font-app);
     --font-display: var(--font-app);
-    --font-mono: var(--font-space-mono);
+    --font-mono: var(--font-ui-mono); /* the mono ROLE (app/theme.css) — today Space Mono, as before */
     font-family: var(--font-app), system-ui, sans-serif;
   }
 }

@@ -88,9 +88,13 @@ test('wedding: the first screen draws ✕ to the picker in the "‹" slot; later
   assert.match(firstBranch!, /href=\{exit\.href\}/);
   assert.match(firstBranch!, /aria-label=\{exit\.label\}/);
   assert.match(firstBranch!, /exitingOnbRef\.current = true/, 'leaving must not let the sentinel re-step the flow');
-  assert.match(laterBranch!, /className="btn-back"/);
   assert.match(laterBranch!, /onClick=\{\(\) => go\(-1\)\}/);
-  assert.match(laterBranch!, /'‹'/);
+  assert.match(laterBranch!, /<ChevronLeft\b/);
+  // ONE shape in both branches, so screen 1 → 2 swaps only the icon (presentation rule, 2026-10-26).
+  for (const [name, branch] of [['first', firstBranch], ['later', laterBranch]] as const) {
+    assert.match(branch, /className="btn-back btn-ring\b/, `the ${name}-screen control lost the shared ring`);
+    assert.match(branch, /className="btn-ring-face"/, `the ${name}-screen control lost the shared ring face`);
+  }
 
   // Hardware / browser Back exits on the same screen the ✕ shows on.
   const canGoBack = /canGoBackRef\.current = ([^;]+);/.exec(src);
@@ -98,31 +102,44 @@ test('wedding: the first screen draws ✕ to the picker in the "‹" slot; later
   assert.equal(canGoBack[1]!.trim(), '!onFirstScreen');
 });
 
-test('wedding: the ✕ is a 44px tap target', () => {
+test('wedding: the top-left control is a 44px tap target drawn as a round 34px ring', () => {
   const css = readFileSync(WEDDING_CSS, 'utf8');
-  assert.match(css, /\.btn-back\.btn-exit\{width:44px;height:44px;/);
+  assert.match(css, /\.btn-back\.btn-ring\{width:44px;height:44px;min-height:44px;/);
+  assert.match(css, /\.btn-ring \.btn-ring-face\{width:34px;height:34px;border-radius:50%;/);
 });
 
-test('every other event type: step 0 draws ✕ to the picker in the header; later screens keep Back', () => {
+test('every other event type: step 0 draws ✕ to the picker, later steps ‹ — one slot, so the brand never moves', () => {
   const src = code(GENERIC);
   assert.match(src, /const exit = onboardingExit\(authed\);/);
   const header = between(src, '<header', '<FirstRunBrand');
   assert.ok(header.length > 0, 'the generic header was not found');
   const q = header.indexOf('step === 0 ?');
-  const end = header.indexOf(') : null', q);
-  assert.ok(q >= 0 && end > q, 'the header no longer draws a control on step 0');
-  const m = [header, header.slice(q, end)] as const;
-  const exits = (m[1]!.match(/data-onboarding-exit/g) ?? []).length;
+  const colon = header.indexOf(') : (', q);
+  assert.ok(q >= 0 && colon > q, 'the header no longer draws a control on every step (an empty slot moves the brand)');
+  const firstBranch = header.slice(q, colon);
+  const laterBranch = header.slice(colon);
+  const exits = (firstBranch.match(/data-onboarding-exit/g) ?? []).length;
   console.log(`  generic: ${exits} exit control(s) on the first screen`);
   assert.equal(exits, 1);
-  assert.match(m[1]!, /<Link\b/);
-  assert.match(m[1]!, /href=\{exit\.href\}/);
-  assert.match(m[1]!, /aria-label=\{exit\.label\}/);
-  assert.match(m[1]!, /\bh-11\b/);
-  assert.match(m[1]!, /\bw-11\b/);
+  assert.match(firstBranch, /<Link\b/);
+  assert.match(firstBranch, /href=\{exit\.href\}/);
+  assert.match(firstBranch, /aria-label=\{exit\.label\}/);
+  assert.match(laterBranch, /onClick=\{\(\) => go\(-1\)\}/);
+  assert.match(laterBranch, /<ChevronLeft\b/);
+  for (const [name, branch] of [['first', firstBranch], ['later', laterBranch]] as const) {
+    assert.match(branch, /className=\{TOP_RING\}/, `the ${name}-step control lost the shared tap target`);
+    assert.match(branch, /className=\{TOP_RING_FACE\}/, `the ${name}-step control lost the shared ring`);
+  }
+  const ring = /const TOP_RING =\s*'([^']+)'/.exec(src)?.[1] ?? '';
+  const face = /const TOP_RING_FACE =\s*'([^']+)'/.exec(src)?.[1] ?? '';
+  assert.match(ring, /\bh-11\b/);
+  assert.match(ring, /\bw-11\b/);
+  assert.match(face, /h-\[34px\]/);
+  assert.match(face, /w-\[34px\]/);
+  assert.match(face, /\brounded-full\b/);
 
   const nav = between(src, 'data-glass-row="onboarding-nav"', 'isLast ?');
-  assert.match(nav, /onClick=\{\(\) => go\(-1\)\}/, 'later screens lost their Back');
+  assert.match(nav, /onClick=\{\(\) => go\(-1\)\}/, 'later screens lost their bottom Back');
   assert.match(nav, />\s*Back\s*</);
 });
 

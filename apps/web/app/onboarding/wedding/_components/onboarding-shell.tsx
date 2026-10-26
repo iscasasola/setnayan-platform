@@ -41,7 +41,7 @@ import { DateCalendar, M_FULL } from '@/app/onboarding/_shared/date-calendar';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { X } from 'lucide-react';
+import { ChevronLeft, X } from 'lucide-react';
 import { onboardingExit } from '@/app/onboarding/_shared/onboarding-exit';
 import '../_styles/onboarding.css';
 // Desktop-only editorial canvas around the locked phone frame (owner 2026-06-13).
@@ -2967,7 +2967,7 @@ export function OnboardingShell({
                 brand never moves. `replace` + exitingOnbRef: leaving never re-steps the flow. */}
             {onFirstScreen ? (
               <Link
-                className="btn-back btn-exit"
+                className="btn-back btn-ring btn-exit"
                 href={exit.href}
                 replace
                 aria-label={exit.label}
@@ -2976,13 +2976,15 @@ export function OnboardingShell({
                   exitingOnbRef.current = true;
                 }}
               >
-                <span className="btn-exit-ring" aria-hidden>
+                <span className="btn-ring-face" aria-hidden>
                   <X size={16} strokeWidth={2} />
                 </span>
               </Link>
             ) : (
-              <button className="btn-back" type="button" onClick={() => go(-1)} aria-label="Back">
-                {'‹'}
+              <button className="btn-back btn-ring" type="button" onClick={() => go(-1)} aria-label="Back">
+                <span className="btn-ring-face" aria-hidden>
+                  <ChevronLeft size={16} strokeWidth={2} />
+                </span>
               </button>
             )}
             <span className="brandlock">

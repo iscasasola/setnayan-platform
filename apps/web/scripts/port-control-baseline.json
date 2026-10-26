@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "061819e00a",
-  "routeCount": 474,
+  "generatedFromRef": "5259fbfa43",
+  "routeCount": 475,
   "destinations": 1014,
-  "actions": 661,
-  "blocks": 7163,
+  "actions": 662,
+  "blocks": 7165,
   "routes": {
     "/": {
       "files": [
@@ -2715,6 +2715,7 @@
         "setServiceSecondaryTiles",
         "setTileEventTypeOffered",
         "unteachTradeAlias",
+        "updateEventTypeForWhom",
         "updateEventTypePresentation",
         "updatePlanningDeadline",
         "upsertEventTypeProfile",
@@ -5122,6 +5123,7 @@
         "HTMLInputElement",
         "Image",
         "InPlanningWedding",
+        "InfoTip",
         "Link",
         "NewEventHead",
         "PhotoTile",
@@ -11102,6 +11104,16 @@
         "PartPanel",
         "SearchParamsRecord",
         "ServicePanel"
+      ]
+    },
+    "/dev/create-for-lab": {
+      "files": [
+        "dev/create-for-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "EventTypePicker"
       ]
     },
     "/dev/customer-money-lab": {

@@ -13,8 +13,8 @@ import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import { hiddenMeasuredTypes, type ConcernPerson } from '@/lib/life-event-gate';
 import { manilaToday } from '@/lib/std-views';
 import {
+  buildCreateRoster,
   buildSelfSubject,
-  buildUnspecifiedSubject,
   dependentSubjects,
   type CreateSubject,
   type DependentSubjectRow,
@@ -214,28 +214,47 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
   // barred by lib/onboarding/event-insert.ts). An account with no saved birthday
   // measures nothing and keeps the whole grid, exactly as it shipped.
   //
-  // `sex` is deliberately NOT read. It would only sharpen 18F/21M on the debut
-  // ladder, it carries its own RA 10173 consent stamp, and the owner directed
-  // birthdays — not a second sensitive field. Omitting it checks BOTH debut ages,
-  // which folds LESS, the documented fail-open direction.
+  // `sex` IS read now — but only when it carries its RA 10173 consent stamp
+  // (`sex_consent_at`). Owner 2026-10-26: "debut 17-18 woman, 20-21 men. so if no
+  // gender for 17-21." Unconsented (or blank) → null → the wide 17–21 band, which
+  // folds LESS: the documented fail-open direction. It sorts this picker only; it
+  // is disclosed to nobody and written nowhere.
+  //
+  // The account's OWN shop name fills "For · A business" (owner 2026-10-26: "If it
+  // is for a business …") — an owned `vendor_profiles` row, the same read the role
+  // summary makes. None (or a refused read) → the business name is asked.
   let subjects: CreateSubject[] = [];
   if (user && !samahan) {
-    const { data: profile, error: profileError } = await supabase
-      .from('users')
-      .select('display_name, birth_date')
-      .eq('user_id', user.id)
-      .maybeSingle();
+    const [{ data: profile, error: profileError }, { data: shops, error: shopError }] = await Promise.all([
+      supabase
+        .from('users')
+        .select('display_name, birth_date, sex, sex_consent_at')
+        .eq('user_id', user.id)
+        .maybeSingle(),
+      supabase
+        .from('vendor_profiles')
+        .select('business_name')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: true })
+        .limit(1),
+    ]);
     // ⚠ the account record. Absence DENIES rather than renders.
     if (profileError) {
       logQueryError('CreateEventPage.profile', profileError, {}, 'graceful_degrade');
     }
-    subjects = [
+    // ⚠ their own shop. Refused, "A business" asks the name instead of filling it.
+    if (shopError) {
+      logQueryError('CreateEventPage.shop', shopError, {}, 'graceful_degrade');
+    }
+    const consentedSex = profile?.sex_consent_at ? ((profile?.sex as string | null) ?? null) : null;
+    subjects = buildCreateRoster(
       buildSelfSubject((profile?.display_name as string | null) ?? null, {
         birth_date: (profile?.birth_date as string | null) ?? null,
+        sex: consentedSex,
       }),
-      ...alagaSubjects,
-      buildUnspecifiedSubject(),
-    ];
+      alagaSubjects,
+      ((shops?.[0]?.business_name as string | null | undefined) ?? null),
+    );
   }
 
   // "PLAN AN EVENT TOGETHER" (owner 2026-09-29: "add partner (to become a

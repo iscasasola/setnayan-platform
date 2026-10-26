@@ -30,10 +30,15 @@ import {
   forMenuHint,
   forMenuLabel,
   forMenuSubjects,
+  forWhomHiddenTypes,
   openingSubject,
+  selfCelebrantName,
   type CreateSubject,
 } from '@/lib/create-subjects';
+import { ChevronDown } from 'lucide-react';
+import { InfoTip } from '@/app/_components/info-tip';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
+import { pickArrowClass } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu-place';
 import { stashHonoree } from '@/lib/onboarding/honoree-handoff';
 import { stashCouple, type CoupleCarry } from '@/lib/onboarding/couple-handoff';
 import { formatCount } from '@/lib/format-number';
@@ -197,7 +202,11 @@ export function EventTypePicker({
     // query param would put it in history, the Referer header and access logs.
     // The alaga's record id travels with it so the onboarding path can key the
     // cap on WHO, not on a spelling — the server re-verifies it before writing.
-    stashHonoree(subjectHonoreeLabel(subject), subjectHonoreeDependentId(subject));
+    // "For · You" carries the answer itself, so the wizard says "This one's yours"
+    // with their name instead of asking (owner 2026-10-26).
+    stashHonoree(subjectHonoreeLabel(subject), subjectHonoreeDependentId(subject), {
+      forSelf: subject?.kind === 'self',
+    });
     // Only a wedding has a slot for each of the two names; anything else clears.
     stashCouple(type.key === 'wedding' ? couple : null);
     // Samahan context: community events ALWAYS use the inline form below —
@@ -244,7 +253,16 @@ export function EventTypePicker({
   // the household one (a named alaga is strictly more precise); "You" and
   // "Someone else" carry no data, so they keep today's household set and the
   // grid stays byte-identical to before this change.
-  const hidden = gridHiddenTypes(subject, hiddenTypeKeys ?? [], todayISO ?? '');
+  //
+  // WHO A TYPE CAN BE FOR (owner 2026-10-26) folds on top: `event_type_vocab.for_whom`, the admin-edited rule on
+  // each row — never a list in this file. "For you" drops a christening and a wake; "A business" keeps only what a
+  // business throws; "Someone who passed away" keeps only an anniversary and a wake.
+  const hidden = [
+    ...new Set([
+      ...gridHiddenTypes(subject, hiddenTypeKeys ?? [], todayISO ?? ''),
+      ...forWhomHiddenTypes(types, subject),
+    ]),
+  ];
   const gridTypes =
     showAllTypes || hidden.length === 0
       ? types
@@ -300,24 +318,48 @@ export function EventTypePicker({
         {heading}
         {notice}
         {forMenu && subject ? (
-          /* The answer, kept visible and changeable — the grid below is sorted by it. Picking a row re-sorts the
-             grid in place, exactly as the old step did. One dropdown, never a row of pills (owner 2026-09-28). */
-          <div className="mb-5">
-            <PickMenu
-              label="Who this event is for"
-              value={subject.id}
-              compact
-              buttonText={`For · ${forMenuLabel(subject)}`}
-              dataAttr="data-create-for"
-              options={forMenu.map((s) => ({ key: s.id, label: forMenuLabel(s), hint: forMenuHint(s) }))}
-              onPick={(key) => {
-                const next = forMenu.find((s) => s.id === key);
-                if (!next) return;
-                setSubject(next);
-                setSelectedKey(null);
-                setShowAllTypes(false);
-              }}
-            />
+          /* WHO IT'S FOR — the first line above the grid (owner 2026-10-26, "also fix how for dropdown is
+             presented"). One dropdown, never a row of pills (owner 2026-09-28): a full-width 44-px row on a
+             phone reading "For  You ▾" with its one short line beneath, the details inside the ⓘ. Picking a row
+             re-sorts the grid IN PLACE — no reload, nothing else on the screen resets. */
+          <div className="mb-5 max-w-md" data-create-for-row>
+            <InfoTip
+              label="Who is it for?"
+              labelAs="p"
+              labelClassName="text-sm font-medium text-ink"
+              align="start"
+            >
+              We show only the events that fit who it’s for — a christening is never your own, a wake is only for
+              someone who passed away, and a business sees what a business throws. “Show all event types” under the
+              grid always opens every one.
+            </InfoTip>
+            <div className="mt-2">
+              <PickMenu
+                label="Who this event is for"
+                value={subject.id}
+                buttonText={`For · ${forMenuLabel(subject)}`}
+                dataAttr="data-create-for"
+                className={/* no-card-ok: this is PickMenu's own <button> (the `trigger` row), a pressable */ "sn-press sn-press-ring flex min-h-11 w-full items-center gap-3 rounded-xl border border-ink/12 bg-white/70 px-4 py-2 text-left transition-colors hover:bg-white dark:border-ink/15 dark:bg-raised"}
+                trigger={
+                  <>
+                    <span className="shrink-0 text-xs font-medium uppercase tracking-[0.14em] text-ink/50">For</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[15px] font-semibold text-ink">{forMenuLabel(subject)}</span>
+                      <span className="block truncate text-xs text-ink/55">{forMenuHint(subject)}</span>
+                    </span>
+                    <ChevronDown aria-hidden className={pickArrowClass(false)} strokeWidth={2} />
+                  </>
+                }
+                options={forMenu.map((s) => ({ key: s.id, label: forMenuLabel(s), hint: forMenuHint(s) }))}
+                onPick={(key) => {
+                  const next = forMenu.find((s) => s.id === key);
+                  if (!next) return;
+                  setSubject(next);
+                  setSelectedKey(null);
+                  setShowAllTypes(false);
+                }}
+              />
+            </div>
           </div>
         ) : null}
         <EventTypePhotoPicker
@@ -333,7 +375,7 @@ export function EventTypePicker({
             onClick={() => setShowAllTypes(true)}
             type="button"
           >
-            Planning for someone else?{' '}
+            {subject?.kind === 'self' ? 'Planning for someone else? ' : 'Not here? '}
             <span className="font-medium text-ink">Show all event types</span>
           </button>
         ) : null}
@@ -447,7 +489,15 @@ export function EventTypePicker({
               (`pickerAsksHonoree`), so a celebration or a trip for the shop
               posts the shop's record and is filed under it. A person picked for
               those types still draws nothing, as before. */}
-          {pickerAsksHonoree(selected.key, subject?.kind) && !samahanCommunityId ? (
+          {/* "For · You": the celebrant IS the account holder (owner 2026-10-26, "if it is for you, the name of
+              the celebrant should automatically be me … only time it needs to be identified is when you picked for
+              someone else"). Said, not asked — and the posted label stays blank, the account holder's own slot. */}
+          {subject?.kind === 'self' && pickerAsksHonoree(selected.key, 'self') && !samahanCommunityId ? (
+            <p className="text-sm text-ink/70" data-self-celebrant>
+              For <span className="font-medium text-ink">{selfCelebrantName(subject) || 'you'}</span> — this one’s
+              yours.
+            </p>
+          ) : pickerAsksHonoree(selected.key, subject?.kind) && !samahanCommunityId ? (
             <div className="space-y-1.5">
               <label className="block text-sm font-medium text-ink" htmlFor="honoree_label">
                 {isGatedLifeType(selected.key) ? 'For whom?' : 'Which business is this for?'}{' '}

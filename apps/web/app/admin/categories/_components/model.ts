@@ -161,6 +161,8 @@ export type EventType = {
   enabled: boolean;
   onboardingHref: string | null;
   heroPhotoUrl: string | null;
+  /** `event_type_vocab.for_whom` — who the create grid offers it for. NULL = not read. */
+  forWhom: string[] | null;
 };
 
 // ── Religions ───────────────────────────────────────────────────────────────

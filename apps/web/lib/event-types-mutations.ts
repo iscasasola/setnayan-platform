@@ -33,6 +33,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { clearHomeShelf } from '@/lib/home-shelf-clear';
 import { clearGlobalSettings } from '@/lib/global-settings-clear';
 import { GLOBAL_SETTINGS_TAGS } from '@/lib/global-settings-tags';
+import { cleanForWhom } from '@/lib/create-subjects';
 
 /** Vocab keys: lowercase snake, 3–31 chars, must start with a letter. */
 export const EVENT_TYPE_KEY_RE = /^[a-z][a-z0-9_]{2,30}$/;
@@ -178,6 +179,41 @@ export async function updateEventTypeCore(
     actor_user_id: actorUserId,
   });
   return { ok: true, data: { key, label } };
+}
+
+/**
+ * WHO a type can be for (`event_type_vocab.for_whom`, owner 2026-10-26) — the rule
+ * the create-event grid's "For ▾" reads. Unknown words are dropped (the column's
+ * CHECK would refuse them anyway); an empty list is allowed — the type then shows
+ * only behind "Show all event types".
+ */
+export async function setEventTypeForWhomCore(
+  admin: SupabaseClient,
+  actorUserId: string,
+  input: { key: string; forWhom: readonly unknown[] },
+): Promise<MutationResult<{ key: string; forWhom: string[] }>> {
+  const key = input.key.trim();
+  if (!EVENT_TYPE_KEY_RE.test(key)) return { ok: false, error: 'Unknown event type.' };
+  const forWhom = cleanForWhom(input.forWhom);
+  const patch = { for_whom: forWhom, updated_at: new Date().toISOString() };
+  const { data, error } = await admin
+    .from('event_type_vocab')
+    .update(patch)
+    .eq('event_type', key)
+    .select('event_type')
+    .maybeSingle();
+  clearGlobalSettings(GLOBAL_SETTINGS_TAGS.eventTypeVocab);
+  clearHomeShelf('eventTypes');
+  if (error) return { ok: false, error: error.message };
+  if (!data) return { ok: false, error: 'not_found' };
+  await admin.from('admin_audit_log').insert({
+    action: 'event_types.for_whom',
+    target_table: 'event_type_vocab',
+    target_id: key,
+    after_json: patch,
+    actor_user_id: actorUserId,
+  });
+  return { ok: true, data: { key, forWhom } };
 }
 
 /**

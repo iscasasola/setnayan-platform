@@ -32,6 +32,13 @@ export type EventTypeRow = {
   heroPhotoUrl?: string | null;
   /** One-line tagline on the picker card. */
   description?: string | null;
+  /**
+   * WHO this type can be FOR on the grid's "For ▾" (`event_type_vocab.for_whom`,
+   * admin-edited on Admin › Categories › Event types). `self` · `someone` ·
+   * `memorial` · `business`. Absent / NULL (the fallback roster, a row read before
+   * the column existed) = unknown → the type shows for every answer (fail open).
+   */
+  forWhom?: readonly string[] | null;
 };
 
 /** Vocab keys are admin-created free strings now, not a closed union. */

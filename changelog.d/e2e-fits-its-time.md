@@ -51,6 +51,31 @@ compile — but caching `.next/cache` adds a large entry per `main` push against
 repo cache already at 6.07 GB of its 10 GB, so it is left for a decision rather
 than slipped in here.
 
+**Measured on this PR's own CI (run 40368055466):**
+
+| | attempt 1 (cache miss) | attempt 2 (cache hit) |
+|---|---|---|
+| apt `.deb`s restored | 0 | 17 (25 MB) |
+| apt said | `Need to get 25.9 MB` (fast mirror that hour) | **`Need to get 0 B/25.9 MB of archives`** |
+| time the job waited for the packages after the build | 0 s | 0 s |
+| install step before the build | 1 s | 0 s |
+| Build web app | 8.9 min | 10.3 min |
+| Run Playwright tests | 5.4 min (406 passed, 0 flaky) | 5.8 min (406 passed, 0 flaky) |
+| whole job | **15.0 min** | **16.7 min** |
+
+Honest reading: on an hour when the mirror is fast, the job takes as long as it
+did before (13.7–18.7 min was the normal range). It was never slow on those
+hours. What this removes is the 10–17-minute apt tail that took 8 of 59 attempts
+past the cap. That tail can no longer happen on a cache hit, and on a miss it
+has to outlast a ~10-minute build before it costs anything.
+
+**What the timing table found:** `the-spotlight-ring-wraps-its-target.spec.ts`
+is **77% of the suite's summed test time** (443 s of 578 s, 156 tests; each
+tour × width test runs 6–7 s). Its `settled()` reads the ring, waits 400 ms,
+and reads it again for every step of every tour. The next lever on the suite is
+there. It is not touched here, because shortening that wait loosens a "the ring
+stopped moving" check.
+
 No test was skipped, removed or loosened; `timeout-minutes` stays 25.
 
 SPEC IMPACT: None.

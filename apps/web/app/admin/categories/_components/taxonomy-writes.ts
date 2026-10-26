@@ -53,6 +53,7 @@ async function audit(
   row: { action: string; target_table: string; target_id: string; before_json?: unknown; after_json?: unknown; actor_user_id: string },
 ): Promise<void> {
   // Best effort, like every shipped taxonomy write: a refused audit insert never undoes the edit.
+  // supabase-error-ignored: the audit row is a record of an edit that already succeeded — refusing it must not undo or fail the edit
   await admin.from('admin_audit_log').insert(row);
 }
 
@@ -292,6 +293,7 @@ export async function addServiceCore(admin: AdminDb, actorId: string, input: New
     sort_order: nextSort,
   });
   if (taxErr) {
+    // supabase-error-ignored: the compensating rollback of a half-created service; the placement error is what the admin is told
     await admin.from('canonical_service_schemas').delete().eq('canonical_service', canonical);
     return { ok: false, error: taxErr.message };
   }

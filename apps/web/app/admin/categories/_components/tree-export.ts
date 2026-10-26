@@ -10,6 +10,7 @@
  * service is one row with empty service columns; a part whose services are all elsewhere still gets a row
  * — so every gap survives the export.
  */
+import { formatCount } from '@/lib/format-number';
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from 'pdf-lib';
 import {
   categoriesOf,
@@ -190,7 +191,7 @@ export async function treePdf(d: MapData, rows: readonly TreeRow[], meta: { filt
   pages.forEach((pg, i) => {
     pg.drawLine({ start: { x: M.side, y: M.bottom - 16 }, end: { x: A4.w - M.side, y: M.bottom - 16 }, thickness: 0.5, color: HAIR });
     pg.drawText('setnayan.com/admin/categories · printed by the admin console', { x: M.side, y: M.bottom - 28, size: 8, font, color: SOFT });
-    const n = `${i + 1} / ${pages.length}`;
+    const n = `${formatCount(i + 1)} / ${formatCount(pages.length)}`;
     pg.drawText(n, { x: A4.w - M.side - font.widthOfTextAtSize(n, 8), y: M.bottom - 28, size: 8, font, color: SOFT });
   });
   return doc.save();

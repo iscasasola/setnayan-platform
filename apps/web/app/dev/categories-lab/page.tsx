@@ -62,7 +62,8 @@ export default async function CategoriesLabPage({ searchParams }: { searchParams
   const openTile = state.open.startsWith('c:') ? state.open.slice(2) : null;
   const [vocab, cats] = await Promise.all([loadVocab(admin, { readiness: false }), loadCategories(admin, openTile)]);
   let data = await loadMapData(admin, cats);
-  if (!data.partsRead) data = { ...data, parts: seedParts(), partsRead: true };
+  const seeded = !data.partsRead;
+  if (seeded) data = { ...data, parts: seedParts(), partsRead: true };
   if (first(sp.cards) === 'fixture') {
     const cards = [...data.cards, ...fixtureCards(data)];
     data = { ...data, cards, cardsRead: true, services: data.services.map((s) => ({ ...s, cards: cards.filter((c) => c.service === s.key).length })) };
@@ -107,6 +108,7 @@ export default async function CategoriesLabPage({ searchParams }: { searchParams
       <h1 className="mb-1 text-xl font-semibold text-ink">Categories &amp; event types</h1>
       <p className="mb-3 text-xs text-ink/70">
         Dev lab · the real map on {cats.tax.source === 'db' ? 'the live tree (read-only)' : 'the code copy'}
+        {seeded ? ' · parts from the seed (signed out, the parts read is refused)' : ''}
         {first(sp.cards) === 'fixture' ? ' · three “(lab)” fixture cards on Function Hall' : ''}
       </p>
       <FourLevelMap

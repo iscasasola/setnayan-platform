@@ -21,7 +21,7 @@
  *
  * Selection is client state (instant); the address follows with `history.replaceState` (`?in=…&at=…`) so
  * a reload stands where it stood. Opening a drawer is a navigation (`?open=…`) because the panel is
- * server-rendered; every write here answers JSON (`four-level-actions.ts`) and refreshes the page.
+ * server-rendered; every write here answers JSON (`four-level-actions.ts`), whose revalidatePath redraws the page.
  *
  * Shipped components and tokens only (PLAN § 9). The genuinely new drawing is the SVG connector layer
  * and drag-onto-a-parent — the two pieces the owner approved as new.
@@ -32,6 +32,7 @@ import { X } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
 import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { formatCount } from '@/lib/format-number';
 import { moveTileToFolder } from '../actions';
 import { addTradeAlias } from '../search-word-actions';
 import { mapWrite } from '../four-level-actions';
@@ -86,6 +87,7 @@ import {
   type Level,
   type RowHandlers,
 } from './map-rows';
+import { MapToast } from './map-toast';
 
 type WriteResult = { ok: true; message: string; id?: string; previous?: string } | { ok: false; error: string };
 
@@ -170,9 +172,6 @@ export function FourLevelMap({ data, start, q, show, drawer, counts, groupDefaul
     toastTimer.current = setTimeout(() => setToast(null), undo ? 5000 : 2200);
   }
 
-  function refresh() {
-    startT(() => router.refresh());
-  }
 
   // ── navigation ───────────────────────────────────────────────────────────────
   function pickGroup(id: string) {
@@ -221,7 +220,6 @@ export function FourLevelMap({ data, start, q, show, drawer, counts, groupDefaul
     stand({ g: res.id!, c: '', sel: `g:${res.id}` });
     setPhoneView('cats');
     say('Added — it is the last group');
-    refresh();
     return null;
   }
   async function addCategory(groupId: string, label: string): Promise<string | null> {
@@ -231,7 +229,6 @@ export function FourLevelMap({ data, start, q, show, drawer, counts, groupDefaul
     stand({ g: groupId, c: res.id!, sel: `c:${res.id}` });
     setPhoneView('cat');
     say(`Added — it is the last category in ${groupById(data, groupId)?.label ?? 'this group'}`);
-    refresh();
     return null;
   }
   async function addService(categoryId: string, label: string): Promise<string | null> {
@@ -240,7 +237,6 @@ export function FourLevelMap({ data, start, q, show, drawer, counts, groupDefaul
     setJustAdded(`s:${res.id}`);
     stand({ ...desk, c: categoryId, sel: `s:${res.id}` });
     say('Added — it landed where you typed it');
-    refresh();
     return null;
   }
 
@@ -255,9 +251,7 @@ export function FourLevelMap({ data, start, q, show, drawer, counts, groupDefaul
       const back = (await moveTileToFolder(catId, from)) as WriteResult;
       stand({ g: from, c: catId, sel: `c:${catId}` });
       say(back.ok ? 'Undone' : back.error);
-      refresh();
     });
-    refresh();
   }
   async function moveService(key: string, catId: string) {
     const res = (await mapWrite({ op: 'moveService', key, categoryId: catId })) as WriteResult;
@@ -270,9 +264,7 @@ export function FourLevelMap({ data, start, q, show, drawer, counts, groupDefaul
       const fc = categoryById(data, from);
       stand({ g: fc?.groupId ?? desk.g, c: from, sel: `s:${key}` });
       say(back.ok ? 'Undone' : back.error);
-      refresh();
     } : undefined);
-    refresh();
   }
   async function movePart(key: string, catId: string) {
     const res = (await mapWrite({ op: 'movePart', slotKey: key, categoryId: catId })) as WriteResult;
@@ -285,9 +277,7 @@ export function FourLevelMap({ data, start, q, show, drawer, counts, groupDefaul
       const fc = categoryById(data, from);
       stand({ g: fc?.groupId ?? desk.g, c: from, sel: `p:${key}` });
       say(back.ok ? 'Undone' : back.error);
-      refresh();
     } : undefined);
-    refresh();
   }
 
   const dragging = useRef<string | null>(null);
@@ -674,7 +664,6 @@ export function FourLevelMap({ data, start, q, show, drawer, counts, groupDefaul
             cid={picker.cid}
             svc={picker.svc}
             onSaid={say}
-            onChanged={refresh}
             onCreated={(key) => {
               setJustAdded(`p:${key}`);
               setPicker(null);
@@ -692,28 +681,14 @@ export function FourLevelMap({ data, start, q, show, drawer, counts, groupDefaul
         )}
       </MapDrawer>
 
-      {toast ? (
-        <div
-          role="status"
-          data-toast=""
-          className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] left-1/2 z-[60] flex max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-2.5 rounded-full bg-ink py-1.5 pl-4 pr-2 text-[13px] text-cream shadow-lg"
-        >
-          <span className="[overflow-wrap:anywhere]">{toast.msg}</span>
-          {toast.undo ? (
-            <button
-              type="button"
-              onClick={() => {
-                const u = toast.undo!;
-                setToast(null);
-                u();
-              }}
-              className="min-h-11 rounded-full bg-cream/20 px-3 font-semibold"
-            >
-              Undo
-            </button>
-          ) : null}
-        </div>
-      ) : null}
+      <MapToast
+        toast={toast}
+        onUndo={() => {
+          const u = toast?.undo;
+          setToast(null);
+          u?.();
+        }}
+      />
     </div>
   );
 }
@@ -1242,7 +1217,7 @@ function MapDrawer({ open, onClose, label, children }: { open: boolean; onClose:
       <OverlayBackdrop onClose={onClose} />
       <div className="relative flex h-full w-full flex-col bg-cream lg:w-[min(30rem,100vw)] lg:rounded-l-3xl lg:border-l lg:border-ink/10 lg:shadow-[-30px_0_80px_-40px_rgba(26,26,26,0.4)]">
         <header className="flex min-h-[52px] shrink-0 items-center justify-between gap-2 border-b border-ink/10 px-5">
-          <p id="map-drawer-label" className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
+          <p id="map-drawer-label" className="font-mono text-[11px] uppercase tracking-[0.2em] text-mulberry">
             {label}
           </p>
           <button
@@ -1267,14 +1242,12 @@ function PartPicker({
   cid,
   svc,
   onSaid,
-  onChanged,
   onCreated,
 }: {
   data: MapData;
   cid: string;
   svc: string;
   onSaid: (msg: string) => void;
-  onChanged: () => void;
   onCreated: (key: string) => void;
 }) {
   const [query, setQuery] = useState('');
@@ -1312,7 +1285,6 @@ function PartPicker({
         return;
       }
       onSaid(on ? `Linked ${p.label}${service ? ` to ${service.label}` : ''}` : `Unlinked ${p.label}`);
-      onChanged();
     });
   }
 
@@ -1325,7 +1297,6 @@ function PartPicker({
       if (!res.ok) return onSaid(res.error);
       setName('');
       onSaid(res.message);
-      onChanged();
       onCreated(res.id!);
     });
   }
@@ -1345,7 +1316,7 @@ function PartPicker({
           {service ? `Parts for ${service.label}` : `Parts for ${c?.label ?? ''}’s services`}
         </h2>
         <p className="text-xs text-ink/70">
-          <InfoTip label={`${count} linked · tick to link, untick to unlink`} align="start">
+          <InfoTip label={`${formatCount(count)} linked · tick to link, untick to unlink`} align="start">
             {service
               ? `A tick links ${service.label} to that part (one row in inspiration_part_services). The part keeps its home; it now also shows when a couple or a shop looks at ${service.label}. A part is never copied.`
               : `No service is picked, so a tick links ALL of ${c?.label ?? 'this category'}’s services to the part; untick removes them all. Pick one service in the Services column to link just that one.`}

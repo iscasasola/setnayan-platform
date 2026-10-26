@@ -8,6 +8,7 @@
  * Service (`canonical_service`) · Part (`inspiration_parts`). A service card (one `vendor_services` row)
  * only ever appears INSIDE a service. "Leaf" is never printed.
  */
+import { formatCount } from '@/lib/format-number';
 
 export type MapGroup = { id: string; label: string; iconName: string | null; hidden: boolean };
 export type MapCategory = {
@@ -151,11 +152,7 @@ export function withDesktopDefaults(d: MapData, s: MapSel): MapSel {
 // ── words ─────────────────────────────────────────────────────────────────────
 
 export function plural(n: number, one: string, many = `${one}s`): string {
-  return `${n.toLocaleString('en-PH')} ${n === 1 ? one : many}`;
-}
-
-export function peso(n: number | null): string {
-  return n == null ? '—' : `₱${n.toLocaleString('en-PH')}`;
+  return `${formatCount(n)} ${n === 1 ? one : many}`;
 }
 
 /** A card's status word (PLAN § 7.8, until the card checks ship: is_active + shop visibility stand in). */
@@ -175,7 +172,7 @@ export function partLinkSummary(d: MapData, p: MapPart): { text: string; gap: bo
   const otherCats = new Set(p.services.map((k) => serviceByKey(d, k)?.tileId).filter((t): t is string => !!t && t !== p.home));
   if (inHome.length > 0 && own === inHome.length && otherCats.size === 0) return { text: `all ${p.services.length} services`, gap: false };
   return {
-    text: `${own} of ${inHome.length} here${otherCats.size ? ` · + ${plural(otherCats.size, 'other category', 'other categories')}` : ''}`,
+    text: `${formatCount(own)} of ${formatCount(inHome.length)} here${otherCats.size ? ` · + ${plural(otherCats.size, 'other category', 'other categories')}` : ''}`,
     gap: false,
   };
 }

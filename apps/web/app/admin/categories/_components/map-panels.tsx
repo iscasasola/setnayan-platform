@@ -14,6 +14,8 @@
  */
 import type { ReactNode } from 'react';
 import Link from 'next/link';
+import { formatPhpRounded } from '@/lib/php';
+import { formatCount } from '@/lib/format-number';
 import { InfoTip } from '@/app/_components/info-tip';
 import { ROLE_DESIGNS, FIGURE_ROLES, type FigureRole } from '@/lib/attire-designs';
 import { VENDOR_CATEGORIES, VENDOR_CATEGORY_LABEL, type VendorCategory } from '@/lib/vendors';
@@ -28,7 +30,6 @@ import {
   partCategoryIds,
   partsHomedIn,
   partsOfService,
-  peso,
   plural,
   serviceByKey,
   servicesOf,
@@ -88,7 +89,7 @@ function CardList({ d, cards, grouped, state }: { d: MapData; cards: MapCard[]; 
         <span className="min-w-0 flex-1">
           <b className="block text-sm font-medium [overflow-wrap:anywhere]">{cd.title}</b>
           <small className="block text-xs text-ink/70 [overflow-wrap:anywhere]">
-            from {peso(cd.price)} · {cd.shopName}
+            from {formatPhpRounded(cd.price)} · {cd.shopName}
           </small>
         </span>
         <span className={`flex shrink-0 items-center gap-1 text-xs ${cardWord(cd) === 'Live' ? 'text-success-700' : 'text-ink/70'}`}>
@@ -134,7 +135,7 @@ export function PartPanel({ part, data, state }: { part: MapPart; data: MapData;
     part.services.length === 0
       ? '— none yet —'
       : allHome
-        ? `all ${part.services.length} of ${home?.label ?? ''}`
+        ? `all ${formatCount(part.services.length)} of ${home?.label ?? ''}`
         : `${plural(part.services.length, 'service')} · ${plural(cats.length, 'category', 'categories')}`;
   const role = (FIGURE_ROLES as readonly string[]).includes(part.key) ? (part.key as FigureRole) : null;
   return (
@@ -233,7 +234,7 @@ export function CardPanel({ card, data }: { card: MapCard; data: MapData }) {
           </>
         }
         title={card.title}
-        sub={`from ${peso(card.price)} · ${card.shopName}`}
+        sub={`from ${formatPhpRounded(card.price)} · ${card.shopName}`}
       />
       <Section title="Card">
         <div className="flex items-center gap-2.5">
@@ -246,7 +247,7 @@ export function CardPanel({ card, data }: { card: MapCard; data: MapData }) {
           <span className="min-w-0">
             <b className="block text-sm font-medium text-ink [overflow-wrap:anywhere]">{card.title}</b>
             <small className="block text-xs text-ink/70">
-              from {peso(card.price)} · under {sv?.label ?? card.service}
+              from {formatPhpRounded(card.price)} · under {sv?.label ?? card.service}
             </small>
           </span>
         </div>

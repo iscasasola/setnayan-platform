@@ -31,6 +31,7 @@ const MAY_NAME_THE_SEED: Readonly<Record<string, string>> = {
   'app/dev/supplier-lab/page.tsx': 'dev lab — reaches no database',
   'app/dev/supplier-lab/library-lab-server.ts': 'dev lab — reaches no database',
   'app/dev/details-lab/details-lab-node.tsx': 'dev lab — reaches no database (the-mood-board-lab-cannot-reach-the-database.test.ts)',
+  'app/dev/categories-lab/page.tsx': 'dev lab (404 in production) — signed out, the parts read is refused, so the lab draws the seed and says so on the page',
 };
 
 function sources(dir: string, out: string[] = []): string[] {

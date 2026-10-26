@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * map-rows.tsx — the rows, tiles and columns of the four-level map, as PURE RENDER (🌳 ③b; corpus
  * prototypes/admin_taxonomy_four_levels_2026-10-26/interactive-v4.html, PLAN.md § 9 element → component).
@@ -14,6 +16,7 @@
 import type { DragEvent, ReactNode } from 'react';
 import { Circle, CreditCard, Folder, ImageIcon, Layers, Store } from 'lucide-react';
 import { getLucideIcon } from '@/lib/nav-icons';
+import { formatPhpRounded } from '@/lib/php';
 import {
   cardWord,
   cardHeld,
@@ -21,7 +24,6 @@ import {
   categoryNeeds,
   groupNeeds,
   partLinkSummary,
-  peso,
   plural,
   serviceNeeds,
   servicesOf,
@@ -294,7 +296,7 @@ export function CardRow({ cd, on, onOpen }: { cd: MapCard; on: boolean; onOpen: 
       <span className="min-w-0 flex-1">
         <b className="block text-[13.5px] font-medium [overflow-wrap:anywhere]">{cd.title}</b>
         <small className="block text-xs opacity-70 [overflow-wrap:anywhere]">
-          from {peso(cd.price)} · {cd.shopName}
+          from {formatPhpRounded(cd.price)} · {cd.shopName}
         </small>
       </span>
       <span className={`flex shrink-0 items-center gap-1 text-[11.5px] ${word === 'Live' && !on ? 'text-success-700' : 'opacity-80'}`}>

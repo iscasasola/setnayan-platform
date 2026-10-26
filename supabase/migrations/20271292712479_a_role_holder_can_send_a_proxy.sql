@@ -90,6 +90,9 @@ AS $fn$
   );
 $fn$;
 
+-- A rule the triggers ask, not an API.
+REVOKE EXECUTE ON FUNCTION public.guest_holds_a_proxyable_role(public.guest_role, public.guest_role[]) FROM PUBLIC, anon, authenticated;
+
 CREATE OR REPLACE FUNCTION public.a_proxy_stands_in_for_a_role()
 RETURNS trigger
 LANGUAGE plpgsql

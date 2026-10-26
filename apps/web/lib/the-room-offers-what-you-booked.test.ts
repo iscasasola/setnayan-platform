@@ -530,8 +530,10 @@ test('the lab page loads bookings the way the finalization panel does', () => {
   assert.match(page, /\.in\('status', CONFIRMED_VENDOR_STATUSES as unknown as string\[\]\)/);
   assert.match(panel, /\.in\('status', CONFIRMED_VENDOR_STATUSES as unknown as string\[\]\)/);
   // and it must actually resolve + pass the candidates
-  assert.match(page, /bookedZoneCandidates\(bookedSuppliers, venueSetting, canonicalBuckets\)/);
+  // Both live reads are threaded (③0-a's buckets AND ③0-b's parts — the foundation batch kept both arguments).
+  assert.match(page, /bookedZoneCandidates\(bookedSuppliers, venueSetting, canonicalBuckets, inspirationParts\)/);
   assert.match(page, /const canonicalBuckets = await getCanonicalBuckets\(\);/, 'the lab must match chips on the LIVE taxonomy');
+  assert.match(page, /const inspirationParts = await getInspirationParts\(\);/, 'the lab must reach zones through the LIVE parts');
   assert.match(page, /dismissedSuggestions=\{dismissedSuggestions\}/);
   assert.match(page, /dismissed_room_suggestions/);
 });

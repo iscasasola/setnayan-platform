@@ -199,8 +199,8 @@ export async function unlockCategoryWithInquiry(input: {
     const tileForKind = tax.map[category]?.tile ?? null;
     const { error: insertErr } = await supabase.from('event_vendors').insert({
       event_id: eventId,
-      category: eventVendorCategoryForCardKind(category, tileForKind),
-      category_key: eventVendorCategoryKeyForCardKind(category, tileForKind),
+      category: eventVendorCategoryForCardKind(category, tileForKind, tax),
+      category_key: eventVendorCategoryKeyForCardKind(category, tileForKind, tax),
       vendor_name: vendorName,
       status: 'considering',
       marketplace_vendor_id: vendorProfileId,

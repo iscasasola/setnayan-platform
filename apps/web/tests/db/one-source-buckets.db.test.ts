@@ -19,8 +19,8 @@
  *      one) the reader follows and the const does NOT — the second half is what proves a consumer
  *      on the const would be wrong, i.e. why the consumers were moved.
  *
- * It reads the tables with the reader's own column lists (`TAXONOMY_*_COLUMNS`) and builds the
- * snapshot with the reader's own `snapshotFromRows`, so it is the reader, minus the network.
+ * It builds the snapshot with the reader's own `snapshotFromRows` over the same two tables
+ * (`tier <= 2`, as `getTaxonomy()` filters), so it is the reader, minus the network.
  */
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
@@ -28,13 +28,7 @@ import type { PGlite } from '@electric-sql/pglite';
 
 import { createReplayedDb, type ReplayResult } from './replay-migrations';
 import { TAXONOMY_MAP, TILE_PARENT } from '../../lib/taxonomy';
-import {
-  TAXONOMY_CATEGORY_COLUMNS,
-  TAXONOMY_MAP_COLUMNS,
-  snapshotFromRows,
-  type CategoryRow,
-  type MapRow,
-} from '../../lib/taxonomy-snapshot';
+import { snapshotFromRows, type CategoryRow, type MapRow } from '../../lib/taxonomy-snapshot';
 import {
   deriveBuckets,
   fallbackCanonicalBuckets,
@@ -59,10 +53,10 @@ after(async () => {
 
 /** `getTaxonomy()` → `deriveBuckets`, against the replayed database. */
 async function readerBuckets(): Promise<CanonicalBuckets> {
-  const cats = await db.query<CategoryRow>(
-    `SELECT ${TAXONOMY_CATEGORY_COLUMNS} FROM public.service_categories WHERE tier <= 2`,
-  );
-  const maps = await db.query<MapRow>(`SELECT ${TAXONOMY_MAP_COLUMNS} FROM public.canonical_service_taxonomy`);
+  // `SELECT *`, not a third hand-typed column list: `snapshotFromRows` reads only the fields
+  // `getTaxonomy()` selects, so a superset is the reader's input exactly.
+  const cats = await db.query<CategoryRow>(`SELECT * FROM public.service_categories WHERE tier <= 2`);
+  const maps = await db.query<MapRow>(`SELECT * FROM public.canonical_service_taxonomy`);
   assert.ok(cats.rows.length > 0 && maps.rows.length > 0, 'the taxonomy seed did not replay — nothing was checked');
   return deriveBuckets(snapshotFromRows(cats.rows, maps.rows));
 }

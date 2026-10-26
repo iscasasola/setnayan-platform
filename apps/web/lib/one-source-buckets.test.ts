@@ -16,6 +16,8 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, dirname, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { stripComments } from './strip-comments';
+
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 const CONST_SYMBOLS = ['canonicalServicesForTile', 'fallbackCanonicalBuckets'] as const;
@@ -95,9 +97,7 @@ test('the allowlist is self-cleaning — a file that stopped reading the const m
 
 test('the module-load constants and the hand list are gone for good', () => {
   // Comments stripped: the docblock may name what was deleted; the code may not hold it.
-  const counts = readFileSync(join(WEB, 'lib/vendor-counts.ts'), 'utf8')
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/^\s*\/\/.*$/gm, '');
+  const counts = stripComments(readFileSync(join(WEB, 'lib/vendor-counts.ts'), 'utf8'));
   for (const gone of ['CANONICAL_SERVICES_BY_TILE', 'CANONICAL_SERVICES_BY_FOLDER', 'TAXONOMY_MAP', "'filipiniana_barongs'"]) {
     assert.ok(!counts.includes(gone), `lib/vendor-counts.ts holds ${gone} again — a second derivation beside the reader`);
   }

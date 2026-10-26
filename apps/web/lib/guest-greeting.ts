@@ -44,6 +44,9 @@ export type GuestGreeting = {
   tail: string | null;
   date: string | null;
   venues: { label: string | null; name: string }[];
+  /** 🧍 "Standing in for Mrs. Ma. Theresa Sacdalan-Tria" (a proxy) · "Maria Catherine Sacdalan is standing in for you"
+   *  (the role holder) — `lib/guest-proxy.ts`. Null for everyone else. */
+  standIn: string | null;
 };
 
 /** The roles that are no role at all — a plain guest gets no role line. */
@@ -84,6 +87,8 @@ export function guestGreetingOf(input: {
   venues: readonly Pick<EventVenue, 'role' | 'name'>[] | null;
   /** The single venue line, when the event has no venue list. */
   venueName: string | null;
+  /** 🧍 The proxy line, already worded (`standingInWords` / `standsInForYouWords`) — absent for everyone else. */
+  standIn?: string | null;
 }): GuestGreeting {
   const name = input.name?.trim() || null;
   const role = input.roleCode && !PLAIN_ROLES.has(input.roleCode) ? input.roleWord?.trim() || null : null;
@@ -100,6 +105,7 @@ export function guestGreetingOf(input: {
     tail: role ? tail : null,
     date: input.date?.trim() || null,
     venues,
+    standIn: input.standIn?.trim() || null,
   };
 }
 

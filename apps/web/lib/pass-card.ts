@@ -145,6 +145,8 @@ export type PassCardRow = {
   qr_token?: string | null;
   /** A plus-one seat still waiting for its name ("+ TBA") — nobody to put on a card. */
   tba?: boolean;
+  /** 🧍 A role holder someone stands in for — their seat is the proxy's, and so is the ticket (owner 2026-10-27). */
+  represented_by_guest_id?: string | null;
 };
 
 /**
@@ -179,6 +181,8 @@ export function passCardEligibility(
   bringer?: PassCardRow | null,
 ): PassCardEligibility {
   if (!row || row.deleted_at || row.passed_away === true || !row.qr_token || row.tba === true) return 'none';
+  // 🧍 Represented: the proxy checks in with THEIR OWN ticket; the role holder's seat is theirs now.
+  if (row.represented_by_guest_id) return 'none';
   if (row.entry_source === REQUEST) return 'awaiting';
   let reply = row.rsvp_status ?? 'pending';
   if (row.plus_one_of_guest_id) {

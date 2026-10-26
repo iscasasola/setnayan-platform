@@ -1,3 +1,4 @@
+import { PapicStayForm } from './papic-stay-form';
 import { Upload } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { setPapicUploadsOpen } from '../actions';
@@ -40,7 +41,7 @@ export function UploadsOpenChoice({
     : 'Only what your cameras capture goes into your Memories. Nothing can be added from a phone or laptop.';
 
   const control = (
-    <form action={setPapicUploadsOpen} className="flex flex-wrap items-center gap-2">
+    <PapicStayForm door="setPapicUploadsOpen" action={setPapicUploadsOpen} className="flex flex-wrap items-center gap-2">
       <input type="hidden" name="event_id" value={eventId} />
       <input type="hidden" name="open" value={open ? '0' : '1'} />
       {back ? <input type="hidden" name="back" value={back} /> : null}
@@ -50,7 +51,7 @@ export function UploadsOpenChoice({
       <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-ink/50">
         {open ? 'On' : 'Off'}
       </span>
-    </form>
+    </PapicStayForm>
   );
 
   if (variant === 'row') {

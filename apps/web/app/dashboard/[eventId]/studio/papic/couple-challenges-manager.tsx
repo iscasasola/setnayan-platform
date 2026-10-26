@@ -1,3 +1,4 @@
+import { PapicStayForm } from './_components/papic-stay-form';
 // Papic Games — couple challenge manager (spec §5 / gap #1 + #8). Lets the couple
 // AUTHOR their own generic challenges (so every event has a real game, not just
 // booth missions for booked vendors) and CURATE the live set — hide/show any
@@ -420,14 +421,14 @@ export async function CoupleChallengesManager({
             </span>
           </span>
           {pause.measured ? (
-            <form action={setChallengesPausedAction} className="shrink-0">
+            <PapicStayForm door="setChallengesPausedAction" action={setChallengesPausedAction} className="shrink-0">
               <input type="hidden" name="event_id" value={eventId} />
               {off ? <input type="hidden" name="resume" value="1" /> : null}
               {ret}
               <button type="submit" role="switch" aria-checked={!off} aria-label="Challenges" className={SWITCH_BUTTON}>
                 <SwitchTrack on={!off} />
               </button>
-            </form>
+            </PapicStayForm>
           ) : null}
         </div>
         {off ? null : (
@@ -444,7 +445,7 @@ export async function CoupleChallengesManager({
                         </span>
                       ) : null}
                     </span>
-                    <form action={setCoupleChallengeActiveAction} className="shrink-0">
+                    <PapicStayForm door="setCoupleChallengeActiveAction" action={setCoupleChallengeActiveAction} className="shrink-0">
                       <input type="hidden" name="event_id" value={eventId} />
                       <input type="hidden" name="mission_id" value={m.mission_id} />
                       <input type="hidden" name="active" value="false" />
@@ -452,7 +453,7 @@ export async function CoupleChallengesManager({
                       <button type="submit" role="switch" aria-checked aria-label={m.prompt} className={SWITCH_BUTTON}>
                         <SwitchTrack on />
                       </button>
-                    </form>
+                    </PapicStayForm>
                   </li>
                 ))}
               </ul>
@@ -602,7 +603,7 @@ export async function CoupleChallengesManager({
       ) : null}
 
       {/* Author your own */}
-      <form action={createCoupleChallengeAction} className="mt-4 space-y-2">
+      <PapicStayForm door="createCoupleChallengeAction" action={createCoupleChallengeAction} className="mt-4 space-y-2">
         <input type="hidden" name="event_id" value={eventId} />
         <textarea
           name="prompt"
@@ -620,7 +621,7 @@ export async function CoupleChallengesManager({
           <Plus aria-hidden className="h-4 w-4" strokeWidth={2} />
           Add challenge
         </SubmitButton>
-      </form>
+      </PapicStayForm>
 
       {/* ── The picker: 631 challenges, filtered and searched ───────────────
           The owner's spec, verbatim: "here they can filter it so they can pick
@@ -800,7 +801,7 @@ export async function CoupleChallengesManager({
                       Full
                     </span>
                   ) : (
-                    <form action={addLibraryChallengeAction} className="shrink-0">
+                    <PapicStayForm door="addLibraryChallengeAction" action={addLibraryChallengeAction} className="shrink-0">
                       <input type="hidden" name="event_id" value={eventId} />
                       <input type="hidden" name="library_id" value={row.library_id} />
                       <SubmitButton
@@ -810,7 +811,7 @@ export async function CoupleChallengesManager({
                         <Plus aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
                         Add
                       </SubmitButton>
-                    </form>
+                    </PapicStayForm>
                   )}
                 </li>
               ))}
@@ -1061,7 +1062,7 @@ function ChallengeRow({
               celebrations whose challenges ARE reaching guests. Gated on
               is_active, which is what "a guest can see this" means. */}
           {m.is_active && !isLiveNow ? (
-            <form action={armChallengeAction} className="flex items-center gap-1">
+            <PapicStayForm door="armChallengeAction" action={armChallengeAction} className="flex items-center gap-1">
               <input type="hidden" name="event_id" value={eventId} />
               <input type="hidden" name="mission_id" value={m.mission_id} />
               {/* ⏱ How long it runs. Owner 2026-09-01: 30 minutes by default,
@@ -1091,14 +1092,14 @@ function ChallengeRow({
                 <Play aria-hidden className="h-3.5 w-3.5" strokeWidth={2.5} />
                 Ask now
               </SubmitButton>
-            </form>
+            </PapicStayForm>
           ) : null}
           {/* ⏹ Stop — ends the prompt, keeps the challenge. Deliberately NOT
               the eye below it: hiding takes the challenge off every guest's
               board, which is a different and much bigger act. Only rendered on
               the one that is actually running. */}
           {isLiveNow ? (
-            <form action={stopChallengeAction}>
+            <PapicStayForm door="stopChallengeAction" action={stopChallengeAction}>
               <input type="hidden" name="event_id" value={eventId} />
               <input type="hidden" name="mission_id" value={m.mission_id} />
               <SubmitButton
@@ -1109,10 +1110,10 @@ function ChallengeRow({
                 <Square aria-hidden className="h-3.5 w-3.5" strokeWidth={2.5} />
                 Stop
               </SubmitButton>
-            </form>
+            </PapicStayForm>
           ) : null}
           {/* Hide / show — curation for every source. */}
-          <form action={setCoupleChallengeActiveAction}>
+          <PapicStayForm door="setCoupleChallengeActiveAction" action={setCoupleChallengeActiveAction}>
             <input type="hidden" name="event_id" value={eventId} />
             <input type="hidden" name="mission_id" value={m.mission_id} />
             <input type="hidden" name="active" value={m.is_active ? 'false' : 'true'} />
@@ -1128,10 +1129,10 @@ function ChallengeRow({
                 <Eye aria-hidden className="h-4 w-4" strokeWidth={2} />
               )}
             </button>
-          </form>
+          </PapicStayForm>
           {/* Delete — only the couple's own. */}
           {m.source === 'couple' ? (
-            <form action={deleteCoupleChallengeAction}>
+            <PapicStayForm door="deleteCoupleChallengeAction" action={deleteCoupleChallengeAction}>
               <input type="hidden" name="event_id" value={eventId} />
               <input type="hidden" name="mission_id" value={m.mission_id} />
               <button
@@ -1142,7 +1143,7 @@ function ChallengeRow({
               >
                 <Trash2 aria-hidden className="h-4 w-4" strokeWidth={2} />
               </button>
-            </form>
+            </PapicStayForm>
           ) : null}
         </div>
       </div>

@@ -1,3 +1,4 @@
+import { PapicStayForm } from './papic-stay-form';
 // 🔒 THE READ BELOW IS SERVER-SIDE ONLY, AND IT IS ALREADY ENFORCED — this line
 // is defence in depth, not the thing that creates the property.
 //
@@ -267,7 +268,7 @@ export async function GuestAllotmentsChoice({
       </p>
 
       {/* The switch — two explicit buttons, never a flip. */}
-      <form action={setGuestAllotments} className="flex flex-wrap items-center gap-2">
+      <PapicStayForm door="setGuestAllotments" action={setGuestAllotments} className="flex flex-wrap items-center gap-2">
         <input type="hidden" name="event_id" value={eventId} />
         <input type="hidden" name="enabled" value={enabled ? '0' : '1'} />
         {returnTo ? <input type="hidden" name="return_to" value={returnTo} /> : null}
@@ -286,7 +287,7 @@ export async function GuestAllotmentsChoice({
         <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-ink/50">
           {enabled ? 'On' : 'Off'}
         </span>
-      </form>
+      </PapicStayForm>
 
       {/* ⚖ "DON'T MAKE IT JUMP" (owner 2026-09-22). This block used to be
           `{enabled ? … : null}` — switching the limits OFF deleted every control
@@ -317,7 +318,7 @@ export async function GuestAllotmentsChoice({
           </p>
 
           {/* Everyone else. Blank is not zero — it means "work it out for me". */}
-          <form action={setGuestAllotments} className="space-y-2">
+          <PapicStayForm door="setGuestAllotments" action={setGuestAllotments} className="space-y-2">
             <input type="hidden" name="event_id" value={eventId} />
             <input type="hidden" name="enabled" value="1" />
             {returnTo ? <input type="hidden" name="return_to" value={returnTo} /> : null}
@@ -355,7 +356,7 @@ export async function GuestAllotmentsChoice({
                 ? ' Your sponsors get more than this without being named — three times as much for a principal sponsor, twice as much for a cord, veil, coin or candle sponsor.'
                 : null}
             </p>
-          </form>
+          </PapicStayForm>
 
           {/* ══ THE LEAST ANYBODY GETS ═══════════════════════════════════════
               🔑 EVERY OTHER NUMBER ON THIS SHEET IS A CEILING. Until now
@@ -372,7 +373,7 @@ export async function GuestAllotmentsChoice({
               once, discovered one at a time at the party. The shortfall is
               NAMED, because "add 4,000 credits" is something a couple can do
               and "that will not work" is not. */}
-          <form action={setGuestAllotments} className="space-y-2">
+          <PapicStayForm door="setGuestAllotments" action={setGuestAllotments} className="space-y-2">
             <input type="hidden" name="event_id" value={eventId} />
             <input type="hidden" name="enabled" value="1" />
             {returnTo ? <input type="hidden" name="return_to" value={returnTo} /> : null}
@@ -409,7 +410,7 @@ export async function GuestAllotmentsChoice({
                 ? ` It cannot be more than the ${everyoneElse} you set above.`
                 : ''}
             </p>
-          </form>
+          </PapicStayForm>
 
           {/* NAMING GUESTS — the real new control. */}
           {eventWide ? (
@@ -483,7 +484,7 @@ export async function GuestAllotmentsChoice({
           )}
 
           {/* THE RELEASE. */}
-          <form action={releaseTheRest} className="space-y-2 border-t border-ink/10 pt-4">
+          <PapicStayForm door="releaseTheRest" action={releaseTheRest} className="space-y-2 border-t border-ink/10 pt-4">
             <input type="hidden" name="event_id" value={eventId} />
             {returnTo ? <input type="hidden" name="return_to" value={returnTo} /> : null}
             <p className="text-sm font-medium text-ink">Open the rest to everyone</p>
@@ -495,7 +496,7 @@ export async function GuestAllotmentsChoice({
             {releasedAt ? null : (
               <SubmitButton className="ab ab-neutral inline-flex min-h-11 items-center justify-center">Open the rest to everyone</SubmitButton>
             )}
-          </form>
+          </PapicStayForm>
         </>
       </div>
     </div>
@@ -531,7 +532,7 @@ export async function GuestAllotmentsChoice({
             </InfoTip>
             <span className="block text-[12.5px] text-ink/60">{value}</span>
           </span>
-          <form action={setGuestAllotments} className="shrink-0">
+          <PapicStayForm door="setGuestAllotments" action={setGuestAllotments} className="shrink-0">
             {carry}
             <input type="hidden" name="enabled" value={enabled ? '0' : '1'} />
             {enabled ? (
@@ -543,10 +544,10 @@ export async function GuestAllotmentsChoice({
             <button type="submit" role="switch" aria-checked={enabled} aria-label="Credits per guest" className={SWITCH_BUTTON}>
               <SwitchTrack on={enabled} />
             </button>
-          </form>
+          </PapicStayForm>
         </div>
         <div inert={!enabled} aria-hidden={!enabled} className={`flex flex-col transition-opacity ${enabled ? '' : 'opacity-45'}`}>
-          <form action={setGuestAllotments} className="flex items-center gap-3 py-2" data-allotment-at-most="">
+          <PapicStayForm door="setGuestAllotments" action={setGuestAllotments} className="flex items-center gap-3 py-2" data-allotment-at-most="">
             {carry}
             <input type="hidden" name="enabled" value="1" />
             <input type="hidden" name="minimum_each" value={floorPoints ?? ''} />
@@ -565,8 +566,8 @@ export async function GuestAllotmentsChoice({
               className="h-10 w-24 rounded-full border border-ink/15 bg-paper px-3 text-right text-[14px] text-ink"
             />
             <SubmitButton className="inline-flex h-10 shrink-0 items-center rounded-full border border-ink/15 px-4 text-[13px] font-medium text-ink hover:bg-ink/5 disabled:opacity-45">Save</SubmitButton>
-          </form>
-          <form action={setGuestAllotments} className="flex items-center gap-3 py-2" data-allotment-least="">
+          </PapicStayForm>
+          <PapicStayForm door="setGuestAllotments" action={setGuestAllotments} className="flex items-center gap-3 py-2" data-allotment-least="">
             {carry}
             <input type="hidden" name="enabled" value="1" />
             <input type="hidden" name="everyone_else" value={everyoneElse ?? ''} />
@@ -585,7 +586,7 @@ export async function GuestAllotmentsChoice({
               className="h-10 w-24 rounded-full border border-ink/15 bg-paper px-3 text-right text-[14px] text-ink"
             />
             <SubmitButton className="inline-flex h-10 shrink-0 items-center rounded-full border border-ink/15 px-4 text-[13px] font-medium text-ink hover:bg-ink/5 disabled:opacity-45">Save</SubmitButton>
-          </form>
+          </PapicStayForm>
           {minimumLine ? <p className="pb-1 text-[12.5px] text-ink/60">{minimumLine}</p> : null}
         </div>
       </div>

@@ -1,3 +1,4 @@
+import { PapicStayForm } from './_components/papic-stay-form';
 // Papic Games — Phase 4b: the COUPLE approval panel (spec §3.6). A vendor writing
 // on the couple's surface needs one tap of approval, so pending vendor challenges
 // land here for Approve / Decline. Async SERVER component — self-fetches the
@@ -73,7 +74,7 @@ export async function VendorChallengesApproval({ eventId }: { eventId: string })
           >
             <p className="text-sm text-ink/90">{displayChallengePrompt(m.prompt)}</p>
             <div className="mt-3 flex flex-wrap gap-2">
-              <form action={reviewVendorChallengeAction}>
+              <PapicStayForm door="reviewVendorChallengeAction" action={reviewVendorChallengeAction}>
                 <input type="hidden" name="event_id" value={eventId} />
                 <input type="hidden" name="mission_id" value={m.mission_id} />
                 <input type="hidden" name="decision" value="approve" />
@@ -84,8 +85,8 @@ export async function VendorChallengesApproval({ eventId }: { eventId: string })
                   <Check aria-hidden className="h-4 w-4" strokeWidth={2} />
                   Approve
                 </SubmitButton>
-              </form>
-              <form action={reviewVendorChallengeAction}>
+              </PapicStayForm>
+              <PapicStayForm door="reviewVendorChallengeAction" action={reviewVendorChallengeAction}>
                 <input type="hidden" name="event_id" value={eventId} />
                 <input type="hidden" name="mission_id" value={m.mission_id} />
                 <input type="hidden" name="decision" value="reject" />
@@ -96,7 +97,7 @@ export async function VendorChallengesApproval({ eventId }: { eventId: string })
                   <X aria-hidden className="h-4 w-4" strokeWidth={2} />
                   Decline
                 </button>
-              </form>
+              </PapicStayForm>
             </div>
           </li>
         ))}

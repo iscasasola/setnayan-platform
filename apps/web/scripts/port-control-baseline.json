@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "22d538a534",
-  "routeCount": 475,
+  "generatedFromRef": "9fc01bea89",
+  "routeCount": 474,
   "destinations": 1014,
-  "actions": 662,
-  "blocks": 7166,
+  "actions": 661,
+  "blocks": 7167,
   "routes": {
     "/": {
       "files": [
@@ -2715,7 +2715,6 @@
         "setServiceSecondaryTiles",
         "setTileEventTypeOffered",
         "unteachTradeAlias",
-        "updateEventTypeForWhom",
         "updateEventTypePresentation",
         "updatePlanningDeadline",
         "upsertEventTypeProfile",
@@ -5123,7 +5122,6 @@
         "HTMLInputElement",
         "Image",
         "InPlanningWedding",
-        "InfoTip",
         "Link",
         "NewEventHead",
         "PhotoTile",
@@ -9230,6 +9228,7 @@
         "dashboard/[eventId]/studio/papic/_components/papic-camera-settings.tsx",
         "dashboard/[eventId]/studio/papic/_components/papic-gallery-grid.tsx",
         "dashboard/[eventId]/studio/papic/_components/papic-see-photos.tsx",
+        "dashboard/[eventId]/studio/papic/_components/papic-stay-form.tsx",
         "dashboard/[eventId]/studio/papic/_components/papic-top-band.tsx",
         "dashboard/[eventId]/studio/papic/_components/pool-gallery-actions.ts",
         "dashboard/[eventId]/studio/papic/_components/pool-gallery-card.tsx",
@@ -9239,11 +9238,13 @@
         "dashboard/[eventId]/studio/papic/_components/source-row.tsx",
         "dashboard/[eventId]/studio/papic/_components/supplier-way-in-row.tsx",
         "dashboard/[eventId]/studio/papic/_components/uploads-open-choice.tsx",
+        "dashboard/[eventId]/studio/papic/_lib/papic-in-place.ts",
         "dashboard/[eventId]/studio/papic/_lib/upload-credits.ts",
         "dashboard/[eventId]/studio/papic/actions.ts",
         "dashboard/[eventId]/studio/papic/couple-challenges-manager.tsx",
         "dashboard/[eventId]/studio/papic/face-tagging-actions.ts",
         "dashboard/[eventId]/studio/papic/guest-window-actions.ts",
+        "dashboard/[eventId]/studio/papic/in-place-actions.ts",
         "dashboard/[eventId]/studio/papic/loading.tsx",
         "dashboard/[eventId]/studio/papic/page.tsx",
         "dashboard/[eventId]/studio/papic/papic-window-picker.tsx",
@@ -9320,6 +9321,7 @@
         "GuestAllotmentsChoice",
         "GuestCamerasChoice",
         "GuestContributionsCard",
+        "HTMLFormElement",
         "HTMLInputElement",
         "IapPapicSheet",
         "InfoTip",
@@ -9332,8 +9334,10 @@
         "PapicBuySheet",
         "PapicCameraSettings",
         "PapicHomeCard",
+        "PapicInPlaceResult",
         "PapicLightbox",
         "PapicSeePhotos",
+        "PapicStayForm",
         "PapicStyle",
         "PapicSwitch",
         "PapicWindowPicker",
@@ -11104,16 +11108,6 @@
         "PartPanel",
         "SearchParamsRecord",
         "ServicePanel"
-      ]
-    },
-    "/dev/create-for-lab": {
-      "files": [
-        "dev/create-for-lab/page.tsx"
-      ],
-      "destinations": [],
-      "actions": [],
-      "blocks": [
-        "EventTypePicker"
       ]
     },
     "/dev/customer-money-lab": {

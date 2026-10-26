@@ -225,6 +225,7 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
       typeHere={typeHere}
       scrub={scrub}
       ownsPro={sp.pro === '1'}
+      storeShellLab={sp.shell === '1'}
       fixedStyles={fixedStyles}
       blockLooks={blockLooks}
       sceneAccents={sceneAccents}

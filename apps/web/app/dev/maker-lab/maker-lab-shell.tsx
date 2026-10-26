@@ -23,6 +23,7 @@ import type { MakerNavigatorData } from '@/app/dashboard/[eventId]/website/edito
 import { HubDraftToolbar } from '@/app/dashboard/[eventId]/website/_components/hub-draft-bar';
 import type { HubDraftActionResult, HubDraftSummary } from '@/lib/hub-draft';
 import { sanitizeRsvpAskConfig } from '@/lib/rsvp-ask';
+import { mainBackgroundRowOffered } from '@/lib/main-background-offered';
 import { MainBackgroundPanel, type MovingBackgroundOption } from '@/app/dashboard/[eventId]/website/editor/_components/main-background-panel';
 import { ColorsPanel } from '@/app/dashboard/[eventId]/website/editor/_components/pro-panels';
 import { SiteChromePanel } from '@/app/dashboard/[eventId]/website/editor/_components/media-panels';
@@ -195,10 +196,13 @@ export function MakerLabShell({
   scrub = false,
   revealLab = null,
   ownsPro = false,
+  storeShellLab = false,
   tourHint = false,
 }: {
   /** 💎 `?pro=1` — the ✓ bar of an event that owns Event Hub Pro (no Pro list at Apply). */
   ownsPro?: boolean;
+  /** 🍎 `?shell=1` — the app-store shell, as the real editor page builds Look for it (`lib/main-background-offered.ts`). */
+  storeShellLab?: boolean;
   /** 🔦 `&spot=1` — the Maker's own spotlight is due: the quiet line shows (its stop 1). */
   tourHint?: boolean;
   /** 🎭 `?reveal=owner|all` — the Reveal panel on the owner's map (`page.tsx` asks the guest page's own rule). */
@@ -355,7 +359,7 @@ export function MakerLabShell({
   };
   const heroVideo = <SiteChromePanel action={formDraft} eventId={eventId} part="video" musicRef={null} musicEnabled={false} videoRef={null} />;
   const lookRows = {
-    'main-background': {
+    ...(mainBackgroundRowOffered({ storeShell: storeShellLab, ownsPro }) ? { 'main-background': {
       label: 'Behind every scene',
       node: (
         <MainBackgroundPanel
@@ -376,7 +380,7 @@ export function MakerLabShell({
           draftAction={labDraft as never}
         />
       ),
-    },
+    } } : {}),
     font: {
       label: 'Font',
       /* 🔤 The Studio's four font rows, on the lab's own draft stand-in (no write leaves the lab). */

@@ -45,10 +45,10 @@ type FlagRow = {
   public_id: string;
   flagged_vendor_id: string;
   flagged_r2_ref: string;
-  flagged_surface: 'service_primary' | 'portfolio';
+  flagged_surface: RepostSurface;
   source_vendor_id: string;
   source_r2_ref: string;
-  source_surface: 'service_primary' | 'portfolio';
+  source_surface: RepostSurface;
   hamming_distance: number;
   status: 'open' | 'dismissed' | 'confirmed_theft' | 'escalated';
   resolution_notes: string | null;
@@ -93,9 +93,14 @@ const STATUS_TONE: Record<FlagRow['status'], string> = {
   escalated: 'bg-warn-50 text-warn-900',
 };
 
-const SURFACE_LABEL: Record<FlagRow['flagged_surface'], string> = {
+// Every surface the scan writes (`RepostSurface`) — a Record over the type, so a new surface cannot render as a blank
+// label again (it did: `moodboard_library` since MB11; service card checks add `service_showcase`, 2026-10-26).
+type RepostSurface = 'service_primary' | 'portfolio' | 'moodboard_library' | 'service_showcase';
+const SURFACE_LABEL: Record<RepostSurface, string> = {
   service_primary: 'Service cover',
   portfolio: 'Portfolio',
+  moodboard_library: 'Inspiration',
+  service_showcase: 'Service showcase',
 };
 
 const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [

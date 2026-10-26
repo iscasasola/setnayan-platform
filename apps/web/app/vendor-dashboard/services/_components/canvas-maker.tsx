@@ -181,6 +181,8 @@ export type MakerEditing = {
   poolId: string | null;
   /** The retired free-text promise, shown read-only when the card still carries one. */
   legacyPromise: string | null;
+  /** 🃏 The card is waiting for a quick check (service card checks, owner 2026-10-26) — the switch waits too. */
+  held?: boolean;
 };
 
 type SheetKey = 'kind' | 'audience' | 'ask' | 'delete' | 'preview';
@@ -1270,7 +1272,13 @@ export function CanvasMaker({
                           <span>
                             <span className="block text-[15px] text-ink">Couples can see it</span>
                             <span className="block text-[13px] text-ink/55">
-                              {liveSwitchWaits ? `Waits for ${status.text}` : 'Hidden cards keep their bookings'}
+                              {editing.held && !liveOn ? (
+                                // 🃏 Delta 3 of 3 (approved prototype): the same slot "Waits for a cover" uses.
+                                <>
+                                  <b className="font-semibold" style={{ color: 'var(--m-orange-deep)' }}>Waits for the check</b>
+                                  {' · hidden cards keep their bookings'}
+                                </>
+                              ) : liveSwitchWaits ? `Waits for ${status.text}` : 'Hidden cards keep their bookings'}
                             </span>
                           </span>
                           <button
@@ -1278,7 +1286,7 @@ export function CanvasMaker({
                             role="switch"
                             aria-checked={liveOn}
                             aria-label="Couples can see it"
-                            disabled={liveSwitchWaits}
+                            disabled={liveSwitchWaits || (editing.held === true && !liveOn)}
                             onClick={() => setLiveOn((v) => !v)}
                             className={SWITCH_BUTTON}
                             data-maker-live=""

@@ -78,6 +78,11 @@ export default async function EditServiceCardPage({
     .filter((h) => (h.vendor_service_halls ?? []).some((l) => l.vendor_service_id === serviceId))
     .map((h) => h.pool_id);
   const record = records?.get(serviceId) ?? null;
+  // 🃏 Is this card waiting for a quick check? Asked through the supplier's own session (`service_card_held` is
+  // SECURITY DEFINER and says only yes/no). An unread answer draws the switch as waiting: the database refuses a
+  // held card going live anyway, so "waits" is the honest reading of "we could not ask".
+  const { data: heldAnswer, error: heldErr } = await supabase.rpc('service_card_held', { p_service_id: serviceId });
+  const held = heldErr ? !card.editing.isActive : heldAnswer === true;
   const kindName = ctx.kindLabel(card.category);
 
   return (
@@ -117,7 +122,7 @@ export default async function EditServiceCardPage({
           cardRecordHasSomethingToSayToTheShop(record) ? <CardRecordSection record={record} variant="vendor" /> : null
         }
         initial={card.initial}
-        editing={card.editing}
+        editing={{ ...card.editing, held }}
         unread={card.unread}
         errorLine={typeof error === 'string' && error.length > 0 ? error : null}
         returnTo={`/vendor-dashboard/services/${serviceId}`}

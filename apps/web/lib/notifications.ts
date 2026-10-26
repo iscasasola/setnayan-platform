@@ -480,7 +480,13 @@ export type NotificationType =
      shift (never one per block), from Running late on the couple's schedule and
      the floor's +N (`lib/schedule-shift-notify.server.ts`). In-app only — no email.
      ⚠ ENUM value in 20271284540209. */
-  | 'schedule_shifted';
+  | 'schedule_shifted'
+  /* 🃏 SERVICE CARD CHECKS (owner 2026-10-26, DECISION_LOG "APPROVED — SERVICE CARD
+     CHECKS AS DRAWN"). → the SUPPLIER: their card is saved but waiting for a quick
+     check (including a photo match that lands after the save), and the admin's
+     verdict — approved · asked to fix · rejected. In-app only — no email (ruling).
+     Never names another shop. ⚠ ENUM value in 20271290823350. */
+  | 'service_card_check';
 
 export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   event_auto_surfaced: 'You were added to an event',
@@ -599,6 +605,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   change_order_proposed: 'Change order',
   change_order_answered: 'Change order answered',
   schedule_shifted: 'Schedule moved',
+  service_card_check: 'Card check',
 };
 
 export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
@@ -814,6 +821,8 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   change_order_answered: 'bg-warn-100 text-warn-900',
   // News the supplier acts on at the venue (a new time), not a yes or no → the informational sky.
   schedule_shifted: 'bg-sky-100 text-sky-800',
+  // A card waiting on a look, or a verdict the supplier may act on → the action-needed amber.
+  service_card_check: 'bg-warn-100 text-warn-900',
 };
 
 export type NotificationRow = {

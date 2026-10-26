@@ -71,6 +71,9 @@ import {
 } from '@/lib/vendor-coverages';
 import { getVendorServableEventTypes } from '@/lib/event-types-db';
 import { buildServiceCardCongrats } from '@/lib/service-card-congrats';
+import { reasonsFromDetail } from '@/lib/service-card-check-copy';
+import type { CardReason } from '@/lib/service-card-checks';
+import { HeldCardBox } from './held-card-box';
 import { FAITH_REGISTRY } from '@/lib/faith-registry';
 import {
   SERVICE_PICKER_ANCHOR_ID,
@@ -129,6 +132,12 @@ export type ServicesManagerSearch = {
    */
   created?: string;
   /**
+   * 🃏 Set by commitVendorService when the automatic card check HELD the saved card (owner 2026-10-26) — the card's
+   * id, so the gold "Saved · waiting for a quick check" box can read THAT card's flag. The reasons come from the
+   * flag row, never from this address. `created=held` rides along on a create.
+   */
+  held?: string;
+  /**
    * How many blank customization names the last save filled in for the vendor
    * (★ Customization step · flag-dark). A blank name is auto-named, never
    * refused (owner-locked 2026-07-27) — this is the "and here is what we
@@ -173,6 +182,34 @@ export async function VendorServicesManager({
   if (!profile) redirect('/vendor-dashboard');
 
   const services = await fetchVendorServices(supabase, profile.vendor_profile_id);
+
+  // 🃏 WHICH CARDS ARE WAITING FOR A QUICK CHECK (service card checks, owner 2026-10-26). `integrity_flags` is
+  // admin-only under RLS, so it is read with the service role, scoped to THIS shop (proven from the session above).
+  // ⚠ A refused read is NOT "nothing is held": the rows keep saying "hidden" (still true — a held card is hidden) and
+  // the gold box says it could not load the reasons, instead of drawing an empty list.
+  const { data: holdRows, error: holdReadError } = await createAdminClient()
+    .from('integrity_flags')
+    .select('subject_service_id, status, detail, resolution_notes')
+    .eq('kind', 'service_card')
+    .eq('subject_vendor_id', profile.vendor_profile_id)
+    .in('status', ['open', 'asked_to_fix', 'rejected']);
+  if (holdReadError) {
+    logQueryError('VendorServicesManager.cardHolds', holdReadError, { vendorProfileId: profile.vendor_profile_id }, 'graceful_degrade');
+  }
+  const heldById = new Map<string, { status: string; reasons: CardReason[]; afterReject: boolean; note: string | null }>();
+  for (const h of (holdRows ?? []) as {
+    subject_service_id: string;
+    status: string;
+    detail: Record<string, unknown> | null;
+    resolution_notes: string | null;
+  }[]) {
+    heldById.set(h.subject_service_id, {
+      status: h.status,
+      reasons: reasonsFromDetail(h.detail),
+      afterReject: h.status === 'rejected' || h.detail?.previous === 'rejected',
+      note: h.status === 'asked_to_fix' ? h.resolution_notes : null,
+    });
+  }
 
   // Only the canvas maker can open pre-filled, so "start a new card from this
   // one" is gated on the same flag that decides which maker the route renders.
@@ -539,7 +576,29 @@ export async function VendorServicesManager({
           {decodeURIComponent(search.error)}
         </p>
       ) : null}
-      {search.created === 'live' || search.created === 'draft' ? (
+      {typeof search.held === 'string' && services.some((sv) => sv.vendor_service_id === search.held) ? (
+        (() => {
+          const heldSvc = services.find((sv) => sv.vendor_service_id === search.held)!;
+          const hold = heldById.get(heldSvc.vendor_service_id) ?? null;
+          // Live after all (approved in between, or a later save passed) → the plain sage line, never a stale gold box.
+          if (heldSvc.is_active) {
+            return (
+              <p role="status" className="rounded-md border px-4 py-3 text-sm" style={{ borderColor: 'var(--m-sage)', background: 'var(--m-sage)', color: 'var(--m-ink)' }}>
+                Services updated.
+              </p>
+            );
+          }
+          return (
+            <HeldCardBox
+              serviceId={heldSvc.vendor_service_id}
+              reasons={holdReadError || !hold ? null : hold.reasons}
+              serviceLabel={displayServiceLabel(heldSvc.category as VendorCategory)}
+              afterReject={hold?.afterReject ?? false}
+              adminNote={hold?.note ?? null}
+            />
+          );
+        })()
+      ) : search.created === 'live' || search.created === 'draft' ? (
         (() => {
           // The congratulations moment (owner 2026-07-28) — replaces the plain
           // "Services updated." for a CREATE. The active count is the same
@@ -942,7 +1001,12 @@ export async function VendorServicesManager({
                         {svc.coverage_id && coverageLabelById.has(svc.coverage_id)
                           ? ` · ${coverageLabelById.get(svc.coverage_id)}`
                           : ''}
-                        {svc.is_active ? '' : ' · hidden'}
+                        {svc.is_active ? '' : heldById.has(svc.vendor_service_id) ? (
+                          // 🃏 Delta 2 of 3 (approved prototype): the one word on a held card's row.
+                          <b className="font-semibold" style={{ color: 'var(--m-orange-deep)' }} data-card-waiting="">
+                            {' · waiting for a check'}
+                          </b>
+                        ) : ' · hidden'}
                       </p>
                       {/* The reach this card's price is earning — on the card
                           itself, every time the shop looks at the list, not in
@@ -1011,7 +1075,10 @@ export async function VendorServicesManager({
                         role="switch"
                         aria-checked={svc.is_active}
                         aria-label={svc.is_active ? 'Hide service from Explore' : 'Show service on Explore'}
-                        title={svc.is_active ? 'Live — tap to hide' : 'Hidden — tap to show'}
+                        // 🃏 A held card's switch stays off and greys — the shipped greying the maker does with
+                        // "Waits for a cover". An admin's Approve switches it on; the trigger refuses anything else.
+                        title={svc.is_active ? 'Live — tap to hide' : heldById.has(svc.vendor_service_id) ? 'Waits for the check' : 'Hidden — tap to show'}
+                        disabled={!svc.is_active && heldById.has(svc.vendor_service_id)}
                         className={SWITCH_BUTTON}
                       >
                         <SwitchTrack on={svc.is_active} />

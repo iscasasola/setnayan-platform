@@ -54,6 +54,17 @@ import { mergeServiceRefinements } from '@/lib/vendor-service-refinements-write'
 import { registerClaimedServiceToCouple } from '@/lib/vendor-invite-actions';
 import { findVendorTextViolation } from '@/lib/service-text-integrity';
 import {
+  SERVICE_CARD_HELD_SENTENCE,
+  checkServiceCard,
+  clearServiceCardHold,
+  holdServiceCard,
+  holdServiceCardForPhotoMatch,
+  noticeCardHeld,
+  readHoldingFlag,
+  restoreServiceCardHold,
+  type HoldingFlag,
+} from '@/lib/service-card-checks.server';
+import {
   PUBLISH_REFUSAL_MESSAGE,
   coverIsSet,
   inclusionsAreSet,
@@ -1815,6 +1826,70 @@ export async function commitVendorService(formData: FormData) {
     sort_order: i,
   }));
 
+  // ---- 🃏 SERVICE CARD CHECKS (owner 2026-10-26 — DECISION_LOG "APPROVED — SERVICE CARD CHECKS AS DRAWN") ----
+  //
+  // *"Cards go live right away after automatic checks; only flagged cards wait for admin review."* A check NEVER
+  // refuses this save: a hit turns `publish` off for THIS write and opens one `integrity_flags(kind='service_card')`
+  // row (lib/service-card-checks.server.ts). A pass publishes exactly as before. Asked here — after every bounce
+  // above, so a card that bounces is never checked, and before the one write, so the card is never live for a
+  // moment it should not be.
+  //
+  // · A card ALREADY HELD (open · asked to fix · rejected) is still a publish attempt — the hold switched it off,
+  //   not the supplier — so its save is checked as one as long as the publish gate is met.
+  // · AFTER A REJECT EVERY SAVE RE-QUEUES (ruling), even one that passes: otherwise one edit undoes a reject.
+  // · A resave that passes clears an open / asked-to-fix hold BY ITSELF (PLAN §5.4) — never a rejected one.
+  // · 🔒 FAIL-CLOSED: a read the checks needed and could not make HOLDS the card (`check_unavailable`). And an
+  //   unreadable hold is not "no hold": the database trigger refuses a held card going live whatever we read here.
+  const existingHold: HoldingFlag | null | undefined = isCreate ? null : await readHoldingFlag(serviceId as string);
+  let wantsLive = publish;
+  if (!publish && existingHold) {
+    const heldFacts = {
+      hasPrice: priceIsSet(fields.starting_price_php as number | null),
+      hasCover: coverIsSet(fields.primary_photo_r2_key as string | null),
+      hasInclusions: inclusionsAreSet(inclusionRows.map((n) => n.label)),
+    };
+    wantsLive = unmetPublishRequirements(heldFacts).length === 0;
+  }
+  let cardHeld = false;
+  let cardCheckReasons: Awaited<ReturnType<typeof checkServiceCard>>['reasons'] = [];
+  let cardCheckScore = 0;
+  if (wantsLive) {
+    // Add-ons are card text too. Posted with the card → read them from the form; not on it → read the stored ones.
+    // `null` = could not read them, and the words check then cannot finish (the card waits) — never "no add-ons".
+    let addonLabels: string[] | null = [];
+    if (formData.get('addons_present') === '1') {
+      addonLabels = parseAddonRows(formData).map((a) => a.label);
+    } else if (!isCreate) {
+      const { data: addonRows, error: addonReadErr } = await createAdminClient()
+        .from('vendor_service_addons')
+        .select('label')
+        .eq('vendor_service_id', serviceId as string)
+        .eq('vendor_profile_id', profile.vendor_profile_id);
+      addonLabels = addonReadErr ? null : ((addonRows ?? []) as { label: string }[]).map((r) => r.label);
+    }
+    const check = await checkServiceCard({
+      vendorProfileId: profile.vendor_profile_id,
+      category,
+      categoryLabel: displayServiceLabel(category),
+      title: (fields.title as string | null) ?? null,
+      inclusionLabels: inclusionRows.map((n) => n.label),
+      addonLabels,
+      startingPricePhp: (fields.starting_price_php as number | null) ?? null,
+      pricingBasis: String(fields.pricing_basis ?? 'fixed'),
+      cover: (fields.primary_photo_r2_key as string | null) ?? null,
+      showcase: showcase.showcase_photo_r2_keys,
+    });
+    cardCheckReasons = check.reasons;
+    cardCheckScore = check.score;
+    cardHeld = cardCheckReasons.length > 0 || existingHold?.status === 'rejected';
+  }
+  const publishNow = wantsLive && !cardHeld;
+  let clearedHold: HoldingFlag | null = null;
+  if (publishNow && existingHold && existingHold.status !== 'rejected') {
+    // Cleared BEFORE the write, because the trigger refuses a held card going live. Put back if the write fails.
+    if (await clearServiceCardHold(existingHold)) clearedHold = existingHold;
+  }
+
   // ---- ONE atomic write ----
   // ⚠ ADMIN CLIENT, DELIBERATELY (2026-08-01 security round two).
   // `save_vendor_service` is SECURITY DEFINER and took `p_vendor_profile_id` as
@@ -1834,9 +1909,12 @@ export async function commitVendorService(formData: FormData) {
     p_discounts: svcDiscounts,
     p_brackets: svcBrackets,
     p_inclusions: svcInclusions,
-    p_publish: publish,
+    p_publish: publishNow,
   });
-  if (error) return back(error.message);
+  if (error) {
+    if (clearedHold) await restoreServiceCardHold(clearedHold);
+    return back(error.message);
+  }
 
   // ---- THE PARTS THAT USED TO NEED THEIR OWN SAVE (supplier-easy step 3, 2026-10-14) ----
   // The maker shows every field of a card and saves it with ONE press (owner 2026-10-08 Q3). These are written
@@ -1844,6 +1922,24 @@ export async function commitVendorService(formData: FormData) {
   // fails is SAID on arrival — the card itself is saved, so it is never a bounce that invites a second card.
   const partProblems: string[] = [];
   const cardId = typeof savedId === 'string' && savedId.length > 0 ? savedId : null;
+  // 🃏 The card is saved (hidden). Now the flag that holds it — and an in-app notice (no email: ruling). A failed
+  // flag write leaves a hidden card with no reason; the gold box then says the check didn't finish, which is true.
+  if (cardHeld && cardId) {
+    await holdServiceCard({
+      serviceId: cardId,
+      vendorProfileId: profile.vendor_profile_id,
+      reasons: cardCheckReasons,
+      score: cardCheckScore,
+      existing: existingHold ?? null,
+    });
+    after(() =>
+      noticeCardHeld({
+        vendorProfileId: profile.vendor_profile_id,
+        serviceId: cardId,
+        title: (fields.title as string | null) ?? displayServiceLabel(category),
+      }),
+    );
+  }
   if (cardId) {
     const policyErr = await writeSchedulePolicy(supabase, cardId, profile.vendor_profile_id, scheduleRows);
     if (policyErr) partProblems.push('the no-show terms on the first payment');
@@ -1995,15 +2091,38 @@ export async function commitVendorService(formData: FormData) {
   // redirect (which throws to unwind) and self-swallowing so it never affects
   // the save. Skips refs already hashed, so an edit that didn't change the photo
   // is a cheap no-op.
+  //
+  // 🃏 Cover AND showcase (ruling: "photo match (repost-watch pHash, cover + showcase)"), then the late half of the
+  // photo check: a match that lands seconds after the save pulls the card from Explore and holds it, with the same
+  // gold box on the next page load and the in-app notice.
   const primaryPhoto = fields.primary_photo_r2_key;
-  if (typeof primaryPhoto === 'string' && primaryPhoto.length > 0) {
-    after(() =>
-      hashAndScanVendorImages({
-        vendorProfileId: profile.vendor_profile_id,
-        refs: [primaryPhoto],
-        surface: 'service_primary',
-      }),
-    );
+  const showcaseRefs = showcase.showcase_photo_r2_keys;
+  if ((typeof primaryPhoto === 'string' && primaryPhoto.length > 0) || showcaseRefs.length > 0) {
+    after(async () => {
+      if (typeof primaryPhoto === 'string' && primaryPhoto.length > 0) {
+        await hashAndScanVendorImages({
+          vendorProfileId: profile.vendor_profile_id,
+          refs: [primaryPhoto],
+          surface: 'service_primary',
+        });
+      }
+      if (showcaseRefs.length > 0) {
+        await hashAndScanVendorImages({
+          vendorProfileId: profile.vendor_profile_id,
+          refs: showcaseRefs,
+          surface: 'service_showcase',
+        });
+      }
+      if (cardId) {
+        await holdServiceCardForPhotoMatch({
+          serviceId: cardId,
+          vendorProfileId: profile.vendor_profile_id,
+          cover: typeof primaryPhoto === 'string' ? primaryPhoto : null,
+          showcase: showcaseRefs,
+          title: (fields.title as string | null) ?? displayServiceLabel(category),
+        });
+      }
+    });
   }
 
   revalidatePath('/vendor-dashboard/services');
@@ -2046,7 +2165,13 @@ export async function commitVendorService(formData: FormData) {
   // document onto the card). The value says whether the new card went live, so
   // the "you now have X active cards" line can be worded truthfully. On success
   // `publish` IS the final is_active — a publish the RPC refuses errors above.
-  const made = isCreate ? `&created=${publish ? 'live' : 'draft'}` : '';
+  // 🃏 A held card lands on the gold box ("Saved · waiting for a quick check"). `held=<id>` names WHICH card; the
+  // reasons are read from its flag row, never from this address (`created=held` on a create).
+  if (cardHeld && cardId) {
+    const madeHeld = isCreate ? '&created=held' : '';
+    redirect(`${await servicesReturnBase()}?saved=1${madeHeld}&held=${cardId}${named}#service-${cardId}`);
+  }
+  const made = isCreate ? `&created=${publishNow ? 'live' : 'draft'}` : '';
   redirect(`${await servicesReturnBase()}?saved=1${made}${named}#service-${savedId ?? ''}`);
 }
 
@@ -2071,6 +2196,20 @@ export async function toggleVendorServiceActive(formData: FormData) {
   // refused for the wrong reason. It is refused deliberately now, and said so:
   // publishing on a row we could not read would be publishing on no evidence.
   if (is_active) {
+    // 🃏 A card waiting for a quick check is switched on by an admin's Approve, never here (owner 2026-10-26). The
+    // trigger refuses it anyway; asked first so the supplier reads the sentence, not a database error. An unread
+    // answer refuses too — publishing on no evidence is the one thing this switch must not do.
+    const { data: heldNow, error: heldErr } = await supabase.rpc('service_card_held', { p_service_id: idRaw });
+    if (heldErr || heldNow === null) {
+      return redirect(
+        `${await servicesReturnBase()}?error=${encodeURIComponent(
+          'We could not read this card just now, so it was not published. Try again in a moment.',
+        )}`,
+      );
+    }
+    if (heldNow === true) {
+      return redirect(`${await servicesReturnBase()}?error=${encodeURIComponent(SERVICE_CARD_HELD_SENTENCE)}`);
+    }
     const [{ data: svcRow, error: readError }, { data: incRows, error: incError }] =
       await Promise.all([
         supabase

@@ -47,6 +47,9 @@ import {
 /**
  * Which vendor-owned image pool a hash came from.
  *
+ * `service_showcase` added by service card checks (2026-10-26, ruling: "photo match (repost-watch pHash, cover +
+ * showcase)") — a service card's up-to-five showcase photos; CHECKs widened by migration 20271290013489.
+ *
  * `moodboard_library` added by MB11 (2026-09-04) — the couple-facing supplier
  * gallery, which is the one PUBLICLY-READABLE bucket that had no theft scan on
  * it at all. Migration 20271202522764 widens the matching CHECK constraints on
@@ -56,7 +59,7 @@ import {
  * theft scan that silently stores no hashes looks exactly like a clean
  * marketplace.
  */
-export type RepostSurface = 'service_primary' | 'portfolio' | 'moodboard_library';
+export type RepostSurface = 'service_primary' | 'portfolio' | 'moodboard_library' | 'service_showcase';
 
 // Fallback only — the live threshold is admin-managed via the "Repost-watch
 // match sensitivity" field on /admin/settings (platform_settings
@@ -368,8 +371,7 @@ export async function rescanAllVendorImages(): Promise<{
   // Pull real vendors' service cover photos.
   const { data: services } = await admin
     .from('vendor_services')
-    .select('vendor_profile_id, primary_photo_r2_key')
-    .not('primary_photo_r2_key', 'is', null);
+    .select('vendor_profile_id, primary_photo_r2_key, showcase_photo_r2_keys');
 
   const profileRows = (profiles ?? []) as {
     vendor_profile_id: string;
@@ -398,13 +400,29 @@ export async function rescanAllVendorImages(): Promise<{
   const serviceRows = (services ?? []) as {
     vendor_profile_id: string;
     primary_photo_r2_key: string | null;
+    showcase_photo_r2_keys: string[] | null;
   }[];
   const byVendor = new Map<string, string[]>();
+  // Service showcase photos (service card checks, 2026-10-26: "cover + showcase") — backfilled here so another shop's
+  // EXISTING showcase photos are in the candidate pool a new card is matched against.
+  const showcaseByVendor = new Map<string, string[]>();
   for (const s of serviceRows) {
-    if (!s.primary_photo_r2_key || !realVendorIds.has(s.vendor_profile_id)) continue;
-    const list = byVendor.get(s.vendor_profile_id) ?? [];
-    list.push(s.primary_photo_r2_key);
-    byVendor.set(s.vendor_profile_id, list);
+    if (!realVendorIds.has(s.vendor_profile_id)) continue;
+    if (s.primary_photo_r2_key) {
+      const list = byVendor.get(s.vendor_profile_id) ?? [];
+      list.push(s.primary_photo_r2_key);
+      byVendor.set(s.vendor_profile_id, list);
+    }
+    const shows = (s.showcase_photo_r2_keys ?? []).filter(Boolean);
+    if (shows.length > 0) {
+      const list = showcaseByVendor.get(s.vendor_profile_id) ?? [];
+      list.push(...shows);
+      showcaseByVendor.set(s.vendor_profile_id, list);
+    }
+  }
+  for (const [vendorProfileId, refs] of showcaseByVendor) {
+    refsConsidered += refs.length;
+    await hashAndScanVendorImages({ vendorProfileId, refs, surface: 'service_showcase' });
   }
   for (const [vendorProfileId, refs] of byVendor) {
     refsConsidered += refs.length;

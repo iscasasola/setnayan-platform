@@ -37,7 +37,12 @@ import {
 import { recomputeReceptionAnchor } from '@/lib/events';
 import { defaultInvitedToForRole } from '@/lib/guests';
 import { PLAN_GROUPS } from '@/lib/wedding-plan-groups';
-import { canonicalServicesForTile, canonicalServicesForFolder } from '@/lib/vendor-counts';
+import {
+  getCanonicalBuckets,
+  servicesForPlanGroup,
+  servicesInTile,
+  type CanonicalBuckets,
+} from '@/lib/vendor-counts';
 import { PICK_TO_GROUP } from '@/lib/onboarding-availability';
 import { regionForCity } from '@/lib/regions';
 import { resolveRegion } from '@/lib/region-source';
@@ -1070,7 +1075,7 @@ export async function searchOnboardingReceptionVenues(input: {
   // A parish has no reception setting / type, and capacity is the reception's rule.
   const venueSetting = !isParish && firstSetting ? RECEPTION_PICK_TO_VENUE_SETTING[firstSetting]! : null;
   const venueType = !isParish && firstSetting ? (RECEPTION_TO_VENUE_TYPE[firstSetting] ?? null) : null;
-  const canonicalServices = isParish ? canonicalServicesForTile('ceremony_venue') : ['venue'];
+  const canonicalServices = isParish ? servicesInTile(await getCanonicalBuckets(), 'ceremony_venue') : ['venue'];
   const paxScope = isParish ? null : (input.pax ?? null);
 
   const admin = createAdminClient();
@@ -1174,14 +1179,13 @@ export async function searchOnboardingReceptionVenues(input: {
 
 /* Resolve a planning-group id → its canonical services, the SAME way the
    Services-tab Category Search does (category-search.ts canonicalsForGroup):
-   subcategoryHint → catalogTile → catalogFolder. Kept in lock-step so the
-   onboarding count and the dashboard's "vendors in your categories" agree. */
-function canonicalsForOnboardingGroup(groupId: string): string[] {
+   subcategoryHint → catalogTile → catalogFolder. ONE ladder (`servicesForPlanGroup`)
+   over the live taxonomy, so the onboarding count and the dashboard's "vendors in
+   your categories" agree by construction rather than by being kept in lock-step. */
+function canonicalsForOnboardingGroup(groupId: string, buckets: CanonicalBuckets): string[] {
   const g = PLAN_GROUPS.find((x) => x.id === groupId);
   if (!g) return [];
-  if (g.subcategoryHint) return [g.subcategoryHint];
-  if (g.catalogTile) return canonicalServicesForTile(g.catalogTile);
-  return canonicalServicesForFolder(g.catalogFolder);
+  return servicesForPlanGroup(buckets, g);
 }
 
 export type OnboardingVendorCounts = { matched: number; total: number };
@@ -1256,12 +1260,13 @@ export async function getOnboardingVendorCounts(input: {
 
   // Picked categories → canonical service union (same resolver the Services-tab
   // Category Search uses). Empty union → count the whole published marketplace.
+  const buckets = await getCanonicalBuckets();
   const canonicalUnion = Array.from(
     new Set(
       (input.picks ?? [])
         .map((p) => PICK_TO_GROUP[p])
         .filter((g): g is string => Boolean(g))
-        .flatMap((groupId) => canonicalsForOnboardingGroup(groupId)),
+        .flatMap((groupId) => canonicalsForOnboardingGroup(groupId, buckets)),
     ),
   );
 

@@ -11,7 +11,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { MOODBOARD_SLOT_KEYS } from './moodboard-slots';
-import { FILIPINIANA_BARONG_CANONICALS, WEDDING_TILE_LABEL } from './taxonomy';
+import { WEDDING_TILE_LABEL } from './taxonomy';
 import { canonicalServicesForTile } from './vendor-counts';
 import {
   GALLERY_MAX_LIMIT,
@@ -185,7 +185,7 @@ test('⭐ MB18 · non-regression pin — canonicalServicesForSlot(\'bride\') sti
   // 2026-09-05 correction to the plan measured this directly). Pinned here so
   // a future refactor of the map cannot quietly break it.
   const bride = canonicalServicesForSlot('bride');
-  const hasFilipinianaBarongMember = FILIPINIANA_BARONG_CANONICALS.some((c) =>
+  const hasFilipinianaBarongMember = canonicalServicesForTile('filipiniana_barongs').some((c) =>
     bride.includes(c),
   );
   assert.ok(hasFilipinianaBarongMember, 'bride lost its Filipiniana/Barong resolution');

@@ -13,9 +13,8 @@ import type { CoarseCategorySource } from '@/lib/vendor-branch-category';
 import { getTaxonomy } from '@/lib/taxonomy-db';
 import { VENDOR_CATEGORIES, type VendorCategory } from '@/lib/vendors';
 import { vendorCategoryForLeaf } from '@/lib/vendor-packages';
-import { canonicalServicesForTile } from '@/lib/vendor-counts';
+import { getCanonicalBuckets, servicesInTile } from '@/lib/vendor-counts';
 import { cardForTile, type ShopCard } from '@/lib/bench-save-card';
-import type { WeddingTile } from '@/lib/taxonomy';
 import { getEventTypeVocab } from '@/lib/event-types-db';
 
 // Iteration 0041 — email capture for Coming-Soon event_type interest.
@@ -265,7 +264,7 @@ export async function saveVendorToPicks(formData: FormData): Promise<SaveVendorR
       .select('vendor_service_id, category, created_at')
       .eq('vendor_profile_id', vendorProfileId)
       .eq('is_active', true);
-    tileCard = cardForTile((cards ?? []) as ShopCard[], tile, canonicalServicesForTile(tile as WeddingTile));
+    tileCard = cardForTile((cards ?? []) as ShopCard[], tile, servicesInTile(await getCanonicalBuckets(), tile));
   }
   const tileCategory: VendorCategory | null = (() => {
     if (!tileCard?.category) return null;

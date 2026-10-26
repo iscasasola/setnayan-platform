@@ -100,7 +100,7 @@ import {
   PLAN_GROUPS,
   type EventVendorRowInput,
 } from '@/lib/wedding-plan-groups';
-import { canonicalServicesForFolder, canonicalServicesForTile } from '@/lib/vendor-counts';
+import { getCanonicalBuckets, servicesInFolder, servicesInTile } from '@/lib/vendor-counts';
 import { getEventPreferences } from '@/lib/event-preferences';
 import type { WeddingFolder } from '@/lib/taxonomy';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -1958,9 +1958,10 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       const prefs = await eventPrefsRead;
       const savedKeys = new Set(Object.keys(prefs));
       if (savedKeys.size === 0) return out;
+      const buckets = await getCanonicalBuckets();
       for (const folder of shortlistFolders) {
         for (const tile of folder.tiles) {
-          const canonicals = canonicalServicesForTile(tile.tile);
+          const canonicals = servicesInTile(buckets, tile.tile);
           const withSaved = canonicals.find((c) => savedKeys.has(c));
           if (withSaved) out[tile.tile] = withSaved;
         }
@@ -3036,8 +3037,9 @@ async function fetchActiveCategoryMarketPool(
       }
     }
     const canonical = new Set<string>();
+    const buckets = await getCanonicalBuckets();
     for (const f of activeFolders) {
-      for (const c of canonicalServicesForFolder(f)) canonical.add(c);
+      for (const c of servicesInFolder(buckets, f)) canonical.add(c);
     }
     if (canonical.size === 0) return 0;
     const admin = createAdminClient();

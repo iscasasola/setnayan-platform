@@ -61,10 +61,11 @@ import {
 } from '@/lib/last-minute';
 import { PLAN_GROUPS } from '@/lib/wedding-plan-groups';
 import {
-  canonicalServicesForTile,
-  canonicalServicesForFolder,
+  getCanonicalBuckets,
+  servicesForPlanGroup,
+  servicesInTile,
+  type CanonicalBuckets,
 } from '@/lib/vendor-counts';
-import type { WeddingTile } from '@/lib/taxonomy';
 import { getEventPreferences } from '@/lib/event-preferences';
 import {
   fetchCategoryFacets,
@@ -306,7 +307,8 @@ const EMPTY: CategorySearchResult = {
  * The values a vendor's `services` may hold for this scope to match them.
  *
  * ⚠ THIS IS NOT "the canonicals of a tile" — that question belongs to
- * `canonicalServicesForTile`, and answering it there breaks something.
+ * `servicesInTile` (and its const fallback `canonicalServicesForTile`), and
+ * answering it there breaks something.
  * `taxonomy-tile-reachability.test.ts` reads its `length > 0` to decide a tile
  * is ALIVE and to self-clean `KNOWN_DEAD_TILES`; widen it and every tile looks
  * healthy, silently retiring a real regression detector. The first draft of
@@ -331,9 +333,9 @@ const EMPTY: CategorySearchResult = {
  * 🔑 A VOCABULARY THE PRODUCT SAVES HAS TO BE ONE ITS READERS ACCEPT — the same
  * conclusion `/services/new/[category]` reached the same day.
  */
-function canonicalsForScope(groupId: string, tile: string): string[] {
+function canonicalsForScope(groupId: string, tile: string, buckets: CanonicalBuckets): string[] {
   if (tile) {
-    const fromTile = canonicalServicesForTile(tile as WeddingTile);
+    const fromTile = servicesInTile(buckets, tile);
     // Widen, never replace: a shop stored the CORRECT way must keep matching.
     if (fromTile.length > 0) {
       return fromTile.includes(tile) ? fromTile : [...fromTile, tile];
@@ -343,9 +345,7 @@ function canonicalsForScope(groupId: string, tile: string): string[] {
   }
   const g = PLAN_GROUPS.find((x) => x.id === groupId);
   if (!g) return [];
-  if (g.subcategoryHint) return [g.subcategoryHint];
-  if (g.catalogTile) return canonicalServicesForTile(g.catalogTile);
-  return canonicalServicesForFolder(g.catalogFolder);
+  return servicesForPlanGroup(buckets, g);
 }
 
 /** Haversine great-circle distance in km. */
@@ -412,7 +412,7 @@ export async function searchCategoryVendors(input: {
   // reorders WITHIN the existing tail tier and surfaces a budget-pressure nudge.
   const smartSort = isSmartSortEnabled();
 
-  const groupCanonicals = canonicalsForScope(groupId, tile);
+  const groupCanonicals = canonicalsForScope(groupId, tile, await getCanonicalBuckets());
   if (groupCanonicals.length === 0) return EMPTY;
 
   // Auth + membership gate in one RLS-bounded read: events RLS restricts to

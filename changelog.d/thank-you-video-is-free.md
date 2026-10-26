@@ -26,7 +26,10 @@ owed a refund or a credit.
   - `kwento-is-free.test.ts` moves the owner's 2026-08-21 "the film stays paid" line to today's ruling (the shot
     ladder stays paid);
   - `entitlements.test.ts` stand-in paid SKU repointed to `PAKANTA` (a free SKU would test nothing);
-  - `products.test.ts` and the App Store order db test lose the Thank You product.
+  - `products.test.ts` and the App Store order db test lose the Thank You product;
+  - `the-app-shows-a-door-to-what-apple-sells.test.ts`: the Apple products are three now, and Thank You keeps the same
+    door properties as a FREE page the app opens (`IAP_OPENED_ROUTE` still lists `studio/thank-you`, so the app reaches
+    it with no pay step).
 
 SPEC IMPACT: corpus `DECISION_LOG.md` new row "THE THANK-YOU VIDEO IS FREE FOR EVERY EVENT"; `Pricing.md` row updated.
 Owner-facing: do NOT attach `com.setnayan.app.papic_thank_you` to an App Store version.

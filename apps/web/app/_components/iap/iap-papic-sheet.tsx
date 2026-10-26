@@ -162,7 +162,7 @@ export function IapPapicSheet({
           labelClassName="text-[19px] font-semibold tracking-tight text-ink"
           align="start"
         >
-          One credit is one photo; a short clip uses a little more. Credits land on this event the moment Apple confirms.
+          One credit is one camera photo; a short clip uses a little more. Credits land on this event the moment Apple confirms.
           {ladderEnds(rungs) ? ` ${ladderEnds(rungs)} — add more any time.` : ''}
         </InfoTip>
         {screen?.kind === 'on' || screen?.kind === 'pending' ? null : (

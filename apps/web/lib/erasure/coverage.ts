@@ -774,16 +774,6 @@ export const AUTHOR_UUID_NULLS: ReadonlyArray<{
     why: 'Which staff member acknowledged an internal ops alert. The alert is about the PLATFORM, not a person.',
   },
   {
-    table: 'event_renders',
-    column: 'created_by_user_id',
-    why: 'A Mood Board “Make it real” render (MB2). The row is read BY EVENT — it is the couple’s render, and deleting rows keyed on the author would strip the co-partner’s images because the person who pressed the button left. The uuid is the stamp of who spent the credit and is selected by no reader, carries no label and is consulted by no RLS policy, so nulling de-identifies it at zero cost. Nullable with ON DELETE SET NULL from the day it shipped. What the subject typed themselves — `note` — is exported to them by /api/profile/export before erasure; the prompt and design snapshot belong to the shared board, not to them.',
-  },
-  {
-    table: 'event_render_share_consent',
-    column: 'consented_by_user_id',
-    why: 'Who ticked “let Setnayan feature your creation” for an event (MB8). The consent is the EVENT’s, not the person’s — it governs whether that event’s renders may be published, and deleting the row because the partner who ticked it left would silently revoke a permission the couple still holds (or, worse, leave renders featured with no record of why they were allowed to be). The uuid is the stamp of who gave it: selected by no reader, shown in no label, consulted by no RLS policy, so nulling de-identifies it at zero cost. Nullable with ON DELETE SET NULL from the day it shipped. Note the withdrawal path is deliberately NOT a delete either — `consented` flips to FALSE and `withdrawn_at` is stamped — because a render featured while consent stood is a thing that happened and has to stay explainable.',
-  },
-  {
     table: 'moodboard_part_finalizations',
     column: 'requested_by_user_id',
     why: 'Who asked a supplier to sign off on one part of the Mood Board (MB12). The handshake belongs to the EVENT and to the SUPPLIER, both of whom are still standing after this person leaves — and the row is what freezes that part of the design, so deleting it because the partner who pressed Ask left would silently un-freeze work a supplier is already building against. The uuid is a stamp: selected by no reader, shown in no label, consulted by no RLS policy (the couple-side gate is event_members, the supplier-side gate is current_vendor_event_vendor_ids). Nullable with ON DELETE SET NULL from the day it shipped.',

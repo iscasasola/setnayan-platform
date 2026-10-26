@@ -9,10 +9,10 @@
  * deleted, and migration 20271289025011 switched the catalogue row off.
  *
  * Measured on prod before deleting: 0 orders and 0 App Store purchases for the
- * pack, 0 renders. The render TABLES and RPCs stay in the database (two tables
- * hold rows), which is exactly why this guard exists: the RPCs are still
- * callable, so the only thing standing between them and a couple is that no
- * app code calls them. This holds that.
+ * pack, 0 renders. The render TABLES and RPCs were then DROPPED (owner-approved
+ * 2026-10-26, migration 20271289858095_drop_retired_mood_board_render_schema),
+ * so a call to one would now fail at runtime — this guard keeps any app code
+ * from reaching for them again, and fails in CI first.
  *
  * What it asserts, each a property (not a file list that can go stale):
  *   1 · no App Store product sells the pack, and the retired id is never reused;

@@ -5,8 +5,8 @@
  *
  * 🗑 Mood Board renders were RETIRED 2026-10-26 (owner: "can we delete that?").
  * Their serve module, its doors and rule A ("only the serve module reads the
- * render bucket") went with them. The `event_renders` rows stay in the database
- * (lib/personal-data-export.ts still exports them as data), so:
+ * render bucket") went with them, and the render tables were dropped
+ * (migration 20271289858095), so:
  *
  *   B · no raw read or sign CALL may take a render key column (`image_key` /
  *       `gallery_image_key`) in its arguments — there is no exemption any more.

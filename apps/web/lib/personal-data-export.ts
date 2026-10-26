@@ -302,8 +302,6 @@ export async function buildPersonalDataExport(
     eventRemovalReasonsRes,
     eventClustersRes,
     ownCostsRes,
-    ownRendersRes,
-    ownShareConsentsRes,
     ownColourGrantsRes,
     ownColourChangesRes,
     ledgerRes,
@@ -720,41 +718,6 @@ export async function buildPersonalDataExport(
       .select('cost_id, event_id, plan_group_id, label, amount_php, paid_php, due_date, note, created_at')
       .eq('created_by_user_id', user.id)
       .order('created_at', { ascending: true }),
-    // RA 10173 (2026-09-03) — the "Make it real" renders the subject REQUESTED
-    // (MB2, migration 20271200273322). A render is an activity record about the
-    // person who asked for it and spent the credit, so it is theirs to see.
-    //
-    // AUTHOR-scoped for the same reason `event_costs` is: a mood board is
-    // jointly authored, and an event-scoped read would hand this subject the
-    // other partner's renders — a third-party disclosure this route must never
-    // commit.
-    //
-    // `prompt` and `design_snapshot` are DELIBERATELY OMITTED. Neither is
-    // personal data about the subject: one is the machine brief assembled from
-    // the shared board, the other is the board itself, and both belong to the
-    // event rather than to whoever pressed the button. `note` IS included —
-    // that is the subject's own words.
-    supabase
-      .from('event_renders')
-      .select('render_id, event_id, part_id, image_key, note, credits_debited, created_at, completed_at')
-      .eq('created_by_user_id', user.id)
-      .order('created_at', { ascending: true }),
-    // RA 10173 (MB8) — the share-consent decisions this subject PERSONALLY made.
-    //
-    // The consent belongs to the EVENT, but the ACT of giving it is this
-    // person's: they were offered a bonus render in exchange for allowing
-    // their creations to be featured, and they answered. That answer, and when
-    // they gave or withdrew it, is exactly the kind of thing a data subject is
-    // entitled to see — and it is the only reason the table carries a uuid at
-    // all.
-    //
-    // AUTHOR-scoped, like `event_renders` above and for the same reason: an
-    // event-scoped read would disclose a consent the OTHER partner gave.
-    supabase
-      .from('event_render_share_consent')
-      .select('event_id, consented, consented_at, withdrawn_at, updated_at')
-      .eq('consented_by_user_id', user.id)
-      .order('updated_at', { ascending: true }),
     // RA 10173 (MB16) — the standing colour access this subject HOLDS.
     //
     // A fact about THEM, not about the event: it says what this person, by
@@ -777,7 +740,7 @@ export async function buildPersonalDataExport(
     //
     // Their own activity record, and the only one of the three MB16 tables
     // that is unambiguously about the actor. AUTHOR-scoped for the same reason
-    // `event_renders` above is: an event-scoped read would disclose what the
+    // `event_costs` above is: an event-scoped read would disclose what the
     // OTHER holders on that board did.
     //
     // `reverted_at` is included because it is part of the same fact — "I made
@@ -879,8 +842,6 @@ export async function buildPersonalDataExport(
   );
   const eventClusters = listOutcome('years_you_grouped', eventClustersRes);
   const ownCosts = listOutcome('own_costs_recorded', ownCostsRes);
-  const ownRenders = listOutcome('own_renders_requested', ownRendersRes);
-  const ownShareConsents = listOutcome('own_share_consents_given', ownShareConsentsRes);
   const ownColourGrants = listOutcome('own_colour_access_held', ownColourGrantsRes);
   const ownColourChanges = listOutcome('own_colour_changes_made', ownColourChangesRes);
   const ledger = listOutcome<LedgerExportRow>('payment_ledger', ledgerRes);
@@ -977,7 +938,6 @@ export async function buildPersonalDataExport(
     dayRequests,
     accessRequests,
     ownCosts,
-    ownRenders,
     ownColourGrants,
     ownColourChanges,
     ledger,
@@ -1087,12 +1047,6 @@ export async function buildPersonalDataExport(
     // The costs the subject recorded themselves — author-scoped, so a shared
     // wedding budget never hands one partner the other's entries.
     own_costs_recorded: ownCosts.rows,
-    // The mood-board renders the subject asked for, author-scoped. The prompt
-    // and the design snapshot are the shared board's, not this person's.
-    own_renders_requested: ownRenders.rows,
-    // The "let Setnayan feature your creation" answers this subject gave, with
-    // the dates they gave or withdrew them. See the read above.
-    own_share_consents_given: ownShareConsents.rows,
     // The standing colour access this subject HOLDS on other people's mood
     // boards — a live capability attached to their account, subject-scoped.
     own_colour_access_held: ownColourGrants.rows,

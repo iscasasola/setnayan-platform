@@ -141,7 +141,7 @@ import { useRowState } from './use-row-state';
 import { followColumn } from './dock-follows-column';
 import { useShellBarOffset } from './use-shell-bar-offset';
 import { GuestMapCanvas } from './guest-map-canvas';
-import { plusOneHasNoName, seatNumbersAfter } from '@/lib/extra-seats';
+import { companionNamesByBringer, plusOneHasNoName, seatNumbersAfter } from '@/lib/extra-seats';
 import type { GuestMutation } from '@/lib/guest-optimistic';
 import { pushUndo, guestToast } from './undo-store';
 import { plainRefusal } from './plain-refusal';
@@ -360,6 +360,8 @@ export function GuestsScreen(props: GuestsScreenProps) {
   const rosterById = useMemo(() => new Map(roster.map((g) => [g.guest_id, g] as const)), [roster]);
   const plusWords = useMemo(() => plusOneWordsFrom(roster), [roster]);
   const seatRows = useMemo(() => seatRowsByGuest(roster), [roster]);
+  // 🧹 Who each guest brings, off their live +1 rows — the search's +1 words, never the one-name mirror (2026-10-26).
+  const companions = useMemo(() => companionNamesByBringer(roster), [roster]);
   const facts: RosterFacts = useMemo(
     () => ({
       roleNames,
@@ -367,9 +369,10 @@ export function GuestsScreen(props: GuestsScreenProps) {
       groupsOf: (id) => groupsByGuest[id] ?? [],
       tableOf: (id) => tableByGuest[id] ?? null,
       songsOf: (id) => songsByGuest[id] ?? [],
+      companionsOf: (id) => companions.get(id) ?? [],
       guestById: (id) => rosterById.get(id),
     }),
-    [roleNames, hasSides, groupsByGuest, tableByGuest, songsByGuest, rosterById],
+    [roleNames, hasSides, groupsByGuest, tableByGuest, songsByGuest, companions, rosterById],
   );
   const linked = useMemo(() => (linkedGuestIds ? new Set(linkedGuestIds) : null), [linkedGuestIds]);
 

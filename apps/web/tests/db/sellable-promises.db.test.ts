@@ -118,14 +118,16 @@ test('the Custom Subdomain is not sellable', async () => {
   );
 });
 
-test('the Animated Monogram is sold as the Logo & QR part — retired on its own, never unsellable', async () => {
+test('the Animated Monogram is sold inside Event Hub Pro — retired on its own, never unsellable', async () => {
   /* RE-AIMED 2026-10-22 (owner, "Event Hub Pro, part by part", Q2 "yes"): the standalone ₱500 row is retired from sale
      (migration 20271283592608) BECAUSE the animation is now the Logo & QR part — the monogram itself still works and is
      still sold. What would be wrong is the animation with NO way to buy it, so that is what is asserted. */
   const r = await row('ANIMATED_MONOGRAM');
   assert.equal(r!.is_active, false, 'the standalone Animated Monogram is on sale beside the Logo & QR part that replaces it');
-  const part = await row('COUPLE_HUB_PART_LOGO_QR');
-  assert.equal(part?.is_active, true, 'the animation cannot be bought at all — the Logo & QR part is off sale');
+  /* RE-AIMED 2026-10-26 (owner, "just have the upgrade event hub pro"): the Logo & QR part is off sale too — the
+     animation is bought with Event Hub Pro, whole (the monogram page sells Pro in place). Still never unsellable: */
+  const pro = await row('COUPLE_WEBSITE_PRO');
+  assert.equal(pro?.is_active, true, 'the animation cannot be bought at all — Event Hub Pro is off sale');
 });
 
 test('no live SKU promises the LED stage screen while no file can be made', async () => {

@@ -23,6 +23,7 @@ import assert from 'node:assert/strict';
 import React from 'react';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { fallbackInspirationParts } from './inspiration-parts';
 
 (globalThis as unknown as { React: unknown }).React = React;
 {
@@ -63,6 +64,7 @@ async function draw(over: Record<string, unknown> = {}): Promise<string> {
   return renderToStaticMarkup(
     React.createElement(MoodBoardStudio as React.ComponentType<Record<string, unknown>>, {
       eventId: 'e',
+      inspirationParts: fallbackInspirationParts(),
       palette: { reception: FIVE },
       fallbackFive: FIVE,
       frozenDressing: [],

@@ -182,7 +182,7 @@ test('🔑 a couple who has a venue is not asked the area — but is never left 
 
 test('the venue search reads the ceremony tile for a parish and never adds a second search', () => {
   const actions = code('app/onboarding/wedding/actions.ts');
-  assert.match(actions, /canonicalServicesForTile\('ceremony_venue'\)/);
+  assert.match(actions, /servicesInTile\(await getCanonicalBuckets\(\), 'ceremony_venue'\)/);
   assert.equal((actions.match(/export async function searchOnboardingReceptionVenues/g) ?? []).length, 1);
 });
 

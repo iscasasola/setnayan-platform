@@ -22,6 +22,7 @@ import { join } from 'node:path';
 import { stripComments } from './strip-comments';
 import { nearestColorName } from './color-names';
 import { CAKE_LANE_PARTS, FLORIST_LANE_PARTS, ROOM_LANE_PARTS } from './colour-access';
+import { fallbackInspirationParts } from './inspiration-parts';
 
 (globalThis as unknown as { React: unknown }).React = React;
 {
@@ -47,6 +48,7 @@ async function palette(): Promise<string> {
   const html = renderToStaticMarkup(
     React.createElement(MoodBoardStudio as React.ComponentType<Record<string, unknown>>, {
       eventId: 'E1',
+      inspirationParts: fallbackInspirationParts(),
       palette: { reception: FIVE, room_dressing: { linens: '#E5D3B3' } },
       fallbackFive: FIVE,
       frozenDressing: ['florals'],

@@ -1,7 +1,18 @@
 import type { VendorCategory } from '@/lib/vendors';
 
+/** The slice of the taxonomy snapshot the resolver reads (`TaxonomySnapshot['tileCoarseCategory']`). */
+export type CoarseCategorySource = { tileCoarseCategory: Readonly<Record<string, VendorCategory>> };
+
 /**
- * BRANCH (tier-2 tile) → coarse `vendor_category`.
+ * BRANCH (tier-2 tile) → coarse `vendor_category` — THE SEED AND THE FALLBACK, NOT THE ANSWER.
+ *
+ * 🔑 ③0-c "one source" (2026-10-26, corpus PLAN § 8.3): the answer is the database column
+ * `service_categories.coarse_category`, read through `getTaxonomy()` (`snapshot.tileCoarseCategory`).
+ * This map is what migration `one_source_coarse_category_column` wrote into that column, row for
+ * row, and what `fallbackSnapshot()` carries when the database cannot be read. Editing it changes
+ * NOTHING in production — change the column. `categoryForBranch` takes the snapshot.
+ *
+ * (History below, kept: why the bridge is keyed on the branch.)
  *
  * WHY THIS EXISTS. The product has two service vocabularies that do not line up:
  * the admin taxonomy (15 parents → 70 branches → 246 leaves) is what a vendor
@@ -156,8 +167,14 @@ export const BRANCH_TO_VENDOR_CATEGORY: Readonly<Record<string, VendorCategory>>
   memorial_park: 'memorial_park',
 };
 
-/** The coarse category for a branch, or null when the branch is unknown here. */
-export function categoryForBranch(tileId: string | null | undefined): VendorCategory | null {
+/**
+ * The coarse category a branch files its shops under, read off the LIVE taxonomy — or null when
+ * the category has none set. Pass `await getTaxonomy()` (it falls back to this file's map).
+ */
+export function categoryForBranch(
+  tileId: string | null | undefined,
+  tax: CoarseCategorySource,
+): VendorCategory | null {
   if (!tileId) return null;
-  return BRANCH_TO_VENDOR_CATEGORY[tileId] ?? null;
+  return tax.tileCoarseCategory[tileId] ?? null;
 }

@@ -37,6 +37,7 @@ import { canonicalServicesForTile } from './vendor-counts';
 import { WEDDING_TILE_LABEL, type WeddingTile } from './taxonomy';
 import { INSPIRATION_LIBRARY_HREF, INSPIRATION_LIBRARY_ROW } from './inspiration-library-entry';
 import type { VendorProfileRow } from './vendor-profile';
+import { fallbackInspirationParts } from './inspiration-parts';
 
 (globalThis as unknown as { React: unknown }).React = React;
 {
@@ -91,14 +92,14 @@ test('1 · every couple part has a library slot the database accepts, with at le
 });
 
 test('2 · the supplier library lists every part by the couple’s name, in the couple’s order — the one list both read', () => {
-  const lib = libraryPhotoParts();
+  const lib = libraryPhotoParts(fallbackInspirationParts());
   assert.deepEqual(
     lib.map((p) => `${p.label}=${p.key}`),
     COUPLE_PARTS.map((p) => `${p.label}=${p.slot}`),
     'the supplier’s library is not the couple’s parts, by name, in order',
   );
-  assert.deepEqual(palettePhotoParts(), lib.filter((p) => p.group !== 'attire'), 'the Palette half is not the couple’s Palette');
-  for (const p of COUPLE_PARTS) assert.equal(libraryPartLabel(p.slot), p.label, `${p.slot} is called something else to the supplier`);
+  assert.deepEqual(palettePhotoParts(fallbackInspirationParts()), lib.filter((p) => p.group !== 'attire'), 'the Palette half is not the couple’s Palette');
+  for (const p of COUPLE_PARTS) assert.equal(libraryPartLabel(p.slot, fallbackInspirationParts()), p.label, `${p.slot} is called something else to the supplier`);
 
   /* The couple's Studio upload bar reads the same function — no second list to drift. */
   const studio = code('app/dashboard/[eventId]/studio/mood-board/_components/mood-board-studio.tsx');
@@ -114,7 +115,7 @@ test('2 · the supplier library lists every part by the couple’s name, in the 
   const order = new Map(COUPLE_PARTS.map((p, i) => [p.slot, i]));
   for (const p of COUPLE_PARTS) {
     for (const t of MOODBOARD_SLOT_TRADES[p.slot as keyof typeof MOODBOARD_SLOT_TRADES]) {
-      const offered = uploadableSlotsForShop(shopOf(canonicalServicesForTile(t)));
+      const offered = uploadableSlotsForShop(shopOf(canonicalServicesForTile(t)), fallbackInspirationParts());
       const hit = offered.find((s) => s.key === p.slot);
       assert.ok(hit, `a ${WEDDING_TILE_LABEL[t]} shop is not offered ${p.label}`);
       assert.equal(hit!.label, p.label, `${p.label} is offered to a ${WEDDING_TILE_LABEL[t]} shop as “${hit!.label}”`);
@@ -133,9 +134,9 @@ test('3 · the round trip: a shop of the part’s trade adds a photo → approve
     const services = canonicalServicesForTile(trade);
     /* The supplier: the library lets this shop in, and its upload to this part is allowed. */
     const profile = { vendor_profile_id: 'S89V-LAB0000001', services } as unknown as VendorProfileRow;
-    const access = moodboardLibraryAccessForProfile(profile);
+    const access = moodboardLibraryAccessForProfile(profile, fallbackInspirationParts());
     assert.ok(access.allowed && access.slots.some((s) => s.key === p.slot), `a ${WEDDING_TILE_LABEL[trade]} shop cannot open the library at ${p.label}`);
-    const verdict = slotUploadVerdict(p.slot, services);
+    const verdict = slotUploadVerdict(p.slot, services, fallbackInspirationParts());
     assert.ok(verdict.allowed, `a ${WEDDING_TILE_LABEL[trade]} shop is refused ${p.label}`);
     /* Setnayan approves it: the row is published (the public read is approved_at set, retired_at null). */
     const row: RawGalleryRow = {
@@ -148,16 +149,16 @@ test('3 · the round trip: a shop of the part’s trade adds a photo → approve
       is_event_linked: false,
     };
     /* The couple: Search ideas on THAT part asks for THAT slot, and the photo comes back credited to the shop. */
-    const q = normalizeGalleryQuery({ slotKey: p.slot });
+    const q = normalizeGalleryQuery({ slotKey: p.slot }, fallbackInspirationParts());
     assert.ok(q && q.slotKey === p.slot, `Search ideas on ${p.label} cannot ask for ${p.slot}`);
-    const page = shapeGalleryPage(q!.slotKey, [row]);
+    const page = shapeGalleryPage(q!.slotKey, [row], fallbackInspirationParts());
     assert.equal(page.withheld, 0, `${p.label}: the approved photo was withheld`);
     assert.equal(page.assets.length, 1);
     assert.equal(page.assets[0]!.credit, `Bloom & Vine · ${WEDDING_TILE_LABEL[trade]}`, `${p.label}: not credited to the shop by its trade`);
     assert.equal(page.assets[0]!.shopSlug, 'bloom-and-vine');
     /* …and a shop whose trade does not dress this part is refused it, in plain words. */
     const stranger = allTiles.find((t) => !trades.includes(t) && canonicalServicesForTile(t).every((c) => !trades.some((x) => canonicalServicesForTile(x).includes(c))) && canonicalServicesForTile(t).length > 0)!;
-    const refused = slotUploadVerdict(p.slot, canonicalServicesForTile(stranger));
+    const refused = slotUploadVerdict(p.slot, canonicalServicesForTile(stranger), fallbackInspirationParts());
     assert.ok(!refused.allowed && refused.reason === 'wrong_trade', `${p.label} was open to a ${WEDDING_TILE_LABEL[stranger]} shop`);
     assert.match(refused.message, new RegExp(`cover ${p.label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\.`), `${p.label}: the refusal does not name the part by its name`);
   }
@@ -215,7 +216,10 @@ test('4 · the way in: Today and Shop draw “Add to the inspiration library” 
   assert.equal(draw(false).includes(INSPIRATION_LIBRARY_HREF), false, 'Today draws the row for a shop the library would refuse');
   const page = code('app/vendor-dashboard/page.tsx');
   // The shared predicate first; since 2026-10-23 also "not while it is a first step still to do" (personal invite B6).
-  assert.match(page, /library=\{\s*moodboardLibraryAccessForProfile\(profile\)\.allowed\b/, 'the Today page does not ask the shared predicate');
+  /* ③0-b: the predicate is asked of the LIVE parts (`getInspirationParts()`), the snapshot the real upload gate reads. */
+  assert.match(page, /const inspirationPartsRead = getInspirationParts\(\);/, 'the Today page does not read the live parts');
+  assert.match(page, /const libraryOpen = moodboardLibraryAccessForProfile\(profile, await inspirationPartsRead\)\.allowed;/, 'the Today page does not ask the shared predicate of the live parts');
+  assert.match(page, /library=\{\s*libraryOpen\b/, 'the Today page does not pass the shared predicate');
   const screen = code('app/vendor-dashboard/_components/supplier-today-screen.tsx');
   assert.match(screen, /library=\{library\}/, 'the Today screen drops the flag');
 
@@ -225,7 +229,7 @@ test('4 · the way in: Today and Shop draw “Add to the inspiration library” 
   const at = shopSrc.indexOf('data="shop-inspiration-library"');
   assert.ok(at > shopSrc.indexOf('data="shop-collections"'), 'the library row is not under Your collections');
   assert.match(shopSrc.slice(at - 200, at), /\{data\.libraryOpen \? \(/, 'Shop draws the row without asking whether the library lets the shop in');
-  assert.match(shopSrc, /libraryOpen: moodboardLibraryAccessForProfile\(profile\)\.allowed/);
+  assert.match(shopSrc, /libraryOpen: moodboardLibraryAccessForProfile\(profile, await getInspirationParts\(\)\)\.allowed/);
 
   /* The bottom nav lights Shop on the library's page (a door that leaves the tab unlit reads as lost). */
   const nav = code('app/vendor-dashboard/_components/vendor-bottom-nav.tsx');
@@ -241,14 +245,14 @@ test('5 · every couple part takes a suggestion from a booked shop of each of it
   for (const p of COUPLE_PARTS) {
     const trades = MOODBOARD_SLOT_TRADES[p.slot as keyof typeof MOODBOARD_SLOT_TRADES];
     for (const t of trades) {
-      const offered = suggestablePartsForShop(canonicalServicesForTile(t));
+      const offered = suggestablePartsForShop(canonicalServicesForTile(t), fallbackInspirationParts());
       assert.ok(offered.some((x) => x.key === p.slot && x.label === p.label), `a booked ${WEDDING_TILE_LABEL[t]} shop cannot suggest a photo to ${p.label}`);
     }
     const wanted = new Set(trades.flatMap((t) => canonicalServicesForTile(t)));
     for (const t of allTiles) {
       const services = canonicalServicesForTile(t);
       if (services.some((c) => wanted.has(c))) continue;
-      assert.ok(!suggestablePartsForShop(services).some((x) => x.key === p.slot), `a ${WEDDING_TILE_LABEL[t]} shop may suggest to ${p.label}, which its trade does not dress`);
+      assert.ok(!suggestablePartsForShop(services, fallbackInspirationParts()).some((x) => x.key === p.slot), `a ${WEDDING_TILE_LABEL[t]} shop may suggest to ${p.label}, which its trade does not dress`);
     }
   }
 });

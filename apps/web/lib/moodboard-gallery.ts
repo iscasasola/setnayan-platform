@@ -44,7 +44,6 @@
 import { MOODBOARD_SLOT_KEYS, type MoodboardSlotKey } from './moodboard-slots';
 import {
   MOODBOARD_SLOT_TRADES as SLOT_TRADES,
-  fallbackInspirationParts,
   inspirationPart,
   partCategories,
   type InspirationPartsSnapshot,
@@ -71,23 +70,30 @@ export { MOODBOARD_SLOT_TRADES } from './inspiration-parts';
  * The trades that supply a slot — empty when no shop's portfolio answers it.
  *
  * 🧩 READ OFF THE PARTS SNAPSHOT (step ②): the part's home category, then its "also from" categories, in
- * order (`partCategories`). Every function below takes the snapshot as its last argument — a server
- * caller passes `await getInspirationParts()`; an omitted one means the consts the table was seeded from.
+ * order (`partCategories`). Every function below takes the snapshot as its last, REQUIRED argument — a
+ * server caller passes `await getInspirationParts()`.
+ *
+ * 🛑 ③0-b (PLAN `admin_taxonomy_four_levels_2026-10-26` § 8.3): this argument USED TO DEFAULT to
+ * `fallbackInspirationParts()`, and every caller that forgot it silently read the consts — sign-off,
+ * supplier suggestions and the library nav gate kept the seed's answer after an admin edited a part while
+ * the couple's picker moved. There is no default now: a caller that has no snapshot must name
+ * `fallbackInspirationParts()` itself, where a reviewer can see it (dev labs, the seed generator, the
+ * module-load structural asserts — each says why).
  */
 export function tradesForSlot(
   slot: string,
-  parts: InspirationPartsSnapshot = fallbackInspirationParts(),
+  parts: InspirationPartsSnapshot,
 ): readonly WeddingTile[] {
   return partCategories(inspirationPart(parts, slot));
 }
 
 /** TRUE when a supplier gallery is meaningful for this slot at all. */
-export function slotHasSupplierTrade(slot: string, parts: InspirationPartsSnapshot = fallbackInspirationParts()): boolean {
+export function slotHasSupplierTrade(slot: string, parts: InspirationPartsSnapshot): boolean {
   return tradesForSlot(slot, parts).length > 0;
 }
 
 /** Every part a supplier gallery can exist for, in the parts' order — derived from the snapshot. */
-export function gallerySlotKeys(parts: InspirationPartsSnapshot = fallbackInspirationParts()): string[] {
+export function gallerySlotKeys(parts: InspirationPartsSnapshot): string[] {
   return parts.parts.filter((p) => partCategories(p).length > 0).map((p) => p.slotKey);
 }
 
@@ -101,15 +107,19 @@ export const GALLERY_SLOT_KEYS: readonly MoodboardSlotKey[] = MOODBOARD_SLOT_KEY
 );
 
 /**
- * The canonical service keys a slot's trades cover, de-duped.
+ * The canonical service keys that may add a photo to a slot, de-duped.
  *
- * DERIVED from the tiles above via lib/vendor-counts. MB11's "which trades may
- * upload to this slot" gate reads exactly this — never its own copy.
+ * 🧩 ③a: the part's OWN services (`inspiration_part_services`, read into the snapshot) — the same
+ * `canonical_service` a shop sells, linked one by one by an admin. Only the fallback snapshot (no table read,
+ * `services: null`) derives them from the part's categories via lib/vendor-counts, which is exactly how the
+ * table was backfilled. MB11's "which trades may upload to this slot" gate reads exactly this — never its own copy.
  */
 export function canonicalServicesForSlot(
   slot: string,
-  parts: InspirationPartsSnapshot = fallbackInspirationParts(),
+  parts: InspirationPartsSnapshot,
 ): string[] {
+  const part = inspirationPart(parts, slot);
+  if (part && part.services !== null) return part.kind === 'system' ? [] : [...new Set(part.services)];
   const out = new Set<string>();
   for (const tile of tradesForSlot(slot, parts)) {
     for (const canonical of canonicalServicesForTile(tile)) out.add(canonical);
@@ -135,7 +145,7 @@ export function canonicalServicesForSlot(
 export function tradeLabelForCredit(
   slot: string,
   vendorServices: readonly string[] | null | undefined,
-  parts: InspirationPartsSnapshot = fallbackInspirationParts(),
+  parts: InspirationPartsSnapshot,
 ): string | null {
   if (!vendorServices || vendorServices.length === 0) return null;
   const trades = tradesForSlot(slot, parts);
@@ -214,7 +224,7 @@ export function normalizeGalleryQuery(
     from?: unknown;
     near?: unknown;
   },
-  parts: InspirationPartsSnapshot = fallbackInspirationParts(),
+  parts: InspirationPartsSnapshot,
 ): GalleryQuery | null {
   const slotKey = input.slotKey;
   if (typeof slotKey !== 'string') return null;
@@ -347,7 +357,7 @@ export type RawGalleryRow = {
 export function shapeGalleryPage(
   slot: string,
   rows: readonly RawGalleryRow[],
-  parts: InspirationPartsSnapshot = fallbackInspirationParts(),
+  parts: InspirationPartsSnapshot,
 ): { assets: GalleryAsset[]; withheld: number } {
   const assets: GalleryAsset[] = [];
   let withheld = 0;

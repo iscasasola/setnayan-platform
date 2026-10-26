@@ -36,6 +36,7 @@ import { withAttireStyle, withCallTime } from './mood-board-studio';
 import { dressCodeForEveryone, dressCodeLines } from './dress-code-for-everyone';
 import { resolveDisplayPalette } from './room-palette';
 import { sanitizeRolePalette } from './mood-board';
+import { fallbackInspirationParts } from './inspiration-parts';
 
 (globalThis as unknown as { React: unknown }).React = React;
 {
@@ -72,6 +73,7 @@ async function studio(dressConfig: Record<string, unknown>): Promise<string> {
   const html = renderToStaticMarkup(
     React.createElement(MoodBoardStudio as React.ComponentType<Record<string, unknown>>, {
       eventId: 'e',
+      inspirationParts: fallbackInspirationParts(),
       palette: { reception: ['#5C0700', '#669C35', '#F7F2EC', '#646B38', '#F3E5B9'], guest: [...COLOURS], touched_roles: ['guest'] },
       fallbackFive: ['#5C0700', '#669C35', '#F7F2EC', '#646B38', '#F3E5B9'],
       frozenDressing: [],

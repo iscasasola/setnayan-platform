@@ -289,6 +289,8 @@ export const UGAT_TYPES: UgatTypeMeta[] = [
       { key: 'pk', name: 'tile_id', note: 'real FK anchor' },
       { key: '', name: 'folder_id', note: 'DENORM ⚠ no FK' },
       { key: '', name: 'leaf_key', note: 'string, cards glue to it 🔴' },
+      { key: '', name: 'coarse_category', note: 'tier-2 → the vendor_category its bookings are filed as (③0-c)' },
+      { key: '', name: 'sort_order', note: 'a service\u2019s place among its category on /admin/categories (Order \u25be, ③b); other readers still list A\u2013Z' },
     ],
     edges: [
       { verb: 'preferences', to: 'TYPE-EVENTS' },
@@ -1011,7 +1013,8 @@ export const UGAT_TYPES: UgatTypeMeta[] = [
       { key: 'pk', name: 'slot_key', note: 'today\u2019s slot key, verbatim and permanent \u2014 the photos carry it' },
       { key: 'fk', name: 'home_category_id', note: '\u2192 service_categories, tier 2 (trigger); NOT NULL unless kind = system (the palette)' },
       { key: '', name: 'hidden', note: 'hidden from couples \u2014 the only way out for a part that holds a photo' },
-      { key: '', name: 'inspiration_part_categories', note: '\u201calso from\u201d: more tier-2 categories, in the credit\u2019s order (sort_order)' },
+      { key: '', name: 'inspiration_part_services', note: 'the SHOP SERVICES that may add a photo (③a) \u2014 the same canonical_service a shop sells; the categories are derived from them' },
+      { key: '', name: 'inspiration_part_categories', note: '\u201calso from\u201d \u2014 since ③a a DERIVED copy, double-written by trigger until ③c drops it' },
     ],
     edges: [
       { verb: 'homed on', to: 'TYPE-TAXONOMY' },
@@ -1762,6 +1765,9 @@ export const UGAT_JOINTS: UgatJoint[] = [
       // the BOOKING id, which is exactly why it carries no vendor FK.
       { kind: 'column', table: 'event_vendors', column: 'vendor_id' },
       { kind: 'column', table: 'event_vendors', column: 'category_key' },
+      // ③0-c (2026-10-26): the coarse `event_vendors.category` a booking is stored with is
+      // answered by the category's own row — no longer by a code map.
+      { kind: 'column', table: 'service_categories', column: 'coarse_category' },
     ],
     chain: 7,
     pair: ['TYPE-EVENTS', 'TYPE-VENDORS'],
@@ -1772,7 +1778,8 @@ export const UGAT_JOINTS: UgatJoint[] = [
       'event_vendors — 🔴 TRAP: its PK column is literally NAMED vendor_id but it is actually the BOOKING id, not a vendor reference.',
     writtenBy: 'Vendor-add flow on the couple dashboard · CSV import · admin-assisted booking entry',
     guardedBy: 'current_event_ids() for the couple side; vendor side reads via current_vendor_ids() when vendor_org_id is set',
-    traps: 'Org FK (vendor_org_id) is SET-NULL nullable — a booking can point at an off-platform vendor with no org row. category_key DOES have a real FK.',
+    traps:
+      'Org FK (vendor_org_id) is SET-NULL nullable — a booking can point at an off-platform vendor with no org row. category_key DOES have a real FK. The coarse `category` enum is resolved from service_categories.coarse_category (③0-c, 2026-10-26; read through getTaxonomy(), lib/vendor-branch-category.ts BRANCH_TO_VENDOR_CATEGORY is only the seed/fallback) — a NEW category inherits its group\'s most common sibling value on insert (trigger service_categories_inherit_coarse_category, ③0-c part 2; ties → first sibling by sort_order); one left with no value files its bookings under misc. Deleting a category a couple-side VendorCategory is anchored on is REFUSED (deletionWouldBreakCoupleLinks).',
   },
   {
     id: 'J8',
@@ -2985,9 +2992,9 @@ export const UGAT_JOINTS: UgatJoint[] = [
     writtenBy:
       'suggestInspirationPhoto (app/vendor-dashboard/clients/[eventId]/mood-board/suggestion-actions.ts: vendor_begin_inspiration_suggestion under the supplier\u2019s session, then the content screen, then the service-role move to waiting) and the couple\u2019s keep/decline/undo (studio/mood-board/suggestion-actions.ts \u2192 couple_decide_inspiration_suggestion, couple_undo_kept_inspiration_suggestion)',
     guardedBy:
-      'RLS at CREATE TABLE \u2014 couple read (current_couple_event_ids), booking read (current_vendor_event_vendor_ids), admin all; NO insert/update/delete for authenticated. Booking, fee, trade (inspiration_suggestion_services, the SQL mirror of MOODBOARD_SLOT_TRADES) and the 3-waiting cap are decided in SQL; tests/db/a-supplier-suggests-only-to-its-own-parts.db.test.ts holds the map and each refusal',
+      'RLS at CREATE TABLE \u2014 couple read (current_couple_event_ids), booking read (current_vendor_event_vendor_ids), admin all; NO insert/update/delete for authenticated. Booking, fee, trade (inspiration_suggestion_services \u2014 since \u24620-b read off the tables; since \u2462a the part\u2019s rows in inspiration_part_services, 20271291224109) and the 3-waiting cap are decided in SQL; tests/db/a-supplier-suggests-only-to-its-own-parts.db.test.ts holds the map and each refusal',
     traps:
-      'inspiration_suggestion_services is a COPY of canonicalServicesForSlot \u2014 a taxonomy change re-lists it in a NEW migration (the db test names the slot that drifted). A row in \'screening\' is opened but has no photo yet and never reaches the couple; one older than ten minutes stops counting toward the cap. Keep on a full part answers \'full\' and writes nothing unless a position is named; the replaced photo is soft-deleted and Undo restores it only into a still-free place.',
+      'inspiration_suggestion_services READS THE LINK TABLE (\u24620-b, \u2462a) \u2014 an admin who links or unlinks a service moves it with no migration; a re-home does NOT (the home is the heading, the services are the door). One thing stays written in it on purpose: WHICH parts take a suggestion (the couple Studio\u2019s photo parts, a code structure; the db test holds it). A row in \'screening\' is opened but has no photo yet and never reaches the couple; one older than ten minutes stops counting toward the cap. Keep on a full part answers \'full\' and writes nothing unless a position is named; the replaced photo is soft-deleted and Undo restores it only into a still-free place.',
   },
   {
     /**
@@ -3415,7 +3422,38 @@ export const UGAT_JOINTS: UgatJoint[] = [
     implementedBy: 'inspiration_parts.home_category_id → service_categories ON DELETE RESTRICT · inspiration_part_categories (slot_key, category_id, sort_order) — slot_key CASCADE, category_id RESTRICT',
     writtenBy: 'migration 20271287668170 (the seed, generated from MOODBOARD_SLOT_KEYS + MOODBOARD_SLOT_TRADES by scripts/gen-inspiration-parts-seed.ts); the admin\u2019s Categories page from step ③ (not built yet)',
     guardedBy: 'RLS — authenticated SELECT only (anon holds no grant; no write policy — writes go through the service role, as /admin/categories writes service_categories) · trigger inspiration_part_category_is_tier_2 on both tables · inspiration_parts_before_update (the key is permanent) · inspiration_parts_refuse_delete_with_photos (SECURITY DEFINER, counts both photo tables) · tests/db/inspiration-parts-seed-equals-the-consts.db.test.ts',
-    traps: 'Since step ② the couple\u2019s Which part?, the supplier\u2019s Part \u25be, the gallery query and the upload gate read these tables through getInspirationParts() (falling back to the consts on an error or an empty table); the suggestion door (inspiration_suggestion_services, a hard-coded SQL mirror), the sign-off map (moodboard-finalization) and the render pool still read the consts. The also-categories\u2019 ORDER is data (the first tile a shop matches is the one printed on the credit), so a reader must ORDER BY sort_order. `palette` is kind = system with no home and is hidden: no shop fills it.',
+    traps: 'Since ③a (20271291224109) inspiration_part_categories is NOT READ by the app: getInspirationParts() reads the view inspiration_part_categories_derived (derived from inspiration_part_services, J56), and the trigger inspiration_part_services_keep_categories rewrites this table from the same derivation on every link or re-home, only so a revert of the app stays correct \u2014 ③c drops it. Since ③0-b no reader defaults to the consts (lib/no-part-reader-silently-reads-the-seed.test.ts). The also-categories\u2019 ORDER is data (the first tile a shop matches is the one printed on the credit), so a reader must ORDER BY sort_order. `palette` is kind = system with no home and is hidden: no shop fills it.',
+  },
+  {
+    /**
+     * 🌳 A PART LINKS SERVICES (③a — owner 2026-10-26, DECISION_LOG "APPROVED — BUILD THE TAXONOMY" decision (3); corpus
+     * PLAN `admin_taxonomy_four_levels_2026-10-26` § 3). One row per (part, canonical_service): the SAME key a shop puts
+     * on its service card, so "who may add a photo to this part" is answered by what a shop already says about itself —
+     * no category hop. The part keeps exactly one HOME category (its heading); its other categories are DERIVED from
+     * these rows (`inspiration_part_categories_derived`).
+     *
+     * 🔑 BACKFILLED BYTE-IDENTICAL: each part's home + also-categories expanded to their services (385 rows on the
+     * replay; the same 385 measured read-only on prod, 2026-10-26) — tests/db/part-eligibility-is-unchanged-by-the-move.db.test.ts.
+     */
+    id: 'J56',
+    claims: [
+      { kind: 'table', table: 'inspiration_part_services' },
+      { kind: 'fk', table: 'inspiration_part_services', column: 'slot_key', references: 'inspiration_parts' },
+      { kind: 'fk', table: 'inspiration_part_services', column: 'canonical_service', references: 'canonical_service_taxonomy' },
+      { kind: 'unique', table: 'inspiration_part_services', columns: ['slot_key', 'canonical_service'] },
+      { kind: 'column', table: 'inspiration_part_services', column: 'sort_order' },
+      // The home stays ONE category on the part — the link table never names a category.
+      { kind: 'no_column', table: 'inspiration_part_services', column: 'category_id' },
+    ],
+    chain: 20,
+    pair: ['TYPE-INSPIRATION-PARTS', 'TYPE-TAXONOMY'],
+    title: 'Inspiration part ↔ Service (who may add a photo — the services a shop sells)',
+    joint: 'inspiration_part_services',
+    cardinality: 'Many-to-many: a part links zero or more services (zero is a gap, not an error — the home is still required); a service feeds many parts',
+    implementedBy: 'inspiration_part_services (slot_key → inspiration_parts ON DELETE CASCADE, canonical_service → canonical_service_taxonomy ON DELETE RESTRICT, sort_order = the credit’s order) · view inspiration_part_categories_derived (security_invoker) over inspiration_part_derived_categories_all()',
+    writtenBy: 'migration 20271291224109 (the backfill, into an empty table only); the admin’s Categories page Services ▾ from ③b (not built yet) — through the service role',
+    guardedBy: 'RLS at CREATE TABLE — authenticated SELECT only (anon no grant; no write policy) · triggers inspiration_part_services_keep_categories + inspiration_parts_rehome_keeps_categories double-write inspiration_part_categories · tests/db/part-eligibility-is-unchanged-by-the-move.db.test.ts (old = new, the derivation, the double write, RLS, FKs) · tests/db/a-supplier-suggests-only-to-its-own-parts.db.test.ts (the suggestion door reads these rows)',
+    traps: 'Re-homing a part moves its HEADING, not its door: who may add a photo is these rows alone. A service added to the taxonomy reaches NO part until an admin links it. The derived categories are “every service linked” first, then a linked service’s own tile — NOT the plan’s literal “home ∪ tile_id of the services”, which would have renamed the trades of all 11 attire parts on ship day (the Filipiniana & Barongs cross-view has no tile of its own). The cross-view’s ten keys still live in inspiration_category_service_pairs() until ③0-a writes them as secondary_tiles rows.',
   },
 ];
 

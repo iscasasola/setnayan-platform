@@ -68,6 +68,11 @@ const TIMES: Record<number, string> = { 2: 'two', 3: 'three', 4: 'four', 5: 'fiv
  * The ⓘ's sentence on cost — all read from the one function (owner 2026-10-26: *"Normal papic credit is 1 credit when
  * used papic. 3 credits for photo if uploaded. So you multiply it by 3 always"*).
  */
+/** The sheet's one visible line — "From your phone or laptop · 3 credits a photo", priced by the one function. */
+export function photoCostLine(): string {
+  return `From your phone or laptop · ${countNoun(papicCaptureCost('photo', null, 'upload'), 'credit', 'credits')} a photo`;
+}
+
 export function costInfoLine(): string {
   const photo = papicCaptureCost('photo', null, 'upload');
   const low = papicClipCostFloor('upload');

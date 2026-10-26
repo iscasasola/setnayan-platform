@@ -37,11 +37,16 @@ import {
   unretireEventTypeCore,
 } from '@/lib/event-types-mutations';
 import { FAITH_REGISTRY } from '@/lib/faith-registry';
-import { WEDDING_TILE_ORDER } from '@/lib/taxonomy';
+import { logQueryError } from '@/lib/supabase/error-detect';
+import { secondaryTilesVerdict } from './_components/model';
 import { formatCount } from '@/lib/format-number';
+import { addCategoryCore, addServiceCore, moveServiceCore, slugify } from './_components/taxonomy-writes';
 import { recordCollectedTradePhrase } from '@/lib/service-trade-aliases-db';
 import { CATEGORIES_PATH, backHref, type BackState } from './_components/back';
 import { clearHomeShelf } from '@/lib/home-shelf-clear';
+import { getTaxonomy } from '@/lib/taxonomy-db';
+import { deletionWouldBreakCoupleLinks } from '@/lib/vendor-category-taxonomy';
+import { VENDOR_CATEGORY_LABEL } from '@/lib/vendors';
 
 const BASE = CATEGORIES_PATH;
 /** The onboarding read path (getOnboardingRefinements is DB-first) renders here —
@@ -437,50 +442,15 @@ export async function remapCanonical(formData: FormData) {
   const stayInTray = formData.get('_show') === 'unfiled';
   // Moved from its own panel: stay on the service, which now sits elsewhere.
   const fromServicePanel = String(formData.get('_open') ?? '').startsWith('s:');
-  const admin = createAdminClient();
-  // The destination must exist + be a tile (tier 2); derive its parent folder.
-  const { data: tile } = await admin
-    .from('service_categories')
-    .select('id, parent_id, tier')
-    .eq('id', tileId)
-    .maybeSingle();
-  if (!tile || tile.tier !== 2 || !tile.parent_id) {
-    redirectBack(formData, 'error', 'Pick a valid category.');
-  }
-  const { data: before } = await admin
-    .from('canonical_service_taxonomy')
-    .select('canonical_service, folder_id, tile_id')
-    .eq('canonical_service', canonical)
-    .maybeSingle();
-  if (!before) redirectBack(formData, 'error', 'Canonical not found.');
-  if (before.tile_id === tileId) {
-    redirectBack(formData, 'ok', 'Already in that category.', stayInTray || fromServicePanel ? undefined : { anchor: `t-${tileId}`, show: '' });
-  }
-  const { error } = await admin
-    .from('canonical_service_taxonomy')
-    .update({
-      tile_id: tileId,
-      folder_id: tile.parent_id,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('canonical_service', canonical);
-  if (error) redirectBack(formData, 'error', error.message);
-  await admin.from('admin_audit_log').insert({
-    action: 'taxonomy.remap_canonical',
-    target_table: 'canonical_service_taxonomy',
-    target_id: canonical,
-    before_json: before,
-    after_json: { canonical_service: canonical, folder_id: tile.parent_id, tile_id: tileId },
-    actor_user_id: user.id,
-  });
+  // The one rule for "move a service" — shared with the map's drag-a-service-onto-a-category
+  // (`moveServiceCore`, _components/taxonomy-writes.ts).
+  const res = await moveServiceCore(createAdminClient(), user.id, canonical, tileId);
+  if (!res.ok) redirectBack(formData, 'error', res.error);
+  const landing = stayInTray || fromServicePanel ? undefined : { anchor: `t-${tileId}`, show: '' as const };
+  if (res.message === 'Already in that category.') redirectBack(formData, 'ok', res.message, landing);
   revalidatePath(BASE);
   revalidatePath('/explore');
-  redirectBack(
-    formData,
-    'ok',
-    'Moved — the marketplace re-buckets live.',
-    stayInTray || fromServicePanel ? undefined : { anchor: `t-${tileId}`, show: '' },
-  );
+  redirectBack(formData, 'ok', 'Moved — the marketplace re-buckets live.', landing);
 }
 
 /**
@@ -665,14 +635,6 @@ export async function setServiceEventTypes(formData: FormData) {
   );
 }
 
-/** Slugify a label into a stable key (sep '_' for the id, '-' for the slug). */
-function slugify(label: string, sep: '_' | '-'): string {
-  return label
-    .toLowerCase()
-    .normalize('NFKD')
-    .replace(/[^a-z0-9]+/g, sep)
-    .replace(new RegExp(`^\\${sep}+|\\${sep}+$`, 'g'), '');
-}
 
 /**
  * Admin: add a new tile under a parent — the expandable-taxonomy core. The
@@ -682,65 +644,15 @@ function slugify(label: string, sep: '_' | '-'): string {
 export async function createTaxonomyNode(formData: FormData) {
   const user = await requireAdmin();
   const parentId = String(formData.get('parent_id') ?? '').trim();
-  const label = String(formData.get('label_en') ?? '').trim();
   if (!parentId) throw new Error('Missing parent_id');
-  if (label.length < 2 || label.length > 80) {
-    redirectBack(formData, 'error', 'Label must be 2–80 characters.');
-  }
-  const id = slugify(label, '_');
-  const slug = slugify(label, '-');
-  if (!id || !slug) {
-    redirectBack(formData, 'error', 'Label needs letters or numbers.');
-  }
-  const admin = createAdminClient();
-  const { data: parent } = await admin
-    .from('service_categories')
-    .select('id, tier')
-    .eq('id', parentId)
-    .maybeSingle();
-  if (!parent || parent.tier !== 1) {
-    redirectBack(formData, 'error', 'Pick a valid parent.');
-  }
-  const { data: existing } = await admin
-    .from('service_categories')
-    .select('id')
-    .eq('id', id)
-    .maybeSingle();
-  if (existing) {
-    redirectBack(formData, 'error', `A node "${id}" already exists — pick a different label.`);
-  }
-  const { data: lastSibling } = await admin
-    .from('service_categories')
-    .select('sort_order')
-    .eq('parent_id', parentId)
-    .order('sort_order', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  const nextSort = ((lastSibling?.sort_order as number | undefined) ?? -1) + 1;
-  const row = {
-    id,
-    parent_id: parentId,
-    tier: 2,
-    kind: 'leaf',
-    label_en: label,
-    slug,
-    sort_order: nextSort,
-    scope: 'global',
-    marketplace_hidden: false,
-    status: 'active',
-  };
-  const { error } = await admin.from('service_categories').insert(row);
-  if (error) redirectBack(formData, 'error', error.message);
-  await admin.from('admin_audit_log').insert({
-    action: 'taxonomy.create',
-    target_table: 'service_categories',
-    target_id: id,
-    after_json: row,
-    actor_user_id: user.id,
-  });
+  // The one rule for "a new category" — shared with the map's in-place "＋ Add a category" row
+  // (`addCategoryCore`, _components/taxonomy-writes.ts). `coarse_category` is left to the BEFORE INSERT
+  // trigger (③0-c part 2), and a new-and-empty group shows to couples with its first category.
+  const res = await addCategoryCore(createAdminClient(), user.id, parentId, String(formData.get('label_en') ?? ''));
+  if (!res.ok) redirectBack(formData, 'error', res.error);
   revalidatePath(BASE);
   revalidatePath('/explore');
-  redirectBack(formData, 'ok', `Added category "${label}".`, { anchor: `t-${id}` });
+  redirectBack(formData, 'ok', res.message, { anchor: `t-${res.id}` });
 }
 
 /**
@@ -769,137 +681,32 @@ export async function createCanonicalLeaf(formData: FormData) {
   const isRental = formData.get('is_rental') === 'on';
   const isPh = formData.get('is_ph') === 'on';
   const isTradition = formData.get('is_tradition') === 'on';
-  const faithRaw = String(formData.get('faith') ?? '').trim();
+  const faith = String(formData.get('faith') ?? '').trim();
   const refinementLabel = String(formData.get('refinement_label') ?? '').trim();
-  const refinementOptionsRaw = String(formData.get('refinement_options') ?? '').trim();
-
+  const refinementOptions = String(formData.get('refinement_options') ?? '').trim();
   if (!tileId) throw new Error('Missing tile_id');
+  // Said here as well as in the core, so the form refuses before a round trip and the admin-jobs
+  // checklist (lib/admin-map) still reads this field's refusal off the action.
   if (label.length < 2 || label.length > 80) {
     redirectBack(formData, 'error', 'Service name must be 2–80 characters.');
   }
-  const canonical = slugify(label, '_');
-  if (!canonical) {
-    redirectBack(formData, 'error', 'Name needs letters or numbers.');
-  }
-
-  const admin = createAdminClient();
-
-  // Optional faith scope — validated against faith_vocab so admin-minted
-  // services are no longer born faith-blind (Phase 2). Empty = universal.
-  let faith: string | null = null;
-  if (faithRaw) {
-    const { data: vocabRow } = await admin
-      .from('faith_vocab')
-      .select('faith_key')
-      .eq('faith_key', faithRaw)
-      .eq('status', 'active')
-      .maybeSingle();
-    if (!vocabRow) {
-      redirectBack(formData, 'error', `Unknown faith "${faithRaw}".`);
-    }
-    faith = faithRaw;
-  }
-
-  // Destination must exist + be a tier-2 tile; derive its parent folder so the
-  // mapping's folder_id stays consistent with remapCanonical's invariant.
-  const { data: tile } = await admin
-    .from('service_categories')
-    .select('id, parent_id, tier, label_en')
-    .eq('id', tileId)
-    .maybeSingle();
-  if (!tile || tile.tier !== 2 || !tile.parent_id) {
-    redirectBack(formData, 'error', 'Pick a valid category.');
-  }
-
-  // The key must be free in BOTH leaf tables (schema PK + mapping PK).
-  const [schemaDupeRes, taxDupeRes] = await Promise.all([
-    admin
-      .from('canonical_service_schemas')
-      .select('canonical_service')
-      .eq('canonical_service', canonical)
-      .maybeSingle(),
-    admin
-      .from('canonical_service_taxonomy')
-      .select('canonical_service')
-      .eq('canonical_service', canonical)
-      .maybeSingle(),
-  ]);
-  if (schemaDupeRes.data || taxDupeRes.data) {
-    redirectBack(formData, 'error', `A service "${canonical}" already exists — pick a different name.`);
-  }
-
-  // Optional starter refinement → one multi_select category-specific attribute.
-  const categoryAttrs: Record<string, unknown> = {};
-  if (refinementLabel && refinementOptionsRaw) {
-    const fieldKey = slugify(refinementLabel, '_');
-    const options = refinementOptionsRaw
-      .split(',')
-      .map((o) => slugify(o, '_'))
-      .filter(Boolean);
-    if (fieldKey && options.length > 0) {
-      categoryAttrs[fieldKey] = {
-        type: 'multi_select',
-        label: refinementLabel,
-        options,
-      };
-    }
-  }
-
-  // 1. Schema stub — appears in onboarding, taggable, refinement-ready.
-  const { error: schemaErr } = await admin.from('canonical_service_schemas').insert({
-    canonical_service: canonical,
-    schema_version: 1,
-    display_name_en: label,
-    shared_attribute_groups: [],
-    category_specific_attributes: categoryAttrs,
-    filter_facets: [],
-    required_for_visibility: {},
-    ranking_signal_weights: {},
-  });
-  if (schemaErr) redirectBack(formData, 'error', schemaErr.message);
-
-  // 2. Tile placement — /vendors buckets it live.
-  const { error: taxErr } = await admin.from('canonical_service_taxonomy').insert({
-    canonical_service: canonical,
-    folder_id: tile.parent_id,
-    tile_id: tileId,
-    phase: 'V1.1 base',
+  // The one rule for "a new service" — shared with the map's in-place "＋ Add a service" row
+  // (`addServiceCore`, _components/taxonomy-writes.ts): faith validated against faith_vocab, schema
+  // then placement with a rollback, last among its category's services.
+  const res = await addServiceCore(createAdminClient(), user.id, {
+    tileId,
+    label,
     faith,
-    is_ph: isPh,
-    is_rental: isRental,
-    is_setnayan: false,
-    is_tradition: isTradition,
-    marketplace_hidden: false,
-    secondary_tiles: [],
+    isPh,
+    isRental,
+    isTradition,
+    refinementLabel,
+    refinementOptions,
   });
-  if (taxErr) {
-    // Roll back the schema stub so a half-created leaf can't linger.
-    await admin.from('canonical_service_schemas').delete().eq('canonical_service', canonical);
-    redirectBack(formData, 'error', taxErr.message);
-  }
-
-  await admin.from('admin_audit_log').insert({
-    action: 'taxonomy.create_leaf',
-    target_table: 'canonical_service_taxonomy',
-    target_id: canonical,
-    after_json: {
-      canonical_service: canonical,
-      folder_id: tile.parent_id,
-      tile_id: tileId,
-      display_name_en: label,
-      category_specific_attributes: categoryAttrs,
-    },
-    actor_user_id: user.id,
-  });
-
+  if (!res.ok) redirectBack(formData, 'error', res.error);
   revalidatePath(BASE);
   revalidatePath('/explore');
-  redirectBack(
-    formData,
-    'ok',
-    `Saved — "${label}" is live under ${tile.label_en ?? tileId}. Suppliers can pick it now.`,
-    { anchor: `t-${tileId}` },
-  );
+  redirectBack(formData, 'ok', res.message, { anchor: `t-${tileId}` });
 }
 
 // ── Vendor "request a category" review (taxonomy_category_requests · §3.2c) ───
@@ -1368,6 +1175,21 @@ export async function deleteTileWithDestination(
     .maybeSingle();
   if (!tileRow) return { ok: false, error: 'Category not found.' };
   if (tileRow.tier === 1) return { ok: false, error: 'Folders are owner-managed — can’t delete here.' };
+
+  // ③0-c — a couple-side category still anchored here hard-blocks. It is a code mapping
+  // (`VENDOR_CATEGORY_CANONICAL`), so it cannot be re-pointed from this page; deleting the
+  // category would drop every couple's supplier in it off their Suppliers page. This used to be
+  // only a "N couple-side links broken" number on the counts line, read after the damage.
+  const anchored = deletionWouldBreakCoupleLinks(await getTaxonomy(), tile);
+  if (anchored.length > 0) {
+    const names = anchored.map((d) => VENDOR_CATEGORY_LABEL[d.category] ?? d.category).join(', ');
+    return {
+      ok: false,
+      error:
+        `Couples’ suppliers are filed under “${tileRow.label_en}” (${names}). ` +
+        'Deleting it would take them off their Suppliers page — it needs a code change first.',
+    };
+  }
 
   // Sub-categories still hard-block (tier-3) — those aren't re-pointable here.
   const { count: childCount } = await admin
@@ -2499,9 +2321,11 @@ export async function setServiceFlag(formData: FormData): Promise<never> {
 
 /**
  * Admin: set a canonical's `secondary_tiles` (cross-listing on additional tiles
- * beyond its home tile). Values are validated against the live tile catalog
- * (WEDDING_TILE_ORDER) — the home tile is excluded (it's not a "secondary").
- * Empty selection clears the array to NULL. Audit-logged, redirect-back.
+ * beyond its home tile). Values are validated against the LIVE tier-2
+ * `service_categories` rows (`secondaryTilesVerdict`, model.ts) — so a category
+ * created on this page can be cross-listed onto at once — and the home tile is
+ * excluded (it's not a "secondary"). Empty selection clears the array to `{}`.
+ * Audit-logged, redirect-back.
  */
 export async function setServiceSecondaryTiles(formData: FormData): Promise<never> {
   const user = await requireAdmin();
@@ -2524,16 +2348,25 @@ export async function setServiceSecondaryTiles(formData: FormData): Promise<neve
     .maybeSingle();
   if (!before) redirectBack(formData, 'error', 'Canonical not found.');
 
-  // Validate every selected tile is a real tile; never let the home tile be its
-  // own secondary.
-  const validTiles = new Set<string>(WEDDING_TILE_ORDER as readonly string[]);
-  const homeTile = (before as { tile_id: string | null }).tile_id;
-  const cleaned = selected.filter((t) => t !== homeTile);
-  const unknown = cleaned.filter((t) => !validTiles.has(t));
-  if (unknown.length > 0) {
-    redirectBack(formData, 'error', 'Unknown category(s): ' + unknown.join(', '));
+  // Validate every selected tile against the categories that exist NOW (one source:
+  // the same tier-2 rows the page offers); never let the home tile be its own secondary.
+  const { data: liveCats, error: catsError } = await admin
+    .from('service_categories')
+    .select('id')
+    .eq('tier', 2);
+  if (catsError || !liveCats) {
+    logQueryError('admin/categories/actions.ts: setServiceSecondaryTiles service_categories', catsError);
+    redirectBack(formData, 'error', 'Could not read the categories — nothing was changed.');
   }
-  const next = cleaned.length > 0 ? cleaned.sort() : null;
+  const verdict = secondaryTilesVerdict(
+    selected,
+    (before as { tile_id: string | null }).tile_id,
+    (liveCats as { id: string }[]).map((c) => c.id),
+  );
+  if (!verdict.ok) {
+    redirectBack(formData, 'error', 'Unknown category(s): ' + verdict.unknown.join(', '));
+  }
+  const next = verdict.next;
 
   const { error } = await admin
     .from('canonical_service_taxonomy')
@@ -2545,7 +2378,7 @@ export async function setServiceSecondaryTiles(formData: FormData): Promise<neve
     action: 'taxonomy.set_secondary_tiles',
     target_table: 'canonical_service_taxonomy',
     target_id: canonical,
-    before_json: { secondary_tiles: (before as { secondary_tiles: string[] | null }).secondary_tiles ?? null },
+    before_json: { secondary_tiles: (before as { secondary_tiles: string[] | null }).secondary_tiles ?? [] },
     after_json: { secondary_tiles: next },
     actor_user_id: user.id,
   });
@@ -2554,7 +2387,9 @@ export async function setServiceSecondaryTiles(formData: FormData): Promise<neve
   redirectBack(
     formData,
     'ok',
-    next ? `Cross-listed on ${next.length} more ${next.length === 1 ? 'tile' : 'tiles'}.` : 'Cross-listing cleared.',
+    next.length > 0
+      ? `Cross-listed on ${next.length} more ${next.length === 1 ? 'tile' : 'tiles'}.`
+      : 'Cross-listing cleared.',
   );
 }
 

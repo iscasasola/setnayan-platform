@@ -44,7 +44,7 @@ export function UploadsOpenChoice({
       <input type="hidden" name="event_id" value={eventId} />
       <input type="hidden" name="open" value={open ? '0' : '1'} />
       {back ? <input type="hidden" name="back" value={back} /> : null}
-      <SubmitButton className={open ? 'sn-btn-secondary' : 'sn-btn-primary'}>
+      <SubmitButton className={open ? 'ab ab-neutral inline-flex min-h-11 items-center justify-center' : 'ab ab-brand ab-main inline-flex min-h-11 items-center justify-center'}>
         {open ? 'Turn this off' : 'Turn this on'}
       </SubmitButton>
       <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-ink/50">

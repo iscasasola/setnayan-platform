@@ -165,3 +165,35 @@ export function readSchema(migrationsDir: string = MIGRATIONS_DIR): Map<string, 
   }
   return schema;
 }
+
+/**
+ * Every VIEW and MATERIALIZED VIEW the migrations declare and have not since dropped, by name — replayed in file order,
+ * statement by statement (`CREATE [OR REPLACE] [MATERIALIZED] VIEW [IF NOT EXISTS] [public.]x` adds,
+ * `DROP [MATERIALIZED] VIEW [IF EXISTS] [public.]x` removes). `--` comments are stripped first, so prose that names a
+ * view is never a declaration.
+ *
+ * NAMES ONLY, ON PURPOSE. A view's columns are a SELECT's projection (often `SELECT *`, or built in a DO block), which a
+ * regex cannot read honestly; so this does NOT feed `readSchema()` — whose consumers classify every TABLE (the export
+ * and erasure guardrails) — and the select-column guard still skips columns on a view (its limit 4). What it answers is
+ * the question underneath: "does this relation exist at all?" (select-column-scan.test.ts T11). Added 2026-10-26 when
+ * ③a's `inspiration_part_categories_derived` (CREATE OR REPLACE VIEW … WITH (security_invoker = true) AS …) was read by
+ * the parts reader and T11 could not see it.
+ */
+export function readDeclaredViews(migrationsDir: string = MIGRATIONS_DIR): Set<string> {
+  const views = new Set<string>();
+  const files = fs
+    .readdirSync(migrationsDir)
+    .filter((f) => f.endsWith('.sql'))
+    .sort();
+  const re =
+    /\b(CREATE)\s+(?:OR\s+REPLACE\s+)?(?:MATERIALIZED\s+)?VIEW\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:"?public"?\.)?"?([a-z0-9_]+)"?|\b(DROP)\s+(?:MATERIALIZED\s+)?VIEW\s+(?:IF\s+EXISTS\s+)?(?:"?public"?\.)?"?([a-z0-9_]+)"?/gi;
+  for (const file of files) {
+    const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf8').replace(/--[^\n]*/g, '');
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(sql))) {
+      if (m[1] && m[2]) views.add(m[2].toLowerCase());
+      else if (m[3] && m[4]) views.delete(m[4].toLowerCase());
+    }
+  }
+  return views;
+}

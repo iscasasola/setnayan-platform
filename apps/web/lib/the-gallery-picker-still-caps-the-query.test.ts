@@ -18,31 +18,32 @@ import { join } from 'node:path';
 import { stripComments } from './strip-comments';
 import { GALLERY_MAX_LIMIT, GALLERY_MAX_OFFSET, GALLERY_PAGE_SIZE, normalizeGalleryQuery } from './moodboard-gallery';
 import { GALLERY_FROM } from './inspiration-slots';
+import { fallbackInspirationParts } from './inspiration-parts';
 
 test('the filters never lift the cap', () => {
-  const q = normalizeGalleryQuery({ slotKey: 'flowers', limit: 1e9, offset: 1e9, q: 'peonies', from: 'florists', near: 'NCR' });
+  const q = normalizeGalleryQuery({ slotKey: 'flowers', limit: 1e9, offset: 1e9, q: 'peonies', from: 'florists', near: 'NCR' }, fallbackInspirationParts());
   assert.ok(q);
   assert.equal(q!.limit, GALLERY_MAX_LIMIT);
   assert.equal(q!.offset, GALLERY_MAX_OFFSET);
-  assert.equal(normalizeGalleryQuery({ slotKey: 'flowers', q: 'x'.repeat(500) })!.limit, GALLERY_PAGE_SIZE);
+  assert.equal(normalizeGalleryQuery({ slotKey: 'flowers', q: 'x'.repeat(500) }, fallbackInspirationParts())!.limit, GALLERY_PAGE_SIZE);
 });
 
 test('the words carry no filter syntax', () => {
-  const q = normalizeGalleryQuery({ slotKey: 'flowers', q: 'white roses,label.eq.x)(%_*' });
+  const q = normalizeGalleryQuery({ slotKey: 'flowers', q: 'white roses,label.eq.x)(%_*' }, fallbackInspirationParts());
   assert.ok(q?.q);
   assert.doesNotMatch(q!.q!, /[,.()%_*]/);
   assert.ok(q!.q!.length <= 40);
-  assert.equal(normalizeGalleryQuery({ slotKey: 'flowers', q: '  ' })!.q, undefined);
+  assert.equal(normalizeGalleryQuery({ slotKey: 'flowers', q: '  ' }, fallbackInspirationParts())!.q, undefined);
 });
 
 test('From ▾ is a known option, read as the shop’s services; Near ▾ a known region', () => {
   assert.deepEqual(GALLERY_FROM.map((f) => f.label), ['Everyone', 'Florists', 'Stylists', 'Tables', 'Venues']);
-  const florists = normalizeGalleryQuery({ slotKey: 'flowers', from: 'florists' });
+  const florists = normalizeGalleryQuery({ slotKey: 'flowers', from: 'florists' }, fallbackInspirationParts());
   assert.ok(florists?.fromServices && florists.fromServices.length > 0);
-  assert.equal(normalizeGalleryQuery({ slotKey: 'flowers', from: 'everyone' })!.fromServices, undefined);
-  assert.equal(normalizeGalleryQuery({ slotKey: 'flowers', from: 'anyone; drop table' })!.fromServices, undefined);
-  assert.equal(normalizeGalleryQuery({ slotKey: 'flowers', near: 'NCR' })!.near, 'NCR');
-  assert.equal(normalizeGalleryQuery({ slotKey: 'flowers', near: 'Atlantis' })!.near, undefined);
+  assert.equal(normalizeGalleryQuery({ slotKey: 'flowers', from: 'everyone' }, fallbackInspirationParts())!.fromServices, undefined);
+  assert.equal(normalizeGalleryQuery({ slotKey: 'flowers', from: 'anyone; drop table' }, fallbackInspirationParts())!.fromServices, undefined);
+  assert.equal(normalizeGalleryQuery({ slotKey: 'flowers', near: 'NCR' }, fallbackInspirationParts())!.near, 'NCR');
+  assert.equal(normalizeGalleryQuery({ slotKey: 'flowers', near: 'Atlantis' }, fallbackInspirationParts())!.near, undefined);
 });
 
 test('the server action still caps every request', () => {

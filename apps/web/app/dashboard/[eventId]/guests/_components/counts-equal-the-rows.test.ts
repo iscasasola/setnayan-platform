@@ -90,13 +90,26 @@ test('Count and Fill never sit on their start value when no frame runs', () => {
 
 /* ─── "N to invite" is a door ───────────────────────────────────────────── */
 
-/** The counts line as drawn, or null when the screen drew none. */
-const countsLine = (html: string): string | null => html.match(/<div[^>]*data-roster-counts=""[^>]*>([\s\S]*?)<\/div>/)?.[1] ?? null;
-/** The link whose text is "N to invite", if the counts line draws one: its href and its words. */
+/** The counts strip as drawn (its whole element — the strip nests its own divs since option A, 2026-10-26), or null
+ *  when the screen drew none. Balanced on `<div`/`</div>`, so a nested block can never end it early. */
+function countsLine(html: string): string | null {
+  const at = html.search(/<div[^>]*data-roster-counts=""/);
+  if (at < 0) return null;
+  const open = html.indexOf('>', at) + 1;
+  const tag = /<div\b|<\/div>/g;
+  tag.lastIndex = open;
+  let depth = 1;
+  for (let m = tag.exec(html); m; m = tag.exec(html)) {
+    depth += m[0] === '</div>' ? -1 : 1;
+    if (depth === 0) return html.slice(open, m.index);
+  }
+  return null;
+}
+/** The link whose text is "Invite N" (option A's button; it read "N to invite" before), if the strip draws one. */
 function toInviteDoor(line: string): { href: string; words: string } | null {
   for (const a of line.matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a>/g)) {
     const words = a[2]!.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
-    if (/^[\d,]+ to invite$/.test(words)) return { href: a[1]!.match(/href="([^"]*)"/)?.[1] ?? '', words };
+    if (/^Invite [\d,]+$/.test(words)) return { href: a[1]!.match(/href="([^"]*)"/)?.[1] ?? '', words };
   }
   return null;
 }
@@ -115,8 +128,8 @@ test('"N to invite" on the List is a door into the send run when N > 0 (rendered
     const line = countsLine(await renderGuestsScreen({ guests, gview }));
     assert.ok(line, `Guests › ${gview} drew no counts line for a measured list`);
     const door = toInviteDoor(line);
-    assert.ok(door, `Guests › ${gview}: "2 to invite" is plain text — there is no door to sending from here`);
-    assert.equal(door.words, '2 to invite', 'the door\'s number is not the counts line\'s own');
+    assert.ok(door, `Guests › ${gview}: "Invite 2" is not a link — there is no door to sending from here`);
+    assert.equal(door.words, 'Invite 2', 'the door\'s number is not the counts line\'s own');
     assert.equal(door.href, '/dashboard/e1/guests/send');
   }
 });
@@ -126,14 +139,14 @@ test('with nobody to invite it is plain words, and a refused read draws no count
   assert.equal(rosterStats(invited).toInvite, 0);
   const line = countsLine(await renderGuestsScreen({ guests: invited }));
   assert.ok(line, 'a measured list with everyone invited drew no counts line');
-  assert.match(plain(line), /0 to invite/, 'the words changed');
-  assert.equal(toInviteDoor(line), null, '"0 to invite" is a link — a dead door');
+  assert.match(plain(line), /Everyone invited/, 'the words changed');
+  assert.equal(toInviteDoor(line), null, '"Invite 0" is a link — a dead door');
   assert.doesNotMatch(line, /guests\/send/, 'the counts line links to the send run with nobody to send to');
 
   // A REFUSED read: the rows are unknown, not empty — no "0 to invite", no door, no counts.
   const refused = await renderGuestsScreen({ guests: [], measured: false });
   assert.equal(countsLine(refused), null, 'an unmeasured read printed a counts line');
-  assert.doesNotMatch(plain(refused), /to invite/, 'an unmeasured read says something about who is left to invite');
+  assert.doesNotMatch(plain(refused), /to invite|Invite \d|Everyone invited/, 'an unmeasured read says something about who is left to invite');
 });
 
 test('the List\'s door and Setup\'s "Send to N" open the same place (both rendered)', async () => {

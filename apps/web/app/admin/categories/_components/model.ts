@@ -466,3 +466,34 @@ export function nearMatches<T extends RankableOption>(name: string, options: rea
     .slice(0, limit)
     .map((s) => s.opt);
 }
+
+// ── "Also listed under" — the cross-listing rule (③0-d one source) ───────────
+
+export type SecondaryTilesVerdict =
+  | { ok: true; next: string[] }
+  | { ok: false; unknown: string[] };
+
+/**
+ * What a service's "Also listed under" becomes when the admin saves it.
+ *
+ * 🔑 VALIDATED AGAINST THE LIVE CATEGORIES, never a list in code. The page offers every tier-2
+ * `service_categories` row, including one the admin created a minute ago; the save used to check
+ * the const `WEDDING_TILE_ORDER` and answered "Unknown category(s)" for exactly that row — the
+ * page could not cross-list onto a category it had just made (audit B1, corpus PLAN § 8.3 ③0-d).
+ * The caller passes the ids it just read from `service_categories` where `tier = 2`.
+ *
+ * The home category is dropped (it is not a "secondary"); duplicates collapse; the result is
+ * sorted. An empty selection is `[]` — the column is `NOT NULL DEFAULT '{}'`, so writing NULL to
+ * clear it was refused by the database and "None" could never be saved.
+ */
+export function secondaryTilesVerdict(
+  selected: readonly string[],
+  homeTile: string | null,
+  liveCategoryIds: Iterable<string>,
+): SecondaryTilesVerdict {
+  const live = new Set(liveCategoryIds);
+  const cleaned = [...new Set(selected.map((t) => t.trim()).filter(Boolean))].filter((t) => t !== homeTile);
+  const unknown = cleaned.filter((t) => !live.has(t));
+  if (unknown.length > 0) return { ok: false, unknown };
+  return { ok: true, next: cleaned.sort() };
+}

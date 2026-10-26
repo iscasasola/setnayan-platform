@@ -1,12 +1,13 @@
 import { notFound } from 'next/navigation';
 import { IapUnlockSheet } from '@/app/_components/iap/iap-unlock-sheet';
 import { StudioBuyHero } from '@/app/dashboard/[eventId]/studio/_components/studio-buy-hero';
+import { PapicAddedPreview } from './papic-added-preview';
 
 /**
  * 🧪 /dev/iap-doors-lab — the Apple doors of 23 Oct (Setnayan AI · Music Maker · Patiktok · Thank You; the Mood Board
  * pack was retired with the renders, 2026-10-26), drawn by the SHIPPED `IapUnlockSheet` with each page's own props, NO database:
  *
- *   ?door=setnayan-ai · music-maker · patiktok · thank-you
+ *   ?door=setnayan-ai · music-maker · patiktok · thank-you · papic-added
  *
  * Apple's prices come from whatever `window.Capacitor` the walker hands it (a stand-in store with SAMPLE prices) —
  * the page types none. A dev page: 404 in production.
@@ -80,6 +81,8 @@ export default async function IapDoorsLab({ searchParams }: { searchParams: Prom
             triggerClassName={BTN}
           />
         </div>
+      ) : door === 'papic-added' ? (
+        <PapicAddedPreview />
       ) : null}
     </div>
   );

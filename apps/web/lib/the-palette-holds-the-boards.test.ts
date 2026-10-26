@@ -26,6 +26,7 @@ import { resolveRoomDressing, type RolePalette } from './mood-board';
 import { LEGACY_PALETTE_BOARDS, MAIN_PALETTE_BOARD, STUDIO_INSPIRATION_SLOTS, paletteBoardOf, paletteUploadBoards } from './inspiration-slots';
 import { MOODBOARD_SLOT_KEYS } from './moodboard-slots';
 import { dbAcceptedSlotKeys } from './inspiration-parts-gate.test-helper';
+import { fallbackInspirationParts } from './inspiration-parts';
 
 (globalThis as unknown as { React: unknown }).React = React;
 {
@@ -107,6 +108,7 @@ test('4 · drawn: the prototype’s one list — the five as circles, a block pe
   const html = renderToStaticMarkup(
     React.createElement(MoodBoardStudio as React.ComponentType<Record<string, unknown>>, {
       eventId: 'E1',
+      inspirationParts: fallbackInspirationParts(),
       palette: { reception: FIVE },
       fallbackFive: FIVE,
       frozenDressing: [],

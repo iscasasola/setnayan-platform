@@ -26,6 +26,7 @@ import { ATTIRE_STYLES, ATTIRE_STYLE_LABEL, type AttireStyle } from './role-dres
 import { deeper, roleFigurePeople, singleWearerOf, zoneTints } from './role-figure';
 import { PALETTE_LIMITS, sanitizeRolePalette } from './mood-board';
 import { withRoleColours } from './mood-board-studio';
+import { fallbackInspirationParts } from './inspiration-parts';
 
 (globalThis as unknown as { React: unknown }).React = React;
 {
@@ -237,6 +238,7 @@ async function studio(palette: Record<string, unknown>, dressConfig: Record<stri
   return renderToStaticMarkup(
     React.createElement(MoodBoardStudio as React.ComponentType<Record<string, unknown>>, {
       eventId: 'e',
+      inspirationParts: fallbackInspirationParts(),
       palette: { reception: ['#5C0700', '#669C35', '#F7F2EC', '#646B38', '#F3E5B9'], ...palette, touched_roles: Object.keys(palette) },
       fallbackFive: ['#5C0700', '#669C35', '#F7F2EC', '#646B38', '#F3E5B9'],
       frozenDressing: [],

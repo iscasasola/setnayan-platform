@@ -18,6 +18,7 @@ import {
   type VendorIgMediaRow,
 } from '@/lib/vendor-instagram-status';
 import { moodboardLibraryAccessForProfile } from '@/lib/moodboard-library-access';
+import { getInspirationParts } from '@/lib/inspiration-parts-db';
 
 /**
  * YOUR COLLECTIONS — one count per store, read where each already lives (simpler supplier dashboard step 5;
@@ -163,7 +164,7 @@ export async function loadCollectionsData(
     }
   })();
 
-  const access = moodboardLibraryAccessForProfile(profile);
+  const access = moodboardLibraryAccessForProfile(profile, await getInspirationParts());
   const moodRead = (async () => {
     if (!access.allowed) return { allowed: false, looks: 0, declined: 0 };
     const { data, error } = await createAdminClient()

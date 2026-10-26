@@ -127,7 +127,8 @@ test('P07 — one sample event: Studio’s pages say the canvas’s date, venue,
   assert.match(node, /const specialMessage = mj \? LAB_SAMPLE\.message : /);
   assert.match(node, /const slug = mj \? LAB_SAMPLE\.slug : /);
   /* The Maker lab always asks for that shape… */
-  assert.match(read('maker-lab', 'page.tsx'), /detailsLabNode\(\{ \.\.\.sp, shape: 'mj'/);
+  /* `studio: '1'` always (2026-10-26): the lab's Details is the real Maker's — its Studio, never the retired one-piece view. */
+  assert.match(read('maker-lab', 'page.tsx'), /detailsLabNode\(\{ \.\.\.sp, studio: '1', shape: 'mj'/);
   /* …and the canvas and the Look sample draw the same facts. */
   /* (The names are the sample's until some are typed: the cover draws the drafted line — `labNamesFrom`.) */
   assert.match(GUEST, /const labNames = labNamesFrom\(\(await cookies\(\)\)\.get\(LAB_NAMES_COOKIE\)\?\.value, LAB_SAMPLE\.names\);/);

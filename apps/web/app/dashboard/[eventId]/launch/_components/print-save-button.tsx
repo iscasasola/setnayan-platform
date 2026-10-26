@@ -44,7 +44,8 @@ import { StatusLine } from '@/app/_components/status-line';
  * `href` + `download` stay on the anchor so a click before hydration (or with
  * scripting off) still gets the file the old way.
  */
-type State = { k: 'idle' } | { k: 'working' } | { k: 'ready'; file: File } | { k: 'saved'; via: 'share' | 'download' } | { k: 'error'; message: string };
+export type PrintSaveState = { k: 'idle' } | { k: 'working' } | { k: 'ready'; file: File } | { k: 'saved'; via: 'share' | 'download' } | { k: 'error'; message: string };
+type State = PrintSaveState;
 
 /** A phone or tablet that can share this file. A desktop browser that can also
  *  share (Safari, Chrome on macOS) still downloads — a share sheet is not what
@@ -69,6 +70,76 @@ function downloadBlob(file: File) {
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
+
+/**
+ * 🎠 THE SAVE ITSELF, as a hook — the same fetch → File → share / download, the same states ("Preparing…" · "Tap to save" · the
+ * plain error · "Saved."), for a control that is not this button: the Prints carousel's Download ▾, whose pick names the file
+ * (This one · All guests) and whose one button then wears the state (`studio-prints-carousel.tsx`). One save, two looks.
+ */
+export function usePrintSave(): { state: PrintSaveState; save: (href: string, fileName: string) => Promise<void> } {
+  /* The file's fetch — the real one, or (only in the dev lab) a stand-in that reaches no route. */
+  const printFetch = usePrintFetch();
+  const [state, setState] = useState<State>({ k: 'idle' });
+  const busy = useRef(false);
+  const held = useRef(state);
+  held.current = state;
+
+  const hand = async (file: File) => {
+    if (canShare(file)) {
+      try {
+        await navigator.share({ files: [file] });
+        setState({ k: 'saved', via: 'share' });
+        return;
+      } catch (e) {
+        // Dismissed — they saw the sheet; nothing to say.
+        if (e instanceof DOMException && e.name === 'AbortError') {
+          setState({ k: 'idle' });
+          return;
+        }
+        // The tap expired while the file was being drawn: keep it, ask for one more tap.
+        if (e instanceof DOMException && e.name === 'NotAllowedError') {
+          setState({ k: 'ready', file });
+          return;
+        }
+      }
+    }
+    downloadBlob(file);
+    setState({ k: 'saved', via: 'download' });
+  };
+
+  const save = async (href: string, fileName: string) => {
+    if (busy.current) return;
+    const now = held.current;
+    if (now.k === 'ready' && now.file.name === fileName) {
+      busy.current = true;
+      await hand(now.file);
+      busy.current = false;
+      return;
+    }
+    busy.current = true;
+    setState({ k: 'working' });
+    try {
+      const res = await printFetch(href, { credentials: 'same-origin' });
+      if (!res.ok) {
+        const text = (await res.text().catch(() => '')).trim();
+        setState({ k: 'error', message: text && text.length < 200 && !text.startsWith('<') ? text : 'That file could not be made just now. Please try again.' });
+        return;
+      }
+      const blob = await res.blob();
+      // 🖨 Keep what this paper was drawn from (lib/printed-stamp.ts) — the
+      // piece says "Changed since you printed" once the inputs move on.
+      const version = res.headers.get(PRINT_VERSION_HEADER);
+      const target = printedTarget(href);
+      if (version && target) writePrintedStamp(target.eventId, target.piece, version);
+      await hand(new File([blob], fileName, { type: blob.type || 'application/octet-stream' }));
+    } catch {
+      setState({ k: 'error', message: 'That file could not be saved — check your connection and try again.' });
+    } finally {
+      busy.current = false;
+    }
+  };
+  return { state, save };
 }
 
 export function PrintSaveButton({
@@ -109,64 +180,8 @@ export function PrintSaveButton({
   /** `action` only: the button takes the room left in its row (the Event pass's "Every guest's pass", owner 2026-10-16). */
   wide?: boolean;
 }) {
-  /* The file's fetch — the real one, or (only in the dev lab) a stand-in that reaches no route. */
-  const printFetch = usePrintFetch();
-  const [state, setState] = useState<State>({ k: 'idle' });
-  const busy = useRef(false);
-
-  const hand = async (file: File) => {
-    if (canShare(file)) {
-      try {
-        await navigator.share({ files: [file] });
-        setState({ k: 'saved', via: 'share' });
-        return;
-      } catch (e) {
-        // Dismissed — they saw the sheet; nothing to say.
-        if (e instanceof DOMException && e.name === 'AbortError') {
-          setState({ k: 'idle' });
-          return;
-        }
-        // The tap expired while the file was being drawn: keep it, ask for one more tap.
-        if (e instanceof DOMException && e.name === 'NotAllowedError') {
-          setState({ k: 'ready', file });
-          return;
-        }
-      }
-    }
-    downloadBlob(file);
-    setState({ k: 'saved', via: 'download' });
-  };
-
-  const run = async () => {
-    if (busy.current) return;
-    if (state.k === 'ready') {
-      busy.current = true;
-      await hand(state.file);
-      busy.current = false;
-      return;
-    }
-    busy.current = true;
-    setState({ k: 'working' });
-    try {
-      const res = await printFetch(href, { credentials: 'same-origin' });
-      if (!res.ok) {
-        const text = (await res.text().catch(() => '')).trim();
-        setState({ k: 'error', message: text && text.length < 200 && !text.startsWith('<') ? text : 'That file could not be made just now. Please try again.' });
-        return;
-      }
-      const blob = await res.blob();
-      // 🖨 Keep what this paper was drawn from (lib/printed-stamp.ts) — the
-      // piece says "Changed since you printed" once the inputs move on.
-      const version = res.headers.get(PRINT_VERSION_HEADER);
-      const target = printedTarget(href);
-      if (version && target) writePrintedStamp(target.eventId, target.piece, version);
-      await hand(new File([blob], fileName, { type: blob.type || 'application/octet-stream' }));
-    } catch {
-      setState({ k: 'error', message: 'That file could not be saved — check your connection and try again.' });
-    } finally {
-      busy.current = false;
-    }
-  };
+  const { state, save } = usePrintSave();
+  const run = () => save(href, fileName);
   const onClick = (ev: React.MouseEvent<HTMLAnchorElement>) => {
     ev.preventDefault();
     void run();

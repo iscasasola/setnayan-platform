@@ -48,6 +48,7 @@ import { fetchCreatorInquiriesDriven } from '@/lib/inquiry-attribution';
 import { ViewBeacon } from '@/app/u/_components/view-beacon';
 import { FollowButton } from '@/app/u/_components/follow-button';
 import { MutualDays } from '@/app/u/_components/mutual-days';
+import { ProfileBack } from '@/app/u/_components/profile-back';
 import { formatCount } from '@/lib/format-number';
 import { readProfileViewer, relationLine, viewerKnowsThem, type ProfileViewer } from '@/lib/profile-viewer';
 
@@ -580,6 +581,7 @@ export default async function AccountProfilePage({ params }: Props) {
       ) : null}
 
       <div className="uprof-inner">
+        <ProfileBack />
         {isOwnerPreview ? (
           <div className="uprof-preview" role="status">
             Preview · your public profile is <strong>hidden</strong>. Turn it on in
@@ -1146,6 +1148,7 @@ const UPROF_CSS = `
     padding: clamp(3rem, 9vw, 6rem) 1.5rem clamp(2.5rem, 6vw, 4rem);
   }
   .uprof-inner { width: 100%; max-width: 760px; }
+  .uprof-back { display: flex; justify-content: flex-start; margin-bottom: 8px; }
 
   .uprof-preview {
     margin: 0 0 1.5rem;

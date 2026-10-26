@@ -161,15 +161,21 @@ test('1 · changed since you printed: the amber status line with ONE quiet "Save
   assert.match(prints, /<ChangedSincePrinted eventId=\{input\.eventId\} piece=\{k\} version=\{input\.previewVersion\} again=\{one\} \/>/, 'Save again is not the piece’s main file');
 });
 
-test('5 · the pass look is the style-card strip, a pick still waits for Apply; ◆ on Free is the centred note over the SAME link', async () => {
-  const { PassCardDesignPicker } = await import(`../${L}/pass-card-design-picker`);
-  const m = await html(
-    React.createElement(PassCardDesignPicker as never, { eventId: 'E1', saved: 'ticket', studio: true, previews: { classic: '/c.png', ticket: '/t.png', poster: '/p.png' } } as never),
-  );
-  assert.equal((m.match(/data-bg-card="/g) ?? []).length, 3, 'the three looks are not the style cards');
-  assert.match(m, /aria-pressed="true"[^>]*data-bg-card="ticket"/, 'the picked look is not the ringed card');
-  assert.match(m, /Ticket style[\s\S]*?What each guest saves · waits for Apply/);
-  assert.match(m, /class="sn-phone-card/, 'a card is not the one phone-shaped size');
+test('5 · the pass look is the Digital ticket slide’s Style ▾ (owner 2026-10-26), a pick still waits for Apply; ◆ on Free is the centred note over the SAME link', async () => {
+  /* 🎫 "The 3 designs for the digital ticket should be on the carousel and not on settings." — Classic ▾ beside View as ▾. */
+  const { DigitalTicketEditor } = await import(`../${L}/maker-prints`);
+  const { formatFor } = await import('./print-pieces');
+  const { slidesOf, carouselAt, endSlides } = await import('./prints-slides.test-helper');
+  const input = { eventId: 'E1', slug: 'rosa-ben', theme: 'house', ownsPro: false, storeShell: false, passDesign: 'ticket', passGuests: [{ id: '00000000-0000-4000-8000-000000000101', name: 'Ana Reyes', reply: 'attending' }], formats: { pass: formatFor('pass', null)!, invitation: formatFor('invitation', null)!, card: formatFor('card', null)! } };
+  try {
+    await slidesOf([React.createElement(DigitalTicketEditor as never, { input } as never)]);
+    const m = await carouselAt([{ key: 'digital-ticket', label: 'Digital ticket', group: 'set' }], 'digital-ticket');
+    const row1 = m.slice(m.indexOf('data-prints-row="choose"'), m.indexOf('data-prints-row="act"'));
+    assert.match(row1, /data-prints-ticket-style=""[^>]*>[\s\S]*?Ticket</, 'the look being edited is not on the slide’s Style ▾');
+    assert.ok(row1.indexOf('data-prints-ticket-style') < row1.indexOf('data-prints-view-as'), 'Style ▾ is not before View as ▾ (the Event pass’s Calling card ▾ order)');
+  } finally {
+    await endSlides();
+  }
   const src = read(`${L}/pass-card-design-picker.tsx`);
   assert.match(src, /fd\.set\('patch', JSON\.stringify\(passDesignDraftPatch\(design\)\)\);/, 'the pick no longer goes to the draft (Apply)');
   const { StudioProDoor } = await import(`../${SIX.replace(/\.tsx$/, '')}`);

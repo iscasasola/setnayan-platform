@@ -90,6 +90,7 @@ import { SuggestLab } from './suggest-lab';
 import { LAB_SUGGEST_COUPLE, LAB_SUGGEST_FIVE } from './suggestion-lab-fixture';
 import { buildSupplierBoard, firstOwnPart, ownLaneWords } from '@/lib/supplier-suggest-board';
 import { suggestablePartsForShop, supplierTradeWord } from '@/lib/inspiration-suggestion-parts';
+import { fallbackInspirationParts } from '@/lib/inspiration-parts';
 import { supplierRoleLine } from '@/lib/inspiration-suggestions';
 import { canonicalServicesForTile } from '@/lib/vendor-counts';
 
@@ -303,7 +304,7 @@ export default async function SupplierLabPage({
     /* 🤝🖼 A booked florist on a lab couple's Palette (prototype frames 1–2) — `&sent=1` one photo already waiting;
        `&sup=stylist|gown` the same board for a stylist or a gown maker. Stand-in writes only (`suggest-lab.tsx`). */
     const services = canonicalServicesForTile(q.sup === 'stylist' ? 'stylist_decorator' : q.sup === 'gown' ? 'brides_attire' : 'florist');
-    const parts = suggestablePartsForShop(services);
+    const parts = suggestablePartsForShop(services, fallbackInspirationParts());
     const board = buildSupplierBoard({
       palette: { reception: LAB_SUGGEST_FIVE },
       five: LAB_SUGGEST_FIVE,
@@ -316,7 +317,7 @@ export default async function SupplierLabPage({
         board={board}
         couple={LAB_SUGGEST_COUPLE}
         eventLine="Sat, Mar 13, 2027 · Tagaytay"
-        roleLine={supplierRoleLine(supplierTradeWord(services, firstOwnPart(board)), ownLaneWords(board))}
+        roleLine={supplierRoleLine(supplierTradeWord(services, firstOwnPart(board), fallbackInspirationParts()), ownLaneWords(board))}
         sent={q.sent === '1'}
       />
     );
@@ -330,7 +331,7 @@ export default async function SupplierLabPage({
           view={q.view === 'review' ? 'review' : 'supplier'}
           assets={state.assets}
           shopPhotos={[...state.shopPhotos]}
-          gallerySlots={uploadableSlotsForShop(LAB_LIBRARY_SHOP.services)}
+          gallerySlots={uploadableSlotsForShop(LAB_LIBRARY_SHOP.services, fallbackInspirationParts())}
           shopName={LAB_LIBRARY_SHOP.business_name}
         />
       </div>

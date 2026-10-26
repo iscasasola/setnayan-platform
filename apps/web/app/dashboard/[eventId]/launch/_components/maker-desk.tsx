@@ -203,6 +203,8 @@ export const MAKER_DESK_CSS =
   `${WS} [data-phone-chrome="strip"]{display:none!important}` +
   `${WS}{background:${STUDIO_PAGE}}` +
   `${WS} [data-details-row]{width:100%;max-width:${DESK_STUDIO_COLUMN_PX}px;margin-inline:auto}` +
+  /* 🎠 Studio › Prints' carousel (owner 2026-10-26): the piece list · the slide · the toolbar — three columns, the width (prototype frame 6). */
+  `${WS}:has([data-prints-carousel]) [data-details-row]{max-width:none}` +
   `${WS}${onItems(DESK_STUDIO_WIDE_ITEMS)} [data-details-row]{max-width:${DESK_STUDIO_WIDE_PX}px}` +
   /* A form is the form alone, the column's width — its preview is the phone's too: not drawn. */
   `${WS}${onItems(STUDIO_FORM_ITEMS)} [data-details-body]{display:none!important}` +

@@ -10,6 +10,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { businessProfileChecklist, fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { moodboardLibraryAccessForProfile } from '@/lib/moodboard-library-access';
+import { getInspirationParts } from '@/lib/inspiration-parts-db';
 import { todayCreditNotice } from '@/lib/vendor-credit-warning';
 import { giftDoorWords, giftShopLine, planGiftOf } from '@/lib/plan-gift';
 import {
@@ -225,6 +226,9 @@ export default async function VendorOverviewPage({
   // ⚡ The layout already asked the auth server who this is (`getCurrentUser`,
   // remembered per request) — asking again here was a second auth round trip on
   // every open of Today (2026-10-23, the speed pass).
+  // 🧩 The live parts (③0-b) need nothing from the reads below — started now, so the library door adds no round
+  // (`the-supplier-today-reads-together.test.ts`). `cache()`d: the first-steps rail reads this same promise.
+  const inspirationPartsRead = getInspirationParts();
   const [supabase, user] = await Promise.all([createClient(), getCurrentUser()]);
   if (!user) redirect('/login');
 
@@ -573,6 +577,8 @@ export default async function VendorOverviewPage({
           }
         : null;
 
+  // 🧩 The library door reads the live parts (③0-b) — the same snapshot the real upload gate reads.
+  const libraryOpen = moodboardLibraryAccessForProfile(profile, await inspirationPartsRead).allowed;
 
   return (
     <div className="mx-auto w-full max-w-6xl tab:max-w-3xl px-4 py-4 sm:px-6 sm:py-10 lg:px-8">
@@ -591,7 +597,7 @@ export default async function VendorOverviewPage({
         // 🌱🖼 "Add to the inspiration library" — only for a shop whose trades supply a part (owner 2026-10-19).
         // While it is a first step still to do (personal invite B6), the step IS the door — the row would say it twice.
         library={
-          moodboardLibraryAccessForProfile(profile).allowed &&
+          libraryOpen &&
           !firstSteps?.steps.some((st) => st.key === 'inspiration' && st.state !== 'done')
         }
         actions={{

@@ -28,6 +28,7 @@ import React from 'react';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { renderSettled } from './render-settled.test-helper';
+import { carouselAt, endSlides, slidesOf } from './prints-slides.test-helper';
 
 (globalThis as unknown as { React: unknown }).React = React;
 {
@@ -108,23 +109,26 @@ async function studioMoney(theme: string, ownsPro: boolean, storeShell: boolean)
     formats: { pass: formatFor('pass', null)!, invitation: formatFor('invitation', null)!, card: formatFor('card', null)! },
     passGuests: [{ id: '00000000-0000-4000-8000-000000000101', name: 'Ana Reyes', reply: 'attending' as const }],
   };
-  const html = await renderSettled(
-    React.createElement(
-      React.Fragment,
-      null,
-      React.createElement(PrintPieceEditor as never, { key: 'pass', input, piece: 'pass', studio: true } as never),
-      React.createElement(DigitalTicketEditor as never, { key: 'ticket', input } as never),
-      React.createElement(PrintEverythingStudio as never, { key: 'all', input } as never),
-      ...(freePrintParts as (...a: unknown[]) => Array<{ key: string; editor: React.ReactNode }>)('E1', 'rosa-ben', input, true)
-        .filter((f) => f.key === 'qr-codes' || f.key === 'seating-pack')
-        .map((f) => React.createElement(React.Fragment, { key: f.key }, f.editor)),
-    ),
-  );
+  /* 🎠 One slide per print since 2026-10-26: each print REGISTERS its files; the carousel draws them (its Download ▾ opens the ◆ note). */
+  const free = (freePrintParts as (...a: unknown[]) => Array<{ key: string; label: string; editor: React.ReactNode }>)('E1', 'rosa-ben', input, true).filter((f) => f.key === 'qr-codes' || f.key === 'seating-pack');
+  const slides = await slidesOf([
+    React.createElement(PrintPieceEditor as never, { input, piece: 'pass', studio: true } as never),
+    React.createElement(DigitalTicketEditor as never, { input } as never),
+    React.createElement(PrintEverythingStudio as never, { input } as never),
+    ...free.map((f) => f.editor),
+  ]);
+  const items = [{ key: 'pass', label: 'Event pass', group: 'set' as const }, { key: 'digital-ticket', label: 'Digital ticket', group: 'set' as const }, ...free.map((f) => ({ key: f.key, label: f.label, group: 'day' as const })), { key: 'download', label: 'Everything', group: 'download' as const }];
+  let html = '';
+  for (const it of items) html += await carouselAt(items, it.key);
+  type F = { kind: 'save' | 'door'; href?: string; icon?: { props: { state: string } }; note?: { title: string; body: string } } | null | undefined;
+  const files: F[] = [...slides.values()].flatMap((x) => [x.guest?.all as F, x.everything?.all as F]).filter((f) => f !== undefined && f !== null);
+  await endSlides();
+  const doors = files.filter((f) => f!.kind === 'door');
   return {
-    text: facts(html).text,
-    doors: (html.match(/data-print-all-in-one-pro=""/g) ?? []).length,
-    proDoorHrefs: (html.match(/href="\/dashboard\/E1\/studio\/website-pro"/g) ?? []).length,
-    marks: [...new Set([...html.matchAll(/data-paid-mark="([^"]+)"/g)].map((m) => m[1]!))].sort(),
+    text: facts(html).text + doors.map((d) => ` ${d!.note?.title} ${d!.note?.body}`).join(''),
+    doors: doors.length,
+    proDoorHrefs: doors.filter((d) => d!.href === '/dashboard/E1/studio/website-pro').length,
+    marks: [...new Set([...files.map((f) => f!.icon?.props.state).filter((x): x is string => Boolean(x)), ...[...html.matchAll(/data-paid-mark="([^"]+)"/g)].map((m) => m[1]!)])].sort(),
     peso: /₱|PHP|\bUSD\b/.test(html),
   };
 }

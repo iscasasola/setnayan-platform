@@ -2,7 +2,7 @@
 // Regenerate with: pnpm --filter @setnayan/web admin:jobs
 //
 // Every job the admin can perform and what it asks for, read out of the action
-// that performs it. 320 jobs, 205 of them form-driven, as of af16fc75b1.
+// that performs it. 323 jobs, 206 of them form-driven, as of 711530dd8d.
 // admin-jobs-are-generated.test.ts fails if this drifts from the code.
 
 import type { AdminJob } from './scan-admin-jobs';
@@ -1253,6 +1253,37 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
       "request_id",
       "mapped_to_canonical"
     ],
+    "destructive": false
+  },
+  {
+    "name": "mapReorder",
+    "phrase": "map reorder",
+    "ownerPath": "/admin/categories",
+    "resolvedPath": "/admin/categories",
+    "fields": [],
+    "refusedWhenEmpty": [],
+    "destructive": false
+  },
+  {
+    "name": "mapWrite",
+    "phrase": "map write",
+    "ownerPath": "/admin/categories",
+    "resolvedPath": "/admin/categories",
+    "fields": [],
+    "refusedWhenEmpty": [],
+    "destructive": false
+  },
+  {
+    "name": "mapWriteForm",
+    "phrase": "map write form",
+    "ownerPath": "/admin/categories",
+    "resolvedPath": "/admin/categories",
+    "fields": [
+      "slot_key",
+      "category_id",
+      "coarse_category"
+    ],
+    "refusedWhenEmpty": [],
     "destructive": false
   },
   {

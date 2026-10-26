@@ -168,20 +168,11 @@ const REQUIRED_RETAIL = [
   // not theoretical — it happened in production hours earlier when
   // PAPIC_ADDON_STORIES was retired without touching this file (PR #4357).
   // ANIMATED_MONOGRAM removed 2026-10-22 — retired from sale (migration 20271283592608): the animated logo is the
-  // Logo & QR part of Event Hub PRO now, quoted on the Pro line. 🪤 Entry and prose went together.
+  // Logo & QR part of Event Hub PRO then (2026-10-26: Event Hub PRO, sold whole). 🪤 Entry and prose went together.
   'COUPLE_WEBSITE_PRO',
-  // 💎 Event Hub Pro, part by part (owner 2026-10-22, migration 20271282742262) — each quoted on the Pro line below.
-  'COUPLE_HUB_PART_REVEAL',
-  'COUPLE_HUB_PART_BACKGROUND',
-  'COUPLE_HUB_PART_PHOTOS',
-  'COUPLE_HUB_PART_STYLE',
-  'COUPLE_HUB_PART_MOTION',
-  'COUPLE_HUB_PART_LOGO_QR',
-  'COUPLE_HUB_PART_MUSIC',
-  'COUPLE_HUB_PART_PRINTS',
-  'COUPLE_HUB_PART_POST_EVENT',
-  'COUPLE_HUB_PART_OWN_SCENES',
-  'COUPLE_HUB_PART_ADDRESS',
+  // COUPLE_HUB_PART_* (the eleven Event Hub Pro parts) removed 2026-10-26 — off sale (owner: "just have the upgrade
+  // event hub pro" … "no more by part as well on the website"; migration 20271290543004). 🪤 Entry and prose went
+  // together: a quoted retired row throws and drops the whole file to its stub.
   // EVENT_SUBDOMAIN removed 2026-08-11 — taken off sale (owner 2026-08-10), and
   // its prose line went with it. 🪤 THE DEACTIVATION ALONE WOULD HAVE BEEN A
   // NO-OP HERE: this list and the prose are hand-written, and only `activeRetail`
@@ -602,10 +593,9 @@ Pricing in PHP. All sales final on digital deliverables.
 - **3D Plan** — free. Walk the reception in 3D before it is real — every table and detail in place, drawn from the seat plan, the guest list and the mood board; guests walk it from their own phones and can make their own avatar.
 - **Thank You Video** — ${R('PAPIC_ADDON_THANK_YOU')}. Compiled thank-you video for all attendees.
 - **Memory lane** — free. Live photo collage with live attendance count, shown on a screen at the venue and mirrored on every guest's own phone during the celebration.
-- **Monogram Maker** — free. A bespoke monogram generated from the couple's inputs; Event Hub PRO's Logo & QR part animates it.
+- **Monogram Maker** — free. A bespoke monogram generated from the couple's inputs; Event Hub PRO animates it.
 - **Event Hub** — free. The 4-in-1 couple website (Save the Date, RSVP, on-the-day, Editorial) with unlimited RSVP.
 - **Event Hub PRO** — ${R('COUPLE_WEBSITE_PRO')}. Unlocks the Save-the-Date Cinematic Reveal across the whole site, and removes the Setnayan watermark.
-  Or part by part, each for the event and everyone on it: Reveal ${R('COUPLE_HUB_PART_REVEAL')} · Background ${R('COUPLE_HUB_PART_BACKGROUND')} · Photos ${R('COUPLE_HUB_PART_PHOTOS')} · Style ${R('COUPLE_HUB_PART_STYLE')} · Motion ${R('COUPLE_HUB_PART_MOTION')} · Logo & QR ${R('COUPLE_HUB_PART_LOGO_QR')} · Music ${R('COUPLE_HUB_PART_MUSIC')} · Prints ${R('COUPLE_HUB_PART_PRINTS')} · Post Event ${R('COUPLE_HUB_PART_POST_EVENT')} · Your own scenes ${R('COUPLE_HUB_PART_OWN_SCENES')} · Custom address ${R('COUPLE_HUB_PART_ADDRESS')}. Everything paid for parts counts toward Event Hub PRO; reaching its price unlocks everything, and only Event Hub PRO removes the watermark.
 - **Editorial authoring** — free. Arrange your own story: the order of the day, the moments worth naming, the wishes worth showing.
 - **Stories** — free. 30-second story maker for guests, rendered in the browser and downloaded to their phone.
 - **Photo Notes** — free. Guest-contributed stories and messages.

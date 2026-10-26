@@ -32,6 +32,7 @@ import { MOODBOARD_SLOT_KEYS } from './moodboard-slots';
 import { GALLERY_SLOT_KEYS, MOODBOARD_SLOT_TRADES, normalizeGalleryQuery, shapeGalleryPage, type RawGalleryRow } from './moodboard-gallery';
 import { libraryPartLabel, slotUploadVerdict, uploadableSlotsForShop } from './moodboard-gallery-upload';
 import { moodboardLibraryAccessForProfile } from './moodboard-library-access';
+import { dbAcceptedSlotKeys } from './inspiration-parts-gate.test-helper';
 import { canonicalServicesForTile } from './vendor-counts';
 import { WEDDING_TILE_LABEL, type WeddingTile } from './taxonomy';
 import { INSPIRATION_LIBRARY_HREF, INSPIRATION_LIBRARY_ROW } from './inspiration-library-entry';
@@ -61,15 +62,14 @@ const COUPLE_PARTS: { label: string; slot: string }[] = [
   ...ATTIRE.map((s) => ({ label: s.label, slot: s.slotKey })),
 ];
 
-/** The latest migration that re-lists the supplier gallery's gate — the DB's own list of slots a supplier photo may name. */
+/**
+ * The slots a supplier photo may name, as the database holds them. 🧩 Since step ② (PLAN
+ * admin_inspiration_groups_2026-10-25) that is not an IN-list any more: the trigger
+ * `moodboard_library_assets_subtype_is_a_part` admits exactly the rows of `inspiration_parts`, seeded from the
+ * consts — `dbAcceptedSlotKeys` asserts the gate really points there and returns the seeded keys.
+ */
 function galleryGateSlots(): string[] {
-  const dir = join(WEB, '..', '..', 'supabase', 'migrations');
-  const files = readdirSync(dir).filter((f) => f.endsWith('.sql')).sort();
-  const latest = files.filter((f) => /ADD CONSTRAINT moodboard_library_assets_supplier_gallery_shape/.test(readFileSync(join(dir, f), 'utf8').replace(/--.*$/gm, ''))).pop()!;
-  const body = readFileSync(join(dir, latest), 'utf8').replace(/--.*$/gm, '');
-  const at = body.indexOf('ADD CONSTRAINT moodboard_library_assets_supplier_gallery_shape');
-  const open = body.indexOf('asset_subtype IN (', at) + 'asset_subtype IN ('.length;
-  return [...body.slice(open, body.indexOf(')', open)).matchAll(/'([a-z_]+)'/g)].map((m) => m[1]!);
+  return dbAcceptedSlotKeys();
 }
 
 const shopOf = (services: string[]) => services;
@@ -102,13 +102,13 @@ test('2 · the supplier library lists every part by the couple’s name, in the 
 
   /* The couple's Studio upload bar reads the same function — no second list to drift. */
   const studio = code('app/dashboard/[eventId]/studio/mood-board/_components/mood-board-studio.tsx');
-  assert.match(studio, /const uploadOptions = palettePhotoParts\(\)/, 'the couple’s “Which part?” no longer reads palettePhotoParts');
+  assert.match(studio, /const uploadOptions = palettePhotoParts\(props\.inspirationParts\)/, 'the couple’s “Which part?” no longer reads palettePhotoParts (from the parts snapshot)');
   /* …and the supplier's dropdown is fed by `uploadableSlotsForShop`, whose order IS that list. */
   const access = code('lib/moodboard-library-access.ts');
-  assert.match(access, /uploadableSlotsForShop\(profile\.services\)/);
+  assert.match(access, /uploadableSlotsForShop\(profile\.services, parts\)/);
   const upload = code('lib/moodboard-gallery-upload.ts');
   const fn = upload.slice(upload.indexOf('export function uploadableSlotsForShop('));
-  assert.ok(fn.indexOf('libraryPhotoParts()') > 0 && fn.indexOf('libraryPhotoParts()') < fn.indexOf('GALLERY_SLOT_KEYS'), 'the couple’s parts are not listed first');
+  assert.ok(fn.indexOf('libraryPhotoParts(parts)') > 0 && fn.indexOf('libraryPhotoParts(parts)') < fn.indexOf('parts.parts'), 'the couple’s parts are not listed first');
 
   /* A shop of every trade sees every part it dresses, by the couple's name, in the couple's relative order. */
   const order = new Map(COUPLE_PARTS.map((p, i) => [p.slot, i]));

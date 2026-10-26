@@ -12,7 +12,8 @@
  * `bg-ink/40 backdrop-blur-sm`), but it is still drawn inside the page's transformed box and so sits under the bottom
  * bar, and it does not set the page behind `inert` (`inertBehind`) — so the guests' pop-ups keep `GuestPopup`.
  *
- * SABOTAGE (each seen RED, then restored): the dark removed from `GuestPopup` · the Delete warning back on `<Sheet` · a
+ * SABOTAGE (each seen RED, then restored): the dark removed from `GuestPopup` · (2026-10-25) the old transparent close
+ * button + separate dark span put back · the Delete warning back on `<Sheet` · a
  * pop-up mounted without its open condition · a hand-made `bg-ink/40` layer back in quick add · quick add's own Escape /
  * scroll lock back.
  */
@@ -40,12 +41,16 @@ const USES: Array<[string, RegExp]> = [
 
 test('GuestPopup carries the whole rule: dark + blur, a tap on the dark closes, nothing behind works, on <body>', () => {
   assert.match(POPUP, /usePopupBehind\(\{ root, panel, onClose \}\);/, 'nothing behind is made inert, no scroll lock, no Escape/Tab');
-  assert.match(POPUP, /<span aria-hidden className=\{POPUP_DARK\} \/>/, 'no .sn-popup-dark behind the panel');
-  assert.match(POPUP, /<button type="button" aria-label="Close" onClick=\{onClose\} className=\{POPUP_SCRIM\} \/>/, 'a tap on the dark does not close it');
+  /* 2026-10-25 (owner, iPhone: "I cannot tap out the screen"): THE DARK IS THE CLOSE BUTTON — one layer, the app's one
+     backdrop. A transparent close button under a separate dark span was made `inert` by the page lock
+     (`isolateOverlay`) and a tap on the dark closed nothing. */
+  assert.match(POPUP, /<OverlayBackdrop onClose=\{onClose\} \/>/, 'the dark is not the close button — a tap on the dark closes nothing');
+  assert.match(POPUP, /from '@\/app\/_components\/overlay-backdrop'/);
+  assert.doesNotMatch(POPUP, /pointer-events-none|POPUP_DARK|POPUP_SCRIM|aria-label="Close"/, 'a separate dark, or a separate close layer, is back beside the panel');
   assert.match(POPUP, /role="dialog"\s*aria-modal="true"/, 'the panel is not a modal dialog');
   assert.match(POPUP, /createPortal\([\s\S]*document\.body,?\s*\)/, 'it is not drawn on <body>');
-  /* The dark is under the panel and over the scrim: scrim, dark, then panel, in that order. */
-  assert.ok(POPUP.indexOf('className={POPUP_SCRIM}') < POPUP.indexOf('className={POPUP_DARK}') && POPUP.indexOf('className={POPUP_DARK}') < POPUP.indexOf('role="dialog"'), 'the layers are out of order');
+  /* The dark (the close button) is under the panel: backdrop first, then the panel. */
+  assert.ok(POPUP.indexOf('<OverlayBackdrop') > 0 && POPUP.indexOf('<OverlayBackdrop') < POPUP.indexOf('role="dialog"'), 'the panel is drawn under the dark');
   assert.doesNotMatch(POPUP, /backdrop-blur|bg-ink\/|useToast/, 'GuestPopup writes a dark of its own');
 });
 

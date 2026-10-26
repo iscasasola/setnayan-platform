@@ -66,7 +66,35 @@ export const PASS_CARD_WORDS = {
   style: 'Ticket style',
   digital: 'Digital ticket (PNG)',
   print: 'Printed ticket (PDF)',
+  /**
+   * 🍎 The Apple Wallet pass (lib/wallet-pass.ts). The button is Apple's own
+   * badge, unmodified (Apple's rules); this is its accessible name and the
+   * words of the plain button shown until the badge artwork is in the repo.
+   */
+  appleWallet: 'Add to Apple Wallet',
+  /** Inside Messenger on an iPhone: the Add-pass sheet does not open there. */
+  appleWalletInApp: 'Open in Safari to add to Apple Wallet',
+  /** Inside the Setnayan iOS app: the ticket opens in the app's browser sheet, where Wallet's Add sheet works. */
+  appleWalletInAppSheet: 'Open my ticket to add to Apple Wallet',
+  /** The route could not sign a pass (owner 2026-10-25: never a broken download) — said on its own page. */
+  walletFailed: 'Couldn’t make your Wallet pass — Save my ticket instead.',
+  /**
+   * The guest's sign-in on this phone ended before "Add to Apple Wallet" (the route's no-session case) — the SAME words
+   * "Save my ticket" says in that case (owner 2026-10-25, #6910 `PASS_REENTRY_WORDS`): one way back in, nothing bare.
+   */
+  walletSignedOut: 'Your sign-in on this phone ended.',
+  walletGetBackIn: 'Get back in',
+  walletGetBackInWhy: 'Nothing you sent is lost. Open your invitation again with your QR or by signing in, then save your ticket.',
+  /** Me, from 00:00 Manila on the date (Phase A has no pushes). */
+  walletTableToday: 'Your table is on your ticket now — tap Add to Apple Wallet again to put it on your pass.',
+  /** The back of the pass. */
+  walletAtTheDoor: 'Show this at the door.',
+  walletTableLater: 'Your table appears here on the event day.',
+  walletRemove: 'Tap ··· on this pass, then Remove Pass.',
 } as const;
+
+/** Where a guest's OWN Apple Wallet pass is fetched (no query — never someone else's). */
+export const APPLE_WALLET_ROUTE = '/api/guest/wallet/apple';
 
 /** The three looks, as the couple reads them in the one dropdown. */
 export const PASS_CARD_DESIGN_LABEL: Record<PassCardDesignKey, string> = {

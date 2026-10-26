@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "a612993d81",
-  "routeCount": 470,
-  "destinations": 1009,
-  "actions": 665,
-  "blocks": 7049,
+  "generatedFromRef": "79c151726e",
+  "routeCount": 474,
+  "destinations": 1014,
+  "actions": 662,
+  "blocks": 7111,
   "routes": {
     "/": {
       "files": [
@@ -539,26 +539,55 @@
     },
     "/(shell)/pricing": {
       "files": [
-        "(shell)/pricing/_papic-estimator.tsx",
-        "(shell)/pricing/_pricing-motion.tsx",
+        "(shell)/pricing/_pricing-pickers.tsx",
+        "(shell)/pricing/_pricing-reads.ts",
         "(shell)/pricing/loading.tsx",
         "(shell)/pricing/page.tsx"
       ],
       "destinations": [
-        "/creators",
+        "/features",
         "/for-suppliers",
-        "/onboarding/wedding?from=pricing"
+        "/pricing/plan",
+        "/start"
       ],
       "actions": [],
       "blocks": [
-        "BuildStatusChip",
-        "HTMLDivElement",
-        "HTMLHeadingElement",
-        "HTMLParagraphElement",
-        "LineRevealHeading",
+        "Figure",
+        "GuestSpotlight",
+        "HubProWays",
+        "Image",
+        "IncludedGroup",
+        "InfoTip",
         "Link",
-        "PapicEstimator",
-        "RevealBand"
+        "LockTile",
+        "Moment",
+        "PickMenu",
+        "PriceRowShell",
+        "Shot",
+        "TogetherRow",
+        "WhyPoint",
+        "WhyShot"
+      ]
+    },
+    "/(shell)/pricing/plan": {
+      "files": [
+        "(shell)/pricing/plan/_plan-quiz.tsx",
+        "(shell)/pricing/plan/_plan-steps.ts",
+        "(shell)/pricing/plan/page.tsx"
+      ],
+      "destinations": [
+        "/pricing",
+        "/start"
+      ],
+      "actions": [],
+      "blocks": [
+        "InfoTip",
+        "Link",
+        "PickMenu",
+        "PlanQuiz",
+        "PlanState",
+        "Question",
+        "Result"
       ]
     },
     "/(shell)/privacy": {
@@ -687,6 +716,19 @@
         "SpotlightSection"
       ]
     },
+    "/(shell)/start": {
+      "files": [
+        "(shell)/start/_components/start-type-grid.tsx",
+        "(shell)/start/loading.tsx",
+        "(shell)/start/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "EventTypePhotoPicker",
+        "StartTypeGrid"
+      ]
+    },
     "/(shell)/suppliers/(index)": {
       "files": [
         "(shell)/suppliers/(index)/loading.tsx",
@@ -802,6 +844,8 @@
         "[slug]/_components/announcement-look.tsx",
         "[slug]/_components/announcement-styles.tsx",
         "[slug]/_components/apple-on-touch.tsx",
+        "[slug]/_components/apple-wallet-button.tsx",
+        "[slug]/_components/apple-wallet-sheet-link.tsx",
         "[slug]/_components/arrival-action.tsx",
         "[slug]/_components/arrival-greeting.tsx",
         "[slug]/_components/art-kit-motion.tsx",
@@ -927,8 +971,10 @@
         "[slug]/_components/photos-of-you-gallery.tsx",
         "[slug]/_components/photos-of-you-styles.tsx",
         "[slug]/_components/play-sequence.ts",
+        "[slug]/_components/plus-one-seat-list.tsx",
         "[slug]/_components/preview-way-back.tsx",
         "[slug]/_components/private-landing.tsx",
+        "[slug]/_components/provider-button.tsx",
         "[slug]/_components/provider-stall.tsx",
         "[slug]/_components/public-event-day-bar.tsx",
         "[slug]/_components/public-hideable-widget.tsx",
@@ -959,10 +1005,12 @@
         "[slug]/_components/rsvp-canvas-parts.ts",
         "[slug]/_components/rsvp-lines.tsx",
         "[slug]/_components/rsvp-look-style.tsx",
+        "[slug]/_components/rsvp-name-correction.tsx",
         "[slug]/_components/rsvp-note-lines.tsx",
         "[slug]/_components/rsvp-one-at-a-time.tsx",
         "[slug]/_components/rsvp-plus-ones.tsx",
         "[slug]/_components/rsvp-question-class.ts",
+        "[slug]/_components/rsvp-seats.tsx",
         "[slug]/_components/rsvp-sheet-state.ts",
         "[slug]/_components/rsvp-sheet.tsx",
         "[slug]/_components/rsvp-styles.tsx",
@@ -1019,6 +1067,7 @@
         "[slug]/_components/supplier-ribbon.tsx",
         "[slug]/_components/tea-ceremony-card.tsx",
         "[slug]/_components/terms-tick.tsx",
+        "[slug]/_components/tick-box.tsx",
         "[slug]/_components/ticket-picture.tsx",
         "[slug]/_components/ticket-popup.tsx",
         "[slug]/_components/ticket-row.tsx",
@@ -1122,6 +1171,7 @@
       ],
       "actions": [
         "action",
+        "arrivalAction",
         "joinAction",
         "toggle",
         "toggleBlur",
@@ -1137,7 +1187,10 @@
         "AnnouncementLine",
         "AnnouncementLook",
         "AnnouncementNotice",
+        "AppleIcon",
         "AppleOnTouch",
+        "AppleWalletButton",
+        "AppleWalletSheetLink",
         "ArrangedSheet",
         "ArrivalActionRow",
         "ArrivalGreeting",
@@ -1258,6 +1311,7 @@
         "GiftPageContent",
         "GlimpseRail",
         "GlowBlob",
+        "GoogleGIcon",
         "GracefulFallback",
         "GrainFrame",
         "GroupHeading",
@@ -1286,6 +1340,7 @@
         "HTMLAudioElement",
         "HTMLButtonElement",
         "HTMLCanvasElement",
+        "HTMLDialogElement",
         "HTMLDivElement",
         "HTMLElement",
         "HTMLFormElement",
@@ -1307,6 +1362,7 @@
         "HeroPhoto",
         "HideableWidgetRender",
         "HostDraftLook",
+        "HostSavePreview",
         "HubAutoRun",
         "HubCanvasFrame",
         "HubCoverHold",
@@ -1328,6 +1384,7 @@
         "InvitationFacts",
         "InvitationShell",
         "InvitationSkeleton",
+        "KeepTicketArt",
         "Keyed",
         "KitClosing",
         "KitPiece",
@@ -1434,9 +1491,9 @@
         "PhotosOfYouGallery",
         "PhotosOfYouLead",
         "PhotosOfYouPolaroids",
-        "PickMenu",
         "PinnedMap",
         "PlusOneSeatPanels",
+        "PlusOneSeatRow",
         "Portrait",
         "PostEventSceneFrame",
         "PreviewPerson",
@@ -1445,6 +1502,7 @@
         "PreviousEdition",
         "PrivateLanding",
         "ProgressRing",
+        "ProviderButton",
         "ProviderStall",
         "PublicEventDayBar",
         "PublicHideableWidget",
@@ -1489,11 +1547,13 @@
         "RsvpFocusForm",
         "RsvpLines",
         "RsvpLookStyle",
+        "RsvpNameCorrection",
         "RsvpOneAtATime",
         "RsvpOneAtATimeLive",
         "RsvpPill",
         "RsvpPlusOnes",
         "RsvpQuestionHeader",
+        "RsvpSeats",
         "RsvpSheet",
         "RsvpStatus",
         "RsvpStepNext",
@@ -1510,6 +1570,7 @@
         "Said",
         "SampleViewerInert",
         "SaveAvatarResult",
+        "SaveOfferHead",
         "SavePassCardButton",
         "SavePhotoButton",
         "SaveStoryCardButton",
@@ -1530,6 +1591,7 @@
         "SeatFloorPlan",
         "SeatPlaceCard",
         "SeatTableNumber",
+        "SeatTile",
         "SeatingScene",
         "SectionEmptyPlate",
         "SectionRule",
@@ -1597,6 +1659,7 @@
         "TermsTick",
         "ThankYouScene",
         "TheirSong",
+        "TickBox",
         "TicketPicture",
         "TicketRow",
         "TicketShow",
@@ -1828,6 +1891,7 @@
       ],
       "actions": [],
       "blocks": [
+        "AppleWalletButton",
         "ArrivalLoading",
         "DoorNotice",
         "DoorShell",
@@ -1840,6 +1904,7 @@
         "Link",
         "LinkPreviewAnswer",
         "PassHopHeld",
+        "PlusOneSeatList",
         "ReplyWindowNote",
         "RsvpCanvasBridge",
         "RsvpLookStyle",
@@ -2268,6 +2333,7 @@
         "Screen",
         "Sk",
         "Suspense",
+        "TermsReacceptSheet",
         "Tile",
         "UnreadBellBadge",
         "WhatYouChange"
@@ -5160,18 +5226,15 @@
         "/dashboard",
         "/dashboard/notifications"
       ],
-      "actions": [
-        "markAllNotificationsRead"
-      ],
+      "actions": [],
       "blocks": [
         "Link",
         "LoadingNarration",
+        "NotificationsHead",
         "NotificationsList",
-        "PageMasthead",
         "Screen",
         "Sk",
-        "SkLine",
-        "SubmitButton"
+        "SkLine"
       ]
     },
     "/dashboard/(account)/people": {
@@ -5230,18 +5293,23 @@
         "DependentsSection",
         "Drawer",
         "FindField",
+        "FindNotes",
         "FindResults",
         "FollowListView",
         "FollowRowItem",
         "FoundPersonCard",
         "Frame",
+        "GroupsFoldList",
+        "GroupsFoldSection",
         "GuestConfirmActions",
         "GuestPopup",
         "HTMLButtonElement",
         "HTMLDivElement",
         "HTMLInputElement",
         "Icon",
-        "InviteAction",
+        "InfoTip",
+        "InviteCard",
+        "InviteSheet",
         "LabelCell",
         "LabelResult",
         "Layer",
@@ -5256,6 +5324,7 @@
         "Person",
         "PersonAvatar",
         "PersonCard",
+        "PersonNameLink",
         "PersonRow",
         "PickMenu",
         "PlanTogether",
@@ -5393,11 +5462,14 @@
     },
     "/dashboard/(account)/samahan/[communityId]": {
       "files": [
+        "dashboard/(account)/samahan/[communityId]/_components/group-home.tsx",
+        "dashboard/(account)/samahan/[communityId]/_components/member-actions-menu.tsx",
         "dashboard/(account)/samahan/[communityId]/_components/samahan-identity-header.tsx",
         "dashboard/(account)/samahan/[communityId]/_components/samahan-stories.tsx",
         "dashboard/(account)/samahan/[communityId]/page.tsx"
       ],
       "destinations": [
+        "/dashboard/people",
         "/dashboard/samahan"
       ],
       "actions": [
@@ -5414,16 +5486,21 @@
         "Blob",
         "CopyButton",
         "EventsTab",
+        "GroupEventRow",
+        "GroupHome",
+        "GroupSectionHead",
         "HTMLDivElement",
         "HTMLFormElement",
         "HTMLInputElement",
         "HTMLVideoElement",
+        "InfoTip",
         "Link",
         "MediaRecorder",
         "MediaStream",
+        "MemberActionsMenu",
         "MembersTab",
         "OverlayBackdrop",
-        "OverviewTab",
+        "PickMenu",
         "SamahanIdentityHeader",
         "SamahanStories",
         "SubmitButton",
@@ -5632,7 +5709,6 @@
         "dashboard/[eventId]/_components/nikah-imam.ts",
         "dashboard/[eventId]/_components/not-shared-with-you.tsx",
         "dashboard/[eventId]/_components/overview-inspector-body.tsx",
-        "dashboard/[eventId]/_components/papic-card-strip.tsx",
         "dashboard/[eventId]/_components/papic-home-card.tsx",
         "dashboard/[eventId]/_components/papic-ready-nudge.tsx",
         "dashboard/[eventId]/_components/payment-plan-rows.tsx",
@@ -5651,6 +5727,7 @@
         "dashboard/[eventId]/_components/vendor-itemization-card.tsx",
         "dashboard/[eventId]/_components/vendor-marketplace-info.tsx",
         "dashboard/[eventId]/_components/venue-pin-part.tsx",
+        "dashboard/[eventId]/_components/view-only-line.tsx",
         "dashboard/[eventId]/actions.ts",
         "dashboard/[eventId]/archive-actions.ts",
         "dashboard/[eventId]/checklist-actions.ts",
@@ -5910,8 +5987,6 @@
         "PaidServiceRow",
         "PapicBuySheet",
         "PapicCameraSettings",
-        "PapicCardStrip",
-        "PapicCardStripView",
         "PapicHomeCard",
         "PapicReadyNudge",
         "PapicSeePhotos",
@@ -5999,6 +6074,7 @@
         "VendorDirectPay",
         "VendorLogo",
         "VendorProgress",
+        "ViewOnlyLine",
         "VoucherBlock",
         "Watermark",
         "WhatsHappeningCard",
@@ -6580,8 +6656,6 @@
         "/dashboard/profile"
       ],
       "actions": [
-        "addRound",
-        "null",
         "partnerLinkAction",
         "release",
         "releaseAction",
@@ -6677,6 +6751,7 @@
         "HTMLTextAreaElement",
         "Handed",
         "Icon",
+        "InfoTip",
         "InlineResult",
         "InspectorColumn",
         "InspectorLayout",
@@ -6763,6 +6838,7 @@
         "TitlePicker",
         "TitlesWaiting",
         "TypedRow",
+        "TypedWays",
         "UndoToastHost",
         "ViewReport",
         "Words"
@@ -7480,8 +7556,6 @@
         "Meta",
         "MiniTour",
         "MonthPick",
-        "MoodBoardMakerBody",
-        "MoodBoardMakerControls",
         "MoodBoardPieces",
         "MoodBoardStudioBody",
         "MoreSheet",
@@ -7612,7 +7686,6 @@
         "SheetSections",
         "ShopPinNote",
         "Shown",
-        "ShutDoor",
         "SiteStage",
         "Sk",
         "SkLine",
@@ -7800,11 +7873,13 @@
         "AddToLibrary",
         "DriveCopyCard",
         "EventMemoriesGallery",
+        "IapPapicSheet",
         "InfoTip",
         "InlineCheckoutDrawer",
         "ListPageSkeleton",
         "LiveWallCard",
         "MemoriesSettings",
+        "PapicBuySheet",
         "PoolGalleryCard",
         "ServiceParts",
         "Spotlight",
@@ -8876,8 +8951,6 @@
         "MoodBoardEditor",
         "MoodBoardSaveNotice",
         "MoodBoardStudio",
-        "MoodPart",
-        "MoodPartNote",
         "MoodboardBoard",
         "MoodboardMoodTag",
         "MoodboardStyleFamily",
@@ -9128,6 +9201,7 @@
         "dashboard/[eventId]/studio/papic/_components/source-row.tsx",
         "dashboard/[eventId]/studio/papic/_components/supplier-way-in-row.tsx",
         "dashboard/[eventId]/studio/papic/_components/uploads-open-choice.tsx",
+        "dashboard/[eventId]/studio/papic/_lib/upload-credits.ts",
         "dashboard/[eventId]/studio/papic/actions.ts",
         "dashboard/[eventId]/studio/papic/couple-challenges-manager.tsx",
         "dashboard/[eventId]/studio/papic/face-tagging-actions.ts",
@@ -9219,7 +9293,6 @@
         "PapicBuyForm",
         "PapicBuySheet",
         "PapicCameraSettings",
-        "PapicCardStrip",
         "PapicHomeCard",
         "PapicLightbox",
         "PapicSeePhotos",
@@ -9249,8 +9322,8 @@
         "StylePicker",
         "SubmitButton",
         "SupplierWayInRow",
-        "Suspense",
         "SwitchTrack",
+        "UploadPot",
         "VendorChallengesApproval",
         "WallTileLayout"
       ]
@@ -9697,6 +9770,7 @@
         "dashboard/[eventId]/vendors/_components/cancel-booking-button.tsx",
         "dashboard/[eventId]/vendors/_components/category-search-overlay.tsx",
         "dashboard/[eventId]/vendors/_components/contact-shortlist-vendor-button.tsx",
+        "dashboard/[eventId]/vendors/_components/cover-ring.tsx",
         "dashboard/[eventId]/vendors/_components/date-place-line.tsx",
         "dashboard/[eventId]/vendors/_components/fact-line.tsx",
         "dashboard/[eventId]/vendors/_components/fact-sheets.tsx",
@@ -9814,7 +9888,13 @@
         "ContactShortlistVendorButton",
         "ContactShortlistVendorResult",
         "Count",
+        "CoverBar",
         "CoverCatalogRead",
+        "CoverCount",
+        "CoverRing",
+        "CoverRingContext.Provider",
+        "CoverRingProvider",
+        "Ctx",
         "DateBody",
         "DateClashNote",
         "DatePlaceLine",
@@ -10262,7 +10342,6 @@
         "dashboard/[eventId]/website/editor/_components/motion-fx-rows.tsx",
         "dashboard/[eventId]/website/editor/_components/music-button-row.tsx",
         "dashboard/[eventId]/website/editor/_components/our-music.tsx",
-        "dashboard/[eventId]/website/editor/_components/page-pick.tsx",
         "dashboard/[eventId]/website/editor/_components/palette-look-row.tsx",
         "dashboard/[eventId]/website/editor/_components/part-inspector.tsx",
         "dashboard/[eventId]/website/editor/_components/pick-menu-place.ts",
@@ -10888,12 +10967,14 @@
       "destinations": [],
       "actions": [],
       "blocks": [
+        "AddToLibrary",
         "Cards",
         "EventMemoriesGallery",
         "EventRailContext",
         "FrontDoorShell",
         "LabBar",
         "Link",
+        "PapicBuySheet",
         "VendorRailContext"
       ]
     },
@@ -11049,6 +11130,18 @@
         "UploadOutcome"
       ]
     },
+    "/dev/group-lab": {
+      "files": [
+        "dev/group-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "AccountBottomNav",
+        "GroupHome",
+        "SamahanIdentityHeader"
+      ]
+    },
     "/dev/guests-lab": {
       "files": [
         "dev/guests-lab/lab-guest-actions.tsx",
@@ -11124,7 +11217,6 @@
         "LabSpotlight",
         "PapicBuySheet",
         "PapicCameraSettings",
-        "PapicCardStripView",
         "PapicSwitch",
         "PapicTopBand",
         "ProLockPanel",
@@ -11201,6 +11293,7 @@
       "destinations": [],
       "actions": [],
       "blocks": [
+        "AppleWalletButton",
         "ClosingLine",
         "CountdownWidget",
         "CoverPlayOpening",
@@ -11242,6 +11335,7 @@
         "PahinaMasthead",
         "PahinaMotionObserver",
         "PahinaMotionRootFlag",
+        "PlusOneSeatList",
         "ReplyCardRow",
         "ReplyPanel",
         "ReplyWindowNote",
@@ -11280,13 +11374,15 @@
         "dev/me-lab/host-views-guest-lab.tsx",
         "dev/me-lab/lab-people.ts",
         "dev/me-lab/me-stage-lab.tsx",
-        "dev/me-lab/page.tsx"
+        "dev/me-lab/page.tsx",
+        "dev/me-lab/save-offer-lab.tsx"
       ],
       "destinations": [
         "/"
       ],
       "actions": [],
       "blocks": [
+        "AppleWalletButton",
         "ConnectHostsLab",
         "ConnectHostsTick",
         "DoorActions",
@@ -11300,10 +11396,15 @@
         "LabHostRequests",
         "Link",
         "MeFor",
+        "MeKeepInvitation",
         "MeStageLab",
         "PeopleRosterView",
+        "SaveOfferLab",
+        "SavePassCardButton",
+        "SaveToAccount",
         "ScanTrailForm",
-        "SubmitButton"
+        "SubmitButton",
+        "TicketPicture"
       ]
     },
     "/dev/memories-lab": {
@@ -11317,6 +11418,21 @@
         "LabPageSpotlight",
         "MemoriesChapters",
         "MemoriesThumb"
+      ]
+    },
+    "/dev/notifications-lab": {
+      "files": [
+        "dev/notifications-lab/page.tsx"
+      ],
+      "destinations": [
+        "/dev/notifications-lab"
+      ],
+      "actions": [],
+      "blocks": [
+        "LabShell",
+        "Link",
+        "NotificationsHead",
+        "NotificationsList"
       ]
     },
     "/dev/onboarding-lab": {
@@ -11357,6 +11473,7 @@
         "AccountBottomNav",
         "FollowListView",
         "FoundPersonCard",
+        "GroupsFoldList",
         "LabTour",
         "PeopleRosterView",
         "RosterPerson",
@@ -13346,6 +13463,7 @@
         "Suspense",
         "SyncResult",
         "TapMark",
+        "TermsReacceptSheet",
         "ThumbFit",
         "TodayEyebrow",
         "TodayFigure",
@@ -14275,7 +14393,6 @@
         "Image",
         "Link",
         "PalettePreview",
-        "PhotoPartGroup",
         "PickMenu",
         "RejectionNotice",
         "ShopNotice",
@@ -14303,17 +14420,15 @@
         "/vendor-dashboard/notifications",
         "/vendor-dashboard/settings"
       ],
-      "actions": [
-        "markAllNotificationsRead"
-      ],
+      "actions": [],
       "blocks": [
         "ArrayBuffer",
         "DatesRow",
         "ListPageSkeleton",
+        "NotificationsHead",
         "NotificationsList",
         "NotificationsView",
         "PermissionState",
-        "SupplierSubmit",
         "UnblockGuide"
       ]
     },

@@ -1,6 +1,6 @@
 /**
  * lib/maker-parts.ts — 🧩 THE PARTS OF EVERY GUEST PAGE, AND WHERE EACH ONE IS
- * EDITED (the new Maker's Stages side, behind `makerStagesStudioEnabled`).
+ * EDITED (the new Maker's Stages side, behind `stagesStudio`, the one Maker since 2026-10-25).
  *
  * Owner, 2026-10-06, verbatim: *"swiping will proceed to the next element. with
  * the different tools Style | Text | Animate · Style are the presets, background ·

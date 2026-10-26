@@ -7,6 +7,7 @@ import {
   GUEST_GROUP_TEAM_SIDES,
   type GuestGroupTeamSide,
 } from '@/lib/guests';
+import { limitedHelperRefusal } from '@/lib/host-gate';
 
 /**
  * Mind-map inline-add actions (redesign Phase 2). Result-returning (no
@@ -26,6 +27,8 @@ export async function mapAddGroup(
   rawLabel: string,
   rawTeamSide: string,
 ): Promise<MapActionResult> {
+  const helperRefusal = await limitedHelperRefusal(eventId, 'guest_list');
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   const label = rawLabel.trim().slice(0, 60);
   const teamSide = (
     GUEST_GROUP_TEAM_SIDES.includes(rawTeamSide as GuestGroupTeamSide)

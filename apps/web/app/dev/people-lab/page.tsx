@@ -22,6 +22,7 @@ import { AccountBottomNav } from '@/app/dashboard/(launcher)/_components/account
 import { PeopleRosterView } from '@/app/dashboard/(account)/people/_components/people-roster-view';
 import { FollowListView } from '@/app/dashboard/(account)/people/_components/follow-list-view';
 import { FoundPersonCard } from '@/app/dashboard/(account)/people/_components/found-person-card';
+import { GroupsFoldList, type GroupsFoldRow } from '@/app/dashboard/(account)/people/_components/samahan-people-section';
 import type { PeopleRoster, RosterPerson } from '@/lib/people-roster';
 import { peopleViewOptions, type PeopleView } from '@/lib/people-views';
 import { TOURS } from '@/lib/tours';
@@ -44,11 +45,30 @@ const person = (p: Partial<RosterPerson> & Pick<RosterPerson, 'key' | 'name'>): 
 });
 
 const PEOPLE: RosterPerson[] = [
-  person({ key: 'tb', name: 'Tita Baby', state: 'waiting_you', canLabel: false, storedRelation: 'godchild', fromEvent: { name: 'Cale & Ice', type: 'wedding' } }),
+  person({ key: 'tb', name: 'Tita Baby', state: 'waiting_you', canLabel: false, storedRelation: 'godchild', fromEvent: { name: 'Cale & Ice', type: 'wedding' }, publicId: 'S89U-LABTIT0001' }),
   person({ key: 'ar', name: 'Ana Reyes', relation: 'parent', samahan: ['Sison family'], publicId: 'S89U-LABANA0001' }),
-  person({ key: 'bl', name: 'Bianca Lim', relation: 'friend', samahan: ['Barkada'] }),
+  person({ key: 'bl', name: 'Bianca Lim', relation: 'friend', samahan: ['Barkada'], publicId: 'S89U-LABBIA0001', slug: 'bianca-lim' }),
+  // No account handle → the row stays as it was (the card opens), the one plain-text case.
   person({ key: 'mt', name: 'Marco Testing', samahan: ['Barkada'] }),
-  person({ key: 'pm', name: 'Paolo Mendoza', state: 'waiting_them' }),
+  person({ key: 'es', name: 'Elise Santos', publicId: 'S89U-LABELI0001' }),
+  person({ key: 'pm', name: 'Paolo Mendoza', state: 'waiting_them', relation: 'partner', publicId: 'S89U-LABPAO0001' }),
+];
+
+/** The Groups section's rows — the same two groups `mySamahan` names below. */
+const GROUPS: GroupsFoldRow[] = [
+  { communityId: 'lab-sam-1', name: 'Barkada', role: 'organizer', memberCount: 12 },
+  { communityId: 'lab-sam-2', name: 'Sison family', role: 'member', memberCount: 8 },
+];
+
+/** The note an unmarried account's card carries (`spouseAbsenceNote`, lib/people-add.ts) — the owner's sheet had it. */
+const SPOUSE_NOTE =
+  'Getting married on Setnayan? Your spouse can be added once the wedding day has passed — or set “Married” on your profile to add them now.';
+
+/** ?view=following|followers — a connected friend with a slug, one without (linked by S89U-…), a host you follow. */
+const FOLLOWS = [
+  { publicId: 'S89U-LABBIA0001', slug: 'bianca-lim', name: 'Bianca Lim', photoUrl: null, publicProfile: false, connected: true, mutual: true, since: '2026-09-12T00:00:00Z' },
+  { publicId: 'S89U-LABANA0001', slug: null, name: 'Ana Reyes', photoUrl: null, publicProfile: false, connected: true, mutual: true, since: '2026-08-02T00:00:00Z' },
+  { publicId: 'S89U-LABHOS0001', slug: null, name: 'Mika Santos', photoUrl: null, publicProfile: true, connected: false, mutual: false, since: '2026-10-01T00:00:00Z' },
 ];
 
 function roster(kind: 'full' | 'empty' | 'fail'): PeopleRoster {
@@ -60,11 +80,11 @@ function roster(kind: 'full' | 'empty' | 'fail'): PeopleRoster {
     connectionsUnavailable: kind === 'fail',
     counts: {
       all: people.length,
-      connected: kind === 'full' ? 3 : 0,
+      connected: kind === 'full' ? 4 : 0,
       waitingThem: kind === 'full' ? 1 : 0,
       waitingYou: kind === 'full' ? 1 : 0,
       labelAsksForYou: 0,
-      unlabelled: kind === 'full' ? 1 : 0,
+      unlabelled: kind === 'full' ? 2 : 0,
       alaga: kind === 'full' ? 1 : kind === 'fail' ? null : 0,
       samahan: kind === 'full' ? 2 : kind === 'fail' ? null : 0,
     },
@@ -135,12 +155,17 @@ export default async function PeopleLabPage({
         <div className="sn-page-enter">
           <div className="mx-auto w-full max-w-7xl px-4 pb-10 pt-2 sm:px-6 lg:px-8">
             {view === 'following' || view === 'followers' ? (
-              <FollowListView which={view} list={{ rows: [], unavailable: kind === 'fail' }} total={0} picker={picker} />
+              <FollowListView
+                which={view}
+                list={{ rows: kind === 'full' ? FOLLOWS : [], unavailable: kind === 'fail' }}
+                total={kind === 'full' ? FOLLOWS.length : 0}
+                picker={picker}
+              />
             ) : (
               <PeopleRosterView
                 roster={r}
                 relations={['partner', 'parent', 'child', 'sibling', 'godparent', 'godchild', 'friend']}
-                spouseNote={null}
+                spouseNote={SPOUSE_NOTE}
                 picker={picker}
                 initialFilter={view === 'requests' ? 'asking' : 'all'}
                 focus={view === 'alaga' ? 'alaga' : null}
@@ -148,6 +173,8 @@ export default async function PeopleLabPage({
                 extra={[
                   // ?noalaga=1 — an account without Loved ones (the gate off): the People tour's middle stop is skipped.
                   ...(sp.noalaga === '1' ? [] : [{ key: 'alaga' as const, label: 'Loved ones', count: r.counts.alaga, node: lovedOnes }]),
+                  // Groups — the REAL section's list (`GroupsFoldList`) on fixture rows (the reader asks the database).
+                  { key: 'groups', label: 'Groups', count: r.counts.samahan, node: <GroupsFoldList groups={kind === 'full' ? GROUPS : []} unreadable={kind === 'fail'} /> },
                   { key: 'tree', label: 'Your connection tree', count: null, folded: true, node: <TreeStandIn empty={kind !== 'full'} /> },
                 ]}
               />

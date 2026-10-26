@@ -6,6 +6,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { eraseEventFaceTaggingSelfies } from '@/lib/face-selfie-erase';
+import { refuseLimitedHelper } from '@/lib/host-gate';
 
 /**
  * The couple turns face tagging off — or back on — for their own event.
@@ -24,6 +25,7 @@ import { eraseEventFaceTaggingSelfies } from '@/lib/face-selfie-erase';
  * authorises it. Exactly the shape the livestream audience switch uses.
  */
 export async function setCoupleFaceTaggingDeclined(formData: FormData): Promise<void> {
+  await refuseLimitedHelper(formData.get('event_id'), 'photos');
   const eventId = String(formData.get('event_id') ?? '').trim();
   const declined = String(formData.get('declined') ?? '') === '1';
   const back = `/dashboard/${eventId}/studio/papic`;

@@ -91,7 +91,7 @@ test('with the flag the guided flow has no plan — the stage picker cannot draw
 
 test('every door into Event Details lands on Studio’s home, never over the Stages page', () => {
   const src = read(`${LAUNCH}/maker-shell.tsx`);
-  const at = src.indexOf("if (!ss || side !== 'stages' || selection?.kind !== 'tool' || selection.key !== 'details') return;");
+  const at = src.indexOf("if (side !== 'stages' || selection?.kind !== 'tool' || selection.key !== 'details') return;");
   assert.ok(at > 0, 'the Stages side sends a Details selection away');
   /* 🔁 AMENDED 08 Oct — owner, live: *"clicking on music reset the maker and reloaded"*. A new version had arrived
      and the page reloaded itself; this rule then treated the page's OWN reload as a door and dropped him on the

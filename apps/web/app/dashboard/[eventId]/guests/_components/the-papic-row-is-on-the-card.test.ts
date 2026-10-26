@@ -263,7 +263,7 @@ test('5 · the writer: quiet answers in place, several guests one RPC each, the 
 
 test('6 · Select → Set… ▾ gains Papic only while the event’s Papic is on — and opens the one sheet', () => {
   const screen = read('guests-screen.tsx');
-  assert.match(screen, /\.\.\.\(live\.papic === 'on' && !copy \? PAPIC_SET_OPTIONS : \[\]\),/, 'the Papic options are offered while Papic is not on');
+  assert.match(screen, /\.\.\.\(live\.papic === 'on' && !writesOff \? PAPIC_SET_OPTIONS : \[\]\),/, 'the Papic options are offered while Papic is not on');
   assert.match(screen, /if \(k\.startsWith\('papic:'\)\) return setPapicSheet\(k\.slice\(6\) as GuestCamera\);/);
   assert.match(screen, /\{papicSheet \? \(\s*<GuestPapicBulkSheet/, 'the sheet is mounted while closed');
   const page = stripComments(readFileSync(join(HERE, '..', 'page.tsx'), 'utf8'));

@@ -23,6 +23,7 @@ export function PickMenu({
   grid,
   doneNote,
   head,
+  trigger,
 }: PickMenuProps) {
   const [open, setOpen] = useState(false);
   useOneOpen(open, setOpen);
@@ -75,7 +76,6 @@ export function PickMenu({
     const onDown = (e: PointerEvent) => {
       if (!btnRef.current?.contains(e.target as Node) && !listRef.current?.contains(e.target as Node)) setOpen(false);
     };
-    // Esc peels one layer: window capture runs before useModalA11y's (a list in a sheet closes, not the sheet).
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.stopPropagation();
@@ -159,14 +159,18 @@ export function PickMenu({
         aria-controls={open ? listId : undefined}
         {...(dataAttr ? { [dataAttr]: '' } : {})}
         onClick={() => setOpen((o) => !o)}
-        className={`${pickButtonClass(compact)} ${className}`}
+        className={trigger ? className : `${pickButtonClass(compact)} ${className}`}
       >
-        {current?.dot ? <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-terracotta" /> : null}
-        {current?.icon ? <span aria-hidden className="inline-flex shrink-0">{current.icon}</span> : null}
-        <span className="min-w-0 truncate" style={current?.fontFamily ? { fontFamily: current.fontFamily } : undefined}>
-          {buttonText ?? current?.label ?? label}
-        </span>
-        <ChevronDown aria-hidden className={pickArrowClass(open)} strokeWidth={2} />
+        {trigger ?? (
+          <>
+            {current?.dot ? <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-terracotta" /> : null}
+            {current?.icon ? <span aria-hidden className="inline-flex shrink-0">{current.icon}</span> : null}
+            <span className="min-w-0 truncate" style={current?.fontFamily ? { fontFamily: current.fontFamily } : undefined}>
+              {buttonText ?? current?.label ?? label}
+            </span>
+            <ChevronDown aria-hidden className={pickArrowClass(open)} strokeWidth={2} />
+          </>
+        )}
       </button>
       {open && at && !asSheet
         ? createPortal(

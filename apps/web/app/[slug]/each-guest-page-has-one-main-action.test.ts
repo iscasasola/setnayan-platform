@@ -117,9 +117,15 @@ test('Me · the name once, no second sign-out, ONE Save to my account, ONE main 
   );
   assert.equal((html.match(/Ana Reyes/g) ?? []).length, 1, 'the guest’s name is said twice');
   assert.doesNotMatch(html, /\/sign-out"/, 'Me carries a second sign-out ("Not you? Switch") again');
-  assert.equal((html.match(/>Save to my account</g) ?? []).length, 1, '"Save to my account" is not drawn exactly once');
+  // 🔁 2026-10-25: GuestMe draws NO save of its own any more on a page that passes it none — Me's ONE offer is
+  // `MeKeepInvitation`, placed by page.tsx (`me-offers-save-first.test.ts`). Rendered here with an account, the shipped
+  // offer is still exactly one (option A's head, once).
+  assert.equal((html.match(/data-save-heading=""/g) ?? []).length, 1, 'the save offer is not drawn exactly once');
   assert.equal((html.match(/Send their invite/g) ?? []).length, 1, 'one plus-one, one "Send their invite"');
-  assert.equal(primaries(html).length, 1, `Me has ${primaries(html).length} main actions`);
+  // 🍏🤖 2026-10-25 ("Show both"): the Save press is the login's own provider button (white, the brand mark — Apple's
+  // and Google's button guidelines), not a terracotta primary. With one provider on, it is still ONE main action.
+  const mainActions = primaries(html).length + (html.match(/data-save-provider="/g) ?? []).length;
+  assert.equal(mainActions, 1, `Me has ${mainActions} main actions`);
   assert.doesNotMatch(html, /Each name gets their own/, 'the grey line explaining the plus-ones is back');
 });
 
@@ -157,8 +163,9 @@ test('Landing · after the reply ONE main action, and nothing that Me already ho
   // no other main action: "Open the invitation" is the soft pill.
   const rest = body.slice(body.indexOf('data-landing="how"'));
   assert.doesNotMatch(rest, /button-primary|variant="primary"/, 'a second main action under the ticket');
-  // Save comes back only to finish a Terms refusal.
-  assert.match(body, /search\.keep === 'terms' \? \(\s*<SaveToAccount/);
+  // 🔁 2026-10-25: the ONE save widget sits with the ticket's keep actions (its buttons are the brands' own, never a
+  // house primary — counted above) and still finishes a Terms refusal.
+  assert.match(enter, /const saveNode = saveShows \? \(\s*<SaveToAccount/);
 });
 
 test('The 3D room · one quiet line, on The Day’s Welcome — not a card AND a row', () => {

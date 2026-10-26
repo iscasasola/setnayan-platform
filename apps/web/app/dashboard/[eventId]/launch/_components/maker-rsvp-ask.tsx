@@ -145,7 +145,7 @@ export function MakerRsvpSettings({
    */
   picked?: { tool: MakerPartTool; part: string | null; line: string | null };
   /**
-   * 🧭 STUDIO › RSVP (the new Maker, `makerStagesStudioEnabled` — owner 2026-10-06,
+   * 🧭 STUDIO › RSVP (the new Maker, `stagesStudio`, the one Maker since 2026-10-25 — owner 2026-10-06,
    * DECISION_LOG "'ASK ONE BY ONE' IS HOW THE GUEST'S RSVP ASKS"): the same
    * settings, drawn as the prototype's full-screen tool — Reply by · How guests
    * answer ▾ · Words · What the reply asks · Celebration ▾ ◆. "How guests get in"
@@ -1009,7 +1009,7 @@ function sceneWordName(key: RsvpWordKey): string {
 
 /** What an empty heading or message box says it will show. */
 function sceneWordPlaceholder(key: RsvpWordKey): string {
-  if (key === 'thanksHeading') return 'Automatic — “See you on the 18th, Ana!”';
+  if (key === 'thanksHeading') return 'Automatic — “You’re on the list.”';
   if (key === 'declineHeading') return 'Automatic — “Thank you, Ana — you’ll be missed”';
   return 'No message';
 }

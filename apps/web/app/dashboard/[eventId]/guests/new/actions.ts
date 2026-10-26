@@ -25,6 +25,7 @@ import { parseTitleKey } from '@/lib/guest-title';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 import { resolveSubmittedSide } from '@/lib/guest-side-question';
 import { HOST_NOTE_MAX } from '@/lib/guest-host-note';
+import { refuseLimitedHelper } from '@/lib/host-gate';
 
 // Iteration 0053 P2: the valid role set is per event type (resolveRoleSetForEvent).
 // The SIDE list + the "is a side meaningful here?" decision live in
@@ -72,6 +73,7 @@ function parseInvitedToBlocks(formData: FormData): InvitedToBlock[] {
 }
 
 export async function createGuest(eventId: string, formData: FormData) {
+  await refuseLimitedHelper(eventId, 'guest_list');
   const first_name = normalizeGuestName(clean(formData.get('first_name')));
   const last_name = normalizeGuestName(clean(formData.get('last_name')));
   // The three OPTIONAL parts (2026-09-14). The client island pre-fills them by

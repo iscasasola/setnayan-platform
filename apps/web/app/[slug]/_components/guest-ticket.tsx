@@ -3,6 +3,8 @@ import { PASS_ANCHOR } from '@/lib/arrival-action';
 import { LANDING_WORDS } from '@/lib/guest-landing';
 import { PASS_CARD_ROUTE, PASS_CARD_WORDS, passCardLine, type PassCardEligibility } from '@/lib/pass-card';
 import { REQUEST_WORDS } from '@/lib/request-key';
+import type { AppleWalletLink } from '@/lib/wallet-pass';
+import { AppleWalletButton } from './apple-wallet-button';
 import { GuestCodeKeepers } from './guest-code-keepers';
 import { TicketPicture } from './ticket-picture';
 
@@ -44,6 +46,8 @@ export function GuestTicket({
   src = PASS_CARD_ROUTE,
   replyHref = null,
   mark = null,
+  appleWallet = null,
+  keep = null,
 }: {
   state: PassCardEligibility;
   name: string;
@@ -68,6 +72,18 @@ export function GuestTicket({
    * (`sampleTicketSrc`, lib/simulated-guest-preview.ts). Every real guest: the default.
    */
   src?: string;
+  /**
+   * 🍎 "Add to Apple Wallet" (lib/wallet-pass.ts `appleWalletLink`) — drawn only
+   * beside a REAL ticket (`pass`), never on the pending one, the reply button or
+   * the declined line. Null for every guest the page did not offer it to.
+   */
+  appleWallet?: AppleWalletLink | null;
+  /**
+   * 🪪 KEEP IT ON EVERY PHONE — the save offer (`MeKeepInvitation`), drawn DIRECTLY UNDER Save · Wallet, as one group
+   * with the ticket's other keep actions (owner 2026-10-25, verbatim: "but we are supposed to have that with the
+   * save to wallet, correct?"). Only under a REAL ticket (`pass`); the page draws it elsewhere when there is none.
+   */
+  keep?: ReactNode;
 }) {
   if (state === 'none') return null;
   if (state === 'pass' && replyHref) {
@@ -76,6 +92,7 @@ export function GuestTicket({
         <a href={replyHref} data-me-reply="" className="button-primary flex w-full">
           {LANDING_WORDS.reply}
         </a>
+        {keep ? <div data-ticket-keep="" className="mt-8 text-left">{keep}</div> : null}
       </section>
     );
   }
@@ -126,6 +143,9 @@ export function GuestTicket({
         {pending ? REQUEST_WORDS.sentUnlocks : 'Show this at the door.'}
       </p>
       <GuestCodeKeepers invitationUrl={invitationUrl} className="mt-3" passCardHref={src} />
+      {/* 🍎 Under Save · Copy link, sized to its words and centred — a second control, never wider than the row above. */}
+      {state === 'pass' ? <AppleWalletButton link={appleWallet} className="mx-auto mt-2 w-fit" /> : null}
+      {state === 'pass' && keep ? <div data-ticket-keep="" className="mt-8 text-left">{keep}</div> : null}
     </section>
     </>
   );

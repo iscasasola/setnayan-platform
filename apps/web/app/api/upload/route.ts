@@ -22,7 +22,8 @@ import {
   isPaidCameraTier,
   papicCameraOrderPaid,
   papicCaptureCost,
-  PAPIC_CLIP_COST_MIN,
+  papicSeatCaptureSource,
+  papicClipCostFloor,
   resolvePointsGate,
   type PointsGateVerdict,
   eventUnliFreeViaUnlock,
@@ -481,10 +482,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         // This seam's stated job has always been "no URL ⇒ no orphan R2 bytes",
         // never "decide the price". It now refuses only when the camera cannot
         // afford ANY clip at all.
+        // 📤 ADDED BY HAND (the Uploads camera) = the camera price × PAPIC_UPLOAD_MULTIPLIER (owner 2026-10-26) — the
+        // source is the seat this route resolved from the token, the same answer the record step charges with.
+        const captureSource = papicSeatCaptureSource(seat.seat_index as number | null);
         const cost =
           cameraKind === 'clip'
-            ? PAPIC_CLIP_COST_MIN
-            : papicCaptureCost(cameraKind);
+            ? papicClipCostFloor(captureSource)
+            : papicCaptureCost(cameraKind, null, captureSource);
         let seatGate: PointsGateVerdict = 'allow';
         if (!unlocked) {
           try {

@@ -24,7 +24,6 @@ import { join } from 'node:path';
 import React from 'react';
 
 import { stripComments } from './strip-comments';
-import { POPUP_DARK, POPUP_SCRIM } from './use-popup-behind';
 
 (globalThis as unknown as { React: unknown }).React = React;
 {
@@ -47,10 +46,9 @@ test('(1) the two behaviours come from the app’s own pieces — every other br
   assert.match(src, /useModalA11y\(\{ open: true, onClose, containerRef: panel \}\);/, 'no scroll lock / Escape / focus trap');
   assert.doesNotMatch(src, /addEventListener|overflow|setTimeout|setInterval|querySelector/, 'a second mechanism beside the app’s two');
   assert.deepEqual([...src.matchAll(/from '([^']+)'/g)].map((m) => m[1]), ['react', './popup-behind', './use-modal-a11y']);
-  /* The dark is the ONE look and takes no tap; the button under it is the whole screen. */
-  assert.deepEqual(POPUP_DARK.split(' '), ['sn-popup-dark', 'pointer-events-none', 'absolute', 'inset-0']);
-  for (const c of ['absolute', 'inset-0', 'h-full', 'w-full']) assert.ok(POPUP_SCRIM.split(' ').includes(c));
-  assert.doesNotMatch(POPUP_DARK + POPUP_SCRIM, /\bbg-|backdrop-/, 'a backdrop colour or blur of its own');
+  /* 2026-10-25: no second dark/scrim pair is exported any more — a pop-up that draws its own panel draws `<OverlayBackdrop>`
+     (the dark IS the close button). The pair's transparent button was made inert by the page lock. */
+  assert.doesNotMatch(src, /export const POPUP_(?:DARK|SCRIM)\b/, 'the separate dark + close-layer pair is back');
 });
 
 test('(2) the colour sheet outside the Maker’s sheet: one button under the dark closes it, the dark takes no tap, a modal dialog no taller than the screen', async () => {
@@ -58,19 +56,20 @@ test('(2) the colour sheet outside the Maker’s sheet: one button under the dar
   const { StudioPopup } = await import(`../${D}/studio/mood-board/_components/colour-picker-sheet`);
   const html = renderToStaticMarkup(React.createElement(StudioPopup, { label: 'Colour', onClose: () => {} }, React.createElement('p', null, 'swatches')));
   assert.match(html, /^<div class="fixed inset-0 z-\[95\] [^"]*" data-studio-sheet="">/);
-  /* In order: the close button (the whole screen), the dark over it (no tap), the panel over both. */
+  /* In order: the dark — which IS the close button (the whole screen, kept live by the page lock) — then the panel over it. */
   assert.match(
     html,
-    /<button type="button" aria-label="Close" data-studio-sheet-scrim="" class="absolute inset-0 h-full w-full cursor-default touch-none"><\/button><span aria-hidden="true" class="sn-popup-dark pointer-events-none absolute inset-0"><\/span><div role="dialog" aria-modal="true" aria-label="Colour" tabindex="-1" class="relative [^"]*">/,
-    'the fallback sheet is not: a close button, the one dark, a modal dialog',
+    /<button type="button" aria-label="Close" data-overlay-backdrop="" class="sn-popup-dark fixed inset-0 [^"]*touch-none[^"]*"><\/button><div role="dialog" aria-modal="true" aria-label="Colour" tabindex="-1" class="relative [^"]*">/,
+    'the fallback sheet is not: the one dark as the close button, then a modal dialog',
   );
+  assert.doesNotMatch(html, /pointer-events-none/, 'a dark that takes no tap is back over a separate close layer');
   assert.match(html, /max-h-\[80dvh\]/, 'the sheet can be taller than the screen');
   assert.doesNotMatch(html, /bg-ink\/\d+/, 'a hand-made wash is back');
   const src = read(`${D}/studio/mood-board/_components/colour-picker-sheet.tsx`);
   const popup = src.slice(src.indexOf('export function StudioPopup('));
   assert.match(popup, /usePopupBehind\(\{ root, panel, onClose \}\);/);
   assert.match(popup, /<div ref=\{root\} className="fixed inset-0[^"]*" data-studio-sheet="">/);
-  assert.match(popup, /<button type="button" aria-label="Close" data-studio-sheet-scrim="" onClick=\{onClose\} className=\{POPUP_SCRIM\} \/>/, 'a tap on the dark does not close it');
+  assert.match(popup, /<OverlayBackdrop onClose=\{onClose\} \/>/, 'a tap on the dark does not close it');
   assert.match(popup, /<div\s+ref=\{panel\}\s+role="dialog"\s+aria-modal="true"/);
   /* Inside the Maker on a phone it is still the Maker's one sheet; everywhere else, this one — never a third. */
   const sheet = src.slice(src.indexOf('export function StudioSheet('), src.indexOf('export function StudioPopup('));

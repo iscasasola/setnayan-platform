@@ -42,6 +42,13 @@
  */
 
 import { MOODBOARD_SLOT_KEYS, type MoodboardSlotKey } from './moodboard-slots';
+import {
+  MOODBOARD_SLOT_TRADES as SLOT_TRADES,
+  fallbackInspirationParts,
+  inspirationPart,
+  partCategories,
+  type InspirationPartsSnapshot,
+} from './inspiration-parts';
 import { GALLERY_FROM, cleanGallerySearch, isGalleryFromKey, type GalleryFromKey } from './inspiration-slots';
 import { resolveRegion } from './region-source';
 import { WEDDING_TILE_LABEL, type WeddingTile } from './taxonomy';
@@ -57,77 +64,40 @@ import { canonicalServicesForTile } from './vendor-counts';
  */
 export { SUPPLIER_GALLERY_ASSET_TYPE } from './moodboard-gallery-pure';
 
-/**
- * Which marketplace trades supply each inspiration slot.
- *
- * Ordered MOST characteristic first: the first tile a shop matches is the one
- * printed on the credit, so `flowers` leads with `florist` and `table` leads
- * with `stylist_decorator` (a stylist dresses the table; a florist supplies
- * one thing on it).
- */
-export const MOODBOARD_SLOT_TRADES: Readonly<
-  Record<MoodboardSlotKey, readonly WeddingTile[]>
-> = {
-  // ── the place ──
-  venue: ['ceremony_venue'],
-  reception_venue: ['reception'],
-  // ── what the room is dressed with ──
-  backdrop: ['stylist_decorator', 'led_wall'],
-  tunnel: ['stylist_decorator'],
-  stage: ['stylist_decorator', 'av_production', 'lights_sound'],
-  table: ['stylist_decorator', 'florist'],
-  ceiling: ['stylist_decorator', 'lights_sound'],
-  flowers: ['florist', 'stylist_decorator'],
-  cocktail: ['mobile_bar', 'mocktail', 'coffee_espresso'],
-  cake: ['cake', 'dessert'],
-  // 💐 The owner's two parts, on the taxonomy tiles they already map to (step 4c).
-  bridal_bouquet: ['florist'],
-  centrepieces: ['florist', 'stylist_decorator', 'catering'],
-  // 🎨🖼 The Palette's five parts with photos of their own (2026-10-19), on the tiles that dress them.
-  chairs: ['chairs_tents', 'stylist_decorator'],
-  ribbons_candles: ['stylist_decorator'],
-  lights: ['lights_sound', 'stylist_decorator'],
-  entourage_bouquets: ['florist'],
-  flower_accents: ['florist', 'stylist_decorator'],
-  overall: ['reception', 'stylist_decorator', 'lights_sound', 'coordinator'],
-  // 🔑 NOT A TRADE. A palette source is a photo the couple sampled colours
-  // from — a wall, a fabric, a sunset. No shop's portfolio answers it.
-  palette: [],
-  // ── what people wear. HMUA rides with `bride` because a bridal-hair photo
-  //    and a gown photo are the same picture. ──
-  bride: ['brides_attire', 'filipiniana_barongs', 'hmua'],
-  groom: ['grooms_attire', 'mens_attire', 'filipiniana_barongs'],
-  principal_sponsor: ['womens_attire', 'mens_attire', 'filipiniana_barongs'],
-  entourage: ['womens_attire', 'mens_attire', 'filipiniana_barongs'],
-  // 👗 The four attire boards (owner 2026-10-08), each on the entourage's OWN
-  // tiles and nothing invented: the women's half for the bridesmaids, the men's
-  // half for the groomsmen. 🧒 THERE IS NO CHILDREN'S-ATTIRE TILE in the taxonomy
-  // — a flower girl's dress is a service under Women's Attire
-  // (`flower_girl_dress`) and a ring bearer's suit one under Men's Attire
-  // (`ring_bearer_suit`) — so those two boards name the tile that holds theirs.
-  // `filipiniana_barongs` rides with all four (a barong or a Filipiniana is cut
-  // for a page boy and a flower girl too), as it does with the entourage.
-  bridesmaids: ['womens_attire', 'filipiniana_barongs'],
-  groomsmen: ['mens_attire', 'filipiniana_barongs'],
-  flower_girl: ['womens_attire', 'filipiniana_barongs'],
-  ring_bearer: ['mens_attire', 'filipiniana_barongs'],
-  parents: ['womens_attire', 'mens_attire', 'filipiniana_barongs'],
-  guests: ['womens_attire', 'mens_attire', 'filipiniana_barongs'],
-};
+/** The slot → trade map — the fallback seed. MOVED to lib/inspiration-parts.ts (client-safe); re-exported. */
+export { MOODBOARD_SLOT_TRADES } from './inspiration-parts';
 
-/** The trades that supply a slot — empty when no shop's portfolio answers it. */
-export function tradesForSlot(slot: string): readonly WeddingTile[] {
-  return MOODBOARD_SLOT_TRADES[slot as MoodboardSlotKey] ?? [];
+/**
+ * The trades that supply a slot — empty when no shop's portfolio answers it.
+ *
+ * 🧩 READ OFF THE PARTS SNAPSHOT (step ②): the part's home category, then its "also from" categories, in
+ * order (`partCategories`). Every function below takes the snapshot as its last argument — a server
+ * caller passes `await getInspirationParts()`; an omitted one means the consts the table was seeded from.
+ */
+export function tradesForSlot(
+  slot: string,
+  parts: InspirationPartsSnapshot = fallbackInspirationParts(),
+): readonly WeddingTile[] {
+  return partCategories(inspirationPart(parts, slot));
 }
 
 /** TRUE when a supplier gallery is meaningful for this slot at all. */
-export function slotHasSupplierTrade(slot: string): boolean {
-  return tradesForSlot(slot).length > 0;
+export function slotHasSupplierTrade(slot: string, parts: InspirationPartsSnapshot = fallbackInspirationParts()): boolean {
+  return tradesForSlot(slot, parts).length > 0;
 }
 
-/** Every inspiration slot a supplier gallery can exist for — derived. */
+/** Every part a supplier gallery can exist for, in the parts' order — derived from the snapshot. */
+export function gallerySlotKeys(parts: InspirationPartsSnapshot = fallbackInspirationParts()): string[] {
+  return parts.parts.filter((p) => partCategories(p).length > 0).map((p) => p.slotKey);
+}
+
+/**
+ * The fallback's gallery slots, in `MOODBOARD_SLOT_KEYS` order — kept for the callers that still read the
+ * consts (the legacy board's tile grid, the render pool); a server page that reads the snapshot uses
+ * `gallerySlotKeys(parts)`.
+ */
 export const GALLERY_SLOT_KEYS: readonly MoodboardSlotKey[] = MOODBOARD_SLOT_KEYS.filter(
-  (k) => MOODBOARD_SLOT_TRADES[k].length > 0,
+  (k) => SLOT_TRADES[k].length > 0,
 );
 
 /**
@@ -136,9 +106,12 @@ export const GALLERY_SLOT_KEYS: readonly MoodboardSlotKey[] = MOODBOARD_SLOT_KEY
  * DERIVED from the tiles above via lib/vendor-counts. MB11's "which trades may
  * upload to this slot" gate reads exactly this — never its own copy.
  */
-export function canonicalServicesForSlot(slot: string): string[] {
+export function canonicalServicesForSlot(
+  slot: string,
+  parts: InspirationPartsSnapshot = fallbackInspirationParts(),
+): string[] {
   const out = new Set<string>();
-  for (const tile of tradesForSlot(slot)) {
+  for (const tile of tradesForSlot(slot, parts)) {
     for (const canonical of canonicalServicesForTile(tile)) out.add(canonical);
   }
   return [...out];
@@ -162,16 +135,18 @@ export function canonicalServicesForSlot(slot: string): string[] {
 export function tradeLabelForCredit(
   slot: string,
   vendorServices: readonly string[] | null | undefined,
+  parts: InspirationPartsSnapshot = fallbackInspirationParts(),
 ): string | null {
   if (!vendorServices || vendorServices.length === 0) return null;
+  const trades = tradesForSlot(slot, parts);
   const owned = new Set<WeddingTile>();
   for (const canonical of vendorServices) {
-    for (const tile of tradesForSlot(slot)) {
+    for (const tile of trades) {
       if (canonicalServicesForTile(tile).includes(canonical)) owned.add(tile);
     }
   }
-  for (const tile of tradesForSlot(slot)) {
-    if (owned.has(tile)) return WEDDING_TILE_LABEL[tile];
+  for (const tile of trades) {
+    if (owned.has(tile)) return WEDDING_TILE_LABEL[tile] ?? null;
   }
   return null;
 }
@@ -210,7 +185,8 @@ export const GALLERY_MAX_LIMIT = 24;
 export const GALLERY_MAX_OFFSET = 600;
 
 export type GalleryQuery = {
-  slotKey: MoodboardSlotKey;
+  /** A part's key — any part of the snapshot, so an admin-added part's shelf can be searched too. */
+  slotKey: string;
   limit: number;
   offset: number;
   /**
@@ -229,18 +205,21 @@ export type GalleryQuery = {
  * Clamp an untrusted page request. `null` = this slot has no supplier trade,
  * or the key is not a slot at all — the caller must not query.
  */
-export function normalizeGalleryQuery(input: {
-  slotKey?: unknown;
-  limit?: unknown;
-  offset?: unknown;
-  q?: unknown;
-  from?: unknown;
-  near?: unknown;
-}): GalleryQuery | null {
+export function normalizeGalleryQuery(
+  input: {
+    slotKey?: unknown;
+    limit?: unknown;
+    offset?: unknown;
+    q?: unknown;
+    from?: unknown;
+    near?: unknown;
+  },
+  parts: InspirationPartsSnapshot = fallbackInspirationParts(),
+): GalleryQuery | null {
   const slotKey = input.slotKey;
   if (typeof slotKey !== 'string') return null;
-  if (!(MOODBOARD_SLOT_KEYS as readonly string[]).includes(slotKey)) return null;
-  if (!slotHasSupplierTrade(slotKey)) return null;
+  if (!inspirationPart(parts, slotKey)) return null;
+  if (!slotHasSupplierTrade(slotKey, parts)) return null;
 
   const rawLimit = Number(input.limit ?? GALLERY_PAGE_SIZE);
   const limit = Number.isFinite(rawLimit)
@@ -252,7 +231,7 @@ export function normalizeGalleryQuery(input: {
     ? Math.min(GALLERY_MAX_OFFSET, Math.max(0, Math.floor(rawOffset)))
     : 0;
 
-  const out: GalleryQuery = { slotKey: slotKey as MoodboardSlotKey, limit, offset };
+  const out: GalleryQuery = { slotKey, limit, offset };
   const q = cleanGallerySearch(input.q);
   if (q) out.q = q;
   if (isGalleryFromKey(input.from) && input.from !== 'everyone') {
@@ -368,6 +347,7 @@ export type RawGalleryRow = {
 export function shapeGalleryPage(
   slot: string,
   rows: readonly RawGalleryRow[],
+  parts: InspirationPartsSnapshot = fallbackInspirationParts(),
 ): { assets: GalleryAsset[]; withheld: number } {
   const assets: GalleryAsset[] = [];
   let withheld = 0;
@@ -385,7 +365,7 @@ export function shapeGalleryPage(
       assetId: row.asset_id,
       imageUrl: galleryImageUrl(row.storage_path),
       label: row.label?.trim() ?? '',
-      credit: creditLine(shopName, tradeLabelForCredit(slot, row.shop?.services ?? null)),
+      credit: creditLine(shopName, tradeLabelForCredit(slot, row.shop?.services ?? null, parts)),
       vendorProfileId,
       shopSlug: row.shop?.business_slug?.trim() || null,
       swatches: hexes.length === 0 ? [] : Array.from({ length: 6 }, (_, i) => hexes[i % hexes.length]!),

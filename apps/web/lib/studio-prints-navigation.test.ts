@@ -286,7 +286,7 @@ test('6 · the all-guests line says what the FILE holds — its passes, how many
   assert.equal(await draw(guests(2, 1, 3)), '6 passes · 2 coming, 1 not replied yet, 3 maybe · ganged on A4 with cut lines', 'a guest in the file is not counted anywhere');
   /* The counts are the list the file is made from — no second read. */
   const page = read('app/dashboard/[eventId]/launch/page.tsx');
-  assert.match(page, /passGuests: passGuestsP \? await passGuestsP : undefined/);
+  assert.match(page, /passGuests: \(await passGuestsP\) \?\? undefined/);
   assert.match(page, /loadPassGuestNames\(eventId, /);
   const loader = read('lib/print-set.server.ts');
   assert.match(loader.slice(loader.indexOf('export async function loadPassGuestNames(')), /passGuestRows\(eventId, true\)/, 'the counts come from a read other than the file’s');

@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { requireHostMembership } from '@/lib/host-gate';
+import { requireHostMembership, limitedHelperRefusal } from '@/lib/host-gate';
 import { isHubDraftWrite, saveHubDraftPatch } from '@/lib/hub-draft-store';
 import { HUB_DRAFT_TOO_LARGE_MESSAGE, HubDraftTooLargeError } from '@/lib/hub-draft';
 import {
@@ -53,6 +53,8 @@ import {
 export async function updatePhotoMoments(
   formData: FormData,
 ): Promise<UpdatePhotoMomentsResult> {
+  const helperRefusal = await limitedHelperRefusal(formData.get('event_id'), 'invitations');
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   const eventIdRaw = formData.get('event_id');
   if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) {
     return {

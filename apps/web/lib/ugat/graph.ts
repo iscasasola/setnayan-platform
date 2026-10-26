@@ -53,7 +53,8 @@ export type UgatEntityType =
   | 'gallery'
   | 'signoff'
   | 'colourgrant'
-  | 'march';
+  | 'march'
+  | 'inspirationpart';
 
 /** Which live count key drives each type node (see lib/ugat/data.ts). */
 export type UgatCountKey = UgatEntityType;
@@ -852,7 +853,7 @@ export const UGAT_TYPES: UgatTypeMeta[] = [
     fields: [
       { key: 'pk', name: 'asset_id', note: 'uuid \u2014 what event_inspiration_assets.library_asset_id points at' },
       { key: '', name: 'vendor_profile_id', note: 'the SHOP credited on the photo \u2014 not uploaded_by, which is a user account' },
-      { key: '', name: 'asset_subtype', note: 'for supplier_gallery rows this is the INSPIRATION SLOT, CHECK-constrained to the same 18 keys' },
+      { key: '', name: 'asset_subtype', note: 'for supplier_gallery rows this is the INSPIRATION PART\u2019s key \u2014 held by a trigger against inspiration_parts (polymorphic column, so not an FK)' },
       { key: '', name: 'rights_warranted_at', note: 'required before an approved gallery row may be publicly read; MB11 captures it at upload' },
       { key: '', name: 'screen_findings', note: 'MB21 \u2014 what the content screen found, plus the text it read. NOT NULL IS the admin queue. Revoked from anon + authenticated: this table has a PUBLIC read policy' },
       { key: '', name: 'rejection_reason', note: 'MB21 \u2014 a reviewer\u2019s words, shown to the supplier. Paired with rejected_at by a CHECK, so a refusal can never arrive with nothing to read' },
@@ -1018,6 +1019,46 @@ export const UGAT_TYPES: UgatTypeMeta[] = [
       { verb: 'processes in', to: 'TYPE-EVENTS' },
     ],
   },
+  {
+    /**
+     * THE INSPIRATION PARTS — on the taxonomy (PLAN `admin_inspiration_groups_2026-10-25` step ①,
+     * owner-approved 2026-10-26). One row per Mood Board part, keyed by the SAME slot key its photos
+     * carry (`event_inspiration_assets.slot_key`, and `moodboard_library_assets.asset_subtype` for a
+     * supplier_gallery row), with a HOME tier-2 category and, in `inspiration_part_categories`, more
+     * tier-2 categories whose shops may also fill it.
+     *
+     * 🔑 NOT A SECOND TAXONOMY. Both tables point INTO `service_categories`; a trigger refuses any
+     * category that is not tier 2. Since step ② the app reads it through `getInspirationParts()`
+     * (`lib/inspiration-parts-db.ts`), falling back to the consts the table was seeded from
+     * (`fallbackInspirationParts()`), and `inspiration-parts-seed-equals-the-consts.db.test.ts` holds the
+     * seed equal to those consts. The board's photos carry an FK into it; the supplier gallery a trigger.
+     *
+     * ⚠ HIDE, NEVER DELETE. A part holding a photo (either table, removed board rows included) cannot
+     * be deleted — a BEFORE DELETE trigger refuses; `hidden` is the switch. The key is permanent.
+     */
+    id: 'TYPE-INSPIRATION-PARTS',
+    type: 'inspirationpart',
+    name: 'Inspiration parts',
+    blurb: 'the Mood Board\u2019s parts, each on a supplier category',
+    countKey: 'inspirationpart',
+    icon: 'layers',
+    color: 'var(--ug-e-inspirationpart)',
+    colorBg: 'var(--ug-e-inspirationpart-bg)',
+    table: 'inspiration_parts',
+    href: '/admin/categories',
+    x: 1060,
+    y: 800,
+    fields: [
+      { key: 'pk', name: 'slot_key', note: 'today\u2019s slot key, verbatim and permanent \u2014 the photos carry it' },
+      { key: 'fk', name: 'home_category_id', note: '\u2192 service_categories, tier 2 (trigger); NOT NULL unless kind = system (the palette)' },
+      { key: '', name: 'hidden', note: 'hidden from couples \u2014 the only way out for a part that holds a photo' },
+      { key: '', name: 'inspiration_part_categories', note: '\u201calso from\u201d: more tier-2 categories, in the credit\u2019s order (sort_order)' },
+    ],
+    edges: [
+      { verb: 'homed on', to: 'TYPE-TAXONOMY' },
+      { verb: 'names the shelves of', to: 'TYPE-GALLERY' },
+    ],
+  },
 ];
 
 
@@ -1062,6 +1103,12 @@ export const UGAT_TYPE_VOCAB: Record<
     icon: 'link',
     color: 'var(--ug-e-march)',
     colorBg: 'var(--ug-e-march-bg)',
+  },
+  inspirationpart: {
+    label: 'Inspiration part',
+    icon: 'layers',
+    color: 'var(--ug-e-inspirationpart)',
+    colorBg: 'var(--ug-e-inspirationpart-bg)',
   },
   community: {
     label: 'Group',
@@ -3092,7 +3139,7 @@ export const UGAT_JOINTS: UgatJoint[] = [
     writtenBy:
       'the vendor upload page (app/vendor-dashboard/moodboard-library) \u2014 still gated to reception_decor as of this row; MB11 widens it to the supplying trades and captures the warranty',
     guardedBy:
-      'RLS Pattern D \u2014 public read of approved-and-not-retired rows, vendor insert/update of their own (uploaded_by = auth.uid(), source = \'stylist_upload\'), admin all; plus moodboard_library_assets_supplier_gallery_shape, which refuses an approved gallery row with no shop, no real slot, or no rights warranty',
+      'RLS Pattern D \u2014 public read of approved-and-not-retired rows, vendor insert/update of their own (uploaded_by = auth.uid(), source = \'stylist_upload\'), admin all; plus moodboard_library_assets_supplier_gallery_shape, which refuses an approved gallery row with no shop or no rights warranty; the slot is held by the trigger moodboard_library_assets_subtype_is_a_part (asset_subtype must be an inspiration_parts key \u2014 an FK cannot, the column is polymorphic)',
     traps:
       'asset_subtype means something DIFFERENT per asset_type (\'church\' for a venue_scene, \'bride\' for a figure_attire, an inspiration slot key for supplier_gallery), so every reader must pin asset_type first \u2014 grep `asset_type` under apps/web before adding one that does not. ON DELETE CASCADE on vendor_profile_id means deleting a shop deletes its gallery rows \u2014 SET NULL would fail the shape CHECK and, because users \u2192 vendor_profiles already cascades, would BLOCK account deletion. The storage objects are NOT swept by that cascade. The admin library page lists every asset_type and casts to its own three-value union; a fourth value reaching it renders the raw key.',
   },
@@ -3176,25 +3223,21 @@ export const UGAT_JOINTS: UgatJoint[] = [
         name: 'event_inspiration_assets_render_pick_has_provenance',
         mentions: 'source_render_id',
       },
-      {
-        kind: 'check',
-        table: 'event_inspiration_assets',
-        name: 'event_inspiration_assets_slot_key_check_v3',
-        mentions: 'slot_key',
-      },
+      // 🧩 Step ② (PLAN admin_inspiration_groups_2026-10-25): the 29-key CHECK became an FK into inspiration_parts.
+      { kind: 'fk', table: 'event_inspiration_assets', column: 'slot_key', references: 'inspiration_parts' },
     ],
     chain: 20,
     pair: ['TYPE-GALLERY', 'TYPE-EVENTS'],
     title: 'Library photo \u2194 Event (the pick, and the credit that survives it)',
     joint: 'event_inspiration_assets',
     cardinality:
-      'One row per (event, slot_key, slot_position) among ACTIVE rows \u2014 29 slots \u00d7 3 photos; removed rows do not count toward it, so a slot can be re-filled',
+      'One row per (event, slot_key, slot_position) among ACTIVE rows \u2014 one slot per inspiration_parts row \u00d7 3 photos; removed rows do not count toward it, so a slot can be re-filled',
     implementedBy:
       'event_inspiration_assets.library_asset_id \u2192 moodboard_library_assets, paired with source_kind = \'gallery_pick\' by a CHECK biconditional',
     writtenBy:
       'applyGalleryPick (the couple\u2019s picker), applyRenderPick (MB9 \u2014 another couple\u2019s shared render, saved as a reference, costing nothing) and applyMoodboardTemplate (theme seeding) \u2014 all three in studio/mood-board/actions.ts; uploadMoodboardSlot writes the couple\u2019s OWN photos, which carry no id and no credit',
     guardedBy:
-      'RLS Pattern B \u2014 event_members-scoped select/insert/update, admin all; plus the provenance biconditional and the 29-key slot CHECK (last widened by 20271278232574 \u2014 the Palette\u2019s five parts with photos)',
+      'RLS Pattern B \u2014 event_members-scoped select/insert/update, admin all; plus the provenance biconditional and the FK event_inspiration_assets_slot_key_is_a_part \u2192 inspiration_parts (20271288430455 \u2014 it replaced the 29-key slot CHECK; a part holding a photo cannot be deleted)',
     traps:
       'The one-row-per-cell rule is a PARTIAL UNIQUE INDEX (WHERE removed_at IS NULL), not a constraint, so it is invisible to pg_constraint and cannot be claimed above \u2014 verify with \\d event_inspiration_assets. Removal is SOFT (removed_at), so every read must filter it; a count that forgets tells a couple they saved photos they deleted. library_asset_id is ON DELETE CASCADE, so HARD-deleting a library photo (deleteAsset / deleteStylistAsset, which also remove the storage object) removes the tile from every board holding it. RETIRING one (retired_at) does not touch this FK at all and the tile keeps rendering, credited \u2014 the two paths behave completely differently and the UI copy for them must not be shared.',
   },
@@ -3640,6 +3683,39 @@ export const UGAT_JOINTS: UgatJoint[] = [
       'event_manual_vendors_host_all (couple members + accepted moderators + admin) · guard_manual_vendor_leak_match (a couple session can neither set nor clear the stamp) · add-your-own-fee-rule.db.test.ts',
     traps:
       'The stamp BILLS NOBODY: booking_fee_open_lock_charge still skips a row with no marketplace_vendor_id, so a matched-but-unclaimed record is attributed, never charged. Rule B counts a view only if it came from a sourced surface BEFORE the record was made (vendor_profile_views.viewed_at < event_manual_vendors.created_at); a match dismissed with "Not them?" is never stamped. Couples are never told any of it (owner 2026-10-12).',
+  },
+  {
+    /**
+     * Inspiration parts ↔ the taxonomy (PLAN `admin_inspiration_groups_2026-10-25` step ①). A part's
+     * suppliers are tier-2 categories — its home plus "also from" — never a list of its own.
+     *
+     * 🔑 STEP ② FLIPPED THE PHOTO CLAIMS: the board's 29-key CHECK (`event_inspiration_assets_slot_key_check_v3`)
+     * is gone and `event_inspiration_assets.slot_key` is an FK into inspiration_parts; the supplier gallery's
+     * polymorphic `asset_subtype` is held by the trigger `moodboard_library_assets_subtype_is_a_part`.
+     */
+    id: 'J55',
+    claims: [
+      { kind: 'table', table: 'inspiration_parts' },
+      { kind: 'table', table: 'inspiration_part_categories' },
+      { kind: 'fk', table: 'inspiration_parts', column: 'home_category_id', references: 'service_categories' },
+      { kind: 'fk', table: 'inspiration_part_categories', column: 'slot_key', references: 'inspiration_parts' },
+      { kind: 'fk', table: 'inspiration_part_categories', column: 'category_id', references: 'service_categories' },
+      { kind: 'unique', table: 'inspiration_part_categories', columns: ['slot_key', 'category_id'] },
+      { kind: 'column', table: 'inspiration_parts', column: 'hidden' },
+      { kind: 'column', table: 'inspiration_part_categories', column: 'sort_order' },
+      { kind: 'check', table: 'inspiration_parts', name: 'inspiration_parts_part_has_a_home', mentions: 'home_category_id' },
+      { kind: 'fk', table: 'event_inspiration_assets', column: 'slot_key', references: 'inspiration_parts' },
+      { kind: 'no_column', table: 'inspiration_parts', column: 'deleted_at' },
+    ],
+    chain: 20,
+    pair: ['TYPE-INSPIRATION-PARTS', 'TYPE-TAXONOMY'],
+    title: 'Inspiration part ↔ Taxonomy (a part is filled by tier-2 categories)',
+    joint: 'inspiration_part_categories',
+    cardinality: 'Each part: one home category (NOT NULL unless kind = system) + zero or more also-categories; a category fills many parts',
+    implementedBy: 'inspiration_parts.home_category_id → service_categories ON DELETE RESTRICT · inspiration_part_categories (slot_key, category_id, sort_order) — slot_key CASCADE, category_id RESTRICT',
+    writtenBy: 'migration 20271287668170 (the seed, generated from MOODBOARD_SLOT_KEYS + MOODBOARD_SLOT_TRADES by scripts/gen-inspiration-parts-seed.ts); the admin\u2019s Categories page from step ③ (not built yet)',
+    guardedBy: 'RLS — authenticated SELECT only (anon holds no grant; no write policy — writes go through the service role, as /admin/categories writes service_categories) · trigger inspiration_part_category_is_tier_2 on both tables · inspiration_parts_before_update (the key is permanent) · inspiration_parts_refuse_delete_with_photos (SECURITY DEFINER, counts both photo tables) · tests/db/inspiration-parts-seed-equals-the-consts.db.test.ts',
+    traps: 'Since step ② the couple\u2019s Which part?, the supplier\u2019s Part \u25be, the gallery query and the upload gate read these tables through getInspirationParts() (falling back to the consts on an error or an empty table); the suggestion door (inspiration_suggestion_services, a hard-coded SQL mirror), the sign-off map (moodboard-finalization) and the render pool still read the consts. The also-categories\u2019 ORDER is data (the first tile a shop matches is the one printed on the credit), so a reader must ORDER BY sort_order. `palette` is kind = system with no home and is hidden: no shop fills it.',
   },
 ];
 

@@ -102,12 +102,12 @@ test('N · the navigator has no tab row — its dropdown is the toolbar’s Page
 
 /* ── T · the toolbar's places are ONE dropdown ─────────────────────────── */
 
-test('T · the stages are never a row again: ONE Page ▾ holds them, on every width', () => {
+test('T · the stages are never a row again: ONE Stages ▾ holds them, on every width', () => {
   const header = BAR.slice(BAR.indexOf('data-maker-toolbar'), BAR.indexOf('</header>'));
-  assert.equal((header.match(/<PickMenu\b/g) ?? []).length, 1, 'the toolbar has exactly one picker');
-  assert.match(header, /label="Page"\s+dataAttr="data-maker-page-menu"/);
-  assert.match(header, /options=\{pageOptions\}/);
-  assert.match(header, /onPick=\{pickPage\}/);
+  /* The old bar's Page ▾ went with the old Maker (2026-10-25): the stages are the Stages half's one list. */
+  assert.equal((header.match(/<PickMenu\b/g) ?? []).length, 0, 'the old bar’s Page ▾ is back');
+  assert.equal((header.match(/<StudioSideSwitch\b/g) ?? []).length, 1, 'the toolbar has exactly one stage picker');
+  assert.match(header, /options=\{page\.options\} onStage=\{pickPage\}/);
   assert.doesNotMatch(BAR, /data-maker-bar-item|data-maker-place-pick|<MakerBar\b/, 'the stage row (or its compact picker) is back');
   assert.match(BAR, /const page = makerPageMenu\(\{/);
 });

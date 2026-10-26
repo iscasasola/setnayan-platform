@@ -108,7 +108,7 @@ import { TypingBand } from '@/app/_components/typing-band';
 /**
  * 🎬 THE STAGES TOOLBAR — the new Maker's bottom bar on the Stages side, on a phone (owner 2026-10-09, the approved
  * clickable prototype `public/review/studio-head-prototype.html`; `TOOLBAR-SPEC-2026-10-09.md`, every quote his).
- * Behind `makerStagesStudioEnabled`; loaded lazily (`details-lazy.tsx`), so the shipped Maker's first load carries none.
+ * Behind `stagesStudio`, the one Maker since 2026-10-25; loaded lazily (`details-lazy.tsx`), so the shipped Maker's first load carries none.
  *
  *   SHAPE    ONE FIXED HEIGHT (*"330 px it is"*), its top CURVED (*"make the upper part of the bottom toolbar
  *            curve"*), top to bottom (`lib/maker-stage-room.ts` `stageBarPx`):

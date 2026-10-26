@@ -34,7 +34,7 @@ export default function TermsPage() {
   return (
     <LegalLayout
       title="Setnayan terms of service"
-      meta="Effective 2026-06-30 · last updated 2026-10-25 · governed by the laws of the Republic of the Philippines"
+      meta="Effective 2026-10-23 · last updated 2026-10-25 · governed by the laws of the Republic of the Philippines"
     >
       <LegalSection title="Who we are">
         <p>

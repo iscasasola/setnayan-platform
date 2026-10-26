@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useCallback, useState, type ReactNode, type Ref } from 'react';
-import { ArrowRight, ExternalLink, Eye, Info, Monitor, Smartphone } from 'lucide-react';
+import { ArrowRight, ExternalLink, Eye, Monitor, Smartphone } from 'lucide-react';
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
 import type { HubRole, HubRoleView } from '@/lib/event-hub-control';
 import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
@@ -442,8 +442,17 @@ const MARK_WORD = { full: 'Yes:', partial: 'Partly:', none: 'No:' } as const;
  * never on the page, revealed on hover or on a tap.
  *
  * ⚠ The text is always in the DOM and only `hidden` toggles, so a screen
- * reader reaches it through `aria-describedby` and a test can read it. When the
- * design foundation's shared `InfoTip` (PR #5944) lands, swap this for it.
+ * reader reaches it through `aria-describedby` and a test can read it.
+ *
+ * 🎯 THE CIRCLE IS THE HOUSE ⓘ — `<InfoTip>`'s trigger, shape for shape (16 px,
+ * a hairline, a 10-px semibold "i", the 46-px `.sn-dot-btn` press). Owner
+ * 2026-10-25: *"the (i) is not consistent across the app"*; this one was a
+ * lucide glyph. Only its two colours differ, and must: the stage is obsidian
+ * in both themes and `ink/*` reads 1.27:1 here (`obsidian.ts`), so the hairline
+ * is white/25, the "i" is `OB.soft` (9.22:1) and its hover/open gold is
+ * `OB.gold` #CBA766 (7.99:1) — the dark-ground value of InfoTip's `terracotta` —
+ * classes, not a `style`, so the open state can win. Not the shared component:
+ * its popover and its ink are the light page's. `there-is-one-info-dot.test.ts`.
  */
 function InfoTip({ label, children }: { label: string; children: ReactNode }) {
   const [open, setOpen] = useState(false);
@@ -458,10 +467,9 @@ function InfoTip({ label, children }: { label: string; children: ReactNode }) {
         onClick={() => setOpen((v) => !v)}
         onMouseEnter={() => setOpen(true)}
         onBlur={() => setOpen(false)}
-        className="inline-flex h-6 w-6 items-center justify-center rounded-full transition-all duration-300 ease-in-out active:scale-95"
-        style={{ color: OB.soft }}
+        className="sn-press sn-press-ring sn-dot-btn inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-white/25 text-[10px] font-semibold leading-none text-[#B6B9BE] transition-all duration-sn-control ease-sn hover:border-[#CBA766] hover:text-[#CBA766] aria-expanded:border-[#CBA766] aria-expanded:text-[#CBA766]"
       >
-        <Info aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+        <span aria-hidden="true">i</span>
       </button>
       <span
         id={id}

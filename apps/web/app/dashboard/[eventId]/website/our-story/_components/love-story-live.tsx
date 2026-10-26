@@ -244,7 +244,7 @@ export function LiveLoveStoryBook({
   ...book
 }: Omit<LoveStoryBookProps, 'moments' | 'since'> & { story: LoveStoryBlob; draftAction?: DraftAction }) {
   const story = useLiveLoveStory(server);
-  /* 🧭 The new Maker's Studio draws the moments as cards to drag (`makerStagesStudioEnabled`). */
+  /* 🧭 The new Maker's Studio draws the moments as cards to drag (`stagesStudio`, the one Maker since 2026-10-25). */
   const studio = useMaker()?.stagesStudio === true;
   const moments = resolveMoments(story);
   const years = moments.map((m) => m.date?.y).filter((y): y is number => typeof y === 'number');

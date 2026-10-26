@@ -1,8 +1,7 @@
 import { Suspense } from 'react';
-import { PapicCardStrip } from './_components/papic-card-strip';
 import { PapicBuySheet } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-buy-sheet';
 import { PapicCameraSettings, PapicSwitch } from './studio/papic/_components/papic-camera-settings';
-import { papicCardPhase, papicCoverageWords } from '@/lib/papic-home-card';
+import { papicCardPhase } from '@/lib/papic-home-card';
 import { OUR_SERVICE_PARTS } from '@/lib/our-services';
 import type { PapicCardInput } from './_components/home-first-screen';
 import { switchOnRows } from '@/lib/event-needs';
@@ -901,31 +900,16 @@ export default async function EventHomePage({
       })
     : null;
   /*
-    📷 PAPIC'S CARD (owner 2026-10-23: "a smaller widget on home. Then we can expand it" · "does not open to a new
-    page. just expands on home"): the coverage line, the latest five (streamed), and the camera settings it opens
-    UNDER itself — the same `PapicCameraSettings` `/studio/papic` draws. The couple's alone (the settings write as the
+    📷 PAPIC'S CARD (owner 2026-10-23: "does not open to a new page. just expands on home"; 2026-10-26: "it just needs
+    to have a quick on off button and expand for more settings for papic"): the head with the Papic switch, and the
+    camera settings it opens UNDER itself — the same `PapicCameraSettings` `/studio/papic` draws. The couple's alone (the settings write as the
     couple); a coordinator keeps the shipped row. The app keeps its own Papic row (`apple`).
   */
   const papicCardPhaseNow = papicCardPhase(papicWin.startIso, papicWin.endIso, Date.now());
   const papicCard: PapicCardInput | null =
     canViewPapicCounts && viewerMemberType === 'couple' && !appleFacts && !storeShell
       ? {
-          coverage: papicCoverageWords({
-            startIso: papicWin.startIso,
-            endIso: papicWin.endIso,
-            now: Date.now(),
-            on: papicSwitch === undefined ? true : papicIsOn(papicSwitch),
-          }),
           phase: papicCardPhaseNow,
-          strip: (
-            <Suspense fallback={null}>
-              <PapicCardStrip
-                eventId={eventId}
-                total={typeof papicNow.result === 'number' ? papicNow.result : null}
-                phase={papicCardPhaseNow}
-              />
-            </Suspense>
-          ),
           thankYouHref: OUR_SERVICE_PARTS.papic ? addOnHref(OUR_SERVICE_PARTS.papic.key, eventId) : null,
           headControl: <PapicSwitch eventId={eventId} saved={papicSwitch === undefined ? null : papicIsOn(papicSwitch)} />,
           settings: (

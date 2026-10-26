@@ -306,8 +306,10 @@ export function guestAnswersRead(row: unknown): boolean {
 }
 
 /**
- * HOW "Save to my account" SIGNS THEM IN — chosen by the device, NEVER shown as
- * a choice (owner 2026-09-26, "THE GUEST PATHWAY — ONE BUTTON AT A TIME").
+ * HOW "Save to my account" SIGNS THEM IN — the device's method (owner 2026-09-26, "THE GUEST PATHWAY — ONE BUTTON
+ * AT A TIME"). ⚠ CHANGED 2026-10-25 for THIS offer only — owner, verbatim: "Show both". With Apple AND Google
+ * switched on, both buttons draw (`saveProvidersInOrder`) and this method only decides which comes FIRST; the
+ * press then names its own provider (`saveMethodFromForm`). With one provider on, this is still the one button.
  *
  *   · an in-app webview (Messenger · Instagram · Facebook · LINE · WeChat) →
  *     `browser`: "Open in your browser". Google REFUSES OAuth inside these
@@ -356,9 +358,9 @@ export function saveMethodFor(
  * AGAIN from the POST's — two decisions that are only the same when two requests
  * look the same. Now the form carries the method the button SAID
  * (`SAVE_METHOD_FIELD`), and the action takes it — while that provider is still
- * switched on — so the provider opened is the one the guest read. Anything else
- * in the field (absent, tampered, a provider since switched off) falls back to
- * the device rule, exactly as before. Choosing a sign-in provider is not a
+ * switched on — so the provider opened is the one the guest read. A field that
+ * names no provider (absent, tampered) falls back to the device rule; a provider
+ * since switched off is refused (2026-10-25, below). Choosing a sign-in provider is not a
  * privilege, so a tampered value can only pick the other one-tap door.
  */
 export const SAVE_METHOD_FIELD = 'save_method';
@@ -367,19 +369,42 @@ export function saveMethodFromForm(
   userAgent: string | null | undefined,
   providers: { apple: boolean; google: boolean },
 ): SaveMethod {
-  if ((posted === 'apple' || posted === 'google') && providers[posted]) return posted;
+  /* 🍏🤖 SHOW BOTH (owner 2026-10-25, verbatim: "Show both"). With both providers on, the guest sees an Apple AND
+     a Google button and PRESSES one — so the press names a provider the device rule did not pick, and that is the
+     provider opened. A pressed provider that is switched OFF is REFUSED (`link`: no sign-in — the action sends the
+     guest back to the page, which draws only what is on), never swapped for the other one: opening a provider the
+     guest did not press is the 2026-10-02 bug ("with Apple" opened Google) by another road. Only a field that names
+     no provider at all (absent, or not a provider) falls back to the device rule. */
+  if (posted === 'apple' || posted === 'google') return providers[posted] ? posted : 'link';
   return saveMethodFor(userAgent, providers);
+}
+
+/**
+ * Which provider button was PRESSED, read from the form's pending submission (`useFormStatus().data`) — each
+ * provider button posts its own name as `SAVE_METHOD_FIELD`. Null when the submission names none. Lets the pressed
+ * button alone say "Opening Apple…" and the stall line name the provider that did not open (owner 2026-10-25,
+ * "Show both": two buttons in one form share one pending state).
+ */
+export function pressedSaveMethod(data: { get(name: string): unknown } | null | undefined): 'apple' | 'google' | null {
+  const v = data?.get(SAVE_METHOD_FIELD);
+  return v === 'apple' || v === 'google' ? v : null;
+}
+
+/**
+ * The provider buttons the offer draws, in order (owner 2026-10-25, "Show both"): the device's method first, then —
+ * when the other provider is switched on too — the other one. One provider on → just that one. No provider to sign
+ * in with (an in-app browser, or none switched on) → none: the page hands over the guest's own link instead.
+ */
+export function saveProvidersInOrder(
+  method: SaveMethod,
+  providers: { apple: boolean; google: boolean },
+): Array<'apple' | 'google'> {
+  if (method !== 'apple' && method !== 'google') return [];
+  const other = method === 'apple' ? 'google' : 'apple';
+  return providers[other] ? [method, other] : [method];
 }
 
 /** Is this method a provider sign-in (one tap), rather than the guest's own link? */
 export function saveMethodSignsIn(method: SaveMethod): method is 'apple' | 'google' {
   return method === 'apple' || method === 'google';
-}
-
-/** The one line under the Save button — what the device chose, said as a fact, never a choice. */
-export function saveMethodLine(method: SaveMethod): string {
-  if (method === 'apple') return 'with Apple · nothing to type';
-  if (method === 'google') return 'with Google · nothing to type';
-  if (method === 'browser') return 'copies your link · paste it into Safari or Chrome';
-  return 'your own link · it opens this invitation on any phone';
 }

@@ -973,3 +973,133 @@ export function relativeTime(iso: string, now = new Date()): string {
   if (ms < 7 * 86_400_000) return `${Math.floor(ms / 86_400_000)}d ago`;
   return new Date(iso).toLocaleDateString();
 }
+
+/**
+ * The time on a notice ROW — `relativeTime` without " ago" (owner 2026-10-25, the bell's pop-over and its "View all"
+ * page: "18h", never "18h ago"). Days run on to a month (the approved drawing reads "8d", "9d"), then a short date.
+ */
+export function relativeTimeShort(iso: string, now = new Date()): string {
+  const ms = now.getTime() - new Date(iso).getTime();
+  if (ms < 60_000) return 'just now';
+  if (ms < 3_600_000) return `${Math.floor(ms / 60_000)}m`;
+  if (ms < 86_400_000) return `${Math.floor(ms / 3_600_000)}h`;
+  if (ms < 30 * 86_400_000) return `${Math.floor(ms / 86_400_000)}d`;
+  return new Date(iso).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' });
+}
+
+/** A notice from the last 24 hours sits under "Today" — the same notices whose time reads in minutes or hours. */
+export function isTodayNotice(iso: string, now = new Date()): boolean {
+  return now.getTime() - new Date(iso).getTime() < 86_400_000;
+}
+
+/**
+ * THE TYPE'S SHORT NAME — the row icon's accessible name (owner 2026-10-25: the coloured type pill left the pixels;
+ * the type lives in the icon's aria-label). The six families the approved drawing names are shortened; every other
+ * type keeps its `NOTIFICATION_TYPE_LABEL`.
+ */
+export const NOTIFICATION_TYPE_SHORT_LABEL: Partial<Record<NotificationType, string>> = {
+  rsvp_received: 'RSVP',
+  chat_message: 'Message',
+  samahan_message: 'Message',
+  order_quoted: 'Order',
+  order_paid: 'Order',
+  order_cancelled: 'Order',
+  order_awaiting_reconciliation: 'Order',
+  payment_matched: 'Payment',
+  payment_rejected: 'Payment',
+  payment_refunded: 'Payment',
+  payment_resubmit_requested: 'Payment',
+  payment_info_sent: 'Payment',
+  payment_logged: 'Payment',
+  payment_confirmed: 'Payment',
+  payment_cleared: 'Payment',
+  vendor_payment_asked: 'Payment',
+  guest_claim_pending: 'Guest request',
+  guest_claim_rejected: 'Guest request',
+  event_auto_surfaced: 'Added',
+  cohost_added: 'Added',
+  connection_request: 'Added',
+};
+
+export function notificationShortLabel(type: NotificationType): string {
+  return NOTIFICATION_TYPE_SHORT_LABEL[type] ?? NOTIFICATION_TYPE_LABEL[type] ?? 'Notification';
+}
+
+/** The round mark at the start of a notice row. Names, not components: this module stays free of React. */
+export type NotificationIcon =
+  | 'bell'
+  | 'user-check'
+  | 'message'
+  | 'user-plus'
+  | 'receipt'
+  | 'check'
+  | 'sparkle'
+  | 'calendar'
+  | 'image'
+  | 'star'
+  | 'shield'
+  | 'gift';
+
+export const NOTIFICATION_TYPE_ICON: Partial<Record<NotificationType, NotificationIcon>> = {
+  rsvp_received: 'user-check',
+  chat_message: 'message',
+  samahan_message: 'message',
+  vendor_inquiry_received: 'message',
+  inquiry_accepted: 'message',
+  inquiry_declined: 'message',
+  inquiry_awaiting_reply: 'message',
+  inquiry_no_response: 'message',
+  help_ticket_replied: 'message',
+  guest_claim_pending: 'user-plus',
+  guest_claim_rejected: 'user-plus',
+  connection_request: 'user-plus',
+  connection_confirmed: 'user-check',
+  vendor_joined: 'user-plus',
+  samahan_join: 'user-plus',
+  order_quoted: 'receipt',
+  order_paid: 'receipt',
+  order_cancelled: 'receipt',
+  order_awaiting_reconciliation: 'receipt',
+  quote_accepted: 'receipt',
+  quote_declined: 'receipt',
+  change_order_proposed: 'receipt',
+  change_order_answered: 'receipt',
+  booking_fee_waived: 'receipt',
+  payment_info_sent: 'receipt',
+  vendor_payment_asked: 'receipt',
+  ai_payment_due: 'receipt',
+  payment_matched: 'check',
+  payment_confirmed: 'check',
+  payment_cleared: 'check',
+  payment_logged: 'check',
+  payment_rejected: 'receipt',
+  payment_refunded: 'receipt',
+  payment_resubmit_requested: 'receipt',
+  booking_confirmed: 'check',
+  lock_request_agreed: 'check',
+  completion_accepted: 'check',
+  event_auto_surfaced: 'sparkle',
+  cohost_added: 'sparkle',
+  event_invitation: 'sparkle',
+  showcase_featured: 'sparkle',
+  date_change_requested: 'calendar',
+  date_change_answered: 'calendar',
+  date_change_closed: 'calendar',
+  date_moved: 'calendar',
+  schedule_suggestion: 'calendar',
+  schedule_change_requested: 'calendar',
+  schedule_shifted: 'calendar',
+  appointment_reminder: 'calendar',
+  photo_delivery_complete: 'image',
+  photo_delivery_failed: 'image',
+  guest_takedown_honored: 'image',
+  review_request: 'star',
+  review_received: 'star',
+  vendor_review_reply: 'star',
+  security_alert: 'shield',
+  gift: 'gift',
+};
+
+export function notificationIcon(type: NotificationType): NotificationIcon {
+  return NOTIFICATION_TYPE_ICON[type] ?? 'bell';
+}

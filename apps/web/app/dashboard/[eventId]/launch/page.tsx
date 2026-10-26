@@ -64,7 +64,7 @@ import type { MarchStep } from '@/lib/march-drag';
 import { resolveReplyBy, sanitizeRsvpAskConfig, type RsvpAskConfig } from '@/lib/rsvp-ask';
 import { makerPageCanvasSrc } from '@/lib/maker-made-once-pages';
 import { readMakerRevealStages } from './_components/maker-made-once';
-import { MoodBoardMakerBody, MoodBoardMakerControls, MoodBoardStudioBody } from '../studio/mood-board/_components/mood-board-editor';
+import { MoodBoardStudioBody } from '../studio/mood-board/_components/mood-board-editor';
 import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 import { MakerRsvpCanvas } from './_components/maker-page';
 /* ⚡ Loads when Details › RSVP is opened — never with the Maker (`details-lazy.tsx`). */
@@ -148,8 +148,6 @@ import { asViewed, asViewedOwnership, viewAsFreeSwitch } from '@/lib/view-as-fre
 import { HUB_PARTS, type HubPartId } from '@/lib/hub-parts';
 import { eventHasRenamed } from '@/lib/event-slug-rename.server';
 import { planMyselfOn } from '@/lib/plan-myself';
-import { makerChoiceIsUnread, makerStagesStudioEnabled } from '@/lib/maker-stages-studio-flag';
-import { makerDesktopColumnsEnabled } from '@/lib/maker-desktop-columns-flag';
 import { TimelineRowsLoading } from '@/app/_components/timeline-states';
 import { manualLaunchPhase } from '@/lib/invitation-widgets';
 import { publicEventPath } from '@/lib/public-event-url';
@@ -1114,19 +1112,11 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
   /* The address names no place — no tool, scene, stage or pin (the guided flow's door, below). */
   const addressNamesNoPlace =
     !rawTool && !one(search.scene) && !one(search.open) && !one(search.stage) && !one(search.pin) && !one(search.chain);
-  /* 🧭 THE NEW MAKER — "Stages | Studio" (owner 2026-10-06; plan
-     `EVENT_HUB_MAKER_STAGES_STUDIO_BUILD_PLAN_2026-10-06.md` PR 1): ON for the
-     flag, or for an internal viewer (the reading View-as-free already made), and
-     only where there is work. The ONE place it is decided — `MakerShell` is handed
-     the boolean, and Studio's tiles are built only while it is on. */
-  /* 🧯 …and when the read behind that reading FAILED, neither Maker is drawn: a
-     refused read must never pick a product (`makerChoiceIsUnread`, incident 2026-10-08). */
-  if (hasWork && makerChoiceIsUnread({ internalRead: freeSwitch.measured })) throw schemaBlipError('LaunchPage.makerChoice');
-  const stagesStudio = hasWork && makerStagesStudioEnabled({ internal: freeSwitch.offered });
-  /* 🖥 …and on a desktop too, in three columns (`MAKER_DESKTOP_ADAPTATION_2026-10-07_fable.md`) — dark for couples while it is built. */
-  const desktopColumns = stagesStudio && makerDesktopColumnsEnabled({ internal: freeSwitch.offered });
-  /* 🖥 …whose top bar names the event — its own small read, only while the columns are on (`lib/maker-desk-title.server.ts`). */
-  const deskTitle = desktopColumns ? await readMakerDeskTitle(supabase, eventId) : null;
+  /* 🧭 THERE IS ONE MAKER — "Stages | Studio", on a phone and on a desktop, for every viewer (owner 2026-10-25:
+     *"why is it so hard for you to let the new event hub maker to show and delete that old event hub maker"*). No
+     flag, no role and no read chooses it — so no failed read can choose another (`lib/there-is-one-maker.test.ts`). */
+  /* 🖥 The desktop's top bar names the event — its own small read (`lib/maker-desk-title.server.ts`). */
+  const deskTitle = hasWork ? await readMakerDeskTitle(supabase, eventId) : null;
   /* ⚡ Started inside the block below (every `hasWork` path reads it in the toolbar's See-as roles). */
   let roleNamesRead: ReturnType<typeof loadRoleNames> | null = null;
   /* ⚡ THE TOOLS ARRIVE BEHIND THE MAKER, NEVER IN FRONT OF IT (measured on production 2026-10-23, new Maker
@@ -1169,37 +1159,32 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
     roleNamesRead = startAhead(loadRoleNames(supabase, eventId, 'LaunchPage.roleNames'));
     /* 🎁 Started beside the reads below, awaited where the E-Gifts field is built. */
     const egiftAllP = readEgiftMethods(supabase, eventId);
-    /* 🎁 The wish list (owner 2026-10-08) — read through the couple's own client (hosts-only under
-       RLS), and only while the new Maker's Studio is on: nothing else draws it. */
-    const wishListP = stagesStudio ? readStudioWishList(supabase, eventId) : null;
+    /* 🎁 The wish list (owner 2026-10-08) — read through the couple's own client (hosts-only under RLS); Studio draws it. */
+    const wishListP = readStudioWishList(supabase, eventId);
     /* ⚡ A query builder only leaves when it is awaited, so this one is started here (it used to leave at its await). */
     const egiftVisibilityP = startAhead(Promise.resolve(supabase.from('events').select('landing_page_visibility').eq('event_id', eventId).maybeSingle()));
-    /* 🧭 Studio › Info's Your Event Hub rows and What to bring — read only while the new Maker is on. */
-    const studioHubP = stagesStudio
-      ? startAhead(
-          Promise.resolve(
-            supabase
-              .from('events')
-              .select('slug, landing_page_visibility, launch_mode, manual_phase, website_open_browse, std_launched_at, scheduled_launch_at, what_to_bring')
-              .eq('event_id', eventId)
-              .maybeSingle(),
-          ),
-        )
-      : null;
+    /* 🧭 Studio › Info's Your Event Hub rows and What to bring. */
+    const studioHubP = startAhead(
+      Promise.resolve(
+        supabase
+          .from('events')
+          .select('slug, landing_page_visibility, launch_mode, manual_phase, website_open_browse, std_launched_at, scheduled_launch_at, what_to_bring')
+          .eq('event_id', eventId)
+          .maybeSingle(),
+      ),
+    );
     /* 🧱 THE MISSING FIELDS (owner 2026-10-07) — the registry link and the QR switch,
        and the live main background (the hero row's `main`). Read on their own so a
        refusal here never blanks Your Event Hub; each refusal is said, never guessed. */
-    const studioMissingP = stagesStudio
-      ? Promise.all([
-          supabase.from('events').select('gift_registry_url, qr_shown').eq('event_id', eventId).maybeSingle(),
-          /* ✍ …and the Photos scene's row, in the SAME read (owner 2026-10-15: its heading is typed in Info). */
-          printAdmin.from('invitation_widgets').select('widget_type, config_json').eq('event_id', eventId).in('widget_type', ['hero', 'our_photos']),
-        ])
-      : null;
+    const studioMissingP = Promise.all([
+      supabase.from('events').select('gift_registry_url, qr_shown').eq('event_id', eventId).maybeSingle(),
+      /* ✍ …and the Photos scene's row, in the SAME read (owner 2026-10-15: its heading is typed in Info). */
+      printAdmin.from('invitation_widgets').select('widget_type, config_json').eq('event_id', eventId).in('widget_type', ['hero', 'our_photos']),
+    ]);
     /* 🎟 Studio › Prints' Event pass (owner 2026-10-16): who has a pass, by name — "Pass for ▾" and the count over every guest's
        file. The printed passes' own read and rule (`loadPassGuestNames`); null when it could not be read. Studio only. */
     const printEventP = readPrintEvent(printAdmin, eventId);
-    const passGuestsP = stagesStudio ? loadPassGuestNames(eventId, printEventP.then((e) => e?.print_details ?? null)).catch(() => null) : null;
+    const passGuestsP = loadPassGuestNames(eventId, printEventP.then((e) => e?.print_details ?? null)).catch(() => null);
     const [printEvent, printPro, rsvpHosts, printParents, egifts, printInputs, sampleVersion, feelRes, storyLiveRes, scheduleRes, announceOn] = await Promise.all([
       printEventP,
       printOwnsPro(eventId),
@@ -1446,7 +1431,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         /* 🖼 The Our Story poster's own photo (owner 2026-09-29). */
         posterPhoto: stored.posterPhoto ?? null,
         passCardsZip: passCardsZipFileNameOf(printEvent),
-        passGuests: passGuestsP ? await passGuestsP : undefined,
+        passGuests: (await passGuestsP) ?? undefined,
         formats: {
           pass: formatFor('pass', one(search.pass_format))!,
           invitation: formatFor('invitation', one(search.invitation_format))!,
@@ -1511,10 +1496,9 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         settings: (
           <MakerRsvpSettings
             eventId={eventId}
-            /* 🧭 Studio › RSVP — the prototype's tool, over the same saves (new Maker only). */
-            {...(stagesStudio
-              ? { studio: true, celebration: { ownsPro: ownsPart('motion'), storeShell, colours: celebrationColours(boardSwatches(printEvent.role_palette)) } }
-              : {})}
+            /* 🧭 Studio › RSVP — the prototype's tool, over the same saves. */
+            studio
+            celebration={{ ownsPro: ownsPart('motion'), storeShell, colours: celebrationColours(boardSwatches(printEvent.role_palette)) }}
             current={rsvpAsk}
             drafted={rsvpAskDrafted}
             /* The couple's own deadline wins and is never overwritten; unset,
@@ -1673,20 +1657,18 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       }
       /* 🗂 STUDIO'S TILES — their ✓ / Missing from the SAME facts the rows above read
          (`guided`, the setup's reply-by, the seat counts, the E-Gifts manager's own read). */
-      if (stagesStudio) {
-        const gifts = await egiftAllP;
-        studio = {
-          tiles: studioTiles({
-            pro: studioPro,
-            facts: guided,
-            setup: setupFacts,
-            giftMethods: gifts.read ? gifts.methods.filter((m) => m.is_enabled).length : null,
-            seat: seatPlan ? { tables: seatPlan.tables, seated: seatPlan.seated } : null,
-            offered: (item) => (item === 'seating' ? seatPlan !== null : item === 'rsvp' ? rsvpItem !== null : detailsItemApplies(item, eventContext)),
-            marchLabel: yourEvent ? yourEventLabel('march', yourEvent.kind) : undefined,
-          }).filter((t) => !needsHidesStudioTile(t.key, eventNeeds)),
-        };
-      }
+      const gifts = await egiftAllP;
+      studio = {
+        tiles: studioTiles({
+          pro: studioPro,
+          facts: guided,
+          setup: setupFacts,
+          giftMethods: gifts.read ? gifts.methods.filter((m) => m.is_enabled).length : null,
+          seat: seatPlan ? { tables: seatPlan.tables, seated: seatPlan.seated } : null,
+          offered: (item) => (item === 'seating' ? seatPlan !== null : item === 'rsvp' ? rsvpItem !== null : detailsItemApplies(item, eventContext)),
+          marchLabel: yourEvent ? yourEventLabel('march', yourEvent.kind) : undefined,
+        }).filter((t) => !needsHidesStudioTile(t.key, eventNeeds)),
+      };
       const guidedPresentHere = guidedPresent({
         yourEvent: yourEvent ? { kind: yourEvent.kind, namesWritable: yourEvent.names !== null } : null,
         storyApplies: detailsItemApplies('love-story', eventContext),
@@ -1723,11 +1705,11 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       });
       // 🏛 A venue card tapped on a stage opens the SAME Venues editor Details draws.
       if (yourEvent) factEditors = { ...factEditors, venues: venuesEditorFor(eventId, yourEvent) };
-      if (yourEvent && stagesStudio) venuePictures = { slots: yourEvent.venues.slots, pro: yourEvent.venues.pro ?? { owns: false, storeShell } };
+      if (yourEvent) venuePictures = { slots: yourEvent.venues.slots, pro: yourEvent.venues.pro ?? { owns: false, storeShell } };
       /* 🗓 THE SCHEDULE, moved whole — the shipped page, streamed so the Maker
          never waits on it, with its own query when Details › Schedule is the item. */
       const schedulePage = (
-        <Suspense fallback={stagesStudio ? <TimelineRowsLoading label="Loading your schedule" rows={4} pills={2} /> : <p className="p-6 text-sm text-ink/60">Opening your schedule…</p>}>
+        <Suspense fallback={<TimelineRowsLoading label="Loading your schedule" rows={4} pills={2} />}>
           <CoupleSchedulePage
             params={Promise.resolve({ eventId })}
             searchParams={Promise.resolve({
@@ -1741,12 +1723,12 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         </Suspense>
       );
       const loveStoryBook = storyApplies ? (
-        <Suspense fallback={stagesStudio ? <TimelineRowsLoading label="Loading your Love Story" rows={3} /> : <p className="p-6 text-sm text-ink/60">Opening your Love Story…</p>}>
+        <Suspense fallback={<TimelineRowsLoading label="Loading your Love Story" rows={3} />}>
           <OurStoryEditorPage
             params={Promise.resolve({ eventId })}
             searchParams={Promise.resolve({
               maker: '1',
-              studio: stagesStudio ? '1' : undefined,
+              studio: '1',
               saved: one(search.saved),
               drafted: one(search.drafted),
               error: one(search.error),
@@ -1756,71 +1738,69 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
           />
         </Suspense>
       ) : null;
-      /* 🧭 STUDIO (the new Maker only) — Info's Your Event Hub facts and What to bring, E-Gifts' methods. A
+      /* 🧭 STUDIO — Info's Your Event Hub facts and What to bring, E-Gifts' methods. A
          refused read is said by the form, never a guessed "Private" or an empty gift list. */
-      const studioDetails = studioHubP
-        ? await (async () => {
-            const [hubRes, gifts, missing, wishList] = await Promise.all([studioHubP, egiftAllP, studioMissingP, wishListP ?? undefined]);
-            const [fieldsRes, heroRes] = missing ?? [null, null];
-            if (fieldsRes?.error) logQueryError('LaunchPage.studioMissingFields', fieldsRes.error, { event_id: eventId }, 'graceful_degrade');
-            if (heroRes?.error) logQueryError('LaunchPage.studioMainGround', heroRes.error, { event_id: eventId }, 'graceful_degrade');
-            const fields = fieldsRes && !fieldsRes.error ? (fieldsRes.data as { gift_registry_url?: string | null; qr_shown?: boolean | null } | null) : null;
-            /* The main background as the Maker shows it: the drafted one over live. */
-            const sceneRows = heroRes && !heroRes.error ? ((heroRes.data ?? []) as Array<{ widget_type: string; config_json?: unknown }>) : null;
-            const liveMain = sceneRows ? hubMainGround(sceneRows.find((r) => r.widget_type === 'hero')?.config_json) : undefined;
-            /* ✍ The Photos heading as the Maker shows it: the drafted one over live; undefined when the row could not be read. */
-            const photosHeading =
-              draftedPhotosHeading !== undefined ? draftedPhotosHeading : sceneRows ? storedPhotosHeading(sceneRows) : undefined;
-            const studioMain = draftedMain !== undefined ? sanitizeHubMainGround(draftedMain) : liveMain;
-            /* The five main colours as the page wears them — the Mood Board drafted over live. */
-            const dressedRow = overlayHubDraftEvent(
-              { role_palette: printEvent.role_palette, invite_theme: printEvent.invite_theme } as Record<string, unknown>,
-              { events: draftedEvents, widgets: {} },
-            );
-            if (hubRes.error) logQueryError('LaunchPage.studioHub', hubRes.error, { event_id: eventId }, 'graceful_degrade');
-            const row = hubRes.error ? null : (hubRes.data as Record<string, unknown> | null);
-            const visibility = row?.landing_page_visibility;
-            const hubSlug = typeof row?.slug === 'string' ? row.slug : null;
-            return {
-              hub: row
-                ? {
-                    visibility: (visibility === 'public' || visibility === 'unlisted' ? visibility : 'private') as 'public' | 'unlisted' | 'private',
-                    /* `manualLaunchPhase` answers only the four pinnable phases (or null). */
-                    pinned: manualLaunchPhase(row.launch_mode as string | null, row.manual_phase as string | null) as 'save_the_date' | 'rsvp' | 'event' | 'editorial' | null,
-                    openBrowse: row.website_open_browse === true,
-                    launched: Boolean(row.std_launched_at) || visibility === 'public',
-                    scheduledAt: typeof row.scheduled_launch_at === 'string' ? row.scheduled_launch_at : null,
-                  }
-                : null,
-              egiftMethods: gifts.read
-                ? gifts.methods.map((m) => ({
-                    egift_method_id: m.egift_method_id,
-                    method_kind: m.method_kind,
-                    label: m.label,
-                    account_name: m.account_name,
-                    handle: m.handle,
-                    qr_r2_key: m.qr_r2_key,
-                    note: m.note,
-                    is_enabled: m.is_enabled,
-                    qrDisplayUrl: m.qrDisplayUrl,
-                  }))
-                : null,
-              photosHeading,
-              whatToBring:
-                'what_to_bring' in draftedEvents
-                  ? ((draftedEvents.what_to_bring as string | null) ?? null)
-                  : ((row?.what_to_bring as string | null | undefined) ?? null),
-              livePath: hubSlug ? publicEventPath(hubSlug) : null,
-              registryUrl: fields ? (fields.gift_registry_url ?? null) : undefined,
-              /* A refused read travels as `{ read: false }` — the section says so, never "No wishes yet". */
-              wishList,
-              qrShown: ('qr_shown' in draftedEvents ? draftedEvents.qr_shown : fields?.qr_shown) !== false,
-              main: studioMain,
-              mainColours: mainColoursOf(dressedRow.role_palette, dressedRow.invite_theme),
-              mainColourDraft: sanitizeMainColourDraft(draftedEvents.main_colours) ?? {},
-            };
-          })()
-        : null;
+      const studioDetails = await (async () => {
+        const [hubRes, gifts, missing, wishList] = await Promise.all([studioHubP, egiftAllP, studioMissingP, wishListP]);
+        const [fieldsRes, heroRes] = missing;
+        if (fieldsRes?.error) logQueryError('LaunchPage.studioMissingFields', fieldsRes.error, { event_id: eventId }, 'graceful_degrade');
+        if (heroRes?.error) logQueryError('LaunchPage.studioMainGround', heroRes.error, { event_id: eventId }, 'graceful_degrade');
+        const fields = fieldsRes && !fieldsRes.error ? (fieldsRes.data as { gift_registry_url?: string | null; qr_shown?: boolean | null } | null) : null;
+        /* The main background as the Maker shows it: the drafted one over live. */
+        const sceneRows = heroRes && !heroRes.error ? ((heroRes.data ?? []) as Array<{ widget_type: string; config_json?: unknown }>) : null;
+        const liveMain = sceneRows ? hubMainGround(sceneRows.find((r) => r.widget_type === 'hero')?.config_json) : undefined;
+        /* ✍ The Photos heading as the Maker shows it: the drafted one over live; undefined when the row could not be read. */
+        const photosHeading =
+          draftedPhotosHeading !== undefined ? draftedPhotosHeading : sceneRows ? storedPhotosHeading(sceneRows) : undefined;
+        const studioMain = draftedMain !== undefined ? sanitizeHubMainGround(draftedMain) : liveMain;
+        /* The five main colours as the page wears them — the Mood Board drafted over live. */
+        const dressedRow = overlayHubDraftEvent(
+          { role_palette: printEvent.role_palette, invite_theme: printEvent.invite_theme } as Record<string, unknown>,
+          { events: draftedEvents, widgets: {} },
+        );
+        if (hubRes.error) logQueryError('LaunchPage.studioHub', hubRes.error, { event_id: eventId }, 'graceful_degrade');
+        const row = hubRes.error ? null : (hubRes.data as Record<string, unknown> | null);
+        const visibility = row?.landing_page_visibility;
+        const hubSlug = typeof row?.slug === 'string' ? row.slug : null;
+        return {
+          hub: row
+            ? {
+                visibility: (visibility === 'public' || visibility === 'unlisted' ? visibility : 'private') as 'public' | 'unlisted' | 'private',
+                /* `manualLaunchPhase` answers only the four pinnable phases (or null). */
+                pinned: manualLaunchPhase(row.launch_mode as string | null, row.manual_phase as string | null) as 'save_the_date' | 'rsvp' | 'event' | 'editorial' | null,
+                openBrowse: row.website_open_browse === true,
+                launched: Boolean(row.std_launched_at) || visibility === 'public',
+                scheduledAt: typeof row.scheduled_launch_at === 'string' ? row.scheduled_launch_at : null,
+              }
+            : null,
+          egiftMethods: gifts.read
+            ? gifts.methods.map((m) => ({
+                egift_method_id: m.egift_method_id,
+                method_kind: m.method_kind,
+                label: m.label,
+                account_name: m.account_name,
+                handle: m.handle,
+                qr_r2_key: m.qr_r2_key,
+                note: m.note,
+                is_enabled: m.is_enabled,
+                qrDisplayUrl: m.qrDisplayUrl,
+              }))
+            : null,
+          photosHeading,
+          whatToBring:
+            'what_to_bring' in draftedEvents
+              ? ((draftedEvents.what_to_bring as string | null) ?? null)
+              : ((row?.what_to_bring as string | null | undefined) ?? null),
+          livePath: hubSlug ? publicEventPath(hubSlug) : null,
+          registryUrl: fields ? (fields.gift_registry_url ?? null) : undefined,
+          /* A refused read travels as `{ read: false }` — the section says so, never "No wishes yet". */
+          wishList,
+          qrShown: ('qr_shown' in draftedEvents ? draftedEvents.qr_shown : fields?.qr_shown) !== false,
+          main: studioMain,
+          mainColours: mainColoursOf(dressedRow.role_palette, dressedRow.invite_theme),
+          mainColourDraft: sanitizeMainColourDraft(draftedEvents.main_colours) ?? {},
+        };
+      })();
       details = {
         page: (
           <MakerDetails
@@ -1943,21 +1923,13 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
                come from the work area. "Done" is read from the columns they
                already write, drafted over live. */
             look={{
-              /* 🧭 The new Maker draws Studio › Mood Board & Dress Code — full screen, its tools inside it (plan PR 5). */
-              moodBoard: stagesStudio ? (
+              /* 🧭 Studio › Mood Board & Dress Code — full screen, its tools inside it (plan PR 5). */
+              moodBoard: (
                 <Suspense fallback={<p className="py-6 text-sm text-ink/60">Opening your Mood Board…</p>}>
                   <MoodBoardStudioBody eventId={eventId} />
                 </Suspense>
-              ) : (
-                <Suspense fallback={<p className="py-6 text-sm text-ink/60">Opening your Mood Board…</p>}>
-                  <MoodBoardMakerBody eventId={eventId} />
-                </Suspense>
               ),
-              moodBoardControls: stagesStudio ? null : (
-                <Suspense fallback={<p className="text-sm text-ink/60">Opening your Mood Board…</p>}>
-                  <MoodBoardMakerControls eventId={eventId} />
-                </Suspense>
-              ),
+              moodBoardControls: null,
               logoDone: guided.logo,
               heroDone: guided.hero,
               // The hero panel's own claim: made once, shown on these three and the poster.
@@ -2034,9 +2006,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
          where the work area is the editor — a coordinator has nothing to draft. */
       applySlot={hasWork ? <HubDraftDock eventId={eventId} saveError={one(search.draft_error)} /> : null}
       viewAsFree={freeSwitch.offered ? { on: freeSwitch.on } : null}
-      stagesStudio={stagesStudio}
-      desktopColumns={desktopColumns}
-      /* 🖥 The desktop's top bar names the event (the adaptation doc's "the event's name in the middle") — only with its columns on. */
+      /* 🖥 The desktop's top bar names the event (the adaptation doc's "the event's name in the middle"). */
       deskTitle={deskTitle}
       /* 🎭 See as · Role ▾ (owner 2026-10-17, "view it as a father of the bride") — this event's guest-list roles, in
          the couple's words. Only where there is a page to see as (a coordinator's controller has no See as). */

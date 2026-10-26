@@ -46,6 +46,22 @@
  * wordmark independently and is unaffected by this file either way, but the
  * belt-and-suspenders habit is worth keeping on the one page a reviewer is
  * sent to.
+ *
+ * ─── OPTION B, WITH THE HONESTY FIX (owner 2026-10-25) ───────────────────
+ * Approved from `prototypes/ceremo_deltas_2026-10-25/01_front_door.html`
+ * (Option B), corrected by the owner before it shipped: *"don't they pay for
+ * papic?"* · *"unlimited camera but papic credits is used"* · *"free 50
+ * credits is only on their first event"* · *"DO NOT INVENT … we want to tell
+ * the truth"*. So:
+ *   • the headline says photos land in ONE ALBUM, never that they are kept
+ *     free or never lost ("never lose a photo" / "Keep every photo" are gone);
+ *   • the small line under the chips says cameras are unlimited and photos
+ *     use Papic credits — with NO number, because the free credits are a
+ *     first-event-only grant and an amount here would be read as per event;
+ *   • the strip's labels carry no invented counts.
+ * The purpose paragraph still opens "Setnayan is …" — Google's OAuth review
+ * (2026-10-22) needs it, and `google-can-verify-the-home-page.test.ts` holds it.
+ * Pinned by `the-front-door-tells-the-truth.test.ts`.
  */
 import Link from 'next/link';
 
@@ -58,73 +74,101 @@ export function FrontDoorAnchor() {
         🔑 THE NAME IS INSIDE THE <h1>, AND IT IS TYPED "Setnayan" (2026-10-22).
         Google refused OAuth brand verification a second time — "the app name
         'Setnayan' … does not match the app name on your home page". The
-        eyebrow used to be a separate <p> typed in capitals ("SETNAYAN"), the
-        exact variant rejected on 2026-07-25, and the <h1> itself never named
-        the app. The eyebrow now lives inside the heading as title-case text;
-        the capitals come from `text-transform` on `.fd-opening-kick`, so the
-        look is unchanged and the heading reads "Setnayan: Plan your Filipino
-        event…" to a crawler. Guarded by app/google-can-verify-the-home-page.test.ts.
+        capitals come from `text-transform` on `.fd-opening-kick`, so the
+        heading reads "Setnayan: Plan any event free…" to a crawler. Guarded by
+        app/google-can-verify-the-home-page.test.ts.
       */}
       <h1 id="fd-opening-h" className="fd-opening-h1">
         <span className="fd-opening-kick">Setnayan</span>
         <span className="sr-only">: </span>
-        Plan your Filipino event free — and never lose a photo.
+        Plan any event free. Every photo in one album.
       </h1>
       {/*
-        THE PURPOSE, IN ONE SENTENCE A REVIEWER CAN QUOTE (2026-10-22). Google's
-        second refusal also said the home page "does not explain the purpose of
-        your app". The headline is a promise, not a description — this says
-        what the app does, in the house words (event, Event Hub, supplier).
+        THE PURPOSE, IN ONE SENTENCE A REVIEWER CAN QUOTE (Google, 2026-10-22),
+        then the pain in the words our guests use. No claim that photos are free.
       */}
       <p className="fd-opening-lede">
-        Setnayan is a free app for planning and running your event in one place:
-        your guest list and RSVPs, seating, budget and schedule, the suppliers
-        you book, the Event Hub your guests open, and one album for every
-        guest&rsquo;s photos.
+        Setnayan is one place for your guest list, RSVPs, budget, suppliers and
+        the Event Hub your guests open — for any event.{' '}
+        <i>Hindi na kalat sa GC, hindi na naiiwan sa phone ng iba.</i>
       </p>
-      <ul className="fd-opening-claims">
-        <li>Every event, planned in one place</li>
-        <li>Every guest&rsquo;s photo, kept in one album</li>
-        <li>Verified suppliers &middot; 0% commission</li>
+      {/*
+        "No credit card" is true: sign-up asks for none, and every payment is
+        GCash or bank transfer after you apply. "No guest limit" is what
+        /help says (lib/help.ts).
+      */}
+      <ul className="fd-opening-trust">
+        <li>Free to start</li>
+        <li>No guest limit</li>
+        <li>No credit card</li>
+        <li>Guests don&rsquo;t sign in</li>
       </ul>
+      <p className="fd-opening-papic">Unlimited cameras &middot; photos use Papic credits.</p>
       <div className="fd-opening-acts">
         {/*
-          ⚠ SAME HREF THE RETIRED OPENING USED. `/onboarding` alone is a
-          404 — there is no page.tsx at that path, only `[type]`, `simple`
-          and `wedding` beneath it. Every other create door in the app uses
-          `/onboarding/wedding`, so this one does too.
+          🧭 ANY EVENT, SO THE DOOR ASKS WHICH ONE — BEFORE SIGN-UP (owner
+          2026-10-25). This went to `/onboarding/wedding` alone while the
+          headline said "any event". `/start` is the shipped create-event grid
+          on a public page; each type goes straight to its own
+          `/onboarding/<type>`, and each onboarding asks for the account where
+          it always has. A signed-in visitor is sent on to the full picker.
 
-          🔴 NOT YET TYPE-AWARE. `/onboarding/[type]` — the generic,
-          non-wedding flow — is dark behind `NEXT_PUBLIC_EXPERIENCE_QUIZ_ENABLED`
-          today, so this button is honestly wedding-first even though the
-          page's own claim above is now "any Filipino event". Flagged, not
-          silently fixed: turning this into a real type-aware door is a
-          product decision (does the flag go live? does this button branch
-          before or after?) that needs the owner, not a guess made here.
+          🎨 TERRACOTTA, NOT THIS PAGE'S GOLD (owner 2026-10-25: "If for event
+          hub then use the event's color but for setnayan use our template").
+          `.fd-btn-terra` wears `--m-mulberry`, the house main-button token.
         */}
-        <Link href="/onboarding/wedding?from=home" className="fd-btn-gold fd-opening-cta">
+        <Link href="/start" className="fd-btn-terra fd-opening-cta">
           Start your event — free
         </Link>
-        {/*
-          `/our-story`, NOT `/alaala`. The retired opening's secondary link
-          went to the album mechanism specifically ("How the album works").
-          This page's claim is broader now, so the secondary link goes to
-          the actual mission/manifesto page — the owner's own "Living
-          Memories" philosophy — rather than one pillar's explainer.
-        */}
-        <Link href="/our-story" className="fd-opening-alt">
+        {/* "How it works" → the Features hub (owner 2026-10-25); /our-story is a
+            manifesto with no steps. */}
+        <Link href="/features" className="fd-opening-alt">
           How it works
         </Link>
+      </div>
+      {/*
+        BEFORE → AFTER (Option B). Drawn tiles, aria-hidden — an illustration,
+        not a count: no number here may read as a real figure.
+      */}
+      <div className="fd-opening-ba">
+        <div>
+          <p className="fd-opening-ba-lab">Before</p>
+          <div className="fd-opening-scatter" aria-hidden="true">
+            <i />
+            <i />
+            <i />
+            <i />
+          </div>
+          <p className="fd-opening-ba-line">Guest photos scattered across phones and group chats.</p>
+        </div>
+        <span className="fd-opening-ba-arrow" aria-hidden="true">
+          &rarr;
+        </span>
+        <div>
+          <p className="fd-opening-ba-lab">After</p>
+          <div className="fd-opening-album" aria-hidden="true">
+            <i />
+            <i />
+            <i />
+            <i />
+            <i />
+            <i />
+            <i />
+            <i />
+          </div>
+          <p className="fd-opening-ba-line">
+            <b>One album</b> the whole event fills, from the first toast.
+          </p>
+        </div>
       </div>
       <p className="fd-opening-fine">
         <i>Set na &rsquo;yan</i> — that&rsquo;s all set. Free to plan, and no
         commission on your suppliers, ever.
       </p>
       {/*
-        THE TWO POLICIES, ON THE HOME PAGE ITSELF (2026-10-22). They were only
-        in the ☰ drawer's small print, which is off-screen on a phone until the
-        drawer opens. Google's homepage requirement is a visible link to the
-        privacy policy; Terms sits beside it.
+        THE TWO POLICIES, ON THE HOME PAGE ITSELF (2026-10-22). Google's
+        homepage requirement is a visible link to the privacy policy; Terms
+        sits beside it.
       */}
       <p className="fd-opening-legal">
         <Link href="/privacy">Privacy Policy</Link>

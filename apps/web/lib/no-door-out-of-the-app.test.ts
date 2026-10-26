@@ -241,7 +241,22 @@ const CONTACT_TEXT_BILL: ReadonlyMap<string, { count: number; why: string; gate:
 // was deleted with the retired GuestListMultiselect, and the live list
 // (`guests-screen.tsx`) computes no tel: at all — so the bill is now EMPTY and
 // "a new file fails" holds for every file.
-const GUEST_CONTACT_BILL: ReadonlyMap<string, { count: number; why: string }> = new Map();
+// ⤷ 2026-10-26 (owner, verbatim: "Viber/Whatsapp invite buttons. we need to allow the invite to work seamlessly
+// with messaging apps"): ONE entry — the guest-invite app links. They carry NO recipient at all (no phone, no
+// handle): the host picks the chat inside their own app. Reached only from the couple's guest card, the one-by-one
+// send run and the accepted-request card — all gated to the couple / a coordinator with guest_list access.
+const GUEST_CONTACT_BILL: ReadonlyMap<string, { count: number; why: string }> = new Map([
+  [
+    'lib/invite-app-links.ts',
+    {
+      count: 2,
+      why:
+        'The couple sends a GUEST their own invitation from their own WhatsApp (wa.me/?text=) or Viber ' +
+        '(viber://forward?text=). Neither link names a recipient — the host picks the chat in their app — and the ' +
+        'text is the shipped invite message the share sheet already hands over. No shop, no contact field.',
+    },
+  ],
+]);
 
 const SHOP_CONTACT_READ_BILL: ReadonlyMap<string, { count: number; why: string }> = new Map([
   [

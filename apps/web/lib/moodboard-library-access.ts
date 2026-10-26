@@ -1,6 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { fetchOwnVendorProfile, type VendorProfileRow } from '@/lib/vendor-profile';
-import { uploadableSlotsForShop, type LibrarySlotGroup } from '@/lib/moodboard-gallery-upload';
+import { uploadableSlotsForShop } from '@/lib/moodboard-gallery-upload';
+import type { PhotoPartGroup } from '@/lib/inspiration-slots';
+import { fallbackInspirationParts, type InspirationPartsSnapshot } from '@/lib/inspiration-parts';
+import { getInspirationParts } from '@/lib/inspiration-parts-db';
 
 /**
  * lib/moodboard-library-access.ts — ONE predicate for "may this account author
@@ -38,7 +41,7 @@ export type MoodboardLibraryAccess =
       allowed: true;
       profile: VendorProfileRow;
       /** The slots this shop may upload into, already labelled, in the couple's order (`uploadableSlotsForShop`). Never empty. */
-      slots: Array<{ key: string; label: string; group: LibrarySlotGroup }>;
+      slots: Array<{ key: string; label: string; group: PhotoPartGroup }>;
     }
   | { allowed: false; reason: 'not_signed_in' | 'no_shop' | 'no_supplying_trade' };
 
@@ -59,9 +62,11 @@ export const MOODBOARD_LIBRARY_DENIAL: Readonly<
  */
 export function moodboardLibraryAccessForProfile(
   profile: VendorProfileRow | null,
+  /** The parts snapshot (`getInspirationParts()`); omitted = the consts the table was seeded from. */
+  parts: InspirationPartsSnapshot = fallbackInspirationParts(),
 ): MoodboardLibraryAccess {
   if (!profile) return { allowed: false, reason: 'no_shop' };
-  const slots = uploadableSlotsForShop(profile.services);
+  const slots = uploadableSlotsForShop(profile.services, parts);
   if (slots.length === 0) return { allowed: false, reason: 'no_supplying_trade' };
   return { allowed: true, profile, slots };
 }
@@ -75,6 +80,6 @@ export async function resolveMoodboardLibraryAccess(
   userId: string | null | undefined,
 ): Promise<MoodboardLibraryAccess> {
   if (!userId) return { allowed: false, reason: 'not_signed_in' };
-  const profile = await fetchOwnVendorProfile(supabase, userId);
-  return moodboardLibraryAccessForProfile(profile);
+  const [profile, parts] = await Promise.all([fetchOwnVendorProfile(supabase, userId), getInspirationParts()]);
+  return moodboardLibraryAccessForProfile(profile, parts);
 }

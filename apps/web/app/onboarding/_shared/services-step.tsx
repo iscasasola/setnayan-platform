@@ -699,7 +699,7 @@ export function ServicesStep({
               <>Photo sharing is ready whenever you need it — the free shots and guest QR are set up.</>
             ) : (
               <>
-                <strong className="font-semibold">{SERVICE_NAMES.papic.plain} are live on this {eventWord}.</strong>{' '}
+                <strong className="font-semibold">{SERVICE_NAMES.papic.plain} is live on this {eventWord}.</strong>{' '}
                 Your free shots and guest QR are ready.
               </>
             )}

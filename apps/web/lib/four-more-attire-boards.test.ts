@@ -40,8 +40,9 @@ import { join } from 'node:path';
 import { stripComments } from './strip-comments';
 import { MOODBOARD_SLOT_KEYS, MOODBOARD_PART_TRADES } from './moodboard-slots';
 import { MOODBOARD_SLOT_TRADES, canonicalServicesForSlot, normalizeGalleryQuery, shapeGalleryPage } from './moodboard-gallery';
-import { GALLERY_SLOT_LABEL, uploadableSlotsForShop } from './moodboard-gallery-upload';
-import { AWAITING_A_SLOT, STUDIO_INSPIRATION_SLOTS, attireBoardsAfter, attireBoardsUnder } from './inspiration-slots';
+import { libraryPartLabel, uploadableSlotsForShop } from './moodboard-gallery-upload';
+import { dbAcceptedSlotKeys } from './inspiration-parts-gate.test-helper';
+import { STUDIO_INSPIRATION_SLOTS, attireBoardsAfter, attireBoardsUnder } from './inspiration-slots';
 import { inspirationSlotsForPart } from './moodboard-render-parts';
 import { renderPartIdsForSlot } from './moodboard-render-pool';
 import { tradesForPart } from './moodboard-finalization';
@@ -197,12 +198,17 @@ test('2 · the migration widens BOTH slot gates by exactly the four — and the 
   const body = ours.replace(/--.*$/gm, '');
   assert.equal((body.match(/DROP CONSTRAINT IF EXISTS/g) ?? []).length, 2, 'a CHECK is re-added without being dropped first (not idempotent)');
   assert.doesNotMatch(body, /\b(?:UPDATE|DELETE|INSERT|TRUNCATE|DROP TABLE|DROP COLUMN|ADD COLUMN|CREATE TABLE|GRANT|REVOKE|CREATE POLICY)\b/, 'the migration does more than widen two CHECKs');
-  /* The palette parts' file is the LATEST word on both gates. */
+  /* The palette parts' file was the LAST IN-list on both gates: 🧩 step ② (PLAN admin_inspiration_groups_2026-10-25,
+     `…_inspiration_parts_are_the_photo_keys.sql`) replaced both with an FK + a trigger into `inspiration_parts`, seeded
+     from the app's list — so the four are still accepted, now as parts. Any OTHER later file touching a gate is news. */
   const later = readdirSync(MIGRATIONS).filter((f) => f.endsWith('.sql')).sort();
   const mine = later.findIndex((f) => f.endsWith('_palette_parts_five_more_slots.sql'));
   for (const f of later.slice(mine + 1)) {
+    if (f.endsWith('_inspiration_parts_are_the_photo_keys.sql')) continue;
     assert.doesNotMatch(readFileSync(join(MIGRATIONS, f), 'utf8').replace(/--.*$/gm, ''), /event_inspiration_assets_slot_key_check|moodboard_library_assets_supplier_gallery_shape/, `${f} re-lists a slot gate after this one — point this test at it`);
   }
+  assert.deepEqual([...dbAcceptedSlotKeys()].sort(), [...MOODBOARD_SLOT_KEYS].sort(), 'the parts the database accepts are not the app’s list');
+  for (const k of FOUR) assert.ok(dbAcceptedSlotKeys().includes(k), `${k} is not an inspiration part`);
 });
 
 /* ── 3 ─────────────────────────────────────────────────────────────────────── */
@@ -309,10 +315,8 @@ test('5 · a board’s search reads its OWN shelf, and an empty shelf says so in
 
 /* ── 6 ─────────────────────────────────────────────────────────────────────── */
 
-test('6 · nothing waits for a slot any more', () => {
-  const waiting = AWAITING_A_SLOT.map((a) => a.label);
+test('6 · nothing waits for a slot any more — the waiting list itself is gone (step ②: a new part is a row)', () => {
   for (const label of ['Groomsmen', 'Bridesmaids', 'Flower girl', 'Ring bearer']) {
-    assert.ok(!waiting.includes(label), `${label} still waits for a slot it now has`);
     assert.ok(STUDIO_INSPIRATION_SLOTS.some((s) => s.label === label && s.attire), `${label} has no board in Attire`);
   }
 });
@@ -332,10 +336,12 @@ test('7 · the four move nothing a paid render or a supplier’s sign-off reads'
 /* ── 8 ─────────────────────────────────────────────────────────────────────── */
 
 test('8 · a tailor is offered the shelf — the supplier’s side of the same slot', () => {
-  assert.equal(GALLERY_SLOT_LABEL.bridesmaids, 'Bridesmaids’ attire');
-  assert.equal(GALLERY_SLOT_LABEL.groomsmen, 'Groomsmen’s attire');
-  assert.equal(GALLERY_SLOT_LABEL.flower_girl, 'Flower girl’s attire');
-  assert.equal(GALLERY_SLOT_LABEL.ring_bearer, 'Ring bearer’s attire');
+  /* The name a tailor READS for each shelf — the part's one name (step ②; it was always the board's name, the shelf
+     names that sat under it in a deleted map were never drawn). */
+  assert.equal(libraryPartLabel('bridesmaids'), 'Bridesmaids');
+  assert.equal(libraryPartLabel('groomsmen'), 'Groomsmen');
+  assert.equal(libraryPartLabel('flower_girl'), 'Flower girl');
+  assert.equal(libraryPartLabel('ring_bearer'), 'Ring bearer');
   const shelves = (services: string[]) => uploadableSlotsForShop(services).map((s) => s.key as string);
   const women = shelves(['bridesmaid_dress']);
   const men = shelves(['groomsman_set']);

@@ -26,7 +26,6 @@ const ACCEPTED = ['image/jpeg', 'image/png', 'image/webp'];
 export function SamahanIdentityHeader({
   communityId,
   name,
-  publicId,
   photoUrl,
   photoDisplayUrl,
   initial,
@@ -34,7 +33,6 @@ export function SamahanIdentityHeader({
 }: {
   communityId: string;
   name: string;
-  publicId: string;
   photoUrl: string | null;
   photoDisplayUrl: string | null;
   initial: string;
@@ -107,7 +105,9 @@ export function SamahanIdentityHeader({
   const shownPhoto = preview ?? photoDisplayUrl;
 
   return (
-    <div className="mb-6 rounded-2xl border border-ink/15 bg-white/60 dark:bg-raised p-5 shadow-[0_18px_40px_-26px_rgba(30,26,18,0.35)]">
+    // Unframed (owner rule: frames only on what you press — the photo and the name are the buttons here, the band
+    // around them is not). The one line under the name is the group's description (prototypes/group_samahan_2026-10-25).
+    <div className="mb-2">
       <div className="flex items-center gap-4">
         {/* The photo IS the button. */}
         <button
@@ -206,13 +206,10 @@ export function SamahanIdentityHeader({
               />
             </button>
           )}
-          <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-[10px] uppercase tracking-[0.18em]">
-            <span className="text-ink/45">{publicId}</span>
-          </p>
+          {metaLine}
         </div>
       </div>
       {error ? <p className="mt-2 text-xs text-mulberry-700">{error}</p> : null}
-      {metaLine}
     </div>
   );
 }

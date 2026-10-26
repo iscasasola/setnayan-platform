@@ -279,7 +279,11 @@ test('an off field is resolved to what is already STORED, never to the posted va
   const update = submit.slice(submit.indexOf('.update({'), submit.indexOf('.eq(', submit.indexOf('.update({')));
   assert.match(update, /meal_preference: mealToWrite,/);
   assert.match(update, /dietary_restrictions: dietaryToWrite,/);
-  assert.match(update, /guest_note: guestNoteToWrite,/);
+  // ✍ The note is written through `withNameCorrection` (owner 2026-10-25, RSVP seats-first decision 1: "Wrong name? Tell
+  // the couple" adds ONE line to the note even when the note question is off) — over the resolved value above, never
+  // the raw form one.
+  assert.match(submit, /const guestNoteWritten = withNameCorrection\(guestNoteToWrite, nameCorrection\);/);
+  assert.match(update, /guest_note: guestNoteWritten,/);
   assert.match(update, /mobile: mobileToWrite,/);
 });
 
@@ -289,7 +293,7 @@ test('the plus-one write is refused when ask.plus_ones is off, beside (not inste
   assert.match(submit, /if \(primary\?\.plus_one_allowed && ask\.plus_ones\)/);
   // The blank-box rule ('a blank box is not a removal') must still hold — the
   // outer gate is unchanged by this toggle.
-  assert.match(submit, /const seatNames = readSeatNames\(formData\);\s*if \(seatNames\.length > 0\)/);
+  assert.match(submit, /const \{ kept: seatNames, refused: unticked \} = splitUnconfirmedSeats\(readSeatNames\(formData\)\);[\s\S]{0,600}?if \(seatNames\.length > 0\)/);
 });
 
 // ── SABOTAGE CHECK ───────────────────────────────────────────────────────────

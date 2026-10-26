@@ -40,6 +40,8 @@ import { ServerTimer } from '@/lib/server-timing';
 import { PromoFreeWindowBannerVendor } from '@/app/_components/promo-free-window-banner-vendor';
 import type { VendorDealFacts } from '@/lib/promo-free-windows';
 import { GuidedTour } from '@/app/_components/guided-tour';
+import { needsTermsAgreement } from '@/lib/terms-agreement';
+import { TermsReacceptSheet } from '@/app/_components/terms-reaccept/terms-reaccept-sheet';
 import { Spotlight } from '@/app/_components/spotlight';
 import { SupplierPageSpotlight } from './_components/supplier-page-spotlight';
 import { completeTour } from '@/lib/tour-actions';
@@ -208,7 +210,7 @@ export default async function VendorDashboardLayout({
     await timer.track('chrome', () => Promise.all([
       supabase
         .from('users')
-        .select('account_type, email, display_name, deleted_at, tour_seen_keys')
+        .select('account_type, email, display_name, deleted_at, tour_seen_keys, terms_version')
         .eq('user_id', user.id)
         .maybeSingle(),
       countUnread(supabase, user.id),
@@ -241,6 +243,8 @@ export default async function VendorDashboardLayout({
       bookingsPendingPromise,
     ]));
   const profile = profileRes.data;
+  // 🔁 Asked once when the agreement on record is not to the Terms in force; a failed read is not asked.
+  const termsAsk = needsTermsAgreement(profile, { isAnonymous: !!user.is_anonymous });
 
   /*
     🧑‍🔧 A HELPER'S HUB TAB (owner "Yes to all", 2026-10-21, item 6). A scoped
@@ -610,9 +614,10 @@ export default async function VendorDashboardLayout({
       <div className="sn-ambient min-h-screen">
         <main className="sn-vt-page">
           {/* Pad the bottom on mobile so BottomNav doesn't cover the last
-              row of content. The desktop offset is the rail's grid now, so
-              there is no padding math left here. */}
-          <div className="pb-[calc(env(safe-area-inset-bottom)+92px)] tab:pb-0">
+              row of content. The desktop offset is the rail's grid now; what
+              is left at every width is the floating thumb row's measured room
+              (`--sn-thumb-room`, lib/thumb-room.ts). */}
+          <div className="pb-[max(calc(env(safe-area-inset-bottom)+92px),var(--sn-thumb-room,0px))] tab:pb-[var(--sn-thumb-room,0px)]">
             {/* Live vendor deal announcement (self-gates to null when
                 PROMO_FREE_WINDOWS_ENABLED is off or nothing is granting THIS
                 vendor right now). */}
@@ -667,15 +672,17 @@ export default async function VendorDashboardLayout({
           had one; the vendor had none. Gated on the tour_seen_keys already
           fetched in this layout's batched users select, mirroring the couple
           and admin layouts (never a second read per render). */}
-      {!(profile?.tour_seen_keys ?? []).includes('vendor_welcome_v1') ? (
+      {!termsAsk && !(profile?.tour_seen_keys ?? []).includes('vendor_welcome_v1') ? (
         <GuidedTour tourKey="vendor_welcome_v1" completeAction={completeTour} />
       ) : null}
       {/* 🔦 The supplier's spotlight journey — Today → Shop → services → Customers → payday (owner
           2026-10-02). In the layout so it carries across pages. The old welcome above stays off. */}
-      <Spotlight tourKey="supplier_spotlight_v1" seenKeys={profile ? (profile.tour_seen_keys ?? []) : null} replay />
+      {!termsAsk ? <Spotlight tourKey="supplier_spotlight_v1" seenKeys={profile ? (profile.tour_seen_keys ?? []) : null} replay /> : null}
       {/* 🔦 Shop · Dates · Money · Hub — each page's own first-visit spotlight, after the journey above
           (owner "Yes to all", 2026-10-22). One mount here, so the Shop tour survives its walk into Page. */}
-      <SupplierPageSpotlight seenKeys={profile ? (profile.tour_seen_keys ?? []) : null} />
+      {!termsAsk ? <SupplierPageSpotlight seenKeys={profile ? (profile.tour_seen_keys ?? []) : null} /> : null}
+      {/* 🔁 One-time Terms re-ask — a supplier is an account too (lib/terms-agreement.ts `needsTermsAgreement`). */}
+      {termsAsk ? <TermsReacceptSheet /> : null}
     </div>
   );
 }

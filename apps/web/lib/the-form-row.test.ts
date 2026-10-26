@@ -280,14 +280,19 @@ test('(8) the ⓘ is its own 44-px button: a centred popup with "Got it" on a ph
   const html = await paint(h(Explain, { title: 'Look', children: 'How every guest page looks and sounds.' }));
   assert.match(html, /^<button type="button" data-explain="" aria-label="About Look" aria-haspopup="dialog" aria-expanded="false"/);
   assert.match(html, /class="sn-press [^"]*h-11 w-11 flex-none/, 'the ⓘ is not a 44-px target');
-  assert.match(html, /text-sn-accent/, 'the mark is not the accent');
+  // ⤷ 2026-10-25 (owner: "the (i) is not consistent across the app"): the mark is the HOUSE ⓘ — InfoTip's grey ink
+  //   circle — no longer an accent "i" on a white disc. `app/_components/there-is-one-info-dot.test.ts` holds the look.
+  assert.match(html, /h-4 w-4 [^"]*border-ink\/25 [^"]*text-ink\/55/, 'the mark is not the house ⓘ');
+  // At rest only — open, it still turns the accent (`group-aria-expanded/explain:text-sn-accent`).
+  assert.doesNotMatch(html, /[\s"](?:text-sn-accent|bg-white)[\s"]/, 'the mark is an accent "i" on a white disc again');
   assert.doesNotMatch(html, /Got it|role="dialog"/, 'the explanation is drawn before it is asked for');
   const src = read(EXPLAIN);
   // The pop-up rule, on a phone: dark + blurred, nothing behind works, the page does not scroll, the dark closes.
-  assert.match(src, /<span aria-hidden className="sn-popup-dark pointer-events-none absolute inset-0" \/>/, 'the rest of the screen is not darkened and blurred');
+  // ⤷ 2026-10-25: the dark IS the close button (`<OverlayBackdrop>`) — a separate close layer under it went inert.
+  assert.match(src, /<OverlayBackdrop onClose=\{onClose\} \/>/, 'the rest of the screen is not darkened and blurred, or a tap on it does not close');
+  assert.doesNotMatch(src, /pointer-events-none absolute inset-0/, 'a dark that takes no tap is back over a separate close layer');
   assert.match(src, /return el \? inertBehind\(el\) : undefined;/, 'what is behind the popup still works');
   assert.match(src, /useModalA11y\(\{ open: true, onClose, containerRef: panel, initialFocusRef: got \}\);/);
-  assert.match(src, /<button type="button" aria-label="Close" data-explain-scrim="" onClick=\{onClose\}/, 'a tap on the dark does not close it');
   assert.match(src, /role="dialog"\s*aria-modal="true"/);
   assert.match(src, /data-explain-got-it=""\s*onClick=\{onClose\}[^>]*>\s*Got it\s*<\/button>/);
   assert.match(src, /max-h-\[calc\(100dvh-48px\)\]/, 'the popup can be taller than the screen');

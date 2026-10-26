@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { UsersRound } from 'lucide-react';
+import { ChevronRight, Plus, UsersRound } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { peopleConnectionsEnabled } from '@/lib/people-connections';
@@ -176,4 +176,101 @@ async function fetchKnownConnectionUserIds(
     if (r.claimed_by_user_id) known.add(r.claimed_by_user_id);
   }
   return known;
+}
+
+/** One group in the People list's Groups section — what the row needs, nothing more. */
+export type GroupsFoldRow = {
+  communityId: string;
+  name: string;
+  role: 'organizer' | 'member';
+  /** null = not counted — never printed as "0 members". */
+  memberCount: number | null;
+};
+
+/**
+ * GROUPS ON THE PEOPLE LIST (owner 2026-10-25, "finding groups is so hard";
+ * prototypes/groups_on_people_2026-10-25): a folded section of the main list, after Loved ones and drawn the same
+ * way — "New group" at its head, then one row per group, each opening the group page. Presentational — the
+ * server section below reads, `/dev/people-lab` hands in fixtures. The ≡ "Groups" view stays as it was.
+ */
+export function GroupsFoldList({ groups, unreadable = false }: { groups: GroupsFoldRow[]; unreadable?: boolean }) {
+  return (
+    <div className="pb-3" data-people-groups="">
+      <div className="mb-2 mt-1" data-groups-door="">
+        <Link href="/dashboard/samahan/new" className="button-secondary inline-flex min-h-11 items-center gap-2 text-sm">
+          <Plus aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+          New group
+        </Link>
+      </div>
+      {groups.length === 0 ? (
+        <p className="py-2 text-sm text-ink/60">
+          {unreadable
+            ? 'We couldn’t load your groups just now. Nothing is lost — refresh in a moment.'
+            : 'No group yet — name it whatever your group calls itself.'}
+        </p>
+      ) : (
+        <ul className="list-none">
+          {groups.map((g) => (
+            <li key={g.communityId}>
+              <Link
+                href={`/dashboard/samahan/${g.communityId}`}
+                className="flex min-h-[60px] items-center gap-3 border-t border-ink/10 py-2.5 transition-colors hover:bg-ink/[0.03]"
+                data-people-group-row=""
+              >
+                <span
+                  aria-hidden
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gold/[0.14] text-[13px] font-semibold text-gold-deep"
+                >
+                  {groupInitials(g.name)}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-base text-ink">{g.name}</span>
+                  <span className="block truncate text-[13px] text-ink/55">
+                    {g.role === 'organizer' ? 'Organizer' : null}
+                    {g.role === 'organizer' && g.memberCount !== null ? ' · ' : null}
+                    {g.memberCount !== null
+                      ? `${formatCount(g.memberCount)} ${g.memberCount === 1 ? 'member' : 'members'}`
+                      : null}
+                  </span>
+                </span>
+                <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-ink/40" />
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+/** "Team Payaman" → "TP"; one word → its first letter. */
+function groupInitials(name: string): string {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  const two = words.length > 1 ? `${words[0]![0]}${words[1]![0]}` : (words[0]?.[0] ?? 'G');
+  return two.toUpperCase();
+}
+
+/**
+ * The Groups section's reader. `fetchUserCommunities` returns `[]` when refused, which is the same `[]` as "no
+ * groups" — so the roster's own count (`counts.samahan`, null when ITS read was refused) decides the sentence: a
+ * list that came back empty while the count says otherwise is said as a failure, never as "No group yet".
+ */
+export async function GroupsFoldSection({ expected }: { expected: number | null }) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+  const communities = await fetchUserCommunities(supabase, user.id);
+  const groups: GroupsFoldRow[] = communities
+    .filter((c) => !c.archived)
+    .map((c) => ({
+      communityId: c.community_id,
+      name: c.name,
+      role: c.role,
+      // The list loader counts with a second read; a refused count leaves 0, which is never true for a group you
+      // are in — so a 0 is "not counted", not a number.
+      memberCount: c.member_count > 0 ? c.member_count : null,
+    }));
+  return <GroupsFoldList groups={groups} unreadable={groups.length === 0 && expected !== 0} />;
 }

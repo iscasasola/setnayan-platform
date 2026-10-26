@@ -139,7 +139,6 @@ import {
   PrintSetBody,
   PrintSetDownloads,
   SeatPlan3dNote,
-  TicketStyle,
   freePrintParts,
   studioChartInput,
   type PrintsInput,
@@ -1240,7 +1239,8 @@ export function MakerDetails(props: MakerDetailsProps) {
                 <>
                   {guestNamesSwitch}
                   {passCornersPick}
-                  <TicketStyle input={prints} />
+                  {/* 🎫 Ticket style left this sheet for the Digital ticket's slide (owner 2026-10-26: *"The 3 designs for the digital
+                      ticket should be on the carousel and not on settings."*) — one place, no duplicate. */}
                 </>
               ),
             },

@@ -54,7 +54,8 @@ const DETAILS = read(`${L}/maker-details.tsx`);
 /** The sheet's own block in Details — from the ⚙ editor to the next item. */
 const SHEET_BLOCK = DETAILS.slice(DETAILS.indexOf('editors[EVERY_PRINT_ITEM] = ('), DETAILS.indexOf('editors[DIGITAL_TICKET_ITEM]'));
 /** The files whose parts the sheet draws (its switches, dropdowns and typed lines). */
-const PARTS = [`${L}/studio-tools.tsx`, `${L}/studio-prints-six.tsx`, `${L}/pass-card-design-picker.tsx`, `${L}/print-paper.tsx`, `${L}/studio-prints-settings.tsx`];
+/* + the carousel (2026-10-26): the Digital ticket's Ticket style ▾ moved onto its slide (owner: "The 3 designs for the digital ticket should be on the carousel and not on settings."). */
+const PARTS = [`${L}/studio-tools.tsx`, `${L}/studio-prints-six.tsx`, `${L}/pass-card-design-picker.tsx`, `${L}/print-paper.tsx`, `${L}/studio-prints-settings.tsx`, `${L}/studio-prints-carousel.tsx`];
 
 test('1 · NO SAVE: the sheet draws no submit and no "right away" line; it is handed no Save; the Studio has no StudioPrintSave', async () => {
   const { StudioPrintSettings } = await import(`../${L}/studio-prints-settings`);
@@ -155,7 +156,9 @@ test('3 · THE WORDS MATCH: "waits for Apply" is said only by a part whose write
     const src = read(rel);
     if (!/waits for Apply/.test(src)) continue;
     said += 1;
-    assert.match(src, /hubDraftAction\(/, `${rel} says "waits for Apply" but does not write the draft`);
+    /* A part may write the draft itself, or through the ONE ticket-style pick (`usePassLookPick`), which writes it — never a pick of its own. */
+    const viaPick = /usePassLookPick\(/.test(src) && /export function usePassLookPick\([\s\S]*?hubDraftAction\(eventId, fd\)[\s\S]*?export function PassCardDesignPicker/.test(read(`${L}/pass-card-design-picker.tsx`));
+    assert.ok(/hubDraftAction\(/.test(src) || viaPick, `${rel} says "waits for Apply" but does not write the draft`);
     assert.doesNotMatch(src, /\/api\/hub-print\/pass-design/, `${rel} says "waits for Apply" but writes the live row`);
   }
   assert.ok(said >= 1, 'no part says "waits for Apply" — the ticket style lost its honest line');
